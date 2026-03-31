@@ -10925,7 +10925,7 @@
               "schema": {
                 "properties": {
                   "default_branch": {
-                    "description": "Default branch name used for mirrors and workspaces.",
+                    "description": "Default branch name used when a repo scope does not provide an explicit branch override.",
                     "type": "string"
                   },
                   "labels": {
@@ -11300,7 +11300,7 @@
               "schema": {
                 "properties": {
                   "default_branch": {
-                    "description": "Default branch name used for mirrors and workspaces.",
+                    "description": "Default branch name used when a repo scope does not provide an explicit branch override.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -13639,6 +13639,9 @@
                           "created_by": {
                             "type": "string"
                           },
+                          "current_version": {
+                            "type": "integer"
+                          },
                           "description": {
                             "type": "string"
                           },
@@ -13766,7 +13769,7 @@
                     "type": "boolean"
                   },
                   "name": {
-                    "description": "Project-unique skill directory name.",
+                    "description": "Project-unique skill name in the control plane.",
                     "type": "string"
                   }
                 },
@@ -13785,6 +13788,26 @@
                   "properties": {
                     "content": {
                       "type": "string"
+                    },
+                    "history": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "created_by": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "skill": {
                       "properties": {
@@ -13810,6 +13833,9 @@
                         },
                         "created_by": {
                           "type": "string"
+                        },
+                        "current_version": {
+                          "type": "integer"
                         },
                         "description": {
                           "type": "string"
@@ -16792,11 +16818,11 @@
                     "type": "array"
                   },
                   "harness_content": {
-                    "description": "Initial harness content written when creating the workflow.",
+                    "description": "Initial harness content written into the versioned control-plane workflow record.",
                     "type": "string"
                   },
                   "harness_path": {
-                    "description": "Repository path where the workflow harness file is stored.",
+                    "description": "Logical harness path tracked by the control plane for this workflow.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -18486,6 +18512,26 @@
                     "content": {
                       "type": "string"
                     },
+                    "history": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "created_by": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "skill": {
                       "properties": {
                         "bound_workflows": {
@@ -18510,6 +18556,9 @@
                         },
                         "created_by": {
                           "type": "string"
+                        },
+                        "current_version": {
+                          "type": "integer"
                         },
                         "description": {
                           "type": "string"
@@ -18643,6 +18692,26 @@
                     "content": {
                       "type": "string"
                     },
+                    "history": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "created_by": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "skill": {
                       "properties": {
                         "bound_workflows": {
@@ -18667,6 +18736,9 @@
                         },
                         "created_by": {
                           "type": "string"
+                        },
+                        "current_version": {
+                          "type": "integer"
                         },
                         "description": {
                           "type": "string"
@@ -18808,6 +18880,26 @@
                     "content": {
                       "type": "string"
                     },
+                    "history": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "created_by": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "skill": {
                       "properties": {
                         "bound_workflows": {
@@ -18832,6 +18924,9 @@
                         },
                         "created_by": {
                           "type": "string"
+                        },
+                        "current_version": {
+                          "type": "integer"
                         },
                         "description": {
                           "type": "string"
@@ -18946,6 +19041,26 @@
                     "content": {
                       "type": "string"
                     },
+                    "history": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "created_by": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "skill": {
                       "properties": {
                         "bound_workflows": {
@@ -18970,6 +19085,9 @@
                         },
                         "created_by": {
                           "type": "string"
+                        },
+                        "current_version": {
+                          "type": "integer"
                         },
                         "description": {
                           "type": "string"
@@ -19084,6 +19202,26 @@
                     "content": {
                       "type": "string"
                     },
+                    "history": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "created_by": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "skill": {
                       "properties": {
                         "bound_workflows": {
@@ -19108,6 +19246,9 @@
                         },
                         "created_by": {
                           "type": "string"
+                        },
+                        "current_version": {
+                          "type": "integer"
                         },
                         "description": {
                           "type": "string"
@@ -19198,6 +19339,115 @@
         ]
       }
     },
+    "/api/v1/skills/{skillId}/history": {
+      "get": {
+        "operationId": "getSkillHistory",
+        "parameters": [
+          {
+            "description": "Skill ID.",
+            "in": "path",
+            "name": "skillId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "history": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "created_by": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List published skill versions response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List published skill versions",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
     "/api/v1/skills/{skillId}/unbind": {
       "post": {
         "operationId": "unbindSkill",
@@ -19249,6 +19499,26 @@
                     "content": {
                       "type": "string"
                     },
+                    "history": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "created_by": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "skill": {
                       "properties": {
                         "bound_workflows": {
@@ -19273,6 +19543,9 @@
                         },
                         "created_by": {
                           "type": "string"
+                        },
+                        "current_version": {
+                          "type": "integer"
                         },
                         "description": {
                           "type": "string"
@@ -22041,7 +22314,7 @@
                     "type": "array"
                   },
                   "harness_path": {
-                    "description": "Repository path where the workflow harness file is stored.",
+                    "description": "Logical harness path tracked by the control plane for this workflow.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -22496,6 +22769,115 @@
           }
         },
         "summary": "Update workflow harness content",
+        "tags": [
+          "workflows"
+        ]
+      }
+    },
+    "/api/v1/workflows/{workflowId}/harness/history": {
+      "get": {
+        "operationId": "getWorkflowHarnessHistory",
+        "parameters": [
+          {
+            "description": "Workflow ID.",
+            "in": "path",
+            "name": "workflowId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "history": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "created_by": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List published workflow harness versions response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List published workflow harness versions",
         "tags": [
           "workflows"
         ]

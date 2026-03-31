@@ -310,6 +310,22 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		t.Fatalf("expected harness GET to read current DB version, got %+v", harnessGetResp.Harness)
 	}
 
+	historyResp := struct {
+		History []workflowVersionResponse `json:"history"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/workflows/%s/harness/history", createResp.Workflow.ID),
+		nil,
+		http.StatusOK,
+		&historyResp,
+	)
+	if len(historyResp.History) != 2 || historyResp.History[0].Version != 2 || historyResp.History[1].Version != 1 {
+		t.Fatalf("expected workflow harness history to expose published versions, got %+v", historyResp.History)
+	}
+
 	deleteResp := struct {
 		Workflow workflowResponse `json:"workflow"`
 	}{}

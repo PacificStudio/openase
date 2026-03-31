@@ -523,15 +523,6 @@ func TestHarnessTemplateHelpers(t *testing.T) {
 	if got := joinStatusNames([]*ent.TicketStatus{{Name: "Todo"}, {Name: "Done"}}); got != "Todo, Done" {
 		t.Fatalf("joinStatusNames() = %q", got)
 	}
-	if got := deriveDefaultBranch([]*ent.ProjectRepo{{DefaultBranch: "dev"}, repo}); got != "dev" {
-		t.Fatalf("deriveDefaultBranch(first repo) = %q", got)
-	}
-	if got := deriveDefaultBranch([]*ent.ProjectRepo{{DefaultBranch: "dev"}}); got != "dev" {
-		t.Fatalf("deriveDefaultBranch(fallback) = %q", got)
-	}
-	if got := deriveDefaultBranch(nil); got != "main" {
-		t.Fatalf("deriveDefaultBranch(default) = %q", got)
-	}
 	if got := resolveRepoPath("", "/tmp/ws", "backend"); got != "/tmp/ws/backend" {
 		t.Fatalf("resolveRepoPath() = %q", got)
 	}
@@ -709,12 +700,11 @@ More detail.
 			Dependencies:     dependencies,
 		},
 		Project: HarnessProjectData{
-			ID:            projectID.String(),
-			Name:          "OpenASE",
-			Slug:          "openase",
-			Description:   "Automation",
-			Status:        "In Progress",
-			DefaultBranch: "main",
+			ID:          projectID.String(),
+			Name:        "OpenASE",
+			Slug:        "openase",
+			Description: "Automation",
+			Status:      "In Progress",
 			Workflows: []HarnessProjectWorkflowData{{
 				Name:            "Coding",
 				Type:            "coding",
@@ -748,7 +738,7 @@ More detail.
 	contextMap := data.contextMap()
 	projectMap := contextMap["project"].(map[string]any)
 	reposMap := contextMap["repos"].([]map[string]any)
-	if projectMap["default_branch"] != "main" || reposMap[0]["name"] != "backend" {
+	if _, exists := projectMap["default_branch"]; exists || reposMap[0]["name"] != "backend" {
 		t.Fatalf("contextMap() = %+v", contextMap)
 	}
 	reposMap[0]["labels"].([]string)[0] = "changed"

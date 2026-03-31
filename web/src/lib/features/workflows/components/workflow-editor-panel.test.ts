@@ -34,6 +34,7 @@ const workflowFixture = {
   lastModified: '2026-03-28T12:00:00Z',
   recentSuccessRate: 85,
   version: 3,
+  history: [],
 }
 
 const skillStatesFixture: SkillState[] = [

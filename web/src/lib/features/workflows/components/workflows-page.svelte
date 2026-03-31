@@ -22,14 +22,14 @@
   import type { WorkflowRepositoryPrerequisite } from '../repository-prerequisite'
   import WorkflowsPageBody from './workflows-page-body.svelte'
   import WorkflowsPageHeaderActions from './workflows-page-header-actions.svelte'
-  let showDetail = $state(false)
-  let showCreateDialog = $state(false)
-  let showList = $state(true)
+  let showDetail = $state(false),
+    showCreateDialog = $state(false),
+    showList = $state(true)
   let loading = $state(false),
     saving = $state(false),
     validating = $state(false)
-  let loadError = $state('')
-  let prerequisite = $state<WorkflowRepositoryPrerequisite | null>(null)
+  let loadError = $state(''),
+    prerequisite = $state<WorkflowRepositoryPrerequisite | null>(null)
   let workflows = $state<WorkflowSummary[]>([]),
     selectedId = $state('')
   let harness = $state<ReturnType<typeof toHarnessContent> | null>(null),
@@ -132,9 +132,7 @@
       validationIssues = []
       return
     }
-    if (workflowId === loadedHarnessWorkflowId) {
-      return
-    }
+    if (workflowId === loadedHarnessWorkflowId) return
     let cancelled = false
     const loadHarness = async () => {
       try {
@@ -145,6 +143,9 @@
         loadedHarnessWorkflowId = workflowId
         validationIssues = []
         skillStates = payload.skillStates
+        workflows = workflows.map((workflow) =>
+          workflow.id === workflowId ? { ...workflow, history: payload.history } : workflow,
+        )
       } catch (caughtError) {
         if (cancelled) return
         toastStore.error(
@@ -159,17 +160,22 @@
   })
   async function handleSave() {
     if (!selectedId) return
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return
     saving = true
     try {
       const payload = await saveWorkflowHarness(selectedId, draftHarness)
-      harness = toHarnessContent(payload.harness.content)
-      draftHarness = payload.harness.content
+      const refreshed = await loadWorkflowHarness(projectId, selectedId)
+      harness = refreshed.harness
+      draftHarness = refreshed.harness.rawContent
+      skillStates = refreshed.skillStates
       workflows = workflows.map((workflow) =>
         workflow.id === selectedId
           ? {
               ...workflow,
               harnessPath: payload.harness.path ?? workflow.harnessPath,
               version: payload.harness.version ?? workflow.version,
+              history: refreshed.history,
             }
           : workflow,
       )
@@ -218,11 +224,9 @@
       const result = skill.bound
         ? await unbindWorkflowSkills(selectedId, [skill.name])
         : await bindWorkflowSkills(selectedId, [skill.name])
-
       const newContent = result.harness.content
       harness = toHarnessContent(newContent)
       draftHarness = newContent
-
       skillStates = skillStates.map((item) =>
         item.path === skill.path ? { ...item, bound: !skill.bound } : item,
       )
@@ -250,7 +254,7 @@
 
 <PageScaffold
   title="Workflows"
-  description="Edit harnesses and manage workflow lifecycle settings."
+  description="Edit published harnesses and manage workflow lifecycle settings."
   variant="workspace"
   {actions}
 >

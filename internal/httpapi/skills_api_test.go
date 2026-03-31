@@ -232,6 +232,9 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	if len(reviewSkill.BoundWorkflows) != 1 || reviewSkill.BoundWorkflows[0].Name != "Coding Workflow" {
 		t.Fatalf("expected review-code to bind to Coding Workflow, got %+v", reviewSkill)
 	}
+	if reviewSkill.CurrentVersion != 1 {
+		t.Fatalf("expected review-code current version to be published as v1, got %+v", reviewSkill)
+	}
 	if !reviewSkill.IsBuiltin {
 		t.Fatalf("expected review-code to be marked as built-in, got %+v", reviewSkill)
 	}
@@ -244,6 +247,34 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md")); !os.IsNotExist(err) {
 		t.Fatalf("expected built-in platform skill to stay out of repo authority paths, stat err=%v", err)
+	}
+
+	detailResp := skillDetailResponse{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/skills/%s", reviewSkill.ID),
+		nil,
+		http.StatusOK,
+		&detailResp,
+	)
+	if detailResp.Skill.CurrentVersion != 1 || len(detailResp.History) != 1 || detailResp.History[0].Version != 1 {
+		t.Fatalf("expected skill detail to expose current published version and history, got %+v", detailResp)
+	}
+
+	historyResp := skillHistoryResponse{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/skills/%s/history", reviewSkill.ID),
+		nil,
+		http.StatusOK,
+		&historyResp,
+	)
+	if len(historyResp.History) != 1 || historyResp.History[0].Version != 1 {
+		t.Fatalf("expected skill history route to expose published versions, got %+v", historyResp)
 	}
 
 	workspaceRoot := t.TempDir()

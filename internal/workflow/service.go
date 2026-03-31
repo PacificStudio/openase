@@ -247,6 +247,35 @@ func (s *Service) projectedWorkflowHarness(ctx context.Context, workflowItem *en
 	return projectHarnessContent(version.ContentMarkdown, boundSkills)
 }
 
+func (s *Service) ListWorkflowVersions(ctx context.Context, workflowID uuid.UUID) ([]VersionSummary, error) {
+	if s == nil || s.client == nil {
+		return nil, ErrUnavailable
+	}
+
+	if _, err := s.currentWorkflowVersion(ctx, workflowID); err != nil {
+		return nil, err
+	}
+
+	items, err := s.client.WorkflowVersion.Query().
+		Where(entworkflowversion.WorkflowIDEQ(workflowID)).
+		Order(ent.Desc(entworkflowversion.FieldVersion)).
+		All(ctx)
+	if err != nil {
+		return nil, s.mapWorkflowReadError("list workflow versions", err)
+	}
+
+	result := make([]VersionSummary, 0, len(items))
+	for _, item := range items {
+		result = append(result, VersionSummary{
+			ID:        item.ID,
+			Version:   item.Version,
+			CreatedBy: item.CreatedBy,
+			CreatedAt: item.CreatedAt.UTC(),
+		})
+	}
+	return result, nil
+}
+
 func (s *Service) listWorkflowBoundSkillNames(ctx context.Context, workflowID uuid.UUID, enabledOnly bool) ([]string, error) {
 	query := s.client.WorkflowSkillBinding.Query().
 		Where(entworkflowskillbinding.WorkflowIDEQ(workflowID)).
@@ -439,6 +468,13 @@ type Workflow struct {
 type WorkflowDetail struct {
 	Workflow
 	HarnessContent string `json:"harness_content"`
+}
+
+type VersionSummary struct {
+	ID        uuid.UUID `json:"id"`
+	Version   int       `json:"version"`
+	CreatedBy string    `json:"created_by"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type HarnessDocument struct {

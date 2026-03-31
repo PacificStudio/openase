@@ -28,7 +28,15 @@ type MockState = {
   statuses: Record<string, unknown>[]
   repos: Record<string, unknown>[]
   workflows: Record<string, unknown>[]
-  harnessByWorkflowId: Record<string, { content: string; path: string; version: number }>
+  harnessByWorkflowId: Record<
+    string,
+    {
+      content: string
+      path: string
+      version: number
+      history: Array<{ id: string; version: number; created_by: string; created_at: string }>
+    }
+  >
   scheduledJobs: Record<string, unknown>[]
   skills: Record<string, unknown>[]
   builtinRoles: Record<string, unknown>[]
@@ -92,6 +100,9 @@ export async function handleMockApi(request: Request, url: URL): Promise<Respons
   }
   if (segments[0] === 'workflows') {
     return handleWorkflowRoutes(request, segments)
+  }
+  if (segments[0] === 'skills') {
+    return handleSkillRoutes(request, segments)
   }
   if (segments[0] === 'scheduled-jobs') {
     return handleScheduledJobRoutes(request, segments)
@@ -245,6 +256,9 @@ async function handleProjectRoutes(request: Request, segments: string[], _url: U
           defaultHarnessContent(asString(body.name) ?? `Workflow ${mockState.counters.workflow}`),
         path: workflow.harness_path,
         version: 1,
+        history: [
+          { id: `${nextId}-v1`, version: 1, created_by: 'user:manual', created_at: nowIso },
+        ],
       }
       return jsonResponse({ workflow: clone(workflow) }, 201)
     }
@@ -450,6 +464,11 @@ async function handleWorkflowRoutes(request: Request, segments: string[]) {
   }
 
   if (segments[2] === 'harness') {
+    if (segments[3] === 'history' && request.method === 'GET') {
+      return jsonResponse({
+        history: clone(mockState.harnessByWorkflowId[workflowId].history),
+      })
+    }
     if (request.method === 'GET') {
       const harness = mockState.harnessByWorkflowId[workflowId]
       return jsonResponse({
@@ -470,6 +489,15 @@ async function handleWorkflowRoutes(request: Request, segments: string[]) {
         content,
         path: current.path,
         version: nextVersion,
+        history: [
+          {
+            id: `${workflowId}-v${nextVersion}`,
+            version: nextVersion,
+            created_by: 'user:manual',
+            created_at: nowIso,
+          },
+          ...current.history,
+        ],
       }
       workflow.version = nextVersion
       return jsonResponse({
@@ -489,7 +517,10 @@ async function handleWorkflowRoutes(request: Request, segments: string[]) {
     const binding = segments[3] === 'bind'
 
     mockState.skills = mockState.skills.map((skill) => {
-      if (!skillPaths.includes(skill.path as string)) {
+      if (
+        !skillPaths.includes(skill.path as string) &&
+        !skillPaths.includes(skill.name as string)
+      ) {
         return skill
       }
       const existing = Array.isArray(skill.bound_workflows)
@@ -513,6 +544,30 @@ async function handleWorkflowRoutes(request: Request, segments: string[]) {
   }
 
   return notFound('Mock workflow route not found.')
+}
+
+async function handleSkillRoutes(request: Request, segments: string[]) {
+  const skillId = segments[1]
+  const skill = findById(mockState.skills, skillId)
+  if (!skill) {
+    return notFound('Skill not found.')
+  }
+
+  if (segments[2] === 'history' && request.method === 'GET') {
+    return jsonResponse({
+      history: clone((skill.history as Record<string, unknown>[]) ?? []),
+    })
+  }
+
+  if (segments.length === 2 && request.method === 'GET') {
+    return jsonResponse({
+      skill: clone(skill),
+      content: skill.content,
+      history: clone((skill.history as Record<string, unknown>[]) ?? []),
+    })
+  }
+
+  return notFound('Mock skill route not found.')
 }
 
 async function handleScheduledJobRoutes(request: Request, segments: string[]) {
@@ -800,6 +855,20 @@ function createInitialState(): MockState {
       content: defaultHarnessContent('Coding Workflow'),
       path: '.openase/harnesses/coding-workflow.md',
       version: 3,
+      history: [
+        {
+          id: `${DEFAULT_WORKFLOW_ID}-v3`,
+          version: 3,
+          created_by: 'user:manual',
+          created_at: nowIso,
+        },
+        {
+          id: `${DEFAULT_WORKFLOW_ID}-v2`,
+          version: 2,
+          created_by: 'user:manual',
+          created_at: '2026-03-26T10:00:00.000Z',
+        },
+      ],
     },
   }
 
@@ -826,18 +895,49 @@ function createInitialState(): MockState {
 
   const skills = [
     {
+      id: 'skill-commit',
       project_id: PROJECT_ID,
       name: 'commit',
       description: 'Create a well-formed git commit.',
       path: '/skills/commit',
+      current_version: 2,
+      is_builtin: true,
+      is_enabled: true,
+      created_by: 'system:init',
+      created_at: nowIso,
       bound_workflows: [{ id: DEFAULT_WORKFLOW_ID }],
+      content: '# Commit\n\nCreate a well-formed git commit.',
+      history: [
+        { id: 'skill-commit-v2', version: 2, created_by: 'user:manual', created_at: nowIso },
+        {
+          id: 'skill-commit-v1',
+          version: 1,
+          created_by: 'system:init',
+          created_at: '2026-03-26T10:00:00.000Z',
+        },
+      ],
     },
     {
+      id: 'skill-deploy-openase',
       project_id: PROJECT_ID,
       name: 'deploy-openase',
       description: 'Build and redeploy OpenASE locally.',
       path: '/skills/deploy-openase',
+      current_version: 1,
+      is_builtin: false,
+      is_enabled: true,
+      created_by: 'user:manual',
+      created_at: nowIso,
       bound_workflows: [],
+      content: '# Deploy OpenASE\n\nBuild and redeploy OpenASE locally.',
+      history: [
+        {
+          id: 'skill-deploy-openase-v1',
+          version: 1,
+          created_by: 'user:manual',
+          created_at: nowIso,
+        },
+      ],
     },
   ]
 

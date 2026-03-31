@@ -21,7 +21,7 @@ export type NewTicketDraft = {
   statusId: string
   priority: TicketPriorityOption
   workflowId: string
-  repoId: string
+  repoIds: string[]
 }
 
 export type NewTicketPayload = {
@@ -87,7 +87,7 @@ export function createNewTicketDraft(
     statusId: statusOptions[0]?.id ?? '',
     priority: 'medium',
     workflowId: workflowOptions[0]?.id ?? '',
-    repoId: repoOptions.length === 1 ? repoOptions[0].id : '',
+    repoIds: repoOptions.length === 1 ? [repoOptions[0].id] : [],
   }
 }
 
@@ -104,7 +104,7 @@ export function parseNewTicketDraft(
   }
 
   const description = draft.description.trim()
-  const repoScopes = buildRepoScopes(repoOptions, draft.repoId)
+  const repoScopes = buildRepoScopes(repoOptions, draft.repoIds)
   if ('error' in repoScopes) {
     return {
       ok: false,
@@ -127,26 +127,33 @@ export function parseNewTicketDraft(
 
 function buildRepoScopes(
   repoOptions: TicketRepoOption[],
-  selectedRepoId: string,
+  selectedRepoIds: string[],
 ): { value: NewTicketPayload['repo_scopes'] } | { error: string } {
   if (repoOptions.length === 0) {
     return { value: undefined }
   }
 
-  const selectedRepo =
-    repoOptions.length === 1
-      ? repoOptions[0]
-      : (repoOptions.find((repo) => repo.id === selectedRepoId) ?? null)
-  if (!selectedRepo) {
-    return { error: 'Select a repository for this ticket.' }
+  if (repoOptions.length === 1) {
+    const repo = repoOptions[0]
+    return {
+      value: [
+        {
+          repo_id: repo.id,
+          branch_name: repo.defaultBranch || 'main',
+        },
+      ],
+    }
+  }
+
+  const selectedRepos = repoOptions.filter((repo) => selectedRepoIds.includes(repo.id))
+  if (selectedRepos.length === 0) {
+    return { error: 'Select at least one repository scope for this ticket.' }
   }
 
   return {
-    value: [
-      {
-        repo_id: selectedRepo.id,
-        branch_name: selectedRepo.defaultBranch || 'main',
-      },
-    ],
+    value: selectedRepos.map((repo) => ({
+      repo_id: repo.id,
+      branch_name: repo.defaultBranch || 'main',
+    })),
   }
 }

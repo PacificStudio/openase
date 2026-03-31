@@ -210,6 +210,9 @@ export type HarnessPayload = DeepRequired<
   ResponseFor<'/api/v1/workflows/{workflowId}/harness', 'get'>
 >
 export type HarnessDocument = HarnessPayload['harness']
+export type WorkflowHistoryPayload = DeepRequired<
+  ResponseFor<'/api/v1/workflows/{workflowId}/harness/history', 'get'>
+>
 export type HarnessVariableDictionaryPayload = DeepRequired<
   ResponseFor<'/api/v1/harness/variables', 'get'>
 >
@@ -234,6 +237,9 @@ export type Skill = ItemOf<SkillListPayload['skills']>
 export type SkillBinding = ItemOf<Skill['bound_workflows']>
 export type SkillDetailResponse = DeepRequired<ResponseFor<'/api/v1/skills/{skillId}', 'get'>>
 export type SkillDetail = SkillDetailResponse['skill']
+export type SkillHistoryPayload = DeepRequired<
+  ResponseFor<'/api/v1/skills/{skillId}/history', 'get'>
+>
 export type SkillCreateResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/skills', 'post'>
 >

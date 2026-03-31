@@ -18,6 +18,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entskill "github.com/BetterAndBetterII/openase/ent/skill"
+	entskillversion "github.com/BetterAndBetterII/openase/ent/skillversion"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	entworkflowskillbinding "github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -37,6 +38,7 @@ type Skill struct {
 	Name           string                 `json:"name"`
 	Description    string                 `json:"description"`
 	Path           string                 `json:"path"`
+	CurrentVersion int                    `json:"current_version"`
 	IsBuiltin      bool                   `json:"is_builtin"`
 	IsEnabled      bool                   `json:"is_enabled"`
 	CreatedBy      string                 `json:"created_by"`
@@ -57,7 +59,8 @@ type skillDocument struct {
 
 type SkillDetail struct {
 	Skill
-	Content string `json:"content"`
+	Content string           `json:"content"`
+	History []VersionSummary `json:"history"`
 }
 
 type CreateSkillInput struct {
@@ -158,6 +161,27 @@ func (s *Service) ListSkills(ctx context.Context, projectID uuid.UUID) ([]Skill,
 		return nil, fmt.Errorf("list workflow skill bindings: %w", err)
 	}
 
+	versionBySkillID := make(map[uuid.UUID]int, len(items))
+	skillIDs := make([]uuid.UUID, 0, len(items))
+	for _, item := range items {
+		skillIDs = append(skillIDs, item.ID)
+	}
+	if len(skillIDs) > 0 {
+		versions, versionErr := s.client.SkillVersion.Query().
+			Where(entskillversion.SkillIDIn(skillIDs...)).
+			Order(ent.Asc(entskillversion.FieldSkillID), ent.Desc(entskillversion.FieldVersion)).
+			All(ctx)
+		if versionErr != nil {
+			return nil, fmt.Errorf("list skill versions: %w", versionErr)
+		}
+		for _, versionItem := range versions {
+			if _, exists := versionBySkillID[versionItem.SkillID]; exists {
+				continue
+			}
+			versionBySkillID[versionItem.SkillID] = versionItem.Version
+		}
+	}
+
 	bindingsBySkillID := make(map[uuid.UUID][]SkillWorkflowBinding, len(items))
 	for _, binding := range bindings {
 		if binding.Edges.Skill == nil || binding.Edges.Workflow == nil {
@@ -181,6 +205,7 @@ func (s *Service) ListSkills(ctx context.Context, projectID uuid.UUID) ([]Skill,
 			Name:           item.Name,
 			Description:    item.Description,
 			Path:           skillContentRelativePath(item.Name),
+			CurrentVersion: versionBySkillID[item.ID],
 			IsBuiltin:      item.IsBuiltin,
 			IsEnabled:      item.IsEnabled,
 			CreatedBy:      item.CreatedBy,
@@ -214,6 +239,32 @@ func (s *Service) GetSkill(ctx context.Context, skillID uuid.UUID) (SkillDetail,
 		return SkillDetail{}, err
 	}
 	return s.buildSkillDetail(ctx, record)
+}
+
+func (s *Service) ListSkillVersions(ctx context.Context, skillID uuid.UUID) ([]VersionSummary, error) {
+	record, err := s.resolveSkillRecord(ctx, skillID)
+	if err != nil {
+		return nil, err
+	}
+
+	items, err := s.client.SkillVersion.Query().
+		Where(entskillversion.SkillIDEQ(record.skill.ID)).
+		Order(ent.Desc(entskillversion.FieldVersion)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list skill versions: %w", err)
+	}
+
+	result := make([]VersionSummary, 0, len(items))
+	for _, item := range items {
+		result = append(result, VersionSummary{
+			ID:        item.ID,
+			Version:   item.Version,
+			CreatedBy: item.CreatedBy,
+			CreatedAt: item.CreatedAt.UTC(),
+		})
+	}
+	return result, nil
 }
 
 func (s *Service) CreateSkill(ctx context.Context, input CreateSkillInput) (SkillDetail, error) {
@@ -555,7 +606,15 @@ func (s *Service) buildSkillDetail(ctx context.Context, record resolvedSkillReco
 		if err != nil {
 			return SkillDetail{}, err
 		}
-		return SkillDetail{Skill: item, Content: versionItem.ContentMarkdown}, nil
+		history, err := s.ListSkillVersions(ctx, record.skill.ID)
+		if err != nil {
+			return SkillDetail{}, err
+		}
+		return SkillDetail{
+			Skill:   item,
+			Content: versionItem.ContentMarkdown,
+			History: history,
+		}, nil
 	}
 	return SkillDetail{}, ErrSkillNotFound
 }

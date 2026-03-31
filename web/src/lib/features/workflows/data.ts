@@ -2,6 +2,7 @@ import {
   createWorkflow,
   getWorkflowRepositoryPrerequisite,
   getWorkflowHarness,
+  listWorkflowHarnessHistory,
   listAgents,
   listHarnessVariables,
   listBuiltinRoles,
@@ -19,6 +20,7 @@ import type {
   WorkflowAgentOption,
   WorkflowStatusOption,
   WorkflowSummary,
+  WorkflowVersionSummary,
 } from './types'
 
 export function mapWorkflowSummary(
@@ -50,7 +52,19 @@ export function mapWorkflowSummary(
     lastModified: new Date().toISOString(),
     recentSuccessRate: 0,
     version: workflow.version,
+    history: [],
   }
+}
+
+function mapWorkflowVersionHistory(
+  history: Awaited<ReturnType<typeof listWorkflowHarnessHistory>>['history'],
+): WorkflowVersionSummary[] {
+  return history.map((item) => ({
+    id: item.id,
+    version: item.version,
+    createdBy: item.created_by,
+    createdAt: item.created_at,
+  }))
 }
 
 export function mapWorkflowAgentOptions(
@@ -139,13 +153,15 @@ export async function loadWorkflowIndex(projectId: string, orgId: string, select
 }
 
 export async function loadWorkflowHarness(projectId: string, workflowId: string) {
-  const [harnessPayload, skillPayload] = await Promise.all([
+  const [harnessPayload, historyPayload, skillPayload] = await Promise.all([
     getWorkflowHarness(workflowId),
+    listWorkflowHarnessHistory(workflowId),
     listSkills(projectId),
   ])
 
   return {
     harness: toHarnessContent(harnessPayload.harness.content),
+    history: mapWorkflowVersionHistory(historyPayload.history),
     skillStates: mapSkillStates(skillPayload.skills, workflowId),
   }
 }
@@ -161,7 +177,11 @@ export async function loadWorkflowPageData(projectId: string, orgId: string, sel
   return {
     prerequisite,
     agentOptions: index.agentOptions,
-    workflows: index.workflows,
+    workflows: index.workflows.map((workflow) =>
+      workflow.id === selectedWorkflowId
+        ? { ...workflow, history: harnessPayload?.history ?? workflow.history }
+        : workflow,
+    ),
     builtinRoleContent: index.builtinRoleContent,
     providers: index.providers,
     statuses: index.statuses,
@@ -224,6 +244,7 @@ export async function createWorkflowWithBinding(
     lastModified: new Date().toISOString(),
     recentSuccessRate: 0,
     version: createdWorkflow.version,
+    history: [],
   }
 
   return {

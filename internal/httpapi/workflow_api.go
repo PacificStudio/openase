@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/labstack/echo/v4"
@@ -34,6 +35,17 @@ type harnessResponse struct {
 	Version    int    `json:"version"`
 }
 
+type workflowVersionResponse struct {
+	ID        string `json:"id"`
+	Version   int    `json:"version"`
+	CreatedBy string `json:"created_by"`
+	CreatedAt string `json:"created_at"`
+}
+
+type workflowHistoryResponse struct {
+	History []workflowVersionResponse `json:"history"`
+}
+
 type harnessValidationResponse struct {
 	Valid  bool                              `json:"valid"`
 	Issues []workflowservice.ValidationIssue `json:"issues"`
@@ -61,6 +73,7 @@ func (s *Server) registerWorkflowRoutes(api *echo.Group) {
 	api.PATCH("/workflows/:workflowId", s.handleUpdateWorkflow)
 	api.DELETE("/workflows/:workflowId", s.handleDeleteWorkflow)
 	api.GET("/workflows/:workflowId/harness", s.handleGetWorkflowHarness)
+	api.GET("/workflows/:workflowId/harness/history", s.handleGetWorkflowHarnessHistory)
 	api.PUT("/workflows/:workflowId/harness", s.handleUpdateWorkflowHarness)
 	api.GET("/harness/variables", s.handleListHarnessVariables)
 	api.POST("/harness/validate", s.handleValidateHarness)
@@ -226,6 +239,26 @@ func (s *Server) handleGetWorkflowHarness(c echo.Context) error {
 	})
 }
 
+func (s *Server) handleGetWorkflowHarnessHistory(c echo.Context) error {
+	if s.workflowService == nil {
+		return writeWorkflowError(c, workflowservice.ErrUnavailable)
+	}
+
+	workflowID, err := parseUUIDPathParamValue(c, "workflowId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_WORKFLOW_ID", err.Error())
+	}
+
+	items, err := s.workflowService.ListWorkflowVersions(c.Request().Context(), workflowID)
+	if err != nil {
+		return writeWorkflowError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, workflowHistoryResponse{
+		History: mapWorkflowVersionResponses(items),
+	})
+}
+
 func (s *Server) handleUpdateWorkflowHarness(c echo.Context) error {
 	if s.workflowService == nil {
 		return writeWorkflowError(c, workflowservice.ErrUnavailable)
@@ -362,4 +395,17 @@ func mapHarnessResponse(item workflowservice.HarnessDocument) harnessResponse {
 		Content:    item.Content,
 		Version:    item.Version,
 	}
+}
+
+func mapWorkflowVersionResponses(items []workflowservice.VersionSummary) []workflowVersionResponse {
+	response := make([]workflowVersionResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, workflowVersionResponse{
+			ID:        item.ID.String(),
+			Version:   item.Version,
+			CreatedBy: item.CreatedBy,
+			CreatedAt: item.CreatedAt.UTC().Format(time.RFC3339),
+		})
+	}
+	return response
 }

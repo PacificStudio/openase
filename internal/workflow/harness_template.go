@@ -88,15 +88,14 @@ type HarnessTicketDependencyData struct {
 }
 
 type HarnessProjectData struct {
-	ID            string
-	Name          string
-	Slug          string
-	Description   string
-	Status        string
-	DefaultBranch string
-	Workflows     []HarnessProjectWorkflowData
-	Statuses      []HarnessProjectStatusData
-	Machines      []HarnessProjectMachineData
+	ID          string
+	Name        string
+	Slug        string
+	Description string
+	Status      string
+	Workflows   []HarnessProjectWorkflowData
+	Statuses    []HarnessProjectStatusData
+	Machines    []HarnessProjectMachineData
 }
 
 type HarnessProjectWorkflowData struct {
@@ -313,7 +312,6 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 
 	scopedRepos, repoBranchByID := mapHarnessScopedRepos(ticketItem.Edges.RepoScopes, workspace)
 	allRepos := mapHarnessAllRepos(projectItem.Edges.Repos, repoBranchByID, workspace)
-	defaultBranch := deriveDefaultBranch(projectItem.Edges.Repos)
 	projectWorkflows, err := s.mapHarnessProjectWorkflows(ctx, projectItem.Edges.Workflows)
 	if err != nil {
 		return HarnessTemplateData{}, err
@@ -339,15 +337,14 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 			Dependencies:     mapHarnessDependencies(ticketItem.Edges.OutgoingDependencies),
 		},
 		Project: HarnessProjectData{
-			ID:            projectItem.ID.String(),
-			Name:          projectItem.Name,
-			Slug:          projectItem.Slug,
-			Description:   projectItem.Description,
-			Status:        projectItem.Status,
-			DefaultBranch: defaultBranch,
-			Workflows:     projectWorkflows,
-			Statuses:      mapHarnessProjectStatuses(projectItem.Edges.Statuses),
-			Machines:      mapHarnessProjectMachines(input.Machine, input.AccessibleMachines),
+			ID:          projectItem.ID.String(),
+			Name:        projectItem.Name,
+			Slug:        projectItem.Slug,
+			Description: projectItem.Description,
+			Status:      projectItem.Status,
+			Workflows:   projectWorkflows,
+			Statuses:    mapHarnessProjectStatuses(projectItem.Edges.Statuses),
+			Machines:    mapHarnessProjectMachines(input.Machine, input.AccessibleMachines),
 		},
 		Repos:              scopedRepos,
 		AllRepos:           allRepos,
@@ -435,7 +432,6 @@ func HarnessVariableDictionary() []HarnessVariableGroup {
 				{Path: "project.slug", Type: "string", Description: "项目 slug", Example: "awesome-saas"},
 				{Path: "project.description", Type: "string", Description: "项目描述", Example: "A SaaS platform for..."},
 				{Path: "project.status", Type: "string", Description: "项目状态", Example: "In Progress"},
-				{Path: "project.default_branch", Type: "string", Description: "项目默认分支", Example: "main"},
 				{Path: "project.workflows", Type: "list", Description: "项目中已激活的 Workflow 列表"},
 				{Path: "project.workflows[].name", Type: "string", Description: "Workflow 名称", Example: "Coding Workflow"},
 				{Path: "project.workflows[].type", Type: "string", Description: "Workflow 类型", Example: "coding"},
@@ -585,15 +581,14 @@ func (d HarnessTemplateData) contextMap() map[string]any {
 			"dependencies":      dependencyMaps(d.Ticket.Dependencies),
 		},
 		"project": map[string]any{
-			"id":             d.Project.ID,
-			"name":           d.Project.Name,
-			"slug":           d.Project.Slug,
-			"description":    d.Project.Description,
-			"status":         d.Project.Status,
-			"default_branch": d.Project.DefaultBranch,
-			"workflows":      projectWorkflowMaps(d.Project.Workflows),
-			"statuses":       projectStatusMaps(d.Project.Statuses),
-			"machines":       projectMachineMaps(d.Project.Machines),
+			"id":          d.Project.ID,
+			"name":        d.Project.Name,
+			"slug":        d.Project.Slug,
+			"description": d.Project.Description,
+			"status":      d.Project.Status,
+			"workflows":   projectWorkflowMaps(d.Project.Workflows),
+			"statuses":    projectStatusMaps(d.Project.Statuses),
+			"machines":    projectMachineMaps(d.Project.Machines),
 		},
 		"repos":               repoMaps(d.Repos),
 		"all_repos":           repoMaps(d.AllRepos),
@@ -897,15 +892,6 @@ func normalizePlatformData(input HarnessPlatformData, projectID uuid.UUID, ticke
 		data.TicketID = ticketID.String()
 	}
 	return data
-}
-
-func deriveDefaultBranch(repos []*ent.ProjectRepo) string {
-	for _, repo := range repos {
-		if strings.TrimSpace(repo.DefaultBranch) != "" {
-			return repo.DefaultBranch
-		}
-	}
-	return "main"
 }
 
 func resolveRepoPath(workspaceDirname string, workspace string, repoName string) string {

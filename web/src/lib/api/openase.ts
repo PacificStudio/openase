@@ -13,6 +13,7 @@ import type {
   BuiltinRolePayload,
   DeleteGitHubOutboundCredentialResponse,
   HarnessPayload,
+  WorkflowHistoryPayload,
   HarnessVariableDictionaryPayload,
   HarnessValidationResponse,
   ImportGitHubOutboundCredentialResponse,
@@ -48,6 +49,7 @@ import type {
   SkillCreateResponse,
   SkillDeleteResponse,
   SkillDetailResponse,
+  SkillHistoryPayload,
   SkillRefreshResponse,
   SkillHarvestResponse,
   SkillBindingUpdateResponse,
@@ -919,6 +921,10 @@ export function getWorkflowHarness(workflowId: string) {
   return api.get<HarnessPayload>(`/api/v1/workflows/${workflowId}/harness`)
 }
 
+export function listWorkflowHarnessHistory(workflowId: string) {
+  return api.get<WorkflowHistoryPayload>(`/api/v1/workflows/${workflowId}/harness/history`)
+}
+
 export function saveWorkflowHarness(workflowId: string, content: string) {
   return api.put<HarnessPayload>(`/api/v1/workflows/${workflowId}/harness`, {
     body: { content },
@@ -954,6 +960,10 @@ export function createSkill(
 
 export function getSkill(skillId: string) {
   return api.get<SkillDetailResponse>(`/api/v1/skills/${skillId}`)
+}
+
+export function listSkillHistory(skillId: string) {
+  return api.get<SkillHistoryPayload>(`/api/v1/skills/${skillId}/history`)
 }
 
 export function updateSkill(
