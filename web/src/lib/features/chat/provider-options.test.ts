@@ -1,0 +1,67 @@
+import { describe, expect, it } from 'vitest'
+
+import type { AgentProvider } from '$lib/api/contracts'
+import { listEphemeralChatProviders, pickDefaultEphemeralChatProvider } from './provider-options'
+
+const providers: AgentProvider[] = [
+  {
+    id: 'provider-custom',
+    organization_id: 'org-1',
+    machine_id: 'machine-1',
+    machine_name: 'Localhost',
+    machine_host: '127.0.0.1',
+    machine_status: 'online',
+    machine_ssh_user: null,
+    machine_workspace_root: '/workspace',
+    name: 'Custom',
+    adapter_type: 'custom',
+    availability_state: 'available',
+    available: true,
+    availability_checked_at: '2026-03-28T12:00:00Z',
+    availability_reason: null,
+    capabilities: { ephemeral_chat: { state: 'unsupported', reason: 'unsupported_adapter' } },
+    cli_command: 'custom-chat',
+    cli_args: [],
+    auth_config: {},
+    model_name: 'manual',
+    model_temperature: 0,
+    model_max_tokens: 4096,
+    cost_per_input_token: 0,
+    cost_per_output_token: 0,
+  },
+  {
+    id: 'provider-claude',
+    organization_id: 'org-1',
+    machine_id: 'machine-1',
+    machine_name: 'Localhost',
+    machine_host: '127.0.0.1',
+    machine_status: 'online',
+    machine_ssh_user: null,
+    machine_workspace_root: '/workspace',
+    name: 'Claude',
+    adapter_type: 'claude-code-cli',
+    availability_state: 'available',
+    available: true,
+    availability_checked_at: '2026-03-28T12:00:00Z',
+    availability_reason: null,
+    capabilities: { ephemeral_chat: { state: 'available', reason: null } },
+    cli_command: 'claude',
+    cli_args: [],
+    auth_config: {},
+    model_name: 'claude-sonnet-4',
+    model_temperature: 0,
+    model_max_tokens: 4096,
+    cost_per_input_token: 0,
+    cost_per_output_token: 0,
+  },
+]
+
+describe('provider-options', () => {
+  it('filters unsupported providers and falls back to the first available chat provider', () => {
+    const chatProviders = listEphemeralChatProviders(providers)
+    expect(chatProviders.map((provider) => provider.id)).toEqual(['provider-claude'])
+    expect(pickDefaultEphemeralChatProvider(chatProviders, 'provider-custom')).toBe(
+      'provider-claude',
+    )
+  })
+})

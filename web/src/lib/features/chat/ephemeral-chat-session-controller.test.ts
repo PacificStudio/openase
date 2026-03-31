@@ -292,31 +292,4 @@ describe('createEphemeralChatSessionController', () => {
       streaming: false,
     })
   })
-
-  it('falls back from an unsupported default provider to the first available chat-capable provider', () => {
-    const controller = createEphemeralChatSessionController({
-      getSource: () => 'project_sidebar',
-    })
-
-    controller.syncProviders(
-      [
-        {
-          ...providerFixtures[0],
-          id: 'provider-custom',
-          name: 'Custom',
-          adapter_type: 'custom',
-          capabilities: {
-            ephemeral_chat: {
-              state: 'unsupported',
-              reason: 'unsupported_adapter',
-            },
-          },
-        },
-        providerFixtures[1],
-      ],
-      'provider-custom',
-    )
-
-    expect(controller.providerId).toBe('provider-2')
-  })
 })
