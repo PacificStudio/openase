@@ -30,6 +30,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
@@ -938,12 +939,14 @@ func TestRuntimeLauncherFinishResolvedExecutionReleasesStageOccupancy(t *testing
 		t.Fatalf("mark ticket done: %v", err)
 	}
 	retryAt := now.Add(15 * time.Minute)
+	seedRetryToken := uuid.NewString()
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
 		SetAttemptCount(3).
 		SetConsecutiveErrors(2).
 		SetNextRetryAt(retryAt).
 		SetRetryPaused(true).
 		SetPauseReason(ticketing.PauseReasonBudgetExhausted.String()).
+		SetRetryToken(seedRetryToken).
 		Save(ctx); err != nil {
 		t.Fatalf("seed retry baseline before finish: %v", err)
 	}
@@ -977,6 +980,9 @@ func TestRuntimeLauncherFinishResolvedExecutionReleasesStageOccupancy(t *testing
 	}
 	if ticketAfter.AttemptCount != 3 || ticketAfter.ConsecutiveErrors != 0 || ticketAfter.NextRetryAt != nil || ticketAfter.RetryPaused || ticketAfter.PauseReason != "" {
 		t.Fatalf("expected finish to normalize retry baseline, got %+v", ticketAfter)
+	}
+	if ticketAfter.RetryToken == "" || ticketAfter.RetryToken == seedRetryToken {
+		t.Fatalf("expected finish to rotate retry token, got %q", ticketAfter.RetryToken)
 	}
 	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
 	if err != nil {
@@ -1384,6 +1390,7 @@ Implement the ticket using the current workspace.
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
+	originalRetryToken := ticketItem.RetryToken
 
 	agentItem, err := client.Agent.Create().
 		SetProjectID(fixture.projectID).
@@ -1449,6 +1456,9 @@ Implement the ticket using the current workspace.
 	}
 	if ticketAfter.NextRetryAt == nil || !ticketAfter.NextRetryAt.UTC().Equal(now.Add(continuationRetryDelay)) {
 		t.Fatalf("expected next retry at %s, got %+v", now.Add(continuationRetryDelay), ticketAfter.NextRetryAt)
+	}
+	if ticketAfter.RetryToken == "" || ticketAfter.RetryToken == originalRetryToken {
+		t.Fatalf("expected continuation scheduling to rotate retry token, got %q", ticketAfter.RetryToken)
 	}
 	if ticketAfter.StallCount != 0 {
 		t.Fatalf("expected continuation to reset stall count, got %d", ticketAfter.StallCount)
@@ -2093,6 +2103,7 @@ Handle a failing runtime turn.
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
+	originalRetryToken := ticketItem.RetryToken
 
 	agentItem, err := client.Agent.Create().
 		SetProjectID(fixture.projectID).
@@ -2151,6 +2162,9 @@ Handle a failing runtime turn.
 	}
 	if ticketAfter.NextRetryAt == nil || !ticketAfter.NextRetryAt.UTC().Equal(now.Add(10*time.Second)) {
 		t.Fatalf("expected next retry at %s, got %+v", now.Add(10*time.Second), ticketAfter.NextRetryAt)
+	}
+	if ticketAfter.RetryToken == "" || ticketAfter.RetryToken == originalRetryToken {
+		t.Fatalf("expected failed turn retry to rotate retry token, got %q", ticketAfter.RetryToken)
 	}
 
 	if ticketAfter.CurrentRunID != nil {
@@ -2738,6 +2752,13 @@ func TestRuntimeLauncherRunTickSyncsStaleRemoteMirrorBeforePreparingWorkspace(t 
 
 	mirrorService := projectrepomirrorsvc.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	mirrorService.ConfigureSSHPool(sshPool)
+	mirrorService.ConfigureGitHubCredentials(stubTokenResolver{
+		projectID: fixture.projectID,
+		resolved: githubauthdomain.ResolvedCredential{
+			Scope: githubauthdomain.ScopeProject,
+			Token: "runtime-launcher-test-token",
+		},
+	})
 
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, sshPool, nil)
 	launcher.ConfigureMirrorService(mirrorService)

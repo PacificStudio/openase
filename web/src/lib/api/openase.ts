@@ -277,6 +277,7 @@ export function createProvider(
     model_name: string
     model_temperature?: number
     model_max_tokens?: number
+    max_parallel_runs?: number
     cost_per_input_token?: number
     cost_per_output_token?: number
   },
@@ -682,9 +683,13 @@ export function listProjectRepoMirrors(
   repoId: string,
   machineId?: string | null,
 ) {
-  const suffix = machineId ? `?machine_id=${encodeURIComponent(machineId)}` : ''
   return api.get<ProjectRepoMirrorPayload>(
-    `/api/v1/projects/${projectId}/repos/${repoId}/mirrors${suffix}`,
+    `/api/v1/projects/${projectId}/repos/${repoId}/mirrors`,
+    {
+      params: {
+        machine_id: machineId ?? undefined,
+      },
+    },
   )
 }
 
@@ -951,6 +956,7 @@ export function updateProvider(
     model_name?: string
     model_temperature?: number
     model_max_tokens?: number
+    max_parallel_runs?: number
     cost_per_input_token?: number
     cost_per_output_token?: number
   },

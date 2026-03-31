@@ -11,6 +11,7 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	"github.com/google/uuid"
 )
 
 func TestRetryServiceMarkAttemptFailedSchedulesExponentialBackoffAndReleasesClaim(t *testing.T) {
@@ -47,6 +48,7 @@ func TestRetryServiceMarkAttemptFailedSchedulesExponentialBackoffAndReleasesClai
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
+	originalRetryToken := ticketItem.RetryToken
 	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
 
 	retryService := NewRetryService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
@@ -91,6 +93,9 @@ func TestRetryServiceMarkAttemptFailedSchedulesExponentialBackoffAndReleasesClai
 	}
 	if ticketAfter.NextRetryAt == nil || !ticketAfter.NextRetryAt.Equal(wantNextRetryAt) {
 		t.Fatalf("expected next retry at %s, got %+v", wantNextRetryAt, ticketAfter.NextRetryAt)
+	}
+	if ticketAfter.RetryToken == "" || ticketAfter.RetryToken == originalRetryToken {
+		t.Fatalf("expected failed attempt to rotate retry token, got %q", ticketAfter.RetryToken)
 	}
 
 	agentAfter, err := client.Agent.Get(ctx, agentItem.ID)
@@ -141,6 +146,7 @@ func TestRetryServiceMarkAttemptFailedPausesWhenBudgetIsExhausted(t *testing.T) 
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
+	originalRetryToken := ticketItem.RetryToken
 	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
 
 	retryService := NewRetryService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
@@ -169,6 +175,9 @@ func TestRetryServiceMarkAttemptFailedPausesWhenBudgetIsExhausted(t *testing.T) 
 	}
 	if ticketAfter.PauseReason != ticketing.PauseReasonBudgetExhausted.String() {
 		t.Fatalf("expected pause reason %q, got %q", ticketing.PauseReasonBudgetExhausted, ticketAfter.PauseReason)
+	}
+	if ticketAfter.RetryToken == "" || ticketAfter.RetryToken == originalRetryToken {
+		t.Fatalf("expected paused retry to rotate retry token, got %q", ticketAfter.RetryToken)
 	}
 	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 0 {
 		t.Fatalf("expected paused retry release to drop backlog stage occupancy to 0, got %d", got)
@@ -244,5 +253,90 @@ func TestSchedulerRunTickSkipsRetryPausedTickets(t *testing.T) {
 	}
 	if readyTicketAfter.CurrentRunID == nil {
 		t.Fatalf("expected ready ticket to be dispatched, got %+v", readyTicketAfter)
+	}
+}
+
+func TestSchedulerTryDispatchDropsStaleRetryCandidateWhenTokenRotates(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 20, 14, 30, 0, 0, time.UTC)
+
+	workflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(2).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	agentItem := fixture.createAgent(ctx, t, "coding-04", 0)
+	if _, err := client.Workflow.UpdateOneID(workflow.ID).SetAgentID(agentItem.ID).Save(ctx); err != nil {
+		t.Fatalf("bind workflow agent: %v", err)
+	}
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-405").
+		SetTitle("Stale retry candidate").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	staleRetryToken := uuid.NewString()
+	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
+		SetNextRetryAt(now.Add(-time.Second)).
+		SetRetryToken(staleRetryToken).
+		Save(ctx); err != nil {
+		t.Fatalf("seed stale retry token: %v", err)
+	}
+	candidate, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload stale candidate snapshot: %v", err)
+	}
+	freshRetryToken := uuid.NewString()
+	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
+		SetRetryToken(freshRetryToken).
+		Save(ctx); err != nil {
+		t.Fatalf("rotate live retry token: %v", err)
+	}
+
+	workflowForDispatch, err := client.Workflow.Query().
+		Where(entworkflow.IDEQ(workflow.ID)).
+		WithProject().
+		WithPickupStatuses().
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load workflow dispatch edges: %v", err)
+	}
+
+	scheduler := newTestScheduler(client, now)
+	dispatched, _, err := scheduler.tryDispatch(ctx, workflowForDispatch, candidate, now)
+	if err != nil {
+		t.Fatalf("tryDispatch(stale retry token): %v", err)
+	}
+	if dispatched {
+		t.Fatal("expected stale retry candidate to be dropped")
+	}
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket after stale retry dispatch: %v", err)
+	}
+	if ticketAfter.CurrentRunID != nil {
+		t.Fatalf("expected stale retry candidate to remain unclaimed, got %+v", ticketAfter.CurrentRunID)
+	}
+	runCount, err := client.AgentRun.Query().Where(entagentrun.TicketIDEQ(ticketItem.ID)).Count(ctx)
+	if err != nil {
+		t.Fatalf("count agent runs after stale retry dispatch: %v", err)
+	}
+	if runCount != 0 {
+		t.Fatalf("expected no agent run for stale retry candidate, got %d", runCount)
 	}
 }

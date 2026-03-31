@@ -14,6 +14,7 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
 )
 
@@ -218,6 +219,7 @@ func releaseStalledClaim(
 		).
 		ClearCurrentRunID().
 		SetStallCount(nextStallCount).
+		SetRetryToken(ticketservice.NewRetryToken()).
 		Save(ctx)
 	if err != nil {
 		return false, false, fmt.Errorf("release stalled ticket: %w", err)

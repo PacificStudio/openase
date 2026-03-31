@@ -5,7 +5,9 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 )
@@ -27,8 +29,18 @@ func (f *fakePostgresController) Stop() error {
 	return f.stopErr
 }
 
+var sharedServerTestGlobalsMu sync.Mutex
+
+func lockSharedServerTestGlobals(t *testing.T) {
+	t.Helper()
+	sharedServerTestGlobalsMu.Lock()
+	t.Cleanup(func() {
+		sharedServerTestGlobalsMu.Unlock()
+	})
+}
+
 func TestStartSharedServerProcessRetriesPortConflicts(t *testing.T) {
-	t.Parallel()
+	lockSharedServerTestGlobals(t)
 
 	originalCreateRootDir := createSharedServerRootDir
 	originalAllocatePort := allocateSharedServerPort
@@ -117,7 +129,7 @@ func TestStartSharedServerProcessRetriesPortConflicts(t *testing.T) {
 }
 
 func TestStartSharedServerProcessDoesNotRetryNonPortErrors(t *testing.T) {
-	t.Parallel()
+	lockSharedServerTestGlobals(t)
 
 	originalCreateRootDir := createSharedServerRootDir
 	originalAllocatePort := allocateSharedServerPort
@@ -171,7 +183,7 @@ func TestStartSharedServerProcessDoesNotRetryNonPortErrors(t *testing.T) {
 }
 
 func TestSharedServerPathsUseSharedBinariesPath(t *testing.T) {
-	t.Parallel()
+	lockSharedServerTestGlobals(t)
 
 	originalResolveAssetsRoot := resolveSharedServerAssetsRoot
 	t.Cleanup(func() {
@@ -211,19 +223,19 @@ func TestEnsureSharedServerBinaryLayoutRemovesIncompleteExtraction(t *testing.T)
 		binariesPath: filepath.Join(rootDir, "binaries"),
 	}
 	binDir := filepath.Join(paths.binariesPath, "bin")
-	if err := os.MkdirAll(binDir, 0o755); err != nil {
+	if err := os.MkdirAll(binDir, 0o750); err != nil {
 		t.Fatalf("MkdirAll(%s) error = %v", binDir, err)
 	}
-	if err := os.WriteFile(filepath.Join(binDir, "pg_ctl"), []byte("pg_ctl"), 0o755); err != nil {
+	if err := os.WriteFile(filepath.Join(binDir, "pg_ctl"), []byte("pg_ctl"), 0o600); err != nil {
 		t.Fatalf("WriteFile(pg_ctl) error = %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(binDir, "initdb"), []byte("initdb"), 0o755); err != nil {
+	if err := os.WriteFile(filepath.Join(binDir, "initdb"), []byte("initdb"), 0o600); err != nil {
 		t.Fatalf("WriteFile(initdb) error = %v", err)
 	}
-	if err := os.MkdirAll(paths.cachePath, 0o755); err != nil {
+	if err := os.MkdirAll(paths.cachePath, 0o750); err != nil {
 		t.Fatalf("MkdirAll(%s) error = %v", paths.cachePath, err)
 	}
-	if err := os.WriteFile(filepath.Join(paths.cachePath, "postgres.txz"), []byte("cached"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(paths.cachePath, "postgres.txz"), []byte("cached"), 0o600); err != nil {
 		t.Fatalf("WriteFile(cache) error = %v", err)
 	}
 
@@ -253,6 +265,65 @@ func TestEnsureSharedServerBinaryLayoutRemovesIncompleteExtraction(t *testing.T)
 	}
 	if _, err := os.Stat(paths.cachePath); !os.IsNotExist(err) {
 		t.Fatalf("expected cache path to be removed, stat err = %v", err)
+	}
+}
+
+func TestLockSharedServerAssetsSerializesCallers(t *testing.T) {
+	lockSharedServerTestGlobals(t)
+
+	originalResolveAssetsRoot := resolveSharedServerAssetsRoot
+	t.Cleanup(func() {
+		resolveSharedServerAssetsRoot = originalResolveAssetsRoot
+	})
+
+	sharedRoot := filepath.Join(t.TempDir(), "shared")
+	resolveSharedServerAssetsRoot = func() (string, error) {
+		return sharedRoot, nil
+	}
+
+	releaseFirst, err := lockSharedServerAssets()
+	if err != nil {
+		t.Fatalf("lockSharedServerAssets() first lock error = %v", err)
+	}
+	defer func() {
+		if releaseErr := releaseFirst(); releaseErr != nil {
+			t.Errorf("release first shared assets lock: %v", releaseErr)
+		}
+	}()
+
+	acquiredSecond := make(chan func() error, 1)
+	secondErr := make(chan error, 1)
+	go func() {
+		releaseSecond, err := lockSharedServerAssets()
+		if err != nil {
+			secondErr <- err
+			return
+		}
+		acquiredSecond <- releaseSecond
+	}()
+
+	select {
+	case err := <-secondErr:
+		t.Fatalf("second lock attempt failed unexpectedly: %v", err)
+	case <-acquiredSecond:
+		t.Fatal("second lock should block while first lock is held")
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	if err := releaseFirst(); err != nil {
+		t.Fatalf("release first shared assets lock: %v", err)
+	}
+	releaseFirst = func() error { return nil }
+
+	select {
+	case err := <-secondErr:
+		t.Fatalf("second lock attempt failed unexpectedly: %v", err)
+	case releaseSecond := <-acquiredSecond:
+		if err := releaseSecond(); err != nil {
+			t.Fatalf("release second shared assets lock: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("second lock did not acquire after first lock released")
 	}
 }
 

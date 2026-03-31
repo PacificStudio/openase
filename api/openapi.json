@@ -5379,6 +5379,9 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "max_parallel_runs": {
+                            "type": "integer"
+                          },
                           "model_max_tokens": {
                             "type": "integer"
                           },
@@ -5522,6 +5525,11 @@
                     "description": "Machine ID where this provider runs.",
                     "type": "string"
                   },
+                  "max_parallel_runs": {
+                    "description": "Maximum number of concurrent runs allowed for the provider.",
+                    "nullable": true,
+                    "type": "integer"
+                  },
                   "model_max_tokens": {
                     "description": "Maximum number of output tokens allowed for the provider model.",
                     "nullable": true,
@@ -5617,6 +5625,9 @@
                         "machine_workspace_root": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "max_parallel_runs": {
+                          "type": "integer"
                         },
                         "model_max_tokens": {
                           "type": "integer"
@@ -15201,6 +15212,11 @@
                     "nullable": true,
                     "type": "string"
                   },
+                  "max_parallel_runs": {
+                    "description": "Maximum number of concurrent runs allowed for the provider.",
+                    "nullable": true,
+                    "type": "integer"
+                  },
                   "model_max_tokens": {
                     "description": "Maximum number of output tokens allowed for the provider model.",
                     "nullable": true,
@@ -15298,6 +15314,9 @@
                         "machine_workspace_root": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "max_parallel_runs": {
+                          "type": "integer"
                         },
                         "model_max_tokens": {
                           "type": "integer"
