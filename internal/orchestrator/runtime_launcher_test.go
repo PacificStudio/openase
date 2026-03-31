@@ -936,7 +936,7 @@ func TestRuntimeLauncherFinishResolvedExecutionReleasesStageOccupancy(t *testing
 		t.Fatalf("mark ticket done: %v", err)
 	}
 	retryAt := now.Add(15 * time.Minute)
-	seedRetryToken := "seed-finish-retry-token"
+	seedRetryToken := uuid.NewString()
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
 		SetAttemptCount(3).
 		SetConsecutiveErrors(2).

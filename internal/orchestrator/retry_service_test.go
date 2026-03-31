@@ -11,6 +11,7 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	"github.com/google/uuid"
 )
 
 func TestRetryServiceMarkAttemptFailedSchedulesExponentialBackoffAndReleasesClaim(t *testing.T) {
@@ -284,9 +285,10 @@ func TestSchedulerTryDispatchDropsStaleRetryCandidateWhenTokenRotates(t *testing
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
+	staleRetryToken := uuid.NewString()
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
 		SetNextRetryAt(now.Add(-time.Second)).
-		SetRetryToken("stale-retry-token").
+		SetRetryToken(staleRetryToken).
 		Save(ctx); err != nil {
 		t.Fatalf("seed stale retry token: %v", err)
 	}
@@ -294,8 +296,9 @@ func TestSchedulerTryDispatchDropsStaleRetryCandidateWhenTokenRotates(t *testing
 	if err != nil {
 		t.Fatalf("reload stale candidate snapshot: %v", err)
 	}
+	freshRetryToken := uuid.NewString()
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
-		SetRetryToken("fresh-retry-token").
+		SetRetryToken(freshRetryToken).
 		Save(ctx); err != nil {
 		t.Fatalf("rotate live retry token: %v", err)
 	}

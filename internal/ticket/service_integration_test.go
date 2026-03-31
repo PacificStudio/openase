@@ -276,7 +276,7 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 		t.Fatalf("Update(budget resume) = %+v", resumedTicket)
 	}
 	retryAt := time.Date(2026, 3, 27, 16, 0, 0, 0, time.UTC)
-	seedRetryToken := "seed-manual-status-retry-token"
+	seedRetryToken := uuid.NewString()
 	if _, err := client.Ticket.UpdateOneID(parent.ID).
 		SetAttemptCount(4).
 		SetConsecutiveErrors(2).
