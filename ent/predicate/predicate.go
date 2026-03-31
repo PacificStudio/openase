@@ -27,6 +27,18 @@ type AgentToken func(*sql.Selector)
 // AgentTraceEvent is the predicate function for agenttraceevent builders.
 type AgentTraceEvent func(*sql.Selector)
 
+// ChatConversation is the predicate function for chatconversation builders.
+type ChatConversation func(*sql.Selector)
+
+// ChatEntry is the predicate function for chatentry builders.
+type ChatEntry func(*sql.Selector)
+
+// ChatPendingInterrupt is the predicate function for chatpendinginterrupt builders.
+type ChatPendingInterrupt func(*sql.Selector)
+
+// ChatTurn is the predicate function for chatturn builders.
+type ChatTurn func(*sql.Selector)
+
 // IssueConnector is the predicate function for entissueconnector builders.
 type IssueConnector func(*sql.Selector)
 

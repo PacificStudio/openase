@@ -77,6 +77,21 @@ func parseRequestID(raw json.RawMessage) (RequestID, error) {
 	}, nil
 }
 
+func ParseRequestIDString(raw string) (RequestID, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return RequestID{}, fmt.Errorf("request id must not be empty")
+	}
+	if strings.HasPrefix(trimmed, "\"") || strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") || ('0' <= trimmed[0] && trimmed[0] <= '9') {
+		return parseRequestID(json.RawMessage(trimmed))
+	}
+	encoded, err := json.Marshal(trimmed)
+	if err != nil {
+		return RequestID{}, err
+	}
+	return parseRequestID(encoded)
+}
+
 func (id RequestID) MarshalJSON() ([]byte, error) {
 	if len(id.raw) == 0 {
 		return nil, fmt.Errorf("request id must not be empty")

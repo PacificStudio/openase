@@ -53,6 +53,14 @@ func TestBuildOpenAPIDocument(t *testing.T) {
 		"/api/v1/tickets/{ticketId}/comments",
 		"/api/v1/tickets/{ticketId}/dependencies",
 		"/api/v1/chat",
+		"/api/v1/chat/conversations",
+		"/api/v1/chat/conversations/{conversationId}",
+		"/api/v1/chat/conversations/{conversationId}/entries",
+		"/api/v1/chat/conversations/{conversationId}/turns",
+		"/api/v1/chat/conversations/{conversationId}/stream",
+		"/api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond",
+		"/api/v1/chat/conversations/{conversationId}/action-proposals/{entryId}/execute",
+		"/api/v1/chat/conversations/{conversationId}/runtime",
 		"/api/v1/projects/{projectId}/tickets/stream",
 	}
 	for _, path := range requiredPaths {
