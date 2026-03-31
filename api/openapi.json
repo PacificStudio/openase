@@ -15742,6 +15742,178 @@
       }
     },
     "/api/v1/providers/{providerId}": {
+      "get": {
+        "operationId": "getAgentProvider",
+        "parameters": [
+          {
+            "description": "Agent provider ID.",
+            "in": "path",
+            "name": "providerId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "provider": {
+                      "properties": {
+                        "adapter_type": {
+                          "type": "string"
+                        },
+                        "auth_config": {
+                          "additionalProperties": {},
+                          "type": "object"
+                        },
+                        "availability_checked_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "availability_reason": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "availability_state": {
+                          "type": "string"
+                        },
+                        "available": {
+                          "type": "boolean"
+                        },
+                        "cli_args": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "cli_command": {
+                          "type": "string"
+                        },
+                        "cost_per_input_token": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "cost_per_output_token": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "machine_host": {
+                          "type": "string"
+                        },
+                        "machine_id": {
+                          "type": "string"
+                        },
+                        "machine_name": {
+                          "type": "string"
+                        },
+                        "machine_ssh_user": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "machine_status": {
+                          "type": "string"
+                        },
+                        "machine_workspace_root": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "max_parallel_runs": {
+                          "type": "integer"
+                        },
+                        "model_max_tokens": {
+                          "type": "integer"
+                        },
+                        "model_name": {
+                          "type": "string"
+                        },
+                        "model_temperature": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get an agent provider response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Get an agent provider",
+        "tags": [
+          "catalog"
+        ]
+      },
       "patch": {
         "operationId": "updateAgentProvider",
         "parameters": [

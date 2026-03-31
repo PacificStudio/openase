@@ -616,9 +616,7 @@ func TestWorkflowServiceSkillAndReloadEdgeCases(t *testing.T) {
 	if afterReload.Version != boundDoc.Version || afterReload.HarnessContent != previousContent {
 		t.Fatalf("Get() after blocked reload = %+v, want version %d and restored content", afterReload, boundDoc.Version)
 	}
-	if got := mustReadWorkflowFile(t, harnessAbsPath); got != previousContent {
-		t.Fatalf("harness file after blocked reload = %q, want %q", got, previousContent)
-	}
+	waitForWorkflowFileContent(t, harnessAbsPath, previousContent)
 }
 
 func findSkillByName(items []Skill, name string) *Skill {
@@ -1602,4 +1600,22 @@ func waitForWorkflowVersion(ctx context.Context, t *testing.T, client *ent.Clien
 		t.Fatalf("load workflow version: %v", err)
 	}
 	t.Fatalf("workflow version = %d, want %d", item.Version, wantVersion)
+}
+
+func waitForWorkflowFileContent(t *testing.T, path string, want string) {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		//nolint:gosec // Tests only read files created in isolated temp/project directories.
+		data, err := os.ReadFile(path)
+		if err == nil && string(data) == want {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	if got := mustReadWorkflowFile(t, path); got != want {
+		t.Fatalf("workflow file %s = %q, want %q", path, got, want)
+	}
 }

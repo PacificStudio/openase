@@ -68,6 +68,12 @@
     },
     {
       "method": "get",
+      "path": "/api/v1/providers/{providerId}",
+      "categories": ["backend_only"],
+      "reason": "Provider detail fetch was added for CLI/operator flows and is intentionally not wired into the current frontend screens."
+    },
+    {
+      "method": "get",
       "path": "/api/v1/projects/{projectId}",
       "categories": ["wrapped_but_unused"],
       "reason": "Project pages use summary/list/update flows and do not currently fetch a standalone project detail payload."

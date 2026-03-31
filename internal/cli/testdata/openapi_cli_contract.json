@@ -1,5 +1,5 @@
 {
-  "openapi_sha256": "c3e3fd6faf2ce0c7e493f6a5ac697ec06fa47ec79e9b9179967c3ca618518fba",
+  "openapi_sha256": "9932f2cb51e521dc6d4181a08dbb78b4b6752aae41fcdf5dfd6b05ed39a4fb38",
   "commands": [
     {
       "use": "list [projectId]",
@@ -1148,6 +1148,23 @@
       ]
     },
     {
+      "use": "refresh-health [machineId]",
+      "method": "POST",
+      "path": "/api/v1/machines/{machineId}/refresh-health",
+      "operation_id": "refreshMachineHealth",
+      "positional_params": [
+        "machineId"
+      ],
+      "path_params": [
+        {
+          "name": "machineId",
+          "description": "Machine ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
       "use": "list [orgId]",
       "method": "GET",
       "path": "/api/v1/orgs/{orgId}/providers",
@@ -1159,6 +1176,23 @@
         {
           "name": "orgId",
           "description": "Organization ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "get [providerId]",
+      "method": "GET",
+      "path": "/api/v1/providers/{providerId}",
+      "operation_id": "getAgentProvider",
+      "positional_params": [
+        "providerId"
+      ],
+      "path_params": [
+        {
+          "name": "providerId",
+          "description": "Agent provider ID.",
           "required": true,
           "kind": "string"
         }
@@ -1210,6 +1244,11 @@
           "name": "machine_id",
           "description": "Machine ID where this provider runs.",
           "kind": "string"
+        },
+        {
+          "name": "max_parallel_runs",
+          "description": "Maximum number of concurrent runs allowed for the provider.",
+          "kind": "int64"
         },
         {
           "name": "model_max_tokens",
@@ -1279,6 +1318,11 @@
           "name": "machine_id",
           "description": "Machine ID where this provider runs.",
           "kind": "string"
+        },
+        {
+          "name": "max_parallel_runs",
+          "description": "Maximum number of concurrent runs allowed for the provider.",
+          "kind": "int64"
         },
         {
           "name": "model_max_tokens",
