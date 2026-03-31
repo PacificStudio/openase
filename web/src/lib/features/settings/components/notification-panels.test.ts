@@ -1,11 +1,25 @@
-import { cleanup, fireEvent, render } from '@testing-library/svelte'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import NotificationChannelPanel from './notification-channel-panel.svelte'
 import NotificationRulePanel from './notification-rule-panel.svelte'
 
+const { toastStore } = vi.hoisted(() => ({
+  toastStore: {
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+  },
+}))
+
+vi.mock('$lib/stores/toast.svelte', () => ({
+  toastStore,
+}))
+
 describe('Notification settings panels', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     vi.spyOn(window, 'confirm').mockReturnValue(true)
   })
 
@@ -15,7 +29,7 @@ describe('Notification settings panels', () => {
   })
 
   it('surfaces channel action failures inline', async () => {
-    const { getByText, findByText } = render(NotificationChannelPanel, {
+    const { getByText } = render(NotificationChannelPanel, {
       props: {
         channels: [
           {
@@ -39,11 +53,13 @@ describe('Notification settings panels', () => {
     await fireEvent.click(getByText('Ops Webhook'))
     await fireEvent.click(getByText('Send test'))
 
-    expect(await findByText('Webhook offline')).toBeTruthy()
+    await waitFor(() => {
+      expect(toastStore.error).toHaveBeenCalledWith('Webhook offline')
+    })
   })
 
   it('surfaces rule action failures inline', async () => {
-    const { getByText, findByText } = render(NotificationRulePanel, {
+    const { getByText } = render(NotificationRulePanel, {
       props: {
         channels: [
           {
@@ -95,6 +111,8 @@ describe('Notification settings panels', () => {
     await fireEvent.click(getByText('Created alerts'))
     await fireEvent.click(getByText('Disable'))
 
-    expect(await findByText('Rule toggle failed')).toBeTruthy()
+    await waitFor(() => {
+      expect(toastStore.error).toHaveBeenCalledWith('Rule toggle failed')
+    })
   })
 })
