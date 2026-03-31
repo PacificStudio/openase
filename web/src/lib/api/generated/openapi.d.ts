@@ -458,6 +458,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/orgs/{orgId}/summary': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get organization dashboard summary metrics */
+    get: operations['getOrganizationSummary']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}': {
     parameters: {
       query?: never
@@ -1377,6 +1394,23 @@ export interface paths {
     put?: never
     /** Unbind skills from a workflow harness */
     post: operations['unbindWorkflowSkills']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/workspace/summary': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get workspace dashboard summary metrics */
+    get: operations['getWorkspaceSummary']
+    put?: never
+    post?: never
     delete?: never
     options?: never
     head?: never
@@ -4528,6 +4562,91 @@ export interface operations {
       }
       /** @description Conflict response. */
       409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getOrganizationSummary: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get organization dashboard summary metrics response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            organization?: {
+              active_project_count?: number
+              active_tickets?: number
+              organization_id?: string
+              project_count?: number
+              provider_count?: number
+              running_agents?: number
+              /** Format: double */
+              today_cost?: number
+              /** Format: int64 */
+              total_tokens?: number
+            }
+            projects?: {
+              active_tickets?: number
+              description?: string
+              last_activity_at?: string | null
+              name?: string
+              project_id?: string
+              running_agents?: number
+              status?: string
+              /** Format: double */
+              today_cost?: number
+              /** Format: int64 */
+              total_tokens?: number
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
         headers: {
           [name: string]: unknown
         }
@@ -11754,6 +11873,63 @@ export interface operations {
           'application/json': {
             code?: string
             message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getWorkspaceSummary: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get workspace dashboard summary metrics response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            organizations?: {
+              active_tickets?: number
+              name?: string
+              organization_id?: string
+              project_count?: number
+              provider_count?: number
+              running_agents?: number
+              slug?: string
+              /** Format: double */
+              today_cost?: number
+              /** Format: int64 */
+              total_tokens?: number
+            }[]
+            workspace?: {
+              active_tickets?: number
+              organization_count?: number
+              project_count?: number
+              provider_count?: number
+              running_agents?: number
+              /** Format: double */
+              today_cost?: number
+              /** Format: int64 */
+              total_tokens?: number
+            }
           }
         }
       }

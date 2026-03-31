@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { capabilityCatalog } from '$lib/features/capabilities'
   import { ProviderAvailabilityBadge } from '$lib/features/providers'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
@@ -21,7 +20,6 @@
     'gemini-cli': Gem,
     custom: Wrench,
   }
-  const providerConfigureCapability = capabilityCatalog.providerConfigure
 </script>
 
 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -74,7 +72,7 @@
           size="sm"
           class="w-full"
           onclick={() => onConfigure?.(provider)}
-          title={providerConfigureCapability.summary}
+          title="Configure provider"
         >
           <Settings class="size-3.5" />
           Configure

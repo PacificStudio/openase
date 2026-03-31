@@ -1,13 +1,7 @@
 <script lang="ts">
-  import { projectPath } from '$lib/stores/app-context'
   import type { StatusPayload } from '$lib/api/contracts'
   import { listStatuses } from '$lib/api/openase'
   import { connectEventStream } from '$lib/api/sse'
-  import {
-    capabilityStateClasses,
-    capabilityStateLabel,
-    getSettingsSectionCapability,
-  } from '$lib/features/capabilities'
   import {
     WorkflowRepositoryPrerequisiteCard,
     WorkflowLifecycleSidebar,
@@ -20,13 +14,10 @@
   import { loadWorkflowCatalog, loadWorkflowRepositoryPrerequisite } from '$lib/features/workflows'
   import { appStore } from '$lib/stores/app.svelte'
   import { ApiError } from '$lib/api/client'
-  import { Button } from '$ui/button'
-  import * as Card from '$ui/card'
   import { Separator } from '$ui/separator'
   import StatusStageConcurrency from './status-stage-concurrency.svelte'
   import { startStageRuntimeSync } from './stage-runtime-sync'
 
-  const workflowCapability = getSettingsSectionCapability('workflows')
   const props = $props<{
     onOpenRepositories?: (() => void) | undefined
   }>()
@@ -41,11 +32,6 @@
   let selectedId = $state('')
 
   let selectedWorkflow = $derived(workflows.find((workflow) => workflow.id === selectedId) ?? null)
-  const scheduledJobsHref = $derived(
-    appStore.currentOrg?.id && appStore.currentProject?.id
-      ? projectPath(appStore.currentOrg.id, appStore.currentProject.id, 'scheduled-jobs')
-      : null,
-  )
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
@@ -127,15 +113,10 @@
 
 <div class="space-y-6">
   <div>
-    <div class="flex items-center gap-2">
-      <h2 class="text-foreground text-base font-semibold">Workflow Lifecycle</h2>
-      <span
-        class={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${capabilityStateClasses(workflowCapability.state)}`}
-      >
-        {capabilityStateLabel(workflowCapability.state)}
-      </span>
-    </div>
-    <p class="text-muted-foreground mt-1 text-sm">{workflowCapability.summary}</p>
+    <h2 class="text-foreground text-base font-semibold">Workflow Lifecycle</h2>
+    <p class="text-muted-foreground mt-1 text-sm">
+      Manage workflow agent binding, scheduling policy, activation, and deletion.
+    </p>
   </div>
 
   <Separator />
@@ -175,29 +156,6 @@
       {#if stages.length > 0}
         <StatusStageConcurrency {stages} />
       {/if}
-
-      <Card.Root>
-        <Card.Header>
-          <Card.Title>Scheduled Jobs</Card.Title>
-          <Card.Description>
-            Scheduled Jobs now lives as a dedicated project page in the left sidebar, separate from
-            workflow lifecycle editing.
-          </Card.Description>
-        </Card.Header>
-        <Card.Content class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p class="text-muted-foreground text-sm">
-            Open the project-level page to create, update, trigger, and remove recurring workflow
-            jobs.
-          </p>
-          <Button
-            variant="outline"
-            href={scheduledJobsHref ?? undefined}
-            disabled={!scheduledJobsHref}
-          >
-            Open Scheduled Jobs
-          </Button>
-        </Card.Content>
-      </Card.Root>
     </div>
   {/if}
 </div>

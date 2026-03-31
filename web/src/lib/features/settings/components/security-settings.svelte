@@ -2,17 +2,10 @@
   import { ApiError } from '$lib/api/client'
   import type { SecuritySettingsResponse } from '$lib/api/contracts'
   import { getSecuritySettings } from '$lib/api/openase'
-  import {
-    capabilityStateClasses,
-    capabilityStateLabel,
-    getSettingsSectionCapability,
-  } from '$lib/features/capabilities'
   import { appStore } from '$lib/stores/app.svelte'
   import * as Card from '$ui/card'
   import { Separator } from '$ui/separator'
   import { KeyRound, LockKeyhole, ShieldCheck, Webhook } from '@lucide/svelte'
-
-  const securityCapability = getSettingsSectionCapability('security')
 
   let security = $state<SecuritySettingsResponse['security'] | null>(null)
   let loading = $state(false)
@@ -62,15 +55,10 @@
 
 <div class="space-y-6">
   <div>
-    <div class="flex items-center gap-2">
-      <h2 class="text-foreground text-base font-semibold">Security</h2>
-      <span
-        class={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${capabilityStateClasses(securityCapability.state)}`}
-      >
-        {capabilityStateLabel(securityCapability.state)}
-      </span>
-    </div>
-    <p class="text-muted-foreground mt-1 max-w-3xl text-sm">{securityCapability.summary}</p>
+    <h2 class="text-foreground text-base font-semibold">Security</h2>
+    <p class="text-muted-foreground mt-1 max-w-3xl text-sm">
+      Runtime security boundaries and access controls.
+    </p>
   </div>
 
   <Separator />

@@ -3,7 +3,6 @@
   import { ticketViewStore } from '$lib/stores/ticket-view.svelte'
   import { connectEventStream } from '$lib/api/sse'
   import { ApiError } from '$lib/api/client'
-  import { capabilityCatalog } from '$lib/features/capabilities'
   import {
     listActivity,
     listAgents,
@@ -30,8 +29,6 @@
     type BoardTicket,
     type PendingTicketMove,
   } from '$lib/features/board'
-
-  const newTicketCapability = capabilityCatalog.newTicket
 
   let filter = $state<BoardFilter>({ search: '' })
   let loading = $state(false)
@@ -251,8 +248,7 @@
 {#snippet actions()}
   <Button
     size="sm"
-    disabled={newTicketCapability.state !== 'available' || !appStore.currentProject?.id}
-    title={newTicketCapability.summary}
+    disabled={!appStore.currentProject?.id}
     onclick={() => appStore.openNewTicketDialog()}
   >
     New Ticket

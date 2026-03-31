@@ -1,14 +1,16 @@
 <script lang="ts">
-  import type { Agent, Ticket } from '$lib/api/contracts'
-  import { listAgents, listTickets } from '$lib/api/openase'
   import { ProjectCreationDialog, ProviderCreationDialog } from '$lib/features/catalog-creation'
+  import {
+    emptyOrganizationDashboardStats,
+    loadOrganizationDashboardSummary,
+    type ProjectMetrics,
+  } from '$lib/features/dashboard/organization-summary'
   import { appStore } from '$lib/stores/app.svelte'
   import { organizationPath } from '$lib/stores/app-context'
   import { formatCurrency } from '$lib/utils'
   import { Button } from '$ui/button'
   import { Bot, Coins, FolderOpen, Ticket as TicketIcon } from '@lucide/svelte'
   import StatCard from './stat-card.svelte'
-  import { buildDashboardStats } from '../model'
   import type { DashboardStats } from '../types'
   import OrganizationProjectsSection from './organization-projects-section.svelte'
   import OrganizationProvidersSection from './organization-providers-section.svelte'
@@ -20,86 +22,43 @@
   let showProjectDialog = $state(false)
   let showProviderDialog = $state(false)
 
-  type ProjectMetrics = {
-    runningAgents: number
-    activeTickets: number
-    todayCost: number
-    lastActivity: string | null
-  }
-
-  const emptyStats: DashboardStats = {
-    runningAgents: 0,
-    activeTickets: 0,
-    pendingApprovals: 0,
-    newTicketsTodayCost: 0,
-    projectCost: 0,
-    ticketsCreatedToday: 0,
-    ticketsCompletedToday: 0,
-    ticketInputTokens: 0,
-    ticketOutputTokens: 0,
-    totalAgentTokens: 0,
-    avgCycleMinutes: 0,
-    prMergeRate: 0,
-  }
-
   let loading = $state(false)
   let projectMetrics = $state<Record<string, ProjectMetrics>>({})
-  let orgStats = $state<DashboardStats>(emptyStats)
+  let orgStats = $state<DashboardStats>(emptyOrganizationDashboardStats)
+  let activeProjectCount = $state(0)
 
   $effect(() => {
-    const projectList = projects
-    if (projectList.length === 0) {
+    const orgId = currentOrg?.id
+    const refreshKey = `${orgId ?? ''}:${appStore.appContextFetchedAt}`
+    void refreshKey
+
+    if (!orgId) {
       projectMetrics = {}
-      orgStats = emptyStats
+      orgStats = emptyOrganizationDashboardStats
+      activeProjectCount = 0
       return
     }
 
     let cancelled = false
+    const controller = new AbortController()
 
     const load = async () => {
       loading = true
 
       try {
-        const results = await Promise.all(
-          projectList.map(async (project) => {
-            const [agentPayload, ticketPayload] = await Promise.all([
-              listAgents(project.id),
-              listTickets(project.id),
-            ])
-            return {
-              projectId: project.id,
-              agents: agentPayload.agents,
-              tickets: ticketPayload.tickets,
-            }
-          }),
-        )
-
+        const summary = await loadOrganizationDashboardSummary(orgId, {
+          signal: controller.signal,
+        })
         if (cancelled) return
 
-        const allAgents: Agent[] = []
-        const allTickets: Ticket[] = []
-        const nextMetrics: Record<string, ProjectMetrics> = {}
-
-        for (const { projectId, agents, tickets } of results) {
-          allAgents.push(...agents)
-          allTickets.push(...tickets)
-
-          const stats = buildDashboardStats(agents, tickets)
-          const latestTicket = tickets.reduce<Ticket | null>((latest, ticket) => {
-            if (!latest || ticket.created_at > latest.created_at) return ticket
-            return latest
-          }, null)
-
-          nextMetrics[projectId] = {
-            runningAgents: stats.runningAgents,
-            activeTickets: stats.activeTickets,
-            todayCost: stats.newTicketsTodayCost,
-            lastActivity: latestTicket?.created_at ?? null,
-          }
-        }
-
-        projectMetrics = nextMetrics
-        orgStats = buildDashboardStats(allAgents, allTickets)
+        projectMetrics = summary.projectMetrics
+        activeProjectCount = summary.activeProjectCount
+        orgStats = summary.orgStats
+      } catch {
+        if (cancelled || controller.signal.aborted) return
+        projectMetrics = {}
+        orgStats = emptyOrganizationDashboardStats
+        activeProjectCount = 0
       } finally {
         if (!cancelled) loading = false
       }
@@ -108,15 +67,9 @@
     void load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   })
-
-  const activeProjectCount = $derived(
-    projects.filter((project) => {
-      const status = project.status?.toLowerCase()
-      return status !== 'archived' && status !== 'canceled'
-    }).length,
-  )
 </script>
 
 <svelte:head>

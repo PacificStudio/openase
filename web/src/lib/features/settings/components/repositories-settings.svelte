@@ -1,9 +1,4 @@
 <script lang="ts">
-  import {
-    getSettingsSectionCapability,
-    capabilityStateClasses,
-    capabilityStateLabel,
-  } from '$lib/features/capabilities'
   import { Separator } from '$ui/separator'
   import RepositoriesList from './repository-list.svelte'
   import RepositoryEditorSheet from './repository-editor-sheet.svelte'
@@ -11,7 +6,6 @@
   import RepositoryReadinessBanner from './repository-readiness-banner.svelte'
   import { createRepositoriesSettingsState } from './repositories-settings-state.svelte'
 
-  const repositoriesCapability = getSettingsSectionCapability('repositories')
   const state = createRepositoriesSettingsState()
 
   function openPrimaryMirror() {
@@ -23,15 +17,10 @@
 
 <div class="max-w-2xl space-y-6">
   <div>
-    <div class="flex items-center gap-2">
-      <h2 class="text-foreground text-base font-semibold">Repositories</h2>
-      <span
-        class={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${capabilityStateClasses(repositoriesCapability.state)}`}
-      >
-        {capabilityStateLabel(repositoriesCapability.state)}
-      </span>
-    </div>
-    <p class="text-muted-foreground mt-1 text-sm">{repositoriesCapability.summary}</p>
+    <h2 class="text-foreground text-base font-semibold">Repositories</h2>
+    <p class="text-muted-foreground mt-1 text-sm">
+      Manage project repository bindings and mirror configuration.
+    </p>
   </div>
 
   <Separator />
