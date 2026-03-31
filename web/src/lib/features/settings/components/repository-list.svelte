@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { ProjectRepoRecord } from '$lib/api/contracts'
   import { Button } from '$ui/button'
-  import * as Card from '$ui/card'
   import { Plus } from '@lucide/svelte'
   import RepositoryRowCard from './repository-row-card.svelte'
 
@@ -16,6 +15,7 @@
     onOpenRepo,
     onDelete,
     onMaterialize,
+    onConfigureMirror,
   }: {
     loading?: boolean
     repos?: ProjectRepoRecord[]
@@ -27,31 +27,34 @@
     onOpenRepo?: (repo: ProjectRepoRecord) => void
     onDelete?: (repo: ProjectRepoRecord) => void
     onMaterialize?: (repo: ProjectRepoRecord) => void
+    onConfigureMirror?: (repo: ProjectRepoRecord) => void
   } = $props()
 </script>
 
-<Card.Root>
-  <Card.Header class="flex-row items-center justify-between gap-3">
+<div class="space-y-4">
+  <div class="flex items-center justify-between gap-3">
     <div>
-      <Card.Title>Project repositories</Card.Title>
-      <Card.Description>
+      <h3 class="text-foreground text-sm font-semibold">Project repositories</h3>
+      <p class="text-muted-foreground mt-0.5 text-xs">
         Repositories backing ticket repo scopes and workspace preparation.
-      </Card.Description>
+      </p>
     </div>
     <Button size="sm" onclick={onCreate}>
-      <Plus class="size-3.5" />
+      <Plus class="mr-1.5 size-3.5" />
       New repo
     </Button>
-  </Card.Header>
+  </div>
 
-  <Card.Content class="space-y-3">
-    {#if loading && repos.length === 0}
-      <div class="text-muted-foreground py-8 text-center text-sm">Loading repositories…</div>
-    {:else if repos.length === 0}
-      <div class="text-muted-foreground py-8 text-center text-sm">
-        No repositories configured yet. Add the first repository to get started.
-      </div>
-    {:else}
+  {#if loading && repos.length === 0}
+    <div class="text-muted-foreground py-8 text-center text-sm">Loading repositories…</div>
+  {:else if repos.length === 0}
+    <div
+      class="border-border bg-card text-muted-foreground rounded-xl border border-dashed px-4 py-10 text-center text-sm"
+    >
+      No repositories configured yet. Add the first repository to get started.
+    </div>
+  {:else}
+    <div class="space-y-2">
       {#each repos as repo (repo.id)}
         <RepositoryRowCard
           {repo}
@@ -62,8 +65,9 @@
           handleOpenRepo={() => onOpenRepo?.(repo)}
           onDelete={() => onDelete?.(repo)}
           onMaterialize={() => onMaterialize?.(repo)}
+          onConfigureMirror={() => onConfigureMirror?.(repo)}
         />
       {/each}
-    {/if}
-  </Card.Content>
-</Card.Root>
+    </div>
+  {/if}
+</div>

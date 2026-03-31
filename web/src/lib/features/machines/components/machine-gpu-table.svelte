@@ -1,21 +1,29 @@
 <script lang="ts">
   import { Badge } from '$ui/badge'
   import type { MachineSnapshot } from '../types'
+  import {
+    checkedAtLabel,
+    levelState,
+    stateBadgeVariant,
+    stateLabel,
+  } from './machine-health-panel-view'
 
   let { snapshot }: { snapshot: MachineSnapshot } = $props()
+
+  const l3State = $derived(levelState(snapshot.monitor.l3))
 </script>
 
 <div class="border-border bg-card rounded-xl border">
   <div class="border-border flex items-center justify-between border-b px-4 py-3">
-    <div>
+    <div class="flex items-center gap-2">
       <h4 class="text-foreground text-sm font-semibold">GPU inventory</h4>
-      <p class="text-muted-foreground mt-1 text-xs">
-        {snapshot.gpuDispatchable
-          ? 'At least one GPU has free memory.'
-          : 'No GPU is currently dispatchable.'}
-      </p>
+      <Badge variant={stateBadgeVariant(l3State)}>{stateLabel(l3State)}</Badge>
+      <Badge variant="secondary">{snapshot.gpus.length} GPU</Badge>
     </div>
-    <Badge variant="secondary">{snapshot.gpus.length} GPU</Badge>
+    <span class="text-muted-foreground text-xs">
+      {snapshot.gpuDispatchable ? 'Free memory available' : 'No GPU dispatchable'}
+      · {checkedAtLabel(snapshot.monitor.l3?.checkedAt)}
+    </span>
   </div>
   <div class="overflow-x-auto">
     <table class="w-full text-sm">

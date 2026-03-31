@@ -3,16 +3,9 @@
   import RepositoriesList from './repository-list.svelte'
   import RepositoryEditorSheet from './repository-editor-sheet.svelte'
   import RepositoryMirrorDialog from './repository-mirror-dialog.svelte'
-  import RepositoryReadinessBanner from './repository-readiness-banner.svelte'
   import { createRepositoriesSettingsState } from './repositories-settings-state.svelte'
 
   const state = createRepositoriesSettingsState()
-
-  function openPrimaryMirror() {
-    if (state.selectedPrimaryRepo) {
-      void state.runMirrorAction(state.selectedPrimaryRepo)
-    }
-  }
 </script>
 
 <div class="max-w-2xl space-y-6">
@@ -25,16 +18,6 @@
 
   <Separator />
 
-  {#if state.ui.repos.length > 0}
-    <RepositoryReadinessBanner
-      readiness={state.primaryReadiness}
-      mirrorActionLabel={state.primaryMirrorActionLabel}
-      onOpenPrimaryMirror={state.primaryReadiness.kind === 'primary_mirror_not_ready'
-        ? openPrimaryMirror
-        : undefined}
-    />
-  {/if}
-
   <RepositoriesList
     loading={state.ui.loading}
     repos={state.ui.repos}
@@ -46,6 +29,7 @@
     onOpenRepo={(repo) => state.openRepo(repo)}
     onDelete={(repo) => void state.deleteFromList(repo)}
     onMaterialize={(repo) => void state.runMirrorAction(repo)}
+    onConfigureMirror={(repo) => state.openMirrorDialog(repo)}
   />
 </div>
 

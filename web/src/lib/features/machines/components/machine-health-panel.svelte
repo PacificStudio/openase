@@ -6,13 +6,13 @@
   import type { TruthyState } from './machine-health-panel-view'
   import {
     buildAuditRows,
-    buildLevelCards,
     buildStatCards,
     checkedAtLabel,
     runtimeLabel,
     stateBadgeVariant,
     stateLabel,
     toTruthyState,
+    levelState,
   } from './machine-health-panel-view'
   import MachineGpuTable from './machine-gpu-table.svelte'
   import MachineHealthHeader from './machine-health-header.svelte'
@@ -53,7 +53,6 @@
   } = $props()
 
   const statCards = $derived(snapshot ? buildStatCards(snapshot) : [])
-  const levelCards = $derived(snapshot ? buildLevelCards(snapshot) : [])
   const runtimeRows = $derived(snapshot?.agentEnvironment ?? [])
   const auditRows = $derived(snapshot ? buildAuditRows(snapshot) : [])
 </script>
@@ -78,27 +77,6 @@
       {/each}
     </div>
 
-    <div class="border-border bg-card rounded-xl border">
-      <div class="border-border border-b px-4 py-3">
-        <h4 class="text-foreground text-sm font-semibold">Monitor levels</h4>
-        <p class="text-muted-foreground mt-1 text-xs">
-          Manual refresh runs the same multi-level machine checks used by the orchestrator.
-        </p>
-      </div>
-      <div class="grid gap-3 px-4 py-4 md:grid-cols-2 xl:grid-cols-3">
-        {#each levelCards as level (level.id)}
-          <div class="border-border rounded-xl border px-4 py-3">
-            <div class="flex items-center justify-between gap-2">
-              <p class="text-foreground text-sm font-medium">{level.label}</p>
-              <Badge variant={stateBadgeVariant(level.state)}>{stateLabel(level.state)}</Badge>
-            </div>
-            <p class="text-foreground mt-3 text-sm">{level.value}</p>
-            <p class="text-muted-foreground mt-1 text-xs">{level.meta}</p>
-          </div>
-        {/each}
-      </div>
-    </div>
-
     {#if snapshot.monitorErrors.length > 0}
       <div class="border-destructive/40 bg-destructive/10 rounded-xl border px-4 py-3">
         <p class="text-destructive text-sm font-medium">Monitor warnings</p>
@@ -111,12 +89,16 @@
     {/if}
 
     {#if runtimeRows.length > 0}
+      {@const l4State = levelState(snapshot.monitor.l4)}
       <div class="border-border bg-card rounded-xl border">
-        <div class="border-border border-b px-4 py-3">
-          <h4 class="text-foreground text-sm font-semibold">Runtime providers</h4>
-          <p class="text-muted-foreground mt-1 text-xs">
-            L4 runtime status captured {checkedAtLabel(snapshot.agentEnvironmentCheckedAt)}
-          </p>
+        <div class="border-border flex items-center justify-between border-b px-4 py-3">
+          <div class="flex items-center gap-2">
+            <h4 class="text-foreground text-sm font-semibold">Runtime providers</h4>
+            <Badge variant={stateBadgeVariant(l4State)}>{stateLabel(l4State)}</Badge>
+          </div>
+          <span class="text-muted-foreground text-xs">
+            {checkedAtLabel(snapshot.agentEnvironmentCheckedAt)}
+          </span>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
@@ -158,13 +140,21 @@
       </div>
     {/if}
 
+    {#if snapshot.gpus.length > 0}
+      <MachineGpuTable {snapshot} />
+    {/if}
+
     {#if snapshot.fullAudit}
+      {@const l5State = levelState(snapshot.monitor.l5)}
       <div class="border-border bg-card rounded-xl border">
-        <div class="border-border border-b px-4 py-3">
-          <h4 class="text-foreground text-sm font-semibold">Tooling audit</h4>
-          <p class="text-muted-foreground mt-1 text-xs">
-            L5 audit captured {checkedAtLabel(snapshot.fullAudit.checkedAt)}
-          </p>
+        <div class="border-border flex items-center justify-between border-b px-4 py-3">
+          <div class="flex items-center gap-2">
+            <h4 class="text-foreground text-sm font-semibold">Tooling audit</h4>
+            <Badge variant={stateBadgeVariant(l5State)}>{stateLabel(l5State)}</Badge>
+          </div>
+          <span class="text-muted-foreground text-xs">
+            {checkedAtLabel(snapshot.fullAudit.checkedAt)}
+          </span>
         </div>
         <div class="divide-border divide-y">
           {#each auditRows as row (row.kind)}
@@ -232,10 +222,6 @@
           {/each}
         </div>
       </div>
-    {/if}
-
-    {#if snapshot.gpus.length > 0}
-      <MachineGpuTable {snapshot} />
     {/if}
   {/if}
 

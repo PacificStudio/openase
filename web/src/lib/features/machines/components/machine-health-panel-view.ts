@@ -232,6 +232,13 @@ export function runtimeLabel(runtime: MachineCLIStatus): string {
   }
 }
 
+export function levelState(level: { error?: string; checkedAt?: string } | undefined): string {
+  if (!level) return 'unknown'
+  if (level.error) return 'error'
+  if (level.checkedAt) return 'ok'
+  return 'unknown'
+}
+
 export function stateBadgeVariant(state: string): 'secondary' | 'destructive' | 'outline' {
   switch (state) {
     case 'ok':
