@@ -30,6 +30,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
@@ -934,6 +935,16 @@ func TestRuntimeLauncherFinishResolvedExecutionReleasesStageOccupancy(t *testing
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).SetStatusID(fixture.statusIDs["Done"]).Save(ctx); err != nil {
 		t.Fatalf("mark ticket done: %v", err)
 	}
+	retryAt := now.Add(15 * time.Minute)
+	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
+		SetAttemptCount(3).
+		SetConsecutiveErrors(2).
+		SetNextRetryAt(retryAt).
+		SetRetryPaused(true).
+		SetPauseReason(ticketing.PauseReasonBudgetExhausted.String()).
+		Save(ctx); err != nil {
+		t.Fatalf("seed retry baseline before finish: %v", err)
+	}
 	resolvedTicket, err := client.Ticket.Query().
 		Where(entticket.IDEQ(ticketItem.ID)).
 		WithCurrentRun().
@@ -961,6 +972,9 @@ func TestRuntimeLauncherFinishResolvedExecutionReleasesStageOccupancy(t *testing
 	}
 	if ticketAfter.CompletedAt == nil {
 		t.Fatalf("expected finish to stamp completed_at, got %+v", ticketAfter)
+	}
+	if ticketAfter.AttemptCount != 3 || ticketAfter.ConsecutiveErrors != 0 || ticketAfter.NextRetryAt != nil || ticketAfter.RetryPaused || ticketAfter.PauseReason != "" {
+		t.Fatalf("expected finish to normalize retry baseline, got %+v", ticketAfter)
 	}
 	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
 	if err != nil {
