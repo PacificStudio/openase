@@ -35,6 +35,8 @@ const (
 	FieldModelTemperature = "model_temperature"
 	// FieldModelMaxTokens holds the string denoting the model_max_tokens field in the database.
 	FieldModelMaxTokens = "model_max_tokens"
+	// FieldMaxParallelRuns holds the string denoting the max_parallel_runs field in the database.
+	FieldMaxParallelRuns = "max_parallel_runs"
 	// FieldCostPerInputToken holds the string denoting the cost_per_input_token field in the database.
 	FieldCostPerInputToken = "cost_per_input_token"
 	// FieldCostPerOutputToken holds the string denoting the cost_per_output_token field in the database.
@@ -92,6 +94,7 @@ var Columns = []string{
 	FieldModelName,
 	FieldModelTemperature,
 	FieldModelMaxTokens,
+	FieldMaxParallelRuns,
 	FieldCostPerInputToken,
 	FieldCostPerOutputToken,
 }
@@ -119,6 +122,8 @@ var (
 	DefaultModelTemperature float64
 	// DefaultModelMaxTokens holds the default value on creation for the "model_max_tokens" field.
 	DefaultModelMaxTokens int
+	// DefaultMaxParallelRuns holds the default value on creation for the "max_parallel_runs" field.
+	DefaultMaxParallelRuns int
 	// DefaultCostPerInputToken holds the default value on creation for the "cost_per_input_token" field.
 	DefaultCostPerInputToken float64
 	// DefaultCostPerOutputToken holds the default value on creation for the "cost_per_output_token" field.
@@ -203,6 +208,11 @@ func ByModelTemperature(opts ...sql.OrderTermOption) OrderOption {
 // ByModelMaxTokens orders the results by the model_max_tokens field.
 func ByModelMaxTokens(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldModelMaxTokens, opts...).ToFunc()
+}
+
+// ByMaxParallelRuns orders the results by the max_parallel_runs field.
+func ByMaxParallelRuns(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMaxParallelRuns, opts...).ToFunc()
 }
 
 // ByCostPerInputToken orders the results by the cost_per_input_token field.

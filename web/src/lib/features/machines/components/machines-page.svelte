@@ -3,6 +3,7 @@
   import { toastStore } from '$lib/stores/toast.svelte'
   import MachinesPageBody from './machines-page-body.svelte'
   import { syncMachineListState } from './machines-page-state-sync'
+  import { connectMachinesPageStream } from './machines-page-streams'
   import {
     loadMachineSnapshot,
     loadMachines,
@@ -52,7 +53,6 @@
     probe = $state<MachineProbeResult | null>(null)
   const selectedMachine = $derived(machines.find((machine) => machine.id === selectedId) ?? null),
     filteredMachines = $derived(filterMachines(machines, searchQuery))
-
   $effect(() => {
     const currentOrg = appStore.currentOrg
     if (!currentOrg) {
@@ -62,12 +62,19 @@
       applyViewState(createNoOrgState())
       return
     }
+    const orgId = currentOrg.id
 
     let cancelled = false
-    void loadMachineList(currentOrg.id, { background: false, cancelled: () => cancelled })
-    return () => (cancelled = true)
-  })
+    void loadMachineList(orgId, { background: false, cancelled: () => cancelled })
+    const disconnect = connectMachinesPageStream(orgId, () => {
+      void loadMachineList(orgId, { background: true, cancelled: () => cancelled })
+    })
 
+    return () => {
+      cancelled = true
+      disconnect()
+    }
+  })
   async function loadMachineList(
     orgId: string,
     options: {
@@ -90,9 +97,7 @@
       })
       editorOpen = nextState.selectedMachineId !== null
       applyViewState(nextState.viewState)
-      if (nextState.selectedMachineId) {
-        await loadMachineResources(nextState.selectedMachineId)
-      }
+      if (nextState.selectedMachineId) await loadMachineResources(nextState.selectedMachineId)
     } catch (caughtError) {
       if (options.cancelled?.()) return
       if (options.background && machines.length > 0) {
@@ -109,13 +114,10 @@
         applyViewState(nextState.viewState)
       }
     } finally {
-      if (!options.cancelled?.()) {
-        loading = false
-        refreshing = false
-      }
+      if (!options.cancelled?.()) loading = false
+      if (!options.cancelled?.()) refreshing = false
     }
   }
-
   function applyViewState(nextState: MachinesPageViewState) {
     ;({
       routeOrgId,
@@ -130,13 +132,11 @@
       probe,
     } = nextState)
   }
-
   async function openMachine(machine: MachineItem, openEditor = true) {
     applyViewState({ ...createEditorSelectionState(routeOrgId, machines, machine), searchQuery })
     editorOpen = openEditor
     await loadMachineResources(machine.id)
   }
-
   async function loadMachineResources(machineId: string) {
     loadingHealth = true
     try {
@@ -147,24 +147,20 @@
       loadingHealth = false
     }
   }
-
   function startCreate() {
     if (!routeOrgId) return applyViewState(createNoOrgState())
     applyViewState({ ...createStartCreateState(routeOrgId, machines), searchQuery })
     editorOpen = true
   }
-
   function resetDraft(machineId?: string) {
     if (machineId && machineId !== selectedId) return
     if (mode === 'create') return void (draft = createEmptyMachineDraft())
     if (selectedMachine) draft = machineToDraft(selectedMachine)
   }
-
   async function handleRefresh() {
     if (loading || refreshing || !routeOrgId) return
     await loadMachineList(routeOrgId, { background: workspaceState === 'ready' })
   }
-
   async function handleSave() {
     const parsed = parseMachineDraft(draft)
     if (!routeOrgId || !parsed.ok) {
@@ -173,7 +169,6 @@
     }
 
     saving = true
-
     try {
       const result = await saveMachine(routeOrgId, selectedMachine, mode, parsed.value)
       machines =

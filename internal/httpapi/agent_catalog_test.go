@@ -64,6 +64,9 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 	if providerPayload.Provider.CliCommand != "codex" {
 		t.Fatalf("expected provider cli_command to round-trip, got %+v", providerPayload.Provider)
 	}
+	if providerPayload.Provider.MaxParallelRuns != domain.DefaultAgentProviderMaxParallelRuns {
+		t.Fatalf("expected provider max_parallel_runs default to round-trip, got %+v", providerPayload.Provider)
+	}
 	if providerPayload.Provider.MachineName != domain.LocalMachineName {
 		t.Fatalf("expected provider machine metadata to round-trip, got %+v", providerPayload.Provider)
 	}
@@ -337,7 +340,7 @@ func TestListAgentsRouteOmitsCapabilitiesField(t *testing.T) {
 	agentID := uuid.New()
 	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
 	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase"}
-	service.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: orgID, MachineID: uuid.New(), Name: "Codex"}
+	service.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: orgID, MachineID: uuid.New(), Name: "Codex", MaxParallelRuns: domain.DefaultAgentProviderMaxParallelRuns}
 	service.agents[agentID] = domain.Agent{
 		ID:                  agentID,
 		ProviderID:          providerID,
@@ -402,7 +405,7 @@ func TestListAgentRunsRouteExposesConcurrentRuns(t *testing.T) {
 
 	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
 	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase"}
-	service.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: orgID, MachineID: uuid.New(), Name: "Codex"}
+	service.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: orgID, MachineID: uuid.New(), Name: "Codex", MaxParallelRuns: domain.DefaultAgentProviderMaxParallelRuns}
 	service.agents[agentID] = domain.Agent{
 		ID:                  agentID,
 		ProviderID:          providerID,
@@ -471,7 +474,7 @@ func TestPauseAndResumeAgentRoutes(t *testing.T) {
 	ticketID := uuid.New()
 	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
 	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase"}
-	service.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: orgID, MachineID: uuid.New(), Name: "Codex"}
+	service.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: orgID, MachineID: uuid.New(), Name: "Codex", MaxParallelRuns: domain.DefaultAgentProviderMaxParallelRuns}
 	service.agents[agentID] = domain.Agent{
 		ID:                  agentID,
 		ProviderID:          providerID,
@@ -550,7 +553,7 @@ func TestPauseAndResumeAgentRouteErrors(t *testing.T) {
 	ticketID := uuid.New()
 	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
 	service.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID, Name: "OpenASE", Slug: "openase"}
-	service.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: orgID, MachineID: uuid.New(), Name: "Codex"}
+	service.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: orgID, MachineID: uuid.New(), Name: "Codex", MaxParallelRuns: domain.DefaultAgentProviderMaxParallelRuns}
 	service.agents[pausedAgentID] = domain.Agent{
 		ID:                  pausedAgentID,
 		ProviderID:          providerID,
@@ -647,6 +650,7 @@ func TestAgentCatalogRouteErrorMappingsAndHelpers(t *testing.T) {
 		Name:                 "Codex",
 		AdapterType:          domain.AgentProviderAdapterTypeCodexAppServer,
 		CliCommand:           "codex",
+		MaxParallelRuns:      domain.DefaultAgentProviderMaxParallelRuns,
 	}
 	service.agents[agentID] = domain.Agent{
 		ID:                  agentID,
@@ -767,6 +771,7 @@ func (f *fakeCatalogService) CreateAgentProvider(_ context.Context, input domain
 		ModelName:            input.ModelName,
 		ModelTemperature:     input.ModelTemperature,
 		ModelMaxTokens:       input.ModelMaxTokens,
+		MaxParallelRuns:      input.MaxParallelRuns,
 		CostPerInputToken:    input.CostPerInputToken,
 		CostPerOutputToken:   input.CostPerOutputToken,
 	}
@@ -816,6 +821,7 @@ func (f *fakeCatalogService) UpdateAgentProvider(_ context.Context, input domain
 		ModelName:            input.ModelName,
 		ModelTemperature:     input.ModelTemperature,
 		ModelMaxTokens:       input.ModelMaxTokens,
+		MaxParallelRuns:      input.MaxParallelRuns,
 		CostPerInputToken:    input.CostPerInputToken,
 		CostPerOutputToken:   input.CostPerOutputToken,
 	}

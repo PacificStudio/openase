@@ -25,6 +25,7 @@ func (AgentProvider) Fields() []ent.Field {
 		field.String("model_name").NotEmpty(),
 		field.Float("model_temperature").Default(0),
 		field.Int("model_max_tokens").Default(16384),
+		field.Int("max_parallel_runs").Default(5),
 		field.Float("cost_per_input_token").
 			SchemaType(rateColumn()).
 			Default(0),
