@@ -31,28 +31,29 @@ import (
 )
 
 type Server struct {
-	cfg                 config.ServerConfig
-	github              config.GitHubConfig
-	logger              *slog.Logger
-	events              provider.EventProvider
-	trace               provider.TraceProvider
-	metrics             provider.MetricsProvider
-	metricsHandler      http.Handler
-	echo                *echo.Echo
-	sseHub              *sse.Hub
-	inboundWebhooks     *inboundWebhookReceiver
-	ticketService       *ticketservice.Service
-	ticketStatusService *ticketstatus.Service
-	agentPlatform       *agentplatform.Service
-	catalog             catalogservice.Service
-	projectRepoMirrors  *projectrepomirrorsvc.Service
-	workflowService     *workflowservice.Service
-	scheduledJobService *scheduledjobservice.Service
-	notificationService *notificationservice.Service
-	chatService         *chatservice.Service
-	githubAuthService   githubauthservice.SecurityManager
-	issueConnectorSvc   *issueconnectorservice.Service
-	memoryCollector     runtimeobservability.ProcessMemoryCollector
+	cfg                        config.ServerConfig
+	github                     config.GitHubConfig
+	logger                     *slog.Logger
+	events                     provider.EventProvider
+	trace                      provider.TraceProvider
+	metrics                    provider.MetricsProvider
+	metricsHandler             http.Handler
+	echo                       *echo.Echo
+	sseHub                     *sse.Hub
+	inboundWebhooks            *inboundWebhookReceiver
+	ticketService              *ticketservice.Service
+	ticketStatusService        *ticketstatus.Service
+	agentPlatform              *agentplatform.Service
+	catalog                    catalogservice.Service
+	projectRepoMirrors         *projectrepomirrorsvc.Service
+	workflowService            *workflowservice.Service
+	scheduledJobService        *scheduledjobservice.Service
+	notificationService        *notificationservice.Service
+	chatService                *chatservice.Service
+	projectConversationService *chatservice.ProjectConversationService
+	githubAuthService          githubauthservice.SecurityManager
+	issueConnectorSvc          *issueconnectorservice.Service
+	memoryCollector            runtimeobservability.ProcessMemoryCollector
 }
 
 type ServerOption func(*Server)
@@ -72,6 +73,12 @@ func WithProjectRepoMirrorService(service *projectrepomirrorsvc.Service) ServerO
 func WithChatService(service *chatservice.Service) ServerOption {
 	return func(server *Server) {
 		server.chatService = service
+	}
+}
+
+func WithProjectConversationService(service *chatservice.ProjectConversationService) ServerOption {
+	return func(server *Server) {
+		server.projectConversationService = service
 	}
 }
 

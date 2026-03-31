@@ -12,6 +12,10 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	"github.com/BetterAndBetterII/openase/ent/chatconversation"
+	"github.com/BetterAndBetterII/openase/ent/chatentry"
+	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
+	"github.com/BetterAndBetterII/openase/ent/chatturn"
 	entissueconnector "github.com/BetterAndBetterII/openase/ent/issueconnector"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
@@ -189,6 +193,122 @@ func init() {
 	agenttraceeventDescID := agenttraceeventFields[0].Descriptor()
 	// agenttraceevent.DefaultID holds the default value on creation for the id field.
 	agenttraceevent.DefaultID = agenttraceeventDescID.Default.(func() uuid.UUID)
+	chatconversationFields := schema.ChatConversation{}.Fields()
+	_ = chatconversationFields
+	// chatconversationDescUserID is the schema descriptor for user_id field.
+	chatconversationDescUserID := chatconversationFields[2].Descriptor()
+	// chatconversation.UserIDValidator is a validator for the "user_id" field. It is called by the builders before save.
+	chatconversation.UserIDValidator = chatconversationDescUserID.Validators[0].(func(string) error)
+	// chatconversationDescSource is the schema descriptor for source field.
+	chatconversationDescSource := chatconversationFields[3].Descriptor()
+	// chatconversation.SourceValidator is a validator for the "source" field. It is called by the builders before save.
+	chatconversation.SourceValidator = chatconversationDescSource.Validators[0].(func(string) error)
+	// chatconversationDescStatus is the schema descriptor for status field.
+	chatconversationDescStatus := chatconversationFields[5].Descriptor()
+	// chatconversation.DefaultStatus holds the default value on creation for the status field.
+	chatconversation.DefaultStatus = chatconversationDescStatus.Default.(string)
+	// chatconversationDescLastActivityAt is the schema descriptor for last_activity_at field.
+	chatconversationDescLastActivityAt := chatconversationFields[9].Descriptor()
+	// chatconversation.DefaultLastActivityAt holds the default value on creation for the last_activity_at field.
+	chatconversation.DefaultLastActivityAt = chatconversationDescLastActivityAt.Default.(func() time.Time)
+	// chatconversation.UpdateDefaultLastActivityAt holds the default value on update for the last_activity_at field.
+	chatconversation.UpdateDefaultLastActivityAt = chatconversationDescLastActivityAt.UpdateDefault.(func() time.Time)
+	// chatconversationDescCreatedAt is the schema descriptor for created_at field.
+	chatconversationDescCreatedAt := chatconversationFields[10].Descriptor()
+	// chatconversation.DefaultCreatedAt holds the default value on creation for the created_at field.
+	chatconversation.DefaultCreatedAt = chatconversationDescCreatedAt.Default.(func() time.Time)
+	// chatconversationDescUpdatedAt is the schema descriptor for updated_at field.
+	chatconversationDescUpdatedAt := chatconversationFields[11].Descriptor()
+	// chatconversation.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	chatconversation.DefaultUpdatedAt = chatconversationDescUpdatedAt.Default.(func() time.Time)
+	// chatconversation.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	chatconversation.UpdateDefaultUpdatedAt = chatconversationDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// chatconversationDescID is the schema descriptor for id field.
+	chatconversationDescID := chatconversationFields[0].Descriptor()
+	// chatconversation.DefaultID holds the default value on creation for the id field.
+	chatconversation.DefaultID = chatconversationDescID.Default.(func() uuid.UUID)
+	chatentryFields := schema.ChatEntry{}.Fields()
+	_ = chatentryFields
+	// chatentryDescSeq is the schema descriptor for seq field.
+	chatentryDescSeq := chatentryFields[3].Descriptor()
+	// chatentry.SeqValidator is a validator for the "seq" field. It is called by the builders before save.
+	chatentry.SeqValidator = chatentryDescSeq.Validators[0].(func(int) error)
+	// chatentryDescKind is the schema descriptor for kind field.
+	chatentryDescKind := chatentryFields[4].Descriptor()
+	// chatentry.KindValidator is a validator for the "kind" field. It is called by the builders before save.
+	chatentry.KindValidator = chatentryDescKind.Validators[0].(func(string) error)
+	// chatentryDescPayloadJSON is the schema descriptor for payload_json field.
+	chatentryDescPayloadJSON := chatentryFields[5].Descriptor()
+	// chatentry.DefaultPayloadJSON holds the default value on creation for the payload_json field.
+	chatentry.DefaultPayloadJSON = chatentryDescPayloadJSON.Default.(func() map[string]interface{})
+	// chatentryDescCreatedAt is the schema descriptor for created_at field.
+	chatentryDescCreatedAt := chatentryFields[6].Descriptor()
+	// chatentry.DefaultCreatedAt holds the default value on creation for the created_at field.
+	chatentry.DefaultCreatedAt = chatentryDescCreatedAt.Default.(func() time.Time)
+	// chatentryDescID is the schema descriptor for id field.
+	chatentryDescID := chatentryFields[0].Descriptor()
+	// chatentry.DefaultID holds the default value on creation for the id field.
+	chatentry.DefaultID = chatentryDescID.Default.(func() uuid.UUID)
+	chatpendinginterruptFields := schema.ChatPendingInterrupt{}.Fields()
+	_ = chatpendinginterruptFields
+	// chatpendinginterruptDescProviderRequestID is the schema descriptor for provider_request_id field.
+	chatpendinginterruptDescProviderRequestID := chatpendinginterruptFields[3].Descriptor()
+	// chatpendinginterrupt.ProviderRequestIDValidator is a validator for the "provider_request_id" field. It is called by the builders before save.
+	chatpendinginterrupt.ProviderRequestIDValidator = chatpendinginterruptDescProviderRequestID.Validators[0].(func(string) error)
+	// chatpendinginterruptDescKind is the schema descriptor for kind field.
+	chatpendinginterruptDescKind := chatpendinginterruptFields[4].Descriptor()
+	// chatpendinginterrupt.KindValidator is a validator for the "kind" field. It is called by the builders before save.
+	chatpendinginterrupt.KindValidator = chatpendinginterruptDescKind.Validators[0].(func(string) error)
+	// chatpendinginterruptDescPayloadJSON is the schema descriptor for payload_json field.
+	chatpendinginterruptDescPayloadJSON := chatpendinginterruptFields[5].Descriptor()
+	// chatpendinginterrupt.DefaultPayloadJSON holds the default value on creation for the payload_json field.
+	chatpendinginterrupt.DefaultPayloadJSON = chatpendinginterruptDescPayloadJSON.Default.(func() map[string]interface{})
+	// chatpendinginterruptDescStatus is the schema descriptor for status field.
+	chatpendinginterruptDescStatus := chatpendinginterruptFields[6].Descriptor()
+	// chatpendinginterrupt.DefaultStatus holds the default value on creation for the status field.
+	chatpendinginterrupt.DefaultStatus = chatpendinginterruptDescStatus.Default.(string)
+	// chatpendinginterruptDescCreatedAt is the schema descriptor for created_at field.
+	chatpendinginterruptDescCreatedAt := chatpendinginterruptFields[10].Descriptor()
+	// chatpendinginterrupt.DefaultCreatedAt holds the default value on creation for the created_at field.
+	chatpendinginterrupt.DefaultCreatedAt = chatpendinginterruptDescCreatedAt.Default.(func() time.Time)
+	// chatpendinginterruptDescUpdatedAt is the schema descriptor for updated_at field.
+	chatpendinginterruptDescUpdatedAt := chatpendinginterruptFields[11].Descriptor()
+	// chatpendinginterrupt.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	chatpendinginterrupt.DefaultUpdatedAt = chatpendinginterruptDescUpdatedAt.Default.(func() time.Time)
+	// chatpendinginterrupt.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	chatpendinginterrupt.UpdateDefaultUpdatedAt = chatpendinginterruptDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// chatpendinginterruptDescID is the schema descriptor for id field.
+	chatpendinginterruptDescID := chatpendinginterruptFields[0].Descriptor()
+	// chatpendinginterrupt.DefaultID holds the default value on creation for the id field.
+	chatpendinginterrupt.DefaultID = chatpendinginterruptDescID.Default.(func() uuid.UUID)
+	chatturnFields := schema.ChatTurn{}.Fields()
+	_ = chatturnFields
+	// chatturnDescTurnIndex is the schema descriptor for turn_index field.
+	chatturnDescTurnIndex := chatturnFields[2].Descriptor()
+	// chatturn.TurnIndexValidator is a validator for the "turn_index" field. It is called by the builders before save.
+	chatturn.TurnIndexValidator = chatturnDescTurnIndex.Validators[0].(func(int) error)
+	// chatturnDescStatus is the schema descriptor for status field.
+	chatturnDescStatus := chatturnFields[4].Descriptor()
+	// chatturn.DefaultStatus holds the default value on creation for the status field.
+	chatturn.DefaultStatus = chatturnDescStatus.Default.(string)
+	// chatturnDescStartedAt is the schema descriptor for started_at field.
+	chatturnDescStartedAt := chatturnFields[5].Descriptor()
+	// chatturn.DefaultStartedAt holds the default value on creation for the started_at field.
+	chatturn.DefaultStartedAt = chatturnDescStartedAt.Default.(func() time.Time)
+	// chatturnDescCreatedAt is the schema descriptor for created_at field.
+	chatturnDescCreatedAt := chatturnFields[7].Descriptor()
+	// chatturn.DefaultCreatedAt holds the default value on creation for the created_at field.
+	chatturn.DefaultCreatedAt = chatturnDescCreatedAt.Default.(func() time.Time)
+	// chatturnDescUpdatedAt is the schema descriptor for updated_at field.
+	chatturnDescUpdatedAt := chatturnFields[8].Descriptor()
+	// chatturn.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	chatturn.DefaultUpdatedAt = chatturnDescUpdatedAt.Default.(func() time.Time)
+	// chatturn.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	chatturn.UpdateDefaultUpdatedAt = chatturnDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// chatturnDescID is the schema descriptor for id field.
+	chatturnDescID := chatturnFields[0].Descriptor()
+	// chatturn.DefaultID holds the default value on creation for the id field.
+	chatturn.DefaultID = chatturnDescID.Default.(func() uuid.UUID)
 	entissueconnectorFields := schema.IssueConnector{}.Fields()
 	_ = entissueconnectorFields
 	// entissueconnectorDescType is the schema descriptor for type field.

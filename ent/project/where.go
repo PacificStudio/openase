@@ -780,6 +780,29 @@ func HasActivityEventsWith(preds ...predicate.ActivityEvent) predicate.Project {
 	})
 }
 
+// HasChatConversations applies the HasEdge predicate on the "chat_conversations" edge.
+func HasChatConversations() predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ChatConversationsTable, ChatConversationsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasChatConversationsWith applies the HasEdge predicate on the "chat_conversations" edge with a given conditions (other predicates).
+func HasChatConversationsWith(preds ...predicate.ChatConversation) predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := newChatConversationsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasNotificationRules applies the HasEdge predicate on the "notification_rules" edge.
 func HasNotificationRules() predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {

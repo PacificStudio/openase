@@ -93,6 +93,54 @@ func (f AgentTraceEventFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Va
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentTraceEventMutation", m)
 }
 
+// The ChatConversationFunc type is an adapter to allow the use of ordinary
+// function as ChatConversation mutator.
+type ChatConversationFunc func(context.Context, *ent.ChatConversationMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ChatConversationFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ChatConversationMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChatConversationMutation", m)
+}
+
+// The ChatEntryFunc type is an adapter to allow the use of ordinary
+// function as ChatEntry mutator.
+type ChatEntryFunc func(context.Context, *ent.ChatEntryMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ChatEntryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ChatEntryMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChatEntryMutation", m)
+}
+
+// The ChatPendingInterruptFunc type is an adapter to allow the use of ordinary
+// function as ChatPendingInterrupt mutator.
+type ChatPendingInterruptFunc func(context.Context, *ent.ChatPendingInterruptMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ChatPendingInterruptFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ChatPendingInterruptMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChatPendingInterruptMutation", m)
+}
+
+// The ChatTurnFunc type is an adapter to allow the use of ordinary
+// function as ChatTurn mutator.
+type ChatTurnFunc func(context.Context, *ent.ChatTurnMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ChatTurnFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ChatTurnMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChatTurnMutation", m)
+}
+
 // The IssueConnectorFunc type is an adapter to allow the use of ordinary
 // function as IssueConnector mutator.
 type IssueConnectorFunc func(context.Context, *ent.IssueConnectorMutation) (ent.Value, error)

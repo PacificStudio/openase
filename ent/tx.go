@@ -26,6 +26,14 @@ type Tx struct {
 	AgentToken *AgentTokenClient
 	// AgentTraceEvent is the client for interacting with the AgentTraceEvent builders.
 	AgentTraceEvent *AgentTraceEventClient
+	// ChatConversation is the client for interacting with the ChatConversation builders.
+	ChatConversation *ChatConversationClient
+	// ChatEntry is the client for interacting with the ChatEntry builders.
+	ChatEntry *ChatEntryClient
+	// ChatPendingInterrupt is the client for interacting with the ChatPendingInterrupt builders.
+	ChatPendingInterrupt *ChatPendingInterruptClient
+	// ChatTurn is the client for interacting with the ChatTurn builders.
+	ChatTurn *ChatTurnClient
 	// IssueConnector is the client for interacting with the IssueConnector builders.
 	IssueConnector *IssueConnectorClient
 	// Machine is the client for interacting with the Machine builders.
@@ -208,6 +216,10 @@ func (tx *Tx) init() {
 	tx.AgentStepEvent = NewAgentStepEventClient(tx.config)
 	tx.AgentToken = NewAgentTokenClient(tx.config)
 	tx.AgentTraceEvent = NewAgentTraceEventClient(tx.config)
+	tx.ChatConversation = NewChatConversationClient(tx.config)
+	tx.ChatEntry = NewChatEntryClient(tx.config)
+	tx.ChatPendingInterrupt = NewChatPendingInterruptClient(tx.config)
+	tx.ChatTurn = NewChatTurnClient(tx.config)
 	tx.IssueConnector = NewIssueConnectorClient(tx.config)
 	tx.Machine = NewMachineClient(tx.config)
 	tx.NotificationChannel = NewNotificationChannelClient(tx.config)

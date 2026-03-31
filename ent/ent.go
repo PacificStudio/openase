@@ -19,6 +19,10 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	"github.com/BetterAndBetterII/openase/ent/chatconversation"
+	"github.com/BetterAndBetterII/openase/ent/chatentry"
+	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
+	"github.com/BetterAndBetterII/openase/ent/chatturn"
 
 	entissueconnector "github.com/BetterAndBetterII/openase/ent/issueconnector"
 	"github.com/BetterAndBetterII/openase/ent/machine"
@@ -109,6 +113,10 @@ func checkColumn(t, c string) error {
 			agentstepevent.Table:        agentstepevent.ValidColumn,
 			agenttoken.Table:            agenttoken.ValidColumn,
 			agenttraceevent.Table:       agenttraceevent.ValidColumn,
+			chatconversation.Table:      chatconversation.ValidColumn,
+			chatentry.Table:             chatentry.ValidColumn,
+			chatpendinginterrupt.Table:  chatpendinginterrupt.ValidColumn,
+			chatturn.Table:              chatturn.ValidColumn,
 			entissueconnector.Table:     entissueconnector.ValidColumn,
 			machine.Table:               machine.ValidColumn,
 			notificationchannel.Table:   notificationchannel.ValidColumn,

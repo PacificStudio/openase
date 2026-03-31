@@ -59,6 +59,8 @@ const (
 	EdgeScheduledJobs = "scheduled_jobs"
 	// EdgeActivityEvents holds the string denoting the activity_events edge name in mutations.
 	EdgeActivityEvents = "activity_events"
+	// EdgeChatConversations holds the string denoting the chat_conversations edge name in mutations.
+	EdgeChatConversations = "chat_conversations"
 	// EdgeNotificationRules holds the string denoting the notification_rules edge name in mutations.
 	EdgeNotificationRules = "notification_rules"
 	// EdgeIssueConnectors holds the string denoting the issue_connectors edge name in mutations.
@@ -153,6 +155,13 @@ const (
 	ActivityEventsInverseTable = "activity_events"
 	// ActivityEventsColumn is the table column denoting the activity_events relation/edge.
 	ActivityEventsColumn = "project_id"
+	// ChatConversationsTable is the table that holds the chat_conversations relation/edge.
+	ChatConversationsTable = "chat_conversations"
+	// ChatConversationsInverseTable is the table name for the ChatConversation entity.
+	// It exists in this package in order to avoid circular dependency with the "chatconversation" package.
+	ChatConversationsInverseTable = "chat_conversations"
+	// ChatConversationsColumn is the table column denoting the chat_conversations relation/edge.
+	ChatConversationsColumn = "project_id"
 	// NotificationRulesTable is the table that holds the notification_rules relation/edge.
 	NotificationRulesTable = "notification_rules"
 	// NotificationRulesInverseTable is the table name for the NotificationRule entity.
@@ -433,6 +442,20 @@ func ByActivityEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByChatConversationsCount orders the results by chat_conversations count.
+func ByChatConversationsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newChatConversationsStep(), opts...)
+	}
+}
+
+// ByChatConversations orders the results by chat_conversations terms.
+func ByChatConversations(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newChatConversationsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByNotificationRulesCount orders the results by notification_rules count.
 func ByNotificationRulesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -556,6 +579,13 @@ func newActivityEventsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ActivityEventsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ActivityEventsTable, ActivityEventsColumn),
+	)
+}
+func newChatConversationsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ChatConversationsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ChatConversationsTable, ChatConversationsColumn),
 	)
 }
 func newNotificationRulesStep() *sqlgraph.Step {

@@ -17,6 +17,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	entissueconnector "github.com/BetterAndBetterII/openase/ent/issueconnector"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
@@ -388,6 +389,21 @@ func (_u *ProjectUpdate) AddActivityEvents(v ...*ActivityEvent) *ProjectUpdate {
 	return _u.AddActivityEventIDs(ids...)
 }
 
+// AddChatConversationIDs adds the "chat_conversations" edge to the ChatConversation entity by IDs.
+func (_u *ProjectUpdate) AddChatConversationIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.AddChatConversationIDs(ids...)
+	return _u
+}
+
+// AddChatConversations adds the "chat_conversations" edges to the ChatConversation entity.
+func (_u *ProjectUpdate) AddChatConversations(v ...*ChatConversation) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddChatConversationIDs(ids...)
+}
+
 // AddNotificationRuleIDs adds the "notification_rules" edge to the NotificationRule entity by IDs.
 func (_u *ProjectUpdate) AddNotificationRuleIDs(ids ...uuid.UUID) *ProjectUpdate {
 	_u.mutation.AddNotificationRuleIDs(ids...)
@@ -668,6 +684,27 @@ func (_u *ProjectUpdate) RemoveActivityEvents(v ...*ActivityEvent) *ProjectUpdat
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveActivityEventIDs(ids...)
+}
+
+// ClearChatConversations clears all "chat_conversations" edges to the ChatConversation entity.
+func (_u *ProjectUpdate) ClearChatConversations() *ProjectUpdate {
+	_u.mutation.ClearChatConversations()
+	return _u
+}
+
+// RemoveChatConversationIDs removes the "chat_conversations" edge to ChatConversation entities by IDs.
+func (_u *ProjectUpdate) RemoveChatConversationIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.RemoveChatConversationIDs(ids...)
+	return _u
+}
+
+// RemoveChatConversations removes "chat_conversations" edges to ChatConversation entities.
+func (_u *ProjectUpdate) RemoveChatConversations(v ...*ChatConversation) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveChatConversationIDs(ids...)
 }
 
 // ClearNotificationRules clears all "notification_rules" edges to the NotificationRule entity.
@@ -1346,6 +1383,51 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.ChatConversationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatConversationsTable,
+			Columns: []string{project.ChatConversationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatconversation.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedChatConversationsIDs(); len(nodes) > 0 && !_u.mutation.ChatConversationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatConversationsTable,
+			Columns: []string{project.ChatConversationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatconversation.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ChatConversationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatConversationsTable,
+			Columns: []string{project.ChatConversationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatconversation.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.NotificationRulesCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -1857,6 +1939,21 @@ func (_u *ProjectUpdateOne) AddActivityEvents(v ...*ActivityEvent) *ProjectUpdat
 	return _u.AddActivityEventIDs(ids...)
 }
 
+// AddChatConversationIDs adds the "chat_conversations" edge to the ChatConversation entity by IDs.
+func (_u *ProjectUpdateOne) AddChatConversationIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.AddChatConversationIDs(ids...)
+	return _u
+}
+
+// AddChatConversations adds the "chat_conversations" edges to the ChatConversation entity.
+func (_u *ProjectUpdateOne) AddChatConversations(v ...*ChatConversation) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddChatConversationIDs(ids...)
+}
+
 // AddNotificationRuleIDs adds the "notification_rules" edge to the NotificationRule entity by IDs.
 func (_u *ProjectUpdateOne) AddNotificationRuleIDs(ids ...uuid.UUID) *ProjectUpdateOne {
 	_u.mutation.AddNotificationRuleIDs(ids...)
@@ -2137,6 +2234,27 @@ func (_u *ProjectUpdateOne) RemoveActivityEvents(v ...*ActivityEvent) *ProjectUp
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveActivityEventIDs(ids...)
+}
+
+// ClearChatConversations clears all "chat_conversations" edges to the ChatConversation entity.
+func (_u *ProjectUpdateOne) ClearChatConversations() *ProjectUpdateOne {
+	_u.mutation.ClearChatConversations()
+	return _u
+}
+
+// RemoveChatConversationIDs removes the "chat_conversations" edge to ChatConversation entities by IDs.
+func (_u *ProjectUpdateOne) RemoveChatConversationIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.RemoveChatConversationIDs(ids...)
+	return _u
+}
+
+// RemoveChatConversations removes "chat_conversations" edges to ChatConversation entities.
+func (_u *ProjectUpdateOne) RemoveChatConversations(v ...*ChatConversation) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveChatConversationIDs(ids...)
 }
 
 // ClearNotificationRules clears all "notification_rules" edges to the NotificationRule entity.
@@ -2838,6 +2956,51 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(activityevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ChatConversationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatConversationsTable,
+			Columns: []string{project.ChatConversationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatconversation.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedChatConversationsIDs(); len(nodes) > 0 && !_u.mutation.ChatConversationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatConversationsTable,
+			Columns: []string{project.ChatConversationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatconversation.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ChatConversationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatConversationsTable,
+			Columns: []string{project.ChatConversationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatconversation.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
