@@ -15,9 +15,13 @@ import (
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
+	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	gittransport "github.com/go-git/go-git/v5/plumbing/transport"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/google/uuid"
 )
 
@@ -77,10 +81,11 @@ type DeleteInput struct {
 }
 
 type Service struct {
-	client  *rootent.Client
-	logger  *slog.Logger
-	now     func() time.Time
-	sshPool *sshinfra.Pool
+	client     *rootent.Client
+	logger     *slog.Logger
+	now        func() time.Time
+	sshPool    *sshinfra.Pool
+	githubAuth githubauthservice.TokenResolver
 }
 
 func NewService(client *rootent.Client, logger *slog.Logger) *Service {
@@ -99,6 +104,13 @@ func (s *Service) ConfigureSSHPool(pool *sshinfra.Pool) {
 		return
 	}
 	s.sshPool = pool
+}
+
+func (s *Service) ConfigureGitHubCredentials(resolver githubauthservice.TokenResolver) {
+	if s == nil {
+		return
+	}
+	s.githubAuth = resolver
 }
 
 func (s *Service) List(ctx context.Context, filter ListFilter) ([]domain.ProjectRepoMirror, error) {
@@ -158,7 +170,13 @@ func (s *Service) RegisterExisting(ctx context.Context, input RegisterExistingIn
 		return domain.ProjectRepoMirror{}, err
 	}
 
-	headCommit, verifyErr := s.inspectRepository(ctx, target.machine, target.localPath, target.projectRepo.RepositoryURL, target.projectRepo.DefaultBranch)
+	transport, err := s.resolveRepositoryTransport(ctx, target.projectRepo)
+	if err != nil {
+		s.recordFailure(ctx, current.ID, target.localPath, err)
+		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: %v", ErrMirrorSyncFailed, err)
+	}
+
+	headCommit, verifyErr := s.inspectRepository(ctx, target.machine, target.localPath, transport, target.projectRepo.DefaultBranch)
 	if verifyErr != nil {
 		s.recordFailure(ctx, current.ID, target.localPath, verifyErr)
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: %v", ErrMirrorSyncFailed, verifyErr)
@@ -199,7 +217,13 @@ func (s *Service) Prepare(ctx context.Context, input PrepareInput) (mirror domai
 		return domain.ProjectRepoMirror{}, err
 	}
 
-	headCommit, syncErr := s.syncRepository(ctx, target.machine, target.localPath, target.projectRepo.RepositoryURL, target.projectRepo.DefaultBranch)
+	transport, err := s.resolveRepositoryTransport(ctx, target.projectRepo)
+	if err != nil {
+		s.recordFailure(ctx, current.ID, target.localPath, err)
+		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: %v", ErrMirrorSyncFailed, err)
+	}
+
+	headCommit, syncErr := s.syncRepository(ctx, target.machine, target.localPath, transport, target.projectRepo.DefaultBranch)
 	if syncErr != nil {
 		s.recordFailure(ctx, current.ID, target.localPath, syncErr)
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: %v", ErrMirrorSyncFailed, syncErr)
@@ -246,7 +270,13 @@ func (s *Service) Sync(ctx context.Context, input SyncInput) (mirror domain.Proj
 		return domain.ProjectRepoMirror{}, fmt.Errorf("mark project repo mirror syncing: %w", err)
 	}
 
-	headCommit, syncErr := s.syncRepository(ctx, machine, current.LocalPath, projectRepo.RepositoryURL, projectRepo.DefaultBranch)
+	transport, err := s.resolveRepositoryTransport(ctx, projectRepo)
+	if err != nil {
+		s.recordFailure(ctx, current.ID, current.LocalPath, err)
+		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: %v", ErrMirrorSyncFailed, err)
+	}
+
+	headCommit, syncErr := s.syncRepository(ctx, machine, current.LocalPath, transport, projectRepo.DefaultBranch)
 	if syncErr != nil {
 		s.recordFailure(ctx, current.ID, current.LocalPath, syncErr)
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: %v", ErrMirrorSyncFailed, syncErr)
@@ -284,7 +314,13 @@ func (s *Service) Verify(ctx context.Context, input VerifyInput) (mirror domain.
 		return domain.ProjectRepoMirror{}, err
 	}
 
-	headCommit, verifyErr := s.inspectRepository(ctx, machine, current.LocalPath, projectRepo.RepositoryURL, projectRepo.DefaultBranch)
+	transport, err := s.resolveRepositoryTransport(ctx, projectRepo)
+	if err != nil {
+		s.recordFailure(ctx, current.ID, current.LocalPath, err)
+		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: %v", ErrMirrorSyncFailed, err)
+	}
+
+	headCommit, verifyErr := s.inspectRepository(ctx, machine, current.LocalPath, transport, projectRepo.DefaultBranch)
 	if verifyErr != nil {
 		s.recordFailure(ctx, current.ID, current.LocalPath, verifyErr)
 		return domain.ProjectRepoMirror{}, fmt.Errorf("%w: %v", ErrMirrorSyncFailed, verifyErr)
@@ -641,12 +677,18 @@ func inspectExistingRepository(localPath string, expectedURL string, defaultBran
 	return head.Hash().String(), nil
 }
 
-func syncRepository(ctx context.Context, localPath string, repositoryURL string, defaultBranch string) (string, error) {
-	repository, err := cloneOrOpenRepository(ctx, localPath, repositoryURL)
+type repositoryTransportConfig struct {
+	transportURL string
+	auth         gittransport.AuthMethod
+	githubToken  string
+}
+
+func syncLocalRepository(ctx context.Context, localPath string, transport repositoryTransportConfig, defaultBranch string) (string, error) {
+	repository, err := cloneOrOpenRepository(ctx, localPath, transport)
 	if err != nil {
 		return "", err
 	}
-	if err := ensureOriginMatches(repository, repositoryURL); err != nil {
+	if err := ensureOriginMatches(repository, transport.transportURL); err != nil {
 		return "", err
 	}
 	if err := ensureDefaultBranchCheckedOut(repository, defaultBranch); err != nil {
@@ -663,13 +705,13 @@ func (s *Service) inspectRepository(
 	ctx context.Context,
 	machine *rootent.Machine,
 	localPath string,
-	expectedURL string,
+	transport repositoryTransportConfig,
 	defaultBranch string,
 ) (string, error) {
 	if machineIsLocal(machine) {
-		return inspectExistingRepository(localPath, expectedURL, defaultBranch)
+		return inspectExistingRepository(localPath, transport.transportURL, defaultBranch)
 	}
-	output, err := s.runRemoteMirrorScript(ctx, machine, buildRemoteInspectMirrorScript(localPath, expectedURL, defaultBranch))
+	output, err := s.runRemoteMirrorScript(ctx, machine, buildRemoteInspectMirrorScript(localPath, transport.transportURL, defaultBranch))
 	if err != nil {
 		return "", err
 	}
@@ -680,13 +722,13 @@ func (s *Service) syncRepository(
 	ctx context.Context,
 	machine *rootent.Machine,
 	localPath string,
-	repositoryURL string,
+	transport repositoryTransportConfig,
 	defaultBranch string,
 ) (string, error) {
 	if machineIsLocal(machine) {
-		return syncRepository(ctx, localPath, repositoryURL, defaultBranch)
+		return syncLocalRepository(ctx, localPath, transport, defaultBranch)
 	}
-	output, err := s.runRemoteMirrorScript(ctx, machine, buildRemoteSyncMirrorScript(localPath, repositoryURL, defaultBranch))
+	output, err := s.runRemoteMirrorScript(ctx, machine, buildRemoteSyncMirrorScript(localPath, transport.transportURL, defaultBranch, transport.githubToken))
 	if err != nil {
 		return "", err
 	}
@@ -701,15 +743,51 @@ func (s *Service) deleteRepository(ctx context.Context, machine *rootent.Machine
 	return err
 }
 
-func cloneOrOpenRepository(ctx context.Context, localPath string, repositoryURL string) (*git.Repository, error) {
+func (s *Service) resolveRepositoryTransport(ctx context.Context, projectRepo *rootent.ProjectRepo) (repositoryTransportConfig, error) {
+	if projectRepo == nil {
+		return repositoryTransportConfig{}, fmt.Errorf("%w: project repo is required", ErrInvalidInput)
+	}
+
+	repositoryURL := strings.TrimSpace(projectRepo.RepositoryURL)
+	transport := repositoryTransportConfig{transportURL: repositoryURL}
+	normalizedURL, ok := githubauthdomain.NormalizeGitHubRepositoryURL(repositoryURL)
+	if !ok {
+		return transport, nil
+	}
+
+	transport.transportURL = normalizedURL
+	if s == nil || s.githubAuth == nil {
+		return repositoryTransportConfig{}, fmt.Errorf("resolve GitHub outbound credential: resolver unavailable")
+	}
+
+	resolved, err := s.githubAuth.ResolveProjectCredential(ctx, projectRepo.ProjectID)
+	if err != nil {
+		return repositoryTransportConfig{}, fmt.Errorf("resolve GitHub outbound credential: %w", err)
+	}
+
+	token := strings.TrimSpace(resolved.Token)
+	if token == "" {
+		return repositoryTransportConfig{}, errors.New("platform-managed GitHub outbound credential is not configured")
+	}
+
+	transport.auth = &githttp.BasicAuth{
+		Username: "x-access-token",
+		Password: token,
+	}
+	transport.githubToken = token
+	return transport, nil
+}
+
+func cloneOrOpenRepository(ctx context.Context, localPath string, transport repositoryTransportConfig) (*git.Repository, error) {
 	stat, err := os.Stat(localPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			if strings.TrimSpace(repositoryURL) == "" {
+			if strings.TrimSpace(transport.transportURL) == "" {
 				return nil, fmt.Errorf("clone repository %s: remote URL is required", localPath)
 			}
 			return git.PlainCloneContext(ctx, localPath, false, &git.CloneOptions{
-				URL: repositoryURL,
+				URL:  transport.transportURL,
+				Auth: transport.auth,
 			})
 		}
 		return nil, fmt.Errorf("stat repository path %s: %w", localPath, err)
@@ -723,7 +801,15 @@ func cloneOrOpenRepository(ctx context.Context, localPath string, repositoryURL 
 		return nil, fmt.Errorf("open repository %s: %w", localPath, err)
 	}
 
-	err = repository.FetchContext(ctx, &git.FetchOptions{RemoteName: "origin"})
+	if err := alignOriginTransport(repository, transport.transportURL); err != nil {
+		return nil, err
+	}
+
+	err = repository.FetchContext(ctx, &git.FetchOptions{
+		RemoteName: "origin",
+		RemoteURL:  transport.transportURL,
+		Auth:       transport.auth,
+	})
 	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return nil, fmt.Errorf("fetch repository %s: %w", localPath, err)
 	}
@@ -743,10 +829,52 @@ func ensureOriginMatches(repository *git.Repository, expectedURL string) error {
 		return errors.New("origin remote has no configured URLs")
 	}
 	actualURL := strings.TrimSpace(remote.Config().URLs[0])
-	if actualURL != strings.TrimSpace(expectedURL) {
+	if actualURL != strings.TrimSpace(expectedURL) && !sameGitHubRepositoryURL(actualURL, expectedURL) {
 		return fmt.Errorf("origin remote URL mismatch: got %q want %q", actualURL, expectedURL)
 	}
 	return nil
+}
+
+func alignOriginTransport(repository *git.Repository, expectedURL string) error {
+	if strings.TrimSpace(expectedURL) == "" {
+		return nil
+	}
+
+	remote, err := repository.Remote("origin")
+	if err != nil {
+		return fmt.Errorf("load origin remote: %w", err)
+	}
+	if len(remote.Config().URLs) == 0 {
+		return errors.New("origin remote has no configured URLs")
+	}
+
+	actualURL := strings.TrimSpace(remote.Config().URLs[0])
+	if actualURL == strings.TrimSpace(expectedURL) || !sameGitHubRepositoryURL(actualURL, expectedURL) {
+		return nil
+	}
+
+	cfg, err := repository.Config()
+	if err != nil {
+		return fmt.Errorf("load repository config: %w", err)
+	}
+	remoteCfg, ok := cfg.Remotes["origin"]
+	if !ok || remoteCfg == nil {
+		return errors.New("origin remote config is missing")
+	}
+
+	updated := *remoteCfg
+	updated.URLs = []string{strings.TrimSpace(expectedURL)}
+	cfg.Remotes["origin"] = &updated
+	if err := repository.Storer.SetConfig(cfg); err != nil {
+		return fmt.Errorf("set origin remote URL: %w", err)
+	}
+	return nil
+}
+
+func sameGitHubRepositoryURL(left string, right string) bool {
+	leftRef, leftOK := githubauthdomain.ParseGitHubRepositoryURL(left)
+	rightRef, rightOK := githubauthdomain.ParseGitHubRepositoryURL(right)
+	return leftOK && rightOK && leftRef == rightRef
 }
 
 func ensureDefaultBranchResolvable(repository *git.Repository, defaultBranch string) error {
@@ -840,12 +968,12 @@ func (s *Service) runRemoteMirrorScript(ctx context.Context, machine *rootent.Ma
 }
 
 func buildRemoteInspectMirrorScript(localPath string, expectedURL string, defaultBranch string) string {
-	lines := make([]string, 0, 6)
+	lines := make([]string, 0, 7)
 	lines = append(lines,
 		"set -eu",
 		"if [ ! -d "+sshinfra.ShellQuote(filepath.Join(localPath, ".git"))+" ]; then echo "+sshinfra.ShellQuote("repository path "+localPath+" is not a git repository")+" >&2; exit 1; fi",
 	)
-	lines = append(lines, remoteOriginCheckLines(localPath, expectedURL)...)
+	lines = append(lines, remoteOriginCheckLines(localPath, expectedURL, false)...)
 	lines = append(lines,
 		"git -C "+sshinfra.ShellQuote(localPath)+" rev-parse --verify HEAD >/dev/null",
 		buildRemoteResolveDefaultBranchLine(localPath, defaultBranch),
@@ -854,18 +982,21 @@ func buildRemoteInspectMirrorScript(localPath string, expectedURL string, defaul
 	return strings.Join(lines, "\n")
 }
 
-func buildRemoteSyncMirrorScript(localPath string, repositoryURL string, defaultBranch string) string {
+func buildRemoteSyncMirrorScript(localPath string, repositoryURL string, defaultBranch string, githubToken string) string {
 	branchName := normalizedDefaultBranch(defaultBranch)
-	lines := make([]string, 0, 9)
+	lines := make([]string, 0, 18)
 	lines = append(lines,
 		"set -eu",
+	)
+	lines = append(lines, buildRemoteGitTransportLines(githubToken)...)
+	lines = append(lines,
 		"mkdir -p "+sshinfra.ShellQuote(filepath.Dir(localPath)),
 		"if [ -e "+sshinfra.ShellQuote(localPath)+" ] && [ ! -d "+sshinfra.ShellQuote(filepath.Join(localPath, ".git"))+" ]; then echo "+sshinfra.ShellQuote("repository path "+localPath+" is not a git repository")+" >&2; exit 1; fi",
-		"if [ ! -e "+sshinfra.ShellQuote(localPath)+" ]; then git clone --branch "+sshinfra.ShellQuote(branchName)+" --single-branch "+sshinfra.ShellQuote(repositoryURL)+" "+sshinfra.ShellQuote(localPath)+"; fi",
+		"if [ ! -e "+sshinfra.ShellQuote(localPath)+" ]; then git_transport clone --branch "+sshinfra.ShellQuote(branchName)+" --single-branch "+sshinfra.ShellQuote(repositoryURL)+" "+sshinfra.ShellQuote(localPath)+"; fi",
 	)
-	lines = append(lines, remoteOriginCheckLines(localPath, repositoryURL)...)
+	lines = append(lines, remoteOriginCheckLines(localPath, repositoryURL, true)...)
 	lines = append(lines,
-		"git -C "+sshinfra.ShellQuote(localPath)+" fetch origin",
+		"git_transport -C "+sshinfra.ShellQuote(localPath)+" fetch origin",
 		"git -C "+sshinfra.ShellQuote(localPath)+" rev-parse --verify "+sshinfra.ShellQuote("origin/"+branchName)+" >/dev/null",
 		"git -C "+sshinfra.ShellQuote(localPath)+" checkout -B "+sshinfra.ShellQuote(branchName)+" "+sshinfra.ShellQuote("origin/"+branchName),
 		"git -C "+sshinfra.ShellQuote(localPath)+" reset --hard "+sshinfra.ShellQuote("origin/"+branchName),
@@ -881,14 +1012,96 @@ func buildRemoteDeleteMirrorScript(localPath string) string {
 	}, "\n")
 }
 
-func remoteOriginCheckLines(localPath string, expectedURL string) []string {
+func buildRemoteGitTransportLines(githubToken string) []string {
+	lines := []string{"git_transport() { git \"$@\"; }"}
+	if strings.TrimSpace(githubToken) == "" {
+		return lines
+	}
+
+	return []string{
+		"export GH_TOKEN=" + sshinfra.ShellQuote(githubToken),
+		"unset SSH_AUTH_SOCK",
+		"askpass_dir=$(mktemp -d)",
+		"trap 'rm -rf \"$askpass_dir\"' EXIT",
+		"askpass_script=\"$askpass_dir/git-askpass.sh\"",
+		`cat >"$askpass_script" <<'EOF'
+#!/bin/sh
+case "$1" in
+  *Username*) printf '%s\n' x-access-token ;;
+  *) printf '%s\n' "$GH_TOKEN" ;;
+esac
+EOF`,
+		"chmod 700 \"$askpass_script\"",
+		"export GIT_TERMINAL_PROMPT=0",
+		"export GIT_ASKPASS=\"$askpass_script\"",
+		"git_transport() { git -c credential.helper= \"$@\"; }",
+	}
+}
+
+func remoteOriginCheckLines(localPath string, expectedURL string, alignTransport bool) []string {
 	if strings.TrimSpace(expectedURL) == "" {
 		return nil
 	}
-	return []string{
+
+	lines := []string{
+		buildRemoteCanonicalGitHubRepoFunction(),
 		"actual_origin=$(git -C " + sshinfra.ShellQuote(localPath) + " remote get-url origin)",
-		"if [ \"$actual_origin\" != " + sshinfra.ShellQuote(expectedURL) + " ]; then echo " + sshinfra.ShellQuote("origin remote URL mismatch") + " >&2; exit 1; fi",
+		"if [ \"$actual_origin\" != " + sshinfra.ShellQuote(expectedURL) + " ]; then",
+		"  expected_github=$(canonical_github_repo " + sshinfra.ShellQuote(expectedURL) + " 2>/dev/null || true)",
+		"  actual_github=$(canonical_github_repo \"$actual_origin\" 2>/dev/null || true)",
+		"  if [ -n \"$expected_github\" ] && [ \"$expected_github\" = \"$actual_github\" ]; then",
 	}
+	if alignTransport {
+		lines = append(lines,
+			"    git -C "+sshinfra.ShellQuote(localPath)+" remote set-url origin "+sshinfra.ShellQuote(expectedURL),
+			"    actual_origin="+sshinfra.ShellQuote(expectedURL),
+		)
+	}
+	lines = append(lines,
+		"    :",
+		"  else",
+		"    echo "+sshinfra.ShellQuote("origin remote URL mismatch")+" >&2; exit 1",
+		"  fi",
+		"fi",
+	)
+	return lines
+}
+
+func buildRemoteCanonicalGitHubRepoFunction() string {
+	return `canonical_github_repo() {
+  raw="$1"
+  case "$raw" in
+    https://github.com/*)
+      repo="${raw#https://github.com/}"
+      ;;
+    git@github.com:*)
+      repo="${raw#git@github.com:}"
+      ;;
+    ssh://git@github.com/*)
+      repo="${raw#ssh://git@github.com/}"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+  repo="${repo%.git}"
+  repo="${repo#/}"
+  case "$repo" in
+    */*)
+      owner="${repo%%/*}"
+      name="${repo#*/}"
+      case "$name" in
+        */*)
+          return 1
+          ;;
+      esac
+      printf '%s/%s\n' "$(printf '%s' "$owner" | tr '[:upper:]' '[:lower:]')" "$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}`
 }
 
 func buildRemoteResolveDefaultBranchLine(localPath string, defaultBranch string) string {

@@ -122,6 +122,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	ticketStatusSvc := ticketstatus.NewService(client)
 	projectRepoMirrorSvc := projectrepomirrorsvc.NewService(client, a.logger)
 	projectRepoMirrorSvc.ConfigureSSHPool(sshPool)
+	projectRepoMirrorSvc.ConfigureGitHubCredentials(githubAuthSvc)
 	catalogSvc := catalogservice.New(
 		catalogRepo,
 		executable.NewPathResolver(),
@@ -234,6 +235,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	}
 	projectRepoMirrorSvc := projectrepomirrorsvc.NewService(client, a.logger)
 	projectRepoMirrorSvc.ConfigureSSHPool(sshPool)
+	projectRepoMirrorSvc.ConfigureGitHubCredentials(githubAuthSvc)
 	workflowSvc.ConfigureMirrorService(projectRepoMirrorSvc)
 	scheduler := orchestrator.NewScheduler(client, a.logger, a.events)
 	healthChecker := orchestrator.NewHealthChecker(client, a.logger)

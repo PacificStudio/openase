@@ -187,15 +187,41 @@ func ParseGitHubRepositoryURL(raw string) (RepositoryRef, bool) {
 		return RepositoryRef{}, false
 	}
 
+	if repoRef, ok := parseGitHubSCPURL(trimmed); ok {
+		return repoRef, true
+	}
+
 	parsed, err := url.Parse(trimmed)
 	if err != nil {
 		return RepositoryRef{}, false
 	}
-	if !strings.EqualFold(parsed.Scheme, "https") || !strings.EqualFold(parsed.Host, "github.com") {
+	switch {
+	case strings.EqualFold(parsed.Scheme, "https") && strings.EqualFold(parsed.Host, "github.com"):
+		return parseGitHubRepositoryPath(parsed.Path)
+	case strings.EqualFold(parsed.Scheme, "ssh") && strings.EqualFold(parsed.Host, "github.com"):
+		return parseGitHubRepositoryPath(parsed.Path)
+	default:
 		return RepositoryRef{}, false
 	}
+}
 
-	repoPath := strings.Trim(path.Clean(parsed.Path), "/")
+func NormalizeGitHubRepositoryURL(raw string) (string, bool) {
+	repoRef, ok := ParseGitHubRepositoryURL(raw)
+	if !ok {
+		return "", false
+	}
+	return "https://github.com/" + repoRef.Owner + "/" + repoRef.Name + ".git", true
+}
+
+func parseGitHubSCPURL(raw string) (RepositoryRef, bool) {
+	if !strings.HasPrefix(raw, "git@github.com:") {
+		return RepositoryRef{}, false
+	}
+	return parseGitHubRepositoryPath(strings.TrimPrefix(raw, "git@github.com:"))
+}
+
+func parseGitHubRepositoryPath(rawPath string) (RepositoryRef, bool) {
+	repoPath := strings.Trim(path.Clean(rawPath), "/")
 	segments := strings.Split(repoPath, "/")
 	if len(segments) != 2 {
 		return RepositoryRef{}, false

@@ -13,10 +13,14 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
+	githubauthrepo "github.com/BetterAndBetterII/openase/internal/repo/githubauth"
+	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	git "github.com/go-git/go-git/v5"
 	gitconfig "github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 )
 
@@ -210,6 +214,112 @@ func TestServiceRegisterExistingRequiresLocalPath(t *testing.T) {
 	}
 }
 
+func TestServicePrepareRemoteGitHubMirrorProjectsManagedCredential(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	project, machine, projectRepo := createMirrorTestFixtures(ctx, t, client)
+	machine, err := client.Machine.UpdateOneID(machine.ID).
+		SetName("builder").
+		SetHost("10.0.0.12").
+		SetSSHUser("openase").
+		SetSSHKeyPath("keys/builder").
+		SetWorkspaceRoot(filepath.Join(t.TempDir(), "workspace")).
+		ClearMirrorRoot().
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("update machine: %v", err)
+	}
+	if _, err := client.ProjectRepo.UpdateOneID(projectRepo.ID).
+		SetRepositoryURL("git@github.com:GrandCX/private-repo.git").
+		SetDefaultBranch("master").
+		Save(ctx); err != nil {
+		t.Fatalf("update project repo remote: %v", err)
+	}
+
+	resolver := configureOrganizationGitHubCredential(t, ctx, client, project.OrganizationID, "ghu_project_repo_token")
+	svc := NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	svc.ConfigureGitHubCredentials(resolver)
+	sshSession := &mirrorTestSSHSession{output: []byte("deadbeef\n")}
+	svc.ConfigureSSHPool(sshinfra.NewPool("/tmp/openase",
+		sshinfra.WithDialer(&mirrorTestSSHDialer{clients: []sshinfra.Client{
+			&mirrorTestSSHClient{session: sshSession},
+		}}),
+		sshinfra.WithReadFile(func(string) ([]byte, error) {
+			return []byte("key"), nil
+		}),
+	))
+
+	prepared, err := svc.Prepare(ctx, PrepareInput{
+		ProjectRepoID: projectRepo.ID,
+		MachineID:     machine.ID,
+	})
+	if err != nil {
+		t.Fatalf("Prepare() error = %v", err)
+	}
+	if prepared.HeadCommit == nil || *prepared.HeadCommit != "deadbeef" {
+		t.Fatalf("Prepare() head commit = %v", prepared.HeadCommit)
+	}
+	if !strings.Contains(sshSession.command, "export GH_TOKEN=") || !strings.Contains(sshSession.command, "ghu_project_repo_token") {
+		t.Fatalf("expected GH_TOKEN projection in remote command, got %q", sshSession.command)
+	}
+	if !strings.Contains(sshSession.command, "unset SSH_AUTH_SOCK") {
+		t.Fatalf("expected SSH_AUTH_SOCK to be cleared, got %q", sshSession.command)
+	}
+	if !strings.Contains(sshSession.command, "git_transport clone --branch") || !strings.Contains(sshSession.command, "https://github.com/grandcx/private-repo.git") {
+		t.Fatalf("expected normalized GitHub HTTPS clone command, got %q", sshSession.command)
+	}
+	if !strings.Contains(sshSession.command, "git -c credential.helper=") {
+		t.Fatalf("expected credential helper override, got %q", sshSession.command)
+	}
+	if strings.Contains(sshSession.command, "git@github.com:GrandCX/private-repo.git") {
+		t.Fatalf("expected SSH GitHub URL to be normalized out of remote command, got %q", sshSession.command)
+	}
+}
+
+func TestServiceRegisterExistingAcceptsEquivalentGitHubTransport(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	project, machine, projectRepo := createMirrorTestFixtures(ctx, t, client)
+	repoPath, headCommit := createGitRepository(t)
+	repository, err := git.PlainOpen(repoPath)
+	if err != nil {
+		t.Fatalf("open repository: %v", err)
+	}
+	if err := repository.DeleteRemote("origin"); err != nil {
+		t.Fatalf("delete origin remote: %v", err)
+	}
+	if _, err := repository.CreateRemote(&gitconfig.RemoteConfig{
+		Name: "origin",
+		URLs: []string{"git@github.com:GrandCX/private-repo.git"},
+	}); err != nil {
+		t.Fatalf("create ssh origin remote: %v", err)
+	}
+
+	if _, err := client.ProjectRepo.UpdateOneID(projectRepo.ID).
+		SetRepositoryURL("ssh://git@github.com/GrandCX/private-repo.git").
+		SetDefaultBranch("master").
+		Save(ctx); err != nil {
+		t.Fatalf("update project repo remote: %v", err)
+	}
+
+	svc := NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	svc.ConfigureGitHubCredentials(configureOrganizationGitHubCredential(t, ctx, client, project.OrganizationID, "ghu_registered_repo_token"))
+
+	registered, err := svc.RegisterExisting(ctx, RegisterExistingInput{
+		ProjectRepoID: projectRepo.ID,
+		MachineID:     machine.ID,
+		LocalPath:     repoPath,
+	})
+	if err != nil {
+		t.Fatalf("RegisterExisting() error = %v", err)
+	}
+	if registered.HeadCommit == nil || *registered.HeadCommit != headCommit {
+		t.Fatalf("RegisterExisting() head commit = %v, want %s", registered.HeadCommit, headCommit)
+	}
+}
+
 func createMirrorTestFixtures(ctx context.Context, t *testing.T, client *ent.Client) (*ent.Project, *ent.Machine, *ent.ProjectRepo) {
 	t.Helper()
 
@@ -365,6 +475,25 @@ func (s *mirrorTestSSHSession) Wait() error {
 
 func (s *mirrorTestSSHSession) Close() error {
 	return nil
+}
+
+func configureOrganizationGitHubCredential(t *testing.T, ctx context.Context, client *ent.Client, organizationID uuid.UUID, token string) githubauthservice.TokenResolver {
+	t.Helper()
+
+	service, err := githubauthservice.New(githubauthrepo.NewEntRepository(client), nil, "postgres://openase:test@localhost/openase")
+	if err != nil {
+		t.Fatalf("githubauthservice.New() error = %v", err)
+	}
+	sealed, err := service.SealToken(token, githubauthdomain.SourceManualPaste)
+	if err != nil {
+		t.Fatalf("SealToken() error = %v", err)
+	}
+	if _, err := client.Organization.UpdateOneID(organizationID).
+		SetGithubOutboundCredential(&sealed).
+		Save(ctx); err != nil {
+		t.Fatalf("save organization GitHub credential: %v", err)
+	}
+	return service
 }
 
 func openTestEntClient(t *testing.T) *ent.Client {
