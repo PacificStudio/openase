@@ -46,9 +46,7 @@
 
   <Card.Content class="space-y-3">
     {#if loading && repos.length === 0}
-      <div class="text-muted-foreground py-8 text-center text-sm">
-        Loading repositories…
-      </div>
+      <div class="text-muted-foreground py-8 text-center text-sm">Loading repositories…</div>
     {:else if repos.length === 0}
       <div class="text-muted-foreground py-8 text-center text-sm">
         No repositories configured yet. Add the first repository to get started.

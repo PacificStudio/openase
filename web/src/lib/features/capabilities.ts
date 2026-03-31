@@ -111,9 +111,9 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
       'Agent governance settings now surface default provider selection, registered agent inventory, inline deletion for inactive agent definitions, and ownership boundaries while live runtime controls stay on the Agents page.',
   },
   connectorsSettings: {
-    state: 'unwired',
+    state: 'available',
     summary:
-      'Settings now documents the live connector runtime surface, while project-scoped connector CRUD and operator controls remain deferred until dedicated management APIs are exported.',
+      'Connector settings are wired to project-scoped CRUD, connection test, manual sync, and runtime stats endpoints from the shipped Settings surface.',
   },
   notificationsSettings: {
     state: 'available',

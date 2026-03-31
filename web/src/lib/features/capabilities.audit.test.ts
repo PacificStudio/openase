@@ -9,9 +9,11 @@ import {
 import type { SettingsSection } from '$lib/features/settings/types'
 import agentSettingsSource from './settings/components/agent-settings.svelte?raw'
 import connectorsSettingsSource from './settings/components/connectors-settings.svelte?raw'
+import connectorsSettingsStateSource from './settings/components/connectors-settings-state.svelte.ts?raw'
 import generalSettingsSource from './settings/components/general-settings.svelte?raw'
 import notificationSettingsSource from './settings/components/notification-settings.svelte?raw'
 import repositoriesSettingsSource from './settings/components/repositories-settings.svelte?raw'
+import repositoriesSettingsStateSource from './settings/components/repositories-settings-state.svelte.ts?raw'
 import securitySettingsSource from './settings/components/security-settings.svelte?raw'
 import settingsPageSource from './settings/components/settings-page.svelte?raw'
 import statusSettingsSource from './settings/components/status-settings.svelte?raw'
@@ -34,9 +36,11 @@ type SettingsAuditCase = {
 const sourceByFile: Record<string, string> = {
   './settings/components/agent-settings.svelte': agentSettingsSource,
   './settings/components/connectors-settings.svelte': connectorsSettingsSource,
+  './settings/components/connectors-settings-state.svelte.ts': connectorsSettingsStateSource,
   './settings/components/general-settings.svelte': generalSettingsSource,
   './settings/components/notification-settings.svelte': notificationSettingsSource,
   './settings/components/repositories-settings.svelte': repositoriesSettingsSource,
+  './settings/components/repositories-settings-state.svelte.ts': repositoriesSettingsStateSource,
   './settings/components/security-settings.svelte': securitySettingsSource,
   './settings/components/settings-page.svelte': settingsPageSource,
   './settings/components/status-settings.svelte': statusSettingsSource,
@@ -83,11 +87,11 @@ const settingsAuditCases: SettingsAuditCase[] = [
     summarySnippets: ['project repo list/create/update/delete', 'primary repo management'],
     sources: [
       {
-        file: './settings/components/repositories-settings.svelte',
+        file: './settings/components/repositories-settings-state.svelte.ts',
         snippets: [
           'createProjectRepo(projectId, parsed.value)',
           'updateProjectRepo(projectId, selectedRepo.id, parsed.value)',
-          'deleteProjectRepo(projectId, selectedRepo.id)',
+          'deleteProjectRepo(projectId, targetRepo.id)',
         ],
       },
     ],
@@ -144,15 +148,17 @@ const settingsAuditCases: SettingsAuditCase[] = [
   {
     section: 'connectors',
     capability: 'connectorsSettings',
-    expectedState: 'unwired',
-    summarySnippets: ['connector runtime surface', 'connector CRUD', 'dedicated management APIs'],
+    expectedState: 'available',
+    summarySnippets: ['project-scoped CRUD', 'manual sync', 'runtime stats endpoints'],
     sources: [
       {
-        file: './settings/components/connectors-settings.svelte',
+        file: './settings/components/connectors-settings-state.svelte.ts',
         snippets: [
-          'Current exported surface',
-          'Deferred management scope',
-          'POST /api/v1/webhooks/:connector/:provider',
+          'listIssueConnectors(projectId)',
+          'createIssueConnector(projectId, {',
+          'updateIssueConnector(ui.editingConnectorId, {',
+          'syncIssueConnector(connector.id)',
+          'const payload = await getIssueConnectorStats(connectorId)',
         ],
       },
     ],

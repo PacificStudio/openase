@@ -18,6 +18,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	entissueconnector "github.com/BetterAndBetterII/openase/ent/issueconnector"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
@@ -51,6 +52,7 @@ type ProjectQuery struct {
 	withScheduledJobs        *ScheduledJobQuery
 	withActivityEvents       *ActivityEventQuery
 	withNotificationRules    *NotificationRuleQuery
+	withIssueConnectors      *IssueConnectorQuery
 	withDefaultWorkflow      *WorkflowQuery
 	withDefaultAgentProvider *AgentProviderQuery
 	// intermediate query (i.e. traversal path).
@@ -375,6 +377,28 @@ func (_q *ProjectQuery) QueryNotificationRules() *NotificationRuleQuery {
 	return query
 }
 
+// QueryIssueConnectors chains the current query on the "issue_connectors" edge.
+func (_q *ProjectQuery) QueryIssueConnectors() *IssueConnectorQuery {
+	query := (&IssueConnectorClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, selector),
+			sqlgraph.To(entissueconnector.Table, entissueconnector.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.IssueConnectorsTable, project.IssueConnectorsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // QueryDefaultWorkflow chains the current query on the "default_workflow" edge.
 func (_q *ProjectQuery) QueryDefaultWorkflow() *WorkflowQuery {
 	query := (&WorkflowClient{config: _q.config}).Query()
@@ -624,6 +648,7 @@ func (_q *ProjectQuery) Clone() *ProjectQuery {
 		withScheduledJobs:        _q.withScheduledJobs.Clone(),
 		withActivityEvents:       _q.withActivityEvents.Clone(),
 		withNotificationRules:    _q.withNotificationRules.Clone(),
+		withIssueConnectors:      _q.withIssueConnectors.Clone(),
 		withDefaultWorkflow:      _q.withDefaultWorkflow.Clone(),
 		withDefaultAgentProvider: _q.withDefaultAgentProvider.Clone(),
 		// clone intermediate query.
@@ -775,6 +800,17 @@ func (_q *ProjectQuery) WithNotificationRules(opts ...func(*NotificationRuleQuer
 	return _q
 }
 
+// WithIssueConnectors tells the query-builder to eager-load the nodes that are connected to
+// the "issue_connectors" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ProjectQuery) WithIssueConnectors(opts ...func(*IssueConnectorQuery)) *ProjectQuery {
+	query := (&IssueConnectorClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withIssueConnectors = query
+	return _q
+}
+
 // WithDefaultWorkflow tells the query-builder to eager-load the nodes that are connected to
 // the "default_workflow" edge. The optional arguments are used to configure the query builder of the edge.
 func (_q *ProjectQuery) WithDefaultWorkflow(opts ...func(*WorkflowQuery)) *ProjectQuery {
@@ -875,7 +911,7 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 	var (
 		nodes       = []*Project{}
 		_spec       = _q.querySpec()
-		loadedTypes = [15]bool{
+		loadedTypes = [16]bool{
 			_q.withOrganization != nil,
 			_q.withRepos != nil,
 			_q.withStages != nil,
@@ -889,6 +925,7 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 			_q.withScheduledJobs != nil,
 			_q.withActivityEvents != nil,
 			_q.withNotificationRules != nil,
+			_q.withIssueConnectors != nil,
 			_q.withDefaultWorkflow != nil,
 			_q.withDefaultAgentProvider != nil,
 		}
@@ -1000,6 +1037,13 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 			func(n *Project, e *NotificationRule) {
 				n.Edges.NotificationRules = append(n.Edges.NotificationRules, e)
 			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withIssueConnectors; query != nil {
+		if err := _q.loadIssueConnectors(ctx, query, nodes,
+			func(n *Project) { n.Edges.IssueConnectors = []*IssueConnector{} },
+			func(n *Project, e *IssueConnector) { n.Edges.IssueConnectors = append(n.Edges.IssueConnectors, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -1392,6 +1436,36 @@ func (_q *ProjectQuery) loadNotificationRules(ctx context.Context, query *Notifi
 	}
 	query.Where(predicate.NotificationRule(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(project.NotificationRulesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ProjectID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "project_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *ProjectQuery) loadIssueConnectors(ctx context.Context, query *IssueConnectorQuery, nodes []*Project, init func(*Project), assign func(*Project, *IssueConnector)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Project)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(entissueconnector.FieldProjectID)
+	}
+	query.Where(predicate.IssueConnector(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(project.IssueConnectorsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

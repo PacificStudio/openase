@@ -5,7 +5,6 @@
   import { toastStore } from '$lib/stores/toast.svelte'
   import {
     getHRAdvisor,
-    getProject,
     getSystemDashboard,
     listActivity,
     listAgents,
@@ -132,21 +131,14 @@
       }
 
       try {
-        const [
-          projectPayload,
-          agentPayload,
-          ticketPayload,
-          activityPayload,
-          systemPayload,
-          hrAdvisorPayload,
-        ] = await Promise.all([
-          getProject(projectId),
-          listAgents(projectId),
-          listTickets(projectId),
-          listActivity(projectId, { limit: 24 }),
-          getSystemDashboard(),
-          getHRAdvisor(projectId).catch(() => null),
-        ])
+        const [agentPayload, ticketPayload, activityPayload, systemPayload, hrAdvisorPayload] =
+          await Promise.all([
+            listAgents(projectId),
+            listTickets(projectId),
+            listActivity(projectId, { limit: 24 }),
+            getSystemDashboard(),
+            getHRAdvisor(projectId).catch(() => null),
+          ])
 
         if (cancelled) return
 
