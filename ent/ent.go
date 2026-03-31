@@ -31,7 +31,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
-	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/skillversion"
@@ -124,7 +123,6 @@ func checkColumn(t, c string) error {
 			organization.Table:          organization.ValidColumn,
 			project.Table:               project.ValidColumn,
 			projectrepo.Table:           projectrepo.ValidColumn,
-			projectrepomirror.Table:     projectrepomirror.ValidColumn,
 			scheduledjob.Table:          scheduledjob.ValidColumn,
 			skill.Table:                 skill.ValidColumn,
 			skillversion.Table:          skillversion.ValidColumn,

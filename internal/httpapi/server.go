@@ -16,7 +16,6 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/infra/sse"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
-	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	runtimeobservability "github.com/BetterAndBetterII/openase/internal/runtime/observability"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
@@ -45,7 +44,6 @@ type Server struct {
 	ticketStatusService        *ticketstatus.Service
 	agentPlatform              *agentplatform.Service
 	catalog                    catalogservice.Service
-	projectRepoMirrors         *projectrepomirrorsvc.Service
 	workflowService            *workflowservice.Service
 	scheduledJobService        *scheduledjobservice.Service
 	notificationService        *notificationservice.Service
@@ -61,12 +59,6 @@ type ServerOption func(*Server)
 func WithNotificationService(service *notificationservice.Service) ServerOption {
 	return func(server *Server) {
 		server.notificationService = service
-	}
-}
-
-func WithProjectRepoMirrorService(service *projectrepomirrorsvc.Service) ServerOption {
-	return func(server *Server) {
-		server.projectRepoMirrors = service
 	}
 }
 

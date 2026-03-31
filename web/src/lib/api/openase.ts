@@ -31,8 +31,6 @@ import type {
   NotificationRulePayload,
   NotificationRuleResponse,
   ProjectRepoPayload,
-  ProjectRepoMirrorPayload,
-  ProjectRepoMirrorResponse,
   ProjectArchiveResponse,
   ProjectRepoResponse,
   ProjectCreateResponse,
@@ -99,7 +97,6 @@ type MachineMutationBody = {
   ssh_user?: string
   status?: string
   workspace_root?: string
-  mirror_root?: string
 }
 
 export type IssueConnectorRecord = {
@@ -749,58 +746,6 @@ export function deleteProjectRepo(projectId: string, repoId: string) {
   return api.delete<ProjectRepoResponse>(`/api/v1/projects/${projectId}/repos/${repoId}`)
 }
 
-export function listProjectRepoMirrors(
-  projectId: string,
-  repoId: string,
-  machineId?: string | null,
-) {
-  return api.get<ProjectRepoMirrorPayload>(
-    `/api/v1/projects/${projectId}/repos/${repoId}/mirrors`,
-    {
-      params: {
-        machine_id: machineId ?? undefined,
-      },
-    },
-  )
-}
-
-export function materializeProjectRepoMirror(
-  projectId: string,
-  repoId: string,
-  body: {
-    machine_id: string
-    local_path?: string
-    mode: 'register_existing' | 'prepare'
-  },
-) {
-  return api.post<ProjectRepoMirrorResponse>(
-    `/api/v1/projects/${projectId}/repos/${repoId}/mirrors`,
-    { body },
-  )
-}
-
-export function verifyProjectRepoMirror(
-  projectId: string,
-  repoId: string,
-  body: { machine_id: string },
-) {
-  return api.post<ProjectRepoMirrorResponse>(
-    `/api/v1/projects/${projectId}/repos/${repoId}/mirrors/verify`,
-    { body },
-  )
-}
-
-export function syncProjectRepoMirror(
-  projectId: string,
-  repoId: string,
-  body: { machine_id: string },
-) {
-  return api.post<ProjectRepoMirrorResponse>(
-    `/api/v1/projects/${projectId}/repos/${repoId}/mirrors/sync`,
-    { body },
-  )
-}
-
 export function listTicketRepoScopes(projectId: string, ticketId: string) {
   return api.get<TicketRepoScopePayload>(
     `/api/v1/projects/${projectId}/tickets/${ticketId}/repo-scopes`,
@@ -860,10 +805,6 @@ export function getWorkflowRepositoryPrerequisite(projectId: string) {
       repo_count: number
       primary_repo_id?: string
       primary_repo_name?: string
-      mirror_count: number
-      mirror_state?: string
-      mirror_machine_id?: string
-      mirror_last_error?: string
       action: string
     }
   }>(`/api/v1/projects/${projectId}/workflows/prerequisite`)

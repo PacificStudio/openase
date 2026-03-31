@@ -225,18 +225,6 @@ func (f ProjectRepoFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value,
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectRepoMutation", m)
 }
 
-// The ProjectRepoMirrorFunc type is an adapter to allow the use of ordinary
-// function as ProjectRepoMirror mutator.
-type ProjectRepoMirrorFunc func(context.Context, *ent.ProjectRepoMirrorMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f ProjectRepoMirrorFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.ProjectRepoMirrorMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectRepoMirrorMutation", m)
-}
-
 // The ScheduledJobFunc type is an adapter to allow the use of ordinary
 // function as ScheduledJob mutator.
 type ScheduledJobFunc func(context.Context, *ent.ScheduledJobMutation) (ent.Value, error)

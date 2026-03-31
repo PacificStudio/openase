@@ -14,7 +14,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
-	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/google/uuid"
@@ -71,20 +70,6 @@ func (_u *TicketRepoWorkspaceUpdate) SetRepoID(v uuid.UUID) *TicketRepoWorkspace
 func (_u *TicketRepoWorkspaceUpdate) SetNillableRepoID(v *uuid.UUID) *TicketRepoWorkspaceUpdate {
 	if v != nil {
 		_u.SetRepoID(*v)
-	}
-	return _u
-}
-
-// SetMirrorID sets the "mirror_id" field.
-func (_u *TicketRepoWorkspaceUpdate) SetMirrorID(v uuid.UUID) *TicketRepoWorkspaceUpdate {
-	_u.mutation.SetMirrorID(v)
-	return _u
-}
-
-// SetNillableMirrorID sets the "mirror_id" field if the given value is not nil.
-func (_u *TicketRepoWorkspaceUpdate) SetNillableMirrorID(v *uuid.UUID) *TicketRepoWorkspaceUpdate {
-	if v != nil {
-		_u.SetMirrorID(*v)
 	}
 	return _u
 }
@@ -246,11 +231,6 @@ func (_u *TicketRepoWorkspaceUpdate) SetRepo(v *ProjectRepo) *TicketRepoWorkspac
 	return _u.SetRepoID(v.ID)
 }
 
-// SetMirror sets the "mirror" edge to the ProjectRepoMirror entity.
-func (_u *TicketRepoWorkspaceUpdate) SetMirror(v *ProjectRepoMirror) *TicketRepoWorkspaceUpdate {
-	return _u.SetMirrorID(v.ID)
-}
-
 // Mutation returns the TicketRepoWorkspaceMutation object of the builder.
 func (_u *TicketRepoWorkspaceUpdate) Mutation() *TicketRepoWorkspaceMutation {
 	return _u.mutation
@@ -271,12 +251,6 @@ func (_u *TicketRepoWorkspaceUpdate) ClearAgentRun() *TicketRepoWorkspaceUpdate 
 // ClearRepo clears the "repo" edge to the ProjectRepo entity.
 func (_u *TicketRepoWorkspaceUpdate) ClearRepo() *TicketRepoWorkspaceUpdate {
 	_u.mutation.ClearRepo()
-	return _u
-}
-
-// ClearMirror clears the "mirror" edge to the ProjectRepoMirror entity.
-func (_u *TicketRepoWorkspaceUpdate) ClearMirror() *TicketRepoWorkspaceUpdate {
-	_u.mutation.ClearMirror()
 	return _u
 }
 
@@ -346,9 +320,6 @@ func (_u *TicketRepoWorkspaceUpdate) check() error {
 	}
 	if _u.mutation.RepoCleared() && len(_u.mutation.RepoIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "TicketRepoWorkspace.repo"`)
-	}
-	if _u.mutation.MirrorCleared() && len(_u.mutation.MirrorIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "TicketRepoWorkspace.mirror"`)
 	}
 	return nil
 }
@@ -491,35 +462,6 @@ func (_u *TicketRepoWorkspaceUpdate) sqlSave(ctx context.Context) (_node int, er
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if _u.mutation.MirrorCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticketrepoworkspace.MirrorTable,
-			Columns: []string{ticketrepoworkspace.MirrorColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.MirrorIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticketrepoworkspace.MirrorTable,
-			Columns: []string{ticketrepoworkspace.MirrorColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{ticketrepoworkspace.Label}
@@ -578,20 +520,6 @@ func (_u *TicketRepoWorkspaceUpdateOne) SetRepoID(v uuid.UUID) *TicketRepoWorksp
 func (_u *TicketRepoWorkspaceUpdateOne) SetNillableRepoID(v *uuid.UUID) *TicketRepoWorkspaceUpdateOne {
 	if v != nil {
 		_u.SetRepoID(*v)
-	}
-	return _u
-}
-
-// SetMirrorID sets the "mirror_id" field.
-func (_u *TicketRepoWorkspaceUpdateOne) SetMirrorID(v uuid.UUID) *TicketRepoWorkspaceUpdateOne {
-	_u.mutation.SetMirrorID(v)
-	return _u
-}
-
-// SetNillableMirrorID sets the "mirror_id" field if the given value is not nil.
-func (_u *TicketRepoWorkspaceUpdateOne) SetNillableMirrorID(v *uuid.UUID) *TicketRepoWorkspaceUpdateOne {
-	if v != nil {
-		_u.SetMirrorID(*v)
 	}
 	return _u
 }
@@ -753,11 +681,6 @@ func (_u *TicketRepoWorkspaceUpdateOne) SetRepo(v *ProjectRepo) *TicketRepoWorks
 	return _u.SetRepoID(v.ID)
 }
 
-// SetMirror sets the "mirror" edge to the ProjectRepoMirror entity.
-func (_u *TicketRepoWorkspaceUpdateOne) SetMirror(v *ProjectRepoMirror) *TicketRepoWorkspaceUpdateOne {
-	return _u.SetMirrorID(v.ID)
-}
-
 // Mutation returns the TicketRepoWorkspaceMutation object of the builder.
 func (_u *TicketRepoWorkspaceUpdateOne) Mutation() *TicketRepoWorkspaceMutation {
 	return _u.mutation
@@ -778,12 +701,6 @@ func (_u *TicketRepoWorkspaceUpdateOne) ClearAgentRun() *TicketRepoWorkspaceUpda
 // ClearRepo clears the "repo" edge to the ProjectRepo entity.
 func (_u *TicketRepoWorkspaceUpdateOne) ClearRepo() *TicketRepoWorkspaceUpdateOne {
 	_u.mutation.ClearRepo()
-	return _u
-}
-
-// ClearMirror clears the "mirror" edge to the ProjectRepoMirror entity.
-func (_u *TicketRepoWorkspaceUpdateOne) ClearMirror() *TicketRepoWorkspaceUpdateOne {
-	_u.mutation.ClearMirror()
 	return _u
 }
 
@@ -866,9 +783,6 @@ func (_u *TicketRepoWorkspaceUpdateOne) check() error {
 	}
 	if _u.mutation.RepoCleared() && len(_u.mutation.RepoIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "TicketRepoWorkspace.repo"`)
-	}
-	if _u.mutation.MirrorCleared() && len(_u.mutation.MirrorIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "TicketRepoWorkspace.mirror"`)
 	}
 	return nil
 }
@@ -1021,35 +935,6 @@ func (_u *TicketRepoWorkspaceUpdateOne) sqlSave(ctx context.Context) (_node *Tic
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(projectrepo.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.MirrorCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticketrepoworkspace.MirrorTable,
-			Columns: []string{ticketrepoworkspace.MirrorColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.MirrorIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticketrepoworkspace.MirrorTable,
-			Columns: []string{ticketrepoworkspace.MirrorColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

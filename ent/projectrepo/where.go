@@ -499,29 +499,6 @@ func HasTicketRepoWorkspacesWith(preds ...predicate.TicketRepoWorkspace) predica
 	})
 }
 
-// HasMirrors applies the HasEdge predicate on the "mirrors" edge.
-func HasMirrors() predicate.ProjectRepo {
-	return predicate.ProjectRepo(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, MirrorsTable, MirrorsColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasMirrorsWith applies the HasEdge predicate on the "mirrors" edge with a given conditions (other predicates).
-func HasMirrorsWith(preds ...predicate.ProjectRepoMirror) predicate.ProjectRepo {
-	return predicate.ProjectRepo(func(s *sql.Selector) {
-		step := newMirrorsStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.ProjectRepo) predicate.ProjectRepo {
 	return predicate.ProjectRepo(sql.AndPredicates(predicates...))

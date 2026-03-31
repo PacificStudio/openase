@@ -12,7 +12,6 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
-	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/google/uuid"
@@ -40,12 +39,6 @@ func (_c *TicketRepoWorkspaceCreate) SetAgentRunID(v uuid.UUID) *TicketRepoWorks
 // SetRepoID sets the "repo_id" field.
 func (_c *TicketRepoWorkspaceCreate) SetRepoID(v uuid.UUID) *TicketRepoWorkspaceCreate {
 	_c.mutation.SetRepoID(v)
-	return _c
-}
-
-// SetMirrorID sets the "mirror_id" field.
-func (_c *TicketRepoWorkspaceCreate) SetMirrorID(v uuid.UUID) *TicketRepoWorkspaceCreate {
-	_c.mutation.SetMirrorID(v)
 	return _c
 }
 
@@ -194,11 +187,6 @@ func (_c *TicketRepoWorkspaceCreate) SetRepo(v *ProjectRepo) *TicketRepoWorkspac
 	return _c.SetRepoID(v.ID)
 }
 
-// SetMirror sets the "mirror" edge to the ProjectRepoMirror entity.
-func (_c *TicketRepoWorkspaceCreate) SetMirror(v *ProjectRepoMirror) *TicketRepoWorkspaceCreate {
-	return _c.SetMirrorID(v.ID)
-}
-
 // Mutation returns the TicketRepoWorkspaceMutation object of the builder.
 func (_c *TicketRepoWorkspaceCreate) Mutation() *TicketRepoWorkspaceMutation {
 	return _c.mutation
@@ -263,9 +251,6 @@ func (_c *TicketRepoWorkspaceCreate) check() error {
 	if _, ok := _c.mutation.RepoID(); !ok {
 		return &ValidationError{Name: "repo_id", err: errors.New(`ent: missing required field "TicketRepoWorkspace.repo_id"`)}
 	}
-	if _, ok := _c.mutation.MirrorID(); !ok {
-		return &ValidationError{Name: "mirror_id", err: errors.New(`ent: missing required field "TicketRepoWorkspace.mirror_id"`)}
-	}
 	if _, ok := _c.mutation.WorkspaceRoot(); !ok {
 		return &ValidationError{Name: "workspace_root", err: errors.New(`ent: missing required field "TicketRepoWorkspace.workspace_root"`)}
 	}
@@ -312,9 +297,6 @@ func (_c *TicketRepoWorkspaceCreate) check() error {
 	}
 	if len(_c.mutation.RepoIDs()) == 0 {
 		return &ValidationError{Name: "repo", err: errors.New(`ent: missing required edge "TicketRepoWorkspace.repo"`)}
-	}
-	if len(_c.mutation.MirrorIDs()) == 0 {
-		return &ValidationError{Name: "mirror", err: errors.New(`ent: missing required edge "TicketRepoWorkspace.mirror"`)}
 	}
 	return nil
 }
@@ -440,23 +422,6 @@ func (_c *TicketRepoWorkspaceCreate) createSpec() (*TicketRepoWorkspace, *sqlgra
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.RepoID = nodes[0]
-		_spec.Edges = append(_spec.Edges, edge)
-	}
-	if nodes := _c.mutation.MirrorIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticketrepoworkspace.MirrorTable,
-			Columns: []string{ticketrepoworkspace.MirrorColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_node.MirrorID = nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

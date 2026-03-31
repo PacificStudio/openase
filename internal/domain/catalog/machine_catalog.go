@@ -25,7 +25,6 @@ type Machine struct {
 	Labels          []string
 	Status          MachineStatus
 	WorkspaceRoot   *string
-	MirrorRoot      *string
 	AgentCLIPath    *string
 	EnvVars         []string
 	LastHeartbeatAt *time.Time
@@ -49,7 +48,6 @@ type MachineInput struct {
 	Labels        []string `json:"labels"`
 	Status        string   `json:"status"`
 	WorkspaceRoot *string  `json:"workspace_root"`
-	MirrorRoot    *string  `json:"mirror_root"`
 	AgentCLIPath  *string  `json:"agent_cli_path"`
 	EnvVars       []string `json:"env_vars"`
 }
@@ -65,7 +63,6 @@ type CreateMachine struct {
 	Labels         []string
 	Status         MachineStatus
 	WorkspaceRoot  *string
-	MirrorRoot     *string
 	AgentCLIPath   *string
 	EnvVars        []string
 }
@@ -82,7 +79,6 @@ type UpdateMachine struct {
 	Labels         []string
 	Status         MachineStatus
 	WorkspaceRoot  *string
-	MirrorRoot     *string
 	AgentCLIPath   *string
 	EnvVars        []string
 }
@@ -154,7 +150,6 @@ func ParseCreateMachine(organizationID uuid.UUID, raw MachineInput) (CreateMachi
 		Labels:         labels,
 		Status:         status,
 		WorkspaceRoot:  parseOptionalText(raw.WorkspaceRoot),
-		MirrorRoot:     parseOptionalText(raw.MirrorRoot),
 		AgentCLIPath:   parseOptionalText(raw.AgentCLIPath),
 		EnvVars:        envVars,
 	}, nil
@@ -178,7 +173,6 @@ func ParseUpdateMachine(id uuid.UUID, organizationID uuid.UUID, raw MachineInput
 		Labels:         input.Labels,
 		Status:         input.Status,
 		WorkspaceRoot:  input.WorkspaceRoot,
-		MirrorRoot:     input.MirrorRoot,
 		AgentCLIPath:   input.AgentCLIPath,
 		EnvVars:        input.EnvVars,
 	}, nil

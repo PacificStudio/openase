@@ -14,7 +14,6 @@ export type MachineDraft = {
   labels: string
   status: MachineStatus
   workspaceRoot: string
-  mirrorRoot: string
   agentCLIPath: string
   envVars: string
 }
@@ -29,7 +28,6 @@ export type MachineMutationInput = {
   labels: string[]
   status: MachineStatus
   workspace_root: string
-  mirror_root: string
   agent_cli_path: string
   env_vars: string[]
 }

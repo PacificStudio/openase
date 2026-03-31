@@ -34,7 +34,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
-	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/skillversion"
@@ -92,8 +91,6 @@ type Client struct {
 	Project *ProjectClient
 	// ProjectRepo is the client for interacting with the ProjectRepo builders.
 	ProjectRepo *ProjectRepoClient
-	// ProjectRepoMirror is the client for interacting with the ProjectRepoMirror builders.
-	ProjectRepoMirror *ProjectRepoMirrorClient
 	// ScheduledJob is the client for interacting with the ScheduledJob builders.
 	ScheduledJob *ScheduledJobClient
 	// Skill is the client for interacting with the Skill builders.
@@ -151,7 +148,6 @@ func (c *Client) init() {
 	c.Organization = NewOrganizationClient(c.config)
 	c.Project = NewProjectClient(c.config)
 	c.ProjectRepo = NewProjectRepoClient(c.config)
-	c.ProjectRepoMirror = NewProjectRepoMirrorClient(c.config)
 	c.ScheduledJob = NewScheduledJobClient(c.config)
 	c.Skill = NewSkillClient(c.config)
 	c.SkillVersion = NewSkillVersionClient(c.config)
@@ -276,7 +272,6 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Organization:          NewOrganizationClient(cfg),
 		Project:               NewProjectClient(cfg),
 		ProjectRepo:           NewProjectRepoClient(cfg),
-		ProjectRepoMirror:     NewProjectRepoMirrorClient(cfg),
 		ScheduledJob:          NewScheduledJobClient(cfg),
 		Skill:                 NewSkillClient(cfg),
 		SkillVersion:          NewSkillVersionClient(cfg),
@@ -328,7 +323,6 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Organization:          NewOrganizationClient(cfg),
 		Project:               NewProjectClient(cfg),
 		ProjectRepo:           NewProjectRepoClient(cfg),
-		ProjectRepoMirror:     NewProjectRepoMirrorClient(cfg),
 		ScheduledJob:          NewScheduledJobClient(cfg),
 		Skill:                 NewSkillClient(cfg),
 		SkillVersion:          NewSkillVersionClient(cfg),
@@ -376,8 +370,8 @@ func (c *Client) Use(hooks ...Hook) {
 		c.AgentToken, c.AgentTraceEvent, c.ChatConversation, c.ChatEntry,
 		c.ChatPendingInterrupt, c.ChatTurn, c.IssueConnector, c.Machine,
 		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
-		c.ProjectRepo, c.ProjectRepoMirror, c.ScheduledJob, c.Skill, c.SkillVersion,
-		c.Ticket, c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
+		c.ProjectRepo, c.ScheduledJob, c.Skill, c.SkillVersion, c.Ticket,
+		c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
 		c.TicketExternalLink, c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus,
 		c.Workflow, c.WorkflowSkillBinding, c.WorkflowVersion,
 	} {
@@ -393,8 +387,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.AgentToken, c.AgentTraceEvent, c.ChatConversation, c.ChatEntry,
 		c.ChatPendingInterrupt, c.ChatTurn, c.IssueConnector, c.Machine,
 		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
-		c.ProjectRepo, c.ProjectRepoMirror, c.ScheduledJob, c.Skill, c.SkillVersion,
-		c.Ticket, c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
+		c.ProjectRepo, c.ScheduledJob, c.Skill, c.SkillVersion, c.Ticket,
+		c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
 		c.TicketExternalLink, c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus,
 		c.Workflow, c.WorkflowSkillBinding, c.WorkflowVersion,
 	} {
@@ -441,8 +435,6 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Project.mutate(ctx, m)
 	case *ProjectRepoMutation:
 		return c.ProjectRepo.mutate(ctx, m)
-	case *ProjectRepoMirrorMutation:
-		return c.ProjectRepoMirror.mutate(ctx, m)
 	case *ScheduledJobMutation:
 		return c.ScheduledJob.mutate(ctx, m)
 	case *SkillMutation:
@@ -2980,22 +2972,6 @@ func (c *MachineClient) QueryProviders(_m *Machine) *AgentProviderQuery {
 	return query
 }
 
-// QueryProjectRepoMirrors queries the project_repo_mirrors edge of a Machine.
-func (c *MachineClient) QueryProjectRepoMirrors(_m *Machine) *ProjectRepoMirrorQuery {
-	query := (&ProjectRepoMirrorClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(machine.Table, machine.FieldID, id),
-			sqlgraph.To(projectrepomirror.Table, projectrepomirror.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, machine.ProjectRepoMirrorsTable, machine.ProjectRepoMirrorsColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
 // QueryTargetTickets queries the target_tickets edge of a Machine.
 func (c *MachineClient) QueryTargetTickets(_m *Machine) *TicketQuery {
 	query := (&TicketClient{config: c.config}).Query()
@@ -4141,22 +4117,6 @@ func (c *ProjectRepoClient) QueryTicketRepoWorkspaces(_m *ProjectRepo) *TicketRe
 	return query
 }
 
-// QueryMirrors queries the mirrors edge of a ProjectRepo.
-func (c *ProjectRepoClient) QueryMirrors(_m *ProjectRepo) *ProjectRepoMirrorQuery {
-	query := (&ProjectRepoMirrorClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(projectrepo.Table, projectrepo.FieldID, id),
-			sqlgraph.To(projectrepomirror.Table, projectrepomirror.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, projectrepo.MirrorsTable, projectrepo.MirrorsColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
 // Hooks returns the client hooks.
 func (c *ProjectRepoClient) Hooks() []Hook {
 	return c.hooks.ProjectRepo
@@ -4179,187 +4139,6 @@ func (c *ProjectRepoClient) mutate(ctx context.Context, m *ProjectRepoMutation) 
 		return (&ProjectRepoDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown ProjectRepo mutation op: %q", m.Op())
-	}
-}
-
-// ProjectRepoMirrorClient is a client for the ProjectRepoMirror schema.
-type ProjectRepoMirrorClient struct {
-	config
-}
-
-// NewProjectRepoMirrorClient returns a client for the ProjectRepoMirror from the given config.
-func NewProjectRepoMirrorClient(c config) *ProjectRepoMirrorClient {
-	return &ProjectRepoMirrorClient{config: c}
-}
-
-// Use adds a list of mutation hooks to the hooks stack.
-// A call to `Use(f, g, h)` equals to `projectrepomirror.Hooks(f(g(h())))`.
-func (c *ProjectRepoMirrorClient) Use(hooks ...Hook) {
-	c.hooks.ProjectRepoMirror = append(c.hooks.ProjectRepoMirror, hooks...)
-}
-
-// Intercept adds a list of query interceptors to the interceptors stack.
-// A call to `Intercept(f, g, h)` equals to `projectrepomirror.Intercept(f(g(h())))`.
-func (c *ProjectRepoMirrorClient) Intercept(interceptors ...Interceptor) {
-	c.inters.ProjectRepoMirror = append(c.inters.ProjectRepoMirror, interceptors...)
-}
-
-// Create returns a builder for creating a ProjectRepoMirror entity.
-func (c *ProjectRepoMirrorClient) Create() *ProjectRepoMirrorCreate {
-	mutation := newProjectRepoMirrorMutation(c.config, OpCreate)
-	return &ProjectRepoMirrorCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// CreateBulk returns a builder for creating a bulk of ProjectRepoMirror entities.
-func (c *ProjectRepoMirrorClient) CreateBulk(builders ...*ProjectRepoMirrorCreate) *ProjectRepoMirrorCreateBulk {
-	return &ProjectRepoMirrorCreateBulk{config: c.config, builders: builders}
-}
-
-// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
-// a builder and applies setFunc on it.
-func (c *ProjectRepoMirrorClient) MapCreateBulk(slice any, setFunc func(*ProjectRepoMirrorCreate, int)) *ProjectRepoMirrorCreateBulk {
-	rv := reflect.ValueOf(slice)
-	if rv.Kind() != reflect.Slice {
-		return &ProjectRepoMirrorCreateBulk{err: fmt.Errorf("calling to ProjectRepoMirrorClient.MapCreateBulk with wrong type %T, need slice", slice)}
-	}
-	builders := make([]*ProjectRepoMirrorCreate, rv.Len())
-	for i := 0; i < rv.Len(); i++ {
-		builders[i] = c.Create()
-		setFunc(builders[i], i)
-	}
-	return &ProjectRepoMirrorCreateBulk{config: c.config, builders: builders}
-}
-
-// Update returns an update builder for ProjectRepoMirror.
-func (c *ProjectRepoMirrorClient) Update() *ProjectRepoMirrorUpdate {
-	mutation := newProjectRepoMirrorMutation(c.config, OpUpdate)
-	return &ProjectRepoMirrorUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOne returns an update builder for the given entity.
-func (c *ProjectRepoMirrorClient) UpdateOne(_m *ProjectRepoMirror) *ProjectRepoMirrorUpdateOne {
-	mutation := newProjectRepoMirrorMutation(c.config, OpUpdateOne, withProjectRepoMirror(_m))
-	return &ProjectRepoMirrorUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOneID returns an update builder for the given id.
-func (c *ProjectRepoMirrorClient) UpdateOneID(id uuid.UUID) *ProjectRepoMirrorUpdateOne {
-	mutation := newProjectRepoMirrorMutation(c.config, OpUpdateOne, withProjectRepoMirrorID(id))
-	return &ProjectRepoMirrorUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// Delete returns a delete builder for ProjectRepoMirror.
-func (c *ProjectRepoMirrorClient) Delete() *ProjectRepoMirrorDelete {
-	mutation := newProjectRepoMirrorMutation(c.config, OpDelete)
-	return &ProjectRepoMirrorDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// DeleteOne returns a builder for deleting the given entity.
-func (c *ProjectRepoMirrorClient) DeleteOne(_m *ProjectRepoMirror) *ProjectRepoMirrorDeleteOne {
-	return c.DeleteOneID(_m.ID)
-}
-
-// DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *ProjectRepoMirrorClient) DeleteOneID(id uuid.UUID) *ProjectRepoMirrorDeleteOne {
-	builder := c.Delete().Where(projectrepomirror.ID(id))
-	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
-	return &ProjectRepoMirrorDeleteOne{builder}
-}
-
-// Query returns a query builder for ProjectRepoMirror.
-func (c *ProjectRepoMirrorClient) Query() *ProjectRepoMirrorQuery {
-	return &ProjectRepoMirrorQuery{
-		config: c.config,
-		ctx:    &QueryContext{Type: TypeProjectRepoMirror},
-		inters: c.Interceptors(),
-	}
-}
-
-// Get returns a ProjectRepoMirror entity by its id.
-func (c *ProjectRepoMirrorClient) Get(ctx context.Context, id uuid.UUID) (*ProjectRepoMirror, error) {
-	return c.Query().Where(projectrepomirror.ID(id)).Only(ctx)
-}
-
-// GetX is like Get, but panics if an error occurs.
-func (c *ProjectRepoMirrorClient) GetX(ctx context.Context, id uuid.UUID) *ProjectRepoMirror {
-	obj, err := c.Get(ctx, id)
-	if err != nil {
-		panic(err)
-	}
-	return obj
-}
-
-// QueryProjectRepo queries the project_repo edge of a ProjectRepoMirror.
-func (c *ProjectRepoMirrorClient) QueryProjectRepo(_m *ProjectRepoMirror) *ProjectRepoQuery {
-	query := (&ProjectRepoClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(projectrepomirror.Table, projectrepomirror.FieldID, id),
-			sqlgraph.To(projectrepo.Table, projectrepo.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, projectrepomirror.ProjectRepoTable, projectrepomirror.ProjectRepoColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// QueryMachine queries the machine edge of a ProjectRepoMirror.
-func (c *ProjectRepoMirrorClient) QueryMachine(_m *ProjectRepoMirror) *MachineQuery {
-	query := (&MachineClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(projectrepomirror.Table, projectrepomirror.FieldID, id),
-			sqlgraph.To(machine.Table, machine.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, projectrepomirror.MachineTable, projectrepomirror.MachineColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// QueryTicketRepoWorkspaces queries the ticket_repo_workspaces edge of a ProjectRepoMirror.
-func (c *ProjectRepoMirrorClient) QueryTicketRepoWorkspaces(_m *ProjectRepoMirror) *TicketRepoWorkspaceQuery {
-	query := (&TicketRepoWorkspaceClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(projectrepomirror.Table, projectrepomirror.FieldID, id),
-			sqlgraph.To(ticketrepoworkspace.Table, ticketrepoworkspace.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, projectrepomirror.TicketRepoWorkspacesTable, projectrepomirror.TicketRepoWorkspacesColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// Hooks returns the client hooks.
-func (c *ProjectRepoMirrorClient) Hooks() []Hook {
-	return c.hooks.ProjectRepoMirror
-}
-
-// Interceptors returns the client interceptors.
-func (c *ProjectRepoMirrorClient) Interceptors() []Interceptor {
-	return c.inters.ProjectRepoMirror
-}
-
-func (c *ProjectRepoMirrorClient) mutate(ctx context.Context, m *ProjectRepoMirrorMutation) (Value, error) {
-	switch m.Op() {
-	case OpCreate:
-		return (&ProjectRepoMirrorCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdate:
-		return (&ProjectRepoMirrorUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdateOne:
-		return (&ProjectRepoMirrorUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpDelete, OpDeleteOne:
-		return (&ProjectRepoMirrorDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
-	default:
-		return nil, fmt.Errorf("ent: unknown ProjectRepoMirror mutation op: %q", m.Op())
 	}
 }
 
@@ -6244,22 +6023,6 @@ func (c *TicketRepoWorkspaceClient) QueryRepo(_m *TicketRepoWorkspace) *ProjectR
 	return query
 }
 
-// QueryMirror queries the mirror edge of a TicketRepoWorkspace.
-func (c *TicketRepoWorkspaceClient) QueryMirror(_m *TicketRepoWorkspace) *ProjectRepoMirrorQuery {
-	query := (&ProjectRepoMirrorClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(ticketrepoworkspace.Table, ticketrepoworkspace.FieldID, id),
-			sqlgraph.To(projectrepomirror.Table, projectrepomirror.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, ticketrepoworkspace.MirrorTable, ticketrepoworkspace.MirrorColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
 // Hooks returns the client hooks.
 func (c *TicketRepoWorkspaceClient) Hooks() []Hook {
 	return c.hooks.TicketRepoWorkspace
@@ -7127,18 +6890,18 @@ type (
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn,
 		IssueConnector, Machine, NotificationChannel, NotificationRule, Organization,
-		Project, ProjectRepo, ProjectRepoMirror, ScheduledJob, Skill, SkillVersion,
-		Ticket, TicketComment, TicketCommentRevision, TicketDependency,
-		TicketExternalLink, TicketRepoScope, TicketRepoWorkspace, TicketStatus,
-		Workflow, WorkflowSkillBinding, WorkflowVersion []ent.Hook
+		Project, ProjectRepo, ScheduledJob, Skill, SkillVersion, Ticket, TicketComment,
+		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
+		TicketRepoWorkspace, TicketStatus, Workflow, WorkflowSkillBinding,
+		WorkflowVersion []ent.Hook
 	}
 	inters struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn,
 		IssueConnector, Machine, NotificationChannel, NotificationRule, Organization,
-		Project, ProjectRepo, ProjectRepoMirror, ScheduledJob, Skill, SkillVersion,
-		Ticket, TicketComment, TicketCommentRevision, TicketDependency,
-		TicketExternalLink, TicketRepoScope, TicketRepoWorkspace, TicketStatus,
-		Workflow, WorkflowSkillBinding, WorkflowVersion []ent.Interceptor
+		Project, ProjectRepo, ScheduledJob, Skill, SkillVersion, Ticket, TicketComment,
+		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
+		TicketRepoWorkspace, TicketStatus, Workflow, WorkflowSkillBinding,
+		WorkflowVersion []ent.Interceptor
 	}
 )

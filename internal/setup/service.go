@@ -13,10 +13,8 @@ import (
 	"slices"
 	"strings"
 
-	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
-	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
@@ -502,27 +500,8 @@ func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err
 	if err != nil {
 		return err
 	}
-	projectRepo, err := service.CreateProjectRepo(ctx, projectRepoCreate)
-	if err != nil {
+	if _, err := service.CreateProjectRepo(ctx, projectRepoCreate); err != nil {
 		return fmt.Errorf("create project repo: %w", err)
-	}
-
-	localMachine, err := client.Machine.Query().
-		Where(
-			entmachine.OrganizationID(org.ID),
-			entmachine.NameEQ(catalogdomain.LocalMachineName),
-		).
-		Only(ctx)
-	if err != nil {
-		return fmt.Errorf("get setup local machine: %w", err)
-	}
-
-	if _, err := projectrepomirrorsvc.NewService(client, nil).RegisterExisting(ctx, projectrepomirrorsvc.RegisterExistingInput{
-		ProjectRepoID: projectRepo.ID,
-		MachineID:     localMachine.ID,
-		LocalPath:     filepath.Clean(input.Project.PrimaryRepoPath),
-	}); err != nil {
-		return fmt.Errorf("register setup project repo mirror: %w", err)
 	}
 
 	return nil

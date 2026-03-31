@@ -615,7 +615,6 @@ var (
 		{Name: "labels", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"online", "offline", "degraded", "maintenance"}, Default: "maintenance"},
 		{Name: "workspace_root", Type: field.TypeString, Nullable: true},
-		{Name: "mirror_root", Type: field.TypeString, Nullable: true},
 		{Name: "agent_cli_path", Type: field.TypeString, Nullable: true},
 		{Name: "env_vars", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "last_heartbeat_at", Type: field.TypeTime, Nullable: true},
@@ -630,7 +629,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "machines_organizations_machines",
-				Columns:    []*schema.Column{MachinesColumns[15]},
+				Columns:    []*schema.Column{MachinesColumns[14]},
 				RefColumns: []*schema.Column{OrganizationsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -639,12 +638,12 @@ var (
 			{
 				Name:    "machine_organization_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{MachinesColumns[15], MachinesColumns[1]},
+				Columns: []*schema.Column{MachinesColumns[14], MachinesColumns[1]},
 			},
 			{
 				Name:    "machine_organization_id_host",
 				Unique:  false,
-				Columns: []*schema.Column{MachinesColumns[15], MachinesColumns[2]},
+				Columns: []*schema.Column{MachinesColumns[14], MachinesColumns[2]},
 			},
 			{
 				Name:    "machine_labels",
@@ -857,52 +856,6 @@ var (
 				Annotation: &entsql.IndexAnnotation{
 					Type: "GIN",
 				},
-			},
-		},
-	}
-	// ProjectRepoMirrorsColumns holds the columns for the "project_repo_mirrors" table.
-	ProjectRepoMirrorsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUUID},
-		{Name: "local_path", Type: field.TypeString},
-		{Name: "state", Type: field.TypeEnum, Enums: []string{"missing", "provisioning", "ready", "stale", "syncing", "error", "deleting"}, Default: "missing"},
-		{Name: "head_commit", Type: field.TypeString, Nullable: true},
-		{Name: "last_synced_at", Type: field.TypeTime, Nullable: true},
-		{Name: "last_verified_at", Type: field.TypeTime, Nullable: true},
-		{Name: "last_error", Type: field.TypeString, Nullable: true, Size: 2147483647},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "machine_id", Type: field.TypeUUID},
-		{Name: "project_repo_id", Type: field.TypeUUID},
-	}
-	// ProjectRepoMirrorsTable holds the schema information for the "project_repo_mirrors" table.
-	ProjectRepoMirrorsTable = &schema.Table{
-		Name:       "project_repo_mirrors",
-		Columns:    ProjectRepoMirrorsColumns,
-		PrimaryKey: []*schema.Column{ProjectRepoMirrorsColumns[0]},
-		ForeignKeys: []*schema.ForeignKey{
-			{
-				Symbol:     "project_repo_mirrors_machines_project_repo_mirrors",
-				Columns:    []*schema.Column{ProjectRepoMirrorsColumns[9]},
-				RefColumns: []*schema.Column{MachinesColumns[0]},
-				OnDelete:   schema.NoAction,
-			},
-			{
-				Symbol:     "project_repo_mirrors_project_repos_mirrors",
-				Columns:    []*schema.Column{ProjectRepoMirrorsColumns[10]},
-				RefColumns: []*schema.Column{ProjectReposColumns[0]},
-				OnDelete:   schema.NoAction,
-			},
-		},
-		Indexes: []*schema.Index{
-			{
-				Name:    "projectrepomirror_project_repo_id_machine_id",
-				Unique:  true,
-				Columns: []*schema.Column{ProjectRepoMirrorsColumns[10], ProjectRepoMirrorsColumns[9]},
-			},
-			{
-				Name:    "projectrepomirror_machine_id_state",
-				Unique:  false,
-				Columns: []*schema.Column{ProjectRepoMirrorsColumns[9], ProjectRepoMirrorsColumns[2]},
 			},
 		},
 	}
@@ -1346,7 +1299,6 @@ var (
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "agent_run_id", Type: field.TypeUUID},
 		{Name: "repo_id", Type: field.TypeUUID},
-		{Name: "mirror_id", Type: field.TypeUUID},
 		{Name: "ticket_id", Type: field.TypeUUID},
 	}
 	// TicketRepoWorkspacesTable holds the schema information for the "ticket_repo_workspaces" table.
@@ -1368,14 +1320,8 @@ var (
 				OnDelete:   schema.NoAction,
 			},
 			{
-				Symbol:     "ticket_repo_workspaces_project_repo_mirrors_ticket_repo_workspaces",
-				Columns:    []*schema.Column{TicketRepoWorkspacesColumns[13]},
-				RefColumns: []*schema.Column{ProjectRepoMirrorsColumns[0]},
-				OnDelete:   schema.NoAction,
-			},
-			{
 				Symbol:     "ticket_repo_workspaces_tickets_repo_workspaces",
-				Columns:    []*schema.Column{TicketRepoWorkspacesColumns[14]},
+				Columns:    []*schema.Column{TicketRepoWorkspacesColumns[13]},
 				RefColumns: []*schema.Column{TicketsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1388,11 +1334,6 @@ var (
 			},
 			{
 				Name:    "ticketrepoworkspace_ticket_id_state",
-				Unique:  false,
-				Columns: []*schema.Column{TicketRepoWorkspacesColumns[14], TicketRepoWorkspacesColumns[4]},
-			},
-			{
-				Name:    "ticketrepoworkspace_mirror_id_state",
 				Unique:  false,
 				Columns: []*schema.Column{TicketRepoWorkspacesColumns[13], TicketRepoWorkspacesColumns[4]},
 			},
@@ -1638,7 +1579,6 @@ var (
 		OrganizationsTable,
 		ProjectsTable,
 		ProjectReposTable,
-		ProjectRepoMirrorsTable,
 		ScheduledJobsTable,
 		SkillsTable,
 		SkillVersionsTable,
@@ -1698,8 +1638,6 @@ func init() {
 	ProjectsTable.ForeignKeys[1].RefTable = WorkflowsTable
 	ProjectsTable.ForeignKeys[2].RefTable = AgentProvidersTable
 	ProjectReposTable.ForeignKeys[0].RefTable = ProjectsTable
-	ProjectRepoMirrorsTable.ForeignKeys[0].RefTable = MachinesTable
-	ProjectRepoMirrorsTable.ForeignKeys[1].RefTable = ProjectReposTable
 	ScheduledJobsTable.ForeignKeys[0].RefTable = ProjectsTable
 	ScheduledJobsTable.ForeignKeys[1].RefTable = WorkflowsTable
 	SkillsTable.ForeignKeys[0].RefTable = ProjectsTable
@@ -1720,8 +1658,7 @@ func init() {
 	TicketRepoScopesTable.ForeignKeys[1].RefTable = TicketsTable
 	TicketRepoWorkspacesTable.ForeignKeys[0].RefTable = AgentRunsTable
 	TicketRepoWorkspacesTable.ForeignKeys[1].RefTable = ProjectReposTable
-	TicketRepoWorkspacesTable.ForeignKeys[2].RefTable = ProjectRepoMirrorsTable
-	TicketRepoWorkspacesTable.ForeignKeys[3].RefTable = TicketsTable
+	TicketRepoWorkspacesTable.ForeignKeys[2].RefTable = TicketsTable
 	TicketStatusTable.ForeignKeys[0].RefTable = ProjectsTable
 	WorkflowsTable.ForeignKeys[0].RefTable = AgentsTable
 	WorkflowsTable.ForeignKeys[1].RefTable = ProjectsTable

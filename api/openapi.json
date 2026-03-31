@@ -3712,10 +3712,6 @@
                           "nullable": true,
                           "type": "string"
                         },
-                        "mirror_root": {
-                          "nullable": true,
-                          "type": "string"
-                        },
                         "name": {
                           "type": "string"
                         },
@@ -3883,10 +3879,6 @@
                           "nullable": true,
                           "type": "string"
                         },
-                        "mirror_root": {
-                          "nullable": true,
-                          "type": "string"
-                        },
                         "name": {
                           "type": "string"
                         },
@@ -4035,11 +4027,6 @@
                     "nullable": true,
                     "type": "array"
                   },
-                  "mirror_root": {
-                    "description": "Filesystem root directory where repository mirrors are stored on the machine.",
-                    "nullable": true,
-                    "type": "string"
-                  },
                   "name": {
                     "description": "Human-readable machine name.",
                     "nullable": true,
@@ -4112,10 +4099,6 @@
                           "type": "array"
                         },
                         "last_heartbeat_at": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "mirror_root": {
                           "nullable": true,
                           "type": "string"
                         },
@@ -4285,10 +4268,6 @@
                           "type": "array"
                         },
                         "last_heartbeat_at": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "mirror_root": {
                           "nullable": true,
                           "type": "string"
                         },
@@ -4626,10 +4605,6 @@
                           "type": "array"
                         },
                         "last_heartbeat_at": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "mirror_root": {
                           "nullable": true,
                           "type": "string"
                         },
@@ -5967,10 +5942,6 @@
                             "nullable": true,
                             "type": "string"
                           },
-                          "mirror_root": {
-                            "nullable": true,
-                            "type": "string"
-                          },
                           "name": {
                             "type": "string"
                           },
@@ -6117,11 +6088,6 @@
                     },
                     "type": "array"
                   },
-                  "mirror_root": {
-                    "description": "Filesystem root directory where repository mirrors are stored on the machine.",
-                    "nullable": true,
-                    "type": "string"
-                  },
                   "name": {
                     "description": "Human-readable machine name.",
                     "type": "string"
@@ -6192,10 +6158,6 @@
                           "type": "array"
                         },
                         "last_heartbeat_at": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "mirror_root": {
                           "nullable": true,
                           "type": "string"
                         },
@@ -10800,30 +10762,6 @@
                             },
                             "type": "array"
                           },
-                          "last_error": {
-                            "nullable": true,
-                            "type": "string"
-                          },
-                          "last_synced_at": {
-                            "nullable": true,
-                            "type": "string"
-                          },
-                          "last_verified_at": {
-                            "nullable": true,
-                            "type": "string"
-                          },
-                          "mirror_count": {
-                            "nullable": true,
-                            "type": "integer"
-                          },
-                          "mirror_machine_id": {
-                            "nullable": true,
-                            "type": "string"
-                          },
-                          "mirror_state": {
-                            "nullable": true,
-                            "type": "string"
-                          },
                           "name": {
                             "type": "string"
                           },
@@ -10987,30 +10925,6 @@
                           },
                           "type": "array"
                         },
-                        "last_error": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "last_synced_at": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "last_verified_at": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "mirror_count": {
-                          "nullable": true,
-                          "type": "integer"
-                        },
-                        "mirror_machine_id": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "mirror_state": {
-                          "nullable": true,
-                          "type": "string"
-                        },
                         "name": {
                           "type": "string"
                         },
@@ -11159,30 +11073,6 @@
                             "type": "string"
                           },
                           "type": "array"
-                        },
-                        "last_error": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "last_synced_at": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "last_verified_at": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "mirror_count": {
-                          "nullable": true,
-                          "type": "integer"
-                        },
-                        "mirror_machine_id": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "mirror_state": {
-                          "nullable": true,
-                          "type": "string"
                         },
                         "name": {
                           "type": "string"
@@ -11377,30 +11267,6 @@
                           },
                           "type": "array"
                         },
-                        "last_error": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "last_synced_at": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "last_verified_at": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "mirror_count": {
-                          "nullable": true,
-                          "type": "integer"
-                        },
-                        "mirror_machine_id": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "mirror_state": {
-                          "nullable": true,
-                          "type": "string"
-                        },
                         "name": {
                           "type": "string"
                         },
@@ -11497,796 +11363,6 @@
           }
         },
         "summary": "Update a project repository",
-        "tags": [
-          "catalog"
-        ]
-      }
-    },
-    "/api/v1/projects/{projectId}/repos/{repoId}/mirrors": {
-      "get": {
-        "operationId": "listProjectRepoMirrors",
-        "parameters": [
-          {
-            "description": "Project ID.",
-            "in": "path",
-            "name": "projectId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Repository ID.",
-            "in": "path",
-            "name": "repoId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Optional machine filter.",
-            "in": "query",
-            "name": "machine_id",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "mirrors": {
-                      "items": {
-                        "properties": {
-                          "created_at": {
-                            "type": "string"
-                          },
-                          "head_commit": {
-                            "nullable": true,
-                            "type": "string"
-                          },
-                          "id": {
-                            "type": "string"
-                          },
-                          "last_error": {
-                            "nullable": true,
-                            "type": "string"
-                          },
-                          "last_synced_at": {
-                            "nullable": true,
-                            "type": "string"
-                          },
-                          "last_verified_at": {
-                            "nullable": true,
-                            "type": "string"
-                          },
-                          "local_path": {
-                            "type": "string"
-                          },
-                          "machine_id": {
-                            "type": "string"
-                          },
-                          "project_id": {
-                            "type": "string"
-                          },
-                          "project_repo_id": {
-                            "type": "string"
-                          },
-                          "state": {
-                            "type": "string"
-                          },
-                          "updated_at": {
-                            "type": "string"
-                          }
-                        },
-                        "type": "object"
-                      },
-                      "type": "array"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "List project repository mirrors response."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Request response."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Not Found response."
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Conflict response."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Internal Server Error response."
-          },
-          "502": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Gateway response."
-          }
-        },
-        "summary": "List project repository mirrors",
-        "tags": [
-          "catalog"
-        ]
-      },
-      "post": {
-        "operationId": "materializeProjectRepoMirror",
-        "parameters": [
-          {
-            "description": "Project ID.",
-            "in": "path",
-            "name": "projectId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Repository ID.",
-            "in": "path",
-            "name": "repoId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "properties": {
-                  "local_path": {
-                    "description": "Absolute filesystem path where the mirror exists or should be created.",
-                    "nullable": true,
-                    "type": "string"
-                  },
-                  "machine_id": {
-                    "description": "Machine ID where the repository mirror should be prepared or registered.",
-                    "type": "string"
-                  },
-                  "mode": {
-                    "description": "Mirror materialization mode, such as preparing a new mirror or registering an existing checkout.",
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            }
-          },
-          "description": "Register or prepare a project repository mirror request body.",
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "mirror": {
-                      "properties": {
-                        "created_at": {
-                          "type": "string"
-                        },
-                        "head_commit": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "id": {
-                          "type": "string"
-                        },
-                        "last_error": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "last_synced_at": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "last_verified_at": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "local_path": {
-                          "type": "string"
-                        },
-                        "machine_id": {
-                          "type": "string"
-                        },
-                        "project_id": {
-                          "type": "string"
-                        },
-                        "project_repo_id": {
-                          "type": "string"
-                        },
-                        "state": {
-                          "type": "string"
-                        },
-                        "updated_at": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Register or prepare a project repository mirror response."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Request response."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Not Found response."
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Conflict response."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Internal Server Error response."
-          },
-          "502": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Gateway response."
-          }
-        },
-        "summary": "Register or prepare a project repository mirror",
-        "tags": [
-          "catalog"
-        ]
-      }
-    },
-    "/api/v1/projects/{projectId}/repos/{repoId}/mirrors/sync": {
-      "post": {
-        "operationId": "syncProjectRepoMirror",
-        "parameters": [
-          {
-            "description": "Project ID.",
-            "in": "path",
-            "name": "projectId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Repository ID.",
-            "in": "path",
-            "name": "repoId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "properties": {
-                  "machine_id": {
-                    "description": "Machine ID whose mirror should be verified or synchronized.",
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            }
-          },
-          "description": "Sync a project repository mirror request body.",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "mirror": {
-                      "properties": {
-                        "created_at": {
-                          "type": "string"
-                        },
-                        "head_commit": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "id": {
-                          "type": "string"
-                        },
-                        "last_error": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "last_synced_at": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "last_verified_at": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "local_path": {
-                          "type": "string"
-                        },
-                        "machine_id": {
-                          "type": "string"
-                        },
-                        "project_id": {
-                          "type": "string"
-                        },
-                        "project_repo_id": {
-                          "type": "string"
-                        },
-                        "state": {
-                          "type": "string"
-                        },
-                        "updated_at": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Sync a project repository mirror response."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Request response."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Not Found response."
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Conflict response."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Internal Server Error response."
-          },
-          "502": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Gateway response."
-          }
-        },
-        "summary": "Sync a project repository mirror",
-        "tags": [
-          "catalog"
-        ]
-      }
-    },
-    "/api/v1/projects/{projectId}/repos/{repoId}/mirrors/verify": {
-      "post": {
-        "operationId": "verifyProjectRepoMirror",
-        "parameters": [
-          {
-            "description": "Project ID.",
-            "in": "path",
-            "name": "projectId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Repository ID.",
-            "in": "path",
-            "name": "repoId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "properties": {
-                  "machine_id": {
-                    "description": "Machine ID whose mirror should be verified or synchronized.",
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            }
-          },
-          "description": "Verify a project repository mirror request body.",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "mirror": {
-                      "properties": {
-                        "created_at": {
-                          "type": "string"
-                        },
-                        "head_commit": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "id": {
-                          "type": "string"
-                        },
-                        "last_error": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "last_synced_at": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "last_verified_at": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "local_path": {
-                          "type": "string"
-                        },
-                        "machine_id": {
-                          "type": "string"
-                        },
-                        "project_id": {
-                          "type": "string"
-                        },
-                        "project_repo_id": {
-                          "type": "string"
-                        },
-                        "state": {
-                          "type": "string"
-                        },
-                        "updated_at": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Verify a project repository mirror response."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Request response."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Not Found response."
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Conflict response."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Internal Server Error response."
-          },
-          "502": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Gateway response."
-          }
-        },
-        "summary": "Verify a project repository mirror",
         "tags": [
           "catalog"
         ]
@@ -16387,30 +15463,6 @@
                                 },
                                 "type": "array"
                               },
-                              "last_error": {
-                                "nullable": true,
-                                "type": "string"
-                              },
-                              "last_synced_at": {
-                                "nullable": true,
-                                "type": "string"
-                              },
-                              "last_verified_at": {
-                                "nullable": true,
-                                "type": "string"
-                              },
-                              "mirror_count": {
-                                "nullable": true,
-                                "type": "integer"
-                              },
-                              "mirror_machine_id": {
-                                "nullable": true,
-                                "type": "string"
-                              },
-                              "mirror_state": {
-                                "nullable": true,
-                                "type": "string"
-                              },
                               "name": {
                                 "type": "string"
                               },
@@ -17856,21 +16908,6 @@
                           "type": "string"
                         },
                         "kind": {
-                          "type": "string"
-                        },
-                        "mirror_count": {
-                          "type": "integer"
-                        },
-                        "mirror_last_error": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "mirror_machine_id": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "mirror_state": {
-                          "nullable": true,
                           "type": "string"
                         },
                         "primary_repo_id": {

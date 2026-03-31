@@ -11,7 +11,6 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
-	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/google/uuid"
@@ -28,8 +27,6 @@ type TicketRepoWorkspace struct {
 	AgentRunID uuid.UUID `json:"agent_run_id,omitempty"`
 	// RepoID holds the value of the "repo_id" field.
 	RepoID uuid.UUID `json:"repo_id,omitempty"`
-	// MirrorID holds the value of the "mirror_id" field.
-	MirrorID uuid.UUID `json:"mirror_id,omitempty"`
 	// WorkspaceRoot holds the value of the "workspace_root" field.
 	WorkspaceRoot string `json:"workspace_root,omitempty"`
 	// RepoPath holds the value of the "repo_path" field.
@@ -64,11 +61,9 @@ type TicketRepoWorkspaceEdges struct {
 	AgentRun *AgentRun `json:"agent_run,omitempty"`
 	// Repo holds the value of the repo edge.
 	Repo *ProjectRepo `json:"repo,omitempty"`
-	// Mirror holds the value of the mirror edge.
-	Mirror *ProjectRepoMirror `json:"mirror,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [3]bool
 }
 
 // TicketOrErr returns the Ticket value or an error if the edge
@@ -104,17 +99,6 @@ func (e TicketRepoWorkspaceEdges) RepoOrErr() (*ProjectRepo, error) {
 	return nil, &NotLoadedError{edge: "repo"}
 }
 
-// MirrorOrErr returns the Mirror value or an error if the edge
-// was not loaded in eager-loading, or loaded but was not found.
-func (e TicketRepoWorkspaceEdges) MirrorOrErr() (*ProjectRepoMirror, error) {
-	if e.Mirror != nil {
-		return e.Mirror, nil
-	} else if e.loadedTypes[3] {
-		return nil, &NotFoundError{label: projectrepomirror.Label}
-	}
-	return nil, &NotLoadedError{edge: "mirror"}
-}
-
 // scanValues returns the types for scanning values from sql.Rows.
 func (*TicketRepoWorkspace) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -124,7 +108,7 @@ func (*TicketRepoWorkspace) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullString)
 		case ticketrepoworkspace.FieldPreparedAt, ticketrepoworkspace.FieldCleanedAt, ticketrepoworkspace.FieldCreatedAt, ticketrepoworkspace.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
-		case ticketrepoworkspace.FieldID, ticketrepoworkspace.FieldTicketID, ticketrepoworkspace.FieldAgentRunID, ticketrepoworkspace.FieldRepoID, ticketrepoworkspace.FieldMirrorID:
+		case ticketrepoworkspace.FieldID, ticketrepoworkspace.FieldTicketID, ticketrepoworkspace.FieldAgentRunID, ticketrepoworkspace.FieldRepoID:
 			values[i] = new(uuid.UUID)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -164,12 +148,6 @@ func (_m *TicketRepoWorkspace) assignValues(columns []string, values []any) erro
 				return fmt.Errorf("unexpected type %T for field repo_id", values[i])
 			} else if value != nil {
 				_m.RepoID = *value
-			}
-		case ticketrepoworkspace.FieldMirrorID:
-			if value, ok := values[i].(*uuid.UUID); !ok {
-				return fmt.Errorf("unexpected type %T for field mirror_id", values[i])
-			} else if value != nil {
-				_m.MirrorID = *value
 			}
 		case ticketrepoworkspace.FieldWorkspaceRoot:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -261,11 +239,6 @@ func (_m *TicketRepoWorkspace) QueryRepo() *ProjectRepoQuery {
 	return NewTicketRepoWorkspaceClient(_m.config).QueryRepo(_m)
 }
 
-// QueryMirror queries the "mirror" edge of the TicketRepoWorkspace entity.
-func (_m *TicketRepoWorkspace) QueryMirror() *ProjectRepoMirrorQuery {
-	return NewTicketRepoWorkspaceClient(_m.config).QueryMirror(_m)
-}
-
 // Update returns a builder for updating this TicketRepoWorkspace.
 // Note that you need to call TicketRepoWorkspace.Unwrap() before calling this method if this TicketRepoWorkspace
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -297,9 +270,6 @@ func (_m *TicketRepoWorkspace) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("repo_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RepoID))
-	builder.WriteString(", ")
-	builder.WriteString("mirror_id=")
-	builder.WriteString(fmt.Sprintf("%v", _m.MirrorID))
 	builder.WriteString(", ")
 	builder.WriteString("workspace_root=")
 	builder.WriteString(_m.WorkspaceRoot)
