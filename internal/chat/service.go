@@ -596,8 +596,10 @@ func (s *Service) writeHarnessEditorContext(
 	sb.WriteString(renderHarnessVariableDictionary())
 	sb.WriteByte('\n')
 	sb.WriteString("\n### Harness 编辑器回复要求\n")
-	sb.WriteString("- 当用户请求修改 Harness 时，先简要说明修改意图，再给出完整的更新后 Harness。\n")
-	sb.WriteString("- 完整 Harness 必须放在一个 ```markdown 代码块中，便于编辑器提取 diff 并应用。\n")
+	sb.WriteString("- 当用户请求修改 Harness 时，优先输出一个结构化 diff JSON 对象，供编辑器直接安全应用。\n")
+	sb.WriteString("- diff JSON 格式如下：{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"# Title\"},{\"op\":\"add\",\"text\":\"新增内容\"}]}]}\n")
+	sb.WriteString("- `file` 固定写 `harness content`，`hunks` 使用 1-based 行号，`lines[].op` 只能是 `context` / `add` / `remove`。\n")
+	sb.WriteString("- 如果无法可靠地产出结构化 diff，才回退为简要说明加完整 Harness markdown 代码块。\n")
 	sb.WriteString("- 只有在用户明确要求平台写操作时才输出 action_proposal；普通 Harness 建议不要输出 action_proposal。\n")
 	return nil
 }

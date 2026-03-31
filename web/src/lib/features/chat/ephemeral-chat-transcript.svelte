@@ -2,6 +2,7 @@
   import { cn } from '$lib/utils'
   import { LoaderCircle } from '@lucide/svelte'
   import EphemeralChatActionProposalCard from './ephemeral-chat-action-proposal-card.svelte'
+  import EphemeralChatDiffCard from './ephemeral-chat-diff-card.svelte'
   import ChatMarkdownContent from './chat-markdown-content.svelte'
   import type { EphemeralChatTranscriptEntry } from './transcript'
 
@@ -43,6 +44,8 @@
         onConfirm={onConfirmActionProposal}
         onCancel={onCancelActionProposal}
       />
+    {:else if entry.kind === 'diff'}
+      <EphemeralChatDiffCard {entry} />
     {:else}
       <div
         class={cn(

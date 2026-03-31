@@ -9405,6 +9405,36 @@ event: done
 data: {"session_id": "sess-xxx", "cost_usd": 0.03, "turns_used": 1, "turns_remaining": 9}
 ```
 
+其中 `diff` 事件使用稳定的结构化 patch schema，而不是让前端从 markdown 文本中猜测：
+
+```json
+{
+  "type": "diff",
+  "file": "harness content",
+  "hunks": [
+    {
+      "old_start": 12,
+      "old_lines": 2,
+      "new_start": 12,
+      "new_lines": 3,
+      "lines": [
+        {"op": "context", "text": "## 工作边界"},
+        {"op": "remove", "text": "- 不要修改不相关的文件"},
+        {"op": "add", "text": "- 不要删除或修改现有测试文件"},
+        {"op": "add", "text": "- 新功能必须附带对应测试"}
+      ]
+    }
+  ]
+}
+```
+
+约束：
+
+- `file` 表示编辑目标；Harness 编辑器场景固定为 `harness content`
+- `hunks` 使用 1-based 行号，语义对齐 unified diff 的 old/new start + line counts
+- `lines[].op` 只能是 `context` / `add` / `remove`
+- 前端根据结构化 `diff` 渲染预览与 “应用到编辑器”，不再依赖从自由文本里提取 patch
+
 ### 31.9 与工单 Agent 的区别
 
 | 维度 | 工单 Agent（编排引擎驱动） | Ephemeral Chat（用户直接驱动） |

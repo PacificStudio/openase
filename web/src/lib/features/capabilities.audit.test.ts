@@ -16,6 +16,7 @@ import repositoriesSettingsSource from './settings/components/repositories-setti
 import repositoriesSettingsStateSource from './settings/components/repositories-settings-state.svelte.ts?raw'
 import securitySettingsSource from './settings/components/security-settings.svelte?raw'
 import settingsPageSource from './settings/components/settings-page.svelte?raw'
+import skillsSettingsSource from './settings/components/skills-settings.svelte?raw'
 import statusSettingsSource from './settings/components/status-settings.svelte?raw'
 import workflowSettingsSource from './settings/components/workflow-settings.svelte?raw'
 import workflowManagementSource from './workflows/workflow-management.ts?raw'
@@ -43,6 +44,7 @@ const sourceByFile: Record<string, string> = {
   './settings/components/repositories-settings-state.svelte.ts': repositoriesSettingsStateSource,
   './settings/components/security-settings.svelte': securitySettingsSource,
   './settings/components/settings-page.svelte': settingsPageSource,
+  './settings/components/skills-settings.svelte': skillsSettingsSource,
   './settings/components/status-settings.svelte': statusSettingsSource,
   './settings/components/workflow-settings.svelte': workflowSettingsSource,
   './workflows/workflow-management.ts': workflowManagementSource,
@@ -77,6 +79,18 @@ const settingsAuditCases: SettingsAuditCase[] = [
           'updateProject(projectId, {',
           'archiveProject(projectId)',
         ],
+      },
+    ],
+  },
+  {
+    section: 'skills',
+    capability: 'skillsSettings',
+    expectedState: 'available',
+    summarySnippets: ['project skill list/create flows', 'workflow binding management'],
+    sources: [
+      {
+        file: './settings/components/skills-settings.svelte',
+        snippets: ['listSkills(projectId)', 'createSkill(projectId, {', 'listWorkflows(projectId)'],
       },
     ],
   },

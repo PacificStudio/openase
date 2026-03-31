@@ -75,6 +75,37 @@ func TestMapCodexAssistantOutputPrefersSnapshotTextForJSONResponses(t *testing.T
 	}
 }
 
+func TestMapCodexAssistantOutputPromotesDiffFromSnapshot(t *testing.T) {
+	items := make(map[string]*codexAssistantItemState)
+
+	events := mapCodexAssistantOutput(&codexadapter.OutputEvent{
+		ItemID: "item-1",
+		Stream: "assistant",
+		Text:   "```json\n{\"type\":\"diff\",",
+	}, items)
+	if len(events) != 0 {
+		t.Fatalf("first assistant delta should be buffered, got %+v", events)
+	}
+
+	events = mapCodexAssistantOutput(&codexadapter.OutputEvent{
+		ItemID:   "item-1",
+		Stream:   "assistant",
+		Text:     "\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"---\"},{\"op\":\"add\",\"text\":\"new line\"}]}]}\n```",
+		Snapshot: true,
+	}, items)
+	if len(events) != 1 {
+		t.Fatalf("snapshot should emit one normalized event, got %d", len(events))
+	}
+
+	payload, ok := events[0].Payload.(diffPayload)
+	if !ok {
+		t.Fatalf("payload = %#v, want diff payload", events[0].Payload)
+	}
+	if payload.Type != chatMessageTypeDiff || payload.File != "harness content" {
+		t.Fatalf("unexpected diff payload: %#v", payload)
+	}
+}
+
 func TestGeminiRuntimeStartTurnPromotesActionProposalJSON(t *testing.T) {
 	stdin := &trackingWriteCloser{}
 	manager := &fakeAgentCLIProcessManager{
@@ -132,6 +163,45 @@ func TestGeminiRuntimeStartTurnPromotesActionProposalJSON(t *testing.T) {
 	}
 	if !stdin.closed {
 		t.Fatal("expected gemini stdin to be closed after start")
+	}
+}
+
+func TestGeminiRuntimeStartTurnPromotesDiffJSON(t *testing.T) {
+	stdin := &trackingWriteCloser{}
+	manager := &fakeAgentCLIProcessManager{
+		process: &fakeAgentCLIProcess{
+			stdin:  stdin,
+			stdout: "{\"response\":\"```json\\n{\\\"type\\\":\\\"diff\\\",\\\"file\\\":\\\"harness content\\\",\\\"hunks\\\":[{\\\"old_start\\\":1,\\\"old_lines\\\":1,\\\"new_start\\\":1,\\\"new_lines\\\":2,\\\"lines\\\":[{\\\"op\\\":\\\"context\\\",\\\"text\\\":\\\"---\\\"},{\\\"op\\\":\\\"add\\\",\\\"text\\\":\\\"new line\\\"}]}]}\\n```\"}",
+		},
+	}
+	runtime := NewGeminiRuntime(manager)
+
+	stream, err := runtime.StartTurn(context.Background(), RuntimeTurnInput{
+		SessionID:        SessionID("session-gemini-diff-1"),
+		Message:          "Tighten this harness",
+		SystemPrompt:     "You are OpenASE.",
+		MaxTurns:         DefaultMaxTurns,
+		WorkingDirectory: provider.MustParseAbsolutePath("/tmp/openase"),
+		Provider: catalogdomain.AgentProvider{
+			AdapterType: catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+			CliCommand:  "gemini",
+		},
+	})
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+
+	events := collectStreamEvents(stream.Events)
+	if len(events) != 2 {
+		t.Fatalf("stream event count = %d, want 2: %+v", len(events), events)
+	}
+
+	payload, ok := events[0].Payload.(diffPayload)
+	if events[0].Event != "message" || !ok {
+		t.Fatalf("first event = %+v, want normalized diff message", events[0])
+	}
+	if payload.Type != chatMessageTypeDiff || payload.File != "harness content" {
+		t.Fatalf("unexpected diff payload: %#v", payload)
 	}
 }
 

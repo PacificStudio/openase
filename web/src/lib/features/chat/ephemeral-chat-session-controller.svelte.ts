@@ -45,12 +45,10 @@ export function createEphemeralChatSessionController(
   let pending = $state(false)
   let sessionId = $state('')
   let entries = $state<EphemeralChatTranscriptEntry[]>([])
-
   let entryCounter = 0
   let requestId = 0
   let abortController: AbortController | null = null
   let activeAssistantEntryId = ''
-
   function appendEntry(
     role: EphemeralChatRole,
     content: string,
@@ -62,7 +60,6 @@ export function createEphemeralChatSessionController(
       createTextTranscriptEntry(`entry-${entryCounter}`, role, content, options),
     ]
   }
-
   function applyAssistantTextUpdate(update: {
     entries: EphemeralChatTranscriptEntry[]
     activeAssistantEntryId: string
@@ -72,8 +69,10 @@ export function createEphemeralChatSessionController(
     activeAssistantEntryId = update.activeAssistantEntryId
     entryCounter = update.entryCounter
   }
-
   function appendMappedEntry(event: Extract<ChatStreamEvent, { kind: 'message' }>) {
+    applyAssistantTextUpdate(
+      finalizeAssistantTextChunk({ entries, activeAssistantEntryId, entryCounter }),
+    )
     entryCounter += 1
     entries = [...entries, mapChatPayloadToTranscriptEntry(`entry-${entryCounter}`, event.payload)]
   }

@@ -543,10 +543,14 @@ type OpenAPISkillWorkflowBinding struct {
 }
 
 type OpenAPISkill struct {
+	ID             string                        `json:"id"`
 	Name           string                        `json:"name"`
 	Description    string                        `json:"description"`
 	Path           string                        `json:"path"`
 	IsBuiltin      bool                          `json:"is_builtin"`
+	IsEnabled      bool                          `json:"is_enabled"`
+	CreatedBy      string                        `json:"created_by"`
+	CreatedAt      string                        `json:"created_at"`
 	BoundWorkflows []OpenAPISkillWorkflowBinding `json:"bound_workflows"`
 }
 
@@ -941,6 +945,15 @@ type OpenAPISkillsResponse struct {
 	Skills []OpenAPISkill `json:"skills"`
 }
 
+type OpenAPISkillDetailResponse struct {
+	Skill   OpenAPISkill `json:"skill"`
+	Content string       `json:"content"`
+}
+
+type OpenAPIDeleteSkillResponse struct {
+	DeletedSkillID string `json:"deleted_skill_id"`
+}
+
 type OpenAPIRolesResponse struct {
 	Roles []OpenAPIBuiltinRole `json:"roles"`
 }
@@ -1134,6 +1147,10 @@ type OpenAPIUpdateIssueConnectorRequest struct {
 	Config *OpenAPIUpdateIssueConnectorConfig `json:"config,omitempty"`
 }
 type OpenAPIUpdateWorkflowSkillsRequest rawUpdateWorkflowSkillsRequest
+type OpenAPISkillSyncRequest rawSkillSyncRequest
+type OpenAPICreateSkillRequest rawCreateSkillRequest
+type OpenAPIUpdateSkillRequest rawUpdateSkillRequest
+type OpenAPIUpdateSkillBindingsRequest rawUpdateSkillBindingsRequest
 type OpenAPICreateTicketRequest rawCreateTicketRequest
 type OpenAPIUpdateTicketRequest rawUpdateTicketRequest
 type OpenAPICreateTicketCommentRequest rawCreateTicketCommentRequest
@@ -1383,6 +1400,26 @@ var (
 	openAPISkillBindingDescriptions = map[string]string{
 		"skills": "Skill names included in this workflow skill binding request.",
 	}
+	openAPISkillCreateDescriptions = map[string]string{
+		"name":        "Project-unique skill directory name.",
+		"content":     "Skill markdown content. Frontmatter is optional on input and will be normalized on write.",
+		"description": "Optional description used when the input content does not declare one.",
+		"created_by":  "Optional creator descriptor such as user:gary or agent:codex-01 via ASE-42.",
+		"is_enabled":  "Whether the new skill should be enabled for runtime injection immediately.",
+	}
+	openAPISkillUpdateDescriptions = map[string]string{
+		"content":     "Replacement skill markdown content. Frontmatter is optional on input and will be normalized on write.",
+		"description": "Optional description override used when the input content does not declare one.",
+	}
+	openAPISkillSyncDescriptions = map[string]string{
+		"workspace_root": "Workspace repository root that owns the agent skill directory.",
+		"adapter_type":   "Agent adapter type used to derive the runtime skill directory.",
+		"workflow_id":    "Optional workflow ID used to project only the currently bound enabled skills.",
+	}
+	openAPISkillBindingTargetDescriptions = map[string]string{
+		"workflow_ids": "Workflow IDs that should bind or unbind this skill.",
+		"harness_ids":  "Alias of workflow_ids kept for PRD terminology compatibility.",
+	}
 	openAPIRequestBodyDescriptions = map[string]map[string]string{
 		"POST /api/v1/orgs":                                                           openAPIOrganizationRequestDescriptions,
 		"PATCH /api/v1/orgs/{orgId}":                                                  openAPIOrganizationRequestDescriptions,
@@ -1424,6 +1461,12 @@ var (
 		"PATCH /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}": openAPIRepoScopePatchDescriptions,
 		"POST /api/v1/projects/{projectId}/hr-advisor/activate":                       openAPIHRAdvisorActivateDescriptions,
 		"POST /api/v1/chat":                                                           openAPIChatRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/skills":                                    openAPISkillCreateDescriptions,
+		"POST /api/v1/projects/{projectId}/skills/refresh":                            openAPISkillSyncDescriptions,
+		"POST /api/v1/projects/{projectId}/skills/harvest":                            openAPISkillSyncDescriptions,
+		"PUT /api/v1/skills/{skillId}":                                                openAPISkillUpdateDescriptions,
+		"POST /api/v1/skills/{skillId}/bind":                                          openAPISkillBindingTargetDescriptions,
+		"POST /api/v1/skills/{skillId}/unbind":                                        openAPISkillBindingTargetDescriptions,
 		"POST /api/v1/workflows/{workflowId}/skills/bind":                             openAPISkillBindingDescriptions,
 		"POST /api/v1/workflows/{workflowId}/skills/unbind":                           openAPISkillBindingDescriptions,
 	}
@@ -2783,6 +2826,176 @@ func (b openAPISpecBuilder) addWorkflowOperations() error {
 	}
 	skillsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/skills", http.MethodGet, skillsGet)
+
+	skillsCreate, err := b.jsonOperation(
+		"createSkill",
+		"Create a skill in the project library",
+		[]string{"skills"},
+		http.StatusCreated,
+		OpenAPISkillDetailResponse{},
+		OpenAPICreateSkillRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	skillsCreate.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/skills", http.MethodPost, skillsCreate)
+
+	refreshSkills, err := b.jsonOperation(
+		"refreshSkills",
+		"Refresh a workspace skill directory from the project skill library",
+		[]string{"skills"},
+		http.StatusOK,
+		skillSyncResponse{},
+		OpenAPISkillSyncRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	refreshSkills.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/skills/refresh", http.MethodPost, refreshSkills)
+
+	harvestSkills, err := b.jsonOperation(
+		"harvestSkills",
+		"Harvest workspace-authored skills back into the project skill library",
+		[]string{"skills"},
+		http.StatusOK,
+		skillSyncResponse{},
+		OpenAPISkillSyncRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	harvestSkills.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/skills/harvest", http.MethodPost, harvestSkills)
+
+	skillGet, err := b.jsonOperation(
+		"getSkill",
+		"Get skill detail",
+		[]string{"skills"},
+		http.StatusOK,
+		OpenAPISkillDetailResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	skillGet.AddParameter(uuidPathParameter("skillId", "Skill ID."))
+	b.doc.AddOperation("/api/v1/skills/{skillId}", http.MethodGet, skillGet)
+
+	skillUpdate, err := b.jsonOperation(
+		"updateSkill",
+		"Update skill content",
+		[]string{"skills"},
+		http.StatusOK,
+		OpenAPISkillDetailResponse{},
+		OpenAPIUpdateSkillRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	skillUpdate.AddParameter(uuidPathParameter("skillId", "Skill ID."))
+	b.doc.AddOperation("/api/v1/skills/{skillId}", http.MethodPut, skillUpdate)
+
+	skillDelete, err := b.jsonOperation(
+		"deleteSkill",
+		"Delete a skill and unbind it from all workflows",
+		[]string{"skills"},
+		http.StatusOK,
+		OpenAPIDeleteSkillResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	skillDelete.AddParameter(uuidPathParameter("skillId", "Skill ID."))
+	b.doc.AddOperation("/api/v1/skills/{skillId}", http.MethodDelete, skillDelete)
+
+	enableSkill, err := b.jsonOperation(
+		"enableSkill",
+		"Enable a skill for runtime injection",
+		[]string{"skills"},
+		http.StatusOK,
+		OpenAPISkillDetailResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	enableSkill.AddParameter(uuidPathParameter("skillId", "Skill ID."))
+	b.doc.AddOperation("/api/v1/skills/{skillId}/enable", http.MethodPost, enableSkill)
+
+	disableSkill, err := b.jsonOperation(
+		"disableSkill",
+		"Disable a skill without deleting its files",
+		[]string{"skills"},
+		http.StatusOK,
+		OpenAPISkillDetailResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	disableSkill.AddParameter(uuidPathParameter("skillId", "Skill ID."))
+	b.doc.AddOperation("/api/v1/skills/{skillId}/disable", http.MethodPost, disableSkill)
+
+	bindSkill, err := b.jsonOperation(
+		"bindSkill",
+		"Bind a skill to one or more workflow harnesses",
+		[]string{"skills"},
+		http.StatusOK,
+		OpenAPISkillDetailResponse{},
+		OpenAPIUpdateSkillBindingsRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	bindSkill.AddParameter(uuidPathParameter("skillId", "Skill ID."))
+	b.doc.AddOperation("/api/v1/skills/{skillId}/bind", http.MethodPost, bindSkill)
+
+	unbindSkill, err := b.jsonOperation(
+		"unbindSkill",
+		"Unbind a skill from one or more workflow harnesses",
+		[]string{"skills"},
+		http.StatusOK,
+		OpenAPISkillDetailResponse{},
+		OpenAPIUpdateSkillBindingsRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	unbindSkill.AddParameter(uuidPathParameter("skillId", "Skill ID."))
+	b.doc.AddOperation("/api/v1/skills/{skillId}/unbind", http.MethodPost, unbindSkill)
 
 	bindSkills, err := b.jsonOperation(
 		"bindWorkflowSkills",
