@@ -212,6 +212,7 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 		return nil
 	}
 
+	executions := l.executionRunIDs()
 	sessions := l.drainSessions()
 	for runID, session := range sessions {
 		stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
@@ -283,6 +284,17 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 			runtimeEventMetadataForState(agentState),
 			now,
 		)
+	}
+
+	for _, runID := range executions {
+		if _, hadSession := sessions[runID]; hadSession {
+			continue
+		}
+		stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		if err := l.waitForExecutionStop(stopCtx, runID); err != nil {
+			l.logger.Warn("wait for execution shutdown", "run_id", runID, "error", err)
+		}
+		cancel()
 	}
 
 	return nil
@@ -547,7 +559,6 @@ func (l *RuntimeLauncher) refreshHeartbeats(ctx context.Context) error {
 			stopSession(context.Background(), l.loadSession(runID))
 			l.deleteSession(runID)
 			l.runtime.delete(runID)
-			l.finishExecution(runID)
 			continue
 		}
 		if assignment.agent == nil || assignment.run == nil || assignment.ticket == nil ||
@@ -556,7 +567,6 @@ func (l *RuntimeLauncher) refreshHeartbeats(ctx context.Context) error {
 			stopSession(context.Background(), l.loadSession(runID))
 			l.deleteSession(runID)
 			l.runtime.delete(runID)
-			l.finishExecution(runID)
 			continue
 		}
 	}
@@ -1894,6 +1904,21 @@ func (l *RuntimeLauncher) executionActive(runID uuid.UUID) bool {
 	defer l.executionsMu.Unlock()
 	_, active := l.executions[runID]
 	return active
+}
+
+func (l *RuntimeLauncher) executionRunIDs() []uuid.UUID {
+	if l == nil {
+		return nil
+	}
+
+	l.executionsMu.Lock()
+	defer l.executionsMu.Unlock()
+
+	runIDs := make([]uuid.UUID, 0, len(l.executions))
+	for runID := range l.executions {
+		runIDs = append(runIDs, runID)
+	}
+	return runIDs
 }
 
 func (l *RuntimeLauncher) waitForExecutionStop(ctx context.Context, runID uuid.UUID) error {
