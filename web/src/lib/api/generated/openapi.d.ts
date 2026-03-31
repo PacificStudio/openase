@@ -4397,6 +4397,12 @@ export interface operations {
               availability_reason?: string | null
               availability_state?: string
               available?: boolean
+              capabilities?: {
+                ephemeral_chat?: {
+                  reason?: string | null
+                  state?: string
+                }
+              }
               cli_args?: string[]
               cli_command?: string
               /** Format: double */
@@ -4525,6 +4531,12 @@ export interface operations {
               availability_reason?: string | null
               availability_state?: string
               available?: boolean
+              capabilities?: {
+                ephemeral_chat?: {
+                  reason?: string | null
+                  state?: string
+                }
+              }
               cli_args?: string[]
               cli_command?: string
               /** Format: double */
@@ -9425,6 +9437,12 @@ export interface operations {
               availability_reason?: string | null
               availability_state?: string
               available?: boolean
+              capabilities?: {
+                ephemeral_chat?: {
+                  reason?: string | null
+                  state?: string
+                }
+              }
               cli_args?: string[]
               cli_command?: string
               /** Format: double */

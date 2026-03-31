@@ -11,7 +11,11 @@ import {
   summarizeExecutionResults,
   type ChatActionExecutionResult,
 } from './action-proposal-executor'
-import { listEphemeralChatProviders, pickDefaultEphemeralChatProvider } from './provider-options'
+import {
+  hasAvailableEphemeralChat,
+  listEphemeralChatProviders,
+  pickDefaultEphemeralChatProvider,
+} from './provider-options'
 import { formatEphemeralChatUsageSummary } from './session-policy'
 import {
   appendAssistantTextChunk,
@@ -197,7 +201,9 @@ export function createEphemeralChatSessionController(
 
       if (
         providerId &&
-        providers.some((provider) => provider.id === providerId && provider.available)
+        providers.some(
+          (provider) => provider.id === providerId && hasAvailableEphemeralChat(provider),
+        )
       ) {
         return
       }

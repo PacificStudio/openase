@@ -347,33 +347,84 @@ func (s *Service) resolveProvider(
 		resolvedProviderID = &sessionProviderID
 	}
 
+	firstUnavailable := (*providerResolutionIssue)(nil)
 	if resolvedProviderID != nil {
 		providerItem, ok := findProvider(providers, *resolvedProviderID)
 		if !ok {
 			return catalogdomain.AgentProvider{}, ErrProviderNotFound
 		}
-		if !s.runtime.Supports(providerItem) {
-			return catalogdomain.AgentProvider{}, fmt.Errorf("%w: %s", ErrProviderUnsupported, providerItem.AdapterType)
+		capability := resolveEphemeralChatCapability(providerItem)
+		switch capability.State {
+		case catalogdomain.AgentProviderCapabilityStateUnsupported:
+			return catalogdomain.AgentProvider{}, providerResolutionError(ErrProviderUnsupported, providerItem, capability)
+		case catalogdomain.AgentProviderCapabilityStateUnavailable:
+			return catalogdomain.AgentProvider{}, providerResolutionError(ErrProviderUnavailable, providerItem, capability)
 		}
-		if !providerItem.Available {
-			return catalogdomain.AgentProvider{}, fmt.Errorf("%w: %s", ErrProviderUnavailable, providerItem.Name)
+		if !s.runtime.Supports(providerItem) {
+			return catalogdomain.AgentProvider{}, fmt.Errorf("%w: provider=%s reason=runtime_missing", ErrProviderUnsupported, providerItem.Name)
 		}
 		return providerItem, nil
 	}
 
 	if project.DefaultAgentProviderID != nil {
-		if providerItem, ok := findProvider(providers, *project.DefaultAgentProviderID); ok && providerItem.Available && s.runtime.Supports(providerItem) {
-			return providerItem, nil
+		if providerItem, ok := findProvider(providers, *project.DefaultAgentProviderID); ok {
+			capability := resolveEphemeralChatCapability(providerItem)
+			if capability.State == catalogdomain.AgentProviderCapabilityStateAvailable && s.runtime.Supports(providerItem) {
+				return providerItem, nil
+			}
+			if capability.State == catalogdomain.AgentProviderCapabilityStateUnavailable && firstUnavailable == nil {
+				firstUnavailable = &providerResolutionIssue{
+					provider:   providerItem,
+					capability: capability,
+				}
+			}
 		}
 	}
 
 	for _, providerItem := range providers {
-		if providerItem.Available && s.runtime.Supports(providerItem) {
+		capability := resolveEphemeralChatCapability(providerItem)
+		if capability.State == catalogdomain.AgentProviderCapabilityStateAvailable && s.runtime.Supports(providerItem) {
 			return providerItem, nil
+		}
+		if capability.State == catalogdomain.AgentProviderCapabilityStateUnavailable && firstUnavailable == nil {
+			firstUnavailable = &providerResolutionIssue{
+				provider:   providerItem,
+				capability: capability,
+			}
 		}
 	}
 
+	if firstUnavailable != nil {
+		return catalogdomain.AgentProvider{}, providerResolutionError(
+			ErrProviderUnavailable,
+			firstUnavailable.provider,
+			firstUnavailable.capability,
+		)
+	}
+
 	return catalogdomain.AgentProvider{}, fmt.Errorf("%w: project=%s session=%s", ErrProviderNotFound, project.ID, sessionID)
+}
+
+type providerResolutionIssue struct {
+	provider   catalogdomain.AgentProvider
+	capability catalogdomain.AgentProviderCapability
+}
+
+func resolveEphemeralChatCapability(providerItem catalogdomain.AgentProvider) catalogdomain.AgentProviderCapability {
+	providerItem = catalogdomain.DeriveAgentProviderCapabilities(providerItem)
+	return providerItem.Capabilities.EphemeralChat
+}
+
+func providerResolutionError(
+	base error,
+	providerItem catalogdomain.AgentProvider,
+	capability catalogdomain.AgentProviderCapability,
+) error {
+	details := []string{fmt.Sprintf("provider=%s", providerItem.Name)}
+	if capability.Reason != nil && strings.TrimSpace(*capability.Reason) != "" {
+		details = append(details, "reason="+strings.TrimSpace(*capability.Reason))
+	}
+	return fmt.Errorf("%w: %s", base, strings.Join(details, " "))
 }
 
 func (s *Service) resolveExistingSession(userID UserID, rawSessionID *SessionID) (*sessionState, error) {

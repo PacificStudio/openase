@@ -18,6 +18,12 @@ const providerFixture: AgentProvider = {
   availability_checked_at: '2026-03-27T10:00:00Z',
   availability_reason: null,
   availability_state: 'available',
+  capabilities: {
+    ephemeral_chat: {
+      state: 'available',
+      reason: null,
+    },
+  },
   cli_command: 'codex',
   cli_args: ['app-server', '--listen', 'stdio://'],
   auth_config: {},

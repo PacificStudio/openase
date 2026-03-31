@@ -705,6 +705,12 @@ func TestAgentCatalogRouteErrorMappingsAndHelpers(t *testing.T) {
 	if mappedProvider.MachineSSHUser == nil || *mappedProvider.MachineSSHUser != sshUser || mappedProvider.MachineWorkspaceRoot == nil || *mappedProvider.MachineWorkspaceRoot != workspaceRoot {
 		t.Fatalf("mapAgentProviderResponse() = %+v", mappedProvider)
 	}
+	if mappedProvider.Capabilities.EphemeralChat.State != domain.AgentProviderCapabilityStateUnavailable.String() {
+		t.Fatalf("expected mapped provider ephemeral chat state unavailable, got %+v", mappedProvider.Capabilities)
+	}
+	if mappedProvider.Capabilities.EphemeralChat.Reason == nil || *mappedProvider.Capabilities.EphemeralChat.Reason != "not_ready" {
+		t.Fatalf("expected mapped provider ephemeral chat reason not_ready, got %+v", mappedProvider.Capabilities)
+	}
 	*mappedProvider.MachineSSHUser = "changed"
 	if *service.providers[providerOneID].MachineSSHUser != sshUser {
 		t.Fatalf("mapAgentProviderResponse() should clone machine pointers, got %+v", service.providers[providerOneID])

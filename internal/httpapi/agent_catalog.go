@@ -11,28 +11,38 @@ import (
 )
 
 type agentProviderResponse struct {
-	ID                    string         `json:"id"`
-	OrganizationID        string         `json:"organization_id"`
-	MachineID             string         `json:"machine_id"`
-	MachineName           string         `json:"machine_name"`
-	MachineHost           string         `json:"machine_host"`
-	MachineStatus         string         `json:"machine_status"`
-	MachineSSHUser        *string        `json:"machine_ssh_user,omitempty"`
-	MachineWorkspaceRoot  *string        `json:"machine_workspace_root,omitempty"`
-	Name                  string         `json:"name"`
-	AdapterType           string         `json:"adapter_type"`
-	AvailabilityState     string         `json:"availability_state"`
-	Available             bool           `json:"available"`
-	AvailabilityCheckedAt *string        `json:"availability_checked_at,omitempty"`
-	AvailabilityReason    *string        `json:"availability_reason,omitempty"`
-	CliCommand            string         `json:"cli_command"`
-	CliArgs               []string       `json:"cli_args"`
-	AuthConfig            map[string]any `json:"auth_config"`
-	ModelName             string         `json:"model_name"`
-	ModelTemperature      float64        `json:"model_temperature"`
-	ModelMaxTokens        int            `json:"model_max_tokens"`
-	CostPerInputToken     float64        `json:"cost_per_input_token"`
-	CostPerOutputToken    float64        `json:"cost_per_output_token"`
+	ID                    string                            `json:"id"`
+	OrganizationID        string                            `json:"organization_id"`
+	MachineID             string                            `json:"machine_id"`
+	MachineName           string                            `json:"machine_name"`
+	MachineHost           string                            `json:"machine_host"`
+	MachineStatus         string                            `json:"machine_status"`
+	MachineSSHUser        *string                           `json:"machine_ssh_user,omitempty"`
+	MachineWorkspaceRoot  *string                           `json:"machine_workspace_root,omitempty"`
+	Name                  string                            `json:"name"`
+	AdapterType           string                            `json:"adapter_type"`
+	AvailabilityState     string                            `json:"availability_state"`
+	Available             bool                              `json:"available"`
+	AvailabilityCheckedAt *string                           `json:"availability_checked_at,omitempty"`
+	AvailabilityReason    *string                           `json:"availability_reason,omitempty"`
+	Capabilities          agentProviderCapabilitiesResponse `json:"capabilities"`
+	CliCommand            string                            `json:"cli_command"`
+	CliArgs               []string                          `json:"cli_args"`
+	AuthConfig            map[string]any                    `json:"auth_config"`
+	ModelName             string                            `json:"model_name"`
+	ModelTemperature      float64                           `json:"model_temperature"`
+	ModelMaxTokens        int                               `json:"model_max_tokens"`
+	CostPerInputToken     float64                           `json:"cost_per_input_token"`
+	CostPerOutputToken    float64                           `json:"cost_per_output_token"`
+}
+
+type agentProviderCapabilitiesResponse struct {
+	EphemeralChat agentProviderCapabilityResponse `json:"ephemeral_chat"`
+}
+
+type agentProviderCapabilityResponse struct {
+	State  string  `json:"state"`
+	Reason *string `json:"reason,omitempty"`
 }
 
 type agentProviderModelOptionResponse struct {
@@ -386,6 +396,11 @@ func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 	if !availabilityState.IsValid() {
 		availabilityState = domain.AgentProviderAvailabilityStateUnknown
 	}
+	capabilities := domain.DeriveAgentProviderCapabilities(item).Capabilities
+	capabilityState := capabilities.EphemeralChat.State
+	if !capabilityState.IsValid() {
+		capabilityState = domain.AgentProviderCapabilityStateUnsupported
+	}
 
 	return agentProviderResponse{
 		ID:                    item.ID.String(),
@@ -402,14 +417,20 @@ func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 		Available:             item.Available,
 		AvailabilityCheckedAt: timePointerString(item.AvailabilityCheckedAt),
 		AvailabilityReason:    stringPointerValue(item.AvailabilityReason),
-		CliCommand:            item.CliCommand,
-		CliArgs:               cloneStringSlice(item.CliArgs),
-		AuthConfig:            cloneMap(item.AuthConfig),
-		ModelName:             item.ModelName,
-		ModelTemperature:      item.ModelTemperature,
-		ModelMaxTokens:        item.ModelMaxTokens,
-		CostPerInputToken:     item.CostPerInputToken,
-		CostPerOutputToken:    item.CostPerOutputToken,
+		Capabilities: agentProviderCapabilitiesResponse{
+			EphemeralChat: agentProviderCapabilityResponse{
+				State:  capabilityState.String(),
+				Reason: stringPointerValue(capabilities.EphemeralChat.Reason),
+			},
+		},
+		CliCommand:         item.CliCommand,
+		CliArgs:            cloneStringSlice(item.CliArgs),
+		AuthConfig:         cloneMap(item.AuthConfig),
+		ModelName:          item.ModelName,
+		ModelTemperature:   item.ModelTemperature,
+		ModelMaxTokens:     item.ModelMaxTokens,
+		CostPerInputToken:  item.CostPerInputToken,
+		CostPerOutputToken: item.CostPerOutputToken,
 	}
 }
 

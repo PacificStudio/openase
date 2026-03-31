@@ -25,6 +25,7 @@ type AgentProvider struct {
 	Available             bool
 	AvailabilityCheckedAt *time.Time
 	AvailabilityReason    *string
+	Capabilities          AgentProviderCapabilities
 	CliCommand            string
 	CliArgs               []string
 	AuthConfig            map[string]any

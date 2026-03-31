@@ -176,7 +176,8 @@ func annotateAgentProvidersAvailability(
 }
 
 func annotateAgentProviderAvailability(item domain.AgentProvider) domain.AgentProvider {
-	return domain.DeriveAgentProviderAvailability(item, time.Now().UTC())
+	item = domain.DeriveAgentProviderAvailability(item, time.Now().UTC())
+	return domain.DeriveAgentProviderCapabilities(item)
 }
 
 func preferredAvailableProviderID(items []domain.AgentProvider) *uuid.UUID {

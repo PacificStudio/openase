@@ -146,6 +146,29 @@ func (s AgentProviderAvailabilityState) IsValid() bool {
 	}
 }
 
+type AgentProviderCapabilityState string
+
+const (
+	AgentProviderCapabilityStateAvailable   AgentProviderCapabilityState = "available"
+	AgentProviderCapabilityStateUnavailable AgentProviderCapabilityState = "unavailable"
+	AgentProviderCapabilityStateUnsupported AgentProviderCapabilityState = "unsupported"
+)
+
+func (s AgentProviderCapabilityState) String() string {
+	return string(s)
+}
+
+func (s AgentProviderCapabilityState) IsValid() bool {
+	switch s {
+	case AgentProviderCapabilityStateAvailable,
+		AgentProviderCapabilityStateUnavailable,
+		AgentProviderCapabilityStateUnsupported:
+		return true
+	default:
+		return false
+	}
+}
+
 type AgentProviderAdapterType string
 
 const (

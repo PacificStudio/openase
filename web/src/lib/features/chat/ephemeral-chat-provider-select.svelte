@@ -1,8 +1,13 @@
 <script lang="ts">
   import type { AgentProvider } from '$lib/api/contracts'
-  import { providerAvailabilityHeadline, providerAvailabilityLabel } from '$lib/features/providers'
+  import { providerAvailabilityHeadline } from '$lib/features/providers'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
+  import {
+    ephemeralChatCapabilityLabel,
+    ephemeralChatCapabilityReason,
+    hasAvailableEphemeralChat,
+  } from './provider-options'
 
   let {
     providers,
@@ -15,13 +20,16 @@
   } = $props()
 
   function buildProviderSummary(provider: AgentProvider) {
-    return `${provider.name} · ${provider.adapter_type} · ${provider.model_name} · ${providerAvailabilityLabel(provider.availability_state)}`
+    return `${provider.name} · ${provider.adapter_type} · ${provider.model_name} · ${ephemeralChatCapabilityLabel(provider)}`
   }
 
   function providerReason(provider: AgentProvider) {
-    return provider.available
+    return hasAvailableEphemeralChat(provider)
       ? null
-      : providerAvailabilityHeadline(provider.availability_state, provider.availability_reason)
+      : providerAvailabilityHeadline(
+          provider.capabilities.ephemeral_chat.state,
+          ephemeralChatCapabilityReason(provider),
+        )
   }
 
   function selectedProviderLabel() {
@@ -49,7 +57,7 @@
       {#each providers as provider (provider.id)}
         <Select.Item
           value={provider.id}
-          disabled={!provider.available}
+          disabled={!hasAvailableEphemeralChat(provider)}
           label={buildProviderSummary(provider)}
         >
           <div class="flex w-full items-start justify-between gap-3">
@@ -63,7 +71,7 @@
               {/if}
             </div>
             <div class="text-muted-foreground shrink-0 text-[11px]">
-              {providerAvailabilityLabel(provider.availability_state)}
+              {ephemeralChatCapabilityLabel(provider)}
             </div>
           </div>
         </Select.Item>

@@ -29,6 +29,12 @@ const providerFixtures: AgentProvider[] = [
     available: true,
     availability_checked_at: '2026-03-28T12:00:00Z',
     availability_reason: null,
+    capabilities: {
+      ephemeral_chat: {
+        state: 'available',
+        reason: null,
+      },
+    },
     cli_command: 'codex',
     cli_args: [],
     auth_config: {},
@@ -53,6 +59,12 @@ const providerFixtures: AgentProvider[] = [
     available: true,
     availability_checked_at: '2026-03-28T12:00:00Z',
     availability_reason: null,
+    capabilities: {
+      ephemeral_chat: {
+        state: 'available',
+        reason: null,
+      },
+    },
     cli_command: 'claude',
     cli_args: [],
     auth_config: {},
@@ -279,5 +291,32 @@ describe('createEphemeralChatSessionController', () => {
       content: '## Summary\n\n- Item one\n- Item two',
       streaming: false,
     })
+  })
+
+  it('falls back from an unsupported default provider to the first available chat-capable provider', () => {
+    const controller = createEphemeralChatSessionController({
+      getSource: () => 'project_sidebar',
+    })
+
+    controller.syncProviders(
+      [
+        {
+          ...providerFixtures[0],
+          id: 'provider-custom',
+          name: 'Custom',
+          adapter_type: 'custom',
+          capabilities: {
+            ephemeral_chat: {
+              state: 'unsupported',
+              reason: 'unsupported_adapter',
+            },
+          },
+        },
+        providerFixtures[1],
+      ],
+      'provider-custom',
+    )
+
+    expect(controller.providerId).toBe('provider-2')
   })
 })
