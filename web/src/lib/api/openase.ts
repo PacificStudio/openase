@@ -683,9 +683,13 @@ export function listProjectRepoMirrors(
   repoId: string,
   machineId?: string | null,
 ) {
-  const suffix = machineId ? `?machine_id=${encodeURIComponent(machineId)}` : ''
   return api.get<ProjectRepoMirrorPayload>(
-    `/api/v1/projects/${projectId}/repos/${repoId}/mirrors${suffix}`,
+    `/api/v1/projects/${projectId}/repos/${repoId}/mirrors`,
+    {
+      params: {
+        machine_id: machineId ?? undefined,
+      },
+    },
   )
 }
 

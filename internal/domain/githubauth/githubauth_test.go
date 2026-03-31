@@ -104,6 +104,8 @@ func TestParseGitHubRepositoryURL(t *testing.T) {
 	}{
 		{raw: "https://github.com/GrandCX/openase.git", want: RepositoryRef{Owner: "grandcx", Name: "openase"}},
 		{raw: " https://github.com/GrandCX/OpenASE ", want: RepositoryRef{Owner: "grandcx", Name: "openase"}},
+		{raw: "git@github.com:GrandCX/openase.git", want: RepositoryRef{Owner: "grandcx", Name: "openase"}},
+		{raw: "ssh://git@github.com/GrandCX/openase.git", want: RepositoryRef{Owner: "grandcx", Name: "openase"}},
 	}
 	for _, tc := range validCases {
 		got, ok := ParseGitHubRepositoryURL(tc.raw)
@@ -124,6 +126,28 @@ func TestParseGitHubRepositoryURL(t *testing.T) {
 	} {
 		if got, ok := ParseGitHubRepositoryURL(raw); ok {
 			t.Fatalf("expected %q to be rejected, got %#v", raw, got)
+		}
+	}
+}
+
+func TestNormalizeGitHubRepositoryURL(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		raw  string
+		want string
+		ok   bool
+	}{
+		{raw: "https://github.com/GrandCX/openase.git", want: "https://github.com/grandcx/openase.git", ok: true},
+		{raw: "git@github.com:GrandCX/openase.git", want: "https://github.com/grandcx/openase.git", ok: true},
+		{raw: "ssh://git@github.com/GrandCX/openase.git", want: "https://github.com/grandcx/openase.git", ok: true},
+		{raw: "https://gitlab.com/GrandCX/openase.git", ok: false},
+	}
+
+	for _, tc := range tests {
+		got, ok := NormalizeGitHubRepositoryURL(tc.raw)
+		if ok != tc.ok || got != tc.want {
+			t.Fatalf("NormalizeGitHubRepositoryURL(%q) = %q, %v; want %q, %v", tc.raw, got, ok, tc.want, tc.ok)
 		}
 	}
 }

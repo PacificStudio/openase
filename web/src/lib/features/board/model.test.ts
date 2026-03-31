@@ -1,22 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ActivityEvent, Agent, Ticket, TicketStatus, Workflow } from '$lib/api/contracts'
+import type { ActivityEvent, Agent, Ticket, Workflow } from '$lib/api/contracts'
 import { buildBoardData } from './model'
+import { stageOrderedStatusPayloadFixture } from './test-fixtures'
 
-const statusesFixture: TicketStatus[] = [
-  {
-    id: 'status-1',
-    project_id: 'project-1',
-    stage_id: null,
-    stage: null,
-    name: 'Todo',
-    color: '#2563eb',
-    icon: '',
-    is_default: true,
-    description: '',
-    position: 1,
-  },
-]
+const statusesFixture = stageOrderedStatusPayloadFixture
 
 const workflowsFixture: Workflow[] = [
   {
@@ -125,7 +113,16 @@ describe('board model', () => {
 
     expect(board.workflowTypes).toEqual(['coding'])
     expect(board.agentOptions).toEqual(['Codex Worker'])
-    expect(board.columns).toHaveLength(1)
+    expect(board.groups.map((group) => group.name)).toEqual([
+      'Backlog',
+      'Execution',
+      'Ungrouped statuses',
+    ])
+    expect(board.columns.map((column) => column.name)).toEqual(['Todo', 'Doing', 'Inbox'])
+    expect(board.groups[1]?.wipInfo).toBe('1 / 1 active')
+    expect(board.groups[2]?.description).toBe(
+      'Statuses without a stage always render after staged groups.',
+    )
     expect(board.columns[0]?.tickets[0]).toMatchObject({
       id: 'ticket-1',
       workflowType: 'coding',
