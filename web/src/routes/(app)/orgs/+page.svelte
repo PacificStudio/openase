@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { Organization } from '$lib/api/contracts'
   import OrganizationCreationDialog from '$lib/features/catalog-creation/components/organization-creation-dialog.svelte'
   import OrganizationDeleteDialog from '$lib/features/catalog-creation/components/organization-delete-dialog.svelte'
   import StatCard from '$lib/features/dashboard/components/stat-card.svelte'
@@ -16,9 +15,10 @@
 
   const organizations = $derived(appStore.organizations)
   const providers = $derived(appStore.providers)
+  type WorkspaceOrganization = (typeof appStore.organizations)[number]
 
   let showCreateDialog = $state(false)
-  let deleteTarget = $state<Organization | null>(null)
+  let deleteTarget = $state<WorkspaceOrganization | null>(null)
   let showDeleteDialog = $state(false)
 
   // TODO: Replace mock data with real API aggregation.
@@ -61,11 +61,9 @@
     totalTokens: 0,
   })
 
-  const totalProjects = $derived(
-    Object.values(orgMetrics).reduce((s, m) => s + m.projectCount, 0),
-  )
+  const totalProjects = $derived(Object.values(orgMetrics).reduce((s, m) => s + m.projectCount, 0))
 
-  function openDelete(org: Organization) {
+  function openDelete(org: WorkspaceOrganization) {
     deleteTarget = org
     showDeleteDialog = true
   }
@@ -93,7 +91,11 @@
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <StatCard label="Running Agents" value={workspaceStats.runningAgents} icon={Bot} />
       <StatCard label="Active Tickets" value={workspaceStats.activeTickets} icon={Ticket} />
-      <StatCard label="Today's Cost" value={formatCurrency(workspaceStats.todayCost)} icon={Coins} />
+      <StatCard
+        label="Today's Cost"
+        value={formatCurrency(workspaceStats.todayCost)}
+        icon={Coins}
+      />
       <StatCard
         label="Total Tokens"
         value={formatCount(workspaceStats.totalTokens)}
@@ -121,7 +123,7 @@
               <Button
                 variant="ghost"
                 size="sm"
-                class="text-destructive hover:text-destructive -mr-2 -mt-1 opacity-0 transition-opacity group-hover:opacity-100"
+                class="text-destructive hover:text-destructive -mt-1 -mr-2 opacity-0 transition-opacity group-hover:opacity-100"
                 onclick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
@@ -133,9 +135,12 @@
             </div>
 
             {#if metrics}
-              <div class="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+              <div
+                class="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
+              >
                 <span>{metrics.projectCount} project{metrics.projectCount !== 1 ? 's' : ''}</span>
-                <span>{metrics.providerCount} provider{metrics.providerCount !== 1 ? 's' : ''}</span>
+                <span>{metrics.providerCount} provider{metrics.providerCount !== 1 ? 's' : ''}</span
+                >
                 <span class="flex items-center gap-1">
                   <Bot class="size-3" />
                   {metrics.runningAgents}
