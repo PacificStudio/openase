@@ -2418,6 +2418,11 @@ OpenASE 第一阶段不要试图一次补完复杂交互式审批、Hook Gate、
 
 与 Claude Code 类似，通过 CLI subprocess + stdio stream 接入。
 
+- 编排运行时通过 `internal/orchestrator/agent_adapter_gemini.go` 提供 Gemini adapter，支持 provider 选择、session start、连续 turn 执行、失败传播和统一 `agentEvent` 归一化。
+- 当前实现采用“每个 turn 启动一个 Gemini CLI 进程 + 由 OpenASE 在内存维护对话历史”的最小可交付语义，因此可以满足 orchestrator 的连续执行需求。
+- `internal/chat/runtime_gemini.go` 继续服务于即时对话语义；两条路径共享相同的 Gemini CLI 非交互 JSON 输出模式。
+- 跨 OpenASE 编排进程的 Gemini session resume 暂不支持；如果未来需要 crash-recovery 级恢复，需要补持久化 transcript 或 Gemini 原生 resume 能力。
+
 ---
 
 ## 第十二章 GitHub / GitLab 集成
@@ -5095,7 +5100,7 @@ export function createTicketStream(projectId: string) {
 | **GitHub / GitLab** | REST API + Webhook | `internal/httpapi/github_webhook.go` + `internal/infra/issueconnector/github/connector.go` | 双向 | Phase 2 |
 | **Claude Code** | CLI subprocess (NDJSON stream) | `internal/infra/adapter/claudecode/` | 双向 | Phase 1 |
 | **OpenAI Codex** | JSON-RPC over stdio | `internal/infra/adapter/codex/` | 双向 | Phase 1 |
-| **Gemini CLI** | CLI subprocess (stdio stream) | 当前作为 Agent Provider 扩展点，由 `internal/service/catalog` + `internal/domain/catalog` 管理 | 双向 | Phase 2 |
+| **Gemini CLI** | CLI subprocess (stdio stream) | `internal/orchestrator/agent_adapter_gemini.go` + `internal/chat/runtime_gemini.go` | 双向 | Phase 1 |
 | **PostgreSQL** | SQL (ent ORM) + LISTEN/NOTIFY | `internal/repo/` + `internal/infra/event/pgnotify.go` | 双向 | Phase 1 |
 | **OIDC Provider** | OIDC Discovery + JWT 验证 | 当前仓库尚未落地统一 OIDC adapter，安全边界说明见 `internal/httpapi/security_settings_api.go` | 读 | Phase 4 |
 | **Slack / Telegram / Webhook / WeCom** | Webhook / Bot API | `internal/notification/` | 写 | Phase 2 |

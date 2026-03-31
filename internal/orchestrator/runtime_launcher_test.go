@@ -19,6 +19,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entagentstepevent "github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
@@ -558,6 +559,90 @@ Blocked lifecycle publish regression test.
 			Count(ctx)
 		return err == nil && activityCount >= 3
 	})
+}
+
+func TestRuntimeLauncherStartRuntimeSessionSupportsGeminiProvider(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 31, 11, 0, 0, 0, time.UTC)
+
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetName("Gemini").
+		SetAdapterType(entagentprovider.AdapterTypeGeminiCli).
+		SetCliCommand("gemini").
+		SetModelName("gemini-2.5-pro").
+		Save(ctx); err != nil {
+		t.Fatalf("update provider to gemini: %v", err)
+	}
+
+	process := newRuntimeRunnerFakeProcess()
+	manager := &geminiAdapterTestProcessManager{process: process}
+	workflowItem, workflowSvc, ticketItem, agentItem, runItem, launcher := newRuntimeExecutionFixture(
+		ctx,
+		t,
+		client,
+		fixture,
+		now,
+		"Gemini Coding",
+		"ASE-402",
+		"Align Gemini orchestrator runtime",
+		"gemini-runner-01",
+		"Implement the ticket using Gemini.",
+		manager,
+	)
+	_ = workflowItem
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- runGeminiRuntimeProtocol(process)
+	}()
+
+	session, err := launcher.startRuntimeSession(ctx, runtimeAssignment{
+		ticket: ticketItem,
+		agent:  agentItem,
+		run:    runItem,
+	})
+	if err != nil {
+		t.Fatalf("startRuntimeSession() error = %v", err)
+	}
+
+	turn, err := session.SendPrompt(context.Background(), "Implement the fix.")
+	if err != nil {
+		t.Fatalf("SendPrompt returned error: %v", err)
+	}
+	if turn.TurnID == "" {
+		t.Fatal("SendPrompt() turn id = empty, want Gemini turn id")
+	}
+
+	first := requireAgentEvent(t, session.Events())
+	if first.Type != agentEventTypeOutputProduced || first.Output == nil || first.Output.Text != "Implemented the shared contract." {
+		t.Fatalf("unexpected first event: %+v", first)
+	}
+	second := requireAgentEvent(t, session.Events())
+	if second.Type != agentEventTypeTurnCompleted || second.Turn == nil || second.Turn.TurnID != turn.TurnID {
+		t.Fatalf("unexpected second event: %+v", second)
+	}
+
+	if manager.capturedSpec.Command != provider.MustParseAgentCLICommand("gemini") {
+		t.Fatalf("process command = %q, want gemini", manager.capturedSpec.Command)
+	}
+	if err := <-serverDone; err != nil {
+		t.Fatalf("fake gemini process returned error: %v", err)
+	}
+	if err := session.Stop(context.Background()); err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
 }
 
 func TestRuntimeLauncherRunTickDoesNotStarveLaterLaunchesWhenFirstStartBlocks(t *testing.T) {
@@ -3375,7 +3460,7 @@ func newRuntimeExecutionFixture(
 	ticketTitle string,
 	agentName string,
 	harnessBody string,
-	manager *runtimeFakeProcessManager,
+	manager provider.AgentCLIProcessManager,
 ) (*ent.Workflow, *workflowservice.Service, *ent.Ticket, *ent.Agent, *ent.AgentRun, *RuntimeLauncher) {
 	t.Helper()
 
@@ -3440,12 +3525,12 @@ func newRuntimeExecutionFixture(
 	launcher.now = func() time.Time {
 		return now
 	}
-	if manager != nil && manager.releaseTurn != nil {
+	if fakeManager, ok := manager.(*runtimeFakeProcessManager); ok && fakeManager.releaseTurn != nil {
 		t.Cleanup(func() {
 			select {
-			case <-manager.releaseTurn:
+			case <-fakeManager.releaseTurn:
 			default:
-				close(manager.releaseTurn)
+				close(fakeManager.releaseTurn)
 			}
 		})
 	}
