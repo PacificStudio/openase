@@ -246,6 +246,9 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 		sshPool,
 		workflowSvc,
 	)
+	runtimeState := orchestrator.NewRuntimeStateStore()
+	healthChecker.ConfigureRuntimeState(runtimeState)
+	runtimeLauncher.ConfigureRuntimeState(runtimeState)
 	runtimeLauncher.ConfigureGitHubCredentials(githubAuthSvc)
 	runtimeLauncher.ConfigureMirrorService(projectRepoMirrorSvc)
 	runtimeLauncher.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(client))

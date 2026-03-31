@@ -9,6 +9,7 @@ import (
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	"github.com/google/uuid"
 )
 
@@ -262,6 +263,65 @@ func TestHealthCheckerTreatsMissingHeartbeatAsStalled(t *testing.T) {
 	}
 	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 0 {
 		t.Fatalf("expected missing-heartbeat recovery to drop backlog stage occupancy to 0, got %d", got)
+	}
+}
+
+func TestHealthCheckerSkipsRegistryManagedRunAndLeavesFallbackToLauncher(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 24, 12, 0, 0, 0, time.UTC)
+
+	workflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(2).
+		SetStallTimeoutMinutes(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	agentItem := fixture.createAgent(ctx, t, "coding-runtime-managed", 0)
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetWorkflowID(workflow.ID).
+		SetIdentifier("ASE-404").
+		SetTitle("Registry-managed runtime").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now.Add(-2*time.Minute))
+
+	checker := newTestHealthChecker(client, now)
+	runtimeState := NewRuntimeStateStore()
+	checker.ConfigureRuntimeState(runtimeState)
+	runtimeState.markReady(runItem.ID, agentItem.ID, ticketItem.ID, workflow.ID, "thread-runtime-1", now.Add(-2*time.Minute))
+	runtimeState.recordCodexEvent(runItem.ID, codex.EventTypeOutputProduced, now.Add(-30*time.Second))
+
+	report, err := checker.Run(ctx)
+	if err != nil {
+		t.Fatalf("run health checker: %v", err)
+	}
+
+	if report.ClaimsChecked != 1 || report.StalledClaims != 0 || report.AgentsReleased != 0 {
+		t.Fatalf("expected registry-managed run to skip fallback release, got %+v", report)
+	}
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+	if ticketAfter.CurrentRunID == nil || *ticketAfter.CurrentRunID != runItem.ID {
+		t.Fatalf("expected current run to remain attached, got %+v", ticketAfter.CurrentRunID)
 	}
 }
 

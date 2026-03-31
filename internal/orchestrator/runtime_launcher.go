@@ -65,6 +65,7 @@ type RuntimeLauncher struct {
 
 	sessionsMu sync.Mutex
 	sessions   map[uuid.UUID]*codex.Session
+	runtime    *runtimeStateStore
 
 	launchesMu sync.Mutex
 	launches   map[uuid.UUID]struct{}
@@ -108,10 +109,18 @@ func NewRuntimeLauncher(
 		launchTimeout:  defaultLaunchTimeout,
 		eventTimeout:   defaultLifecyclePublishTimeout,
 		sessions:       map[uuid.UUID]*codex.Session{},
+		runtime:        NewRuntimeStateStore(),
 		launches:       map[uuid.UUID]struct{}{},
 		executions:     map[uuid.UUID]struct{}{},
 		tickets:        ticketservice.NewService(client),
 	}
+}
+
+func (l *RuntimeLauncher) ConfigureRuntimeState(store *runtimeStateStore) {
+	if l == nil || store == nil {
+		return
+	}
+	l.runtime = store
 }
 
 func (l *RuntimeLauncher) ConfigurePlatformEnvironment(apiURL string, agentPlatform runtimeAgentPlatform) {
@@ -146,6 +155,15 @@ func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
 	}
 
 	if err := l.reconcilePauseRequests(ctx); err != nil {
+		return err
+	}
+	if err := l.reconcileRuntimeFacts(ctx); err != nil {
+		return err
+	}
+	if err := l.reconcileTrackerState(ctx); err != nil {
+		return err
+	}
+	if err := l.reconcileStalledRuntime(ctx); err != nil {
 		return err
 	}
 	if err := l.refreshHeartbeats(ctx); err != nil {
@@ -348,6 +366,14 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAss
 		stopSession(context.Background(), session)
 		return nil
 	}
+	l.runtime.markReady(
+		assignment.run.ID,
+		assignment.agent.ID,
+		assignment.ticket.ID,
+		assignment.run.WorkflowID,
+		session.ThreadID(),
+		readyAt,
+	)
 
 	readyAgent, err := loadAgentLifecycleState(ctx, l.client, assignment.agent.ID, &assignment.run.ID)
 	if err != nil {
@@ -496,6 +522,7 @@ func (l *RuntimeLauncher) refreshHeartbeats(ctx context.Context) error {
 		if err != nil {
 			stopSession(context.Background(), l.loadSession(runID))
 			l.deleteSession(runID)
+			l.runtime.delete(runID)
 			l.finishExecution(runID)
 			continue
 		}
@@ -504,12 +531,114 @@ func (l *RuntimeLauncher) refreshHeartbeats(ctx context.Context) error {
 			(assignment.run.Status != entagentrun.StatusReady && assignment.run.Status != entagentrun.StatusExecuting) {
 			stopSession(context.Background(), l.loadSession(runID))
 			l.deleteSession(runID)
+			l.runtime.delete(runID)
 			l.finishExecution(runID)
 			continue
 		}
 	}
 
 	_ = now
+	return nil
+}
+
+func (l *RuntimeLauncher) reconcileTrackerState(ctx context.Context) error {
+	for _, snapshot := range l.runtime.snapshots() {
+		if snapshot.PendingRuntimeFact != nil {
+			continue
+		}
+
+		ticket, err := l.reloadExecutionTicket(ctx, snapshot.TicketID)
+		if err != nil {
+			return fmt.Errorf("reload ticket %s during tracker reconciliation: %w", snapshot.TicketID, err)
+		}
+
+		switch classifyRuntimeTicket(ticket, snapshot.RunID, snapshot.WorkflowID) {
+		case runtimeTicketActive:
+			continue
+		default:
+			if err := l.releaseExecutionOwnership(ctx, snapshot.RunID, snapshot.AgentID, ticket); err != nil {
+				return fmt.Errorf("release run %s during tracker reconciliation: %w", snapshot.RunID, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (l *RuntimeLauncher) reconcileRuntimeFacts(ctx context.Context) error {
+	for _, snapshot := range l.runtime.snapshots() {
+		if snapshot.PendingRuntimeFact == nil || l.executionActive(snapshot.RunID) {
+			continue
+		}
+
+		ticket, err := l.reloadExecutionTicket(ctx, snapshot.TicketID)
+		if err != nil {
+			return fmt.Errorf("reload ticket %s during runtime fact reconciliation: %w", snapshot.TicketID, err)
+		}
+
+		switch snapshot.PendingRuntimeFact.Kind {
+		case runtimeFactSessionExited:
+			disposition := classifyRuntimeTicket(ticket, snapshot.RunID, snapshot.WorkflowID)
+			if disposition == runtimeTicketActive {
+				if trimmed := strings.TrimSpace(snapshot.PendingRuntimeFact.Message); trimmed != "" {
+					l.handleExecutionFailure(ctx, snapshot.RunID, snapshot.AgentID, snapshot.TicketID, fmt.Errorf("%s", trimmed))
+					continue
+				}
+				if err := l.scheduleContinuation(ctx, snapshot.RunID, snapshot.AgentID, snapshot.TicketID); err != nil {
+					return fmt.Errorf("schedule continuation for run %s after subprocess exit: %w", snapshot.RunID, err)
+				}
+				continue
+			}
+			if err := l.releaseExecutionOwnership(ctx, snapshot.RunID, snapshot.AgentID, ticket); err != nil {
+				return fmt.Errorf("release run %s after runtime fact reconciliation: %w", snapshot.RunID, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (l *RuntimeLauncher) reconcileStalledRuntime(ctx context.Context) error {
+	now := l.now().UTC()
+	for _, snapshot := range l.runtime.snapshots() {
+		if snapshot.PendingRuntimeFact != nil {
+			continue
+		}
+		if l.loadSession(snapshot.RunID) == nil {
+			continue
+		}
+
+		ticket, err := l.reloadExecutionTicket(ctx, snapshot.TicketID)
+		if err != nil {
+			return fmt.Errorf("reload ticket %s during stall reconciliation: %w", snapshot.TicketID, err)
+		}
+		timeout := stallTimeoutForWorkflow(ticket.Edges.Workflow)
+		lastCodexAt := snapshot.StartedAt
+		if !snapshot.LastCodexTimestamp.IsZero() {
+			lastCodexAt = snapshot.LastCodexTimestamp
+		}
+		if age := now.Sub(lastCodexAt); age <= timeout {
+			continue
+		}
+
+		stopSession(context.Background(), l.loadSession(snapshot.RunID))
+		l.deleteSession(snapshot.RunID)
+		l.runtime.delete(snapshot.RunID)
+
+		_, _, err = releaseStalledClaim(
+			ctx,
+			l.client,
+			snapshot.TicketID,
+			snapshot.RunID,
+			snapshot.AgentID,
+			now,
+			"runtime stalled based on last codex event timestamp",
+		)
+		if err != nil {
+			return fmt.Errorf("release stalled runtime claim for run %s: %w", snapshot.RunID, err)
+		}
+	}
+
 	return nil
 }
 
@@ -1625,6 +1754,13 @@ func (l *RuntimeLauncher) finishExecution(runID uuid.UUID) {
 	l.executionsMu.Lock()
 	defer l.executionsMu.Unlock()
 	delete(l.executions, runID)
+}
+
+func (l *RuntimeLauncher) executionActive(runID uuid.UUID) bool {
+	l.executionsMu.Lock()
+	defer l.executionsMu.Unlock()
+	_, active := l.executions[runID]
+	return active
 }
 
 func (l *RuntimeLauncher) beginLaunch(runID uuid.UUID) bool {
