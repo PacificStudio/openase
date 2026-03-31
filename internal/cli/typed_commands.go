@@ -288,8 +288,18 @@ func newSkillCommand() *cobra.Command {
 		Short: "Operate on skills through the OpenASE API.",
 	}
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "list [projectId]", Short: "List project skills.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "bind [workflowId]", Short: "Bind skills to a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/bind", PositionalParams: []string{"workflowId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "unbind [workflowId]", Short: "Unbind skills from a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/unbind", PositionalParams: []string{"workflowId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [projectId]", Short: "Create a skill.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "refresh [projectId]", Short: "Refresh workspace skills.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills/refresh", PositionalParams: []string{"projectId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "harvest [projectId]", Short: "Harvest workspace-authored skills.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills/harvest", PositionalParams: []string{"projectId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "get [skillId]", Short: "Get a skill.", Method: http.MethodGet, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [skillId]", Short: "Update a skill.", Method: http.MethodPut, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [skillId]", Short: "Delete a skill.", Method: http.MethodDelete, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "enable [skillId]", Short: "Enable a skill.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/enable", PositionalParams: []string{"skillId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "disable [skillId]", Short: "Disable a skill.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/disable", PositionalParams: []string{"skillId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "bind [skillId]", Short: "Bind a skill to workflows.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/bind", PositionalParams: []string{"skillId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "unbind [skillId]", Short: "Unbind a skill from workflows.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/unbind", PositionalParams: []string{"skillId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "bind-workflow [workflowId]", Short: "Bind skills to a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/bind", PositionalParams: []string{"workflowId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "unbind-workflow [workflowId]", Short: "Unbind skills from a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/unbind", PositionalParams: []string{"workflowId"}}))
 	return command
 }
 
@@ -1138,8 +1148,18 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "output [projectId] [agentId]", Short: "List agent output entries.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/{agentId}/output", PositionalParams: []string{"projectId", "agentId"}},
 		{Use: "steps [projectId] [agentId]", Short: "List agent step entries.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/{agentId}/steps", PositionalParams: []string{"projectId", "agentId"}},
 		{Use: "list [projectId]", Short: "List project skills.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}},
-		{Use: "bind [workflowId]", Short: "Bind skills to a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/bind", PositionalParams: []string{"workflowId"}},
-		{Use: "unbind [workflowId]", Short: "Unbind skills from a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/unbind", PositionalParams: []string{"workflowId"}},
+		{Use: "create [projectId]", Short: "Create a skill.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}},
+		{Use: "refresh [projectId]", Short: "Refresh workspace skills.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills/refresh", PositionalParams: []string{"projectId"}},
+		{Use: "harvest [projectId]", Short: "Harvest workspace-authored skills.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills/harvest", PositionalParams: []string{"projectId"}},
+		{Use: "get [skillId]", Short: "Get a skill.", Method: http.MethodGet, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}},
+		{Use: "update [skillId]", Short: "Update a skill.", Method: http.MethodPut, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}},
+		{Use: "delete [skillId]", Short: "Delete a skill.", Method: http.MethodDelete, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}},
+		{Use: "enable [skillId]", Short: "Enable a skill.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/enable", PositionalParams: []string{"skillId"}},
+		{Use: "disable [skillId]", Short: "Disable a skill.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/disable", PositionalParams: []string{"skillId"}},
+		{Use: "bind [skillId]", Short: "Bind a skill to workflows.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/bind", PositionalParams: []string{"skillId"}},
+		{Use: "unbind [skillId]", Short: "Unbind a skill from workflows.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/unbind", PositionalParams: []string{"skillId"}},
+		{Use: "bind-workflow [workflowId]", Short: "Bind skills to a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/bind", PositionalParams: []string{"workflowId"}},
+		{Use: "unbind-workflow [workflowId]", Short: "Unbind skills from a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/unbind", PositionalParams: []string{"workflowId"}},
 		{Use: "events", Short: "Stream system events.", Method: http.MethodGet, Path: "/api/v1/events/stream"},
 		{Use: "tickets [projectId]", Short: "Stream project ticket events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/stream", PositionalParams: []string{"projectId"}},
 		{Use: "agents [projectId]", Short: "Stream project agent events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/stream", PositionalParams: []string{"projectId"}},

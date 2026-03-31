@@ -11,6 +11,7 @@
   import NotificationSettings from './notification-settings.svelte'
   import RepositoriesSettings from './repositories-settings.svelte'
   import SecuritySettings from './security-settings.svelte'
+  import SkillsSettings from './skills-settings.svelte'
   import StatusSettings from './status-settings.svelte'
   import WorkflowSettings from './workflow-settings.svelte'
 
@@ -56,6 +57,8 @@
     <div class="min-w-0 flex-1">
       {#if activeSection === 'general'}
         <GeneralSettings />
+      {:else if activeSection === 'skills'}
+        <SkillsSettings />
       {:else if activeSection === 'statuses'}
         <StatusSettings />
       {:else if activeSection === 'repositories'}

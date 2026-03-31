@@ -43,6 +43,14 @@ import type {
   ScheduledJobUpdateResponse,
   SecuritySettingsResponse,
   SkillListPayload,
+  SkillCreateResponse,
+  SkillDeleteResponse,
+  SkillDetailResponse,
+  SkillRefreshResponse,
+  SkillHarvestResponse,
+  SkillBindingUpdateResponse,
+  SkillToggleResponse,
+  SkillUpdateResponse,
   StatusDeleteResponse,
   StatusPayload,
   StatusResetPayload,
@@ -761,6 +769,79 @@ export function listHarnessVariables() {
 
 export function listSkills(projectId: string) {
   return api.get<SkillListPayload>(`/api/v1/projects/${projectId}/skills`)
+}
+
+export function createSkill(
+  projectId: string,
+  body: {
+    name: string
+    content: string
+    description?: string
+    created_by?: string
+    is_enabled?: boolean
+  },
+) {
+  return api.post<SkillCreateResponse>(`/api/v1/projects/${projectId}/skills`, { body })
+}
+
+export function getSkill(skillId: string) {
+  return api.get<SkillDetailResponse>(`/api/v1/skills/${skillId}`)
+}
+
+export function updateSkill(
+  skillId: string,
+  body: {
+    content: string
+    description?: string
+  },
+) {
+  return api.put<SkillUpdateResponse>(`/api/v1/skills/${skillId}`, { body })
+}
+
+export function deleteSkill(skillId: string) {
+  return api.delete<SkillDeleteResponse>(`/api/v1/skills/${skillId}`)
+}
+
+export function enableSkill(skillId: string) {
+  return api.post<SkillToggleResponse>(`/api/v1/skills/${skillId}/enable`)
+}
+
+export function disableSkill(skillId: string) {
+  return api.post<SkillToggleResponse>(`/api/v1/skills/${skillId}/disable`)
+}
+
+export function bindSkill(skillId: string, workflowIds: string[]) {
+  return api.post<SkillBindingUpdateResponse>(`/api/v1/skills/${skillId}/bind`, {
+    body: { workflow_ids: workflowIds },
+  })
+}
+
+export function unbindSkill(skillId: string, workflowIds: string[]) {
+  return api.post<SkillBindingUpdateResponse>(`/api/v1/skills/${skillId}/unbind`, {
+    body: { workflow_ids: workflowIds },
+  })
+}
+
+export function refreshSkills(
+  projectId: string,
+  body: {
+    workspace_root: string
+    adapter_type: string
+    workflow_id?: string
+  },
+) {
+  return api.post<SkillRefreshResponse>(`/api/v1/projects/${projectId}/skills/refresh`, { body })
+}
+
+export function harvestSkills(
+  projectId: string,
+  body: {
+    workspace_root: string
+    adapter_type: string
+    workflow_id?: string
+  },
+) {
+  return api.post<SkillHarvestResponse>(`/api/v1/projects/${projectId}/skills/harvest`, { body })
 }
 
 export function bindWorkflowSkills(workflowId: string, skills: string[]) {

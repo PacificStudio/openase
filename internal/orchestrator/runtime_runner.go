@@ -14,11 +14,13 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
+	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
 
@@ -644,6 +646,9 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, runID uui
 		}
 		ticket = reloadedTicket
 	}
+	if err := l.autoHarvestCompletedSkills(ctx, runID, agentID, ticket); err != nil {
+		l.logger.Warn("auto harvest completed skills", "run_id", runID, "ticket_id", ticket.ID, "error", err)
+	}
 
 	tx, err := l.client.Tx(ctx)
 	if err != nil {
@@ -703,6 +708,69 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, runID uui
 		now,
 	)
 	return nil
+}
+
+func (l *RuntimeLauncher) autoHarvestCompletedSkills(
+	ctx context.Context,
+	runID uuid.UUID,
+	agentID uuid.UUID,
+	ticket *ent.Ticket,
+) error {
+	if l == nil || l.workflow == nil || ticket == nil || ticket.WorkflowID == nil {
+		return nil
+	}
+
+	launchContext, err := l.loadLaunchContext(ctx, agentID, ticket.ID)
+	if err != nil {
+		return err
+	}
+	machine, remote, err := l.resolveLaunchMachine(ctx, launchContext)
+	if err != nil {
+		return err
+	}
+	if remote || machine.Host != catalogdomain.LocalMachineHost {
+		return nil
+	}
+
+	repoPath, err := l.resolveRuntimePrimaryRepoPath(ctx, runID)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(repoPath) == "" {
+		return nil
+	}
+
+	_, err = l.workflow.HarvestSkills(ctx, workflowservice.HarvestSkillsInput{
+		ProjectID:     launchContext.project.ID,
+		WorkspaceRoot: repoPath,
+		AdapterType:   string(launchContext.agent.Edges.Provider.AdapterType),
+		WorkflowID:    ticket.WorkflowID,
+		CreatedBy:     fmt.Sprintf("agent:%s via %s", launchContext.agent.Name, launchContext.ticket.Identifier),
+	})
+	return err
+}
+
+func (l *RuntimeLauncher) resolveRuntimePrimaryRepoPath(ctx context.Context, runID uuid.UUID) (string, error) {
+	items, err := l.client.TicketRepoWorkspace.Query().
+		Where(entticketrepoworkspace.AgentRunIDEQ(runID)).
+		WithRepo().
+		All(ctx)
+	if err != nil {
+		return "", fmt.Errorf("list ticket repo workspaces for run %s: %w", runID, err)
+	}
+	if len(items) == 0 {
+		return "", nil
+	}
+
+	for _, item := range items {
+		if item.Edges.Repo != nil && item.Edges.Repo.IsPrimary {
+			return item.RepoPath, nil
+		}
+	}
+	if len(items) == 1 {
+		return items[0].RepoPath, nil
+	}
+	return "", nil
 }
 
 func resolveWorkflowFinishStatus(ticket *ent.Ticket) (uuid.UUID, error) {

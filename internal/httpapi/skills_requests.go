@@ -11,10 +11,29 @@ import (
 type rawSkillSyncRequest struct {
 	WorkspaceRoot string `json:"workspace_root"`
 	AdapterType   string `json:"adapter_type"`
+	WorkflowID    string `json:"workflow_id"`
 }
 
 type rawUpdateWorkflowSkillsRequest struct {
 	Skills []string `json:"skills"`
+}
+
+type rawCreateSkillRequest struct {
+	Name        string `json:"name"`
+	Content     string `json:"content"`
+	Description string `json:"description"`
+	CreatedBy   string `json:"created_by"`
+	IsEnabled   *bool  `json:"is_enabled"`
+}
+
+type rawUpdateSkillRequest struct {
+	Content     string `json:"content"`
+	Description string `json:"description"`
+}
+
+type rawUpdateSkillBindingsRequest struct {
+	WorkflowIDs []string `json:"workflow_ids"`
+	HarnessIDs  []string `json:"harness_ids"`
 }
 
 func parseRefreshSkillsRequest(projectID uuid.UUID, raw rawSkillSyncRequest) (workflowservice.RefreshSkillsInput, error) {
@@ -26,11 +45,20 @@ func parseRefreshSkillsRequest(projectID uuid.UUID, raw rawSkillSyncRequest) (wo
 	if adapterType == "" {
 		return workflowservice.RefreshSkillsInput{}, fmt.Errorf("adapter_type must not be empty")
 	}
+	var workflowID *uuid.UUID
+	if trimmed := strings.TrimSpace(raw.WorkflowID); trimmed != "" {
+		parsed, err := uuid.Parse(trimmed)
+		if err != nil {
+			return workflowservice.RefreshSkillsInput{}, fmt.Errorf("workflow_id must be a UUID")
+		}
+		workflowID = &parsed
+	}
 
 	return workflowservice.RefreshSkillsInput{
 		ProjectID:     projectID,
 		WorkspaceRoot: workspaceRoot,
 		AdapterType:   adapterType,
+		WorkflowID:    workflowID,
 	}, nil
 }
 
@@ -43,11 +71,20 @@ func parseHarvestSkillsRequest(projectID uuid.UUID, raw rawSkillSyncRequest) (wo
 	if adapterType == "" {
 		return workflowservice.HarvestSkillsInput{}, fmt.Errorf("adapter_type must not be empty")
 	}
+	var workflowID *uuid.UUID
+	if trimmed := strings.TrimSpace(raw.WorkflowID); trimmed != "" {
+		parsed, err := uuid.Parse(trimmed)
+		if err != nil {
+			return workflowservice.HarvestSkillsInput{}, fmt.Errorf("workflow_id must be a UUID")
+		}
+		workflowID = &parsed
+	}
 
 	return workflowservice.HarvestSkillsInput{
 		ProjectID:     projectID,
 		WorkspaceRoot: workspaceRoot,
 		AdapterType:   adapterType,
+		WorkflowID:    workflowID,
 	}, nil
 }
 
@@ -59,5 +96,63 @@ func parseUpdateWorkflowSkillsRequest(workflowID uuid.UUID, raw rawUpdateWorkflo
 	return workflowservice.UpdateWorkflowSkillsInput{
 		WorkflowID: workflowID,
 		Skills:     append([]string(nil), raw.Skills...),
+	}, nil
+}
+
+func parseCreateSkillRequest(projectID uuid.UUID, raw rawCreateSkillRequest) (workflowservice.CreateSkillInput, error) {
+	name := strings.TrimSpace(raw.Name)
+	if name == "" {
+		return workflowservice.CreateSkillInput{}, fmt.Errorf("name must not be empty")
+	}
+	if strings.TrimSpace(raw.Content) == "" {
+		return workflowservice.CreateSkillInput{}, fmt.Errorf("content must not be empty")
+	}
+
+	return workflowservice.CreateSkillInput{
+		ProjectID:   projectID,
+		Name:        name,
+		Content:     raw.Content,
+		Description: strings.TrimSpace(raw.Description),
+		CreatedBy:   strings.TrimSpace(raw.CreatedBy),
+		Enabled:     raw.IsEnabled,
+	}, nil
+}
+
+func parseUpdateSkillRequest(skillID uuid.UUID, raw rawUpdateSkillRequest) (workflowservice.UpdateSkillInput, error) {
+	if strings.TrimSpace(raw.Content) == "" {
+		return workflowservice.UpdateSkillInput{}, fmt.Errorf("content must not be empty")
+	}
+
+	return workflowservice.UpdateSkillInput{
+		SkillID:     skillID,
+		Content:     raw.Content,
+		Description: strings.TrimSpace(raw.Description),
+	}, nil
+}
+
+func parseUpdateSkillBindingsRequest(
+	skillID uuid.UUID,
+	raw rawUpdateSkillBindingsRequest,
+) (workflowservice.UpdateSkillBindingsInput, error) {
+	values := raw.WorkflowIDs
+	if len(values) == 0 {
+		values = raw.HarnessIDs
+	}
+	if len(values) == 0 {
+		return workflowservice.UpdateSkillBindingsInput{}, fmt.Errorf("workflow_ids must not be empty")
+	}
+
+	workflowIDs := make([]uuid.UUID, 0, len(values))
+	for _, item := range values {
+		parsed, err := uuid.Parse(strings.TrimSpace(item))
+		if err != nil {
+			return workflowservice.UpdateSkillBindingsInput{}, fmt.Errorf("workflow_ids must contain UUID values")
+		}
+		workflowIDs = append(workflowIDs, parsed)
+	}
+
+	return workflowservice.UpdateSkillBindingsInput{
+		SkillID:     skillID,
+		WorkflowIDs: workflowIDs,
 	}, nil
 }

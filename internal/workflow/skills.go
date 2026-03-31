@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
@@ -31,10 +32,14 @@ var (
 )
 
 type Skill struct {
+	ID             uuid.UUID              `json:"id"`
 	Name           string                 `json:"name"`
 	Description    string                 `json:"description"`
 	Path           string                 `json:"path"`
 	IsBuiltin      bool                   `json:"is_builtin"`
+	IsEnabled      bool                   `json:"is_enabled"`
+	CreatedBy      string                 `json:"created_by"`
+	CreatedAt      time.Time              `json:"created_at"`
 	BoundWorkflows []SkillWorkflowBinding `json:"bound_workflows"`
 }
 
@@ -49,10 +54,36 @@ type skillDocument struct {
 	Description string `yaml:"description"`
 }
 
+type SkillDetail struct {
+	Skill
+	Content string `json:"content"`
+}
+
+type CreateSkillInput struct {
+	ProjectID   uuid.UUID
+	Name        string
+	Content     string
+	Description string
+	CreatedBy   string
+	Enabled     *bool
+}
+
+type UpdateSkillInput struct {
+	SkillID     uuid.UUID
+	Content     string
+	Description string
+}
+
+type UpdateSkillBindingsInput struct {
+	SkillID     uuid.UUID
+	WorkflowIDs []uuid.UUID
+}
+
 type RefreshSkillsInput struct {
 	ProjectID     uuid.UUID
 	WorkspaceRoot string
 	AdapterType   string
+	WorkflowID    *uuid.UUID
 }
 
 type RefreshSkillsResult struct {
@@ -64,6 +95,8 @@ type HarvestSkillsInput struct {
 	ProjectID     uuid.UUID
 	WorkspaceRoot string
 	AdapterType   string
+	WorkflowID    *uuid.UUID
+	CreatedBy     string
 }
 
 type HarvestSkillsResult struct {
@@ -83,6 +116,10 @@ type resolvedSkillTarget struct {
 	skillsDir provider.AbsolutePath
 }
 
+type RuntimeSkillTarget struct {
+	SkillsDir string
+}
+
 func (s *Service) ListSkills(ctx context.Context, projectID uuid.UUID) ([]Skill, error) {
 	if s.client == nil {
 		return nil, ErrUnavailable
@@ -95,7 +132,7 @@ func (s *Service) ListSkills(ctx context.Context, projectID uuid.UUID) ([]Skill,
 		return nil, err
 	}
 
-	projectSkillNames, err := listSkillNames(storage.skillRoot)
+	index, err := s.syncSkillIndex(storage.skillRoot, time.Now().UTC())
 	if err != nil {
 		return nil, err
 	}
@@ -108,17 +145,21 @@ func (s *Service) ListSkills(ctx context.Context, projectID uuid.UUID) ([]Skill,
 		return nil, fmt.Errorf("list workflows for skills: %w", err)
 	}
 
-	byName := make(map[string]*Skill, len(projectSkillNames))
-	for _, name := range projectSkillNames {
+	byName := make(map[string]*Skill, len(index))
+	for name, entry := range index {
 		description, err := s.readSkillDescription(storage, name)
 		if err != nil {
 			return nil, err
 		}
 		byName[name] = &Skill{
+			ID:          entry.ID,
 			Name:        name,
 			Description: description,
 			Path:        skillContentRelativePath(name),
 			IsBuiltin:   builtin.IsBuiltinSkill(name),
+			IsEnabled:   entry.IsEnabled,
+			CreatedBy:   entry.CreatedBy,
+			CreatedAt:   entry.CreatedAt.UTC(),
 		}
 	}
 
@@ -140,11 +181,25 @@ func (s *Service) ListSkills(ctx context.Context, projectID uuid.UUID) ([]Skill,
 				if descErr != nil && !errors.Is(descErr, fs.ErrNotExist) {
 					return nil, descErr
 				}
+				entry, hasEntry := index[name]
+				if !hasEntry {
+					entry = skillIndexEntry{
+						ID:        uuid.New(),
+						Name:      name,
+						IsEnabled: false,
+						CreatedBy: defaultSkillCreator(name),
+						CreatedAt: time.Now().UTC(),
+					}
+				}
 				skillItem = &Skill{
+					ID:          entry.ID,
 					Name:        name,
 					Description: description,
 					Path:        skillContentRelativePath(name),
 					IsBuiltin:   builtin.IsBuiltinSkill(name),
+					IsEnabled:   entry.IsEnabled,
+					CreatedBy:   entry.CreatedBy,
+					CreatedAt:   entry.CreatedAt.UTC(),
 				}
 				byName[name] = skillItem
 			}
@@ -211,6 +266,336 @@ func parseSkillTitle(content string) string {
 	return ""
 }
 
+type resolvedSkillRecord struct {
+	projectID uuid.UUID
+	storage   *projectStorage
+	entry     skillIndexEntry
+}
+
+func (s *Service) GetSkill(ctx context.Context, skillID uuid.UUID) (SkillDetail, error) {
+	record, err := s.resolveSkillRecord(ctx, skillID, workflowStorageUsageRead)
+	if err != nil {
+		return SkillDetail{}, err
+	}
+	return s.buildSkillDetail(ctx, record)
+}
+
+func (s *Service) CreateSkill(ctx context.Context, input CreateSkillInput) (SkillDetail, error) {
+	if s.client == nil {
+		return SkillDetail{}, ErrUnavailable
+	}
+	if err := s.ensureProjectExists(ctx, input.ProjectID); err != nil {
+		return SkillDetail{}, err
+	}
+	names, err := normalizeSkillNames([]string{input.Name})
+	if err != nil {
+		return SkillDetail{}, err
+	}
+
+	storage, err := s.storageForProject(ctx, input.ProjectID, workflowStorageUsageWrite)
+	if err != nil {
+		return SkillDetail{}, err
+	}
+	index, err := s.syncSkillIndex(storage.skillRoot, time.Now().UTC())
+	if err != nil {
+		return SkillDetail{}, err
+	}
+	name := names[0]
+	if _, exists := index[name]; exists {
+		return SkillDetail{}, fmt.Errorf("%w: skill %q already exists", ErrSkillInvalid, name)
+	}
+
+	content, err := ensureSkillContent(name, input.Content, input.Description)
+	if err != nil {
+		return SkillDetail{}, err
+	}
+	skillDir := s.skillDirectoryPath(storage, name)
+	if err := os.MkdirAll(skillDir, 0o750); err != nil {
+		return SkillDetail{}, fmt.Errorf("create skill directory %s: %w", skillDir, err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(content), 0o600); err != nil {
+		return SkillDetail{}, fmt.Errorf("write skill %s: %w", name, err)
+	}
+	if err := validateSkillDirectory(skillDir); err != nil {
+		_ = os.RemoveAll(skillDir)
+		return SkillDetail{}, err
+	}
+
+	enabled := true
+	if input.Enabled != nil {
+		enabled = *input.Enabled
+	}
+	entry := skillIndexEntry{
+		ID:        uuid.New(),
+		Name:      name,
+		IsEnabled: enabled,
+		CreatedBy: strings.TrimSpace(input.CreatedBy),
+		CreatedAt: time.Now().UTC(),
+	}
+	if entry.CreatedBy == "" {
+		entry.CreatedBy = "user:manual"
+	}
+	index[name] = entry
+	if err := saveSkillIndex(storage.skillRoot, index); err != nil {
+		return SkillDetail{}, err
+	}
+
+	return s.buildSkillDetail(ctx, resolvedSkillRecord{
+		projectID: input.ProjectID,
+		storage:   storage,
+		entry:     entry,
+	})
+}
+
+func (s *Service) UpdateSkill(ctx context.Context, input UpdateSkillInput) (SkillDetail, error) {
+	record, err := s.resolveSkillRecord(ctx, input.SkillID, workflowStorageUsageWrite)
+	if err != nil {
+		return SkillDetail{}, err
+	}
+
+	content, err := ensureSkillContent(record.entry.Name, input.Content, input.Description)
+	if err != nil {
+		return SkillDetail{}, err
+	}
+	skillDir := s.skillDirectoryPath(record.storage, record.entry.Name)
+	if err := os.MkdirAll(skillDir, 0o750); err != nil {
+		return SkillDetail{}, fmt.Errorf("create skill directory %s: %w", skillDir, err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(content), 0o600); err != nil {
+		return SkillDetail{}, fmt.Errorf("write skill %s: %w", record.entry.Name, err)
+	}
+	if err := validateSkillDirectory(skillDir); err != nil {
+		return SkillDetail{}, err
+	}
+
+	return s.buildSkillDetail(ctx, record)
+}
+
+func (s *Service) DeleteSkill(ctx context.Context, skillID uuid.UUID) error {
+	record, err := s.resolveSkillRecord(ctx, skillID, workflowStorageUsageWrite)
+	if err != nil {
+		return err
+	}
+	workflows, err := s.client.Workflow.Query().
+		Where(entworkflow.ProjectIDEQ(record.projectID)).
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("list workflows for skill delete: %w", err)
+	}
+	for _, workflowItem := range workflows {
+		if _, err := s.UnbindSkills(ctx, UpdateWorkflowSkillsInput{
+			WorkflowID: workflowItem.ID,
+			Skills:     []string{record.entry.Name},
+		}); err != nil && !errors.Is(err, ErrUnavailable) {
+			return err
+		}
+	}
+
+	if err := os.RemoveAll(s.skillDirectoryPath(record.storage, record.entry.Name)); err != nil {
+		return fmt.Errorf("delete skill %s: %w", record.entry.Name, err)
+	}
+	index, err := s.syncSkillIndex(record.storage.skillRoot, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	delete(index, record.entry.Name)
+	return saveSkillIndex(record.storage.skillRoot, index)
+}
+
+func (s *Service) EnableSkill(ctx context.Context, skillID uuid.UUID) (SkillDetail, error) {
+	return s.setSkillEnabled(ctx, skillID, true)
+}
+
+func (s *Service) DisableSkill(ctx context.Context, skillID uuid.UUID) (SkillDetail, error) {
+	return s.setSkillEnabled(ctx, skillID, false)
+}
+
+func (s *Service) setSkillEnabled(ctx context.Context, skillID uuid.UUID, enabled bool) (SkillDetail, error) {
+	record, err := s.resolveSkillRecord(ctx, skillID, workflowStorageUsageWrite)
+	if err != nil {
+		return SkillDetail{}, err
+	}
+	index, err := s.syncSkillIndex(record.storage.skillRoot, time.Now().UTC())
+	if err != nil {
+		return SkillDetail{}, err
+	}
+	entry := index[record.entry.Name]
+	entry.IsEnabled = enabled
+	index[record.entry.Name] = entry
+	if err := saveSkillIndex(record.storage.skillRoot, index); err != nil {
+		return SkillDetail{}, err
+	}
+	record.entry = entry
+	return s.buildSkillDetail(ctx, record)
+}
+
+func (s *Service) BindSkill(ctx context.Context, input UpdateSkillBindingsInput) (SkillDetail, error) {
+	record, err := s.resolveSkillRecord(ctx, input.SkillID, workflowStorageUsageWrite)
+	if err != nil {
+		return SkillDetail{}, err
+	}
+	workflowIDs, err := normalizeWorkflowIDs(input.WorkflowIDs)
+	if err != nil {
+		return SkillDetail{}, err
+	}
+	for _, workflowID := range workflowIDs {
+		if _, err := s.BindSkills(ctx, UpdateWorkflowSkillsInput{
+			WorkflowID: workflowID,
+			Skills:     []string{record.entry.Name},
+		}); err != nil {
+			return SkillDetail{}, err
+		}
+	}
+	return s.buildSkillDetail(ctx, record)
+}
+
+func (s *Service) UnbindSkill(ctx context.Context, input UpdateSkillBindingsInput) (SkillDetail, error) {
+	record, err := s.resolveSkillRecord(ctx, input.SkillID, workflowStorageUsageWrite)
+	if err != nil {
+		return SkillDetail{}, err
+	}
+	workflowIDs, err := normalizeWorkflowIDs(input.WorkflowIDs)
+	if err != nil {
+		return SkillDetail{}, err
+	}
+	for _, workflowID := range workflowIDs {
+		if _, err := s.UnbindSkills(ctx, UpdateWorkflowSkillsInput{
+			WorkflowID: workflowID,
+			Skills:     []string{record.entry.Name},
+		}); err != nil {
+			return SkillDetail{}, err
+		}
+	}
+	return s.buildSkillDetail(ctx, record)
+}
+
+func normalizeWorkflowIDs(items []uuid.UUID) ([]uuid.UUID, error) {
+	unique := make([]uuid.UUID, 0, len(items))
+	seen := make(map[uuid.UUID]struct{}, len(items))
+	for _, item := range items {
+		if item == uuid.Nil {
+			return nil, fmt.Errorf("%w: workflow id must not be empty", ErrSkillInvalid)
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		unique = append(unique, item)
+	}
+	if len(unique) == 0 {
+		return nil, fmt.Errorf("%w: workflow ids must not be empty", ErrSkillInvalid)
+	}
+	return unique, nil
+}
+
+func (s *Service) resolveSkillRecord(
+	ctx context.Context,
+	skillID uuid.UUID,
+	usage workflowStorageUsage,
+) (resolvedSkillRecord, error) {
+	if s.client == nil {
+		return resolvedSkillRecord{}, ErrUnavailable
+	}
+	projectIDs, err := s.client.Project.Query().IDs(ctx)
+	if err != nil {
+		return resolvedSkillRecord{}, fmt.Errorf("list projects for skill lookup: %w", err)
+	}
+	for _, projectID := range projectIDs {
+		storage, err := s.storageForProject(ctx, projectID, usage)
+		if err != nil {
+			return resolvedSkillRecord{}, err
+		}
+		index, err := s.syncSkillIndex(storage.skillRoot, time.Now().UTC())
+		if err != nil {
+			return resolvedSkillRecord{}, err
+		}
+		for _, entry := range index {
+			if entry.ID == skillID {
+				return resolvedSkillRecord{
+					projectID: projectID,
+					storage:   storage,
+					entry:     entry,
+				}, nil
+			}
+		}
+	}
+	return resolvedSkillRecord{}, ErrSkillNotFound
+}
+
+func (s *Service) buildSkillDetail(ctx context.Context, record resolvedSkillRecord) (SkillDetail, error) {
+	items, err := s.ListSkills(ctx, record.projectID)
+	if err != nil {
+		return SkillDetail{}, err
+	}
+	for _, item := range items {
+		if item.ID != record.entry.ID {
+			continue
+		}
+		contentPath := filepath.Join(s.skillDirectoryPath(record.storage, record.entry.Name), "SKILL.md")
+		data, err := os.ReadFile(contentPath)
+		if err != nil {
+			return SkillDetail{}, fmt.Errorf("read skill %s content: %w", record.entry.Name, err)
+		}
+		return SkillDetail{
+			Skill:   item,
+			Content: string(data),
+		}, nil
+	}
+	return SkillDetail{}, ErrSkillNotFound
+}
+
+func (s *Service) resolveInjectedSkillNames(
+	ctx context.Context,
+	storage *projectStorage,
+	index map[string]skillIndexEntry,
+	workflowID *uuid.UUID,
+) ([]string, error) {
+	if workflowID == nil {
+		names := make([]string, 0, len(index))
+		for name, entry := range index {
+			if entry.IsEnabled {
+				names = append(names, name)
+			}
+		}
+		sort.Strings(names)
+		return names, nil
+	}
+
+	workflowItem, err := s.client.Workflow.Get(ctx, *workflowID)
+	if err != nil {
+		return nil, s.mapWorkflowReadError("get workflow for skill refresh", err)
+	}
+	content, err := storage.registry.Read(workflowItem.HarnessPath)
+	if err != nil {
+		return nil, fmt.Errorf("read workflow harness for skill refresh: %w", err)
+	}
+	boundNames, err := ParseHarnessSkills(content)
+	if err != nil {
+		return nil, err
+	}
+
+	selected := make([]string, 0, len(boundNames)+1)
+	seen := make(map[string]struct{}, len(boundNames)+1)
+	for _, name := range boundNames {
+		entry, ok := index[name]
+		if !ok || !entry.IsEnabled {
+			continue
+		}
+		if _, duplicate := seen[name]; duplicate {
+			continue
+		}
+		seen[name] = struct{}{}
+		selected = append(selected, name)
+	}
+	if entry, ok := index["openase-platform"]; ok && entry.IsEnabled {
+		if _, duplicate := seen["openase-platform"]; !duplicate {
+			selected = append(selected, "openase-platform")
+		}
+	}
+	sort.Strings(selected)
+	return selected, nil
+}
+
 func (s *Service) RefreshSkills(ctx context.Context, input RefreshSkillsInput) (RefreshSkillsResult, error) {
 	if s.client == nil {
 		return RefreshSkillsResult{}, ErrUnavailable
@@ -234,13 +619,18 @@ func (s *Service) RefreshSkills(ctx context.Context, input RefreshSkillsInput) (
 		return RefreshSkillsResult{}, fmt.Errorf("create agent skill directory: %w", err)
 	}
 
-	skillNames, err := listSkillNames(storage.skillRoot)
+	skillRoot := resolveWorkspaceSkillRoot(storage, input.WorkspaceRoot)
+	index, err := s.syncSkillIndex(skillRoot, time.Now().UTC())
+	if err != nil {
+		return RefreshSkillsResult{}, err
+	}
+	skillNames, err := s.resolveInjectedSkillNames(ctx, storage, index, input.WorkflowID)
 	if err != nil {
 		return RefreshSkillsResult{}, err
 	}
 
 	for _, name := range skillNames {
-		src := s.skillDirectoryPath(storage, name)
+		src := filepath.Join(skillRoot, name)
 		dst := filepath.Join(target.skillsDir.String(), name)
 		if err := replaceDirectory(src, dst); err != nil {
 			return RefreshSkillsResult{}, fmt.Errorf("refresh skill %s: %w", name, err)
@@ -267,6 +657,11 @@ func (s *Service) HarvestSkills(ctx context.Context, input HarvestSkillsInput) (
 	if err != nil {
 		return HarvestSkillsResult{}, err
 	}
+	skillRoot := resolveWorkspaceSkillRoot(storage, input.WorkspaceRoot)
+	index, err := s.syncSkillIndex(skillRoot, time.Now().UTC())
+	if err != nil {
+		return HarvestSkillsResult{}, err
+	}
 
 	target, err := resolveSkillTarget(input.WorkspaceRoot, input.AdapterType)
 	if err != nil {
@@ -284,7 +679,7 @@ func (s *Service) HarvestSkills(ctx context.Context, input HarvestSkillsInput) (
 	result := HarvestSkillsResult{SkillsDir: target.skillsDir.String()}
 	for _, name := range workspaceSkillNames {
 		src := filepath.Join(target.skillsDir.String(), name)
-		dst := s.skillDirectoryPath(storage, name)
+		dst := filepath.Join(skillRoot, name)
 
 		srcFingerprint, err := directoryFingerprint(src)
 		if err != nil {
@@ -296,6 +691,17 @@ func (s *Service) HarvestSkills(ctx context.Context, input HarvestSkillsInput) (
 			if err := replaceDirectory(src, dst); err != nil {
 				return HarvestSkillsResult{}, fmt.Errorf("harvest skill %s: %w", name, err)
 			}
+			entry := skillIndexEntry{
+				ID:        uuid.New(),
+				Name:      name,
+				IsEnabled: true,
+				CreatedBy: strings.TrimSpace(input.CreatedBy),
+				CreatedAt: time.Now().UTC(),
+			}
+			if entry.CreatedBy == "" {
+				entry.CreatedBy = "agent:auto-harvest"
+			}
+			index[name] = entry
 			result.HarvestedSkills = append(result.HarvestedSkills, name)
 			continue
 		}
@@ -319,6 +725,17 @@ func (s *Service) HarvestSkills(ctx context.Context, input HarvestSkillsInput) (
 
 	sort.Strings(result.HarvestedSkills)
 	sort.Strings(result.UpdatedSkills)
+	if err := saveSkillIndex(skillRoot, index); err != nil {
+		return HarvestSkillsResult{}, err
+	}
+	if input.WorkflowID != nil && len(result.HarvestedSkills) > 0 {
+		if _, err := s.BindSkills(ctx, UpdateWorkflowSkillsInput{
+			WorkflowID: *input.WorkflowID,
+			Skills:     append([]string(nil), result.HarvestedSkills...),
+		}); err != nil {
+			return HarvestSkillsResult{}, err
+		}
+	}
 
 	return result, nil
 }
@@ -544,6 +961,14 @@ func resolveSkillTarget(workspaceRoot string, rawAdapterType string) (resolvedSk
 		adapter:   adapterType,
 		skillsDir: provider.MustParseAbsolutePath(filepath.Clean(skillsDir)),
 	}, nil
+}
+
+func ResolveSkillTargetForRuntime(workspaceRoot string, rawAdapterType string) (RuntimeSkillTarget, error) {
+	target, err := resolveSkillTarget(workspaceRoot, rawAdapterType)
+	if err != nil {
+		return RuntimeSkillTarget{}, err
+	}
+	return RuntimeSkillTarget{SkillsDir: target.skillsDir.String()}, nil
 }
 
 func normalizeSkillNames(raw []string) ([]string, error) {

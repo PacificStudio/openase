@@ -764,7 +764,42 @@ export interface paths {
     /** List workflow skills */
     get: operations['listSkills']
     put?: never
-    post?: never
+    /** Create a skill in the project library */
+    post: operations['createSkill']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/skills/harvest': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Harvest workspace-authored skills back into the project skill library */
+    post: operations['harvestSkills']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/skills/refresh': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Refresh a workspace skill directory from the project skill library */
+    post: operations['refreshSkills']
     delete?: never
     options?: never
     head?: never
@@ -1027,6 +1062,93 @@ export interface paths {
     put?: never
     /** Trigger a scheduled job once */
     post: operations['triggerScheduledJob']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/skills/{skillId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get skill detail */
+    get: operations['getSkill']
+    /** Update skill content */
+    put: operations['updateSkill']
+    post?: never
+    /** Delete a skill and unbind it from all workflows */
+    delete: operations['deleteSkill']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/skills/{skillId}/bind': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Bind a skill to one or more workflow harnesses */
+    post: operations['bindSkill']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/skills/{skillId}/disable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Disable a skill without deleting its files */
+    post: operations['disableSkill']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/skills/{skillId}/enable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Enable a skill for runtime injection */
+    post: operations['enableSkill']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/skills/{skillId}/unbind': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Unbind a skill from one or more workflow harnesses */
+    post: operations['unbindSkill']
     delete?: never
     options?: never
     head?: never
@@ -6642,11 +6764,259 @@ export interface operations {
                 id?: string
                 name?: string
               }[]
+              created_at?: string
+              created_by?: string
               description?: string
+              id?: string
               is_builtin?: boolean
+              is_enabled?: boolean
               name?: string
               path?: string
             }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createSkill: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a skill in the project library request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Skill markdown content. Frontmatter is optional on input and will be normalized on write. */
+          content?: string
+          /** @description Optional creator descriptor such as user:gary or agent:codex-01 via ASE-42. */
+          created_by?: string
+          /** @description Optional description used when the input content does not declare one. */
+          description?: string
+          /** @description Whether the new skill should be enabled for runtime injection immediately. */
+          is_enabled?: boolean | null
+          /** @description Project-unique skill directory name. */
+          name?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create a skill in the project library response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            content?: string
+            skill?: {
+              bound_workflows?: {
+                harness_path?: string
+                id?: string
+                name?: string
+              }[]
+              created_at?: string
+              created_by?: string
+              description?: string
+              id?: string
+              is_builtin?: boolean
+              is_enabled?: boolean
+              name?: string
+              path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  harvestSkills: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Harvest workspace-authored skills back into the project skill library request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Agent adapter type used to derive the runtime skill directory. */
+          adapter_type?: string
+          /** @description Optional workflow ID used to project only the currently bound enabled skills. */
+          workflow_id?: string
+          /** @description Workspace repository root that owns the agent skill directory. */
+          workspace_root?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Harvest workspace-authored skills back into the project skill library response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            harvested_skills?: string[]
+            injected_skills?: string[]
+            skills_dir?: string
+            updated_skills?: string[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  refreshSkills: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Refresh a workspace skill directory from the project skill library request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Agent adapter type used to derive the runtime skill directory. */
+          adapter_type?: string
+          /** @description Optional workflow ID used to project only the currently bound enabled skills. */
+          workflow_id?: string
+          /** @description Workspace repository root that owns the agent skill directory. */
+          workspace_root?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Refresh a workspace skill directory from the project skill library response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            harvested_skills?: string[]
+            injected_skills?: string[]
+            skills_dir?: string
+            updated_skills?: string[]
           }
         }
       }
@@ -8922,6 +9292,553 @@ export interface operations {
               title?: string
               type?: string
               workflow_id?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getSkill: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Skill ID. */
+        skillId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get skill detail response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            content?: string
+            skill?: {
+              bound_workflows?: {
+                harness_path?: string
+                id?: string
+                name?: string
+              }[]
+              created_at?: string
+              created_by?: string
+              description?: string
+              id?: string
+              is_builtin?: boolean
+              is_enabled?: boolean
+              name?: string
+              path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  updateSkill: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Skill ID. */
+        skillId: string
+      }
+      cookie?: never
+    }
+    /** @description Update skill content request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Replacement skill markdown content. Frontmatter is optional on input and will be normalized on write. */
+          content?: string
+          /** @description Optional description override used when the input content does not declare one. */
+          description?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Update skill content response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            content?: string
+            skill?: {
+              bound_workflows?: {
+                harness_path?: string
+                id?: string
+                name?: string
+              }[]
+              created_at?: string
+              created_by?: string
+              description?: string
+              id?: string
+              is_builtin?: boolean
+              is_enabled?: boolean
+              name?: string
+              path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteSkill: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Skill ID. */
+        skillId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Delete a skill and unbind it from all workflows response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            deleted_skill_id?: string
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  bindSkill: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Skill ID. */
+        skillId: string
+      }
+      cookie?: never
+    }
+    /** @description Bind a skill to one or more workflow harnesses request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Alias of workflow_ids kept for PRD terminology compatibility. */
+          harness_ids?: string[]
+          /** @description Workflow IDs that should bind or unbind this skill. */
+          workflow_ids?: string[]
+        }
+      }
+    }
+    responses: {
+      /** @description Bind a skill to one or more workflow harnesses response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            content?: string
+            skill?: {
+              bound_workflows?: {
+                harness_path?: string
+                id?: string
+                name?: string
+              }[]
+              created_at?: string
+              created_by?: string
+              description?: string
+              id?: string
+              is_builtin?: boolean
+              is_enabled?: boolean
+              name?: string
+              path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  disableSkill: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Skill ID. */
+        skillId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Disable a skill without deleting its files response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            content?: string
+            skill?: {
+              bound_workflows?: {
+                harness_path?: string
+                id?: string
+                name?: string
+              }[]
+              created_at?: string
+              created_by?: string
+              description?: string
+              id?: string
+              is_builtin?: boolean
+              is_enabled?: boolean
+              name?: string
+              path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  enableSkill: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Skill ID. */
+        skillId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Enable a skill for runtime injection response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            content?: string
+            skill?: {
+              bound_workflows?: {
+                harness_path?: string
+                id?: string
+                name?: string
+              }[]
+              created_at?: string
+              created_by?: string
+              description?: string
+              id?: string
+              is_builtin?: boolean
+              is_enabled?: boolean
+              name?: string
+              path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  unbindSkill: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Skill ID. */
+        skillId: string
+      }
+      cookie?: never
+    }
+    /** @description Unbind a skill from one or more workflow harnesses request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Alias of workflow_ids kept for PRD terminology compatibility. */
+          harness_ids?: string[]
+          /** @description Workflow IDs that should bind or unbind this skill. */
+          workflow_ids?: string[]
+        }
+      }
+    }
+    responses: {
+      /** @description Unbind a skill from one or more workflow harnesses response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            content?: string
+            skill?: {
+              bound_workflows?: {
+                harness_path?: string
+                id?: string
+                name?: string
+              }[]
+              created_at?: string
+              created_by?: string
+              description?: string
+              id?: string
+              is_builtin?: boolean
+              is_enabled?: boolean
+              name?: string
+              path?: string
             }
           }
         }
