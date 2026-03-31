@@ -277,7 +277,7 @@ func (s *ProjectConversationService) StartTurn(
 		return domain.Turn{}, err
 	}
 
-	go s.consumeTurn(conversationID, turn, live, stream)
+	go s.consumeTurn(context.WithoutCancel(ctx), conversationID, turn, live, stream)
 	return turn, nil
 }
 
@@ -375,6 +375,7 @@ func (s *ProjectConversationService) CloseRuntime(ctx context.Context, userID Us
 }
 
 func (s *ProjectConversationService) consumeTurn(
+	ctx context.Context,
 	conversationID uuid.UUID,
 	turn domain.Turn,
 	live *liveProjectConversation,
@@ -383,7 +384,7 @@ func (s *ProjectConversationService) consumeTurn(
 	for event := range stream.Events {
 		switch event.Event {
 		case "message":
-			if normalized, ok := s.handleConversationMessage(conversationID, turn.ID, event.Payload); ok {
+			if normalized, ok := s.handleConversationMessage(ctx, conversationID, turn.ID, event.Payload); ok {
 				s.broadcast(conversationID, normalized)
 				continue
 			}
@@ -409,7 +410,7 @@ func (s *ProjectConversationService) consumeTurn(
 				}
 				interruptPayload["options"] = options
 			}
-			pending, _, err := s.repo.CreatePendingInterrupt(context.Background(), conversationID, turn.ID, payload.RequestID, interruptKind, interruptPayload)
+			pending, _, err := s.repo.CreatePendingInterrupt(ctx, conversationID, turn.ID, payload.RequestID, interruptKind, interruptPayload)
 			if err != nil {
 				s.logger.Error("persist chat interrupt", "conversation_id", conversationID, "error", err)
 				continue
@@ -429,15 +430,15 @@ func (s *ProjectConversationService) consumeTurn(
 			if !ok {
 				continue
 			}
-			_, _ = s.repo.CompleteTurn(context.Background(), turn.ID, domain.TurnStatusCompleted, nil)
-			entries, _ := s.repo.ListEntries(context.Background(), conversationID)
+			_, _ = s.repo.CompleteTurn(ctx, turn.ID, domain.TurnStatusCompleted, nil)
+			entries, _ := s.repo.ListEntries(ctx, conversationID)
 			summary := buildRollingSummary(entries)
 			anchor := RuntimeSessionAnchor{}
 			if live.codex != nil {
 				anchor = live.codex.SessionAnchor(SessionID(conversationID.String()))
 			}
 			_, _ = s.repo.UpdateConversationAnchors(
-				context.Background(),
+				ctx,
 				conversationID,
 				domain.ConversationStatusActive,
 				optionalNonEmptyString(anchor.ProviderThreadID),
@@ -455,7 +456,7 @@ func (s *ProjectConversationService) consumeTurn(
 		case "error":
 			payload, ok := event.Payload.(errorPayload)
 			if ok {
-				_, _ = s.repo.CompleteTurn(context.Background(), turn.ID, domain.TurnStatusFailed, nil)
+				_, _ = s.repo.CompleteTurn(ctx, turn.ID, domain.TurnStatusFailed, nil)
 				s.broadcast(conversationID, StreamEvent{
 					Event: "error",
 					Payload: map[string]any{
@@ -467,10 +468,15 @@ func (s *ProjectConversationService) consumeTurn(
 	}
 }
 
-func (s *ProjectConversationService) handleConversationMessage(conversationID uuid.UUID, turnID uuid.UUID, payload any) (StreamEvent, bool) {
+func (s *ProjectConversationService) handleConversationMessage(
+	ctx context.Context,
+	conversationID uuid.UUID,
+	turnID uuid.UUID,
+	payload any,
+) (StreamEvent, bool) {
 	switch typed := payload.(type) {
 	case textPayload:
-		_, _ = s.repo.AppendEntry(context.Background(), conversationID, &turnID, domain.EntryKindAssistantTextDelta, map[string]any{
+		_, _ = s.repo.AppendEntry(ctx, conversationID, &turnID, domain.EntryKindAssistantTextDelta, map[string]any{
 			"role":    "assistant",
 			"content": typed.Content,
 		})
@@ -491,7 +497,7 @@ func (s *ProjectConversationService) handleConversationMessage(conversationID uu
 		case chatMessageTypeTaskStarted, chatMessageTypeTaskNotification, chatMessageTypeTaskProgress:
 			kind = domain.EntryKindSystem
 		}
-		entry, _ := s.repo.AppendEntry(context.Background(), conversationID, &turnID, kind, cloneMapAny(typed))
+		entry, _ := s.repo.AppendEntry(ctx, conversationID, &turnID, kind, cloneMapAny(typed))
 		normalized := cloneMapAny(typed)
 		if kind == domain.EntryKindActionProposal || kind == domain.EntryKindDiff {
 			normalized["entry_id"] = entry.ID.String()
@@ -524,7 +530,7 @@ func (s *ProjectConversationService) ensureLiveRuntime(
 		return nil, false, err
 	}
 
-	manager, err := s.resolveProcessManager(ctx, machine)
+	manager, err := s.resolveProcessManager(machine)
 	if err != nil {
 		return nil, false, err
 	}
@@ -654,7 +660,6 @@ func (s *ProjectConversationService) ensureConversationWorkspace(
 }
 
 func (s *ProjectConversationService) resolveProcessManager(
-	ctx context.Context,
 	machine catalogdomain.Machine,
 ) (provider.AgentCLIProcessManager, error) {
 	if machine.Host == catalogdomain.LocalMachineHost {

@@ -17,7 +17,7 @@ func TestProjectConversationPromptIncludesRecoverySummaryAndTranscript(t *testin
 	client := openTestEntClient(t)
 	ctx := context.Background()
 
-	org, project := createProjectConversationTestProject(t, ctx, client)
+	org, project := createProjectConversationTestProject(ctx, t, client)
 	repo := chatrepo.NewEntRepository(client)
 	conversation, err := repo.CreateConversation(ctx, chatdomain.CreateConversation{
 		ProjectID:  project.ID,
@@ -101,7 +101,7 @@ func TestProjectConversationConsumeTurnPersistsInterruptAndSummary(t *testing.T)
 	client := openTestEntClient(t)
 	ctx := context.Background()
 
-	_, project := createProjectConversationTestProject(t, ctx, client)
+	_, project := createProjectConversationTestProject(ctx, t, client)
 	repo := chatrepo.NewEntRepository(client)
 	conversation, err := repo.CreateConversation(ctx, chatdomain.CreateConversation{
 		ProjectID:  project.ID,
@@ -142,7 +142,7 @@ func TestProjectConversationConsumeTurnPersistsInterruptAndSummary(t *testing.T)
 	}
 	close(streamEvents)
 
-	service.consumeTurn(conversation.ID, turn, &liveProjectConversation{}, TurnStream{Events: streamEvents})
+	service.consumeTurn(ctx, conversation.ID, turn, &liveProjectConversation{}, TurnStream{Events: streamEvents})
 	cleanup()
 
 	pending, err := repo.ListPendingInterrupts(ctx, conversation.ID)
@@ -196,7 +196,7 @@ func TestProjectConversationRespondInterruptRoutesExactRequestID(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
 
-	_, project := createProjectConversationTestProject(t, ctx, client)
+	_, project := createProjectConversationTestProject(ctx, t, client)
 	repo := chatrepo.NewEntRepository(client)
 	conversation, err := repo.CreateConversation(ctx, chatdomain.CreateConversation{
 		ProjectID:  project.ID,
@@ -346,8 +346,8 @@ func (r *fakeProjectConversationCodexRuntime) SessionAnchor(SessionID) RuntimeSe
 }
 
 func createProjectConversationTestProject(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	client *ent.Client,
 ) (organization, project projectConversationTestEntity) {
 	t.Helper()
