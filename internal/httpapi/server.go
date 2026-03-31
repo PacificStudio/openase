@@ -50,6 +50,7 @@ type Server struct {
 	scheduledJobService *scheduledjobservice.Service
 	notificationService *notificationservice.Service
 	chatService         *chatservice.Service
+	projectConversationService *chatservice.ProjectConversationService
 	githubAuthService   githubauthservice.SecurityManager
 	issueConnectorSvc   *issueconnectorservice.Service
 	memoryCollector     runtimeobservability.ProcessMemoryCollector
@@ -72,6 +73,12 @@ func WithProjectRepoMirrorService(service *projectrepomirrorsvc.Service) ServerO
 func WithChatService(service *chatservice.Service) ServerOption {
 	return func(server *Server) {
 		server.chatService = service
+	}
+}
+
+func WithProjectConversationService(service *chatservice.ProjectConversationService) ServerOption {
+	return func(server *Server) {
+		server.projectConversationService = service
 	}
 }
 

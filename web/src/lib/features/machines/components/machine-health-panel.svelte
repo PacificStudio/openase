@@ -9,6 +9,8 @@
     Globe,
   } from '@lucide/svelte'
   import type { MachineItem, MachineProbeResult, MachineSnapshot } from '../types'
+  import { formatRelativeTime } from '$lib/utils'
+  import { Badge } from '$ui/badge'
   import type { TruthyState, AuditTokenState } from './machine-health-panel-view'
   import {
     buildAuditRows,

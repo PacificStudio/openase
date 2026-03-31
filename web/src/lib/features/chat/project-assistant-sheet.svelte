@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
-  import EphemeralChatPanel from './ephemeral-chat-panel.svelte'
+  import ProjectConversationPanel from './project-conversation-panel.svelte'
 
   let {
     open = $bindable(false),
@@ -25,8 +25,7 @@
     </SheetHeader>
 
     {#if open && organizationId && projectId}
-      <EphemeralChatPanel
-        source="project_sidebar"
+      <ProjectConversationPanel
         {organizationId}
         {defaultProviderId}
         context={{ projectId }}

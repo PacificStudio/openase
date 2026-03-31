@@ -266,7 +266,6 @@
               {projectId}
               {providers}
               workflowId={selectedWorkflow?.id}
-              workflowName={selectedWorkflow?.name}
               draftContent={harness.rawContent}
               onApplySuggestion={onApplyAssistantDraft}
             />

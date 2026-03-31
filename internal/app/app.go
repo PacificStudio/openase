@@ -29,6 +29,7 @@ import (
 	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	chatconversationrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
 	githubauthrepo "github.com/BetterAndBetterII/openase/internal/repo/githubauth"
 	issueconnectorrepo "github.com/BetterAndBetterII/openase/internal/repo/issueconnector"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
@@ -197,6 +198,15 @@ func (a *App) RunServe(ctx context.Context) error {
 		workflowSvc,
 		chatWorkingDirectory,
 	)
+	projectConversationSvc := chatservice.NewProjectConversationService(
+		a.logger,
+		chatconversationrepo.NewEntRepository(client),
+		catalogSvc,
+		ticketSvc,
+		workflowSvc,
+		chatProcessManager,
+		sshPool,
+	)
 	server := httpapi.NewServer(
 		a.config.Server,
 		a.config.GitHub,
@@ -216,6 +226,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithScheduledJobService(scheduledJobSvc),
 		httpapi.WithNotificationService(notificationSvc),
 		httpapi.WithChatService(chatSvc),
+		httpapi.WithProjectConversationService(projectConversationSvc),
 	)
 	driver, err := a.config.ResolvedEventDriver()
 	if err != nil {

@@ -124,11 +124,24 @@ const (
 
 type ApprovalRequest struct {
 	RequestID RequestID
+	ThreadID  string
+	TurnID    string
 	Kind      ApprovalRequestKind
+	Options   []ApprovalOption
+	Payload   map[string]any
 }
 
 type UserInputRequest struct {
 	RequestID RequestID
+	ThreadID  string
+	TurnID    string
+	Payload   map[string]any
+}
+
+type ApprovalOption struct {
+	ID          string
+	Label       string
+	RawDecision string
 }
 
 type TurnEvent struct {
@@ -662,40 +675,75 @@ func (s *Session) handleServerRequest(message jsonRPCMessage) error {
 
 		return nil
 	case methodCommandApproval:
+		payload, _ := decodeJSONMap(message.Params)
+		request := ApprovalRequest{
+			RequestID: requestID,
+			ThreadID:  readStringMap(payload, "threadId"),
+			TurnID:    readStringMap(payload, "turnId"),
+			Kind:      ApprovalRequestKindCommandExecution,
+			Options:   approvalOptionsForMethod(message.Method),
+			Payload:   payload,
+		}
 		s.emit(Event{
-			Type: EventTypeApprovalRequested,
-			Approval: &ApprovalRequest{
-				RequestID: requestID,
-				Kind:      ApprovalRequestKindCommandExecution,
-			},
+			Type:     EventTypeApprovalRequested,
+			Approval: &request,
 		})
-		return s.respondApproval(requestID, "acceptForSession")
+		if !s.autoApproveRequests {
+			return nil
+		}
+		return s.RespondApproval(context.Background(), request, "approve_for_session")
 	case methodExecApproval, methodPatchApproval:
+		payload, _ := decodeJSONMap(message.Params)
+		request := ApprovalRequest{
+			RequestID: requestID,
+			ThreadID:  readStringMap(payload, "threadId"),
+			TurnID:    readStringMap(payload, "turnId"),
+			Kind:      ApprovalRequestKindCommandExecution,
+			Options:   approvalOptionsForMethod(message.Method),
+			Payload:   payload,
+		}
 		s.emit(Event{
-			Type: EventTypeApprovalRequested,
-			Approval: &ApprovalRequest{
-				RequestID: requestID,
-				Kind:      ApprovalRequestKindCommandExecution,
-			},
+			Type:     EventTypeApprovalRequested,
+			Approval: &request,
 		})
-		return s.respondApproval(requestID, "approved_for_session")
+		if !s.autoApproveRequests {
+			return nil
+		}
+		return s.RespondApproval(context.Background(), request, "approve_for_session")
 	case methodFileApproval:
+		payload, _ := decodeJSONMap(message.Params)
+		request := ApprovalRequest{
+			RequestID: requestID,
+			ThreadID:  readStringMap(payload, "threadId"),
+			TurnID:    readStringMap(payload, "turnId"),
+			Kind:      ApprovalRequestKindFileChange,
+			Options:   approvalOptionsForMethod(message.Method),
+			Payload:   payload,
+		}
 		s.emit(Event{
-			Type: EventTypeApprovalRequested,
-			Approval: &ApprovalRequest{
-				RequestID: requestID,
-				Kind:      ApprovalRequestKindFileChange,
-			},
+			Type:     EventTypeApprovalRequested,
+			Approval: &request,
 		})
-		return s.respondApproval(requestID, "acceptForSession")
+		if !s.autoApproveRequests {
+			return nil
+		}
+		return s.RespondApproval(context.Background(), request, "approve_for_session")
 	case methodRequestUserInput:
+		payload, _ := decodeJSONMap(message.Params)
+		request := UserInputRequest{
+			RequestID: requestID,
+			ThreadID:  readStringMap(payload, "threadId"),
+			TurnID:    readStringMap(payload, "turnId"),
+			Payload:   payload,
+		}
 		s.emit(Event{
-			Type: EventTypeUserInputRequested,
-			UserInput: &UserInputRequest{
-				RequestID: requestID,
-			},
+			Type:      EventTypeUserInputRequested,
+			UserInput: &request,
 		})
-		return s.respondToolRequestUserInput(requestID, message.Params)
+		if !s.autoApproveRequests {
+			return nil
+		}
+		return s.RespondUserInput(context.Background(), request, defaultToolRequestUserInputAnswers(payload))
 	default:
 		return s.respondWithError(requestID, jsonRPCMethodNotFound, fmt.Sprintf("unsupported codex server request %q", message.Method))
 	}
@@ -1051,36 +1099,31 @@ func (s *Session) respondApproval(requestID RequestID, decision string) error {
 	return s.respond(requestID, map[string]any{"decision": decision})
 }
 
-func (s *Session) respondToolRequestUserInput(requestID RequestID, raw json.RawMessage) error {
-	var params struct {
-		Questions []struct {
-			ID      string `json:"id"`
-			Options []struct {
-				Label string `json:"label"`
-			} `json:"options"`
-		} `json:"questions"`
+func (s *Session) RespondApproval(_ context.Context, request ApprovalRequest, decision string) error {
+	if s == nil {
+		return fmt.Errorf("session must not be nil")
 	}
-	if err := decodeParams(raw, &params); err != nil {
-		return fmt.Errorf("decode codex requestUserInput request: %w", err)
+	rawDecision := strings.TrimSpace(decision)
+	for _, option := range request.Options {
+		if option.ID == rawDecision || option.RawDecision == rawDecision {
+			rawDecision = option.RawDecision
+			break
+		}
 	}
+	if rawDecision == "" {
+		return fmt.Errorf("approval decision must not be empty")
+	}
+	return s.respond(request.RequestID, map[string]any{"decision": rawDecision})
+}
 
-	answers := make(map[string]map[string][]string, len(params.Questions))
-	for _, question := range params.Questions {
-		if strings.TrimSpace(question.ID) == "" {
-			continue
-		}
-		answer := defaultToolInputAnswer
-		if s.autoApproveRequests {
-			if label, ok := approvalOptionLabel(question.Options); ok {
-				answer = label
-			}
-		}
-		answers[question.ID] = map[string][]string{"answers": []string{answer}}
+func (s *Session) RespondUserInput(_ context.Context, request UserInputRequest, answers map[string]any) error {
+	if s == nil {
+		return fmt.Errorf("session must not be nil")
 	}
 	if len(answers) == 0 {
-		return s.respondWithError(requestID, jsonRPCMethodNotFound, "requestUserInput requires at least one question")
+		return s.respondWithError(request.RequestID, jsonRPCMethodNotFound, "requestUserInput requires at least one question")
 	}
-	return s.respond(requestID, map[string]any{"answers": answers})
+	return s.respond(request.RequestID, map[string]any{"answers": answers})
 }
 
 func approvalOptionLabel(options []struct {
@@ -1101,6 +1144,83 @@ func approvalOptionLabel(options []struct {
 		}
 	}
 	return "", false
+}
+
+func defaultToolRequestUserInputAnswers(payload map[string]any) map[string]any {
+	questions, _ := payload["questions"].([]any)
+	answers := make(map[string]any, len(questions))
+	for _, rawQuestion := range questions {
+		question, ok := rawQuestion.(map[string]any)
+		if !ok {
+			continue
+		}
+		id := readStringMap(question, "id")
+		if id == "" {
+			continue
+		}
+		answer := defaultToolInputAnswer
+		options := readOptionLabels(question["options"])
+		if label, ok := approvalOptionLabel(options); ok {
+			answer = label
+		}
+		answers[id] = map[string]any{"answers": []string{answer}}
+	}
+	return answers
+}
+
+func approvalOptionsForMethod(method string) []ApprovalOption {
+	switch method {
+	case methodExecApproval, methodPatchApproval:
+		return []ApprovalOption{
+			{ID: "approve_once", Label: "Approve Once", RawDecision: "approved_once"},
+			{ID: "approve_for_session", Label: "Approve this Session", RawDecision: "approved_for_session"},
+			{ID: "deny", Label: "Deny", RawDecision: "denied"},
+		}
+	default:
+		return []ApprovalOption{
+			{ID: "approve_once", Label: "Approve Once", RawDecision: "acceptOnce"},
+			{ID: "approve_for_session", Label: "Approve this Session", RawDecision: "acceptForSession"},
+			{ID: "deny", Label: "Deny", RawDecision: "deny"},
+		}
+	}
+}
+
+func decodeJSONMap(raw json.RawMessage) (map[string]any, error) {
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return map[string]any{}, nil
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return nil, err
+	}
+	return payload, nil
+}
+
+func readStringMap(payload map[string]any, key string) string {
+	if payload == nil {
+		return ""
+	}
+	value, _ := payload[key].(string)
+	return strings.TrimSpace(value)
+}
+
+func readOptionLabels(raw any) []struct {
+	Label string `json:"label"`
+} {
+	items, _ := raw.([]any)
+	options := make([]struct {
+		Label string `json:"label"`
+	}, 0, len(items))
+	for _, item := range items {
+		object, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		options = append(options, struct {
+			Label string `json:"label"`
+		}{Label: readStringMap(object, "label")})
+	}
+	return options
 }
 
 func optionalString(value string) *string {

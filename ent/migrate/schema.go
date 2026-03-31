@@ -401,6 +401,169 @@ var (
 			},
 		},
 	}
+	// ChatConversationsColumns holds the columns for the "chat_conversations" table.
+	ChatConversationsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "user_id", Type: field.TypeString},
+		{Name: "source", Type: field.TypeString},
+		{Name: "provider_id", Type: field.TypeUUID},
+		{Name: "status", Type: field.TypeString, Default: "active"},
+		{Name: "provider_thread_id", Type: field.TypeString, Nullable: true},
+		{Name: "last_turn_id", Type: field.TypeString, Nullable: true},
+		{Name: "rolling_summary", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "last_activity_at", Type: field.TypeTime},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "project_id", Type: field.TypeUUID},
+	}
+	// ChatConversationsTable holds the schema information for the "chat_conversations" table.
+	ChatConversationsTable = &schema.Table{
+		Name:       "chat_conversations",
+		Columns:    ChatConversationsColumns,
+		PrimaryKey: []*schema.Column{ChatConversationsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "chat_conversations_projects_chat_conversations",
+				Columns:    []*schema.Column{ChatConversationsColumns[11]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "chatconversation_project_id_user_id_source_provider_id_last_activity_at",
+				Unique:  false,
+				Columns: []*schema.Column{ChatConversationsColumns[11], ChatConversationsColumns[1], ChatConversationsColumns[2], ChatConversationsColumns[3], ChatConversationsColumns[8]},
+			},
+		},
+	}
+	// ChatEntriesColumns holds the columns for the "chat_entries" table.
+	ChatEntriesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "seq", Type: field.TypeInt},
+		{Name: "kind", Type: field.TypeString},
+		{Name: "payload_json", Type: field.TypeJSON},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "conversation_id", Type: field.TypeUUID},
+		{Name: "turn_id", Type: field.TypeUUID, Nullable: true},
+	}
+	// ChatEntriesTable holds the schema information for the "chat_entries" table.
+	ChatEntriesTable = &schema.Table{
+		Name:       "chat_entries",
+		Columns:    ChatEntriesColumns,
+		PrimaryKey: []*schema.Column{ChatEntriesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "chat_entries_chat_conversations_entries",
+				Columns:    []*schema.Column{ChatEntriesColumns[5]},
+				RefColumns: []*schema.Column{ChatConversationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "chat_entries_chat_turns_entries",
+				Columns:    []*schema.Column{ChatEntriesColumns[6]},
+				RefColumns: []*schema.Column{ChatTurnsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "chatentry_conversation_id_seq",
+				Unique:  true,
+				Columns: []*schema.Column{ChatEntriesColumns[5], ChatEntriesColumns[1]},
+			},
+			{
+				Name:    "chatentry_turn_id_seq",
+				Unique:  false,
+				Columns: []*schema.Column{ChatEntriesColumns[6], ChatEntriesColumns[1]},
+			},
+		},
+	}
+	// ChatPendingInterruptsColumns holds the columns for the "chat_pending_interrupts" table.
+	ChatPendingInterruptsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "provider_request_id", Type: field.TypeString},
+		{Name: "kind", Type: field.TypeString},
+		{Name: "payload_json", Type: field.TypeJSON},
+		{Name: "status", Type: field.TypeString, Default: "pending"},
+		{Name: "decision", Type: field.TypeString, Nullable: true},
+		{Name: "response_json", Type: field.TypeJSON, Nullable: true},
+		{Name: "resolved_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "conversation_id", Type: field.TypeUUID},
+		{Name: "turn_id", Type: field.TypeUUID},
+	}
+	// ChatPendingInterruptsTable holds the schema information for the "chat_pending_interrupts" table.
+	ChatPendingInterruptsTable = &schema.Table{
+		Name:       "chat_pending_interrupts",
+		Columns:    ChatPendingInterruptsColumns,
+		PrimaryKey: []*schema.Column{ChatPendingInterruptsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "chat_pending_interrupts_chat_conversations_pending_interrupts",
+				Columns:    []*schema.Column{ChatPendingInterruptsColumns[10]},
+				RefColumns: []*schema.Column{ChatConversationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "chat_pending_interrupts_chat_turns_pending_interrupts",
+				Columns:    []*schema.Column{ChatPendingInterruptsColumns[11]},
+				RefColumns: []*schema.Column{ChatTurnsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "chatpendinginterrupt_conversation_id_status_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ChatPendingInterruptsColumns[10], ChatPendingInterruptsColumns[4], ChatPendingInterruptsColumns[8]},
+			},
+			{
+				Name:    "chatpendinginterrupt_conversation_id_provider_request_id",
+				Unique:  true,
+				Columns: []*schema.Column{ChatPendingInterruptsColumns[10], ChatPendingInterruptsColumns[1]},
+			},
+		},
+	}
+	// ChatTurnsColumns holds the columns for the "chat_turns" table.
+	ChatTurnsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "turn_index", Type: field.TypeInt},
+		{Name: "provider_turn_id", Type: field.TypeString, Nullable: true},
+		{Name: "status", Type: field.TypeString, Default: "pending"},
+		{Name: "started_at", Type: field.TypeTime},
+		{Name: "completed_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "conversation_id", Type: field.TypeUUID},
+	}
+	// ChatTurnsTable holds the schema information for the "chat_turns" table.
+	ChatTurnsTable = &schema.Table{
+		Name:       "chat_turns",
+		Columns:    ChatTurnsColumns,
+		PrimaryKey: []*schema.Column{ChatTurnsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "chat_turns_chat_conversations_turns",
+				Columns:    []*schema.Column{ChatTurnsColumns[8]},
+				RefColumns: []*schema.Column{ChatConversationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "chatturn_conversation_id_turn_index",
+				Unique:  true,
+				Columns: []*schema.Column{ChatTurnsColumns[8], ChatTurnsColumns[1]},
+			},
+			{
+				Name:    "chatturn_conversation_id_started_at",
+				Unique:  false,
+				Columns: []*schema.Column{ChatTurnsColumns[8], ChatTurnsColumns[4]},
+			},
+		},
+	}
 	// IssueConnectorsColumns holds the columns for the "issue_connectors" table.
 	IssueConnectorsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -1303,6 +1466,10 @@ var (
 		AgentStepEventsTable,
 		AgentTokensTable,
 		AgentTraceEventsTable,
+		ChatConversationsTable,
+		ChatEntriesTable,
+		ChatPendingInterruptsTable,
+		ChatTurnsTable,
 		IssueConnectorsTable,
 		MachinesTable,
 		NotificationChannelsTable,
@@ -1350,6 +1517,12 @@ func init() {
 	AgentTraceEventsTable.ForeignKeys[1].RefTable = AgentRunsTable
 	AgentTraceEventsTable.ForeignKeys[2].RefTable = ProjectsTable
 	AgentTraceEventsTable.ForeignKeys[3].RefTable = TicketsTable
+	ChatConversationsTable.ForeignKeys[0].RefTable = ProjectsTable
+	ChatEntriesTable.ForeignKeys[0].RefTable = ChatConversationsTable
+	ChatEntriesTable.ForeignKeys[1].RefTable = ChatTurnsTable
+	ChatPendingInterruptsTable.ForeignKeys[0].RefTable = ChatConversationsTable
+	ChatPendingInterruptsTable.ForeignKeys[1].RefTable = ChatTurnsTable
+	ChatTurnsTable.ForeignKeys[0].RefTable = ChatConversationsTable
 	IssueConnectorsTable.ForeignKeys[0].RefTable = ProjectsTable
 	MachinesTable.ForeignKeys[0].RefTable = OrganizationsTable
 	NotificationChannelsTable.ForeignKeys[0].RefTable = OrganizationsTable

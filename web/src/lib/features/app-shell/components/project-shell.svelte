@@ -236,7 +236,6 @@
     bind:open={projectAssistantOpen}
     organizationId={appStore.currentOrg?.id ?? ''}
     projectId={appStore.currentProject?.id ?? ''}
-    projectName={appStore.currentProject?.name ?? ''}
     defaultProviderId={appStore.currentProject?.default_agent_provider_id ?? null}
     initialPrompt={projectAssistantPrompt}
   />
