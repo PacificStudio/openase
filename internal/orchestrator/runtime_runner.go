@@ -243,7 +243,11 @@ func (l *RuntimeLauncher) loadExecutionState(ctx context.Context, runID uuid.UUI
 
 	var prompt string
 	if turnNumber == 1 {
-		prompt, err = l.buildDeveloperInstructions(ctx, launchContext, machine, workspace)
+		runtimeSnapshot, snapshotErr := l.loadRecordedRuntimeSnapshot(ctx, assignment.run.ID)
+		if snapshotErr != nil {
+			return runtimeExecutionState{}, "", snapshotErr
+		}
+		prompt, err = l.buildDeveloperInstructions(ctx, launchContext, machine, workspace, runtimeSnapshot)
 		if err != nil {
 			return runtimeExecutionState{}, "", err
 		}

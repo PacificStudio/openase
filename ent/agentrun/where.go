@@ -8,6 +8,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -66,6 +67,11 @@ func WorkflowID(v uuid.UUID) predicate.AgentRun {
 	return predicate.AgentRun(sql.FieldEQ(FieldWorkflowID, v))
 }
 
+// WorkflowVersionID applies equality check predicate on the "workflow_version_id" field. It's identical to WorkflowVersionIDEQ.
+func WorkflowVersionID(v uuid.UUID) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldWorkflowVersionID, v))
+}
+
 // TicketID applies equality check predicate on the "ticket_id" field. It's identical to TicketIDEQ.
 func TicketID(v uuid.UUID) predicate.AgentRun {
 	return predicate.AgentRun(sql.FieldEQ(FieldTicketID, v))
@@ -74,6 +80,11 @@ func TicketID(v uuid.UUID) predicate.AgentRun {
 // ProviderID applies equality check predicate on the "provider_id" field. It's identical to ProviderIDEQ.
 func ProviderID(v uuid.UUID) predicate.AgentRun {
 	return predicate.AgentRun(sql.FieldEQ(FieldProviderID, v))
+}
+
+// SkillVersionIds applies equality check predicate on the "skill_version_ids" field. It's identical to SkillVersionIdsEQ.
+func SkillVersionIds(v pgarray.StringArray) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldSkillVersionIds, v))
 }
 
 // SessionID applies equality check predicate on the "session_id" field. It's identical to SessionIDEQ.
@@ -156,6 +167,36 @@ func WorkflowIDNotIn(vs ...uuid.UUID) predicate.AgentRun {
 	return predicate.AgentRun(sql.FieldNotIn(FieldWorkflowID, vs...))
 }
 
+// WorkflowVersionIDEQ applies the EQ predicate on the "workflow_version_id" field.
+func WorkflowVersionIDEQ(v uuid.UUID) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldWorkflowVersionID, v))
+}
+
+// WorkflowVersionIDNEQ applies the NEQ predicate on the "workflow_version_id" field.
+func WorkflowVersionIDNEQ(v uuid.UUID) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNEQ(FieldWorkflowVersionID, v))
+}
+
+// WorkflowVersionIDIn applies the In predicate on the "workflow_version_id" field.
+func WorkflowVersionIDIn(vs ...uuid.UUID) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIn(FieldWorkflowVersionID, vs...))
+}
+
+// WorkflowVersionIDNotIn applies the NotIn predicate on the "workflow_version_id" field.
+func WorkflowVersionIDNotIn(vs ...uuid.UUID) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotIn(FieldWorkflowVersionID, vs...))
+}
+
+// WorkflowVersionIDIsNil applies the IsNil predicate on the "workflow_version_id" field.
+func WorkflowVersionIDIsNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIsNull(FieldWorkflowVersionID))
+}
+
+// WorkflowVersionIDNotNil applies the NotNil predicate on the "workflow_version_id" field.
+func WorkflowVersionIDNotNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotNull(FieldWorkflowVersionID))
+}
+
 // TicketIDEQ applies the EQ predicate on the "ticket_id" field.
 func TicketIDEQ(v uuid.UUID) predicate.AgentRun {
 	return predicate.AgentRun(sql.FieldEQ(FieldTicketID, v))
@@ -194,6 +235,56 @@ func ProviderIDIn(vs ...uuid.UUID) predicate.AgentRun {
 // ProviderIDNotIn applies the NotIn predicate on the "provider_id" field.
 func ProviderIDNotIn(vs ...uuid.UUID) predicate.AgentRun {
 	return predicate.AgentRun(sql.FieldNotIn(FieldProviderID, vs...))
+}
+
+// SkillVersionIdsEQ applies the EQ predicate on the "skill_version_ids" field.
+func SkillVersionIdsEQ(v pgarray.StringArray) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldSkillVersionIds, v))
+}
+
+// SkillVersionIdsNEQ applies the NEQ predicate on the "skill_version_ids" field.
+func SkillVersionIdsNEQ(v pgarray.StringArray) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNEQ(FieldSkillVersionIds, v))
+}
+
+// SkillVersionIdsIn applies the In predicate on the "skill_version_ids" field.
+func SkillVersionIdsIn(vs ...pgarray.StringArray) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIn(FieldSkillVersionIds, vs...))
+}
+
+// SkillVersionIdsNotIn applies the NotIn predicate on the "skill_version_ids" field.
+func SkillVersionIdsNotIn(vs ...pgarray.StringArray) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotIn(FieldSkillVersionIds, vs...))
+}
+
+// SkillVersionIdsGT applies the GT predicate on the "skill_version_ids" field.
+func SkillVersionIdsGT(v pgarray.StringArray) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGT(FieldSkillVersionIds, v))
+}
+
+// SkillVersionIdsGTE applies the GTE predicate on the "skill_version_ids" field.
+func SkillVersionIdsGTE(v pgarray.StringArray) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGTE(FieldSkillVersionIds, v))
+}
+
+// SkillVersionIdsLT applies the LT predicate on the "skill_version_ids" field.
+func SkillVersionIdsLT(v pgarray.StringArray) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLT(FieldSkillVersionIds, v))
+}
+
+// SkillVersionIdsLTE applies the LTE predicate on the "skill_version_ids" field.
+func SkillVersionIdsLTE(v pgarray.StringArray) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLTE(FieldSkillVersionIds, v))
+}
+
+// SkillVersionIdsIsNil applies the IsNil predicate on the "skill_version_ids" field.
+func SkillVersionIdsIsNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIsNull(FieldSkillVersionIds))
+}
+
+// SkillVersionIdsNotNil applies the NotNil predicate on the "skill_version_ids" field.
+func SkillVersionIdsNotNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotNull(FieldSkillVersionIds))
 }
 
 // StatusEQ applies the EQ predicate on the "status" field.
@@ -744,6 +835,29 @@ func HasWorkflow() predicate.AgentRun {
 func HasWorkflowWith(preds ...predicate.Workflow) predicate.AgentRun {
 	return predicate.AgentRun(func(s *sql.Selector) {
 		step := newWorkflowStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasWorkflowVersion applies the HasEdge predicate on the "workflow_version" edge.
+func HasWorkflowVersion() predicate.AgentRun {
+	return predicate.AgentRun(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, WorkflowVersionTable, WorkflowVersionColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasWorkflowVersionWith applies the HasEdge predicate on the "workflow_version" edge with a given conditions (other predicates).
+func HasWorkflowVersionWith(preds ...predicate.WorkflowVersion) predicate.AgentRun {
+	return predicate.AgentRun(func(s *sql.Selector) {
+		step := newWorkflowVersionStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

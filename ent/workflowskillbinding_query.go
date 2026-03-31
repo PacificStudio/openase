@@ -13,9 +13,9 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/skill"
+	"github.com/BetterAndBetterII/openase/ent/skillversion"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
-	"github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/google/uuid"
 )
 
@@ -28,7 +28,7 @@ type WorkflowSkillBindingQuery struct {
 	predicates          []predicate.WorkflowSkillBinding
 	withWorkflow        *WorkflowQuery
 	withSkill           *SkillQuery
-	withRequiredVersion *WorkflowVersionQuery
+	withRequiredVersion *SkillVersionQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -110,8 +110,8 @@ func (_q *WorkflowSkillBindingQuery) QuerySkill() *SkillQuery {
 }
 
 // QueryRequiredVersion chains the current query on the "required_version" edge.
-func (_q *WorkflowSkillBindingQuery) QueryRequiredVersion() *WorkflowVersionQuery {
-	query := (&WorkflowVersionClient{config: _q.config}).Query()
+func (_q *WorkflowSkillBindingQuery) QueryRequiredVersion() *SkillVersionQuery {
+	query := (&SkillVersionClient{config: _q.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := _q.prepareQuery(ctx); err != nil {
 			return nil, err
@@ -122,7 +122,7 @@ func (_q *WorkflowSkillBindingQuery) QueryRequiredVersion() *WorkflowVersionQuer
 		}
 		step := sqlgraph.NewStep(
 			sqlgraph.From(workflowskillbinding.Table, workflowskillbinding.FieldID, selector),
-			sqlgraph.To(workflowversion.Table, workflowversion.FieldID),
+			sqlgraph.To(skillversion.Table, skillversion.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, workflowskillbinding.RequiredVersionTable, workflowskillbinding.RequiredVersionColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
@@ -356,8 +356,8 @@ func (_q *WorkflowSkillBindingQuery) WithSkill(opts ...func(*SkillQuery)) *Workf
 
 // WithRequiredVersion tells the query-builder to eager-load the nodes that are connected to
 // the "required_version" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *WorkflowSkillBindingQuery) WithRequiredVersion(opts ...func(*WorkflowVersionQuery)) *WorkflowSkillBindingQuery {
-	query := (&WorkflowVersionClient{config: _q.config}).Query()
+func (_q *WorkflowSkillBindingQuery) WithRequiredVersion(opts ...func(*SkillVersionQuery)) *WorkflowSkillBindingQuery {
+	query := (&SkillVersionClient{config: _q.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
@@ -481,7 +481,7 @@ func (_q *WorkflowSkillBindingQuery) sqlAll(ctx context.Context, hooks ...queryH
 	}
 	if query := _q.withRequiredVersion; query != nil {
 		if err := _q.loadRequiredVersion(ctx, query, nodes, nil,
-			func(n *WorkflowSkillBinding, e *WorkflowVersion) { n.Edges.RequiredVersion = e }); err != nil {
+			func(n *WorkflowSkillBinding, e *SkillVersion) { n.Edges.RequiredVersion = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -546,7 +546,7 @@ func (_q *WorkflowSkillBindingQuery) loadSkill(ctx context.Context, query *Skill
 	}
 	return nil
 }
-func (_q *WorkflowSkillBindingQuery) loadRequiredVersion(ctx context.Context, query *WorkflowVersionQuery, nodes []*WorkflowSkillBinding, init func(*WorkflowSkillBinding), assign func(*WorkflowSkillBinding, *WorkflowVersion)) error {
+func (_q *WorkflowSkillBindingQuery) loadRequiredVersion(ctx context.Context, query *SkillVersionQuery, nodes []*WorkflowSkillBinding, init func(*WorkflowSkillBinding), assign func(*WorkflowSkillBinding, *SkillVersion)) error {
 	ids := make([]uuid.UUID, 0, len(nodes))
 	nodeids := make(map[uuid.UUID][]*WorkflowSkillBinding)
 	for i := range nodes {
@@ -562,7 +562,7 @@ func (_q *WorkflowSkillBindingQuery) loadRequiredVersion(ctx context.Context, qu
 	if len(ids) == 0 {
 		return nil
 	}
-	query.Where(workflowversion.IDIn(ids...))
+	query.Where(skillversion.IDIn(ids...))
 	neighbors, err := query.All(ctx)
 	if err != nil {
 		return err

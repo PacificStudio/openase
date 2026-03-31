@@ -147,6 +147,7 @@ var (
 	// AgentRunsColumns holds the columns for the "agent_runs" table.
 	AgentRunsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
+		{Name: "skill_version_ids", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"launching", "ready", "executing", "completed", "errored", "terminated"}},
 		{Name: "session_id", Type: field.TypeString, Nullable: true},
 		{Name: "runtime_started_at", Type: field.TypeTime, Nullable: true},
@@ -160,6 +161,7 @@ var (
 		{Name: "provider_id", Type: field.TypeUUID},
 		{Name: "ticket_id", Type: field.TypeUUID},
 		{Name: "workflow_id", Type: field.TypeUUID},
+		{Name: "workflow_version_id", Type: field.TypeUUID, Nullable: true},
 	}
 	// AgentRunsTable holds the schema information for the "agent_runs" table.
 	AgentRunsTable = &schema.Table{
@@ -169,44 +171,50 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "agent_runs_agents_runs",
-				Columns:    []*schema.Column{AgentRunsColumns[10]},
+				Columns:    []*schema.Column{AgentRunsColumns[11]},
 				RefColumns: []*schema.Column{AgentsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agent_runs_agent_providers_agent_runs",
-				Columns:    []*schema.Column{AgentRunsColumns[11]},
+				Columns:    []*schema.Column{AgentRunsColumns[12]},
 				RefColumns: []*schema.Column{AgentProvidersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agent_runs_tickets_agent_runs",
-				Columns:    []*schema.Column{AgentRunsColumns[12]},
+				Columns:    []*schema.Column{AgentRunsColumns[13]},
 				RefColumns: []*schema.Column{TicketsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agent_runs_workflows_agent_runs",
-				Columns:    []*schema.Column{AgentRunsColumns[13]},
+				Columns:    []*schema.Column{AgentRunsColumns[14]},
 				RefColumns: []*schema.Column{WorkflowsColumns[0]},
 				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "agent_runs_workflow_versions_agent_runs",
+				Columns:    []*schema.Column{AgentRunsColumns[15]},
+				RefColumns: []*schema.Column{WorkflowVersionsColumns[0]},
+				OnDelete:   schema.SetNull,
 			},
 		},
 		Indexes: []*schema.Index{
 			{
 				Name:    "agentrun_agent_id_status_last_heartbeat_at",
 				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[10], AgentRunsColumns[1], AgentRunsColumns[5]},
+				Columns: []*schema.Column{AgentRunsColumns[11], AgentRunsColumns[2], AgentRunsColumns[6]},
 			},
 			{
 				Name:    "agentrun_provider_id_status",
 				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[11], AgentRunsColumns[1]},
+				Columns: []*schema.Column{AgentRunsColumns[12], AgentRunsColumns[2]},
 			},
 			{
 				Name:    "agentrun_ticket_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[12], AgentRunsColumns[9]},
+				Columns: []*schema.Column{AgentRunsColumns[13], AgentRunsColumns[10]},
 			},
 		},
 	}
@@ -1435,8 +1443,8 @@ var (
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "skill_id", Type: field.TypeUUID},
-		{Name: "workflow_id", Type: field.TypeUUID},
 		{Name: "required_version_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "workflow_id", Type: field.TypeUUID},
 	}
 	// WorkflowSkillBindingsTable holds the schema information for the "workflow_skill_bindings" table.
 	WorkflowSkillBindingsTable = &schema.Table{
@@ -1451,28 +1459,28 @@ var (
 				OnDelete:   schema.NoAction,
 			},
 			{
-				Symbol:     "workflow_skill_bindings_workflows_skill_bindings",
+				Symbol:     "workflow_skill_bindings_skill_versions_required_by_bindings",
 				Columns:    []*schema.Column{WorkflowSkillBindingsColumns[3]},
-				RefColumns: []*schema.Column{WorkflowsColumns[0]},
-				OnDelete:   schema.NoAction,
+				RefColumns: []*schema.Column{SkillVersionsColumns[0]},
+				OnDelete:   schema.SetNull,
 			},
 			{
-				Symbol:     "workflow_skill_bindings_workflow_versions_required_by_bindings",
+				Symbol:     "workflow_skill_bindings_workflows_skill_bindings",
 				Columns:    []*schema.Column{WorkflowSkillBindingsColumns[4]},
-				RefColumns: []*schema.Column{WorkflowVersionsColumns[0]},
-				OnDelete:   schema.SetNull,
+				RefColumns: []*schema.Column{WorkflowsColumns[0]},
+				OnDelete:   schema.NoAction,
 			},
 		},
 		Indexes: []*schema.Index{
 			{
 				Name:    "workflowskillbinding_workflow_id_skill_id",
 				Unique:  true,
-				Columns: []*schema.Column{WorkflowSkillBindingsColumns[3], WorkflowSkillBindingsColumns[2]},
+				Columns: []*schema.Column{WorkflowSkillBindingsColumns[4], WorkflowSkillBindingsColumns[2]},
 			},
 			{
 				Name:    "workflowskillbinding_skill_id_workflow_id",
 				Unique:  false,
-				Columns: []*schema.Column{WorkflowSkillBindingsColumns[2], WorkflowSkillBindingsColumns[3]},
+				Columns: []*schema.Column{WorkflowSkillBindingsColumns[2], WorkflowSkillBindingsColumns[4]},
 			},
 		},
 	}
@@ -1608,6 +1616,7 @@ func init() {
 	AgentRunsTable.ForeignKeys[1].RefTable = AgentProvidersTable
 	AgentRunsTable.ForeignKeys[2].RefTable = TicketsTable
 	AgentRunsTable.ForeignKeys[3].RefTable = WorkflowsTable
+	AgentRunsTable.ForeignKeys[4].RefTable = WorkflowVersionsTable
 	AgentStepEventsTable.ForeignKeys[0].RefTable = AgentsTable
 	AgentStepEventsTable.ForeignKeys[1].RefTable = AgentRunsTable
 	AgentStepEventsTable.ForeignKeys[2].RefTable = AgentTraceEventsTable
@@ -1662,8 +1671,8 @@ func init() {
 	WorkflowsTable.ForeignKeys[1].RefTable = ProjectsTable
 	WorkflowsTable.ForeignKeys[2].RefTable = WorkflowVersionsTable
 	WorkflowSkillBindingsTable.ForeignKeys[0].RefTable = SkillsTable
-	WorkflowSkillBindingsTable.ForeignKeys[1].RefTable = WorkflowsTable
-	WorkflowSkillBindingsTable.ForeignKeys[2].RefTable = WorkflowVersionsTable
+	WorkflowSkillBindingsTable.ForeignKeys[1].RefTable = SkillVersionsTable
+	WorkflowSkillBindingsTable.ForeignKeys[2].RefTable = WorkflowsTable
 	WorkflowVersionsTable.ForeignKeys[0].RefTable = WorkflowsTable
 	WorkflowPickupStatusesTable.ForeignKeys[0].RefTable = WorkflowsTable
 	WorkflowPickupStatusesTable.ForeignKeys[1].RefTable = TicketStatusTable

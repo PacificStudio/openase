@@ -90,6 +90,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
+	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -200,6 +201,12 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if runAfter.LastError != "" {
 		t.Fatalf("expected empty last_error, got %q", runAfter.LastError)
 	}
+	if runAfter.WorkflowVersionID == nil || *runAfter.WorkflowVersionID == uuid.Nil {
+		t.Fatalf("expected workflow version usage to be recorded, got %+v", runAfter)
+	}
+	if len(runAfter.SkillVersionIds) == 0 {
+		t.Fatalf("expected skill version usage to be recorded, got %+v", runAfter)
+	}
 
 	readyEvent := waitForAgentLifecycleEvent(t, stream, agentReadyType)
 	payload := decodeLifecycleEnvelope(t, readyEvent.Payload)
@@ -258,6 +265,15 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	}
 	if !strings.HasPrefix(string(workspaceSkillContent), "---\nname: ") {
 		t.Fatalf("expected codex workspace platform skill to include frontmatter, got %q", string(workspaceSkillContent))
+	}
+	workspaceHarnessPath := filepath.Join(repoWorkspacePath, ".openase", "harnesses", "coding.md")
+	// #nosec G304 -- test reads a fixture from the temp workspace path created above.
+	workspaceHarnessContent, err := os.ReadFile(workspaceHarnessPath)
+	if err != nil {
+		t.Fatalf("read runtime harness snapshot: %v", err)
+	}
+	if !strings.Contains(string(workspaceHarnessContent), "Current {{ machine.name }} root={{ machine.workspace_root }}") {
+		t.Fatalf("expected runtime harness snapshot content, got %q", string(workspaceHarnessContent))
 	}
 	if _, err := os.Stat(filepath.Join(repoWorkspacePath, ".openase", "bin", "openase")); err != nil {
 		t.Fatalf("expected openase wrapper in codex workspace: %v", err)
@@ -332,6 +348,7 @@ workflow:
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
+	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -485,6 +502,7 @@ Blocked lifecycle publish regression test.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
+	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -690,6 +708,7 @@ Launch starvation regression test.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
+	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -821,6 +840,7 @@ Blocked launch should time out cleanly.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
+	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -1344,6 +1364,7 @@ Runtime reconcile test
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
+	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -1461,6 +1482,7 @@ Implement the ticket using the current workspace.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
+	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -1637,6 +1659,7 @@ Emit visible runtime output.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
+	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -2178,6 +2201,7 @@ Handle a failing runtime turn.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
+	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -2335,6 +2359,7 @@ Exercise successful ticket hook lifecycle.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
+	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -2507,6 +2532,7 @@ Exercise failing ticket hook lifecycle.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
+	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -3441,6 +3467,7 @@ func newRuntimeExecutionFixture(
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
+	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
 
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
@@ -3575,6 +3602,19 @@ func commitRuntimeLauncherRepo(t *testing.T, repoRoot string) {
 
 	runRuntimeLauncherGit(t, repoRoot, "add", ".")
 	runRuntimeLauncherGit(t, repoRoot, "commit", "-m", "Seed harness")
+}
+
+func publishRuntimeLauncherWorkflowVersion(
+	ctx context.Context,
+	t *testing.T,
+	workflowSvc *workflowservice.Service,
+	workflowID uuid.UUID,
+) {
+	t.Helper()
+
+	if _, err := workflowSvc.GetHarness(ctx, workflowID); err != nil {
+		t.Fatalf("publish workflow harness version: %v", err)
+	}
 }
 
 func runRuntimeLauncherGit(t *testing.T, repoRoot string, args ...string) {

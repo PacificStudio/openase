@@ -18,8 +18,12 @@ func (AgentRun) Fields() []ent.Field {
 		uuidField(),
 		field.UUID("agent_id", uuidZero()),
 		field.UUID("workflow_id", uuidZero()),
+		field.UUID("workflow_version_id", uuidZero()).
+			Optional().
+			Nillable(),
 		field.UUID("ticket_id", uuidZero()),
 		field.UUID("provider_id", uuidZero()),
+		textArrayField("skill_version_ids"),
 		field.Enum("status").
 			Values("launching", "ready", "executing", "completed", "errored", "terminated"),
 		field.String("session_id").Optional(),
@@ -46,6 +50,10 @@ func (AgentRun) Edges() []ent.Edge {
 			Field("workflow_id").
 			Unique().
 			Required(),
+		edge.From("workflow_version", WorkflowVersion.Type).
+			Ref("agent_runs").
+			Field("workflow_version_id").
+			Unique(),
 		edge.From("ticket", Ticket.Type).
 			Ref("agent_runs").
 			Field("ticket_id").

@@ -404,6 +404,29 @@ func HasSkillWith(preds ...predicate.Skill) predicate.SkillVersion {
 	})
 }
 
+// HasRequiredByBindings applies the HasEdge predicate on the "required_by_bindings" edge.
+func HasRequiredByBindings() predicate.SkillVersion {
+	return predicate.SkillVersion(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, RequiredByBindingsTable, RequiredByBindingsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRequiredByBindingsWith applies the HasEdge predicate on the "required_by_bindings" edge with a given conditions (other predicates).
+func HasRequiredByBindingsWith(preds ...predicate.WorkflowSkillBinding) predicate.SkillVersion {
+	return predicate.SkillVersion(func(s *sql.Selector) {
+		step := newRequiredByBindingsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.SkillVersion) predicate.SkillVersion {
 	return predicate.SkillVersion(sql.AndPredicates(predicates...))

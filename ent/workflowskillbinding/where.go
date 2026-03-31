@@ -244,7 +244,7 @@ func HasRequiredVersion() predicate.WorkflowSkillBinding {
 }
 
 // HasRequiredVersionWith applies the HasEdge predicate on the "required_version" edge with a given conditions (other predicates).
-func HasRequiredVersionWith(preds ...predicate.WorkflowVersion) predicate.WorkflowSkillBinding {
+func HasRequiredVersionWith(preds ...predicate.SkillVersion) predicate.WorkflowSkillBinding {
 	return predicate.WorkflowSkillBinding(func(s *sql.Selector) {
 		step := newRequiredVersionStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {

@@ -204,17 +204,19 @@ type OpenAPIAgentRuntime struct {
 }
 
 type OpenAPIAgentRun struct {
-	ID               string  `json:"id"`
-	AgentID          string  `json:"agent_id"`
-	WorkflowID       string  `json:"workflow_id"`
-	TicketID         string  `json:"ticket_id"`
-	ProviderID       string  `json:"provider_id"`
-	Status           string  `json:"status"`
-	SessionID        string  `json:"session_id"`
-	RuntimeStartedAt *string `json:"runtime_started_at,omitempty"`
-	LastError        string  `json:"last_error"`
-	LastHeartbeatAt  *string `json:"last_heartbeat_at,omitempty"`
-	CreatedAt        string  `json:"created_at"`
+	ID                string   `json:"id"`
+	AgentID           string   `json:"agent_id"`
+	WorkflowID        string   `json:"workflow_id"`
+	WorkflowVersionID *string  `json:"workflow_version_id,omitempty"`
+	TicketID          string   `json:"ticket_id"`
+	ProviderID        string   `json:"provider_id"`
+	SkillVersionIDs   []string `json:"skill_version_ids"`
+	Status            string   `json:"status"`
+	SessionID         string   `json:"session_id"`
+	RuntimeStartedAt  *string  `json:"runtime_started_at,omitempty"`
+	LastError         string   `json:"last_error"`
+	LastHeartbeatAt   *string  `json:"last_heartbeat_at,omitempty"`
+	CreatedAt         string   `json:"created_at"`
 }
 
 type OpenAPIAgentRuntimeControlResponse struct {

@@ -8094,6 +8094,12 @@
                           "session_id": {
                             "type": "string"
                           },
+                          "skill_version_ids": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
                           "status": {
                             "type": "string"
                           },
@@ -8101,6 +8107,10 @@
                             "type": "string"
                           },
                           "workflow_id": {
+                            "type": "string"
+                          },
+                          "workflow_version_id": {
+                            "nullable": true,
                             "type": "string"
                           }
                         },

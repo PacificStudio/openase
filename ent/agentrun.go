@@ -14,6 +14,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/ent/workflowversion"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -26,10 +28,14 @@ type AgentRun struct {
 	AgentID uuid.UUID `json:"agent_id,omitempty"`
 	// WorkflowID holds the value of the "workflow_id" field.
 	WorkflowID uuid.UUID `json:"workflow_id,omitempty"`
+	// WorkflowVersionID holds the value of the "workflow_version_id" field.
+	WorkflowVersionID *uuid.UUID `json:"workflow_version_id,omitempty"`
 	// TicketID holds the value of the "ticket_id" field.
 	TicketID uuid.UUID `json:"ticket_id,omitempty"`
 	// ProviderID holds the value of the "provider_id" field.
 	ProviderID uuid.UUID `json:"provider_id,omitempty"`
+	// SkillVersionIds holds the value of the "skill_version_ids" field.
+	SkillVersionIds pgarray.StringArray `json:"skill_version_ids,omitempty"`
 	// Status holds the value of the "status" field.
 	Status agentrun.Status `json:"status,omitempty"`
 	// SessionID holds the value of the "session_id" field.
@@ -60,6 +66,8 @@ type AgentRunEdges struct {
 	Agent *Agent `json:"agent,omitempty"`
 	// Workflow holds the value of the workflow edge.
 	Workflow *Workflow `json:"workflow,omitempty"`
+	// WorkflowVersion holds the value of the workflow_version edge.
+	WorkflowVersion *WorkflowVersion `json:"workflow_version,omitempty"`
 	// Ticket holds the value of the ticket edge.
 	Ticket *Ticket `json:"ticket,omitempty"`
 	// Provider holds the value of the provider edge.
@@ -74,7 +82,7 @@ type AgentRunEdges struct {
 	AgentStepEvents []*AgentStepEvent `json:"agent_step_events,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [8]bool
+	loadedTypes [9]bool
 }
 
 // AgentOrErr returns the Agent value or an error if the edge
@@ -99,12 +107,23 @@ func (e AgentRunEdges) WorkflowOrErr() (*Workflow, error) {
 	return nil, &NotLoadedError{edge: "workflow"}
 }
 
+// WorkflowVersionOrErr returns the WorkflowVersion value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e AgentRunEdges) WorkflowVersionOrErr() (*WorkflowVersion, error) {
+	if e.WorkflowVersion != nil {
+		return e.WorkflowVersion, nil
+	} else if e.loadedTypes[2] {
+		return nil, &NotFoundError{label: workflowversion.Label}
+	}
+	return nil, &NotLoadedError{edge: "workflow_version"}
+}
+
 // TicketOrErr returns the Ticket value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e AgentRunEdges) TicketOrErr() (*Ticket, error) {
 	if e.Ticket != nil {
 		return e.Ticket, nil
-	} else if e.loadedTypes[2] {
+	} else if e.loadedTypes[3] {
 		return nil, &NotFoundError{label: ticket.Label}
 	}
 	return nil, &NotLoadedError{edge: "ticket"}
@@ -115,7 +134,7 @@ func (e AgentRunEdges) TicketOrErr() (*Ticket, error) {
 func (e AgentRunEdges) ProviderOrErr() (*AgentProvider, error) {
 	if e.Provider != nil {
 		return e.Provider, nil
-	} else if e.loadedTypes[3] {
+	} else if e.loadedTypes[4] {
 		return nil, &NotFoundError{label: agentprovider.Label}
 	}
 	return nil, &NotLoadedError{edge: "provider"}
@@ -124,7 +143,7 @@ func (e AgentRunEdges) ProviderOrErr() (*AgentProvider, error) {
 // CurrentForTicketOrErr returns the CurrentForTicket value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentRunEdges) CurrentForTicketOrErr() ([]*Ticket, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		return e.CurrentForTicket, nil
 	}
 	return nil, &NotLoadedError{edge: "current_for_ticket"}
@@ -133,7 +152,7 @@ func (e AgentRunEdges) CurrentForTicketOrErr() ([]*Ticket, error) {
 // TicketRepoWorkspacesOrErr returns the TicketRepoWorkspaces value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentRunEdges) TicketRepoWorkspacesOrErr() ([]*TicketRepoWorkspace, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[6] {
 		return e.TicketRepoWorkspaces, nil
 	}
 	return nil, &NotLoadedError{edge: "ticket_repo_workspaces"}
@@ -142,7 +161,7 @@ func (e AgentRunEdges) TicketRepoWorkspacesOrErr() ([]*TicketRepoWorkspace, erro
 // AgentTraceEventsOrErr returns the AgentTraceEvents value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentRunEdges) AgentTraceEventsOrErr() ([]*AgentTraceEvent, error) {
-	if e.loadedTypes[6] {
+	if e.loadedTypes[7] {
 		return e.AgentTraceEvents, nil
 	}
 	return nil, &NotLoadedError{edge: "agent_trace_events"}
@@ -151,7 +170,7 @@ func (e AgentRunEdges) AgentTraceEventsOrErr() ([]*AgentTraceEvent, error) {
 // AgentStepEventsOrErr returns the AgentStepEvents value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentRunEdges) AgentStepEventsOrErr() ([]*AgentStepEvent, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[8] {
 		return e.AgentStepEvents, nil
 	}
 	return nil, &NotLoadedError{edge: "agent_step_events"}
@@ -162,6 +181,10 @@ func (*AgentRun) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case agentrun.FieldWorkflowVersionID:
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
+		case agentrun.FieldSkillVersionIds:
+			values[i] = new(pgarray.StringArray)
 		case agentrun.FieldStatus, agentrun.FieldSessionID, agentrun.FieldLastError, agentrun.FieldCurrentStepStatus, agentrun.FieldCurrentStepSummary:
 			values[i] = new(sql.NullString)
 		case agentrun.FieldRuntimeStartedAt, agentrun.FieldLastHeartbeatAt, agentrun.FieldCurrentStepChangedAt, agentrun.FieldCreatedAt:
@@ -201,6 +224,13 @@ func (_m *AgentRun) assignValues(columns []string, values []any) error {
 			} else if value != nil {
 				_m.WorkflowID = *value
 			}
+		case agentrun.FieldWorkflowVersionID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field workflow_version_id", values[i])
+			} else if value.Valid {
+				_m.WorkflowVersionID = new(uuid.UUID)
+				*_m.WorkflowVersionID = *value.S.(*uuid.UUID)
+			}
 		case agentrun.FieldTicketID:
 			if value, ok := values[i].(*uuid.UUID); !ok {
 				return fmt.Errorf("unexpected type %T for field ticket_id", values[i])
@@ -212,6 +242,12 @@ func (_m *AgentRun) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field provider_id", values[i])
 			} else if value != nil {
 				_m.ProviderID = *value
+			}
+		case agentrun.FieldSkillVersionIds:
+			if value, ok := values[i].(*pgarray.StringArray); !ok {
+				return fmt.Errorf("unexpected type %T for field skill_version_ids", values[i])
+			} else if value != nil {
+				_m.SkillVersionIds = *value
 			}
 		case agentrun.FieldStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -295,6 +331,11 @@ func (_m *AgentRun) QueryWorkflow() *WorkflowQuery {
 	return NewAgentRunClient(_m.config).QueryWorkflow(_m)
 }
 
+// QueryWorkflowVersion queries the "workflow_version" edge of the AgentRun entity.
+func (_m *AgentRun) QueryWorkflowVersion() *WorkflowVersionQuery {
+	return NewAgentRunClient(_m.config).QueryWorkflowVersion(_m)
+}
+
 // QueryTicket queries the "ticket" edge of the AgentRun entity.
 func (_m *AgentRun) QueryTicket() *TicketQuery {
 	return NewAgentRunClient(_m.config).QueryTicket(_m)
@@ -354,11 +395,19 @@ func (_m *AgentRun) String() string {
 	builder.WriteString("workflow_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.WorkflowID))
 	builder.WriteString(", ")
+	if v := _m.WorkflowVersionID; v != nil {
+		builder.WriteString("workflow_version_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
 	builder.WriteString("ticket_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.TicketID))
 	builder.WriteString(", ")
 	builder.WriteString("provider_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ProviderID))
+	builder.WriteString(", ")
+	builder.WriteString("skill_version_ids=")
+	builder.WriteString(fmt.Sprintf("%v", _m.SkillVersionIds))
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Status))

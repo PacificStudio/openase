@@ -10,8 +10,8 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
-	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/google/uuid"
 )
@@ -94,19 +94,19 @@ func (_c *WorkflowVersionCreate) SetWorkflow(v *Workflow) *WorkflowVersionCreate
 	return _c.SetWorkflowID(v.ID)
 }
 
-// AddRequiredByBindingIDs adds the "required_by_bindings" edge to the WorkflowSkillBinding entity by IDs.
-func (_c *WorkflowVersionCreate) AddRequiredByBindingIDs(ids ...uuid.UUID) *WorkflowVersionCreate {
-	_c.mutation.AddRequiredByBindingIDs(ids...)
+// AddAgentRunIDs adds the "agent_runs" edge to the AgentRun entity by IDs.
+func (_c *WorkflowVersionCreate) AddAgentRunIDs(ids ...uuid.UUID) *WorkflowVersionCreate {
+	_c.mutation.AddAgentRunIDs(ids...)
 	return _c
 }
 
-// AddRequiredByBindings adds the "required_by_bindings" edges to the WorkflowSkillBinding entity.
-func (_c *WorkflowVersionCreate) AddRequiredByBindings(v ...*WorkflowSkillBinding) *WorkflowVersionCreate {
+// AddAgentRuns adds the "agent_runs" edges to the AgentRun entity.
+func (_c *WorkflowVersionCreate) AddAgentRuns(v ...*AgentRun) *WorkflowVersionCreate {
 	ids := make([]uuid.UUID, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
-	return _c.AddRequiredByBindingIDs(ids...)
+	return _c.AddAgentRunIDs(ids...)
 }
 
 // Mutation returns the WorkflowVersionMutation object of the builder.
@@ -258,15 +258,15 @@ func (_c *WorkflowVersionCreate) createSpec() (*WorkflowVersion, *sqlgraph.Creat
 		_node.WorkflowID = nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
-	if nodes := _c.mutation.RequiredByBindingsIDs(); len(nodes) > 0 {
+	if nodes := _c.mutation.AgentRunsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
 			Inverse: false,
-			Table:   workflowversion.RequiredByBindingsTable,
-			Columns: []string{workflowversion.RequiredByBindingsColumn},
+			Table:   workflowversion.AgentRunsTable,
+			Columns: []string{workflowversion.AgentRunsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(agentrun.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

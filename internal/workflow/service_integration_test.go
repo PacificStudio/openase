@@ -17,6 +17,7 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
+	entskill "github.com/BetterAndBetterII/openase/ent/skill"
 	entskillversion "github.com/BetterAndBetterII/openase/ent/skillversion"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
@@ -263,6 +264,119 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	}
 	if len(service.storages) != 0 {
 		t.Fatalf("service.storages after Close() = %d, want 0", len(service.storages))
+	}
+}
+
+func TestRuntimeSnapshotMaterializationAndRecordedResolution(t *testing.T) {
+	ctx := context.Background()
+	client := openWorkflowTestEntClient(t)
+	repoRoot := createWorkflowTestGitRepo(t)
+	service := newWorkflowTestService(t, client, repoRoot)
+	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
+
+	created, err := service.Create(ctx, CreateInput{
+		ProjectID:           fixture.projectID,
+		AgentID:             fixture.agentID,
+		Name:                "Runtime Snapshot Workflow",
+		Type:                entworkflow.TypeCoding,
+		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Snapshot v1\n",
+		MaxConcurrent:       1,
+		MaxRetryAttempts:    2,
+		TimeoutMinutes:      30,
+		StallTimeoutMinutes: 5,
+		IsActive:            true,
+		PickupStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Todo"]),
+		FinishStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Done"]),
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if _, err := service.CreateSkill(ctx, CreateSkillInput{
+		ProjectID: fixture.projectID,
+		Name:      "runtime-skill",
+		Content:   "# Runtime Skill\nv1\n",
+	}); err != nil {
+		t.Fatalf("CreateSkill() error = %v", err)
+	}
+	if _, err := service.BindSkills(ctx, UpdateWorkflowSkillsInput{
+		WorkflowID: created.ID,
+		Skills:     []string{"runtime-skill"},
+	}); err != nil {
+		t.Fatalf("BindSkills() error = %v", err)
+	}
+
+	snapshotV1, err := service.ResolveRuntimeSnapshot(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("ResolveRuntimeSnapshot(v1) error = %v", err)
+	}
+	if snapshotV1.Workflow.VersionID == uuid.Nil || len(snapshotV1.Skills) != 2 {
+		t.Fatalf("ResolveRuntimeSnapshot(v1) = %+v", snapshotV1)
+	}
+	v1Skill := findRuntimeSkillSnapshot(t, snapshotV1.Skills, "runtime-skill")
+
+	codexRoot := t.TempDir()
+	materializedV1, err := service.MaterializeRuntimeSnapshot(MaterializeRuntimeSnapshotInput{
+		WorkspaceRoot: codexRoot,
+		AdapterType:   string(entagentprovider.AdapterTypeCodexAppServer),
+		Snapshot:      snapshotV1,
+	})
+	if err != nil {
+		t.Fatalf("MaterializeRuntimeSnapshot(codex) error = %v", err)
+	}
+	if _, err := os.Stat(materializedV1.HarnessPath); err != nil {
+		t.Fatalf("expected runtime harness snapshot: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(codexRoot, ".codex", "skills", "runtime-skill", "SKILL.md")); err != nil {
+		t.Fatalf("expected codex skill projection: %v", err)
+	}
+
+	if _, err := service.UpdateSkill(ctx, UpdateSkillInput{
+		SkillID: findSkillIDByName(ctx, t, client, fixture.projectID, "runtime-skill"),
+		Content: "# Runtime Skill\nv2\n",
+	}); err != nil {
+		t.Fatalf("UpdateSkill() error = %v", err)
+	}
+	if _, err := service.UpdateHarness(ctx, UpdateHarnessInput{
+		WorkflowID: created.ID,
+		Content:    "---\nworkflow:\n  role: coding\n---\n\n# Snapshot v2\n",
+	}); err != nil {
+		t.Fatalf("UpdateHarness() error = %v", err)
+	}
+
+	snapshotV2, err := service.ResolveRuntimeSnapshot(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("ResolveRuntimeSnapshot(v2) error = %v", err)
+	}
+	if snapshotV2.Workflow.VersionID == snapshotV1.Workflow.VersionID {
+		t.Fatalf("expected workflow version to advance, got %+v", snapshotV2.Workflow)
+	}
+	v2Skill := findRuntimeSkillSnapshot(t, snapshotV2.Skills, "runtime-skill")
+	if v2Skill.VersionID == v1Skill.VersionID {
+		t.Fatalf("expected skill version to advance, got %+v", snapshotV2.Skills)
+	}
+
+	recordedV1, err := service.ResolveRecordedRuntimeSnapshot(ctx, ResolveRecordedRuntimeSnapshotInput{
+		WorkflowID:        created.ID,
+		WorkflowVersionID: &snapshotV1.Workflow.VersionID,
+		SkillVersionIDs:   skillVersionIDs(snapshotV1.Skills),
+	})
+	if err != nil {
+		t.Fatalf("ResolveRecordedRuntimeSnapshot(v1) error = %v", err)
+	}
+	if recordedV1.Workflow.Content != snapshotV1.Workflow.Content {
+		t.Fatalf("expected recorded snapshot to keep v1 workflow content, got %q want %q", recordedV1.Workflow.Content, snapshotV1.Workflow.Content)
+	}
+
+	claudeRoot := t.TempDir()
+	if _, err := service.MaterializeRuntimeSnapshot(MaterializeRuntimeSnapshotInput{
+		WorkspaceRoot: claudeRoot,
+		AdapterType:   string(entagentprovider.AdapterTypeClaudeCodeCli),
+		Snapshot:      snapshotV2,
+	}); err != nil {
+		t.Fatalf("MaterializeRuntimeSnapshot(claude) error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(claudeRoot, ".claude", "skills", "runtime-skill", "SKILL.md")); err != nil {
+		t.Fatalf("expected claude skill projection: %v", err)
 	}
 }
 
@@ -1335,6 +1449,41 @@ func openWorkflowTestEntClient(t *testing.T) *ent.Client {
 	t.Helper()
 
 	return testPostgres.NewIsolatedEntClient(t)
+}
+
+func findSkillIDByName(ctx context.Context, t *testing.T, client *ent.Client, projectID uuid.UUID, name string) uuid.UUID {
+	t.Helper()
+
+	item, err := client.Skill.Query().
+		Where(
+			entskill.ProjectIDEQ(projectID),
+			entskill.NameEQ(name),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("find skill %s: %v", name, err)
+	}
+	return item.ID
+}
+
+func findRuntimeSkillSnapshot(t *testing.T, items []RuntimeSkillSnapshot, name string) RuntimeSkillSnapshot {
+	t.Helper()
+
+	for _, item := range items {
+		if item.Name == name {
+			return item
+		}
+	}
+	t.Fatalf("runtime skill %s not found in %+v", name, items)
+	return RuntimeSkillSnapshot{}
+}
+
+func skillVersionIDs(items []RuntimeSkillSnapshot) []uuid.UUID {
+	ids := make([]uuid.UUID, 0, len(items))
+	for _, item := range items {
+		ids = append(ids, item.VersionID)
+	}
+	return ids
 }
 
 func createWorkflowTestGitRepo(t *testing.T) string {

@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
@@ -407,8 +408,10 @@ func mapAgentRun(item *ent.AgentRun) domain.AgentRun {
 		ID:                   item.ID,
 		AgentID:              item.AgentID,
 		WorkflowID:           item.WorkflowID,
+		WorkflowVersionID:    cloneUUIDPointer(item.WorkflowVersionID),
 		TicketID:             item.TicketID,
 		ProviderID:           item.ProviderID,
+		SkillVersionIDs:      parseUUIDArray(item.SkillVersionIds),
 		Status:               toDomainAgentRunStatus(item.Status),
 		SessionID:            item.SessionID,
 		RuntimeStartedAt:     cloneTimePointer(item.RuntimeStartedAt),
@@ -419,6 +422,30 @@ func mapAgentRun(item *ent.AgentRun) domain.AgentRun {
 		CurrentStepChangedAt: cloneTimePointer(item.CurrentStepChangedAt),
 		CreatedAt:            item.CreatedAt.UTC(),
 	}
+}
+
+func cloneUUIDPointer(value *uuid.UUID) *uuid.UUID {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
+}
+
+func parseUUIDArray(raw []string) []uuid.UUID {
+	if len(raw) == 0 {
+		return nil
+	}
+
+	parsed := make([]uuid.UUID, 0, len(raw))
+	for _, item := range raw {
+		id, err := uuid.Parse(strings.TrimSpace(item))
+		if err != nil {
+			continue
+		}
+		parsed = append(parsed, id)
+	}
+	return parsed
 }
 
 func cloneAnyMap(raw map[string]any) map[string]any {
