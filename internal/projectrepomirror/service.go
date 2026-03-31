@@ -925,7 +925,8 @@ func buildRemoteInspectMirrorScript(localPath string, expectedURL string, defaul
 
 func buildRemoteSyncMirrorScript(localPath string, repositoryURL string, defaultBranch string, githubToken string) string {
 	branchName := normalizedDefaultBranch(defaultBranch)
-	lines := []string{"set -eu"}
+	lines := make([]string, 0, 10)
+	lines = append(lines, "set -eu")
 	lines = append(lines, buildRemoteGitHubAuthLines(repositoryURL, githubToken)...)
 	lines = append(lines,
 		"mkdir -p "+sshinfra.ShellQuote(filepath.Dir(localPath)),
