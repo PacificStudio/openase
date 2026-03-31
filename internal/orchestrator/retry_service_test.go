@@ -42,6 +42,7 @@ func TestRetryServiceMarkAttemptFailedSchedulesExponentialBackoffAndReleasesClai
 		SetWorkflowID(workflow.ID).
 		SetAttemptCount(1).
 		SetConsecutiveErrors(1).
+		SetStallCount(2).
 		SetCreatedBy("user:test").
 		Save(ctx)
 	if err != nil {
@@ -86,6 +87,9 @@ func TestRetryServiceMarkAttemptFailedSchedulesExponentialBackoffAndReleasesClai
 	}
 	if ticketAfter.AttemptCount != 2 || ticketAfter.ConsecutiveErrors != 2 {
 		t.Fatalf("unexpected ticket counters after retry: %+v", ticketAfter)
+	}
+	if ticketAfter.StallCount != 0 {
+		t.Fatalf("expected non-stall failure retry to reset stall count, got %d", ticketAfter.StallCount)
 	}
 	if ticketAfter.NextRetryAt == nil || !ticketAfter.NextRetryAt.Equal(wantNextRetryAt) {
 		t.Fatalf("expected next retry at %s, got %+v", wantNextRetryAt, ticketAfter.NextRetryAt)

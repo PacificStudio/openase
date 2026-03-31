@@ -82,7 +82,8 @@ func (s *RetryService) MarkAttemptFailed(ctx context.Context, ticketID uuid.UUID
 		tx.Ticket.UpdateOneID(current.ID).
 			ClearCurrentRunID().
 			SetAttemptCount(nextAttemptCount).
-			SetConsecutiveErrors(nextConsecutiveErrors),
+			SetConsecutiveErrors(nextConsecutiveErrors).
+			SetStallCount(0),
 		nextRetryAt,
 		pauseReason.String(),
 	)

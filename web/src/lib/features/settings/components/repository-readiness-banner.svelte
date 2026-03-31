@@ -17,18 +17,16 @@
 
 {#if readiness.kind === 'missing_primary_repo'}
   <div
-    class="border-amber-500/30 bg-amber-500/5 flex items-center gap-3 rounded-lg border px-4 py-3"
+    class="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3"
   >
-    <Info class="text-amber-600 size-4 shrink-0" />
+    <Info class="size-4 shrink-0 text-amber-600" />
     <p class="text-foreground flex-1 text-sm">
       No primary repository configured. Mark one repository as primary before configuring workflows.
     </p>
   </div>
 {:else if readiness.kind === 'ready'}
-  <div
-    class="border-border bg-muted/30 flex items-center gap-3 rounded-lg border px-4 py-3"
-  >
-    <CircleCheck class="text-emerald-500 size-4 shrink-0" />
+  <div class="border-border bg-muted/30 flex items-center gap-3 rounded-lg border px-4 py-3">
+    <CircleCheck class="size-4 shrink-0 text-emerald-500" />
     <span class="text-foreground text-sm font-medium">{readiness.primaryRepoName}</span>
     <span class="text-muted-foreground text-sm">
       Primary mirror ready
@@ -38,11 +36,9 @@
     </span>
   </div>
 {:else}
-  <div
-    class="border-amber-500/30 bg-amber-500/5 space-y-3 rounded-lg border px-4 py-3"
-  >
+  <div class="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
     <div class="flex items-center gap-3">
-      <CircleAlert class="text-amber-600 size-4 shrink-0" />
+      <CircleAlert class="size-4 shrink-0 text-amber-600" />
       <div class="flex-1">
         <p class="text-foreground text-sm">
           <span class="font-medium">{readiness.primaryRepoName}</span>

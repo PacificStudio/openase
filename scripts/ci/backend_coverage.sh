@@ -25,7 +25,8 @@ GO_TEST_TIMEOUT="${OPENASE_GO_TEST_TIMEOUT:-20m}"
 ENABLE_FULL_BACKEND_COVERAGE="${OPENASE_ENABLE_FULL_BACKEND_COVERAGE:-false}"
 BACKEND_COVERAGE_MIN="${OPENASE_BACKEND_COVERAGE_MIN:-75.0}"
 DOMAIN_COVERAGE_MIN="${OPENASE_DOMAIN_COVERAGE_MIN:-100.0}"
-ORIGINAL_HOME="${HOME}"
+ORIGINAL_HOME="${HOME:-}"
+ORIGINAL_XDG_CACHE_HOME="${XDG_CACHE_HOME:-}"
 ORIGINAL_GOPATH="$("${GO_BIN}" env GOPATH)"
 ORIGINAL_GOMODCACHE="$("${GO_BIN}" env GOMODCACHE)"
 ORIGINAL_GOCACHE="$("${GO_BIN}" env GOCACHE)"
@@ -47,7 +48,16 @@ export HOME="${tmp_home}"
 export GOPATH="${ORIGINAL_GOPATH}"
 export GOMODCACHE="${ORIGINAL_GOMODCACHE}"
 export GOCACHE="${ORIGINAL_GOCACHE}"
-export OPENASE_PGTEST_SHARED_ROOT="${OPENASE_PGTEST_SHARED_ROOT:-${ORIGINAL_HOME}/.cache/openase/pgtest}"
+
+if [[ -z "${OPENASE_PGTEST_SHARED_ROOT:-}" ]]; then
+  shared_cache_root="${ORIGINAL_XDG_CACHE_HOME:-}"
+  if [[ -z "${shared_cache_root}" && -n "${ORIGINAL_HOME}" ]]; then
+    shared_cache_root="${ORIGINAL_HOME}/.cache"
+  fi
+  if [[ -n "${shared_cache_root}" ]]; then
+    export OPENASE_PGTEST_SHARED_ROOT="${shared_cache_root}/openase/pgtest"
+  fi
+fi
 
 if [[ -z "${GO_TEST_PROGRESS_MODE}" ]]; then
   if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then

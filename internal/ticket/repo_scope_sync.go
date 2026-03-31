@@ -165,7 +165,8 @@ func (s *Service) scheduleRepoScopeRetry(ctx context.Context, tx *ent.Tx, ticket
 		tx.Ticket.UpdateOneID(current.ID).
 			ClearCurrentRunID().
 			SetAttemptCount(nextAttemptCount).
-			SetConsecutiveErrors(current.ConsecutiveErrors+1),
+			SetConsecutiveErrors(current.ConsecutiveErrors+1).
+			SetStallCount(0),
 		timeNowUTC().Add(ticketing.ComputeRetryBackoff(nextAttemptCount)),
 		pauseReason,
 	)

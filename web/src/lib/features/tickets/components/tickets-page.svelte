@@ -15,18 +15,20 @@
   import { toastStore } from '$lib/stores/toast.svelte'
   import { PageScaffold } from '$lib/components/layout'
   import { Button } from '$ui/button'
-  import type { BoardColumn, BoardFilter, BoardTicket } from '$lib/features/board/types'
   import {
+    BoardListView,
+    BoardToolbar,
+    BoardView,
     buildBoardData,
     filterBoardColumns,
     findTicketLocation,
     patchTicket,
     relocateTicket,
+    type BoardColumnType as BoardColumn,
+    type BoardFilter,
+    type BoardTicket,
     type PendingTicketMove,
-  } from '$lib/features/board/model'
-  import BoardListView from '$lib/features/board/components/board-list-view.svelte'
-  import BoardToolbar from '$lib/features/board/components/board-toolbar.svelte'
-  import BoardView from '$lib/features/board/components/board-view.svelte'
+  } from '$lib/features/board'
 
   let filter = $state<BoardFilter>({ search: '' })
   let loading = $state(false)

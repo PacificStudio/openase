@@ -400,6 +400,45 @@ var (
 			},
 		},
 	}
+	// IssueConnectorsColumns holds the columns for the "issue_connectors" table.
+	IssueConnectorsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "type", Type: field.TypeString},
+		{Name: "name", Type: field.TypeString},
+		{Name: "status", Type: field.TypeString, Default: "active"},
+		{Name: "config", Type: field.TypeJSON},
+		{Name: "last_sync_at", Type: field.TypeTime, Nullable: true},
+		{Name: "last_error", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "stats", Type: field.TypeJSON},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "project_id", Type: field.TypeUUID},
+	}
+	// IssueConnectorsTable holds the schema information for the "issue_connectors" table.
+	IssueConnectorsTable = &schema.Table{
+		Name:       "issue_connectors",
+		Columns:    IssueConnectorsColumns,
+		PrimaryKey: []*schema.Column{IssueConnectorsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "issue_connectors_projects_issue_connectors",
+				Columns:    []*schema.Column{IssueConnectorsColumns[9]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "issueconnector_project_id_name",
+				Unique:  true,
+				Columns: []*schema.Column{IssueConnectorsColumns[9], IssueConnectorsColumns[2]},
+			},
+			{
+				Name:    "issueconnector_project_id_type",
+				Unique:  false,
+				Columns: []*schema.Column{IssueConnectorsColumns[9], IssueConnectorsColumns[1]},
+			},
+		},
+	}
 	// MachinesColumns holds the columns for the "machines" table.
 	MachinesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -1310,6 +1349,7 @@ var (
 		AgentStepEventsTable,
 		AgentTokensTable,
 		AgentTraceEventsTable,
+		IssueConnectorsTable,
 		MachinesTable,
 		NotificationChannelsTable,
 		NotificationRulesTable,
@@ -1357,6 +1397,7 @@ func init() {
 	AgentTraceEventsTable.ForeignKeys[1].RefTable = AgentRunsTable
 	AgentTraceEventsTable.ForeignKeys[2].RefTable = ProjectsTable
 	AgentTraceEventsTable.ForeignKeys[3].RefTable = TicketsTable
+	IssueConnectorsTable.ForeignKeys[0].RefTable = ProjectsTable
 	MachinesTable.ForeignKeys[0].RefTable = OrganizationsTable
 	NotificationChannelsTable.ForeignKeys[0].RefTable = OrganizationsTable
 	NotificationRulesTable.ForeignKeys[0].RefTable = NotificationChannelsTable

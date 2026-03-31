@@ -27,6 +27,9 @@ type AgentToken func(*sql.Selector)
 // AgentTraceEvent is the predicate function for agenttraceevent builders.
 type AgentTraceEvent func(*sql.Selector)
 
+// IssueConnector is the predicate function for entissueconnector builders.
+type IssueConnector func(*sql.Selector)
+
 // Machine is the predicate function for machine builders.
 type Machine func(*sql.Selector)
 

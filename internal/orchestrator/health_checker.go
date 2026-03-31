@@ -11,11 +11,14 @@ import (
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 )
 
 const (
-	defaultStallTimeout = 5 * time.Minute
-	stalledRetryDelay   = time.Second
+	defaultStallTimeout        = 5 * time.Minute
+	stalledRetryDelay          = time.Second
+	stalledRetryPauseThreshold = 3
+	stalledRetryPauseEventType = "ticket.retry_paused"
 )
 
 // HealthCheckReport summarizes the orchestrator health snapshot.
@@ -104,13 +107,20 @@ func (h *HealthChecker) Run(ctx context.Context) (HealthCheckReport, error) {
 		if agentReleased {
 			report.AgentsReleased++
 		}
+		nextStallCount := ticket.StallCount + 1
+		retryPaused := nextStallCount >= stalledRetryPauseThreshold
 
 		attrs := []any{
 			"ticket_id", ticket.ID,
 			"agent_id", ticket.Edges.CurrentRun.AgentID,
 			"reason", state.reason,
+			"stall_count", nextStallCount,
 			"timeout", state.timeout.String(),
+			"retry_paused", retryPaused,
 			"agent_released", agentReleased,
+		}
+		if retryPaused {
+			attrs = append(attrs, "pause_reason", ticketing.PauseReasonRepeatedStalls.String())
 		}
 		if state.lastHeartbeat != nil {
 			attrs = append(
@@ -202,18 +212,27 @@ func (h *HealthChecker) releaseStalledClaim(
 	defer rollback(tx)
 
 	retryAt := now.Add(stalledRetryDelay)
-	releasedTickets, err := ticketservice.ScheduleRetry(
-		tx.Ticket.Update().
-			Where(
-				entticket.IDEQ(ticket.ID),
-				entticket.CurrentRunIDNotNil(),
-				entticket.CurrentRunIDEQ(*ticket.CurrentRunID),
-			).
-			ClearCurrentRunID().
-			AddStallCount(1),
-		retryAt,
-		"",
-	).
+	nextStallCount := ticket.StallCount + 1
+	retryPaused := nextStallCount >= stalledRetryPauseThreshold
+	ticketUpdate := tx.Ticket.Update().
+		Where(
+			entticket.IDEQ(ticket.ID),
+			entticket.CurrentRunIDNotNil(),
+			entticket.CurrentRunIDEQ(*ticket.CurrentRunID),
+		).
+		ClearCurrentRunID().
+		SetStallCount(nextStallCount).
+		SetRetryToken(ticketservice.NewRetryToken())
+	if retryPaused {
+		ticketUpdate.ClearNextRetryAt().
+			SetRetryPaused(true).
+			SetPauseReason(ticketing.PauseReasonRepeatedStalls.String())
+	} else {
+		ticketUpdate.SetNextRetryAt(retryAt).
+			SetRetryPaused(false).
+			ClearPauseReason()
+	}
+	releasedTickets, err := ticketUpdate.
 		Save(ctx)
 	if err != nil {
 		return false, false, fmt.Errorf("release stalled ticket: %w", err)
@@ -224,6 +243,14 @@ func (h *HealthChecker) releaseStalledClaim(
 
 	releasedRuns := 0
 	if ticket.CurrentRunID != nil {
+		runLastError := "runtime stalled or heartbeat missing"
+		if retryPaused {
+			runLastError = fmt.Sprintf(
+				"%s; ticket retries paused after %d consecutive stalls",
+				runLastError,
+				nextStallCount,
+			)
+		}
 		releasedRuns, err = tx.AgentRun.Update().
 			Where(
 				entagentrun.IDEQ(*ticket.CurrentRunID),
@@ -235,13 +262,33 @@ func (h *HealthChecker) releaseStalledClaim(
 				),
 			).
 			SetStatus(entagentrun.StatusErrored).
-			SetLastError("runtime stalled or heartbeat missing").
+			SetLastError(runLastError).
 			ClearSessionID().
 			ClearRuntimeStartedAt().
 			ClearLastHeartbeatAt().
 			Save(ctx)
 		if err != nil {
 			return false, false, fmt.Errorf("release stalled run: %w", err)
+		}
+	}
+	if retryPaused {
+		if _, err := tx.ActivityEvent.Create().
+			SetProjectID(ticket.ProjectID).
+			SetTicketID(ticket.ID).
+			SetEventType(stalledRetryPauseEventType).
+			SetMessage(fmt.Sprintf(
+				"Paused ticket retries after %d consecutive orchestrator stalls; human intervention is required before retrying.",
+				nextStallCount,
+			)).
+			SetMetadata(map[string]any{
+				"pause_reason": ticketing.PauseReasonRepeatedStalls.String(),
+				"stall_count":  nextStallCount,
+				"threshold":    stalledRetryPauseThreshold,
+				"source":       "health_checker",
+			}).
+			SetCreatedAt(now).
+			Save(ctx); err != nil {
+			return false, false, fmt.Errorf("record stalled retry pause activity: %w", err)
 		}
 	}
 
