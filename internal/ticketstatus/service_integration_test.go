@@ -10,8 +10,6 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
-	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
-	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/google/uuid"
 )
@@ -36,39 +34,38 @@ func TestTicketStatusServiceStatusCRUDResetAndRebind(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
-	if len(listResult.Stages) != 4 || len(listResult.Statuses) != 6 || len(listResult.StageGroups) != 4 {
-		t.Fatalf("List() = %+v", listResult)
-	}
 	if got := statusNames(listResult.Statuses); got != "Backlog,Todo,In Progress,In Review,Done,Cancelled" {
 		t.Fatalf("status order = %q", got)
 	}
 
 	createdStatus, err := service.Create(ctx, CreateInput{
-		ProjectID:   projectID,
-		Name:        "QA",
-		Color:       "#FF00AA",
-		Description: "quality gate",
+		ProjectID:     projectID,
+		Name:          "QA",
+		Color:         "#FF00AA",
+		MaxActiveRuns: ptrInt(1),
+		Description:   "quality gate",
 	})
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
-	if createdStatus.Name != "QA" {
+	if createdStatus.Name != "QA" || createdStatus.MaxActiveRuns == nil || *createdStatus.MaxActiveRuns != 1 {
 		t.Fatalf("Create() = %+v", createdStatus)
 	}
 
 	updatedStatus, err := service.Update(ctx, UpdateInput{
-		StatusID:    createdStatus.ID,
-		Name:        Some("Ready for QA"),
-		Color:       Some("#00AAFF"),
-		Icon:        Some("shield-check"),
-		Position:    Some(9),
-		IsDefault:   Some(true),
-		Description: Some("review before merge"),
+		StatusID:      createdStatus.ID,
+		Name:          Some("Ready for QA"),
+		Color:         Some("#00AAFF"),
+		Icon:          Some("shield-check"),
+		Position:      Some(9),
+		MaxActiveRuns: Some[*int](nil),
+		IsDefault:     Some(true),
+		Description:   Some("review before merge"),
 	})
 	if err != nil {
 		t.Fatalf("Update() error = %v", err)
 	}
-	if updatedStatus.Name != "Ready for QA" || !updatedStatus.IsDefault {
+	if updatedStatus.Name != "Ready for QA" || !updatedStatus.IsDefault || updatedStatus.MaxActiveRuns != nil {
 		t.Fatalf("Update() = %+v", updatedStatus)
 	}
 
@@ -204,7 +201,7 @@ func TestTicketStatusServiceStatusCRUDResetAndRebind(t *testing.T) {
 	}
 }
 
-func TestTicketStatusServiceStageCRUDAndSnapshots(t *testing.T) {
+func TestTicketStatusServiceRuntimeSnapshots(t *testing.T) {
 	t.Parallel()
 
 	client := openTicketStatusTestEntClient(t)
@@ -212,33 +209,15 @@ func TestTicketStatusServiceStageCRUDAndSnapshots(t *testing.T) {
 	projectID := seedTicketStatusProject(ctx, t, client)
 	service := NewService(client)
 
-	stage, err := service.CreateStage(ctx, CreateStageInput{
-		ProjectID:     projectID,
-		Key:           "qa",
-		Name:          "QA",
-		Position:      Some(2),
-		MaxActiveRuns: ptrInt(1),
-		Description:   "quality gate",
-	})
-	if err != nil {
-		t.Fatalf("CreateStage() error = %v", err)
-	}
-	if stage.Key != "qa" || stage.MaxActiveRuns == nil || *stage.MaxActiveRuns != 1 {
-		t.Fatalf("CreateStage() = %+v", stage)
-	}
-
 	status, err := service.Create(ctx, CreateInput{
-		ProjectID: projectID,
-		StageID:   &stage.ID,
-		Name:      "QA Ready",
-		Color:     "#FF00AA",
-		IsDefault: true,
+		ProjectID:     projectID,
+		Name:          "QA Ready",
+		Color:         "#FF00AA",
+		MaxActiveRuns: ptrInt(1),
+		IsDefault:     true,
 	})
 	if err != nil {
-		t.Fatalf("Create() stage status error = %v", err)
-	}
-	if status.StageID == nil || *status.StageID != stage.ID {
-		t.Fatalf("Create() stage status = %+v", status)
+		t.Fatalf("Create() error = %v", err)
 	}
 
 	seedTicketStatusActiveRun(ctx, t, client, projectID, status.ID)
@@ -247,129 +226,24 @@ func TestTicketStatusServiceStageCRUDAndSnapshots(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
-	if len(listResult.Stages) != 1 || listResult.Stages[0].ActiveRuns != 1 {
-		t.Fatalf("List() stages = %+v", listResult.Stages)
-	}
-	if len(listResult.StageGroups) != 1 || listResult.StageGroups[0].Stage == nil || listResult.StageGroups[0].Stage.ActiveRuns != 1 {
-		t.Fatalf("List() groups = %+v", listResult.StageGroups)
+	if len(listResult.Statuses) != 1 || listResult.Statuses[0].ActiveRuns != 1 {
+		t.Fatalf("List() statuses = %+v", listResult.Statuses)
 	}
 
-	stages, err := service.ListStages(ctx, projectID)
+	projectSnapshots, err := ListProjectStatusRuntimeSnapshots(ctx, client, projectID)
 	if err != nil {
-		t.Fatalf("ListStages() error = %v", err)
-	}
-	if len(stages) != 1 || stages[0].ActiveRuns != 1 {
-		t.Fatalf("ListStages() = %+v", stages)
-	}
-
-	projectSnapshots, err := ListProjectStageRuntimeSnapshots(ctx, client, projectID)
-	if err != nil {
-		t.Fatalf("ListProjectStageRuntimeSnapshots() error = %v", err)
+		t.Fatalf("ListProjectStatusRuntimeSnapshots() error = %v", err)
 	}
 	if len(projectSnapshots) != 1 || projectSnapshots[0].ActiveRuns != 1 {
 		t.Fatalf("project snapshots = %+v", projectSnapshots)
 	}
-	allSnapshots, err := ListStageRuntimeSnapshots(ctx, client)
+
+	allSnapshots, err := ListStatusRuntimeSnapshots(ctx, client)
 	if err != nil {
-		t.Fatalf("ListStageRuntimeSnapshots() error = %v", err)
+		t.Fatalf("ListStatusRuntimeSnapshots() error = %v", err)
 	}
 	if len(allSnapshots) != 1 || allSnapshots[0].ActiveRuns != 1 {
 		t.Fatalf("all snapshots = %+v", allSnapshots)
-	}
-
-	updatedStage, err := service.UpdateStage(ctx, UpdateStageInput{
-		StageID:       stage.ID,
-		Name:          Some("QA Gate"),
-		Position:      Some(5),
-		MaxActiveRuns: Some[*int](nil),
-		Description:   Some("merge gate"),
-	})
-	if err != nil {
-		t.Fatalf("UpdateStage() error = %v", err)
-	}
-	if updatedStage.Name != "QA Gate" || updatedStage.Position != 5 || updatedStage.MaxActiveRuns != nil {
-		t.Fatalf("UpdateStage() = %+v", updatedStage)
-	}
-
-	deleteResult, err := service.DeleteStage(ctx, stage.ID)
-	if err != nil {
-		t.Fatalf("DeleteStage() error = %v", err)
-	}
-	if deleteResult.DeletedStageID != stage.ID || deleteResult.DetachedStatuses != 1 {
-		t.Fatalf("DeleteStage() = %+v", deleteResult)
-	}
-
-	statusAfterDelete, err := client.TicketStatus.Get(ctx, status.ID)
-	if err != nil {
-		t.Fatalf("load status after stage delete: %v", err)
-	}
-	if statusAfterDelete.StageID != nil {
-		t.Fatalf("status after stage delete = %+v", statusAfterDelete)
-	}
-
-	listAfterDelete, err := service.List(ctx, projectID)
-	if err != nil {
-		t.Fatalf("List() after delete error = %v", err)
-	}
-	if len(listAfterDelete.Stages) != 0 {
-		t.Fatalf("stages after delete = %+v", listAfterDelete.Stages)
-	}
-	if len(listAfterDelete.StageGroups) != 1 || listAfterDelete.StageGroups[0].Stage != nil || len(listAfterDelete.StageGroups[0].Statuses) != 1 {
-		t.Fatalf("groups after delete = %+v", listAfterDelete.StageGroups)
-	}
-}
-
-func TestTicketStatusServiceBackfillDefaultStages(t *testing.T) {
-	t.Parallel()
-
-	client := openTicketStatusTestEntClient(t)
-	ctx := context.Background()
-	projectID := seedTicketStatusProject(ctx, t, client)
-	service := NewService(client)
-
-	for index, item := range defaultStatusTemplate {
-		builder := client.TicketStatus.Create().
-			SetProjectID(projectID).
-			SetName(item.Name).
-			SetColor(item.Color).
-			SetPosition(index).
-			SetIsDefault(item.IsDefault)
-		if item.Icon != "" {
-			builder.SetIcon(item.Icon)
-		}
-		if item.Description != "" {
-			builder.SetDescription(item.Description)
-		}
-		if _, err := builder.Save(ctx); err != nil {
-			t.Fatalf("seed legacy status %q: %v", item.Name, err)
-		}
-	}
-
-	if err := service.BackfillDefaultStages(ctx); err != nil {
-		t.Fatalf("BackfillDefaultStages() error = %v", err)
-	}
-	stages, err := service.ListStages(ctx, projectID)
-	if err != nil {
-		t.Fatalf("ListStages() after backfill error = %v", err)
-	}
-	if len(stages) != 4 {
-		t.Fatalf("stages after backfill = %+v", stages)
-	}
-	statuses, err := client.TicketStatus.Query().
-		Where(entticketstatus.ProjectIDEQ(projectID)).
-		Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName)).
-		All(ctx)
-	if err != nil {
-		t.Fatalf("load statuses after backfill: %v", err)
-	}
-	for _, status := range statuses {
-		if status.StageID == nil {
-			t.Fatalf("status %q missing stage after backfill", status.Name)
-		}
-	}
-
-	if err := service.BackfillDefaultStages(ctx); err != nil {
-		t.Fatalf("BackfillDefaultStages() second call error = %v", err)
 	}
 }
 
@@ -403,25 +277,8 @@ func TestTicketStatusServiceErrorPaths(t *testing.T) {
 		t.Fatalf("Delete(last status) error = %v, want %v", err, ErrCannotDeleteLastStatus)
 	}
 
-	stage, err := service.CreateStage(ctx, CreateStageInput{
-		ProjectID: projectID,
-		Key:       "qa",
-		Name:      "QA",
-	})
-	if err != nil {
-		t.Fatalf("CreateStage() error = %v", err)
-	}
-	if _, err := service.CreateStage(ctx, CreateStageInput{
-		ProjectID: projectID,
-		Key:       "qa",
-		Name:      "QA Duplicate",
-	}); !errors.Is(err, ErrDuplicateStageKey) {
-		t.Fatalf("CreateStage(duplicate) error = %v, want %v", err, ErrDuplicateStageKey)
-	}
-
 	secondStatus, err := service.Create(ctx, CreateInput{
 		ProjectID: projectID,
-		StageID:   &stage.ID,
 		Name:      "Shared",
 		Color:     "#222222",
 	})
@@ -436,53 +293,20 @@ func TestTicketStatusServiceErrorPaths(t *testing.T) {
 		t.Fatalf("Create(duplicate status) error = %v, want %v", err, ErrDuplicateStatusName)
 	}
 
-	project, err := client.Project.Get(ctx, projectID)
-	if err != nil {
-		t.Fatalf("load project: %v", err)
-	}
-	otherProject, err := client.Project.Create().
-		SetOrganizationID(project.OrganizationID).
-		SetName("OpenASE Secondary").
-		SetSlug(strings.ToLower("openase-secondary-" + uuid.NewString()[:8])).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create second project: %v", err)
-	}
-	foreignStage, err := service.CreateStage(ctx, CreateStageInput{
-		ProjectID: otherProject.ID,
-		Key:       "foreign",
-		Name:      "Foreign",
-	})
-	if err != nil {
-		t.Fatalf("CreateStage(foreign) error = %v", err)
-	}
-	if _, err := service.Update(ctx, UpdateInput{
-		StatusID: secondStatus.ID,
-		StageID:  Some(&foreignStage.ID),
-	}); !errors.Is(err, ErrStageNotFound) {
-		t.Fatalf("Update(foreign stage) error = %v, want %v", err, ErrStageNotFound)
-	}
-
 	updatedStatus, err := service.Update(ctx, UpdateInput{
-		StatusID:    secondStatus.ID,
-		StageID:     Some[*uuid.UUID](nil),
-		Icon:        Some(""),
-		Description: Some(""),
-		Position:    Some(7),
+		StatusID:      secondStatus.ID,
+		MaxActiveRuns: Some[*int](nil),
+		Icon:          Some(""),
+		Description:   Some(""),
+		Position:      Some(7),
 	})
 	if err != nil {
-		t.Fatalf("Update(clear stage fields) error = %v", err)
+		t.Fatalf("Update(clear optional fields) error = %v", err)
 	}
-	if updatedStatus.StageID != nil || updatedStatus.Icon != "" || updatedStatus.Description != "" || updatedStatus.Position != 7 {
-		t.Fatalf("Update(clear stage fields) = %+v", updatedStatus)
+	if updatedStatus.MaxActiveRuns != nil || updatedStatus.Icon != "" || updatedStatus.Description != "" || updatedStatus.Position != 7 {
+		t.Fatalf("Update(clear optional fields) = %+v", updatedStatus)
 	}
 
-	if _, err := service.DeleteStage(ctx, uuid.New()); !errors.Is(err, ErrStageNotFound) {
-		t.Fatalf("DeleteStage(missing) error = %v, want %v", err, ErrStageNotFound)
-	}
-	if _, err := service.UpdateStage(ctx, UpdateStageInput{StageID: uuid.New(), Name: Some("missing")}); !errors.Is(err, ErrStageNotFound) {
-		t.Fatalf("UpdateStage(missing) error = %v, want %v", err, ErrStageNotFound)
-	}
 	if _, err := service.Update(ctx, UpdateInput{StatusID: uuid.New(), Name: Some("missing")}); !errors.Is(err, ErrStatusNotFound) {
 		t.Fatalf("Update(missing) error = %v, want %v", err, ErrStatusNotFound)
 	}
@@ -491,7 +315,7 @@ func TestTicketStatusServiceErrorPaths(t *testing.T) {
 	}
 }
 
-func TestTicketStatusServiceMissingProjectAndEmptyBackfillPaths(t *testing.T) {
+func TestTicketStatusServiceMissingProjectPaths(t *testing.T) {
 	t.Parallel()
 
 	client := openTicketStatusTestEntClient(t)
@@ -502,16 +326,6 @@ func TestTicketStatusServiceMissingProjectAndEmptyBackfillPaths(t *testing.T) {
 	if _, err := service.List(ctx, missingProjectID); !errors.Is(err, ErrProjectNotFound) {
 		t.Fatalf("List(missing project) error = %v, want %v", err, ErrProjectNotFound)
 	}
-	if _, err := service.ListStages(ctx, missingProjectID); !errors.Is(err, ErrProjectNotFound) {
-		t.Fatalf("ListStages(missing project) error = %v, want %v", err, ErrProjectNotFound)
-	}
-	if _, err := service.CreateStage(ctx, CreateStageInput{
-		ProjectID: missingProjectID,
-		Key:       "qa",
-		Name:      "QA",
-	}); !errors.Is(err, ErrProjectNotFound) {
-		t.Fatalf("CreateStage(missing project) error = %v, want %v", err, ErrProjectNotFound)
-	}
 	if _, err := service.Create(ctx, CreateInput{
 		ProjectID: missingProjectID,
 		Name:      "Todo",
@@ -521,9 +335,6 @@ func TestTicketStatusServiceMissingProjectAndEmptyBackfillPaths(t *testing.T) {
 	}
 	if _, err := service.ResetToDefaultTemplate(ctx, missingProjectID); !errors.Is(err, ErrProjectNotFound) {
 		t.Fatalf("ResetToDefaultTemplate(missing project) error = %v, want %v", err, ErrProjectNotFound)
-	}
-	if err := service.BackfillDefaultStages(ctx); err != nil {
-		t.Fatalf("BackfillDefaultStages(empty) error = %v", err)
 	}
 }
 
@@ -538,7 +349,7 @@ func seedTicketStatusProject(ctx context.Context, t *testing.T, client *ent.Clie
 
 	org, err := client.Organization.Create().
 		SetName("Better And Better").
-		SetSlug("better-and-better").
+		SetSlug(strings.ToLower("better-and-better-" + uuid.NewString()[:8])).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create organization: %v", err)
@@ -563,49 +374,40 @@ func seedTicketStatusActiveRun(ctx context.Context, t *testing.T, client *ent.Cl
 	}
 	machine, err := client.Machine.Create().
 		SetOrganizationID(project.OrganizationID).
-		SetName("worker-" + uuid.NewString()[:8]).
-		SetHost("worker.internal").
-		SetPort(22).
-		SetDescription("runner").
-		SetStatus(entmachine.StatusOnline).
+		SetName("worker").
+		SetHost("127.0.0.1").
+		SetSSHUser("codex").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create machine: %v", err)
 	}
-	providerItem, err := client.AgentProvider.Create().
+	provider, err := client.AgentProvider.Create().
 		SetOrganizationID(project.OrganizationID).
+		SetName("codex").
 		SetMachineID(machine.ID).
-		SetName("Provider").
-		SetAdapterType(entagentprovider.AdapterTypeCustom).
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
 		SetCliCommand("codex").
-		SetCliArgs([]string{"run"}).
-		SetAuthConfig(map[string]any{}).
 		SetModelName("gpt-5.4").
-		SetModelTemperature(0).
-		SetModelMaxTokens(8192).
-		SetCostPerInputToken(0).
-		SetCostPerOutputToken(0).
+		SetMaxParallelRuns(3).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create provider: %v", err)
 	}
 	agentItem, err := client.Agent.Create().
 		SetProjectID(projectID).
-		SetProviderID(providerItem.ID).
-		SetName("Planner").
+		SetProviderID(provider.ID).
+		SetName("coding-01").
 		SetRuntimeControlState(entagent.RuntimeControlStateActive).
-		SetTotalTokensUsed(0).
-		SetTotalTicketsCompleted(0).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
 	workflowItem, err := client.Workflow.Create().
 		SetProjectID(projectID).
-		SetName("QA Workflow").
-		SetType("custom").
-		SetHarnessPath("roles/qa.md").
 		SetAgentID(agentItem.ID).
+		SetName("Coding").
+		SetType("coding").
+		SetHarnessPath("roles/coding.md").
 		AddPickupStatusIDs(statusID).
 		AddFinishStatusIDs(statusID).
 		Save(ctx)
@@ -614,8 +416,8 @@ func seedTicketStatusActiveRun(ctx context.Context, t *testing.T, client *ent.Cl
 	}
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(projectID).
-		SetIdentifier("ASE-99").
-		SetTitle("qa gate").
+		SetIdentifier("ASE-100").
+		SetTitle("runtime snapshot").
 		SetStatusID(statusID).
 		SetWorkflowID(workflowItem.ID).
 		SetCreatedBy("codex").
@@ -623,39 +425,39 @@ func seedTicketStatusActiveRun(ctx context.Context, t *testing.T, client *ent.Cl
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
-	runItem, err := client.AgentRun.Create().
-		SetAgentID(agentItem.ID).
+	run, err := client.AgentRun.Create().
 		SetWorkflowID(workflowItem.ID).
+		SetAgentID(agentItem.ID).
+		SetProviderID(provider.ID).
 		SetTicketID(ticketItem.ID).
-		SetProviderID(providerItem.ID).
 		SetStatus(entagentrun.StatusExecuting).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create agent run: %v", err)
 	}
-	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).SetCurrentRunID(runItem.ID).Save(ctx); err != nil {
-		t.Fatalf("set ticket current run: %v", err)
+	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).SetCurrentRunID(run.ID).Save(ctx); err != nil {
+		t.Fatalf("attach current run: %v", err)
 	}
 }
 
-func statusNames(items []Status) string {
-	names := make([]string, 0, len(items))
-	for _, item := range items {
-		names = append(names, item.Name)
-	}
-	return strings.Join(names, ",")
-}
-
-func findStatusIDByName(t *testing.T, items []Status, want string) uuid.UUID {
+func findStatusIDByName(t *testing.T, statuses []Status, name string) uuid.UUID {
 	t.Helper()
 
-	for _, item := range items {
-		if item.Name == want {
-			return item.ID
+	for _, status := range statuses {
+		if status.Name == name {
+			return status.ID
 		}
 	}
-	t.Fatalf("status %q not found in %+v", want, items)
-	return uuid.Nil
+	t.Fatalf("status %q not found in %+v", name, statuses)
+	return uuid.UUID{}
+}
+
+func statusNames(statuses []Status) string {
+	names := make([]string, 0, len(statuses))
+	for _, status := range statuses {
+		names = append(names, status.Name)
+	}
+	return strings.Join(names, ",")
 }
 
 func ptrInt(value int) *int {

@@ -150,14 +150,14 @@ func TestSchedulerRunTickMatchesWorkflowPickupAcrossStatuses(t *testing.T) {
 	}
 }
 
-func TestSchedulerRunTickUsesMatchedPickupStatusForStageCapacityInMultiPickupWorkflow(t *testing.T) {
+func TestSchedulerRunTickUsesMatchedPickupStatusForStatusCapacityInMultiPickupWorkflow(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	now := time.Date(2026, 3, 20, 10, 30, 0, 0, time.UTC)
 	fixture := seedProjectFixtureAt(ctx, t, client, now)
 
-	if _, err := client.TicketStage.UpdateOneID(fixture.stageIDs["review"]).SetMaxActiveRuns(1).Save(ctx); err != nil {
-		t.Fatalf("limit review stage: %v", err)
+	if _, err := client.TicketStatus.UpdateOneID(fixture.statusIDs["In Review"]).SetMaxActiveRuns(1).Save(ctx); err != nil {
+		t.Fatalf("limit review status: %v", err)
 	}
 
 	workflowItem, err := client.Workflow.Create().
@@ -222,7 +222,7 @@ func TestSchedulerRunTickUsesMatchedPickupStatusForStageCapacityInMultiPickupWor
 		t.Fatalf("run tick: %v", err)
 	}
 	if report.TicketsDispatched != 1 {
-		t.Fatalf("expected todo pickup to dispatch despite review stage being full, got %+v", report)
+		t.Fatalf("expected todo pickup to dispatch despite review status being full, got %+v", report)
 	}
 
 	todoAfter, err := client.Ticket.Get(ctx, todoTicket.ID)
@@ -1167,7 +1167,6 @@ type projectFixture struct {
 	projectID      uuid.UUID
 	providerID     uuid.UUID
 	localMachineID uuid.UUID
-	stageIDs       map[string]uuid.UUID
 	statusIDs      map[string]uuid.UUID
 }
 
@@ -1261,14 +1260,14 @@ func TestSchedulerRunTickCreatesDueScheduledJobTicketsBeforeDispatch(t *testing.
 	}
 }
 
-func TestSchedulerRunTickEnforcesSharedStageCapacityAcrossWorkflows(t *testing.T) {
+func TestSchedulerRunTickEnforcesSharedStatusCapacityAcrossWorkflows(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	now := time.Date(2026, 3, 20, 12, 15, 0, 0, time.UTC)
 	fixture := seedProjectFixtureAt(ctx, t, client, now)
 
-	if _, err := client.TicketStage.UpdateOneID(fixture.stageIDs["backlog"]).SetMaxActiveRuns(1).Save(ctx); err != nil {
-		t.Fatalf("set backlog stage capacity: %v", err)
+	if _, err := client.TicketStatus.UpdateOneID(fixture.statusIDs["Backlog"]).SetMaxActiveRuns(1).Save(ctx); err != nil {
+		t.Fatalf("set backlog status capacity: %v", err)
 	}
 
 	backlogWorkflow, err := client.Workflow.Create().
@@ -1289,7 +1288,7 @@ func TestSchedulerRunTickEnforcesSharedStageCapacityAcrossWorkflows(t *testing.T
 		SetType(entworkflow.TypeCoding).
 		SetHarnessPath(".openase/harnesses/todo.md").
 		SetMaxConcurrent(2).
-		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddPickupStatusIDs(fixture.statusIDs["Backlog"]).
 		AddFinishStatusIDs(fixture.statusIDs["Done"]).
 		Save(ctx)
 	if err != nil {
@@ -1318,12 +1317,12 @@ func TestSchedulerRunTickEnforcesSharedStageCapacityAcrossWorkflows(t *testing.T
 	if _, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
 		SetIdentifier("ASE-352").
-		SetTitle("Todo semaphore contender").
-		SetStatusID(fixture.statusIDs["Todo"]).
+		SetTitle("Backlog semaphore contender 2").
+		SetStatusID(fixture.statusIDs["Backlog"]).
 		SetPriority(entticket.PriorityHigh).
 		SetCreatedBy("user:test").
 		Save(ctx); err != nil {
-		t.Fatalf("create todo ticket: %v", err)
+		t.Fatalf("create second backlog ticket: %v", err)
 	}
 
 	scheduler := newTestScheduler(client, now)
@@ -1332,11 +1331,11 @@ func TestSchedulerRunTickEnforcesSharedStageCapacityAcrossWorkflows(t *testing.T
 		t.Fatalf("run tick: %v", err)
 	}
 
-	if report.TicketsDispatched != 1 || report.TicketsSkipped[skipReasonStageCapacity] != 1 {
-		t.Fatalf("expected one dispatch and one shared stage-capacity skip, got %+v", report)
+	if report.TicketsDispatched != 1 || report.TicketsSkipped[skipReasonStatusCapacity] != 2 {
+		t.Fatalf("expected one dispatch and two shared status-capacity skips across workflows, got %+v", report)
 	}
 	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 1 {
-		t.Fatalf("expected backlog stage active runs 1, got %d", got)
+		t.Fatalf("expected backlog status active runs 1, got %d", got)
 	}
 }
 
@@ -1601,22 +1600,12 @@ func seedProjectFixtureAt(ctx context.Context, t *testing.T, client *ent.Client,
 	for _, status := range statuses {
 		statusIDs[status.Name] = status.ID
 	}
-	stages, err := statusSvc.ListStages(ctx, project.ID)
-	if err != nil {
-		t.Fatalf("list default stages: %v", err)
-	}
-	stageIDs := make(map[string]uuid.UUID, len(stages))
-	for _, stage := range stages {
-		stageIDs[stage.Key] = stage.ID
-	}
-
 	return projectFixture{
 		client:         client,
 		orgID:          org.ID,
 		projectID:      project.ID,
 		providerID:     provider.ID,
 		localMachineID: localMachine.ID,
-		stageIDs:       stageIDs,
 		statusIDs:      statusIDs,
 	}
 }
@@ -1669,18 +1658,22 @@ func timePointer(value time.Time) *time.Time {
 }
 
 func backlogStageActiveRuns(ctx context.Context, t *testing.T, client *ent.Client, projectID uuid.UUID) int {
+	return statusActiveRuns(ctx, t, client, projectID, "Backlog")
+}
+
+func statusActiveRuns(ctx context.Context, t *testing.T, client *ent.Client, projectID uuid.UUID, statusName string) int {
 	t.Helper()
 
-	snapshots, err := ticketstatus.ListProjectStageRuntimeSnapshots(ctx, client, projectID)
+	snapshots, err := ticketstatus.ListProjectStatusRuntimeSnapshots(ctx, client, projectID)
 	if err != nil {
-		t.Fatalf("list stage runtime snapshots: %v", err)
+		t.Fatalf("list status runtime snapshots: %v", err)
 	}
 	for _, snapshot := range snapshots {
-		if snapshot.Key == "backlog" {
+		if snapshot.Name == statusName {
 			return snapshot.ActiveRuns
 		}
 	}
-	t.Fatal("backlog stage runtime snapshot not found")
+	t.Fatalf("%s status runtime snapshot not found", statusName)
 	return 0
 }
 

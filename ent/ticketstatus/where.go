@@ -59,11 +59,6 @@ func ProjectID(v uuid.UUID) predicate.TicketStatus {
 	return predicate.TicketStatus(sql.FieldEQ(FieldProjectID, v))
 }
 
-// StageID applies equality check predicate on the "stage_id" field. It's identical to StageIDEQ.
-func StageID(v uuid.UUID) predicate.TicketStatus {
-	return predicate.TicketStatus(sql.FieldEQ(FieldStageID, v))
-}
-
 // Name applies equality check predicate on the "name" field. It's identical to NameEQ.
 func Name(v string) predicate.TicketStatus {
 	return predicate.TicketStatus(sql.FieldEQ(FieldName, v))
@@ -82,6 +77,11 @@ func Icon(v string) predicate.TicketStatus {
 // Position applies equality check predicate on the "position" field. It's identical to PositionEQ.
 func Position(v int) predicate.TicketStatus {
 	return predicate.TicketStatus(sql.FieldEQ(FieldPosition, v))
+}
+
+// MaxActiveRuns applies equality check predicate on the "max_active_runs" field. It's identical to MaxActiveRunsEQ.
+func MaxActiveRuns(v int) predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldEQ(FieldMaxActiveRuns, v))
 }
 
 // IsDefault applies equality check predicate on the "is_default" field. It's identical to IsDefaultEQ.
@@ -112,36 +112,6 @@ func ProjectIDIn(vs ...uuid.UUID) predicate.TicketStatus {
 // ProjectIDNotIn applies the NotIn predicate on the "project_id" field.
 func ProjectIDNotIn(vs ...uuid.UUID) predicate.TicketStatus {
 	return predicate.TicketStatus(sql.FieldNotIn(FieldProjectID, vs...))
-}
-
-// StageIDEQ applies the EQ predicate on the "stage_id" field.
-func StageIDEQ(v uuid.UUID) predicate.TicketStatus {
-	return predicate.TicketStatus(sql.FieldEQ(FieldStageID, v))
-}
-
-// StageIDNEQ applies the NEQ predicate on the "stage_id" field.
-func StageIDNEQ(v uuid.UUID) predicate.TicketStatus {
-	return predicate.TicketStatus(sql.FieldNEQ(FieldStageID, v))
-}
-
-// StageIDIn applies the In predicate on the "stage_id" field.
-func StageIDIn(vs ...uuid.UUID) predicate.TicketStatus {
-	return predicate.TicketStatus(sql.FieldIn(FieldStageID, vs...))
-}
-
-// StageIDNotIn applies the NotIn predicate on the "stage_id" field.
-func StageIDNotIn(vs ...uuid.UUID) predicate.TicketStatus {
-	return predicate.TicketStatus(sql.FieldNotIn(FieldStageID, vs...))
-}
-
-// StageIDIsNil applies the IsNil predicate on the "stage_id" field.
-func StageIDIsNil() predicate.TicketStatus {
-	return predicate.TicketStatus(sql.FieldIsNull(FieldStageID))
-}
-
-// StageIDNotNil applies the NotNil predicate on the "stage_id" field.
-func StageIDNotNil() predicate.TicketStatus {
-	return predicate.TicketStatus(sql.FieldNotNull(FieldStageID))
 }
 
 // NameEQ applies the EQ predicate on the "name" field.
@@ -389,6 +359,56 @@ func PositionLTE(v int) predicate.TicketStatus {
 	return predicate.TicketStatus(sql.FieldLTE(FieldPosition, v))
 }
 
+// MaxActiveRunsEQ applies the EQ predicate on the "max_active_runs" field.
+func MaxActiveRunsEQ(v int) predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldEQ(FieldMaxActiveRuns, v))
+}
+
+// MaxActiveRunsNEQ applies the NEQ predicate on the "max_active_runs" field.
+func MaxActiveRunsNEQ(v int) predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldNEQ(FieldMaxActiveRuns, v))
+}
+
+// MaxActiveRunsIn applies the In predicate on the "max_active_runs" field.
+func MaxActiveRunsIn(vs ...int) predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldIn(FieldMaxActiveRuns, vs...))
+}
+
+// MaxActiveRunsNotIn applies the NotIn predicate on the "max_active_runs" field.
+func MaxActiveRunsNotIn(vs ...int) predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldNotIn(FieldMaxActiveRuns, vs...))
+}
+
+// MaxActiveRunsGT applies the GT predicate on the "max_active_runs" field.
+func MaxActiveRunsGT(v int) predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldGT(FieldMaxActiveRuns, v))
+}
+
+// MaxActiveRunsGTE applies the GTE predicate on the "max_active_runs" field.
+func MaxActiveRunsGTE(v int) predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldGTE(FieldMaxActiveRuns, v))
+}
+
+// MaxActiveRunsLT applies the LT predicate on the "max_active_runs" field.
+func MaxActiveRunsLT(v int) predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldLT(FieldMaxActiveRuns, v))
+}
+
+// MaxActiveRunsLTE applies the LTE predicate on the "max_active_runs" field.
+func MaxActiveRunsLTE(v int) predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldLTE(FieldMaxActiveRuns, v))
+}
+
+// MaxActiveRunsIsNil applies the IsNil predicate on the "max_active_runs" field.
+func MaxActiveRunsIsNil() predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldIsNull(FieldMaxActiveRuns))
+}
+
+// MaxActiveRunsNotNil applies the NotNil predicate on the "max_active_runs" field.
+func MaxActiveRunsNotNil() predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldNotNull(FieldMaxActiveRuns))
+}
+
 // IsDefaultEQ applies the EQ predicate on the "is_default" field.
 func IsDefaultEQ(v bool) predicate.TicketStatus {
 	return predicate.TicketStatus(sql.FieldEQ(FieldIsDefault, v))
@@ -489,29 +509,6 @@ func HasProject() predicate.TicketStatus {
 func HasProjectWith(preds ...predicate.Project) predicate.TicketStatus {
 	return predicate.TicketStatus(func(s *sql.Selector) {
 		step := newProjectStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
-// HasStage applies the HasEdge predicate on the "stage" edge.
-func HasStage() predicate.TicketStatus {
-	return predicate.TicketStatus(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, StageTable, StageColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasStageWith applies the HasEdge predicate on the "stage" edge with a given conditions (other predicates).
-func HasStageWith(preds ...predicate.TicketStage) predicate.TicketStatus {
-	return predicate.TicketStatus(func(s *sql.Selector) {
-		step := newStageStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

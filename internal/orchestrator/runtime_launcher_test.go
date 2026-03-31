@@ -969,8 +969,8 @@ func TestRuntimeLauncherCloseClearsTicketCurrentRunOnGracefulShutdown(t *testing
 	if ticketAfter.CurrentRunID != nil {
 		t.Fatalf("expected graceful shutdown to clear current run, got %+v", ticketAfter.CurrentRunID)
 	}
-	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 0 {
-		t.Fatalf("expected graceful shutdown to drop backlog stage occupancy to 0, got %d", got)
+	if got := statusActiveRuns(ctx, t, client, fixture.projectID, "Todo"); got != 0 {
+		t.Fatalf("expected graceful shutdown to drop todo status occupancy to 0, got %d", got)
 	}
 
 	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
@@ -1032,8 +1032,8 @@ func TestRuntimeLauncherFinishResolvedExecutionReleasesStageOccupancy(t *testing
 	}
 	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
 
-	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 1 {
-		t.Fatalf("expected active backlog stage occupancy before finish, got %d", got)
+	if got := statusActiveRuns(ctx, t, client, fixture.projectID, "Todo"); got != 1 {
+		t.Fatalf("expected active todo status occupancy before finish, got %d", got)
 	}
 
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).SetStatusID(fixture.statusIDs["Done"]).Save(ctx); err != nil {
@@ -1092,8 +1092,8 @@ func TestRuntimeLauncherFinishResolvedExecutionReleasesStageOccupancy(t *testing
 	if runAfter.Status != entagentrun.StatusCompleted {
 		t.Fatalf("expected completed run after finish, got %+v", runAfter)
 	}
-	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 0 {
-		t.Fatalf("expected finish to drop backlog stage occupancy to 0, got %d", got)
+	if got := statusActiveRuns(ctx, t, client, fixture.projectID, "Todo"); got != 0 {
+		t.Fatalf("expected finish to drop todo status occupancy to 0, got %d", got)
 	}
 }
 
@@ -1138,8 +1138,8 @@ func TestRuntimeLauncherReleaseExecutionOwnershipPreservesTicketStatusAndComplet
 	}
 	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
 
-	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 1 {
-		t.Fatalf("expected active backlog stage occupancy before release, got %d", got)
+	if got := statusActiveRuns(ctx, t, client, fixture.projectID, "Todo"); got != 1 {
+		t.Fatalf("expected active todo status occupancy before release, got %d", got)
 	}
 
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).SetStatusID(fixture.statusIDs["In Review"]).Save(ctx); err != nil {
@@ -1179,8 +1179,8 @@ func TestRuntimeLauncherReleaseExecutionOwnershipPreservesTicketStatusAndComplet
 	if runAfter.Status != entagentrun.StatusTerminated {
 		t.Fatalf("expected terminated run after release, got %+v", runAfter)
 	}
-	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 0 {
-		t.Fatalf("expected release to drop backlog stage occupancy to 0, got %d", got)
+	if got := statusActiveRuns(ctx, t, client, fixture.projectID, "Todo"); got != 0 {
+		t.Fatalf("expected release to drop todo status occupancy to 0, got %d", got)
 	}
 }
 

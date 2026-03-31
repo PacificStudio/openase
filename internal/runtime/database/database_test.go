@@ -11,8 +11,6 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
-	entticketstage "github.com/BetterAndBetterII/openase/ent/ticketstage"
-	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -121,103 +119,6 @@ func TestOpenReconcilesLegacyGlobalTicketIdentifierIndex(t *testing.T) {
 		if ticketItem.Identifier != "ASE-1" {
 			t.Fatalf("expected first ticket in project %d to use ASE-1, got %+v", index+1, ticketItem)
 		}
-	}
-}
-
-func TestOpenBackfillsDefaultTicketStagesForLegacyStatuses(t *testing.T) {
-	t.Helper()
-
-	ctx := context.Background()
-	dsn := startEmbeddedPostgres(t)
-
-	bootstrapClient, err := ent.Open("postgres", dsn)
-	if err != nil {
-		t.Fatalf("open bootstrap ent client: %v", err)
-	}
-	if err := bootstrapClient.Schema.Create(ctx); err != nil {
-		t.Fatalf("create bootstrap schema: %v", err)
-	}
-
-	org, err := bootstrapClient.Organization.Create().
-		SetName("Better And Better").
-		SetSlug("better-and-better-stage-backfill").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create organization: %v", err)
-	}
-	projectItem, err := bootstrapClient.Project.Create().
-		SetOrganizationID(org.ID).
-		SetName("OpenASE").
-		SetSlug("openase-stage-backfill").
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create project: %v", err)
-	}
-
-	legacyStatuses := []struct {
-		name      string
-		position  int
-		isDefault bool
-	}{
-		{name: "Backlog", position: 0, isDefault: true},
-		{name: "Todo", position: 1},
-		{name: "Done", position: 2},
-		{name: "Research", position: 3},
-	}
-	for _, item := range legacyStatuses {
-		if _, err := bootstrapClient.TicketStatus.Create().
-			SetProjectID(projectItem.ID).
-			SetName(item.name).
-			SetColor("#111111").
-			SetPosition(item.position).
-			SetIsDefault(item.isDefault).
-			Save(ctx); err != nil {
-			t.Fatalf("create legacy status %s: %v", item.name, err)
-		}
-	}
-	if err := bootstrapClient.Close(); err != nil {
-		t.Fatalf("close bootstrap ent client: %v", err)
-	}
-
-	client, err := Open(ctx, dsn)
-	if err != nil {
-		t.Fatalf("open runtime database: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := client.Close(); err != nil {
-			t.Errorf("close runtime ent client: %v", err)
-		}
-	})
-
-	stages, err := client.TicketStage.Query().
-		Where(entticketstage.ProjectIDEQ(projectItem.ID)).
-		Order(ent.Asc(entticketstage.FieldPosition)).
-		All(ctx)
-	if err != nil {
-		t.Fatalf("query backfilled stages: %v", err)
-	}
-	if len(stages) != 4 {
-		t.Fatalf("expected 4 backfilled stages, got %+v", stages)
-	}
-
-	statuses, err := client.TicketStatus.Query().
-		Where(entticketstatus.ProjectIDEQ(projectItem.ID)).
-		Order(ent.Asc(entticketstatus.FieldPosition)).
-		All(ctx)
-	if err != nil {
-		t.Fatalf("query statuses after backfill: %v", err)
-	}
-	if status := findStatusByName(statuses, "Backlog"); status == nil || status.StageID == nil || *status.StageID != findStageIDByKey(stages, "backlog") {
-		t.Fatalf("expected Backlog to backfill into backlog stage, got %+v", status)
-	}
-	if status := findStatusByName(statuses, "Todo"); status == nil || status.StageID == nil || *status.StageID != findStageIDByKey(stages, "backlog") {
-		t.Fatalf("expected Todo to backfill into backlog stage, got %+v", status)
-	}
-	if status := findStatusByName(statuses, "Done"); status == nil || status.StageID == nil || *status.StageID != findStageIDByKey(stages, "done") {
-		t.Fatalf("expected Done to backfill into done stage, got %+v", status)
-	}
-	if status := findStatusByName(statuses, "Research"); status == nil || status.StageID != nil {
-		t.Fatalf("expected custom status to remain ungrouped after backfill, got %+v", status)
 	}
 }
 
@@ -837,6 +738,138 @@ func TestOpenBackfillsAgentProviderMachineIDBeforeMigration(t *testing.T) {
 	}
 }
 
+func TestOpenRemovesLegacyTicketStageSchemaBeforeMigration(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := startEmbeddedPostgres(t)
+
+	bootstrapClient, err := ent.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open bootstrap ent client: %v", err)
+	}
+	if err := bootstrapClient.Schema.Create(ctx); err != nil {
+		t.Fatalf("create bootstrap schema: %v", err)
+	}
+
+	org, err := bootstrapClient.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-stage-removal").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := bootstrapClient.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase-stage-removal").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	statusSvc := ticketstatus.NewService(bootstrapClient)
+	statuses, err := statusSvc.ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset statuses: %v", err)
+	}
+	todoID := findStatusID(t, statuses, "Todo")
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open sql db: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("close sql db: %v", err)
+		}
+	})
+
+	stageID := uuid.New()
+	if _, err := db.ExecContext(ctx, `
+		CREATE TABLE "ticket_stages" (
+			"id" uuid NOT NULL,
+			"key" character varying NOT NULL,
+			"name" character varying NOT NULL,
+			"position" bigint NOT NULL DEFAULT 0,
+			"max_active_runs" bigint NULL,
+			"description" character varying NULL,
+			"project_id" uuid NOT NULL,
+			PRIMARY KEY ("id")
+		)`); err != nil {
+		t.Fatalf("create legacy ticket_stages table: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX "ticketstage_project_id_key" ON "ticket_stages" ("project_id", "key")`); err != nil {
+		t.Fatalf("create legacy ticket stage key index: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `CREATE INDEX "ticketstage_project_id_position" ON "ticket_stages" ("project_id", "position")`); err != nil {
+		t.Fatalf("create legacy ticket stage position index: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO "ticket_stages" ("id", "project_id", "key", "name", "position", "max_active_runs", "description")
+		VALUES ($1, $2, 'backlog', 'Backlog', 0, 2, 'legacy backlog')
+	`, stageID, project.ID); err != nil {
+		t.Fatalf("insert legacy ticket stage: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE "ticket_status" ADD COLUMN "stage_id" uuid NULL`); err != nil {
+		t.Fatalf("add legacy stage_id column: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `CREATE INDEX "ticketstatus_project_id_stage_id_position" ON "ticket_status" ("project_id", "stage_id", "position")`); err != nil {
+		t.Fatalf("create legacy ticket status stage index: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		ALTER TABLE "ticket_status"
+		ADD CONSTRAINT "ticket_status_ticket_stages_statuses"
+		FOREIGN KEY ("stage_id") REFERENCES "ticket_stages" ("id") ON UPDATE NO ACTION ON DELETE SET NULL
+	`); err != nil {
+		t.Fatalf("add legacy stage foreign key: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE "ticket_status" SET "stage_id" = $1, "max_active_runs" = NULL WHERE "id" = $2`, stageID, todoID); err != nil {
+		t.Fatalf("attach legacy stage to status: %v", err)
+	}
+	if err := bootstrapClient.Close(); err != nil {
+		t.Fatalf("close bootstrap ent client: %v", err)
+	}
+
+	client, err := Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open runtime database: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := client.Close(); err != nil {
+			t.Errorf("close runtime ent client: %v", err)
+		}
+	})
+
+	todoStatus, err := client.TicketStatus.Get(ctx, todoID)
+	if err != nil {
+		t.Fatalf("reload todo status: %v", err)
+	}
+	if todoStatus.MaxActiveRuns == nil || *todoStatus.MaxActiveRuns != 2 {
+		t.Fatalf("expected status max_active_runs to backfill from legacy stage, got %+v", todoStatus)
+	}
+
+	stageTableExists, err := tableExists(ctx, db, "ticket_stages")
+	if err != nil {
+		t.Fatalf("check legacy ticket_stages table: %v", err)
+	}
+	if stageTableExists {
+		t.Fatal("expected legacy ticket_stages table to be removed")
+	}
+
+	stageIDExists, err := columnExists(ctx, db, "ticket_status", "stage_id")
+	if err != nil {
+		t.Fatalf("check legacy ticket_status.stage_id column: %v", err)
+	}
+	if stageIDExists {
+		t.Fatal("expected legacy ticket_status.stage_id column to be removed")
+	}
+
+	if legacyIndexExists(ctx, t, db, "ticketstatus_project_id_stage_id_position") {
+		t.Fatal("expected legacy ticket status stage index to be removed")
+	}
+}
+
 func TestReconcileLegacyAgentProviderMachineIDsAddsMissingColumnAndBackfills(t *testing.T) {
 	t.Helper()
 
@@ -1086,15 +1119,6 @@ func findStatusID(t *testing.T, statuses []ticketstatus.Status, name string) uui
 		}
 	}
 	t.Fatalf("status %q not found in %+v", name, statuses)
-	return uuid.UUID{}
-}
-
-func findStageIDByKey(stages []*ent.TicketStage, key string) uuid.UUID {
-	for _, stage := range stages {
-		if stage.Key == key {
-			return stage.ID
-		}
-	}
 	return uuid.UUID{}
 }
 

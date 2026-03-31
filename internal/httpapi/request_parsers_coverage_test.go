@@ -218,52 +218,19 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 	stallTimeoutMinutes := 3
 	falseBool := false
 
-	createStageInput, err := parseCreateTicketStageRequest(projectID, rawCreateTicketStageRequest{
-		Key:           " todo ",
-		Name:          " To Do ",
+	createStatusInput, err := parseCreateTicketStatusRequest(projectID, rawCreateTicketStatusRequest{
+		Name:          " Ready ",
+		Color:         " green ",
+		Icon:          " play ",
 		Position:      &position,
 		MaxActiveRuns: &maxActiveRuns,
-		Description:   " triage ",
-	})
-	if err != nil {
-		t.Fatalf("parseCreateTicketStageRequest() error = %v", err)
-	}
-	if createStageInput.Key != "todo" || !createStageInput.Position.Set || createStageInput.Position.Value != 2 {
-		t.Fatalf("parseCreateTicketStageRequest() = %+v", createStageInput)
-	}
-	if _, err := parseCreateTicketStageRequest(projectID, rawCreateTicketStageRequest{}); err == nil || !strings.Contains(err.Error(), "key must not be empty") {
-		t.Fatalf("parseCreateTicketStageRequest(blank) error = %v", err)
-	}
-
-	updateStageInput, err := parseUpdateTicketStageRequest(stageID, rawUpdateTicketStageRequest{
-		Name:          strPtr(" In Progress "),
-		Position:      &position,
-		MaxActiveRuns: nullableIntField{Set: true, Value: &maxActiveRuns},
-		Description:   strPtr(" active "),
-	})
-	if err != nil {
-		t.Fatalf("parseUpdateTicketStageRequest() error = %v", err)
-	}
-	if !updateStageInput.Name.Set || updateStageInput.Name.Value != "In Progress" {
-		t.Fatalf("parseUpdateTicketStageRequest() = %+v", updateStageInput)
-	}
-	if _, err := parseUpdateTicketStageRequest(stageID, rawUpdateTicketStageRequest{Name: strPtr("  ")}); err == nil || !strings.Contains(err.Error(), "name must not be empty") {
-		t.Fatalf("parseUpdateTicketStageRequest(blank name) error = %v", err)
-	}
-
-	createStatusInput, err := parseCreateTicketStatusRequest(projectID, rawCreateTicketStatusRequest{
-		StageID:     strPtr(stageID.String()),
-		Name:        " Ready ",
-		Color:       " green ",
-		Icon:        " play ",
-		Position:    &position,
-		IsDefault:   true,
-		Description: " queued ",
+		IsDefault:     true,
+		Description:   " queued ",
 	})
 	if err != nil {
 		t.Fatalf("parseCreateTicketStatusRequest() error = %v", err)
 	}
-	if createStatusInput.Name != "Ready" || createStatusInput.Color != "green" || !createStatusInput.Position.Set {
+	if createStatusInput.Name != "Ready" || createStatusInput.Color != "green" || !createStatusInput.Position.Set || createStatusInput.MaxActiveRuns == nil || *createStatusInput.MaxActiveRuns != 3 {
 		t.Fatalf("parseCreateTicketStatusRequest() = %+v", createStatusInput)
 	}
 	if _, err := parseCreateTicketStatusRequest(projectID, rawCreateTicketStatusRequest{Name: "ok"}); err == nil || !strings.Contains(err.Error(), "color must not be empty") {
@@ -271,28 +238,24 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 	}
 
 	updateStatusInput, err := parseUpdateTicketStatusRequest(statusID, rawUpdateTicketStatusRequest{
-		StageID:     nullableStringField{Set: true, Value: strPtr(stageID.String())},
-		Name:        strPtr(" Done "),
-		Color:       strPtr(" blue "),
-		Icon:        strPtr(" check "),
-		Position:    &position,
-		IsDefault:   &falseBool,
-		Description: strPtr(" complete "),
+		Name:          strPtr(" Done "),
+		Color:         strPtr(" blue "),
+		Icon:          strPtr(" check "),
+		Position:      &position,
+		MaxActiveRuns: nullableIntField{Set: true, Value: &maxActiveRuns},
+		IsDefault:     &falseBool,
+		Description:   strPtr(" complete "),
 	})
 	if err != nil {
 		t.Fatalf("parseUpdateTicketStatusRequest() error = %v", err)
 	}
-	if !updateStatusInput.StageID.Set || updateStatusInput.StageID.Value == nil || *updateStatusInput.StageID.Value != stageID {
+	if !updateStatusInput.MaxActiveRuns.Set || updateStatusInput.MaxActiveRuns.Value == nil || *updateStatusInput.MaxActiveRuns.Value != maxActiveRuns {
 		t.Fatalf("parseUpdateTicketStatusRequest() = %+v", updateStatusInput)
 	}
 	if _, err := parseUpdateTicketStatusRequest(statusID, rawUpdateTicketStatusRequest{Color: strPtr("  ")}); err == nil || !strings.Contains(err.Error(), "color must not be empty") {
 		t.Fatalf("parseUpdateTicketStatusRequest(blank color) error = %v", err)
 	}
 
-	var nullableString nullableStringField
-	if err := json.Unmarshal([]byte(`null`), &nullableString); err != nil || !nullableString.Set || nullableString.Value != nil {
-		t.Fatalf("nullableStringField(null) = %+v, %v", nullableString, err)
-	}
 	var nullableInt nullableIntField
 	if err := json.Unmarshal([]byte(`3`), &nullableInt); err != nil || !nullableInt.Set || nullableInt.Value == nil || *nullableInt.Value != 3 {
 		t.Fatalf("nullableIntField(3) = %+v, %v", nullableInt, err)
@@ -367,11 +330,8 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 	if got, err := parseUUIDString("agent_id", agentID.String()); err != nil || got != agentID {
 		t.Fatalf("parseUUIDString() = (%v, %v)", got, err)
 	}
-	if got, err := parseOptionalUUIDString("stage_id", strPtr(" ")); err != nil || got != nil {
+	if got, err := parseOptionalUUIDString("status_id", strPtr(" ")); err != nil || got != nil {
 		t.Fatalf("parseOptionalUUIDString(blank) = (%v, %v)", got, err)
-	}
-	if _, err := parseOptionalStatusUUIDString("stage_id", strPtr("bad")); err == nil || !strings.Contains(err.Error(), "valid UUID") {
-		t.Fatalf("parseOptionalStatusUUIDString(invalid) error = %v", err)
 	}
 	if got, err := parsePositiveInt("max_concurrent", nil, 3); err != nil || got != 3 {
 		t.Fatalf("parsePositiveInt(default) = (%d, %v)", got, err)
@@ -387,20 +347,17 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 	}
 
 	e := echo.New()
-	req := httptest.NewRequest("GET", "/projects/"+projectID.String()+"/ticket-statuses/"+statusID.String()+"/stages/"+stageID.String(), nil)
+	req := httptest.NewRequest("GET", "/projects/"+projectID.String()+"/ticket-statuses/"+statusID.String(), nil)
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
-	ctx.SetPath("/projects/:projectId/ticket-statuses/:statusId/stages/:stageId")
-	ctx.SetParamNames("projectId", "statusId", "stageId")
-	ctx.SetParamValues(projectID.String(), statusID.String(), stageID.String())
+	ctx.SetPath("/projects/:projectId/ticket-statuses/:statusId")
+	ctx.SetParamNames("projectId", "statusId")
+	ctx.SetParamValues(projectID.String(), statusID.String())
 	if got, err := parseProjectID(ctx); err != nil || got != projectID {
 		t.Fatalf("parseProjectID() = (%v, %v)", got, err)
 	}
 	if got, err := parseStatusID(ctx); err != nil || got != statusID {
 		t.Fatalf("parseStatusID() = (%v, %v)", got, err)
-	}
-	if got, err := parseStageID(ctx); err != nil || got != stageID {
-		t.Fatalf("parseStageID() = (%v, %v)", got, err)
 	}
 }
 

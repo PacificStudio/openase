@@ -1,9 +1,7 @@
 <script lang="ts">
-  import type { EditableStage } from '$lib/features/stages/public'
   import { Button } from '$ui/button'
   import { Checkbox } from '$ui/checkbox'
   import { Input } from '$ui/input'
-  import * as Select from '$ui/select'
   import Plus from '@lucide/svelte/icons/plus'
   import RotateCcw from '@lucide/svelte/icons/rotate-ccw'
 
@@ -11,8 +9,7 @@
     name = $bindable(''),
     color = $bindable('#94a3b8'),
     isDefault = $bindable(false),
-    stageId = $bindable(''),
-    stages = [],
+    maxActiveRuns = $bindable(''),
     creating = false,
     loading = false,
     resetting = false,
@@ -22,8 +19,7 @@
     name?: string
     color?: string
     isDefault?: boolean
-    stageId?: string
-    stages?: EditableStage[]
+    maxActiveRuns?: string
     creating?: boolean
     loading?: boolean
     resetting?: boolean
@@ -54,22 +50,14 @@
         class="size-9 shrink-0 rounded border-0 bg-transparent p-0"
       />
       <Input bind:value={name} class="h-9 flex-1 text-sm" placeholder="New status name" />
-      <Select.Root
-        type="single"
-        value={stageId}
-        onValueChange={(value) => (stageId = value || '')}
-        disabled={creating || loading}
-      >
-        <Select.Trigger class="w-44 text-left text-sm">
-          {stages.find((stage) => stage.id === stageId)?.name ?? 'Ungrouped'}
-        </Select.Trigger>
-        <Select.Content>
-          <Select.Item value="">Ungrouped</Select.Item>
-          {#each stages as stage (stage.id)}
-            <Select.Item value={stage.id}>{stage.name}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
+      <Input
+        bind:value={maxActiveRuns}
+        type="number"
+        min="1"
+        step="1"
+        class="h-9 w-40 text-sm"
+        placeholder="Unlimited"
+      />
       <Button class="shrink-0" onclick={onCreate} disabled={creating || loading}>
         <Plus class="size-3.5" />
         {creating ? 'Adding…' : 'Add'}
@@ -84,5 +72,8 @@
           : 'Leave this off to keep the current default status.'}
       </span>
     </label>
+    <p class="text-muted-foreground text-xs">
+      Leave concurrency blank for unlimited pickup from this status.
+    </p>
   </div>
 </div>

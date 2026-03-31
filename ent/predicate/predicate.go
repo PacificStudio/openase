@@ -75,9 +75,6 @@ type TicketRepoScope func(*sql.Selector)
 // TicketRepoWorkspace is the predicate function for ticketrepoworkspace builders.
 type TicketRepoWorkspace func(*sql.Selector)
 
-// TicketStage is the predicate function for ticketstage builders.
-type TicketStage func(*sql.Selector)
-
 // TicketStatus is the predicate function for ticketstatus builders.
 type TicketStatus func(*sql.Selector)
 

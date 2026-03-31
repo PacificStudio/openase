@@ -51,9 +51,6 @@ import type {
   SkillBindingUpdateResponse,
   SkillToggleResponse,
   SkillUpdateResponse,
-  StageDeleteResponse,
-  StagePayload,
-  StageResponse,
   StatusDeleteResponse,
   StatusPayload,
   StatusResetPayload,
@@ -491,47 +488,14 @@ export function listStatuses(projectId: string) {
   return api.get<StatusPayload>(`/api/v1/projects/${projectId}/statuses`)
 }
 
-export function listStages(projectId: string) {
-  return api.get<StagePayload>(`/api/v1/projects/${projectId}/stages`)
-}
-
-export function createStage(
-  projectId: string,
-  body: {
-    key: string
-    name: string
-    position?: number
-    max_active_runs?: number | null
-    description?: string
-  },
-) {
-  return api.post<StageResponse>(`/api/v1/projects/${projectId}/stages`, { body })
-}
-
-export function updateStage(
-  stageId: string,
-  body: {
-    name?: string
-    position?: number
-    max_active_runs?: number | null
-    description?: string
-  },
-) {
-  return api.patch<StageResponse>(`/api/v1/stages/${stageId}`, { body })
-}
-
-export function deleteStage(stageId: string) {
-  return api.delete<StageDeleteResponse>(`/api/v1/stages/${stageId}`)
-}
-
 export function createStatus(
   projectId: string,
   body: {
     name: string
     color: string
     icon?: string
-    stage_id?: string | null
     position?: number
+    max_active_runs?: number | null
     is_default?: boolean
     description?: string
   },
@@ -549,8 +513,8 @@ export function updateStatus(
     name?: string
     color?: string
     icon?: string
-    stage_id?: string | null
     position?: number
+    max_active_runs?: number | null
     is_default?: boolean
     description?: string
   },

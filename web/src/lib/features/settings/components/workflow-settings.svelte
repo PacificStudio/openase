@@ -15,8 +15,8 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { ApiError } from '$lib/api/client'
   import { Separator } from '$ui/separator'
-  import StatusStageConcurrency from './status-stage-concurrency.svelte'
-  import { startStageRuntimeSync } from './stage-runtime-sync'
+  import StatusConcurrency from './status-concurrency.svelte'
+  import { startStatusRuntimeSync } from './status-runtime-sync'
 
   const props = $props<{
     onOpenRepositories?: (() => void) | undefined
@@ -28,7 +28,7 @@
   let workflows = $state<WorkflowSummary[]>([])
   let agentOptions = $state<WorkflowAgentOption[]>([])
   let statuses = $state<WorkflowStatusOption[]>([])
-  let stages = $state<StatusPayload['stages']>([])
+  let statusCapacity = $state<StatusPayload['statuses']>([])
   let selectedId = $state('')
 
   let selectedWorkflow = $derived(workflows.find((workflow) => workflow.id === selectedId) ?? null)
@@ -40,7 +40,7 @@
       workflows = []
       agentOptions = []
       statuses = []
-      stages = []
+      statusCapacity = []
       prerequisite = null
       selectedId = ''
       error = ''
@@ -63,7 +63,7 @@
         workflows = catalog.workflows
         agentOptions = catalog.agentOptions
         statuses = catalog.statuses
-        stages = statusPayload.stages
+        statusCapacity = statusPayload.statuses
         if (
           !selectedId ||
           !catalog.workflows.some((workflow: WorkflowSummary) => workflow.id === selectedId)
@@ -90,20 +90,20 @@
   $effect(() => {
     const projectId = appStore.currentProject?.id
     if (!projectId) {
-      stages = []
+      statusCapacity = []
       return
     }
 
-    const stopSync = startStageRuntimeSync({
+    const stopSync = startStatusRuntimeSync({
       projectId,
       loadSnapshot: listStatuses,
       connectEventStream,
       skipInitialLoad: true,
       applySnapshot: (payload) => {
-        stages = payload.stages
+        statusCapacity = payload.statuses
       },
       onRefreshError: (caughtError) => {
-        console.error('Failed to refresh workflow stage concurrency:', caughtError)
+        console.error('Failed to refresh workflow status concurrency:', caughtError)
       },
     })
 
@@ -153,8 +153,8 @@
         {/if}
       </div>
 
-      {#if stages.length > 0}
-        <StatusStageConcurrency {stages} />
+      {#if statusCapacity.some((status) => status.max_active_runs != null)}
+        <StatusConcurrency statuses={statusCapacity} />
       {/if}
     </div>
   {/if}

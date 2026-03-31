@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { EditableStage } from '$lib/features/stages/public'
   import {
     parseStatusDraft,
     type EditableStatus,
@@ -10,12 +9,10 @@
   import { Button } from '$ui/button'
   import * as DropdownMenu from '$ui/dropdown-menu'
   import { Input } from '$ui/input'
-  import * as Select from '$ui/select'
   import { ArrowDown, ArrowUp, CircleDot, Ellipsis, Save, Trash2 } from '@lucide/svelte'
 
   let {
     status,
-    stages,
     order,
     busy = false,
     canMoveUp = false,
@@ -27,7 +24,6 @@
     onSetDefault,
   }: {
     status: EditableStatus
-    stages: EditableStage[]
     order: number
     busy?: boolean
     canMoveUp?: boolean
@@ -43,14 +39,14 @@
     name: '',
     color: '#94a3b8',
     isDefault: false,
-    stageId: '',
+    maxActiveRuns: '',
   })
   let validationError = $state('')
 
   const dirty = $derived(
     draft.name.trim() !== status.name ||
       draft.color.toLowerCase() !== status.color.toLowerCase() ||
-      draft.stageId !== (status.stageId ?? ''),
+      draft.maxActiveRuns !== (status.maxActiveRuns?.toString() ?? ''),
   )
 
   $effect(() => {
@@ -58,7 +54,7 @@
       name: status.name,
       color: status.color,
       isDefault: status.isDefault,
-      stageId: status.stageId ?? '',
+      maxActiveRuns: status.maxActiveRuns?.toString() ?? '',
     }
     validationError = ''
   })
@@ -92,25 +88,24 @@
       class="h-9 flex-1 text-sm"
       placeholder="Status name"
     />
-    <Select.Root
-      type="single"
-      value={draft.stageId}
-      onValueChange={(value) => (draft = { ...draft, stageId: value || '' })}
+    <Input
+      bind:value={draft.maxActiveRuns}
+      type="number"
+      min="1"
+      step="1"
       disabled={busy}
-    >
-      <Select.Trigger class="w-40 shrink-0 text-left text-sm">
-        {stages.find((stage) => stage.id === draft.stageId)?.name ?? 'Ungrouped'}
-      </Select.Trigger>
-      <Select.Content>
-        <Select.Item value="">Ungrouped</Select.Item>
-        {#each stages as stage (stage.id)}
-          <Select.Item value={stage.id}>{stage.name}</Select.Item>
-        {/each}
-      </Select.Content>
-    </Select.Root>
+      class="h-9 w-32 text-sm"
+      placeholder="Unlimited"
+    />
 
     {#if status.isDefault}
       <Badge variant="secondary" class="shrink-0 text-[10px]">Default</Badge>
+    {/if}
+
+    {#if status.maxActiveRuns}
+      <Badge variant="outline" class="shrink-0 text-[10px]">
+        {status.activeRuns} / {status.maxActiveRuns} active
+      </Badge>
     {/if}
 
     <Button

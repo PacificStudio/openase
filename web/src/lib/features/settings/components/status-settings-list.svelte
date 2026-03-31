@@ -1,11 +1,9 @@
 <script lang="ts">
-  import type { EditableStage } from '$lib/features/stages/public'
   import type { EditableStatus, ParsedStatusDraft } from '$lib/features/statuses/public'
   import StatusSettingsRow from './status-settings-row.svelte'
 
   let {
     statuses,
-    stages,
     loading = false,
     resetting = false,
     busyStatusId = '',
@@ -15,7 +13,6 @@
     onSetDefault,
   }: {
     statuses: EditableStatus[]
-    stages: EditableStage[]
     loading?: boolean
     resetting?: boolean
     busyStatusId?: string
@@ -37,7 +34,6 @@
     {#each statuses as status, index (status.id)}
       <StatusSettingsRow
         {status}
-        {stages}
         order={index}
         busy={busyStatusId === status.id || resetting || loading}
         canMoveUp={index > 0}

@@ -39,7 +39,7 @@ const (
 	skipReasonProviderBusy        = "provider_busy"
 	skipReasonMirrorNotReady      = "mirror_not_ready"
 	skipReasonMaxConcurrency      = "max_concurrency"
-	skipReasonStageCapacity       = "stage_capacity"
+	skipReasonStatusCapacity      = "status_capacity"
 )
 
 // TickReport summarizes the work done during one scheduler tick.
@@ -416,24 +416,23 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 
 	pickupStatus, err := tx.TicketStatus.Query().
 		Where(entticketstatus.IDEQ(ticket.StatusID)).
-		WithStage().
 		Only(ctx)
 	if err != nil {
 		return "", fmt.Errorf("load workflow pickup status: %w", err)
 	}
-	if pickupStatus.Edges.Stage != nil && pickupStatus.Edges.Stage.MaxActiveRuns != nil {
-		stageActive, err := tx.Ticket.Query().
+	if pickupStatus.MaxActiveRuns != nil {
+		statusActive, err := tx.Ticket.Query().
 			Where(
 				entticket.ProjectIDEQ(workflow.ProjectID),
 				entticket.CurrentRunIDNotNil(),
-				entticket.HasStatusWith(entticketstatus.StageIDEQ(pickupStatus.Edges.Stage.ID)),
+				entticket.StatusIDEQ(pickupStatus.ID),
 			).
 			Count(ctx)
 		if err != nil {
-			return "", fmt.Errorf("count stage concurrency: %w", err)
+			return "", fmt.Errorf("count status concurrency: %w", err)
 		}
-		if stageActive >= *pickupStatus.Edges.Stage.MaxActiveRuns {
-			return skipReasonStageCapacity, nil
+		if statusActive >= *pickupStatus.MaxActiveRuns {
+			return skipReasonStatusCapacity, nil
 		}
 	}
 

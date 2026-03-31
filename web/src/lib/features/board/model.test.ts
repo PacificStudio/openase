@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import type { ActivityEvent, Agent, Ticket, Workflow } from '$lib/api/contracts'
 import { buildBoardData } from './model'
-import { stageOrderedStatusPayloadFixture } from './test-fixtures'
+import { orderedStatusPayloadFixture } from './test-fixtures'
 
-const statusesFixture = stageOrderedStatusPayloadFixture
+const statusesFixture = orderedStatusPayloadFixture
 
 const workflowsFixture: Workflow[] = [
   {
@@ -113,23 +113,16 @@ describe('board model', () => {
 
     expect(board.workflowTypes).toEqual(['coding'])
     expect(board.agentOptions).toEqual(['Codex Worker'])
-    expect(board.groups.map((group) => group.name)).toEqual([
-      'Backlog',
-      'Execution',
-      'Ungrouped statuses',
-    ])
-    expect(board.columns.map((column) => column.name)).toEqual(['Todo', 'Doing', 'Inbox'])
-    expect(board.groups[1]?.wipInfo).toBe('1 / 1 active')
-    expect(board.groups[2]?.description).toBe(
-      'Statuses without a stage always render after staged groups.',
-    )
-    expect(board.columns[0]?.tickets[0]).toMatchObject({
+    expect(board.groups.map((group) => group.name)).toEqual(['Board'])
+    expect(board.columns.map((column) => column.name)).toEqual(['Inbox', 'Todo', 'Doing'])
+    expect(board.columns[2]?.wipInfo).toBe('1 / 1 active')
+    expect(board.columns[1]?.tickets[0]).toMatchObject({
       id: 'ticket-1',
       workflowType: 'coding',
       agentName: 'Codex Worker',
       updatedAt: '2026-03-22T09:30:00Z',
     })
-    expect('prCount' in (board.columns[0]?.tickets[0] ?? {})).toBe(false)
-    expect('prStatus' in (board.columns[0]?.tickets[0] ?? {})).toBe(false)
+    expect('prCount' in (board.columns[1]?.tickets[0] ?? {})).toBe(false)
+    expect('prStatus' in (board.columns[1]?.tickets[0] ?? {})).toBe(false)
   })
 })

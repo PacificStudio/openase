@@ -12074,298 +12074,6 @@
         ]
       }
     },
-    "/api/v1/projects/{projectId}/stages": {
-      "get": {
-        "operationId": "listTicketStages",
-        "parameters": [
-          {
-            "description": "Project ID.",
-            "in": "path",
-            "name": "projectId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "stages": {
-                      "items": {
-                        "properties": {
-                          "active_runs": {
-                            "type": "integer"
-                          },
-                          "description": {
-                            "type": "string"
-                          },
-                          "id": {
-                            "type": "string"
-                          },
-                          "key": {
-                            "type": "string"
-                          },
-                          "max_active_runs": {
-                            "nullable": true,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "position": {
-                            "type": "integer"
-                          },
-                          "project_id": {
-                            "type": "string"
-                          }
-                        },
-                        "type": "object"
-                      },
-                      "type": "array"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "List ticket stages response."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Request response."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Not Found response."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Internal Server Error response."
-          }
-        },
-        "summary": "List ticket stages",
-        "tags": [
-          "catalog"
-        ]
-      },
-      "post": {
-        "operationId": "createTicketStage",
-        "parameters": [
-          {
-            "description": "Project ID.",
-            "in": "path",
-            "name": "projectId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "properties": {
-                  "description": {
-                    "description": "Human-readable stage description.",
-                    "type": "string"
-                  },
-                  "key": {
-                    "description": "Stable machine-readable key for the ticket stage.",
-                    "type": "string"
-                  },
-                  "max_active_runs": {
-                    "description": "Maximum number of active runs allowed in this stage.",
-                    "nullable": true,
-                    "type": "integer"
-                  },
-                  "name": {
-                    "description": "Human-readable stage name.",
-                    "type": "string"
-                  },
-                  "position": {
-                    "description": "Zero-based display order of the stage.",
-                    "nullable": true,
-                    "type": "integer"
-                  }
-                },
-                "type": "object"
-              }
-            }
-          },
-          "description": "Create a ticket stage request body.",
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "stage": {
-                      "properties": {
-                        "active_runs": {
-                          "type": "integer"
-                        },
-                        "description": {
-                          "type": "string"
-                        },
-                        "id": {
-                          "type": "string"
-                        },
-                        "key": {
-                          "type": "string"
-                        },
-                        "max_active_runs": {
-                          "nullable": true,
-                          "type": "integer"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "position": {
-                          "type": "integer"
-                        },
-                        "project_id": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Create a ticket stage response."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Request response."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Not Found response."
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Conflict response."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Internal Server Error response."
-          }
-        },
-        "summary": "Create a ticket stage",
-        "tags": [
-          "catalog"
-        ]
-      }
-    },
     "/api/v1/projects/{projectId}/statuses": {
       "get": {
         "operationId": "listTicketStatuses",
@@ -12387,148 +12095,12 @@
               "application/json": {
                 "schema": {
                   "properties": {
-                    "stage_groups": {
-                      "items": {
-                        "properties": {
-                          "stage": {
-                            "nullable": true,
-                            "properties": {
-                              "active_runs": {
-                                "type": "integer"
-                              },
-                              "description": {
-                                "type": "string"
-                              },
-                              "id": {
-                                "type": "string"
-                              },
-                              "key": {
-                                "type": "string"
-                              },
-                              "max_active_runs": {
-                                "nullable": true,
-                                "type": "integer"
-                              },
-                              "name": {
-                                "type": "string"
-                              },
-                              "position": {
-                                "type": "integer"
-                              },
-                              "project_id": {
-                                "type": "string"
-                              }
-                            },
-                            "type": "object"
-                          },
-                          "statuses": {
-                            "items": {
-                              "properties": {
-                                "color": {
-                                  "type": "string"
-                                },
-                                "description": {
-                                  "type": "string"
-                                },
-                                "icon": {
-                                  "type": "string"
-                                },
-                                "id": {
-                                  "type": "string"
-                                },
-                                "is_default": {
-                                  "type": "boolean"
-                                },
-                                "name": {
-                                  "type": "string"
-                                },
-                                "position": {
-                                  "type": "integer"
-                                },
-                                "project_id": {
-                                  "type": "string"
-                                },
-                                "stage": {
-                                  "nullable": true,
-                                  "properties": {
-                                    "active_runs": {
-                                      "type": "integer"
-                                    },
-                                    "description": {
-                                      "type": "string"
-                                    },
-                                    "id": {
-                                      "type": "string"
-                                    },
-                                    "key": {
-                                      "type": "string"
-                                    },
-                                    "max_active_runs": {
-                                      "nullable": true,
-                                      "type": "integer"
-                                    },
-                                    "name": {
-                                      "type": "string"
-                                    },
-                                    "position": {
-                                      "type": "integer"
-                                    },
-                                    "project_id": {
-                                      "type": "string"
-                                    }
-                                  },
-                                  "type": "object"
-                                },
-                                "stage_id": {
-                                  "nullable": true,
-                                  "type": "string"
-                                }
-                              },
-                              "type": "object"
-                            },
-                            "type": "array"
-                          }
-                        },
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "stages": {
+                    "statuses": {
                       "items": {
                         "properties": {
                           "active_runs": {
                             "type": "integer"
                           },
-                          "description": {
-                            "type": "string"
-                          },
-                          "id": {
-                            "type": "string"
-                          },
-                          "key": {
-                            "type": "string"
-                          },
-                          "max_active_runs": {
-                            "nullable": true,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "position": {
-                            "type": "integer"
-                          },
-                          "project_id": {
-                            "type": "string"
-                          }
-                        },
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "statuses": {
-                      "items": {
-                        "properties": {
                           "color": {
                             "type": "string"
                           },
@@ -12544,6 +12116,10 @@
                           "is_default": {
                             "type": "boolean"
                           },
+                          "max_active_runs": {
+                            "nullable": true,
+                            "type": "integer"
+                          },
                           "name": {
                             "type": "string"
                           },
@@ -12551,41 +12127,6 @@
                             "type": "integer"
                           },
                           "project_id": {
-                            "type": "string"
-                          },
-                          "stage": {
-                            "nullable": true,
-                            "properties": {
-                              "active_runs": {
-                                "type": "integer"
-                              },
-                              "description": {
-                                "type": "string"
-                              },
-                              "id": {
-                                "type": "string"
-                              },
-                              "key": {
-                                "type": "string"
-                              },
-                              "max_active_runs": {
-                                "nullable": true,
-                                "type": "integer"
-                              },
-                              "name": {
-                                "type": "string"
-                              },
-                              "position": {
-                                "type": "integer"
-                              },
-                              "project_id": {
-                                "type": "string"
-                              }
-                            },
-                            "type": "object"
-                          },
-                          "stage_id": {
-                            "nullable": true,
                             "type": "string"
                           }
                         },
@@ -12695,6 +12236,11 @@
                     "description": "Whether this status should become the default status.",
                     "type": "boolean"
                   },
+                  "max_active_runs": {
+                    "description": "Maximum number of active runs allowed in this status.",
+                    "nullable": true,
+                    "type": "integer"
+                  },
                   "name": {
                     "description": "Human-readable status name.",
                     "type": "string"
@@ -12703,11 +12249,6 @@
                     "description": "Zero-based display order of the status.",
                     "nullable": true,
                     "type": "integer"
-                  },
-                  "stage_id": {
-                    "description": "Optional stage ID that owns the status.",
-                    "nullable": true,
-                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -12725,6 +12266,9 @@
                   "properties": {
                     "status": {
                       "properties": {
+                        "active_runs": {
+                          "type": "integer"
+                        },
                         "color": {
                           "type": "string"
                         },
@@ -12740,6 +12284,10 @@
                         "is_default": {
                           "type": "boolean"
                         },
+                        "max_active_runs": {
+                          "nullable": true,
+                          "type": "integer"
+                        },
                         "name": {
                           "type": "string"
                         },
@@ -12747,41 +12295,6 @@
                           "type": "integer"
                         },
                         "project_id": {
-                          "type": "string"
-                        },
-                        "stage": {
-                          "nullable": true,
-                          "properties": {
-                            "active_runs": {
-                              "type": "integer"
-                            },
-                            "description": {
-                              "type": "string"
-                            },
-                            "id": {
-                              "type": "string"
-                            },
-                            "key": {
-                              "type": "string"
-                            },
-                            "max_active_runs": {
-                              "nullable": true,
-                              "type": "integer"
-                            },
-                            "name": {
-                              "type": "string"
-                            },
-                            "position": {
-                              "type": "integer"
-                            },
-                            "project_id": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "stage_id": {
-                          "nullable": true,
                           "type": "string"
                         }
                       },
@@ -12894,148 +12407,12 @@
               "application/json": {
                 "schema": {
                   "properties": {
-                    "stage_groups": {
-                      "items": {
-                        "properties": {
-                          "stage": {
-                            "nullable": true,
-                            "properties": {
-                              "active_runs": {
-                                "type": "integer"
-                              },
-                              "description": {
-                                "type": "string"
-                              },
-                              "id": {
-                                "type": "string"
-                              },
-                              "key": {
-                                "type": "string"
-                              },
-                              "max_active_runs": {
-                                "nullable": true,
-                                "type": "integer"
-                              },
-                              "name": {
-                                "type": "string"
-                              },
-                              "position": {
-                                "type": "integer"
-                              },
-                              "project_id": {
-                                "type": "string"
-                              }
-                            },
-                            "type": "object"
-                          },
-                          "statuses": {
-                            "items": {
-                              "properties": {
-                                "color": {
-                                  "type": "string"
-                                },
-                                "description": {
-                                  "type": "string"
-                                },
-                                "icon": {
-                                  "type": "string"
-                                },
-                                "id": {
-                                  "type": "string"
-                                },
-                                "is_default": {
-                                  "type": "boolean"
-                                },
-                                "name": {
-                                  "type": "string"
-                                },
-                                "position": {
-                                  "type": "integer"
-                                },
-                                "project_id": {
-                                  "type": "string"
-                                },
-                                "stage": {
-                                  "nullable": true,
-                                  "properties": {
-                                    "active_runs": {
-                                      "type": "integer"
-                                    },
-                                    "description": {
-                                      "type": "string"
-                                    },
-                                    "id": {
-                                      "type": "string"
-                                    },
-                                    "key": {
-                                      "type": "string"
-                                    },
-                                    "max_active_runs": {
-                                      "nullable": true,
-                                      "type": "integer"
-                                    },
-                                    "name": {
-                                      "type": "string"
-                                    },
-                                    "position": {
-                                      "type": "integer"
-                                    },
-                                    "project_id": {
-                                      "type": "string"
-                                    }
-                                  },
-                                  "type": "object"
-                                },
-                                "stage_id": {
-                                  "nullable": true,
-                                  "type": "string"
-                                }
-                              },
-                              "type": "object"
-                            },
-                            "type": "array"
-                          }
-                        },
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "stages": {
+                    "statuses": {
                       "items": {
                         "properties": {
                           "active_runs": {
                             "type": "integer"
                           },
-                          "description": {
-                            "type": "string"
-                          },
-                          "id": {
-                            "type": "string"
-                          },
-                          "key": {
-                            "type": "string"
-                          },
-                          "max_active_runs": {
-                            "nullable": true,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "position": {
-                            "type": "integer"
-                          },
-                          "project_id": {
-                            "type": "string"
-                          }
-                        },
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "statuses": {
-                      "items": {
-                        "properties": {
                           "color": {
                             "type": "string"
                           },
@@ -13051,6 +12428,10 @@
                           "is_default": {
                             "type": "boolean"
                           },
+                          "max_active_runs": {
+                            "nullable": true,
+                            "type": "integer"
+                          },
                           "name": {
                             "type": "string"
                           },
@@ -13058,41 +12439,6 @@
                             "type": "integer"
                           },
                           "project_id": {
-                            "type": "string"
-                          },
-                          "stage": {
-                            "nullable": true,
-                            "properties": {
-                              "active_runs": {
-                                "type": "integer"
-                              },
-                              "description": {
-                                "type": "string"
-                              },
-                              "id": {
-                                "type": "string"
-                              },
-                              "key": {
-                                "type": "string"
-                              },
-                              "max_active_runs": {
-                                "nullable": true,
-                                "type": "integer"
-                              },
-                              "name": {
-                                "type": "string"
-                              },
-                              "position": {
-                                "type": "integer"
-                              },
-                              "project_id": {
-                                "type": "string"
-                              }
-                            },
-                            "type": "object"
-                          },
-                          "stage_id": {
-                            "nullable": true,
                             "type": "string"
                           }
                         },
@@ -17953,287 +17299,6 @@
         ]
       }
     },
-    "/api/v1/stages/{stageId}": {
-      "delete": {
-        "operationId": "deleteTicketStage",
-        "parameters": [
-          {
-            "description": "Ticket stage ID.",
-            "in": "path",
-            "name": "stageId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "deleted_stage_id": {
-                      "type": "string"
-                    },
-                    "detached_statuses": {
-                      "type": "integer"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Delete a ticket stage response."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Request response."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Not Found response."
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Conflict response."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Internal Server Error response."
-          }
-        },
-        "summary": "Delete a ticket stage",
-        "tags": [
-          "catalog"
-        ]
-      },
-      "patch": {
-        "operationId": "updateTicketStage",
-        "parameters": [
-          {
-            "description": "Ticket stage ID.",
-            "in": "path",
-            "name": "stageId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "properties": {
-                  "description": {
-                    "description": "Human-readable stage description.",
-                    "nullable": true,
-                    "type": "string"
-                  },
-                  "max_active_runs": {
-                    "description": "Maximum number of active runs allowed in this stage.",
-                    "nullable": true,
-                    "type": "integer"
-                  },
-                  "name": {
-                    "description": "Human-readable stage name.",
-                    "nullable": true,
-                    "type": "string"
-                  },
-                  "position": {
-                    "description": "Zero-based display order of the stage.",
-                    "nullable": true,
-                    "type": "integer"
-                  }
-                },
-                "type": "object"
-              }
-            }
-          },
-          "description": "Update a ticket stage request body.",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "stage": {
-                      "properties": {
-                        "active_runs": {
-                          "type": "integer"
-                        },
-                        "description": {
-                          "type": "string"
-                        },
-                        "id": {
-                          "type": "string"
-                        },
-                        "key": {
-                          "type": "string"
-                        },
-                        "max_active_runs": {
-                          "nullable": true,
-                          "type": "integer"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "position": {
-                          "type": "integer"
-                        },
-                        "project_id": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Update a ticket stage response."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Request response."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Not Found response."
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Conflict response."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Internal Server Error response."
-          }
-        },
-        "summary": "Update a ticket stage",
-        "tags": [
-          "catalog"
-        ]
-      }
-    },
     "/api/v1/statuses/{statusId}": {
       "delete": {
         "operationId": "deleteTicketStatus",
@@ -18385,6 +17450,11 @@
                     "nullable": true,
                     "type": "boolean"
                   },
+                  "max_active_runs": {
+                    "description": "Maximum number of active runs allowed in this status.",
+                    "nullable": true,
+                    "type": "integer"
+                  },
                   "name": {
                     "description": "Human-readable status name.",
                     "nullable": true,
@@ -18394,11 +17464,6 @@
                     "description": "Zero-based display order of the status.",
                     "nullable": true,
                     "type": "integer"
-                  },
-                  "stage_id": {
-                    "description": "Optional stage ID that owns the status.",
-                    "nullable": true,
-                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -18416,6 +17481,9 @@
                   "properties": {
                     "status": {
                       "properties": {
+                        "active_runs": {
+                          "type": "integer"
+                        },
                         "color": {
                           "type": "string"
                         },
@@ -18431,6 +17499,10 @@
                         "is_default": {
                           "type": "boolean"
                         },
+                        "max_active_runs": {
+                          "nullable": true,
+                          "type": "integer"
+                        },
                         "name": {
                           "type": "string"
                         },
@@ -18438,41 +17510,6 @@
                           "type": "integer"
                         },
                         "project_id": {
-                          "type": "string"
-                        },
-                        "stage": {
-                          "nullable": true,
-                          "properties": {
-                            "active_runs": {
-                              "type": "integer"
-                            },
-                            "description": {
-                              "type": "string"
-                            },
-                            "id": {
-                              "type": "string"
-                            },
-                            "key": {
-                              "type": "string"
-                            },
-                            "max_active_runs": {
-                              "nullable": true,
-                              "type": "integer"
-                            },
-                            "name": {
-                              "type": "string"
-                            },
-                            "position": {
-                              "type": "integer"
-                            },
-                            "project_id": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "stage_id": {
-                          "nullable": true,
                           "type": "string"
                         }
                       },
