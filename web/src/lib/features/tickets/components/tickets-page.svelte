@@ -24,7 +24,7 @@
     findTicketLocation,
     patchTicket,
     relocateTicket,
-    type BoardColumnType,
+    type BoardColumnType as BoardColumn,
     type BoardFilter,
     type BoardTicket,
     type PendingTicketMove,
@@ -33,7 +33,7 @@
   let filter = $state<BoardFilter>({ search: '' })
   let loading = $state(false)
   let error = $state('')
-  let allColumns = $state<BoardColumnType[]>([])
+  let allColumns = $state<BoardColumn[]>([])
   let workflows = $state<string[]>([])
   let agentOptions = $state<string[]>([])
   let draggingTicketId = $state<string | null>(null)
