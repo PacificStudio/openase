@@ -10,7 +10,7 @@ OPENASE_BIN := ./bin/openase
 
 .DEFAULT_GOAL := help
 
-.PHONY: help format fmt-check test test-backend-coverage check hooks-install hooks-run openapi-generate openapi-check web-install web-lint web-format-check web-check web-validate web-build build build-web run doctor lint lint-all lint-depguard lint-architecture
+.PHONY: help format fmt-check test test-backend-coverage check hooks-install hooks-run openapi-generate openapi-check frontend-api-audit-check web-install web-lint web-format-check web-check web-validate web-build build build-web run doctor lint lint-all lint-depguard lint-architecture
 
 help:
 	@printf '%s\n' \
@@ -24,6 +24,7 @@ help:
 		'  make hooks-run     Run the pre-commit hook against all files' \
 		'  make openapi-generate Regenerate api/openapi.json and frontend generated API types' \
 		'  make openapi-check Regenerate OpenAPI artifacts and fail if git diff is non-empty' \
+		'  make frontend-api-audit-check Fail when backend APIs are unbound, contract-only, or wrapped-but-unused in the frontend' \
 		'  make web-install   Install frontend dependencies with pnpm install --frozen-lockfile' \
 		'  make web-lint      Run frontend ESLint checks' \
 		'  make web-format-check Verify frontend formatting with Prettier' \
@@ -96,6 +97,12 @@ openapi-generate: web-install
 
 openapi-check: openapi-generate
 	git diff --exit-code -- api/openapi.json web/src/lib/api/generated/openapi.d.ts
+
+frontend-api-audit-check:
+	python3 ./scripts/dev/audit_frontend_api_usage.py \
+		--fail-on backend_only \
+		--fail-on contract_only \
+		--fail-on wrapped_but_unused
 
 web-install:
 	$(PNPM) --dir $(WEB_DIR) install --frozen-lockfile
