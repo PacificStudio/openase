@@ -4,21 +4,18 @@
   import { Button } from '$ui/button'
   import * as Select from '$ui/select'
   import { Search, Columns3, List, AlertTriangle } from '@lucide/svelte'
+  import { ticketViewStore } from '$lib/stores/ticket-view.svelte'
   import type { BoardFilter } from '../types'
 
   let {
     filter = $bindable({ search: '' }),
-    view = $bindable<'board' | 'list'>('board'),
     workflows = [],
     agents = [],
-    listEnabled = false,
     class: className = '',
   }: {
     filter?: BoardFilter
-    view?: 'board' | 'list'
     workflows?: string[]
     agents?: string[]
-    listEnabled?: boolean
     class?: string
   } = $props()
 
@@ -109,26 +106,20 @@
 
   <div class="border-border ml-auto flex items-center rounded-md border">
     <Button
-      variant={view === 'board' ? 'secondary' : 'ghost'}
+      variant={ticketViewStore.mode === 'board' ? 'secondary' : 'ghost'}
       size="sm"
       class="h-7 rounded-r-none px-2"
       aria-label="Board view"
-      onclick={() => {
-        view = 'board'
-      }}
+      onclick={() => ticketViewStore.setMode('board')}
     >
       <Columns3 class="size-3.5" />
     </Button>
     <Button
-      variant={view === 'list' ? 'secondary' : 'ghost'}
+      variant={ticketViewStore.mode === 'list' ? 'secondary' : 'ghost'}
       size="sm"
       class="h-7 rounded-l-none px-2"
-      disabled={!listEnabled}
       aria-label="List view"
-      title={listEnabled ? 'Switch to list view' : 'List view is not implemented yet'}
-      onclick={() => {
-        view = 'list'
-      }}
+      onclick={() => ticketViewStore.setMode('list')}
     >
       <List class="size-3.5" />
     </Button>

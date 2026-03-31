@@ -12,7 +12,6 @@ export const globalNav: NavItem[] = [
 
 export const projectNav: NavItem[] = [
   { label: 'Overview', href: '/overview', icon: 'gauge' },
-  { label: 'Board', href: '/board', icon: 'kanban' },
   { label: 'Tickets', href: '/tickets', icon: 'ticket' },
   { label: 'Workflows', href: '/workflows', icon: 'workflow' },
   { label: 'Agents', href: '/agents', icon: 'bot' },

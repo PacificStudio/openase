@@ -23,7 +23,6 @@ type BuildSearchIndexInput = {
 
 const sectionLabels: Record<ProjectSection, string> = {
   dashboard: 'Dashboard',
-  board: 'Board',
   tickets: 'Tickets',
   agents: 'Agents',
   machines: 'Machines',

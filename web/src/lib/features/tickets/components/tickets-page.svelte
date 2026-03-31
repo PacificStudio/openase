@@ -1,116 +1,168 @@
 <script lang="ts">
+  import { appStore } from '$lib/stores/app.svelte'
+  import { ticketViewStore } from '$lib/stores/ticket-view.svelte'
   import { connectEventStream } from '$lib/api/sse'
   import { ApiError } from '$lib/api/client'
   import { capabilityCatalog } from '$lib/features/capabilities'
-  import { listTickets, listWorkflows } from '$lib/api/openase'
+  import {
+    listActivity,
+    listAgents,
+    listStatuses,
+    listTickets,
+    listWorkflows,
+    updateTicket,
+  } from '$lib/api/openase'
   import { statusSync } from '$lib/features/statuses/public'
-  import PageHeader from '$lib/components/layout/page-header.svelte'
-  import { appStore } from '$lib/stores/app.svelte'
-  import { cn, formatRelativeTime } from '$lib/utils'
-  import { Badge } from '$ui/badge'
+  import { toastStore } from '$lib/stores/toast.svelte'
+  import { PageScaffold } from '$lib/components/layout'
   import { Button } from '$ui/button'
-  import { Input } from '$ui/input'
-  import * as Select from '$ui/select'
-  import { ArrowDownAZ, Search } from '@lucide/svelte'
+  import type { BoardColumn, BoardFilter, BoardTicket } from '$lib/features/board/types'
+  import {
+    buildBoardData,
+    filterBoardColumns,
+    findTicketLocation,
+    patchTicket,
+    relocateTicket,
+    type PendingTicketMove,
+  } from '$lib/features/board/model'
+  import BoardListView from '$lib/features/board/components/board-list-view.svelte'
+  import BoardToolbar from '$lib/features/board/components/board-toolbar.svelte'
+  import BoardView from '$lib/features/board/components/board-view.svelte'
 
-  const priorityColors: Record<string, string> = {
-    urgent: 'bg-destructive',
-    high: 'bg-warning',
-    medium: 'bg-info',
-    low: 'bg-muted-foreground',
-  }
-
-  type TicketRow = {
-    id: string
-    identifier: string
-    title: string
-    status: string
-    priority: 'urgent' | 'high' | 'medium' | 'low'
-    workflow: string
-    updatedAt: string
-  }
-
-  let loading = $state(false)
-  let error = $state('')
-  let tickets = $state<TicketRow[]>([])
-  let searchQuery = $state('')
-  let priorityFilter = $state('all')
-  let sortOrder = $state<'updated' | 'priority'>('updated')
   const newTicketCapability = capabilityCatalog.newTicket
 
-  const filteredTickets = $derived.by(() => {
-    const query = searchQuery.toLowerCase()
-    const filtered = tickets.filter((ticket) => {
-      if (priorityFilter !== 'all' && ticket.priority !== priorityFilter) return false
-      if (!query) return true
-      return (
-        ticket.identifier.toLowerCase().includes(query) ||
-        ticket.title.toLowerCase().includes(query) ||
-        ticket.status.toLowerCase().includes(query)
-      )
-    })
+  let filter = $state<BoardFilter>({ search: '' })
+  let loading = $state(false)
+  let error = $state('')
+  let allColumns = $state<BoardColumn[]>([])
+  let workflows = $state<string[]>([])
+  let agentOptions = $state<string[]>([])
+  let draggingTicketId = $state<string | null>(null)
+  let dropColumnId = $state<string | null>(null)
 
-    return filtered.sort((left, right) => {
-      if (sortOrder === 'priority') {
-        return priorityWeight(right.priority) - priorityWeight(left.priority)
+  const pendingMoveByTicket = new Map<string, PendingTicketMove>()
+  let activeProjectId: string | null = null
+  let loadRequestVersion = 0
+  let queuedReload = false
+  let reloadInFlight = false
+  let filteredColumns = $derived(filterBoardColumns(allColumns, filter))
+
+  function isStaleLoad(projectId: string, requestVersion: number) {
+    return activeProjectId !== projectId || requestVersion !== loadRequestVersion
+  }
+
+  function beginLoad(mode: 'initial' | 'background') {
+    if (mode === 'initial') {
+      loading = true
+    }
+    error = ''
+  }
+
+  function shouldDeferLoadedBoard(mode: 'initial' | 'background') {
+    return mode === 'background' && pendingMoveByTicket.size > 0
+  }
+
+  function finishInitialLoad(
+    projectId: string,
+    requestVersion: number,
+    mode: 'initial' | 'background',
+  ) {
+    if (!isStaleLoad(projectId, requestVersion) && mode === 'initial') {
+      loading = false
+    }
+  }
+
+  async function loadBoard(projectId: string, mode: 'initial' | 'background') {
+    const requestVersion = ++loadRequestVersion
+    beginLoad(mode)
+
+    try {
+      const [statusPayload, ticketPayload, workflowPayload, agentPayload, activityPayload] =
+        await Promise.all([
+          listStatuses(projectId),
+          listTickets(projectId),
+          listWorkflows(projectId),
+          listAgents(projectId),
+          listActivity(projectId, { limit: 200 }),
+        ])
+      if (isStaleLoad(projectId, requestVersion)) {
+        return
+      }
+      if (shouldDeferLoadedBoard(mode)) {
+        queuedReload = true
+        return
       }
 
-      return new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
-    })
-  })
+      const nextBoard = buildBoardData(
+        statusPayload.statuses,
+        ticketPayload.tickets,
+        workflowPayload.workflows,
+        agentPayload.agents,
+        activityPayload.events,
+      )
+
+      workflows = nextBoard.workflowTypes
+      agentOptions = nextBoard.agentOptions
+      allColumns = nextBoard.columns
+    } catch (caughtError) {
+      if (isStaleLoad(projectId, requestVersion)) return
+      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load tickets.'
+    } finally {
+      finishInitialLoad(projectId, requestVersion, mode)
+    }
+  }
+
+  function requestReload(projectId: string) {
+    queuedReload = true
+    void drainReloadQueue(projectId)
+  }
+
+  async function drainReloadQueue(projectId: string) {
+    if (
+      !queuedReload ||
+      reloadInFlight ||
+      pendingMoveByTicket.size > 0 ||
+      activeProjectId !== projectId
+    ) {
+      return
+    }
+
+    reloadInFlight = true
+    queuedReload = false
+    try {
+      await loadBoard(projectId, 'background')
+    } finally {
+      reloadInFlight = false
+      if (queuedReload && pendingMoveByTicket.size === 0 && activeProjectId === projectId) {
+        void drainReloadQueue(projectId)
+      }
+    }
+  }
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
     const statusVersion = statusSync.version
+    activeProjectId = projectId ?? null
+    pendingMoveByTicket.clear()
+    queuedReload = false
+    reloadInFlight = false
+    draggingTicketId = null
+    dropColumnId = null
     if (!projectId) {
-      tickets = []
+      allColumns = []
+      workflows = []
+      agentOptions = []
+      error = ''
+      loading = false
       return
     }
 
-    let cancelled = false
-
-    const load = async () => {
-      loading = true
-      error = ''
-      void statusVersion
-
-      try {
-        const [ticketPayload, workflowPayload] = await Promise.all([
-          listTickets(projectId),
-          listWorkflows(projectId),
-        ])
-        if (cancelled) return
-
-        const workflowMap = new Map(
-          workflowPayload.workflows.map((workflow) => [workflow.id, workflow.type]),
-        )
-
-        tickets = ticketPayload.tickets.map((ticket) => ({
-          id: ticket.id,
-          identifier: ticket.identifier,
-          title: ticket.title,
-          status: ticket.status_name,
-          priority: normalizePriority(ticket.priority),
-          workflow: ticket.workflow_id
-            ? (workflowMap.get(ticket.workflow_id) ?? 'Unassigned')
-            : 'Unassigned',
-          updatedAt: ticket.created_at,
-        }))
-      } catch (caughtError) {
-        if (cancelled) return
-        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load tickets.'
-      } finally {
-        if (!cancelled) {
-          loading = false
-        }
-      }
-    }
-
-    void load()
+    void statusVersion
+    void loadBoard(projectId, 'initial')
 
     const disconnect = connectEventStream(`/api/v1/projects/${projectId}/tickets/stream`, {
       onEvent: () => {
-        void load()
+        requestReload(projectId)
       },
       onError: (streamError) => {
         console.error('Tickets stream error:', streamError)
@@ -118,29 +170,79 @@
     })
 
     return () => {
-      cancelled = true
+      if (activeProjectId === projectId) {
+        activeProjectId = null
+      }
       disconnect()
     }
   })
 
-  function normalizePriority(priority: string): TicketRow['priority'] {
-    if (
-      priority === 'urgent' ||
-      priority === 'high' ||
-      priority === 'medium' ||
-      priority === 'low'
-    ) {
-      return priority
-    }
-
-    return 'medium'
+  function handleTicketClick(ticket: BoardTicket) {
+    appStore.openRightPanel({ type: 'ticket', id: ticket.id })
   }
 
-  function priorityWeight(priority: TicketRow['priority']) {
-    if (priority === 'urgent') return 4
-    if (priority === 'high') return 3
-    if (priority === 'medium') return 2
-    return 1
+  function handleTicketDragStart(ticket: BoardTicket) {
+    if (ticket.isMoving) return
+    draggingTicketId = ticket.id
+    dropColumnId = ticket.statusId
+  }
+
+  function handleTicketDragEnd() {
+    draggingTicketId = null
+    dropColumnId = null
+  }
+
+  function handleTicketDragOverColumn(columnId: string) {
+    if (!draggingTicketId) return
+    dropColumnId = columnId
+  }
+
+  async function handleTicketDrop(ticketId: string, targetColumnId: string) {
+    const projectId = appStore.currentProject?.id
+    const location = findTicketLocation(allColumns, ticketId)
+    handleTicketDragEnd()
+
+    if (!projectId || !location || location.ticket.isMoving || pendingMoveByTicket.has(ticketId)) {
+      return
+    }
+    if (location.columnId === targetColumnId) {
+      return
+    }
+
+    pendingMoveByTicket.set(ticketId, {
+      fromColumnId: location.columnId,
+      fromIndex: location.index,
+    })
+
+    allColumns = relocateTicket(allColumns, ticketId, targetColumnId, {
+      isMoving: true,
+      updatedAt: new Date().toISOString(),
+    })
+
+    try {
+      await updateTicket(ticketId, { status_id: targetColumnId })
+      allColumns = patchTicket(allColumns, ticketId, (ticket) => ({
+        ...ticket,
+        statusId: targetColumnId,
+        isMoving: false,
+      }))
+    } catch (caughtError) {
+      const pendingMove = pendingMoveByTicket.get(ticketId)
+      if (pendingMove) {
+        allColumns = relocateTicket(allColumns, ticketId, pendingMove.fromColumnId, {
+          targetIndex: pendingMove.fromIndex,
+          isMoving: false,
+        })
+      }
+      toastStore.error(
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : 'Failed to move ticket to the new status.',
+      )
+    } finally {
+      pendingMoveByTicket.delete(ticketId)
+      requestReload(projectId)
+    }
   }
 </script>
 
@@ -155,101 +257,38 @@
   </Button>
 {/snippet}
 
-<PageHeader title="Tickets" description="All tickets in this project" {actions} />
-
-<div class="px-6">
-  <div class="mb-4 flex items-center gap-3">
-    <div class="relative max-w-sm flex-1">
-      <Search class="text-muted-foreground absolute top-2.5 left-2.5 size-3.5" />
-      <Input placeholder="Search tickets..." class="h-9 pl-8 text-sm" bind:value={searchQuery} />
-    </div>
-    <Select.Root
-      type="single"
-      onValueChange={(value) => {
-        priorityFilter = value || 'all'
-      }}
-    >
-      <Select.Trigger class="w-40">
-        {priorityFilter === 'all' ? 'All priorities' : priorityFilter}
-      </Select.Trigger>
-      <Select.Content>
-        <Select.Item value="all">All priorities</Select.Item>
-        <Select.Item value="urgent">Urgent</Select.Item>
-        <Select.Item value="high">High</Select.Item>
-        <Select.Item value="medium">Medium</Select.Item>
-        <Select.Item value="low">Low</Select.Item>
-      </Select.Content>
-    </Select.Root>
-    <Button
-      variant="outline"
-      size="sm"
-      class="gap-1.5"
-      onclick={() => {
-        sortOrder = sortOrder === 'updated' ? 'priority' : 'updated'
-      }}
-    >
-      <ArrowDownAZ class="size-3.5" />
-      {sortOrder === 'updated' ? 'Sort: Updated' : 'Sort: Priority'}
-    </Button>
+<PageScaffold
+  title="Tickets"
+  description="Track tickets across workflow statuses."
+  variant="workspace"
+  {actions}
+>
+  <div class="flex min-h-0 flex-1 flex-col gap-4">
+    <BoardToolbar bind:filter {workflows} agents={agentOptions} />
+    {#if error}
+      <div
+        class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
+      >
+        {error}
+      </div>
+    {/if}
+    {#if loading && allColumns.length === 0}
+      <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
+        Loading tickets…
+      </div>
+    {:else if ticketViewStore.mode === 'board'}
+      <BoardView
+        columns={filteredColumns}
+        onticketclick={handleTicketClick}
+        ondragstartticket={handleTicketDragStart}
+        ondragendticket={handleTicketDragEnd}
+        ondragovercolumn={handleTicketDragOverColumn}
+        ondropticket={handleTicketDrop}
+        {draggingTicketId}
+        {dropColumnId}
+      />
+    {:else}
+      <BoardListView columns={filteredColumns} onticketclick={handleTicketClick} />
+    {/if}
   </div>
-
-  {#if loading}
-    <div
-      class="border-border bg-card text-muted-foreground rounded-md border px-4 py-10 text-center text-sm"
-    >
-      Loading tickets…
-    </div>
-  {:else if error}
-    <div
-      class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
-    >
-      {error}
-    </div>
-  {:else}
-    <div class="border-border rounded-md border">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="border-border text-muted-foreground border-b text-left text-xs">
-            <th class="px-4 py-2.5 font-medium">Ticket</th>
-            <th class="px-4 py-2.5 font-medium">Status</th>
-            <th class="px-4 py-2.5 font-medium">Priority</th>
-            <th class="px-4 py-2.5 font-medium">Workflow</th>
-            <th class="px-4 py-2.5 text-right font-medium">Updated</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each filteredTickets as ticket (ticket.id)}
-            <tr
-              class="border-border hover:bg-muted/50 cursor-pointer border-b transition-colors last:border-0"
-              onclick={() => appStore.openRightPanel({ type: 'ticket', id: ticket.id })}
-            >
-              <td class="px-4 py-3">
-                <div class="flex items-center gap-2">
-                  <span class="text-muted-foreground font-mono text-xs">{ticket.identifier}</span>
-                  <span class="text-foreground">{ticket.title}</span>
-                </div>
-              </td>
-              <td class="px-4 py-3">
-                <Badge variant="outline" class="text-xs">{ticket.status}</Badge>
-              </td>
-              <td class="px-4 py-3">
-                <div class="flex items-center gap-1.5">
-                  <span class={cn('size-2 rounded-full', priorityColors[ticket.priority])}></span>
-                  <span class="text-muted-foreground text-xs capitalize">{ticket.priority}</span>
-                </div>
-              </td>
-              <td class="px-4 py-3">
-                <span class="text-muted-foreground text-xs">{ticket.workflow}</span>
-              </td>
-              <td class="px-4 py-3 text-right">
-                <span class="text-muted-foreground text-xs"
-                  >{formatRelativeTime(ticket.updatedAt)}</span
-                >
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
-  {/if}
-</div>
+</PageScaffold>

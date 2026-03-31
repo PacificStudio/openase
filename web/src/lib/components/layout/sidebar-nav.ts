@@ -3,7 +3,6 @@ import {
   Activity,
   Bot,
   CalendarClock,
-  KanbanSquare,
   LayoutDashboard,
   Server,
   Settings,
@@ -29,7 +28,6 @@ type BuildProjectNavArgs = {
 
 const projectSections = [
   { label: 'Overview', icon: LayoutDashboard, section: 'dashboard' as const },
-  { label: 'Board', icon: KanbanSquare, section: 'board' as const },
   { label: 'Tickets', icon: TicketCheck, section: 'tickets' as const },
   { label: 'Agents', icon: Bot, section: 'agents' as const },
   { label: 'Machines', icon: Server, section: 'machines' as const },

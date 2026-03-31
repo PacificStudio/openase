@@ -10,7 +10,7 @@ import type {
   WorkflowListPayload,
 } from '$lib/api/contracts'
 import { appStore } from '$lib/stores/app.svelte'
-import BoardPage from './board-page.svelte'
+import TicketsPage from '$lib/features/tickets/components/tickets-page.svelte'
 
 const {
   listActivity,
@@ -180,7 +180,7 @@ const activityFixture: ActivityPayload = {
   ],
 }
 
-describe('BoardPage', () => {
+describe('TicketsPage', () => {
   afterEach(() => {
     cleanup()
     appStore.currentProject = null
@@ -198,7 +198,7 @@ describe('BoardPage', () => {
     updateTicket.mockResolvedValue({ ticket: ticketsFixture.tickets[0] })
     connectEventStream.mockReturnValue(() => {})
 
-    const { findByRole, findByText, queryByRole } = render(BoardPage)
+    const { findByRole, findByText, queryByRole } = render(TicketsPage)
 
     expect(await findByText('ASE-202')).toBeTruthy()
     expect(await findByText('Codex Worker')).toBeTruthy()

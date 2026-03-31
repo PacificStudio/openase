@@ -1,6 +1,5 @@
 export const projectSections = [
   'dashboard',
-  'board',
   'tickets',
   'agents',
   'machines',

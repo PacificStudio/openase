@@ -37,10 +37,10 @@
             Open dashboard
           </a>
           <a
-            href={orgId ? projectPath(orgId, project.id, 'board') : '/'}
+            href={orgId ? projectPath(orgId, project.id, 'tickets') : '/'}
             class="border-border hover:bg-accent inline-flex h-9 items-center rounded-md border px-4 text-sm font-medium transition-colors"
           >
-            Open board
+            Open tickets
           </a>
         </div>
       </article>

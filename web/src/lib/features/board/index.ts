@@ -1,4 +1,3 @@
-export { default as BoardPage } from './components/board-page.svelte'
 export { default as BoardView } from './components/board-view.svelte'
 export { default as BoardColumn } from './components/board-column.svelte'
 export { default as BoardToolbar } from './components/board-toolbar.svelte'
