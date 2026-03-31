@@ -216,6 +216,58 @@ func TestSharedServerPathsUseSharedBinariesPath(t *testing.T) {
 	}
 }
 
+func TestEnsureSharedServerBinaryLayoutRemovesIncompleteExtraction(t *testing.T) {
+	rootDir := t.TempDir()
+	paths := sharedServerPathsResult{
+		cachePath:    filepath.Join(rootDir, "cache"),
+		binariesPath: filepath.Join(rootDir, "binaries"),
+	}
+	binDir := filepath.Join(paths.binariesPath, "bin")
+	if err := os.MkdirAll(binDir, 0o750); err != nil {
+		t.Fatalf("MkdirAll(%s) error = %v", binDir, err)
+	}
+	if err := os.WriteFile(filepath.Join(binDir, "pg_ctl"), []byte("pg_ctl"), 0o600); err != nil {
+		t.Fatalf("WriteFile(pg_ctl) error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(binDir, "initdb"), []byte("initdb"), 0o600); err != nil {
+		t.Fatalf("WriteFile(initdb) error = %v", err)
+	}
+	if err := os.MkdirAll(paths.cachePath, 0o750); err != nil {
+		t.Fatalf("MkdirAll(%s) error = %v", paths.cachePath, err)
+	}
+	if err := os.WriteFile(filepath.Join(paths.cachePath, "postgres.txz"), []byte("cached"), 0o600); err != nil {
+		t.Fatalf("WriteFile(cache) error = %v", err)
+	}
+
+	originalRemove := removeSharedServerPath
+	t.Cleanup(func() {
+		removeSharedServerPath = originalRemove
+	})
+
+	removed := make([]string, 0, 2)
+	removeSharedServerPath = func(path string) error {
+		removed = append(removed, path)
+		return os.RemoveAll(path)
+	}
+
+	if err := ensureSharedServerBinaryLayout(paths); err != nil {
+		t.Fatalf("ensureSharedServerBinaryLayout() error = %v", err)
+	}
+
+	if len(removed) != 2 {
+		t.Fatalf("expected two removals, got %v", removed)
+	}
+	if removed[0] != paths.binariesPath || removed[1] != paths.cachePath {
+		t.Fatalf("unexpected removal order: %v", removed)
+	}
+	if _, err := os.Stat(paths.binariesPath); !os.IsNotExist(err) {
+		t.Fatalf("expected binaries path to be removed, stat err = %v", err)
+	}
+	if _, err := os.Stat(paths.cachePath); !os.IsNotExist(err) {
+		t.Fatalf("expected cache path to be removed, stat err = %v", err)
+	}
+}
+
 func TestLockSharedServerAssetsSerializesCallers(t *testing.T) {
 	lockSharedServerTestGlobals(t)
 

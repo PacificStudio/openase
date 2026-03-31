@@ -11,7 +11,6 @@ import (
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
-	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 )
 
 const (
@@ -30,9 +29,10 @@ type HealthCheckReport struct {
 
 // HealthChecker inspects orchestrator state and reports unhealthy agents or tickets.
 type HealthChecker struct {
-	client *ent.Client
-	logger *slog.Logger
-	now    func() time.Time
+	client  *ent.Client
+	logger  *slog.Logger
+	now     func() time.Time
+	runtime *RuntimeStateStore
 }
 
 type claimHealthState struct {
@@ -50,10 +50,18 @@ func NewHealthChecker(client *ent.Client, logger *slog.Logger) *HealthChecker {
 	}
 
 	return &HealthChecker{
-		client: client,
-		logger: logger.With("component", "health-checker"),
-		now:    time.Now,
+		client:  client,
+		logger:  logger.With("component", "health-checker"),
+		now:     time.Now,
+		runtime: NewRuntimeStateStore(),
 	}
+}
+
+func (h *HealthChecker) ConfigureRuntimeState(store *RuntimeStateStore) {
+	if h == nil || store == nil {
+		return
+	}
+	h.runtime = store
 }
 
 // Run evaluates the current orchestrator health.
@@ -89,6 +97,11 @@ func (h *HealthChecker) Run(ctx context.Context) (HealthCheckReport, error) {
 
 	for _, ticket := range tickets {
 		report.ClaimsChecked++
+		if ticket.CurrentRunID != nil {
+			if _, managed := h.runtime.load(*ticket.CurrentRunID); managed {
+				continue
+			}
+		}
 
 		state := evaluateClaimHealth(ticket, now)
 		if !state.stalled {
@@ -204,108 +217,16 @@ func (h *HealthChecker) releaseStalledClaim(
 		return false, false, nil
 	}
 
-	agentID := ticket.Edges.CurrentRun.AgentID
-	tx, err := h.client.Tx(ctx)
-	if err != nil {
-		return false, false, fmt.Errorf("start health check tx: %w", err)
-	}
-	defer rollback(tx)
-
-	retryAt := now.Add(stalledRetryDelay)
-	nextStallCount := ticket.StallCount + 1
-	retryPaused := nextStallCount >= stalledRetryPauseThreshold
-	ticketUpdate := tx.Ticket.Update().
-		Where(
-			entticket.IDEQ(ticket.ID),
-			entticket.CurrentRunIDNotNil(),
-			entticket.CurrentRunIDEQ(*ticket.CurrentRunID),
-		).
-		ClearCurrentRunID().
-		SetStallCount(nextStallCount).
-		SetRetryToken(ticketservice.NewRetryToken())
-	if retryPaused {
-		ticketUpdate.ClearNextRetryAt().
-			SetRetryPaused(true).
-			SetPauseReason(ticketing.PauseReasonRepeatedStalls.String())
-	} else {
-		ticketUpdate.SetNextRetryAt(retryAt).
-			SetRetryPaused(false).
-			ClearPauseReason()
-	}
-	releasedTickets, err := ticketUpdate.
-		Save(ctx)
-	if err != nil {
-		return false, false, fmt.Errorf("release stalled ticket: %w", err)
-	}
-	if releasedTickets == 0 {
-		return false, false, nil
-	}
-
-	releasedRuns := 0
-	if ticket.CurrentRunID != nil {
-		runLastError := "runtime stalled or heartbeat missing"
-		if retryPaused {
-			runLastError = fmt.Sprintf(
-				"%s; ticket retries paused after %d consecutive stalls",
-				runLastError,
-				nextStallCount,
-			)
-		}
-		releasedRuns, err = tx.AgentRun.Update().
-			Where(
-				entagentrun.IDEQ(*ticket.CurrentRunID),
-				entagentrun.StatusIn(
-					entagentrun.StatusLaunching,
-					entagentrun.StatusReady,
-					entagentrun.StatusExecuting,
-					entagentrun.StatusErrored,
-				),
-			).
-			SetStatus(entagentrun.StatusErrored).
-			SetLastError(runLastError).
-			ClearSessionID().
-			ClearRuntimeStartedAt().
-			ClearLastHeartbeatAt().
-			Save(ctx)
-		if err != nil {
-			return false, false, fmt.Errorf("release stalled run: %w", err)
-		}
-	}
-	if retryPaused {
-		if _, err := tx.ActivityEvent.Create().
-			SetProjectID(ticket.ProjectID).
-			SetTicketID(ticket.ID).
-			SetEventType(stalledRetryPauseEventType).
-			SetMessage(fmt.Sprintf(
-				"Paused ticket retries after %d consecutive orchestrator stalls; human intervention is required before retrying.",
-				nextStallCount,
-			)).
-			SetMetadata(map[string]any{
-				"pause_reason": ticketing.PauseReasonRepeatedStalls.String(),
-				"stall_count":  nextStallCount,
-				"threshold":    stalledRetryPauseThreshold,
-				"source":       "health_checker",
-			}).
-			SetCreatedAt(now).
-			Save(ctx); err != nil {
-			return false, false, fmt.Errorf("record stalled retry pause activity: %w", err)
-		}
-	}
-
-	releasedAgents, err := tx.Agent.Update().
-		Where(
-			entagent.IDEQ(agentID),
-			entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateActive),
-		).
-		SetRuntimeControlState(entagent.RuntimeControlStateActive).
-		Save(ctx)
-	if err != nil {
-		return false, false, fmt.Errorf("release stalled agent: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return false, false, fmt.Errorf("commit stalled release tx: %w", err)
-	}
-
-	return true, releasedAgents > 0 || releasedRuns > 0, nil
+	return releaseStalledClaim(
+		ctx,
+		h.client,
+		ticket.ProjectID,
+		ticket.ID,
+		*ticket.CurrentRunID,
+		ticket.Edges.CurrentRun.AgentID,
+		ticket.StallCount,
+		now,
+		"health_checker",
+		"runtime stalled or heartbeat missing",
+	)
 }

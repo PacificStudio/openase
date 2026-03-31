@@ -43,6 +43,7 @@ var (
 		return os.MkdirTemp("", prefix)
 	}
 	allocateSharedServerPort      = freePort
+	removeSharedServerPath        = os.RemoveAll
 	resolveSharedServerAssetsRoot = func() (string, error) {
 		if override := strings.TrimSpace(os.Getenv(sharedServerAssetsRootEnv)); override != "" {
 			return override, nil
@@ -56,6 +57,9 @@ var (
 	newPostgresController = func(rootDir string, port uint32) (postgresController, error) {
 		paths, err := sharedServerPaths(rootDir)
 		if err != nil {
+			return nil, err
+		}
+		if err := ensureSharedServerBinaryLayout(paths); err != nil {
 			return nil, err
 		}
 		return embeddedpostgres.NewDatabase(
@@ -425,6 +429,42 @@ func sharedServerPaths(rootDir string) (sharedServerPathsResult, error) {
 		binariesPath: filepath.Join(sharedVersionRoot, "binaries"),
 		dataPath:     filepath.Join(rootDir, "data"),
 	}, nil
+}
+
+func ensureSharedServerBinaryLayout(paths sharedServerPathsResult) error {
+	binDir := filepath.Join(paths.binariesPath, "bin")
+	pgCtlPath := filepath.Join(binDir, "pg_ctl")
+	if _, err := os.Stat(pgCtlPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("stat shared pg_ctl %s: %w", pgCtlPath, err)
+	}
+
+	requiredBinaries := []string{"initdb", "postgres"}
+	missing := make([]string, 0, len(requiredBinaries))
+	for _, name := range requiredBinaries {
+		binaryPath := filepath.Join(binDir, name)
+		if _, err := os.Stat(binaryPath); err != nil {
+			if os.IsNotExist(err) {
+				missing = append(missing, name)
+				continue
+			}
+			return fmt.Errorf("stat shared postgres binary %s: %w", binaryPath, err)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+
+	if err := removeSharedServerPath(paths.binariesPath); err != nil {
+		return fmt.Errorf("remove incomplete shared postgres binaries %s: %w", paths.binariesPath, err)
+	}
+	if err := removeSharedServerPath(paths.cachePath); err != nil {
+		return fmt.Errorf("remove incomplete shared postgres cache %s: %w", paths.cachePath, err)
+	}
+
+	return nil
 }
 
 func sharedServerVersionRoot() (string, error) {

@@ -66,6 +66,7 @@ type RuntimeLauncher struct {
 	sessionsMu sync.Mutex
 	sessions   map[uuid.UUID]agentSession
 	adapters   *agentAdapterRegistry
+	runtime    *RuntimeStateStore
 
 	launchesMu sync.Mutex
 	launches   map[uuid.UUID]struct{}
@@ -110,12 +111,20 @@ func NewRuntimeLauncher(
 		eventTimeout:   defaultLifecyclePublishTimeout,
 		sessions:       map[uuid.UUID]agentSession{},
 		adapters:       newDefaultAgentAdapterRegistry(),
+		runtime:        NewRuntimeStateStore(),
 		launches:       map[uuid.UUID]struct{}{},
 		executions:     map[uuid.UUID]struct{}{},
 		tickets:        ticketservice.NewService(client),
 	}
 	launcher.tickets.ConfigureSSHPool(sshPool)
 	return launcher
+}
+
+func (l *RuntimeLauncher) ConfigureRuntimeState(store *RuntimeStateStore) {
+	if l == nil || store == nil {
+		return
+	}
+	l.runtime = store
 }
 
 func (l *RuntimeLauncher) ConfigurePlatformEnvironment(apiURL string, agentPlatform runtimeAgentPlatform) {
@@ -151,6 +160,15 @@ func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
 	}
 
 	if err := l.reconcilePauseRequests(ctx); err != nil {
+		return err
+	}
+	if err := l.reconcileRuntimeFacts(ctx); err != nil {
+		return err
+	}
+	if err := l.reconcileTrackerState(ctx); err != nil {
+		return err
+	}
+	if err := l.reconcileStalledRuntime(ctx); err != nil {
 		return err
 	}
 	if err := l.refreshHeartbeats(ctx); err != nil {
@@ -194,13 +212,17 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 		return nil
 	}
 
+	executions := l.executionRunIDs()
 	sessions := l.drainSessions()
 	for runID, session := range sessions {
+		stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		if session != nil {
-			stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 			_ = session.Stop(stopCtx)
-			cancel()
 		}
+		if err := l.waitForExecutionStop(stopCtx, runID); err != nil {
+			l.logger.Warn("wait for execution shutdown", "run_id", runID, "error", err)
+		}
+		cancel()
 
 		now := l.now().UTC()
 		assignment, err := l.loadAssignmentByRun(ctx, runID)
@@ -262,6 +284,17 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 			runtimeEventMetadataForState(agentState),
 			now,
 		)
+	}
+
+	for _, runID := range executions {
+		if _, hadSession := sessions[runID]; hadSession {
+			continue
+		}
+		stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		if err := l.waitForExecutionStop(stopCtx, runID); err != nil {
+			l.logger.Warn("wait for execution shutdown", "run_id", runID, "error", err)
+		}
+		cancel()
 	}
 
 	return nil
@@ -363,6 +396,15 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAss
 		stopSession(context.Background(), session)
 		return nil
 	}
+	sessionID, _ := session.SessionID()
+	l.runtime.markReady(
+		assignment.run.ID,
+		assignment.agent.ID,
+		assignment.ticket.ID,
+		assignment.run.WorkflowID,
+		sessionID,
+		readyAt,
+	)
 
 	readyAgent, err := loadAgentLifecycleState(ctx, l.client, assignment.agent.ID, &assignment.run.ID)
 	if err != nil {
@@ -516,7 +558,7 @@ func (l *RuntimeLauncher) refreshHeartbeats(ctx context.Context) error {
 		if err != nil {
 			stopSession(context.Background(), l.loadSession(runID))
 			l.deleteSession(runID)
-			l.finishExecution(runID)
+			l.runtime.delete(runID)
 			continue
 		}
 		if assignment.agent == nil || assignment.run == nil || assignment.ticket == nil ||
@@ -524,12 +566,117 @@ func (l *RuntimeLauncher) refreshHeartbeats(ctx context.Context) error {
 			(assignment.run.Status != entagentrun.StatusReady && assignment.run.Status != entagentrun.StatusExecuting) {
 			stopSession(context.Background(), l.loadSession(runID))
 			l.deleteSession(runID)
-			l.finishExecution(runID)
+			l.runtime.delete(runID)
 			continue
 		}
 	}
 
 	_ = now
+	return nil
+}
+
+func (l *RuntimeLauncher) reconcileTrackerState(ctx context.Context) error {
+	for _, snapshot := range l.runtime.snapshots() {
+		if snapshot.PendingRuntimeFact != nil {
+			continue
+		}
+
+		ticket, err := l.reloadExecutionTicket(ctx, snapshot.TicketID)
+		if err != nil {
+			return fmt.Errorf("reload ticket %s during tracker reconciliation: %w", snapshot.TicketID, err)
+		}
+
+		switch classifyRuntimeTicket(ticket, snapshot.RunID, snapshot.WorkflowID) {
+		case runtimeTicketActive:
+			continue
+		default:
+			if err := l.releaseExecutionOwnership(ctx, snapshot.RunID, snapshot.AgentID, ticket); err != nil {
+				return fmt.Errorf("release run %s during tracker reconciliation: %w", snapshot.RunID, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (l *RuntimeLauncher) reconcileRuntimeFacts(ctx context.Context) error {
+	for _, snapshot := range l.runtime.snapshots() {
+		if snapshot.PendingRuntimeFact == nil || l.executionActive(snapshot.RunID) {
+			continue
+		}
+
+		ticket, err := l.reloadExecutionTicket(ctx, snapshot.TicketID)
+		if err != nil {
+			return fmt.Errorf("reload ticket %s during runtime fact reconciliation: %w", snapshot.TicketID, err)
+		}
+
+		if snapshot.PendingRuntimeFact.Kind != runtimeFactSessionExited {
+			continue
+		}
+
+		disposition := classifyRuntimeTicket(ticket, snapshot.RunID, snapshot.WorkflowID)
+		if disposition == runtimeTicketActive {
+			if trimmed := strings.TrimSpace(snapshot.PendingRuntimeFact.Message); trimmed != "" {
+				l.handleExecutionFailure(ctx, snapshot.RunID, snapshot.AgentID, snapshot.TicketID, fmt.Errorf("%s", trimmed))
+				continue
+			}
+			if err := l.scheduleContinuation(ctx, snapshot.RunID, snapshot.AgentID, snapshot.TicketID); err != nil {
+				return fmt.Errorf("schedule continuation for run %s after subprocess exit: %w", snapshot.RunID, err)
+			}
+			continue
+		}
+		if err := l.releaseExecutionOwnership(ctx, snapshot.RunID, snapshot.AgentID, ticket); err != nil {
+			return fmt.Errorf("release run %s after runtime fact reconciliation: %w", snapshot.RunID, err)
+		}
+	}
+
+	return nil
+}
+
+func (l *RuntimeLauncher) reconcileStalledRuntime(ctx context.Context) error {
+	now := l.now().UTC()
+	for _, snapshot := range l.runtime.snapshots() {
+		if snapshot.PendingRuntimeFact != nil {
+			continue
+		}
+		if l.loadSession(snapshot.RunID) == nil {
+			continue
+		}
+
+		ticket, err := l.reloadExecutionTicket(ctx, snapshot.TicketID)
+		if err != nil {
+			return fmt.Errorf("reload ticket %s during stall reconciliation: %w", snapshot.TicketID, err)
+		}
+		timeout := stallTimeoutForWorkflow(ticket.Edges.Workflow)
+		lastCodexAt := snapshot.StartedAt
+		if !snapshot.LastCodexTimestamp.IsZero() {
+			lastCodexAt = snapshot.LastCodexTimestamp
+		}
+		if age := now.Sub(lastCodexAt); age <= timeout {
+			continue
+		}
+
+		stopSession(context.Background(), l.loadSession(snapshot.RunID))
+		l.deleteSession(snapshot.RunID)
+		l.runtime.delete(snapshot.RunID)
+
+		_, _, err = releaseStalledClaim(
+			ctx,
+			l.client,
+			ticket.ProjectID,
+			snapshot.TicketID,
+			snapshot.RunID,
+			snapshot.AgentID,
+			ticket.StallCount,
+			now,
+			"runtime_launcher",
+			"runtime stalled based on last codex event timestamp",
+		)
+		if err != nil {
+			return fmt.Errorf("release stalled runtime claim for run %s: %w", snapshot.RunID, err)
+		}
+	}
+
 	return nil
 }
 
@@ -1750,6 +1897,50 @@ func (l *RuntimeLauncher) finishExecution(runID uuid.UUID) {
 	l.executionsMu.Lock()
 	defer l.executionsMu.Unlock()
 	delete(l.executions, runID)
+}
+
+func (l *RuntimeLauncher) executionActive(runID uuid.UUID) bool {
+	l.executionsMu.Lock()
+	defer l.executionsMu.Unlock()
+	_, active := l.executions[runID]
+	return active
+}
+
+func (l *RuntimeLauncher) executionRunIDs() []uuid.UUID {
+	if l == nil {
+		return nil
+	}
+
+	l.executionsMu.Lock()
+	defer l.executionsMu.Unlock()
+
+	runIDs := make([]uuid.UUID, 0, len(l.executions))
+	for runID := range l.executions {
+		runIDs = append(runIDs, runID)
+	}
+	return runIDs
+}
+
+func (l *RuntimeLauncher) waitForExecutionStop(ctx context.Context, runID uuid.UUID) error {
+	if l == nil {
+		return nil
+	}
+	if !l.executionActive(runID) {
+		return nil
+	}
+
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+
+	for l.executionActive(runID) {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
+
+	return nil
 }
 
 func (l *RuntimeLauncher) beginLaunch(runID uuid.UUID) bool {

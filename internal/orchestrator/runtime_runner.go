@@ -139,6 +139,7 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, runID uuid.UUID
 			l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, state.ticket.ID, err)
 			return
 		}
+		l.runtime.recordTurnStart(state.run.ID, turnNumber, l.now().UTC())
 		if err := l.recordAgentStep(ctx, state.agent.ProjectID, state.agent.ID, state.ticket.ID, state.run.ID, "planning", fmt.Sprintf("Started turn %d.", turnNumber), nil); err != nil {
 			l.logger.Warn("record agent planning step", "run_id", state.run.ID, "error", err)
 		}
@@ -155,17 +156,13 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, runID uuid.UUID
 			&highWater,
 		); err != nil {
 			if isCleanTurnSessionClose(err) {
-				reloaded, reloadErr := l.reloadExecutionTicket(ctx, state.ticket.ID)
-				if reloadErr != nil {
-					l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, state.ticket.ID, reloadErr)
-					return
+				message := ""
+				var closedErr *turnSessionClosedError
+				if errors.As(err, &closedErr) && closedErr != nil && closedErr.cause != nil {
+					message = closedErr.Error()
 				}
-				if !shouldContinueExecution(reloaded, state.run.ID) {
-					if err := l.releaseExecutionOwnership(ctx, state.run.ID, state.agent.ID, reloaded); err != nil {
-						l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, reloaded.ID, err)
-					}
-					return
-				}
+				l.runtime.recordRuntimeFact(state.run.ID, runtimeFactSessionExited, l.now().UTC(), message)
+				return
 			}
 			l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, state.ticket.ID, err)
 			return
@@ -188,7 +185,7 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, runID uuid.UUID
 			return
 		}
 
-		if !shouldContinueExecution(reloaded, state.run.ID) {
+		if classifyRuntimeTicket(reloaded, state.run.ID, state.run.WorkflowID) != runtimeTicketActive {
 			if err := l.releaseExecutionOwnership(ctx, state.run.ID, state.agent.ID, reloaded); err != nil {
 				l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, reloaded.ID, err)
 			}
@@ -196,6 +193,17 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, runID uuid.UUID
 		}
 	}
 
+	reloaded, err := l.reloadExecutionTicket(ctx, lastState.ticket.ID)
+	if err != nil {
+		l.handleExecutionFailure(ctx, lastState.run.ID, lastState.agent.ID, lastState.ticket.ID, err)
+		return
+	}
+	if classifyRuntimeTicket(reloaded, lastState.run.ID, lastState.run.WorkflowID) != runtimeTicketActive {
+		if err := l.releaseExecutionOwnership(ctx, lastState.run.ID, lastState.agent.ID, reloaded); err != nil {
+			l.handleExecutionFailure(ctx, lastState.run.ID, lastState.agent.ID, reloaded.ID, err)
+		}
+		return
+	}
 	if err := l.scheduleContinuation(ctx, lastState.run.ID, lastState.agent.ID, lastState.ticket.ID); err != nil {
 		l.logger.Error("schedule continuation", "run_id", lastState.run.ID, "agent_id", lastState.agent.ID, "error", err)
 	}
@@ -291,6 +299,7 @@ func (l *RuntimeLauncher) consumeTurn(
 			}
 			return &turnSessionClosedError{turnID: turnID}
 		}
+		l.runtime.recordCodexEvent(runID, string(event.Type), l.now().UTC())
 
 		if err := l.persistRuntimeSessionID(ctx, runID, session); err != nil {
 			l.logger.Warn("persist runtime session id", "run_id", runID, "error", err)
@@ -671,15 +680,14 @@ func (l *RuntimeLauncher) reloadExecutionTicket(ctx context.Context, ticketID uu
 }
 
 func shouldContinueExecution(ticket *ent.Ticket, runID uuid.UUID) bool {
-	if ticket == nil || ticket.WorkflowID == nil || ticket.CurrentRunID == nil || ticket.Edges.CurrentRun == nil {
+	if ticket == nil || ticket.Edges.CurrentRun == nil {
 		return false
 	}
-	if ticket.Edges.CurrentRun.ID != runID {
-		return false
+	runWorkflowID := ticket.Edges.CurrentRun.WorkflowID
+	if runWorkflowID == uuid.Nil && ticket.WorkflowID != nil {
+		runWorkflowID = *ticket.WorkflowID
 	}
-	return ticket.Edges.Workflow != nil &&
-		slices.Contains(ticketStatusIDs(ticket.Edges.Workflow.Edges.PickupStatuses), ticket.StatusID) &&
-		!ticket.RetryPaused
+	return classifyRuntimeTicket(ticket, runID, runWorkflowID) == runtimeTicketActive
 }
 
 func (l *RuntimeLauncher) releaseExecutionOwnership(ctx context.Context, runID uuid.UUID, agentID uuid.UUID, ticket *ent.Ticket) error {
@@ -689,6 +697,7 @@ func (l *RuntimeLauncher) releaseExecutionOwnership(ctx context.Context, runID u
 
 	stopSession(context.Background(), l.loadSession(runID))
 	l.deleteSession(runID)
+	l.runtime.delete(runID)
 
 	tx, err := l.client.Tx(ctx)
 	if err != nil {
@@ -742,6 +751,7 @@ func (l *RuntimeLauncher) releaseExecutionOwnership(ctx context.Context, runID u
 func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, runID uuid.UUID, agentID uuid.UUID, ticket *ent.Ticket) error {
 	stopSession(context.Background(), l.loadSession(runID))
 	l.deleteSession(runID)
+	l.runtime.delete(runID)
 
 	if ticket != nil && ticket.WorkflowID != nil && (ticket.Edges.Workflow == nil || len(ticket.Edges.Workflow.Edges.FinishStatuses) == 0) {
 		reloadedTicket, err := l.reloadExecutionTicket(ctx, ticket.ID)
@@ -910,6 +920,7 @@ func resolveWorkflowFinishStatus(ticket *ent.Ticket) (uuid.UUID, error) {
 func (l *RuntimeLauncher) handleExecutionFailure(ctx context.Context, runID uuid.UUID, agentID uuid.UUID, ticketID uuid.UUID, failure error) {
 	stopSession(context.Background(), l.loadSession(runID))
 	l.deleteSession(runID)
+	l.runtime.delete(runID)
 
 	now := l.now().UTC()
 	if _, err := l.client.AgentRun.Update().
@@ -945,6 +956,7 @@ func (l *RuntimeLauncher) scheduleContinuation(ctx context.Context, runID uuid.U
 	session := l.loadSession(runID)
 	stopSession(context.Background(), session)
 	l.deleteSession(runID)
+	l.runtime.delete(runID)
 
 	tx, err := l.client.Tx(ctx)
 	if err != nil {
