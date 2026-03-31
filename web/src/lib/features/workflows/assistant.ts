@@ -1,3 +1,4 @@
+import type { ChatDiffPayload } from '$lib/api/chat'
 import type { EphemeralChatTranscriptEntry } from '$lib/features/chat'
 
 export type HarnessSuggestion = {
@@ -23,10 +24,23 @@ const fencedBlockPattern = /```(?:markdown|md|yaml|yml|text)?\s*([\s\S]*?)```/gi
 
 export function findLatestHarnessSuggestion(
   entries: EphemeralChatTranscriptEntry[],
+  currentContent = '',
 ): HarnessSuggestion | null {
   for (let index = entries.length - 1; index >= 0; index -= 1) {
     const entry = entries[index]
-    if (entry.role !== 'assistant' || entry.kind !== 'text') {
+    if (entry.role !== 'assistant') {
+      continue
+    }
+
+    if (entry.kind === 'diff') {
+      const suggestion = buildHarnessSuggestionFromDiff(currentContent, entry.diff)
+      if (suggestion) {
+        return suggestion
+      }
+      continue
+    }
+
+    if (entry.kind !== 'text') {
       continue
     }
 
@@ -119,6 +133,57 @@ export function fingerprintSuggestion(content: string) {
   return `${content.length}:${content.slice(0, 120)}`
 }
 
+export function applyStructuredDiff(before: string, diff: ChatDiffPayload): string | null {
+  if (!isHarnessContentTarget(diff.file)) {
+    return null
+  }
+
+  const sourceLines = splitNormalizedLines(before)
+  const outputLines: string[] = []
+  let cursor = 1
+
+  for (const hunk of diff.hunks) {
+    if (hunk.oldStart < cursor) {
+      return null
+    }
+
+    outputLines.push(...sourceLines.slice(cursor - 1, hunk.oldStart - 1))
+
+    let oldConsumed = 0
+    let newProduced = 0
+    let sourceIndex = hunk.oldStart - 1
+
+    for (const line of hunk.lines) {
+      if (line.op === 'add') {
+        outputLines.push(line.text)
+        newProduced += 1
+        continue
+      }
+
+      if (sourceLines[sourceIndex] !== line.text) {
+        return null
+      }
+
+      if (line.op === 'context') {
+        outputLines.push(line.text)
+        newProduced += 1
+      }
+
+      sourceIndex += 1
+      oldConsumed += 1
+    }
+
+    if (oldConsumed !== hunk.oldLines || newProduced !== hunk.newLines) {
+      return null
+    }
+
+    cursor = hunk.oldStart + hunk.oldLines
+  }
+
+  outputLines.push(...sourceLines.slice(cursor - 1))
+  return outputLines.join('\n')
+}
+
 function parseHarnessDocumentCandidate(raw: string): string | null {
   const normalized = normalizeDocument(raw)
   if (!normalized.startsWith('---\n')) {
@@ -137,6 +202,30 @@ function normalizeDocument(text: string) {
   return text.replaceAll('\r\n', '\n').trim()
 }
 
+function buildHarnessSuggestionFromDiff(
+  currentContent: string,
+  diff: ChatDiffPayload,
+): HarnessSuggestion | null {
+  const content = applyStructuredDiff(currentContent, diff)
+  if (content == null) {
+    return null
+  }
+
+  return {
+    content,
+    summary: `Suggested harness update for ${diff.file}.`,
+  }
+}
+
+function splitNormalizedLines(text: string) {
+  const normalized = normalizeDocument(text)
+  if (!normalized) {
+    return [] as string[]
+  }
+
+  return normalized.split('\n')
+}
+
 function stripCodeBlocks(text: string) {
   return text.replaceAll(fencedBlockPattern, '').trim()
 }
@@ -144,6 +233,10 @@ function stripCodeBlocks(text: string) {
 function normalizeSuggestionSummary(summary: string) {
   const trimmed = summary.trim()
   return trimmed || 'Suggested harness update.'
+}
+
+function isHarnessContentTarget(file: string) {
+  return file.trim().toLowerCase() === 'harness content'
 }
 
 function buildDiffOperations(before: string[], after: string[]) {
