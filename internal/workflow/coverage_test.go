@@ -941,10 +941,11 @@ func TestWorkflowServiceSkillAndHookHelperCoverage(t *testing.T) {
 	storage := &projectStorage{
 		hookExecutor: newWorkflowHookExecutor(t.TempDir(), slog.New(slog.NewTextHandler(io.Discard, nil))),
 	}
-	if err := service.runWorkflowHooks(ctx, nil, workflowHooksConfig{}, workflowHookOnReload, workflowHookRuntime{}); err != nil {
+	if err := service.runWorkflowHooks(ctx, uuid.Nil, workflowHooksConfig{}, workflowHookOnReload, workflowHookRuntime{}); err != nil {
 		t.Fatalf("runWorkflowHooks(nil storage) error = %v", err)
 	}
-	if err := service.runWorkflowHooks(ctx, storage, workflowHooksConfig{}, workflowHookName("unexpected"), workflowHookRuntime{}); err != nil {
+	service.repoRoot = storage.hookExecutor.repoRoot
+	if err := service.runWorkflowHooks(ctx, uuid.Nil, workflowHooksConfig{}, workflowHookName("unexpected"), workflowHookRuntime{}); err != nil {
 		t.Fatalf("runWorkflowHooks(default) error = %v", err)
 	}
 

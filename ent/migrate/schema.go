@@ -401,6 +401,169 @@ var (
 			},
 		},
 	}
+	// ChatConversationsColumns holds the columns for the "chat_conversations" table.
+	ChatConversationsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "user_id", Type: field.TypeString},
+		{Name: "source", Type: field.TypeString},
+		{Name: "provider_id", Type: field.TypeUUID},
+		{Name: "status", Type: field.TypeString, Default: "active"},
+		{Name: "provider_thread_id", Type: field.TypeString, Nullable: true},
+		{Name: "last_turn_id", Type: field.TypeString, Nullable: true},
+		{Name: "rolling_summary", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "last_activity_at", Type: field.TypeTime},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "project_id", Type: field.TypeUUID},
+	}
+	// ChatConversationsTable holds the schema information for the "chat_conversations" table.
+	ChatConversationsTable = &schema.Table{
+		Name:       "chat_conversations",
+		Columns:    ChatConversationsColumns,
+		PrimaryKey: []*schema.Column{ChatConversationsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "chat_conversations_projects_chat_conversations",
+				Columns:    []*schema.Column{ChatConversationsColumns[11]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "chatconversation_project_id_user_id_source_provider_id_last_activity_at",
+				Unique:  false,
+				Columns: []*schema.Column{ChatConversationsColumns[11], ChatConversationsColumns[1], ChatConversationsColumns[2], ChatConversationsColumns[3], ChatConversationsColumns[8]},
+			},
+		},
+	}
+	// ChatEntriesColumns holds the columns for the "chat_entries" table.
+	ChatEntriesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "seq", Type: field.TypeInt},
+		{Name: "kind", Type: field.TypeString},
+		{Name: "payload_json", Type: field.TypeJSON},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "conversation_id", Type: field.TypeUUID},
+		{Name: "turn_id", Type: field.TypeUUID, Nullable: true},
+	}
+	// ChatEntriesTable holds the schema information for the "chat_entries" table.
+	ChatEntriesTable = &schema.Table{
+		Name:       "chat_entries",
+		Columns:    ChatEntriesColumns,
+		PrimaryKey: []*schema.Column{ChatEntriesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "chat_entries_chat_conversations_entries",
+				Columns:    []*schema.Column{ChatEntriesColumns[5]},
+				RefColumns: []*schema.Column{ChatConversationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "chat_entries_chat_turns_entries",
+				Columns:    []*schema.Column{ChatEntriesColumns[6]},
+				RefColumns: []*schema.Column{ChatTurnsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "chatentry_conversation_id_seq",
+				Unique:  true,
+				Columns: []*schema.Column{ChatEntriesColumns[5], ChatEntriesColumns[1]},
+			},
+			{
+				Name:    "chatentry_turn_id_seq",
+				Unique:  false,
+				Columns: []*schema.Column{ChatEntriesColumns[6], ChatEntriesColumns[1]},
+			},
+		},
+	}
+	// ChatPendingInterruptsColumns holds the columns for the "chat_pending_interrupts" table.
+	ChatPendingInterruptsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "provider_request_id", Type: field.TypeString},
+		{Name: "kind", Type: field.TypeString},
+		{Name: "payload_json", Type: field.TypeJSON},
+		{Name: "status", Type: field.TypeString, Default: "pending"},
+		{Name: "decision", Type: field.TypeString, Nullable: true},
+		{Name: "response_json", Type: field.TypeJSON, Nullable: true},
+		{Name: "resolved_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "conversation_id", Type: field.TypeUUID},
+		{Name: "turn_id", Type: field.TypeUUID},
+	}
+	// ChatPendingInterruptsTable holds the schema information for the "chat_pending_interrupts" table.
+	ChatPendingInterruptsTable = &schema.Table{
+		Name:       "chat_pending_interrupts",
+		Columns:    ChatPendingInterruptsColumns,
+		PrimaryKey: []*schema.Column{ChatPendingInterruptsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "chat_pending_interrupts_chat_conversations_pending_interrupts",
+				Columns:    []*schema.Column{ChatPendingInterruptsColumns[10]},
+				RefColumns: []*schema.Column{ChatConversationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "chat_pending_interrupts_chat_turns_pending_interrupts",
+				Columns:    []*schema.Column{ChatPendingInterruptsColumns[11]},
+				RefColumns: []*schema.Column{ChatTurnsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "chatpendinginterrupt_conversation_id_status_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ChatPendingInterruptsColumns[10], ChatPendingInterruptsColumns[4], ChatPendingInterruptsColumns[8]},
+			},
+			{
+				Name:    "chatpendinginterrupt_conversation_id_provider_request_id",
+				Unique:  true,
+				Columns: []*schema.Column{ChatPendingInterruptsColumns[10], ChatPendingInterruptsColumns[1]},
+			},
+		},
+	}
+	// ChatTurnsColumns holds the columns for the "chat_turns" table.
+	ChatTurnsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "turn_index", Type: field.TypeInt},
+		{Name: "provider_turn_id", Type: field.TypeString, Nullable: true},
+		{Name: "status", Type: field.TypeString, Default: "pending"},
+		{Name: "started_at", Type: field.TypeTime},
+		{Name: "completed_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "conversation_id", Type: field.TypeUUID},
+	}
+	// ChatTurnsTable holds the schema information for the "chat_turns" table.
+	ChatTurnsTable = &schema.Table{
+		Name:       "chat_turns",
+		Columns:    ChatTurnsColumns,
+		PrimaryKey: []*schema.Column{ChatTurnsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "chat_turns_chat_conversations_turns",
+				Columns:    []*schema.Column{ChatTurnsColumns[8]},
+				RefColumns: []*schema.Column{ChatConversationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "chatturn_conversation_id_turn_index",
+				Unique:  true,
+				Columns: []*schema.Column{ChatTurnsColumns[8], ChatTurnsColumns[1]},
+			},
+			{
+				Name:    "chatturn_conversation_id_started_at",
+				Unique:  false,
+				Columns: []*schema.Column{ChatTurnsColumns[8], ChatTurnsColumns[4]},
+			},
+		},
+	}
 	// IssueConnectorsColumns holds the columns for the "issue_connectors" table.
 	IssueConnectorsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -786,6 +949,83 @@ var (
 				Annotation: &entsql.IndexAnnotation{
 					Where: "is_enabled = true",
 				},
+			},
+		},
+	}
+	// SkillsColumns holds the columns for the "skills" table.
+	SkillsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString},
+		{Name: "is_builtin", Type: field.TypeBool, Default: false},
+		{Name: "is_enabled", Type: field.TypeBool, Default: true},
+		{Name: "created_by", Type: field.TypeString, Default: "user:manual"},
+		{Name: "archived_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "project_id", Type: field.TypeUUID},
+		{Name: "current_version_id", Type: field.TypeUUID, Nullable: true},
+	}
+	// SkillsTable holds the schema information for the "skills" table.
+	SkillsTable = &schema.Table{
+		Name:       "skills",
+		Columns:    SkillsColumns,
+		PrimaryKey: []*schema.Column{SkillsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "skills_projects_skills",
+				Columns:    []*schema.Column{SkillsColumns[9]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "skills_skill_versions_current_version",
+				Columns:    []*schema.Column{SkillsColumns[10]},
+				RefColumns: []*schema.Column{SkillVersionsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "skill_project_id_name",
+				Unique:  true,
+				Columns: []*schema.Column{SkillsColumns[9], SkillsColumns[1]},
+			},
+			{
+				Name:    "skill_project_id_archived_at",
+				Unique:  false,
+				Columns: []*schema.Column{SkillsColumns[9], SkillsColumns[6]},
+			},
+		},
+	}
+	// SkillVersionsColumns holds the columns for the "skill_versions" table.
+	SkillVersionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "version", Type: field.TypeInt},
+		{Name: "content_markdown", Type: field.TypeString, Size: 2147483647},
+		{Name: "content_hash", Type: field.TypeString},
+		{Name: "created_by", Type: field.TypeString, Default: "system:workflow-service"},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "skill_id", Type: field.TypeUUID},
+	}
+	// SkillVersionsTable holds the schema information for the "skill_versions" table.
+	SkillVersionsTable = &schema.Table{
+		Name:       "skill_versions",
+		Columns:    SkillVersionsColumns,
+		PrimaryKey: []*schema.Column{SkillVersionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "skill_versions_skills_versions",
+				Columns:    []*schema.Column{SkillVersionsColumns[6]},
+				RefColumns: []*schema.Column{SkillsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "skillversion_skill_id_version",
+				Unique:  true,
+				Columns: []*schema.Column{SkillVersionsColumns[6], SkillVersionsColumns[1]},
 			},
 		},
 	}
@@ -1209,6 +1449,7 @@ var (
 		{Name: "is_active", Type: field.TypeBool, Default: true},
 		{Name: "agent_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "project_id", Type: field.TypeUUID},
+		{Name: "current_version_id", Type: field.TypeUUID, Nullable: true},
 	}
 	// WorkflowsTable holds the schema information for the "workflows" table.
 	WorkflowsTable = &schema.Table{
@@ -1228,6 +1469,12 @@ var (
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
+			{
+				Symbol:     "workflows_workflow_versions_current_version",
+				Columns:    []*schema.Column{WorkflowsColumns[13]},
+				RefColumns: []*schema.Column{WorkflowVersionsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
 		},
 		Indexes: []*schema.Index{
 			{
@@ -1239,6 +1486,83 @@ var (
 				Name:    "workflow_project_id_is_active",
 				Unique:  false,
 				Columns: []*schema.Column{WorkflowsColumns[12], WorkflowsColumns[10]},
+			},
+		},
+	}
+	// WorkflowSkillBindingsColumns holds the columns for the "workflow_skill_bindings" table.
+	WorkflowSkillBindingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "skill_id", Type: field.TypeUUID},
+		{Name: "workflow_id", Type: field.TypeUUID},
+		{Name: "required_version_id", Type: field.TypeUUID, Nullable: true},
+	}
+	// WorkflowSkillBindingsTable holds the schema information for the "workflow_skill_bindings" table.
+	WorkflowSkillBindingsTable = &schema.Table{
+		Name:       "workflow_skill_bindings",
+		Columns:    WorkflowSkillBindingsColumns,
+		PrimaryKey: []*schema.Column{WorkflowSkillBindingsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "workflow_skill_bindings_skills_workflow_bindings",
+				Columns:    []*schema.Column{WorkflowSkillBindingsColumns[2]},
+				RefColumns: []*schema.Column{SkillsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "workflow_skill_bindings_workflows_skill_bindings",
+				Columns:    []*schema.Column{WorkflowSkillBindingsColumns[3]},
+				RefColumns: []*schema.Column{WorkflowsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "workflow_skill_bindings_workflow_versions_required_by_bindings",
+				Columns:    []*schema.Column{WorkflowSkillBindingsColumns[4]},
+				RefColumns: []*schema.Column{WorkflowVersionsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "workflowskillbinding_workflow_id_skill_id",
+				Unique:  true,
+				Columns: []*schema.Column{WorkflowSkillBindingsColumns[3], WorkflowSkillBindingsColumns[2]},
+			},
+			{
+				Name:    "workflowskillbinding_skill_id_workflow_id",
+				Unique:  false,
+				Columns: []*schema.Column{WorkflowSkillBindingsColumns[2], WorkflowSkillBindingsColumns[3]},
+			},
+		},
+	}
+	// WorkflowVersionsColumns holds the columns for the "workflow_versions" table.
+	WorkflowVersionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "version", Type: field.TypeInt},
+		{Name: "content_markdown", Type: field.TypeString, Size: 2147483647},
+		{Name: "content_hash", Type: field.TypeString},
+		{Name: "created_by", Type: field.TypeString, Default: "system:workflow-service"},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "workflow_id", Type: field.TypeUUID},
+	}
+	// WorkflowVersionsTable holds the schema information for the "workflow_versions" table.
+	WorkflowVersionsTable = &schema.Table{
+		Name:       "workflow_versions",
+		Columns:    WorkflowVersionsColumns,
+		PrimaryKey: []*schema.Column{WorkflowVersionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "workflow_versions_workflows_versions",
+				Columns:    []*schema.Column{WorkflowVersionsColumns[6]},
+				RefColumns: []*schema.Column{WorkflowsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "workflowversion_workflow_id_version",
+				Unique:  true,
+				Columns: []*schema.Column{WorkflowVersionsColumns[6], WorkflowVersionsColumns[1]},
 			},
 		},
 	}
@@ -1301,6 +1625,10 @@ var (
 		AgentStepEventsTable,
 		AgentTokensTable,
 		AgentTraceEventsTable,
+		ChatConversationsTable,
+		ChatEntriesTable,
+		ChatPendingInterruptsTable,
+		ChatTurnsTable,
 		IssueConnectorsTable,
 		MachinesTable,
 		NotificationChannelsTable,
@@ -1310,6 +1638,8 @@ var (
 		ProjectReposTable,
 		ProjectRepoMirrorsTable,
 		ScheduledJobsTable,
+		SkillsTable,
+		SkillVersionsTable,
 		TicketsTable,
 		TicketCommentsTable,
 		TicketCommentRevisionsTable,
@@ -1319,6 +1649,8 @@ var (
 		TicketRepoWorkspacesTable,
 		TicketStatusTable,
 		WorkflowsTable,
+		WorkflowSkillBindingsTable,
+		WorkflowVersionsTable,
 		WorkflowPickupStatusesTable,
 		WorkflowFinishStatusesTable,
 	}
@@ -1348,6 +1680,12 @@ func init() {
 	AgentTraceEventsTable.ForeignKeys[1].RefTable = AgentRunsTable
 	AgentTraceEventsTable.ForeignKeys[2].RefTable = ProjectsTable
 	AgentTraceEventsTable.ForeignKeys[3].RefTable = TicketsTable
+	ChatConversationsTable.ForeignKeys[0].RefTable = ProjectsTable
+	ChatEntriesTable.ForeignKeys[0].RefTable = ChatConversationsTable
+	ChatEntriesTable.ForeignKeys[1].RefTable = ChatTurnsTable
+	ChatPendingInterruptsTable.ForeignKeys[0].RefTable = ChatConversationsTable
+	ChatPendingInterruptsTable.ForeignKeys[1].RefTable = ChatTurnsTable
+	ChatTurnsTable.ForeignKeys[0].RefTable = ChatConversationsTable
 	IssueConnectorsTable.ForeignKeys[0].RefTable = ProjectsTable
 	MachinesTable.ForeignKeys[0].RefTable = OrganizationsTable
 	NotificationChannelsTable.ForeignKeys[0].RefTable = OrganizationsTable
@@ -1362,6 +1700,9 @@ func init() {
 	ProjectRepoMirrorsTable.ForeignKeys[1].RefTable = ProjectReposTable
 	ScheduledJobsTable.ForeignKeys[0].RefTable = ProjectsTable
 	ScheduledJobsTable.ForeignKeys[1].RefTable = WorkflowsTable
+	SkillsTable.ForeignKeys[0].RefTable = ProjectsTable
+	SkillsTable.ForeignKeys[1].RefTable = SkillVersionsTable
+	SkillVersionsTable.ForeignKeys[0].RefTable = SkillsTable
 	TicketsTable.ForeignKeys[0].RefTable = AgentRunsTable
 	TicketsTable.ForeignKeys[1].RefTable = MachinesTable
 	TicketsTable.ForeignKeys[2].RefTable = ProjectsTable
@@ -1382,6 +1723,11 @@ func init() {
 	TicketStatusTable.ForeignKeys[0].RefTable = ProjectsTable
 	WorkflowsTable.ForeignKeys[0].RefTable = AgentsTable
 	WorkflowsTable.ForeignKeys[1].RefTable = ProjectsTable
+	WorkflowsTable.ForeignKeys[2].RefTable = WorkflowVersionsTable
+	WorkflowSkillBindingsTable.ForeignKeys[0].RefTable = SkillsTable
+	WorkflowSkillBindingsTable.ForeignKeys[1].RefTable = WorkflowsTable
+	WorkflowSkillBindingsTable.ForeignKeys[2].RefTable = WorkflowVersionsTable
+	WorkflowVersionsTable.ForeignKeys[0].RefTable = WorkflowsTable
 	WorkflowPickupStatusesTable.ForeignKeys[0].RefTable = WorkflowsTable
 	WorkflowPickupStatusesTable.ForeignKeys[1].RefTable = TicketStatusTable
 	WorkflowFinishStatusesTable.ForeignKeys[0].RefTable = WorkflowsTable

@@ -18,6 +18,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	entissueconnector "github.com/BetterAndBetterII/openase/ent/issueconnector"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
@@ -25,6 +26,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
+	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
@@ -40,6 +42,7 @@ type ProjectQuery struct {
 	predicates               []predicate.Project
 	withOrganization         *OrganizationQuery
 	withRepos                *ProjectRepoQuery
+	withSkills               *SkillQuery
 	withStatuses             *TicketStatusQuery
 	withWorkflows            *WorkflowQuery
 	withTickets              *TicketQuery
@@ -49,6 +52,7 @@ type ProjectQuery struct {
 	withAgentStepEvents      *AgentStepEventQuery
 	withScheduledJobs        *ScheduledJobQuery
 	withActivityEvents       *ActivityEventQuery
+	withChatConversations    *ChatConversationQuery
 	withNotificationRules    *NotificationRuleQuery
 	withIssueConnectors      *IssueConnectorQuery
 	withDefaultWorkflow      *WorkflowQuery
@@ -126,6 +130,28 @@ func (_q *ProjectQuery) QueryRepos() *ProjectRepoQuery {
 			sqlgraph.From(project.Table, project.FieldID, selector),
 			sqlgraph.To(projectrepo.Table, projectrepo.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, project.ReposTable, project.ReposColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QuerySkills chains the current query on the "skills" edge.
+func (_q *ProjectQuery) QuerySkills() *SkillQuery {
+	query := (&SkillClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, selector),
+			sqlgraph.To(skill.Table, skill.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.SkillsTable, project.SkillsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -324,6 +350,28 @@ func (_q *ProjectQuery) QueryActivityEvents() *ActivityEventQuery {
 			sqlgraph.From(project.Table, project.FieldID, selector),
 			sqlgraph.To(activityevent.Table, activityevent.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, project.ActivityEventsTable, project.ActivityEventsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryChatConversations chains the current query on the "chat_conversations" edge.
+func (_q *ProjectQuery) QueryChatConversations() *ChatConversationQuery {
+	query := (&ChatConversationClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, selector),
+			sqlgraph.To(chatconversation.Table, chatconversation.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.ChatConversationsTable, project.ChatConversationsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -613,6 +661,7 @@ func (_q *ProjectQuery) Clone() *ProjectQuery {
 		predicates:               append([]predicate.Project{}, _q.predicates...),
 		withOrganization:         _q.withOrganization.Clone(),
 		withRepos:                _q.withRepos.Clone(),
+		withSkills:               _q.withSkills.Clone(),
 		withStatuses:             _q.withStatuses.Clone(),
 		withWorkflows:            _q.withWorkflows.Clone(),
 		withTickets:              _q.withTickets.Clone(),
@@ -622,6 +671,7 @@ func (_q *ProjectQuery) Clone() *ProjectQuery {
 		withAgentStepEvents:      _q.withAgentStepEvents.Clone(),
 		withScheduledJobs:        _q.withScheduledJobs.Clone(),
 		withActivityEvents:       _q.withActivityEvents.Clone(),
+		withChatConversations:    _q.withChatConversations.Clone(),
 		withNotificationRules:    _q.withNotificationRules.Clone(),
 		withIssueConnectors:      _q.withIssueConnectors.Clone(),
 		withDefaultWorkflow:      _q.withDefaultWorkflow.Clone(),
@@ -651,6 +701,17 @@ func (_q *ProjectQuery) WithRepos(opts ...func(*ProjectRepoQuery)) *ProjectQuery
 		opt(query)
 	}
 	_q.withRepos = query
+	return _q
+}
+
+// WithSkills tells the query-builder to eager-load the nodes that are connected to
+// the "skills" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ProjectQuery) WithSkills(opts ...func(*SkillQuery)) *ProjectQuery {
+	query := (&SkillClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withSkills = query
 	return _q
 }
 
@@ -750,6 +811,17 @@ func (_q *ProjectQuery) WithActivityEvents(opts ...func(*ActivityEventQuery)) *P
 		opt(query)
 	}
 	_q.withActivityEvents = query
+	return _q
+}
+
+// WithChatConversations tells the query-builder to eager-load the nodes that are connected to
+// the "chat_conversations" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ProjectQuery) WithChatConversations(opts ...func(*ChatConversationQuery)) *ProjectQuery {
+	query := (&ChatConversationClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withChatConversations = query
 	return _q
 }
 
@@ -875,9 +947,10 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 	var (
 		nodes       = []*Project{}
 		_spec       = _q.querySpec()
-		loadedTypes = [15]bool{
+		loadedTypes = [17]bool{
 			_q.withOrganization != nil,
 			_q.withRepos != nil,
+			_q.withSkills != nil,
 			_q.withStatuses != nil,
 			_q.withWorkflows != nil,
 			_q.withTickets != nil,
@@ -887,6 +960,7 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 			_q.withAgentStepEvents != nil,
 			_q.withScheduledJobs != nil,
 			_q.withActivityEvents != nil,
+			_q.withChatConversations != nil,
 			_q.withNotificationRules != nil,
 			_q.withIssueConnectors != nil,
 			_q.withDefaultWorkflow != nil,
@@ -921,6 +995,13 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 		if err := _q.loadRepos(ctx, query, nodes,
 			func(n *Project) { n.Edges.Repos = []*ProjectRepo{} },
 			func(n *Project, e *ProjectRepo) { n.Edges.Repos = append(n.Edges.Repos, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withSkills; query != nil {
+		if err := _q.loadSkills(ctx, query, nodes,
+			func(n *Project) { n.Edges.Skills = []*Skill{} },
+			func(n *Project, e *Skill) { n.Edges.Skills = append(n.Edges.Skills, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -984,6 +1065,15 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 		if err := _q.loadActivityEvents(ctx, query, nodes,
 			func(n *Project) { n.Edges.ActivityEvents = []*ActivityEvent{} },
 			func(n *Project, e *ActivityEvent) { n.Edges.ActivityEvents = append(n.Edges.ActivityEvents, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withChatConversations; query != nil {
+		if err := _q.loadChatConversations(ctx, query, nodes,
+			func(n *Project) { n.Edges.ChatConversations = []*ChatConversation{} },
+			func(n *Project, e *ChatConversation) {
+				n.Edges.ChatConversations = append(n.Edges.ChatConversations, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -1062,6 +1152,36 @@ func (_q *ProjectQuery) loadRepos(ctx context.Context, query *ProjectRepoQuery, 
 	}
 	query.Where(predicate.ProjectRepo(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(project.ReposColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ProjectID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "project_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *ProjectQuery) loadSkills(ctx context.Context, query *SkillQuery, nodes []*Project, init func(*Project), assign func(*Project, *Skill)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Project)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(skill.FieldProjectID)
+	}
+	query.Where(predicate.Skill(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(project.SkillsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {
@@ -1332,6 +1452,36 @@ func (_q *ProjectQuery) loadActivityEvents(ctx context.Context, query *ActivityE
 	}
 	query.Where(predicate.ActivityEvent(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(project.ActivityEventsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ProjectID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "project_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *ProjectQuery) loadChatConversations(ctx context.Context, query *ChatConversationQuery, nodes []*Project, init func(*Project), assign func(*Project, *ChatConversation)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Project)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(chatconversation.FieldProjectID)
+	}
+	query.Where(predicate.ChatConversation(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(project.ChatConversationsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

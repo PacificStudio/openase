@@ -168,20 +168,9 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	if string(activateMarker) != "Coding Workflow:1" {
 		t.Fatalf("expected activate marker to capture workflow context, got %q", string(activateMarker))
 	}
-
-	harnessAbsPath := filepath.Join(projectStorageRoot, filepath.FromSlash(createResp.Workflow.HarnessPath))
-	//nolint:gosec // test reads files from a controlled temp repository
-	fileContent, err := os.ReadFile(harnessAbsPath)
-	if err != nil {
-		t.Fatalf("read created harness file: %v", err)
-	}
-	if string(fileContent) != *createResp.Workflow.HarnessContent {
-		t.Fatalf("expected harness file content to match response, got %q", string(fileContent))
-	}
 	if _, err := os.Stat(filepath.Join(serviceRepoRoot, filepath.FromSlash(createResp.Workflow.HarnessPath))); !os.IsNotExist(err) {
 		t.Fatalf("expected service checkout to stay clean, stat err=%v", err)
 	}
-
 	listResp := struct {
 		Workflows []workflowResponse `json:"workflows"`
 	}{}
@@ -312,21 +301,6 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		t.Fatalf("expected invalid harness update to keep version 2, got %+v", getAfterInvalidResp.Workflow)
 	}
 
-	externalContent := "---\nworkflow:\n  role: coding\n---\n\n# Updated on disk\n"
-	if err := os.WriteFile(harnessAbsPath, []byte(externalContent), 0o600); err != nil {
-		t.Fatalf("write external harness change: %v", err)
-	}
-
-	waitForWorkflowVersion(t, server, createResp.Workflow.ID, 3)
-	//nolint:gosec // test reads files from a controlled temp repository
-	reloadMarker, err = os.ReadFile(reloadMarkerPath)
-	if err != nil {
-		t.Fatalf("read reload marker after external update: %v", err)
-	}
-	if string(reloadMarker) != "on_reload:3" {
-		t.Fatalf("expected external reload marker to capture new version, got %q", string(reloadMarker))
-	}
-
 	harnessGetResp := struct {
 		Harness harnessResponse `json:"harness"`
 	}{}
@@ -339,8 +313,8 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		http.StatusOK,
 		&harnessGetResp,
 	)
-	if harnessGetResp.Harness.Content != externalContent {
-		t.Fatalf("expected harness GET to see external reload, got %q", harnessGetResp.Harness.Content)
+	if harnessGetResp.Harness.Version != 2 || !strings.Contains(harnessGetResp.Harness.Content, "# Updated by API") {
+		t.Fatalf("expected harness GET to read current DB version, got %+v", harnessGetResp.Harness)
 	}
 
 	deleteResp := struct {
@@ -355,9 +329,6 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 		http.StatusOK,
 		&deleteResp,
 	)
-	if _, err := os.Stat(harnessAbsPath); !os.IsNotExist(err) {
-		t.Fatalf("expected harness file to be removed, stat err=%v", err)
-	}
 }
 
 func TestWorkflowRepositoryPrerequisiteRouteAndWorkflowCreateNoLongerDependOnMirrorReadiness(t *testing.T) {
@@ -563,6 +534,19 @@ func TestWorkflowRepositoryPrerequisiteRouteAndWorkflowCreateNoLongerDependOnMir
 	)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create workflow without mirror status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	var createPayload struct {
+		Workflow workflowResponse `json:"workflow"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &createPayload); err != nil {
+		t.Fatalf("decode workflow create payload: %v", err)
+	}
+	if createPayload.Workflow.Name != "Coding Workflow" ||
+		createPayload.Workflow.Version != 1 ||
+		createPayload.Workflow.HarnessContent == nil ||
+		*createPayload.Workflow.HarnessContent == "" {
+		t.Fatalf("unexpected workflow create payload without ready mirror: %+v", createPayload.Workflow)
 	}
 
 	projectRepo, err := client.ProjectRepo.Query().
@@ -1110,6 +1094,12 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
 	}
+	if _, err := workflowSvc.BindSkills(ctx, workflowservice.UpdateWorkflowSkillsInput{
+		WorkflowID: createdWorkflow.ID,
+		Skills:     []string{"openase-platform", "commit"},
+	}); err != nil {
+		t.Fatalf("bind workflow skills: %v", err)
+	}
 	if _, err := workflowSvc.Create(ctx, workflowservice.CreateInput{
 		ProjectID:           project.ID,
 		AgentID:             agent.ID,
@@ -1297,7 +1287,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		"Machine gpu-01 openase",
 		"Workflow Coding Workflow coding fullstack-developer Todo Done",
 		"ProjectWorkflows fullstack-developer:Todo:1/3:Implement product changes end to end.|dispatcher:Backlog:0/1:Evaluate backlog tickets and route them to the right workflow.|",
-		"WorkflowArtifacts fullstack-developer=Done:.openase/harnesses/coding-workflow.md:openase-platform,commit|dispatcher=Backlog:.openase/harnesses/dispatcher-workflow.md:|",
+		"WorkflowArtifacts fullstack-developer=Done:.openase/harnesses/coding-workflow.md:commit,openase-platform|dispatcher=Backlog:.openase/harnesses/dispatcher-workflow.md:|",
 		"WorkflowHistory fullstack-developer=ASE-41:In Review:True:2|ASE-40:Todo:False:0|;dispatcher=;",
 		"ProjectStatuses Backlog,Todo,In Progress,In Review,Done,Cancelled first=#6B7280",
 		"ProjectMachines gpu-01:current:gpu,a100|storage:accessible:storage,nfs|",
@@ -1494,30 +1484,4 @@ func TestListWorkflowsRouteReturnsEmptyArrayForNewProject(t *testing.T) {
 	if payload.Workflows == nil || len(payload.Workflows) != 0 {
 		t.Fatalf("expected non-nil empty workflows slice, got %+v", payload.Workflows)
 	}
-}
-
-func waitForWorkflowVersion(t *testing.T, server *Server, workflowID string, wantVersion int) {
-	t.Helper()
-
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		getResp := struct {
-			Workflow workflowResponse `json:"workflow"`
-		}{}
-		executeJSON(
-			t,
-			server,
-			http.MethodGet,
-			fmt.Sprintf("/api/v1/workflows/%s", workflowID),
-			nil,
-			http.StatusOK,
-			&getResp,
-		)
-		if getResp.Workflow.Version == wantVersion {
-			return
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	t.Fatalf("timed out waiting for workflow %s to reach version %d", workflowID, wantVersion)
 }

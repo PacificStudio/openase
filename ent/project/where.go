@@ -550,6 +550,29 @@ func HasReposWith(preds ...predicate.ProjectRepo) predicate.Project {
 	})
 }
 
+// HasSkills applies the HasEdge predicate on the "skills" edge.
+func HasSkills() predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, SkillsTable, SkillsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSkillsWith applies the HasEdge predicate on the "skills" edge with a given conditions (other predicates).
+func HasSkillsWith(preds ...predicate.Skill) predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := newSkillsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasStatuses applies the HasEdge predicate on the "statuses" edge.
 func HasStatuses() predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {
@@ -749,6 +772,29 @@ func HasActivityEvents() predicate.Project {
 func HasActivityEventsWith(preds ...predicate.ActivityEvent) predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {
 		step := newActivityEventsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasChatConversations applies the HasEdge predicate on the "chat_conversations" edge.
+func HasChatConversations() predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ChatConversationsTable, ChatConversationsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasChatConversationsWith applies the HasEdge predicate on the "chat_conversations" edge with a given conditions (other predicates).
+func HasChatConversationsWith(preds ...predicate.ChatConversation) predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := newChatConversationsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

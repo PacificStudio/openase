@@ -19,6 +19,8 @@ const (
 	FieldProjectID = "project_id"
 	// FieldAgentID holds the string denoting the agent_id field in the database.
 	FieldAgentID = "agent_id"
+	// FieldCurrentVersionID holds the string denoting the current_version_id field in the database.
+	FieldCurrentVersionID = "current_version_id"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
 	// FieldType holds the string denoting the type field in the database.
@@ -43,6 +45,12 @@ const (
 	EdgeProject = "project"
 	// EdgeAgent holds the string denoting the agent edge name in mutations.
 	EdgeAgent = "agent"
+	// EdgeCurrentVersion holds the string denoting the current_version edge name in mutations.
+	EdgeCurrentVersion = "current_version"
+	// EdgeVersions holds the string denoting the versions edge name in mutations.
+	EdgeVersions = "versions"
+	// EdgeSkillBindings holds the string denoting the skill_bindings edge name in mutations.
+	EdgeSkillBindings = "skill_bindings"
 	// EdgePickupStatuses holds the string denoting the pickup_statuses edge name in mutations.
 	EdgePickupStatuses = "pickup_statuses"
 	// EdgeFinishStatuses holds the string denoting the finish_statuses edge name in mutations.
@@ -69,6 +77,27 @@ const (
 	AgentInverseTable = "agents"
 	// AgentColumn is the table column denoting the agent relation/edge.
 	AgentColumn = "agent_id"
+	// CurrentVersionTable is the table that holds the current_version relation/edge.
+	CurrentVersionTable = "workflows"
+	// CurrentVersionInverseTable is the table name for the WorkflowVersion entity.
+	// It exists in this package in order to avoid circular dependency with the "workflowversion" package.
+	CurrentVersionInverseTable = "workflow_versions"
+	// CurrentVersionColumn is the table column denoting the current_version relation/edge.
+	CurrentVersionColumn = "current_version_id"
+	// VersionsTable is the table that holds the versions relation/edge.
+	VersionsTable = "workflow_versions"
+	// VersionsInverseTable is the table name for the WorkflowVersion entity.
+	// It exists in this package in order to avoid circular dependency with the "workflowversion" package.
+	VersionsInverseTable = "workflow_versions"
+	// VersionsColumn is the table column denoting the versions relation/edge.
+	VersionsColumn = "workflow_id"
+	// SkillBindingsTable is the table that holds the skill_bindings relation/edge.
+	SkillBindingsTable = "workflow_skill_bindings"
+	// SkillBindingsInverseTable is the table name for the WorkflowSkillBinding entity.
+	// It exists in this package in order to avoid circular dependency with the "workflowskillbinding" package.
+	SkillBindingsInverseTable = "workflow_skill_bindings"
+	// SkillBindingsColumn is the table column denoting the skill_bindings relation/edge.
+	SkillBindingsColumn = "workflow_id"
 	// PickupStatusesTable is the table that holds the pickup_statuses relation/edge. The primary key declared below.
 	PickupStatusesTable = "workflow_pickup_statuses"
 	// PickupStatusesInverseTable is the table name for the TicketStatus entity.
@@ -107,6 +136,7 @@ var Columns = []string{
 	FieldID,
 	FieldProjectID,
 	FieldAgentID,
+	FieldCurrentVersionID,
 	FieldName,
 	FieldType,
 	FieldHarnessPath,
@@ -207,6 +237,11 @@ func ByAgentID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAgentID, opts...).ToFunc()
 }
 
+// ByCurrentVersionID orders the results by the current_version_id field.
+func ByCurrentVersionID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCurrentVersionID, opts...).ToFunc()
+}
+
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
@@ -263,6 +298,41 @@ func ByProjectField(field string, opts ...sql.OrderTermOption) OrderOption {
 func ByAgentField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newAgentStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByCurrentVersionField orders the results by current_version field.
+func ByCurrentVersionField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCurrentVersionStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByVersionsCount orders the results by versions count.
+func ByVersionsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newVersionsStep(), opts...)
+	}
+}
+
+// ByVersions orders the results by versions terms.
+func ByVersions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newVersionsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// BySkillBindingsCount orders the results by skill_bindings count.
+func BySkillBindingsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSkillBindingsStep(), opts...)
+	}
+}
+
+// BySkillBindings orders the results by skill_bindings terms.
+func BySkillBindings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSkillBindingsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
 
@@ -347,6 +417,27 @@ func newAgentStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AgentInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, AgentTable, AgentColumn),
+	)
+}
+func newCurrentVersionStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CurrentVersionInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, false, CurrentVersionTable, CurrentVersionColumn),
+	)
+}
+func newVersionsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(VersionsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, VersionsTable, VersionsColumn),
+	)
+}
+func newSkillBindingsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SkillBindingsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SkillBindingsTable, SkillBindingsColumn),
 	)
 }
 func newPickupStatusesStep() *sqlgraph.Step {

@@ -48,6 +48,7 @@ func (Project) Edges() []ent.Edge {
 			Unique().
 			Required(),
 		edge.To("repos", ProjectRepo.Type),
+		edge.To("skills", Skill.Type),
 		edge.To("statuses", TicketStatus.Type),
 		edge.To("workflows", Workflow.Type),
 		edge.To("tickets", Ticket.Type),
@@ -57,6 +58,7 @@ func (Project) Edges() []ent.Edge {
 		edge.To("agent_step_events", AgentStepEvent.Type),
 		edge.To("scheduled_jobs", ScheduledJob.Type),
 		edge.To("activity_events", ActivityEvent.Type),
+		edge.To("chat_conversations", ChatConversation.Type),
 		edge.To("notification_rules", NotificationRule.Type),
 		edge.To("issue_connectors", IssueConnector.Type),
 		edge.To("default_workflow", Workflow.Type).

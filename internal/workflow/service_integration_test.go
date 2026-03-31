@@ -19,13 +19,13 @@ import (
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
+	entskillversion "github.com/BetterAndBetterII/openase/ent/skillversion"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
-	"github.com/fsnotify/fsnotify"
 	git "github.com/go-git/go-git/v5"
 	gitconfig "github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -77,13 +77,6 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if got := mustReadWorkflowFile(t, activateMarkerPath); got != "Coding Workflow:1" {
 		t.Fatalf("activate marker = %q", got)
 	}
-	if got := mustReadWorkflowFile(t, filepath.Join(projectRoot, filepath.FromSlash(created.HarnessPath))); got != created.HarnessContent {
-		t.Fatalf("created harness content = %q, want %q", got, created.HarnessContent)
-	}
-
-	if len(service.storages) != 1 {
-		t.Fatalf("service.storages = %d, want 1", len(service.storages))
-	}
 
 	listed, err := service.List(ctx, fixture.projectID)
 	if err != nil {
@@ -109,8 +102,20 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 		t.Fatalf("GetHarness() = %+v", harnessDoc)
 	}
 
-	mustWriteSkill(t, filepath.Join(projectRoot, ".openase", "skills", "skill-one"), "# Skill One\nbody")
-	mustWriteSkill(t, filepath.Join(projectRoot, ".openase", "skills", "skill-two"), "# Skill Two\nbody")
+	if _, err := service.CreateSkill(ctx, CreateSkillInput{
+		ProjectID: fixture.projectID,
+		Name:      "skill-one",
+		Content:   "# Skill One\nbody\n",
+	}); err != nil {
+		t.Fatalf("CreateSkill(skill-one) error = %v", err)
+	}
+	if _, err := service.CreateSkill(ctx, CreateSkillInput{
+		ProjectID: fixture.projectID,
+		Name:      "skill-two",
+		Content:   "# Skill Two\nbody\n",
+	}); err != nil {
+		t.Fatalf("CreateSkill(skill-two) error = %v", err)
+	}
 
 	boundDoc, err := service.BindSkills(ctx, UpdateWorkflowSkillsInput{
 		WorkflowID: created.ID,
@@ -119,14 +124,14 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BindSkills() error = %v", err)
 	}
-	if boundDoc.Version != 2 {
-		t.Fatalf("BindSkills() version = %d, want 2", boundDoc.Version)
-	}
-	if got := mustReadWorkflowFile(t, reloadMarkerPath); got != "on_reload:2" {
-		t.Fatalf("reload marker after BindSkills() = %q", got)
+	if boundDoc.Version != 1 {
+		t.Fatalf("BindSkills() version = %d, want 1", boundDoc.Version)
 	}
 	if skillNames, err := ParseHarnessSkills(boundDoc.Content); err != nil || !slices.Equal(skillNames, []string{"skill-one", "skill-two"}) {
 		t.Fatalf("ParseHarnessSkills(boundDoc) = %+v, %v", skillNames, err)
+	}
+	if _, err := os.Stat(reloadMarkerPath); !os.IsNotExist(err) {
+		t.Fatalf("expected bind to avoid harness reload, stat error = %v", err)
 	}
 
 	skills, err := service.ListSkills(ctx, fixture.projectID)
@@ -151,11 +156,12 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 		ProjectID:     fixture.projectID,
 		WorkspaceRoot: workspaceRoot,
 		AdapterType:   string(entagentprovider.AdapterTypeCodexAppServer),
+		WorkflowID:    &created.ID,
 	})
 	if err != nil {
 		t.Fatalf("RefreshSkills() error = %v", err)
 	}
-	if !slices.Contains(refreshResult.InjectedSkills, "skill-one") || !slices.Contains(refreshResult.InjectedSkills, "skill-two") {
+	if !slices.Equal(refreshResult.InjectedSkills, []string{"openase-platform", "skill-one", "skill-two"}) {
 		t.Fatalf("RefreshSkills() = %+v", refreshResult)
 	}
 
@@ -163,19 +169,20 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(workspaceSkillsRoot, "legacy-skill")); !os.IsNotExist(err) {
 		t.Fatalf("expected legacy workspace skill to be removed, stat error = %v", err)
 	}
-	mustWriteSkill(t, filepath.Join(workspaceSkillsRoot, "skill-one"), "# Skill One Updated\nbody")
-	mustWriteSkill(t, filepath.Join(workspaceSkillsRoot, "skill-three"), "# Skill Three\nbody")
+	if _, err := os.Stat(filepath.Join(workspaceRoot, ".openase", "bin", "openase")); err != nil {
+		t.Fatalf("expected workspace wrapper to exist: %v", err)
+	}
+	//nolint:gosec // test reads a controlled projected skill fixture in the temp workspace.
+	if projected, err := os.ReadFile(filepath.Join(workspaceSkillsRoot, "skill-one", "SKILL.md")); err != nil || !strings.Contains(string(projected), "# Skill One") {
+		t.Fatalf("projected skill-one = %q, err=%v", string(projected), err)
+	}
 
-	harvestResult, err := service.HarvestSkills(ctx, HarvestSkillsInput{
+	if _, err := service.HarvestSkills(ctx, HarvestSkillsInput{
 		ProjectID:     fixture.projectID,
 		WorkspaceRoot: workspaceRoot,
 		AdapterType:   string(entagentprovider.AdapterTypeCodexAppServer),
-	})
-	if err != nil {
-		t.Fatalf("HarvestSkills() error = %v", err)
-	}
-	if !slices.Equal(harvestResult.HarvestedSkills, []string{"skill-three"}) || !slices.Equal(harvestResult.UpdatedSkills, []string{"skill-one"}) {
-		t.Fatalf("HarvestSkills() = %+v", harvestResult)
+	}); !errors.Is(err, ErrSkillInvalid) {
+		t.Fatalf("HarvestSkills() error = %v, want %v", err, ErrSkillInvalid)
 	}
 
 	unboundDoc, err := service.UnbindSkills(ctx, UpdateWorkflowSkillsInput{
@@ -185,8 +192,8 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UnbindSkills() error = %v", err)
 	}
-	if unboundDoc.Version != 3 {
-		t.Fatalf("UnbindSkills() version = %d, want 3", unboundDoc.Version)
+	if unboundDoc.Version != 1 {
+		t.Fatalf("UnbindSkills() version = %d, want 1", unboundDoc.Version)
 	}
 	if skillNames, err := ParseHarnessSkills(unboundDoc.Content); err != nil || !slices.Equal(skillNames, []string{"skill-one"}) {
 		t.Fatalf("ParseHarnessSkills(unboundDoc) = %+v, %v", skillNames, err)
@@ -209,11 +216,8 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if updated.Name != "Core Coding Workflow" || updated.HarnessPath != ".openase/harnesses/platform/core-coding.md" || updated.MaxConcurrent != 7 {
 		t.Fatalf("Update() = %+v", updated)
 	}
-	if _, err := os.Stat(filepath.Join(projectRoot, ".openase", "harnesses", "coding-workflow.md")); !os.IsNotExist(err) {
-		t.Fatalf("old harness path still exists, stat err = %v", err)
-	}
 
-	updatedHarnessContent := "---\nworkflow:\n  role: coding\nskills:\n  - skill-one\n---\n\n# Updated by API\n"
+	updatedHarnessContent := "---\nworkflow:\n  role: coding\nskills:\n  - skill-two\n---\n\n# Updated by API\n"
 	updatedHarnessDoc, err := service.UpdateHarness(ctx, UpdateHarnessInput{
 		WorkflowID: created.ID,
 		Content:    updatedHarnessContent,
@@ -221,54 +225,32 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateHarness() error = %v", err)
 	}
-	if updatedHarnessDoc.Version != 4 || updatedHarnessDoc.Content != updatedHarnessContent {
+	if updatedHarnessDoc.Version != 2 {
 		t.Fatalf("UpdateHarness() = %+v", updatedHarnessDoc)
 	}
-	if got := mustReadWorkflowFile(t, reloadMarkerPath); got != "on_reload:4" {
+	if got := mustReadWorkflowFile(t, reloadMarkerPath); got != "on_reload:2" {
 		t.Fatalf("reload marker after UpdateHarness() = %q", got)
 	}
-
-	storage, err := service.storageForProject(ctx, fixture.projectID, workflowStorageUsageRead)
+	if skillNames, err := ParseHarnessSkills(updatedHarnessDoc.Content); err != nil || !slices.Equal(skillNames, []string{"skill-one"}) {
+		t.Fatalf("projected harness skills after UpdateHarness() = %+v, %v", skillNames, err)
+	}
+	currentVersion, err := service.currentWorkflowVersion(ctx, created.ID)
 	if err != nil {
-		t.Fatalf("storageForProject() error = %v", err)
+		t.Fatalf("currentWorkflowVersion() error = %v", err)
 	}
-	externalContent := "---\nworkflow:\n  role: coding\nskills:\n  - skill-one\n---\n\n# Updated on disk\n"
-	harnessAbsPath := storage.registry.absolutePath(updatedHarnessDoc.Path)
-	if err := os.WriteFile(harnessAbsPath, []byte(externalContent), 0o600); err != nil {
-		t.Fatalf("write external harness: %v", err)
-	}
-	storage.registry.handleEvent(fsnotify.Event{Name: harnessAbsPath, Op: fsnotify.Write})
-	waitForWorkflowVersion(ctx, t, client, created.ID, 5)
-	if got := mustReadWorkflowFile(t, reloadMarkerPath); got != "on_reload:5" {
-		t.Fatalf("reload marker after external write = %q", got)
-	}
-
-	afterExternal, err := service.Get(ctx, created.ID)
-	if err != nil {
-		t.Fatalf("Get() after external write error = %v", err)
-	}
-	if afterExternal.Version != 5 || afterExternal.HarnessContent != externalContent {
-		t.Fatalf("Get() after external write = %+v", afterExternal)
+	if strings.Contains(currentVersion.ContentMarkdown, "skill-two") || strings.Contains(currentVersion.ContentMarkdown, "skills:") {
+		t.Fatalf("stored workflow version still carries projected bindings: %q", currentVersion.ContentMarkdown)
 	}
 
 	if err := client.Project.UpdateOneID(fixture.projectID).SetDefaultWorkflowID(created.ID).Exec(ctx); err != nil {
 		t.Fatalf("set default workflow: %v", err)
 	}
-
-	commitMessages := readWorkflowGitCommitMessages(t, projectRoot)
-	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): bind skill-one and skill-two for Coding Workflow")
-	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): persist skill-one and skill-three")
-	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): unbind skill-two for Coding Workflow")
-
 	deleted, err := service.Delete(ctx, created.ID)
 	if err != nil {
 		t.Fatalf("Delete() error = %v", err)
 	}
 	if deleted.ID != created.ID {
 		t.Fatalf("Delete() = %+v", deleted)
-	}
-	if _, err := os.Stat(harnessAbsPath); !os.IsNotExist(err) {
-		t.Fatalf("deleted harness still exists, stat err = %v", err)
 	}
 	projectAfterDelete, err := client.Project.Get(ctx, fixture.projectID)
 	if err != nil {
@@ -295,7 +277,6 @@ func TestWorkflowServiceSkillLifecycleCommits(t *testing.T) {
 	repoRoot := createWorkflowTestGitRepo(t)
 	service := newWorkflowTestService(t, client, repoRoot)
 	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
-	projectRoot := mustProjectStorageRoot(t, service, fixture.projectID)
 
 	createdWorkflow, err := service.Create(ctx, CreateInput{
 		ProjectID:           fixture.projectID,
@@ -344,7 +325,6 @@ func TestWorkflowServiceSkillLifecycleCommits(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("UpdateSkill() error = %v", err)
 	}
-
 	workspaceRoot := t.TempDir()
 	workspaceSkillsRoot := filepath.Join(workspaceRoot, ".codex", "skills")
 	mustWriteSkill(t, filepath.Join(workspaceSkillsRoot, "release-notes"), "# Release Notes\nbody")
@@ -355,24 +335,32 @@ func TestWorkflowServiceSkillLifecycleCommits(t *testing.T) {
 		WorkflowID:    &createdWorkflow.ID,
 		CreatedBy:     "agent:codex-coding via ASE-365",
 	})
-	if err != nil {
-		t.Fatalf("HarvestSkills() error = %v", err)
+	if !errors.Is(err, ErrSkillInvalid) {
+		t.Fatalf("HarvestSkills() error = %v, want %v", err, ErrSkillInvalid)
 	}
-	if !slices.Equal(harvestResult.HarvestedSkills, []string{"release-notes"}) {
-		t.Fatalf("HarvestSkills() = %+v", harvestResult)
+	if harvestResult.SkillsDir != "" || len(harvestResult.HarvestedSkills) != 0 || len(harvestResult.UpdatedSkills) != 0 {
+		t.Fatalf("HarvestSkills() = %+v, want empty result", harvestResult)
 	}
 	if err := service.DeleteSkill(ctx, createdSkill.ID); err != nil {
 		t.Fatalf("DeleteSkill() error = %v", err)
 	}
-
-	commitMessages := readWorkflowGitCommitMessages(t, projectRoot)
-	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): create deploy-docker")
-	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): disable deploy-docker")
-	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): enable deploy-docker")
-	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): bind deploy-docker for selected workflows")
-	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): update deploy-docker")
-	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): auto-harvest release-notes")
-	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): delete deploy-docker")
+	if _, err := service.GetSkill(ctx, createdSkill.ID); !errors.Is(err, ErrSkillNotFound) {
+		t.Fatalf("GetSkill() after delete error = %v, want %v", err, ErrSkillNotFound)
+	}
+	archivedSkill, err := client.Skill.Get(ctx, createdSkill.ID)
+	if err != nil {
+		t.Fatalf("load archived skill: %v", err)
+	}
+	if archivedSkill.ArchivedAt == nil || archivedSkill.IsEnabled {
+		t.Fatalf("archived skill = %+v", archivedSkill)
+	}
+	versionCount, err := client.SkillVersion.Query().Where(entskillversion.SkillIDEQ(createdSkill.ID)).Count(ctx)
+	if err != nil {
+		t.Fatalf("count skill versions: %v", err)
+	}
+	if versionCount != 2 {
+		t.Fatalf("skill version count = %d, want 2", versionCount)
+	}
 }
 
 func TestWorkflowServiceUnbindSkillIgnoresUnrelatedProjectMirrorState(t *testing.T) {
@@ -666,8 +654,6 @@ func TestWorkflowServiceSkillAndReloadEdgeCases(t *testing.T) {
 	repoRoot := createWorkflowTestGitRepo(t)
 	service := newWorkflowTestService(t, client, repoRoot)
 	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
-	projectRoot := mustProjectStorageRoot(t, service, fixture.projectID)
-
 	created, err := service.Create(ctx, CreateInput{
 		ProjectID:           fixture.projectID,
 		AgentID:             fixture.agentID,
@@ -687,7 +673,13 @@ func TestWorkflowServiceSkillAndReloadEdgeCases(t *testing.T) {
 		t.Fatalf("Create() error = %v", err)
 	}
 
-	mustWriteSkill(t, filepath.Join(projectRoot, ".openase", "skills", "skill-one"), "# Skill One\nbody")
+	if _, err := service.CreateSkill(ctx, CreateSkillInput{
+		ProjectID: fixture.projectID,
+		Name:      "skill-one",
+		Content:   "# Skill One\nbody\n",
+	}); err != nil {
+		t.Fatalf("CreateSkill(skill-one) error = %v", err)
+	}
 	boundDoc, err := service.BindSkills(ctx, UpdateWorkflowSkillsInput{
 		WorkflowID: created.ID,
 		Skills:     []string{"skill-one"},
@@ -727,50 +719,35 @@ func TestWorkflowServiceSkillAndReloadEdgeCases(t *testing.T) {
 		t.Fatalf("BindSkills(missing) error = %v, want %v", err, ErrSkillNotFound)
 	}
 
-	if err := os.RemoveAll(filepath.Join(projectRoot, ".openase", "skills", "skill-one")); err != nil {
-		t.Fatalf("remove skill-one: %v", err)
-	}
-	skills, err := service.ListSkills(ctx, fixture.projectID)
-	if err != nil {
-		t.Fatalf("ListSkills() after removing bound skill error = %v", err)
-	}
-	skillOne := findSkillByName(skills, "skill-one")
-	if skillOne == nil || skillOne.Description != "" || len(skillOne.BoundWorkflows) != 1 || skillOne.BoundWorkflows[0].ID != created.ID {
-		t.Fatalf("ListSkills() after removing bound skill = %+v", skills)
-	}
-
 	harvestResult, err := service.HarvestSkills(ctx, HarvestSkillsInput{
 		ProjectID:     fixture.projectID,
 		WorkspaceRoot: t.TempDir(),
 		AdapterType:   string(entagentprovider.AdapterTypeCodexAppServer),
 	})
-	if err != nil {
-		t.Fatalf("HarvestSkills() empty workspace error = %v", err)
+	if !errors.Is(err, ErrSkillInvalid) {
+		t.Fatalf("HarvestSkills() error = %v, want %v", err, ErrSkillInvalid)
 	}
-	if harvestResult.SkillsDir == "" || len(harvestResult.HarvestedSkills) != 0 || len(harvestResult.UpdatedSkills) != 0 {
-		t.Fatalf("HarvestSkills() empty workspace = %+v", harvestResult)
+	if harvestResult.SkillsDir != "" || len(harvestResult.HarvestedSkills) != 0 || len(harvestResult.UpdatedSkills) != 0 {
+		t.Fatalf("HarvestSkills() = %+v, want empty result", harvestResult)
 	}
 
-	storage, err := service.storageForProject(ctx, fixture.projectID, workflowStorageUsageRead)
+	previousDoc, err := service.GetHarness(ctx, created.ID)
 	if err != nil {
-		t.Fatalf("storageForProject() error = %v", err)
+		t.Fatalf("GetHarness() before blocked update error = %v", err)
 	}
-	harnessAbsPath := storage.registry.absolutePath(created.HarnessPath)
-	previousContent := mustReadWorkflowFile(t, harnessAbsPath)
-	blockedContent := strings.Replace(previousContent, "# Coverage", "# Blocked Reload", 1)
-	if err := os.WriteFile(harnessAbsPath, []byte(blockedContent), 0o600); err != nil {
-		t.Fatalf("write blocked harness content: %v", err)
+	if _, err := service.UpdateHarness(ctx, UpdateHarnessInput{
+		WorkflowID: created.ID,
+		Content:    strings.Replace(previousDoc.Content, "# Coverage", "# Blocked Reload", 1),
+	}); !errors.Is(err, ErrWorkflowHookBlocked) {
+		t.Fatalf("UpdateHarness(blocked) error = %v, want %v", err, ErrWorkflowHookBlocked)
 	}
-	storage.registry.handleEvent(fsnotify.Event{Name: harnessAbsPath, Op: fsnotify.Write})
-
 	afterReload, err := service.Get(ctx, created.ID)
 	if err != nil {
-		t.Fatalf("Get() after blocked reload error = %v", err)
+		t.Fatalf("Get() after blocked update error = %v", err)
 	}
-	if afterReload.Version != boundDoc.Version || afterReload.HarnessContent != previousContent {
-		t.Fatalf("Get() after blocked reload = %+v, want version %d and restored content", afterReload, boundDoc.Version)
+	if afterReload.Version != boundDoc.Version || afterReload.HarnessContent != previousDoc.Content {
+		t.Fatalf("Get() after blocked update = %+v, want version %d and restored content", afterReload, boundDoc.Version)
 	}
-	waitForWorkflowFileContent(t, harnessAbsPath, previousContent)
 }
 
 func findSkillByName(items []Skill, name string) *Skill {
@@ -1050,53 +1027,41 @@ func TestWorkflowServiceUpdateHarnessRegistryFailurePaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
-
-	storage, err := service.storageForProject(ctx, fixture.projectID, workflowStorageUsageRead)
-	if err != nil {
-		t.Fatalf("storageForProject() error = %v", err)
-	}
-	harnessAbsPath := storage.registry.absolutePath(created.HarnessPath)
-
-	if err := os.Remove(harnessAbsPath); err != nil {
-		t.Fatalf("remove harness file: %v", err)
-	}
-	if err := os.MkdirAll(harnessAbsPath, 0o750); err != nil {
-		t.Fatalf("mkdir harness path: %v", err)
-	}
-	storage.registry.mu.Lock()
-	delete(storage.registry.cache, created.HarnessPath)
-	storage.registry.mu.Unlock()
 	if _, err := service.UpdateHarness(ctx, UpdateHarnessInput{
 		WorkflowID: created.ID,
-		Content:    "---\nworkflow:\n  role: coding\n---\n\n# Updated\n",
-	}); err == nil || !strings.Contains(err.Error(), "read workflow harness before update") {
-		t.Fatalf("UpdateHarness(read failure) error = %v", err)
+		Content:    "invalid harness",
+	}); !errors.Is(err, ErrHarnessInvalid) {
+		t.Fatalf("UpdateHarness(invalid) error = %v, want %v", err, ErrHarnessInvalid)
 	}
 
-	if err := os.RemoveAll(harnessAbsPath); err != nil {
-		t.Fatalf("remove harness directory: %v", err)
+	if _, err := service.Update(ctx, UpdateInput{
+		WorkflowID: created.ID,
+		IsActive:   Some(true),
+		Hooks: Some(map[string]any{
+			"workflow_hooks": map[string]any{
+				"on_reload": []map[string]any{{
+					"cmd":        "exit 7",
+					"on_failure": "block",
+				}},
+			},
+		}),
+	}); err != nil {
+		t.Fatalf("Update(active hooks) error = %v", err)
 	}
-	if err := os.MkdirAll(filepath.Dir(harnessAbsPath), 0o750); err != nil {
-		t.Fatalf("mkdir harness parent: %v", err)
-	}
-	if err := os.WriteFile(harnessAbsPath, []byte(created.HarnessContent), 0o600); err != nil {
-		t.Fatalf("restore harness file: %v", err)
-	}
-	if _, err := storage.registry.Read(created.HarnessPath); err != nil {
-		t.Fatalf("registry.Read() error = %v", err)
-	}
-
-	brokenRoot := filepath.Join(t.TempDir(), "registry-root-file")
-	if err := os.WriteFile(brokenRoot, []byte("x"), 0o600); err != nil {
-		t.Fatalf("write broken root file: %v", err)
-	}
-	storage.registry.rootDir = brokenRoot
 
 	if _, err := service.UpdateHarness(ctx, UpdateHarnessInput{
 		WorkflowID: created.ID,
 		Content:    "---\nworkflow:\n  role: coding\n---\n\n# Write failure\n",
-	}); err == nil || (!strings.Contains(err.Error(), "write harness file") && !strings.Contains(err.Error(), "create harness parent directory")) {
-		t.Fatalf("UpdateHarness(write failure) error = %v", err)
+	}); !errors.Is(err, ErrWorkflowHookBlocked) {
+		t.Fatalf("UpdateHarness(blocked) error = %v, want %v", err, ErrWorkflowHookBlocked)
+	}
+
+	currentVersion, err := service.currentWorkflowVersion(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("currentWorkflowVersion() error = %v", err)
+	}
+	if !strings.Contains(currentVersion.ContentMarkdown, "# Initial") {
+		t.Fatalf("current workflow version changed after blocked update: %q", currentVersion.ContentMarkdown)
 	}
 }
 
@@ -1161,6 +1126,12 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 	})
 	if err != nil {
 		t.Fatalf("create coding workflow: %v", err)
+	}
+	if _, err := service.BindSkills(ctx, UpdateWorkflowSkillsInput{
+		WorkflowID: codingWorkflow.ID,
+		Skills:     []string{"openase-platform", "commit"},
+	}); err != nil {
+		t.Fatalf("bind default skills: %v", err)
 	}
 	if _, err := service.Create(ctx, CreateInput{
 		ProjectID:           fixture.projectID,
@@ -1414,7 +1385,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 			dispatcherContext = &data.Project.Workflows[index]
 		}
 	}
-	if codingContext == nil || codingContext.CurrentActive != 1 || !slices.Equal(codingContext.Skills, []string{"openase-platform", "commit"}) || len(codingContext.RecentTickets) != 3 {
+	if codingContext == nil || codingContext.CurrentActive != 1 || !slices.Equal(codingContext.Skills, []string{"commit", "openase-platform"}) || len(codingContext.RecentTickets) != 3 {
 		t.Fatalf("coding workflow context = %+v", codingContext)
 	}
 	if codingContext.RecentTickets[0].Identifier != "ASE-42" || codingContext.RecentTickets[1].Identifier != "ASE-41" || !codingContext.RecentTickets[1].RetryPaused || codingContext.RecentTickets[2].Identifier != "ASE-40" {

@@ -19,6 +19,10 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	"github.com/BetterAndBetterII/openase/ent/chatconversation"
+	"github.com/BetterAndBetterII/openase/ent/chatentry"
+	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
+	"github.com/BetterAndBetterII/openase/ent/chatturn"
 
 	entissueconnector "github.com/BetterAndBetterII/openase/ent/issueconnector"
 	"github.com/BetterAndBetterII/openase/ent/machine"
@@ -29,6 +33,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
+	"github.com/BetterAndBetterII/openase/ent/skill"
+	"github.com/BetterAndBetterII/openase/ent/skillversion"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
 	"github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
@@ -38,6 +44,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
+	"github.com/BetterAndBetterII/openase/ent/workflowversion"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -105,6 +113,10 @@ func checkColumn(t, c string) error {
 			agentstepevent.Table:        agentstepevent.ValidColumn,
 			agenttoken.Table:            agenttoken.ValidColumn,
 			agenttraceevent.Table:       agenttraceevent.ValidColumn,
+			chatconversation.Table:      chatconversation.ValidColumn,
+			chatentry.Table:             chatentry.ValidColumn,
+			chatpendinginterrupt.Table:  chatpendinginterrupt.ValidColumn,
+			chatturn.Table:              chatturn.ValidColumn,
 			entissueconnector.Table:     entissueconnector.ValidColumn,
 			machine.Table:               machine.ValidColumn,
 			notificationchannel.Table:   notificationchannel.ValidColumn,
@@ -114,6 +126,8 @@ func checkColumn(t, c string) error {
 			projectrepo.Table:           projectrepo.ValidColumn,
 			projectrepomirror.Table:     projectrepomirror.ValidColumn,
 			scheduledjob.Table:          scheduledjob.ValidColumn,
+			skill.Table:                 skill.ValidColumn,
+			skillversion.Table:          skillversion.ValidColumn,
 			ticket.Table:                ticket.ValidColumn,
 			ticketcomment.Table:         ticketcomment.ValidColumn,
 			ticketcommentrevision.Table: ticketcommentrevision.ValidColumn,
@@ -123,6 +137,8 @@ func checkColumn(t, c string) error {
 			ticketrepoworkspace.Table:   ticketrepoworkspace.ValidColumn,
 			ticketstatus.Table:          ticketstatus.ValidColumn,
 			workflow.Table:              workflow.ValidColumn,
+			workflowskillbinding.Table:  workflowskillbinding.ValidColumn,
+			workflowversion.Table:       workflowversion.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

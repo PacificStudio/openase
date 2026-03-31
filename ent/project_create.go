@@ -15,12 +15,14 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	entissueconnector "github.com/BetterAndBetterII/openase/ent/issueconnector"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
+	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
@@ -175,6 +177,21 @@ func (_c *ProjectCreate) AddRepos(v ...*ProjectRepo) *ProjectCreate {
 	return _c.AddRepoIDs(ids...)
 }
 
+// AddSkillIDs adds the "skills" edge to the Skill entity by IDs.
+func (_c *ProjectCreate) AddSkillIDs(ids ...uuid.UUID) *ProjectCreate {
+	_c.mutation.AddSkillIDs(ids...)
+	return _c
+}
+
+// AddSkills adds the "skills" edges to the Skill entity.
+func (_c *ProjectCreate) AddSkills(v ...*Skill) *ProjectCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddSkillIDs(ids...)
+}
+
 // AddStatusIDs adds the "statuses" edge to the TicketStatus entity by IDs.
 func (_c *ProjectCreate) AddStatusIDs(ids ...uuid.UUID) *ProjectCreate {
 	_c.mutation.AddStatusIDs(ids...)
@@ -308,6 +325,21 @@ func (_c *ProjectCreate) AddActivityEvents(v ...*ActivityEvent) *ProjectCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddActivityEventIDs(ids...)
+}
+
+// AddChatConversationIDs adds the "chat_conversations" edge to the ChatConversation entity by IDs.
+func (_c *ProjectCreate) AddChatConversationIDs(ids ...uuid.UUID) *ProjectCreate {
+	_c.mutation.AddChatConversationIDs(ids...)
+	return _c
+}
+
+// AddChatConversations adds the "chat_conversations" edges to the ChatConversation entity.
+func (_c *ProjectCreate) AddChatConversations(v ...*ChatConversation) *ProjectCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddChatConversationIDs(ids...)
 }
 
 // AddNotificationRuleIDs adds the "notification_rules" edge to the NotificationRule entity by IDs.
@@ -536,6 +568,22 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
+	if nodes := _c.mutation.SkillsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.SkillsTable,
+			Columns: []string{project.SkillsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(skill.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
 	if nodes := _c.mutation.StatusesIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -673,6 +721,22 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(activityevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.ChatConversationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatConversationsTable,
+			Columns: []string{project.ChatConversationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatconversation.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

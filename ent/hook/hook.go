@@ -93,6 +93,54 @@ func (f AgentTraceEventFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Va
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentTraceEventMutation", m)
 }
 
+// The ChatConversationFunc type is an adapter to allow the use of ordinary
+// function as ChatConversation mutator.
+type ChatConversationFunc func(context.Context, *ent.ChatConversationMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ChatConversationFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ChatConversationMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChatConversationMutation", m)
+}
+
+// The ChatEntryFunc type is an adapter to allow the use of ordinary
+// function as ChatEntry mutator.
+type ChatEntryFunc func(context.Context, *ent.ChatEntryMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ChatEntryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ChatEntryMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChatEntryMutation", m)
+}
+
+// The ChatPendingInterruptFunc type is an adapter to allow the use of ordinary
+// function as ChatPendingInterrupt mutator.
+type ChatPendingInterruptFunc func(context.Context, *ent.ChatPendingInterruptMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ChatPendingInterruptFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ChatPendingInterruptMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChatPendingInterruptMutation", m)
+}
+
+// The ChatTurnFunc type is an adapter to allow the use of ordinary
+// function as ChatTurn mutator.
+type ChatTurnFunc func(context.Context, *ent.ChatTurnMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ChatTurnFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ChatTurnMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChatTurnMutation", m)
+}
+
 // The IssueConnectorFunc type is an adapter to allow the use of ordinary
 // function as IssueConnector mutator.
 type IssueConnectorFunc func(context.Context, *ent.IssueConnectorMutation) (ent.Value, error)
@@ -201,6 +249,30 @@ func (f ScheduledJobFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ScheduledJobMutation", m)
 }
 
+// The SkillFunc type is an adapter to allow the use of ordinary
+// function as Skill mutator.
+type SkillFunc func(context.Context, *ent.SkillMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SkillFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SkillMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SkillMutation", m)
+}
+
+// The SkillVersionFunc type is an adapter to allow the use of ordinary
+// function as SkillVersion mutator.
+type SkillVersionFunc func(context.Context, *ent.SkillVersionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SkillVersionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SkillVersionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SkillVersionMutation", m)
+}
+
 // The TicketFunc type is an adapter to allow the use of ordinary
 // function as Ticket mutator.
 type TicketFunc func(context.Context, *ent.TicketMutation) (ent.Value, error)
@@ -307,6 +379,30 @@ func (f WorkflowFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, er
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.WorkflowMutation", m)
+}
+
+// The WorkflowSkillBindingFunc type is an adapter to allow the use of ordinary
+// function as WorkflowSkillBinding mutator.
+type WorkflowSkillBindingFunc func(context.Context, *ent.WorkflowSkillBindingMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f WorkflowSkillBindingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.WorkflowSkillBindingMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.WorkflowSkillBindingMutation", m)
+}
+
+// The WorkflowVersionFunc type is an adapter to allow the use of ordinary
+// function as WorkflowVersion mutator.
+type WorkflowVersionFunc func(context.Context, *ent.WorkflowVersionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f WorkflowVersionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.WorkflowVersionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.WorkflowVersionMutation", m)
 }
 
 // Condition is a hook condition function.

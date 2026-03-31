@@ -56,6 +56,8 @@ type ProjectEdges struct {
 	Organization *Organization `json:"organization,omitempty"`
 	// Repos holds the value of the repos edge.
 	Repos []*ProjectRepo `json:"repos,omitempty"`
+	// Skills holds the value of the skills edge.
+	Skills []*Skill `json:"skills,omitempty"`
 	// Statuses holds the value of the statuses edge.
 	Statuses []*TicketStatus `json:"statuses,omitempty"`
 	// Workflows holds the value of the workflows edge.
@@ -74,6 +76,8 @@ type ProjectEdges struct {
 	ScheduledJobs []*ScheduledJob `json:"scheduled_jobs,omitempty"`
 	// ActivityEvents holds the value of the activity_events edge.
 	ActivityEvents []*ActivityEvent `json:"activity_events,omitempty"`
+	// ChatConversations holds the value of the chat_conversations edge.
+	ChatConversations []*ChatConversation `json:"chat_conversations,omitempty"`
 	// NotificationRules holds the value of the notification_rules edge.
 	NotificationRules []*NotificationRule `json:"notification_rules,omitempty"`
 	// IssueConnectors holds the value of the issue_connectors edge.
@@ -84,7 +88,7 @@ type ProjectEdges struct {
 	DefaultAgentProvider *AgentProvider `json:"default_agent_provider,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [15]bool
+	loadedTypes [17]bool
 }
 
 // OrganizationOrErr returns the Organization value or an error if the edge
@@ -107,10 +111,19 @@ func (e ProjectEdges) ReposOrErr() ([]*ProjectRepo, error) {
 	return nil, &NotLoadedError{edge: "repos"}
 }
 
+// SkillsOrErr returns the Skills value or an error if the edge
+// was not loaded in eager-loading.
+func (e ProjectEdges) SkillsOrErr() ([]*Skill, error) {
+	if e.loadedTypes[2] {
+		return e.Skills, nil
+	}
+	return nil, &NotLoadedError{edge: "skills"}
+}
+
 // StatusesOrErr returns the Statuses value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) StatusesOrErr() ([]*TicketStatus, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[3] {
 		return e.Statuses, nil
 	}
 	return nil, &NotLoadedError{edge: "statuses"}
@@ -119,7 +132,7 @@ func (e ProjectEdges) StatusesOrErr() ([]*TicketStatus, error) {
 // WorkflowsOrErr returns the Workflows value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) WorkflowsOrErr() ([]*Workflow, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[4] {
 		return e.Workflows, nil
 	}
 	return nil, &NotLoadedError{edge: "workflows"}
@@ -128,7 +141,7 @@ func (e ProjectEdges) WorkflowsOrErr() ([]*Workflow, error) {
 // TicketsOrErr returns the Tickets value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) TicketsOrErr() ([]*Ticket, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		return e.Tickets, nil
 	}
 	return nil, &NotLoadedError{edge: "tickets"}
@@ -137,7 +150,7 @@ func (e ProjectEdges) TicketsOrErr() ([]*Ticket, error) {
 // AgentsOrErr returns the Agents value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) AgentsOrErr() ([]*Agent, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[6] {
 		return e.Agents, nil
 	}
 	return nil, &NotLoadedError{edge: "agents"}
@@ -146,7 +159,7 @@ func (e ProjectEdges) AgentsOrErr() ([]*Agent, error) {
 // AgentTokensOrErr returns the AgentTokens value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) AgentTokensOrErr() ([]*AgentToken, error) {
-	if e.loadedTypes[6] {
+	if e.loadedTypes[7] {
 		return e.AgentTokens, nil
 	}
 	return nil, &NotLoadedError{edge: "agent_tokens"}
@@ -155,7 +168,7 @@ func (e ProjectEdges) AgentTokensOrErr() ([]*AgentToken, error) {
 // AgentTraceEventsOrErr returns the AgentTraceEvents value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) AgentTraceEventsOrErr() ([]*AgentTraceEvent, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[8] {
 		return e.AgentTraceEvents, nil
 	}
 	return nil, &NotLoadedError{edge: "agent_trace_events"}
@@ -164,7 +177,7 @@ func (e ProjectEdges) AgentTraceEventsOrErr() ([]*AgentTraceEvent, error) {
 // AgentStepEventsOrErr returns the AgentStepEvents value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) AgentStepEventsOrErr() ([]*AgentStepEvent, error) {
-	if e.loadedTypes[8] {
+	if e.loadedTypes[9] {
 		return e.AgentStepEvents, nil
 	}
 	return nil, &NotLoadedError{edge: "agent_step_events"}
@@ -173,7 +186,7 @@ func (e ProjectEdges) AgentStepEventsOrErr() ([]*AgentStepEvent, error) {
 // ScheduledJobsOrErr returns the ScheduledJobs value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) ScheduledJobsOrErr() ([]*ScheduledJob, error) {
-	if e.loadedTypes[9] {
+	if e.loadedTypes[10] {
 		return e.ScheduledJobs, nil
 	}
 	return nil, &NotLoadedError{edge: "scheduled_jobs"}
@@ -182,16 +195,25 @@ func (e ProjectEdges) ScheduledJobsOrErr() ([]*ScheduledJob, error) {
 // ActivityEventsOrErr returns the ActivityEvents value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
-	if e.loadedTypes[10] {
+	if e.loadedTypes[11] {
 		return e.ActivityEvents, nil
 	}
 	return nil, &NotLoadedError{edge: "activity_events"}
 }
 
+// ChatConversationsOrErr returns the ChatConversations value or an error if the edge
+// was not loaded in eager-loading.
+func (e ProjectEdges) ChatConversationsOrErr() ([]*ChatConversation, error) {
+	if e.loadedTypes[12] {
+		return e.ChatConversations, nil
+	}
+	return nil, &NotLoadedError{edge: "chat_conversations"}
+}
+
 // NotificationRulesOrErr returns the NotificationRules value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) NotificationRulesOrErr() ([]*NotificationRule, error) {
-	if e.loadedTypes[11] {
+	if e.loadedTypes[13] {
 		return e.NotificationRules, nil
 	}
 	return nil, &NotLoadedError{edge: "notification_rules"}
@@ -200,7 +222,7 @@ func (e ProjectEdges) NotificationRulesOrErr() ([]*NotificationRule, error) {
 // IssueConnectorsOrErr returns the IssueConnectors value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) IssueConnectorsOrErr() ([]*IssueConnector, error) {
-	if e.loadedTypes[12] {
+	if e.loadedTypes[14] {
 		return e.IssueConnectors, nil
 	}
 	return nil, &NotLoadedError{edge: "issue_connectors"}
@@ -211,7 +233,7 @@ func (e ProjectEdges) IssueConnectorsOrErr() ([]*IssueConnector, error) {
 func (e ProjectEdges) DefaultWorkflowOrErr() (*Workflow, error) {
 	if e.DefaultWorkflow != nil {
 		return e.DefaultWorkflow, nil
-	} else if e.loadedTypes[13] {
+	} else if e.loadedTypes[15] {
 		return nil, &NotFoundError{label: workflow.Label}
 	}
 	return nil, &NotLoadedError{edge: "default_workflow"}
@@ -222,7 +244,7 @@ func (e ProjectEdges) DefaultWorkflowOrErr() (*Workflow, error) {
 func (e ProjectEdges) DefaultAgentProviderOrErr() (*AgentProvider, error) {
 	if e.DefaultAgentProvider != nil {
 		return e.DefaultAgentProvider, nil
-	} else if e.loadedTypes[14] {
+	} else if e.loadedTypes[16] {
 		return nil, &NotFoundError{label: agentprovider.Label}
 	}
 	return nil, &NotLoadedError{edge: "default_agent_provider"}
@@ -361,6 +383,11 @@ func (_m *Project) QueryRepos() *ProjectRepoQuery {
 	return NewProjectClient(_m.config).QueryRepos(_m)
 }
 
+// QuerySkills queries the "skills" edge of the Project entity.
+func (_m *Project) QuerySkills() *SkillQuery {
+	return NewProjectClient(_m.config).QuerySkills(_m)
+}
+
 // QueryStatuses queries the "statuses" edge of the Project entity.
 func (_m *Project) QueryStatuses() *TicketStatusQuery {
 	return NewProjectClient(_m.config).QueryStatuses(_m)
@@ -404,6 +431,11 @@ func (_m *Project) QueryScheduledJobs() *ScheduledJobQuery {
 // QueryActivityEvents queries the "activity_events" edge of the Project entity.
 func (_m *Project) QueryActivityEvents() *ActivityEventQuery {
 	return NewProjectClient(_m.config).QueryActivityEvents(_m)
+}
+
+// QueryChatConversations queries the "chat_conversations" edge of the Project entity.
+func (_m *Project) QueryChatConversations() *ChatConversationQuery {
+	return NewProjectClient(_m.config).QueryChatConversations(_m)
 }
 
 // QueryNotificationRules queries the "notification_rules" edge of the Project entity.

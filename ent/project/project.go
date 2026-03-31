@@ -39,6 +39,8 @@ const (
 	EdgeOrganization = "organization"
 	// EdgeRepos holds the string denoting the repos edge name in mutations.
 	EdgeRepos = "repos"
+	// EdgeSkills holds the string denoting the skills edge name in mutations.
+	EdgeSkills = "skills"
 	// EdgeStatuses holds the string denoting the statuses edge name in mutations.
 	EdgeStatuses = "statuses"
 	// EdgeWorkflows holds the string denoting the workflows edge name in mutations.
@@ -57,6 +59,8 @@ const (
 	EdgeScheduledJobs = "scheduled_jobs"
 	// EdgeActivityEvents holds the string denoting the activity_events edge name in mutations.
 	EdgeActivityEvents = "activity_events"
+	// EdgeChatConversations holds the string denoting the chat_conversations edge name in mutations.
+	EdgeChatConversations = "chat_conversations"
 	// EdgeNotificationRules holds the string denoting the notification_rules edge name in mutations.
 	EdgeNotificationRules = "notification_rules"
 	// EdgeIssueConnectors holds the string denoting the issue_connectors edge name in mutations.
@@ -81,6 +85,13 @@ const (
 	ReposInverseTable = "project_repos"
 	// ReposColumn is the table column denoting the repos relation/edge.
 	ReposColumn = "project_id"
+	// SkillsTable is the table that holds the skills relation/edge.
+	SkillsTable = "skills"
+	// SkillsInverseTable is the table name for the Skill entity.
+	// It exists in this package in order to avoid circular dependency with the "skill" package.
+	SkillsInverseTable = "skills"
+	// SkillsColumn is the table column denoting the skills relation/edge.
+	SkillsColumn = "project_id"
 	// StatusesTable is the table that holds the statuses relation/edge.
 	StatusesTable = "ticket_status"
 	// StatusesInverseTable is the table name for the TicketStatus entity.
@@ -144,6 +155,13 @@ const (
 	ActivityEventsInverseTable = "activity_events"
 	// ActivityEventsColumn is the table column denoting the activity_events relation/edge.
 	ActivityEventsColumn = "project_id"
+	// ChatConversationsTable is the table that holds the chat_conversations relation/edge.
+	ChatConversationsTable = "chat_conversations"
+	// ChatConversationsInverseTable is the table name for the ChatConversation entity.
+	// It exists in this package in order to avoid circular dependency with the "chatconversation" package.
+	ChatConversationsInverseTable = "chat_conversations"
+	// ChatConversationsColumn is the table column denoting the chat_conversations relation/edge.
+	ChatConversationsColumn = "project_id"
 	// NotificationRulesTable is the table that holds the notification_rules relation/edge.
 	NotificationRulesTable = "notification_rules"
 	// NotificationRulesInverseTable is the table name for the NotificationRule entity.
@@ -284,6 +302,20 @@ func ByRepos(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// BySkillsCount orders the results by skills count.
+func BySkillsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSkillsStep(), opts...)
+	}
+}
+
+// BySkills orders the results by skills terms.
+func BySkills(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSkillsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByStatusesCount orders the results by statuses count.
 func ByStatusesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -410,6 +442,20 @@ func ByActivityEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByChatConversationsCount orders the results by chat_conversations count.
+func ByChatConversationsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newChatConversationsStep(), opts...)
+	}
+}
+
+// ByChatConversations orders the results by chat_conversations terms.
+func ByChatConversations(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newChatConversationsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByNotificationRulesCount orders the results by notification_rules count.
 func ByNotificationRulesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -463,6 +509,13 @@ func newReposStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ReposInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ReposTable, ReposColumn),
+	)
+}
+func newSkillsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SkillsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SkillsTable, SkillsColumn),
 	)
 }
 func newStatusesStep() *sqlgraph.Step {
@@ -526,6 +579,13 @@ func newActivityEventsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ActivityEventsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ActivityEventsTable, ActivityEventsColumn),
+	)
+}
+func newChatConversationsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ChatConversationsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ChatConversationsTable, ChatConversationsColumn),
 	)
 }
 func newNotificationRulesStep() *sqlgraph.Step {

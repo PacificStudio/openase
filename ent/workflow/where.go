@@ -64,6 +64,11 @@ func AgentID(v uuid.UUID) predicate.Workflow {
 	return predicate.Workflow(sql.FieldEQ(FieldAgentID, v))
 }
 
+// CurrentVersionID applies equality check predicate on the "current_version_id" field. It's identical to CurrentVersionIDEQ.
+func CurrentVersionID(v uuid.UUID) predicate.Workflow {
+	return predicate.Workflow(sql.FieldEQ(FieldCurrentVersionID, v))
+}
+
 // Name applies equality check predicate on the "name" field. It's identical to NameEQ.
 func Name(v string) predicate.Workflow {
 	return predicate.Workflow(sql.FieldEQ(FieldName, v))
@@ -152,6 +157,36 @@ func AgentIDIsNil() predicate.Workflow {
 // AgentIDNotNil applies the NotNil predicate on the "agent_id" field.
 func AgentIDNotNil() predicate.Workflow {
 	return predicate.Workflow(sql.FieldNotNull(FieldAgentID))
+}
+
+// CurrentVersionIDEQ applies the EQ predicate on the "current_version_id" field.
+func CurrentVersionIDEQ(v uuid.UUID) predicate.Workflow {
+	return predicate.Workflow(sql.FieldEQ(FieldCurrentVersionID, v))
+}
+
+// CurrentVersionIDNEQ applies the NEQ predicate on the "current_version_id" field.
+func CurrentVersionIDNEQ(v uuid.UUID) predicate.Workflow {
+	return predicate.Workflow(sql.FieldNEQ(FieldCurrentVersionID, v))
+}
+
+// CurrentVersionIDIn applies the In predicate on the "current_version_id" field.
+func CurrentVersionIDIn(vs ...uuid.UUID) predicate.Workflow {
+	return predicate.Workflow(sql.FieldIn(FieldCurrentVersionID, vs...))
+}
+
+// CurrentVersionIDNotIn applies the NotIn predicate on the "current_version_id" field.
+func CurrentVersionIDNotIn(vs ...uuid.UUID) predicate.Workflow {
+	return predicate.Workflow(sql.FieldNotIn(FieldCurrentVersionID, vs...))
+}
+
+// CurrentVersionIDIsNil applies the IsNil predicate on the "current_version_id" field.
+func CurrentVersionIDIsNil() predicate.Workflow {
+	return predicate.Workflow(sql.FieldIsNull(FieldCurrentVersionID))
+}
+
+// CurrentVersionIDNotNil applies the NotNil predicate on the "current_version_id" field.
+func CurrentVersionIDNotNil() predicate.Workflow {
+	return predicate.Workflow(sql.FieldNotNull(FieldCurrentVersionID))
 }
 
 // NameEQ applies the EQ predicate on the "name" field.
@@ -552,6 +587,75 @@ func HasAgent() predicate.Workflow {
 func HasAgentWith(preds ...predicate.Agent) predicate.Workflow {
 	return predicate.Workflow(func(s *sql.Selector) {
 		step := newAgentStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasCurrentVersion applies the HasEdge predicate on the "current_version" edge.
+func HasCurrentVersion() predicate.Workflow {
+	return predicate.Workflow(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, CurrentVersionTable, CurrentVersionColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCurrentVersionWith applies the HasEdge predicate on the "current_version" edge with a given conditions (other predicates).
+func HasCurrentVersionWith(preds ...predicate.WorkflowVersion) predicate.Workflow {
+	return predicate.Workflow(func(s *sql.Selector) {
+		step := newCurrentVersionStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasVersions applies the HasEdge predicate on the "versions" edge.
+func HasVersions() predicate.Workflow {
+	return predicate.Workflow(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, VersionsTable, VersionsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasVersionsWith applies the HasEdge predicate on the "versions" edge with a given conditions (other predicates).
+func HasVersionsWith(preds ...predicate.WorkflowVersion) predicate.Workflow {
+	return predicate.Workflow(func(s *sql.Selector) {
+		step := newVersionsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasSkillBindings applies the HasEdge predicate on the "skill_bindings" edge.
+func HasSkillBindings() predicate.Workflow {
+	return predicate.Workflow(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, SkillBindingsTable, SkillBindingsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSkillBindingsWith applies the HasEdge predicate on the "skill_bindings" edge with a given conditions (other predicates).
+func HasSkillBindingsWith(preds ...predicate.WorkflowSkillBinding) predicate.Workflow {
+	return predicate.Workflow(func(s *sql.Selector) {
+		step := newSkillBindingsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

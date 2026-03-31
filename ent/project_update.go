@@ -17,6 +17,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	entissueconnector "github.com/BetterAndBetterII/openase/ent/issueconnector"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
@@ -24,6 +25,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
+	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
@@ -237,6 +239,21 @@ func (_u *ProjectUpdate) AddRepos(v ...*ProjectRepo) *ProjectUpdate {
 	return _u.AddRepoIDs(ids...)
 }
 
+// AddSkillIDs adds the "skills" edge to the Skill entity by IDs.
+func (_u *ProjectUpdate) AddSkillIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.AddSkillIDs(ids...)
+	return _u
+}
+
+// AddSkills adds the "skills" edges to the Skill entity.
+func (_u *ProjectUpdate) AddSkills(v ...*Skill) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSkillIDs(ids...)
+}
+
 // AddStatusIDs adds the "statuses" edge to the TicketStatus entity by IDs.
 func (_u *ProjectUpdate) AddStatusIDs(ids ...uuid.UUID) *ProjectUpdate {
 	_u.mutation.AddStatusIDs(ids...)
@@ -372,6 +389,21 @@ func (_u *ProjectUpdate) AddActivityEvents(v ...*ActivityEvent) *ProjectUpdate {
 	return _u.AddActivityEventIDs(ids...)
 }
 
+// AddChatConversationIDs adds the "chat_conversations" edge to the ChatConversation entity by IDs.
+func (_u *ProjectUpdate) AddChatConversationIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.AddChatConversationIDs(ids...)
+	return _u
+}
+
+// AddChatConversations adds the "chat_conversations" edges to the ChatConversation entity.
+func (_u *ProjectUpdate) AddChatConversations(v ...*ChatConversation) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddChatConversationIDs(ids...)
+}
+
 // AddNotificationRuleIDs adds the "notification_rules" edge to the NotificationRule entity by IDs.
 func (_u *ProjectUpdate) AddNotificationRuleIDs(ids ...uuid.UUID) *ProjectUpdate {
 	_u.mutation.AddNotificationRuleIDs(ids...)
@@ -442,6 +474,27 @@ func (_u *ProjectUpdate) RemoveRepos(v ...*ProjectRepo) *ProjectUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveRepoIDs(ids...)
+}
+
+// ClearSkills clears all "skills" edges to the Skill entity.
+func (_u *ProjectUpdate) ClearSkills() *ProjectUpdate {
+	_u.mutation.ClearSkills()
+	return _u
+}
+
+// RemoveSkillIDs removes the "skills" edge to Skill entities by IDs.
+func (_u *ProjectUpdate) RemoveSkillIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.RemoveSkillIDs(ids...)
+	return _u
+}
+
+// RemoveSkills removes "skills" edges to Skill entities.
+func (_u *ProjectUpdate) RemoveSkills(v ...*Skill) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSkillIDs(ids...)
 }
 
 // ClearStatuses clears all "statuses" edges to the TicketStatus entity.
@@ -631,6 +684,27 @@ func (_u *ProjectUpdate) RemoveActivityEvents(v ...*ActivityEvent) *ProjectUpdat
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveActivityEventIDs(ids...)
+}
+
+// ClearChatConversations clears all "chat_conversations" edges to the ChatConversation entity.
+func (_u *ProjectUpdate) ClearChatConversations() *ProjectUpdate {
+	_u.mutation.ClearChatConversations()
+	return _u
+}
+
+// RemoveChatConversationIDs removes the "chat_conversations" edge to ChatConversation entities by IDs.
+func (_u *ProjectUpdate) RemoveChatConversationIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.RemoveChatConversationIDs(ids...)
+	return _u
+}
+
+// RemoveChatConversations removes "chat_conversations" edges to ChatConversation entities.
+func (_u *ProjectUpdate) RemoveChatConversations(v ...*ChatConversation) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveChatConversationIDs(ids...)
 }
 
 // ClearNotificationRules clears all "notification_rules" edges to the NotificationRule entity.
@@ -852,6 +926,51 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(projectrepo.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SkillsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.SkillsTable,
+			Columns: []string{project.SkillsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(skill.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSkillsIDs(); len(nodes) > 0 && !_u.mutation.SkillsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.SkillsTable,
+			Columns: []string{project.SkillsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(skill.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SkillsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.SkillsTable,
+			Columns: []string{project.SkillsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(skill.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -1257,6 +1376,51 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(activityevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ChatConversationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatConversationsTable,
+			Columns: []string{project.ChatConversationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatconversation.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedChatConversationsIDs(); len(nodes) > 0 && !_u.mutation.ChatConversationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatConversationsTable,
+			Columns: []string{project.ChatConversationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatconversation.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ChatConversationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatConversationsTable,
+			Columns: []string{project.ChatConversationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatconversation.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -1625,6 +1789,21 @@ func (_u *ProjectUpdateOne) AddRepos(v ...*ProjectRepo) *ProjectUpdateOne {
 	return _u.AddRepoIDs(ids...)
 }
 
+// AddSkillIDs adds the "skills" edge to the Skill entity by IDs.
+func (_u *ProjectUpdateOne) AddSkillIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.AddSkillIDs(ids...)
+	return _u
+}
+
+// AddSkills adds the "skills" edges to the Skill entity.
+func (_u *ProjectUpdateOne) AddSkills(v ...*Skill) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSkillIDs(ids...)
+}
+
 // AddStatusIDs adds the "statuses" edge to the TicketStatus entity by IDs.
 func (_u *ProjectUpdateOne) AddStatusIDs(ids ...uuid.UUID) *ProjectUpdateOne {
 	_u.mutation.AddStatusIDs(ids...)
@@ -1760,6 +1939,21 @@ func (_u *ProjectUpdateOne) AddActivityEvents(v ...*ActivityEvent) *ProjectUpdat
 	return _u.AddActivityEventIDs(ids...)
 }
 
+// AddChatConversationIDs adds the "chat_conversations" edge to the ChatConversation entity by IDs.
+func (_u *ProjectUpdateOne) AddChatConversationIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.AddChatConversationIDs(ids...)
+	return _u
+}
+
+// AddChatConversations adds the "chat_conversations" edges to the ChatConversation entity.
+func (_u *ProjectUpdateOne) AddChatConversations(v ...*ChatConversation) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddChatConversationIDs(ids...)
+}
+
 // AddNotificationRuleIDs adds the "notification_rules" edge to the NotificationRule entity by IDs.
 func (_u *ProjectUpdateOne) AddNotificationRuleIDs(ids ...uuid.UUID) *ProjectUpdateOne {
 	_u.mutation.AddNotificationRuleIDs(ids...)
@@ -1830,6 +2024,27 @@ func (_u *ProjectUpdateOne) RemoveRepos(v ...*ProjectRepo) *ProjectUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveRepoIDs(ids...)
+}
+
+// ClearSkills clears all "skills" edges to the Skill entity.
+func (_u *ProjectUpdateOne) ClearSkills() *ProjectUpdateOne {
+	_u.mutation.ClearSkills()
+	return _u
+}
+
+// RemoveSkillIDs removes the "skills" edge to Skill entities by IDs.
+func (_u *ProjectUpdateOne) RemoveSkillIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.RemoveSkillIDs(ids...)
+	return _u
+}
+
+// RemoveSkills removes "skills" edges to Skill entities.
+func (_u *ProjectUpdateOne) RemoveSkills(v ...*Skill) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSkillIDs(ids...)
 }
 
 // ClearStatuses clears all "statuses" edges to the TicketStatus entity.
@@ -2019,6 +2234,27 @@ func (_u *ProjectUpdateOne) RemoveActivityEvents(v ...*ActivityEvent) *ProjectUp
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveActivityEventIDs(ids...)
+}
+
+// ClearChatConversations clears all "chat_conversations" edges to the ChatConversation entity.
+func (_u *ProjectUpdateOne) ClearChatConversations() *ProjectUpdateOne {
+	_u.mutation.ClearChatConversations()
+	return _u
+}
+
+// RemoveChatConversationIDs removes the "chat_conversations" edge to ChatConversation entities by IDs.
+func (_u *ProjectUpdateOne) RemoveChatConversationIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.RemoveChatConversationIDs(ids...)
+	return _u
+}
+
+// RemoveChatConversations removes "chat_conversations" edges to ChatConversation entities.
+func (_u *ProjectUpdateOne) RemoveChatConversations(v ...*ChatConversation) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveChatConversationIDs(ids...)
 }
 
 // ClearNotificationRules clears all "notification_rules" edges to the NotificationRule entity.
@@ -2270,6 +2506,51 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(projectrepo.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SkillsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.SkillsTable,
+			Columns: []string{project.SkillsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(skill.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSkillsIDs(); len(nodes) > 0 && !_u.mutation.SkillsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.SkillsTable,
+			Columns: []string{project.SkillsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(skill.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SkillsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.SkillsTable,
+			Columns: []string{project.SkillsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(skill.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -2675,6 +2956,51 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(activityevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ChatConversationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatConversationsTable,
+			Columns: []string{project.ChatConversationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatconversation.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedChatConversationsIDs(); len(nodes) > 0 && !_u.mutation.ChatConversationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatConversationsTable,
+			Columns: []string{project.ChatConversationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatconversation.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ChatConversationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatConversationsTable,
+			Columns: []string{project.ChatConversationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatconversation.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

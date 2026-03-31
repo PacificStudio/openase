@@ -26,6 +26,14 @@ type Tx struct {
 	AgentToken *AgentTokenClient
 	// AgentTraceEvent is the client for interacting with the AgentTraceEvent builders.
 	AgentTraceEvent *AgentTraceEventClient
+	// ChatConversation is the client for interacting with the ChatConversation builders.
+	ChatConversation *ChatConversationClient
+	// ChatEntry is the client for interacting with the ChatEntry builders.
+	ChatEntry *ChatEntryClient
+	// ChatPendingInterrupt is the client for interacting with the ChatPendingInterrupt builders.
+	ChatPendingInterrupt *ChatPendingInterruptClient
+	// ChatTurn is the client for interacting with the ChatTurn builders.
+	ChatTurn *ChatTurnClient
 	// IssueConnector is the client for interacting with the IssueConnector builders.
 	IssueConnector *IssueConnectorClient
 	// Machine is the client for interacting with the Machine builders.
@@ -44,6 +52,10 @@ type Tx struct {
 	ProjectRepoMirror *ProjectRepoMirrorClient
 	// ScheduledJob is the client for interacting with the ScheduledJob builders.
 	ScheduledJob *ScheduledJobClient
+	// Skill is the client for interacting with the Skill builders.
+	Skill *SkillClient
+	// SkillVersion is the client for interacting with the SkillVersion builders.
+	SkillVersion *SkillVersionClient
 	// Ticket is the client for interacting with the Ticket builders.
 	Ticket *TicketClient
 	// TicketComment is the client for interacting with the TicketComment builders.
@@ -62,6 +74,10 @@ type Tx struct {
 	TicketStatus *TicketStatusClient
 	// Workflow is the client for interacting with the Workflow builders.
 	Workflow *WorkflowClient
+	// WorkflowSkillBinding is the client for interacting with the WorkflowSkillBinding builders.
+	WorkflowSkillBinding *WorkflowSkillBindingClient
+	// WorkflowVersion is the client for interacting with the WorkflowVersion builders.
+	WorkflowVersion *WorkflowVersionClient
 
 	// lazily loaded.
 	client     *Client
@@ -200,6 +216,10 @@ func (tx *Tx) init() {
 	tx.AgentStepEvent = NewAgentStepEventClient(tx.config)
 	tx.AgentToken = NewAgentTokenClient(tx.config)
 	tx.AgentTraceEvent = NewAgentTraceEventClient(tx.config)
+	tx.ChatConversation = NewChatConversationClient(tx.config)
+	tx.ChatEntry = NewChatEntryClient(tx.config)
+	tx.ChatPendingInterrupt = NewChatPendingInterruptClient(tx.config)
+	tx.ChatTurn = NewChatTurnClient(tx.config)
 	tx.IssueConnector = NewIssueConnectorClient(tx.config)
 	tx.Machine = NewMachineClient(tx.config)
 	tx.NotificationChannel = NewNotificationChannelClient(tx.config)
@@ -209,6 +229,8 @@ func (tx *Tx) init() {
 	tx.ProjectRepo = NewProjectRepoClient(tx.config)
 	tx.ProjectRepoMirror = NewProjectRepoMirrorClient(tx.config)
 	tx.ScheduledJob = NewScheduledJobClient(tx.config)
+	tx.Skill = NewSkillClient(tx.config)
+	tx.SkillVersion = NewSkillVersionClient(tx.config)
 	tx.Ticket = NewTicketClient(tx.config)
 	tx.TicketComment = NewTicketCommentClient(tx.config)
 	tx.TicketCommentRevision = NewTicketCommentRevisionClient(tx.config)
@@ -218,6 +240,8 @@ func (tx *Tx) init() {
 	tx.TicketRepoWorkspace = NewTicketRepoWorkspaceClient(tx.config)
 	tx.TicketStatus = NewTicketStatusClient(tx.config)
 	tx.Workflow = NewWorkflowClient(tx.config)
+	tx.WorkflowSkillBinding = NewWorkflowSkillBindingClient(tx.config)
+	tx.WorkflowVersion = NewWorkflowVersionClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

@@ -25,13 +25,14 @@ func (s SessionID) String() string {
 }
 
 type RuntimeTurnInput struct {
-	SessionID        SessionID
-	Provider         catalogdomain.AgentProvider
-	Message          string
-	SystemPrompt     string
-	WorkingDirectory provider.AbsolutePath
-	MaxTurns         int
-	MaxBudgetUSD     float64
+	SessionID              SessionID
+	Provider               catalogdomain.AgentProvider
+	Message                string
+	SystemPrompt           string
+	WorkingDirectory       provider.AbsolutePath
+	MaxTurns               int
+	MaxBudgetUSD           float64
+	PersistentConversation bool
 }
 
 func remainingTurns(maxTurns int, turnsUsed int) *int {

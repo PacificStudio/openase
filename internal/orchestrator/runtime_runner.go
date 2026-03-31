@@ -15,13 +15,11 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
-	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
-	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
 
@@ -838,52 +836,7 @@ func (l *RuntimeLauncher) autoHarvestCompletedSkills(
 	if l == nil || l.workflow == nil || ticket == nil || ticket.WorkflowID == nil {
 		return nil
 	}
-
-	launchContext, err := l.loadLaunchContext(ctx, agentID, ticket.ID)
-	if err != nil {
-		return err
-	}
-	machine, remote, err := l.resolveLaunchMachine(ctx, launchContext)
-	if err != nil {
-		return err
-	}
-	if remote || machine.Host != catalogdomain.LocalMachineHost {
-		return nil
-	}
-
-	repoPath, err := l.resolveRuntimeSingleRepoPath(ctx, runID)
-	if err != nil {
-		return err
-	}
-	if strings.TrimSpace(repoPath) == "" {
-		return nil
-	}
-
-	_, err = l.workflow.HarvestSkills(ctx, workflowservice.HarvestSkillsInput{
-		ProjectID:     launchContext.project.ID,
-		WorkspaceRoot: repoPath,
-		AdapterType:   string(launchContext.agent.Edges.Provider.AdapterType),
-		WorkflowID:    ticket.WorkflowID,
-		CreatedBy:     fmt.Sprintf("agent:%s via %s", launchContext.agent.Name, launchContext.ticket.Identifier),
-	})
-	return err
-}
-
-func (l *RuntimeLauncher) resolveRuntimeSingleRepoPath(ctx context.Context, runID uuid.UUID) (string, error) {
-	items, err := l.client.TicketRepoWorkspace.Query().
-		Where(entticketrepoworkspace.AgentRunIDEQ(runID)).
-		WithRepo().
-		All(ctx)
-	if err != nil {
-		return "", fmt.Errorf("list ticket repo workspaces for run %s: %w", runID, err)
-	}
-	if len(items) == 0 {
-		return "", nil
-	}
-	if len(items) == 1 {
-		return items[0].RepoPath, nil
-	}
-	return "", nil
+	return nil
 }
 
 func resolveWorkflowFinishStatus(ticket *ent.Ticket) (uuid.UUID, error) {
