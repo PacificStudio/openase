@@ -272,6 +272,11 @@ type resolvedSkillRecord struct {
 	entry     skillIndexEntry
 }
 
+type resolvedSkillBindingScope struct {
+	projectID   uuid.UUID
+	workflowIDs []uuid.UUID
+}
+
 func (s *Service) GetSkill(ctx context.Context, skillID uuid.UUID) (SkillDetail, error) {
 	record, err := s.resolveSkillRecord(ctx, skillID, workflowStorageUsageRead)
 	if err != nil {
@@ -477,16 +482,16 @@ func (s *Service) setSkillEnabled(ctx context.Context, skillID uuid.UUID, enable
 }
 
 func (s *Service) BindSkill(ctx context.Context, input UpdateSkillBindingsInput) (SkillDetail, error) {
-	record, err := s.resolveSkillRecord(ctx, input.SkillID, workflowStorageUsageWrite)
+	scope, err := s.resolveSkillBindingScope(ctx, input.WorkflowIDs)
 	if err != nil {
 		return SkillDetail{}, err
 	}
-	workflowIDs, err := normalizeWorkflowIDs(input.WorkflowIDs)
+	record, err := s.resolveSkillRecordForProject(ctx, scope.projectID, input.SkillID, workflowStorageUsageWrite)
 	if err != nil {
 		return SkillDetail{}, err
 	}
-	commitPrefixes := make([]string, 0, len(workflowIDs))
-	for _, workflowID := range workflowIDs {
+	commitPrefixes := make([]string, 0, len(scope.workflowIDs))
+	for _, workflowID := range scope.workflowIDs {
 		document, err := s.updateWorkflowSkills(ctx, UpdateWorkflowSkillsInput{
 			WorkflowID: workflowID,
 			Skills:     []string{record.entry.Name},
@@ -515,16 +520,16 @@ func (s *Service) BindSkill(ctx context.Context, input UpdateSkillBindingsInput)
 }
 
 func (s *Service) UnbindSkill(ctx context.Context, input UpdateSkillBindingsInput) (SkillDetail, error) {
-	record, err := s.resolveSkillRecord(ctx, input.SkillID, workflowStorageUsageWrite)
+	scope, err := s.resolveSkillBindingScope(ctx, input.WorkflowIDs)
 	if err != nil {
 		return SkillDetail{}, err
 	}
-	workflowIDs, err := normalizeWorkflowIDs(input.WorkflowIDs)
+	record, err := s.resolveSkillRecordForProject(ctx, scope.projectID, input.SkillID, workflowStorageUsageWrite)
 	if err != nil {
 		return SkillDetail{}, err
 	}
-	commitPrefixes := make([]string, 0, len(workflowIDs))
-	for _, workflowID := range workflowIDs {
+	commitPrefixes := make([]string, 0, len(scope.workflowIDs))
+	for _, workflowID := range scope.workflowIDs {
 		document, err := s.updateWorkflowSkills(ctx, UpdateWorkflowSkillsInput{
 			WorkflowID: workflowID,
 			Skills:     []string{record.entry.Name},
@@ -572,6 +577,79 @@ func normalizeWorkflowIDs(items []uuid.UUID) ([]uuid.UUID, error) {
 	return unique, nil
 }
 
+func (s *Service) resolveSkillBindingScope(
+	ctx context.Context,
+	workflowIDs []uuid.UUID,
+) (resolvedSkillBindingScope, error) {
+	if s.client == nil {
+		return resolvedSkillBindingScope{}, ErrUnavailable
+	}
+	normalized, err := normalizeWorkflowIDs(workflowIDs)
+	if err != nil {
+		return resolvedSkillBindingScope{}, err
+	}
+
+	workflows, err := s.client.Workflow.Query().
+		Where(entworkflow.IDIn(normalized...)).
+		All(ctx)
+	if err != nil {
+		return resolvedSkillBindingScope{}, fmt.Errorf("list workflows for skill binding: %w", err)
+	}
+
+	byID := make(map[uuid.UUID]*ent.Workflow, len(workflows))
+	for _, workflowItem := range workflows {
+		byID[workflowItem.ID] = workflowItem
+	}
+
+	var projectID uuid.UUID
+	for _, workflowID := range normalized {
+		workflowItem, ok := byID[workflowID]
+		if !ok {
+			return resolvedSkillBindingScope{}, fmt.Errorf("%w: workflow %s not found", ErrWorkflowNotFound, workflowID)
+		}
+		if projectID == uuid.Nil {
+			projectID = workflowItem.ProjectID
+			continue
+		}
+		if workflowItem.ProjectID != projectID {
+			return resolvedSkillBindingScope{}, fmt.Errorf("%w: workflow ids must belong to the same project", ErrSkillInvalid)
+		}
+	}
+
+	return resolvedSkillBindingScope{
+		projectID:   projectID,
+		workflowIDs: normalized,
+	}, nil
+}
+
+func (s *Service) resolveSkillRecordForProject(
+	ctx context.Context,
+	projectID uuid.UUID,
+	skillID uuid.UUID,
+	usage workflowStorageUsage,
+) (resolvedSkillRecord, error) {
+	storage, err := s.storageForProject(ctx, projectID, usage)
+	if err != nil {
+		return resolvedSkillRecord{}, err
+	}
+	index, err := s.syncSkillIndex(storage.skillRoot, time.Now().UTC())
+	if err != nil {
+		return resolvedSkillRecord{}, err
+	}
+	for _, entry := range index {
+		if entry.ID != skillID {
+			continue
+		}
+		return resolvedSkillRecord{
+			projectID: projectID,
+			storage:   storage,
+			entry:     entry,
+		}, nil
+	}
+
+	return resolvedSkillRecord{}, ErrSkillNotFound
+}
+
 func (s *Service) resolveSkillRecord(
 	ctx context.Context,
 	skillID uuid.UUID,
@@ -585,23 +663,14 @@ func (s *Service) resolveSkillRecord(
 		return resolvedSkillRecord{}, fmt.Errorf("list projects for skill lookup: %w", err)
 	}
 	for _, projectID := range projectIDs {
-		storage, err := s.storageForProject(ctx, projectID, usage)
+		record, err := s.resolveSkillRecordForProject(ctx, projectID, skillID, usage)
+		if errors.Is(err, ErrSkillNotFound) {
+			continue
+		}
 		if err != nil {
 			return resolvedSkillRecord{}, err
 		}
-		index, err := s.syncSkillIndex(storage.skillRoot, time.Now().UTC())
-		if err != nil {
-			return resolvedSkillRecord{}, err
-		}
-		for _, entry := range index {
-			if entry.ID == skillID {
-				return resolvedSkillRecord{
-					projectID: projectID,
-					storage:   storage,
-					entry:     entry,
-				}, nil
-			}
-		}
+		return record, nil
 	}
 	return resolvedSkillRecord{}, ErrSkillNotFound
 }

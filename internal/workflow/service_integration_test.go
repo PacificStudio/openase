@@ -619,6 +619,175 @@ func TestWorkflowServiceSkillAndReloadEdgeCases(t *testing.T) {
 	waitForWorkflowFileContent(t, harnessAbsPath, previousContent)
 }
 
+func TestWorkflowServiceUnbindSkillIgnoresUnrelatedProjectMirrorState(t *testing.T) {
+	ctx := context.Background()
+	client := openWorkflowTestEntClient(t)
+	targetRepoRoot := createWorkflowTestGitRepo(t)
+	service := newWorkflowTestService(t, client, targetRepoRoot)
+
+	org, machine := createWorkflowSkillScopeOrgAndMachine(ctx, t, client)
+	createWorkflowSkillScopeProject(ctx, t, client, workflowSkillScopeProjectInput{
+		OrganizationID: org.ID,
+		MachineID:      machine.ID,
+		ProjectID:      uuid.MustParse("00000000-0000-0000-0000-000000000002"),
+		Name:           "Mirror Pending",
+		Slug:           "mirror-pending",
+		RepoName:       "todo-app",
+	})
+	target := createWorkflowSkillScopeProject(ctx, t, client, workflowSkillScopeProjectInput{
+		OrganizationID: org.ID,
+		MachineID:      machine.ID,
+		ProjectID:      uuid.MustParse("00000000-0000-0000-0000-000000000010"),
+		Name:           "Scoped Skills",
+		Slug:           "scoped-skills",
+		RepoName:       filepath.Base(targetRepoRoot),
+		ReadyMirror:    targetRepoRoot,
+	})
+
+	createdWorkflow, err := service.Create(ctx, CreateInput{
+		ProjectID:           target.ProjectID,
+		AgentID:             target.AgentID,
+		Name:                "Scoped Workflow",
+		Type:                entworkflow.TypeCoding,
+		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Scoped Workflow\n",
+		Hooks:               map[string]any{},
+		MaxConcurrent:       1,
+		MaxRetryAttempts:    1,
+		TimeoutMinutes:      30,
+		StallTimeoutMinutes: 5,
+		IsActive:            true,
+		PickupStatusIDs:     MustStatusBindingSet(target.StatusIDs["Todo"]),
+		FinishStatusIDs:     MustStatusBindingSet(target.StatusIDs["Done"]),
+	})
+	if err != nil {
+		t.Fatalf("Create() workflow error = %v", err)
+	}
+
+	createdSkill, err := service.CreateSkill(ctx, CreateSkillInput{
+		ProjectID:   target.ProjectID,
+		Name:        "deploy-docker",
+		Content:     "# Deploy Docker\n\nRun the Docker deployment flow.\n",
+		Description: "Deploy Docker",
+	})
+	if err != nil {
+		t.Fatalf("CreateSkill() error = %v", err)
+	}
+
+	if _, err := service.BindSkills(ctx, UpdateWorkflowSkillsInput{
+		WorkflowID: createdWorkflow.ID,
+		Skills:     []string{createdSkill.Name},
+	}); err != nil {
+		t.Fatalf("BindSkills() error = %v", err)
+	}
+
+	item, err := service.UnbindSkill(ctx, UpdateSkillBindingsInput{
+		SkillID:     createdSkill.ID,
+		WorkflowIDs: []uuid.UUID{createdWorkflow.ID},
+	})
+	if err != nil {
+		t.Fatalf("UnbindSkill() error = %v", err)
+	}
+	if len(item.BoundWorkflows) != 0 {
+		t.Fatalf("UnbindSkill() bound workflows = %+v, want none", item.BoundWorkflows)
+	}
+
+	harness, err := service.GetHarness(ctx, createdWorkflow.ID)
+	if err != nil {
+		t.Fatalf("GetHarness() error = %v", err)
+	}
+	skillNames, err := ParseHarnessSkills(harness.Content)
+	if err != nil {
+		t.Fatalf("ParseHarnessSkills() error = %v", err)
+	}
+	if len(skillNames) != 0 {
+		t.Fatalf("ParseHarnessSkills() = %v, want no bound skills", skillNames)
+	}
+}
+
+func TestWorkflowServiceBindSkillRejectsCrossProjectWorkflowIDs(t *testing.T) {
+	ctx := context.Background()
+	client := openWorkflowTestEntClient(t)
+	targetRepoRoot := createWorkflowTestGitRepo(t)
+	otherRepoRoot := createWorkflowTestGitRepo(t)
+	service := newWorkflowTestService(t, client, targetRepoRoot)
+
+	org, machine := createWorkflowSkillScopeOrgAndMachine(ctx, t, client)
+	target := createWorkflowSkillScopeProject(ctx, t, client, workflowSkillScopeProjectInput{
+		OrganizationID: org.ID,
+		MachineID:      machine.ID,
+		ProjectID:      uuid.MustParse("00000000-0000-0000-0000-000000000020"),
+		Name:           "Project A",
+		Slug:           "project-a",
+		RepoName:       filepath.Base(targetRepoRoot),
+		ReadyMirror:    targetRepoRoot,
+	})
+	other := createWorkflowSkillScopeProject(ctx, t, client, workflowSkillScopeProjectInput{
+		OrganizationID: org.ID,
+		MachineID:      machine.ID,
+		ProjectID:      uuid.MustParse("00000000-0000-0000-0000-000000000030"),
+		Name:           "Project B",
+		Slug:           "project-b",
+		RepoName:       filepath.Base(otherRepoRoot),
+		ReadyMirror:    otherRepoRoot,
+	})
+
+	targetWorkflow, err := service.Create(ctx, CreateInput{
+		ProjectID:           target.ProjectID,
+		AgentID:             target.AgentID,
+		Name:                "Target Workflow",
+		Type:                entworkflow.TypeCoding,
+		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Target Workflow\n",
+		Hooks:               map[string]any{},
+		MaxConcurrent:       1,
+		MaxRetryAttempts:    1,
+		TimeoutMinutes:      30,
+		StallTimeoutMinutes: 5,
+		IsActive:            true,
+		PickupStatusIDs:     MustStatusBindingSet(target.StatusIDs["Todo"]),
+		FinishStatusIDs:     MustStatusBindingSet(target.StatusIDs["Done"]),
+	})
+	if err != nil {
+		t.Fatalf("Create() target workflow error = %v", err)
+	}
+	otherWorkflow, err := service.Create(ctx, CreateInput{
+		ProjectID:           other.ProjectID,
+		AgentID:             other.AgentID,
+		Name:                "Other Workflow",
+		Type:                entworkflow.TypeCoding,
+		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Other Workflow\n",
+		Hooks:               map[string]any{},
+		MaxConcurrent:       1,
+		MaxRetryAttempts:    1,
+		TimeoutMinutes:      30,
+		StallTimeoutMinutes: 5,
+		IsActive:            true,
+		PickupStatusIDs:     MustStatusBindingSet(other.StatusIDs["Todo"]),
+		FinishStatusIDs:     MustStatusBindingSet(other.StatusIDs["Done"]),
+	})
+	if err != nil {
+		t.Fatalf("Create() other workflow error = %v", err)
+	}
+
+	createdSkill, err := service.CreateSkill(ctx, CreateSkillInput{
+		ProjectID:   target.ProjectID,
+		Name:        "deploy-docker",
+		Content:     "# Deploy Docker\n\nRun the Docker deployment flow.\n",
+		Description: "Deploy Docker",
+	})
+	if err != nil {
+		t.Fatalf("CreateSkill() error = %v", err)
+	}
+
+	if _, err := service.BindSkill(ctx, UpdateSkillBindingsInput{
+		SkillID:     createdSkill.ID,
+		WorkflowIDs: []uuid.UUID{targetWorkflow.ID, otherWorkflow.ID},
+	}); !errors.Is(err, ErrSkillInvalid) {
+		t.Fatalf("BindSkill() error = %v, want %v", err, ErrSkillInvalid)
+	} else if !strings.Contains(err.Error(), "same project") {
+		t.Fatalf("BindSkill() error = %v, want same-project detail", err)
+	}
+}
+
 func findSkillByName(items []Skill, name string) *Skill {
 	for i := range items {
 		if items[i].Name == name {
@@ -1313,6 +1482,129 @@ type workflowServiceFixture struct {
 	agentID              uuid.UUID
 	providerID           uuid.UUID
 	statusIDs            map[string]uuid.UUID
+}
+
+type workflowSkillScopeProjectInput struct {
+	OrganizationID uuid.UUID
+	MachineID      uuid.UUID
+	ProjectID      uuid.UUID
+	Name           string
+	Slug           string
+	RepoName       string
+	ReadyMirror    string
+}
+
+type workflowSkillScopeProject struct {
+	ProjectID uuid.UUID
+	AgentID   uuid.UUID
+	StatusIDs map[string]uuid.UUID
+}
+
+func createWorkflowSkillScopeOrgAndMachine(
+	ctx context.Context,
+	t *testing.T,
+	client *ent.Client,
+) (*ent.Organization, *ent.Machine) {
+	t.Helper()
+
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	machine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create machine: %v", err)
+	}
+
+	return org, machine
+}
+
+func createWorkflowSkillScopeProject(
+	ctx context.Context,
+	t *testing.T,
+	client *ent.Client,
+	input workflowSkillScopeProjectInput,
+) workflowSkillScopeProject {
+	t.Helper()
+
+	projectBuilder := client.Project.Create().
+		SetOrganizationID(input.OrganizationID).
+		SetName(input.Name).
+		SetSlug(input.Slug).
+		SetStatus("In Progress")
+	if input.ProjectID != uuid.Nil {
+		projectBuilder.SetID(input.ProjectID)
+	}
+	project, err := projectBuilder.Save(ctx)
+	if err != nil {
+		t.Fatalf("create project %s: %v", input.Slug, err)
+	}
+
+	projectRepo, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName(input.RepoName).
+		SetRepositoryURL(fmt.Sprintf("https://github.com/acme/%s.git", input.RepoName)).
+		SetDefaultBranch("main").
+		SetWorkspaceDirname(input.Slug).
+		SetIsPrimary(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create primary repo for %s: %v", input.Slug, err)
+	}
+	if input.ReadyMirror != "" {
+		if _, err := client.ProjectRepoMirror.Create().
+			SetProjectRepoID(projectRepo.ID).
+			SetMachineID(input.MachineID).
+			SetLocalPath(input.ReadyMirror).
+			SetState("ready").
+			Save(ctx); err != nil {
+			t.Fatalf("create ready mirror for %s: %v", input.Slug, err)
+		}
+	}
+
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset statuses for %s: %v", input.Slug, err)
+	}
+	statusIDs := make(map[string]uuid.UUID, len(statuses))
+	for _, status := range statuses {
+		statusIDs[status.Name] = status.ID
+	}
+
+	providerItem, err := client.AgentProvider.Create().
+		SetOrganizationID(input.OrganizationID).
+		SetMachineID(input.MachineID).
+		SetName(fmt.Sprintf("%s Codex", input.Name)).
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider for %s: %v", input.Slug, err)
+	}
+	agentItem, err := client.Agent.Create().
+		SetProjectID(project.ID).
+		SetProviderID(providerItem.ID).
+		SetName(fmt.Sprintf("%s-agent", input.Slug)).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent for %s: %v", input.Slug, err)
+	}
+
+	return workflowSkillScopeProject{
+		ProjectID: project.ID,
+		AgentID:   agentItem.ID,
+		StatusIDs: statusIDs,
+	}
 }
 
 func seedWorkflowServiceFixture(ctx context.Context, t *testing.T, client *ent.Client, repoRoot string) workflowServiceFixture {
