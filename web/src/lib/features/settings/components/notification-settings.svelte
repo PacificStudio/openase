@@ -24,8 +24,6 @@
   import NotificationChannelPanel from './notification-channel-panel.svelte'
   import NotificationRulePanel from './notification-rule-panel.svelte'
 
-
-
   let channels = $state<NotificationChannel[]>([])
   let rules = $state<NotificationRule[]>([])
   let eventTypes = $state<NotificationRuleEventType[]>([])

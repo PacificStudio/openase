@@ -189,7 +189,6 @@
           }}
           onSave={handleSaveDefaultProvider}
         />
-
       </div>
 
       <AgentSettingsInventory

@@ -12,8 +12,6 @@
   import * as Select from '$ui/select'
   import { Separator } from '$ui/separator'
 
-
-
   let projectName = $state('')
   let description = $state('')
   let defaultWorkflow = $state('')

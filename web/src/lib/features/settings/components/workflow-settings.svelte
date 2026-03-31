@@ -21,7 +21,6 @@
   import StatusStageConcurrency from './status-stage-concurrency.svelte'
   import { startStageRuntimeSync } from './stage-runtime-sync'
 
-
   const props = $props<{
     onOpenRepositories?: (() => void) | undefined
   }>()
