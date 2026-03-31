@@ -4,13 +4,16 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 )
 
@@ -24,6 +27,18 @@ const (
 	lowDiskThresholdGB            = 5.0
 	lowMemoryThresholdPercent     = 10.0
 	fullGPUMemoryThresholdGB      = 0.5
+)
+
+var (
+	machineEventsTopic               = provider.MustParseTopic("machine.events")
+	providerEventsTopic              = provider.MustParseTopic("provider.events")
+	machineOnlineEventType           = provider.MustParseEventType("machine.online")
+	machineOfflineEventType          = provider.MustParseEventType("machine.offline")
+	machineDegradedEventType         = provider.MustParseEventType("machine.degraded")
+	machineResourcesUpdatedEventType = provider.MustParseEventType("machine.resources_updated")
+	providerAvailableEventType       = provider.MustParseEventType("provider.available")
+	providerUnavailableEventType     = provider.MustParseEventType("provider.unavailable")
+	providerStaleEventType           = provider.MustParseEventType("provider.stale")
 )
 
 type MachineMonitorCollector interface {
@@ -50,6 +65,7 @@ type MachineMonitor struct {
 	client    *ent.Client
 	logger    *slog.Logger
 	collector MachineMonitorCollector
+	events    provider.EventProvider
 	now       func() time.Time
 }
 
@@ -64,6 +80,13 @@ func NewMachineMonitor(client *ent.Client, logger *slog.Logger, collector Machin
 		collector: collector,
 		now:       time.Now,
 	}
+}
+
+func (m *MachineMonitor) ConfigureEvents(events provider.EventProvider) {
+	if m == nil {
+		return
+	}
+	m.events = events
 }
 
 func (m *MachineMonitor) RunTick(ctx context.Context) (MachineMonitorReport, error) {
@@ -86,7 +109,8 @@ func (m *MachineMonitor) RunTick(ctx context.Context) (MachineMonitorReport, err
 	for _, item := range items {
 		report.MachinesScanned++
 
-		updated, changed := m.runMachineTick(ctx, mapMachineEntity(item), now, &report)
+		current := mapMachineEntity(item)
+		updated, changed := m.runMachineTick(ctx, current, now, &report)
 		if !changed {
 			continue
 		}
@@ -110,18 +134,23 @@ func (m *MachineMonitor) RunTick(ctx context.Context) (MachineMonitorReport, err
 		case entmachine.StatusDegraded:
 			report.DegradedMachines++
 		}
+		if err := m.publishRuntimeEvents(ctx, current, updated, now); err != nil {
+			return report, fmt.Errorf("publish machine %s runtime events: %w", updated.ID, err)
+		}
 	}
 
 	return report, nil
 }
 
 type monitoredMachine struct {
+	OrganizationID  uuid.UUID
 	ID              uuid.UUID
 	Name            string
 	Host            string
 	Port            int
 	SSHUser         *string
 	SSHKeyPath      *string
+	WorkspaceRoot   *string
 	AgentCLIPath    *string
 	Status          entmachine.Status
 	Labels          []string
@@ -131,14 +160,16 @@ type monitoredMachine struct {
 
 func (m monitoredMachine) toDomain() domain.Machine {
 	return domain.Machine{
-		ID:           m.ID,
-		Name:         m.Name,
-		Host:         m.Host,
-		Port:         m.Port,
-		SSHUser:      m.SSHUser,
-		SSHKeyPath:   m.SSHKeyPath,
-		AgentCLIPath: m.AgentCLIPath,
-		Labels:       append([]string(nil), m.Labels...),
+		ID:             m.ID,
+		OrganizationID: m.OrganizationID,
+		Name:           m.Name,
+		Host:           m.Host,
+		Port:           m.Port,
+		SSHUser:        m.SSHUser,
+		SSHKeyPath:     m.SSHKeyPath,
+		WorkspaceRoot:  m.WorkspaceRoot,
+		AgentCLIPath:   m.AgentCLIPath,
+		Labels:         append([]string(nil), m.Labels...),
 	}
 }
 
@@ -246,14 +277,194 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 	}
 
 	return monitoredMachine{
+		OrganizationID:  machine.OrganizationID,
 		ID:              machine.ID,
 		Name:            machine.Name,
 		Host:            machine.Host,
+		Port:            machine.Port,
+		SSHUser:         cloneMachineString(machine.SSHUser),
+		SSHKeyPath:      cloneMachineString(machine.SSHKeyPath),
+		WorkspaceRoot:   cloneMachineString(machine.WorkspaceRoot),
+		AgentCLIPath:    cloneMachineString(machine.AgentCLIPath),
 		Status:          status,
 		Labels:          append([]string(nil), machine.Labels...),
 		LastHeartbeatAt: lastHeartbeatAt,
 		Resources:       resources,
 	}, true
+}
+
+func (m *MachineMonitor) publishRuntimeEvents(
+	ctx context.Context,
+	current monitoredMachine,
+	updated monitoredMachine,
+	publishedAt time.Time,
+) error {
+	if m == nil || m.events == nil {
+		return nil
+	}
+
+	if eventType, ok := machineStatusEventType(updated.Status); ok && current.Status != updated.Status {
+		if err := m.publishMachineEvent(ctx, eventType, updated, publishedAt); err != nil {
+			return err
+		}
+	}
+	if !reflect.DeepEqual(current.Resources, updated.Resources) {
+		if err := m.publishMachineEvent(ctx, machineResourcesUpdatedEventType, updated, publishedAt); err != nil {
+			return err
+		}
+	}
+
+	providers, err := m.client.AgentProvider.Query().
+		Where(entagentprovider.MachineIDEQ(updated.ID)).
+		Order(entagentprovider.ByName()).
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("list providers for machine %s: %w", updated.ID, err)
+	}
+	for _, item := range providers {
+		currentProvider := mapMonitoredAgentProvider(item, current)
+		updatedProvider := mapMonitoredAgentProvider(item, updated)
+		currentState := domain.DeriveAgentProviderAvailability(currentProvider, publishedAt).AvailabilityState
+		nextProvider := domain.DeriveAgentProviderAvailability(updatedProvider, publishedAt)
+		if currentState == nextProvider.AvailabilityState {
+			continue
+		}
+		eventType, ok := providerAvailabilityEventType(nextProvider.AvailabilityState)
+		if !ok {
+			continue
+		}
+		if err := m.publishProviderEvent(ctx, eventType, nextProvider, publishedAt); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *MachineMonitor) publishMachineEvent(
+	ctx context.Context,
+	eventType provider.EventType,
+	machine monitoredMachine,
+	publishedAt time.Time,
+) error {
+	event, err := provider.NewJSONEvent(machineEventsTopic, eventType, map[string]any{
+		"organization_id": machine.OrganizationID.String(),
+		"machine": map[string]any{
+			"id":                machine.ID.String(),
+			"organization_id":   machine.OrganizationID.String(),
+			"name":              machine.Name,
+			"host":              machine.Host,
+			"port":              machine.Port,
+			"ssh_user":          stringPointerValue(machine.SSHUser),
+			"ssh_key_path":      stringPointerValue(machine.SSHKeyPath),
+			"status":            string(machine.Status),
+			"workspace_root":    stringPointerValue(machine.WorkspaceRoot),
+			"agent_cli_path":    stringPointerValue(machine.AgentCLIPath),
+			"labels":            append([]string(nil), machine.Labels...),
+			"last_heartbeat_at": timePointerRFC3339(machine.LastHeartbeatAt),
+			"resources":         cloneResourceMap(machine.Resources),
+		},
+	}, publishedAt)
+	if err != nil {
+		return fmt.Errorf("construct %s event: %w", eventType, err)
+	}
+	if err := m.events.Publish(ctx, event); err != nil {
+		return fmt.Errorf("publish %s event: %w", eventType, err)
+	}
+	return nil
+}
+
+func (m *MachineMonitor) publishProviderEvent(
+	ctx context.Context,
+	eventType provider.EventType,
+	item domain.AgentProvider,
+	publishedAt time.Time,
+) error {
+	event, err := provider.NewJSONEvent(providerEventsTopic, eventType, map[string]any{
+		"organization_id": item.OrganizationID.String(),
+		"provider": map[string]any{
+			"id":                      item.ID.String(),
+			"organization_id":         item.OrganizationID.String(),
+			"machine_id":              item.MachineID.String(),
+			"machine_name":            item.MachineName,
+			"machine_host":            item.MachineHost,
+			"machine_status":          item.MachineStatus.String(),
+			"machine_ssh_user":        stringPointerValue(item.MachineSSHUser),
+			"machine_workspace_root":  stringPointerValue(item.MachineWorkspaceRoot),
+			"name":                    item.Name,
+			"adapter_type":            item.AdapterType.String(),
+			"availability_state":      item.AvailabilityState.String(),
+			"available":               item.Available,
+			"availability_checked_at": timePointerRFC3339Pointer(item.AvailabilityCheckedAt),
+			"availability_reason":     stringPointerValue(item.AvailabilityReason),
+			"cli_command":             item.CliCommand,
+			"cli_args":                append([]string(nil), item.CliArgs...),
+			"auth_config":             cloneResourceMap(item.AuthConfig),
+			"model_name":              item.ModelName,
+			"model_temperature":       item.ModelTemperature,
+			"model_max_tokens":        item.ModelMaxTokens,
+			"cost_per_input_token":    item.CostPerInputToken,
+			"cost_per_output_token":   item.CostPerOutputToken,
+		},
+	}, publishedAt)
+	if err != nil {
+		return fmt.Errorf("construct %s event: %w", eventType, err)
+	}
+	if err := m.events.Publish(ctx, event); err != nil {
+		return fmt.Errorf("publish %s event: %w", eventType, err)
+	}
+	return nil
+}
+
+func machineStatusEventType(status entmachine.Status) (provider.EventType, bool) {
+	switch status {
+	case entmachine.StatusOnline:
+		return machineOnlineEventType, true
+	case entmachine.StatusOffline:
+		return machineOfflineEventType, true
+	case entmachine.StatusDegraded:
+		return machineDegradedEventType, true
+	default:
+		return "", false
+	}
+}
+
+func providerAvailabilityEventType(state domain.AgentProviderAvailabilityState) (provider.EventType, bool) {
+	switch state {
+	case domain.AgentProviderAvailabilityStateAvailable:
+		return providerAvailableEventType, true
+	case domain.AgentProviderAvailabilityStateUnavailable:
+		return providerUnavailableEventType, true
+	case domain.AgentProviderAvailabilityStateStale:
+		return providerStaleEventType, true
+	default:
+		return "", false
+	}
+}
+
+func mapMonitoredAgentProvider(item *ent.AgentProvider, machine monitoredMachine) domain.AgentProvider {
+	return domain.AgentProvider{
+		ID:                   item.ID,
+		OrganizationID:       item.OrganizationID,
+		MachineID:            item.MachineID,
+		MachineName:          machine.Name,
+		MachineHost:          machine.Host,
+		MachineStatus:        domain.MachineStatus(machine.Status),
+		MachineSSHUser:       cloneMachineString(machine.SSHUser),
+		MachineWorkspaceRoot: cloneMachineString(machine.WorkspaceRoot),
+		MachineAgentCLIPath:  cloneMachineString(machine.AgentCLIPath),
+		MachineResources:     cloneResourceMap(machine.Resources),
+		Name:                 item.Name,
+		AdapterType:          domain.AgentProviderAdapterType(item.AdapterType.String()),
+		CliCommand:           item.CliCommand,
+		CliArgs:              append([]string(nil), item.CliArgs...),
+		AuthConfig:           cloneResourceMap(item.AuthConfig),
+		ModelName:            item.ModelName,
+		ModelTemperature:     item.ModelTemperature,
+		ModelMaxTokens:       item.ModelMaxTokens,
+		CostPerInputToken:    item.CostPerInputToken,
+		CostPerOutputToken:   item.CostPerOutputToken,
+	}
 }
 
 func mapMachineEntity(item *ent.Machine) monitoredMachine {
@@ -263,12 +474,14 @@ func mapMachineEntity(item *ent.Machine) monitoredMachine {
 	}
 
 	return monitoredMachine{
+		OrganizationID:  item.OrganizationID,
 		ID:              item.ID,
 		Name:            item.Name,
 		Host:            item.Host,
 		Port:            item.Port,
 		SSHUser:         optionalMachineString(item.SSHUser),
 		SSHKeyPath:      optionalMachineString(item.SSHKeyPath),
+		WorkspaceRoot:   optionalMachineString(item.WorkspaceRoot),
 		AgentCLIPath:    optionalMachineString(item.AgentCliPath),
 		Status:          item.Status,
 		Labels:          append([]string(nil), item.Labels...),
@@ -283,6 +496,33 @@ func optionalMachineString(value string) *string {
 	}
 	cloned := value
 	return &cloned
+}
+
+func cloneMachineString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
+}
+
+func stringPointerValue(value *string) *string {
+	return cloneMachineString(value)
+}
+
+func timePointerRFC3339(value time.Time) *string {
+	if value.IsZero() {
+		return nil
+	}
+	formatted := value.UTC().Format(time.RFC3339)
+	return &formatted
+}
+
+func timePointerRFC3339Pointer(value *time.Time) *string {
+	if value == nil {
+		return nil
+	}
+	return timePointerRFC3339(*value)
 }
 
 func machineMonitorDue(resources map[string]any, level string, now time.Time, interval time.Duration) bool {

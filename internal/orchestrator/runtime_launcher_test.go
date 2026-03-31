@@ -1954,9 +1954,9 @@ Exercise successful ticket hook lifecycle.
 	if err != nil {
 		t.Fatalf("load assignment: %v", err)
 	}
-	session, err := launcher.startCodexSession(ctx, assignment)
+	session, err := launcher.startRuntimeSession(ctx, assignment)
 	if err != nil {
-		t.Fatalf("start codex session: %v", err)
+		t.Fatalf("start runtime session: %v", err)
 	}
 	launcher.storeSession(runItem.ID, session)
 

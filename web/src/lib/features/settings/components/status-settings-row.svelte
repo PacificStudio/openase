@@ -1,17 +1,21 @@
 <script lang="ts">
+  import type { EditableStage } from '$lib/features/stages/public'
   import {
     parseStatusDraft,
     type EditableStatus,
+    type ParsedStatusDraft,
     type StatusDraft,
   } from '$lib/features/statuses/public'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import * as DropdownMenu from '$ui/dropdown-menu'
   import { Input } from '$ui/input'
+  import * as Select from '$ui/select'
   import { ArrowDown, ArrowUp, CircleDot, Ellipsis, Save, Trash2 } from '@lucide/svelte'
 
   let {
     status,
+    stages,
     order,
     busy = false,
     canMoveUp = false,
@@ -23,11 +27,12 @@
     onSetDefault,
   }: {
     status: EditableStatus
+    stages: EditableStage[]
     order: number
     busy?: boolean
     canMoveUp?: boolean
     canMoveDown?: boolean
-    onSave: (statusId: string, draft: StatusDraft) => Promise<void> | void
+    onSave: (statusId: string, draft: ParsedStatusDraft) => Promise<void> | void
     onDelete: (status: EditableStatus) => Promise<void> | void
     onMoveUp: (statusId: string) => Promise<void> | void
     onMoveDown: (statusId: string) => Promise<void> | void
@@ -38,11 +43,14 @@
     name: '',
     color: '#94a3b8',
     isDefault: false,
+    stageId: '',
   })
   let validationError = $state('')
 
   const dirty = $derived(
-    draft.name.trim() !== status.name || draft.color.toLowerCase() !== status.color.toLowerCase(),
+    draft.name.trim() !== status.name ||
+      draft.color.toLowerCase() !== status.color.toLowerCase() ||
+      draft.stageId !== (status.stageId ?? ''),
   )
 
   $effect(() => {
@@ -50,6 +58,7 @@
       name: status.name,
       color: status.color,
       isDefault: status.isDefault,
+      stageId: status.stageId ?? '',
     }
     validationError = ''
   })
@@ -83,6 +92,22 @@
       class="h-9 flex-1 text-sm"
       placeholder="Status name"
     />
+    <Select.Root
+      type="single"
+      value={draft.stageId}
+      onValueChange={(value) => (draft = { ...draft, stageId: value || '' })}
+      disabled={busy}
+    >
+      <Select.Trigger class="w-40 shrink-0 text-left text-sm">
+        {stages.find((stage) => stage.id === draft.stageId)?.name ?? 'Ungrouped'}
+      </Select.Trigger>
+      <Select.Content>
+        <Select.Item value="">Ungrouped</Select.Item>
+        {#each stages as stage (stage.id)}
+          <Select.Item value={stage.id}>{stage.name}</Select.Item>
+        {/each}
+      </Select.Content>
+    </Select.Root>
 
     {#if status.isDefault}
       <Badge variant="secondary" class="shrink-0 text-[10px]">Default</Badge>

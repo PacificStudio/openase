@@ -2,7 +2,6 @@
   import { onMount } from 'svelte'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import { connectEventStream } from '$lib/api/sse'
   import { writeHashSelection } from '$lib/utils/hash-state'
   import type { AgentProvider, Machine } from '$lib/api/contracts'
   import type { AgentsPageData } from '../data'
@@ -20,6 +19,7 @@
   import { registerAgentPageAction, runAgentRuntimePageAction } from './agents-page-actions'
   import { createAgentOutputState } from './agent-output-state.svelte'
   import { mapAgentsPageData, resolveAgentPageTab, type AgentPageTab } from './agents-page-helpers'
+  import { connectAgentsPageStreams } from './agents-page-streams'
   import { wireAgentOutputStream } from './agent-output-stream.svelte'
   import { createProviderEditorState } from './provider-editor-state.svelte'
 
@@ -88,14 +88,8 @@
     }
 
     void loadData({ projectId, orgId, showLoading: true })
-
-    const disconnect = connectEventStream(`/api/v1/projects/${projectId}/agents/stream`, {
-      onEvent: () => {
-        void loadData({ projectId, orgId, showLoading: false })
-      },
-      onError: (streamError) => {
-        console.error('Agents stream error:', streamError)
-      },
+    const disconnect = connectAgentsPageStreams(projectId, orgId, () => {
+      void loadData({ projectId, orgId, showLoading: false })
     })
 
     return () => {

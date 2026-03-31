@@ -8,6 +8,7 @@ import (
 	"time"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	codexadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
@@ -20,6 +21,7 @@ type CodexRuntime struct {
 
 type codexRuntimeSession struct {
 	session   *codexadapter.Session
+	costUSD   *float64
 	turnsUsed int
 	running   bool
 }
@@ -71,7 +73,7 @@ func (r *CodexRuntime) StartTurn(ctx context.Context, input RuntimeTurnInput) (T
 	}
 
 	events := make(chan StreamEvent, 64)
-	go r.bridgeTurn(input.SessionID, input.MaxTurns, turn.TurnID, state, events)
+	go r.bridgeTurn(input.SessionID, input.Provider, input.MaxTurns, turn.TurnID, state, events)
 
 	return TurnStream{Events: events}, nil
 }
@@ -175,6 +177,7 @@ func (r *CodexRuntime) ensureSession(ctx context.Context, input RuntimeTurnInput
 
 func (r *CodexRuntime) bridgeTurn(
 	sessionID SessionID,
+	providerItem catalogdomain.AgentProvider,
 	maxTurns int,
 	turnID string,
 	state *codexRuntimeSession,
@@ -224,6 +227,22 @@ func (r *CodexRuntime) bridgeTurn(
 				"tool":      event.ToolCall.Tool,
 				"arguments": decodeRawJSON(event.ToolCall.Arguments),
 			})
+		case codexadapter.EventTypeTokenUsageUpdated:
+			if event.TokenUsage == nil || event.TokenUsage.TurnID != turnID {
+				continue
+			}
+
+			costUSD := resolveUsageCostUSD(providerItem, ticketing.RawUsageDelta{
+				InputTokens:  &event.TokenUsage.TotalInputTokens,
+				OutputTokens: &event.TokenUsage.TotalOutputTokens,
+			})
+			if costUSD == nil {
+				continue
+			}
+
+			r.mu.Lock()
+			state.costUSD = costUSD
+			r.mu.Unlock()
 		case codexadapter.EventTypeTurnCompleted:
 			if event.Turn == nil || event.Turn.TurnID != turnID {
 				continue
@@ -232,12 +251,14 @@ func (r *CodexRuntime) bridgeTurn(
 			r.mu.Lock()
 			state.turnsUsed++
 			turnsUsed := state.turnsUsed
+			costUSD := cloneCostUSD(state.costUSD)
 			r.mu.Unlock()
 
 			events <- StreamEvent{
 				Event: "done",
 				Payload: donePayload{
 					SessionID:      sessionID.String(),
+					CostUSD:        costUSD,
 					TurnsUsed:      turnsUsed,
 					TurnsRemaining: remainingTurns(maxTurns, turnsUsed),
 				},
