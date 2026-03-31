@@ -95,6 +95,11 @@ func ModelMaxTokens(v int) predicate.AgentProvider {
 	return predicate.AgentProvider(sql.FieldEQ(FieldModelMaxTokens, v))
 }
 
+// MaxParallelRuns applies equality check predicate on the "max_parallel_runs" field. It's identical to MaxParallelRunsEQ.
+func MaxParallelRuns(v int) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldEQ(FieldMaxParallelRuns, v))
+}
+
 // CostPerInputToken applies equality check predicate on the "cost_per_input_token" field. It's identical to CostPerInputTokenEQ.
 func CostPerInputToken(v float64) predicate.AgentProvider {
 	return predicate.AgentProvider(sql.FieldEQ(FieldCostPerInputToken, v))
@@ -488,6 +493,46 @@ func ModelMaxTokensLT(v int) predicate.AgentProvider {
 // ModelMaxTokensLTE applies the LTE predicate on the "model_max_tokens" field.
 func ModelMaxTokensLTE(v int) predicate.AgentProvider {
 	return predicate.AgentProvider(sql.FieldLTE(FieldModelMaxTokens, v))
+}
+
+// MaxParallelRunsEQ applies the EQ predicate on the "max_parallel_runs" field.
+func MaxParallelRunsEQ(v int) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldEQ(FieldMaxParallelRuns, v))
+}
+
+// MaxParallelRunsNEQ applies the NEQ predicate on the "max_parallel_runs" field.
+func MaxParallelRunsNEQ(v int) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldNEQ(FieldMaxParallelRuns, v))
+}
+
+// MaxParallelRunsIn applies the In predicate on the "max_parallel_runs" field.
+func MaxParallelRunsIn(vs ...int) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldIn(FieldMaxParallelRuns, vs...))
+}
+
+// MaxParallelRunsNotIn applies the NotIn predicate on the "max_parallel_runs" field.
+func MaxParallelRunsNotIn(vs ...int) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldNotIn(FieldMaxParallelRuns, vs...))
+}
+
+// MaxParallelRunsGT applies the GT predicate on the "max_parallel_runs" field.
+func MaxParallelRunsGT(v int) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldGT(FieldMaxParallelRuns, v))
+}
+
+// MaxParallelRunsGTE applies the GTE predicate on the "max_parallel_runs" field.
+func MaxParallelRunsGTE(v int) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldGTE(FieldMaxParallelRuns, v))
+}
+
+// MaxParallelRunsLT applies the LT predicate on the "max_parallel_runs" field.
+func MaxParallelRunsLT(v int) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldLT(FieldMaxParallelRuns, v))
+}
+
+// MaxParallelRunsLTE applies the LTE predicate on the "max_parallel_runs" field.
+func MaxParallelRunsLTE(v int) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldLTE(FieldMaxParallelRuns, v))
 }
 
 // CostPerInputTokenEQ applies the EQ predicate on the "cost_per_input_token" field.
