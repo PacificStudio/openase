@@ -50,6 +50,10 @@ type Tx struct {
 	ProjectRepo *ProjectRepoClient
 	// ScheduledJob is the client for interacting with the ScheduledJob builders.
 	ScheduledJob *ScheduledJobClient
+	// Skill is the client for interacting with the Skill builders.
+	Skill *SkillClient
+	// SkillVersion is the client for interacting with the SkillVersion builders.
+	SkillVersion *SkillVersionClient
 	// Ticket is the client for interacting with the Ticket builders.
 	Ticket *TicketClient
 	// TicketComment is the client for interacting with the TicketComment builders.
@@ -68,6 +72,10 @@ type Tx struct {
 	TicketStatus *TicketStatusClient
 	// Workflow is the client for interacting with the Workflow builders.
 	Workflow *WorkflowClient
+	// WorkflowSkillBinding is the client for interacting with the WorkflowSkillBinding builders.
+	WorkflowSkillBinding *WorkflowSkillBindingClient
+	// WorkflowVersion is the client for interacting with the WorkflowVersion builders.
+	WorkflowVersion *WorkflowVersionClient
 
 	// lazily loaded.
 	client     *Client
@@ -218,6 +226,8 @@ func (tx *Tx) init() {
 	tx.Project = NewProjectClient(tx.config)
 	tx.ProjectRepo = NewProjectRepoClient(tx.config)
 	tx.ScheduledJob = NewScheduledJobClient(tx.config)
+	tx.Skill = NewSkillClient(tx.config)
+	tx.SkillVersion = NewSkillVersionClient(tx.config)
 	tx.Ticket = NewTicketClient(tx.config)
 	tx.TicketComment = NewTicketCommentClient(tx.config)
 	tx.TicketCommentRevision = NewTicketCommentRevisionClient(tx.config)
@@ -227,6 +237,8 @@ func (tx *Tx) init() {
 	tx.TicketRepoWorkspace = NewTicketRepoWorkspaceClient(tx.config)
 	tx.TicketStatus = NewTicketStatusClient(tx.config)
 	tx.Workflow = NewWorkflowClient(tx.config)
+	tx.WorkflowSkillBinding = NewWorkflowSkillBindingClient(tx.config)
+	tx.WorkflowVersion = NewWorkflowVersionClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

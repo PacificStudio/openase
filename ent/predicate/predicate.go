@@ -63,6 +63,12 @@ type ProjectRepo func(*sql.Selector)
 // ScheduledJob is the predicate function for scheduledjob builders.
 type ScheduledJob func(*sql.Selector)
 
+// Skill is the predicate function for skill builders.
+type Skill func(*sql.Selector)
+
+// SkillVersion is the predicate function for skillversion builders.
+type SkillVersion func(*sql.Selector)
+
 // Ticket is the predicate function for ticket builders.
 type Ticket func(*sql.Selector)
 
@@ -89,3 +95,9 @@ type TicketStatus func(*sql.Selector)
 
 // Workflow is the predicate function for workflow builders.
 type Workflow func(*sql.Selector)
+
+// WorkflowSkillBinding is the predicate function for workflowskillbinding builders.
+type WorkflowSkillBinding func(*sql.Selector)
+
+// WorkflowVersion is the predicate function for workflowversion builders.
+type WorkflowVersion func(*sql.Selector)

@@ -212,7 +212,7 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse bound harness skills: %v", err)
 	}
-	if len(boundSkills) != 2 || boundSkills[0] != "review-code" || boundSkills[1] != "commit" {
+	if len(boundSkills) != 2 || boundSkills[0] != "commit" || boundSkills[1] != "review-code" {
 		t.Fatalf("unexpected bound skills: %#v", boundSkills)
 	}
 
@@ -245,8 +245,8 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	if !platformSkill.IsBuiltin {
 		t.Fatalf("expected openase-platform to be marked as built-in, got %+v", platformSkill)
 	}
-	if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md")); err != nil {
-		t.Fatalf("expected built-in platform skill to materialize in repo: %v", err)
+	if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md")); !os.IsNotExist(err) {
+		t.Fatalf("expected built-in platform skill to stay out of repo authority paths, stat err=%v", err)
 	}
 
 	workspaceRoot := t.TempDir()
@@ -284,41 +284,17 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	writeWorkspaceSkill(t, workspaceRoot, ".claude", "deploy-docker", "# Deploy Docker\n\nDeploy the app with Docker.\n")
 	writeWorkspaceSkill(t, workspaceRoot, ".claude", "commit", "# Commit\n\nWrite a stricter conventional commit message.\n")
 
-	harvestResp := skillSyncResponse{}
-	executeJSON(
+	harvestRec := performJSONRequest(
 		t,
 		server,
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/projects/%s/skills/harvest", project.ID),
-		map[string]any{
-			"workspace_root": workspaceRoot,
-			"adapter_type":   "claude-code-cli",
-		},
-		http.StatusOK,
-		&harvestResp,
+		fmt.Sprintf(`{"workspace_root":%q,"adapter_type":"claude-code-cli"}`, workspaceRoot),
 	)
-	if len(harvestResp.HarvestedSkills) != 1 || harvestResp.HarvestedSkills[0] != "deploy-docker" {
-		t.Fatalf("expected deploy-docker to be harvested, got %+v", harvestResp)
-	}
-	if len(harvestResp.UpdatedSkills) != 1 || harvestResp.UpdatedSkills[0] != "commit" {
-		t.Fatalf("expected commit to be updated, got %+v", harvestResp)
-	}
-
-	//nolint:gosec // test reads a file from a controlled temp repository
-	harvestedSkill, err := os.ReadFile(filepath.Join(repoRoot, ".openase", "skills", "deploy-docker", "SKILL.md"))
-	if err != nil {
-		t.Fatalf("read harvested skill: %v", err)
-	}
-	if string(harvestedSkill) == "" {
-		t.Fatalf("expected harvested skill content")
-	}
-	//nolint:gosec // test reads a file from a controlled temp repository
-	updatedCommit, err := os.ReadFile(filepath.Join(repoRoot, ".openase", "skills", "commit", "SKILL.md"))
-	if err != nil {
-		t.Fatalf("read updated commit skill: %v", err)
-	}
-	if !strings.Contains(string(updatedCommit), "Write a stricter conventional commit message.") || !strings.HasPrefix(string(updatedCommit), "---\nname: ") {
-		t.Fatalf("unexpected updated commit skill content: %q", string(updatedCommit))
+	if harvestRec.Code != http.StatusBadRequest ||
+		!strings.Contains(harvestRec.Body.String(), "INVALID_SKILL") ||
+		!strings.Contains(harvestRec.Body.String(), "harvest is deprecated") {
+		t.Fatalf("expected harvest deprecation error, got %d: %s", harvestRec.Code, harvestRec.Body.String())
 	}
 
 	unbindResp := struct {
@@ -353,20 +329,18 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 		http.StatusOK,
 		&listAfterResp,
 	)
-	if len(listAfterResp.Skills) != len(builtin.Skills())+1 {
-		t.Fatalf("expected %d skills after harvest, got %+v", len(builtin.Skills())+1, listAfterResp.Skills)
+	if len(listAfterResp.Skills) != len(builtin.Skills()) {
+		t.Fatalf("expected %d skills after deprecated harvest attempt, got %+v", len(builtin.Skills()), listAfterResp.Skills)
 	}
 	for _, item := range listAfterResp.Skills {
 		if len(item.BoundWorkflows) != 0 {
 			t.Fatalf("expected %s to have no bound workflows, got %+v", item.Name, item.BoundWorkflows)
 		}
 	}
-	deploySkill := findSkillResponse(t, listAfterResp.Skills, "deploy-docker")
-	if deploySkill.IsBuiltin {
-		t.Fatalf("expected harvested deploy-docker skill to be non built-in, got %+v", deploySkill)
-	}
-	if deploySkill.Description != "Deploy Docker" {
-		t.Fatalf("expected deploy-docker description to come from SKILL.md title, got %+v", deploySkill)
+	for _, item := range listAfterResp.Skills {
+		if item.Name == "deploy-docker" {
+			t.Fatalf("expected deprecated harvest path to avoid creating deploy-docker, got %+v", item)
+		}
 	}
 }
 

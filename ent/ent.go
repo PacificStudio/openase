@@ -32,6 +32,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
+	"github.com/BetterAndBetterII/openase/ent/skill"
+	"github.com/BetterAndBetterII/openase/ent/skillversion"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
 	"github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
@@ -41,6 +43,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
+	"github.com/BetterAndBetterII/openase/ent/workflowversion"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -120,6 +124,8 @@ func checkColumn(t, c string) error {
 			project.Table:               project.ValidColumn,
 			projectrepo.Table:           projectrepo.ValidColumn,
 			scheduledjob.Table:          scheduledjob.ValidColumn,
+			skill.Table:                 skill.ValidColumn,
+			skillversion.Table:          skillversion.ValidColumn,
 			ticket.Table:                ticket.ValidColumn,
 			ticketcomment.Table:         ticketcomment.ValidColumn,
 			ticketcommentrevision.Table: ticketcommentrevision.ValidColumn,
@@ -129,6 +135,8 @@ func checkColumn(t, c string) error {
 			ticketrepoworkspace.Table:   ticketrepoworkspace.ValidColumn,
 			ticketstatus.Table:          ticketstatus.ValidColumn,
 			workflow.Table:              workflow.ValidColumn,
+			workflowskillbinding.Table:  workflowskillbinding.ValidColumn,
+			workflowversion.Table:       workflowversion.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)
