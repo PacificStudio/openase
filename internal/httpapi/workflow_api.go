@@ -55,19 +55,8 @@ type harnessVariablesResponse struct {
 	Groups []workflowservice.HarnessVariableGroup `json:"groups"`
 }
 
-type workflowRepositoryPrerequisiteResponse struct {
-	Prerequisite workflowRepositoryPrerequisite `json:"prerequisite"`
-}
-
-type workflowRepositoryPrerequisite struct {
-	Kind      string `json:"kind"`
-	RepoCount int    `json:"repo_count"`
-	Action    string `json:"action"`
-}
-
 func (s *Server) registerWorkflowRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/workflows", s.handleListWorkflows)
-	api.GET("/projects/:projectId/workflows/prerequisite", s.handleGetWorkflowRepositoryPrerequisite)
 	api.POST("/projects/:projectId/workflows", s.handleCreateWorkflow)
 	api.GET("/workflows/:workflowId", s.handleGetWorkflow)
 	api.PATCH("/workflows/:workflowId", s.handleUpdateWorkflow)
@@ -96,26 +85,6 @@ func (s *Server) handleListWorkflows(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"workflows": mapWorkflowResponses(items),
-	})
-}
-
-func (s *Server) handleGetWorkflowRepositoryPrerequisite(c echo.Context) error {
-	if s.workflowService == nil {
-		return writeWorkflowError(c, workflowservice.ErrUnavailable)
-	}
-
-	projectID, err := parseProjectID(c)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
-	}
-
-	prerequisite, err := s.workflowService.GetRepositoryPrerequisite(c.Request().Context(), projectID)
-	if err != nil {
-		return writeWorkflowError(c, err)
-	}
-
-	return c.JSON(http.StatusOK, workflowRepositoryPrerequisiteResponse{
-		Prerequisite: mapWorkflowRepositoryPrerequisite(prerequisite),
 	})
 }
 
@@ -336,14 +305,6 @@ func writeWorkflowError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusConflict, "WORKFLOW_HOOK_BLOCKED", err.Error())
 	default:
 		return writeAPIError(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
-	}
-}
-
-func mapWorkflowRepositoryPrerequisite(item workflowservice.WorkflowRepositoryPrerequisite) workflowRepositoryPrerequisite {
-	return workflowRepositoryPrerequisite{
-		Kind:      string(item.Kind),
-		RepoCount: item.RepoCount,
-		Action:    string(item.Action),
 	}
 }
 

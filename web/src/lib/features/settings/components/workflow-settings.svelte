@@ -3,15 +3,13 @@
   import { listStatuses } from '$lib/api/openase'
   import { connectEventStream } from '$lib/api/sse'
   import {
-    WorkflowRepositoryPrerequisiteCard,
     WorkflowLifecycleSidebar,
     WorkflowList,
     type WorkflowAgentOption,
-    type WorkflowRepositoryPrerequisite,
     type WorkflowStatusOption,
     type WorkflowSummary,
   } from '$lib/features/workflows'
-  import { loadWorkflowCatalog, loadWorkflowRepositoryPrerequisite } from '$lib/features/workflows'
+  import { loadWorkflowCatalog } from '$lib/features/workflows'
   import { appStore } from '$lib/stores/app.svelte'
   import { ApiError } from '$lib/api/client'
   import { Separator } from '$ui/separator'
@@ -20,7 +18,6 @@
 
   let loading = $state(false)
   let error = $state('')
-  let prerequisite = $state<WorkflowRepositoryPrerequisite | null>(null)
   let workflows = $state<WorkflowSummary[]>([])
   let agentOptions = $state<WorkflowAgentOption[]>([])
   let statuses = $state<WorkflowStatusOption[]>([])
@@ -37,7 +34,6 @@
       agentOptions = []
       statuses = []
       statusCapacity = []
-      prerequisite = null
       selectedId = ''
       error = ''
       loading = false
@@ -49,13 +45,11 @@
       loading = true
       error = ''
       try {
-        const [nextPrerequisite, catalog, statusPayload] = await Promise.all([
-          loadWorkflowRepositoryPrerequisite(projectId),
+        const [catalog, statusPayload] = await Promise.all([
           loadWorkflowCatalog(projectId, orgId),
           listStatuses(projectId),
         ])
         if (cancelled) return
-        prerequisite = nextPrerequisite
         workflows = catalog.workflows
         agentOptions = catalog.agentOptions
         statuses = catalog.statuses
@@ -120,8 +114,6 @@
 
   {#if loading}
     <div class="text-muted-foreground text-sm">Loading workflows…</div>
-  {:else if prerequisite && prerequisite.kind !== 'ready'}
-    <WorkflowRepositoryPrerequisiteCard {prerequisite} />
   {:else if error && workflows.length === 0}
     <div class="text-destructive text-sm">{error}</div>
   {:else if workflows.length === 0}

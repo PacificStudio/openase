@@ -1,6 +1,5 @@
 import {
   createWorkflow,
-  getWorkflowRepositoryPrerequisite,
   getWorkflowHarness,
   listWorkflowHarnessHistory,
   listAgents,
@@ -13,8 +12,6 @@ import {
 } from '$lib/api/openase'
 import { defaultHarnessTemplate, normalizeWorkflowType, toHarnessContent } from './model'
 import type { SkillState } from './model'
-import { mapWorkflowRepositoryPrerequisite } from './repository-prerequisite'
-import type { WorkflowRepositoryPrerequisite } from './repository-prerequisite'
 import type {
   HarnessVariableGroup,
   WorkflowAgentOption,
@@ -103,12 +100,6 @@ export function mapStatusOptions(
     .map((status) => ({ id: status.id, name: status.name }))
 }
 
-export async function loadWorkflowRepositoryPrerequisite(
-  projectId: string,
-): Promise<WorkflowRepositoryPrerequisite> {
-  return mapWorkflowRepositoryPrerequisite(await getWorkflowRepositoryPrerequisite(projectId))
-}
-
 export async function loadWorkflowCatalog(projectId: string, orgId: string) {
   const [workflowPayload, statusPayload, agentPayload, providerPayload] = await Promise.all([
     listWorkflows(projectId),
@@ -167,7 +158,6 @@ export async function loadWorkflowHarness(projectId: string, workflowId: string)
 }
 
 export async function loadWorkflowPageData(projectId: string, orgId: string, selectedId: string) {
-  const prerequisite = await loadWorkflowRepositoryPrerequisite(projectId)
   const index = await loadWorkflowIndex(projectId, orgId, selectedId)
   const selectedWorkflowId = selectedId || index.workflows[0]?.id || ''
   const harnessPayload = selectedWorkflowId
@@ -175,7 +165,6 @@ export async function loadWorkflowPageData(projectId: string, orgId: string, sel
     : null
 
   return {
-    prerequisite,
     agentOptions: index.agentOptions,
     workflows: index.workflows.map((workflow) =>
       workflow.id === selectedWorkflowId

@@ -75,8 +75,6 @@ func TestSkillRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		{name: "list invalid project", server: server, method: http.MethodGet, target: "/api/v1/projects/not-a-uuid/skills", wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
 		{name: "refresh invalid project", server: server, method: http.MethodPost, target: "/api/v1/projects/not-a-uuid/skills/refresh", body: `{"workspace_root":"/tmp/ws","adapter_type":"claude-code-cli"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
 		{name: "refresh invalid payload", server: server, method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/skills/refresh", uuid.New()), body: `{"workspace_root":"   ","adapter_type":"claude-code-cli"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
-		{name: "harvest invalid project", server: server, method: http.MethodPost, target: "/api/v1/projects/not-a-uuid/skills/harvest", body: `{"workspace_root":"/tmp/ws","adapter_type":"claude-code-cli"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
-		{name: "harvest invalid payload", server: server, method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/skills/harvest", uuid.New()), body: `{"workspace_root":"/tmp/ws","adapter_type":"   "}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
 		{name: "bind invalid workflow id", server: server, method: http.MethodPost, target: "/api/v1/workflows/not-a-uuid/skills/bind", body: `{"skills":["commit"]}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_WORKFLOW_ID"},
 		{name: "bind invalid payload", server: server, method: http.MethodPost, target: fmt.Sprintf("/api/v1/workflows/%s/skills/bind", uuid.New()), body: `{"skills":[]}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
 		{name: "bind missing workflow", server: server, method: http.MethodPost, target: fmt.Sprintf("/api/v1/workflows/%s/skills/bind", uuid.New()), body: `{"skills":["commit"]}`, wantStatus: http.StatusNotFound, wantBody: "WORKFLOW_NOT_FOUND"},
@@ -93,7 +91,7 @@ func TestSkillRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 	}
 }
 
-func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
+func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
@@ -307,22 +305,6 @@ func TestSkillRoutesRefreshHarvestBindAndUnbind(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(workspaceRoot, ".openase", "bin", "openase")); err != nil {
 		t.Fatalf("expected openase wrapper in refreshed workspace: %v", err)
-	}
-
-	writeWorkspaceSkill(t, workspaceRoot, ".claude", "deploy-docker", "# Deploy Docker\n\nDeploy the app with Docker.\n")
-	writeWorkspaceSkill(t, workspaceRoot, ".claude", "commit", "# Commit\n\nWrite a stricter conventional commit message.\n")
-
-	harvestRec := performJSONRequest(
-		t,
-		server,
-		http.MethodPost,
-		fmt.Sprintf("/api/v1/projects/%s/skills/harvest", project.ID),
-		fmt.Sprintf(`{"workspace_root":%q,"adapter_type":"claude-code-cli"}`, workspaceRoot),
-	)
-	if harvestRec.Code != http.StatusBadRequest ||
-		!strings.Contains(harvestRec.Body.String(), "INVALID_SKILL") ||
-		!strings.Contains(harvestRec.Body.String(), "harvest is deprecated") {
-		t.Fatalf("expected harvest deprecation error, got %d: %s", harvestRec.Code, harvestRec.Body.String())
 	}
 
 	unbindResp := struct {

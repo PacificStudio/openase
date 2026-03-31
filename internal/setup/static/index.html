@@ -337,7 +337,7 @@
     <aside class="rail">
       <p class="eyebrow">OpenASE Onboarding</p>
       <h1>Setup Wizard</h1>
-      <p class="lede">A narrow first-run slice: choose mode, prove database reachability, confirm agent CLIs, and generate the project repository scaffold.</p>
+      <p class="lede">A narrow first-run slice: choose mode, prove database reachability, confirm agent CLIs, and connect an existing project repository.</p>
       <div class="step-list" id="step-list">
         <div class="step-pill active"><strong>Step 1</strong><span>Choose the operating mode for this workspace.</span></div>
         <div class="step-pill"><strong>Step 2</strong><span>Test PostgreSQL before anything is written.</span></div>
@@ -608,7 +608,7 @@
         html += '<li>Config: <code>' + payload.config_path + '</code></li>';
         html += '<li>Env: <code>' + payload.env_path + '</code></li>';
         html += '<li>Repository: <code>' + payload.repo_path + '</code></li>';
-        html += '<li>Scaffolded files: ';
+        html += '<li>Repo-local scaffold: ';
         html += payload.scaffolded_files.length
           ? payload.scaffolded_files.map((item) => '<code>' + item + '</code>').join(', ')
           : 'none needed';

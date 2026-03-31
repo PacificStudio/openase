@@ -179,11 +179,6 @@ func (s *Service) Complete(ctx context.Context, raw RawCompleteRequest) (Complet
 		return CompleteResult{}, fmt.Errorf("migrate database schema: %w", err)
 	}
 
-	scaffoldedFiles, err := ensureProjectRepoScaffold(request.Project.RepoPath)
-	if err != nil {
-		return CompleteResult{}, err
-	}
-
 	if err := s.installer.Initialize(ctx, InstallInput{
 		Mode:     request.Mode,
 		Database: request.Database,
@@ -213,7 +208,7 @@ func (s *Service) Complete(ctx context.Context, raw RawCompleteRequest) (Complet
 		ConfigPath:      s.configPath(),
 		EnvPath:         s.envPath(),
 		RepoPath:        request.Project.RepoPath,
-		ScaffoldedFiles: scaffoldedFiles,
+		ScaffoldedFiles: []string{},
 		ProjectName:     request.Project.Name,
 		Mode:            request.Mode,
 	}, nil
@@ -382,25 +377,6 @@ func detectAgentOptions(resolver provider.ExecutableResolver) []AgentOption {
 	}
 
 	return options
-}
-
-func ensureProjectRepoScaffold(repoRoot string) ([]string, error) {
-	files := projectRepoScaffold(repoRoot)
-	created := make([]string, 0, len(files))
-	for _, file := range files {
-		if err := os.MkdirAll(filepath.Dir(file.path), 0o750); err != nil {
-			return nil, fmt.Errorf("create scaffold directory for %s: %w", file.path, err)
-		}
-		if fileExists(file.path) {
-			continue
-		}
-		if err := os.WriteFile(file.path, []byte(file.content), file.mode); err != nil {
-			return nil, fmt.Errorf("write scaffold file %s: %w", file.path, err)
-		}
-		created = append(created, file.path)
-	}
-
-	return created, nil
 }
 
 func fileExists(path string) bool {

@@ -6,12 +6,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/BetterAndBetterII/openase/internal/builtin"
 )
 
 type stubResolver struct {
@@ -50,7 +47,7 @@ func (s *stubInstaller) Initialize(_ context.Context, input InstallInput) error 
 	return nil
 }
 
-func TestServiceCompleteWritesFilesAndScaffold(t *testing.T) {
+func TestServiceCompleteWritesFilesWithoutRepoScaffold(t *testing.T) {
 	homeDir := t.TempDir()
 	repoRoot := filepath.Join(t.TempDir(), "repo")
 	if err := os.MkdirAll(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
@@ -97,8 +94,8 @@ func TestServiceCompleteWritesFilesAndScaffold(t *testing.T) {
 	if installer.input.Project.Name != "Demo App" {
 		t.Fatalf("expected installer to receive project input, got %+v", installer.input)
 	}
-	if len(result.ScaffoldedFiles) != len(projectRepoScaffold(repoRoot)) {
-		t.Fatalf("expected %d scaffolded files, got %d", len(projectRepoScaffold(repoRoot)), len(result.ScaffoldedFiles))
+	if len(result.ScaffoldedFiles) != 0 {
+		t.Fatalf("expected no scaffolded files, got %v", result.ScaffoldedFiles)
 	}
 
 	//nolint:gosec // test reads files from a controlled temp home directory
@@ -134,60 +131,8 @@ func TestServiceCompleteWritesFilesAndScaffold(t *testing.T) {
 		t.Fatalf("expected env mode 0600, got %#o", envInfo.Mode().Perm())
 	}
 
-	for _, path := range []string{
-		filepath.Join(repoRoot, ".openase", "harnesses", "coding.md"),
-		filepath.Join(repoRoot, ".openase", "skills", ".gitkeep"),
-		filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md"),
-		filepath.Join(repoRoot, ".openase", "bin", "openase"),
-		filepath.Join(repoRoot, ".openase", "harnesses", "roles", "fullstack-developer.md"),
-		filepath.Join(repoRoot, ".openase", "harnesses", "roles", "data-analyst.md"),
-	} {
-		if _, err := os.Stat(path); err != nil {
-			t.Fatalf("expected scaffolded file %s: %v", path, err)
-		}
-	}
-
-	for _, skill := range builtin.Skills() {
-		if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "skills", skill.Name, "SKILL.md")); err != nil {
-			t.Fatalf("expected built-in skill scaffold for %s: %v", skill.Name, err)
-		}
-	}
-
-	//nolint:gosec // test reads files from a controlled temp repository
-	skillContent, err := os.ReadFile(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md"))
-	if err != nil {
-		t.Fatalf("ReadFile SKILL.md returned error: %v", err)
-	}
-	if !strings.Contains(string(skillContent), "./.openase/bin/openase ticket create") {
-		t.Fatalf("expected built-in skill usage example, got %q", string(skillContent))
-	}
-
-	wrapperPath := filepath.Join(repoRoot, ".openase", "bin", "openase")
-	wrapperInfo, err := os.Stat(wrapperPath)
-	if err != nil {
-		t.Fatalf("Stat wrapper returned error: %v", err)
-	}
-	if wrapperInfo.Mode().Perm() != 0o755 {
-		t.Fatalf("expected wrapper mode 0755, got %#o", wrapperInfo.Mode().Perm())
-	}
-
-	fakeBinDir := t.TempDir()
-	fakeOpenasePath := filepath.Join(fakeBinDir, "openase")
-	if err := os.WriteFile(fakeOpenasePath, []byte("#!/bin/sh\nprintf '%s' \"$*\"\n"), 0o600); err != nil {
-		t.Fatalf("WriteFile fake openase returned error: %v", err)
-	}
-	if err := os.Chmod(fakeOpenasePath, 0o700); err != nil { //nolint:gosec // test needs the temp helper script to be executable
-		t.Fatalf("Chmod fake openase returned error: %v", err)
-	}
-	t.Setenv("PATH", fakeBinDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-
-	//nolint:gosec // test executes a temporary wrapper script under a controlled temp directory
-	output, err := exec.Command(wrapperPath, "ticket", "list").CombinedOutput()
-	if err != nil {
-		t.Fatalf("wrapper execution returned error: %v (output=%q)", err, string(output))
-	}
-	if strings.TrimSpace(string(output)) != "ticket list" {
-		t.Fatalf("expected wrapper to forward arguments, got %q", string(output))
+	if _, err := os.Stat(filepath.Join(repoRoot, ".openase")); !os.IsNotExist(err) {
+		t.Fatalf("expected setup to leave repo-local .openase absent, stat err=%v", err)
 	}
 }
 

@@ -51,7 +51,6 @@ import type {
   SkillDetailResponse,
   SkillHistoryPayload,
   SkillRefreshResponse,
-  SkillHarvestResponse,
   SkillBindingUpdateResponse,
   SkillToggleResponse,
   SkillUpdateResponse,
@@ -801,16 +800,6 @@ export function listWorkflows(projectId: string) {
   return api.get<WorkflowListPayload>(`/api/v1/projects/${projectId}/workflows`)
 }
 
-export function getWorkflowRepositoryPrerequisite(projectId: string) {
-  return api.get<{
-    prerequisite: {
-      kind: string
-      repo_count: number
-      action: string
-    }
-  }>(`/api/v1/projects/${projectId}/workflows/prerequisite`)
-}
-
 export function createWorkflow(
   projectId: string,
   body: {
@@ -1009,17 +998,6 @@ export function refreshSkills(
   },
 ) {
   return api.post<SkillRefreshResponse>(`/api/v1/projects/${projectId}/skills/refresh`, { body })
-}
-
-export function harvestSkills(
-  projectId: string,
-  body: {
-    workspace_root: string
-    adapter_type: string
-    workflow_id?: string
-  },
-) {
-  return api.post<SkillHarvestResponse>(`/api/v1/projects/${projectId}/skills/harvest`, { body })
 }
 
 export function bindWorkflowSkills(workflowId: string, skills: string[]) {

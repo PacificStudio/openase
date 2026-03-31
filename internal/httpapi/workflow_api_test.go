@@ -27,7 +27,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
+func TestWorkflowRoutesCRUDHarnessVersionsWithoutRepoSync(t *testing.T) {
 	client := openTestEntClient(t)
 	serviceRepoRoot := createTestGitRepo(t)
 	primaryRepoRoot := createTestGitRepo(t)
@@ -340,7 +340,7 @@ func TestWorkflowRoutesCRUDHarnessStorageAndHotReload(t *testing.T) {
 	)
 }
 
-func TestWorkflowRepositoryPrerequisiteRouteAndCreateWorkflow(t *testing.T) {
+func TestWorkflowCreateDoesNotRequireProjectRepo(t *testing.T) {
 	client := openTestEntClient(t)
 	serviceRepoRoot := createTestGitRepo(t)
 	primaryRepoRoot := createTestGitRepo(t)
@@ -443,34 +443,6 @@ func TestWorkflowRepositoryPrerequisiteRouteAndCreateWorkflow(t *testing.T) {
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create repoLessAgent: %v", err)
-	}
-
-	missingResp := workflowRepositoryPrerequisiteResponse{}
-	executeJSON(
-		t,
-		server,
-		http.MethodGet,
-		fmt.Sprintf("/api/v1/projects/%s/workflows/prerequisite", projectWithoutRepo.ID),
-		nil,
-		http.StatusOK,
-		&missingResp,
-	)
-	if missingResp.Prerequisite.Kind != "ready" || missingResp.Prerequisite.Action != "none" {
-		t.Fatalf("prerequisite without bound repo = %+v", missingResp.Prerequisite)
-	}
-
-	readyResp := workflowRepositoryPrerequisiteResponse{}
-	executeJSON(
-		t,
-		server,
-		http.MethodGet,
-		fmt.Sprintf("/api/v1/projects/%s/workflows/prerequisite", projectReady.ID),
-		nil,
-		http.StatusOK,
-		&readyResp,
-	)
-	if readyResp.Prerequisite.Kind != "ready" || readyResp.Prerequisite.Action != "none" {
-		t.Fatalf("ready prerequisite = %+v", readyResp.Prerequisite)
 	}
 
 	rec := performJSONRequest(

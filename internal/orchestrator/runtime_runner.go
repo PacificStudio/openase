@@ -762,9 +762,6 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, runID uui
 		}
 		ticket = reloadedTicket
 	}
-	if err := l.autoHarvestCompletedSkills(ctx, runID, agentID, ticket); err != nil {
-		l.logger.Warn("auto harvest completed skills", "run_id", runID, "ticket_id", ticket.ID, "error", err)
-	}
 
 	tx, err := l.client.Tx(ctx)
 	if err != nil {
@@ -828,18 +825,6 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, runID uui
 		runtimeEventMetadataForState(agentItem),
 		now,
 	)
-	return nil
-}
-
-func (l *RuntimeLauncher) autoHarvestCompletedSkills(
-	ctx context.Context,
-	runID uuid.UUID,
-	agentID uuid.UUID,
-	ticket *ent.Ticket,
-) error {
-	if l == nil || l.workflow == nil || ticket == nil || ticket.WorkflowID == nil {
-		return nil
-	}
 	return nil
 }
 

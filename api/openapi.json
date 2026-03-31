@@ -13926,141 +13926,6 @@
         ]
       }
     },
-    "/api/v1/projects/{projectId}/skills/harvest": {
-      "post": {
-        "operationId": "harvestSkills",
-        "parameters": [
-          {
-            "description": "Project ID.",
-            "in": "path",
-            "name": "projectId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "properties": {
-                  "adapter_type": {
-                    "description": "Agent adapter type used to derive the runtime skill directory.",
-                    "type": "string"
-                  },
-                  "workflow_id": {
-                    "description": "Optional workflow ID used to project only the currently bound enabled skills.",
-                    "type": "string"
-                  },
-                  "workspace_root": {
-                    "description": "Workspace repository root that owns the agent skill directory.",
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            }
-          },
-          "description": "Harvest workspace-authored skills back into the project skill library request body.",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "harvested_skills": {
-                      "items": {
-                        "type": "string"
-                      },
-                      "type": "array"
-                    },
-                    "injected_skills": {
-                      "items": {
-                        "type": "string"
-                      },
-                      "type": "array"
-                    },
-                    "skills_dir": {
-                      "type": "string"
-                    },
-                    "updated_skills": {
-                      "items": {
-                        "type": "string"
-                      },
-                      "type": "array"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Harvest workspace-authored skills back into the project skill library response."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Request response."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Not Found response."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Internal Server Error response."
-          }
-        },
-        "summary": "Harvest workspace-authored skills back into the project skill library",
-        "tags": [
-          "skills"
-        ]
-      }
-    },
     "/api/v1/projects/{projectId}/skills/refresh": {
       "post": {
         "operationId": "refreshSkills",
@@ -14107,12 +13972,6 @@
               "application/json": {
                 "schema": {
                   "properties": {
-                    "harvested_skills": {
-                      "items": {
-                        "type": "string"
-                      },
-                      "type": "array"
-                    },
                     "injected_skills": {
                       "items": {
                         "type": "string"
@@ -14121,12 +13980,6 @@
                     },
                     "skills_dir": {
                       "type": "string"
-                    },
-                    "updated_skills": {
-                      "items": {
-                        "type": "string"
-                      },
-                      "type": "array"
                     }
                   },
                   "type": "object"
@@ -17030,109 +16883,6 @@
         "summary": "Create a workflow",
         "tags": [
           "workflows"
-        ]
-      }
-    },
-    "/api/v1/projects/{projectId}/workflows/prerequisite": {
-      "get": {
-        "operationId": "getWorkflowRepositoryPrerequisite",
-        "parameters": [
-          {
-            "description": "Project ID.",
-            "in": "path",
-            "name": "projectId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "prerequisite": {
-                      "properties": {
-                        "action": {
-                          "type": "string"
-                        },
-                        "kind": {
-                          "type": "string"
-                        },
-                        "repo_count": {
-                          "type": "integer"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Get workflow repository prerequisite response."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Request response."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Not Found response."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Internal Server Error response."
-          }
-        },
-        "summary": "Get workflow repository prerequisite",
-        "tags": [
-          "workflow"
         ]
       }
     },

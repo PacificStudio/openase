@@ -1,5 +1,5 @@
 {
-  "openapi_sha256": "864166eba2391601504e1850551569dcf2285e877e4a156b25fac38265afc055",
+  "openapi_sha256": "e86a4ec6a10babfc048f029d16f9d6ac6039051afe401d4b377fccda7ee0259b",
   "commands": [
     {
       "use": "list [projectId]",
@@ -576,12 +576,12 @@
         },
         {
           "name": "harness_content",
-          "description": "Initial harness content written when creating the workflow.",
+          "description": "Initial harness content written into the versioned control-plane workflow record.",
           "kind": "string"
         },
         {
           "name": "harness_path",
-          "description": "Repository path where the workflow harness file is stored.",
+          "description": "Logical harness path tracked by the control plane for this workflow.",
           "kind": "string"
         },
         {
@@ -655,7 +655,7 @@
         },
         {
           "name": "harness_path",
-          "description": "Repository path where the workflow harness file is stored.",
+          "description": "Logical harness path tracked by the control plane for this workflow.",
           "kind": "string"
         },
         {
@@ -712,23 +712,6 @@
         {
           "name": "workflowId",
           "description": "Workflow ID.",
-          "required": true,
-          "kind": "string"
-        }
-      ]
-    },
-    {
-      "use": "prerequisite [projectId]",
-      "method": "GET",
-      "path": "/api/v1/projects/{projectId}/workflows/prerequisite",
-      "operation_id": "getWorkflowRepositoryPrerequisite",
-      "positional_params": [
-        "projectId"
-      ],
-      "path_params": [
-        {
-          "name": "projectId",
-          "description": "Project ID.",
           "required": true,
           "kind": "string"
         }
@@ -1578,7 +1561,7 @@
         },
         {
           "name": "name",
-          "description": "Project-unique skill directory name.",
+          "description": "Project-unique skill name in the control plane.",
           "kind": "string"
         }
       ]
@@ -1588,40 +1571,6 @@
       "method": "POST",
       "path": "/api/v1/projects/{projectId}/skills/refresh",
       "operation_id": "refreshSkills",
-      "positional_params": [
-        "projectId"
-      ],
-      "path_params": [
-        {
-          "name": "projectId",
-          "description": "Project ID.",
-          "required": true,
-          "kind": "string"
-        }
-      ],
-      "body_fields": [
-        {
-          "name": "adapter_type",
-          "description": "Agent adapter type used to derive the runtime skill directory.",
-          "kind": "string"
-        },
-        {
-          "name": "workflow_id",
-          "description": "Optional workflow ID used to project only the currently bound enabled skills.",
-          "kind": "string"
-        },
-        {
-          "name": "workspace_root",
-          "description": "Workspace repository root that owns the agent skill directory.",
-          "kind": "string"
-        }
-      ]
-    },
-    {
-      "use": "harvest [projectId]",
-      "method": "POST",
-      "path": "/api/v1/projects/{projectId}/skills/harvest",
-      "operation_id": "harvestSkills",
       "positional_params": [
         "projectId"
       ],

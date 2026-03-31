@@ -19,7 +19,6 @@
   } from '../types'
   import { type SkillState, toHarnessContent } from '../model'
   import { loadWorkflowPageData, loadWorkflowHarness } from '../data'
-  import type { WorkflowRepositoryPrerequisite } from '../repository-prerequisite'
   import WorkflowsPageBody from './workflows-page-body.svelte'
   import WorkflowsPageHeaderActions from './workflows-page-header-actions.svelte'
   let showDetail = $state(false),
@@ -28,8 +27,7 @@
   let loading = $state(false),
     saving = $state(false),
     validating = $state(false)
-  let loadError = $state(''),
-    prerequisite = $state<WorkflowRepositoryPrerequisite | null>(null)
+  let loadError = $state('')
   let workflows = $state<WorkflowSummary[]>([]),
     selectedId = $state('')
   let harness = $state<ReturnType<typeof toHarnessContent> | null>(null),
@@ -69,7 +67,6 @@
     const orgId = appStore.currentOrg?.id
     if (!projectId || !orgId) {
       resetWorkflowContent()
-      prerequisite = null
       loadError = ''
       loading = false
       return
@@ -81,11 +78,6 @@
       try {
         const payload = await loadWorkflowPageData(projectId, orgId, selectedId)
         if (cancelled) return
-        prerequisite = payload.prerequisite
-        if (payload.prerequisite.kind !== 'ready') {
-          resetWorkflowContent()
-          return
-        }
         const nextWorkflows = payload.workflows
         workflows = nextWorkflows
         agentOptions = payload.agentOptions
@@ -107,7 +99,6 @@
         validationIssues = []
       } catch (caughtError) {
         if (cancelled) return
-        prerequisite = null
         resetWorkflowContent()
         loadError =
           caughtError instanceof ApiError ? caughtError.detail : 'Failed to load workflows.'
@@ -260,7 +251,6 @@
 >
   <WorkflowsPageBody
     {loading}
-    {prerequisite}
     {settingsHref}
     {loadError}
     {workflows}

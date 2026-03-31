@@ -14,19 +14,6 @@ func TestDiagnoseHealthyEnvironment(t *testing.T) {
 
 	writeFile(t, filepath.Join(repoRoot, ".git"), []byte("gitdir"))
 	writeFile(t, filepath.Join(repoRoot, "openase.yaml"), []byte("server:\n  mode: all-in-one\ndatabase:\n  dsn: postgres://openase:secret@localhost:5432/openase?sslmode=disable\n"))
-	writeFile(t, filepath.Join(repoRoot, ".openase", "harnesses", "coding.md"), []byte(`---
-workflow_hooks:
-  on_activate:
-    - cmd: "claude --version"
-ticket_hooks:
-  on_complete:
-    - cmd: "bash scripts/ci/run-tests.sh"
-    - cmd: "./scripts/ci/lint.sh"
----
-# Coding
-`))
-	writeFileMode(t, filepath.Join(repoRoot, "scripts", "ci", "run-tests.sh"), []byte("#!/usr/bin/env bash\n"), 0o755)
-	writeFileMode(t, filepath.Join(repoRoot, "scripts", "ci", "lint.sh"), []byte("#!/usr/bin/env bash\n"), 0o755)
 	writeFileMode(t, filepath.Join(homeDir, ".openase", ".env"), []byte("OPENASE_TOKEN=x\n"), 0o600)
 	mkdirAll(t, filepath.Join(homeDir, ".openase", "logs"))
 
@@ -64,15 +51,10 @@ ticket_hooks:
 
 	assertStatus(t, report, "Git", StatusOK)
 	assertStatus(t, report, "PostgreSQL", StatusOK)
-	assertStatus(t, report, "Harness", StatusOK)
-	assertStatus(t, report, "Hook 脚本", StatusOK)
 
 	rendered := report.Render()
 	if !strings.Contains(rendered, "git version 2.44.0") {
 		t.Fatalf("expected rendered report to include git version, got:\n%s", rendered)
-	}
-	if !strings.Contains(rendered, "已配置 2 个脚本") {
-		t.Fatalf("expected rendered report to include hook script summary, got:\n%s", rendered)
 	}
 }
 
@@ -82,14 +64,6 @@ func TestDiagnoseReportsConfigAndPermissionProblems(t *testing.T) {
 
 	writeFile(t, filepath.Join(repoRoot, ".git"), []byte("gitdir"))
 	writeFile(t, filepath.Join(repoRoot, "openase.yaml"), []byte("server:\n  mode: invalid\n"))
-	writeFile(t, filepath.Join(repoRoot, ".openase", "harnesses", "coding.md"), []byte(`---
-ticket_hooks:
-  on_complete:
-    - cmd: "bash scripts/ci/run-tests.sh"
-    - cmd: "bash scripts/ci/missing.sh"
----
-`))
-	writeFileMode(t, filepath.Join(repoRoot, "scripts", "ci", "run-tests.sh"), []byte("#!/usr/bin/env bash\n"), 0o644)
 	writeFileMode(t, filepath.Join(homeDir, ".openase", ".env"), []byte("OPENASE_TOKEN=x\n"), 0o644)
 
 	report := Diagnose(context.Background(), Options{
@@ -112,39 +86,8 @@ ticket_hooks:
 	}
 
 	assertStatus(t, report, "配置", StatusError)
-	assertStatus(t, report, "Hook 脚本", StatusError)
 	assertStatus(t, report, "~/.openase", StatusWarning)
 	assertStatus(t, report, "Codex", StatusWarning)
-
-	rendered := report.Render()
-	if !strings.Contains(rendered, "chmod +x scripts/ci/run-tests.sh") {
-		t.Fatalf("expected rendered report to suggest chmod fix, got:\n%s", rendered)
-	}
-	if !strings.Contains(rendered, "scripts/ci/missing.sh") {
-		t.Fatalf("expected rendered report to include missing script, got:\n%s", rendered)
-	}
-}
-
-func TestParseScriptReference(t *testing.T) {
-	testCases := []struct {
-		command string
-		want    string
-		ok      bool
-	}{
-		{command: "bash scripts/ci/run-tests.sh", want: "scripts/ci/run-tests.sh", ok: true},
-		{command: "./scripts/ci/lint.sh", want: "scripts/ci/lint.sh", ok: true},
-		{command: "git fetch origin && git checkout -b branch", ok: false},
-	}
-
-	for _, testCase := range testCases {
-		got, ok := parseScriptReference(testCase.command)
-		if ok != testCase.ok {
-			t.Fatalf("parseScriptReference(%q) ok=%v, want %v", testCase.command, ok, testCase.ok)
-		}
-		if got != testCase.want {
-			t.Fatalf("parseScriptReference(%q)=%q, want %q", testCase.command, got, testCase.want)
-		}
-	}
 }
 
 func TestDoctorHelperFunctions(t *testing.T) {
