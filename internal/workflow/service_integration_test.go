@@ -1460,6 +1460,7 @@ func waitForWorkflowFileContent(t *testing.T, path string, want string) {
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
+		//nolint:gosec // Tests only read files created in isolated temp/project directories.
 		data, err := os.ReadFile(path)
 		if err == nil && string(data) == want {
 			return
