@@ -36,6 +36,7 @@ const providerFixtures: AgentProvider[] = [
     model_max_tokens: 4096,
     cost_per_input_token: 0,
     cost_per_output_token: 0,
+    max_parallel_runs: null,
   },
 ]
 
