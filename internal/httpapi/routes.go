@@ -46,6 +46,8 @@ func (r routeRegistrar) registerAPIRoutes() {
 	r.api.GET("/events/stream", r.server.handleEventStream)
 	r.api.POST("/webhooks/github", r.server.handleLegacyGitHubWebhook)
 	r.api.POST("/webhooks/:connector/:provider", r.server.handleInboundWebhook)
+	r.api.GET("/orgs/:orgId/machines/stream", r.server.handleMachineStream)
+	r.api.GET("/orgs/:orgId/providers/stream", r.server.handleProviderStream)
 	r.api.GET("/projects/:projectId/tickets/stream", r.server.handleTicketStream)
 	r.api.GET("/projects/:projectId/agents/stream", r.server.handleAgentStream)
 	r.api.GET("/projects/:projectId/agents/:agentId/output/stream", r.server.streamAgentOutput)

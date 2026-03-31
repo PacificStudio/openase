@@ -88,7 +88,7 @@ func (s *RuntimeStateStore) recordTurnStart(runID uuid.UUID, turnCount int, obse
 	s.runs[runID] = snapshot
 }
 
-func (s *RuntimeStateStore) recordCodexEvent(runID uuid.UUID, eventType codex.EventType, observedAt time.Time) {
+func (s *RuntimeStateStore) recordCodexEvent(runID uuid.UUID, eventType string, observedAt time.Time) {
 	if s == nil {
 		return
 	}
@@ -99,7 +99,7 @@ func (s *RuntimeStateStore) recordCodexEvent(runID uuid.UUID, eventType codex.Ev
 		return
 	}
 	snapshot.LastCodexTimestamp = observedAt.UTC()
-	snapshot.LastCodexEvent = string(eventType)
+	snapshot.LastCodexEvent = strings.TrimSpace(eventType)
 	s.runs[runID] = snapshot
 }
 

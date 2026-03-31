@@ -269,6 +269,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	scheduler := orchestrator.NewScheduler(client, a.logger, a.events)
 	healthChecker := orchestrator.NewHealthChecker(client, a.logger)
 	machineMonitor := orchestrator.NewMachineMonitor(client, a.logger, sshinfra.NewMonitorCollector(sshPool))
+	machineMonitor.ConfigureEvents(a.events)
 	runtimeLauncher := orchestrator.NewRuntimeLauncher(
 		client,
 		a.logger,

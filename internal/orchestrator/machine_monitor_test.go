@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -9,8 +10,11 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 )
 
@@ -413,6 +417,136 @@ func TestMachineMonitorRunTickMarksMachineDegradedWhenL4Fails(t *testing.T) {
 	}
 }
 
+func TestMachineMonitorRunTickPublishesMachineAndProviderRuntimeEvents(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	orgID := createMachineMonitorOrg(ctx, t, client)
+
+	sshUser := "openase"
+	workspaceRoot := "/srv/openase/workspace"
+	agentCLIPath := "/usr/local/bin/codex"
+	now := time.Date(2026, 3, 20, 19, 0, 0, 0, time.UTC)
+
+	machineItem, err := client.Machine.Create().
+		SetOrganizationID(orgID).
+		SetName("builder-03").
+		SetHost("10.0.1.15").
+		SetPort(22).
+		SetSSHUser(sshUser).
+		SetWorkspaceRoot(workspaceRoot).
+		SetAgentCliPath(agentCLIPath).
+		SetStatus(entmachine.StatusDegraded).
+		SetResources(map[string]any{
+			"monitor": map[string]any{
+				"l1": map[string]any{"checked_at": "2026-03-20T18:59:40Z"},
+				"l2": map[string]any{"checked_at": "2026-03-20T18:58:00Z"},
+				"l4": map[string]any{
+					"checked_at": "2026-03-20T17:00:00Z",
+					"codex": map[string]any{
+						"installed":   true,
+						"auth_status": "logged_in",
+						"auth_mode":   "login",
+						"ready":       true,
+					},
+				},
+			},
+		}).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create machine: %v", err)
+	}
+
+	if _, err := client.AgentProvider.Create().
+		SetOrganizationID(orgID).
+		SetMachineID(machineItem.ID).
+		SetName("OpenAI Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetCliArgs([]string{"app-server", "--listen", "stdio://"}).
+		SetAuthConfig(map[string]any{}).
+		SetModelName("gpt-5.1").
+		Save(ctx); err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	bus := eventinfra.NewChannelBus()
+	stream, err := bus.Subscribe(ctx, machineEventsTopic, providerEventsTopic)
+	if err != nil {
+		t.Fatalf("subscribe runtime events: %v", err)
+	}
+
+	collector := &fakeMachineMonitorCollector{
+		now: func() time.Time { return now },
+		systemResources: domain.MachineSystemResources{
+			CollectedAt:            now,
+			CPUCores:               16,
+			CPUUsagePercent:        22.5,
+			MemoryTotalGB:          64,
+			MemoryUsedGB:           24,
+			MemoryAvailableGB:      40,
+			MemoryAvailablePercent: 62.5,
+			DiskTotalGB:            512,
+			DiskAvailableGB:        320,
+			DiskAvailablePercent:   62.5,
+		},
+		agentEnvironment: domain.MachineAgentEnvironment{
+			CollectedAt:  now,
+			Dispatchable: true,
+			CLIs: []domain.MachineAgentCLI{
+				{Name: "codex", Installed: true, Version: "0.118.0", AuthStatus: domain.MachineAgentAuthStatusLoggedIn, AuthMode: domain.MachineAgentAuthModeLogin, Ready: true},
+			},
+		},
+		fullAudit: domain.MachineFullAudit{
+			CollectedAt: now,
+		},
+	}
+	monitor := NewMachineMonitor(client, slog.New(slog.NewTextHandler(io.Discard, nil)), collector)
+	monitor.ConfigureEvents(bus)
+	monitor.now = func() time.Time { return now }
+
+	if _, err := monitor.RunTick(ctx); err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+
+	events := collectMachineMonitorEvents(t, stream, 3)
+	if len(events) != 3 {
+		t.Fatalf("expected 3 runtime events, got %+v", events)
+	}
+	if events[0].Topic != machineEventsTopic || events[0].Type != machineOnlineEventType {
+		t.Fatalf("expected first event machine.online, got %+v", events[0])
+	}
+	if events[1].Topic != machineEventsTopic || events[1].Type != machineResourcesUpdatedEventType {
+		t.Fatalf("expected second event machine.resources_updated, got %+v", events[1])
+	}
+	if events[2].Topic != providerEventsTopic || events[2].Type != providerAvailableEventType {
+		t.Fatalf("expected third event provider.available, got %+v", events[2])
+	}
+
+	var machinePayload struct {
+		OrganizationID string `json:"organization_id"`
+	}
+	if err := json.Unmarshal(events[0].Payload, &machinePayload); err != nil {
+		t.Fatalf("decode machine event payload: %v", err)
+	}
+	if machinePayload.OrganizationID != orgID.String() {
+		t.Fatalf("expected machine event org %s, got %+v", orgID, machinePayload)
+	}
+
+	var providerPayload struct {
+		OrganizationID string `json:"organization_id"`
+		Provider       struct {
+			AvailabilityState string `json:"availability_state"`
+			Available         bool   `json:"available"`
+		} `json:"provider"`
+	}
+	if err := json.Unmarshal(events[2].Payload, &providerPayload); err != nil {
+		t.Fatalf("decode provider event payload: %v", err)
+	}
+	if providerPayload.OrganizationID != orgID.String() || providerPayload.Provider.AvailabilityState != domain.AgentProviderAvailabilityStateAvailable.String() || !providerPayload.Provider.Available {
+		t.Fatalf("unexpected provider payload: %+v", providerPayload)
+	}
+}
+
 func createMachineMonitorOrg(ctx context.Context, t *testing.T, client *ent.Client) uuid.UUID {
 	t.Helper()
 	org, err := client.Organization.Create().
@@ -490,4 +624,24 @@ func (f *fakeMachineMonitorCollector) CollectFullAudit(context.Context, domain.M
 		return domain.MachineFullAudit{}, f.fullAuditError
 	}
 	return f.fullAudit, nil
+}
+
+func collectMachineMonitorEvents(t *testing.T, stream <-chan provider.Event, want int) []provider.Event {
+	t.Helper()
+
+	events := make([]provider.Event, 0, want)
+	timeout := time.After(2 * time.Second)
+	for len(events) < want {
+		select {
+		case event, ok := <-stream:
+			if !ok {
+				t.Fatalf("machine monitor event stream closed after %d events", len(events))
+			}
+			events = append(events, event)
+		case <-timeout:
+			t.Fatalf("timed out waiting for %d machine monitor events; got %+v", want, events)
+		}
+	}
+
+	return events
 }

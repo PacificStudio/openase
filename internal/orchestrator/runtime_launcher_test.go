@@ -1984,14 +1984,17 @@ func TestRuntimeLauncherRunTickStallsByLastCodexTimestamp(t *testing.T) {
 		"Block without producing new codex events.",
 		manager,
 	)
-	defer func() {
-		if err := workflowSvc.Close(); err != nil {
-			t.Errorf("close workflow service: %v", err)
-		}
-	}()
 	t.Cleanup(func() {
+		select {
+		case <-manager.releaseTurn:
+		default:
+			close(manager.releaseTurn)
+		}
 		if err := launcher.Close(context.Background()); err != nil {
 			t.Errorf("close launcher: %v", err)
+		}
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
 		}
 	})
 
@@ -2284,9 +2287,9 @@ Exercise successful ticket hook lifecycle.
 	if err != nil {
 		t.Fatalf("load assignment: %v", err)
 	}
-	session, err := launcher.startCodexSession(ctx, assignment)
+	session, err := launcher.startRuntimeSession(ctx, assignment)
 	if err != nil {
-		t.Fatalf("start codex session: %v", err)
+		t.Fatalf("start runtime session: %v", err)
 	}
 	launcher.storeSession(runItem.ID, session)
 

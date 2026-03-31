@@ -15,7 +15,6 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
-	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
@@ -26,7 +25,6 @@ import (
 	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
-	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
@@ -65,7 +63,8 @@ type RuntimeLauncher struct {
 	eventTimeout   time.Duration
 
 	sessionsMu sync.Mutex
-	sessions   map[uuid.UUID]*codex.Session
+	sessions   map[uuid.UUID]agentSession
+	adapters   *agentAdapterRegistry
 	runtime    *RuntimeStateStore
 
 	launchesMu sync.Mutex
@@ -109,7 +108,8 @@ func NewRuntimeLauncher(
 		now:            time.Now,
 		launchTimeout:  defaultLaunchTimeout,
 		eventTimeout:   defaultLifecyclePublishTimeout,
-		sessions:       map[uuid.UUID]*codex.Session{},
+		sessions:       map[uuid.UUID]agentSession{},
+		adapters:       newDefaultAgentAdapterRegistry(),
 		runtime:        NewRuntimeStateStore(),
 		launches:       map[uuid.UUID]struct{}{},
 		executions:     map[uuid.UUID]struct{}{},
@@ -213,11 +213,14 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 
 	sessions := l.drainSessions()
 	for runID, session := range sessions {
+		stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		if session != nil {
-			stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 			_ = session.Stop(stopCtx)
-			cancel()
 		}
+		if err := l.waitForExecutionStop(stopCtx, runID); err != nil {
+			l.logger.Warn("wait for execution shutdown", "run_id", runID, "error", err)
+		}
+		cancel()
 
 		now := l.now().UTC()
 		assignment, err := l.loadAssignmentByRun(ctx, runID)
@@ -341,7 +344,7 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAss
 		now,
 	)
 
-	session, launchErr := l.startCodexSessionWithTimeout(ctx, assignment)
+	session, launchErr := l.startRuntimeSessionWithTimeout(ctx, assignment)
 	if launchErr != nil {
 		return launchErr
 	}
@@ -354,12 +357,22 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAss
 			entagentrun.IDEQ(assignment.run.ID),
 			entagentrun.StatusEQ(entagentrun.StatusLaunching),
 		).
-		SetSessionID(session.ThreadID()).
 		SetStatus(entagentrun.StatusReady).
 		SetRuntimeStartedAt(readyAt).
 		SetLastHeartbeatAt(readyAt).
 		SetLastError("").
 		Save(ctx)
+	if err == nil {
+		if sessionID, ok := session.SessionID(); ok {
+			readyCount, err = l.client.AgentRun.Update().
+				Where(
+					entagentrun.IDEQ(assignment.run.ID),
+					entagentrun.StatusEQ(entagentrun.StatusReady),
+				).
+				SetSessionID(sessionID).
+				Save(ctx)
+		}
+	}
 	if err != nil {
 		l.deleteSession(assignment.run.ID)
 		stopSession(context.Background(), session)
@@ -370,12 +383,13 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAss
 		stopSession(context.Background(), session)
 		return nil
 	}
+	sessionID, _ := session.SessionID()
 	l.runtime.markReady(
 		assignment.run.ID,
 		assignment.agent.ID,
 		assignment.ticket.ID,
 		assignment.run.WorkflowID,
-		session.ThreadID(),
+		sessionID,
 		readyAt,
 	)
 
@@ -403,24 +417,24 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAss
 	return nil
 }
 
-func (l *RuntimeLauncher) startCodexSessionWithTimeout(ctx context.Context, assignment runtimeAssignment) (*codex.Session, error) {
+func (l *RuntimeLauncher) startRuntimeSessionWithTimeout(ctx context.Context, assignment runtimeAssignment) (agentSession, error) {
 	timeout := l.launchTimeout
 	if timeout <= 0 {
-		return l.startCodexSession(ctx, assignment)
+		return l.startRuntimeSession(ctx, assignment)
 	}
 
 	launchCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	type launchResult struct {
-		session *codex.Session
+		session agentSession
 		err     error
 	}
 
 	resultCh := make(chan launchResult)
 	//nolint:gosec // launch timeout cleanup needs a detached stop context to reclaim late sessions safely.
 	go func() {
-		session, err := l.startCodexSession(launchCtx, assignment)
+		session, err := l.startRuntimeSession(launchCtx, assignment)
 		select {
 		case resultCh <- launchResult{session: session, err: err}:
 		case <-launchCtx.Done():
@@ -438,7 +452,7 @@ func (l *RuntimeLauncher) startCodexSessionWithTimeout(ctx context.Context, assi
 		return result.session, result.err
 	case <-timer.C:
 		cancel()
-		return nil, fmt.Errorf("start codex session timed out after %s", timeout)
+		return nil, fmt.Errorf("start runtime session timed out after %s", timeout)
 	case <-ctx.Done():
 		cancel()
 		return nil, ctx.Err()
@@ -708,13 +722,10 @@ func (l *RuntimeLauncher) pauseAgent(ctx context.Context, assignment runtimeAssi
 	return nil
 }
 
-func (l *RuntimeLauncher) startCodexSession(ctx context.Context, assignment runtimeAssignment) (*codex.Session, error) {
+func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment runtimeAssignment) (agentSession, error) {
 	launchContext, err := l.loadLaunchContext(ctx, assignment.agent.ID, assignment.ticket.ID)
 	if err != nil {
 		return nil, err
-	}
-	if launchContext.agent.Edges.Provider.AdapterType != entagentprovider.AdapterTypeCodexAppServer {
-		return nil, fmt.Errorf("unsupported adapter type %s", launchContext.agent.Edges.Provider.AdapterType)
 	}
 
 	machine, remote, err := l.resolveLaunchMachine(ctx, launchContext)
@@ -814,39 +825,21 @@ func (l *RuntimeLauncher) startCodexSession(ctx context.Context, assignment runt
 		environment,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("build codex process spec: %w", err)
+		return nil, fmt.Errorf("build agent process spec: %w", err)
 	}
 
-	adapter, err := codex.NewAdapter(codex.AdapterOptions{ProcessManager: processManager})
+	adapter, err := l.adapters.adapterFor(launchContext.agent.Edges.Provider.AdapterType)
 	if err != nil {
-		return nil, fmt.Errorf("construct codex adapter: %w", err)
+		return nil, err
 	}
 
-	session, err := adapter.Start(ctx, codex.StartRequest{
-		Process: processSpec,
-		Initialize: codex.InitializeParams{
-			ClientName:    "openase",
-			ClientVersion: "dev",
-			ClientTitle:   "OpenASE",
-		},
-		Thread: codex.ThreadStartParams{
-			WorkingDirectory:       workingDirectory.String(),
-			Model:                  launchContext.agent.Edges.Provider.ModelName,
-			ServiceName:            "openase",
-			DeveloperInstructions:  developerInstructions,
-			ApprovalPolicy:         "never",
-			Sandbox:                "danger-full-access",
-			PersistExtendedHistory: true,
-		},
-		Turn: codex.TurnConfig{
-			WorkingDirectory: workingDirectory.String(),
-			Title:            fmt.Sprintf("%s: %s", launchContext.ticket.Identifier, launchContext.ticket.Title),
-			ApprovalPolicy:   "never",
-			SandboxPolicy: map[string]any{
-				"type":          "dangerFullAccess",
-				"networkAccess": true,
-			},
-		},
+	session, err := adapter.Start(ctx, agentSessionStartSpec{
+		Process:               processSpec,
+		ProcessManager:        processManager,
+		WorkingDirectory:      workingDirectory.String(),
+		Model:                 launchContext.agent.Edges.Provider.ModelName,
+		DeveloperInstructions: developerInstructions,
+		TurnTitle:             fmt.Sprintf("%s: %s", launchContext.ticket.Identifier, launchContext.ticket.Title),
 	})
 	if err != nil {
 		return nil, err
@@ -1739,13 +1732,13 @@ func workspaceRoot(machine catalogdomain.Machine, workspace string) string {
 	return filepath.Clean(filepath.Dir(filepath.Dir(parent)))
 }
 
-func (l *RuntimeLauncher) storeSession(runID uuid.UUID, session *codex.Session) {
+func (l *RuntimeLauncher) storeSession(runID uuid.UUID, session agentSession) {
 	l.sessionsMu.Lock()
 	defer l.sessionsMu.Unlock()
 	l.sessions[runID] = session
 }
 
-func (l *RuntimeLauncher) loadSession(runID uuid.UUID) *codex.Session {
+func (l *RuntimeLauncher) loadSession(runID uuid.UUID) agentSession {
 	l.sessionsMu.Lock()
 	defer l.sessionsMu.Unlock()
 	return l.sessions[runID]
@@ -1757,15 +1750,15 @@ func (l *RuntimeLauncher) deleteSession(runID uuid.UUID) {
 	delete(l.sessions, runID)
 }
 
-func (l *RuntimeLauncher) drainSessions() map[uuid.UUID]*codex.Session {
+func (l *RuntimeLauncher) drainSessions() map[uuid.UUID]agentSession {
 	l.sessionsMu.Lock()
 	defer l.sessionsMu.Unlock()
 
-	drained := make(map[uuid.UUID]*codex.Session, len(l.sessions))
+	drained := make(map[uuid.UUID]agentSession, len(l.sessions))
 	for runID, session := range l.sessions {
 		drained[runID] = session
 	}
-	l.sessions = map[uuid.UUID]*codex.Session{}
+	l.sessions = map[uuid.UUID]agentSession{}
 	return drained
 }
 
@@ -1790,6 +1783,28 @@ func (l *RuntimeLauncher) executionActive(runID uuid.UUID) bool {
 	defer l.executionsMu.Unlock()
 	_, active := l.executions[runID]
 	return active
+}
+
+func (l *RuntimeLauncher) waitForExecutionStop(ctx context.Context, runID uuid.UUID) error {
+	if l == nil {
+		return nil
+	}
+	if !l.executionActive(runID) {
+		return nil
+	}
+
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+
+	for l.executionActive(runID) {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
+
+	return nil
 }
 
 func (l *RuntimeLauncher) beginLaunch(runID uuid.UUID) bool {
@@ -1862,7 +1877,7 @@ func lifecycleRunUUID(state agentLifecycleState) *uuid.UUID {
 	return &value
 }
 
-func stopSession(ctx context.Context, session *codex.Session) {
+func stopSession(ctx context.Context, session agentSession) {
 	if session == nil {
 		return
 	}

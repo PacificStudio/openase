@@ -12,11 +12,11 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
-	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -43,9 +43,9 @@ func (e *turnSessionClosedError) Error() string {
 		return ""
 	}
 	if e.cause != nil {
-		return fmt.Sprintf("codex session closed before turn %s completed: %v", e.turnID, e.cause)
+		return fmt.Sprintf("agent session closed before turn %s completed: %v", e.turnID, e.cause)
 	}
-	return fmt.Sprintf("codex session closed before turn %s completed", e.turnID)
+	return fmt.Sprintf("agent session closed before turn %s completed", e.turnID)
 }
 
 func (e *turnSessionClosedError) Unwrap() error {
@@ -132,7 +132,7 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, runID uuid.UUID
 			l.logger.Warn("mark ticket started", "ticket_id", state.ticket.ID, "error", err)
 		}
 
-		turn, err := session.StartTurn(ctx, codex.TurnConfig{}, prompt)
+		turn, err := session.SendPrompt(ctx, prompt)
 		if err != nil {
 			l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, state.ticket.ID, err)
 			return
@@ -142,11 +142,21 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, runID uuid.UUID
 			l.logger.Warn("record agent planning step", "run_id", state.run.ID, "error", err)
 		}
 
-		if err := l.consumeTurn(ctx, state.agent.ProjectID, state.agent.ID, state.run.ID, state.ticket.ID, session, turn.TurnID, &highWater); err != nil {
-			var closedErr *turnSessionClosedError
-			if errors.As(err, &closedErr) {
+		if err := l.consumeTurn(
+			ctx,
+			state.agent.ProjectID,
+			state.agent.ID,
+			state.run.ID,
+			state.ticket.ID,
+			state.launchContext.agent.Edges.Provider.AdapterType,
+			session,
+			turn.TurnID,
+			&highWater,
+		); err != nil {
+			if isCleanTurnSessionClose(err) {
 				message := ""
-				if closedErr != nil && closedErr.cause != nil {
+				var closedErr *turnSessionClosedError
+				if errors.As(err, &closedErr) && closedErr != nil && closedErr.cause != nil {
 					message = closedErr.Error()
 				}
 				l.runtime.recordRuntimeFact(state.run.ID, runtimeFactSessionExited, l.now().UTC(), message)
@@ -252,7 +262,7 @@ func (l *RuntimeLauncher) loadExecutionState(ctx context.Context, runID uuid.UUI
 func buildContinuationPrompt(ticket *ent.Ticket, turnNumber int, maxTurns int, lastError string) string {
 	var builder strings.Builder
 	builder.WriteString("Continuation guidance:\n\n")
-	builder.WriteString("- The previous Codex turn completed, but the ticket is still active.\n")
+	builder.WriteString("- The previous orchestrated turn completed, but the ticket is still active.\n")
 	_, _ = fmt.Fprintf(&builder, "- This is continuation turn #%d of %d.\n", turnNumber, maxTurns)
 	builder.WriteString("- Resume from the current workspace and thread context.\n")
 	builder.WriteString("- Do not restate the original task before acting.\n")
@@ -271,7 +281,8 @@ func (l *RuntimeLauncher) consumeTurn(
 	agentID uuid.UUID,
 	runID uuid.UUID,
 	ticketID uuid.UUID,
-	session *codex.Session,
+	adapterType entagentprovider.AdapterType,
+	session agentSession,
 	turnID string,
 	highWater *tokenUsageHighWater,
 ) error {
@@ -280,52 +291,45 @@ func (l *RuntimeLauncher) consumeTurn(
 	for {
 		event, ok := <-session.Events()
 		if !ok {
-			logCodexSessionClosed(l.logger, runID, turnID, session)
+			logAgentSessionClosed(l.logger, runID, turnID, adapterType, session)
 			if sessionErr := session.Err(); sessionErr != nil {
 				return &turnSessionClosedError{turnID: turnID, cause: sessionErr}
 			}
 			return &turnSessionClosedError{turnID: turnID}
 		}
-		l.runtime.recordCodexEvent(runID, event.Type, l.now().UTC())
+		l.runtime.recordCodexEvent(runID, string(event.Type), l.now().UTC())
+
+		if err := l.persistRuntimeSessionID(ctx, runID, session); err != nil {
+			l.logger.Warn("persist runtime session id", "run_id", runID, "error", err)
+		}
 
 		if err := l.touchHeartbeat(ctx, runID); err != nil {
 			l.logger.Warn("update agent heartbeat", "run_id", runID, "error", err)
 		}
 
 		switch event.Type {
-		case codex.EventTypeToolCallRequested:
+		case agentEventTypeToolCallRequested:
 			if event.ToolCall == nil {
 				continue
 			}
-			if err := l.recordAgentToolCall(ctx, projectID, agentID, ticketID, runID, event.ToolCall); err != nil {
+			if err := l.recordAgentToolCall(ctx, projectID, agentID, ticketID, runID, adapterType, event.ToolCall); err != nil {
 				return err
 			}
-			if err := session.RespondToolCall(ctx, *event.ToolCall, codex.ToolCallResult{
-				Success: false,
-				ContentItems: []codex.ToolCallContentItem{
-					{
-						Type: codex.ToolCallContentTypeText,
-						Text: "OpenASE orchestrated Codex sessions do not expose dynamic tools.",
-					},
-				},
-			}); err != nil {
-				return fmt.Errorf("respond tool call for turn %s: %w", turnID, err)
-			}
-		case codex.EventTypeTokenUsageUpdated:
+		case agentEventTypeTokenUsageUpdated:
 			if event.TokenUsage == nil {
 				continue
 			}
-			if event.TokenUsage.TurnID != "" && event.TokenUsage.TurnID != turnID {
+			if !turnMatches(turnID, event.TokenUsage.TurnID) {
 				continue
 			}
 			if err := l.recordTokenUsage(ctx, agentID, ticketID, event.TokenUsage, highWater); err != nil {
 				return err
 			}
-		case codex.EventTypeOutputProduced:
+		case agentEventTypeOutputProduced:
 			if event.Output == nil {
 				continue
 			}
-			if event.Output.TurnID != "" && event.Output.TurnID != turnID {
+			if !turnMatches(turnID, event.Output.TurnID) {
 				continue
 			}
 			itemID := strings.TrimSpace(event.Output.ItemID)
@@ -337,19 +341,19 @@ func (l *RuntimeLauncher) consumeTurn(
 					continue
 				}
 			}
-			if err := l.recordAgentOutput(ctx, projectID, agentID, ticketID, runID, event.Output); err != nil {
+			if err := l.recordAgentOutput(ctx, projectID, agentID, ticketID, runID, adapterType, event.Output); err != nil {
 				return err
 			}
-		case codex.EventTypeTurnFailed:
-			if event.Turn == nil || event.Turn.TurnID != turnID {
+		case agentEventTypeTurnFailed:
+			if event.Turn == nil || !turnMatches(turnID, event.Turn.TurnID) {
 				continue
 			}
 			if event.Turn.Error == nil {
-				return fmt.Errorf("codex turn %s failed", turnID)
+				return fmt.Errorf("%s turn %s failed", runtimeProviderName(adapterType), turnID)
 			}
-			return fmt.Errorf("codex turn %s failed: %s", turnID, strings.TrimSpace(event.Turn.Error.Message))
-		case codex.EventTypeTurnCompleted:
-			if event.Turn == nil || event.Turn.TurnID != turnID {
+			return fmt.Errorf("%s turn %s failed: %s", runtimeProviderName(adapterType), turnID, strings.TrimSpace(event.Turn.Error.Message))
+		case agentEventTypeTurnCompleted:
+			if event.Turn == nil || !turnMatches(turnID, event.Turn.TurnID) {
 				continue
 			}
 			return nil
@@ -357,7 +361,7 @@ func (l *RuntimeLauncher) consumeTurn(
 	}
 }
 
-func logCodexSessionClosed(logger *slog.Logger, runID uuid.UUID, turnID string, session *codex.Session) {
+func logAgentSessionClosed(logger *slog.Logger, runID uuid.UUID, turnID string, adapterType entagentprovider.AdapterType, session agentSession) {
 	if logger == nil {
 		return
 	}
@@ -368,19 +372,20 @@ func logCodexSessionClosed(logger *slog.Logger, runID uuid.UUID, turnID string, 
 		"turn_id", strings.TrimSpace(turnID),
 	}
 	if diagnostic.PID != 0 {
-		attrs = append(attrs, "codex_pid", diagnostic.PID)
+		attrs = append(attrs, "provider_pid", diagnostic.PID)
 	}
-	if trimmed := strings.TrimSpace(diagnostic.ThreadID); trimmed != "" {
-		attrs = append(attrs, "codex_thread_id", trimmed)
+	if trimmed := strings.TrimSpace(diagnostic.SessionID); trimmed != "" {
+		attrs = append(attrs, "provider_session_id", trimmed)
 	}
 	if trimmed := strings.TrimSpace(diagnostic.Error); trimmed != "" {
-		attrs = append(attrs, "codex_session_error", trimmed)
+		attrs = append(attrs, "provider_session_error", trimmed)
 	}
 	if trimmed := strings.TrimSpace(diagnostic.Stderr); trimmed != "" {
-		attrs = append(attrs, "codex_stderr", trimmed)
+		attrs = append(attrs, "provider_stderr", trimmed)
 	}
+	attrs = append(attrs, "adapter_type", string(adapterType))
 
-	logger.Error("codex session closed before turn completed", attrs...)
+	logger.Error("agent session closed before turn completed", attrs...)
 }
 
 func (l *RuntimeLauncher) recordAgentOutput(
@@ -389,7 +394,8 @@ func (l *RuntimeLauncher) recordAgentOutput(
 	agentID uuid.UUID,
 	ticketID uuid.UUID,
 	runID uuid.UUID,
-	output *codex.OutputEvent,
+	adapterType entagentprovider.AdapterType,
+	output *agentOutputEvent,
 ) error {
 	if l == nil || output == nil {
 		return nil
@@ -401,7 +407,7 @@ func (l *RuntimeLauncher) recordAgentOutput(
 	}
 
 	metadata := map[string]any{
-		"provider": "codex",
+		"provider": runtimeProviderName(adapterType),
 		"run_id":   runID.String(),
 	}
 	if itemID := strings.TrimSpace(output.ItemID); itemID != "" {
@@ -422,7 +428,7 @@ func (l *RuntimeLauncher) recordAgentOutput(
 		AgentID:     agentID,
 		TicketID:    ticketID,
 		AgentRunID:  runID,
-		Provider:    "codex",
+		Provider:    runtimeProviderName(adapterType),
 		Kind:        agentTraceKindForOutput(output),
 		Stream:      output.Stream,
 		Text:        text,
@@ -449,7 +455,8 @@ func (l *RuntimeLauncher) recordAgentToolCall(
 	agentID uuid.UUID,
 	ticketID uuid.UUID,
 	runID uuid.UUID,
-	request *codex.ToolCallRequest,
+	adapterType entagentprovider.AdapterType,
+	request *agentToolCallRequest,
 ) error {
 	if l == nil || request == nil {
 		return nil
@@ -457,7 +464,7 @@ func (l *RuntimeLauncher) recordAgentToolCall(
 
 	toolName := strings.TrimSpace(request.Tool)
 	metadata := map[string]any{
-		"provider": "codex",
+		"provider": runtimeProviderName(adapterType),
 		"run_id":   runID.String(),
 		"tool":     toolName,
 	}
@@ -476,7 +483,7 @@ func (l *RuntimeLauncher) recordAgentToolCall(
 		AgentID:     agentID,
 		TicketID:    ticketID,
 		AgentRunID:  runID,
-		Provider:    "codex",
+		Provider:    runtimeProviderName(adapterType),
 		Kind:        catalogdomain.AgentTraceKindToolCallStarted,
 		Stream:      "tool",
 		Text:        toolName,
@@ -514,7 +521,7 @@ func (l *RuntimeLauncher) recordAgentStep(
 	return nil
 }
 
-func agentTraceKindForOutput(output *codex.OutputEvent) string {
+func agentTraceKindForOutput(output *agentOutputEvent) string {
 	if output == nil {
 		return catalogdomain.AgentTraceKindAssistantDelta
 	}
@@ -533,7 +540,7 @@ func agentTraceKindForOutput(output *codex.OutputEvent) string {
 	}
 }
 
-func agentStepFromOutput(output *codex.OutputEvent, text string) (string, string, bool) {
+func agentStepFromOutput(output *agentOutputEvent, text string) (string, string, bool) {
 	if output == nil {
 		return "", "", false
 	}
@@ -569,6 +576,36 @@ func toolCallStepSummary(toolName string) string {
 	return "Running provider tool " + strconv.Quote(toolName) + "."
 }
 
+func turnMatches(expected string, actual string) bool {
+	trimmedExpected := strings.TrimSpace(expected)
+	trimmedActual := strings.TrimSpace(actual)
+	if trimmedExpected == "" || trimmedActual == "" {
+		return true
+	}
+	return trimmedExpected == trimmedActual
+}
+
+func (l *RuntimeLauncher) persistRuntimeSessionID(ctx context.Context, runID uuid.UUID, session agentSession) error {
+	if l == nil || l.client == nil || session == nil {
+		return nil
+	}
+	sessionID, ok := session.SessionID()
+	if !ok || strings.TrimSpace(sessionID) == "" {
+		return nil
+	}
+	_, err := l.client.AgentRun.Update().
+		Where(
+			entagentrun.IDEQ(runID),
+			entagentrun.SessionIDIsNil(),
+		).
+		SetSessionID(sessionID).
+		Save(ctx)
+	if err != nil {
+		return fmt.Errorf("persist session id for run %s: %w", runID, err)
+	}
+	return nil
+}
+
 func (l *RuntimeLauncher) touchHeartbeat(ctx context.Context, runID uuid.UUID) error {
 	_, err := l.client.AgentRun.Update().
 		Where(
@@ -587,7 +624,7 @@ func (l *RuntimeLauncher) recordTokenUsage(
 	ctx context.Context,
 	agentID uuid.UUID,
 	ticketID uuid.UUID,
-	usage *codex.TokenUsageEvent,
+	usage *agentTokenUsageEvent,
 	highWater *tokenUsageHighWater,
 ) error {
 	if l == nil || l.tickets == nil || usage == nil || highWater == nil {

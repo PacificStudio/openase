@@ -467,7 +467,7 @@ func TestHealthCheckerSkipsRegistryManagedRunAndLeavesFallbackToLauncher(t *test
 	runtimeState := NewRuntimeStateStore()
 	checker.ConfigureRuntimeState(runtimeState)
 	runtimeState.markReady(runItem.ID, agentItem.ID, ticketItem.ID, workflow.ID, "thread-runtime-1", now.Add(-2*time.Minute))
-	runtimeState.recordCodexEvent(runItem.ID, codex.EventTypeOutputProduced, now.Add(-30*time.Second))
+	runtimeState.recordCodexEvent(runItem.ID, string(codex.EventTypeOutputProduced), now.Add(-30*time.Second))
 
 	report, err := checker.Run(ctx)
 	if err != nil {
