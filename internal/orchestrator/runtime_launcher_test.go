@@ -270,6 +270,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 		t.Fatalf("expected codex workspace platform skill to include frontmatter, got %q", string(workspaceSkillContent))
 	}
 	workspaceHarnessPath := filepath.Join(repoWorkspacePath, ".openase", "harnesses", "coding.md")
+	// #nosec G304 -- test reads a fixture from the temp workspace path created above.
 	workspaceHarnessContent, err := os.ReadFile(workspaceHarnessPath)
 	if err != nil {
 		t.Fatalf("read runtime harness snapshot: %v", err)
