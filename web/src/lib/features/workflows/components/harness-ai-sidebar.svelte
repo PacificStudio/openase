@@ -5,17 +5,16 @@
     createEphemeralChatSessionController,
     EPHEMERAL_CHAT_MAX_BUDGET_USD,
     EPHEMERAL_CHAT_MAX_TURNS,
-    EphemeralChatActionProposalCard,
+    EphemeralChatTranscript,
     EphemeralChatProviderSelect,
   } from '$lib/features/chat'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import { cn } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { ScrollArea } from '$ui/scroll-area'
   import Textarea from '$ui/textarea/textarea.svelte'
-  import { Bot, LoaderCircle, RefreshCcw, Send } from '@lucide/svelte'
+  import { Bot, RefreshCcw, Send } from '@lucide/svelte'
   import {
     buildDiffPreview,
     findLatestHarnessSuggestion,
@@ -54,7 +53,7 @@
   const pending = $derived(chatController.pending)
   const sessionId = $derived(chatController.sessionId)
   const entries = $derived(chatController.entries)
-  const suggestion = $derived(findLatestHarnessSuggestion(entries))
+  const suggestion = $derived(findLatestHarnessSuggestion(entries, draftContent))
   const preview = $derived(suggestion ? buildDiffPreview(draftContent, suggestion.content) : null)
   const currentFingerprint = $derived(suggestion ? fingerprintSuggestion(suggestion.content) : '')
   const suggestionAlreadyApplied = $derived(
@@ -175,39 +174,12 @@
       {#if entries.length === 0}
         <HarnessChatEmptyState />
       {/if}
-
-      {#each entries as entry (entry.id)}
-        {#if entry.kind === 'action_proposal'}
-          <EphemeralChatActionProposalCard
-            {entry}
-            onConfirm={handleConfirmActionProposal}
-            onCancel={handleCancelActionProposal}
-          />
-        {:else}
-          <div
-            class={cn(
-              'rounded-2xl border px-3 py-2.5 text-sm leading-6',
-              entry.role === 'user' && 'bg-primary text-primary-foreground',
-              entry.role === 'assistant' && 'border-border bg-muted/40 text-foreground',
-              entry.role === 'system' && 'border-border text-foreground bg-amber-500/10',
-            )}
-          >
-            <div class="mb-1 text-[10px] font-semibold tracking-[0.16em] uppercase opacity-70">
-              {entry.role}
-            </div>
-            <div class="break-words whitespace-pre-wrap">{entry.content}</div>
-          </div>
-        {/if}
-      {/each}
-
-      {#if pending}
-        <div
-          class="border-border bg-muted/30 flex items-center gap-2 rounded-2xl border px-3 py-2.5 text-sm"
-        >
-          <LoaderCircle class="size-4 animate-spin" />
-          Thinking…
-        </div>
-      {/if}
+      <EphemeralChatTranscript
+        {entries}
+        {pending}
+        onConfirmActionProposal={handleConfirmActionProposal}
+        onCancelActionProposal={handleCancelActionProposal}
+      />
 
       {#if suggestion && preview}
         <HarnessSuggestionCard

@@ -65,6 +65,16 @@ func TestParseActionProposalTextAcceptsCodeFenceWithWhitespace(t *testing.T) {
 	}
 }
 
+func TestParseDiffPayloadTextAcceptsStructuredJSON(t *testing.T) {
+	payload, ok := parseDiffPayloadText("```json\n{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"---\"},{\"op\":\"add\",\"text\":\"new line\"}]}]}\n```")
+	if !ok {
+		t.Fatalf("expected diff payload to parse")
+	}
+	if payload.Type != chatMessageTypeDiff || payload.File != "harness content" || len(payload.Hunks) != 1 {
+		t.Fatalf("unexpected diff payload: %#v", payload)
+	}
+}
+
 func TestBuildSystemPromptGuidesHarnessEditorReplies(t *testing.T) {
 	workflowID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
 	service := NewService(nil, nil, nil, nil, harnessWorkflowReader{
@@ -93,10 +103,37 @@ func TestBuildSystemPromptGuidesHarnessEditorReplies(t *testing.T) {
 	}
 	if !containsAll(prompt,
 		"Harness 编辑器回复要求",
-		"完整 Harness 必须放在一个 ```markdown 代码块中",
+		"结构化 diff JSON 对象",
+		"\"type\":\"diff\",\"file\":\"harness content\"",
 		"普通 Harness 建议不要输出 action_proposal",
 	) {
 		t.Fatalf("expected harness-editor response instructions in prompt, got %q", prompt)
+	}
+}
+
+func TestMapClaudeEventPromotesDiffJSON(t *testing.T) {
+	events := mapClaudeEvent(SessionID("session-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
+		Kind: provider.ClaudeCodeEventKindAssistant,
+		Message: []byte("{\n" +
+			"  \"role\":\"assistant\",\n" +
+			"  \"content\":[\n" +
+			"    {\n" +
+			"      \"type\":\"text\",\n" +
+			"      \"text\":\"```json\\n{\\\"type\\\":\\\"diff\\\",\\\"file\\\":\\\"harness content\\\",\\\"hunks\\\":[{\\\"old_start\\\":1,\\\"old_lines\\\":1,\\\"new_start\\\":1,\\\"new_lines\\\":2,\\\"lines\\\":[{\\\"op\\\":\\\"context\\\",\\\"text\\\":\\\"---\\\"},{\\\"op\\\":\\\"add\\\",\\\"text\\\":\\\"new line\\\"}]}]}\\n```\"\n" +
+			"    }\n" +
+			"  ]\n" +
+			"}"),
+	})
+	if len(events) != 1 {
+		t.Fatalf("expected one mapped event, got %d", len(events))
+	}
+
+	payload, ok := events[0].Payload.(diffPayload)
+	if !ok {
+		t.Fatalf("expected diff payload, got %#v", events[0].Payload)
+	}
+	if payload.Type != chatMessageTypeDiff || payload.File != "harness content" {
+		t.Fatalf("unexpected diff payload: %#v", payload)
 	}
 }
 

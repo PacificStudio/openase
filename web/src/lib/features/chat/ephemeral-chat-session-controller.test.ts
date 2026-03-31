@@ -280,4 +280,72 @@ describe('createEphemeralChatSessionController', () => {
       streaming: false,
     })
   })
+
+  it('keeps structured diff entries distinct from render-only assistant text', async () => {
+    streamChatTurn.mockImplementation(async (_request, handlers) => {
+      handlers.onEvent({
+        kind: 'message',
+        payload: {
+          type: 'text',
+          content: 'I tightened the test guidance.',
+        },
+      })
+      handlers.onEvent({
+        kind: 'message',
+        payload: {
+          type: 'diff',
+          file: 'harness content',
+          hunks: [
+            {
+              oldStart: 1,
+              oldLines: 1,
+              newStart: 1,
+              newLines: 2,
+              lines: [
+                { op: 'context', text: '---' },
+                { op: 'add', text: 'new line' },
+              ],
+            },
+          ],
+        },
+      })
+      handlers.onEvent({
+        kind: 'done',
+        payload: {
+          sessionId: 'session-1',
+          turnsUsed: 1,
+        },
+      })
+    })
+
+    const controller = createEphemeralChatSessionController({
+      getSource: () => 'harness_editor',
+    })
+    controller.syncProviders(providerFixtures, 'provider-1')
+
+    await controller.sendTurn({
+      message: 'Tighten the harness.',
+      context: {
+        projectId: 'project-1',
+        workflowId: 'workflow-1',
+      },
+    })
+
+    expect(controller.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: 'assistant',
+          kind: 'text',
+          content: 'I tightened the test guidance.',
+        }),
+        expect.objectContaining({
+          role: 'assistant',
+          kind: 'diff',
+          diff: expect.objectContaining({
+            file: 'harness content',
+          }),
+        }),
+      ]),
+    )
+  })
 })

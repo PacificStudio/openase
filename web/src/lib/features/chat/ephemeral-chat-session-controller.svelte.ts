@@ -70,6 +70,9 @@ export function createEphemeralChatSessionController(
   }
 
   function appendMappedEntry(event: Extract<ChatStreamEvent, { kind: 'message' }>) {
+    applyAssistantTextUpdate(
+      finalizeAssistantTextChunk({ entries, activeAssistantEntryId, entryCounter }),
+    )
     entryCounter += 1
     entries = [...entries, mapChatPayloadToTranscriptEntry(`entry-${entryCounter}`, event.payload)]
   }

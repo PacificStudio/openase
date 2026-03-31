@@ -46,12 +46,37 @@ export type ChatActionProposalPayload = {
   actions: ChatActionProposalAction[]
 }
 
+export type ChatDiffLineOp = 'context' | 'add' | 'remove'
+
+export type ChatDiffLine = {
+  op: ChatDiffLineOp
+  text: string
+}
+
+export type ChatDiffHunk = {
+  oldStart: number
+  oldLines: number
+  newStart: number
+  newLines: number
+  lines: ChatDiffLine[]
+}
+
+export type ChatDiffPayload = {
+  type: 'diff'
+  file: string
+  hunks: ChatDiffHunk[]
+}
+
 export type ChatTaskPayload = {
   type: string
   raw?: unknown
 }
 
-export type ChatMessagePayload = ChatTextPayload | ChatActionProposalPayload | ChatTaskPayload
+export type ChatMessagePayload =
+  | ChatTextPayload
+  | ChatDiffPayload
+  | ChatActionProposalPayload
+  | ChatTaskPayload
 
 export type ChatActionMethod = 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 
@@ -207,6 +232,17 @@ function parseMessageEvent(payload: unknown): ChatStreamEvent {
     }
   }
 
+  if (type === 'diff') {
+    return {
+      kind: 'message',
+      payload: {
+        type,
+        file: readRequiredString(object, 'file'),
+        hunks: readDiffHunks(object),
+      },
+    }
+  }
+
   return {
     kind: 'message',
     payload: {
@@ -312,4 +348,69 @@ function parseActionProposalAction(value: unknown, index: number): ChatActionPro
 
 function isActionMethod(value: string): value is ChatActionMethod {
   return value === 'POST' || value === 'PATCH' || value === 'PUT' || value === 'DELETE'
+}
+
+function readDiffHunks(object: Record<string, unknown>): ChatDiffHunk[] {
+  const hunks = object.hunks
+  if (!Array.isArray(hunks) || hunks.length === 0) {
+    throw new Error('chat stream diff hunks must be a non-empty array')
+  }
+
+  return hunks.map((hunk, index) => parseDiffHunk(hunk, index))
+}
+
+function parseDiffHunk(value: unknown, index: number): ChatDiffHunk {
+  const object = parseRequiredObject(value)
+  const oldStart = readRequiredNumber(object, 'old_start')
+  const oldLines = readRequiredNumber(object, 'old_lines')
+  const newStart = readRequiredNumber(object, 'new_start')
+  const newLines = readRequiredNumber(object, 'new_lines')
+  const lines = readDiffLines(object, index)
+
+  if (!Number.isInteger(oldStart) || oldStart < 1) {
+    throw new Error(`chat stream diff hunk ${index} old_start must be a positive integer`)
+  }
+  if (!Number.isInteger(newStart) || newStart < 1) {
+    throw new Error(`chat stream diff hunk ${index} new_start must be a positive integer`)
+  }
+  if (!Number.isInteger(oldLines) || oldLines < 0) {
+    throw new Error(`chat stream diff hunk ${index} old_lines must be a non-negative integer`)
+  }
+  if (!Number.isInteger(newLines) || newLines < 0) {
+    throw new Error(`chat stream diff hunk ${index} new_lines must be a non-negative integer`)
+  }
+
+  return {
+    oldStart,
+    oldLines,
+    newStart,
+    newLines,
+    lines,
+  }
+}
+
+function readDiffLines(object: Record<string, unknown>, index: number): ChatDiffLine[] {
+  const lines = object.lines
+  if (!Array.isArray(lines) || lines.length === 0) {
+    throw new Error(`chat stream diff hunk ${index} lines must be a non-empty array`)
+  }
+
+  return lines.map((line, lineIndex) => parseDiffLine(line, index, lineIndex))
+}
+
+function parseDiffLine(value: unknown, hunkIndex: number, lineIndex: number): ChatDiffLine {
+  const object = parseRequiredObject(value)
+  const op = readRequiredString(object, 'op')
+  if (!isDiffLineOp(op)) {
+    throw new Error(`chat stream diff hunk ${hunkIndex} line ${lineIndex} op is unsupported`)
+  }
+
+  return {
+    op,
+    text: readRequiredString(object, 'text'),
+  }
+}
+
+function isDiffLineOp(value: string): value is ChatDiffLineOp {
+  return value === 'context' || value === 'add' || value === 'remove'
 }
