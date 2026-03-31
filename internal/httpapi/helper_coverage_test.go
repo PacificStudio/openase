@@ -194,8 +194,9 @@ func TestHTTPStreamAndTicketAssignedAgentHelpers(t *testing.T) {
 			},
 		}
 		service.providers[providerID] = domain.AgentProvider{
-			ID:   providerID,
-			Name: "Codex",
+			ID:              providerID,
+			Name:            "Codex",
+			MaxParallelRuns: domain.DefaultAgentProviderMaxParallelRuns,
 		}
 
 		item, err := server.loadTicketAssignedAgent(context.Background(), ticketservice.Ticket{CurrentRunID: &runID})

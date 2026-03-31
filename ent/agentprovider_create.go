@@ -101,6 +101,20 @@ func (_c *AgentProviderCreate) SetNillableModelMaxTokens(v *int) *AgentProviderC
 	return _c
 }
 
+// SetMaxParallelRuns sets the "max_parallel_runs" field.
+func (_c *AgentProviderCreate) SetMaxParallelRuns(v int) *AgentProviderCreate {
+	_c.mutation.SetMaxParallelRuns(v)
+	return _c
+}
+
+// SetNillableMaxParallelRuns sets the "max_parallel_runs" field if the given value is not nil.
+func (_c *AgentProviderCreate) SetNillableMaxParallelRuns(v *int) *AgentProviderCreate {
+	if v != nil {
+		_c.SetMaxParallelRuns(*v)
+	}
+	return _c
+}
+
 // SetCostPerInputToken sets the "cost_per_input_token" field.
 func (_c *AgentProviderCreate) SetCostPerInputToken(v float64) *AgentProviderCreate {
 	_c.mutation.SetCostPerInputToken(v)
@@ -230,6 +244,10 @@ func (_c *AgentProviderCreate) defaults() {
 		v := agentprovider.DefaultModelMaxTokens
 		_c.mutation.SetModelMaxTokens(v)
 	}
+	if _, ok := _c.mutation.MaxParallelRuns(); !ok {
+		v := agentprovider.DefaultMaxParallelRuns
+		_c.mutation.SetMaxParallelRuns(v)
+	}
 	if _, ok := _c.mutation.CostPerInputToken(); !ok {
 		v := agentprovider.DefaultCostPerInputToken
 		_c.mutation.SetCostPerInputToken(v)
@@ -292,6 +310,9 @@ func (_c *AgentProviderCreate) check() error {
 	}
 	if _, ok := _c.mutation.ModelMaxTokens(); !ok {
 		return &ValidationError{Name: "model_max_tokens", err: errors.New(`ent: missing required field "AgentProvider.model_max_tokens"`)}
+	}
+	if _, ok := _c.mutation.MaxParallelRuns(); !ok {
+		return &ValidationError{Name: "max_parallel_runs", err: errors.New(`ent: missing required field "AgentProvider.max_parallel_runs"`)}
 	}
 	if _, ok := _c.mutation.CostPerInputToken(); !ok {
 		return &ValidationError{Name: "cost_per_input_token", err: errors.New(`ent: missing required field "AgentProvider.cost_per_input_token"`)}
@@ -371,6 +392,10 @@ func (_c *AgentProviderCreate) createSpec() (*AgentProvider, *sqlgraph.CreateSpe
 	if value, ok := _c.mutation.ModelMaxTokens(); ok {
 		_spec.SetField(agentprovider.FieldModelMaxTokens, field.TypeInt, value)
 		_node.ModelMaxTokens = value
+	}
+	if value, ok := _c.mutation.MaxParallelRuns(); ok {
+		_spec.SetField(agentprovider.FieldMaxParallelRuns, field.TypeInt, value)
+		_node.MaxParallelRuns = value
 	}
 	if value, ok := _c.mutation.CostPerInputToken(); ok {
 		_spec.SetField(agentprovider.FieldCostPerInputToken, field.TypeFloat64, value)

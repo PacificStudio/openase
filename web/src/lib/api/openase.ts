@@ -277,6 +277,7 @@ export function createProvider(
     model_name: string
     model_temperature?: number
     model_max_tokens?: number
+    max_parallel_runs?: number
     cost_per_input_token?: number
     cost_per_output_token?: number
   },
@@ -955,6 +956,7 @@ export function updateProvider(
     model_name?: string
     model_temperature?: number
     model_max_tokens?: number
+    max_parallel_runs?: number
     cost_per_input_token?: number
     cost_per_output_token?: number
   },
