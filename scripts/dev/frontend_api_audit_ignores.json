@@ -1,0 +1,100 @@
+{
+  "operations": [
+    {
+      "method": "get",
+      "path": "/api/v1/events/stream",
+      "categories": ["backend_only"],
+      "reason": "The web app subscribes only to project-scoped streams; the global platform stream is currently exposed for non-frontend consumers."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}/hooks/stream",
+      "categories": ["backend_only"],
+      "reason": "Ticket detail currently renders hook history from the detail payload and does not maintain a dedicated live hook stream subscription."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}/stages",
+      "categories": ["backend_only"],
+      "reason": "Stage CRUD is not wired into the settings UI yet, so the stage list endpoint is intentionally not bound in the frontend."
+    },
+    {
+      "method": "post",
+      "path": "/api/v1/projects/{projectId}/stages",
+      "categories": ["backend_only"],
+      "reason": "Stage CRUD is not wired into the settings UI yet, so stage creation is intentionally not bound in the frontend."
+    },
+    {
+      "method": "patch",
+      "path": "/api/v1/stages/{stageId}",
+      "categories": ["backend_only"],
+      "reason": "Stage CRUD is not wired into the settings UI yet, so stage updates are intentionally not bound in the frontend."
+    },
+    {
+      "method": "delete",
+      "path": "/api/v1/stages/{stageId}",
+      "categories": ["backend_only"],
+      "reason": "Stage CRUD is not wired into the settings UI yet, so stage deletion is intentionally not bound in the frontend."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/tickets/{ticketId}",
+      "categories": ["backend_only"],
+      "reason": "The ticket UI uses the project-scoped detail endpoint instead of the standalone ticket fetch route."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/tickets/{ticketId}/comments",
+      "categories": ["backend_only"],
+      "reason": "Ticket comments are loaded through the ticket detail payload and comment mutation flows, not a standalone comments list request."
+    },
+    {
+      "method": "delete",
+      "path": "/api/v1/agents/{agentId}",
+      "categories": ["wrapped_but_unused"],
+      "reason": "The frontend has no agent deletion affordance yet, so the generated wrapper is intentionally unused."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/agents/{agentId}",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Agent screens currently load list payloads rather than a dedicated single-agent detail call."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/machines/{machineId}",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Machine management currently relies on list, resources, test, and health refresh endpoints instead of a standalone machine detail fetch."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Project pages use summary/list/update flows and do not currently fetch a standalone project detail payload."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}/repos/{repoId}/mirrors",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Repository settings derive mirror readiness from repo list data and mirror mutation responses rather than a dedicated mirror list fetch."
+    },
+    {
+      "method": "post",
+      "path": "/api/v1/projects/{projectId}/repos/{repoId}/mirrors/verify",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Repository settings expose prepare and sync mirror actions, but there is no separate verify action in the current UI."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Ticket detail embeds repo scopes in the detail payload, so the standalone repo-scope list wrapper is intentionally unused."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/workflows/{workflowId}",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Workflow screens load list and harness payloads and do not currently issue a standalone workflow detail request."
+    }
+  ]
+}

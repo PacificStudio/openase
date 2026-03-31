@@ -30,6 +30,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
@@ -2421,6 +2422,13 @@ func TestRuntimeLauncherRunTickSyncsStaleRemoteMirrorBeforePreparingWorkspace(t 
 
 	mirrorService := projectrepomirrorsvc.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	mirrorService.ConfigureSSHPool(sshPool)
+	mirrorService.ConfigureGitHubCredentials(stubTokenResolver{
+		projectID: fixture.projectID,
+		resolved: githubauthdomain.ResolvedCredential{
+			Scope: githubauthdomain.ScopeProject,
+			Token: "runtime-launcher-test-token",
+		},
+	})
 
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, sshPool, nil)
 	launcher.ConfigureMirrorService(mirrorService)
