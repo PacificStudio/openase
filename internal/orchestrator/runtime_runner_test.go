@@ -72,7 +72,7 @@ func TestRuntimeLauncherConsumeTurnIncludesSessionExitCause(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Start returned error: %v", err)
 	}
-	agentSession := &codexAgentSession{session: session}
+	agentSession := newCodexAgentSession(session)
 
 	turn, err := session.SendPrompt(context.Background(), "Keep working.")
 	if err != nil {
@@ -182,7 +182,7 @@ func TestRuntimeLauncherConsumeTurnReturnsCleanSessionCloseWithoutExitCause(t *t
 	if err != nil {
 		t.Fatalf("Start returned error: %v", err)
 	}
-	agentSession := &codexAgentSession{session: session}
+	agentSession := newCodexAgentSession(session)
 
 	turn, err := session.SendPrompt(context.Background(), "Keep working.")
 	if err != nil {
