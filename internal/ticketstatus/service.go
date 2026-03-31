@@ -76,13 +76,16 @@ type Status struct {
 	Description string     `json:"description"`
 }
 
-// StatusGroup exposes board-ready status grouping by stage.
+// StatusGroup exposes the ordered board rendering groups for a project's statuses.
+// Groups with a non-nil Stage follow stage display order; a final nil Stage group
+// collects ungrouped statuses after all staged groups.
 type StatusGroup struct {
 	Stage    *Stage   `json:"stage,omitempty"`
 	Statuses []Status `json:"statuses"`
 }
 
 // ListResult is the grouped ticket status board payload.
+// StageGroups is the primary board rendering contract for stage-first ordering.
 type ListResult struct {
 	Stages      []Stage       `json:"stages"`
 	Statuses    []Status      `json:"statuses"`

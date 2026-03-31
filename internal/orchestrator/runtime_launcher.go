@@ -25,6 +25,7 @@ import (
 	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
@@ -96,7 +97,7 @@ func NewRuntimeLauncher(
 		logger = slog.Default()
 	}
 
-	return &RuntimeLauncher{
+	launcher := &RuntimeLauncher{
 		client:         client,
 		logger:         logger.With("component", "runtime-launcher"),
 		events:         events,
@@ -112,6 +113,8 @@ func NewRuntimeLauncher(
 		executions:     map[uuid.UUID]struct{}{},
 		tickets:        ticketservice.NewService(client),
 	}
+	launcher.tickets.ConfigureSSHPool(sshPool)
+	return launcher
 }
 
 func (l *RuntimeLauncher) ConfigurePlatformEnvironment(apiURL string, agentPlatform runtimeAgentPlatform) {
@@ -121,6 +124,7 @@ func (l *RuntimeLauncher) ConfigurePlatformEnvironment(apiURL string, agentPlatf
 
 	l.platformAPIURL = strings.TrimSpace(apiURL)
 	l.agentPlatform = agentPlatform
+	l.tickets.ConfigurePlatformEnvironment(apiURL, agentPlatform)
 }
 
 func (l *RuntimeLauncher) ConfigureGitHubCredentials(resolver githubauthservice.TokenResolver) {
@@ -444,6 +448,11 @@ func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUI
 	if count == 0 {
 		return nil
 	}
+	l.tickets.RunLifecycleHookBestEffort(ctx, ticketservice.RunLifecycleHookInput{
+		TicketID: ticketID,
+		RunID:    runID,
+		HookName: infrahook.TicketHookOnError,
+	})
 
 	retrySvc := NewRetryService(l.client, l.logger)
 	retrySvc.now = l.now
@@ -626,6 +635,14 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 	if err != nil {
 		return nil, err
 	}
+	if err := l.tickets.RunLifecycleHook(ctx, ticketservice.RunLifecycleHookInput{
+		TicketID: assignment.ticket.ID,
+		RunID:    assignment.run.ID,
+		HookName: infrahook.TicketHookOnClaim,
+		Blocking: true,
+	}); err != nil {
+		return nil, fmt.Errorf("run ticket on_claim hooks: %w", err)
+	}
 
 	workingDirectoryValue := resolveAgentWorkingDirectory(launchContext, workspaceItem)
 	if !remote && l.workflow != nil {
@@ -649,6 +666,14 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 	)
 	if err != nil {
 		return nil, err
+	}
+	if err := l.tickets.RunLifecycleHook(ctx, ticketservice.RunLifecycleHookInput{
+		TicketID: assignment.ticket.ID,
+		RunID:    assignment.run.ID,
+		HookName: infrahook.TicketHookOnStart,
+		Blocking: true,
+	}); err != nil {
+		return nil, fmt.Errorf("run ticket on_start hooks: %w", err)
 	}
 
 	processManager := l.processManager

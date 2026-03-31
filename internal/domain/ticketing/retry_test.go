@@ -60,6 +60,9 @@ func TestPauseReasonString(t *testing.T) {
 	if PauseReasonBudgetExhausted.String() != "budget_exhausted" {
 		t.Fatalf("PauseReasonBudgetExhausted.String() = %q", PauseReasonBudgetExhausted.String())
 	}
+	if PauseReasonRepeatedStalls.String() != "repeated_stalls" {
+		t.Fatalf("PauseReasonRepeatedStalls.String() = %q", PauseReasonRepeatedStalls.String())
+	}
 	if PauseReasonUserPaused.String() != "user_paused" {
 		t.Fatalf("PauseReasonUserPaused.String() = %q", PauseReasonUserPaused.String())
 	}

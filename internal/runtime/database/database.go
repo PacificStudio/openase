@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entmigrate "github.com/BetterAndBetterII/openase/ent/migrate"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	// Register ent runtime hooks for generated schema metadata.
 	_ "github.com/BetterAndBetterII/openase/ent/runtime"
@@ -34,6 +35,7 @@ func Open(ctx context.Context, dsn string) (*ent.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
+	ticketservice.InstallRetryTokenHooks(client)
 
 	if err := withSchemaBootstrapLock(ctx, trimmedDSN, func() error {
 		if err := reconcileLegacyProjectAccessibleMachineIDs(ctx, trimmedDSN); err != nil {

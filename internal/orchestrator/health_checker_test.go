@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/google/uuid"
 )
 
@@ -45,6 +47,7 @@ func TestHealthCheckerReleasesStalledClaim(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
 	}
+	originalRetryToken := ticketItem.RetryToken
 	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now.Add(-2*time.Minute))
 
 	checker := newTestHealthChecker(client, now)
@@ -67,8 +70,14 @@ func TestHealthCheckerReleasesStalledClaim(t *testing.T) {
 	if ticketAfter.StallCount != 1 {
 		t.Fatalf("expected stall count 1, got %d", ticketAfter.StallCount)
 	}
+	if ticketAfter.RetryPaused || ticketAfter.PauseReason != "" {
+		t.Fatalf("expected first stall to keep retry active, got %+v", ticketAfter)
+	}
 	if ticketAfter.NextRetryAt == nil || !ticketAfter.NextRetryAt.Equal(now.Add(stalledRetryDelay)) {
 		t.Fatalf("expected next retry at %s, got %+v", now.Add(stalledRetryDelay), ticketAfter.NextRetryAt)
+	}
+	if ticketAfter.RetryToken == "" || ticketAfter.RetryToken == originalRetryToken {
+		t.Fatalf("expected stalled claim release to rotate retry token, got %q", ticketAfter.RetryToken)
 	}
 	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 0 {
 		t.Fatalf("expected stalled release to drop backlog stage occupancy to 0, got %d", got)
@@ -87,6 +96,159 @@ func TestHealthCheckerReleasesStalledClaim(t *testing.T) {
 	}
 	if runAfter.Status != entagentrun.StatusErrored {
 		t.Fatalf("expected stalled run errored, got %+v", runAfter)
+	}
+}
+
+func TestHealthCheckerKeepsSecondConsecutiveStallRetryActive(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 20, 13, 15, 0, 0, time.UTC)
+
+	workflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(2).
+		SetStallTimeoutMinutes(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	agentItem := fixture.createAgent(ctx, t, "coding-01b", 0)
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetWorkflowID(workflow.ID).
+		SetIdentifier("ASE-401B").
+		SetTitle("Recover second stalled claim").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		SetStallCount(1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now.Add(-2*time.Minute))
+
+	checker := newTestHealthChecker(client, now)
+	report, err := checker.Run(ctx)
+	if err != nil {
+		t.Fatalf("run health checker: %v", err)
+	}
+	if report.StalledClaims != 1 {
+		t.Fatalf("expected second stall to be handled, got %+v", report)
+	}
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+	if ticketAfter.StallCount != 2 {
+		t.Fatalf("expected stall count 2, got %d", ticketAfter.StallCount)
+	}
+	if ticketAfter.RetryPaused || ticketAfter.PauseReason != "" {
+		t.Fatalf("expected second stall to keep retry active, got %+v", ticketAfter)
+	}
+	if ticketAfter.NextRetryAt == nil || !ticketAfter.NextRetryAt.Equal(now.Add(stalledRetryDelay)) {
+		t.Fatalf("expected next retry at %s, got %+v", now.Add(stalledRetryDelay), ticketAfter.NextRetryAt)
+	}
+}
+
+func TestHealthCheckerPausesRetryAfterThirdConsecutiveStall(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 20, 13, 30, 0, 0, time.UTC)
+
+	workflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(2).
+		SetStallTimeoutMinutes(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	agentItem := fixture.createAgent(ctx, t, "coding-01c", 0)
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetWorkflowID(workflow.ID).
+		SetIdentifier("ASE-401C").
+		SetTitle("Pause repeated stalls").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		SetStallCount(2).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now.Add(-2*time.Minute))
+
+	checker := newTestHealthChecker(client, now)
+	report, err := checker.Run(ctx)
+	if err != nil {
+		t.Fatalf("run health checker: %v", err)
+	}
+	if report.StalledClaims != 1 || report.AgentsReleased != 1 {
+		t.Fatalf("expected paused third stall release, got %+v", report)
+	}
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+	if ticketAfter.StallCount != 3 {
+		t.Fatalf("expected stall count 3, got %d", ticketAfter.StallCount)
+	}
+	if !ticketAfter.RetryPaused {
+		t.Fatalf("expected retries to be paused after third stall, got %+v", ticketAfter)
+	}
+	if ticketAfter.PauseReason != ticketing.PauseReasonRepeatedStalls.String() {
+		t.Fatalf("expected repeated stall pause reason %q, got %q", ticketing.PauseReasonRepeatedStalls, ticketAfter.PauseReason)
+	}
+	if ticketAfter.NextRetryAt != nil {
+		t.Fatalf("expected paused third stall to clear next retry, got %+v", ticketAfter.NextRetryAt)
+	}
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusErrored {
+		t.Fatalf("expected third stalled run errored, got %+v", runAfter)
+	}
+	if runAfter.LastError == "" || runAfter.LastError == "runtime stalled or heartbeat missing" {
+		t.Fatalf("expected paused third stall to enrich last error, got %q", runAfter.LastError)
+	}
+
+	activityItems, err := client.ActivityEvent.Query().
+		Where(
+			entactivityevent.TicketIDEQ(ticketItem.ID),
+			entactivityevent.EventTypeEQ(stalledRetryPauseEventType),
+		).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("list pause activity events: %v", err)
+	}
+	if len(activityItems) != 1 {
+		t.Fatalf("expected one pause activity event, got %+v", activityItems)
+	}
+	if activityItems[0].Message == "" {
+		t.Fatal("expected pause activity event message")
+	}
+	if activityItems[0].Metadata["pause_reason"] != ticketing.PauseReasonRepeatedStalls.String() {
+		t.Fatalf("expected pause activity metadata, got %+v", activityItems[0].Metadata)
 	}
 }
 

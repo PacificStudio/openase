@@ -90,6 +90,82 @@ type MachineMutationBody = {
   mirror_root?: string
 }
 
+export type IssueConnectorRecord = {
+  id: string
+  project_id: string
+  type: string
+  name: string
+  status: string
+  config: {
+    type: string
+    base_url: string
+    project_ref: string
+    poll_interval: string
+    sync_direction: string
+    filters: {
+      labels: string[]
+      exclude_labels: string[]
+      states: string[]
+      authors: string[]
+    }
+    status_mapping: Record<string, string>
+    auto_workflow: string
+    auth_token_configured: boolean
+    webhook_secret_configured: boolean
+  }
+  last_sync_at?: string | null
+  last_error: string
+  stats: {
+    total_synced: number
+    synced24h: number
+    failed_count: number
+  }
+}
+
+export type IssueConnectorListPayload = {
+  connectors: IssueConnectorRecord[]
+}
+
+export type IssueConnectorResponse = {
+  connector: IssueConnectorRecord
+}
+
+export type IssueConnectorDeleteResponse = {
+  deleted_connector_id: string
+}
+
+export type IssueConnectorTestResponse = {
+  result: {
+    healthy: boolean
+    checked_at: string
+    message: string
+  }
+}
+
+export type IssueConnectorSyncResponse = {
+  connector: IssueConnectorRecord
+  report: {
+    connectors_scanned: number
+    connectors_synced: number
+    connectors_failed: number
+    issues_synced: number
+  }
+}
+
+export type IssueConnectorStatsResponse = {
+  stats: {
+    connector_id: string
+    status: string
+    last_sync_at?: string | null
+    last_error: string
+    stats: {
+      total_synced: number
+      synced24h: number
+      failed_count: number
+    }
+  }
+}
+
 export function getSystemDashboard() {
   return api.get<SystemDashboardResponse>('/api/v1/system/dashboard')
 }
@@ -214,6 +290,80 @@ export function getProject(projectId: string) {
 
 export function getSecuritySettings(projectId: string) {
   return api.get<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security-settings`)
+}
+
+export function listIssueConnectors(projectId: string) {
+  return api.get<IssueConnectorListPayload>(`/api/v1/projects/${projectId}/connectors`)
+}
+
+export function createIssueConnector(
+  projectId: string,
+  body: {
+    type: string
+    name: string
+    status?: string
+    config: {
+      type: string
+      base_url?: string
+      auth_token?: string
+      project_ref?: string
+      poll_interval?: string
+      sync_direction?: string
+      filters?: {
+        labels?: string[]
+        exclude_labels?: string[]
+        states?: string[]
+        authors?: string[]
+      }
+      status_mapping?: Record<string, string>
+      webhook_secret?: string
+      auto_workflow?: string
+    }
+  },
+) {
+  return api.post<IssueConnectorResponse>(`/api/v1/projects/${projectId}/connectors`, { body })
+}
+
+export function updateIssueConnector(
+  connectorId: string,
+  body: {
+    name?: string
+    status?: string
+    config?: {
+      base_url?: string
+      auth_token?: string
+      project_ref?: string
+      poll_interval?: string
+      sync_direction?: string
+      filters?: {
+        labels?: string[]
+        exclude_labels?: string[]
+        states?: string[]
+        authors?: string[]
+      }
+      status_mapping?: Record<string, string>
+      webhook_secret?: string
+      auto_workflow?: string
+    }
+  },
+) {
+  return api.patch<IssueConnectorResponse>(`/api/v1/connectors/${connectorId}`, { body })
+}
+
+export function deleteIssueConnector(connectorId: string) {
+  return api.delete<IssueConnectorDeleteResponse>(`/api/v1/connectors/${connectorId}`)
+}
+
+export function testIssueConnector(connectorId: string) {
+  return api.post<IssueConnectorTestResponse>(`/api/v1/connectors/${connectorId}/test`)
+}
+
+export function syncIssueConnector(connectorId: string) {
+  return api.post<IssueConnectorSyncResponse>(`/api/v1/connectors/${connectorId}/sync`)
+}
+
+export function getIssueConnectorStats(connectorId: string) {
+  return api.get<IssueConnectorStatsResponse>(`/api/v1/connectors/${connectorId}/stats`)
 }
 
 export function getHRAdvisor(projectId: string) {
@@ -532,9 +682,13 @@ export function listProjectRepoMirrors(
   repoId: string,
   machineId?: string | null,
 ) {
-  const suffix = machineId ? `?machine_id=${encodeURIComponent(machineId)}` : ''
   return api.get<ProjectRepoMirrorPayload>(
-    `/api/v1/projects/${projectId}/repos/${repoId}/mirrors${suffix}`,
+    `/api/v1/projects/${projectId}/repos/${repoId}/mirrors`,
+    {
+      params: {
+        machine_id: machineId ?? undefined,
+      },
+    },
   )
 }
 

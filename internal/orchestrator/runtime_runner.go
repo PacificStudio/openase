@@ -17,6 +17,7 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
@@ -165,6 +166,15 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, runID uuid.UUID
 				}
 			}
 			l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, state.ticket.ID, err)
+			return
+		}
+		if err := l.tickets.RunLifecycleHook(ctx, ticketservice.RunLifecycleHookInput{
+			TicketID: state.ticket.ID,
+			RunID:    state.run.ID,
+			HookName: infrahook.TicketHookOnComplete,
+			Blocking: true,
+		}); err != nil {
+			l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, state.ticket.ID, fmt.Errorf("run ticket on_complete hooks: %w", err))
 			return
 		}
 
@@ -783,6 +793,11 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, runID uui
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit finish execution tx: %w", err)
 	}
+	l.tickets.RunLifecycleHookBestEffort(ctx, ticketservice.RunLifecycleHookInput{
+		TicketID: ticket.ID,
+		RunID:    runID,
+		HookName: infrahook.TicketHookOnDone,
+	})
 
 	agentItem, err := loadAgentLifecycleState(ctx, l.client, agentID, &runID)
 	if err != nil {
@@ -834,6 +849,11 @@ func (l *RuntimeLauncher) handleExecutionFailure(ctx context.Context, runID uuid
 		SetStatus(entagentrun.StatusErrored).
 		SetLastError(strings.TrimSpace(failure.Error())).
 		Save(ctx); err == nil {
+		l.tickets.RunLifecycleHookBestEffort(ctx, ticketservice.RunLifecycleHookInput{
+			TicketID: ticketID,
+			RunID:    runID,
+			HookName: infrahook.TicketHookOnError,
+		})
 		if failedAgent, err := loadAgentLifecycleState(ctx, l.client, agentID, &runID); err == nil {
 			l.publishLifecycleEvent(
 				ctx,
@@ -864,14 +884,17 @@ func (l *RuntimeLauncher) scheduleContinuation(ctx context.Context, runID uuid.U
 	}
 	defer rollback(tx)
 
-	if _, err := tx.Ticket.Update().
-		Where(
-			entticket.IDEQ(ticketID),
-			entticket.CurrentRunIDEQ(runID),
-		).
-		ClearCurrentRunID().
-		SetNextRetryAt(l.now().UTC().Add(continuationRetryDelay)).
-		SetRetryPaused(false).
+	if _, err := ticketservice.ScheduleRetry(
+		tx.Ticket.Update().
+			Where(
+				entticket.IDEQ(ticketID),
+				entticket.CurrentRunIDEQ(runID),
+			).
+			ClearCurrentRunID().
+			SetStallCount(0),
+		l.now().UTC().Add(continuationRetryDelay),
+		"",
+	).
 		Save(ctx); err != nil {
 		return fmt.Errorf("schedule ticket continuation: %w", err)
 	}
