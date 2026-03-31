@@ -4,9 +4,17 @@ export type StatusDraft = {
   name: string
   color: string
   isDefault: boolean
+  stageId: string
 }
 
-export type EditableStatus = StatusDraft & {
+export type ParsedStatusDraft = {
+  name: string
+  color: string
+  isDefault: boolean
+  stageId: string | null
+}
+
+export type EditableStatus = ParsedStatusDraft & {
   id: string
   position: number
 }
@@ -20,6 +28,7 @@ export function createEmptyStatusDraft(): StatusDraft {
     name: '',
     color: '#94a3b8',
     isDefault: false,
+    stageId: '',
   }
 }
 
@@ -32,11 +41,12 @@ export function normalizeStatuses(statuses: TicketStatus[]): EditableStatus[] {
       name: status.name,
       color: (status.color || '#94a3b8').toLowerCase(),
       isDefault: status.is_default,
+      stageId: status.stage_id || null,
       position: status.position,
     }))
 }
 
-export function parseStatusDraft(raw: StatusDraft): ParseResult<StatusDraft> {
+export function parseStatusDraft(raw: StatusDraft): ParseResult<ParsedStatusDraft> {
   const name = raw.name.trim()
   if (!name) {
     return { ok: false, error: 'Status name is required.' }
@@ -53,6 +63,7 @@ export function parseStatusDraft(raw: StatusDraft): ParseResult<StatusDraft> {
       name,
       color: color.toLowerCase(),
       isDefault: raw.isDefault,
+      stageId: raw.stageId.trim() || null,
     },
   }
 }

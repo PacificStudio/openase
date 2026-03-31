@@ -1,283 +1,61 @@
 <script lang="ts">
-  import { ApiError } from '$lib/api/client'
-  import {
-    createStatus,
-    deleteStatus,
-    listStatuses,
-    resetStatuses,
-    updateStatus,
-  } from '$lib/api/openase'
-  import {
-    createEmptyStatusDraft,
-    moveStatus,
-    normalizeStatuses,
-    parseStatusDraft,
-    statusSync,
-    type EditableStatus,
-  } from '$lib/features/statuses/public'
-  import { appStore } from '$lib/stores/app.svelte'
-  import { toastStore } from '$lib/stores/toast.svelte'
   import { Separator } from '$ui/separator'
+  import StageSettingsPanel from './stage-settings-panel.svelte'
   import StatusSettingsCreate from './status-settings-create.svelte'
   import StatusSettingsList from './status-settings-list.svelte'
-  let statuses = $state<EditableStatus[]>([])
-  let createName = $state('')
-  let createColor = $state('#94a3b8')
-  let createDefault = $state(false)
-  let loading = $state(false)
-  let creating = $state(false)
-  let resetting = $state(false)
-  let busyStatusId = $state('')
+  import { createStatusSettingsState } from './status-settings-state.svelte'
 
-  function assignStatuses(payload: Awaited<ReturnType<typeof listStatuses>>) {
-    statuses = normalizeStatuses(payload.statuses)
-  }
-
-  function resetEditorState() {
-    statuses = []
-    createName = ''
-    createColor = createEmptyStatusDraft().color
-    createDefault = false
-    busyStatusId = ''
-    creating = false
-    resetting = false
-    loading = false
-  }
-
-  $effect(() => {
-    const projectId = appStore.currentProject?.id
-    if (!projectId) {
-      resetEditorState()
-      return
-    }
-
-    let cancelled = false
-
-    const load = async () => {
-      loading = true
-
-      try {
-        const payload = await listStatuses(projectId)
-        if (cancelled) return
-        assignStatuses(payload)
-      } catch (error) {
-        if (!cancelled) {
-          toastStore.error(error instanceof ApiError ? error.detail : 'Failed to load statuses.')
-        }
-      } finally {
-        if (!cancelled) {
-          loading = false
-        }
-      }
-    }
-
-    void load()
-
-    return () => {
-      cancelled = true
-    }
-  })
-
-  async function reloadStatuses(projectId: string) {
-    assignStatuses(await listStatuses(projectId))
-  }
-
-  async function handleCreate() {
-    const projectId = appStore.currentProject?.id
-    if (!projectId) return
-
-    const parsed = parseStatusDraft({
-      name: createName,
-      color: createColor,
-      isDefault: createDefault,
-    })
-    if (!parsed.ok) return void toastStore.error(parsed.error)
-
-    creating = true
-
-    try {
-      const payload = await createStatus(projectId, {
-        name: parsed.value.name,
-        color: parsed.value.color,
-        is_default: parsed.value.isDefault,
-      })
-      await reloadStatuses(projectId)
-      statusSync.touch()
-      createName = ''
-      createColor = createEmptyStatusDraft().color
-      createDefault = false
-      toastStore.success(`Created status "${payload.status.name}".`)
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create status.',
-      )
-    } finally {
-      creating = false
-    }
-  }
-
-  async function handleSave(
-    statusId: string,
-    draft: { name: string; color: string; isDefault: boolean },
-  ) {
-    const projectId = appStore.currentProject?.id
-    const current = statuses.find((status) => status.id === statusId)
-    if (!projectId || !current) return
-
-    const body: Parameters<typeof updateStatus>[1] = {}
-    if (draft.name !== current.name) body.name = draft.name
-    if (draft.color !== current.color) body.color = draft.color
-    if (draft.isDefault !== current.isDefault) body.is_default = draft.isDefault
-    if (Object.keys(body).length === 0) return
-
-    busyStatusId = statusId
-
-    try {
-      await updateStatus(statusId, body)
-      await reloadStatuses(projectId)
-      statusSync.touch()
-      toastStore.success(`Updated status "${draft.name}".`)
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update status.',
-      )
-    } finally {
-      busyStatusId = ''
-    }
-  }
-
-  async function handleSetDefault(statusId: string) {
-    const projectId = appStore.currentProject?.id
-    const current = statuses.find((status) => status.id === statusId)
-    if (!projectId || !current || current.isDefault) return
-
-    busyStatusId = statusId
-
-    try {
-      await updateStatus(statusId, { is_default: true })
-      await reloadStatuses(projectId)
-      statusSync.touch()
-      toastStore.success(`"${current.name}" is now the default status.`)
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to set default status.',
-      )
-    } finally {
-      busyStatusId = ''
-    }
-  }
-
-  async function handleMove(statusId: string, direction: 'up' | 'down') {
-    const projectId = appStore.currentProject?.id
-    if (!projectId) return
-
-    const nextStatuses = moveStatus(statuses, statusId, direction)
-    if (nextStatuses === statuses) return
-
-    statuses = nextStatuses
-    busyStatusId = statusId
-
-    try {
-      await Promise.all(
-        nextStatuses.map((status) => updateStatus(status.id, { position: status.position })),
-      )
-      await reloadStatuses(projectId)
-      statusSync.touch()
-      toastStore.success('Status order updated.')
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to reorder statuses.',
-      )
-      await reloadStatuses(projectId)
-    } finally {
-      busyStatusId = ''
-    }
-  }
-
-  async function handleDelete(status: EditableStatus) {
-    const projectId = appStore.currentProject?.id
-    if (!projectId) return
-
-    if (typeof window !== 'undefined') {
-      const confirmed = window.confirm(
-        `Delete "${status.name}"? Tickets assigned to it will be moved to a replacement status.`,
-      )
-      if (!confirmed) return
-    }
-
-    busyStatusId = status.id
-
-    try {
-      await deleteStatus(status.id)
-      await reloadStatuses(projectId)
-      statusSync.touch()
-      toastStore.success(`Deleted status "${status.name}".`)
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete status.',
-      )
-    } finally {
-      busyStatusId = ''
-    }
-  }
-
-  async function handleReset() {
-    const projectId = appStore.currentProject?.id
-    if (!projectId) return
-
-    if (typeof window !== 'undefined') {
-      const confirmed = window.confirm(
-        'Reset statuses to the default template? Custom statuses will be removed.',
-      )
-      if (!confirmed) return
-    }
-
-    resetting = true
-
-    try {
-      await resetStatuses(projectId)
-      await reloadStatuses(projectId)
-      statusSync.touch()
-      toastStore.success('Statuses reset to the default template.')
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to reset statuses.',
-      )
-    } finally {
-      resetting = false
-    }
-  }
+  const state = createStatusSettingsState()
 </script>
 
-<div class="max-w-lg space-y-6">
+<div class="space-y-6">
   <div>
     <h2 class="text-foreground text-base font-semibold">Statuses</h2>
     <p class="text-muted-foreground mt-1 text-sm">
-      Create, edit, reorder, and manage board statuses.
+      Configure the stage groups that workflows share, then assign statuses into those stages.
     </p>
   </div>
 
   <Separator />
 
-  <StatusSettingsCreate
-    bind:name={createName}
-    bind:color={createColor}
-    bind:isDefault={createDefault}
-    {creating}
-    {loading}
-    {resetting}
-    onCreate={handleCreate}
-    onReset={handleReset}
-  />
+  <div class="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+    <StageSettingsPanel
+      stages={state.ui.stages}
+      statuses={state.ui.statuses}
+      loading={state.ui.loading}
+      creating={state.ui.creatingStage}
+      busyStageId={state.ui.busyStageId}
+      onCreate={state.createStage}
+      onSave={state.saveStage}
+      onDelete={state.deleteStage}
+      onMove={state.moveStage}
+    />
 
-  <StatusSettingsList
-    {statuses}
-    {loading}
-    {resetting}
-    {busyStatusId}
-    onSave={handleSave}
-    onDelete={handleDelete}
-    onMove={handleMove}
-    onSetDefault={handleSetDefault}
-  />
+    <div class="space-y-6">
+      <StatusSettingsCreate
+        bind:name={state.ui.createName}
+        bind:color={state.ui.createColor}
+        bind:isDefault={state.ui.createDefault}
+        bind:stageId={state.ui.createStageId}
+        stages={state.ui.stages}
+        creating={state.ui.creating}
+        loading={state.ui.loading}
+        resetting={state.ui.resetting}
+        onCreate={state.createStatus}
+        onReset={state.resetStatuses}
+      />
+
+      <StatusSettingsList
+        statuses={state.ui.statuses}
+        stages={state.ui.stages}
+        loading={state.ui.loading}
+        resetting={state.ui.resetting}
+        busyStatusId={state.ui.busyStatusId}
+        onSave={state.saveStatus}
+        onDelete={state.deleteStatus}
+        onMove={state.moveStatus}
+        onSetDefault={state.setDefaultStatus}
+      />
+    </div>
+  </div>
 </div>
