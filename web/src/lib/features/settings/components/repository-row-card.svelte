@@ -139,7 +139,9 @@
           <DropdownMenu.Item
             class="text-destructive focus:text-destructive"
             disabled={deleting}
-            onclick={() => { confirmDeleteOpen = true }}
+            onclick={() => {
+              confirmDeleteOpen = true
+            }}
           >
             <Trash2 class="mr-2 size-3.5" />
             {deleting ? 'Deleting\u2026' : 'Delete'}

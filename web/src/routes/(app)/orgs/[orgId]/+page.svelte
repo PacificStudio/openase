@@ -1,4 +1,5 @@
 <script lang="ts">
+  /* eslint-disable max-lines */
   import type { Agent, Ticket } from '$lib/api/contracts'
   import { listAgents, listTickets } from '$lib/api/openase'
   import { buildDashboardStats } from '$lib/features/dashboard/model'
@@ -70,7 +71,11 @@
               listAgents(project.id),
               listTickets(project.id),
             ])
-            return { projectId: project.id, agents: agentPayload.agents, tickets: ticketPayload.tickets }
+            return {
+              projectId: project.id,
+              agents: agentPayload.agents,
+              tickets: ticketPayload.tickets,
+            }
           }),
         )
 
@@ -106,7 +111,9 @@
     }
 
     void load()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   })
 
   const activeProjectCount = $derived(
@@ -154,7 +161,11 @@
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <StatCard label="Active Projects" value={activeProjectCount} icon={FolderOpen} />
       <StatCard label="Running Agents" value={orgStats.runningAgents} icon={Bot} />
-      <StatCard label="Today's Cost" value={formatCurrency(orgStats.newTicketsTodayCost)} icon={Coins} />
+      <StatCard
+        label="Today's Cost"
+        value={formatCurrency(orgStats.newTicketsTodayCost)}
+        icon={Coins}
+      />
       <StatCard label="Active Tickets" value={orgStats.activeTickets} icon={TicketIcon} />
     </div>
   {/if}
@@ -181,7 +192,9 @@
             </div>
 
             {#if metrics}
-              <div class="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+              <div
+                class="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
+              >
                 <span class="flex items-center gap-1">
                   <Bot class="size-3" />
                   {metrics.runningAgents} agent{metrics.runningAgents !== 1 ? 's' : ''}
