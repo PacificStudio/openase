@@ -38,6 +38,30 @@
     },
     {
       "method": "get",
+      "path": "/api/v1/projects/{projectId}/agents/{agentId}/output",
+      "categories": ["wrapped_but_unused"],
+      "reason": "The workspace refresh removed the old agent output sheet, so the list wrapper is intentionally unused until a replacement browser surface is wired."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}/agents/{agentId}/output/stream",
+      "categories": ["backend_only"],
+      "reason": "The old agent output sheet was removed in the workspace refresh, leaving the live output stream exposed only for non-frontend consumers until a new UI binds it."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}/agents/{agentId}/steps",
+      "categories": ["wrapped_but_unused"],
+      "reason": "The workspace refresh removed the old agent step inspector, so the list wrapper is intentionally unused until a replacement browser surface is wired."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}/agents/{agentId}/steps/stream",
+      "categories": ["backend_only"],
+      "reason": "The old agent step inspector was removed in the workspace refresh, leaving the live step stream exposed only for non-frontend consumers until a new UI binds it."
+    },
+    {
+      "method": "get",
       "path": "/api/v1/machines/{machineId}",
       "categories": ["wrapped_but_unused"],
       "reason": "Machine management currently relies on list, resources, test, and health refresh endpoints instead of a standalone machine detail fetch."
