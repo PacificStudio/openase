@@ -21,18 +21,23 @@ import (
 	codex "github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	"github.com/BetterAndBetterII/openase/internal/infra/agentcli"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	githubissueconnector "github.com/BetterAndBetterII/openase/internal/infra/issueconnector/github"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
+	issueconnectorregistry "github.com/BetterAndBetterII/openase/internal/issueconnector"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
 	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	githubauthrepo "github.com/BetterAndBetterII/openase/internal/repo/githubauth"
+	issueconnectorrepo "github.com/BetterAndBetterII/openase/internal/repo/issueconnector"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
+	issueconnectorsync "github.com/BetterAndBetterII/openase/internal/runtime/issueconnectorsync"
 	runtimeobservability "github.com/BetterAndBetterII/openase/internal/runtime/observability"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
+	issueconnectorservice "github.com/BetterAndBetterII/openase/internal/service/issueconnector"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -114,12 +119,35 @@ func (a *App) RunServe(ctx context.Context) error {
 	}()
 
 	catalogRepo := catalogrepo.NewEntRepository(client)
+	connectorRepo := issueconnectorrepo.NewEntRepository(client)
+	connectorRegistry, err := issueconnectorregistry.NewRegistry(githubissueconnector.New(http.DefaultClient))
+	if err != nil {
+		return err
+	}
 	githubAuthSvc, err := githubauthservice.New(githubauthrepo.NewEntRepository(client), http.DefaultClient, a.config.Database.DSN)
 	if err != nil {
 		return err
 	}
 	ticketSvc := ticketservice.NewService(client)
+	ticketSvc.ConfigureSSHPool(sshPool)
+	ticketSvc.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(client))
 	ticketStatusSvc := ticketstatus.NewService(client)
+	connectorSvc := issueconnectorservice.New(
+		connectorRepo,
+		connectorRegistry,
+		a.logger,
+	)
+	connectorSyncRunner := issueconnectorsync.NewRunner(
+		connectorRepo,
+		connectorRegistry,
+		client,
+		ticketSvc,
+		ticketStatusSvc,
+		a.logger,
+	)
+	connectorSyncRunner.ConfigureGitHubCredentials(githubAuthSvc)
+	connectorSvc.ConfigureGitHubCredentials(githubAuthSvc)
+	connectorSvc.ConfigureSyncRunner(connectorSyncRunner)
 	projectRepoMirrorSvc := projectrepomirrorsvc.NewService(client, a.logger)
 	projectRepoMirrorSvc.ConfigureSSHPool(sshPool)
 	catalogSvc := catalogservice.New(
@@ -180,6 +208,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		workflowSvc,
 		httpapi.WithProjectRepoMirrorService(projectRepoMirrorSvc),
 		httpapi.WithGitHubAuthService(githubAuthSvc),
+		httpapi.WithIssueConnectorService(connectorSvc),
 		httpapi.WithTraceProvider(a.trace),
 		httpapi.WithMetricsProvider(a.metrics),
 		httpapi.WithMetricsHandler(a.metricsHandler),

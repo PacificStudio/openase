@@ -59,6 +59,7 @@ func (Project) Edges() []ent.Edge {
 		edge.To("scheduled_jobs", ScheduledJob.Type),
 		edge.To("activity_events", ActivityEvent.Type),
 		edge.To("notification_rules", NotificationRule.Type),
+		edge.To("issue_connectors", IssueConnector.Type),
 		edge.To("default_workflow", Workflow.Type).
 			Field("default_workflow_id").
 			Unique(),

@@ -10,11 +10,14 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 )
 
 const (
-	defaultStallTimeout = 5 * time.Minute
-	stalledRetryDelay   = time.Second
+	defaultStallTimeout        = 5 * time.Minute
+	stalledRetryDelay          = time.Second
+	stalledRetryPauseThreshold = 3
+	stalledRetryPauseEventType = "ticket.retry_paused"
 )
 
 // HealthCheckReport summarizes the orchestrator health snapshot.
@@ -117,13 +120,20 @@ func (h *HealthChecker) Run(ctx context.Context) (HealthCheckReport, error) {
 		if agentReleased {
 			report.AgentsReleased++
 		}
+		nextStallCount := ticket.StallCount + 1
+		retryPaused := nextStallCount >= stalledRetryPauseThreshold
 
 		attrs := []any{
 			"ticket_id", ticket.ID,
 			"agent_id", ticket.Edges.CurrentRun.AgentID,
 			"reason", state.reason,
+			"stall_count", nextStallCount,
 			"timeout", state.timeout.String(),
+			"retry_paused", retryPaused,
 			"agent_released", agentReleased,
+		}
+		if retryPaused {
+			attrs = append(attrs, "pause_reason", ticketing.PauseReasonRepeatedStalls.String())
 		}
 		if state.lastHeartbeat != nil {
 			attrs = append(
@@ -210,10 +220,13 @@ func (h *HealthChecker) releaseStalledClaim(
 	return releaseStalledClaim(
 		ctx,
 		h.client,
+		ticket.ProjectID,
 		ticket.ID,
 		*ticket.CurrentRunID,
 		ticket.Edges.CurrentRun.AgentID,
+		ticket.StallCount,
 		now,
+		"health_checker",
 		"runtime stalled or heartbeat missing",
 	)
 }

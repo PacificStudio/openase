@@ -33,12 +33,14 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
@@ -1375,6 +1377,7 @@ Implement the ticket using the current workspace.
 		SetTitle("Execute Codex turns").
 		SetStatusID(fixture.statusIDs["Todo"]).
 		SetWorkflowID(workflowItem.ID).
+		SetStallCount(2).
 		SetPriority(entticket.PriorityHigh).
 		SetCreatedBy("user:test").
 		Save(ctx)
@@ -1446,6 +1449,9 @@ Implement the ticket using the current workspace.
 	}
 	if ticketAfter.NextRetryAt == nil || !ticketAfter.NextRetryAt.UTC().Equal(now.Add(continuationRetryDelay)) {
 		t.Fatalf("expected next retry at %s, got %+v", now.Add(continuationRetryDelay), ticketAfter.NextRetryAt)
+	}
+	if ticketAfter.StallCount != 0 {
+		t.Fatalf("expected continuation to reset stall count, got %d", ticketAfter.StallCount)
 	}
 	if ticketAfter.CostTokensInput != int64(defaultRuntimeMaxTurns)*manager.turnInputDelta {
 		t.Fatalf("expected input tokens %d, got %d", int64(defaultRuntimeMaxTurns)*manager.turnInputDelta, ticketAfter.CostTokensInput)
@@ -2161,6 +2167,307 @@ Handle a failing runtime turn.
 	}
 	if manager.capturedTurnCount() != 1 {
 		t.Fatalf("expected one failed turn, got %d", manager.capturedTurnCount())
+	}
+}
+
+func TestRuntimeLauncherRunsTicketHooksAcrossSuccessfulLifecycle(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 31, 9, 0, 0, 0, time.UTC)
+	identifier := "ASE-" + strings.ToUpper(strings.ReplaceAll(uuid.NewString()[:8], "-", ""))
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetHooks(map[string]any{
+			"ticket_hooks": map[string]any{
+				"on_claim": []any{
+					map[string]any{"cmd": `printf 'claim\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+				},
+				"on_start": []any{
+					map[string]any{"cmd": `printf 'start\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+				},
+				"on_complete": []any{
+					map[string]any{"cmd": `printf 'complete\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+				},
+				"on_done": []any{
+					map[string]any{"cmd": `printf 'done\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+				},
+			},
+		}).
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	initRuntimeLauncherRepo(t, repoRoot)
+	createRuntimeLauncherPrimaryRepo(ctx, t, client, fixture.projectID, repoRoot)
+	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
+	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
+		t.Fatalf("create harness dir: %v", err)
+	}
+	if err := os.WriteFile(harnessPath, []byte(`---
+workflow:
+  role: coding
+---
+
+Exercise successful ticket hook lifecycle.
+`), 0o600); err != nil {
+		t.Fatalf("write harness file: %v", err)
+	}
+	commitRuntimeLauncherRepo(t, repoRoot)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier(identifier).
+		SetTitle("Run success hooks").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-hooks-success-01").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+
+	manager := &runtimeFakeProcessManager{}
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, manager, nil, workflowSvc)
+	launcher.now = func() time.Time { return now }
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	assignment, err := launcher.loadAssignmentByRun(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("load assignment: %v", err)
+	}
+	session, err := launcher.startCodexSession(ctx, assignment)
+	if err != nil {
+		t.Fatalf("start codex session: %v", err)
+	}
+	launcher.storeSession(runItem.ID, session)
+
+	repoWorkspace, err := client.TicketRepoWorkspace.Query().
+		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load ticket repo workspace: %v", err)
+	}
+	logPath := filepath.Join(repoWorkspace.WorkspaceRoot, "hook.log")
+	//nolint:gosec // Test controls the temporary workspace path under t.TempDir-backed fixtures.
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read hook log after start: %v", err)
+	}
+	if string(raw) != "claim\nstart\n" {
+		t.Fatalf("unexpected start hook log %q", string(raw))
+	}
+
+	if err := launcher.tickets.RunLifecycleHook(ctx, ticketservice.RunLifecycleHookInput{
+		TicketID: ticketItem.ID,
+		RunID:    runItem.ID,
+		HookName: infrahook.TicketHookOnComplete,
+		Blocking: true,
+	}); err != nil {
+		t.Fatalf("run ticket on_complete hooks: %v", err)
+	}
+
+	resolvedTicket, err := client.Ticket.Query().
+		Where(entticket.IDEQ(ticketItem.ID)).
+		WithCurrentRun().
+		WithWorkflow(func(query *ent.WorkflowQuery) {
+			query.WithFinishStatuses()
+		}).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("reload resolved ticket: %v", err)
+	}
+	if err := launcher.finishResolvedExecution(ctx, runItem.ID, agentItem.ID, resolvedTicket); err != nil {
+		t.Fatalf("finish resolved execution: %v", err)
+	}
+
+	ticketSnapshot, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload finished ticket: %v", err)
+	}
+	runSnapshot, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload finished run: %v", err)
+	}
+	if ticketSnapshot.CurrentRunID != nil {
+		t.Fatalf("expected current run to be cleared, got %+v", ticketSnapshot.CurrentRunID)
+	}
+	if runSnapshot.Status != entagentrun.StatusCompleted {
+		t.Fatalf("expected completed run, got %+v", runSnapshot)
+	}
+
+	//nolint:gosec // Test controls the temporary workspace path under t.TempDir-backed fixtures.
+	raw, err = os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read hook log: %v", err)
+	}
+	if string(raw) != "claim\nstart\ncomplete\ndone\n" {
+		t.Fatalf("unexpected success hook log %q", string(raw))
+	}
+}
+
+func TestRuntimeLauncherRunsErrorHookWhenLaunchHookBlocks(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 31, 9, 30, 0, 0, time.UTC)
+	identifier := "ASE-" + strings.ToUpper(strings.ReplaceAll(uuid.NewString()[:8], "-", ""))
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetHooks(map[string]any{
+			"ticket_hooks": map[string]any{
+				"on_claim": []any{
+					map[string]any{"cmd": `printf 'claim\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+				},
+				"on_start": []any{
+					map[string]any{
+						"cmd":        `printf 'start\n' >> "$OPENASE_WORKSPACE/hook.log"; exit 9`,
+						"on_failure": "block",
+					},
+				},
+				"on_error": []any{
+					map[string]any{
+						"cmd":        `printf 'error\n' >> "$OPENASE_WORKSPACE/hook.log"`,
+						"on_failure": "ignore",
+					},
+				},
+			},
+		}).
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	initRuntimeLauncherRepo(t, repoRoot)
+	createRuntimeLauncherPrimaryRepo(ctx, t, client, fixture.projectID, repoRoot)
+	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
+	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
+		t.Fatalf("create harness dir: %v", err)
+	}
+	if err := os.WriteFile(harnessPath, []byte(`---
+workflow:
+  role: coding
+---
+
+Exercise failing ticket hook lifecycle.
+`), 0o600); err != nil {
+		t.Fatalf("write harness file: %v", err)
+	}
+	commitRuntimeLauncherRepo(t, repoRoot)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier(identifier).
+		SetTitle("Run failing hooks").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-hooks-failure-01").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, nil, workflowSvc)
+	launcher.now = func() time.Time { return now }
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("launch runtime session: %v", err)
+	}
+
+	waitForRuntimeCondition(t, 5*time.Second, func() bool {
+		ticketSnapshot, err := client.Ticket.Get(ctx, ticketItem.ID)
+		if err != nil {
+			return false
+		}
+		runSnapshot, err := client.AgentRun.Get(ctx, runItem.ID)
+		if err != nil {
+			return false
+		}
+		return ticketSnapshot.CurrentRunID == nil &&
+			ticketSnapshot.NextRetryAt != nil &&
+			runSnapshot.Status == entagentrun.StatusErrored
+	})
+
+	repoWorkspace, err := client.TicketRepoWorkspace.Query().
+		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load ticket repo workspace: %v", err)
+	}
+	logPath := filepath.Join(repoWorkspace.WorkspaceRoot, "hook.log")
+	//nolint:gosec // Test controls the temporary workspace path under t.TempDir-backed fixtures.
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read hook log: %v", err)
+	}
+	if string(raw) != "claim\nstart\nerror\n" {
+		t.Fatalf("unexpected failure hook log %q", string(raw))
 	}
 }
 

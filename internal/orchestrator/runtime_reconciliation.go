@@ -12,6 +12,7 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	"github.com/google/uuid"
 )
@@ -188,10 +189,13 @@ func classifyRuntimeTicket(ticket *ent.Ticket, runID uuid.UUID, runWorkflowID uu
 func releaseStalledClaim(
 	ctx context.Context,
 	client *ent.Client,
+	projectID uuid.UUID,
 	ticketID uuid.UUID,
 	runID uuid.UUID,
 	agentID uuid.UUID,
+	stallCount int,
 	now time.Time,
+	source string,
 	reason string,
 ) (bool, bool, error) {
 	if client == nil {
@@ -204,7 +208,8 @@ func releaseStalledClaim(
 	}
 	defer rollback(tx)
 
-	retryAt := now.UTC().Add(stalledRetryDelay)
+	nextStallCount := stallCount + 1
+	retryPaused := nextStallCount >= stalledRetryPauseThreshold
 	releasedTickets, err := tx.Ticket.Update().
 		Where(
 			entticket.IDEQ(ticketID),
@@ -212,9 +217,7 @@ func releaseStalledClaim(
 			entticket.CurrentRunIDEQ(runID),
 		).
 		ClearCurrentRunID().
-		SetNextRetryAt(retryAt).
-		SetRetryPaused(false).
-		AddStallCount(1).
+		SetStallCount(nextStallCount).
 		Save(ctx)
 	if err != nil {
 		return false, false, fmt.Errorf("release stalled ticket: %w", err)
@@ -223,6 +226,28 @@ func releaseStalledClaim(
 		return false, false, nil
 	}
 
+	ticketUpdate := tx.Ticket.UpdateOneID(ticketID)
+	if retryPaused {
+		ticketUpdate.ClearNextRetryAt().
+			SetRetryPaused(true).
+			SetPauseReason(ticketing.PauseReasonRepeatedStalls.String())
+	} else {
+		ticketUpdate.SetNextRetryAt(now.UTC().Add(stalledRetryDelay)).
+			SetRetryPaused(false).
+			ClearPauseReason()
+	}
+	if _, err := ticketUpdate.Save(ctx); err != nil {
+		return false, false, fmt.Errorf("update stalled retry policy: %w", err)
+	}
+
+	runLastError := strings.TrimSpace(reason)
+	if retryPaused {
+		runLastError = fmt.Sprintf(
+			"%s; ticket retries paused after %d consecutive stalls",
+			runLastError,
+			nextStallCount,
+		)
+	}
 	releasedRuns, err := tx.AgentRun.Update().
 		Where(
 			entagentrun.IDEQ(runID),
@@ -234,13 +259,34 @@ func releaseStalledClaim(
 			),
 		).
 		SetStatus(entagentrun.StatusErrored).
-		SetLastError(strings.TrimSpace(reason)).
+		SetLastError(runLastError).
 		ClearSessionID().
 		ClearRuntimeStartedAt().
 		ClearLastHeartbeatAt().
 		Save(ctx)
 	if err != nil {
 		return false, false, fmt.Errorf("release stalled run: %w", err)
+	}
+
+	if retryPaused {
+		if _, err := tx.ActivityEvent.Create().
+			SetProjectID(projectID).
+			SetTicketID(ticketID).
+			SetEventType(stalledRetryPauseEventType).
+			SetMessage(fmt.Sprintf(
+				"Paused ticket retries after %d consecutive orchestrator stalls; human intervention is required before retrying.",
+				nextStallCount,
+			)).
+			SetMetadata(map[string]any{
+				"pause_reason": ticketing.PauseReasonRepeatedStalls.String(),
+				"stall_count":  nextStallCount,
+				"threshold":    stalledRetryPauseThreshold,
+				"source":       strings.TrimSpace(source),
+			}).
+			SetCreatedAt(now.UTC()).
+			Save(ctx); err != nil {
+			return false, false, fmt.Errorf("record stalled retry pause activity: %w", err)
+		}
 	}
 
 	releasedAgents, err := tx.Agent.Update().

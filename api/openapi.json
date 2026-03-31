@@ -1292,6 +1292,850 @@
         ]
       }
     },
+    "/api/v1/connectors/{connectorId}": {
+      "delete": {
+        "operationId": "deleteIssueConnector",
+        "parameters": [
+          {
+            "description": "Connector ID.",
+            "in": "path",
+            "name": "connectorId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "deleted_connector_id": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Delete an issue connector response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Delete an issue connector",
+        "tags": [
+          "connectors"
+        ]
+      },
+      "patch": {
+        "operationId": "updateIssueConnector",
+        "parameters": [
+          {
+            "description": "Connector ID.",
+            "in": "path",
+            "name": "connectorId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "config": {
+                    "description": "Connector runtime configuration.",
+                    "nullable": true,
+                    "properties": {
+                      "auth_token": {
+                        "description": "Connector-scoped auth token. Leave blank to fall back to project GitHub credentials when supported.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "auto_workflow": {
+                        "description": "Optional workflow binding associated with imported tickets.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "base_url": {
+                        "description": "Optional API base URL override for self-hosted or test endpoints.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "filters": {
+                        "description": "Optional connector-side issue filters.",
+                        "nullable": true,
+                        "properties": {
+                          "authors": {
+                            "description": "Allowed upstream issue authors.",
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "exclude_labels": {
+                            "description": "Labels that should exclude an issue from import.",
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "labels": {
+                            "description": "Labels required for an issue to be imported.",
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "states": {
+                            "description": "Allowed upstream issue states.",
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "poll_interval": {
+                        "description": "Pull sync interval encoded as a Go duration string such as 5m.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "project_ref": {
+                        "description": "External repository or project reference, for example owner/repo.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "status_mapping": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Map of upstream statuses to internal project ticket statuses.",
+                        "type": "object"
+                      },
+                      "sync_direction": {
+                        "description": "Sync policy. Supported values are bidirectional, pull_only, and push_only.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "webhook_secret": {
+                        "description": "Optional shared secret used to validate inbound webhook deliveries.",
+                        "nullable": true,
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "name": {
+                    "description": "Human-readable connector name shown in Settings.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "status": {
+                    "description": "Runtime connector state. Supported values are active, paused, and error.",
+                    "nullable": true,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Update an issue connector request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "connector": {
+                      "properties": {
+                        "config": {
+                          "properties": {
+                            "auth_token_configured": {
+                              "type": "boolean"
+                            },
+                            "auto_workflow": {
+                              "type": "string"
+                            },
+                            "base_url": {
+                              "type": "string"
+                            },
+                            "filters": {
+                              "properties": {
+                                "authors": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "exclude_labels": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "labels": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "states": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "poll_interval": {
+                              "type": "string"
+                            },
+                            "project_ref": {
+                              "type": "string"
+                            },
+                            "status_mapping": {
+                              "additionalProperties": {
+                                "type": "string"
+                              },
+                              "type": "object"
+                            },
+                            "sync_direction": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string"
+                            },
+                            "webhook_secret_configured": {
+                              "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "last_error": {
+                          "type": "string"
+                        },
+                        "last_sync_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "stats": {
+                          "properties": {
+                            "failed_count": {
+                              "type": "integer"
+                            },
+                            "synced24h": {
+                              "type": "integer"
+                            },
+                            "total_synced": {
+                              "type": "integer"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Update an issue connector response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Update an issue connector",
+        "tags": [
+          "connectors"
+        ]
+      }
+    },
+    "/api/v1/connectors/{connectorId}/stats": {
+      "get": {
+        "operationId": "getIssueConnectorStats",
+        "parameters": [
+          {
+            "description": "Connector ID.",
+            "in": "path",
+            "name": "connectorId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "stats": {
+                      "properties": {
+                        "connector_id": {
+                          "type": "string"
+                        },
+                        "last_error": {
+                          "type": "string"
+                        },
+                        "last_sync_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "stats": {
+                          "properties": {
+                            "failed_count": {
+                              "type": "integer"
+                            },
+                            "synced24h": {
+                              "type": "integer"
+                            },
+                            "total_synced": {
+                              "type": "integer"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get connector runtime stats and last sync details response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Get connector runtime stats and last sync details",
+        "tags": [
+          "connectors"
+        ]
+      }
+    },
+    "/api/v1/connectors/{connectorId}/sync": {
+      "post": {
+        "operationId": "syncIssueConnector",
+        "parameters": [
+          {
+            "description": "Connector ID.",
+            "in": "path",
+            "name": "connectorId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "connector": {
+                      "properties": {
+                        "config": {
+                          "properties": {
+                            "auth_token_configured": {
+                              "type": "boolean"
+                            },
+                            "auto_workflow": {
+                              "type": "string"
+                            },
+                            "base_url": {
+                              "type": "string"
+                            },
+                            "filters": {
+                              "properties": {
+                                "authors": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "exclude_labels": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "labels": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "states": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "poll_interval": {
+                              "type": "string"
+                            },
+                            "project_ref": {
+                              "type": "string"
+                            },
+                            "status_mapping": {
+                              "additionalProperties": {
+                                "type": "string"
+                              },
+                              "type": "object"
+                            },
+                            "sync_direction": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string"
+                            },
+                            "webhook_secret_configured": {
+                              "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "last_error": {
+                          "type": "string"
+                        },
+                        "last_sync_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "stats": {
+                          "properties": {
+                            "failed_count": {
+                              "type": "integer"
+                            },
+                            "synced24h": {
+                              "type": "integer"
+                            },
+                            "total_synced": {
+                              "type": "integer"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "report": {
+                      "properties": {
+                        "connectors_failed": {
+                          "type": "integer"
+                        },
+                        "connectors_scanned": {
+                          "type": "integer"
+                        },
+                        "connectors_synced": {
+                          "type": "integer"
+                        },
+                        "issues_synced": {
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Trigger a manual connector pull sync response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Trigger a manual connector pull sync",
+        "tags": [
+          "connectors"
+        ]
+      }
+    },
+    "/api/v1/connectors/{connectorId}/test": {
+      "post": {
+        "operationId": "testIssueConnector",
+        "parameters": [
+          {
+            "description": "Connector ID.",
+            "in": "path",
+            "name": "connectorId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "result": {
+                      "properties": {
+                        "checked_at": {
+                          "type": "string"
+                        },
+                        "healthy": {
+                          "type": "boolean"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Run a connector health check response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Run a connector health check",
+        "tags": [
+          "connectors"
+        ]
+      }
+    },
     "/api/v1/events/stream": {
       "get": {
         "operationId": "streamEvents",
@@ -6795,6 +7639,517 @@
         "summary": "Stream agent step entries",
         "tags": [
           "streams"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/connectors": {
+      "get": {
+        "operationId": "listIssueConnectors",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "connectors": {
+                      "items": {
+                        "properties": {
+                          "config": {
+                            "properties": {
+                              "auth_token_configured": {
+                                "type": "boolean"
+                              },
+                              "auto_workflow": {
+                                "type": "string"
+                              },
+                              "base_url": {
+                                "type": "string"
+                              },
+                              "filters": {
+                                "properties": {
+                                  "authors": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  },
+                                  "exclude_labels": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  },
+                                  "labels": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  },
+                                  "states": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "poll_interval": {
+                                "type": "string"
+                              },
+                              "project_ref": {
+                                "type": "string"
+                              },
+                              "status_mapping": {
+                                "additionalProperties": {
+                                  "type": "string"
+                                },
+                                "type": "object"
+                              },
+                              "sync_direction": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string"
+                              },
+                              "webhook_secret_configured": {
+                                "type": "boolean"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "last_error": {
+                            "type": "string"
+                          },
+                          "last_sync_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "project_id": {
+                            "type": "string"
+                          },
+                          "stats": {
+                            "properties": {
+                              "failed_count": {
+                                "type": "integer"
+                              },
+                              "synced24h": {
+                                "type": "integer"
+                              },
+                              "total_synced": {
+                                "type": "integer"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List project issue connectors response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List project issue connectors",
+        "tags": [
+          "connectors"
+        ]
+      },
+      "post": {
+        "operationId": "createIssueConnector",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "config": {
+                    "description": "Connector runtime configuration.",
+                    "properties": {
+                      "auth_token": {
+                        "description": "Connector-scoped auth token. Leave blank to fall back to project GitHub credentials when supported.",
+                        "type": "string"
+                      },
+                      "auto_workflow": {
+                        "description": "Optional workflow binding associated with imported tickets.",
+                        "type": "string"
+                      },
+                      "base_url": {
+                        "description": "Optional API base URL override for self-hosted or test endpoints.",
+                        "type": "string"
+                      },
+                      "filters": {
+                        "description": "Optional connector-side issue filters.",
+                        "properties": {
+                          "authors": {
+                            "description": "Allowed upstream issue authors.",
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "exclude_labels": {
+                            "description": "Labels that should exclude an issue from import.",
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "labels": {
+                            "description": "Labels required for an issue to be imported.",
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "states": {
+                            "description": "Allowed upstream issue states.",
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "poll_interval": {
+                        "description": "Pull sync interval encoded as a Go duration string such as 5m.",
+                        "type": "string"
+                      },
+                      "project_ref": {
+                        "description": "External repository or project reference, for example owner/repo.",
+                        "type": "string"
+                      },
+                      "status_mapping": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Map of upstream statuses to internal project ticket statuses.",
+                        "type": "object"
+                      },
+                      "sync_direction": {
+                        "description": "Sync policy. Supported values are bidirectional, pull_only, and push_only.",
+                        "type": "string"
+                      },
+                      "type": {
+                        "description": "Connector implementation type and must match the top-level type on create.",
+                        "type": "string"
+                      },
+                      "webhook_secret": {
+                        "description": "Optional shared secret used to validate inbound webhook deliveries.",
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "name": {
+                    "description": "Human-readable connector name shown in Settings.",
+                    "type": "string"
+                  },
+                  "status": {
+                    "description": "Runtime connector state. Supported values are active, paused, and error.",
+                    "type": "string"
+                  },
+                  "type": {
+                    "description": "Connector implementation type. The shipped Settings surface currently targets the GitHub issue connector.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Create a project issue connector request body.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "connector": {
+                      "properties": {
+                        "config": {
+                          "properties": {
+                            "auth_token_configured": {
+                              "type": "boolean"
+                            },
+                            "auto_workflow": {
+                              "type": "string"
+                            },
+                            "base_url": {
+                              "type": "string"
+                            },
+                            "filters": {
+                              "properties": {
+                                "authors": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "exclude_labels": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "labels": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "states": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "poll_interval": {
+                              "type": "string"
+                            },
+                            "project_ref": {
+                              "type": "string"
+                            },
+                            "status_mapping": {
+                              "additionalProperties": {
+                                "type": "string"
+                              },
+                              "type": "object"
+                            },
+                            "sync_direction": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string"
+                            },
+                            "webhook_secret_configured": {
+                              "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "last_error": {
+                          "type": "string"
+                        },
+                        "last_sync_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "stats": {
+                          "properties": {
+                            "failed_count": {
+                              "type": "integer"
+                            },
+                            "synced24h": {
+                              "type": "integer"
+                            },
+                            "total_synced": {
+                              "type": "integer"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Create a project issue connector response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Create a project issue connector",
+        "tags": [
+          "connectors"
         ]
       }
     },
@@ -18627,6 +19982,9 @@
     },
     {
       "name": "notifications"
+    },
+    {
+      "name": "connectors"
     },
     {
       "name": "security-settings"
