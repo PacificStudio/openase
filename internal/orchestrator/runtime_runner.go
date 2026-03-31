@@ -714,7 +714,7 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, runID uui
 		return err
 	}
 
-	ticketUpdate := tx.Ticket.UpdateOneID(ticket.ID)
+	ticketUpdate := ticketservice.ResetRetryBaseline(tx.Ticket.UpdateOneID(ticket.ID), ticket)
 	if ticket.CurrentRunID != nil {
 		ticketUpdate.ClearCurrentRunID()
 	}
