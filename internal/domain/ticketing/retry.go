@@ -11,6 +11,7 @@ type PauseReason string
 
 const (
 	PauseReasonBudgetExhausted PauseReason = "budget_exhausted"
+	PauseReasonRepeatedStalls  PauseReason = "repeated_stalls"
 	PauseReasonUserPaused      PauseReason = "user_paused"
 )
 

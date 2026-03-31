@@ -1375,6 +1375,7 @@ Implement the ticket using the current workspace.
 		SetTitle("Execute Codex turns").
 		SetStatusID(fixture.statusIDs["Todo"]).
 		SetWorkflowID(workflowItem.ID).
+		SetStallCount(2).
 		SetPriority(entticket.PriorityHigh).
 		SetCreatedBy("user:test").
 		Save(ctx)
@@ -1446,6 +1447,9 @@ Implement the ticket using the current workspace.
 	}
 	if ticketAfter.NextRetryAt == nil || !ticketAfter.NextRetryAt.UTC().Equal(now.Add(continuationRetryDelay)) {
 		t.Fatalf("expected next retry at %s, got %+v", now.Add(continuationRetryDelay), ticketAfter.NextRetryAt)
+	}
+	if ticketAfter.StallCount != 0 {
+		t.Fatalf("expected continuation to reset stall count, got %d", ticketAfter.StallCount)
 	}
 	if ticketAfter.CostTokensInput != int64(defaultRuntimeMaxTurns)*manager.turnInputDelta {
 		t.Fatalf("expected input tokens %d, got %d", int64(defaultRuntimeMaxTurns)*manager.turnInputDelta, ticketAfter.CostTokensInput)

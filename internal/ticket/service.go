@@ -508,6 +508,8 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 	}
 	if statusChanged {
 		builder.ClearCurrentRunID()
+	}
+	if statusChanged || targetMachineChanged {
 		ResetRetryBaseline(builder, current)
 	}
 
@@ -1203,6 +1205,9 @@ func ResetRetryBaseline(update *ent.TicketUpdateOne, current *ent.Ticket) *ent.T
 
 	if current.ConsecutiveErrors != 0 {
 		update.SetConsecutiveErrors(0)
+	}
+	if current.StallCount != 0 {
+		update.SetStallCount(0)
 	}
 	if current.NextRetryAt != nil {
 		update.ClearNextRetryAt()

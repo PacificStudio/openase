@@ -833,6 +833,7 @@ func (l *RuntimeLauncher) scheduleContinuation(ctx context.Context, runID uuid.U
 			entticket.CurrentRunIDEQ(runID),
 		).
 		ClearCurrentRunID().
+		SetStallCount(0).
 		SetNextRetryAt(l.now().UTC().Add(continuationRetryDelay)).
 		SetRetryPaused(false).
 		Save(ctx); err != nil {
