@@ -4,11 +4,6 @@
   import { listStatuses } from '$lib/api/openase'
   import { connectEventStream } from '$lib/api/sse'
   import {
-    capabilityStateClasses,
-    capabilityStateLabel,
-    getSettingsSectionCapability,
-  } from '$lib/features/capabilities'
-  import {
     WorkflowRepositoryPrerequisiteCard,
     WorkflowLifecycleSidebar,
     WorkflowList,
@@ -26,7 +21,7 @@
   import StatusStageConcurrency from './status-stage-concurrency.svelte'
   import { startStageRuntimeSync } from './stage-runtime-sync'
 
-  const workflowCapability = getSettingsSectionCapability('workflows')
+
   const props = $props<{
     onOpenRepositories?: (() => void) | undefined
   }>()
@@ -127,15 +122,10 @@
 
 <div class="space-y-6">
   <div>
-    <div class="flex items-center gap-2">
-      <h2 class="text-foreground text-base font-semibold">Workflow Lifecycle</h2>
-      <span
-        class={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${capabilityStateClasses(workflowCapability.state)}`}
-      >
-        {capabilityStateLabel(workflowCapability.state)}
-      </span>
-    </div>
-    <p class="text-muted-foreground mt-1 text-sm">{workflowCapability.summary}</p>
+    <h2 class="text-foreground text-base font-semibold">Workflow Lifecycle</h2>
+    <p class="text-muted-foreground mt-1 text-sm">
+      Manage workflow agent binding, scheduling policy, activation, and deletion.
+    </p>
   </div>
 
   <Separator />
