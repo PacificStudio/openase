@@ -26,6 +26,8 @@ type Tx struct {
 	AgentToken *AgentTokenClient
 	// AgentTraceEvent is the client for interacting with the AgentTraceEvent builders.
 	AgentTraceEvent *AgentTraceEventClient
+	// IssueConnector is the client for interacting with the IssueConnector builders.
+	IssueConnector *IssueConnectorClient
 	// Machine is the client for interacting with the Machine builders.
 	Machine *MachineClient
 	// NotificationChannel is the client for interacting with the NotificationChannel builders.
@@ -200,6 +202,7 @@ func (tx *Tx) init() {
 	tx.AgentStepEvent = NewAgentStepEventClient(tx.config)
 	tx.AgentToken = NewAgentTokenClient(tx.config)
 	tx.AgentTraceEvent = NewAgentTraceEventClient(tx.config)
+	tx.IssueConnector = NewIssueConnectorClient(tx.config)
 	tx.Machine = NewMachineClient(tx.config)
 	tx.NotificationChannel = NewNotificationChannelClient(tx.config)
 	tx.NotificationRule = NewNotificationRuleClient(tx.config)

@@ -65,6 +65,7 @@ func (r routeRegistrar) registerAPIRoutes() {
 	r.server.registerWorkflowRoutes(r.api)
 	r.server.registerScheduledJobRoutes(r.api)
 	r.server.registerNotificationRoutes(r.api)
+	r.server.registerIssueConnectorRoutes(r.api)
 	r.server.registerSecuritySettingsRoutes(r.api)
 	r.server.registerSkillRoutes(r.api)
 	r.server.registerRoleLibraryRoutes(r.api)
