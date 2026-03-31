@@ -4,6 +4,7 @@
     capabilityStateClasses,
     capabilityStateLabel,
   } from '$lib/features/capabilities'
+  import { Separator } from '$ui/separator'
   import RepositoriesList from './repository-list.svelte'
   import RepositoryEditorSheet from './repository-editor-sheet.svelte'
   import RepositoryMirrorDialog from './repository-mirror-dialog.svelte'
@@ -20,7 +21,7 @@
   }
 </script>
 
-<div class="space-y-6">
+<div class="max-w-2xl space-y-6">
   <div>
     <div class="flex items-center gap-2">
       <h2 class="text-foreground text-base font-semibold">Repositories</h2>
@@ -30,8 +31,10 @@
         {capabilityStateLabel(repositoriesCapability.state)}
       </span>
     </div>
-    <p class="text-muted-foreground mt-1 max-w-3xl text-sm">{repositoriesCapability.summary}</p>
+    <p class="text-muted-foreground mt-1 text-sm">{repositoriesCapability.summary}</p>
   </div>
+
+  <Separator />
 
   {#if state.ui.repos.length > 0}
     <RepositoryReadinessBanner
@@ -55,28 +58,28 @@
     onDelete={(repo) => void state.deleteFromList(repo)}
     onMaterialize={(repo) => void state.runMirrorAction(repo)}
   />
-
-  <RepositoryEditorSheet
-    bind:open={state.ui.editorOpen}
-    mode={state.ui.mode}
-    selectedRepo={state.selectedRepo}
-    draft={state.ui.draft}
-    reposCount={state.ui.repos.length}
-    saving={state.ui.saving}
-    onDraftChange={(field, value) => state.updateField(field, value)}
-    onSave={() => void state.save()}
-  />
-
-  <RepositoryMirrorDialog
-    bind:open={state.ui.mirrorDialogOpen}
-    repo={state.selectedMirrorRepo}
-    draft={state.ui.mirrorDraft}
-    machines={state.ui.machines}
-    saving={state.ui.materializingId !== ''}
-    errorMessage={state.ui.mirrorErrorMessage}
-    title={state.selectedMirrorContext.dialogTitle}
-    submitLabel={state.selectedMirrorContext.submitLabel}
-    onDraftChange={(field, value) => state.updateMirrorField(field, value)}
-    onSubmit={() => void state.materializeMirror()}
-  />
 </div>
+
+<RepositoryEditorSheet
+  bind:open={state.ui.editorOpen}
+  mode={state.ui.mode}
+  selectedRepo={state.selectedRepo}
+  draft={state.ui.draft}
+  reposCount={state.ui.repos.length}
+  saving={state.ui.saving}
+  onDraftChange={(field, value) => state.updateField(field, value)}
+  onSave={() => void state.save()}
+/>
+
+<RepositoryMirrorDialog
+  bind:open={state.ui.mirrorDialogOpen}
+  repo={state.selectedMirrorRepo}
+  draft={state.ui.mirrorDraft}
+  machines={state.ui.machines}
+  saving={state.ui.materializingId !== ''}
+  errorMessage={state.ui.mirrorErrorMessage}
+  title={state.selectedMirrorContext.dialogTitle}
+  submitLabel={state.selectedMirrorContext.submitLabel}
+  onDraftChange={(field, value) => state.updateMirrorField(field, value)}
+  onSubmit={() => void state.materializeMirror()}
+/>

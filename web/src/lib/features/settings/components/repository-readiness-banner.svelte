@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { formatRelativeTime } from '$lib/utils'
   import { Button } from '$ui/button'
+  import { CircleCheck, CircleAlert, Info } from '@lucide/svelte'
   import type { PrimaryRepositoryReadiness } from '../repositories-readiness'
-  import { formatMirrorTimestamp, repositoryMirrorToneClasses } from '../repositories-readiness'
 
   let {
     readiness,
@@ -14,87 +15,57 @@
   } = $props()
 </script>
 
-<section
-  class={`rounded-2xl border px-4 py-4 ${repositoryMirrorToneClasses(readiness.kind === 'missing_primary_repo' ? 'missing' : readiness.mirrorState)}`}
->
-  <div class="flex flex-wrap items-start justify-between gap-3">
-    <div class="space-y-1">
-      <h3 class="text-sm font-semibold">
-        {#if readiness.kind === 'missing_primary_repo'}
-          Primary repository not configured
-        {:else if readiness.kind === 'ready'}
-          Primary mirror ready
-        {:else}
-          Primary mirror needs attention
-        {/if}
-      </h3>
-      <p class="text-sm">
-        {#if readiness.kind === 'missing_primary_repo'}
-          This project has repository bindings, but none of them is marked primary. Mark one
-          repository as primary before configuring workflows or harness files.
-        {:else if readiness.action === 'prepare_mirror'}
-          <span class="font-medium">{readiness.primaryRepoName}</span> is bound as the primary repository,
-          but no mirror is ready yet. Prepare a mirror on the target machine before editing workflows
-          or harness files.
-        {:else if readiness.action === 'wait_for_mirror'}
-          <span class="font-medium">{readiness.primaryRepoName}</span> is bound as the primary
-          repository, but its mirror is currently
-          <span class="font-medium">{readiness.mirrorState}</span>. Wait for the mirror lifecycle to
-          finish before continuing.
-        {:else if readiness.action === 'sync_mirror'}
-          <span class="font-medium">{readiness.primaryRepoName}</span> is bound as the primary
-          repository, but its mirror is
-          <span class="font-medium">{readiness.mirrorState}</span>. Repair or resync the mirror
-          before using it for workflows.
-        {:else}
-          <span class="font-medium">{readiness.primaryRepoName}</span> has a ready primary mirror for
-          workflow and harness operations.
-        {/if}
-      </p>
+{#if readiness.kind === 'missing_primary_repo'}
+  <div
+    class="border-amber-500/30 bg-amber-500/5 flex items-center gap-3 rounded-lg border px-4 py-3"
+  >
+    <Info class="text-amber-600 size-4 shrink-0" />
+    <p class="text-foreground flex-1 text-sm">
+      No primary repository configured. Mark one repository as primary before configuring workflows.
+    </p>
+  </div>
+{:else if readiness.kind === 'ready'}
+  <div
+    class="border-border bg-muted/30 flex items-center gap-3 rounded-lg border px-4 py-3"
+  >
+    <CircleCheck class="text-emerald-500 size-4 shrink-0" />
+    <span class="text-foreground text-sm font-medium">{readiness.primaryRepoName}</span>
+    <span class="text-muted-foreground text-sm">
+      Primary mirror ready
+      {#if readiness.lastSyncedAt}
+        &middot; synced {formatRelativeTime(readiness.lastSyncedAt)}
+      {/if}
+    </span>
+  </div>
+{:else}
+  <div
+    class="border-amber-500/30 bg-amber-500/5 space-y-3 rounded-lg border px-4 py-3"
+  >
+    <div class="flex items-center gap-3">
+      <CircleAlert class="text-amber-600 size-4 shrink-0" />
+      <div class="flex-1">
+        <p class="text-foreground text-sm">
+          <span class="font-medium">{readiness.primaryRepoName}</span>
+          {#if readiness.action === 'prepare_mirror'}
+            needs a mirror before workflows can run.
+          {:else if readiness.action === 'wait_for_mirror'}
+            mirror is {readiness.mirrorState}. Waiting for it to finish.
+          {:else if readiness.action === 'sync_mirror'}
+            mirror is {readiness.mirrorState}. Repair or resync to continue.
+          {/if}
+        </p>
+      </div>
+      {#if onOpenPrimaryMirror}
+        <Button variant="outline" size="sm" onclick={onOpenPrimaryMirror}>
+          {mirrorActionLabel}
+        </Button>
+      {/if}
     </div>
 
-    {#if readiness.kind !== 'missing_primary_repo'}
-      <dl class="grid gap-x-4 gap-y-2 text-xs sm:grid-cols-2">
-        <div>
-          <dt class="opacity-70">Mirror state</dt>
-          <dd class="font-medium">{readiness.mirrorState}</dd>
-        </div>
-        <div>
-          <dt class="opacity-70">Known mirrors</dt>
-          <dd class="font-medium">{readiness.mirrorCount}</dd>
-        </div>
-        {#if readiness.mirrorMachineId}
-          <div>
-            <dt class="opacity-70">Target machine</dt>
-            <dd class="font-medium break-all">{readiness.mirrorMachineId}</dd>
-          </div>
-        {/if}
-        {#if formatMirrorTimestamp(readiness.lastSyncedAt)}
-          <div>
-            <dt class="opacity-70">Last synced</dt>
-            <dd class="font-medium">{formatMirrorTimestamp(readiness.lastSyncedAt)}</dd>
-          </div>
-        {/if}
-        {#if formatMirrorTimestamp(readiness.lastVerifiedAt)}
-          <div>
-            <dt class="opacity-70">Last verified</dt>
-            <dd class="font-medium">{formatMirrorTimestamp(readiness.lastVerifiedAt)}</dd>
-          </div>
-        {/if}
-      </dl>
+    {#if readiness.lastError}
+      <div class="bg-background/60 rounded-md border border-current/10 px-3 py-2 text-xs">
+        <p class="text-muted-foreground break-words">{readiness.lastError}</p>
+      </div>
     {/if}
   </div>
-
-  {#if readiness.kind !== 'missing_primary_repo' && readiness.lastError}
-    <div class="bg-background/70 mt-3 rounded-xl border border-current/20 px-3 py-2 text-sm">
-      <p class="font-medium">Last mirror error</p>
-      <p class="mt-1 break-words opacity-80">{readiness.lastError}</p>
-    </div>
-  {/if}
-
-  {#if readiness.kind === 'primary_mirror_not_ready' && onOpenPrimaryMirror}
-    <div class="mt-4">
-      <Button variant="outline" size="sm" onclick={onOpenPrimaryMirror}>{mirrorActionLabel}</Button>
-    </div>
-  {/if}
-</section>
+{/if}
