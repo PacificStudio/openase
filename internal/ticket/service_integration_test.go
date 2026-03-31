@@ -517,7 +517,7 @@ func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 	}
 }
 
-func TestTicketServiceRunsCancelHookWhenStatusChangeReleasesCurrentRun(t *testing.T) {
+func TestTicketServiceRunsCancelHookWhenNonFinishStatusChangeReleasesCurrentRun(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
 	fixture := seedTicketServiceFixture(ctx, t, client)
@@ -608,6 +608,120 @@ func TestTicketServiceRunsCancelHookWhenStatusChangeReleasesCurrentRun(t *testin
 
 	updated, err := service.Update(ctx, UpdateInput{
 		TicketID:                          ticketItem.ID,
+		StatusID:                          Some(fixture.backlogID),
+		RestrictStatusToWorkflowFinishSet: false,
+	})
+	if err != nil {
+		t.Fatalf("update ticket status: %v", err)
+	}
+	if updated.CurrentRunID != nil {
+		t.Fatalf("expected released current run, got %+v", updated.CurrentRunID)
+	}
+
+	//nolint:gosec // Test controls the temporary workspace path under t.TempDir-backed fixtures.
+	raw, err := os.ReadFile(filepath.Join(workspaceRoot, "hook.log"))
+	if err != nil {
+		t.Fatalf("read cancel hook log: %v", err)
+	}
+	if string(raw) != "cancel\n" {
+		t.Fatalf("unexpected cancel hook log %q", string(raw))
+	}
+}
+
+func TestTicketServiceRunsDoneHookWhenFinishStatusChangeReleasesCurrentRun(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	fixture := seedTicketServiceFixture(ctx, t, client)
+	service := NewService(client)
+
+	projectItem, err := client.Project.Get(ctx, fixture.projectID)
+	if err != nil {
+		t.Fatalf("load project: %v", err)
+	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(projectItem.OrganizationID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus(entmachine.StatusOnline).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(localMachine.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind provider to local machine: %v", err)
+	}
+	if _, err := client.Workflow.UpdateOneID(fixture.workflowID).
+		SetHooks(map[string]any{
+			"ticket_hooks": map[string]any{
+				"on_done": []any{
+					map[string]any{"cmd": `printf 'done\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+				},
+				"on_cancel": []any{
+					map[string]any{"cmd": `printf 'cancel\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+				},
+			},
+		}).
+		Save(ctx); err != nil {
+		t.Fatalf("set workflow done hooks: %v", err)
+	}
+
+	ticketItem, err := service.Create(ctx, CreateInput{
+		ProjectID:  fixture.projectID,
+		Title:      "Finish current run",
+		StatusID:   &fixture.todoID,
+		Priority:   "high",
+		Type:       "feature",
+		WorkflowID: &fixture.workflowID,
+	})
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runID := seedTicketCurrentRun(ctx, t, client, fixture, ticketItem.ID)
+
+	repoItem, err := client.ProjectRepo.Create().
+		SetProjectID(fixture.projectID).
+		SetName("backend").
+		SetRepositoryURL("https://github.com/acme/backend.git").
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("backend").
+		SetIsPrimary(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project repo: %v", err)
+	}
+	mirrorItem, err := client.ProjectRepoMirror.Create().
+		SetProjectRepoID(repoItem.ID).
+		SetMachineID(localMachine.ID).
+		SetLocalPath(filepath.Join(t.TempDir(), "mirror-backend")).
+		SetState(entprojectrepomirror.StateReady).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project repo mirror: %v", err)
+	}
+	workspaceRoot := t.TempDir()
+	repoPath := filepath.Join(workspaceRoot, "backend")
+	if err := os.MkdirAll(repoPath, 0o750); err != nil {
+		t.Fatalf("create repo path: %v", err)
+	}
+	if _, err := client.TicketRepoWorkspace.Create().
+		SetTicketID(ticketItem.ID).
+		SetAgentRunID(runID).
+		SetRepoID(repoItem.ID).
+		SetMirrorID(mirrorItem.ID).
+		SetWorkspaceRoot(workspaceRoot).
+		SetRepoPath(repoPath).
+		SetBranchName("agent/planner/ASE-done").
+		SetState(entticketrepoworkspace.StateReady).
+		SetPreparedAt(time.Now().UTC()).
+		Save(ctx); err != nil {
+		t.Fatalf("create ticket repo workspace: %v", err)
+	}
+
+	updated, err := service.Update(ctx, UpdateInput{
+		TicketID:                          ticketItem.ID,
 		StatusID:                          Some(fixture.doneID),
 		RestrictStatusToWorkflowFinishSet: true,
 	})
@@ -618,12 +732,13 @@ func TestTicketServiceRunsCancelHookWhenStatusChangeReleasesCurrentRun(t *testin
 		t.Fatalf("expected released current run, got %+v", updated.CurrentRunID)
 	}
 
+	//nolint:gosec // Test controls the temporary workspace path under t.TempDir-backed fixtures.
 	raw, err := os.ReadFile(filepath.Join(workspaceRoot, "hook.log"))
 	if err != nil {
-		t.Fatalf("read cancel hook log: %v", err)
+		t.Fatalf("read done hook log: %v", err)
 	}
-	if string(raw) != "cancel\n" {
-		t.Fatalf("unexpected cancel hook log %q", string(raw))
+	if string(raw) != "done\n" {
+		t.Fatalf("unexpected done hook log %q", string(raw))
 	}
 }
 

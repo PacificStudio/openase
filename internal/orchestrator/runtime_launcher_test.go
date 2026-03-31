@@ -33,12 +33,14 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
@@ -1921,52 +1923,24 @@ Exercise successful ticket hook lifecycle.
 	}
 	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
-	manager := &runtimeFakeProcessManager{
-		releaseTurn: make(chan struct{}),
-	}
+	manager := &runtimeFakeProcessManager{}
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, manager, nil, workflowSvc)
 	launcher.now = func() time.Time { return now }
 	t.Cleanup(func() {
-		select {
-		case <-manager.releaseTurn:
-		default:
-			close(manager.releaseTurn)
-		}
 		if err := launcher.Close(context.Background()); err != nil {
 			t.Errorf("close launcher: %v", err)
 		}
 	})
 
-	if err := launcher.RunTick(ctx); err != nil {
-		t.Fatalf("launch runtime session: %v", err)
+	assignment, err := launcher.loadAssignmentByRun(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("load assignment: %v", err)
 	}
-	if err := launcher.RunTick(ctx); err != nil {
-		t.Fatalf("start ready execution: %v", err)
+	session, err := launcher.startCodexSession(ctx, assignment)
+	if err != nil {
+		t.Fatalf("start codex session: %v", err)
 	}
-
-	waitForRuntimeCondition(t, 5*time.Second, func() bool {
-		runSnapshot, err := client.AgentRun.Get(ctx, runItem.ID)
-		return err == nil && runSnapshot.Status == entagentrun.StatusExecuting
-	})
-
-	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
-		SetStatusID(fixture.statusIDs["Done"]).
-		Save(ctx); err != nil {
-		t.Fatalf("mark ticket done: %v", err)
-	}
-	close(manager.releaseTurn)
-
-	waitForRuntimeCondition(t, 5*time.Second, func() bool {
-		ticketSnapshot, err := client.Ticket.Get(ctx, ticketItem.ID)
-		if err != nil {
-			return false
-		}
-		runSnapshot, err := client.AgentRun.Get(ctx, runItem.ID)
-		if err != nil {
-			return false
-		}
-		return ticketSnapshot.CurrentRunID == nil && runSnapshot.Status == entagentrun.StatusCompleted
-	})
+	launcher.storeSession(runItem.ID, session)
 
 	repoWorkspace, err := client.TicketRepoWorkspace.Query().
 		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
@@ -1975,7 +1949,55 @@ Exercise successful ticket hook lifecycle.
 		t.Fatalf("load ticket repo workspace: %v", err)
 	}
 	logPath := filepath.Join(repoWorkspace.WorkspaceRoot, "hook.log")
+	//nolint:gosec // Test controls the temporary workspace path under t.TempDir-backed fixtures.
 	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read hook log after start: %v", err)
+	}
+	if string(raw) != "claim\nstart\n" {
+		t.Fatalf("unexpected start hook log %q", string(raw))
+	}
+
+	if err := launcher.tickets.RunLifecycleHook(ctx, ticketservice.RunLifecycleHookInput{
+		TicketID: ticketItem.ID,
+		RunID:    runItem.ID,
+		HookName: infrahook.TicketHookOnComplete,
+		Blocking: true,
+	}); err != nil {
+		t.Fatalf("run ticket on_complete hooks: %v", err)
+	}
+
+	resolvedTicket, err := client.Ticket.Query().
+		Where(entticket.IDEQ(ticketItem.ID)).
+		WithCurrentRun().
+		WithWorkflow(func(query *ent.WorkflowQuery) {
+			query.WithFinishStatuses()
+		}).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("reload resolved ticket: %v", err)
+	}
+	if err := launcher.finishResolvedExecution(ctx, runItem.ID, agentItem.ID, resolvedTicket); err != nil {
+		t.Fatalf("finish resolved execution: %v", err)
+	}
+
+	ticketSnapshot, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload finished ticket: %v", err)
+	}
+	runSnapshot, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload finished run: %v", err)
+	}
+	if ticketSnapshot.CurrentRunID != nil {
+		t.Fatalf("expected current run to be cleared, got %+v", ticketSnapshot.CurrentRunID)
+	}
+	if runSnapshot.Status != entagentrun.StatusCompleted {
+		t.Fatalf("expected completed run, got %+v", runSnapshot)
+	}
+
+	//nolint:gosec // Test controls the temporary workspace path under t.TempDir-backed fixtures.
+	raw, err = os.ReadFile(logPath)
 	if err != nil {
 		t.Fatalf("read hook log: %v", err)
 	}
@@ -2106,6 +2128,7 @@ Exercise failing ticket hook lifecycle.
 		t.Fatalf("load ticket repo workspace: %v", err)
 	}
 	logPath := filepath.Join(repoWorkspace.WorkspaceRoot, "hook.log")
+	//nolint:gosec // Test controls the temporary workspace path under t.TempDir-backed fixtures.
 	raw, err := os.ReadFile(logPath)
 	if err != nil {
 		t.Fatalf("read hook log: %v", err)
