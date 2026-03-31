@@ -9,9 +9,7 @@ export type BoardColumn = {
 
 export type BoardGroup = {
   id: string
-  kind: 'stage' | 'ungrouped'
   name: string
-  description?: string
   wipInfo?: string
   columns: BoardColumn[]
 }

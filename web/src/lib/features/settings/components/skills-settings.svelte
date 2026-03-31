@@ -6,8 +6,8 @@
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
-  import { Separator } from '$ui/separator'
   import { Textarea } from '$ui/textarea'
+  import { ChevronUp, Plus, Search } from '@lucide/svelte'
   import SkillSettingsCard from './skill-settings-card.svelte'
 
   type SkillFilter = 'all' | 'builtin' | 'custom' | 'disabled'
@@ -18,6 +18,7 @@
   let query = $state('')
   let filter = $state<SkillFilter>('all')
 
+  let showCreate = $state(false)
   let createName = $state('')
   let createDescription = $state('')
   let createContent = $state('# New Skill\n\nDescribe the workflow here.\n')
@@ -37,6 +38,12 @@
         .toLowerCase()
         .includes(lowered)
     })
+  })
+
+  const counts = $derived({
+    total: skills.length,
+    enabled: skills.filter((s) => s.is_enabled).length,
+    bound: skills.filter((s) => s.bound_workflows.length > 0).length,
   })
 
   $effect(() => {
@@ -113,6 +120,7 @@
       createDescription = ''
       createContent = '# New Skill\n\nDescribe the workflow here.\n'
       createEnabled = true
+      showCreate = false
       toastStore.success('Created skill.')
     } catch (caughtError) {
       toastStore.error(
@@ -124,62 +132,89 @@
   }
 </script>
 
-<div class="space-y-6">
-  <div>
-    <h2 class="text-foreground text-base font-semibold">Skills Library</h2>
-    <p class="text-muted-foreground mt-1 text-sm">
-      Manage reusable runtime skills, their rollout state, and workflow bindings.
-    </p>
-  </div>
-
-  <Separator />
-
-  <section class="grid gap-4 rounded-lg border p-4 lg:grid-cols-[14rem_1fr]">
-    <div class="space-y-2">
-      <h3 class="text-sm font-medium">Create Skill</h3>
-      <p class="text-muted-foreground text-sm">
-        New skills are stored in the project skill library and can be bound immediately.
+<div class="space-y-5">
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <h2 class="text-foreground text-base font-semibold">Skills Library</h2>
+      <p class="text-muted-foreground mt-1 text-sm">
+        Manage reusable runtime skills, their rollout state, and workflow bindings.
       </p>
     </div>
-    <div class="space-y-3">
-      <div class="grid gap-3 md:grid-cols-2">
-        <Input bind:value={createName} placeholder="deploy-docker" />
-        <Input bind:value={createDescription} placeholder="Human-readable description" />
+    {#if !loading}
+      <div class="flex shrink-0 items-center gap-3">
+        <div class="text-muted-foreground flex items-center gap-2 text-xs">
+          <span>{counts.total} skills</span>
+          <span class="text-muted-foreground/40">/</span>
+          <span>{counts.enabled} enabled</span>
+          <span class="text-muted-foreground/40">/</span>
+          <span>{counts.bound} bound</span>
+        </div>
       </div>
-      <Textarea bind:value={createContent} class="min-h-40 font-mono text-sm" />
-      <label class="flex items-center gap-2 text-sm">
-        <input bind:checked={createEnabled} type="checkbox" />
-        Enable immediately
-      </label>
-      <Button onclick={() => void handleCreate()} disabled={creating}>
-        {creating ? 'Creating…' : 'Create Skill'}
-      </Button>
-    </div>
-  </section>
+    {/if}
+  </div>
 
-  <section class="grid gap-3 md:grid-cols-[1fr_auto]">
-    <Input bind:value={query} placeholder="Search skills by name, description, or creator" />
-    <div class="flex flex-wrap gap-2">
+  <div class="flex flex-wrap items-center gap-2">
+    <div class="relative min-w-48 flex-1">
+      <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+      <Input bind:value={query} placeholder="Search skills…" class="pl-9" />
+    </div>
+    <div class="flex items-center gap-1.5">
       {#each ['all', 'builtin', 'custom', 'disabled'] as item}
         <Button
           type="button"
-          variant={filter === item ? 'default' : 'outline'}
+          size="sm"
+          variant={filter === item ? 'secondary' : 'ghost'}
+          class="h-8 text-xs capitalize"
           onclick={() => (filter = item as SkillFilter)}
         >
           {item}
         </Button>
       {/each}
     </div>
-  </section>
+    <Button size="sm" class="h-8 gap-1.5" onclick={() => (showCreate = !showCreate)}>
+      {#if showCreate}
+        <ChevronUp class="size-3.5" />
+      {:else}
+        <Plus class="size-3.5" />
+      {/if}
+      New Skill
+    </Button>
+  </div>
+
+  {#if showCreate}
+    <section class="bg-muted/40 space-y-3 rounded-lg border p-4">
+      <div class="grid gap-3 md:grid-cols-2">
+        <Input bind:value={createName} placeholder="Skill name, e.g. deploy-docker" />
+        <Input bind:value={createDescription} placeholder="Human-readable description" />
+      </div>
+      <Textarea bind:value={createContent} class="min-h-32 font-mono text-sm" />
+      <div class="flex items-center justify-between">
+        <label class="flex items-center gap-2 text-sm">
+          <input bind:checked={createEnabled} type="checkbox" />
+          Enable immediately
+        </label>
+        <div class="flex gap-2">
+          <Button type="button" variant="ghost" size="sm" onclick={() => (showCreate = false)}>
+            Cancel
+          </Button>
+          <Button size="sm" onclick={() => void handleCreate()} disabled={creating}>
+            {creating ? 'Creating…' : 'Create'}
+          </Button>
+        </div>
+      </div>
+    </section>
+  {/if}
 
   {#if loading}
-    <div class="text-muted-foreground text-sm">Loading skills…</div>
+    <div class="text-muted-foreground py-8 text-sm">Loading skills…</div>
   {:else if filteredSkills.length === 0}
-    <div class="text-muted-foreground rounded-lg border border-dashed p-6 text-sm">
-      No skills matched the current query.
+    <div class="text-muted-foreground rounded-lg border border-dashed py-12 text-center text-sm">
+      {skills.length === 0
+        ? 'No skills yet. Create one to get started.'
+        : 'No skills match your filters.'}
     </div>
   {:else}
-    <div class="space-y-4">
+    <div class="divide-border divide-y rounded-lg border">
       {#each filteredSkills as skill (skill.id)}
         <SkillSettingsCard {skill} {workflows} onChanged={reloadCurrentProjectSkills} />
       {/each}

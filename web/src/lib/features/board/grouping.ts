@@ -24,7 +24,6 @@ export function buildBoardGroups(
   return [
     {
       id: 'board',
-      kind: 'ungrouped',
       name: 'Board',
       columns,
     },

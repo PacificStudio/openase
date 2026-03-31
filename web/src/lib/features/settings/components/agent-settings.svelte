@@ -1,6 +1,16 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
-  import { listAgents, listProviders, updateProject } from '$lib/api/openase'
+  import type { AgentProvider, Machine } from '$lib/api/contracts'
+  import { listAgents, listMachines, listProviders, updateProject } from '$lib/api/openase'
+  import {
+    applyUpdatedProviderState,
+    buildProviderCards,
+    createProviderEditorState,
+    ProviderConfigSheet,
+    ProviderList,
+    type ProviderConfig,
+    type ProviderDraftField,
+  } from '$lib/features/agents'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Separator } from '$ui/separator'
@@ -8,10 +18,16 @@
   import { buildProviderOptions, parseDefaultProviderSelection } from './agent-settings-model'
 
   let providers = $state(buildProviderOptions([], []))
+  let providerCards = $state<ProviderConfig[]>([])
+  let machineItems = $state<Machine[]>([])
+  let providerItems = $state<AgentProvider[]>([])
   let loading = $state(false)
   let loadError = $state('')
   let saving = $state(false)
   let selectedDefaultProviderId = $state('')
+  let providerConfigOpen = $state(false)
+
+  const providerEditor = createProviderEditorState()
 
   const selectedDefaultProvider = $derived(
     providers.find((provider) => provider.id === selectedDefaultProviderId) ?? null,
@@ -20,6 +36,9 @@
     providers.find((provider) => provider.id === appStore.currentOrg?.default_agent_provider_id) ??
       null,
   )
+  const selectedProvider = $derived(
+    providerCards.find((p) => p.id === providerEditor.selectedProviderId) ?? null,
+  )
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
@@ -27,9 +46,13 @@
 
     if (!projectId || !orgId) {
       providers = []
+      providerCards = []
+      machineItems = []
+      providerItems = []
       loading = false
       loadError = ''
       selectedDefaultProviderId = ''
+      providerEditor.reset()
       return
     }
 
@@ -42,14 +65,22 @@
       loadError = ''
 
       try {
-        const [providerPayload, agentPayload] = await Promise.all([
+        const [providerPayload, agentPayload, machinePayload] = await Promise.all([
           listProviders(orgId),
           listAgents(projectId),
+          listMachines(orgId),
         ])
 
         if (cancelled) return
 
+        providerItems = providerPayload.providers
         providers = buildProviderOptions(providerPayload.providers, agentPayload.agents)
+        providerCards = buildProviderCards(
+          providerPayload.providers,
+          agentPayload.agents,
+          appStore.currentOrg?.default_agent_provider_id ?? null,
+        )
+        machineItems = machinePayload.machines
       } catch (caughtError) {
         if (cancelled) return
         loadError =
@@ -101,13 +132,37 @@
       saving = false
     }
   }
+
+  function handleConfigureProvider(provider: ProviderConfig) {
+    providerEditor.open(provider)
+    providerConfigOpen = true
+  }
+
+  function handleProviderDraftChange(field: ProviderDraftField, value: string) {
+    providerEditor.updateField(field, value)
+  }
+
+  function applyUpdatedProvider(updatedProvider: AgentProvider) {
+    providerItems = providerItems.map((p) => (p.id === updatedProvider.id ? updatedProvider : p))
+
+    const nextState = applyUpdatedProviderState(providerCards, [], updatedProvider)
+    providerCards = nextState.providers
+    if (nextState.provider) providerEditor.open(nextState.provider)
+
+    // Rebuild the defaults card options
+    providers = buildProviderOptions(providerItems, [])
+  }
+
+  async function handleProviderSave() {
+    await providerEditor.save(selectedProvider, applyUpdatedProvider)
+  }
 </script>
 
 <div class="space-y-6">
   <div>
     <h2 class="text-foreground text-base font-semibold">Agents</h2>
     <p class="text-muted-foreground mt-1 max-w-3xl text-sm">
-      Default provider selection for this project. Manage agent inventory and runtime controls from
+      Configure providers and default routing for this project. Manage agent runtime controls from
       the Agents page in the sidebar.
     </p>
   </div>
@@ -133,5 +188,26 @@
         onSave={handleSaveDefaultProvider}
       />
     </div>
+
+    {#if providerCards.length > 0}
+      <Separator />
+      <div>
+        <h3 class="text-foreground text-sm font-semibold">Providers</h3>
+        <p class="text-muted-foreground mt-1 text-sm">
+          Configure provider bindings, adapter settings, and model parameters.
+        </p>
+      </div>
+      <ProviderList providers={providerCards} onConfigure={handleConfigureProvider} />
+    {/if}
   {/if}
 </div>
+
+<ProviderConfigSheet
+  bind:open={providerConfigOpen}
+  provider={selectedProvider}
+  machines={machineItems}
+  draft={providerEditor.draft}
+  saving={providerEditor.saving}
+  onDraftChange={handleProviderDraftChange}
+  onSave={handleProviderSave}
+/>

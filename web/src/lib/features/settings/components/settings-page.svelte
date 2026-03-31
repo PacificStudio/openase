@@ -13,7 +13,6 @@
   import SecuritySettings from './security-settings.svelte'
   import SkillsSettings from './skills-settings.svelte'
   import StatusSettings from './status-settings.svelte'
-  import WorkflowSettings from './workflow-settings.svelte'
 
   let activeSection = $state<SettingsSection>('general')
   let hashSyncReady = $state(false)
@@ -63,8 +62,6 @@
         <StatusSettings />
       {:else if activeSection === 'repositories'}
         <RepositoriesSettings />
-      {:else if activeSection === 'workflows'}
-        <WorkflowSettings onOpenRepositories={() => handleSelect('repositories')} />
       {:else if activeSection === 'agents'}
         <AgentSettings />
       {:else if activeSection === 'connectors'}

@@ -1,35 +1,23 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import { writeHashSelection } from '$lib/utils/hash-state'
-  import type { AgentProvider, Machine } from '$lib/api/contracts'
+  import type { AgentProvider } from '$lib/api/contracts'
   import type { AgentsPageData } from '../data'
   import { loadAgentsPageResult } from '../page-data'
-  import { applyUpdatedProviderState } from '../model'
   import { createAgentRegistrationDraft } from '../registration'
   import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
-  import type {
-    AgentInstance,
-    AgentRunInstance,
-    ProviderConfig,
-    ProviderDraftField,
-  } from '../types'
+  import type { AgentInstance, AgentRunInstance } from '../types'
+  import AgentDrawer from './agent-drawer.svelte'
   import AgentsPageContent from './agents-page-content.svelte'
   import { registerAgentPageAction, runAgentRuntimePageAction } from './agents-page-actions'
   import { createAgentOutputState } from './agent-output-state.svelte'
-  import { mapAgentsPageData, resolveAgentPageTab, type AgentPageTab } from './agents-page-helpers'
+  import { mapAgentsPageData } from './agents-page-helpers'
   import { connectAgentsPageStreams } from './agents-page-streams'
   import { wireAgentOutputStream } from './agent-output-stream.svelte'
-  import { createProviderEditorState } from './provider-editor-state.svelte'
 
-  let activeTab = $state<AgentPageTab>('runtime')
-  let hashSyncReady = $state(false)
   let agents = $state<AgentInstance[]>([])
   let agentRuns = $state<AgentRunInstance[]>([])
-  let providers = $state<ProviderConfig[]>([])
   let providerItems = $state<AgentProvider[]>([])
-  let machineItems = $state<Machine[]>([])
   let loading = $state(false),
     error = $state('')
   let registerSheetOpen = $state(false)
@@ -37,39 +25,16 @@
   let registrationDraft = $state<AgentRegistrationDraft>(
     createAgentRegistrationDraft([], appStore.currentOrg?.default_agent_provider_id),
   )
-  let providerConfigOpen = $state(false),
-    outputSheetOpen = $state(false),
+  let outputSheetOpen = $state(false),
     loadVersion = 0
-  const outputState = createAgentOutputState(),
-    providerEditor = createProviderEditorState()
+  const outputState = createAgentOutputState()
   let outputAgentId = $state<string | null>(null)
   let runtimeActionAgentId = $state<string | null>(null)
+  let agentDrawerOpen = $state(false)
+  let selectedAgentId = $state<string | null>(null)
 
-  const selectedProvider = $derived(
-    providers.find((provider) => provider.id === providerEditor.selectedProviderId) ?? null,
-  )
   const selectedOutputAgent = $derived(agents.find((agent) => agent.id === outputAgentId) ?? null)
-
-  onMount(() => {
-    activeTab = resolveAgentPageTab()
-    hashSyncReady = true
-
-    const handleHashChange = () => (activeTab = resolveAgentPageTab())
-
-    window.addEventListener('hashchange', handleHashChange)
-
-    return () => {
-      window.removeEventListener('hashchange', handleHashChange)
-    }
-  })
-
-  $effect(() => {
-    if (!hashSyncReady) {
-      return
-    }
-
-    writeHashSelection(activeTab)
-  })
+  const selectedAgent = $derived(agents.find((agent) => agent.id === selectedAgentId) ?? null)
 
   $effect(() => {
     const projectId = appStore.currentProject?.id,
@@ -77,11 +42,8 @@
     if (!projectId || !orgId) {
       agents = []
       agentRuns = []
-      providers = []
       providerItems = []
-      machineItems = []
       resetRegistrationDraft()
-      providerEditor.reset()
       outputAgentId = null
       outputState.reset()
       return
@@ -126,7 +88,10 @@
   }
 
   function applyPageData(data: AgentsPageData) {
-    ;({ providerItems, machineItems, providers, agents, agentRuns } = mapAgentsPageData(data))
+    const mapped = mapAgentsPageData(data)
+    providerItems = mapped.providerItems
+    agents = mapped.agents
+    agentRuns = mapped.agentRuns
   }
 
   function updateRegistrationDraft(field: AgentRegistrationDraftField, value: string) {
@@ -177,30 +142,6 @@
     resetRegistrationDraft()
   }
 
-  function handleConfigureProvider(provider: ProviderConfig) {
-    providerEditor.open(provider)
-    providerConfigOpen = true
-  }
-
-  function handleProviderDraftChange(field: ProviderDraftField, value: string) {
-    providerEditor.updateField(field, value)
-  }
-
-  function applyUpdatedProvider(updatedProvider: AgentProvider) {
-    providerItems = providerItems.map((provider) =>
-      provider.id === updatedProvider.id ? updatedProvider : provider,
-    )
-
-    const nextState = applyUpdatedProviderState(providers, agents, updatedProvider)
-    providers = nextState.providers
-    agents = nextState.agents
-    if (nextState.provider) providerEditor.open(nextState.provider)
-  }
-
-  async function handleProviderSave() {
-    await providerEditor.save(selectedProvider, applyUpdatedProvider)
-  }
-
   async function handleRuntimeAction(action: 'pause' | 'resume', agentId: string) {
     const projectId = appStore.currentProject?.id,
       orgId = appStore.currentOrg?.id
@@ -238,14 +179,11 @@
 </script>
 
 <AgentsPageContent
-  bind:activeTab
   bind:registerSheetOpen
-  bind:providerConfigOpen
   bind:outputSheetOpen
   canRegister={!!appStore.currentProject?.id && providerItems.length > 0}
   {agents}
   {agentRuns}
-  {providers}
   {loading}
   {error}
   {runtimeActionAgentId}
@@ -255,17 +193,19 @@
       ? undefined
       : 'Project context is unavailable.'}
   onOpenRegister={() => handleRegisterOpenChange(true)}
+  onSelectAgent={(agentId) => {
+    selectedAgentId = agentId
+    agentDrawerOpen = true
+  }}
   onSelectTicket={(ticketId) => appStore.openRightPanel({ type: 'ticket', id: ticketId })}
   onViewOutput={(agentId) => {
     outputAgentId = agentId
     outputState.open(agentId)
     outputSheetOpen = true
   }}
-  onConfigureProvider={handleConfigureProvider}
   onPauseAgent={(agentId) => handleRuntimeAction('pause', agentId)}
   onResumeAgent={(agentId) => handleRuntimeAction('resume', agentId)}
   {providerItems}
-  {machineItems}
   {registrationDraft}
   currentOrgSlug={appStore.currentOrg?.slug}
   currentProjectSlug={appStore.currentProject?.slug}
@@ -273,16 +213,33 @@
   onRegistrationDraftChange={updateRegistrationDraft}
   onRegisterAgent={handleRegisterAgent}
   onRegisterOpenChange={handleRegisterOpenChange}
-  {selectedProvider}
-  providerDraft={providerEditor.draft}
-  providerSaving={providerEditor.saving}
   {selectedOutputAgent}
   outputEntries={outputState.entries}
   outputSteps={outputState.stepEntries}
   outputLoading={outputState.loading}
   outputError={outputState.error}
   outputStreamState={outputState.streamState}
-  onProviderDraftChange={handleProviderDraftChange}
-  onProviderSave={handleProviderSave}
   onOutputOpenChange={handleOutputOpenChange}
+/>
+
+<AgentDrawer
+  bind:open={agentDrawerOpen}
+  agent={selectedAgent}
+  onOpenChange={(open) => {
+    agentDrawerOpen = open
+    if (!open) selectedAgentId = null
+  }}
+  onViewOutput={(agentId) => {
+    agentDrawerOpen = false
+    outputAgentId = agentId
+    outputState.open(agentId)
+    outputSheetOpen = true
+  }}
+  onDeleted={() => {
+    const projectId = appStore.currentProject?.id
+    const orgId = appStore.currentOrg?.id
+    if (projectId && orgId) {
+      void loadData({ projectId, orgId, showLoading: false })
+    }
+  }}
 />

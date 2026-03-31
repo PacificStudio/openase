@@ -1,5 +1,6 @@
 <script lang="ts">
   import MessageSquare from '@lucide/svelte/icons/message-square'
+  import Send from '@lucide/svelte/icons/send'
   import { Button } from '$ui/button'
   import { Textarea } from '$ui/textarea'
 
@@ -11,8 +12,8 @@
     onCreate?: (body: string) => Promise<boolean> | boolean
   } = $props()
 
-  let open = $state(false)
   let body = $state('')
+  let expanded = $state(false)
 
   async function handleCreate() {
     const next = body.trim()
@@ -21,49 +22,48 @@
     const success = (await onCreate?.(next)) ?? false
     if (success) {
       body = ''
-      open = false
+      expanded = false
     }
   }
 
-  function resetComposer() {
-    open = false
-    body = ''
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault()
+      void handleCreate()
+    }
   }
 </script>
 
 <div
-  class="bg-muted/30 border-border relative z-10 mt-1 flex size-8 shrink-0 items-center justify-center rounded-full border"
+  class="bg-muted/30 border-border relative z-10 mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border"
 >
-  <MessageSquare class="size-4" />
+  <MessageSquare class="size-3" />
 </div>
 <div class="min-w-0 flex-1">
-  <div class="border-border bg-muted/10 rounded-xl border p-4">
-    {#if open}
-      <div class="mb-3 flex items-center gap-2">
-        <MessageSquare class="text-muted-foreground size-4" />
-        <span class="text-sm font-medium">Add a comment</span>
-      </div>
-      <Textarea
-        rows={4}
-        bind:value={body}
-        placeholder="Leave a comment (Markdown supported)…"
-        disabled={creating}
-      />
-      <div class="mt-3 flex justify-end gap-2">
-        <Button size="sm" variant="outline" onclick={resetComposer} disabled={creating}>
-          Cancel
-        </Button>
-        <Button size="sm" onclick={handleCreate} disabled={!body.trim() || creating}>
+  <div class="border-border bg-muted/10 rounded-lg border px-3 py-2">
+    <Textarea
+      rows={expanded ? 4 : 1}
+      bind:value={body}
+      placeholder="Leave a comment (Markdown supported)…"
+      disabled={creating}
+      onfocus={() => (expanded = true)}
+      onkeydown={handleKeydown}
+      class="min-h-0 resize-none border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
+    />
+    {#if expanded}
+      <div class="mt-2 flex items-center justify-between">
+        <span class="text-muted-foreground text-[11px]">
+          {navigator?.platform?.includes('Mac') ? '⌘' : 'Ctrl'}+Enter to send
+        </span>
+        <Button
+          size="sm"
+          class="h-7 gap-1.5 px-2.5"
+          onclick={handleCreate}
+          disabled={!body.trim() || creating}
+        >
+          <Send class="size-3" />
           {creating ? 'Posting…' : 'Comment'}
         </Button>
-      </div>
-    {:else}
-      <div class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2">
-          <MessageSquare class="text-muted-foreground size-4" />
-          <span class="text-sm font-medium">Comment on this ticket</span>
-        </div>
-        <Button size="sm" variant="outline" onclick={() => (open = true)}>Add comment</Button>
       </div>
     {/if}
   </div>

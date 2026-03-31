@@ -348,9 +348,148 @@ func TestChatDeleteRouteAndErrorMappings(t *testing.T) {
 	}
 }
 
+func TestChatRouteLogsStructuredStartFailures(t *testing.T) {
+	projectID := uuid.New()
+	providerID := uuid.New()
+	var logBuffer bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logBuffer, nil))
+
+	chatSvc := chatservice.NewService(
+		logger,
+		chatRuntimeStub{
+			startErr: errors.New("provider bootstrap exploded"),
+		},
+		chatCatalogStub{
+			project: catalogdomain.Project{
+				ID:             projectID,
+				OrganizationID: uuid.New(),
+				Name:           "OpenASE",
+			},
+			providers: []catalogdomain.AgentProvider{
+				{
+					ID:          providerID,
+					Name:        "Codex",
+					AdapterType: catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+					Available:   true,
+				},
+			},
+		},
+		chatTicketStub{},
+		chatWorkflowStub{},
+		"",
+	)
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		logger,
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithChatService(chatSvc),
+	)
+
+	body := mustMarshalJSON(t, map[string]any{
+		"message":     "帮我总结一下项目状态",
+		"source":      "project_sidebar",
+		"provider_id": providerID.String(),
+		"context": map[string]any{
+			"project_id": projectID.String(),
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat", bytes.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set(chatUserHeader, "browser-user-1")
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	logOutput := logBuffer.String()
+	for _, want := range []string{
+		"chat start failed",
+		"provider bootstrap exploded",
+		"chat_source=project_sidebar",
+		"chat_project_id=" + projectID.String(),
+		"chat_provider_id=" + providerID.String(),
+		"chat_session_id=",
+		"chat_user_id=browser-user-1",
+	} {
+		if !strings.Contains(logOutput, want) {
+			t.Fatalf("expected log output to contain %q, got %q", want, logOutput)
+		}
+	}
+}
+
 type fakeClaudeAdapter struct {
 	session  *fakeClaudeSession
 	lastSpec provider.ClaudeCodeSessionSpec
+}
+
+type chatRuntimeStub struct {
+	startErr error
+}
+
+func (s chatRuntimeStub) Supports(catalogdomain.AgentProvider) bool {
+	return true
+}
+
+func (s chatRuntimeStub) StartTurn(context.Context, chatservice.RuntimeTurnInput) (chatservice.TurnStream, error) {
+	return chatservice.TurnStream{}, s.startErr
+}
+
+func (s chatRuntimeStub) CloseSession(chatservice.SessionID) bool {
+	return false
+}
+
+type chatCatalogStub struct {
+	project   catalogdomain.Project
+	providers []catalogdomain.AgentProvider
+}
+
+func (s chatCatalogStub) GetProject(context.Context, uuid.UUID) (catalogdomain.Project, error) {
+	return s.project, nil
+}
+
+func (s chatCatalogStub) ListActivityEvents(context.Context, catalogdomain.ListActivityEvents) ([]catalogdomain.ActivityEvent, error) {
+	return nil, nil
+}
+
+func (s chatCatalogStub) ListTicketRepoScopes(context.Context, uuid.UUID, uuid.UUID) ([]catalogdomain.TicketRepoScope, error) {
+	return nil, nil
+}
+
+func (s chatCatalogStub) ListAgentProviders(context.Context, uuid.UUID) ([]catalogdomain.AgentProvider, error) {
+	return s.providers, nil
+}
+
+func (s chatCatalogStub) GetAgentProvider(context.Context, uuid.UUID) (catalogdomain.AgentProvider, error) {
+	if len(s.providers) == 0 {
+		return catalogdomain.AgentProvider{}, errors.New("provider not found")
+	}
+	return s.providers[0], nil
+}
+
+type chatTicketStub struct{}
+
+func (chatTicketStub) Get(context.Context, uuid.UUID) (ticketservice.Ticket, error) {
+	return ticketservice.Ticket{}, errors.New("not implemented")
+}
+
+func (chatTicketStub) List(context.Context, ticketservice.ListInput) ([]ticketservice.Ticket, error) {
+	return nil, nil
+}
+
+type chatWorkflowStub struct{}
+
+func (chatWorkflowStub) Get(context.Context, uuid.UUID) (workflowservice.WorkflowDetail, error) {
+	return workflowservice.WorkflowDetail{}, errors.New("not implemented")
 }
 
 func (f *fakeClaudeAdapter) Start(_ context.Context, spec provider.ClaudeCodeSessionSpec) (provider.ClaudeCodeSession, error) {

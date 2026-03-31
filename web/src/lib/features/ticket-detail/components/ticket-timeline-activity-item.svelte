@@ -11,6 +11,22 @@
 
   let { item }: { item: TicketActivityTimelineItem } = $props()
   const activityStyle = $derived.by(() => activityPresentation(item.eventType))
+  const statusChips = $derived(extractStatusChips(item.metadata))
+  const linkEntries = $derived(extractLinks(item.metadata))
+
+  const hiddenKeys = new Set([
+    'event_type',
+    'stream',
+    'run_id',
+    'current_run_id',
+    'agent_id',
+    'agent_run_id',
+    'ticket_id',
+    'workflow_id',
+    'provider_id',
+  ])
+
+  const statusKeys = new Set(['runtime_phase', 'runtime_control_state', 'status', 'state', 'phase'])
 
   function activityPresentation(eventType: string) {
     if (eventType.startsWith('pr.')) {
@@ -36,66 +52,63 @@
     }
   }
 
-  function metadataEntries(metadata: Record<string, unknown>) {
+  function extractStatusChips(metadata: Record<string, unknown>) {
     return Object.entries(metadata)
-      .filter(([key, value]) => key !== 'event_type' && key !== 'stream' && isScalarValue(value))
-      .slice(0, 4)
-      .map(([key, value]) => ({
-        key,
-        label: humanizeLabel(key),
-        value: String(value),
-        isUrl: typeof value === 'string' && /^https?:\/\//.test(value),
-      }))
+      .filter(
+        ([key, value]) =>
+          statusKeys.has(key) && typeof value === 'string' && value.trim().length > 0,
+      )
+      .map(([, value]) => String(value).replace(/[_-]+/g, ' '))
   }
 
-  function isScalarValue(value: unknown): value is string | number | boolean {
-    return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+  function extractLinks(metadata: Record<string, unknown>) {
+    return Object.entries(metadata)
+      .filter(
+        ([key, value]) =>
+          !hiddenKeys.has(key) &&
+          !statusKeys.has(key) &&
+          typeof value === 'string' &&
+          /^https?:\/\//.test(value),
+      )
+      .slice(0, 2)
+      .map(([key, value]) => ({
+        label: key.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+        url: String(value),
+      }))
   }
 
   function humanizeEventLabel(value: string) {
     return activityEventLabel(value)
   }
-
-  function humanizeLabel(value: string) {
-    return value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
-  }
 </script>
 
 <div
-  class="bg-muted/30 border-border relative z-10 mt-1 flex size-8 shrink-0 items-center justify-center rounded-full border"
+  class="bg-muted/30 border-border relative z-10 mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border"
 >
-  <activityStyle.icon class={cn('size-4', activityStyle.className)} />
+  <activityStyle.icon class={cn('size-3', activityStyle.className)} />
 </div>
 <div class="min-w-0 flex-1">
-  <div class="border-border/70 bg-muted/15 rounded-xl border border-dashed px-4 py-3">
-    <div class="flex flex-wrap items-center gap-2 text-xs">
-      <span class="font-medium">{humanizeEventLabel(item.title || item.eventType)}</span>
-      <span class="text-muted-foreground">{formatRelativeTime(item.createdAt)}</span>
-    </div>
-    <p class="text-muted-foreground mt-2 text-sm leading-6 whitespace-pre-wrap">
-      {item.bodyText || humanizeEventLabel(item.eventType)}
-    </p>
-    {#if metadataEntries(item.metadata).length > 0}
-      <div class="mt-3 flex flex-wrap gap-2">
-        {#each metadataEntries(item.metadata) as entry (entry.key)}
-          {#if entry.isUrl}
-            <a
-              class="bg-background text-muted-foreground hover:text-foreground rounded-full border px-2.5 py-1 text-[11px]"
-              href={entry.value}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {entry.label}
-            </a>
-          {:else}
-            <span
-              class="bg-background text-muted-foreground rounded-full border px-2.5 py-1 text-[11px]"
-            >
-              {entry.label}: {entry.value}
-            </span>
-          {/if}
-        {/each}
-      </div>
-    {/if}
+  <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 py-1 text-xs">
+    <span class="text-foreground font-medium">
+      {humanizeEventLabel(item.title || item.eventType)}
+    </span>
+    {#each statusChips as chip (chip)}
+      <span
+        class="bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+      >
+        {chip}
+      </span>
+    {/each}
+    {#each linkEntries as link (link.url)}
+      <a
+        class="text-primary text-[10px] hover:underline"
+        href={link.url}
+        target="_blank"
+        rel="noreferrer"
+      >
+        {link.label}
+      </a>
+    {/each}
+    <span class="text-muted-foreground">{formatRelativeTime(item.createdAt)}</span>
   </div>
 </div>

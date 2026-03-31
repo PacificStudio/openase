@@ -241,6 +241,7 @@
 {#snippet actions()}
   <WorkflowsPageHeaderActions
     canCreate={statuses.length > 0 && agentOptions.length > 0}
+    statusStageHref={settingsHref ? `${settingsHref}#statuses` : null}
     onCreate={handleCreateWorkflow}
   />
 {/snippet}

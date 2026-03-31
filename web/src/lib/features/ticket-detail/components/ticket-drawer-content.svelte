@@ -154,11 +154,8 @@
       organizationId={appStore.currentOrg?.id ?? ''}
       defaultProviderId={appStore.currentProject?.default_agent_provider_id ?? null}
       context={{ projectId, ticketId: ticket.id }}
-      title="Ticket AI Analysis"
-      description={`AI context for ${ticket.identifier}.`}
-      placeholder="Ask why this ticket failed, what the agent did, or how to split the work."
-      emptyStateTitle="Ticket context is ready"
-      emptyStateDescription="Ask for failure analysis, execution summaries, or sub-ticket suggestions."
+      title="Ticket AI"
+      placeholder="Ask about failures, execution history, or how to split work…"
     />
   </div>
 {/if}
@@ -268,21 +265,16 @@
       <Separator />
 
       <!-- Repositories -->
-      <section class="space-y-3">
-        <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
-          Repositories
-        </span>
-        <TicketRepos
-          {ticket}
-          repos={repoOptions}
-          {creatingRepoScope}
-          {updatingRepoScopeId}
-          {deletingRepoScopeId}
-          {onCreateScope}
-          {onUpdateScope}
-          {onDeleteScope}
-        />
-      </section>
+      <TicketRepos
+        {ticket}
+        repos={repoOptions}
+        {creatingRepoScope}
+        {updatingRepoScopeId}
+        {deletingRepoScopeId}
+        {onCreateScope}
+        {onUpdateScope}
+        {onDeleteScope}
+      />
 
       <!-- Hooks -->
       {#if hooks.length > 0}

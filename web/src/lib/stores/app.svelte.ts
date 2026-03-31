@@ -1,7 +1,7 @@
 import type { AgentProvider, Organization, Project } from '$lib/api/contracts'
 import type { ProjectSection } from '$lib/stores/app-context'
 
-type AppPanelContent = { type: 'ticket'; id: string }
+type AppPanelContent = { type: 'ticket'; id: string } | { type: 'agent'; id: string }
 export type AppTheme = 'light' | 'dark'
 
 const flipTheme = (theme: AppTheme): AppTheme => (theme === 'dark' ? 'light' : 'dark')

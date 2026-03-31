@@ -49,12 +49,22 @@ describe('machine health panel view', () => {
     )
 
     const auditRows = buildAuditRows(snapshot!)
-    expect(auditRows.find((row) => row.label === 'GitHub CLI')?.detail).toBe(
-      'Observational only · logged_in',
-    )
-    expect(auditRows.find((row) => row.label === 'GitHub token probe')).toMatchObject({
-      value: 'valid',
-      detail: 'Readiness signal · repo, read:org',
+
+    const ghCliRow = auditRows.find((row) => row.kind === 'gh-cli')
+    expect(ghCliRow).toMatchObject({
+      kind: 'gh-cli',
+      label: 'GitHub CLI',
+      installed: 'yes',
+      authStatus: 'logged_in',
+    })
+
+    const tokenRow = auditRows.find((row) => row.kind === 'token-probe')
+    expect(tokenRow).toMatchObject({
+      kind: 'token-probe',
+      label: 'GitHub Token',
+      state: 'valid',
+      permissions: ['repo', 'read:org'],
+      detail: null,
     })
   })
 })

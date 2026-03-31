@@ -99,6 +99,9 @@ export async function consumeEventStream(
       buffer += decoder.decode(value, { stream: true })
       buffer = emitBufferedFrames(buffer, onEvent)
     }
+  } catch (error) {
+    await reader.cancel().catch(() => {})
+    throw error
   } finally {
     reader.releaseLock()
   }

@@ -373,6 +373,163 @@ func TestWorkflowServiceSkillLifecycleCommits(t *testing.T) {
 	assertWorkflowGitCommitMessage(t, commitMessages, "feat(skills): delete deploy-docker")
 }
 
+func TestWorkflowServiceUnbindSkillIgnoresUnrelatedProjectMirrorState(t *testing.T) {
+	ctx := context.Background()
+	client := openWorkflowTestEntClient(t)
+	repoRoot := createWorkflowTestGitRepo(t)
+	service := newWorkflowTestService(t, client, repoRoot)
+
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-isolation").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	machine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create machine: %v", err)
+	}
+
+	projectWithoutMirror, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("Mirror Pending").
+		SetSlug("mirror-pending").
+		SetStatus("In Progress").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create projectWithoutMirror: %v", err)
+	}
+	if _, err := client.ProjectRepo.Create().
+		SetProjectID(projectWithoutMirror.ID).
+		SetName("todo-app").
+		SetRepositoryURL("https://github.com/acme/todo-app.git").
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("todo-app").
+		SetIsPrimary(true).
+		Save(ctx); err != nil {
+		t.Fatalf("create primary repo without mirror: %v", err)
+	}
+
+	readyProject, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase-isolated").
+		SetStatus("In Progress").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create readyProject: %v", err)
+	}
+	projectRepo, err := client.ProjectRepo.Create().
+		SetProjectID(readyProject.ID).
+		SetName(filepath.Base(repoRoot)).
+		SetRepositoryURL("https://github.com/GrandCX/openase.git").
+		SetDefaultBranch("main").
+		SetWorkspaceDirname(filepath.Base(repoRoot)).
+		SetIsPrimary(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ready project repo: %v", err)
+	}
+	if _, err := client.ProjectRepoMirror.Create().
+		SetProjectRepoID(projectRepo.ID).
+		SetMachineID(machine.ID).
+		SetLocalPath(repoRoot).
+		SetState(entprojectrepomirror.StateReady).
+		Save(ctx); err != nil {
+		t.Fatalf("create ready project mirror: %v", err)
+	}
+
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, readyProject.ID)
+	if err != nil {
+		t.Fatalf("reset statuses: %v", err)
+	}
+	statusIDs := make(map[string]uuid.UUID, len(statuses))
+	for _, status := range statuses {
+		statusIDs[status.Name] = status.ID
+	}
+
+	providerItem, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(machine.ID).
+		SetName("Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	agentItem, err := client.Agent.Create().
+		SetProjectID(readyProject.ID).
+		SetProviderID(providerItem.ID).
+		SetName("codex-coding").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+
+	createdWorkflow, err := service.Create(ctx, CreateInput{
+		ProjectID:           readyProject.ID,
+		AgentID:             agentItem.ID,
+		Name:                "Coding Workflow",
+		Type:                entworkflow.TypeCoding,
+		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+		Hooks:               map[string]any{},
+		MaxConcurrent:       1,
+		MaxRetryAttempts:    1,
+		TimeoutMinutes:      60,
+		StallTimeoutMinutes: 5,
+		IsActive:            true,
+		PickupStatusIDs:     MustStatusBindingSet(statusIDs["Todo"]),
+		FinishStatusIDs:     MustStatusBindingSet(statusIDs["Done"]),
+	})
+	if err != nil {
+		t.Fatalf("Create() workflow error = %v", err)
+	}
+
+	createdSkill, err := service.CreateSkill(ctx, CreateSkillInput{
+		ProjectID:   readyProject.ID,
+		Name:        "deploy-docker",
+		Content:     "# Deploy Docker\n\nRun the Docker deployment flow.\n",
+		Description: "Deploy Docker",
+	})
+	if err != nil {
+		t.Fatalf("CreateSkill() error = %v", err)
+	}
+	if _, err := service.BindSkills(ctx, UpdateWorkflowSkillsInput{
+		WorkflowID: createdWorkflow.ID,
+		Skills:     []string{createdSkill.Name},
+	}); err != nil {
+		t.Fatalf("BindSkills() error = %v", err)
+	}
+
+	if _, err := service.UnbindSkill(ctx, UpdateSkillBindingsInput{
+		SkillID:     createdSkill.ID,
+		WorkflowIDs: []uuid.UUID{createdWorkflow.ID},
+	}); err != nil {
+		t.Fatalf("UnbindSkill() error = %v", err)
+	}
+
+	harnessDoc, err := service.GetHarness(ctx, createdWorkflow.ID)
+	if err != nil {
+		t.Fatalf("GetHarness() error = %v", err)
+	}
+	skillNames, err := ParseHarnessSkills(harnessDoc.Content)
+	if err != nil {
+		t.Fatalf("ParseHarnessSkills() error = %v", err)
+	}
+	if len(skillNames) != 0 {
+		t.Fatalf("ParseHarnessSkills() after unbind = %v, want empty", skillNames)
+	}
+}
+
 func TestWorkflowServiceUsesMirrorFreshnessPolicyForReadAndWritePaths(t *testing.T) {
 	ctx := context.Background()
 	client := openWorkflowTestEntClient(t)

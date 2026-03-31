@@ -27,7 +27,22 @@ export function syncMachineListState(args: {
     }
   }
 
-  const nextMachine = nextMachines.find((machine) => machine.id === selectedId) ?? nextMachines[0]
+  const nextMachine = selectedId
+    ? (nextMachines.find((machine) => machine.id === selectedId) ?? null)
+    : null
+
+  if (!nextMachine) {
+    return {
+      viewState: {
+        ...createEmptyState(orgId),
+        machines: nextMachines,
+        workspaceState: 'ready',
+        searchQuery,
+      },
+      selectedMachineId: null,
+    }
+  }
+
   return {
     viewState: {
       ...createEditorSelectionState(orgId, nextMachines, nextMachine),

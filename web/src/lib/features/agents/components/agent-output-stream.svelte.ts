@@ -18,37 +18,47 @@ export function wireAgentOutputStream(input: {
       return
     }
 
-    void input.outputState.load(projectId, agentId, true)
+    let cancelled = false
+    let disconnectOutput: (() => void) | null = null
+    let disconnectSteps: (() => void) | null = null
 
-    const disconnectOutput = connectEventStream(
-      `/api/v1/projects/${projectId}/agents/${agentId}/output/stream`,
-      {
-        onEvent: (frame) => input.outputState.handleFrame(agentId, frame),
-        onStateChange: (state) => {
-          input.outputState.setTraceStreamState(state)
+    // Load initial data first, then open SSE streams.
+    // Opening all connections simultaneously exceeds the browser's per-origin
+    // connection limit (6 for HTTP/1.1), causing ERR_INSUFFICIENT_RESOURCES.
+    void input.outputState.load(projectId, agentId, true).then(() => {
+      if (cancelled) return
+
+      disconnectOutput = connectEventStream(
+        `/api/v1/projects/${projectId}/agents/${agentId}/output/stream`,
+        {
+          onEvent: (frame) => input.outputState.handleFrame(agentId, frame),
+          onStateChange: (state) => {
+            input.outputState.setTraceStreamState(state)
+          },
+          onError: (streamError) => {
+            console.error('Agent output stream error:', streamError)
+          },
         },
-        onError: (streamError) => {
-          console.error('Agent output stream error:', streamError)
+      )
+      disconnectSteps = connectEventStream(
+        `/api/v1/projects/${projectId}/agents/${agentId}/steps/stream`,
+        {
+          onEvent: (frame) => input.outputState.handleFrame(agentId, frame),
+          onStateChange: (state) => {
+            input.outputState.setStepStreamState(state)
+          },
+          onError: (streamError) => {
+            console.error('Agent step stream error:', streamError)
+          },
         },
-      },
-    )
-    const disconnectSteps = connectEventStream(
-      `/api/v1/projects/${projectId}/agents/${agentId}/steps/stream`,
-      {
-        onEvent: (frame) => input.outputState.handleFrame(agentId, frame),
-        onStateChange: (state) => {
-          input.outputState.setStepStreamState(state)
-        },
-        onError: (streamError) => {
-          console.error('Agent step stream error:', streamError)
-        },
-      },
-    )
+      )
+    })
 
     return () => {
+      cancelled = true
       input.outputState.invalidate()
-      disconnectOutput()
-      disconnectSteps()
+      disconnectOutput?.()
+      disconnectSteps?.()
     }
   })
 }

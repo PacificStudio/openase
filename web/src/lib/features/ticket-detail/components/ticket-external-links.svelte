@@ -116,9 +116,5 @@
         </div>
       {/each}
     </div>
-  {:else}
-    <div class="text-muted-foreground rounded-md border border-dashed px-3 py-4 text-xs">
-      No external links attached yet.
-    </div>
   {/if}
 </div>

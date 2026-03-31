@@ -2,7 +2,18 @@ import type { TicketDetail } from './types'
 
 export const dependencyRelationOptions = [
   { value: 'blocks', label: 'Blocks' },
+  { value: 'blocked_by', label: 'Blocked by' },
   { value: 'sub_issue', label: 'Sub-issue' },
+] as const
+
+export const dependencyRelationActions = [
+  { relation: 'sub_issue', label: 'Add parent', description: 'This ticket becomes a sub-issue' },
+  {
+    relation: 'blocked_by',
+    label: 'Add blocked by',
+    description: 'This ticket is blocked by another',
+  },
+  { relation: 'blocks', label: 'Mark as blocking', description: 'This ticket blocks another' },
 ] as const
 
 export const repoScopePrStatusOptions = [

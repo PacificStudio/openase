@@ -1,9 +1,15 @@
 <script lang="ts">
-  import { Badge } from '$ui/badge'
-  import { Button } from '$ui/button'
-  import { formatRelativeTime } from '$lib/utils'
-  import { RefreshCw } from '@lucide/svelte'
+  import {
+    CircleCheck,
+    CircleX,
+    CircleHelp,
+    GitBranch,
+    Terminal,
+    KeyRound,
+    Globe,
+  } from '@lucide/svelte'
   import type { MachineItem, MachineProbeResult, MachineSnapshot } from '../types'
+  import type { TruthyState, AuditTokenState } from './machine-health-panel-view'
   import {
     buildAuditRows,
     buildLevelCards,
@@ -12,8 +18,44 @@
     runtimeLabel,
     stateBadgeVariant,
     stateLabel,
-    truthyLabel,
+    toTruthyState,
   } from './machine-health-panel-view'
+  import MachineGpuTable from './machine-gpu-table.svelte'
+  import MachineHealthHeader from './machine-health-header.svelte'
+  import MachineProbeCard from './machine-probe-card.svelte'
+
+  const truthyIcon: Record<TruthyState, typeof CircleCheck> = {
+    yes: CircleCheck,
+    no: CircleX,
+    unknown: CircleHelp,
+  }
+
+  const truthyColorClass: Record<TruthyState, string> = {
+    yes: 'text-emerald-500',
+    no: 'text-destructive',
+    unknown: 'text-muted-foreground',
+  }
+
+  const tokenBadgeVariant: Record<AuditTokenState, 'secondary' | 'destructive' | 'outline'> = {
+    valid: 'secondary',
+    missing: 'destructive',
+    expired: 'outline',
+    unknown: 'outline',
+  }
+
+  const tokenBadgeLabel: Record<AuditTokenState, string> = {
+    valid: 'Valid',
+    missing: 'Missing',
+    expired: 'Expired',
+    unknown: 'Unknown',
+  }
+
+  const auditRowIcons = {
+    git: GitBranch,
+    'gh-cli': Terminal,
+    'token-probe': KeyRound,
+    network: Globe,
+  } as const
 
   let {
     machine,
@@ -38,35 +80,7 @@
 </script>
 
 <div class="space-y-4">
-  <div class="flex items-center justify-between gap-3">
-    <div>
-      <h3 class="text-foreground text-sm font-semibold">Health snapshot</h3>
-      <p class="text-muted-foreground mt-1 text-xs">
-        {#if snapshot?.checkedAt}
-          Snapshot collected {formatRelativeTime(snapshot.checkedAt)} and reflects detected machine state.
-        {:else if machine?.last_heartbeat_at}
-          Last heartbeat {formatRelativeTime(machine.last_heartbeat_at)}.
-        {:else}
-          No heartbeat has been recorded yet.
-        {/if}
-      </p>
-    </div>
-    <div class="flex items-center gap-2">
-      {#if loading || refreshing}
-        <Badge variant="outline">{refreshing ? 'Running checks…' : 'Refreshing…'}</Badge>
-      {/if}
-      <Button
-        variant="outline"
-        size="sm"
-        class="gap-1.5"
-        onclick={onRefresh}
-        disabled={loading || refreshing}
-      >
-        <RefreshCw class="size-3.5" />
-        {refreshing ? 'Running checks…' : 'Run checks'}
-      </Button>
-    </div>
-  </div>
+  <MachineHealthHeader {machine} {snapshot} {loading} {refreshing} {onRefresh} />
 
   {#if !snapshot}
     <div
@@ -138,14 +152,22 @@
             </thead>
             <tbody>
               {#each runtimeRows as runtime (runtime.name)}
+                {@const installedState = toTruthyState(runtime.installed)}
+                {@const readyState = toTruthyState(runtime.ready)}
+                {@const InstalledIcon = truthyIcon[installedState]}
+                {@const ReadyIcon = truthyIcon[readyState]}
                 <tr class="border-border/60 border-b last:border-0">
                   <td class="px-4 py-3 font-medium">{runtimeLabel(runtime)}</td>
-                  <td class="px-4 py-3 text-xs">{truthyLabel(runtime.installed)}</td>
+                  <td class="px-4 py-3">
+                    <InstalledIcon class="size-4 {truthyColorClass[installedState]}" />
+                  </td>
                   <td class="px-4 py-3 text-xs">
                     {[runtime.authStatus, runtime.authMode].filter(Boolean).join(' · ') ||
                       'Unknown'}
                   </td>
-                  <td class="px-4 py-3 text-xs">{truthyLabel(runtime.ready)}</td>
+                  <td class="px-4 py-3">
+                    <ReadyIcon class="size-4 {truthyColorClass[readyState]}" />
+                  </td>
                   <td class="text-muted-foreground px-4 py-3 text-xs"
                     >{runtime.version ?? 'Unknown'}</td
                   >
@@ -165,16 +187,82 @@
             L5 audit captured {checkedAtLabel(snapshot.fullAudit.checkedAt)}
           </p>
         </div>
-        <div class="grid gap-3 px-4 py-4 md:grid-cols-2">
-          {#each auditRows as row (row.label)}
-            <div class="border-border rounded-xl border px-4 py-3">
-              <p class="text-muted-foreground text-[11px] tracking-[0.12em] uppercase">
-                {row.label}
-              </p>
-              <p class="text-foreground mt-2 text-sm font-semibold">{row.value}</p>
-              <p class="text-muted-foreground mt-1 text-xs leading-5 whitespace-pre-wrap">
-                {row.detail}
-              </p>
+        <div class="divide-border divide-y">
+          {#each auditRows as row (row.kind)}
+            {@const RowIcon = auditRowIcons[row.kind]}
+            <div class="flex items-start gap-3 px-4 py-3">
+              <div
+                class="bg-muted mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md"
+              >
+                <RowIcon class="text-muted-foreground size-3.5" />
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-foreground text-sm font-medium">{row.label}</span>
+                  {#if row.kind === 'git'}
+                    {@const Icon = truthyIcon[row.installed]}
+                    <div class="flex items-center gap-1 {truthyColorClass[row.installed]}">
+                      <Icon class="size-3.5" />
+                      <span class="text-xs font-medium">
+                        {row.installed === 'yes'
+                          ? 'Installed'
+                          : row.installed === 'no'
+                            ? 'Missing'
+                            : 'Unknown'}
+                      </span>
+                    </div>
+                  {:else if row.kind === 'gh-cli'}
+                    {@const Icon = truthyIcon[row.installed]}
+                    <div class="flex items-center gap-1 {truthyColorClass[row.installed]}">
+                      <Icon class="size-3.5" />
+                      <span class="text-xs font-medium">
+                        {row.installed === 'yes'
+                          ? 'Installed'
+                          : row.installed === 'no'
+                            ? 'Missing'
+                            : 'Unknown'}
+                      </span>
+                    </div>
+                    <Badge variant="outline" class="text-[10px]">Observational</Badge>
+                  {:else if row.kind === 'token-probe'}
+                    <Badge variant={tokenBadgeVariant[row.state]} class="text-[10px]">
+                      {tokenBadgeLabel[row.state]}
+                    </Badge>
+                  {/if}
+                </div>
+                <div class="text-muted-foreground mt-1 text-xs">
+                  {#if row.kind === 'git'}
+                    {row.identity ?? 'No git identity recorded'}
+                  {:else if row.kind === 'gh-cli'}
+                    {row.authStatus ?? 'No auth status recorded'}
+                  {:else if row.kind === 'token-probe'}
+                    {#if row.permissions.length > 0}
+                      <div class="mt-1 flex flex-wrap gap-1">
+                        {#each row.permissions as perm (perm)}
+                          <Badge variant="secondary" class="font-mono text-[10px]">{perm}</Badge>
+                        {/each}
+                      </div>
+                    {:else}
+                      {row.detail ?? 'No scopes recorded'}
+                    {/if}
+                  {:else if row.kind === 'network'}
+                    <div class="mt-1 flex items-center gap-3">
+                      {#each row.endpoints as endpoint (endpoint.name)}
+                        {@const EpIcon = truthyIcon[endpoint.reachable]}
+                        <div class="flex items-center gap-1">
+                          <EpIcon class="size-3 {truthyColorClass[endpoint.reachable]}" />
+                          <span>{endpoint.name}</span>
+                        </div>
+                      {/each}
+                    </div>
+                    {#if row.auditTimestamp}
+                      <div class="mt-1 text-[11px]">
+                        Captured {formatRelativeTime(row.auditTimestamp)}
+                      </div>
+                    {/if}
+                  {/if}
+                </div>
+              </div>
             </div>
           {/each}
         </div>
@@ -182,61 +270,11 @@
     {/if}
 
     {#if snapshot.gpus.length > 0}
-      <div class="border-border bg-card rounded-xl border">
-        <div class="border-border flex items-center justify-between border-b px-4 py-3">
-          <div>
-            <h4 class="text-foreground text-sm font-semibold">GPU inventory</h4>
-            <p class="text-muted-foreground mt-1 text-xs">
-              {snapshot.gpuDispatchable
-                ? 'At least one GPU has free memory.'
-                : 'No GPU is currently dispatchable.'}
-            </p>
-          </div>
-          <Badge variant="secondary">{snapshot.gpus.length} GPU</Badge>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-border text-muted-foreground border-b text-left text-xs">
-                <th class="px-4 py-2 font-medium">GPU</th>
-                <th class="px-4 py-2 font-medium">Model</th>
-                <th class="px-4 py-2 font-medium">Memory</th>
-                <th class="px-4 py-2 text-right font-medium">Utilization</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each snapshot.gpus as gpu (gpu.index)}
-                <tr class="border-border/60 border-b last:border-0">
-                  <td class="px-4 py-3 font-mono text-xs">{gpu.index}</td>
-                  <td class="px-4 py-3">{gpu.name}</td>
-                  <td class="text-muted-foreground px-4 py-3 text-xs">
-                    {gpu.memoryUsedGB.toFixed(1)} / {gpu.memoryTotalGB.toFixed(1)} GB
-                  </td>
-                  <td class="px-4 py-3 text-right text-xs">{gpu.utilizationPercent.toFixed(1)}%</td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <MachineGpuTable {snapshot} />
     {/if}
   {/if}
 
   {#if probe}
-    <div class="border-border bg-card rounded-xl border px-4 py-4">
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <h4 class="text-foreground text-sm font-semibold">Latest connection test</h4>
-          <p class="text-muted-foreground mt-1 text-xs">
-            {formatRelativeTime(probe.checked_at)}
-          </p>
-        </div>
-        <Badge variant="outline">{probe.transport}</Badge>
-      </div>
-
-      <pre
-        class="bg-muted/50 text-foreground mt-4 overflow-x-auto rounded-lg px-3 py-3 text-xs whitespace-pre-wrap">{probe.output ||
-          'Probe completed without output.'}</pre>
-    </div>
+    <MachineProbeCard {probe} />
   {/if}
 </div>

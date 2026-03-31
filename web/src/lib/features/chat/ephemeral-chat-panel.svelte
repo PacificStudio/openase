@@ -4,14 +4,12 @@
   import type { AgentProvider } from '$lib/api/contracts'
   import { listProviders } from '$lib/api/openase'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { ScrollArea } from '$ui/scroll-area'
   import Textarea from '$ui/textarea/textarea.svelte'
-  import { Bot, RefreshCcw, Send } from '@lucide/svelte'
+  import { RefreshCcw, Send } from '@lucide/svelte'
   import { createEphemeralChatSessionController } from './ephemeral-chat-session-controller.svelte'
   import EphemeralChatProviderSelect from './ephemeral-chat-provider-select.svelte'
-  import { describeEphemeralChatSessionPolicy } from './session-policy'
   import EphemeralChatTranscript from './ephemeral-chat-transcript.svelte'
   import type { ChatSource } from '$lib/api/chat'
 
@@ -28,10 +26,7 @@
     providers = [],
     defaultProviderId = null,
     title = 'Ask AI',
-    description = '',
-    placeholder = 'Ask a question about this project.',
-    emptyStateTitle = 'Start a conversation',
-    emptyStateDescription = 'Use the provider selector to choose an available chat runtime.',
+    placeholder = 'Ask a question…',
     contextNote = '',
     initialPrompt = '',
     messagePrefix = '',
@@ -42,10 +37,7 @@
     providers?: AgentProvider[]
     defaultProviderId?: string | null
     title?: string
-    description?: string
     placeholder?: string
-    emptyStateTitle?: string
-    emptyStateDescription?: string
     contextNote?: string
     initialPrompt?: string
     messagePrefix?: string
@@ -65,9 +57,7 @@
   const activeProviders = $derived(providers.length > 0 ? providers : loadedProviders)
   const chatProviders = $derived(chatController.providers)
   const providerId = $derived(chatController.providerId)
-  const selectedProvider = $derived(chatController.selectedProvider)
   const pending = $derived(chatController.pending)
-  const sessionId = $derived(chatController.sessionId)
   const entries = $derived(chatController.entries)
   const providerUnavailable = $derived(
     !loadingProviders && !providerError && chatProviders.length === 0,
@@ -158,18 +148,26 @@
     return `${normalizedPrefix}\n\nUser request: ${message}`
   }
 
+  let sending = $state(false)
+  const sendDisabled = $derived(!context.projectId || !providerId || pending || sending)
+
   async function handleSend() {
     const message = prompt.trim()
-    if (!message || !context.projectId || !providerId || pending) {
+    if (!message || sendDisabled) {
       return
     }
 
+    sending = true
     prompt = ''
 
-    await chatController.sendTurn({
-      message: buildOutgoingMessage(message),
-      context,
-    })
+    try {
+      await chatController.sendTurn({
+        message: buildOutgoingMessage(message),
+        context,
+      })
+    } finally {
+      sending = false
+    }
   }
 
   async function handleProviderChange(nextProviderId: string) {
@@ -191,7 +189,7 @@
   }
 
   function handlePromptKeydown(event: KeyboardEvent) {
-    if (event.key !== 'Enter' || event.shiftKey) {
+    if (event.key !== 'Enter' || event.shiftKey || event.isComposing) {
       return
     }
 
@@ -201,30 +199,24 @@
 </script>
 
 <div class="bg-background flex h-full min-h-0 flex-col">
-  <div class="border-border flex items-center justify-between gap-3 border-b px-4 py-3">
-    <div class="min-w-0">
-      <div class="flex items-center gap-2">
-        <Bot class="text-primary size-4 shrink-0" />
-        <h2 class="truncate text-sm font-semibold">{title}</h2>
-        {#if selectedProvider}
-          <Badge variant="outline" class="text-[10px]">{selectedProvider.name}</Badge>
-        {/if}
-        {#if sessionId}
-          <Badge variant="outline" class="text-[10px]">Context kept</Badge>
-        {/if}
-      </div>
-      {#if description}
-        <p class="text-muted-foreground mt-1 text-xs">{description}</p>
-      {/if}
+  <div class="border-border flex items-center justify-between gap-2 border-b px-4 py-2">
+    <div class="flex items-center gap-2">
+      <h2 class="text-sm font-semibold">{title}</h2>
+      <EphemeralChatProviderSelect
+        providers={chatProviders}
+        {providerId}
+        onProviderChange={(nextProviderId) => void handleProviderChange(nextProviderId)}
+      />
     </div>
 
     <Button
       variant="ghost"
       size="sm"
+      class="size-7 p-0"
       onclick={() => void handleResetConversation()}
       disabled={entries.length === 0 && !pending}
     >
-      <RefreshCcw class="size-4" />
+      <RefreshCcw class="size-3.5" />
     </Button>
   </div>
 
@@ -232,56 +224,43 @@
     <EphemeralChatTranscript
       {entries}
       {pending}
-      {emptyStateTitle}
-      {emptyStateDescription}
       onConfirmActionProposal={handleConfirmActionProposal}
       onCancelActionProposal={handleCancelActionProposal}
     />
   </ScrollArea>
 
-  <div class="border-border space-y-3 border-t px-4 py-3">
-    <EphemeralChatProviderSelect
-      providers={chatProviders}
-      {providerId}
-      onProviderChange={(nextProviderId) => void handleProviderChange(nextProviderId)}
-    />
-
+  <div class="border-border border-t px-4 py-3">
     {#if loadingProviders}
-      <div class="text-muted-foreground text-xs">Loading available chat providers…</div>
+      <div class="text-muted-foreground mb-2 text-xs">Loading providers…</div>
     {:else if providerError}
-      <div class="text-destructive text-xs">{providerError}</div>
+      <div class="text-destructive mb-2 text-xs">{providerError}</div>
     {:else if providerUnavailable}
-      <div class="text-muted-foreground text-xs">
-        No Ephemeral Chat provider is available for this organization.
-      </div>
+      <div class="text-muted-foreground mb-2 text-xs">No chat provider available.</div>
     {/if}
 
     {#if contextNote}
-      <div class="border-border bg-muted/20 rounded-lg border px-3 py-2 text-xs leading-5">
-        {contextNote}
-      </div>
+      <div class="text-muted-foreground mb-2 text-[11px] leading-4">{contextNote}</div>
     {/if}
 
-    <Textarea
-      bind:value={prompt}
-      rows={4}
-      class="text-sm"
-      {placeholder}
-      disabled={!context.projectId || !providerId || pending}
-      onkeydown={handlePromptKeydown}
-    />
-
-    <div class="flex items-center justify-between gap-3">
-      <p class="text-muted-foreground text-[11px] leading-4">
-        {describeEphemeralChatSessionPolicy(source, Boolean(sessionId))}
-      </p>
+    <div
+      class="border-input focus-within:ring-ring flex items-center gap-2 rounded-lg border px-3 py-1.5 focus-within:ring-1"
+    >
+      <Textarea
+        bind:value={prompt}
+        rows={1}
+        class="min-h-0 flex-1 resize-none border-0 px-0 py-1.5 text-sm shadow-none focus-visible:ring-0"
+        {placeholder}
+        disabled={!context.projectId || !providerId}
+        onkeydown={handlePromptKeydown}
+      />
       <Button
+        variant="ghost"
         size="sm"
+        class="size-7 shrink-0 p-0"
         onclick={() => void handleSend()}
-        disabled={!prompt.trim() || !context.projectId || !providerId || pending}
+        disabled={!prompt.trim() || sendDisabled}
       >
         <Send class="size-4" />
-        Send
       </Button>
     </div>
   </div>

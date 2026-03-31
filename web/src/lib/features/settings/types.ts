@@ -3,7 +3,6 @@ export const settingsSections = [
   'skills',
   'repositories',
   'statuses',
-  'workflows',
   'agents',
   'connectors',
   'notifications',

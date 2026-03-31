@@ -15,11 +15,41 @@ export type HealthLevelCard = {
   meta: string
 }
 
-export type HealthAuditRow = {
-  label: string
-  value: string
-  detail: string
+export type TruthyState = 'yes' | 'no' | 'unknown'
+
+export type AuditTokenState = 'valid' | 'missing' | 'expired' | 'unknown'
+
+export type AuditNetworkEndpoint = {
+  name: string
+  reachable: TruthyState
 }
+
+export type HealthAuditRow =
+  | {
+      kind: 'git'
+      label: string
+      installed: TruthyState
+      identity: string | null
+    }
+  | {
+      kind: 'gh-cli'
+      label: string
+      installed: TruthyState
+      authStatus: string | null
+    }
+  | {
+      kind: 'token-probe'
+      label: string
+      state: AuditTokenState
+      permissions: string[]
+      detail: string | null
+    }
+  | {
+      kind: 'network'
+      label: string
+      endpoints: AuditNetworkEndpoint[]
+      auditTimestamp: string | null
+    }
 
 export function buildStatCards(snapshot: MachineSnapshot): HealthStatCard[] {
   return [
@@ -156,46 +186,72 @@ export function buildAuditRows(snapshot: MachineSnapshot): HealthAuditRow[] {
     return []
   }
 
+  const gitIdentity =
+    [snapshot.fullAudit.git?.userName, snapshot.fullAudit.git?.userEmail]
+      .filter(Boolean)
+      .join(' · ') || null
+
+  const tokenState = normalizeTokenState(snapshot.fullAudit.githubTokenProbe?.state)
+  const tokenPermissions = snapshot.fullAudit.githubTokenProbe?.permissions ?? []
+  const tokenDetail = tokenPermissions.length
+    ? null
+    : snapshot.fullAudit.githubTokenProbe?.lastError || 'No scopes recorded'
+
+  const network = snapshot.fullAudit.network
+
   return [
     {
+      kind: 'git',
       label: 'Git',
-      value: truthyLabel(snapshot.fullAudit.git?.installed),
-      detail:
-        [snapshot.fullAudit.git?.userName, snapshot.fullAudit.git?.userEmail]
-          .filter(Boolean)
-          .join(' · ') || 'No git identity recorded',
+      installed: toTruthyState(snapshot.fullAudit.git?.installed),
+      identity: gitIdentity,
     },
     {
+      kind: 'gh-cli',
       label: 'GitHub CLI',
-      value: truthyLabel(snapshot.fullAudit.ghCLI?.installed),
-      detail: snapshot.fullAudit.ghCLI?.authStatus
-        ? `Observational only · ${snapshot.fullAudit.ghCLI.authStatus}`
-        : 'Observational only · no auth status recorded',
+      installed: toTruthyState(snapshot.fullAudit.ghCLI?.installed),
+      authStatus: snapshot.fullAudit.ghCLI?.authStatus ?? null,
     },
     {
-      label: 'GitHub token probe',
-      value: snapshot.fullAudit.githubTokenProbe?.state ?? 'Unknown',
-      detail: snapshot.fullAudit.githubTokenProbe?.permissions.length
-        ? `Readiness signal · ${snapshot.fullAudit.githubTokenProbe.permissions.join(', ')}`
-        : `Readiness signal · ${snapshot.fullAudit.githubTokenProbe?.lastError ?? 'No scopes recorded'}`,
+      kind: 'token-probe',
+      label: 'GitHub Token',
+      state: tokenState,
+      permissions: tokenPermissions,
+      detail: tokenDetail,
     },
     {
+      kind: 'network',
       label: 'Network',
-      value: networkSummary(snapshot),
-      detail: snapshot.fullAudit.checkedAt
-        ? `Audit captured ${formatRelativeTime(snapshot.fullAudit.checkedAt)}`
-        : 'No audit timestamp recorded',
+      endpoints: [
+        { name: 'GitHub', reachable: toTruthyState(network?.githubReachable) },
+        { name: 'PyPI', reachable: toTruthyState(network?.pypiReachable) },
+        { name: 'npm', reachable: toTruthyState(network?.npmReachable) },
+      ],
+      auditTimestamp: snapshot.fullAudit.checkedAt ?? null,
     },
   ]
 }
 
-export function checkedAtLabel(value: string | undefined): string {
-  return value ? `Checked ${formatRelativeTime(value)}` : 'Not checked yet'
+export function toTruthyState(value: boolean | undefined): TruthyState {
+  if (value === undefined) return 'unknown'
+  return value ? 'yes' : 'no'
 }
 
-export function truthyLabel(value: boolean | undefined): string {
-  if (value === undefined) return 'Unknown'
-  return value ? 'Yes' : 'No'
+export function normalizeTokenState(raw: string | undefined): AuditTokenState {
+  switch (raw) {
+    case 'valid':
+      return 'valid'
+    case 'missing':
+      return 'missing'
+    case 'expired':
+      return 'expired'
+    default:
+      return 'unknown'
+  }
+}
+
+export function checkedAtLabel(value: string | undefined): string {
+  return value ? `Checked ${formatRelativeTime(value)}` : 'Not checked yet'
 }
 
 export function runtimeLabel(runtime: MachineCLIStatus): string {
@@ -231,17 +287,4 @@ export function stateLabel(state: string): string {
     default:
       return 'Unknown'
   }
-}
-
-function networkSummary(snapshot: MachineSnapshot): string {
-  const network = snapshot.fullAudit?.network
-  if (!network) {
-    return 'Unknown'
-  }
-
-  return [
-    `GitHub ${truthyLabel(network.githubReachable)}`,
-    `PyPI ${truthyLabel(network.pypiReachable)}`,
-    `npm ${truthyLabel(network.npmReachable)}`,
-  ].join(' · ')
 }

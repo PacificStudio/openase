@@ -2,6 +2,12 @@
   import * as Tooltip from '$ui/tooltip'
   import { cn } from '$lib/utils'
 
+  type BarSegment = {
+    percent: number
+    barClass: string
+    label?: string
+  }
+
   type ResourceBar = {
     key: string
     label: string
@@ -9,6 +15,7 @@
     summary: string
     detail: string
     barClass: string
+    segments?: BarSegment[]
   }
 
   let { bars }: { bars: ResourceBar[] } = $props()
@@ -44,12 +51,28 @@
 
       <div class="space-y-1">
         <div class="text-foreground text-sm font-medium">{bar.summary}</div>
-        <div class="bg-muted h-2 overflow-hidden rounded-full">
-          <div
-            class={cn('h-full rounded-full transition-all', bar.barClass)}
-            style={`width: ${bar.percent}%`}
-          ></div>
-        </div>
+        {#if bar.segments && bar.segments.length > 0}
+          {#each bar.segments as seg (seg.label ?? seg.barClass)}
+            <div class="flex items-center gap-2">
+              {#if seg.label}
+                <span class="text-muted-foreground w-10 shrink-0 text-[10px]">{seg.label}</span>
+              {/if}
+              <div class="bg-muted h-1.5 flex-1 overflow-hidden rounded-full">
+                <div
+                  class={cn('h-full rounded-full transition-all', seg.barClass)}
+                  style={`width: ${seg.percent}%`}
+                ></div>
+              </div>
+            </div>
+          {/each}
+        {:else}
+          <div class="bg-muted h-2 overflow-hidden rounded-full">
+            <div
+              class={cn('h-full rounded-full transition-all', bar.barClass)}
+              style={`width: ${bar.percent}%`}
+            ></div>
+          </div>
+        {/if}
       </div>
     </div>
   {/each}

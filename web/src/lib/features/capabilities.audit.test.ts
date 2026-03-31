@@ -18,7 +18,7 @@ import securitySettingsSource from './settings/components/security-settings.svel
 import settingsPageSource from './settings/components/settings-page.svelte?raw'
 import skillsSettingsSource from './settings/components/skills-settings.svelte?raw'
 import statusSettingsSource from './settings/components/status-settings.svelte?raw'
-import workflowSettingsSource from './settings/components/workflow-settings.svelte?raw'
+import statusSettingsStateSource from './settings/components/status-settings-state.svelte.ts?raw'
 import workflowManagementSource from './workflows/workflow-management.ts?raw'
 
 type SourceEvidence = {
@@ -46,7 +46,7 @@ const sourceByFile: Record<string, string> = {
   './settings/components/settings-page.svelte': settingsPageSource,
   './settings/components/skills-settings.svelte': skillsSettingsSource,
   './settings/components/status-settings.svelte': statusSettingsSource,
-  './settings/components/workflow-settings.svelte': workflowSettingsSource,
+  './settings/components/status-settings-state.svelte.ts': statusSettingsStateSource,
   './workflows/workflow-management.ts': workflowManagementSource,
 }
 
@@ -117,33 +117,13 @@ const settingsAuditCases: SettingsAuditCase[] = [
     summarySnippets: ['created, edited, deleted, reset, and reordered'],
     sources: [
       {
-        file: './settings/components/status-settings.svelte',
+        file: './settings/components/status-settings-state.svelte.ts',
         snippets: [
           'createStatus(projectId, {',
           'updateStatus(statusId, body)',
           'deleteStatus(status.id)',
           'resetStatuses(projectId)',
         ],
-      },
-    ],
-  },
-  {
-    section: 'workflows',
-    capability: 'workflowsSettings',
-    expectedState: 'available',
-    summarySnippets: [
-      'lifecycle management',
-      'explicit agent binding',
-      'renaming, scheduling policy, activation, and deletion',
-    ],
-    sources: [
-      {
-        file: './settings/components/workflow-settings.svelte',
-        snippets: ['WorkflowLifecycleSidebar', 'loadWorkflowCatalog(projectId, orgId)'],
-      },
-      {
-        file: './workflows/workflow-management.ts',
-        snippets: ['updateWorkflow(workflowId, payload)', 'deleteWorkflow(workflowId)'],
       },
     ],
   },

@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -42,6 +44,7 @@ func (s *Server) handleStartChat(c echo.Context) error {
 
 	stream, err := s.chatService.StartTurn(c.Request().Context(), userID, input)
 	if err != nil {
+		s.logChatStartFailure(c, raw, input, userID, err)
 		return writeChatError(c, err)
 	}
 
@@ -88,6 +91,44 @@ func (s *Server) handleDeleteChat(c echo.Context) error {
 
 	s.chatService.CloseSession(userID, sessionID)
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (s *Server) logChatStartFailure(
+	c echo.Context,
+	raw chatservice.RawStartInput,
+	input chatservice.StartInput,
+	userID chatservice.UserID,
+	err error,
+) {
+	if s == nil || s.logger == nil || err == nil {
+		return
+	}
+
+	log := s.logger.With(
+		"request_id", c.Response().Header().Get(echo.HeaderXRequestID),
+		"chat_source", strings.TrimSpace(raw.Source),
+		"chat_project_id", input.Context.ProjectID.String(),
+		"chat_workflow_id", optionalChatUUIDString(input.Context.WorkflowID),
+		"chat_ticket_id", optionalChatUUIDString(input.Context.TicketID),
+		"chat_provider_id", optionalChatUUIDString(input.ProviderID),
+		"chat_session_id", optionalChatSessionIDString(input.SessionID),
+		"chat_user_id", string(userID),
+	)
+	log.Error("chat start failed", "error", err)
+}
+
+func optionalChatUUIDString(value *uuid.UUID) string {
+	if value == nil {
+		return ""
+	}
+	return value.String()
+}
+
+func optionalChatSessionIDString(value *chatservice.SessionID) string {
+	if value == nil {
+		return ""
+	}
+	return value.String()
 }
 
 func writeChatError(c echo.Context, err error) error {

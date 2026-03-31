@@ -58,7 +58,7 @@
 
         entries = activityPayload.events.map((event) => ({
           id: event.id,
-          eventType: event.event_type,
+          eventType: normalizeEventType(event.event_type),
           message: event.message,
           timestamp: event.created_at,
           ticketIdentifier: event.ticket_id
@@ -97,10 +97,27 @@
     const value = metadata.agent_name
     return typeof value === 'string' ? value : undefined
   }
+
+  function normalizeEventType(eventType: string) {
+    switch (eventType) {
+      case 'ticket_created':
+        return 'ticket.created'
+      case 'hook_failed':
+        return 'hook.failed'
+      case 'pr_opened':
+        return 'pr.opened'
+      case 'pr_merged':
+        return 'pr.merged'
+      case 'status_changed':
+        return 'ticket.status_changed'
+      default:
+        return eventType
+    }
+  }
 </script>
 
-<PageScaffold title="Activity">
-  <div class="mx-auto w-full max-w-3xl space-y-6">
+<PageScaffold title="Activity" description="Runtime events and agent lifecycle updates.">
+  <div class="w-full max-w-4xl space-y-4">
     <div class="flex flex-wrap items-center gap-3">
       <div class="relative min-w-48 flex-1">
         <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
@@ -124,7 +141,7 @@
     </div>
 
     {#if loading}
-      <div class="text-muted-foreground py-16 text-center text-sm">Loading activity…</div>
+      <div class="text-muted-foreground py-16 text-sm">Loading activity…</div>
     {:else if error}
       <div
         class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
@@ -134,9 +151,7 @@
     {:else if filtered.length > 0}
       <ActivityTimeline entries={filtered} />
     {:else}
-      <div class="text-muted-foreground py-16 text-center text-sm">
-        No events match your filters.
-      </div>
+      <div class="text-muted-foreground py-16 text-sm">No events match your filters.</div>
     {/if}
   </div>
 </PageScaffold>

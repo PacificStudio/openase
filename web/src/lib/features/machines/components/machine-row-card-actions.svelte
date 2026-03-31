@@ -1,7 +1,8 @@
 <script lang="ts">
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
-  import { Pencil, RotateCcw, TestTube2, Trash2 } from '@lucide/svelte'
+  import * as DropdownMenu from '$ui/dropdown-menu'
+  import { Ellipsis, Pencil, RotateCcw, TestTube2, Trash2 } from '@lucide/svelte'
 
   let {
     machineName,
@@ -29,58 +30,68 @@
   let confirmDeleteOpen = $state(false)
 </script>
 
-<div class="flex flex-wrap items-center justify-end gap-2 xl:flex-col xl:items-stretch">
+<div class="flex items-center gap-1">
   <Button
-    size="sm"
-    class="gap-1.5"
+    variant="ghost"
+    size="icon-sm"
+    title="Edit machine"
     onclick={(event) => {
       event.stopPropagation()
       onOpen?.()
     }}
   >
     <Pencil class="size-3.5" />
-    Edit
   </Button>
-  <Button
-    size="sm"
-    variant="outline"
-    class="gap-1.5"
-    onclick={(event) => {
-      event.stopPropagation()
-      onTest?.()
-    }}
-    disabled={testing}
-  >
-    <TestTube2 class="size-3.5" />
-    {testing ? 'Testing…' : 'Test'}
-  </Button>
-  <Button
-    size="sm"
-    variant="outline"
-    class="gap-1.5"
-    onclick={(event) => {
-      event.stopPropagation()
-      confirmResetOpen = true
-    }}
-    disabled={!resetEnabled}
-  >
-    <RotateCcw class="size-3.5" />
-    Reset
-  </Button>
-  <Button
-    size="sm"
-    variant="destructive"
-    class="gap-1.5"
-    onclick={(event) => {
-      event.stopPropagation()
-      confirmDeleteOpen = true
-    }}
-    disabled={localMachine || deleting}
-    title={localMachine ? 'The seeded local machine cannot be deleted.' : undefined}
-  >
-    <Trash2 class="size-3.5" />
-    {deleting ? 'Deleting…' : 'Delete'}
-  </Button>
+
+  <DropdownMenu.Root>
+    <DropdownMenu.Trigger>
+      {#snippet child({ props })}
+        <Button
+          {...props}
+          variant="ghost"
+          size="icon-sm"
+          title="More actions"
+          onclick={(event) => event.stopPropagation()}
+        >
+          <Ellipsis class="size-3.5" />
+        </Button>
+      {/snippet}
+    </DropdownMenu.Trigger>
+    <DropdownMenu.Content align="end" class="w-44">
+      <DropdownMenu.Item
+        disabled={testing}
+        onclick={(event) => {
+          event.stopPropagation()
+          onTest?.()
+        }}
+      >
+        <TestTube2 class="size-3.5" />
+        {testing ? 'Testing…' : 'Connection test'}
+      </DropdownMenu.Item>
+      <DropdownMenu.Item
+        disabled={!resetEnabled}
+        onclick={(event) => {
+          event.stopPropagation()
+          confirmResetOpen = true
+        }}
+      >
+        <RotateCcw class="size-3.5" />
+        Reset draft
+      </DropdownMenu.Item>
+      <DropdownMenu.Separator />
+      <DropdownMenu.Item
+        disabled={localMachine || deleting}
+        class="text-destructive data-[highlighted]:text-destructive"
+        onclick={(event) => {
+          event.stopPropagation()
+          confirmDeleteOpen = true
+        }}
+      >
+        <Trash2 class="size-3.5" />
+        {deleting ? 'Deleting…' : 'Delete'}
+      </DropdownMenu.Item>
+    </DropdownMenu.Content>
+  </DropdownMenu.Root>
 </div>
 
 <Dialog.Root bind:open={confirmResetOpen}>

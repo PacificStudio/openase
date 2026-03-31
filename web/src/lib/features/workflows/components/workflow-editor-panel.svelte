@@ -1,5 +1,7 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
+  import { projectPath } from '$lib/stores/app-context'
+  import { appStore } from '$lib/stores/app.svelte'
   import { Badge } from '$ui/badge'
   import Button from '$ui/button/button.svelte'
   import {
@@ -9,6 +11,7 @@
     GripHorizontal,
     PanelLeftClose,
     PanelLeftOpen,
+    Settings,
     Settings2,
   } from '@lucide/svelte'
   import type { AgentProvider, HarnessValidationIssue } from '$lib/api/contracts'
@@ -63,6 +66,13 @@
   let dragStartY = $state(0)
   let dragStartHeight = $state(0)
   let issuesExpanded = $state(false)
+
+  const skillsSettingsHref = $derived.by(() => {
+    const orgId = appStore.currentOrg?.id
+    const projId = appStore.currentProject?.id
+    if (!orgId || !projId) return null
+    return `${projectPath(orgId, projId, 'settings')}#skills`
+  })
 
   const dictionarySize = $derived(
     variableGroups.reduce((count, group) => count + group.variables.length, 0),
@@ -144,6 +154,15 @@
           </button>
         {/each}
       </div>
+      {#if skillsSettingsHref}
+        <a
+          href={skillsSettingsHref}
+          class="text-muted-foreground hover:text-foreground shrink-0 transition-colors"
+          title="Manage skills library"
+        >
+          <Settings class="size-3.5" />
+        </a>
+      {/if}
     {/if}
 
     <div class="ml-auto flex shrink-0 items-center gap-1.5">

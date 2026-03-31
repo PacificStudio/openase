@@ -477,11 +477,7 @@ func (s *Service) setSkillEnabled(ctx context.Context, skillID uuid.UUID, enable
 }
 
 func (s *Service) BindSkill(ctx context.Context, input UpdateSkillBindingsInput) (SkillDetail, error) {
-	record, err := s.resolveSkillRecord(ctx, input.SkillID, workflowStorageUsageWrite)
-	if err != nil {
-		return SkillDetail{}, err
-	}
-	workflowIDs, err := normalizeWorkflowIDs(input.WorkflowIDs)
+	record, workflowIDs, err := s.resolveSkillRecordForWorkflowBindings(ctx, input, workflowStorageUsageWrite)
 	if err != nil {
 		return SkillDetail{}, err
 	}
@@ -515,11 +511,7 @@ func (s *Service) BindSkill(ctx context.Context, input UpdateSkillBindingsInput)
 }
 
 func (s *Service) UnbindSkill(ctx context.Context, input UpdateSkillBindingsInput) (SkillDetail, error) {
-	record, err := s.resolveSkillRecord(ctx, input.SkillID, workflowStorageUsageWrite)
-	if err != nil {
-		return SkillDetail{}, err
-	}
-	workflowIDs, err := normalizeWorkflowIDs(input.WorkflowIDs)
+	record, workflowIDs, err := s.resolveSkillRecordForWorkflowBindings(ctx, input, workflowStorageUsageWrite)
 	if err != nil {
 		return SkillDetail{}, err
 	}
@@ -572,6 +564,43 @@ func normalizeWorkflowIDs(items []uuid.UUID) ([]uuid.UUID, error) {
 	return unique, nil
 }
 
+func (s *Service) resolveSkillRecordForWorkflowBindings(
+	ctx context.Context,
+	input UpdateSkillBindingsInput,
+	usage workflowStorageUsage,
+) (resolvedSkillRecord, []uuid.UUID, error) {
+	workflowIDs, err := normalizeWorkflowIDs(input.WorkflowIDs)
+	if err != nil {
+		return resolvedSkillRecord{}, nil, err
+	}
+	if s.client == nil {
+		return resolvedSkillRecord{}, nil, ErrUnavailable
+	}
+
+	workflowItems, err := s.client.Workflow.Query().
+		Where(entworkflow.IDIn(workflowIDs...)).
+		All(ctx)
+	if err != nil {
+		return resolvedSkillRecord{}, nil, fmt.Errorf("list workflows for skill binding: %w", err)
+	}
+	if len(workflowItems) != len(workflowIDs) {
+		return resolvedSkillRecord{}, nil, ErrWorkflowNotFound
+	}
+
+	projectID := workflowItems[0].ProjectID
+	for _, workflowItem := range workflowItems[1:] {
+		if workflowItem.ProjectID != projectID {
+			return resolvedSkillRecord{}, nil, fmt.Errorf("%w: workflow ids must belong to the same project", ErrSkillInvalid)
+		}
+	}
+
+	record, err := s.resolveSkillRecordInProject(ctx, projectID, input.SkillID, usage)
+	if err != nil {
+		return resolvedSkillRecord{}, nil, err
+	}
+	return record, workflowIDs, nil
+}
+
 func (s *Service) resolveSkillRecord(
 	ctx context.Context,
 	skillID uuid.UUID,
@@ -601,6 +630,32 @@ func (s *Service) resolveSkillRecord(
 					entry:     entry,
 				}, nil
 			}
+		}
+	}
+	return resolvedSkillRecord{}, ErrSkillNotFound
+}
+
+func (s *Service) resolveSkillRecordInProject(
+	ctx context.Context,
+	projectID uuid.UUID,
+	skillID uuid.UUID,
+	usage workflowStorageUsage,
+) (resolvedSkillRecord, error) {
+	storage, err := s.storageForProject(ctx, projectID, usage)
+	if err != nil {
+		return resolvedSkillRecord{}, err
+	}
+	index, err := s.syncSkillIndex(storage.skillRoot, time.Now().UTC())
+	if err != nil {
+		return resolvedSkillRecord{}, err
+	}
+	for _, entry := range index {
+		if entry.ID == skillID {
+			return resolvedSkillRecord{
+				projectID: projectID,
+				storage:   storage,
+				entry:     entry,
+			}, nil
 		}
 	}
 	return resolvedSkillRecord{}, ErrSkillNotFound

@@ -1,31 +1,20 @@
 <script lang="ts">
-  import {
-    capabilityStateClasses,
-    capabilityStateLabel,
-    getSettingsSectionCapability,
-  } from '$lib/features/capabilities'
   import { appStore } from '$lib/stores/app.svelte'
   import { Separator } from '$ui/separator'
   import ConnectorEditorPanel from './connector-editor-panel.svelte'
   import ConnectorsList from './connectors-list.svelte'
   import { createConnectorsSettingsState } from './connectors-settings-state.svelte'
 
-  const connectorsCapability = getSettingsSectionCapability('connectors')
   const currentProjectName = $derived(appStore.currentProject?.name ?? 'this project')
   const state = createConnectorsSettingsState()
 </script>
 
 <div class="space-y-6">
   <div>
-    <div class="flex items-center gap-2">
-      <h2 class="text-foreground text-base font-semibold">Connectors</h2>
-      <span
-        class={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${capabilityStateClasses(connectorsCapability.state)}`}
-      >
-        {capabilityStateLabel(connectorsCapability.state)}
-      </span>
-    </div>
-    <p class="text-muted-foreground mt-1 max-w-3xl text-sm">{connectorsCapability.summary}</p>
+    <h2 class="text-foreground text-base font-semibold">Connectors</h2>
+    <p class="text-muted-foreground mt-1 max-w-3xl text-sm">
+      Manage external connectors for {currentProjectName}.
+    </p>
   </div>
 
   <Separator />

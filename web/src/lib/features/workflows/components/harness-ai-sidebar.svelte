@@ -3,18 +3,15 @@
   import type { AgentProvider } from '$lib/api/contracts'
   import {
     createEphemeralChatSessionController,
-    EPHEMERAL_CHAT_MAX_BUDGET_USD,
-    EPHEMERAL_CHAT_MAX_TURNS,
     EphemeralChatTranscript,
     EphemeralChatProviderSelect,
   } from '$lib/features/chat'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { ScrollArea } from '$ui/scroll-area'
   import Textarea from '$ui/textarea/textarea.svelte'
-  import { Bot, RefreshCcw, Send } from '@lucide/svelte'
+  import { RefreshCcw, Send } from '@lucide/svelte'
   import {
     buildDiffPreview,
     findLatestHarnessSuggestion,
@@ -27,14 +24,12 @@
     projectId,
     providers = [],
     workflowId,
-    workflowName,
     draftContent,
     onApplySuggestion,
   }: {
     projectId?: string
     providers?: AgentProvider[]
     workflowId?: string
-    workflowName?: string
     draftContent: string
     onApplySuggestion?: (content: string) => void
   } = $props()
@@ -49,9 +44,7 @@
 
   const chatProviders = $derived(chatController.providers)
   const providerId = $derived(chatController.providerId)
-  const selectedProvider = $derived(chatController.selectedProvider)
   const pending = $derived(chatController.pending)
-  const sessionId = $derived(chatController.sessionId)
   const entries = $derived(chatController.entries)
   const suggestion = $derived(findLatestHarnessSuggestion(entries, draftContent))
   const preview = $derived(suggestion ? buildDiffPreview(draftContent, suggestion.content) : null)
@@ -85,25 +78,29 @@
     }
   })
 
+  let sending = $state(false)
+  const sendDisabled = $derived(!projectId || !workflowId || !providerId || pending || sending)
+
   async function handleSend() {
-    if (!projectId || !workflowId) {
-      return
-    }
-
     const message = prompt.trim()
-    if (!message) {
+    if (!message || sendDisabled) {
       return
     }
 
+    sending = true
     prompt = ''
 
-    await chatController.sendTurn({
-      message,
-      context: {
-        projectId,
-        workflowId,
-      },
-    })
+    try {
+      await chatController.sendTurn({
+        message,
+        context: {
+          projectId: projectId!,
+          workflowId: workflowId!,
+        },
+      })
+    } finally {
+      sending = false
+    }
   }
 
   function handleApply() {
@@ -113,7 +110,7 @@
   }
 
   function handlePromptKeydown(event: KeyboardEvent) {
-    if (event.key !== 'Enter' || event.shiftKey) {
+    if (event.key !== 'Enter' || event.shiftKey || event.isComposing) {
       return
     }
     event.preventDefault()
@@ -142,30 +139,24 @@
 </script>
 
 <div class="bg-background flex h-full min-h-0 flex-col">
-  <div class="border-border flex items-center justify-between border-b px-4 py-3">
-    <div class="min-w-0">
-      <div class="flex items-center gap-2">
-        <Bot class="text-primary size-4" />
-        <h2 class="text-sm font-semibold">Harness AI</h2>
-        {#if selectedProvider}
-          <Badge variant="outline" class="text-[10px]">{selectedProvider.name}</Badge>
-        {/if}
-        {#if sessionId}
-          <Badge variant="outline" class="text-[10px]">Context kept</Badge>
-        {/if}
-      </div>
-      <p class="text-muted-foreground mt-1 truncate text-xs">
-        {workflowName ? `Editing ${workflowName}` : 'Select a workflow to start chatting.'}
-      </p>
+  <div class="border-border flex items-center justify-between gap-2 border-b px-4 py-2">
+    <div class="flex items-center gap-2">
+      <h2 class="text-sm font-semibold">Harness AI</h2>
+      <EphemeralChatProviderSelect
+        providers={chatProviders}
+        {providerId}
+        onProviderChange={(nextProviderId) => void handleProviderChange(nextProviderId)}
+      />
     </div>
 
     <Button
       variant="ghost"
       size="sm"
+      class="size-7 p-0"
       onclick={() => void resetConversation()}
       disabled={entries.length === 0 && !pending}
     >
-      <RefreshCcw class="size-4" />
+      <RefreshCcw class="size-3.5" />
     </Button>
   </div>
 
@@ -193,34 +184,25 @@
   </ScrollArea>
 
   <div class="border-border border-t px-4 py-3">
-    <EphemeralChatProviderSelect
-      providers={chatProviders}
-      {providerId}
-      onProviderChange={(nextProviderId) => void handleProviderChange(nextProviderId)}
-    />
-
-    <Textarea
-      bind:value={prompt}
-      rows={4}
-      class="text-sm"
-      placeholder="Ask the assistant to refine this harness. Shift+Enter for newline."
-      disabled={!projectId || !workflowId || !providerId || pending}
-      onkeydown={handlePromptKeydown}
-    />
-
-    <div class="mt-3 flex items-center justify-between gap-3">
-      <p class="text-muted-foreground text-[11px] leading-4">
-        {sessionId
-          ? `Session cap: ${EPHEMERAL_CHAT_MAX_TURNS} turns / $${EPHEMERAL_CHAT_MAX_BUDGET_USD.toFixed(2)}. Follow-up prompts reuse the current chat context until you close the panel, switch providers, or hit the limit.`
-          : `Session cap: ${EPHEMERAL_CHAT_MAX_TURNS} turns / $${EPHEMERAL_CHAT_MAX_BUDGET_USD.toFixed(2)}. The first reply starts a new ephemeral chat session.`}
-      </p>
+    <div
+      class="border-input focus-within:ring-ring flex items-center gap-2 rounded-lg border px-3 py-1.5 focus-within:ring-1"
+    >
+      <Textarea
+        bind:value={prompt}
+        rows={1}
+        class="min-h-0 flex-1 resize-none border-0 px-0 py-1.5 text-sm shadow-none focus-visible:ring-0"
+        placeholder="Ask AI to refine this harness…"
+        disabled={!projectId || !workflowId || !providerId}
+        onkeydown={handlePromptKeydown}
+      />
       <Button
+        variant="ghost"
         size="sm"
+        class="size-7 shrink-0 p-0"
         onclick={() => void handleSend()}
-        disabled={!prompt.trim() || !projectId || !workflowId || !providerId || pending}
+        disabled={!prompt.trim() || sendDisabled}
       >
         <Send class="size-4" />
-        Send
       </Button>
     </div>
   </div>

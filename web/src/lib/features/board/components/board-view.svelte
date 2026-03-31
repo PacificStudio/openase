@@ -40,9 +40,6 @@
           <div class="flex items-start justify-between gap-3">
             <div>
               <h2 class="text-foreground text-sm font-semibold">{group.name}</h2>
-              {#if group.description}
-                <p class="text-muted-foreground mt-1 max-w-72 text-xs">{group.description}</p>
-              {/if}
             </div>
             {#if group.wipInfo}
               <span
@@ -57,7 +54,7 @@
             <div
               class="text-muted-foreground flex min-h-36 min-w-[280px] items-center justify-center rounded-lg border border-dashed px-4 text-sm"
             >
-              {group.kind === 'ungrouped' ? 'No ungrouped statuses.' : 'No statuses in this stage.'}
+              No statuses in this group.
             </div>
           {:else}
             <div class="flex gap-3">

@@ -1,41 +1,31 @@
 <script lang="ts">
   import { PageScaffold } from '$lib/components/layout'
   import { Button } from '$ui/button'
-  import type { AgentOutputEntry, AgentProvider, AgentStepEntry, Machine } from '$lib/api/contracts'
+  import type { AgentOutputEntry, AgentProvider, AgentStepEntry } from '$lib/api/contracts'
   import type { StreamConnectionState } from '$lib/api/sse'
   import { Plus } from '@lucide/svelte'
-  import type {
-    AgentInstance,
-    AgentRunInstance,
-    ProviderConfig,
-    ProviderDraft,
-    ProviderDraftField,
-  } from '../types'
+  import type { AgentInstance, AgentRunInstance } from '../types'
   import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
   import AgentsPageDrawers from './agents-page-drawers.svelte'
   import AgentsPagePanel from './agents-page-panel.svelte'
 
   let {
-    activeTab = $bindable('runtime'),
     registerSheetOpen = $bindable(false),
-    providerConfigOpen = $bindable(false),
     outputSheetOpen = $bindable(false),
     agents,
     agentRuns,
-    providers,
     loading = false,
     error = '',
     runtimeActionAgentId = null,
     canRegister = false,
     registerButtonTitle,
     onOpenRegister,
+    onSelectAgent,
     onSelectTicket,
     onViewOutput,
-    onConfigureProvider,
     onPauseAgent,
     onResumeAgent,
     providerItems,
-    machineItems,
     registrationDraft,
     currentOrgSlug,
     currentProjectSlug,
@@ -43,39 +33,30 @@
     onRegistrationDraftChange,
     onRegisterAgent,
     onRegisterOpenChange,
-    selectedProvider,
-    providerDraft,
-    providerSaving = false,
     selectedOutputAgent,
     outputEntries,
     outputSteps,
     outputLoading = false,
     outputError = '',
     outputStreamState = 'idle',
-    onProviderDraftChange,
-    onProviderSave,
     onOutputOpenChange,
   }: {
-    activeTab?: string
     registerSheetOpen?: boolean
-    providerConfigOpen?: boolean
     outputSheetOpen?: boolean
     agents: AgentInstance[]
     agentRuns: AgentRunInstance[]
-    providers: ProviderConfig[]
     loading?: boolean
     error?: string
     runtimeActionAgentId?: string | null
     canRegister?: boolean
     registerButtonTitle?: string
     onOpenRegister?: () => void
+    onSelectAgent?: (agentId: string) => void
     onSelectTicket?: (ticketId: string) => void
     onViewOutput?: (agentId: string) => void
-    onConfigureProvider?: (provider: ProviderConfig) => void
     onPauseAgent?: (agentId: string) => void
     onResumeAgent?: (agentId: string) => void
     providerItems: AgentProvider[]
-    machineItems: Machine[]
     registrationDraft: AgentRegistrationDraft
     currentOrgSlug?: string
     currentProjectSlug?: string
@@ -83,17 +64,12 @@
     onRegistrationDraftChange?: (field: AgentRegistrationDraftField, value: string) => void
     onRegisterAgent?: () => void
     onRegisterOpenChange?: (open: boolean) => void
-    selectedProvider: ProviderConfig | null
-    providerDraft: ProviderDraft
-    providerSaving?: boolean
     selectedOutputAgent: AgentInstance | null
     outputEntries: AgentOutputEntry[]
     outputSteps: AgentStepEntry[]
     outputLoading?: boolean
     outputError?: string
     outputStreamState?: StreamConnectionState
-    onProviderDraftChange?: (field: ProviderDraftField, value: string) => void
-    onProviderSave?: () => void
     onOutputOpenChange?: (open: boolean) => void
   } = $props()
 </script>
@@ -112,33 +88,27 @@
 
 <PageScaffold
   title="Agents"
-  description="Manage runtime sessions, definitions, and provider bindings."
+  description="Manage agent definitions and monitor their runs."
   {actions}
 >
-  <div class="space-y-4">
-    <AgentsPagePanel
-      bind:activeTab
-      {agents}
-      {agentRuns}
-      {providers}
-      {loading}
-      {error}
-      {runtimeActionAgentId}
-      {onSelectTicket}
-      {onViewOutput}
-      {onConfigureProvider}
-      {onPauseAgent}
-      {onResumeAgent}
-    />
-  </div>
+  <AgentsPagePanel
+    {agents}
+    {agentRuns}
+    {loading}
+    {error}
+    {runtimeActionAgentId}
+    {onSelectAgent}
+    {onSelectTicket}
+    {onViewOutput}
+    {onPauseAgent}
+    {onResumeAgent}
+  />
 </PageScaffold>
 
 <AgentsPageDrawers
   bind:registerSheetOpen
-  bind:providerConfigOpen
   bind:outputSheetOpen
   {providerItems}
-  {machineItems}
   {registrationDraft}
   {currentOrgSlug}
   {currentProjectSlug}
@@ -146,16 +116,11 @@
   {onRegistrationDraftChange}
   {onRegisterAgent}
   {onRegisterOpenChange}
-  {selectedProvider}
-  {providerDraft}
-  {providerSaving}
   {selectedOutputAgent}
   {outputEntries}
   {outputSteps}
   {outputLoading}
   {outputError}
   {outputStreamState}
-  {onProviderDraftChange}
-  {onProviderSave}
   {onOutputOpenChange}
 />

@@ -32,11 +32,8 @@
         organizationId={appStore.currentOrg?.id ?? ''}
         defaultProviderId={appStore.currentProject?.default_agent_provider_id ?? null}
         context={{ projectId }}
-        title="Scheduled Job AI"
-        description="Project context plus cron-specific guidance."
-        placeholder="Describe the schedule you want, or ask what the current cron expression means."
-        emptyStateTitle="Cron context is ready"
-        emptyStateDescription="Ask for cron translation, validation, or safer scheduling guidance for this recurring job."
+        title="Cron AI"
+        placeholder="Describe the schedule you want, or ask what a cron expression means…"
         contextNote={cronContextNote}
         messagePrefix={cronMessagePrefix}
       />
