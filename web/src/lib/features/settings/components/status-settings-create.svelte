@@ -40,13 +40,19 @@
     </Button>
   </div>
 
-  <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-    <Input bind:value={name} class="h-9 flex-1 text-sm" placeholder="New status name" />
-    <input
-      type="color"
-      bind:value={color}
-      class="size-9 shrink-0 rounded border-0 bg-transparent p-0"
-    />
+  <div class="space-y-3">
+    <div class="flex items-center gap-2">
+      <input
+        type="color"
+        bind:value={color}
+        class="size-9 shrink-0 rounded border-0 bg-transparent p-0"
+      />
+      <Input bind:value={name} class="h-9 flex-1 text-sm" placeholder="New status name" />
+      <Button class="shrink-0" onclick={onCreate} disabled={creating || loading}>
+        <Plus class="size-3.5" />
+        {creating ? 'Adding…' : 'Add'}
+      </Button>
+    </div>
     <label class="flex items-center gap-2">
       <Checkbox bind:checked={isDefault} disabled={creating || loading} />
       <span class="text-sm font-medium">Create as default</span>
@@ -56,9 +62,5 @@
           : 'Leave this off to keep the current default status.'}
       </span>
     </label>
-    <Button onclick={onCreate} disabled={creating || loading}>
-      <Plus class="size-3.5" />
-      {creating ? 'Adding…' : 'Add'}
-    </Button>
   </div>
 </div>
