@@ -2,7 +2,7 @@
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
   import * as DropdownMenu from '$ui/dropdown-menu'
-  import { Ellipsis, Pencil, RotateCcw, TestTube2, Trash2 } from '@lucide/svelte'
+  import { Ellipsis, Eye, RotateCcw, TestTube2, Trash2 } from '@lucide/svelte'
 
   let {
     machineName,
@@ -34,13 +34,13 @@
   <Button
     variant="ghost"
     size="icon-sm"
-    title="Edit machine"
+    title="View details"
     onclick={(event) => {
       event.stopPropagation()
       onOpen?.()
     }}
   >
-    <Pencil class="size-3.5" />
+    <Eye class="size-3.5" />
   </Button>
 
   <DropdownMenu.Root>

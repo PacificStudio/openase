@@ -1,10 +1,16 @@
 <script lang="ts">
   import type { SecuritySettingsResponse } from '$lib/api/contracts'
-  import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import { Label } from '$ui/label'
-  import { Textarea } from '$ui/textarea'
-  import { KeyRound, LoaderCircle, RefreshCw, Trash2, Upload } from '@lucide/svelte'
+  import { Input } from '$ui/input'
+  import {
+    ChevronDown,
+    ChevronUp,
+    KeyRound,
+    LoaderCircle,
+    RefreshCw,
+    Trash2,
+    Upload,
+  } from '@lucide/svelte'
 
   type Security = SecuritySettingsResponse['security']
   type GitHubScope = 'organization' | 'project'
@@ -13,7 +19,6 @@
   let {
     scope,
     title,
-    description,
     slot,
     tokenValue,
     actionKey,
@@ -23,7 +28,6 @@
   }: {
     scope: GitHubScope
     title: string
-    description: string
     slot: GitHubSlot
     tokenValue: string
     actionKey: string
@@ -32,30 +36,22 @@
     onTokenChange: (scope: GitHubScope, value: string) => void
   } = $props()
 
-  function probeTone() {
-    if (!slot.configured) return 'secondary'
-    if (slot.probe.valid) return 'outline'
-    if (slot.probe.state === 'error' || slot.probe.state === 'revoked') return 'destructive'
-    return 'secondary'
+  let tokenExpanded = $state(false)
+
+  function statusDot(): string {
+    if (!slot.configured) return 'bg-slate-400'
+    if (slot.probe.valid) return 'bg-emerald-500'
+    if (slot.probe.state === 'error' || slot.probe.state === 'revoked') return 'bg-rose-500'
+    return 'bg-amber-500'
   }
 
-  function probeLabel() {
-    if (!slot.configured) return 'Missing'
+  function statusLabel(): string {
+    if (!slot.configured) return 'Not configured'
     return slot.probe.state.replaceAll('_', ' ')
   }
 
-  function slotHint() {
-    if (scope === 'project' && !slot.configured && organizationConfigured) {
-      return 'No project override is configured. This project currently falls back to the organization default.'
-    }
-    if (!slot.configured) {
-      return 'No platform-managed credential is stored at this scope yet.'
-    }
-    return 'This scope is stored in platform secret storage and immediately probed after save or import.'
-  }
-
-  function formatCheckedAt(value: string | null | undefined) {
-    if (!value) return 'Not checked yet'
+  function formatCheckedAt(value: string | null | undefined): string {
+    if (!value) return 'Never'
     const parsed = new Date(value)
     if (Number.isNaN(parsed.getTime())) return value
     return parsed.toLocaleString()
@@ -64,88 +60,162 @@
   function isBusy(action: 'save' | 'import' | 'retest' | 'delete') {
     return actionKey === `${scope}:${action}`
   }
+
+  const anyBusy = $derived(actionKey !== '')
 </script>
 
-<div class="border-border bg-card rounded-2xl border p-4">
-  <div class="space-y-1">
-    <div class="flex flex-wrap items-center gap-2">
-      <div class="font-medium">{title}</div>
-      <Badge variant={probeTone()}>{probeLabel()}</Badge>
-      {#if slot.source}
-        <Badge variant="outline">{slot.source}</Badge>
+<div class="border-border rounded-lg border">
+  <!-- Header -->
+  <div class="flex items-center justify-between px-4 py-3">
+    <div class="flex items-center gap-2">
+      <span class={`inline-block size-2 rounded-full ${statusDot()}`}></span>
+      <span class="text-sm font-medium">{title}</span>
+      <span class="text-muted-foreground text-xs capitalize">{statusLabel()}</span>
+    </div>
+    {#if slot.configured}
+      <div class="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          class="size-7"
+          onclick={() => onAction(scope, 'retest')}
+          disabled={anyBusy}
+          title="Retest"
+        >
+          {#if isBusy('retest')}
+            <LoaderCircle class="size-3.5 animate-spin" />
+          {:else}
+            <RefreshCw class="size-3.5" />
+          {/if}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          class="text-destructive hover:text-destructive size-7"
+          onclick={() => onAction(scope, 'delete')}
+          disabled={anyBusy}
+          title="Delete"
+        >
+          {#if isBusy('delete')}
+            <LoaderCircle class="size-3.5 animate-spin" />
+          {:else}
+            <Trash2 class="size-3.5" />
+          {/if}
+        </Button>
+      </div>
+    {/if}
+  </div>
+
+  <!-- Credential details (when configured) -->
+  {#if slot.configured}
+    <div class="border-border border-t px-4 py-3">
+      <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+        <div>
+          <span class="text-muted-foreground">Token</span>
+          <div class="font-mono">{slot.token_preview}</div>
+        </div>
+        <div>
+          <span class="text-muted-foreground">Source</span>
+          <div>{slot.source ? slot.source.replaceAll('_', ' ') : '—'}</div>
+        </div>
+        <div>
+          <span class="text-muted-foreground">Repo access</span>
+          <div class="capitalize">{slot.probe.repo_access.replaceAll('_', ' ')}</div>
+        </div>
+        <div>
+          <span class="text-muted-foreground">Checked</span>
+          <div>{formatCheckedAt(slot.probe.checked_at)}</div>
+        </div>
+        {#if slot.probe.permissions.length}
+          <div class="col-span-2">
+            <span class="text-muted-foreground">Permissions</span>
+            <div>{slot.probe.permissions.join(', ')}</div>
+          </div>
+        {/if}
+      </div>
+      {#if slot.probe.last_error}
+        <p class="text-destructive mt-2 text-xs">{slot.probe.last_error}</p>
       {/if}
     </div>
-    <p class="text-muted-foreground text-sm">{description}</p>
-  </div>
+  {:else if scope === 'project' && organizationConfigured}
+    <div class="border-border border-t px-4 py-3">
+      <p class="text-muted-foreground text-xs">Falls back to the organization default.</p>
+    </div>
+  {/if}
 
-  <div class="text-muted-foreground mt-4 space-y-2 text-sm">
-    <p>{slotHint()}</p>
-    <p>Token preview: {slot.token_preview || 'Not configured'}</p>
-    <p>Repo access: {slot.probe.repo_access.replaceAll('_', ' ')}</p>
-    <p>Checked at: {formatCheckedAt(slot.probe.checked_at)}</p>
-    {#if slot.probe.permissions.length}
-      <p>Permissions: {slot.probe.permissions.join(', ')}</p>
+  <!-- Token input -->
+  <div class="border-border border-t px-4 py-3">
+    {#if slot.configured && !tokenExpanded}
+      <div class="flex items-center gap-2">
+        <button
+          class="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
+          onclick={() => (tokenExpanded = true)}
+        >
+          <ChevronDown class="size-3" />
+          Rotate token
+        </button>
+        <span class="text-muted-foreground text-xs">·</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          class="text-muted-foreground h-auto px-1 py-0 text-xs"
+          onclick={() => onAction(scope, 'import')}
+          disabled={anyBusy}
+        >
+          {#if isBusy('import')}
+            <LoaderCircle class="mr-1 size-3 animate-spin" />
+          {:else}
+            <Upload class="mr-1 size-3" />
+          {/if}
+          Import from gh
+        </Button>
+      </div>
+    {:else}
+      {#if slot.configured}
+        <button
+          class="text-muted-foreground hover:text-foreground mb-2 flex items-center gap-1 text-xs transition-colors"
+          onclick={() => (tokenExpanded = false)}
+        >
+          <ChevronUp class="size-3" />
+          Cancel
+        </button>
+      {/if}
+      <div class="flex gap-2">
+        <Input
+          value={tokenValue}
+          placeholder="ghu_xxx or github_pat_xxx"
+          disabled={anyBusy}
+          class="h-8 text-xs"
+          oninput={(event) => onTokenChange(scope, event.currentTarget.value)}
+        />
+        <Button
+          size="sm"
+          class="h-8 shrink-0"
+          onclick={() => onAction(scope, 'save')}
+          disabled={anyBusy}
+        >
+          {#if isBusy('save')}
+            <LoaderCircle class="mr-1.5 size-3 animate-spin" />
+          {:else}
+            <KeyRound class="mr-1.5 size-3" />
+          {/if}
+          Save
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          class="h-8 shrink-0"
+          onclick={() => onAction(scope, 'import')}
+          disabled={anyBusy}
+        >
+          {#if isBusy('import')}
+            <LoaderCircle class="mr-1.5 size-3 animate-spin" />
+          {:else}
+            <Upload class="mr-1.5 size-3" />
+          {/if}
+          Import from gh
+        </Button>
+      </div>
     {/if}
-    {#if slot.probe.last_error}
-      <p class="text-destructive">Last error: {slot.probe.last_error}</p>
-    {/if}
-  </div>
-
-  <div class="mt-4 space-y-2">
-    <Label for={`github-token-${scope}`}>{slot.configured ? 'Rotate token' : 'Paste token'}</Label>
-    <Textarea
-      id={`github-token-${scope}`}
-      value={tokenValue}
-      rows={3}
-      placeholder="ghu_xxx or github_pat_xxx"
-      disabled={actionKey !== ''}
-      oninput={(event) => onTokenChange(scope, event.currentTarget.value)}
-    />
-  </div>
-
-  <div class="mt-4 flex flex-wrap gap-2">
-    <Button onclick={() => onAction(scope, 'save')} disabled={actionKey !== ''}>
-      {#if isBusy('save')}
-        <LoaderCircle class="mr-2 size-4 animate-spin" />
-      {:else}
-        <KeyRound class="mr-2 size-4" />
-      {/if}
-      {slot.configured ? 'Save rotation' : 'Save token'}
-    </Button>
-
-    <Button variant="outline" onclick={() => onAction(scope, 'import')} disabled={actionKey !== ''}>
-      {#if isBusy('import')}
-        <LoaderCircle class="mr-2 size-4 animate-spin" />
-      {:else}
-        <Upload class="mr-2 size-4" />
-      {/if}
-      Import from gh
-    </Button>
-
-    <Button
-      variant="outline"
-      onclick={() => onAction(scope, 'retest')}
-      disabled={!slot.configured || actionKey !== ''}
-    >
-      {#if isBusy('retest')}
-        <LoaderCircle class="mr-2 size-4 animate-spin" />
-      {:else}
-        <RefreshCw class="mr-2 size-4" />
-      {/if}
-      Retest
-    </Button>
-
-    <Button
-      variant="destructive"
-      onclick={() => onAction(scope, 'delete')}
-      disabled={!slot.configured || actionKey !== ''}
-    >
-      {#if isBusy('delete')}
-        <LoaderCircle class="mr-2 size-4 animate-spin" />
-      {:else}
-        <Trash2 class="mr-2 size-4" />
-      {/if}
-      Delete
-    </Button>
   </div>
 </div>

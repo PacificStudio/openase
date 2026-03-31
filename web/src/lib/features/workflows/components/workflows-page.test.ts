@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { ApiError } from '$lib/api/client'
 import type { Organization, Project } from '$lib/api/contracts'
 import { appStore } from '$lib/stores/app.svelte'
 import WorkflowsPage from './workflows-page.svelte'
@@ -101,7 +102,14 @@ const pageDataFixture = {
   selectedWorkflowId: 'wf-1',
   agentOptions: [],
   providers: [],
-  skillStates: [{ name: 'lint', description: 'Run linters', path: 'skills/lint', bound: false }],
+  skillStates: [
+    {
+      name: 'lint',
+      description: 'Run linters',
+      path: '.openase/skills/lint/SKILL.md',
+      bound: false,
+    },
+  ],
   builtinRoleContent: '',
   statuses: [
     { id: 'todo', name: 'To Do' },
@@ -157,7 +165,7 @@ describe('WorkflowsPage', () => {
     await fireEvent.click(lintButton)
 
     await waitFor(() => {
-      expect(bindWorkflowSkills).toHaveBeenCalledWith('wf-1', ['skills/lint'])
+      expect(bindWorkflowSkills).toHaveBeenCalledWith('wf-1', ['lint'])
       expect(toastStore.success).toHaveBeenCalledWith('Bound lint.')
     })
   })
@@ -168,7 +176,14 @@ describe('WorkflowsPage', () => {
 
     loadWorkflowPageData.mockResolvedValue({
       ...pageDataFixture,
-      skillStates: [{ name: 'lint', description: 'Run linters', path: 'skills/lint', bound: true }],
+      skillStates: [
+        {
+          name: 'lint',
+          description: 'Run linters',
+          path: '.openase/skills/lint/SKILL.md',
+          bound: true,
+        },
+      ],
     })
 
     const { findByTitle, findAllByText } = render(WorkflowsPage)
@@ -209,5 +224,62 @@ describe('WorkflowsPage', () => {
     await waitFor(() => {
       expect(toastStore.error).toHaveBeenCalledWith('Failed to update workflow skills.')
     })
+  })
+
+  it('binds by skill name even when the skill state carries a repository path', async () => {
+    appStore.currentOrg = orgFixture
+    appStore.currentProject = projectFixture
+
+    loadWorkflowPageData.mockResolvedValue({
+      ...pageDataFixture,
+      skillStates: [
+        {
+          name: 'commit',
+          description: 'Commit the current work.',
+          path: '.openase/skills/commit/SKILL.md',
+          bound: false,
+        },
+      ],
+    })
+    bindWorkflowSkills.mockResolvedValue({
+      harness: {
+        content: pageDataFixture.harness.rawContent,
+        path: '.openase/harnesses/coding.md',
+        version: 4,
+      },
+    })
+
+    const { findByTitle } = render(WorkflowsPage)
+
+    const commitButton = await findByTitle('Bind commit: Commit the current work.')
+    await fireEvent.click(commitButton)
+
+    await waitFor(() => {
+      expect(bindWorkflowSkills).toHaveBeenCalledWith('wf-1', ['commit'])
+      expect(bindWorkflowSkills).not.toHaveBeenCalledWith('wf-1', [
+        '.openase/skills/commit/SKILL.md',
+      ])
+    })
+  })
+
+  it('renders a load error instead of crashing when workflow loading fails', async () => {
+    appStore.currentOrg = orgFixture
+    appStore.currentProject = projectFixture
+
+    loadWorkflowPageData.mockRejectedValue(
+      new ApiError(
+        500,
+        'ensure workflow mirror freshness: project repo mirror sync failed: platform-managed GitHub outbound credential is not configured',
+      ),
+    )
+
+    const { findByText, queryByText } = render(WorkflowsPage)
+
+    expect(
+      await findByText(
+        'ensure workflow mirror freshness: project repo mirror sync failed: platform-managed GitHub outbound credential is not configured',
+      ),
+    ).toBeTruthy()
+    expect(queryByText('Coding Workflow')).toBeNull()
   })
 })

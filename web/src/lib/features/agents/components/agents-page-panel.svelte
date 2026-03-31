@@ -11,7 +11,6 @@
     runtimeActionAgentId = null,
     onSelectAgent,
     onSelectTicket,
-    onViewOutput,
     onPauseAgent,
     onResumeAgent,
   }: {
@@ -22,7 +21,6 @@
     runtimeActionAgentId?: string | null
     onSelectAgent?: (agentId: string) => void
     onSelectTicket?: (ticketId: string) => void
-    onViewOutput?: (agentId: string) => void
     onPauseAgent?: (agentId: string) => void
     onResumeAgent?: (agentId: string) => void
   } = $props()
@@ -82,7 +80,6 @@
       {runtimeActionAgentId}
       {onSelectAgent}
       {onSelectTicket}
-      {onViewOutput}
       {onPauseAgent}
       {onResumeAgent}
     />

@@ -4,7 +4,7 @@ import { parseMachineSnapshot } from '../model'
 import { buildAuditRows, buildLevelCards } from './machine-health-panel-view'
 
 describe('machine health panel view', () => {
-  it('treats GitHub CLI auth as observational and token probe as the readiness signal', () => {
+  it('treats GitHub CLI auth as observational and omits GH_TOKEN probe rows', () => {
     const snapshot = parseMachineSnapshot({
       checked_at: '2026-03-31T10:00:00Z',
       last_success: true,
@@ -45,7 +45,7 @@ describe('machine health panel view', () => {
 
     const levelCards = buildLevelCards(snapshot!)
     expect(levelCards.find((card) => card.id === 'l5')?.value).toBe(
-      'Git, GitHub CLI observation, token probe, and network audit captured',
+      'Git, GitHub CLI observation, and network audit captured',
     )
 
     const auditRows = buildAuditRows(snapshot!)
@@ -58,13 +58,7 @@ describe('machine health panel view', () => {
       authStatus: 'logged_in',
     })
 
-    const tokenRow = auditRows.find((row) => row.kind === 'token-probe')
-    expect(tokenRow).toMatchObject({
-      kind: 'token-probe',
-      label: 'GitHub Token',
-      state: 'valid',
-      permissions: ['repo', 'read:org'],
-      detail: null,
-    })
+    expect(auditRows.some((row) => row.kind === 'network')).toBe(true)
+    expect(auditRows.map((row) => row.kind)).toEqual(['git', 'gh-cli', 'network'])
   })
 })

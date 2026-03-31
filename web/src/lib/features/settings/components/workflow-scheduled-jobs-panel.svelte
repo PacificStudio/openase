@@ -10,9 +10,10 @@
   } from '$lib/api/openase'
   import type { WorkflowSummary } from '$lib/features/workflows'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import { Button } from '$ui/button'
   import WorkflowScheduledJobEditor from './workflow-scheduled-job-editor.svelte'
+  import WorkflowScheduledJobsHeader from './workflow-scheduled-jobs-header.svelte'
   import WorkflowScheduledJobList from './workflow-scheduled-job-list.svelte'
+  import WorkflowScheduledJobsSummary from './workflow-scheduled-jobs-summary.svelte'
   import {
     emptyScheduledJobDraft,
     parseScheduledJobDraft,
@@ -39,6 +40,8 @@
   let saving = $state(false)
   let deleting = $state(false)
   let triggering = $state(false)
+  let actionJobId = $state<string | null>(null)
+  let editorOpen = $state(false)
   let selectedJobId = $state('')
   let draft = $state<ScheduledJobDraft>(emptyScheduledJobDraft(''))
 
@@ -52,16 +55,14 @@
   const workflowLabelById = $derived(
     new Map(workflowOptions.map((workflow) => [workflow.value, workflow.label])),
   )
+  const enabledCount = $derived(jobs.filter((j) => j.is_enabled).length)
 
   $effect(() => {
     const defaultWorkflowId = workflowOptions[0]?.value ?? ''
 
     if (!defaultWorkflowId) {
       if (draft.workflowId) {
-        draft = {
-          ...draft,
-          workflowId: '',
-        }
+        draft = { ...draft, workflowId: '' }
       }
       return
     }
@@ -70,10 +71,7 @@
       !draft.workflowId ||
       !workflowOptions.some((workflow) => workflow.value === draft.workflowId)
     ) {
-      draft = {
-        ...draft,
-        workflowId: defaultWorkflowId,
-      }
+      draft = { ...draft, workflowId: defaultWorkflowId }
     }
   })
 
@@ -86,27 +84,13 @@
       try {
         const payload = await listScheduledJobs(projectId)
         if (cancelled) return
-
         jobs = payload.scheduled_jobs
-        if (selectedJobId && payload.scheduled_jobs.some((job) => job.id === selectedJobId)) {
-          draft = scheduledJobDraftFromRecord(
-            payload.scheduled_jobs.find((job) => job.id === selectedJobId)!,
-            workflowOptions[0]?.value ?? '',
-          )
-        } else {
-          selectedJobId = ''
-          draft = emptyScheduledJobDraft(workflowOptions[0]?.value ?? '')
-        }
       } catch (caughtError) {
         if (cancelled) return
         jobs = []
-        toastStore.error(
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load scheduled jobs.',
-        )
+        showApiError(caughtError, 'Failed to load scheduled jobs.')
       } finally {
-        if (!cancelled) {
-          loading = false
-        }
+        if (!cancelled) loading = false
       }
     }
 
@@ -117,30 +101,32 @@
     }
   })
 
-  function selectJob(job: ScheduledJob) {
+  function openNewJob() {
+    selectedJobId = ''
+    draft = emptyScheduledJobDraft(workflowOptions[0]?.value ?? '')
+    editorOpen = true
+  }
+
+  function openEditJob(job: ScheduledJob) {
     selectedJobId = job.id
     draft = scheduledJobDraftFromRecord(job, workflowOptions[0]?.value ?? '')
+    editorOpen = true
   }
 
-  function selectNewJob() {
-    selectedJobId = ''
-    draft = emptyScheduledJobDraft(workflowOptions[0]?.value ?? '')
+  function handleEditorClose(open: boolean) {
+    if (!open) {
+      selectedJobId = ''
+      draft = emptyScheduledJobDraft(workflowOptions[0]?.value ?? '')
+    }
   }
 
-  async function refreshJobs(nextSelectedId = selectedJobId) {
+  async function refreshJobs() {
     const payload = await listScheduledJobs(projectId)
     jobs = payload.scheduled_jobs
-    if (nextSelectedId && payload.scheduled_jobs.some((job) => job.id === nextSelectedId)) {
-      selectedJobId = nextSelectedId
-      draft = scheduledJobDraftFromRecord(
-        payload.scheduled_jobs.find((job) => job.id === nextSelectedId)!,
-        workflowOptions[0]?.value ?? '',
-      )
-      return
-    }
+  }
 
-    selectedJobId = ''
-    draft = emptyScheduledJobDraft(workflowOptions[0]?.value ?? '')
+  function showApiError(caughtError: unknown, fallback: string) {
+    toastStore.error(caughtError instanceof ApiError ? caughtError.detail : fallback)
   }
 
   async function handleSubmit() {
@@ -155,17 +141,20 @@
     try {
       if (selectedJob) {
         await updateScheduledJob(selectedJob.id, parsed.value)
-        await refreshJobs(selectedJob.id)
+        await refreshJobs()
         toastStore.success('Scheduled job updated.')
       } else {
         const payload = await createScheduledJob(projectId, parsed.value)
-        await refreshJobs(payload.scheduled_job.id)
+        await refreshJobs()
+        selectedJobId = payload.scheduled_job.id
+        draft = scheduledJobDraftFromRecord(
+          jobs.find((j) => j.id === payload.scheduled_job.id)!,
+          workflowOptions[0]?.value ?? '',
+        )
         toastStore.success('Scheduled job created.')
       }
     } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save scheduled job.',
-      )
+      showApiError(caughtError, 'Failed to save scheduled job.')
     } finally {
       saving = false
     }
@@ -178,79 +167,123 @@
 
     try {
       await deleteScheduledJob(selectedJob.id)
-      await refreshJobs('')
+      editorOpen = false
+      selectedJobId = ''
+      await refreshJobs()
       toastStore.success('Scheduled job deleted.')
     } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete scheduled job.',
-      )
+      showApiError(caughtError, 'Failed to delete scheduled job.')
     } finally {
       deleting = false
     }
   }
 
-  async function handleTrigger() {
+  async function handleToggleEnabled(job: ScheduledJob) {
+    actionJobId = job.id
+
+    try {
+      await updateScheduledJob(job.id, { is_enabled: !job.is_enabled })
+      await refreshJobs()
+      toastStore.success(job.is_enabled ? 'Job disabled.' : 'Job enabled.')
+    } catch (caughtError) {
+      showApiError(caughtError, 'Failed to update job.')
+    } finally {
+      actionJobId = null
+    }
+  }
+
+  async function handleTriggerJob(job: ScheduledJob) {
+    actionJobId = job.id
+
+    try {
+      await triggerScheduledJob(job.id)
+      await refreshJobs()
+      toastStore.success('Scheduled job triggered.')
+    } catch (caughtError) {
+      showApiError(caughtError, 'Failed to trigger scheduled job.')
+    } finally {
+      actionJobId = null
+    }
+  }
+
+  async function handleTriggerFromEditor() {
     if (!selectedJob) return
 
     triggering = true
 
     try {
       await triggerScheduledJob(selectedJob.id)
-      await refreshJobs(selectedJob.id)
+      await refreshJobs()
       toastStore.success('Scheduled job triggered.')
     } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to trigger scheduled job.',
-      )
+      showApiError(caughtError, 'Failed to trigger scheduled job.')
     } finally {
       triggering = false
     }
   }
 
-  function handleDraftFieldChange(field: keyof ScheduledJobDraft, value: string | boolean) {
-    draft = {
-      ...draft,
-      [field]: value,
+  async function handleDeleteJob(job: ScheduledJob) {
+    actionJobId = job.id
+
+    try {
+      await deleteScheduledJob(job.id)
+      if (selectedJobId === job.id) {
+        editorOpen = false
+        selectedJobId = ''
+      }
+      await refreshJobs()
+      toastStore.success('Scheduled job deleted.')
+    } catch (caughtError) {
+      showApiError(caughtError, 'Failed to delete scheduled job.')
+    } finally {
+      actionJobId = null
     }
+  }
+
+  function handleDraftFieldChange(field: keyof ScheduledJobDraft, value: string | boolean) {
+    draft = { ...draft, [field]: value }
   }
 </script>
 
 <div class="flex h-full min-h-0 flex-col">
   {#if showHeader}
-    <div class="border-border flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3">
-      <div class="min-w-0">
-        <h3 class="text-foreground truncate text-sm font-semibold">{title}</h3>
-        <p class="text-muted-foreground mt-0.5 text-xs">{description}</p>
-      </div>
-      <Button variant="outline" size="sm" onclick={selectNewJob}>New job</Button>
-    </div>
+    <WorkflowScheduledJobsHeader {title} {description} onCreate={openNewJob} />
   {/if}
 
   {#if loading}
     <div class="text-muted-foreground p-4 text-sm">Loading scheduled jobs…</div>
   {:else}
-    <div class="flex min-h-0 flex-1 overflow-hidden">
+    <div class="flex-1 overflow-y-auto p-4">
+      {#if jobs.length > 0}
+        <WorkflowScheduledJobsSummary total={jobs.length} enabled={enabledCount} />
+      {/if}
+
       <WorkflowScheduledJobList
         {jobs}
-        {selectedJobId}
         {workflowLabelById}
-        onSelect={selectJob}
-        onNewJob={selectNewJob}
-      />
-
-      <WorkflowScheduledJobEditor
-        {projectId}
-        {draft}
-        {selectedJob}
-        {workflowOptions}
-        {saving}
-        {deleting}
-        {triggering}
-        onFieldChange={handleDraftFieldChange}
-        onSubmit={handleSubmit}
-        onDelete={handleDelete}
-        onTrigger={handleTrigger}
+        {actionJobId}
+        onNewJob={openNewJob}
+        onEditJob={openEditJob}
+        onToggleEnabled={handleToggleEnabled}
+        onTriggerJob={handleTriggerJob}
+        onDeleteJob={handleDeleteJob}
       />
     </div>
   {/if}
 </div>
+
+<WorkflowScheduledJobEditor
+  bind:open={editorOpen}
+  {projectId}
+  {draft}
+  {selectedJob}
+  {workflowOptions}
+  {saving}
+  {deleting}
+  {triggering}
+  onFieldChange={handleDraftFieldChange}
+  onSubmit={handleSubmit}
+  onDelete={handleDelete}
+  onTrigger={handleTriggerFromEditor}
+  onOpenChange={handleEditorClose}
+/>

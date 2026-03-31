@@ -10,73 +10,8 @@ vi.mock('$lib/api/chat', () => ({
   streamChatTurn,
 }))
 
-import type { AgentProvider } from '$lib/api/contracts'
 import { createEphemeralChatSessionController } from './ephemeral-chat-session-controller.svelte'
-
-const providerFixtures: AgentProvider[] = [
-  {
-    id: 'provider-1',
-    organization_id: 'org-1',
-    machine_id: 'machine-1',
-    machine_name: 'Localhost',
-    machine_host: '127.0.0.1',
-    machine_status: 'online',
-    machine_ssh_user: null,
-    machine_workspace_root: '/workspace',
-    name: 'Codex',
-    adapter_type: 'codex-app-server',
-    availability_state: 'available',
-    available: true,
-    availability_checked_at: '2026-03-28T12:00:00Z',
-    availability_reason: null,
-    capabilities: {
-      ephemeral_chat: {
-        state: 'available',
-        reason: null,
-      },
-    },
-    cli_command: 'codex',
-    cli_args: [],
-    auth_config: {},
-    model_name: 'gpt-5.4',
-    model_temperature: 0,
-    model_max_tokens: 4096,
-    max_parallel_runs: 2,
-    cost_per_input_token: 0,
-    cost_per_output_token: 0,
-  },
-  {
-    id: 'provider-2',
-    organization_id: 'org-1',
-    machine_id: 'machine-1',
-    machine_name: 'Localhost',
-    machine_host: '127.0.0.1',
-    machine_status: 'online',
-    machine_ssh_user: null,
-    machine_workspace_root: '/workspace',
-    name: 'Claude',
-    adapter_type: 'claude-code-cli',
-    availability_state: 'available',
-    available: true,
-    availability_checked_at: '2026-03-28T12:00:00Z',
-    availability_reason: null,
-    capabilities: {
-      ephemeral_chat: {
-        state: 'available',
-        reason: null,
-      },
-    },
-    cli_command: 'claude',
-    cli_args: [],
-    auth_config: {},
-    model_name: 'claude-sonnet-4',
-    model_temperature: 0,
-    model_max_tokens: 4096,
-    max_parallel_runs: 2,
-    cost_per_input_token: 0,
-    cost_per_output_token: 0,
-  },
-]
+import { providerFixtures } from './ephemeral-chat-session-controller.test-helpers'
 
 describe('createEphemeralChatSessionController', () => {
   afterEach(() => {
@@ -293,5 +228,64 @@ describe('createEphemeralChatSessionController', () => {
       content: '## Summary\n\n- Item one\n- Item two',
       streaming: false,
     })
+  })
+
+  it('surfaces a transient stream interruption clearly and finalizes any partial assistant reply', async () => {
+    const onError = vi.fn()
+    streamChatTurn.mockImplementation(async (_request, handlers) => {
+      handlers.onEvent({
+        kind: 'session',
+        payload: {
+          sessionId: 'session-1',
+        },
+      })
+      handlers.onEvent({
+        kind: 'message',
+        payload: {
+          type: 'text',
+          content: 'Partial reply',
+        },
+      })
+      throw new TypeError('network error')
+    })
+
+    const controller = createEphemeralChatSessionController({
+      getSource: () => 'project_sidebar',
+      onError,
+    })
+    controller.syncProviders(providerFixtures, 'provider-1')
+
+    await controller.sendTurn({
+      message: 'What changed?',
+      context: {
+        projectId: 'project-1',
+      },
+    })
+
+    expect(onError).toHaveBeenCalledWith(
+      'The chat stream was interrupted before the reply completed. This can happen during a redeploy, page reload, or network reset. Retry the request.',
+    )
+    expect(controller.sessionId).toBe('session-1')
+    expect(controller.pending).toBe(false)
+    expect(
+      controller.entries
+        .filter((entry) => entry.kind === 'text')
+        .map((entry) => ({
+          role: entry.role,
+          content: entry.content,
+          streaming: entry.streaming,
+        })),
+    ).toEqual([
+      {
+        role: 'user',
+        content: 'What changed?',
+        streaming: false,
+      },
+      {
+        role: 'assistant',
+        content: 'Partial reply',
+        streaming: false,
+      },
+    ])
   })
 })

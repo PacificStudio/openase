@@ -117,7 +117,7 @@
 </script>
 
 <PageScaffold title="Activity" description="Runtime events and agent lifecycle updates.">
-  <div class="w-full max-w-4xl space-y-4">
+  <div class="w-full space-y-4">
     <div class="flex flex-wrap items-center gap-3">
       <div class="relative min-w-48 flex-1">
         <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />

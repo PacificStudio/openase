@@ -118,26 +118,14 @@
     </div>
   {:else}
     <div class="space-y-4">
-      <div
-        class="flex flex-col gap-3 rounded-2xl border border-dashed px-4 py-4 md:flex-row md:items-center md:justify-between"
-      >
-        <div class="max-w-2xl">
-          <h2 class="text-foreground text-sm font-semibold">Fleet overview</h2>
-          <p class="text-muted-foreground mt-1 text-sm">
-            Click any machine card to open the editor drawer. Runtime health stays read-only in the
-            list; edits happen in the drawer only.
-          </p>
-        </div>
-
-        <div class="relative w-full md:max-w-xs">
-          <Search class="text-muted-foreground absolute top-2.5 left-2.5 size-3.5" />
-          <Input
-            value={searchQuery}
-            class="h-9 pl-8 text-sm"
-            placeholder="Search machines..."
-            oninput={(event) => onSearchChange?.((event.currentTarget as HTMLInputElement).value)}
-          />
-        </div>
+      <div class="relative w-full max-w-xs">
+        <Search class="text-muted-foreground absolute top-2.5 left-2.5 size-3.5" />
+        <Input
+          value={searchQuery}
+          class="h-9 pl-8 text-sm"
+          placeholder="Search machines..."
+          oninput={(event) => onSearchChange?.((event.currentTarget as HTMLInputElement).value)}
+        />
       </div>
 
       {#if machines.length === 0}

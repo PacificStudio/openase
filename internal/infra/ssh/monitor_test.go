@@ -111,6 +111,21 @@ func TestBuildAgentEnvironmentScriptUsesRelaxedCodexLoginMatch(t *testing.T) {
 	if strings.Contains(script, `login status 2>/dev/null`) {
 		t.Fatalf("expected codex login match to inspect stderr output, got %q", script)
 	}
+	if !strings.Contains(script, `${GEMINI_API_KEY:-}`) || !strings.Contains(script, `${GOOGLE_API_KEY:-}`) {
+		t.Fatalf("expected gemini api-key probe in script, got %q", script)
+	}
+	if !strings.Contains(script, `${GOOGLE_CLOUD_PROJECT:-}`) || !strings.Contains(script, `${GOOGLE_CLOUD_LOCATION:-}`) {
+		t.Fatalf("expected gemini vertex env probe in script, got %q", script)
+	}
+	if !strings.Contains(script, `/.gemini/settings.json`) || !strings.Contains(script, `/.gemini/google_accounts.json`) || !strings.Contains(script, `/.gemini/oauth_creds.json`) {
+		t.Fatalf("expected gemini oauth cache probe in script, got %q", script)
+	}
+	if !strings.Contains(script, `"selectedType"[[:space:]]*:[[:space:]]*"\([^"]*\)"`) {
+		t.Fatalf("expected gemini selectedType parsing in script, got %q", script)
+	}
+	if !strings.Contains(script, `"active"[[:space:]]*:[[:space:]]*"[^"]+"`) || !strings.Contains(script, `"refresh_token"[[:space:]]*:[[:space:]]*"[^"]+"`) {
+		t.Fatalf("expected gemini oauth credential probes in script, got %q", script)
+	}
 }
 
 func TestMonitorCollectorCollectFullAuditIncludesGitHubTokenProbe(t *testing.T) {

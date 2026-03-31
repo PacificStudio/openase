@@ -52,13 +52,13 @@ describe('Security settings', () => {
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     saveGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
 
-    const { findByLabelText, findByRole } = render(SecuritySettings)
+    const { findByPlaceholderText, findAllByRole } = render(SecuritySettings)
 
-    const textarea = await findByLabelText('Paste token', { selector: 'textarea' })
-    await fireEvent.input(textarea, { target: { value: 'ghu_project_override' } })
+    const input = await findByPlaceholderText('ghu_xxx or github_pat_xxx')
+    await fireEvent.input(input, { target: { value: 'ghu_project_override' } })
 
-    const saveButton = await findByRole('button', { name: 'Save token' })
-    await fireEvent.click(saveButton)
+    const saveButtons = await findAllByRole('button', { name: 'Save' })
+    await fireEvent.click(saveButtons[0])
 
     await waitFor(() => {
       expect(saveGitHubOutboundCredential).toHaveBeenCalledWith(appStore.currentProject?.id, {
@@ -75,7 +75,7 @@ describe('Security settings', () => {
     retestGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
     deleteGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
 
-    const { findAllByText } = render(SecuritySettings)
+    const { findAllByText, findAllByTitle } = render(SecuritySettings)
 
     const importButtons = await findAllByText('Import from gh')
     await fireEvent.click(importButtons[0])
@@ -86,7 +86,7 @@ describe('Security settings', () => {
       )
     })
 
-    const retestButtons = await findAllByText('Retest')
+    const retestButtons = await findAllByTitle('Retest')
     await fireEvent.click(retestButtons[0])
     await waitFor(() => {
       expect(retestGitHubOutboundCredential).toHaveBeenCalledWith(appStore.currentProject?.id, {
@@ -94,7 +94,7 @@ describe('Security settings', () => {
       })
     })
 
-    const deleteButtons = await findAllByText('Delete')
+    const deleteButtons = await findAllByTitle('Delete')
     await fireEvent.click(deleteButtons[0])
     await waitFor(() => {
       expect(deleteGitHubOutboundCredential).toHaveBeenCalledWith(
@@ -102,6 +102,18 @@ describe('Security settings', () => {
         'organization',
       )
     })
+  })
+
+  it('normalizes null GitHub probe permissions so the page does not crash', async () => {
+    appStore.currentProject = currentProject()
+    getSecuritySettings.mockResolvedValue({
+      security: configuredSecurityWithNullPermissions() as never,
+    })
+
+    const { findByText } = render(SecuritySettings)
+
+    expect(await findByText('GitHub outbound credentials')).toBeTruthy()
+    expect(await findByText('No scopes reported')).toBeTruthy()
   })
 })
 
@@ -197,5 +209,36 @@ function configuredSecurity() {
         summary: 'Deferred for a later control-plane surface.',
       },
     ],
+  }
+}
+
+function configuredSecurityWithNullPermissions() {
+  const security = configuredSecurity()
+  return {
+    ...security,
+    github: {
+      ...security.github,
+      effective: {
+        ...security.github.effective,
+        probe: {
+          ...security.github.effective.probe,
+          permissions: null,
+        },
+      },
+      organization: {
+        ...security.github.organization,
+        probe: {
+          ...security.github.organization.probe,
+          permissions: null,
+        },
+      },
+      project_override: {
+        ...security.github.project_override,
+        probe: {
+          ...security.github.project_override.probe,
+          permissions: null,
+        },
+      },
+    },
   }
 }

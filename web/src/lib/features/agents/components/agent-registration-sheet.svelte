@@ -1,7 +1,9 @@
 <script lang="ts">
   import { Button } from '$ui/button'
-  import { providerAvailabilityLabel } from '$lib/features/providers'
+  import { adapterIconPath, availabilityDotColor } from '$lib/features/providers'
+  import { cn } from '$lib/utils'
   import { Input } from '$ui/input'
+  import { Wrench } from '@lucide/svelte'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
   import { deriveWorkspaceConvention } from '../registration'
@@ -52,14 +54,7 @@
     onSubmit?.()
   }
 
-  function providerLabel(provider: AgentProvider) {
-    return `${provider.name} · ${provider.machine_name} · ${providerAvailabilityLabel(provider.availability_state)} · ${provider.adapter_type} · ${provider.model_name}`
-  }
-
-  function selectedProviderLabel() {
-    const provider = providers.find((item) => item.id === draft.providerId)
-    return provider ? providerLabel(provider) : 'Select provider'
-  }
+  const selectedProvider = $derived(providers.find((item) => item.id === draft.providerId) ?? null)
 
   const workspaceConvention = $derived(
     deriveWorkspaceConvention(
@@ -96,10 +91,56 @@
             value={draft.providerId}
             onValueChange={(value) => onDraftChange?.('providerId', value || '')}
           >
-            <Select.Trigger class="w-full">{selectedProviderLabel()}</Select.Trigger>
+            <Select.Trigger class="h-auto w-full py-2">
+              {#if selectedProvider}
+                {@const iconPath = adapterIconPath(selectedProvider.adapter_type)}
+                <div class="flex items-center gap-2.5">
+                  {#if iconPath}
+                    <img src={iconPath} alt="" class="size-5 shrink-0" />
+                  {:else}
+                    <Wrench class="text-muted-foreground size-5 shrink-0" />
+                  {/if}
+                  <div class="min-w-0 text-left">
+                    <div class="text-foreground truncate text-sm font-medium">
+                      {selectedProvider.name}
+                    </div>
+                    <div class="text-muted-foreground truncate text-xs">
+                      {selectedProvider.machine_name} &middot; {selectedProvider.model_name}
+                    </div>
+                  </div>
+                  <span
+                    class={cn(
+                      'ml-auto size-2 shrink-0 rounded-full',
+                      availabilityDotColor(selectedProvider.available),
+                    )}
+                  ></span>
+                </div>
+              {:else}
+                <span class="text-muted-foreground">Select provider</span>
+              {/if}
+            </Select.Trigger>
             <Select.Content>
               {#each providers as provider (provider.id)}
-                <Select.Item value={provider.id}>{providerLabel(provider)}</Select.Item>
+                {@const iconPath = adapterIconPath(provider.adapter_type)}
+                <Select.Item value={provider.id}>
+                  <div class="flex items-center gap-2.5 py-0.5">
+                    {#if iconPath}
+                      <img src={iconPath} alt="" class="size-4 shrink-0" />
+                    {:else}
+                      <Wrench class="text-muted-foreground size-4 shrink-0" />
+                    {/if}
+                    <span class="truncate">{provider.name}</span>
+                    <span
+                      class={cn(
+                        'size-1.5 shrink-0 rounded-full',
+                        availabilityDotColor(provider.available),
+                      )}
+                    ></span>
+                    <span class="text-muted-foreground ml-auto truncate text-xs"
+                      >{provider.machine_name}</span
+                    >
+                  </div>
+                </Select.Item>
               {/each}
             </Select.Content>
           </Select.Root>

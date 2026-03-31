@@ -1,15 +1,9 @@
 <script lang="ts">
-  import {
-    CircleCheck,
-    CircleX,
-    CircleHelp,
-    GitBranch,
-    Terminal,
-    KeyRound,
-    Globe,
-  } from '@lucide/svelte'
+  import { CircleCheck, CircleX, CircleHelp, GitBranch, Terminal, Globe } from '@lucide/svelte'
+  import { formatRelativeTime } from '$lib/utils'
+  import { Badge } from '$ui/badge'
   import type { MachineItem, MachineProbeResult, MachineSnapshot } from '../types'
-  import type { TruthyState, AuditTokenState } from './machine-health-panel-view'
+  import type { TruthyState } from './machine-health-panel-view'
   import {
     buildAuditRows,
     buildLevelCards,
@@ -36,24 +30,9 @@
     unknown: 'text-muted-foreground',
   }
 
-  const tokenBadgeVariant: Record<AuditTokenState, 'secondary' | 'destructive' | 'outline'> = {
-    valid: 'secondary',
-    missing: 'destructive',
-    expired: 'outline',
-    unknown: 'outline',
-  }
-
-  const tokenBadgeLabel: Record<AuditTokenState, string> = {
-    valid: 'Valid',
-    missing: 'Missing',
-    expired: 'Expired',
-    unknown: 'Unknown',
-  }
-
   const auditRowIcons = {
     git: GitBranch,
     'gh-cli': Terminal,
-    'token-probe': KeyRound,
     network: Globe,
   } as const
 
@@ -224,10 +203,6 @@
                       </span>
                     </div>
                     <Badge variant="outline" class="text-[10px]">Observational</Badge>
-                  {:else if row.kind === 'token-probe'}
-                    <Badge variant={tokenBadgeVariant[row.state]} class="text-[10px]">
-                      {tokenBadgeLabel[row.state]}
-                    </Badge>
                   {/if}
                 </div>
                 <div class="text-muted-foreground mt-1 text-xs">
@@ -235,16 +210,6 @@
                     {row.identity ?? 'No git identity recorded'}
                   {:else if row.kind === 'gh-cli'}
                     {row.authStatus ?? 'No auth status recorded'}
-                  {:else if row.kind === 'token-probe'}
-                    {#if row.permissions.length > 0}
-                      <div class="mt-1 flex flex-wrap gap-1">
-                        {#each row.permissions as perm (perm)}
-                          <Badge variant="secondary" class="font-mono text-[10px]">{perm}</Badge>
-                        {/each}
-                      </div>
-                    {:else}
-                      {row.detail ?? 'No scopes recorded'}
-                    {/if}
                   {:else if row.kind === 'network'}
                     <div class="mt-1 flex items-center gap-3">
                       {#each row.endpoints as endpoint (endpoint.name)}

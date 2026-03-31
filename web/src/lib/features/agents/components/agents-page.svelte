@@ -10,10 +10,8 @@
   import AgentDrawer from './agent-drawer.svelte'
   import AgentsPageContent from './agents-page-content.svelte'
   import { registerAgentPageAction, runAgentRuntimePageAction } from './agents-page-actions'
-  import { createAgentOutputState } from './agent-output-state.svelte'
   import { mapAgentsPageData } from './agents-page-helpers'
   import { connectAgentsPageStreams } from './agents-page-streams'
-  import { wireAgentOutputStream } from './agent-output-stream.svelte'
 
   let agents = $state<AgentInstance[]>([])
   let agentRuns = $state<AgentRunInstance[]>([])
@@ -25,15 +23,11 @@
   let registrationDraft = $state<AgentRegistrationDraft>(
     createAgentRegistrationDraft([], appStore.currentOrg?.default_agent_provider_id),
   )
-  let outputSheetOpen = $state(false),
-    loadVersion = 0
-  const outputState = createAgentOutputState()
-  let outputAgentId = $state<string | null>(null)
+  let loadVersion = 0
   let runtimeActionAgentId = $state<string | null>(null)
   let agentDrawerOpen = $state(false)
   let selectedAgentId = $state<string | null>(null)
 
-  const selectedOutputAgent = $derived(agents.find((agent) => agent.id === outputAgentId) ?? null)
   const selectedAgent = $derived(agents.find((agent) => agent.id === selectedAgentId) ?? null)
 
   $effect(() => {
@@ -44,8 +38,6 @@
       agentRuns = []
       providerItems = []
       resetRegistrationDraft()
-      outputAgentId = null
-      outputState.reset()
       return
     }
 
@@ -58,13 +50,6 @@
       loadVersion += 1
       disconnect()
     }
-  })
-
-  wireAgentOutputStream({
-    projectId: () => appStore.currentProject?.id,
-    isOpen: () => outputSheetOpen,
-    selectedAgentId: () => outputAgentId,
-    outputState,
   })
 
   async function loadData(input: { projectId: string; orgId: string; showLoading: boolean }) {
@@ -168,19 +153,10 @@
     applyPageData(result.data)
     toastStore.success(result.feedback)
   }
-
-  function handleOutputOpenChange(open: boolean) {
-    outputSheetOpen = open
-    if (!open) {
-      outputAgentId = null
-      outputState.reset()
-    }
-  }
 </script>
 
 <AgentsPageContent
   bind:registerSheetOpen
-  bind:outputSheetOpen
   canRegister={!!appStore.currentProject?.id && providerItems.length > 0}
   {agents}
   {agentRuns}
@@ -198,11 +174,6 @@
     agentDrawerOpen = true
   }}
   onSelectTicket={(ticketId) => appStore.openRightPanel({ type: 'ticket', id: ticketId })}
-  onViewOutput={(agentId) => {
-    outputAgentId = agentId
-    outputState.open(agentId)
-    outputSheetOpen = true
-  }}
   onPauseAgent={(agentId) => handleRuntimeAction('pause', agentId)}
   onResumeAgent={(agentId) => handleRuntimeAction('resume', agentId)}
   {providerItems}
@@ -213,13 +184,6 @@
   onRegistrationDraftChange={updateRegistrationDraft}
   onRegisterAgent={handleRegisterAgent}
   onRegisterOpenChange={handleRegisterOpenChange}
-  {selectedOutputAgent}
-  outputEntries={outputState.entries}
-  outputSteps={outputState.stepEntries}
-  outputLoading={outputState.loading}
-  outputError={outputState.error}
-  outputStreamState={outputState.streamState}
-  onOutputOpenChange={handleOutputOpenChange}
 />
 
 <AgentDrawer
@@ -229,17 +193,21 @@
     agentDrawerOpen = open
     if (!open) selectedAgentId = null
   }}
-  onViewOutput={(agentId) => {
-    agentDrawerOpen = false
-    outputAgentId = agentId
-    outputState.open(agentId)
-    outputSheetOpen = true
-  }}
   onDeleted={() => {
     const projectId = appStore.currentProject?.id
     const orgId = appStore.currentOrg?.id
     if (projectId && orgId) {
       void loadData({ projectId, orgId, showLoading: false })
+    }
+  }}
+  onEditProvider={() => {
+    agentDrawerOpen = false
+    selectedAgentId = null
+    const orgSlug = appStore.currentOrg?.slug
+    const projectSlug = appStore.currentProject?.slug
+    if (orgSlug && projectSlug) {
+      window.location.hash = ''
+      window.location.href = `/orgs/${orgSlug}/projects/${projectSlug}/settings#agents`
     }
   }}
 />

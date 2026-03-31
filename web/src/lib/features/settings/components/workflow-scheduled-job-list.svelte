@@ -1,68 +1,114 @@
 <script lang="ts">
   import type { ScheduledJob } from '$lib/api/contracts'
   import { formatRelativeTime } from '$lib/utils'
-  import { Plus } from '@lucide/svelte'
+  import { Button } from '$ui/button'
+  import { Switch } from '$ui/switch'
+  import { Pencil, Play, Trash2, Plus } from '@lucide/svelte'
 
   let {
     jobs,
-    selectedJobId = '',
     workflowLabelById,
-    onSelect,
+    actionJobId = null,
     onNewJob,
+    onEditJob,
+    onToggleEnabled,
+    onTriggerJob,
+    onDeleteJob,
   }: {
     jobs: ScheduledJob[]
-    selectedJobId?: string
     workflowLabelById: Map<string, string>
-    onSelect?: (job: ScheduledJob) => void
+    actionJobId?: string | null
     onNewJob?: () => void
+    onEditJob?: (job: ScheduledJob) => void
+    onToggleEnabled?: (job: ScheduledJob) => void
+    onTriggerJob?: (job: ScheduledJob) => void
+    onDeleteJob?: (job: ScheduledJob) => void
   } = $props()
 </script>
 
-<div class="border-border flex w-52 shrink-0 flex-col border-r">
-  <div class="border-border flex items-center justify-between border-b px-3 py-2.5">
-    <span class="text-muted-foreground text-xs font-medium">{jobs.length} jobs</span>
-    <button
-      type="button"
-      class="text-muted-foreground hover:bg-muted hover:text-foreground rounded p-1 transition-colors"
-      title="Add job"
-      aria-label="Add job"
-      onclick={() => onNewJob?.()}
-    >
-      <Plus class="size-3.5" />
-    </button>
+{#if jobs.length === 0}
+  <div
+    class="border-border bg-card text-muted-foreground rounded-xl border border-dashed px-4 py-10 text-center text-sm"
+  >
+    <p>No scheduled jobs yet.</p>
+    <Button variant="outline" size="sm" class="mt-3" onclick={() => onNewJob?.()}>
+      <Plus class="mr-1.5 size-3.5" />
+      Create job
+    </Button>
   </div>
-
-  <div class="flex-1 overflow-y-auto">
+{:else}
+  <div class="space-y-2">
     {#each jobs as job (job.id)}
-      <button
-        type="button"
-        class="hover:bg-muted/40 border-border flex w-full flex-col gap-1 border-b px-3 py-2.5 text-left transition-colors {selectedJobId ===
-        job.id
-          ? 'bg-muted/50'
-          : ''}"
-        onclick={() => onSelect?.(job)}
-      >
-        <div class="flex w-full items-center justify-between gap-2">
-          <span class="text-foreground min-w-0 truncate text-xs font-medium">{job.name}</span>
-          <span
-            class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium {job.is_enabled
-              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-              : 'bg-slate-500/10 text-slate-700 dark:text-slate-300'}"
+      {@const busy = actionJobId === job.id}
+      <div class="border-border/60 bg-card/60 flex items-center gap-3 rounded-xl border px-4 py-3">
+        <!-- Toggle -->
+        <Switch
+          checked={job.is_enabled}
+          disabled={busy}
+          onCheckedChange={() => onToggleEnabled?.(job)}
+          aria-label="{job.is_enabled ? 'Disable' : 'Enable'} {job.name}"
+          class="shrink-0"
+        />
+
+        <!-- Main info -->
+        <button type="button" class="min-w-0 flex-1 text-left" onclick={() => onEditJob?.(job)}>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-foreground text-sm font-semibold hover:underline">
+              {job.name}
+            </span>
+            <span class="text-muted-foreground font-mono text-xs">
+              {job.cron_expression}
+            </span>
+          </div>
+          <div
+            class="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs"
           >
-            {job.is_enabled ? 'On' : 'Off'}
-          </span>
+            <span>{workflowLabelById.get(job.workflow_id) ?? 'Unknown workflow'}</span>
+            <span>
+              Next {job.next_run_at ? formatRelativeTime(job.next_run_at) : '—'}
+            </span>
+            {#if job.last_run_at}
+              <span>
+                Last {formatRelativeTime(job.last_run_at)}
+              </span>
+            {/if}
+          </div>
+        </button>
+
+        <!-- Actions -->
+        <div class="flex shrink-0 items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label="Edit job"
+            title="Edit job"
+            onclick={() => onEditJob?.(job)}
+          >
+            <Pencil class="size-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label="Run once"
+            title="Run once"
+            disabled={busy}
+            onclick={() => onTriggerJob?.(job)}
+          >
+            <Play class="size-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label="Delete job"
+            title="Delete job"
+            disabled={busy}
+            class="text-muted-foreground hover:text-destructive"
+            onclick={() => onDeleteJob?.(job)}
+          >
+            <Trash2 class="size-3.5" />
+          </Button>
         </div>
-        <div class="text-muted-foreground truncate font-mono text-[11px]">
-          {job.cron_expression}
-        </div>
-        <div class="text-muted-foreground truncate text-[11px]">
-          {workflowLabelById.get(job.workflow_id) ?? 'Unknown'} · Next {job.next_run_at
-            ? formatRelativeTime(job.next_run_at)
-            : '—'}
-        </div>
-      </button>
-    {:else}
-      <div class="text-muted-foreground px-3 py-6 text-center text-xs">No jobs yet.</div>
+      </div>
     {/each}
   </div>
-</div>
+{/if}

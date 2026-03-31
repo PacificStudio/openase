@@ -7,7 +7,6 @@
     buildProviderCards,
     createProviderEditorState,
     ProviderConfigSheet,
-    ProviderList,
     type ProviderConfig,
     type ProviderDraftField,
   } from '$lib/features/agents'
@@ -29,9 +28,6 @@
 
   const providerEditor = createProviderEditorState()
 
-  const selectedDefaultProvider = $derived(
-    providers.find((provider) => provider.id === selectedDefaultProviderId) ?? null,
-  )
   const orgDefaultProvider = $derived(
     providers.find((provider) => provider.id === appStore.currentOrg?.default_agent_provider_id) ??
       null,
@@ -119,9 +115,10 @@
         default_agent_provider_id: parsed.value,
       })
       appStore.currentProject = payload.project
+      const selectedName = providers.find((p) => p.id === parsed.value)?.name
       toastStore.success(
         parsed.value
-          ? `Default agent provider set to ${selectedDefaultProvider?.name ?? 'the selected provider'}.`
+          ? `Default agent provider set to ${selectedName ?? 'the selected provider'}.`
           : 'Project now inherits the organization default provider.',
       )
     } catch (caughtError) {
@@ -133,7 +130,9 @@
     }
   }
 
-  function handleConfigureProvider(provider: ProviderConfig) {
+  function handleConfigureProvider(providerId: string) {
+    const provider = providerCards.find((p) => p.id === providerId)
+    if (!provider) return
     providerEditor.open(provider)
     providerConfigOpen = true
   }
@@ -149,7 +148,6 @@
     providerCards = nextState.providers
     if (nextState.provider) providerEditor.open(nextState.provider)
 
-    // Rebuild the defaults card options
     providers = buildProviderOptions(providerItems, [])
   }
 
@@ -174,31 +172,18 @@
   {:else if loadError}
     <div class="text-destructive text-sm">{loadError}</div>
   {:else}
-    <div class="max-w-lg">
-      <AgentSettingsDefaultsCard
-        {providers}
-        {selectedDefaultProviderId}
-        selectedDefaultProviderName={selectedDefaultProvider?.name ?? null}
-        orgDefaultProviderId={appStore.currentOrg?.default_agent_provider_id ?? null}
-        orgDefaultProviderName={orgDefaultProvider?.name ?? null}
-        {saving}
-        onSelectionChange={(value) => {
-          selectedDefaultProviderId = value
-        }}
-        onSave={handleSaveDefaultProvider}
-      />
-    </div>
-
-    {#if providerCards.length > 0}
-      <Separator />
-      <div>
-        <h3 class="text-foreground text-sm font-semibold">Providers</h3>
-        <p class="text-muted-foreground mt-1 text-sm">
-          Configure provider bindings, adapter settings, and model parameters.
-        </p>
-      </div>
-      <ProviderList providers={providerCards} onConfigure={handleConfigureProvider} />
-    {/if}
+    <AgentSettingsDefaultsCard
+      {providers}
+      {selectedDefaultProviderId}
+      orgDefaultProviderId={appStore.currentOrg?.default_agent_provider_id ?? null}
+      orgDefaultProviderName={orgDefaultProvider?.name ?? null}
+      {saving}
+      onSelectionChange={(value) => {
+        selectedDefaultProviderId = value
+      }}
+      onSave={handleSaveDefaultProvider}
+      onConfigure={handleConfigureProvider}
+    />
   {/if}
 </div>
 

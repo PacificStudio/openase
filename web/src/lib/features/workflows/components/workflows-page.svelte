@@ -107,6 +107,8 @@
         validationIssues = []
       } catch (caughtError) {
         if (cancelled) return
+        prerequisite = null
+        resetWorkflowContent()
         loadError =
           caughtError instanceof ApiError ? caughtError.detail : 'Failed to load workflows.'
       } finally {
@@ -214,8 +216,8 @@
     }
     try {
       const result = skill.bound
-        ? await unbindWorkflowSkills(selectedId, [skill.path])
-        : await bindWorkflowSkills(selectedId, [skill.path])
+        ? await unbindWorkflowSkills(selectedId, [skill.name])
+        : await bindWorkflowSkills(selectedId, [skill.name])
 
       const newContent = result.harness.content
       harness = toHarnessContent(newContent)

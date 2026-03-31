@@ -1,7 +1,5 @@
 <script lang="ts">
   import type { SecuritySettingsResponse } from '$lib/api/contracts'
-  import { Badge } from '$ui/badge'
-  import * as Card from '$ui/card'
   import { ShieldCheck } from '@lucide/svelte'
 
   import GitHubCredentialScopeCard from './security-settings-github-scope-card.svelte'
@@ -33,119 +31,107 @@
     {
       scope: 'organization' as const,
       title: 'Organization default',
-      description:
-        'Shared platform-managed GH_TOKEN used by default across this organization unless a project override is configured.',
       slot: security.github.organization,
     },
     {
       scope: 'project' as const,
       title: 'Project override',
-      description:
-        'Project-specific GH_TOKEN that shadows the organization default for this project only.',
       slot: security.github.project_override,
     },
   ])
 
-  function scopeLabel(scope: string | undefined) {
-    if (scope === 'organization') return 'Organization'
-    if (scope === 'project') return 'Project override'
-    return 'Missing'
+  function effectiveStatusDot(slot: GitHubSlot): string {
+    if (!slot.configured) return 'bg-slate-400'
+    if (slot.probe.valid) return 'bg-emerald-500'
+    if (slot.probe.state === 'error' || slot.probe.state === 'revoked') return 'bg-rose-500'
+    return 'bg-amber-500'
   }
 
-  function probeTone(slot: GitHubSlot) {
-    if (!slot.configured) return 'secondary'
-    if (slot.probe.valid) return 'outline'
-    if (slot.probe.state === 'error' || slot.probe.state === 'revoked') return 'destructive'
-    return 'secondary'
-  }
-
-  function probeLabel(slot: GitHubSlot) {
-    if (!slot.configured) return 'Missing'
+  function effectiveLabel(slot: GitHubSlot): string {
+    if (!slot.configured) return 'Not configured'
     return slot.probe.state.replaceAll('_', ' ')
   }
 
-  function formatCheckedAt(value: string | null | undefined) {
-    if (!value) return 'Not checked yet'
+  function scopeSourceLabel(slot: GitHubSlot): string {
+    if (slot.scope === 'organization') return 'Organization'
+    if (slot.scope === 'project') return 'Project override'
+    return ''
+  }
+
+  function formatCheckedAt(value: string | null | undefined): string {
+    if (!value) return ''
     const parsed = new Date(value)
     if (Number.isNaN(parsed.getTime())) return value
     return parsed.toLocaleString()
   }
 </script>
 
-<Card.Root class="xl:col-span-2">
-  <Card.Header>
-    <Card.Title class="flex items-center gap-2">
-      <ShieldCheck class="size-4" />
-      GitHub outbound credentials
-    </Card.Title>
-    <Card.Description>
-      One platform-managed GH_TOKEN is resolved per project. Project overrides shadow the
-      organization default, and every save/import is immediately probed for validity and repo
-      access.
-    </Card.Description>
-  </Card.Header>
-  <Card.Content class="space-y-6">
-    <div class="bg-muted/30 border-border rounded-xl border p-4">
-      <div class="flex flex-wrap items-center gap-2">
-        <div class="text-sm font-medium">Effective credential</div>
-        <Badge variant={probeTone(security.github.effective)}>
-          {probeLabel(security.github.effective)}
-        </Badge>
-        <Badge variant="secondary">{scopeLabel(security.github.effective.scope)}</Badge>
+<div class="space-y-4">
+  <div class="flex items-center gap-2">
+    <ShieldCheck class="text-muted-foreground size-4" />
+    <h3 class="text-sm font-semibold">GitHub outbound credentials</h3>
+  </div>
+
+  <!-- Effective credential status bar -->
+  <div class="bg-muted/40 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg px-4 py-3">
+    <div class="flex items-center gap-2">
+      <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
+        >Effective credential</span
+      >
+      <span
+        class={`inline-block size-2 rounded-full ${effectiveStatusDot(security.github.effective)}`}
+      ></span>
+      <span class="text-sm font-medium capitalize">{effectiveLabel(security.github.effective)}</span
+      >
+    </div>
+
+    {#if security.github.effective.configured}
+      <span class="text-muted-foreground text-xs">
+        {scopeSourceLabel(security.github.effective)}
         {#if security.github.effective.source}
-          <Badge variant="outline">{security.github.effective.source}</Badge>
+          · {security.github.effective.source.replaceAll('_', ' ')}
         {/if}
-      </div>
-
-      <div class="text-muted-foreground mt-3 grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
-        <div>
-          <div class="text-foreground font-medium">Token preview</div>
-          <div>{security.github.effective.token_preview || 'Not configured'}</div>
-        </div>
-        <div>
-          <div class="text-foreground font-medium">Repo access</div>
-          <div>{security.github.effective.probe.repo_access.replaceAll('_', ' ')}</div>
-        </div>
-        <div>
-          <div class="text-foreground font-medium">Checked at</div>
-          <div>{formatCheckedAt(security.github.effective.probe.checked_at)}</div>
-        </div>
-        <div>
-          <div class="text-foreground font-medium">Permissions</div>
-          <div>
-            {security.github.effective.probe.permissions.length
-              ? security.github.effective.probe.permissions.join(', ')
-              : 'No scopes reported'}
-          </div>
-        </div>
-      </div>
-
-      {#if security.github.effective.probe.last_error}
-        <div class="text-destructive mt-3 text-sm">
-          Last error: {security.github.effective.probe.last_error}
-        </div>
+      </span>
+      <code class="text-muted-foreground text-xs">{security.github.effective.token_preview}</code>
+      {#if security.github.effective.probe.permissions.length}
+        <span class="text-muted-foreground text-xs">
+          {security.github.effective.probe.permissions.join(', ')}
+        </span>
+      {:else}
+        <span class="text-muted-foreground text-xs">No scopes reported</span>
       {/if}
-    </div>
+      {#if formatCheckedAt(security.github.effective.probe.checked_at)}
+        <span class="text-muted-foreground text-xs">
+          Checked {formatCheckedAt(security.github.effective.probe.checked_at)}
+        </span>
+      {/if}
+    {/if}
 
-    <div class="grid gap-4 lg:grid-cols-2">
-      {#each scopeCards as card (card.scope)}
-        <GitHubCredentialScopeCard
-          scope={card.scope}
-          title={card.title}
-          description={card.description}
-          slot={card.slot}
-          tokenValue={manualTokens[card.scope]}
-          {actionKey}
-          organizationConfigured={security.github.organization.configured}
-          {onAction}
-          onTokenChange={onManualTokenChange}
-        />
-      {/each}
-    </div>
+    {#if security.github.effective.probe.last_error}
+      <span class="text-destructive text-xs">
+        {security.github.effective.probe.last_error}
+      </span>
+    {/if}
+  </div>
 
-    <div class="text-muted-foreground border-border rounded-xl border border-dashed p-4 text-sm">
-      <div class="text-foreground font-medium">Device Flow</div>
-      <p class="mt-2">{deviceFlowSummary}</p>
-    </div>
-  </Card.Content>
-</Card.Root>
+  <!-- Scope cards -->
+  <div class="grid gap-4 lg:grid-cols-2">
+    {#each scopeCards as card (card.scope)}
+      <GitHubCredentialScopeCard
+        scope={card.scope}
+        title={card.title}
+        slot={card.slot}
+        tokenValue={manualTokens[card.scope]}
+        {actionKey}
+        organizationConfigured={security.github.organization.configured}
+        {onAction}
+        onTokenChange={onManualTokenChange}
+      />
+    {/each}
+  </div>
+
+  <!-- Device Flow deferred -->
+  <p class="text-muted-foreground text-xs">
+    <span class="font-medium">Device Flow</span> — {deviceFlowSummary}
+  </p>
+</div>

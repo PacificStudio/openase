@@ -1,9 +1,4 @@
-import type {
-  AgentOutputPayload,
-  AgentStepPayload,
-  Organization,
-  Project,
-} from '$lib/api/contracts'
+import type { Organization, Project } from '$lib/api/contracts'
 import type { AgentsPageData } from '../data'
 import type { AgentInstance } from '../types'
 
@@ -133,47 +128,3 @@ export function makePageData(agent: AgentInstance): AgentsPageData {
     ],
   }
 }
-
-export const outputEntriesFixture: AgentOutputPayload = {
-  entries: [
-    {
-      id: 'output-1',
-      project_id: 'project-1',
-      agent_id: 'agent-1',
-      agent_run_id: 'run-1',
-      ticket_id: 'ticket-1',
-      stream: 'assistant',
-      output: 'Inspecting runtime events.',
-      created_at: '2026-03-27T12:00:01Z',
-    },
-    {
-      id: 'output-2',
-      project_id: 'project-1',
-      agent_id: 'agent-1',
-      agent_run_id: 'run-1',
-      ticket_id: 'ticket-1',
-      stream: 'tool',
-      output: 'read_file("/src/main.ts")',
-      created_at: '2026-03-27T12:00:02Z',
-    },
-  ],
-}
-
-export const stepEntriesFixture: AgentStepPayload = {
-  entries: [
-    {
-      id: 'step-1',
-      project_id: 'project-1',
-      agent_id: 'agent-1',
-      ticket_id: 'ticket-1',
-      agent_run_id: 'run-1',
-      source_trace_event_id: null,
-      step_status: 'planning',
-      summary: 'Analyzing pipeline structure.',
-      created_at: '2026-03-27T12:00:01Z',
-    },
-  ],
-}
-
-export const emptyOutputFixture: AgentOutputPayload = { entries: [] }
-export const emptyStepFixture: AgentStepPayload = { entries: [] }
