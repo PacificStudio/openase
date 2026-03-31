@@ -171,6 +171,7 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(workspaceRoot, ".openase", "bin", "openase")); err != nil {
 		t.Fatalf("expected workspace wrapper to exist: %v", err)
 	}
+	//nolint:gosec // test reads a controlled projected skill fixture in the temp workspace.
 	if projected, err := os.ReadFile(filepath.Join(workspaceSkillsRoot, "skill-one", "SKILL.md")); err != nil || !strings.Contains(string(projected), "# Skill One") {
 		t.Fatalf("projected skill-one = %q, err=%v", string(projected), err)
 	}

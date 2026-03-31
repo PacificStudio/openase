@@ -97,6 +97,7 @@ func (s *Service) seedLegacyWorkflowVersion(ctx context.Context, workflowID uuid
 		return nil, ErrWorkflowNotFound
 	}
 
+	//nolint:gosec // legacy import only reads a workflow-owned harness path from the resolved repo root.
 	contentBytes, err := os.ReadFile(filepath.Join(repoRoot, filepath.FromSlash(workflowItem.HarnessPath)))
 	if err != nil {
 		return nil, s.mapWorkflowReadError("read legacy workflow harness", err)
@@ -331,33 +332,4 @@ func (s *Service) currentSkillVersion(ctx context.Context, skillID uuid.UUID, re
 		return nil, fmt.Errorf("get current skill version: %w", err)
 	}
 	return item, nil
-}
-
-func mapSkillBindingNames(bindings []*ent.WorkflowSkillBinding) []string {
-	names := make([]string, 0, len(bindings))
-	for _, binding := range bindings {
-		if binding.Edges.Skill == nil || binding.Edges.Skill.ArchivedAt != nil {
-			continue
-		}
-		names = append(names, binding.Edges.Skill.Name)
-	}
-	sort.Strings(names)
-	return names
-}
-
-func mapSkillDetail(item *ent.Skill, content string, workflows []SkillWorkflowBinding) SkillDetail {
-	return SkillDetail{
-		Skill: Skill{
-			ID:             item.ID,
-			Name:           item.Name,
-			Description:    item.Description,
-			Path:           skillContentRelativePath(item.Name),
-			IsBuiltin:      item.IsBuiltin,
-			IsEnabled:      item.IsEnabled,
-			CreatedBy:      item.CreatedBy,
-			CreatedAt:      item.CreatedAt.UTC(),
-			BoundWorkflows: workflows,
-		},
-		Content: content,
-	}
 }
