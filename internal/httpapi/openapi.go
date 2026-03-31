@@ -533,6 +533,13 @@ type OpenAPIHarnessDocument struct {
 	Version    int    `json:"version"`
 }
 
+type OpenAPIVersionSummary struct {
+	ID        string `json:"id"`
+	Version   int    `json:"version"`
+	CreatedBy string `json:"created_by"`
+	CreatedAt string `json:"created_at"`
+}
+
 type OpenAPIScheduledJobTicketTemplate struct {
 	Title       string  `json:"title"`
 	Description string  `json:"description"`
@@ -594,6 +601,7 @@ type OpenAPISkill struct {
 	Name           string                        `json:"name"`
 	Description    string                        `json:"description"`
 	Path           string                        `json:"path"`
+	CurrentVersion int                           `json:"current_version"`
 	IsBuiltin      bool                          `json:"is_builtin"`
 	IsEnabled      bool                          `json:"is_enabled"`
 	CreatedBy      string                        `json:"created_by"`
@@ -860,6 +868,10 @@ type OpenAPIWorkflowResponse struct {
 	Workflow OpenAPIWorkflow `json:"workflow"`
 }
 
+type OpenAPIWorkflowHistoryResponse struct {
+	History []OpenAPIVersionSummary `json:"history"`
+}
+
 type OpenAPIWorkflowRepositoryPrerequisiteResponse struct {
 	Prerequisite OpenAPIWorkflowRepositoryPrerequisite `json:"prerequisite"`
 }
@@ -970,8 +982,13 @@ type OpenAPISkillsResponse struct {
 }
 
 type OpenAPISkillDetailResponse struct {
-	Skill   OpenAPISkill `json:"skill"`
-	Content string       `json:"content"`
+	Skill   OpenAPISkill            `json:"skill"`
+	Content string                  `json:"content"`
+	History []OpenAPIVersionSummary `json:"history"`
+}
+
+type OpenAPISkillHistoryResponse struct {
+	History []OpenAPIVersionSummary `json:"history"`
 }
 
 type OpenAPIDeleteSkillResponse struct {
@@ -1265,7 +1282,7 @@ var (
 	openAPIRepoRequestDescriptions = map[string]string{
 		"name":              "Human-readable repository name within the project.",
 		"repository_url":    "Remote Git repository URL.",
-		"default_branch":    "Default branch name used for mirrors and workspaces.",
+		"default_branch":    "Default branch name used when a repo scope does not provide an explicit branch override.",
 		"workspace_dirname": "Directory name used for this repository inside a ticket workspace.",
 		"labels":            "Labels attached to the repository for workflow selection and filtering.",
 	}
@@ -1297,8 +1314,8 @@ var (
 		"timeout_minutes":       "Hard execution timeout for workflow runs, in minutes.",
 		"stall_timeout_minutes": "Timeout for detecting stalled workflow runs, in minutes.",
 		"max_retry_attempts":    "Maximum retry attempts before the workflow run fails permanently.",
-		"harness_path":          "Repository path where the workflow harness file is stored.",
-		"harness_content":       "Initial harness content written when creating the workflow.",
+		"harness_path":          "Logical harness path tracked by the control plane for this workflow.",
+		"harness_content":       "Initial harness content written into the versioned control-plane workflow record.",
 		"hooks":                 "Workflow hook configuration keyed by lifecycle phase.",
 	}
 	openAPIHarnessContentDescriptions = map[string]string{
@@ -1428,7 +1445,7 @@ var (
 		"skills": "Skill names included in this workflow skill binding request.",
 	}
 	openAPISkillCreateDescriptions = map[string]string{
-		"name":        "Project-unique skill directory name.",
+		"name":        "Project-unique skill name in the control plane.",
 		"content":     "Skill markdown content. Frontmatter is optional on input and will be normalized on write.",
 		"description": "Optional description used when the input content does not declare one.",
 		"created_by":  "Optional creator descriptor such as user:gary or agent:codex-01 via ASE-42.",
@@ -2642,6 +2659,23 @@ func (b openAPISpecBuilder) addWorkflowOperations() error {
 	harnessGet.AddParameter(uuidPathParameter("workflowId", "Workflow ID."))
 	b.doc.AddOperation("/api/v1/workflows/{workflowId}/harness", http.MethodGet, harnessGet)
 
+	harnessHistoryGet, err := b.jsonOperation(
+		"getWorkflowHarnessHistory",
+		"List published workflow harness versions",
+		[]string{"workflows"},
+		http.StatusOK,
+		OpenAPIWorkflowHistoryResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	harnessHistoryGet.AddParameter(uuidPathParameter("workflowId", "Workflow ID."))
+	b.doc.AddOperation("/api/v1/workflows/{workflowId}/harness/history", http.MethodGet, harnessHistoryGet)
+
 	harnessPut, err := b.jsonOperation(
 		"updateWorkflowHarness",
 		"Update workflow harness content",
@@ -2773,6 +2807,23 @@ func (b openAPISpecBuilder) addWorkflowOperations() error {
 	}
 	skillGet.AddParameter(uuidPathParameter("skillId", "Skill ID."))
 	b.doc.AddOperation("/api/v1/skills/{skillId}", http.MethodGet, skillGet)
+
+	skillHistoryGet, err := b.jsonOperation(
+		"getSkillHistory",
+		"List published skill versions",
+		[]string{"skills"},
+		http.StatusOK,
+		OpenAPISkillHistoryResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	skillHistoryGet.AddParameter(uuidPathParameter("skillId", "Skill ID."))
+	b.doc.AddOperation("/api/v1/skills/{skillId}/history", http.MethodGet, skillHistoryGet)
 
 	skillUpdate, err := b.jsonOperation(
 		"updateSkill",

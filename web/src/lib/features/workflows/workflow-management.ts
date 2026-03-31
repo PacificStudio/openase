@@ -7,10 +7,16 @@ export async function saveWorkflowLifecycle(
   workflowId: string,
   payload: WorkflowLifecyclePayload,
   statuses: WorkflowStatusOption[],
+  currentWorkflow?: WorkflowSummary,
 ): Promise<WorkflowSummary> {
   const response = await updateWorkflow(workflowId, payload)
   const statusNamesById = new Map(statuses.map((status) => [status.id, status.name]))
-  return mapWorkflowSummary(response.workflow, statusNamesById)
+  const nextWorkflow = mapWorkflowSummary(response.workflow, statusNamesById)
+  return {
+    ...nextWorkflow,
+    history: currentWorkflow?.history ?? nextWorkflow.history,
+    lastModified: currentWorkflow?.lastModified ?? nextWorkflow.lastModified,
+  }
 }
 
 export async function destroyWorkflow(workflowId: string) {

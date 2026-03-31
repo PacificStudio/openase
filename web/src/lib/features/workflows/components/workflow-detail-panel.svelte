@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { cn } from '$lib/utils'
+  import { cn, formatRelativeTime } from '$lib/utils'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Separator } from '$ui/separator'
@@ -147,6 +147,37 @@
   />
 
   <Separator />
+
+  {#if workflow.history.length > 0}
+    <div class="bg-muted/20 space-y-2 px-4 py-3">
+      <div class="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+        Control Plane
+      </div>
+      <div class="flex flex-wrap items-center gap-2 text-xs">
+        <span class="text-foreground rounded-full border px-2 py-0.5 font-medium">
+          Published v{workflow.version}
+        </span>
+        <span class="text-muted-foreground">{workflow.history.length} recorded version(s)</span>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        {#each workflow.history.slice(0, 4) as item (item.id)}
+          <div class="bg-background rounded-lg border px-2.5 py-1.5 text-xs">
+            <div class="text-foreground font-medium">
+              v{item.version}
+              {#if item.version === workflow.version}
+                <span class="text-muted-foreground">· current</span>
+              {/if}
+            </div>
+            <div class="text-muted-foreground mt-0.5">
+              {formatRelativeTime(item.createdAt)} by {item.createdBy}
+            </div>
+          </div>
+        {/each}
+      </div>
+    </div>
+
+    <Separator />
+  {/if}
 
   <form class="flex flex-1 flex-col" onsubmit={handleSubmit}>
     <div class="flex-1 space-y-6 px-4 py-4">

@@ -111,7 +111,8 @@
   <div>
     <h2 class="text-foreground text-base font-semibold">Workflow Lifecycle</h2>
     <p class="text-muted-foreground mt-1 text-sm">
-      Manage workflow agent binding, scheduling policy, activation, and deletion.
+      Manage workflow agent binding, published harness versions, scheduling policy, activation, and
+      deletion.
     </p>
   </div>
 

@@ -13,6 +13,7 @@ type skillResponse struct {
 	Name           string                         `json:"name"`
 	Description    string                         `json:"description"`
 	Path           string                         `json:"path"`
+	CurrentVersion int                            `json:"current_version"`
 	IsBuiltin      bool                           `json:"is_builtin"`
 	IsEnabled      bool                           `json:"is_enabled"`
 	CreatedBy      string                         `json:"created_by"`
@@ -20,9 +21,21 @@ type skillResponse struct {
 	BoundWorkflows []skillWorkflowBindingResponse `json:"bound_workflows"`
 }
 
+type skillVersionResponse struct {
+	ID        string `json:"id"`
+	Version   int    `json:"version"`
+	CreatedBy string `json:"created_by"`
+	CreatedAt string `json:"created_at"`
+}
+
 type skillDetailResponse struct {
-	Skill   skillResponse `json:"skill"`
-	Content string        `json:"content"`
+	Skill   skillResponse          `json:"skill"`
+	Content string                 `json:"content"`
+	History []skillVersionResponse `json:"history"`
+}
+
+type skillHistoryResponse struct {
+	History []skillVersionResponse `json:"history"`
 }
 
 type skillWorkflowBindingResponse struct {
@@ -44,6 +57,7 @@ func (s *Server) registerSkillRoutes(api *echo.Group) {
 	api.POST("/projects/:projectId/skills/refresh", s.handleRefreshSkills)
 	api.POST("/projects/:projectId/skills/harvest", s.handleHarvestSkills)
 	api.GET("/skills/:skillId", s.handleGetSkill)
+	api.GET("/skills/:skillId/history", s.handleGetSkillHistory)
 	api.PUT("/skills/:skillId", s.handleUpdateSkill)
 	api.DELETE("/skills/:skillId", s.handleDeleteSkill)
 	api.POST("/skills/:skillId/enable", s.handleEnableSkill)
@@ -181,6 +195,26 @@ func (s *Server) handleGetSkill(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, mapSkillDetailResponse(item))
+}
+
+func (s *Server) handleGetSkillHistory(c echo.Context) error {
+	if s.workflowService == nil {
+		return writeWorkflowError(c, workflowservice.ErrUnavailable)
+	}
+
+	skillID, err := parseUUIDPathParamValue(c, "skillId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_SKILL_ID", err.Error())
+	}
+
+	items, err := s.workflowService.ListSkillVersions(c.Request().Context(), skillID)
+	if err != nil {
+		return writeWorkflowError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, skillHistoryResponse{
+		History: mapSkillVersionResponses(items),
+	})
 }
 
 func (s *Server) handleUpdateSkill(c echo.Context) error {
@@ -376,6 +410,7 @@ func mapSkillResponse(item workflowservice.Skill) skillResponse {
 		Name:           item.Name,
 		Description:    item.Description,
 		Path:           item.Path,
+		CurrentVersion: item.CurrentVersion,
 		IsBuiltin:      item.IsBuiltin,
 		IsEnabled:      item.IsEnabled,
 		CreatedBy:      item.CreatedBy,
@@ -388,6 +423,7 @@ func mapSkillDetailResponse(item workflowservice.SkillDetail) skillDetailRespons
 	return skillDetailResponse{
 		Skill:   mapSkillResponse(item.Skill),
 		Content: item.Content,
+		History: mapSkillVersionResponses(item.History),
 	}
 }
 
@@ -398,6 +434,19 @@ func mapSkillWorkflowBindings(items []workflowservice.SkillWorkflowBinding) []sk
 			ID:          item.ID.String(),
 			Name:        item.Name,
 			HarnessPath: item.HarnessPath,
+		})
+	}
+	return response
+}
+
+func mapSkillVersionResponses(items []workflowservice.VersionSummary) []skillVersionResponse {
+	response := make([]skillVersionResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, skillVersionResponse{
+			ID:        item.ID.String(),
+			Version:   item.Version,
+			CreatedBy: item.CreatedBy,
+			CreatedAt: item.CreatedAt.UTC().Format(time.RFC3339),
 		})
 	}
 	return response

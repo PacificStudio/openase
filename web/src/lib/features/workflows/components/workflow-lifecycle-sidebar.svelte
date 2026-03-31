@@ -35,7 +35,7 @@
     saving = true
 
     try {
-      const updated = await saveWorkflowLifecycle(workflow.id, payload, statuses)
+      const updated = await saveWorkflowLifecycle(workflow.id, payload, statuses, workflow)
       onWorkflowsChange?.(workflows.map((item) => (item.id === updated.id ? updated : item)))
       toastStore.success('Workflow updated.')
     } catch (caughtError) {

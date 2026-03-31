@@ -137,7 +137,8 @@
     <div>
       <h2 class="text-foreground text-base font-semibold">Skills Library</h2>
       <p class="text-muted-foreground mt-1 text-sm">
-        Manage reusable runtime skills, their rollout state, and workflow bindings.
+        Manage reusable control-plane skills, their published versions, rollout state, and workflow
+        bindings.
       </p>
     </div>
     {#if !loading}

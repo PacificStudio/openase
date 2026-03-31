@@ -97,6 +97,14 @@ const pageDataFixture = {
       lastModified: '2026-03-28T12:00:00Z',
       recentSuccessRate: 85,
       version: 3,
+      history: [
+        {
+          id: 'wf-1-v3',
+          version: 3,
+          createdBy: 'user:manual',
+          createdAt: '2026-03-28T12:00:00Z',
+        },
+      ],
     },
   ],
   selectedWorkflowId: 'wf-1',

@@ -6,6 +6,7 @@
     disableSkill,
     enableSkill,
     getSkill,
+    listSkillHistory,
     unbindSkill,
     updateSkill,
   } from '$lib/api/openase'
@@ -31,6 +32,9 @@
   let editing = $state(false)
   let editDescription = $state('')
   let editContent = $state('')
+  let editHistory = $state<
+    Array<{ id: string; version: number; created_by: string; created_at: string }>
+  >([])
   let busy = $state(false)
 
   function isBound(workflowId: string) {
@@ -41,11 +45,16 @@
     editing = true
     editDescription = skill.description
     editContent = ''
+    editHistory = []
     busy = true
     try {
-      const payload = await getSkill(skill.id)
+      const [payload, historyPayload] = await Promise.all([
+        getSkill(skill.id),
+        listSkillHistory(skill.id),
+      ])
       editDescription = payload.skill.description
       editContent = payload.content
+      editHistory = historyPayload.history
     } catch (caughtError) {
       editing = false
       toastStore.error(
@@ -159,6 +168,9 @@
         <Badge variant="outline" class="px-1.5 py-0.5 text-[10px] leading-none uppercase">
           {skill.is_builtin ? 'builtin' : 'custom'}
         </Badge>
+        <Badge variant="outline" class="px-1.5 py-0.5 text-[10px] leading-none">
+          Published v{skill.current_version}
+        </Badge>
         {#if !skill.is_enabled}
           <Badge
             variant="secondary"
@@ -207,7 +219,13 @@
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
           {#snippet child({ props })}
-            <Button {...props} variant="ghost" size="sm" class="size-7 p-0">
+            <Button
+              {...props}
+              variant="ghost"
+              size="sm"
+              class="size-7 p-0"
+              aria-label={`Actions for ${skill.name}`}
+            >
               <Ellipsis class="size-4" />
             </Button>
           {/snippet}
@@ -244,6 +262,26 @@
     <div class="bg-muted/40 mt-3 ml-5 space-y-3 rounded-lg border p-3">
       <Input bind:value={editDescription} placeholder="Description" class="text-sm" />
       <Textarea bind:value={editContent} class="min-h-40 font-mono text-sm" />
+      {#if editHistory.length > 0}
+        <div class="space-y-2">
+          <div class="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+            Published versions
+          </div>
+          <div class="flex flex-wrap gap-2">
+            {#each editHistory.slice(0, 4) as item (item.id)}
+              <div class="bg-background rounded-lg border px-2.5 py-1.5 text-xs">
+                <div class="text-foreground font-medium">
+                  v{item.version}
+                  {#if item.version === skill.current_version}
+                    <span class="text-muted-foreground">· current</span>
+                  {/if}
+                </div>
+                <div class="text-muted-foreground mt-0.5">{item.created_by}</div>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
       <div class="flex justify-end gap-2">
         <Button type="button" variant="ghost" size="sm" onclick={() => (editing = false)}>
           Cancel

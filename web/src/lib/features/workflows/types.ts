@@ -7,6 +7,13 @@ export type WorkflowType =
   | 'refine-harness'
   | 'custom'
 
+export type WorkflowVersionSummary = {
+  id: string
+  version: number
+  createdBy: string
+  createdAt: string
+}
+
 export type WorkflowSummary = {
   id: string
   name: string
@@ -25,6 +32,7 @@ export type WorkflowSummary = {
   lastModified: string
   recentSuccessRate: number
   version: number
+  history: WorkflowVersionSummary[]
 }
 
 export type WorkflowStatusOption = {

@@ -31,6 +31,20 @@ const workflowFixture = {
   lastModified: '2026-03-28T12:00:00Z',
   recentSuccessRate: 85,
   version: 3,
+  history: [
+    {
+      id: 'wf-1-v3',
+      version: 3,
+      createdBy: 'user:manual',
+      createdAt: '2026-03-28T12:00:00Z',
+    },
+    {
+      id: 'wf-1-v2',
+      version: 2,
+      createdBy: 'user:manual',
+      createdAt: '2026-03-27T12:00:00Z',
+    },
+  ],
 }
 
 const harnessFixture = {
@@ -84,17 +98,18 @@ describe('WorkflowsPageBody', () => {
     // Note: "Coding Workflow" still appears in the editor toolbar
   })
 
-  it('opens the settings sheet when onToggleDetail is triggered', async () => {
+  it('opens the settings sheet with published workflow history', async () => {
     const { getByTitle, findByText } = render(WorkflowsPageBody, {
       props: { ...defaultProps, showDetail: false },
     })
 
     await fireEvent.click(getByTitle('Workflow settings'))
 
-    // The sheet should open showing workflow detail content
     await waitFor(() => {
       expect(findByText('Workflow Settings')).toBeTruthy()
     })
+    expect(await findByText('Published v3')).toBeTruthy()
+    expect(await findByText('2 recorded version(s)')).toBeTruthy()
   })
 
   it('shows the loading state when loading is true', () => {

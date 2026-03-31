@@ -1396,6 +1396,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/skills/{skillId}/history': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List published skill versions */
+    get: operations['getSkillHistory']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/skills/{skillId}/unbind': {
     parameters: {
       query?: never
@@ -1617,6 +1634,23 @@ export interface paths {
     get: operations['getWorkflowHarness']
     /** Update workflow harness content */
     put: operations['updateWorkflowHarness']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/workflows/{workflowId}/harness/history': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List published workflow harness versions */
+    get: operations['getWorkflowHarnessHistory']
+    put?: never
     post?: never
     delete?: never
     options?: never
@@ -7688,7 +7722,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Default branch name used for mirrors and workspaces. */
+          /** @description Default branch name used when a repo scope does not provide an explicit branch override. */
           default_branch?: string
           /** @description Labels attached to the repository for workflow selection and filtering. */
           labels?: string[]
@@ -7882,7 +7916,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Default branch name used for mirrors and workspaces. */
+          /** @description Default branch name used when a repo scope does not provide an explicit branch override. */
           default_branch?: string | null
           /** @description Labels attached to the repository for workflow selection and filtering. */
           labels?: string[] | null
@@ -8975,6 +9009,7 @@ export interface operations {
               }[]
               created_at?: string
               created_by?: string
+              current_version?: number
               description?: string
               id?: string
               is_builtin?: boolean
@@ -9045,7 +9080,7 @@ export interface operations {
           description?: string
           /** @description Whether the new skill should be enabled for runtime injection immediately. */
           is_enabled?: boolean | null
-          /** @description Project-unique skill directory name. */
+          /** @description Project-unique skill name in the control plane. */
           name?: string
         }
       }
@@ -9059,6 +9094,12 @@ export interface operations {
         content: {
           'application/json': {
             content?: string
+            history?: {
+              created_at?: string
+              created_by?: string
+              id?: string
+              version?: number
+            }[]
             skill?: {
               bound_workflows?: {
                 harness_path?: string
@@ -9067,6 +9108,7 @@ export interface operations {
               }[]
               created_at?: string
               created_by?: string
+              current_version?: number
               description?: string
               id?: string
               is_builtin?: boolean
@@ -10538,9 +10580,9 @@ export interface operations {
           agent_id?: string
           /** @description Ticket status IDs that mark workflow completion. */
           finish_status_ids?: string[]
-          /** @description Initial harness content written when creating the workflow. */
+          /** @description Initial harness content written into the versioned control-plane workflow record. */
           harness_content?: string
-          /** @description Repository path where the workflow harness file is stored. */
+          /** @description Logical harness path tracked by the control plane for this workflow. */
           harness_path?: string | null
           /** @description Workflow hook configuration keyed by lifecycle phase. */
           hooks?: {
@@ -11378,6 +11420,12 @@ export interface operations {
         content: {
           'application/json': {
             content?: string
+            history?: {
+              created_at?: string
+              created_by?: string
+              id?: string
+              version?: number
+            }[]
             skill?: {
               bound_workflows?: {
                 harness_path?: string
@@ -11386,6 +11434,7 @@ export interface operations {
               }[]
               created_at?: string
               created_by?: string
+              current_version?: number
               description?: string
               id?: string
               is_builtin?: boolean
@@ -11464,6 +11513,12 @@ export interface operations {
         content: {
           'application/json': {
             content?: string
+            history?: {
+              created_at?: string
+              created_by?: string
+              id?: string
+              version?: number
+            }[]
             skill?: {
               bound_workflows?: {
                 harness_path?: string
@@ -11472,6 +11527,7 @@ export interface operations {
               }[]
               created_at?: string
               created_by?: string
+              current_version?: number
               description?: string
               id?: string
               is_builtin?: boolean
@@ -11611,6 +11667,12 @@ export interface operations {
         content: {
           'application/json': {
             content?: string
+            history?: {
+              created_at?: string
+              created_by?: string
+              id?: string
+              version?: number
+            }[]
             skill?: {
               bound_workflows?: {
                 harness_path?: string
@@ -11619,6 +11681,7 @@ export interface operations {
               }[]
               created_at?: string
               created_by?: string
+              current_version?: number
               description?: string
               id?: string
               is_builtin?: boolean
@@ -11687,6 +11750,12 @@ export interface operations {
         content: {
           'application/json': {
             content?: string
+            history?: {
+              created_at?: string
+              created_by?: string
+              id?: string
+              version?: number
+            }[]
             skill?: {
               bound_workflows?: {
                 harness_path?: string
@@ -11695,6 +11764,7 @@ export interface operations {
               }[]
               created_at?: string
               created_by?: string
+              current_version?: number
               description?: string
               id?: string
               is_builtin?: boolean
@@ -11763,6 +11833,12 @@ export interface operations {
         content: {
           'application/json': {
             content?: string
+            history?: {
+              created_at?: string
+              created_by?: string
+              id?: string
+              version?: number
+            }[]
             skill?: {
               bound_workflows?: {
                 harness_path?: string
@@ -11771,6 +11847,7 @@ export interface operations {
               }[]
               created_at?: string
               created_by?: string
+              current_version?: number
               description?: string
               id?: string
               is_builtin?: boolean
@@ -11778,6 +11855,72 @@ export interface operations {
               name?: string
               path?: string
             }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getSkillHistory: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Skill ID. */
+        skillId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List published skill versions response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            history?: {
+              created_at?: string
+              created_by?: string
+              id?: string
+              version?: number
+            }[]
           }
         }
       }
@@ -11849,6 +11992,12 @@ export interface operations {
         content: {
           'application/json': {
             content?: string
+            history?: {
+              created_at?: string
+              created_by?: string
+              id?: string
+              version?: number
+            }[]
             skill?: {
               bound_workflows?: {
                 harness_path?: string
@@ -11857,6 +12006,7 @@ export interface operations {
               }[]
               created_at?: string
               created_by?: string
+              current_version?: number
               description?: string
               id?: string
               is_builtin?: boolean
@@ -13329,7 +13479,7 @@ export interface operations {
           agent_id?: string | null
           /** @description Ticket status IDs that mark workflow completion. */
           finish_status_ids?: string[] | null
-          /** @description Repository path where the workflow harness file is stored. */
+          /** @description Logical harness path tracked by the control plane for this workflow. */
           harness_path?: string | null
           /** @description Workflow hook configuration keyed by lifecycle phase. */
           hooks?: {
@@ -13563,6 +13713,72 @@ export interface operations {
       }
       /** @description Conflict response. */
       409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getWorkflowHarnessHistory: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Workflow ID. */
+        workflowId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List published workflow harness versions response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            history?: {
+              created_at?: string
+              created_by?: string
+              id?: string
+              version?: number
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
         headers: {
           [name: string]: unknown
         }
