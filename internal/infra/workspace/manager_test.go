@@ -23,9 +23,9 @@ func TestParseSetupRequestRejectsNonCanonicalBranchName(t *testing.T) {
 		TicketIdentifier: "ASE-33",
 		Repos: []RepoInput{
 			{
-				Name:       "backend",
+				Name:          "backend",
 				RepositoryURL: "/tmp/backend.git",
-				BranchName: &rawBranch,
+				BranchName:    &rawBranch,
 			},
 		},
 	})

@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1082,19 +1081,6 @@ func mapProjectRepoResponses(items []domain.ProjectRepo) []projectRepoResponse {
 		response = append(response, mapProjectRepoResponse(item))
 	}
 	return response
-}
-
-func (s *Server) mapProjectRepoResponsesWithMirrorSummary(ctx context.Context, items []domain.ProjectRepo) ([]projectRepoResponse, error) {
-	response := make([]projectRepoResponse, 0, len(items))
-	for _, item := range items {
-		response = append(response, s.mapProjectRepoResponseWithMirrorSummary(ctx, item))
-	}
-
-	return response, nil
-}
-
-func (s *Server) mapProjectRepoResponseWithMirrorSummary(_ context.Context, item domain.ProjectRepo) projectRepoResponse {
-	return baseProjectRepoResponse(item)
 }
 
 func mapTicketRepoScopeResponses(items []domain.TicketRepoScope) []ticketRepoScopeResponse {
