@@ -177,6 +177,27 @@ func (_u *AgentProviderUpdate) AddModelMaxTokens(v int) *AgentProviderUpdate {
 	return _u
 }
 
+// SetMaxParallelRuns sets the "max_parallel_runs" field.
+func (_u *AgentProviderUpdate) SetMaxParallelRuns(v int) *AgentProviderUpdate {
+	_u.mutation.ResetMaxParallelRuns()
+	_u.mutation.SetMaxParallelRuns(v)
+	return _u
+}
+
+// SetNillableMaxParallelRuns sets the "max_parallel_runs" field if the given value is not nil.
+func (_u *AgentProviderUpdate) SetNillableMaxParallelRuns(v *int) *AgentProviderUpdate {
+	if v != nil {
+		_u.SetMaxParallelRuns(*v)
+	}
+	return _u
+}
+
+// AddMaxParallelRuns adds value to the "max_parallel_runs" field.
+func (_u *AgentProviderUpdate) AddMaxParallelRuns(v int) *AgentProviderUpdate {
+	_u.mutation.AddMaxParallelRuns(v)
+	return _u
+}
+
 // SetCostPerInputToken sets the "cost_per_input_token" field.
 func (_u *AgentProviderUpdate) SetCostPerInputToken(v float64) *AgentProviderUpdate {
 	_u.mutation.ResetCostPerInputToken()
@@ -420,6 +441,12 @@ func (_u *AgentProviderUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	}
 	if value, ok := _u.mutation.AddedModelMaxTokens(); ok {
 		_spec.AddField(agentprovider.FieldModelMaxTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.MaxParallelRuns(); ok {
+		_spec.SetField(agentprovider.FieldMaxParallelRuns, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedMaxParallelRuns(); ok {
+		_spec.AddField(agentprovider.FieldMaxParallelRuns, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.CostPerInputToken(); ok {
 		_spec.SetField(agentprovider.FieldCostPerInputToken, field.TypeFloat64, value)
@@ -745,6 +772,27 @@ func (_u *AgentProviderUpdateOne) AddModelMaxTokens(v int) *AgentProviderUpdateO
 	return _u
 }
 
+// SetMaxParallelRuns sets the "max_parallel_runs" field.
+func (_u *AgentProviderUpdateOne) SetMaxParallelRuns(v int) *AgentProviderUpdateOne {
+	_u.mutation.ResetMaxParallelRuns()
+	_u.mutation.SetMaxParallelRuns(v)
+	return _u
+}
+
+// SetNillableMaxParallelRuns sets the "max_parallel_runs" field if the given value is not nil.
+func (_u *AgentProviderUpdateOne) SetNillableMaxParallelRuns(v *int) *AgentProviderUpdateOne {
+	if v != nil {
+		_u.SetMaxParallelRuns(*v)
+	}
+	return _u
+}
+
+// AddMaxParallelRuns adds value to the "max_parallel_runs" field.
+func (_u *AgentProviderUpdateOne) AddMaxParallelRuns(v int) *AgentProviderUpdateOne {
+	_u.mutation.AddMaxParallelRuns(v)
+	return _u
+}
+
 // SetCostPerInputToken sets the "cost_per_input_token" field.
 func (_u *AgentProviderUpdateOne) SetCostPerInputToken(v float64) *AgentProviderUpdateOne {
 	_u.mutation.ResetCostPerInputToken()
@@ -1018,6 +1066,12 @@ func (_u *AgentProviderUpdateOne) sqlSave(ctx context.Context) (_node *AgentProv
 	}
 	if value, ok := _u.mutation.AddedModelMaxTokens(); ok {
 		_spec.AddField(agentprovider.FieldModelMaxTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.MaxParallelRuns(); ok {
+		_spec.SetField(agentprovider.FieldMaxParallelRuns, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedMaxParallelRuns(); ok {
+		_spec.AddField(agentprovider.FieldMaxParallelRuns, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.CostPerInputToken(); ok {
 		_spec.SetField(agentprovider.FieldCostPerInputToken, field.TypeFloat64, value)

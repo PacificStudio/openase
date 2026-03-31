@@ -554,6 +554,77 @@ func TestSchedulerRunTickAllowsConcurrentClaimsForSingleAgentDefinition(t *testi
 	}
 }
 
+func TestSchedulerRunTickSkipsBusyProviderWhenParallelRunLimitReached(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	now := time.Date(2026, 3, 20, 12, 20, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
+
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).SetMaxParallelRuns(1).Save(ctx); err != nil {
+		t.Fatalf("set provider max parallel runs: %v", err)
+	}
+
+	workflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(2).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	agentItem := fixture.createAgent(ctx, t, "provider-bound-01", 0)
+	if _, err := client.Workflow.UpdateOneID(workflow.ID).SetAgentID(agentItem.ID).Save(ctx); err != nil {
+		t.Fatalf("bind workflow agent: %v", err)
+	}
+
+	runningTicket, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-302C").
+		SetTitle("Already running against provider").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		SetWorkflowID(workflow.ID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create running ticket: %v", err)
+	}
+	mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, runningTicket.ID, entagentrun.StatusExecuting, now)
+
+	target, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-302D").
+		SetTitle("Blocked by provider semaphore").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityUrgent).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create target ticket: %v", err)
+	}
+
+	report, err := newTestScheduler(client, now).RunTick(ctx)
+	if err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+	if report.TicketsDispatched != 0 || report.TicketsSkipped[skipReasonProviderBusy] != 1 {
+		t.Fatalf("expected provider_busy skip, got %+v", report)
+	}
+
+	targetAfter, err := client.Ticket.Get(ctx, target.ID)
+	if err != nil {
+		t.Fatalf("reload target ticket: %v", err)
+	}
+	if targetAfter.CurrentRunID != nil || targetAfter.WorkflowID != nil {
+		t.Fatalf("expected ticket to remain unclaimed, got %+v", targetAfter)
+	}
+}
+
 func TestSchedulerRunTickPublishesClaimedLifecycleAndClearsRuntimeState(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
@@ -1372,17 +1443,17 @@ func TestSchedulerHelperCoverage(t *testing.T) {
 	scheduler := newTestScheduler(client, time.Date(2026, 3, 27, 18, 0, 0, 0, time.UTC))
 
 	agentItem := fixture.createAgent(ctx, t, "resolve-machine", 0)
-	machine, reason, err := scheduler.resolveExecutionMachine(ctx, fixture.orgID, agentItem, scheduler.now())
-	if err != nil || reason != "" || machine == nil || machine.ID != fixture.localMachineID {
-		t.Fatalf("resolveExecutionMachine(success) = %+v, %q, %v", machine, reason, err)
+	machine, providerItem, reason, err := scheduler.resolveExecutionMachine(ctx, fixture.orgID, agentItem, scheduler.now())
+	if err != nil || reason != "" || machine == nil || machine.ID != fixture.localMachineID || providerItem == nil || providerItem.ID != fixture.providerID {
+		t.Fatalf("resolveExecutionMachine(success) = %+v, %+v, %q, %v", machine, providerItem, reason, err)
 	}
 
 	if _, err := client.Machine.UpdateOneID(fixture.localMachineID).SetStatus(entmachine.StatusOffline).Save(ctx); err != nil {
 		t.Fatalf("set machine offline: %v", err)
 	}
-	machine, reason, err = scheduler.resolveExecutionMachine(ctx, fixture.orgID, agentItem, scheduler.now())
-	if err != nil || reason != skipReasonNoMachine || machine != nil {
-		t.Fatalf("resolveExecutionMachine(offline) = %+v, %q, %v", machine, reason, err)
+	machine, providerItem, reason, err = scheduler.resolveExecutionMachine(ctx, fixture.orgID, agentItem, scheduler.now())
+	if err != nil || reason != skipReasonNoMachine || machine != nil || providerItem != nil {
+		t.Fatalf("resolveExecutionMachine(offline) = %+v, %+v, %q, %v", machine, providerItem, reason, err)
 	}
 	if _, err := client.Machine.UpdateOneID(fixture.localMachineID).SetStatus(entmachine.StatusOnline).Save(ctx); err != nil {
 		t.Fatalf("restore machine online: %v", err)
@@ -1424,9 +1495,9 @@ func TestSchedulerHelperCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create cross org agent: %v", err)
 	}
-	machine, reason, err = scheduler.resolveExecutionMachine(ctx, fixture.orgID, crossOrgAgent, scheduler.now())
-	if err != nil || reason != skipReasonNoMachine || machine != nil {
-		t.Fatalf("resolveExecutionMachine(org mismatch) = %+v, %q, %v", machine, reason, err)
+	machine, providerItem, reason, err = scheduler.resolveExecutionMachine(ctx, fixture.orgID, crossOrgAgent, scheduler.now())
+	if err != nil || reason != skipReasonNoMachine || machine != nil || providerItem != nil {
+		t.Fatalf("resolveExecutionMachine(org mismatch) = %+v, %+v, %q, %v", machine, providerItem, reason, err)
 	}
 
 	doneStatusID := fixture.statusIDs["Done"]
@@ -1514,6 +1585,7 @@ func seedProjectFixtureAt(ctx context.Context, t *testing.T, client *ent.Client,
 		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
 		SetCliCommand("codex").
 		SetModelName("gpt-5.4").
+		SetMaxParallelRuns(domaincatalog.DefaultAgentProviderMaxParallelRuns).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create agent provider: %v", err)

@@ -115,6 +115,7 @@ func TestCatalogAgentParsersAndRuntimeHelpers(t *testing.T) {
 
 	modelTemperature := 0.25
 	modelMaxTokens := 8192
+	maxParallelRuns := 3
 	costPerInput := 0.001
 	costPerOutput := 0.002
 	createProvider, err := ParseCreateAgentProvider(organizationID, AgentProviderInput{
@@ -127,6 +128,7 @@ func TestCatalogAgentParsersAndRuntimeHelpers(t *testing.T) {
 		ModelName:          " gpt-5.4 ",
 		ModelTemperature:   &modelTemperature,
 		ModelMaxTokens:     &modelMaxTokens,
+		MaxParallelRuns:    &maxParallelRuns,
 		CostPerInputToken:  &costPerInput,
 		CostPerOutputToken: &costPerOutput,
 	})
@@ -135,6 +137,9 @@ func TestCatalogAgentParsersAndRuntimeHelpers(t *testing.T) {
 	}
 	if createProvider.MachineID != machineID || createProvider.Name != "Codex" || createProvider.AdapterType != AgentProviderAdapterTypeCodexAppServer {
 		t.Fatalf("ParseCreateAgentProvider() = %+v", createProvider)
+	}
+	if createProvider.MaxParallelRuns != maxParallelRuns {
+		t.Fatalf("ParseCreateAgentProvider() max_parallel_runs = %d, want %d", createProvider.MaxParallelRuns, maxParallelRuns)
 	}
 	createProvider.AuthConfig["token"] = "changed"
 	if got := cloneAnyMap(map[string]any{"k": "v"})["k"]; got != "v" {
@@ -153,7 +158,7 @@ func TestCatalogAgentParsersAndRuntimeHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseUpdateAgentProvider() error = %v", err)
 	}
-	if updateProvider.ModelMaxTokens != DefaultAgentProviderModelMaxTokens || updateProvider.CostPerInputToken != DefaultAgentProviderCostPerInputToken || updateProvider.CliArgs != nil {
+	if updateProvider.ModelMaxTokens != DefaultAgentProviderModelMaxTokens || updateProvider.MaxParallelRuns != DefaultAgentProviderMaxParallelRuns || updateProvider.CostPerInputToken != DefaultAgentProviderCostPerInputToken || updateProvider.CliArgs != nil {
 		t.Fatalf("ParseUpdateAgentProvider() defaults = %+v", updateProvider)
 	}
 
@@ -349,6 +354,7 @@ func TestCatalogAgentParsersAndRuntimeHelpers(t *testing.T) {
 		{MachineID: machineID.String(), Name: "Codex", AdapterType: "codex-app-server", ModelName: " "},
 		{MachineID: machineID.String(), Name: "Codex", AdapterType: "codex-app-server", ModelName: "gpt-5.4", ModelTemperature: floatPtr(-1)},
 		{MachineID: machineID.String(), Name: "Codex", AdapterType: "codex-app-server", ModelName: "gpt-5.4", ModelMaxTokens: intPtr(0)},
+		{MachineID: machineID.String(), Name: "Codex", AdapterType: "codex-app-server", ModelName: "gpt-5.4", MaxParallelRuns: intPtr(0)},
 		{MachineID: machineID.String(), Name: "Codex", AdapterType: "codex-app-server", ModelName: "gpt-5.4", CostPerInputToken: floatPtr(-1)},
 		{MachineID: machineID.String(), Name: "Codex", AdapterType: "codex-app-server", ModelName: "gpt-5.4", CostPerOutputToken: floatPtr(-1)},
 	}
