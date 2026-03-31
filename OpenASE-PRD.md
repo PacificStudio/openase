@@ -279,7 +279,7 @@ OpenASE 在用户 Home 目录下维护一个 `~/.openase/` 目录，作为全局
 - Linux: `~/.config/systemd/user/openase.service`
 - macOS: `~/Library/LaunchAgents/com.openase.plist`
 
-**敏感信息管理**：所有密钥、Token、数据库密码存储在 `~/.openase/.env` 中，文件权限 `0600`（仅 owner 可读写）。Git 仓库中的项目级 `.openase/` 目录只存储 Harness 和 Hook 脚本，不含任何敏感信息。
+**敏感信息管理**：`~/.openase/.env` 只用于存放**本机 OpenASE 服务启动时需要读取的敏感环境变量**，例如数据库密码、本地 API 认证 Token、OIDC client secret、第三方 Provider API key、通知 webhook 等，文件权限 `0600`（仅 owner 可读写）。它**不是**“所有 Token 的统一落盘位置”：像 GitHub 出站凭证 `GH_TOKEN` 这类需要被平台统一托管、探测、按作用域解析并投影到本机 / 远端受控 session 的 Secret，必须存放在平台 Secret 存储层，而不是写入 `~/.openase/.env`。Git 仓库中的项目级 `.openase/` 目录只存储 Harness 和 Hook 脚本，不含任何敏感信息。
 
 ### 5.5 后端分层架构（DDD + Provider）
 
@@ -5922,9 +5922,13 @@ GOOGLE_API_KEY=xxx                     # Gemini 使用
 # 通知
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx
 
-# Git
-GITHUB_WEBHOOK_SECRET=whsec_xxx
-GITHUB_TOKEN=ghp_xxx                   # Git 操作使用
+# Git / GitHub
+GITHUB_WEBHOOK_SECRET=whsec_xxx        # 仅用于入站 Webhook 验签
+
+# 注意：
+# - GitHub 出站凭证 GH_TOKEN 不在 .env 中落盘。
+# - GH_TOKEN 必须存放在平台 Secret 存储层，并由平台按 org/project 作用域解析，
+#   然后在本机 go-git 或远端受控 session 中临时投影使用。
 
 # 可观测性（可选）
 OTEL_EXPORTER_OTLP_ENDPOINT=
