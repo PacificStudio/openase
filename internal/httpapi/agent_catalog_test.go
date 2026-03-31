@@ -76,6 +76,11 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		t.Fatalf("expected provider list 200, got %d: %s", listProviderRec.Code, listProviderRec.Body.String())
 	}
 
+	getProviderRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/providers/"+providerPayload.Provider.ID, "")
+	if getProviderRec.Code != http.StatusOK {
+		t.Fatalf("expected provider get 200, got %d: %s", getProviderRec.Code, getProviderRec.Body.String())
+	}
+
 	patchProviderRec := performJSONRequest(
 		t,
 		server,
@@ -666,6 +671,8 @@ func TestAgentCatalogRouteErrorMappingsAndHelpers(t *testing.T) {
 	}{
 		{name: "list providers invalid org", method: http.MethodGet, target: "/api/v1/orgs/not-a-uuid/providers", wantStatus: http.StatusBadRequest, wantBody: "orgId must be a valid UUID"},
 		{name: "list providers missing org", method: http.MethodGet, target: "/api/v1/orgs/" + uuid.NewString() + "/providers", wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "get provider invalid id", method: http.MethodGet, target: "/api/v1/providers/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "providerId must be a valid UUID"},
+		{name: "get provider missing", method: http.MethodGet, target: "/api/v1/providers/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "resource not found"},
 		{name: "patch provider invalid id", method: http.MethodPatch, target: "/api/v1/providers/not-a-uuid", body: `{}`, wantStatus: http.StatusBadRequest, wantBody: "providerId must be a valid UUID"},
 		{name: "patch provider missing", method: http.MethodPatch, target: "/api/v1/providers/" + uuid.NewString(), body: `{}`, wantStatus: http.StatusNotFound, wantBody: "resource not found"},
 		{name: "patch provider invalid payload", method: http.MethodPatch, target: "/api/v1/providers/" + providerOneID.String(), body: `{"cli_command":" "}`, wantStatus: http.StatusBadRequest, wantBody: "model_name must not be empty"},

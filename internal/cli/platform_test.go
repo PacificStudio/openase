@@ -24,6 +24,7 @@ func TestNewRootCommandIncludesTypedAPICommands(t *testing.T) {
 		{"agent"},
 		{"skill"},
 		{"watch"},
+		{"stream"},
 	} {
 		command, _, err := root.Find(path)
 		if err != nil {

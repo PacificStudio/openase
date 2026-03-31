@@ -191,6 +191,7 @@ func (s *Server) registerCatalogRoutes(api *echo.Group) {
 	api.GET("/provider-model-options", s.listProviderModelOptions)
 	api.GET("/orgs/:orgId/providers", s.listAgentProviders)
 	api.POST("/orgs/:orgId/providers", s.createAgentProvider)
+	api.GET("/providers/:providerId", s.getAgentProvider)
 	api.GET("/machines/:machineId", s.getMachine)
 	api.PATCH("/machines/:machineId", s.patchMachine)
 	api.DELETE("/machines/:machineId", s.deleteMachine)
