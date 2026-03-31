@@ -1868,17 +1868,8 @@ func TestRuntimeLauncherRunTickStopsRuntimeWhenTicketBecomesTerminal(t *testing.
 		t.Fatalf("reconcile terminal ticket: %v", err)
 	}
 
-	waitForRuntimeCondition(t, 5*time.Second, func() bool {
-		ticketSnapshot, err := client.Ticket.Get(ctx, ticketItem.ID)
-		if err != nil {
-			return false
-		}
-		runSnapshot, err := client.AgentRun.Get(ctx, runItem.ID)
-		if err != nil {
-			return false
-		}
-		return ticketSnapshot.CurrentRunID == nil &&
-			ticketSnapshot.StatusID == fixture.statusIDs["Done"] &&
+	waitForRuntimeTermination(ctx, t, client, launcher, ticketItem.ID, runItem.ID, 10*time.Second, func(ticketSnapshot *ent.Ticket, runSnapshot *ent.AgentRun) bool {
+		return ticketSnapshot.StatusID == fixture.statusIDs["Done"] &&
 			runSnapshot.Status == entagentrun.StatusTerminated
 	})
 
@@ -1961,17 +1952,8 @@ func TestRuntimeLauncherRunTickStopsRuntimeWhenWorkflowRoutingChanges(t *testing
 		t.Fatalf("reconcile workflow drift: %v", err)
 	}
 
-	waitForRuntimeCondition(t, 5*time.Second, func() bool {
-		ticketSnapshot, err := client.Ticket.Get(ctx, ticketItem.ID)
-		if err != nil {
-			return false
-		}
-		runSnapshot, err := client.AgentRun.Get(ctx, runItem.ID)
-		if err != nil {
-			return false
-		}
-		return ticketSnapshot.CurrentRunID == nil &&
-			ticketSnapshot.WorkflowID != nil &&
+	waitForRuntimeTermination(ctx, t, client, launcher, ticketItem.ID, runItem.ID, 10*time.Second, func(ticketSnapshot *ent.Ticket, runSnapshot *ent.AgentRun) bool {
+		return ticketSnapshot.WorkflowID != nil &&
 			*ticketSnapshot.WorkflowID == otherWorkflow.ID &&
 			runSnapshot.Status == entagentrun.StatusTerminated
 	})
@@ -3583,6 +3565,44 @@ func waitForRuntimeCondition(t *testing.T, timeout time.Duration, predicate func
 	}
 
 	t.Fatal("timed out waiting for runtime condition")
+}
+
+func waitForRuntimeTermination(
+	ctx context.Context,
+	t *testing.T,
+	client *ent.Client,
+	launcher *RuntimeLauncher,
+	ticketID uuid.UUID,
+	runID uuid.UUID,
+	timeout time.Duration,
+	predicate func(ticketSnapshot *ent.Ticket, runSnapshot *ent.AgentRun) bool,
+) {
+	t.Helper()
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		ticketSnapshot, ticketErr := client.Ticket.Get(ctx, ticketID)
+		runSnapshot, runErr := client.AgentRun.Get(ctx, runID)
+		if ticketErr == nil &&
+			runErr == nil &&
+			ticketSnapshot.CurrentRunID == nil &&
+			launcher.loadSession(runID) == nil &&
+			!launcher.executionActive(runID) &&
+			predicate(ticketSnapshot, runSnapshot) {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	ticketSnapshot, _ := client.Ticket.Get(ctx, ticketID)
+	runSnapshot, _ := client.AgentRun.Get(ctx, runID)
+	t.Fatalf(
+		"timed out waiting for runtime termination: ticket=%+v run=%+v execution_active=%t session_nil=%t",
+		ticketSnapshot,
+		runSnapshot,
+		launcher.executionActive(runID),
+		launcher.loadSession(runID) == nil,
+	)
 }
 
 func waitForRuntimeExecuting(ctx context.Context, t *testing.T, client *ent.Client, ticketID uuid.UUID, runID uuid.UUID) {

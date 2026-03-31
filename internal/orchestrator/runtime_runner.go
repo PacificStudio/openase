@@ -136,6 +136,19 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, runID uuid.UUID
 
 		turn, err := session.SendPrompt(ctx, prompt)
 		if err != nil {
+			reloaded, reloadErr := l.reloadExecutionTicket(ctx, state.ticket.ID)
+			if reloadErr != nil {
+				l.logger.Error("reload execution ticket after turn start failure", "agent_id", state.agent.ID, "ticket_id", state.ticket.ID, "error", reloadErr)
+				stopSession(context.Background(), session)
+				l.deleteSession(runID)
+				return
+			}
+			if classifyRuntimeTicket(reloaded, state.run.ID, state.run.WorkflowID) != runtimeTicketActive {
+				if err := l.releaseExecutionOwnership(ctx, state.run.ID, state.agent.ID, reloaded); err != nil {
+					l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, reloaded.ID, err)
+				}
+				return
+			}
 			l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, state.ticket.ID, err)
 			return
 		}
