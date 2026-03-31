@@ -16,25 +16,27 @@
   import { toastStore } from '$lib/stores/toast.svelte'
   import { PageScaffold } from '$lib/components/layout'
   import { Button } from '$ui/button'
-  import type { BoardColumn, BoardFilter, BoardTicket } from '$lib/features/board/types'
   import {
+    BoardListView,
+    BoardToolbar,
+    BoardView,
     buildBoardData,
     filterBoardColumns,
     findTicketLocation,
     patchTicket,
     relocateTicket,
+    type BoardColumnType,
+    type BoardFilter,
+    type BoardTicket,
     type PendingTicketMove,
-  } from '$lib/features/board/model'
-  import BoardListView from '$lib/features/board/components/board-list-view.svelte'
-  import BoardToolbar from '$lib/features/board/components/board-toolbar.svelte'
-  import BoardView from '$lib/features/board/components/board-view.svelte'
+  } from '$lib/features/board'
 
   const newTicketCapability = capabilityCatalog.newTicket
 
   let filter = $state<BoardFilter>({ search: '' })
   let loading = $state(false)
   let error = $state('')
-  let allColumns = $state<BoardColumn[]>([])
+  let allColumns = $state<BoardColumnType[]>([])
   let workflows = $state<string[]>([])
   let agentOptions = $state<string[]>([])
   let draggingTicketId = $state<string | null>(null)

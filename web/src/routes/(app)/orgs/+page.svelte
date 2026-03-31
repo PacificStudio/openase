@@ -1,8 +1,13 @@
 <script lang="ts">
-  import type { Organization } from '$lib/api/contracts'
   import OrganizationCreationDialog from '$lib/features/catalog-creation/components/organization-creation-dialog.svelte'
   import OrganizationDeleteDialog from '$lib/features/catalog-creation/components/organization-delete-dialog.svelte'
   import StatCard from '$lib/features/dashboard/components/stat-card.svelte'
+  import {
+    emptyWorkspaceStats,
+    loadWorkspaceDashboardSummary,
+    type WorkspaceOrgMetrics,
+    type WorkspaceStats,
+  } from '$lib/features/dashboard/workspace-summary'
   import {
     providerAvailabilityBadgeVariant,
     providerAvailabilityLabel,
@@ -18,52 +23,49 @@
   const providers = $derived(appStore.providers)
 
   let showCreateDialog = $state(false)
+  type Organization = (typeof appStore.organizations)[number]
   let deleteTarget = $state<Organization | null>(null)
   let showDeleteDialog = $state(false)
 
-  // TODO: Replace mock data with real API aggregation.
-  // For each org, call listProjects(orgId), then for each project call
-  // listAgents(projectId) + listTickets(projectId), and aggregate using
-  // buildDashboardStats(). Consider adding a backend endpoint
-  // GET /api/v1/workspace/summary for efficiency at scale.
+  let loading = $state(false)
+  let orgMetrics = $state<Record<string, WorkspaceOrgMetrics>>({})
+  let workspaceStats = $state<WorkspaceStats>(emptyWorkspaceStats)
+  let totalProjects = $state(0)
 
-  type OrgMetrics = {
-    projectCount: number
-    providerCount: number
-    runningAgents: number
-    activeTickets: number
-    todayCost: number
-  }
+  $effect(() => {
+    const refreshKey = `${appStore.appContextFetchedAt}:${organizations.map((org) => org.id).join(',')}`
+    void refreshKey
 
-  // TODO: wire to real per-org aggregation
-  // Need to call listProjects(orgId), then listAgents/listTickets per project.
-  // Provider count also needs listProviders(orgId) per org.
-  const orgMetrics = $derived<Record<string, OrgMetrics>>(
-    Object.fromEntries(
-      organizations.map((org) => [
-        org.id,
-        {
-          projectCount: 0,
-          providerCount: 0,
-          runningAgents: 0,
-          activeTickets: 0,
-          todayCost: 0,
-        },
-      ]),
-    ),
-  )
+    let cancelled = false
+    const controller = new AbortController()
 
-  // TODO: wire to real workspace-wide aggregation
-  const workspaceStats = $derived({
-    runningAgents: Object.values(orgMetrics).reduce((s, m) => s + m.runningAgents, 0),
-    activeTickets: Object.values(orgMetrics).reduce((s, m) => s + m.activeTickets, 0),
-    todayCost: Object.values(orgMetrics).reduce((s, m) => s + m.todayCost, 0),
-    totalTokens: 0,
+    const load = async () => {
+      loading = true
+
+      try {
+        const summary = await loadWorkspaceDashboardSummary({ signal: controller.signal })
+        if (cancelled) return
+
+        orgMetrics = summary.orgMetrics
+        workspaceStats = summary.workspaceStats
+        totalProjects = summary.totalProjects
+      } catch {
+        if (cancelled || controller.signal.aborted) return
+        orgMetrics = {}
+        workspaceStats = emptyWorkspaceStats
+        totalProjects = 0
+      } finally {
+        if (!cancelled) loading = false
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
   })
-
-  const totalProjects = $derived(
-    Object.values(orgMetrics).reduce((s, m) => s + m.projectCount, 0),
-  )
 
   function openDelete(org: Organization) {
     deleteTarget = org
@@ -93,7 +95,11 @@
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <StatCard label="Running Agents" value={workspaceStats.runningAgents} icon={Bot} />
       <StatCard label="Active Tickets" value={workspaceStats.activeTickets} icon={Ticket} />
-      <StatCard label="Today's Cost" value={formatCurrency(workspaceStats.todayCost)} icon={Coins} />
+      <StatCard
+        label="Today's Cost"
+        value={formatCurrency(workspaceStats.todayCost)}
+        icon={Coins}
+      />
       <StatCard
         label="Total Tokens"
         value={formatCount(workspaceStats.totalTokens)}
@@ -121,7 +127,7 @@
               <Button
                 variant="ghost"
                 size="sm"
-                class="text-destructive hover:text-destructive -mr-2 -mt-1 opacity-0 transition-opacity group-hover:opacity-100"
+                class="text-destructive hover:text-destructive -mt-1 -mr-2 opacity-0 transition-opacity group-hover:opacity-100"
                 onclick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
@@ -133,9 +139,12 @@
             </div>
 
             {#if metrics}
-              <div class="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+              <div
+                class="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
+              >
                 <span>{metrics.projectCount} project{metrics.projectCount !== 1 ? 's' : ''}</span>
-                <span>{metrics.providerCount} provider{metrics.providerCount !== 1 ? 's' : ''}</span>
+                <span>{metrics.providerCount} provider{metrics.providerCount !== 1 ? 's' : ''}</span
+                >
                 <span class="flex items-center gap-1">
                   <Bot class="size-3" />
                   {metrics.runningAgents}
@@ -149,6 +158,8 @@
                   {formatCurrency(metrics.todayCost)}
                 </span>
               </div>
+            {:else if loading}
+              <div class="text-muted-foreground mt-3 text-xs">Loading metrics…</div>
             {/if}
           </a>
         {/each}
