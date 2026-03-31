@@ -11,6 +11,7 @@ import (
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 )
 
 const (
@@ -210,9 +211,10 @@ func (h *HealthChecker) releaseStalledClaim(
 	}
 	defer rollback(tx)
 
+	retryAt := now.Add(stalledRetryDelay)
 	nextStallCount := ticket.StallCount + 1
 	retryPaused := nextStallCount >= stalledRetryPauseThreshold
-	releasedTickets, err := tx.Ticket.Update().
+	ticketUpdate := tx.Ticket.Update().
 		Where(
 			entticket.IDEQ(ticket.ID),
 			entticket.CurrentRunIDNotNil(),
@@ -220,25 +222,23 @@ func (h *HealthChecker) releaseStalledClaim(
 		).
 		ClearCurrentRunID().
 		SetStallCount(nextStallCount).
+		SetRetryToken(ticketservice.NewRetryToken())
+	if retryPaused {
+		ticketUpdate.ClearNextRetryAt().
+			SetRetryPaused(true).
+			SetPauseReason(ticketing.PauseReasonRepeatedStalls.String())
+	} else {
+		ticketUpdate.SetNextRetryAt(retryAt).
+			SetRetryPaused(false).
+			ClearPauseReason()
+	}
+	releasedTickets, err := ticketUpdate.
 		Save(ctx)
 	if err != nil {
 		return false, false, fmt.Errorf("release stalled ticket: %w", err)
 	}
 	if releasedTickets == 0 {
 		return false, false, nil
-	}
-	ticketUpdate := tx.Ticket.UpdateOneID(ticket.ID)
-	if retryPaused {
-		ticketUpdate.ClearNextRetryAt().
-			SetRetryPaused(true).
-			SetPauseReason(ticketing.PauseReasonRepeatedStalls.String())
-	} else {
-		ticketUpdate.SetNextRetryAt(now.Add(stalledRetryDelay)).
-			SetRetryPaused(false).
-			ClearPauseReason()
-	}
-	if _, err := ticketUpdate.Save(ctx); err != nil {
-		return false, false, fmt.Errorf("update stalled retry policy: %w", err)
 	}
 
 	releasedRuns := 0

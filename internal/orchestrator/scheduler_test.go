@@ -21,6 +21,7 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
 )
@@ -1614,5 +1615,7 @@ func backlogStageActiveRuns(ctx context.Context, t *testing.T, client *ent.Clien
 func openTestEntClient(t *testing.T) *ent.Client {
 	t.Helper()
 
-	return testPostgres.NewIsolatedEntClient(t)
+	client := testPostgres.NewIsolatedEntClient(t)
+	ticketservice.InstallRetryTokenHooks(client)
+	return client
 }
