@@ -18,12 +18,14 @@ import (
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"golang.org/x/sys/unix"
 )
 
 const defaultDatabase = "postgres"
 
 const sharedServerStartAttempts = 5
 const sharedServerAssetsRootEnv = "OPENASE_PGTEST_SHARED_ROOT"
+const isolatedDatabaseDDLTimeout = 45 * time.Second
 
 type postgresController interface {
 	Start() error
@@ -172,14 +174,25 @@ func startSharedServerProcess(prefix string) (sharedServerStartResult, error) {
 			_ = os.RemoveAll(rootDir)
 			return sharedServerStartResult{}, fmt.Errorf("create embedded postgres controller: %w", err)
 		}
-		if err := pg.Start(); err != nil {
-			lastErr = err
+
+		releaseAssetsLock, err := lockSharedServerAssets()
+		if err != nil {
+			_ = os.RemoveAll(rootDir)
+			return sharedServerStartResult{}, fmt.Errorf("lock shared embedded postgres assets: %w", err)
+		}
+		startErr := pg.Start()
+		releaseErr := releaseAssetsLock()
+		if startErr == nil && releaseErr != nil {
+			startErr = fmt.Errorf("release shared embedded postgres assets lock: %w", releaseErr)
+		}
+		if startErr != nil {
+			lastErr = startErr
 			_ = pg.Stop()
 			_ = os.RemoveAll(rootDir)
-			if isRetryablePortStartupError(err) && attempt < sharedServerStartAttempts {
+			if isRetryablePortStartupError(startErr) && attempt < sharedServerStartAttempts {
 				continue
 			}
-			return sharedServerStartResult{}, fmt.Errorf("start embedded postgres: %w", err)
+			return sharedServerStartResult{}, fmt.Errorf("start embedded postgres: %w", startErr)
 		}
 
 		return sharedServerStartResult{
@@ -213,7 +226,7 @@ func (s *Server) NewIsolatedDatabase(t *testing.T) Database {
 func (s *Server) newIsolatedDatabase(t *testing.T, dbName string, templateName string) Database {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), isolatedDatabaseDDLTimeout)
 	defer cancel()
 
 	statement := "CREATE DATABASE " + pq.QuoteIdentifier(dbName)
@@ -228,7 +241,7 @@ func (s *Server) newIsolatedDatabase(t *testing.T, dbName string, templateName s
 	}
 
 	t.Cleanup(func() {
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), isolatedDatabaseDDLTimeout)
 		defer cleanupCancel()
 		if _, err := s.admin.ExecContext(cleanupCtx, "DROP DATABASE IF EXISTS "+pq.QuoteIdentifier(dbName)+" WITH (FORCE)"); err != nil {
 			t.Errorf("drop isolated database %s: %v", dbName, err)
@@ -400,15 +413,69 @@ func isRetryablePortStartupError(err error) bool {
 }
 
 func sharedServerPaths(rootDir string) (sharedServerPathsResult, error) {
-	sharedAssetsRoot, err := resolveSharedServerAssetsRoot()
+	sharedVersionRoot, err := sharedServerVersionRoot()
 	if err != nil {
 		return sharedServerPathsResult{}, err
 	}
-	sharedVersionRoot := filepath.Join(sharedAssetsRoot, "postgres-"+string(embeddedpostgres.V16))
 	return sharedServerPathsResult{
 		cachePath:    filepath.Join(sharedVersionRoot, "cache"),
 		runtimePath:  filepath.Join(rootDir, "runtime"),
 		binariesPath: filepath.Join(sharedVersionRoot, "binaries"),
 		dataPath:     filepath.Join(rootDir, "data"),
 	}, nil
+}
+
+func sharedServerVersionRoot() (string, error) {
+	sharedAssetsRoot, err := resolveSharedServerAssetsRoot()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(sharedAssetsRoot, "postgres-"+string(embeddedpostgres.V16)), nil
+}
+
+func lockSharedServerAssets() (func() error, error) {
+	sharedVersionRoot, err := sharedServerVersionRoot()
+	if err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(sharedVersionRoot, 0o750); err != nil {
+		return nil, fmt.Errorf("create shared version root %s: %w", sharedVersionRoot, err)
+	}
+
+	lockFilePath := filepath.Join(sharedVersionRoot, ".lock")
+	// #nosec G304 -- lockFilePath is derived from the test-owned shared assets root.
+	lockFile, err := os.OpenFile(lockFilePath, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("open shared lock file %s: %w", lockFilePath, err)
+	}
+	if err := flockFile(lockFile, unix.LOCK_EX); err != nil {
+		_ = lockFile.Close()
+		return nil, fmt.Errorf("acquire shared lock %s: %w", lockFilePath, err)
+	}
+
+	return func() error {
+		unlockErr := flockFile(lockFile, unix.LOCK_UN)
+		closeErr := lockFile.Close()
+		switch {
+		case unlockErr != nil:
+			return fmt.Errorf("unlock %s: %w", lockFilePath, unlockErr)
+		case closeErr != nil:
+			return fmt.Errorf("close %s: %w", lockFilePath, closeErr)
+		default:
+			return nil
+		}
+	}, nil
+}
+
+func flockFile(lockFile *os.File, operation int) error {
+	if lockFile == nil {
+		return fmt.Errorf("lock file is required")
+	}
+
+	fd := lockFile.Fd()
+	maxInt := uintptr(^uint(0) >> 1)
+	if fd > maxInt {
+		return fmt.Errorf("lock file descriptor %d exceeds int range", fd)
+	}
+	return unix.Flock(int(fd), operation)
 }
