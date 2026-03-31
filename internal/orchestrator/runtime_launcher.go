@@ -65,7 +65,7 @@ type RuntimeLauncher struct {
 
 	sessionsMu sync.Mutex
 	sessions   map[uuid.UUID]*codex.Session
-	runtime    *runtimeStateStore
+	runtime    *RuntimeStateStore
 
 	launchesMu sync.Mutex
 	launches   map[uuid.UUID]struct{}
@@ -116,7 +116,7 @@ func NewRuntimeLauncher(
 	}
 }
 
-func (l *RuntimeLauncher) ConfigureRuntimeState(store *runtimeStateStore) {
+func (l *RuntimeLauncher) ConfigureRuntimeState(store *RuntimeStateStore) {
 	if l == nil || store == nil {
 		return
 	}
@@ -576,22 +576,23 @@ func (l *RuntimeLauncher) reconcileRuntimeFacts(ctx context.Context) error {
 			return fmt.Errorf("reload ticket %s during runtime fact reconciliation: %w", snapshot.TicketID, err)
 		}
 
-		switch snapshot.PendingRuntimeFact.Kind {
-		case runtimeFactSessionExited:
-			disposition := classifyRuntimeTicket(ticket, snapshot.RunID, snapshot.WorkflowID)
-			if disposition == runtimeTicketActive {
-				if trimmed := strings.TrimSpace(snapshot.PendingRuntimeFact.Message); trimmed != "" {
-					l.handleExecutionFailure(ctx, snapshot.RunID, snapshot.AgentID, snapshot.TicketID, fmt.Errorf("%s", trimmed))
-					continue
-				}
-				if err := l.scheduleContinuation(ctx, snapshot.RunID, snapshot.AgentID, snapshot.TicketID); err != nil {
-					return fmt.Errorf("schedule continuation for run %s after subprocess exit: %w", snapshot.RunID, err)
-				}
+		if snapshot.PendingRuntimeFact.Kind != runtimeFactSessionExited {
+			continue
+		}
+
+		disposition := classifyRuntimeTicket(ticket, snapshot.RunID, snapshot.WorkflowID)
+		if disposition == runtimeTicketActive {
+			if trimmed := strings.TrimSpace(snapshot.PendingRuntimeFact.Message); trimmed != "" {
+				l.handleExecutionFailure(ctx, snapshot.RunID, snapshot.AgentID, snapshot.TicketID, fmt.Errorf("%s", trimmed))
 				continue
 			}
-			if err := l.releaseExecutionOwnership(ctx, snapshot.RunID, snapshot.AgentID, ticket); err != nil {
-				return fmt.Errorf("release run %s after runtime fact reconciliation: %w", snapshot.RunID, err)
+			if err := l.scheduleContinuation(ctx, snapshot.RunID, snapshot.AgentID, snapshot.TicketID); err != nil {
+				return fmt.Errorf("schedule continuation for run %s after subprocess exit: %w", snapshot.RunID, err)
 			}
+			continue
+		}
+		if err := l.releaseExecutionOwnership(ctx, snapshot.RunID, snapshot.AgentID, ticket); err != nil {
+			return fmt.Errorf("release run %s after runtime fact reconciliation: %w", snapshot.RunID, err)
 		}
 	}
 

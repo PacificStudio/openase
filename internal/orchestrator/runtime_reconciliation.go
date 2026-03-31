@@ -41,16 +41,16 @@ type runtimeRunSnapshot struct {
 	PendingRuntimeFact *runtimeFactSnapshot
 }
 
-type runtimeStateStore struct {
+type RuntimeStateStore struct {
 	mu   sync.Mutex
 	runs map[uuid.UUID]runtimeRunSnapshot
 }
 
-func NewRuntimeStateStore() *runtimeStateStore {
-	return &runtimeStateStore{runs: map[uuid.UUID]runtimeRunSnapshot{}}
+func NewRuntimeStateStore() *RuntimeStateStore {
+	return &RuntimeStateStore{runs: map[uuid.UUID]runtimeRunSnapshot{}}
 }
 
-func (s *runtimeStateStore) markReady(runID uuid.UUID, agentID uuid.UUID, ticketID uuid.UUID, workflowID uuid.UUID, sessionID string, startedAt time.Time) {
+func (s *RuntimeStateStore) markReady(runID uuid.UUID, agentID uuid.UUID, ticketID uuid.UUID, workflowID uuid.UUID, sessionID string, startedAt time.Time) {
 	if s == nil {
 		return
 	}
@@ -69,7 +69,7 @@ func (s *runtimeStateStore) markReady(runID uuid.UUID, agentID uuid.UUID, ticket
 	}
 }
 
-func (s *runtimeStateStore) recordTurnStart(runID uuid.UUID, turnCount int, observedAt time.Time) {
+func (s *RuntimeStateStore) recordTurnStart(runID uuid.UUID, turnCount int, observedAt time.Time) {
 	if s == nil {
 		return
 	}
@@ -86,7 +86,7 @@ func (s *runtimeStateStore) recordTurnStart(runID uuid.UUID, turnCount int, obse
 	s.runs[runID] = snapshot
 }
 
-func (s *runtimeStateStore) recordCodexEvent(runID uuid.UUID, eventType codex.EventType, observedAt time.Time) {
+func (s *RuntimeStateStore) recordCodexEvent(runID uuid.UUID, eventType codex.EventType, observedAt time.Time) {
 	if s == nil {
 		return
 	}
@@ -101,7 +101,7 @@ func (s *runtimeStateStore) recordCodexEvent(runID uuid.UUID, eventType codex.Ev
 	s.runs[runID] = snapshot
 }
 
-func (s *runtimeStateStore) recordRuntimeFact(runID uuid.UUID, kind runtimeFactKind, observedAt time.Time, message string) {
+func (s *RuntimeStateStore) recordRuntimeFact(runID uuid.UUID, kind runtimeFactKind, observedAt time.Time, message string) {
 	if s == nil {
 		return
 	}
@@ -119,7 +119,7 @@ func (s *runtimeStateStore) recordRuntimeFact(runID uuid.UUID, kind runtimeFactK
 	s.runs[runID] = snapshot
 }
 
-func (s *runtimeStateStore) delete(runID uuid.UUID) {
+func (s *RuntimeStateStore) delete(runID uuid.UUID) {
 	if s == nil {
 		return
 	}
@@ -128,7 +128,7 @@ func (s *runtimeStateStore) delete(runID uuid.UUID) {
 	delete(s.runs, runID)
 }
 
-func (s *runtimeStateStore) load(runID uuid.UUID) (runtimeRunSnapshot, bool) {
+func (s *RuntimeStateStore) load(runID uuid.UUID) (runtimeRunSnapshot, bool) {
 	if s == nil {
 		return runtimeRunSnapshot{}, false
 	}
@@ -138,7 +138,7 @@ func (s *runtimeStateStore) load(runID uuid.UUID) (runtimeRunSnapshot, bool) {
 	return snapshot, ok
 }
 
-func (s *runtimeStateStore) snapshots() []runtimeRunSnapshot {
+func (s *RuntimeStateStore) snapshots() []runtimeRunSnapshot {
 	if s == nil {
 		return nil
 	}

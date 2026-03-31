@@ -29,7 +29,7 @@ type HealthChecker struct {
 	client  *ent.Client
 	logger  *slog.Logger
 	now     func() time.Time
-	runtime *runtimeStateStore
+	runtime *RuntimeStateStore
 }
 
 type claimHealthState struct {
@@ -54,7 +54,7 @@ func NewHealthChecker(client *ent.Client, logger *slog.Logger) *HealthChecker {
 	}
 }
 
-func (h *HealthChecker) ConfigureRuntimeState(store *runtimeStateStore) {
+func (h *HealthChecker) ConfigureRuntimeState(store *RuntimeStateStore) {
 	if h == nil || store == nil {
 		return
 	}

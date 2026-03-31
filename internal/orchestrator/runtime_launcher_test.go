@@ -1707,8 +1707,8 @@ func TestRuntimeLauncherRunTickStopsRuntimeWhenTicketBecomesTerminal(t *testing.
 
 	manager := &runtimeFakeProcessManager{releaseTurn: make(chan struct{})}
 	workflowItem, workflowSvc, ticketItem, agentItem, runItem, launcher := newRuntimeExecutionFixture(
-		t,
 		ctx,
+		t,
 		client,
 		fixture,
 		now,
@@ -1738,7 +1738,7 @@ func TestRuntimeLauncherRunTickStopsRuntimeWhenTicketBecomesTerminal(t *testing.
 		t.Fatalf("start ready execution: %v", err)
 	}
 
-	waitForRuntimeExecuting(t, ctx, client, ticketItem.ID, runItem.ID)
+	waitForRuntimeExecuting(ctx, t, client, ticketItem.ID, runItem.ID)
 
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
 		SetStatusID(fixture.statusIDs["Done"]).
@@ -1789,8 +1789,8 @@ func TestRuntimeLauncherRunTickStopsRuntimeWhenWorkflowRoutingChanges(t *testing
 
 	manager := &runtimeFakeProcessManager{releaseTurn: make(chan struct{})}
 	workflowItem, workflowSvc, ticketItem, agentItem, runItem, launcher := newRuntimeExecutionFixture(
-		t,
 		ctx,
+		t,
 		client,
 		fixture,
 		now,
@@ -1832,7 +1832,7 @@ func TestRuntimeLauncherRunTickStopsRuntimeWhenWorkflowRoutingChanges(t *testing
 		t.Fatalf("start ready execution: %v", err)
 	}
 
-	waitForRuntimeExecuting(t, ctx, client, ticketItem.ID, runItem.ID)
+	waitForRuntimeExecuting(ctx, t, client, ticketItem.ID, runItem.ID)
 
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
 		SetWorkflowID(otherWorkflow.ID).
@@ -1956,8 +1956,8 @@ func TestRuntimeLauncherRunTickStallsByLastCodexTimestamp(t *testing.T) {
 
 	manager := &runtimeFakeProcessManager{releaseTurn: make(chan struct{})}
 	workflowItem, workflowSvc, ticketItem, _, runItem, launcher := newRuntimeExecutionFixture(
-		t,
 		ctx,
+		t,
 		client,
 		fixture,
 		now,
@@ -3033,8 +3033,8 @@ func TestRuntimeLauncherRunTickTransitionsPauseRequestedAgentToPaused(t *testing
 }
 
 func newRuntimeExecutionFixture(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	client *ent.Client,
 	fixture projectFixture,
 	now time.Time,
@@ -3152,7 +3152,7 @@ func waitForRuntimeCondition(t *testing.T, timeout time.Duration, predicate func
 	t.Fatal("timed out waiting for runtime condition")
 }
 
-func waitForRuntimeExecuting(t *testing.T, ctx context.Context, client *ent.Client, ticketID uuid.UUID, runID uuid.UUID) {
+func waitForRuntimeExecuting(ctx context.Context, t *testing.T, client *ent.Client, ticketID uuid.UUID, runID uuid.UUID) {
 	t.Helper()
 
 	deadline := time.Now().Add(5 * time.Second)
@@ -3167,44 +3167,6 @@ func waitForRuntimeExecuting(t *testing.T, ctx context.Context, client *ent.Clie
 	runSnapshot, _ := client.AgentRun.Get(ctx, runID)
 	ticketSnapshot, _ := client.Ticket.Get(ctx, ticketID)
 	t.Fatalf("timed out waiting for executing run: run=%+v ticket=%+v", runSnapshot, ticketSnapshot)
-}
-
-func waitForRuntimeFactRecorded(t *testing.T, launcher *RuntimeLauncher, runID uuid.UUID) {
-	t.Helper()
-
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		snapshot, ok := launcher.runtime.load(runID)
-		if ok && snapshot.PendingRuntimeFact != nil && !launcher.executionActive(runID) {
-			return
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-
-	snapshot, _ := launcher.runtime.load(runID)
-	t.Fatalf("timed out waiting for runtime fact snapshot: %+v", snapshot)
-}
-
-func waitForRuntimeContinuation(t *testing.T, ctx context.Context, client *ent.Client, launcher *RuntimeLauncher, ticketID uuid.UUID, runID uuid.UUID) {
-	t.Helper()
-
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		ticketSnapshot, ticketErr := client.Ticket.Get(ctx, ticketID)
-		runSnapshot, runErr := client.AgentRun.Get(ctx, runID)
-		if ticketErr == nil && runErr == nil &&
-			ticketSnapshot.CurrentRunID == nil &&
-			ticketSnapshot.NextRetryAt != nil &&
-			runSnapshot.Status == entagentrun.StatusTerminated {
-			return
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-
-	ticketSnapshot, _ := client.Ticket.Get(ctx, ticketID)
-	runSnapshot, _ := client.AgentRun.Get(ctx, runID)
-	runtimeSnapshot, _ := launcher.runtime.load(runID)
-	t.Fatalf("timed out waiting for runtime continuation: ticket=%+v run=%+v runtime=%+v", ticketSnapshot, runSnapshot, runtimeSnapshot)
 }
 
 func containsEnvironmentPrefix(environment []string, want string) bool {
@@ -3506,12 +3468,6 @@ func (m *runtimeFakeProcessManager) capturedProcessSpec() provider.AgentCLIProce
 		WorkingDirectory: m.capturedSpec.WorkingDirectory,
 		Environment:      append([]string(nil), m.capturedSpec.Environment...),
 	}
-}
-
-func (m *runtimeFakeProcessManager) capturedProcess() *runtimeFakeProcess {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.lastProcess
 }
 
 func (m *runtimeFakeProcessManager) appendTurn(params runtimeTurnStartParams) int {
