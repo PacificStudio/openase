@@ -4,13 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { appStore } from '$lib/stores/app.svelte'
 import StatusSettings from './status-settings.svelte'
 
-const { createStatus, deleteStatus, listStatuses, resetStatuses, updateStatus } = vi.hoisted(() => ({
-  createStatus: vi.fn(),
-  deleteStatus: vi.fn(),
-  listStatuses: vi.fn(),
-  resetStatuses: vi.fn(),
-  updateStatus: vi.fn(),
-}))
+const { createStatus, deleteStatus, listStatuses, resetStatuses, updateStatus } = vi.hoisted(
+  () => ({
+    createStatus: vi.fn(),
+    deleteStatus: vi.fn(),
+    listStatuses: vi.fn(),
+    resetStatuses: vi.fn(),
+    updateStatus: vi.fn(),
+  }),
+)
 
 const { connectEventStream } = vi.hoisted(() => ({
   connectEventStream: vi.fn(() => () => {}),
@@ -176,7 +178,9 @@ describe('Status settings', () => {
     await fireEvent.input(capacityInput, { target: { value: '2' } })
     await fireEvent.click(within(statusRow as HTMLElement).getByRole('button', { name: 'Save' }))
 
-    await waitFor(() => expect(updateStatus).toHaveBeenCalledWith('status-2', { max_active_runs: 2 }))
+    await waitFor(() =>
+      expect(updateStatus).toHaveBeenCalledWith('status-2', { max_active_runs: 2 }),
+    )
     expect(toastStore.success).toHaveBeenCalledWith('Updated status "Doing".')
   })
 
@@ -193,7 +197,9 @@ describe('Status settings', () => {
     const capacityInput = await findByDisplayValue('1')
     const statusRow = capacityInput.closest('.border-border.rounded-md.border.px-3.py-3')
     expect(statusRow).toBeTruthy()
-    await fireEvent.click(within(statusRow as HTMLElement).getByRole('button', { name: 'More actions' }))
+    await fireEvent.click(
+      within(statusRow as HTMLElement).getByRole('button', { name: 'More actions' }),
+    )
     await fireEvent.click(await findByRole('menuitem', { name: 'Delete' }))
 
     await waitFor(() => expect(deleteStatus).toHaveBeenCalledWith('status-2'))

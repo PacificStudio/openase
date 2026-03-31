@@ -79,14 +79,14 @@ type CreateInput struct {
 
 // UpdateInput carries a partial ticket status update request.
 type UpdateInput struct {
-	StatusID       uuid.UUID
-	Name           Optional[string]
-	Color          Optional[string]
-	Icon           Optional[string]
-	Position       Optional[int]
-	MaxActiveRuns  Optional[*int]
-	IsDefault      Optional[bool]
-	Description    Optional[string]
+	StatusID      uuid.UUID
+	Name          Optional[string]
+	Color         Optional[string]
+	Icon          Optional[string]
+	Position      Optional[int]
+	MaxActiveRuns Optional[*int]
+	IsDefault     Optional[bool]
+	Description   Optional[string]
 }
 
 // DeleteResult reports which status was deleted and which status replaced it.
