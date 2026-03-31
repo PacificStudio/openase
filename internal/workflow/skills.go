@@ -95,20 +95,6 @@ type RefreshSkillsResult struct {
 	InjectedSkills []string `json:"injected_skills"`
 }
 
-type HarvestSkillsInput struct {
-	ProjectID     uuid.UUID
-	WorkspaceRoot string
-	AdapterType   string
-	WorkflowID    *uuid.UUID
-	CreatedBy     string
-}
-
-type HarvestSkillsResult struct {
-	SkillsDir       string   `json:"skills_dir"`
-	HarvestedSkills []string `json:"harvested_skills"`
-	UpdatedSkills   []string `json:"updated_skills"`
-}
-
 type UpdateWorkflowSkillsInput struct {
 	WorkflowID uuid.UUID
 	Skills     []string
@@ -265,6 +251,42 @@ func (s *Service) ListSkillVersions(ctx context.Context, skillID uuid.UUID) ([]V
 		})
 	}
 	return result, nil
+}
+
+func ensureSkillContent(name string, rawContent string, fallbackDescription string) (string, error) {
+	trimmed := strings.TrimSpace(rawContent)
+	if trimmed == "" {
+		return "", fmt.Errorf("%w: content must not be empty", ErrSkillInvalid)
+	}
+	if strings.HasPrefix(trimmed, "---\n") || trimmed == "---" {
+		document, body, err := parseSkillDocument(trimmed)
+		if err != nil {
+			return "", fmt.Errorf("%w: %s", ErrSkillInvalid, err)
+		}
+		if document.Name != name {
+			return "", fmt.Errorf("%w: skill frontmatter name %q must match %q", ErrSkillInvalid, document.Name, name)
+		}
+		return buildSkillContent(name, document.Description, body), nil
+	}
+
+	description := strings.TrimSpace(fallbackDescription)
+	if description == "" {
+		description = parseSkillTitle(trimmed)
+	}
+	if description == "" {
+		description = strings.ReplaceAll(name, "-", " ")
+	}
+
+	return buildSkillContent(name, description, trimmed), nil
+}
+
+func buildSkillContent(name string, description string, body string) string {
+	return fmt.Sprintf(
+		"---\nname: %q\ndescription: %q\n---\n\n%s\n",
+		name,
+		strings.TrimSpace(description),
+		strings.TrimSpace(body),
+	)
 }
 
 func (s *Service) CreateSkill(ctx context.Context, input CreateSkillInput) (SkillDetail, error) {
@@ -709,13 +731,6 @@ func (s *Service) RefreshSkills(ctx context.Context, input RefreshSkillsInput) (
 	}, nil
 }
 
-func (s *Service) HarvestSkills(ctx context.Context, input HarvestSkillsInput) (HarvestSkillsResult, error) {
-	if s.client == nil {
-		return HarvestSkillsResult{}, ErrUnavailable
-	}
-	return HarvestSkillsResult{}, fmt.Errorf("%w: harvest is deprecated; use create/update skill APIs", ErrSkillInvalid)
-}
-
 func (s *Service) BindSkills(ctx context.Context, input UpdateWorkflowSkillsInput) (HarnessDocument, error) {
 	return s.updateWorkflowSkills(ctx, input, true)
 }
@@ -826,6 +841,25 @@ func writeWorkspaceOpenASEWrapper(workspaceRoot string) error {
 		return fmt.Errorf("chmod workspace openase wrapper: %w", err)
 	}
 	return nil
+}
+
+func workflowOpenASECLIWrapperScript() string {
+	return strings.TrimSpace(`
+#!/bin/sh
+set -eu
+
+if [ -n "${OPENASE_REAL_BIN:-}" ]; then
+  OPENASE_BIN="$OPENASE_REAL_BIN"
+elif command -v openase >/dev/null 2>&1; then
+  OPENASE_BIN="$(command -v openase)"
+else
+  echo "openase wrapper: could not find an installed openase binary" >&2
+  echo "set OPENASE_REAL_BIN to the desired executable path" >&2
+  exit 1
+fi
+
+exec "$OPENASE_BIN" "$@"
+`) + "\n"
 }
 
 func ParseHarnessSkills(content string) ([]string, error) {
@@ -1073,17 +1107,6 @@ func parseSkillDocument(content string) (skillDocument, string, error) {
 	}
 
 	return skillDocument{}, "", fmt.Errorf("skill YAML frontmatter is missing the closing --- delimiter")
-}
-
-func (s *Service) ensureSkillExists(storage *projectStorage, name string) error {
-	if err := validateSkillDirectory(s.skillDirectoryPath(storage, name)); err != nil {
-		return fmt.Errorf("%w: %s", ErrSkillNotFound, name)
-	}
-	return nil
-}
-
-func (s *Service) skillDirectoryPath(storage *projectStorage, name string) string {
-	return filepath.Join(storage.skillRoot, name)
 }
 
 func skillContentRelativePath(name string) string {

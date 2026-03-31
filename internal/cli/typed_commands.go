@@ -217,7 +217,6 @@ func newWorkflowCommand() *cobra.Command {
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [projectId]", Short: "Create a workflow.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/workflows", PositionalParams: []string{"projectId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [workflowId]", Short: "Update a workflow.", Method: http.MethodPatch, Path: "/api/v1/workflows/{workflowId}", PositionalParams: []string{"workflowId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [workflowId]", Short: "Delete a workflow.", Method: http.MethodDelete, Path: "/api/v1/workflows/{workflowId}", PositionalParams: []string{"workflowId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "prerequisite [projectId]", Short: "Get workflow repository prerequisites.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/workflows/prerequisite", PositionalParams: []string{"projectId"}}))
 
 	harness := &cobra.Command{
 		Use:   "harness",
@@ -385,7 +384,6 @@ func newSkillCommand() *cobra.Command {
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "list [projectId]", Short: "List project skills.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [projectId]", Short: "Create a skill.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "refresh [projectId]", Short: "Refresh workspace skills.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills/refresh", PositionalParams: []string{"projectId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "harvest [projectId]", Short: "Harvest workspace-authored skills.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills/harvest", PositionalParams: []string{"projectId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "get [skillId]", Short: "Get a skill.", Method: http.MethodGet, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [skillId]", Short: "Update a skill.", Method: http.MethodPut, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [skillId]", Short: "Delete a skill.", Method: http.MethodDelete, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}}))
@@ -1237,7 +1235,6 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "create [projectId]", Short: "Create a workflow.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/workflows", PositionalParams: []string{"projectId"}},
 		{Use: "update [workflowId]", Short: "Update a workflow.", Method: http.MethodPatch, Path: "/api/v1/workflows/{workflowId}", PositionalParams: []string{"workflowId"}},
 		{Use: "delete [workflowId]", Short: "Delete a workflow.", Method: http.MethodDelete, Path: "/api/v1/workflows/{workflowId}", PositionalParams: []string{"workflowId"}},
-		{Use: "prerequisite [projectId]", Short: "Get workflow repository prerequisites.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/workflows/prerequisite", PositionalParams: []string{"projectId"}},
 		{Use: "get [workflowId]", Short: "Get workflow harness content.", Method: http.MethodGet, Path: "/api/v1/workflows/{workflowId}/harness", PositionalParams: []string{"workflowId"}},
 		{Use: "update [workflowId]", Short: "Update workflow harness content.", Method: http.MethodPut, Path: "/api/v1/workflows/{workflowId}/harness", PositionalParams: []string{"workflowId"}},
 		{Use: "list [projectId]", Short: "List scheduled jobs.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/scheduled-jobs", PositionalParams: []string{"projectId"}},
@@ -1268,7 +1265,6 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "list [projectId]", Short: "List project skills.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}},
 		{Use: "create [projectId]", Short: "Create a skill.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}},
 		{Use: "refresh [projectId]", Short: "Refresh workspace skills.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills/refresh", PositionalParams: []string{"projectId"}},
-		{Use: "harvest [projectId]", Short: "Harvest workspace-authored skills.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills/harvest", PositionalParams: []string{"projectId"}},
 		{Use: "get [skillId]", Short: "Get a skill.", Method: http.MethodGet, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}},
 		{Use: "update [skillId]", Short: "Update a skill.", Method: http.MethodPut, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}},
 		{Use: "delete [skillId]", Short: "Delete a skill.", Method: http.MethodDelete, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}},

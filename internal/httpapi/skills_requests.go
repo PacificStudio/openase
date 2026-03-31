@@ -62,32 +62,6 @@ func parseRefreshSkillsRequest(projectID uuid.UUID, raw rawSkillSyncRequest) (wo
 	}, nil
 }
 
-func parseHarvestSkillsRequest(projectID uuid.UUID, raw rawSkillSyncRequest) (workflowservice.HarvestSkillsInput, error) {
-	workspaceRoot := strings.TrimSpace(raw.WorkspaceRoot)
-	if workspaceRoot == "" {
-		return workflowservice.HarvestSkillsInput{}, fmt.Errorf("workspace_root must not be empty")
-	}
-	adapterType := strings.TrimSpace(raw.AdapterType)
-	if adapterType == "" {
-		return workflowservice.HarvestSkillsInput{}, fmt.Errorf("adapter_type must not be empty")
-	}
-	var workflowID *uuid.UUID
-	if trimmed := strings.TrimSpace(raw.WorkflowID); trimmed != "" {
-		parsed, err := uuid.Parse(trimmed)
-		if err != nil {
-			return workflowservice.HarvestSkillsInput{}, fmt.Errorf("workflow_id must be a UUID")
-		}
-		workflowID = &parsed
-	}
-
-	return workflowservice.HarvestSkillsInput{
-		ProjectID:     projectID,
-		WorkspaceRoot: workspaceRoot,
-		AdapterType:   adapterType,
-		WorkflowID:    workflowID,
-	}, nil
-}
-
 func parseUpdateWorkflowSkillsRequest(workflowID uuid.UUID, raw rawUpdateWorkflowSkillsRequest) (workflowservice.UpdateWorkflowSkillsInput, error) {
 	if len(raw.Skills) == 0 {
 		return workflowservice.UpdateWorkflowSkillsInput{}, fmt.Errorf("skills must not be empty")

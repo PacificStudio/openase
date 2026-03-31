@@ -254,9 +254,6 @@ export type SkillBindingUpdateResponse = DeepRequired<
 export type SkillRefreshResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/skills/refresh', 'post'>
 >
-export type SkillHarvestResponse = DeepRequired<
-  ResponseFor<'/api/v1/projects/{projectId}/skills/harvest', 'post'>
->
 
 export type BuiltinRolePayload = DeepRequired<ResponseFor<'/api/v1/roles/builtin', 'get'>>
 export type BuiltinRole = ItemOf<BuiltinRolePayload['roles']>

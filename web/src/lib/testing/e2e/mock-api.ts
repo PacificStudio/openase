@@ -212,16 +212,6 @@ async function handleProjectRoutes(request: Request, segments: string[], _url: U
     })
   }
 
-  if (segments[2] === 'workflows' && segments[3] === 'prerequisite' && request.method === 'GET') {
-    return jsonResponse({
-      prerequisite: {
-        kind: 'ready',
-        repo_count: mockState.repos.length,
-        action: 'none',
-      },
-    })
-  }
-
   if (segments[2] === 'workflows') {
     if (request.method === 'GET') {
       return jsonResponse({

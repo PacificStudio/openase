@@ -520,12 +520,6 @@ type OpenAPIWorkflow struct {
 	FinishStatusIDs     []string       `json:"finish_status_ids"`
 }
 
-type OpenAPIWorkflowRepositoryPrerequisite struct {
-	Kind      string `json:"kind"`
-	RepoCount int    `json:"repo_count"`
-	Action    string `json:"action"`
-}
-
 type OpenAPIHarnessDocument struct {
 	WorkflowID string `json:"workflow_id"`
 	Path       string `json:"path"`
@@ -870,10 +864,6 @@ type OpenAPIWorkflowResponse struct {
 
 type OpenAPIWorkflowHistoryResponse struct {
 	History []OpenAPIVersionSummary `json:"history"`
-}
-
-type OpenAPIWorkflowRepositoryPrerequisiteResponse struct {
-	Prerequisite OpenAPIWorkflowRepositoryPrerequisite `json:"prerequisite"`
 }
 
 type OpenAPIScheduledJobsResponse struct {
@@ -1511,7 +1501,6 @@ var (
 		"POST /api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond": openAPIProjectConversationInterruptResponseDescriptions,
 		"POST /api/v1/projects/{projectId}/skills":                                          openAPISkillCreateDescriptions,
 		"POST /api/v1/projects/{projectId}/skills/refresh":                                  openAPISkillSyncDescriptions,
-		"POST /api/v1/projects/{projectId}/skills/harvest":                                  openAPISkillSyncDescriptions,
 		"PUT /api/v1/skills/{skillId}":                                                      openAPISkillUpdateDescriptions,
 		"POST /api/v1/skills/{skillId}/bind":                                                openAPISkillBindingTargetDescriptions,
 		"POST /api/v1/skills/{skillId}/unbind":                                              openAPISkillBindingTargetDescriptions,
@@ -2554,23 +2543,6 @@ func (b openAPISpecBuilder) addWorkflowOperations() error {
 	workflowsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/workflows", http.MethodGet, workflowsGet)
 
-	workflowPrerequisiteGet, err := b.jsonOperation(
-		"getWorkflowRepositoryPrerequisite",
-		"Get workflow repository prerequisite",
-		[]string{"workflow"},
-		http.StatusOK,
-		OpenAPIWorkflowRepositoryPrerequisiteResponse{},
-		nil,
-		http.StatusBadRequest,
-		http.StatusNotFound,
-		http.StatusInternalServerError,
-	)
-	if err != nil {
-		return err
-	}
-	workflowPrerequisiteGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
-	b.doc.AddOperation("/api/v1/projects/{projectId}/workflows/prerequisite", http.MethodGet, workflowPrerequisiteGet)
-
 	workflowsPost, err := b.jsonOperation(
 		"createWorkflow",
 		"Create a workflow",
@@ -2773,23 +2745,6 @@ func (b openAPISpecBuilder) addWorkflowOperations() error {
 	}
 	refreshSkills.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/skills/refresh", http.MethodPost, refreshSkills)
-
-	harvestSkills, err := b.jsonOperation(
-		"harvestSkills",
-		"Harvest workspace-authored skills back into the project skill library",
-		[]string{"skills"},
-		http.StatusOK,
-		skillSyncResponse{},
-		OpenAPISkillSyncRequest{},
-		http.StatusBadRequest,
-		http.StatusNotFound,
-		http.StatusInternalServerError,
-	)
-	if err != nil {
-		return err
-	}
-	harvestSkills.AddParameter(uuidPathParameter("projectId", "Project ID."))
-	b.doc.AddOperation("/api/v1/projects/{projectId}/skills/harvest", http.MethodPost, harvestSkills)
 
 	skillGet, err := b.jsonOperation(
 		"getSkill",

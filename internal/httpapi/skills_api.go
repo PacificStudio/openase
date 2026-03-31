@@ -45,17 +45,14 @@ type skillWorkflowBindingResponse struct {
 }
 
 type skillSyncResponse struct {
-	SkillsDir       string   `json:"skills_dir"`
-	InjectedSkills  []string `json:"injected_skills,omitempty"`
-	HarvestedSkills []string `json:"harvested_skills,omitempty"`
-	UpdatedSkills   []string `json:"updated_skills,omitempty"`
+	SkillsDir      string   `json:"skills_dir"`
+	InjectedSkills []string `json:"injected_skills,omitempty"`
 }
 
 func (s *Server) registerSkillRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/skills", s.handleListSkills)
 	api.POST("/projects/:projectId/skills", s.handleCreateSkill)
 	api.POST("/projects/:projectId/skills/refresh", s.handleRefreshSkills)
-	api.POST("/projects/:projectId/skills/harvest", s.handleHarvestSkills)
 	api.GET("/skills/:skillId", s.handleGetSkill)
 	api.GET("/skills/:skillId/history", s.handleGetSkillHistory)
 	api.PUT("/skills/:skillId", s.handleUpdateSkill)
@@ -144,38 +141,6 @@ func (s *Server) handleRefreshSkills(c echo.Context) error {
 	return c.JSON(http.StatusOK, skillSyncResponse{
 		SkillsDir:      result.SkillsDir,
 		InjectedSkills: result.InjectedSkills,
-	})
-}
-
-func (s *Server) handleHarvestSkills(c echo.Context) error {
-	if s.workflowService == nil {
-		return writeWorkflowError(c, workflowservice.ErrUnavailable)
-	}
-
-	projectID, err := parseProjectID(c)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
-	}
-
-	var raw rawSkillSyncRequest
-	if err := decodeJSON(c, &raw); err != nil {
-		return err
-	}
-
-	input, err := parseHarvestSkillsRequest(projectID, raw)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
-
-	result, err := s.workflowService.HarvestSkills(c.Request().Context(), input)
-	if err != nil {
-		return writeWorkflowError(c, err)
-	}
-
-	return c.JSON(http.StatusOK, skillSyncResponse{
-		SkillsDir:       result.SkillsDir,
-		HarvestedSkills: result.HarvestedSkills,
-		UpdatedSkills:   result.UpdatedSkills,
 	})
 }
 

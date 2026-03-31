@@ -1047,23 +1047,6 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/api/v1/projects/{projectId}/skills/harvest': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** Harvest workspace-authored skills back into the project skill library */
-    post: operations['harvestSkills']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
   '/api/v1/projects/{projectId}/skills/refresh': {
     parameters: {
       query?: never
@@ -1216,23 +1199,6 @@ export interface paths {
     put?: never
     /** Create a workflow */
     post: operations['createWorkflow']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/v1/projects/{projectId}/workflows/prerequisite': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** Get workflow repository prerequisite */
-    get: operations['getWorkflowRepositoryPrerequisite']
-    put?: never
-    post?: never
     delete?: never
     options?: never
     head?: never
@@ -9157,82 +9123,6 @@ export interface operations {
       }
     }
   }
-  harvestSkills: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Project ID. */
-        projectId: string
-      }
-      cookie?: never
-    }
-    /** @description Harvest workspace-authored skills back into the project skill library request body. */
-    requestBody: {
-      content: {
-        'application/json': {
-          /** @description Agent adapter type used to derive the runtime skill directory. */
-          adapter_type?: string
-          /** @description Optional workflow ID used to project only the currently bound enabled skills. */
-          workflow_id?: string
-          /** @description Workspace repository root that owns the agent skill directory. */
-          workspace_root?: string
-        }
-      }
-    }
-    responses: {
-      /** @description Harvest workspace-authored skills back into the project skill library response. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            harvested_skills?: string[]
-            injected_skills?: string[]
-            skills_dir?: string
-            updated_skills?: string[]
-          }
-        }
-      }
-      /** @description Bad Request response. */
-      400: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Not Found response. */
-      404: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Internal Server Error response. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-    }
-  }
   refreshSkills: {
     parameters: {
       query?: never
@@ -9264,10 +9154,8 @@ export interface operations {
         }
         content: {
           'application/json': {
-            harvested_skills?: string[]
             injected_skills?: string[]
             skills_dir?: string
-            updated_skills?: string[]
           }
         }
       }
@@ -10664,71 +10552,6 @@ export interface operations {
       }
       /** @description Conflict response. */
       409: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Internal Server Error response. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-    }
-  }
-  getWorkflowRepositoryPrerequisite: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Project ID. */
-        projectId: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Get workflow repository prerequisite response. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            prerequisite?: {
-              action?: string
-              kind?: string
-              repo_count?: number
-            }
-          }
-        }
-      }
-      /** @description Bad Request response. */
-      400: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Not Found response. */
-      404: {
         headers: {
           [name: string]: unknown
         }

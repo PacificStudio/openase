@@ -192,19 +192,6 @@ def register_existing_primary_mirror(base_url: str, project_id: str, repo_id: st
     return mirror
 
 
-def require_workflow_repository_ready(base_url: str, project_id: str) -> dict:
-    response = request_json(base_url, "GET", f"/api/v1/projects/{project_id}/workflows/prerequisite")
-    prerequisite = response.get("prerequisite")
-    if not isinstance(prerequisite, dict):
-        raise RuntimeError(f"workflow prerequisite returned an unexpected payload: {response!r}")
-    if prerequisite.get("kind") != "ready":
-        raise RuntimeError(
-            "project workflow repository prerequisite is not ready: "
-            + json.dumps(prerequisite, sort_keys=True)
-        )
-    return prerequisite
-
-
 def slugify(raw: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", raw.lower()).strip("-")
     slug = re.sub(r"-{2,}", "-", slug)
@@ -803,7 +790,6 @@ def main() -> int:
         )
         if mirror.get("state") != "ready":
             raise RuntimeError(f"registered project mirror is not ready: {mirror!r}")
-        require_workflow_repository_ready(base_url, project["id"])
         workflow = request_json(
             base_url,
             "POST",

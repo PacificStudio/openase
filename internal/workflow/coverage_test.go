@@ -288,16 +288,11 @@ Body
 		t.Fatalf("validateSkillDirectory(missing frontmatter) error = %v", err)
 	}
 
-	svc := &Service{}
-	storage := &projectStorage{skillRoot: skillsRoot}
-	if err := svc.ensureSkillExists(storage, "skill-one"); err != nil {
-		t.Fatalf("ensureSkillExists(valid) error = %v", err)
+	if err := validateSkillDirectory(filepath.Join(skillsRoot, "skill-one")); err != nil {
+		t.Fatalf("validateSkillDirectory(valid) error = %v", err)
 	}
-	if err := svc.ensureSkillExists(storage, "missing-skill"); err == nil {
-		t.Fatal("ensureSkillExists(invalid) expected error")
-	}
-	if got := svc.skillDirectoryPath(storage, "skill-one"); got != filepath.Join(skillsRoot, "skill-one") {
-		t.Fatalf("skillDirectoryPath() = %q", got)
+	if err := validateSkillDirectory(filepath.Join(skillsRoot, "missing-skill")); err == nil {
+		t.Fatal("validateSkillDirectory(missing) expected error")
 	}
 	if got := skillContentRelativePath("skill-one"); got != ".openase/skills/skill-one/SKILL.md" {
 		t.Fatalf("skillContentRelativePath() = %q", got)
@@ -372,66 +367,35 @@ Body
 	}
 }
 
-func TestProjectAssetHelpersAndWorkflowHookParserCoverage(t *testing.T) {
-	repoRoot := t.TempDir()
-	if err := ensureProjectBuiltinAssets(repoRoot); err != nil {
-		t.Fatalf("ensureProjectBuiltinAssets() error = %v", err)
+func TestWorkspaceWrapperAndWorkflowHookParserCoverage(t *testing.T) {
+	workspaceRoot := t.TempDir()
+	if err := writeWorkspaceOpenASEWrapper(workspaceRoot); err != nil {
+		t.Fatalf("writeWorkspaceOpenASEWrapper() error = %v", err)
 	}
 
-	wrapperPath := filepath.Join(repoRoot, ".openase", "bin", "openase")
-	originalWrapper, err := readWorkflowTestFile(wrapperPath)
+	wrapperPath := filepath.Join(workspaceRoot, ".openase", "bin", "openase")
+	wrapperContent, err := readWorkflowTestFile(wrapperPath)
 	if err != nil {
 		t.Fatalf("ReadFile(wrapper) error = %v", err)
 	}
-	if !strings.Contains(string(originalWrapper), "OPENASE_REAL_BIN") {
-		t.Fatalf("wrapper content = %q", originalWrapper)
+	if !strings.Contains(string(wrapperContent), "OPENASE_REAL_BIN") {
+		t.Fatalf("wrapper content = %q", wrapperContent)
 	}
 
-	customWrapper := []byte("#!/bin/sh\necho custom\n")
-	if err := os.WriteFile(wrapperPath, customWrapper, 0o600); err != nil {
-		t.Fatalf("WriteFile(wrapper) error = %v", err)
-	}
-	if err := ensureProjectBuiltinAssets(repoRoot); err != nil {
-		t.Fatalf("ensureProjectBuiltinAssets(existing wrapper) error = %v", err)
-	}
-	preservedWrapper, err := readWorkflowTestFile(wrapperPath)
+	wrapperInfo, err := os.Stat(wrapperPath)
 	if err != nil {
-		t.Fatalf("ReadFile(preserved wrapper) error = %v", err)
+		t.Fatalf("Stat(wrapper) error = %v", err)
 	}
-	if string(preservedWrapper) != string(customWrapper) {
-		t.Fatalf("ensureProjectBuiltinAssets() overwrote existing wrapper: %q", preservedWrapper)
-	}
-
-	workspaceRoot := t.TempDir()
-	if err := syncProjectWrapperToWorkspace(repoRoot, workspaceRoot); err != nil {
-		t.Fatalf("syncProjectWrapperToWorkspace() error = %v", err)
-	}
-	syncedWrapper, err := readWorkflowTestFile(filepath.Join(workspaceRoot, ".openase", "bin", "openase"))
-	if err != nil {
-		t.Fatalf("ReadFile(synced wrapper) error = %v", err)
-	}
-	if string(syncedWrapper) != string(customWrapper) {
-		t.Fatalf("synced wrapper = %q, want %q", syncedWrapper, customWrapper)
-	}
-
-	if err := syncProjectWrapperToWorkspace(t.TempDir(), workspaceRoot); err == nil || !strings.Contains(err.Error(), "stat project openase wrapper") {
-		t.Fatalf("syncProjectWrapperToWorkspace(missing wrapper) error = %v", err)
-	}
-
-	brokenRepoRoot := t.TempDir()
-	if err := os.WriteFile(filepath.Join(brokenRepoRoot, ".openase"), []byte("x"), 0o600); err != nil {
-		t.Fatalf("WriteFile(broken repo marker) error = %v", err)
-	}
-	if err := ensureProjectBuiltinAssets(brokenRepoRoot); err == nil || !strings.Contains(err.Error(), "create project asset directory") {
-		t.Fatalf("ensureProjectBuiltinAssets(broken repo) error = %v", err)
+	if wrapperInfo.Mode().Perm() != 0o700 {
+		t.Fatalf("wrapper mode = %#o, want 0700", wrapperInfo.Mode().Perm())
 	}
 
 	brokenWorkspaceRoot := t.TempDir()
 	if err := os.WriteFile(filepath.Join(brokenWorkspaceRoot, ".openase"), []byte("x"), 0o600); err != nil {
 		t.Fatalf("WriteFile(broken workspace marker) error = %v", err)
 	}
-	if err := syncProjectWrapperToWorkspace(repoRoot, brokenWorkspaceRoot); err == nil || !strings.Contains(err.Error(), "create workspace openase wrapper directory") {
-		t.Fatalf("syncProjectWrapperToWorkspace(broken workspace) error = %v", err)
+	if err := writeWorkspaceOpenASEWrapper(brokenWorkspaceRoot); err == nil || !strings.Contains(err.Error(), "create workspace openase wrapper directory") {
+		t.Fatalf("writeWorkspaceOpenASEWrapper(broken workspace) error = %v", err)
 	}
 
 	if _, err := parseWorkflowHookList(map[string]any{
@@ -920,21 +884,15 @@ func TestWorkflowServiceSkillAndHookHelperCoverage(t *testing.T) {
 	if _, err := nilService.RefreshSkills(ctx, RefreshSkillsInput{ProjectID: projectID}); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("RefreshSkills(nil service) error = %v, want %v", err, ErrUnavailable)
 	}
-	if _, err := nilService.HarvestSkills(ctx, HarvestSkillsInput{ProjectID: projectID}); !errors.Is(err, ErrUnavailable) {
-		t.Fatalf("HarvestSkills(nil service) error = %v, want %v", err, ErrUnavailable)
-	}
 	if _, err := nilService.BindSkills(ctx, UpdateWorkflowSkillsInput{WorkflowID: uuid.New(), Skills: []string{"skill-one"}}); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("BindSkills(nil service) error = %v, want %v", err, ErrUnavailable)
 	}
 
 	service := &Service{}
-	storage := &projectStorage{
-		hookExecutor: newWorkflowHookExecutor(t.TempDir(), slog.New(slog.NewTextHandler(io.Discard, nil))),
-	}
 	if err := service.runWorkflowHooks(ctx, uuid.Nil, workflowHooksConfig{}, workflowHookOnReload, workflowHookRuntime{}); err != nil {
 		t.Fatalf("runWorkflowHooks(nil storage) error = %v", err)
 	}
-	service.repoRoot = storage.hookExecutor.repoRoot
+	service.repoRoot = t.TempDir()
 	if err := service.runWorkflowHooks(ctx, uuid.Nil, workflowHooksConfig{}, workflowHookName("unexpected"), workflowHookRuntime{}); err != nil {
 		t.Fatalf("runWorkflowHooks(default) error = %v", err)
 	}
@@ -1019,11 +977,8 @@ func TestWorkflowServiceHelperCoverage(t *testing.T) {
 	}
 
 	nilClientService := &Service{logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
-	nilClientService.handleHarnessReload(harnessReloadEvent{ProjectID: uuid.New(), RelativePath: "coding.md"})
-
-	storage := &projectStorage{}
-	if err := storage.Close(); err != nil {
-		t.Fatalf("projectStorage.Close() error = %v", err)
+	if err := nilClientService.Close(); err != nil {
+		t.Fatalf("Service.Close() error = %v", err)
 	}
 }
 

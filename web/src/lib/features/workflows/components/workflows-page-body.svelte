@@ -8,7 +8,6 @@
   } from '../types'
   import type { AgentProvider, HarnessValidationIssue } from '$lib/api/contracts'
   import type { SkillState } from '../model'
-  import type { WorkflowRepositoryPrerequisite } from '../repository-prerequisite'
   import * as Sheet from '$ui/sheet'
   import WorkflowCreationDialog from './workflow-creation-dialog.svelte'
   import WorkflowEditorPanel from './workflow-editor-panel.svelte'
@@ -18,7 +17,6 @@
 
   let {
     loading = false,
-    prerequisite = null,
     settingsHref = null,
     loadError = '',
     workflows,
@@ -50,7 +48,6 @@
     onCreated,
   }: {
     loading?: boolean
-    prerequisite?: WorkflowRepositoryPrerequisite | null
     settingsHref?: string | null
     loadError?: string
     workflows: WorkflowSummary[]
@@ -83,12 +80,8 @@
   } = $props()
 </script>
 
-{#if loading || (prerequisite && prerequisite.kind !== 'ready') || (loadError && workflows.length === 0)}
-  <WorkflowsPageState
-    {loading}
-    {prerequisite}
-    loadError={workflows.length === 0 ? loadError : ''}
-  />
+{#if loading || (loadError && workflows.length === 0)}
+  <WorkflowsPageState {loading} loadError={workflows.length === 0 ? loadError : ''} />
   {#if settingsHref}
     <div class="px-4 pb-4">
       <a class="text-muted-foreground text-xs underline" href={settingsHref}>

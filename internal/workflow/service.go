@@ -19,7 +19,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
-	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entskill "github.com/BetterAndBetterII/openase/ent/skill"
 	entskillversion "github.com/BetterAndBetterII/openase/ent/skillversion"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
@@ -45,55 +44,6 @@ var (
 )
 
 var nonAlphaNumericPattern = regexp.MustCompile(`[^a-z0-9]+`)
-
-type WorkflowRepositoryPrerequisiteKind string
-
-const (
-	WorkflowRepositoryPrerequisiteKindReady WorkflowRepositoryPrerequisiteKind = "ready"
-)
-
-type WorkflowRepositoryPrerequisiteAction string
-
-const (
-	WorkflowRepositoryPrerequisiteActionNone WorkflowRepositoryPrerequisiteAction = "none"
-)
-
-type WorkflowRepositoryPrerequisite struct {
-	Kind      WorkflowRepositoryPrerequisiteKind
-	RepoCount int
-	Action    WorkflowRepositoryPrerequisiteAction
-}
-
-func (p WorkflowRepositoryPrerequisite) Ready() bool {
-	return p.Kind == WorkflowRepositoryPrerequisiteKindReady
-}
-
-type WorkflowRepositoryPrerequisiteError struct {
-	prerequisite WorkflowRepositoryPrerequisite
-	cause        error
-	message      string
-}
-
-func (e *WorkflowRepositoryPrerequisiteError) Error() string {
-	if e == nil {
-		return ""
-	}
-	return e.message
-}
-
-func (e *WorkflowRepositoryPrerequisiteError) Unwrap() error {
-	if e == nil {
-		return nil
-	}
-	return e.cause
-}
-
-func (e *WorkflowRepositoryPrerequisiteError) Prerequisite() WorkflowRepositoryPrerequisite {
-	if e == nil {
-		return WorkflowRepositoryPrerequisite{}
-	}
-	return e.prerequisite
-}
 
 type Optional[T any] struct {
 	Set   bool
@@ -172,11 +122,6 @@ func (s *Service) seedLegacyWorkflowVersion(ctx context.Context, workflowID uuid
 	}
 
 	repoRoot := strings.TrimSpace(s.repoRoot)
-	if repoRoot == "" {
-		if resolvedRoot, resolveErr := s.projectStorageRoot(workflowItem.ProjectID); resolveErr == nil {
-			repoRoot = strings.TrimSpace(resolvedRoot)
-		}
-	}
 	if repoRoot == "" {
 		return nil, ErrWorkflowNotFound
 	}
@@ -526,26 +471,8 @@ type Service struct {
 	client            *ent.Client
 	logger            *slog.Logger
 	repoRoot          string
-	storageMu         sync.Mutex
-	storages          map[uuid.UUID]*projectStorage
 	builtinSkillsMu   sync.Mutex
 	workflowVersionMu sync.Mutex
-}
-
-type workflowStorageUsage string
-
-const (
-	workflowStorageUsageRead  workflowStorageUsage = "read"
-	workflowStorageUsageWrite workflowStorageUsage = "write"
-)
-
-type projectStorage struct {
-	projectID    uuid.UUID
-	repoRoot     string
-	harnessRoot  string
-	skillRoot    string
-	registry     *harnessRegistry
-	hookExecutor *workflowHookExecutor
 }
 
 func NewService(client *ent.Client, logger *slog.Logger, repoRoot string) (*Service, error) {
@@ -568,133 +495,13 @@ func NewService(client *ent.Client, logger *slog.Logger, repoRoot string) (*Serv
 		client:   client,
 		logger:   logger.With("component", "workflow-service"),
 		repoRoot: repoRoot,
-		storages: map[uuid.UUID]*projectStorage{},
 	}
 
 	return service, nil
 }
 
-func newProjectStorage(projectID uuid.UUID, repoRoot string, service *Service) (*projectStorage, error) {
-	harnessRoot := filepath.Join(repoRoot, ".openase", "harnesses")
-	skillRoot := filepath.Join(repoRoot, ".openase", "skills")
-	if err := ensureProjectBuiltinAssets(repoRoot); err != nil {
-		return nil, fmt.Errorf("materialize built-in project assets: %w", err)
-	}
-	if err := os.MkdirAll(skillRoot, 0o750); err != nil {
-		return nil, fmt.Errorf("create skill root: %w", err)
-	}
-
-	storage := &projectStorage{
-		projectID:    projectID,
-		repoRoot:     repoRoot,
-		harnessRoot:  harnessRoot,
-		skillRoot:    skillRoot,
-		hookExecutor: newWorkflowHookExecutor(repoRoot, service.logger),
-	}
-
-	registry, err := newHarnessRegistry(harnessRoot, service.logger, func(event harnessReloadEvent) {
-		event.ProjectID = projectID
-		service.handleHarnessReload(event)
-	})
-	if err != nil {
-		return nil, err
-	}
-	storage.registry = registry
-
-	return storage, nil
-}
-
-func (s *projectStorage) Close() error {
-	if s == nil || s.registry == nil {
-		return nil
-	}
-
-	return s.registry.Close()
-}
-
-func (s *Service) storageForProject(ctx context.Context, projectID uuid.UUID, usage workflowStorageUsage) (*projectStorage, error) {
-	if err := s.ensureProjectExists(ctx, projectID); err != nil {
-		return nil, err
-	}
-	repoRoot, err := s.projectStorageRoot(projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	s.storageMu.Lock()
-	defer s.storageMu.Unlock()
-
-	if existing, ok := s.storages[projectID]; ok && existing.repoRoot == repoRoot {
-		return existing, nil
-	}
-
-	storage, err := newProjectStorage(projectID, repoRoot, s)
-	if err != nil {
-		return nil, err
-	}
-
-	if existing := s.storages[projectID]; existing != nil {
-		if closeErr := existing.Close(); closeErr != nil {
-			s.logger.Error("close replaced project storage", "error", closeErr, "project_id", projectID)
-		}
-	}
-	s.storages[projectID] = storage
-
-	return storage, nil
-}
-
-func (s *Service) GetRepositoryPrerequisite(ctx context.Context, projectID uuid.UUID) (WorkflowRepositoryPrerequisite, error) {
-	if s.client == nil {
-		return WorkflowRepositoryPrerequisite{}, ErrUnavailable
-	}
-	if err := s.ensureProjectExists(ctx, projectID); err != nil {
-		return WorkflowRepositoryPrerequisite{}, err
-	}
-	repoCount, err := s.client.ProjectRepo.Query().
-		Where(entprojectrepo.ProjectIDEQ(projectID)).
-		Count(ctx)
-	if err != nil {
-		return WorkflowRepositoryPrerequisite{}, fmt.Errorf("count project repos for workflow prerequisite: %w", err)
-	}
-	return WorkflowRepositoryPrerequisite{
-		Kind:      WorkflowRepositoryPrerequisiteKindReady,
-		RepoCount: repoCount,
-		Action:    WorkflowRepositoryPrerequisiteActionNone,
-	}, nil
-}
-
-func (s *Service) projectStorageRoot(projectID uuid.UUID) (string, error) {
-	if projectID == uuid.Nil {
-		return "", fmt.Errorf("project id must not be empty")
-	}
-	root := filepath.Join(s.repoRoot, ".openase-projects", projectID.String())
-	if err := os.MkdirAll(root, 0o750); err != nil {
-		return "", fmt.Errorf("create project storage root: %w", err)
-	}
-	return root, nil
-}
-
 func (s *Service) Close() error {
-	if s == nil {
-		return nil
-	}
-
-	s.storageMu.Lock()
-	storages := make([]*projectStorage, 0, len(s.storages))
-	for _, storage := range s.storages {
-		storages = append(storages, storage)
-	}
-	s.storages = map[uuid.UUID]*projectStorage{}
-	s.storageMu.Unlock()
-
-	var closeErr error
-	for _, storage := range storages {
-		if err := storage.Close(); err != nil && closeErr == nil {
-			closeErr = err
-		}
-	}
-
-	return closeErr
+	return nil
 }
 
 func (s *Service) RepoRoot() string {
@@ -1313,69 +1120,6 @@ func (s *Service) resolveHarnessContent(
 	}
 
 	return content, nil
-}
-
-func (s *Service) handleHarnessReload(event harnessReloadEvent) {
-	if s.client == nil {
-		return
-	}
-
-	ctx := context.Background()
-	storage, err := s.storageForProject(ctx, event.ProjectID, workflowStorageUsageWrite)
-	if err != nil {
-		s.logger.Error("resolve project storage for harness reload", "error", err, "project_id", event.ProjectID, "path", event.RelativePath)
-		return
-	}
-
-	item, err := s.client.Workflow.Query().
-		Where(
-			entworkflow.ProjectIDEQ(event.ProjectID),
-			entworkflow.HarnessPathEQ(event.RelativePath),
-		).
-		Only(ctx)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			return
-		}
-
-		s.logger.Error("reload harness workflow lookup", "error", err, "path", event.RelativePath)
-		return
-	}
-
-	parsedHooks, err := validateConfiguredHooks(item.Hooks)
-	if err != nil {
-		s.logger.Error("parse workflow hooks for reload", "error", err, "workflow_id", item.ID, "path", event.RelativePath)
-		return
-	}
-
-	if item.IsActive {
-		if err := s.runWorkflowHooks(ctx, item.ProjectID, parsedHooks, workflowHookOnReload, workflowHookRuntime{
-			ProjectID:       item.ProjectID,
-			WorkflowID:      item.ID,
-			WorkflowName:    item.Name,
-			WorkflowVersion: item.Version + 1,
-		}); err != nil {
-			s.logger.Error("workflow reload hook blocked harness reload", "error", err, "workflow_id", item.ID, "path", event.RelativePath)
-			if event.PreviousContent != "" {
-				if restoreErr := storage.registry.Write(event.RelativePath, event.PreviousContent); restoreErr != nil {
-					s.logger.Error("restore workflow harness after blocked reload", "error", restoreErr, "workflow_id", item.ID, "path", event.RelativePath)
-				}
-			}
-			return
-		}
-	}
-
-	if _, err := s.client.Workflow.UpdateOneID(item.ID).SetVersion(item.Version + 1).Save(ctx); err != nil {
-		s.logger.Error("bump workflow version after harness reload", "error", err, "workflow_id", item.ID, "path", event.RelativePath)
-		if event.PreviousContent != "" {
-			if restoreErr := storage.registry.Write(event.RelativePath, event.PreviousContent); restoreErr != nil {
-				s.logger.Error("restore workflow harness after failed version bump", "error", restoreErr, "workflow_id", item.ID, "path", event.RelativePath)
-			}
-		}
-		return
-	}
-
-	s.logger.Info("workflow harness reloaded", "workflow_id", item.ID, "path", event.RelativePath)
 }
 
 func (s *Service) runWorkflowHooks(
