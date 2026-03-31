@@ -17,6 +17,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	entissueconnector "github.com/BetterAndBetterII/openase/ent/issueconnector"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
@@ -402,6 +403,21 @@ func (_u *ProjectUpdate) AddNotificationRules(v ...*NotificationRule) *ProjectUp
 	return _u.AddNotificationRuleIDs(ids...)
 }
 
+// AddIssueConnectorIDs adds the "issue_connectors" edge to the IssueConnector entity by IDs.
+func (_u *ProjectUpdate) AddIssueConnectorIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.AddIssueConnectorIDs(ids...)
+	return _u
+}
+
+// AddIssueConnectors adds the "issue_connectors" edges to the IssueConnector entity.
+func (_u *ProjectUpdate) AddIssueConnectors(v ...*IssueConnector) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddIssueConnectorIDs(ids...)
+}
+
 // SetDefaultWorkflow sets the "default_workflow" edge to the Workflow entity.
 func (_u *ProjectUpdate) SetDefaultWorkflow(v *Workflow) *ProjectUpdate {
 	return _u.SetDefaultWorkflowID(v.ID)
@@ -673,6 +689,27 @@ func (_u *ProjectUpdate) RemoveNotificationRules(v ...*NotificationRule) *Projec
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveNotificationRuleIDs(ids...)
+}
+
+// ClearIssueConnectors clears all "issue_connectors" edges to the IssueConnector entity.
+func (_u *ProjectUpdate) ClearIssueConnectors() *ProjectUpdate {
+	_u.mutation.ClearIssueConnectors()
+	return _u
+}
+
+// RemoveIssueConnectorIDs removes the "issue_connectors" edge to IssueConnector entities by IDs.
+func (_u *ProjectUpdate) RemoveIssueConnectorIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.RemoveIssueConnectorIDs(ids...)
+	return _u
+}
+
+// RemoveIssueConnectors removes "issue_connectors" edges to IssueConnector entities.
+func (_u *ProjectUpdate) RemoveIssueConnectors(v ...*IssueConnector) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveIssueConnectorIDs(ids...)
 }
 
 // ClearDefaultWorkflow clears the "default_workflow" edge to the Workflow entity.
@@ -1354,6 +1391,51 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.IssueConnectorsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.IssueConnectorsTable,
+			Columns: []string{project.IssueConnectorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(entissueconnector.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedIssueConnectorsIDs(); len(nodes) > 0 && !_u.mutation.IssueConnectorsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.IssueConnectorsTable,
+			Columns: []string{project.IssueConnectorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(entissueconnector.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.IssueConnectorsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.IssueConnectorsTable,
+			Columns: []string{project.IssueConnectorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(entissueconnector.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.DefaultWorkflowCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -1790,6 +1872,21 @@ func (_u *ProjectUpdateOne) AddNotificationRules(v ...*NotificationRule) *Projec
 	return _u.AddNotificationRuleIDs(ids...)
 }
 
+// AddIssueConnectorIDs adds the "issue_connectors" edge to the IssueConnector entity by IDs.
+func (_u *ProjectUpdateOne) AddIssueConnectorIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.AddIssueConnectorIDs(ids...)
+	return _u
+}
+
+// AddIssueConnectors adds the "issue_connectors" edges to the IssueConnector entity.
+func (_u *ProjectUpdateOne) AddIssueConnectors(v ...*IssueConnector) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddIssueConnectorIDs(ids...)
+}
+
 // SetDefaultWorkflow sets the "default_workflow" edge to the Workflow entity.
 func (_u *ProjectUpdateOne) SetDefaultWorkflow(v *Workflow) *ProjectUpdateOne {
 	return _u.SetDefaultWorkflowID(v.ID)
@@ -2061,6 +2158,27 @@ func (_u *ProjectUpdateOne) RemoveNotificationRules(v ...*NotificationRule) *Pro
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveNotificationRuleIDs(ids...)
+}
+
+// ClearIssueConnectors clears all "issue_connectors" edges to the IssueConnector entity.
+func (_u *ProjectUpdateOne) ClearIssueConnectors() *ProjectUpdateOne {
+	_u.mutation.ClearIssueConnectors()
+	return _u
+}
+
+// RemoveIssueConnectorIDs removes the "issue_connectors" edge to IssueConnector entities by IDs.
+func (_u *ProjectUpdateOne) RemoveIssueConnectorIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.RemoveIssueConnectorIDs(ids...)
+	return _u
+}
+
+// RemoveIssueConnectors removes "issue_connectors" edges to IssueConnector entities.
+func (_u *ProjectUpdateOne) RemoveIssueConnectors(v ...*IssueConnector) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveIssueConnectorIDs(ids...)
 }
 
 // ClearDefaultWorkflow clears the "default_workflow" edge to the Workflow entity.
@@ -2765,6 +2883,51 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(notificationrule.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.IssueConnectorsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.IssueConnectorsTable,
+			Columns: []string{project.IssueConnectorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(entissueconnector.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedIssueConnectorsIDs(); len(nodes) > 0 && !_u.mutation.IssueConnectorsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.IssueConnectorsTable,
+			Columns: []string{project.IssueConnectorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(entissueconnector.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.IssueConnectorsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.IssueConnectorsTable,
+			Columns: []string{project.IssueConnectorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(entissueconnector.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

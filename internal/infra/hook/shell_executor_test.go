@@ -4,12 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	"github.com/google/uuid"
 )
 
@@ -358,6 +362,69 @@ func TestShellExecutorHonorsFailurePolicies(t *testing.T) {
 	assertFileContent(t, filepath.Join(workspace, "continued.txt"), "ok")
 }
 
+func TestRemoteShellExecutorInjectsEnvironmentAndRunsInRemoteWorkdir(t *testing.T) {
+	session := newRemoteHookTestSession("remote-out", "remote-err", nil)
+	executor := NewRemoteShellExecutor(&remoteHookTestPool{
+		client: &remoteHookTestClient{session: session},
+	}, catalogdomain.Machine{
+		ID:   uuid.New(),
+		Name: "gpu-01",
+		Host: "10.0.1.10",
+		Port: 22,
+	})
+
+	workspace := "/srv/openase/workspaces/acme/payments/ASE-42"
+	results, err := executor.RunAll(context.Background(), TicketHookOnStart, []Definition{{
+		Command: `printf 'remote-out'; printf 'remote-err' >&2`,
+		Workdir: "backend",
+	}}, Env{
+		TicketID:         uuid.MustParse("11111111-1111-1111-1111-111111111111"),
+		ProjectID:        uuid.MustParse("22222222-2222-2222-2222-222222222222"),
+		TicketIdentifier: "ASE-42",
+		Workspace:        workspace,
+		Repos: []Repo{
+			{Name: "backend", Path: workspace + "/backend"},
+		},
+		AgentName:    "codex-remote-01",
+		WorkflowType: "coding",
+		Attempt:      3,
+		APIURL:       "http://127.0.0.1:19836/api/v1/platform",
+		AgentToken:   "ase_agent_token",
+	})
+	if err != nil {
+		t.Fatalf("RunAll returned error: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected one result, got %d", len(results))
+	}
+	result := results[0]
+	if result.Outcome != OutcomePass {
+		t.Fatalf("Outcome=%q, want %q", result.Outcome, OutcomePass)
+	}
+	if result.WorkingDirectory != workspace+"/backend" {
+		t.Fatalf("WorkingDirectory=%q", result.WorkingDirectory)
+	}
+	if result.Stdout != "remote-out" || result.Stderr != "remote-err" {
+		t.Fatalf("unexpected remote output %+v", result)
+	}
+	if !strings.Contains(session.startedCommand, "cd '/srv/openase/workspaces/acme/payments/ASE-42/backend'") {
+		t.Fatalf("expected remote working directory in %q", session.startedCommand)
+	}
+	for _, fragment := range []string{
+		"OPENASE_TICKET_IDENTIFIER=ASE-42",
+		"OPENASE_AGENT_NAME=codex-remote-01",
+		"OPENASE_WORKFLOW_TYPE=coding",
+		"OPENASE_ATTEMPT=3",
+		"OPENASE_HOOK_NAME=on_start",
+		"OPENASE_API_URL=http://127.0.0.1:19836/api/v1/platform",
+		"OPENASE_AGENT_TOKEN=ase_agent_token",
+	} {
+		if !strings.Contains(session.startedCommand, fragment) {
+			t.Fatalf("expected %q in remote command %q", fragment, session.startedCommand)
+		}
+	}
+}
+
 func TestShellExecutorBlocksOnBlockPolicy(t *testing.T) {
 	workspace := t.TempDir()
 	executor := NewShellExecutor()
@@ -480,4 +547,95 @@ func assertFileContent(t *testing.T, path string, want string) {
 	if strings.TrimSpace(string(content)) != want {
 		t.Fatalf("content of %q = %q, want %q", path, strings.TrimSpace(string(content)), want)
 	}
+}
+
+type remoteHookTestPool struct {
+	client sshinfra.Client
+}
+
+func (p *remoteHookTestPool) Get(context.Context, catalogdomain.Machine) (sshinfra.Client, error) {
+	return p.client, nil
+}
+
+type remoteHookTestClient struct {
+	session sshinfra.Session
+}
+
+func (c *remoteHookTestClient) NewSession() (sshinfra.Session, error) {
+	if c.session == nil {
+		return nil, fmt.Errorf("session unavailable")
+	}
+	return c.session, nil
+}
+
+func (c *remoteHookTestClient) SendRequest(string, bool, []byte) (bool, []byte, error) {
+	return true, nil, nil
+}
+
+func (c *remoteHookTestClient) Close() error { return nil }
+
+type remoteHookTestSession struct {
+	stdoutRead  *io.PipeReader
+	stdoutWrite *io.PipeWriter
+	stderrRead  *io.PipeReader
+	stderrWrite *io.PipeWriter
+	done        chan error
+
+	stdoutPayload  string
+	stderrPayload  string
+	waitErr        error
+	startedCommand string
+}
+
+func newRemoteHookTestSession(stdout string, stderr string, waitErr error) *remoteHookTestSession {
+	stdoutRead, stdoutWrite := io.Pipe()
+	stderrRead, stderrWrite := io.Pipe()
+	return &remoteHookTestSession{
+		stdoutRead:    stdoutRead,
+		stdoutWrite:   stdoutWrite,
+		stderrRead:    stderrRead,
+		stderrWrite:   stderrWrite,
+		done:          make(chan error, 1),
+		stdoutPayload: stdout,
+		stderrPayload: stderr,
+		waitErr:       waitErr,
+	}
+}
+
+func (s *remoteHookTestSession) CombinedOutput(string) ([]byte, error) {
+	return nil, fmt.Errorf("not supported")
+}
+
+func (s *remoteHookTestSession) StdinPipe() (io.WriteCloser, error) {
+	return nil, fmt.Errorf("not supported")
+}
+
+func (s *remoteHookTestSession) StdoutPipe() (io.Reader, error) { return s.stdoutRead, nil }
+
+func (s *remoteHookTestSession) StderrPipe() (io.Reader, error) { return s.stderrRead, nil }
+
+func (s *remoteHookTestSession) Start(cmd string) error {
+	s.startedCommand = cmd
+	go func() {
+		if s.stdoutPayload != "" {
+			_, _ = io.WriteString(s.stdoutWrite, s.stdoutPayload)
+		}
+		_ = s.stdoutWrite.Close()
+		if s.stderrPayload != "" {
+			_, _ = io.WriteString(s.stderrWrite, s.stderrPayload)
+		}
+		_ = s.stderrWrite.Close()
+		s.done <- s.waitErr
+	}()
+	return nil
+}
+
+func (s *remoteHookTestSession) Signal(string) error { return nil }
+
+func (s *remoteHookTestSession) Wait() error { return <-s.done }
+
+func (s *remoteHookTestSession) Close() error {
+	_ = s.stdoutWrite.Close()
+	_ = s.stderrWrite.Close()
+	return nil
 }
