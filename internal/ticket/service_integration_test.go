@@ -279,6 +279,16 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	if resumedTicket.RetryPaused || resumedTicket.PauseReason != "" {
 		t.Fatalf("Update(budget resume) = %+v", resumedTicket)
 	}
+	retryAt := time.Date(2026, 3, 27, 16, 0, 0, 0, time.UTC)
+	if _, err := client.Ticket.UpdateOneID(parent.ID).
+		SetAttemptCount(4).
+		SetConsecutiveErrors(2).
+		SetNextRetryAt(retryAt).
+		SetRetryPaused(true).
+		SetPauseReason(ticketing.PauseReasonBudgetExhausted.String()).
+		Save(ctx); err != nil {
+		t.Fatalf("seed retry baseline before manual status change: %v", err)
+	}
 
 	runID := seedTicketCurrentRun(ctx, t, client, fixture, parent.ID)
 	updatedParent, err := service.Update(ctx, UpdateInput{
@@ -292,6 +302,9 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	}
 	if updatedParent.CurrentRunID != nil || updatedParent.StatusID != fixture.doneID || updatedParent.TargetMachineID == nil || *updatedParent.TargetMachineID != fixture.workerTwoID {
 		t.Fatalf("Update(status transition) = %+v", updatedParent)
+	}
+	if updatedParent.AttemptCount != 4 || updatedParent.ConsecutiveErrors != 0 || updatedParent.NextRetryAt != nil || updatedParent.RetryPaused || updatedParent.PauseReason != "" {
+		t.Fatalf("Update(status transition) should normalize retry baseline, got %+v", updatedParent)
 	}
 
 	runAfterRelease, err := client.AgentRun.Get(ctx, runID)
@@ -1056,6 +1069,8 @@ func TestTicketServiceSyncRepoScopePRStatusErrorBranches(t *testing.T) {
 	retryPausedFinishRunID := seedTicketCurrentRun(ctx, t, client, fixture, retryPausedFinishTicket.ID)
 	nextRetryAt := time.Date(2026, 3, 28, 9, 0, 0, 0, time.UTC)
 	if _, err := client.Ticket.UpdateOneID(retryPausedFinishTicket.ID).
+		SetAttemptCount(5).
+		SetConsecutiveErrors(3).
 		SetNextRetryAt(nextRetryAt).
 		SetRetryPaused(true).
 		SetPauseReason(ticketing.PauseReasonBudgetExhausted.String()).
@@ -1081,7 +1096,7 @@ func TestTicketServiceSyncRepoScopePRStatusErrorBranches(t *testing.T) {
 	if !retryPausedFinishResult.Matched || retryPausedFinishResult.Outcome != RepoScopePRStatusSyncOutcomeFinished || retryPausedFinishResult.Ticket == nil {
 		t.Fatalf("SyncRepoScopePRStatus(finish clears retry state) = %+v", retryPausedFinishResult)
 	}
-	if retryPausedFinishResult.Ticket.NextRetryAt != nil || retryPausedFinishResult.Ticket.RetryPaused || retryPausedFinishResult.Ticket.PauseReason != "" {
+	if retryPausedFinishResult.Ticket.AttemptCount != 5 || retryPausedFinishResult.Ticket.ConsecutiveErrors != 0 || retryPausedFinishResult.Ticket.NextRetryAt != nil || retryPausedFinishResult.Ticket.RetryPaused || retryPausedFinishResult.Ticket.PauseReason != "" {
 		t.Fatalf("retry-paused finish ticket after sync = %+v", retryPausedFinishResult.Ticket)
 	}
 	retryPausedFinishRunAfter, err := client.AgentRun.Get(ctx, retryPausedFinishRunID)

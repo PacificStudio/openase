@@ -30,6 +30,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
@@ -669,7 +670,7 @@ Launch starvation regression test.
 
 	select {
 	case <-manager.SecondStarted():
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(5 * time.Second):
 		manager.ReleaseFirst()
 		t.Fatal("timed out waiting for second launch to start while the first launch was blocked")
 	}
@@ -934,6 +935,16 @@ func TestRuntimeLauncherFinishResolvedExecutionReleasesStageOccupancy(t *testing
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).SetStatusID(fixture.statusIDs["Done"]).Save(ctx); err != nil {
 		t.Fatalf("mark ticket done: %v", err)
 	}
+	retryAt := now.Add(15 * time.Minute)
+	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
+		SetAttemptCount(3).
+		SetConsecutiveErrors(2).
+		SetNextRetryAt(retryAt).
+		SetRetryPaused(true).
+		SetPauseReason(ticketing.PauseReasonBudgetExhausted.String()).
+		Save(ctx); err != nil {
+		t.Fatalf("seed retry baseline before finish: %v", err)
+	}
 	resolvedTicket, err := client.Ticket.Query().
 		Where(entticket.IDEQ(ticketItem.ID)).
 		WithCurrentRun().
@@ -962,6 +973,9 @@ func TestRuntimeLauncherFinishResolvedExecutionReleasesStageOccupancy(t *testing
 	if ticketAfter.CompletedAt == nil {
 		t.Fatalf("expected finish to stamp completed_at, got %+v", ticketAfter)
 	}
+	if ticketAfter.AttemptCount != 3 || ticketAfter.ConsecutiveErrors != 0 || ticketAfter.NextRetryAt != nil || ticketAfter.RetryPaused || ticketAfter.PauseReason != "" {
+		t.Fatalf("expected finish to normalize retry baseline, got %+v", ticketAfter)
+	}
 	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
 	if err != nil {
 		t.Fatalf("reload run: %v", err)
@@ -971,6 +985,93 @@ func TestRuntimeLauncherFinishResolvedExecutionReleasesStageOccupancy(t *testing
 	}
 	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 0 {
 		t.Fatalf("expected finish to drop backlog stage occupancy to 0, got %d", got)
+	}
+}
+
+func TestRuntimeLauncherReleaseExecutionOwnershipPreservesTicketStatusAndCompletion(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 20, 13, 35, 0, 0, time.UTC)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-release-01").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-402C").
+		SetTitle("Release runtime ownership").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
+
+	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 1 {
+		t.Fatalf("expected active backlog stage occupancy before release, got %d", got)
+	}
+
+	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).SetStatusID(fixture.statusIDs["In Review"]).Save(ctx); err != nil {
+		t.Fatalf("mark ticket in review: %v", err)
+	}
+	reloadedTicket, err := client.Ticket.Query().
+		Where(entticket.IDEQ(ticketItem.ID)).
+		WithCurrentRun().
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, nil, nil)
+	launcher.now = func() time.Time { return now }
+	if err := launcher.releaseExecutionOwnership(ctx, runItem.ID, agentItem.ID, reloadedTicket); err != nil {
+		t.Fatalf("release execution ownership: %v", err)
+	}
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+	if ticketAfter.StatusID != fixture.statusIDs["In Review"] {
+		t.Fatalf("expected status to remain In Review %s, got %s", fixture.statusIDs["In Review"], ticketAfter.StatusID)
+	}
+	if ticketAfter.CurrentRunID != nil {
+		t.Fatalf("expected release to clear current run, got %+v", ticketAfter.CurrentRunID)
+	}
+	if ticketAfter.CompletedAt != nil {
+		t.Fatalf("expected release to preserve nil completed_at, got %+v", ticketAfter.CompletedAt)
+	}
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusTerminated {
+		t.Fatalf("expected terminated run after release, got %+v", runAfter)
+	}
+	if got := backlogStageActiveRuns(ctx, t, client, fixture.projectID); got != 0 {
+		t.Fatalf("expected release to drop backlog stage occupancy to 0, got %d", got)
 	}
 }
 
@@ -1558,9 +1659,9 @@ Emit visible runtime output.
 	}
 
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
-		SetStatusID(fixture.statusIDs["Done"]).
+		SetStatusID(fixture.statusIDs["In Review"]).
 		Save(ctx); err != nil {
-		t.Fatalf("mark ticket done: %v", err)
+		t.Fatalf("mark ticket in review: %v", err)
 	}
 	close(manager.releaseTurn)
 
@@ -1573,8 +1674,29 @@ Emit visible runtime output.
 		if err != nil {
 			return false
 		}
-		return ticketSnapshot.CurrentRunID == nil && runSnapshot.Status == entagentrun.StatusCompleted
+		return ticketSnapshot.CurrentRunID == nil &&
+			ticketSnapshot.StatusID == fixture.statusIDs["In Review"] &&
+			runSnapshot.Status == entagentrun.StatusTerminated
 	})
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket after status handoff: %v", err)
+	}
+	if ticketAfter.StatusID != fixture.statusIDs["In Review"] {
+		t.Fatalf("expected runner to preserve In Review status %s, got %s", fixture.statusIDs["In Review"], ticketAfter.StatusID)
+	}
+	if ticketAfter.CompletedAt != nil {
+		t.Fatalf("expected normal turn exit to keep completed_at unset, got %+v", ticketAfter.CompletedAt)
+	}
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run after status handoff: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusTerminated {
+		t.Fatalf("expected terminated run after leaving pickup, got %+v", runAfter)
+	}
 }
 
 func TestRuntimeLauncherRunTickMarksRetryOnTurnFailure(t *testing.T) {

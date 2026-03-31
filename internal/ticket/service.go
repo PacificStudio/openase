@@ -519,6 +519,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 	}
 	if statusChanged {
 		builder.ClearCurrentRunID()
+		ResetRetryBaseline(builder, current)
 	}
 
 	if _, err := builder.Save(ctx); err != nil {
@@ -1210,6 +1211,29 @@ func releaseTicketAgentClaim(ctx context.Context, tx *ent.Tx, ticketItem *ent.Ti
 	}
 
 	return nil
+}
+
+// ResetRetryBaseline clears active retry-cycle state after a healthy/manual-forward transition.
+// attempt_count stays cumulative per the PRD, while current failure streak state is normalized.
+func ResetRetryBaseline(update *ent.TicketUpdateOne, current *ent.Ticket) *ent.TicketUpdateOne {
+	if update == nil || current == nil {
+		return update
+	}
+
+	if current.ConsecutiveErrors != 0 {
+		update.SetConsecutiveErrors(0)
+	}
+	if current.NextRetryAt != nil {
+		update.ClearNextRetryAt()
+	}
+	if current.RetryPaused {
+		update.SetRetryPaused(false)
+	}
+	if current.PauseReason != "" {
+		update.ClearPauseReason()
+	}
+
+	return update
 }
 
 func ensureParentDoesNotCreateCycle(ctx context.Context, tx *ent.Tx, ticketID uuid.UUID, parentTicketID uuid.UUID) error {
