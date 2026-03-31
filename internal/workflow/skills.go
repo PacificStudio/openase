@@ -763,7 +763,7 @@ func writeWorkspaceOpenASEWrapper(workspaceRoot string) error {
 	if err := os.WriteFile(dst, []byte(workflowOpenASECLIWrapperScript()), 0o600); err != nil {
 		return fmt.Errorf("write workspace openase wrapper: %w", err)
 	}
-	if err := os.Chmod(dst, 0o700); err != nil {
+	if err := os.Chmod(dst, 0o700); err != nil { //nolint:gosec // dst stays under the prepared workspace root.
 		return fmt.Errorf("chmod workspace openase wrapper: %w", err)
 	}
 	return nil
