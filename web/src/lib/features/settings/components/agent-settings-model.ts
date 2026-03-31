@@ -14,47 +14,7 @@ export type ProviderOption = {
   agentCount: number
 }
 
-export type GovernanceAgent = {
-  id: string
-  name: string
-  providerName: string
-  machineName: string
-  status: 'idle' | 'claimed' | 'running' | 'paused' | 'failed' | 'terminated'
-  runtimePhase: 'none' | 'launching' | 'ready' | 'executing' | 'failed'
-  activeRunCount: number
-  lastHeartbeat?: string | null
-}
-
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string }
-
-const governanceAgentStatuses = [
-  'idle',
-  'claimed',
-  'running',
-  'paused',
-  'failed',
-  'terminated',
-] as const
-
-const governanceRuntimePhases = ['none', 'launching', 'ready', 'executing', 'failed'] as const
-
-export const governanceAgentStatusLabels: Record<GovernanceAgent['status'], string> = {
-  idle: 'Idle',
-  claimed: 'Claimed',
-  running: 'Running',
-  paused: 'Paused',
-  failed: 'Failed',
-  terminated: 'Terminated',
-}
-
-export const governanceAgentStatusClasses: Record<GovernanceAgent['status'], string> = {
-  idle: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  claimed: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  running: 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300',
-  paused: 'border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300',
-  failed: 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300',
-  terminated: 'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',
-}
 
 export function buildProviderOptions(
   providerItems: AgentProvider[],
@@ -74,17 +34,6 @@ export function buildProviderOptions(
   }))
 }
 
-export function buildGovernanceAgents(
-  agentItems: Agent[],
-  providerItems: AgentProvider[],
-): GovernanceAgent[] {
-  const providerMap = new Map(providerItems.map((provider) => [provider.id, provider]))
-
-  return agentItems
-    .map((agent) => mapGovernanceAgent(agent, providerMap.get(agent.provider_id)))
-    .sort((left, right) => left.name.localeCompare(right.name))
-}
-
 export function parseDefaultProviderSelection(
   rawProviderId: string,
   availableProviders: ProviderOption[],
@@ -98,45 +47,4 @@ export function parseDefaultProviderSelection(
   }
 
   return { ok: false, error: 'Selected provider is no longer available.' }
-}
-
-function normalizeAgentStatus(status: string): GovernanceAgent['status'] {
-  if (governanceAgentStatuses.includes(status as GovernanceAgent['status'])) {
-    return status as GovernanceAgent['status']
-  }
-
-  return status === 'active' ? 'running' : 'idle'
-}
-
-function normalizeRuntimePhase(runtimePhase: string): GovernanceAgent['runtimePhase'] {
-  if (governanceRuntimePhases.includes(runtimePhase as GovernanceAgent['runtimePhase'])) {
-    return runtimePhase as GovernanceAgent['runtimePhase']
-  }
-
-  return 'none'
-}
-
-function mapGovernanceAgent(agent: Agent, provider?: AgentProvider): GovernanceAgent {
-  return {
-    id: agent.id,
-    name: agent.name,
-    ...resolveGovernanceProvider(provider),
-    ...resolveGovernanceRuntime(agent.runtime),
-  }
-}
-
-function resolveGovernanceProvider(provider?: AgentProvider) {
-  return {
-    providerName: provider?.name ?? 'Unknown provider',
-    machineName: provider?.machine_name ?? 'Unknown machine',
-  }
-}
-
-function resolveGovernanceRuntime(runtime?: Agent['runtime'] | null) {
-  return {
-    status: normalizeAgentStatus(runtime?.status ?? 'idle'),
-    runtimePhase: normalizeRuntimePhase(runtime?.runtime_phase ?? 'none'),
-    activeRunCount: runtime?.active_run_count ?? 0,
-    lastHeartbeat: runtime?.last_heartbeat_at ?? null,
-  }
 }
