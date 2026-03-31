@@ -42,7 +42,7 @@ export type MemorySnapshot = SystemMemorySnapshot
 
 export type ExceptionItem = {
   id: string
-  type: 'hook_failed' | 'budget_alert' | 'agent_stalled' | 'retry_paused'
+  type: 'hook.failed' | 'ticket.budget_exhausted' | 'agent.failed' | 'ticket.retry_paused'
   message: string
   ticketIdentifier?: string
   timestamp: string

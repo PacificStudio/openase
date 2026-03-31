@@ -274,7 +274,7 @@ func releaseStalledClaim(
 		if _, err := tx.ActivityEvent.Create().
 			SetProjectID(projectID).
 			SetTicketID(ticketID).
-			SetEventType(stalledRetryPauseEventType).
+			SetEventType(stalledRetryPauseEventType.String()).
 			SetMessage(fmt.Sprintf(
 				"Paused ticket retries after %d consecutive orchestrator stalls; human intervention is required before retrying.",
 				nextStallCount,

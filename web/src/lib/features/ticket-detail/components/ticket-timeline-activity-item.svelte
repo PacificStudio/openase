@@ -6,35 +6,34 @@
   import Play from '@lucide/svelte/icons/play'
   import Settings from '@lucide/svelte/icons/settings'
   import { cn, formatRelativeTime } from '$lib/utils'
+  import { activityEventLabel, activityEventTone } from '$lib/features/activity/event-catalog'
   import type { TicketActivityTimelineItem } from '../types'
 
   let { item }: { item: TicketActivityTimelineItem } = $props()
   const activityStyle = $derived.by(() => activityPresentation(item.eventType))
 
   function activityPresentation(eventType: string) {
-    const normalized = eventType.toLowerCase()
-
-    if (normalized.includes('pr') || normalized.includes('pull_request')) {
+    if (eventType.startsWith('pr.')) {
       return { icon: GitPullRequest, className: 'text-green-500' }
     }
-    if (normalized.includes('assigned') || normalized.includes('agent')) {
+    if (eventType.startsWith('agent.')) {
       return { icon: Bot, className: 'text-blue-500' }
     }
-    if (normalized.includes('start') || normalized.includes('launch')) {
+    if (eventType === 'hook.started') {
       return { icon: Play, className: 'text-amber-500' }
     }
-    if (
-      normalized.includes('complete') ||
-      normalized.includes('pass') ||
-      normalized.includes('success')
-    ) {
-      return { icon: CircleCheck, className: 'text-emerald-500' }
+    switch (activityEventTone(eventType)) {
+      case 'success':
+        return { icon: CircleCheck, className: 'text-emerald-500' }
+      case 'warning':
+        return { icon: Play, className: 'text-amber-500' }
+      case 'danger':
+        return { icon: AlertTriangle, className: 'text-red-500' }
+      case 'info':
+        return { icon: Settings, className: 'text-sky-500' }
+      default:
+        return { icon: Settings, className: 'text-muted-foreground' }
     }
-    if (normalized.includes('fail') || normalized.includes('error')) {
-      return { icon: AlertTriangle, className: 'text-red-500' }
-    }
-
-    return { icon: Settings, className: 'text-muted-foreground' }
   }
 
   function metadataEntries(metadata: Record<string, unknown>) {
@@ -54,9 +53,7 @@
   }
 
   function humanizeEventLabel(value: string) {
-    const normalized = value.replace(/[._]+/g, ' ').trim()
-    if (!normalized) return 'System activity'
-    return normalized.charAt(0).toUpperCase() + normalized.slice(1)
+    return activityEventLabel(value)
   }
 
   function humanizeLabel(value: string) {

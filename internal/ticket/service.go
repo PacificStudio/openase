@@ -26,6 +26,7 @@ import (
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
@@ -272,12 +273,83 @@ type Service struct {
 	platformAPIURL string
 }
 
+type RecordActivityEventInput struct {
+	ProjectID uuid.UUID
+	TicketID  *uuid.UUID
+	AgentID   *uuid.UUID
+	EventType activityevent.Type
+	Message   string
+	Metadata  map[string]any
+	CreatedAt time.Time
+}
+
 // NewService constructs a ticket service backed by the provided ent client.
 func NewService(client *ent.Client) *Service {
 	return &Service{
 		client: client,
 		logger: slog.Default().With("component", "ticket-service"),
 	}
+}
+
+func (s *Service) RecordActivityEvent(
+	ctx context.Context,
+	input RecordActivityEventInput,
+) (catalogdomain.ActivityEvent, error) {
+	if s == nil || s.client == nil {
+		return catalogdomain.ActivityEvent{}, ErrUnavailable
+	}
+	if input.ProjectID == uuid.Nil {
+		return catalogdomain.ActivityEvent{}, fmt.Errorf("activity event project id must not be empty")
+	}
+	if _, err := activityevent.ParseRawType(input.EventType.String()); err != nil {
+		return catalogdomain.ActivityEvent{}, err
+	}
+
+	createdAt := input.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = time.Now().UTC()
+	}
+
+	builder := s.client.ActivityEvent.Create().
+		SetProjectID(input.ProjectID).
+		SetEventType(input.EventType.String()).
+		SetMessage(strings.TrimSpace(input.Message)).
+		SetMetadata(cloneAnyMap(input.Metadata)).
+		SetCreatedAt(createdAt.UTC())
+	if input.TicketID != nil {
+		builder.SetTicketID(*input.TicketID)
+	}
+	if input.AgentID != nil {
+		builder.SetAgentID(*input.AgentID)
+	}
+
+	item, err := builder.Save(ctx)
+	if err != nil {
+		return catalogdomain.ActivityEvent{}, fmt.Errorf("record activity event: %w", err)
+	}
+
+	return catalogdomain.ActivityEvent{
+		ID:        item.ID,
+		ProjectID: item.ProjectID,
+		TicketID:  item.TicketID,
+		AgentID:   item.AgentID,
+		EventType: input.EventType,
+		Message:   item.Message,
+		Metadata:  cloneAnyMap(item.Metadata),
+		CreatedAt: item.CreatedAt.UTC(),
+	}, nil
+}
+
+func cloneAnyMap(raw map[string]any) map[string]any {
+	if len(raw) == 0 {
+		return map[string]any{}
+	}
+
+	cloned := make(map[string]any, len(raw))
+	for key, value := range raw {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func (s *Service) ConfigureSSHPool(pool ticketHookSSHPool) {

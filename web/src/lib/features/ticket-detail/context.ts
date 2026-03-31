@@ -198,19 +198,10 @@ function normalizeType(type: string): TicketDetail['type'] {
 }
 
 function inferHookStatus(eventType: string, message: string): HookExecution['status'] {
-  const normalized = `${eventType} ${message}`.toLowerCase()
-  if (normalized.includes('fail') || normalized.includes('error')) return 'fail'
-  if (normalized.includes('running') || normalized.includes('start')) return 'running'
-  if (normalized.includes('timeout')) return 'timeout'
+  if (eventType === 'hook.failed') return 'fail'
+  if (eventType === 'hook.started') return 'running'
+  if (message.toLowerCase().includes('timeout')) return 'timeout'
   return 'pass'
-}
-
-function normalizeActivityType(eventType: string) {
-  if (eventType === 'status_changed') return 'status_change'
-  if (eventType === 'agent_started') return 'started'
-  if (eventType === 'agent_completed') return 'completed'
-  if (eventType === 'comment_added') return 'comment'
-  return eventType
 }
 
 function parseTimelineItem(raw: TicketTimelineItemRecord): TicketTimelineItem | null {
@@ -263,8 +254,7 @@ function parseTimelineItem(raw: TicketTimelineItemRecord): TicketTimelineItem | 
     return {
       ...shared,
       kind: 'activity',
-      eventType:
-        stringMetadata(raw.metadata, 'event_type') ?? normalizeActivityType(raw.title ?? ''),
+      eventType: stringMetadata(raw.metadata, 'event_type') ?? raw.title ?? '',
       title: raw.title ?? '',
       bodyText: raw.body_text ?? '',
       metadata: cloneMetadata(raw.metadata),

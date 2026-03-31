@@ -1,6 +1,7 @@
 <script lang="ts">
   import { cn, formatRelativeTime } from '$lib/utils'
   import type { ActivityEntry } from '../types'
+  import { activityEventTone } from '../event-catalog'
 
   let {
     entries,
@@ -10,21 +11,19 @@
     class?: string
   } = $props()
 
-  const dotColors: Record<string, string> = {
-    ticket_created: 'bg-blue-500',
-    agent_started: 'bg-emerald-500',
-    agent_completed: 'bg-emerald-400',
-    hook_failed: 'bg-red-500',
-    pr_opened: 'bg-purple-500',
-    pr_merged: 'bg-violet-500',
-    comment_added: 'bg-amber-500',
-    status_changed: 'bg-sky-500',
-    agent_stalled: 'bg-yellow-500',
-    budget_alert: 'bg-orange-500',
-  }
-
   function getDotColor(eventType: string): string {
-    return dotColors[eventType] ?? 'bg-muted-foreground'
+    switch (activityEventTone(eventType)) {
+      case 'success':
+        return 'bg-emerald-500'
+      case 'warning':
+        return 'bg-amber-500'
+      case 'danger':
+        return 'bg-red-500'
+      case 'info':
+        return 'bg-sky-500'
+      default:
+        return 'bg-muted-foreground'
+    }
   }
 
   function getDateLabel(timestamp: string): string {

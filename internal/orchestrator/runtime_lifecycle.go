@@ -10,6 +10,7 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
@@ -139,12 +140,19 @@ func publishAgentLifecycleEvent(
 		return fmt.Errorf("agent lifecycle event requires an agent")
 	}
 
+	var activityType activityevent.Type
+	activityAllowed := false
+	if parsedType, err := activityevent.ParseRawType(eventType.String()); err == nil {
+		activityType = parsedType
+		activityAllowed = true
+	}
+
 	var activityItem *ent.ActivityEvent
-	if client != nil {
+	if client != nil && activityAllowed {
 		activityCreate := client.ActivityEvent.Create().
 			SetProjectID(state.agent.ProjectID).
 			SetAgentID(state.agent.ID).
-			SetEventType(eventType.String()).
+			SetEventType(activityType.String()).
 			SetMessage(message).
 			SetMetadata(cloneLifecycleMetadata(metadata)).
 			SetCreatedAt(publishedAt.UTC())
@@ -175,7 +183,7 @@ func publishAgentLifecycleEvent(
 	if err := events.Publish(ctx, event); err != nil {
 		return fmt.Errorf("publish %s event: %w", eventType, err)
 	}
-	if activityItem == nil {
+	if activityItem == nil || !activityAllowed {
 		return nil
 	}
 

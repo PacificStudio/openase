@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/google/uuid"
@@ -42,7 +43,7 @@ func TestListActivityEventsRoute(t *testing.T) {
 			ProjectID: projectID,
 			TicketID:  &ticketOneID,
 			AgentID:   &agentOneID,
-			EventType: "agent.output",
+			EventType: activityevent.TypeAgentLaunching,
 			Message:   "older line",
 			Metadata:  map[string]any{"stream": "stdout"},
 			CreatedAt: time.Date(2026, 3, 19, 17, 1, 0, 0, time.UTC),
@@ -52,7 +53,7 @@ func TestListActivityEventsRoute(t *testing.T) {
 			ProjectID: projectID,
 			TicketID:  &ticketTwoID,
 			AgentID:   &agentTwoID,
-			EventType: "agent.output",
+			EventType: activityevent.TypeAgentReady,
 			Message:   "other agent line",
 			Metadata:  map[string]any{"stream": "stdout"},
 			CreatedAt: time.Date(2026, 3, 19, 17, 2, 0, 0, time.UTC),
@@ -62,7 +63,7 @@ func TestListActivityEventsRoute(t *testing.T) {
 			ProjectID: projectID,
 			TicketID:  &ticketOneID,
 			AgentID:   &agentOneID,
-			EventType: "agent.heartbeat",
+			EventType: activityevent.TypeAgentFailed,
 			Message:   "still running",
 			Metadata:  map[string]any{"stream": "system"},
 			CreatedAt: time.Date(2026, 3, 19, 17, 3, 0, 0, time.UTC),
@@ -87,7 +88,7 @@ func TestListActivityEventsRoute(t *testing.T) {
 	if len(payload.Events) != 1 {
 		t.Fatalf("expected one filtered event, got %+v", payload.Events)
 	}
-	if payload.Events[0].EventType != "agent.heartbeat" || payload.Events[0].Message != "still running" {
+	if payload.Events[0].EventType != activityevent.TypeAgentFailed.String() || payload.Events[0].Message != "still running" {
 		t.Fatalf("unexpected activity payload: %+v", payload.Events[0])
 	}
 }

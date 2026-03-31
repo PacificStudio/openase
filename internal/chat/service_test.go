@@ -9,6 +9,7 @@ import (
 	"time"
 
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -159,7 +160,7 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 		activityEvents: []catalogdomain.ActivityEvent{
 			{
 				CreatedAt: time.Date(2026, 3, 27, 12, 0, 0, 0, time.UTC),
-				EventType: "ticket.updated",
+				EventType: activityevent.TypeTicketUpdated,
 				Message:   "Updated issue status",
 			},
 		},
@@ -267,13 +268,13 @@ func TestBuildSystemPromptIncludesTicketDetailAndHookHistory(t *testing.T) {
 			activityEvents: []catalogdomain.ActivityEvent{
 				{
 					CreatedAt: time.Date(2026, 3, 27, 12, 30, 0, 0, time.UTC),
-					EventType: "agent.output",
+					EventType: activityevent.TypeAgentFailed,
 					Message:   "Collected failing test output",
 					Metadata:  map[string]any{"stream": "stdout"},
 				},
 				{
 					CreatedAt: time.Date(2026, 3, 27, 12, 31, 0, 0, time.UTC),
-					EventType: "hook.failed",
+					EventType: activityevent.TypeHookFailed,
 					Message:   "go test ./... failed in auth package",
 					Metadata:  map[string]any{"hook_name": "ticket.on_complete"},
 				},
@@ -394,15 +395,15 @@ func TestChatHelperCoverageAndRegistry(t *testing.T) {
 	}
 
 	activityItems := []catalogdomain.ActivityEvent{
-		{EventType: "hook.completed", Message: "done", Metadata: map[string]any{}},
-		{EventType: "ticket.updated", Message: "updated", Metadata: map[string]any{"hook_name": "ticket.on_start"}},
-		{EventType: "ticket.updated", Message: "plain", Metadata: map[string]any{}},
+		{EventType: activityevent.TypeHookPassed, Message: "done", Metadata: map[string]any{}},
+		{EventType: activityevent.TypeTicketUpdated, Message: "updated", Metadata: map[string]any{"hook_name": "ticket.on_start"}},
+		{EventType: activityevent.TypeTicketUpdated, Message: "plain", Metadata: map[string]any{}},
 	}
-	if got := filterHookActivityEvents(activityItems); len(got) != 2 {
-		t.Fatalf("filterHookActivityEvents() len = %d, want 2", len(got))
+	if got := filterHookActivityEvents(activityItems); len(got) != 1 {
+		t.Fatalf("filterHookActivityEvents() len = %d, want 1", len(got))
 	}
 	if isHookActivityEvent(activityItems[2]) {
-		t.Fatal("isHookActivityEvent() should be false without hook markers")
+		t.Fatal("isHookActivityEvent() should be false for non-hook event types")
 	}
 
 	if _, err := NewService(nil, nil, nil, nil, nil, "").StartTurn(context.Background(), AnonymousUserID, StartInput{}); !errors.Is(err, ErrUnavailable) {

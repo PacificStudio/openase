@@ -1,4 +1,5 @@
 import type { ActivityEvent, Agent, Project, Ticket } from '$lib/api/contracts'
+import { isActivityExceptionEvent } from '$lib/features/activity/event-catalog'
 import type {
   ActivityItem,
   DashboardStats,
@@ -108,19 +109,19 @@ function isTerminalStatus(statusName: string) {
 }
 
 function isExceptionEvent(eventType: string) {
-  return ['hook_failed', 'budget_alert', 'agent_stalled', 'retry_paused'].includes(eventType)
+  return isActivityExceptionEvent(eventType)
 }
 
 function normalizeExceptionType(eventType: string): ExceptionItem['type'] {
   if (
-    eventType === 'hook_failed' ||
-    eventType === 'budget_alert' ||
-    eventType === 'agent_stalled'
+    eventType === 'hook.failed' ||
+    eventType === 'ticket.budget_exhausted' ||
+    eventType === 'agent.failed'
   ) {
     return eventType
   }
 
-  return 'retry_paused'
+  return 'ticket.retry_paused'
 }
 
 function agentNameFromMetadata(metadata: Record<string, unknown>) {

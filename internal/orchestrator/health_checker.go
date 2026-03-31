@@ -10,6 +10,7 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 )
 
@@ -17,7 +18,7 @@ const (
 	defaultStallTimeout        = 5 * time.Minute
 	stalledRetryDelay          = time.Second
 	stalledRetryPauseThreshold = 3
-	stalledRetryPauseEventType = "ticket.retry_paused"
+	stalledRetryPauseEventType = activityevent.TypeTicketRetryPaused
 )
 
 // HealthCheckReport summarizes the orchestrator health snapshot.
