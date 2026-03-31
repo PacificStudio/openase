@@ -16,6 +16,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
+	"github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/google/uuid"
 )
 
@@ -42,6 +44,20 @@ func (_c *WorkflowCreate) SetAgentID(v uuid.UUID) *WorkflowCreate {
 func (_c *WorkflowCreate) SetNillableAgentID(v *uuid.UUID) *WorkflowCreate {
 	if v != nil {
 		_c.SetAgentID(*v)
+	}
+	return _c
+}
+
+// SetCurrentVersionID sets the "current_version_id" field.
+func (_c *WorkflowCreate) SetCurrentVersionID(v uuid.UUID) *WorkflowCreate {
+	_c.mutation.SetCurrentVersionID(v)
+	return _c
+}
+
+// SetNillableCurrentVersionID sets the "current_version_id" field if the given value is not nil.
+func (_c *WorkflowCreate) SetNillableCurrentVersionID(v *uuid.UUID) *WorkflowCreate {
+	if v != nil {
+		_c.SetCurrentVersionID(*v)
 	}
 	return _c
 }
@@ -176,6 +192,41 @@ func (_c *WorkflowCreate) SetProject(v *Project) *WorkflowCreate {
 // SetAgent sets the "agent" edge to the Agent entity.
 func (_c *WorkflowCreate) SetAgent(v *Agent) *WorkflowCreate {
 	return _c.SetAgentID(v.ID)
+}
+
+// SetCurrentVersion sets the "current_version" edge to the WorkflowVersion entity.
+func (_c *WorkflowCreate) SetCurrentVersion(v *WorkflowVersion) *WorkflowCreate {
+	return _c.SetCurrentVersionID(v.ID)
+}
+
+// AddVersionIDs adds the "versions" edge to the WorkflowVersion entity by IDs.
+func (_c *WorkflowCreate) AddVersionIDs(ids ...uuid.UUID) *WorkflowCreate {
+	_c.mutation.AddVersionIDs(ids...)
+	return _c
+}
+
+// AddVersions adds the "versions" edges to the WorkflowVersion entity.
+func (_c *WorkflowCreate) AddVersions(v ...*WorkflowVersion) *WorkflowCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddVersionIDs(ids...)
+}
+
+// AddSkillBindingIDs adds the "skill_bindings" edge to the WorkflowSkillBinding entity by IDs.
+func (_c *WorkflowCreate) AddSkillBindingIDs(ids ...uuid.UUID) *WorkflowCreate {
+	_c.mutation.AddSkillBindingIDs(ids...)
+	return _c
+}
+
+// AddSkillBindings adds the "skill_bindings" edges to the WorkflowSkillBinding entity.
+func (_c *WorkflowCreate) AddSkillBindings(v ...*WorkflowSkillBinding) *WorkflowCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddSkillBindingIDs(ids...)
 }
 
 // AddPickupStatusIDs adds the "pickup_statuses" edge to the TicketStatus entity by IDs.
@@ -488,6 +539,55 @@ func (_c *WorkflowCreate) createSpec() (*Workflow, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.AgentID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.CurrentVersionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   workflow.CurrentVersionTable,
+			Columns: []string{workflow.CurrentVersionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.CurrentVersionID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.VersionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workflow.VersionsTable,
+			Columns: []string{workflow.VersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowversion.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.SkillBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workflow.SkillBindingsTable,
+			Columns: []string{workflow.SkillBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workflowskillbinding.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.PickupStatusesIDs(); len(nodes) > 0 {

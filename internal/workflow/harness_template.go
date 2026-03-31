@@ -281,11 +281,6 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 		}
 		return HarnessTemplateData{}, fmt.Errorf("get project for harness render: %w", err)
 	}
-	storage, err := s.storageForProject(ctx, workflowItem.ProjectID, workflowStorageUsageRead)
-	if err != nil {
-		return HarnessTemplateData{}, err
-	}
-
 	agentData := HarnessAgentData{}
 	if input.AgentID != nil {
 		agentItem, agentErr := s.client.Agent.Query().
@@ -304,9 +299,9 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 		agentData = mapHarnessAgent(agentItem)
 	}
 
-	harnessContent, err := storage.registry.Read(workflowItem.HarnessPath)
+	harnessContent, err := s.projectedWorkflowHarness(ctx, workflowItem)
 	if err != nil {
-		return HarnessTemplateData{}, fmt.Errorf("read workflow harness for role extraction: %w", err)
+		return HarnessTemplateData{}, err
 	}
 
 	attemptCount := normalizeAttemptCount(ticketItem.AttemptCount)
@@ -320,7 +315,7 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 	scopedRepos, repoBranchByID := mapHarnessScopedRepos(ticketItem.Edges.RepoScopes, workspace)
 	allRepos := mapHarnessAllRepos(projectItem.Edges.Repos, repoBranchByID, workspace)
 	defaultBranch := deriveDefaultBranch(projectItem.Edges.Repos)
-	projectWorkflows, err := s.mapHarnessProjectWorkflows(ctx, storage, projectItem.Edges.Workflows)
+	projectWorkflows, err := s.mapHarnessProjectWorkflows(ctx, projectItem.Edges.Workflows)
 	if err != nil {
 		return HarnessTemplateData{}, err
 	}
@@ -672,7 +667,6 @@ func mapHarnessAllRepos(repos []*ent.ProjectRepo, repoBranchByID map[uuid.UUID]s
 
 func (s *Service) mapHarnessProjectWorkflows(
 	ctx context.Context,
-	storage *projectStorage,
 	workflows []*ent.Workflow,
 ) ([]HarnessProjectWorkflowData, error) {
 	items := make([]HarnessProjectWorkflowData, 0, len(workflows))
@@ -707,14 +701,14 @@ func (s *Service) mapHarnessProjectWorkflows(
 		if workflowItem == nil || !workflowItem.IsActive {
 			continue
 		}
-		harnessContent, err := storage.registry.Read(workflowItem.HarnessPath)
+		harnessContent, err := s.projectedWorkflowHarness(ctx, workflowItem)
 		if err != nil {
-			return nil, fmt.Errorf("read workflow harness for project context: %w", err)
+			return nil, err
 		}
 		roleName := extractWorkflowRoleName(harnessContent, workflowItem.Name)
-		skills, err := ParseHarnessSkills(harnessContent)
+		skills, err := s.listWorkflowBoundSkillNames(ctx, workflowItem.ID, false)
 		if err != nil {
-			return nil, fmt.Errorf("parse workflow skills for project context: %w", err)
+			return nil, fmt.Errorf("load workflow skills for project context: %w", err)
 		}
 		recentTickets, err := s.listHarnessWorkflowRecentTickets(ctx, workflowItem.ID, 5)
 		if err != nil {

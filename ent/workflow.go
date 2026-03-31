@@ -12,6 +12,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/google/uuid"
 )
 
@@ -24,6 +25,8 @@ type Workflow struct {
 	ProjectID uuid.UUID `json:"project_id,omitempty"`
 	// AgentID holds the value of the "agent_id" field.
 	AgentID *uuid.UUID `json:"agent_id,omitempty"`
+	// CurrentVersionID holds the value of the "current_version_id" field.
+	CurrentVersionID *uuid.UUID `json:"current_version_id,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// Type holds the value of the "type" field.
@@ -56,6 +59,12 @@ type WorkflowEdges struct {
 	Project *Project `json:"project,omitempty"`
 	// Agent holds the value of the agent edge.
 	Agent *Agent `json:"agent,omitempty"`
+	// CurrentVersion holds the value of the current_version edge.
+	CurrentVersion *WorkflowVersion `json:"current_version,omitempty"`
+	// Versions holds the value of the versions edge.
+	Versions []*WorkflowVersion `json:"versions,omitempty"`
+	// SkillBindings holds the value of the skill_bindings edge.
+	SkillBindings []*WorkflowSkillBinding `json:"skill_bindings,omitempty"`
 	// PickupStatuses holds the value of the pickup_statuses edge.
 	PickupStatuses []*TicketStatus `json:"pickup_statuses,omitempty"`
 	// FinishStatuses holds the value of the finish_statuses edge.
@@ -68,7 +77,7 @@ type WorkflowEdges struct {
 	ScheduledJobs []*ScheduledJob `json:"scheduled_jobs,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [7]bool
+	loadedTypes [10]bool
 }
 
 // ProjectOrErr returns the Project value or an error if the edge
@@ -93,10 +102,39 @@ func (e WorkflowEdges) AgentOrErr() (*Agent, error) {
 	return nil, &NotLoadedError{edge: "agent"}
 }
 
+// CurrentVersionOrErr returns the CurrentVersion value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e WorkflowEdges) CurrentVersionOrErr() (*WorkflowVersion, error) {
+	if e.CurrentVersion != nil {
+		return e.CurrentVersion, nil
+	} else if e.loadedTypes[2] {
+		return nil, &NotFoundError{label: workflowversion.Label}
+	}
+	return nil, &NotLoadedError{edge: "current_version"}
+}
+
+// VersionsOrErr returns the Versions value or an error if the edge
+// was not loaded in eager-loading.
+func (e WorkflowEdges) VersionsOrErr() ([]*WorkflowVersion, error) {
+	if e.loadedTypes[3] {
+		return e.Versions, nil
+	}
+	return nil, &NotLoadedError{edge: "versions"}
+}
+
+// SkillBindingsOrErr returns the SkillBindings value or an error if the edge
+// was not loaded in eager-loading.
+func (e WorkflowEdges) SkillBindingsOrErr() ([]*WorkflowSkillBinding, error) {
+	if e.loadedTypes[4] {
+		return e.SkillBindings, nil
+	}
+	return nil, &NotLoadedError{edge: "skill_bindings"}
+}
+
 // PickupStatusesOrErr returns the PickupStatuses value or an error if the edge
 // was not loaded in eager-loading.
 func (e WorkflowEdges) PickupStatusesOrErr() ([]*TicketStatus, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[5] {
 		return e.PickupStatuses, nil
 	}
 	return nil, &NotLoadedError{edge: "pickup_statuses"}
@@ -105,7 +143,7 @@ func (e WorkflowEdges) PickupStatusesOrErr() ([]*TicketStatus, error) {
 // FinishStatusesOrErr returns the FinishStatuses value or an error if the edge
 // was not loaded in eager-loading.
 func (e WorkflowEdges) FinishStatusesOrErr() ([]*TicketStatus, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[6] {
 		return e.FinishStatuses, nil
 	}
 	return nil, &NotLoadedError{edge: "finish_statuses"}
@@ -114,7 +152,7 @@ func (e WorkflowEdges) FinishStatusesOrErr() ([]*TicketStatus, error) {
 // TicketsOrErr returns the Tickets value or an error if the edge
 // was not loaded in eager-loading.
 func (e WorkflowEdges) TicketsOrErr() ([]*Ticket, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[7] {
 		return e.Tickets, nil
 	}
 	return nil, &NotLoadedError{edge: "tickets"}
@@ -123,7 +161,7 @@ func (e WorkflowEdges) TicketsOrErr() ([]*Ticket, error) {
 // AgentRunsOrErr returns the AgentRuns value or an error if the edge
 // was not loaded in eager-loading.
 func (e WorkflowEdges) AgentRunsOrErr() ([]*AgentRun, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[8] {
 		return e.AgentRuns, nil
 	}
 	return nil, &NotLoadedError{edge: "agent_runs"}
@@ -132,7 +170,7 @@ func (e WorkflowEdges) AgentRunsOrErr() ([]*AgentRun, error) {
 // ScheduledJobsOrErr returns the ScheduledJobs value or an error if the edge
 // was not loaded in eager-loading.
 func (e WorkflowEdges) ScheduledJobsOrErr() ([]*ScheduledJob, error) {
-	if e.loadedTypes[6] {
+	if e.loadedTypes[9] {
 		return e.ScheduledJobs, nil
 	}
 	return nil, &NotLoadedError{edge: "scheduled_jobs"}
@@ -143,7 +181,7 @@ func (*Workflow) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case workflow.FieldAgentID:
+		case workflow.FieldAgentID, workflow.FieldCurrentVersionID:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case workflow.FieldHooks:
 			values[i] = new([]byte)
@@ -188,6 +226,13 @@ func (_m *Workflow) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.AgentID = new(uuid.UUID)
 				*_m.AgentID = *value.S.(*uuid.UUID)
+			}
+		case workflow.FieldCurrentVersionID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field current_version_id", values[i])
+			} else if value.Valid {
+				_m.CurrentVersionID = new(uuid.UUID)
+				*_m.CurrentVersionID = *value.S.(*uuid.UUID)
 			}
 		case workflow.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -274,6 +319,21 @@ func (_m *Workflow) QueryAgent() *AgentQuery {
 	return NewWorkflowClient(_m.config).QueryAgent(_m)
 }
 
+// QueryCurrentVersion queries the "current_version" edge of the Workflow entity.
+func (_m *Workflow) QueryCurrentVersion() *WorkflowVersionQuery {
+	return NewWorkflowClient(_m.config).QueryCurrentVersion(_m)
+}
+
+// QueryVersions queries the "versions" edge of the Workflow entity.
+func (_m *Workflow) QueryVersions() *WorkflowVersionQuery {
+	return NewWorkflowClient(_m.config).QueryVersions(_m)
+}
+
+// QuerySkillBindings queries the "skill_bindings" edge of the Workflow entity.
+func (_m *Workflow) QuerySkillBindings() *WorkflowSkillBindingQuery {
+	return NewWorkflowClient(_m.config).QuerySkillBindings(_m)
+}
+
 // QueryPickupStatuses queries the "pickup_statuses" edge of the Workflow entity.
 func (_m *Workflow) QueryPickupStatuses() *TicketStatusQuery {
 	return NewWorkflowClient(_m.config).QueryPickupStatuses(_m)
@@ -327,6 +387,11 @@ func (_m *Workflow) String() string {
 	builder.WriteString(", ")
 	if v := _m.AgentID; v != nil {
 		builder.WriteString("agent_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.CurrentVersionID; v != nil {
+		builder.WriteString("current_version_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

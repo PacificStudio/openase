@@ -232,16 +232,8 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if strings.Contains(manager.capturedThreadStart().DeveloperInstructions, "dev-01=") {
 		t.Fatalf("expected non-whitelisted machine to stay out of developer instructions, got %q", manager.capturedThreadStart().DeveloperInstructions)
 	}
-	if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md")); err != nil {
-		t.Fatalf("expected built-in platform skill in primary repo: %v", err)
-	}
-	// #nosec G304 -- test reads a fixture from the temp repo root created above.
-	repoSkillContent, err := os.ReadFile(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md"))
-	if err != nil {
-		t.Fatalf("read repo platform skill: %v", err)
-	}
-	if !strings.HasPrefix(string(repoSkillContent), "---\nname: ") {
-		t.Fatalf("expected repo platform skill to include frontmatter, got %q", string(repoSkillContent))
+	if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md")); !os.IsNotExist(err) {
+		t.Fatalf("expected built-in platform skill to stay out of primary repo authority paths, stat err=%v", err)
 	}
 	workspacePath, err := workspaceinfra.TicketWorkspacePath(
 		expectedLocalWorkspaceRoot,

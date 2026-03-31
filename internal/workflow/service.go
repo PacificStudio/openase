@@ -2,6 +2,8 @@ package workflow
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -10,16 +12,23 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
+	entskill "github.com/BetterAndBetterII/openase/ent/skill"
+	entskillversion "github.com/BetterAndBetterII/openase/ent/skillversion"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	entworkflowskillbinding "github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
+	entworkflowversion "github.com/BetterAndBetterII/openase/ent/workflowversion"
+	"github.com/BetterAndBetterII/openase/internal/builtin"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
@@ -113,6 +122,320 @@ func Some[T any](value T) Optional[T] {
 	return Optional[T]{Set: true, Value: value}
 }
 
+func contentHash(content string) string {
+	sum := sha256.Sum256([]byte(content))
+	return hex.EncodeToString(sum[:])
+}
+
+func sanitizeHarnessContent(content string) (string, error) {
+	if err := validateHarnessForSave(content); err != nil {
+		return "", err
+	}
+	sanitized, err := setHarnessSkills(content, nil)
+	if err != nil {
+		return "", err
+	}
+	if err := validateHarnessForSave(sanitized); err != nil {
+		return "", err
+	}
+	return sanitized, nil
+}
+
+func projectHarnessContent(content string, skillNames []string) (string, error) {
+	projected, err := setHarnessSkills(content, skillNames)
+	if err != nil {
+		return "", err
+	}
+	if err := validateHarnessForSave(projected); err != nil {
+		return "", err
+	}
+	return projected, nil
+}
+
+func (s *Service) currentWorkflowVersion(ctx context.Context, workflowID uuid.UUID) (*ent.WorkflowVersion, error) {
+	item, err := s.client.WorkflowVersion.Query().
+		Where(entworkflowversion.WorkflowIDEQ(workflowID)).
+		Order(ent.Desc(entworkflowversion.FieldVersion)).
+		First(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			seeded, seedErr := s.seedLegacyWorkflowVersion(ctx, workflowID)
+			if seedErr == nil {
+				return seeded, nil
+			}
+			return nil, seedErr
+		}
+		return nil, s.mapWorkflowReadError("get workflow version", err)
+	}
+	return item, nil
+}
+
+func (s *Service) seedLegacyWorkflowVersion(ctx context.Context, workflowID uuid.UUID) (*ent.WorkflowVersion, error) {
+	if s == nil || s.client == nil {
+		return nil, ErrUnavailable
+	}
+	s.workflowVersionMu.Lock()
+	defer s.workflowVersionMu.Unlock()
+
+	if existing, err := s.client.WorkflowVersion.Query().
+		Where(entworkflowversion.WorkflowIDEQ(workflowID)).
+		Order(ent.Desc(entworkflowversion.FieldVersion)).
+		First(ctx); err == nil {
+		return existing, nil
+	}
+
+	workflowItem, err := s.client.Workflow.Get(ctx, workflowID)
+	if err != nil {
+		return nil, s.mapWorkflowReadError("get workflow for legacy version import", err)
+	}
+
+	repoRoot := strings.TrimSpace(s.repoRoot)
+	if repoRoot == "" {
+		if resolvedRoot, resolveErr := s.resolvePrimaryRepoRoot(ctx, workflowItem.ProjectID); resolveErr == nil {
+			repoRoot = strings.TrimSpace(resolvedRoot)
+		}
+	}
+	if repoRoot == "" {
+		return nil, ErrWorkflowNotFound
+	}
+
+	//nolint:gosec // legacy import only reads a workflow-owned harness path from the resolved repo root.
+	contentBytes, err := os.ReadFile(filepath.Join(repoRoot, filepath.FromSlash(workflowItem.HarnessPath)))
+	if err != nil {
+		return nil, s.mapWorkflowReadError("read legacy workflow harness", err)
+	}
+	content, err := sanitizeHarnessContent(string(contentBytes))
+	if err != nil {
+		return nil, err
+	}
+
+	versionNumber := workflowItem.Version
+	if versionNumber <= 0 {
+		versionNumber = 1
+	}
+	now := time.Now().UTC()
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("start workflow legacy version tx: %w", err)
+	}
+	defer rollback(tx)
+
+	versionItem, err := tx.WorkflowVersion.Create().
+		SetWorkflowID(workflowItem.ID).
+		SetVersion(versionNumber).
+		SetContentMarkdown(content).
+		SetContentHash(contentHash(content)).
+		SetCreatedBy("system:legacy-import").
+		SetCreatedAt(now).
+		Save(ctx)
+	if err != nil {
+		if ent.IsConstraintError(err) {
+			return s.client.WorkflowVersion.Query().
+				Where(entworkflowversion.WorkflowIDEQ(workflowItem.ID)).
+				Order(ent.Desc(entworkflowversion.FieldVersion)).
+				First(ctx)
+		}
+		return nil, fmt.Errorf("create legacy workflow version: %w", err)
+	}
+
+	if workflowItem.CurrentVersionID == nil || *workflowItem.CurrentVersionID == uuid.Nil {
+		if _, err := tx.Workflow.UpdateOneID(workflowItem.ID).
+			SetCurrentVersionID(versionItem.ID).
+			Save(ctx); err != nil {
+			return nil, fmt.Errorf("set legacy workflow current version: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit workflow legacy version tx: %w", err)
+	}
+
+	return versionItem, nil
+}
+
+func (s *Service) projectedWorkflowHarness(ctx context.Context, workflowItem *ent.Workflow) (string, error) {
+	version, err := s.currentWorkflowVersion(ctx, workflowItem.ID)
+	if err != nil {
+		return "", err
+	}
+	boundSkills, err := s.listWorkflowBoundSkillNames(ctx, workflowItem.ID, false)
+	if err != nil {
+		return "", err
+	}
+	return projectHarnessContent(version.ContentMarkdown, boundSkills)
+}
+
+func (s *Service) listWorkflowBoundSkillNames(ctx context.Context, workflowID uuid.UUID, enabledOnly bool) ([]string, error) {
+	query := s.client.WorkflowSkillBinding.Query().
+		Where(entworkflowskillbinding.WorkflowIDEQ(workflowID)).
+		WithSkill()
+	bindings, err := query.All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list workflow skill bindings: %w", err)
+	}
+
+	names := make([]string, 0, len(bindings))
+	for _, binding := range bindings {
+		if binding.Edges.Skill == nil {
+			continue
+		}
+		if binding.Edges.Skill.ArchivedAt != nil {
+			continue
+		}
+		if enabledOnly && !binding.Edges.Skill.IsEnabled {
+			continue
+		}
+		names = append(names, binding.Edges.Skill.Name)
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+func skillDescriptionFromContent(content string) (string, error) {
+	document, body, err := parseSkillDocument(content)
+	if err != nil {
+		return "", fmt.Errorf("%w: %s", ErrSkillInvalid, err)
+	}
+	title := parseSkillTitle(body)
+	if strings.TrimSpace(title) != "" {
+		return title, nil
+	}
+	description := strings.TrimSpace(document.Description)
+	if description == "" {
+		return "", fmt.Errorf("%w: description must not be empty", ErrSkillInvalid)
+	}
+	return description, nil
+}
+
+func (s *Service) ensureBuiltinSkills(ctx context.Context, projectID uuid.UUID) error {
+	if s == nil || s.client == nil {
+		return ErrUnavailable
+	}
+	s.builtinSkillsMu.Lock()
+	defer s.builtinSkillsMu.Unlock()
+
+	existing, err := s.client.Skill.Query().
+		Where(entskill.ProjectIDEQ(projectID)).
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("list existing skills: %w", err)
+	}
+	byName := make(map[string]*ent.Skill, len(existing))
+	for _, item := range existing {
+		byName[item.Name] = item
+	}
+
+	for _, template := range builtin.Skills() {
+		if _, ok := byName[template.Name]; ok {
+			continue
+		}
+
+		now := time.Now().UTC()
+		tx, err := s.client.Tx(ctx)
+		if err != nil {
+			return fmt.Errorf("start builtin skill tx: %w", err)
+		}
+
+		content, err := ensureSkillContent(template.Name, template.Content, template.Description)
+		if err != nil {
+			rollback(tx)
+			return err
+		}
+		description, err := skillDescriptionFromContent(content)
+		if err != nil {
+			rollback(tx)
+			return err
+		}
+
+		skillItem, err := tx.Skill.Create().
+			SetProjectID(projectID).
+			SetName(template.Name).
+			SetDescription(description).
+			SetIsBuiltin(true).
+			SetIsEnabled(true).
+			SetCreatedBy("builtin:openase").
+			SetCreatedAt(now).
+			SetUpdatedAt(now).
+			Save(ctx)
+		if err != nil {
+			rollback(tx)
+			if ent.IsConstraintError(err) {
+				continue
+			}
+			return fmt.Errorf("create builtin skill %s: %w", template.Name, err)
+		}
+
+		versionItem, err := tx.SkillVersion.Create().
+			SetSkillID(skillItem.ID).
+			SetVersion(1).
+			SetContentMarkdown(content).
+			SetContentHash(contentHash(content)).
+			SetCreatedBy("builtin:openase").
+			SetCreatedAt(now).
+			Save(ctx)
+		if err != nil {
+			rollback(tx)
+			return fmt.Errorf("create builtin skill version %s: %w", template.Name, err)
+		}
+
+		if _, err := tx.Skill.UpdateOneID(skillItem.ID).
+			SetCurrentVersionID(versionItem.ID).
+			Save(ctx); err != nil {
+			rollback(tx)
+			return fmt.Errorf("update builtin skill current version %s: %w", template.Name, err)
+		}
+
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("commit builtin skill %s: %w", template.Name, err)
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) skillByName(ctx context.Context, projectID uuid.UUID, name string) (*ent.Skill, error) {
+	item, err := s.client.Skill.Query().
+		Where(
+			entskill.ProjectIDEQ(projectID),
+			entskill.NameEQ(name),
+			entskill.ArchivedAtIsNil(),
+		).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, ErrSkillNotFound
+		}
+		return nil, fmt.Errorf("get skill by name: %w", err)
+	}
+	return item, nil
+}
+
+func (s *Service) currentSkillVersion(ctx context.Context, skillID uuid.UUID, requiredVersionID *uuid.UUID) (*ent.SkillVersion, error) {
+	query := s.client.SkillVersion.Query()
+	if requiredVersionID != nil && *requiredVersionID != uuid.Nil {
+		item, err := query.Where(entskillversion.IDEQ(*requiredVersionID)).Only(ctx)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				return nil, ErrSkillNotFound
+			}
+			return nil, fmt.Errorf("get required skill version: %w", err)
+		}
+		return item, nil
+	}
+
+	item, err := query.
+		Where(entskillversion.SkillIDEQ(skillID)).
+		Order(ent.Desc(entskillversion.FieldVersion)).
+		First(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, ErrSkillNotFound
+		}
+		return nil, fmt.Errorf("get current skill version: %w", err)
+	}
+	return item, nil
+}
+
 type Workflow struct {
 	ID                  uuid.UUID        `json:"id"`
 	ProjectID           uuid.UUID        `json:"project_id"`
@@ -182,12 +505,14 @@ type UpdateHarnessInput struct {
 }
 
 type Service struct {
-	client    *ent.Client
-	logger    *slog.Logger
-	repoRoot  string
-	mirrors   *projectrepomirrorsvc.Service
-	storageMu sync.Mutex
-	storages  map[uuid.UUID]*projectStorage
+	client            *ent.Client
+	logger            *slog.Logger
+	repoRoot          string
+	mirrors           *projectrepomirrorsvc.Service
+	storageMu         sync.Mutex
+	storages          map[uuid.UUID]*projectStorage
+	builtinSkillsMu   sync.Mutex
+	workflowVersionMu sync.Mutex
 }
 
 type workflowStorageUsage string
@@ -803,14 +1128,9 @@ func (s *Service) Get(ctx context.Context, workflowID uuid.UUID) (WorkflowDetail
 	if err != nil {
 		return WorkflowDetail{}, s.mapWorkflowReadError("get workflow", err)
 	}
-	storage, err := s.storageForProject(ctx, item.ProjectID, workflowStorageUsageRead)
+	content, err := s.projectedWorkflowHarness(ctx, item)
 	if err != nil {
 		return WorkflowDetail{}, err
-	}
-
-	content, err := storage.registry.Read(item.HarnessPath)
-	if err != nil {
-		return WorkflowDetail{}, fmt.Errorf("read workflow harness: %w", err)
 	}
 
 	return mapWorkflowDetail(item, content), nil
@@ -836,16 +1156,11 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 	if err := s.ensureStatusBindingsBelongToProject(ctx, input.ProjectID, finishStatusIDs); err != nil {
 		return WorkflowDetail{}, err
 	}
-	storage, err := s.storageForProject(ctx, input.ProjectID, workflowStorageUsageWrite)
-	if err != nil {
-		return WorkflowDetail{}, err
-	}
-
 	harnessPath, err := s.resolveCreateHarnessPath(input.Name, input.HarnessPath)
 	if err != nil {
 		return WorkflowDetail{}, err
 	}
-	if err := s.ensureHarnessPathAvailable(ctx, input.ProjectID, storage, harnessPath, uuid.Nil); err != nil {
+	if err := s.ensureHarnessPathAvailable(ctx, input.ProjectID, harnessPath, uuid.Nil); err != nil {
 		return WorkflowDetail{}, err
 	}
 	parsedHooks, err := validateConfiguredHooks(input.Hooks)
@@ -857,24 +1172,19 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 	if err != nil {
 		return WorkflowDetail{}, err
 	}
-	if err := storage.registry.Write(harnessPath, harnessContent); err != nil {
+	sanitizedHarnessContent, err := sanitizeHarnessContent(harnessContent)
+	if err != nil {
 		return WorkflowDetail{}, err
 	}
 
 	workflowID := uuid.New()
-	if input.IsActive {
-		if err := s.runWorkflowHooks(ctx, storage, parsedHooks, workflowHookOnActivate, workflowHookRuntime{
-			ProjectID:       input.ProjectID,
-			WorkflowID:      workflowID,
-			WorkflowName:    input.Name,
-			WorkflowVersion: 1,
-		}); err != nil {
-			_ = storage.registry.Delete(harnessPath)
-			return WorkflowDetail{}, err
-		}
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return WorkflowDetail{}, fmt.Errorf("start workflow create tx: %w", err)
 	}
+	defer rollback(tx)
 
-	builder := s.client.Workflow.Create().
+	item, err := tx.Workflow.Create().
 		SetID(workflowID).
 		SetProjectID(input.ProjectID).
 		SetAgentID(input.AgentID).
@@ -886,23 +1196,57 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 		SetMaxRetryAttempts(input.MaxRetryAttempts).
 		SetTimeoutMinutes(input.TimeoutMinutes).
 		SetStallTimeoutMinutes(input.StallTimeoutMinutes).
+		SetVersion(1).
 		SetIsActive(input.IsActive).
 		AddPickupStatusIDs(pickupStatusIDs.IDs()...).
-		AddFinishStatusIDs(finishStatusIDs.IDs()...)
-
-	item, err := builder.Save(ctx)
+		AddFinishStatusIDs(finishStatusIDs.IDs()...).
+		Save(ctx)
 	if err != nil {
-		_ = storage.registry.Delete(harnessPath)
 		return WorkflowDetail{}, s.mapWorkflowWriteError("create workflow", err)
+	}
+
+	versionItem, err := tx.WorkflowVersion.Create().
+		SetWorkflowID(workflowID).
+		SetVersion(1).
+		SetContentMarkdown(sanitizedHarnessContent).
+		SetContentHash(contentHash(sanitizedHarnessContent)).
+		Save(ctx)
+	if err != nil {
+		return WorkflowDetail{}, s.mapWorkflowWriteError("create workflow version", err)
+	}
+
+	if _, err := tx.Workflow.UpdateOneID(workflowID).
+		SetCurrentVersionID(versionItem.ID).
+		Save(ctx); err != nil {
+		return WorkflowDetail{}, s.mapWorkflowWriteError("set workflow current version", err)
+	}
+
+	if input.IsActive {
+		if err := s.runWorkflowHooks(ctx, input.ProjectID, parsedHooks, workflowHookOnActivate, workflowHookRuntime{
+			ProjectID:       input.ProjectID,
+			WorkflowID:      workflowID,
+			WorkflowName:    input.Name,
+			WorkflowVersion: 1,
+		}); err != nil {
+			return WorkflowDetail{}, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return WorkflowDetail{}, fmt.Errorf("commit workflow create tx: %w", err)
 	}
 
 	item, err = s.getWorkflowWithStatusBindings(ctx, item.ID)
 	if err != nil {
-		_ = storage.registry.Delete(harnessPath)
 		return WorkflowDetail{}, err
 	}
 
-	return mapWorkflowDetail(item, harnessContent), nil
+	projectedContent, err := s.projectedWorkflowHarness(ctx, item)
+	if err != nil {
+		return WorkflowDetail{}, err
+	}
+
+	return mapWorkflowDetail(item, projectedContent), nil
 }
 
 func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail, error) {
@@ -914,11 +1258,6 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 	if err != nil {
 		return WorkflowDetail{}, s.mapWorkflowReadError("get workflow for update", err)
 	}
-	storage, err := s.storageForProject(ctx, current.ProjectID, workflowStorageUsageWrite)
-	if err != nil {
-		return WorkflowDetail{}, err
-	}
-
 	projectID := current.ProjectID
 	nextAgentID := current.AgentID
 	if input.AgentID.Set {
@@ -946,7 +1285,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 		nextHarnessPath = defaultHarnessPath(nextName)
 	}
 	if nextHarnessPath != current.HarnessPath {
-		if err := s.ensureHarnessPathAvailable(ctx, projectID, storage, nextHarnessPath, current.ID); err != nil {
+		if err := s.ensureHarnessPathAvailable(ctx, projectID, nextHarnessPath, current.ID); err != nil {
 			return WorkflowDetail{}, err
 		}
 	}
@@ -981,26 +1320,13 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 		nextIsActive = input.IsActive.Value
 	}
 
-	if nextHarnessPath != current.HarnessPath {
-		content, readErr := storage.registry.Read(current.HarnessPath)
-		if readErr != nil {
-			return WorkflowDetail{}, fmt.Errorf("read workflow harness before move: %w", readErr)
-		}
-		if err := storage.registry.Write(nextHarnessPath, content); err != nil {
-			return WorkflowDetail{}, err
-		}
-	}
-
 	if !current.IsActive && nextIsActive {
-		if err := s.runWorkflowHooks(ctx, storage, parsedHooks, workflowHookOnActivate, workflowHookRuntime{
+		if err := s.runWorkflowHooks(ctx, projectID, parsedHooks, workflowHookOnActivate, workflowHookRuntime{
 			ProjectID:       current.ProjectID,
 			WorkflowID:      current.ID,
 			WorkflowName:    nextName,
 			WorkflowVersion: current.Version,
 		}); err != nil {
-			if nextHarnessPath != current.HarnessPath {
-				_ = storage.registry.Delete(nextHarnessPath)
-			}
 			return WorkflowDetail{}, err
 		}
 	}
@@ -1047,16 +1373,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 
 	item, err := builder.Save(ctx)
 	if err != nil {
-		if nextHarnessPath != current.HarnessPath {
-			_ = storage.registry.Delete(nextHarnessPath)
-		}
 		return WorkflowDetail{}, s.mapWorkflowWriteError("update workflow", err)
-	}
-
-	if nextHarnessPath != current.HarnessPath {
-		if err := storage.registry.Delete(current.HarnessPath); err != nil {
-			s.logger.Error("delete old workflow harness after move", "error", err, "path", current.HarnessPath)
-		}
 	}
 
 	item, err = s.getWorkflowWithStatusBindings(ctx, item.ID)
@@ -1064,9 +1381,9 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 		return WorkflowDetail{}, err
 	}
 
-	content, err := storage.registry.Read(item.HarnessPath)
+	content, err := s.projectedWorkflowHarness(ctx, item)
 	if err != nil {
-		return WorkflowDetail{}, fmt.Errorf("read workflow harness after update: %w", err)
+		return WorkflowDetail{}, err
 	}
 
 	return mapWorkflowDetail(item, content), nil
@@ -1081,11 +1398,6 @@ func (s *Service) Delete(ctx context.Context, workflowID uuid.UUID) (Workflow, e
 	if err != nil {
 		return Workflow{}, s.mapWorkflowReadError("get workflow for delete", err)
 	}
-	storage, err := s.storageForProject(ctx, current.ProjectID, workflowStorageUsageWrite)
-	if err != nil {
-		return Workflow{}, err
-	}
-
 	tx, err := s.client.Tx(ctx)
 	if err != nil {
 		return Workflow{}, fmt.Errorf("start workflow delete tx: %w", err)
@@ -1099,16 +1411,24 @@ func (s *Service) Delete(ctx context.Context, workflowID uuid.UUID) (Workflow, e
 		return Workflow{}, fmt.Errorf("clear project default workflow reference: %w", err)
 	}
 
+	if _, err := tx.WorkflowSkillBinding.Delete().
+		Where(entworkflowskillbinding.WorkflowIDEQ(current.ID)).
+		Exec(ctx); err != nil {
+		return Workflow{}, fmt.Errorf("delete workflow skill bindings: %w", err)
+	}
+
+	if _, err := tx.WorkflowVersion.Delete().
+		Where(entworkflowversion.WorkflowIDEQ(current.ID)).
+		Exec(ctx); err != nil {
+		return Workflow{}, fmt.Errorf("delete workflow versions: %w", err)
+	}
+
 	if err := tx.Workflow.DeleteOneID(current.ID).Exec(ctx); err != nil {
 		return Workflow{}, s.mapWorkflowWriteError("delete workflow", err)
 	}
 
 	if err := tx.Commit(); err != nil {
 		return Workflow{}, fmt.Errorf("commit workflow delete tx: %w", err)
-	}
-
-	if err := storage.registry.Delete(current.HarnessPath); err != nil {
-		return Workflow{}, err
 	}
 
 	return mapWorkflow(current), nil
@@ -1123,14 +1443,9 @@ func (s *Service) GetHarness(ctx context.Context, workflowID uuid.UUID) (Harness
 	if err != nil {
 		return HarnessDocument{}, s.mapWorkflowReadError("get workflow for harness", err)
 	}
-	storage, err := s.storageForProject(ctx, item.ProjectID, workflowStorageUsageRead)
+	content, err := s.projectedWorkflowHarness(ctx, item)
 	if err != nil {
 		return HarnessDocument{}, err
-	}
-
-	content, err := storage.registry.Read(item.HarnessPath)
-	if err != nil {
-		return HarnessDocument{}, fmt.Errorf("read workflow harness: %w", err)
 	}
 
 	return HarnessDocument{
@@ -1153,52 +1468,78 @@ func (s *Service) UpdateHarness(ctx context.Context, input UpdateHarnessInput) (
 	if err != nil {
 		return HarnessDocument{}, s.mapWorkflowReadError("get workflow for harness update", err)
 	}
-	storage, err := s.storageForProject(ctx, item.ProjectID, workflowStorageUsageWrite)
-	if err != nil {
-		return HarnessDocument{}, err
-	}
 	parsedHooks, err := validateConfiguredHooks(item.Hooks)
 	if err != nil {
 		return HarnessDocument{}, err
 	}
 
-	previousContent, err := storage.registry.Read(item.HarnessPath)
+	previousVersion, err := s.currentWorkflowVersion(ctx, item.ID)
 	if err != nil {
-		return HarnessDocument{}, fmt.Errorf("read workflow harness before update: %w", err)
-	}
-
-	if err := storage.registry.Write(item.HarnessPath, input.Content); err != nil {
 		return HarnessDocument{}, err
+	}
+	sanitizedContent, err := sanitizeHarnessContent(input.Content)
+	if err != nil {
+		return HarnessDocument{}, err
+	}
+	if sanitizedContent == previousVersion.ContentMarkdown {
+		content, err := s.projectedWorkflowHarness(ctx, item)
+		if err != nil {
+			return HarnessDocument{}, err
+		}
+		return HarnessDocument{
+			WorkflowID: item.ID,
+			Path:       item.HarnessPath,
+			Content:    content,
+			Version:    item.Version,
+		}, nil
 	}
 
 	if item.IsActive {
-		if err := s.runWorkflowHooks(ctx, storage, parsedHooks, workflowHookOnReload, workflowHookRuntime{
+		if err := s.runWorkflowHooks(ctx, item.ProjectID, parsedHooks, workflowHookOnReload, workflowHookRuntime{
 			ProjectID:       item.ProjectID,
 			WorkflowID:      item.ID,
 			WorkflowName:    item.Name,
 			WorkflowVersion: item.Version + 1,
 		}); err != nil {
-			if restoreErr := storage.registry.Write(item.HarnessPath, previousContent); restoreErr != nil {
-				s.logger.Error("restore workflow harness after reload hook failure", "error", restoreErr, "workflow_id", item.ID, "path", item.HarnessPath)
-			}
 			return HarnessDocument{}, err
 		}
 	}
 
-	updated, err := s.client.Workflow.UpdateOneID(item.ID).
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return HarnessDocument{}, fmt.Errorf("start workflow harness update tx: %w", err)
+	}
+	defer rollback(tx)
+
+	versionItem, err := tx.WorkflowVersion.Create().
+		SetWorkflowID(item.ID).
 		SetVersion(item.Version + 1).
+		SetContentMarkdown(sanitizedContent).
+		SetContentHash(contentHash(sanitizedContent)).
 		Save(ctx)
 	if err != nil {
-		if restoreErr := storage.registry.Write(item.HarnessPath, previousContent); restoreErr != nil {
-			s.logger.Error("restore workflow harness after version update failure", "error", restoreErr, "workflow_id", item.ID, "path", item.HarnessPath)
-		}
-		return HarnessDocument{}, s.mapWorkflowWriteError("update workflow harness version", err)
+		return HarnessDocument{}, s.mapWorkflowWriteError("create workflow harness version", err)
 	}
 
+	updated, err := tx.Workflow.UpdateOneID(item.ID).
+		SetVersion(item.Version + 1).
+		SetCurrentVersionID(versionItem.ID).
+		Save(ctx)
+	if err != nil {
+		return HarnessDocument{}, s.mapWorkflowWriteError("update workflow harness version", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return HarnessDocument{}, fmt.Errorf("commit workflow harness update tx: %w", err)
+	}
+
+	content, err := s.projectedWorkflowHarness(ctx, updated)
+	if err != nil {
+		return HarnessDocument{}, err
+	}
 	return HarnessDocument{
 		WorkflowID: updated.ID,
 		Path:       updated.HarnessPath,
-		Content:    input.Content,
+		Content:    content,
 		Version:    updated.Version,
 	}, nil
 }
@@ -1260,7 +1601,6 @@ func (s *Service) resolveCreateHarnessPath(name string, rawPath *string) (string
 func (s *Service) ensureHarnessPathAvailable(
 	ctx context.Context,
 	projectID uuid.UUID,
-	storage *projectStorage,
 	harnessPath string,
 	excludeWorkflowID uuid.UUID,
 ) error {
@@ -1275,7 +1615,7 @@ func (s *Service) ensureHarnessPathAvailable(
 	if err != nil {
 		return fmt.Errorf("check workflow harness path uniqueness: %w", err)
 	}
-	if exists || storage.registry.Exists(harnessPath) {
+	if exists {
 		return ErrWorkflowConflict
 	}
 
@@ -1359,7 +1699,7 @@ func (s *Service) handleHarnessReload(event harnessReloadEvent) {
 	}
 
 	if item.IsActive {
-		if err := s.runWorkflowHooks(ctx, storage, parsedHooks, workflowHookOnReload, workflowHookRuntime{
+		if err := s.runWorkflowHooks(ctx, item.ProjectID, parsedHooks, workflowHookOnReload, workflowHookRuntime{
 			ProjectID:       item.ProjectID,
 			WorkflowID:      item.ID,
 			WorkflowName:    item.Name,
@@ -1390,23 +1730,47 @@ func (s *Service) handleHarnessReload(event harnessReloadEvent) {
 
 func (s *Service) runWorkflowHooks(
 	ctx context.Context,
-	storage *projectStorage,
+	projectID uuid.UUID,
 	hooks workflowHooksConfig,
 	hookName workflowHookName,
 	runtime workflowHookRuntime,
 ) error {
-	if s == nil || storage == nil || storage.hookExecutor == nil {
+	if s == nil {
+		return nil
+	}
+	executor := s.hookExecutorForProject(ctx, projectID)
+	if executor == nil {
 		return nil
 	}
 
 	switch hookName {
 	case workflowHookOnActivate:
-		return storage.hookExecutor.RunAll(ctx, hookName, hooks.OnActivate, runtime)
+		return executor.RunAll(ctx, hookName, hooks.OnActivate, runtime)
 	case workflowHookOnReload:
-		return storage.hookExecutor.RunAll(ctx, hookName, hooks.OnReload, runtime)
+		return executor.RunAll(ctx, hookName, hooks.OnReload, runtime)
 	default:
 		return nil
 	}
+}
+
+func (s *Service) hookExecutorForProject(ctx context.Context, projectID uuid.UUID) *workflowHookExecutor {
+	if s == nil {
+		return nil
+	}
+	logger := s.logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+	repoRoot := strings.TrimSpace(s.repoRoot)
+	if projectID != uuid.Nil {
+		if resolvedRoot, err := s.resolvePrimaryRepoRoot(ctx, projectID); err == nil && strings.TrimSpace(resolvedRoot) != "" {
+			repoRoot = resolvedRoot
+		}
+	}
+	if repoRoot == "" {
+		return nil
+	}
+	return newWorkflowHookExecutor(repoRoot, logger)
 }
 
 func mapWorkflowMirrorError(err error) error {

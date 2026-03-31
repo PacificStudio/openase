@@ -21,7 +21,6 @@ import (
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
-	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
 
@@ -838,35 +837,7 @@ func (l *RuntimeLauncher) autoHarvestCompletedSkills(
 	if l == nil || l.workflow == nil || ticket == nil || ticket.WorkflowID == nil {
 		return nil
 	}
-
-	launchContext, err := l.loadLaunchContext(ctx, agentID, ticket.ID)
-	if err != nil {
-		return err
-	}
-	machine, remote, err := l.resolveLaunchMachine(ctx, launchContext)
-	if err != nil {
-		return err
-	}
-	if remote || machine.Host != catalogdomain.LocalMachineHost {
-		return nil
-	}
-
-	repoPath, err := l.resolveRuntimePrimaryRepoPath(ctx, runID)
-	if err != nil {
-		return err
-	}
-	if strings.TrimSpace(repoPath) == "" {
-		return nil
-	}
-
-	_, err = l.workflow.HarvestSkills(ctx, workflowservice.HarvestSkillsInput{
-		ProjectID:     launchContext.project.ID,
-		WorkspaceRoot: repoPath,
-		AdapterType:   string(launchContext.agent.Edges.Provider.AdapterType),
-		WorkflowID:    ticket.WorkflowID,
-		CreatedBy:     fmt.Sprintf("agent:%s via %s", launchContext.agent.Name, launchContext.ticket.Identifier),
-	})
-	return err
+	return nil
 }
 
 func (l *RuntimeLauncher) resolveRuntimePrimaryRepoPath(ctx context.Context, runID uuid.UUID) (string, error) {

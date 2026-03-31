@@ -17,8 +17,9 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	entskill "github.com/BetterAndBetterII/openase/ent/skill"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
-	"github.com/BetterAndBetterII/openase/internal/builtin"
+	entworkflowskillbinding "github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 	"go.yaml.in/yaml/v3"
@@ -127,131 +128,68 @@ func (s *Service) ListSkills(ctx context.Context, projectID uuid.UUID) ([]Skill,
 	if err := s.ensureProjectExists(ctx, projectID); err != nil {
 		return nil, err
 	}
-	storage, err := s.storageForProject(ctx, projectID, workflowStorageUsageRead)
-	if err != nil {
+	if err := s.ensureBuiltinSkills(ctx, projectID); err != nil {
 		return nil, err
 	}
 
-	index, err := s.syncSkillIndex(storage.skillRoot, time.Now().UTC())
-	if err != nil {
-		return nil, err
-	}
-
-	workflows, err := s.client.Workflow.Query().
-		Where(entworkflow.ProjectIDEQ(projectID)).
-		Order(ent.Asc(entworkflow.FieldName)).
+	items, err := s.client.Skill.Query().
+		Where(
+			entskill.ProjectIDEQ(projectID),
+			entskill.ArchivedAtIsNil(),
+		).
+		Order(ent.Asc(entskill.FieldName)).
 		All(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("list workflows for skills: %w", err)
+		return nil, fmt.Errorf("list skills: %w", err)
 	}
 
-	byName := make(map[string]*Skill, len(index))
-	for name, entry := range index {
-		description, err := s.readSkillDescription(storage, name)
-		if err != nil {
-			return nil, err
-		}
-		byName[name] = &Skill{
-			ID:          entry.ID,
-			Name:        name,
-			Description: description,
-			Path:        skillContentRelativePath(name),
-			IsBuiltin:   builtin.IsBuiltinSkill(name),
-			IsEnabled:   entry.IsEnabled,
-			CreatedBy:   entry.CreatedBy,
-			CreatedAt:   entry.CreatedAt.UTC(),
-		}
+	bindings, err := s.client.WorkflowSkillBinding.Query().
+		Where(
+			entworkflowskillbinding.HasWorkflowWith(entworkflow.ProjectIDEQ(projectID)),
+			entworkflowskillbinding.HasSkillWith(
+				entskill.ProjectIDEQ(projectID),
+				entskill.ArchivedAtIsNil(),
+			),
+		).
+		WithWorkflow().
+		WithSkill().
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list workflow skill bindings: %w", err)
 	}
 
-	for _, workflowItem := range workflows {
-		content, err := storage.registry.Read(workflowItem.HarnessPath)
-		if err != nil {
-			return nil, fmt.Errorf("read workflow harness for skills: %w", err)
+	bindingsBySkillID := make(map[uuid.UUID][]SkillWorkflowBinding, len(items))
+	for _, binding := range bindings {
+		if binding.Edges.Skill == nil || binding.Edges.Workflow == nil {
+			continue
 		}
-
-		skillNames, err := ParseHarnessSkills(content)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, name := range skillNames {
-			skillItem, ok := byName[name]
-			if !ok {
-				description, descErr := s.readSkillDescription(storage, name)
-				if descErr != nil && !errors.Is(descErr, fs.ErrNotExist) {
-					return nil, descErr
-				}
-				entry, hasEntry := index[name]
-				if !hasEntry {
-					entry = skillIndexEntry{
-						ID:        uuid.New(),
-						Name:      name,
-						IsEnabled: false,
-						CreatedBy: defaultSkillCreator(name),
-						CreatedAt: time.Now().UTC(),
-					}
-				}
-				skillItem = &Skill{
-					ID:          entry.ID,
-					Name:        name,
-					Description: description,
-					Path:        skillContentRelativePath(name),
-					IsBuiltin:   builtin.IsBuiltinSkill(name),
-					IsEnabled:   entry.IsEnabled,
-					CreatedBy:   entry.CreatedBy,
-					CreatedAt:   entry.CreatedAt.UTC(),
-				}
-				byName[name] = skillItem
-			}
-			skillItem.BoundWorkflows = append(skillItem.BoundWorkflows, SkillWorkflowBinding{
-				ID:          workflowItem.ID,
-				Name:        workflowItem.Name,
-				HarnessPath: workflowItem.HarnessPath,
-			})
-		}
-	}
-
-	names := make([]string, 0, len(byName))
-	for name := range byName {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	items := make([]Skill, 0, len(names))
-	for _, name := range names {
-		item := *byName[name]
-		sort.Slice(item.BoundWorkflows, func(i int, j int) bool {
-			return item.BoundWorkflows[i].Name < item.BoundWorkflows[j].Name
+		bindingsBySkillID[binding.Edges.Skill.ID] = append(bindingsBySkillID[binding.Edges.Skill.ID], SkillWorkflowBinding{
+			ID:          binding.Edges.Workflow.ID,
+			Name:        binding.Edges.Workflow.Name,
+			HarnessPath: binding.Edges.Workflow.HarnessPath,
 		})
-		items = append(items, item)
 	}
 
-	return items, nil
-}
-
-func (s *Service) readSkillDescription(storage *projectStorage, name string) (string, error) {
-	if skill, ok := builtin.SkillByName(name); ok && strings.TrimSpace(skill.Description) != "" {
-		return skill.Description, nil
+	result := make([]Skill, 0, len(items))
+	for _, item := range items {
+		workflowBindings := bindingsBySkillID[item.ID]
+		sort.Slice(workflowBindings, func(i int, j int) bool {
+			return workflowBindings[i].Name < workflowBindings[j].Name
+		})
+		result = append(result, Skill{
+			ID:             item.ID,
+			Name:           item.Name,
+			Description:    item.Description,
+			Path:           skillContentRelativePath(item.Name),
+			IsBuiltin:      item.IsBuiltin,
+			IsEnabled:      item.IsEnabled,
+			CreatedBy:      item.CreatedBy,
+			CreatedAt:      item.CreatedAt.UTC(),
+			BoundWorkflows: workflowBindings,
+		})
 	}
 
-	contentPath := filepath.Join(s.skillDirectoryPath(storage, name), "SKILL.md")
-	//nolint:gosec // contentPath comes from validated skill metadata rooted in trusted directories
-	data, err := os.ReadFile(contentPath)
-	if err != nil {
-		return "", fmt.Errorf("read skill %s metadata: %w", name, err)
-	}
-
-	document, body, err := parseSkillDocument(string(data))
-	if err != nil {
-		return "", fmt.Errorf("read skill %s metadata: %w", name, err)
-	}
-
-	title := parseSkillTitle(body)
-	if title != "" {
-		return title, nil
-	}
-
-	return strings.TrimSpace(document.Description), nil
+	return result, nil
 }
 
 func parseSkillTitle(content string) string {
@@ -267,13 +205,11 @@ func parseSkillTitle(content string) string {
 }
 
 type resolvedSkillRecord struct {
-	projectID uuid.UUID
-	storage   *projectStorage
-	entry     skillIndexEntry
+	skill *ent.Skill
 }
 
 func (s *Service) GetSkill(ctx context.Context, skillID uuid.UUID) (SkillDetail, error) {
-	record, err := s.resolveSkillRecord(ctx, skillID, workflowStorageUsageRead)
+	record, err := s.resolveSkillRecord(ctx, skillID)
 	if err != nil {
 		return SkillDetail{}, err
 	}
@@ -287,37 +223,26 @@ func (s *Service) CreateSkill(ctx context.Context, input CreateSkillInput) (Skil
 	if err := s.ensureProjectExists(ctx, input.ProjectID); err != nil {
 		return SkillDetail{}, err
 	}
+	if err := s.ensureBuiltinSkills(ctx, input.ProjectID); err != nil {
+		return SkillDetail{}, err
+	}
 	names, err := normalizeSkillNames([]string{input.Name})
 	if err != nil {
 		return SkillDetail{}, err
 	}
-
-	storage, err := s.storageForProject(ctx, input.ProjectID, workflowStorageUsageWrite)
-	if err != nil {
-		return SkillDetail{}, err
-	}
-	index, err := s.syncSkillIndex(storage.skillRoot, time.Now().UTC())
-	if err != nil {
-		return SkillDetail{}, err
-	}
 	name := names[0]
-	if _, exists := index[name]; exists {
+	if _, err := s.skillByName(ctx, input.ProjectID, name); err == nil {
 		return SkillDetail{}, fmt.Errorf("%w: skill %q already exists", ErrSkillInvalid, name)
+	} else if !errors.Is(err, ErrSkillNotFound) {
+		return SkillDetail{}, err
 	}
 
 	content, err := ensureSkillContent(name, input.Content, input.Description)
 	if err != nil {
 		return SkillDetail{}, err
 	}
-	skillDir := s.skillDirectoryPath(storage, name)
-	if err := os.MkdirAll(skillDir, 0o750); err != nil {
-		return SkillDetail{}, fmt.Errorf("create skill directory %s: %w", skillDir, err)
-	}
-	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(content), 0o600); err != nil {
-		return SkillDetail{}, fmt.Errorf("write skill %s: %w", name, err)
-	}
-	if err := validateSkillDirectory(skillDir); err != nil {
-		_ = os.RemoveAll(skillDir)
+	description, err := skillDescriptionFromContent(content)
+	if err != nil {
 		return SkillDetail{}, err
 	}
 
@@ -325,117 +250,139 @@ func (s *Service) CreateSkill(ctx context.Context, input CreateSkillInput) (Skil
 	if input.Enabled != nil {
 		enabled = *input.Enabled
 	}
-	entry := skillIndexEntry{
-		ID:        uuid.New(),
-		Name:      name,
-		IsEnabled: enabled,
-		CreatedBy: strings.TrimSpace(input.CreatedBy),
-		CreatedAt: time.Now().UTC(),
+	createdBy := strings.TrimSpace(input.CreatedBy)
+	if createdBy == "" {
+		createdBy = "user:manual"
 	}
-	if entry.CreatedBy == "" {
-		entry.CreatedBy = "user:manual"
+	now := time.Now().UTC()
+
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return SkillDetail{}, fmt.Errorf("start skill create tx: %w", err)
 	}
-	index[name] = entry
-	if err := saveSkillIndex(storage.skillRoot, index); err != nil {
-		return SkillDetail{}, err
-	}
-	if err := s.commitSkillMutation(
-		storage.repoRoot,
-		skillCommitMessage("create", name),
-		skillRelativePath(name),
-		skillIndexRelativePath,
-	); err != nil {
-		return SkillDetail{}, err
+	defer rollback(tx)
+
+	skillItem, err := tx.Skill.Create().
+		SetProjectID(input.ProjectID).
+		SetName(name).
+		SetDescription(description).
+		SetIsBuiltin(false).
+		SetIsEnabled(enabled).
+		SetCreatedBy(createdBy).
+		SetCreatedAt(now).
+		SetUpdatedAt(now).
+		Save(ctx)
+	if err != nil {
+		return SkillDetail{}, fmt.Errorf("create skill: %w", err)
 	}
 
-	return s.buildSkillDetail(ctx, resolvedSkillRecord{
-		projectID: input.ProjectID,
-		storage:   storage,
-		entry:     entry,
-	})
+	versionItem, err := tx.SkillVersion.Create().
+		SetSkillID(skillItem.ID).
+		SetVersion(1).
+		SetContentMarkdown(content).
+		SetContentHash(contentHash(content)).
+		SetCreatedBy(createdBy).
+		SetCreatedAt(now).
+		Save(ctx)
+	if err != nil {
+		return SkillDetail{}, fmt.Errorf("create skill version: %w", err)
+	}
+
+	skillItem, err = tx.Skill.UpdateOneID(skillItem.ID).
+		SetCurrentVersionID(versionItem.ID).
+		Save(ctx)
+	if err != nil {
+		return SkillDetail{}, fmt.Errorf("set skill current version: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return SkillDetail{}, fmt.Errorf("commit skill create tx: %w", err)
+	}
+
+	return s.buildSkillDetail(ctx, resolvedSkillRecord{skill: skillItem})
 }
 
 func (s *Service) UpdateSkill(ctx context.Context, input UpdateSkillInput) (SkillDetail, error) {
-	record, err := s.resolveSkillRecord(ctx, input.SkillID, workflowStorageUsageWrite)
+	record, err := s.resolveSkillRecord(ctx, input.SkillID)
 	if err != nil {
 		return SkillDetail{}, err
 	}
 
-	content, err := ensureSkillContent(record.entry.Name, input.Content, input.Description)
+	content, err := ensureSkillContent(record.skill.Name, input.Content, input.Description)
 	if err != nil {
 		return SkillDetail{}, err
 	}
-	skillDir := s.skillDirectoryPath(record.storage, record.entry.Name)
-	if err := os.MkdirAll(skillDir, 0o750); err != nil {
-		return SkillDetail{}, fmt.Errorf("create skill directory %s: %w", skillDir, err)
-	}
-	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(content), 0o600); err != nil {
-		return SkillDetail{}, fmt.Errorf("write skill %s: %w", record.entry.Name, err)
-	}
-	if err := validateSkillDirectory(skillDir); err != nil {
+	description, err := skillDescriptionFromContent(content)
+	if err != nil {
 		return SkillDetail{}, err
 	}
-	if err := s.commitSkillMutation(
-		record.storage.repoRoot,
-		skillCommitMessage("update", record.entry.Name),
-		skillRelativePath(record.entry.Name),
-	); err != nil {
+	currentVersion, err := s.currentSkillVersion(ctx, record.skill.ID, nil)
+	if err != nil {
 		return SkillDetail{}, err
 	}
 
-	return s.buildSkillDetail(ctx, record)
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return SkillDetail{}, fmt.Errorf("start skill update tx: %w", err)
+	}
+	defer rollback(tx)
+
+	versionItem, err := tx.SkillVersion.Create().
+		SetSkillID(record.skill.ID).
+		SetVersion(currentVersion.Version + 1).
+		SetContentMarkdown(content).
+		SetContentHash(contentHash(content)).
+		SetCreatedBy(record.skill.CreatedBy).
+		Save(ctx)
+	if err != nil {
+		return SkillDetail{}, fmt.Errorf("create updated skill version: %w", err)
+	}
+
+	updatedSkill, err := tx.Skill.UpdateOneID(record.skill.ID).
+		SetDescription(description).
+		SetCurrentVersionID(versionItem.ID).
+		SetUpdatedAt(time.Now().UTC()).
+		Save(ctx)
+	if err != nil {
+		return SkillDetail{}, fmt.Errorf("update skill metadata: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return SkillDetail{}, fmt.Errorf("commit skill update tx: %w", err)
+	}
+
+	return s.buildSkillDetail(ctx, resolvedSkillRecord{skill: updatedSkill})
 }
 
 func (s *Service) DeleteSkill(ctx context.Context, skillID uuid.UUID) error {
-	record, err := s.resolveSkillRecord(ctx, skillID, workflowStorageUsageWrite)
+	record, err := s.resolveSkillRecord(ctx, skillID)
 	if err != nil {
 		return err
 	}
-	workflows, err := s.client.Workflow.Query().
-		Where(entworkflow.ProjectIDEQ(record.projectID)).
-		All(ctx)
+	tx, err := s.client.Tx(ctx)
 	if err != nil {
-		return fmt.Errorf("list workflows for skill delete: %w", err)
+		return fmt.Errorf("start skill delete tx: %w", err)
 	}
-	commitPrefixes := []string{skillRelativePath(record.entry.Name), skillIndexRelativePath}
-	for _, workflowItem := range workflows {
-		document, err := s.updateWorkflowSkills(ctx, UpdateWorkflowSkillsInput{
-			WorkflowID: workflowItem.ID,
-			Skills:     []string{record.entry.Name},
-		}, func(current []string, incoming []string) []string {
-			next := make([]string, 0, len(current))
-			for _, name := range current {
-				if slicesContainsString(incoming, name) {
-					continue
-				}
-				next = append(next, name)
-			}
-			return next
-		}, false, "")
-		if err != nil && !errors.Is(err, ErrUnavailable) {
-			return err
-		}
-		if err == nil {
-			commitPrefixes = append(commitPrefixes, document.Path)
-		}
+	defer rollback(tx)
+
+	if _, err := tx.WorkflowSkillBinding.Delete().
+		Where(entworkflowskillbinding.SkillIDEQ(record.skill.ID)).
+		Exec(ctx); err != nil {
+		return fmt.Errorf("delete skill bindings: %w", err)
 	}
 
-	if err := os.RemoveAll(s.skillDirectoryPath(record.storage, record.entry.Name)); err != nil {
-		return fmt.Errorf("delete skill %s: %w", record.entry.Name, err)
+	if _, err := tx.Skill.UpdateOneID(record.skill.ID).
+		SetArchivedAt(time.Now().UTC()).
+		SetIsEnabled(false).
+		SetUpdatedAt(time.Now().UTC()).
+		Save(ctx); err != nil {
+		return fmt.Errorf("archive skill: %w", err)
 	}
-	index, err := s.syncSkillIndex(record.storage.skillRoot, time.Now().UTC())
-	if err != nil {
-		return err
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit skill delete tx: %w", err)
 	}
-	delete(index, record.entry.Name)
-	if err := saveSkillIndex(record.storage.skillRoot, index); err != nil {
-		return err
-	}
-	return s.commitSkillMutation(
-		record.storage.repoRoot,
-		skillCommitMessage("delete", record.entry.Name),
-		commitPrefixes...,
-	)
+	return nil
 }
 
 func (s *Service) EnableSkill(ctx context.Context, skillID uuid.UUID) (SkillDetail, error) {
@@ -447,100 +394,49 @@ func (s *Service) DisableSkill(ctx context.Context, skillID uuid.UUID) (SkillDet
 }
 
 func (s *Service) setSkillEnabled(ctx context.Context, skillID uuid.UUID, enabled bool) (SkillDetail, error) {
-	record, err := s.resolveSkillRecord(ctx, skillID, workflowStorageUsageWrite)
+	record, err := s.resolveSkillRecord(ctx, skillID)
 	if err != nil {
 		return SkillDetail{}, err
 	}
-	index, err := s.syncSkillIndex(record.storage.skillRoot, time.Now().UTC())
+	updatedSkill, err := s.client.Skill.UpdateOneID(record.skill.ID).
+		SetIsEnabled(enabled).
+		SetUpdatedAt(time.Now().UTC()).
+		Save(ctx)
 	if err != nil {
-		return SkillDetail{}, err
+		return SkillDetail{}, fmt.Errorf("update skill enabled state: %w", err)
 	}
-	entry := index[record.entry.Name]
-	entry.IsEnabled = enabled
-	index[record.entry.Name] = entry
-	if err := saveSkillIndex(record.storage.skillRoot, index); err != nil {
-		return SkillDetail{}, err
-	}
-	action := "disable"
-	if enabled {
-		action = "enable"
-	}
-	if err := s.commitSkillMutation(
-		record.storage.repoRoot,
-		skillCommitMessage(action, record.entry.Name),
-		skillIndexRelativePath,
-	); err != nil {
-		return SkillDetail{}, err
-	}
-	record.entry = entry
+	record.skill = updatedSkill
 	return s.buildSkillDetail(ctx, record)
 }
 
 func (s *Service) BindSkill(ctx context.Context, input UpdateSkillBindingsInput) (SkillDetail, error) {
-	record, workflowIDs, err := s.resolveSkillRecordForWorkflowBindings(ctx, input, workflowStorageUsageWrite)
+	record, workflowIDs, err := s.resolveSkillRecordForWorkflowBindings(ctx, input)
 	if err != nil {
 		return SkillDetail{}, err
 	}
-	commitPrefixes := make([]string, 0, len(workflowIDs))
 	for _, workflowID := range workflowIDs {
-		document, err := s.updateWorkflowSkills(ctx, UpdateWorkflowSkillsInput{
+		if _, err := s.updateWorkflowSkills(ctx, UpdateWorkflowSkillsInput{
 			WorkflowID: workflowID,
-			Skills:     []string{record.entry.Name},
-		}, func(current []string, incoming []string) []string {
-			next := append([]string(nil), current...)
-			for _, name := range incoming {
-				if !slicesContainsString(next, name) {
-					next = append(next, name)
-				}
-			}
-			return next
-		}, true, "")
-		if err != nil {
+			Skills:     []string{record.skill.Name},
+		}, true); err != nil {
 			return SkillDetail{}, err
 		}
-		commitPrefixes = append(commitPrefixes, document.Path)
-	}
-	if err := s.commitSkillMutation(
-		record.storage.repoRoot,
-		workflowSkillCommitMessage("bind", "selected workflows", []string{record.entry.Name}),
-		commitPrefixes...,
-	); err != nil {
-		return SkillDetail{}, err
 	}
 	return s.buildSkillDetail(ctx, record)
 }
 
 func (s *Service) UnbindSkill(ctx context.Context, input UpdateSkillBindingsInput) (SkillDetail, error) {
-	record, workflowIDs, err := s.resolveSkillRecordForWorkflowBindings(ctx, input, workflowStorageUsageWrite)
+	record, workflowIDs, err := s.resolveSkillRecordForWorkflowBindings(ctx, input)
 	if err != nil {
 		return SkillDetail{}, err
 	}
-	commitPrefixes := make([]string, 0, len(workflowIDs))
 	for _, workflowID := range workflowIDs {
-		document, err := s.updateWorkflowSkills(ctx, UpdateWorkflowSkillsInput{
+		if _, err := s.updateWorkflowSkills(ctx, UpdateWorkflowSkillsInput{
 			WorkflowID: workflowID,
-			Skills:     []string{record.entry.Name},
-		}, func(current []string, incoming []string) []string {
-			next := make([]string, 0, len(current))
-			for _, name := range current {
-				if slicesContainsString(incoming, name) {
-					continue
-				}
-				next = append(next, name)
-			}
-			return next
-		}, false, "")
-		if err != nil {
+			Skills:     []string{record.skill.Name},
+		}, false); err != nil {
 			return SkillDetail{}, err
 		}
-		commitPrefixes = append(commitPrefixes, document.Path)
-	}
-	if err := s.commitSkillMutation(
-		record.storage.repoRoot,
-		workflowSkillCommitMessage("unbind", "selected workflows", []string{record.entry.Name}),
-		commitPrefixes...,
-	); err != nil {
-		return SkillDetail{}, err
 	}
 	return s.buildSkillDetail(ctx, record)
 }
@@ -567,7 +463,6 @@ func normalizeWorkflowIDs(items []uuid.UUID) ([]uuid.UUID, error) {
 func (s *Service) resolveSkillRecordForWorkflowBindings(
 	ctx context.Context,
 	input UpdateSkillBindingsInput,
-	usage workflowStorageUsage,
 ) (resolvedSkillRecord, []uuid.UUID, error) {
 	workflowIDs, err := normalizeWorkflowIDs(input.WorkflowIDs)
 	if err != nil {
@@ -594,7 +489,7 @@ func (s *Service) resolveSkillRecordForWorkflowBindings(
 		}
 	}
 
-	record, err := s.resolveSkillRecordInProject(ctx, projectID, input.SkillID, usage)
+	record, err := s.resolveSkillRecordInProject(ctx, projectID, input.SkillID)
 	if err != nil {
 		return resolvedSkillRecord{}, nil, err
 	}
@@ -604,136 +499,105 @@ func (s *Service) resolveSkillRecordForWorkflowBindings(
 func (s *Service) resolveSkillRecord(
 	ctx context.Context,
 	skillID uuid.UUID,
-	usage workflowStorageUsage,
 ) (resolvedSkillRecord, error) {
 	if s.client == nil {
 		return resolvedSkillRecord{}, ErrUnavailable
 	}
-	projectIDs, err := s.client.Project.Query().IDs(ctx)
+	item, err := s.client.Skill.Query().
+		Where(
+			entskill.IDEQ(skillID),
+			entskill.ArchivedAtIsNil(),
+		).
+		Only(ctx)
 	if err != nil {
-		return resolvedSkillRecord{}, fmt.Errorf("list projects for skill lookup: %w", err)
+		if ent.IsNotFound(err) {
+			return resolvedSkillRecord{}, ErrSkillNotFound
+		}
+		return resolvedSkillRecord{}, fmt.Errorf("get skill: %w", err)
 	}
-	for _, projectID := range projectIDs {
-		storage, err := s.storageForProject(ctx, projectID, usage)
-		if err != nil {
-			return resolvedSkillRecord{}, err
-		}
-		index, err := s.syncSkillIndex(storage.skillRoot, time.Now().UTC())
-		if err != nil {
-			return resolvedSkillRecord{}, err
-		}
-		for _, entry := range index {
-			if entry.ID == skillID {
-				return resolvedSkillRecord{
-					projectID: projectID,
-					storage:   storage,
-					entry:     entry,
-				}, nil
-			}
-		}
-	}
-	return resolvedSkillRecord{}, ErrSkillNotFound
+	return resolvedSkillRecord{skill: item}, nil
 }
 
 func (s *Service) resolveSkillRecordInProject(
 	ctx context.Context,
 	projectID uuid.UUID,
 	skillID uuid.UUID,
-	usage workflowStorageUsage,
 ) (resolvedSkillRecord, error) {
-	storage, err := s.storageForProject(ctx, projectID, usage)
+	item, err := s.client.Skill.Query().
+		Where(
+			entskill.IDEQ(skillID),
+			entskill.ProjectIDEQ(projectID),
+			entskill.ArchivedAtIsNil(),
+		).
+		Only(ctx)
 	if err != nil {
-		return resolvedSkillRecord{}, err
-	}
-	index, err := s.syncSkillIndex(storage.skillRoot, time.Now().UTC())
-	if err != nil {
-		return resolvedSkillRecord{}, err
-	}
-	for _, entry := range index {
-		if entry.ID == skillID {
-			return resolvedSkillRecord{
-				projectID: projectID,
-				storage:   storage,
-				entry:     entry,
-			}, nil
+		if ent.IsNotFound(err) {
+			return resolvedSkillRecord{}, ErrSkillNotFound
 		}
+		return resolvedSkillRecord{}, fmt.Errorf("get project skill: %w", err)
 	}
-	return resolvedSkillRecord{}, ErrSkillNotFound
+	return resolvedSkillRecord{skill: item}, nil
 }
 
 func (s *Service) buildSkillDetail(ctx context.Context, record resolvedSkillRecord) (SkillDetail, error) {
-	items, err := s.ListSkills(ctx, record.projectID)
+	if record.skill == nil {
+		return SkillDetail{}, ErrSkillNotFound
+	}
+	items, err := s.ListSkills(ctx, record.skill.ProjectID)
 	if err != nil {
 		return SkillDetail{}, err
 	}
 	for _, item := range items {
-		if item.ID != record.entry.ID {
+		if item.ID != record.skill.ID {
 			continue
 		}
-		contentPath := filepath.Join(filepath.Clean(s.skillDirectoryPath(record.storage, record.entry.Name)), "SKILL.md")
-		//nolint:gosec // contentPath is derived from the validated project skill root and indexed skill name.
-		data, err := os.ReadFile(contentPath)
+		versionItem, err := s.currentSkillVersion(ctx, record.skill.ID, nil)
 		if err != nil {
-			return SkillDetail{}, fmt.Errorf("read skill %s content: %w", record.entry.Name, err)
+			return SkillDetail{}, err
 		}
-		return SkillDetail{
-			Skill:   item,
-			Content: string(data),
-		}, nil
+		return SkillDetail{Skill: item, Content: versionItem.ContentMarkdown}, nil
 	}
 	return SkillDetail{}, ErrSkillNotFound
 }
 
 func (s *Service) resolveInjectedSkillNames(
 	ctx context.Context,
-	storage *projectStorage,
-	index map[string]skillIndexEntry,
+	projectID uuid.UUID,
 	workflowID *uuid.UUID,
 ) ([]string, error) {
 	if workflowID == nil {
-		names := make([]string, 0, len(index))
-		for name, entry := range index {
-			if entry.IsEnabled {
-				names = append(names, name)
-			}
+		items, err := s.client.Skill.Query().
+			Where(
+				entskill.ProjectIDEQ(projectID),
+				entskill.ArchivedAtIsNil(),
+				entskill.IsEnabled(true),
+			).
+			Order(ent.Asc(entskill.FieldName)).
+			All(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("list enabled skills: %w", err)
+		}
+		names := make([]string, 0, len(items))
+		for _, item := range items {
+			names = append(names, item.Name)
 		}
 		sort.Strings(names)
 		return names, nil
 	}
 
-	workflowItem, err := s.client.Workflow.Get(ctx, *workflowID)
-	if err != nil {
-		return nil, s.mapWorkflowReadError("get workflow for skill refresh", err)
-	}
-	content, err := storage.registry.Read(workflowItem.HarnessPath)
-	if err != nil {
-		return nil, fmt.Errorf("read workflow harness for skill refresh: %w", err)
-	}
-	boundNames, err := ParseHarnessSkills(content)
+	names, err := s.listWorkflowBoundSkillNames(ctx, *workflowID, true)
 	if err != nil {
 		return nil, err
 	}
-
-	selected := make([]string, 0, len(boundNames)+1)
-	seen := make(map[string]struct{}, len(boundNames)+1)
-	for _, name := range boundNames {
-		entry, ok := index[name]
-		if !ok || !entry.IsEnabled {
-			continue
-		}
-		if _, duplicate := seen[name]; duplicate {
-			continue
-		}
-		seen[name] = struct{}{}
-		selected = append(selected, name)
+	platformSkill, err := s.skillByName(ctx, projectID, "openase-platform")
+	if err != nil && !errors.Is(err, ErrSkillNotFound) {
+		return nil, err
 	}
-	if entry, ok := index["openase-platform"]; ok && entry.IsEnabled {
-		if _, duplicate := seen["openase-platform"]; !duplicate {
-			selected = append(selected, "openase-platform")
-		}
+	if err == nil && platformSkill.IsEnabled && !slicesContainsString(names, platformSkill.Name) {
+		names = append(names, platformSkill.Name)
+		sort.Strings(names)
 	}
-	sort.Strings(selected)
-	return selected, nil
+	return names, nil
 }
 
 func (s *Service) RefreshSkills(ctx context.Context, input RefreshSkillsInput) (RefreshSkillsResult, error) {
@@ -743,8 +607,7 @@ func (s *Service) RefreshSkills(ctx context.Context, input RefreshSkillsInput) (
 	if err := s.ensureProjectExists(ctx, input.ProjectID); err != nil {
 		return RefreshSkillsResult{}, err
 	}
-	storage, err := s.storageForProject(ctx, input.ProjectID, workflowStorageUsageWrite)
-	if err != nil {
+	if err := s.ensureBuiltinSkills(ctx, input.ProjectID); err != nil {
 		return RefreshSkillsResult{}, err
 	}
 
@@ -759,24 +622,25 @@ func (s *Service) RefreshSkills(ctx context.Context, input RefreshSkillsInput) (
 		return RefreshSkillsResult{}, fmt.Errorf("create agent skill directory: %w", err)
 	}
 
-	skillRoot := resolveWorkspaceSkillRoot(storage, input.WorkspaceRoot)
-	index, err := s.syncSkillIndex(skillRoot, time.Now().UTC())
-	if err != nil {
-		return RefreshSkillsResult{}, err
-	}
-	skillNames, err := s.resolveInjectedSkillNames(ctx, storage, index, input.WorkflowID)
+	skillNames, err := s.resolveInjectedSkillNames(ctx, input.ProjectID, input.WorkflowID)
 	if err != nil {
 		return RefreshSkillsResult{}, err
 	}
 
 	for _, name := range skillNames {
-		src := filepath.Join(skillRoot, name)
-		dst := filepath.Join(target.skillsDir.String(), name)
-		if err := replaceDirectory(src, dst); err != nil {
+		skillItem, err := s.skillByName(ctx, input.ProjectID, name)
+		if err != nil {
+			return RefreshSkillsResult{}, err
+		}
+		versionItem, err := s.currentSkillVersion(ctx, skillItem.ID, nil)
+		if err != nil {
+			return RefreshSkillsResult{}, err
+		}
+		if err := writeProjectedSkill(target.skillsDir.String(), name, versionItem.ContentMarkdown); err != nil {
 			return RefreshSkillsResult{}, fmt.Errorf("refresh skill %s: %w", name, err)
 		}
 	}
-	if err := syncProjectWrapperToWorkspace(storage.repoRoot, target.workspace.String()); err != nil {
+	if err := writeWorkspaceOpenASEWrapper(target.workspace.String()); err != nil {
 		return RefreshSkillsResult{}, fmt.Errorf("sync openase wrapper: %w", err)
 	}
 
@@ -790,153 +654,21 @@ func (s *Service) HarvestSkills(ctx context.Context, input HarvestSkillsInput) (
 	if s.client == nil {
 		return HarvestSkillsResult{}, ErrUnavailable
 	}
-	if err := s.ensureProjectExists(ctx, input.ProjectID); err != nil {
-		return HarvestSkillsResult{}, err
-	}
-	storage, err := s.storageForProject(ctx, input.ProjectID, workflowStorageUsageWrite)
-	if err != nil {
-		return HarvestSkillsResult{}, err
-	}
-	skillRoot := resolveWorkspaceSkillRoot(storage, input.WorkspaceRoot)
-	index, err := s.syncSkillIndex(skillRoot, time.Now().UTC())
-	if err != nil {
-		return HarvestSkillsResult{}, err
-	}
-
-	target, err := resolveSkillTarget(input.WorkspaceRoot, input.AdapterType)
-	if err != nil {
-		return HarvestSkillsResult{}, err
-	}
-
-	workspaceSkillNames, err := listSkillNames(target.skillsDir.String())
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return HarvestSkillsResult{SkillsDir: target.skillsDir.String()}, nil
-		}
-		return HarvestSkillsResult{}, err
-	}
-
-	result := HarvestSkillsResult{SkillsDir: target.skillsDir.String()}
-	for _, name := range workspaceSkillNames {
-		src := filepath.Join(target.skillsDir.String(), name)
-		dst := filepath.Join(skillRoot, name)
-
-		srcFingerprint, err := directoryFingerprint(src)
-		if err != nil {
-			return HarvestSkillsResult{}, fmt.Errorf("fingerprint harvested skill %s: %w", name, err)
-		}
-
-		_, statErr := os.Stat(dst)
-		if errors.Is(statErr, fs.ErrNotExist) {
-			if err := replaceDirectory(src, dst); err != nil {
-				return HarvestSkillsResult{}, fmt.Errorf("harvest skill %s: %w", name, err)
-			}
-			entry := skillIndexEntry{
-				ID:        uuid.New(),
-				Name:      name,
-				IsEnabled: true,
-				CreatedBy: strings.TrimSpace(input.CreatedBy),
-				CreatedAt: time.Now().UTC(),
-			}
-			if entry.CreatedBy == "" {
-				entry.CreatedBy = "agent:auto-harvest"
-			}
-			index[name] = entry
-			result.HarvestedSkills = append(result.HarvestedSkills, name)
-			continue
-		}
-		if statErr != nil {
-			return HarvestSkillsResult{}, fmt.Errorf("stat project skill %s: %w", name, statErr)
-		}
-
-		dstFingerprint, err := directoryFingerprint(dst)
-		if err != nil {
-			return HarvestSkillsResult{}, fmt.Errorf("fingerprint project skill %s: %w", name, err)
-		}
-		if srcFingerprint == dstFingerprint {
-			continue
-		}
-
-		if err := replaceDirectory(src, dst); err != nil {
-			return HarvestSkillsResult{}, fmt.Errorf("update harvested skill %s: %w", name, err)
-		}
-		result.UpdatedSkills = append(result.UpdatedSkills, name)
-	}
-
-	sort.Strings(result.HarvestedSkills)
-	sort.Strings(result.UpdatedSkills)
-	if err := saveSkillIndex(skillRoot, index); err != nil {
-		return HarvestSkillsResult{}, err
-	}
-	commitPrefixes := []string{skillIndexRelativePath}
-	for _, name := range result.HarvestedSkills {
-		commitPrefixes = append(commitPrefixes, skillRelativePath(name))
-	}
-	for _, name := range result.UpdatedSkills {
-		commitPrefixes = append(commitPrefixes, skillRelativePath(name))
-	}
-	if input.WorkflowID != nil && len(result.HarvestedSkills) > 0 {
-		document, err := s.updateWorkflowSkills(ctx, UpdateWorkflowSkillsInput{
-			WorkflowID: *input.WorkflowID,
-			Skills:     append([]string(nil), result.HarvestedSkills...),
-		}, func(current []string, incoming []string) []string {
-			next := append([]string(nil), current...)
-			for _, name := range incoming {
-				if !slicesContainsString(next, name) {
-					next = append(next, name)
-				}
-			}
-			return next
-		}, true, "")
-		if err != nil {
-			return HarvestSkillsResult{}, err
-		}
-		commitPrefixes = append(commitPrefixes, document.Path)
-	}
-	if len(result.HarvestedSkills) > 0 || len(result.UpdatedSkills) > 0 {
-		if err := s.commitSkillMutation(
-			storage.repoRoot,
-			harvestSkillCommitMessage(result.HarvestedSkills, result.UpdatedSkills),
-			commitPrefixes...,
-		); err != nil {
-			return HarvestSkillsResult{}, err
-		}
-	}
-
-	return result, nil
+	return HarvestSkillsResult{}, fmt.Errorf("%w: harvest is deprecated; use create/update skill APIs", ErrSkillInvalid)
 }
 
 func (s *Service) BindSkills(ctx context.Context, input UpdateWorkflowSkillsInput) (HarnessDocument, error) {
-	return s.updateWorkflowSkills(ctx, input, func(current []string, incoming []string) []string {
-		next := append([]string(nil), current...)
-		for _, name := range incoming {
-			if !slicesContainsString(next, name) {
-				next = append(next, name)
-			}
-		}
-		return next
-	}, true, "bind")
+	return s.updateWorkflowSkills(ctx, input, true)
 }
 
 func (s *Service) UnbindSkills(ctx context.Context, input UpdateWorkflowSkillsInput) (HarnessDocument, error) {
-	return s.updateWorkflowSkills(ctx, input, func(current []string, incoming []string) []string {
-		next := make([]string, 0, len(current))
-		for _, name := range current {
-			if slicesContainsString(incoming, name) {
-				continue
-			}
-			next = append(next, name)
-		}
-		return next
-	}, false, "unbind")
+	return s.updateWorkflowSkills(ctx, input, false)
 }
 
 func (s *Service) updateWorkflowSkills(
 	ctx context.Context,
 	input UpdateWorkflowSkillsInput,
-	mutate func([]string, []string) []string,
-	requireExisting bool,
-	commitAction string,
+	bind bool,
 ) (HarnessDocument, error) {
 	if s.client == nil {
 		return HarnessDocument{}, ErrUnavailable
@@ -954,60 +686,87 @@ func (s *Service) updateWorkflowSkills(
 	if err != nil {
 		return HarnessDocument{}, s.mapWorkflowReadError("get workflow for skills update", err)
 	}
-	storage, err := s.storageForProject(ctx, workflowItem.ProjectID, workflowStorageUsageWrite)
-	if err != nil {
+	if err := s.ensureBuiltinSkills(ctx, workflowItem.ProjectID); err != nil {
 		return HarnessDocument{}, err
 	}
 
-	if requireExisting {
-		for _, name := range skillNames {
-			if err := s.ensureSkillExists(storage, name); err != nil {
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return HarnessDocument{}, fmt.Errorf("start workflow skill binding tx: %w", err)
+	}
+	defer rollback(tx)
+
+	for _, name := range skillNames {
+		skillItem, err := s.skillByName(ctx, workflowItem.ProjectID, name)
+		if err != nil {
+			if bind {
 				return HarnessDocument{}, err
 			}
+			continue
+		}
+
+		if bind {
+			exists, err := tx.WorkflowSkillBinding.Query().
+				Where(
+					entworkflowskillbinding.WorkflowIDEQ(workflowItem.ID),
+					entworkflowskillbinding.SkillIDEQ(skillItem.ID),
+				).
+				Exist(ctx)
+			if err != nil {
+				return HarnessDocument{}, fmt.Errorf("check workflow skill binding: %w", err)
+			}
+			if exists {
+				continue
+			}
+			if _, err := tx.WorkflowSkillBinding.Create().
+				SetWorkflowID(workflowItem.ID).
+				SetSkillID(skillItem.ID).
+				Save(ctx); err != nil {
+				return HarnessDocument{}, fmt.Errorf("create workflow skill binding: %w", err)
+			}
+			continue
+		}
+
+		if _, err := tx.WorkflowSkillBinding.Delete().
+			Where(
+				entworkflowskillbinding.WorkflowIDEQ(workflowItem.ID),
+				entworkflowskillbinding.SkillIDEQ(skillItem.ID),
+			).
+			Exec(ctx); err != nil {
+			return HarnessDocument{}, fmt.Errorf("delete workflow skill binding: %w", err)
 		}
 	}
 
-	current, err := storage.registry.Read(workflowItem.HarnessPath)
-	if err != nil {
-		return HarnessDocument{}, fmt.Errorf("read workflow harness for skills update: %w", err)
+	if err := tx.Commit(); err != nil {
+		return HarnessDocument{}, fmt.Errorf("commit workflow skill binding tx: %w", err)
 	}
 
-	currentSkills, err := ParseHarnessSkills(current)
-	if err != nil {
-		return HarnessDocument{}, err
-	}
+	return s.GetHarness(ctx, workflowItem.ID)
+}
 
-	nextSkills := mutate(currentSkills, skillNames)
-	nextContent, err := setHarnessSkills(current, nextSkills)
-	if err != nil {
-		return HarnessDocument{}, err
+func writeProjectedSkill(skillsDir string, name string, content string) error {
+	skillDir := filepath.Join(skillsDir, name)
+	if err := os.MkdirAll(skillDir, 0o750); err != nil {
+		return fmt.Errorf("create projected skill directory: %w", err)
 	}
-	if nextContent == current {
-		return HarnessDocument{
-			WorkflowID: workflowItem.ID,
-			Path:       workflowItem.HarnessPath,
-			Content:    current,
-			Version:    workflowItem.Version,
-		}, nil
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(content), 0o600); err != nil {
+		return fmt.Errorf("write projected skill: %w", err)
 	}
+	return nil
+}
 
-	document, err := s.UpdateHarness(ctx, UpdateHarnessInput{
-		WorkflowID: input.WorkflowID,
-		Content:    nextContent,
-	})
-	if err != nil {
-		return HarnessDocument{}, err
+func writeWorkspaceOpenASEWrapper(workspaceRoot string) error {
+	dst := filepath.Join(workspaceRoot, ".openase", "bin", "openase")
+	if err := os.MkdirAll(filepath.Dir(dst), 0o750); err != nil {
+		return fmt.Errorf("create workspace openase wrapper directory: %w", err)
 	}
-	if strings.TrimSpace(commitAction) != "" {
-		if err := s.commitSkillMutation(
-			storage.repoRoot,
-			workflowSkillCommitMessage(commitAction, workflowItem.Name, skillNames),
-			document.Path,
-		); err != nil {
-			return HarnessDocument{}, err
-		}
+	if err := os.WriteFile(dst, []byte(workflowOpenASECLIWrapperScript()), 0o600); err != nil {
+		return fmt.Errorf("write workspace openase wrapper: %w", err)
 	}
-	return document, nil
+	if err := os.Chmod(dst, 0o700); err != nil { //nolint:gosec // dst stays under the prepared workspace root.
+		return fmt.Errorf("chmod workspace openase wrapper: %w", err)
+	}
+	return nil
 }
 
 func ParseHarnessSkills(content string) ([]string, error) {
