@@ -53,7 +53,6 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 		Labels:         []string{"linux", "amd64"},
 		Status:         domain.MachineStatusMaintenance,
 		WorkspaceRoot:  strPtr("/srv/openase"),
-		MirrorRoot:     strPtr("/srv/mirrors"),
 		AgentCLIPath:   strPtr("/usr/local/bin/codex"),
 		EnvVars:        []string{"OPENASE_ENV=dev"},
 	})
@@ -63,10 +62,6 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	if remoteMachine.Name != "builder" || remoteMachine.SSHUser == nil || *remoteMachine.SSHUser != "openase" {
 		t.Fatalf("CreateMachine() = %+v", remoteMachine)
 	}
-	if remoteMachine.MirrorRoot == nil || *remoteMachine.MirrorRoot != "/srv/mirrors" {
-		t.Fatalf("CreateMachine() mirror_root = %+v", remoteMachine)
-	}
-
 	gotMachine, err := repo.GetMachine(ctx, remoteMachine.ID)
 	if err != nil {
 		t.Fatalf("GetMachine() error = %v", err)
@@ -90,7 +85,6 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 		Labels:         []string{"linux"},
 		Status:         domain.MachineStatusOnline,
 		WorkspaceRoot:  strPtr("/work/openase"),
-		MirrorRoot:     strPtr("/work/mirrors"),
 		AgentCLIPath:   strPtr("/opt/codex"),
 		EnvVars:        []string{"OPENASE_ENV=ci"},
 	})
@@ -99,9 +93,6 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	}
 	if updatedMachine.Name != "builder-2" || updatedMachine.Host != "10.0.0.11" || updatedMachine.Status != domain.MachineStatusOnline {
 		t.Fatalf("UpdateMachine() = %+v", updatedMachine)
-	}
-	if updatedMachine.MirrorRoot == nil || *updatedMachine.MirrorRoot != "/work/mirrors" {
-		t.Fatalf("UpdateMachine() mirror_root = %+v", updatedMachine)
 	}
 	if _, err := repo.UpdateMachine(ctx, domain.UpdateMachine{
 		ID:             uuid.New(),

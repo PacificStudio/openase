@@ -2046,7 +2046,6 @@ func mapTicketHookMachine(item *ent.Machine) catalogdomain.Machine {
 		SSHKeyPath:     cloneOptionalText(item.SSHKeyPath),
 		Status:         catalogdomain.MachineStatus(item.Status),
 		WorkspaceRoot:  cloneOptionalText(item.WorkspaceRoot),
-		MirrorRoot:     cloneOptionalText(item.MirrorRoot),
 		AgentCLIPath:   cloneOptionalText(item.AgentCliPath),
 		EnvVars:        slices.Clone(item.EnvVars),
 		Resources:      cloneMap(item.Resources),

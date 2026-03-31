@@ -41,8 +41,6 @@ type Machine struct {
 	Status machine.Status `json:"status,omitempty"`
 	// WorkspaceRoot holds the value of the "workspace_root" field.
 	WorkspaceRoot string `json:"workspace_root,omitempty"`
-	// MirrorRoot holds the value of the "mirror_root" field.
-	MirrorRoot string `json:"mirror_root,omitempty"`
 	// AgentCliPath holds the value of the "agent_cli_path" field.
 	AgentCliPath string `json:"agent_cli_path,omitempty"`
 	// EnvVars holds the value of the "env_vars" field.
@@ -63,13 +61,11 @@ type MachineEdges struct {
 	Organization *Organization `json:"organization,omitempty"`
 	// Providers holds the value of the providers edge.
 	Providers []*AgentProvider `json:"providers,omitempty"`
-	// ProjectRepoMirrors holds the value of the project_repo_mirrors edge.
-	ProjectRepoMirrors []*ProjectRepoMirror `json:"project_repo_mirrors,omitempty"`
 	// TargetTickets holds the value of the target_tickets edge.
 	TargetTickets []*Ticket `json:"target_tickets,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [3]bool
 }
 
 // OrganizationOrErr returns the Organization value or an error if the edge
@@ -92,19 +88,10 @@ func (e MachineEdges) ProvidersOrErr() ([]*AgentProvider, error) {
 	return nil, &NotLoadedError{edge: "providers"}
 }
 
-// ProjectRepoMirrorsOrErr returns the ProjectRepoMirrors value or an error if the edge
-// was not loaded in eager-loading.
-func (e MachineEdges) ProjectRepoMirrorsOrErr() ([]*ProjectRepoMirror, error) {
-	if e.loadedTypes[2] {
-		return e.ProjectRepoMirrors, nil
-	}
-	return nil, &NotLoadedError{edge: "project_repo_mirrors"}
-}
-
 // TargetTicketsOrErr returns the TargetTickets value or an error if the edge
 // was not loaded in eager-loading.
 func (e MachineEdges) TargetTicketsOrErr() ([]*Ticket, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[2] {
 		return e.TargetTickets, nil
 	}
 	return nil, &NotLoadedError{edge: "target_tickets"}
@@ -121,7 +108,7 @@ func (*Machine) scanValues(columns []string) ([]any, error) {
 			values[i] = new(pgarray.StringArray)
 		case machine.FieldPort:
 			values[i] = new(sql.NullInt64)
-		case machine.FieldName, machine.FieldHost, machine.FieldSSHUser, machine.FieldSSHKeyPath, machine.FieldDescription, machine.FieldStatus, machine.FieldWorkspaceRoot, machine.FieldMirrorRoot, machine.FieldAgentCliPath:
+		case machine.FieldName, machine.FieldHost, machine.FieldSSHUser, machine.FieldSSHKeyPath, machine.FieldDescription, machine.FieldStatus, machine.FieldWorkspaceRoot, machine.FieldAgentCliPath:
 			values[i] = new(sql.NullString)
 		case machine.FieldLastHeartbeatAt:
 			values[i] = new(sql.NullTime)
@@ -208,12 +195,6 @@ func (_m *Machine) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.WorkspaceRoot = value.String
 			}
-		case machine.FieldMirrorRoot:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field mirror_root", values[i])
-			} else if value.Valid {
-				_m.MirrorRoot = value.String
-			}
 		case machine.FieldAgentCliPath:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field agent_cli_path", values[i])
@@ -262,11 +243,6 @@ func (_m *Machine) QueryOrganization() *OrganizationQuery {
 // QueryProviders queries the "providers" edge of the Machine entity.
 func (_m *Machine) QueryProviders() *AgentProviderQuery {
 	return NewMachineClient(_m.config).QueryProviders(_m)
-}
-
-// QueryProjectRepoMirrors queries the "project_repo_mirrors" edge of the Machine entity.
-func (_m *Machine) QueryProjectRepoMirrors() *ProjectRepoMirrorQuery {
-	return NewMachineClient(_m.config).QueryProjectRepoMirrors(_m)
 }
 
 // QueryTargetTickets queries the "target_tickets" edge of the Machine entity.
@@ -326,9 +302,6 @@ func (_m *Machine) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("workspace_root=")
 	builder.WriteString(_m.WorkspaceRoot)
-	builder.WriteString(", ")
-	builder.WriteString("mirror_root=")
-	builder.WriteString(_m.MirrorRoot)
 	builder.WriteString(", ")
 	builder.WriteString("agent_cli_path=")
 	builder.WriteString(_m.AgentCliPath)

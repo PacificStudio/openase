@@ -71,11 +71,6 @@ func RepoID(v uuid.UUID) predicate.TicketRepoWorkspace {
 	return predicate.TicketRepoWorkspace(sql.FieldEQ(FieldRepoID, v))
 }
 
-// MirrorID applies equality check predicate on the "mirror_id" field. It's identical to MirrorIDEQ.
-func MirrorID(v uuid.UUID) predicate.TicketRepoWorkspace {
-	return predicate.TicketRepoWorkspace(sql.FieldEQ(FieldMirrorID, v))
-}
-
 // WorkspaceRoot applies equality check predicate on the "workspace_root" field. It's identical to WorkspaceRootEQ.
 func WorkspaceRoot(v string) predicate.TicketRepoWorkspace {
 	return predicate.TicketRepoWorkspace(sql.FieldEQ(FieldWorkspaceRoot, v))
@@ -179,26 +174,6 @@ func RepoIDIn(vs ...uuid.UUID) predicate.TicketRepoWorkspace {
 // RepoIDNotIn applies the NotIn predicate on the "repo_id" field.
 func RepoIDNotIn(vs ...uuid.UUID) predicate.TicketRepoWorkspace {
 	return predicate.TicketRepoWorkspace(sql.FieldNotIn(FieldRepoID, vs...))
-}
-
-// MirrorIDEQ applies the EQ predicate on the "mirror_id" field.
-func MirrorIDEQ(v uuid.UUID) predicate.TicketRepoWorkspace {
-	return predicate.TicketRepoWorkspace(sql.FieldEQ(FieldMirrorID, v))
-}
-
-// MirrorIDNEQ applies the NEQ predicate on the "mirror_id" field.
-func MirrorIDNEQ(v uuid.UUID) predicate.TicketRepoWorkspace {
-	return predicate.TicketRepoWorkspace(sql.FieldNEQ(FieldMirrorID, v))
-}
-
-// MirrorIDIn applies the In predicate on the "mirror_id" field.
-func MirrorIDIn(vs ...uuid.UUID) predicate.TicketRepoWorkspace {
-	return predicate.TicketRepoWorkspace(sql.FieldIn(FieldMirrorID, vs...))
-}
-
-// MirrorIDNotIn applies the NotIn predicate on the "mirror_id" field.
-func MirrorIDNotIn(vs ...uuid.UUID) predicate.TicketRepoWorkspace {
-	return predicate.TicketRepoWorkspace(sql.FieldNotIn(FieldMirrorID, vs...))
 }
 
 // WorkspaceRootEQ applies the EQ predicate on the "workspace_root" field.
@@ -807,29 +782,6 @@ func HasRepo() predicate.TicketRepoWorkspace {
 func HasRepoWith(preds ...predicate.ProjectRepo) predicate.TicketRepoWorkspace {
 	return predicate.TicketRepoWorkspace(func(s *sql.Selector) {
 		step := newRepoStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
-// HasMirror applies the HasEdge predicate on the "mirror" edge.
-func HasMirror() predicate.TicketRepoWorkspace {
-	return predicate.TicketRepoWorkspace(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, MirrorTable, MirrorColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasMirrorWith applies the HasEdge predicate on the "mirror" edge with a given conditions (other predicates).
-func HasMirrorWith(preds ...predicate.ProjectRepoMirror) predicate.TicketRepoWorkspace {
-	return predicate.TicketRepoWorkspace(func(s *sql.Selector) {
-		step := newMirrorStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

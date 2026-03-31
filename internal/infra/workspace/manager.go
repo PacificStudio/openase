@@ -29,7 +29,7 @@ type SetupInput struct {
 // RepoInput describes one repository to materialize in a workspace.
 type RepoInput struct {
 	Name             string
-	MirrorPath       string
+	RepositoryURL    string
 	DefaultBranch    string
 	WorkspaceDirname *string
 	BranchName       *string
@@ -48,10 +48,11 @@ type SetupRequest struct {
 // RepoRequest is the parsed repository setup request.
 type RepoRequest struct {
 	Name             string
-	MirrorPath       string
+	RepositoryURL    string
 	DefaultBranch    string
 	WorkspaceDirname string
 	BranchName       string
+	HeadCommit       string
 }
 
 // Workspace describes a prepared ticket workspace on disk.
@@ -64,10 +65,11 @@ type Workspace struct {
 // PreparedRepo describes one repository that was prepared inside a workspace.
 type PreparedRepo struct {
 	Name             string
-	MirrorPath       string
+	RepositoryURL    string
 	DefaultBranch    string
 	BranchName       string
 	WorkspaceDirname string
+	HeadCommit       string
 	Path             string
 }
 
@@ -160,16 +162,18 @@ func (m *Manager) Prepare(ctx context.Context, request SetupRequest) (Workspace,
 			return Workspace{}, fmt.Errorf("create parent directory for repo %s: %w", repo.Name, err)
 		}
 
-		if err := prepareRepository(ctx, repoPath, repo); err != nil {
+		headCommit, err := prepareRepository(ctx, repoPath, repo)
+		if err != nil {
 			return Workspace{}, err
 		}
 
 		preparedRepos = append(preparedRepos, PreparedRepo{
 			Name:             repo.Name,
-			MirrorPath:       repo.MirrorPath,
+			RepositoryURL:    repo.RepositoryURL,
 			DefaultBranch:    repo.DefaultBranch,
 			BranchName:       repo.BranchName,
 			WorkspaceDirname: repo.WorkspaceDirname,
+			HeadCommit:       headCommit,
 			Path:             repoPath,
 		})
 	}
@@ -187,7 +191,7 @@ func parseRepoInput(index int, input RepoInput, branchName string) (RepoRequest,
 		return RepoRequest{}, err
 	}
 
-	mirrorPath, err := parseAbsolutePath(fmt.Sprintf("repos[%d].mirror_path", index), input.MirrorPath)
+	repositoryURL, err := parseRepositorySource(fmt.Sprintf("repos[%d].repository_url", index), input.RepositoryURL)
 	if err != nil {
 		return RepoRequest{}, err
 	}
@@ -217,7 +221,7 @@ func parseRepoInput(index int, input RepoInput, branchName string) (RepoRequest,
 
 	return RepoRequest{
 		Name:             name,
-		MirrorPath:       mirrorPath,
+		RepositoryURL:    repositoryURL,
 		DefaultBranch:    defaultBranch,
 		WorkspaceDirname: workspaceDirname,
 		BranchName:       branchName,
@@ -282,30 +286,39 @@ func parseAbsolutePath(fieldName string, raw string) (string, error) {
 	return filepath.Clean(trimmed), nil
 }
 
-func prepareRepository(ctx context.Context, repoPath string, repo RepoRequest) error {
-	repository, err := cloneOrOpenRepository(ctx, repoPath, repo.MirrorPath)
-	if err != nil {
-		return fmt.Errorf("prepare repo %s: %w", repo.Name, err)
+func parseRepositorySource(fieldName string, raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", fmt.Errorf("%s must not be empty", fieldName)
 	}
-
-	if err := ensureOriginMatches(repository, repo.MirrorPath); err != nil {
-		return fmt.Errorf("prepare repo %s: %w", repo.Name, err)
-	}
-
-	if err := ensureFeatureBranchCheckedOut(repository, repo.DefaultBranch, repo.BranchName); err != nil {
-		return fmt.Errorf("prepare repo %s: %w", repo.Name, err)
-	}
-
-	return nil
+	return trimmed, nil
 }
 
-func cloneOrOpenRepository(ctx context.Context, repoPath string, mirrorPath string) (*git.Repository, error) {
+func prepareRepository(ctx context.Context, repoPath string, repo RepoRequest) (string, error) {
+	repository, err := cloneOrOpenRepository(ctx, repoPath, repo.RepositoryURL)
+	if err != nil {
+		return "", fmt.Errorf("prepare repo %s: %w", repo.Name, err)
+	}
+
+	if err := ensureOriginMatches(repository, repo.RepositoryURL); err != nil {
+		return "", fmt.Errorf("prepare repo %s: %w", repo.Name, err)
+	}
+
+	headCommit, err := ensureFeatureBranchCheckedOut(repository, repo.DefaultBranch, repo.BranchName)
+	if err != nil {
+		return "", fmt.Errorf("prepare repo %s: %w", repo.Name, err)
+	}
+
+	return headCommit, nil
+}
+
+func cloneOrOpenRepository(ctx context.Context, repoPath string, repositoryURL string) (*git.Repository, error) {
 	stat, err := os.Stat(repoPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			repository, cloneErr := git.PlainCloneContext(ctx, repoPath, false, buildCloneOptions(mirrorPath))
+			repository, cloneErr := git.PlainCloneContext(ctx, repoPath, false, buildCloneOptions(repositoryURL))
 			if cloneErr != nil {
-				return nil, fmt.Errorf("clone repository %s into %s: %w", mirrorPath, repoPath, cloneErr)
+				return nil, fmt.Errorf("clone repository %s into %s: %w", repositoryURL, repoPath, cloneErr)
 			}
 
 			return repository, nil
@@ -355,42 +368,46 @@ func ensureOriginMatches(repository *git.Repository, expectedURL string) error {
 	return nil
 }
 
-func ensureFeatureBranchCheckedOut(repository *git.Repository, defaultBranch string, featureBranch string) error {
+func ensureFeatureBranchCheckedOut(repository *git.Repository, defaultBranch string, featureBranch string) (string, error) {
 	remoteRefName := plumbing.NewRemoteReferenceName("origin", defaultBranch)
 	remoteRef, err := repository.Reference(remoteRefName, true)
 	if err != nil {
-		return fmt.Errorf("resolve remote default branch %s: %w", defaultBranch, err)
+		return "", fmt.Errorf("resolve remote default branch %s: %w", defaultBranch, err)
 	}
 
 	featureRefName := plumbing.NewBranchReferenceName(featureBranch)
 	if _, err := repository.Reference(featureRefName, true); err != nil {
 		if !errors.Is(err, plumbing.ErrReferenceNotFound) {
-			return fmt.Errorf("lookup feature branch %s: %w", featureBranch, err)
+			return "", fmt.Errorf("lookup feature branch %s: %w", featureBranch, err)
 		}
 		if err := repository.Storer.SetReference(plumbing.NewHashReference(featureRefName, remoteRef.Hash())); err != nil {
-			return fmt.Errorf("create feature branch %s: %w", featureBranch, err)
+			return "", fmt.Errorf("create feature branch %s: %w", featureBranch, err)
 		}
 	}
 
 	head, err := repository.Head()
 	if err == nil && head.Name() == featureRefName {
-		return nil
+		return head.Hash().String(), nil
 	}
 
 	worktree, err := repository.Worktree()
 	if err != nil {
-		return fmt.Errorf("load worktree: %w", err)
+		return "", fmt.Errorf("load worktree: %w", err)
 	}
 	if err := worktree.Checkout(&git.CheckoutOptions{Branch: featureRefName}); err != nil {
-		return fmt.Errorf("checkout feature branch %s: %w", featureBranch, err)
+		return "", fmt.Errorf("checkout feature branch %s: %w", featureBranch, err)
 	}
 
-	return nil
+	head, err = repository.Head()
+	if err != nil {
+		return "", fmt.Errorf("resolve feature branch head %s: %w", featureBranch, err)
+	}
+	return head.Hash().String(), nil
 }
 
-func buildCloneOptions(mirrorPath string) *git.CloneOptions {
+func buildCloneOptions(repositoryURL string) *git.CloneOptions {
 	return &git.CloneOptions{
-		URL: mirrorPath,
+		URL: repositoryURL,
 	}
 }
 

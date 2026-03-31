@@ -48,8 +48,6 @@ type Tx struct {
 	Project *ProjectClient
 	// ProjectRepo is the client for interacting with the ProjectRepo builders.
 	ProjectRepo *ProjectRepoClient
-	// ProjectRepoMirror is the client for interacting with the ProjectRepoMirror builders.
-	ProjectRepoMirror *ProjectRepoMirrorClient
 	// ScheduledJob is the client for interacting with the ScheduledJob builders.
 	ScheduledJob *ScheduledJobClient
 	// Skill is the client for interacting with the Skill builders.
@@ -227,7 +225,6 @@ func (tx *Tx) init() {
 	tx.Organization = NewOrganizationClient(tx.config)
 	tx.Project = NewProjectClient(tx.config)
 	tx.ProjectRepo = NewProjectRepoClient(tx.config)
-	tx.ProjectRepoMirror = NewProjectRepoMirrorClient(tx.config)
 	tx.ScheduledJob = NewScheduledJobClient(tx.config)
 	tx.Skill = NewSkillClient(tx.config)
 	tx.SkillVersion = NewSkillVersionClient(tx.config)

@@ -269,7 +269,7 @@ describe('WorkflowsPage', () => {
     loadWorkflowPageData.mockRejectedValue(
       new ApiError(
         500,
-        'ensure workflow mirror freshness: project repo mirror sync failed: platform-managed GitHub outbound credential is not configured',
+        'prepare workflow repository checkout failed: platform-managed GitHub outbound credential is not configured',
       ),
     )
 
@@ -277,7 +277,7 @@ describe('WorkflowsPage', () => {
 
     expect(
       await findByText(
-        'ensure workflow mirror freshness: project repo mirror sync failed: platform-managed GitHub outbound credential is not configured',
+        'prepare workflow repository checkout failed: platform-managed GitHub outbound credential is not configured',
       ),
     ).toBeTruthy()
     expect(queryByText('Coding Workflow')).toBeNull()

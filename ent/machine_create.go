@@ -13,7 +13,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/organization"
-	"github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
@@ -134,20 +133,6 @@ func (_c *MachineCreate) SetNillableWorkspaceRoot(v *string) *MachineCreate {
 	return _c
 }
 
-// SetMirrorRoot sets the "mirror_root" field.
-func (_c *MachineCreate) SetMirrorRoot(v string) *MachineCreate {
-	_c.mutation.SetMirrorRoot(v)
-	return _c
-}
-
-// SetNillableMirrorRoot sets the "mirror_root" field if the given value is not nil.
-func (_c *MachineCreate) SetNillableMirrorRoot(v *string) *MachineCreate {
-	if v != nil {
-		_c.SetMirrorRoot(*v)
-	}
-	return _c
-}
-
 // SetAgentCliPath sets the "agent_cli_path" field.
 func (_c *MachineCreate) SetAgentCliPath(v string) *MachineCreate {
 	_c.mutation.SetAgentCliPath(v)
@@ -220,21 +205,6 @@ func (_c *MachineCreate) AddProviders(v ...*AgentProvider) *MachineCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddProviderIDs(ids...)
-}
-
-// AddProjectRepoMirrorIDs adds the "project_repo_mirrors" edge to the ProjectRepoMirror entity by IDs.
-func (_c *MachineCreate) AddProjectRepoMirrorIDs(ids ...uuid.UUID) *MachineCreate {
-	_c.mutation.AddProjectRepoMirrorIDs(ids...)
-	return _c
-}
-
-// AddProjectRepoMirrors adds the "project_repo_mirrors" edges to the ProjectRepoMirror entity.
-func (_c *MachineCreate) AddProjectRepoMirrors(v ...*ProjectRepoMirror) *MachineCreate {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _c.AddProjectRepoMirrorIDs(ids...)
 }
 
 // AddTargetTicketIDs adds the "target_tickets" edge to the Ticket entity by IDs.
@@ -414,10 +384,6 @@ func (_c *MachineCreate) createSpec() (*Machine, *sqlgraph.CreateSpec) {
 		_spec.SetField(machine.FieldWorkspaceRoot, field.TypeString, value)
 		_node.WorkspaceRoot = value
 	}
-	if value, ok := _c.mutation.MirrorRoot(); ok {
-		_spec.SetField(machine.FieldMirrorRoot, field.TypeString, value)
-		_node.MirrorRoot = value
-	}
 	if value, ok := _c.mutation.AgentCliPath(); ok {
 		_spec.SetField(machine.FieldAgentCliPath, field.TypeString, value)
 		_node.AgentCliPath = value
@@ -460,22 +426,6 @@ func (_c *MachineCreate) createSpec() (*Machine, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agentprovider.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges = append(_spec.Edges, edge)
-	}
-	if nodes := _c.mutation.ProjectRepoMirrorsIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   machine.ProjectRepoMirrorsTable,
-			Columns: []string{machine.ProjectRepoMirrorsColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(projectrepomirror.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

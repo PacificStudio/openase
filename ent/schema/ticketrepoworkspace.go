@@ -20,7 +20,6 @@ func (TicketRepoWorkspace) Fields() []ent.Field {
 		field.UUID("ticket_id", uuidZero()),
 		field.UUID("agent_run_id", uuidZero()),
 		field.UUID("repo_id", uuidZero()),
-		field.UUID("mirror_id", uuidZero()),
 		field.String("workspace_root").NotEmpty(),
 		field.String("repo_path").NotEmpty(),
 		field.String("branch_name").NotEmpty(),
@@ -53,11 +52,6 @@ func (TicketRepoWorkspace) Edges() []ent.Edge {
 			Field("repo_id").
 			Unique().
 			Required(),
-		edge.From("mirror", ProjectRepoMirror.Type).
-			Ref("ticket_repo_workspaces").
-			Field("mirror_id").
-			Unique().
-			Required(),
 	}
 }
 
@@ -65,6 +59,5 @@ func (TicketRepoWorkspace) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("agent_run_id", "repo_id").Unique(),
 		index.Fields("ticket_id", "state"),
-		index.Fields("mirror_id", "state"),
 	}
 }

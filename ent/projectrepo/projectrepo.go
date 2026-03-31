@@ -33,8 +33,6 @@ const (
 	EdgeTicketScopes = "ticket_scopes"
 	// EdgeTicketRepoWorkspaces holds the string denoting the ticket_repo_workspaces edge name in mutations.
 	EdgeTicketRepoWorkspaces = "ticket_repo_workspaces"
-	// EdgeMirrors holds the string denoting the mirrors edge name in mutations.
-	EdgeMirrors = "mirrors"
 	// Table holds the table name of the projectrepo in the database.
 	Table = "project_repos"
 	// ProjectTable is the table that holds the project relation/edge.
@@ -58,13 +56,6 @@ const (
 	TicketRepoWorkspacesInverseTable = "ticket_repo_workspaces"
 	// TicketRepoWorkspacesColumn is the table column denoting the ticket_repo_workspaces relation/edge.
 	TicketRepoWorkspacesColumn = "repo_id"
-	// MirrorsTable is the table that holds the mirrors relation/edge.
-	MirrorsTable = "project_repo_mirrors"
-	// MirrorsInverseTable is the table name for the ProjectRepoMirror entity.
-	// It exists in this package in order to avoid circular dependency with the "projectrepomirror" package.
-	MirrorsInverseTable = "project_repo_mirrors"
-	// MirrorsColumn is the table column denoting the mirrors relation/edge.
-	MirrorsColumn = "project_repo_id"
 )
 
 // Columns holds all SQL columns for projectrepo fields.
@@ -181,20 +172,6 @@ func ByTicketRepoWorkspaces(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOpt
 		sqlgraph.OrderByNeighborTerms(s, newTicketRepoWorkspacesStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
-
-// ByMirrorsCount orders the results by mirrors count.
-func ByMirrorsCount(opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborsCount(s, newMirrorsStep(), opts...)
-	}
-}
-
-// ByMirrors orders the results by mirrors terms.
-func ByMirrors(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newMirrorsStep(), append([]sql.OrderTerm{term}, terms...)...)
-	}
-}
 func newProjectStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -214,12 +191,5 @@ func newTicketRepoWorkspacesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(TicketRepoWorkspacesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, TicketRepoWorkspacesTable, TicketRepoWorkspacesColumn),
-	)
-}
-func newMirrorsStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(MirrorsInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.O2M, false, MirrorsTable, MirrorsColumn),
 	)
 }

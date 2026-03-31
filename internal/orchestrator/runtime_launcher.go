@@ -2,7 +2,6 @@ package orchestrator
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -20,7 +19,6 @@ import (
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
-	entprojectrepomirror "github.com/BetterAndBetterII/openase/ent/projectrepomirror"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
@@ -29,7 +27,6 @@ import (
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
-	projectrepomirrorsvc "github.com/BetterAndBetterII/openase/internal/projectrepomirror"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -43,11 +40,6 @@ const (
 	defaultLifecyclePublishTimeout = 2 * time.Second
 )
 
-var (
-	errNoReadyMirrorForMachine     = errors.New("no ready ProjectRepoMirror is available on machine")
-	errReadyMirrorMissingLocalPath = errors.New("ready ProjectRepoMirror is missing local_path")
-)
-
 type RuntimeLauncher struct {
 	client         *ent.Client
 	logger         *slog.Logger
@@ -55,7 +47,6 @@ type RuntimeLauncher struct {
 	processManager provider.AgentCLIProcessManager
 	sshPool        *sshinfra.Pool
 	workflow       *workflowservice.Service
-	mirrors        *projectrepomirrorsvc.Service
 	agentPlatform  runtimeAgentPlatform
 	platformAPIURL string
 	githubAuth     githubauthservice.TokenResolver
@@ -142,13 +133,6 @@ func (l *RuntimeLauncher) ConfigureGitHubCredentials(resolver githubauthservice.
 		return
 	}
 	l.githubAuth = resolver
-}
-
-func (l *RuntimeLauncher) ConfigureMirrorService(service *projectrepomirrorsvc.Service) {
-	if l == nil {
-		return
-	}
-	l.mirrors = service
 }
 
 func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
@@ -743,13 +727,6 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 	if err != nil {
 		return nil, err
 	}
-	if err := l.ensureLaunchMirrors(ctx, launchContext, machine); err != nil {
-		return nil, err
-	}
-	launchContext, err = l.loadLaunchContext(ctx, assignment.agent.ID, assignment.ticket.ID)
-	if err != nil {
-		return nil, err
-	}
 
 	commandString := launchContext.agent.Edges.Provider.CliCommand
 	if machine.AgentCLIPath != nil {
@@ -865,27 +842,6 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 		return nil, err
 	}
 	return session, nil
-}
-
-func (l *RuntimeLauncher) ensureLaunchMirrors(ctx context.Context, launchContext runtimeLaunchContext, machine catalogdomain.Machine) error {
-	if l == nil || l.mirrors == nil {
-		return nil
-	}
-
-	for _, repo := range selectLaunchContextProjectRepos(launchContext.projectRepos, launchContext.ticketScopes) {
-		if repo == nil {
-			continue
-		}
-		if _, err := l.mirrors.Ensure(ctx, projectrepomirrorsvc.EnsureInput{
-			ProjectRepoID: repo.ID,
-			MachineID:     machine.ID,
-			Operation:     projectrepomirrorsvc.EnsureOperationExecute,
-		}); err != nil {
-			return fmt.Errorf("ensure execute mirror freshness for repo %s: %w", repo.Name, err)
-		}
-	}
-
-	return nil
 }
 
 func (l *RuntimeLauncher) buildAgentPlatformEnvironment(ctx context.Context, launchContext runtimeLaunchContext) ([]string, error) {
@@ -1070,13 +1026,11 @@ type runtimeLaunchContext struct {
 }
 
 type repoWorkspacePlan struct {
-	RepoID           uuid.UUID
-	RepoName         string
-	WorkspaceDir     string
-	MirrorID         uuid.UUID
-	MirrorPath       string
-	MirrorHeadCommit string
-	Input            workspaceinfra.RepoInput
+	RepoID       uuid.UUID
+	RepoName     string
+	WorkspaceDir string
+	HeadCommit   string
+	Input        workspaceinfra.RepoInput
 }
 
 func (l *RuntimeLauncher) loadLaunchContext(ctx context.Context, agentID uuid.UUID, ticketID uuid.UUID) (runtimeLaunchContext, error) {
@@ -1094,10 +1048,6 @@ func (l *RuntimeLauncher) loadLaunchContext(ctx context.Context, agentID uuid.UU
 			query.WithOrganization()
 			query.WithRepos(func(repoQuery *ent.ProjectRepoQuery) {
 				repoQuery.Order(entprojectrepo.ByName())
-				repoQuery.WithMirrors(func(mirrorQuery *ent.ProjectRepoMirrorQuery) {
-					mirrorQuery.Where(entprojectrepomirror.StateEQ(entprojectrepomirror.StateReady))
-					mirrorQuery.WithMachine()
-				})
 			})
 		}).
 		Only(ctx)
@@ -1213,7 +1163,7 @@ func buildWorkspaceRequest(
 		return workspaceinfra.SetupRequest{}, nil, err
 	}
 
-	repoPlans, err := buildWorkspaceRepoPlans(launchContext.projectRepos, launchContext.ticketScopes, machine.ID)
+	repoPlans, err := buildWorkspaceRepoPlans(launchContext.projectRepos, launchContext.ticketScopes)
 	if err != nil {
 		return workspaceinfra.SetupRequest{}, nil, err
 	}
@@ -1274,7 +1224,6 @@ func buildWorkspacePath(launchContext runtimeLaunchContext, machine catalogdomai
 func buildWorkspaceRepoPlans(
 	projectRepos []*ent.ProjectRepo,
 	ticketScopes []*ent.TicketRepoScope,
-	machineID uuid.UUID,
 ) ([]repoWorkspacePlan, error) {
 	selectedRepos := selectLaunchContextProjectRepos(projectRepos, ticketScopes)
 	scopeByRepoID := make(map[uuid.UUID]*ent.TicketRepoScope, len(ticketScopes))
@@ -1284,14 +1233,10 @@ func buildWorkspaceRepoPlans(
 
 	plans := make([]repoWorkspacePlan, 0, len(selectedRepos))
 	for _, repo := range selectedRepos {
-		mirror, err := selectReadyMirrorForMachine(repo.Edges.Mirrors, machineID)
-		if err != nil {
-			return nil, fmt.Errorf("resolve ready mirror for repo %s: %w", repo.Name, err)
-		}
 		workspaceDirname := resolvedWorkspaceDirname(repo)
 		input := workspaceinfra.RepoInput{
 			Name:          repo.Name,
-			MirrorPath:    strings.TrimSpace(mirror.LocalPath),
+			RepositoryURL: strings.TrimSpace(repo.RepositoryURL),
 			DefaultBranch: repo.DefaultBranch,
 		}
 		if workspaceDirname != strings.TrimSpace(repo.Name) {
@@ -1302,17 +1247,36 @@ func buildWorkspaceRepoPlans(
 			input.BranchName = &branchName
 		}
 		plans = append(plans, repoWorkspacePlan{
-			RepoID:           repo.ID,
-			RepoName:         repo.Name,
-			WorkspaceDir:     workspaceDirname,
-			MirrorID:         mirror.ID,
-			MirrorPath:       strings.TrimSpace(mirror.LocalPath),
-			MirrorHeadCommit: strings.TrimSpace(mirror.HeadCommit),
-			Input:            input,
+			RepoID:       repo.ID,
+			RepoName:     repo.Name,
+			WorkspaceDir: workspaceDirname,
+			Input:        input,
 		})
 	}
 
 	return plans, nil
+}
+
+func repoPlansWithPreparedHeads(
+	repoPlans []repoWorkspacePlan,
+	preparedRepos []workspaceinfra.PreparedRepo,
+) []repoWorkspacePlan {
+	if len(repoPlans) == 0 || len(preparedRepos) == 0 {
+		return repoPlans
+	}
+
+	headByDir := make(map[string]string, len(preparedRepos))
+	for _, repo := range preparedRepos {
+		headByDir[repo.WorkspaceDirname] = strings.TrimSpace(repo.HeadCommit)
+	}
+
+	updated := append([]repoWorkspacePlan(nil), repoPlans...)
+	for index := range updated {
+		if headCommit := headByDir[updated[index].WorkspaceDir]; headCommit != "" {
+			updated[index].HeadCommit = headCommit
+		}
+	}
+	return updated
 }
 
 func selectLaunchContextProjectRepos(
@@ -1338,23 +1302,6 @@ func selectLaunchContextProjectRepos(
 		}
 	}
 	return selectedRepos
-}
-
-func selectReadyMirrorForMachine(mirrors []*ent.ProjectRepoMirror, machineID uuid.UUID) (*ent.ProjectRepoMirror, error) {
-	for _, mirror := range mirrors {
-		if mirror == nil || mirror.MachineID != machineID {
-			continue
-		}
-		if mirror.State != entprojectrepomirror.StateReady {
-			continue
-		}
-		if strings.TrimSpace(mirror.LocalPath) == "" {
-			return nil, fmt.Errorf("%w: %s", errReadyMirrorMissingLocalPath, mirror.ID)
-		}
-		return mirror, nil
-	}
-
-	return nil, fmt.Errorf("%w: %s", errNoReadyMirrorForMachine, machineID)
 }
 
 func resolvedWorkspaceDirname(repo *ent.ProjectRepo) string {
@@ -1401,6 +1348,7 @@ func (l *RuntimeLauncher) prepareTicketWorkspace(
 		}
 		return workspaceinfra.Workspace{}, err
 	}
+	repoPlans = repoPlansWithPreparedHeads(repoPlans, workspaceItem.Repos)
 	if err := l.markTicketRepoWorkspacesReady(ctx, runID, repoPlans); err != nil {
 		return workspaceinfra.Workspace{}, err
 	}
@@ -1443,13 +1391,12 @@ func (l *RuntimeLauncher) ensureTicketRepoWorkspaceRecords(
 				SetTicketID(ticketID).
 				SetAgentRunID(runID).
 				SetRepoID(plan.RepoID).
-				SetMirrorID(plan.MirrorID).
 				SetWorkspaceRoot(workspaceRoot).
 				SetRepoPath(repoPath).
 				SetBranchName(request.BranchName).
 				SetState(entticketrepoworkspace.StatePlanned)
-			if plan.MirrorHeadCommit != "" {
-				create.SetHeadCommit(plan.MirrorHeadCommit)
+			if plan.HeadCommit != "" {
+				create.SetHeadCommit(plan.HeadCommit)
 			}
 			if _, err := create.Save(ctx); err != nil {
 				return fmt.Errorf("create ticket repo workspace for repo %s: %w", plan.RepoName, err)
@@ -1458,7 +1405,6 @@ func (l *RuntimeLauncher) ensureTicketRepoWorkspaceRecords(
 			return fmt.Errorf("load ticket repo workspace for repo %s: %w", plan.RepoName, err)
 		default:
 			update := l.client.TicketRepoWorkspace.UpdateOneID(existing.ID).
-				SetMirrorID(plan.MirrorID).
 				SetWorkspaceRoot(workspaceRoot).
 				SetRepoPath(repoPath).
 				SetBranchName(request.BranchName).
@@ -1466,8 +1412,8 @@ func (l *RuntimeLauncher) ensureTicketRepoWorkspaceRecords(
 				ClearLastError().
 				ClearPreparedAt().
 				ClearCleanedAt()
-			if plan.MirrorHeadCommit != "" {
-				update.SetHeadCommit(plan.MirrorHeadCommit)
+			if plan.HeadCommit != "" {
+				update.SetHeadCommit(plan.HeadCommit)
 			} else {
 				update.ClearHeadCommit()
 			}
@@ -1531,8 +1477,8 @@ func (l *RuntimeLauncher) markTicketRepoWorkspacesReady(
 			SetState(entticketrepoworkspace.StateReady).
 			SetPreparedAt(preparedAt).
 			ClearLastError()
-		if plan.MirrorHeadCommit != "" {
-			update.SetHeadCommit(plan.MirrorHeadCommit)
+		if plan.HeadCommit != "" {
+			update.SetHeadCommit(plan.HeadCommit)
 		}
 		if _, err := update.Save(ctx); err != nil {
 			return fmt.Errorf("mark ticket repo workspace %s ready: %w", plan.RepoName, err)

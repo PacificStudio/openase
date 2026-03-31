@@ -62,7 +62,7 @@ func (m *RemoteManager) Prepare(ctx context.Context, machine domain.Machine, req
 		repoPath := RepoPath(workspacePath, repo.WorkspaceDirname, repo.Name)
 		preparedRepos = append(preparedRepos, PreparedRepo{
 			Name:             repo.Name,
-			MirrorPath:       repo.MirrorPath,
+			RepositoryURL:    repo.RepositoryURL,
 			DefaultBranch:    repo.DefaultBranch,
 			BranchName:       repo.BranchName,
 			WorkspaceDirname: repo.WorkspaceDirname,
@@ -95,9 +95,9 @@ func buildPrepareWorkspaceCommand(request SetupRequest) string {
 		lines = append(lines,
 			"mkdir -p "+sshinfra.ShellQuote(filepath.Dir(repoPath)),
 			"if [ -e "+sshinfra.ShellQuote(repoPath)+" ] && [ ! -d "+sshinfra.ShellQuote(filepath.Join(repoPath, ".git"))+" ]; then echo "+sshinfra.ShellQuote("repository path "+repoPath+" is not a git clone")+" >&2; exit 1; fi",
-			"if [ ! -e "+sshinfra.ShellQuote(repoPath)+" ]; then git clone --branch "+sshinfra.ShellQuote(repo.DefaultBranch)+" --single-branch "+sshinfra.ShellQuote(repo.MirrorPath)+" "+sshinfra.ShellQuote(repoPath)+"; fi",
+			"if [ ! -e "+sshinfra.ShellQuote(repoPath)+" ]; then git clone --branch "+sshinfra.ShellQuote(repo.DefaultBranch)+" --single-branch "+sshinfra.ShellQuote(repo.RepositoryURL)+" "+sshinfra.ShellQuote(repoPath)+"; fi",
 			"actual_origin=$(git -C "+sshinfra.ShellQuote(repoPath)+" remote get-url origin)",
-			"if [ \"$actual_origin\" != "+sshinfra.ShellQuote(repo.MirrorPath)+" ]; then echo "+sshinfra.ShellQuote("origin remote URL mismatch")+" >&2; exit 1; fi",
+			"if [ \"$actual_origin\" != "+sshinfra.ShellQuote(repo.RepositoryURL)+" ]; then echo "+sshinfra.ShellQuote("origin remote URL mismatch")+" >&2; exit 1; fi",
 			"git -C "+sshinfra.ShellQuote(repoPath)+" fetch origin",
 			"git -C "+sshinfra.ShellQuote(repoPath)+" rev-parse --verify "+sshinfra.ShellQuote("origin/"+repo.DefaultBranch)+" >/dev/null",
 			"git -C "+sshinfra.ShellQuote(repoPath)+" checkout -B "+sshinfra.ShellQuote(repo.BranchName)+" "+sshinfra.ShellQuote("origin/"+repo.DefaultBranch),
