@@ -6,11 +6,16 @@
   } from '$lib/features/statuses/public'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
+  import * as DropdownMenu from '$ui/dropdown-menu'
   import { Input } from '$ui/input'
-  import ArrowDown from '@lucide/svelte/icons/arrow-down'
-  import ArrowUp from '@lucide/svelte/icons/arrow-up'
-  import Save from '@lucide/svelte/icons/save'
-  import Trash2 from '@lucide/svelte/icons/trash-2'
+  import {
+    ArrowDown,
+    ArrowUp,
+    CircleDot,
+    Ellipsis,
+    Save,
+    Trash2,
+  } from '@lucide/svelte'
 
   let {
     status,
@@ -69,61 +74,84 @@
 </script>
 
 <div class="border-border rounded-md border px-3 py-3">
-  <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
-    <div class="flex min-w-0 flex-1 items-center gap-3">
-      <span class="text-muted-foreground w-7 shrink-0 text-xs font-medium">
-        {order + 1}.
-      </span>
-      <input
-        type="color"
-        bind:value={draft.color}
-        disabled={busy}
-        class="size-8 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0 disabled:cursor-not-allowed"
-      />
-      <Input
-        bind:value={draft.name}
-        disabled={busy}
-        class="h-9 flex-1 text-sm"
-        placeholder="Status name"
-      />
-    </div>
+  <div class="flex items-center gap-3">
+    <span class="text-muted-foreground w-7 shrink-0 text-xs font-medium">
+      {order + 1}.
+    </span>
+    <input
+      type="color"
+      bind:value={draft.color}
+      disabled={busy}
+      class="size-8 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0 disabled:cursor-not-allowed"
+    />
+    <Input
+      bind:value={draft.name}
+      disabled={busy}
+      class="h-9 flex-1 text-sm"
+      placeholder="Status name"
+    />
 
-    <div class="flex flex-wrap items-center gap-2">
-      {#if status.isDefault}
-        <Badge variant="outline" class="h-8 px-2 text-xs">Default</Badge>
-      {:else}
-        <Button variant="outline" size="sm" disabled={busy} onclick={() => onSetDefault(status.id)}>
-          Set default
-        </Button>
-      {/if}
+    {#if status.isDefault}
+      <Badge variant="secondary" class="shrink-0 text-[10px]">Default</Badge>
+    {/if}
 
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={busy || !canMoveUp}
-        onclick={() => onMoveUp(status.id)}
-      >
-        <ArrowUp class="size-3.5" />
-        Up
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={busy || !canMoveDown}
-        onclick={() => onMoveDown(status.id)}
-      >
-        <ArrowDown class="size-3.5" />
-        Down
-      </Button>
-      <Button variant="outline" size="sm" disabled={busy || !dirty} onclick={handleSave}>
-        <Save class="size-3.5" />
-        Save
-      </Button>
-      <Button variant="destructive" size="sm" disabled={busy} onclick={() => onDelete(status)}>
-        <Trash2 class="size-3.5" />
-        Delete
-      </Button>
-    </div>
+    <Button
+      variant="ghost"
+      size="sm"
+      class="h-8 w-8 shrink-0 p-0"
+      disabled={busy || !dirty}
+      onclick={handleSave}
+    >
+      <Save class="size-3.5" />
+      <span class="sr-only">Save</span>
+    </Button>
+
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger>
+        {#snippet child({ props })}
+          <Button
+            variant="ghost"
+            size="sm"
+            class="h-8 w-8 shrink-0 p-0"
+            {...props}
+          >
+            <Ellipsis class="size-3.5" />
+            <span class="sr-only">More actions</span>
+          </Button>
+        {/snippet}
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="end" class="w-44">
+        {#if !status.isDefault}
+          <DropdownMenu.Item disabled={busy} onclick={() => onSetDefault(status.id)}>
+            <CircleDot class="mr-2 size-3.5" />
+            Set as default
+          </DropdownMenu.Item>
+        {/if}
+        <DropdownMenu.Item
+          disabled={busy || !canMoveUp}
+          onclick={() => onMoveUp(status.id)}
+        >
+          <ArrowUp class="mr-2 size-3.5" />
+          Move up
+        </DropdownMenu.Item>
+        <DropdownMenu.Item
+          disabled={busy || !canMoveDown}
+          onclick={() => onMoveDown(status.id)}
+        >
+          <ArrowDown class="mr-2 size-3.5" />
+          Move down
+        </DropdownMenu.Item>
+        <DropdownMenu.Separator />
+        <DropdownMenu.Item
+          class="text-destructive focus:text-destructive"
+          disabled={busy}
+          onclick={() => onDelete(status)}
+        >
+          <Trash2 class="mr-2 size-3.5" />
+          Delete
+        </DropdownMenu.Item>
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
   </div>
 
   {#if validationError}
