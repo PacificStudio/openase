@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -19,6 +20,8 @@ var (
 	agentStreamTopic    = provider.MustParseTopic("agent.events")
 	hookStreamTopic     = provider.MustParseTopic("hook.events")
 	activityStreamTopic = provider.MustParseTopic("activity.events")
+	machineStreamTopic  = provider.MustParseTopic("machine.events")
+	providerStreamTopic = provider.MustParseTopic("provider.events")
 )
 
 type sseEnvelope struct {
@@ -51,6 +54,24 @@ func (s *Server) handleHookStream(c echo.Context) error {
 
 func (s *Server) handleActivityStream(c echo.Context) error {
 	return s.handleEventStreamForTopics(c, activityStreamTopic)
+}
+
+func (s *Server) handleMachineStream(c echo.Context) error {
+	orgID, err := parseUUIDPathParam(c, "orgId")
+	if err != nil {
+		return err
+	}
+
+	return s.handleOrganizationScopedEventStream(c, machineStreamTopic, "machine", orgID)
+}
+
+func (s *Server) handleProviderStream(c echo.Context) error {
+	orgID, err := parseUUIDPathParam(c, "orgId")
+	if err != nil {
+		return err
+	}
+
+	return s.handleOrganizationScopedEventStream(c, providerStreamTopic, "provider", orgID)
 }
 
 func (s *Server) handleEventStreamForTopics(c echo.Context, topics ...provider.Topic) error {
@@ -98,6 +119,65 @@ func (s *Server) handleEventStreamForTopics(c echo.Context, topics ...provider.T
 	}
 }
 
+func (s *Server) handleOrganizationScopedEventStream(
+	c echo.Context,
+	topic provider.Topic,
+	streamName string,
+	orgID uuid.UUID,
+) error {
+	if err := http.NewResponseController(c.Response().Writer).SetWriteDeadline(time.Time{}); err != nil &&
+		!errors.Is(err, http.ErrNotSupported) {
+		return fmt.Errorf("disable sse write deadline: %w", err)
+	}
+
+	stream, err := s.sseHub.Register(c.Request().Context(), topic)
+	if err != nil {
+		return fmt.Errorf("register %s stream: %w", streamName, err)
+	}
+
+	response := c.Response()
+	header := response.Header()
+	header.Set(echo.HeaderContentType, "text/event-stream")
+	header.Set(echo.HeaderCacheControl, "no-cache")
+	header.Set("Connection", "keep-alive")
+	header.Set("X-Accel-Buffering", "no")
+	response.WriteHeader(http.StatusOK)
+
+	if err := writeSSEKeepaliveComment(response); err != nil {
+		return err
+	}
+
+	heartbeat := time.NewTicker(sseKeepaliveInterval)
+	defer heartbeat.Stop()
+
+	for {
+		select {
+		case <-c.Request().Context().Done():
+			return nil
+		case event, ok := <-stream:
+			if !ok {
+				return nil
+			}
+
+			scopedEvent, matched, err := buildOrganizationScopedStreamEvent(orgID, event)
+			if err != nil {
+				s.logger.Warn("skip malformed organization-scoped stream event", "topic", topic.String(), "error", err)
+				continue
+			}
+			if !matched {
+				continue
+			}
+			if err := writeSSEEvent(response, scopedEvent); err != nil {
+				return err
+			}
+		case <-heartbeat.C:
+			if err := writeSSEKeepaliveComment(response); err != nil {
+				return err
+			}
+		}
+	}
+}
+
 func parseTopicQuery(rawTopics []string) ([]provider.Topic, error) {
 	if len(rawTopics) == 0 {
 		return nil, fmt.Errorf("at least one topic query parameter is required")
@@ -113,6 +193,23 @@ func parseTopicQuery(rawTopics []string) ([]provider.Topic, error) {
 	}
 
 	return topics, nil
+}
+
+func buildOrganizationScopedStreamEvent(
+	orgID uuid.UUID,
+	event provider.Event,
+) (provider.Event, bool, error) {
+	var payload struct {
+		OrganizationID string `json:"organization_id"`
+	}
+	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		return provider.Event{}, false, fmt.Errorf("decode organization-scoped payload: %w", err)
+	}
+	if payload.OrganizationID != orgID.String() {
+		return provider.Event{}, false, nil
+	}
+
+	return event, true, nil
 }
 
 func writeSSEKeepaliveComment(response *echo.Response) error {

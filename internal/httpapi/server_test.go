@@ -17,6 +17,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	runtimeobservability "github.com/BetterAndBetterII/openase/internal/runtime/observability"
 	"github.com/BetterAndBetterII/openase/internal/webui"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -410,6 +411,87 @@ func TestProjectEventStreamRoutesUseFixedTopics(t *testing.T) {
 	}
 }
 
+func TestOrganizationEventStreamRoutesUseFixedTopics(t *testing.T) {
+	orgID := uuid.New()
+	otherOrgID := uuid.New()
+
+	testCases := []struct {
+		name          string
+		path          string
+		topic         provider.Topic
+		eventType     provider.EventType
+		unrelatedType provider.EventType
+		payloadKey    string
+	}{
+		{
+			name:          "machines",
+			path:          "/api/v1/orgs/" + orgID.String() + "/machines/stream",
+			topic:         provider.MustParseTopic("machine.events"),
+			eventType:     provider.MustParseEventType("machine.online"),
+			unrelatedType: provider.MustParseEventType("machine.degraded"),
+			payloadKey:    "machine",
+		},
+		{
+			name:          "providers",
+			path:          "/api/v1/orgs/" + orgID.String() + "/providers/stream",
+			topic:         provider.MustParseTopic("provider.events"),
+			eventType:     provider.MustParseEventType("provider.available"),
+			unrelatedType: provider.MustParseEventType("provider.unavailable"),
+			payloadKey:    "provider",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			bus := eventinfra.NewChannelBus()
+			server := NewServer(config.ServerConfig{Port: 40023}, config.GitHubConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, nil, nil, nil, nil, nil)
+			testServer := httptest.NewServer(server.Handler())
+			defer testServer.Close()
+
+			response, cancel := openSSERequest(t, testServer.URL+testCase.path)
+			t.Cleanup(func() {
+				if err := response.Body.Close(); err != nil {
+					t.Errorf("close organization event stream response body: %v", err)
+				}
+			})
+
+			publishTestEvent(t, bus, testCase.topic, testCase.unrelatedType, map[string]any{
+				"organization_id": otherOrgID.String(),
+				testCase.payloadKey: map[string]any{
+					"id": otherOrgID.String(),
+				},
+			})
+			publishTestEvent(t, bus, testCase.topic, testCase.eventType, map[string]any{
+				"organization_id": orgID.String(),
+				testCase.payloadKey: map[string]any{
+					"id": orgID.String(),
+				},
+			})
+
+			body := readSSEBody(t, response, cancel)
+
+			if response.StatusCode != http.StatusOK {
+				t.Fatalf("expected 200, got %d", response.StatusCode)
+			}
+			if contentType := response.Header.Get(echo.HeaderContentType); contentType != "text/event-stream" {
+				t.Fatalf("expected event-stream content type, got %q", contentType)
+			}
+			if !strings.Contains(body, ": keepalive\n\n") {
+				t.Fatalf("expected keepalive comment, got %q", body)
+			}
+			if !strings.Contains(body, "event: "+testCase.eventType.String()+"\n") {
+				t.Fatalf("expected %s frame, got %q", testCase.eventType, body)
+			}
+			if !strings.Contains(body, "\"organization_id\":\""+orgID.String()+"\"") {
+				t.Fatalf("expected organization-scoped payload, got %q", body)
+			}
+			if strings.Contains(body, otherOrgID.String()) {
+				t.Fatalf("did not expect unrelated organization payload, got %q", body)
+			}
+		})
+	}
+}
+
 func TestEventStreamRouteRejectsMissingTopic(t *testing.T) {
 	server := NewServer(config.ServerConfig{Port: 40023}, config.GitHubConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil)), eventinfra.NewChannelBus(), nil, nil, nil, nil, nil)
 
@@ -450,7 +532,7 @@ func publishTestEvent(
 	bus *eventinfra.ChannelBus,
 	topic provider.Topic,
 	eventType provider.EventType,
-	payload map[string]string,
+	payload any,
 ) {
 	t.Helper()
 
