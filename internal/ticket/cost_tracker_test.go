@@ -305,5 +305,7 @@ func findStatusIDByName(t *testing.T, items []ticketstatus.Status, want string) 
 func openTestEntClient(t *testing.T) *ent.Client {
 	t.Helper()
 
-	return testPostgres.NewIsolatedEntClient(t)
+	client := testPostgres.NewIsolatedEntClient(t)
+	InstallRetryTokenHooks(client)
+	return client
 }
