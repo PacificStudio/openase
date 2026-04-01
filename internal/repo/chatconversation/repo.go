@@ -17,9 +17,10 @@ import (
 )
 
 var (
-	ErrNotFound     = domain.ErrNotFound
-	ErrConflict     = domain.ErrConflict
-	ErrInvalidInput = domain.ErrInvalidInput
+	ErrNotFound          = domain.ErrNotFound
+	ErrConflict          = domain.ErrConflict
+	ErrInvalidInput      = domain.ErrInvalidInput
+	ErrTurnAlreadyActive = domain.ErrTurnAlreadyActive
 )
 
 type Repository struct {
@@ -85,6 +86,27 @@ func (r *Repository) CreateTurnWithUserEntry(
 		return domain.Turn{}, domain.Entry{}, fmt.Errorf("start create chat turn transaction: %w", err)
 	}
 	defer rollbackOnError(ctx, tx, &err)
+
+	hasActiveTurn, err := tx.ChatTurn.Query().
+		Where(
+			entchatturn.ConversationIDEQ(conversationID),
+			entchatturn.StatusIn(
+				string(domain.TurnStatusPending),
+				string(domain.TurnStatusRunning),
+				string(domain.TurnStatusInterrupted),
+			),
+		).
+		Exist(ctx)
+	if err != nil {
+		return domain.Turn{}, domain.Entry{}, fmt.Errorf("query active chat turns: %w", err)
+	}
+	if hasActiveTurn {
+		return domain.Turn{}, domain.Entry{}, fmt.Errorf(
+			"%w: conversation %s",
+			domain.ErrTurnAlreadyActive,
+			conversationID,
+		)
+	}
 
 	turnCount, err := tx.ChatTurn.Query().Where(entchatturn.ConversationIDEQ(conversationID)).Count(ctx)
 	if err != nil {
