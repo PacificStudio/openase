@@ -19,6 +19,7 @@
     User,
   } from '@lucide/svelte'
   import type { GitHubTokenState } from '../types'
+  import { parseGitHubTokenState } from '../github'
 
   let {
     projectId,
@@ -82,16 +83,12 @@
     probeResult = { ...probeResult, probeStatus: 'testing' }
     try {
       const result = await retestGitHubOutboundCredential(projectId, { scope: 'project' })
-      const credential = result as Record<string, unknown>
-      const probeStatus = (credential.probe_status as string) ?? 'unknown'
-      const login = (credential.login as string) ?? ''
+      const parsed = parseGitHubTokenState(result)
       probeResult = {
-        hasToken: true,
-        probeStatus: probeStatus === 'valid' ? 'valid' : 'invalid',
-        login,
+        ...parsed,
         confirmed: false,
       }
-      if (probeStatus !== 'valid') {
+      if (parsed.probeStatus !== 'valid') {
         toastStore.error('GitHub Token 验证失败，请检查 Token 权限。')
       }
     } catch (caughtError) {

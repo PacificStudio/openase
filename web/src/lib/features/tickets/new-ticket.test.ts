@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import { createNewTicketDraft, parseNewTicketDraft, type TicketRepoOption } from './new-ticket'
 
 const statusOptions = [{ id: 'todo', label: 'Todo', color: '#94a3b8', stage: 'unstarted' as const }]
-const workflowOptions = [{ id: 'coding', label: 'Coding' }]
 
 describe('new ticket repo scope parsing', () => {
   it('auto-selects the only repository in single-repo projects', () => {
@@ -11,7 +10,7 @@ describe('new ticket repo scope parsing', () => {
       { id: 'repo-1', label: 'backend', defaultBranch: 'main' },
     ]
 
-    const draft = createNewTicketDraft(statusOptions, workflowOptions, repoOptions)
+    const draft = createNewTicketDraft(statusOptions, repoOptions)
     const parsed = parseNewTicketDraft(
       {
         ...draft,
@@ -26,7 +25,6 @@ describe('new ticket repo scope parsing', () => {
         title: 'Ship login validation',
         priority: 'medium',
         status_id: 'todo',
-        workflow_id: 'coding',
         repo_scopes: [{ repo_id: 'repo-1', branch_name: 'main' }],
       },
     })
@@ -40,7 +38,7 @@ describe('new ticket repo scope parsing', () => {
 
     const parsed = parseNewTicketDraft(
       {
-        ...createNewTicketDraft(statusOptions, workflowOptions, repoOptions),
+        ...createNewTicketDraft(statusOptions, repoOptions),
         title: 'Ship login validation',
       },
       repoOptions,
@@ -61,7 +59,7 @@ describe('new ticket repo scope parsing', () => {
 
     const parsed = parseNewTicketDraft(
       {
-        ...createNewTicketDraft(statusOptions, workflowOptions, repoOptions),
+        ...createNewTicketDraft(statusOptions, repoOptions),
         title: 'Ship login validation',
         repoIds: ['repo-2', 'repo-1'],
       },
@@ -74,7 +72,6 @@ describe('new ticket repo scope parsing', () => {
         title: 'Ship login validation',
         priority: 'medium',
         status_id: 'todo',
-        workflow_id: 'coding',
         repo_scopes: [
           { repo_id: 'repo-1', branch_name: 'main' },
           { repo_id: 'repo-2', branch_name: 'develop' },

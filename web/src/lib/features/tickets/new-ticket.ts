@@ -1,13 +1,8 @@
-import type { TicketStatus, Workflow } from '$lib/api/contracts'
+import type { TicketStatus } from '$lib/api/contracts'
 
 export const ticketPriorityOptions = ['urgent', 'high', 'medium', 'low'] as const
 
 export type TicketPriorityOption = (typeof ticketPriorityOptions)[number]
-
-export type TicketOption = {
-  id: string
-  label: string
-}
 
 export type TicketStatusOption = {
   id: string
@@ -27,7 +22,6 @@ export type NewTicketDraft = {
   description: string
   statusId: string
   priority: TicketPriorityOption
-  workflowId: string
   repoIds: string[]
 }
 
@@ -36,7 +30,6 @@ export type NewTicketPayload = {
   description?: string
   status_id?: string | null
   priority: TicketPriorityOption
-  workflow_id?: string | null
   repo_scopes?: Array<{
     repo_id: string
     branch_name?: string | null
@@ -54,17 +47,6 @@ export function mapTicketStatusOptions(statuses: TicketStatus[]): TicketStatusOp
       label: status.name,
       color: status.color || '#94a3b8',
       stage: (status.stage || 'unstarted') as TicketStatusOption['stage'],
-    }))
-}
-
-export function mapWorkflowOptions(workflows: Workflow[]): TicketOption[] {
-  return workflows
-    .slice()
-    .sort((left, right) => left.name.localeCompare(right.name))
-    .map((workflow) => ({
-      id: workflow.id,
-      label:
-        workflow.name === workflow.type ? workflow.name : `${workflow.name} (${workflow.type})`,
     }))
 }
 
@@ -87,7 +69,6 @@ export function mapProjectRepoOptions(
 
 export function createNewTicketDraft(
   statusOptions: TicketStatusOption[],
-  workflowOptions: TicketOption[],
   repoOptions: TicketRepoOption[],
 ): NewTicketDraft {
   return {
@@ -95,7 +76,6 @@ export function createNewTicketDraft(
     description: '',
     statusId: statusOptions[0]?.id ?? '',
     priority: 'medium',
-    workflowId: workflowOptions[0]?.id ?? '',
     repoIds: repoOptions.length === 1 ? [repoOptions[0].id] : [],
   }
 }
@@ -128,7 +108,6 @@ export function parseNewTicketDraft(
       description: description || undefined,
       status_id: draft.statusId || null,
       priority: draft.priority,
-      workflow_id: draft.workflowId || null,
       repo_scopes: repoScopes.value,
     },
   }

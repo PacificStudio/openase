@@ -11,6 +11,7 @@ import type {
   AgentProviderListPayload,
   AgentProviderModelCatalogPayload,
   BuiltinRolePayload,
+  BuiltinRoleDetailResponse,
   DeleteGitHubOutboundCredentialResponse,
   GitHubRepositoryCreateResponse,
   GitHubRepositoryListResponse,
@@ -907,6 +908,10 @@ export function unbindWorkflowSkills(workflowId: string, skills: string[]) {
 
 export function listBuiltinRoles() {
   return api.get<BuiltinRolePayload>('/api/v1/roles/builtin')
+}
+
+export function getBuiltinRole(roleSlug: string) {
+  return api.get<BuiltinRoleDetailResponse>(`/api/v1/roles/builtin/${roleSlug}`)
 }
 
 export function updateProvider(

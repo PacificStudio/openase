@@ -295,6 +295,10 @@
                     hasWorkflow={data.agentWorkflow.workflows.length > 0}
                     onOpenProjectAI={openProjectAssistant}
                     onComplete={() => {
+                      data = {
+                        ...data!,
+                        aiDiscovery: { completed: true },
+                      }
                       onOnboardingComplete()
                     }}
                   />
