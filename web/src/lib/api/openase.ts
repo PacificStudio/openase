@@ -98,7 +98,6 @@ type MachineMutationBody = {
   ssh_user?: string
   status?: string
   workspace_root?: string
-  mirror_root?: string
 }
 
 export type IssueConnectorRecord = {
