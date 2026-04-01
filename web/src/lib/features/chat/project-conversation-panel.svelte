@@ -7,9 +7,13 @@
   import { Button } from '$ui/button'
   import { ScrollArea } from '$ui/scroll-area'
   import Textarea from '$ui/textarea/textarea.svelte'
-  import { RefreshCcw, Send } from '@lucide/svelte'
+  import { Plus, RefreshCcw, Send, X } from '@lucide/svelte'
   import { createProjectConversationController } from './project-conversation-controller.svelte'
   import type { ProjectConversationPhase } from './project-conversation-controller-helpers'
+  import type {
+    ProjectConversationTextEntry,
+    ProjectConversationTranscriptEntry,
+  } from './project-conversation-transcript-types'
   import EphemeralChatProviderSelect from './ephemeral-chat-provider-select.svelte'
   import ProjectConversationTranscript from './project-conversation-transcript.svelte'
 
@@ -36,6 +40,7 @@
   let providerError = $state('')
   let loadedProviders = $state<AgentProvider[]>([])
   let previousRestoreKey = ''
+  let openConversationId = $state('')
 
   const controller = createProjectConversationController({
     getProjectId: () => context.projectId,
@@ -46,12 +51,21 @@
   const chatProviders = $derived(controller.providers)
   const providerId = $derived(controller.providerId)
   const conversations = $derived(controller.conversations)
+  const tabs = $derived(controller.tabs)
+  const activeTabId = $derived(controller.activeTabId)
+  const activeTab = $derived(tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null)
   const entries = $derived(controller.entries)
   const pending = $derived(controller.pending)
   const phase = $derived(controller.phase)
   const inputDisabled = $derived(controller.inputDisabled)
   const providerSelectionDisabled = $derived(controller.providerSelectionDisabled)
   const statusMessage = $derived(getStatusMessage(phase, controller.hasPendingInterrupt))
+  const openConversationIds = $derived(
+    new Set(tabs.map((tab) => tab.conversationId).filter((conversationId) => conversationId)),
+  )
+  const historicalConversations = $derived(
+    conversations.filter((conversation) => !openConversationIds.has(conversation.id)),
+  )
 
   $effect(() => {
     if (providers.length > 0 || !organizationId) {
@@ -124,18 +138,42 @@
     await controller.sendTurn(message)
   }
 
-  function formatConversationLabel(conversation: {
-    rollingSummary?: string
-    lastActivityAt?: string
+  async function handleOpenConversation(nextConversationId: string) {
+    if (!nextConversationId) {
+      return
+    }
+    openConversationId = ''
+    await controller.openConversation(nextConversationId)
+  }
+
+  function formatConversationLabel(tab: {
+    conversationId: string
+    entries: ProjectConversationTranscriptEntry[]
   }) {
-    const summary = (conversation.rollingSummary ?? '').trim()
+    const conversation = conversations.find((item) => item.id === tab.conversationId)
+    const summary = (conversation?.rollingSummary ?? '').trim()
     if (summary) {
-      return summary.length > 48 ? `${summary.slice(0, 48)}…` : summary
+      return summary.length > 32 ? `${summary.slice(0, 32)}…` : summary
     }
 
-    const timestamp = new Date(conversation.lastActivityAt ?? '')
+    const recentUserMessage = [...tab.entries]
+      .reverse()
+      .find(
+        (entry): entry is ProjectConversationTextEntry =>
+          entry.kind === 'text' && entry.role === 'user' && entry.content.trim().length > 0,
+      )
+    if (recentUserMessage?.content) {
+      const content = recentUserMessage.content.trim()
+      return content.length > 32 ? `${content.slice(0, 32)}…` : content
+    }
+
+    if (!tab.conversationId) {
+      return 'New tab'
+    }
+
+    const timestamp = new Date(conversation?.lastActivityAt ?? '')
     if (Number.isNaN(timestamp.getTime())) {
-      return 'Untitled conversation'
+      return 'Conversation'
     }
 
     return `Conversation · ${timestamp.toLocaleString([], {
@@ -144,6 +182,23 @@
       hour: '2-digit',
       minute: '2-digit',
     })}`
+  }
+
+  function formatTabStatus(tab: {
+    pending: boolean
+    hasPendingInterrupt: boolean
+    restored: boolean
+  }) {
+    if (tab.hasPendingInterrupt) {
+      return 'Input required'
+    }
+    if (tab.pending) {
+      return 'Running'
+    }
+    if (tab.restored) {
+      return 'Restored'
+    }
+    return ''
   }
 
   function getStatusMessage(
@@ -156,7 +211,7 @@
 
     switch (currentPhase) {
       case 'restoring':
-        return 'Restoring the latest project conversation…'
+        return 'Restoring this project conversation…'
       case 'creating_conversation':
         return 'Creating a fresh project conversation…'
       case 'connecting_stream':
@@ -185,41 +240,94 @@
       />
     </div>
 
-    <Button
-      variant="ghost"
-      size="sm"
-      class="size-7 p-0"
-      aria-label="Reset conversation"
-      onclick={() => void controller.resetConversation()}
-      disabled={entries.length === 0 && !pending}
-    >
-      <RefreshCcw class="size-3.5" />
-    </Button>
+    <div class="flex items-center gap-1">
+      <Button
+        variant="ghost"
+        size="sm"
+        class="h-7 gap-1 px-2 text-xs"
+        onclick={() => controller.createTab()}
+        disabled={!providerId}
+      >
+        <Plus class="size-3.5" />
+        New Tab
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        class="size-7 p-0"
+        aria-label="Reset conversation"
+        onclick={() => void controller.resetConversation()}
+        disabled={entries.length === 0 && !pending}
+      >
+        <RefreshCcw class="size-3.5" />
+      </Button>
+    </div>
   </div>
 
-  {#if conversations.length > 0}
-    <div class="border-border border-b px-4 py-2">
-      <label
-        class="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-[0.16em] uppercase"
-        for="project-conversation-select"
-      >
-        Conversation
-      </label>
-      <select
-        id="project-conversation-select"
-        class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
-        disabled={providerSelectionDisabled}
-        value={controller.conversationId}
-        onchange={(event) =>
-          void controller.selectConversation((event.currentTarget as HTMLSelectElement).value)}
-      >
-        <option value="">New conversation</option>
-        {#each conversations as conversation (conversation.id)}
-          <option value={conversation.id}>{formatConversationLabel(conversation)}</option>
-        {/each}
-      </select>
+  <div class="border-border border-b px-4 py-2">
+    <div class="flex flex-wrap gap-2">
+      {#each tabs as tab (tab.id)}
+        <div
+          class:bg-accent={tab.id === activeTabId}
+          class="border-input flex max-w-full items-center gap-1 rounded-md border px-2 py-1"
+        >
+          <button
+            type="button"
+            class="min-w-0 text-left"
+            onclick={() => controller.selectTab(tab.id)}
+          >
+            <div class="truncate text-sm font-medium">{formatConversationLabel(tab)}</div>
+            {#if formatTabStatus(tab)}
+              <div class="text-muted-foreground text-[10px] uppercase">{formatTabStatus(tab)}</div>
+            {/if}
+          </button>
+          {#if tabs.length > 1 || tab.conversationId || tab.entries.length > 0}
+            <button
+              type="button"
+              class="text-muted-foreground hover:text-foreground rounded p-0.5"
+              aria-label={`Close ${formatConversationLabel(tab)}`}
+              onclick={(event) => {
+                event.stopPropagation()
+                controller.closeTab(tab.id)
+              }}
+            >
+              <X class="size-3" />
+            </button>
+          {/if}
+        </div>
+      {/each}
     </div>
-  {/if}
+
+    {#if historicalConversations.length > 0}
+      <div class="mt-2">
+        <label
+          class="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-[0.16em] uppercase"
+          for="project-conversation-open"
+        >
+          Open Existing Conversation
+        </label>
+        <select
+          id="project-conversation-open"
+          class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+          bind:value={openConversationId}
+          disabled={!providerId}
+          onchange={(event) =>
+            void handleOpenConversation((event.currentTarget as HTMLSelectElement).value)}
+        >
+          <option value="">Select a conversation</option>
+          {#each historicalConversations as conversation (conversation.id)}
+            <option value={conversation.id}>
+              {conversation.rollingSummary?.trim() ||
+                formatConversationLabel({
+                  conversationId: conversation.id,
+                  entries: [],
+                })}
+            </option>
+          {/each}
+        </select>
+      </div>
+    {/if}
+  </div>
 
   <ScrollArea class="min-h-0 flex-1 px-4 py-4">
     <ProjectConversationTranscript
@@ -239,6 +347,10 @@
       <div class="text-muted-foreground mb-2 text-xs">No chat provider available.</div>
     {:else if statusMessage}
       <div class="text-muted-foreground mb-2 text-xs">{statusMessage}</div>
+    {:else if activeTab?.restored}
+      <div class="text-muted-foreground mb-2 text-xs">
+        This tab was restored from your last session.
+      </div>
     {/if}
 
     <div
