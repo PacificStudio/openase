@@ -11,9 +11,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/infra/sse"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -39,6 +41,7 @@ type Server struct {
 	metricsHandler             http.Handler
 	echo                       *echo.Echo
 	sseHub                     *sse.Hub
+	activityEmitter            *activitysvc.Emitter
 	ticketService              *ticketservice.Service
 	ticketStatusService        *ticketstatus.Service
 	agentPlatform              *agentplatform.Service
@@ -147,6 +150,19 @@ func NewServer(
 		catalog:             catalog,
 		workflowService:     workflowService,
 		memoryCollector:     runtimeobservability.RuntimeProcessMemoryCollector{},
+	}
+	if ticketService != nil {
+		server.activityEmitter = activitysvc.NewEmitter(activitysvc.RecordFunc(func(ctx context.Context, input activitysvc.RecordInput) (catalogdomain.ActivityEvent, error) {
+			return ticketService.RecordActivityEvent(ctx, ticketservice.RecordActivityEventInput{
+				ProjectID: input.ProjectID,
+				TicketID:  input.TicketID,
+				AgentID:   input.AgentID,
+				EventType: input.EventType,
+				Message:   input.Message,
+				Metadata:  input.Metadata,
+				CreatedAt: input.CreatedAt,
+			})
+		}), events)
 	}
 	for _, opt := range opts {
 		if opt != nil {

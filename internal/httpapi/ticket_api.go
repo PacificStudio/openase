@@ -10,6 +10,7 @@ import (
 	"time"
 
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -134,8 +135,6 @@ type ticketAssignedAgentResponse struct {
 	RuntimeControlState string  `json:"runtime_control_state,omitempty"`
 	RuntimePhase        *string `json:"runtime_phase,omitempty"`
 }
-
-const ticketCommentEventType = "comment_added"
 
 func (s *Server) registerTicketRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/tickets", s.handleListTickets)
@@ -415,6 +414,20 @@ func (s *Server) handleCreateTicketComment(c echo.Context) error {
 	if err != nil {
 		return writeTicketError(c, err)
 	}
+	ticket, err := s.ticketService.Get(c.Request().Context(), ticketID)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+	commentResponse := mapTicketCommentResponse(comment)
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: ticket.ProjectID,
+		TicketID:  &ticket.ID,
+		EventType: activityevent.TypeTicketCommentCreated,
+		Message:   "Added comment to " + ticket.Identifier,
+		Metadata:  ticketCommentMetadata(commentResponse),
+	}); err != nil {
+		return writeTicketError(c, err)
+	}
 	if err := s.publishTicketUpdatedByID(c.Request().Context(), ticketID); err != nil {
 		return writeTicketError(c, err)
 	}
@@ -452,6 +465,20 @@ func (s *Server) handleUpdateTicketComment(c echo.Context) error {
 	if err != nil {
 		return writeTicketError(c, err)
 	}
+	ticket, err := s.ticketService.Get(c.Request().Context(), ticketID)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+	commentResponse := mapTicketCommentResponse(comment)
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: ticket.ProjectID,
+		TicketID:  &ticket.ID,
+		EventType: activityevent.TypeTicketCommentEdited,
+		Message:   "Edited comment on " + ticket.Identifier,
+		Metadata:  ticketCommentMetadata(commentResponse),
+	}); err != nil {
+		return writeTicketError(c, err)
+	}
 	if err := s.publishTicketUpdatedByID(c.Request().Context(), ticketID); err != nil {
 		return writeTicketError(c, err)
 	}
@@ -477,6 +504,22 @@ func (s *Server) handleDeleteTicketComment(c echo.Context) error {
 
 	result, err := s.ticketService.RemoveComment(c.Request().Context(), ticketID, commentID)
 	if err != nil {
+		return writeTicketError(c, err)
+	}
+	ticket, err := s.ticketService.Get(c.Request().Context(), ticketID)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: ticket.ProjectID,
+		TicketID:  &ticket.ID,
+		EventType: activityevent.TypeTicketCommentDeleted,
+		Message:   "Deleted comment on " + ticket.Identifier,
+		Metadata: map[string]any{
+			"comment_id":     result.DeletedCommentID.String(),
+			"changed_fields": []string{"comment"},
+		},
+	}); err != nil {
 		return writeTicketError(c, err)
 	}
 	if err := s.publishTicketUpdatedByID(c.Request().Context(), ticketID); err != nil {
@@ -966,7 +1009,7 @@ func filterHookActivityEvents(items []domain.ActivityEvent) []domain.ActivityEve
 func filterNonCommentActivityEvents(items []domain.ActivityEvent) []domain.ActivityEvent {
 	filtered := make([]domain.ActivityEvent, 0, len(items))
 	for _, item := range items {
-		if item.EventType.String() == ticketCommentEventType || item.UnknownEventTypeRaw == ticketCommentEventType {
+		if item.EventType.IsTicketComment() {
 			continue
 		}
 		filtered = append(filtered, item)

@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	"github.com/labstack/echo/v4"
 )
@@ -82,6 +84,20 @@ func (s *Server) handleCreateScheduledJob(c echo.Context) error {
 	if err != nil {
 		return writeScheduledJobError(c, err)
 	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: item.ProjectID,
+		EventType: activityevent.TypeScheduledJobCreated,
+		Message:   "Created scheduled job " + item.Name,
+		Metadata: map[string]any{
+			"job_id":          item.ID.String(),
+			"job_name":        item.Name,
+			"cron_expression": item.CronExpression,
+			"is_enabled":      item.IsEnabled,
+			"changed_fields":  []string{"scheduled_job"},
+		},
+	}); err != nil {
+		return writeScheduledJobError(c, err)
+	}
 
 	return c.JSON(http.StatusCreated, map[string]any{
 		"scheduled_job": mapScheduledJobResponse(item),
@@ -107,9 +123,50 @@ func (s *Server) handleUpdateScheduledJob(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
+	current, err := s.scheduledJobService.Get(c.Request().Context(), jobID)
+	if err != nil {
+		return writeScheduledJobError(c, err)
+	}
 
 	item, err := s.scheduledJobService.Update(c.Request().Context(), input)
 	if err != nil {
+		return writeScheduledJobError(c, err)
+	}
+	activityInputs := make([]activitysvc.RecordInput, 0, 2)
+	if raw.Name != nil || raw.CronExpression != nil || raw.TicketTemplate != nil {
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: item.ProjectID,
+			EventType: activityevent.TypeScheduledJobUpdated,
+			Message:   "Updated scheduled job " + item.Name,
+			Metadata: map[string]any{
+				"job_id":          item.ID.String(),
+				"job_name":        item.Name,
+				"cron_expression": item.CronExpression,
+				"is_enabled":      item.IsEnabled,
+				"changed_fields":  scheduledJobChangedFields(raw),
+			},
+		})
+	}
+	if raw.IsEnabled != nil && current.IsEnabled != item.IsEnabled {
+		eventType := activityevent.TypeScheduledJobDisabled
+		message := "Disabled scheduled job " + item.Name
+		if item.IsEnabled {
+			eventType = activityevent.TypeScheduledJobEnabled
+			message = "Enabled scheduled job " + item.Name
+		}
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: item.ProjectID,
+			EventType: eventType,
+			Message:   message,
+			Metadata: map[string]any{
+				"job_id":         item.ID.String(),
+				"job_name":       item.Name,
+				"is_enabled":     item.IsEnabled,
+				"changed_fields": []string{"is_enabled"},
+			},
+		})
+	}
+	if err := s.emitActivities(c.Request().Context(), activityInputs...); err != nil {
 		return writeScheduledJobError(c, err)
 	}
 
@@ -127,9 +184,25 @@ func (s *Server) handleDeleteScheduledJob(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_JOB_ID", err.Error())
 	}
+	current, err := s.scheduledJobService.Get(c.Request().Context(), jobID)
+	if err != nil {
+		return writeScheduledJobError(c, err)
+	}
 
 	result, err := s.scheduledJobService.Delete(c.Request().Context(), jobID)
 	if err != nil {
+		return writeScheduledJobError(c, err)
+	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: current.ProjectID,
+		EventType: activityevent.TypeScheduledJobDeleted,
+		Message:   "Deleted scheduled job " + current.Name,
+		Metadata: map[string]any{
+			"job_id":         current.ID.String(),
+			"job_name":       current.Name,
+			"changed_fields": []string{"scheduled_job"},
+		},
+	}); err != nil {
 		return writeScheduledJobError(c, err)
 	}
 
@@ -153,11 +226,40 @@ func (s *Server) handleTriggerScheduledJob(c echo.Context) error {
 	if err := s.publishTicketEvent(c.Request().Context(), ticketCreatedEventType, result.Ticket); err != nil {
 		return writeScheduledJobError(c, err)
 	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: result.Job.ProjectID,
+		TicketID:  &result.Ticket.ID,
+		EventType: activityevent.TypeScheduledJobTriggered,
+		Message:   "Triggered scheduled job " + result.Job.Name,
+		Metadata: map[string]any{
+			"job_id":            result.Job.ID.String(),
+			"job_name":          result.Job.Name,
+			"ticket_id":         result.Ticket.ID.String(),
+			"ticket_identifier": result.Ticket.Identifier,
+			"changed_fields":    []string{"trigger"},
+		},
+	}); err != nil {
+		return writeScheduledJobError(c, err)
+	}
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"scheduled_job": mapScheduledJobResponse(result.Job),
 		"ticket":        mapTicketResponse(result.Ticket),
 	})
+}
+
+func scheduledJobChangedFields(raw rawUpdateScheduledJobRequest) []string {
+	fields := make([]string, 0, 3)
+	if raw.Name != nil {
+		fields = append(fields, "name")
+	}
+	if raw.CronExpression != nil {
+		fields = append(fields, "cron_expression")
+	}
+	if raw.TicketTemplate != nil {
+		fields = append(fields, "ticket_template")
+	}
+	return fields
 }
 
 func writeScheduledJobError(c echo.Context, err error) error {

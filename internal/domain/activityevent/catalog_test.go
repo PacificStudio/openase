@@ -21,8 +21,14 @@ func TestCatalogHelpers(t *testing.T) {
 	if len(catalog) == 0 {
 		t.Fatal("expected canonical catalog entries")
 	}
-	if catalog[0].EventType != TypeTicketCreated {
-		t.Fatalf("unexpected first catalog entry: %+v", catalog[0])
+	if MustParseType("ticket.created") != TypeTicketCreated {
+		t.Fatal("expected ticket.created to remain canonical")
+	}
+	if _, err := ParseRawType("project.created"); err != nil {
+		t.Fatalf("expected project.created to be supported: %v", err)
+	}
+	if _, err := ParseRawType("ticket_comment.created"); err != nil {
+		t.Fatalf("expected ticket_comment.created to be supported: %v", err)
 	}
 
 	catalog[0].Label = "mutated"

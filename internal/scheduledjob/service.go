@@ -259,6 +259,18 @@ func (s *Service) List(ctx context.Context, projectID uuid.UUID) ([]ScheduledJob
 	return jobs, nil
 }
 
+func (s *Service) Get(ctx context.Context, jobID uuid.UUID) (ScheduledJob, error) {
+	if s == nil || s.client == nil {
+		return ScheduledJob{}, ErrUnavailable
+	}
+
+	item, err := s.client.ScheduledJob.Get(ctx, jobID)
+	if err != nil {
+		return ScheduledJob{}, s.mapReadError("get scheduled job", err)
+	}
+	return mapScheduledJob(item)
+}
+
 func (s *Service) Create(ctx context.Context, input CreateInput) (ScheduledJob, error) {
 	if s == nil || s.client == nil {
 		return ScheduledJob{}, ErrUnavailable

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/labstack/echo/v4"
 )
@@ -59,6 +61,22 @@ func (s *Server) handleCreateTicketStatus(c echo.Context) error {
 	if err != nil {
 		return writeTicketStatusError(c, err)
 	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: status.ProjectID,
+		EventType: activityevent.TypeTicketStatusCreated,
+		Message:   "Created ticket status " + status.Name,
+		Metadata: map[string]any{
+			"status_id":       status.ID.String(),
+			"status_name":     status.Name,
+			"stage":           status.Stage,
+			"position":        status.Position,
+			"max_active_runs": status.MaxActiveRuns,
+			"is_default":      status.IsDefault,
+			"changed_fields":  []string{"status"},
+		},
+	}); err != nil {
+		return writeTicketStatusError(c, err)
+	}
 
 	return c.JSON(http.StatusCreated, map[string]any{"status": status})
 }
@@ -82,9 +100,60 @@ func (s *Server) handleUpdateTicketStatus(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
+	current, err := service.Get(c.Request().Context(), statusID)
+	if err != nil {
+		return writeTicketStatusError(c, err)
+	}
 
 	status, err := service.Update(c.Request().Context(), input)
 	if err != nil {
+		return writeTicketStatusError(c, err)
+	}
+	activityInputs := make([]activitysvc.RecordInput, 0, 3)
+	if raw.Position != nil {
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: status.ProjectID,
+			EventType: activityevent.TypeTicketStatusReordered,
+			Message:   "Reordered ticket status " + status.Name,
+			Metadata: map[string]any{
+				"status_id":      status.ID.String(),
+				"status_name":    status.Name,
+				"from_position":  current.Position,
+				"to_position":    status.Position,
+				"changed_fields": []string{"position"},
+			},
+		})
+	}
+	if raw.MaxActiveRuns.Set {
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: status.ProjectID,
+			EventType: activityevent.TypeTicketStatusConcurrencyChanged,
+			Message:   "Changed ticket status concurrency for " + status.Name,
+			Metadata: map[string]any{
+				"status_id":            status.ID.String(),
+				"status_name":          status.Name,
+				"from_max_active_runs": current.MaxActiveRuns,
+				"to_max_active_runs":   status.MaxActiveRuns,
+				"changed_fields":       []string{"max_active_runs"},
+			},
+		})
+	}
+	if raw.Name != nil || raw.Stage != nil || raw.Color != nil || raw.Icon != nil || raw.IsDefault != nil || raw.Description != nil {
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: status.ProjectID,
+			EventType: activityevent.TypeTicketStatusUpdated,
+			Message:   "Updated ticket status " + status.Name,
+			Metadata: map[string]any{
+				"status_id":      status.ID.String(),
+				"status_name":    status.Name,
+				"stage":          status.Stage,
+				"position":       status.Position,
+				"is_default":     status.IsDefault,
+				"changed_fields": ticketStatusChangedFields(raw),
+			},
+		})
+	}
+	if err := s.emitActivities(c.Request().Context(), activityInputs...); err != nil {
 		return writeTicketStatusError(c, err)
 	}
 
@@ -101,9 +170,26 @@ func (s *Server) handleDeleteTicketStatus(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_STATUS_ID", err.Error())
 	}
+	current, err := service.Get(c.Request().Context(), statusID)
+	if err != nil {
+		return writeTicketStatusError(c, err)
+	}
 
 	result, err := service.Delete(c.Request().Context(), statusID)
 	if err != nil {
+		return writeTicketStatusError(c, err)
+	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: current.ProjectID,
+		EventType: activityevent.TypeTicketStatusDeleted,
+		Message:   "Deleted ticket status " + current.Name,
+		Metadata: map[string]any{
+			"status_id":             current.ID.String(),
+			"status_name":           current.Name,
+			"replacement_status_id": result.ReplacementStatusID.String(),
+			"changed_fields":        []string{"status"},
+		},
+	}); err != nil {
 		return writeTicketStatusError(c, err)
 	}
 
@@ -128,6 +214,18 @@ func (s *Server) handleResetTicketStatuses(c echo.Context) error {
 
 	result, err := service.List(c.Request().Context(), projectID)
 	if err != nil {
+		return writeTicketStatusError(c, err)
+	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: projectID,
+		EventType: activityevent.TypeTicketStatusReset,
+		Message:   "Reset ticket statuses to the default template",
+		Metadata: map[string]any{
+			"status_count":   len(result.Statuses),
+			"status_names":   mapStatusNames(result.Statuses),
+			"changed_fields": []string{"status_template"},
+		},
+	}); err != nil {
 		return writeTicketStatusError(c, err)
 	}
 

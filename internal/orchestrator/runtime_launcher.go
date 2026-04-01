@@ -661,6 +661,7 @@ func (l *RuntimeLauncher) reconcileStalledRuntime(ctx context.Context) error {
 			now,
 			"runtime_launcher",
 			"runtime stalled based on last codex event timestamp",
+			l.events,
 		)
 		if err != nil {
 			return fmt.Errorf("release stalled runtime claim for run %s: %w", snapshot.RunID, err)
