@@ -16,6 +16,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	notificationdomain "github.com/BetterAndBetterII/openase/internal/domain/notification"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
@@ -494,26 +495,24 @@ func TestCatalogHelpersAndOpenAPIBuilderCoverage(t *testing.T) {
 			name       string
 			err        error
 			wantStatus int
+			wantCode   string
 			wantBody   string
 		}{
-			{name: "invalid input", err: fmt.Errorf("%w: machine_id must reference an existing machine", catalogservice.ErrInvalidInput), wantStatus: http.StatusBadRequest, wantBody: "machine_id must reference an existing machine"},
-			{name: "not found", err: catalogservice.ErrNotFound, wantStatus: http.StatusNotFound, wantBody: "resource not found"},
-			{name: "conflict", err: catalogservice.ErrConflict, wantStatus: http.StatusConflict, wantBody: "resource conflict"},
-			{name: "probe failed", err: fmt.Errorf("%w: ssh handshake failed", catalogservice.ErrMachineProbeFailed), wantStatus: http.StatusBadGateway, wantBody: "ssh handshake failed"},
-			{name: "testing unavailable", err: fmt.Errorf("%w: machine tests disabled", catalogservice.ErrMachineTestingUnavailable), wantStatus: http.StatusServiceUnavailable, wantBody: "machine tests disabled"},
-			{name: "internal", err: errors.New("boom"), wantStatus: http.StatusInternalServerError, wantBody: "internal server error"},
+			{name: "invalid input", err: fmt.Errorf("%w: machine_id must reference an existing machine", catalogservice.ErrInvalidInput), wantStatus: http.StatusBadRequest, wantCode: "INVALID_REQUEST", wantBody: "machine_id must reference an existing machine"},
+			{name: "not found", err: catalogservice.ErrNotFound, wantStatus: http.StatusNotFound, wantCode: "RESOURCE_NOT_FOUND", wantBody: "resource not found"},
+			{name: "organization slug conflict", err: catalogdomain.ErrOrganizationSlugConflict, wantStatus: http.StatusConflict, wantCode: "ORGANIZATION_SLUG_CONFLICT", wantBody: "Organization slug already exists."},
+			{name: "repo scope conflict", err: catalogdomain.ErrTicketRepoScopeConflict, wantStatus: http.StatusConflict, wantCode: "TICKET_REPO_SCOPE_CONFLICT", wantBody: "Repository is already attached to this ticket."},
+			{name: "generic conflict", err: catalogservice.ErrConflict, wantStatus: http.StatusConflict, wantCode: "RESOURCE_CONFLICT", wantBody: "resource conflict"},
+			{name: "probe failed", err: fmt.Errorf("%w: ssh handshake failed", catalogservice.ErrMachineProbeFailed), wantStatus: http.StatusBadGateway, wantCode: "MACHINE_PROBE_FAILED", wantBody: "ssh handshake failed"},
+			{name: "testing unavailable", err: fmt.Errorf("%w: machine tests disabled", catalogservice.ErrMachineTestingUnavailable), wantStatus: http.StatusServiceUnavailable, wantCode: "MACHINE_TESTING_UNAVAILABLE", wantBody: "machine tests disabled"},
+			{name: "internal", err: errors.New("boom"), wantStatus: http.StatusInternalServerError, wantCode: "INTERNAL_ERROR", wantBody: "internal server error"},
 		} {
 			t.Run(testCase.name, func(t *testing.T) {
 				rec := invokeAPIErrorWriter(t, func(c echo.Context) error {
 					return writeCatalogError(c, testCase.err)
 				})
 
-				if rec.Code != testCase.wantStatus {
-					t.Fatalf("status = %d, want %d, body=%s", rec.Code, testCase.wantStatus, rec.Body.String())
-				}
-				if !strings.Contains(rec.Body.String(), testCase.wantBody) {
-					t.Fatalf("body %q does not contain %q", rec.Body.String(), testCase.wantBody)
-				}
+				assertAPIErrorResponse(t, rec, testCase.wantStatus, testCase.wantCode, testCase.wantBody)
 			})
 		}
 	})

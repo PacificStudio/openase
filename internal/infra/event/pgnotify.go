@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/jackc/pgx/v5"
 )
@@ -18,6 +19,8 @@ import (
 const maxPGNotifyPayloadBytes = 7999
 const maxPGChannelNameBytes = 63
 const pgChannelPrefix = "openase_"
+
+var pgNotifyBusComponent = logging.DeclareComponent("event-pgnotify-bus")
 
 type PGNotifyBus struct {
 	dsn    string
@@ -49,7 +52,7 @@ func NewPGNotifyBus(dsn string, logger *slog.Logger) (*PGNotifyBus, error) {
 
 	return &PGNotifyBus{
 		dsn:         trimmedDSN,
-		logger:      logger.With("component", "pgnotify-bus"),
+		logger:      logging.WithComponent(logger, pgNotifyBusComponent),
 		subscribers: make(map[int]pgSubscription),
 	}, nil
 }

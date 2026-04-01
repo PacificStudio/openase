@@ -7,16 +7,20 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
 
 const defaultShutdownTimeout = 2 * time.Second
 const defaultToolInputAnswer = "This is a non-interactive session. Operator input is unavailable."
+
+var codexAdapterComponent = logging.DeclareComponent("codex-adapter")
 
 type EventType string
 
@@ -45,6 +49,7 @@ type AdapterOptions struct {
 
 type Adapter struct {
 	processManager provider.AgentCLIProcessManager
+	logger         *slog.Logger
 }
 
 type StartRequest struct {
@@ -202,6 +207,7 @@ type Session struct {
 	stderr   bytes.Buffer
 
 	threadID string
+	logger   *slog.Logger
 
 	autoApproveRequests         bool
 	defaultTurnWorkingDirectory string
@@ -227,7 +233,10 @@ func NewAdapter(options AdapterOptions) (*Adapter, error) {
 		return nil, fmt.Errorf("process manager must not be nil")
 	}
 
-	return &Adapter{processManager: options.ProcessManager}, nil
+	return &Adapter{
+		processManager: options.ProcessManager,
+		logger:         logging.WithComponent(nil, codexAdapterComponent),
+	}, nil
 }
 
 func (a *Adapter) Start(ctx context.Context, request StartRequest) (*Session, error) {
@@ -246,7 +255,7 @@ func (a *Adapter) Start(ctx context.Context, request StartRequest) (*Session, er
 		return nil, fmt.Errorf("start codex app server: %w", err)
 	}
 
-	session := newSession(process)
+	session := newSessionWithLogger(process, a.logger)
 
 	go session.captureStderr()
 	go session.readLoop()
@@ -438,12 +447,17 @@ func (s *Session) Stop(ctx context.Context) error {
 }
 
 func newSession(process provider.AgentCLIProcess) *Session {
+	return newSessionWithLogger(process, nil)
+}
+
+func newSessionWithLogger(process provider.AgentCLIProcess, logger *slog.Logger) *Session {
 	return &Session{
 		process: process,
 		encoder: json.NewEncoder(process.Stdin()),
 		pending: map[string]chan callResult{},
 		events:  make(chan Event, 32),
 		done:    make(chan struct{}),
+		logger:  logging.WithComponent(logger, codexAdapterComponent),
 	}
 }
 
@@ -615,6 +629,7 @@ func (s *Session) readLoop() {
 				return
 			}
 
+			s.logger.Error("decode codex json-rpc message failed", "error", err)
 			s.shutdown(fmt.Errorf("decode codex json-rpc message: %w", err))
 			return
 		}
@@ -624,6 +639,7 @@ func (s *Session) readLoop() {
 		default:
 		}
 		if err := message.validate(); err != nil {
+			s.logger.Error("validate codex json-rpc message failed", "method", message.Method, "error", err)
 			s.shutdown(fmt.Errorf("validate codex json-rpc message: %w", err))
 			return
 		}
@@ -745,6 +761,7 @@ func (s *Session) handleServerRequest(message jsonRPCMessage) error {
 		}
 		return s.RespondUserInput(context.Background(), request, defaultToolRequestUserInputAnswers(payload))
 	default:
+		s.logger.Warn("unsupported codex server request", "method", message.Method)
 		return s.respondWithError(requestID, jsonRPCMethodNotFound, fmt.Sprintf("unsupported codex server request %q", message.Method))
 	}
 }
@@ -985,6 +1002,9 @@ func (s *Session) emit(event Event) {
 
 func (s *Session) shutdown(err error) {
 	s.shutdownOnce.Do(func() {
+		if err != nil {
+			s.logger.Error("codex session shutting down with error", "error", err)
+		}
 		s.doneMu.Lock()
 		s.doneErr = err
 		s.doneMu.Unlock()

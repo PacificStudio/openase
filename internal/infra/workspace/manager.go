@@ -10,11 +10,14 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	transport "github.com/go-git/go-git/v5/plumbing/transport"
 	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 )
+
+var _ = logging.DeclareComponent("workspace-manager")
 
 var safeSegmentPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 

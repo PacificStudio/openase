@@ -402,7 +402,7 @@ func TestCatalogRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		{name: "list repos invalid project id", method: http.MethodGet, path: "/api/v1/projects/not-a-uuid/repos", wantStatus: http.StatusBadRequest, wantBody: "projectId must be a valid UUID"},
 		{name: "create repo invalid project id", method: http.MethodPost, path: "/api/v1/projects/not-a-uuid/repos", body: `{"name":"backend","repository_url":"https://github.com/acme/backend.git"}`, wantStatus: http.StatusBadRequest, wantBody: "projectId must be a valid UUID"},
 		{name: "create repo invalid payload", method: http.MethodPost, path: "/api/v1/projects/" + projectID.String() + "/repos", body: `{"name":" ","repository_url":"https://github.com/acme/backend.git"}`, wantStatus: http.StatusBadRequest, wantBody: "name must not be empty"},
-		{name: "create repo conflict", method: http.MethodPost, path: "/api/v1/projects/" + projectID.String() + "/repos", body: `{"name":"backend","repository_url":"https://github.com/acme/other.git"}`, wantStatus: http.StatusConflict, wantBody: "resource conflict"},
+		{name: "create repo conflict", method: http.MethodPost, path: "/api/v1/projects/" + projectID.String() + "/repos", body: `{"name":"backend","repository_url":"https://github.com/acme/other.git"}`, wantStatus: http.StatusConflict, wantBody: "REPOSITORY_NAME_CONFLICT"},
 		{name: "patch repo invalid repo id", method: http.MethodPatch, path: "/api/v1/projects/" + projectID.String() + "/repos/not-a-uuid", body: `{}`, wantStatus: http.StatusBadRequest, wantBody: "repoId must be a valid UUID"},
 		{name: "patch repo invalid payload", method: http.MethodPatch, path: "/api/v1/projects/" + projectID.String() + "/repos/" + repoID.String(), body: `{"name":" "}`, wantStatus: http.StatusBadRequest, wantBody: "name must not be empty"},
 		{name: "delete repo invalid project id", method: http.MethodDelete, path: "/api/v1/projects/not-a-uuid/repos/" + repoID.String(), wantStatus: http.StatusBadRequest, wantBody: "projectId must be a valid UUID"},
@@ -411,7 +411,7 @@ func TestCatalogRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		{name: "list repo scopes invalid ticket id", method: http.MethodGet, path: "/api/v1/projects/" + projectID.String() + "/tickets/not-a-uuid/repo-scopes", wantStatus: http.StatusBadRequest, wantBody: "ticketId must be a valid UUID"},
 		{name: "list repo scopes missing ticket", method: http.MethodGet, path: "/api/v1/projects/" + projectID.String() + "/tickets/" + uuid.NewString() + "/repo-scopes", wantStatus: http.StatusNotFound, wantBody: "resource not found"},
 		{name: "create repo scope invalid payload", method: http.MethodPost, path: "/api/v1/projects/" + projectID.String() + "/tickets/" + ticketID.String() + "/repo-scopes", body: `{"repo_id":"bad"}`, wantStatus: http.StatusBadRequest, wantBody: "repo_id must be a valid UUID"},
-		{name: "create repo scope conflict", method: http.MethodPost, path: "/api/v1/projects/" + projectID.String() + "/tickets/" + ticketID.String() + "/repo-scopes", body: `{"repo_id":"` + repoID.String() + `"}`, wantStatus: http.StatusConflict, wantBody: "resource conflict"},
+		{name: "create repo scope conflict", method: http.MethodPost, path: "/api/v1/projects/" + projectID.String() + "/tickets/" + ticketID.String() + "/repo-scopes", body: `{"repo_id":"` + repoID.String() + `"}`, wantStatus: http.StatusConflict, wantBody: "TICKET_REPO_SCOPE_CONFLICT"},
 		{name: "patch repo scope invalid scope id", method: http.MethodPatch, path: "/api/v1/projects/" + projectID.String() + "/tickets/" + ticketID.String() + "/repo-scopes/not-a-uuid", body: `{}`, wantStatus: http.StatusBadRequest, wantBody: "scopeId must be a valid UUID"},
 		{name: "patch repo scope invalid payload", method: http.MethodPatch, path: "/api/v1/projects/" + projectID.String() + "/tickets/" + ticketID.String() + "/repo-scopes/" + scopeID.String(), body: `{"pr_status":"bad"}`, wantStatus: http.StatusBadRequest, wantBody: "pr_status must be one of"},
 		{name: "delete repo scope invalid ticket id", method: http.MethodDelete, path: "/api/v1/projects/" + projectID.String() + "/tickets/not-a-uuid/repo-scopes/" + scopeID.String(), wantStatus: http.StatusBadRequest, wantBody: "ticketId must be a valid UUID"},
@@ -1156,7 +1156,7 @@ func (f *fakeCatalogService) ListOrganizations(context.Context) ([]domain.Organi
 func (f *fakeCatalogService) CreateOrganization(_ context.Context, input domain.CreateOrganization) (domain.Organization, error) {
 	for _, item := range f.organizations {
 		if item.Slug == input.Slug {
-			return domain.Organization{}, catalogservice.ErrConflict
+			return domain.Organization{}, domain.ErrOrganizationSlugConflict
 		}
 	}
 
@@ -1274,7 +1274,7 @@ func (f *fakeCatalogService) CreateMachine(_ context.Context, input domain.Creat
 	}
 	for _, item := range f.machines {
 		if item.OrganizationID == input.OrganizationID && item.Name == input.Name {
-			return domain.Machine{}, catalogservice.ErrConflict
+			return domain.Machine{}, domain.ErrMachineNameConflict
 		}
 	}
 
@@ -1315,7 +1315,7 @@ func (f *fakeCatalogService) UpdateMachine(_ context.Context, input domain.Updat
 	}
 	for _, item := range f.machines {
 		if item.ID != input.ID && item.OrganizationID == input.OrganizationID && item.Name == input.Name {
-			return domain.Machine{}, catalogservice.ErrConflict
+			return domain.Machine{}, domain.ErrMachineNameConflict
 		}
 	}
 
@@ -1456,7 +1456,7 @@ func (f *fakeCatalogService) CreateProject(_ context.Context, input domain.Creat
 
 	for _, item := range f.projects {
 		if item.OrganizationID == input.OrganizationID && item.Slug == input.Slug {
-			return domain.Project{}, catalogservice.ErrConflict
+			return domain.Project{}, domain.ErrProjectSlugConflict
 		}
 	}
 
@@ -1543,7 +1543,7 @@ func (f *fakeCatalogService) CreateProjectRepo(_ context.Context, input domain.C
 
 	for _, item := range f.projectRepos {
 		if item.ProjectID == input.ProjectID && item.Name == input.Name {
-			return domain.ProjectRepo{}, catalogservice.ErrConflict
+			return domain.ProjectRepo{}, domain.ErrProjectRepoNameConflict
 		}
 	}
 
@@ -1624,7 +1624,7 @@ func (f *fakeCatalogService) CreateTicketRepoScope(_ context.Context, input doma
 	}
 	for _, item := range f.ticketScopes {
 		if item.TicketID == input.TicketID && item.RepoID == input.RepoID {
-			return domain.TicketRepoScope{}, catalogservice.ErrConflict
+			return domain.TicketRepoScope{}, domain.ErrTicketRepoScopeConflict
 		}
 	}
 

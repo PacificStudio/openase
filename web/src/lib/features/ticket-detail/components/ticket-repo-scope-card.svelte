@@ -28,8 +28,6 @@
   }
 
   const summaryLabelClass = 'text-muted-foreground text-[10px] font-medium uppercase tracking-wide'
-  const summaryValueClass = 'text-foreground mt-1 flex min-h-5 items-center gap-1.5 text-xs'
-
   let {
     scope,
     saving = false,
@@ -104,7 +102,7 @@
     <div class="min-w-0">
       <div class="text-foreground flex items-center gap-2 text-sm font-medium">
         <GitBranch class="text-muted-foreground size-3.5" />
-        <span class="truncate">{scope.repoName}</span>
+        <span class="break-words">{scope.repoName}</span>
       </div>
     </div>
 
@@ -134,54 +132,54 @@
     </div>
   </div>
 
-  <dl class="mt-4 grid gap-3 sm:grid-cols-3">
-    <div>
-      <dt class={summaryLabelClass}>Branch</dt>
-      <dd class={summaryValueClass}>
-        <GitBranch class="text-muted-foreground size-3.5" />
-        <span class="truncate">{scope.branchName || 'Unset'}</span>
+  <dl class="mt-3 space-y-2.5">
+    <div class="flex items-start gap-2">
+      <dt class={cn(summaryLabelClass, 'w-16 shrink-0 pt-0.5')}>Branch</dt>
+      <dd class="text-foreground flex min-w-0 items-center gap-1.5 text-xs">
+        <GitBranch class="text-muted-foreground size-3.5 shrink-0" />
+        <span class="break-all">{scope.branchName || 'Unset'}</span>
       </dd>
     </div>
 
-    <div>
-      <dt class={summaryLabelClass}>Pull Request</dt>
-      <dd class={summaryValueClass}>
-        <GitPullRequest
-          class={cn(
-            'size-3.5 shrink-0',
-            prStatusConfig[scope.prStatus ?? 'open']?.class ?? 'text-muted-foreground',
-          )}
-        />
-        {#if scope.prUrl}
-          <a
-            href={scope.prUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="truncate text-blue-400 hover:underline"
+    <div class="flex items-start gap-2">
+      <dt class={cn(summaryLabelClass, 'w-16 shrink-0 pt-0.5')}>PR</dt>
+      <dd class="min-w-0 text-xs">
+        <div class="flex items-center gap-1.5">
+          <GitPullRequest
+            class={cn(
+              'size-3.5 shrink-0',
+              prStatusConfig[scope.prStatus ?? 'open']?.class ?? 'text-muted-foreground',
+            )}
+          />
+          {#if scope.prUrl}
+            <a
+              href={scope.prUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-blue-400 hover:underline"
+            >
+              Pull Request
+            </a>
+            <ExternalLink class="text-muted-foreground size-2.5 shrink-0" />
+          {:else}
+            <span class="text-muted-foreground">No PR linked</span>
+          {/if}
+          <Badge
+            variant="outline"
+            class={cn(
+              'h-4 shrink-0 py-0 text-[10px]',
+              scope.prStatus ? prStatusConfig[scope.prStatus]?.class : 'text-muted-foreground',
+            )}
           >
-            Pull Request
-          </a>
-          <ExternalLink class="text-muted-foreground size-2.5 shrink-0" />
-        {:else}
-          <span class="text-muted-foreground">No PR linked</span>
-        {/if}
+            {getPrStatusLabel(scope.prStatus)}
+          </Badge>
+        </div>
       </dd>
-      <div class="mt-1">
-        <Badge
-          variant="outline"
-          class={cn(
-            'h-4 py-0 text-[10px]',
-            scope.prStatus ? prStatusConfig[scope.prStatus]?.class : 'text-muted-foreground',
-          )}
-        >
-          {getPrStatusLabel(scope.prStatus)}
-        </Badge>
-      </div>
     </div>
 
-    <div>
-      <dt class={summaryLabelClass}>CI</dt>
-      <dd class={summaryValueClass}>
+    <div class="flex items-start gap-2">
+      <dt class={cn(summaryLabelClass, 'w-16 shrink-0 pt-0.5')}>CI</dt>
+      <dd class="text-foreground flex items-center gap-1.5 text-xs">
         {#if scope.ciStatus}
           {@const ci = ciStatusConfig[scope.ciStatus]}
           {#if ci}

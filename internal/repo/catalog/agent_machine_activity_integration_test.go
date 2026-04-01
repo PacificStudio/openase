@@ -311,6 +311,16 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	}
 	if _, err := repo.CreateAgent(ctx, domain.CreateAgent{
 		ProjectID:             project.ID,
+		ProviderID:            agentProvider.ID,
+		Name:                  "codex-01",
+		RuntimeControlState:   domain.AgentRuntimeControlStateActive,
+		TotalTokensUsed:       0,
+		TotalTicketsCompleted: 0,
+	}); !errors.Is(err, domain.ErrAgentNameConflict) {
+		t.Fatalf("CreateAgent(duplicate name) error = %v, want %v", err, domain.ErrAgentNameConflict)
+	}
+	if _, err := repo.CreateAgent(ctx, domain.CreateAgent{
+		ProjectID:             project.ID,
 		ProviderID:            uuid.New(),
 		Name:                  "missing-provider",
 		RuntimeControlState:   domain.AgentRuntimeControlStateActive,
@@ -608,8 +618,8 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 		t.Fatalf("ListAgentSteps(missing agent) error = %v, want %v", err, ErrNotFound)
 	}
 
-	if _, err := repo.DeleteAgent(ctx, createdAgent.ID); !errors.Is(err, ErrConflict) {
-		t.Fatalf("DeleteAgent() with active runs error = %v, want %v", err, ErrConflict)
+	if _, err := repo.DeleteAgent(ctx, createdAgent.ID); !errors.Is(err, domain.ErrAgentInUseConflict) {
+		t.Fatalf("DeleteAgent() with active runs error = %v, want %v", err, domain.ErrAgentInUseConflict)
 	}
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).ClearCurrentRunID().Save(ctx); err != nil {
 		t.Fatalf("clear current run: %v", err)

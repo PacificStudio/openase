@@ -12,10 +12,14 @@ import (
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	gossh "golang.org/x/crypto/ssh"
 )
 
 const remoteInterruptSignal = "INT"
+
+var hookRemoteShellExecutorComponent = logging.DeclareComponent("hook-remote-shell-executor")
+var hookRemoteShellExecutorLogger = logging.WithComponent(nil, hookRemoteShellExecutorComponent)
 
 type remoteSessionFactory interface {
 	Get(ctx context.Context, machine catalogdomain.Machine) (sshinfra.Client, error)
@@ -82,6 +86,7 @@ func (e *RemoteShellExecutor) run(ctx context.Context, hookName TicketHookName, 
 
 	client, err := e.pool.Get(commandContext, e.machine)
 	if err != nil {
+		hookRemoteShellExecutorLogger.Warn("acquire remote hook ssh client failed", "hook_name", hookName, "command", hook.Command, "machine_id", e.machine.ID.String(), "machine_name", e.machine.Name, "host", e.machine.Host, "error", err)
 		return Result{
 			Name:             hook.Command,
 			HookName:         hookName,
@@ -153,6 +158,7 @@ func (e *RemoteShellExecutor) run(ctx context.Context, hookName TicketHookName, 
 
 	commandText := buildRemoteCommand(workingDirectory, hook.Command, buildEnvironmentVariables(hookName, env))
 	if err := session.Start(commandText); err != nil {
+		hookRemoteShellExecutorLogger.Warn("start remote hook command failed", "hook_name", hookName, "command", hook.Command, "machine_id", e.machine.ID.String(), "machine_name", e.machine.Name, "host", e.machine.Host, "working_directory", workingDirectory, "error", err)
 		return Result{
 			Name:             hook.Command,
 			HookName:         hookName,
@@ -197,6 +203,7 @@ func (e *RemoteShellExecutor) run(ctx context.Context, hookName TicketHookName, 
 		result.Outcome = OutcomeTimeout
 		result.TimedOut = true
 		result.Error = fmt.Sprintf("timed out after %s", hook.Timeout)
+		hookRemoteShellExecutorLogger.Warn("remote hook timed out", "hook_name", hookName, "command", hook.Command, "machine_id", e.machine.ID.String(), "machine_name", e.machine.Name, "host", e.machine.Host, "working_directory", workingDirectory, "timeout", hook.Timeout.String())
 		return result, errors.New(result.Error)
 	}
 	if errors.Is(commandContext.Err(), context.Canceled) && errors.Is(runErr, context.Canceled) {
@@ -210,6 +217,7 @@ func (e *RemoteShellExecutor) run(ctx context.Context, hookName TicketHookName, 
 			result.ExitCode = &exitCode
 		}
 		result.Error = describeRunError(runErr, result.Stderr)
+		hookRemoteShellExecutorLogger.Warn("remote hook execution failed", "hook_name", hookName, "command", hook.Command, "machine_id", e.machine.ID.String(), "machine_name", e.machine.Name, "host", e.machine.Host, "working_directory", workingDirectory, "duration_ms", duration.Milliseconds(), "stderr", result.Stderr, "error", runErr)
 		return result, errors.New(result.Error)
 	}
 

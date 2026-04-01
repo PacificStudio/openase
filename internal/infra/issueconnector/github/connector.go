@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/issueconnector"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 )
 
 const (
@@ -33,6 +35,8 @@ var terminalStatusFallbacks = map[string]struct{}{
 	"resolved":  {},
 }
 
+var githubIssueConnectorComponent = logging.DeclareComponent("github-issue-connector")
+
 // Connector implements the F47 issueconnector contract for GitHub Issues.
 //
 // Pull and webhook parsing treat GitHub issue fields as the upstream source of truth.
@@ -40,6 +44,7 @@ var terminalStatusFallbacks = map[string]struct{}{
 // on already linked issues; it does not create new GitHub issues for local-only tickets.
 type Connector struct {
 	client *http.Client
+	logger *slog.Logger
 }
 
 func New(client *http.Client) *Connector {
@@ -47,7 +52,10 @@ func New(client *http.Client) *Connector {
 		client = http.DefaultClient
 	}
 
-	return &Connector{client: client}
+	return &Connector{
+		client: client,
+		logger: logging.WithComponent(nil, githubIssueConnectorComponent),
+	}
 }
 
 func (c *Connector) ID() string {
@@ -98,6 +106,7 @@ func (c *Connector) ParseWebhook(_ context.Context, headers http.Header, body []
 	case "issue_comment":
 		return parseIssueCommentWebhook(body)
 	default:
+		c.logger.Warn("github issue webhook event unsupported", "event_type", eventType)
 		return nil, fmt.Errorf("unsupported GitHub webhook event %q", eventType)
 	}
 }
@@ -583,6 +592,7 @@ func (c *Connector) doJSON(
 
 	response, err := c.client.Do(request)
 	if err != nil {
+		c.logger.Error("github issue upstream request failed", "method", method, "endpoint", endpoint, "error", err)
 		return nil, fmt.Errorf("%s %s: %w", method, endpoint, err)
 	}
 	defer func() {
@@ -592,6 +602,14 @@ func (c *Connector) doJSON(
 	}()
 
 	if response.StatusCode != expectedStatus {
+		c.logger.Warn(
+			"github issue upstream returned unexpected status",
+			"method", method,
+			"endpoint", endpoint,
+			"status_code", response.StatusCode,
+			"expected_status", expectedStatus,
+			"github_request_id", strings.TrimSpace(response.Header.Get("X-GitHub-Request-Id")),
+		)
 		body, readErr := io.ReadAll(response.Body)
 		if readErr != nil {
 			return nil, fmt.Errorf("%s %s: unexpected status %d and failed to read response body: %w", method, endpoint, response.StatusCode, readErr)
@@ -608,6 +626,7 @@ func (c *Connector) doJSON(
 	}
 
 	if err := json.NewDecoder(response.Body).Decode(target); err != nil {
+		c.logger.Error("decode github issue upstream response failed", "method", method, "endpoint", endpoint, "status_code", response.StatusCode, "error", err)
 		return nil, fmt.Errorf("%s %s: decode response: %w", method, endpoint, err)
 	}
 

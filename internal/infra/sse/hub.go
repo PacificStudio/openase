@@ -6,10 +6,13 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
 
 const connectionBufferSize = 32
+
+var sseHubComponent = logging.DeclareComponent("sse-hub")
 
 type Hub struct {
 	events provider.EventProvider
@@ -44,7 +47,7 @@ func NewHub(events provider.EventProvider, logger *slog.Logger) *Hub {
 
 	return &Hub{
 		events:       events,
-		logger:       logger.With("component", "sse-hub"),
+		logger:       logging.WithComponent(logger, sseHubComponent),
 		baseCtx:      baseCtx,
 		baseCancel:   baseCancel,
 		connections:  make(map[int]connection),

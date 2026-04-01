@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os/exec"
 	"slices"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	repo "github.com/BetterAndBetterII/openase/internal/repo/githubauth"
 	"github.com/google/uuid"
 )
@@ -29,6 +31,8 @@ var (
 	ErrCredentialNotConfigured = errors.New("GitHub credential is not configured")
 	ErrGHCLIImportFailed       = errors.New("failed to import gh auth token")
 )
+
+var githubAuthServiceComponent = logging.DeclareComponent("github-auth-service")
 
 type TokenResolver interface {
 	ResolveProjectCredential(ctx context.Context, projectID uuid.UUID) (domain.ResolvedCredential, error)
@@ -78,6 +82,7 @@ type Service struct {
 	baseURL       string
 	now           func() time.Time
 	tokenImporter tokenImporter
+	logger        *slog.Logger
 }
 
 func New(repository repo.Repository, httpClient *http.Client, cipherSeed string) (*Service, error) {
@@ -104,6 +109,7 @@ func New(repository repo.Repository, httpClient *http.Client, cipherSeed string)
 		baseURL:       "https://api.github.com",
 		now:           time.Now,
 		tokenImporter: ghCLITokenImporter{},
+		logger:        logging.WithComponent(nil, githubAuthServiceComponent),
 	}, nil
 }
 
@@ -217,6 +223,7 @@ func (s *Service) ImportGHCLICredential(ctx context.Context, input ScopeInput) (
 
 	token, err := s.tokenImporter.ReadToken(ctx)
 	if err != nil {
+		s.logger.Error("import github credential from gh cli failed", "project_id", input.ProjectID.String(), "scope", input.Scope, "error", err)
 		return ProjectSecurity{}, fmt.Errorf("%w: %s", ErrGHCLIImportFailed, err)
 	}
 	sealed, err := s.SealToken(token, domain.SourceGHCLIImport)
@@ -243,6 +250,7 @@ func (s *Service) RetestCredential(ctx context.Context, input ScopeInput) (Proje
 		return ProjectSecurity{}, fmt.Errorf("%w: %s", ErrInvalidInput, err)
 	}
 	if stored == nil {
+		s.logger.Warn("retest github credential requested for missing scope", "project_id", input.ProjectID.String(), "scope", input.Scope)
 		return ProjectSecurity{}, ErrCredentialNotConfigured
 	}
 	token, err := s.decryptStoredCredential(*stored)
@@ -280,6 +288,7 @@ func (s *Service) DeleteCredential(ctx context.Context, input ScopeInput) (Proje
 			return ProjectSecurity{}, fmt.Errorf("clear project GitHub credential: %w", err)
 		}
 	}
+	s.logger.Info("deleted github credential", "project_id", input.ProjectID.String(), "scope", input.Scope)
 	return s.ReadProjectSecurity(ctx, input.ProjectID)
 }
 
@@ -297,6 +306,7 @@ func (s *Service) saveCredential(
 	if err := s.persistScopedCredential(ctx, projectContext, scope, sealed, domain.ConfiguredProbe()); err != nil {
 		return ProjectSecurity{}, err
 	}
+	s.logger.Info("saved github credential", "project_id", projectID.String(), "scope", scope, "source", sealed.Source)
 	if err := s.saveScopedProbe(ctx, projectContext, scope, probingProbe()); err != nil {
 		return ProjectSecurity{}, err
 	}
@@ -430,6 +440,7 @@ func (s *Service) probeToken(ctx context.Context, token string, repositoryURL st
 
 	userResponse, err := s.httpClient.Do(userRequest)
 	if err != nil {
+		s.logger.Error("github credential user probe failed", "repository_url", repositoryURL, "operation", "user_probe", "error", err)
 		return domain.TokenProbe{
 			State:      domain.ProbeStateError,
 			Configured: true,
@@ -461,6 +472,7 @@ func (s *Service) probeToken(ctx context.Context, token string, repositoryURL st
 	default:
 		probe.State = domain.ProbeStateError
 		probe.LastError = fmt.Sprintf("GitHub user probe returned %d", userResponse.StatusCode)
+		s.logger.Warn("github credential user probe returned unexpected status", "repository_url", repositoryURL, "status_code", userResponse.StatusCode, "github_request_id", strings.TrimSpace(userResponse.Header.Get("X-GitHub-Request-Id")))
 		return probe, nil
 	}
 
@@ -478,6 +490,7 @@ func (s *Service) probeToken(ctx context.Context, token string, repositoryURL st
 
 	repoResponse, err := s.httpClient.Do(repoRequest)
 	if err != nil {
+		s.logger.Error("github credential repo probe failed", "repository_url", repositoryURL, "operation", "repo_probe", "error", err)
 		probe.State = domain.ProbeStateError
 		probe.Valid = false
 		probe.LastError = err.Error()
@@ -502,6 +515,9 @@ func (s *Service) probeToken(ctx context.Context, token string, repositoryURL st
 		probe.State = domain.ProbeStateError
 		probe.Valid = false
 		probe.LastError = fmt.Sprintf("GitHub repo probe returned %d", repoResponse.StatusCode)
+	}
+	if probe.LastError != "" {
+		s.logger.Warn("github credential probe completed with non-success result", "repository_url", repositoryURL, "state", probe.State, "repo_access", probe.RepoAccess, "status_code", repoResponse.StatusCode, "github_request_id", strings.TrimSpace(repoResponse.Header.Get("X-GitHub-Request-Id")), "last_error", probe.LastError)
 	}
 
 	return probe, nil

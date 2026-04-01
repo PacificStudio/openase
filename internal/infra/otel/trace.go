@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -22,6 +23,8 @@ import (
 
 const instrumentationName = "github.com/BetterAndBetterII/openase"
 
+var otelTraceComponent = logging.DeclareComponent("otel-trace")
+
 type TraceConfig struct {
 	ServiceName string
 	Endpoint    string
@@ -29,6 +32,7 @@ type TraceConfig struct {
 }
 
 func NewTraceProvider(cfg TraceConfig, logger *slog.Logger) (provider.TraceProvider, error) {
+	logger = logging.WithComponent(logger, otelTraceComponent)
 	resourceAttributes := resource.WithAttributes(
 		semconv.ServiceName(cfg.ServiceName),
 	)

@@ -6,9 +6,13 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/BetterAndBetterII/openase/internal/logging"
 )
 
 const jsonRPCVersion = "2.0"
+
+var _ = logging.DeclareComponent("codex-protocol")
 
 const (
 	methodInitialize        = "initialize"

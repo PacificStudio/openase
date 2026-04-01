@@ -3,8 +3,11 @@ package executable
 import (
 	"os/exec"
 
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
+
+var _ = logging.DeclareComponent("executable-path")
 
 type pathResolver struct{}
 

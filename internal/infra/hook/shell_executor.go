@@ -13,11 +13,15 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 )
 
 type Executor interface {
 	RunAll(ctx context.Context, hookName TicketHookName, hooks []Definition, env Env) ([]Result, error)
 }
+
+var hookShellExecutorComponent = logging.DeclareComponent("hook-shell-executor")
+var hookShellExecutorLogger = logging.WithComponent(nil, hookShellExecutorComponent)
 
 type ShellExecutor struct{}
 
@@ -99,6 +103,7 @@ func (e *ShellExecutor) run(ctx context.Context, hookName TicketHookName, hook D
 		result.Outcome = OutcomeTimeout
 		result.TimedOut = true
 		result.Error = fmt.Sprintf("timed out after %s", hook.Timeout)
+		hookShellExecutorLogger.Warn("local hook timed out", "hook_name", hookName, "command", hook.Command, "working_directory", workingDirectory, "timeout", hook.Timeout.String())
 		return result, errors.New(result.Error)
 	}
 
@@ -108,6 +113,7 @@ func (e *ShellExecutor) run(ctx context.Context, hookName TicketHookName, hook D
 			result.ExitCode = &exitCode
 		}
 		result.Error = describeRunError(runErr, result.Stderr)
+		hookShellExecutorLogger.Warn("local hook execution failed", "hook_name", hookName, "command", hook.Command, "working_directory", workingDirectory, "duration_ms", duration.Milliseconds(), "stderr", result.Stderr, "error", runErr)
 		return result, errors.New(result.Error)
 	}
 

@@ -8,10 +8,13 @@ import (
 	"sync"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
 
 const sshInterruptSignal = "INT"
+
+var _ = logging.DeclareComponent("ssh-process-manager")
 
 type ProcessManager struct {
 	pool    *Pool

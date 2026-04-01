@@ -12,8 +12,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
+
+var _ = logging.DeclareComponent("userservice-launchd")
 
 type LaunchdUserManager struct {
 	homeDir string

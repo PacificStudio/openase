@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
@@ -557,9 +558,38 @@ func mapWriteError(action string, err error) error {
 	case ent.IsNotFound(err):
 		return ErrNotFound
 	case ent.IsConstraintError(err):
-		return ErrConflict
+		return mapConstraintError(action, err)
 	default:
 		return fmt.Errorf("%s: %w", action, err)
+	}
+}
+
+func mapConstraintError(action string, err error) error {
+	detail := strings.ToLower(err.Error())
+
+	switch {
+	case strings.Contains(detail, "organization_slug"):
+		return domain.ErrOrganizationSlugConflict
+	case strings.Contains(detail, "project_organization_id_slug"):
+		return domain.ErrProjectSlugConflict
+	case strings.Contains(detail, "machine_organization_id_name"):
+		return domain.ErrMachineNameConflict
+	case strings.Contains(detail, "agentprovider_organization_id_name"):
+		return domain.ErrAgentProviderNameConflict
+	case strings.Contains(detail, "projectrepo_project_id_name"):
+		return domain.ErrProjectRepoNameConflict
+	case strings.Contains(detail, "ticketreposcope_ticket_id_repo_id"):
+		return domain.ErrTicketRepoScopeConflict
+	case strings.Contains(detail, "agent_project_id_name"):
+		return domain.ErrAgentNameConflict
+	case action == "delete machine":
+		return domain.ErrMachineInUseConflict
+	case action == "delete project repo":
+		return domain.ErrProjectRepoInUseConflict
+	case action == "delete agent":
+		return domain.ErrAgentInUseConflict
+	default:
+		return ErrConflict
 	}
 }
 

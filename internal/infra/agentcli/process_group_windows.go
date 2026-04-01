@@ -7,7 +7,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+
+	"github.com/BetterAndBetterII/openase/internal/logging"
 )
+
+var agentCLIProcessGroupWindowsComponent = logging.DeclareComponent("agentcli-process-group-windows")
 
 func configureProcessGroup(cmd *exec.Cmd) {
 	_ = cmd

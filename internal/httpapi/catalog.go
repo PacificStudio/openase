@@ -925,22 +925,8 @@ func parseUUIDPathParamValue(c echo.Context, name string) (uuid.UUID, error) {
 }
 
 func writeCatalogError(c echo.Context, err error) error {
-	switch {
-	case errors.Is(err, catalogservice.ErrInvalidInput):
-		return c.JSON(http.StatusBadRequest, errorResponse(catalogErrorMessage(err)))
-	case errors.Is(err, catalogservice.ErrNotFound):
-		return c.JSON(http.StatusNotFound, errorResponse("resource not found"))
-	case errors.Is(err, catalogservice.ErrConflict):
-		return c.JSON(http.StatusConflict, errorResponse("resource conflict"))
-	case errors.Is(err, catalogservice.ErrMachineProbeFailed):
-		return c.JSON(http.StatusBadGateway, errorResponse(catalogErrorMessage(err)))
-	case errors.Is(err, catalogservice.ErrMachineTestingUnavailable):
-		return c.JSON(http.StatusServiceUnavailable, errorResponse(catalogErrorMessage(err)))
-	case errors.Is(err, catalogservice.ErrMachineHealthUnavailable):
-		return c.JSON(http.StatusServiceUnavailable, errorResponse(catalogErrorMessage(err)))
-	default:
-		return c.JSON(http.StatusInternalServerError, errorResponse("internal server error"))
-	}
+	statusCode, code, message := catalogErrorResponse(err)
+	return writeAPIError(c, statusCode, code, message)
 }
 
 func errorResponse(message string) map[string]string {
@@ -948,9 +934,15 @@ func errorResponse(message string) map[string]string {
 }
 
 func catalogErrorMessage(err error) string {
-	prefix := catalogservice.ErrInvalidInput.Error() + ": "
-	if strings.HasPrefix(err.Error(), prefix) {
-		return strings.TrimPrefix(err.Error(), prefix)
+	for _, prefix := range []string{
+		catalogservice.ErrInvalidInput.Error() + ": ",
+		catalogservice.ErrMachineProbeFailed.Error() + ": ",
+		catalogservice.ErrMachineTestingUnavailable.Error() + ": ",
+		catalogservice.ErrMachineHealthUnavailable.Error() + ": ",
+	} {
+		if strings.HasPrefix(err.Error(), prefix) {
+			return strings.TrimPrefix(err.Error(), prefix)
+		}
 	}
 
 	return err.Error()
@@ -963,6 +955,54 @@ func catalogConflictMessage(err error) string {
 	}
 
 	return err.Error()
+}
+
+func catalogErrorResponse(err error) (statusCode int, code string, message string) {
+	switch {
+	case errors.Is(err, catalogservice.ErrInvalidInput):
+		return http.StatusBadRequest, "INVALID_REQUEST", catalogErrorMessage(err)
+	case errors.Is(err, catalogservice.ErrNotFound):
+		return http.StatusNotFound, "RESOURCE_NOT_FOUND", "resource not found"
+	case errors.Is(err, domain.ErrOrganizationSlugConflict):
+		return http.StatusConflict, "ORGANIZATION_SLUG_CONFLICT", "Organization slug already exists."
+	case errors.Is(err, domain.ErrProjectSlugConflict):
+		return http.StatusConflict, "PROJECT_SLUG_CONFLICT", "Project slug already exists in this organization."
+	case errors.Is(err, domain.ErrMachineNameConflict):
+		return http.StatusConflict, "MACHINE_NAME_CONFLICT", "Machine name already exists in this organization."
+	case errors.Is(err, domain.ErrMachineInUseConflict):
+		return http.StatusConflict, "MACHINE_IN_USE", "Machine cannot be deleted because agent providers still reference it."
+	case errors.Is(err, domain.ErrAgentProviderNameConflict):
+		return http.StatusConflict, "AGENT_PROVIDER_NAME_CONFLICT", "Agent provider name already exists in this organization."
+	case errors.Is(err, domain.ErrProjectRepoNameConflict):
+		return http.StatusConflict, "REPOSITORY_NAME_CONFLICT", "Repository name already exists in this project."
+	case errors.Is(err, domain.ErrProjectRepoInUseConflict):
+		return http.StatusConflict, "REPOSITORY_IN_USE", "Repository cannot be deleted because tickets or workspaces still reference it."
+	case errors.Is(err, domain.ErrTicketRepoScopeConflict):
+		return http.StatusConflict, "TICKET_REPO_SCOPE_CONFLICT", "Repository is already attached to this ticket."
+	case errors.Is(err, domain.ErrAgentNameConflict):
+		return http.StatusConflict, "AGENT_NAME_CONFLICT", "Agent name already exists in this project."
+	case errors.Is(err, domain.ErrAgentInUseConflict):
+		return http.StatusConflict, "AGENT_IN_USE", "Agent cannot be deleted because runs still reference it."
+	case errors.Is(err, catalogservice.ErrConflict):
+		return http.StatusConflict, "RESOURCE_CONFLICT", normalizeCatalogConflictMessage(err)
+	case errors.Is(err, catalogservice.ErrMachineProbeFailed):
+		return http.StatusBadGateway, "MACHINE_PROBE_FAILED", catalogErrorMessage(err)
+	case errors.Is(err, catalogservice.ErrMachineTestingUnavailable):
+		return http.StatusServiceUnavailable, "MACHINE_TESTING_UNAVAILABLE", catalogErrorMessage(err)
+	case errors.Is(err, catalogservice.ErrMachineHealthUnavailable):
+		return http.StatusServiceUnavailable, "MACHINE_HEALTH_UNAVAILABLE", catalogErrorMessage(err)
+	default:
+		return http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error"
+	}
+}
+
+func normalizeCatalogConflictMessage(err error) string {
+	message := catalogConflictMessage(err)
+	if message == "" || message == catalogservice.ErrConflict.Error() {
+		return "resource conflict"
+	}
+
+	return message
 }
 
 func mapOrganizationResponses(items []domain.Organization) []organizationResponse {

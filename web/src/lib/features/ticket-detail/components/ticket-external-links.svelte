@@ -85,9 +85,11 @@
             >
               <Link2 class="text-muted-foreground mt-0.5 size-3.5 shrink-0" />
               <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2">
-                  <span class="text-foreground truncate">{link.title || link.externalId}</span>
-                  <Badge variant="outline" class="h-4 shrink-0 py-0 text-[10px]">
+                <div class="flex items-start gap-2">
+                  <span class="text-foreground leading-4 break-words"
+                    >{link.title || link.externalId}</span
+                  >
+                  <Badge variant="outline" class="mt-0.5 h-4 shrink-0 py-0 text-[10px]">
                     {link.type}
                   </Badge>
                 </div>

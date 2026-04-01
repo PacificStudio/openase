@@ -7,12 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/githubrepo"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	"github.com/google/uuid"
 )
@@ -34,6 +36,8 @@ var (
 	ErrCredentialMissing = githubauthservice.ErrCredentialNotConfigured
 )
 
+var githubRepoServiceComponent = logging.DeclareComponent("github-repo-service")
+
 type Service interface {
 	ListNamespaces(ctx context.Context, projectID uuid.UUID) ([]domain.Namespace, error)
 	ListRepositories(ctx context.Context, input domain.ListRepositoriesInput) (domain.RepositoryPage, error)
@@ -44,6 +48,7 @@ type service struct {
 	resolver   githubauthservice.TokenResolver
 	httpClient *http.Client
 	baseURL    string
+	logger     *slog.Logger
 }
 
 type githubUser struct {
@@ -89,6 +94,7 @@ func NewService(resolver githubauthservice.TokenResolver, httpClient *http.Clien
 		resolver:   resolver,
 		httpClient: httpClient,
 		baseURL:    defaultBaseURL,
+		logger:     logging.WithComponent(nil, githubRepoServiceComponent),
 	}
 }
 
@@ -117,6 +123,7 @@ func (s *service) ListNamespaces(ctx context.Context, projectID uuid.UUID) ([]do
 	var organizations []githubOrganization
 	headers, err := s.doJSON(ctx, http.MethodGet, orgsEndpoint, token, nil, http.StatusOK, &organizations)
 	if err != nil {
+		s.logger.Error("list github namespaces failed", "project_id", projectID.String(), "operation", "list_namespaces", "error", err)
 		return nil, err
 	}
 
@@ -164,6 +171,7 @@ func (s *service) ListRepositories(ctx context.Context, input domain.ListReposit
 		var payload []githubRepository
 		headers, err := s.doJSON(ctx, http.MethodGet, endpoint, token, nil, http.StatusOK, &payload)
 		if err != nil {
+			s.logger.Error("list github repositories failed", "project_id", input.ProjectID.String(), "operation", "list_repositories", "page", page, "query", query, "error", err)
 			return domain.RepositoryPage{}, err
 		}
 
@@ -231,6 +239,7 @@ func (s *service) CreateRepository(ctx context.Context, input domain.CreateRepos
 
 	var repo githubRepository
 	if _, err := s.doJSON(ctx, http.MethodPost, endpoint, token, payload, http.StatusCreated, &repo); err != nil {
+		s.logger.Error("create github repository failed", "project_id", input.ProjectID.String(), "operation", "create_repository", "owner", owner, "name", input.Name, "visibility", input.Visibility, "error", err)
 		return domain.Repository{}, err
 	}
 	return mapRepository(repo), nil
@@ -301,11 +310,21 @@ func (s *service) doJSON(
 
 	response, err := s.httpClient.Do(request)
 	if err != nil {
+		s.logger.Error("github upstream request failed", "method", method, "endpoint", endpoint, "error", err)
 		return nil, fmt.Errorf("%s %s: %w", method, endpoint, err)
 	}
 	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != expectedStatus {
+		s.logger.Warn(
+			"github upstream returned unexpected status",
+			"method", method,
+			"endpoint", endpoint,
+			"status_code", response.StatusCode,
+			"expected_status", expectedStatus,
+			"github_request_id", strings.TrimSpace(response.Header.Get("X-GitHub-Request-Id")),
+			"ratelimit_remaining", strings.TrimSpace(response.Header.Get("X-RateLimit-Remaining")),
+		)
 		return nil, mapGitHubError(method, endpoint, response)
 	}
 
@@ -317,6 +336,7 @@ func (s *service) doJSON(
 		return headers, nil
 	}
 	if err := json.NewDecoder(response.Body).Decode(target); err != nil {
+		s.logger.Error("decode github upstream response failed", "method", method, "endpoint", endpoint, "status_code", response.StatusCode, "error", err)
 		return nil, fmt.Errorf("%s %s: decode response: %w", method, endpoint, err)
 	}
 	return headers, nil

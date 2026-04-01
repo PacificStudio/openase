@@ -3,12 +3,16 @@ package ssh
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os/exec"
 	"strings"
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 )
+
+var sshMonitorCollectorComponent = logging.DeclareComponent("ssh-monitor-collector")
 
 const (
 	systemResourceScript = `
@@ -200,12 +204,18 @@ type MonitorCollector struct {
 	pool     *Pool
 	now      func() time.Time
 	runLocal func(context.Context, string) ([]byte, error)
+	logger   *slog.Logger
+}
+
+func (c *MonitorCollector) componentLogger() *slog.Logger {
+	return logging.WithComponent(c.logger, sshMonitorCollectorComponent)
 }
 
 func NewMonitorCollector(pool *Pool) *MonitorCollector {
 	return &MonitorCollector{
-		pool: pool,
-		now:  time.Now,
+		pool:   pool,
+		now:    time.Now,
+		logger: logging.WithComponent(nil, sshMonitorCollectorComponent),
 		runLocal: func(ctx context.Context, script string) ([]byte, error) {
 			//nolint:gosec // The shell path is fixed and script bodies are package constants.
 			return exec.CommandContext(ctx, "sh", "-lc", script).CombinedOutput()
@@ -234,6 +244,7 @@ func (c *MonitorCollector) CollectReachability(ctx context.Context, machine doma
 	_, err := c.pool.Get(ctx, machine)
 	latency := c.now().UTC().Sub(startedAt).Milliseconds()
 	if err != nil {
+		c.componentLogger().Warn("ssh reachability probe failed", "machine_id", machine.ID.String(), "machine_name", machine.Name, "host", machine.Host, "latency_ms", latency, "error", err)
 		return domain.MachineReachability{
 			CheckedAt:    checkedAt,
 			Transport:    "ssh",
@@ -298,6 +309,7 @@ func (c *MonitorCollector) runScript(ctx context.Context, machine domain.Machine
 		}
 		output, err := c.runLocal(ctx, script)
 		if err != nil {
+			c.componentLogger().Warn("local monitor script failed", "machine_id", machine.ID.String(), "machine_name", machine.Name, "script_kind", classifyMonitorScript(script), "error", err, "stderr", strings.TrimSpace(string(output)))
 			return nil, fmt.Errorf("run local monitor script: %w: %s", err, strings.TrimSpace(string(output)))
 		}
 		return output, nil
@@ -321,6 +333,7 @@ func (c *MonitorCollector) runScript(ctx context.Context, machine domain.Machine
 
 	output, err := session.CombinedOutput("sh -lc " + shellQuote(script))
 	if err != nil {
+		c.componentLogger().Warn("remote monitor script failed", "machine_id", machine.ID.String(), "machine_name", machine.Name, "host", machine.Host, "script_kind", classifyMonitorScript(script), "error", err, "stderr", strings.TrimSpace(string(output)))
 		return nil, fmt.Errorf("run remote monitor script: %w: %s", err, strings.TrimSpace(string(output)))
 	}
 
@@ -359,4 +372,19 @@ func prefixEnvironmentScript(environment []string, script string) string {
 	}
 	builder.WriteString(script)
 	return builder.String()
+}
+
+func classifyMonitorScript(script string) string {
+	switch {
+	case strings.Contains(script, "cpu_usage_percent="):
+		return "system_resources"
+	case strings.Contains(script, "nvidia-smi"):
+		return "gpu_resources"
+	case strings.Contains(script, "claude_code\t"):
+		return "agent_environment"
+	case strings.Contains(script, "github_token_probe\t"):
+		return "full_audit"
+	default:
+		return "unknown"
+	}
 }

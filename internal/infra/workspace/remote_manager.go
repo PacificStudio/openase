@@ -8,7 +8,10 @@ import (
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 )
+
+var _ = logging.DeclareComponent("workspace-remote-manager")
 
 // RemoteManager prepares ticket workspaces on a remote machine over SSH.
 type RemoteManager struct {

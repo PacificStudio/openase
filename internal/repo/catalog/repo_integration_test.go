@@ -450,6 +450,18 @@ func TestEntRepositoryMachineProviderValidationAndOrganizationFiltering(t *testi
 	if err != nil {
 		t.Fatalf("CreateMachine() remote error = %v", err)
 	}
+	if _, err := repo.CreateMachine(ctx, domain.CreateMachine{
+		OrganizationID: orgA.ID,
+		Name:           "builder-a",
+		Host:           "10.0.0.26",
+		Port:           22,
+		SSHUser:        strPtr("ubuntu"),
+		SSHKeyPath:     strPtr("/tmp/id_builder_a_dup"),
+		Description:    "Duplicate machine name",
+		Status:         domain.MachineStatusOnline,
+	}); !errors.Is(err, domain.ErrMachineNameConflict) {
+		t.Fatalf("CreateMachine() duplicate name error = %v, want %v", err, domain.ErrMachineNameConflict)
+	}
 
 	if _, err := repo.CreateMachine(ctx, domain.CreateMachine{
 		OrganizationID: uuid.New(),
@@ -503,6 +515,39 @@ func TestEntRepositoryMachineProviderValidationAndOrganizationFiltering(t *testi
 	}); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("CreateAgentProvider() organization mismatch error = %v, want %v", err, ErrInvalidInput)
 	}
+	if _, err := repo.CreateAgentProvider(ctx, domain.CreateAgentProvider{
+		OrganizationID:     orgA.ID,
+		MachineID:          remoteMachine.ID,
+		Name:               "Builder Codex",
+		AdapterType:        domain.AgentProviderAdapterTypeCodexAppServer,
+		CliCommand:         "codex",
+		AuthConfig:         map[string]any{},
+		ModelName:          "gpt-5.4",
+		ModelTemperature:   0,
+		ModelMaxTokens:     0,
+		CostPerInputToken:  0,
+		CostPerOutputToken: 0,
+	}); err != nil {
+		t.Fatalf("CreateAgentProvider() machine-bound provider error = %v", err)
+	}
+	if _, err := repo.CreateAgentProvider(ctx, domain.CreateAgentProvider{
+		OrganizationID:     orgA.ID,
+		MachineID:          localMachine.ID,
+		Name:               "OpenAI Codex",
+		AdapterType:        domain.AgentProviderAdapterTypeCodexAppServer,
+		CliCommand:         "codex",
+		AuthConfig:         map[string]any{},
+		ModelName:          "gpt-5.4",
+		ModelTemperature:   0,
+		ModelMaxTokens:     0,
+		CostPerInputToken:  0,
+		CostPerOutputToken: 0,
+	}); !errors.Is(err, domain.ErrAgentProviderNameConflict) {
+		t.Fatalf("CreateAgentProvider() duplicate name error = %v, want %v", err, domain.ErrAgentProviderNameConflict)
+	}
+	if _, err := repo.DeleteMachine(ctx, remoteMachine.ID); !errors.Is(err, domain.ErrMachineInUseConflict) {
+		t.Fatalf("DeleteMachine() in-use error = %v, want %v", err, domain.ErrMachineInUseConflict)
+	}
 
 	if _, err := repo.ArchiveOrganization(ctx, orgB.ID); err != nil {
 		t.Fatalf("ArchiveOrganization() orgB error = %v", err)
@@ -531,8 +576,8 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 	if _, err := repo.CreateOrganization(ctx, domain.CreateOrganization{
 		Name: "Duplicate Org",
 		Slug: "better-and-better",
-	}); !errors.Is(err, ErrConflict) {
-		t.Fatalf("CreateOrganization(duplicate slug) error = %v, want %v", err, ErrConflict)
+	}); !errors.Is(err, domain.ErrOrganizationSlugConflict) {
+		t.Fatalf("CreateOrganization(duplicate slug) error = %v, want %v", err, domain.ErrOrganizationSlugConflict)
 	}
 
 	if _, err := repo.GetOrganization(ctx, uuid.New()); !errors.Is(err, ErrNotFound) {
@@ -560,8 +605,8 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 		Description:         "Duplicate slug",
 		Status:              domain.ProjectStatusInProgress,
 		MaxConcurrentAgents: 2,
-	}); !errors.Is(err, ErrConflict) {
-		t.Fatalf("CreateProject(duplicate slug) error = %v, want %v", err, ErrConflict)
+	}); !errors.Is(err, domain.ErrProjectSlugConflict) {
+		t.Fatalf("CreateProject(duplicate slug) error = %v, want %v", err, domain.ErrProjectSlugConflict)
 	}
 
 	projectRepo, err := repo.CreateProjectRepo(ctx, domain.CreateProjectRepo{
@@ -578,8 +623,8 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 		Name:          "openase-main",
 		RepositoryURL: "https://github.com/GrandCX/openase-other.git",
 		DefaultBranch: "main",
-	}); !errors.Is(err, ErrConflict) {
-		t.Fatalf("CreateProjectRepo(duplicate name) error = %v, want %v", err, ErrConflict)
+	}); !errors.Is(err, domain.ErrProjectRepoNameConflict) {
+		t.Fatalf("CreateProjectRepo(duplicate name) error = %v, want %v", err, domain.ErrProjectRepoNameConflict)
 	}
 	if _, err := repo.CreateProjectRepo(ctx, domain.CreateProjectRepo{
 		ProjectID:     uuid.New(),
@@ -611,8 +656,8 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 		Name:          projectRepo.Name,
 		RepositoryURL: secondaryRepo.RepositoryURL,
 		DefaultBranch: secondaryRepo.DefaultBranch,
-	}); !errors.Is(err, ErrConflict) {
-		t.Fatalf("UpdateProjectRepo(duplicate name) error = %v, want %v", err, ErrConflict)
+	}); !errors.Is(err, domain.ErrProjectRepoNameConflict) {
+		t.Fatalf("UpdateProjectRepo(duplicate name) error = %v, want %v", err, domain.ErrProjectRepoNameConflict)
 	}
 	if _, err := repo.UpdateProjectRepo(ctx, domain.UpdateProjectRepo{
 		ID:            uuid.New(),
@@ -658,11 +703,14 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 		RepoID:    projectRepo.ID,
 		PrStatus:  domain.TicketRepoScopePRStatusOpen,
 		CiStatus:  domain.TicketRepoScopeCIStatusPending,
-	}); !errors.Is(err, ErrConflict) {
-		t.Fatalf("CreateTicketRepoScope(duplicate repo) error = %v, want %v", err, ErrConflict)
+	}); !errors.Is(err, domain.ErrTicketRepoScopeConflict) {
+		t.Fatalf("CreateTicketRepoScope(duplicate repo) error = %v, want %v", err, domain.ErrTicketRepoScopeConflict)
 	}
 	if _, err := repo.GetTicketRepoScope(ctx, project.ID, ticketItem.ID, uuid.New()); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("GetTicketRepoScope(missing) error = %v, want %v", err, ErrNotFound)
+	}
+	if _, err := repo.DeleteProjectRepo(ctx, project.ID, projectRepo.ID); !errors.Is(err, domain.ErrProjectRepoInUseConflict) {
+		t.Fatalf("DeleteProjectRepo(in use) error = %v, want %v", err, domain.ErrProjectRepoInUseConflict)
 	}
 	if _, err := repo.ListTicketRepoScopes(ctx, project.ID, uuid.New()); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("ListTicketRepoScopes(missing ticket) error = %v, want %v", err, ErrNotFound)

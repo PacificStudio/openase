@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"os"
 	"os/user"
@@ -15,8 +16,11 @@ import (
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	gossh "golang.org/x/crypto/ssh"
 )
+
+var sshPoolComponent = logging.DeclareComponent("ssh-pool")
 
 type Session interface {
 	CombinedOutput(cmd string) ([]byte, error)
@@ -57,6 +61,11 @@ type Pool struct {
 	readFile        func(string) ([]byte, error)
 	timeout         time.Duration
 	hostKeyCallback gossh.HostKeyCallback
+	logger          *slog.Logger
+}
+
+func (p *Pool) componentLogger() *slog.Logger {
+	return logging.WithComponent(p.logger, sshPoolComponent)
 }
 
 func NewPool(openASEHomeDir string, opts ...PoolOption) *Pool {
@@ -67,6 +76,7 @@ func NewPool(openASEHomeDir string, opts ...PoolOption) *Pool {
 		readFile:        os.ReadFile,
 		timeout:         10 * time.Second,
 		hostKeyCallback: gossh.InsecureIgnoreHostKey(), //nolint:gosec
+		logger:          logging.WithComponent(nil, sshPoolComponent),
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -128,12 +138,14 @@ func (p *Pool) Get(ctx context.Context, machine domain.Machine) (Client, error) 
 		if _, _, err := client.SendRequest("keepalive@openase", true, nil); err == nil {
 			return client, nil
 		}
+		p.componentLogger().Warn("ssh pooled connection keepalive failed", "machine_id", machine.ID.String(), "machine_name", machine.Name, "host", machine.Host)
 		_ = client.Close()
 		delete(p.conns, key)
 	}
 
 	keyBytes, err := p.readFile(p.resolveKeyPath(*machine.SSHKeyPath))
 	if err != nil {
+		p.componentLogger().Error("read ssh key failed", "machine_id", machine.ID.String(), "machine_name", machine.Name, "host", machine.Host, "ssh_key_path", p.resolveKeyPath(*machine.SSHKeyPath), "error", err)
 		return nil, fmt.Errorf("read ssh key: %w", err)
 	}
 
@@ -145,10 +157,12 @@ func (p *Pool) Get(ctx context.Context, machine domain.Machine) (Client, error) 
 		HostKeyCallback: p.hostKeyCallback,
 	})
 	if err != nil {
+		p.componentLogger().Error("dial ssh machine failed", "machine_id", machine.ID.String(), "machine_name", machine.Name, "host", machine.Host, "port", machine.Port, "ssh_user", *machine.SSHUser, "error", err)
 		return nil, fmt.Errorf("dial machine %s: %w", machine.Name, err)
 	}
 
 	p.conns[key] = client
+	p.componentLogger().Debug("dialed ssh machine", "machine_id", machine.ID.String(), "machine_name", machine.Name, "host", machine.Host, "port", machine.Port, "ssh_user", *machine.SSHUser)
 	return client, nil
 }
 

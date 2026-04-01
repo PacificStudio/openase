@@ -187,6 +187,7 @@ def iter_go_files() -> list[Path]:
         *INTERFACE_ENTRY,
         "internal/provider/",
         "internal/repo/",
+        "internal/infra/",
     }:
         root = REPO_ROOT / prefix
         if not root.exists():
@@ -213,6 +214,7 @@ def main() -> int:
 
     for path in iter_go_files():
         relative_path = path.relative_to(REPO_ROOT).as_posix()
+        source = path.read_text()
         imports = parse_imports(path)
         for rule in RULES:
             if not rule.applies_to(relative_path):
@@ -234,6 +236,16 @@ def main() -> int:
                         f"{relative_path}: rule {rule.name} forbids import {imported}"
                     )
                     break
+        if relative_path.startswith("internal/infra/"):
+            logging_import = go_import_prefix("internal/logging")
+            if logging_import not in imports:
+                violations.append(
+                    f"{relative_path}: infra files must import {logging_import}"
+                )
+            if "logging." not in source:
+                violations.append(
+                    f"{relative_path}: infra files must use the logging package at least once"
+                )
     stale_exceptions = [
         all_exceptions[key]
         for key in sorted(all_exceptions)

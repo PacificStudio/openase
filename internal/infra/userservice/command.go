@@ -4,7 +4,11 @@ import (
 	"context"
 	"io"
 	"os/exec"
+
+	"github.com/BetterAndBetterII/openase/internal/logging"
 )
+
+var _ = logging.DeclareComponent("userservice-command")
 
 type commandRunner interface {
 	Run(ctx context.Context, name string, args []string, stdout io.Writer, stderr io.Writer) error

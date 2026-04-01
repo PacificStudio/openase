@@ -8,10 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/google/uuid"
 )
 
 var (
+	_                   = logging.DeclareComponent("hook-definition")
 	ErrConfigInvalid    = errors.New("ticket hook config is invalid")
 	ErrExecutionBlocked = errors.New("ticket hook blocked ticket progress")
 )

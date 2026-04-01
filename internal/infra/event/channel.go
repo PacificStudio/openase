@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
+
+var _ = logging.DeclareComponent("event-channel-bus")
 
 // ChannelBus is an in-process pub/sub implementation for runtime events.
 type ChannelBus struct {

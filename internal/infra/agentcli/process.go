@@ -6,16 +6,20 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
 
 const defaultStopGracePeriod = 5 * time.Second
+
+var agentCLIProcessComponent = logging.DeclareComponent("agentcli-process")
 
 type ManagerOptions struct {
 	StopGracePeriod time.Duration
@@ -23,6 +27,7 @@ type ManagerOptions struct {
 
 type Manager struct {
 	stopGracePeriod time.Duration
+	logger          *slog.Logger
 }
 
 func NewManager(options ManagerOptions) provider.AgentCLIProcessManager {
@@ -33,6 +38,7 @@ func NewManager(options ManagerOptions) provider.AgentCLIProcessManager {
 
 	return &Manager{
 		stopGracePeriod: stopGracePeriod,
+		logger:          logging.WithComponent(nil, agentCLIProcessComponent),
 	}
 }
 
@@ -93,6 +99,7 @@ func (m *Manager) Start(ctx context.Context, spec provider.AgentCLIProcessSpec) 
 		_ = stderrWriter.Close()
 		_ = stdoutBuffer.Close()
 		_ = stderrBuffer.Close()
+		m.logger.Error("start local agent cli process failed", "command", spec.Command.String(), "args", spec.Args, "working_directory", safeWorkingDirectory(spec.WorkingDirectory), "error", err)
 		return nil, fmt.Errorf("start agent cli process: %w", err)
 	}
 	if err := ctx.Err(); err != nil {
@@ -117,6 +124,7 @@ func (m *Manager) Start(ctx context.Context, spec provider.AgentCLIProcessSpec) 
 		stderr: stderrBuffer,
 		done:   make(chan struct{}),
 	}
+	m.logger.Info("started local agent cli process", "command", spec.Command.String(), "args", spec.Args, "working_directory", safeWorkingDirectory(spec.WorkingDirectory), "pid", cmd.Process.Pid)
 
 	return process, nil
 }
@@ -213,6 +221,13 @@ func (p *runningProcess) awaitExit() {
 	p.waitMu.Unlock()
 
 	close(p.done)
+}
+
+func safeWorkingDirectory(path *provider.AbsolutePath) string {
+	if path == nil {
+		return ""
+	}
+	return path.String()
 }
 
 type processOutputBuffer struct {

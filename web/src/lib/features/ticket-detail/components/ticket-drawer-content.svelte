@@ -158,7 +158,7 @@
   </div>
 {/if}
 
-<div class="flex flex-1 gap-0 overflow-hidden">
+<div class="flex flex-1 flex-col overflow-hidden md:flex-row">
   <TicketCommentsThread
     {ticket}
     {timeline}
@@ -174,7 +174,7 @@
   />
 
   <!-- Right sidebar: metadata -->
-  <div class="w-72 shrink-0 overflow-y-auto">
+  <div class="border-border w-full shrink-0 overflow-y-auto border-t md:w-80 md:border-t-0">
     <div class="flex flex-col gap-5 px-5 py-5">
       <!-- Metadata grid -->
       <section class="space-y-3">
@@ -187,7 +187,7 @@
               <Workflow class="size-3.5" />
               <span>Workflow</span>
             </div>
-            <div class="text-foreground truncate">{ticket.workflow.name}</div>
+            <div class="text-foreground break-words">{ticket.workflow.name}</div>
           {/if}
 
           <div class="text-muted-foreground flex items-center gap-1.5">
@@ -197,7 +197,7 @@
           <div class="flex items-center gap-1.5">
             {#if ticket.assignedAgent}
               <span class="inline-block size-1.5 rounded-full bg-green-400" title="Online"></span>
-              <span class="text-foreground truncate">{ticket.assignedAgent.name}</span>
+              <span class="text-foreground break-words">{ticket.assignedAgent.name}</span>
               <Badge variant="outline" class="h-4 shrink-0 py-0 text-[10px]">
                 {ticket.assignedAgent.provider}
               </Badge>
@@ -227,7 +227,7 @@
             <User class="size-3.5" />
             <span>Created by</span>
           </div>
-          <div class="text-foreground truncate">{ticket.createdBy}</div>
+          <div class="text-foreground break-all">{ticket.createdBy}</div>
 
           <div class="text-muted-foreground flex items-center gap-1.5">
             <Calendar class="size-3.5" />

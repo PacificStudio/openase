@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -22,6 +23,8 @@ import (
 )
 
 const defaultInstrumentationScope = "github.com/BetterAndBetterII/openase"
+
+var otelMetricsComponent = logging.DeclareComponent("otel-metrics")
 
 type MetricsConfig struct {
 	ServiceName  string
@@ -92,7 +95,7 @@ func NewMetricsProvider(ctx context.Context, cfg MetricsConfig, logger *slog.Log
 
 	sdkProvider := metric.NewMeterProvider(options...)
 	return &MetricsProvider{
-		logger:            logger.With("component", "otel-metrics"),
+		logger:            logging.WithComponent(logger, otelMetricsComponent),
 		meter:             sdkProvider.Meter(defaultInstrumentationScope),
 		sdk:               sdkProvider,
 		prometheusHandler: prometheusHandler,

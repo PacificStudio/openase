@@ -3,6 +3,7 @@ package logging
 import (
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
 )
@@ -17,4 +18,21 @@ func New(cfg config.LoggingConfig) *slog.Logger {
 	default:
 		return slog.New(slog.NewTextHandler(os.Stdout, options))
 	}
+}
+
+// DeclareComponent normalizes a component name for package-level reuse.
+func DeclareComponent(name string) string {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		panic("logging component name must not be empty")
+	}
+	return trimmed
+}
+
+// WithComponent returns a logger tagged with the supplied component.
+func WithComponent(logger *slog.Logger, component string) *slog.Logger {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	return logger.With("component", DeclareComponent(component))
 }

@@ -160,7 +160,7 @@
                 {dependency.relation}
               </Badge>
             </div>
-            <p class="text-foreground mt-1 truncate text-xs">{dependency.title}</p>
+            <p class="text-foreground mt-1 text-xs leading-4">{dependency.title}</p>
           </div>
           <Button
             variant="ghost"

@@ -8,7 +8,11 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+
+	"github.com/BetterAndBetterII/openase/internal/logging"
 )
+
+var _ = logging.DeclareComponent("agentcli-process-group-unix")
 
 func configureProcessGroup(cmd *exec.Cmd) {
 	if cmd == nil {

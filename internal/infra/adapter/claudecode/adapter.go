@@ -6,21 +6,29 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
 
 const scannerBufferSize = 16 * 1024 * 1024
 
+var claudeCodeAdapterComponent = logging.DeclareComponent("claudecode-adapter")
+
 type Adapter struct {
 	processManager provider.AgentCLIProcessManager
+	logger         *slog.Logger
 }
 
 func NewAdapter(processManager provider.AgentCLIProcessManager) provider.ClaudeCodeAdapter {
-	return &Adapter{processManager: processManager}
+	return &Adapter{
+		processManager: processManager,
+		logger:         logging.WithComponent(nil, claudeCodeAdapterComponent),
+	}
 }
 
 func (a *Adapter) Start(ctx context.Context, spec provider.ClaudeCodeSessionSpec) (provider.ClaudeCodeSession, error) {
@@ -46,6 +54,7 @@ func (a *Adapter) Start(ctx context.Context, spec provider.ClaudeCodeSessionSpec
 		events:  make(chan provider.ClaudeCodeEvent, 64),
 		errors:  make(chan error, 64),
 		done:    make(chan struct{}),
+		logger:  a.logger,
 	}
 	session.startReaders()
 
@@ -114,6 +123,11 @@ type session struct {
 
 	writeMu sync.Mutex
 	closeMu sync.Once
+	logger  *slog.Logger
+}
+
+func (s *session) componentLogger() *slog.Logger {
+	return logging.WithComponent(s.logger, claudeCodeAdapterComponent)
 }
 
 func (s *session) SessionID() (provider.ClaudeCodeSessionID, bool) {
@@ -207,6 +221,7 @@ func (s *session) startReaders() {
 		waitErr := s.process.Wait()
 		readers.Wait()
 		if waitErr != nil {
+			s.componentLogger().Error("claude code process exited", "error", waitErr)
 			s.pushError(fmt.Errorf("claude code process exited: %w", waitErr))
 		}
 		close(s.events)
@@ -226,6 +241,7 @@ func (s *session) readStdout(stdout io.Reader) {
 
 		event, err := parseStreamEvent([]byte(line))
 		if err != nil {
+			s.componentLogger().Warn("parse claude code stream event failed", "line", line, "error", err)
 			s.pushError(err)
 			continue
 		}
@@ -238,6 +254,7 @@ func (s *session) readStdout(stdout io.Reader) {
 	}
 
 	if err := scanner.Err(); err != nil {
+		s.componentLogger().Error("read claude code stdout failed", "error", err)
 		s.pushError(fmt.Errorf("read claude code stdout: %w", err))
 	}
 }
@@ -252,10 +269,12 @@ func (s *session) readStderr(stderr io.Reader) {
 			continue
 		}
 
+		s.componentLogger().Warn("claude code stderr output", "line", line)
 		s.pushError(fmt.Errorf("claude code stderr: %s", line))
 	}
 
 	if err := scanner.Err(); err != nil {
+		s.componentLogger().Error("read claude code stderr failed", "error", err)
 		s.pushError(fmt.Errorf("read claude code stderr: %w", err))
 	}
 }

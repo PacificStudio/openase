@@ -56,6 +56,7 @@ func (s *Server) handleListGitHubNamespaces(c echo.Context) error {
 
 	namespaces, err := s.githubRepoService.ListNamespaces(c.Request().Context(), projectID)
 	if err != nil {
+		s.logger.Error("list github namespaces api failed", "project_id", projectID.String(), "error", err)
 		return writeGitHubRepoError(c, err)
 	}
 	return c.JSON(http.StatusOK, githubRepositoryNamespacesResponse{
@@ -79,6 +80,7 @@ func (s *Server) handleListGitHubRepositories(c echo.Context) error {
 
 	page, err := s.githubRepoService.ListRepositories(c.Request().Context(), input)
 	if err != nil {
+		s.logger.Error("list github repositories api failed", "project_id", projectID.String(), "query", input.Query, "cursor", c.QueryParam("cursor"), "error", err)
 		return writeGitHubRepoError(c, err)
 	}
 	return c.JSON(http.StatusOK, githubRepositoryListResponse{
@@ -108,6 +110,7 @@ func (s *Server) handleCreateGitHubRepository(c echo.Context) error {
 
 	repository, err := s.githubRepoService.CreateRepository(c.Request().Context(), input)
 	if err != nil {
+		s.logger.Error("create github repository api failed", "project_id", projectID.String(), "owner", input.Owner, "name", input.Name, "visibility", input.Visibility, "error", err)
 		return writeGitHubRepoError(c, err)
 	}
 	return c.JSON(http.StatusCreated, githubRepositoryCreateResponse{

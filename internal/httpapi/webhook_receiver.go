@@ -161,11 +161,13 @@ func (r *inboundWebhookReceiver) Handle(c echo.Context, target inboundWebhookTar
 	}
 
 	if err := endpoint.VerifySignature(request); err != nil {
+		r.logger.Warn("webhook signature verification failed", append(target.logArgs(), "error", err)...)
 		return writeInboundWebhookError(c, err, http.StatusUnauthorized, "INVALID_SIGNATURE")
 	}
 
 	dispatch, err := endpoint.ParseEvent(request)
 	if err != nil {
+		r.logger.Warn("webhook parse failed", append(target.logArgs(), "error", err)...)
 		return writeInboundWebhookError(c, err, http.StatusBadRequest, "INVALID_REQUEST")
 	}
 

@@ -5,9 +5,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/BetterAndBetterII/openase/internal/logging"
 )
 
 const ticketPlaceholder = "{ticket}"
+
+var _ = logging.DeclareComponent("workspace-layout")
 
 // LocalWorkspacePatternRoot is the display form for the local ticket workspace root.
 const LocalWorkspacePatternRoot = "~/.openase/workspace"
