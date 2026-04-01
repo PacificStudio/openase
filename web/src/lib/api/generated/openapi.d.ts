@@ -1204,6 +1204,111 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/projects/{projectId}/updates': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List curated project update threads */
+    get: operations['listProjectUpdates']
+    put?: never
+    /** Create a curated project update thread */
+    post: operations['createProjectUpdateThread']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/updates/{threadId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Soft-delete a curated project update thread */
+    delete: operations['deleteProjectUpdateThread']
+    options?: never
+    head?: never
+    /** Update a curated project update thread */
+    patch: operations['updateProjectUpdateThread']
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/updates/{threadId}/comments': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Create a comment on a project update thread */
+    post: operations['createProjectUpdateComment']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/updates/{threadId}/comments/{commentId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Soft-delete a comment on a project update thread */
+    delete: operations['deleteProjectUpdateComment']
+    options?: never
+    head?: never
+    /** Update a comment on a project update thread */
+    patch: operations['updateProjectUpdateComment']
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/updates/{threadId}/comments/{commentId}/revisions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List revision history for a project update comment */
+    get: operations['listProjectUpdateCommentRevisions']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/updates/{threadId}/revisions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List revision history for a project update thread */
+    get: operations['listProjectUpdateThreadRevisions']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}/workflows': {
     parameters: {
       query?: never
@@ -10664,6 +10769,872 @@ export interface operations {
       }
       /** @description Internal Server Error response. */
       500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listProjectUpdates: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List curated project update threads response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            threads?: {
+              body_markdown?: string
+              comment_count?: number
+              comments?: {
+                body_markdown?: string
+                created_at?: string
+                created_by?: string
+                deleted_at?: string | null
+                deleted_by?: string | null
+                edit_count?: number
+                edited_at?: string | null
+                id?: string
+                is_deleted?: boolean
+                last_edited_by?: string | null
+                thread_id?: string
+                updated_at?: string
+              }[]
+              created_at?: string
+              created_by?: string
+              deleted_at?: string | null
+              deleted_by?: string | null
+              edit_count?: number
+              edited_at?: string | null
+              id?: string
+              is_deleted?: boolean
+              last_activity_at?: string
+              last_edited_by?: string | null
+              project_id?: string
+              status?: string
+              title?: string
+              updated_at?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createProjectUpdateThread: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a curated project update thread request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Markdown body content for the project update thread. */
+          body?: string
+          /** @description Actor identifier recorded as the creator of the update thread. */
+          created_by?: string | null
+          /** @description Current delivery status for the update thread. Supported values are on_track, at_risk, and off_track. */
+          status?: string
+          /** @description Human-readable project update title. */
+          title?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create a curated project update thread response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            thread?: {
+              body_markdown?: string
+              comment_count?: number
+              comments?: {
+                body_markdown?: string
+                created_at?: string
+                created_by?: string
+                deleted_at?: string | null
+                deleted_by?: string | null
+                edit_count?: number
+                edited_at?: string | null
+                id?: string
+                is_deleted?: boolean
+                last_edited_by?: string | null
+                thread_id?: string
+                updated_at?: string
+              }[]
+              created_at?: string
+              created_by?: string
+              deleted_at?: string | null
+              deleted_by?: string | null
+              edit_count?: number
+              edited_at?: string | null
+              id?: string
+              is_deleted?: boolean
+              last_activity_at?: string
+              last_edited_by?: string | null
+              project_id?: string
+              status?: string
+              title?: string
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteProjectUpdateThread: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Project update thread ID. */
+        threadId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Soft-delete a curated project update thread response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            deleted_thread_id?: string
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  updateProjectUpdateThread: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Project update thread ID. */
+        threadId: string
+      }
+      cookie?: never
+    }
+    /** @description Update a curated project update thread request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Updated markdown body content for the project update thread. */
+          body?: string
+          /** @description Reason recorded for editing the update thread. */
+          edit_reason?: string | null
+          /** @description Actor identifier recorded as the editor of the update thread. */
+          edited_by?: string | null
+          /** @description Updated delivery status for the update thread. Supported values are on_track, at_risk, and off_track. */
+          status?: string
+          /** @description Updated human-readable project update title. */
+          title?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Update a curated project update thread response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            thread?: {
+              body_markdown?: string
+              comment_count?: number
+              comments?: {
+                body_markdown?: string
+                created_at?: string
+                created_by?: string
+                deleted_at?: string | null
+                deleted_by?: string | null
+                edit_count?: number
+                edited_at?: string | null
+                id?: string
+                is_deleted?: boolean
+                last_edited_by?: string | null
+                thread_id?: string
+                updated_at?: string
+              }[]
+              created_at?: string
+              created_by?: string
+              deleted_at?: string | null
+              deleted_by?: string | null
+              edit_count?: number
+              edited_at?: string | null
+              id?: string
+              is_deleted?: boolean
+              last_activity_at?: string
+              last_edited_by?: string | null
+              project_id?: string
+              status?: string
+              title?: string
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createProjectUpdateComment: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Project update thread ID. */
+        threadId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a comment on a project update thread request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Markdown body content for the project update comment. */
+          body?: string
+          /** @description Actor identifier recorded as the creator of the update comment. */
+          created_by?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Create a comment on a project update thread response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            comment?: {
+              body_markdown?: string
+              created_at?: string
+              created_by?: string
+              deleted_at?: string | null
+              deleted_by?: string | null
+              edit_count?: number
+              edited_at?: string | null
+              id?: string
+              is_deleted?: boolean
+              last_edited_by?: string | null
+              thread_id?: string
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteProjectUpdateComment: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Project update thread ID. */
+        threadId: string
+        /** @description Project update comment ID. */
+        commentId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Soft-delete a comment on a project update thread response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            deleted_comment_id?: string
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  updateProjectUpdateComment: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Project update thread ID. */
+        threadId: string
+        /** @description Project update comment ID. */
+        commentId: string
+      }
+      cookie?: never
+    }
+    /** @description Update a comment on a project update thread request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Updated markdown body content for the project update comment. */
+          body?: string
+          /** @description Reason recorded for editing the update comment. */
+          edit_reason?: string | null
+          /** @description Actor identifier recorded as the editor of the update comment. */
+          edited_by?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Update a comment on a project update thread response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            comment?: {
+              body_markdown?: string
+              created_at?: string
+              created_by?: string
+              deleted_at?: string | null
+              deleted_by?: string | null
+              edit_count?: number
+              edited_at?: string | null
+              id?: string
+              is_deleted?: boolean
+              last_edited_by?: string | null
+              thread_id?: string
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listProjectUpdateCommentRevisions: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Project update thread ID. */
+        threadId: string
+        /** @description Project update comment ID. */
+        commentId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List revision history for a project update comment response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            revisions?: {
+              body_markdown?: string
+              comment_id?: string
+              edit_reason?: string | null
+              edited_at?: string
+              edited_by?: string
+              id?: string
+              revision_number?: number
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listProjectUpdateThreadRevisions: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Project update thread ID. */
+        threadId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List revision history for a project update thread response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            revisions?: {
+              body_markdown?: string
+              edit_reason?: string | null
+              edited_at?: string
+              edited_by?: string
+              id?: string
+              revision_number?: number
+              status?: string
+              thread_id?: string
+              title?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
         headers: {
           [name: string]: unknown
         }

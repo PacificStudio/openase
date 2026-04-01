@@ -23,6 +23,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
+	"github.com/BetterAndBetterII/openase/ent/projectupdatethread"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
@@ -368,6 +369,21 @@ func (_u *ProjectUpdate) AddActivityEvents(v ...*ActivityEvent) *ProjectUpdate {
 	return _u.AddActivityEventIDs(ids...)
 }
 
+// AddUpdateThreadIDs adds the "update_threads" edge to the ProjectUpdateThread entity by IDs.
+func (_u *ProjectUpdate) AddUpdateThreadIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.AddUpdateThreadIDs(ids...)
+	return _u
+}
+
+// AddUpdateThreads adds the "update_threads" edges to the ProjectUpdateThread entity.
+func (_u *ProjectUpdate) AddUpdateThreads(v ...*ProjectUpdateThread) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddUpdateThreadIDs(ids...)
+}
+
 // AddChatConversationIDs adds the "chat_conversations" edge to the ChatConversation entity by IDs.
 func (_u *ProjectUpdate) AddChatConversationIDs(ids ...uuid.UUID) *ProjectUpdate {
 	_u.mutation.AddChatConversationIDs(ids...)
@@ -643,6 +659,27 @@ func (_u *ProjectUpdate) RemoveActivityEvents(v ...*ActivityEvent) *ProjectUpdat
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveActivityEventIDs(ids...)
+}
+
+// ClearUpdateThreads clears all "update_threads" edges to the ProjectUpdateThread entity.
+func (_u *ProjectUpdate) ClearUpdateThreads() *ProjectUpdate {
+	_u.mutation.ClearUpdateThreads()
+	return _u
+}
+
+// RemoveUpdateThreadIDs removes the "update_threads" edge to ProjectUpdateThread entities by IDs.
+func (_u *ProjectUpdate) RemoveUpdateThreadIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.RemoveUpdateThreadIDs(ids...)
+	return _u
+}
+
+// RemoveUpdateThreads removes "update_threads" edges to ProjectUpdateThread entities.
+func (_u *ProjectUpdate) RemoveUpdateThreads(v ...*ProjectUpdateThread) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveUpdateThreadIDs(ids...)
 }
 
 // ClearChatConversations clears all "chat_conversations" edges to the ChatConversation entity.
@@ -1315,6 +1352,51 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.UpdateThreadsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.UpdateThreadsTable,
+			Columns: []string{project.UpdateThreadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectupdatethread.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedUpdateThreadsIDs(); len(nodes) > 0 && !_u.mutation.UpdateThreadsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.UpdateThreadsTable,
+			Columns: []string{project.UpdateThreadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectupdatethread.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.UpdateThreadsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.UpdateThreadsTable,
+			Columns: []string{project.UpdateThreadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectupdatethread.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.ChatConversationsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -1777,6 +1859,21 @@ func (_u *ProjectUpdateOne) AddActivityEvents(v ...*ActivityEvent) *ProjectUpdat
 	return _u.AddActivityEventIDs(ids...)
 }
 
+// AddUpdateThreadIDs adds the "update_threads" edge to the ProjectUpdateThread entity by IDs.
+func (_u *ProjectUpdateOne) AddUpdateThreadIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.AddUpdateThreadIDs(ids...)
+	return _u
+}
+
+// AddUpdateThreads adds the "update_threads" edges to the ProjectUpdateThread entity.
+func (_u *ProjectUpdateOne) AddUpdateThreads(v ...*ProjectUpdateThread) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddUpdateThreadIDs(ids...)
+}
+
 // AddChatConversationIDs adds the "chat_conversations" edge to the ChatConversation entity by IDs.
 func (_u *ProjectUpdateOne) AddChatConversationIDs(ids ...uuid.UUID) *ProjectUpdateOne {
 	_u.mutation.AddChatConversationIDs(ids...)
@@ -2052,6 +2149,27 @@ func (_u *ProjectUpdateOne) RemoveActivityEvents(v ...*ActivityEvent) *ProjectUp
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveActivityEventIDs(ids...)
+}
+
+// ClearUpdateThreads clears all "update_threads" edges to the ProjectUpdateThread entity.
+func (_u *ProjectUpdateOne) ClearUpdateThreads() *ProjectUpdateOne {
+	_u.mutation.ClearUpdateThreads()
+	return _u
+}
+
+// RemoveUpdateThreadIDs removes the "update_threads" edge to ProjectUpdateThread entities by IDs.
+func (_u *ProjectUpdateOne) RemoveUpdateThreadIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.RemoveUpdateThreadIDs(ids...)
+	return _u
+}
+
+// RemoveUpdateThreads removes "update_threads" edges to ProjectUpdateThread entities.
+func (_u *ProjectUpdateOne) RemoveUpdateThreads(v ...*ProjectUpdateThread) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveUpdateThreadIDs(ids...)
 }
 
 // ClearChatConversations clears all "chat_conversations" edges to the ChatConversation entity.
@@ -2747,6 +2865,51 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(activityevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.UpdateThreadsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.UpdateThreadsTable,
+			Columns: []string{project.UpdateThreadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectupdatethread.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedUpdateThreadsIDs(); len(nodes) > 0 && !_u.mutation.UpdateThreadsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.UpdateThreadsTable,
+			Columns: []string{project.UpdateThreadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectupdatethread.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.UpdateThreadsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.UpdateThreadsTable,
+			Columns: []string{project.UpdateThreadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectupdatethread.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

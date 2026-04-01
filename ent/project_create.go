@@ -20,6 +20,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
+	"github.com/BetterAndBetterII/openase/ent/projectupdatethread"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
@@ -310,6 +311,21 @@ func (_c *ProjectCreate) AddActivityEvents(v ...*ActivityEvent) *ProjectCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddActivityEventIDs(ids...)
+}
+
+// AddUpdateThreadIDs adds the "update_threads" edge to the ProjectUpdateThread entity by IDs.
+func (_c *ProjectCreate) AddUpdateThreadIDs(ids ...uuid.UUID) *ProjectCreate {
+	_c.mutation.AddUpdateThreadIDs(ids...)
+	return _c
+}
+
+// AddUpdateThreads adds the "update_threads" edges to the ProjectUpdateThread entity.
+func (_c *ProjectCreate) AddUpdateThreads(v ...*ProjectUpdateThread) *ProjectCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddUpdateThreadIDs(ids...)
 }
 
 // AddChatConversationIDs adds the "chat_conversations" edge to the ChatConversation entity by IDs.
@@ -686,6 +702,22 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(activityevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.UpdateThreadsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.UpdateThreadsTable,
+			Columns: []string{project.UpdateThreadsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectupdatethread.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

@@ -18,6 +18,7 @@ import (
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/infra/sse"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
+	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	runtimeobservability "github.com/BetterAndBetterII/openase/internal/runtime/observability"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
@@ -49,6 +50,7 @@ type Server struct {
 	workflowService            *workflowservice.Service
 	scheduledJobService        *scheduledjobservice.Service
 	notificationService        *notificationservice.Service
+	projectUpdateService       *projectupdateservice.Service
 	chatService                *chatservice.Service
 	projectConversationService *chatservice.ProjectConversationService
 	githubAuthService          githubauthservice.SecurityManager
@@ -61,6 +63,12 @@ type ServerOption func(*Server)
 func WithNotificationService(service *notificationservice.Service) ServerOption {
 	return func(server *Server) {
 		server.notificationService = service
+	}
+}
+
+func WithProjectUpdateService(service *projectupdateservice.Service) ServerOption {
+	return func(server *Server) {
+		server.projectUpdateService = service
 	}
 }
 

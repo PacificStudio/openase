@@ -59,6 +59,7 @@ func (r routeRegistrar) registerAPIRoutes() {
 	if r.server.catalog != nil {
 		r.server.registerOrganizationRoutes(r.api)
 		r.server.registerProjectRoutes(r.api)
+		r.server.registerProjectUpdateRoutes(r.api)
 		r.server.registerMachineRoutes(r.api)
 		r.server.registerProjectRepoRoutes(r.api)
 		r.server.registerCatalogAgentRoutes(r.api)

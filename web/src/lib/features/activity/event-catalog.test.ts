@@ -53,6 +53,13 @@ const canonicalCases = [
   ['ticket_comment.created', 'Ticket comment created', 'info'],
   ['ticket_comment.edited', 'Ticket comment edited', 'info'],
   ['ticket_comment.deleted', 'Ticket comment deleted', 'warning'],
+  ['project_update_thread.created', 'Project update created', 'info'],
+  ['project_update_thread.edited', 'Project update edited', 'info'],
+  ['project_update_thread.deleted', 'Project update deleted', 'warning'],
+  ['project_update_thread.status_changed', 'Project update status changed', 'warning'],
+  ['project_update_comment.created', 'Project update comment created', 'info'],
+  ['project_update_comment.edited', 'Project update comment edited', 'info'],
+  ['project_update_comment.deleted', 'Project update comment deleted', 'warning'],
 ] as const
 
 describe('activity event catalog', () => {

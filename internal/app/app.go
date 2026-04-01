@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
@@ -24,6 +25,7 @@ import (
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
+	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	chatconversationrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
@@ -180,6 +182,10 @@ func (a *App) RunServe(ctx context.Context) error {
 		sshPool,
 	)
 	projectConversationSvc.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(client))
+	projectUpdateSvc := projectupdateservice.NewService(
+		client,
+		activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, a.events),
+	)
 	server := httpapi.NewServer(
 		a.config.Server,
 		a.config.GitHub,
@@ -197,6 +203,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithMetricsHandler(a.metricsHandler),
 		httpapi.WithScheduledJobService(scheduledJobSvc),
 		httpapi.WithNotificationService(notificationSvc),
+		httpapi.WithProjectUpdateService(projectUpdateSvc),
 		httpapi.WithChatService(chatSvc),
 		httpapi.WithProjectConversationService(projectConversationSvc),
 	)

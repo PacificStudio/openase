@@ -135,6 +135,44 @@ export type ActivityPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/activity', 'get'>
 >
 export type ActivityEvent = ItemOf<ActivityPayload['events']>
+export type ProjectUpdatePayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/updates', 'get'>
+>
+export type ProjectUpdateCreateResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/updates', 'post'>
+>
+export type ProjectUpdateThreadRecord = ItemOf<ProjectUpdatePayload['threads']>
+export type ProjectUpdateCommentRecord = ItemOf<ProjectUpdateThreadRecord['comments']>
+export type ProjectUpdateThreadResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/updates/{threadId}', 'patch'>
+>
+export type ProjectUpdateThreadDeleteResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/updates/{threadId}', 'delete'>
+>
+export type ProjectUpdateThreadRevisionListResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/updates/{threadId}/revisions', 'get'>
+>
+export type ProjectUpdateThreadRevisionRecord = ItemOf<
+  ProjectUpdateThreadRevisionListResponse['revisions']
+>
+export type ProjectUpdateCommentCreateResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/updates/{threadId}/comments', 'post'>
+>
+export type ProjectUpdateCommentResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/updates/{threadId}/comments/{commentId}', 'patch'>
+>
+export type ProjectUpdateCommentDeleteResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/updates/{threadId}/comments/{commentId}', 'delete'>
+>
+export type ProjectUpdateCommentRevisionListResponse = DeepRequired<
+  ResponseFor<
+    '/api/v1/projects/{projectId}/updates/{threadId}/comments/{commentId}/revisions',
+    'get'
+  >
+>
+export type ProjectUpdateCommentRevisionRecord = ItemOf<
+  ProjectUpdateCommentRevisionListResponse['revisions']
+>
 
 export type StatusPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/statuses', 'get'>

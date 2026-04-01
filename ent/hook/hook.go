@@ -225,6 +225,54 @@ func (f ProjectRepoFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value,
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectRepoMutation", m)
 }
 
+// The ProjectUpdateCommentFunc type is an adapter to allow the use of ordinary
+// function as ProjectUpdateComment mutator.
+type ProjectUpdateCommentFunc func(context.Context, *ent.ProjectUpdateCommentMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ProjectUpdateCommentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ProjectUpdateCommentMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectUpdateCommentMutation", m)
+}
+
+// The ProjectUpdateCommentRevisionFunc type is an adapter to allow the use of ordinary
+// function as ProjectUpdateCommentRevision mutator.
+type ProjectUpdateCommentRevisionFunc func(context.Context, *ent.ProjectUpdateCommentRevisionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ProjectUpdateCommentRevisionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ProjectUpdateCommentRevisionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectUpdateCommentRevisionMutation", m)
+}
+
+// The ProjectUpdateThreadFunc type is an adapter to allow the use of ordinary
+// function as ProjectUpdateThread mutator.
+type ProjectUpdateThreadFunc func(context.Context, *ent.ProjectUpdateThreadMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ProjectUpdateThreadFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ProjectUpdateThreadMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectUpdateThreadMutation", m)
+}
+
+// The ProjectUpdateThreadRevisionFunc type is an adapter to allow the use of ordinary
+// function as ProjectUpdateThreadRevision mutator.
+type ProjectUpdateThreadRevisionFunc func(context.Context, *ent.ProjectUpdateThreadRevisionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ProjectUpdateThreadRevisionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ProjectUpdateThreadRevisionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectUpdateThreadRevisionMutation", m)
+}
+
 // The ScheduledJobFunc type is an adapter to allow the use of ordinary
 // function as ScheduledJob mutator.
 type ScheduledJobFunc func(context.Context, *ent.ScheduledJobMutation) (ent.Value, error)
