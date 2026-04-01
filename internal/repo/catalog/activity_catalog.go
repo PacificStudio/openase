@@ -15,6 +15,7 @@ import (
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/google/uuid"
 )
 
@@ -32,6 +33,7 @@ func (r *EntRepository) ListActivityEvents(ctx context.Context, input domain.Lis
 	predicates := []predicate.ActivityEvent{
 		entactivityevent.ProjectID(input.ProjectID),
 		entactivityevent.EventTypeNEQ(domain.AgentOutputEventType),
+		entactivityevent.EventTypeNEQ(ticketing.CostRecordedEventType),
 	}
 	if input.AgentID != nil {
 		predicates = append(predicates, entactivityevent.AgentID(*input.AgentID))

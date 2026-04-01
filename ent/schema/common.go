@@ -36,7 +36,7 @@ func emptyUUIDs() []uuid.UUID {
 
 func currencyColumn() map[string]string {
 	return map[string]string{
-		dialect.Postgres: "numeric(12,2)",
+		dialect.Postgres: "numeric(18,6)",
 	}
 }
 
