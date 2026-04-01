@@ -209,26 +209,40 @@ func parseWorkflowHookFailure(raw any, path string) (workflowHookFailurePolicy, 
 
 func (e *workflowHookExecutor) RunAll(ctx context.Context, hookName workflowHookName, hooks []workflowHookDefinition, runtime workflowHookRuntime) error {
 	for _, hook := range hooks {
+		startedAt := time.Now()
+		baseAttrs := []any{
+			"hook_name", hookName,
+			"hook_scope", "workflow",
+			"hook_policy", hook.OnFailure,
+			"project_id", runtime.ProjectID,
+			"workflow_id", runtime.WorkflowID,
+			"workflow_name", runtime.WorkflowName,
+			"workflow_version", runtime.WorkflowVersion,
+			"command", hook.Command,
+			"timeout_seconds", int(hook.Timeout / time.Second),
+		}
+		e.logger.Info("workflow hook started", baseAttrs...)
+
 		if err := e.run(ctx, hookName, hook, runtime); err != nil {
-			attrs := []any{
-				"hook_name", hookName,
-				"workflow_id", runtime.WorkflowID,
-				"workflow_name", runtime.WorkflowName,
-				"command", hook.Command,
+			attrs := append(append([]any{}, baseAttrs...),
+				"duration_ms", time.Since(startedAt).Milliseconds(),
 				"error", err,
-			}
+			)
 
 			switch hook.OnFailure {
 			case workflowHookFailureIgnore:
-				e.logger.Info("workflow hook ignored failure", attrs...)
+				e.logger.Warn("workflow hook failed but was ignored", attrs...)
 				continue
 			case workflowHookFailureWarn:
-				e.logger.Warn("workflow hook warning", attrs...)
+				e.logger.Warn("workflow hook failed with warning policy", attrs...)
 				continue
 			default:
+				e.logger.Error("workflow hook failed and blocked lifecycle", append(attrs, "blocking", true)...)
 				return fmt.Errorf("%w: %s command %q failed: %v", ErrWorkflowHookBlocked, hookName, hook.Command, err)
 			}
 		}
+
+		e.logger.Info("workflow hook completed", append(append([]any{}, baseAttrs...), "duration_ms", time.Since(startedAt).Milliseconds(), "outcome", "passed")...)
 	}
 
 	return nil
@@ -270,8 +284,11 @@ func (e *workflowHookExecutor) run(ctx context.Context, hookName workflowHookNam
 		e.logger.Info(
 			"workflow hook output",
 			"hook_name", hookName,
+			"hook_scope", "workflow",
+			"project_id", runtime.ProjectID,
 			"workflow_id", runtime.WorkflowID,
 			"workflow_name", runtime.WorkflowName,
+			"workflow_version", runtime.WorkflowVersion,
 			"command", hook.Command,
 			"output", trimmed,
 		)

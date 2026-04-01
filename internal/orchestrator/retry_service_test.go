@@ -1,9 +1,11 @@
 package orchestrator
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -188,6 +190,63 @@ func TestRetryServiceMarkAttemptFailedPausesWhenBudgetIsExhausted(t *testing.T) 
 	}
 	if runAfter.Status != entagentrun.StatusErrored {
 		t.Fatalf("expected budget exhausted run errored, got %+v", runAfter)
+	}
+}
+
+func TestRetryServiceLogsStructuredRetryDecision(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 20, 16, 0, 0, 0, time.UTC)
+
+	workflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(2).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	agentItem := fixture.createAgent(ctx, t, "coding-log-01", 0)
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-499").
+		SetTitle("Retry log coverage").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflow.ID).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	_ = mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
+
+	var logBuffer bytes.Buffer
+	retryService := NewRetryService(client, slog.New(slog.NewTextHandler(&logBuffer, nil)))
+	retryService.now = func() time.Time {
+		return now
+	}
+
+	if _, err := retryService.MarkAttemptFailed(ctx, ticketItem.ID); err != nil {
+		t.Fatalf("mark attempt failed: %v", err)
+	}
+
+	logOutput := logBuffer.String()
+	for _, want := range []string{
+		"ticket retry scheduled",
+		"operation=schedule_retry",
+		"ticket_id=" + ticketItem.ID.String(),
+		"project_id=" + fixture.projectID.String(),
+		"workflow_id=" + workflow.ID.String(),
+		"backoff_seconds=10",
+	} {
+		if !strings.Contains(logOutput, want) {
+			t.Fatalf("expected retry log to contain %q, got %s", want, logOutput)
+		}
 	}
 }
 

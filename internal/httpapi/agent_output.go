@@ -115,7 +115,17 @@ func (s *Server) streamAgentOutput(c echo.Context) error {
 
 			outputEvent, matched, err := buildAgentOutputStreamEvent(projectID, agentID, ticketID, event)
 			if err != nil {
-				s.logger.Warn("skip malformed agent output stream event", "error", err)
+				s.logger.Warn(
+					"skip malformed agent output stream event",
+					"operation", "build_agent_output_stream_event",
+					"project_id", projectID,
+					"agent_id", agentID,
+					"ticket_id", ticketID,
+					"topic", event.Topic.String(),
+					"type", event.Type.String(),
+					"payload_bytes", len(event.Payload),
+					"error", err,
+				)
 				continue
 			}
 			if !matched {
