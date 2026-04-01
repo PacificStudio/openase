@@ -3,7 +3,12 @@
   import { Button } from '$ui/button'
   import { Skeleton } from '$ui/skeleton'
   import { CalendarRange, Flame, TrendingUp, Workflow } from '@lucide/svelte'
-  import { organizationTokenUsageRangeOptions } from '../organization-token-usage'
+  import {
+    buildOrganizationTokenUsageTrendPoints,
+    formatOrganizationTokenUsageTooltip,
+    organizationTokenUsageIntensityClassName,
+    organizationTokenUsageRangeOptions,
+  } from '../organization-token-usage'
   import type {
     OrganizationTokenUsageAnalytics,
     OrganizationTokenUsageDayPoint,
@@ -25,52 +30,13 @@
   } = $props()
 
   const weekdayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-  const trendPoints = $derived(buildTrendPoints(analytics.days))
+  const trendPoints = $derived(buildOrganizationTokenUsageTrendPoints(analytics.days))
   const trendPolyline = $derived(trendPoints.map((point) => `${point.x},${point.y}`).join(' '))
   const trendArea = $derived(
     trendPoints.length > 0
       ? `2,44 ${trendPoints.map((point) => `${point.x},${point.y}`).join(' ')} 98,44`
       : '',
   )
-
-  function buildTrendPoints(days: OrganizationTokenUsageDayPoint[]) {
-    if (days.length === 0) return []
-
-    const usableWidth = 96
-    const usableHeight = 34
-    const startX = 2
-    const startY = 8
-    const maxTokens = days.reduce((max, day) => Math.max(max, day.totalTokens), 0)
-    const stepX = days.length === 1 ? 0 : usableWidth / (days.length - 1)
-
-    return days.map((day, index) => {
-      const ratio = maxTokens <= 0 ? 0 : day.totalTokens / maxTokens
-      return {
-        day,
-        x: Number((startX + stepX * index).toFixed(2)),
-        y: Number((startY + usableHeight * (1 - ratio)).toFixed(2)),
-      }
-    })
-  }
-
-  function intensityClassName(intensity: OrganizationTokenUsageDayPoint['intensity']) {
-    switch (intensity) {
-      case 4:
-        return 'bg-emerald-500/95'
-      case 3:
-        return 'bg-emerald-500/70'
-      case 2:
-        return 'bg-emerald-500/45'
-      case 1:
-        return 'bg-emerald-500/20'
-      default:
-        return 'bg-muted/30'
-    }
-  }
-
-  function formatTrendTooltip(day: OrganizationTokenUsageDayPoint) {
-    return `${day.dayLabel}: ${formatCount(day.totalTokens)} total tokens, ${formatCount(day.inputTokens)} input, ${formatCount(day.outputTokens)} output, ${formatCount(day.finalizedRunCount)} runs`
-  }
 </script>
 
 <section class={cn('border-border bg-card rounded-xl border', className)}>
@@ -224,7 +190,7 @@
                   class="fill-card stroke-emerald-600 dark:stroke-emerald-400"
                   stroke-width="1.4"
                 >
-                  <title>{formatTrendTooltip(point.day)}</title>
+                  <title>{formatOrganizationTokenUsageTooltip(point.day)}</title>
                 </circle>
               {/each}
             </svg>
@@ -269,9 +235,9 @@
                   <div
                     class={cn(
                       'border-border/80 aspect-square rounded-sm border',
-                      intensityClassName(day.intensity),
+                      organizationTokenUsageIntensityClassName(day.intensity),
                     )}
-                    title={formatTrendTooltip(day)}
+                    title={formatOrganizationTokenUsageTooltip(day)}
                   ></div>
                 {:else}
                   <div
@@ -287,7 +253,9 @@
                   <div
                     class={cn(
                       'border-border/80 size-2.5 rounded-[4px] border',
-                      intensityClassName(intensity as OrganizationTokenUsageDayPoint['intensity']),
+                      organizationTokenUsageIntensityClassName(
+                        intensity as OrganizationTokenUsageDayPoint['intensity'],
+                      ),
                     )}
                   ></div>
                 {/each}

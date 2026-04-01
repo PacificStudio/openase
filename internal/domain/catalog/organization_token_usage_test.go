@@ -42,9 +42,34 @@ func TestParseOrganizationTokenUsageRejectsInvalidRanges(t *testing.T) {
 		t.Fatal("expected invalid from date to fail")
 	}
 	if _, err := ParseOrganizationTokenUsage(orgID, OrganizationTokenUsageListInput{
+		From: "2026-03-01",
+		To:   "bad-date",
+	}, time.Now().UTC()); err == nil {
+		t.Fatal("expected invalid to date to fail")
+	}
+	if _, err := ParseOrganizationTokenUsage(orgID, OrganizationTokenUsageListInput{
 		From: "2026-03-02",
 		To:   "2026-03-01",
 	}, time.Now().UTC()); err == nil {
 		t.Fatal("expected descending date range to fail")
+	}
+}
+
+func TestParseOrganizationTokenUsageAcceptsExplicitRange(t *testing.T) {
+	orgID := uuid.New()
+
+	parsed, err := ParseOrganizationTokenUsage(orgID, OrganizationTokenUsageListInput{
+		From: " 2026-03-01 ",
+		To:   "2026-03-31 ",
+	}, time.Now().UTC())
+	if err != nil {
+		t.Fatalf("ParseOrganizationTokenUsage() error = %v", err)
+	}
+
+	if want := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC); !parsed.FromDate.Equal(want) {
+		t.Fatalf("expected from %s, got %s", want.Format(time.RFC3339), parsed.FromDate.Format(time.RFC3339))
+	}
+	if want := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC); !parsed.ToDate.Equal(want) {
+		t.Fatalf("expected to %s, got %s", want.Format(time.RFC3339), parsed.ToDate.Format(time.RFC3339))
 	}
 }

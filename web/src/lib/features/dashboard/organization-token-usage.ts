@@ -121,6 +121,47 @@ export async function loadOrganizationTokenUsage(
   return mapOrganizationTokenUsage(payload, rangeDays, opts?.now)
 }
 
+export function buildOrganizationTokenUsageTrendPoints(days: OrganizationTokenUsageDayPoint[]) {
+  if (days.length === 0) return []
+
+  const usableWidth = 96
+  const usableHeight = 34
+  const startX = 2
+  const startY = 8
+  const maxTokens = days.reduce((max, day) => Math.max(max, day.totalTokens), 0)
+  const stepX = days.length === 1 ? 0 : usableWidth / (days.length - 1)
+
+  return days.map((day, index) => {
+    const ratio = maxTokens <= 0 ? 0 : day.totalTokens / maxTokens
+    return {
+      day,
+      x: Number((startX + stepX * index).toFixed(2)),
+      y: Number((startY + usableHeight * (1 - ratio)).toFixed(2)),
+    }
+  })
+}
+
+export function organizationTokenUsageIntensityClassName(
+  intensity: OrganizationTokenUsageDayPoint['intensity'],
+) {
+  switch (intensity) {
+    case 4:
+      return 'bg-emerald-500/95'
+    case 3:
+      return 'bg-emerald-500/70'
+    case 2:
+      return 'bg-emerald-500/45'
+    case 1:
+      return 'bg-emerald-500/20'
+    default:
+      return 'bg-muted/30'
+  }
+}
+
+export function formatOrganizationTokenUsageTooltip(day: OrganizationTokenUsageDayPoint) {
+  return `${day.dayLabel}: ${day.totalTokens.toLocaleString()} total tokens, ${day.inputTokens.toLocaleString()} input, ${day.outputTokens.toLocaleString()} output, ${day.finalizedRunCount.toLocaleString()} runs`
+}
+
 function mapPeakDay(
   payload: OrganizationTokenUsageResponse,
   days: OrganizationTokenUsageDayPoint[],
