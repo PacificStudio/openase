@@ -1045,6 +1045,30 @@ func TestRuntimeLifecycleEventAndStateCoverage(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("recordAgentOutput() error = %v", err)
 	}
+	if err := launcher.recordAgentApprovalRequest(ctx, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, entagentprovider.AdapterTypeCodexAppServer, &agentApprovalRequest{
+		RequestID: "approval-1",
+		ThreadID:  "thread-1",
+		TurnID:    "turn-1",
+		Kind:      "command_execution",
+		Options: []agentApprovalOption{
+			{ID: "approve_once", Label: "Approve once", RawDecision: "approve_once"},
+		},
+		Payload: map[string]any{"command": "make check"},
+	}); err != nil {
+		t.Fatalf("recordAgentApprovalRequest() error = %v", err)
+	}
+	if err := launcher.recordAgentUserInputRequest(ctx, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, entagentprovider.AdapterTypeCodexAppServer, &agentUserInputRequest{
+		RequestID: "input-1",
+		ThreadID:  "thread-1",
+		TurnID:    "turn-1",
+		Payload: map[string]any{
+			"questions": []any{
+				map[string]any{"id": "answer", "question": "Need confirmation?"},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("recordAgentUserInputRequest() error = %v", err)
+	}
 
 	toolTrace, err := client.AgentTraceEvent.Query().
 		Where(
@@ -1057,6 +1081,30 @@ func TestRuntimeLifecycleEventAndStateCoverage(t *testing.T) {
 	}
 	if toolTrace.Stream != "tool" || toolTrace.Text != "shell" || toolTrace.Payload["call_id"] != "call-1" || toolTrace.Payload["turn_id"] != "turn-1" || toolTrace.Payload["thread_id"] != "thread-1" {
 		t.Fatalf("tool call trace = %+v", toolTrace)
+	}
+	approvalTrace, err := client.AgentTraceEvent.Query().
+		Where(
+			entagenttraceevent.AgentRunIDEQ(currentRun.ID),
+			entagenttraceevent.KindEQ(catalogdomain.AgentTraceKindApprovalRequested),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("query approval trace event: %v", err)
+	}
+	if approvalTrace.Stream != "interrupt" || approvalTrace.Payload["request_id"] != "approval-1" || approvalTrace.Payload["kind"] != "command_execution" {
+		t.Fatalf("approval trace = %+v", approvalTrace)
+	}
+	userInputTrace, err := client.AgentTraceEvent.Query().
+		Where(
+			entagenttraceevent.AgentRunIDEQ(currentRun.ID),
+			entagenttraceevent.KindEQ(catalogdomain.AgentTraceKindUserInputRequested),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("query user input trace event: %v", err)
+	}
+	if userInputTrace.Stream != "interrupt" || userInputTrace.Payload["request_id"] != "input-1" {
+		t.Fatalf("user input trace = %+v", userInputTrace)
 	}
 
 	stepItems, err := client.AgentStepEvent.Query().
@@ -1085,9 +1133,18 @@ func TestRuntimeLifecycleEventAndStateCoverage(t *testing.T) {
 	if responseStepItem == nil {
 		t.Fatalf("output step event not found in %+v", stepItems)
 	}
+	if !containsStepEvent(stepItems, "awaiting_command_approval", `Waiting for command approval to run "make check".`) {
+		t.Fatalf("approval step event not found in %+v", stepItems)
+	}
+	if !containsStepEvent(stepItems, "awaiting_input", "Waiting for user input: Need confirmation?") {
+		t.Fatalf("user input step event not found in %+v", stepItems)
+	}
 	beforeDuplicateCount := len(stepItems)
 	if err := publishAgentStepEvent(ctx, client, nil, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, "responding", "assistant response", nil, publishedAt.Add(2*time.Minute)); err != nil {
 		t.Fatalf("publishAgentStepEvent(duplicate status) error = %v", err)
+	}
+	if err := publishAgentStepEvent(ctx, client, nil, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, "responding", "assistant follow-up", nil, publishedAt.Add(2*time.Minute+time.Second)); err != nil {
+		t.Fatalf("publishAgentStepEvent(updated summary) error = %v", err)
 	}
 	if err := publishAgentStepEvent(ctx, client, nil, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, "   ", "ignored", nil, publishedAt.Add(3*time.Minute)); err != nil {
 		t.Fatalf("publishAgentStepEvent(blank status) error = %v", err)
@@ -1098,8 +1155,8 @@ func TestRuntimeLifecycleEventAndStateCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("count agent step events after duplicate status: %v", err)
 	}
-	if stepCountAfterDuplicate != beforeDuplicateCount {
-		t.Fatalf("agent step event count after duplicate status = %d, want %d", stepCountAfterDuplicate, beforeDuplicateCount)
+	if stepCountAfterDuplicate != beforeDuplicateCount+1 {
+		t.Fatalf("agent step event count after duplicate status = %d, want %d", stepCountAfterDuplicate, beforeDuplicateCount+1)
 	}
 	stepPublishedAt := publishedAt.Add(4 * time.Minute)
 	if err := publishAgentStepEvent(ctx, client, bus, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, "reviewing", "reviewing coverage report", nil, stepPublishedAt); err != nil {
@@ -1130,4 +1187,13 @@ func containsAll(value string, parts ...string) bool {
 		}
 	}
 	return true
+}
+
+func containsStepEvent(items []*ent.AgentStepEvent, status string, summary string) bool {
+	for _, item := range items {
+		if item.StepStatus == status && item.Summary == summary {
+			return true
+		}
+	}
+	return false
 }

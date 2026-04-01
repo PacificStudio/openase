@@ -1,8 +1,9 @@
 import { ApiError } from '$lib/api/client'
-import type { SSEFrame } from '$lib/api/sse'
+import type { SSEFrame, StreamConnectionState } from '$lib/api/sse'
 import { toastStore } from '$lib/stores/toast.svelte'
 import { fetchTicketDetailContext } from './context'
 import {
+  recoverTicketDrawerRunTranscript,
   defaultTicketDrawerRunTranscriptDeps,
   loadTicketDrawerRunTranscript,
   type TicketDrawerRunTranscriptDeps,
@@ -61,6 +62,8 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
     runBlocks: [] as TicketRunTranscriptBlock[],
     runBlockCache: {} as Record<string, TicketRunTranscriptBlock[]>,
     loadingRunId: null as string | null,
+    runStreamState: 'idle' as StreamConnectionState,
+    recoveringRunTranscript: false,
     savingFields: false,
     creatingDependency: false,
     deletingDependencyId: null as string | null,
@@ -76,6 +79,7 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
   })
   let loadRequestId = 0
   let runDetailRequestId = 0
+  let runRecoveryRequestId = 0
   let timelineRefreshQueued = false
   let timelineRefreshLoop: Promise<void> | null = null
 
@@ -211,9 +215,47 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
         await runTimelineRefresh(projectId, ticketId)
       }
     },
+    setRunStreamState(nextState: StreamConnectionState) {
+      state.runStreamState = nextState
+    },
     applyRunStreamFrame(frame: Pick<SSEFrame, 'event' | 'data'>) {
       const nextState = applyTicketRunStreamFrame(getRunTranscriptState(), frame)
       applyRunTranscriptState(nextState)
+    },
+    async recoverRunTranscript(projectId: string, ticketId: string) {
+      if (state.loading || !state.ticket) {
+        return
+      }
+
+      const requestId = ++runRecoveryRequestId
+      state.recoveringRunTranscript = true
+
+      try {
+        await recoverTicketDrawerRunTranscript(
+          resolvedDeps,
+          { getState: getRunTranscriptState, setState: applyRunTranscriptState },
+          projectId,
+          ticketId,
+          requestId,
+          (activeRequestID) =>
+            activeRequestID === runRecoveryRequestId &&
+            !state.loading &&
+            state.ticket?.id === ticketId,
+        )
+      } catch (caughtError) {
+        if (requestId !== runRecoveryRequestId) {
+          return
+        }
+        const message =
+          caughtError instanceof ApiError
+            ? caughtError.detail
+            : 'Failed to recover ticket run transcript.'
+        toastStore.error(message)
+      } finally {
+        if (requestId === runRecoveryRequestId) {
+          state.recoveringRunTranscript = false
+        }
+      }
     },
     async selectRun(projectId: string, ticketId: string, runId: string) {
       const optimisticState = selectTicketRun(getRunTranscriptState(), runId)
@@ -268,6 +310,8 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
       state.runBlocks = []
       state.runBlockCache = {}
       state.loadingRunId = null
+      state.runStreamState = 'idle'
+      state.recoveringRunTranscript = false
       state.savingFields = false
       state.creatingDependency = false
       state.deletingDependencyId = null

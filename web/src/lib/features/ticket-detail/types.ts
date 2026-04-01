@@ -212,12 +212,28 @@ export type TicketRunLifecycleEvent = {
   createdAt: string
 }
 
+export type TicketRunTranscriptInterruptOption = {
+  id: string
+  label: string
+  rawDecision?: string
+}
+
 export type TicketRunTranscriptBlock =
   | { kind: 'phase'; id: string; phase: string; at: string; summary: string }
   | { kind: 'step'; id: string; stepStatus: string; summary: string; at: string }
   | { kind: 'assistant_message'; id: string; itemId?: string; text: string; streaming: boolean }
   | { kind: 'tool_call'; id: string; toolName: string; summary?: string; at: string }
   | { kind: 'terminal_output'; id: string; itemId?: string; text: string; streaming: boolean }
+  | {
+      kind: 'interrupt'
+      id: string
+      interruptKind: string
+      title: string
+      summary: string
+      at: string
+      payload: Record<string, unknown>
+      options: TicketRunTranscriptInterruptOption[]
+    }
   | { kind: 'result'; id: string; outcome: 'completed' | 'failed' | 'stalled'; summary: string }
 
 export type TicketRunTranscriptState = {

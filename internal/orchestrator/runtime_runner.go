@@ -345,6 +345,26 @@ func (l *RuntimeLauncher) consumeTurn(
 			if err := l.recordAgentToolCall(ctx, projectID, agentID, ticketID, runID, adapterType, event.ToolCall); err != nil {
 				return err
 			}
+		case agentEventTypeApprovalRequested:
+			if event.Approval == nil {
+				continue
+			}
+			if !turnMatches(turnID, event.Approval.TurnID) {
+				continue
+			}
+			if err := l.recordAgentApprovalRequest(ctx, projectID, agentID, ticketID, runID, adapterType, event.Approval); err != nil {
+				return err
+			}
+		case agentEventTypeUserInputRequested:
+			if event.UserInput == nil {
+				continue
+			}
+			if !turnMatches(turnID, event.UserInput.TurnID) {
+				continue
+			}
+			if err := l.recordAgentUserInputRequest(ctx, projectID, agentID, ticketID, runID, adapterType, event.UserInput); err != nil {
+				return err
+			}
 		case agentEventTypeTokenUsageUpdated:
 			if event.TokenUsage == nil {
 				continue
@@ -558,6 +578,130 @@ func (l *RuntimeLauncher) recordAgentStep(
 	return nil
 }
 
+func (l *RuntimeLauncher) recordAgentApprovalRequest(
+	ctx context.Context,
+	projectID uuid.UUID,
+	agentID uuid.UUID,
+	ticketID uuid.UUID,
+	runID uuid.UUID,
+	adapterType entagentprovider.AdapterType,
+	request *agentApprovalRequest,
+) error {
+	if l == nil || request == nil {
+		return nil
+	}
+
+	metadata := map[string]any{
+		"provider": runtimeProviderName(adapterType),
+		"run_id":   runID.String(),
+		"kind":     strings.TrimSpace(request.Kind),
+		"payload":  cloneAgentTracePayload(request.Payload),
+	}
+	if requestID := strings.TrimSpace(request.RequestID); requestID != "" {
+		metadata["request_id"] = requestID
+	}
+	if threadID := strings.TrimSpace(request.ThreadID); threadID != "" {
+		metadata["thread_id"] = threadID
+	}
+	if turnID := strings.TrimSpace(request.TurnID); turnID != "" {
+		metadata["turn_id"] = turnID
+	}
+	if options := mapAgentApprovalOptions(request.Options); len(options) > 0 {
+		metadata["options"] = options
+	}
+
+	traceItem, err := publishAgentTraceEvent(ctx, l.client, l.events, agentTraceEventInput{
+		ProjectID:   projectID,
+		AgentID:     agentID,
+		TicketID:    ticketID,
+		AgentRunID:  runID,
+		Provider:    runtimeProviderName(adapterType),
+		Kind:        catalogdomain.AgentTraceKindApprovalRequested,
+		Stream:      "interrupt",
+		Text:        approvalRequestTraceSummary(request),
+		Payload:     metadata,
+		PublishedAt: l.now().UTC(),
+	})
+	if err != nil {
+		return fmt.Errorf("record approval request trace for run %s: %w", runID, err)
+	}
+	traceID := traceItem.ID
+	if err := l.recordAgentStep(
+		ctx,
+		projectID,
+		agentID,
+		ticketID,
+		runID,
+		approvalRequestStepStatus(request),
+		approvalRequestStepSummary(request),
+		&traceID,
+	); err != nil {
+		return fmt.Errorf("record approval request step for run %s: %w", runID, err)
+	}
+
+	return nil
+}
+
+func (l *RuntimeLauncher) recordAgentUserInputRequest(
+	ctx context.Context,
+	projectID uuid.UUID,
+	agentID uuid.UUID,
+	ticketID uuid.UUID,
+	runID uuid.UUID,
+	adapterType entagentprovider.AdapterType,
+	request *agentUserInputRequest,
+) error {
+	if l == nil || request == nil {
+		return nil
+	}
+
+	metadata := map[string]any{
+		"provider": runtimeProviderName(adapterType),
+		"run_id":   runID.String(),
+		"payload":  cloneAgentTracePayload(request.Payload),
+	}
+	if requestID := strings.TrimSpace(request.RequestID); requestID != "" {
+		metadata["request_id"] = requestID
+	}
+	if threadID := strings.TrimSpace(request.ThreadID); threadID != "" {
+		metadata["thread_id"] = threadID
+	}
+	if turnID := strings.TrimSpace(request.TurnID); turnID != "" {
+		metadata["turn_id"] = turnID
+	}
+
+	traceItem, err := publishAgentTraceEvent(ctx, l.client, l.events, agentTraceEventInput{
+		ProjectID:   projectID,
+		AgentID:     agentID,
+		TicketID:    ticketID,
+		AgentRunID:  runID,
+		Provider:    runtimeProviderName(adapterType),
+		Kind:        catalogdomain.AgentTraceKindUserInputRequested,
+		Stream:      "interrupt",
+		Text:        userInputRequestTraceSummary(request),
+		Payload:     metadata,
+		PublishedAt: l.now().UTC(),
+	})
+	if err != nil {
+		return fmt.Errorf("record user input trace for run %s: %w", runID, err)
+	}
+	traceID := traceItem.ID
+	if err := l.recordAgentStep(
+		ctx,
+		projectID,
+		agentID,
+		ticketID,
+		runID,
+		"awaiting_input",
+		userInputRequestStepSummary(request),
+		&traceID,
+	); err != nil {
+		return fmt.Errorf("record user input step for run %s: %w", runID, err)
+	}
+
+	return nil
+}
+
 func agentTraceKindForOutput(output *agentOutputEvent) string {
 	if output == nil {
 		return catalogdomain.AgentTraceKindAssistantDelta
@@ -575,6 +719,120 @@ func agentTraceKindForOutput(output *agentOutputEvent) string {
 		}
 		return catalogdomain.AgentTraceKindAssistantDelta
 	}
+}
+
+func approvalRequestStepStatus(request *agentApprovalRequest) string {
+	switch strings.TrimSpace(request.Kind) {
+	case "file_change":
+		return "awaiting_file_approval"
+	default:
+		return "awaiting_command_approval"
+	}
+}
+
+func approvalRequestStepSummary(request *agentApprovalRequest) string {
+	switch strings.TrimSpace(request.Kind) {
+	case "file_change":
+		if target := trimmedInterruptString(request.Payload, "file", "path", "target"); target != "" {
+			return fmt.Sprintf("Waiting for file change approval on %s.", target)
+		}
+		return "Waiting for file change approval."
+	default:
+		if command := trimmedInterruptString(request.Payload, "command"); command != "" {
+			return fmt.Sprintf("Waiting for command approval to run %q.", command)
+		}
+		return "Waiting for command approval."
+	}
+}
+
+func approvalRequestTraceSummary(request *agentApprovalRequest) string {
+	summary := approvalRequestStepSummary(request)
+	return strings.TrimSuffix(summary, ".")
+}
+
+func userInputRequestStepSummary(request *agentUserInputRequest) string {
+	if prompt := firstInterruptQuestion(request.Payload); prompt != "" {
+		return fmt.Sprintf("Waiting for user input: %s", prompt)
+	}
+	return "Waiting for user input."
+}
+
+func userInputRequestTraceSummary(request *agentUserInputRequest) string {
+	summary := userInputRequestStepSummary(request)
+	return strings.TrimSuffix(summary, ".")
+}
+
+func trimmedInterruptString(payload map[string]any, keys ...string) string {
+	for _, key := range keys {
+		value, ok := payload[key]
+		if !ok {
+			continue
+		}
+		text, ok := value.(string)
+		if !ok {
+			continue
+		}
+		if trimmed := strings.TrimSpace(text); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func firstInterruptQuestion(payload map[string]any) string {
+	rawQuestions, ok := payload["questions"]
+	if !ok {
+		return ""
+	}
+	questions, ok := rawQuestions.([]any)
+	if !ok || len(questions) == 0 {
+		return ""
+	}
+	first, ok := questions[0].(map[string]any)
+	if !ok {
+		return ""
+	}
+	question, ok := first["question"].(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(question)
+}
+
+func mapAgentApprovalOptions(options []agentApprovalOption) []map[string]any {
+	if len(options) == 0 {
+		return nil
+	}
+
+	mapped := make([]map[string]any, 0, len(options))
+	for _, option := range options {
+		item := map[string]any{}
+		if id := strings.TrimSpace(option.ID); id != "" {
+			item["id"] = id
+		}
+		if label := strings.TrimSpace(option.Label); label != "" {
+			item["label"] = label
+		}
+		if rawDecision := strings.TrimSpace(option.RawDecision); rawDecision != "" {
+			item["raw_decision"] = rawDecision
+		}
+		if len(item) > 0 {
+			mapped = append(mapped, item)
+		}
+	}
+	return mapped
+}
+
+func cloneAgentTracePayload(payload map[string]any) map[string]any {
+	if len(payload) == 0 {
+		return map[string]any{}
+	}
+
+	cloned := make(map[string]any, len(payload))
+	for key, value := range payload {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func agentStepFromOutput(output *agentOutputEvent, text string) (string, string, bool) {

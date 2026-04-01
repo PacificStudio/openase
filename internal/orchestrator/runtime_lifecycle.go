@@ -9,6 +9,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
+	entagentstepevent "github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
@@ -267,12 +268,17 @@ func publishAgentStepEvent(
 		return nil
 	}
 	normalizedSummary := normalizeAgentStepSummary(summary)
-
-	currentRun, err := client.AgentRun.Get(ctx, agentRunID)
-	if err != nil {
-		return fmt.Errorf("load run %s before projecting step: %w", agentRunID, err)
+	lastStepEvent, err := client.AgentStepEvent.Query().
+		Where(entagentstepevent.AgentRunIDEQ(agentRunID)).
+		Order(ent.Desc(entagentstepevent.FieldCreatedAt), ent.Desc(entagentstepevent.FieldID)).
+		First(ctx)
+	if err != nil && !ent.IsNotFound(err) {
+		return fmt.Errorf("load last step event for run %s: %w", agentRunID, err)
 	}
-	if currentRun.CurrentStepStatus != nil && strings.TrimSpace(*currentRun.CurrentStepStatus) == normalizedStatus {
+	if err == nil &&
+		lastStepEvent.StepStatus == normalizedStatus &&
+		lastStepEvent.Summary == normalizedSummary &&
+		uuidPointersEqual(lastStepEvent.SourceTraceEventID, sourceTraceEventID) {
 		return nil
 	}
 
@@ -437,6 +443,13 @@ func cloneLifecycleMetadata(metadata map[string]any) map[string]any {
 	}
 
 	return cloned
+}
+
+func uuidPointersEqual(left *uuid.UUID, right *uuid.UUID) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }
 
 func nextAgentTraceSequence(ctx context.Context, client *ent.Client, agentRunID uuid.UUID) (int64, error) {

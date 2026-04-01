@@ -202,7 +202,11 @@ func mapCodexAgentEvent(event codex.Event) (agentEvent, bool) {
 			Type: agentEventTypeApprovalRequested,
 			Approval: &agentApprovalRequest{
 				RequestID: event.Approval.RequestID.String(),
+				ThreadID:  event.Approval.ThreadID,
+				TurnID:    event.Approval.TurnID,
 				Kind:      string(event.Approval.Kind),
+				Options:   mapCodexApprovalOptions(event.Approval.Options),
+				Payload:   cloneCodexPayload(event.Approval.Payload),
 			},
 		}, true
 	case codex.EventTypeUserInputRequested:
@@ -213,6 +217,9 @@ func mapCodexAgentEvent(event codex.Event) (agentEvent, bool) {
 			Type: agentEventTypeUserInputRequested,
 			UserInput: &agentUserInputRequest{
 				RequestID: event.UserInput.RequestID.String(),
+				ThreadID:  event.UserInput.ThreadID,
+				TurnID:    event.UserInput.TurnID,
+				Payload:   cloneCodexPayload(event.UserInput.Payload),
 			},
 		}, true
 	case codex.EventTypeTokenUsageUpdated:
@@ -290,4 +297,32 @@ func mapCodexTurnError(err *codex.TurnError) *agentTurnError {
 		Message:           err.Message,
 		AdditionalDetails: err.AdditionalDetails,
 	}
+}
+
+func mapCodexApprovalOptions(options []codex.ApprovalOption) []agentApprovalOption {
+	if len(options) == 0 {
+		return nil
+	}
+
+	mapped := make([]agentApprovalOption, 0, len(options))
+	for _, option := range options {
+		mapped = append(mapped, agentApprovalOption{
+			ID:          option.ID,
+			Label:       option.Label,
+			RawDecision: option.RawDecision,
+		})
+	}
+	return mapped
+}
+
+func cloneCodexPayload(payload map[string]any) map[string]any {
+	if len(payload) == 0 {
+		return map[string]any{}
+	}
+
+	cloned := make(map[string]any, len(payload))
+	for key, value := range payload {
+		cloned[key] = value
+	}
+	return cloned
 }

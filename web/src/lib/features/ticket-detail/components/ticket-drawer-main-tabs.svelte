@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { StreamConnectionState } from '$lib/api/sse'
   import * as Tabs from '$ui/tabs'
   import TicketCommentsThread from './ticket-comments-thread.svelte'
   import TicketRunHistoryPanel from './ticket-run-history-panel.svelte'
@@ -17,6 +18,8 @@
     currentRun = null,
     runBlocks = [],
     loadingRunId = null,
+    runStreamState = 'idle',
+    recoveringRunTranscript = false,
     savingFields = false,
     creatingComment = false,
     updatingCommentId = null,
@@ -36,6 +39,8 @@
     currentRun?: TicketRun | null
     runBlocks?: TicketRunTranscriptBlock[]
     loadingRunId?: string | null
+    runStreamState?: StreamConnectionState
+    recoveringRunTranscript?: boolean
     savingFields?: boolean
     creatingComment?: boolean
     updatingCommentId?: string | null
@@ -80,6 +85,8 @@
       {currentRun}
       blocks={runBlocks}
       {loadingRunId}
+      {runStreamState}
+      {recoveringRunTranscript}
       {resumingRetry}
       {onSelectRun}
       {onResumeRetry}
