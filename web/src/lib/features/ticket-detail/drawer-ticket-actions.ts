@@ -1,4 +1,9 @@
-import { addTicketDependency, deleteTicketDependency, updateTicket } from '$lib/api/openase'
+import {
+  addTicketDependency,
+  deleteTicketDependency,
+  resumeTicketRetry,
+  updateTicket,
+} from '$lib/api/openase'
 import {
   buildAddDependencyMutation,
   buildDeleteDependencyMutation,
@@ -20,6 +25,7 @@ type TicketMutationDrawerState = {
   savingFields: boolean
   creatingDependency: boolean
   deletingDependencyId: string | null
+  resumingRetry: boolean
   setMutationError: (message: string) => void
   setMutationNotice: (message: string) => void
 }
@@ -120,5 +126,38 @@ export async function handleDeleteDependencyAction({
     optimisticUpdate: mutation.value.optimisticUpdate,
     mutate: () => deleteTicketDependency(ticketId, dependencyId),
     successMessage: mutation.value.successMessage,
+  })
+}
+
+export async function handleResumeRetryAction({
+  ticketId,
+  drawerState,
+  buildDrawerMutation,
+}: {
+  ticketId?: string | null
+  drawerState: TicketMutationDrawerState
+  buildDrawerMutation: (ticket: TicketDetail) => DrawerMutationBase
+}) {
+  const ticket = drawerState.ticket
+  if (!ticket || !ticketId) return
+  if (!ticket.retryPaused || ticket.pauseReason !== 'repeated_stalls') {
+    return drawerState.setMutationError('Only stalled tickets can continue retry from this card.')
+  }
+
+  await runTicketDrawerMutation({
+    ...buildDrawerMutation(ticket),
+    start: () => {
+      drawerState.resumingRetry = true
+    },
+    finish: () => {
+      drawerState.resumingRetry = false
+    },
+    optimisticUpdate: (currentTicket) => ({
+      ...currentTicket,
+      retryPaused: false,
+      pauseReason: undefined,
+    }),
+    mutate: () => resumeTicketRetry(ticketId),
+    successMessage: 'Retry resumed.',
   })
 }

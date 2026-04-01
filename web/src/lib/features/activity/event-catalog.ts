@@ -14,6 +14,7 @@ export const activityEventCatalog: ActivityEventCatalogEntry[] = [
   { eventType: 'ticket.cancelled', label: 'Ticket cancelled', tone: 'warning' },
   { eventType: 'ticket.retry_scheduled', label: 'Ticket retry scheduled', tone: 'warning' },
   { eventType: 'ticket.retry_paused', label: 'Ticket retry paused', tone: 'warning' },
+  { eventType: 'ticket.retry_resumed', label: 'Ticket retry resumed', tone: 'info' },
   { eventType: 'ticket.budget_exhausted', label: 'Ticket budget exhausted', tone: 'danger' },
   { eventType: 'agent.claimed', label: 'Agent claimed', tone: 'info' },
   { eventType: 'agent.launching', label: 'Agent launching', tone: 'info' },

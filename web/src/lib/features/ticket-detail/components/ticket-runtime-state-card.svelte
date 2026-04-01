@@ -1,9 +1,18 @@
 <script lang="ts">
+  import { Button } from '$ui/button'
   import { Badge } from '$ui/badge'
   import { formatRelativeTime } from '$lib/utils'
   import type { TicketDetail } from '../types'
 
-  let { ticket }: { ticket: TicketDetail } = $props()
+  let {
+    ticket,
+    resumingRetry = false,
+    onResumeRetry,
+  }: {
+    ticket: TicketDetail
+    resumingRetry?: boolean
+    onResumeRetry?: () => Promise<void> | void
+  } = $props()
 
   type RuntimeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
 
@@ -17,6 +26,23 @@
         label: 'Completed',
         tone: 'success' as RuntimeTone,
         description: 'This ticket has completed execution.',
+      }
+    }
+
+    if (ticket.retryPaused && ticket.pauseReason === 'repeated_stalls') {
+      return {
+        label: 'Stalled',
+        tone: 'warning' as RuntimeTone,
+        description:
+          'Execution paused after repeated orchestrator stalls and is waiting for manual retry.',
+      }
+    }
+
+    if (ticket.retryPaused) {
+      return {
+        label: 'Paused',
+        tone: 'warning' as RuntimeTone,
+        description: 'Execution is paused and waiting for retry conditions to change.',
       }
     }
 
@@ -110,6 +136,20 @@
     </div>
 
     <p class="text-muted-foreground text-xs leading-relaxed">{runtimeSummary.description}</p>
+
+    {#if ticket.retryPaused && ticket.pauseReason === 'repeated_stalls' && onResumeRetry}
+      <div class="flex justify-start">
+        <Button
+          size="sm"
+          variant="outline"
+          class="h-8 text-xs"
+          disabled={resumingRetry}
+          onclick={() => void onResumeRetry()}
+        >
+          {resumingRetry ? 'Continuing...' : 'Continue Retry'}
+        </Button>
+      </div>
+    {/if}
 
     <div class="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 text-xs">
       <span class="text-muted-foreground">Agent</span>

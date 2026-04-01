@@ -17,7 +17,7 @@ import (
 const (
 	defaultStallTimeout        = 5 * time.Minute
 	stalledRetryDelay          = time.Second
-	stalledRetryPauseThreshold = 3
+	stalledRetryPauseThreshold = 20
 	stalledRetryPauseEventType = activityevent.TypeTicketRetryPaused
 )
 
@@ -225,6 +225,8 @@ func (h *HealthChecker) releaseStalledClaim(
 		ticket.ID,
 		*ticket.CurrentRunID,
 		ticket.Edges.CurrentRun.AgentID,
+		ticket.AttemptCount,
+		ticket.ConsecutiveErrors,
 		ticket.StallCount,
 		now,
 		"health_checker",

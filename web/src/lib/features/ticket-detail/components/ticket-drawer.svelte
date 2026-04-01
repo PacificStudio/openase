@@ -34,6 +34,7 @@
   import {
     handleAddDependencyAction,
     handleDeleteDependencyAction,
+    handleResumeRetryAction,
     handleSaveFieldsAction,
   } from '../drawer-ticket-actions'
   import { connectTicketDetailStreams } from '../streams'
@@ -225,9 +226,11 @@
     return handleDeleteTicketComment({ projectId, ticketId, drawerState, commentId })
   }
 
-  async function handleLoadCommentHistory(commentId: string) {
-    return loadTicketCommentHistory({ ticketId, commentId })
-  }
+  const handleResumeRetry = () =>
+    handleResumeRetryAction({ ticketId, drawerState, buildDrawerMutation })
+
+  const handleLoadCommentHistory = (commentId: string) =>
+    loadTicketCommentHistory({ ticketId, commentId })
 </script>
 
 <Sheet bind:open>
@@ -271,8 +274,10 @@
         creatingComment={drawerState.creatingComment}
         updatingCommentId={drawerState.updatingCommentId}
         deletingCommentId={drawerState.deletingCommentId}
+        resumingRetry={drawerState.resumingRetry}
         onClose={appStore.closeRightPanel}
         onSaveFields={handleSaveFields}
+        onResumeRetry={handleResumeRetry}
         onAddDependency={handleAddDependency}
         onDeleteDependency={handleDeleteDependency}
         onCreateExternalLink={handleCreateExternalLink}

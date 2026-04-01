@@ -1606,6 +1606,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/tickets/{ticketId}/retry/resume': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Resume a stalled ticket retry */
+    post: operations['resumeTicketRetry']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/workflows/{workflowId}': {
     parameters: {
       query?: never
@@ -13536,6 +13553,145 @@ export interface operations {
       }
       /** @description Not Found response. */
       404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  resumeTicketRetry: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Ticket ID. */
+        ticketId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Resume a stalled ticket retry response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            ticket?: {
+              attempt_count?: number
+              /** Format: double */
+              budget_usd?: number
+              children?: {
+                id?: string
+                identifier?: string
+                status_id?: string
+                status_name?: string
+                title?: string
+              }[]
+              completed_at?: string | null
+              consecutive_errors?: number
+              /** Format: double */
+              cost_amount?: number
+              /** Format: int64 */
+              cost_tokens_input?: number
+              /** Format: int64 */
+              cost_tokens_output?: number
+              created_at?: string
+              created_by?: string
+              current_run_id?: string | null
+              dependencies?: {
+                id?: string
+                target?: {
+                  id?: string
+                  identifier?: string
+                  status_id?: string
+                  status_name?: string
+                  title?: string
+                }
+                type?: string
+              }[]
+              description?: string
+              external_links?: {
+                created_at?: string
+                external_id?: string
+                id?: string
+                relation?: string
+                status?: string
+                title?: string
+                type?: string
+                url?: string
+              }[]
+              external_ref?: string
+              id?: string
+              identifier?: string
+              next_retry_at?: string | null
+              parent?: {
+                id?: string
+                identifier?: string
+                status_id?: string
+                status_name?: string
+                title?: string
+              } | null
+              pause_reason?: string
+              priority?: string
+              project_id?: string
+              retry_paused?: boolean
+              started_at?: string | null
+              status_id?: string
+              status_name?: string
+              target_machine_id?: string | null
+              title?: string
+              type?: string
+              workflow_id?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
         headers: {
           [name: string]: unknown
         }

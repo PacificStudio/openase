@@ -2159,3 +2159,151 @@ func TestTicketBudgetUpdatesSyncBudgetExhaustedPauseState(t *testing.T) {
 		t.Fatalf("expected lowered budget to persist budget pause, got %+v", ticketAfterDecrease)
 	}
 }
+
+func TestHandleResumeTicketRetryClearsRepeatedStallPause(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-1").
+		SetTitle("Resume stalled retry").
+		SetStatusID(todoID).
+		SetRetryPaused(true).
+		SetPauseReason(ticketing.PauseReasonRepeatedStalls.String()).
+		SetStallCount(20).
+		SetNextRetryAt(time.Now().UTC().Add(time.Minute)).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	resp := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/tickets/%s/retry/resume", ticketItem.ID),
+		nil,
+		http.StatusOK,
+		&resp,
+	)
+
+	if resp.Ticket.RetryPaused || resp.Ticket.PauseReason != "" || resp.Ticket.NextRetryAt != nil {
+		t.Fatalf("expected resumed retry response, got %+v", resp.Ticket)
+	}
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+	if ticketAfter.RetryPaused || ticketAfter.PauseReason != "" || ticketAfter.StallCount != 0 || ticketAfter.NextRetryAt != nil {
+		t.Fatalf("expected repeated stall pause to clear, got %+v", ticketAfter)
+	}
+
+	activityItems, err := client.ActivityEvent.Query().All(ctx)
+	if err != nil {
+		t.Fatalf("query activity: %v", err)
+	}
+	if len(activityItems) != 1 || activityItems[0].EventType != activityevent.TypeTicketRetryResumed.String() {
+		t.Fatalf("expected retry resumed activity, got %+v", activityItems)
+	}
+}
+
+func TestHandleResumeTicketRetryRejectsNonStalledPause(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-1").
+		SetTitle("Budget paused retry").
+		SetStatusID(todoID).
+		SetRetryPaused(true).
+		SetPauseReason(ticketing.PauseReasonBudgetExhausted.String()).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/tickets/%s/retry/resume", ticketItem.ID),
+		"",
+	)
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "RETRY_RESUME_CONFLICT") {
+		t.Fatalf("expected retry resume conflict, got %d: %s", rec.Code, rec.Body.String())
+	}
+}

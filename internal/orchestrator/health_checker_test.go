@@ -71,6 +71,13 @@ func TestHealthCheckerReleasesStalledClaim(t *testing.T) {
 	if ticketAfter.StallCount != 1 {
 		t.Fatalf("expected stall count 1, got %d", ticketAfter.StallCount)
 	}
+	if ticketAfter.AttemptCount != 1 || ticketAfter.ConsecutiveErrors != 1 {
+		t.Fatalf(
+			"expected first stall to increment attempts/errors, got attempts=%d errors=%d",
+			ticketAfter.AttemptCount,
+			ticketAfter.ConsecutiveErrors,
+		)
+	}
 	if ticketAfter.RetryPaused || ticketAfter.PauseReason != "" {
 		t.Fatalf("expected first stall to keep retry active, got %+v", ticketAfter)
 	}
@@ -129,6 +136,8 @@ func TestHealthCheckerKeepsSecondConsecutiveStallRetryActive(t *testing.T) {
 		SetStatusID(fixture.statusIDs["Todo"]).
 		SetPriority(entticket.PriorityHigh).
 		SetCreatedBy("user:test").
+		SetAttemptCount(1).
+		SetConsecutiveErrors(1).
 		SetStallCount(1).
 		Save(ctx)
 	if err != nil {
@@ -152,6 +161,13 @@ func TestHealthCheckerKeepsSecondConsecutiveStallRetryActive(t *testing.T) {
 	if ticketAfter.StallCount != 2 {
 		t.Fatalf("expected stall count 2, got %d", ticketAfter.StallCount)
 	}
+	if ticketAfter.AttemptCount != 2 || ticketAfter.ConsecutiveErrors != 2 {
+		t.Fatalf(
+			"expected second stall to increment attempts/errors, got attempts=%d errors=%d",
+			ticketAfter.AttemptCount,
+			ticketAfter.ConsecutiveErrors,
+		)
+	}
 	if ticketAfter.RetryPaused || ticketAfter.PauseReason != "" {
 		t.Fatalf("expected second stall to keep retry active, got %+v", ticketAfter)
 	}
@@ -160,7 +176,7 @@ func TestHealthCheckerKeepsSecondConsecutiveStallRetryActive(t *testing.T) {
 	}
 }
 
-func TestHealthCheckerPausesRetryAfterThirdConsecutiveStall(t *testing.T) {
+func TestHealthCheckerPausesRetryAfterConfiguredConsecutiveStalls(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
@@ -189,7 +205,9 @@ func TestHealthCheckerPausesRetryAfterThirdConsecutiveStall(t *testing.T) {
 		SetStatusID(fixture.statusIDs["Todo"]).
 		SetPriority(entticket.PriorityHigh).
 		SetCreatedBy("user:test").
-		SetStallCount(2).
+		SetAttemptCount(stalledRetryPauseThreshold - 1).
+		SetConsecutiveErrors(stalledRetryPauseThreshold - 1).
+		SetStallCount(stalledRetryPauseThreshold - 1).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)
@@ -202,24 +220,32 @@ func TestHealthCheckerPausesRetryAfterThirdConsecutiveStall(t *testing.T) {
 		t.Fatalf("run health checker: %v", err)
 	}
 	if report.StalledClaims != 1 || report.AgentsReleased != 1 {
-		t.Fatalf("expected paused third stall release, got %+v", report)
+		t.Fatalf("expected paused threshold stall release, got %+v", report)
 	}
 
 	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
 	if err != nil {
 		t.Fatalf("reload ticket: %v", err)
 	}
-	if ticketAfter.StallCount != 3 {
-		t.Fatalf("expected stall count 3, got %d", ticketAfter.StallCount)
+	if ticketAfter.StallCount != stalledRetryPauseThreshold {
+		t.Fatalf("expected stall count %d, got %d", stalledRetryPauseThreshold, ticketAfter.StallCount)
+	}
+	if ticketAfter.AttemptCount != stalledRetryPauseThreshold ||
+		ticketAfter.ConsecutiveErrors != stalledRetryPauseThreshold {
+		t.Fatalf(
+			"expected paused stall to increment attempts/errors to threshold, got attempts=%d errors=%d",
+			ticketAfter.AttemptCount,
+			ticketAfter.ConsecutiveErrors,
+		)
 	}
 	if !ticketAfter.RetryPaused {
-		t.Fatalf("expected retries to be paused after third stall, got %+v", ticketAfter)
+		t.Fatalf("expected retries to be paused after threshold stall, got %+v", ticketAfter)
 	}
 	if ticketAfter.PauseReason != ticketing.PauseReasonRepeatedStalls.String() {
 		t.Fatalf("expected repeated stall pause reason %q, got %q", ticketing.PauseReasonRepeatedStalls, ticketAfter.PauseReason)
 	}
 	if ticketAfter.NextRetryAt != nil {
-		t.Fatalf("expected paused third stall to clear next retry, got %+v", ticketAfter.NextRetryAt)
+		t.Fatalf("expected paused threshold stall to clear next retry, got %+v", ticketAfter.NextRetryAt)
 	}
 
 	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
@@ -227,10 +253,10 @@ func TestHealthCheckerPausesRetryAfterThirdConsecutiveStall(t *testing.T) {
 		t.Fatalf("reload run: %v", err)
 	}
 	if runAfter.Status != entagentrun.StatusErrored {
-		t.Fatalf("expected third stalled run errored, got %+v", runAfter)
+		t.Fatalf("expected threshold stalled run errored, got %+v", runAfter)
 	}
 	if runAfter.LastError == "" || runAfter.LastError == "runtime stalled or heartbeat missing" {
-		t.Fatalf("expected paused third stall to enrich last error, got %q", runAfter.LastError)
+		t.Fatalf("expected paused threshold stall to enrich last error, got %q", runAfter.LastError)
 	}
 
 	activityItems, err := client.ActivityEvent.Query().

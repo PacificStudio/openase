@@ -9,7 +9,7 @@
   import RotateCcw from '@lucide/svelte/icons/rotate-ccw'
   import User from '@lucide/svelte/icons/user'
   import Workflow from '@lucide/svelte/icons/workflow'
-  import { cn, formatCurrency, formatRelativeTime } from '$lib/utils'
+  import { cn, formatCount, formatCurrency, formatRelativeTime } from '$lib/utils'
   import TicketCommentsThread from './ticket-comments-thread.svelte'
   import TicketDependencies from './ticket-dependencies.svelte'
   import TicketExternalLinks from './ticket-external-links.svelte'
@@ -47,8 +47,10 @@
     creatingComment = false,
     updatingCommentId = null,
     deletingCommentId = null,
+    resumingRetry = false,
     onClose,
     onSaveFields,
+    onResumeRetry,
     onAddDependency,
     onDeleteDependency,
     onCreateExternalLink,
@@ -79,8 +81,10 @@
     creatingComment?: boolean
     updatingCommentId?: string | null
     deletingCommentId?: string | null
+    resumingRetry?: boolean
     onClose?: () => void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
+    onResumeRetry?: () => Promise<void> | void
     onAddDependency?: (draft: DependencyDraft) => Promise<boolean> | boolean
     onDeleteDependency?: (dependencyId: string) => void
     onCreateExternalLink?: (draft: {
@@ -175,7 +179,7 @@
   <!-- Right sidebar: metadata -->
   <div class="border-border w-full shrink-0 overflow-y-auto border-t md:w-80 md:border-t-0">
     <div class="flex flex-col gap-5 px-5 py-5">
-      <TicketRuntimeStateCard {ticket} />
+      <TicketRuntimeStateCard {ticket} {resumingRetry} {onResumeRetry} />
 
       <Separator />
 
@@ -225,6 +229,12 @@
             <span>Attempts</span>
           </div>
           <div class="text-foreground">{ticket.attemptCount}</div>
+
+          <div class="text-muted-foreground">Input Tokens</div>
+          <div class="text-foreground">{formatCount(ticket.costTokensInput)}</div>
+
+          <div class="text-muted-foreground">Output Tokens</div>
+          <div class="text-foreground">{formatCount(ticket.costTokensOutput)}</div>
 
           <div class="text-muted-foreground flex items-center gap-1.5">
             <User class="size-3.5" />

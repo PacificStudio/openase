@@ -59,6 +59,7 @@ var (
 	ErrExternalLinkNotFound  = errors.New("ticket external link not found")
 	ErrExternalLinkConflict  = errors.New("ticket external link already exists")
 	ErrInvalidDependency     = errors.New("invalid ticket dependency")
+	ErrRetryResumeConflict   = errors.New("ticket retry is not paused for repeated stalls")
 )
 
 // Optional captures whether a value was provided for a partial update.
@@ -225,6 +226,11 @@ type AddExternalLinkInput struct {
 	Title      string
 	Status     string
 	Relation   entticketexternallink.Relation
+}
+
+// ResumeRetryInput resumes a ticket paused after repeated orchestrator stalls.
+type ResumeRetryInput struct {
+	TicketID uuid.UUID
 }
 
 // DeleteDependencyResult reports which dependency edge was removed.
@@ -816,6 +822,50 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 			HookName:   *releasedHookName,
 			WorkflowID: releasedWorkflowID,
 		})
+	}
+
+	return s.Get(ctx, current.ID)
+}
+
+// ResumeRetry clears a repeated-stall retry pause and makes the ticket schedulable again.
+func (s *Service) ResumeRetry(ctx context.Context, input ResumeRetryInput) (Ticket, error) {
+	if s.client == nil {
+		return Ticket{}, ErrUnavailable
+	}
+
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return Ticket{}, fmt.Errorf("start resume retry tx: %w", err)
+	}
+	defer rollback(tx)
+
+	current, err := tx.Ticket.Get(ctx, input.TicketID)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return Ticket{}, ErrTicketNotFound
+		}
+		return Ticket{}, fmt.Errorf("load ticket for resume retry: %w", err)
+	}
+
+	if !current.RetryPaused || current.PauseReason != ticketing.PauseReasonRepeatedStalls.String() {
+		return Ticket{}, ErrRetryResumeConflict
+	}
+
+	update := tx.Ticket.UpdateOneID(current.ID).
+		SetRetryToken(NewRetryToken()).
+		SetRetryPaused(false).
+		ClearPauseReason().
+		ClearNextRetryAt()
+	if current.StallCount != 0 {
+		update.SetStallCount(0)
+	}
+
+	if _, err := update.Save(ctx); err != nil {
+		return Ticket{}, s.mapTicketWriteError("resume ticket retry", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return Ticket{}, fmt.Errorf("commit resume retry tx: %w", err)
 	}
 
 	return s.Get(ctx, current.ID)

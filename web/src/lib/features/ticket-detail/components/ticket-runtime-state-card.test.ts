@@ -1,4 +1,4 @@
-import { cleanup, render } from '@testing-library/svelte'
+import { cleanup, fireEvent, render } from '@testing-library/svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { TicketDetail } from '../types'
@@ -21,6 +21,9 @@ const baseTicket: TicketDetail = {
   },
   repoScopes: [],
   attemptCount: 3,
+  retryPaused: false,
+  costTokensInput: 0,
+  costTokensOutput: 0,
   costAmount: 0,
   budgetUsd: 10,
   dependencies: [],
@@ -75,5 +78,24 @@ describe('TicketRuntimeStateCard', () => {
 
     expect(getByText('State Paused')).toBeTruthy()
     expect(getByText('Control Paused')).toBeTruthy()
+  })
+
+  it('surfaces stalled state and continue retry action for repeated stalls', async () => {
+    const onResumeRetry = vi.fn()
+    const { getByText } = render(TicketRuntimeStateCard, {
+      props: {
+        ticket: {
+          ...baseTicket,
+          assignedAgent: undefined,
+          retryPaused: true,
+          pauseReason: 'repeated_stalls',
+        },
+        onResumeRetry,
+      },
+    })
+
+    expect(getByText('State Stalled')).toBeTruthy()
+    await fireEvent.click(getByText('Continue Retry'))
+    expect(onResumeRetry).toHaveBeenCalledTimes(1)
   })
 })

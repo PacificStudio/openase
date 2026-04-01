@@ -145,6 +145,7 @@ func (s *Server) registerTicketRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/tickets/:ticketId/detail", s.handleGetTicketDetail)
 	api.GET("/tickets/:ticketId", s.handleGetTicket)
 	api.PATCH("/tickets/:ticketId", s.handleUpdateTicket)
+	api.POST("/tickets/:ticketId/retry/resume", s.handleResumeTicketRetry)
 	api.GET("/tickets/:ticketId/comments", s.handleListTicketComments)
 	api.POST("/tickets/:ticketId/comments", s.handleCreateTicketComment)
 	api.PATCH("/tickets/:ticketId/comments/:commentId", s.handleUpdateTicketComment)
@@ -339,6 +340,31 @@ func (s *Server) handleUpdateTicket(c echo.Context) error {
 		eventType = ticketStatusEventType
 	}
 	if err := s.publishTicketEvent(c.Request().Context(), eventType, item); err != nil {
+		return writeTicketError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"ticket": mapTicketResponse(item),
+	})
+}
+
+func (s *Server) handleResumeTicketRetry(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	ticketID, err := parseTicketID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
+	}
+
+	item, err := s.ticketService.ResumeRetry(c.Request().Context(), ticketservice.ResumeRetryInput{
+		TicketID: ticketID,
+	})
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+	if err := s.publishTicketEvent(c.Request().Context(), ticketRetryResumedType, item); err != nil {
 		return writeTicketError(c, err)
 	}
 
@@ -639,6 +665,8 @@ func writeTicketError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusConflict, "EXTERNAL_LINK_CONFLICT", err.Error())
 	case errors.Is(err, ticketservice.ErrInvalidDependency):
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_DEPENDENCY", err.Error())
+	case errors.Is(err, ticketservice.ErrRetryResumeConflict):
+		return writeAPIError(c, http.StatusConflict, "RETRY_RESUME_CONFLICT", err.Error())
 	default:
 		return writeAPIError(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 	}

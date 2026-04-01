@@ -3318,6 +3318,24 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 	ticketPatch.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
 	b.doc.AddOperation("/api/v1/tickets/{ticketId}", http.MethodPatch, ticketPatch)
 
+	ticketRetryResume, err := b.jsonOperation(
+		"resumeTicketRetry",
+		"Resume a stalled ticket retry",
+		[]string{"tickets"},
+		http.StatusOK,
+		OpenAPITicketResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	ticketRetryResume.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	b.doc.AddOperation("/api/v1/tickets/{ticketId}/retry/resume", http.MethodPost, ticketRetryResume)
+
 	commentsGet, err := b.jsonOperation(
 		"listTicketComments",
 		"List ticket comments",

@@ -74,6 +74,7 @@ import type {
   TicketExternalLinkDeleteResponse,
   TicketExternalLinkResponse,
   TicketPayload,
+  TicketResponse,
   HRAdvisorActivationResponse,
   HRAdvisorResponse,
   Organization,
@@ -631,7 +632,11 @@ export function updateTicket(
     workflow_id?: string | null
   },
 ) {
-  return api.patch(`/api/v1/tickets/${ticketId}`, { body })
+  return api.patch<TicketResponse>(`/api/v1/tickets/${ticketId}`, { body })
+}
+
+export function resumeTicketRetry(ticketId: string) {
+  return api.post<TicketResponse>(`/api/v1/tickets/${ticketId}/retry/resume`)
 }
 
 export function createTicketComment(

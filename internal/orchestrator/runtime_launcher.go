@@ -654,6 +654,8 @@ func (l *RuntimeLauncher) reconcileStalledRuntime(ctx context.Context) error {
 			snapshot.TicketID,
 			snapshot.RunID,
 			snapshot.AgentID,
+			ticket.AttemptCount,
+			ticket.ConsecutiveErrors,
 			ticket.StallCount,
 			now,
 			"runtime_launcher",

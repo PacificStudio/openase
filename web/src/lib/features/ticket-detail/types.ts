@@ -61,6 +61,10 @@ export type TicketDetail = {
     ciStatus?: string
   }>
   attemptCount: number
+  retryPaused: boolean
+  pauseReason?: string
+  costTokensInput: number
+  costTokensOutput: number
   costAmount: number
   budgetUsd: number
   dependencies: Array<{

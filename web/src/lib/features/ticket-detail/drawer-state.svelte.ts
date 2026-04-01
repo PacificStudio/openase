@@ -43,6 +43,7 @@ export function createTicketDrawerState(deps: TicketDrawerStateDeps = defaultDep
   let creatingComment = $state(false)
   let updatingCommentId = $state<string | null>(null)
   let deletingCommentId = $state<string | null>(null)
+  let resumingRetry = $state(false)
   let loadRequestId = 0
   let timelineRefreshQueued = false
   let timelineRefreshLoop: Promise<void> | null = null
@@ -198,6 +199,12 @@ export function createTicketDrawerState(deps: TicketDrawerStateDeps = defaultDep
     set deletingCommentId(value) {
       deletingCommentId = value
     },
+    get resumingRetry() {
+      return resumingRetry
+    },
+    set resumingRetry(value) {
+      resumingRetry = value
+    },
     clearMutationMessages() {
       // no-op: toasts auto-dismiss
     },
@@ -266,6 +273,7 @@ export function createTicketDrawerState(deps: TicketDrawerStateDeps = defaultDep
       creatingComment = false
       updatingCommentId = null
       deletingCommentId = null
+      resumingRetry = false
     },
   }
 }

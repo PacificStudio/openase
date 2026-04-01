@@ -194,6 +194,8 @@ func releaseStalledClaim(
 	ticketID uuid.UUID,
 	runID uuid.UUID,
 	agentID uuid.UUID,
+	attemptCount int,
+	consecutiveErrors int,
 	stallCount int,
 	now time.Time,
 	source string,
@@ -210,6 +212,8 @@ func releaseStalledClaim(
 	defer rollback(tx)
 
 	nextStallCount := stallCount + 1
+	nextAttemptCount := attemptCount + 1
+	nextConsecutiveErrors := consecutiveErrors + 1
 	retryPaused := nextStallCount >= stalledRetryPauseThreshold
 	releasedTickets, err := tx.Ticket.Update().
 		Where(
@@ -229,6 +233,8 @@ func releaseStalledClaim(
 	}
 
 	ticketUpdate := tx.Ticket.UpdateOneID(ticketID)
+	ticketUpdate.SetAttemptCount(nextAttemptCount).
+		SetConsecutiveErrors(nextConsecutiveErrors)
 	if retryPaused {
 		ticketUpdate.ClearNextRetryAt().
 			SetRetryPaused(true).

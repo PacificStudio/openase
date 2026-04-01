@@ -119,6 +119,10 @@ export function buildTicketDetailContext(
         ciStatus: scope.ci_status ?? undefined,
       })),
       attemptCount: detailTicket.attempt_count,
+      retryPaused: detailTicket.retry_paused,
+      pauseReason: detailTicket.pause_reason || undefined,
+      costTokensInput: detailTicket.cost_tokens_input,
+      costTokensOutput: detailTicket.cost_tokens_output,
       costAmount: detailTicket.cost_amount,
       budgetUsd: detailTicket.budget_usd,
       dependencies: detailTicket.dependencies.map((dependency) => {

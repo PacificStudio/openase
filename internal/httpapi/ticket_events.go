@@ -15,6 +15,7 @@ var (
 	ticketCreatedEventType = activityevent.TypeTicketCreated
 	ticketUpdatedEventType = activityevent.TypeTicketUpdated
 	ticketStatusEventType  = activityevent.TypeTicketStatusChanged
+	ticketRetryResumedType = activityevent.TypeTicketRetryResumed
 )
 
 func (s *Server) publishTicketEvent(
@@ -89,6 +90,8 @@ func buildTicketActivityMessage(eventType activityevent.Type, ticket ticketservi
 		return fmt.Sprintf("Created ticket %s", ticket.Identifier)
 	case activityevent.TypeTicketStatusChanged:
 		return fmt.Sprintf("Updated %s status to %s", ticket.Identifier, ticket.StatusName)
+	case activityevent.TypeTicketRetryResumed:
+		return fmt.Sprintf("Resumed retry for %s after repeated stalls", ticket.Identifier)
 	default:
 		return fmt.Sprintf("Updated ticket %s", ticket.Identifier)
 	}
@@ -109,6 +112,10 @@ func buildTicketActivityMetadata(
 	case activityevent.TypeTicketStatusChanged:
 		metadata["to_status_id"] = ticket.StatusID.String()
 		metadata["to_status_name"] = ticket.StatusName
+	case activityevent.TypeTicketRetryResumed:
+		metadata["retry_paused"] = ticket.RetryPaused
+		metadata["pause_reason"] = ticket.PauseReason
+		metadata["changed_fields"] = []string{"retry"}
 	default:
 		metadata["changed_fields"] = []string{"ticket"}
 	}

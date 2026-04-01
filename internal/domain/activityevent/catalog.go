@@ -24,6 +24,7 @@ const (
 	TypeTicketCancelled       Type = "ticket.cancelled"
 	TypeTicketRetryScheduled  Type = "ticket.retry_scheduled"
 	TypeTicketRetryPaused     Type = "ticket.retry_paused"
+	TypeTicketRetryResumed    Type = "ticket.retry_resumed"
 	TypeTicketBudgetExhausted Type = "ticket.budget_exhausted"
 	TypeAgentClaimed          Type = "agent.claimed"
 	TypeAgentLaunching        Type = "agent.launching"
@@ -48,6 +49,7 @@ var canonicalCatalog = []CatalogEntry{
 	{EventType: TypeTicketCancelled, Label: "Ticket Cancelled"},
 	{EventType: TypeTicketRetryScheduled, Label: "Ticket Retry Scheduled"},
 	{EventType: TypeTicketRetryPaused, Label: "Ticket Retry Paused"},
+	{EventType: TypeTicketRetryResumed, Label: "Ticket Retry Resumed"},
 	{EventType: TypeTicketBudgetExhausted, Label: "Ticket Budget Exhausted"},
 	{EventType: TypeAgentClaimed, Label: "Agent Claimed"},
 	{EventType: TypeAgentLaunching, Label: "Agent Launching"},
