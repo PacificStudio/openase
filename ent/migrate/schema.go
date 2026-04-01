@@ -823,6 +823,161 @@ var (
 			},
 		},
 	}
+	// ProjectUpdateCommentsColumns holds the columns for the "project_update_comments" table.
+	ProjectUpdateCommentsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "body_markdown", Type: field.TypeString, Size: 2147483647},
+		{Name: "created_by", Type: field.TypeString},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "edited_at", Type: field.TypeTime, Nullable: true},
+		{Name: "edit_count", Type: field.TypeInt, Default: 0},
+		{Name: "last_edited_by", Type: field.TypeString, Nullable: true},
+		{Name: "is_deleted", Type: field.TypeBool, Default: false},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
+		{Name: "deleted_by", Type: field.TypeString, Nullable: true},
+		{Name: "thread_id", Type: field.TypeUUID},
+	}
+	// ProjectUpdateCommentsTable holds the schema information for the "project_update_comments" table.
+	ProjectUpdateCommentsTable = &schema.Table{
+		Name:       "project_update_comments",
+		Columns:    ProjectUpdateCommentsColumns,
+		PrimaryKey: []*schema.Column{ProjectUpdateCommentsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "project_update_comments_project_update_threads_comments",
+				Columns:    []*schema.Column{ProjectUpdateCommentsColumns[11]},
+				RefColumns: []*schema.Column{ProjectUpdateThreadsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "projectupdatecomment_thread_id_created_at_id",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectUpdateCommentsColumns[11], ProjectUpdateCommentsColumns[3], ProjectUpdateCommentsColumns[0]},
+			},
+		},
+	}
+	// ProjectUpdateCommentRevisionsColumns holds the columns for the "project_update_comment_revisions" table.
+	ProjectUpdateCommentRevisionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "revision_number", Type: field.TypeInt},
+		{Name: "body_markdown", Type: field.TypeString, Size: 2147483647},
+		{Name: "edited_by", Type: field.TypeString},
+		{Name: "edited_at", Type: field.TypeTime},
+		{Name: "edit_reason", Type: field.TypeString, Nullable: true},
+		{Name: "comment_id", Type: field.TypeUUID},
+	}
+	// ProjectUpdateCommentRevisionsTable holds the schema information for the "project_update_comment_revisions" table.
+	ProjectUpdateCommentRevisionsTable = &schema.Table{
+		Name:       "project_update_comment_revisions",
+		Columns:    ProjectUpdateCommentRevisionsColumns,
+		PrimaryKey: []*schema.Column{ProjectUpdateCommentRevisionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "project_update_comment_revisions_project_update_comments_revisions",
+				Columns:    []*schema.Column{ProjectUpdateCommentRevisionsColumns[6]},
+				RefColumns: []*schema.Column{ProjectUpdateCommentsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "projectupdatecommentrevision_comment_id_revision_number",
+				Unique:  true,
+				Columns: []*schema.Column{ProjectUpdateCommentRevisionsColumns[6], ProjectUpdateCommentRevisionsColumns[1]},
+			},
+			{
+				Name:    "projectupdatecommentrevision_comment_id_edited_at_id",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectUpdateCommentRevisionsColumns[6], ProjectUpdateCommentRevisionsColumns[4], ProjectUpdateCommentRevisionsColumns[0]},
+			},
+		},
+	}
+	// ProjectUpdateThreadsColumns holds the columns for the "project_update_threads" table.
+	ProjectUpdateThreadsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"on_track", "at_risk", "off_track"}},
+		{Name: "title", Type: field.TypeString},
+		{Name: "body_markdown", Type: field.TypeString, Size: 2147483647},
+		{Name: "created_by", Type: field.TypeString},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "edited_at", Type: field.TypeTime, Nullable: true},
+		{Name: "edit_count", Type: field.TypeInt, Default: 0},
+		{Name: "last_edited_by", Type: field.TypeString, Nullable: true},
+		{Name: "is_deleted", Type: field.TypeBool, Default: false},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
+		{Name: "deleted_by", Type: field.TypeString, Nullable: true},
+		{Name: "last_activity_at", Type: field.TypeTime},
+		{Name: "comment_count", Type: field.TypeInt, Default: 0},
+		{Name: "project_id", Type: field.TypeUUID},
+	}
+	// ProjectUpdateThreadsTable holds the schema information for the "project_update_threads" table.
+	ProjectUpdateThreadsTable = &schema.Table{
+		Name:       "project_update_threads",
+		Columns:    ProjectUpdateThreadsColumns,
+		PrimaryKey: []*schema.Column{ProjectUpdateThreadsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "project_update_threads_projects_update_threads",
+				Columns:    []*schema.Column{ProjectUpdateThreadsColumns[15]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "projectupdatethread_project_id_last_activity_at_id",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectUpdateThreadsColumns[15], ProjectUpdateThreadsColumns[13], ProjectUpdateThreadsColumns[0]},
+			},
+			{
+				Name:    "projectupdatethread_project_id_created_at_id",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectUpdateThreadsColumns[15], ProjectUpdateThreadsColumns[5], ProjectUpdateThreadsColumns[0]},
+			},
+		},
+	}
+	// ProjectUpdateThreadRevisionsColumns holds the columns for the "project_update_thread_revisions" table.
+	ProjectUpdateThreadRevisionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "revision_number", Type: field.TypeInt},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"on_track", "at_risk", "off_track"}},
+		{Name: "title", Type: field.TypeString},
+		{Name: "body_markdown", Type: field.TypeString, Size: 2147483647},
+		{Name: "edited_by", Type: field.TypeString},
+		{Name: "edited_at", Type: field.TypeTime},
+		{Name: "edit_reason", Type: field.TypeString, Nullable: true},
+		{Name: "thread_id", Type: field.TypeUUID},
+	}
+	// ProjectUpdateThreadRevisionsTable holds the schema information for the "project_update_thread_revisions" table.
+	ProjectUpdateThreadRevisionsTable = &schema.Table{
+		Name:       "project_update_thread_revisions",
+		Columns:    ProjectUpdateThreadRevisionsColumns,
+		PrimaryKey: []*schema.Column{ProjectUpdateThreadRevisionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "project_update_thread_revisions_project_update_threads_revisions",
+				Columns:    []*schema.Column{ProjectUpdateThreadRevisionsColumns[8]},
+				RefColumns: []*schema.Column{ProjectUpdateThreadsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "projectupdatethreadrevision_thread_id_revision_number",
+				Unique:  true,
+				Columns: []*schema.Column{ProjectUpdateThreadRevisionsColumns[8], ProjectUpdateThreadRevisionsColumns[1]},
+			},
+			{
+				Name:    "projectupdatethreadrevision_thread_id_edited_at_id",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectUpdateThreadRevisionsColumns[8], ProjectUpdateThreadRevisionsColumns[6], ProjectUpdateThreadRevisionsColumns[0]},
+			},
+		},
+	}
 	// ScheduledJobsColumns holds the columns for the "scheduled_jobs" table.
 	ScheduledJobsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -1614,6 +1769,10 @@ var (
 		OrganizationsTable,
 		ProjectsTable,
 		ProjectReposTable,
+		ProjectUpdateCommentsTable,
+		ProjectUpdateCommentRevisionsTable,
+		ProjectUpdateThreadsTable,
+		ProjectUpdateThreadRevisionsTable,
 		ScheduledJobsTable,
 		SkillsTable,
 		SkillBlobsTable,
@@ -1674,6 +1833,10 @@ func init() {
 	ProjectsTable.ForeignKeys[0].RefTable = OrganizationsTable
 	ProjectsTable.ForeignKeys[1].RefTable = AgentProvidersTable
 	ProjectReposTable.ForeignKeys[0].RefTable = ProjectsTable
+	ProjectUpdateCommentsTable.ForeignKeys[0].RefTable = ProjectUpdateThreadsTable
+	ProjectUpdateCommentRevisionsTable.ForeignKeys[0].RefTable = ProjectUpdateCommentsTable
+	ProjectUpdateThreadsTable.ForeignKeys[0].RefTable = ProjectsTable
+	ProjectUpdateThreadRevisionsTable.ForeignKeys[0].RefTable = ProjectUpdateThreadsTable
 	ScheduledJobsTable.ForeignKeys[0].RefTable = ProjectsTable
 	ScheduledJobsTable.ForeignKeys[1].RefTable = WorkflowsTable
 	SkillsTable.ForeignKeys[0].RefTable = ProjectsTable

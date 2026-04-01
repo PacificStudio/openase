@@ -26,6 +26,7 @@ const sectionLabels: Record<ProjectSection, string> = {
   tickets: 'Tickets',
   agents: 'Agents',
   machines: 'Machines',
+  updates: 'Updates',
   activity: 'Activity',
   workflows: 'Workflows',
   skills: 'Skills',

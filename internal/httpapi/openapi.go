@@ -475,6 +475,63 @@ type OpenAPITicketCommentRevision struct {
 	EditReason     *string `json:"edit_reason,omitempty"`
 }
 
+type OpenAPIProjectUpdateComment struct {
+	ID           string  `json:"id"`
+	ThreadID     string  `json:"thread_id"`
+	BodyMarkdown string  `json:"body_markdown"`
+	CreatedBy    string  `json:"created_by"`
+	CreatedAt    string  `json:"created_at"`
+	UpdatedAt    string  `json:"updated_at"`
+	EditedAt     *string `json:"edited_at,omitempty"`
+	EditCount    int     `json:"edit_count"`
+	LastEditedBy *string `json:"last_edited_by,omitempty"`
+	IsDeleted    bool    `json:"is_deleted"`
+	DeletedAt    *string `json:"deleted_at,omitempty"`
+	DeletedBy    *string `json:"deleted_by,omitempty"`
+}
+
+type OpenAPIProjectUpdateThread struct {
+	ID             string                        `json:"id"`
+	ProjectID      string                        `json:"project_id"`
+	Status         string                        `json:"status"`
+	Title          string                        `json:"title"`
+	BodyMarkdown   string                        `json:"body_markdown"`
+	CreatedBy      string                        `json:"created_by"`
+	CreatedAt      string                        `json:"created_at"`
+	UpdatedAt      string                        `json:"updated_at"`
+	EditedAt       *string                       `json:"edited_at,omitempty"`
+	EditCount      int                           `json:"edit_count"`
+	LastEditedBy   *string                       `json:"last_edited_by,omitempty"`
+	IsDeleted      bool                          `json:"is_deleted"`
+	DeletedAt      *string                       `json:"deleted_at,omitempty"`
+	DeletedBy      *string                       `json:"deleted_by,omitempty"`
+	LastActivityAt string                        `json:"last_activity_at"`
+	CommentCount   int                           `json:"comment_count"`
+	Comments       []OpenAPIProjectUpdateComment `json:"comments"`
+}
+
+type OpenAPIProjectUpdateThreadRevision struct {
+	ID             string  `json:"id"`
+	ThreadID       string  `json:"thread_id"`
+	RevisionNumber int     `json:"revision_number"`
+	Status         string  `json:"status"`
+	Title          string  `json:"title"`
+	BodyMarkdown   string  `json:"body_markdown"`
+	EditedBy       string  `json:"edited_by"`
+	EditedAt       string  `json:"edited_at"`
+	EditReason     *string `json:"edit_reason,omitempty"`
+}
+
+type OpenAPIProjectUpdateCommentRevision struct {
+	ID             string  `json:"id"`
+	CommentID      string  `json:"comment_id"`
+	RevisionNumber int     `json:"revision_number"`
+	BodyMarkdown   string  `json:"body_markdown"`
+	EditedBy       string  `json:"edited_by"`
+	EditedAt       string  `json:"edited_at"`
+	EditReason     *string `json:"edit_reason,omitempty"`
+}
+
 type OpenAPITicketTimelineItem struct {
 	ID            string         `json:"id"`
 	TicketID      string         `json:"ticket_id"`
@@ -926,6 +983,34 @@ type OpenAPITicketCommentDeleteResponse struct {
 	DeletedCommentID string `json:"deleted_comment_id"`
 }
 
+type OpenAPIProjectUpdateThreadsResponse struct {
+	Threads []OpenAPIProjectUpdateThread `json:"threads"`
+}
+
+type OpenAPIProjectUpdateThreadResponse struct {
+	Thread OpenAPIProjectUpdateThread `json:"thread"`
+}
+
+type OpenAPIProjectUpdateThreadRevisionsResponse struct {
+	Revisions []OpenAPIProjectUpdateThreadRevision `json:"revisions"`
+}
+
+type OpenAPIProjectUpdateThreadDeleteResponse struct {
+	DeletedThreadID string `json:"deleted_thread_id"`
+}
+
+type OpenAPIProjectUpdateCommentResponse struct {
+	Comment OpenAPIProjectUpdateComment `json:"comment"`
+}
+
+type OpenAPIProjectUpdateCommentRevisionsResponse struct {
+	Revisions []OpenAPIProjectUpdateCommentRevision `json:"revisions"`
+}
+
+type OpenAPIProjectUpdateCommentDeleteResponse struct {
+	DeletedCommentID string `json:"deleted_comment_id"`
+}
+
 type OpenAPIProjectReposResponse struct {
 	Repos []OpenAPIProjectRepo `json:"repos"`
 }
@@ -1205,6 +1290,10 @@ type OpenAPICreateTicketRequest rawCreateTicketRequest
 type OpenAPIUpdateTicketRequest rawUpdateTicketRequest
 type OpenAPICreateTicketCommentRequest rawCreateTicketCommentRequest
 type OpenAPIUpdateTicketCommentRequest rawUpdateTicketCommentRequest
+type OpenAPICreateProjectUpdateThreadRequest rawCreateProjectUpdateThreadRequest
+type OpenAPIUpdateProjectUpdateThreadRequest rawUpdateProjectUpdateThreadRequest
+type OpenAPICreateProjectUpdateCommentRequest rawCreateProjectUpdateCommentRequest
+type OpenAPIUpdateProjectUpdateCommentRequest rawUpdateProjectUpdateCommentRequest
 type OpenAPIAddTicketDependencyRequest rawAddDependencyRequest
 type OpenAPICreateTicketExternalLinkRequest rawAddExternalLinkRequest
 type OpenAPICreateTicketStatusRequest struct {
@@ -1353,6 +1442,28 @@ var (
 		"edited_by":   "Actor identifier recorded as the editor of the comment.",
 		"edit_reason": "Reason recorded for editing the comment.",
 	}
+	openAPIProjectUpdateThreadRequestDescriptions = map[string]string{
+		"status":     "Current delivery status for the update thread. Supported values are on_track, at_risk, and off_track.",
+		"title":      "Human-readable project update title.",
+		"body":       "Markdown body content for the project update thread.",
+		"created_by": "Actor identifier recorded as the creator of the update thread.",
+	}
+	openAPIProjectUpdateThreadPatchDescriptions = map[string]string{
+		"status":      "Updated delivery status for the update thread. Supported values are on_track, at_risk, and off_track.",
+		"title":       "Updated human-readable project update title.",
+		"body":        "Updated markdown body content for the project update thread.",
+		"edited_by":   "Actor identifier recorded as the editor of the update thread.",
+		"edit_reason": "Reason recorded for editing the update thread.",
+	}
+	openAPIProjectUpdateCommentRequestDescriptions = map[string]string{
+		"body":       "Markdown body content for the project update comment.",
+		"created_by": "Actor identifier recorded as the creator of the update comment.",
+	}
+	openAPIProjectUpdateCommentPatchDescriptions = map[string]string{
+		"body":        "Updated markdown body content for the project update comment.",
+		"edited_by":   "Actor identifier recorded as the editor of the update comment.",
+		"edit_reason": "Reason recorded for editing the update comment.",
+	}
 	openAPIDependencyRequestDescriptions = map[string]string{
 		"type":             "Dependency relationship type. Supported values: blocks, blocked_by, sub_issue.",
 		"target_ticket_id": "Target ticket ID referenced by the dependency.",
@@ -1476,6 +1587,10 @@ var (
 		"PATCH /api/v1/tickets/{ticketId}":                                                             openAPITicketRequestDescriptions,
 		"POST /api/v1/tickets/{ticketId}/comments":                                                     openAPITicketCommentRequestDescriptions,
 		"PATCH /api/v1/tickets/{ticketId}/comments/{commentId}":                                        openAPITicketCommentPatchDescriptions,
+		"POST /api/v1/projects/{projectId}/updates":                                                    openAPIProjectUpdateThreadRequestDescriptions,
+		"PATCH /api/v1/projects/{projectId}/updates/{threadId}":                                        openAPIProjectUpdateThreadPatchDescriptions,
+		"POST /api/v1/projects/{projectId}/updates/{threadId}/comments":                                openAPIProjectUpdateCommentRequestDescriptions,
+		"PATCH /api/v1/projects/{projectId}/updates/{threadId}/comments/{commentId}":                   openAPIProjectUpdateCommentPatchDescriptions,
 		"POST /api/v1/tickets/{ticketId}/dependencies":                                                 openAPIDependencyRequestDescriptions,
 		"POST /api/v1/tickets/{ticketId}/external-links":                                               openAPIExternalLinkRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/statuses":                                                   openAPIStatusRequestDescriptions,
@@ -2503,6 +2618,178 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	activityGet.AddParameter(uuidQueryParameter("ticket_id", "Filter activity by ticket ID."))
 	activityGet.AddParameter(intQueryParameter("limit", "Limit the number of returned activity events."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/activity", http.MethodGet, activityGet)
+
+	projectUpdatesGet, err := b.jsonOperation(
+		"listProjectUpdates",
+		"List curated project update threads",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIProjectUpdateThreadsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectUpdatesGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/updates", http.MethodGet, projectUpdatesGet)
+
+	projectUpdatesPost, err := b.jsonOperation(
+		"createProjectUpdateThread",
+		"Create a curated project update thread",
+		[]string{"catalog"},
+		http.StatusCreated,
+		OpenAPIProjectUpdateThreadResponse{},
+		OpenAPICreateProjectUpdateThreadRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectUpdatesPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/updates", http.MethodPost, projectUpdatesPost)
+
+	projectUpdatePatch, err := b.jsonOperation(
+		"updateProjectUpdateThread",
+		"Update a curated project update thread",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIProjectUpdateThreadResponse{},
+		OpenAPIUpdateProjectUpdateThreadRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectUpdatePatch.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	projectUpdatePatch.AddParameter(uuidPathParameter("threadId", "Project update thread ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/updates/{threadId}", http.MethodPatch, projectUpdatePatch)
+
+	projectUpdateDelete, err := b.jsonOperation(
+		"deleteProjectUpdateThread",
+		"Soft-delete a curated project update thread",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIProjectUpdateThreadDeleteResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectUpdateDelete.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	projectUpdateDelete.AddParameter(uuidPathParameter("threadId", "Project update thread ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/updates/{threadId}", http.MethodDelete, projectUpdateDelete)
+
+	projectUpdateRevisionsGet, err := b.jsonOperation(
+		"listProjectUpdateThreadRevisions",
+		"List revision history for a project update thread",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIProjectUpdateThreadRevisionsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectUpdateRevisionsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	projectUpdateRevisionsGet.AddParameter(uuidPathParameter("threadId", "Project update thread ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/updates/{threadId}/revisions", http.MethodGet, projectUpdateRevisionsGet)
+
+	projectUpdateCommentPost, err := b.jsonOperation(
+		"createProjectUpdateComment",
+		"Create a comment on a project update thread",
+		[]string{"catalog"},
+		http.StatusCreated,
+		OpenAPIProjectUpdateCommentResponse{},
+		OpenAPICreateProjectUpdateCommentRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectUpdateCommentPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	projectUpdateCommentPost.AddParameter(uuidPathParameter("threadId", "Project update thread ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/updates/{threadId}/comments", http.MethodPost, projectUpdateCommentPost)
+
+	projectUpdateCommentPatch, err := b.jsonOperation(
+		"updateProjectUpdateComment",
+		"Update a comment on a project update thread",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIProjectUpdateCommentResponse{},
+		OpenAPIUpdateProjectUpdateCommentRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectUpdateCommentPatch.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	projectUpdateCommentPatch.AddParameter(uuidPathParameter("threadId", "Project update thread ID."))
+	projectUpdateCommentPatch.AddParameter(uuidPathParameter("commentId", "Project update comment ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/updates/{threadId}/comments/{commentId}", http.MethodPatch, projectUpdateCommentPatch)
+
+	projectUpdateCommentDelete, err := b.jsonOperation(
+		"deleteProjectUpdateComment",
+		"Soft-delete a comment on a project update thread",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIProjectUpdateCommentDeleteResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectUpdateCommentDelete.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	projectUpdateCommentDelete.AddParameter(uuidPathParameter("threadId", "Project update thread ID."))
+	projectUpdateCommentDelete.AddParameter(uuidPathParameter("commentId", "Project update comment ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/updates/{threadId}/comments/{commentId}", http.MethodDelete, projectUpdateCommentDelete)
+
+	projectUpdateCommentRevisionsGet, err := b.jsonOperation(
+		"listProjectUpdateCommentRevisions",
+		"List revision history for a project update comment",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIProjectUpdateCommentRevisionsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectUpdateCommentRevisionsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	projectUpdateCommentRevisionsGet.AddParameter(uuidPathParameter("threadId", "Project update thread ID."))
+	projectUpdateCommentRevisionsGet.AddParameter(uuidPathParameter("commentId", "Project update comment ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/updates/{threadId}/comments/{commentId}/revisions", http.MethodGet, projectUpdateCommentRevisionsGet)
 
 	agentOutputGet, err := b.jsonOperation(
 		"listAgentOutput",

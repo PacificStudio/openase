@@ -42,6 +42,7 @@ func TestBuildOpenAPIDocument(t *testing.T) {
 		"/api/v1/projects/{projectId}/security-settings/github-outbound-credential",
 		"/api/v1/projects/{projectId}/security-settings/github-outbound-credential/import-gh-cli",
 		"/api/v1/projects/{projectId}/security-settings/github-outbound-credential/retest",
+		"/api/v1/projects/{projectId}/updates",
 		"/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes",
 		"/api/v1/projects/{projectId}/tickets/{ticketId}/detail",
 		"/api/v1/tickets/{ticketId}/comments",

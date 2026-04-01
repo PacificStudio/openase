@@ -3,6 +3,7 @@ export const projectSections = [
   'tickets',
   'agents',
   'machines',
+  'updates',
   'activity',
   'workflows',
   'skills',

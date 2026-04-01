@@ -57,6 +57,18 @@ type Project func(*sql.Selector)
 // ProjectRepo is the predicate function for projectrepo builders.
 type ProjectRepo func(*sql.Selector)
 
+// ProjectUpdateComment is the predicate function for projectupdatecomment builders.
+type ProjectUpdateComment func(*sql.Selector)
+
+// ProjectUpdateCommentRevision is the predicate function for projectupdatecommentrevision builders.
+type ProjectUpdateCommentRevision func(*sql.Selector)
+
+// ProjectUpdateThread is the predicate function for projectupdatethread builders.
+type ProjectUpdateThread func(*sql.Selector)
+
+// ProjectUpdateThreadRevision is the predicate function for projectupdatethreadrevision builders.
+type ProjectUpdateThreadRevision func(*sql.Selector)
+
 // ScheduledJob is the predicate function for scheduledjob builders.
 type ScheduledJob func(*sql.Selector)
 

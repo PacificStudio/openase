@@ -29,6 +29,10 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
+	"github.com/BetterAndBetterII/openase/ent/projectupdatecomment"
+	"github.com/BetterAndBetterII/openase/ent/projectupdatecommentrevision"
+	"github.com/BetterAndBetterII/openase/ent/projectupdatethread"
+	"github.com/BetterAndBetterII/openase/ent/projectupdatethreadrevision"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/skillblob"
@@ -59,39 +63,43 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeActivityEvent         = "ActivityEvent"
-	TypeAgent                 = "Agent"
-	TypeAgentProvider         = "AgentProvider"
-	TypeAgentRun              = "AgentRun"
-	TypeAgentStepEvent        = "AgentStepEvent"
-	TypeAgentToken            = "AgentToken"
-	TypeAgentTraceEvent       = "AgentTraceEvent"
-	TypeChatConversation      = "ChatConversation"
-	TypeChatEntry             = "ChatEntry"
-	TypeChatPendingInterrupt  = "ChatPendingInterrupt"
-	TypeChatTurn              = "ChatTurn"
-	TypeMachine               = "Machine"
-	TypeNotificationChannel   = "NotificationChannel"
-	TypeNotificationRule      = "NotificationRule"
-	TypeOrganization          = "Organization"
-	TypeProject               = "Project"
-	TypeProjectRepo           = "ProjectRepo"
-	TypeScheduledJob          = "ScheduledJob"
-	TypeSkill                 = "Skill"
-	TypeSkillBlob             = "SkillBlob"
-	TypeSkillVersion          = "SkillVersion"
-	TypeSkillVersionFile      = "SkillVersionFile"
-	TypeTicket                = "Ticket"
-	TypeTicketComment         = "TicketComment"
-	TypeTicketCommentRevision = "TicketCommentRevision"
-	TypeTicketDependency      = "TicketDependency"
-	TypeTicketExternalLink    = "TicketExternalLink"
-	TypeTicketRepoScope       = "TicketRepoScope"
-	TypeTicketRepoWorkspace   = "TicketRepoWorkspace"
-	TypeTicketStatus          = "TicketStatus"
-	TypeWorkflow              = "Workflow"
-	TypeWorkflowSkillBinding  = "WorkflowSkillBinding"
-	TypeWorkflowVersion       = "WorkflowVersion"
+	TypeActivityEvent                = "ActivityEvent"
+	TypeAgent                        = "Agent"
+	TypeAgentProvider                = "AgentProvider"
+	TypeAgentRun                     = "AgentRun"
+	TypeAgentStepEvent               = "AgentStepEvent"
+	TypeAgentToken                   = "AgentToken"
+	TypeAgentTraceEvent              = "AgentTraceEvent"
+	TypeChatConversation             = "ChatConversation"
+	TypeChatEntry                    = "ChatEntry"
+	TypeChatPendingInterrupt         = "ChatPendingInterrupt"
+	TypeChatTurn                     = "ChatTurn"
+	TypeMachine                      = "Machine"
+	TypeNotificationChannel          = "NotificationChannel"
+	TypeNotificationRule             = "NotificationRule"
+	TypeOrganization                 = "Organization"
+	TypeProject                      = "Project"
+	TypeProjectRepo                  = "ProjectRepo"
+	TypeProjectUpdateComment         = "ProjectUpdateComment"
+	TypeProjectUpdateCommentRevision = "ProjectUpdateCommentRevision"
+	TypeProjectUpdateThread          = "ProjectUpdateThread"
+	TypeProjectUpdateThreadRevision  = "ProjectUpdateThreadRevision"
+	TypeScheduledJob                 = "ScheduledJob"
+	TypeSkill                        = "Skill"
+	TypeSkillBlob                    = "SkillBlob"
+	TypeSkillVersion                 = "SkillVersion"
+	TypeSkillVersionFile             = "SkillVersionFile"
+	TypeTicket                       = "Ticket"
+	TypeTicketComment                = "TicketComment"
+	TypeTicketCommentRevision        = "TicketCommentRevision"
+	TypeTicketDependency             = "TicketDependency"
+	TypeTicketExternalLink           = "TicketExternalLink"
+	TypeTicketRepoScope              = "TicketRepoScope"
+	TypeTicketRepoWorkspace          = "TicketRepoWorkspace"
+	TypeTicketStatus                 = "TicketStatus"
+	TypeWorkflow                     = "Workflow"
+	TypeWorkflowSkillBinding         = "WorkflowSkillBinding"
+	TypeWorkflowVersion              = "WorkflowVersion"
 )
 
 // ActivityEventMutation represents an operation that mutates the ActivityEvent nodes in the graph.
@@ -16930,6 +16938,9 @@ type ProjectMutation struct {
 	activity_events               map[uuid.UUID]struct{}
 	removedactivity_events        map[uuid.UUID]struct{}
 	clearedactivity_events        bool
+	update_threads                map[uuid.UUID]struct{}
+	removedupdate_threads         map[uuid.UUID]struct{}
+	clearedupdate_threads         bool
 	chat_conversations            map[uuid.UUID]struct{}
 	removedchat_conversations     map[uuid.UUID]struct{}
 	clearedchat_conversations     bool
@@ -18115,6 +18126,60 @@ func (m *ProjectMutation) ResetActivityEvents() {
 	m.removedactivity_events = nil
 }
 
+// AddUpdateThreadIDs adds the "update_threads" edge to the ProjectUpdateThread entity by ids.
+func (m *ProjectMutation) AddUpdateThreadIDs(ids ...uuid.UUID) {
+	if m.update_threads == nil {
+		m.update_threads = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.update_threads[ids[i]] = struct{}{}
+	}
+}
+
+// ClearUpdateThreads clears the "update_threads" edge to the ProjectUpdateThread entity.
+func (m *ProjectMutation) ClearUpdateThreads() {
+	m.clearedupdate_threads = true
+}
+
+// UpdateThreadsCleared reports if the "update_threads" edge to the ProjectUpdateThread entity was cleared.
+func (m *ProjectMutation) UpdateThreadsCleared() bool {
+	return m.clearedupdate_threads
+}
+
+// RemoveUpdateThreadIDs removes the "update_threads" edge to the ProjectUpdateThread entity by IDs.
+func (m *ProjectMutation) RemoveUpdateThreadIDs(ids ...uuid.UUID) {
+	if m.removedupdate_threads == nil {
+		m.removedupdate_threads = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.update_threads, ids[i])
+		m.removedupdate_threads[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedUpdateThreads returns the removed IDs of the "update_threads" edge to the ProjectUpdateThread entity.
+func (m *ProjectMutation) RemovedUpdateThreadsIDs() (ids []uuid.UUID) {
+	for id := range m.removedupdate_threads {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// UpdateThreadsIDs returns the "update_threads" edge IDs in the mutation.
+func (m *ProjectMutation) UpdateThreadsIDs() (ids []uuid.UUID) {
+	for id := range m.update_threads {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetUpdateThreads resets all changes to the "update_threads" edge.
+func (m *ProjectMutation) ResetUpdateThreads() {
+	m.update_threads = nil
+	m.clearedupdate_threads = false
+	m.removedupdate_threads = nil
+}
+
 // AddChatConversationIDs adds the "chat_conversations" edge to the ChatConversation entity by ids.
 func (m *ProjectMutation) AddChatConversationIDs(ids ...uuid.UUID) {
 	if m.chat_conversations == nil {
@@ -18578,7 +18643,7 @@ func (m *ProjectMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ProjectMutation) AddedEdges() []string {
-	edges := make([]string, 0, 15)
+	edges := make([]string, 0, 16)
 	if m.organization != nil {
 		edges = append(edges, project.EdgeOrganization)
 	}
@@ -18614,6 +18679,9 @@ func (m *ProjectMutation) AddedEdges() []string {
 	}
 	if m.activity_events != nil {
 		edges = append(edges, project.EdgeActivityEvents)
+	}
+	if m.update_threads != nil {
+		edges = append(edges, project.EdgeUpdateThreads)
 	}
 	if m.chat_conversations != nil {
 		edges = append(edges, project.EdgeChatConversations)
@@ -18701,6 +18769,12 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case project.EdgeUpdateThreads:
+		ids := make([]ent.Value, 0, len(m.update_threads))
+		for id := range m.update_threads {
+			ids = append(ids, id)
+		}
+		return ids
 	case project.EdgeChatConversations:
 		ids := make([]ent.Value, 0, len(m.chat_conversations))
 		for id := range m.chat_conversations {
@@ -18723,7 +18797,7 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ProjectMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 15)
+	edges := make([]string, 0, 16)
 	if m.removedrepos != nil {
 		edges = append(edges, project.EdgeRepos)
 	}
@@ -18756,6 +18830,9 @@ func (m *ProjectMutation) RemovedEdges() []string {
 	}
 	if m.removedactivity_events != nil {
 		edges = append(edges, project.EdgeActivityEvents)
+	}
+	if m.removedupdate_threads != nil {
+		edges = append(edges, project.EdgeUpdateThreads)
 	}
 	if m.removedchat_conversations != nil {
 		edges = append(edges, project.EdgeChatConversations)
@@ -18836,6 +18913,12 @@ func (m *ProjectMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case project.EdgeUpdateThreads:
+		ids := make([]ent.Value, 0, len(m.removedupdate_threads))
+		for id := range m.removedupdate_threads {
+			ids = append(ids, id)
+		}
+		return ids
 	case project.EdgeChatConversations:
 		ids := make([]ent.Value, 0, len(m.removedchat_conversations))
 		for id := range m.removedchat_conversations {
@@ -18854,7 +18937,7 @@ func (m *ProjectMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ProjectMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 15)
+	edges := make([]string, 0, 16)
 	if m.clearedorganization {
 		edges = append(edges, project.EdgeOrganization)
 	}
@@ -18890,6 +18973,9 @@ func (m *ProjectMutation) ClearedEdges() []string {
 	}
 	if m.clearedactivity_events {
 		edges = append(edges, project.EdgeActivityEvents)
+	}
+	if m.clearedupdate_threads {
+		edges = append(edges, project.EdgeUpdateThreads)
 	}
 	if m.clearedchat_conversations {
 		edges = append(edges, project.EdgeChatConversations)
@@ -18931,6 +19017,8 @@ func (m *ProjectMutation) EdgeCleared(name string) bool {
 		return m.clearedscheduled_jobs
 	case project.EdgeActivityEvents:
 		return m.clearedactivity_events
+	case project.EdgeUpdateThreads:
+		return m.clearedupdate_threads
 	case project.EdgeChatConversations:
 		return m.clearedchat_conversations
 	case project.EdgeNotificationRules:
@@ -18994,6 +19082,9 @@ func (m *ProjectMutation) ResetEdge(name string) error {
 		return nil
 	case project.EdgeActivityEvents:
 		m.ResetActivityEvents()
+		return nil
+	case project.EdgeUpdateThreads:
+		m.ResetUpdateThreads()
 		return nil
 	case project.EdgeChatConversations:
 		m.ResetChatConversations()
@@ -19852,6 +19943,4126 @@ func (m *ProjectRepoMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown ProjectRepo edge %s", name)
+}
+
+// ProjectUpdateCommentMutation represents an operation that mutates the ProjectUpdateComment nodes in the graph.
+type ProjectUpdateCommentMutation struct {
+	config
+	op               Op
+	typ              string
+	id               *uuid.UUID
+	body_markdown    *string
+	created_by       *string
+	created_at       *time.Time
+	updated_at       *time.Time
+	edited_at        *time.Time
+	edit_count       *int
+	addedit_count    *int
+	last_edited_by   *string
+	is_deleted       *bool
+	deleted_at       *time.Time
+	deleted_by       *string
+	clearedFields    map[string]struct{}
+	thread           *uuid.UUID
+	clearedthread    bool
+	revisions        map[uuid.UUID]struct{}
+	removedrevisions map[uuid.UUID]struct{}
+	clearedrevisions bool
+	done             bool
+	oldValue         func(context.Context) (*ProjectUpdateComment, error)
+	predicates       []predicate.ProjectUpdateComment
+}
+
+var _ ent.Mutation = (*ProjectUpdateCommentMutation)(nil)
+
+// projectupdatecommentOption allows management of the mutation configuration using functional options.
+type projectupdatecommentOption func(*ProjectUpdateCommentMutation)
+
+// newProjectUpdateCommentMutation creates new mutation for the ProjectUpdateComment entity.
+func newProjectUpdateCommentMutation(c config, op Op, opts ...projectupdatecommentOption) *ProjectUpdateCommentMutation {
+	m := &ProjectUpdateCommentMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeProjectUpdateComment,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withProjectUpdateCommentID sets the ID field of the mutation.
+func withProjectUpdateCommentID(id uuid.UUID) projectupdatecommentOption {
+	return func(m *ProjectUpdateCommentMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ProjectUpdateComment
+		)
+		m.oldValue = func(ctx context.Context) (*ProjectUpdateComment, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ProjectUpdateComment.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withProjectUpdateComment sets the old ProjectUpdateComment of the mutation.
+func withProjectUpdateComment(node *ProjectUpdateComment) projectupdatecommentOption {
+	return func(m *ProjectUpdateCommentMutation) {
+		m.oldValue = func(context.Context) (*ProjectUpdateComment, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ProjectUpdateCommentMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ProjectUpdateCommentMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ProjectUpdateComment entities.
+func (m *ProjectUpdateCommentMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ProjectUpdateCommentMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ProjectUpdateCommentMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ProjectUpdateComment.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetThreadID sets the "thread_id" field.
+func (m *ProjectUpdateCommentMutation) SetThreadID(u uuid.UUID) {
+	m.thread = &u
+}
+
+// ThreadID returns the value of the "thread_id" field in the mutation.
+func (m *ProjectUpdateCommentMutation) ThreadID() (r uuid.UUID, exists bool) {
+	v := m.thread
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldThreadID returns the old "thread_id" field's value of the ProjectUpdateComment entity.
+// If the ProjectUpdateComment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateCommentMutation) OldThreadID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldThreadID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldThreadID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldThreadID: %w", err)
+	}
+	return oldValue.ThreadID, nil
+}
+
+// ResetThreadID resets all changes to the "thread_id" field.
+func (m *ProjectUpdateCommentMutation) ResetThreadID() {
+	m.thread = nil
+}
+
+// SetBodyMarkdown sets the "body_markdown" field.
+func (m *ProjectUpdateCommentMutation) SetBodyMarkdown(s string) {
+	m.body_markdown = &s
+}
+
+// BodyMarkdown returns the value of the "body_markdown" field in the mutation.
+func (m *ProjectUpdateCommentMutation) BodyMarkdown() (r string, exists bool) {
+	v := m.body_markdown
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBodyMarkdown returns the old "body_markdown" field's value of the ProjectUpdateComment entity.
+// If the ProjectUpdateComment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateCommentMutation) OldBodyMarkdown(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBodyMarkdown is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBodyMarkdown requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBodyMarkdown: %w", err)
+	}
+	return oldValue.BodyMarkdown, nil
+}
+
+// ResetBodyMarkdown resets all changes to the "body_markdown" field.
+func (m *ProjectUpdateCommentMutation) ResetBodyMarkdown() {
+	m.body_markdown = nil
+}
+
+// SetCreatedBy sets the "created_by" field.
+func (m *ProjectUpdateCommentMutation) SetCreatedBy(s string) {
+	m.created_by = &s
+}
+
+// CreatedBy returns the value of the "created_by" field in the mutation.
+func (m *ProjectUpdateCommentMutation) CreatedBy() (r string, exists bool) {
+	v := m.created_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedBy returns the old "created_by" field's value of the ProjectUpdateComment entity.
+// If the ProjectUpdateComment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateCommentMutation) OldCreatedBy(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedBy: %w", err)
+	}
+	return oldValue.CreatedBy, nil
+}
+
+// ResetCreatedBy resets all changes to the "created_by" field.
+func (m *ProjectUpdateCommentMutation) ResetCreatedBy() {
+	m.created_by = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ProjectUpdateCommentMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ProjectUpdateCommentMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ProjectUpdateComment entity.
+// If the ProjectUpdateComment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateCommentMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ProjectUpdateCommentMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *ProjectUpdateCommentMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *ProjectUpdateCommentMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the ProjectUpdateComment entity.
+// If the ProjectUpdateComment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateCommentMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *ProjectUpdateCommentMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetEditedAt sets the "edited_at" field.
+func (m *ProjectUpdateCommentMutation) SetEditedAt(t time.Time) {
+	m.edited_at = &t
+}
+
+// EditedAt returns the value of the "edited_at" field in the mutation.
+func (m *ProjectUpdateCommentMutation) EditedAt() (r time.Time, exists bool) {
+	v := m.edited_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEditedAt returns the old "edited_at" field's value of the ProjectUpdateComment entity.
+// If the ProjectUpdateComment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateCommentMutation) OldEditedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEditedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEditedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEditedAt: %w", err)
+	}
+	return oldValue.EditedAt, nil
+}
+
+// ClearEditedAt clears the value of the "edited_at" field.
+func (m *ProjectUpdateCommentMutation) ClearEditedAt() {
+	m.edited_at = nil
+	m.clearedFields[projectupdatecomment.FieldEditedAt] = struct{}{}
+}
+
+// EditedAtCleared returns if the "edited_at" field was cleared in this mutation.
+func (m *ProjectUpdateCommentMutation) EditedAtCleared() bool {
+	_, ok := m.clearedFields[projectupdatecomment.FieldEditedAt]
+	return ok
+}
+
+// ResetEditedAt resets all changes to the "edited_at" field.
+func (m *ProjectUpdateCommentMutation) ResetEditedAt() {
+	m.edited_at = nil
+	delete(m.clearedFields, projectupdatecomment.FieldEditedAt)
+}
+
+// SetEditCount sets the "edit_count" field.
+func (m *ProjectUpdateCommentMutation) SetEditCount(i int) {
+	m.edit_count = &i
+	m.addedit_count = nil
+}
+
+// EditCount returns the value of the "edit_count" field in the mutation.
+func (m *ProjectUpdateCommentMutation) EditCount() (r int, exists bool) {
+	v := m.edit_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEditCount returns the old "edit_count" field's value of the ProjectUpdateComment entity.
+// If the ProjectUpdateComment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateCommentMutation) OldEditCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEditCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEditCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEditCount: %w", err)
+	}
+	return oldValue.EditCount, nil
+}
+
+// AddEditCount adds i to the "edit_count" field.
+func (m *ProjectUpdateCommentMutation) AddEditCount(i int) {
+	if m.addedit_count != nil {
+		*m.addedit_count += i
+	} else {
+		m.addedit_count = &i
+	}
+}
+
+// AddedEditCount returns the value that was added to the "edit_count" field in this mutation.
+func (m *ProjectUpdateCommentMutation) AddedEditCount() (r int, exists bool) {
+	v := m.addedit_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetEditCount resets all changes to the "edit_count" field.
+func (m *ProjectUpdateCommentMutation) ResetEditCount() {
+	m.edit_count = nil
+	m.addedit_count = nil
+}
+
+// SetLastEditedBy sets the "last_edited_by" field.
+func (m *ProjectUpdateCommentMutation) SetLastEditedBy(s string) {
+	m.last_edited_by = &s
+}
+
+// LastEditedBy returns the value of the "last_edited_by" field in the mutation.
+func (m *ProjectUpdateCommentMutation) LastEditedBy() (r string, exists bool) {
+	v := m.last_edited_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastEditedBy returns the old "last_edited_by" field's value of the ProjectUpdateComment entity.
+// If the ProjectUpdateComment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateCommentMutation) OldLastEditedBy(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastEditedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastEditedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastEditedBy: %w", err)
+	}
+	return oldValue.LastEditedBy, nil
+}
+
+// ClearLastEditedBy clears the value of the "last_edited_by" field.
+func (m *ProjectUpdateCommentMutation) ClearLastEditedBy() {
+	m.last_edited_by = nil
+	m.clearedFields[projectupdatecomment.FieldLastEditedBy] = struct{}{}
+}
+
+// LastEditedByCleared returns if the "last_edited_by" field was cleared in this mutation.
+func (m *ProjectUpdateCommentMutation) LastEditedByCleared() bool {
+	_, ok := m.clearedFields[projectupdatecomment.FieldLastEditedBy]
+	return ok
+}
+
+// ResetLastEditedBy resets all changes to the "last_edited_by" field.
+func (m *ProjectUpdateCommentMutation) ResetLastEditedBy() {
+	m.last_edited_by = nil
+	delete(m.clearedFields, projectupdatecomment.FieldLastEditedBy)
+}
+
+// SetIsDeleted sets the "is_deleted" field.
+func (m *ProjectUpdateCommentMutation) SetIsDeleted(b bool) {
+	m.is_deleted = &b
+}
+
+// IsDeleted returns the value of the "is_deleted" field in the mutation.
+func (m *ProjectUpdateCommentMutation) IsDeleted() (r bool, exists bool) {
+	v := m.is_deleted
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsDeleted returns the old "is_deleted" field's value of the ProjectUpdateComment entity.
+// If the ProjectUpdateComment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateCommentMutation) OldIsDeleted(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsDeleted is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsDeleted requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsDeleted: %w", err)
+	}
+	return oldValue.IsDeleted, nil
+}
+
+// ResetIsDeleted resets all changes to the "is_deleted" field.
+func (m *ProjectUpdateCommentMutation) ResetIsDeleted() {
+	m.is_deleted = nil
+}
+
+// SetDeletedAt sets the "deleted_at" field.
+func (m *ProjectUpdateCommentMutation) SetDeletedAt(t time.Time) {
+	m.deleted_at = &t
+}
+
+// DeletedAt returns the value of the "deleted_at" field in the mutation.
+func (m *ProjectUpdateCommentMutation) DeletedAt() (r time.Time, exists bool) {
+	v := m.deleted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeletedAt returns the old "deleted_at" field's value of the ProjectUpdateComment entity.
+// If the ProjectUpdateComment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateCommentMutation) OldDeletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeletedAt: %w", err)
+	}
+	return oldValue.DeletedAt, nil
+}
+
+// ClearDeletedAt clears the value of the "deleted_at" field.
+func (m *ProjectUpdateCommentMutation) ClearDeletedAt() {
+	m.deleted_at = nil
+	m.clearedFields[projectupdatecomment.FieldDeletedAt] = struct{}{}
+}
+
+// DeletedAtCleared returns if the "deleted_at" field was cleared in this mutation.
+func (m *ProjectUpdateCommentMutation) DeletedAtCleared() bool {
+	_, ok := m.clearedFields[projectupdatecomment.FieldDeletedAt]
+	return ok
+}
+
+// ResetDeletedAt resets all changes to the "deleted_at" field.
+func (m *ProjectUpdateCommentMutation) ResetDeletedAt() {
+	m.deleted_at = nil
+	delete(m.clearedFields, projectupdatecomment.FieldDeletedAt)
+}
+
+// SetDeletedBy sets the "deleted_by" field.
+func (m *ProjectUpdateCommentMutation) SetDeletedBy(s string) {
+	m.deleted_by = &s
+}
+
+// DeletedBy returns the value of the "deleted_by" field in the mutation.
+func (m *ProjectUpdateCommentMutation) DeletedBy() (r string, exists bool) {
+	v := m.deleted_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeletedBy returns the old "deleted_by" field's value of the ProjectUpdateComment entity.
+// If the ProjectUpdateComment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateCommentMutation) OldDeletedBy(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeletedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeletedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeletedBy: %w", err)
+	}
+	return oldValue.DeletedBy, nil
+}
+
+// ClearDeletedBy clears the value of the "deleted_by" field.
+func (m *ProjectUpdateCommentMutation) ClearDeletedBy() {
+	m.deleted_by = nil
+	m.clearedFields[projectupdatecomment.FieldDeletedBy] = struct{}{}
+}
+
+// DeletedByCleared returns if the "deleted_by" field was cleared in this mutation.
+func (m *ProjectUpdateCommentMutation) DeletedByCleared() bool {
+	_, ok := m.clearedFields[projectupdatecomment.FieldDeletedBy]
+	return ok
+}
+
+// ResetDeletedBy resets all changes to the "deleted_by" field.
+func (m *ProjectUpdateCommentMutation) ResetDeletedBy() {
+	m.deleted_by = nil
+	delete(m.clearedFields, projectupdatecomment.FieldDeletedBy)
+}
+
+// ClearThread clears the "thread" edge to the ProjectUpdateThread entity.
+func (m *ProjectUpdateCommentMutation) ClearThread() {
+	m.clearedthread = true
+	m.clearedFields[projectupdatecomment.FieldThreadID] = struct{}{}
+}
+
+// ThreadCleared reports if the "thread" edge to the ProjectUpdateThread entity was cleared.
+func (m *ProjectUpdateCommentMutation) ThreadCleared() bool {
+	return m.clearedthread
+}
+
+// ThreadIDs returns the "thread" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ThreadID instead. It exists only for internal usage by the builders.
+func (m *ProjectUpdateCommentMutation) ThreadIDs() (ids []uuid.UUID) {
+	if id := m.thread; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetThread resets all changes to the "thread" edge.
+func (m *ProjectUpdateCommentMutation) ResetThread() {
+	m.thread = nil
+	m.clearedthread = false
+}
+
+// AddRevisionIDs adds the "revisions" edge to the ProjectUpdateCommentRevision entity by ids.
+func (m *ProjectUpdateCommentMutation) AddRevisionIDs(ids ...uuid.UUID) {
+	if m.revisions == nil {
+		m.revisions = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.revisions[ids[i]] = struct{}{}
+	}
+}
+
+// ClearRevisions clears the "revisions" edge to the ProjectUpdateCommentRevision entity.
+func (m *ProjectUpdateCommentMutation) ClearRevisions() {
+	m.clearedrevisions = true
+}
+
+// RevisionsCleared reports if the "revisions" edge to the ProjectUpdateCommentRevision entity was cleared.
+func (m *ProjectUpdateCommentMutation) RevisionsCleared() bool {
+	return m.clearedrevisions
+}
+
+// RemoveRevisionIDs removes the "revisions" edge to the ProjectUpdateCommentRevision entity by IDs.
+func (m *ProjectUpdateCommentMutation) RemoveRevisionIDs(ids ...uuid.UUID) {
+	if m.removedrevisions == nil {
+		m.removedrevisions = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.revisions, ids[i])
+		m.removedrevisions[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedRevisions returns the removed IDs of the "revisions" edge to the ProjectUpdateCommentRevision entity.
+func (m *ProjectUpdateCommentMutation) RemovedRevisionsIDs() (ids []uuid.UUID) {
+	for id := range m.removedrevisions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// RevisionsIDs returns the "revisions" edge IDs in the mutation.
+func (m *ProjectUpdateCommentMutation) RevisionsIDs() (ids []uuid.UUID) {
+	for id := range m.revisions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetRevisions resets all changes to the "revisions" edge.
+func (m *ProjectUpdateCommentMutation) ResetRevisions() {
+	m.revisions = nil
+	m.clearedrevisions = false
+	m.removedrevisions = nil
+}
+
+// Where appends a list predicates to the ProjectUpdateCommentMutation builder.
+func (m *ProjectUpdateCommentMutation) Where(ps ...predicate.ProjectUpdateComment) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ProjectUpdateCommentMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ProjectUpdateCommentMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ProjectUpdateComment, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ProjectUpdateCommentMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ProjectUpdateCommentMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ProjectUpdateComment).
+func (m *ProjectUpdateCommentMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ProjectUpdateCommentMutation) Fields() []string {
+	fields := make([]string, 0, 11)
+	if m.thread != nil {
+		fields = append(fields, projectupdatecomment.FieldThreadID)
+	}
+	if m.body_markdown != nil {
+		fields = append(fields, projectupdatecomment.FieldBodyMarkdown)
+	}
+	if m.created_by != nil {
+		fields = append(fields, projectupdatecomment.FieldCreatedBy)
+	}
+	if m.created_at != nil {
+		fields = append(fields, projectupdatecomment.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, projectupdatecomment.FieldUpdatedAt)
+	}
+	if m.edited_at != nil {
+		fields = append(fields, projectupdatecomment.FieldEditedAt)
+	}
+	if m.edit_count != nil {
+		fields = append(fields, projectupdatecomment.FieldEditCount)
+	}
+	if m.last_edited_by != nil {
+		fields = append(fields, projectupdatecomment.FieldLastEditedBy)
+	}
+	if m.is_deleted != nil {
+		fields = append(fields, projectupdatecomment.FieldIsDeleted)
+	}
+	if m.deleted_at != nil {
+		fields = append(fields, projectupdatecomment.FieldDeletedAt)
+	}
+	if m.deleted_by != nil {
+		fields = append(fields, projectupdatecomment.FieldDeletedBy)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ProjectUpdateCommentMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case projectupdatecomment.FieldThreadID:
+		return m.ThreadID()
+	case projectupdatecomment.FieldBodyMarkdown:
+		return m.BodyMarkdown()
+	case projectupdatecomment.FieldCreatedBy:
+		return m.CreatedBy()
+	case projectupdatecomment.FieldCreatedAt:
+		return m.CreatedAt()
+	case projectupdatecomment.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case projectupdatecomment.FieldEditedAt:
+		return m.EditedAt()
+	case projectupdatecomment.FieldEditCount:
+		return m.EditCount()
+	case projectupdatecomment.FieldLastEditedBy:
+		return m.LastEditedBy()
+	case projectupdatecomment.FieldIsDeleted:
+		return m.IsDeleted()
+	case projectupdatecomment.FieldDeletedAt:
+		return m.DeletedAt()
+	case projectupdatecomment.FieldDeletedBy:
+		return m.DeletedBy()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ProjectUpdateCommentMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case projectupdatecomment.FieldThreadID:
+		return m.OldThreadID(ctx)
+	case projectupdatecomment.FieldBodyMarkdown:
+		return m.OldBodyMarkdown(ctx)
+	case projectupdatecomment.FieldCreatedBy:
+		return m.OldCreatedBy(ctx)
+	case projectupdatecomment.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case projectupdatecomment.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case projectupdatecomment.FieldEditedAt:
+		return m.OldEditedAt(ctx)
+	case projectupdatecomment.FieldEditCount:
+		return m.OldEditCount(ctx)
+	case projectupdatecomment.FieldLastEditedBy:
+		return m.OldLastEditedBy(ctx)
+	case projectupdatecomment.FieldIsDeleted:
+		return m.OldIsDeleted(ctx)
+	case projectupdatecomment.FieldDeletedAt:
+		return m.OldDeletedAt(ctx)
+	case projectupdatecomment.FieldDeletedBy:
+		return m.OldDeletedBy(ctx)
+	}
+	return nil, fmt.Errorf("unknown ProjectUpdateComment field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectUpdateCommentMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case projectupdatecomment.FieldThreadID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetThreadID(v)
+		return nil
+	case projectupdatecomment.FieldBodyMarkdown:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBodyMarkdown(v)
+		return nil
+	case projectupdatecomment.FieldCreatedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedBy(v)
+		return nil
+	case projectupdatecomment.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case projectupdatecomment.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case projectupdatecomment.FieldEditedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEditedAt(v)
+		return nil
+	case projectupdatecomment.FieldEditCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEditCount(v)
+		return nil
+	case projectupdatecomment.FieldLastEditedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastEditedBy(v)
+		return nil
+	case projectupdatecomment.FieldIsDeleted:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsDeleted(v)
+		return nil
+	case projectupdatecomment.FieldDeletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeletedAt(v)
+		return nil
+	case projectupdatecomment.FieldDeletedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeletedBy(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateComment field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ProjectUpdateCommentMutation) AddedFields() []string {
+	var fields []string
+	if m.addedit_count != nil {
+		fields = append(fields, projectupdatecomment.FieldEditCount)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ProjectUpdateCommentMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case projectupdatecomment.FieldEditCount:
+		return m.AddedEditCount()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectUpdateCommentMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case projectupdatecomment.FieldEditCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddEditCount(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateComment numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ProjectUpdateCommentMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(projectupdatecomment.FieldEditedAt) {
+		fields = append(fields, projectupdatecomment.FieldEditedAt)
+	}
+	if m.FieldCleared(projectupdatecomment.FieldLastEditedBy) {
+		fields = append(fields, projectupdatecomment.FieldLastEditedBy)
+	}
+	if m.FieldCleared(projectupdatecomment.FieldDeletedAt) {
+		fields = append(fields, projectupdatecomment.FieldDeletedAt)
+	}
+	if m.FieldCleared(projectupdatecomment.FieldDeletedBy) {
+		fields = append(fields, projectupdatecomment.FieldDeletedBy)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ProjectUpdateCommentMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ProjectUpdateCommentMutation) ClearField(name string) error {
+	switch name {
+	case projectupdatecomment.FieldEditedAt:
+		m.ClearEditedAt()
+		return nil
+	case projectupdatecomment.FieldLastEditedBy:
+		m.ClearLastEditedBy()
+		return nil
+	case projectupdatecomment.FieldDeletedAt:
+		m.ClearDeletedAt()
+		return nil
+	case projectupdatecomment.FieldDeletedBy:
+		m.ClearDeletedBy()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateComment nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ProjectUpdateCommentMutation) ResetField(name string) error {
+	switch name {
+	case projectupdatecomment.FieldThreadID:
+		m.ResetThreadID()
+		return nil
+	case projectupdatecomment.FieldBodyMarkdown:
+		m.ResetBodyMarkdown()
+		return nil
+	case projectupdatecomment.FieldCreatedBy:
+		m.ResetCreatedBy()
+		return nil
+	case projectupdatecomment.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case projectupdatecomment.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case projectupdatecomment.FieldEditedAt:
+		m.ResetEditedAt()
+		return nil
+	case projectupdatecomment.FieldEditCount:
+		m.ResetEditCount()
+		return nil
+	case projectupdatecomment.FieldLastEditedBy:
+		m.ResetLastEditedBy()
+		return nil
+	case projectupdatecomment.FieldIsDeleted:
+		m.ResetIsDeleted()
+		return nil
+	case projectupdatecomment.FieldDeletedAt:
+		m.ResetDeletedAt()
+		return nil
+	case projectupdatecomment.FieldDeletedBy:
+		m.ResetDeletedBy()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateComment field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ProjectUpdateCommentMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.thread != nil {
+		edges = append(edges, projectupdatecomment.EdgeThread)
+	}
+	if m.revisions != nil {
+		edges = append(edges, projectupdatecomment.EdgeRevisions)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ProjectUpdateCommentMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case projectupdatecomment.EdgeThread:
+		if id := m.thread; id != nil {
+			return []ent.Value{*id}
+		}
+	case projectupdatecomment.EdgeRevisions:
+		ids := make([]ent.Value, 0, len(m.revisions))
+		for id := range m.revisions {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ProjectUpdateCommentMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.removedrevisions != nil {
+		edges = append(edges, projectupdatecomment.EdgeRevisions)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ProjectUpdateCommentMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case projectupdatecomment.EdgeRevisions:
+		ids := make([]ent.Value, 0, len(m.removedrevisions))
+		for id := range m.removedrevisions {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ProjectUpdateCommentMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedthread {
+		edges = append(edges, projectupdatecomment.EdgeThread)
+	}
+	if m.clearedrevisions {
+		edges = append(edges, projectupdatecomment.EdgeRevisions)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ProjectUpdateCommentMutation) EdgeCleared(name string) bool {
+	switch name {
+	case projectupdatecomment.EdgeThread:
+		return m.clearedthread
+	case projectupdatecomment.EdgeRevisions:
+		return m.clearedrevisions
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ProjectUpdateCommentMutation) ClearEdge(name string) error {
+	switch name {
+	case projectupdatecomment.EdgeThread:
+		m.ClearThread()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateComment unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ProjectUpdateCommentMutation) ResetEdge(name string) error {
+	switch name {
+	case projectupdatecomment.EdgeThread:
+		m.ResetThread()
+		return nil
+	case projectupdatecomment.EdgeRevisions:
+		m.ResetRevisions()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateComment edge %s", name)
+}
+
+// ProjectUpdateCommentRevisionMutation represents an operation that mutates the ProjectUpdateCommentRevision nodes in the graph.
+type ProjectUpdateCommentRevisionMutation struct {
+	config
+	op                 Op
+	typ                string
+	id                 *uuid.UUID
+	revision_number    *int
+	addrevision_number *int
+	body_markdown      *string
+	edited_by          *string
+	edited_at          *time.Time
+	edit_reason        *string
+	clearedFields      map[string]struct{}
+	comment            *uuid.UUID
+	clearedcomment     bool
+	done               bool
+	oldValue           func(context.Context) (*ProjectUpdateCommentRevision, error)
+	predicates         []predicate.ProjectUpdateCommentRevision
+}
+
+var _ ent.Mutation = (*ProjectUpdateCommentRevisionMutation)(nil)
+
+// projectupdatecommentrevisionOption allows management of the mutation configuration using functional options.
+type projectupdatecommentrevisionOption func(*ProjectUpdateCommentRevisionMutation)
+
+// newProjectUpdateCommentRevisionMutation creates new mutation for the ProjectUpdateCommentRevision entity.
+func newProjectUpdateCommentRevisionMutation(c config, op Op, opts ...projectupdatecommentrevisionOption) *ProjectUpdateCommentRevisionMutation {
+	m := &ProjectUpdateCommentRevisionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeProjectUpdateCommentRevision,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withProjectUpdateCommentRevisionID sets the ID field of the mutation.
+func withProjectUpdateCommentRevisionID(id uuid.UUID) projectupdatecommentrevisionOption {
+	return func(m *ProjectUpdateCommentRevisionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ProjectUpdateCommentRevision
+		)
+		m.oldValue = func(ctx context.Context) (*ProjectUpdateCommentRevision, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ProjectUpdateCommentRevision.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withProjectUpdateCommentRevision sets the old ProjectUpdateCommentRevision of the mutation.
+func withProjectUpdateCommentRevision(node *ProjectUpdateCommentRevision) projectupdatecommentrevisionOption {
+	return func(m *ProjectUpdateCommentRevisionMutation) {
+		m.oldValue = func(context.Context) (*ProjectUpdateCommentRevision, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ProjectUpdateCommentRevisionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ProjectUpdateCommentRevisionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ProjectUpdateCommentRevision entities.
+func (m *ProjectUpdateCommentRevisionMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ProjectUpdateCommentRevisionMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ProjectUpdateCommentRevisionMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ProjectUpdateCommentRevision.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCommentID sets the "comment_id" field.
+func (m *ProjectUpdateCommentRevisionMutation) SetCommentID(u uuid.UUID) {
+	m.comment = &u
+}
+
+// CommentID returns the value of the "comment_id" field in the mutation.
+func (m *ProjectUpdateCommentRevisionMutation) CommentID() (r uuid.UUID, exists bool) {
+	v := m.comment
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCommentID returns the old "comment_id" field's value of the ProjectUpdateCommentRevision entity.
+// If the ProjectUpdateCommentRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateCommentRevisionMutation) OldCommentID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCommentID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCommentID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCommentID: %w", err)
+	}
+	return oldValue.CommentID, nil
+}
+
+// ResetCommentID resets all changes to the "comment_id" field.
+func (m *ProjectUpdateCommentRevisionMutation) ResetCommentID() {
+	m.comment = nil
+}
+
+// SetRevisionNumber sets the "revision_number" field.
+func (m *ProjectUpdateCommentRevisionMutation) SetRevisionNumber(i int) {
+	m.revision_number = &i
+	m.addrevision_number = nil
+}
+
+// RevisionNumber returns the value of the "revision_number" field in the mutation.
+func (m *ProjectUpdateCommentRevisionMutation) RevisionNumber() (r int, exists bool) {
+	v := m.revision_number
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRevisionNumber returns the old "revision_number" field's value of the ProjectUpdateCommentRevision entity.
+// If the ProjectUpdateCommentRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateCommentRevisionMutation) OldRevisionNumber(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRevisionNumber is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRevisionNumber requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRevisionNumber: %w", err)
+	}
+	return oldValue.RevisionNumber, nil
+}
+
+// AddRevisionNumber adds i to the "revision_number" field.
+func (m *ProjectUpdateCommentRevisionMutation) AddRevisionNumber(i int) {
+	if m.addrevision_number != nil {
+		*m.addrevision_number += i
+	} else {
+		m.addrevision_number = &i
+	}
+}
+
+// AddedRevisionNumber returns the value that was added to the "revision_number" field in this mutation.
+func (m *ProjectUpdateCommentRevisionMutation) AddedRevisionNumber() (r int, exists bool) {
+	v := m.addrevision_number
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRevisionNumber resets all changes to the "revision_number" field.
+func (m *ProjectUpdateCommentRevisionMutation) ResetRevisionNumber() {
+	m.revision_number = nil
+	m.addrevision_number = nil
+}
+
+// SetBodyMarkdown sets the "body_markdown" field.
+func (m *ProjectUpdateCommentRevisionMutation) SetBodyMarkdown(s string) {
+	m.body_markdown = &s
+}
+
+// BodyMarkdown returns the value of the "body_markdown" field in the mutation.
+func (m *ProjectUpdateCommentRevisionMutation) BodyMarkdown() (r string, exists bool) {
+	v := m.body_markdown
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBodyMarkdown returns the old "body_markdown" field's value of the ProjectUpdateCommentRevision entity.
+// If the ProjectUpdateCommentRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateCommentRevisionMutation) OldBodyMarkdown(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBodyMarkdown is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBodyMarkdown requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBodyMarkdown: %w", err)
+	}
+	return oldValue.BodyMarkdown, nil
+}
+
+// ResetBodyMarkdown resets all changes to the "body_markdown" field.
+func (m *ProjectUpdateCommentRevisionMutation) ResetBodyMarkdown() {
+	m.body_markdown = nil
+}
+
+// SetEditedBy sets the "edited_by" field.
+func (m *ProjectUpdateCommentRevisionMutation) SetEditedBy(s string) {
+	m.edited_by = &s
+}
+
+// EditedBy returns the value of the "edited_by" field in the mutation.
+func (m *ProjectUpdateCommentRevisionMutation) EditedBy() (r string, exists bool) {
+	v := m.edited_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEditedBy returns the old "edited_by" field's value of the ProjectUpdateCommentRevision entity.
+// If the ProjectUpdateCommentRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateCommentRevisionMutation) OldEditedBy(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEditedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEditedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEditedBy: %w", err)
+	}
+	return oldValue.EditedBy, nil
+}
+
+// ResetEditedBy resets all changes to the "edited_by" field.
+func (m *ProjectUpdateCommentRevisionMutation) ResetEditedBy() {
+	m.edited_by = nil
+}
+
+// SetEditedAt sets the "edited_at" field.
+func (m *ProjectUpdateCommentRevisionMutation) SetEditedAt(t time.Time) {
+	m.edited_at = &t
+}
+
+// EditedAt returns the value of the "edited_at" field in the mutation.
+func (m *ProjectUpdateCommentRevisionMutation) EditedAt() (r time.Time, exists bool) {
+	v := m.edited_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEditedAt returns the old "edited_at" field's value of the ProjectUpdateCommentRevision entity.
+// If the ProjectUpdateCommentRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateCommentRevisionMutation) OldEditedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEditedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEditedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEditedAt: %w", err)
+	}
+	return oldValue.EditedAt, nil
+}
+
+// ResetEditedAt resets all changes to the "edited_at" field.
+func (m *ProjectUpdateCommentRevisionMutation) ResetEditedAt() {
+	m.edited_at = nil
+}
+
+// SetEditReason sets the "edit_reason" field.
+func (m *ProjectUpdateCommentRevisionMutation) SetEditReason(s string) {
+	m.edit_reason = &s
+}
+
+// EditReason returns the value of the "edit_reason" field in the mutation.
+func (m *ProjectUpdateCommentRevisionMutation) EditReason() (r string, exists bool) {
+	v := m.edit_reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEditReason returns the old "edit_reason" field's value of the ProjectUpdateCommentRevision entity.
+// If the ProjectUpdateCommentRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateCommentRevisionMutation) OldEditReason(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEditReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEditReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEditReason: %w", err)
+	}
+	return oldValue.EditReason, nil
+}
+
+// ClearEditReason clears the value of the "edit_reason" field.
+func (m *ProjectUpdateCommentRevisionMutation) ClearEditReason() {
+	m.edit_reason = nil
+	m.clearedFields[projectupdatecommentrevision.FieldEditReason] = struct{}{}
+}
+
+// EditReasonCleared returns if the "edit_reason" field was cleared in this mutation.
+func (m *ProjectUpdateCommentRevisionMutation) EditReasonCleared() bool {
+	_, ok := m.clearedFields[projectupdatecommentrevision.FieldEditReason]
+	return ok
+}
+
+// ResetEditReason resets all changes to the "edit_reason" field.
+func (m *ProjectUpdateCommentRevisionMutation) ResetEditReason() {
+	m.edit_reason = nil
+	delete(m.clearedFields, projectupdatecommentrevision.FieldEditReason)
+}
+
+// ClearComment clears the "comment" edge to the ProjectUpdateComment entity.
+func (m *ProjectUpdateCommentRevisionMutation) ClearComment() {
+	m.clearedcomment = true
+	m.clearedFields[projectupdatecommentrevision.FieldCommentID] = struct{}{}
+}
+
+// CommentCleared reports if the "comment" edge to the ProjectUpdateComment entity was cleared.
+func (m *ProjectUpdateCommentRevisionMutation) CommentCleared() bool {
+	return m.clearedcomment
+}
+
+// CommentIDs returns the "comment" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// CommentID instead. It exists only for internal usage by the builders.
+func (m *ProjectUpdateCommentRevisionMutation) CommentIDs() (ids []uuid.UUID) {
+	if id := m.comment; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetComment resets all changes to the "comment" edge.
+func (m *ProjectUpdateCommentRevisionMutation) ResetComment() {
+	m.comment = nil
+	m.clearedcomment = false
+}
+
+// Where appends a list predicates to the ProjectUpdateCommentRevisionMutation builder.
+func (m *ProjectUpdateCommentRevisionMutation) Where(ps ...predicate.ProjectUpdateCommentRevision) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ProjectUpdateCommentRevisionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ProjectUpdateCommentRevisionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ProjectUpdateCommentRevision, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ProjectUpdateCommentRevisionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ProjectUpdateCommentRevisionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ProjectUpdateCommentRevision).
+func (m *ProjectUpdateCommentRevisionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ProjectUpdateCommentRevisionMutation) Fields() []string {
+	fields := make([]string, 0, 6)
+	if m.comment != nil {
+		fields = append(fields, projectupdatecommentrevision.FieldCommentID)
+	}
+	if m.revision_number != nil {
+		fields = append(fields, projectupdatecommentrevision.FieldRevisionNumber)
+	}
+	if m.body_markdown != nil {
+		fields = append(fields, projectupdatecommentrevision.FieldBodyMarkdown)
+	}
+	if m.edited_by != nil {
+		fields = append(fields, projectupdatecommentrevision.FieldEditedBy)
+	}
+	if m.edited_at != nil {
+		fields = append(fields, projectupdatecommentrevision.FieldEditedAt)
+	}
+	if m.edit_reason != nil {
+		fields = append(fields, projectupdatecommentrevision.FieldEditReason)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ProjectUpdateCommentRevisionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case projectupdatecommentrevision.FieldCommentID:
+		return m.CommentID()
+	case projectupdatecommentrevision.FieldRevisionNumber:
+		return m.RevisionNumber()
+	case projectupdatecommentrevision.FieldBodyMarkdown:
+		return m.BodyMarkdown()
+	case projectupdatecommentrevision.FieldEditedBy:
+		return m.EditedBy()
+	case projectupdatecommentrevision.FieldEditedAt:
+		return m.EditedAt()
+	case projectupdatecommentrevision.FieldEditReason:
+		return m.EditReason()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ProjectUpdateCommentRevisionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case projectupdatecommentrevision.FieldCommentID:
+		return m.OldCommentID(ctx)
+	case projectupdatecommentrevision.FieldRevisionNumber:
+		return m.OldRevisionNumber(ctx)
+	case projectupdatecommentrevision.FieldBodyMarkdown:
+		return m.OldBodyMarkdown(ctx)
+	case projectupdatecommentrevision.FieldEditedBy:
+		return m.OldEditedBy(ctx)
+	case projectupdatecommentrevision.FieldEditedAt:
+		return m.OldEditedAt(ctx)
+	case projectupdatecommentrevision.FieldEditReason:
+		return m.OldEditReason(ctx)
+	}
+	return nil, fmt.Errorf("unknown ProjectUpdateCommentRevision field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectUpdateCommentRevisionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case projectupdatecommentrevision.FieldCommentID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCommentID(v)
+		return nil
+	case projectupdatecommentrevision.FieldRevisionNumber:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRevisionNumber(v)
+		return nil
+	case projectupdatecommentrevision.FieldBodyMarkdown:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBodyMarkdown(v)
+		return nil
+	case projectupdatecommentrevision.FieldEditedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEditedBy(v)
+		return nil
+	case projectupdatecommentrevision.FieldEditedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEditedAt(v)
+		return nil
+	case projectupdatecommentrevision.FieldEditReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEditReason(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateCommentRevision field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ProjectUpdateCommentRevisionMutation) AddedFields() []string {
+	var fields []string
+	if m.addrevision_number != nil {
+		fields = append(fields, projectupdatecommentrevision.FieldRevisionNumber)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ProjectUpdateCommentRevisionMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case projectupdatecommentrevision.FieldRevisionNumber:
+		return m.AddedRevisionNumber()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectUpdateCommentRevisionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case projectupdatecommentrevision.FieldRevisionNumber:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRevisionNumber(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateCommentRevision numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ProjectUpdateCommentRevisionMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(projectupdatecommentrevision.FieldEditReason) {
+		fields = append(fields, projectupdatecommentrevision.FieldEditReason)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ProjectUpdateCommentRevisionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ProjectUpdateCommentRevisionMutation) ClearField(name string) error {
+	switch name {
+	case projectupdatecommentrevision.FieldEditReason:
+		m.ClearEditReason()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateCommentRevision nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ProjectUpdateCommentRevisionMutation) ResetField(name string) error {
+	switch name {
+	case projectupdatecommentrevision.FieldCommentID:
+		m.ResetCommentID()
+		return nil
+	case projectupdatecommentrevision.FieldRevisionNumber:
+		m.ResetRevisionNumber()
+		return nil
+	case projectupdatecommentrevision.FieldBodyMarkdown:
+		m.ResetBodyMarkdown()
+		return nil
+	case projectupdatecommentrevision.FieldEditedBy:
+		m.ResetEditedBy()
+		return nil
+	case projectupdatecommentrevision.FieldEditedAt:
+		m.ResetEditedAt()
+		return nil
+	case projectupdatecommentrevision.FieldEditReason:
+		m.ResetEditReason()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateCommentRevision field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ProjectUpdateCommentRevisionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.comment != nil {
+		edges = append(edges, projectupdatecommentrevision.EdgeComment)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ProjectUpdateCommentRevisionMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case projectupdatecommentrevision.EdgeComment:
+		if id := m.comment; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ProjectUpdateCommentRevisionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ProjectUpdateCommentRevisionMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ProjectUpdateCommentRevisionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedcomment {
+		edges = append(edges, projectupdatecommentrevision.EdgeComment)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ProjectUpdateCommentRevisionMutation) EdgeCleared(name string) bool {
+	switch name {
+	case projectupdatecommentrevision.EdgeComment:
+		return m.clearedcomment
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ProjectUpdateCommentRevisionMutation) ClearEdge(name string) error {
+	switch name {
+	case projectupdatecommentrevision.EdgeComment:
+		m.ClearComment()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateCommentRevision unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ProjectUpdateCommentRevisionMutation) ResetEdge(name string) error {
+	switch name {
+	case projectupdatecommentrevision.EdgeComment:
+		m.ResetComment()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateCommentRevision edge %s", name)
+}
+
+// ProjectUpdateThreadMutation represents an operation that mutates the ProjectUpdateThread nodes in the graph.
+type ProjectUpdateThreadMutation struct {
+	config
+	op               Op
+	typ              string
+	id               *uuid.UUID
+	status           *projectupdatethread.Status
+	title            *string
+	body_markdown    *string
+	created_by       *string
+	created_at       *time.Time
+	updated_at       *time.Time
+	edited_at        *time.Time
+	edit_count       *int
+	addedit_count    *int
+	last_edited_by   *string
+	is_deleted       *bool
+	deleted_at       *time.Time
+	deleted_by       *string
+	last_activity_at *time.Time
+	comment_count    *int
+	addcomment_count *int
+	clearedFields    map[string]struct{}
+	project          *uuid.UUID
+	clearedproject   bool
+	revisions        map[uuid.UUID]struct{}
+	removedrevisions map[uuid.UUID]struct{}
+	clearedrevisions bool
+	comments         map[uuid.UUID]struct{}
+	removedcomments  map[uuid.UUID]struct{}
+	clearedcomments  bool
+	done             bool
+	oldValue         func(context.Context) (*ProjectUpdateThread, error)
+	predicates       []predicate.ProjectUpdateThread
+}
+
+var _ ent.Mutation = (*ProjectUpdateThreadMutation)(nil)
+
+// projectupdatethreadOption allows management of the mutation configuration using functional options.
+type projectupdatethreadOption func(*ProjectUpdateThreadMutation)
+
+// newProjectUpdateThreadMutation creates new mutation for the ProjectUpdateThread entity.
+func newProjectUpdateThreadMutation(c config, op Op, opts ...projectupdatethreadOption) *ProjectUpdateThreadMutation {
+	m := &ProjectUpdateThreadMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeProjectUpdateThread,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withProjectUpdateThreadID sets the ID field of the mutation.
+func withProjectUpdateThreadID(id uuid.UUID) projectupdatethreadOption {
+	return func(m *ProjectUpdateThreadMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ProjectUpdateThread
+		)
+		m.oldValue = func(ctx context.Context) (*ProjectUpdateThread, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ProjectUpdateThread.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withProjectUpdateThread sets the old ProjectUpdateThread of the mutation.
+func withProjectUpdateThread(node *ProjectUpdateThread) projectupdatethreadOption {
+	return func(m *ProjectUpdateThreadMutation) {
+		m.oldValue = func(context.Context) (*ProjectUpdateThread, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ProjectUpdateThreadMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ProjectUpdateThreadMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ProjectUpdateThread entities.
+func (m *ProjectUpdateThreadMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ProjectUpdateThreadMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ProjectUpdateThreadMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ProjectUpdateThread.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetProjectID sets the "project_id" field.
+func (m *ProjectUpdateThreadMutation) SetProjectID(u uuid.UUID) {
+	m.project = &u
+}
+
+// ProjectID returns the value of the "project_id" field in the mutation.
+func (m *ProjectUpdateThreadMutation) ProjectID() (r uuid.UUID, exists bool) {
+	v := m.project
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectID returns the old "project_id" field's value of the ProjectUpdateThread entity.
+// If the ProjectUpdateThread object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadMutation) OldProjectID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectID: %w", err)
+	}
+	return oldValue.ProjectID, nil
+}
+
+// ResetProjectID resets all changes to the "project_id" field.
+func (m *ProjectUpdateThreadMutation) ResetProjectID() {
+	m.project = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *ProjectUpdateThreadMutation) SetStatus(pr projectupdatethread.Status) {
+	m.status = &pr
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *ProjectUpdateThreadMutation) Status() (r projectupdatethread.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the ProjectUpdateThread entity.
+// If the ProjectUpdateThread object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadMutation) OldStatus(ctx context.Context) (v projectupdatethread.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *ProjectUpdateThreadMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetTitle sets the "title" field.
+func (m *ProjectUpdateThreadMutation) SetTitle(s string) {
+	m.title = &s
+}
+
+// Title returns the value of the "title" field in the mutation.
+func (m *ProjectUpdateThreadMutation) Title() (r string, exists bool) {
+	v := m.title
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTitle returns the old "title" field's value of the ProjectUpdateThread entity.
+// If the ProjectUpdateThread object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadMutation) OldTitle(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTitle is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTitle requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTitle: %w", err)
+	}
+	return oldValue.Title, nil
+}
+
+// ResetTitle resets all changes to the "title" field.
+func (m *ProjectUpdateThreadMutation) ResetTitle() {
+	m.title = nil
+}
+
+// SetBodyMarkdown sets the "body_markdown" field.
+func (m *ProjectUpdateThreadMutation) SetBodyMarkdown(s string) {
+	m.body_markdown = &s
+}
+
+// BodyMarkdown returns the value of the "body_markdown" field in the mutation.
+func (m *ProjectUpdateThreadMutation) BodyMarkdown() (r string, exists bool) {
+	v := m.body_markdown
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBodyMarkdown returns the old "body_markdown" field's value of the ProjectUpdateThread entity.
+// If the ProjectUpdateThread object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadMutation) OldBodyMarkdown(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBodyMarkdown is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBodyMarkdown requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBodyMarkdown: %w", err)
+	}
+	return oldValue.BodyMarkdown, nil
+}
+
+// ResetBodyMarkdown resets all changes to the "body_markdown" field.
+func (m *ProjectUpdateThreadMutation) ResetBodyMarkdown() {
+	m.body_markdown = nil
+}
+
+// SetCreatedBy sets the "created_by" field.
+func (m *ProjectUpdateThreadMutation) SetCreatedBy(s string) {
+	m.created_by = &s
+}
+
+// CreatedBy returns the value of the "created_by" field in the mutation.
+func (m *ProjectUpdateThreadMutation) CreatedBy() (r string, exists bool) {
+	v := m.created_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedBy returns the old "created_by" field's value of the ProjectUpdateThread entity.
+// If the ProjectUpdateThread object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadMutation) OldCreatedBy(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedBy: %w", err)
+	}
+	return oldValue.CreatedBy, nil
+}
+
+// ResetCreatedBy resets all changes to the "created_by" field.
+func (m *ProjectUpdateThreadMutation) ResetCreatedBy() {
+	m.created_by = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ProjectUpdateThreadMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ProjectUpdateThreadMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ProjectUpdateThread entity.
+// If the ProjectUpdateThread object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ProjectUpdateThreadMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *ProjectUpdateThreadMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *ProjectUpdateThreadMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the ProjectUpdateThread entity.
+// If the ProjectUpdateThread object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *ProjectUpdateThreadMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetEditedAt sets the "edited_at" field.
+func (m *ProjectUpdateThreadMutation) SetEditedAt(t time.Time) {
+	m.edited_at = &t
+}
+
+// EditedAt returns the value of the "edited_at" field in the mutation.
+func (m *ProjectUpdateThreadMutation) EditedAt() (r time.Time, exists bool) {
+	v := m.edited_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEditedAt returns the old "edited_at" field's value of the ProjectUpdateThread entity.
+// If the ProjectUpdateThread object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadMutation) OldEditedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEditedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEditedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEditedAt: %w", err)
+	}
+	return oldValue.EditedAt, nil
+}
+
+// ClearEditedAt clears the value of the "edited_at" field.
+func (m *ProjectUpdateThreadMutation) ClearEditedAt() {
+	m.edited_at = nil
+	m.clearedFields[projectupdatethread.FieldEditedAt] = struct{}{}
+}
+
+// EditedAtCleared returns if the "edited_at" field was cleared in this mutation.
+func (m *ProjectUpdateThreadMutation) EditedAtCleared() bool {
+	_, ok := m.clearedFields[projectupdatethread.FieldEditedAt]
+	return ok
+}
+
+// ResetEditedAt resets all changes to the "edited_at" field.
+func (m *ProjectUpdateThreadMutation) ResetEditedAt() {
+	m.edited_at = nil
+	delete(m.clearedFields, projectupdatethread.FieldEditedAt)
+}
+
+// SetEditCount sets the "edit_count" field.
+func (m *ProjectUpdateThreadMutation) SetEditCount(i int) {
+	m.edit_count = &i
+	m.addedit_count = nil
+}
+
+// EditCount returns the value of the "edit_count" field in the mutation.
+func (m *ProjectUpdateThreadMutation) EditCount() (r int, exists bool) {
+	v := m.edit_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEditCount returns the old "edit_count" field's value of the ProjectUpdateThread entity.
+// If the ProjectUpdateThread object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadMutation) OldEditCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEditCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEditCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEditCount: %w", err)
+	}
+	return oldValue.EditCount, nil
+}
+
+// AddEditCount adds i to the "edit_count" field.
+func (m *ProjectUpdateThreadMutation) AddEditCount(i int) {
+	if m.addedit_count != nil {
+		*m.addedit_count += i
+	} else {
+		m.addedit_count = &i
+	}
+}
+
+// AddedEditCount returns the value that was added to the "edit_count" field in this mutation.
+func (m *ProjectUpdateThreadMutation) AddedEditCount() (r int, exists bool) {
+	v := m.addedit_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetEditCount resets all changes to the "edit_count" field.
+func (m *ProjectUpdateThreadMutation) ResetEditCount() {
+	m.edit_count = nil
+	m.addedit_count = nil
+}
+
+// SetLastEditedBy sets the "last_edited_by" field.
+func (m *ProjectUpdateThreadMutation) SetLastEditedBy(s string) {
+	m.last_edited_by = &s
+}
+
+// LastEditedBy returns the value of the "last_edited_by" field in the mutation.
+func (m *ProjectUpdateThreadMutation) LastEditedBy() (r string, exists bool) {
+	v := m.last_edited_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastEditedBy returns the old "last_edited_by" field's value of the ProjectUpdateThread entity.
+// If the ProjectUpdateThread object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadMutation) OldLastEditedBy(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastEditedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastEditedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastEditedBy: %w", err)
+	}
+	return oldValue.LastEditedBy, nil
+}
+
+// ClearLastEditedBy clears the value of the "last_edited_by" field.
+func (m *ProjectUpdateThreadMutation) ClearLastEditedBy() {
+	m.last_edited_by = nil
+	m.clearedFields[projectupdatethread.FieldLastEditedBy] = struct{}{}
+}
+
+// LastEditedByCleared returns if the "last_edited_by" field was cleared in this mutation.
+func (m *ProjectUpdateThreadMutation) LastEditedByCleared() bool {
+	_, ok := m.clearedFields[projectupdatethread.FieldLastEditedBy]
+	return ok
+}
+
+// ResetLastEditedBy resets all changes to the "last_edited_by" field.
+func (m *ProjectUpdateThreadMutation) ResetLastEditedBy() {
+	m.last_edited_by = nil
+	delete(m.clearedFields, projectupdatethread.FieldLastEditedBy)
+}
+
+// SetIsDeleted sets the "is_deleted" field.
+func (m *ProjectUpdateThreadMutation) SetIsDeleted(b bool) {
+	m.is_deleted = &b
+}
+
+// IsDeleted returns the value of the "is_deleted" field in the mutation.
+func (m *ProjectUpdateThreadMutation) IsDeleted() (r bool, exists bool) {
+	v := m.is_deleted
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsDeleted returns the old "is_deleted" field's value of the ProjectUpdateThread entity.
+// If the ProjectUpdateThread object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadMutation) OldIsDeleted(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsDeleted is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsDeleted requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsDeleted: %w", err)
+	}
+	return oldValue.IsDeleted, nil
+}
+
+// ResetIsDeleted resets all changes to the "is_deleted" field.
+func (m *ProjectUpdateThreadMutation) ResetIsDeleted() {
+	m.is_deleted = nil
+}
+
+// SetDeletedAt sets the "deleted_at" field.
+func (m *ProjectUpdateThreadMutation) SetDeletedAt(t time.Time) {
+	m.deleted_at = &t
+}
+
+// DeletedAt returns the value of the "deleted_at" field in the mutation.
+func (m *ProjectUpdateThreadMutation) DeletedAt() (r time.Time, exists bool) {
+	v := m.deleted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeletedAt returns the old "deleted_at" field's value of the ProjectUpdateThread entity.
+// If the ProjectUpdateThread object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadMutation) OldDeletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeletedAt: %w", err)
+	}
+	return oldValue.DeletedAt, nil
+}
+
+// ClearDeletedAt clears the value of the "deleted_at" field.
+func (m *ProjectUpdateThreadMutation) ClearDeletedAt() {
+	m.deleted_at = nil
+	m.clearedFields[projectupdatethread.FieldDeletedAt] = struct{}{}
+}
+
+// DeletedAtCleared returns if the "deleted_at" field was cleared in this mutation.
+func (m *ProjectUpdateThreadMutation) DeletedAtCleared() bool {
+	_, ok := m.clearedFields[projectupdatethread.FieldDeletedAt]
+	return ok
+}
+
+// ResetDeletedAt resets all changes to the "deleted_at" field.
+func (m *ProjectUpdateThreadMutation) ResetDeletedAt() {
+	m.deleted_at = nil
+	delete(m.clearedFields, projectupdatethread.FieldDeletedAt)
+}
+
+// SetDeletedBy sets the "deleted_by" field.
+func (m *ProjectUpdateThreadMutation) SetDeletedBy(s string) {
+	m.deleted_by = &s
+}
+
+// DeletedBy returns the value of the "deleted_by" field in the mutation.
+func (m *ProjectUpdateThreadMutation) DeletedBy() (r string, exists bool) {
+	v := m.deleted_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeletedBy returns the old "deleted_by" field's value of the ProjectUpdateThread entity.
+// If the ProjectUpdateThread object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadMutation) OldDeletedBy(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeletedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeletedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeletedBy: %w", err)
+	}
+	return oldValue.DeletedBy, nil
+}
+
+// ClearDeletedBy clears the value of the "deleted_by" field.
+func (m *ProjectUpdateThreadMutation) ClearDeletedBy() {
+	m.deleted_by = nil
+	m.clearedFields[projectupdatethread.FieldDeletedBy] = struct{}{}
+}
+
+// DeletedByCleared returns if the "deleted_by" field was cleared in this mutation.
+func (m *ProjectUpdateThreadMutation) DeletedByCleared() bool {
+	_, ok := m.clearedFields[projectupdatethread.FieldDeletedBy]
+	return ok
+}
+
+// ResetDeletedBy resets all changes to the "deleted_by" field.
+func (m *ProjectUpdateThreadMutation) ResetDeletedBy() {
+	m.deleted_by = nil
+	delete(m.clearedFields, projectupdatethread.FieldDeletedBy)
+}
+
+// SetLastActivityAt sets the "last_activity_at" field.
+func (m *ProjectUpdateThreadMutation) SetLastActivityAt(t time.Time) {
+	m.last_activity_at = &t
+}
+
+// LastActivityAt returns the value of the "last_activity_at" field in the mutation.
+func (m *ProjectUpdateThreadMutation) LastActivityAt() (r time.Time, exists bool) {
+	v := m.last_activity_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastActivityAt returns the old "last_activity_at" field's value of the ProjectUpdateThread entity.
+// If the ProjectUpdateThread object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadMutation) OldLastActivityAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastActivityAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastActivityAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastActivityAt: %w", err)
+	}
+	return oldValue.LastActivityAt, nil
+}
+
+// ResetLastActivityAt resets all changes to the "last_activity_at" field.
+func (m *ProjectUpdateThreadMutation) ResetLastActivityAt() {
+	m.last_activity_at = nil
+}
+
+// SetCommentCount sets the "comment_count" field.
+func (m *ProjectUpdateThreadMutation) SetCommentCount(i int) {
+	m.comment_count = &i
+	m.addcomment_count = nil
+}
+
+// CommentCount returns the value of the "comment_count" field in the mutation.
+func (m *ProjectUpdateThreadMutation) CommentCount() (r int, exists bool) {
+	v := m.comment_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCommentCount returns the old "comment_count" field's value of the ProjectUpdateThread entity.
+// If the ProjectUpdateThread object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadMutation) OldCommentCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCommentCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCommentCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCommentCount: %w", err)
+	}
+	return oldValue.CommentCount, nil
+}
+
+// AddCommentCount adds i to the "comment_count" field.
+func (m *ProjectUpdateThreadMutation) AddCommentCount(i int) {
+	if m.addcomment_count != nil {
+		*m.addcomment_count += i
+	} else {
+		m.addcomment_count = &i
+	}
+}
+
+// AddedCommentCount returns the value that was added to the "comment_count" field in this mutation.
+func (m *ProjectUpdateThreadMutation) AddedCommentCount() (r int, exists bool) {
+	v := m.addcomment_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCommentCount resets all changes to the "comment_count" field.
+func (m *ProjectUpdateThreadMutation) ResetCommentCount() {
+	m.comment_count = nil
+	m.addcomment_count = nil
+}
+
+// ClearProject clears the "project" edge to the Project entity.
+func (m *ProjectUpdateThreadMutation) ClearProject() {
+	m.clearedproject = true
+	m.clearedFields[projectupdatethread.FieldProjectID] = struct{}{}
+}
+
+// ProjectCleared reports if the "project" edge to the Project entity was cleared.
+func (m *ProjectUpdateThreadMutation) ProjectCleared() bool {
+	return m.clearedproject
+}
+
+// ProjectIDs returns the "project" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ProjectID instead. It exists only for internal usage by the builders.
+func (m *ProjectUpdateThreadMutation) ProjectIDs() (ids []uuid.UUID) {
+	if id := m.project; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetProject resets all changes to the "project" edge.
+func (m *ProjectUpdateThreadMutation) ResetProject() {
+	m.project = nil
+	m.clearedproject = false
+}
+
+// AddRevisionIDs adds the "revisions" edge to the ProjectUpdateThreadRevision entity by ids.
+func (m *ProjectUpdateThreadMutation) AddRevisionIDs(ids ...uuid.UUID) {
+	if m.revisions == nil {
+		m.revisions = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.revisions[ids[i]] = struct{}{}
+	}
+}
+
+// ClearRevisions clears the "revisions" edge to the ProjectUpdateThreadRevision entity.
+func (m *ProjectUpdateThreadMutation) ClearRevisions() {
+	m.clearedrevisions = true
+}
+
+// RevisionsCleared reports if the "revisions" edge to the ProjectUpdateThreadRevision entity was cleared.
+func (m *ProjectUpdateThreadMutation) RevisionsCleared() bool {
+	return m.clearedrevisions
+}
+
+// RemoveRevisionIDs removes the "revisions" edge to the ProjectUpdateThreadRevision entity by IDs.
+func (m *ProjectUpdateThreadMutation) RemoveRevisionIDs(ids ...uuid.UUID) {
+	if m.removedrevisions == nil {
+		m.removedrevisions = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.revisions, ids[i])
+		m.removedrevisions[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedRevisions returns the removed IDs of the "revisions" edge to the ProjectUpdateThreadRevision entity.
+func (m *ProjectUpdateThreadMutation) RemovedRevisionsIDs() (ids []uuid.UUID) {
+	for id := range m.removedrevisions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// RevisionsIDs returns the "revisions" edge IDs in the mutation.
+func (m *ProjectUpdateThreadMutation) RevisionsIDs() (ids []uuid.UUID) {
+	for id := range m.revisions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetRevisions resets all changes to the "revisions" edge.
+func (m *ProjectUpdateThreadMutation) ResetRevisions() {
+	m.revisions = nil
+	m.clearedrevisions = false
+	m.removedrevisions = nil
+}
+
+// AddCommentIDs adds the "comments" edge to the ProjectUpdateComment entity by ids.
+func (m *ProjectUpdateThreadMutation) AddCommentIDs(ids ...uuid.UUID) {
+	if m.comments == nil {
+		m.comments = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.comments[ids[i]] = struct{}{}
+	}
+}
+
+// ClearComments clears the "comments" edge to the ProjectUpdateComment entity.
+func (m *ProjectUpdateThreadMutation) ClearComments() {
+	m.clearedcomments = true
+}
+
+// CommentsCleared reports if the "comments" edge to the ProjectUpdateComment entity was cleared.
+func (m *ProjectUpdateThreadMutation) CommentsCleared() bool {
+	return m.clearedcomments
+}
+
+// RemoveCommentIDs removes the "comments" edge to the ProjectUpdateComment entity by IDs.
+func (m *ProjectUpdateThreadMutation) RemoveCommentIDs(ids ...uuid.UUID) {
+	if m.removedcomments == nil {
+		m.removedcomments = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.comments, ids[i])
+		m.removedcomments[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedComments returns the removed IDs of the "comments" edge to the ProjectUpdateComment entity.
+func (m *ProjectUpdateThreadMutation) RemovedCommentsIDs() (ids []uuid.UUID) {
+	for id := range m.removedcomments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CommentsIDs returns the "comments" edge IDs in the mutation.
+func (m *ProjectUpdateThreadMutation) CommentsIDs() (ids []uuid.UUID) {
+	for id := range m.comments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetComments resets all changes to the "comments" edge.
+func (m *ProjectUpdateThreadMutation) ResetComments() {
+	m.comments = nil
+	m.clearedcomments = false
+	m.removedcomments = nil
+}
+
+// Where appends a list predicates to the ProjectUpdateThreadMutation builder.
+func (m *ProjectUpdateThreadMutation) Where(ps ...predicate.ProjectUpdateThread) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ProjectUpdateThreadMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ProjectUpdateThreadMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ProjectUpdateThread, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ProjectUpdateThreadMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ProjectUpdateThreadMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ProjectUpdateThread).
+func (m *ProjectUpdateThreadMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ProjectUpdateThreadMutation) Fields() []string {
+	fields := make([]string, 0, 15)
+	if m.project != nil {
+		fields = append(fields, projectupdatethread.FieldProjectID)
+	}
+	if m.status != nil {
+		fields = append(fields, projectupdatethread.FieldStatus)
+	}
+	if m.title != nil {
+		fields = append(fields, projectupdatethread.FieldTitle)
+	}
+	if m.body_markdown != nil {
+		fields = append(fields, projectupdatethread.FieldBodyMarkdown)
+	}
+	if m.created_by != nil {
+		fields = append(fields, projectupdatethread.FieldCreatedBy)
+	}
+	if m.created_at != nil {
+		fields = append(fields, projectupdatethread.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, projectupdatethread.FieldUpdatedAt)
+	}
+	if m.edited_at != nil {
+		fields = append(fields, projectupdatethread.FieldEditedAt)
+	}
+	if m.edit_count != nil {
+		fields = append(fields, projectupdatethread.FieldEditCount)
+	}
+	if m.last_edited_by != nil {
+		fields = append(fields, projectupdatethread.FieldLastEditedBy)
+	}
+	if m.is_deleted != nil {
+		fields = append(fields, projectupdatethread.FieldIsDeleted)
+	}
+	if m.deleted_at != nil {
+		fields = append(fields, projectupdatethread.FieldDeletedAt)
+	}
+	if m.deleted_by != nil {
+		fields = append(fields, projectupdatethread.FieldDeletedBy)
+	}
+	if m.last_activity_at != nil {
+		fields = append(fields, projectupdatethread.FieldLastActivityAt)
+	}
+	if m.comment_count != nil {
+		fields = append(fields, projectupdatethread.FieldCommentCount)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ProjectUpdateThreadMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case projectupdatethread.FieldProjectID:
+		return m.ProjectID()
+	case projectupdatethread.FieldStatus:
+		return m.Status()
+	case projectupdatethread.FieldTitle:
+		return m.Title()
+	case projectupdatethread.FieldBodyMarkdown:
+		return m.BodyMarkdown()
+	case projectupdatethread.FieldCreatedBy:
+		return m.CreatedBy()
+	case projectupdatethread.FieldCreatedAt:
+		return m.CreatedAt()
+	case projectupdatethread.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case projectupdatethread.FieldEditedAt:
+		return m.EditedAt()
+	case projectupdatethread.FieldEditCount:
+		return m.EditCount()
+	case projectupdatethread.FieldLastEditedBy:
+		return m.LastEditedBy()
+	case projectupdatethread.FieldIsDeleted:
+		return m.IsDeleted()
+	case projectupdatethread.FieldDeletedAt:
+		return m.DeletedAt()
+	case projectupdatethread.FieldDeletedBy:
+		return m.DeletedBy()
+	case projectupdatethread.FieldLastActivityAt:
+		return m.LastActivityAt()
+	case projectupdatethread.FieldCommentCount:
+		return m.CommentCount()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ProjectUpdateThreadMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case projectupdatethread.FieldProjectID:
+		return m.OldProjectID(ctx)
+	case projectupdatethread.FieldStatus:
+		return m.OldStatus(ctx)
+	case projectupdatethread.FieldTitle:
+		return m.OldTitle(ctx)
+	case projectupdatethread.FieldBodyMarkdown:
+		return m.OldBodyMarkdown(ctx)
+	case projectupdatethread.FieldCreatedBy:
+		return m.OldCreatedBy(ctx)
+	case projectupdatethread.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case projectupdatethread.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case projectupdatethread.FieldEditedAt:
+		return m.OldEditedAt(ctx)
+	case projectupdatethread.FieldEditCount:
+		return m.OldEditCount(ctx)
+	case projectupdatethread.FieldLastEditedBy:
+		return m.OldLastEditedBy(ctx)
+	case projectupdatethread.FieldIsDeleted:
+		return m.OldIsDeleted(ctx)
+	case projectupdatethread.FieldDeletedAt:
+		return m.OldDeletedAt(ctx)
+	case projectupdatethread.FieldDeletedBy:
+		return m.OldDeletedBy(ctx)
+	case projectupdatethread.FieldLastActivityAt:
+		return m.OldLastActivityAt(ctx)
+	case projectupdatethread.FieldCommentCount:
+		return m.OldCommentCount(ctx)
+	}
+	return nil, fmt.Errorf("unknown ProjectUpdateThread field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectUpdateThreadMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case projectupdatethread.FieldProjectID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectID(v)
+		return nil
+	case projectupdatethread.FieldStatus:
+		v, ok := value.(projectupdatethread.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case projectupdatethread.FieldTitle:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTitle(v)
+		return nil
+	case projectupdatethread.FieldBodyMarkdown:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBodyMarkdown(v)
+		return nil
+	case projectupdatethread.FieldCreatedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedBy(v)
+		return nil
+	case projectupdatethread.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case projectupdatethread.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case projectupdatethread.FieldEditedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEditedAt(v)
+		return nil
+	case projectupdatethread.FieldEditCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEditCount(v)
+		return nil
+	case projectupdatethread.FieldLastEditedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastEditedBy(v)
+		return nil
+	case projectupdatethread.FieldIsDeleted:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsDeleted(v)
+		return nil
+	case projectupdatethread.FieldDeletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeletedAt(v)
+		return nil
+	case projectupdatethread.FieldDeletedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeletedBy(v)
+		return nil
+	case projectupdatethread.FieldLastActivityAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastActivityAt(v)
+		return nil
+	case projectupdatethread.FieldCommentCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCommentCount(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateThread field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ProjectUpdateThreadMutation) AddedFields() []string {
+	var fields []string
+	if m.addedit_count != nil {
+		fields = append(fields, projectupdatethread.FieldEditCount)
+	}
+	if m.addcomment_count != nil {
+		fields = append(fields, projectupdatethread.FieldCommentCount)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ProjectUpdateThreadMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case projectupdatethread.FieldEditCount:
+		return m.AddedEditCount()
+	case projectupdatethread.FieldCommentCount:
+		return m.AddedCommentCount()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectUpdateThreadMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case projectupdatethread.FieldEditCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddEditCount(v)
+		return nil
+	case projectupdatethread.FieldCommentCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCommentCount(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateThread numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ProjectUpdateThreadMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(projectupdatethread.FieldEditedAt) {
+		fields = append(fields, projectupdatethread.FieldEditedAt)
+	}
+	if m.FieldCleared(projectupdatethread.FieldLastEditedBy) {
+		fields = append(fields, projectupdatethread.FieldLastEditedBy)
+	}
+	if m.FieldCleared(projectupdatethread.FieldDeletedAt) {
+		fields = append(fields, projectupdatethread.FieldDeletedAt)
+	}
+	if m.FieldCleared(projectupdatethread.FieldDeletedBy) {
+		fields = append(fields, projectupdatethread.FieldDeletedBy)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ProjectUpdateThreadMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ProjectUpdateThreadMutation) ClearField(name string) error {
+	switch name {
+	case projectupdatethread.FieldEditedAt:
+		m.ClearEditedAt()
+		return nil
+	case projectupdatethread.FieldLastEditedBy:
+		m.ClearLastEditedBy()
+		return nil
+	case projectupdatethread.FieldDeletedAt:
+		m.ClearDeletedAt()
+		return nil
+	case projectupdatethread.FieldDeletedBy:
+		m.ClearDeletedBy()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateThread nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ProjectUpdateThreadMutation) ResetField(name string) error {
+	switch name {
+	case projectupdatethread.FieldProjectID:
+		m.ResetProjectID()
+		return nil
+	case projectupdatethread.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case projectupdatethread.FieldTitle:
+		m.ResetTitle()
+		return nil
+	case projectupdatethread.FieldBodyMarkdown:
+		m.ResetBodyMarkdown()
+		return nil
+	case projectupdatethread.FieldCreatedBy:
+		m.ResetCreatedBy()
+		return nil
+	case projectupdatethread.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case projectupdatethread.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case projectupdatethread.FieldEditedAt:
+		m.ResetEditedAt()
+		return nil
+	case projectupdatethread.FieldEditCount:
+		m.ResetEditCount()
+		return nil
+	case projectupdatethread.FieldLastEditedBy:
+		m.ResetLastEditedBy()
+		return nil
+	case projectupdatethread.FieldIsDeleted:
+		m.ResetIsDeleted()
+		return nil
+	case projectupdatethread.FieldDeletedAt:
+		m.ResetDeletedAt()
+		return nil
+	case projectupdatethread.FieldDeletedBy:
+		m.ResetDeletedBy()
+		return nil
+	case projectupdatethread.FieldLastActivityAt:
+		m.ResetLastActivityAt()
+		return nil
+	case projectupdatethread.FieldCommentCount:
+		m.ResetCommentCount()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateThread field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ProjectUpdateThreadMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.project != nil {
+		edges = append(edges, projectupdatethread.EdgeProject)
+	}
+	if m.revisions != nil {
+		edges = append(edges, projectupdatethread.EdgeRevisions)
+	}
+	if m.comments != nil {
+		edges = append(edges, projectupdatethread.EdgeComments)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ProjectUpdateThreadMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case projectupdatethread.EdgeProject:
+		if id := m.project; id != nil {
+			return []ent.Value{*id}
+		}
+	case projectupdatethread.EdgeRevisions:
+		ids := make([]ent.Value, 0, len(m.revisions))
+		for id := range m.revisions {
+			ids = append(ids, id)
+		}
+		return ids
+	case projectupdatethread.EdgeComments:
+		ids := make([]ent.Value, 0, len(m.comments))
+		for id := range m.comments {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ProjectUpdateThreadMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.removedrevisions != nil {
+		edges = append(edges, projectupdatethread.EdgeRevisions)
+	}
+	if m.removedcomments != nil {
+		edges = append(edges, projectupdatethread.EdgeComments)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ProjectUpdateThreadMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case projectupdatethread.EdgeRevisions:
+		ids := make([]ent.Value, 0, len(m.removedrevisions))
+		for id := range m.removedrevisions {
+			ids = append(ids, id)
+		}
+		return ids
+	case projectupdatethread.EdgeComments:
+		ids := make([]ent.Value, 0, len(m.removedcomments))
+		for id := range m.removedcomments {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ProjectUpdateThreadMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.clearedproject {
+		edges = append(edges, projectupdatethread.EdgeProject)
+	}
+	if m.clearedrevisions {
+		edges = append(edges, projectupdatethread.EdgeRevisions)
+	}
+	if m.clearedcomments {
+		edges = append(edges, projectupdatethread.EdgeComments)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ProjectUpdateThreadMutation) EdgeCleared(name string) bool {
+	switch name {
+	case projectupdatethread.EdgeProject:
+		return m.clearedproject
+	case projectupdatethread.EdgeRevisions:
+		return m.clearedrevisions
+	case projectupdatethread.EdgeComments:
+		return m.clearedcomments
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ProjectUpdateThreadMutation) ClearEdge(name string) error {
+	switch name {
+	case projectupdatethread.EdgeProject:
+		m.ClearProject()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateThread unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ProjectUpdateThreadMutation) ResetEdge(name string) error {
+	switch name {
+	case projectupdatethread.EdgeProject:
+		m.ResetProject()
+		return nil
+	case projectupdatethread.EdgeRevisions:
+		m.ResetRevisions()
+		return nil
+	case projectupdatethread.EdgeComments:
+		m.ResetComments()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateThread edge %s", name)
+}
+
+// ProjectUpdateThreadRevisionMutation represents an operation that mutates the ProjectUpdateThreadRevision nodes in the graph.
+type ProjectUpdateThreadRevisionMutation struct {
+	config
+	op                 Op
+	typ                string
+	id                 *uuid.UUID
+	revision_number    *int
+	addrevision_number *int
+	status             *projectupdatethreadrevision.Status
+	title              *string
+	body_markdown      *string
+	edited_by          *string
+	edited_at          *time.Time
+	edit_reason        *string
+	clearedFields      map[string]struct{}
+	thread             *uuid.UUID
+	clearedthread      bool
+	done               bool
+	oldValue           func(context.Context) (*ProjectUpdateThreadRevision, error)
+	predicates         []predicate.ProjectUpdateThreadRevision
+}
+
+var _ ent.Mutation = (*ProjectUpdateThreadRevisionMutation)(nil)
+
+// projectupdatethreadrevisionOption allows management of the mutation configuration using functional options.
+type projectupdatethreadrevisionOption func(*ProjectUpdateThreadRevisionMutation)
+
+// newProjectUpdateThreadRevisionMutation creates new mutation for the ProjectUpdateThreadRevision entity.
+func newProjectUpdateThreadRevisionMutation(c config, op Op, opts ...projectupdatethreadrevisionOption) *ProjectUpdateThreadRevisionMutation {
+	m := &ProjectUpdateThreadRevisionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeProjectUpdateThreadRevision,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withProjectUpdateThreadRevisionID sets the ID field of the mutation.
+func withProjectUpdateThreadRevisionID(id uuid.UUID) projectupdatethreadrevisionOption {
+	return func(m *ProjectUpdateThreadRevisionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ProjectUpdateThreadRevision
+		)
+		m.oldValue = func(ctx context.Context) (*ProjectUpdateThreadRevision, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ProjectUpdateThreadRevision.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withProjectUpdateThreadRevision sets the old ProjectUpdateThreadRevision of the mutation.
+func withProjectUpdateThreadRevision(node *ProjectUpdateThreadRevision) projectupdatethreadrevisionOption {
+	return func(m *ProjectUpdateThreadRevisionMutation) {
+		m.oldValue = func(context.Context) (*ProjectUpdateThreadRevision, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ProjectUpdateThreadRevisionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ProjectUpdateThreadRevisionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ProjectUpdateThreadRevision entities.
+func (m *ProjectUpdateThreadRevisionMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ProjectUpdateThreadRevisionMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ProjectUpdateThreadRevisionMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ProjectUpdateThreadRevision.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetThreadID sets the "thread_id" field.
+func (m *ProjectUpdateThreadRevisionMutation) SetThreadID(u uuid.UUID) {
+	m.thread = &u
+}
+
+// ThreadID returns the value of the "thread_id" field in the mutation.
+func (m *ProjectUpdateThreadRevisionMutation) ThreadID() (r uuid.UUID, exists bool) {
+	v := m.thread
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldThreadID returns the old "thread_id" field's value of the ProjectUpdateThreadRevision entity.
+// If the ProjectUpdateThreadRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadRevisionMutation) OldThreadID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldThreadID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldThreadID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldThreadID: %w", err)
+	}
+	return oldValue.ThreadID, nil
+}
+
+// ResetThreadID resets all changes to the "thread_id" field.
+func (m *ProjectUpdateThreadRevisionMutation) ResetThreadID() {
+	m.thread = nil
+}
+
+// SetRevisionNumber sets the "revision_number" field.
+func (m *ProjectUpdateThreadRevisionMutation) SetRevisionNumber(i int) {
+	m.revision_number = &i
+	m.addrevision_number = nil
+}
+
+// RevisionNumber returns the value of the "revision_number" field in the mutation.
+func (m *ProjectUpdateThreadRevisionMutation) RevisionNumber() (r int, exists bool) {
+	v := m.revision_number
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRevisionNumber returns the old "revision_number" field's value of the ProjectUpdateThreadRevision entity.
+// If the ProjectUpdateThreadRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadRevisionMutation) OldRevisionNumber(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRevisionNumber is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRevisionNumber requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRevisionNumber: %w", err)
+	}
+	return oldValue.RevisionNumber, nil
+}
+
+// AddRevisionNumber adds i to the "revision_number" field.
+func (m *ProjectUpdateThreadRevisionMutation) AddRevisionNumber(i int) {
+	if m.addrevision_number != nil {
+		*m.addrevision_number += i
+	} else {
+		m.addrevision_number = &i
+	}
+}
+
+// AddedRevisionNumber returns the value that was added to the "revision_number" field in this mutation.
+func (m *ProjectUpdateThreadRevisionMutation) AddedRevisionNumber() (r int, exists bool) {
+	v := m.addrevision_number
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRevisionNumber resets all changes to the "revision_number" field.
+func (m *ProjectUpdateThreadRevisionMutation) ResetRevisionNumber() {
+	m.revision_number = nil
+	m.addrevision_number = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *ProjectUpdateThreadRevisionMutation) SetStatus(pr projectupdatethreadrevision.Status) {
+	m.status = &pr
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *ProjectUpdateThreadRevisionMutation) Status() (r projectupdatethreadrevision.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the ProjectUpdateThreadRevision entity.
+// If the ProjectUpdateThreadRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadRevisionMutation) OldStatus(ctx context.Context) (v projectupdatethreadrevision.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *ProjectUpdateThreadRevisionMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetTitle sets the "title" field.
+func (m *ProjectUpdateThreadRevisionMutation) SetTitle(s string) {
+	m.title = &s
+}
+
+// Title returns the value of the "title" field in the mutation.
+func (m *ProjectUpdateThreadRevisionMutation) Title() (r string, exists bool) {
+	v := m.title
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTitle returns the old "title" field's value of the ProjectUpdateThreadRevision entity.
+// If the ProjectUpdateThreadRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadRevisionMutation) OldTitle(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTitle is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTitle requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTitle: %w", err)
+	}
+	return oldValue.Title, nil
+}
+
+// ResetTitle resets all changes to the "title" field.
+func (m *ProjectUpdateThreadRevisionMutation) ResetTitle() {
+	m.title = nil
+}
+
+// SetBodyMarkdown sets the "body_markdown" field.
+func (m *ProjectUpdateThreadRevisionMutation) SetBodyMarkdown(s string) {
+	m.body_markdown = &s
+}
+
+// BodyMarkdown returns the value of the "body_markdown" field in the mutation.
+func (m *ProjectUpdateThreadRevisionMutation) BodyMarkdown() (r string, exists bool) {
+	v := m.body_markdown
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBodyMarkdown returns the old "body_markdown" field's value of the ProjectUpdateThreadRevision entity.
+// If the ProjectUpdateThreadRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadRevisionMutation) OldBodyMarkdown(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBodyMarkdown is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBodyMarkdown requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBodyMarkdown: %w", err)
+	}
+	return oldValue.BodyMarkdown, nil
+}
+
+// ResetBodyMarkdown resets all changes to the "body_markdown" field.
+func (m *ProjectUpdateThreadRevisionMutation) ResetBodyMarkdown() {
+	m.body_markdown = nil
+}
+
+// SetEditedBy sets the "edited_by" field.
+func (m *ProjectUpdateThreadRevisionMutation) SetEditedBy(s string) {
+	m.edited_by = &s
+}
+
+// EditedBy returns the value of the "edited_by" field in the mutation.
+func (m *ProjectUpdateThreadRevisionMutation) EditedBy() (r string, exists bool) {
+	v := m.edited_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEditedBy returns the old "edited_by" field's value of the ProjectUpdateThreadRevision entity.
+// If the ProjectUpdateThreadRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadRevisionMutation) OldEditedBy(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEditedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEditedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEditedBy: %w", err)
+	}
+	return oldValue.EditedBy, nil
+}
+
+// ResetEditedBy resets all changes to the "edited_by" field.
+func (m *ProjectUpdateThreadRevisionMutation) ResetEditedBy() {
+	m.edited_by = nil
+}
+
+// SetEditedAt sets the "edited_at" field.
+func (m *ProjectUpdateThreadRevisionMutation) SetEditedAt(t time.Time) {
+	m.edited_at = &t
+}
+
+// EditedAt returns the value of the "edited_at" field in the mutation.
+func (m *ProjectUpdateThreadRevisionMutation) EditedAt() (r time.Time, exists bool) {
+	v := m.edited_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEditedAt returns the old "edited_at" field's value of the ProjectUpdateThreadRevision entity.
+// If the ProjectUpdateThreadRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadRevisionMutation) OldEditedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEditedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEditedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEditedAt: %w", err)
+	}
+	return oldValue.EditedAt, nil
+}
+
+// ResetEditedAt resets all changes to the "edited_at" field.
+func (m *ProjectUpdateThreadRevisionMutation) ResetEditedAt() {
+	m.edited_at = nil
+}
+
+// SetEditReason sets the "edit_reason" field.
+func (m *ProjectUpdateThreadRevisionMutation) SetEditReason(s string) {
+	m.edit_reason = &s
+}
+
+// EditReason returns the value of the "edit_reason" field in the mutation.
+func (m *ProjectUpdateThreadRevisionMutation) EditReason() (r string, exists bool) {
+	v := m.edit_reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEditReason returns the old "edit_reason" field's value of the ProjectUpdateThreadRevision entity.
+// If the ProjectUpdateThreadRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectUpdateThreadRevisionMutation) OldEditReason(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEditReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEditReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEditReason: %w", err)
+	}
+	return oldValue.EditReason, nil
+}
+
+// ClearEditReason clears the value of the "edit_reason" field.
+func (m *ProjectUpdateThreadRevisionMutation) ClearEditReason() {
+	m.edit_reason = nil
+	m.clearedFields[projectupdatethreadrevision.FieldEditReason] = struct{}{}
+}
+
+// EditReasonCleared returns if the "edit_reason" field was cleared in this mutation.
+func (m *ProjectUpdateThreadRevisionMutation) EditReasonCleared() bool {
+	_, ok := m.clearedFields[projectupdatethreadrevision.FieldEditReason]
+	return ok
+}
+
+// ResetEditReason resets all changes to the "edit_reason" field.
+func (m *ProjectUpdateThreadRevisionMutation) ResetEditReason() {
+	m.edit_reason = nil
+	delete(m.clearedFields, projectupdatethreadrevision.FieldEditReason)
+}
+
+// ClearThread clears the "thread" edge to the ProjectUpdateThread entity.
+func (m *ProjectUpdateThreadRevisionMutation) ClearThread() {
+	m.clearedthread = true
+	m.clearedFields[projectupdatethreadrevision.FieldThreadID] = struct{}{}
+}
+
+// ThreadCleared reports if the "thread" edge to the ProjectUpdateThread entity was cleared.
+func (m *ProjectUpdateThreadRevisionMutation) ThreadCleared() bool {
+	return m.clearedthread
+}
+
+// ThreadIDs returns the "thread" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ThreadID instead. It exists only for internal usage by the builders.
+func (m *ProjectUpdateThreadRevisionMutation) ThreadIDs() (ids []uuid.UUID) {
+	if id := m.thread; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetThread resets all changes to the "thread" edge.
+func (m *ProjectUpdateThreadRevisionMutation) ResetThread() {
+	m.thread = nil
+	m.clearedthread = false
+}
+
+// Where appends a list predicates to the ProjectUpdateThreadRevisionMutation builder.
+func (m *ProjectUpdateThreadRevisionMutation) Where(ps ...predicate.ProjectUpdateThreadRevision) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ProjectUpdateThreadRevisionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ProjectUpdateThreadRevisionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ProjectUpdateThreadRevision, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ProjectUpdateThreadRevisionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ProjectUpdateThreadRevisionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ProjectUpdateThreadRevision).
+func (m *ProjectUpdateThreadRevisionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ProjectUpdateThreadRevisionMutation) Fields() []string {
+	fields := make([]string, 0, 8)
+	if m.thread != nil {
+		fields = append(fields, projectupdatethreadrevision.FieldThreadID)
+	}
+	if m.revision_number != nil {
+		fields = append(fields, projectupdatethreadrevision.FieldRevisionNumber)
+	}
+	if m.status != nil {
+		fields = append(fields, projectupdatethreadrevision.FieldStatus)
+	}
+	if m.title != nil {
+		fields = append(fields, projectupdatethreadrevision.FieldTitle)
+	}
+	if m.body_markdown != nil {
+		fields = append(fields, projectupdatethreadrevision.FieldBodyMarkdown)
+	}
+	if m.edited_by != nil {
+		fields = append(fields, projectupdatethreadrevision.FieldEditedBy)
+	}
+	if m.edited_at != nil {
+		fields = append(fields, projectupdatethreadrevision.FieldEditedAt)
+	}
+	if m.edit_reason != nil {
+		fields = append(fields, projectupdatethreadrevision.FieldEditReason)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ProjectUpdateThreadRevisionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case projectupdatethreadrevision.FieldThreadID:
+		return m.ThreadID()
+	case projectupdatethreadrevision.FieldRevisionNumber:
+		return m.RevisionNumber()
+	case projectupdatethreadrevision.FieldStatus:
+		return m.Status()
+	case projectupdatethreadrevision.FieldTitle:
+		return m.Title()
+	case projectupdatethreadrevision.FieldBodyMarkdown:
+		return m.BodyMarkdown()
+	case projectupdatethreadrevision.FieldEditedBy:
+		return m.EditedBy()
+	case projectupdatethreadrevision.FieldEditedAt:
+		return m.EditedAt()
+	case projectupdatethreadrevision.FieldEditReason:
+		return m.EditReason()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ProjectUpdateThreadRevisionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case projectupdatethreadrevision.FieldThreadID:
+		return m.OldThreadID(ctx)
+	case projectupdatethreadrevision.FieldRevisionNumber:
+		return m.OldRevisionNumber(ctx)
+	case projectupdatethreadrevision.FieldStatus:
+		return m.OldStatus(ctx)
+	case projectupdatethreadrevision.FieldTitle:
+		return m.OldTitle(ctx)
+	case projectupdatethreadrevision.FieldBodyMarkdown:
+		return m.OldBodyMarkdown(ctx)
+	case projectupdatethreadrevision.FieldEditedBy:
+		return m.OldEditedBy(ctx)
+	case projectupdatethreadrevision.FieldEditedAt:
+		return m.OldEditedAt(ctx)
+	case projectupdatethreadrevision.FieldEditReason:
+		return m.OldEditReason(ctx)
+	}
+	return nil, fmt.Errorf("unknown ProjectUpdateThreadRevision field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectUpdateThreadRevisionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case projectupdatethreadrevision.FieldThreadID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetThreadID(v)
+		return nil
+	case projectupdatethreadrevision.FieldRevisionNumber:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRevisionNumber(v)
+		return nil
+	case projectupdatethreadrevision.FieldStatus:
+		v, ok := value.(projectupdatethreadrevision.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case projectupdatethreadrevision.FieldTitle:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTitle(v)
+		return nil
+	case projectupdatethreadrevision.FieldBodyMarkdown:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBodyMarkdown(v)
+		return nil
+	case projectupdatethreadrevision.FieldEditedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEditedBy(v)
+		return nil
+	case projectupdatethreadrevision.FieldEditedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEditedAt(v)
+		return nil
+	case projectupdatethreadrevision.FieldEditReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEditReason(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateThreadRevision field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ProjectUpdateThreadRevisionMutation) AddedFields() []string {
+	var fields []string
+	if m.addrevision_number != nil {
+		fields = append(fields, projectupdatethreadrevision.FieldRevisionNumber)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ProjectUpdateThreadRevisionMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case projectupdatethreadrevision.FieldRevisionNumber:
+		return m.AddedRevisionNumber()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectUpdateThreadRevisionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case projectupdatethreadrevision.FieldRevisionNumber:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRevisionNumber(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateThreadRevision numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ProjectUpdateThreadRevisionMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(projectupdatethreadrevision.FieldEditReason) {
+		fields = append(fields, projectupdatethreadrevision.FieldEditReason)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ProjectUpdateThreadRevisionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ProjectUpdateThreadRevisionMutation) ClearField(name string) error {
+	switch name {
+	case projectupdatethreadrevision.FieldEditReason:
+		m.ClearEditReason()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateThreadRevision nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ProjectUpdateThreadRevisionMutation) ResetField(name string) error {
+	switch name {
+	case projectupdatethreadrevision.FieldThreadID:
+		m.ResetThreadID()
+		return nil
+	case projectupdatethreadrevision.FieldRevisionNumber:
+		m.ResetRevisionNumber()
+		return nil
+	case projectupdatethreadrevision.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case projectupdatethreadrevision.FieldTitle:
+		m.ResetTitle()
+		return nil
+	case projectupdatethreadrevision.FieldBodyMarkdown:
+		m.ResetBodyMarkdown()
+		return nil
+	case projectupdatethreadrevision.FieldEditedBy:
+		m.ResetEditedBy()
+		return nil
+	case projectupdatethreadrevision.FieldEditedAt:
+		m.ResetEditedAt()
+		return nil
+	case projectupdatethreadrevision.FieldEditReason:
+		m.ResetEditReason()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateThreadRevision field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ProjectUpdateThreadRevisionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.thread != nil {
+		edges = append(edges, projectupdatethreadrevision.EdgeThread)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ProjectUpdateThreadRevisionMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case projectupdatethreadrevision.EdgeThread:
+		if id := m.thread; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ProjectUpdateThreadRevisionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ProjectUpdateThreadRevisionMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ProjectUpdateThreadRevisionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedthread {
+		edges = append(edges, projectupdatethreadrevision.EdgeThread)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ProjectUpdateThreadRevisionMutation) EdgeCleared(name string) bool {
+	switch name {
+	case projectupdatethreadrevision.EdgeThread:
+		return m.clearedthread
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ProjectUpdateThreadRevisionMutation) ClearEdge(name string) error {
+	switch name {
+	case projectupdatethreadrevision.EdgeThread:
+		m.ClearThread()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateThreadRevision unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ProjectUpdateThreadRevisionMutation) ResetEdge(name string) error {
+	switch name {
+	case projectupdatethreadrevision.EdgeThread:
+		m.ResetThread()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectUpdateThreadRevision edge %s", name)
 }
 
 // ScheduledJobMutation represents an operation that mutates the ScheduledJob nodes in the graph.

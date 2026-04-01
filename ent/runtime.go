@@ -22,6 +22,10 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
+	"github.com/BetterAndBetterII/openase/ent/projectupdatecomment"
+	"github.com/BetterAndBetterII/openase/ent/projectupdatecommentrevision"
+	"github.com/BetterAndBetterII/openase/ent/projectupdatethread"
+	"github.com/BetterAndBetterII/openase/ent/projectupdatethreadrevision"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/schema"
 	"github.com/BetterAndBetterII/openase/ent/skill"
@@ -448,6 +452,130 @@ func init() {
 	projectrepoDescID := projectrepoFields[0].Descriptor()
 	// projectrepo.DefaultID holds the default value on creation for the id field.
 	projectrepo.DefaultID = projectrepoDescID.Default.(func() uuid.UUID)
+	projectupdatecommentFields := schema.ProjectUpdateComment{}.Fields()
+	_ = projectupdatecommentFields
+	// projectupdatecommentDescBodyMarkdown is the schema descriptor for body_markdown field.
+	projectupdatecommentDescBodyMarkdown := projectupdatecommentFields[2].Descriptor()
+	// projectupdatecomment.BodyMarkdownValidator is a validator for the "body_markdown" field. It is called by the builders before save.
+	projectupdatecomment.BodyMarkdownValidator = projectupdatecommentDescBodyMarkdown.Validators[0].(func(string) error)
+	// projectupdatecommentDescCreatedBy is the schema descriptor for created_by field.
+	projectupdatecommentDescCreatedBy := projectupdatecommentFields[3].Descriptor()
+	// projectupdatecomment.CreatedByValidator is a validator for the "created_by" field. It is called by the builders before save.
+	projectupdatecomment.CreatedByValidator = projectupdatecommentDescCreatedBy.Validators[0].(func(string) error)
+	// projectupdatecommentDescCreatedAt is the schema descriptor for created_at field.
+	projectupdatecommentDescCreatedAt := projectupdatecommentFields[4].Descriptor()
+	// projectupdatecomment.DefaultCreatedAt holds the default value on creation for the created_at field.
+	projectupdatecomment.DefaultCreatedAt = projectupdatecommentDescCreatedAt.Default.(func() time.Time)
+	// projectupdatecommentDescUpdatedAt is the schema descriptor for updated_at field.
+	projectupdatecommentDescUpdatedAt := projectupdatecommentFields[5].Descriptor()
+	// projectupdatecomment.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	projectupdatecomment.DefaultUpdatedAt = projectupdatecommentDescUpdatedAt.Default.(func() time.Time)
+	// projectupdatecomment.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	projectupdatecomment.UpdateDefaultUpdatedAt = projectupdatecommentDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// projectupdatecommentDescEditCount is the schema descriptor for edit_count field.
+	projectupdatecommentDescEditCount := projectupdatecommentFields[7].Descriptor()
+	// projectupdatecomment.DefaultEditCount holds the default value on creation for the edit_count field.
+	projectupdatecomment.DefaultEditCount = projectupdatecommentDescEditCount.Default.(int)
+	// projectupdatecommentDescIsDeleted is the schema descriptor for is_deleted field.
+	projectupdatecommentDescIsDeleted := projectupdatecommentFields[9].Descriptor()
+	// projectupdatecomment.DefaultIsDeleted holds the default value on creation for the is_deleted field.
+	projectupdatecomment.DefaultIsDeleted = projectupdatecommentDescIsDeleted.Default.(bool)
+	// projectupdatecommentDescID is the schema descriptor for id field.
+	projectupdatecommentDescID := projectupdatecommentFields[0].Descriptor()
+	// projectupdatecomment.DefaultID holds the default value on creation for the id field.
+	projectupdatecomment.DefaultID = projectupdatecommentDescID.Default.(func() uuid.UUID)
+	projectupdatecommentrevisionFields := schema.ProjectUpdateCommentRevision{}.Fields()
+	_ = projectupdatecommentrevisionFields
+	// projectupdatecommentrevisionDescRevisionNumber is the schema descriptor for revision_number field.
+	projectupdatecommentrevisionDescRevisionNumber := projectupdatecommentrevisionFields[2].Descriptor()
+	// projectupdatecommentrevision.RevisionNumberValidator is a validator for the "revision_number" field. It is called by the builders before save.
+	projectupdatecommentrevision.RevisionNumberValidator = projectupdatecommentrevisionDescRevisionNumber.Validators[0].(func(int) error)
+	// projectupdatecommentrevisionDescBodyMarkdown is the schema descriptor for body_markdown field.
+	projectupdatecommentrevisionDescBodyMarkdown := projectupdatecommentrevisionFields[3].Descriptor()
+	// projectupdatecommentrevision.BodyMarkdownValidator is a validator for the "body_markdown" field. It is called by the builders before save.
+	projectupdatecommentrevision.BodyMarkdownValidator = projectupdatecommentrevisionDescBodyMarkdown.Validators[0].(func(string) error)
+	// projectupdatecommentrevisionDescEditedBy is the schema descriptor for edited_by field.
+	projectupdatecommentrevisionDescEditedBy := projectupdatecommentrevisionFields[4].Descriptor()
+	// projectupdatecommentrevision.EditedByValidator is a validator for the "edited_by" field. It is called by the builders before save.
+	projectupdatecommentrevision.EditedByValidator = projectupdatecommentrevisionDescEditedBy.Validators[0].(func(string) error)
+	// projectupdatecommentrevisionDescEditedAt is the schema descriptor for edited_at field.
+	projectupdatecommentrevisionDescEditedAt := projectupdatecommentrevisionFields[5].Descriptor()
+	// projectupdatecommentrevision.DefaultEditedAt holds the default value on creation for the edited_at field.
+	projectupdatecommentrevision.DefaultEditedAt = projectupdatecommentrevisionDescEditedAt.Default.(func() time.Time)
+	// projectupdatecommentrevisionDescID is the schema descriptor for id field.
+	projectupdatecommentrevisionDescID := projectupdatecommentrevisionFields[0].Descriptor()
+	// projectupdatecommentrevision.DefaultID holds the default value on creation for the id field.
+	projectupdatecommentrevision.DefaultID = projectupdatecommentrevisionDescID.Default.(func() uuid.UUID)
+	projectupdatethreadFields := schema.ProjectUpdateThread{}.Fields()
+	_ = projectupdatethreadFields
+	// projectupdatethreadDescTitle is the schema descriptor for title field.
+	projectupdatethreadDescTitle := projectupdatethreadFields[3].Descriptor()
+	// projectupdatethread.TitleValidator is a validator for the "title" field. It is called by the builders before save.
+	projectupdatethread.TitleValidator = projectupdatethreadDescTitle.Validators[0].(func(string) error)
+	// projectupdatethreadDescBodyMarkdown is the schema descriptor for body_markdown field.
+	projectupdatethreadDescBodyMarkdown := projectupdatethreadFields[4].Descriptor()
+	// projectupdatethread.BodyMarkdownValidator is a validator for the "body_markdown" field. It is called by the builders before save.
+	projectupdatethread.BodyMarkdownValidator = projectupdatethreadDescBodyMarkdown.Validators[0].(func(string) error)
+	// projectupdatethreadDescCreatedBy is the schema descriptor for created_by field.
+	projectupdatethreadDescCreatedBy := projectupdatethreadFields[5].Descriptor()
+	// projectupdatethread.CreatedByValidator is a validator for the "created_by" field. It is called by the builders before save.
+	projectupdatethread.CreatedByValidator = projectupdatethreadDescCreatedBy.Validators[0].(func(string) error)
+	// projectupdatethreadDescCreatedAt is the schema descriptor for created_at field.
+	projectupdatethreadDescCreatedAt := projectupdatethreadFields[6].Descriptor()
+	// projectupdatethread.DefaultCreatedAt holds the default value on creation for the created_at field.
+	projectupdatethread.DefaultCreatedAt = projectupdatethreadDescCreatedAt.Default.(func() time.Time)
+	// projectupdatethreadDescUpdatedAt is the schema descriptor for updated_at field.
+	projectupdatethreadDescUpdatedAt := projectupdatethreadFields[7].Descriptor()
+	// projectupdatethread.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	projectupdatethread.DefaultUpdatedAt = projectupdatethreadDescUpdatedAt.Default.(func() time.Time)
+	// projectupdatethread.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	projectupdatethread.UpdateDefaultUpdatedAt = projectupdatethreadDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// projectupdatethreadDescEditCount is the schema descriptor for edit_count field.
+	projectupdatethreadDescEditCount := projectupdatethreadFields[9].Descriptor()
+	// projectupdatethread.DefaultEditCount holds the default value on creation for the edit_count field.
+	projectupdatethread.DefaultEditCount = projectupdatethreadDescEditCount.Default.(int)
+	// projectupdatethreadDescIsDeleted is the schema descriptor for is_deleted field.
+	projectupdatethreadDescIsDeleted := projectupdatethreadFields[11].Descriptor()
+	// projectupdatethread.DefaultIsDeleted holds the default value on creation for the is_deleted field.
+	projectupdatethread.DefaultIsDeleted = projectupdatethreadDescIsDeleted.Default.(bool)
+	// projectupdatethreadDescLastActivityAt is the schema descriptor for last_activity_at field.
+	projectupdatethreadDescLastActivityAt := projectupdatethreadFields[14].Descriptor()
+	// projectupdatethread.DefaultLastActivityAt holds the default value on creation for the last_activity_at field.
+	projectupdatethread.DefaultLastActivityAt = projectupdatethreadDescLastActivityAt.Default.(func() time.Time)
+	// projectupdatethreadDescCommentCount is the schema descriptor for comment_count field.
+	projectupdatethreadDescCommentCount := projectupdatethreadFields[15].Descriptor()
+	// projectupdatethread.DefaultCommentCount holds the default value on creation for the comment_count field.
+	projectupdatethread.DefaultCommentCount = projectupdatethreadDescCommentCount.Default.(int)
+	// projectupdatethreadDescID is the schema descriptor for id field.
+	projectupdatethreadDescID := projectupdatethreadFields[0].Descriptor()
+	// projectupdatethread.DefaultID holds the default value on creation for the id field.
+	projectupdatethread.DefaultID = projectupdatethreadDescID.Default.(func() uuid.UUID)
+	projectupdatethreadrevisionFields := schema.ProjectUpdateThreadRevision{}.Fields()
+	_ = projectupdatethreadrevisionFields
+	// projectupdatethreadrevisionDescRevisionNumber is the schema descriptor for revision_number field.
+	projectupdatethreadrevisionDescRevisionNumber := projectupdatethreadrevisionFields[2].Descriptor()
+	// projectupdatethreadrevision.RevisionNumberValidator is a validator for the "revision_number" field. It is called by the builders before save.
+	projectupdatethreadrevision.RevisionNumberValidator = projectupdatethreadrevisionDescRevisionNumber.Validators[0].(func(int) error)
+	// projectupdatethreadrevisionDescTitle is the schema descriptor for title field.
+	projectupdatethreadrevisionDescTitle := projectupdatethreadrevisionFields[4].Descriptor()
+	// projectupdatethreadrevision.TitleValidator is a validator for the "title" field. It is called by the builders before save.
+	projectupdatethreadrevision.TitleValidator = projectupdatethreadrevisionDescTitle.Validators[0].(func(string) error)
+	// projectupdatethreadrevisionDescBodyMarkdown is the schema descriptor for body_markdown field.
+	projectupdatethreadrevisionDescBodyMarkdown := projectupdatethreadrevisionFields[5].Descriptor()
+	// projectupdatethreadrevision.BodyMarkdownValidator is a validator for the "body_markdown" field. It is called by the builders before save.
+	projectupdatethreadrevision.BodyMarkdownValidator = projectupdatethreadrevisionDescBodyMarkdown.Validators[0].(func(string) error)
+	// projectupdatethreadrevisionDescEditedBy is the schema descriptor for edited_by field.
+	projectupdatethreadrevisionDescEditedBy := projectupdatethreadrevisionFields[6].Descriptor()
+	// projectupdatethreadrevision.EditedByValidator is a validator for the "edited_by" field. It is called by the builders before save.
+	projectupdatethreadrevision.EditedByValidator = projectupdatethreadrevisionDescEditedBy.Validators[0].(func(string) error)
+	// projectupdatethreadrevisionDescEditedAt is the schema descriptor for edited_at field.
+	projectupdatethreadrevisionDescEditedAt := projectupdatethreadrevisionFields[7].Descriptor()
+	// projectupdatethreadrevision.DefaultEditedAt holds the default value on creation for the edited_at field.
+	projectupdatethreadrevision.DefaultEditedAt = projectupdatethreadrevisionDescEditedAt.Default.(func() time.Time)
+	// projectupdatethreadrevisionDescID is the schema descriptor for id field.
+	projectupdatethreadrevisionDescID := projectupdatethreadrevisionFields[0].Descriptor()
+	// projectupdatethreadrevision.DefaultID holds the default value on creation for the id field.
+	projectupdatethreadrevision.DefaultID = projectupdatethreadrevisionDescID.Default.(func() uuid.UUID)
 	scheduledjobFields := schema.ScheduledJob{}.Fields()
 	_ = scheduledjobFields
 	// scheduledjobDescName is the schema descriptor for name field.

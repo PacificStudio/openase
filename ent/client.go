@@ -33,6 +33,10 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
+	"github.com/BetterAndBetterII/openase/ent/projectupdatecomment"
+	"github.com/BetterAndBetterII/openase/ent/projectupdatecommentrevision"
+	"github.com/BetterAndBetterII/openase/ent/projectupdatethread"
+	"github.com/BetterAndBetterII/openase/ent/projectupdatethreadrevision"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/skillblob"
@@ -90,6 +94,14 @@ type Client struct {
 	Project *ProjectClient
 	// ProjectRepo is the client for interacting with the ProjectRepo builders.
 	ProjectRepo *ProjectRepoClient
+	// ProjectUpdateComment is the client for interacting with the ProjectUpdateComment builders.
+	ProjectUpdateComment *ProjectUpdateCommentClient
+	// ProjectUpdateCommentRevision is the client for interacting with the ProjectUpdateCommentRevision builders.
+	ProjectUpdateCommentRevision *ProjectUpdateCommentRevisionClient
+	// ProjectUpdateThread is the client for interacting with the ProjectUpdateThread builders.
+	ProjectUpdateThread *ProjectUpdateThreadClient
+	// ProjectUpdateThreadRevision is the client for interacting with the ProjectUpdateThreadRevision builders.
+	ProjectUpdateThreadRevision *ProjectUpdateThreadRevisionClient
 	// ScheduledJob is the client for interacting with the ScheduledJob builders.
 	ScheduledJob *ScheduledJobClient
 	// Skill is the client for interacting with the Skill builders.
@@ -150,6 +162,10 @@ func (c *Client) init() {
 	c.Organization = NewOrganizationClient(c.config)
 	c.Project = NewProjectClient(c.config)
 	c.ProjectRepo = NewProjectRepoClient(c.config)
+	c.ProjectUpdateComment = NewProjectUpdateCommentClient(c.config)
+	c.ProjectUpdateCommentRevision = NewProjectUpdateCommentRevisionClient(c.config)
+	c.ProjectUpdateThread = NewProjectUpdateThreadClient(c.config)
+	c.ProjectUpdateThreadRevision = NewProjectUpdateThreadRevisionClient(c.config)
 	c.ScheduledJob = NewScheduledJobClient(c.config)
 	c.Skill = NewSkillClient(c.config)
 	c.SkillBlob = NewSkillBlobClient(c.config)
@@ -256,41 +272,45 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:                   ctx,
-		config:                cfg,
-		ActivityEvent:         NewActivityEventClient(cfg),
-		Agent:                 NewAgentClient(cfg),
-		AgentProvider:         NewAgentProviderClient(cfg),
-		AgentRun:              NewAgentRunClient(cfg),
-		AgentStepEvent:        NewAgentStepEventClient(cfg),
-		AgentToken:            NewAgentTokenClient(cfg),
-		AgentTraceEvent:       NewAgentTraceEventClient(cfg),
-		ChatConversation:      NewChatConversationClient(cfg),
-		ChatEntry:             NewChatEntryClient(cfg),
-		ChatPendingInterrupt:  NewChatPendingInterruptClient(cfg),
-		ChatTurn:              NewChatTurnClient(cfg),
-		Machine:               NewMachineClient(cfg),
-		NotificationChannel:   NewNotificationChannelClient(cfg),
-		NotificationRule:      NewNotificationRuleClient(cfg),
-		Organization:          NewOrganizationClient(cfg),
-		Project:               NewProjectClient(cfg),
-		ProjectRepo:           NewProjectRepoClient(cfg),
-		ScheduledJob:          NewScheduledJobClient(cfg),
-		Skill:                 NewSkillClient(cfg),
-		SkillBlob:             NewSkillBlobClient(cfg),
-		SkillVersion:          NewSkillVersionClient(cfg),
-		SkillVersionFile:      NewSkillVersionFileClient(cfg),
-		Ticket:                NewTicketClient(cfg),
-		TicketComment:         NewTicketCommentClient(cfg),
-		TicketCommentRevision: NewTicketCommentRevisionClient(cfg),
-		TicketDependency:      NewTicketDependencyClient(cfg),
-		TicketExternalLink:    NewTicketExternalLinkClient(cfg),
-		TicketRepoScope:       NewTicketRepoScopeClient(cfg),
-		TicketRepoWorkspace:   NewTicketRepoWorkspaceClient(cfg),
-		TicketStatus:          NewTicketStatusClient(cfg),
-		Workflow:              NewWorkflowClient(cfg),
-		WorkflowSkillBinding:  NewWorkflowSkillBindingClient(cfg),
-		WorkflowVersion:       NewWorkflowVersionClient(cfg),
+		ctx:                          ctx,
+		config:                       cfg,
+		ActivityEvent:                NewActivityEventClient(cfg),
+		Agent:                        NewAgentClient(cfg),
+		AgentProvider:                NewAgentProviderClient(cfg),
+		AgentRun:                     NewAgentRunClient(cfg),
+		AgentStepEvent:               NewAgentStepEventClient(cfg),
+		AgentToken:                   NewAgentTokenClient(cfg),
+		AgentTraceEvent:              NewAgentTraceEventClient(cfg),
+		ChatConversation:             NewChatConversationClient(cfg),
+		ChatEntry:                    NewChatEntryClient(cfg),
+		ChatPendingInterrupt:         NewChatPendingInterruptClient(cfg),
+		ChatTurn:                     NewChatTurnClient(cfg),
+		Machine:                      NewMachineClient(cfg),
+		NotificationChannel:          NewNotificationChannelClient(cfg),
+		NotificationRule:             NewNotificationRuleClient(cfg),
+		Organization:                 NewOrganizationClient(cfg),
+		Project:                      NewProjectClient(cfg),
+		ProjectRepo:                  NewProjectRepoClient(cfg),
+		ProjectUpdateComment:         NewProjectUpdateCommentClient(cfg),
+		ProjectUpdateCommentRevision: NewProjectUpdateCommentRevisionClient(cfg),
+		ProjectUpdateThread:          NewProjectUpdateThreadClient(cfg),
+		ProjectUpdateThreadRevision:  NewProjectUpdateThreadRevisionClient(cfg),
+		ScheduledJob:                 NewScheduledJobClient(cfg),
+		Skill:                        NewSkillClient(cfg),
+		SkillBlob:                    NewSkillBlobClient(cfg),
+		SkillVersion:                 NewSkillVersionClient(cfg),
+		SkillVersionFile:             NewSkillVersionFileClient(cfg),
+		Ticket:                       NewTicketClient(cfg),
+		TicketComment:                NewTicketCommentClient(cfg),
+		TicketCommentRevision:        NewTicketCommentRevisionClient(cfg),
+		TicketDependency:             NewTicketDependencyClient(cfg),
+		TicketExternalLink:           NewTicketExternalLinkClient(cfg),
+		TicketRepoScope:              NewTicketRepoScopeClient(cfg),
+		TicketRepoWorkspace:          NewTicketRepoWorkspaceClient(cfg),
+		TicketStatus:                 NewTicketStatusClient(cfg),
+		Workflow:                     NewWorkflowClient(cfg),
+		WorkflowSkillBinding:         NewWorkflowSkillBindingClient(cfg),
+		WorkflowVersion:              NewWorkflowVersionClient(cfg),
 	}, nil
 }
 
@@ -308,41 +328,45 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:                   ctx,
-		config:                cfg,
-		ActivityEvent:         NewActivityEventClient(cfg),
-		Agent:                 NewAgentClient(cfg),
-		AgentProvider:         NewAgentProviderClient(cfg),
-		AgentRun:              NewAgentRunClient(cfg),
-		AgentStepEvent:        NewAgentStepEventClient(cfg),
-		AgentToken:            NewAgentTokenClient(cfg),
-		AgentTraceEvent:       NewAgentTraceEventClient(cfg),
-		ChatConversation:      NewChatConversationClient(cfg),
-		ChatEntry:             NewChatEntryClient(cfg),
-		ChatPendingInterrupt:  NewChatPendingInterruptClient(cfg),
-		ChatTurn:              NewChatTurnClient(cfg),
-		Machine:               NewMachineClient(cfg),
-		NotificationChannel:   NewNotificationChannelClient(cfg),
-		NotificationRule:      NewNotificationRuleClient(cfg),
-		Organization:          NewOrganizationClient(cfg),
-		Project:               NewProjectClient(cfg),
-		ProjectRepo:           NewProjectRepoClient(cfg),
-		ScheduledJob:          NewScheduledJobClient(cfg),
-		Skill:                 NewSkillClient(cfg),
-		SkillBlob:             NewSkillBlobClient(cfg),
-		SkillVersion:          NewSkillVersionClient(cfg),
-		SkillVersionFile:      NewSkillVersionFileClient(cfg),
-		Ticket:                NewTicketClient(cfg),
-		TicketComment:         NewTicketCommentClient(cfg),
-		TicketCommentRevision: NewTicketCommentRevisionClient(cfg),
-		TicketDependency:      NewTicketDependencyClient(cfg),
-		TicketExternalLink:    NewTicketExternalLinkClient(cfg),
-		TicketRepoScope:       NewTicketRepoScopeClient(cfg),
-		TicketRepoWorkspace:   NewTicketRepoWorkspaceClient(cfg),
-		TicketStatus:          NewTicketStatusClient(cfg),
-		Workflow:              NewWorkflowClient(cfg),
-		WorkflowSkillBinding:  NewWorkflowSkillBindingClient(cfg),
-		WorkflowVersion:       NewWorkflowVersionClient(cfg),
+		ctx:                          ctx,
+		config:                       cfg,
+		ActivityEvent:                NewActivityEventClient(cfg),
+		Agent:                        NewAgentClient(cfg),
+		AgentProvider:                NewAgentProviderClient(cfg),
+		AgentRun:                     NewAgentRunClient(cfg),
+		AgentStepEvent:               NewAgentStepEventClient(cfg),
+		AgentToken:                   NewAgentTokenClient(cfg),
+		AgentTraceEvent:              NewAgentTraceEventClient(cfg),
+		ChatConversation:             NewChatConversationClient(cfg),
+		ChatEntry:                    NewChatEntryClient(cfg),
+		ChatPendingInterrupt:         NewChatPendingInterruptClient(cfg),
+		ChatTurn:                     NewChatTurnClient(cfg),
+		Machine:                      NewMachineClient(cfg),
+		NotificationChannel:          NewNotificationChannelClient(cfg),
+		NotificationRule:             NewNotificationRuleClient(cfg),
+		Organization:                 NewOrganizationClient(cfg),
+		Project:                      NewProjectClient(cfg),
+		ProjectRepo:                  NewProjectRepoClient(cfg),
+		ProjectUpdateComment:         NewProjectUpdateCommentClient(cfg),
+		ProjectUpdateCommentRevision: NewProjectUpdateCommentRevisionClient(cfg),
+		ProjectUpdateThread:          NewProjectUpdateThreadClient(cfg),
+		ProjectUpdateThreadRevision:  NewProjectUpdateThreadRevisionClient(cfg),
+		ScheduledJob:                 NewScheduledJobClient(cfg),
+		Skill:                        NewSkillClient(cfg),
+		SkillBlob:                    NewSkillBlobClient(cfg),
+		SkillVersion:                 NewSkillVersionClient(cfg),
+		SkillVersionFile:             NewSkillVersionFileClient(cfg),
+		Ticket:                       NewTicketClient(cfg),
+		TicketComment:                NewTicketCommentClient(cfg),
+		TicketCommentRevision:        NewTicketCommentRevisionClient(cfg),
+		TicketDependency:             NewTicketDependencyClient(cfg),
+		TicketExternalLink:           NewTicketExternalLinkClient(cfg),
+		TicketRepoScope:              NewTicketRepoScopeClient(cfg),
+		TicketRepoWorkspace:          NewTicketRepoWorkspaceClient(cfg),
+		TicketStatus:                 NewTicketStatusClient(cfg),
+		Workflow:                     NewWorkflowClient(cfg),
+		WorkflowSkillBinding:         NewWorkflowSkillBindingClient(cfg),
+		WorkflowVersion:              NewWorkflowVersionClient(cfg),
 	}, nil
 }
 
@@ -375,11 +399,13 @@ func (c *Client) Use(hooks ...Hook) {
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
 		c.AgentToken, c.AgentTraceEvent, c.ChatConversation, c.ChatEntry,
 		c.ChatPendingInterrupt, c.ChatTurn, c.Machine, c.NotificationChannel,
-		c.NotificationRule, c.Organization, c.Project, c.ProjectRepo, c.ScheduledJob,
-		c.Skill, c.SkillBlob, c.SkillVersion, c.SkillVersionFile, c.Ticket,
-		c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
-		c.TicketExternalLink, c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus,
-		c.Workflow, c.WorkflowSkillBinding, c.WorkflowVersion,
+		c.NotificationRule, c.Organization, c.Project, c.ProjectRepo,
+		c.ProjectUpdateComment, c.ProjectUpdateCommentRevision, c.ProjectUpdateThread,
+		c.ProjectUpdateThreadRevision, c.ScheduledJob, c.Skill, c.SkillBlob,
+		c.SkillVersion, c.SkillVersionFile, c.Ticket, c.TicketComment,
+		c.TicketCommentRevision, c.TicketDependency, c.TicketExternalLink,
+		c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus, c.Workflow,
+		c.WorkflowSkillBinding, c.WorkflowVersion,
 	} {
 		n.Use(hooks...)
 	}
@@ -392,11 +418,13 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
 		c.AgentToken, c.AgentTraceEvent, c.ChatConversation, c.ChatEntry,
 		c.ChatPendingInterrupt, c.ChatTurn, c.Machine, c.NotificationChannel,
-		c.NotificationRule, c.Organization, c.Project, c.ProjectRepo, c.ScheduledJob,
-		c.Skill, c.SkillBlob, c.SkillVersion, c.SkillVersionFile, c.Ticket,
-		c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
-		c.TicketExternalLink, c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus,
-		c.Workflow, c.WorkflowSkillBinding, c.WorkflowVersion,
+		c.NotificationRule, c.Organization, c.Project, c.ProjectRepo,
+		c.ProjectUpdateComment, c.ProjectUpdateCommentRevision, c.ProjectUpdateThread,
+		c.ProjectUpdateThreadRevision, c.ScheduledJob, c.Skill, c.SkillBlob,
+		c.SkillVersion, c.SkillVersionFile, c.Ticket, c.TicketComment,
+		c.TicketCommentRevision, c.TicketDependency, c.TicketExternalLink,
+		c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus, c.Workflow,
+		c.WorkflowSkillBinding, c.WorkflowVersion,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -439,6 +467,14 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Project.mutate(ctx, m)
 	case *ProjectRepoMutation:
 		return c.ProjectRepo.mutate(ctx, m)
+	case *ProjectUpdateCommentMutation:
+		return c.ProjectUpdateComment.mutate(ctx, m)
+	case *ProjectUpdateCommentRevisionMutation:
+		return c.ProjectUpdateCommentRevision.mutate(ctx, m)
+	case *ProjectUpdateThreadMutation:
+		return c.ProjectUpdateThread.mutate(ctx, m)
+	case *ProjectUpdateThreadRevisionMutation:
+		return c.ProjectUpdateThreadRevision.mutate(ctx, m)
 	case *ScheduledJobMutation:
 		return c.ScheduledJob.mutate(ctx, m)
 	case *SkillMutation:
@@ -3731,6 +3767,22 @@ func (c *ProjectClient) QueryActivityEvents(_m *Project) *ActivityEventQuery {
 	return query
 }
 
+// QueryUpdateThreads queries the update_threads edge of a Project.
+func (c *ProjectClient) QueryUpdateThreads(_m *Project) *ProjectUpdateThreadQuery {
+	query := (&ProjectUpdateThreadClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, id),
+			sqlgraph.To(projectupdatethread.Table, projectupdatethread.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.UpdateThreadsTable, project.UpdateThreadsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryChatConversations queries the chat_conversations edge of a Project.
 func (c *ProjectClient) QueryChatConversations(_m *Project) *ChatConversationQuery {
 	query := (&ChatConversationClient{config: c.config}).Query()
@@ -3982,6 +4034,650 @@ func (c *ProjectRepoClient) mutate(ctx context.Context, m *ProjectRepoMutation) 
 		return (&ProjectRepoDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown ProjectRepo mutation op: %q", m.Op())
+	}
+}
+
+// ProjectUpdateCommentClient is a client for the ProjectUpdateComment schema.
+type ProjectUpdateCommentClient struct {
+	config
+}
+
+// NewProjectUpdateCommentClient returns a client for the ProjectUpdateComment from the given config.
+func NewProjectUpdateCommentClient(c config) *ProjectUpdateCommentClient {
+	return &ProjectUpdateCommentClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `projectupdatecomment.Hooks(f(g(h())))`.
+func (c *ProjectUpdateCommentClient) Use(hooks ...Hook) {
+	c.hooks.ProjectUpdateComment = append(c.hooks.ProjectUpdateComment, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `projectupdatecomment.Intercept(f(g(h())))`.
+func (c *ProjectUpdateCommentClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ProjectUpdateComment = append(c.inters.ProjectUpdateComment, interceptors...)
+}
+
+// Create returns a builder for creating a ProjectUpdateComment entity.
+func (c *ProjectUpdateCommentClient) Create() *ProjectUpdateCommentCreate {
+	mutation := newProjectUpdateCommentMutation(c.config, OpCreate)
+	return &ProjectUpdateCommentCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ProjectUpdateComment entities.
+func (c *ProjectUpdateCommentClient) CreateBulk(builders ...*ProjectUpdateCommentCreate) *ProjectUpdateCommentCreateBulk {
+	return &ProjectUpdateCommentCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ProjectUpdateCommentClient) MapCreateBulk(slice any, setFunc func(*ProjectUpdateCommentCreate, int)) *ProjectUpdateCommentCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ProjectUpdateCommentCreateBulk{err: fmt.Errorf("calling to ProjectUpdateCommentClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ProjectUpdateCommentCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ProjectUpdateCommentCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ProjectUpdateComment.
+func (c *ProjectUpdateCommentClient) Update() *ProjectUpdateCommentUpdate {
+	mutation := newProjectUpdateCommentMutation(c.config, OpUpdate)
+	return &ProjectUpdateCommentUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ProjectUpdateCommentClient) UpdateOne(_m *ProjectUpdateComment) *ProjectUpdateCommentUpdateOne {
+	mutation := newProjectUpdateCommentMutation(c.config, OpUpdateOne, withProjectUpdateComment(_m))
+	return &ProjectUpdateCommentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ProjectUpdateCommentClient) UpdateOneID(id uuid.UUID) *ProjectUpdateCommentUpdateOne {
+	mutation := newProjectUpdateCommentMutation(c.config, OpUpdateOne, withProjectUpdateCommentID(id))
+	return &ProjectUpdateCommentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ProjectUpdateComment.
+func (c *ProjectUpdateCommentClient) Delete() *ProjectUpdateCommentDelete {
+	mutation := newProjectUpdateCommentMutation(c.config, OpDelete)
+	return &ProjectUpdateCommentDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ProjectUpdateCommentClient) DeleteOne(_m *ProjectUpdateComment) *ProjectUpdateCommentDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ProjectUpdateCommentClient) DeleteOneID(id uuid.UUID) *ProjectUpdateCommentDeleteOne {
+	builder := c.Delete().Where(projectupdatecomment.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ProjectUpdateCommentDeleteOne{builder}
+}
+
+// Query returns a query builder for ProjectUpdateComment.
+func (c *ProjectUpdateCommentClient) Query() *ProjectUpdateCommentQuery {
+	return &ProjectUpdateCommentQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeProjectUpdateComment},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ProjectUpdateComment entity by its id.
+func (c *ProjectUpdateCommentClient) Get(ctx context.Context, id uuid.UUID) (*ProjectUpdateComment, error) {
+	return c.Query().Where(projectupdatecomment.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ProjectUpdateCommentClient) GetX(ctx context.Context, id uuid.UUID) *ProjectUpdateComment {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryThread queries the thread edge of a ProjectUpdateComment.
+func (c *ProjectUpdateCommentClient) QueryThread(_m *ProjectUpdateComment) *ProjectUpdateThreadQuery {
+	query := (&ProjectUpdateThreadClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(projectupdatecomment.Table, projectupdatecomment.FieldID, id),
+			sqlgraph.To(projectupdatethread.Table, projectupdatethread.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, projectupdatecomment.ThreadTable, projectupdatecomment.ThreadColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRevisions queries the revisions edge of a ProjectUpdateComment.
+func (c *ProjectUpdateCommentClient) QueryRevisions(_m *ProjectUpdateComment) *ProjectUpdateCommentRevisionQuery {
+	query := (&ProjectUpdateCommentRevisionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(projectupdatecomment.Table, projectupdatecomment.FieldID, id),
+			sqlgraph.To(projectupdatecommentrevision.Table, projectupdatecommentrevision.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, projectupdatecomment.RevisionsTable, projectupdatecomment.RevisionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ProjectUpdateCommentClient) Hooks() []Hook {
+	return c.hooks.ProjectUpdateComment
+}
+
+// Interceptors returns the client interceptors.
+func (c *ProjectUpdateCommentClient) Interceptors() []Interceptor {
+	return c.inters.ProjectUpdateComment
+}
+
+func (c *ProjectUpdateCommentClient) mutate(ctx context.Context, m *ProjectUpdateCommentMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ProjectUpdateCommentCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ProjectUpdateCommentUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ProjectUpdateCommentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ProjectUpdateCommentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ProjectUpdateComment mutation op: %q", m.Op())
+	}
+}
+
+// ProjectUpdateCommentRevisionClient is a client for the ProjectUpdateCommentRevision schema.
+type ProjectUpdateCommentRevisionClient struct {
+	config
+}
+
+// NewProjectUpdateCommentRevisionClient returns a client for the ProjectUpdateCommentRevision from the given config.
+func NewProjectUpdateCommentRevisionClient(c config) *ProjectUpdateCommentRevisionClient {
+	return &ProjectUpdateCommentRevisionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `projectupdatecommentrevision.Hooks(f(g(h())))`.
+func (c *ProjectUpdateCommentRevisionClient) Use(hooks ...Hook) {
+	c.hooks.ProjectUpdateCommentRevision = append(c.hooks.ProjectUpdateCommentRevision, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `projectupdatecommentrevision.Intercept(f(g(h())))`.
+func (c *ProjectUpdateCommentRevisionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ProjectUpdateCommentRevision = append(c.inters.ProjectUpdateCommentRevision, interceptors...)
+}
+
+// Create returns a builder for creating a ProjectUpdateCommentRevision entity.
+func (c *ProjectUpdateCommentRevisionClient) Create() *ProjectUpdateCommentRevisionCreate {
+	mutation := newProjectUpdateCommentRevisionMutation(c.config, OpCreate)
+	return &ProjectUpdateCommentRevisionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ProjectUpdateCommentRevision entities.
+func (c *ProjectUpdateCommentRevisionClient) CreateBulk(builders ...*ProjectUpdateCommentRevisionCreate) *ProjectUpdateCommentRevisionCreateBulk {
+	return &ProjectUpdateCommentRevisionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ProjectUpdateCommentRevisionClient) MapCreateBulk(slice any, setFunc func(*ProjectUpdateCommentRevisionCreate, int)) *ProjectUpdateCommentRevisionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ProjectUpdateCommentRevisionCreateBulk{err: fmt.Errorf("calling to ProjectUpdateCommentRevisionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ProjectUpdateCommentRevisionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ProjectUpdateCommentRevisionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ProjectUpdateCommentRevision.
+func (c *ProjectUpdateCommentRevisionClient) Update() *ProjectUpdateCommentRevisionUpdate {
+	mutation := newProjectUpdateCommentRevisionMutation(c.config, OpUpdate)
+	return &ProjectUpdateCommentRevisionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ProjectUpdateCommentRevisionClient) UpdateOne(_m *ProjectUpdateCommentRevision) *ProjectUpdateCommentRevisionUpdateOne {
+	mutation := newProjectUpdateCommentRevisionMutation(c.config, OpUpdateOne, withProjectUpdateCommentRevision(_m))
+	return &ProjectUpdateCommentRevisionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ProjectUpdateCommentRevisionClient) UpdateOneID(id uuid.UUID) *ProjectUpdateCommentRevisionUpdateOne {
+	mutation := newProjectUpdateCommentRevisionMutation(c.config, OpUpdateOne, withProjectUpdateCommentRevisionID(id))
+	return &ProjectUpdateCommentRevisionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ProjectUpdateCommentRevision.
+func (c *ProjectUpdateCommentRevisionClient) Delete() *ProjectUpdateCommentRevisionDelete {
+	mutation := newProjectUpdateCommentRevisionMutation(c.config, OpDelete)
+	return &ProjectUpdateCommentRevisionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ProjectUpdateCommentRevisionClient) DeleteOne(_m *ProjectUpdateCommentRevision) *ProjectUpdateCommentRevisionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ProjectUpdateCommentRevisionClient) DeleteOneID(id uuid.UUID) *ProjectUpdateCommentRevisionDeleteOne {
+	builder := c.Delete().Where(projectupdatecommentrevision.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ProjectUpdateCommentRevisionDeleteOne{builder}
+}
+
+// Query returns a query builder for ProjectUpdateCommentRevision.
+func (c *ProjectUpdateCommentRevisionClient) Query() *ProjectUpdateCommentRevisionQuery {
+	return &ProjectUpdateCommentRevisionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeProjectUpdateCommentRevision},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ProjectUpdateCommentRevision entity by its id.
+func (c *ProjectUpdateCommentRevisionClient) Get(ctx context.Context, id uuid.UUID) (*ProjectUpdateCommentRevision, error) {
+	return c.Query().Where(projectupdatecommentrevision.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ProjectUpdateCommentRevisionClient) GetX(ctx context.Context, id uuid.UUID) *ProjectUpdateCommentRevision {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryComment queries the comment edge of a ProjectUpdateCommentRevision.
+func (c *ProjectUpdateCommentRevisionClient) QueryComment(_m *ProjectUpdateCommentRevision) *ProjectUpdateCommentQuery {
+	query := (&ProjectUpdateCommentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(projectupdatecommentrevision.Table, projectupdatecommentrevision.FieldID, id),
+			sqlgraph.To(projectupdatecomment.Table, projectupdatecomment.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, projectupdatecommentrevision.CommentTable, projectupdatecommentrevision.CommentColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ProjectUpdateCommentRevisionClient) Hooks() []Hook {
+	return c.hooks.ProjectUpdateCommentRevision
+}
+
+// Interceptors returns the client interceptors.
+func (c *ProjectUpdateCommentRevisionClient) Interceptors() []Interceptor {
+	return c.inters.ProjectUpdateCommentRevision
+}
+
+func (c *ProjectUpdateCommentRevisionClient) mutate(ctx context.Context, m *ProjectUpdateCommentRevisionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ProjectUpdateCommentRevisionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ProjectUpdateCommentRevisionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ProjectUpdateCommentRevisionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ProjectUpdateCommentRevisionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ProjectUpdateCommentRevision mutation op: %q", m.Op())
+	}
+}
+
+// ProjectUpdateThreadClient is a client for the ProjectUpdateThread schema.
+type ProjectUpdateThreadClient struct {
+	config
+}
+
+// NewProjectUpdateThreadClient returns a client for the ProjectUpdateThread from the given config.
+func NewProjectUpdateThreadClient(c config) *ProjectUpdateThreadClient {
+	return &ProjectUpdateThreadClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `projectupdatethread.Hooks(f(g(h())))`.
+func (c *ProjectUpdateThreadClient) Use(hooks ...Hook) {
+	c.hooks.ProjectUpdateThread = append(c.hooks.ProjectUpdateThread, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `projectupdatethread.Intercept(f(g(h())))`.
+func (c *ProjectUpdateThreadClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ProjectUpdateThread = append(c.inters.ProjectUpdateThread, interceptors...)
+}
+
+// Create returns a builder for creating a ProjectUpdateThread entity.
+func (c *ProjectUpdateThreadClient) Create() *ProjectUpdateThreadCreate {
+	mutation := newProjectUpdateThreadMutation(c.config, OpCreate)
+	return &ProjectUpdateThreadCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ProjectUpdateThread entities.
+func (c *ProjectUpdateThreadClient) CreateBulk(builders ...*ProjectUpdateThreadCreate) *ProjectUpdateThreadCreateBulk {
+	return &ProjectUpdateThreadCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ProjectUpdateThreadClient) MapCreateBulk(slice any, setFunc func(*ProjectUpdateThreadCreate, int)) *ProjectUpdateThreadCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ProjectUpdateThreadCreateBulk{err: fmt.Errorf("calling to ProjectUpdateThreadClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ProjectUpdateThreadCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ProjectUpdateThreadCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ProjectUpdateThread.
+func (c *ProjectUpdateThreadClient) Update() *ProjectUpdateThreadUpdate {
+	mutation := newProjectUpdateThreadMutation(c.config, OpUpdate)
+	return &ProjectUpdateThreadUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ProjectUpdateThreadClient) UpdateOne(_m *ProjectUpdateThread) *ProjectUpdateThreadUpdateOne {
+	mutation := newProjectUpdateThreadMutation(c.config, OpUpdateOne, withProjectUpdateThread(_m))
+	return &ProjectUpdateThreadUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ProjectUpdateThreadClient) UpdateOneID(id uuid.UUID) *ProjectUpdateThreadUpdateOne {
+	mutation := newProjectUpdateThreadMutation(c.config, OpUpdateOne, withProjectUpdateThreadID(id))
+	return &ProjectUpdateThreadUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ProjectUpdateThread.
+func (c *ProjectUpdateThreadClient) Delete() *ProjectUpdateThreadDelete {
+	mutation := newProjectUpdateThreadMutation(c.config, OpDelete)
+	return &ProjectUpdateThreadDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ProjectUpdateThreadClient) DeleteOne(_m *ProjectUpdateThread) *ProjectUpdateThreadDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ProjectUpdateThreadClient) DeleteOneID(id uuid.UUID) *ProjectUpdateThreadDeleteOne {
+	builder := c.Delete().Where(projectupdatethread.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ProjectUpdateThreadDeleteOne{builder}
+}
+
+// Query returns a query builder for ProjectUpdateThread.
+func (c *ProjectUpdateThreadClient) Query() *ProjectUpdateThreadQuery {
+	return &ProjectUpdateThreadQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeProjectUpdateThread},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ProjectUpdateThread entity by its id.
+func (c *ProjectUpdateThreadClient) Get(ctx context.Context, id uuid.UUID) (*ProjectUpdateThread, error) {
+	return c.Query().Where(projectupdatethread.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ProjectUpdateThreadClient) GetX(ctx context.Context, id uuid.UUID) *ProjectUpdateThread {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryProject queries the project edge of a ProjectUpdateThread.
+func (c *ProjectUpdateThreadClient) QueryProject(_m *ProjectUpdateThread) *ProjectQuery {
+	query := (&ProjectClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(projectupdatethread.Table, projectupdatethread.FieldID, id),
+			sqlgraph.To(project.Table, project.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, projectupdatethread.ProjectTable, projectupdatethread.ProjectColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRevisions queries the revisions edge of a ProjectUpdateThread.
+func (c *ProjectUpdateThreadClient) QueryRevisions(_m *ProjectUpdateThread) *ProjectUpdateThreadRevisionQuery {
+	query := (&ProjectUpdateThreadRevisionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(projectupdatethread.Table, projectupdatethread.FieldID, id),
+			sqlgraph.To(projectupdatethreadrevision.Table, projectupdatethreadrevision.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, projectupdatethread.RevisionsTable, projectupdatethread.RevisionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryComments queries the comments edge of a ProjectUpdateThread.
+func (c *ProjectUpdateThreadClient) QueryComments(_m *ProjectUpdateThread) *ProjectUpdateCommentQuery {
+	query := (&ProjectUpdateCommentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(projectupdatethread.Table, projectupdatethread.FieldID, id),
+			sqlgraph.To(projectupdatecomment.Table, projectupdatecomment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, projectupdatethread.CommentsTable, projectupdatethread.CommentsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ProjectUpdateThreadClient) Hooks() []Hook {
+	return c.hooks.ProjectUpdateThread
+}
+
+// Interceptors returns the client interceptors.
+func (c *ProjectUpdateThreadClient) Interceptors() []Interceptor {
+	return c.inters.ProjectUpdateThread
+}
+
+func (c *ProjectUpdateThreadClient) mutate(ctx context.Context, m *ProjectUpdateThreadMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ProjectUpdateThreadCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ProjectUpdateThreadUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ProjectUpdateThreadUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ProjectUpdateThreadDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ProjectUpdateThread mutation op: %q", m.Op())
+	}
+}
+
+// ProjectUpdateThreadRevisionClient is a client for the ProjectUpdateThreadRevision schema.
+type ProjectUpdateThreadRevisionClient struct {
+	config
+}
+
+// NewProjectUpdateThreadRevisionClient returns a client for the ProjectUpdateThreadRevision from the given config.
+func NewProjectUpdateThreadRevisionClient(c config) *ProjectUpdateThreadRevisionClient {
+	return &ProjectUpdateThreadRevisionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `projectupdatethreadrevision.Hooks(f(g(h())))`.
+func (c *ProjectUpdateThreadRevisionClient) Use(hooks ...Hook) {
+	c.hooks.ProjectUpdateThreadRevision = append(c.hooks.ProjectUpdateThreadRevision, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `projectupdatethreadrevision.Intercept(f(g(h())))`.
+func (c *ProjectUpdateThreadRevisionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ProjectUpdateThreadRevision = append(c.inters.ProjectUpdateThreadRevision, interceptors...)
+}
+
+// Create returns a builder for creating a ProjectUpdateThreadRevision entity.
+func (c *ProjectUpdateThreadRevisionClient) Create() *ProjectUpdateThreadRevisionCreate {
+	mutation := newProjectUpdateThreadRevisionMutation(c.config, OpCreate)
+	return &ProjectUpdateThreadRevisionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ProjectUpdateThreadRevision entities.
+func (c *ProjectUpdateThreadRevisionClient) CreateBulk(builders ...*ProjectUpdateThreadRevisionCreate) *ProjectUpdateThreadRevisionCreateBulk {
+	return &ProjectUpdateThreadRevisionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ProjectUpdateThreadRevisionClient) MapCreateBulk(slice any, setFunc func(*ProjectUpdateThreadRevisionCreate, int)) *ProjectUpdateThreadRevisionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ProjectUpdateThreadRevisionCreateBulk{err: fmt.Errorf("calling to ProjectUpdateThreadRevisionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ProjectUpdateThreadRevisionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ProjectUpdateThreadRevisionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ProjectUpdateThreadRevision.
+func (c *ProjectUpdateThreadRevisionClient) Update() *ProjectUpdateThreadRevisionUpdate {
+	mutation := newProjectUpdateThreadRevisionMutation(c.config, OpUpdate)
+	return &ProjectUpdateThreadRevisionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ProjectUpdateThreadRevisionClient) UpdateOne(_m *ProjectUpdateThreadRevision) *ProjectUpdateThreadRevisionUpdateOne {
+	mutation := newProjectUpdateThreadRevisionMutation(c.config, OpUpdateOne, withProjectUpdateThreadRevision(_m))
+	return &ProjectUpdateThreadRevisionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ProjectUpdateThreadRevisionClient) UpdateOneID(id uuid.UUID) *ProjectUpdateThreadRevisionUpdateOne {
+	mutation := newProjectUpdateThreadRevisionMutation(c.config, OpUpdateOne, withProjectUpdateThreadRevisionID(id))
+	return &ProjectUpdateThreadRevisionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ProjectUpdateThreadRevision.
+func (c *ProjectUpdateThreadRevisionClient) Delete() *ProjectUpdateThreadRevisionDelete {
+	mutation := newProjectUpdateThreadRevisionMutation(c.config, OpDelete)
+	return &ProjectUpdateThreadRevisionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ProjectUpdateThreadRevisionClient) DeleteOne(_m *ProjectUpdateThreadRevision) *ProjectUpdateThreadRevisionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ProjectUpdateThreadRevisionClient) DeleteOneID(id uuid.UUID) *ProjectUpdateThreadRevisionDeleteOne {
+	builder := c.Delete().Where(projectupdatethreadrevision.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ProjectUpdateThreadRevisionDeleteOne{builder}
+}
+
+// Query returns a query builder for ProjectUpdateThreadRevision.
+func (c *ProjectUpdateThreadRevisionClient) Query() *ProjectUpdateThreadRevisionQuery {
+	return &ProjectUpdateThreadRevisionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeProjectUpdateThreadRevision},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ProjectUpdateThreadRevision entity by its id.
+func (c *ProjectUpdateThreadRevisionClient) Get(ctx context.Context, id uuid.UUID) (*ProjectUpdateThreadRevision, error) {
+	return c.Query().Where(projectupdatethreadrevision.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ProjectUpdateThreadRevisionClient) GetX(ctx context.Context, id uuid.UUID) *ProjectUpdateThreadRevision {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryThread queries the thread edge of a ProjectUpdateThreadRevision.
+func (c *ProjectUpdateThreadRevisionClient) QueryThread(_m *ProjectUpdateThreadRevision) *ProjectUpdateThreadQuery {
+	query := (&ProjectUpdateThreadClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(projectupdatethreadrevision.Table, projectupdatethreadrevision.FieldID, id),
+			sqlgraph.To(projectupdatethread.Table, projectupdatethread.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, projectupdatethreadrevision.ThreadTable, projectupdatethreadrevision.ThreadColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ProjectUpdateThreadRevisionClient) Hooks() []Hook {
+	return c.hooks.ProjectUpdateThreadRevision
+}
+
+// Interceptors returns the client interceptors.
+func (c *ProjectUpdateThreadRevisionClient) Interceptors() []Interceptor {
+	return c.inters.ProjectUpdateThreadRevision
+}
+
+func (c *ProjectUpdateThreadRevisionClient) mutate(ctx context.Context, m *ProjectUpdateThreadRevisionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ProjectUpdateThreadRevisionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ProjectUpdateThreadRevisionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ProjectUpdateThreadRevisionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ProjectUpdateThreadRevisionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ProjectUpdateThreadRevision mutation op: %q", m.Op())
 	}
 }
 
@@ -7079,18 +7775,22 @@ type (
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn,
 		Machine, NotificationChannel, NotificationRule, Organization, Project,
-		ProjectRepo, ScheduledJob, Skill, SkillBlob, SkillVersion, SkillVersionFile,
-		Ticket, TicketComment, TicketCommentRevision, TicketDependency,
-		TicketExternalLink, TicketRepoScope, TicketRepoWorkspace, TicketStatus,
-		Workflow, WorkflowSkillBinding, WorkflowVersion []ent.Hook
+		ProjectRepo, ProjectUpdateComment, ProjectUpdateCommentRevision,
+		ProjectUpdateThread, ProjectUpdateThreadRevision, ScheduledJob, Skill,
+		SkillBlob, SkillVersion, SkillVersionFile, Ticket, TicketComment,
+		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
+		TicketRepoWorkspace, TicketStatus, Workflow, WorkflowSkillBinding,
+		WorkflowVersion []ent.Hook
 	}
 	inters struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn,
 		Machine, NotificationChannel, NotificationRule, Organization, Project,
-		ProjectRepo, ScheduledJob, Skill, SkillBlob, SkillVersion, SkillVersionFile,
-		Ticket, TicketComment, TicketCommentRevision, TicketDependency,
-		TicketExternalLink, TicketRepoScope, TicketRepoWorkspace, TicketStatus,
-		Workflow, WorkflowSkillBinding, WorkflowVersion []ent.Interceptor
+		ProjectRepo, ProjectUpdateComment, ProjectUpdateCommentRevision,
+		ProjectUpdateThread, ProjectUpdateThreadRevision, ScheduledJob, Skill,
+		SkillBlob, SkillVersion, SkillVersionFile, Ticket, TicketComment,
+		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
+		TicketRepoWorkspace, TicketStatus, Workflow, WorkflowSkillBinding,
+		WorkflowVersion []ent.Interceptor
 	}
 )

@@ -46,6 +46,14 @@ type Tx struct {
 	Project *ProjectClient
 	// ProjectRepo is the client for interacting with the ProjectRepo builders.
 	ProjectRepo *ProjectRepoClient
+	// ProjectUpdateComment is the client for interacting with the ProjectUpdateComment builders.
+	ProjectUpdateComment *ProjectUpdateCommentClient
+	// ProjectUpdateCommentRevision is the client for interacting with the ProjectUpdateCommentRevision builders.
+	ProjectUpdateCommentRevision *ProjectUpdateCommentRevisionClient
+	// ProjectUpdateThread is the client for interacting with the ProjectUpdateThread builders.
+	ProjectUpdateThread *ProjectUpdateThreadClient
+	// ProjectUpdateThreadRevision is the client for interacting with the ProjectUpdateThreadRevision builders.
+	ProjectUpdateThreadRevision *ProjectUpdateThreadRevisionClient
 	// ScheduledJob is the client for interacting with the ScheduledJob builders.
 	ScheduledJob *ScheduledJobClient
 	// Skill is the client for interacting with the Skill builders.
@@ -226,6 +234,10 @@ func (tx *Tx) init() {
 	tx.Organization = NewOrganizationClient(tx.config)
 	tx.Project = NewProjectClient(tx.config)
 	tx.ProjectRepo = NewProjectRepoClient(tx.config)
+	tx.ProjectUpdateComment = NewProjectUpdateCommentClient(tx.config)
+	tx.ProjectUpdateCommentRevision = NewProjectUpdateCommentRevisionClient(tx.config)
+	tx.ProjectUpdateThread = NewProjectUpdateThreadClient(tx.config)
+	tx.ProjectUpdateThreadRevision = NewProjectUpdateThreadRevisionClient(tx.config)
 	tx.ScheduledJob = NewScheduledJobClient(tx.config)
 	tx.Skill = NewSkillClient(tx.config)
 	tx.SkillBlob = NewSkillBlobClient(tx.config)

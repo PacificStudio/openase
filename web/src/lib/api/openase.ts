@@ -37,6 +37,15 @@ import type {
   NotificationRuleResponse,
   ProjectRepoPayload,
   ProjectArchiveResponse,
+  ProjectUpdateCommentCreateResponse,
+  ProjectUpdateCommentDeleteResponse,
+  ProjectUpdateCommentRevisionListResponse,
+  ProjectUpdateCommentResponse,
+  ProjectUpdateCreateResponse,
+  ProjectUpdatePayload,
+  ProjectUpdateThreadDeleteResponse,
+  ProjectUpdateThreadResponse,
+  ProjectUpdateThreadRevisionListResponse,
   ProjectRepoResponse,
   ProjectCreateResponse,
   ProjectPayload,
@@ -328,6 +337,99 @@ export function listActivity(
   },
 ) {
   return api.get<ActivityPayload>(`/api/v1/projects/${projectId}/activity`, { params })
+}
+
+export function listProjectUpdates(projectId: string) {
+  return api.get<ProjectUpdatePayload>(`/api/v1/projects/${projectId}/updates`)
+}
+
+export function createProjectUpdateThread(
+  projectId: string,
+  body: {
+    status: 'on_track' | 'at_risk' | 'off_track'
+    title: string
+    body: string
+    created_by?: string
+  },
+) {
+  return api.post<ProjectUpdateCreateResponse>(`/api/v1/projects/${projectId}/updates`, { body })
+}
+
+export function updateProjectUpdateThread(
+  projectId: string,
+  threadId: string,
+  body: {
+    status: 'on_track' | 'at_risk' | 'off_track'
+    title: string
+    body: string
+    edited_by?: string
+    edit_reason?: string
+  },
+) {
+  return api.patch<ProjectUpdateThreadResponse>(
+    `/api/v1/projects/${projectId}/updates/${threadId}`,
+    {
+      body,
+    },
+  )
+}
+
+export function deleteProjectUpdateThread(projectId: string, threadId: string) {
+  return api.delete<ProjectUpdateThreadDeleteResponse>(
+    `/api/v1/projects/${projectId}/updates/${threadId}`,
+  )
+}
+
+export function listProjectUpdateThreadRevisions(projectId: string, threadId: string) {
+  return api.get<ProjectUpdateThreadRevisionListResponse>(
+    `/api/v1/projects/${projectId}/updates/${threadId}/revisions`,
+  )
+}
+
+export function createProjectUpdateComment(
+  projectId: string,
+  threadId: string,
+  body: {
+    body: string
+    created_by?: string
+  },
+) {
+  return api.post<ProjectUpdateCommentCreateResponse>(
+    `/api/v1/projects/${projectId}/updates/${threadId}/comments`,
+    { body },
+  )
+}
+
+export function updateProjectUpdateComment(
+  projectId: string,
+  threadId: string,
+  commentId: string,
+  body: {
+    body: string
+    edited_by?: string
+    edit_reason?: string
+  },
+) {
+  return api.patch<ProjectUpdateCommentResponse>(
+    `/api/v1/projects/${projectId}/updates/${threadId}/comments/${commentId}`,
+    { body },
+  )
+}
+
+export function deleteProjectUpdateComment(projectId: string, threadId: string, commentId: string) {
+  return api.delete<ProjectUpdateCommentDeleteResponse>(
+    `/api/v1/projects/${projectId}/updates/${threadId}/comments/${commentId}`,
+  )
+}
+
+export function listProjectUpdateCommentRevisions(
+  projectId: string,
+  threadId: string,
+  commentId: string,
+) {
+  return api.get<ProjectUpdateCommentRevisionListResponse>(
+    `/api/v1/projects/${projectId}/updates/${threadId}/comments/${commentId}/revisions`,
+  )
 }
 
 export function listAgents(projectId: string) {

@@ -85,6 +85,41 @@ export const activityEventCatalog: ActivityEventCatalogEntry[] = [
   { eventType: 'ticket_comment.created', label: 'Ticket comment created', tone: 'info' },
   { eventType: 'ticket_comment.edited', label: 'Ticket comment edited', tone: 'info' },
   { eventType: 'ticket_comment.deleted', label: 'Ticket comment deleted', tone: 'warning' },
+  {
+    eventType: 'project_update_thread.created',
+    label: 'Project update created',
+    tone: 'info',
+  },
+  {
+    eventType: 'project_update_thread.edited',
+    label: 'Project update edited',
+    tone: 'info',
+  },
+  {
+    eventType: 'project_update_thread.deleted',
+    label: 'Project update deleted',
+    tone: 'warning',
+  },
+  {
+    eventType: 'project_update_thread.status_changed',
+    label: 'Project update status changed',
+    tone: 'warning',
+  },
+  {
+    eventType: 'project_update_comment.created',
+    label: 'Project update comment created',
+    tone: 'info',
+  },
+  {
+    eventType: 'project_update_comment.edited',
+    label: 'Project update comment edited',
+    tone: 'info',
+  },
+  {
+    eventType: 'project_update_comment.deleted',
+    label: 'Project update comment deleted',
+    tone: 'warning',
+  },
   { eventType: 'ticket.created', label: 'Ticket created', tone: 'info' },
   { eventType: 'ticket.updated', label: 'Ticket updated', tone: 'info' },
   { eventType: 'ticket.status_changed', label: 'Ticket status changed', tone: 'info' },

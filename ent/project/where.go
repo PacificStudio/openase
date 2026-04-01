@@ -745,6 +745,29 @@ func HasActivityEventsWith(preds ...predicate.ActivityEvent) predicate.Project {
 	})
 }
 
+// HasUpdateThreads applies the HasEdge predicate on the "update_threads" edge.
+func HasUpdateThreads() predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, UpdateThreadsTable, UpdateThreadsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasUpdateThreadsWith applies the HasEdge predicate on the "update_threads" edge with a given conditions (other predicates).
+func HasUpdateThreadsWith(preds ...predicate.ProjectUpdateThread) predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := newUpdateThreadsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasChatConversations applies the HasEdge predicate on the "chat_conversations" edge.
 func HasChatConversations() predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {
