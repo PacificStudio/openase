@@ -1,16 +1,19 @@
-import { connectEventStream } from '$lib/api/sse'
+import { connectEventStream, type SSEFrame } from '$lib/api/sse'
 import { frameReferencesTicket } from './context'
 
 export function connectTicketDetailStreams(
   projectId: string,
   ticketId: string,
-  onRelevantEvent: () => void,
+  handlers: {
+    onRelevantEvent: () => void
+    onRunFrame: (frame: SSEFrame) => void
+  },
 ) {
   const connect = (path: string, label: string) =>
     connectEventStream(path, {
       onEvent: (frame) => {
         if (frameReferencesTicket(frame.data, ticketId)) {
-          onRelevantEvent()
+          handlers.onRelevantEvent()
         }
       },
       onError: (streamError) => {
@@ -23,9 +26,21 @@ export function connectTicketDetailStreams(
     `/api/v1/projects/${projectId}/activity/stream`,
     'activity',
   )
+  const disconnectRunStream = connectEventStream(
+    `/api/v1/projects/${projectId}/tickets/${ticketId}/runs/stream`,
+    {
+      onEvent: (frame) => {
+        handlers.onRunFrame(frame)
+      },
+      onError: (streamError) => {
+        console.error('Ticket detail runs stream error:', streamError)
+      },
+    },
+  )
 
   return () => {
     disconnectTicketStream()
     disconnectActivityStream()
+    disconnectRunStream()
   }
 }

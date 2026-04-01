@@ -10,7 +10,6 @@ import {
   type ProjectConversationTranscriptEntry,
 } from './project-conversation-transcript-state'
 import { handleProjectConversationStreamEvent } from './project-conversation-stream'
-import { storeProjectConversationId } from './project-conversation-storage'
 import { startProjectConversationStream } from './project-conversation-runtime'
 
 export type ProjectConversationPhase =
@@ -125,8 +124,6 @@ export function appendProjectConversationChunk(
 export function connectProjectConversationStream(params: {
   state: ProjectConversationControllerState
   conversationId: string
-  getProjectId: () => string
-  getProviderId: () => string
   onError?: (message: string) => void
 }) {
   const currentStreamId = params.state.streamId + 1
@@ -140,8 +137,6 @@ export function connectProjectConversationStream(params: {
       applyProjectConversationStreamEvent({
         state: params.state,
         event,
-        getProjectId: params.getProjectId,
-        getProviderId: params.getProviderId,
         onError: params.onError,
       })
     },
@@ -172,8 +167,6 @@ export function connectProjectConversationStream(params: {
 export function applyProjectConversationStreamEvent(params: {
   state: ProjectConversationControllerState
   event: ProjectConversationStreamEvent
-  getProjectId: () => string
-  getProviderId: () => string
   onError?: (message: string) => void
 }) {
   handleProjectConversationStreamEvent(params.event, {
@@ -261,11 +254,6 @@ export function applyProjectConversationStreamEvent(params: {
     },
     setConversationId: (conversationId) => {
       params.state.conversationId = conversationId
-      storeProjectConversationId(
-        params.getProjectId(),
-        params.getProviderId(),
-        params.state.conversationId,
-      )
     },
     setPending: (value) => {
       params.state.phase = value ? 'awaiting_reply' : 'idle'

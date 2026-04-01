@@ -893,6 +893,14 @@ func (r *stubRepository) ListAgentSteps(context.Context, domain.ListAgentSteps) 
 	return nil, nil
 }
 
+func (r *stubRepository) ListAgentRunTraceEntries(context.Context, domain.ListAgentRunTraceEntries) ([]domain.AgentTraceEntry, error) {
+	return nil, nil
+}
+
+func (r *stubRepository) ListAgentRunStepEntries(context.Context, domain.ListAgentRunStepEntries) ([]domain.AgentStepEntry, error) {
+	return nil, nil
+}
+
 func (r *stubRepository) CreateAgent(context.Context, domain.CreateAgent) (domain.Agent, error) {
 	return domain.Agent{}, nil
 }

@@ -103,6 +103,8 @@ type Service interface {
 	ListActivityEvents(ctx context.Context, input domain.ListActivityEvents) ([]domain.ActivityEvent, error)
 	ListAgentOutput(ctx context.Context, input domain.ListAgentOutput) ([]domain.AgentOutputEntry, error)
 	ListAgentSteps(ctx context.Context, input domain.ListAgentSteps) ([]domain.AgentStepEntry, error)
+	ListAgentRunTraceEntries(ctx context.Context, input domain.ListAgentRunTraceEntries) ([]domain.AgentTraceEntry, error)
+	ListAgentRunStepEntries(ctx context.Context, input domain.ListAgentRunStepEntries) ([]domain.AgentStepEntry, error)
 	CreateAgent(ctx context.Context, input domain.CreateAgent) (domain.Agent, error)
 	GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 	GetAgentRun(ctx context.Context, id uuid.UUID) (domain.AgentRun, error)

@@ -1089,6 +1089,66 @@ func (f *fakeCatalogService) ListAgentSteps(_ context.Context, input domain.List
 	return items, nil
 }
 
+func (f *fakeCatalogService) ListAgentRunTraceEntries(_ context.Context, input domain.ListAgentRunTraceEntries) ([]domain.AgentTraceEntry, error) {
+	run, ok := f.agentRuns[input.AgentRunID]
+	if !ok {
+		return nil, catalogservice.ErrNotFound
+	}
+	ticket, ok := f.tickets[run.TicketID]
+	if !ok || ticket.ProjectID != input.ProjectID {
+		return nil, catalogservice.ErrNotFound
+	}
+
+	items := make([]domain.AgentTraceEntry, 0)
+	for _, item := range f.traceEvents {
+		if item.ProjectID != input.ProjectID || item.AgentRunID != input.AgentRunID {
+			continue
+		}
+		items = append(items, item)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Sequence == items[j].Sequence {
+			return items[i].ID.String() < items[j].ID.String()
+		}
+		return items[i].Sequence < items[j].Sequence
+	})
+	if input.Limit > 0 && len(items) > input.Limit {
+		items = items[:input.Limit]
+	}
+
+	return items, nil
+}
+
+func (f *fakeCatalogService) ListAgentRunStepEntries(_ context.Context, input domain.ListAgentRunStepEntries) ([]domain.AgentStepEntry, error) {
+	run, ok := f.agentRuns[input.AgentRunID]
+	if !ok {
+		return nil, catalogservice.ErrNotFound
+	}
+	ticket, ok := f.tickets[run.TicketID]
+	if !ok || ticket.ProjectID != input.ProjectID {
+		return nil, catalogservice.ErrNotFound
+	}
+
+	items := make([]domain.AgentStepEntry, 0)
+	for _, item := range f.stepEvents {
+		if item.ProjectID != input.ProjectID || item.AgentRunID != input.AgentRunID {
+			continue
+		}
+		items = append(items, item)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].CreatedAt.Equal(items[j].CreatedAt) {
+			return items[i].ID.String() < items[j].ID.String()
+		}
+		return items[i].CreatedAt.Before(items[j].CreatedAt)
+	})
+	if input.Limit > 0 && len(items) > input.Limit {
+		items = items[:input.Limit]
+	}
+
+	return items, nil
+}
+
 func (f *fakeCatalogService) CreateAgent(_ context.Context, input domain.CreateAgent) (domain.Agent, error) {
 	project, ok := f.projects[input.ProjectID]
 	if !ok {

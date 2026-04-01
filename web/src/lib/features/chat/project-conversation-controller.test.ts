@@ -53,11 +53,15 @@ describe('createProjectConversationController', () => {
     window.localStorage.clear()
   })
 
-  it('does not wait for the background stream before submitting the first turn', async () => {
+  it('creates a new conversation for the active tab and submits the first turn without waiting for the stream', async () => {
     const stream = deferredPromise<void>()
 
     createProjectConversation.mockResolvedValue({
-      conversation: { id: 'conversation-1' },
+      conversation: {
+        id: 'conversation-1',
+        providerId: 'provider-1',
+        lastActivityAt: '2026-04-01T10:00:00Z',
+      },
     })
     watchProjectConversation.mockReturnValue(stream.promise)
     startProjectConversationTurn.mockResolvedValue({
@@ -90,12 +94,16 @@ describe('createProjectConversationController', () => {
     expect(controller.entries).toMatchObject([
       { kind: 'text', role: 'user', content: 'Summarize this project.' },
     ])
+    expect(controller.tabs).toHaveLength(1)
+    expect(controller.tabs[0]?.conversationId).toBe('conversation-1')
 
     stream.resolve()
   })
 
-  it('locks duplicate sends during first-turn bootstrap', async () => {
-    const create = deferredPromise<{ conversation: { id: string } }>()
+  it('blocks duplicate sends while the active tab is creating its first conversation', async () => {
+    const create = deferredPromise<{
+      conversation: { id: string; providerId: string; lastActivityAt: string }
+    }>()
 
     createProjectConversation.mockReturnValue(create.promise)
     watchProjectConversation.mockResolvedValue(undefined)
@@ -117,7 +125,13 @@ describe('createProjectConversationController', () => {
     expect(createProjectConversation).toHaveBeenCalledTimes(1)
     expect(startProjectConversationTurn).not.toHaveBeenCalled()
 
-    create.resolve({ conversation: { id: 'conversation-1' } })
+    create.resolve({
+      conversation: {
+        id: 'conversation-1',
+        providerId: 'provider-1',
+        lastActivityAt: '2026-04-01T10:00:00Z',
+      },
+    })
     await firstSend
 
     expect(startProjectConversationTurn).toHaveBeenCalledTimes(1)
@@ -126,38 +140,32 @@ describe('createProjectConversationController', () => {
     ])
   })
 
-  it('blocks follow-up sends while an interrupt is pending and resumes cleanly after a response', async () => {
-    let streamHandlers:
-      | {
-          onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void
-        }
-      | undefined
+  it('blocks follow-up sends only for the same tab while an interrupt is pending', async () => {
+    const streamHandlers = new Map<
+      string,
+      { onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void }
+    >()
 
-    createProjectConversation.mockResolvedValue({
-      conversation: { id: 'conversation-1' },
-    })
-    watchProjectConversation.mockImplementation(async (_conversationId, handlers) => {
-      streamHandlers = handlers
-    })
-    startProjectConversationTurn.mockImplementation(async () => {
-      streamHandlers?.onEvent({
-        kind: 'interrupt_requested',
-        payload: {
-          interruptId: 'interrupt-1',
-          provider: 'codex',
-          kind: 'user_input',
-          options: [],
-          payload: {
-            questions: [
-              {
-                id: 'approval',
-                question: 'Approve the next step?',
-              },
-            ],
-          },
+    createProjectConversation
+      .mockResolvedValueOnce({
+        conversation: {
+          id: 'conversation-1',
+          providerId: 'provider-1',
+          lastActivityAt: '2026-04-01T10:00:00Z',
         },
       })
-      return { turn: { id: 'turn-1', turn_index: 1, status: 'started' } }
+      .mockResolvedValueOnce({
+        conversation: {
+          id: 'conversation-2',
+          providerId: 'provider-1',
+          lastActivityAt: '2026-04-01T10:05:00Z',
+        },
+      })
+    watchProjectConversation.mockImplementation(async (conversationId, handlers) => {
+      streamHandlers.set(conversationId, handlers)
+    })
+    startProjectConversationTurn.mockResolvedValue({
+      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
     })
     respondProjectConversationInterrupt.mockResolvedValue({
       interrupt: {},
@@ -169,6 +177,23 @@ describe('createProjectConversationController', () => {
     controller.syncProviders(providerFixtures, 'provider-1')
 
     await controller.sendTurn('Need approval')
+    streamHandlers.get('conversation-1')?.onEvent({
+      kind: 'interrupt_requested',
+      payload: {
+        interruptId: 'interrupt-1',
+        provider: 'codex',
+        kind: 'user_input',
+        options: [],
+        payload: {
+          questions: [
+            {
+              id: 'approval',
+              question: 'Approve the next step?',
+            },
+          ],
+        },
+      },
+    })
 
     expect(controller.phase).toBe('awaiting_interrupt')
     expect(controller.hasPendingInterrupt).toBe(true)
@@ -177,6 +202,22 @@ describe('createProjectConversationController', () => {
     await controller.sendTurn('This should stay blocked')
     expect(startProjectConversationTurn).toHaveBeenCalledTimes(1)
 
+    controller.createTab()
+    const secondTabId = controller.tabs.find((tab) => tab.conversationId === '')?.id ?? ''
+    controller.selectTab(secondTabId)
+    expect(controller.inputDisabled).toBe(false)
+
+    await controller.sendTurn('Independent tab keeps working')
+
+    expect(startProjectConversationTurn).toHaveBeenNthCalledWith(
+      2,
+      'conversation-2',
+      'Independent tab keeps working',
+    )
+
+    const firstTabId =
+      controller.tabs.find((tab) => tab.conversationId === 'conversation-1')?.id ?? ''
+    controller.selectTab(firstTabId)
     await controller.respondInterrupt({
       interruptId: 'interrupt-1',
       answer: {
@@ -198,6 +239,124 @@ describe('createProjectConversationController', () => {
         decision: undefined,
       },
     )
-    expect(controller.phase).toBe('awaiting_reply')
+  })
+
+  it('restores multiple tabs from storage, preserves the selected tab, and drops missing conversations', async () => {
+    window.localStorage.setItem(
+      'openase.project-conversation.project-1.provider-1',
+      JSON.stringify({
+        conversationIds: ['conversation-2', 'missing-conversation', 'conversation-1'],
+        activeConversationId: 'conversation-1',
+      }),
+    )
+
+    listProjectConversations.mockResolvedValue({
+      conversations: [
+        {
+          id: 'conversation-1',
+          rollingSummary: 'Current conversation',
+          lastActivityAt: '2026-04-01T10:00:00Z',
+          providerId: 'provider-1',
+        },
+        {
+          id: 'conversation-2',
+          rollingSummary: 'Older discussion',
+          lastActivityAt: '2026-03-31T09:00:00Z',
+          providerId: 'provider-1',
+        },
+      ],
+    })
+    listProjectConversationEntries.mockImplementation(async (conversationId: string) => ({
+      entries:
+        conversationId === 'conversation-2'
+          ? [
+              {
+                id: 'entry-2',
+                conversationId: 'conversation-2',
+                turnId: 'turn-2',
+                seq: 1,
+                kind: 'user_message',
+                payload: { content: 'Continue the older plan' },
+                createdAt: '2026-03-31T09:00:00Z',
+              },
+            ]
+          : [
+              {
+                id: 'entry-1',
+                conversationId: 'conversation-1',
+                turnId: 'turn-1',
+                seq: 1,
+                kind: 'user_message',
+                payload: { content: 'Current conversation' },
+                createdAt: '2026-04-01T10:00:00Z',
+              },
+            ],
+    }))
+    watchProjectConversation.mockResolvedValue(undefined)
+
+    const controller = createProjectConversationController({
+      getProjectId: () => 'project-1',
+    })
+    controller.syncProviders(providerFixtures, 'provider-1')
+
+    await controller.restore()
+
+    expect(controller.tabs).toHaveLength(2)
+    expect(controller.tabs.map((tab) => tab.conversationId)).toEqual([
+      'conversation-2',
+      'conversation-1',
+    ])
+    expect(controller.tabs.every((tab) => tab.restored)).toBe(true)
+    expect(controller.conversationId).toBe('conversation-1')
+    expect(controller.entries).toMatchObject([{ kind: 'text', content: 'Current conversation' }])
+
+    const secondTabId =
+      controller.tabs.find((tab) => tab.conversationId === 'conversation-2')?.id ?? ''
+    controller.selectTab(secondTabId)
+
+    expect(controller.conversationId).toBe('conversation-2')
+    expect(controller.entries).toMatchObject([{ kind: 'text', content: 'Continue the older plan' }])
+    expect(listProjectConversationEntries).toHaveBeenCalledTimes(2)
+  })
+
+  it('closes only the selected tab and keeps the remaining tab active', async () => {
+    createProjectConversation
+      .mockResolvedValueOnce({
+        conversation: {
+          id: 'conversation-1',
+          providerId: 'provider-1',
+          lastActivityAt: '2026-04-01T10:00:00Z',
+        },
+      })
+      .mockResolvedValueOnce({
+        conversation: {
+          id: 'conversation-2',
+          providerId: 'provider-1',
+          lastActivityAt: '2026-04-01T10:05:00Z',
+        },
+      })
+    watchProjectConversation.mockResolvedValue(undefined)
+    startProjectConversationTurn.mockResolvedValue({
+      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
+    })
+
+    const controller = createProjectConversationController({
+      getProjectId: () => 'project-1',
+    })
+    controller.syncProviders(providerFixtures, 'provider-1')
+
+    await controller.sendTurn('First tab')
+    controller.createTab()
+    const secondTabId = controller.tabs.find((tab) => tab.conversationId === '')?.id ?? ''
+    controller.selectTab(secondTabId)
+    await controller.sendTurn('Second tab')
+
+    const firstTabId =
+      controller.tabs.find((tab) => tab.conversationId === 'conversation-1')?.id ?? ''
+    controller.closeTab(firstTabId)
+
+    expect(controller.tabs).toHaveLength(1)
+    expect(controller.conversationId).toBe('conversation-2')
+    expect(controller.entries).toMatchObject([{ kind: 'text', content: 'Second tab' }])
   })
 })

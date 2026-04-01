@@ -5399,6 +5399,8 @@ openase reconcile --dry-run    # 只报告不一致，不修复
 | POST | `/api/v1/projects/:projectId/tickets` | 创建工单 | body: `{title, description, priority, type, workflow_id?, repo_scopes?}` |
 | GET | `/api/v1/tickets/:ticketId` | 工单详情（基础详情） | |
 | GET | `/api/v1/projects/:projectId/tickets/:ticketId/detail` | 工单详情聚合视图（含 description entry、timeline、RepoScopes、依赖） | |
+| GET | `/api/v1/projects/:projectId/tickets/:ticketId/runs` | 列出该 Ticket 的运行会话（最新优先，带 attempt 与当前步骤摘要） | |
+| GET | `/api/v1/projects/:projectId/tickets/:ticketId/runs/:runId` | 获取单次 Ticket 运行的 transcript 数据（`AgentRun + AgentTraceEvent + AgentStepEvent`） | |
 | PATCH | `/api/v1/tickets/:ticketId` | 更新工单（标题、描述、优先级） | |
 | POST | `/api/v1/tickets/:ticketId/transition` | 状态转换 | body: `{to_status_id: "uuid" 或 to_status_name: "待测试", comment?}`（传自定义状态名或 ID） |
 | POST | `/api/v1/tickets/:ticketId/cancel` | 取消工单 | body: `{reason?}` |
@@ -5476,6 +5478,7 @@ openase reconcile --dry-run    # 只报告不一致，不修复
 | GET | `/api/v1/projects/:projectId/activity/stream` | 业务活动流；只推 coarse-grained `ActivityEvent`，不推 token 级 output |
 | GET | `/api/v1/projects/:projectId/agents/:agentId/output/stream` | Agent 细粒度输出流；只推 `AgentTraceEvent` |
 | GET | `/api/v1/projects/:projectId/agents/:agentId/steps/stream` | Agent 动作阶段流；只推 `AgentStepEvent` |
+| GET | `/api/v1/projects/:projectId/tickets/:ticketId/runs/stream` | Ticket-native 运行 transcript 流；底层复用 activity / trace / step 主题并按 ticket 聚合 |
 | GET | `/api/v1/projects/:projectId/hooks/stream` | `hook.started`, `hook.passed`, `hook.failed` |
 
 **Coding Agent Launch Verification**
@@ -5486,6 +5489,7 @@ openase reconcile --dry-run    # 只报告不一致，不修复
 - `failed` 或 `runtime_phase=failed`：显示失败态和 `last_error`
 - activity 面板为空时显示 “No business activity yet”，不能把 0 行 output 当成未启动或失败
 - Agent output 面板为空时显示 “No trace events yet”，表示当前还没有细粒度运行输出，不代表 runtime 启动失败
+- Ticket detail 的 Runs 面板默认显示 latest run transcript；discussion/comments 与 execution transcript 分开渲染，前者继续基于 comment/activity，后者基于 ticket-native run 数据路径
 - Black-box 验收至少覆盖：创建 idle Agent + pickup Ticket，观测 `claimed`，再观测 `running + ready + session_id + heartbeat`，并收到 `agent.ready`；随后在 output/step 流中分别看到 `AgentTraceEvent` 与 `AgentStepEvent`
 
 **Webhook 接收**
@@ -9180,8 +9184,10 @@ Project Conversation 中 turn 的中断流程：
 补充交互约束：
 
 - `project_sidebar` 采用常规聊天体验，不再使用固定 turn cap 作为 transcript UX
+- `project_sidebar` 支持同一 `(project, provider)` 下的多 conversation tabs；每个 tab 对应一个独立 `conversation_id`
 - `project_sidebar` 中一个 assistant turn 只对应一个可变 transcript block；流式增量必须合并到当前 assistant 回复中，不能把 chunk 边界暴露成多个气泡
 - 当 turn 因 Codex interrupt 暂停时，前端应在 transcript 中插入 interrupt card，而不是让用户误以为 turn 已完成
+- 同一 `conversation_id` 在任一时刻最多只允许一个 active turn；多 tab 并发仅限不同 conversation 之间
 - provider 切换会创建新的 conversation，不复用上一 provider 的 provider-native thread
 
 ### 31.6 Harness 编辑器中的 AI 辅助细节
@@ -9215,7 +9221,7 @@ Harness 编辑器仍然是最高频场景，但它继续保持 Ephemeral Chat，
 | 生命周期 | 用户关闭侧栏 / 切换页面后结束 | conversation 持久化；live runtime 可因空闲或预算被回收 |
 | transcript | 默认不持久化 | 持久化 |
 | 恢复入口 | 同一 live session 内续接 | 通过 `conversation_id` 恢复 |
-| 并发 | 每个用户同时最多 1 个 ephemeral 会话 | 每个 `(user, project, provider, source=project_sidebar)` 最多 1 个 live runtime，可保留多个历史 conversation |
+| 并发 | 每个用户同时最多 1 个 ephemeral 会话 | 可并行持有多个 project conversation live runtime；约束是每个 `conversation_id` 同时最多 1 个 active turn |
 | 成本控制 | 默认 10 轮 / $2.00 等轻量预算 | transcript 与 runtime 解耦；预算命中时只关闭 live runtime，不删除 conversation |
 
 #### 31.7.2 Project Conversation 持久化模型
@@ -9234,7 +9240,7 @@ Project Conversation 需要最小持久化模型：
 - `conversation_id` 是 OpenASE 稳定 ID，对前端公开
 - `provider_thread_id` 是 provider-native 恢复锚点，只在服务端保存
 - `last_turn_id` 只用于 provider 级诊断与恢复，不作为前端主键
-- 前端 localStorage 只允许缓存“最近一次打开的 `conversation_id`”，不能作为权威存储
+- 前端 localStorage 只允许缓存当前 `(project_id, provider_id)` 下的已打开 tab 集合与当前激活 tab，对应的权威数据仍以后端 conversation/list API 为准
 
 #### 31.7.3 恢复策略
 
@@ -9248,6 +9254,11 @@ Project Conversation 需要最小持久化模型：
    - 创建新 thread
    - 注入 `rolling_summary + recent entries + 当前项目上下文`
    - 从 OpenASE 视角恢复 conversation，而不是丢弃 transcript
+
+前端恢复约束：
+
+- `project_sidebar` 按 `(project_id, provider_id)` 维度恢复已打开的 conversation tabs 和当前选中的 tab
+- 若 localStorage 中某个 `conversation_id` 已不存在、无权限或 provider 不匹配，只移除该失效 tab，不影响其余 tabs 的恢复
 
 Project Conversation 因此是“**conversation 持久化，live runtime 可回收**”的模型，而不是“session_id 永久等于一个活进程”。
 

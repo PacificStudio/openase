@@ -61,6 +61,10 @@ const budgetRules = [
         'Agent provider normalization coverage remains in one test module until scenario helpers are extracted.',
       'src/lib/features/board/components/board-page-controls.test.ts':
         'Board controls regression coverage remains consolidated while the control matrix is still evolving.',
+      'src/lib/features/chat/project-conversation-controller.svelte.ts':
+        'Project conversation controller remains centralized while multi-tab restore and per-tab runtime flows continue to settle.',
+      'src/lib/features/chat/project-conversation-controller.test.ts':
+        'Project conversation controller regression coverage remains bundled while multi-tab conversation scenarios are still expanding.',
       'src/lib/features/skills/components/skill-bundle-editor.ts':
         'Skill bundle draft helpers remain centralized until tree and path utilities are split out.',
       'src/lib/features/workflows/components/harness-ai-sidebar-streaming.test.ts':

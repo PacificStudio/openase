@@ -1136,6 +1136,57 @@ export interface paths {
     patch: operations['updateTicketRepoScope']
     trace?: never
   }
+  '/api/v1/projects/{projectId}/tickets/{ticketId}/runs': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List ticket runs */
+    get: operations['listTicketRuns']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/tickets/{ticketId}/runs/stream': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Stream ticket run transcript events */
+    get: operations['streamTicketRuns']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get ticket run transcript data */
+    get: operations['getTicketRun']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}/workflows': {
     parameters: {
       query?: never
@@ -10160,6 +10211,245 @@ export interface operations {
       }
       /** @description Conflict response. */
       409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listTicketRuns: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Ticket ID. */
+        ticketId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List ticket runs response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            runs?: {
+              agent_id?: string
+              agent_name?: string
+              attempt_number?: number
+              completed_at?: string | null
+              created_at?: string
+              current_step_status?: string | null
+              current_step_summary?: string | null
+              id?: string
+              last_error?: string | null
+              last_heartbeat_at?: string | null
+              provider?: string
+              runtime_started_at?: string | null
+              status?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  streamTicketRuns: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Ticket ID. */
+        ticketId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Server-sent events stream. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/event-stream': string
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getTicketRun: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Ticket ID. */
+        ticketId: string
+        /** @description Run ID. */
+        runId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get ticket run transcript data response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            run?: {
+              agent_id?: string
+              agent_name?: string
+              attempt_number?: number
+              completed_at?: string | null
+              created_at?: string
+              current_step_status?: string | null
+              current_step_summary?: string | null
+              id?: string
+              last_error?: string | null
+              last_heartbeat_at?: string | null
+              provider?: string
+              runtime_started_at?: string | null
+              status?: string
+            }
+            step_entries?: {
+              agent_run_id?: string
+              created_at?: string
+              id?: string
+              source_trace_event_id?: string | null
+              step_status?: string
+              summary?: string
+            }[]
+            trace_entries?: {
+              agent_run_id?: string
+              created_at?: string
+              id?: string
+              kind?: string
+              output?: string
+              payload?: {
+                [key: string]: unknown
+              }
+              provider?: string
+              /** Format: int64 */
+              sequence?: number
+              stream?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
         headers: {
           [name: string]: unknown
         }

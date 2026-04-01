@@ -118,7 +118,7 @@
   })
 </script>
 
-<div class="border-border flex flex-1 flex-col overflow-y-auto border-r">
+<div class="flex flex-1 flex-col overflow-y-auto">
   <div class="flex flex-col px-6 py-5">
     {#each renderBlocks as block, index (block.id)}
       {#if block.kind === 'attempt'}

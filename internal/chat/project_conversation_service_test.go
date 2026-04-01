@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -304,7 +305,7 @@ func TestProjectConversationRespondInterruptRoutesExactRequestID(t *testing.T) {
 	}
 }
 
-func TestProjectConversationStartTurnClosesPreviousLiveRuntimeForSameUserProjectProvider(t *testing.T) {
+func TestProjectConversationStartTurnKeepsOtherLiveConversationsRunning(t *testing.T) {
 	t.Parallel()
 
 	client := openTestEntClient(t)
@@ -378,31 +379,104 @@ func TestProjectConversationStartTurnClosesPreviousLiveRuntimeForSameUserProject
 	)
 
 	previousRuntime := &fakeRuntime{closeResult: true}
-	liveKey := projectConversationLiveConversationKey(firstConversation)
 	service.live[firstConversation.ID] = &liveProjectConversation{runtime: previousRuntime}
-	service.liveByKey[liveKey] = firstConversation.ID
 
 	if _, err := service.StartTurn(ctx, UserID("user:conversation"), secondConversation.ID, "Switch to this conversation"); err != nil {
 		t.Fatalf("start second conversation turn: %v", err)
 	}
 
-	if len(previousRuntime.closeCalls) != 1 || previousRuntime.closeCalls[0] != SessionID(firstConversation.ID.String()) {
-		t.Fatalf("previous runtime close calls = %+v, want [%s]", previousRuntime.closeCalls, firstConversation.ID)
+	if len(previousRuntime.closeCalls) != 0 {
+		t.Fatalf("previous runtime close calls = %+v, want none", previousRuntime.closeCalls)
 	}
 
 	updatedFirst, err := repo.GetConversation(ctx, firstConversation.ID)
 	if err != nil {
 		t.Fatalf("get first conversation: %v", err)
 	}
-	if updatedFirst.Status != chatdomain.ConversationStatusClosed {
-		t.Fatalf("first conversation status = %q, want closed", updatedFirst.Status)
+	if updatedFirst.Status != chatdomain.ConversationStatusActive {
+		t.Fatalf("first conversation status = %q, want active", updatedFirst.Status)
 	}
 
-	if got := service.liveByKey[liveKey]; got != secondConversation.ID {
-		t.Fatalf("live conversation for key = %s, want %s", got, secondConversation.ID)
+	if service.live[firstConversation.ID] == nil {
+		t.Fatal("expected first conversation live runtime to remain registered")
 	}
 	if service.live[secondConversation.ID] == nil {
 		t.Fatal("expected second conversation live runtime to be registered")
+	}
+}
+
+func TestProjectConversationStartTurnRejectsSecondActiveTurnInSameConversation(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repo := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repo.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	if _, _, err := repo.CreateTurnWithUserEntry(ctx, conversation.ID, "First turn is still running"); err != nil {
+		t.Fatalf("seed active turn: %v", err)
+	}
+
+	workspaceRoot := t.TempDir()
+	service := NewProjectConversationService(
+		nil,
+		repo,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             project.ID,
+					OrganizationID: org.ID,
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+				providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+					providerID: {
+						ID:             providerID,
+						OrganizationID: org.ID,
+						MachineID:      machineID,
+						AdapterType:    catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+						CliCommand:     "gemini",
+					},
+				},
+			},
+			machine: catalogdomain.Machine{
+				ID:            machineID,
+				Name:          catalogdomain.LocalMachineName,
+				Host:          catalogdomain.LocalMachineHost,
+				WorkspaceRoot: stringPointer(workspaceRoot),
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		&fakeAgentCLIProcessManager{
+			process: &fakeAgentCLIProcess{
+				stdin:  &trackingWriteCloser{},
+				stdout: `{"response":"OK"}`,
+			},
+		},
+		nil,
+	)
+
+	_, err = service.StartTurn(
+		ctx,
+		UserID("user:conversation"),
+		conversation.ID,
+		"Second turn should be rejected",
+	)
+	if !errors.Is(err, ErrConversationTurnActive) {
+		t.Fatalf("expected ErrConversationTurnActive, got %v", err)
 	}
 }
 
