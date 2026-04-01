@@ -61,7 +61,7 @@
 
         entries = activityPayload.events.map((event) => ({
           id: event.id,
-          eventType: normalizeEventType(event.event_type),
+          eventType: event.event_type,
           message: event.message,
           timestamp: event.created_at,
           ticketIdentifier: event.ticket_id
@@ -100,23 +100,6 @@
   function agentNameFromMetadata(metadata: Record<string, unknown>) {
     const value = metadata.agent_name
     return typeof value === 'string' ? value : undefined
-  }
-
-  function normalizeEventType(eventType: string) {
-    switch (eventType) {
-      case 'ticket_created':
-        return 'ticket.created'
-      case 'hook_failed':
-        return 'hook.failed'
-      case 'pr_opened':
-        return 'pr.opened'
-      case 'pr_merged':
-        return 'pr.merged'
-      case 'status_changed':
-        return 'ticket.status_changed'
-      default:
-        return eventType
-    }
   }
 </script>
 

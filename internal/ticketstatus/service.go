@@ -164,6 +164,22 @@ func (s *Service) ResolveStatusIDByName(ctx context.Context, projectID uuid.UUID
 	return uuid.UUID{}, ErrStatusNotFound
 }
 
+func (s *Service) Get(ctx context.Context, statusID uuid.UUID) (Status, error) {
+	if s.client == nil {
+		return Status{}, ErrUnavailable
+	}
+
+	item, err := s.client.TicketStatus.Get(ctx, statusID)
+	if err != nil {
+		return Status{}, mapNotFoundError(err, ErrStatusNotFound)
+	}
+	activeRuns, err := countStatusActiveRuns(ctx, s.client, item.ProjectID, item.ID)
+	if err != nil {
+		return Status{}, fmt.Errorf("count ticket status active runs: %w", err)
+	}
+	return mapStatus(item, activeRuns), nil
+}
+
 // Create persists a new ticket status in a project.
 func (s *Service) Create(ctx context.Context, input CreateInput) (Status, error) {
 	if s.client == nil {

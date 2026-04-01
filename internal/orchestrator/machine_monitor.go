@@ -12,6 +12,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
@@ -336,9 +338,43 @@ func (m *MachineMonitor) publishRuntimeEvents(
 		if err := m.publishProviderEvent(ctx, eventType, nextProvider, publishedAt); err != nil {
 			return err
 		}
+		projectIDs, err := m.providerActivityProjectIDs(ctx, nextProvider.OrganizationID, nextProvider.ID)
+		if err != nil {
+			return err
+		}
+		for _, projectID := range projectIDs {
+			if _, err := activitysvc.NewEmitter(activitysvc.EntRecorder{Client: m.client}, m.events).Emit(ctx, activitysvc.RecordInput{
+				ProjectID: projectID,
+				EventType: activityevent.TypeProviderAvailabilityChanged,
+				Message:   fmt.Sprintf("Provider %s availability changed to %s", nextProvider.Name, nextProvider.AvailabilityState.String()),
+				Metadata: map[string]any{
+					"provider_id":       nextProvider.ID.String(),
+					"provider_name":     nextProvider.Name,
+					"from_availability": currentState.String(),
+					"to_availability":   nextProvider.AvailabilityState.String(),
+					"machine_id":        nextProvider.MachineID.String(),
+					"changed_fields":    []string{"availability"},
+				},
+				CreatedAt: publishedAt,
+			}); err != nil {
+				return fmt.Errorf("emit provider availability activity: %w", err)
+			}
+		}
 	}
 
 	return nil
+}
+
+func (m *MachineMonitor) providerActivityProjectIDs(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	providerID uuid.UUID,
+) ([]uuid.UUID, error) {
+	projectIDs, err := providerActivityProjectIDs(ctx, m.client, organizationID, providerID)
+	if err != nil {
+		return nil, fmt.Errorf("list projects for provider availability activity: %w", err)
+	}
+	return projectIDs, nil
 }
 
 func (m *MachineMonitor) publishMachineEvent(

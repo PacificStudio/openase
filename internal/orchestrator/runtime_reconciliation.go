@@ -12,8 +12,10 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
+	"github.com/BetterAndBetterII/openase/internal/provider"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
 )
@@ -200,6 +202,7 @@ func releaseStalledClaim(
 	now time.Time,
 	source string,
 	reason string,
+	events provider.EventProvider,
 ) (bool, bool, error) {
 	if client == nil {
 		return false, false, fmt.Errorf("release stalled claim: client unavailable")
@@ -276,27 +279,6 @@ func releaseStalledClaim(
 		return false, false, fmt.Errorf("release stalled run: %w", err)
 	}
 
-	if retryPaused {
-		if _, err := tx.ActivityEvent.Create().
-			SetProjectID(projectID).
-			SetTicketID(ticketID).
-			SetEventType(stalledRetryPauseEventType.String()).
-			SetMessage(fmt.Sprintf(
-				"Paused ticket retries after %d consecutive orchestrator stalls; human intervention is required before retrying.",
-				nextStallCount,
-			)).
-			SetMetadata(map[string]any{
-				"pause_reason": ticketing.PauseReasonRepeatedStalls.String(),
-				"stall_count":  nextStallCount,
-				"threshold":    stalledRetryPauseThreshold,
-				"source":       strings.TrimSpace(source),
-			}).
-			SetCreatedAt(now.UTC()).
-			Save(ctx); err != nil {
-			return false, false, fmt.Errorf("record stalled retry pause activity: %w", err)
-		}
-	}
-
 	releasedAgents, err := tx.Agent.Update().
 		Where(
 			entagent.IDEQ(agentID),
@@ -310,6 +292,26 @@ func releaseStalledClaim(
 
 	if err := tx.Commit(); err != nil {
 		return false, false, fmt.Errorf("commit stalled release tx: %w", err)
+	}
+	if retryPaused {
+		if _, err := activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, events).Emit(ctx, activitysvc.RecordInput{
+			ProjectID: projectID,
+			TicketID:  &ticketID,
+			EventType: stalledRetryPauseEventType,
+			Message: fmt.Sprintf(
+				"Paused ticket retries after %d consecutive orchestrator stalls; human intervention is required before retrying.",
+				nextStallCount,
+			),
+			Metadata: map[string]any{
+				"pause_reason": ticketing.PauseReasonRepeatedStalls.String(),
+				"stall_count":  nextStallCount,
+				"threshold":    stalledRetryPauseThreshold,
+				"source":       strings.TrimSpace(source),
+			},
+			CreatedAt: now.UTC(),
+		}); err != nil {
+			return false, false, fmt.Errorf("emit stalled retry pause activity: %w", err)
+		}
 	}
 
 	return true, releasedAgents > 0 || releasedRuns > 0, nil

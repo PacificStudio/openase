@@ -4,10 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"time"
 
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -194,6 +198,27 @@ func (s *Server) createAgentProvider(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
+	if err := s.emitProviderActivityForAffectedProjects(
+		c.Request().Context(),
+		item.OrganizationID,
+		item.ID,
+		func(projectID uuid.UUID) activitysvc.RecordInput {
+			return activitysvc.RecordInput{
+				ProjectID: projectID,
+				EventType: activityevent.TypeProviderCreated,
+				Message:   "Created provider " + item.Name,
+				Metadata: map[string]any{
+					"provider_id":    item.ID.String(),
+					"provider_name":  item.Name,
+					"machine_id":     item.MachineID.String(),
+					"availability":   item.AvailabilityState.String(),
+					"changed_fields": []string{"provider"},
+				},
+			}
+		},
+	); err != nil {
+		return writeCatalogError(c, err)
+	}
 
 	return c.JSON(http.StatusCreated, map[string]any{
 		"provider": mapAgentProviderResponse(item),
@@ -240,6 +265,52 @@ func (s *Server) patchAgentProvider(c echo.Context) error {
 	item, err := s.catalog.UpdateAgentProvider(c.Request().Context(), input)
 	if err != nil {
 		return writeCatalogError(c, err)
+	}
+	if current.MachineID != item.MachineID {
+		if err := s.emitProviderActivityForAffectedProjects(
+			c.Request().Context(),
+			item.OrganizationID,
+			item.ID,
+			func(projectID uuid.UUID) activitysvc.RecordInput {
+				return activitysvc.RecordInput{
+					ProjectID: projectID,
+					EventType: activityevent.TypeProviderMachineBindingChanged,
+					Message:   "Changed provider machine binding for " + item.Name,
+					Metadata: map[string]any{
+						"provider_id":     item.ID.String(),
+						"provider_name":   item.Name,
+						"from_machine_id": current.MachineID.String(),
+						"to_machine_id":   item.MachineID.String(),
+						"changed_fields":  []string{"machine_id"},
+					},
+				}
+			},
+		); err != nil {
+			return writeCatalogError(c, err)
+		}
+	}
+	changedFields := providerChangedFields(current, item)
+	if len(changedFields) > 0 {
+		if err := s.emitProviderActivityForAffectedProjects(
+			c.Request().Context(),
+			item.OrganizationID,
+			item.ID,
+			func(projectID uuid.UUID) activitysvc.RecordInput {
+				return activitysvc.RecordInput{
+					ProjectID: projectID,
+					EventType: activityevent.TypeProviderUpdated,
+					Message:   "Updated provider " + item.Name,
+					Metadata: map[string]any{
+						"provider_id":    item.ID.String(),
+						"provider_name":  item.Name,
+						"availability":   item.AvailabilityState.String(),
+						"changed_fields": changedFields,
+					},
+				}
+			},
+		); err != nil {
+			return writeCatalogError(c, err)
+		}
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{
@@ -299,6 +370,20 @@ func (s *Server) createAgent(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: item.ProjectID,
+		AgentID:   &item.ID,
+		EventType: activityevent.TypeAgentCreated,
+		Message:   "Created agent " + item.Name,
+		Metadata: map[string]any{
+			"agent_id":       item.ID.String(),
+			"agent_name":     item.Name,
+			"provider_id":    item.ProviderID.String(),
+			"changed_fields": []string{"agent"},
+		},
+	}); err != nil {
+		return writeCatalogError(c, err)
+	}
 
 	return c.JSON(http.StatusCreated, map[string]any{
 		"agent": mapAgentResponse(item),
@@ -346,6 +431,20 @@ func (s *Server) patchAgent(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: item.ProjectID,
+		AgentID:   &item.ID,
+		EventType: activityevent.TypeAgentUpdated,
+		Message:   "Updated agent " + item.Name,
+		Metadata: map[string]any{
+			"agent_id":       item.ID.String(),
+			"agent_name":     item.Name,
+			"provider_id":    item.ProviderID.String(),
+			"changed_fields": agentChangedFields(current, item),
+		},
+	}); err != nil {
+		return writeCatalogError(c, err)
+	}
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"agent": mapAgentResponse(item),
@@ -371,6 +470,20 @@ func (s *Server) pauseAgent(c echo.Context) error {
 				catalogConflictMessage(err),
 			)
 		}
+		return writeCatalogError(c, err)
+	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: item.ProjectID,
+		AgentID:   &item.ID,
+		EventType: activityevent.TypeAgentPaused,
+		Message:   "Paused agent " + item.Name,
+		Metadata: map[string]any{
+			"agent_id":       item.ID.String(),
+			"agent_name":     item.Name,
+			"runtime_state":  item.RuntimeControlState.String(),
+			"changed_fields": []string{"runtime_control_state"},
+		},
+	}); err != nil {
 		return writeCatalogError(c, err)
 	}
 
@@ -400,6 +513,20 @@ func (s *Server) resumeAgent(c echo.Context) error {
 		}
 		return writeCatalogError(c, err)
 	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: item.ProjectID,
+		AgentID:   &item.ID,
+		EventType: activityevent.TypeAgentResumed,
+		Message:   "Resumed agent " + item.Name,
+		Metadata: map[string]any{
+			"agent_id":       item.ID.String(),
+			"agent_name":     item.Name,
+			"runtime_state":  item.RuntimeControlState.String(),
+			"changed_fields": []string{"runtime_control_state"},
+		},
+	}); err != nil {
+		return writeCatalogError(c, err)
+	}
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"agent": mapAgentResponse(item),
@@ -416,10 +543,64 @@ func (s *Server) deleteAgent(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: item.ProjectID,
+		AgentID:   &item.ID,
+		EventType: activityevent.TypeAgentDeleted,
+		Message:   "Deleted agent " + item.Name,
+		Metadata: map[string]any{
+			"agent_id":       item.ID.String(),
+			"agent_name":     item.Name,
+			"provider_id":    item.ProviderID.String(),
+			"changed_fields": []string{"agent"},
+		},
+	}); err != nil {
+		return writeCatalogError(c, err)
+	}
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"agent": mapAgentResponse(item),
 	})
+}
+
+func providerChangedFields(current domain.AgentProvider, item domain.AgentProvider) []string {
+	fields := make([]string, 0, 8)
+	if current.Name != item.Name {
+		fields = append(fields, "name")
+	}
+	if current.AdapterType != item.AdapterType {
+		fields = append(fields, "adapter_type")
+	}
+	if current.PermissionProfile != item.PermissionProfile {
+		fields = append(fields, "permission_profile")
+	}
+	if current.CliCommand != item.CliCommand || !slices.Equal(current.CliArgs, item.CliArgs) {
+		fields = append(fields, "cli")
+	}
+	if !mapsEqual(current.AuthConfig, item.AuthConfig) {
+		fields = append(fields, "auth_config")
+	}
+	if current.ModelName != item.ModelName || current.ModelTemperature != item.ModelTemperature || current.ModelMaxTokens != item.ModelMaxTokens {
+		fields = append(fields, "model")
+	}
+	if current.MaxParallelRuns != item.MaxParallelRuns {
+		fields = append(fields, "max_parallel_runs")
+	}
+	if current.CostPerInputToken != item.CostPerInputToken || current.CostPerOutputToken != item.CostPerOutputToken {
+		fields = append(fields, "cost")
+	}
+	return fields
+}
+
+func agentChangedFields(current domain.Agent, item domain.Agent) []string {
+	fields := make([]string, 0, 2)
+	if current.Name != item.Name {
+		fields = append(fields, "name")
+	}
+	if current.ProviderID != item.ProviderID {
+		fields = append(fields, "provider_id")
+	}
+	return fields
 }
 
 func mapAgentProviderResponses(items []domain.AgentProvider) []agentProviderResponse {

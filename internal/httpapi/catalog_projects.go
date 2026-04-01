@@ -2,7 +2,10 @@ package httpapi
 
 import (
 	"net/http"
+	"slices"
 
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/labstack/echo/v4"
 )
@@ -52,6 +55,21 @@ func (s *Server) createProject(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: item.ID,
+		EventType: activityevent.TypeProjectCreated,
+		Message:   "Created project " + item.Name,
+		Metadata: map[string]any{
+			"project_name":           item.Name,
+			"status":                 item.Status.String(),
+			"default_provider_id":    uuidToStringPointer(item.DefaultAgentProviderID),
+			"accessible_machine_ids": uuidSliceToStrings(item.AccessibleMachineIDs),
+			"max_concurrent_agents":  item.MaxConcurrentAgents,
+			"changed_fields":         []string{"project"},
+		},
+	}); err != nil {
+		return writeCatalogError(c, err)
+	}
 
 	return c.JSON(http.StatusCreated, map[string]any{
 		"project": mapProjectResponse(item),
@@ -99,6 +117,61 @@ func (s *Server) patchProject(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
+	changedFields := make([]string, 0, 4)
+	if current.Name != item.Name || current.Slug != item.Slug || current.Description != item.Description ||
+		!slices.Equal(current.AccessibleMachineIDs, item.AccessibleMachineIDs) {
+		changedFields = append(changedFields, "project")
+	}
+	activityInputs := make([]activitysvc.RecordInput, 0, 4)
+	if current.Status != item.Status {
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: item.ID,
+			EventType: activityevent.TypeProjectStatusChanged,
+			Message:   "Changed project status to " + item.Status.String(),
+			Metadata:  projectStatusMetadata(current, item),
+		})
+	}
+	if !uuidPointersEqual(current.DefaultAgentProviderID, item.DefaultAgentProviderID) {
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: item.ID,
+			EventType: activityevent.TypeProjectProviderChanged,
+			Message:   "Changed project default provider for " + item.Name,
+			Metadata: map[string]any{
+				"project_name":     item.Name,
+				"from_provider_id": uuidToStringPointer(current.DefaultAgentProviderID),
+				"to_provider_id":   uuidToStringPointer(item.DefaultAgentProviderID),
+				"changed_fields":   []string{"default_agent_provider_id"},
+			},
+		})
+	}
+	if current.MaxConcurrentAgents != item.MaxConcurrentAgents {
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: item.ID,
+			EventType: activityevent.TypeProjectConcurrencyChanged,
+			Message:   "Changed project concurrency for " + item.Name,
+			Metadata: map[string]any{
+				"project_name":         item.Name,
+				"from_max_concurrency": current.MaxConcurrentAgents,
+				"to_max_concurrency":   item.MaxConcurrentAgents,
+				"changed_fields":       []string{"max_concurrent_agents"},
+			},
+		})
+	}
+	if len(changedFields) > 0 {
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: item.ID,
+			EventType: activityevent.TypeProjectUpdated,
+			Message:   "Updated project " + item.Name,
+			Metadata: map[string]any{
+				"project_name":           item.Name,
+				"accessible_machine_ids": uuidSliceToStrings(item.AccessibleMachineIDs),
+				"changed_fields":         changedFields,
+			},
+		})
+	}
+	if err := s.emitActivities(c.Request().Context(), activityInputs...); err != nil {
+		return writeCatalogError(c, err)
+	}
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"project": mapProjectResponse(item),
@@ -113,6 +186,18 @@ func (s *Server) archiveProject(c echo.Context) error {
 
 	item, err := s.catalog.ArchiveProject(c.Request().Context(), projectID)
 	if err != nil {
+		return writeCatalogError(c, err)
+	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: item.ID,
+		EventType: activityevent.TypeProjectArchived,
+		Message:   "Archived project " + item.Name,
+		Metadata: map[string]any{
+			"project_name":   item.Name,
+			"status":         item.Status.String(),
+			"changed_fields": []string{"archived"},
+		},
+	}); err != nil {
 		return writeCatalogError(c, err)
 	}
 

@@ -10,6 +10,7 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -147,24 +148,21 @@ func publishAgentLifecycleEvent(
 		activityAllowed = true
 	}
 
-	var activityItem *ent.ActivityEvent
 	if client != nil && activityAllowed {
-		activityCreate := client.ActivityEvent.Create().
-			SetProjectID(state.agent.ProjectID).
-			SetAgentID(state.agent.ID).
-			SetEventType(activityType.String()).
-			SetMessage(message).
-			SetMetadata(cloneLifecycleMetadata(metadata)).
-			SetCreatedAt(publishedAt.UTC())
+		input := activitysvc.RecordInput{
+			ProjectID: state.agent.ProjectID,
+			AgentID:   &state.agent.ID,
+			EventType: activityType,
+			Message:   message,
+			Metadata:  cloneLifecycleMetadata(metadata),
+			CreatedAt: publishedAt.UTC(),
+		}
 		if state.run != nil {
-			activityCreate.SetTicketID(state.run.TicketID)
+			input.TicketID = &state.run.TicketID
 		}
-
-		item, err := activityCreate.Save(ctx)
-		if err != nil {
-			return fmt.Errorf("persist %s activity event: %w", eventType, err)
+		if _, err := activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, events).Emit(ctx, input); err != nil {
+			return fmt.Errorf("emit %s activity event: %w", eventType, err)
 		}
-		activityItem = item
 	}
 
 	if events == nil {
@@ -182,22 +180,6 @@ func publishAgentLifecycleEvent(
 	}
 	if err := events.Publish(ctx, event); err != nil {
 		return fmt.Errorf("publish %s event: %w", eventType, err)
-	}
-	if activityItem == nil || !activityAllowed {
-		return nil
-	}
-
-	activityEvent, err := provider.NewJSONEvent(
-		activityLifecycleTopic,
-		eventType,
-		activityLifecycleEnvelope{Event: mapActivityLifecycleSnapshot(activityItem)},
-		publishedAt,
-	)
-	if err != nil {
-		return fmt.Errorf("construct %s activity stream event: %w", eventType, err)
-	}
-	if err := events.Publish(ctx, activityEvent); err != nil {
-		return fmt.Errorf("publish %s activity stream event: %w", eventType, err)
 	}
 
 	return nil

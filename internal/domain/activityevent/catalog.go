@@ -16,32 +16,124 @@ type CatalogEntry struct {
 }
 
 const (
-	TypeUnknown               Type = "unknown"
-	TypeTicketCreated         Type = "ticket.created"
-	TypeTicketUpdated         Type = "ticket.updated"
-	TypeTicketStatusChanged   Type = "ticket.status_changed"
-	TypeTicketCompleted       Type = "ticket.completed"
-	TypeTicketCancelled       Type = "ticket.cancelled"
-	TypeTicketRetryScheduled  Type = "ticket.retry_scheduled"
-	TypeTicketRetryPaused     Type = "ticket.retry_paused"
-	TypeTicketRetryResumed    Type = "ticket.retry_resumed"
-	TypeTicketBudgetExhausted Type = "ticket.budget_exhausted"
-	TypeAgentClaimed          Type = "agent.claimed"
-	TypeAgentLaunching        Type = "agent.launching"
-	TypeAgentReady            Type = "agent.ready"
-	TypeAgentPaused           Type = "agent.paused"
-	TypeAgentFailed           Type = "agent.failed"
-	TypeAgentCompleted        Type = "agent.completed"
-	TypeAgentTerminated       Type = "agent.terminated"
-	TypeHookStarted           Type = "hook.started"
-	TypeHookPassed            Type = "hook.passed"
-	TypeHookFailed            Type = "hook.failed"
-	TypePROpened              Type = "pr.opened"
-	TypePRMerged              Type = "pr.merged"
-	TypePRClosed              Type = "pr.closed"
+	TypeUnknown                        Type = "unknown"
+	TypeProjectCreated                 Type = "project.created"
+	TypeProjectUpdated                 Type = "project.updated"
+	TypeProjectArchived                Type = "project.archived"
+	TypeProjectStatusChanged           Type = "project.status_changed"
+	TypeProjectProviderChanged         Type = "project.default_provider_changed"
+	TypeProjectConcurrencyChanged      Type = "project.concurrency_changed"
+	TypeProjectRepoCreated             Type = "project_repo.created"
+	TypeProjectRepoUpdated             Type = "project_repo.updated"
+	TypeProjectRepoDeleted             Type = "project_repo.deleted"
+	TypeTicketStatusCreated            Type = "ticket_status.created"
+	TypeTicketStatusUpdated            Type = "ticket_status.updated"
+	TypeTicketStatusReordered          Type = "ticket_status.reordered"
+	TypeTicketStatusConcurrencyChanged Type = "ticket_status.concurrency_changed"
+	TypeTicketStatusDeleted            Type = "ticket_status.deleted"
+	TypeTicketStatusReset              Type = "ticket_status.reset"
+	TypeWorkflowCreated                Type = "workflow.created"
+	TypeWorkflowUpdated                Type = "workflow.updated"
+	TypeWorkflowActivated              Type = "workflow.activated"
+	TypeWorkflowDeactivated            Type = "workflow.deactivated"
+	TypeWorkflowDeleted                Type = "workflow.deleted"
+	TypeWorkflowHarnessUpdated         Type = "workflow.harness_updated"
+	TypeWorkflowHooksUpdated           Type = "workflow.hooks_updated"
+	TypeWorkflowAgentChanged           Type = "workflow.agent_changed"
+	TypeWorkflowPickupStatusesChanged  Type = "workflow.pickup_statuses_changed"
+	TypeWorkflowFinishStatusesChanged  Type = "workflow.finish_statuses_changed"
+	TypeWorkflowConcurrencyChanged     Type = "workflow.concurrency_changed"
+	TypeWorkflowRetryPolicyChanged     Type = "workflow.retry_policy_changed"
+	TypeWorkflowTimeoutChanged         Type = "workflow.timeout_changed"
+	TypeProviderCreated                Type = "provider.created"
+	TypeProviderUpdated                Type = "provider.updated"
+	TypeProviderAvailabilityChanged    Type = "provider.availability_changed"
+	TypeProviderMachineBindingChanged  Type = "provider.machine_binding_changed"
+	TypeProviderRateLimitUpdated       Type = "provider.rate_limit_updated"
+	TypeAgentCreated                   Type = "agent.created"
+	TypeAgentUpdated                   Type = "agent.updated"
+	TypeAgentResumed                   Type = "agent.resumed"
+	TypeAgentDeleted                   Type = "agent.deleted"
+	TypeScheduledJobCreated            Type = "scheduled_job.created"
+	TypeScheduledJobUpdated            Type = "scheduled_job.updated"
+	TypeScheduledJobEnabled            Type = "scheduled_job.enabled"
+	TypeScheduledJobDisabled           Type = "scheduled_job.disabled"
+	TypeScheduledJobDeleted            Type = "scheduled_job.deleted"
+	TypeScheduledJobTriggered          Type = "scheduled_job.triggered"
+	TypeTicketCommentCreated           Type = "ticket_comment.created"
+	TypeTicketCommentEdited            Type = "ticket_comment.edited"
+	TypeTicketCommentDeleted           Type = "ticket_comment.deleted"
+	TypeTicketCreated                  Type = "ticket.created"
+	TypeTicketUpdated                  Type = "ticket.updated"
+	TypeTicketStatusChanged            Type = "ticket.status_changed"
+	TypeTicketCompleted                Type = "ticket.completed"
+	TypeTicketCancelled                Type = "ticket.cancelled"
+	TypeTicketRetryScheduled           Type = "ticket.retry_scheduled"
+	TypeTicketRetryPaused              Type = "ticket.retry_paused"
+	TypeTicketRetryResumed             Type = "ticket.retry_resumed"
+	TypeTicketBudgetExhausted          Type = "ticket.budget_exhausted"
+	TypeAgentClaimed                   Type = "agent.claimed"
+	TypeAgentLaunching                 Type = "agent.launching"
+	TypeAgentReady                     Type = "agent.ready"
+	TypeAgentPaused                    Type = "agent.paused"
+	TypeAgentFailed                    Type = "agent.failed"
+	TypeAgentCompleted                 Type = "agent.completed"
+	TypeAgentTerminated                Type = "agent.terminated"
+	TypeHookStarted                    Type = "hook.started"
+	TypeHookPassed                     Type = "hook.passed"
+	TypeHookFailed                     Type = "hook.failed"
+	TypePROpened                       Type = "pr.opened"
+	TypePRMerged                       Type = "pr.merged"
+	TypePRClosed                       Type = "pr.closed"
 )
 
 var canonicalCatalog = []CatalogEntry{
+	{EventType: TypeProjectCreated, Label: "Project Created"},
+	{EventType: TypeProjectUpdated, Label: "Project Updated"},
+	{EventType: TypeProjectArchived, Label: "Project Archived"},
+	{EventType: TypeProjectStatusChanged, Label: "Project Status Changed"},
+	{EventType: TypeProjectProviderChanged, Label: "Project Default Provider Changed"},
+	{EventType: TypeProjectConcurrencyChanged, Label: "Project Concurrency Changed"},
+	{EventType: TypeProjectRepoCreated, Label: "Project Repo Created"},
+	{EventType: TypeProjectRepoUpdated, Label: "Project Repo Updated"},
+	{EventType: TypeProjectRepoDeleted, Label: "Project Repo Deleted"},
+	{EventType: TypeTicketStatusCreated, Label: "Ticket Status Created"},
+	{EventType: TypeTicketStatusUpdated, Label: "Ticket Status Updated"},
+	{EventType: TypeTicketStatusReordered, Label: "Ticket Status Reordered"},
+	{EventType: TypeTicketStatusConcurrencyChanged, Label: "Ticket Status Concurrency Changed"},
+	{EventType: TypeTicketStatusDeleted, Label: "Ticket Status Deleted"},
+	{EventType: TypeTicketStatusReset, Label: "Ticket Status Reset"},
+	{EventType: TypeWorkflowCreated, Label: "Workflow Created"},
+	{EventType: TypeWorkflowUpdated, Label: "Workflow Updated"},
+	{EventType: TypeWorkflowActivated, Label: "Workflow Activated"},
+	{EventType: TypeWorkflowDeactivated, Label: "Workflow Deactivated"},
+	{EventType: TypeWorkflowDeleted, Label: "Workflow Deleted"},
+	{EventType: TypeWorkflowHarnessUpdated, Label: "Workflow Harness Updated"},
+	{EventType: TypeWorkflowHooksUpdated, Label: "Workflow Hooks Updated"},
+	{EventType: TypeWorkflowAgentChanged, Label: "Workflow Agent Changed"},
+	{EventType: TypeWorkflowPickupStatusesChanged, Label: "Workflow Pickup Statuses Changed"},
+	{EventType: TypeWorkflowFinishStatusesChanged, Label: "Workflow Finish Statuses Changed"},
+	{EventType: TypeWorkflowConcurrencyChanged, Label: "Workflow Concurrency Changed"},
+	{EventType: TypeWorkflowRetryPolicyChanged, Label: "Workflow Retry Policy Changed"},
+	{EventType: TypeWorkflowTimeoutChanged, Label: "Workflow Timeout Changed"},
+	{EventType: TypeProviderCreated, Label: "Provider Created"},
+	{EventType: TypeProviderUpdated, Label: "Provider Updated"},
+	{EventType: TypeProviderAvailabilityChanged, Label: "Provider Availability Changed"},
+	{EventType: TypeProviderMachineBindingChanged, Label: "Provider Machine Binding Changed"},
+	{EventType: TypeProviderRateLimitUpdated, Label: "Provider Rate Limit Updated"},
+	{EventType: TypeAgentCreated, Label: "Agent Created"},
+	{EventType: TypeAgentUpdated, Label: "Agent Updated"},
+	{EventType: TypeAgentResumed, Label: "Agent Resumed"},
+	{EventType: TypeAgentDeleted, Label: "Agent Deleted"},
+	{EventType: TypeScheduledJobCreated, Label: "Scheduled Job Created"},
+	{EventType: TypeScheduledJobUpdated, Label: "Scheduled Job Updated"},
+	{EventType: TypeScheduledJobEnabled, Label: "Scheduled Job Enabled"},
+	{EventType: TypeScheduledJobDisabled, Label: "Scheduled Job Disabled"},
+	{EventType: TypeScheduledJobDeleted, Label: "Scheduled Job Deleted"},
+	{EventType: TypeScheduledJobTriggered, Label: "Scheduled Job Triggered"},
+	{EventType: TypeTicketCommentCreated, Label: "Ticket Comment Created"},
+	{EventType: TypeTicketCommentEdited, Label: "Ticket Comment Edited"},
+	{EventType: TypeTicketCommentDeleted, Label: "Ticket Comment Deleted"},
 	{EventType: TypeTicketCreated, Label: "Ticket Created"},
 	{EventType: TypeTicketUpdated, Label: "Ticket Updated"},
 	{EventType: TypeTicketStatusChanged, Label: "Ticket Status Changed"},
@@ -81,6 +173,15 @@ func (t Type) String() string {
 func (t Type) IsHook() bool {
 	switch t {
 	case TypeHookStarted, TypeHookPassed, TypeHookFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+func (t Type) IsTicketComment() bool {
+	switch t {
+	case TypeTicketCommentCreated, TypeTicketCommentEdited, TypeTicketCommentDeleted:
 		return true
 	default:
 		return false
