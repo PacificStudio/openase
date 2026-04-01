@@ -102,11 +102,20 @@ func (s *RetryService) MarkAttemptFailed(ctx context.Context, ticketID uuid.UUID
 
 	s.logger.Info(
 		"ticket retry scheduled",
+		"operation", "schedule_retry",
 		"ticket_id", current.ID,
+		"project_id", current.ProjectID,
+		"workflow_id", current.WorkflowID,
+		"current_run_id", current.CurrentRunID,
 		"attempt_count", nextAttemptCount,
+		"consecutive_errors", nextConsecutiveErrors,
+		"backoff_seconds", int(nextRetryAt.Sub(s.now().UTC()).Seconds()),
 		"next_retry_at", nextRetryAt.Format(time.RFC3339),
 		"retry_paused", pauseReason != "",
 		"pause_reason", pauseReason.String(),
+		"released_agent_id", releasedAgentID,
+		"cost_amount", current.CostAmount,
+		"budget_usd", current.BudgetUsd,
 	)
 
 	return RetryResult{

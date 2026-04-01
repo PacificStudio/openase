@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/BetterAndBetterII/openase/ent"
@@ -443,15 +444,41 @@ func (s *Service) MatchingRules(ctx context.Context, projectID uuid.UUID, eventT
 func (s *Service) sendChannel(ctx context.Context, channel domain.Channel, message domain.Message) error {
 	adapter, err := s.registry.Get(channel.Type)
 	if err != nil {
+		s.logger.Error(
+			"notification adapter unavailable",
+			"operation", "resolve_notification_adapter",
+			"channel_id", channel.ID.String(),
+			"channel_name", channel.Name,
+			"channel_type", channel.Type.String(),
+			"error", err,
+		)
 		return err
 	}
 
 	config, err := domain.ParseChannelConfig(channel.Type, channel.Config)
 	if err != nil {
+		s.logger.Warn(
+			"notification channel config invalid",
+			"operation", "parse_notification_channel_config",
+			"channel_id", channel.ID.String(),
+			"channel_name", channel.Name,
+			"channel_type", channel.Type.String(),
+			"config_keys", notificationConfigKeys(channel.Config),
+			"error", err,
+		)
 		return fmt.Errorf("%w: %v", ErrInvalidChannelConfig, err)
 	}
 
 	return adapter.Send(ctx, config, message)
+}
+
+func notificationConfigKeys(config map[string]any) []string {
+	keys := make([]string, 0, len(config))
+	for key := range config {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	return keys
 }
 
 func (s *Service) ensureOrganizationExists(ctx context.Context, organizationID uuid.UUID) error {

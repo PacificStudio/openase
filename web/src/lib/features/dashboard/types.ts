@@ -22,13 +22,13 @@ export type DashboardStats = {
   runningAgents: number
   activeTickets: number
   pendingApprovals: number
-  newTicketsTodayCost: number
-  projectCost: number
+  ticketSpendToday: number
+  ticketSpendTotal: number
   ticketsCreatedToday: number
   ticketsCompletedToday: number
   ticketInputTokens: number
   ticketOutputTokens: number
-  totalAgentTokens: number
+  agentLifetimeTokens: number
   avgCycleMinutes: number
   prMergeRate: number
 }

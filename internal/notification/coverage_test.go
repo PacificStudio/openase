@@ -114,6 +114,39 @@ func TestNotificationRegistryAndRenderHelpers(t *testing.T) {
 	}
 }
 
+func TestNotificationServiceLogsInvalidChannelConfig(t *testing.T) {
+	t.Parallel()
+
+	var logBuffer bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logBuffer, nil))
+	service := NewService(nil, logger, nil)
+	channelID := uuid.New()
+
+	err := service.sendChannel(context.Background(), domain.Channel{
+		ID:   channelID,
+		Name: "Broken Webhook",
+		Type: domain.ChannelTypeWebhook,
+		Config: map[string]any{
+			"url": "bad",
+		},
+	}, domain.Message{Title: "Ship"})
+	if err == nil || !errors.Is(err, ErrInvalidChannelConfig) {
+		t.Fatalf("sendChannel() error = %v, want %v", err, ErrInvalidChannelConfig)
+	}
+
+	logOutput := logBuffer.String()
+	for _, want := range []string{
+		"notification channel config invalid",
+		"channel_id=" + channelID.String(),
+		"operation=parse_notification_channel_config",
+		"config_keys=[url]",
+	} {
+		if !strings.Contains(logOutput, want) {
+			t.Fatalf("expected log output to contain %q, got %s", want, logOutput)
+		}
+	}
+}
+
 func TestNotificationAdapters(t *testing.T) {
 	t.Parallel()
 

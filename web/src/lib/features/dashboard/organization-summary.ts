@@ -13,13 +13,13 @@ export const emptyOrganizationDashboardStats: DashboardStats = {
   runningAgents: 0,
   activeTickets: 0,
   pendingApprovals: 0,
-  newTicketsTodayCost: 0,
-  projectCost: 0,
+  ticketSpendToday: 0,
+  ticketSpendTotal: 0,
   ticketsCreatedToday: 0,
   ticketsCompletedToday: 0,
   ticketInputTokens: 0,
   ticketOutputTokens: 0,
-  totalAgentTokens: 0,
+  agentLifetimeTokens: 0,
   avgCycleMinutes: 0,
   prMergeRate: 0,
 }
@@ -35,8 +35,8 @@ export function mapOrganizationDashboardSummary(payload: OrganizationSummaryResp
       ...emptyOrganizationDashboardStats,
       runningAgents: payload.organization?.running_agents ?? 0,
       activeTickets: payload.organization?.active_tickets ?? 0,
-      newTicketsTodayCost: payload.organization?.today_cost ?? 0,
-      totalAgentTokens: payload.organization?.total_tokens ?? 0,
+      ticketSpendToday: payload.organization?.today_cost ?? 0,
+      agentLifetimeTokens: payload.organization?.total_tokens ?? 0,
     },
     projectMetrics: Object.fromEntries(
       (payload.projects ?? []).map((project) => [
