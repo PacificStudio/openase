@@ -208,6 +208,9 @@ func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse bound harness skills: %v", err)
 	}
+	if bindResp.Harness.Version != 2 {
+		t.Fatalf("expected bind response to advance workflow version, got %+v", bindResp.Harness)
+	}
 	if len(boundSkills) != 2 || boundSkills[0] != "commit" || boundSkills[1] != "review-code" {
 		t.Fatalf("unexpected bound skills: %#v", boundSkills)
 	}
@@ -323,6 +326,9 @@ func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 	unboundSkills, err := workflowservice.ParseHarnessSkills(unbindResp.Harness.Content)
 	if err != nil {
 		t.Fatalf("parse unbound harness skills: %v", err)
+	}
+	if unbindResp.Harness.Version != 3 {
+		t.Fatalf("expected unbind response to advance workflow version, got %+v", unbindResp.Harness)
 	}
 	if len(unboundSkills) != 0 {
 		t.Fatalf("expected all skills to be unbound, got %#v", unboundSkills)
@@ -459,11 +465,88 @@ func TestSkillRoutesImportBundleAndExposeFiles(t *testing.T) {
 	if !strings.Contains(entrypointFile.Content, "name: \"deploy-openase\"") {
 		t.Fatalf("unexpected entrypoint file response: %+v", entrypointFile)
 	}
+
+	updateResp := skillDetailResponse{}
+	updatedEntrypoint := "# Deploy OpenASE\n\nUse the updated release flow.\n"
+	executeJSON(
+		t,
+		server,
+		http.MethodPut,
+		fmt.Sprintf("/api/v1/skills/%s", importResp.Skill.ID),
+		map[string]any{
+			"description": "Safely redeploy OpenASE with the updated release flow.",
+			"content":     updatedEntrypoint,
+			"files": []map[string]any{
+				{
+					"path":           "SKILL.md",
+					"content_base64": base64.StdEncoding.EncodeToString([]byte("placeholder")),
+					"media_type":     "text/markdown; charset=utf-8",
+				},
+				{
+					"path":           "scripts/release.sh",
+					"content_base64": base64.StdEncoding.EncodeToString([]byte("#!/usr/bin/env bash\necho release\n")),
+					"media_type":     "text/x-shellscript; charset=utf-8",
+					"is_executable":  true,
+				},
+				{
+					"path":           "assets/logo.txt",
+					"content_base64": base64.StdEncoding.EncodeToString([]byte("openase\n")),
+					"media_type":     "text/plain; charset=utf-8",
+				},
+			},
+		},
+		http.StatusOK,
+		&updateResp,
+	)
+	if updateResp.Skill.CurrentVersion != 2 || len(updateResp.Files) != 3 {
+		t.Fatalf("unexpected update response: %+v", updateResp)
+	}
+	updatedScript := findSkillFileResponse(t, updateResp.Files, "scripts/release.sh")
+	if !updatedScript.IsExecutable || updatedScript.Content != "#!/usr/bin/env bash\necho release\n" {
+		t.Fatalf("unexpected updated script file response: %+v", updatedScript)
+	}
+	if strings.Contains(findSkillFileResponse(t, updateResp.Files, "SKILL.md").Content, "placeholder") {
+		t.Fatalf("expected update to normalize entrypoint content, got %+v", updateResp.Files)
+	}
+
+	filesAfterUpdate := skillFilesResponse{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/skills/%s/files", importResp.Skill.ID),
+		nil,
+		http.StatusOK,
+		&filesAfterUpdate,
+	)
+	if len(filesAfterUpdate.Files) != 3 {
+		t.Fatalf("expected 3 updated skill files, got %+v", filesAfterUpdate)
+	}
+	if containsSkillFileResponse(filesAfterUpdate.Files, "scripts/redeploy.sh") {
+		t.Fatalf("expected renamed script path to be removed, got %+v", filesAfterUpdate)
+	}
+	if containsSkillFileResponse(filesAfterUpdate.Files, "references/runbook.md") {
+		t.Fatalf("expected deleted directory content to be removed, got %+v", filesAfterUpdate)
+	}
+	updatedEntrypointFile := findSkillFileResponse(t, filesAfterUpdate.Files, "SKILL.md")
+	if !strings.Contains(updatedEntrypointFile.Content, "Use the updated release flow.") {
+		t.Fatalf("unexpected updated entrypoint file response: %+v", updatedEntrypointFile)
+	}
 }
 
 func containsSkillName(items []string, want string) bool {
 	for _, item := range items {
 		if item == want {
+			return true
+		}
+	}
+
+	return false
+}
+
+func containsSkillFileResponse(items []skillFileResponse, want string) bool {
+	for _, item := range items {
+		if item.Path == want {
 			return true
 		}
 	}

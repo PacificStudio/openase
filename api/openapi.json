@@ -6930,6 +6930,108 @@
                                 },
                                 "type": "object"
                               },
+                              "codex": {
+                                "nullable": true,
+                                "properties": {
+                                  "limit_id": {
+                                    "type": "string"
+                                  },
+                                  "limit_name": {
+                                    "type": "string"
+                                  },
+                                  "plan_type": {
+                                    "type": "string"
+                                  },
+                                  "primary": {
+                                    "nullable": true,
+                                    "properties": {
+                                      "resets_at": {
+                                        "nullable": true,
+                                        "type": "string"
+                                      },
+                                      "used_percent": {
+                                        "format": "double",
+                                        "nullable": true,
+                                        "type": "number"
+                                      },
+                                      "window_minutes": {
+                                        "format": "int64",
+                                        "type": "integer"
+                                      }
+                                    },
+                                    "type": "object"
+                                  },
+                                  "secondary": {
+                                    "nullable": true,
+                                    "properties": {
+                                      "resets_at": {
+                                        "nullable": true,
+                                        "type": "string"
+                                      },
+                                      "used_percent": {
+                                        "format": "double",
+                                        "nullable": true,
+                                        "type": "number"
+                                      },
+                                      "window_minutes": {
+                                        "format": "int64",
+                                        "type": "integer"
+                                      }
+                                    },
+                                    "type": "object"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "gemini": {
+                                "nullable": true,
+                                "properties": {
+                                  "auth_type": {
+                                    "type": "string"
+                                  },
+                                  "buckets": {
+                                    "items": {
+                                      "properties": {
+                                        "model_id": {
+                                          "type": "string"
+                                        },
+                                        "remaining_amount": {
+                                          "type": "string"
+                                        },
+                                        "remaining_fraction": {
+                                          "format": "double",
+                                          "nullable": true,
+                                          "type": "number"
+                                        },
+                                        "reset_time": {
+                                          "nullable": true,
+                                          "type": "string"
+                                        },
+                                        "token_type": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
+                                    "type": "array"
+                                  },
+                                  "limit": {
+                                    "format": "int64",
+                                    "nullable": true,
+                                    "type": "integer"
+                                  },
+                                  "remaining": {
+                                    "format": "int64",
+                                    "nullable": true,
+                                    "type": "integer"
+                                  },
+                                  "reset_time": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
                               "provider": {
                                 "type": "string"
                               },
@@ -7239,6 +7341,108 @@
                                   "type": "string"
                                 },
                                 "status": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "codex": {
+                              "nullable": true,
+                              "properties": {
+                                "limit_id": {
+                                  "type": "string"
+                                },
+                                "limit_name": {
+                                  "type": "string"
+                                },
+                                "plan_type": {
+                                  "type": "string"
+                                },
+                                "primary": {
+                                  "nullable": true,
+                                  "properties": {
+                                    "resets_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "used_percent": {
+                                      "format": "double",
+                                      "nullable": true,
+                                      "type": "number"
+                                    },
+                                    "window_minutes": {
+                                      "format": "int64",
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "secondary": {
+                                  "nullable": true,
+                                  "properties": {
+                                    "resets_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "used_percent": {
+                                      "format": "double",
+                                      "nullable": true,
+                                      "type": "number"
+                                    },
+                                    "window_minutes": {
+                                      "format": "int64",
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "type": "object"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "gemini": {
+                              "nullable": true,
+                              "properties": {
+                                "auth_type": {
+                                  "type": "string"
+                                },
+                                "buckets": {
+                                  "items": {
+                                    "properties": {
+                                      "model_id": {
+                                        "type": "string"
+                                      },
+                                      "remaining_amount": {
+                                        "type": "string"
+                                      },
+                                      "remaining_fraction": {
+                                        "format": "double",
+                                        "nullable": true,
+                                        "type": "number"
+                                      },
+                                      "reset_time": {
+                                        "nullable": true,
+                                        "type": "string"
+                                      },
+                                      "token_type": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "type": "object"
+                                  },
+                                  "type": "array"
+                                },
+                                "limit": {
+                                  "format": "int64",
+                                  "nullable": true,
+                                  "type": "integer"
+                                },
+                                "remaining": {
+                                  "format": "int64",
+                                  "nullable": true,
+                                  "type": "integer"
+                                },
+                                "reset_time": {
+                                  "nullable": true,
                                   "type": "string"
                                 }
                               },
@@ -12280,9 +12484,6 @@
                               }
                             },
                             "type": "object"
-                          },
-                          "workflow_id": {
-                            "type": "string"
                           }
                         },
                         "type": "object"
@@ -12392,10 +12593,6 @@
                     "additionalProperties": {},
                     "description": "Ticket template used to create a ticket for each scheduled run.",
                     "type": "object"
-                  },
-                  "workflow_id": {
-                    "description": "Workflow ID executed when the scheduled job triggers.",
-                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -12462,9 +12659,6 @@
                             }
                           },
                           "type": "object"
-                        },
-                        "workflow_id": {
-                          "type": "string"
                         }
                       },
                       "type": "object"
@@ -14485,6 +14679,42 @@
                   "properties": {
                     "content": {
                       "type": "string"
+                    },
+                    "files": {
+                      "items": {
+                        "properties": {
+                          "content": {
+                            "type": "string"
+                          },
+                          "content_base64": {
+                            "type": "string"
+                          },
+                          "encoding": {
+                            "type": "string"
+                          },
+                          "file_kind": {
+                            "type": "string"
+                          },
+                          "is_executable": {
+                            "type": "boolean"
+                          },
+                          "media_type": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "sha256": {
+                            "type": "string"
+                          },
+                          "size_bytes": {
+                            "format": "int64",
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "history": {
                       "items": {
@@ -17746,6 +17976,108 @@
                               },
                               "type": "object"
                             },
+                            "codex": {
+                              "nullable": true,
+                              "properties": {
+                                "limit_id": {
+                                  "type": "string"
+                                },
+                                "limit_name": {
+                                  "type": "string"
+                                },
+                                "plan_type": {
+                                  "type": "string"
+                                },
+                                "primary": {
+                                  "nullable": true,
+                                  "properties": {
+                                    "resets_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "used_percent": {
+                                      "format": "double",
+                                      "nullable": true,
+                                      "type": "number"
+                                    },
+                                    "window_minutes": {
+                                      "format": "int64",
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "secondary": {
+                                  "nullable": true,
+                                  "properties": {
+                                    "resets_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "used_percent": {
+                                      "format": "double",
+                                      "nullable": true,
+                                      "type": "number"
+                                    },
+                                    "window_minutes": {
+                                      "format": "int64",
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "type": "object"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "gemini": {
+                              "nullable": true,
+                              "properties": {
+                                "auth_type": {
+                                  "type": "string"
+                                },
+                                "buckets": {
+                                  "items": {
+                                    "properties": {
+                                      "model_id": {
+                                        "type": "string"
+                                      },
+                                      "remaining_amount": {
+                                        "type": "string"
+                                      },
+                                      "remaining_fraction": {
+                                        "format": "double",
+                                        "nullable": true,
+                                        "type": "number"
+                                      },
+                                      "reset_time": {
+                                        "nullable": true,
+                                        "type": "string"
+                                      },
+                                      "token_type": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "type": "object"
+                                  },
+                                  "type": "array"
+                                },
+                                "limit": {
+                                  "format": "int64",
+                                  "nullable": true,
+                                  "type": "integer"
+                                },
+                                "remaining": {
+                                  "format": "int64",
+                                  "nullable": true,
+                                  "type": "integer"
+                                },
+                                "reset_time": {
+                                  "nullable": true,
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
                             "provider": {
                               "type": "string"
                             },
@@ -18061,6 +18393,108 @@
                                   "type": "string"
                                 },
                                 "status": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "codex": {
+                              "nullable": true,
+                              "properties": {
+                                "limit_id": {
+                                  "type": "string"
+                                },
+                                "limit_name": {
+                                  "type": "string"
+                                },
+                                "plan_type": {
+                                  "type": "string"
+                                },
+                                "primary": {
+                                  "nullable": true,
+                                  "properties": {
+                                    "resets_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "used_percent": {
+                                      "format": "double",
+                                      "nullable": true,
+                                      "type": "number"
+                                    },
+                                    "window_minutes": {
+                                      "format": "int64",
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "secondary": {
+                                  "nullable": true,
+                                  "properties": {
+                                    "resets_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "used_percent": {
+                                      "format": "double",
+                                      "nullable": true,
+                                      "type": "number"
+                                    },
+                                    "window_minutes": {
+                                      "format": "int64",
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "type": "object"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "gemini": {
+                              "nullable": true,
+                              "properties": {
+                                "auth_type": {
+                                  "type": "string"
+                                },
+                                "buckets": {
+                                  "items": {
+                                    "properties": {
+                                      "model_id": {
+                                        "type": "string"
+                                      },
+                                      "remaining_amount": {
+                                        "type": "string"
+                                      },
+                                      "remaining_fraction": {
+                                        "format": "double",
+                                        "nullable": true,
+                                        "type": "number"
+                                      },
+                                      "reset_time": {
+                                        "nullable": true,
+                                        "type": "string"
+                                      },
+                                      "token_type": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "type": "object"
+                                  },
+                                  "type": "array"
+                                },
+                                "limit": {
+                                  "format": "int64",
+                                  "nullable": true,
+                                  "type": "integer"
+                                },
+                                "remaining": {
+                                  "format": "int64",
+                                  "nullable": true,
+                                  "type": "integer"
+                                },
+                                "reset_time": {
+                                  "nullable": true,
                                   "type": "string"
                                 }
                               },
@@ -18417,11 +18851,6 @@
                     "description": "Ticket template used to create a ticket for each scheduled run.",
                     "nullable": true,
                     "type": "object"
-                  },
-                  "workflow_id": {
-                    "description": "Workflow ID executed when the scheduled job triggers.",
-                    "nullable": true,
-                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -18488,9 +18917,6 @@
                             }
                           },
                           "type": "object"
-                        },
-                        "workflow_id": {
-                          "type": "string"
                         }
                       },
                       "type": "object"
@@ -18653,9 +19079,6 @@
                             }
                           },
                           "type": "object"
-                        },
-                        "workflow_id": {
-                          "type": "string"
                         }
                       },
                       "type": "object"
@@ -19045,6 +19468,42 @@
                     "content": {
                       "type": "string"
                     },
+                    "files": {
+                      "items": {
+                        "properties": {
+                          "content": {
+                            "type": "string"
+                          },
+                          "content_base64": {
+                            "type": "string"
+                          },
+                          "encoding": {
+                            "type": "string"
+                          },
+                          "file_kind": {
+                            "type": "string"
+                          },
+                          "is_executable": {
+                            "type": "boolean"
+                          },
+                          "media_type": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "sha256": {
+                            "type": "string"
+                          },
+                          "size_bytes": {
+                            "format": "int64",
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "history": {
                       "items": {
                         "properties": {
@@ -19202,11 +19661,37 @@
                 "properties": {
                   "content": {
                     "description": "Replacement skill markdown content. Frontmatter is optional on input and will be normalized on write.",
+                    "nullable": true,
                     "type": "string"
                   },
                   "description": {
                     "description": "Optional description override used when the input content does not declare one.",
                     "type": "string"
+                  },
+                  "files": {
+                    "description": "Optional replacement skill bundle files. When present, the request publishes a new bundle version from the supplied file list.",
+                    "items": {
+                      "properties": {
+                        "content_base64": {
+                          "description": "Base64-encoded file bytes for this bundle entry.",
+                          "type": "string"
+                        },
+                        "is_executable": {
+                          "description": "Whether the projected file should be marked executable at runtime.",
+                          "type": "boolean"
+                        },
+                        "media_type": {
+                          "description": "Optional media type persisted with the file entry.",
+                          "type": "string"
+                        },
+                        "path": {
+                          "description": "Bundle-relative file path using forward slashes.",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "type": "array"
                   }
                 },
                 "type": "object"
@@ -19224,6 +19709,42 @@
                   "properties": {
                     "content": {
                       "type": "string"
+                    },
+                    "files": {
+                      "items": {
+                        "properties": {
+                          "content": {
+                            "type": "string"
+                          },
+                          "content_base64": {
+                            "type": "string"
+                          },
+                          "encoding": {
+                            "type": "string"
+                          },
+                          "file_kind": {
+                            "type": "string"
+                          },
+                          "is_executable": {
+                            "type": "boolean"
+                          },
+                          "media_type": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "sha256": {
+                            "type": "string"
+                          },
+                          "size_bytes": {
+                            "format": "int64",
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "history": {
                       "items": {
@@ -19406,6 +19927,42 @@
                     "content": {
                       "type": "string"
                     },
+                    "files": {
+                      "items": {
+                        "properties": {
+                          "content": {
+                            "type": "string"
+                          },
+                          "content_base64": {
+                            "type": "string"
+                          },
+                          "encoding": {
+                            "type": "string"
+                          },
+                          "file_kind": {
+                            "type": "string"
+                          },
+                          "is_executable": {
+                            "type": "boolean"
+                          },
+                          "media_type": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "sha256": {
+                            "type": "string"
+                          },
+                          "size_bytes": {
+                            "format": "int64",
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "history": {
                       "items": {
                         "properties": {
@@ -19566,6 +20123,42 @@
                   "properties": {
                     "content": {
                       "type": "string"
+                    },
+                    "files": {
+                      "items": {
+                        "properties": {
+                          "content": {
+                            "type": "string"
+                          },
+                          "content_base64": {
+                            "type": "string"
+                          },
+                          "encoding": {
+                            "type": "string"
+                          },
+                          "file_kind": {
+                            "type": "string"
+                          },
+                          "is_executable": {
+                            "type": "boolean"
+                          },
+                          "media_type": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "sha256": {
+                            "type": "string"
+                          },
+                          "size_bytes": {
+                            "format": "int64",
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "history": {
                       "items": {
@@ -19728,6 +20321,42 @@
                     "content": {
                       "type": "string"
                     },
+                    "files": {
+                      "items": {
+                        "properties": {
+                          "content": {
+                            "type": "string"
+                          },
+                          "content_base64": {
+                            "type": "string"
+                          },
+                          "encoding": {
+                            "type": "string"
+                          },
+                          "file_kind": {
+                            "type": "string"
+                          },
+                          "is_executable": {
+                            "type": "boolean"
+                          },
+                          "media_type": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "sha256": {
+                            "type": "string"
+                          },
+                          "size_bytes": {
+                            "format": "int64",
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "history": {
                       "items": {
                         "properties": {
@@ -19860,6 +20489,131 @@
           }
         },
         "summary": "Enable a skill for runtime injection",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/api/v1/skills/{skillId}/files": {
+      "get": {
+        "operationId": "getSkillFiles",
+        "parameters": [
+          {
+            "description": "Skill ID.",
+            "in": "path",
+            "name": "skillId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "files": {
+                      "items": {
+                        "properties": {
+                          "content": {
+                            "type": "string"
+                          },
+                          "content_base64": {
+                            "type": "string"
+                          },
+                          "encoding": {
+                            "type": "string"
+                          },
+                          "file_kind": {
+                            "type": "string"
+                          },
+                          "is_executable": {
+                            "type": "boolean"
+                          },
+                          "media_type": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "sha256": {
+                            "type": "string"
+                          },
+                          "size_bytes": {
+                            "format": "int64",
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get the current published skill bundle files response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Get the current published skill bundle files",
         "tags": [
           "skills"
         ]
@@ -20017,6 +20771,42 @@
                   "properties": {
                     "content": {
                       "type": "string"
+                    },
+                    "files": {
+                      "items": {
+                        "properties": {
+                          "content": {
+                            "type": "string"
+                          },
+                          "content_base64": {
+                            "type": "string"
+                          },
+                          "encoding": {
+                            "type": "string"
+                          },
+                          "file_kind": {
+                            "type": "string"
+                          },
+                          "is_executable": {
+                            "type": "boolean"
+                          },
+                          "media_type": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "sha256": {
+                            "type": "string"
+                          },
+                          "size_bytes": {
+                            "format": "int64",
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "history": {
                       "items": {

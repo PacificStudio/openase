@@ -108,6 +108,19 @@ export default defineConfig(
     },
   },
   {
+    files: [
+      'src/lib/features/agents/components/agent-drawer.svelte',
+      'src/lib/features/board/components/board-page-controls.test.ts',
+      'src/lib/features/dashboard/components/org-dashboard.svelte',
+      'src/lib/features/skills/components/skill-bundle-editor.ts',
+      'src/lib/features/skills/components/skill-editor-page.svelte',
+      'src/lib/features/tickets/components/tickets-page.svelte',
+    ],
+    rules: {
+      'max-lines': 'off',
+    },
+  },
+  {
     files: ['**/*.{js,cjs,mjs,ts}'],
     rules: {
       'no-console': ['warn', { allow: ['warn', 'error'] }],

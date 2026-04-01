@@ -305,6 +305,9 @@ func (l *RuntimeLauncher) consumeTurn(
 			return &turnSessionClosedError{turnID: turnID}
 		}
 		observedAt := l.now().UTC()
+		if event.ObservedAt != nil {
+			observedAt = event.ObservedAt.UTC()
+		}
 		l.runtime.recordCodexEvent(runID, string(event.Type), observedAt)
 
 		if err := l.persistRuntimeSessionID(ctx, runID, session); err != nil {

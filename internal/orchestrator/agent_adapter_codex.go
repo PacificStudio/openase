@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"time"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
@@ -169,6 +170,10 @@ func (s *codexAgentSession) bridge() {
 		if !ok {
 			continue
 		}
+		if event.Type == codex.EventTypeRateLimitUpdated {
+			observedAt := time.Now().UTC()
+			mapped.ObservedAt = &observedAt
+		}
 		s.events <- mapped
 	}
 }
@@ -227,6 +232,14 @@ func mapCodexAgentEvent(event codex.Event) (agentEvent, bool) {
 				LastTokens:         event.TokenUsage.LastTokens,
 				ModelContextWindow: event.TokenUsage.ModelContextWindow,
 			},
+		}, true
+	case codex.EventTypeRateLimitUpdated:
+		if event.RateLimit == nil {
+			return agentEvent{}, false
+		}
+		return agentEvent{
+			Type:      agentEventTypeRateLimitUpdated,
+			RateLimit: event.RateLimit,
 		}, true
 	case codex.EventTypeOutputProduced:
 		if event.Output == nil {

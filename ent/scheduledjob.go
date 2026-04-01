@@ -28,7 +28,7 @@ type ScheduledJob struct {
 	// CronExpression holds the value of the "cron_expression" field.
 	CronExpression string `json:"cron_expression,omitempty"`
 	// WorkflowID holds the value of the "workflow_id" field.
-	WorkflowID uuid.UUID `json:"workflow_id,omitempty"`
+	WorkflowID *uuid.UUID `json:"workflow_id,omitempty"`
 	// TicketTemplate holds the value of the "ticket_template" field.
 	TicketTemplate map[string]interface{} `json:"ticket_template,omitempty"`
 	// IsEnabled holds the value of the "is_enabled" field.
@@ -81,6 +81,8 @@ func (*ScheduledJob) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case scheduledjob.FieldWorkflowID:
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case scheduledjob.FieldTicketTemplate:
 			values[i] = new([]byte)
 		case scheduledjob.FieldIsEnabled:
@@ -89,7 +91,7 @@ func (*ScheduledJob) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullString)
 		case scheduledjob.FieldLastRunAt, scheduledjob.FieldNextRunAt:
 			values[i] = new(sql.NullTime)
-		case scheduledjob.FieldID, scheduledjob.FieldProjectID, scheduledjob.FieldWorkflowID:
+		case scheduledjob.FieldID, scheduledjob.FieldProjectID:
 			values[i] = new(uuid.UUID)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -131,10 +133,11 @@ func (_m *ScheduledJob) assignValues(columns []string, values []any) error {
 				_m.CronExpression = value.String
 			}
 		case scheduledjob.FieldWorkflowID:
-			if value, ok := values[i].(*uuid.UUID); !ok {
+			if value, ok := values[i].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field workflow_id", values[i])
-			} else if value != nil {
-				_m.WorkflowID = *value
+			} else if value.Valid {
+				_m.WorkflowID = new(uuid.UUID)
+				*_m.WorkflowID = *value.S.(*uuid.UUID)
 			}
 		case scheduledjob.FieldTicketTemplate:
 			if value, ok := values[i].(*[]byte); !ok {
@@ -219,8 +222,10 @@ func (_m *ScheduledJob) String() string {
 	builder.WriteString("cron_expression=")
 	builder.WriteString(_m.CronExpression)
 	builder.WriteString(", ")
-	builder.WriteString("workflow_id=")
-	builder.WriteString(fmt.Sprintf("%v", _m.WorkflowID))
+	if v := _m.WorkflowID; v != nil {
+		builder.WriteString("workflow_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("ticket_template=")
 	builder.WriteString(fmt.Sprintf("%v", _m.TicketTemplate))

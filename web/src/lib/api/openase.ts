@@ -910,7 +910,6 @@ export function createScheduledJob(
       title?: string
       type?: string
     }
-    workflow_id: string
   },
 ) {
   return api.post<ScheduledJobResponse>(`/api/v1/projects/${projectId}/scheduled-jobs`, { body })
@@ -931,7 +930,6 @@ export function updateScheduledJob(
       title?: string
       type?: string
     } | null
-    workflow_id?: string | null
   },
 ) {
   return api.patch<ScheduledJobUpdateResponse>(`/api/v1/scheduled-jobs/${jobId}`, { body })
@@ -1001,8 +999,14 @@ export function getSkillFiles(skillId: string) {
 export function updateSkill(
   skillId: string,
   body: {
-    content: string
+    content?: string
     description?: string
+    files?: Array<{
+      path: string
+      content_base64: string
+      media_type?: string
+      is_executable?: boolean
+    }>
   },
 ) {
   return api.put<SkillUpdateResponse>(`/api/v1/skills/${skillId}`, { body })

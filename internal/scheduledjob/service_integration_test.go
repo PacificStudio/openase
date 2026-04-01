@@ -37,7 +37,6 @@ func TestScheduledJobServiceLifecycleTriggerAndRunDue(t *testing.T) {
 		ProjectID:      fixture.projectID,
 		Name:           "weekly-security-scan",
 		CronExpression: "0 9 * * 1",
-		WorkflowID:     fixture.workflowID,
 		TicketTemplate: TicketTemplate{
 			Title:       "Weekly security scan - {{ date }}",
 			Description: "Audit all repos",
@@ -60,8 +59,7 @@ func TestScheduledJobServiceLifecycleTriggerAndRunDue(t *testing.T) {
 		ProjectID:      fixture.projectID,
 		Name:           created.Name,
 		CronExpression: "0 10 * * 1",
-		WorkflowID:     fixture.workflowID,
-		TicketTemplate: TicketTemplate{Title: "Duplicate"},
+		TicketTemplate: TicketTemplate{Title: "Duplicate", Status: "Todo"},
 		IsEnabled:      true,
 	}); !errors.Is(err, ErrScheduledJobConflict) {
 		t.Fatalf("Create() duplicate error = %v, want %v", err, ErrScheduledJobConflict)
@@ -76,15 +74,14 @@ func TestScheduledJobServiceLifecycleTriggerAndRunDue(t *testing.T) {
 	}
 
 	disabled, err := service.Update(ctx, UpdateInput{
-		JobID:      created.ID,
-		Name:       Some("paused-weekly-security-scan"),
-		IsEnabled:  Some(false),
-		WorkflowID: Some(fixture.workflowAltID),
+		JobID:     created.ID,
+		Name:      Some("paused-weekly-security-scan"),
+		IsEnabled: Some(false),
 	})
 	if err != nil {
 		t.Fatalf("Update() disable error = %v", err)
 	}
-	if disabled.Name != "paused-weekly-security-scan" || disabled.IsEnabled || disabled.NextRunAt != nil || disabled.WorkflowID != fixture.workflowAltID {
+	if disabled.Name != "paused-weekly-security-scan" || disabled.IsEnabled || disabled.NextRunAt != nil {
 		t.Fatalf("Update() disable = %+v", disabled)
 	}
 
@@ -106,7 +103,7 @@ func TestScheduledJobServiceLifecycleTriggerAndRunDue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Update() enable error = %v", err)
 	}
-	if !enabled.IsEnabled || enabled.NextRunAt == nil || enabled.WorkflowID != fixture.workflowAltID {
+	if !enabled.IsEnabled || enabled.NextRunAt == nil {
 		t.Fatalf("Update() enable = %+v", enabled)
 	}
 
@@ -117,7 +114,7 @@ func TestScheduledJobServiceLifecycleTriggerAndRunDue(t *testing.T) {
 	if triggerResult.Ticket.Title != "Weekly security scan - 2026-03-20" {
 		t.Fatalf("Trigger() ticket title = %q", triggerResult.Ticket.Title)
 	}
-	if triggerResult.Ticket.StatusID != fixture.statusIDs["Backlog"] || triggerResult.Ticket.WorkflowID == nil || *triggerResult.Ticket.WorkflowID != fixture.workflowAltID {
+	if triggerResult.Ticket.StatusID != fixture.statusIDs["Backlog"] || triggerResult.Ticket.WorkflowID != nil {
 		t.Fatalf("Trigger() ticket = %+v", triggerResult.Ticket)
 	}
 	if triggerResult.Ticket.CreatedBy != "system:scheduled-job" || triggerResult.Ticket.BudgetUSD != 21.0 {
@@ -149,10 +146,10 @@ func TestScheduledJobServiceLifecycleTriggerAndRunDue(t *testing.T) {
 		ProjectID:      fixture.projectID,
 		Name:           "todo-triage",
 		CronExpression: "*/30 * * * *",
-		WorkflowID:     fixture.workflowID,
 		TicketTemplate: TicketTemplate{
 			Title:       "Todo triage - {{ time }}",
 			Description: "Check inbox",
+			Status:      "Todo",
 			Priority:    entticket.PriorityMedium,
 			Type:        entticket.TypeChore,
 			CreatedBy:   "system:triage",
@@ -250,26 +247,23 @@ func TestScheduledJobServiceValidationAndErrorPaths(t *testing.T) {
 		ProjectID:      uuid.New(),
 		Name:           "missing-project",
 		CronExpression: "0 9 * * 1",
-		WorkflowID:     fixture.workflowID,
-		TicketTemplate: TicketTemplate{Title: "Task"},
+		TicketTemplate: TicketTemplate{Title: "Task", Status: "Todo"},
 	}); !errors.Is(err, ErrProjectNotFound) {
 		t.Fatalf("Create() missing project error = %v, want %v", err, ErrProjectNotFound)
 	}
 	if _, err := service.Create(ctx, CreateInput{
 		ProjectID:      fixture.projectID,
-		Name:           "missing-workflow",
+		Name:           "missing-status",
 		CronExpression: "0 9 * * 1",
-		WorkflowID:     uuid.New(),
 		TicketTemplate: TicketTemplate{Title: "Task"},
-	}); !errors.Is(err, ErrWorkflowNotFound) {
-		t.Fatalf("Create() missing workflow error = %v, want %v", err, ErrWorkflowNotFound)
+	}); !errors.Is(err, ErrInvalidTicketTemplate) {
+		t.Fatalf("Create() missing status error = %v, want %v", err, ErrInvalidTicketTemplate)
 	}
 	if _, err := service.Create(ctx, CreateInput{
 		ProjectID:      fixture.projectID,
 		Name:           "bad-cron",
 		CronExpression: "bad cron",
-		WorkflowID:     fixture.workflowID,
-		TicketTemplate: TicketTemplate{Title: "Task"},
+		TicketTemplate: TicketTemplate{Title: "Task", Status: "Todo"},
 	}); !errors.Is(err, ErrInvalidCronExpression) {
 		t.Fatalf("Create() bad cron error = %v, want %v", err, ErrInvalidCronExpression)
 	}
@@ -278,7 +272,6 @@ func TestScheduledJobServiceValidationAndErrorPaths(t *testing.T) {
 		ProjectID:      fixture.projectID,
 		Name:           "status-check",
 		CronExpression: "0 9 * * 1",
-		WorkflowID:     fixture.workflowID,
 		TicketTemplate: TicketTemplate{
 			Title:     "Status check",
 			Status:    "Missing",
@@ -295,8 +288,13 @@ func TestScheduledJobServiceValidationAndErrorPaths(t *testing.T) {
 	if _, err := service.Update(ctx, UpdateInput{JobID: uuid.New(), Name: Some("missing")}); !errors.Is(err, ErrScheduledJobNotFound) {
 		t.Fatalf("Update() missing job error = %v, want %v", err, ErrScheduledJobNotFound)
 	}
-	if _, err := service.Update(ctx, UpdateInput{JobID: job.ID, WorkflowID: Some(uuid.New())}); !errors.Is(err, ErrWorkflowNotFound) {
-		t.Fatalf("Update() missing workflow error = %v, want %v", err, ErrWorkflowNotFound)
+	if _, err := service.Update(ctx, UpdateInput{
+		JobID: job.ID,
+		TicketTemplate: Some(TicketTemplate{
+			Title: "Status check",
+		}),
+	}); !errors.Is(err, ErrInvalidTicketTemplate) {
+		t.Fatalf("Update() missing status error = %v, want %v", err, ErrInvalidTicketTemplate)
 	}
 	if _, err := service.Update(ctx, UpdateInput{JobID: job.ID, CronExpression: Some("bad cron")}); !errors.Is(err, ErrInvalidCronExpression) {
 		t.Fatalf("Update() bad cron error = %v, want %v", err, ErrInvalidCronExpression)

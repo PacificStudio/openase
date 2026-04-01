@@ -30,6 +30,7 @@ const (
 	EventTypeUserInputRequested EventType = "user_input_requested"
 	// #nosec G101 -- event type identifier, not a credential.
 	EventTypeTokenUsageUpdated EventType = "token_usage_updated"
+	EventTypeRateLimitUpdated  EventType = "rate_limit_updated"
 	EventTypeOutputProduced    EventType = "output_produced"
 	EventTypeTurnStarted       EventType = "turn_started"
 	EventTypeTurnCompleted     EventType = "turn_completed"
@@ -96,6 +97,7 @@ type Event struct {
 	Approval   *ApprovalRequest
 	UserInput  *UserInputRequest
 	TokenUsage *TokenUsageEvent
+	RateLimit  *provider.CLIRateLimit
 	Output     *OutputEvent
 	Turn       *TurnEvent
 }
@@ -829,6 +831,26 @@ func (s *Session) handleNotification(message jsonRPCMessage) error {
 				LastTokens:             notification.TokenUsage.Last.TotalTokens,
 				ModelContextWindow:     notification.TokenUsage.ModelContextWindow,
 			},
+		})
+
+		return nil
+	case methodAccountRateLimitsUpdated:
+		var notification wireAccountRateLimitsUpdatedNotification
+		if err := decodeParams(message.Params, &notification); err != nil {
+			return fmt.Errorf("decode codex account rate limits notification: %w", err)
+		}
+
+		rateLimit, err := provider.ParseCodexRateLimit(notification.RateLimits)
+		if err != nil {
+			return fmt.Errorf("parse codex account rate limits notification: %w", err)
+		}
+		if rateLimit == nil {
+			return nil
+		}
+
+		s.emit(Event{
+			Type:      EventTypeRateLimitUpdated,
+			RateLimit: rateLimit,
 		})
 
 		return nil

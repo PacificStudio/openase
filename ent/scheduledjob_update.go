@@ -87,6 +87,12 @@ func (_u *ScheduledJobUpdate) SetNillableWorkflowID(v *uuid.UUID) *ScheduledJobU
 	return _u
 }
 
+// ClearWorkflowID clears the value of the "workflow_id" field.
+func (_u *ScheduledJobUpdate) ClearWorkflowID() *ScheduledJobUpdate {
+	_u.mutation.ClearWorkflowID()
+	return _u
+}
+
 // SetTicketTemplate sets the "ticket_template" field.
 func (_u *ScheduledJobUpdate) SetTicketTemplate(v map[string]interface{}) *ScheduledJobUpdate {
 	_u.mutation.SetTicketTemplate(v)
@@ -215,9 +221,6 @@ func (_u *ScheduledJobUpdate) check() error {
 	}
 	if _u.mutation.ProjectCleared() && len(_u.mutation.ProjectIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "ScheduledJob.project"`)
-	}
-	if _u.mutation.WorkflowCleared() && len(_u.mutation.WorkflowIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "ScheduledJob.workflow"`)
 	}
 	return nil
 }
@@ -392,6 +395,12 @@ func (_u *ScheduledJobUpdateOne) SetNillableWorkflowID(v *uuid.UUID) *ScheduledJ
 	return _u
 }
 
+// ClearWorkflowID clears the value of the "workflow_id" field.
+func (_u *ScheduledJobUpdateOne) ClearWorkflowID() *ScheduledJobUpdateOne {
+	_u.mutation.ClearWorkflowID()
+	return _u
+}
+
 // SetTicketTemplate sets the "ticket_template" field.
 func (_u *ScheduledJobUpdateOne) SetTicketTemplate(v map[string]interface{}) *ScheduledJobUpdateOne {
 	_u.mutation.SetTicketTemplate(v)
@@ -533,9 +542,6 @@ func (_u *ScheduledJobUpdateOne) check() error {
 	}
 	if _u.mutation.ProjectCleared() && len(_u.mutation.ProjectIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "ScheduledJob.project"`)
-	}
-	if _u.mutation.WorkflowCleared() && len(_u.mutation.WorkflowIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "ScheduledJob.workflow"`)
 	}
 	return nil
 }

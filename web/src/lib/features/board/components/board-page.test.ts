@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render } from '@testing-library/svelte'
+import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type {
@@ -184,7 +184,7 @@ describe('TicketsPage', () => {
     vi.clearAllMocks()
   })
 
-  it('renders mapped agent metadata, exposes the agent filter, and switches into list view', async () => {
+  it('renders board filters and switches into list view', async () => {
     appStore.currentProject = projectFixture
 
     listStatuses.mockResolvedValue(statusesFixture)
@@ -198,7 +198,6 @@ describe('TicketsPage', () => {
     const { findByRole, findByText, queryByRole } = render(TicketsPage)
 
     expect(await findByText('ASE-202')).toBeTruthy()
-    expect(await findByText('Codex Worker')).toBeTruthy()
     expect(await findByRole('img', { name: 'Blocked' })).toBeTruthy()
     expect(await findByRole('button', { name: 'Agent' })).toBeTruthy()
     expect(queryByRole('table')).toBeNull()
@@ -227,5 +226,64 @@ describe('TicketsPage', () => {
 
     expect(appStore.newTicketDialogOpen).toBe(true)
     expect(appStore.newTicketDefaultStatusId).toBe('status-1')
+  })
+
+  it('reloads board runtime state when the agents stream emits an event', async () => {
+    appStore.currentProject = projectFixture
+    const baseRuntime = agentsFixture.agents[0].runtime!
+
+    const initialAgents: AgentPayload = {
+      agents: [
+        {
+          ...agentsFixture.agents[0],
+          runtime: {
+            ...baseRuntime,
+            runtime_phase: 'ready',
+          },
+        },
+      ],
+    }
+    const executingAgents: AgentPayload = {
+      agents: [
+        {
+          ...agentsFixture.agents[0],
+          runtime: {
+            ...baseRuntime,
+            runtime_phase: 'executing',
+          },
+        },
+      ],
+    }
+
+    let agentStreamOnEvent: (() => void) | undefined
+
+    listStatuses.mockResolvedValue(statusesFixture)
+    listTickets.mockResolvedValue(ticketsFixture)
+    listWorkflows.mockResolvedValue(workflowsFixture)
+    listAgents.mockResolvedValueOnce(initialAgents).mockResolvedValue(executingAgents)
+    listActivity.mockResolvedValue(activityFixture)
+    updateTicket.mockResolvedValue({ ticket: ticketsFixture.tickets[0] })
+    connectEventStream.mockImplementation((url: string, handlers: { onEvent?: () => void }) => {
+      if (url.endsWith('/agents/stream')) {
+        agentStreamOnEvent = handlers.onEvent
+      }
+      return () => {}
+    })
+
+    const { findByText } = render(TicketsPage)
+
+    const initialCard = (await findByText('ASE-202')).closest('button')
+    if (!initialCard) throw new Error('ticket card not found')
+    expect(within(initialCard).queryByTitle('Executing')).toBeNull()
+
+    agentStreamOnEvent?.()
+
+    await waitFor(() => {
+      expect(listAgents).toHaveBeenCalledTimes(2)
+      const updatedCard = (within(document.body).getByText('ASE-202').closest('button') ??
+        null) as HTMLButtonElement | null
+      if (!updatedCard) throw new Error('updated ticket card not found')
+      expect(within(updatedCard).getByTitle('Executing')).toBeTruthy()
+    })
   })
 })

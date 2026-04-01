@@ -92,8 +92,11 @@ type CreateSkillBundleInput struct {
 }
 
 type UpdateSkillBundleInput struct {
-	SkillID uuid.UUID
-	Files   []SkillBundleFileInput
+	SkillID      uuid.UUID
+	Files        []SkillBundleFileInput
+	Content      string
+	Description  string
+	ReplaceEntry bool
 }
 
 type UpdateSkillBindingsInput struct {
@@ -425,7 +428,33 @@ func (s *Service) UpdateSkillBundle(ctx context.Context, input UpdateSkillBundle
 		return SkillDetail{}, err
 	}
 
-	bundle, err := parseSkillBundle(record.skill.Name, input.Files)
+	files := make([]SkillBundleFileInput, 0, len(input.Files))
+	files = append(files, input.Files...)
+	if input.ReplaceEntry {
+		normalizedContent, err := ensureSkillContent(record.skill.Name, input.Content, input.Description)
+		if err != nil {
+			return SkillDetail{}, err
+		}
+		entrypointUpdated := false
+		for index := range files {
+			if strings.TrimSpace(files[index].Path) != "SKILL.md" {
+				continue
+			}
+			files[index].Content = []byte(normalizedContent)
+			files[index].MediaType = "text/markdown; charset=utf-8"
+			entrypointUpdated = true
+			break
+		}
+		if !entrypointUpdated {
+			files = append(files, SkillBundleFileInput{
+				Path:      "SKILL.md",
+				Content:   []byte(normalizedContent),
+				MediaType: "text/markdown; charset=utf-8",
+			})
+		}
+	}
+
+	bundle, err := parseSkillBundle(record.skill.Name, files)
 	if err != nil {
 		return SkillDetail{}, err
 	}
@@ -926,13 +955,23 @@ func (s *Service) updateWorkflowSkills(
 	if err := s.ensureBuiltinSkills(ctx, workflowItem.ProjectID); err != nil {
 		return HarnessDocument{}, err
 	}
-
-	tx, err := s.client.Tx(ctx)
+	previousVersion, err := s.currentWorkflowVersion(ctx, workflowItem.ID)
 	if err != nil {
-		return HarnessDocument{}, fmt.Errorf("start workflow skill binding tx: %w", err)
+		return HarnessDocument{}, err
 	}
-	defer rollback(tx)
 
+	existingBindings, err := s.client.WorkflowSkillBinding.Query().
+		Where(entworkflowskillbinding.WorkflowIDEQ(workflowItem.ID)).
+		All(ctx)
+	if err != nil {
+		return HarnessDocument{}, fmt.Errorf("list workflow skill bindings for update: %w", err)
+	}
+	existingBySkillID := make(map[uuid.UUID]struct{}, len(existingBindings))
+	for _, bindingItem := range existingBindings {
+		existingBySkillID[bindingItem.SkillID] = struct{}{}
+	}
+
+	pendingSkillIDs := make([]uuid.UUID, 0, len(skillNames))
 	for _, name := range skillNames {
 		skillItem, err := s.skillByName(ctx, workflowItem.ProjectID, name)
 		if err != nil {
@@ -942,22 +981,50 @@ func (s *Service) updateWorkflowSkills(
 			continue
 		}
 
+		_, alreadyBound := existingBySkillID[skillItem.ID]
 		if bind {
-			exists, err := tx.WorkflowSkillBinding.Query().
-				Where(
-					entworkflowskillbinding.WorkflowIDEQ(workflowItem.ID),
-					entworkflowskillbinding.SkillIDEQ(skillItem.ID),
-				).
-				Exist(ctx)
-			if err != nil {
-				return HarnessDocument{}, fmt.Errorf("check workflow skill binding: %w", err)
-			}
-			if exists {
+			if alreadyBound {
 				continue
 			}
+			pendingSkillIDs = append(pendingSkillIDs, skillItem.ID)
+			continue
+		}
+		if !alreadyBound {
+			continue
+		}
+		pendingSkillIDs = append(pendingSkillIDs, skillItem.ID)
+	}
+
+	if len(pendingSkillIDs) == 0 {
+		return s.GetHarness(ctx, workflowItem.ID)
+	}
+
+	if workflowItem.IsActive {
+		parsedHooks, err := validateConfiguredHooks(workflowItem.Hooks)
+		if err != nil {
+			return HarnessDocument{}, err
+		}
+		if err := s.runWorkflowHooks(ctx, workflowItem.ProjectID, parsedHooks, workflowHookOnReload, workflowHookRuntime{
+			ProjectID:       workflowItem.ProjectID,
+			WorkflowID:      workflowItem.ID,
+			WorkflowName:    workflowItem.Name,
+			WorkflowVersion: workflowItem.Version + 1,
+		}); err != nil {
+			return HarnessDocument{}, err
+		}
+	}
+
+	tx, err := s.client.Tx(ctx)
+	if err != nil {
+		return HarnessDocument{}, fmt.Errorf("start workflow skill binding tx: %w", err)
+	}
+	defer rollback(tx)
+
+	for _, skillID := range pendingSkillIDs {
+		if bind {
 			if _, err := tx.WorkflowSkillBinding.Create().
 				SetWorkflowID(workflowItem.ID).
-				SetSkillID(skillItem.ID).
+				SetSkillID(skillID).
 				Save(ctx); err != nil {
 				return HarnessDocument{}, fmt.Errorf("create workflow skill binding: %w", err)
 			}
@@ -967,11 +1034,15 @@ func (s *Service) updateWorkflowSkills(
 		if _, err := tx.WorkflowSkillBinding.Delete().
 			Where(
 				entworkflowskillbinding.WorkflowIDEQ(workflowItem.ID),
-				entworkflowskillbinding.SkillIDEQ(skillItem.ID),
+				entworkflowskillbinding.SkillIDEQ(skillID),
 			).
 			Exec(ctx); err != nil {
 			return HarnessDocument{}, fmt.Errorf("delete workflow skill binding: %w", err)
 		}
+	}
+
+	if _, err := s.publishWorkflowVersion(ctx, tx, workflowItem, previousVersion.ContentMarkdown); err != nil {
+		return HarnessDocument{}, err
 	}
 
 	if err := tx.Commit(); err != nil {

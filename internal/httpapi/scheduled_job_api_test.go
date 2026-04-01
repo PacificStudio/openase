@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
@@ -69,19 +68,7 @@ func TestScheduledJobRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}
-	todoID := findStatusIDByName(t, statuses, "Todo")
-	doneID := findStatusIDByName(t, statuses, "Done")
-	workflowItem, err := client.Workflow.Create().
-		SetProjectID(project.ID).
-		SetName("Automation Workflow").
-		SetType(entworkflow.TypeCoding).
-		SetHarnessPath(".openase/harnesses/automation.md").
-		AddPickupStatusIDs(todoID).
-		AddFinishStatusIDs(doneID).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create workflow: %v", err)
-	}
+	_ = findStatusIDByName(t, statuses, "Todo")
 
 	rec := performJSONRequest(t, unavailableServer, http.MethodGet, fmt.Sprintf("/api/v1/projects/%s/scheduled-jobs", project.ID), "")
 	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "SERVICE_UNAVAILABLE") {
@@ -97,10 +84,10 @@ func TestScheduledJobRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		wantBody   string
 	}{
 		{name: "list invalid project", method: http.MethodGet, target: "/api/v1/projects/not-a-uuid/scheduled-jobs", wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
-		{name: "create invalid project", method: http.MethodPost, target: "/api/v1/projects/not-a-uuid/scheduled-jobs", body: `{"name":"nightly","cron_expression":"0 1 * * *","workflow_id":"` + workflowItem.ID.String() + `","ticket_template":{"title":"Nightly","description":"Run checks","priority":"medium","type":"feature"}}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
-		{name: "create invalid payload", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/scheduled-jobs", project.ID), body: `{"name":"","cron_expression":"0 1 * * *","workflow_id":"` + workflowItem.ID.String() + `","ticket_template":{"title":"Nightly","description":"Run checks","priority":"medium","type":"feature"}}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
-		{name: "create invalid cron", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/scheduled-jobs", project.ID), body: `{"name":"nightly","cron_expression":"bad cron","workflow_id":"` + workflowItem.ID.String() + `","ticket_template":{"title":"Nightly","description":"Run checks","priority":"medium","type":"feature"}}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_CRON_EXPRESSION"},
-		{name: "create missing workflow", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/scheduled-jobs", project.ID), body: `{"name":"nightly","cron_expression":"0 1 * * *","workflow_id":"` + uuid.New().String() + `","ticket_template":{"title":"Nightly","description":"Run checks","priority":"medium","type":"feature"}}`, wantStatus: http.StatusNotFound, wantBody: "WORKFLOW_NOT_FOUND"},
+		{name: "create invalid project", method: http.MethodPost, target: "/api/v1/projects/not-a-uuid/scheduled-jobs", body: `{"name":"nightly","cron_expression":"0 1 * * *","ticket_template":{"title":"Nightly","description":"Run checks","status":"Todo","priority":"medium","type":"feature"}}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
+		{name: "create invalid payload", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/scheduled-jobs", project.ID), body: `{"name":"","cron_expression":"0 1 * * *","ticket_template":{"title":"Nightly","description":"Run checks","status":"Todo","priority":"medium","type":"feature"}}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
+		{name: "create invalid cron", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/scheduled-jobs", project.ID), body: `{"name":"nightly","cron_expression":"bad cron","ticket_template":{"title":"Nightly","description":"Run checks","status":"Todo","priority":"medium","type":"feature"}}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_CRON_EXPRESSION"},
+		{name: "create missing status", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/scheduled-jobs", project.ID), body: `{"name":"nightly","cron_expression":"0 1 * * *","ticket_template":{"title":"Nightly","description":"Run checks","priority":"medium","type":"feature"}}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
 		{name: "update invalid job id", method: http.MethodPatch, target: "/api/v1/scheduled-jobs/not-a-uuid", body: `{"name":"renamed"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_JOB_ID"},
 		{name: "update invalid payload", method: http.MethodPatch, target: fmt.Sprintf("/api/v1/scheduled-jobs/%s", uuid.New()), body: `{"name":"   "}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
 		{name: "update missing job", method: http.MethodPatch, target: fmt.Sprintf("/api/v1/scheduled-jobs/%s", uuid.New()), body: `{"name":"renamed"}`, wantStatus: http.StatusNotFound, wantBody: "SCHEDULED_JOB_NOT_FOUND"},
@@ -160,21 +147,7 @@ func TestScheduledJobRoutesCRUDAndTrigger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
-	todoID := findStatusIDByName(t, statuses, "Todo")
 	backlogID := findStatusIDByName(t, statuses, "Backlog")
-	doneID := findStatusIDByName(t, statuses, "Done")
-
-	workflowItem, err := client.Workflow.Create().
-		SetProjectID(project.ID).
-		SetName("Security Workflow").
-		SetType(entworkflow.TypeSecurity).
-		SetHarnessPath(".openase/harnesses/security.md").
-		AddPickupStatusIDs(todoID).
-		AddFinishStatusIDs(doneID).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create workflow: %v", err)
-	}
 
 	createResp := struct {
 		ScheduledJob scheduledJobResponse `json:"scheduled_job"`
@@ -187,7 +160,6 @@ func TestScheduledJobRoutesCRUDAndTrigger(t *testing.T) {
 		map[string]any{
 			"name":            "weekly-security-scan",
 			"cron_expression": "0 9 * * 1",
-			"workflow_id":     workflowItem.ID.String(),
 			"ticket_template": map[string]any{
 				"title":       "Weekly security scan - {{ date }}",
 				"description": "Audit all repos",
@@ -240,6 +212,9 @@ func TestScheduledJobRoutesCRUDAndTrigger(t *testing.T) {
 	}
 	if triggerResp.Ticket.StatusID != backlogID.String() || triggerResp.Ticket.StatusName != "Backlog" {
 		t.Fatalf("expected trigger to honor template status Backlog %s, got %+v", backlogID, triggerResp.Ticket)
+	}
+	if triggerResp.Ticket.WorkflowID != nil {
+		t.Fatalf("expected trigger to create an unbound ticket, got %+v", triggerResp.Ticket.WorkflowID)
 	}
 	if triggerResp.ScheduledJob.LastRunAt == nil || *triggerResp.ScheduledJob.LastRunAt != "2026-03-20T09:00:00Z" {
 		t.Fatalf("expected trigger to set last_run_at, got %+v", triggerResp.ScheduledJob)

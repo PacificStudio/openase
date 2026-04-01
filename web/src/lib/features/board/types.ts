@@ -39,6 +39,7 @@ export type BoardStatusOption = {
   name: string
   color: string
   stage: BoardTicket['stage']
+  position: number
 }
 
 export type BoardFilter = {

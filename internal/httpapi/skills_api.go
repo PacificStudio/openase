@@ -270,7 +270,15 @@ func (s *Server) handleUpdateSkill(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
 
-	item, err := s.workflowService.UpdateSkill(c.Request().Context(), input)
+	var item workflowservice.SkillDetail
+	switch {
+	case input.BundleFiles != nil:
+		item, err = s.workflowService.UpdateSkillBundle(c.Request().Context(), *input.BundleFiles)
+	case input.SingleFile != nil:
+		item, err = s.workflowService.UpdateSkill(c.Request().Context(), *input.SingleFile)
+	default:
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "update payload must include content or files")
+	}
 	if err != nil {
 		return writeWorkflowError(c, err)
 	}

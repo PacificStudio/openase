@@ -34,13 +34,9 @@
     onCreateTicket?: (statusId: string) => void
     onColumnAction?: (columnId: string, action: string) => void
   } = $props()
-
-  const flatColumns = $derived(groups.flatMap((g) => g.columns))
-  const columnIndexById = $derived(new Map(flatColumns.map((col, i) => [col.id, i])))
-  const totalColumns = $derived(flatColumns.length)
 </script>
 
-<div class={cn('flex-1 overflow-x-auto', className)}>
+<div class={cn('flex min-h-0 flex-1 overflow-x-auto overflow-y-hidden', className)}>
   {#if groups.length === 0}
     <div
       class="text-muted-foreground flex h-full items-center justify-center rounded-lg border border-dashed p-6 text-sm"
@@ -48,9 +44,11 @@
       No board statuses configured yet.
     </div>
   {:else}
-    <div class="flex h-full gap-4 p-1">
+    <div class="flex h-full min-h-0 gap-4 p-1">
       {#each groups as group (group.id)}
-        <section class="bg-muted/10 flex shrink-0 flex-col gap-3 rounded-xl border px-3 py-2">
+        <section
+          class="bg-muted/10 flex h-full min-h-0 shrink-0 flex-col gap-3 rounded-xl border px-3 py-2"
+        >
           <div class="flex items-start justify-between gap-3">
             <div>
               <h2 class="text-foreground text-sm font-semibold">{group.name}</h2>
@@ -64,13 +62,11 @@
               No statuses in this group.
             </div>
           {:else}
-            <div class="flex gap-3">
+            <div class="flex min-h-0 flex-1 gap-3">
               {#each group.columns as column (column.id)}
                 <BoardColumnComponent
                   {column}
                   {statuses}
-                  columnIndex={columnIndexById.get(column.id) ?? 0}
-                  columnCount={totalColumns}
                   {onticketclick}
                   {ondragstartticket}
                   {ondragendticket}

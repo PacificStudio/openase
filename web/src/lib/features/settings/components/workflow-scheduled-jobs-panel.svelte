@@ -8,7 +8,7 @@
     triggerScheduledJob,
     updateScheduledJob,
   } from '$lib/api/openase'
-  import type { WorkflowSummary } from '$lib/features/workflows'
+  import type { WorkflowStatusOption } from '$lib/features/workflows'
   import { toastStore } from '$lib/stores/toast.svelte'
   import WorkflowScheduledJobEditor from './workflow-scheduled-job-editor.svelte'
   import WorkflowScheduledJobsHeader from './workflow-scheduled-jobs-header.svelte'
@@ -23,13 +23,13 @@
 
   let {
     projectId,
-    workflows,
+    statuses,
     showHeader = true,
     title = 'Scheduled Jobs',
-    description = 'Manage recurring ticket creation for project workflows.',
+    description = 'Manage recurring ticket creation for project statuses.',
   }: {
     projectId: string
-    workflows: WorkflowSummary[]
+    statuses: WorkflowStatusOption[]
     showHeader?: boolean
     title?: string
     description?: string
@@ -46,32 +46,20 @@
   let draft = $state<ScheduledJobDraft>(emptyScheduledJobDraft(''))
 
   const selectedJob = $derived(jobs.find((job) => job.id === selectedJobId) ?? null)
-  const workflowOptions = $derived(
-    workflows.map((workflow) => ({
-      value: workflow.id,
-      label: workflow.name,
-    })),
-  )
-  const workflowLabelById = $derived(
-    new Map(workflowOptions.map((workflow) => [workflow.value, workflow.label])),
-  )
   const enabledCount = $derived(jobs.filter((j) => j.is_enabled).length)
 
   $effect(() => {
-    const defaultWorkflowId = workflowOptions[0]?.value ?? ''
+    const defaultStatusId = statuses[0]?.id ?? ''
 
-    if (!defaultWorkflowId) {
-      if (draft.workflowId) {
-        draft = { ...draft, workflowId: '' }
+    if (!defaultStatusId) {
+      if (draft.ticketStatusId) {
+        draft = { ...draft, ticketStatusId: '' }
       }
       return
     }
 
-    if (
-      !draft.workflowId ||
-      !workflowOptions.some((workflow) => workflow.value === draft.workflowId)
-    ) {
-      draft = { ...draft, workflowId: defaultWorkflowId }
+    if (!draft.ticketStatusId || !statuses.some((status) => status.id === draft.ticketStatusId)) {
+      draft = { ...draft, ticketStatusId: defaultStatusId }
     }
   })
 
@@ -103,20 +91,20 @@
 
   function openNewJob() {
     selectedJobId = ''
-    draft = emptyScheduledJobDraft(workflowOptions[0]?.value ?? '')
+    draft = emptyScheduledJobDraft(statuses[0]?.id ?? '')
     editorOpen = true
   }
 
   function openEditJob(job: ScheduledJob) {
     selectedJobId = job.id
-    draft = scheduledJobDraftFromRecord(job, workflowOptions[0]?.value ?? '')
+    draft = scheduledJobDraftFromRecord(job, statuses)
     editorOpen = true
   }
 
   function handleEditorClose(open: boolean) {
     if (!open) {
       selectedJobId = ''
-      draft = emptyScheduledJobDraft(workflowOptions[0]?.value ?? '')
+      draft = emptyScheduledJobDraft(statuses[0]?.id ?? '')
     }
   }
 
@@ -130,7 +118,7 @@
   }
 
   async function handleSubmit() {
-    const parsed = parseScheduledJobDraft(draft)
+    const parsed = parseScheduledJobDraft(draft, statuses)
     if (!parsed.ok) {
       toastStore.error(parsed.error)
       return
@@ -149,7 +137,7 @@
         selectedJobId = payload.scheduled_job.id
         draft = scheduledJobDraftFromRecord(
           jobs.find((j) => j.id === payload.scheduled_job.id)!,
-          workflowOptions[0]?.value ?? '',
+          statuses,
         )
         toastStore.success('Scheduled job created.')
       }
@@ -260,7 +248,6 @@
 
       <WorkflowScheduledJobList
         {jobs}
-        {workflowLabelById}
         {actionJobId}
         onNewJob={openNewJob}
         onEditJob={openEditJob}
@@ -277,7 +264,7 @@
   {projectId}
   {draft}
   {selectedJob}
-  {workflowOptions}
+  statusOptions={statuses}
   {saving}
   {deleting}
   {triggering}

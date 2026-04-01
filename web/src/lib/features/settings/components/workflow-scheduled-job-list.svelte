@@ -7,7 +7,6 @@
 
   let {
     jobs,
-    workflowLabelById,
     actionJobId = null,
     onNewJob,
     onEditJob,
@@ -16,7 +15,6 @@
     onDeleteJob,
   }: {
     jobs: ScheduledJob[]
-    workflowLabelById: Map<string, string>
     actionJobId?: string | null
     onNewJob?: () => void
     onEditJob?: (job: ScheduledJob) => void
@@ -63,7 +61,7 @@
           <div
             class="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs"
           >
-            <span>{workflowLabelById.get(job.workflow_id) ?? 'Unknown workflow'}</span>
+            <span>Status {job.ticket_template.status || 'Unassigned'}</span>
             <span>
               Next {job.next_run_at ? formatRelativeTime(job.next_run_at) : '—'}
             </span>

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -72,6 +73,7 @@ type agentEvent struct {
 	UserInput  *agentUserInputRequest
 	TokenUsage *agentTokenUsageEvent
 	RateLimit  *provider.CLIRateLimit
+	ObservedAt *time.Time
 	Output     *agentOutputEvent
 	Turn       *agentTurnEvent
 }

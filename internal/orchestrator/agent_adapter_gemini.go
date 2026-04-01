@@ -309,6 +309,7 @@ func (s *geminiAgentSession) collectTurn(
 			TokenUsage: usage,
 		})
 	}
+	s.emitGeminiRateLimit()
 
 	s.appendHistory(prompt, responseText)
 	s.emit(agentEvent{
@@ -358,6 +359,33 @@ func (s *geminiAgentSession) emit(event agentEvent) {
 	}
 
 	s.events <- event
+}
+
+func (s *geminiAgentSession) emitGeminiRateLimit() {
+	if s == nil || s.processManager == nil || s.process.Command == "" {
+		return
+	}
+
+	probeCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	rateLimit, observedAt, err := provider.ProbeGeminiCLIRateLimit(
+		probeCtx,
+		s.processManager,
+		s.process.Command,
+		s.process.WorkingDirectory,
+		s.process.Environment,
+		s.model,
+	)
+	if err != nil || rateLimit == nil {
+		return
+	}
+
+	s.emit(agentEvent{
+		Type:       agentEventTypeRateLimitUpdated,
+		RateLimit:  rateLimit,
+		ObservedAt: observedAt,
+	})
 }
 
 func (s *geminiAgentSession) clearActiveTurn() {

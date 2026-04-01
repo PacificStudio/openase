@@ -9,8 +9,6 @@
     column,
     statuses = [],
     class: className = '',
-    columnIndex = 0,
-    columnCount = 1,
     onticketclick,
     ondragstartticket,
     ondragendticket,
@@ -26,8 +24,6 @@
     column: BoardColumn
     statuses?: BoardStatusOption[]
     class?: string
-    columnIndex?: number
-    columnCount?: number
     onticketclick?: (ticket: BoardTicket) => void
     ondragstartticket?: (ticket: BoardTicket) => void
     ondragendticket?: () => void
@@ -63,6 +59,17 @@
       !!draggingTicketId &&
       !column.tickets.some((ticket) => ticket.id === draggingTicketId),
   )
+  const currentStatus = $derived(statuses.find((status) => status.id === column.id) ?? null)
+  const stageStatuses = $derived(
+    currentStatus ? statuses.filter((status) => status.stage === currentStatus.stage) : [],
+  )
+  const stageStatusIndex = $derived(
+    currentStatus ? stageStatuses.findIndex((status) => status.id === currentStatus.id) : -1,
+  )
+  const canMoveLeft = $derived(stageStatusIndex > 0)
+  const canMoveRight = $derived(
+    stageStatusIndex >= 0 && stageStatusIndex < stageStatuses.length - 1,
+  )
 </script>
 
 <div class={cn('flex h-full min-h-0 max-w-[320px] min-w-[280px] shrink-0 flex-col', className)}>
@@ -92,7 +99,7 @@
           <DropdownMenu.Item
             class="gap-2 text-xs"
             onclick={() => onColumnAction?.(column.id, 'move_left')}
-            disabled={columnIndex === 0}
+            disabled={!canMoveLeft}
           >
             <ArrowLeft class="size-3.5" />
             Move left
@@ -100,7 +107,7 @@
           <DropdownMenu.Item
             class="gap-2 text-xs"
             onclick={() => onColumnAction?.(column.id, 'move_right')}
-            disabled={columnIndex >= columnCount - 1}
+            disabled={!canMoveRight}
           >
             <ArrowRight class="size-3.5" />
             Move right
@@ -129,16 +136,17 @@
 
   <div
     class={cn(
-      'bg-muted/30 flex flex-1 flex-col gap-1.5 overflow-y-auto rounded-lg border p-1.5 transition-colors',
+      'bg-muted/30 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto rounded-lg border p-1.5 transition-colors',
       showDropPlaceholder ? 'border-primary/60 bg-primary/5' : 'border-transparent',
     )}
     role="list"
     aria-label={`${column.name} tickets`}
+    data-column-id={column.id}
     ondragover={handleDragOver}
     ondrop={handleDrop}
   >
     {#if column.tickets.length === 0 && !showDropPlaceholder}
-      <div class="text-muted-foreground flex flex-col items-center justify-center py-8">
+      <div class="text-muted-foreground flex flex-1 flex-col items-center justify-center py-8">
         <Inbox class="mb-2 size-5" />
         <span class="text-xs">No tickets</span>
       </div>
@@ -165,5 +173,14 @@
         Drop ticket here
       </div>
     {/if}
+
+    <button
+      type="button"
+      class="border-border/60 text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted/50 flex w-full shrink-0 items-center justify-center rounded-md border border-dashed py-1.5 transition-colors"
+      aria-label="Add ticket to {column.name}"
+      onclick={() => onCreateTicket?.(column.id)}
+    >
+      <Plus class="size-3.5" />
+    </button>
   </div>
 </div>

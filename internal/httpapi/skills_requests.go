@@ -42,8 +42,9 @@ type rawImportSkillBundleRequest struct {
 }
 
 type rawUpdateSkillRequest struct {
-	Content     string `json:"content"`
-	Description string `json:"description"`
+	Content     *string                     `json:"content,omitempty"`
+	Description string                      `json:"description"`
+	Files       []rawSkillBundleFileRequest `json:"files,omitempty"`
 }
 
 type rawUpdateSkillBindingsRequest struct {
@@ -145,15 +146,54 @@ func parseImportSkillBundleRequest(
 	}, nil
 }
 
-func parseUpdateSkillRequest(skillID uuid.UUID, raw rawUpdateSkillRequest) (workflowservice.UpdateSkillInput, error) {
-	if strings.TrimSpace(raw.Content) == "" {
-		return workflowservice.UpdateSkillInput{}, fmt.Errorf("content must not be empty")
+type parsedUpdateSkillRequest struct {
+	SingleFile  *workflowservice.UpdateSkillInput
+	BundleFiles *workflowservice.UpdateSkillBundleInput
+}
+
+func parseUpdateSkillRequest(skillID uuid.UUID, raw rawUpdateSkillRequest) (parsedUpdateSkillRequest, error) {
+	if len(raw.Files) > 0 {
+		files := make([]workflowservice.SkillBundleFileInput, 0, len(raw.Files))
+		for _, item := range raw.Files {
+			path := strings.TrimSpace(item.Path)
+			if path == "" {
+				return parsedUpdateSkillRequest{}, fmt.Errorf("files.path must not be empty")
+			}
+			content, err := base64.StdEncoding.DecodeString(strings.TrimSpace(item.ContentBase64))
+			if err != nil {
+				return parsedUpdateSkillRequest{}, fmt.Errorf("files.content_base64 must be valid base64")
+			}
+			files = append(files, workflowservice.SkillBundleFileInput{
+				Path:         path,
+				Content:      content,
+				IsExecutable: item.IsExecutable,
+				MediaType:    strings.TrimSpace(item.MediaType),
+			})
+		}
+
+		input := workflowservice.UpdateSkillBundleInput{
+			SkillID:      skillID,
+			Files:        files,
+			Description:  strings.TrimSpace(raw.Description),
+			ReplaceEntry: raw.Content != nil,
+		}
+		if raw.Content != nil {
+			input.Content = *raw.Content
+		}
+
+		return parsedUpdateSkillRequest{BundleFiles: &input}, nil
 	}
 
-	return workflowservice.UpdateSkillInput{
-		SkillID:     skillID,
-		Content:     raw.Content,
-		Description: strings.TrimSpace(raw.Description),
+	if raw.Content == nil || strings.TrimSpace(*raw.Content) == "" {
+		return parsedUpdateSkillRequest{}, fmt.Errorf("content must not be empty")
+	}
+
+	return parsedUpdateSkillRequest{
+		SingleFile: &workflowservice.UpdateSkillInput{
+			SkillID:     skillID,
+			Content:     *raw.Content,
+			Description: strings.TrimSpace(raw.Description),
+		},
 	}, nil
 }
 

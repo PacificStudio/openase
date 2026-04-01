@@ -17,17 +17,34 @@
   import {
     formatBytes,
     loadSkillEditorData,
-    resolveEntrypointContent,
     type SkillEditorHistoryEntry,
     selectInitialSkillFiles,
   } from './skill-editor-page.helpers'
+  import {
+    addEmptyDirectory,
+    addDraftTextFile,
+    cloneSkillFile,
+    computeDirtyPaths,
+    defaultChildDirectoryPath,
+    defaultChildFilePath,
+    deleteDirectoryPath,
+    deleteFilePath,
+    encodeUTF8Base64,
+    listEmptyDirectories,
+    normalizeSkillBundlePath,
+    renameDirectoryPath,
+    renameFilePath,
+    type SkillTreeKind,
+    updateDraftTextFileContent,
+  } from './skill-bundle-editor'
   import SkillEditorStatusBar from './skill-editor-status-bar.svelte'
   import SkillEditorWorkspace from './skill-editor-workspace.svelte'
   let { skillId }: { skillId: string } = $props()
 
   let skill = $state<Skill | null>(null)
   let files = $state<SkillFile[]>([])
-  let content = $state('')
+  let draftFiles = $state<SkillFile[]>([])
+  let emptyDirectoryPaths = $state<string[]>([])
   let history = $state<SkillEditorHistoryEntry[]>([])
   let workflows = $state<Workflow[]>([])
 
@@ -38,32 +55,30 @@
   let metadataOpen = $state(true)
 
   let selectedFilePath = $state<string | null>(null)
+  let selectedTreePath = $state<string | null>(null)
+  let selectedTreeKind = $state<SkillTreeKind | null>(null)
   let openFilePaths = $state<string[]>([])
-  let editedContents = $state<Map<string, string>>(new Map())
 
-  const dirtyPaths = $derived(new Set(editedContents.keys()))
+  const displayedFiles = $derived(editing ? draftFiles : files)
+  const dirtyPaths = $derived(editing ? computeDirtyPaths(files, draftFiles) : new Set<string>())
+  const emptyDraftDirectories = $derived(
+    editing ? listEmptyDirectories(draftFiles, emptyDirectoryPaths) : [],
+  )
 
   const selectedFile = $derived(
-    selectedFilePath ? (files.find((f) => f.path === selectedFilePath) ?? null) : null,
+    selectedFilePath ? (displayedFiles.find((f) => f.path === selectedFilePath) ?? null) : null,
   )
 
   const openFiles = $derived(
     openFilePaths
-      .map((p) => files.find((f) => f.path === p))
+      .map((p) => displayedFiles.find((f) => f.path === p))
       .filter((f): f is SkillFile => f !== undefined),
   )
 
-  const activeContent = $derived.by(() => {
-    if (!selectedFilePath) return ''
-    if (editing && editedContents.has(selectedFilePath)) {
-      return editedContents.get(selectedFilePath)!
-    }
-    const file = files.find((f) => f.path === selectedFilePath)
-    return file?.content ?? ''
-  })
+  const activeContent = $derived(selectedFile?.content ?? '')
 
-  const fileCount = $derived(files.length)
-  const totalSize = $derived(files.reduce((sum, f) => sum + f.size_bytes, 0))
+  const fileCount = $derived(displayedFiles.length)
+  const totalSize = $derived(displayedFiles.reduce((sum, f) => sum + f.size_bytes, 0))
 
   // Load skill data
   $effect(() => {
@@ -81,13 +96,16 @@
         if (cancelled) return
 
         skill = loaded.skill
-        content = loaded.content
         files = loaded.files
+        draftFiles = []
+        emptyDirectoryPaths = []
         history = loaded.history
         workflows = loaded.workflows
 
         const selection = selectInitialSkillFiles(loaded.files)
         selectedFilePath = selection.selectedFilePath
+        selectedTreePath = selection.selectedFilePath
+        selectedTreeKind = selection.selectedFilePath ? 'file' : null
         openFilePaths = selection.openFilePaths
       } catch (err) {
         if (!cancelled) {
@@ -115,49 +133,213 @@
 
   function selectFile(path: string) {
     selectedFilePath = path
+    selectedTreePath = path
+    selectedTreeKind = 'file'
     if (!openFilePaths.includes(path)) {
       openFilePaths = [...openFilePaths, path]
     }
   }
 
+  function selectTreeNode(path: string, kind: SkillTreeKind) {
+    selectedTreePath = path
+    selectedTreeKind = kind
+    if (kind === 'file') {
+      selectFile(path)
+    }
+  }
+
   function closeTab(path: string) {
-    openFilePaths = openFilePaths.filter((p) => p !== path)
+    const remaining = openFilePaths.filter((p) => p !== path)
+    openFilePaths = remaining
     if (selectedFilePath === path) {
-      selectedFilePath = openFilePaths.at(-1) ?? null
+      selectedFilePath = remaining.at(-1) ?? null
+      selectedTreePath = selectedFilePath
+      selectedTreeKind = selectedFilePath ? 'file' : null
     }
   }
 
   function startEditing() {
     if (!skill) return
     editDescription = skill.description
-    // Initialize edited contents with current file contents
-    editedContents = new Map()
+    draftFiles = files.map(cloneSkillFile)
+    emptyDirectoryPaths = []
     editing = true
   }
 
   function cancelEditing() {
     editing = false
-    editedContents = new Map()
+    draftFiles = []
+    emptyDirectoryPaths = []
+    selectedTreePath = selectedFilePath
+    selectedTreeKind = selectedFilePath ? 'file' : null
   }
 
   function handleContentChange(path: string, value: string) {
-    const file = files.find((f) => f.path === path)
-    if (file && value === (file.content ?? '')) {
-      editedContents.delete(path)
-      editedContents = new Map(editedContents)
-    } else {
-      editedContents = new Map(editedContents).set(path, value)
+    draftFiles = draftFiles.map((file) =>
+      file.path === path ? updateDraftTextFileContent(file, value) : file,
+    )
+  }
+
+  function replaceOpenPathPrefix(previousPath: string, nextPath: string) {
+    openFilePaths = openFilePaths.map((path) =>
+      path === previousPath || path.startsWith(`${previousPath}/`)
+        ? `${nextPath}${path.slice(previousPath.length)}`
+        : path,
+    )
+    if (
+      selectedFilePath &&
+      (selectedFilePath === previousPath || selectedFilePath.startsWith(`${previousPath}/`))
+    ) {
+      selectedFilePath = `${nextPath}${selectedFilePath.slice(previousPath.length)}`
+    }
+    if (
+      selectedTreePath &&
+      (selectedTreePath === previousPath || selectedTreePath.startsWith(`${previousPath}/`))
+    ) {
+      selectedTreePath = `${nextPath}${selectedTreePath.slice(previousPath.length)}`
+    }
+  }
+
+  function removeOpenPathsUnder(targetPath: string) {
+    openFilePaths = openFilePaths.filter(
+      (path) => path !== targetPath && !path.startsWith(`${targetPath}/`),
+    )
+    if (
+      selectedFilePath &&
+      (selectedFilePath === targetPath || selectedFilePath.startsWith(`${targetPath}/`))
+    ) {
+      selectedFilePath = openFilePaths.at(-1) ?? null
+    }
+    if (
+      selectedTreePath &&
+      (selectedTreePath === targetPath || selectedTreePath.startsWith(`${targetPath}/`))
+    ) {
+      selectedTreePath = selectedFilePath
+      selectedTreeKind = selectedFilePath ? 'file' : null
+    }
+  }
+
+  function currentEntrypointContent() {
+    return displayedFiles.find((file) => file.path === 'SKILL.md')?.content ?? ''
+  }
+
+  function buildBundleRequestFiles() {
+    return draftFiles.map((file) => ({
+      path: file.path,
+      content_base64: file.content_base64 ?? encodeUTF8Base64(file.content ?? ''),
+      media_type: file.media_type,
+      is_executable: file.is_executable,
+    }))
+  }
+
+  function promptValue(message: string, initialValue: string): string | null {
+    const nextValue = window.prompt(message, initialValue)
+    if (nextValue === null) return null
+    if (!nextValue.trim()) {
+      toastStore.error('Path is required.')
+      return null
+    }
+    return nextValue
+  }
+
+  function handleCreateFile() {
+    const requestedPath = promptValue(
+      'New file path',
+      defaultChildFilePath(selectedTreePath, selectedTreeKind),
+    )
+    if (!requestedPath) return
+    try {
+      draftFiles = addDraftTextFile(draftFiles, emptyDirectoryPaths, requestedPath)
+      const nextFile = draftFiles.at(-1)
+      if (!nextFile) return
+      selectFile(nextFile.path)
+    } catch (err) {
+      toastStore.error(err instanceof Error ? err.message : 'Failed to create file.')
+    }
+  }
+
+  function handleCreateFolder() {
+    const requestedPath = promptValue(
+      'New folder path',
+      defaultChildDirectoryPath(selectedTreePath, selectedTreeKind),
+    )
+    if (!requestedPath) return
+    try {
+      emptyDirectoryPaths = addEmptyDirectory(emptyDirectoryPaths, draftFiles, requestedPath)
+      selectedTreePath = normalizeSkillBundlePath(requestedPath)
+      selectedTreeKind = 'directory'
+    } catch (err) {
+      toastStore.error(err instanceof Error ? err.message : 'Failed to create folder.')
+    }
+  }
+
+  function handleRenameSelection() {
+    if (!selectedTreePath || !selectedTreeKind) return
+    const requestedPath = promptValue(
+      selectedTreeKind === 'directory' ? 'Rename folder to' : 'Rename file to',
+      selectedTreePath,
+    )
+    if (!requestedPath) return
+    try {
+      const normalizedNextPath = normalizeSkillBundlePath(requestedPath)
+      if (selectedTreeKind === 'file') {
+        draftFiles = renameFilePath(draftFiles, selectedTreePath, normalizedNextPath)
+        replaceOpenPathPrefix(selectedTreePath, normalizedNextPath)
+      } else {
+        const renamed = renameDirectoryPath(
+          draftFiles,
+          emptyDirectoryPaths,
+          selectedTreePath,
+          normalizedNextPath,
+        )
+        draftFiles = renamed.files
+        emptyDirectoryPaths = renamed.emptyDirectoryPaths
+        replaceOpenPathPrefix(selectedTreePath, normalizedNextPath)
+      }
+      selectedTreePath = normalizedNextPath
+    } catch (err) {
+      toastStore.error(err instanceof Error ? err.message : 'Failed to rename selection.')
+    }
+  }
+
+  function handleDeleteSelection() {
+    if (!selectedTreePath || !selectedTreeKind) return
+    const label = selectedTreeKind === 'directory' ? 'folder' : 'file'
+    if (!window.confirm(`Delete ${label} "${selectedTreePath}"?`)) return
+
+    try {
+      if (selectedTreeKind === 'file') {
+        draftFiles = deleteFilePath(draftFiles, selectedTreePath)
+      } else {
+        const deleted = deleteDirectoryPath(draftFiles, emptyDirectoryPaths, selectedTreePath)
+        draftFiles = deleted.files
+        emptyDirectoryPaths = deleted.emptyDirectoryPaths
+      }
+      removeOpenPathsUnder(selectedTreePath)
+    } catch (err) {
+      toastStore.error(err instanceof Error ? err.message : 'Failed to delete selection.')
     }
   }
 
   async function handleSave() {
     if (!skill) return
 
-    const entrypointContent = resolveEntrypointContent(files, editedContents, content)
+    const entrypointContent = currentEntrypointContent()
 
     if (!entrypointContent.trim()) {
       toastStore.error('Skill content is required.')
       return
+    }
+    if (dirtyPaths.size === 0 && editDescription.trim() === skill.description) {
+      if (emptyDraftDirectories.length > 0) {
+        toastStore.warning('Empty folders are not persisted until they contain at least one file.')
+      } else {
+        toastStore.warning('No changes to publish.')
+      }
+      return
+    }
+    if (emptyDraftDirectories.length > 0) {
+      toastStore.warning('Empty folders are not persisted until they contain at least one file.')
     }
 
     busy = true
@@ -165,17 +347,23 @@
       await updateSkill(skill.id, {
         description: editDescription.trim(),
         content: entrypointContent,
+        files: buildBundleRequestFiles(),
       })
 
       const loaded = await loadSkillEditorData(skill.id, appStore.currentProject?.id)
 
       skill = loaded.skill
-      content = loaded.content
       files = loaded.files
       history = loaded.history
       workflows = loaded.workflows
       editing = false
-      editedContents = new Map()
+      draftFiles = []
+      emptyDirectoryPaths = []
+      const selection = selectInitialSkillFiles(loaded.files)
+      selectedFilePath = selection.selectedFilePath
+      selectedTreePath = selection.selectedFilePath
+      selectedTreeKind = selection.selectedFilePath ? 'file' : null
+      openFilePaths = selection.openFilePaths
       toastStore.success(`Updated ${skill.name}.`)
     } catch (err) {
       toastStore.error(err instanceof ApiError ? err.detail : 'Failed to update skill.')
@@ -268,8 +456,11 @@
     />
 
     <SkillEditorWorkspace
-      {files}
+      files={displayedFiles}
+      {emptyDirectoryPaths}
       selectedPath={selectedFilePath}
+      {selectedTreePath}
+      {selectedTreeKind}
       {openFiles}
       {dirtyPaths}
       {selectedFile}
@@ -281,8 +472,12 @@
       {busy}
       {metadataOpen}
       bind:editDescription
-      onSelectFile={selectFile}
-      onSelectTab={(path) => (selectedFilePath = path)}
+      onSelectTreeNode={selectTreeNode}
+      onCreateFile={handleCreateFile}
+      onCreateFolder={handleCreateFolder}
+      onRenameSelection={handleRenameSelection}
+      onDeleteSelection={handleDeleteSelection}
+      onSelectTab={(path) => selectFile(path)}
       onCloseTab={closeTab}
       onContentChange={handleContentChange}
       onToggleBinding={handleWorkflowBinding}

@@ -107,6 +107,37 @@ func (s *Service) projectedWorkflowHarness(ctx context.Context, workflowItem *en
 	return projectHarnessContent(version.ContentMarkdown, boundSkills)
 }
 
+func (s *Service) publishWorkflowVersion(
+	ctx context.Context,
+	tx *ent.Tx,
+	workflowItem *ent.Workflow,
+	content string,
+) (*ent.Workflow, error) {
+	if tx == nil || workflowItem == nil {
+		return nil, fmt.Errorf("publish workflow version: transaction and workflow are required")
+	}
+
+	versionItem, err := tx.WorkflowVersion.Create().
+		SetWorkflowID(workflowItem.ID).
+		SetVersion(workflowItem.Version + 1).
+		SetContentMarkdown(content).
+		SetContentHash(contentHash(content)).
+		Save(ctx)
+	if err != nil {
+		return nil, s.mapWorkflowWriteError("create workflow version", err)
+	}
+
+	updated, err := tx.Workflow.UpdateOneID(workflowItem.ID).
+		SetVersion(workflowItem.Version + 1).
+		SetCurrentVersionID(versionItem.ID).
+		Save(ctx)
+	if err != nil {
+		return nil, s.mapWorkflowWriteError("update workflow current version", err)
+	}
+
+	return updated, nil
+}
+
 func (s *Service) ListWorkflowVersions(ctx context.Context, workflowID uuid.UUID) ([]VersionSummary, error) {
 	if s == nil || s.client == nil {
 		return nil, ErrUnavailable
@@ -875,22 +906,9 @@ func (s *Service) UpdateHarness(ctx context.Context, input UpdateHarnessInput) (
 	}
 	defer rollback(tx)
 
-	versionItem, err := tx.WorkflowVersion.Create().
-		SetWorkflowID(item.ID).
-		SetVersion(item.Version + 1).
-		SetContentMarkdown(sanitizedContent).
-		SetContentHash(contentHash(sanitizedContent)).
-		Save(ctx)
+	updated, err := s.publishWorkflowVersion(ctx, tx, item, sanitizedContent)
 	if err != nil {
-		return HarnessDocument{}, s.mapWorkflowWriteError("create workflow harness version", err)
-	}
-
-	updated, err := tx.Workflow.UpdateOneID(item.ID).
-		SetVersion(item.Version + 1).
-		SetCurrentVersionID(versionItem.ID).
-		Save(ctx)
-	if err != nil {
-		return HarnessDocument{}, s.mapWorkflowWriteError("update workflow harness version", err)
+		return HarnessDocument{}, err
 	}
 	if err := tx.Commit(); err != nil {
 		return HarnessDocument{}, fmt.Errorf("commit workflow harness update tx: %w", err)

@@ -9,6 +9,7 @@
     listStatuses,
     listTickets,
     listWorkflows,
+    updateStatus,
     updateTicket,
   } from '$lib/api/openase'
   import { statusSync } from '$lib/features/statuses/public'
@@ -161,7 +162,7 @@
     void statusVersion
     void loadBoard(projectId, 'initial')
 
-    const disconnect = connectEventStream(`/api/v1/projects/${projectId}/tickets/stream`, {
+    const disconnectTickets = connectEventStream(`/api/v1/projects/${projectId}/tickets/stream`, {
       onEvent: () => {
         requestReload(projectId)
       },
@@ -169,12 +170,21 @@
         console.error('Tickets stream error:', streamError)
       },
     })
+    const disconnectAgents = connectEventStream(`/api/v1/projects/${projectId}/agents/stream`, {
+      onEvent: () => {
+        requestReload(projectId)
+      },
+      onError: (streamError) => {
+        console.error('Agents stream error:', streamError)
+      },
+    })
 
     return () => {
       if (activeProjectId === projectId) {
         activeProjectId = null
       }
-      disconnect()
+      disconnectTickets()
+      disconnectAgents()
     }
   })
 
@@ -263,6 +273,44 @@
       requestReload(projectId)
     }
   }
+
+  async function handleColumnAction(columnId: string, action: string) {
+    if (action === 'move_left') {
+      await handleColumnMove(columnId, 'left')
+    } else if (action === 'move_right') {
+      await handleColumnMove(columnId, 'right')
+    }
+  }
+
+  async function handleColumnMove(statusId: string, direction: 'left' | 'right') {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return
+
+    const currentStatus = allStatuses.find((status) => status.id === statusId)
+    if (!currentStatus) return
+
+    const stageStatuses = allStatuses.filter((status) => status.stage === currentStatus.stage)
+    const currentIndex = stageStatuses.findIndex((status) => status.id === statusId)
+    if (currentIndex === -1) return
+
+    const targetIndex = direction === 'left' ? currentIndex - 1 : currentIndex + 1
+    if (targetIndex < 0 || targetIndex >= stageStatuses.length) return
+
+    const targetStatus = stageStatuses[targetIndex]
+    if (!targetStatus) return
+
+    try {
+      await Promise.all([
+        updateStatus(currentStatus.id, { position: targetStatus.position }),
+        updateStatus(targetStatus.id, { position: currentStatus.position }),
+      ])
+      requestReload(projectId)
+    } catch (caughtError) {
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to reorder statuses.',
+      )
+    }
+  }
 </script>
 
 <div class="flex h-full min-h-0 flex-col gap-2 px-4 py-3">
@@ -290,6 +338,7 @@
       onStatusChange={handleStatusChange}
       onPriorityChange={handlePriorityChange}
       onCreateTicket={(statusId) => appStore.openNewTicketDialog(statusId)}
+      onColumnAction={handleColumnAction}
       {draggingTicketId}
       {dropColumnId}
     />

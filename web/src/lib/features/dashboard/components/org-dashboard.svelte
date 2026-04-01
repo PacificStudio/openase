@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { PageScaffold } from '$lib/components/layout'
   import { cn, formatBytes, formatCount } from '$lib/utils'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
@@ -12,6 +11,9 @@
     updateProject,
   } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
+  import { Button } from '$ui/button'
+  import { Input } from '$ui/input'
+  import { Textarea } from '$ui/textarea'
   import * as Select from '$ui/select'
   import StatCard from './stat-card.svelte'
   import ExceptionPanel from './exception-panel.svelte'
@@ -19,7 +21,7 @@
   import CostSnapshotPanel from './cost-snapshot-panel.svelte'
   import HRAdvisorPanel from './hr-advisor-panel.svelte'
   import MemorySnapshotPanel from './memory-snapshot-panel.svelte'
-  import { Bot, Coins, Ticket } from '@lucide/svelte'
+  import { Bot, Coins, Pencil, Ticket, X, Check } from '@lucide/svelte'
   import {
     buildActivityItems,
     buildDashboardStats,
@@ -35,7 +37,7 @@
     MemorySnapshot,
   } from '../types'
 
-  const dashboardPollIntervalMs = 5000
+  const dashboardPollIntervalMs = 1000
 
   const projectStatusOptions: ProjectStatus[] = [
     'Backlog',
@@ -84,8 +86,52 @@
   let topCostTicket = $state<DashboardUsageLeader | null>(null)
   let topTokenAgent = $state<DashboardUsageLeader | null>(null)
   let savingStatus = $state(false)
+  let editingInfo = $state(false)
+  let editName = $state('')
+  let editDescription = $state('')
+  let savingInfo = $state(false)
   const totalTicketTokens = $derived(stats.ticketInputTokens + stats.ticketOutputTokens)
   const currentStatus = $derived((appStore.currentProject?.status ?? 'Planned') as ProjectStatus)
+  const projectName = $derived(appStore.currentProject?.name ?? 'Untitled Project')
+  const projectDescription = $derived(appStore.currentProject?.description ?? '')
+
+  function startEditInfo() {
+    editName = projectName
+    editDescription = projectDescription
+    editingInfo = true
+  }
+
+  function cancelEditInfo() {
+    editingInfo = false
+  }
+
+  async function saveInfo() {
+    const projectId = appStore.currentProject?.id
+    if (!projectId || savingInfo) return
+
+    const name = editName.trim()
+    if (!name) {
+      toastStore.error('Project name is required.')
+      return
+    }
+
+    savingInfo = true
+    try {
+      const payload = await updateProject(projectId, {
+        name,
+        description: editDescription.trim() || null,
+      })
+      appStore.currentProject = payload.project
+      editingInfo = false
+      toastStore.success('Project info updated.')
+    } catch (caughtError) {
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update project info.',
+      )
+    } finally {
+      savingInfo = false
+    }
+  }
 
   async function handleProjectStatusChange(status: ProjectStatus) {
     const projectId = appStore.currentProject?.id
@@ -185,78 +231,137 @@
   })
 </script>
 
-<PageScaffold title="Dashboard" description="Project overview">
-  {#snippet actions()}
-    <Select.Root
-      type="single"
-      value={currentStatus}
-      onValueChange={(value) => {
-        if (value && value !== currentStatus) void handleProjectStatusChange(value as ProjectStatus)
-      }}
-    >
-      <Select.Trigger
-        class={cn(
-          'h-auto min-h-5 w-auto rounded-full border px-2.5 py-1 text-xs font-medium shadow-none',
-          statusClassName[currentStatus],
-        )}
-        disabled={savingStatus}
-      >
-        {currentStatus}
-      </Select.Trigger>
-      <Select.Content>
-        {#each projectStatusOptions as status (status)}
-          <Select.Item value={status}>{status}</Select.Item>
-        {/each}
-      </Select.Content>
-    </Select.Root>
-  {/snippet}
-
-  <div class="space-y-6">
-    {#if loading}
-      <div
-        class="border-border bg-card text-muted-foreground rounded-md border px-4 py-10 text-center text-sm"
-      >
-        Loading dashboard…
-      </div>
-    {:else if error}
-      <div
-        class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
-      >
-        {error}
-      </div>
-    {:else}
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Running Agents" value={stats.runningAgents} icon={Bot} />
-        <StatCard label="Active Tickets" value={stats.activeTickets} icon={Ticket} />
-        <StatCard label="Ticket Tokens" value={formatCount(totalTicketTokens)} icon={Coins} />
-        <StatCard label="Heap In Use" value={memory ? formatBytes(memory.heap_inuse_bytes) : '—'} />
-      </div>
-
-      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <CostSnapshotPanel
-          newTicketsTodayCost={stats.newTicketsTodayCost}
-          projectCost={stats.projectCost}
-          ticketInputTokens={stats.ticketInputTokens}
-          ticketOutputTokens={stats.ticketOutputTokens}
-          totalAgentTokens={stats.totalAgentTokens}
-          ticketsCreatedToday={stats.ticketsCreatedToday}
-          ticketsCompletedToday={stats.ticketsCompletedToday}
-          {topCostTicket}
-          {topTokenAgent}
-        />
-        <ExceptionPanel {exceptions} />
-      </div>
-
-      <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <ActivityFeedPanel {activities} class="lg:col-span-2" />
-        <MemorySnapshotPanel {memory} />
-      </div>
-
-      {#if hrAdvisor && appStore.currentProject}
-        {#key appStore.currentProject.id}
-          <HRAdvisorPanel projectId={appStore.currentProject.id} advisor={hrAdvisor} />
-        {/key}
+<div class="flex min-h-0 flex-col">
+  <!-- Project header -->
+  <div class="border-border border-b px-6 py-4">
+    <div class="flex items-start justify-between gap-3">
+      {#if editingInfo}
+        <div class="min-w-0 flex-1 space-y-2">
+          <Input
+            value={editName}
+            placeholder="Project name"
+            class="text-lg font-semibold"
+            oninput={(e) => (editName = (e.currentTarget as HTMLInputElement).value)}
+          />
+          <Textarea
+            value={editDescription}
+            placeholder="Project description (optional)"
+            rows={2}
+            class="text-sm"
+            oninput={(e) => (editDescription = (e.currentTarget as HTMLTextAreaElement).value)}
+          />
+          <div class="flex items-center gap-2">
+            <Button size="sm" disabled={savingInfo} onclick={saveInfo}>
+              <Check class="mr-1.5 size-3.5" />
+              {savingInfo ? 'Saving\u2026' : 'Save'}
+            </Button>
+            <Button variant="ghost" size="sm" disabled={savingInfo} onclick={cancelEditInfo}>
+              <X class="mr-1.5 size-3.5" />
+              Cancel
+            </Button>
+          </div>
+        </div>
+      {:else}
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <h1 class="text-foreground truncate text-lg font-semibold">{projectName}</h1>
+            <button
+              type="button"
+              class="text-muted-foreground hover:text-foreground shrink-0 transition-colors"
+              title="Edit project info"
+              onclick={startEditInfo}
+            >
+              <Pencil class="size-3.5" />
+            </button>
+          </div>
+          {#if projectDescription}
+            <p class="text-muted-foreground mt-0.5 text-sm">{projectDescription}</p>
+          {:else}
+            <p class="text-muted-foreground/50 mt-0.5 text-sm">No description</p>
+          {/if}
+        </div>
       {/if}
-    {/if}
+
+      <div class="flex shrink-0 items-center gap-2">
+        <Select.Root
+          type="single"
+          value={currentStatus}
+          onValueChange={(value) => {
+            if (value && value !== currentStatus)
+              void handleProjectStatusChange(value as ProjectStatus)
+          }}
+        >
+          <Select.Trigger
+            class={cn(
+              'h-auto min-h-5 w-auto rounded-full border px-2.5 py-1 text-xs font-medium shadow-none',
+              statusClassName[currentStatus],
+            )}
+            disabled={savingStatus}
+          >
+            {currentStatus}
+          </Select.Trigger>
+          <Select.Content>
+            {#each projectStatusOptions as status (status)}
+              <Select.Item value={status}>{status}</Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      </div>
+    </div>
   </div>
-</PageScaffold>
+
+  <!-- Content -->
+  <div class="min-h-0 flex-1 px-4 py-4 pb-8 sm:px-6">
+    <div class="space-y-6">
+      {#if loading}
+        <div
+          class="border-border bg-card text-muted-foreground rounded-md border px-4 py-10 text-center text-sm"
+        >
+          Loading dashboard…
+        </div>
+      {:else if error}
+        <div
+          class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
+        >
+          {error}
+        </div>
+      {:else}
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="Running Agents" value={stats.runningAgents} icon={Bot} />
+          <StatCard label="Active Tickets" value={stats.activeTickets} icon={Ticket} />
+          <StatCard label="Ticket Tokens" value={formatCount(totalTicketTokens)} icon={Coins} />
+          <StatCard
+            label="Heap In Use"
+            value={memory ? formatBytes(memory.heap_inuse_bytes) : '—'}
+          />
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <CostSnapshotPanel
+            newTicketsTodayCost={stats.newTicketsTodayCost}
+            projectCost={stats.projectCost}
+            ticketInputTokens={stats.ticketInputTokens}
+            ticketOutputTokens={stats.ticketOutputTokens}
+            totalAgentTokens={stats.totalAgentTokens}
+            ticketsCreatedToday={stats.ticketsCreatedToday}
+            ticketsCompletedToday={stats.ticketsCompletedToday}
+            {topCostTicket}
+            {topTokenAgent}
+          />
+          <ExceptionPanel {exceptions} />
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <ActivityFeedPanel {activities} class="lg:col-span-2" />
+          <MemorySnapshotPanel {memory} />
+        </div>
+
+        {#if hrAdvisor && appStore.currentProject}
+          {#key appStore.currentProject.id}
+            <HRAdvisorPanel projectId={appStore.currentProject.id} advisor={hrAdvisor} />
+          {/key}
+        {/if}
+      {/if}
+    </div>
+  </div>
+</div>

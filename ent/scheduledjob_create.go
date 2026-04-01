@@ -47,6 +47,14 @@ func (_c *ScheduledJobCreate) SetWorkflowID(v uuid.UUID) *ScheduledJobCreate {
 	return _c
 }
 
+// SetNillableWorkflowID sets the "workflow_id" field if the given value is not nil.
+func (_c *ScheduledJobCreate) SetNillableWorkflowID(v *uuid.UUID) *ScheduledJobCreate {
+	if v != nil {
+		_c.SetWorkflowID(*v)
+	}
+	return _c
+}
+
 // SetTicketTemplate sets the "ticket_template" field.
 func (_c *ScheduledJobCreate) SetTicketTemplate(v map[string]interface{}) *ScheduledJobCreate {
 	_c.mutation.SetTicketTemplate(v)
@@ -189,9 +197,6 @@ func (_c *ScheduledJobCreate) check() error {
 			return &ValidationError{Name: "cron_expression", err: fmt.Errorf(`ent: validator failed for field "ScheduledJob.cron_expression": %w`, err)}
 		}
 	}
-	if _, ok := _c.mutation.WorkflowID(); !ok {
-		return &ValidationError{Name: "workflow_id", err: errors.New(`ent: missing required field "ScheduledJob.workflow_id"`)}
-	}
 	if _, ok := _c.mutation.TicketTemplate(); !ok {
 		return &ValidationError{Name: "ticket_template", err: errors.New(`ent: missing required field "ScheduledJob.ticket_template"`)}
 	}
@@ -200,9 +205,6 @@ func (_c *ScheduledJobCreate) check() error {
 	}
 	if len(_c.mutation.ProjectIDs()) == 0 {
 		return &ValidationError{Name: "project", err: errors.New(`ent: missing required edge "ScheduledJob.project"`)}
-	}
-	if len(_c.mutation.WorkflowIDs()) == 0 {
-		return &ValidationError{Name: "workflow", err: errors.New(`ent: missing required edge "ScheduledJob.workflow"`)}
 	}
 	return nil
 }
@@ -294,7 +296,7 @@ func (_c *ScheduledJobCreate) createSpec() (*ScheduledJob, *sqlgraph.CreateSpec)
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.WorkflowID = nodes[0]
+		_node.WorkflowID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

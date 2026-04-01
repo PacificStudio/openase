@@ -4,26 +4,23 @@
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
+  import * as Select from '$ui/select'
   import Bot from '@lucide/svelte/icons/bot'
   import { ChevronDown, ChevronRight } from '@lucide/svelte'
-  import * as Select from '$ui/select'
   import { Switch } from '$ui/switch'
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
+  import type { WorkflowStatusOption } from '$lib/features/workflows'
   import { type ScheduledJobDraft } from './workflow-scheduled-jobs'
   import WorkflowScheduledJobCronHelperDialog from './workflow-scheduled-job-cron-helper-dialog.svelte'
+  import WorkflowScheduledJobCronPicker from './workflow-scheduled-job-cron-picker.svelte'
   import WorkflowScheduledJobTemplateFields from './workflow-scheduled-job-template-fields.svelte'
-
-  type WorkflowOption = {
-    value: string
-    label: string
-  }
 
   let {
     open = $bindable(false),
     draft,
     projectId,
     selectedJob = null,
-    workflowOptions,
+    statusOptions,
     saving = false,
     deleting = false,
     triggering = false,
@@ -37,7 +34,7 @@
     draft: ScheduledJobDraft
     projectId: string
     selectedJob?: ScheduledJob | null
-    workflowOptions: WorkflowOption[]
+    statusOptions: WorkflowStatusOption[]
     saving?: boolean
     deleting?: boolean
     triggering?: boolean
@@ -124,10 +121,28 @@
           />
         </div>
 
-        <!-- Cron expression -->
         <div class="space-y-1.5">
-          <div class="flex items-center justify-between">
-            <Label for="scheduled-job-cron" class="text-xs">Cron expression</Label>
+          <Label class="text-xs">Target status</Label>
+          <Select.Root
+            type="single"
+            value={draft.ticketStatusId}
+            onValueChange={(value) => onFieldChange?.('ticketStatusId', value || '')}
+          >
+            <Select.Trigger class="w-full">
+              {statusOptions.find((status) => status.id === draft.ticketStatusId)?.name ??
+                'Select status'}
+            </Select.Trigger>
+            <Select.Content>
+              {#each statusOptions as status (status.id)}
+                <Select.Item value={status.id}>{status.name}</Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        </div>
+
+        <!-- Cron schedule picker -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-end">
             <button
               type="button"
               class="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[11px] transition-colors"
@@ -137,34 +152,10 @@
               AI help
             </button>
           </div>
-          <Input
-            id="scheduled-job-cron"
+          <WorkflowScheduledJobCronPicker
             value={draft.cronExpression}
-            placeholder="0 2 * * *"
-            class="font-mono"
-            oninput={(event) =>
-              onFieldChange?.('cronExpression', (event.currentTarget as HTMLInputElement).value)}
+            onchange={(cron) => onFieldChange?.('cronExpression', cron)}
           />
-        </div>
-
-        <!-- Workflow -->
-        <div class="space-y-1.5">
-          <Label class="text-xs">Workflow</Label>
-          <Select.Root
-            type="single"
-            value={draft.workflowId}
-            onValueChange={(value) => onFieldChange?.('workflowId', value || '')}
-          >
-            <Select.Trigger class="w-full">
-              {workflowOptions.find((workflow) => workflow.value === draft.workflowId)?.label ??
-                'Select workflow'}
-            </Select.Trigger>
-            <Select.Content>
-              {#each workflowOptions as workflow (workflow.value)}
-                <Select.Item value={workflow.value}>{workflow.label}</Select.Item>
-              {/each}
-            </Select.Content>
-          </Select.Root>
         </div>
 
         <!-- Enabled switch -->

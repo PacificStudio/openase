@@ -207,6 +207,8 @@
   }
   async function handleToggleSkill(skill: SkillState) {
     if (!selectedId) return
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return
     if (isDirty) {
       toastStore.warning('Please save your harness changes before binding or unbinding skills.')
       return
@@ -215,11 +217,19 @@
       const result = skill.bound
         ? await unbindWorkflowSkills(selectedId, [skill.name])
         : await bindWorkflowSkills(selectedId, [skill.name])
-      const newContent = result.harness.content
-      harness = toHarnessContent(newContent)
-      draftHarness = newContent
-      skillStates = skillStates.map((item) =>
-        item.path === skill.path ? { ...item, bound: !skill.bound } : item,
+      const refreshed = await loadWorkflowHarness(projectId, selectedId)
+      harness = refreshed.harness
+      draftHarness = refreshed.harness.rawContent
+      skillStates = refreshed.skillStates
+      workflows = workflows.map((workflow) =>
+        workflow.id === selectedId
+          ? {
+              ...workflow,
+              harnessPath: result.harness.path ?? workflow.harnessPath,
+              version: result.harness.version ?? workflow.version,
+              history: refreshed.history,
+            }
+          : workflow,
       )
       toastStore.success(skill.bound ? `Unbound ${skill.name}.` : `Bound ${skill.name}.`)
     } catch (caughtError) {

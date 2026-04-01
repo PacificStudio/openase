@@ -21050,7 +21050,7 @@ func (m *ScheduledJobMutation) WorkflowID() (r uuid.UUID, exists bool) {
 // OldWorkflowID returns the old "workflow_id" field's value of the ScheduledJob entity.
 // If the ScheduledJob object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ScheduledJobMutation) OldWorkflowID(ctx context.Context) (v uuid.UUID, err error) {
+func (m *ScheduledJobMutation) OldWorkflowID(ctx context.Context) (v *uuid.UUID, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldWorkflowID is only allowed on UpdateOne operations")
 	}
@@ -21064,9 +21064,22 @@ func (m *ScheduledJobMutation) OldWorkflowID(ctx context.Context) (v uuid.UUID, 
 	return oldValue.WorkflowID, nil
 }
 
+// ClearWorkflowID clears the value of the "workflow_id" field.
+func (m *ScheduledJobMutation) ClearWorkflowID() {
+	m.workflow = nil
+	m.clearedFields[scheduledjob.FieldWorkflowID] = struct{}{}
+}
+
+// WorkflowIDCleared returns if the "workflow_id" field was cleared in this mutation.
+func (m *ScheduledJobMutation) WorkflowIDCleared() bool {
+	_, ok := m.clearedFields[scheduledjob.FieldWorkflowID]
+	return ok
+}
+
 // ResetWorkflowID resets all changes to the "workflow_id" field.
 func (m *ScheduledJobMutation) ResetWorkflowID() {
 	m.workflow = nil
+	delete(m.clearedFields, scheduledjob.FieldWorkflowID)
 }
 
 // SetTicketTemplate sets the "ticket_template" field.
@@ -21274,7 +21287,7 @@ func (m *ScheduledJobMutation) ClearWorkflow() {
 
 // WorkflowCleared reports if the "workflow" edge to the Workflow entity was cleared.
 func (m *ScheduledJobMutation) WorkflowCleared() bool {
-	return m.clearedworkflow
+	return m.WorkflowIDCleared() || m.clearedworkflow
 }
 
 // WorkflowIDs returns the "workflow" edge IDs in the mutation.
@@ -21496,6 +21509,9 @@ func (m *ScheduledJobMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *ScheduledJobMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(scheduledjob.FieldWorkflowID) {
+		fields = append(fields, scheduledjob.FieldWorkflowID)
+	}
 	if m.FieldCleared(scheduledjob.FieldLastRunAt) {
 		fields = append(fields, scheduledjob.FieldLastRunAt)
 	}
@@ -21516,6 +21532,9 @@ func (m *ScheduledJobMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *ScheduledJobMutation) ClearField(name string) error {
 	switch name {
+	case scheduledjob.FieldWorkflowID:
+		m.ClearWorkflowID()
+		return nil
 	case scheduledjob.FieldLastRunAt:
 		m.ClearLastRunAt()
 		return nil

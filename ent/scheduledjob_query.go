@@ -478,7 +478,10 @@ func (_q *ScheduledJobQuery) loadWorkflow(ctx context.Context, query *WorkflowQu
 	ids := make([]uuid.UUID, 0, len(nodes))
 	nodeids := make(map[uuid.UUID][]*ScheduledJob)
 	for i := range nodes {
-		fk := nodes[i].WorkflowID
+		if nodes[i].WorkflowID == nil {
+			continue
+		}
+		fk := *nodes[i].WorkflowID
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}

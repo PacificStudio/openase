@@ -605,7 +605,11 @@ func TestRuntimeLauncherStartRuntimeSessionSupportsGeminiProvider(t *testing.T) 
 	}
 
 	process := newRuntimeRunnerFakeProcess()
-	manager := &geminiAdapterTestProcessManager{process: process}
+	probeProcess := &stubGeminiProbeProcess{
+		stdout: io.NopCloser(strings.NewReader(`{"authType":"oauth-personal","remaining":3,"limit":10,"resetTime":"2026-04-02T10:02:55Z","buckets":[{"modelId":"gemini-2.5-pro","tokenType":"REQUESTS","remainingFraction":0.3,"resetTime":"2026-04-02T10:02:55Z"}]}`)),
+		stderr: io.NopCloser(strings.NewReader("")),
+	}
+	manager := &geminiAdapterTestProcessManager{processes: []provider.AgentCLIProcess{process, probeProcess}}
 	workflowItem, workflowSvc, ticketItem, agentItem, runItem, launcher := newRuntimeExecutionFixture(
 		ctx,
 		t,
@@ -665,12 +669,16 @@ func TestRuntimeLauncherStartRuntimeSessionSupportsGeminiProvider(t *testing.T) 
 		t.Fatalf("unexpected Gemini token usage event: %+v", second.TokenUsage)
 	}
 	third := requireAgentEvent(t, session.Events())
-	if third.Type != agentEventTypeTurnCompleted || third.Turn == nil || third.Turn.TurnID != turn.TurnID {
+	if third.Type != agentEventTypeRateLimitUpdated || third.RateLimit == nil || third.RateLimit.Gemini == nil {
 		t.Fatalf("unexpected third event: %+v", third)
 	}
+	fourth := requireAgentEvent(t, session.Events())
+	if fourth.Type != agentEventTypeTurnCompleted || fourth.Turn == nil || fourth.Turn.TurnID != turn.TurnID {
+		t.Fatalf("unexpected fourth event: %+v", fourth)
+	}
 
-	if manager.capturedSpec.Command != provider.MustParseAgentCLICommand("gemini") {
-		t.Fatalf("process command = %q, want gemini", manager.capturedSpec.Command)
+	if len(manager.capturedSpecs) < 2 || manager.capturedSpecs[0].Command != provider.MustParseAgentCLICommand("gemini") {
+		t.Fatalf("captured specs = %+v", manager.capturedSpecs)
 	}
 	if err := <-serverDone; err != nil {
 		t.Fatalf("fake gemini process returned error: %v", err)

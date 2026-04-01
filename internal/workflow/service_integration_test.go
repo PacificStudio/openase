@@ -120,11 +120,11 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BindSkills() error = %v", err)
 	}
-	if boundDoc.Version != 1 {
-		t.Fatalf("BindSkills() version = %d, want 1", boundDoc.Version)
+	if boundDoc.Version != 2 {
+		t.Fatalf("BindSkills() version = %d, want 2", boundDoc.Version)
 	}
-	if _, err := os.Stat(reloadMarkerPath); !os.IsNotExist(err) {
-		t.Fatalf("expected bind to avoid harness reload, stat error = %v", err)
+	if got := mustReadWorkflowFile(t, reloadMarkerPath); got != "on_reload:2" {
+		t.Fatalf("reload marker after BindSkills() = %q", got)
 	}
 	if skillNames, err := ParseHarnessSkills(boundDoc.Content); err != nil || !slices.Equal(skillNames, []string{"skill-one", "skill-two"}) {
 		t.Fatalf("ParseHarnessSkills(boundDoc) = %+v, %v", skillNames, err)
@@ -180,8 +180,11 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UnbindSkills() error = %v", err)
 	}
-	if unboundDoc.Version != 1 {
-		t.Fatalf("UnbindSkills() version = %d, want 1", unboundDoc.Version)
+	if unboundDoc.Version != 3 {
+		t.Fatalf("UnbindSkills() version = %d, want 3", unboundDoc.Version)
+	}
+	if got := mustReadWorkflowFile(t, reloadMarkerPath); got != "on_reload:3" {
+		t.Fatalf("reload marker after UnbindSkills() = %q", got)
 	}
 	if skillNames, err := ParseHarnessSkills(unboundDoc.Content); err != nil || !slices.Equal(skillNames, []string{"skill-one"}) {
 		t.Fatalf("ParseHarnessSkills(unboundDoc) = %+v, %v", skillNames, err)
@@ -213,10 +216,10 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateHarness() error = %v", err)
 	}
-	if updatedHarnessDoc.Version != 2 {
+	if updatedHarnessDoc.Version != 4 {
 		t.Fatalf("UpdateHarness() = %+v", updatedHarnessDoc)
 	}
-	if got := mustReadWorkflowFile(t, reloadMarkerPath); got != "on_reload:2" {
+	if got := mustReadWorkflowFile(t, reloadMarkerPath); got != "on_reload:4" {
 		t.Fatalf("reload marker after UpdateHarness() = %q", got)
 	}
 	if skillNames, err := ParseHarnessSkills(updatedHarnessDoc.Content); err != nil || !slices.Equal(skillNames, []string{"skill-one"}) {
@@ -1132,6 +1135,28 @@ func TestWorkflowServiceUpdateHarnessRegistryFailurePaths(t *testing.T) {
 	}
 	if !strings.Contains(currentVersion.ContentMarkdown, "# Initial") {
 		t.Fatalf("current workflow version changed after blocked update: %q", currentVersion.ContentMarkdown)
+	}
+
+	if _, err := service.CreateSkill(ctx, CreateSkillInput{
+		ProjectID: fixture.projectID,
+		Name:      "blocked-bind",
+		Content:   "# Blocked Bind\nbody\n",
+	}); err != nil {
+		t.Fatalf("CreateSkill(blocked-bind) error = %v", err)
+	}
+	if _, err := service.BindSkills(ctx, UpdateWorkflowSkillsInput{
+		WorkflowID: created.ID,
+		Skills:     []string{"blocked-bind"},
+	}); !errors.Is(err, ErrWorkflowHookBlocked) {
+		t.Fatalf("BindSkills(blocked) error = %v, want %v", err, ErrWorkflowHookBlocked)
+	}
+
+	currentVersion, err = service.currentWorkflowVersion(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("currentWorkflowVersion() after blocked bind error = %v", err)
+	}
+	if currentVersion.Version != 1 || !strings.Contains(currentVersion.ContentMarkdown, "# Initial") {
+		t.Fatalf("current workflow version changed after blocked bind: %+v", currentVersion)
 	}
 }
 

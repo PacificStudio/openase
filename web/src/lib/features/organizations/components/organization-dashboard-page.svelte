@@ -11,6 +11,7 @@
   import {
     providerAvailabilityBadgeVariant,
     providerAvailabilityLabel,
+    summarizeAgentProviderRateLimit,
   } from '$lib/features/providers'
   import { appStore } from '$lib/stores/app.svelte'
   import { organizationPath } from '$lib/stores/app-context'
@@ -154,10 +155,21 @@
     {#if providers.length > 0}
       <div class="border-border divide-border divide-y rounded-lg border">
         {#each providers as provider (provider.id)}
+          {@const rateLimit = summarizeAgentProviderRateLimit(provider)}
           <div class="flex items-center justify-between gap-4 px-4 py-3">
-            <div class="min-w-0">
+            <div class="min-w-0 flex-1">
               <p class="text-foreground truncate text-sm font-medium">{provider.name}</p>
               <p class="text-muted-foreground truncate text-xs">{provider.model_name}</p>
+              {#if rateLimit}
+                <div class="bg-muted/30 mt-2 rounded-lg border px-3 py-2 text-[11px]">
+                  <div class="flex items-center justify-between gap-3">
+                    <span class="text-muted-foreground">Rate limit</span>
+                    <span class="text-foreground font-medium">{rateLimit.headline}</span>
+                  </div>
+                  <div class="text-muted-foreground mt-1">{rateLimit.detail}</div>
+                  <div class="text-muted-foreground mt-1">{rateLimit.updatedLabel}</div>
+                </div>
+              {/if}
             </div>
             <div class="flex shrink-0 items-center gap-2">
               <Badge variant={providerAvailabilityBadgeVariant(provider.availability_state)}>

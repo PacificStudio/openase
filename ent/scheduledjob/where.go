@@ -261,6 +261,16 @@ func WorkflowIDNotIn(vs ...uuid.UUID) predicate.ScheduledJob {
 	return predicate.ScheduledJob(sql.FieldNotIn(FieldWorkflowID, vs...))
 }
 
+// WorkflowIDIsNil applies the IsNil predicate on the "workflow_id" field.
+func WorkflowIDIsNil() predicate.ScheduledJob {
+	return predicate.ScheduledJob(sql.FieldIsNull(FieldWorkflowID))
+}
+
+// WorkflowIDNotNil applies the NotNil predicate on the "workflow_id" field.
+func WorkflowIDNotNil() predicate.ScheduledJob {
+	return predicate.ScheduledJob(sql.FieldNotNull(FieldWorkflowID))
+}
+
 // IsEnabledEQ applies the EQ predicate on the "is_enabled" field.
 func IsEnabledEQ(v bool) predicate.ScheduledJob {
 	return predicate.ScheduledJob(sql.FieldEQ(FieldIsEnabled, v))

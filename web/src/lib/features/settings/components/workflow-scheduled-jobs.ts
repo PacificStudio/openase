@@ -1,10 +1,11 @@
 import type { ScheduledJob } from '$lib/api/contracts'
+import type { WorkflowStatusOption } from '$lib/features/workflows'
 
 export type ScheduledJobDraft = {
   name: string
   cronExpression: string
-  workflowId: string
   isEnabled: boolean
+  ticketStatusId: string
   ticketTitle: string
   ticketDescription: string
   ticketPriority: string
@@ -16,12 +17,12 @@ export type ScheduledJobDraft = {
 export const scheduledJobPriorityOptions = ['urgent', 'high', 'medium', 'low'] as const
 export const scheduledJobTypeOptions = ['feature', 'bugfix', 'refactor', 'chore'] as const
 
-export function emptyScheduledJobDraft(defaultWorkflowId: string): ScheduledJobDraft {
+export function emptyScheduledJobDraft(defaultStatusId: string): ScheduledJobDraft {
   return {
     name: '',
     cronExpression: '',
-    workflowId: defaultWorkflowId,
     isEnabled: true,
+    ticketStatusId: defaultStatusId,
     ticketTitle: '',
     ticketDescription: '',
     ticketPriority: 'medium',
@@ -33,13 +34,18 @@ export function emptyScheduledJobDraft(defaultWorkflowId: string): ScheduledJobD
 
 export function scheduledJobDraftFromRecord(
   job: ScheduledJob,
-  defaultWorkflowId: string,
+  statuses: WorkflowStatusOption[],
 ): ScheduledJobDraft {
+  const statusId =
+    statuses.find((status) => status.name === (job.ticket_template.status ?? ''))?.id ??
+    statuses[0]?.id ??
+    ''
+
   return {
     name: job.name,
     cronExpression: job.cron_expression,
-    workflowId: job.workflow_id || defaultWorkflowId,
     isEnabled: job.is_enabled,
+    ticketStatusId: statusId,
     ticketTitle: job.ticket_template.title ?? '',
     ticketDescription: job.ticket_template.description ?? '',
     ticketPriority: job.ticket_template.priority ?? 'medium',
@@ -50,10 +56,10 @@ export function scheduledJobDraftFromRecord(
   }
 }
 
-export function parseScheduledJobDraft(value: ScheduledJobDraft) {
+export function parseScheduledJobDraft(value: ScheduledJobDraft, statuses: WorkflowStatusOption[]) {
   const name = value.name.trim()
   const cronExpression = value.cronExpression.trim()
-  const workflowId = value.workflowId.trim()
+  const ticketStatusId = value.ticketStatusId.trim()
   const ticketTitle = value.ticketTitle.trim()
   const ticketDescription = value.ticketDescription.trim()
   const ticketCreatedBy = value.ticketCreatedBy.trim()
@@ -65,8 +71,16 @@ export function parseScheduledJobDraft(value: ScheduledJobDraft) {
   if (!cronExpression) {
     return { ok: false as const, error: 'Cron expression is required.' }
   }
-  if (!workflowId) {
-    return { ok: false as const, error: 'Workflow selection is required.' }
+  if (!ticketStatusId) {
+    return { ok: false as const, error: 'Target status is required.' }
+  }
+  if (!ticketTitle) {
+    return { ok: false as const, error: 'Ticket title is required.' }
+  }
+
+  const selectedStatus = statuses.find((status) => status.id === ticketStatusId)
+  if (!selectedStatus) {
+    return { ok: false as const, error: 'Target status is invalid.' }
   }
 
   let budgetUsd: number | undefined
@@ -83,6 +97,7 @@ export function parseScheduledJobDraft(value: ScheduledJobDraft) {
     created_by?: string
     description?: string
     priority?: string
+    status?: string
     title?: string
     type?: string
   } = {}
@@ -91,6 +106,7 @@ export function parseScheduledJobDraft(value: ScheduledJobDraft) {
   if (ticketDescription) ticket_template.description = ticketDescription
   if (ticketCreatedBy) ticket_template.created_by = ticketCreatedBy
   if (budgetUsd != null) ticket_template.budget_usd = budgetUsd
+  ticket_template.status = selectedStatus.name
   if (value.ticketPriority) ticket_template.priority = value.ticketPriority
   if (value.ticketType) ticket_template.type = value.ticketType
 
@@ -99,7 +115,6 @@ export function parseScheduledJobDraft(value: ScheduledJobDraft) {
     value: {
       name,
       cron_expression: cronExpression,
-      workflow_id: workflowId,
       is_enabled: value.isEnabled,
       ticket_template,
     },

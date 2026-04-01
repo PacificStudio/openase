@@ -39,7 +39,11 @@ export function projectBoardGroups(groups: BoardGroup[], columns: BoardColumn[])
   }))
 }
 
-function compareTicketStatuses(left: TicketStatus, right: TicketStatus) {
+export function compareTicketStatuses(left: TicketStatus, right: TicketStatus) {
+  const stageOrderDiff = stageOrder(left.stage) - stageOrder(right.stage)
+  if (stageOrderDiff !== 0) {
+    return stageOrderDiff
+  }
   if (left.position !== right.position) {
     return left.position - right.position
   }
@@ -55,4 +59,21 @@ function formatStatusWipInfo(status: TicketStatus) {
 
 function isDefined<T>(value: T | undefined): value is T {
   return value !== undefined
+}
+
+function stageOrder(stage: string) {
+  switch (stage) {
+    case 'backlog':
+      return 0
+    case 'unstarted':
+      return 1
+    case 'started':
+      return 2
+    case 'completed':
+      return 3
+    case 'canceled':
+      return 4
+    default:
+      return 5
+  }
 }

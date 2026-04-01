@@ -58,7 +58,6 @@ type ScheduledJob struct {
 	ProjectID      uuid.UUID      `json:"project_id"`
 	Name           string         `json:"name"`
 	CronExpression string         `json:"cron_expression"`
-	WorkflowID     uuid.UUID      `json:"workflow_id"`
 	TicketTemplate TicketTemplate `json:"ticket_template"`
 	IsEnabled      bool           `json:"is_enabled"`
 	LastRunAt      *time.Time     `json:"last_run_at,omitempty"`
@@ -69,7 +68,6 @@ type CreateInput struct {
 	ProjectID      uuid.UUID
 	Name           string
 	CronExpression string
-	WorkflowID     uuid.UUID
 	TicketTemplate TicketTemplate
 	IsEnabled      bool
 }
@@ -78,7 +76,6 @@ type UpdateInput struct {
 	JobID          uuid.UUID
 	Name           Optional[string]
 	CronExpression Optional[string]
-	WorkflowID     Optional[uuid.UUID]
 	TicketTemplate Optional[TicketTemplate]
 	IsEnabled      Optional[bool]
 }
@@ -269,8 +266,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (ScheduledJob, 
 	if err := s.ensureProjectExists(ctx, input.ProjectID); err != nil {
 		return ScheduledJob{}, err
 	}
-	if _, err := s.loadWorkflow(ctx, input.ProjectID, input.WorkflowID); err != nil {
-		return ScheduledJob{}, err
+	if strings.TrimSpace(input.TicketTemplate.Status) == "" {
+		return ScheduledJob{}, fmt.Errorf("%w: ticket_template.status must not be empty", ErrInvalidTicketTemplate)
 	}
 
 	schedule, err := s.parseCron(input.CronExpression)
@@ -282,7 +279,6 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (ScheduledJob, 
 		SetProjectID(input.ProjectID).
 		SetName(strings.TrimSpace(input.Name)).
 		SetCronExpression(strings.TrimSpace(input.CronExpression)).
-		SetWorkflowID(input.WorkflowID).
 		SetTicketTemplate(input.TicketTemplate.Raw()).
 		SetIsEnabled(input.IsEnabled)
 
@@ -332,13 +328,10 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (ScheduledJob, 
 	if input.CronExpression.Set {
 		builder.SetCronExpression(effectiveCron)
 	}
-	if input.WorkflowID.Set {
-		if _, err := s.loadWorkflow(ctx, current.ProjectID, input.WorkflowID.Value); err != nil {
-			return ScheduledJob{}, err
-		}
-		builder.SetWorkflowID(input.WorkflowID.Value)
-	}
 	if input.TicketTemplate.Set {
+		if strings.TrimSpace(input.TicketTemplate.Value.Status) == "" {
+			return ScheduledJob{}, fmt.Errorf("%w: ticket_template.status must not be empty", ErrInvalidTicketTemplate)
+		}
 		builder.SetTicketTemplate(input.TicketTemplate.Value.Raw())
 	}
 	if input.IsEnabled.Set {
@@ -485,8 +478,14 @@ func (s *Service) createTicketForJob(ctx context.Context, item *ent.ScheduledJob
 	}
 
 	workflowItem := item.Edges.Workflow
-	if workflowItem == nil || (strings.TrimSpace(template.Status) == "" && len(workflowItem.Edges.PickupStatuses) == 0) {
-		workflowItem, err = s.loadWorkflow(ctx, item.ProjectID, item.WorkflowID)
+	if workflowItem == nil && item.WorkflowID != nil {
+		workflowItem, err = s.loadWorkflow(ctx, item.ProjectID, *item.WorkflowID)
+		if err != nil {
+			return ticketservice.Ticket{}, err
+		}
+	}
+	if workflowItem != nil && strings.TrimSpace(template.Status) == "" && len(workflowItem.Edges.PickupStatuses) == 0 {
+		workflowItem, err = s.loadWorkflow(ctx, item.ProjectID, *item.WorkflowID)
 		if err != nil {
 			return ticketservice.Ticket{}, err
 		}
@@ -504,16 +503,31 @@ func (s *Service) createTicketForJob(ctx context.Context, item *ent.ScheduledJob
 		return ticketservice.Ticket{}, err
 	}
 
-	statusID, err := resolveScheduledJobPickupStatus(template.Status, workflowItem)
-	if err != nil {
-		return ticketservice.Ticket{}, err
-	}
 	if template.Status != "" {
-		resolvedStatusID, err := s.resolveStatusIDByName(ctx, item.ProjectID, template.Status)
+		statusID, err := s.resolveStatusIDByName(ctx, item.ProjectID, template.Status)
 		if err != nil {
 			return ticketservice.Ticket{}, err
 		}
-		statusID = resolvedStatusID
+
+		return s.tickets.Create(ctx, ticketservice.CreateInput{
+			ProjectID:   item.ProjectID,
+			Title:       title,
+			Description: description,
+			StatusID:    &statusID,
+			Priority:    template.Priority,
+			Type:        template.Type,
+			CreatedBy:   template.CreatedBy,
+			BudgetUSD:   template.BudgetUSD,
+		})
+	}
+
+	if workflowItem == nil {
+		return ticketservice.Ticket{}, fmt.Errorf("%w: ticket_template.status must not be empty", ErrInvalidTicketTemplate)
+	}
+
+	statusID, err := resolveScheduledJobPickupStatus(template.Status, workflowItem)
+	if err != nil {
+		return ticketservice.Ticket{}, err
 	}
 
 	return s.tickets.Create(ctx, ticketservice.CreateInput{
@@ -523,7 +537,6 @@ func (s *Service) createTicketForJob(ctx context.Context, item *ent.ScheduledJob
 		StatusID:    &statusID,
 		Priority:    template.Priority,
 		Type:        template.Type,
-		WorkflowID:  &workflowItem.ID,
 		CreatedBy:   template.CreatedBy,
 		BudgetUSD:   template.BudgetUSD,
 	})
@@ -655,7 +668,6 @@ func mapScheduledJob(item *ent.ScheduledJob) (ScheduledJob, error) {
 		ProjectID:      item.ProjectID,
 		Name:           item.Name,
 		CronExpression: item.CronExpression,
-		WorkflowID:     item.WorkflowID,
 		TicketTemplate: template,
 		IsEnabled:      item.IsEnabled,
 		LastRunAt:      cloneTime(item.LastRunAt),
@@ -724,6 +736,15 @@ func renderScheduledJobTemplateField(content string, data map[string]any) (strin
 }
 
 func scheduledJobTemplateContext(item *ent.ScheduledJob, workflowItem *ent.Workflow, now time.Time) map[string]any {
+	workflowID := ""
+	workflowName := ""
+	workflowType := ""
+	if workflowItem != nil {
+		workflowID = workflowItem.ID.String()
+		workflowName = workflowItem.Name
+		workflowType = workflowItem.Type.String()
+	}
+
 	return map[string]any{
 		"date":      now.Format("2006-01-02"),
 		"time":      now.Format("15:04:05"),
@@ -734,9 +755,9 @@ func scheduledJobTemplateContext(item *ent.ScheduledJob, workflowItem *ent.Workf
 			"cron_expression": item.CronExpression,
 		},
 		"workflow": map[string]any{
-			"id":   workflowItem.ID.String(),
-			"name": workflowItem.Name,
-			"type": workflowItem.Type.String(),
+			"id":   workflowID,
+			"name": workflowName,
+			"type": workflowType,
 		},
 	}
 }

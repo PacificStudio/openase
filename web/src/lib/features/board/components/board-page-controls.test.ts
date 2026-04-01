@@ -20,6 +20,7 @@ const {
   listStatuses,
   listTickets,
   listWorkflows,
+  updateStatus,
   updateTicket,
   connectEventStream,
 } = vi.hoisted(() => ({
@@ -28,6 +29,7 @@ const {
   listStatuses: vi.fn(),
   listTickets: vi.fn(),
   listWorkflows: vi.fn(),
+  updateStatus: vi.fn(),
   updateTicket: vi.fn(),
   connectEventStream: vi.fn(),
 }))
@@ -38,6 +40,7 @@ vi.mock('$lib/api/openase', () => ({
   listStatuses,
   listTickets,
   listWorkflows,
+  updateStatus,
   updateTicket,
 }))
 
@@ -219,6 +222,305 @@ describe('TicketsPage board controls', () => {
       ).toBeTruthy()
     })
   })
+
+  it('enables move left and move right only within the current stage', async () => {
+    appStore.currentProject = projectFixture
+
+    const currentStatuses = cloneValue({
+      statuses: [
+        {
+          id: 'status-backlog',
+          project_id: 'project-1',
+          name: 'Inbox',
+          stage: 'backlog' as const,
+          color: '#64748b',
+          icon: '',
+          is_default: false,
+          description: '',
+          position: 0,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+        {
+          id: 'status-todo',
+          project_id: 'project-1',
+          name: 'Todo',
+          stage: 'unstarted' as const,
+          color: '#2563eb',
+          icon: '',
+          is_default: true,
+          description: '',
+          position: 1,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+        {
+          id: 'status-triage',
+          project_id: 'project-1',
+          name: 'Triage',
+          stage: 'unstarted' as const,
+          color: '#0ea5e9',
+          icon: '',
+          is_default: false,
+          description: '',
+          position: 2,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+        {
+          id: 'status-doing',
+          project_id: 'project-1',
+          name: 'Doing',
+          stage: 'started' as const,
+          color: '#f59e0b',
+          icon: '',
+          is_default: false,
+          description: '',
+          position: 3,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+        {
+          id: 'status-review',
+          project_id: 'project-1',
+          name: 'Review',
+          stage: 'started' as const,
+          color: '#f97316',
+          icon: '',
+          is_default: false,
+          description: '',
+          position: 4,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+        {
+          id: 'status-done',
+          project_id: 'project-1',
+          name: 'Done',
+          stage: 'completed' as const,
+          color: '#10b981',
+          icon: '',
+          is_default: false,
+          description: '',
+          position: 5,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+      ],
+    })
+
+    listStatuses.mockImplementation(async () => cloneValue(currentStatuses))
+    listTickets.mockResolvedValue({ tickets: [] })
+    listWorkflows.mockResolvedValue(workflowsFixture)
+    listAgents.mockResolvedValue(agentsFixture)
+    listActivity.mockResolvedValue(activityFixture)
+    updateTicket.mockResolvedValue({ ticket: ticketsFixture.tickets[0] })
+    updateStatus.mockResolvedValue({ status: currentStatuses.statuses[0] })
+    connectEventStream.mockReturnValue(() => {})
+
+    const { findByRole } = render(TicketsPage)
+
+    await assertColumnMoveState(findByRole, 'Inbox', {
+      leftDisabled: true,
+      rightDisabled: true,
+    })
+    await assertColumnMoveState(findByRole, 'Todo', {
+      leftDisabled: true,
+      rightDisabled: false,
+    })
+    await assertColumnMoveState(findByRole, 'Triage', {
+      leftDisabled: false,
+      rightDisabled: true,
+    })
+    await assertColumnMoveState(findByRole, 'Doing', {
+      leftDisabled: true,
+      rightDisabled: false,
+    })
+    await assertColumnMoveState(findByRole, 'Review', {
+      leftDisabled: false,
+      rightDisabled: true,
+    })
+    await assertColumnMoveState(findByRole, 'Done', {
+      leftDisabled: true,
+      rightDisabled: true,
+    })
+  })
+
+  it('moves a column right by swapping positions with the next status in the same stage', async () => {
+    appStore.currentProject = projectFixture
+
+    const currentStatuses = cloneValue({
+      statuses: [
+        {
+          id: 'status-backlog',
+          project_id: 'project-1',
+          name: 'Inbox',
+          stage: 'backlog' as const,
+          color: '#64748b',
+          icon: '',
+          is_default: false,
+          description: '',
+          position: 0,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+        {
+          id: 'status-todo',
+          project_id: 'project-1',
+          name: 'Todo',
+          stage: 'unstarted' as const,
+          color: '#2563eb',
+          icon: '',
+          is_default: true,
+          description: '',
+          position: 1,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+        {
+          id: 'status-triage',
+          project_id: 'project-1',
+          name: 'Triage',
+          stage: 'unstarted' as const,
+          color: '#0ea5e9',
+          icon: '',
+          is_default: false,
+          description: '',
+          position: 2,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+        {
+          id: 'status-doing',
+          project_id: 'project-1',
+          name: 'Doing',
+          stage: 'started' as const,
+          color: '#f59e0b',
+          icon: '',
+          is_default: false,
+          description: '',
+          position: 3,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+      ],
+    })
+
+    listStatuses.mockImplementation(async () => cloneValue(currentStatuses))
+    listTickets.mockResolvedValue({ tickets: [] })
+    listWorkflows.mockResolvedValue(workflowsFixture)
+    listAgents.mockResolvedValue(agentsFixture)
+    listActivity.mockResolvedValue(activityFixture)
+    updateTicket.mockResolvedValue({ ticket: ticketsFixture.tickets[0] })
+    updateStatus.mockImplementation(async (statusId: string, patch: { position?: number }) => {
+      const status = currentStatuses.statuses.find((item) => item.id === statusId)
+      if (!status || typeof patch.position !== 'number') {
+        throw new Error(`unknown status update ${statusId}`)
+      }
+      status.position = patch.position
+      return { status: cloneValue(status) }
+    })
+    connectEventStream.mockReturnValue(() => {})
+
+    const { findByRole } = render(TicketsPage)
+
+    await openColumnActionMenu(findByRole, 'Todo')
+    await fireEvent.click(await findByRole('menuitem', { name: 'Move right' }))
+
+    await waitFor(() => {
+      expect(updateStatus).toHaveBeenNthCalledWith(1, 'status-todo', { position: 2 })
+      expect(updateStatus).toHaveBeenNthCalledWith(2, 'status-triage', { position: 1 })
+      expect(listColumnNames()).toEqual(['Inbox', 'Triage', 'Todo', 'Doing'])
+    })
+  })
+
+  it('moves a column left by swapping positions with the previous status in the same stage', async () => {
+    appStore.currentProject = projectFixture
+
+    const currentStatuses = cloneValue({
+      statuses: [
+        {
+          id: 'status-todo',
+          project_id: 'project-1',
+          name: 'Todo',
+          stage: 'unstarted' as const,
+          color: '#2563eb',
+          icon: '',
+          is_default: true,
+          description: '',
+          position: 1,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+        {
+          id: 'status-triage',
+          project_id: 'project-1',
+          name: 'Triage',
+          stage: 'unstarted' as const,
+          color: '#0ea5e9',
+          icon: '',
+          is_default: false,
+          description: '',
+          position: 2,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+        {
+          id: 'status-review',
+          project_id: 'project-1',
+          name: 'Review',
+          stage: 'started' as const,
+          color: '#f97316',
+          icon: '',
+          is_default: false,
+          description: '',
+          position: 3,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+        {
+          id: 'status-doing',
+          project_id: 'project-1',
+          name: 'Doing',
+          stage: 'started' as const,
+          color: '#f59e0b',
+          icon: '',
+          is_default: false,
+          description: '',
+          position: 4,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+      ],
+    })
+
+    listStatuses.mockImplementation(async () => cloneValue(currentStatuses))
+    listTickets.mockResolvedValue({ tickets: [] })
+    listWorkflows.mockResolvedValue(workflowsFixture)
+    listAgents.mockResolvedValue(agentsFixture)
+    listActivity.mockResolvedValue(activityFixture)
+    updateTicket.mockResolvedValue({ ticket: ticketsFixture.tickets[0] })
+    updateStatus.mockImplementation(async (statusId: string, patch: { position?: number }) => {
+      const status = currentStatuses.statuses.find((item) => item.id === statusId)
+      if (!status || typeof patch.position !== 'number') {
+        throw new Error(`unknown status update ${statusId}`)
+      }
+      status.position = patch.position
+      return { status: cloneValue(status) }
+    })
+    connectEventStream.mockReturnValue(() => {})
+
+    const { findByRole } = render(TicketsPage)
+
+    await openColumnActionMenu(findByRole, 'Doing')
+    await fireEvent.click(await findByRole('menuitem', { name: 'Move left' }))
+
+    await waitFor(() => {
+      expect(updateStatus).toHaveBeenNthCalledWith(1, 'status-doing', { position: 3 })
+      expect(updateStatus).toHaveBeenNthCalledWith(2, 'status-review', { position: 4 })
+      expect(listColumnNames()).toEqual(['Todo', 'Triage', 'Doing', 'Review'])
+    })
+  })
 })
 
 function cloneValue<T>(value: T): T {
@@ -229,4 +531,33 @@ function ticketCardFor(container: HTMLElement, identifier: string) {
   const card = within(container).getByText(identifier).closest('button')
   if (!card) throw new Error(`ticket card not found for ${identifier}`)
   return card as HTMLButtonElement
+}
+
+async function openColumnActionMenu(
+  findByRole: (role: string, options?: Record<string, unknown>) => Promise<HTMLElement>,
+  columnName: string,
+) {
+  const ticketsList = (await findByRole('list', { name: `${columnName} tickets` })) as HTMLElement
+  const column = ticketsList.parentElement
+  if (!column) throw new Error(`column container not found for ${columnName}`)
+  await fireEvent.click(within(column).getByLabelText('Column actions'))
+}
+
+async function assertColumnMoveState(
+  findByRole: (role: string, options?: Record<string, unknown>) => Promise<HTMLElement>,
+  columnName: string,
+  expected: { leftDisabled: boolean; rightDisabled: boolean },
+) {
+  await openColumnActionMenu(findByRole, columnName)
+  const moveLeft = await findByRole('menuitem', { name: 'Move left' })
+  const moveRight = await findByRole('menuitem', { name: 'Move right' })
+  expect(moveLeft.hasAttribute('data-disabled')).toBe(expected.leftDisabled)
+  expect(moveRight.hasAttribute('data-disabled')).toBe(expected.rightDisabled)
+  await fireEvent.keyDown(document.body, { key: 'Escape' })
+}
+
+function listColumnNames() {
+  return Array.from(document.querySelectorAll('[role="list"][aria-label$=" tickets"]'))
+    .map((node) => node.getAttribute('aria-label')?.replace(/ tickets$/, ''))
+    .filter((value): value is string => !!value)
 }

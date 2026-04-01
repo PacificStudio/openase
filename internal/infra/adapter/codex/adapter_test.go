@@ -477,6 +477,21 @@ func TestAdapterSendPromptUsesTurnDefaultsAndAutoApprovesRequests(t *testing.T) 
 
 			if err := encoder.Encode(jsonRPCMessage{
 				JSONRPC: jsonRPCVersion,
+				Method:  methodAccountRateLimitsUpdated,
+				Params: mustMarshalJSON(wireAccountRateLimitsUpdatedNotification{
+					RateLimits: json.RawMessage(`{
+						"limitId":"codex",
+						"primary":{"usedPercent":15,"windowDurationMins":300,"resetsAt":1775050232},
+						"secondary":{"usedPercent":4,"windowDurationMins":10080,"resetsAt":1775637032},
+						"planType":"pro"
+					}`),
+				}),
+			}); err != nil {
+				return err
+			}
+
+			if err := encoder.Encode(jsonRPCMessage{
+				JSONRPC: jsonRPCVersion,
 				ID:      mustMarshalJSON("input-1"),
 				Method:  methodRequestUserInput,
 				Params: mustMarshalJSON(map[string]any{
@@ -573,6 +588,16 @@ func TestAdapterSendPromptUsesTurnDefaultsAndAutoApprovesRequests(t *testing.T) 
 	}
 	if tokenEvent.TokenUsage.TotalTokens != 155 || tokenEvent.TokenUsage.LastTokens != 25 {
 		t.Fatalf("unexpected token usage event: %+v", tokenEvent.TokenUsage)
+	}
+
+	rateLimitEvent := requireEvent(t, session.Events())
+	if rateLimitEvent.Type != EventTypeRateLimitUpdated || rateLimitEvent.RateLimit == nil || rateLimitEvent.RateLimit.Codex == nil {
+		t.Fatalf("expected rate limit event, got %+v", rateLimitEvent)
+	}
+	if rateLimitEvent.RateLimit.Codex.Primary == nil ||
+		rateLimitEvent.RateLimit.Codex.Primary.UsedPercent == nil ||
+		*rateLimitEvent.RateLimit.Codex.Primary.UsedPercent != 15 {
+		t.Fatalf("unexpected rate limit payload: %+v", rateLimitEvent.RateLimit.Codex)
 	}
 
 	userInputEvent := requireEvent(t, session.Events())

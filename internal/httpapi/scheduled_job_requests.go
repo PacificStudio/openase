@@ -11,7 +11,6 @@ import (
 type rawCreateScheduledJobRequest struct {
 	Name           string         `json:"name"`
 	CronExpression string         `json:"cron_expression"`
-	WorkflowID     string         `json:"workflow_id"`
 	TicketTemplate map[string]any `json:"ticket_template"`
 	IsEnabled      *bool          `json:"is_enabled"`
 }
@@ -19,7 +18,6 @@ type rawCreateScheduledJobRequest struct {
 type rawUpdateScheduledJobRequest struct {
 	Name           *string         `json:"name"`
 	CronExpression *string         `json:"cron_expression"`
-	WorkflowID     *string         `json:"workflow_id"`
 	TicketTemplate *map[string]any `json:"ticket_template"`
 	IsEnabled      *bool           `json:"is_enabled"`
 }
@@ -34,20 +32,18 @@ func parseCreateScheduledJobRequest(projectID uuid.UUID, raw rawCreateScheduledJ
 		return scheduledjobservice.CreateInput{}, fmt.Errorf("cron_expression must not be empty")
 	}
 
-	workflowID, err := parseUUIDString("workflow_id", raw.WorkflowID)
-	if err != nil {
-		return scheduledjobservice.CreateInput{}, err
-	}
 	ticketTemplate, err := scheduledjobservice.ParseRawTicketTemplate(raw.TicketTemplate)
 	if err != nil {
 		return scheduledjobservice.CreateInput{}, err
+	}
+	if strings.TrimSpace(ticketTemplate.Status) == "" {
+		return scheduledjobservice.CreateInput{}, fmt.Errorf("ticket_template.status must not be empty")
 	}
 
 	input := scheduledjobservice.CreateInput{
 		ProjectID:      projectID,
 		Name:           name,
 		CronExpression: cronExpression,
-		WorkflowID:     workflowID,
 		TicketTemplate: ticketTemplate,
 		IsEnabled:      true,
 	}
@@ -75,17 +71,13 @@ func parseUpdateScheduledJobRequest(jobID uuid.UUID, raw rawUpdateScheduledJobRe
 		}
 		input.CronExpression = scheduledjobservice.Some(cronExpression)
 	}
-	if raw.WorkflowID != nil {
-		workflowID, err := parseUUIDString("workflow_id", *raw.WorkflowID)
-		if err != nil {
-			return scheduledjobservice.UpdateInput{}, err
-		}
-		input.WorkflowID = scheduledjobservice.Some(workflowID)
-	}
 	if raw.TicketTemplate != nil {
 		ticketTemplate, err := scheduledjobservice.ParseRawTicketTemplate(*raw.TicketTemplate)
 		if err != nil {
 			return scheduledjobservice.UpdateInput{}, err
+		}
+		if strings.TrimSpace(ticketTemplate.Status) == "" {
+			return scheduledjobservice.UpdateInput{}, fmt.Errorf("ticket_template.status must not be empty")
 		}
 		input.TicketTemplate = scheduledjobservice.Some(ticketTemplate)
 	}

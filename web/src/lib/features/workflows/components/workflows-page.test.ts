@@ -155,11 +155,33 @@ describe('WorkflowsPage', () => {
     appStore.currentProject = projectFixture
 
     loadWorkflowPageData.mockResolvedValue(pageDataFixture)
+    loadWorkflowHarness.mockResolvedValue({
+      harness: {
+        frontmatter: 'type: coding',
+        body: 'You are a coding assistant.',
+        rawContent: '---\ntype: coding\nskills:\n  - lint\n---\nYou are a coding assistant.',
+      },
+      history: [
+        {
+          id: 'wf-1-v4',
+          version: 4,
+          createdBy: 'user:manual',
+          createdAt: '2026-03-29T12:00:00Z',
+        },
+      ],
+      skillStates: [
+        {
+          name: 'lint',
+          description: 'Run linters',
+          path: '.openase/skills/lint/SKILL.md',
+          bound: true,
+        },
+      ],
+    })
 
-    const updatedContent = '---\ntype: coding\nskills:\n  - lint\n---\nYou are a coding assistant.'
     bindWorkflowSkills.mockResolvedValue({
       harness: {
-        content: updatedContent,
+        content: '---\ntype: coding\nskills:\n  - lint\n---\nYou are a coding assistant.',
         path: '.openase/harnesses/coding.md',
         version: 4,
       },
@@ -172,6 +194,7 @@ describe('WorkflowsPage', () => {
 
     await waitFor(() => {
       expect(bindWorkflowSkills).toHaveBeenCalledWith('wf-1', ['lint'])
+      expect(loadWorkflowHarness).toHaveBeenCalledWith('project-1', 'wf-1')
       expect(toastStore.success).toHaveBeenCalledWith('Bound lint.')
     })
   })

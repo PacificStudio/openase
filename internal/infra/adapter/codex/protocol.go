@@ -15,31 +15,32 @@ const jsonRPCVersion = "2.0"
 var _ = logging.DeclareComponent("codex-protocol")
 
 const (
-	methodInitialize        = "initialize"
-	methodInitialized       = "initialized"
-	methodThreadStart       = "thread/start"
-	methodTurnStart         = "turn/start"
-	methodToolCall          = "item/tool/call"
-	methodCommandApproval   = "item/commandExecution/requestApproval"
-	methodExecApproval      = "execCommandApproval"
-	methodPatchApproval     = "applyPatchApproval"
-	methodFileApproval      = "item/fileChange/requestApproval"
-	methodRequestUserInput  = "item/tool/requestUserInput"
-	methodAgentMessageDelta = "item/agentMessage/delta"
-	methodItemCompleted     = "item/completed"
-	methodCommandOutput     = "item/commandExecution/outputDelta"
-	methodTurnStarted       = "turn/started"
-	methodTurnCompleted     = "turn/completed"
-	methodTurnFailed        = "turn/failed"
-	methodTurnCancelled     = "turn/cancelled"
-	methodTokenUsageUpdated = "thread/tokenUsage/updated"
-	methodTurnError         = "error"
-	jsonRPCMethodNotFound   = -32601
-	defaultClientName       = "openase"
-	defaultClientVersion    = "dev"
-	textInputType           = "text"
-	toolCallTextOutputType  = "inputText"
-	toolCallImageOutputType = "inputImage"
+	methodInitialize               = "initialize"
+	methodInitialized              = "initialized"
+	methodThreadStart              = "thread/start"
+	methodTurnStart                = "turn/start"
+	methodToolCall                 = "item/tool/call"
+	methodCommandApproval          = "item/commandExecution/requestApproval"
+	methodExecApproval             = "execCommandApproval"
+	methodPatchApproval            = "applyPatchApproval"
+	methodFileApproval             = "item/fileChange/requestApproval"
+	methodRequestUserInput         = "item/tool/requestUserInput"
+	methodAgentMessageDelta        = "item/agentMessage/delta"
+	methodItemCompleted            = "item/completed"
+	methodCommandOutput            = "item/commandExecution/outputDelta"
+	methodTurnStarted              = "turn/started"
+	methodTurnCompleted            = "turn/completed"
+	methodTurnFailed               = "turn/failed"
+	methodTurnCancelled            = "turn/cancelled"
+	methodTokenUsageUpdated        = "thread/tokenUsage/updated"
+	methodAccountRateLimitsUpdated = "account/rateLimits/updated"
+	methodTurnError                = "error"
+	jsonRPCMethodNotFound          = -32601
+	defaultClientName              = "openase"
+	defaultClientVersion           = "dev"
+	textInputType                  = "text"
+	toolCallTextOutputType         = "inputText"
+	toolCallImageOutputType        = "inputImage"
 )
 
 type RequestID struct {
@@ -243,6 +244,10 @@ type wireThreadTokenUsageUpdatedNotification struct {
 	ThreadID   string               `json:"threadId"`
 	TurnID     string               `json:"turnId"`
 	TokenUsage wireThreadTokenUsage `json:"tokenUsage"`
+}
+
+type wireAccountRateLimitsUpdatedNotification struct {
+	RateLimits json.RawMessage `json:"rateLimits"`
 }
 
 type wireAgentMessageDeltaNotification struct {

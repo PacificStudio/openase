@@ -1398,6 +1398,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/skills/{skillId}/files': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get the current published skill bundle files */
+    get: operations['getSkillFiles']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/skills/{skillId}/history': {
     parameters: {
       query?: never
@@ -5660,6 +5677,41 @@ export interface operations {
                   resets_at?: string | null
                   status?: string
                 } | null
+                codex?: {
+                  limit_id?: string
+                  limit_name?: string
+                  plan_type?: string
+                  primary?: {
+                    resets_at?: string | null
+                    /** Format: double */
+                    used_percent?: number | null
+                    /** Format: int64 */
+                    window_minutes?: number
+                  } | null
+                  secondary?: {
+                    resets_at?: string | null
+                    /** Format: double */
+                    used_percent?: number | null
+                    /** Format: int64 */
+                    window_minutes?: number
+                  } | null
+                } | null
+                gemini?: {
+                  auth_type?: string
+                  buckets?: {
+                    model_id?: string
+                    remaining_amount?: string
+                    /** Format: double */
+                    remaining_fraction?: number | null
+                    reset_time?: string | null
+                    token_type?: string
+                  }[]
+                  /** Format: int64 */
+                  limit?: number | null
+                  /** Format: int64 */
+                  remaining?: number | null
+                  reset_time?: string | null
+                } | null
                 provider?: string
                 raw?: {
                   [key: string]: unknown
@@ -5814,6 +5866,41 @@ export interface operations {
                   rate_limit_type?: string
                   resets_at?: string | null
                   status?: string
+                } | null
+                codex?: {
+                  limit_id?: string
+                  limit_name?: string
+                  plan_type?: string
+                  primary?: {
+                    resets_at?: string | null
+                    /** Format: double */
+                    used_percent?: number | null
+                    /** Format: int64 */
+                    window_minutes?: number
+                  } | null
+                  secondary?: {
+                    resets_at?: string | null
+                    /** Format: double */
+                    used_percent?: number | null
+                    /** Format: int64 */
+                    window_minutes?: number
+                  } | null
+                } | null
+                gemini?: {
+                  auth_type?: string
+                  buckets?: {
+                    model_id?: string
+                    remaining_amount?: string
+                    /** Format: double */
+                    remaining_fraction?: number | null
+                    reset_time?: string | null
+                    token_type?: string
+                  }[]
+                  /** Format: int64 */
+                  limit?: number | null
+                  /** Format: int64 */
+                  remaining?: number | null
+                  reset_time?: string | null
                 } | null
                 provider?: string
                 raw?: {
@@ -9553,6 +9640,18 @@ export interface operations {
         content: {
           'application/json': {
             content?: string
+            files?: {
+              content?: string
+              content_base64?: string
+              encoding?: string
+              file_kind?: string
+              is_executable?: boolean
+              media_type?: string
+              path?: string
+              sha256?: string
+              /** Format: int64 */
+              size_bytes?: number
+            }[]
             history?: {
               created_at?: string
               created_by?: string
@@ -11156,6 +11255,41 @@ export interface operations {
                   resets_at?: string | null
                   status?: string
                 } | null
+                codex?: {
+                  limit_id?: string
+                  limit_name?: string
+                  plan_type?: string
+                  primary?: {
+                    resets_at?: string | null
+                    /** Format: double */
+                    used_percent?: number | null
+                    /** Format: int64 */
+                    window_minutes?: number
+                  } | null
+                  secondary?: {
+                    resets_at?: string | null
+                    /** Format: double */
+                    used_percent?: number | null
+                    /** Format: int64 */
+                    window_minutes?: number
+                  } | null
+                } | null
+                gemini?: {
+                  auth_type?: string
+                  buckets?: {
+                    model_id?: string
+                    remaining_amount?: string
+                    /** Format: double */
+                    remaining_fraction?: number | null
+                    reset_time?: string | null
+                    token_type?: string
+                  }[]
+                  /** Format: int64 */
+                  limit?: number | null
+                  /** Format: int64 */
+                  remaining?: number | null
+                  reset_time?: string | null
+                } | null
                 provider?: string
                 raw?: {
                   [key: string]: unknown
@@ -11310,6 +11444,41 @@ export interface operations {
                   rate_limit_type?: string
                   resets_at?: string | null
                   status?: string
+                } | null
+                codex?: {
+                  limit_id?: string
+                  limit_name?: string
+                  plan_type?: string
+                  primary?: {
+                    resets_at?: string | null
+                    /** Format: double */
+                    used_percent?: number | null
+                    /** Format: int64 */
+                    window_minutes?: number
+                  } | null
+                  secondary?: {
+                    resets_at?: string | null
+                    /** Format: double */
+                    used_percent?: number | null
+                    /** Format: int64 */
+                    window_minutes?: number
+                  } | null
+                } | null
+                gemini?: {
+                  auth_type?: string
+                  buckets?: {
+                    model_id?: string
+                    remaining_amount?: string
+                    /** Format: double */
+                    remaining_fraction?: number | null
+                    reset_time?: string | null
+                    token_type?: string
+                  }[]
+                  /** Format: int64 */
+                  limit?: number | null
+                  /** Format: int64 */
+                  remaining?: number | null
+                  reset_time?: string | null
                 } | null
                 provider?: string
                 raw?: {
@@ -11769,6 +11938,18 @@ export interface operations {
         content: {
           'application/json': {
             content?: string
+            files?: {
+              content?: string
+              content_base64?: string
+              encoding?: string
+              file_kind?: string
+              is_executable?: boolean
+              media_type?: string
+              path?: string
+              sha256?: string
+              /** Format: int64 */
+              size_bytes?: number
+            }[]
             history?: {
               created_at?: string
               created_by?: string
@@ -11847,9 +12028,20 @@ export interface operations {
       content: {
         'application/json': {
           /** @description Replacement skill markdown content. Frontmatter is optional on input and will be normalized on write. */
-          content?: string
+          content?: string | null
           /** @description Optional description override used when the input content does not declare one. */
           description?: string
+          /** @description Optional replacement skill bundle files. When present, the request publishes a new bundle version from the supplied file list. */
+          files?: {
+            /** @description Base64-encoded file bytes for this bundle entry. */
+            content_base64?: string
+            /** @description Whether the projected file should be marked executable at runtime. */
+            is_executable?: boolean
+            /** @description Optional media type persisted with the file entry. */
+            media_type?: string
+            /** @description Bundle-relative file path using forward slashes. */
+            path?: string
+          }[]
         }
       }
     }
@@ -11862,6 +12054,18 @@ export interface operations {
         content: {
           'application/json': {
             content?: string
+            files?: {
+              content?: string
+              content_base64?: string
+              encoding?: string
+              file_kind?: string
+              is_executable?: boolean
+              media_type?: string
+              path?: string
+              sha256?: string
+              /** Format: int64 */
+              size_bytes?: number
+            }[]
             history?: {
               created_at?: string
               created_by?: string
@@ -12014,6 +12218,18 @@ export interface operations {
         content: {
           'application/json': {
             content?: string
+            files?: {
+              content?: string
+              content_base64?: string
+              encoding?: string
+              file_kind?: string
+              is_executable?: boolean
+              media_type?: string
+              path?: string
+              sha256?: string
+              /** Format: int64 */
+              size_bytes?: number
+            }[]
             history?: {
               created_at?: string
               created_by?: string
@@ -12097,6 +12313,18 @@ export interface operations {
         content: {
           'application/json': {
             content?: string
+            files?: {
+              content?: string
+              content_base64?: string
+              encoding?: string
+              file_kind?: string
+              is_executable?: boolean
+              media_type?: string
+              path?: string
+              sha256?: string
+              /** Format: int64 */
+              size_bytes?: number
+            }[]
             history?: {
               created_at?: string
               created_by?: string
@@ -12180,6 +12408,18 @@ export interface operations {
         content: {
           'application/json': {
             content?: string
+            files?: {
+              content?: string
+              content_base64?: string
+              encoding?: string
+              file_kind?: string
+              is_executable?: boolean
+              media_type?: string
+              path?: string
+              sha256?: string
+              /** Format: int64 */
+              size_bytes?: number
+            }[]
             history?: {
               created_at?: string
               created_by?: string
@@ -12202,6 +12442,78 @@ export interface operations {
               name?: string
               path?: string
             }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getSkillFiles: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Skill ID. */
+        skillId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get the current published skill bundle files response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            files?: {
+              content?: string
+              content_base64?: string
+              encoding?: string
+              file_kind?: string
+              is_executable?: boolean
+              media_type?: string
+              path?: string
+              sha256?: string
+              /** Format: int64 */
+              size_bytes?: number
+            }[]
           }
         }
       }
@@ -12337,6 +12649,18 @@ export interface operations {
         content: {
           'application/json': {
             content?: string
+            files?: {
+              content?: string
+              content_base64?: string
+              encoding?: string
+              file_kind?: string
+              is_executable?: boolean
+              media_type?: string
+              path?: string
+              sha256?: string
+              /** Format: int64 */
+              size_bytes?: number
+            }[]
             history?: {
               created_at?: string
               created_by?: string

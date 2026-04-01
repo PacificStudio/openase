@@ -20,7 +20,9 @@ func (ScheduledJob) Fields() []ent.Field {
 		field.UUID("project_id", uuidZero()),
 		field.String("name").NotEmpty(),
 		field.String("cron_expression").NotEmpty(),
-		field.UUID("workflow_id", uuidZero()),
+		field.UUID("workflow_id", uuidZero()).
+			Optional().
+			Nillable(),
 		field.JSON("ticket_template", map[string]any{}).Default(emptyMap),
 		field.Bool("is_enabled").Default(true),
 		field.Time("last_run_at").Optional().Nillable(),
@@ -39,8 +41,7 @@ func (ScheduledJob) Edges() []ent.Edge {
 		edge.From("workflow", Workflow.Type).
 			Ref("scheduled_jobs").
 			Field("workflow_id").
-			Unique().
-			Required(),
+			Unique(),
 	}
 }
 

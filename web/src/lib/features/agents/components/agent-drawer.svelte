@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { adapterIconPath } from '$lib/features/providers'
   import { cn } from '$lib/utils'
   import { ApiError } from '$lib/api/client'
   import { deleteAgent, pauseAgent, resumeAgent, updateAgent } from '$lib/api/openase'
@@ -8,7 +9,7 @@
   import { Input } from '$ui/input'
   import * as Select from '$ui/select'
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
-  import { Check, Pencil, X } from '@lucide/svelte'
+  import { Check, Pencil, Wrench, X } from '@lucide/svelte'
   import AgentDrawerContent from './agent-drawer-content.svelte'
   import type { AgentInstance } from '../types'
 
@@ -72,6 +73,10 @@
   function canResume(a: AgentInstance) {
     return a.runtimeControlState === 'paused'
   }
+
+  const selectedProvider = $derived(
+    agent ? (providers.find((provider) => provider.id === agent.providerId) ?? null) : null,
+  )
 
   function startEditingName() {
     if (!agent) return
@@ -248,17 +253,39 @@
               >
                 <Select.Trigger
                   aria-label="Agent provider"
-                  class="text-muted-foreground hover:text-foreground h-auto w-auto gap-1 border-none bg-transparent p-0 text-[13px] shadow-none"
+                  class="text-muted-foreground hover:text-foreground h-auto w-auto gap-2 border-none bg-transparent p-0 text-[13px] shadow-none"
                 >
-                  {agent.providerName} · {agent.modelName}
+                  {#if selectedProvider}
+                    {@const iconPath = adapterIconPath(selectedProvider.adapter_type)}
+                    <div class="flex min-w-0 items-center gap-2">
+                      {#if iconPath}
+                        <img src={iconPath} alt="" class="size-4 shrink-0" />
+                      {:else}
+                        <Wrench class="text-muted-foreground size-4 shrink-0" />
+                      {/if}
+                      <span class="truncate"
+                        >{selectedProvider.name} · {selectedProvider.model_name}</span
+                      >
+                    </div>
+                  {:else}
+                    {agent.providerName} · {agent.modelName}
+                  {/if}
                 </Select.Trigger>
                 <Select.Content align="start" class="min-w-56">
                   {#each providers as provider (provider.id)}
                     <Select.Item value={provider.id} label={provider.name}>
-                      <div class="min-w-0">
-                        <div class="truncate text-sm">{provider.name}</div>
-                        <div class="text-muted-foreground text-[11px]">
-                          {provider.model_name} · {provider.adapter_type}
+                      {@const iconPath = adapterIconPath(provider.adapter_type)}
+                      <div class="flex min-w-0 items-center gap-2.5 py-0.5">
+                        {#if iconPath}
+                          <img src={iconPath} alt="" class="size-4 shrink-0" />
+                        {:else}
+                          <Wrench class="text-muted-foreground size-4 shrink-0" />
+                        {/if}
+                        <div class="min-w-0">
+                          <div class="truncate text-sm">{provider.name}</div>
+                          <div class="text-muted-foreground text-[11px]">
+                            {provider.model_name} · {provider.adapter_type}
+                          </div>
                         </div>
                       </div>
                     </Select.Item>

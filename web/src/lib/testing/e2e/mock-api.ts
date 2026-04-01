@@ -26,6 +26,7 @@ type MockState = {
   providers: Record<string, unknown>[]
   agents: Record<string, unknown>[]
   agentRuns: Record<string, unknown>[]
+  activityEvents: Record<string, unknown>[]
   tickets: Record<string, unknown>[]
   statuses: Record<string, unknown>[]
   repos: Record<string, unknown>[]
@@ -69,6 +70,14 @@ export async function handleMockApi(request: Request, url: URL): Promise<Respons
 
   if (url.pathname === '/api/v1/__e2e__/reset' && request.method === 'POST') {
     resetMockState()
+    return jsonResponse({ ok: true })
+  }
+
+  if (url.pathname === '/api/v1/__e2e__/seed-board' && request.method === 'POST') {
+    const body = await readBody<{
+      counts_by_status_id?: Record<string, number>
+    }>(request)
+    seedBoardState(body.counts_by_status_id ?? {})
     return jsonResponse({ ok: true })
   }
 
@@ -208,6 +217,12 @@ async function handleProjectRoutes(request: Request, segments: string[], _url: U
   if (segments[2] === 'agent-runs' && request.method === 'GET') {
     return jsonResponse({
       agent_runs: clone(mockState.agentRuns.filter((run) => run.project_id === projectId)),
+    })
+  }
+
+  if (segments[2] === 'activity' && request.method === 'GET') {
+    return jsonResponse({
+      events: clone(mockState.activityEvents.filter((event) => event.project_id === projectId)),
     })
   }
 
@@ -906,20 +921,66 @@ function createInitialState(): MockState {
     },
   ]
 
-  const tickets = [
+  const activityEvents = [
     {
-      id: DEFAULT_TICKET_ID,
+      id: 'activity-1',
       project_id: PROJECT_ID,
-      identifier: 'ASE-101',
-      title: 'Improve machine management UX',
-      status: 'todo',
+      ticket_id: DEFAULT_TICKET_ID,
+      agent_id: DEFAULT_AGENT_ID,
+      event_type: 'agent_started',
+      message: 'coding-main started work.',
+      metadata: {
+        agent_name: 'coding-main',
+      },
+      created_at: nowIso,
     },
   ]
 
+  const tickets = [
+    createMockTicketRecord({
+      id: DEFAULT_TICKET_ID,
+      identifier: 'ASE-101',
+      title: 'Improve machine management UX',
+      statusId: DEFAULT_STATUS_IDS.todo,
+      statusName: 'Todo',
+      workflowId: DEFAULT_WORKFLOW_ID,
+    }),
+  ]
+
   const statuses = [
-    { id: DEFAULT_STATUS_IDS.todo, project_id: PROJECT_ID, name: 'Todo', position: 1 },
-    { id: DEFAULT_STATUS_IDS.review, project_id: PROJECT_ID, name: 'In Review', position: 2 },
-    { id: DEFAULT_STATUS_IDS.done, project_id: PROJECT_ID, name: 'Done', position: 3 },
+    {
+      id: DEFAULT_STATUS_IDS.todo,
+      project_id: PROJECT_ID,
+      name: 'Todo',
+      stage: 'unstarted',
+      color: '#2563eb',
+      icon: '',
+      position: 1,
+      active_runs: 1,
+      max_active_runs: null,
+    },
+    {
+      id: DEFAULT_STATUS_IDS.review,
+      project_id: PROJECT_ID,
+      name: 'In Review',
+      stage: 'started',
+      color: '#f59e0b',
+      icon: '',
+      position: 2,
+      active_runs: 0,
+      max_active_runs: null,
+    },
+    {
+      id: DEFAULT_STATUS_IDS.done,
+      project_id: PROJECT_ID,
+      name: 'Done',
+      stage: 'completed',
+      color: '#16a34a',
+      icon: '',
+      position: 3,
+      active_runs: 0,
+      max_active_runs: null,
+    },
   ]
 
   const repos = [
@@ -1076,6 +1137,7 @@ function createInitialState(): MockState {
     providers,
     agents,
     agentRuns,
+    activityEvents,
     tickets,
     statuses,
     repos,
@@ -1092,6 +1154,85 @@ function createInitialState(): MockState {
       agent: 1,
       scheduledJob: 1,
     },
+  }
+}
+
+function seedBoardState(countsByStatusID: Record<string, number>) {
+  const statusNameByID = new Map(
+    mockState.statuses.map((status) => [
+      asString(status.id) ?? '',
+      asString(status.name) ?? 'Todo',
+    ]),
+  )
+  const seededTickets: Record<string, unknown>[] = []
+  let sequence = 0
+
+  for (const status of mockState.statuses) {
+    const statusId = asString(status.id)
+    if (!statusId) {
+      continue
+    }
+    const count = Math.max(0, asNumber(countsByStatusID[statusId]) ?? 0)
+    for (let index = 0; index < count; index += 1) {
+      sequence += 1
+      seededTickets.push(
+        createMockTicketRecord({
+          id: `ticket-seeded-${sequence}`,
+          identifier: `ASE-${100 + sequence}`,
+          title: `Seeded ticket ${sequence}`,
+          statusId,
+          statusName: statusNameByID.get(statusId) ?? 'Todo',
+          workflowId: DEFAULT_WORKFLOW_ID,
+          createdAt: new Date(Date.parse(nowIso) + sequence * 60_000).toISOString(),
+        }),
+      )
+    }
+  }
+
+  mockState.tickets = seededTickets
+  mockState.activityEvents = []
+}
+
+function createMockTicketRecord(input: {
+  id: string
+  identifier: string
+  title: string
+  statusId: string
+  statusName: string
+  workflowId: string
+  createdAt?: string
+}) {
+  return {
+    id: input.id,
+    project_id: PROJECT_ID,
+    identifier: input.identifier,
+    title: input.title,
+    description: '',
+    status_id: input.statusId,
+    status_name: input.statusName,
+    priority: 'medium',
+    type: 'feature',
+    workflow_id: input.workflowId,
+    current_run_id: null,
+    target_machine_id: null,
+    created_by: 'playwright',
+    parent: null,
+    children: [],
+    dependencies: [],
+    external_links: [],
+    external_ref: '',
+    budget_usd: 0,
+    cost_tokens_input: 0,
+    cost_tokens_output: 0,
+    cost_amount: 0,
+    attempt_count: 0,
+    consecutive_errors: 0,
+    started_at: null,
+    completed_at: null,
+    next_retry_at: null,
+    retry_paused: false,
+    pause_reason: '',
+    created_at: input.createdAt ?? nowIso,
   }
 }
 

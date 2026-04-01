@@ -175,7 +175,6 @@ func TestScheduledJobCronAndTemplateHelpers(t *testing.T) {
 		ProjectID:      projectID,
 		Name:           "Daily",
 		CronExpression: "0 * * * *",
-		WorkflowID:     workflowID,
 		TicketTemplate: map[string]any{"title": "Task"},
 		IsEnabled:      true,
 		LastRunAt:      &lastRunAt,

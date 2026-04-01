@@ -872,7 +872,7 @@ var (
 		{Name: "last_run_at", Type: field.TypeTime, Nullable: true},
 		{Name: "next_run_at", Type: field.TypeTime, Nullable: true},
 		{Name: "project_id", Type: field.TypeUUID},
-		{Name: "workflow_id", Type: field.TypeUUID},
+		{Name: "workflow_id", Type: field.TypeUUID, Nullable: true},
 	}
 	// ScheduledJobsTable holds the schema information for the "scheduled_jobs" table.
 	ScheduledJobsTable = &schema.Table{
@@ -890,7 +890,7 @@ var (
 				Symbol:     "scheduled_jobs_workflows_scheduled_jobs",
 				Columns:    []*schema.Column{ScheduledJobsColumns[8]},
 				RefColumns: []*schema.Column{WorkflowsColumns[0]},
-				OnDelete:   schema.NoAction,
+				OnDelete:   schema.SetNull,
 			},
 		},
 		Indexes: []*schema.Index{

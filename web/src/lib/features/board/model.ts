@@ -7,7 +7,7 @@ import {
   normalizeRuntimePhase,
   type AgentRuntimeInfo,
 } from './model-helpers'
-import { buildBoardGroups } from './grouping'
+import { buildBoardGroups, compareTicketStatuses } from './grouping'
 import type { BoardColumn, BoardFilter, BoardGroup, BoardStatusOption, BoardTicket } from './types'
 
 export { projectBoardGroups } from './grouping'
@@ -93,12 +93,13 @@ export function buildBoardData(
 
   const statusOptions: BoardStatusOption[] = statusPayload.statuses
     .slice()
-    .sort((a, b) => a.position - b.position)
+    .sort(compareTicketStatuses)
     .map((s) => ({
       id: s.id,
       name: s.name,
       color: s.color || '#94a3b8',
       stage: (s.stage || 'unstarted') as BoardStatusOption['stage'],
+      position: s.position,
     }))
 
   return {

@@ -315,15 +315,14 @@ func TestScheduledJobRequestParsersAndTicketEventCoverage(t *testing.T) {
 	t.Run("scheduled job request parsers", func(t *testing.T) {
 		projectID := uuid.New()
 		jobID := uuid.New()
-		workflowID := uuid.New()
 		disabled := false
 		enabled := true
 		name := "  nightly scan  "
 		cronExpression := " 0 1 * * * "
-		workflowIDString := " " + workflowID.String() + " "
 		template := map[string]any{
 			"title":       "Nightly",
 			"description": "Run checks",
+			"status":      "Todo",
 			"priority":    "high",
 			"type":        "feature",
 		}
@@ -331,14 +330,13 @@ func TestScheduledJobRequestParsersAndTicketEventCoverage(t *testing.T) {
 		createInput, err := parseCreateScheduledJobRequest(projectID, rawCreateScheduledJobRequest{
 			Name:           name,
 			CronExpression: cronExpression,
-			WorkflowID:     workflowIDString,
 			TicketTemplate: template,
 			IsEnabled:      &disabled,
 		})
 		if err != nil {
 			t.Fatalf("parseCreateScheduledJobRequest() error = %v", err)
 		}
-		if createInput.ProjectID != projectID || createInput.Name != "nightly scan" || createInput.CronExpression != "0 1 * * *" || createInput.WorkflowID != workflowID || createInput.IsEnabled {
+		if createInput.ProjectID != projectID || createInput.Name != "nightly scan" || createInput.CronExpression != "0 1 * * *" || createInput.IsEnabled {
 			t.Fatalf("parseCreateScheduledJobRequest() = %+v", createInput)
 		}
 		if createInput.TicketTemplate.Title != "Nightly" || createInput.TicketTemplate.Priority != "high" {
@@ -348,7 +346,6 @@ func TestScheduledJobRequestParsersAndTicketEventCoverage(t *testing.T) {
 		updateInput, err := parseUpdateScheduledJobRequest(jobID, rawUpdateScheduledJobRequest{
 			Name:           &name,
 			CronExpression: &cronExpression,
-			WorkflowID:     &workflowIDString,
 			TicketTemplate: &template,
 			IsEnabled:      &enabled,
 		})
@@ -357,9 +354,6 @@ func TestScheduledJobRequestParsersAndTicketEventCoverage(t *testing.T) {
 		}
 		if updateInput.JobID != jobID || !updateInput.Name.Set || updateInput.Name.Value != "nightly scan" || !updateInput.CronExpression.Set || updateInput.CronExpression.Value != "0 1 * * *" {
 			t.Fatalf("parseUpdateScheduledJobRequest() = %+v", updateInput)
-		}
-		if !updateInput.WorkflowID.Set || updateInput.WorkflowID.Value != workflowID {
-			t.Fatalf("parseUpdateScheduledJobRequest().WorkflowID = %+v", updateInput.WorkflowID)
 		}
 		if !updateInput.TicketTemplate.Set || updateInput.TicketTemplate.Value.Title != "Nightly" || !updateInput.IsEnabled.Set || !updateInput.IsEnabled.Value {
 			t.Fatalf("parseUpdateScheduledJobRequest().TicketTemplate/IsEnabled = %+v %+v", updateInput.TicketTemplate, updateInput.IsEnabled)
@@ -376,8 +370,7 @@ func TestScheduledJobRequestParsersAndTicketEventCoverage(t *testing.T) {
 					_, err := parseCreateScheduledJobRequest(projectID, rawCreateScheduledJobRequest{
 						Name:           " ",
 						CronExpression: "0 1 * * *",
-						WorkflowID:     workflowID.String(),
-						TicketTemplate: map[string]any{"title": "Nightly"},
+						TicketTemplate: map[string]any{"title": "Nightly", "status": "Todo"},
 					})
 					return err
 				},
@@ -389,21 +382,23 @@ func TestScheduledJobRequestParsersAndTicketEventCoverage(t *testing.T) {
 					_, err := parseCreateScheduledJobRequest(projectID, rawCreateScheduledJobRequest{
 						Name:           "nightly",
 						CronExpression: " ",
-						WorkflowID:     workflowID.String(),
-						TicketTemplate: map[string]any{"title": "Nightly"},
+						TicketTemplate: map[string]any{"title": "Nightly", "status": "Todo"},
 					})
 					return err
 				},
 				want: "cron_expression must not be empty",
 			},
 			{
-				name: "update bad workflow id",
+				name: "create missing status",
 				fn: func() error {
-					bad := "bad"
-					_, err := parseUpdateScheduledJobRequest(jobID, rawUpdateScheduledJobRequest{WorkflowID: &bad})
+					_, err := parseCreateScheduledJobRequest(projectID, rawCreateScheduledJobRequest{
+						Name:           "nightly",
+						CronExpression: "0 1 * * *",
+						TicketTemplate: map[string]any{"title": "Nightly"},
+					})
 					return err
 				},
-				want: "workflow_id must be a valid UUID",
+				want: "ticket_template.status must not be empty",
 			},
 			{
 				name: "update invalid template",
@@ -413,6 +408,15 @@ func TestScheduledJobRequestParsersAndTicketEventCoverage(t *testing.T) {
 					return err
 				},
 				want: "ticket template is invalid",
+			},
+			{
+				name: "update missing status",
+				fn: func() error {
+					templateWithoutStatus := map[string]any{"title": "Nightly"}
+					_, err := parseUpdateScheduledJobRequest(jobID, rawUpdateScheduledJobRequest{TicketTemplate: &templateWithoutStatus})
+					return err
+				},
+				want: "ticket_template.status must not be empty",
 			},
 		} {
 			t.Run(testCase.name, func(t *testing.T) {

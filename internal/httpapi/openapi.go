@@ -163,6 +163,8 @@ type OpenAPIAgentProviderCapability struct {
 type OpenAPIAgentProviderCLIRateLimit struct {
 	Provider   string                                   `json:"provider"`
 	ClaudeCode *OpenAPIAgentProviderClaudeCodeRateLimit `json:"claude_code,omitempty"`
+	Codex      *OpenAPIAgentProviderCodexRateLimit      `json:"codex,omitempty"`
+	Gemini     *OpenAPIAgentProviderGeminiRateLimit     `json:"gemini,omitempty"`
 	Raw        map[string]any                           `json:"raw,omitempty"`
 }
 
@@ -173,6 +175,36 @@ type OpenAPIAgentProviderClaudeCodeRateLimit struct {
 	OverageStatus         string  `json:"overage_status,omitempty"`
 	OverageDisabledReason string  `json:"overage_disabled_reason,omitempty"`
 	IsUsingOverage        *bool   `json:"is_using_overage,omitempty"`
+}
+
+type OpenAPIAgentProviderCodexRateLimit struct {
+	LimitID   string                                    `json:"limit_id,omitempty"`
+	LimitName string                                    `json:"limit_name,omitempty"`
+	Primary   *OpenAPIAgentProviderCodexRateLimitWindow `json:"primary,omitempty"`
+	Secondary *OpenAPIAgentProviderCodexRateLimitWindow `json:"secondary,omitempty"`
+	PlanType  string                                    `json:"plan_type,omitempty"`
+}
+
+type OpenAPIAgentProviderCodexRateLimitWindow struct {
+	UsedPercent   *float64 `json:"used_percent,omitempty"`
+	WindowMinutes int64    `json:"window_minutes,omitempty"`
+	ResetsAt      *string  `json:"resets_at,omitempty"`
+}
+
+type OpenAPIAgentProviderGeminiRateLimit struct {
+	AuthType  string                                      `json:"auth_type,omitempty"`
+	Remaining *int64                                      `json:"remaining,omitempty"`
+	Limit     *int64                                      `json:"limit,omitempty"`
+	ResetTime *string                                     `json:"reset_time,omitempty"`
+	Buckets   []OpenAPIAgentProviderGeminiRateLimitBucket `json:"buckets,omitempty"`
+}
+
+type OpenAPIAgentProviderGeminiRateLimitBucket struct {
+	ModelID           string   `json:"model_id,omitempty"`
+	TokenType         string   `json:"token_type,omitempty"`
+	RemainingAmount   string   `json:"remaining_amount,omitempty"`
+	RemainingFraction *float64 `json:"remaining_fraction,omitempty"`
+	ResetTime         *string  `json:"reset_time,omitempty"`
 }
 
 type OpenAPIAgentProviderModelOption struct {
@@ -561,7 +593,6 @@ type OpenAPIScheduledJob struct {
 	ProjectID      string                            `json:"project_id"`
 	Name           string                            `json:"name"`
 	CronExpression string                            `json:"cron_expression"`
-	WorkflowID     string                            `json:"workflow_id"`
 	TicketTemplate OpenAPIScheduledJobTicketTemplate `json:"ticket_template"`
 	IsEnabled      bool                              `json:"is_enabled"`
 	LastRunAt      *string                           `json:"last_run_at,omitempty"`
@@ -1016,11 +1047,28 @@ type OpenAPISkillsResponse struct {
 type OpenAPISkillDetailResponse struct {
 	Skill   OpenAPISkill            `json:"skill"`
 	Content string                  `json:"content"`
+	Files   []OpenAPISkillFile      `json:"files,omitempty"`
 	History []OpenAPIVersionSummary `json:"history"`
+}
+
+type OpenAPISkillFile struct {
+	Path          string `json:"path"`
+	FileKind      string `json:"file_kind"`
+	MediaType     string `json:"media_type"`
+	Encoding      string `json:"encoding"`
+	IsExecutable  bool   `json:"is_executable"`
+	SizeBytes     int64  `json:"size_bytes"`
+	SHA256        string `json:"sha256"`
+	Content       string `json:"content,omitempty"`
+	ContentBase64 string `json:"content_base64,omitempty"`
 }
 
 type OpenAPISkillHistoryResponse struct {
 	History []OpenAPIVersionSummary `json:"history"`
+}
+
+type OpenAPISkillFilesResponse struct {
+	Files []OpenAPISkillFile `json:"files"`
 }
 
 type OpenAPIDeleteSkillResponse struct {
@@ -1229,6 +1277,7 @@ type OpenAPIUpdateIssueConnectorRequest struct {
 type OpenAPIUpdateWorkflowSkillsRequest rawUpdateWorkflowSkillsRequest
 type OpenAPISkillSyncRequest rawSkillSyncRequest
 type OpenAPICreateSkillRequest rawCreateSkillRequest
+type OpenAPISkillBundleFileRequest rawSkillBundleFileRequest
 type OpenAPIUpdateSkillRequest rawUpdateSkillRequest
 type OpenAPIUpdateSkillBindingsRequest rawUpdateSkillBindingsRequest
 type OpenAPICreateTicketRequest rawCreateTicketRequest
@@ -1356,7 +1405,6 @@ var (
 	openAPIScheduledJobDescriptions = map[string]string{
 		"name":            "Human-readable scheduled job name.",
 		"cron_expression": "Cron expression that controls when the job triggers.",
-		"workflow_id":     "Workflow ID executed when the scheduled job triggers.",
 		"ticket_template": "Ticket template used to create a ticket for each scheduled run.",
 		"is_enabled":      "Whether the scheduled job is enabled.",
 	}
@@ -1485,8 +1533,13 @@ var (
 		"is_enabled":  "Whether the new skill should be enabled for runtime injection immediately.",
 	}
 	openAPISkillUpdateDescriptions = map[string]string{
-		"content":     "Replacement skill markdown content. Frontmatter is optional on input and will be normalized on write.",
-		"description": "Optional description override used when the input content does not declare one.",
+		"content":                "Replacement skill markdown content. Frontmatter is optional on input and will be normalized on write.",
+		"description":            "Optional description override used when the input content does not declare one.",
+		"files":                  "Optional replacement skill bundle files. When present, the request publishes a new bundle version from the supplied file list.",
+		"files[].path":           "Bundle-relative file path using forward slashes.",
+		"files[].content_base64": "Base64-encoded file bytes for this bundle entry.",
+		"files[].media_type":     "Optional media type persisted with the file entry.",
+		"files[].is_executable":  "Whether the projected file should be marked executable at runtime.",
 	}
 	openAPISkillSyncDescriptions = map[string]string{
 		"workspace_root": "Workspace repository root that owns the agent skill directory.",
@@ -2888,6 +2941,23 @@ func (b openAPISpecBuilder) addWorkflowOperations() error {
 	}
 	skillGet.AddParameter(uuidPathParameter("skillId", "Skill ID."))
 	b.doc.AddOperation("/api/v1/skills/{skillId}", http.MethodGet, skillGet)
+
+	skillFilesGet, err := b.jsonOperation(
+		"getSkillFiles",
+		"Get the current published skill bundle files",
+		[]string{"skills"},
+		http.StatusOK,
+		OpenAPISkillFilesResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	skillFilesGet.AddParameter(uuidPathParameter("skillId", "Skill ID."))
+	b.doc.AddOperation("/api/v1/skills/{skillId}/files", http.MethodGet, skillFilesGet)
 
 	skillHistoryGet, err := b.jsonOperation(
 		"getSkillHistory",

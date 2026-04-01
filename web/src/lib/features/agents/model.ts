@@ -237,5 +237,41 @@ function normalizeProviderCLIRateLimit(
           isUsingOverage: value.claude_code.is_using_overage ?? null,
         }
       : null,
+    codex: value.codex
+      ? {
+          limitId: value.codex.limit_id ?? null,
+          limitName: value.codex.limit_name ?? null,
+          planType: value.codex.plan_type ?? null,
+          primary: value.codex.primary
+            ? {
+                usedPercent: value.codex.primary.used_percent ?? null,
+                windowMinutes: value.codex.primary.window_minutes ?? null,
+                resetsAt: value.codex.primary.resets_at ?? null,
+              }
+            : null,
+          secondary: value.codex.secondary
+            ? {
+                usedPercent: value.codex.secondary.used_percent ?? null,
+                windowMinutes: value.codex.secondary.window_minutes ?? null,
+                resetsAt: value.codex.secondary.resets_at ?? null,
+              }
+            : null,
+        }
+      : null,
+    gemini: value.gemini
+      ? {
+          authType: value.gemini.auth_type ?? null,
+          remaining: value.gemini.remaining ?? null,
+          limit: value.gemini.limit ?? null,
+          resetTime: value.gemini.reset_time ?? null,
+          buckets: (value.gemini.buckets ?? []).map((bucket) => ({
+            modelId: bucket.model_id ?? null,
+            tokenType: bucket.token_type ?? null,
+            remainingAmount: bucket.remaining_amount ?? null,
+            remainingFraction: bucket.remaining_fraction ?? null,
+            resetTime: bucket.reset_time ?? null,
+          })),
+        }
+      : null,
   }
 }

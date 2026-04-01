@@ -1,30 +1,18 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
   import { ApiError } from '$lib/api/client'
-  import { listStatuses, listWorkflows } from '$lib/api/openase'
+  import { listStatuses } from '$lib/api/openase'
   import { WorkflowScheduledJobsPanel } from '$lib/features/settings'
-  import {
-    mapStatusOptions,
-    mapWorkflowSummary,
-    type WorkflowSummary,
-  } from '$lib/features/workflows'
-  import { projectPath } from '$lib/stores/app-context'
-  import { Button } from '$ui/button'
+  import { mapStatusOptions, type WorkflowStatusOption } from '$lib/features/workflows'
 
   let loading = $state(false)
   let error = $state('')
-  let workflows = $state<WorkflowSummary[]>([])
-
-  const workflowsHref = $derived(
-    appStore.currentOrg?.id && appStore.currentProject?.id
-      ? projectPath(appStore.currentOrg.id, appStore.currentProject.id, 'workflows')
-      : null,
-  )
+  let statuses = $state<WorkflowStatusOption[]>([])
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
-    if (!projectId || !appStore.currentOrg?.id) {
-      workflows = []
+    if (!projectId) {
+      statuses = []
       error = ''
       loading = false
       return
@@ -37,17 +25,10 @@
       error = ''
 
       try {
-        const [workflowPayload, statusPayload] = await Promise.all([
-          listWorkflows(projectId),
-          listStatuses(projectId),
-        ])
+        const statusPayload = await listStatuses(projectId)
         if (cancelled) return
 
-        const statuses = mapStatusOptions(statusPayload.statuses)
-        const statusNamesById = new Map(statuses.map((status) => [status.id, status.name]))
-        workflows = workflowPayload.workflows.map((workflow) =>
-          mapWorkflowSummary(workflow, statusNamesById),
-        )
+        statuses = mapStatusOptions(statusPayload.statuses)
       } catch (caughtError) {
         if (cancelled) return
         error =
@@ -74,26 +55,14 @@
     <div class="text-destructive p-6 text-sm">{error}</div>
   {:else if !appStore.currentProject?.id}
     <div class="text-muted-foreground p-6 text-sm">Project context is unavailable.</div>
-  {:else if workflows.length === 0}
-    <div class="p-6">
-      <div class="border-border bg-muted/20 space-y-3 rounded-lg border p-4">
-        <div class="space-y-1">
-          <h2 class="text-foreground text-base font-semibold">No workflows available</h2>
-          <p class="text-muted-foreground text-sm">
-            Create a workflow before scheduling recurring ticket creation.
-          </p>
-        </div>
-        <Button variant="outline" href={workflowsHref ?? undefined} disabled={!workflowsHref}>
-          Open Workflows
-        </Button>
-      </div>
-    </div>
+  {:else if statuses.length === 0}
+    <div class="text-muted-foreground p-6 text-sm">No ticket statuses available.</div>
   {:else}
     <WorkflowScheduledJobsPanel
       projectId={appStore.currentProject.id}
-      {workflows}
+      {statuses}
       title="Scheduled Jobs"
-      description="Manage recurring ticket creation for project workflows."
+      description="Manage recurring ticket creation for project statuses."
     />
   {/if}
 </div>

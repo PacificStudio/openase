@@ -2,13 +2,14 @@
   import type { AgentProvider } from '$lib/api/contracts'
   import type { ProjectCreationDraft } from '$lib/features/catalog-creation/model'
   import { projectStatusOptions } from '$lib/features/catalog-creation/model'
-  import { providerAvailabilityLabel } from '$lib/features/providers'
+  import { adapterIconPath, providerAvailabilityLabel } from '$lib/features/providers'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
   import { Textarea } from '$ui/textarea'
+  import { Wrench } from '@lucide/svelte'
 
   let {
     draft,
@@ -36,6 +37,10 @@
   function selectedProviderLabel() {
     const provider = providers.find((item) => item.id === draft.defaultAgentProviderId)
     return provider ? providerLabel(provider) : 'No default provider'
+  }
+
+  function selectedProvider() {
+    return providers.find((item) => item.id === draft.defaultAgentProviderId) ?? null
   }
 </script>
 
@@ -134,11 +139,46 @@
             value={draft.defaultAgentProviderId}
             onValueChange={(value) => onFieldChange?.('defaultAgentProviderId', value || '')}
           >
-            <Select.Trigger class="w-full">{selectedProviderLabel()}</Select.Trigger>
+            <Select.Trigger class="h-auto w-full py-2">
+              {@const provider = selectedProvider()}
+              {#if provider}
+                {@const iconPath = adapterIconPath(provider.adapter_type)}
+                <div class="flex items-center gap-2.5">
+                  {#if iconPath}
+                    <img src={iconPath} alt="" class="size-5 shrink-0" />
+                  {:else}
+                    <Wrench class="text-muted-foreground size-5 shrink-0" />
+                  {/if}
+                  <div class="min-w-0 text-left">
+                    <div class="text-foreground truncate text-sm font-medium">{provider.name}</div>
+                    <div class="text-muted-foreground truncate text-xs">
+                      {providerAvailabilityLabel(provider.availability_state)}
+                    </div>
+                  </div>
+                </div>
+              {:else}
+                {selectedProviderLabel()}
+              {/if}
+            </Select.Trigger>
             <Select.Content>
               <Select.Item value="">No default provider</Select.Item>
               {#each providers as provider (provider.id)}
-                <Select.Item value={provider.id}>{providerLabel(provider)}</Select.Item>
+                {@const iconPath = adapterIconPath(provider.adapter_type)}
+                <Select.Item value={provider.id}>
+                  <div class="flex items-center gap-2.5 py-0.5">
+                    {#if iconPath}
+                      <img src={iconPath} alt="" class="size-4 shrink-0" />
+                    {:else}
+                      <Wrench class="text-muted-foreground size-4 shrink-0" />
+                    {/if}
+                    <div class="min-w-0">
+                      <div class="truncate text-sm">{provider.name}</div>
+                      <div class="text-muted-foreground text-xs">
+                        {providerAvailabilityLabel(provider.availability_state)}
+                      </div>
+                    </div>
+                  </div>
+                </Select.Item>
               {/each}
             </Select.Content>
           </Select.Root>

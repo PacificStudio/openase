@@ -42,6 +42,23 @@ func TestCodexAgentAdapterSatisfiesRuntimeContract(t *testing.T) {
 			}
 			if err := encoder.Encode(runtimeRunnerJSONRPCMessage{
 				JSONRPC: "2.0",
+				Method:  "account/rateLimits/updated",
+				Params: mustMarshalJSON(map[string]any{
+					"rateLimits": map[string]any{
+						"limitId": "codex",
+						"primary": map[string]any{
+							"usedPercent":        15,
+							"windowDurationMins": 300,
+							"resetsAt":           1775050232,
+						},
+						"planType": "pro",
+					},
+				}),
+			}); err != nil {
+				return err
+			}
+			if err := encoder.Encode(runtimeRunnerJSONRPCMessage{
+				JSONRPC: "2.0",
 				Method:  "turn/completed",
 				Params:  mustMarshalJSON(map[string]any{"threadId": "thread-1", "turn": map[string]any{"id": "turn-contract", "status": "completed"}}),
 			}); err != nil {
@@ -85,9 +102,17 @@ func TestCodexAgentAdapterSatisfiesRuntimeContract(t *testing.T) {
 		t.Fatalf("SendPrompt() turn id = %q", turn.TurnID)
 	}
 
-	event := requireAgentEvent(t, session.Events())
-	if event.Type != agentEventTypeTurnCompleted || event.Turn == nil || event.Turn.TurnID != "turn-contract" {
-		t.Fatalf("unexpected event: %+v", event)
+	first := requireAgentEvent(t, session.Events())
+	if first.Type != agentEventTypeRateLimitUpdated || first.RateLimit == nil || first.RateLimit.Codex == nil {
+		t.Fatalf("unexpected first event: %+v", first)
+	}
+	if first.ObservedAt == nil {
+		t.Fatalf("expected observedAt on rate limit event, got %+v", first)
+	}
+
+	second := requireAgentEvent(t, session.Events())
+	if second.Type != agentEventTypeTurnCompleted || second.Turn == nil || second.Turn.TurnID != "turn-contract" {
+		t.Fatalf("unexpected second event: %+v", second)
 	}
 
 	if err := <-serverDone; err != nil {
@@ -158,7 +183,11 @@ func TestClaudeCodeAgentAdapterSatisfiesRuntimeContract(t *testing.T) {
 
 func TestDefaultAgentAdapterRegistryRegistersGeminiRuntimeContract(t *testing.T) {
 	process := newRuntimeRunnerFakeProcess()
-	manager := &geminiAdapterTestProcessManager{process: process}
+	probeProcess := &stubGeminiProbeProcess{
+		stdout: io.NopCloser(strings.NewReader(`{"authType":"oauth-personal","remaining":3,"limit":10,"resetTime":"2026-04-02T10:02:55Z","buckets":[{"modelId":"gemini-2.5-pro","tokenType":"REQUESTS","remainingFraction":0.3,"resetTime":"2026-04-02T10:02:55Z"}]}`)),
+		stderr: io.NopCloser(strings.NewReader("")),
+	}
+	manager := &geminiAdapterTestProcessManager{processes: []provider.AgentCLIProcess{process, probeProcess}}
 
 	serverDone := make(chan error, 1)
 	go func() {
@@ -218,25 +247,37 @@ func TestDefaultAgentAdapterRegistryRegistersGeminiRuntimeContract(t *testing.T)
 	}
 
 	third := requireAgentEvent(t, session.Events())
-	if third.Type != agentEventTypeTurnCompleted || third.Turn == nil || third.Turn.Status != "completed" || third.Turn.TurnID != turn.TurnID {
+	if third.Type != agentEventTypeRateLimitUpdated || third.RateLimit == nil || third.RateLimit.Gemini == nil {
 		t.Fatalf("unexpected third event: %+v", third)
 	}
-
-	if manager.capturedSpec.Command != provider.MustParseAgentCLICommand("gemini") {
-		t.Fatalf("process command = %q, want gemini", manager.capturedSpec.Command)
+	fourth := requireAgentEvent(t, session.Events())
+	if fourth.Type != agentEventTypeTurnCompleted || fourth.Turn == nil || fourth.Turn.Status != "completed" || fourth.Turn.TurnID != turn.TurnID {
+		t.Fatalf("unexpected fourth event: %+v", fourth)
 	}
-	joinedArgs := strings.Join(manager.capturedSpec.Args, " ")
+
+	if len(manager.capturedSpecs) < 2 {
+		t.Fatalf("captured specs = %d, want at least 2", len(manager.capturedSpecs))
+	}
+	turnSpec := manager.capturedSpecs[0]
+	if turnSpec.Command != provider.MustParseAgentCLICommand("gemini") {
+		t.Fatalf("turn command = %q, want gemini", turnSpec.Command)
+	}
+	joinedArgs := strings.Join(turnSpec.Args, " ")
 	if !strings.Contains(joinedArgs, "-m gemini-2.5-pro") {
-		t.Fatalf("process args = %v, want model flag", manager.capturedSpec.Args)
+		t.Fatalf("turn args = %v, want model flag", turnSpec.Args)
 	}
 	if !strings.Contains(joinedArgs, "--output-format json") {
-		t.Fatalf("process args = %v, want json output mode", manager.capturedSpec.Args)
+		t.Fatalf("turn args = %v, want json output mode", turnSpec.Args)
 	}
 	if !strings.Contains(joinedArgs, "--approval-mode=yolo") {
-		t.Fatalf("process args = %v, want yolo approval mode", manager.capturedSpec.Args)
+		t.Fatalf("turn args = %v, want yolo approval mode", turnSpec.Args)
 	}
 	if !strings.Contains(joinedArgs, "-p") {
-		t.Fatalf("process args = %v, want prompt flag", manager.capturedSpec.Args)
+		t.Fatalf("turn args = %v, want prompt flag", turnSpec.Args)
+	}
+	probeSpec := manager.capturedSpecs[1]
+	if probeSpec.Command != provider.MustParseAgentCLICommand("node") {
+		t.Fatalf("probe command = %q, want node", probeSpec.Command)
 	}
 
 	if err := <-serverDone; err != nil {
@@ -312,13 +353,18 @@ func runClaudeRuntimeProtocol(process *runtimeRunnerFakeProcess) error {
 }
 
 type geminiAdapterTestProcessManager struct {
-	process      provider.AgentCLIProcess
-	capturedSpec provider.AgentCLIProcessSpec
+	processes     []provider.AgentCLIProcess
+	capturedSpecs []provider.AgentCLIProcessSpec
 }
 
 func (m *geminiAdapterTestProcessManager) Start(_ context.Context, spec provider.AgentCLIProcessSpec) (provider.AgentCLIProcess, error) {
-	m.capturedSpec = spec
-	return m.process, nil
+	m.capturedSpecs = append(m.capturedSpecs, spec)
+	if len(m.processes) == 0 {
+		return nil, errors.New("no fake process configured")
+	}
+	process := m.processes[0]
+	m.processes = m.processes[1:]
+	return process, nil
 }
 
 func runGeminiRuntimeProtocol(process *runtimeRunnerFakeProcess) error {
@@ -341,3 +387,22 @@ func runGeminiRuntimeProtocol(process *runtimeRunnerFakeProcess) error {
 	process.finish(nil)
 	return nil
 }
+
+type stubGeminiProbeProcess struct {
+	stdout io.ReadCloser
+	stderr io.ReadCloser
+}
+
+func (p *stubGeminiProbeProcess) PID() int              { return 8181 }
+func (p *stubGeminiProbeProcess) Stdin() io.WriteCloser { return nopWriteCloser{} }
+func (p *stubGeminiProbeProcess) Stdout() io.ReadCloser { return p.stdout }
+func (p *stubGeminiProbeProcess) Stderr() io.ReadCloser { return p.stderr }
+func (p *stubGeminiProbeProcess) Wait() error           { return nil }
+func (p *stubGeminiProbeProcess) Stop(context.Context) error {
+	return nil
+}
+
+type nopWriteCloser struct{}
+
+func (nopWriteCloser) Write(data []byte) (int, error) { return len(data), nil }
+func (nopWriteCloser) Close() error                   { return nil }

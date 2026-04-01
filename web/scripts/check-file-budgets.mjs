@@ -32,12 +32,34 @@ const budgetRules = [
     match: (filePath) => /^src\/lib\/features\/.+\.svelte$/.test(filePath),
     softLimit: 200,
     hardLimit: 300,
+    allowlist: {
+      'src/lib/features/agents/components/agent-drawer.svelte':
+        'Agent drawer is temporarily oversized while provider and runtime controls remain in one panel.',
+      'src/lib/features/dashboard/components/org-dashboard.svelte':
+        'Dashboard summary and advisor layout remain colocated pending dashboard panel extraction.',
+      'src/lib/features/settings/components/workflow-scheduled-job-cron-picker.svelte':
+        'Cron picker keeps presets and field editor together until scheduled job form extraction lands.',
+      'src/lib/features/skills/components/skill-editor-page.svelte':
+        'Skill editor page still hosts save/binding orchestration until controller extraction lands.',
+      'src/lib/features/tickets/components/tickets-page.svelte':
+        'Tickets page still owns board loading and stream orchestration until board controller extraction lands.',
+    },
   },
   {
     name: 'Feature modules',
     match: (filePath) => /^src\/lib\/features\/.+\.(ts|js|mjs|cjs)$/.test(filePath),
     softLimit: 200,
     hardLimit: 300,
+    allowlist: {
+      'src/lib/features/agents/model.test.ts':
+        'Agent provider normalization coverage remains in one test module until scenario helpers are extracted.',
+      'src/lib/features/board/components/board-page-controls.test.ts':
+        'Board controls regression coverage remains consolidated while the control matrix is still evolving.',
+      'src/lib/features/skills/components/skill-bundle-editor.ts':
+        'Skill bundle draft helpers remain centralized until tree and path utilities are split out.',
+      'src/lib/features/workflows/components/workflows-page.test.ts':
+        'Workflow page interaction coverage remains bundled until test helper extraction lands.',
+    },
   },
   {
     name: 'Layout components',

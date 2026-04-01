@@ -53,6 +53,8 @@ type agentProviderCapabilityResponse struct {
 type agentProviderCLIRateLimitResponse struct {
 	Provider   string                                    `json:"provider"`
 	ClaudeCode *agentProviderClaudeCodeRateLimitResponse `json:"claude_code,omitempty"`
+	Codex      *agentProviderCodexRateLimitResponse      `json:"codex,omitempty"`
+	Gemini     *agentProviderGeminiRateLimitResponse     `json:"gemini,omitempty"`
 	Raw        map[string]any                            `json:"raw,omitempty"`
 }
 
@@ -63,6 +65,36 @@ type agentProviderClaudeCodeRateLimitResponse struct {
 	OverageStatus         string  `json:"overage_status,omitempty"`
 	OverageDisabledReason string  `json:"overage_disabled_reason,omitempty"`
 	IsUsingOverage        *bool   `json:"is_using_overage,omitempty"`
+}
+
+type agentProviderCodexRateLimitResponse struct {
+	LimitID   string                                     `json:"limit_id,omitempty"`
+	LimitName string                                     `json:"limit_name,omitempty"`
+	Primary   *agentProviderCodexRateLimitWindowResponse `json:"primary,omitempty"`
+	Secondary *agentProviderCodexRateLimitWindowResponse `json:"secondary,omitempty"`
+	PlanType  string                                     `json:"plan_type,omitempty"`
+}
+
+type agentProviderCodexRateLimitWindowResponse struct {
+	UsedPercent   *float64 `json:"used_percent,omitempty"`
+	WindowMinutes int64    `json:"window_minutes,omitempty"`
+	ResetsAt      *string  `json:"resets_at,omitempty"`
+}
+
+type agentProviderGeminiRateLimitResponse struct {
+	AuthType  string                                       `json:"auth_type,omitempty"`
+	Remaining *int64                                       `json:"remaining,omitempty"`
+	Limit     *int64                                       `json:"limit,omitempty"`
+	ResetTime *string                                      `json:"reset_time,omitempty"`
+	Buckets   []agentProviderGeminiRateLimitBucketResponse `json:"buckets,omitempty"`
+}
+
+type agentProviderGeminiRateLimitBucketResponse struct {
+	ModelID           string   `json:"model_id,omitempty"`
+	TokenType         string   `json:"token_type,omitempty"`
+	RemainingAmount   string   `json:"remaining_amount,omitempty"`
+	RemainingFraction *float64 `json:"remaining_fraction,omitempty"`
+	ResetTime         *string  `json:"reset_time,omitempty"`
 }
 
 type agentProviderModelOptionResponse struct {

@@ -3,7 +3,7 @@
   import type { AgentProvider, Organization } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
   import { updateOrganization } from '$lib/api/openase'
-  import { providerAvailabilityLabel } from '$lib/features/providers'
+  import { adapterIconPath, providerAvailabilityLabel } from '$lib/features/providers'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
@@ -11,6 +11,7 @@
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
+  import { Wrench } from '@lucide/svelte'
 
   let {
     organization,
@@ -33,6 +34,10 @@
   function selectedProviderLabel() {
     const provider = providers.find((item) => item.id === defaultProviderId)
     return provider ? providerLabel(provider) : 'No default provider'
+  }
+
+  function selectedProvider() {
+    return providers.find((item) => item.id === defaultProviderId) ?? null
   }
 
   $effect(() => {
@@ -105,11 +110,46 @@
           defaultProviderId = value || ''
         }}
       >
-        <Select.Trigger class="w-full">{selectedProviderLabel()}</Select.Trigger>
+        <Select.Trigger class="h-auto w-full py-2">
+          {@const provider = selectedProvider()}
+          {#if provider}
+            {@const iconPath = adapterIconPath(provider.adapter_type)}
+            <div class="flex items-center gap-2.5">
+              {#if iconPath}
+                <img src={iconPath} alt="" class="size-5 shrink-0" />
+              {:else}
+                <Wrench class="text-muted-foreground size-5 shrink-0" />
+              {/if}
+              <div class="min-w-0 text-left">
+                <div class="text-foreground truncate text-sm font-medium">{provider.name}</div>
+                <div class="text-muted-foreground truncate text-xs">
+                  {providerAvailabilityLabel(provider.availability_state)}
+                </div>
+              </div>
+            </div>
+          {:else}
+            {selectedProviderLabel()}
+          {/if}
+        </Select.Trigger>
         <Select.Content>
           <Select.Item value="">No default provider</Select.Item>
           {#each providers as provider (provider.id)}
-            <Select.Item value={provider.id}>{providerLabel(provider)}</Select.Item>
+            {@const iconPath = adapterIconPath(provider.adapter_type)}
+            <Select.Item value={provider.id}>
+              <div class="flex items-center gap-2.5 py-0.5">
+                {#if iconPath}
+                  <img src={iconPath} alt="" class="size-4 shrink-0" />
+                {:else}
+                  <Wrench class="text-muted-foreground size-4 shrink-0" />
+                {/if}
+                <div class="min-w-0">
+                  <div class="truncate text-sm">{provider.name}</div>
+                  <div class="text-muted-foreground text-xs">
+                    {providerAvailabilityLabel(provider.availability_state)}
+                  </div>
+                </div>
+              </div>
+            </Select.Item>
           {/each}
         </Select.Content>
       </Select.Root>

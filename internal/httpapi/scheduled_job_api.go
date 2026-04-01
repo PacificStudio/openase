@@ -24,7 +24,6 @@ type scheduledJobResponse struct {
 	ProjectID      string                             `json:"project_id"`
 	Name           string                             `json:"name"`
 	CronExpression string                             `json:"cron_expression"`
-	WorkflowID     string                             `json:"workflow_id"`
 	TicketTemplate scheduledJobTicketTemplateResponse `json:"ticket_template"`
 	IsEnabled      bool                               `json:"is_enabled"`
 	LastRunAt      *string                            `json:"last_run_at,omitempty"`
@@ -199,7 +198,6 @@ func mapScheduledJobResponse(item scheduledjobservice.ScheduledJob) scheduledJob
 		ProjectID:      item.ProjectID.String(),
 		Name:           item.Name,
 		CronExpression: item.CronExpression,
-		WorkflowID:     item.WorkflowID.String(),
 		TicketTemplate: scheduledJobTicketTemplateResponse{
 			Title:       item.TicketTemplate.Title,
 			Description: item.TicketTemplate.Description,

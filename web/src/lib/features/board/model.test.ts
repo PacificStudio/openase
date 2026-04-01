@@ -138,4 +138,112 @@ describe('board model', () => {
     expect('prCount' in (board.columns[1]?.tickets[0] ?? {})).toBe(false)
     expect('prStatus' in (board.columns[1]?.tickets[0] ?? {})).toBe(false)
   })
+
+  it('orders board statuses by stage first and position within the stage', () => {
+    const board = buildBoardData(
+      {
+        statuses: [
+          {
+            id: 'done',
+            project_id: 'project-1',
+            name: 'Done',
+            stage: 'completed',
+            color: '#10b981',
+            icon: '',
+            is_default: false,
+            description: '',
+            position: 0,
+            active_runs: 0,
+            max_active_runs: null,
+          },
+          {
+            id: 'review',
+            project_id: 'project-1',
+            name: 'Review',
+            stage: 'started',
+            color: '#f59e0b',
+            icon: '',
+            is_default: false,
+            description: '',
+            position: 9,
+            active_runs: 0,
+            max_active_runs: null,
+          },
+          {
+            id: 'backlog',
+            project_id: 'project-1',
+            name: 'Backlog',
+            stage: 'backlog',
+            color: '#64748b',
+            icon: '',
+            is_default: false,
+            description: '',
+            position: 5,
+            active_runs: 0,
+            max_active_runs: null,
+          },
+          {
+            id: 'todo',
+            project_id: 'project-1',
+            name: 'Todo',
+            stage: 'unstarted',
+            color: '#2563eb',
+            icon: '',
+            is_default: true,
+            description: '',
+            position: 7,
+            active_runs: 0,
+            max_active_runs: null,
+          },
+          {
+            id: 'doing',
+            project_id: 'project-1',
+            name: 'Doing',
+            stage: 'started',
+            color: '#f97316',
+            icon: '',
+            is_default: false,
+            description: '',
+            position: 2,
+            active_runs: 0,
+            max_active_runs: null,
+          },
+          {
+            id: 'canceled',
+            project_id: 'project-1',
+            name: 'Canceled',
+            stage: 'canceled',
+            color: '#ef4444',
+            icon: '',
+            is_default: false,
+            description: '',
+            position: 1,
+            active_runs: 0,
+            max_active_runs: null,
+          },
+        ],
+      },
+      [],
+      [],
+      [],
+      [],
+    )
+
+    expect(board.columns.map((column) => column.name)).toEqual([
+      'Backlog',
+      'Todo',
+      'Doing',
+      'Review',
+      'Done',
+      'Canceled',
+    ])
+    expect(board.statusOptions.map((status) => status.name)).toEqual([
+      'Backlog',
+      'Todo',
+      'Doing',
+      'Review',
+      'Done',
+      'Canceled',
+    ])
+  })
 })

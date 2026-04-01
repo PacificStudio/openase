@@ -268,7 +268,7 @@ export type SkillRefreshResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/skills/refresh', 'post'>
 >
 
-/** Bundle file returned by GET /api/v1/skills/:id/files (not in OpenAPI spec). */
+/** Bundle file returned by the skill bundle file APIs. */
 export type SkillFile = {
   path: string
   file_kind: 'entrypoint' | 'metadata' | 'script' | 'reference' | 'asset'
@@ -281,7 +281,9 @@ export type SkillFile = {
   content_base64?: string
 }
 
-export type SkillFilesPayload = {
+export type SkillFilesPayload = DeepRequired<
+  ResponseFor<'/api/v1/skills/{skillId}/files', 'get'>
+> & {
   files: SkillFile[]
 }
 

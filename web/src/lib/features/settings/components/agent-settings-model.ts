@@ -22,6 +22,34 @@ export type ProviderOption = {
       overageDisabledReason?: string | null
       isUsingOverage?: boolean | null
     } | null
+    codex?: {
+      limitId?: string | null
+      limitName?: string | null
+      planType?: string | null
+      primary?: {
+        usedPercent?: number | null
+        windowMinutes?: number | null
+        resetsAt?: string | null
+      } | null
+      secondary?: {
+        usedPercent?: number | null
+        windowMinutes?: number | null
+        resetsAt?: string | null
+      } | null
+    } | null
+    gemini?: {
+      authType?: string | null
+      remaining?: number | null
+      limit?: number | null
+      resetTime?: string | null
+      buckets?: Array<{
+        modelId?: string | null
+        tokenType?: string | null
+        remainingAmount?: string | null
+        remainingFraction?: number | null
+        resetTime?: string | null
+      }>
+    } | null
   } | null
   cliRateLimitUpdatedAt?: string | null
   agentCount: number
@@ -56,6 +84,42 @@ export function buildProviderOptions(
                 overageDisabledReason:
                   provider.cli_rate_limit.claude_code.overage_disabled_reason ?? null,
                 isUsingOverage: provider.cli_rate_limit.claude_code.is_using_overage ?? null,
+              }
+            : null,
+          codex: provider.cli_rate_limit.codex
+            ? {
+                limitId: provider.cli_rate_limit.codex.limit_id ?? null,
+                limitName: provider.cli_rate_limit.codex.limit_name ?? null,
+                planType: provider.cli_rate_limit.codex.plan_type ?? null,
+                primary: provider.cli_rate_limit.codex.primary
+                  ? {
+                      usedPercent: provider.cli_rate_limit.codex.primary.used_percent ?? null,
+                      windowMinutes: provider.cli_rate_limit.codex.primary.window_minutes ?? null,
+                      resetsAt: provider.cli_rate_limit.codex.primary.resets_at ?? null,
+                    }
+                  : null,
+                secondary: provider.cli_rate_limit.codex.secondary
+                  ? {
+                      usedPercent: provider.cli_rate_limit.codex.secondary.used_percent ?? null,
+                      windowMinutes: provider.cli_rate_limit.codex.secondary.window_minutes ?? null,
+                      resetsAt: provider.cli_rate_limit.codex.secondary.resets_at ?? null,
+                    }
+                  : null,
+              }
+            : null,
+          gemini: provider.cli_rate_limit.gemini
+            ? {
+                authType: provider.cli_rate_limit.gemini.auth_type ?? null,
+                remaining: provider.cli_rate_limit.gemini.remaining ?? null,
+                limit: provider.cli_rate_limit.gemini.limit ?? null,
+                resetTime: provider.cli_rate_limit.gemini.reset_time ?? null,
+                buckets: (provider.cli_rate_limit.gemini.buckets ?? []).map((bucket) => ({
+                  modelId: bucket.model_id ?? null,
+                  tokenType: bucket.token_type ?? null,
+                  remainingAmount: bucket.remaining_amount ?? null,
+                  remainingFraction: bucket.remaining_fraction ?? null,
+                  resetTime: bucket.reset_time ?? null,
+                })),
               }
             : null,
         }

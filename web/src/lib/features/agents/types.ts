@@ -79,6 +79,34 @@ export type ProviderCLIRateLimit = {
     overageDisabledReason?: string | null
     isUsingOverage?: boolean | null
   } | null
+  codex?: {
+    limitId?: string | null
+    limitName?: string | null
+    planType?: string | null
+    primary?: {
+      usedPercent?: number | null
+      windowMinutes?: number | null
+      resetsAt?: string | null
+    } | null
+    secondary?: {
+      usedPercent?: number | null
+      windowMinutes?: number | null
+      resetsAt?: string | null
+    } | null
+  } | null
+  gemini?: {
+    authType?: string | null
+    remaining?: number | null
+    limit?: number | null
+    resetTime?: string | null
+    buckets?: Array<{
+      modelId?: string | null
+      tokenType?: string | null
+      remainingAmount?: string | null
+      remainingFraction?: number | null
+      resetTime?: string | null
+    }>
+  } | null
 }
 
 export type ProviderAdapterType = 'claude-code-cli' | 'codex-app-server' | 'gemini-cli' | 'custom'
