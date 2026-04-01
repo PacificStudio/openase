@@ -4,6 +4,7 @@ import {
   applyTicketRunStreamFrame,
   createEmptyTicketRunTranscriptState,
   hydrateTicketRunDetail,
+  selectTicketRun,
   setTicketRunList,
 } from './run-transcript'
 import type { TicketRun, TicketRunDetail, TicketRunTranscriptBlock } from './types'
@@ -33,6 +34,14 @@ const olderRun: TicketRun = {
 }
 
 describe('ticket run transcript reducer', () => {
+  it('auto-selects the latest run from true attempt ordering', () => {
+    const state = setTicketRunList(createEmptyTicketRunTranscriptState(), [olderRun, latestRun])
+
+    expect(state.selectedRunId).toBe(latestRun.id)
+    expect(state.followLatest).toBe(true)
+    expect(state.currentRun?.id).toBe(latestRun.id)
+  })
+
   it('hydrates semantic blocks from step and trace entries', () => {
     const detail: TicketRunDetail = {
       run: latestRun,
@@ -211,5 +220,37 @@ describe('ticket run transcript reducer', () => {
       at: '2026-04-01T11:00:10Z',
       summary: 'Runtime ready',
     })
+  })
+
+  it('keeps a manually selected historical run focused while newer lifecycle events arrive', () => {
+    let state = setTicketRunList(createEmptyTicketRunTranscriptState(), [latestRun, olderRun])
+
+    state = selectTicketRun(state, olderRun.id)
+
+    const newerRun: TicketRun = {
+      ...latestRun,
+      id: 'run-3',
+      attemptNumber: 3,
+      status: 'launching',
+      createdAt: '2026-04-01T11:00:00Z',
+      runtimeStartedAt: undefined,
+    }
+
+    state = applyTicketRunStreamFrame(state, {
+      event: 'ticket.run.lifecycle',
+      data: JSON.stringify({
+        run: newerRun,
+        lifecycle: {
+          eventType: 'agent.launching',
+          message: 'Launching retry runtime',
+          createdAt: '2026-04-01T11:00:00Z',
+        },
+      }),
+    })
+
+    expect(state.selectedRunId).toBe(olderRun.id)
+    expect(state.followLatest).toBe(false)
+    expect(state.currentRun?.id).toBe(olderRun.id)
+    expect(state.runs.map((run) => run.id)).toEqual(['run-3', latestRun.id, olderRun.id])
   })
 })

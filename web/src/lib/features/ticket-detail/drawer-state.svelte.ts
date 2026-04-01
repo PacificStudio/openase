@@ -7,7 +7,13 @@ import {
   loadTicketDrawerRunTranscript,
   type TicketDrawerRunTranscriptDeps,
 } from './drawer-run-transcript'
-import { applyTicketRunStreamFrame, createEmptyTicketRunTranscriptState } from './run-transcript'
+import {
+  applyTicketRunStreamFrame,
+  createEmptyTicketRunTranscriptState,
+  hydrateTicketRunDetail,
+  selectTicketRun,
+} from './run-transcript'
+import { mapTicketRunDetail } from './run-transcript-data'
 import type {
   HookExecution,
   TicketDetail,
@@ -49,8 +55,12 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
     dependencyCandidates: [] as TicketReferenceOption[],
     repoOptions: [] as TicketRepoOption[],
     runs: [] as TicketRun[],
+    selectedRunId: null as string | null,
+    followLatest: true,
     currentRun: null as TicketRun | null,
     runBlocks: [] as TicketRunTranscriptBlock[],
+    runBlockCache: {} as Record<string, TicketRunTranscriptBlock[]>,
+    loadingRunId: null as string | null,
     savingFields: false,
     creatingDependency: false,
     deletingDependencyId: null as string | null,
@@ -65,6 +75,7 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
     resumingRetry: false,
   })
   let loadRequestId = 0
+  let runDetailRequestId = 0
   let timelineRefreshQueued = false
   let timelineRefreshLoop: Promise<void> | null = null
 
@@ -89,15 +100,21 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
     nextState: ReturnType<typeof createEmptyTicketRunTranscriptState>,
   ) {
     state.runs = nextState.runs
+    state.selectedRunId = nextState.selectedRunId
+    state.followLatest = nextState.followLatest
     state.currentRun = nextState.currentRun
     state.runBlocks = nextState.blocks
+    state.runBlockCache = nextState.blockCache
   }
 
   function getRunTranscriptState() {
     return {
       runs: state.runs,
+      selectedRunId: state.selectedRunId,
+      followLatest: state.followLatest,
       currentRun: state.currentRun,
       blocks: state.runBlocks,
+      blockCache: state.runBlockCache,
     }
   }
 
@@ -150,6 +167,8 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
     },
     async load(projectId: string, ticketId: string, options: LoadOptions = {}) {
       const requestId = ++loadRequestId
+      runDetailRequestId += 1
+      state.loadingRunId = null
       if (!options.background) {
         state.loading = true
         state.error = ''
@@ -196,8 +215,44 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
       const nextState = applyTicketRunStreamFrame(getRunTranscriptState(), frame)
       applyRunTranscriptState(nextState)
     },
+    async selectRun(projectId: string, ticketId: string, runId: string) {
+      const optimisticState = selectTicketRun(getRunTranscriptState(), runId)
+      applyRunTranscriptState(optimisticState)
+
+      if (optimisticState.currentRun?.id !== runId) {
+        return
+      }
+
+      const requestId = ++runDetailRequestId
+      state.loadingRunId = runId
+
+      try {
+        const detail = mapTicketRunDetail(
+          await resolvedDeps.fetchRun(projectId, ticketId, runId),
+        )
+        if (requestId !== runDetailRequestId) {
+          return
+        }
+
+        applyRunTranscriptState(hydrateTicketRunDetail(getRunTranscriptState(), detail))
+      } catch (caughtError) {
+        if (requestId !== runDetailRequestId) {
+          return
+        }
+        const message =
+          caughtError instanceof ApiError
+            ? caughtError.detail
+            : 'Failed to load ticket run transcript.'
+        toastStore.error(message)
+      } finally {
+        if (requestId === runDetailRequestId) {
+          state.loadingRunId = null
+        }
+      }
+    },
     reset() {
       loadRequestId += 1
+      runDetailRequestId += 1
       timelineRefreshQueued = false
       timelineRefreshLoop = null
       state.loading = false
@@ -209,8 +264,12 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
       state.dependencyCandidates = []
       state.repoOptions = []
       state.runs = []
+      state.selectedRunId = null
+      state.followLatest = true
       state.currentRun = null
       state.runBlocks = []
+      state.runBlockCache = {}
+      state.loadingRunId = null
       state.savingFields = false
       state.creatingDependency = false
       state.deletingDependencyId = null

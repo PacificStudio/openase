@@ -11,10 +11,8 @@
   import TicketCommentHistoryControl from './ticket-comment-history-control.svelte'
   import TicketDescriptionTimelineItem from './ticket-description-timeline-item.svelte'
   import TicketMarkdownContent from './ticket-markdown-content.svelte'
-  import TicketTimelineAttemptGroup from './ticket-timeline-attempt-group.svelte'
   import TicketTimelineActivityItem from './ticket-timeline-activity-item.svelte'
   import TicketTimelineComposer from './ticket-timeline-composer.svelte'
-  import { buildTimelineRenderBlocks } from '../timeline-attempts'
   import type {
     TicketActivityTimelineItem,
     TicketCommentRevision,
@@ -54,8 +52,6 @@
   let editingCommentId = $state<string | null>(null)
   let editingBody = $state('')
   let collapsedCommentIds = $state<Record<string, boolean>>({})
-  let collapsedAttemptIds = $state<Record<string, boolean>>({})
-  const renderBlocks = $derived(buildTimelineRenderBlocks(timeline))
 
   function beginCommentEdit(comment: TicketCommentTimelineItem) {
     editingCommentId = comment.commentId
@@ -99,15 +95,6 @@
     collapsedCommentIds = { ...collapsedCommentIds, [commentId]: !collapsedCommentIds[commentId] }
   }
 
-  function isAttemptCollapsed(attemptId: string, isLatest: boolean) {
-    return collapsedAttemptIds[attemptId] ?? !isLatest
-  }
-
-  function toggleAttemptCollapsed(attemptId: string, isLatest: boolean) {
-    const nextCollapsed = !isAttemptCollapsed(attemptId, isLatest)
-    collapsedAttemptIds = { ...collapsedAttemptIds, [attemptId]: nextCollapsed }
-  }
-
   $effect(() => {
     if (!editingCommentId) return
     const editingComment = timeline.find(
@@ -120,36 +107,25 @@
 
 <div class="flex flex-1 flex-col overflow-y-auto">
   <div class="flex flex-col px-6 py-5">
-    {#each renderBlocks as block, index (block.id)}
-      {#if block.kind === 'attempt'}
-        <TicketTimelineAttemptGroup
-          attemptNumber={block.attemptNumber}
-          summary={block.summary}
-          tone={block.tone}
-          items={block.items}
-          collapsed={isAttemptCollapsed(block.id, block.isLatest)}
-          onToggle={() => toggleAttemptCollapsed(block.id, block.isLatest)}
-          showConnector={index < renderBlocks.length - 1}
-        />
-      {:else if block.item.kind === 'activity'}
+    {#each timeline as item, index (item.id)}
+      {#if item.kind === 'activity'}
         <div class="relative flex gap-4 pb-6">
-          {#if index < renderBlocks.length - 1}
+          {#if index < timeline.length - 1}
             <div class="bg-border absolute top-10 bottom-0 left-4 w-px"></div>
           {/if}
-          <TicketTimelineActivityItem item={block.item as TicketActivityTimelineItem} />
+          <TicketTimelineActivityItem item={item as TicketActivityTimelineItem} />
         </div>
-      {:else if block.item.kind === 'description'}
+      {:else if item.kind === 'description'}
         <TicketDescriptionTimelineItem
           {ticket}
-          item={block.item}
-          showConnector={index < renderBlocks.length - 1}
+          {item}
+          showConnector={index < timeline.length - 1}
           {savingFields}
           {onSaveFields}
         />
       {:else}
-        {@const item = block.item}
         <div class="relative flex gap-4 pb-6">
-          {#if index < renderBlocks.length - 1}
+          {#if index < timeline.length - 1}
             <div class="bg-border absolute top-10 bottom-0 left-4 w-px"></div>
           {/if}
 

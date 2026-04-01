@@ -10,13 +10,12 @@
   import User from '@lucide/svelte/icons/user'
   import Workflow from '@lucide/svelte/icons/workflow'
   import { cn, formatCount, formatCurrency, formatRelativeTime } from '$lib/utils'
-  import TicketCommentsThread from './ticket-comments-thread.svelte'
+  import TicketDrawerMainTabs from './ticket-drawer-main-tabs.svelte'
   import TicketDependencies from './ticket-dependencies.svelte'
   import TicketExternalLinks from './ticket-external-links.svelte'
   import TicketHeader from './ticket-header.svelte'
   import TicketHooks from './ticket-hooks.svelte'
   import TicketRepos from './ticket-repos.svelte'
-  import TicketRunTranscriptPanel from './ticket-run-transcript-panel.svelte'
   import TicketRuntimeStateCard from './ticket-runtime-state-card.svelte'
   import type { DependencyDraft } from '../mutation-shared'
   import type {
@@ -36,8 +35,10 @@
     projectId,
     hooks,
     timeline,
+    runs = [],
     currentRun = null,
     runBlocks = [],
+    loadingRunId = null,
     statuses,
     dependencyCandidates,
     repoOptions,
@@ -55,6 +56,7 @@
     resumingRetry = false,
     onClose,
     onSaveFields,
+    onSelectRun,
     onResumeRetry,
     onAddDependency,
     onDeleteDependency,
@@ -72,8 +74,10 @@
     projectId: string
     hooks: HookExecution[]
     timeline: TicketTimelineItem[]
+    runs?: TicketRun[]
     currentRun?: TicketRun | null
     runBlocks?: TicketRunTranscriptBlock[]
+    loadingRunId?: string | null
     statuses: TicketStatusOption[]
     dependencyCandidates: TicketReferenceOption[]
     repoOptions: TicketRepoOption[]
@@ -91,6 +95,7 @@
     resumingRetry?: boolean
     onClose?: () => void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
+    onSelectRun?: (runId: string) => Promise<void> | void
     onResumeRetry?: () => Promise<void> | void
     onAddDependency?: (draft: DependencyDraft) => Promise<boolean> | boolean
     onDeleteDependency?: (dependencyId: string) => void
@@ -166,16 +171,21 @@
 
 <div class="flex flex-1 flex-col overflow-hidden md:flex-row">
   <div class="flex flex-1 flex-col overflow-hidden border-r">
-    <TicketRunTranscriptPanel run={currentRun} blocks={runBlocks} />
-
-    <TicketCommentsThread
+    <TicketDrawerMainTabs
       {ticket}
       {timeline}
+      {runs}
+      {currentRun}
+      runBlocks={runBlocks}
+      {loadingRunId}
       {savingFields}
       {creatingComment}
       {updatingCommentId}
       {deletingCommentId}
+      {resumingRetry}
       {onSaveFields}
+      {onSelectRun}
+      {onResumeRetry}
       {onCreateComment}
       {onUpdateComment}
       {onDeleteComment}
