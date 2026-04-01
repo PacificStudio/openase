@@ -105,6 +105,8 @@ type HarnessProjectWorkflowData struct {
 	RoleDescription string
 	PickupStatus    string
 	FinishStatus    string
+	PickupStatuses  []HarnessProjectStatusData
+	FinishStatuses  []HarnessProjectStatusData
 	HarnessPath     string
 	HarnessContent  string
 	Skills          []string
@@ -129,7 +131,9 @@ type HarnessProjectWorkflowTicketData struct {
 }
 
 type HarnessProjectStatusData struct {
+	ID    string
 	Name  string
+	Stage string
 	Color string
 }
 
@@ -165,6 +169,7 @@ type HarnessMachineData struct {
 	Host          string
 	Description   string
 	Labels        []string
+	Resources     map[string]any
 	WorkspaceRoot string
 }
 
@@ -173,6 +178,7 @@ type HarnessAccessibleMachineData struct {
 	Host        string
 	Description string
 	Labels      []string
+	Resources   map[string]any
 	SSHUser     string
 }
 
@@ -439,6 +445,16 @@ func HarnessVariableDictionary() []HarnessVariableGroup {
 				{Path: "project.workflows[].role_description", Type: "string", Description: "角色描述", Example: "Implement product changes end to end, covering backend, frontend, and verification."},
 				{Path: "project.workflows[].pickup_status", Type: "string", Description: "Workflow 的 pickup 状态", Example: "Todo"},
 				{Path: "project.workflows[].finish_status", Type: "string", Description: "Workflow 的 finish 状态", Example: "Done"},
+				{Path: "project.workflows[].pickup_statuses", Type: "list", Description: "Workflow pickup 状态的结构化列表"},
+				{Path: "project.workflows[].pickup_statuses[].id", Type: "string", Description: "状态 UUID"},
+				{Path: "project.workflows[].pickup_statuses[].name", Type: "string", Description: "状态名", Example: "Todo"},
+				{Path: "project.workflows[].pickup_statuses[].stage", Type: "string", Description: "状态阶段", Example: "unstarted"},
+				{Path: "project.workflows[].pickup_statuses[].color", Type: "string", Description: "状态颜色", Example: "#3B82F6"},
+				{Path: "project.workflows[].finish_statuses", Type: "list", Description: "Workflow finish 状态的结构化列表"},
+				{Path: "project.workflows[].finish_statuses[].id", Type: "string", Description: "状态 UUID"},
+				{Path: "project.workflows[].finish_statuses[].name", Type: "string", Description: "状态名", Example: "Done"},
+				{Path: "project.workflows[].finish_statuses[].stage", Type: "string", Description: "状态阶段", Example: "completed"},
+				{Path: "project.workflows[].finish_statuses[].color", Type: "string", Description: "状态颜色", Example: "#10B981"},
 				{Path: "project.workflows[].harness_path", Type: "string", Description: "Workflow Harness 文件路径", Example: ".openase/harnesses/coding.md"},
 				{Path: "project.workflows[].harness_content", Type: "string", Description: "Workflow 当前 Harness 内容"},
 				{Path: "project.workflows[].skills", Type: "list", Description: "当前 Workflow Harness 绑定的技能列表"},
@@ -458,7 +474,9 @@ func HarnessVariableDictionary() []HarnessVariableGroup {
 				{Path: "project.workflows[].recent_tickets[].started_at", Type: "string", Description: "开始执行时间 ISO 8601", Example: "2026-03-19T10:40:00Z"},
 				{Path: "project.workflows[].recent_tickets[].completed_at", Type: "string", Description: "完成时间 ISO 8601", Example: "2026-03-19T10:52:00Z"},
 				{Path: "project.statuses", Type: "list", Description: "项目状态列表"},
+				{Path: "project.statuses[].id", Type: "string", Description: "状态 UUID"},
 				{Path: "project.statuses[].name", Type: "string", Description: "状态名", Example: "Backlog"},
+				{Path: "project.statuses[].stage", Type: "string", Description: "状态阶段", Example: "backlog"},
 				{Path: "project.statuses[].color", Type: "string", Description: "状态颜色", Example: "#6B7280"},
 				{Path: "project.machines", Type: "list", Description: "项目可访问的机器视图"},
 				{Path: "project.machines[].name", Type: "string", Description: "机器名", Example: "gpu-01"},
@@ -466,7 +484,7 @@ func HarnessVariableDictionary() []HarnessVariableGroup {
 				{Path: "project.machines[].description", Type: "string", Description: "机器描述", Example: "NVIDIA A100 x4"},
 				{Path: "project.machines[].labels", Type: "list", Description: "机器标签", Example: "[\"gpu\", \"a100\"]"},
 				{Path: "project.machines[].status", Type: "string", Description: "机器可用状态", Example: "current"},
-				{Path: "project.machines[].resources", Type: "object", Description: "资源快照（当前最小实现为空对象）"},
+				{Path: "project.machines[].resources", Type: "object", Description: "最近一次持久化的机器资源快照；若尚未探测则为空对象"},
 			},
 		},
 		{
@@ -712,6 +730,8 @@ func (s *Service) mapHarnessProjectWorkflows(
 			RoleDescription: extractWorkflowRoleDescription(harnessContent),
 			PickupStatus:    joinStatusNames(workflowItem.Edges.PickupStatuses),
 			FinishStatus:    joinStatusNames(workflowItem.Edges.FinishStatuses),
+			PickupStatuses:  mapHarnessProjectStatuses(workflowItem.Edges.PickupStatuses),
+			FinishStatuses:  mapHarnessProjectStatuses(workflowItem.Edges.FinishStatuses),
 			HarnessPath:     workflowItem.HarnessPath,
 			HarnessContent:  harnessContent,
 			Skills:          skills,
@@ -760,7 +780,9 @@ func mapHarnessProjectStatuses(statuses []*ent.TicketStatus) []HarnessProjectSta
 			continue
 		}
 		items = append(items, HarnessProjectStatusData{
+			ID:    status.ID.String(),
 			Name:  status.Name,
+			Stage: status.Stage.String(),
 			Color: status.Color,
 		})
 	}
@@ -770,7 +792,7 @@ func mapHarnessProjectStatuses(statuses []*ent.TicketStatus) []HarnessProjectSta
 func mapHarnessProjectMachines(current HarnessMachineData, accessible []HarnessAccessibleMachineData) []HarnessProjectMachineData {
 	items := make([]HarnessProjectMachineData, 0, len(accessible)+1)
 	seen := make(map[string]struct{}, len(accessible)+1)
-	add := func(name string, host string, description string, labels []string, status string) {
+	add := func(name string, host string, description string, labels []string, status string, resources map[string]any) {
 		key := strings.TrimSpace(name) + "|" + strings.TrimSpace(host)
 		if key == "|" {
 			return
@@ -785,13 +807,13 @@ func mapHarnessProjectMachines(current HarnessMachineData, accessible []HarnessA
 			Description: description,
 			Labels:      append([]string(nil), labels...),
 			Status:      status,
-			Resources:   map[string]any{},
+			Resources:   cloneResourceMap(resources),
 		})
 	}
 
-	add(current.Name, current.Host, current.Description, current.Labels, "current")
+	add(current.Name, current.Host, current.Description, current.Labels, "current", current.Resources)
 	for _, machine := range accessible {
-		add(machine.Name, machine.Host, machine.Description, machine.Labels, "accessible")
+		add(machine.Name, machine.Host, machine.Description, machine.Labels, "accessible", machine.Resources)
 	}
 	slices.SortFunc(items, func(left, right HarnessProjectMachineData) int {
 		if compared := strings.Compare(left.Name, right.Name); compared != 0 {
@@ -1022,6 +1044,8 @@ func projectWorkflowMaps(items []HarnessProjectWorkflowData) []map[string]any {
 			"role_description": item.RoleDescription,
 			"pickup_status":    item.PickupStatus,
 			"finish_status":    item.FinishStatus,
+			"pickup_statuses":  projectStatusMaps(item.PickupStatuses),
+			"finish_statuses":  projectStatusMaps(item.FinishStatuses),
 			"harness_path":     item.HarnessPath,
 			"harness_content":  item.HarnessContent,
 			"skills":           append([]string(nil), item.Skills...),
@@ -1058,7 +1082,9 @@ func projectStatusMaps(items []HarnessProjectStatusData) []map[string]any {
 	result := make([]map[string]any, 0, len(items))
 	for _, item := range items {
 		result = append(result, map[string]any{
+			"id":    item.ID,
 			"name":  item.Name,
+			"stage": item.Stage,
 			"color": item.Color,
 		})
 	}
@@ -1097,6 +1123,7 @@ func machineMap(item HarnessMachineData) map[string]any {
 		"host":           item.Host,
 		"description":    item.Description,
 		"labels":         append([]string(nil), item.Labels...),
+		"resources":      cloneResourceMap(item.Resources),
 		"workspace_root": item.WorkspaceRoot,
 	}
 }
@@ -1109,6 +1136,7 @@ func accessibleMachineMaps(items []HarnessAccessibleMachineData) []map[string]an
 			"host":        item.Host,
 			"description": item.Description,
 			"labels":      append([]string(nil), item.Labels...),
+			"resources":   cloneResourceMap(item.Resources),
 			"ssh_user":    item.SSHUser,
 		})
 	}
