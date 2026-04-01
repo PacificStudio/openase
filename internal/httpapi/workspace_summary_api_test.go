@@ -46,7 +46,8 @@ func TestWorkspaceSummaryRouteReturnsAggregates(t *testing.T) {
 	server := newWorkspaceSummaryTestServer(client)
 	ctx := context.Background()
 
-	now := time.Now().UTC()
+	currentUTC := time.Now().UTC()
+	now := time.Date(currentUTC.Year(), currentUTC.Month(), currentUTC.Day(), 12, 0, 0, 0, time.UTC)
 	yesterday := now.Add(-24 * time.Hour)
 
 	orgA, err := client.Organization.Create().
