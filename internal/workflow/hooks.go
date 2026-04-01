@@ -224,7 +224,7 @@ func (e *workflowHookExecutor) RunAll(ctx context.Context, hookName workflowHook
 		e.logger.Info("workflow hook started", baseAttrs...)
 
 		if err := e.run(ctx, hookName, hook, runtime); err != nil {
-			attrs := append(baseAttrs,
+			attrs := append(append([]any{}, baseAttrs...),
 				"duration_ms", time.Since(startedAt).Milliseconds(),
 				"error", err,
 			)
@@ -242,7 +242,7 @@ func (e *workflowHookExecutor) RunAll(ctx context.Context, hookName workflowHook
 			}
 		}
 
-		e.logger.Info("workflow hook completed", append(baseAttrs, "duration_ms", time.Since(startedAt).Milliseconds(), "outcome", "passed")...)
+		e.logger.Info("workflow hook completed", append(append([]any{}, baseAttrs...), "duration_ms", time.Since(startedAt).Milliseconds(), "outcome", "passed")...)
 	}
 
 	return nil

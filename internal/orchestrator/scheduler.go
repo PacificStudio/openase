@@ -509,14 +509,15 @@ func (s *Scheduler) logDispatchSkip(workflow *ent.Workflow, ticket *ent.Ticket, 
 		return
 	}
 
-	baseAttrs := []any{
+	baseAttrs := make([]any, 0, 12+len(attrs))
+	baseAttrs = append(baseAttrs,
 		"operation", "schedule_ticket",
 		"project_id", workflow.ProjectID,
 		"workflow_id", workflow.ID,
 		"ticket_id", ticket.ID,
 		"ticket_status_id", ticket.StatusID,
 		"skip_reason", reason,
-	}
+	)
 	s.logger.Info("scheduler skipped ticket", append(baseAttrs, attrs...)...)
 }
 
