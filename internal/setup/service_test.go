@@ -109,10 +109,6 @@ func TestServiceCompleteWritesFilesWithoutRepoScaffold(t *testing.T) {
 	if !strings.Contains(string(configContent), "observability:") {
 		t.Fatalf("expected config to contain observability defaults, got %q", string(configContent))
 	}
-	if _, err := os.Stat(filepath.Join(homeDir, ".openase", "openase.yaml")); err != nil {
-		t.Fatalf("expected legacy config file to exist: %v", err)
-	}
-
 	envPath := filepath.Join(homeDir, ".openase", ".env")
 	//nolint:gosec // test reads files from a controlled temp home directory
 	envContent, err := os.ReadFile(envPath)

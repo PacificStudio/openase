@@ -6,8 +6,10 @@
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
+  import { Sheet, SheetContent, SheetHeader, SheetTitle } from '$ui/sheet'
   import { Textarea } from '$ui/textarea'
-  import { ChevronUp, Plus, Search } from '@lucide/svelte'
+  import { Plus, Search } from '@lucide/svelte'
+  import SkillDetailSheet from './skill-detail-sheet.svelte'
   import SkillSettingsCard from './skill-settings-card.svelte'
 
   type SkillFilter = 'all' | 'builtin' | 'custom' | 'disabled'
@@ -18,12 +20,18 @@
   let query = $state('')
   let filter = $state<SkillFilter>('all')
 
-  let showCreate = $state(false)
+  // Detail sheet
+  let detailOpen = $state(false)
+  let selectedSkill = $state<Skill | null>(null)
+
+  // Create sheet
+  let createOpen = $state(false)
   let createName = $state('')
   let createDescription = $state('')
   let createContent = $state('# New Skill\n\nDescribe the workflow here.\n')
   let createEnabled = $state(true)
   let creating = $state(false)
+
   const currentProjectId = $derived(appStore.currentProject?.id)
 
   const filteredSkills = $derived.by(() => {
@@ -86,17 +94,32 @@
     }
   })
 
-  async function reloadSkills(projectId: string) {
-    skills = (await listSkills(projectId)).skills
+  async function reloadSkills() {
+    if (!currentProjectId) return
+    const payload = await listSkills(currentProjectId)
+    skills = payload.skills
+    // Refresh selectedSkill if it's still open
+    if (selectedSkill) {
+      const updated = skills.find((s) => s.id === selectedSkill!.id)
+      selectedSkill = updated ?? null
+    }
   }
 
-  async function reloadCurrentProjectSkills() {
-    if (!currentProjectId) return
-    await reloadSkills(currentProjectId)
+  function openDetail(skill: Skill) {
+    selectedSkill = skill
+    detailOpen = true
+  }
+
+  function openCreate() {
+    createName = ''
+    createDescription = ''
+    createContent = '# New Skill\n\nDescribe the workflow here.\n'
+    createEnabled = true
+    createOpen = true
   }
 
   async function handleCreate() {
-    const projectId = appStore.currentProject?.id
+    const projectId = currentProjectId
     if (!projectId) return
     if (!createName.trim()) {
       toastStore.error('Skill name is required.')
@@ -115,12 +138,8 @@
         content: createContent,
         is_enabled: createEnabled,
       })
-      await reloadSkills(projectId)
-      createName = ''
-      createDescription = ''
-      createContent = '# New Skill\n\nDescribe the workflow here.\n'
-      createEnabled = true
-      showCreate = false
+      await reloadSkills()
+      createOpen = false
       toastStore.success('Created skill.')
     } catch (caughtError) {
       toastStore.error(
@@ -137,19 +156,16 @@
     <div>
       <h2 class="text-foreground text-base font-semibold">Skills Library</h2>
       <p class="text-muted-foreground mt-1 text-sm">
-        Manage reusable control-plane skills, their published versions, rollout state, and workflow
-        bindings.
+        Manage reusable skills, versions, and workflow bindings.
       </p>
     </div>
     {#if !loading}
-      <div class="flex shrink-0 items-center gap-3">
-        <div class="text-muted-foreground flex items-center gap-2 text-xs">
-          <span>{counts.total} skills</span>
-          <span class="text-muted-foreground/40">/</span>
-          <span>{counts.enabled} enabled</span>
-          <span class="text-muted-foreground/40">/</span>
-          <span>{counts.bound} bound</span>
-        </div>
+      <div class="text-muted-foreground flex items-center gap-2 text-xs">
+        <span>{counts.total} skills</span>
+        <span class="text-muted-foreground/40">/</span>
+        <span>{counts.enabled} enabled</span>
+        <span class="text-muted-foreground/40">/</span>
+        <span>{counts.bound} bound</span>
       </div>
     {/if}
   </div>
@@ -172,39 +188,11 @@
         </Button>
       {/each}
     </div>
-    <Button size="sm" class="h-8 gap-1.5" onclick={() => (showCreate = !showCreate)}>
-      {#if showCreate}
-        <ChevronUp class="size-3.5" />
-      {:else}
-        <Plus class="size-3.5" />
-      {/if}
+    <Button size="sm" class="h-8 gap-1.5" onclick={openCreate}>
+      <Plus class="size-3.5" />
       New Skill
     </Button>
   </div>
-
-  {#if showCreate}
-    <section class="bg-muted/40 space-y-3 rounded-lg border p-4">
-      <div class="grid gap-3 md:grid-cols-2">
-        <Input bind:value={createName} placeholder="Skill name, e.g. deploy-docker" />
-        <Input bind:value={createDescription} placeholder="Human-readable description" />
-      </div>
-      <Textarea bind:value={createContent} class="min-h-32 font-mono text-sm" />
-      <div class="flex items-center justify-between">
-        <label class="flex items-center gap-2 text-sm">
-          <input bind:checked={createEnabled} type="checkbox" />
-          Enable immediately
-        </label>
-        <div class="flex gap-2">
-          <Button type="button" variant="ghost" size="sm" onclick={() => (showCreate = false)}>
-            Cancel
-          </Button>
-          <Button size="sm" onclick={() => void handleCreate()} disabled={creating}>
-            {creating ? 'Creating…' : 'Create'}
-          </Button>
-        </div>
-      </div>
-    </section>
-  {/if}
 
   {#if loading}
     <div class="text-muted-foreground py-8 text-sm">Loading skills…</div>
@@ -217,8 +205,78 @@
   {:else}
     <div class="divide-border divide-y rounded-lg border">
       {#each filteredSkills as skill (skill.id)}
-        <SkillSettingsCard {skill} {workflows} onChanged={reloadCurrentProjectSkills} />
+        <SkillSettingsCard {skill} {workflows} onSelect={openDetail} />
       {/each}
     </div>
   {/if}
 </div>
+
+<!-- Detail / Edit sheet -->
+<SkillDetailSheet
+  bind:open={detailOpen}
+  skill={selectedSkill}
+  {workflows}
+  onChanged={reloadSkills}
+  onDeleted={() => void reloadSkills()}
+/>
+
+<!-- Create sheet -->
+<Sheet bind:open={createOpen}>
+  <SheetContent side="right" class="flex w-full flex-col gap-0 p-0 sm:max-w-xl">
+    <SheetHeader class="border-border shrink-0 border-b px-6 py-4 text-left">
+      <div class="flex items-center justify-between gap-4 pr-10">
+        <SheetTitle class="text-base">New Skill</SheetTitle>
+        <Button
+          size="sm"
+          onclick={() => void handleCreate()}
+          disabled={creating}
+        >
+          {creating ? 'Creating…' : 'Create'}
+        </Button>
+      </div>
+    </SheetHeader>
+
+    <div class="flex-1 space-y-4 overflow-y-auto px-6 py-5">
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div class="space-y-1.5">
+          <span class="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
+            Name
+          </span>
+          <Input
+            bind:value={createName}
+            placeholder="deploy-docker"
+            class="h-9 text-sm"
+            disabled={creating}
+          />
+        </div>
+        <div class="space-y-1.5">
+          <span class="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
+            Description
+          </span>
+          <Input
+            bind:value={createDescription}
+            placeholder="Human-readable description"
+            class="h-9 text-sm"
+            disabled={creating}
+          />
+        </div>
+      </div>
+
+      <div class="space-y-1.5">
+        <span class="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
+          SKILL.md
+        </span>
+        <Textarea
+          bind:value={createContent}
+          class="min-h-64 font-mono text-sm"
+          disabled={creating}
+        />
+      </div>
+
+      <label class="flex items-center gap-2 text-sm">
+        <input bind:checked={createEnabled} type="checkbox" disabled={creating} />
+        Enable immediately
+      </label>
+    </div>
+  </SheetContent>
+</Sheet>

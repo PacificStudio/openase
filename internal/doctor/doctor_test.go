@@ -13,12 +13,12 @@ func TestDiagnoseHealthyEnvironment(t *testing.T) {
 	homeDir := t.TempDir()
 
 	writeFile(t, filepath.Join(repoRoot, ".git"), []byte("gitdir"))
-	writeFile(t, filepath.Join(repoRoot, "openase.yaml"), []byte("server:\n  mode: all-in-one\ndatabase:\n  dsn: postgres://openase:secret@localhost:5432/openase?sslmode=disable\n"))
+	writeFile(t, filepath.Join(repoRoot, "config.yaml"), []byte("server:\n  mode: all-in-one\ndatabase:\n  dsn: postgres://openase:secret@localhost:5432/openase?sslmode=disable\n"))
 	writeFileMode(t, filepath.Join(homeDir, ".openase", ".env"), []byte("OPENASE_TOKEN=x\n"), 0o600)
 	mkdirAll(t, filepath.Join(homeDir, ".openase", "logs"))
 
 	report := Diagnose(context.Background(), Options{
-		ConfigFile: filepath.Join(repoRoot, "openase.yaml"),
+		ConfigFile: filepath.Join(repoRoot, "config.yaml"),
 		RepoRoot:   repoRoot,
 		HomeDir:    homeDir,
 		LookPath: func(name string) (string, error) {
@@ -63,11 +63,11 @@ func TestDiagnoseReportsConfigAndPermissionProblems(t *testing.T) {
 	homeDir := t.TempDir()
 
 	writeFile(t, filepath.Join(repoRoot, ".git"), []byte("gitdir"))
-	writeFile(t, filepath.Join(repoRoot, "openase.yaml"), []byte("server:\n  mode: invalid\n"))
+	writeFile(t, filepath.Join(repoRoot, "config.yaml"), []byte("server:\n  mode: invalid\n"))
 	writeFileMode(t, filepath.Join(homeDir, ".openase", ".env"), []byte("OPENASE_TOKEN=x\n"), 0o644)
 
 	report := Diagnose(context.Background(), Options{
-		ConfigFile: filepath.Join(repoRoot, "openase.yaml"),
+		ConfigFile: filepath.Join(repoRoot, "config.yaml"),
 		RepoRoot:   repoRoot,
 		HomeDir:    homeDir,
 		LookPath: func(name string) (string, error) {
@@ -97,13 +97,13 @@ func TestDoctorHelperFunctions(t *testing.T) {
 	}
 
 	candidates := configCandidates("/repo", "/home/codex")
-	if len(candidates) != 8 || candidates[0] != filepath.Join("/repo", "openase.yaml") || candidates[4] != filepath.Join("/home/codex", ".openase", "openase.yaml") {
+	if len(candidates) != 8 || candidates[0] != filepath.Join("/repo", "config.yaml") || candidates[4] != filepath.Join("/home/codex", ".openase", "config.yaml") {
 		t.Fatalf("configCandidates() = %+v", candidates)
 	}
 
 	repoRoot := t.TempDir()
 	writeFile(t, filepath.Join(repoRoot, ".git"), []byte("gitdir"))
-	configPath := filepath.Join(repoRoot, "openase.yaml")
+	configPath := filepath.Join(repoRoot, "config.yaml")
 	writeFile(t, configPath, []byte("server:\n  mode: all-in-one\n"))
 
 	resolvedRepoRoot, err := resolveRepoRoot(repoRoot)

@@ -5,10 +5,6 @@
   type Security = SecuritySettingsResponse['security']
 
   let { security }: { security: Security } = $props()
-
-  const signatureLabel = $derived(
-    security.webhooks.legacy_github_signature_required ? 'Required' : 'Optional',
-  )
 </script>
 
 <div class="space-y-4">
@@ -57,12 +53,7 @@
       <h3 class="text-sm font-semibold">Inbound webhooks</h3>
     </div>
     <div class="bg-muted/30 rounded-lg px-4 py-3">
-      <div class="grid gap-x-6 gap-y-2 text-xs sm:grid-cols-2">
-        <div>
-          <span class="text-muted-foreground">Legacy GitHub route</span>
-          <div class="font-mono">{security.webhooks.legacy_github_endpoint}</div>
-          <div class="text-muted-foreground mt-0.5">Signature: {signatureLabel}</div>
-        </div>
+      <div class="grid gap-x-6 gap-y-2 text-xs">
         <div>
           <span class="text-muted-foreground">Connector ingress route</span>
           <div class="font-mono">{security.webhooks.connector_endpoint}</div>

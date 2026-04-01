@@ -58,12 +58,11 @@ func TestServiceHelpersAndDatabaseCheck(t *testing.T) {
 	if got, exists := service.existingConfigPath(); exists || got != service.configPath() {
 		t.Fatalf("existingConfigPath() = (%q, %v)", got, exists)
 	}
-
-	if err := os.WriteFile(service.legacyConfigPath(), []byte("legacy"), 0o600); err != nil {
-		t.Fatalf("WriteFile(legacyConfigPath) error = %v", err)
+	if err := os.WriteFile(service.configPath(), []byte("configured"), 0o600); err != nil {
+		t.Fatalf("WriteFile(configPath) error = %v", err)
 	}
-	if got, exists := service.existingConfigPath(); !exists || got != service.legacyConfigPath() {
-		t.Fatalf("existingConfigPath() with legacy = (%q, %v)", got, exists)
+	if got, exists := service.existingConfigPath(); !exists || got != service.configPath() {
+		t.Fatalf("existingConfigPath() with config = (%q, %v)", got, exists)
 	}
 
 	tokenA, err := generateAuthToken()

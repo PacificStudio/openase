@@ -128,7 +128,7 @@ func TestCLIManagedServiceHelpers(t *testing.T) {
 		_ = os.Chdir(oldWD)
 	})
 
-	configPath := filepath.Join(cwd, "openase.yaml")
+	configPath := filepath.Join(cwd, "config.yaml")
 	if err := os.WriteFile(configPath, []byte("server:\n  mode: all-in-one\n"), 0o600); err != nil {
 		t.Fatalf("WriteFile(%q) error = %v", configPath, err)
 	}
@@ -172,7 +172,7 @@ func TestCLIManagedServiceHelpers(t *testing.T) {
 	if err := os.MkdirAll(homeConfigDir, 0o750); err != nil {
 		t.Fatalf("MkdirAll(%q) error = %v", homeConfigDir, err)
 	}
-	homeConfigPath := filepath.Join(homeConfigDir, "openase.toml")
+	homeConfigPath := filepath.Join(homeConfigDir, "config.toml")
 	if err := os.WriteFile(homeConfigPath, []byte("server = {}\n"), 0o600); err != nil {
 		t.Fatalf("WriteFile(%q) error = %v", homeConfigPath, err)
 	}

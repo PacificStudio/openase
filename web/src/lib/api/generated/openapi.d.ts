@@ -8690,8 +8690,6 @@ export interface operations {
               }
               webhooks?: {
                 connector_endpoint?: string
-                legacy_github_endpoint?: string
-                legacy_github_signature_required?: boolean
               }
             }
           }
@@ -8854,8 +8852,6 @@ export interface operations {
               }
               webhooks?: {
                 connector_endpoint?: string
-                legacy_github_endpoint?: string
-                legacy_github_signature_required?: boolean
               }
             }
           }
@@ -9011,8 +9007,6 @@ export interface operations {
               }
               webhooks?: {
                 connector_endpoint?: string
-                legacy_github_endpoint?: string
-                legacy_github_signature_required?: boolean
               }
             }
           }
@@ -9173,8 +9167,6 @@ export interface operations {
               }
               webhooks?: {
                 connector_endpoint?: string
-                legacy_github_endpoint?: string
-                legacy_github_signature_required?: boolean
               }
             }
           }
@@ -9335,8 +9327,6 @@ export interface operations {
               }
               webhooks?: {
                 connector_endpoint?: string
-                legacy_github_endpoint?: string
-                legacy_github_signature_required?: boolean
               }
             }
           }
@@ -11933,8 +11923,6 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Alias of workflow_ids kept for PRD terminology compatibility. */
-          harness_ids?: string[]
           /** @description Workflow IDs that should bind or unbind this skill. */
           workflow_ids?: string[]
         }
@@ -12258,8 +12246,6 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Alias of workflow_ids kept for PRD terminology compatibility. */
-          harness_ids?: string[]
           /** @description Workflow IDs that should bind or unbind this skill. */
           workflow_ids?: string[]
         }

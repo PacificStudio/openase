@@ -12678,12 +12678,6 @@
                           "properties": {
                             "connector_endpoint": {
                               "type": "string"
-                            },
-                            "legacy_github_endpoint": {
-                              "type": "string"
-                            },
-                            "legacy_github_signature_required": {
-                              "type": "boolean"
                             }
                           },
                           "type": "object"
@@ -13031,12 +13025,6 @@
                           "properties": {
                             "connector_endpoint": {
                               "type": "string"
-                            },
-                            "legacy_github_endpoint": {
-                              "type": "string"
-                            },
-                            "legacy_github_signature_required": {
-                              "type": "boolean"
                             }
                           },
                           "type": "object"
@@ -13394,12 +13382,6 @@
                           "properties": {
                             "connector_endpoint": {
                               "type": "string"
-                            },
-                            "legacy_github_endpoint": {
-                              "type": "string"
-                            },
-                            "legacy_github_signature_required": {
-                              "type": "boolean"
                             }
                           },
                           "type": "object"
@@ -13755,12 +13737,6 @@
                           "properties": {
                             "connector_endpoint": {
                               "type": "string"
-                            },
-                            "legacy_github_endpoint": {
-                              "type": "string"
-                            },
-                            "legacy_github_signature_required": {
-                              "type": "boolean"
                             }
                           },
                           "type": "object"
@@ -14116,12 +14092,6 @@
                           "properties": {
                             "connector_endpoint": {
                               "type": "string"
-                            },
-                            "legacy_github_endpoint": {
-                              "type": "string"
-                            },
-                            "legacy_github_signature_required": {
-                              "type": "boolean"
                             }
                           },
                           "type": "object"
@@ -19240,13 +19210,6 @@
             "application/json": {
               "schema": {
                 "properties": {
-                  "harness_ids": {
-                    "description": "Alias of workflow_ids kept for PRD terminology compatibility.",
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
                   "workflow_ids": {
                     "description": "Workflow IDs that should bind or unbind this skill.",
                     "items": {
@@ -19859,13 +19822,6 @@
             "application/json": {
               "schema": {
                 "properties": {
-                  "harness_ids": {
-                    "description": "Alias of workflow_ids kept for PRD terminology compatibility.",
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
                   "workflow_ids": {
                     "description": "Workflow IDs that should bind or unbind this skill.",
                     "items": {

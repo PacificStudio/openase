@@ -150,7 +150,7 @@ func TestLoadFromEnvironment(t *testing.T) {
 
 func TestLoadFromConfigFile(t *testing.T) {
 	dir := t.TempDir()
-	configPath := filepath.Join(dir, "openase.yaml")
+	configPath := filepath.Join(dir, "config.yaml")
 	writeFile(t, configPath, []byte(`
 server:
   mode: serve
@@ -405,7 +405,7 @@ func TestConfigValidationHelpers(t *testing.T) {
 func TestConfigFileHelpers(t *testing.T) {
 	v := viper.New()
 	dir := t.TempDir()
-	configPath := filepath.Join(dir, "openase.yaml")
+	configPath := filepath.Join(dir, "config.yaml")
 	writeFile(t, configPath, []byte("server:\n  mode: serve\n"))
 
 	if used, err := readConfigFile(v, configPath); err != nil || used != configPath {
@@ -517,7 +517,7 @@ func TestConfigValidationAndFileHelpersCoverFailurePaths(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	badConfigPath := filepath.Join(dir, "openase.yaml")
+	badConfigPath := filepath.Join(dir, "config.yaml")
 	writeFile(t, badConfigPath, []byte("server:\n  mode: ["))
 	other := viper.New()
 	if _, err := readConfigFile(other, badConfigPath); err == nil || !strings.Contains(err.Error(), "read config file") {

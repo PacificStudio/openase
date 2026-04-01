@@ -118,7 +118,7 @@ func TestUpCommandAppliesManagedServiceWhenConfigExists(t *testing.T) {
 }
 
 func TestUpCommandReturnsConfigResolutionError(t *testing.T) {
-	rootOptions := &rootOptions{configFile: "/missing/openase.yaml"}
+	rootOptions := &rootOptions{configFile: "/missing/config.yaml"}
 
 	command := newUpCommandWithDeps(rootOptions, upCommandDeps{
 		resolveConfigPath: func(string) (provider.AbsolutePath, error) {

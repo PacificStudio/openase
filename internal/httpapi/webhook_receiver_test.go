@@ -63,7 +63,7 @@ func TestInboundWebhookRouteDispatchesConnectorProviderEndpoint(t *testing.T) {
 	}
 }
 
-func TestLegacyGitHubWebhookRouteUsesSharedReceiver(t *testing.T) {
+func TestTicketRepoScopeGitHubWebhookRouteUsesSharedReceiver(t *testing.T) {
 	endpoint := &stubInboundWebhookEndpoint{
 		target: ticketRepoScopeWebhookTarget,
 		dispatch: inboundWebhookDispatch{
@@ -84,7 +84,7 @@ func TestLegacyGitHubWebhookRouteUsesSharedReceiver(t *testing.T) {
 	server := newInboundWebhookTestServer()
 	server.inboundWebhooks = newInboundWebhookReceiver(newInboundWebhookTestLogger(), endpoint)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/github", strings.NewReader(`{"action":"opened"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/ticket-repo-scope/github", strings.NewReader(`{"action":"opened"}`))
 	req.Header.Set(echoHeaderContentTypeJSON, echoMIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 
@@ -128,7 +128,7 @@ func TestInboundWebhookRouteErrorMappingsAndHelpers(t *testing.T) {
 		}
 
 		server.inboundWebhooks = nil
-		unavailableRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/webhooks/github", `{}`)
+		unavailableRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/webhooks/ticket-repo-scope/github", `{}`)
 		if unavailableRec.Code != http.StatusServiceUnavailable || !strings.Contains(unavailableRec.Body.String(), "SERVICE_UNAVAILABLE") {
 			t.Fatalf("unavailable response = %d %s", unavailableRec.Code, unavailableRec.Body.String())
 		}
@@ -204,7 +204,7 @@ func TestInboundWebhookRouteErrorMappingsAndHelpers(t *testing.T) {
 				server := newInboundWebhookTestServer()
 				server.inboundWebhooks = newInboundWebhookReceiver(newInboundWebhookTestLogger(), testCase.endpoint)
 
-				rec := performJSONRequest(t, server, http.MethodPost, "/api/v1/webhooks/github", testCase.body)
+				rec := performJSONRequest(t, server, http.MethodPost, "/api/v1/webhooks/ticket-repo-scope/github", testCase.body)
 				if rec.Code != testCase.wantStatus {
 					t.Fatalf("status = %d, want %d: %s", rec.Code, testCase.wantStatus, rec.Body.String())
 				}

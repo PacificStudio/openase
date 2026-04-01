@@ -1,5 +1,5 @@
 {
-  "openapi_sha256": "6cdf016aeee3040ccf7e96093baca426d79ab5a5bcb24a5f6f203690969c056b",
+  "openapi_sha256": "fc8ce1d8070789268b49cef498c96a8cab22a4521408f46e0e73ff7bcd8f20ce",
   "commands": [
     {
       "use": "list [projectId]",
@@ -1744,11 +1744,6 @@
       ],
       "body_fields": [
         {
-          "name": "harness_ids",
-          "description": "Alias of workflow_ids kept for PRD terminology compatibility.",
-          "kind": "string_slice"
-        },
-        {
           "name": "workflow_ids",
           "description": "Workflow IDs that should bind or unbind this skill.",
           "kind": "string_slice"
@@ -1772,11 +1767,6 @@
         }
       ],
       "body_fields": [
-        {
-          "name": "harness_ids",
-          "description": "Alias of workflow_ids kept for PRD terminology compatibility.",
-          "kind": "string_slice"
-        },
         {
           "name": "workflow_ids",
           "description": "Workflow IDs that should bind or unbind this skill.",

@@ -172,7 +172,7 @@ func readConfigFile(v *viper.Viper, explicitPath string) (string, error) {
 		return v.ConfigFileUsed(), nil
 	}
 
-	v.SetConfigName("openase")
+	v.SetConfigName("config")
 	v.AddConfigPath(".")
 
 	if home, err := os.UserHomeDir(); err == nil {

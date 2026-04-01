@@ -93,94 +93,9 @@ func (s *Service) currentWorkflowVersion(ctx context.Context, workflowID uuid.UU
 		Order(ent.Desc(entworkflowversion.FieldVersion)).
 		First(ctx)
 	if err != nil {
-		if ent.IsNotFound(err) {
-			seeded, seedErr := s.seedLegacyWorkflowVersion(ctx, workflowID)
-			if seedErr == nil {
-				return seeded, nil
-			}
-			return nil, seedErr
-		}
 		return nil, s.mapWorkflowReadError("get workflow version", err)
 	}
 	return item, nil
-}
-
-func (s *Service) seedLegacyWorkflowVersion(ctx context.Context, workflowID uuid.UUID) (*ent.WorkflowVersion, error) {
-	if s == nil || s.client == nil {
-		return nil, ErrUnavailable
-	}
-	s.workflowVersionMu.Lock()
-	defer s.workflowVersionMu.Unlock()
-
-	if existing, err := s.client.WorkflowVersion.Query().
-		Where(entworkflowversion.WorkflowIDEQ(workflowID)).
-		Order(ent.Desc(entworkflowversion.FieldVersion)).
-		First(ctx); err == nil {
-		return existing, nil
-	}
-
-	workflowItem, err := s.client.Workflow.Get(ctx, workflowID)
-	if err != nil {
-		return nil, s.mapWorkflowReadError("get workflow for legacy version import", err)
-	}
-
-	repoRoot := strings.TrimSpace(s.repoRoot)
-	if repoRoot == "" {
-		return nil, ErrWorkflowNotFound
-	}
-
-	//nolint:gosec // legacy import only reads a workflow-owned harness path from the resolved repo root.
-	contentBytes, err := os.ReadFile(filepath.Join(repoRoot, filepath.FromSlash(workflowItem.HarnessPath)))
-	if err != nil {
-		return nil, s.mapWorkflowReadError("read legacy workflow harness", err)
-	}
-	content, err := sanitizeHarnessContent(string(contentBytes))
-	if err != nil {
-		return nil, err
-	}
-
-	versionNumber := workflowItem.Version
-	if versionNumber <= 0 {
-		versionNumber = 1
-	}
-	now := time.Now().UTC()
-	tx, err := s.client.Tx(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("start workflow legacy version tx: %w", err)
-	}
-	defer rollback(tx)
-
-	versionItem, err := tx.WorkflowVersion.Create().
-		SetWorkflowID(workflowItem.ID).
-		SetVersion(versionNumber).
-		SetContentMarkdown(content).
-		SetContentHash(contentHash(content)).
-		SetCreatedBy("system:legacy-import").
-		SetCreatedAt(now).
-		Save(ctx)
-	if err != nil {
-		if ent.IsConstraintError(err) {
-			return s.client.WorkflowVersion.Query().
-				Where(entworkflowversion.WorkflowIDEQ(workflowItem.ID)).
-				Order(ent.Desc(entworkflowversion.FieldVersion)).
-				First(ctx)
-		}
-		return nil, fmt.Errorf("create legacy workflow version: %w", err)
-	}
-
-	if workflowItem.CurrentVersionID == nil || *workflowItem.CurrentVersionID == uuid.Nil {
-		if _, err := tx.Workflow.UpdateOneID(workflowItem.ID).
-			SetCurrentVersionID(versionItem.ID).
-			Save(ctx); err != nil {
-			return nil, fmt.Errorf("set legacy workflow current version: %w", err)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("commit workflow legacy version tx: %w", err)
-	}
-
-	return versionItem, nil
 }
 
 func (s *Service) projectedWorkflowHarness(ctx context.Context, workflowItem *ent.Workflow) (string, error) {

@@ -68,7 +68,7 @@ For a complete zero-to-run source deployment guide, see [`docs/source-build-and-
 Copy the sample config if you want a file-based setup:
 
 ```bash
-cp openase.example.yaml ./openase.yaml
+cp config.example.yaml ./config.yaml
 ```
 
 The minimum required runtime setting is a PostgreSQL DSN, for example:
@@ -125,7 +125,7 @@ The setup flow seeds both home-directory and repo-local assets.
 
 Under `~/.openase/`:
 
-- `config.yaml` and `openase.yaml` style runtime config
+- `config.yaml` runtime config
 - `.env` with the local auth token used by the managed service
 - `logs/` and `workspaces/`
 
@@ -151,7 +151,7 @@ Representative HTTP routes:
 - `GET /api/v1/projects/:projectId/skills`, `POST /api/v1/projects/:projectId/skills/{refresh,harvest}`, and workflow skill bind/unbind endpoints
 - `GET /api/v1/roles/builtin`
 - `GET /api/v1/projects/:projectId/{tickets,agents,hooks,activity}/stream`
-- `POST /api/v1/webhooks/github`
+- `POST /api/v1/webhooks/:connector/:provider`
 - authenticated agent platform routes under `/api/v1/platform/...`
 
 ## CLI Contract

@@ -48,7 +48,6 @@ type rawUpdateSkillRequest struct {
 
 type rawUpdateSkillBindingsRequest struct {
 	WorkflowIDs []string `json:"workflow_ids"`
-	HarnessIDs  []string `json:"harness_ids"`
 }
 
 func parseRefreshSkillsRequest(projectID uuid.UUID, raw rawSkillSyncRequest) (workflowservice.RefreshSkillsInput, error) {
@@ -162,16 +161,12 @@ func parseUpdateSkillBindingsRequest(
 	skillID uuid.UUID,
 	raw rawUpdateSkillBindingsRequest,
 ) (workflowservice.UpdateSkillBindingsInput, error) {
-	values := raw.WorkflowIDs
-	if len(values) == 0 {
-		values = raw.HarnessIDs
-	}
-	if len(values) == 0 {
+	if len(raw.WorkflowIDs) == 0 {
 		return workflowservice.UpdateSkillBindingsInput{}, fmt.Errorf("workflow_ids must not be empty")
 	}
 
-	workflowIDs := make([]uuid.UUID, 0, len(values))
-	for _, item := range values {
+	workflowIDs := make([]uuid.UUID, 0, len(raw.WorkflowIDs))
+	for _, item := range raw.WorkflowIDs {
 		parsed, err := uuid.Parse(strings.TrimSpace(item))
 		if err != nil {
 			return workflowservice.UpdateSkillBindingsInput{}, fmt.Errorf("workflow_ids must contain UUID values")

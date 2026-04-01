@@ -189,9 +189,7 @@ function configuredSecurity() {
       },
     },
     webhooks: {
-      legacy_github_endpoint: 'POST /api/v1/webhooks/github',
       connector_endpoint: 'POST /api/v1/webhooks/:connector/:provider',
-      legacy_github_signature_required: true,
     },
     secret_hygiene: {
       notification_channel_configs_redacted: true,

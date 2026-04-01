@@ -19,7 +19,7 @@ import (
 )
 
 func TestRunWithConfigLoadsConfigAndInvokesRunner(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "openase.yaml")
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	if err := os.WriteFile(configPath, []byte(strings.TrimSpace(`
 server:
   mode: all-in-one

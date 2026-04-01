@@ -1,50 +1,8 @@
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
+import { cleanup, render } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { Skill, Workflow } from '$lib/api/contracts'
 import SkillSettingsCard from './skill-settings-card.svelte'
-
-const {
-  bindSkill,
-  deleteSkill,
-  disableSkill,
-  enableSkill,
-  getSkill,
-  listSkillHistory,
-  unbindSkill,
-  updateSkill,
-} = vi.hoisted(() => ({
-  bindSkill: vi.fn(),
-  deleteSkill: vi.fn(),
-  disableSkill: vi.fn(),
-  enableSkill: vi.fn(),
-  getSkill: vi.fn(),
-  listSkillHistory: vi.fn(),
-  unbindSkill: vi.fn(),
-  updateSkill: vi.fn(),
-}))
-
-vi.mock('$lib/api/openase', () => ({
-  bindSkill,
-  deleteSkill,
-  disableSkill,
-  enableSkill,
-  getSkill,
-  listSkillHistory,
-  unbindSkill,
-  updateSkill,
-}))
-
-const { toastStore } = vi.hoisted(() => ({
-  toastStore: {
-    success: vi.fn(),
-    error: vi.fn(),
-  },
-}))
-
-vi.mock('$lib/stores/toast.svelte', () => ({
-  toastStore,
-}))
 
 const workflows: Workflow[] = [
   {
@@ -87,48 +45,41 @@ describe('SkillSettingsCard', () => {
     vi.clearAllMocks()
   })
 
-  it('shows the current published version on the collapsed card', () => {
+  it('shows the current published version on the card', () => {
     const { getByText } = render(SkillSettingsCard, {
       props: {
         skill,
         workflows,
-        onChanged: vi.fn(),
+        onSelect: vi.fn(),
       },
     })
 
-    expect(getByText('Published v2')).toBeTruthy()
+    expect(getByText('v2')).toBeTruthy()
   })
 
-  it('loads and renders skill version history when editing', async () => {
-    getSkill.mockResolvedValue({
-      skill,
-      content: '# Commit\n\nWrite a conventional commit message.',
-    })
-    listSkillHistory.mockResolvedValue({
-      history: [
-        { id: 'v2', version: 2, created_by: 'user:gary', created_at: '2026-03-28T12:00:00Z' },
-        { id: 'v1', version: 1, created_by: 'system:init', created_at: '2026-03-27T12:00:00Z' },
-      ],
-    })
-
-    const { getByText, getByRole, findByText } = render(SkillSettingsCard, {
+  it('shows bound workflow names', () => {
+    const { getByText } = render(SkillSettingsCard, {
       props: {
         skill,
         workflows,
-        onChanged: vi.fn(),
+        onSelect: vi.fn(),
       },
     })
 
-    await fireEvent.click(getByRole('button', { name: 'Actions for commit' }))
-    await fireEvent.click(getByText('Edit'))
+    expect(getByText('Coding Workflow')).toBeTruthy()
+  })
 
-    expect(await findByText('Published versions')).toBeTruthy()
-    expect(await findByText('v2')).toBeTruthy()
-    expect(await findByText('user:gary')).toBeTruthy()
-
-    await waitFor(() => {
-      expect(getSkill).toHaveBeenCalledWith('skill-1')
-      expect(listSkillHistory).toHaveBeenCalledWith('skill-1')
+  it('calls onSelect when clicked', async () => {
+    const onSelect = vi.fn()
+    const { getByText } = render(SkillSettingsCard, {
+      props: {
+        skill,
+        workflows,
+        onSelect,
+      },
     })
+
+    await getByText('commit').click()
+    expect(onSelect).toHaveBeenCalledWith(skill)
   })
 })

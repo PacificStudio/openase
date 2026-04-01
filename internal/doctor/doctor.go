@@ -477,12 +477,12 @@ func configCandidates(repoRoot string, homeDir string) []string {
 	candidates := make([]string, 0, 8)
 	for _, extension := range []string{"yaml", "yml", "json", "toml"} {
 		if repoRoot != "" {
-			candidates = append(candidates, filepath.Join(repoRoot, "openase."+extension))
+			candidates = append(candidates, filepath.Join(repoRoot, "config."+extension))
 		}
 	}
 	for _, extension := range []string{"yaml", "yml", "json", "toml"} {
 		if homeDir != "" {
-			candidates = append(candidates, filepath.Join(homeDir, ".openase", "openase."+extension))
+			candidates = append(candidates, filepath.Join(homeDir, ".openase", "config."+extension))
 		}
 	}
 	return candidates

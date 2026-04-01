@@ -67,8 +67,8 @@ func TestSecuritySettingsRouteReturnsCurrentBoundary(t *testing.T) {
 	if !payload.Security.GitHub.Organization.Configured || payload.Security.GitHub.ProjectOverride.Configured {
 		t.Fatalf("expected scoped GitHub slots, got %+v", payload.Security.GitHub)
 	}
-	if !payload.Security.Webhooks.LegacyGitHubSignatureRequired {
-		t.Fatal("expected legacy GitHub signature to be required when webhook secret is configured")
+	if payload.Security.Webhooks.ConnectorEndpoint != "POST /api/v1/webhooks/:connector/:provider" {
+		t.Fatalf("expected connector webhook endpoint, got %+v", payload.Security.Webhooks)
 	}
 	if len(payload.Security.Deferred) == 0 {
 		t.Fatal("expected deferred security scope to be described")

@@ -33,7 +33,7 @@ func TestSystemdApplyWritesUnitAndRunsLifecycleCommands(t *testing.T) {
 	unit := string(unitBytes)
 	for _, expected := range []string{
 		"Description=OpenASE -- Auto Software Engineering Platform",
-		`ExecStart="/tmp/openase" "all-in-one" "--config" "/tmp/openase.yaml"`,
+		`ExecStart="/tmp/openase" "all-in-one" "--config" "/tmp/config.yaml"`,
 		"EnvironmentFile=-" + filepath.Join(homeDir, ".openase", ".env"),
 		"WorkingDirectory=" + filepath.Join(homeDir, ".openase"),
 		"WantedBy=default.target",
@@ -274,7 +274,7 @@ func testInstallSpec(t *testing.T, homeDir string) provider.UserServiceInstallSp
 		provider.MustParseServiceName("openase"),
 		"OpenASE -- Auto Software Engineering Platform",
 		provider.MustParseAbsolutePath("/tmp/openase"),
-		[]string{"all-in-one", "--config", "/tmp/openase.yaml"},
+		[]string{"all-in-one", "--config", "/tmp/config.yaml"},
 		provider.MustParseAbsolutePath(filepath.Join(homeDir, ".openase")),
 		provider.MustParseAbsolutePath(filepath.Join(homeDir, ".openase", ".env")),
 		provider.MustParseAbsolutePath(filepath.Join(homeDir, ".openase", "logs", "openase.stdout.log")),

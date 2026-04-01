@@ -87,7 +87,7 @@ Use the compiled binary for service management commands such as `up`, `down`, `r
 Start from the sample config if you want a repo-local config file:
 
 ```bash
-cp openase.example.yaml ./openase.yaml
+cp config.example.yaml ./config.yaml
 ```
 
 Update `database.dsn` to a reachable PostgreSQL instance. The minimum working value looks like:
@@ -100,10 +100,9 @@ database:
 Config lookup order for most commands is:
 
 1. `--config <path>`
-2. `./openase.yaml`, `./openase.yml`, `./openase.json`, `./openase.toml`
-3. `~/.openase/config.yaml`
-4. `~/.openase/openase.yaml`, `~/.openase/openase.yml`, `~/.openase/openase.json`, `~/.openase/openase.toml`
-5. `OPENASE_*` environment variables and built-in defaults
+2. `./config.yaml`, `./config.yml`, `./config.json`, `./config.toml`
+3. `~/.openase/config.yaml`, `~/.openase/config.yml`, `~/.openase/config.json`, `~/.openase/config.toml`
+4. `OPENASE_*` environment variables and built-in defaults
 
 Useful overrides:
 
@@ -166,7 +165,6 @@ Successful setup does all of the following:
 
 - tests database connectivity and migrates the schema
 - writes `~/.openase/config.yaml`
-- writes `~/.openase/openase.yaml` for legacy config discovery
 - writes `~/.openase/.env` with the generated platform auth token
 - creates `~/.openase/logs/` and `~/.openase/workspaces/`
 - scaffolds `.openase/` assets inside the selected project repo

@@ -379,7 +379,7 @@ func performGitHubWebhookRequestWithServer(
 ) *httptest.ResponseRecorder {
 	t.Helper()
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/github", strings.NewReader(payload))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/ticket-repo-scope/github", strings.NewReader(payload))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set(gitHubWebhookEventHeader, event)
 	req.Header.Set(gitHubWebhookDeliveryIDHeader, "delivery-123")

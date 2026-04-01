@@ -314,9 +314,6 @@ func (s *Service) writeConfigFile(request CompleteRequest) error {
 	if err := os.WriteFile(s.configPath(), content, 0o600); err != nil {
 		return fmt.Errorf("write setup config: %w", err)
 	}
-	if err := os.WriteFile(s.legacyConfigPath(), content, 0o600); err != nil {
-		return fmt.Errorf("write legacy setup config: %w", err)
-	}
 
 	return nil
 }
@@ -334,21 +331,14 @@ func (s *Service) configPath() string {
 	return filepath.Join(s.homeDir, ".openase", "config.yaml")
 }
 
-func (s *Service) legacyConfigPath() string {
-	return filepath.Join(s.homeDir, ".openase", "openase.yaml")
-}
-
 func (s *Service) envPath() string {
 	return filepath.Join(s.homeDir, ".openase", ".env")
 }
 
 func (s *Service) existingConfigPath() (string, bool) {
-	for _, candidate := range []string{s.configPath(), s.legacyConfigPath()} {
-		if fileExists(candidate) {
-			return candidate, true
-		}
+	if fileExists(s.configPath()) {
+		return s.configPath(), true
 	}
-
 	return s.configPath(), false
 }
 

@@ -882,69 +882,6 @@ func TestWorkflowServiceSkillAndReloadEdgeCases(t *testing.T) {
 	}
 }
 
-func TestWorkflowServiceImportsLegacyWorkflowVersionFromRepoHarness(t *testing.T) {
-	ctx := context.Background()
-	client := openWorkflowTestEntClient(t)
-	repoRoot := createWorkflowTestGitRepo(t)
-	service := newWorkflowTestService(t, client, repoRoot)
-	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
-
-	legacyPath := ".openase/harnesses/legacy/coding.md"
-	legacyContent := "---\nworkflow:\n  role: coding\nskills:\n  - should-be-stripped\n---\n\n# Legacy Coding\n"
-	if err := os.MkdirAll(filepath.Join(repoRoot, ".openase", "harnesses", "legacy"), 0o750); err != nil {
-		t.Fatalf("mkdir legacy harness dir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(repoRoot, filepath.FromSlash(legacyPath)), []byte(legacyContent), 0o600); err != nil {
-		t.Fatalf("write legacy harness: %v", err)
-	}
-
-	legacyWorkflow, err := client.Workflow.Create().
-		SetProjectID(fixture.projectID).
-		SetAgentID(fixture.agentID).
-		SetName("Legacy Coding").
-		SetType(entworkflow.TypeCoding).
-		SetHarnessPath(legacyPath).
-		SetVersion(3).
-		SetIsActive(false).
-		SetMaxConcurrent(1).
-		SetMaxRetryAttempts(1).
-		SetTimeoutMinutes(30).
-		SetStallTimeoutMinutes(5).
-		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
-		AddFinishStatusIDs(fixture.statusIDs["Done"]).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("create legacy workflow: %v", err)
-	}
-
-	harnessDoc, err := service.GetHarness(ctx, legacyWorkflow.ID)
-	if err != nil {
-		t.Fatalf("GetHarness() legacy import error = %v", err)
-	}
-	if harnessDoc.Version != 3 || !strings.Contains(harnessDoc.Content, "# Legacy Coding") {
-		t.Fatalf("GetHarness() legacy import = %+v", harnessDoc)
-	}
-	if skillNames, err := ParseHarnessSkills(harnessDoc.Content); err != nil || len(skillNames) != 0 {
-		t.Fatalf("ParseHarnessSkills(imported harness) = %+v, %v", skillNames, err)
-	}
-
-	versionItem, err := service.currentWorkflowVersion(ctx, legacyWorkflow.ID)
-	if err != nil {
-		t.Fatalf("currentWorkflowVersion() error = %v", err)
-	}
-	if versionItem.Version != 3 || strings.Contains(versionItem.ContentMarkdown, "should-be-stripped") {
-		t.Fatalf("currentWorkflowVersion() = %+v", versionItem)
-	}
-
-	reloaded, err := client.Workflow.Get(ctx, legacyWorkflow.ID)
-	if err != nil {
-		t.Fatalf("reload legacy workflow: %v", err)
-	}
-	if reloaded.CurrentVersionID == nil || *reloaded.CurrentVersionID != versionItem.ID {
-		t.Fatalf("legacy workflow current version = %v, want %s", reloaded.CurrentVersionID, versionItem.ID)
-	}
-}
-
 func findSkillByName(items []Skill, name string) *Skill {
 	for i := range items {
 		if items[i].Name == name {

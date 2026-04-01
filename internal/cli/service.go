@@ -247,11 +247,10 @@ func resolveManagedServiceConfigPath(configFile string) (provider.AbsolutePath, 
 func managedServiceConfigCandidates(cwd string, homeDir string) []string {
 	candidates := make([]string, 0, 9)
 	for _, extension := range []string{"yaml", "yml", "json", "toml"} {
-		candidates = append(candidates, filepath.Join(cwd, "openase."+extension))
+		candidates = append(candidates, filepath.Join(cwd, "config."+extension))
 	}
-	candidates = append(candidates, filepath.Join(homeDir, ".openase", "config.yaml"))
 	for _, extension := range []string{"yaml", "yml", "json", "toml"} {
-		candidates = append(candidates, filepath.Join(homeDir, ".openase", "openase."+extension))
+		candidates = append(candidates, filepath.Join(homeDir, ".openase", "config."+extension))
 	}
 
 	return candidates

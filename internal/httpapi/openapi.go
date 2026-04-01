@@ -1088,9 +1088,7 @@ type OpenAPISecurityAgentTokens struct {
 }
 
 type OpenAPISecurityWebhooks struct {
-	LegacyGitHubEndpoint          string `json:"legacy_github_endpoint"`
-	ConnectorEndpoint             string `json:"connector_endpoint"`
-	LegacyGitHubSignatureRequired bool   `json:"legacy_github_signature_required"`
+	ConnectorEndpoint string `json:"connector_endpoint"`
 }
 
 type OpenAPISecuritySecretHygiene struct {
@@ -1480,7 +1478,6 @@ var (
 	}
 	openAPISkillBindingTargetDescriptions = map[string]string{
 		"workflow_ids": "Workflow IDs that should bind or unbind this skill.",
-		"harness_ids":  "Alias of workflow_ids kept for PRD terminology compatibility.",
 	}
 	openAPIRequestBodyDescriptions = map[string]map[string]string{
 		"POST /api/v1/orgs":                                                                            openAPIOrganizationRequestDescriptions,

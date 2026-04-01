@@ -108,10 +108,6 @@ func newInboundWebhookReceiver(logger *slog.Logger, endpoints ...inboundWebhookE
 	return receiver
 }
 
-func (s *Server) handleLegacyGitHubWebhook(c echo.Context) error {
-	return s.handleInboundWebhookTarget(c, ticketRepoScopeWebhookTarget)
-}
-
 func (s *Server) handleInboundWebhook(c echo.Context) error {
 	target, err := parseInboundWebhookTarget(c.Param("connector"), c.Param("provider"))
 	if err != nil {

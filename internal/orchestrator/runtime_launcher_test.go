@@ -2,6 +2,8 @@ package orchestrator
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -90,7 +92,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
+	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -348,7 +350,7 @@ workflow:
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
+	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -502,7 +504,7 @@ Blocked lifecycle publish regression test.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
+	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -708,7 +710,7 @@ Launch starvation regression test.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
+	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -840,7 +842,7 @@ Blocked launch should time out cleanly.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
+	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -1364,7 +1366,7 @@ Runtime reconcile test
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
+	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -1482,7 +1484,7 @@ Implement the ticket using the current workspace.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
+	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -1659,7 +1661,7 @@ Emit visible runtime output.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
+	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -1953,6 +1955,13 @@ func TestRuntimeLauncherRunTickStopsRuntimeWhenWorkflowRoutingChanges(t *testing
 	if err != nil {
 		t.Fatalf("create alternate workflow: %v", err)
 	}
+	publishRuntimeLauncherWorkflowVersionContent(
+		ctx,
+		t,
+		client,
+		otherWorkflow.ID,
+		"---\nworkflow:\n  role: coding\n---\n\nKeep working until workflow routing changes.\n",
+	)
 
 	if err := launcher.RunTick(ctx); err != nil {
 		t.Fatalf("launch runtime session: %v", err)
@@ -2201,7 +2210,7 @@ Handle a failing runtime turn.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
+	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -2359,7 +2368,7 @@ Exercise successful ticket hook lifecycle.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
+	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -2532,7 +2541,7 @@ Exercise failing ticket hook lifecycle.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
+	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -3467,7 +3476,7 @@ func newRuntimeExecutionFixture(
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, workflowSvc, workflowItem.ID)
+	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
 
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
@@ -3607,13 +3616,51 @@ func commitRuntimeLauncherRepo(t *testing.T, repoRoot string) {
 func publishRuntimeLauncherWorkflowVersion(
 	ctx context.Context,
 	t *testing.T,
-	workflowSvc *workflowservice.Service,
+	client *ent.Client,
 	workflowID uuid.UUID,
+	repoRoot string,
 ) {
 	t.Helper()
 
-	if _, err := workflowSvc.GetHarness(ctx, workflowID); err != nil {
-		t.Fatalf("publish workflow harness version: %v", err)
+	workflowItem, err := client.Workflow.Get(ctx, workflowID)
+	if err != nil {
+		t.Fatalf("load workflow for harness version: %v", err)
+	}
+	harnessPath := filepath.Join(repoRoot, workflowItem.HarnessPath)
+	contentBytes, err := os.ReadFile(harnessPath)
+	if err != nil {
+		t.Fatalf("read harness file %s: %v", harnessPath, err)
+	}
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowID, string(contentBytes))
+}
+
+func publishRuntimeLauncherWorkflowVersionContent(
+	ctx context.Context,
+	t *testing.T,
+	client *ent.Client,
+	workflowID uuid.UUID,
+	content string,
+) {
+	t.Helper()
+
+	workflowItem, err := client.Workflow.Get(ctx, workflowID)
+	if err != nil {
+		t.Fatalf("load workflow for harness version: %v", err)
+	}
+	sum := sha256.Sum256([]byte(content))
+	versionItem, err := client.WorkflowVersion.Create().
+		SetWorkflowID(workflowID).
+		SetVersion(workflowItem.Version).
+		SetContentMarkdown(content).
+		SetContentHash(hex.EncodeToString(sum[:])).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow version: %v", err)
+	}
+	if _, err := client.Workflow.UpdateOneID(workflowID).
+		SetCurrentVersionID(versionItem.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("set current workflow version: %v", err)
 	}
 }
 

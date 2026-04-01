@@ -14,8 +14,7 @@ import (
 )
 
 const (
-	securitySettingsLegacyGitHubEndpoint = "POST /api/v1/webhooks/github"
-	securitySettingsConnectorEndpoint    = "POST /api/v1/webhooks/:connector/:provider"
+	securitySettingsConnectorEndpoint = "POST /api/v1/webhooks/:connector/:provider"
 	//nolint:gosec // This is an environment variable name, not a credential value.
 	securitySettingsAgentTokenEnvVar    = "OPENASE_AGENT_TOKEN"
 	securitySettingsAgentTokenTransport = "Bearer token"
@@ -36,9 +35,7 @@ type securityAgentTokensResponse struct {
 }
 
 type securityWebhookBoundaryResponse struct {
-	LegacyGitHubEndpoint          string `json:"legacy_github_endpoint"`
-	ConnectorEndpoint             string `json:"connector_endpoint"`
-	LegacyGitHubSignatureRequired bool   `json:"legacy_github_signature_required"`
+	ConnectorEndpoint string `json:"connector_endpoint"`
 }
 
 type securitySecretHygieneResponse struct {
@@ -221,14 +218,13 @@ func (s *Server) writeSecuritySettingsResponse(
 	github securityGitHubOutboundCredentialResponse,
 ) error {
 	return c.JSON(http.StatusOK, map[string]any{
-		"security": buildSecuritySettingsResponse(projectID, github, s.github.WebhookSecret != ""),
+		"security": buildSecuritySettingsResponse(projectID, github),
 	})
 }
 
 func buildSecuritySettingsResponse(
 	projectID uuid.UUID,
 	github securityGitHubOutboundCredentialResponse,
-	legacyGitHubSignatureRequired bool,
 ) securitySettingsResponse {
 	return securitySettingsResponse{
 		ProjectID: projectID.String(),
@@ -241,9 +237,7 @@ func buildSecuritySettingsResponse(
 		},
 		GitHub: github,
 		Webhooks: securityWebhookBoundaryResponse{
-			LegacyGitHubEndpoint:          securitySettingsLegacyGitHubEndpoint,
-			ConnectorEndpoint:             securitySettingsConnectorEndpoint,
-			LegacyGitHubSignatureRequired: legacyGitHubSignatureRequired,
+			ConnectorEndpoint: securitySettingsConnectorEndpoint,
 		},
 		SecretHygiene: securitySecretHygieneResponse{
 			NotificationChannelConfigsRedacted: true,
