@@ -51,7 +51,10 @@ function isTransientStreamFailure(error: unknown) {
 }
 
 function isMissingResponseBodyFailure(error: unknown) {
-  return error instanceof Error && error.message.toLowerCase() === 'chat stream response body is unavailable'
+  return (
+    error instanceof Error &&
+    error.message.toLowerCase() === 'chat stream response body is unavailable'
+  )
 }
 
 function isOffline() {

@@ -194,7 +194,7 @@ function describeSystemMessage(type: string) {
   }
 }
 
-function isTextPayload(
+export function isTextPayload(
   payload: ChatMessagePayload,
 ): payload is Extract<ChatMessagePayload, { type: 'text' }> {
   return payload.type === 'text'

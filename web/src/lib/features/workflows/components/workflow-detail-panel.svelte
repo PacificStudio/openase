@@ -1,4 +1,3 @@
-<!-- eslint-disable max-lines -->
 <script lang="ts">
   import { cn } from '$lib/utils'
   import { Input } from '$ui/input'
@@ -118,20 +117,6 @@
     formError = ''
   }
 
-  function togglePickupStatus(statusId: string) {
-    updateDraftField(
-      'pickupStatusIds',
-      toggleWorkflowStatusSelection(draft.pickupStatusIds, statusId),
-    )
-  }
-
-  function toggleFinishStatus(statusId: string) {
-    updateDraftField(
-      'finishStatusIds',
-      toggleWorkflowStatusSelection(draft.finishStatusIds, statusId),
-    )
-  }
-
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     formError = ''
@@ -156,10 +141,7 @@
 
   async function handleDelete() {
     formError = ''
-    if (!confirm(`Delete workflow "${workflow.name}"? This cannot be undone.`)) {
-      return
-    }
-
+    if (!confirm(`Delete workflow "${workflow.name}"? This cannot be undone.`)) return
     await onDelete?.()
   }
 </script>
@@ -271,14 +253,22 @@
           statuses={selectableStatuses}
           selectedStatusIds={draft.pickupStatusIds}
           disabled={saving || deleting}
-          onToggle={togglePickupStatus}
+          onToggle={(statusId) =>
+            updateDraftField(
+              'pickupStatusIds',
+              toggleWorkflowStatusSelection(draft.pickupStatusIds, statusId),
+            )}
         />
         <WorkflowStatusChipSelector
           label="Finish Statuses"
           statuses={selectableStatuses}
           selectedStatusIds={draft.finishStatusIds}
           disabled={saving || deleting}
-          onToggle={toggleFinishStatus}
+          onToggle={(statusId) =>
+            updateDraftField(
+              'finishStatusIds',
+              toggleWorkflowStatusSelection(draft.finishStatusIds, statusId),
+            )}
         />
       </div>
 
