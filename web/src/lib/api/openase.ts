@@ -380,8 +380,8 @@ export function deleteProjectUpdateThread(projectId: string, threadId: string) {
 }
 
 export function createProjectUpdateComment(
-	projectId: string,
-	threadId: string,
+  projectId: string,
+  threadId: string,
   body: {
     body: string
     created_by?: string
@@ -416,7 +416,7 @@ export function deleteProjectUpdateComment(projectId: string, threadId: string, 
 }
 
 export function listAgents(projectId: string) {
-	return api.get<AgentPayload>(`/api/v1/projects/${projectId}/agents`)
+  return api.get<AgentPayload>(`/api/v1/projects/${projectId}/agents`)
 }
 
 export function listAgentRuns(projectId: string) {
