@@ -1,284 +1,41 @@
 import type {
   ChatActionProposalPayload,
-  ChatDiffHunk,
   ChatDiffPayload,
   ChatMessagePayload,
   ProjectConversationEntry,
 } from '$lib/api/chat'
 import type { ChatActionExecutionResult } from './action-proposal-executor'
+import {
+  createProjectConversationDiffEntry,
+  mapProjectConversationTaskEntry,
+} from './project-conversation-transcript-parsers'
+import {
+  appendProjectConversationTranscriptEntry,
+  createProjectConversationActionProposalEntry,
+  createProjectConversationInterruptEntry,
+  type ProjectConversationRole,
+  type ProjectConversationTextEntry,
+  type ProjectConversationTranscriptEntry,
+} from './project-conversation-transcript-types'
 
-type ProjectConversationRole = 'user' | 'assistant' | 'system'
-
-type ProjectConversationTextEntry = {
-  id: string
-  kind: 'text'
-  role: ProjectConversationRole
-  turnId?: string
-  content: string
-  streaming: boolean
-}
-
-type ProjectConversationActionProposalEntry = {
-  id: string
-  kind: 'action_proposal'
-  role: 'assistant'
-  proposal: ChatActionProposalPayload
-  status: 'pending' | 'executing' | 'confirmed'
-  results: ChatActionExecutionResult[]
-}
-
-type ProjectConversationDiffEntry = {
-  id: string
-  kind: 'diff'
-  role: 'assistant'
-  diff: ChatDiffPayload
-}
-
-export type ProjectConversationToolCallEntry = {
-  id: string
-  kind: 'tool_call'
-  role: 'system'
-  turnId?: string
-  tool: string
-  arguments: unknown
-}
-
-export type ProjectConversationCommandOutputEntry = {
-  id: string
-  kind: 'command_output'
-  role: 'system'
-  turnId?: string
-  stream: string
-  phase?: string
-  snapshot: boolean
-  content: string
-}
-
-export type ProjectConversationTaskStatusEntry = {
-  id: string
-  kind: 'task_status'
-  role: 'system'
-  turnId?: string
-  statusType: 'task_started' | 'task_progress' | 'task_notification' | 'turn_done' | 'error'
-  title: string
-  detail?: string
-}
-
-type ProjectConversationInterruptEntry = {
-  id: string
-  kind: 'interrupt'
-  role: 'system'
-  interruptId: string
-  provider: string
-  interruptKind: string
-  payload: Record<string, unknown>
-  options: { id: string; label: string }[]
-  status: 'pending' | 'resolved'
-  decision?: string
-}
-
-export type ProjectConversationTranscriptEntry =
-  | ProjectConversationTextEntry
-  | ProjectConversationActionProposalEntry
-  | ProjectConversationDiffEntry
-  | ProjectConversationToolCallEntry
-  | ProjectConversationCommandOutputEntry
-  | ProjectConversationTaskStatusEntry
-  | ProjectConversationInterruptEntry
-
-export function appendProjectConversationTranscriptEntry(
-  entries: ProjectConversationTranscriptEntry[],
-  entry: ProjectConversationTranscriptEntry,
-) {
-  const last = entries.at(-1)
-  if (
-    last &&
-    last.kind === 'command_output' &&
-    entry.kind === 'command_output' &&
-    last.turnId === entry.turnId &&
-    last.stream === entry.stream &&
-    last.phase === entry.phase
-  ) {
-    return [
-      ...entries.slice(0, -1),
-      {
-        ...last,
-        snapshot: entry.snapshot,
-        content: entry.snapshot ? entry.content : `${last.content}${entry.content}`,
-      } satisfies ProjectConversationCommandOutputEntry,
-    ]
-  }
-
-  return [...entries, entry]
-}
-
-export function createProjectConversationActionProposalEntry(params: {
-  id: string
-  proposal: ChatActionProposalPayload
-}) {
-  return {
-    id: params.id,
-    kind: 'action_proposal',
-    role: 'assistant',
-    proposal: params.proposal,
-    status: 'pending',
-    results: [],
-  } satisfies ProjectConversationActionProposalEntry
-}
-
-export function createProjectConversationDiffEntry(params: {
-  id: string
-  payload: Record<string, unknown> | ChatDiffPayload
-}) {
-  return {
-    id: params.id,
-    kind: 'diff',
-    role: 'assistant',
-    diff: normalizeDiffPayload(params.payload, params.id),
-  } satisfies ProjectConversationDiffEntry
-}
-
-export function createProjectConversationInterruptEntry(params: {
-  id: string
-  interruptId: string
-  provider: string
-  interruptKind: string
-  payload: Record<string, unknown>
-  options: { id: string; label: string }[]
-}) {
-  return {
-    id: params.id,
-    kind: 'interrupt',
-    role: 'system',
-    interruptId: params.interruptId,
-    provider: params.provider,
-    interruptKind: params.interruptKind,
-    payload: params.payload,
-    options: params.options,
-    status: 'pending',
-  } satisfies ProjectConversationInterruptEntry
-}
-
-export function createProjectConversationTaskStatusEntry(params: {
-  id: string
-  turnId?: string
-  statusType: ProjectConversationTaskStatusEntry['statusType']
-  title: string
-  detail?: string
-}) {
-  return {
-    id: params.id,
-    kind: 'task_status',
-    role: 'system',
-    turnId: params.turnId,
-    statusType: params.statusType,
-    title: params.title,
-    detail: params.detail,
-  } satisfies ProjectConversationTaskStatusEntry
-}
-
-export function mapProjectConversationTaskEntry(params: {
-  id: string
-  turnId?: string
-  type: string
-  raw?: unknown
-}): ProjectConversationTranscriptEntry | null {
-  const raw = asRecord(params.raw)
-
-  if (params.type === 'task_notification') {
-    const tool = readString(raw, 'tool')
-    if (tool) {
-      return {
-        id: params.id,
-        kind: 'tool_call',
-        role: 'system',
-        turnId: params.turnId,
-        tool,
-        arguments: raw?.arguments,
-      }
-    }
-  }
-
-  if (params.type === 'task_progress') {
-    const stream = readString(raw, 'stream')
-    const content = readString(raw, 'text')
-    if (stream === 'command' && content) {
-      return {
-        id: params.id,
-        kind: 'command_output',
-        role: 'system',
-        turnId: params.turnId,
-        stream,
-        phase: readString(raw, 'phase') || undefined,
-        snapshot: readBoolean(raw, 'snapshot'),
-        content,
-      }
-    }
-  }
-
-  if (params.type === 'task_started') {
-    return createProjectConversationTaskStatusEntry({
-      id: params.id,
-      turnId: params.turnId,
-      statusType: 'task_started',
-      title: 'Task started',
-      detail: buildTaskDetail(raw),
-    })
-  }
-
-  if (params.type === 'task_progress') {
-    return createProjectConversationTaskStatusEntry({
-      id: params.id,
-      turnId: params.turnId,
-      statusType: 'task_progress',
-      title: 'Task progress',
-      detail: buildTaskDetail(raw),
-    })
-  }
-
-  if (params.type === 'task_notification') {
-    return createProjectConversationTaskStatusEntry({
-      id: params.id,
-      turnId: params.turnId,
-      statusType: 'task_notification',
-      title: 'Task notification',
-      detail: buildTaskDetail(raw),
-    })
-  }
-
-  return null
-}
-
-export function createProjectConversationTurnDoneEntry(params: {
-  id: string
-  turnId?: string
-  costUSD?: number
-}) {
-  const costText =
-    typeof params.costUSD === 'number' ? `Cost: $${params.costUSD.toFixed(2)}` : undefined
-
-  return createProjectConversationTaskStatusEntry({
-    id: params.id,
-    turnId: params.turnId,
-    statusType: 'turn_done',
-    title: 'Turn completed',
-    detail: costText,
-  })
-}
-
-export function createProjectConversationErrorEntry(params: {
-  id: string
-  turnId?: string
-  message: string
-}) {
-  return createProjectConversationTaskStatusEntry({
-    id: params.id,
-    turnId: params.turnId,
-    statusType: 'error',
-    title: 'Turn failed',
-    detail: params.message.trim() || undefined,
-  })
-}
+export {
+  appendProjectConversationTranscriptEntry,
+  createProjectConversationActionProposalEntry,
+  createProjectConversationInterruptEntry,
+} from './project-conversation-transcript-types'
+export {
+  createProjectConversationDiffEntry,
+  mapProjectConversationTaskEntry,
+} from './project-conversation-transcript-parsers'
+export type {
+  ProjectConversationCommandOutputEntry,
+  ProjectConversationDiffEntry,
+  ProjectConversationInterruptEntry,
+  ProjectConversationTaskStatusEntry,
+  ProjectConversationTextEntry,
+  ProjectConversationToolCallEntry,
+  ProjectConversationTranscriptEntry,
+} from './project-conversation-transcript-types'
 
 export function appendProjectConversationTextEntry(
   entries: ProjectConversationTranscriptEntry[],
@@ -491,112 +248,4 @@ export function isActionProposalPayload(
 
 export function isDiffPayload(payload: ChatMessagePayload): payload is ChatDiffPayload {
   return payload.type === 'diff'
-}
-
-function normalizeDiffPayload(
-  payload: Record<string, unknown> | ChatDiffPayload,
-  entryId: string,
-): ChatDiffPayload {
-  const object = asRecord(payload) ?? {}
-
-  return {
-    type: 'diff',
-    entryId,
-    file: readString(object, 'file') || '',
-    hunks: readDiffHunks(object.hunks),
-  }
-}
-
-function readDiffHunks(value: unknown): ChatDiffHunk[] {
-  if (!Array.isArray(value)) {
-    return []
-  }
-
-  return value
-    .map((item) => {
-      const hunk = asRecord(item)
-      if (!hunk) {
-        return null
-      }
-
-      const lines = Array.isArray(hunk.lines)
-        ? hunk.lines
-            .map((line) => {
-              const record = asRecord(line)
-              if (!record) {
-                return null
-              }
-
-              const op = readString(record, 'op')
-              const text = readString(record, 'text')
-              if (!op || text == null) {
-                return null
-              }
-              if (op !== 'context' && op !== 'add' && op !== 'remove') {
-                return null
-              }
-
-              return { op, text } as ChatDiffHunk['lines'][number]
-            })
-            .filter((line): line is ChatDiffHunk['lines'][number] => line != null)
-        : []
-
-      return {
-        oldStart: readNumber(hunk, 'oldStart', 'old_start') ?? 0,
-        oldLines: readNumber(hunk, 'oldLines', 'old_lines') ?? 0,
-        newStart: readNumber(hunk, 'newStart', 'new_start') ?? 0,
-        newLines: readNumber(hunk, 'newLines', 'new_lines') ?? 0,
-        lines,
-      } satisfies ChatDiffHunk
-    })
-    .filter((hunk): hunk is ChatDiffHunk => hunk != null)
-}
-
-function buildTaskDetail(raw: Record<string, unknown> | null) {
-  return (
-    readString(raw, 'message') ||
-    readString(raw, 'text') ||
-    describeStream(raw) ||
-    describeStatus(raw)
-  )
-}
-
-function describeStream(raw: Record<string, unknown> | null) {
-  const stream = readString(raw, 'stream')
-  const phase = readString(raw, 'phase')
-  if (!stream && !phase) {
-    return undefined
-  }
-  return [stream, phase].filter(Boolean).join(' / ')
-}
-
-function describeStatus(raw: Record<string, unknown> | null) {
-  const status = readString(raw, 'status')
-  return status ? `Status: ${status}` : undefined
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null
-  }
-  return value as Record<string, unknown>
-}
-
-function readString(record: Record<string, unknown> | null, key: string) {
-  const value = record?.[key]
-  return typeof value === 'string' ? value : undefined
-}
-
-function readBoolean(record: Record<string, unknown> | null, key: string) {
-  return record?.[key] === true
-}
-
-function readNumber(record: Record<string, unknown>, ...keys: string[]) {
-  for (const key of keys) {
-    const value = record[key]
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return value
-    }
-  }
-  return undefined
 }
