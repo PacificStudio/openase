@@ -5,6 +5,7 @@
     WorkflowAgentOption,
     WorkflowStatusOption,
     WorkflowSummary,
+    WorkflowTemplateDraft,
   } from '../types'
   import type { AgentProvider, HarnessValidationIssue } from '$lib/api/contracts'
   import type { SkillState } from '../model'
@@ -39,7 +40,7 @@
     statuses,
     agentOptions,
     builtinRoleContent = '',
-    templateDraft = null as { name: string; content: string } | null,
+    templateDraft = null as WorkflowTemplateDraft | null,
     onSelectedIdChange,
     onDraftChange,
     onApplyAssistantDraft,
@@ -72,7 +73,7 @@
     statuses: WorkflowStatusOption[]
     agentOptions: WorkflowAgentOption[]
     builtinRoleContent?: string
-    templateDraft?: { name: string; content: string } | null
+    templateDraft?: WorkflowTemplateDraft | null
     onSelectedIdChange?: (id: string) => void
     onDraftChange?: (raw: string) => void
     onApplyAssistantDraft?: (content: string) => void

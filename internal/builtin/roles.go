@@ -216,7 +216,17 @@ Scoped repos:
 
 Available workflows:
 {% for item in project.workflows %}
-- {{ item.role_name }} name={{ item.name }} pickup={{ item.pickup_status }} finish={{ item.finish_status }} active={{ item.current_active }}/{{ item.max_concurrent }} recent={{ item.recent_tickets | length }}
+- {{ item.role_name }} name={{ item.name }} pickup={{ item.pickup_statuses | map(attribute="name") | join(", ") }} finish={{ item.finish_statuses | map(attribute="name") | join(", ") }} active={{ item.current_active }}/{{ item.max_concurrent }} recent={{ item.recent_tickets | length }}
+{% endfor %}
+
+Project statuses:
+{% for item in project.statuses %}
+- {{ item.name }} stage={{ item.stage }} color={{ item.color }}
+{% endfor %}
+
+Available machines:
+{% for item in project.machines %}
+- {{ item.name }} host={{ item.host }} status={{ item.status }} labels={{ item.labels | join(", ") | default("none") }} resources={{ item.resources | tojson }}
 {% endfor %}
 
 ## Workpad
@@ -234,7 +244,7 @@ Available workflows:
 ## Status Control
 
 - This workflow owns tickets while they are in {{ workflow.pickup_status }}.
-- If the ticket is actionable, move it from {{ workflow.pickup_status }} to the pickup status of the best matching active workflow. Use only status names that already exist in project.statuses or are already bound as project.workflows[].pickup_status.
+- If the ticket is actionable, move it from {{ workflow.pickup_status }} to one of the names already exposed in project.workflows[].pickup_statuses or project.statuses.
 - If the ticket is not actionable yet, keep it in {{ workflow.finish_status }} and explain exactly what is missing in the workpad.
 - Do not move tickets directly to a terminal delivery state from Dispatcher.
 - When no active workflow can responsibly take the ticket, keep it in Backlog, record the reason, and create follow-up or child tickets only when that improves routing clarity.

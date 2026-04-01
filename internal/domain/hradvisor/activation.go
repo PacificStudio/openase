@@ -23,14 +23,14 @@ type ActivateRecommendationInput struct {
 }
 
 type ActivationTemplate struct {
-	RoleSlug         string
-	WorkflowName     string
-	WorkflowType     string
-	HarnessPath      string
-	HarnessContent   string
-	PickupStatusName string
-	FinishStatusName string
-	Summary          string
+	RoleSlug          string
+	WorkflowName      string
+	WorkflowType      string
+	HarnessPath       string
+	HarnessContent    string
+	PickupStatusNames []string
+	FinishStatusNames []string
+	Summary           string
 }
 
 func ParseActivateRecommendation(projectID uuid.UUID, raw ActivateRecommendationRequest) (ActivateRecommendationInput, error) {
@@ -66,8 +66,8 @@ func ParseActivationTemplate(roleSlug string, harnessPath string, harnessContent
 			Role string `yaml:"role"`
 		} `yaml:"workflow"`
 		Status struct {
-			Pickup string `yaml:"pickup"`
-			Finish string `yaml:"finish"`
+			Pickup activationStatusNameList `yaml:"pickup"`
+			Finish activationStatusNameList `yaml:"finish"`
 		} `yaml:"status"`
 	}
 	if err := yaml.Unmarshal([]byte(frontmatter), &document); err != nil {
@@ -84,14 +84,14 @@ func ParseActivationTemplate(roleSlug string, harnessPath string, harnessContent
 	}
 
 	template := ActivationTemplate{
-		RoleSlug:         workflowRoleSlug,
-		WorkflowName:     strings.TrimSpace(document.Workflow.Name),
-		WorkflowType:     strings.TrimSpace(document.Workflow.Type),
-		HarnessPath:      strings.TrimSpace(harnessPath),
-		HarnessContent:   harnessContent,
-		PickupStatusName: strings.TrimSpace(document.Status.Pickup),
-		FinishStatusName: strings.TrimSpace(document.Status.Finish),
-		Summary:          strings.TrimSpace(summary),
+		RoleSlug:          workflowRoleSlug,
+		WorkflowName:      strings.TrimSpace(document.Workflow.Name),
+		WorkflowType:      strings.TrimSpace(document.Workflow.Type),
+		HarnessPath:       strings.TrimSpace(harnessPath),
+		HarnessContent:    harnessContent,
+		PickupStatusNames: document.Status.Pickup.Names(),
+		FinishStatusNames: document.Status.Finish.Names(),
+		Summary:           strings.TrimSpace(summary),
 	}
 	if template.WorkflowName == "" {
 		return ActivationTemplate{}, fmt.Errorf("workflow.name must not be empty")
@@ -102,14 +102,67 @@ func ParseActivationTemplate(roleSlug string, harnessPath string, harnessContent
 	if template.HarnessPath == "" {
 		return ActivationTemplate{}, fmt.Errorf("harness_path must not be empty")
 	}
-	if template.PickupStatusName == "" {
+	if len(template.PickupStatusNames) == 0 {
 		return ActivationTemplate{}, fmt.Errorf("status.pickup must not be empty")
 	}
-	if template.FinishStatusName == "" {
+	if len(template.FinishStatusNames) == 0 {
 		return ActivationTemplate{}, fmt.Errorf("status.finish must not be empty")
 	}
 
 	return template, nil
+}
+
+type activationStatusNameList []string
+
+func (l *activationStatusNameList) UnmarshalYAML(node *yaml.Node) error {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		value := strings.TrimSpace(node.Value)
+		if value == "" {
+			*l = nil
+			return nil
+		}
+		*l = []string{value}
+		return nil
+	case yaml.SequenceNode:
+		values := make([]string, 0, len(node.Content))
+		for _, item := range node.Content {
+			if item.Kind != yaml.ScalarNode {
+				return fmt.Errorf("status entries must be strings")
+			}
+			value := strings.TrimSpace(item.Value)
+			if value == "" {
+				continue
+			}
+			values = append(values, value)
+		}
+		*l = values
+		return nil
+	default:
+		return fmt.Errorf("status entries must be a string or string list")
+	}
+}
+
+func (l activationStatusNameList) Names() []string {
+	if len(l) == 0 {
+		return nil
+	}
+
+	names := make([]string, 0, len(l))
+	seen := make(map[string]struct{}, len(l))
+	for _, item := range l {
+		trimmed := strings.TrimSpace(item)
+		if trimmed == "" {
+			continue
+		}
+		key := strings.ToLower(trimmed)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		names = append(names, trimmed)
+	}
+	return names
 }
 
 func extractActivationFrontmatter(content string) (string, error) {
