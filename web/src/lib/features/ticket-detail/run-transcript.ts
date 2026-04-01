@@ -16,15 +16,18 @@ import {
   mergeRunTextBlock,
   readPayloadString,
   seedRunBlocks,
-  shouldSwitchToRun,
   sortTicketRuns,
 } from './run-transcript-blocks'
+import { cacheSelectedState, syncSelectedBlocks, syncSelectedRun } from './run-transcript-selection'
 
 export function createEmptyTicketRunTranscriptState(): TicketRunTranscriptState {
   return {
     runs: [],
+    selectedRunId: null,
+    followLatest: true,
     currentRun: null,
     blocks: [],
+    blockCache: {},
   }
 }
 
@@ -33,38 +36,23 @@ export function setTicketRunList(
   runs: TicketRun[],
 ): TicketRunTranscriptState {
   const nextRuns = sortTicketRuns(runs)
-  const latestRun = nextRuns[0] ?? null
+  const blockCache = syncSelectedBlocks(state)
 
-  if (!state.currentRun) {
-    return {
-      runs: nextRuns,
-      currentRun: latestRun,
-      blocks: latestRun ? seedRunBlocks(latestRun) : [],
-    }
-  }
-
-  const matchingCurrent = nextRuns.find((item) => item.id === state.currentRun?.id)
-  if (matchingCurrent) {
-    return {
-      runs: nextRuns,
-      currentRun: matchingCurrent,
-      blocks: state.blocks.length > 0 ? state.blocks : seedRunBlocks(matchingCurrent),
-    }
-  }
-
-  return {
+  return syncSelectedRun({
+    ...state,
     runs: nextRuns,
-    currentRun: latestRun,
-    blocks: latestRun ? seedRunBlocks(latestRun) : [],
-  }
+    blockCache,
+  })
 }
 
 export function hydrateTicketRunDetail(
   state: TicketRunTranscriptState,
   detail: TicketRunDetail,
+  options: { select?: boolean } = {},
 ): TicketRunTranscriptState {
   const runs = mergeRun(state.runs, detail.run)
   let nextState: TicketRunTranscriptState = {
+    ...state,
     runs,
     currentRun: detail.run,
     blocks: seedRunBlocks(detail.run),
@@ -78,7 +66,42 @@ export function hydrateTicketRunDetail(
         : applyTicketRunTraceEntry(nextState, item.entry)
   }
 
-  return finalizeTerminalRunBlocks(nextState)
+  const finalized = finalizeTerminalRunBlocks(nextState)
+  const nextSelection =
+    options.select === false
+      ? {
+          selectedRunId: state.selectedRunId,
+          followLatest: state.followLatest,
+        }
+      : {
+          selectedRunId: detail.run.id,
+          followLatest: runs[0]?.id === detail.run.id,
+        }
+
+  return syncSelectedRun({
+    ...finalized,
+    ...nextSelection,
+    blockCache: {
+      ...state.blockCache,
+      [detail.run.id]: finalized.blocks,
+    },
+  })
+}
+
+export function selectTicketRun(
+  state: TicketRunTranscriptState,
+  runId: string,
+): TicketRunTranscriptState {
+  if (!state.runs.some((run) => run.id === runId)) {
+    return state
+  }
+
+  return syncSelectedRun({
+    ...state,
+    selectedRunId: runId,
+    followLatest: state.runs[0]?.id === runId,
+    blockCache: syncSelectedBlocks(state),
+  })
 }
 
 export function applyTicketRunStreamFrame(
@@ -116,26 +139,30 @@ export function applyTicketRunLifecycleEvent(
   lifecycle: TicketRunLifecycleEvent,
 ): TicketRunTranscriptState {
   const runs = mergeRun(state.runs, run)
-  const shouldSwitch = shouldSwitchToRun(state.currentRun, run)
-  const currentRun = shouldSwitch ? run : state.currentRun
   const baseBlocks =
-    shouldSwitch || !state.currentRun || state.currentRun.id !== run.id
-      ? seedRunBlocks(run)
-      : state.blocks
-
-  if (!currentRun || currentRun.id !== run.id) {
-    return { runs, currentRun, blocks: baseBlocks }
-  }
+    state.selectedRunId === run.id ? state.blocks : (state.blockCache[run.id] ?? seedRunBlocks(run))
 
   const nextBlock = buildLifecycleBlock(lifecycle)
-  if (!nextBlock || hasBlock(baseBlocks, nextBlock.id)) {
-    return finalizeTerminalRunBlocks({ runs, currentRun, blocks: baseBlocks })
-  }
+  const runBlocks =
+    !nextBlock || hasBlock(baseBlocks, nextBlock.id)
+      ? finalizeTerminalRunBlocks({
+          ...state,
+          currentRun: run,
+          blocks: baseBlocks,
+        }).blocks
+      : finalizeTerminalRunBlocks({
+          ...state,
+          currentRun: run,
+          blocks: [...baseBlocks, nextBlock],
+        }).blocks
 
-  return finalizeTerminalRunBlocks({
+  return syncSelectedRun({
+    ...state,
     runs,
-    currentRun,
-    blocks: [...baseBlocks, nextBlock],
+    blockCache: {
+      ...syncSelectedBlocks(state),
+      [run.id]: runBlocks,
+    },
   })
 }
 
@@ -143,31 +170,55 @@ export function applyTicketRunStepEntry(
   state: TicketRunTranscriptState,
   entry: TicketRunStepEntry,
 ): TicketRunTranscriptState {
+  const runs = state.runs.map((run) =>
+    run.id === entry.agentRunId
+      ? {
+          ...run,
+          currentStepStatus: entry.stepStatus,
+          currentStepSummary: entry.summary || run.currentStepSummary,
+        }
+      : run,
+  )
+
   if (state.currentRun?.id !== entry.agentRunId) {
-    return state
+    return {
+      ...state,
+      runs,
+    }
   }
   if (hasBlock(state.blocks, `step:${entry.id}`)) {
-    return state
+    return syncSelectedRun({
+      ...state,
+      runs,
+      blockCache: syncSelectedBlocks(state),
+    })
   }
 
-  return {
+  const blocks = [
+    ...state.blocks,
+    {
+      kind: 'step' as const,
+      id: `step:${entry.id}`,
+      stepStatus: entry.stepStatus,
+      summary: entry.summary,
+      at: entry.createdAt,
+    },
+  ]
+
+  return syncSelectedRun({
     ...state,
+    runs,
     currentRun: {
       ...state.currentRun,
       currentStepStatus: entry.stepStatus,
       currentStepSummary: entry.summary || state.currentRun.currentStepSummary,
     },
-    blocks: [
-      ...state.blocks,
-      {
-        kind: 'step',
-        id: `step:${entry.id}`,
-        stepStatus: entry.stepStatus,
-        summary: entry.summary,
-        at: entry.createdAt,
-      },
-    ],
-  }
+    blocks,
+    blockCache: {
+      ...syncSelectedBlocks(state),
+      [entry.agentRunId]: blocks,
+    },
+  })
 }
 
 export function applyTicketRunTraceEntry(
@@ -181,15 +232,15 @@ export function applyTicketRunTraceEntry(
   switch (entry.kind) {
     case 'assistant_delta':
     case 'assistant_snapshot':
-      return mergeRunTextBlock(state, entry, 'assistant_message')
+      return cacheSelectedState(mergeRunTextBlock(state, entry, 'assistant_message'))
     case 'command_output_delta':
     case 'command_output_snapshot':
-      return mergeRunTextBlock(state, entry, 'terminal_output')
+      return cacheSelectedState(mergeRunTextBlock(state, entry, 'terminal_output'))
     case 'tool_call_started':
       if (hasBlock(state.blocks, `tool:${entry.id}`)) {
         return state
       }
-      return {
+      return cacheSelectedState({
         ...state,
         blocks: [
           ...state.blocks,
@@ -201,7 +252,7 @@ export function applyTicketRunTraceEntry(
             at: entry.createdAt,
           },
         ],
-      }
+      })
     default:
       return state
   }
