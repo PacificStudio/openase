@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -795,7 +796,14 @@ func TestWorkflowHookHelpersAndExecution(t *testing.T) {
 		t.Fatal("parseWorkflowHooks(invalid) expected error")
 	}
 
-	executor := newWorkflowHookExecutor(t.TempDir(), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	var hookLogBuffer bytes.Buffer
+	executor := newWorkflowHookExecutor(t.TempDir(), slog.New(slog.NewTextHandler(&hookLogBuffer, nil)))
+	if err := executor.RunAll(context.Background(), workflowHookOnReload, []workflowHookDefinition{{
+		Command:   "printf 'ok'",
+		OnFailure: workflowHookFailureBlock,
+	}}, runtime); err != nil {
+		t.Fatalf("RunAll(success) error = %v", err)
+	}
 	if err := executor.RunAll(context.Background(), workflowHookOnReload, []workflowHookDefinition{{
 		Command:   "printf 'ignored' >&2; exit 7",
 		OnFailure: workflowHookFailureIgnore,
@@ -819,6 +827,20 @@ func TestWorkflowHookHelpersAndExecution(t *testing.T) {
 		Timeout: 10 * time.Millisecond,
 	}, runtime); err == nil || !strings.Contains(err.Error(), "timed out") {
 		t.Fatalf("run(timeout) error = %v", err)
+	}
+
+	hookLogs := hookLogBuffer.String()
+	for _, want := range []string{
+		"workflow hook started",
+		"workflow hook completed",
+		"workflow hook failed but was ignored",
+		"workflow hook failed with warning policy",
+		"hook_scope=workflow",
+		"workflow_version=7",
+	} {
+		if !strings.Contains(hookLogs, want) {
+			t.Fatalf("expected hook logs to contain %q, got %s", want, hookLogs)
+		}
 	}
 }
 

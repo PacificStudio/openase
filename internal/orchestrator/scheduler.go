@@ -183,6 +183,7 @@ func (s *Scheduler) tryDispatch(ctx context.Context, workflow *ent.Workflow, tic
 		return false, "", fmt.Errorf("resolve workflow agent: %w", err)
 	}
 	if agent == nil {
+		s.logDispatchSkip(workflow, ticket, skipReasonNoAgent)
 		return false, skipReasonNoAgent, nil
 	}
 	machine, providerItem, reason, err := s.resolveExecutionMachine(ctx, project.OrganizationID, agent, now)
@@ -190,6 +191,7 @@ func (s *Scheduler) tryDispatch(ctx context.Context, workflow *ent.Workflow, tic
 		return false, "", fmt.Errorf("resolve execution machine: %w", err)
 	}
 	if machine == nil {
+		s.logDispatchSkip(workflow, ticket, reason, "agent_id", agent.ID, "provider_id", agent.ProviderID)
 		return false, reason, nil
 	}
 	outcome, err := s.claimTicketWithAgent(ctx, workflow, ticket, machine, agent, providerItem, project.MaxConcurrentAgents, now)
@@ -332,6 +334,13 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 		return "", fmt.Errorf("count workflow concurrency: %w", err)
 	}
 	if workflow.MaxConcurrent > 0 && workflowActive >= workflow.MaxConcurrent {
+		s.logDispatchSkip(workflow, ticket, skipReasonMaxConcurrency,
+			"scope", "workflow",
+			"active_runs", workflowActive,
+			"capacity", workflow.MaxConcurrent,
+			"agent_id", agent.ID,
+			"provider_id", providerItem.ID,
+		)
 		return skipReasonMaxConcurrency, nil
 	}
 
@@ -345,6 +354,13 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 		return "", fmt.Errorf("count project concurrency: %w", err)
 	}
 	if projectMaxConcurrent > 0 && projectActive >= projectMaxConcurrent {
+		s.logDispatchSkip(workflow, ticket, skipReasonMaxConcurrency,
+			"scope", "project",
+			"active_runs", projectActive,
+			"capacity", projectMaxConcurrent,
+			"agent_id", agent.ID,
+			"provider_id", providerItem.ID,
+		)
 		return skipReasonMaxConcurrency, nil
 	}
 
@@ -358,6 +374,14 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 		return "", fmt.Errorf("count provider concurrency: %w", err)
 	}
 	if providerItem.MaxParallelRuns > 0 && providerActive >= providerItem.MaxParallelRuns {
+		s.logDispatchSkip(workflow, ticket, skipReasonProviderBusy,
+			"scope", "provider",
+			"active_runs", providerActive,
+			"capacity", providerItem.MaxParallelRuns,
+			"agent_id", agent.ID,
+			"provider_id", providerItem.ID,
+			"machine_id", machine.ID,
+		)
 		return skipReasonProviderBusy, nil
 	}
 
@@ -379,6 +403,15 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 			return "", fmt.Errorf("count status concurrency: %w", err)
 		}
 		if statusActive >= *pickupStatus.MaxActiveRuns {
+			s.logDispatchSkip(workflow, ticket, skipReasonStatusCapacity,
+				"scope", "status",
+				"status_id", pickupStatus.ID,
+				"status_name", pickupStatus.Name,
+				"active_runs", statusActive,
+				"capacity", *pickupStatus.MaxActiveRuns,
+				"agent_id", agent.ID,
+				"provider_id", providerItem.ID,
+			)
 			return skipReasonStatusCapacity, nil
 		}
 	}
@@ -394,6 +427,11 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 		return "", fmt.Errorf("claim agent %s: %w", agent.ID, err)
 	}
 	if claimedAgents == 0 {
+		s.logDispatchSkip(workflow, ticket, skipReasonNoAgent,
+			"scope", "agent_claim",
+			"agent_id", agent.ID,
+			"provider_id", providerItem.ID,
+		)
 		return skipReasonNoAgent, nil
 	}
 
@@ -432,6 +470,13 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 		return "", fmt.Errorf("claim ticket %s: %w", ticket.ID, err)
 	}
 	if claimedTickets == 0 {
+		s.logDispatchSkip(workflow, ticket, skipReasonNoAgent,
+			"scope", "ticket_claim",
+			"agent_id", agent.ID,
+			"provider_id", providerItem.ID,
+			"machine_id", machine.ID,
+			"ticket_retry_token", ticket.RetryToken,
+		)
 		return skipReasonNoAgent, nil
 	}
 
@@ -457,6 +502,22 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 	}
 
 	return "", nil
+}
+
+func (s *Scheduler) logDispatchSkip(workflow *ent.Workflow, ticket *ent.Ticket, reason string, attrs ...any) {
+	if workflow == nil || ticket == nil || reason == "" {
+		return
+	}
+
+	baseAttrs := []any{
+		"operation", "schedule_ticket",
+		"project_id", workflow.ProjectID,
+		"workflow_id", workflow.ID,
+		"ticket_id", ticket.ID,
+		"ticket_status_id", ticket.StatusID,
+		"skip_reason", reason,
+	}
+	s.logger.Info("scheduler skipped ticket", append(baseAttrs, attrs...)...)
 }
 
 func (s *Scheduler) isTicketBlocked(ctx context.Context, ticketID uuid.UUID) (bool, error) {

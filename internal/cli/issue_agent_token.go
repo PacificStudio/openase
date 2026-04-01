@@ -57,6 +57,7 @@ Do not pass a human-readable ticket identifier such as ASE-2 here.
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := config.Load(config.LoadOptions{ConfigFile: options.configFile})
 			if err != nil {
+				logConfigLoadFailure(options.configFile, nil, err)
 				return err
 			}
 

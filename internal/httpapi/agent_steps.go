@@ -114,7 +114,17 @@ func (s *Server) streamAgentSteps(c echo.Context) error {
 
 			stepEvent, matched, err := buildAgentStepStreamEvent(projectID, agentID, ticketID, event)
 			if err != nil {
-				s.logger.Warn("skip malformed agent step stream event", "error", err)
+				s.logger.Warn(
+					"skip malformed agent step stream event",
+					"operation", "build_agent_step_stream_event",
+					"project_id", projectID,
+					"agent_id", agentID,
+					"ticket_id", ticketID,
+					"topic", event.Topic.String(),
+					"type", event.Type.String(),
+					"payload_bytes", len(event.Payload),
+					"error", err,
+				)
 				continue
 			}
 			if !matched {
