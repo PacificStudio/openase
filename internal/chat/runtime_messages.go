@@ -9,6 +9,7 @@ import (
 const (
 	chatMessageTypeText             = "text"
 	chatMessageTypeDiff             = "diff"
+	chatMessageTypeBundleDiff       = "bundle_diff"
 	chatMessageTypeActionProposal   = "action_proposal"
 	chatMessageTypeTaskStarted      = "task_started"
 	chatMessageTypeTaskProgress     = "task_progress"
@@ -19,6 +20,16 @@ var codeFencePattern = regexp.MustCompile("(?s)^```(?:json)?\\s*(\\{.*\\})\\s*``
 
 type diffPayload struct {
 	Type  string     `json:"type"`
+	File  string     `json:"file"`
+	Hunks []diffHunk `json:"hunks"`
+}
+
+type bundleDiffPayload struct {
+	Type  string           `json:"type"`
+	Files []bundleDiffFile `json:"files"`
+}
+
+type bundleDiffFile struct {
 	File  string     `json:"file"`
 	Hunks []diffHunk `json:"hunks"`
 }
@@ -55,6 +66,9 @@ func newTaskMessageEvent(kind string, raw any) StreamEvent {
 func normalizeAssistantText(text string) []StreamEvent {
 	if proposal, ok := parseActionProposalText(text); ok {
 		return []StreamEvent{{Event: "message", Payload: proposal}}
+	}
+	if bundleDiff, ok := parseBundleDiffPayloadText(text); ok {
+		return []StreamEvent{{Event: "message", Payload: bundleDiff}}
 	}
 	if diff, ok := parseDiffPayloadText(text); ok {
 		return []StreamEvent{{Event: "message", Payload: diff}}
@@ -130,6 +144,44 @@ func parseDiffPayloadText(text string) (diffPayload, bool) {
 	for _, hunk := range payload.Hunks {
 		if !isValidDiffHunk(hunk) {
 			return diffPayload{}, false
+		}
+	}
+	return payload, true
+}
+
+func parseBundleDiffPayloadText(text string) (bundleDiffPayload, bool) {
+	trimmed := extractJSONObjectCandidate(text)
+	if trimmed == "" {
+		return bundleDiffPayload{}, false
+	}
+
+	var payload bundleDiffPayload
+	if err := json.Unmarshal([]byte(trimmed), &payload); err != nil {
+		return bundleDiffPayload{}, false
+	}
+	if strings.TrimSpace(payload.Type) != chatMessageTypeBundleDiff {
+		return bundleDiffPayload{}, false
+	}
+	if len(payload.Files) == 0 {
+		return bundleDiffPayload{}, false
+	}
+	seenFiles := make(map[string]struct{}, len(payload.Files))
+	for _, item := range payload.Files {
+		file := strings.TrimSpace(item.File)
+		if file == "" {
+			return bundleDiffPayload{}, false
+		}
+		if _, exists := seenFiles[file]; exists {
+			return bundleDiffPayload{}, false
+		}
+		seenFiles[file] = struct{}{}
+		if len(item.Hunks) == 0 {
+			return bundleDiffPayload{}, false
+		}
+		for _, hunk := range item.Hunks {
+			if !isValidDiffHunk(hunk) {
+				return bundleDiffPayload{}, false
+			}
 		}
 	}
 	return payload, true

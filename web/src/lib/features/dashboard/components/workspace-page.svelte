@@ -128,7 +128,7 @@
           {@const metrics = orgMetrics[org.id]}
           <a
             href={organizationPath(org.id)}
-            class="border-border bg-card hover:bg-muted/30 group rounded-lg border p-5 transition-colors"
+            class="border-border bg-card hover:bg-muted/30 hover-lift group rounded-lg border p-5 transition-colors"
           >
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0 flex-1">

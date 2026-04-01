@@ -57,6 +57,8 @@ const budgetRules = [
         'Tickets page still owns board loading and stream orchestration until board controller extraction lands.',
       'src/lib/features/chat/project-conversation-transcript.svelte':
         'Project conversation transcript still centralizes interrupt response UX while runtime cards continue to settle.',
+      'src/lib/features/workflows/components/workflow-editor-panel.svelte':
+        'Workflow editor panel temporarily keeps toolbar, bindings, and AI sidebar orchestration together until panel extraction lands.',
       'src/lib/features/workflows/components/workflows-page.svelte':
         'Workflows page still coordinates editor, history, and skill bindings until controller extraction lands.',
     },
@@ -76,7 +78,9 @@ const budgetRules = [
       'src/lib/features/workflows/components/harness-ai-sidebar-streaming.test.ts':
         'Harness AI long-stream regression coverage stays in one integration-style test while SSE helpers remain inline.',
       'src/lib/features/chat/ephemeral-chat-session-controller.svelte.ts':
-        'Ephemeral chat controller still owns session lifecycle and proposal execution until controller helpers are extracted.',
+        'Ephemeral chat controller remains centralized while workflow and skill editor chat contexts share one runtime path.',
+      'src/lib/features/chat/ephemeral-chat-session-controller.test.ts':
+        'Ephemeral chat controller regression coverage remains bundled while assistant context scenarios are still expanding.',
       'src/lib/features/chat/project-conversation-controller.svelte.ts':
         'Project conversation controller remains centralized while conversation restore and switch flows are still being integrated.',
       'src/lib/features/chat/project-conversation-controller.test.ts':

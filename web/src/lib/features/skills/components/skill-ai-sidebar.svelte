@@ -1,10 +1,10 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import type { AgentProvider } from '$lib/api/contracts'
+  import type { AgentProvider, SkillFile } from '$lib/api/contracts'
   import {
     createEphemeralChatSessionController,
-    EphemeralChatTranscript,
     EphemeralChatProviderSelect,
+    EphemeralChatTranscript,
   } from '$lib/features/chat'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
@@ -14,31 +14,38 @@
   import { RefreshCcw, Send } from '@lucide/svelte'
   import {
     buildDiffPreview,
-    findLatestHarnessSuggestion,
+    findLatestSkillSuggestion,
     fingerprintSuggestion,
-  } from '../assistant'
-  import HarnessChatEmptyState from './harness-chat-empty-state.svelte'
-  import HarnessSuggestionCard from './harness-suggestion-card.svelte'
+  } from '$lib/features/skills/assistant'
+  import SkillChatEmptyState from './skill-chat-empty-state.svelte'
+  import SkillSuggestionCard from './skill-suggestion-card.svelte'
 
   let {
     projectId,
     providers = [],
-    workflowId,
-    draftContent,
+    skillId,
+    files = [],
+    selectedFilePath,
+    selectedFileIsText = true,
     onApplySuggestion,
   }: {
     projectId?: string
     providers?: AgentProvider[]
-    workflowId?: string
-    draftContent: string
-    onApplySuggestion?: (content: string) => void
+    skillId?: string
+    files?: SkillFile[]
+    selectedFilePath?: string | null
+    selectedFileIsText?: boolean
+    onApplySuggestion?: (
+      files: Array<{ path: string; content: string }>,
+      focusPath?: string,
+    ) => void
   } = $props()
 
   let prompt = $state('')
   let appliedFingerprint = $state('')
   let previousContextKey = ''
   const chatController = createEphemeralChatSessionController({
-    getSource: () => 'harness_editor',
+    getSource: () => 'skill_editor',
     onError: (message) => toastStore.error(message),
   })
 
@@ -46,22 +53,81 @@
   const providerId = $derived(chatController.providerId)
   const pending = $derived(chatController.pending)
   const entries = $derived(chatController.entries)
-  const suggestion = $derived(findLatestHarnessSuggestion(entries, draftContent))
-  const preview = $derived(suggestion ? buildDiffPreview(draftContent, suggestion.content) : null)
-  const currentFingerprint = $derived(suggestion ? fingerprintSuggestion(suggestion.content) : '')
+  const normalizedSelectedPath = $derived(selectedFilePath?.trim() ?? '')
+  const selectedFileContent = $derived(
+    files.find((file) => file.path === normalizedSelectedPath)?.content ?? '',
+  )
+  const suggestion = $derived(
+    normalizedSelectedPath && selectedFileIsText
+      ? findLatestSkillSuggestion(entries, {
+          selectedFilePath: normalizedSelectedPath,
+          files,
+        })
+      : null,
+  )
+  let selectedSuggestionPath = $state('')
+  const previewTarget = $derived(
+    suggestion?.files.find((file) => file.path === selectedSuggestionPath) ??
+      suggestion?.files[0] ??
+      null,
+  )
+  const preview = $derived(
+    previewTarget
+      ? buildDiffPreview(
+          files.find((file) => file.path === previewTarget.path)?.content ?? '',
+          previewTarget.content,
+        )
+      : null,
+  )
+  const currentFingerprint = $derived(
+    suggestion
+      ? fingerprintSuggestion(
+          suggestion.files.map((file) => `${file.path}\n${file.content}`).join('\n\n'),
+        )
+      : '',
+  )
+  const previewList = $derived(
+    suggestion?.files.map((file) => ({
+      path: file.path,
+      preview: buildDiffPreview(
+        files.find((current) => current.path === file.path)?.content ?? '',
+        file.content,
+      ),
+    })) ?? [],
+  )
   const suggestionAlreadyApplied = $derived(
-    Boolean(preview && !preview.hasChanges) || appliedFingerprint === currentFingerprint,
+    (previewList.length > 0 && previewList.every((item) => !item.preview.hasChanges)) ||
+      appliedFingerprint === currentFingerprint,
   )
 
   $effect(() => {
-    const contextKey = projectId && workflowId ? `${projectId}:${workflowId}` : ''
+    const contextKey =
+      projectId && skillId && normalizedSelectedPath
+        ? `${projectId}:${skillId}:${normalizedSelectedPath}`
+        : ''
     if (contextKey === previousContextKey) {
       return
     }
     previousContextKey = contextKey
     prompt = ''
     appliedFingerprint = ''
+    selectedSuggestionPath = ''
     void chatController.resetConversation()
+  })
+
+  $effect(() => {
+    if (!suggestion || suggestion.files.length === 0) {
+      selectedSuggestionPath = ''
+      return
+    }
+    const stillExists = suggestion.files.some((file) => file.path === selectedSuggestionPath)
+    if (stillExists) {
+      return
+    }
+    selectedSuggestionPath =
+      suggestion.files.find((file) => file.path === normalizedSelectedPath)?.path ??
+      suggestion.files[0]?.path ??
+      ''
   })
 
   $effect(() => {
@@ -79,7 +145,15 @@
   })
 
   let sending = $state(false)
-  const sendDisabled = $derived(!projectId || !workflowId || !providerId || pending || sending)
+  const sendDisabled = $derived(
+    !projectId ||
+      !skillId ||
+      !normalizedSelectedPath ||
+      !providerId ||
+      pending ||
+      sending ||
+      !selectedFileIsText,
+  )
 
   async function handleSend() {
     const message = prompt.trim()
@@ -95,8 +169,9 @@
         message,
         context: {
           projectId: projectId!,
-          workflowId: workflowId!,
-          harnessDraft: draftContent,
+          skillId: skillId!,
+          skillFilePath: normalizedSelectedPath,
+          skillFileDraft: selectedFileContent,
         },
       })
     } finally {
@@ -106,8 +181,8 @@
 
   function handleApply() {
     if (!suggestion) return
-    onApplySuggestion?.(suggestion.content)
-    appliedFingerprint = fingerprintSuggestion(suggestion.content)
+    onApplySuggestion?.(suggestion.files, selectedSuggestionPath || suggestion.files[0]?.path)
+    appliedFingerprint = currentFingerprint
   }
 
   function handlePromptKeydown(event: KeyboardEvent) {
@@ -141,7 +216,7 @@
 
 <div class="bg-background flex h-full min-h-0 flex-col">
   <div class="border-border flex items-center justify-between gap-2 border-b px-3 py-1">
-    <div class="flex items-center gap-1.5">
+    <div class="flex min-w-0 items-center gap-1.5">
       <span class="text-muted-foreground text-[11px] font-medium">AI</span>
       <EphemeralChatProviderSelect
         providers={chatProviders}
@@ -165,7 +240,7 @@
   <ScrollArea class="min-h-0 flex-1 px-3 py-2">
     <div class="space-y-2">
       {#if entries.length === 0}
-        <HarnessChatEmptyState />
+        <SkillChatEmptyState />
       {/if}
       <EphemeralChatTranscript
         {entries}
@@ -175,10 +250,12 @@
       />
 
       {#if suggestion && preview}
-        <HarnessSuggestionCard
+        <SkillSuggestionCard
           {suggestion}
+          selectedPath={selectedSuggestionPath}
           {preview}
           {suggestionAlreadyApplied}
+          onSelectPath={(path) => (selectedSuggestionPath = path)}
           onApply={handleApply}
         />
       {/if}
@@ -193,8 +270,14 @@
         bind:value={prompt}
         rows={1}
         class="min-h-0 flex-1 resize-none border-0 px-0 py-1 text-xs shadow-none focus-visible:ring-0"
-        placeholder="Ask AI to refine this harness…"
-        disabled={!projectId || !workflowId || !providerId}
+        placeholder={selectedFileIsText
+          ? `Ask AI to refine ${normalizedSelectedPath || 'this file'}…`
+          : 'Select a UTF-8 text file to edit with AI…'}
+        disabled={!projectId ||
+          !skillId ||
+          !providerId ||
+          !normalizedSelectedPath ||
+          !selectedFileIsText}
         onkeydown={handlePromptKeydown}
       />
       <Button

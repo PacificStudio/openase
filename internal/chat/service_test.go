@@ -50,6 +50,32 @@ func TestParseStartInputPreservesHarnessDraft(t *testing.T) {
 	}
 }
 
+func TestParseStartInputPreservesSkillEditorContext(t *testing.T) {
+	draft := "#!/usr/bin/env bash\necho updated\n"
+	input, err := ParseStartInput(RawStartInput{
+		Message: "Refine this script",
+		Source:  string(SourceSkillEditor),
+		Context: RawChatContext{
+			ProjectID:      stringPointer("550e8400-e29b-41d4-a716-446655440000"),
+			SkillID:        stringPointer("660e8400-e29b-41d4-a716-446655440000"),
+			SkillFilePath:  stringPointer("scripts/redeploy.sh"),
+			SkillFileDraft: &draft,
+		},
+	})
+	if err != nil {
+		t.Fatalf("ParseStartInput() error = %v", err)
+	}
+	if input.Context.SkillID == nil || *input.Context.SkillID != uuid.MustParse("660e8400-e29b-41d4-a716-446655440000") {
+		t.Fatalf("expected skill_id to round-trip, got %#v", input.Context.SkillID)
+	}
+	if input.Context.SkillFilePath == nil || *input.Context.SkillFilePath != "scripts/redeploy.sh" {
+		t.Fatalf("expected skill_file_path to round-trip, got %#v", input.Context.SkillFilePath)
+	}
+	if input.Context.SkillFileDraft == nil || *input.Context.SkillFileDraft != draft {
+		t.Fatalf("expected skill_file_draft to round-trip, got %#v", input.Context.SkillFileDraft)
+	}
+}
+
 func TestMapClaudeEventPromotesActionProposalJSON(t *testing.T) {
 	events := mapClaudeEvent(SessionID("session-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
 		Kind: provider.ClaudeCodeEventKindAssistant,
@@ -93,6 +119,16 @@ func TestParseDiffPayloadTextAcceptsStructuredJSON(t *testing.T) {
 	}
 	if payload.Type != chatMessageTypeDiff || payload.File != "harness content" || len(payload.Hunks) != 1 {
 		t.Fatalf("unexpected diff payload: %#v", payload)
+	}
+}
+
+func TestParseBundleDiffPayloadTextAcceptsStructuredJSON(t *testing.T) {
+	payload, ok := parseBundleDiffPayloadText("```json\n{\"type\":\"bundle_diff\",\"files\":[{\"file\":\"SKILL.md\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"---\"},{\"op\":\"add\",\"text\":\"new line\"}]}]},{\"file\":\"scripts/redeploy.sh\",\"hunks\":[{\"old_start\":1,\"old_lines\":0,\"new_start\":1,\"new_lines\":1,\"lines\":[{\"op\":\"add\",\"text\":\"#!/usr/bin/env bash\"}]}]}]}\n```")
+	if !ok {
+		t.Fatalf("expected bundle diff payload to parse")
+	}
+	if payload.Type != chatMessageTypeBundleDiff || len(payload.Files) != 2 {
+		t.Fatalf("unexpected bundle diff payload: %#v", payload)
 	}
 }
 
@@ -224,6 +260,93 @@ func TestBuildSystemPromptGuidesHarnessEditorReplies(t *testing.T) {
 		"普通 Harness 建议不要输出 action_proposal",
 	) {
 		t.Fatalf("expected harness-editor response instructions in prompt, got %q", prompt)
+	}
+}
+
+func TestBuildSystemPromptGuidesSkillEditorReplies(t *testing.T) {
+	skillID := uuid.MustParse("440e8400-e29b-41d4-a716-446655440000")
+	service := NewService(nil, nil, fakeCatalogReader{}, fakeTicketReader{}, harnessWorkflowReader{
+		skillDetail: workflowservice.SkillDetail{
+			Skill: workflowservice.Skill{
+				ID:             skillID,
+				Name:           "deploy",
+				Description:    "Deploy the latest release safely.",
+				Path:           ".openase/skills/deploy/SKILL.md",
+				CurrentVersion: 4,
+				IsEnabled:      true,
+				BoundWorkflows: []workflowservice.SkillWorkflowBinding{
+					{
+						ID:          uuid.MustParse("550e8400-e29b-41d4-a716-446655440000"),
+						Name:        "Release Workflow",
+						HarnessPath: ".openase/harnesses/release.md",
+					},
+				},
+			},
+			BundleHash: "bundle-123",
+			FileCount:  3,
+			Files: []workflowservice.SkillBundleFile{
+				{
+					Path:      "SKILL.md",
+					FileKind:  "entrypoint",
+					MediaType: "text/markdown; charset=utf-8",
+					Encoding:  "utf8",
+					Content:   []byte("---\nname: deploy\n---\n\nUse safe deployment steps.\n"),
+				},
+				{
+					Path:         "scripts/redeploy.sh",
+					FileKind:     "script",
+					MediaType:    "text/x-shellscript; charset=utf-8",
+					Encoding:     "utf8",
+					IsExecutable: true,
+					SizeBytes:    29,
+					Content:      []byte("#!/usr/bin/env bash\necho old\n"),
+				},
+				{
+					Path:      "references/runbook.md",
+					FileKind:  "reference",
+					MediaType: "text/markdown; charset=utf-8",
+					Encoding:  "utf8",
+					Content:   []byte("# Runbook\n"),
+				},
+			},
+		},
+	}, fakeStatusReader{}, "")
+
+	prompt, err := service.buildSystemPrompt(
+		context.Background(),
+		StartInput{
+			Source: SourceSkillEditor,
+			Context: Context{
+				ProjectID:      uuid.MustParse("660e8400-e29b-41d4-a716-446655440000"),
+				SkillID:        &skillID,
+				SkillFilePath:  stringPointer("scripts/redeploy.sh"),
+				SkillFileDraft: stringPointer("#!/usr/bin/env bash\necho new\n"),
+			},
+		},
+		catalogdomain.Project{Name: "OpenASE"},
+	)
+	if err != nil {
+		t.Fatalf("build system prompt: %v", err)
+	}
+	if !containsAll(prompt,
+		"## 来源: Skill 编辑器",
+		"Skill: deploy | 版本: 4 | 启用: true",
+		"### Skill Bundle 文件清单",
+		"scripts/redeploy.sh [kind=script, encoding=utf8, size=29] executable=true",
+		"### 当前选中文件",
+		"path: scripts/redeploy.sh",
+		"### 已发布文件内容",
+		"echo old",
+		"### 其他可编辑文本文件内容",
+		"#### references/runbook.md",
+		"### 当前编辑器草稿（未保存）",
+		"echo new",
+		"### Skill 编辑要求",
+		"\"type\":\"diff\",\"file\":\"相对文件路径\"",
+		"\"type\":\"bundle_diff\",\"files\"",
+		"`bundle_diff.files[].file` 必须是 bundle 内相对文件路径",
+	) {
+		t.Fatalf("expected skill-editor response instructions in prompt, got %q", prompt)
 	}
 }
 
@@ -1195,8 +1318,9 @@ func TestBuildCodexArgsDoesNotAppendModelFlag(t *testing.T) {
 }
 
 type harnessWorkflowReader struct {
-	detail workflowservice.WorkflowDetail
-	list   []workflowservice.Workflow
+	detail      workflowservice.WorkflowDetail
+	list        []workflowservice.Workflow
+	skillDetail workflowservice.SkillDetail
 }
 
 func (r harnessWorkflowReader) Get(context.Context, uuid.UUID) (workflowservice.WorkflowDetail, error) {
@@ -1205,6 +1329,10 @@ func (r harnessWorkflowReader) Get(context.Context, uuid.UUID) (workflowservice.
 
 func (r harnessWorkflowReader) List(context.Context, uuid.UUID) ([]workflowservice.Workflow, error) {
 	return r.list, nil
+}
+
+func (r harnessWorkflowReader) GetSkill(context.Context, uuid.UUID) (workflowservice.SkillDetail, error) {
+	return r.skillDetail, nil
 }
 
 func stringPointer(value string) *string {
@@ -1225,6 +1353,8 @@ type fakeCatalogReader struct {
 	projectErr       error
 	activityEvents   []catalogdomain.ActivityEvent
 	activityErr      error
+	agents           []catalogdomain.Agent
+	agentErr         error
 	projectRepos     []catalogdomain.ProjectRepo
 	projectRepoErr   error
 	repoScopes       []catalogdomain.TicketRepoScope
@@ -1241,6 +1371,10 @@ func (r fakeCatalogReader) GetProject(context.Context, uuid.UUID) (catalogdomain
 
 func (r fakeCatalogReader) ListActivityEvents(context.Context, catalogdomain.ListActivityEvents) ([]catalogdomain.ActivityEvent, error) {
 	return r.activityEvents, r.activityErr
+}
+
+func (r fakeCatalogReader) ListAgents(context.Context, uuid.UUID) ([]catalogdomain.Agent, error) {
+	return r.agents, r.agentErr
 }
 
 func (r fakeCatalogReader) ListProjectRepos(context.Context, uuid.UUID) ([]catalogdomain.ProjectRepo, error) {
@@ -1263,6 +1397,19 @@ func (r fakeCatalogReader) GetAgentProvider(_ context.Context, id uuid.UUID) (ca
 		return item, nil
 	}
 	return catalogdomain.AgentProvider{}, errors.New("provider not found")
+}
+
+func (r fakeCatalogReader) CreateAgent(_ context.Context, input catalogdomain.CreateAgent) (catalogdomain.Agent, error) {
+	if r.agentErr != nil {
+		return catalogdomain.Agent{}, r.agentErr
+	}
+	return catalogdomain.Agent{
+		ID:                  uuid.New(),
+		ProviderID:          input.ProviderID,
+		ProjectID:           input.ProjectID,
+		Name:                input.Name,
+		RuntimeControlState: input.RuntimeControlState,
+	}, nil
 }
 
 type fakeTicketReader struct {

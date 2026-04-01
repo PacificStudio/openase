@@ -87,7 +87,9 @@
 
 <div class="flex min-h-0 flex-1 flex-col px-6 pb-6" data-testid="machines-workspace">
   {#if state === 'no-org'}
-    <div class="border-border bg-card rounded-xl border border-dashed px-4 py-14 text-center">
+    <div
+      class="animate-fade-in-up border-border bg-card rounded-xl border border-dashed px-4 py-14 text-center"
+    >
       <div class="bg-muted/60 mx-auto mb-4 flex size-12 items-center justify-center rounded-full">
         <Server class="text-muted-foreground size-5" />
       </div>
@@ -140,7 +142,9 @@
       </div>
     </div>
   {:else if state === 'empty'}
-    <div class="border-border bg-card rounded-xl border border-dashed px-4 py-14 text-center">
+    <div
+      class="animate-fade-in-up border-border bg-card rounded-xl border border-dashed px-4 py-14 text-center"
+    >
       <div class="bg-muted/60 mx-auto mb-4 flex size-12 items-center justify-center rounded-full">
         <Server class="text-muted-foreground size-5" />
       </div>
@@ -175,21 +179,23 @@
         </div>
       {:else}
         <div class="space-y-3">
-          {#each machines as machine (machine.id)}
-            <MachineRowCard
-              {machine}
-              selected={machine.id === selectedId && editorOpen}
-              resetEnabled={machine.id === selectedId &&
-                editorOpen &&
-                mode === 'edit' &&
-                hasSelectedDraftChanges}
-              testing={testingMachineId === machine.id}
-              deleting={deletingMachineId === machine.id}
-              onOpen={() => onSelectMachine?.(machine.id)}
-              onTest={() => onTest?.(machine.id)}
-              onReset={() => onReset?.(machine.id)}
-              onDelete={() => onDelete?.(machine.id)}
-            />
+          {#each machines as machine, idx (machine.id)}
+            <div class="animate-stagger" style="--stagger-index: {idx}">
+              <MachineRowCard
+                {machine}
+                selected={machine.id === selectedId && editorOpen}
+                resetEnabled={machine.id === selectedId &&
+                  editorOpen &&
+                  mode === 'edit' &&
+                  hasSelectedDraftChanges}
+                testing={testingMachineId === machine.id}
+                deleting={deletingMachineId === machine.id}
+                onOpen={() => onSelectMachine?.(machine.id)}
+                onTest={() => onTest?.(machine.id)}
+                onReset={() => onReset?.(machine.id)}
+                onDelete={() => onDelete?.(machine.id)}
+              />
+            </div>
           {/each}
         </div>
       {/if}

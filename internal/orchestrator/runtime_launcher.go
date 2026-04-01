@@ -502,6 +502,7 @@ func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUI
 		runtimeEventMetadataForState(failedAgent),
 		now,
 	)
+	l.cleanupRunWorkspacesBestEffort(ctx, runID, "launch failure")
 	return nil
 }
 
@@ -1498,6 +1499,188 @@ func (l *RuntimeLauncher) markTicketRepoWorkspacesReady(
 		}
 	}
 
+	return nil
+}
+
+func (l *RuntimeLauncher) cleanupRunWorkspacesBestEffort(ctx context.Context, runID uuid.UUID, reason string) {
+	if l == nil || runID == uuid.Nil {
+		return
+	}
+	if err := l.cleanupRunWorkspaces(ctx, runID); err != nil {
+		l.logger.Warn("cleanup ticket workspaces", "run_id", runID, "reason", strings.TrimSpace(reason), "error", err)
+	}
+}
+
+func (l *RuntimeLauncher) cleanupRunWorkspaces(ctx context.Context, runID uuid.UUID) error {
+	if l == nil || l.client == nil || runID == uuid.Nil {
+		return nil
+	}
+
+	machine, remote, workspaceRoot, err := l.resolveRunWorkspaceCleanupTarget(ctx, runID)
+	if err != nil {
+		return err
+	}
+
+	workspaces, err := l.client.TicketRepoWorkspace.Query().
+		Where(entticketrepoworkspace.AgentRunIDEQ(runID)).
+		Order(ent.Asc(entticketrepoworkspace.FieldRepoPath)).
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("load ticket repo workspaces for cleanup: %w", err)
+	}
+	trackCleanupState := false
+	if len(workspaces) > 0 {
+		for _, item := range workspaces {
+			if trimmed := strings.TrimSpace(item.WorkspaceRoot); trimmed != workspaceRoot {
+				_ = l.markRunWorkspaceCleanupFailed(ctx, runID, fmt.Errorf("run %s spans multiple workspace roots (%s, %s)", runID, workspaceRoot, trimmed))
+				return fmt.Errorf("run %s spans multiple workspace roots (%s, %s)", runID, workspaceRoot, trimmed)
+			}
+			if item.PreparedAt != nil || item.State == entticketrepoworkspace.StateReady {
+				trackCleanupState = true
+			}
+		}
+		if trackCleanupState {
+			if _, err := l.client.TicketRepoWorkspace.Update().
+				Where(entticketrepoworkspace.AgentRunIDEQ(runID)).
+				SetState(entticketrepoworkspace.StateCleaning).
+				ClearLastError().
+				Save(ctx); err != nil {
+				return fmt.Errorf("mark ticket repo workspaces cleaning: %w", err)
+			}
+		}
+	}
+
+	if err := l.removeWorkspaceRoot(ctx, machine, remote, workspaceRoot); err != nil {
+		_ = l.markRunWorkspaceCleanupFailed(ctx, runID, err)
+		return err
+	}
+
+	if len(workspaces) == 0 || !trackCleanupState {
+		return nil
+	}
+
+	cleanedAt := l.now().UTC()
+	if _, err := l.client.TicketRepoWorkspace.Update().
+		Where(entticketrepoworkspace.AgentRunIDEQ(runID)).
+		SetState(entticketrepoworkspace.StateCleaned).
+		SetCleanedAt(cleanedAt).
+		ClearLastError().
+		Save(ctx); err != nil {
+		return fmt.Errorf("mark ticket repo workspaces cleaned: %w", err)
+	}
+	return nil
+}
+
+func (l *RuntimeLauncher) resolveRunWorkspaceCleanupTarget(ctx context.Context, runID uuid.UUID) (catalogdomain.Machine, bool, string, error) {
+	if l == nil || l.client == nil {
+		return catalogdomain.Machine{}, false, "", fmt.Errorf("runtime launcher unavailable")
+	}
+	runItem, err := l.client.AgentRun.Query().
+		Where(entagentrun.IDEQ(runID)).
+		WithAgent(func(query *ent.AgentQuery) {
+			query.WithProject(func(projectQuery *ent.ProjectQuery) {
+				projectQuery.WithOrganization()
+			})
+		}).
+		WithProvider().
+		WithTicket().
+		Only(ctx)
+	if err != nil {
+		return catalogdomain.Machine{}, false, "", fmt.Errorf("load run %s for workspace cleanup: %w", runID, err)
+	}
+	if runItem.Edges.Agent == nil || runItem.Edges.Agent.Edges.Project == nil || runItem.Edges.Agent.Edges.Project.Edges.Organization == nil {
+		return catalogdomain.Machine{}, false, "", fmt.Errorf("run %s missing project context for workspace cleanup", runID)
+	}
+	if runItem.Edges.Provider == nil {
+		return catalogdomain.Machine{}, false, "", fmt.Errorf("run %s missing provider for workspace cleanup", runID)
+	}
+	if runItem.Edges.Ticket == nil {
+		return catalogdomain.Machine{}, false, "", fmt.Errorf("run %s missing ticket for workspace cleanup", runID)
+	}
+
+	machineItem, err := l.client.Machine.Get(ctx, runItem.Edges.Provider.MachineID)
+	if err != nil {
+		return catalogdomain.Machine{}, false, "", fmt.Errorf("load machine %s for workspace cleanup: %w", runItem.Edges.Provider.MachineID, err)
+	}
+	machine := mapRuntimeMachine(machineItem)
+	remote := machine.Host != catalogdomain.LocalMachineHost
+
+	workspaceRootBase, err := resolveWorkspaceRoot(machine, remote)
+	if err != nil {
+		return catalogdomain.Machine{}, false, "", err
+	}
+	workspaceRoot, err := workspaceinfra.TicketWorkspacePath(
+		workspaceRootBase,
+		runItem.Edges.Agent.Edges.Project.Edges.Organization.Slug,
+		runItem.Edges.Agent.Edges.Project.Slug,
+		runItem.Edges.Ticket.Identifier,
+	)
+	if err != nil {
+		return catalogdomain.Machine{}, false, "", fmt.Errorf("derive workspace path for cleanup: %w", err)
+	}
+	return machine, remote, workspaceRoot, nil
+}
+
+func (l *RuntimeLauncher) markRunWorkspaceCleanupFailed(ctx context.Context, runID uuid.UUID, cleanupErr error) error {
+	if l == nil || l.client == nil || runID == uuid.Nil || cleanupErr == nil {
+		return nil
+	}
+	update := l.client.TicketRepoWorkspace.Update().
+		Where(entticketrepoworkspace.AgentRunIDEQ(runID)).
+		SetState(entticketrepoworkspace.StateFailed)
+
+	existingError, err := l.client.TicketRepoWorkspace.Query().
+		Where(
+			entticketrepoworkspace.AgentRunIDEQ(runID),
+			entticketrepoworkspace.LastErrorNEQ(""),
+		).
+		Exist(ctx)
+	if err != nil {
+		return fmt.Errorf("inspect ticket repo workspace cleanup failure state: %w", err)
+	}
+	if !existingError {
+		update.SetLastError(strings.TrimSpace(cleanupErr.Error()))
+	}
+
+	_, err = update.Save(ctx)
+	if err != nil {
+		return fmt.Errorf("record ticket repo workspace cleanup failure: %w", err)
+	}
+	return nil
+}
+
+func (l *RuntimeLauncher) removeWorkspaceRoot(ctx context.Context, machine catalogdomain.Machine, remote bool, workspaceRoot string) error {
+	trimmedRoot := strings.TrimSpace(workspaceRoot)
+	if trimmedRoot == "" {
+		return fmt.Errorf("workspace root must not be empty")
+	}
+
+	if !remote {
+		if err := os.RemoveAll(trimmedRoot); err != nil {
+			return fmt.Errorf("remove local workspace %s: %w", trimmedRoot, err)
+		}
+		return nil
+	}
+	if l == nil || l.sshPool == nil {
+		return fmt.Errorf("ssh pool unavailable for remote machine %s during workspace cleanup", machine.Name)
+	}
+
+	client, err := l.sshPool.Get(ctx, machine)
+	if err != nil {
+		return fmt.Errorf("get ssh client for machine %s: %w", machine.Name, err)
+	}
+	session, err := client.NewSession()
+	if err != nil {
+		return fmt.Errorf("open ssh session for machine %s: %w", machine.Name, err)
+	}
+	defer func() {
+		_ = session.Close()
+	}()
+
+	command := "set -eu\nrm -rf " + sshinfra.ShellQuote(trimmedRoot)
+	if output, err := session.CombinedOutput(command); err != nil {
+		return fmt.Errorf("remove remote workspace %s: %w: %s", trimmedRoot, err, strings.TrimSpace(string(output)))
+	}
 	return nil
 }
 
