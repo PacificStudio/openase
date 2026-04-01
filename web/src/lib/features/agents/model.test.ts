@@ -36,6 +36,7 @@ const providerFixture: AgentProvider = {
   max_parallel_runs: 2,
   cost_per_input_token: 0,
   cost_per_output_token: 0,
+  pricing_config: {},
 }
 
 const ticketsFixture: Ticket[] = [

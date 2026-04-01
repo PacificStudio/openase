@@ -13,6 +13,7 @@ import (
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/domain/pricing"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
@@ -70,6 +71,7 @@ func (r *EntRepository) CreateAgentProvider(ctx context.Context, input domain.Cr
 		SetMaxParallelRuns(input.MaxParallelRuns).
 		SetCostPerInputToken(input.CostPerInputToken).
 		SetCostPerOutputToken(input.CostPerOutputToken).
+		SetPricingConfig(input.PricingConfig.ToMap()).
 		Save(ctx)
 	if err != nil {
 		return domain.AgentProvider{}, mapWriteError("create agent provider", err)
@@ -114,6 +116,7 @@ func (r *EntRepository) UpdateAgentProvider(ctx context.Context, input domain.Up
 		SetMaxParallelRuns(input.MaxParallelRuns).
 		SetCostPerInputToken(input.CostPerInputToken).
 		SetCostPerOutputToken(input.CostPerOutputToken).
+		SetPricingConfig(input.PricingConfig.ToMap()).
 		Save(ctx)
 	if err != nil {
 		return domain.AgentProvider{}, mapWriteError("update agent provider", err)
@@ -357,7 +360,20 @@ func mapAgentProvider(item *ent.AgentProvider) domain.AgentProvider {
 		MaxParallelRuns:       item.MaxParallelRuns,
 		CostPerInputToken:     item.CostPerInputToken,
 		CostPerOutputToken:    item.CostPerOutputToken,
+		PricingConfig:         parseProviderPricingConfig(item.PricingConfig, item.CostPerInputToken, item.CostPerOutputToken),
 	}
+}
+
+func parseProviderPricingConfig(
+	raw map[string]any,
+	costPerInputToken float64,
+	costPerOutputToken float64,
+) pricing.ProviderModelPricingConfig {
+	config, err := pricing.ParseRawProviderModelPricingConfig(raw, costPerInputToken, costPerOutputToken)
+	if err != nil {
+		return pricing.CustomFlatPricingConfig(costPerInputToken, costPerOutputToken)
+	}
+	return config
 }
 
 func normalizeProviderPermissionProfile(

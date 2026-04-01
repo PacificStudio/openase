@@ -178,6 +178,12 @@ func (_c *AgentProviderCreate) SetNillableCostPerOutputToken(v *float64) *AgentP
 	return _c
 }
 
+// SetPricingConfig sets the "pricing_config" field.
+func (_c *AgentProviderCreate) SetPricingConfig(v map[string]interface{}) *AgentProviderCreate {
+	_c.mutation.SetPricingConfig(v)
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *AgentProviderCreate) SetID(v uuid.UUID) *AgentProviderCreate {
 	_c.mutation.SetID(v)
@@ -299,6 +305,10 @@ func (_c *AgentProviderCreate) defaults() {
 		v := agentprovider.DefaultCostPerOutputToken
 		_c.mutation.SetCostPerOutputToken(v)
 	}
+	if _, ok := _c.mutation.PricingConfig(); !ok {
+		v := agentprovider.DefaultPricingConfig()
+		_c.mutation.SetPricingConfig(v)
+	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := agentprovider.DefaultID()
 		_c.mutation.SetID(v)
@@ -373,6 +383,9 @@ func (_c *AgentProviderCreate) check() error {
 	}
 	if _, ok := _c.mutation.CostPerOutputToken(); !ok {
 		return &ValidationError{Name: "cost_per_output_token", err: errors.New(`ent: missing required field "AgentProvider.cost_per_output_token"`)}
+	}
+	if _, ok := _c.mutation.PricingConfig(); !ok {
+		return &ValidationError{Name: "pricing_config", err: errors.New(`ent: missing required field "AgentProvider.pricing_config"`)}
 	}
 	if len(_c.mutation.OrganizationIDs()) == 0 {
 		return &ValidationError{Name: "organization", err: errors.New(`ent: missing required edge "AgentProvider.organization"`)}
@@ -470,6 +483,10 @@ func (_c *AgentProviderCreate) createSpec() (*AgentProvider, *sqlgraph.CreateSpe
 	if value, ok := _c.mutation.CostPerOutputToken(); ok {
 		_spec.SetField(agentprovider.FieldCostPerOutputToken, field.TypeFloat64, value)
 		_node.CostPerOutputToken = value
+	}
+	if value, ok := _c.mutation.PricingConfig(); ok {
+		_spec.SetField(agentprovider.FieldPricingConfig, field.TypeJSON, value)
+		_node.PricingConfig = value
 	}
 	if nodes := _c.mutation.OrganizationIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

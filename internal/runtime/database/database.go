@@ -79,9 +79,13 @@ func applyLegacySchemaCompat(ctx context.Context, dsn string) error {
 	statements := []string{
 		`ALTER TABLE agent_providers ADD COLUMN IF NOT EXISTS cli_rate_limit jsonb`,
 		`ALTER TABLE agent_providers ADD COLUMN IF NOT EXISTS cli_rate_limit_updated_at timestamptz`,
+		`ALTER TABLE agent_providers ADD COLUMN IF NOT EXISTS pricing_config jsonb`,
 		`UPDATE agent_providers SET cli_rate_limit = '{}'::jsonb WHERE cli_rate_limit IS NULL`,
+		`UPDATE agent_providers SET pricing_config = '{}'::jsonb WHERE pricing_config IS NULL`,
 		`ALTER TABLE agent_providers ALTER COLUMN cli_rate_limit SET DEFAULT '{}'::jsonb`,
 		`ALTER TABLE agent_providers ALTER COLUMN cli_rate_limit SET NOT NULL`,
+		`ALTER TABLE agent_providers ALTER COLUMN pricing_config SET DEFAULT '{}'::jsonb`,
+		`ALTER TABLE agent_providers ALTER COLUMN pricing_config SET NOT NULL`,
 		`DROP TABLE IF EXISTS issue_connectors`,
 	}
 	for _, statement := range statements {

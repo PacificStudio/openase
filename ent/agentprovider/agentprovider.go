@@ -47,6 +47,8 @@ const (
 	FieldCostPerInputToken = "cost_per_input_token"
 	// FieldCostPerOutputToken holds the string denoting the cost_per_output_token field in the database.
 	FieldCostPerOutputToken = "cost_per_output_token"
+	// FieldPricingConfig holds the string denoting the pricing_config field in the database.
+	FieldPricingConfig = "pricing_config"
 	// EdgeOrganization holds the string denoting the organization edge name in mutations.
 	EdgeOrganization = "organization"
 	// EdgeMachine holds the string denoting the machine edge name in mutations.
@@ -106,6 +108,7 @@ var Columns = []string{
 	FieldMaxParallelRuns,
 	FieldCostPerInputToken,
 	FieldCostPerOutputToken,
+	FieldPricingConfig,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -139,6 +142,8 @@ var (
 	DefaultCostPerInputToken float64
 	// DefaultCostPerOutputToken holds the default value on creation for the "cost_per_output_token" field.
 	DefaultCostPerOutputToken float64
+	// DefaultPricingConfig holds the default value on creation for the "pricing_config" field.
+	DefaultPricingConfig func() map[string]interface{}
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )

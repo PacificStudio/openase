@@ -281,6 +281,12 @@ func (_u *AgentProviderUpdate) AddCostPerOutputToken(v float64) *AgentProviderUp
 	return _u
 }
 
+// SetPricingConfig sets the "pricing_config" field.
+func (_u *AgentProviderUpdate) SetPricingConfig(v map[string]interface{}) *AgentProviderUpdate {
+	_u.mutation.SetPricingConfig(v)
+	return _u
+}
+
 // SetOrganization sets the "organization" edge to the Organization entity.
 func (_u *AgentProviderUpdate) SetOrganization(v *Organization) *AgentProviderUpdate {
 	return _u.SetOrganizationID(v.ID)
@@ -517,6 +523,9 @@ func (_u *AgentProviderUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	}
 	if value, ok := _u.mutation.AddedCostPerOutputToken(); ok {
 		_spec.AddField(agentprovider.FieldCostPerOutputToken, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.PricingConfig(); ok {
+		_spec.SetField(agentprovider.FieldPricingConfig, field.TypeJSON, value)
 	}
 	if _u.mutation.OrganizationCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -933,6 +942,12 @@ func (_u *AgentProviderUpdateOne) AddCostPerOutputToken(v float64) *AgentProvide
 	return _u
 }
 
+// SetPricingConfig sets the "pricing_config" field.
+func (_u *AgentProviderUpdateOne) SetPricingConfig(v map[string]interface{}) *AgentProviderUpdateOne {
+	_u.mutation.SetPricingConfig(v)
+	return _u
+}
+
 // SetOrganization sets the "organization" edge to the Organization entity.
 func (_u *AgentProviderUpdateOne) SetOrganization(v *Organization) *AgentProviderUpdateOne {
 	return _u.SetOrganizationID(v.ID)
@@ -1199,6 +1214,9 @@ func (_u *AgentProviderUpdateOne) sqlSave(ctx context.Context) (_node *AgentProv
 	}
 	if value, ok := _u.mutation.AddedCostPerOutputToken(); ok {
 		_spec.AddField(agentprovider.FieldCostPerOutputToken, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.PricingConfig(); ok {
+		_spec.SetField(agentprovider.FieldPricingConfig, field.TypeJSON, value)
 	}
 	if _u.mutation.OrganizationCleared() {
 		edge := &sqlgraph.EdgeSpec{

@@ -34,6 +34,7 @@ export const providerFixtures: AgentProvider[] = [
     max_parallel_runs: 2,
     cost_per_input_token: 0,
     cost_per_output_token: 0,
+    pricing_config: {},
   },
   {
     id: 'provider-2',
@@ -68,5 +69,6 @@ export const providerFixtures: AgentProvider[] = [
     max_parallel_runs: 2,
     cost_per_input_token: 0,
     cost_per_output_token: 0,
+    pricing_config: {},
   },
 ]

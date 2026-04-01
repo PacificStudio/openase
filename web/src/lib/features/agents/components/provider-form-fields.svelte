@@ -5,8 +5,18 @@
   import * as Select from '$ui/select'
   import { Textarea } from '$ui/textarea'
   import { ChevronDown, ChevronUp } from '@lucide/svelte'
+  import {
+    createCustomFlatPricingConfig,
+    isRoutedOfficialPricingConfig,
+    parseProviderPricingConfig,
+    providerPricingDetailRows,
+    providerPricingStatusText,
+    stringifyProviderPricingConfig,
+    suggestPricingDraftValues,
+  } from '../provider-pricing'
   import { providerAdapterOptions, providerPermissionProfileOptions } from '../provider-draft'
   import type { ProviderDraft, ProviderDraftField } from '../types'
+  import ProviderPricingFields from './provider-pricing-fields.svelte'
   import ProviderModelPicker from './provider-model-picker.svelte'
 
   let {
@@ -24,9 +34,62 @@
   } = $props()
 
   let advancedOpen = $state(false)
+  let syncedPricingModelKey = $state('')
+
+  const pricingConfig = $derived(parseProviderPricingConfig(draft.pricingConfig))
+  const pricingStatus = $derived(providerPricingStatusText(pricingConfig))
+  const pricingRows = $derived(providerPricingDetailRows(pricingConfig))
+  const routedOfficialPricing = $derived(isRoutedOfficialPricingConfig(pricingConfig))
 
   function fieldValue(event: Event) {
     return (event.currentTarget as HTMLInputElement | HTMLTextAreaElement).value
+  }
+
+  $effect(() => {
+    const modelKey = `${draft.adapterType}:${draft.modelName}`
+    const suggested = suggestPricingDraftValues({
+      modelCatalog,
+      adapterType: draft.adapterType,
+      modelName: draft.modelName,
+      currentPricingConfig: pricingConfig,
+      currentCostPerInputToken: draft.costPerInputToken,
+      currentCostPerOutputToken: draft.costPerOutputToken,
+    })
+    if (!suggested) {
+      syncedPricingModelKey = modelKey
+      return
+    }
+
+    const nextSerializedPricing = stringifyProviderPricingConfig(suggested.pricingConfig)
+    if (
+      syncedPricingModelKey === modelKey &&
+      draft.pricingConfig === nextSerializedPricing &&
+      draft.costPerInputToken === suggested.costPerInputToken &&
+      draft.costPerOutputToken === suggested.costPerOutputToken
+    ) {
+      return
+    }
+
+    syncedPricingModelKey = modelKey
+    onFieldChange?.('pricingConfig', nextSerializedPricing)
+    onFieldChange?.('costPerInputToken', suggested.costPerInputToken)
+    onFieldChange?.('costPerOutputToken', suggested.costPerOutputToken)
+  })
+
+  function handlePricingFieldChange(
+    field: 'costPerInputToken' | 'costPerOutputToken',
+    value: string,
+  ) {
+    onFieldChange?.(field, value)
+
+    const nextInput = field === 'costPerInputToken' ? value : draft.costPerInputToken
+    const nextOutput = field === 'costPerOutputToken' ? value : draft.costPerOutputToken
+
+    const nextPricing = createCustomFlatPricingConfig(
+      nextInput.trim() ? Number(nextInput) / 1_000_000 : 0,
+      nextOutput.trim() ? Number(nextOutput) / 1_000_000 : 0,
+    )
+    onFieldChange?.('pricingConfig', stringifyProviderPricingConfig(nextPricing))
   }
 </script>
 
@@ -212,39 +275,15 @@
           </div>
 
           {#if showCostFields}
-            <div class="space-y-2">
-              <Label for="provider-cost-input">Input pricing (USD / 1M tokens)</Label>
-              <Input
-                id="provider-cost-input"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="3.00"
-                value={draft.costPerInputToken}
-                oninput={(event) => onFieldChange?.('costPerInputToken', fieldValue(event))}
-              />
-              <p class="text-muted-foreground text-xs">
-                Enter the published per-million-token rate. Example: `$3.00 / 1M` stores `0.000003`
-                USD per token internally.
-              </p>
-            </div>
-
-            <div class="space-y-2">
-              <Label for="provider-cost-output">Output pricing (USD / 1M tokens)</Label>
-              <Input
-                id="provider-cost-output"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="15.00"
-                value={draft.costPerOutputToken}
-                oninput={(event) => onFieldChange?.('costPerOutputToken', fieldValue(event))}
-              />
-              <p class="text-muted-foreground text-xs">
-                Use provider list pricing as-is here, in `USD / 1M tokens`, to avoid 1,000x or
-                1,000,000x entry mistakes.
-              </p>
-            </div>
+            <ProviderPricingFields
+              costPerInputToken={draft.costPerInputToken}
+              costPerOutputToken={draft.costPerOutputToken}
+              {routedOfficialPricing}
+              {pricingStatus}
+              {pricingRows}
+              pricingNotes={pricingConfig?.notes ?? []}
+              onPricingFieldChange={handlePricingFieldChange}
+            />
           {/if}
         </div>
       </div>

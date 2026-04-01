@@ -5,6 +5,12 @@ import type {
   ProviderAdapterType,
   ProviderPermissionProfile,
 } from './types'
+import {
+  TOKENS_PER_MILLION,
+  createCustomFlatPricingConfig,
+  formatPricingPerMillion,
+  parseProviderPricingConfig,
+} from './provider-pricing'
 
 export const providerAdapterOptions: Array<{ value: ProviderAdapterType; label: string }> = [
   { value: 'claude-code-cli', label: 'Claude Code CLI' },
@@ -30,8 +36,6 @@ export const providerPermissionProfileOptions: Array<{
   },
 ]
 
-const TOKENS_PER_MILLION = 1_000_000
-
 export function createEmptyProviderDraft(): ProviderDraft {
   return {
     machineId: '',
@@ -47,6 +51,7 @@ export function createEmptyProviderDraft(): ProviderDraft {
     maxParallelRuns: '',
     costPerInputToken: '0',
     costPerOutputToken: '0',
+    pricingConfig: '',
   }
 }
 
@@ -68,6 +73,7 @@ export function providerToDraft(provider: ProviderConfig): ProviderDraft {
     maxParallelRuns: provider.maxParallelRuns > 0 ? String(provider.maxParallelRuns) : '',
     costPerInputToken: formatPricingPerMillion(provider.costPerInputToken),
     costPerOutputToken: formatPricingPerMillion(provider.costPerOutputToken),
+    pricingConfig: provider.pricingConfig ? JSON.stringify(provider.pricingConfig) : '',
   }
 }
 
@@ -139,6 +145,10 @@ export function parseProviderDraft(draft: ProviderDraft): ProviderDraftParseResu
     return authConfig
   }
 
+  const pricingConfig =
+    parseProviderPricingConfig(draft.pricingConfig) ??
+    createCustomFlatPricingConfig(costPerInputToken.value, costPerOutputToken.value)
+
   return {
     ok: true,
     value: {
@@ -155,6 +165,7 @@ export function parseProviderDraft(draft: ProviderDraft): ProviderDraftParseResu
       max_parallel_runs: maxParallelRuns.value,
       cost_per_input_token: costPerInputToken.value,
       cost_per_output_token: costPerOutputToken.value,
+      pricing_config: pricingConfig,
     },
   }
 }
@@ -195,6 +206,10 @@ function parsePricingPerMillion(
   label: string,
   raw: string,
 ): { ok: true; value: number } | { ok: false; error: string } {
+  if (!raw.trim()) {
+    return { ok: true, value: 0 }
+  }
+
   const parsed = parseNonNegativeNumber(label, raw)
   if (!parsed.ok) {
     return parsed
@@ -204,10 +219,6 @@ function parsePricingPerMillion(
     ok: true,
     value: parsed.value / TOKENS_PER_MILLION,
   }
-}
-
-function formatPricingPerMillion(value: number) {
-  return String(value * TOKENS_PER_MILLION)
 }
 
 function parsePositiveInteger(
