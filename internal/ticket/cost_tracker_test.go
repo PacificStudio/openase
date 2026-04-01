@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -105,6 +106,9 @@ func TestServiceRecordUsageAccumulatesTokensCostAndBudgetPause(t *testing.T) {
 	if math.Abs(result.Applied.CostUSD-0.21) > 0.0001 {
 		t.Fatalf("expected applied cost 0.21, got %.2f", result.Applied.CostUSD)
 	}
+	if result.Applied.CostSource != ticketing.UsageCostSourceEstimated.String() {
+		t.Fatalf("expected estimated cost source, got %+v", result.Applied)
+	}
 	if result.Ticket.CostTokensInput != 120 || result.Ticket.CostTokensOutput != 45 {
 		t.Fatalf("unexpected ticket token totals: %+v", result.Ticket)
 	}
@@ -118,6 +122,19 @@ func TestServiceRecordUsageAccumulatesTokensCostAndBudgetPause(t *testing.T) {
 	}
 	if agentAfter.TotalTokensUsed != 165 {
 		t.Fatalf("expected total tokens 165, got %d", agentAfter.TotalTokensUsed)
+	}
+
+	costEvents, err := client.ActivityEvent.Query().
+		Where(entactivityevent.EventTypeEQ(ticketing.CostRecordedEventType)).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("query cost events: %v", err)
+	}
+	if len(costEvents) != 1 {
+		t.Fatalf("expected one cost event, got %+v", costEvents)
+	}
+	if costEvents[0].Metadata["cost_source"] != ticketing.UsageCostSourceEstimated.String() {
+		t.Fatalf("unexpected cost event metadata: %+v", costEvents[0].Metadata)
 	}
 }
 
@@ -273,6 +290,9 @@ func TestServiceRecordUsageEdgeCases(t *testing.T) {
 	if result.Applied.InputTokens != 0 || result.Applied.OutputTokens != 0 || math.Abs(result.Applied.CostUSD-0.25) > 0.0001 {
 		t.Fatalf("RecordUsage(explicit cost only) result = %+v", result)
 	}
+	if result.Applied.CostSource != ticketing.UsageCostSourceActual.String() {
+		t.Fatalf("RecordUsage(explicit cost only) source = %q", result.Applied.CostSource)
+	}
 	if result.BudgetExceeded || result.Ticket.RetryPaused || result.Ticket.PauseReason != "" {
 		t.Fatalf("RecordUsage(explicit cost only) ticket = %+v", result.Ticket)
 	}
@@ -282,6 +302,97 @@ func TestServiceRecordUsageEdgeCases(t *testing.T) {
 	}
 	if projectAgentAfter.TotalTokensUsed != 0 {
 		t.Fatalf("expected zero total tokens after explicit-cost-only update, got %d", projectAgentAfter.TotalTokensUsed)
+	}
+}
+
+func TestServiceRecordUsagePreservesSmallUsageDeltasUntilBudgetPause(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+
+	org, err := client.Organization.Create().
+		SetName("Precision Org").
+		SetSlug("precision-org").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create machine: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("Precision Project").
+		SetSlug("precision-project").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	providerItem, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(localMachine.ID).
+		SetName("Codex Precision").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4-mini").
+		SetCostPerInputToken(0.000003).
+		SetCostPerOutputToken(0).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-200").
+		SetTitle("Preserve tiny spend deltas").
+		SetStatusID(todoID).
+		SetCreatedBy("user:test").
+		SetBudgetUsd(0.000009).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	agentItem, err := client.Agent.Create().
+		SetProjectID(project.ID).
+		SetProviderID(providerItem.ID).
+		SetName("precision-agent").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+
+	service := NewService(client)
+	inputTokens := int64(1)
+	var last RecordUsageResult
+	for range 3 {
+		last, err = service.RecordUsage(ctx, RecordUsageInput{
+			AgentID:  agentItem.ID,
+			TicketID: ticketItem.ID,
+			Usage: ticketing.RawUsageDelta{
+				InputTokens: &inputTokens,
+			},
+		}, nil)
+		if err != nil {
+			t.Fatalf("RecordUsage(tiny delta) error = %v", err)
+		}
+	}
+
+	if !last.BudgetExceeded {
+		t.Fatalf("expected budget exhaustion after accumulating tiny deltas, got %+v", last)
+	}
+	if math.Abs(last.Ticket.CostAmount-0.000009) > 0.0000001 {
+		t.Fatalf("expected high-precision accumulated cost, got %.9f", last.Ticket.CostAmount)
 	}
 }
 

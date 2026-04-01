@@ -6,12 +6,14 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/google/uuid"
 )
 
@@ -45,6 +47,11 @@ func (r *EntRepository) GetWorkspaceDashboardSummary(ctx context.Context) (domai
 		return domain.WorkspaceDashboardSummary{}, err
 	}
 	tickets, err := r.listTicketsForProjects(ctx, projectIDsFromEnt(projects))
+	if err != nil {
+		return domain.WorkspaceDashboardSummary{}, err
+	}
+	todayStart := startOfUTCDay(time.Now().UTC())
+	todayCostByProject, err := r.sumTodayTicketCostByProject(ctx, projectIDsFromEnt(projects), todayStart)
 	if err != nil {
 		return domain.WorkspaceDashboardSummary{}, err
 	}
@@ -98,7 +105,17 @@ func (r *EntRepository) GetWorkspaceDashboardSummary(ctx context.Context) (domai
 		}
 	}
 
-	todayStart := startOfUTCDay(time.Now().UTC())
+	for projectID, costUSD := range todayCostByProject {
+		orgID, ok := projectOrgIDs[projectID]
+		if !ok {
+			continue
+		}
+		summary.TodayCost += costUSD
+		if orgSummary := orgSummaries[orgID]; orgSummary != nil {
+			orgSummary.TodayCost += costUSD
+		}
+	}
+
 	for _, ticket := range tickets {
 		orgID, ok := projectOrgIDs[ticket.ProjectID]
 		if !ok {
@@ -112,12 +129,6 @@ func (r *EntRepository) GetWorkspaceDashboardSummary(ctx context.Context) (domai
 			summary.ActiveTickets++
 			if orgSummary := orgSummaries[orgID]; orgSummary != nil {
 				orgSummary.ActiveTickets++
-			}
-		}
-		if !ticket.CreatedAt.Before(todayStart) {
-			summary.TodayCost += ticket.CostAmount
-			if orgSummary := orgSummaries[orgID]; orgSummary != nil {
-				orgSummary.TodayCost += ticket.CostAmount
 			}
 		}
 	}
@@ -149,6 +160,11 @@ func (r *EntRepository) GetOrganizationDashboardSummary(ctx context.Context, org
 		return domain.OrganizationDashboardSummary{}, err
 	}
 	tickets, err := r.listTicketsForProjects(ctx, projectIDs)
+	if err != nil {
+		return domain.OrganizationDashboardSummary{}, err
+	}
+	todayStart := startOfUTCDay(time.Now().UTC())
+	todayCostByProject, err := r.sumTodayTicketCostByProject(ctx, projectIDs, todayStart)
 	if err != nil {
 		return domain.OrganizationDashboardSummary{}, err
 	}
@@ -188,7 +204,15 @@ func (r *EntRepository) GetOrganizationDashboardSummary(ctx context.Context, org
 		summary.RunningAgents++
 	}
 
-	todayStart := startOfUTCDay(time.Now().UTC())
+	for projectID, costUSD := range todayCostByProject {
+		projectSummary := projectSummaries[projectID]
+		if projectSummary == nil {
+			continue
+		}
+		projectSummary.TodayCost += costUSD
+		summary.TodayCost += costUSD
+	}
+
 	for _, ticket := range tickets {
 		projectSummary := projectSummaries[ticket.ProjectID]
 		if projectSummary == nil {
@@ -201,10 +225,6 @@ func (r *EntRepository) GetOrganizationDashboardSummary(ctx context.Context, org
 		if !domain.IsTerminalTicketStatusStage(statusStage) {
 			projectSummary.ActiveTickets++
 			summary.ActiveTickets++
-		}
-		if !ticket.CreatedAt.Before(todayStart) {
-			projectSummary.TodayCost += ticket.CostAmount
-			summary.TodayCost += ticket.CostAmount
 		}
 		updateLatestActivity(&projectSummary.LastActivityAt, ticket.CreatedAt.UTC())
 	}
@@ -226,6 +246,34 @@ func (r *EntRepository) listProjectsForOrganizations(ctx context.Context, organi
 	}
 
 	return items, nil
+}
+
+func (r *EntRepository) sumTodayTicketCostByProject(ctx context.Context, projectIDs []uuid.UUID, since time.Time) (map[uuid.UUID]float64, error) {
+	sums := make(map[uuid.UUID]float64, len(projectIDs))
+	if len(projectIDs) == 0 {
+		return sums, nil
+	}
+
+	items, err := r.client.ActivityEvent.Query().
+		Where(
+			entactivityevent.ProjectIDIn(projectIDs...),
+			entactivityevent.EventTypeEQ(ticketing.CostRecordedEventType),
+			entactivityevent.CreatedAtGTE(since.UTC()),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list ticket cost events for summary: %w", err)
+	}
+
+	for _, item := range items {
+		costUSD, ok := activityEventCostUSD(item.Metadata)
+		if !ok {
+			continue
+		}
+		sums[item.ProjectID] += costUSD
+	}
+
+	return sums, nil
 }
 
 func (r *EntRepository) listProvidersForOrganizations(ctx context.Context, organizationIDs []uuid.UUID) ([]*ent.AgentProvider, error) {
@@ -342,5 +390,24 @@ func updateLatestActivity(target **time.Time, candidate time.Time) {
 	if *target == nil || candidate.After(**target) {
 		value := candidate.UTC()
 		*target = &value
+	}
+}
+
+func activityEventCostUSD(metadata map[string]any) (float64, bool) {
+	if metadata == nil {
+		return 0, false
+	}
+
+	switch value := metadata["cost_usd"].(type) {
+	case float64:
+		return value, true
+	case float32:
+		return float64(value), true
+	case int:
+		return float64(value), true
+	case int64:
+		return float64(value), true
+	default:
+		return 0, false
 	}
 }

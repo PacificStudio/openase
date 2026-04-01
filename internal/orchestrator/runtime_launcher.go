@@ -1864,6 +1864,7 @@ func mapHarnessMachine(machine catalogdomain.Machine, workspace string) workflow
 		Host:          machine.Host,
 		Description:   machine.Description,
 		Labels:        append([]string(nil), machine.Labels...),
+		Resources:     cloneResourceMap(machine.Resources),
 		WorkspaceRoot: root,
 	}
 }
@@ -1913,6 +1914,7 @@ func (l *RuntimeLauncher) resolveAccessibleMachines(
 			Host:        item.Host,
 			Description: item.Description,
 			Labels:      append([]string(nil), item.Labels...),
+			Resources:   cloneResourceMap(item.Resources),
 			SSHUser:     strings.TrimSpace(item.SSHUser),
 		})
 	}

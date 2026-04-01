@@ -1904,6 +1904,7 @@ func TestRuntimeLauncherRunTickStopsRuntimeWhenTicketBecomesTerminal(t *testing.
 	}
 
 	waitForRuntimeExecuting(ctx, t, client, ticketItem.ID, runItem.ID)
+	waitForRuntimeTurnStarted(t, manager)
 
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
 		SetStatusID(fixture.statusIDs["Done"]).
@@ -2018,6 +2019,7 @@ func TestRuntimeLauncherRunTickStopsRuntimeWhenWorkflowRoutingChanges(t *testing
 	}
 
 	waitForRuntimeExecuting(ctx, t, client, ticketItem.ID, runItem.ID)
+	waitForRuntimeTurnStarted(t, manager)
 
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
 		SetWorkflowID(otherWorkflow.ID).
@@ -3770,6 +3772,17 @@ func waitForRuntimeCondition(t *testing.T, timeout time.Duration, predicate func
 	}
 
 	t.Fatal("timed out waiting for runtime condition")
+}
+
+func waitForRuntimeTurnStarted(t *testing.T, manager *runtimeFakeProcessManager) {
+	t.Helper()
+
+	waitForRuntimeCondition(t, 5*time.Second, func() bool {
+		if manager == nil {
+			return false
+		}
+		return manager.capturedTurnCount() > 0
+	})
 }
 
 func waitForRuntimeExecuting(ctx context.Context, t *testing.T, client *ent.Client, ticketID uuid.UUID, runID uuid.UUID) {

@@ -104,6 +104,7 @@ type agentTokenUsageEvent struct {
 	LastOutputTokens   int64
 	TotalTokens        int64
 	LastTokens         int64
+	CostUSD            *float64
 	ModelContextWindow *int64
 }
 
@@ -127,8 +128,18 @@ func agentTokenUsageFromCLIUsage(threadID string, turnID string, usage *provider
 		LastOutputTokens:   usage.Delta.OutputTokens,
 		TotalTokens:        usage.Total.TotalTokens,
 		LastTokens:         usage.Delta.TotalTokens,
+		CostUSD:            cloneCostUSD(usage.CostUSD),
 		ModelContextWindow: modelContextWindow,
 	}
+}
+
+func cloneCostUSD(costUSD *float64) *float64 {
+	if costUSD == nil {
+		return nil
+	}
+
+	cloned := *costUSD
+	return &cloned
 }
 
 type agentOutputEvent struct {

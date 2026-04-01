@@ -11,14 +11,15 @@ import type {
 export function buildDashboardStats(
   agents: Agent[],
   tickets: Ticket[],
+  options?: { ticketSpendToday?: number },
   now = new Date(),
 ): DashboardStats {
   const activeTickets = tickets.filter((ticket) => !isTerminalStatus(ticket.status_name))
   const runningAgents = agents.filter((agent) => agent.runtime?.status === 'running').length
-  const projectCost = tickets.reduce((sum, ticket) => sum + ticket.cost_amount, 0)
+  const ticketSpendTotal = tickets.reduce((sum, ticket) => sum + ticket.cost_amount, 0)
   const ticketInputTokens = tickets.reduce((sum, ticket) => sum + ticket.cost_tokens_input, 0)
   const ticketOutputTokens = tickets.reduce((sum, ticket) => sum + ticket.cost_tokens_output, 0)
-  const totalAgentTokens = agents.reduce((sum, agent) => sum + agent.total_tokens_used, 0)
+  const agentLifetimeTokens = agents.reduce((sum, agent) => sum + agent.total_tokens_used, 0)
   const todayStart = new Date(now)
   todayStart.setHours(0, 0, 0, 0)
   const todayTickets = tickets.filter((ticket) => new Date(ticket.created_at) >= todayStart)
@@ -27,14 +28,14 @@ export function buildDashboardStats(
     runningAgents,
     activeTickets: activeTickets.length,
     pendingApprovals: 0,
-    newTicketsTodayCost: todayTickets.reduce((sum, ticket) => sum + ticket.cost_amount, 0),
-    projectCost,
+    ticketSpendToday: options?.ticketSpendToday ?? 0,
+    ticketSpendTotal,
     ticketsCreatedToday: todayTickets.length,
     ticketsCompletedToday: todayTickets.filter((ticket) => isTerminalStatus(ticket.status_name))
       .length,
     ticketInputTokens,
     ticketOutputTokens,
-    totalAgentTokens,
+    agentLifetimeTokens,
     avgCycleMinutes: 0,
     prMergeRate: 0,
   }

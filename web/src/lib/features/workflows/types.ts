@@ -46,6 +46,13 @@ export type WorkflowStatusOption = {
   stage: TicketStatusStage
 }
 
+export type WorkflowTemplateDraft = {
+  name: string
+  content: string
+  workflowType: WorkflowSummary['type']
+  harnessPath?: string | null
+}
+
 export type WorkflowAgentOption = {
   id: string
   label: string
