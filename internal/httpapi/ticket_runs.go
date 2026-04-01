@@ -41,6 +41,7 @@ type ticketRunResponse struct {
 	CreatedAt          string  `json:"created_at"`
 	RuntimeStartedAt   *string `json:"runtime_started_at,omitempty"`
 	LastHeartbeatAt    *string `json:"last_heartbeat_at,omitempty"`
+	TerminalAt         *string `json:"terminal_at,omitempty"`
 	CompletedAt        *string `json:"completed_at,omitempty"`
 	LastError          *string `json:"last_error,omitempty"`
 }
@@ -424,7 +425,8 @@ func mapTicketRunResponse(item domain.AgentRun, catalog ticketRunCatalog) ticket
 		CreatedAt:          item.CreatedAt.UTC().Format(time.RFC3339),
 		RuntimeStartedAt:   timeToStringPointer(item.RuntimeStartedAt),
 		LastHeartbeatAt:    timeToStringPointer(item.LastHeartbeatAt),
-		CompletedAt:        nil,
+		TerminalAt:         timeToStringPointer(item.TerminalAt),
+		CompletedAt:        timeToStringPointer(item.TerminalAt),
 		LastError:          optionalTrimmedString(item.LastError),
 	}
 }

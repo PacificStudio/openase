@@ -42,10 +42,32 @@ type AgentRun struct {
 	SessionID string `json:"session_id,omitempty"`
 	// RuntimeStartedAt holds the value of the "runtime_started_at" field.
 	RuntimeStartedAt *time.Time `json:"runtime_started_at,omitempty"`
+	// TerminalAt holds the value of the "terminal_at" field.
+	TerminalAt *time.Time `json:"terminal_at,omitempty"`
+	// SnapshotMaterializedAt holds the value of the "snapshot_materialized_at" field.
+	SnapshotMaterializedAt *time.Time `json:"snapshot_materialized_at,omitempty"`
 	// LastError holds the value of the "last_error" field.
 	LastError string `json:"last_error,omitempty"`
 	// LastHeartbeatAt holds the value of the "last_heartbeat_at" field.
 	LastHeartbeatAt *time.Time `json:"last_heartbeat_at,omitempty"`
+	// InputTokens holds the value of the "input_tokens" field.
+	InputTokens int64 `json:"input_tokens,omitempty"`
+	// OutputTokens holds the value of the "output_tokens" field.
+	OutputTokens int64 `json:"output_tokens,omitempty"`
+	// CachedInputTokens holds the value of the "cached_input_tokens" field.
+	CachedInputTokens int64 `json:"cached_input_tokens,omitempty"`
+	// CacheCreationInputTokens holds the value of the "cache_creation_input_tokens" field.
+	CacheCreationInputTokens int64 `json:"cache_creation_input_tokens,omitempty"`
+	// ReasoningTokens holds the value of the "reasoning_tokens" field.
+	ReasoningTokens int64 `json:"reasoning_tokens,omitempty"`
+	// PromptTokens holds the value of the "prompt_tokens" field.
+	PromptTokens int64 `json:"prompt_tokens,omitempty"`
+	// CandidateTokens holds the value of the "candidate_tokens" field.
+	CandidateTokens int64 `json:"candidate_tokens,omitempty"`
+	// ToolTokens holds the value of the "tool_tokens" field.
+	ToolTokens int64 `json:"tool_tokens,omitempty"`
+	// TotalTokens holds the value of the "total_tokens" field.
+	TotalTokens int64 `json:"total_tokens,omitempty"`
 	// CurrentStepStatus holds the value of the "current_step_status" field.
 	CurrentStepStatus *string `json:"current_step_status,omitempty"`
 	// CurrentStepSummary holds the value of the "current_step_summary" field.
@@ -185,9 +207,11 @@ func (*AgentRun) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case agentrun.FieldSkillVersionIds:
 			values[i] = new(pgarray.StringArray)
+		case agentrun.FieldInputTokens, agentrun.FieldOutputTokens, agentrun.FieldCachedInputTokens, agentrun.FieldCacheCreationInputTokens, agentrun.FieldReasoningTokens, agentrun.FieldPromptTokens, agentrun.FieldCandidateTokens, agentrun.FieldToolTokens, agentrun.FieldTotalTokens:
+			values[i] = new(sql.NullInt64)
 		case agentrun.FieldStatus, agentrun.FieldSessionID, agentrun.FieldLastError, agentrun.FieldCurrentStepStatus, agentrun.FieldCurrentStepSummary:
 			values[i] = new(sql.NullString)
-		case agentrun.FieldRuntimeStartedAt, agentrun.FieldLastHeartbeatAt, agentrun.FieldCurrentStepChangedAt, agentrun.FieldCreatedAt:
+		case agentrun.FieldRuntimeStartedAt, agentrun.FieldTerminalAt, agentrun.FieldSnapshotMaterializedAt, agentrun.FieldLastHeartbeatAt, agentrun.FieldCurrentStepChangedAt, agentrun.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		case agentrun.FieldID, agentrun.FieldAgentID, agentrun.FieldWorkflowID, agentrun.FieldTicketID, agentrun.FieldProviderID:
 			values[i] = new(uuid.UUID)
@@ -268,6 +292,20 @@ func (_m *AgentRun) assignValues(columns []string, values []any) error {
 				_m.RuntimeStartedAt = new(time.Time)
 				*_m.RuntimeStartedAt = value.Time
 			}
+		case agentrun.FieldTerminalAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field terminal_at", values[i])
+			} else if value.Valid {
+				_m.TerminalAt = new(time.Time)
+				*_m.TerminalAt = value.Time
+			}
+		case agentrun.FieldSnapshotMaterializedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field snapshot_materialized_at", values[i])
+			} else if value.Valid {
+				_m.SnapshotMaterializedAt = new(time.Time)
+				*_m.SnapshotMaterializedAt = value.Time
+			}
 		case agentrun.FieldLastError:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field last_error", values[i])
@@ -280,6 +318,60 @@ func (_m *AgentRun) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.LastHeartbeatAt = new(time.Time)
 				*_m.LastHeartbeatAt = value.Time
+			}
+		case agentrun.FieldInputTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field input_tokens", values[i])
+			} else if value.Valid {
+				_m.InputTokens = value.Int64
+			}
+		case agentrun.FieldOutputTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field output_tokens", values[i])
+			} else if value.Valid {
+				_m.OutputTokens = value.Int64
+			}
+		case agentrun.FieldCachedInputTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field cached_input_tokens", values[i])
+			} else if value.Valid {
+				_m.CachedInputTokens = value.Int64
+			}
+		case agentrun.FieldCacheCreationInputTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field cache_creation_input_tokens", values[i])
+			} else if value.Valid {
+				_m.CacheCreationInputTokens = value.Int64
+			}
+		case agentrun.FieldReasoningTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field reasoning_tokens", values[i])
+			} else if value.Valid {
+				_m.ReasoningTokens = value.Int64
+			}
+		case agentrun.FieldPromptTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field prompt_tokens", values[i])
+			} else if value.Valid {
+				_m.PromptTokens = value.Int64
+			}
+		case agentrun.FieldCandidateTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field candidate_tokens", values[i])
+			} else if value.Valid {
+				_m.CandidateTokens = value.Int64
+			}
+		case agentrun.FieldToolTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field tool_tokens", values[i])
+			} else if value.Valid {
+				_m.ToolTokens = value.Int64
+			}
+		case agentrun.FieldTotalTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field total_tokens", values[i])
+			} else if value.Valid {
+				_m.TotalTokens = value.Int64
 			}
 		case agentrun.FieldCurrentStepStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -420,6 +512,16 @@ func (_m *AgentRun) String() string {
 		builder.WriteString(v.Format(time.ANSIC))
 	}
 	builder.WriteString(", ")
+	if v := _m.TerminalAt; v != nil {
+		builder.WriteString("terminal_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.SnapshotMaterializedAt; v != nil {
+		builder.WriteString("snapshot_materialized_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
 	builder.WriteString("last_error=")
 	builder.WriteString(_m.LastError)
 	builder.WriteString(", ")
@@ -427,6 +529,33 @@ func (_m *AgentRun) String() string {
 		builder.WriteString("last_heartbeat_at=")
 		builder.WriteString(v.Format(time.ANSIC))
 	}
+	builder.WriteString(", ")
+	builder.WriteString("input_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.InputTokens))
+	builder.WriteString(", ")
+	builder.WriteString("output_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.OutputTokens))
+	builder.WriteString(", ")
+	builder.WriteString("cached_input_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.CachedInputTokens))
+	builder.WriteString(", ")
+	builder.WriteString("cache_creation_input_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.CacheCreationInputTokens))
+	builder.WriteString(", ")
+	builder.WriteString("reasoning_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ReasoningTokens))
+	builder.WriteString(", ")
+	builder.WriteString("prompt_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.PromptTokens))
+	builder.WriteString(", ")
+	builder.WriteString("candidate_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.CandidateTokens))
+	builder.WriteString(", ")
+	builder.WriteString("tool_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ToolTokens))
+	builder.WriteString(", ")
+	builder.WriteString("total_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TotalTokens))
 	builder.WriteString(", ")
 	if v := _m.CurrentStepStatus; v != nil {
 		builder.WriteString("current_step_status=")

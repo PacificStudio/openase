@@ -180,6 +180,46 @@ func (_u *AgentRunUpdate) ClearRuntimeStartedAt() *AgentRunUpdate {
 	return _u
 }
 
+// SetTerminalAt sets the "terminal_at" field.
+func (_u *AgentRunUpdate) SetTerminalAt(v time.Time) *AgentRunUpdate {
+	_u.mutation.SetTerminalAt(v)
+	return _u
+}
+
+// SetNillableTerminalAt sets the "terminal_at" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableTerminalAt(v *time.Time) *AgentRunUpdate {
+	if v != nil {
+		_u.SetTerminalAt(*v)
+	}
+	return _u
+}
+
+// ClearTerminalAt clears the value of the "terminal_at" field.
+func (_u *AgentRunUpdate) ClearTerminalAt() *AgentRunUpdate {
+	_u.mutation.ClearTerminalAt()
+	return _u
+}
+
+// SetSnapshotMaterializedAt sets the "snapshot_materialized_at" field.
+func (_u *AgentRunUpdate) SetSnapshotMaterializedAt(v time.Time) *AgentRunUpdate {
+	_u.mutation.SetSnapshotMaterializedAt(v)
+	return _u
+}
+
+// SetNillableSnapshotMaterializedAt sets the "snapshot_materialized_at" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableSnapshotMaterializedAt(v *time.Time) *AgentRunUpdate {
+	if v != nil {
+		_u.SetSnapshotMaterializedAt(*v)
+	}
+	return _u
+}
+
+// ClearSnapshotMaterializedAt clears the value of the "snapshot_materialized_at" field.
+func (_u *AgentRunUpdate) ClearSnapshotMaterializedAt() *AgentRunUpdate {
+	_u.mutation.ClearSnapshotMaterializedAt()
+	return _u
+}
+
 // SetLastError sets the "last_error" field.
 func (_u *AgentRunUpdate) SetLastError(v string) *AgentRunUpdate {
 	_u.mutation.SetLastError(v)
@@ -217,6 +257,195 @@ func (_u *AgentRunUpdate) SetNillableLastHeartbeatAt(v *time.Time) *AgentRunUpda
 // ClearLastHeartbeatAt clears the value of the "last_heartbeat_at" field.
 func (_u *AgentRunUpdate) ClearLastHeartbeatAt() *AgentRunUpdate {
 	_u.mutation.ClearLastHeartbeatAt()
+	return _u
+}
+
+// SetInputTokens sets the "input_tokens" field.
+func (_u *AgentRunUpdate) SetInputTokens(v int64) *AgentRunUpdate {
+	_u.mutation.ResetInputTokens()
+	_u.mutation.SetInputTokens(v)
+	return _u
+}
+
+// SetNillableInputTokens sets the "input_tokens" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableInputTokens(v *int64) *AgentRunUpdate {
+	if v != nil {
+		_u.SetInputTokens(*v)
+	}
+	return _u
+}
+
+// AddInputTokens adds value to the "input_tokens" field.
+func (_u *AgentRunUpdate) AddInputTokens(v int64) *AgentRunUpdate {
+	_u.mutation.AddInputTokens(v)
+	return _u
+}
+
+// SetOutputTokens sets the "output_tokens" field.
+func (_u *AgentRunUpdate) SetOutputTokens(v int64) *AgentRunUpdate {
+	_u.mutation.ResetOutputTokens()
+	_u.mutation.SetOutputTokens(v)
+	return _u
+}
+
+// SetNillableOutputTokens sets the "output_tokens" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableOutputTokens(v *int64) *AgentRunUpdate {
+	if v != nil {
+		_u.SetOutputTokens(*v)
+	}
+	return _u
+}
+
+// AddOutputTokens adds value to the "output_tokens" field.
+func (_u *AgentRunUpdate) AddOutputTokens(v int64) *AgentRunUpdate {
+	_u.mutation.AddOutputTokens(v)
+	return _u
+}
+
+// SetCachedInputTokens sets the "cached_input_tokens" field.
+func (_u *AgentRunUpdate) SetCachedInputTokens(v int64) *AgentRunUpdate {
+	_u.mutation.ResetCachedInputTokens()
+	_u.mutation.SetCachedInputTokens(v)
+	return _u
+}
+
+// SetNillableCachedInputTokens sets the "cached_input_tokens" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableCachedInputTokens(v *int64) *AgentRunUpdate {
+	if v != nil {
+		_u.SetCachedInputTokens(*v)
+	}
+	return _u
+}
+
+// AddCachedInputTokens adds value to the "cached_input_tokens" field.
+func (_u *AgentRunUpdate) AddCachedInputTokens(v int64) *AgentRunUpdate {
+	_u.mutation.AddCachedInputTokens(v)
+	return _u
+}
+
+// SetCacheCreationInputTokens sets the "cache_creation_input_tokens" field.
+func (_u *AgentRunUpdate) SetCacheCreationInputTokens(v int64) *AgentRunUpdate {
+	_u.mutation.ResetCacheCreationInputTokens()
+	_u.mutation.SetCacheCreationInputTokens(v)
+	return _u
+}
+
+// SetNillableCacheCreationInputTokens sets the "cache_creation_input_tokens" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableCacheCreationInputTokens(v *int64) *AgentRunUpdate {
+	if v != nil {
+		_u.SetCacheCreationInputTokens(*v)
+	}
+	return _u
+}
+
+// AddCacheCreationInputTokens adds value to the "cache_creation_input_tokens" field.
+func (_u *AgentRunUpdate) AddCacheCreationInputTokens(v int64) *AgentRunUpdate {
+	_u.mutation.AddCacheCreationInputTokens(v)
+	return _u
+}
+
+// SetReasoningTokens sets the "reasoning_tokens" field.
+func (_u *AgentRunUpdate) SetReasoningTokens(v int64) *AgentRunUpdate {
+	_u.mutation.ResetReasoningTokens()
+	_u.mutation.SetReasoningTokens(v)
+	return _u
+}
+
+// SetNillableReasoningTokens sets the "reasoning_tokens" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableReasoningTokens(v *int64) *AgentRunUpdate {
+	if v != nil {
+		_u.SetReasoningTokens(*v)
+	}
+	return _u
+}
+
+// AddReasoningTokens adds value to the "reasoning_tokens" field.
+func (_u *AgentRunUpdate) AddReasoningTokens(v int64) *AgentRunUpdate {
+	_u.mutation.AddReasoningTokens(v)
+	return _u
+}
+
+// SetPromptTokens sets the "prompt_tokens" field.
+func (_u *AgentRunUpdate) SetPromptTokens(v int64) *AgentRunUpdate {
+	_u.mutation.ResetPromptTokens()
+	_u.mutation.SetPromptTokens(v)
+	return _u
+}
+
+// SetNillablePromptTokens sets the "prompt_tokens" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillablePromptTokens(v *int64) *AgentRunUpdate {
+	if v != nil {
+		_u.SetPromptTokens(*v)
+	}
+	return _u
+}
+
+// AddPromptTokens adds value to the "prompt_tokens" field.
+func (_u *AgentRunUpdate) AddPromptTokens(v int64) *AgentRunUpdate {
+	_u.mutation.AddPromptTokens(v)
+	return _u
+}
+
+// SetCandidateTokens sets the "candidate_tokens" field.
+func (_u *AgentRunUpdate) SetCandidateTokens(v int64) *AgentRunUpdate {
+	_u.mutation.ResetCandidateTokens()
+	_u.mutation.SetCandidateTokens(v)
+	return _u
+}
+
+// SetNillableCandidateTokens sets the "candidate_tokens" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableCandidateTokens(v *int64) *AgentRunUpdate {
+	if v != nil {
+		_u.SetCandidateTokens(*v)
+	}
+	return _u
+}
+
+// AddCandidateTokens adds value to the "candidate_tokens" field.
+func (_u *AgentRunUpdate) AddCandidateTokens(v int64) *AgentRunUpdate {
+	_u.mutation.AddCandidateTokens(v)
+	return _u
+}
+
+// SetToolTokens sets the "tool_tokens" field.
+func (_u *AgentRunUpdate) SetToolTokens(v int64) *AgentRunUpdate {
+	_u.mutation.ResetToolTokens()
+	_u.mutation.SetToolTokens(v)
+	return _u
+}
+
+// SetNillableToolTokens sets the "tool_tokens" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableToolTokens(v *int64) *AgentRunUpdate {
+	if v != nil {
+		_u.SetToolTokens(*v)
+	}
+	return _u
+}
+
+// AddToolTokens adds value to the "tool_tokens" field.
+func (_u *AgentRunUpdate) AddToolTokens(v int64) *AgentRunUpdate {
+	_u.mutation.AddToolTokens(v)
+	return _u
+}
+
+// SetTotalTokens sets the "total_tokens" field.
+func (_u *AgentRunUpdate) SetTotalTokens(v int64) *AgentRunUpdate {
+	_u.mutation.ResetTotalTokens()
+	_u.mutation.SetTotalTokens(v)
+	return _u
+}
+
+// SetNillableTotalTokens sets the "total_tokens" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableTotalTokens(v *int64) *AgentRunUpdate {
+	if v != nil {
+		_u.SetTotalTokens(*v)
+	}
+	return _u
+}
+
+// AddTotalTokens adds value to the "total_tokens" field.
+func (_u *AgentRunUpdate) AddTotalTokens(v int64) *AgentRunUpdate {
+	_u.mutation.AddTotalTokens(v)
 	return _u
 }
 
@@ -566,6 +795,18 @@ func (_u *AgentRunUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if _u.mutation.RuntimeStartedAtCleared() {
 		_spec.ClearField(agentrun.FieldRuntimeStartedAt, field.TypeTime)
 	}
+	if value, ok := _u.mutation.TerminalAt(); ok {
+		_spec.SetField(agentrun.FieldTerminalAt, field.TypeTime, value)
+	}
+	if _u.mutation.TerminalAtCleared() {
+		_spec.ClearField(agentrun.FieldTerminalAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.SnapshotMaterializedAt(); ok {
+		_spec.SetField(agentrun.FieldSnapshotMaterializedAt, field.TypeTime, value)
+	}
+	if _u.mutation.SnapshotMaterializedAtCleared() {
+		_spec.ClearField(agentrun.FieldSnapshotMaterializedAt, field.TypeTime)
+	}
 	if value, ok := _u.mutation.LastError(); ok {
 		_spec.SetField(agentrun.FieldLastError, field.TypeString, value)
 	}
@@ -577,6 +818,60 @@ func (_u *AgentRunUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.LastHeartbeatAtCleared() {
 		_spec.ClearField(agentrun.FieldLastHeartbeatAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.InputTokens(); ok {
+		_spec.SetField(agentrun.FieldInputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedInputTokens(); ok {
+		_spec.AddField(agentrun.FieldInputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.OutputTokens(); ok {
+		_spec.SetField(agentrun.FieldOutputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedOutputTokens(); ok {
+		_spec.AddField(agentrun.FieldOutputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.CachedInputTokens(); ok {
+		_spec.SetField(agentrun.FieldCachedInputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedCachedInputTokens(); ok {
+		_spec.AddField(agentrun.FieldCachedInputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.CacheCreationInputTokens(); ok {
+		_spec.SetField(agentrun.FieldCacheCreationInputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedCacheCreationInputTokens(); ok {
+		_spec.AddField(agentrun.FieldCacheCreationInputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.ReasoningTokens(); ok {
+		_spec.SetField(agentrun.FieldReasoningTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedReasoningTokens(); ok {
+		_spec.AddField(agentrun.FieldReasoningTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.PromptTokens(); ok {
+		_spec.SetField(agentrun.FieldPromptTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedPromptTokens(); ok {
+		_spec.AddField(agentrun.FieldPromptTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.CandidateTokens(); ok {
+		_spec.SetField(agentrun.FieldCandidateTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedCandidateTokens(); ok {
+		_spec.AddField(agentrun.FieldCandidateTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.ToolTokens(); ok {
+		_spec.SetField(agentrun.FieldToolTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedToolTokens(); ok {
+		_spec.AddField(agentrun.FieldToolTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.TotalTokens(); ok {
+		_spec.SetField(agentrun.FieldTotalTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedTotalTokens(); ok {
+		_spec.AddField(agentrun.FieldTotalTokens, field.TypeInt64, value)
 	}
 	if value, ok := _u.mutation.CurrentStepStatus(); ok {
 		_spec.SetField(agentrun.FieldCurrentStepStatus, field.TypeString, value)
@@ -1083,6 +1378,46 @@ func (_u *AgentRunUpdateOne) ClearRuntimeStartedAt() *AgentRunUpdateOne {
 	return _u
 }
 
+// SetTerminalAt sets the "terminal_at" field.
+func (_u *AgentRunUpdateOne) SetTerminalAt(v time.Time) *AgentRunUpdateOne {
+	_u.mutation.SetTerminalAt(v)
+	return _u
+}
+
+// SetNillableTerminalAt sets the "terminal_at" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableTerminalAt(v *time.Time) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetTerminalAt(*v)
+	}
+	return _u
+}
+
+// ClearTerminalAt clears the value of the "terminal_at" field.
+func (_u *AgentRunUpdateOne) ClearTerminalAt() *AgentRunUpdateOne {
+	_u.mutation.ClearTerminalAt()
+	return _u
+}
+
+// SetSnapshotMaterializedAt sets the "snapshot_materialized_at" field.
+func (_u *AgentRunUpdateOne) SetSnapshotMaterializedAt(v time.Time) *AgentRunUpdateOne {
+	_u.mutation.SetSnapshotMaterializedAt(v)
+	return _u
+}
+
+// SetNillableSnapshotMaterializedAt sets the "snapshot_materialized_at" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableSnapshotMaterializedAt(v *time.Time) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetSnapshotMaterializedAt(*v)
+	}
+	return _u
+}
+
+// ClearSnapshotMaterializedAt clears the value of the "snapshot_materialized_at" field.
+func (_u *AgentRunUpdateOne) ClearSnapshotMaterializedAt() *AgentRunUpdateOne {
+	_u.mutation.ClearSnapshotMaterializedAt()
+	return _u
+}
+
 // SetLastError sets the "last_error" field.
 func (_u *AgentRunUpdateOne) SetLastError(v string) *AgentRunUpdateOne {
 	_u.mutation.SetLastError(v)
@@ -1120,6 +1455,195 @@ func (_u *AgentRunUpdateOne) SetNillableLastHeartbeatAt(v *time.Time) *AgentRunU
 // ClearLastHeartbeatAt clears the value of the "last_heartbeat_at" field.
 func (_u *AgentRunUpdateOne) ClearLastHeartbeatAt() *AgentRunUpdateOne {
 	_u.mutation.ClearLastHeartbeatAt()
+	return _u
+}
+
+// SetInputTokens sets the "input_tokens" field.
+func (_u *AgentRunUpdateOne) SetInputTokens(v int64) *AgentRunUpdateOne {
+	_u.mutation.ResetInputTokens()
+	_u.mutation.SetInputTokens(v)
+	return _u
+}
+
+// SetNillableInputTokens sets the "input_tokens" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableInputTokens(v *int64) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetInputTokens(*v)
+	}
+	return _u
+}
+
+// AddInputTokens adds value to the "input_tokens" field.
+func (_u *AgentRunUpdateOne) AddInputTokens(v int64) *AgentRunUpdateOne {
+	_u.mutation.AddInputTokens(v)
+	return _u
+}
+
+// SetOutputTokens sets the "output_tokens" field.
+func (_u *AgentRunUpdateOne) SetOutputTokens(v int64) *AgentRunUpdateOne {
+	_u.mutation.ResetOutputTokens()
+	_u.mutation.SetOutputTokens(v)
+	return _u
+}
+
+// SetNillableOutputTokens sets the "output_tokens" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableOutputTokens(v *int64) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetOutputTokens(*v)
+	}
+	return _u
+}
+
+// AddOutputTokens adds value to the "output_tokens" field.
+func (_u *AgentRunUpdateOne) AddOutputTokens(v int64) *AgentRunUpdateOne {
+	_u.mutation.AddOutputTokens(v)
+	return _u
+}
+
+// SetCachedInputTokens sets the "cached_input_tokens" field.
+func (_u *AgentRunUpdateOne) SetCachedInputTokens(v int64) *AgentRunUpdateOne {
+	_u.mutation.ResetCachedInputTokens()
+	_u.mutation.SetCachedInputTokens(v)
+	return _u
+}
+
+// SetNillableCachedInputTokens sets the "cached_input_tokens" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableCachedInputTokens(v *int64) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetCachedInputTokens(*v)
+	}
+	return _u
+}
+
+// AddCachedInputTokens adds value to the "cached_input_tokens" field.
+func (_u *AgentRunUpdateOne) AddCachedInputTokens(v int64) *AgentRunUpdateOne {
+	_u.mutation.AddCachedInputTokens(v)
+	return _u
+}
+
+// SetCacheCreationInputTokens sets the "cache_creation_input_tokens" field.
+func (_u *AgentRunUpdateOne) SetCacheCreationInputTokens(v int64) *AgentRunUpdateOne {
+	_u.mutation.ResetCacheCreationInputTokens()
+	_u.mutation.SetCacheCreationInputTokens(v)
+	return _u
+}
+
+// SetNillableCacheCreationInputTokens sets the "cache_creation_input_tokens" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableCacheCreationInputTokens(v *int64) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetCacheCreationInputTokens(*v)
+	}
+	return _u
+}
+
+// AddCacheCreationInputTokens adds value to the "cache_creation_input_tokens" field.
+func (_u *AgentRunUpdateOne) AddCacheCreationInputTokens(v int64) *AgentRunUpdateOne {
+	_u.mutation.AddCacheCreationInputTokens(v)
+	return _u
+}
+
+// SetReasoningTokens sets the "reasoning_tokens" field.
+func (_u *AgentRunUpdateOne) SetReasoningTokens(v int64) *AgentRunUpdateOne {
+	_u.mutation.ResetReasoningTokens()
+	_u.mutation.SetReasoningTokens(v)
+	return _u
+}
+
+// SetNillableReasoningTokens sets the "reasoning_tokens" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableReasoningTokens(v *int64) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetReasoningTokens(*v)
+	}
+	return _u
+}
+
+// AddReasoningTokens adds value to the "reasoning_tokens" field.
+func (_u *AgentRunUpdateOne) AddReasoningTokens(v int64) *AgentRunUpdateOne {
+	_u.mutation.AddReasoningTokens(v)
+	return _u
+}
+
+// SetPromptTokens sets the "prompt_tokens" field.
+func (_u *AgentRunUpdateOne) SetPromptTokens(v int64) *AgentRunUpdateOne {
+	_u.mutation.ResetPromptTokens()
+	_u.mutation.SetPromptTokens(v)
+	return _u
+}
+
+// SetNillablePromptTokens sets the "prompt_tokens" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillablePromptTokens(v *int64) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetPromptTokens(*v)
+	}
+	return _u
+}
+
+// AddPromptTokens adds value to the "prompt_tokens" field.
+func (_u *AgentRunUpdateOne) AddPromptTokens(v int64) *AgentRunUpdateOne {
+	_u.mutation.AddPromptTokens(v)
+	return _u
+}
+
+// SetCandidateTokens sets the "candidate_tokens" field.
+func (_u *AgentRunUpdateOne) SetCandidateTokens(v int64) *AgentRunUpdateOne {
+	_u.mutation.ResetCandidateTokens()
+	_u.mutation.SetCandidateTokens(v)
+	return _u
+}
+
+// SetNillableCandidateTokens sets the "candidate_tokens" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableCandidateTokens(v *int64) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetCandidateTokens(*v)
+	}
+	return _u
+}
+
+// AddCandidateTokens adds value to the "candidate_tokens" field.
+func (_u *AgentRunUpdateOne) AddCandidateTokens(v int64) *AgentRunUpdateOne {
+	_u.mutation.AddCandidateTokens(v)
+	return _u
+}
+
+// SetToolTokens sets the "tool_tokens" field.
+func (_u *AgentRunUpdateOne) SetToolTokens(v int64) *AgentRunUpdateOne {
+	_u.mutation.ResetToolTokens()
+	_u.mutation.SetToolTokens(v)
+	return _u
+}
+
+// SetNillableToolTokens sets the "tool_tokens" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableToolTokens(v *int64) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetToolTokens(*v)
+	}
+	return _u
+}
+
+// AddToolTokens adds value to the "tool_tokens" field.
+func (_u *AgentRunUpdateOne) AddToolTokens(v int64) *AgentRunUpdateOne {
+	_u.mutation.AddToolTokens(v)
+	return _u
+}
+
+// SetTotalTokens sets the "total_tokens" field.
+func (_u *AgentRunUpdateOne) SetTotalTokens(v int64) *AgentRunUpdateOne {
+	_u.mutation.ResetTotalTokens()
+	_u.mutation.SetTotalTokens(v)
+	return _u
+}
+
+// SetNillableTotalTokens sets the "total_tokens" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableTotalTokens(v *int64) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetTotalTokens(*v)
+	}
+	return _u
+}
+
+// AddTotalTokens adds value to the "total_tokens" field.
+func (_u *AgentRunUpdateOne) AddTotalTokens(v int64) *AgentRunUpdateOne {
+	_u.mutation.AddTotalTokens(v)
 	return _u
 }
 
@@ -1499,6 +2023,18 @@ func (_u *AgentRunUpdateOne) sqlSave(ctx context.Context) (_node *AgentRun, err 
 	if _u.mutation.RuntimeStartedAtCleared() {
 		_spec.ClearField(agentrun.FieldRuntimeStartedAt, field.TypeTime)
 	}
+	if value, ok := _u.mutation.TerminalAt(); ok {
+		_spec.SetField(agentrun.FieldTerminalAt, field.TypeTime, value)
+	}
+	if _u.mutation.TerminalAtCleared() {
+		_spec.ClearField(agentrun.FieldTerminalAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.SnapshotMaterializedAt(); ok {
+		_spec.SetField(agentrun.FieldSnapshotMaterializedAt, field.TypeTime, value)
+	}
+	if _u.mutation.SnapshotMaterializedAtCleared() {
+		_spec.ClearField(agentrun.FieldSnapshotMaterializedAt, field.TypeTime)
+	}
 	if value, ok := _u.mutation.LastError(); ok {
 		_spec.SetField(agentrun.FieldLastError, field.TypeString, value)
 	}
@@ -1510,6 +2046,60 @@ func (_u *AgentRunUpdateOne) sqlSave(ctx context.Context) (_node *AgentRun, err 
 	}
 	if _u.mutation.LastHeartbeatAtCleared() {
 		_spec.ClearField(agentrun.FieldLastHeartbeatAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.InputTokens(); ok {
+		_spec.SetField(agentrun.FieldInputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedInputTokens(); ok {
+		_spec.AddField(agentrun.FieldInputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.OutputTokens(); ok {
+		_spec.SetField(agentrun.FieldOutputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedOutputTokens(); ok {
+		_spec.AddField(agentrun.FieldOutputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.CachedInputTokens(); ok {
+		_spec.SetField(agentrun.FieldCachedInputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedCachedInputTokens(); ok {
+		_spec.AddField(agentrun.FieldCachedInputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.CacheCreationInputTokens(); ok {
+		_spec.SetField(agentrun.FieldCacheCreationInputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedCacheCreationInputTokens(); ok {
+		_spec.AddField(agentrun.FieldCacheCreationInputTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.ReasoningTokens(); ok {
+		_spec.SetField(agentrun.FieldReasoningTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedReasoningTokens(); ok {
+		_spec.AddField(agentrun.FieldReasoningTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.PromptTokens(); ok {
+		_spec.SetField(agentrun.FieldPromptTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedPromptTokens(); ok {
+		_spec.AddField(agentrun.FieldPromptTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.CandidateTokens(); ok {
+		_spec.SetField(agentrun.FieldCandidateTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedCandidateTokens(); ok {
+		_spec.AddField(agentrun.FieldCandidateTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.ToolTokens(); ok {
+		_spec.SetField(agentrun.FieldToolTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedToolTokens(); ok {
+		_spec.AddField(agentrun.FieldToolTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.TotalTokens(); ok {
+		_spec.SetField(agentrun.FieldTotalTokens, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedTotalTokens(); ok {
+		_spec.AddField(agentrun.FieldTotalTokens, field.TypeInt64, value)
 	}
 	if value, ok := _u.mutation.CurrentStepStatus(); ok {
 		_spec.SetField(agentrun.FieldCurrentStepStatus, field.TypeString, value)

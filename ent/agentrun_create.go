@@ -108,6 +108,34 @@ func (_c *AgentRunCreate) SetNillableRuntimeStartedAt(v *time.Time) *AgentRunCre
 	return _c
 }
 
+// SetTerminalAt sets the "terminal_at" field.
+func (_c *AgentRunCreate) SetTerminalAt(v time.Time) *AgentRunCreate {
+	_c.mutation.SetTerminalAt(v)
+	return _c
+}
+
+// SetNillableTerminalAt sets the "terminal_at" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableTerminalAt(v *time.Time) *AgentRunCreate {
+	if v != nil {
+		_c.SetTerminalAt(*v)
+	}
+	return _c
+}
+
+// SetSnapshotMaterializedAt sets the "snapshot_materialized_at" field.
+func (_c *AgentRunCreate) SetSnapshotMaterializedAt(v time.Time) *AgentRunCreate {
+	_c.mutation.SetSnapshotMaterializedAt(v)
+	return _c
+}
+
+// SetNillableSnapshotMaterializedAt sets the "snapshot_materialized_at" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableSnapshotMaterializedAt(v *time.Time) *AgentRunCreate {
+	if v != nil {
+		_c.SetSnapshotMaterializedAt(*v)
+	}
+	return _c
+}
+
 // SetLastError sets the "last_error" field.
 func (_c *AgentRunCreate) SetLastError(v string) *AgentRunCreate {
 	_c.mutation.SetLastError(v)
@@ -132,6 +160,132 @@ func (_c *AgentRunCreate) SetLastHeartbeatAt(v time.Time) *AgentRunCreate {
 func (_c *AgentRunCreate) SetNillableLastHeartbeatAt(v *time.Time) *AgentRunCreate {
 	if v != nil {
 		_c.SetLastHeartbeatAt(*v)
+	}
+	return _c
+}
+
+// SetInputTokens sets the "input_tokens" field.
+func (_c *AgentRunCreate) SetInputTokens(v int64) *AgentRunCreate {
+	_c.mutation.SetInputTokens(v)
+	return _c
+}
+
+// SetNillableInputTokens sets the "input_tokens" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableInputTokens(v *int64) *AgentRunCreate {
+	if v != nil {
+		_c.SetInputTokens(*v)
+	}
+	return _c
+}
+
+// SetOutputTokens sets the "output_tokens" field.
+func (_c *AgentRunCreate) SetOutputTokens(v int64) *AgentRunCreate {
+	_c.mutation.SetOutputTokens(v)
+	return _c
+}
+
+// SetNillableOutputTokens sets the "output_tokens" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableOutputTokens(v *int64) *AgentRunCreate {
+	if v != nil {
+		_c.SetOutputTokens(*v)
+	}
+	return _c
+}
+
+// SetCachedInputTokens sets the "cached_input_tokens" field.
+func (_c *AgentRunCreate) SetCachedInputTokens(v int64) *AgentRunCreate {
+	_c.mutation.SetCachedInputTokens(v)
+	return _c
+}
+
+// SetNillableCachedInputTokens sets the "cached_input_tokens" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableCachedInputTokens(v *int64) *AgentRunCreate {
+	if v != nil {
+		_c.SetCachedInputTokens(*v)
+	}
+	return _c
+}
+
+// SetCacheCreationInputTokens sets the "cache_creation_input_tokens" field.
+func (_c *AgentRunCreate) SetCacheCreationInputTokens(v int64) *AgentRunCreate {
+	_c.mutation.SetCacheCreationInputTokens(v)
+	return _c
+}
+
+// SetNillableCacheCreationInputTokens sets the "cache_creation_input_tokens" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableCacheCreationInputTokens(v *int64) *AgentRunCreate {
+	if v != nil {
+		_c.SetCacheCreationInputTokens(*v)
+	}
+	return _c
+}
+
+// SetReasoningTokens sets the "reasoning_tokens" field.
+func (_c *AgentRunCreate) SetReasoningTokens(v int64) *AgentRunCreate {
+	_c.mutation.SetReasoningTokens(v)
+	return _c
+}
+
+// SetNillableReasoningTokens sets the "reasoning_tokens" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableReasoningTokens(v *int64) *AgentRunCreate {
+	if v != nil {
+		_c.SetReasoningTokens(*v)
+	}
+	return _c
+}
+
+// SetPromptTokens sets the "prompt_tokens" field.
+func (_c *AgentRunCreate) SetPromptTokens(v int64) *AgentRunCreate {
+	_c.mutation.SetPromptTokens(v)
+	return _c
+}
+
+// SetNillablePromptTokens sets the "prompt_tokens" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillablePromptTokens(v *int64) *AgentRunCreate {
+	if v != nil {
+		_c.SetPromptTokens(*v)
+	}
+	return _c
+}
+
+// SetCandidateTokens sets the "candidate_tokens" field.
+func (_c *AgentRunCreate) SetCandidateTokens(v int64) *AgentRunCreate {
+	_c.mutation.SetCandidateTokens(v)
+	return _c
+}
+
+// SetNillableCandidateTokens sets the "candidate_tokens" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableCandidateTokens(v *int64) *AgentRunCreate {
+	if v != nil {
+		_c.SetCandidateTokens(*v)
+	}
+	return _c
+}
+
+// SetToolTokens sets the "tool_tokens" field.
+func (_c *AgentRunCreate) SetToolTokens(v int64) *AgentRunCreate {
+	_c.mutation.SetToolTokens(v)
+	return _c
+}
+
+// SetNillableToolTokens sets the "tool_tokens" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableToolTokens(v *int64) *AgentRunCreate {
+	if v != nil {
+		_c.SetToolTokens(*v)
+	}
+	return _c
+}
+
+// SetTotalTokens sets the "total_tokens" field.
+func (_c *AgentRunCreate) SetTotalTokens(v int64) *AgentRunCreate {
+	_c.mutation.SetTotalTokens(v)
+	return _c
+}
+
+// SetNillableTotalTokens sets the "total_tokens" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableTotalTokens(v *int64) *AgentRunCreate {
+	if v != nil {
+		_c.SetTotalTokens(*v)
 	}
 	return _c
 }
@@ -326,6 +480,42 @@ func (_c *AgentRunCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *AgentRunCreate) defaults() {
+	if _, ok := _c.mutation.InputTokens(); !ok {
+		v := agentrun.DefaultInputTokens
+		_c.mutation.SetInputTokens(v)
+	}
+	if _, ok := _c.mutation.OutputTokens(); !ok {
+		v := agentrun.DefaultOutputTokens
+		_c.mutation.SetOutputTokens(v)
+	}
+	if _, ok := _c.mutation.CachedInputTokens(); !ok {
+		v := agentrun.DefaultCachedInputTokens
+		_c.mutation.SetCachedInputTokens(v)
+	}
+	if _, ok := _c.mutation.CacheCreationInputTokens(); !ok {
+		v := agentrun.DefaultCacheCreationInputTokens
+		_c.mutation.SetCacheCreationInputTokens(v)
+	}
+	if _, ok := _c.mutation.ReasoningTokens(); !ok {
+		v := agentrun.DefaultReasoningTokens
+		_c.mutation.SetReasoningTokens(v)
+	}
+	if _, ok := _c.mutation.PromptTokens(); !ok {
+		v := agentrun.DefaultPromptTokens
+		_c.mutation.SetPromptTokens(v)
+	}
+	if _, ok := _c.mutation.CandidateTokens(); !ok {
+		v := agentrun.DefaultCandidateTokens
+		_c.mutation.SetCandidateTokens(v)
+	}
+	if _, ok := _c.mutation.ToolTokens(); !ok {
+		v := agentrun.DefaultToolTokens
+		_c.mutation.SetToolTokens(v)
+	}
+	if _, ok := _c.mutation.TotalTokens(); !ok {
+		v := agentrun.DefaultTotalTokens
+		_c.mutation.SetTotalTokens(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := agentrun.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -357,6 +547,33 @@ func (_c *AgentRunCreate) check() error {
 		if err := agentrun.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "AgentRun.status": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.InputTokens(); !ok {
+		return &ValidationError{Name: "input_tokens", err: errors.New(`ent: missing required field "AgentRun.input_tokens"`)}
+	}
+	if _, ok := _c.mutation.OutputTokens(); !ok {
+		return &ValidationError{Name: "output_tokens", err: errors.New(`ent: missing required field "AgentRun.output_tokens"`)}
+	}
+	if _, ok := _c.mutation.CachedInputTokens(); !ok {
+		return &ValidationError{Name: "cached_input_tokens", err: errors.New(`ent: missing required field "AgentRun.cached_input_tokens"`)}
+	}
+	if _, ok := _c.mutation.CacheCreationInputTokens(); !ok {
+		return &ValidationError{Name: "cache_creation_input_tokens", err: errors.New(`ent: missing required field "AgentRun.cache_creation_input_tokens"`)}
+	}
+	if _, ok := _c.mutation.ReasoningTokens(); !ok {
+		return &ValidationError{Name: "reasoning_tokens", err: errors.New(`ent: missing required field "AgentRun.reasoning_tokens"`)}
+	}
+	if _, ok := _c.mutation.PromptTokens(); !ok {
+		return &ValidationError{Name: "prompt_tokens", err: errors.New(`ent: missing required field "AgentRun.prompt_tokens"`)}
+	}
+	if _, ok := _c.mutation.CandidateTokens(); !ok {
+		return &ValidationError{Name: "candidate_tokens", err: errors.New(`ent: missing required field "AgentRun.candidate_tokens"`)}
+	}
+	if _, ok := _c.mutation.ToolTokens(); !ok {
+		return &ValidationError{Name: "tool_tokens", err: errors.New(`ent: missing required field "AgentRun.tool_tokens"`)}
+	}
+	if _, ok := _c.mutation.TotalTokens(); !ok {
+		return &ValidationError{Name: "total_tokens", err: errors.New(`ent: missing required field "AgentRun.total_tokens"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "AgentRun.created_at"`)}
@@ -424,6 +641,14 @@ func (_c *AgentRunCreate) createSpec() (*AgentRun, *sqlgraph.CreateSpec) {
 		_spec.SetField(agentrun.FieldRuntimeStartedAt, field.TypeTime, value)
 		_node.RuntimeStartedAt = &value
 	}
+	if value, ok := _c.mutation.TerminalAt(); ok {
+		_spec.SetField(agentrun.FieldTerminalAt, field.TypeTime, value)
+		_node.TerminalAt = &value
+	}
+	if value, ok := _c.mutation.SnapshotMaterializedAt(); ok {
+		_spec.SetField(agentrun.FieldSnapshotMaterializedAt, field.TypeTime, value)
+		_node.SnapshotMaterializedAt = &value
+	}
 	if value, ok := _c.mutation.LastError(); ok {
 		_spec.SetField(agentrun.FieldLastError, field.TypeString, value)
 		_node.LastError = value
@@ -431,6 +656,42 @@ func (_c *AgentRunCreate) createSpec() (*AgentRun, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.LastHeartbeatAt(); ok {
 		_spec.SetField(agentrun.FieldLastHeartbeatAt, field.TypeTime, value)
 		_node.LastHeartbeatAt = &value
+	}
+	if value, ok := _c.mutation.InputTokens(); ok {
+		_spec.SetField(agentrun.FieldInputTokens, field.TypeInt64, value)
+		_node.InputTokens = value
+	}
+	if value, ok := _c.mutation.OutputTokens(); ok {
+		_spec.SetField(agentrun.FieldOutputTokens, field.TypeInt64, value)
+		_node.OutputTokens = value
+	}
+	if value, ok := _c.mutation.CachedInputTokens(); ok {
+		_spec.SetField(agentrun.FieldCachedInputTokens, field.TypeInt64, value)
+		_node.CachedInputTokens = value
+	}
+	if value, ok := _c.mutation.CacheCreationInputTokens(); ok {
+		_spec.SetField(agentrun.FieldCacheCreationInputTokens, field.TypeInt64, value)
+		_node.CacheCreationInputTokens = value
+	}
+	if value, ok := _c.mutation.ReasoningTokens(); ok {
+		_spec.SetField(agentrun.FieldReasoningTokens, field.TypeInt64, value)
+		_node.ReasoningTokens = value
+	}
+	if value, ok := _c.mutation.PromptTokens(); ok {
+		_spec.SetField(agentrun.FieldPromptTokens, field.TypeInt64, value)
+		_node.PromptTokens = value
+	}
+	if value, ok := _c.mutation.CandidateTokens(); ok {
+		_spec.SetField(agentrun.FieldCandidateTokens, field.TypeInt64, value)
+		_node.CandidateTokens = value
+	}
+	if value, ok := _c.mutation.ToolTokens(); ok {
+		_spec.SetField(agentrun.FieldToolTokens, field.TypeInt64, value)
+		_node.ToolTokens = value
+	}
+	if value, ok := _c.mutation.TotalTokens(); ok {
+		_spec.SetField(agentrun.FieldTotalTokens, field.TypeInt64, value)
+		_node.TotalTokens = value
 	}
 	if value, ok := _c.mutation.CurrentStepStatus(); ok {
 		_spec.SetField(agentrun.FieldCurrentStepStatus, field.TypeString, value)

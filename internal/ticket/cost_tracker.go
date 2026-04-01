@@ -16,6 +16,7 @@ import (
 type RecordUsageInput struct {
 	AgentID  uuid.UUID
 	TicketID uuid.UUID
+	RunID    *uuid.UUID
 	Usage    ticketing.RawUsageDelta
 }
 
@@ -45,6 +46,9 @@ func (s *Service) RecordUsage(
 	}
 	if input.TicketID == uuid.Nil {
 		return RecordUsageResult{}, fmt.Errorf("ticket_id must be a valid UUID")
+	}
+	if input.RunID != nil && *input.RunID == uuid.Nil {
+		return RecordUsageResult{}, fmt.Errorf("run_id must be a valid UUID")
 	}
 	if metrics == nil {
 		metrics = provider.NewNoopMetricsProvider()
@@ -118,6 +122,37 @@ func (s *Service) RecordUsage(
 			return RecordUsageResult{}, fmt.Errorf("update agent usage counters: %w", err)
 		}
 	}
+	var agentRunID string
+	if input.RunID != nil {
+		agentRunID = input.RunID.String()
+		runItem, err := tx.AgentRun.Get(ctx, *input.RunID)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				return RecordUsageResult{}, fmt.Errorf("agent run %s not found", *input.RunID)
+			}
+			return RecordUsageResult{}, fmt.Errorf("get agent run for usage: %w", err)
+		}
+		if runItem.AgentID != agentItem.ID {
+			return RecordUsageResult{}, fmt.Errorf("agent run %s does not belong to agent %s", runItem.ID, agentItem.ID)
+		}
+		if runItem.TicketID != ticketItem.ID {
+			return RecordUsageResult{}, fmt.Errorf("agent run %s does not belong to ticket %s", runItem.ID, ticketItem.ID)
+		}
+
+		if _, err := tx.AgentRun.UpdateOneID(runItem.ID).
+			AddInputTokens(usageDelta.InputTokens).
+			AddOutputTokens(usageDelta.OutputTokens).
+			AddCachedInputTokens(usageDelta.CachedInputTokens).
+			AddCacheCreationInputTokens(usageDelta.CacheCreationInputTokens).
+			AddReasoningTokens(usageDelta.ReasoningTokens).
+			AddPromptTokens(usageDelta.PromptTokens).
+			AddCandidateTokens(usageDelta.CandidateTokens).
+			AddToolTokens(usageDelta.ToolTokens).
+			AddTotalTokens(usageDelta.TotalTokens()).
+			Save(ctx); err != nil {
+			return RecordUsageResult{}, fmt.Errorf("update agent run usage counters: %w", err)
+		}
+	}
 	if _, err := tx.ActivityEvent.Create().
 		SetProjectID(ticketItem.ProjectID).
 		SetTicketID(ticketItem.ID).
@@ -130,6 +165,7 @@ func (s *Service) RecordUsage(
 			"total_tokens":  usageDelta.TotalTokens(),
 			"cost_usd":      resolvedCost.AmountUSD,
 			"cost_source":   resolvedCost.Source.String(),
+			"agent_run_id":  agentRunID,
 		}).
 		SetCreatedAt(time.Now().UTC()).
 		Save(ctx); err != nil {

@@ -270,6 +270,7 @@ func releaseStalledClaim(
 			),
 		).
 		SetStatus(entagentrun.StatusErrored).
+		SetTerminalAt(now.UTC()).
 		SetLastError(runLastError).
 		ClearSessionID().
 		ClearRuntimeStartedAt().

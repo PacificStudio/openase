@@ -154,6 +154,7 @@ type agentRunResponse struct {
 	Status            string   `json:"status"`
 	SessionID         string   `json:"session_id"`
 	RuntimeStartedAt  *string  `json:"runtime_started_at,omitempty"`
+	TerminalAt        *string  `json:"terminal_at,omitempty"`
 	LastError         string   `json:"last_error"`
 	LastHeartbeatAt   *string  `json:"last_heartbeat_at,omitempty"`
 	CreatedAt         string   `json:"created_at"`
@@ -810,6 +811,7 @@ func mapAgentRunResponse(item domain.AgentRun) agentRunResponse {
 		Status:            item.Status.String(),
 		SessionID:         item.SessionID,
 		RuntimeStartedAt:  timeToStringPointer(item.RuntimeStartedAt),
+		TerminalAt:        timeToStringPointer(item.TerminalAt),
 		LastError:         item.LastError,
 		LastHeartbeatAt:   timeToStringPointer(item.LastHeartbeatAt),
 		CreatedAt:         item.CreatedAt.UTC().Format(time.RFC3339),

@@ -578,6 +578,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/orgs/{orgId}/token-usage': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get organization daily token usage for a UTC date range */
+    get: operations['getOrganizationTokenUsage']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}': {
     parameters: {
       query?: never
@@ -5733,6 +5750,96 @@ export interface operations {
       }
     }
   }
+  getOrganizationTokenUsage: {
+    parameters: {
+      query?: {
+        /** @description UTC start date in YYYY-MM-DD format. Defaults to the last 30 days when omitted with to. */
+        from?: string
+        /** @description UTC end date in YYYY-MM-DD format. Defaults to today when omitted with from. */
+        to?: string
+      }
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get organization daily token usage for a UTC date range response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            days?: {
+              /** Format: int64 */
+              cached_input_tokens?: number
+              date?: string
+              finalized_run_count?: number
+              /** Format: int64 */
+              input_tokens?: number
+              /** Format: int64 */
+              output_tokens?: number
+              /** Format: int64 */
+              reasoning_tokens?: number
+              /** Format: int64 */
+              total_tokens?: number
+            }[]
+            summary?: {
+              /** Format: int64 */
+              avg_daily_tokens?: number
+              peak_day?: {
+                date?: string
+                /** Format: int64 */
+                total_tokens?: number
+              } | null
+              /** Format: int64 */
+              total_tokens?: number
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   getProject: {
     parameters: {
       query?: never
@@ -6146,6 +6253,7 @@ export interface operations {
               session_id?: string
               skill_version_ids?: string[]
               status?: string
+              terminal_at?: string | null
               ticket_id?: string
               workflow_id?: string
               workflow_version_id?: string | null
@@ -10362,6 +10470,7 @@ export interface operations {
               provider?: string
               runtime_started_at?: string | null
               status?: string
+              terminal_at?: string | null
             }[]
           }
         }
@@ -10502,6 +10611,7 @@ export interface operations {
               provider?: string
               runtime_started_at?: string | null
               status?: string
+              terminal_at?: string | null
             }
             step_entries?: {
               agent_run_id?: string

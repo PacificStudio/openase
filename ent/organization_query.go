@@ -16,6 +16,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/organization"
+	"github.com/BetterAndBetterII/openase/ent/organizationdailytokenusage"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/google/uuid"
@@ -32,6 +33,7 @@ type OrganizationQuery struct {
 	withProviders            *AgentProviderQuery
 	withMachines             *MachineQuery
 	withNotificationChannels *NotificationChannelQuery
+	withDailyTokenUsage      *OrganizationDailyTokenUsageQuery
 	withDefaultAgentProvider *AgentProviderQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -150,6 +152,28 @@ func (_q *OrganizationQuery) QueryNotificationChannels() *NotificationChannelQue
 			sqlgraph.From(organization.Table, organization.FieldID, selector),
 			sqlgraph.To(notificationchannel.Table, notificationchannel.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, organization.NotificationChannelsTable, organization.NotificationChannelsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryDailyTokenUsage chains the current query on the "daily_token_usage" edge.
+func (_q *OrganizationQuery) QueryDailyTokenUsage() *OrganizationDailyTokenUsageQuery {
+	query := (&OrganizationDailyTokenUsageClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(organization.Table, organization.FieldID, selector),
+			sqlgraph.To(organizationdailytokenusage.Table, organizationdailytokenusage.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, organization.DailyTokenUsageTable, organization.DailyTokenUsageColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -375,6 +399,7 @@ func (_q *OrganizationQuery) Clone() *OrganizationQuery {
 		withProviders:            _q.withProviders.Clone(),
 		withMachines:             _q.withMachines.Clone(),
 		withNotificationChannels: _q.withNotificationChannels.Clone(),
+		withDailyTokenUsage:      _q.withDailyTokenUsage.Clone(),
 		withDefaultAgentProvider: _q.withDefaultAgentProvider.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
@@ -423,6 +448,17 @@ func (_q *OrganizationQuery) WithNotificationChannels(opts ...func(*Notification
 		opt(query)
 	}
 	_q.withNotificationChannels = query
+	return _q
+}
+
+// WithDailyTokenUsage tells the query-builder to eager-load the nodes that are connected to
+// the "daily_token_usage" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *OrganizationQuery) WithDailyTokenUsage(opts ...func(*OrganizationDailyTokenUsageQuery)) *OrganizationQuery {
+	query := (&OrganizationDailyTokenUsageClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withDailyTokenUsage = query
 	return _q
 }
 
@@ -515,11 +551,12 @@ func (_q *OrganizationQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	var (
 		nodes       = []*Organization{}
 		_spec       = _q.querySpec()
-		loadedTypes = [5]bool{
+		loadedTypes = [6]bool{
 			_q.withProjects != nil,
 			_q.withProviders != nil,
 			_q.withMachines != nil,
 			_q.withNotificationChannels != nil,
+			_q.withDailyTokenUsage != nil,
 			_q.withDefaultAgentProvider != nil,
 		}
 	)
@@ -567,6 +604,15 @@ func (_q *OrganizationQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 			func(n *Organization) { n.Edges.NotificationChannels = []*NotificationChannel{} },
 			func(n *Organization, e *NotificationChannel) {
 				n.Edges.NotificationChannels = append(n.Edges.NotificationChannels, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withDailyTokenUsage; query != nil {
+		if err := _q.loadDailyTokenUsage(ctx, query, nodes,
+			func(n *Organization) { n.Edges.DailyTokenUsage = []*OrganizationDailyTokenUsage{} },
+			func(n *Organization, e *OrganizationDailyTokenUsage) {
+				n.Edges.DailyTokenUsage = append(n.Edges.DailyTokenUsage, e)
 			}); err != nil {
 			return nil, err
 		}
@@ -685,6 +731,36 @@ func (_q *OrganizationQuery) loadNotificationChannels(ctx context.Context, query
 	}
 	query.Where(predicate.NotificationChannel(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(organization.NotificationChannelsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.OrganizationID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "organization_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *OrganizationQuery) loadDailyTokenUsage(ctx context.Context, query *OrganizationDailyTokenUsageQuery, nodes []*Organization, init func(*Organization), assign func(*Organization, *OrganizationDailyTokenUsage)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Organization)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(organizationdailytokenusage.FieldOrganizationID)
+	}
+	query.Where(predicate.OrganizationDailyTokenUsage(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(organization.DailyTokenUsageColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {
