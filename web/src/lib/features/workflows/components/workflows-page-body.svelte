@@ -38,6 +38,7 @@
     statuses,
     agentOptions,
     builtinRoleContent = '',
+    templateDraft = null as { name: string; content: string } | null,
     onSelectedIdChange,
     onDraftChange,
     onApplyAssistantDraft,
@@ -69,6 +70,7 @@
     statuses: WorkflowStatusOption[]
     agentOptions: WorkflowAgentOption[]
     builtinRoleContent?: string
+    templateDraft?: { name: string; content: string } | null
     onSelectedIdChange?: (id: string) => void
     onDraftChange?: (raw: string) => void
     onApplyAssistantDraft?: (content: string) => void
@@ -145,5 +147,6 @@
   {agentOptions}
   existingCount={workflows.length}
   {builtinRoleContent}
+  {templateDraft}
   {onCreated}
 />

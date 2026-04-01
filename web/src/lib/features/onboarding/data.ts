@@ -10,6 +10,7 @@ import {
   listGitHubNamespaces,
 } from '$lib/api/openase'
 import type { OnboardingData } from './types'
+import { parseGitHubTokenState } from './github'
 
 export async function loadOnboardingData(
   projectId: string,
@@ -35,14 +36,10 @@ export async function loadOnboardingData(
     listStatuses(projectId),
   ])
 
-  const ghCred = securityPayload as Record<string, unknown> | null
-  const ghOutbound = ghCred?.github_outbound_credential as
-    | { token_present?: boolean; probe_status?: string; login?: string }
-    | null
-    | undefined
+  const github = parseGitHubTokenState(securityPayload)
 
   let namespaces: OnboardingData['repo']['namespaces'] = []
-  if (ghOutbound?.probe_status === 'valid') {
+  if (github.probeStatus === 'valid') {
     try {
       const nsPayload = await listGitHubNamespaces(projectId)
       namespaces = nsPayload.namespaces
@@ -52,13 +49,7 @@ export async function loadOnboardingData(
   }
 
   return {
-    github: {
-      hasToken: ghOutbound?.token_present ?? false,
-      probeStatus:
-        (ghOutbound?.probe_status as OnboardingData['github']['probeStatus']) ?? 'unknown',
-      login: (ghOutbound?.login as string) ?? '',
-      confirmed: ghOutbound?.probe_status === 'valid',
-    },
+    github,
     repo: {
       repos: repoPayload.repos,
       namespaces,
@@ -74,6 +65,9 @@ export async function loadOnboardingData(
     },
     firstTicket: {
       ticketCount: ticketPayload.tickets.length,
+    },
+    aiDiscovery: {
+      completed: false,
     },
     projectStatus: 'Planned',
   }

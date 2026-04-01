@@ -22,8 +22,11 @@
   import { loadWorkflowPageData, loadWorkflowHarness } from '../data'
   import WorkflowsPageBody from './workflows-page-body.svelte'
   import WorkflowsPageHeaderActions from './workflows-page-header-actions.svelte'
+  import WorkflowTemplateGallery from './workflow-template-gallery.svelte'
+  import type { BuiltinRole } from '$lib/api/contracts'
   let showDetail = $state(false),
     showCreateDialog = $state(false),
+    showTemplateGallery = $state(false),
     showList = $state(true)
   let loading = $state(false),
     saving = $state(false),
@@ -220,8 +223,20 @@
       validating = false
     }
   }
+  let templateDraft = $state<{ name: string; content: string } | null>(null)
+
   function handleCreateWorkflow() {
     if (statuses.length === 0 || agentOptions.length === 0) return
+    templateDraft = null
+    showCreateDialog = true
+  }
+
+  function handleUseTemplate(role: BuiltinRole) {
+    if (statuses.length === 0 || agentOptions.length === 0) {
+      toastStore.error('Configure statuses and agents before creating a workflow.')
+      return
+    }
+    templateDraft = { name: role.name, content: role.workflow_content || role.content }
     showCreateDialog = true
   }
   async function handleToggleSkill(skill: SkillState) {
@@ -269,6 +284,7 @@
     canCreate={statuses.length > 0 && agentOptions.length > 0}
     statusStageHref={settingsHref ? `${settingsHref}#statuses` : null}
     onCreate={handleCreateWorkflow}
+    onBrowseTemplates={() => (showTemplateGallery = true)}
   />
 {/snippet}
 
@@ -301,6 +317,7 @@
     {statuses}
     {agentOptions}
     {builtinRoleContent}
+    {templateDraft}
     onSelectedIdChange={(id) => {
       if (
         isDirty &&
@@ -322,3 +339,5 @@
     }}
   />
 </PageScaffold>
+
+<WorkflowTemplateGallery bind:open={showTemplateGallery} onUseTemplate={handleUseTemplate} />

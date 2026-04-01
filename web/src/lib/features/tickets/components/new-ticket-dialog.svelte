@@ -1,8 +1,8 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
-  import type { TicketStatus, Workflow } from '$lib/api/contracts'
+  import type { TicketStatus } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
-  import { createTicket, listProjectRepos, listStatuses, listWorkflows } from '$lib/api/openase'
+  import { createTicket, listProjectRepos, listStatuses } from '$lib/api/openase'
   import { projectPath } from '$lib/stores/app-context'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
@@ -20,7 +20,6 @@
     createNewTicketDraft,
     mapProjectRepoOptions,
     mapTicketStatusOptions,
-    mapWorkflowOptions,
     parseNewTicketDraft,
     type TicketRepoOption,
     ticketPriorityOptions,
@@ -35,24 +34,20 @@
   }
 
   let statuses = $state<TicketStatus[]>([])
-  let workflows = $state<Workflow[]>([])
   let repoOptions = $state<TicketRepoOption[]>([])
   let loading = $state(false)
   let saving = $state(false)
-  let draft = $state<NewTicketDraft>(createNewTicketDraft([], [], []))
+  let draft = $state<NewTicketDraft>(createNewTicketDraft([], []))
   let openProjectId = $state('')
   let loadRequestId = 0
 
   let statusPopoverOpen = $state(false)
   let priorityPopoverOpen = $state(false)
-  let workflowPopoverOpen = $state(false)
   let repoPopoverOpen = $state(false)
 
   const statusOptions = $derived(mapTicketStatusOptions(statuses))
-  const workflowOptions = $derived(mapWorkflowOptions(workflows))
 
   const selectedStatus = $derived(statusOptions.find((s) => s.id === draft.statusId) ?? null)
-  const selectedWorkflow = $derived(workflowOptions.find((w) => w.id === draft.workflowId) ?? null)
   const selectedRepoCount = $derived(draft.repoIds.length)
 
   $effect(() => {
@@ -77,21 +72,18 @@
     loading = true
 
     try {
-      const [statusPayload, workflowPayload, repoPayload] = await Promise.all([
+      const [statusPayload, repoPayload] = await Promise.all([
         listStatuses(projectId),
-        listWorkflows(projectId),
         listProjectRepos(projectId),
       ])
       if (requestId !== loadRequestId) return
 
       const nextStatusOptions = mapTicketStatusOptions(statusPayload.statuses)
-      const nextWorkflowOptions = mapWorkflowOptions(workflowPayload.workflows)
       const nextRepoOptions = mapProjectRepoOptions(repoPayload.repos)
 
       statuses = statusPayload.statuses
-      workflows = workflowPayload.workflows
       repoOptions = nextRepoOptions
-      draft = createNewTicketDraft(nextStatusOptions, nextWorkflowOptions, nextRepoOptions)
+      draft = createNewTicketDraft(nextStatusOptions, nextRepoOptions)
 
       const defaultStatusId = appStore.newTicketDefaultStatusId
       if (defaultStatusId && nextStatusOptions.some((s) => s.id === defaultStatusId)) {
@@ -123,11 +115,6 @@
   function selectPriority(priority: NewTicketDraft['priority']) {
     updateDraftField('priority', priority)
     priorityPopoverOpen = false
-  }
-
-  function selectWorkflow(workflowId: string) {
-    updateDraftField('workflowId', workflowId)
-    workflowPopoverOpen = false
   }
 
   function toggleRepoScope(repoId: string) {
@@ -162,7 +149,7 @@
       const createdTicketId = payload.ticket.id
 
       appStore.closeNewTicketDialog()
-      draft = createNewTicketDraft(statusOptions, workflowOptions, repoOptions)
+      draft = createNewTicketDraft(statusOptions, repoOptions)
       await goto(projectPath(currentProject.organization_id, currentProject.id, 'tickets'))
       appStore.openRightPanel({ type: 'ticket', id: createdTicketId })
     } catch (caughtError) {
@@ -280,36 +267,6 @@
               >
                 <PriorityIcon {priority} class="size-3.5" />
                 <span class="text-foreground">{priorityLabels[priority]}</span>
-              </button>
-            {/each}
-          </Popover.Content>
-        </Popover.Root>
-
-        <!-- Workflow picker -->
-        <Popover.Root bind:open={workflowPopoverOpen}>
-          <Popover.Trigger
-            class={cn(
-              'border-border hover:bg-muted inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors',
-              (loading || saving) && 'pointer-events-none opacity-50',
-            )}
-            disabled={loading || saving || workflowOptions.length === 0}
-          >
-            <span class="text-foreground max-w-36 truncate">
-              {selectedWorkflow?.label ?? 'Workflow'}
-            </span>
-            <ChevronDown class="text-muted-foreground size-3" />
-          </Popover.Trigger>
-          <Popover.Content align="start" class="max-h-56 w-64 gap-0 overflow-y-auto p-0.5">
-            {#each workflowOptions as option (option.id)}
-              <button
-                type="button"
-                class={cn(
-                  'hover:bg-muted flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
-                  option.id === draft.workflowId && 'bg-muted',
-                )}
-                onclick={() => selectWorkflow(option.id)}
-              >
-                <span class="text-foreground truncate">{option.label}</span>
               </button>
             {/each}
           </Popover.Content>

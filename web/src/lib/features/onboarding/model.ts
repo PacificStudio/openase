@@ -59,7 +59,7 @@ export function isStepCompleted(step: OnboardingStepId, data: OnboardingData): b
     case 'first_ticket':
       return data.firstTicket.ticketCount > 0
     case 'ai_discovery':
-      return false // tracked locally in component state
+      return data.aiDiscovery.completed
   }
 }
 

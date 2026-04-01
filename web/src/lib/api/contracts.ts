@@ -289,6 +289,10 @@ export type SkillFilesPayload = DeepRequired<
 
 export type BuiltinRolePayload = DeepRequired<ResponseFor<'/api/v1/roles/builtin', 'get'>>
 export type BuiltinRole = ItemOf<BuiltinRolePayload['roles']>
+export type BuiltinRoleDetailResponse = DeepRequired<
+  ResponseFor<'/api/v1/roles/builtin/{roleSlug}', 'get'>
+>
+export type BuiltinRoleDetail = BuiltinRoleDetailResponse['role']
 
 export type AppContextPayload = {
   organizations: Organization[]

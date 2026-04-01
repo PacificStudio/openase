@@ -57,6 +57,9 @@ export type OnboardingData = {
   provider: ProviderState
   agentWorkflow: AgentWorkflowState
   firstTicket: FirstTicketState
+  aiDiscovery: {
+    completed: boolean
+  }
   projectStatus: string
 }
 

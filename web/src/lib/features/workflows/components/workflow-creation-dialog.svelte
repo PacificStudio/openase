@@ -18,6 +18,7 @@
     agentOptions,
     existingCount,
     builtinRoleContent,
+    templateDraft = null,
     onCreated,
   }: {
     open?: boolean
@@ -26,6 +27,7 @@
     agentOptions: WorkflowAgentOption[]
     existingCount: number
     builtinRoleContent: string
+    templateDraft?: { name: string; content: string } | null
     onCreated?: (payload: { workflow: WorkflowSummary; selectedId: string }) => void
   } = $props()
 
@@ -42,7 +44,7 @@
   const selectableStatuses = $derived(statuses)
   $effect(() => {
     if (open && !wasOpen) {
-      name = `Workflow ${existingCount + 1}`
+      name = templateDraft?.name ?? `Workflow ${existingCount + 1}`
       agentId = agentOptions[0]?.id ?? ''
       pickupStatusIds = selectableStatuses[0] ? [selectableStatuses[0].id] : []
       finishStatusIds = selectableStatuses[0] ? [selectableStatuses[0].id] : []
@@ -82,7 +84,7 @@
           finishStatusIds,
         },
         statuses,
-        builtinRoleContent,
+        templateDraft?.content ?? builtinRoleContent,
       )
       onCreated?.(payload)
       open = false
