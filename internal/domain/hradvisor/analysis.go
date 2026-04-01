@@ -26,20 +26,27 @@ type TicketContext struct {
 	Identifier        string
 	Type              string
 	StatusName        string
+	StatusStage       string
 	WorkflowType      string
 	HasActiveRun      bool
 	ConsecutiveErrors int
 	RetryPaused       bool
 }
 
+// StatusBindingContext summarizes one workflow-bound status.
+type StatusBindingContext struct {
+	Name  string
+	Stage string
+}
+
 // WorkflowContext summarizes one workflow for staffing analysis.
 type WorkflowContext struct {
-	Name              string
-	Type              string
-	RoleSlug          string
-	IsActive          bool
-	PickupStatusNames []string
-	FinishStatusNames []string
+	Name           string
+	Type           string
+	RoleSlug       string
+	IsActive       bool
+	PickupStatuses []StatusBindingContext
+	FinishStatuses []StatusBindingContext
 }
 
 // AgentContext summarizes one agent for staffing analysis.
