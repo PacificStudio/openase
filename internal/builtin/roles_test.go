@@ -29,7 +29,7 @@ func TestDispatcherRoleTemplate(t *testing.T) {
 		"pickup_statuses | map(attribute=\"name\")",
 		"stage={{ item.stage }}",
 		"resources={{ item.resources | tojson }}",
-		"move it from {{ workflow.pickup_status }} to the pickup status of the best matching active workflow",
+		"move it from {{ workflow.pickup_status }} to one of the names already exposed in project.workflows[].pickup_statuses or project.statuses",
 		"keep it in {{ workflow.finish_status }}",
 	} {
 		if !strings.Contains(role.Content, want) {

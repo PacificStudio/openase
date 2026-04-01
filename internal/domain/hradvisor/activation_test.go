@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"go.yaml.in/yaml/v3"
 )
 
 func TestParseActivateRecommendation(t *testing.T) {
@@ -129,6 +130,55 @@ status:
 	}
 	if len(template.PickupStatusNames) != 1 || template.PickupStatusNames[0] != "Backlog" {
 		t.Fatalf("ParseActivationTemplate() = %+v", template)
+	}
+}
+
+func TestActivationStatusNameListUnmarshalYAML(t *testing.T) {
+	t.Run("blank scalar becomes nil", func(t *testing.T) {
+		var list activationStatusNameList
+		if err := yaml.Unmarshal([]byte(`"   "`), &list); err != nil {
+			t.Fatalf("yaml.Unmarshal(blank scalar) error = %v", err)
+		}
+		if list != nil {
+			t.Fatalf("expected nil list for blank scalar, got %#v", list)
+		}
+	})
+
+	t.Run("mapping node is rejected", func(t *testing.T) {
+		var list activationStatusNameList
+		err := yaml.Unmarshal([]byte("{status: Backlog}"), &list)
+		if err == nil || !strings.Contains(err.Error(), "status entries must be a string or string list") {
+			t.Fatalf("yaml.Unmarshal(mapping) error = %v", err)
+		}
+	})
+
+	t.Run("blank sequence entries are skipped", func(t *testing.T) {
+		var list activationStatusNameList
+		if err := yaml.Unmarshal([]byte("- Backlog\n- \"   \"\n- Ready\n"), &list); err != nil {
+			t.Fatalf("yaml.Unmarshal(sequence with blank entry) error = %v", err)
+		}
+		if strings.Join([]string(list), ",") != "Backlog,Ready" {
+			t.Fatalf("unexpected unmarshaled list: %#v", list)
+		}
+	})
+
+	t.Run("non-scalar sequence entry is rejected", func(t *testing.T) {
+		var list activationStatusNameList
+		err := yaml.Unmarshal([]byte("- name: Backlog"), &list)
+		if err == nil || !strings.Contains(err.Error(), "status entries must be strings") {
+			t.Fatalf("yaml.Unmarshal(non-scalar sequence) error = %v", err)
+		}
+	})
+}
+
+func TestActivationStatusNameListNames(t *testing.T) {
+	if names := (activationStatusNameList{}).Names(); names != nil {
+		t.Fatalf("expected nil names for empty list, got %#v", names)
+	}
+
+	names := (activationStatusNameList{" Backlog ", "", "backlog", "Ready"}).Names()
+	if strings.Join(names, ",") != "Backlog,Ready" {
+		t.Fatalf("unexpected normalized names: %#v", names)
 	}
 }
 

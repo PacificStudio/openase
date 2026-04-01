@@ -139,7 +139,7 @@ describe('WorkflowCreationDialog', () => {
       selectedId: 'wf-2',
     })
 
-    const { getAllByRole, getByRole } = render(WorkflowCreationDialog, {
+    const { getByRole } = render(WorkflowCreationDialog, {
       props: {
         open: true,
         projectId: 'project-1',
