@@ -1141,7 +1141,10 @@ func TestRuntimeLifecycleEventAndStateCoverage(t *testing.T) {
 	}
 	beforeDuplicateCount := len(stepItems)
 	if err := publishAgentStepEvent(ctx, client, nil, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, "responding", "assistant response", nil, publishedAt.Add(2*time.Minute)); err != nil {
-		t.Fatalf("publishAgentStepEvent(duplicate status) error = %v", err)
+		t.Fatalf("publishAgentStepEvent(same status/summary, different source) error = %v", err)
+	}
+	if err := publishAgentStepEvent(ctx, client, nil, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, "responding", "assistant response", nil, publishedAt.Add(2*time.Minute+500*time.Millisecond)); err != nil {
+		t.Fatalf("publishAgentStepEvent(true duplicate) error = %v", err)
 	}
 	if err := publishAgentStepEvent(ctx, client, nil, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, "responding", "assistant follow-up", nil, publishedAt.Add(2*time.Minute+time.Second)); err != nil {
 		t.Fatalf("publishAgentStepEvent(updated summary) error = %v", err)
@@ -1155,8 +1158,8 @@ func TestRuntimeLifecycleEventAndStateCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("count agent step events after duplicate status: %v", err)
 	}
-	if stepCountAfterDuplicate != beforeDuplicateCount+1 {
-		t.Fatalf("agent step event count after duplicate status = %d, want %d", stepCountAfterDuplicate, beforeDuplicateCount+1)
+	if stepCountAfterDuplicate != beforeDuplicateCount+2 {
+		t.Fatalf("agent step event count after duplicate status = %d, want %d", stepCountAfterDuplicate, beforeDuplicateCount+2)
 	}
 	stepPublishedAt := publishedAt.Add(4 * time.Minute)
 	if err := publishAgentStepEvent(ctx, client, bus, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, "reviewing", "reviewing coverage report", nil, stepPublishedAt); err != nil {

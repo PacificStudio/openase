@@ -1,6 +1,6 @@
 <script lang="ts">
+  import { ChatMarkdownContent } from '$lib/features/chat'
   import { Button } from '$ui/button'
-  import ChatMarkdownContent from '$lib/features/chat/chat-markdown-content.svelte'
   import type { TicketRunTranscriptBlock } from '../types'
 
   const outputPreviewMaxLines = 14
