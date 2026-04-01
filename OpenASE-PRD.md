@@ -7573,6 +7573,19 @@ OpenASE 内置一个 "HR Advisor" 功能，根据项目当前状态推荐应该"
 - 每个角色对应的 Harness 模板（可一键激活）
 - 推荐的人力资源配置（几个开发者 + 几个测试 + 几个文档）
 
+**推荐覆盖契约：**
+
+- HR Advisor 必须维护一份显式的“角色推荐支持矩阵”，区分：
+  - `supported_now`
+  - `intentionally_unsupported`
+  - `planned_not_yet_implemented`
+- 这份矩阵必须覆盖全部内置角色，不能通过“没写规则”来隐式遗漏角色。
+- 当前至少应自动推荐这些角色：`dispatcher`、`fullstack-developer`、`frontend-engineer`、`backend-engineer`、`qa-engineer`、`devops-engineer`、`security-engineer`、`technical-writer`、`code-reviewer`、`product-manager`、`research-ideation`、`experiment-runner`、`report-writer`、`env-provisioner`、`harness-optimizer`。
+- `market-analyst` 可以显式标记为 `intentionally_unsupported`，因为它依赖外部市场信号而不是项目内部执行信号。
+- `data-analyst` 可以显式标记为 `planned_not_yet_implemented`，直到 snapshot 提供数据集 / 指标 / 分析产物信号。
+- 推荐解释必须绑定到可观测信号，例如：状态 stage、lane 排队压力、workflow pickup/finish 绑定、失败重试、文档漂移、研究流程阶段。
+- 当同一角色家族对应多个独立 lane 缺口时，HR Advisor 必须保留多个推荐项，而不是按 `RoleSlug` 折叠成一个。
+
 **推荐逻辑示例：**
 
 ```go
@@ -7635,6 +7648,12 @@ func (h *HRAdvisor) Recommend(ctx context.Context, project *project.Project) []R
     return recs
 }
 ```
+
+实现约束补充：
+
+- 推荐逻辑优先依赖稳定语义：项目状态类型、ticket status `stage`、workflow 绑定关系；只有在区分具体 lane 能力时才回退到状态名关键词。
+- `frontend-engineer` / `backend-engineer` / `devops-engineer` / `code-reviewer` 的自动推荐，应来自显式 lane 压力，而不是把所有实现需求都折叠成 `fullstack-developer`。
+- `env-provisioner` 和 `harness-optimizer` 的自动推荐，应能从“重试暂停 / failure burst / workflow stall”这类执行退化信号中得出，而不是要求用户先手动发现问题。
 
 **在 Web UI 中的呈现：**
 

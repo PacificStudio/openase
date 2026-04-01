@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/hradvisor"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 )
 
 type snapshotStats struct {
@@ -30,9 +31,14 @@ type snapshotStats struct {
 
 type statusPressure struct {
 	StatusName          string
+	StatusStage         string
 	QueuedTickets       int
 	PickupWorkflowNames []string
+	PickupWorkflowTypes []string
+	PickupRoleSlugs     []string
 	FinishWorkflowNames []string
+	FinishWorkflowTypes []string
+	FinishRoleSlugs     []string
 }
 
 type laneProfile struct {
@@ -59,6 +65,7 @@ const (
 func Analyze(snapshot domain.Snapshot) domain.Analysis {
 	stats := collectStats(snapshot)
 	status := parseProjectStatus(snapshot.Project.Status)
+	researchProject := isResearchProject(snapshot.Project)
 	activeRoles := make(map[string]struct{}, len(snapshot.ActiveRoleSlugs))
 	for _, slug := range snapshot.ActiveRoleSlugs {
 		if trimmed := strings.TrimSpace(slug); trimmed != "" {
@@ -66,10 +73,14 @@ func Analyze(snapshot domain.Snapshot) domain.Analysis {
 		}
 	}
 
-	recommendations := make([]domain.Recommendation, 0, 8)
-	recommendedRoles := make(map[string]struct{}, 8)
-	add := func(recommendation domain.Recommendation, allowExistingRole bool) {
+	recommendations := make([]domain.Recommendation, 0, 10)
+	recommendedKeys := make(map[string]struct{}, 10)
+	add := func(key string, recommendation domain.Recommendation, allowExistingRole bool) {
 		if recommendation.RoleSlug == "" {
+			return
+		}
+		support, ok := recommendationSupport(recommendation.RoleSlug)
+		if !ok || support.Status != recommendationSupportSupportedNow {
 			return
 		}
 		if !allowExistingRole {
@@ -77,23 +88,25 @@ func Analyze(snapshot domain.Snapshot) domain.Analysis {
 				return
 			}
 		}
-		if _, exists := recommendedRoles[recommendation.RoleSlug]; exists {
+		if key == "" {
+			key = capabilityRecommendationKey(recommendation.RoleSlug)
+		}
+		if _, exists := recommendedKeys[key]; exists {
 			return
 		}
-		recommendedRoles[recommendation.RoleSlug] = struct{}{}
+		recommendedKeys[key] = struct{}{}
 		recommendations = append(recommendations, recommendation)
 	}
 
 	for _, pressure := range stats.statusPressure {
-		recommendation, ok := recommendationForPressure(pressure, stats)
-		if !ok {
-			continue
+		recommendation, key, ok := recommendationForPressure(pressure, stats, researchProject)
+		if ok {
+			add(key, recommendation, true)
 		}
-		add(recommendation, true)
 	}
 
 	if status == projectStatusPlanned && stats.openTickets == 0 && stats.workflowCount == 0 {
-		add(domain.Recommendation{
+		add(capabilityRecommendationKey("product-manager"), domain.Recommendation{
 			RoleSlug:              "product-manager",
 			Priority:              "high",
 			Reason:                "Planned projects with no active ticket lane need a role to turn scope into executable work.",
@@ -104,7 +117,7 @@ func Analyze(snapshot domain.Snapshot) domain.Analysis {
 	}
 
 	if status == projectStatusInProgress && stats.activeAgents == 0 {
-		add(domain.Recommendation{
+		add(capabilityRecommendationKey("fullstack-developer"), domain.Recommendation{
 			RoleSlug:              "fullstack-developer",
 			Priority:              "high",
 			Reason:                "The project is In Progress but there is no agent currently able to pick up implementation work.",
@@ -115,7 +128,7 @@ func Analyze(snapshot domain.Snapshot) domain.Analysis {
 	}
 
 	if stats.codingTickets >= 3 && stats.testWorkflowCount == 0 {
-		add(domain.Recommendation{
+		add(capabilityRecommendationKey("qa-engineer"), domain.Recommendation{
 			RoleSlug:              "qa-engineer",
 			Priority:              "high",
 			Reason:                "Coding demand is visible, but no test workflow is in place to absorb regression and release checks.",
@@ -126,15 +139,23 @@ func Analyze(snapshot domain.Snapshot) domain.Analysis {
 	}
 
 	if recommendation, ok := documentationRecommendation(stats); ok {
-		add(recommendation, false)
+		add(capabilityRecommendationKey(recommendation.RoleSlug), recommendation, false)
 	}
 
 	if recommendation, ok := securityRecommendation(stats); ok {
-		add(recommendation, false)
+		add(capabilityRecommendationKey(recommendation.RoleSlug), recommendation, false)
 	}
 
-	if isResearchProject(snapshot.Project) && stats.workflowCount == 0 {
-		add(domain.Recommendation{
+	if recommendation, ok := envProvisionerRecommendation(stats); ok {
+		add(capabilityRecommendationKey(recommendation.RoleSlug), recommendation, false)
+	}
+
+	if recommendation, ok := harnessOptimizerRecommendation(stats); ok {
+		add(capabilityRecommendationKey(recommendation.RoleSlug), recommendation, false)
+	}
+
+	if researchProject && stats.workflowCount == 0 {
+		add(capabilityRecommendationKey("research-ideation"), domain.Recommendation{
 			RoleSlug:              "research-ideation",
 			Priority:              "medium",
 			Reason:                "The project reads like research work, but there is no dedicated role framing questions and experiments yet.",
@@ -167,8 +188,13 @@ func collectStats(snapshot domain.Snapshot) snapshotStats {
 	activeWorkflowTypes := make(map[string]struct{})
 	queuedTicketsByStatus := make(map[string]int)
 	statusDisplayNames := make(map[string]string)
+	statusStagesByStatus := make(map[string]string)
 	pickupWorkflowsByStatus := make(map[string]map[string]struct{})
+	pickupWorkflowTypesByStatus := make(map[string]map[string]struct{})
+	pickupRoleSlugsByStatus := make(map[string]map[string]struct{})
 	finishWorkflowsByStatus := make(map[string]map[string]struct{})
+	finishWorkflowTypesByStatus := make(map[string]map[string]struct{})
+	finishRoleSlugsByStatus := make(map[string]map[string]struct{})
 
 	for _, workflow := range snapshot.Workflows {
 		stats.workflowCount++
@@ -193,8 +219,28 @@ func collectStats(snapshot domain.Snapshot) snapshotStats {
 		if isDispatcherWorkflow(workflow) {
 			stats.hasDispatcherWorkflow = true
 		}
-		registerWorkflowCoverage(pickupWorkflowsByStatus, statusDisplayNames, workflow.PickupStatusNames, workflow.Name)
-		registerWorkflowCoverage(finishWorkflowsByStatus, statusDisplayNames, workflow.FinishStatusNames, workflow.Name)
+		registerWorkflowCoverage(
+			pickupWorkflowsByStatus,
+			pickupWorkflowTypesByStatus,
+			pickupRoleSlugsByStatus,
+			statusDisplayNames,
+			statusStagesByStatus,
+			workflow.PickupStatuses,
+			workflow.Name,
+			workflow.Type,
+			workflow.RoleSlug,
+		)
+		registerWorkflowCoverage(
+			finishWorkflowsByStatus,
+			finishWorkflowTypesByStatus,
+			finishRoleSlugsByStatus,
+			statusDisplayNames,
+			statusStagesByStatus,
+			workflow.FinishStatuses,
+			workflow.Name,
+			workflow.Type,
+			workflow.RoleSlug,
+		)
 	}
 
 	for _, agent := range snapshot.Agents {
@@ -205,7 +251,7 @@ func collectStats(snapshot domain.Snapshot) snapshotStats {
 	}
 
 	for _, ticket := range snapshot.Tickets {
-		if isDoneStatus(ticket.StatusName) {
+		if isDoneStatus(ticket.StatusName, ticket.StatusStage) {
 			continue
 		}
 
@@ -223,7 +269,11 @@ func collectStats(snapshot domain.Snapshot) snapshotStats {
 				if statusDisplayNames[statusKey] == "" {
 					statusDisplayNames[statusKey] = strings.TrimSpace(ticket.StatusName)
 				}
-				if statusKey == normalizeStatusName(string(projectStatusBacklog)) {
+				if stage := parseStatusStage(ticket.StatusName, ticket.StatusStage); stage != "" && statusStagesByStatus[statusKey] == "" {
+					statusStagesByStatus[statusKey] = stage.String()
+				}
+				if parseStatusStage(ticket.StatusName, ticket.StatusStage) == ticketing.StatusStageBacklog ||
+					statusKey == normalizeStatusName(string(projectStatusBacklog)) {
 					stats.backlogTickets++
 				}
 			}
@@ -254,7 +304,17 @@ func collectStats(snapshot domain.Snapshot) snapshotStats {
 	}
 
 	stats.activeWorkflowTypes = mapKeys(activeWorkflowTypes)
-	stats.statusPressure = buildStatusPressure(queuedTicketsByStatus, statusDisplayNames, pickupWorkflowsByStatus, finishWorkflowsByStatus)
+	stats.statusPressure = buildStatusPressure(
+		queuedTicketsByStatus,
+		statusDisplayNames,
+		statusStagesByStatus,
+		pickupWorkflowsByStatus,
+		pickupWorkflowTypesByStatus,
+		pickupRoleSlugsByStatus,
+		finishWorkflowsByStatus,
+		finishWorkflowTypesByStatus,
+		finishRoleSlugsByStatus,
+	)
 	return stats
 }
 
@@ -329,17 +389,82 @@ func securityRecommendation(stats snapshotStats) (domain.Recommendation, bool) {
 	}, true
 }
 
-func recommendationForPressure(pressure statusPressure, stats snapshotStats) (domain.Recommendation, bool) {
-	if len(pressure.PickupWorkflowNames) > 0 {
+func envProvisionerRecommendation(stats snapshotStats) (domain.Recommendation, bool) {
+	if stats.blockedTickets == 0 {
+		return domain.Recommendation{}, false
+	}
+	if stats.failingTickets == 0 && stats.failureBurstCount == 0 {
 		return domain.Recommendation{}, false
 	}
 
-	profile, ok := profileForStatus(pressure.StatusName)
-	if !ok || pressure.QueuedTickets < profile.MinQueuedTickets {
+	evidence := []string{
+		fmt.Sprintf("Blocked tickets with paused retries: %d.", stats.blockedTickets),
+		fmt.Sprintf("Failing tickets: %d.", stats.failingTickets),
+	}
+	if stats.failureBurstCount > 0 {
+		evidence = append(evidence, fmt.Sprintf("Recent failure bursts: %d.", stats.failureBurstCount))
+		evidence = append(evidence, stats.trendEvidenceByKind[domain.ActivityTrendFailureBurst]...)
+	}
+
+	priority := "medium"
+	if stats.blockedTickets >= 2 || stats.failureBurstCount > 0 {
+		priority = "high"
+	}
+
+	return domain.Recommendation{
+		RoleSlug:              "env-provisioner",
+		Priority:              priority,
+		Reason:                "Repeated stalled retries suggest the project needs an explicit environment-repair lane before more execution work can progress safely.",
+		Evidence:              evidence,
+		SuggestedHeadcount:    1,
+		SuggestedWorkflowName: "Environment Provisioner",
+	}, true
+}
+
+func harnessOptimizerRecommendation(stats snapshotStats) (domain.Recommendation, bool) {
+	if stats.workflowCount == 0 {
 		return domain.Recommendation{}, false
 	}
-	if profile.RoleSlug == "dispatcher" && stats.hasDispatcherWorkflow {
+	if stats.blockedTickets == 0 && stats.failureBurstCount == 0 && stats.failingTickets < 3 {
 		return domain.Recommendation{}, false
+	}
+
+	evidence := []string{
+		fmt.Sprintf("Configured workflows: %d.", stats.workflowCount),
+		fmt.Sprintf("Blocked tickets with paused retries: %d.", stats.blockedTickets),
+		fmt.Sprintf("Failing tickets: %d.", stats.failingTickets),
+	}
+	if stats.failureBurstCount > 0 {
+		evidence = append(evidence, fmt.Sprintf("Recent failure bursts: %d.", stats.failureBurstCount))
+		evidence = append(evidence, stats.trendEvidenceByKind[domain.ActivityTrendFailureBurst]...)
+	}
+
+	priority := "medium"
+	if stats.blockedTickets >= 2 || stats.failureBurstCount > 0 {
+		priority = "high"
+	}
+
+	return domain.Recommendation{
+		RoleSlug:              "harness-optimizer",
+		Priority:              priority,
+		Reason:                "Workflow retries and stalled execution suggest harness quality drift that should be corrected before scaling the current workflow set further.",
+		Evidence:              evidence,
+		SuggestedHeadcount:    1,
+		SuggestedWorkflowName: "Harness Optimizer",
+	}, true
+}
+
+func recommendationForPressure(pressure statusPressure, stats snapshotStats, researchProject bool) (domain.Recommendation, string, bool) {
+	if len(pressure.PickupWorkflowNames) > 0 {
+		return domain.Recommendation{}, "", false
+	}
+
+	profile, ok := profileForStatus(pressure, researchProject)
+	if !ok || pressure.QueuedTickets < profile.MinQueuedTickets {
+		return domain.Recommendation{}, "", false
+	}
+	if profile.RoleSlug == "dispatcher" && stats.hasDispatcherWorkflow {
+		return domain.Recommendation{}, "", false
 	}
 
 	reason := fmt.Sprintf(
@@ -358,12 +483,19 @@ func recommendationForPressure(pressure statusPressure, stats snapshotStats) (do
 
 	evidence := []string{
 		fmt.Sprintf("Queued tickets in status %q: %d.", pressure.StatusName, pressure.QueuedTickets),
+		fmt.Sprintf("Status stage for %q: %s.", pressure.StatusName, statusStageLabel(pressure.StatusStage)),
 		fmt.Sprintf("Active workflows picking up %q: none.", pressure.StatusName),
 	}
 	if len(pressure.FinishWorkflowNames) > 0 {
 		evidence = append(
 			evidence,
 			fmt.Sprintf("Active workflows finishing into %q: %s.", pressure.StatusName, strings.Join(pressure.FinishWorkflowNames, ", ")),
+		)
+	}
+	if len(pressure.FinishWorkflowTypes) > 0 {
+		evidence = append(
+			evidence,
+			fmt.Sprintf("Upstream workflow types finishing into %q: %s.", pressure.StatusName, strings.Join(pressure.FinishWorkflowTypes, ", ")),
 		)
 	}
 	if profile.WorkflowType != "" {
@@ -383,26 +515,7 @@ func recommendationForPressure(pressure statusPressure, stats snapshotStats) (do
 		Evidence:              evidence,
 		SuggestedHeadcount:    max(1, scaleHeadcount(pressure.QueuedTickets, profile.HeadcountDivisor)),
 		SuggestedWorkflowName: suggestedWorkflowName(profile, pressure.StatusName),
-	}, true
-}
-
-func parseProjectStatus(raw string) projectStatus {
-	switch strings.TrimSpace(raw) {
-	case string(projectStatusBacklog):
-		return projectStatusBacklog
-	case string(projectStatusPlanned):
-		return projectStatusPlanned
-	case string(projectStatusInProgress):
-		return projectStatusInProgress
-	case string(projectStatusCompleted):
-		return projectStatusCompleted
-	case string(projectStatusCanceled):
-		return projectStatusCanceled
-	case string(projectStatusArchived):
-		return projectStatusArchived
-	default:
-		return projectStatusUnknown
-	}
+	}, laneRecommendationKey(profile.RoleSlug, pressure.StatusName), true
 }
 
 func buildStaffingPlan(projectStatus projectStatus, stats snapshotStats) domain.StaffingPlan {
@@ -453,6 +566,9 @@ func sortRecommendations(items []domain.Recommendation) {
 		if items[i].SuggestedHeadcount != items[j].SuggestedHeadcount {
 			return items[i].SuggestedHeadcount > items[j].SuggestedHeadcount
 		}
+		if items[i].RoleSlug == items[j].RoleSlug && items[i].SuggestedWorkflowName != items[j].SuggestedWorkflowName {
+			return items[i].SuggestedWorkflowName < items[j].SuggestedWorkflowName
+		}
 		return items[i].RoleSlug < items[j].RoleSlug
 	})
 }
@@ -460,8 +576,13 @@ func sortRecommendations(items []domain.Recommendation) {
 func buildStatusPressure(
 	queuedTicketsByStatus map[string]int,
 	statusDisplayNames map[string]string,
+	statusStagesByStatus map[string]string,
 	pickupWorkflowsByStatus map[string]map[string]struct{},
+	pickupWorkflowTypesByStatus map[string]map[string]struct{},
+	pickupRoleSlugsByStatus map[string]map[string]struct{},
 	finishWorkflowsByStatus map[string]map[string]struct{},
+	finishWorkflowTypesByStatus map[string]map[string]struct{},
+	finishRoleSlugsByStatus map[string]map[string]struct{},
 ) []statusPressure {
 	pressures := make([]statusPressure, 0, len(queuedTicketsByStatus))
 	for statusKey, queuedTickets := range queuedTicketsByStatus {
@@ -475,9 +596,14 @@ func buildStatusPressure(
 		}
 		pressures = append(pressures, statusPressure{
 			StatusName:          statusName,
+			StatusStage:         statusStagesByStatus[statusKey],
 			QueuedTickets:       queuedTickets,
 			PickupWorkflowNames: workflowNamesForStatus(pickupWorkflowsByStatus, statusKey),
+			PickupWorkflowTypes: workflowNamesForStatus(pickupWorkflowTypesByStatus, statusKey),
+			PickupRoleSlugs:     workflowNamesForStatus(pickupRoleSlugsByStatus, statusKey),
 			FinishWorkflowNames: workflowNamesForStatus(finishWorkflowsByStatus, statusKey),
+			FinishWorkflowTypes: workflowNamesForStatus(finishWorkflowTypesByStatus, statusKey),
+			FinishRoleSlugs:     workflowNamesForStatus(finishRoleSlugsByStatus, statusKey),
 		})
 	}
 
@@ -514,42 +640,72 @@ func workflowNamesForStatus(items map[string]map[string]struct{}, statusKey stri
 }
 
 func registerWorkflowCoverage(
-	items map[string]map[string]struct{},
+	names map[string]map[string]struct{},
+	types map[string]map[string]struct{},
+	roles map[string]map[string]struct{},
 	statusDisplayNames map[string]string,
-	statusNames []string,
+	statusStages map[string]string,
+	statusBindings []domain.StatusBindingContext,
 	workflowName string,
+	workflowType string,
+	roleSlug string,
 ) {
 	trimmedWorkflowName := strings.TrimSpace(workflowName)
 	if trimmedWorkflowName == "" {
 		return
 	}
 
-	for _, statusName := range statusNames {
-		statusKey := normalizeStatusName(statusName)
+	for _, statusBinding := range statusBindings {
+		statusKey := normalizeStatusName(statusBinding.Name)
 		if statusKey == "" {
 			continue
 		}
 
 		if statusDisplayNames[statusKey] == "" {
-			statusDisplayNames[statusKey] = strings.TrimSpace(statusName)
+			statusDisplayNames[statusKey] = strings.TrimSpace(statusBinding.Name)
 		}
-		if items[statusKey] == nil {
-			items[statusKey] = make(map[string]struct{})
+		if stage := parseStatusStage(statusBinding.Name, statusBinding.Stage); stage != "" && statusStages[statusKey] == "" {
+			statusStages[statusKey] = stage.String()
 		}
-		items[statusKey][trimmedWorkflowName] = struct{}{}
+		if names[statusKey] == nil {
+			names[statusKey] = make(map[string]struct{})
+		}
+		names[statusKey][trimmedWorkflowName] = struct{}{}
+		addStatusValue(types, statusKey, strings.TrimSpace(workflowType))
+		addStatusValue(roles, statusKey, strings.TrimSpace(roleSlug))
 	}
 }
 
-func profileForStatus(statusName string) (laneProfile, bool) {
-	normalized := normalizeStatusName(statusName)
+func addStatusValue(items map[string]map[string]struct{}, statusKey string, value string) {
+	if value == "" {
+		return
+	}
+	if items[statusKey] == nil {
+		items[statusKey] = make(map[string]struct{})
+	}
+	items[statusKey][value] = struct{}{}
+}
+
+func profileForStatus(pressure statusPressure, researchProject bool) (laneProfile, bool) {
+	normalized := normalizeStatusName(pressure.StatusName)
+	stage := parseStatusStage(pressure.StatusName, pressure.StatusStage)
+
 	switch {
-	case normalized == normalizeStatusName(string(projectStatusBacklog)):
+	case stage == ticketing.StatusStageBacklog || normalized == normalizeStatusName(string(projectStatusBacklog)):
 		return laneProfile{
 			RoleSlug:         "dispatcher",
 			WorkflowName:     "Dispatcher",
 			WorkflowType:     "custom",
 			MinQueuedTickets: 11,
 			HeadcountDivisor: 10,
+		}, true
+	case containsStatusKeyword(normalized, "review", "reviewer", "approve", "approval", "pr", "审查", "评审", "审核"):
+		return laneProfile{
+			RoleSlug:         "code-reviewer",
+			WorkflowName:     "Code Reviewer",
+			WorkflowType:     "custom",
+			MinQueuedTickets: 1,
+			HeadcountDivisor: 4,
 		}, true
 	case containsStatusKeyword(normalized, "test", "qa", "测试", "验证"):
 		return laneProfile{
@@ -559,6 +715,14 @@ func profileForStatus(statusName string) (laneProfile, bool) {
 			MinQueuedTickets: 2,
 			HeadcountDivisor: 6,
 		}, true
+	case researchProject && containsStatusKeyword(normalized, "report", "paper", "writing", "writeup", "写作", "报告", "论文"):
+		return laneProfile{
+			RoleSlug:         "report-writer",
+			WorkflowName:     "Report Writer",
+			WorkflowType:     "custom",
+			MinQueuedTickets: 1,
+			HeadcountDivisor: 4,
+		}, true
 	case containsStatusKeyword(normalized, "doc", "docs", "write", "writer", "文档", "撰写"):
 		return laneProfile{
 			RoleSlug:         "technical-writer",
@@ -567,6 +731,30 @@ func profileForStatus(statusName string) (laneProfile, bool) {
 			MinQueuedTickets: 2,
 			HeadcountDivisor: 8,
 		}, true
+	case containsStatusKeyword(normalized, "deploy", "release", "rollout", "ship", "上线", "部署", "发布"):
+		return laneProfile{
+			RoleSlug:         "devops-engineer",
+			WorkflowName:     "DevOps Engineer",
+			WorkflowType:     "deploy",
+			MinQueuedTickets: 1,
+			HeadcountDivisor: 4,
+		}, true
+	case containsStatusKeyword(normalized, "environment", "env", "bootstrap", "machine", "setup", "provision", "repair", "环境", "修复", "配置"):
+		return laneProfile{
+			RoleSlug:         "env-provisioner",
+			WorkflowName:     "Environment Provisioner",
+			WorkflowType:     "custom",
+			MinQueuedTickets: 1,
+			HeadcountDivisor: 4,
+		}, true
+	case containsStatusKeyword(normalized, "harness", "prompt", "workflow tune", "workflow-tune", "优化", "调优"):
+		return laneProfile{
+			RoleSlug:         "harness-optimizer",
+			WorkflowName:     "Harness Optimizer",
+			WorkflowType:     "refine-harness",
+			MinQueuedTickets: 1,
+			HeadcountDivisor: 4,
+		}, true
 	case containsStatusKeyword(normalized, "security", "scan", "audit", "安全", "扫描", "审计"):
 		return laneProfile{
 			RoleSlug:         "security-engineer",
@@ -574,6 +762,38 @@ func profileForStatus(statusName string) (laneProfile, bool) {
 			WorkflowType:     "security",
 			MinQueuedTickets: 2,
 			HeadcountDivisor: 8,
+		}, true
+	case containsStatusKeyword(normalized, "frontend", "front-end", "ui", "ux", "web", "页面", "前端", "界面"):
+		return laneProfile{
+			RoleSlug:         "frontend-engineer",
+			WorkflowName:     "Frontend Engineer",
+			WorkflowType:     "coding",
+			MinQueuedTickets: 1,
+			HeadcountDivisor: 4,
+		}, true
+	case containsStatusKeyword(normalized, "backend", "back-end", "api", "service", "server", "后端", "接口", "服务"):
+		return laneProfile{
+			RoleSlug:         "backend-engineer",
+			WorkflowName:     "Backend Engineer",
+			WorkflowType:     "coding",
+			MinQueuedTickets: 1,
+			HeadcountDivisor: 4,
+		}, true
+	case researchProject && containsStatusKeyword(normalized, "experiment", "trial", "benchmark", "实验", "试验"):
+		return laneProfile{
+			RoleSlug:         "experiment-runner",
+			WorkflowName:     "Experiment Runner",
+			WorkflowType:     "custom",
+			MinQueuedTickets: 1,
+			HeadcountDivisor: 4,
+		}, true
+	case researchProject && containsStatusKeyword(normalized, "research", "ideation", "investigate", "literature", "study", "调研", "研究"):
+		return laneProfile{
+			RoleSlug:         "research-ideation",
+			WorkflowName:     "Research Ideation",
+			WorkflowType:     "custom",
+			MinQueuedTickets: 1,
+			HeadcountDivisor: 4,
 		}, true
 	case containsStatusKeyword(normalized, "todo", "develop", "development", "coding", "implement", "待开发", "开发", "编码", "实现"):
 		return laneProfile{
@@ -597,7 +817,7 @@ func suggestedWorkflowName(profile laneProfile, statusName string) string {
 }
 
 func pressurePriority(profile laneProfile, queuedTickets int) string {
-	if profile.RoleSlug == "dispatcher" || queuedTickets >= 4 {
+	if profile.RoleSlug == "dispatcher" || profile.RoleSlug == "env-provisioner" || profile.RoleSlug == "harness-optimizer" || queuedTickets >= 4 {
 		return "high"
 	}
 	return "medium"
@@ -616,31 +836,37 @@ func normalizeStatusName(statusName string) string {
 	return strings.ToLower(strings.TrimSpace(statusName))
 }
 
+func laneRecommendationKey(roleSlug string, statusName string) string {
+	return "lane:" + roleSlug + ":" + normalizeStatusName(statusName)
+}
+
+func capabilityRecommendationKey(roleSlug string) string {
+	return "capability:" + roleSlug
+}
+
+func statusStageLabel(rawStage string) string {
+	if strings.TrimSpace(rawStage) == "" {
+		return "unknown"
+	}
+	return rawStage
+}
+
 func isDispatcherWorkflow(workflow domain.WorkflowContext) bool {
 	if strings.TrimSpace(workflow.RoleSlug) == "dispatcher" {
 		return true
 	}
-	return hasStatusBinding(workflow.PickupStatusNames, string(projectStatusBacklog)) &&
-		hasStatusBinding(workflow.FinishStatusNames, string(projectStatusBacklog))
+	return hasStatusBinding(workflow.PickupStatuses, string(projectStatusBacklog)) &&
+		hasStatusBinding(workflow.FinishStatuses, string(projectStatusBacklog))
 }
 
-func hasStatusBinding(statusNames []string, want string) bool {
+func hasStatusBinding(statusBindings []domain.StatusBindingContext, want string) bool {
 	wantNormalized := normalizeStatusName(want)
-	for _, statusName := range statusNames {
-		if normalizeStatusName(statusName) == wantNormalized {
+	for _, statusBinding := range statusBindings {
+		if normalizeStatusName(statusBinding.Name) == wantNormalized {
 			return true
 		}
 	}
 	return false
-}
-
-func isDoneStatus(statusName string) bool {
-	switch strings.ToLower(strings.TrimSpace(statusName)) {
-	case "done", "completed", "closed", "archived":
-		return true
-	default:
-		return false
-	}
 }
 
 func isCodingTicketType(ticketType string) bool {

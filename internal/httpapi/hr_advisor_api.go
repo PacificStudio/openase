@@ -125,6 +125,7 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 
 	workflowTypes := make(map[uuid.UUID]string, len(workflows))
 	statusNamesByID := make(map[uuid.UUID]string)
+	statusStagesByID := make(map[uuid.UUID]string)
 	if s.ticketStatusService != nil {
 		statuses, err := s.ticketStatusService.List(ctx, projectID)
 		if err != nil {
@@ -132,6 +133,7 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 		}
 		for _, statusItem := range statuses.Statuses {
 			statusNamesByID[statusItem.ID] = statusItem.Name
+			statusStagesByID[statusItem.ID] = statusItem.Stage
 		}
 	}
 	activeRoleWorkflows := make(map[string]string)
@@ -181,6 +183,7 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 			Identifier:        ticketItem.Identifier,
 			Type:              string(ticketItem.Type),
 			StatusName:        ticketItem.StatusName,
+			StatusStage:       statusStagesByID[ticketItem.StatusID],
 			WorkflowType:      workflowType,
 			HasActiveRun:      ticketItem.CurrentRunID != nil,
 			ConsecutiveErrors: ticketItem.ConsecutiveErrors,
@@ -190,12 +193,12 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 
 	for _, workflowItem := range workflows {
 		snapshot.Workflows = append(snapshot.Workflows, hrdomain.WorkflowContext{
-			Name:              workflowItem.Name,
-			Type:              string(workflowItem.Type),
-			RoleSlug:          workflowRoleSlugs[workflowItem.ID],
-			IsActive:          workflowItem.IsActive,
-			PickupStatusNames: statusNamesFromIDs(workflowItem.PickupStatusIDs, statusNamesByID),
-			FinishStatusNames: statusNamesFromIDs(workflowItem.FinishStatusIDs, statusNamesByID),
+			Name:           workflowItem.Name,
+			Type:           string(workflowItem.Type),
+			RoleSlug:       workflowRoleSlugs[workflowItem.ID],
+			IsActive:       workflowItem.IsActive,
+			PickupStatuses: statusBindingsFromIDs(workflowItem.PickupStatusIDs, statusNamesByID, statusStagesByID),
+			FinishStatuses: statusBindingsFromIDs(workflowItem.FinishStatusIDs, statusNamesByID, statusStagesByID),
 		})
 	}
 
@@ -616,4 +619,27 @@ func statusNamesFromIDs(statusIDs []uuid.UUID, statusNamesByID map[uuid.UUID]str
 		}
 	}
 	return names
+}
+
+func statusBindingsFromIDs(
+	statusIDs []uuid.UUID,
+	statusNamesByID map[uuid.UUID]string,
+	statusStagesByID map[uuid.UUID]string,
+) []hrdomain.StatusBindingContext {
+	if len(statusIDs) == 0 || len(statusNamesByID) == 0 {
+		return nil
+	}
+
+	bindings := make([]hrdomain.StatusBindingContext, 0, len(statusIDs))
+	for _, statusID := range statusIDs {
+		name := strings.TrimSpace(statusNamesByID[statusID])
+		if name == "" {
+			continue
+		}
+		bindings = append(bindings, hrdomain.StatusBindingContext{
+			Name:  name,
+			Stage: strings.TrimSpace(statusStagesByID[statusID]),
+		})
+	}
+	return bindings
 }
