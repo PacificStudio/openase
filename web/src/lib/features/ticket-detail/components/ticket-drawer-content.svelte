@@ -1,23 +1,9 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
   import { EphemeralChatPanel } from '$lib/features/chat'
-  import { Badge } from '$ui/badge'
-  import { Separator } from '$ui/separator'
-  import Bot from '@lucide/svelte/icons/bot'
-  import Calendar from '@lucide/svelte/icons/calendar'
-  import DollarSign from '@lucide/svelte/icons/dollar-sign'
-  import RotateCcw from '@lucide/svelte/icons/rotate-ccw'
-  import User from '@lucide/svelte/icons/user'
-  import Workflow from '@lucide/svelte/icons/workflow'
-  import { cn, formatCount, formatCurrency, formatRelativeTime } from '$lib/utils'
-  import TicketCommentsThread from './ticket-comments-thread.svelte'
-  import TicketDependencies from './ticket-dependencies.svelte'
-  import TicketExternalLinks from './ticket-external-links.svelte'
+  import TicketDrawerMainTabs from './ticket-drawer-main-tabs.svelte'
   import TicketHeader from './ticket-header.svelte'
-  import TicketHooks from './ticket-hooks.svelte'
-  import TicketRepos from './ticket-repos.svelte'
-  import TicketRunTranscriptPanel from './ticket-run-transcript-panel.svelte'
-  import TicketRuntimeStateCard from './ticket-runtime-state-card.svelte'
+  import TicketDrawerSidebar from './ticket-drawer-sidebar.svelte'
   import type { DependencyDraft } from '../mutation-shared'
   import type {
     HookExecution,
@@ -36,8 +22,10 @@
     projectId,
     hooks,
     timeline,
+    runs = [],
     currentRun = null,
     runBlocks = [],
+    loadingRunId = null,
     statuses,
     dependencyCandidates,
     repoOptions,
@@ -55,6 +43,7 @@
     resumingRetry = false,
     onClose,
     onSaveFields,
+    onSelectRun,
     onResumeRetry,
     onAddDependency,
     onDeleteDependency,
@@ -72,8 +61,10 @@
     projectId: string
     hooks: HookExecution[]
     timeline: TicketTimelineItem[]
+    runs?: TicketRun[]
     currentRun?: TicketRun | null
     runBlocks?: TicketRunTranscriptBlock[]
+    loadingRunId?: string | null
     statuses: TicketStatusOption[]
     dependencyCandidates: TicketReferenceOption[]
     repoOptions: TicketRepoOption[]
@@ -91,6 +82,7 @@
     resumingRetry?: boolean
     onClose?: () => void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
+    onSelectRun?: (runId: string) => Promise<void> | void
     onResumeRetry?: () => Promise<void> | void
     onAddDependency?: (draft: DependencyDraft) => Promise<boolean> | boolean
     onDeleteDependency?: (dependencyId: string) => void
@@ -124,10 +116,6 @@
     ) => Promise<TicketCommentRevision[]> | TicketCommentRevision[]
   } = $props()
 
-  const costPercent = $derived.by(() =>
-    ticket.budgetUsd > 0 ? Math.round((ticket.costAmount / ticket.budgetUsd) * 100) : 0,
-  )
-  const costOverBudget = $derived(costPercent > 80)
   let assistantOpen = $state(false)
   let previousTicketId = ''
 
@@ -166,133 +154,47 @@
 
 <div class="flex flex-1 flex-col overflow-hidden md:flex-row">
   <div class="flex flex-1 flex-col overflow-hidden border-r">
-    <TicketRunTranscriptPanel run={currentRun} blocks={runBlocks} />
-
-    <TicketCommentsThread
+    <TicketDrawerMainTabs
       {ticket}
       {timeline}
+      {runs}
+      {currentRun}
+      {runBlocks}
+      {loadingRunId}
       {savingFields}
       {creatingComment}
       {updatingCommentId}
       {deletingCommentId}
+      {resumingRetry}
       {onSaveFields}
+      {onSelectRun}
+      {onResumeRetry}
       {onCreateComment}
       {onUpdateComment}
       {onDeleteComment}
       {onLoadCommentHistory}
     />
   </div>
-
-  <div class="border-border w-full shrink-0 overflow-y-auto border-t md:w-80 md:border-t-0">
-    <div class="flex flex-col gap-5 px-5 py-5">
-      <TicketRuntimeStateCard {ticket} {resumingRetry} {onResumeRetry} />
-
-      <Separator />
-
-      <section class="space-y-3">
-        <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
-          Details
-        </span>
-        <div class="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2.5 text-xs">
-          {#if ticket.workflow}
-            <div class="text-muted-foreground flex items-center gap-1.5">
-              <Workflow class="size-3.5" />
-              <span>Workflow</span>
-            </div>
-            <div class="text-foreground break-words">{ticket.workflow.name}</div>
-          {/if}
-
-          <div class="text-muted-foreground flex items-center gap-1.5">
-            <Bot class="size-3.5" />
-            <span>Agent</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            {#if ticket.assignedAgent}
-              <span class="inline-block size-1.5 rounded-full bg-green-400" title="Online"></span>
-              <span class="text-foreground break-words">{ticket.assignedAgent.name}</span>
-              <Badge variant="outline" class="h-4 shrink-0 py-0 text-[10px]">
-                {ticket.assignedAgent.provider}
-              </Badge>
-            {:else}
-              <span class="text-muted-foreground italic">Unassigned</span>
-            {/if}
-          </div>
-
-          <div class="text-muted-foreground flex items-center gap-1.5">
-            <DollarSign class="size-3.5" />
-            <span>Cost</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class={cn('text-foreground', costOverBudget && 'text-red-400')}>
-              {formatCurrency(ticket.costAmount)}
-            </span>
-            <span class="text-muted-foreground">/ {formatCurrency(ticket.budgetUsd)}</span>
-          </div>
-
-          <div class="text-muted-foreground flex items-center gap-1.5">
-            <RotateCcw class="size-3.5" />
-            <span>Attempts</span>
-          </div>
-          <div class="text-foreground">{ticket.attemptCount}</div>
-
-          <div class="text-muted-foreground">Input Tokens</div>
-          <div class="text-foreground">{formatCount(ticket.costTokensInput)}</div>
-
-          <div class="text-muted-foreground">Output Tokens</div>
-          <div class="text-foreground">{formatCount(ticket.costTokensOutput)}</div>
-
-          <div class="text-muted-foreground flex items-center gap-1.5">
-            <User class="size-3.5" />
-            <span>Created by</span>
-          </div>
-          <div class="text-foreground break-all">{ticket.createdBy}</div>
-
-          <div class="text-muted-foreground flex items-center gap-1.5">
-            <Calendar class="size-3.5" />
-            <span>Created</span>
-          </div>
-          <div class="text-foreground">{formatRelativeTime(ticket.createdAt)}</div>
-        </div>
-      </section>
-
-      <Separator />
-
-      <TicketExternalLinks
-        links={ticket.externalLinks}
-        creating={creatingExternalLink}
-        deletingId={deletingExternalLinkId}
-        onCreate={onCreateExternalLink}
-        onDelete={onDeleteExternalLink}
-      />
-
-      <Separator />
-
-      <TicketDependencies
-        {ticket}
-        availableTickets={dependencyCandidates}
-        {creatingDependency}
-        {deletingDependencyId}
-        {onAddDependency}
-        {onDeleteDependency}
-      />
-
-      <Separator />
-
-      <TicketRepos
-        {ticket}
-        repos={repoOptions}
-        {creatingRepoScope}
-        {updatingRepoScopeId}
-        {deletingRepoScopeId}
-        {onCreateScope}
-        {onUpdateScope}
-        {onDeleteScope}
-      />
-
-      {#if hooks.length > 0}
-        <Separator />
-        <TicketHooks {hooks} />
-      {/if}
-    </div>
-  </div>
+  <TicketDrawerSidebar
+    {ticket}
+    {hooks}
+    {dependencyCandidates}
+    {repoOptions}
+    {creatingDependency}
+    {deletingDependencyId}
+    {creatingExternalLink}
+    {deletingExternalLinkId}
+    {creatingRepoScope}
+    {updatingRepoScopeId}
+    {deletingRepoScopeId}
+    {resumingRetry}
+    {onResumeRetry}
+    {onAddDependency}
+    {onDeleteDependency}
+    {onCreateExternalLink}
+    {onDeleteExternalLink}
+    {onCreateScope}
+    {onUpdateScope}
+    {onDeleteScope}
+  />
 </div>

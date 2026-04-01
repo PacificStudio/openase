@@ -247,23 +247,18 @@ describe('TicketCommentsThread', () => {
     expect(await findByText('Updated comment body')).toBeTruthy()
   })
 
-  it('groups repeated agent lifecycle events into collapsible attempts', async () => {
-    const { findByText, getByLabelText, queryByText } = render(TicketCommentsThread, {
+  it('keeps activity events in the discussion timeline without run grouping', async () => {
+    const { findByText, queryByText } = render(TicketCommentsThread, {
       props: {
         ticket,
         timeline: attemptTimeline,
       },
     })
 
-    expect(await findByText('Attempt 1')).toBeTruthy()
-    expect(await findByText('Attempt 2')).toBeTruthy()
-    expect(await findByText('Ready')).toBeTruthy()
+    expect(await findByText('Agent claimed the ticket.')).toBeTruthy()
     expect(await findByText('Agent is ready.')).toBeTruthy()
-    expect(await findByText('Attempt collapsed.')).toBeTruthy()
-    expect(queryByText('Agent failed to launch.')).toBeNull()
-
-    await fireEvent.click(getByLabelText('Expand attempt 1'))
-
+    expect(queryByText('Attempt 1')).toBeNull()
+    expect(queryByText('Attempt 2')).toBeNull()
     expect(await findByText('Agent failed to launch.')).toBeTruthy()
   })
 })
