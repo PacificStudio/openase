@@ -19,7 +19,8 @@ export interface paths {
     delete: operations['deleteAgent']
     options?: never
     head?: never
-    patch?: never
+    /** Update an agent definition */
+    patch: operations['updateAgent']
     trace?: never
   }
   '/api/v1/agents/{agentId}/pause': {
@@ -831,6 +832,41 @@ export interface paths {
     put?: never
     /** Create a project issue connector */
     post: operations['createIssueConnector']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/github/namespaces': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List GitHub namespaces available to the project's effective credential */
+    get: operations['listGitHubNamespaces']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/github/repos': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List GitHub repositories visible to the project's effective credential */
+    get: operations['listGitHubRepositories']
+    put?: never
+    /** Create a GitHub repository using the project's effective credential */
+    post: operations['createGitHubRepository']
     delete?: never
     options?: never
     head?: never
@@ -1784,6 +1820,112 @@ export interface operations {
     requestBody?: never
     responses: {
       /** @description Delete an agent response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            agent?: {
+              id?: string
+              name?: string
+              project_id?: string
+              provider_id?: string
+              runtime?: {
+                active_run_count?: number
+                current_run_id?: string | null
+                current_step_changed_at?: string | null
+                current_step_status?: string | null
+                current_step_summary?: string | null
+                current_ticket_id?: string | null
+                last_error?: string
+                last_heartbeat_at?: string | null
+                runtime_phase?: string
+                runtime_started_at?: string | null
+                session_id?: string
+                status?: string
+              } | null
+              runtime_control_state?: string
+              total_tickets_completed?: number
+              /** Format: int64 */
+              total_tokens_used?: number
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  updateAgent: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Agent ID. */
+        agentId: string
+      }
+      cookie?: never
+    }
+    /** @description Update an agent definition request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Human-readable agent name. */
+          name?: string | null
+          /** @description Agent provider ID used to run the agent. */
+          provider_id?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Update an agent definition response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -7040,6 +7182,356 @@ export interface operations {
       }
       /** @description Internal Server Error response. */
       500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listGitHubNamespaces: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List GitHub namespaces available to the project's effective credential response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            namespaces?: {
+              kind?: string
+              login?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Precondition Failed response. */
+      412: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listGitHubRepositories: {
+    parameters: {
+      query?: {
+        /** @description Optional case-insensitive search query matched against repo name, owner, and full name. */
+        query?: string
+        /** @description Pagination cursor returned by the previous GitHub repository response. */
+        cursor?: string
+      }
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List GitHub repositories visible to the project's effective credential response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            next_cursor?: string
+            repositories?: {
+              clone_url?: string
+              default_branch?: string
+              full_name?: string
+              html_url?: string
+              /** Format: int64 */
+              id?: number
+              name?: string
+              owner?: string
+              private?: boolean
+              visibility?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Precondition Failed response. */
+      412: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createGitHubRepository: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a GitHub repository using the project's effective credential request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Whether GitHub should initialize the repository with a default branch so OpenASE can bind it immediately. */
+          auto_init?: boolean | null
+          /** @description Optional GitHub repository description. */
+          description?: string
+          /** @description Repository name to create inside the selected GitHub namespace. */
+          name?: string
+          /** @description GitHub user or organization namespace that owns the repository. */
+          owner?: string
+          /** @description GitHub repository visibility. Supported values are private and public. */
+          visibility?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create a GitHub repository using the project's effective credential response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            repository?: {
+              clone_url?: string
+              default_branch?: string
+              full_name?: string
+              html_url?: string
+              /** Format: int64 */
+              id?: number
+              name?: string
+              owner?: string
+              private?: boolean
+              visibility?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Precondition Failed response. */
+      412: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
         headers: {
           [name: string]: unknown
         }

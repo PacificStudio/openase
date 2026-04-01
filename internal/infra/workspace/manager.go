@@ -100,17 +100,12 @@ func ParseSetupRequest(input SetupInput) (SetupRequest, error) {
 		return SetupRequest{}, err
 	}
 
-	agentName, err := parseBranchSegment("agent_name", input.AgentName)
-	if err != nil {
-		return SetupRequest{}, err
-	}
-
 	ticketIdentifier, err := parseBranchSegment("ticket_identifier", input.TicketIdentifier)
 	if err != nil {
 		return SetupRequest{}, err
 	}
 
-	branchName := fmt.Sprintf("agent/%s/%s", agentName, ticketIdentifier)
+	branchName := fmt.Sprintf("agent/%s", ticketIdentifier)
 	// Tickets without registered project repos still need a deterministic
 	// workspace root so hooks, harness rendering, and agent launches can share
 	// the same ticket-scoped path convention.
@@ -215,10 +210,11 @@ func parseRepoInput(index int, input RepoInput, branchName string) (RepoRequest,
 	}
 
 	if input.BranchName != nil {
-		parsedBranchName := strings.TrimSpace(*input.BranchName)
-		if parsedBranchName != branchName {
-			return RepoRequest{}, fmt.Errorf("repos[%d].branch_name must equal %q", index, branchName)
+		parsedBranchName, err := parseRepoBranchName(fmt.Sprintf("repos[%d].branch_name", index), *input.BranchName)
+		if err != nil {
+			return RepoRequest{}, err
 		}
+		branchName = parsedBranchName
 	}
 
 	return RepoRequest{
@@ -240,6 +236,21 @@ func parseBranchSegment(fieldName string, raw string) (string, error) {
 	}
 
 	return trimmed, nil
+}
+
+func parseRepoBranchName(fieldName string, raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", fmt.Errorf("%s must not be empty", fieldName)
+	}
+	segments := strings.Split(trimmed, "/")
+	for index, segment := range segments {
+		if _, err := parseBranchSegment(fmt.Sprintf("%s[%d]", fieldName, index), segment); err != nil {
+			return "", err
+		}
+	}
+
+	return strings.Join(segments, "/"), nil
 }
 
 func parsePathSegment(fieldName string, raw string) (string, error) {

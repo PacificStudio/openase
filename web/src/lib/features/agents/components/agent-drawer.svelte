@@ -208,6 +208,7 @@
                   size="sm"
                   class="size-7 shrink-0 p-0"
                   disabled={savingName}
+                  aria-label="Save agent name"
                   onclick={() => void handleSaveName()}
                 >
                   <Check class="size-3.5" />
@@ -216,6 +217,7 @@
                   variant="ghost"
                   size="sm"
                   class="size-7 shrink-0 p-0"
+                  aria-label="Cancel agent rename"
                   onclick={cancelEditingName}
                 >
                   <X class="size-3.5" />
@@ -227,6 +229,7 @@
                 <button
                   type="button"
                   class="text-muted-foreground hover:text-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                  aria-label="Rename agent"
                   onclick={startEditingName}
                   title="Rename agent"
                 >

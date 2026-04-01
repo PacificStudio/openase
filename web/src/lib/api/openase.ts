@@ -12,6 +12,9 @@ import type {
   AgentProviderModelCatalogPayload,
   BuiltinRolePayload,
   DeleteGitHubOutboundCredentialResponse,
+  GitHubRepositoryCreateResponse,
+  GitHubRepositoryListResponse,
+  GitHubRepositoryNamespacesResponse,
   HarnessPayload,
   WorkflowHistoryPayload,
   HarnessVariableDictionaryPayload,
@@ -533,14 +536,8 @@ export function deleteAgent(agentId: string) {
   return api.delete<AgentResponse>(`/api/v1/agents/${agentId}`)
 }
 
-// TODO(backend): replace with real PATCH /api/v1/agents/{agentId} once implemented
-export function updateAgent(
-  agentId: string,
-  body: { name?: string; provider_id?: string },
-): Promise<AgentResponse> {
-  void agentId
-  void body
-  return Promise.resolve({ agent: {} } as AgentResponse)
+export function updateAgent(agentId: string, body: { name?: string; provider_id?: string }) {
+  return api.patch<AgentResponse>(`/api/v1/agents/${agentId}`, { body })
 }
 
 export function listStatuses(projectId: string) {
@@ -747,6 +744,42 @@ export function updateProjectRepo(
 
 export function deleteProjectRepo(projectId: string, repoId: string) {
   return api.delete<ProjectRepoResponse>(`/api/v1/projects/${projectId}/repos/${repoId}`)
+}
+
+export function listGitHubNamespaces(projectId: string) {
+  return api.get<GitHubRepositoryNamespacesResponse>(
+    `/api/v1/projects/${projectId}/github/namespaces`,
+  )
+}
+
+export function listGitHubRepositories(
+  projectId: string,
+  opts?: {
+    query?: string
+    cursor?: string
+  },
+) {
+  return api.get<GitHubRepositoryListResponse>(`/api/v1/projects/${projectId}/github/repos`, {
+    params: {
+      query: opts?.query?.trim() || undefined,
+      cursor: opts?.cursor?.trim() || undefined,
+    },
+  })
+}
+
+export function createGitHubRepository(
+  projectId: string,
+  body: {
+    owner: string
+    name: string
+    description?: string
+    visibility: 'private' | 'public'
+    auto_init?: boolean
+  },
+) {
+  return api.post<GitHubRepositoryCreateResponse>(`/api/v1/projects/${projectId}/github/repos`, {
+    body,
+  })
 }
 
 export function listTicketRepoScopes(projectId: string, ticketId: string) {

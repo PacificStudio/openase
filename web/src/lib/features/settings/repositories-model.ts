@@ -16,6 +16,30 @@ export type RepositoryMutationInput = {
   labels: string[]
 }
 
+export type GitHubRepositoryNamespace = {
+  login: string
+  kind: string
+}
+
+export type GitHubRepositoryRecord = {
+  id: number
+  name: string
+  full_name: string
+  owner: string
+  default_branch: string
+  visibility: string
+  private: boolean
+  html_url: string
+  clone_url: string
+}
+
+export type GitHubRepositoryCreateDraft = {
+  owner: string
+  name: string
+  description: string
+  visibility: 'private' | 'public'
+}
+
 export type RepositoryDraftParseResult =
   | { ok: true; value: RepositoryMutationInput }
   | { ok: false; error: string }
@@ -29,6 +53,15 @@ export function createEmptyRepositoryDraft(): RepositoryDraft {
     defaultBranch: 'main',
     workspaceDirname: '',
     labels: '',
+  }
+}
+
+export function createEmptyGitHubRepositoryCreateDraft(): GitHubRepositoryCreateDraft {
+  return {
+    owner: '',
+    name: '',
+    description: '',
+    visibility: 'private',
   }
 }
 
@@ -64,6 +97,18 @@ export function parseRepositoryDraft(draft: RepositoryDraft): RepositoryDraftPar
       workspace_dirname: draft.workspaceDirname.trim() || null,
       labels: splitLabels(draft.labels),
     },
+  }
+}
+
+export function githubRepositoryToMutationInput(
+  repo: GitHubRepositoryRecord,
+): RepositoryMutationInput {
+  return {
+    name: repo.name,
+    repository_url: repo.clone_url.trim(),
+    default_branch: repo.default_branch.trim() || 'main',
+    workspace_dirname: null,
+    labels: [],
   }
 }
 

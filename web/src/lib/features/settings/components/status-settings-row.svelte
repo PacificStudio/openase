@@ -112,8 +112,32 @@
       variant="ghost"
       size="sm"
       class="h-8 w-8 shrink-0 p-0"
+      disabled={busy || !canMoveUp}
+      onclick={() => onMoveUp(status.id)}
+      title="Move up"
+    >
+      <ArrowUp class="size-3.5" />
+      <span class="sr-only">Move up</span>
+    </Button>
+    <Button
+      variant="ghost"
+      size="sm"
+      class="h-8 w-8 shrink-0 p-0"
+      disabled={busy || !canMoveDown}
+      onclick={() => onMoveDown(status.id)}
+      title="Move down"
+    >
+      <ArrowDown class="size-3.5" />
+      <span class="sr-only">Move down</span>
+    </Button>
+
+    <Button
+      variant="ghost"
+      size="sm"
+      class="h-8 w-8 shrink-0 p-0"
       disabled={busy || !dirty}
       onclick={handleSave}
+      title="Save"
     >
       <Save class="size-3.5" />
       <span class="sr-only">Save</span>
@@ -134,16 +158,8 @@
             <CircleDot class="mr-2 size-3.5" />
             Set as default
           </DropdownMenu.Item>
+          <DropdownMenu.Separator />
         {/if}
-        <DropdownMenu.Item disabled={busy || !canMoveUp} onclick={() => onMoveUp(status.id)}>
-          <ArrowUp class="mr-2 size-3.5" />
-          Move up
-        </DropdownMenu.Item>
-        <DropdownMenu.Item disabled={busy || !canMoveDown} onclick={() => onMoveDown(status.id)}>
-          <ArrowDown class="mr-2 size-3.5" />
-          Move down
-        </DropdownMenu.Item>
-        <DropdownMenu.Separator />
         <DropdownMenu.Item
           class="text-destructive focus:text-destructive"
           disabled={busy}

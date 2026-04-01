@@ -3,7 +3,15 @@
   import { Label } from '$ui/label'
   import { Textarea } from '$ui/textarea'
   import type { ProjectRepoRecord } from '$lib/api/contracts'
-  import type { RepositoryDraft, RepositoryEditorMode } from '../repositories-model'
+  import RepositoryGitHubBrowser from './repository-github-browser.svelte'
+  import RepositoryGitHubCreate from './repository-github-create.svelte'
+  import type {
+    GitHubRepositoryCreateDraft,
+    GitHubRepositoryNamespace,
+    GitHubRepositoryRecord,
+    RepositoryDraft,
+    RepositoryEditorMode,
+  } from '../repositories-model'
 
   let {
     mode,
@@ -11,14 +19,48 @@
     draft,
     reposCount = 0,
     saving = false,
+    githubRepos = [],
+    githubRepoQuery = '',
+    githubReposLoading = false,
+    githubReposLoadingMore = false,
+    githubReposNextCursor = '',
+    githubRepoError = '',
+    githubBindingRepoFullName = '',
+    githubNamespaces = [],
+    githubNamespacesLoading = false,
+    githubCreateDraft,
+    githubCreating = false,
     onDraftChange,
+    onGitHubRepoQueryChange,
+    onGitHubRepoSearch,
+    onGitHubRepoLoadMore,
+    onBindGitHubRepo,
+    onGitHubCreateDraftChange,
+    onCreateGitHubRepoAndBind,
   }: {
     mode: RepositoryEditorMode
     selectedRepo: ProjectRepoRecord | null
     draft: RepositoryDraft
     reposCount?: number
     saving?: boolean
+    githubRepos?: GitHubRepositoryRecord[]
+    githubRepoQuery?: string
+    githubReposLoading?: boolean
+    githubReposLoadingMore?: boolean
+    githubReposNextCursor?: string
+    githubRepoError?: string
+    githubBindingRepoFullName?: string
+    githubNamespaces?: GitHubRepositoryNamespace[]
+    githubNamespacesLoading?: boolean
+    githubCreateDraft: GitHubRepositoryCreateDraft
+    githubCreating?: boolean
     onDraftChange?: (field: keyof RepositoryDraft, value: string | boolean) => void
+    onGitHubRepoQueryChange?: (value: string) => void
+    onGitHubRepoSearch?: () => void
+    onGitHubRepoLoadMore?: () => void
+    onBindGitHubRepo?: (repo: GitHubRepositoryRecord) => void
+    onGitHubCreateDraftChange?: (field: keyof GitHubRepositoryCreateDraft, value: string) => void
+    onCreateGitHubRepoAndBind?: () => void
   } = $props()
 
   function updateTextField(field: keyof RepositoryDraft, event: Event) {
@@ -28,12 +70,37 @@
 </script>
 
 <div class="space-y-5" aria-busy={saving}>
+  {#if mode === 'create'}
+    <RepositoryGitHubBrowser
+      repos={githubRepos}
+      query={githubRepoQuery}
+      loading={githubReposLoading}
+      loadingMore={githubReposLoadingMore}
+      nextCursor={githubReposNextCursor}
+      error={githubRepoError}
+      bindingRepoFullName={githubBindingRepoFullName}
+      onQueryChange={onGitHubRepoQueryChange}
+      onSearch={onGitHubRepoSearch}
+      onLoadMore={onGitHubRepoLoadMore}
+      onBind={onBindGitHubRepo}
+    />
+
+    <RepositoryGitHubCreate
+      namespaces={githubNamespaces}
+      draft={githubCreateDraft}
+      loadingNamespaces={githubNamespacesLoading}
+      creating={githubCreating}
+      onDraftChange={onGitHubCreateDraftChange}
+      onCreate={onCreateGitHubRepoAndBind}
+    />
+  {/if}
+
   <section class="space-y-4">
     <div>
       <h3 class="text-foreground text-sm font-semibold">
         {mode === 'edit'
           ? `Repository identity · ${selectedRepo?.name ?? 'bound repo'}`
-          : 'Repository identity'}
+          : 'Manual repository binding'}
       </h3>
       <p class="text-muted-foreground mt-1 text-xs">
         Basic Git coordinates that OpenASE uses for repo scopes and workspace preparation.

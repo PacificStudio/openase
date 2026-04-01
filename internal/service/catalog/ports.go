@@ -48,6 +48,7 @@ type Repository interface {
 	CreateAgent(ctx context.Context, input domain.CreateAgent) (domain.Agent, error)
 	GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 	GetAgentRun(ctx context.Context, id uuid.UUID) (domain.AgentRun, error)
+	UpdateAgent(ctx context.Context, input domain.UpdateAgent) (domain.Agent, error)
 	UpdateAgentRuntimeControlState(ctx context.Context, input domain.UpdateAgentRuntimeControlState) (domain.Agent, error)
 	DeleteAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 }

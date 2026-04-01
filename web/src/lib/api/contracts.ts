@@ -166,6 +166,19 @@ export type ProjectRepoResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/repos', 'post'>
 >
 export type ProjectRepoRecord = ItemOf<ProjectRepoPayload['repos']>
+export type GitHubRepositoryNamespacesResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/github/namespaces', 'get'>
+>
+export type GitHubRepositoryListResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/github/repos', 'get'>
+>
+export type GitHubRepositoryCreateResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/github/repos', 'post'>
+>
+export type GitHubRepositoryNamespaceRecord = ItemOf<
+  GitHubRepositoryNamespacesResponse['namespaces']
+>
+export type GitHubRepositoryRecord = ItemOf<GitHubRepositoryListResponse['repositories']>
 
 export type TicketRepoScopePayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes', 'get'>

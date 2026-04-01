@@ -43,6 +43,7 @@
 
     void loadData({ projectId, orgId, showLoading: true })
     const disconnect = connectAgentsPageStreams(projectId, orgId, () => {
+      if (registerSheetOpen) return
       void loadData({ projectId, orgId, showLoading: false })
     })
 

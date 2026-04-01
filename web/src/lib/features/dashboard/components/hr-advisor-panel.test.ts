@@ -1,7 +1,7 @@
-import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/svelte'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { BuiltinRolePayload, HRAdvisorActivationResponse } from '$lib/api/contracts'
+import type { HRAdvisorActivationResponse } from '$lib/api/contracts'
 import type { HRAdvisorSnapshot } from '../types'
 import HRAdvisorPanel from './hr-advisor-panel.svelte'
 
@@ -75,32 +75,6 @@ const advisorFixture: HRAdvisorSnapshot = {
   ],
 }
 
-const builtinRolesFixture: BuiltinRolePayload = {
-  roles: [
-    {
-      slug: 'qa-engineer',
-      name: 'QA Engineer',
-      summary: 'Owns regression and test expansion.',
-      workflow_type: 'qa',
-      harness_path: '.openase/harnesses/roles/qa-engineer.md',
-      content: `---
-workflow:
-  role: qa-engineer
----
-Validate the changed code paths and expand test coverage.
-`,
-    },
-    {
-      slug: 'technical-writer',
-      name: 'Technical Writer',
-      summary: 'Owns release notes and operational documentation.',
-      workflow_type: 'docs',
-      harness_path: '.openase/harnesses/roles/technical-writer.md',
-      content: 'Document the shipped behavior.',
-    },
-  ],
-}
-
 const activationFixture = {
   project_id: 'project-1',
   role_slug: 'qa-engineer',
@@ -163,8 +137,28 @@ describe('HRAdvisorPanel', () => {
     vi.clearAllMocks()
   })
 
-  it('groups recommendations by priority and supports harness preview, activation, and deferral', async () => {
-    listBuiltinRoles.mockResolvedValue(builtinRolesFixture)
+  it('renders compact recommendation rows with expand/collapse', async () => {
+    const { findByText, queryByText } = render(HRAdvisorPanel, {
+      props: { projectId: 'project-1', advisor: advisorFixture },
+    })
+
+    // Both recommendations visible as compact rows
+    expect(await findByText('QA Engineer')).toBeTruthy()
+    expect(await findByText('Technical Writer')).toBeTruthy()
+
+    // Details not visible before expand
+    expect(queryByText('Add a QA lane before more coding tickets pile up.')).toBeNull()
+
+    // Expand QA card
+    const qaRow = (await findByText('QA Engineer')).closest('article')!
+    await fireEvent.click(qaRow.querySelector('button[type="button"]')!)
+
+    // Details now visible
+    expect(await findByText('Add a QA lane before more coding tickets pile up.')).toBeTruthy()
+    expect(await findByText('8 coding tickets are active.')).toBeTruthy()
+  })
+
+  it('activates a recommendation via inline button', async () => {
     activateHRRecommendation.mockResolvedValue(activationFixture)
     getHRAdvisor.mockResolvedValue({
       summary: refreshedAdvisorFixture.summary,
@@ -172,29 +166,13 @@ describe('HRAdvisorPanel', () => {
       recommendations: refreshedAdvisorFixture.recommendations,
     })
 
-    const { findByText, findByRole, queryByText } = render(HRAdvisorPanel, {
-      props: {
-        projectId: 'project-1',
-        advisor: advisorFixture,
-      },
+    const { findByText, findAllByText } = render(HRAdvisorPanel, {
+      props: { projectId: 'project-1', advisor: advisorFixture },
     })
 
-    expect(await findByText('高优先级')).toBeTruthy()
-    expect(await findByText('中优先级')).toBeTruthy()
-
-    const qaCard = (await findByText('QA Engineer')).closest('article')
-    if (!qaCard) {
-      throw new Error('QA recommendation card not found.')
-    }
-
-    await fireEvent.click(within(qaCard).getByRole('button', { name: '查看角色 Harness' }))
-
-    expect(listBuiltinRoles).toHaveBeenCalledTimes(1)
-    expect(await findByText('Owns regression and test expansion.')).toBeTruthy()
-    expect(await findByText(/Validate the changed code paths/)).toBeTruthy()
-
-    await fireEvent.click(await findByRole('button', { name: 'Close' }))
-    await fireEvent.click(within(qaCard).getByRole('button', { name: '一键激活' }))
+    // Click the inline activate button (first one = QA)
+    const activateButtons = await findAllByText('激活')
+    await fireEvent.click(activateButtons[0].closest('button')!)
 
     expect(activateHRRecommendation).toHaveBeenCalledWith('project-1', {
       role_slug: 'qa-engineer',
@@ -205,30 +183,19 @@ describe('HRAdvisorPanel', () => {
       expect(getHRAdvisor).toHaveBeenCalledWith('project-1')
     })
 
+    // Expand QA row to see activation status
+    const qaRow = (await findByText('QA Engineer')).closest('article')!
+    await fireEvent.click(qaRow.querySelector('button[type="button"]')!)
+
     expect(await findByText('已通过 QA Workflow 激活。')).toBeTruthy()
+  })
 
-    const activatedQaCard = (await findByText('QA Engineer')).closest('article')
-    if (!activatedQaCard) {
-      throw new Error('Activated QA recommendation card not found.')
-    }
-    expect(
-      (within(activatedQaCard).getByRole('button', { name: '一键激活' }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true)
+  it('shows activatable count in header', async () => {
+    const { findByText } = render(HRAdvisorPanel, {
+      props: { projectId: 'project-1', advisor: advisorFixture },
+    })
 
-    const writerCard = (await findByText('Technical Writer')).closest('article')
-    if (!writerCard) {
-      throw new Error('Writer recommendation card not found.')
-    }
-
-    await fireEvent.click(within(writerCard).getByRole('button', { name: '稍后再说' }))
-
-    expect(await findByText('已延后')).toBeTruthy()
-    expect(await findByRole('button', { name: '重新显示' })).toBeTruthy()
-    expect(queryByText('中优先级')).toBeNull()
-
-    await fireEvent.click(await findByRole('button', { name: '重新显示' }))
-
-    expect(await findByText('中优先级')).toBeTruthy()
+    expect(await findByText('2 可激活')).toBeTruthy()
+    expect(await findByText('2 workflows')).toBeTruthy()
   })
 })

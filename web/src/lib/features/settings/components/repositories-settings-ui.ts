@@ -1,6 +1,10 @@
 import type { ProjectRepoRecord } from '$lib/api/contracts'
 import {
   createEmptyRepositoryDraft,
+  createEmptyGitHubRepositoryCreateDraft,
+  type GitHubRepositoryCreateDraft,
+  type GitHubRepositoryNamespace,
+  type GitHubRepositoryRecord,
   type RepositoryDraft,
   type RepositoryEditorMode,
 } from '../repositories-model'
@@ -14,6 +18,17 @@ export type RepositoriesSettingsUI = {
   selectedId: string
   mode: RepositoryEditorMode
   draft: RepositoryDraft
+  githubRepoQuery: string
+  githubRepos: GitHubRepositoryRecord[]
+  githubReposLoading: boolean
+  githubReposLoadingMore: boolean
+  githubReposNextCursor: string
+  githubRepoError: string
+  githubBindingRepoFullName: string
+  githubNamespaces: GitHubRepositoryNamespace[]
+  githubNamespacesLoading: boolean
+  githubCreateDraft: GitHubRepositoryCreateDraft
+  githubCreating: boolean
 }
 
 export function createRepositoriesSettingsUI(): RepositoriesSettingsUI {
@@ -26,5 +41,16 @@ export function createRepositoriesSettingsUI(): RepositoriesSettingsUI {
     selectedId: '',
     mode: 'create',
     draft: createEmptyRepositoryDraft(),
+    githubRepoQuery: '',
+    githubRepos: [],
+    githubReposLoading: false,
+    githubReposLoadingMore: false,
+    githubReposNextCursor: '',
+    githubRepoError: '',
+    githubBindingRepoFullName: '',
+    githubNamespaces: [],
+    githubNamespacesLoading: false,
+    githubCreateDraft: createEmptyGitHubRepositoryCreateDraft(),
+    githubCreating: false,
   }
 }

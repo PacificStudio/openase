@@ -2649,7 +2649,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	if _, err := client.TicketRepoScope.Create().
 		SetTicketID(ticketItem.ID).
 		SetRepoID(repoItem.ID).
-		SetBranchName("agent/codex-01/ASE-401").
+		SetBranchName("agent/ASE-401").
 		SetPrStatus("none").
 		SetCiStatus("pending").
 		Save(ctx); err != nil {
@@ -2789,7 +2789,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 	if _, err := client.TicketRepoScope.Create().
 		SetTicketID(ticketItem.ID).
 		SetRepoID(repoItem.ID).
-		SetBranchName("agent/codex-01/ASE-401A").
+		SetBranchName("agent/ASE-401A").
 		SetPrStatus("none").
 		SetCiStatus("pending").
 		Save(ctx); err != nil {

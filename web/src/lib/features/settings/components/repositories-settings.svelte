@@ -35,6 +35,23 @@
   draft={state.ui.draft}
   reposCount={state.ui.repos.length}
   saving={state.ui.saving}
+  githubRepos={state.ui.githubRepos}
+  githubRepoQuery={state.ui.githubRepoQuery}
+  githubReposLoading={state.ui.githubReposLoading}
+  githubReposLoadingMore={state.ui.githubReposLoadingMore}
+  githubReposNextCursor={state.ui.githubReposNextCursor}
+  githubRepoError={state.ui.githubRepoError}
+  githubBindingRepoFullName={state.ui.githubBindingRepoFullName}
+  githubNamespaces={state.ui.githubNamespaces}
+  githubNamespacesLoading={state.ui.githubNamespacesLoading}
+  githubCreateDraft={state.ui.githubCreateDraft}
+  githubCreating={state.ui.githubCreating}
   onDraftChange={(field, value) => state.updateField(field, value)}
+  onGitHubRepoQueryChange={(value) => state.updateGitHubRepoQuery(value)}
+  onGitHubRepoSearch={() => void state.searchGitHubRepos()}
+  onGitHubRepoLoadMore={() => void state.loadMoreGitHubRepos()}
+  onBindGitHubRepo={(repo) => void state.bindGitHubRepo(repo)}
+  onGitHubCreateDraftChange={(field, value) => state.updateGitHubCreateField(field, value)}
+  onCreateGitHubRepoAndBind={() => void state.createGitHubRepoAndBind()}
   onSave={() => void state.save()}
 />

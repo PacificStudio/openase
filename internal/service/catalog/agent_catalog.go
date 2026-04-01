@@ -75,6 +75,10 @@ func (s *service) GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, err
 	return s.repo.GetAgent(ctx, id)
 }
 
+func (s *service) UpdateAgent(ctx context.Context, input domain.UpdateAgent) (domain.Agent, error) {
+	return s.repo.UpdateAgent(ctx, input)
+}
+
 func (s *service) GetAgentRun(ctx context.Context, id uuid.UUID) (domain.AgentRun, error) {
 	return s.repo.GetAgentRun(ctx, id)
 }

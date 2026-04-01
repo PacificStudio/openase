@@ -3,7 +3,13 @@
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
   import type { ProjectRepoRecord } from '$lib/api/contracts'
   import RepositoryEditor from './repository-editor.svelte'
-  import type { RepositoryDraft, RepositoryEditorMode } from '../repositories-model'
+  import type {
+    GitHubRepositoryCreateDraft,
+    GitHubRepositoryNamespace,
+    GitHubRepositoryRecord,
+    RepositoryDraft,
+    RepositoryEditorMode,
+  } from '../repositories-model'
 
   let {
     open = $bindable(false),
@@ -12,7 +18,24 @@
     draft,
     reposCount = 0,
     saving = false,
+    githubRepos = [],
+    githubRepoQuery = '',
+    githubReposLoading = false,
+    githubReposLoadingMore = false,
+    githubReposNextCursor = '',
+    githubRepoError = '',
+    githubBindingRepoFullName = '',
+    githubNamespaces = [],
+    githubNamespacesLoading = false,
+    githubCreateDraft,
+    githubCreating = false,
     onDraftChange,
+    onGitHubRepoQueryChange,
+    onGitHubRepoSearch,
+    onGitHubRepoLoadMore,
+    onBindGitHubRepo,
+    onGitHubCreateDraftChange,
+    onCreateGitHubRepoAndBind,
     onSave,
   }: {
     open?: boolean
@@ -21,7 +44,24 @@
     draft: RepositoryDraft
     reposCount?: number
     saving?: boolean
+    githubRepos?: GitHubRepositoryRecord[]
+    githubRepoQuery?: string
+    githubReposLoading?: boolean
+    githubReposLoadingMore?: boolean
+    githubReposNextCursor?: string
+    githubRepoError?: string
+    githubBindingRepoFullName?: string
+    githubNamespaces?: GitHubRepositoryNamespace[]
+    githubNamespacesLoading?: boolean
+    githubCreateDraft: GitHubRepositoryCreateDraft
+    githubCreating?: boolean
     onDraftChange?: (field: keyof RepositoryDraft, value: string | boolean) => void
+    onGitHubRepoQueryChange?: (value: string) => void
+    onGitHubRepoSearch?: () => void
+    onGitHubRepoLoadMore?: () => void
+    onBindGitHubRepo?: (repo: GitHubRepositoryRecord) => void
+    onGitHubCreateDraftChange?: (field: keyof GitHubRepositoryCreateDraft, value: string) => void
+    onCreateGitHubRepoAndBind?: () => void
     onSave?: () => void
   } = $props()
 </script>
@@ -51,7 +91,31 @@
     </SheetHeader>
 
     <div class="flex-1 overflow-y-auto px-6 py-6">
-      <RepositoryEditor {mode} {selectedRepo} {draft} {reposCount} {saving} {onDraftChange} />
+      <RepositoryEditor
+        {mode}
+        {selectedRepo}
+        {draft}
+        {reposCount}
+        {saving}
+        {githubRepos}
+        {githubRepoQuery}
+        {githubReposLoading}
+        {githubReposLoadingMore}
+        {githubReposNextCursor}
+        {githubRepoError}
+        {githubBindingRepoFullName}
+        {githubNamespaces}
+        {githubNamespacesLoading}
+        {githubCreateDraft}
+        {githubCreating}
+        {onDraftChange}
+        {onGitHubRepoQueryChange}
+        {onGitHubRepoSearch}
+        {onGitHubRepoLoadMore}
+        {onBindGitHubRepo}
+        {onGitHubCreateDraftChange}
+        {onCreateGitHubRepoAndBind}
+      />
     </div>
   </SheetContent>
 </Sheet>

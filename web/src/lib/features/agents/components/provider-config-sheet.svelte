@@ -15,6 +15,7 @@
     SheetTitle,
   } from '$ui/sheet'
   import { Textarea } from '$ui/textarea'
+  import { ChevronDown, ChevronUp } from '@lucide/svelte'
   import { providerAdapterOptions } from '../provider-draft'
   import type { ProviderConfig, ProviderDraft, ProviderDraftField } from '../types'
   import ProviderModelPicker from './provider-model-picker.svelte'
@@ -43,6 +44,7 @@
   }
 
   let modelCatalog = $state<AgentProviderModelCatalogEntry[]>([])
+  let advancedOpen = $state(false)
 
   $effect(() => {
     if (!open) {
@@ -91,27 +93,6 @@
         <div class="space-y-5">
           <div class="grid gap-4 md:grid-cols-2">
             <div class="space-y-2">
-              <Label>Execution machine</Label>
-              <Select.Root
-                type="single"
-                value={draft.machineId}
-                onValueChange={(value) => onDraftChange?.('machineId', value || '')}
-              >
-                <Select.Trigger class="w-full">
-                  {machines.find((machine) => machine.id === draft.machineId)?.name ??
-                    'Select machine'}
-                </Select.Trigger>
-                <Select.Content>
-                  {#each machines as machine (machine.id)}
-                    <Select.Item value={machine.id}>
-                      {machine.name} · {machine.status} · {machine.host}
-                    </Select.Item>
-                  {/each}
-                </Select.Content>
-              </Select.Root>
-            </div>
-
-            <div class="space-y-2">
               <Label for="provider-name">Name</Label>
               <Input
                 id="provider-name"
@@ -138,109 +119,145 @@
                 </Select.Content>
               </Select.Root>
             </div>
-          </div>
-
-          <div class="grid gap-4 md:grid-cols-2">
-            <div class="space-y-2">
-              <Label for="provider-cli-command">CLI command</Label>
-              <Input
-                id="provider-cli-command"
-                value={draft.cliCommand}
-                placeholder="codex"
-                oninput={(event) => updateField('cliCommand', event)}
-              />
-              <p class="text-muted-foreground text-xs">
-                Leave empty to let the backend resolve the adapter default command.
-              </p>
-            </div>
 
             <div class="space-y-2">
-              <ProviderModelPicker
-                adapterType={draft.adapterType}
-                modelName={draft.modelName}
-                {modelCatalog}
-                inputId="provider-model-name"
-                onModelNameChange={(value) => onDraftChange?.('modelName', value)}
-              />
+              <Label>Execution machine</Label>
+              <Select.Root
+                type="single"
+                value={draft.machineId}
+                onValueChange={(value) => onDraftChange?.('machineId', value || '')}
+              >
+                <Select.Trigger class="w-full">
+                  {machines.find((machine) => machine.id === draft.machineId)?.name ??
+                    'Select machine'}
+                </Select.Trigger>
+                <Select.Content>
+                  {#each machines as machine (machine.id)}
+                    <Select.Item value={machine.id}>
+                      {machine.name} · {machine.status} · {machine.host}
+                    </Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
             </div>
           </div>
 
           <div class="space-y-2">
-            <Label for="provider-cli-args">CLI args</Label>
-            <Textarea
-              id="provider-cli-args"
-              value={draft.cliArgs}
-              rows={4}
-              placeholder={`app-server\n--listen\nstdio://`}
-              oninput={(event) => updateField('cliArgs', event)}
+            <ProviderModelPicker
+              adapterType={draft.adapterType}
+              modelName={draft.modelName}
+              {modelCatalog}
+              inputId="provider-model-name"
+              onModelNameChange={(value) => onDraftChange?.('modelName', value)}
             />
-            <p class="text-muted-foreground text-xs">
-              Enter one argument per line. Leave blank to clear.
-            </p>
           </div>
 
-          <div class="space-y-2">
-            <Label for="provider-auth-config">Auth config</Label>
-            <Textarea
-              id="provider-auth-config"
-              value={draft.authConfig}
-              rows={8}
-              placeholder={`{\n  "token": "secret"\n}`}
-              oninput={(event) => updateField('authConfig', event)}
-            />
-            <p class="text-muted-foreground text-xs">
-              Provide a JSON object. Leave blank to clear stored auth config.
-            </p>
-          </div>
+          <div class="border-border border-t pt-2">
+            <button
+              type="button"
+              class="text-muted-foreground hover:text-foreground flex w-full items-center gap-1.5 py-1 text-xs transition-colors"
+              onclick={() => (advancedOpen = !advancedOpen)}
+            >
+              {#if advancedOpen}
+                <ChevronUp class="size-3.5" />
+              {:else}
+                <ChevronDown class="size-3.5" />
+              {/if}
+              Advanced settings
+            </button>
 
-          <div class="grid gap-4 md:grid-cols-2">
-            <div class="space-y-2">
-              <Label for="provider-model-temperature">Model temperature</Label>
-              <Input
-                id="provider-model-temperature"
-                type="number"
-                min="0"
-                step="0.01"
-                value={draft.modelTemperature}
-                oninput={(event) => updateField('modelTemperature', event)}
-              />
-            </div>
+            {#if advancedOpen}
+              <div class="mt-3 space-y-4">
+                <div class="grid gap-4 md:grid-cols-2">
+                  <div class="space-y-2">
+                    <Label for="provider-cli-command">CLI command</Label>
+                    <Input
+                      id="provider-cli-command"
+                      value={draft.cliCommand}
+                      placeholder="codex"
+                      oninput={(event) => updateField('cliCommand', event)}
+                    />
+                    <p class="text-muted-foreground text-xs">
+                      Leave empty to use the adapter default.
+                    </p>
+                  </div>
 
-            <div class="space-y-2">
-              <Label for="provider-model-max-tokens">Model max tokens</Label>
-              <Input
-                id="provider-model-max-tokens"
-                type="number"
-                min="1"
-                step="1"
-                value={draft.modelMaxTokens}
-                oninput={(event) => updateField('modelMaxTokens', event)}
-              />
-            </div>
+                  <div class="space-y-2">
+                    <Label for="provider-model-temperature">Temperature</Label>
+                    <Input
+                      id="provider-model-temperature"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={draft.modelTemperature}
+                      oninput={(event) => updateField('modelTemperature', event)}
+                    />
+                  </div>
+                </div>
 
-            <div class="space-y-2">
-              <Label for="provider-cost-input">Input token cost</Label>
-              <Input
-                id="provider-cost-input"
-                type="number"
-                min="0"
-                step="0.000001"
-                value={draft.costPerInputToken}
-                oninput={(event) => updateField('costPerInputToken', event)}
-              />
-            </div>
+                <div class="space-y-2">
+                  <Label for="provider-cli-args">CLI args</Label>
+                  <Textarea
+                    id="provider-cli-args"
+                    value={draft.cliArgs}
+                    rows={3}
+                    placeholder={`app-server\n--listen\nstdio://`}
+                    oninput={(event) => updateField('cliArgs', event)}
+                  />
+                  <p class="text-muted-foreground text-xs">One argument per line.</p>
+                </div>
 
-            <div class="space-y-2">
-              <Label for="provider-cost-output">Output token cost</Label>
-              <Input
-                id="provider-cost-output"
-                type="number"
-                min="0"
-                step="0.000001"
-                value={draft.costPerOutputToken}
-                oninput={(event) => updateField('costPerOutputToken', event)}
-              />
-            </div>
+                <div class="space-y-2">
+                  <Label for="provider-auth-config">Auth config</Label>
+                  <Textarea
+                    id="provider-auth-config"
+                    value={draft.authConfig}
+                    rows={4}
+                    placeholder={`{\n  "token": "secret"\n}`}
+                    oninput={(event) => updateField('authConfig', event)}
+                  />
+                  <p class="text-muted-foreground text-xs">JSON object. Leave blank to clear.</p>
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-2">
+                  <div class="space-y-2">
+                    <Label for="provider-model-max-tokens">Max tokens</Label>
+                    <Input
+                      id="provider-model-max-tokens"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={draft.modelMaxTokens}
+                      oninput={(event) => updateField('modelMaxTokens', event)}
+                    />
+                  </div>
+
+                  <div class="space-y-2">
+                    <Label for="provider-cost-input">Input token cost</Label>
+                    <Input
+                      id="provider-cost-input"
+                      type="number"
+                      min="0"
+                      step="0.000001"
+                      value={draft.costPerInputToken}
+                      oninput={(event) => updateField('costPerInputToken', event)}
+                    />
+                  </div>
+
+                  <div class="space-y-2">
+                    <Label for="provider-cost-output">Output token cost</Label>
+                    <Input
+                      id="provider-cost-output"
+                      type="number"
+                      min="0"
+                      step="0.000001"
+                      value={draft.costPerOutputToken}
+                      oninput={(event) => updateField('costPerOutputToken', event)}
+                    />
+                  </div>
+                </div>
+              </div>
+            {/if}
           </div>
         </div>
       </div>

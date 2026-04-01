@@ -368,6 +368,7 @@ func newAgentCommand() *cobra.Command {
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "list [projectId]", Short: "List agents.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents", PositionalParams: []string{"projectId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "get [agentId]", Short: "Get an agent.", Method: http.MethodGet, Path: "/api/v1/agents/{agentId}", PositionalParams: []string{"agentId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [projectId]", Short: "Create an agent.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/agents", PositionalParams: []string{"projectId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [agentId]", Short: "Update an agent.", Method: http.MethodPatch, Path: "/api/v1/agents/{agentId}", PositionalParams: []string{"agentId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [agentId]", Short: "Delete an agent.", Method: http.MethodDelete, Path: "/api/v1/agents/{agentId}", PositionalParams: []string{"agentId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "pause [agentId]", Short: "Pause an agent.", Method: http.MethodPost, Path: "/api/v1/agents/{agentId}/pause", PositionalParams: []string{"agentId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "resume [agentId]", Short: "Resume an agent.", Method: http.MethodPost, Path: "/api/v1/agents/{agentId}/resume", PositionalParams: []string{"agentId"}}))
@@ -1257,6 +1258,7 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "list [projectId]", Short: "List agents.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents", PositionalParams: []string{"projectId"}},
 		{Use: "get [agentId]", Short: "Get an agent.", Method: http.MethodGet, Path: "/api/v1/agents/{agentId}", PositionalParams: []string{"agentId"}},
 		{Use: "create [projectId]", Short: "Create an agent.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/agents", PositionalParams: []string{"projectId"}},
+		{Use: "update [agentId]", Short: "Update an agent.", Method: http.MethodPatch, Path: "/api/v1/agents/{agentId}", PositionalParams: []string{"agentId"}},
 		{Use: "delete [agentId]", Short: "Delete an agent.", Method: http.MethodDelete, Path: "/api/v1/agents/{agentId}", PositionalParams: []string{"agentId"}},
 		{Use: "pause [agentId]", Short: "Pause an agent.", Method: http.MethodPost, Path: "/api/v1/agents/{agentId}/pause", PositionalParams: []string{"agentId"}},
 		{Use: "resume [agentId]", Short: "Resume an agent.", Method: http.MethodPost, Path: "/api/v1/agents/{agentId}/resume", PositionalParams: []string{"agentId"}},

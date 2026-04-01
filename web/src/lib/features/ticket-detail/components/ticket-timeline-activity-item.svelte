@@ -58,7 +58,7 @@
         ([key, value]) =>
           statusKeys.has(key) && typeof value === 'string' && value.trim().length > 0,
       )
-      .map(([, value]) => String(value).replace(/[_-]+/g, ' '))
+      .map(([key, value]) => ({ key, label: String(value).replace(/[_-]+/g, ' ') }))
   }
 
   function extractLinks(metadata: Record<string, unknown>) {
@@ -92,11 +92,11 @@
     <span class="text-foreground font-medium">
       {humanizeEventLabel(item.title || item.eventType)}
     </span>
-    {#each statusChips as chip (chip)}
+    {#each statusChips as chip (chip.key)}
       <span
         class="bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-[10px] font-medium"
       >
-        {chip}
+        {chip.label}
       </span>
     {/each}
     {#each linkEntries as link (link.url)}

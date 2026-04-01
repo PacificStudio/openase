@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { projectRepoToDraft } from './repositories-model'
+import { githubRepositoryToMutationInput, projectRepoToDraft } from './repositories-model'
 
 describe('repositories model', () => {
   it('tolerates repo payloads that omit labels', () => {
@@ -17,6 +17,28 @@ describe('repositories model', () => {
       repositoryURL: 'https://github.com/BetterAndBetterII/TodoApp.git',
       defaultBranch: 'main',
       labels: '',
+    })
+  })
+
+  it('maps GitHub repositories into repository mutation input defaults', () => {
+    expect(
+      githubRepositoryToMutationInput({
+        id: 42,
+        name: 'backend',
+        full_name: 'acme/backend',
+        owner: 'acme',
+        default_branch: 'develop',
+        visibility: 'private',
+        private: true,
+        html_url: 'https://github.com/acme/backend',
+        clone_url: 'https://github.com/acme/backend.git',
+      }),
+    ).toEqual({
+      name: 'backend',
+      repository_url: 'https://github.com/acme/backend.git',
+      default_branch: 'develop',
+      workspace_dirname: null,
+      labels: [],
     })
   })
 })

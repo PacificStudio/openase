@@ -116,6 +116,13 @@ type agentProviderPatchRequest struct {
 	CostPerOutputToken *float64        `json:"cost_per_output_token"`
 }
 
+type agentPatchRequest struct {
+	// Agent provider ID used to run the agent.
+	ProviderID *string `json:"provider_id"`
+	// Human-readable agent name.
+	Name *string `json:"name"`
+}
+
 func (s *Server) listAgentProviders(c echo.Context) error {
 	orgID, err := parseUUIDPathParam(c, "orgId")
 	if err != nil {
@@ -327,6 +334,48 @@ func (s *Server) getAgent(c echo.Context) error {
 	}
 
 	item, err := s.catalog.GetAgent(c.Request().Context(), agentID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"agent": mapAgentResponse(item),
+	})
+}
+
+func (s *Server) patchAgent(c echo.Context) error {
+	agentID, err := parseUUIDPathParam(c, "agentId")
+	if err != nil {
+		return err
+	}
+
+	current, err := s.catalog.GetAgent(c.Request().Context(), agentID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	var patch agentPatchRequest
+	if err := decodeJSON(c, &patch); err != nil {
+		return err
+	}
+
+	request := domain.AgentInput{
+		ProviderID: current.ProviderID.String(),
+		Name:       current.Name,
+	}
+	if patch.ProviderID != nil {
+		request.ProviderID = *patch.ProviderID
+	}
+	if patch.Name != nil {
+		request.Name = *patch.Name
+	}
+
+	input, err := domain.ParseUpdateAgent(agentID, current.ProjectID, request)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, errorResponse(err.Error()))
+	}
+
+	item, err := s.catalog.UpdateAgent(c.Request().Context(), input)
 	if err != nil {
 		return writeCatalogError(c, err)
 	}

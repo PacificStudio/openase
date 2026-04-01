@@ -167,6 +167,23 @@ func TestCatalogAgentParsersAndRuntimeHelpers(t *testing.T) {
 		t.Fatalf("ParseCreateAgent() = %+v", createAgent)
 	}
 
+	updateAgent, err := ParseUpdateAgent(uuid.New(), projectID, AgentInput{
+		ProviderID: providerID.String(),
+		Name:       " Reviewer ",
+	})
+	if err != nil {
+		t.Fatalf("ParseUpdateAgent() error = %v", err)
+	}
+	if updateAgent.ProjectID != projectID || updateAgent.ProviderID != providerID || updateAgent.Name != "Reviewer" {
+		t.Fatalf("ParseUpdateAgent() = %+v", updateAgent)
+	}
+	if _, err := ParseUpdateAgent(uuid.New(), projectID, AgentInput{Name: "Reviewer"}); err == nil {
+		t.Fatal("ParseUpdateAgent() expected provider validation error")
+	}
+	if _, err := ParseUpdateAgent(uuid.New(), projectID, AgentInput{ProviderID: providerID.String(), Name: " "}); err == nil {
+		t.Fatal("ParseUpdateAgent() expected name validation error")
+	}
+
 	runtime := BuildAgentRuntimeSummary([]AgentRun{{
 		ID:               runID,
 		TicketID:         ticketID,

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	githubrepodomain "github.com/BetterAndBetterII/openase/internal/domain/githubrepo"
 	notificationdomain "github.com/BetterAndBetterII/openase/internal/domain/notification"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -839,6 +840,36 @@ type OpenAPIProjectRepoResponse struct {
 	Repo OpenAPIProjectRepo `json:"repo"`
 }
 
+type OpenAPIGitHubRepositoryNamespace struct {
+	Login string `json:"login"`
+	Kind  string `json:"kind"`
+}
+
+type OpenAPIGitHubRepository struct {
+	ID            int64  `json:"id"`
+	Name          string `json:"name"`
+	FullName      string `json:"full_name"`
+	Owner         string `json:"owner"`
+	DefaultBranch string `json:"default_branch"`
+	Visibility    string `json:"visibility"`
+	Private       bool   `json:"private"`
+	HTMLURL       string `json:"html_url"`
+	CloneURL      string `json:"clone_url"`
+}
+
+type OpenAPIGitHubRepositoryNamespacesResponse struct {
+	Namespaces []OpenAPIGitHubRepositoryNamespace `json:"namespaces"`
+}
+
+type OpenAPIGitHubRepositoriesResponse struct {
+	Repositories []OpenAPIGitHubRepository `json:"repositories"`
+	NextCursor   string                    `json:"next_cursor,omitempty"`
+}
+
+type OpenAPIGitHubRepositoryResponse struct {
+	Repository OpenAPIGitHubRepository `json:"repository"`
+}
+
 type OpenAPITicketRepoScopesResponse struct {
 	RepoScopes []OpenAPITicketRepoScope `json:"repo_scopes"`
 }
@@ -1116,12 +1147,14 @@ type OpenAPICreateOrganizationRequest catalogdomain.OrganizationInput
 type OpenAPIUpdateOrganizationRequest organizationPatchRequest
 type OpenAPICreateAgentProviderRequest catalogdomain.AgentProviderInput
 type OpenAPIUpdateAgentProviderRequest agentProviderPatchRequest
+type OpenAPIUpdateAgentRequest agentPatchRequest
 type OpenAPICreateProjectRequest catalogdomain.ProjectInput
 type OpenAPIUpdateProjectRequest projectPatchRequest
 type OpenAPICreateMachineRequest catalogdomain.MachineInput
 type OpenAPIUpdateMachineRequest machinePatchRequest
 type OpenAPICreateProjectRepoRequest catalogdomain.ProjectRepoInput
 type OpenAPIUpdateProjectRepoRequest projectRepoPatchRequest
+type OpenAPICreateGitHubRepositoryRequest githubrepodomain.CreateRepositoryRequest
 type OpenAPISaveGitHubOutboundCredentialRequest rawSaveGitHubOutboundCredentialRequest
 type OpenAPIGitHubCredentialScopeRequest rawGitHubCredentialScopeRequest
 type OpenAPICreateTicketRepoScopeRequest catalogdomain.TicketRepoScopeInput
@@ -1267,6 +1300,13 @@ var (
 		"default_branch":    "Default branch name used when a repo scope does not provide an explicit branch override.",
 		"workspace_dirname": "Directory name used for this repository inside a ticket workspace.",
 		"labels":            "Labels attached to the repository for workflow selection and filtering.",
+	}
+	openAPIGitHubRepositoryDescriptions = map[string]string{
+		"owner":       "GitHub user or organization namespace that owns the repository.",
+		"name":        "Repository name to create inside the selected GitHub namespace.",
+		"description": "Optional GitHub repository description.",
+		"visibility":  "GitHub repository visibility. Supported values are private and public.",
+		"auto_init":   "Whether GitHub should initialize the repository with a default branch so OpenASE can bind it immediately.",
 	}
 	// #nosec G101 -- "token" is an OpenAPI field name/description, not a credential literal.
 	openAPIGitHubCredentialDescriptions = map[string]string{
@@ -1439,22 +1479,24 @@ var (
 		"harness_ids":  "Alias of workflow_ids kept for PRD terminology compatibility.",
 	}
 	openAPIRequestBodyDescriptions = map[string]map[string]string{
-		"POST /api/v1/orgs":                                                             openAPIOrganizationRequestDescriptions,
-		"PATCH /api/v1/orgs/{orgId}":                                                    openAPIOrganizationRequestDescriptions,
-		"POST /api/v1/orgs/{orgId}/channels":                                            openAPIChannelRequestDescriptions,
-		"PATCH /api/v1/channels/{channelId}":                                            openAPIChannelRequestDescriptions,
-		"POST /api/v1/orgs/{orgId}/machines":                                            openAPIMachineRequestDescriptions,
-		"PATCH /api/v1/machines/{machineId}":                                            openAPIMachineRequestDescriptions,
-		"POST /api/v1/orgs/{orgId}/projects":                                            openAPIProjectRequestDescriptions,
-		"PATCH /api/v1/projects/{projectId}":                                            openAPIProjectRequestDescriptions,
-		"POST /api/v1/orgs/{orgId}/providers":                                           openAPIProviderRequestDescriptions,
-		"PATCH /api/v1/providers/{providerId}":                                          openAPIProviderRequestDescriptions,
-		"POST /api/v1/projects/{projectId}/repos":                                       openAPIRepoRequestDescriptions,
-		"PATCH /api/v1/projects/{projectId}/repos/{repoId}":                             openAPIRepoRequestDescriptions,
-		"PUT /api/v1/projects/{projectId}/security-settings/github-outbound-credential": openAPIGitHubCredentialDescriptions,
+		"POST /api/v1/orgs":                                                                            openAPIOrganizationRequestDescriptions,
+		"PATCH /api/v1/orgs/{orgId}":                                                                   openAPIOrganizationRequestDescriptions,
+		"POST /api/v1/orgs/{orgId}/channels":                                                           openAPIChannelRequestDescriptions,
+		"PATCH /api/v1/channels/{channelId}":                                                           openAPIChannelRequestDescriptions,
+		"POST /api/v1/orgs/{orgId}/machines":                                                           openAPIMachineRequestDescriptions,
+		"PATCH /api/v1/machines/{machineId}":                                                           openAPIMachineRequestDescriptions,
+		"POST /api/v1/orgs/{orgId}/projects":                                                           openAPIProjectRequestDescriptions,
+		"PATCH /api/v1/projects/{projectId}":                                                           openAPIProjectRequestDescriptions,
+		"POST /api/v1/orgs/{orgId}/providers":                                                          openAPIProviderRequestDescriptions,
+		"PATCH /api/v1/providers/{providerId}":                                                         openAPIProviderRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/repos":                                                      openAPIRepoRequestDescriptions,
+		"PATCH /api/v1/projects/{projectId}/repos/{repoId}":                                            openAPIRepoRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/github/repos":                                               openAPIGitHubRepositoryDescriptions,
+		"PUT /api/v1/projects/{projectId}/security-settings/github-outbound-credential":                openAPIGitHubCredentialDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/github-outbound-credential/import-gh-cli": openAPIGitHubCredentialDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/github-outbound-credential/retest":        openAPIGitHubCredentialDescriptions,
 		"POST /api/v1/projects/{projectId}/agents":                                                     openAPIAgentRequestDescriptions,
+		"PATCH /api/v1/agents/{agentId}":                                                               openAPIAgentRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/workflows":                                                  openAPIWorkflowRequestDescriptions,
 		"PATCH /api/v1/workflows/{workflowId}":                                                         mergeRequestFieldDescriptions(openAPIWorkflowRequestDescriptions, map[string]string{"harness_content": ""}),
 		"PUT /api/v1/workflows/{workflowId}/harness":                                                   openAPIHarnessContentDescriptions,
@@ -1476,17 +1518,17 @@ var (
 		"POST /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes":                             openAPIRepoScopeCreateDescriptions,
 		"PATCH /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}":                  openAPIRepoScopePatchDescriptions,
 		"POST /api/v1/projects/{projectId}/hr-advisor/activate":                                        openAPIHRAdvisorActivateDescriptions,
-		"POST /api/v1/chat":                                      openAPIChatRequestDescriptions,
-		"POST /api/v1/chat/conversations":                        openAPIProjectConversationCreateDescriptions,
-		"POST /api/v1/chat/conversations/{conversationId}/turns": openAPIProjectConversationTurnDescriptions,
-		"POST /api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond": openAPIProjectConversationInterruptResponseDescriptions,
-		"POST /api/v1/projects/{projectId}/skills":                                          openAPISkillCreateDescriptions,
-		"POST /api/v1/projects/{projectId}/skills/refresh":                                  openAPISkillSyncDescriptions,
-		"PUT /api/v1/skills/{skillId}":                                                      openAPISkillUpdateDescriptions,
-		"POST /api/v1/skills/{skillId}/bind":                                                openAPISkillBindingTargetDescriptions,
-		"POST /api/v1/skills/{skillId}/unbind":                                              openAPISkillBindingTargetDescriptions,
-		"POST /api/v1/workflows/{workflowId}/skills/bind":                                   openAPISkillBindingDescriptions,
-		"POST /api/v1/workflows/{workflowId}/skills/unbind":                                 openAPISkillBindingDescriptions,
+		"POST /api/v1/chat":                                                                            openAPIChatRequestDescriptions,
+		"POST /api/v1/chat/conversations":                                                              openAPIProjectConversationCreateDescriptions,
+		"POST /api/v1/chat/conversations/{conversationId}/turns":                                       openAPIProjectConversationTurnDescriptions,
+		"POST /api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond":            openAPIProjectConversationInterruptResponseDescriptions,
+		"POST /api/v1/projects/{projectId}/skills":                                                     openAPISkillCreateDescriptions,
+		"POST /api/v1/projects/{projectId}/skills/refresh":                                             openAPISkillSyncDescriptions,
+		"PUT /api/v1/skills/{skillId}":                                                                 openAPISkillUpdateDescriptions,
+		"POST /api/v1/skills/{skillId}/bind":                                                           openAPISkillBindingTargetDescriptions,
+		"POST /api/v1/skills/{skillId}/unbind":                                                         openAPISkillBindingTargetDescriptions,
+		"POST /api/v1/workflows/{workflowId}/skills/bind":                                              openAPISkillBindingDescriptions,
+		"POST /api/v1/workflows/{workflowId}/skills/unbind":                                            openAPISkillBindingDescriptions,
 	}
 )
 
@@ -2080,6 +2122,73 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	projectRepoDelete.AddParameter(uuidPathParameter("repoId", "Repository ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/repos/{repoId}", http.MethodDelete, projectRepoDelete)
 
+	githubNamespacesGet, err := b.jsonOperation(
+		"listGitHubNamespaces",
+		"List GitHub namespaces available to the project's effective credential",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIGitHubRepositoryNamespacesResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusPreconditionFailed,
+		http.StatusForbidden,
+		http.StatusServiceUnavailable,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	githubNamespacesGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/github/namespaces", http.MethodGet, githubNamespacesGet)
+
+	githubReposGet, err := b.jsonOperation(
+		"listGitHubRepositories",
+		"List GitHub repositories visible to the project's effective credential",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIGitHubRepositoriesResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusPreconditionFailed,
+		http.StatusForbidden,
+		http.StatusServiceUnavailable,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	githubReposGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	githubReposGet.AddParameter(openapi3.NewQueryParameter("query").
+		WithDescription("Optional case-insensitive search query matched against repo name, owner, and full name.").
+		WithSchema(openapi3.NewStringSchema()))
+	githubReposGet.AddParameter(openapi3.NewQueryParameter("cursor").
+		WithDescription("Pagination cursor returned by the previous GitHub repository response.").
+		WithSchema(openapi3.NewStringSchema()))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/github/repos", http.MethodGet, githubReposGet)
+
+	githubReposPost, err := b.jsonOperation(
+		"createGitHubRepository",
+		"Create a GitHub repository using the project's effective credential",
+		[]string{"catalog"},
+		http.StatusCreated,
+		OpenAPIGitHubRepositoryResponse{},
+		OpenAPICreateGitHubRepositoryRequest{},
+		http.StatusBadRequest,
+		http.StatusPreconditionFailed,
+		http.StatusForbidden,
+		http.StatusConflict,
+		http.StatusServiceUnavailable,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	githubReposPost.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/github/repos", http.MethodPost, githubReposPost)
+
 	repoScopesGet, err := b.jsonOperation(
 		"listTicketRepoScopes",
 		"List ticket repository scopes",
@@ -2339,6 +2448,24 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	}
 	agentGet.AddParameter(uuidPathParameter("agentId", "Agent ID."))
 	b.doc.AddOperation("/api/v1/agents/{agentId}", http.MethodGet, agentGet)
+
+	agentPatch, err := b.jsonOperation(
+		"updateAgent",
+		"Update an agent definition",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentResponse{},
+		OpenAPIUpdateAgentRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentPatch.AddParameter(uuidPathParameter("agentId", "Agent ID."))
+	b.doc.AddOperation("/api/v1/agents/{agentId}", http.MethodPatch, agentPatch)
 
 	agentDelete, err := b.jsonOperation(
 		"deleteAgent",

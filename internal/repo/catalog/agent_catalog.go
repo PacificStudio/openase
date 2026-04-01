@@ -236,6 +236,44 @@ func (r *EntRepository) GetAgentRun(ctx context.Context, id uuid.UUID) (domain.A
 	return mapAgentRun(item), nil
 }
 
+func (r *EntRepository) UpdateAgent(ctx context.Context, input domain.UpdateAgent) (domain.Agent, error) {
+	current, err := r.client.Agent.Get(ctx, input.ID)
+	if err != nil {
+		return domain.Agent{}, mapReadError("get agent for update", err)
+	}
+	if current.ProjectID != input.ProjectID {
+		return domain.Agent{}, fmt.Errorf("%w: agent project must match update project", ErrInvalidInput)
+	}
+
+	project, err := r.client.Project.Get(ctx, input.ProjectID)
+	if err != nil {
+		return domain.Agent{}, mapReadError("get project for agent update", err)
+	}
+
+	provider, err := r.client.AgentProvider.Get(ctx, input.ProviderID)
+	if err != nil {
+		return domain.Agent{}, mapReadError("get agent provider for agent update", err)
+	}
+	if provider.OrganizationID != project.OrganizationID {
+		return domain.Agent{}, fmt.Errorf("%w: provider organization must match project organization", ErrInvalidInput)
+	}
+
+	item, err := r.client.Agent.UpdateOneID(input.ID).
+		SetProviderID(input.ProviderID).
+		SetName(input.Name).
+		Save(ctx)
+	if err != nil {
+		return domain.Agent{}, mapWriteError("update agent", err)
+	}
+
+	currentRun, err := r.loadCurrentRunSummaryForAgent(ctx, item.ProjectID, item.ID)
+	if err != nil {
+		return domain.Agent{}, err
+	}
+
+	return mapAgent(item, currentRun), nil
+}
+
 func (r *EntRepository) UpdateAgentRuntimeControlState(ctx context.Context, input domain.UpdateAgentRuntimeControlState) (domain.Agent, error) {
 	item, err := r.client.Agent.UpdateOneID(input.ID).
 		SetRuntimeControlState(toEntAgentRuntimeControlState(input.RuntimeControlState)).

@@ -24,14 +24,14 @@ func TestRemoteManagerPrepareBuildsCloneAndCheckoutCommands(t *testing.T) {
 		OrganizationSlug: "acme",
 		ProjectSlug:      "payments",
 		TicketIdentifier: "ASE-104",
-		BranchName:       "agent/codex-01/ASE-104",
+		BranchName:       "agent/ASE-104",
 		Repos: []RepoRequest{
 			{
 				Name:             "backend",
 				RepositoryURL:    "git@github.com:acme/backend.git",
 				DefaultBranch:    "main",
 				WorkspaceDirname: "backend",
-				BranchName:       "agent/codex-01/ASE-104",
+				BranchName:       "agent/ASE-104",
 			},
 		},
 	}
@@ -47,7 +47,7 @@ func TestRemoteManagerPrepareBuildsCloneAndCheckoutCommands(t *testing.T) {
 	if !strings.Contains(session.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/acme/payments/ASE-104/backend'") {
 		t.Fatalf("expected clone command, got %q", session.command)
 	}
-	if !strings.Contains(session.command, "git -C '/srv/openase/workspaces/acme/payments/ASE-104/backend' checkout -B 'agent/codex-01/ASE-104' 'origin/main'") {
+	if !strings.Contains(session.command, "git -C '/srv/openase/workspaces/acme/payments/ASE-104/backend' checkout -B 'agent/ASE-104' 'origin/main'") {
 		t.Fatalf("expected checkout command, got %q", session.command)
 	}
 }
@@ -58,14 +58,14 @@ func TestBuildPrepareWorkspaceCommandUsesRepositoryURLAsOrigin(t *testing.T) {
 		OrganizationSlug: "acme",
 		ProjectSlug:      "payments",
 		TicketIdentifier: "ASE-104",
-		BranchName:       "agent/codex-01/ASE-104",
+		BranchName:       "agent/ASE-104",
 		Repos: []RepoRequest{
 			{
 				Name:             "backend",
 				RepositoryURL:    "git@github.com:acme/backend.git",
 				DefaultBranch:    "main",
 				WorkspaceDirname: "backend",
-				BranchName:       "agent/codex-01/ASE-104",
+				BranchName:       "agent/ASE-104",
 			},
 		},
 	}

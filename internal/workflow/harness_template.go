@@ -476,7 +476,7 @@ func HarnessVariableDictionary() []HarnessVariableGroup {
 				{Path: "repos[].name", Type: "string", Description: "仓库别名", Example: "backend"},
 				{Path: "repos[].url", Type: "string", Description: "仓库 URL", Example: "https://github.com/acme/backend"},
 				{Path: "repos[].path", Type: "string", Description: "工作区本地路径", Example: "/workspaces/ASE-42/backend"},
-				{Path: "repos[].branch", Type: "string", Description: "当前工作分支", Example: "agent/claude-01/ASE-42"},
+				{Path: "repos[].branch", Type: "string", Description: "当前工作分支", Example: "agent/ASE-42"},
 				{Path: "repos[].default_branch", Type: "string", Description: "仓库默认分支", Example: "main"},
 				{Path: "repos[].labels", Type: "list", Description: "仓库标签", Example: "[\"go\", \"backend\", \"api\"]"},
 				{Path: "all_repos", Type: "list", Description: "项目下的全部仓库"},

@@ -1,5 +1,5 @@
 {
-  "openapi_sha256": "e86a4ec6a10babfc048f029d16f9d6ac6039051afe401d4b377fccda7ee0259b",
+  "openapi_sha256": "5bfe4ebfd631b0c339c9c3d5b7b256b749187f17de99860f9886d0c05752f297",
   "commands": [
     {
       "use": "list [projectId]",
@@ -1365,6 +1365,35 @@
         {
           "name": "projectId",
           "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "name",
+          "description": "Human-readable agent name.",
+          "kind": "string"
+        },
+        {
+          "name": "provider_id",
+          "description": "Agent provider ID used to run the agent.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [agentId]",
+      "method": "PATCH",
+      "path": "/api/v1/agents/{agentId}",
+      "operation_id": "updateAgent",
+      "positional_params": [
+        "agentId"
+      ],
+      "path_params": [
+        {
+          "name": "agentId",
+          "description": "Agent ID.",
           "required": true,
           "kind": "string"
         }

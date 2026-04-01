@@ -37,6 +37,7 @@ import (
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
+	githubreposervice "github.com/BetterAndBetterII/openase/internal/service/githubrepo"
 	issueconnectorservice "github.com/BetterAndBetterII/openase/internal/service/issueconnector"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -128,6 +129,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	githubRepoSvc := githubreposervice.NewService(githubAuthSvc, http.DefaultClient)
 	ticketSvc := ticketservice.NewService(client)
 	ticketSvc.ConfigureSSHPool(sshPool)
 	ticketSvc.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(client))
@@ -213,6 +215,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		catalogSvc,
 		workflowSvc,
 		httpapi.WithGitHubAuthService(githubAuthSvc),
+		httpapi.WithGitHubRepoService(githubRepoSvc),
 		httpapi.WithIssueConnectorService(connectorSvc),
 		httpapi.WithTraceProvider(a.trace),
 		httpapi.WithMetricsProvider(a.metrics),

@@ -74,6 +74,22 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		t.Fatalf("expected provider availability_state to be populated, got %+v", providerPayload.Provider)
 	}
 
+	secondaryProviderRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/orgs/"+orgPayload.Organization.ID+"/providers",
+		`{"machine_id":"`+findLocalMachineID(t, server.catalog.(*fakeCatalogService), orgPayload.Organization.ID)+`","name":"Codex Backup","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{"token":"secret"},"model_name":"gpt-5.4","model_temperature":0.1,"model_max_tokens":32000,"cost_per_input_token":0.001,"cost_per_output_token":0.002}`,
+	)
+	if secondaryProviderRec.Code != http.StatusCreated {
+		t.Fatalf("expected secondary provider create 201, got %d: %s", secondaryProviderRec.Code, secondaryProviderRec.Body.String())
+	}
+
+	var secondaryProviderPayload struct {
+		Provider agentProviderResponse `json:"provider"`
+	}
+	decodeResponse(t, secondaryProviderRec, &secondaryProviderPayload)
+
 	listProviderRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/orgs/"+orgPayload.Organization.ID+"/providers", "")
 	if listProviderRec.Code != http.StatusOK {
 		t.Fatalf("expected provider list 200, got %d: %s", listProviderRec.Code, listProviderRec.Body.String())
@@ -140,6 +156,25 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		t.Fatalf("expected agent get 200, got %d: %s", getAgentRec.Code, getAgentRec.Body.String())
 	}
 
+	patchAgentRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPatch,
+		"/api/v1/agents/"+agentPayload.Agent.ID,
+		`{"name":"worker-1-renamed","provider_id":"`+secondaryProviderPayload.Provider.ID+`"}`,
+	)
+	if patchAgentRec.Code != http.StatusOK {
+		t.Fatalf("expected agent patch 200, got %d: %s", patchAgentRec.Code, patchAgentRec.Body.String())
+	}
+
+	var patchAgentPayload struct {
+		Agent agentResponse `json:"agent"`
+	}
+	decodeResponse(t, patchAgentRec, &patchAgentPayload)
+	if patchAgentPayload.Agent.Name != "worker-1-renamed" || patchAgentPayload.Agent.ProviderID != secondaryProviderPayload.Provider.ID {
+		t.Fatalf("unexpected patched agent payload: %+v", patchAgentPayload.Agent)
+	}
+
 	deleteAgentRec := performJSONRequest(t, server, http.MethodDelete, "/api/v1/agents/"+agentPayload.Agent.ID, "")
 	if deleteAgentRec.Code != http.StatusOK {
 		t.Fatalf("expected agent delete 200, got %d: %s", deleteAgentRec.Code, deleteAgentRec.Body.String())
@@ -188,6 +223,22 @@ func TestAgentProviderAndAgentRoutesWithEntRepository(t *testing.T) {
 	if want := []string{"app-server", "--listen", "stdio://"}; !slices.Equal(providerPayload.Provider.CliArgs, want) {
 		t.Fatalf("expected provider cli_args %v, got %+v", want, providerPayload.Provider)
 	}
+
+	secondaryProviderRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/orgs/"+orgPayload.Organization.ID+"/providers",
+		`{"machine_id":"`+loadEntLocalMachineID(t, client, orgPayload.Organization.ID)+`","name":"Codex Backup","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{"token":"secret"},"model_name":"gpt-5.4"}`,
+	)
+	if secondaryProviderRec.Code != http.StatusCreated {
+		t.Fatalf("expected secondary provider create 201, got %d: %s", secondaryProviderRec.Code, secondaryProviderRec.Body.String())
+	}
+
+	var secondaryProviderPayload struct {
+		Provider agentProviderResponse `json:"provider"`
+	}
+	decodeResponse(t, secondaryProviderRec, &secondaryProviderPayload)
 
 	projectRec := performJSONRequest(
 		t,
@@ -241,6 +292,25 @@ func TestAgentProviderAndAgentRoutesWithEntRepository(t *testing.T) {
 	decodeResponse(t, agentRec, &agentPayload)
 	if agentPayload.Agent.Runtime != nil || agentPayload.Agent.RuntimeControlState != "active" {
 		t.Fatalf("expected runtime-owned fields to default, got %+v", agentPayload.Agent)
+	}
+
+	patchAgentRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPatch,
+		"/api/v1/agents/"+agentPayload.Agent.ID,
+		`{"name":"worker-1-renamed","provider_id":"`+secondaryProviderPayload.Provider.ID+`"}`,
+	)
+	if patchAgentRec.Code != http.StatusOK {
+		t.Fatalf("expected agent patch 200, got %d: %s", patchAgentRec.Code, patchAgentRec.Body.String())
+	}
+
+	var patchAgentPayload struct {
+		Agent agentResponse `json:"agent"`
+	}
+	decodeResponse(t, patchAgentRec, &patchAgentPayload)
+	if patchAgentPayload.Agent.Name != "worker-1-renamed" || patchAgentPayload.Agent.ProviderID != secondaryProviderPayload.Provider.ID {
+		t.Fatalf("unexpected patched agent payload: %+v", patchAgentPayload.Agent)
 	}
 }
 
@@ -700,6 +770,9 @@ func TestAgentCatalogRouteErrorMappingsAndHelpers(t *testing.T) {
 		{name: "create agent project provider mismatch", method: http.MethodPost, target: "/api/v1/projects/" + projectTwoID.String() + "/agents", body: `{"provider_id":"` + providerOneID.String() + `","name":"worker"}`, wantStatus: http.StatusBadRequest, wantBody: "catalog invalid input"},
 		{name: "get agent invalid id", method: http.MethodGet, target: "/api/v1/agents/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "agentId must be a valid UUID"},
 		{name: "get agent missing", method: http.MethodGet, target: "/api/v1/agents/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "patch agent invalid id", method: http.MethodPatch, target: "/api/v1/agents/not-a-uuid", body: `{}`, wantStatus: http.StatusBadRequest, wantBody: "agentId must be a valid UUID"},
+		{name: "patch agent missing", method: http.MethodPatch, target: "/api/v1/agents/" + uuid.NewString(), body: `{}`, wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "patch agent invalid payload", method: http.MethodPatch, target: "/api/v1/agents/" + agentID.String(), body: `{"name":" "}`, wantStatus: http.StatusBadRequest, wantBody: "name must not be empty"},
 		{name: "delete agent invalid id", method: http.MethodDelete, target: "/api/v1/agents/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "agentId must be a valid UUID"},
 		{name: "delete agent missing", method: http.MethodDelete, target: "/api/v1/agents/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "resource not found"},
 	} {
@@ -1045,6 +1118,34 @@ func (f *fakeCatalogService) GetAgent(_ context.Context, id uuid.UUID) (domain.A
 		return domain.Agent{}, catalogservice.ErrNotFound
 	}
 
+	return item, nil
+}
+
+func (f *fakeCatalogService) UpdateAgent(_ context.Context, input domain.UpdateAgent) (domain.Agent, error) {
+	item, ok := f.agents[input.ID]
+	if !ok {
+		return domain.Agent{}, catalogservice.ErrNotFound
+	}
+	if item.ProjectID != input.ProjectID {
+		return domain.Agent{}, catalogservice.ErrInvalidInput
+	}
+
+	project, ok := f.projects[input.ProjectID]
+	if !ok {
+		return domain.Agent{}, catalogservice.ErrNotFound
+	}
+
+	provider, ok := f.providers[input.ProviderID]
+	if !ok {
+		return domain.Agent{}, catalogservice.ErrNotFound
+	}
+	if provider.OrganizationID != project.OrganizationID {
+		return domain.Agent{}, catalogservice.ErrInvalidInput
+	}
+
+	item.ProviderID = input.ProviderID
+	item.Name = input.Name
+	f.agents[input.ID] = item
 	return item, nil
 }
 

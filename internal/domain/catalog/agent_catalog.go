@@ -144,6 +144,13 @@ type CreateAgent struct {
 	TotalTicketsCompleted int
 }
 
+type UpdateAgent struct {
+	ID         uuid.UUID
+	ProjectID  uuid.UUID
+	ProviderID uuid.UUID
+	Name       string
+}
+
 func ParseCreateAgentProvider(organizationID uuid.UUID, raw AgentProviderInput) (CreateAgentProvider, error) {
 	machineID, err := parseRequiredUUID("machine_id", raw.MachineID)
 	if err != nil {
@@ -254,6 +261,20 @@ func ParseCreateAgent(projectID uuid.UUID, raw AgentInput) (CreateAgent, error) 
 		RuntimeControlState:   DefaultAgentRuntimeControlState,
 		TotalTokensUsed:       DefaultAgentTotalTokensUsed,
 		TotalTicketsCompleted: DefaultAgentTotalTicketsCompleted,
+	}, nil
+}
+
+func ParseUpdateAgent(id uuid.UUID, projectID uuid.UUID, raw AgentInput) (UpdateAgent, error) {
+	input, err := ParseCreateAgent(projectID, raw)
+	if err != nil {
+		return UpdateAgent{}, err
+	}
+
+	return UpdateAgent{
+		ID:         id,
+		ProjectID:  input.ProjectID,
+		ProviderID: input.ProviderID,
+		Name:       input.Name,
 	}, nil
 }
 

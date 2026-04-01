@@ -274,8 +274,8 @@ def ensure_repo_readme(repo_dir: Path) -> None:
         write_text(readme_path, README_BASELINE)
 
 
-def build_ticket_branch_name(agent_name: str, ticket_identifier: str) -> str:
-    return f"agent/{agent_name}/{ticket_identifier}"
+def build_ticket_branch_name(ticket_identifier: str) -> str:
+    return f"agent/{ticket_identifier}"
 
 
 def derive_ticket_workspace_repo_path(org_slug: str, project_slug: str, ticket_identifier: str, repo_name: str) -> Path:
@@ -874,7 +874,7 @@ def main() -> int:
                         "relation": "related",
                     },
                 )
-            branch_name = build_ticket_branch_name(agent["name"], ticket["identifier"])
+            branch_name = build_ticket_branch_name(ticket["identifier"])
             pr_body = textwrap.dedent(
                 f"""\
                 Validation PR seeded by `scripts/dev/create_todo_app_realistic_workflow.py`.
@@ -1022,7 +1022,7 @@ def main() -> int:
                 "repo": github_repo,
                 "repo_url": FIXED_GITHUB_REPO_URL,
                 "baseline_head": github_repo_preparation["baseline_head"],
-                "validation_branch_prefix": f"agent/{agent['name']}",
+                "validation_branch_prefix": "agent",
                 "seed_repo_path": str(github_repo_preparation["repo_dir"]),
                 "project": github_project,
                 "issues": github_items,

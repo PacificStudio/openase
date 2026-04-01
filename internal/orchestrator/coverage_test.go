@@ -430,7 +430,7 @@ func TestRuntimeLauncherWorkspaceAndCommandHelpers(t *testing.T) {
 		}},
 		ticketScopes: []*ent.TicketRepoScope{{
 			RepoID:     repoID,
-			BranchName: "agent/codex-01/ASE-77",
+			BranchName: "agent/ASE-77",
 		}},
 	}
 
@@ -449,11 +449,21 @@ func TestRuntimeLauncherWorkspaceAndCommandHelpers(t *testing.T) {
 	if request.WorkspaceRoot != remoteRoot || request.OrganizationSlug != "acme" || request.ProjectSlug != "payments" || request.TicketIdentifier != "ASE-77" {
 		t.Fatalf("buildWorkspaceRequest() = %+v", request)
 	}
-	if len(request.Repos) != 1 || request.Repos[0].BranchName != "agent/codex-01/ASE-77" {
+	if len(request.Repos) != 1 || request.Repos[0].BranchName != "agent/ASE-77" {
 		t.Fatalf("buildWorkspaceRequest().Repos = %+v", request.Repos)
 	}
 	if len(plans) != 1 || plans[0].Input.RepositoryURL != "https://github.com/acme/backend.git" {
 		t.Fatalf("buildWorkspaceRequest().Plans = %+v", plans)
+	}
+
+	launchContext.agent.Name = "codex-real-01"
+	launchContext.ticketScopes[0].BranchName = "agent/codex-01/ASE-77"
+	request, _, err = buildWorkspaceRequest(launchContext, remoteMachine, true)
+	if err != nil {
+		t.Fatalf("buildWorkspaceRequest(legacy scoped branch) error = %v", err)
+	}
+	if len(request.Repos) != 1 || request.Repos[0].BranchName != "agent/codex-01/ASE-77" {
+		t.Fatalf("buildWorkspaceRequest(legacy scoped branch).Repos = %+v", request.Repos)
 	}
 
 	workspacePath, err := buildWorkspacePath(launchContext, remoteMachine, true)

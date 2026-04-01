@@ -13,8 +13,11 @@ import {
   parseRepositoryDraft,
   projectRepoToDraft,
   sortProjectRepos,
+  type GitHubRepositoryCreateDraft,
+  type GitHubRepositoryRecord,
   type RepositoryDraft,
 } from '../repositories-model'
+import { createRepositoriesGitHubActions } from './repositories-settings-github'
 import {
   reloadReposAfterMutation,
   type RepositoryReloadAction,
@@ -27,6 +30,17 @@ import {
 export function createRepositoriesSettingsState() {
   const ui = $state<RepositoriesSettingsUI>(createRepositoriesSettingsUI())
   const selectedRepo = $derived(ui.repos.find((repo) => repo.id === ui.selectedId) ?? null)
+  const githubActions = createRepositoriesGitHubActions({
+    ui,
+    getProjectId: () => appStore.currentProject?.id,
+    reloadRepos,
+    setSelectedRepoId: (repoId) => {
+      ui.selectedId = repoId
+    },
+    closeEditor: () => {
+      ui.editorOpen = false
+    },
+  })
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
@@ -156,16 +170,47 @@ export function createRepositoriesSettingsState() {
       ui.mode = 'edit'
       ui.selectedId = repo.id
       ui.draft = projectRepoToDraft(repo)
+      githubActions.reset()
       ui.editorOpen = true
     },
     startCreate() {
       ui.mode = 'create'
       ui.selectedId = ''
       ui.draft = createEmptyRepositoryDraft()
+      githubActions.reset()
       ui.editorOpen = true
+      const projectId = appStore.currentProject?.id
+      if (!projectId) {
+        return
+      }
+      void Promise.all([githubActions.loadNamespaces(), githubActions.loadRepositories()])
     },
     updateField(field: keyof RepositoryDraft, value: string | boolean) {
       ui.draft = { ...ui.draft, [field]: value }
+    },
+    updateGitHubRepoQuery(value: string) {
+      ui.githubRepoQuery = value
+    },
+    async searchGitHubRepos() {
+      await githubActions.loadRepositories()
+    },
+    async loadMoreGitHubRepos() {
+      if (!ui.githubReposNextCursor || ui.githubReposLoadingMore) {
+        return
+      }
+      await githubActions.loadRepositories({
+        append: true,
+        cursor: ui.githubReposNextCursor,
+      })
+    },
+    async bindGitHubRepo(repo: GitHubRepositoryRecord) {
+      await githubActions.bindRepository(repo)
+    },
+    updateGitHubCreateField(field: keyof GitHubRepositoryCreateDraft, value: string) {
+      githubActions.updateCreateDraft(field, value)
+    },
+    async createGitHubRepoAndBind() {
+      await githubActions.createAndBindRepository()
     },
     async deleteFromList(repo: ProjectRepoRecord) {
       if (repo.id !== ui.selectedId) {

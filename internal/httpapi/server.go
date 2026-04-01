@@ -21,6 +21,7 @@ import (
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
+	githubreposervice "github.com/BetterAndBetterII/openase/internal/service/githubrepo"
 	issueconnectorservice "github.com/BetterAndBetterII/openase/internal/service/issueconnector"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -50,6 +51,7 @@ type Server struct {
 	chatService                *chatservice.Service
 	projectConversationService *chatservice.ProjectConversationService
 	githubAuthService          githubauthservice.SecurityManager
+	githubRepoService          githubreposervice.Service
 	issueConnectorSvc          *issueconnectorservice.Service
 	memoryCollector            runtimeobservability.ProcessMemoryCollector
 }
@@ -77,6 +79,12 @@ func WithProjectConversationService(service *chatservice.ProjectConversationServ
 func WithGitHubAuthService(service githubauthservice.SecurityManager) ServerOption {
 	return func(server *Server) {
 		server.githubAuthService = service
+	}
+}
+
+func WithGitHubRepoService(service githubreposervice.Service) ServerOption {
+	return func(server *Server) {
+		server.githubRepoService = service
 	}
 }
 

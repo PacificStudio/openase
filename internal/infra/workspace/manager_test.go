@@ -18,9 +18,9 @@ import (
 	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 )
 
-func TestParseSetupRequestRejectsNonCanonicalBranchName(t *testing.T) {
+func TestParseSetupRequestUsesScopedBranchNameWhenProvided(t *testing.T) {
 	rawBranch := "feature/custom"
-	_, err := ParseSetupRequest(SetupInput{
+	request, err := ParseSetupRequest(SetupInput{
 		WorkspaceRoot:    t.TempDir(),
 		OrganizationSlug: "acme",
 		ProjectSlug:      "payments",
@@ -34,11 +34,11 @@ func TestParseSetupRequestRejectsNonCanonicalBranchName(t *testing.T) {
 			},
 		},
 	})
-	if err == nil {
-		t.Fatal("expected parse to fail for non-canonical branch name")
+	if err != nil {
+		t.Fatalf("expected parse to accept scoped branch name: %v", err)
 	}
-	if !strings.Contains(err.Error(), `must equal "agent/codex-01/ASE-33"`) {
-		t.Fatalf("unexpected error: %v", err)
+	if request.Repos[0].BranchName != rawBranch {
+		t.Fatalf("expected scoped branch %q, got %+v", rawBranch, request.Repos)
 	}
 }
 
@@ -56,7 +56,7 @@ func TestParseSetupRequestAllowsEmptyRepos(t *testing.T) {
 	if len(request.Repos) != 0 {
 		t.Fatalf("expected no repos, got %+v", request.Repos)
 	}
-	if request.BranchName != "agent/codex-01/ASE-33" {
+	if request.BranchName != "agent/ASE-33" {
 		t.Fatalf("unexpected branch name %q", request.BranchName)
 	}
 }
@@ -104,8 +104,8 @@ func TestManagerPrepareCreatesJointWorkspaceWithFeatureBranch(t *testing.T) {
 	if workspace.Path != expectedWorkspacePath {
 		t.Fatalf("expected workspace path %s, got %s", expectedWorkspacePath, workspace.Path)
 	}
-	if workspace.BranchName != "agent/codex-01/ASE-33" {
-		t.Fatalf("expected branch name agent/codex-01/ASE-33, got %s", workspace.BranchName)
+	if workspace.BranchName != "agent/ASE-33" {
+		t.Fatalf("expected branch name agent/ASE-33, got %s", workspace.BranchName)
 	}
 
 	backendClonePath := filepath.Join(workspace.Path, "backend")
@@ -113,8 +113,8 @@ func TestManagerPrepareCreatesJointWorkspaceWithFeatureBranch(t *testing.T) {
 
 	assertFileExists(t, filepath.Join(backendClonePath, "README.md"))
 	assertFileExists(t, filepath.Join(frontendClonePath, "package.json"))
-	assertHeadBranch(t, backendClonePath, "agent/codex-01/ASE-33")
-	assertHeadBranch(t, frontendClonePath, "agent/codex-01/ASE-33")
+	assertHeadBranch(t, backendClonePath, "agent/ASE-33")
+	assertHeadBranch(t, frontendClonePath, "agent/ASE-33")
 }
 
 func TestManagerPrepareFetchesExistingClone(t *testing.T) {
@@ -155,7 +155,7 @@ func TestManagerPrepareFetchesExistingClone(t *testing.T) {
 		t.Fatalf("prepare workspace second run: %v", err)
 	}
 
-	assertHeadBranch(t, backendClonePath, "agent/codex-01/ASE-33")
+	assertHeadBranch(t, backendClonePath, "agent/ASE-33")
 	assertRemoteBranchHash(t, backendClonePath, "main", updatedHash)
 }
 
@@ -259,12 +259,16 @@ func TestWorkspaceLayoutAndParserHelpers(t *testing.T) {
 		t.Fatalf("parseWorkspaceDirname(clean) = %q, %v", got, err)
 	}
 
-	if _, err := parseRepoInput(0, RepoInput{Name: "backend", RepositoryURL: "/repo.git", DefaultBranch: "feature/x"}, "agent/codex-01/ASE-33"); err == nil || !strings.Contains(err.Error(), "default_branch must not contain '/'") {
+	if _, err := parseRepoInput(0, RepoInput{Name: "backend", RepositoryURL: "/repo.git", DefaultBranch: "feature/x"}, "agent/ASE-33"); err == nil || !strings.Contains(err.Error(), "default_branch must not contain '/'") {
 		t.Fatalf("parseRepoInput(default branch) error = %v", err)
 	}
 	branch := "feature/x"
-	if _, err := parseRepoInput(0, RepoInput{Name: "backend", RepositoryURL: "/repo.git", BranchName: &branch}, "agent/codex-01/ASE-33"); err == nil || !strings.Contains(err.Error(), `must equal "agent/codex-01/ASE-33"`) {
+	request, err := parseRepoInput(0, RepoInput{Name: "backend", RepositoryURL: "/repo.git", BranchName: &branch}, "agent/ASE-33")
+	if err != nil {
 		t.Fatalf("parseRepoInput(branch name) error = %v", err)
+	}
+	if request.BranchName != branch {
+		t.Fatalf("parseRepoInput(branch name) = %+v", request)
 	}
 
 	notDirPath := filepath.Join(t.TempDir(), "repo")

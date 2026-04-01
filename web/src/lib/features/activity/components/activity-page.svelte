@@ -16,6 +16,7 @@
   let error = $state('')
   let searchQuery = $state('')
   let selectedType = $state<string>('all')
+  let initialLoaded = $state(false)
 
   const filtered = $derived(
     entries.filter((e) => {
@@ -40,9 +41,10 @@
     }
 
     let cancelled = false
+    initialLoaded = false
 
-    const load = async () => {
-      loading = true
+    const load = async (showLoading: boolean) => {
+      if (showLoading) loading = true
       error = ''
 
       try {
@@ -66,6 +68,7 @@
             : undefined,
           agentName: agentNameFromMetadata(event.metadata),
         }))
+        initialLoaded = true
       } catch (caughtError) {
         if (cancelled) return
         error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load activity.'
@@ -76,11 +79,11 @@
       }
     }
 
-    void load()
+    void load(true)
 
     const disconnect = connectEventStream(`/api/v1/projects/${projectId}/activity/stream`, {
       onEvent: () => {
-        void load()
+        void load(false)
       },
       onError: (streamError) => {
         console.error('Activity stream error:', streamError)
@@ -140,9 +143,9 @@
       </Select.Root>
     </div>
 
-    {#if loading}
+    {#if loading && !initialLoaded}
       <div class="text-muted-foreground py-16 text-sm">Loading activity…</div>
-    {:else if error}
+    {:else if error && entries.length === 0}
       <div
         class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
       >

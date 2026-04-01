@@ -677,6 +677,7 @@ func (s stubMachineHealthCollector) CollectFullAudit(context.Context, domain.Mac
 type stubRepository struct {
 	createdProvider        *domain.CreateAgentProvider
 	updatedProvider        *domain.UpdateAgentProvider
+	updatedAgent           *domain.UpdateAgent
 	updatedRuntimeControl  *domain.UpdateAgentRuntimeControlState
 	updatedOrganization    *domain.UpdateOrganization
 	archivedOrganizationID uuid.UUID
@@ -840,6 +841,13 @@ func (r *stubRepository) GetAgent(context.Context, uuid.UUID) (domain.Agent, err
 
 func (r *stubRepository) GetAgentRun(context.Context, uuid.UUID) (domain.AgentRun, error) {
 	return domain.AgentRun{}, nil
+}
+
+func (r *stubRepository) UpdateAgent(_ context.Context, input domain.UpdateAgent) (domain.Agent, error) {
+	r.updatedAgent = &input
+	r.agent.ProviderID = input.ProviderID
+	r.agent.Name = input.Name
+	return r.agent, nil
 }
 
 func (r *stubRepository) UpdateAgentRuntimeControlState(_ context.Context, input domain.UpdateAgentRuntimeControlState) (domain.Agent, error) {
