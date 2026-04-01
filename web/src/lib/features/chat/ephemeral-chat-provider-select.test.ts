@@ -38,6 +38,7 @@ const providerFixtures: AgentProvider[] = [
     max_parallel_runs: 2,
     cost_per_input_token: 0,
     cost_per_output_token: 0,
+    pricing_config: {},
   },
   {
     id: 'provider-2',
@@ -72,6 +73,7 @@ const providerFixtures: AgentProvider[] = [
     max_parallel_runs: 2,
     cost_per_input_token: 0,
     cost_per_output_token: 0,
+    pricing_config: {},
   },
 ]
 
@@ -94,20 +96,20 @@ describe('EphemeralChatProviderSelect', () => {
       },
     })
 
-    expect(getByText('Codex · codex-app-server · gpt-5.4 · Ready')).toBeTruthy()
+    expect(getByText('gpt-5.4')).toBeTruthy()
 
-    const trigger = getByLabelText('Ephemeral Chat Provider')
+    const trigger = getByLabelText('Chat model')
     await fireEvent.pointerDown(trigger)
     await fireEvent.keyDown(trigger, { key: 'ArrowDown' })
 
-    expect(getByText('Codex')).toBeTruthy()
-    expect(getByText('codex-app-server · gpt-5.4')).toBeTruthy()
-    expect(getByText('Gemini')).toBeTruthy()
-    expect(getByText('gemini-cli · gemini-2.5-pro')).toBeTruthy()
+    expect(getByText('Codex · codex-app-server')).toBeTruthy()
+    expect(getByText('Ready')).toBeTruthy()
+    expect(getByText('Gemini · gemini-cli')).toBeTruthy()
+    expect(getByText('gemini-2.5-pro')).toBeTruthy()
     expect(getByText('Unavailable')).toBeTruthy()
     expect(getByText('Host machine is offline.')).toBeTruthy()
 
-    const unavailableOption = getByText('Gemini').closest('[data-slot="select-item"]')
+    const unavailableOption = getByText('Gemini · gemini-cli').closest('[data-slot="select-item"]')
     expect(unavailableOption?.hasAttribute('data-disabled')).toBe(true)
   })
 })

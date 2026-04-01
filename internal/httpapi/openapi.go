@@ -10,6 +10,7 @@ import (
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	githubrepodomain "github.com/BetterAndBetterII/openase/internal/domain/githubrepo"
 	notificationdomain "github.com/BetterAndBetterII/openase/internal/domain/notification"
+	"github.com/BetterAndBetterII/openase/internal/domain/pricing"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3gen"
@@ -122,33 +123,34 @@ type OpenAPIProjectRepo struct {
 }
 
 type OpenAPIAgentProvider struct {
-	ID                    string                            `json:"id"`
-	OrganizationID        string                            `json:"organization_id"`
-	MachineID             string                            `json:"machine_id"`
-	MachineName           string                            `json:"machine_name"`
-	MachineHost           string                            `json:"machine_host"`
-	MachineStatus         string                            `json:"machine_status"`
-	MachineSSHUser        *string                           `json:"machine_ssh_user,omitempty"`
-	MachineWorkspaceRoot  *string                           `json:"machine_workspace_root,omitempty"`
-	Name                  string                            `json:"name"`
-	AdapterType           string                            `json:"adapter_type"`
-	PermissionProfile     string                            `json:"permission_profile"`
-	AvailabilityState     string                            `json:"availability_state"`
-	Available             bool                              `json:"available"`
-	AvailabilityCheckedAt *string                           `json:"availability_checked_at,omitempty"`
-	AvailabilityReason    *string                           `json:"availability_reason,omitempty"`
-	Capabilities          OpenAPIAgentProviderCapabilities  `json:"capabilities"`
-	CliCommand            string                            `json:"cli_command"`
-	CliArgs               []string                          `json:"cli_args"`
-	AuthConfig            map[string]any                    `json:"auth_config"`
-	CLIRateLimit          *OpenAPIAgentProviderCLIRateLimit `json:"cli_rate_limit,omitempty"`
-	CLIRateLimitUpdatedAt *string                           `json:"cli_rate_limit_updated_at,omitempty"`
-	ModelName             string                            `json:"model_name"`
-	ModelTemperature      float64                           `json:"model_temperature"`
-	ModelMaxTokens        int                               `json:"model_max_tokens"`
-	MaxParallelRuns       int                               `json:"max_parallel_runs"`
-	CostPerInputToken     float64                           `json:"cost_per_input_token"`
-	CostPerOutputToken    float64                           `json:"cost_per_output_token"`
+	ID                    string                             `json:"id"`
+	OrganizationID        string                             `json:"organization_id"`
+	MachineID             string                             `json:"machine_id"`
+	MachineName           string                             `json:"machine_name"`
+	MachineHost           string                             `json:"machine_host"`
+	MachineStatus         string                             `json:"machine_status"`
+	MachineSSHUser        *string                            `json:"machine_ssh_user,omitempty"`
+	MachineWorkspaceRoot  *string                            `json:"machine_workspace_root,omitempty"`
+	Name                  string                             `json:"name"`
+	AdapterType           string                             `json:"adapter_type"`
+	PermissionProfile     string                             `json:"permission_profile"`
+	AvailabilityState     string                             `json:"availability_state"`
+	Available             bool                               `json:"available"`
+	AvailabilityCheckedAt *string                            `json:"availability_checked_at,omitempty"`
+	AvailabilityReason    *string                            `json:"availability_reason,omitempty"`
+	Capabilities          OpenAPIAgentProviderCapabilities   `json:"capabilities"`
+	CliCommand            string                             `json:"cli_command"`
+	CliArgs               []string                           `json:"cli_args"`
+	AuthConfig            map[string]any                     `json:"auth_config"`
+	CLIRateLimit          *OpenAPIAgentProviderCLIRateLimit  `json:"cli_rate_limit,omitempty"`
+	CLIRateLimitUpdatedAt *string                            `json:"cli_rate_limit_updated_at,omitempty"`
+	ModelName             string                             `json:"model_name"`
+	ModelTemperature      float64                            `json:"model_temperature"`
+	ModelMaxTokens        int                                `json:"model_max_tokens"`
+	MaxParallelRuns       int                                `json:"max_parallel_runs"`
+	CostPerInputToken     float64                            `json:"cost_per_input_token"`
+	CostPerOutputToken    float64                            `json:"cost_per_output_token"`
+	PricingConfig         pricing.ProviderModelPricingConfig `json:"pricing_config"`
 }
 
 type OpenAPIAgentProviderCapabilities struct {
@@ -208,11 +210,12 @@ type OpenAPIAgentProviderGeminiRateLimitBucket struct {
 }
 
 type OpenAPIAgentProviderModelOption struct {
-	ID          string `json:"id"`
-	Label       string `json:"label"`
-	Description string `json:"description"`
-	Recommended bool   `json:"recommended"`
-	Preview     bool   `json:"preview"`
+	ID            string                              `json:"id"`
+	Label         string                              `json:"label"`
+	Description   string                              `json:"description"`
+	Recommended   bool                                `json:"recommended"`
+	Preview       bool                                `json:"preview"`
+	PricingConfig *pricing.ProviderModelPricingConfig `json:"pricing_config,omitempty"`
 }
 
 type OpenAPIAgentProviderModelCatalogEntry struct {
@@ -1234,6 +1237,7 @@ var (
 		"max_parallel_runs":     "Maximum number of concurrent runs allowed for the provider.",
 		"cost_per_input_token":  "Estimated USD cost per input token.",
 		"cost_per_output_token": "Estimated USD cost per output token.",
+		"pricing_config":        "Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata.",
 	}
 	openAPIRepoRequestDescriptions = map[string]string{
 		"name":              "Human-readable repository name within the project.",

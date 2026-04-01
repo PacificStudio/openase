@@ -39,6 +39,7 @@ export function buildProviderCards(
     maxParallelRuns: provider.max_parallel_runs,
     costPerInputToken: provider.cost_per_input_token,
     costPerOutputToken: provider.cost_per_output_token,
+    pricingConfig: provider.pricing_config ?? {},
     agentCount: agentItems.filter((agent) => agent.provider_id === provider.id).length,
     isDefault: defaultProviderId === provider.id,
   }))
@@ -193,6 +194,7 @@ export function applyUpdatedProviderState(
           maxParallelRuns: updatedProvider.max_parallel_runs,
           costPerInputToken: updatedProvider.cost_per_input_token,
           costPerOutputToken: updatedProvider.cost_per_output_token,
+          pricingConfig: updatedProvider.pricing_config ?? {},
         }
       : provider,
   )
@@ -227,11 +229,11 @@ function normalizeProviderCLIRateLimit(
   }
 
   return {
-    provider: value.provider,
+    provider: value.provider ?? '',
     raw: { ...(value.raw ?? {}) },
     claudeCode: value.claude_code
       ? {
-          status: value.claude_code.status,
+          status: value.claude_code.status ?? '',
           rateLimitType: value.claude_code.rate_limit_type ?? null,
           resetsAt: value.claude_code.resets_at ?? null,
           overageStatus: value.claude_code.overage_status ?? null,

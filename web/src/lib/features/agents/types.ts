@@ -65,8 +65,38 @@ export type ProviderConfig = {
   maxParallelRuns: number
   costPerInputToken: number
   costPerOutputToken: number
+  pricingConfig: ProviderPricingConfig
   agentCount: number
   isDefault: boolean
+}
+
+export type ProviderPricingRates = {
+  input_per_token?: number
+  output_per_token?: number
+  cached_input_read_per_token?: number
+  cache_write_5m_per_token?: number
+  cache_write_1h_per_token?: number
+  cache_storage_per_token_hour?: number
+}
+
+export type ProviderPricingTier = {
+  label?: string
+  max_prompt_tokens?: number
+  rates?: ProviderPricingRates
+}
+
+export type ProviderPricingConfig = {
+  version?: string
+  source_kind?: string
+  pricing_mode?: string
+  provider?: string
+  model_id?: string
+  source_url?: string
+  source_verified_at?: string
+  default_cache_write_window?: string
+  notes?: string[]
+  rates?: ProviderPricingRates
+  tiers?: ProviderPricingTier[]
 }
 
 export type ProviderCLIRateLimit = {
@@ -127,6 +157,7 @@ export type ProviderDraft = {
   maxParallelRuns: string
   costPerInputToken: string
   costPerOutputToken: string
+  pricingConfig: string
 }
 
 export type ProviderDraftField = keyof ProviderDraft
@@ -145,6 +176,7 @@ export type ProviderMutation = {
   max_parallel_runs: number
   cost_per_input_token: number
   cost_per_output_token: number
+  pricing_config: ProviderPricingConfig
 }
 
 export type ProviderDraftParseResult =

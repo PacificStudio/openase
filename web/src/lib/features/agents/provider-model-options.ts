@@ -7,7 +7,7 @@ export function providerModelOptionsForAdapter(
   adapterType: string,
 ): AgentProviderModelOption[] {
   const entry = catalog.find((item) => item.adapter_type === adapterType)
-  return entry ? [...entry.options] : []
+  return entry?.options ? [...entry.options] : []
 }
 
 export function recommendedProviderModelId(

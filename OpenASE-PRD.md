@@ -903,8 +903,17 @@ AgentProvider 表示**某台 Machine 上一个可被 OpenASE 调用的 Coding Ag
 | model_temperature | Float | 模型温度（默认 0.0） |
 | model_max_tokens | Integer | 最大输出 Token 数（默认 16384） |
 | max_parallel_runs | Integer | Provider 级最大并发运行数（provider semaphore） |
-| cost_per_input_token | Decimal | 输入 Token 单价 |
-| cost_per_output_token | Decimal | 输出 Token 单价 |
+| pricing_config | JSONB | Provider 定价真相源，支持官方默认价、用户覆盖、缓存读写价、缓存存储价与分层 / 路由定价元数据 |
+| cost_per_input_token | Decimal | 输入 Token 摘要单价，用于兼容旧列表视图与快速展示；由 `pricing_config` 派生，不再作为复杂计费真相源 |
+| cost_per_output_token | Decimal | 输出 Token 摘要单价，用于兼容旧列表视图与快速展示；由 `pricing_config` 派生，不再作为复杂计费真相源 |
+
+**定价语义补充：**
+
+- 当用户选择内置模型预设时，Provider 表单应优先加载平台内置的官方定价默认值，而不是要求用户手工输入裸 Token 单价。
+- `pricing_config` 必须能表达至少以下定价维度：标准输入、输出、缓存命中读、5 分钟缓存写、1 小时缓存写、缓存存储按小时计费，以及按 prompt token 阈值切换的长上下文分层价格。
+- `source_kind=official` 表示该 Provider 当前使用平台内置并已核验来源的官方默认价；`source_kind=custom` 表示用户已改写默认值。
+- 对于 `auto-gemini-*` 这类路由型预设，不允许伪造一个固定 flat price；UI 应明确展示其账单会随运行时解析出的具体模型而变化。
+- Ticket 成本计算应优先消费 `pricing_config` 与结构化 usage token 分类；`cost_per_input_token / cost_per_output_token` 只作为摘要展示字段保留。
 
 **GitHub 出站凭证统一约定：**
 

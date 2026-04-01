@@ -124,6 +124,10 @@ func init() {
 	agentproviderDescCostPerOutputToken := agentproviderFields[16].Descriptor()
 	// agentprovider.DefaultCostPerOutputToken holds the default value on creation for the cost_per_output_token field.
 	agentprovider.DefaultCostPerOutputToken = agentproviderDescCostPerOutputToken.Default.(float64)
+	// agentproviderDescPricingConfig is the schema descriptor for pricing_config field.
+	agentproviderDescPricingConfig := agentproviderFields[17].Descriptor()
+	// agentprovider.DefaultPricingConfig holds the default value on creation for the pricing_config field.
+	agentprovider.DefaultPricingConfig = agentproviderDescPricingConfig.Default.(func() map[string]interface{})
 	// agentproviderDescID is the schema descriptor for id field.
 	agentproviderDescID := agentproviderFields[0].Descriptor()
 	// agentprovider.DefaultID holds the default value on creation for the id field.

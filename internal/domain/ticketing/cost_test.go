@@ -1,6 +1,11 @@
 package ticketing
 
-import "testing"
+import (
+	"math"
+	"testing"
+
+	"github.com/BetterAndBetterII/openase/internal/domain/pricing"
+)
 
 func TestParseRawUsageDeltaRejectsEmptyPayload(t *testing.T) {
 	if _, err := ParseRawUsageDelta(RawUsageDelta{}); err == nil {
@@ -8,7 +13,7 @@ func TestParseRawUsageDeltaRejectsEmptyPayload(t *testing.T) {
 	}
 }
 
-func TestUsageDeltaResolveCostUSDUsesExplicitCostWhenProvided(t *testing.T) {
+func TestUsageDeltaResolveCostUsesExplicitCostWhenProvided(t *testing.T) {
 	inputTokens := int64(120)
 	outputTokens := int64(45)
 	explicitCost := 0.037
@@ -22,10 +27,7 @@ func TestUsageDeltaResolveCostUSDUsesExplicitCostWhenProvided(t *testing.T) {
 		t.Fatalf("ParseRawUsageDelta returned error: %v", err)
 	}
 
-	resolved, err := usage.ResolveCost(ModelPricing{
-		CostPerInputToken:  99,
-		CostPerOutputToken: 99,
-	})
+	resolved, err := usage.ResolveCost(pricing.CustomFlatPricingConfig(99, 99))
 	if err != nil {
 		t.Fatalf("ResolveCost returned error: %v", err)
 	}
@@ -37,7 +39,7 @@ func TestUsageDeltaResolveCostUSDUsesExplicitCostWhenProvided(t *testing.T) {
 	}
 }
 
-func TestUsageDeltaResolveCostUSDComputesProviderPricing(t *testing.T) {
+func TestUsageDeltaResolveCostComputesFlatProviderPricing(t *testing.T) {
 	inputTokens := int64(120)
 	outputTokens := int64(45)
 
@@ -49,10 +51,7 @@ func TestUsageDeltaResolveCostUSDComputesProviderPricing(t *testing.T) {
 		t.Fatalf("ParseRawUsageDelta returned error: %v", err)
 	}
 
-	resolved, err := usage.ResolveCost(ModelPricing{
-		CostPerInputToken:  0.001,
-		CostPerOutputToken: 0.002,
-	})
+	resolved, err := usage.ResolveCost(pricing.CustomFlatPricingConfig(0.001, 0.002))
 	if err != nil {
 		t.Fatalf("ResolveCost returned error: %v", err)
 	}
@@ -67,6 +66,132 @@ func TestUsageDeltaResolveCostUSDComputesProviderPricing(t *testing.T) {
 	}
 }
 
+func TestUsageDeltaResolveCostUsesCachedInputPricing(t *testing.T) {
+	inputTokens := int64(100)
+	outputTokens := int64(20)
+	cachedInputTokens := int64(40)
+
+	usage, err := ParseRawUsageDelta(RawUsageDelta{
+		InputTokens:       &inputTokens,
+		OutputTokens:      &outputTokens,
+		CachedInputTokens: &cachedInputTokens,
+	})
+	if err != nil {
+		t.Fatalf("ParseRawUsageDelta returned error: %v", err)
+	}
+
+	pricingConfig := pricing.ProviderModelPricingConfig{
+		SourceKind:  pricing.PricingSourceKindOfficial,
+		PricingMode: pricing.PricingModeFlat,
+		Rates: pricing.ProviderModelPricingRates{
+			InputPerToken:           0.001,
+			OutputPerToken:          0.002,
+			CachedInputReadPerToken: 0.0001,
+		},
+	}
+
+	resolved, err := usage.ResolveCost(pricingConfig)
+	if err != nil {
+		t.Fatalf("ResolveCost returned error: %v", err)
+	}
+	if math.Abs(resolved.AmountUSD-0.104) > 0.0000001 {
+		t.Fatalf("ResolveCost amount = %.6f, want 0.104000", resolved.AmountUSD)
+	}
+}
+
+func TestUsageDeltaResolveCostUsesAnthropicCacheWriteWindows(t *testing.T) {
+	inputTokens := int64(120)
+	outputTokens := int64(10)
+	cacheWrite5mTokens := int64(20)
+	cacheWrite1hTokens := int64(30)
+
+	usage, err := ParseRawUsageDelta(RawUsageDelta{
+		InputTokens:                &inputTokens,
+		OutputTokens:               &outputTokens,
+		CacheCreationInputTokens5m: &cacheWrite5mTokens,
+		CacheCreationInputTokens1h: &cacheWrite1hTokens,
+	})
+	if err != nil {
+		t.Fatalf("ParseRawUsageDelta returned error: %v", err)
+	}
+
+	pricingConfig := pricing.ProviderModelPricingConfig{
+		SourceKind:              pricing.PricingSourceKindOfficial,
+		PricingMode:             pricing.PricingModeFlat,
+		DefaultCacheWriteWindow: pricing.CacheWriteWindowFiveMinutes,
+		Rates: pricing.ProviderModelPricingRates{
+			InputPerToken:                 0.003,
+			OutputPerToken:                0.015,
+			CacheWriteFiveMinutesPerToken: 0.00375,
+			CacheWriteOneHourPerToken:     0.006,
+		},
+	}
+
+	resolved, err := usage.ResolveCost(pricingConfig)
+	if err != nil {
+		t.Fatalf("ResolveCost returned error: %v", err)
+	}
+	if resolved.AmountUSD != 0.615 {
+		t.Fatalf("ResolveCost amount = %.6f, want 0.615000", resolved.AmountUSD)
+	}
+}
+
+func TestUsageDeltaResolveCostUsesGeminiTieredCaching(t *testing.T) {
+	inputTokens := int64(250_000)
+	outputTokens := int64(20_000)
+	promptTokens := int64(250_000)
+	cachedInputTokens := int64(100_000)
+	cacheStorageTokens := int64(100_000)
+	cacheStorageHours := 2.0
+
+	usage, err := ParseRawUsageDelta(RawUsageDelta{
+		InputTokens:        &inputTokens,
+		OutputTokens:       &outputTokens,
+		PromptTokens:       &promptTokens,
+		CachedInputTokens:  &cachedInputTokens,
+		CacheStorageTokens: &cacheStorageTokens,
+		CacheStorageHours:  &cacheStorageHours,
+	})
+	if err != nil {
+		t.Fatalf("ParseRawUsageDelta returned error: %v", err)
+	}
+
+	pricingConfig := pricing.ProviderModelPricingConfig{
+		SourceKind:  pricing.PricingSourceKindOfficial,
+		PricingMode: pricing.PricingModeTiered,
+		Tiers: []pricing.ProviderModelPricingTier{
+			{
+				Label:           "<=200k prompt tokens",
+				MaxPromptTokens: 200_000,
+				Rates: pricing.ProviderModelPricingRates{
+					InputPerToken:            0.00125,
+					OutputPerToken:           0.01,
+					CachedInputReadPerToken:  0.000125,
+					CacheStoragePerTokenHour: 0.0000045,
+				},
+			},
+			{
+				Label: ">200k prompt tokens",
+				Rates: pricing.ProviderModelPricingRates{
+					InputPerToken:            0.0025,
+					OutputPerToken:           0.015,
+					CachedInputReadPerToken:  0.00025,
+					CacheStoragePerTokenHour: 0.0000045,
+				},
+			},
+		},
+	}
+
+	resolved, err := usage.ResolveCost(pricingConfig)
+	if err != nil {
+		t.Fatalf("ResolveCost returned error: %v", err)
+	}
+	want := 700.9
+	if resolved.AmountUSD != want {
+		t.Fatalf("ResolveCost amount = %.6f, want %.6f", resolved.AmountUSD, want)
+	}
+}
+
 func TestUsageDeltaResolveCostDoesNotRoundSmallDeltas(t *testing.T) {
 	inputTokens := int64(1)
 
@@ -77,10 +202,7 @@ func TestUsageDeltaResolveCostDoesNotRoundSmallDeltas(t *testing.T) {
 		t.Fatalf("ParseRawUsageDelta returned error: %v", err)
 	}
 
-	resolved, err := usage.ResolveCost(ModelPricing{
-		CostPerInputToken:  0.000003,
-		CostPerOutputToken: 0,
-	})
+	resolved, err := usage.ResolveCost(pricing.CustomFlatPricingConfig(0.000003, 0))
 	if err != nil {
 		t.Fatalf("ResolveCost returned error: %v", err)
 	}
@@ -99,9 +221,7 @@ func TestUsageDeltaResolveCostUSDReturnsAmountOnly(t *testing.T) {
 		t.Fatalf("ParseRawUsageDelta returned error: %v", err)
 	}
 
-	costUSD, err := usage.ResolveCostUSD(ModelPricing{
-		CostPerInputToken: 0.5,
-	})
+	costUSD, err := usage.ResolveCostUSD(pricing.CustomFlatPricingConfig(0.5, 0))
 	if err != nil {
 		t.Fatalf("ResolveCostUSD returned error: %v", err)
 	}
@@ -143,11 +263,15 @@ func TestUsageDeltaValidationHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseRawUsageDelta() explicit cost error = %v", err)
 	}
-	if resolved, err := usage.ResolveCostUSD(ModelPricing{CostPerInputToken: -1}); err == nil {
-		t.Fatalf("ResolveCostUSD() expected input pricing validation error, got %.2f", resolved)
+	invalidPricing := pricing.ProviderModelPricingConfig{
+		SourceKind:  pricing.PricingSourceKindCustom,
+		PricingMode: pricing.PricingModeFlat,
+		Rates: pricing.ProviderModelPricingRates{
+			InputPerToken: -1,
+		},
 	}
-	if _, err := usage.ResolveCostUSD(ModelPricing{CostPerOutputToken: -1}); err == nil {
-		t.Fatal("ResolveCostUSD() expected output pricing validation error")
+	if resolved, err := usage.ResolveCostUSD(invalidPricing); err == nil {
+		t.Fatalf("ResolveCostUSD() expected input pricing validation error, got %.2f", resolved)
 	}
 
 	outputOnly := int64(42)

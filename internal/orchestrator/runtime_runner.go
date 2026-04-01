@@ -30,8 +30,14 @@ const (
 )
 
 type tokenUsageHighWater struct {
-	inputTokens  int64
-	outputTokens int64
+	inputTokens              int64
+	outputTokens             int64
+	cachedInputTokens        int64
+	cacheCreationInputTokens int64
+	reasoningTokens          int64
+	promptTokens             int64
+	candidateTokens          int64
+	toolTokens               int64
 }
 
 type turnSessionClosedError struct {
@@ -661,27 +667,71 @@ func (l *RuntimeLauncher) recordTokenUsage(
 
 	inputDelta := usage.TotalInputTokens - highWater.inputTokens
 	outputDelta := usage.TotalOutputTokens - highWater.outputTokens
+	cachedInputDelta := usage.TotalCachedInputTokens - highWater.cachedInputTokens
+	cacheCreationDelta := usage.TotalCacheCreationInputTokens - highWater.cacheCreationInputTokens
+	reasoningDelta := usage.TotalReasoningTokens - highWater.reasoningTokens
+	promptDelta := usage.TotalPromptTokens - highWater.promptTokens
+	candidateDelta := usage.TotalCandidateTokens - highWater.candidateTokens
+	toolDelta := usage.TotalToolTokens - highWater.toolTokens
 	if inputDelta < 0 {
 		inputDelta = 0
 	}
 	if outputDelta < 0 {
 		outputDelta = 0
 	}
+	if cachedInputDelta < 0 {
+		cachedInputDelta = 0
+	}
+	if cacheCreationDelta < 0 {
+		cacheCreationDelta = 0
+	}
+	if reasoningDelta < 0 {
+		reasoningDelta = 0
+	}
+	if promptDelta < 0 {
+		promptDelta = 0
+	}
+	if candidateDelta < 0 {
+		candidateDelta = 0
+	}
+	if toolDelta < 0 {
+		toolDelta = 0
+	}
 
-	if inputDelta == 0 && outputDelta == 0 {
+	if inputDelta == 0 &&
+		outputDelta == 0 &&
+		cachedInputDelta == 0 &&
+		cacheCreationDelta == 0 &&
+		reasoningDelta == 0 &&
+		promptDelta == 0 &&
+		candidateDelta == 0 &&
+		toolDelta == 0 {
 		return nil
 	}
 
 	highWater.inputTokens = maxInt64(highWater.inputTokens, usage.TotalInputTokens)
 	highWater.outputTokens = maxInt64(highWater.outputTokens, usage.TotalOutputTokens)
+	highWater.cachedInputTokens = maxInt64(highWater.cachedInputTokens, usage.TotalCachedInputTokens)
+	highWater.cacheCreationInputTokens = maxInt64(highWater.cacheCreationInputTokens, usage.TotalCacheCreationInputTokens)
+	highWater.reasoningTokens = maxInt64(highWater.reasoningTokens, usage.TotalReasoningTokens)
+	highWater.promptTokens = maxInt64(highWater.promptTokens, usage.TotalPromptTokens)
+	highWater.candidateTokens = maxInt64(highWater.candidateTokens, usage.TotalCandidateTokens)
+	highWater.toolTokens = maxInt64(highWater.toolTokens, usage.TotalToolTokens)
 
 	result, err := l.tickets.RecordUsage(ctx, ticketservice.RecordUsageInput{
 		AgentID:  agentID,
 		TicketID: ticketID,
 		Usage: ticketing.RawUsageDelta{
-			InputTokens:  int64Pointer(inputDelta),
-			OutputTokens: int64Pointer(outputDelta),
-			CostUSD:      cloneCostUSD(usage.CostUSD),
+			InputTokens:              int64Pointer(inputDelta),
+			OutputTokens:             int64Pointer(outputDelta),
+			CachedInputTokens:        int64Pointer(cachedInputDelta),
+			CacheCreationInputTokens: int64Pointer(cacheCreationDelta),
+			ReasoningTokens:          int64Pointer(reasoningDelta),
+			PromptTokens:             int64Pointer(promptDelta),
+			CandidateTokens:          int64Pointer(candidateDelta),
+			ToolTokens:               int64Pointer(toolDelta),
+			ModelContextWindow:       cloneInt64Pointer(usage.ModelContextWindow),
+			CostUSD:                  cloneCostUSD(usage.CostUSD),
 		},
 	}, provider.NewNoopMetricsProvider())
 	if err != nil {
@@ -1038,6 +1088,14 @@ func (l *RuntimeLauncher) markTicketStarted(ctx context.Context, ticketID uuid.U
 
 func int64Pointer(value int64) *int64 {
 	return &value
+}
+
+func cloneInt64Pointer(value *int64) *int64 {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
 }
 
 func maxInt64(left int64, right int64) int64 {

@@ -6259,6 +6259,114 @@
                           },
                           "permission_profile": {
                             "type": "string"
+                          },
+                          "pricing_config": {
+                            "properties": {
+                              "default_cache_write_window": {
+                                "type": "string"
+                              },
+                              "model_id": {
+                                "type": "string"
+                              },
+                              "notes": {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
+                              "pricing_mode": {
+                                "type": "string"
+                              },
+                              "provider": {
+                                "type": "string"
+                              },
+                              "rates": {
+                                "properties": {
+                                  "cache_storage_per_token_hour": {
+                                    "format": "double",
+                                    "type": "number"
+                                  },
+                                  "cache_write_1h_per_token": {
+                                    "format": "double",
+                                    "type": "number"
+                                  },
+                                  "cache_write_5m_per_token": {
+                                    "format": "double",
+                                    "type": "number"
+                                  },
+                                  "cached_input_read_per_token": {
+                                    "format": "double",
+                                    "type": "number"
+                                  },
+                                  "input_per_token": {
+                                    "format": "double",
+                                    "type": "number"
+                                  },
+                                  "output_per_token": {
+                                    "format": "double",
+                                    "type": "number"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "source_kind": {
+                                "type": "string"
+                              },
+                              "source_url": {
+                                "type": "string"
+                              },
+                              "source_verified_at": {
+                                "type": "string"
+                              },
+                              "tiers": {
+                                "items": {
+                                  "properties": {
+                                    "label": {
+                                      "type": "string"
+                                    },
+                                    "max_prompt_tokens": {
+                                      "format": "int64",
+                                      "type": "integer"
+                                    },
+                                    "rates": {
+                                      "properties": {
+                                        "cache_storage_per_token_hour": {
+                                          "format": "double",
+                                          "type": "number"
+                                        },
+                                        "cache_write_1h_per_token": {
+                                          "format": "double",
+                                          "type": "number"
+                                        },
+                                        "cache_write_5m_per_token": {
+                                          "format": "double",
+                                          "type": "number"
+                                        },
+                                        "cached_input_read_per_token": {
+                                          "format": "double",
+                                          "type": "number"
+                                        },
+                                        "input_per_token": {
+                                          "format": "double",
+                                          "type": "number"
+                                        },
+                                        "output_per_token": {
+                                          "format": "double",
+                                          "type": "number"
+                                        }
+                                      },
+                                      "type": "object"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              },
+                              "version": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
                           }
                         },
                         "type": "object"
@@ -6414,6 +6522,11 @@
                   "permission_profile": {
                     "description": "Managed permission profile used to render adapter-specific approval and sandbox options.",
                     "type": "string"
+                  },
+                  "pricing_config": {
+                    "additionalProperties": {},
+                    "description": "Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata.",
+                    "type": "object"
                   }
                 },
                 "type": "object"
@@ -6675,6 +6788,114 @@
                         },
                         "permission_profile": {
                           "type": "string"
+                        },
+                        "pricing_config": {
+                          "properties": {
+                            "default_cache_write_window": {
+                              "type": "string"
+                            },
+                            "model_id": {
+                              "type": "string"
+                            },
+                            "notes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "pricing_mode": {
+                              "type": "string"
+                            },
+                            "provider": {
+                              "type": "string"
+                            },
+                            "rates": {
+                              "properties": {
+                                "cache_storage_per_token_hour": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "cache_write_1h_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "cache_write_5m_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "cached_input_read_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "input_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "output_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "source_kind": {
+                              "type": "string"
+                            },
+                            "source_url": {
+                              "type": "string"
+                            },
+                            "source_verified_at": {
+                              "type": "string"
+                            },
+                            "tiers": {
+                              "items": {
+                                "properties": {
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "max_prompt_tokens": {
+                                    "format": "int64",
+                                    "type": "integer"
+                                  },
+                                  "rates": {
+                                    "properties": {
+                                      "cache_storage_per_token_hour": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "cache_write_1h_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "cache_write_5m_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "cached_input_read_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "input_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "output_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      }
+                                    },
+                                    "type": "object"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "version": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
                         }
                       },
                       "type": "object"
@@ -16434,6 +16655,115 @@
                                 "preview": {
                                   "type": "boolean"
                                 },
+                                "pricing_config": {
+                                  "nullable": true,
+                                  "properties": {
+                                    "default_cache_write_window": {
+                                      "type": "string"
+                                    },
+                                    "model_id": {
+                                      "type": "string"
+                                    },
+                                    "notes": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "pricing_mode": {
+                                      "type": "string"
+                                    },
+                                    "provider": {
+                                      "type": "string"
+                                    },
+                                    "rates": {
+                                      "properties": {
+                                        "cache_storage_per_token_hour": {
+                                          "format": "double",
+                                          "type": "number"
+                                        },
+                                        "cache_write_1h_per_token": {
+                                          "format": "double",
+                                          "type": "number"
+                                        },
+                                        "cache_write_5m_per_token": {
+                                          "format": "double",
+                                          "type": "number"
+                                        },
+                                        "cached_input_read_per_token": {
+                                          "format": "double",
+                                          "type": "number"
+                                        },
+                                        "input_per_token": {
+                                          "format": "double",
+                                          "type": "number"
+                                        },
+                                        "output_per_token": {
+                                          "format": "double",
+                                          "type": "number"
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
+                                    "source_kind": {
+                                      "type": "string"
+                                    },
+                                    "source_url": {
+                                      "type": "string"
+                                    },
+                                    "source_verified_at": {
+                                      "type": "string"
+                                    },
+                                    "tiers": {
+                                      "items": {
+                                        "properties": {
+                                          "label": {
+                                            "type": "string"
+                                          },
+                                          "max_prompt_tokens": {
+                                            "format": "int64",
+                                            "type": "integer"
+                                          },
+                                          "rates": {
+                                            "properties": {
+                                              "cache_storage_per_token_hour": {
+                                                "format": "double",
+                                                "type": "number"
+                                              },
+                                              "cache_write_1h_per_token": {
+                                                "format": "double",
+                                                "type": "number"
+                                              },
+                                              "cache_write_5m_per_token": {
+                                                "format": "double",
+                                                "type": "number"
+                                              },
+                                              "cached_input_read_per_token": {
+                                                "format": "double",
+                                                "type": "number"
+                                              },
+                                              "input_per_token": {
+                                                "format": "double",
+                                                "type": "number"
+                                              },
+                                              "output_per_token": {
+                                                "format": "double",
+                                                "type": "number"
+                                              }
+                                            },
+                                            "type": "object"
+                                          }
+                                        },
+                                        "type": "object"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "version": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
                                 "recommended": {
                                   "type": "boolean"
                                 }
@@ -16746,6 +17076,114 @@
                         },
                         "permission_profile": {
                           "type": "string"
+                        },
+                        "pricing_config": {
+                          "properties": {
+                            "default_cache_write_window": {
+                              "type": "string"
+                            },
+                            "model_id": {
+                              "type": "string"
+                            },
+                            "notes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "pricing_mode": {
+                              "type": "string"
+                            },
+                            "provider": {
+                              "type": "string"
+                            },
+                            "rates": {
+                              "properties": {
+                                "cache_storage_per_token_hour": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "cache_write_1h_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "cache_write_5m_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "cached_input_read_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "input_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "output_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "source_kind": {
+                              "type": "string"
+                            },
+                            "source_url": {
+                              "type": "string"
+                            },
+                            "source_verified_at": {
+                              "type": "string"
+                            },
+                            "tiers": {
+                              "items": {
+                                "properties": {
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "max_prompt_tokens": {
+                                    "format": "int64",
+                                    "type": "integer"
+                                  },
+                                  "rates": {
+                                    "properties": {
+                                      "cache_storage_per_token_hour": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "cache_write_1h_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "cache_write_5m_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "cached_input_read_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "input_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "output_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      }
+                                    },
+                                    "type": "object"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "version": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
                         }
                       },
                       "type": "object"
@@ -16907,6 +17345,12 @@
                     "description": "Managed permission profile used to render adapter-specific approval and sandbox options.",
                     "nullable": true,
                     "type": "string"
+                  },
+                  "pricing_config": {
+                    "additionalProperties": {},
+                    "description": "Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata.",
+                    "nullable": true,
+                    "type": "object"
                   }
                 },
                 "type": "object"
@@ -17168,6 +17612,114 @@
                         },
                         "permission_profile": {
                           "type": "string"
+                        },
+                        "pricing_config": {
+                          "properties": {
+                            "default_cache_write_window": {
+                              "type": "string"
+                            },
+                            "model_id": {
+                              "type": "string"
+                            },
+                            "notes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "pricing_mode": {
+                              "type": "string"
+                            },
+                            "provider": {
+                              "type": "string"
+                            },
+                            "rates": {
+                              "properties": {
+                                "cache_storage_per_token_hour": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "cache_write_1h_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "cache_write_5m_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "cached_input_read_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "input_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "output_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "source_kind": {
+                              "type": "string"
+                            },
+                            "source_url": {
+                              "type": "string"
+                            },
+                            "source_verified_at": {
+                              "type": "string"
+                            },
+                            "tiers": {
+                              "items": {
+                                "properties": {
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "max_prompt_tokens": {
+                                    "format": "int64",
+                                    "type": "integer"
+                                  },
+                                  "rates": {
+                                    "properties": {
+                                      "cache_storage_per_token_hour": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "cache_write_1h_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "cache_write_5m_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "cached_input_read_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "input_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "output_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      }
+                                    },
+                                    "type": "object"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "version": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
                         }
                       },
                       "type": "object"

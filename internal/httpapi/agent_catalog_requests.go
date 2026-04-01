@@ -19,6 +19,7 @@ type agentProviderPatchRequest struct {
 	MaxParallelRuns    *int            `json:"max_parallel_runs"`
 	CostPerInputToken  *float64        `json:"cost_per_input_token"`
 	CostPerOutputToken *float64        `json:"cost_per_output_token"`
+	PricingConfig      *map[string]any `json:"pricing_config"`
 }
 
 type agentPatchRequest struct {
@@ -45,6 +46,7 @@ func parseAgentProviderPatchRequest(
 		MaxParallelRuns:    intPointer(current.MaxParallelRuns),
 		CostPerInputToken:  floatPointer(current.CostPerInputToken),
 		CostPerOutputToken: floatPointer(current.CostPerOutputToken),
+		PricingConfig:      current.PricingConfig.ToMap(),
 	}
 	if patch.MachineID != nil {
 		request.MachineID = *patch.MachineID
@@ -84,6 +86,9 @@ func parseAgentProviderPatchRequest(
 	}
 	if patch.CostPerOutputToken != nil {
 		request.CostPerOutputToken = patch.CostPerOutputToken
+	}
+	if patch.PricingConfig != nil {
+		request.PricingConfig = cloneMap(*patch.PricingConfig)
 	}
 
 	return domain.ParseUpdateAgentProvider(providerID, current.OrganizationID, request)
