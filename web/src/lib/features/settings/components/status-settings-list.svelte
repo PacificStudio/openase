@@ -137,7 +137,32 @@
 </script>
 
 {#if loading}
-  <div class="text-muted-foreground text-sm">Loading statuses…</div>
+  <!-- Skeleton: stage groups -->
+  <div class="space-y-6">
+    {#each { length: 3 } as _}
+      <div>
+        <div class="flex items-center gap-2 px-1 pb-2">
+          <div class="bg-muted size-4 animate-pulse rounded-full"></div>
+          <div class="bg-muted h-4 w-20 animate-pulse rounded"></div>
+          <div class="bg-muted h-3 w-4 animate-pulse rounded"></div>
+        </div>
+        <div class="border-border border-t pt-1">
+          <div class="space-y-0.5">
+            {#each { length: 2 } as __}
+              <div class="flex items-center gap-3 rounded-md px-2 py-2">
+                <div class="bg-muted size-8 shrink-0 animate-pulse rounded"></div>
+                <div class="bg-muted h-4 w-28 animate-pulse rounded"></div>
+                <div class="ml-auto flex items-center gap-1">
+                  <div class="bg-muted size-6 animate-pulse rounded"></div>
+                  <div class="bg-muted size-6 animate-pulse rounded"></div>
+                </div>
+              </div>
+            {/each}
+          </div>
+        </div>
+      </div>
+    {/each}
+  </div>
 {:else}
   <div class="space-y-6">
     {#each stageGroups as group (group.stage)}

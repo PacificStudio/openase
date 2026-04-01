@@ -1,7 +1,8 @@
 <script lang="ts">
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
-  import { Search } from '@lucide/svelte'
+  import { Skeleton } from '$ui/skeleton'
+  import { Search, Server } from '@lucide/svelte'
   import MachineEditorSheet from './machine-editor-sheet.svelte'
   import MachineRowCard from './machine-row-card.svelte'
   import { machineToDraft } from '../model'
@@ -86,16 +87,50 @@
 
 <div class="flex min-h-0 flex-1 flex-col px-6 pb-6" data-testid="machines-workspace">
   {#if state === 'no-org'}
-    <div
-      class="border-border bg-card text-muted-foreground rounded-xl border border-dashed px-4 py-10 text-center text-sm"
-    >
-      Create an organization before managing machines.
+    <div class="border-border bg-card rounded-xl border border-dashed px-4 py-14 text-center">
+      <div class="bg-muted/60 mx-auto mb-4 flex size-12 items-center justify-center rounded-full">
+        <Server class="text-muted-foreground size-5" />
+      </div>
+      <p class="text-foreground text-sm font-medium">No organization selected</p>
+      <p class="text-muted-foreground mt-1 text-sm">
+        Create an organization before managing machines.
+      </p>
     </div>
   {:else if state === 'loading' || loading}
-    <div
-      class="border-border bg-card text-muted-foreground rounded-xl border px-4 py-10 text-center text-sm"
-    >
-      Loading machines…
+    <div class="space-y-3">
+      {#each { length: 3 } as _}
+        <div class="border-border bg-card rounded-2xl border p-4">
+          <div class="grid gap-4 xl:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_auto] xl:items-start">
+            <div class="space-y-3">
+              <div class="space-y-1.5">
+                <div class="flex items-center gap-2">
+                  <Skeleton class="h-5 w-32" />
+                  <Skeleton class="h-4 w-10 rounded-full" />
+                </div>
+                <Skeleton class="h-3.5 w-28" />
+              </div>
+              <div class="flex items-center gap-1.5">
+                <Skeleton class="size-2 rounded-full" />
+                <Skeleton class="size-2 rounded-full" />
+                <Skeleton class="size-2 rounded-full" />
+              </div>
+            </div>
+            <div class="space-y-2">
+              {#each { length: 3 } as __}
+                <div class="flex items-center gap-3">
+                  <Skeleton class="h-3 w-10" />
+                  <Skeleton class="h-2 flex-1 rounded-full" />
+                  <Skeleton class="h-3 w-14" />
+                </div>
+              {/each}
+            </div>
+            <div class="flex items-center gap-1">
+              <Skeleton class="size-8 rounded-md" />
+              <Skeleton class="size-8 rounded-md" />
+            </div>
+          </div>
+        </div>
+      {/each}
     </div>
   {:else if state === 'error'}
     <div class="border-border bg-card rounded-xl border px-4 py-10 text-center text-sm">
@@ -105,11 +140,12 @@
       </div>
     </div>
   {:else if state === 'empty'}
-    <div class="border-border bg-card rounded-xl border border-dashed px-4 py-10 text-center">
-      <p class="text-foreground text-sm font-medium">
-        No machines configured for this organization.
-      </p>
-      <p class="text-muted-foreground mt-2 text-sm">
+    <div class="border-border bg-card rounded-xl border border-dashed px-4 py-14 text-center">
+      <div class="bg-muted/60 mx-auto mb-4 flex size-12 items-center justify-center rounded-full">
+        <Server class="text-muted-foreground size-5" />
+      </div>
+      <p class="text-foreground text-sm font-medium">No machines configured</p>
+      <p class="text-muted-foreground mt-1 text-sm">
         Register a remote worker to make it available for orchestration and routing.
       </p>
       <div class="mt-4">
@@ -129,10 +165,13 @@
       </div>
 
       {#if machines.length === 0}
-        <div
-          class="border-border bg-card text-muted-foreground rounded-xl border border-dashed px-4 py-8 text-center text-sm"
-        >
-          {emptyMessage}
+        <div class="border-border bg-card rounded-xl border border-dashed px-4 py-12 text-center">
+          <div
+            class="bg-muted/60 mx-auto mb-3 flex size-10 items-center justify-center rounded-full"
+          >
+            <Search class="text-muted-foreground size-4" />
+          </div>
+          <p class="text-muted-foreground text-sm">{emptyMessage}</p>
         </div>
       {:else}
         <div class="space-y-3">

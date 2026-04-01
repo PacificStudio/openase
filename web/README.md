@@ -2,6 +2,39 @@
 
 The `web` package is the SvelteKit frontend embedded into the OpenASE Go binary. This README is the working contract for how frontend code is organized, split, and blocked in CI.
 
+## Local Dev Mode
+
+You can run the frontend as a standalone Vite dev server and proxy API traffic to an already-running OpenASE backend on the same machine.
+
+Default dev settings:
+
+- frontend host: `127.0.0.1`
+- frontend port: `4173`
+- backend proxy target: unset by default
+
+When `OPENASE_DEV_PROXY_TARGET` is set, Vite proxies `/api/*` to that backend. This covers normal JSON APIs and SSE streams because the frontend already uses relative `/api/...` paths.
+
+Example against a repo-local OpenASE backend on `127.0.0.1:19836`:
+
+```sh
+cd web
+PATH=/home/yuzhong/.nvm/versions/node/v22.22.1/bin:$PATH \
+OPENASE_DEV_PROXY_TARGET=http://127.0.0.1:19836 \
+pnpm dev
+```
+
+Then open:
+
+```text
+http://127.0.0.1:4173
+```
+
+Optional overrides:
+
+- `OPENASE_DEV_HOST`
+- `OPENASE_DEV_PORT`
+- `OPENASE_DEV_PROXY_TARGET`
+
 ## Layering
 
 OpenASE frontend code must follow a one-way dependency stack. The first line is the coarse-grained layer boundary; the second line expands what usually sits inside a feature implementation:

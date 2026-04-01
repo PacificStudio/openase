@@ -43,8 +43,14 @@ const budgetRules = [
         'Onboarding repo step keeps create and link flows together until onboarding step extraction lands.',
       'src/lib/features/settings/components/workflow-scheduled-job-cron-picker.svelte':
         'Cron picker keeps presets and field editor together until scheduled job form extraction lands.',
+      'src/lib/features/settings/components/workflow-scheduled-jobs-panel.svelte':
+        'Scheduled jobs panel still coordinates list, editor, and summary sections until panel extraction lands.',
       'src/lib/features/skills/components/skill-editor-page.svelte':
         'Skill editor page still hosts save/binding orchestration until controller extraction lands.',
+      'src/lib/features/skills/components/skills-page.svelte':
+        'Skills page still coordinates browser, selection, and editor loading until page controller extraction lands.',
+      'src/lib/features/ticket-detail/components/ticket-drawer.svelte':
+        'Ticket drawer still coordinates detail shell, panes, and runtime state until drawer extraction lands.',
       'src/lib/features/tickets/components/new-ticket-dialog.svelte':
         'Ticket creation dialog still hosts staged form orchestration until dialog sections are extracted.',
       'src/lib/features/tickets/components/tickets-page.svelte':
@@ -69,6 +75,8 @@ const budgetRules = [
         'Harness AI long-stream regression coverage stays in one integration-style test while SSE helpers remain inline.',
       'src/lib/features/chat/project-conversation-controller.svelte.ts':
         'Project conversation controller remains centralized while conversation restore and switch flows are still being integrated.',
+      'src/lib/features/chat/project-conversation-controller.test.ts':
+        'Project conversation controller regression coverage remains bundled until conversation scenario helpers are extracted.',
       'src/lib/features/workflows/components/workflows-page.test.ts':
         'Workflow page interaction coverage remains bundled until test helper extraction lands.',
     },

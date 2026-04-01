@@ -48,7 +48,41 @@
 </script>
 
 {#if loadingDetail}
-  <div class="text-muted-foreground px-6 py-10 text-center text-sm">Loading…</div>
+  <div class="animate-pulse">
+    <!-- Skeleton: description + metadata -->
+    <div class="border-border space-y-3 border-b px-6 py-4">
+      <div class="bg-muted h-4 w-3/4 rounded"></div>
+      <div class="flex items-center gap-4">
+        <div class="bg-muted h-3 w-16 rounded"></div>
+        <div class="bg-muted h-3 w-20 rounded"></div>
+      </div>
+    </div>
+    <!-- Skeleton: workflow bindings -->
+    <div class="border-border space-y-2 border-b px-6 py-4">
+      <div class="bg-muted h-3 w-28 rounded"></div>
+      <div class="flex flex-wrap gap-1.5">
+        {#each { length: 3 } as _}
+          <div class="bg-muted h-7 w-24 rounded-md"></div>
+        {/each}
+      </div>
+    </div>
+    <!-- Skeleton: SKILL.md content -->
+    <div class="border-border space-y-2 border-b px-6 py-4">
+      <div class="bg-muted h-3 w-16 rounded"></div>
+      <div class="bg-muted h-32 w-full rounded-md"></div>
+    </div>
+    <!-- Skeleton: version history -->
+    <div class="space-y-2 px-6 py-4">
+      <div class="bg-muted h-3 w-24 rounded"></div>
+      {#each { length: 2 } as _}
+        <div class="flex items-center gap-3">
+          <div class="bg-muted h-3 w-8 rounded"></div>
+          <div class="bg-muted h-3 w-20 rounded"></div>
+          <div class="bg-muted h-3 w-24 rounded"></div>
+        </div>
+      {/each}
+    </div>
+  </div>
 {:else}
   <section class="border-border space-y-3 border-b px-6 py-4">
     {#if editing}

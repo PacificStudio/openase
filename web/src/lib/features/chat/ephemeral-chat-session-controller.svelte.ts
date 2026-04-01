@@ -222,6 +222,8 @@ export function createEphemeralChatSessionController(
       const controller = new AbortController()
       const activeRequestId = ++requestId
       abortController = controller
+      let streamStarted = false
+      let partialReplyReceived = false
 
       try {
         await streamChatTurn(
@@ -238,6 +240,10 @@ export function createEphemeralChatSessionController(
               if (activeRequestId !== requestId) {
                 return
               }
+              streamStarted = true
+              if (event.kind === 'message' && event.payload.type === 'text' && event.payload.content) {
+                partialReplyReceived = true
+              }
               handleStreamEvent(event)
             },
           },
@@ -245,7 +251,7 @@ export function createEphemeralChatSessionController(
       } catch (caughtError) {
         if (activeRequestId === requestId && !isAbortError(caughtError)) {
           finalizeActiveAssistantText()
-          input.onError?.(describeTurnFailure(caughtError))
+          input.onError?.(describeTurnFailure(caughtError, { streamStarted, partialReplyReceived }))
         }
       } finally {
         if (activeRequestId === requestId && abortController === controller) {

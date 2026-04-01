@@ -11,7 +11,8 @@
   import { Input } from '$ui/input'
   import { Sheet, SheetContent, SheetHeader, SheetTitle } from '$ui/sheet'
   import { Textarea } from '$ui/textarea'
-  import { Link2, Plus, Search } from '@lucide/svelte'
+  import { Skeleton } from '$ui/skeleton'
+  import { ChevronRight, Link2, Plus, Search } from '@lucide/svelte'
 
   type SkillFilter = 'all' | 'builtin' | 'custom' | 'disabled'
 
@@ -176,7 +177,22 @@
   </div>
 
   {#if loading}
-    <div class="text-muted-foreground py-8 text-sm">Loading skills…</div>
+    <div class="divide-border divide-y rounded-lg border">
+      {#each { length: 5 } as _}
+        <div class="flex items-start gap-3 px-4 py-3">
+          <Skeleton class="mt-1.5 size-2 shrink-0 rounded-full" />
+          <div class="min-w-0 flex-1 space-y-2">
+            <div class="flex items-center gap-2">
+              <Skeleton class="h-4 w-32" />
+              <Skeleton class="h-4 w-12 rounded-full" />
+              <Skeleton class="h-4 w-8 rounded-full" />
+            </div>
+            <Skeleton class="h-3 w-48" />
+          </div>
+          <Skeleton class="mt-0.5 h-3.5 w-16" />
+        </div>
+      {/each}
+    </div>
   {:else if filteredSkills.length === 0}
     <div class="text-muted-foreground rounded-lg border border-dashed py-12 text-center text-sm">
       {skills.length === 0
@@ -190,7 +206,7 @@
         {@const boundNames = skill.bound_workflows.map((w) => w.name).join(', ')}
         <button
           type="button"
-          class="hover:bg-muted/40 flex w-full items-start gap-3 px-4 py-3 text-left transition-colors"
+          class="group hover:bg-muted/40 flex w-full items-start gap-3 px-4 py-3 text-left transition-colors"
           onclick={() => openSkill(skill)}
         >
           <span
@@ -231,8 +247,13 @@
             {/if}
           </div>
 
-          <div class="text-muted-foreground shrink-0 text-xs">
-            {skill.is_builtin ? '' : skill.created_by}
+          <div class="flex shrink-0 items-center gap-2">
+            <span class="text-muted-foreground text-xs">
+              {skill.is_builtin ? '' : skill.created_by}
+            </span>
+            <ChevronRight
+              class="text-muted-foreground/40 group-hover:text-foreground/60 size-4 shrink-0 transition-colors"
+            />
           </div>
         </button>
       {/each}

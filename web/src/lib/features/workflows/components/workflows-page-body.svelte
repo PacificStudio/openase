@@ -17,6 +17,7 @@
 
   let {
     loading = false,
+    loadingHarness = false,
     settingsHref = null,
     loadError = '',
     workflows,
@@ -49,6 +50,7 @@
     onCreated,
   }: {
     loading?: boolean
+    loadingHarness?: boolean
     settingsHref?: string | null
     loadError?: string
     workflows: WorkflowSummary[]
@@ -109,6 +111,7 @@
       {saving}
       {validating}
       {isDirty}
+      {loadingHarness}
       {showList}
       onDraftChange={(raw) => onDraftChange?.(raw)}
       {onApplyAssistantDraft}

@@ -3,6 +3,7 @@
   import { projectPath } from '$lib/stores/app-context'
   import { formatCurrency, formatRelativeTime } from '$lib/utils'
   import { Badge } from '$ui/badge'
+  import { Skeleton } from '$ui/skeleton'
   import { Bot, Coins, Ticket as TicketIcon } from '@lucide/svelte'
 
   type ProjectMetrics = {
@@ -69,7 +70,11 @@
               {/if}
             </div>
           {:else if loading}
-            <div class="text-muted-foreground mt-3 text-xs">Loading metrics…</div>
+            <div class="mt-3 flex items-center gap-4">
+              <Skeleton class="h-3.5 w-16" />
+              <Skeleton class="h-3.5 w-16" />
+              <Skeleton class="h-3.5 w-20" />
+            </div>
           {/if}
         </a>
       {/each}

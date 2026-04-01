@@ -9,6 +9,7 @@
     ChevronDown,
     ChevronUp,
     GripHorizontal,
+    Loader2,
     PanelLeftClose,
     PanelLeftOpen,
     Settings,
@@ -31,6 +32,7 @@
     saving = false,
     validating = false,
     isDirty = false,
+    loadingHarness = false,
     showList = true,
     onDraftChange,
     onApplyAssistantDraft,
@@ -50,6 +52,7 @@
     saving?: boolean
     validating?: boolean
     isDirty?: boolean
+    loadingHarness?: boolean
     showList?: boolean
     onDraftChange?: (value: string) => void
     onApplyAssistantDraft?: (value: string) => void
@@ -195,7 +198,14 @@
 
   <!-- Editor + AI drawer vertical split -->
   <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-    {#if harness}
+    {#if loadingHarness && !harness}
+      <div
+        class="text-muted-foreground flex min-h-0 flex-1 items-center justify-center gap-2 text-sm"
+      >
+        <Loader2 class="size-4 animate-spin" />
+        Loading harness…
+      </div>
+    {:else if harness}
       <!-- Editor area -->
       <div class="min-h-0 flex-1 overflow-hidden">
         <HarnessEditor

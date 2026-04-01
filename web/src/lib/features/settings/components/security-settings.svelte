@@ -128,7 +128,38 @@
   <Separator />
 
   {#if loading}
-    <div class="text-muted-foreground text-sm">Loading security settings…</div>
+    <div class="space-y-6">
+      <!-- Skeleton: GitHub credentials section -->
+      <div class="space-y-3">
+        <div class="bg-muted h-4 w-44 animate-pulse rounded"></div>
+        <div class="bg-muted h-3 w-72 animate-pulse rounded"></div>
+        {#each { length: 2 } as _}
+          <div class="border-border bg-card rounded-lg border p-4">
+            <div class="flex items-center gap-3">
+              <div class="bg-muted size-8 shrink-0 animate-pulse rounded-lg"></div>
+              <div class="flex-1 space-y-1.5">
+                <div class="bg-muted h-4 w-28 animate-pulse rounded"></div>
+                <div class="bg-muted h-3 w-40 animate-pulse rounded"></div>
+              </div>
+              <div class="bg-muted h-7 w-20 animate-pulse rounded-md"></div>
+            </div>
+          </div>
+        {/each}
+      </div>
+      <div class="bg-border h-px"></div>
+      <!-- Skeleton: platform details -->
+      <div class="space-y-3">
+        <div class="bg-muted h-4 w-32 animate-pulse rounded"></div>
+        <div class="grid grid-cols-2 gap-3">
+          {#each { length: 4 } as _}
+            <div class="flex items-center gap-2">
+              <div class="bg-muted h-3 w-20 animate-pulse rounded"></div>
+              <div class="bg-muted h-3 w-24 animate-pulse rounded"></div>
+            </div>
+          {/each}
+        </div>
+      </div>
+    </div>
   {:else if error}
     <div class="text-destructive text-sm">{error}</div>
   {:else if security}

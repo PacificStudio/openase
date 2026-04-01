@@ -71,6 +71,7 @@
     stageStatusIndex >= 0 && stageStatusIndex < stageStatuses.length - 1,
   )
   const hasConcurrencyLimit = $derived(currentStatus?.maxActiveRuns != null)
+  const showInlineCreateButton = $derived(!showDropPlaceholder)
 </script>
 
 <div class={cn('flex h-full min-h-0 max-w-[320px] min-w-[280px] shrink-0 flex-col', className)}>
@@ -160,6 +161,17 @@
     ondragover={handleDragOver}
     ondrop={handleDrop}
   >
+    {#if column.tickets.length === 0 && showInlineCreateButton}
+      <button
+        type="button"
+        class="border-border/60 text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted/50 flex w-full shrink-0 items-center justify-center rounded-md border border-dashed py-1.5 transition-colors"
+        aria-label="Add ticket to {column.name}"
+        onclick={() => onCreateTicket?.(column.id)}
+      >
+        <Plus class="size-3.5" />
+      </button>
+    {/if}
+
     {#if column.tickets.length === 0 && !showDropPlaceholder}
       <div class="text-muted-foreground flex flex-1 flex-col items-center justify-center py-8">
         <Inbox class="mb-2 size-5" />
@@ -189,13 +201,15 @@
       </div>
     {/if}
 
-    <button
-      type="button"
-      class="border-border/60 text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted/50 flex w-full shrink-0 items-center justify-center rounded-md border border-dashed py-1.5 transition-colors"
-      aria-label="Add ticket to {column.name}"
-      onclick={() => onCreateTicket?.(column.id)}
-    >
-      <Plus class="size-3.5" />
-    </button>
+    {#if column.tickets.length > 0 && showInlineCreateButton}
+      <button
+        type="button"
+        class="border-border/60 text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted/50 flex w-full shrink-0 items-center justify-center rounded-md border border-dashed py-1.5 transition-colors"
+        aria-label="Add ticket to {column.name}"
+        onclick={() => onCreateTicket?.(column.id)}
+      >
+        <Plus class="size-3.5" />
+      </button>
+    {/if}
   </div>
 </div>

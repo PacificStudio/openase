@@ -49,18 +49,17 @@
 </script>
 
 <div class="flex h-full flex-col">
-  {#if loading}
-    <div class="text-muted-foreground p-6 text-sm">Loading scheduled jobs…</div>
-  {:else if error}
+  {#if error}
     <div class="text-destructive p-6 text-sm">{error}</div>
-  {:else if !appStore.currentProject?.id}
+  {:else if !loading && !appStore.currentProject?.id}
     <div class="text-muted-foreground p-6 text-sm">Project context is unavailable.</div>
-  {:else if statuses.length === 0}
+  {:else if !loading && statuses.length === 0}
     <div class="text-muted-foreground p-6 text-sm">No ticket statuses available.</div>
   {:else}
     <WorkflowScheduledJobsPanel
-      projectId={appStore.currentProject.id}
-      {statuses}
+      projectId={appStore.currentProject?.id ?? ''}
+      statuses={loading ? [] : statuses}
+      {loading}
       title="Scheduled Jobs"
       description="Manage recurring ticket creation for project statuses."
     />

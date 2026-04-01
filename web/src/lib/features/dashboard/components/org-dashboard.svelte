@@ -13,6 +13,7 @@
   import { ApiError } from '$lib/api/client'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
+  import { Skeleton } from '$ui/skeleton'
   import { Textarea } from '$ui/textarea'
   import * as Select from '$ui/select'
   import StatCard from './stat-card.svelte'
@@ -337,29 +338,110 @@
       />
     {:else}
       <div class="space-y-6">
-        {#if loading}
-          <div
-            class="border-border bg-card text-muted-foreground rounded-md border px-4 py-10 text-center text-sm"
-          >
-            Loading dashboard…
-          </div>
-        {:else if error}
+        {#if error && !loading}
           <div
             class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
           >
             {error}
           </div>
-        {:else}
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard label="Running Agents" value={stats.runningAgents} icon={Bot} />
-            <StatCard label="Active Tickets" value={stats.activeTickets} icon={Ticket} />
-            <StatCard label="Ticket Tokens" value={formatCount(totalTicketTokens)} icon={Coins} />
-            <StatCard
-              label="Heap In Use"
-              value={memory ? formatBytes(memory.heap_inuse_bytes) : '—'}
-            />
+        {/if}
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="Running Agents" value={stats.runningAgents} icon={Bot} {loading} />
+          <StatCard label="Active Tickets" value={stats.activeTickets} icon={Ticket} {loading} />
+          <StatCard
+            label="Ticket Tokens"
+            value={formatCount(totalTicketTokens)}
+            icon={Coins}
+            {loading}
+          />
+          <StatCard
+            label="Heap In Use"
+            value={memory ? formatBytes(memory.heap_inuse_bytes) : '—'}
+            {loading}
+          />
+        </div>
+
+        {#if loading}
+          <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div class="border-border bg-card rounded-md border">
+              <div class="border-border flex items-center justify-between border-b px-4 py-3">
+                <Skeleton class="h-4 w-28" />
+                <Skeleton class="size-4" />
+              </div>
+              <div class="space-y-3 p-4">
+                <div class="grid grid-cols-2 gap-3">
+                  {#each { length: 4 } as _}
+                    <div class="bg-muted/40 rounded-md px-3 py-2">
+                      <Skeleton class="h-3 w-20" />
+                      <Skeleton class="mt-2 h-5 w-14" />
+                    </div>
+                  {/each}
+                </div>
+                <Skeleton class="h-px w-full" />
+                <div class="flex justify-between">
+                  <Skeleton class="h-5 w-24" />
+                  <Skeleton class="h-5 w-24" />
+                </div>
+              </div>
+            </div>
+            <div class="border-border bg-card rounded-md border">
+              <div class="border-border flex items-center justify-between border-b px-4 py-3">
+                <Skeleton class="h-4 w-20" />
+                <Skeleton class="size-4" />
+              </div>
+              <div class="space-y-3 p-4">
+                {#each { length: 3 } as _}
+                  <div class="flex items-start gap-3">
+                    <Skeleton class="mt-0.5 size-4 shrink-0 rounded-full" />
+                    <div class="flex-1 space-y-1">
+                      <Skeleton class="h-3.5 w-3/4" />
+                      <Skeleton class="h-3 w-1/3" />
+                    </div>
+                  </div>
+                {/each}
+              </div>
+            </div>
           </div>
 
+          <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div class="border-border bg-card rounded-md border lg:col-span-2">
+              <div class="border-border flex items-center justify-between border-b px-4 py-3">
+                <Skeleton class="h-4 w-24" />
+                <Skeleton class="size-4" />
+              </div>
+              <div class="space-y-3 p-4">
+                {#each { length: 4 } as _}
+                  <div class="flex items-center gap-3">
+                    <Skeleton class="size-6 shrink-0 rounded-full" />
+                    <div class="flex-1 space-y-1">
+                      <Skeleton class="h-3.5 w-2/3" />
+                      <Skeleton class="h-3 w-1/4" />
+                    </div>
+                    <Skeleton class="h-3 w-16" />
+                  </div>
+                {/each}
+              </div>
+            </div>
+            <div class="border-border bg-card rounded-md border">
+              <div class="border-border flex items-center justify-between border-b px-4 py-3">
+                <Skeleton class="h-4 w-20" />
+                <Skeleton class="size-4" />
+              </div>
+              <div class="space-y-3 p-4">
+                <Skeleton class="h-4 w-full rounded-full" />
+                <div class="grid grid-cols-2 gap-3">
+                  {#each { length: 4 } as _}
+                    <div class="space-y-1">
+                      <Skeleton class="h-3 w-16" />
+                      <Skeleton class="h-4 w-12" />
+                    </div>
+                  {/each}
+                </div>
+              </div>
+            </div>
+          </div>
+        {:else if !error}
           <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <CostSnapshotPanel
               newTicketsTodayCost={stats.newTicketsTodayCost}

@@ -13,6 +13,7 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { projectPath } from '$lib/stores/app-context'
   import { toastStore } from '$lib/stores/toast.svelte'
+  import { Skeleton } from '$ui/skeleton'
   import SkillEditorHeader from './skill-editor-header.svelte'
   import {
     formatBytes,
@@ -452,8 +453,96 @@
 <svelte:window onkeydown={handleKeydown} onbeforeunload={handleBeforeUnload} />
 
 {#if loading}
-  <div class="text-muted-foreground flex h-full items-center justify-center text-sm">
-    Loading skill…
+  <div class="flex h-full flex-col">
+    <!-- Skeleton header -->
+    <header class="border-border flex shrink-0 items-center justify-between border-b px-4 py-2">
+      <div class="flex items-center gap-3">
+        <Skeleton class="size-7 rounded-md" />
+        <div class="flex items-center gap-2">
+          <Skeleton class="size-2 rounded-full" />
+          <Skeleton class="h-4 w-28" />
+          <Skeleton class="h-4 w-12 rounded-full" />
+          <Skeleton class="h-4 w-8 rounded-full" />
+        </div>
+      </div>
+      <div class="flex items-center gap-1">
+        <Skeleton class="h-7 w-16 rounded-md" />
+        <Skeleton class="size-7 rounded-md" />
+        <Skeleton class="size-7 rounded-md" />
+      </div>
+    </header>
+
+    <!-- Skeleton workspace -->
+    <div class="flex min-h-0 flex-1">
+      <!-- Skeleton file tree -->
+      <aside class="border-border w-48 shrink-0 border-r p-2">
+        <div class="mb-1.5 flex items-center justify-between px-1">
+          <Skeleton class="h-3 w-10" />
+        </div>
+        <div class="space-y-1">
+          {#each { length: 6 } as _, i}
+            <div
+              class="flex items-center gap-2 px-2 py-1"
+              style:padding-left={i > 2 ? '20px' : '8px'}
+            >
+              <Skeleton class="size-3.5 shrink-0" />
+              <Skeleton class="h-3 {i === 0 ? 'w-16' : i < 3 ? 'w-20' : 'w-14'}" />
+            </div>
+          {/each}
+        </div>
+      </aside>
+
+      <!-- Skeleton editor -->
+      <div class="flex min-w-0 flex-1 flex-col">
+        <div class="border-border flex items-center gap-1 border-b px-2 py-1.5">
+          <Skeleton class="h-6 w-20 rounded-md" />
+          <Skeleton class="h-6 w-16 rounded-md" />
+        </div>
+        <div class="flex-1 space-y-2 p-4">
+          <Skeleton class="h-3.5 w-[72%]" />
+          <Skeleton class="h-3.5 w-[55%]" />
+          <Skeleton class="h-3.5 w-[88%]" />
+          <Skeleton class="h-3.5 w-[45%]" />
+          <Skeleton class="h-3.5 w-[67%]" />
+          <Skeleton class="h-3.5 w-[78%]" />
+          <Skeleton class="h-3.5 w-[52%]" />
+          <Skeleton class="h-3.5 w-[90%]" />
+          <Skeleton class="h-3.5 w-[40%]" />
+          <Skeleton class="h-3.5 w-[63%]" />
+          <Skeleton class="h-3.5 w-[80%]" />
+          <Skeleton class="h-3.5 w-[48%]" />
+        </div>
+      </div>
+
+      <!-- Skeleton metadata panel -->
+      <aside class="border-border w-64 shrink-0 border-l p-3">
+        <div class="space-y-4">
+          <div class="space-y-1.5">
+            <Skeleton class="h-3 w-20" />
+            <Skeleton class="h-8 w-full rounded-md" />
+          </div>
+          <div class="space-y-1.5">
+            <Skeleton class="h-3 w-10" />
+            <Skeleton class="h-3 w-24" />
+            <Skeleton class="h-3 w-20" />
+            <Skeleton class="h-3 w-32" />
+          </div>
+          <div class="space-y-1.5">
+            <Skeleton class="h-3 w-16" />
+            <div class="flex flex-wrap gap-1">
+              <Skeleton class="h-6 w-20 rounded-md" />
+              <Skeleton class="h-6 w-24 rounded-md" />
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Skeleton status bar -->
+    <footer class="border-border bg-muted/30 flex shrink-0 items-center gap-4 border-t px-4 py-1">
+      <Skeleton class="h-3 w-12" />
+      <Skeleton class="h-3 w-10" />
+    </footer>
   </div>
 {:else if !skill}
   <div class="text-muted-foreground flex h-full items-center justify-center text-sm">

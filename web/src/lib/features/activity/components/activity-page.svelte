@@ -5,8 +5,9 @@
   import { listActivity, listTickets } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
   import { Input } from '$ui/input'
+  import { Skeleton } from '$ui/skeleton'
   import * as Select from '$ui/select'
-  import { Search } from '@lucide/svelte'
+  import { Activity, Search } from '@lucide/svelte'
   import type { ActivityEntry } from '../types'
   import { activityEventFilterOptions } from '../event-catalog'
   import ActivityTimeline from './activity-timeline.svelte'
@@ -144,7 +145,30 @@
     </div>
 
     {#if loading && !initialLoaded}
-      <div class="text-muted-foreground py-16 text-sm">Loading activity…</div>
+      <div class="space-y-6">
+        <div>
+          <Skeleton class="mb-3 h-3.5 w-12" />
+          <div class="space-y-1">
+            {#each { length: 6 } as _, i}
+              <div class="flex items-start gap-3 px-3 py-2.5">
+                <Skeleton class="mt-0.5 size-6 shrink-0 rounded-full" />
+                <div class="min-w-0 flex-1 space-y-1.5">
+                  <div class="flex items-center gap-2">
+                    <Skeleton class="h-4 w-20 rounded" />
+                    <Skeleton
+                      class="h-4 {i % 3 === 0 ? 'w-3/4' : i % 3 === 1 ? 'w-1/2' : 'w-2/3'}"
+                    />
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <Skeleton class="h-3 w-16" />
+                    <Skeleton class="h-3 w-12" />
+                  </div>
+                </div>
+              </div>
+            {/each}
+          </div>
+        </div>
+      </div>
     {:else if error && entries.length === 0}
       <div
         class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
@@ -154,7 +178,22 @@
     {:else if filtered.length > 0}
       <ActivityTimeline entries={filtered} />
     {:else}
-      <div class="text-muted-foreground py-16 text-sm">No events match your filters.</div>
+      <div class="flex flex-col items-center justify-center py-20">
+        <div class="bg-muted/60 mb-4 flex size-12 items-center justify-center rounded-full">
+          <Activity class="text-muted-foreground size-5" />
+        </div>
+        {#if entries.length === 0}
+          <p class="text-foreground text-sm font-medium">No activity yet</p>
+          <p class="text-muted-foreground mt-1 text-sm">
+            Events will appear here as agents and tickets run.
+          </p>
+        {:else}
+          <p class="text-foreground text-sm font-medium">No matching events</p>
+          <p class="text-muted-foreground mt-1 text-sm">
+            Try adjusting your search or filter criteria.
+          </p>
+        {/if}
+      </div>
     {/if}
   </div>
 </PageScaffold>

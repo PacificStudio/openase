@@ -215,7 +215,45 @@
   <Separator />
 
   {#if loading}
-    <div class="text-muted-foreground text-sm">Loading notification settings…</div>
+    <div class="space-y-6">
+      <!-- Skeleton: channels -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="bg-muted h-4 w-36 animate-pulse rounded"></div>
+          <div class="bg-muted h-8 w-24 animate-pulse rounded-md"></div>
+        </div>
+        {#each { length: 2 } as _}
+          <div class="border-border bg-card flex items-center gap-3 rounded-lg border px-4 py-3">
+            <div class="bg-muted h-5 w-9 shrink-0 animate-pulse rounded-full"></div>
+            <div class="flex-1 space-y-1.5">
+              <div class="bg-muted h-4 w-28 animate-pulse rounded"></div>
+              <div class="bg-muted h-3 w-20 animate-pulse rounded"></div>
+            </div>
+            <div class="flex items-center gap-1">
+              <div class="bg-muted size-7 animate-pulse rounded"></div>
+              <div class="bg-muted size-7 animate-pulse rounded"></div>
+            </div>
+          </div>
+        {/each}
+      </div>
+      <!-- Skeleton: rules -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="bg-muted h-4 w-32 animate-pulse rounded"></div>
+          <div class="bg-muted h-8 w-20 animate-pulse rounded-md"></div>
+        </div>
+        {#each { length: 2 } as _}
+          <div class="border-border bg-card flex items-center gap-3 rounded-lg border px-4 py-3">
+            <div class="bg-muted h-5 w-9 shrink-0 animate-pulse rounded-full"></div>
+            <div class="flex-1 space-y-1.5">
+              <div class="bg-muted h-4 w-32 animate-pulse rounded"></div>
+              <div class="bg-muted h-3 w-44 animate-pulse rounded"></div>
+            </div>
+            <div class="bg-muted size-7 animate-pulse rounded"></div>
+          </div>
+        {/each}
+      </div>
+    </div>
   {:else if error}
     <div class="text-destructive text-sm">{error}</div>
   {:else}

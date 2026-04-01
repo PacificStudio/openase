@@ -195,7 +195,23 @@
   </div>
 
   {#if loading}
-    <div class="text-muted-foreground py-8 text-sm">Loading skills…</div>
+    <div class="divide-border divide-y rounded-lg border">
+      {#each { length: 4 } as _}
+        <div class="flex items-center gap-3 px-4 py-3">
+          <div class="min-w-0 flex-1 space-y-1.5">
+            <div class="flex items-center gap-2">
+              <div class="bg-muted h-4 w-28 animate-pulse rounded"></div>
+              <div class="bg-muted h-4 w-14 animate-pulse rounded-full"></div>
+            </div>
+            <div class="bg-muted h-3 w-48 animate-pulse rounded"></div>
+          </div>
+          <div class="flex shrink-0 items-center gap-2">
+            <div class="bg-muted h-3 w-16 animate-pulse rounded"></div>
+            <div class="bg-muted size-4 animate-pulse rounded"></div>
+          </div>
+        </div>
+      {/each}
+    </div>
   {:else if filteredSkills.length === 0}
     <div class="text-muted-foreground rounded-lg border border-dashed py-12 text-center text-sm">
       {skills.length === 0

@@ -24,19 +24,22 @@
   let {
     projectId,
     statuses,
+    loading: parentLoading = false,
     showHeader = true,
     title = 'Scheduled Jobs',
     description = 'Manage recurring ticket creation for project statuses.',
   }: {
     projectId: string
     statuses: WorkflowStatusOption[]
+    loading?: boolean
     showHeader?: boolean
     title?: string
     description?: string
   } = $props()
 
   let jobs = $state<ScheduledJob[]>([])
-  let loading = $state(false)
+  let loadingJobs = $state(false)
+  const loading = $derived(parentLoading || loadingJobs)
   let saving = $state(false)
   let deleting = $state(false)
   let triggering = $state(false)
@@ -64,10 +67,12 @@
   })
 
   $effect(() => {
+    if (!projectId) return
+
     let cancelled = false
 
     const load = async () => {
-      loading = true
+      loadingJobs = true
 
       try {
         const payload = await listScheduledJobs(projectId)
@@ -78,7 +83,7 @@
         jobs = []
         showApiError(caughtError, 'Failed to load scheduled jobs.')
       } finally {
-        if (!cancelled) loading = false
+        if (!cancelled) loadingJobs = false
       }
     }
 
@@ -238,10 +243,41 @@
     <WorkflowScheduledJobsHeader {title} {description} onCreate={openNewJob} />
   {/if}
 
-  {#if loading}
-    <div class="text-muted-foreground p-4 text-sm">Loading scheduled jobs…</div>
-  {:else}
-    <div class="flex-1 overflow-y-auto p-4">
+  <div class="flex-1 overflow-y-auto p-4">
+    {#if loading}
+      <!-- Skeleton: summary bar -->
+      <div
+        class="border-border/60 bg-card/60 mb-3 flex items-center gap-5 rounded-xl border px-4 py-3"
+      >
+        <div class="bg-muted h-4 w-16 animate-pulse rounded"></div>
+        <div class="bg-muted h-4 w-20 animate-pulse rounded"></div>
+      </div>
+      <!-- Skeleton: job cards -->
+      <div class="space-y-2">
+        {#each { length: 3 } as _}
+          <div
+            class="border-border/60 bg-card/60 flex items-center gap-3 rounded-xl border px-4 py-3"
+          >
+            <div class="bg-muted h-5 w-9 shrink-0 animate-pulse rounded-full"></div>
+            <div class="min-w-0 flex-1 space-y-2">
+              <div class="flex items-center gap-2">
+                <div class="bg-muted h-4 w-32 animate-pulse rounded"></div>
+                <div class="bg-muted h-3.5 w-24 animate-pulse rounded"></div>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="bg-muted h-3 w-20 animate-pulse rounded"></div>
+                <div class="bg-muted h-3 w-16 animate-pulse rounded"></div>
+              </div>
+            </div>
+            <div class="flex shrink-0 items-center gap-1">
+              <div class="bg-muted size-6 animate-pulse rounded"></div>
+              <div class="bg-muted size-6 animate-pulse rounded"></div>
+              <div class="bg-muted size-6 animate-pulse rounded"></div>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {:else}
       {#if jobs.length > 0}
         <WorkflowScheduledJobsSummary total={jobs.length} enabled={enabledCount} />
       {/if}
@@ -255,8 +291,8 @@
         onTriggerJob={handleTriggerJob}
         onDeleteJob={handleDeleteJob}
       />
-    </div>
-  {/if}
+    {/if}
+  </div>
 </div>
 
 <WorkflowScheduledJobEditor

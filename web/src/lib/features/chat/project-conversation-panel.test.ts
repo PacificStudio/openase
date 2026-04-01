@@ -86,6 +86,10 @@ describe('ProjectConversationPanel', () => {
     const prompt = getByPlaceholderText('Ask anything about this project…') as HTMLTextAreaElement
     const sendButton = getByRole('button', { name: 'Send message' }) as HTMLButtonElement
 
+    await waitFor(() => {
+      expect(listProjectConversations).toHaveBeenCalledTimes(2)
+    })
+
     await fireEvent.input(prompt, { target: { value: 'Summarize the repo.' } })
     await fireEvent.keyDown(prompt, { key: 'Enter' })
     await waitFor(() => {
@@ -189,5 +193,95 @@ describe('ProjectConversationPanel', () => {
         onEvent: expect.any(Function),
       }),
     )
+  })
+
+  it('continues the selected conversation when sending a new message after switching sessions', async () => {
+    listProjectConversations.mockResolvedValue({
+      conversations: [
+        {
+          id: 'conversation-1',
+          rollingSummary: 'Current conversation',
+          lastActivityAt: '2026-04-01T10:00:00Z',
+          providerId: 'provider-1',
+        },
+        {
+          id: 'conversation-2',
+          rollingSummary: 'Older discussion',
+          lastActivityAt: '2026-03-31T09:00:00Z',
+          providerId: 'provider-1',
+        },
+      ],
+    })
+    listProjectConversationEntries.mockImplementation(async (conversationId: string) => ({
+      entries:
+        conversationId === 'conversation-2'
+          ? [
+              {
+                id: 'entry-2',
+                conversationId: 'conversation-2',
+                turnId: 'turn-2',
+                seq: 1,
+                kind: 'user_message',
+                payload: { content: 'Continue the older plan' },
+                createdAt: '2026-03-31T09:00:00Z',
+              },
+            ]
+          : [
+              {
+                id: 'entry-1',
+                conversationId: 'conversation-1',
+                turnId: 'turn-1',
+                seq: 1,
+                kind: 'user_message',
+                payload: { content: 'Current conversation' },
+                createdAt: '2026-04-01T10:00:00Z',
+              },
+            ],
+    }))
+    watchProjectConversation.mockResolvedValue(undefined)
+    startProjectConversationTurn.mockResolvedValue({
+      turn: { id: 'turn-3', turn_index: 2, status: 'started' },
+    })
+
+    const { findByLabelText, findByPlaceholderText, findByText, getByRole, queryAllByText } =
+      render(ProjectConversationPanel, {
+        props: {
+          context: { projectId: 'project-1' },
+          providers: providerFixtures,
+          defaultProviderId: 'provider-1',
+          placeholder: 'Ask anything about this project…',
+        },
+      })
+
+    const selector = (await findByLabelText('Conversation')) as HTMLSelectElement
+    expect(Array.from(selector.options).map((option) => option.textContent)).toEqual([
+      'New conversation',
+      'Current conversation',
+      'Older discussion',
+    ])
+
+    await waitFor(() => {
+      expect(listProjectConversationEntries).toHaveBeenCalledWith('conversation-1')
+    })
+    await fireEvent.change(selector, { target: { value: 'conversation-2' } })
+
+    await findByText('Continue the older plan')
+    expect(queryAllByText('Current conversation')).toHaveLength(1)
+
+    const prompt = (await findByPlaceholderText(
+      'Ask anything about this project…',
+    )) as HTMLTextAreaElement
+    const sendButton = getByRole('button', { name: 'Send message' })
+
+    await fireEvent.input(prompt, { target: { value: 'Follow up on the older plan' } })
+    await fireEvent.click(sendButton)
+
+    await waitFor(() => {
+      expect(startProjectConversationTurn).toHaveBeenLastCalledWith(
+        'conversation-2',
+        'Follow up on the older plan',
+      )
+    })
+    expect(await findByText('Follow up on the older plan')).toBeTruthy()
   })
 })

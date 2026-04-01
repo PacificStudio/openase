@@ -113,7 +113,38 @@
   <Separator />
 
   {#if loading}
-    <div class="text-muted-foreground text-sm">Loading workflows…</div>
+    <div class="space-y-6">
+      <div class="border-border flex min-h-[34rem] overflow-hidden rounded-lg border">
+        <!-- Skeleton: workflow list -->
+        <div class="border-border w-64 shrink-0 border-r p-2">
+          <div class="space-y-1">
+            {#each { length: 4 } as _}
+              <div class="flex items-center gap-2 rounded-md px-3 py-2">
+                <div class="bg-muted size-2 animate-pulse rounded-full"></div>
+                <div class="bg-muted h-4 w-28 animate-pulse rounded"></div>
+              </div>
+            {/each}
+          </div>
+        </div>
+        <!-- Skeleton: workflow detail -->
+        <div class="flex-1 p-5">
+          <div class="space-y-5">
+            <div class="space-y-2">
+              <div class="bg-muted h-5 w-40 animate-pulse rounded"></div>
+              <div class="bg-muted h-3 w-64 animate-pulse rounded"></div>
+            </div>
+            {#each { length: 4 } as _}
+              <div class="flex items-center justify-between">
+                <div class="bg-muted h-3 w-24 animate-pulse rounded"></div>
+                <div class="bg-muted h-3 w-32 animate-pulse rounded"></div>
+              </div>
+            {/each}
+            <div class="bg-border h-px"></div>
+            <div class="bg-muted h-8 w-24 animate-pulse rounded-md"></div>
+          </div>
+        </div>
+      </div>
+    </div>
   {:else if error && workflows.length === 0}
     <div class="text-destructive text-sm">{error}</div>
   {:else if workflows.length === 0}

@@ -263,7 +263,7 @@ describe('createEphemeralChatSessionController', () => {
     })
 
     expect(onError).toHaveBeenCalledWith(
-      'The chat stream was interrupted before the reply completed. This can happen during a redeploy, page reload, or network reset. Retry the request.',
+      'The reply stopped mid-stream because the browser connection closed before OpenASE sent the final completion event. The partial reply was kept above. This usually means the OpenASE server restarted during the turn or the network connection reset. Retry the request.',
     )
     expect(controller.sessionId).toBe('session-1')
     expect(controller.pending).toBe(false)

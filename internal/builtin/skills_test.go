@@ -90,3 +90,49 @@ func TestBuiltinSkillsIncludeCodexFrontmatter(t *testing.T) {
 		}
 	}
 }
+
+func TestOpenASEPlatformSkillDocumentsCoreCLIFlows(t *testing.T) {
+	skill, ok := SkillByName("openase-platform")
+	if !ok {
+		t.Fatal("expected openase-platform skill to exist")
+	}
+
+	for _, snippet := range []string{
+		"OPENASE_API_URL",
+		"OPENASE_AGENT_TOKEN",
+		"OPENASE_PROJECT_ID",
+		"OPENASE_TICKET_ID",
+		"./.openase/bin/openase ticket report-usage",
+		"./.openase/bin/openase ticket comment workpad --body-file /tmp/workpad.md",
+		"./.openase/bin/openase project add-repo",
+		"./.openase/bin/openase workflow harness get $WORKFLOW_ID",
+		"./.openase/bin/openase machine refresh-health $MACHINE_ID",
+		"./.openase/bin/openase api GET /api/v1/tickets/$OPENASE_TICKET_ID",
+	} {
+		if !strings.Contains(skill.Content, snippet) {
+			t.Fatalf("expected openase-platform skill to contain %q, got:\n%s", snippet, skill.Content)
+		}
+	}
+}
+
+func TestTicketWorkpadSkillUsesGenericWorkpadTerminology(t *testing.T) {
+	skill, ok := SkillByName("ticket-workpad")
+	if !ok {
+		t.Fatal("expected ticket-workpad skill to exist")
+	}
+	if strings.Contains(skill.Description, "Codex Workpad") {
+		t.Fatalf("ticket-workpad description should avoid Codex-specific naming: %q", skill.Description)
+	}
+	if strings.Contains(skill.Content, "## Codex Workpad") {
+		t.Fatalf("ticket-workpad content should avoid Codex-specific heading: %s", skill.Content)
+	}
+	for _, snippet := range []string{
+		"Workpad 是当前工单唯一的持久化进度板",
+		"ticket comment workpad",
+		"让平台命令去复用或更新那条持久化 workpad 评论",
+	} {
+		if !strings.Contains(skill.Content, snippet) {
+			t.Fatalf("expected ticket-workpad skill to contain %q, got:\n%s", snippet, skill.Content)
+		}
+	}
+}

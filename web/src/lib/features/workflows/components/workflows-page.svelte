@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { beforeNavigate } from '$app/navigation'
   import { projectPath } from '$lib/stores/app-context'
   import { appStore } from '$lib/stores/app.svelte'
@@ -29,6 +30,7 @@
     showTemplateGallery = $state(false),
     showList = $state(true)
   let loading = $state(false),
+    loadingHarness = $state(false),
     saving = $state(false),
     validating = $state(false)
   let loadError = $state('')
@@ -84,6 +86,7 @@
     validationIssues = []
   }
 
+  // Load workflow index when project/org changes (initial page load)
   $effect(() => {
     const projectId = appStore.currentProject?.id
     const orgId = appStore.currentOrg?.id
@@ -93,20 +96,23 @@
       loading = false
       return
     }
+    // Read selectedId without creating a dependency so this effect
+    // does NOT re-run when the user switches between workflows.
+    const currentSelectedId = untrack(() => selectedId)
     let cancelled = false
     const load = async () => {
       loading = true
       loadError = ''
       try {
-        const payload = await loadWorkflowPageData(projectId, orgId, selectedId)
+        const payload = await loadWorkflowPageData(projectId, orgId, currentSelectedId)
         if (cancelled) return
         const nextWorkflows = payload.workflows
         workflows = nextWorkflows
         agentOptions = payload.agentOptions
         providers = payload.providers
         if (
-          !selectedId ||
-          !nextWorkflows.some((workflow) => workflow.id === selectedId) ||
+          !currentSelectedId ||
+          !nextWorkflows.some((workflow) => workflow.id === currentSelectedId) ||
           payload.selectedWorkflowId
         ) {
           selectedId = payload.selectedWorkflowId || nextWorkflows[0]?.id || ''
@@ -135,6 +141,8 @@
       cancelled = true
     }
   })
+
+  // Load harness when the selected workflow changes (lightweight, no full-page loading)
   $effect(() => {
     const workflowId = selectedId
     const projectId = appStore.currentProject?.id
@@ -147,7 +155,8 @@
     }
     if (workflowId === loadedHarnessWorkflowId) return
     let cancelled = false
-    const loadHarness = async () => {
+    const doLoadHarness = async () => {
+      loadingHarness = true
       try {
         const payload = await loadWorkflowHarness(projectId, workflowId)
         if (cancelled) return
@@ -164,9 +173,13 @@
         toastStore.error(
           caughtError instanceof ApiError ? caughtError.detail : 'Failed to load harness.',
         )
+      } finally {
+        if (!cancelled) {
+          loadingHarness = false
+        }
       }
     }
-    void loadHarness()
+    void doLoadHarness()
     return () => {
       cancelled = true
     }
@@ -296,6 +309,7 @@
 >
   <WorkflowsPageBody
     {loading}
+    {loadingHarness}
     {settingsHref}
     {loadError}
     {workflows}

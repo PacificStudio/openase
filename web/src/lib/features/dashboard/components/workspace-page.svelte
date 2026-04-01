@@ -20,6 +20,7 @@
   import { formatCount, formatCurrency } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
+  import { Skeleton } from '$ui/skeleton'
   import { Bot, Coins, FolderOpen, Ticket } from '@lucide/svelte'
   import StatCard from './stat-card.svelte'
 
@@ -96,17 +97,24 @@
 
   {#if organizations.length > 0}
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <StatCard label="Running Agents" value={workspaceStats.runningAgents} icon={Bot} />
-      <StatCard label="Active Tickets" value={workspaceStats.activeTickets} icon={Ticket} />
+      <StatCard label="Running Agents" value={workspaceStats.runningAgents} icon={Bot} {loading} />
+      <StatCard
+        label="Active Tickets"
+        value={workspaceStats.activeTickets}
+        icon={Ticket}
+        {loading}
+      />
       <StatCard
         label="Today's Cost"
         value={formatCurrency(workspaceStats.todayCost)}
         icon={Coins}
+        {loading}
       />
       <StatCard
         label="Total Tokens"
         value={formatCount(workspaceStats.totalTokens)}
         icon={FolderOpen}
+        {loading}
       />
     </div>
   {/if}
@@ -162,7 +170,13 @@
                 </span>
               </div>
             {:else if loading}
-              <div class="text-muted-foreground mt-3 text-xs">Loading metrics…</div>
+              <div class="mt-3 flex items-center gap-4">
+                <Skeleton class="h-3.5 w-16" />
+                <Skeleton class="h-3.5 w-16" />
+                <Skeleton class="h-3.5 w-10" />
+                <Skeleton class="h-3.5 w-10" />
+                <Skeleton class="h-3.5 w-14" />
+              </div>
             {/if}
           </a>
         {/each}

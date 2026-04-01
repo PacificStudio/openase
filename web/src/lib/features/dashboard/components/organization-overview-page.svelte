@@ -107,14 +107,15 @@
 
   {#if projects.length > 0}
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <StatCard label="Active Projects" value={activeProjectCount} icon={FolderOpen} />
-      <StatCard label="Running Agents" value={orgStats.runningAgents} icon={Bot} />
+      <StatCard label="Active Projects" value={activeProjectCount} icon={FolderOpen} {loading} />
+      <StatCard label="Running Agents" value={orgStats.runningAgents} icon={Bot} {loading} />
       <StatCard
         label="Today's Cost"
         value={formatCurrency(orgStats.newTicketsTodayCost)}
         icon={Coins}
+        {loading}
       />
-      <StatCard label="Active Tickets" value={orgStats.activeTickets} icon={TicketIcon} />
+      <StatCard label="Active Tickets" value={orgStats.activeTickets} icon={TicketIcon} {loading} />
     </div>
   {/if}
 
