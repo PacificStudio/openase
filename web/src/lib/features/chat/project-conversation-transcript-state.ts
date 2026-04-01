@@ -5,52 +5,37 @@ import type {
   ProjectConversationEntry,
 } from '$lib/api/chat'
 import type { ChatActionExecutionResult } from './action-proposal-executor'
+import {
+  createProjectConversationDiffEntry,
+  mapProjectConversationTaskEntry,
+} from './project-conversation-transcript-parsers'
+import {
+  appendProjectConversationTranscriptEntry,
+  createProjectConversationActionProposalEntry,
+  createProjectConversationInterruptEntry,
+  type ProjectConversationRole,
+  type ProjectConversationTextEntry,
+  type ProjectConversationTranscriptEntry,
+} from './project-conversation-transcript-types'
 
-type ProjectConversationRole = 'user' | 'assistant' | 'system'
-
-type ProjectConversationTextEntry = {
-  id: string
-  kind: 'text'
-  role: ProjectConversationRole
-  turnId?: string
-  content: string
-  streaming: boolean
-}
-
-type ProjectConversationActionProposalEntry = {
-  id: string
-  kind: 'action_proposal'
-  role: 'assistant'
-  proposal: ChatActionProposalPayload
-  status: 'pending' | 'executing' | 'confirmed'
-  results: ChatActionExecutionResult[]
-}
-
-type ProjectConversationDiffEntry = {
-  id: string
-  kind: 'diff'
-  role: 'assistant'
-  diff: ChatDiffPayload
-}
-
-type ProjectConversationInterruptEntry = {
-  id: string
-  kind: 'interrupt'
-  role: 'system'
-  interruptId: string
-  provider: string
-  interruptKind: string
-  payload: Record<string, unknown>
-  options: { id: string; label: string }[]
-  status: 'pending' | 'resolved'
-  decision?: string
-}
-
-export type ProjectConversationTranscriptEntry =
-  | ProjectConversationTextEntry
-  | ProjectConversationActionProposalEntry
-  | ProjectConversationDiffEntry
-  | ProjectConversationInterruptEntry
+export {
+  appendProjectConversationTranscriptEntry,
+  createProjectConversationActionProposalEntry,
+  createProjectConversationInterruptEntry,
+} from './project-conversation-transcript-types'
+export {
+  createProjectConversationDiffEntry,
+  mapProjectConversationTaskEntry,
+} from './project-conversation-transcript-parsers'
+export type {
+  ProjectConversationCommandOutputEntry,
+  ProjectConversationDiffEntry,
+  ProjectConversationInterruptEntry,
+  ProjectConversationTaskStatusEntry,
+  ProjectConversationTextEntry,
+  ProjectConversationToolCallEntry,
+  ProjectConversationTranscriptEntry,
+} from './project-conversation-transcript-types'
 
 export function appendProjectConversationTextEntry(
   entries: ProjectConversationTranscriptEntry[],
@@ -161,52 +146,57 @@ export function mapPersistedEntries(
     }
 
     if (entry.kind === 'action_proposal') {
-      transcript.push({
-        id: entry.id,
-        kind: 'action_proposal',
-        role: 'assistant',
-        proposal: {
-          ...(entry.payload as unknown as ChatActionProposalPayload),
-          type: 'action_proposal',
-          entryId: entry.id,
-        },
-        status: 'pending',
-        results: [],
-      })
+      transcript.push(
+        createProjectConversationActionProposalEntry({
+          id: entry.id,
+          proposal: {
+            ...(entry.payload as unknown as ChatActionProposalPayload),
+            type: 'action_proposal',
+            entryId: entry.id,
+          },
+        }),
+      )
       continue
     }
 
     if (entry.kind === 'diff') {
-      transcript.push({
+      transcript.push(createProjectConversationDiffEntry({ id: entry.id, payload: entry.payload }))
+      continue
+    }
+
+    if (entry.kind === 'system') {
+      const derived = mapProjectConversationTaskEntry({
         id: entry.id,
-        kind: 'diff',
-        role: 'assistant',
-        diff: {
-          ...(entry.payload as unknown as ChatDiffPayload),
-          type: 'diff',
-          entryId: entry.id,
-        },
+        turnId: entry.turnId,
+        type: String(entry.payload.type ?? ''),
+        raw: entry.payload.raw,
       })
+      if (derived) {
+        transcript.splice(
+          0,
+          transcript.length,
+          ...appendProjectConversationTranscriptEntry(transcript, derived),
+        )
+      }
       continue
     }
 
     if (entry.kind === 'interrupt') {
-      transcript.push({
-        id: entry.id,
-        kind: 'interrupt',
-        role: 'system',
-        interruptId: String(entry.payload.interrupt_id ?? ''),
-        provider: String(entry.payload.provider ?? 'codex'),
-        interruptKind: String(entry.payload.kind ?? ''),
-        payload: (entry.payload.payload as Record<string, unknown>) ?? {},
-        options: ((entry.payload.options as { id: string; label: string }[]) ?? []).map(
-          (option) => ({
-            id: option.id,
-            label: option.label,
-          }),
-        ),
-        status: 'pending',
-      })
+      transcript.push(
+        createProjectConversationInterruptEntry({
+          id: entry.id,
+          interruptId: String(entry.payload.interrupt_id ?? ''),
+          provider: String(entry.payload.provider ?? 'codex'),
+          interruptKind: String(entry.payload.kind ?? ''),
+          payload: (entry.payload.payload as Record<string, unknown>) ?? {},
+          options: ((entry.payload.options as { id: string; label: string }[]) ?? []).map(
+            (option) => ({
+              id: option.id,
+              label: option.label,
+            }),
+          ),
+        }),
+      )
       continue
     }
 
