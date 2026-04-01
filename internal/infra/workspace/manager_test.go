@@ -2,6 +2,10 @@ package workspace
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +15,7 @@ import (
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 )
 
 func TestParseSetupRequestRejectsNonCanonicalBranchName(t *testing.T) {
@@ -152,6 +157,37 @@ func TestManagerPrepareFetchesExistingClone(t *testing.T) {
 
 	assertHeadBranch(t, backendClonePath, "agent/codex-01/ASE-33")
 	assertRemoteBranchHash(t, backendClonePath, "main", updatedHash)
+}
+
+func TestBuildCloneOptionsUsesConfiguredSSHKeyForSSHURL(t *testing.T) {
+	keyPath := writeTestPrivateKey(t)
+	t.Setenv("OPENASE_GIT_SSH_KEY_PATH", keyPath)
+
+	options, err := buildCloneOptions("git@github.com:acme/private-repo.git")
+	if err != nil {
+		t.Fatalf("buildCloneOptions() error = %v", err)
+	}
+	if options.Auth == nil {
+		t.Fatal("buildCloneOptions() expected SSH auth")
+	}
+
+	auth, ok := options.Auth.(*gitssh.PublicKeys)
+	if !ok {
+		t.Fatalf("buildCloneOptions() auth type = %T, want *ssh.PublicKeys", options.Auth)
+	}
+	if auth.User != "git" {
+		t.Fatalf("buildCloneOptions() auth user = %q, want git", auth.User)
+	}
+}
+
+func TestBuildCloneOptionsLeavesHTTPSAuthEmpty(t *testing.T) {
+	options, err := buildCloneOptions("https://github.com/acme/public-repo.git")
+	if err != nil {
+		t.Fatalf("buildCloneOptions() error = %v", err)
+	}
+	if options.Auth != nil {
+		t.Fatalf("buildCloneOptions() auth = %T, want nil for HTTPS", options.Auth)
+	}
 }
 
 func TestTicketWorkspacePathAndPattern(t *testing.T) {
@@ -303,6 +339,23 @@ func appendCommit(t *testing.T, repoPath string, branch string, filePath string,
 	}
 
 	return hash
+}
+
+func writeTestPrivateKey(t *testing.T) string {
+	t.Helper()
+
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey() error = %v", err)
+	}
+	privateKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
+	block := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: privateKeyBytes}
+
+	keyPath := filepath.Join(t.TempDir(), "id_ed25519")
+	if err := os.WriteFile(keyPath, pem.EncodeToMemory(block), 0o600); err != nil {
+		t.Fatalf("WriteFile(private key) error = %v", err)
+	}
+	return keyPath
 }
 
 func commitFiles(t *testing.T, repository *git.Repository, repoPath string, files map[string]string, message string) plumbing.Hash {

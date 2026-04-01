@@ -98,7 +98,6 @@ type OpenAPIMachine struct {
 	Labels          []string       `json:"labels,omitempty"`
 	Status          string         `json:"status"`
 	WorkspaceRoot   *string        `json:"workspace_root,omitempty"`
-	MirrorRoot      *string        `json:"mirror_root,omitempty"`
 	AgentCLIPath    *string        `json:"agent_cli_path,omitempty"`
 	EnvVars         []string       `json:"env_vars,omitempty"`
 	LastHeartbeatAt *string        `json:"last_heartbeat_at,omitempty"`
@@ -120,12 +119,6 @@ type OpenAPIProjectRepo struct {
 	DefaultBranch    string   `json:"default_branch"`
 	WorkspaceDirname string   `json:"workspace_dirname"`
 	Labels           []string `json:"labels,omitempty"`
-	MirrorCount      *int     `json:"mirror_count,omitempty"`
-	MirrorState      *string  `json:"mirror_state,omitempty"`
-	MirrorMachineID  *string  `json:"mirror_machine_id,omitempty"`
-	LastSyncedAt     *string  `json:"last_synced_at,omitempty"`
-	LastVerifiedAt   *string  `json:"last_verified_at,omitempty"`
-	LastError        *string  `json:"last_error,omitempty"`
 }
 
 type OpenAPIAgentProvider struct {
@@ -1241,7 +1234,6 @@ var (
 		"labels":         "Labels attached to the machine for operator reference.",
 		"status":         "Machine lifecycle status value.",
 		"workspace_root": "Filesystem root directory where ticket workspaces are created on the machine.",
-		"mirror_root":    "Filesystem root directory where repository mirrors are stored on the machine.",
 		"agent_cli_path": "Absolute path to the agent CLI executable on the machine.",
 		"env_vars":       "Environment variable entries exported when work runs on the machine.",
 	}
@@ -1275,14 +1267,6 @@ var (
 		"default_branch":    "Default branch name used when a repo scope does not provide an explicit branch override.",
 		"workspace_dirname": "Directory name used for this repository inside a ticket workspace.",
 		"labels":            "Labels attached to the repository for workflow selection and filtering.",
-	}
-	openAPIRepoMirrorMaterializeDescriptions = map[string]string{
-		"machine_id": "Machine ID where the repository mirror should be prepared or registered.",
-		"local_path": "Absolute filesystem path where the mirror exists or should be created.",
-		"mode":       "Mirror materialization mode, such as preparing a new mirror or registering an existing checkout.",
-	}
-	openAPIRepoMirrorMachineDescriptions = map[string]string{
-		"machine_id": "Machine ID whose mirror should be verified or synchronized.",
 	}
 	// #nosec G101 -- "token" is an OpenAPI field name/description, not a credential literal.
 	openAPIGitHubCredentialDescriptions = map[string]string{
@@ -1470,9 +1454,6 @@ var (
 		"PUT /api/v1/projects/{projectId}/security-settings/github-outbound-credential": openAPIGitHubCredentialDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/github-outbound-credential/import-gh-cli": openAPIGitHubCredentialDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/github-outbound-credential/retest":        openAPIGitHubCredentialDescriptions,
-		"POST /api/v1/projects/{projectId}/repos/{repoId}/mirrors":                                     openAPIRepoMirrorMaterializeDescriptions,
-		"POST /api/v1/projects/{projectId}/repos/{repoId}/mirrors/verify":                              openAPIRepoMirrorMachineDescriptions,
-		"POST /api/v1/projects/{projectId}/repos/{repoId}/mirrors/sync":                                openAPIRepoMirrorMachineDescriptions,
 		"POST /api/v1/projects/{projectId}/agents":                                                     openAPIAgentRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/workflows":                                                  openAPIWorkflowRequestDescriptions,
 		"PATCH /api/v1/workflows/{workflowId}":                                                         mergeRequestFieldDescriptions(openAPIWorkflowRequestDescriptions, map[string]string{"harness_content": ""}),

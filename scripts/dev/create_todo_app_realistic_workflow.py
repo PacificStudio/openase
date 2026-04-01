@@ -175,27 +175,55 @@ def require_single_local_machine(base_url: str, org_id: str) -> dict:
     return local_machine
 
 
-def register_existing_primary_mirror(base_url: str, project_id: str, repo_id: str, machine_id: str, local_path: Path) -> dict:
-    response = request_json(
-        base_url,
-        "POST",
-        f"/api/v1/projects/{project_id}/repos/{repo_id}/mirrors",
-        {
-            "machine_id": machine_id,
-            "local_path": str(local_path),
-            "mode": "register_existing",
-        },
-    )
-    mirror = response.get("mirror")
-    if not isinstance(mirror, dict):
-        raise RuntimeError(f"mirror registration returned an unexpected payload: {response!r}")
-    return mirror
-
-
 def slugify(raw: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", raw.lower()).strip("-")
     slug = re.sub(r"-{2,}", "-", slug)
     return slug or "item"
+
+
+def upsert_ticket_repo_scope(
+    base_url: str,
+    project_id: str,
+    ticket_id: str,
+    repo_id: str,
+    branch_name: str,
+    pull_request_url: str,
+    pr_status: str,
+    ci_status: str,
+) -> dict:
+    payload = {
+        "branch_name": branch_name,
+        "pull_request_url": pull_request_url,
+        "pr_status": pr_status,
+        "ci_status": ci_status,
+    }
+    current_scopes = request_json(
+        base_url,
+        "GET",
+        f"/api/v1/projects/{project_id}/tickets/{ticket_id}/repo-scopes",
+    ).get("repo_scopes", [])
+    existing_scope = next((scope for scope in current_scopes if scope.get("repo_id") == repo_id), None)
+    if existing_scope is None:
+        response = request_json(
+            base_url,
+            "POST",
+            f"/api/v1/projects/{project_id}/tickets/{ticket_id}/repo-scopes",
+            {
+                "repo_id": repo_id,
+                **payload,
+            },
+        )
+    else:
+        response = request_json(
+            base_url,
+            "PATCH",
+            f"/api/v1/projects/{project_id}/tickets/{ticket_id}/repo-scopes/{existing_scope['id']}",
+            payload,
+        )
+    repo_scope = response.get("repo_scope")
+    if not isinstance(repo_scope, dict):
+        raise RuntimeError(f"repo scope mutation returned an unexpected payload: {response!r}")
+    return repo_scope
 
 
 def create_github_project(owner: str, title: str) -> dict:
@@ -776,20 +804,11 @@ def main() -> int:
             f"/api/v1/projects/{project['id']}/repos",
             {
                 "name": slugify(project_name),
-                "repository_url": github_repo_preparation["clone_url"],
+                "repository_url": github_repo_preparation["ssh_url"],
                 "default_branch": github_repo_preparation["default_branch"],
                 "labels": ["todo-app", "validation", "github"],
             },
         )["repo"]
-        mirror = register_existing_primary_mirror(
-            base_url,
-            project["id"],
-            project_repo["id"],
-            local_machine["id"],
-            github_repo_preparation["repo_dir"],
-        )
-        if mirror.get("state") != "ready":
-            raise RuntimeError(f"registered project mirror is not ready: {mirror!r}")
         workflow = request_json(
             base_url,
             "POST",
@@ -874,17 +893,15 @@ def main() -> int:
                 pr_body,
             )
             github_pull_requests.append(github_pr)
-            request_json(
+            upsert_ticket_repo_scope(
                 base_url,
-                "POST",
-                f"/api/v1/projects/{project['id']}/tickets/{ticket['id']}/repo-scopes",
-                {
-                    "repo_id": project_repo["id"],
-                    "branch_name": github_pr["branch_name"],
-                    "pull_request_url": github_pr["url"],
-                    "pr_status": "open",
-                    "ci_status": "pending",
-                },
+                project["id"],
+                ticket["id"],
+                project_repo["id"],
+                github_pr["branch_name"],
+                github_pr["url"],
+                "open",
+                "pending",
             )
             request_json(
                 base_url,
@@ -1020,7 +1037,8 @@ def main() -> int:
             },
             "notes": [
                 "OpenASE project-facing connector CRUD is not exported yet.",
-                "The OpenASE project repo points at the local seed clone, while GitHub issues and PRs still target BetterAndBetterII/TodoApp.",
+                "Project repo workspaces are now materialized directly from repository_url and workspace_dirname; the legacy mirror registration API is no longer used.",
+                "The OpenASE project repo points at BetterAndBetterII/TodoApp, while the local seed clone is used to prepare baseline commits plus linked GitHub issues and PRs.",
                 "The script creates a fresh empty baseline checkpoint on main before opening ticket PRs.",
                 "Each ticket gets a GitHub draft PR, a repo scope branch binding, and a github_pr external link.",
                 f"Provider mode: {args.provider_mode}",

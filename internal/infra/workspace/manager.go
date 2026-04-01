@@ -12,6 +12,8 @@ import (
 
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	transport "github.com/go-git/go-git/v5/plumbing/transport"
+	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 )
 
 var safeSegmentPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
@@ -316,7 +318,11 @@ func cloneOrOpenRepository(ctx context.Context, repoPath string, repositoryURL s
 	stat, err := os.Stat(repoPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			repository, cloneErr := git.PlainCloneContext(ctx, repoPath, false, buildCloneOptions(repositoryURL))
+			cloneOptions, cloneOptionsErr := buildCloneOptions(repositoryURL)
+			if cloneOptionsErr != nil {
+				return nil, fmt.Errorf("build clone options for %s: %w", repositoryURL, cloneOptionsErr)
+			}
+			repository, cloneErr := git.PlainCloneContext(ctx, repoPath, false, cloneOptions)
 			if cloneErr != nil {
 				return nil, fmt.Errorf("clone repository %s into %s: %w", repositoryURL, repoPath, cloneErr)
 			}
@@ -335,15 +341,19 @@ func cloneOrOpenRepository(ctx context.Context, repoPath string, repositoryURL s
 		return nil, fmt.Errorf("open repository %s: %w", repoPath, err)
 	}
 
-	if err := fetchRepository(ctx, repository); err != nil {
+	if err := fetchRepository(ctx, repository, repositoryURL); err != nil {
 		return nil, fmt.Errorf("fetch repository %s: %w", repoPath, err)
 	}
 
 	return repository, nil
 }
 
-func fetchRepository(ctx context.Context, repository *git.Repository) error {
-	err := repository.FetchContext(ctx, buildFetchOptions())
+func fetchRepository(ctx context.Context, repository *git.Repository, repositoryURL string) error {
+	fetchOptions, err := buildFetchOptions(repositoryURL)
+	if err != nil {
+		return fmt.Errorf("build fetch options for %s: %w", repositoryURL, err)
+	}
+	err = repository.FetchContext(ctx, fetchOptions)
 	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return err
 	}
@@ -405,14 +415,87 @@ func ensureFeatureBranchCheckedOut(repository *git.Repository, defaultBranch str
 	return head.Hash().String(), nil
 }
 
-func buildCloneOptions(repositoryURL string) *git.CloneOptions {
-	return &git.CloneOptions{
-		URL: repositoryURL,
+func buildCloneOptions(repositoryURL string) (*git.CloneOptions, error) {
+	auth, err := buildRepositoryAuthMethod(repositoryURL)
+	if err != nil {
+		return nil, err
 	}
+	return &git.CloneOptions{
+		URL:  repositoryURL,
+		Auth: auth,
+	}, nil
 }
 
-func buildFetchOptions() *git.FetchOptions {
+func buildFetchOptions(repositoryURL string) (*git.FetchOptions, error) {
+	auth, err := buildRepositoryAuthMethod(repositoryURL)
+	if err != nil {
+		return nil, err
+	}
 	return &git.FetchOptions{
 		RemoteName: "origin",
+		Auth:       auth,
+	}, nil
+}
+
+func buildRepositoryAuthMethod(repositoryURL string) (transport.AuthMethod, error) {
+	endpoint, err := transport.NewEndpoint(repositoryURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse repository URL %q: %w", repositoryURL, err)
 	}
+	if endpoint.Protocol != "ssh" {
+		return nil, nil
+	}
+
+	keyPath, hasKey, err := defaultSSHPrivateKeyPath()
+	if err != nil {
+		return nil, err
+	}
+	if !hasKey {
+		return nil, nil
+	}
+
+	user := strings.TrimSpace(endpoint.User)
+	if user == "" {
+		user = gitssh.DefaultUsername
+	}
+
+	auth, err := gitssh.NewPublicKeysFromFile(user, keyPath, "")
+	if err != nil {
+		return nil, fmt.Errorf("load ssh private key %s: %w", keyPath, err)
+	}
+	return auth, nil
+}
+
+func defaultSSHPrivateKeyPath() (string, bool, error) {
+	overridePath := strings.TrimSpace(os.Getenv("OPENASE_GIT_SSH_KEY_PATH"))
+	if overridePath != "" {
+		info, err := os.Stat(overridePath)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return overridePath, false, nil
+			}
+			return "", false, fmt.Errorf("stat OPENASE_GIT_SSH_KEY_PATH %q: %w", overridePath, err)
+		}
+		if info.IsDir() {
+			return "", false, fmt.Errorf("OPENASE_GIT_SSH_KEY_PATH %q must be a file", overridePath)
+		}
+		return overridePath, true, nil
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", false, fmt.Errorf("resolve user home for ssh auth: %w", err)
+	}
+	keyPath := filepath.Join(homeDir, ".ssh", "id_ed25519")
+	info, err := os.Stat(keyPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return keyPath, false, nil
+		}
+		return "", false, fmt.Errorf("stat ssh private key %q: %w", keyPath, err)
+	}
+	if info.IsDir() {
+		return "", false, fmt.Errorf("ssh private key %q must be a file", keyPath)
+	}
+	return keyPath, true, nil
 }
