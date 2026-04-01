@@ -11,14 +11,6 @@ const budgetRules = [
       /^src\/routes\/.+\/\+page\.svelte$|^src\/routes\/\+page\.svelte$/.test(filePath),
     softLimit: 150,
     hardLimit: 250,
-    allowlist: {
-      'src/routes/+page.svelte':
-        'Legacy dashboard route remains oversized until frontend refactor phase 1.',
-      'src/routes/(app)/orgs/[orgId]/+page.svelte':
-        'Legacy organization overview route remains oversized until org dashboard extraction lands.',
-      'src/routes/ticket/+page.svelte':
-        'Legacy ticket detail route remains oversized until ticket feature extraction lands.',
-    },
   },
   {
     name: 'Route layouts',
@@ -55,10 +47,6 @@ const budgetRules = [
         'Ticket creation dialog still hosts staged form orchestration until dialog sections are extracted.',
       'src/lib/features/tickets/components/tickets-page.svelte':
         'Tickets page still owns board loading and stream orchestration until board controller extraction lands.',
-      'src/lib/features/chat/project-conversation-transcript.svelte':
-        'Project conversation transcript still centralizes interrupt response UX while runtime cards continue to settle.',
-      'src/lib/features/workflows/components/workflow-editor-panel.svelte':
-        'Workflow editor panel temporarily keeps toolbar, bindings, and AI sidebar orchestration together until panel extraction lands.',
       'src/lib/features/workflows/components/workflows-page.svelte':
         'Workflows page still coordinates editor, history, and skill bindings until controller extraction lands.',
     },
@@ -77,14 +65,6 @@ const budgetRules = [
         'Skill bundle draft helpers remain centralized until tree and path utilities are split out.',
       'src/lib/features/workflows/components/harness-ai-sidebar-streaming.test.ts':
         'Harness AI long-stream regression coverage stays in one integration-style test while SSE helpers remain inline.',
-      'src/lib/features/chat/ephemeral-chat-session-controller.svelte.ts':
-        'Ephemeral chat controller remains centralized while workflow and skill editor chat contexts share one runtime path.',
-      'src/lib/features/chat/ephemeral-chat-session-controller.test.ts':
-        'Ephemeral chat controller regression coverage remains bundled while assistant context scenarios are still expanding.',
-      'src/lib/features/chat/project-conversation-controller.svelte.ts':
-        'Project conversation controller remains centralized while conversation restore and switch flows are still being integrated.',
-      'src/lib/features/chat/project-conversation-controller.test.ts':
-        'Project conversation controller regression coverage remains bundled until conversation scenario helpers are extracted.',
       'src/lib/features/workflows/components/workflows-page.test.ts':
         'Workflow page interaction coverage remains bundled until test helper extraction lands.',
     },
