@@ -7,20 +7,16 @@
   import { ChevronDown, ChevronUp } from '@lucide/svelte'
   import {
     createCustomFlatPricingConfig,
-    findBuiltinPricingConfig,
-    formatPricingPerMillion,
-    isCustomPricingConfig,
     isRoutedOfficialPricingConfig,
     parseProviderPricingConfig,
     providerPricingDetailRows,
     providerPricingStatusText,
     stringifyProviderPricingConfig,
     suggestPricingDraftValues,
-    summaryInputPerToken,
-    summaryOutputPerToken,
   } from '../provider-pricing'
   import { providerAdapterOptions, providerPermissionProfileOptions } from '../provider-draft'
   import type { ProviderDraft, ProviderDraftField } from '../types'
+  import ProviderPricingFields from './provider-pricing-fields.svelte'
   import ProviderModelPicker from './provider-model-picker.svelte'
 
   let {
@@ -41,9 +37,6 @@
   let syncedPricingModelKey = $state('')
 
   const pricingConfig = $derived(parseProviderPricingConfig(draft.pricingConfig))
-  const builtinPricingConfig = $derived(
-    findBuiltinPricingConfig(modelCatalog, draft.adapterType, draft.modelName),
-  )
   const pricingStatus = $derived(providerPricingStatusText(pricingConfig))
   const pricingRows = $derived(providerPricingDetailRows(pricingConfig))
   const routedOfficialPricing = $derived(isRoutedOfficialPricingConfig(pricingConfig))
@@ -83,17 +76,14 @@
     onFieldChange?.('costPerOutputToken', suggested.costPerOutputToken)
   })
 
-  function handlePricingFieldChange(field: 'costPerInputToken' | 'costPerOutputToken', value: string) {
+  function handlePricingFieldChange(
+    field: 'costPerInputToken' | 'costPerOutputToken',
+    value: string,
+  ) {
     onFieldChange?.(field, value)
 
-    const nextInput =
-      field === 'costPerInputToken'
-        ? value
-        : draft.costPerInputToken
-    const nextOutput =
-      field === 'costPerOutputToken'
-        ? value
-        : draft.costPerOutputToken
+    const nextInput = field === 'costPerInputToken' ? value : draft.costPerInputToken
+    const nextOutput = field === 'costPerOutputToken' ? value : draft.costPerOutputToken
 
     const nextPricing = createCustomFlatPricingConfig(
       nextInput.trim() ? Number(nextInput) / 1_000_000 : 0,
@@ -285,61 +275,15 @@
           </div>
 
           {#if showCostFields}
-            <div class="space-y-2">
-              <Label for="provider-cost-input">Input pricing (USD / 1M tokens)</Label>
-              <Input
-                id="provider-cost-input"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="3.00"
-                value={draft.costPerInputToken}
-                disabled={routedOfficialPricing}
-                oninput={(event) => handlePricingFieldChange('costPerInputToken', fieldValue(event))}
-              />
-              <p class="text-muted-foreground text-xs">
-                Enter the published per-million-token rate. Example: `$3.00 / 1M` stores `0.000003`
-                USD per token internally.
-              </p>
-            </div>
-
-            <div class="space-y-2">
-              <Label for="provider-cost-output">Output pricing (USD / 1M tokens)</Label>
-              <Input
-                id="provider-cost-output"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="15.00"
-                value={draft.costPerOutputToken}
-                disabled={routedOfficialPricing}
-                oninput={(event) =>
-                  handlePricingFieldChange('costPerOutputToken', fieldValue(event))}
-              />
-              <p class="text-muted-foreground text-xs">
-                Use provider list pricing as-is here, in `USD / 1M tokens`, to avoid 1,000x or
-                1,000,000x entry mistakes.
-              </p>
-            </div>
-
-            {#if pricingStatus}
-              <div class="space-y-2 md:col-span-2">
-                <p class="text-muted-foreground text-xs">{pricingStatus}</p>
-                {#if pricingRows.length > 0}
-                  <div class="border-border bg-muted/30 grid gap-2 rounded-md border p-3 text-xs md:grid-cols-3">
-                    {#each pricingRows as row (`${row[0]}:${row[1]}`)}
-                      <div>
-                        <div class="text-muted-foreground">{row[0]}</div>
-                        <div class="font-medium">{row[1]} USD / 1M</div>
-                      </div>
-                    {/each}
-                  </div>
-                {/if}
-                {#if pricingConfig?.notes?.length}
-                  <p class="text-muted-foreground text-xs">{pricingConfig.notes.join(' ')}</p>
-                {/if}
-              </div>
-            {/if}
+            <ProviderPricingFields
+              costPerInputToken={draft.costPerInputToken}
+              costPerOutputToken={draft.costPerOutputToken}
+              {routedOfficialPricing}
+              {pricingStatus}
+              {pricingRows}
+              pricingNotes={pricingConfig?.notes ?? []}
+              onPricingFieldChange={handlePricingFieldChange}
+            />
           {/if}
         </div>
       </div>

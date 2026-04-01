@@ -97,20 +97,23 @@ export function providerPricingStatusText(config: ProviderPricingConfig | null |
   return `Official default from ${providerLabel} pricing${verifiedSuffix(config)}`
 }
 
-export function providerPricingDetailRows(config: ProviderPricingConfig | null | undefined) {
+export function providerPricingDetailRows(
+  config: ProviderPricingConfig | null | undefined,
+): [string, string][] {
   const rates = config?.tiers?.[0]?.rates ?? config?.rates
   if (!rates) {
-    return []
+    return [] as [string, string][]
   }
 
-  return [
+  const rows: [string, string][] = [
     ['Input', formatPricingPerMillion(rates.input_per_token ?? 0)],
     ['Cached input', formatPricingPerMillion(rates.cached_input_read_per_token ?? 0)],
     ['Cache write 5m', formatPricingPerMillion(rates.cache_write_5m_per_token ?? 0)],
     ['Cache write 1h', formatPricingPerMillion(rates.cache_write_1h_per_token ?? 0)],
     ['Output', formatPricingPerMillion(rates.output_per_token ?? 0)],
     ['Cache storage / hour', formatPricingPerMillion(rates.cache_storage_per_token_hour ?? 0)],
-  ].filter(([, value]) => value !== '')
+  ]
+  return rows.filter(([, value]) => value !== '')
 }
 
 export function findBuiltinPricingConfig(

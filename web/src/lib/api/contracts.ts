@@ -50,8 +50,13 @@ export type OrganizationProjectSummary = ItemOf<
 
 type RawAgentProviderListPayload = ResponseFor<'/api/v1/orgs/{orgId}/providers', 'get'>
 type RawAgentProviderResponse = ResponseFor<'/api/v1/orgs/{orgId}/providers', 'post'>
-export type AgentProvider = ShallowRequired<ItemOf<Defined<RawAgentProviderListPayload['providers']>>>
-export type AgentProviderListPayload = Omit<ShallowRequired<RawAgentProviderListPayload>, 'providers'> & {
+export type AgentProvider = ShallowRequired<
+  ItemOf<Defined<RawAgentProviderListPayload['providers']>>
+>
+export type AgentProviderListPayload = Omit<
+  ShallowRequired<RawAgentProviderListPayload>,
+  'providers'
+> & {
   providers: AgentProvider[]
 }
 export type AgentProviderResponse = Omit<ShallowRequired<RawAgentProviderResponse>, 'provider'> & {
@@ -60,7 +65,11 @@ export type AgentProviderResponse = Omit<ShallowRequired<RawAgentProviderRespons
 
 type RawAgentProviderModelCatalogPayload = ResponseFor<'/api/v1/provider-model-options', 'get'>
 export type AgentProviderModelOption = ShallowRequired<
-  ItemOf<Defined<ItemOf<Defined<RawAgentProviderModelCatalogPayload['adapter_model_options']>>['options']>>
+  ItemOf<
+    Defined<
+      ItemOf<Defined<RawAgentProviderModelCatalogPayload['adapter_model_options']>>['options']
+    >
+  >
 >
 export type AgentProviderModelCatalogEntry = Omit<
   ShallowRequired<ItemOf<Defined<RawAgentProviderModelCatalogPayload['adapter_model_options']>>>,
