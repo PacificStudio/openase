@@ -1,173 +1,217 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import { ApiError } from '$lib/api/client'
-  import { updateProject } from '$lib/api/openase'
+  import { listProviders, refreshMachineHealth, updateProject } from '$lib/api/openase'
   import type { AgentProvider } from '$lib/api/contracts'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
-  import { CheckCircle2, CircleDashed, AlertTriangle, Loader2, Zap } from '@lucide/svelte'
+  import { Loader2, RefreshCcw } from '@lucide/svelte'
   import type { ProviderState } from '../types'
+  import ProviderEmptyState from './provider-empty-state.svelte'
+  import ProviderGuideCard from './provider-guide-card.svelte'
+  import RegisteredProviderCard from './registered-provider-card.svelte'
+  import ProviderGuideSheet from './provider-guide-sheet.svelte'
+  import {
+    guideForProvider,
+    guideProviders,
+    providerGuides,
+    uniqueMachineIds,
+  } from '../provider-guides'
 
   let {
     projectId,
     orgId,
     initialState,
     onComplete,
+    onStateChange = () => {},
   }: {
     projectId: string
     orgId: string
     initialState: ProviderState
     onComplete: (providerId: string) => void
+    onStateChange?: (nextState: ProviderState) => void
   } = $props()
 
   let selecting = $state(false)
   let selectedId = $state(untrack(() => initialState.selectedProviderId))
+  let providers = $state<AgentProvider[]>(untrack(() => [...initialState.providers]))
+  let activeGuideKey = $state<(typeof providerGuides)[number]['key'] | null>(null)
+  let guideOpen = $state(false)
+  let refreshingTokens = $state<string[]>([])
+  let autoRefreshStarted = $state(false)
 
-  const providers = $derived(initialState.providers)
+  const activeGuide = $derived(providerGuides.find((guide) => guide.key === activeGuideKey) ?? null)
+  const activeGuideProviders = $derived(activeGuide ? guideProviders(providers, activeGuide) : [])
 
-  const adapterIcons: Record<string, string> = {
-    claude_code: 'Claude Code',
-    codex: 'OpenAI Codex',
-    gemini_cli: 'Gemini CLI',
-    custom: 'Custom',
+  $effect(() => {
+    providers = [...initialState.providers]
+    selectedId = initialState.selectedProviderId
+  })
+
+  $effect(() => {
+    if (autoRefreshStarted) return
+    autoRefreshStarted = true
+    void refreshProviders(uniqueMachineIds(providers), true)
+  })
+
+  function isRefreshing(machineIds: string[]): boolean {
+    const token = machineIds.length > 0 ? machineIds.slice().sort().join('|') : 'provider-list'
+    return refreshingTokens.includes(token)
   }
 
-  const availabilityLabel: Record<string, { text: string; className: string }> = {
-    available: { text: '可用', className: 'text-emerald-600 dark:text-emerald-400' },
-    ready: { text: '就绪', className: 'text-emerald-600 dark:text-emerald-400' },
-    unavailable: { text: '不可用', className: 'text-destructive' },
-    stale: { text: '状态过期', className: 'text-amber-600 dark:text-amber-400' },
-    unknown: { text: '未知', className: 'text-muted-foreground' },
+  function syncProviderState(nextProviders: AgentProvider[], nextSelectedId = selectedId) {
+    providers = nextProviders
+    onStateChange({ providers: nextProviders, selectedProviderId: nextSelectedId })
   }
 
-  function isProviderAvailable(provider: AgentProvider): boolean {
-    return provider.availability_state === 'available' || provider.availability_state === 'ready'
+  async function refreshProviders(machineIds: string[], silent = false) {
+    const token = machineIds.length > 0 ? machineIds.slice().sort().join('|') : 'provider-list'
+    if (refreshingTokens.includes(token)) return
+
+    refreshingTokens = [...refreshingTokens, token]
+    try {
+      await Promise.allSettled(machineIds.map((machineId) => refreshMachineHealth(machineId)))
+      const payload = await listProviders(orgId)
+      syncProviderState(payload.providers)
+      if (!silent) toastStore.success('已重新检测 Provider 可用性。')
+    } catch (caughtError) {
+      if (!silent) {
+        toastStore.error(
+          caughtError instanceof ApiError ? caughtError.detail : '重新检测 Provider 失败。',
+        )
+      }
+    } finally {
+      refreshingTokens = refreshingTokens.filter((value) => value !== token)
+    }
   }
 
   async function handleSelectProvider(providerId: string) {
     if (selecting) return
+    const previousSelectedId = selectedId
     selectedId = providerId
     selecting = true
     try {
-      const payload = await updateProject(projectId, {
-        default_agent_provider_id: providerId,
-      })
+      const payload = await updateProject(projectId, { default_agent_provider_id: providerId })
       appStore.currentProject = payload.project
+      syncProviderState(providers, providerId)
       toastStore.success('已设为默认 Provider。')
       onComplete(providerId)
     } catch (caughtError) {
+      selectedId = previousSelectedId
       toastStore.error(
         caughtError instanceof ApiError ? caughtError.detail : '设置默认 Provider 失败。',
       )
-      selectedId = ''
     } finally {
       selecting = false
     }
   }
+
+  function openGuideForKey(key: (typeof providerGuides)[number]['key']) {
+    activeGuideKey = key
+    guideOpen = true
+  }
+
+  function openGuideForProvider(providerId: string) {
+    const provider = providers.find((item) => item.id === providerId)
+    const guide = provider ? guideForProvider(provider) : null
+    if (guide) openGuideForKey(guide.key)
+  }
+
+  async function copyCommand(command: string) {
+    try {
+      await navigator.clipboard.writeText(command)
+      toastStore.success('命令已复制。')
+    } catch {
+      toastStore.error('复制命令失败。')
+    }
+  }
 </script>
 
-<div class="space-y-4">
-  {#if providers.length === 0}
-    <div class="border-border rounded-lg border border-dashed p-6 text-center">
-      <CircleDashed class="text-muted-foreground mx-auto mb-2 size-8" />
-      <p class="text-muted-foreground text-sm">尚未配置任何 Provider。</p>
-      <p class="text-muted-foreground mt-1 text-xs">
-        请先在组织设置中添加 AI Provider（Claude Code / Codex / Gemini CLI）。
-      </p>
+<div class="space-y-6">
+  <div class="border-border bg-card space-y-4 rounded-xl border p-4">
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div class="space-y-1">
+        <h4 class="text-foreground text-sm font-semibold">内置 CLI 配置向导</h4>
+        <p class="text-muted-foreground text-xs">
+          进入此步骤时会基于已注册 Provider 的绑定机器重新拉取可用性。即使你还没注册
+          Provider，也可以先按下面的官方指引完成安装、登录与验证。
+        </p>
+      </div>
       <Button
         variant="outline"
         size="sm"
-        class="mt-3"
-        onclick={() => window.open(`/orgs/${orgId}/settings`, '_blank')}
+        disabled={isRefreshing(uniqueMachineIds(providers))}
+        onclick={() => void refreshProviders(uniqueMachineIds(providers))}
       >
-        前往组织设置
+        {#if isRefreshing(uniqueMachineIds(providers))}
+          <Loader2 class="mr-1.5 size-3.5 animate-spin" />
+          检测中...
+        {:else}
+          <RefreshCcw class="mr-1.5 size-3.5" />
+          重新检测全部 Provider
+        {/if}
       </Button>
     </div>
-  {:else}
-    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {#each providers as provider (provider.id)}
-        {@const available = isProviderAvailable(provider)}
-        {@const isSelected = selectedId === provider.id}
-        {@const availability =
-          availabilityLabel[provider.availability_state] ?? availabilityLabel.unknown}
-        <div
-          class={cn(
-            'relative rounded-lg border p-4 transition-all',
-            isSelected
-              ? 'border-primary bg-primary/5 ring-primary/20 ring-1'
-              : available
-                ? 'border-border hover:border-primary/40 cursor-pointer'
-                : 'border-border opacity-60',
-          )}
-        >
-          {#if isSelected}
-            <div
-              class="bg-primary text-primary-foreground absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full"
-            >
-              <CheckCircle2 class="size-3.5" />
-            </div>
-          {/if}
 
-          <div class="mb-3 flex items-center gap-2">
-            <div class="bg-muted flex size-8 items-center justify-center rounded-lg">
-              <Zap class="text-foreground size-4" />
-            </div>
-            <div class="min-w-0 flex-1">
-              <p class="text-foreground truncate text-sm font-medium">{provider.name}</p>
-              <p class="text-muted-foreground text-[10px]">
-                {adapterIcons[provider.adapter_type] ?? provider.adapter_type}
-              </p>
-            </div>
-          </div>
-
-          <div class="mb-3 space-y-1 text-xs">
-            <div class="flex items-center justify-between">
-              <span class="text-muted-foreground">状态</span>
-              <span class={availability.className}>
-                {#if available}
-                  <CheckCircle2 class="mr-0.5 inline size-3" />
-                {:else}
-                  <AlertTriangle class="mr-0.5 inline size-3" />
-                {/if}
-                {availability.text}
-              </span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-muted-foreground">模型</span>
-              <span class="text-foreground">{provider.model_name || '—'}</span>
-            </div>
-            {#if provider.machine_name}
-              <div class="flex items-center justify-between">
-                <span class="text-muted-foreground">机器</span>
-                <span class="text-foreground">{provider.machine_name}</span>
-              </div>
-            {/if}
-          </div>
-
-          {#if available}
-            <Button
-              size="sm"
-              class="w-full"
-              variant={isSelected ? 'default' : 'outline'}
-              disabled={selecting}
-              onclick={() => void handleSelectProvider(provider.id)}
-            >
-              {#if selecting && selectedId === provider.id}
-                <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-                设置中...
-              {:else if isSelected}
-                已选中
-              {:else}
-                使用这个 Provider
-              {/if}
-            </Button>
-          {:else}
-            <Button variant="ghost" size="sm" class="w-full" disabled>不可用</Button>
-          {/if}
-        </div>
+    <div class="grid grid-cols-1 gap-3 xl:grid-cols-3">
+      {#each providerGuides as guide (guide.key)}
+        <ProviderGuideCard
+          {guide}
+          providers={guideProviders(providers, guide)}
+          {selectedId}
+          {selecting}
+          onSelectProvider={handleSelectProvider}
+          onOpenGuide={openGuideForKey}
+        />
       {/each}
     </div>
-  {/if}
+  </div>
+
+  <div class="space-y-3">
+    <div class="space-y-1">
+      <h4 class="text-foreground text-sm font-semibold">已注册 Provider</h4>
+      <p class="text-muted-foreground text-xs">
+        已注册的 Provider 会继续保留精确的机器、模型与可用性信息。不可用实例可以直接回到对应 CLI
+        指南，并在完成配置后重新检测。
+      </p>
+    </div>
+
+    {#if providers.length === 0}
+      <ProviderEmptyState {orgId} />
+    {:else}
+      <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        {#each providers as provider (provider.id)}
+          <RegisteredProviderCard
+            {provider}
+            {selectedId}
+            {selecting}
+            refreshing={isRefreshing(provider.machine_id ? [provider.machine_id] : [])}
+            onSelectProvider={handleSelectProvider}
+            onOpenGuide={openGuideForProvider}
+            onRefresh={async (providerId) => {
+              const target = providers.find((item) => item.id === providerId)
+              await refreshProviders(target?.machine_id ? [target.machine_id] : [])
+            }}
+          />
+        {/each}
+      </div>
+    {/if}
+  </div>
 </div>
+
+<ProviderGuideSheet
+  bind:open={guideOpen}
+  {orgId}
+  {activeGuide}
+  matchingProviders={activeGuideProviders}
+  {selectedId}
+  {selecting}
+  {isRefreshing}
+  onClose={() => {
+    guideOpen = false
+  }}
+  onCopyCommand={copyCommand}
+  onRefresh={refreshProviders}
+  onSelectProvider={handleSelectProvider}
+/>

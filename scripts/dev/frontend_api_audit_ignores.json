@@ -14,6 +14,12 @@
     },
     {
       "method": "get",
+      "path": "/api/v1/roles/builtin/{roleSlug}",
+      "categories": ["backend_only"],
+      "reason": "The onboarding/bootstrap flow still resolves builtin role templates from the list payload, so the new single-role endpoint is intentionally not wired into the current frontend yet."
+    },
+    {
+      "method": "get",
       "path": "/api/v1/tickets/{ticketId}",
       "categories": ["backend_only"],
       "reason": "The ticket UI uses the project-scoped detail endpoint instead of the standalone ticket fetch route."
