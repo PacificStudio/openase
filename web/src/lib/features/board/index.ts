@@ -8,6 +8,7 @@ export type {
   BoardGroup as BoardGroupType,
   BoardTicket,
   BoardFilter,
+  BoardStatusOption,
 } from './types'
 export {
   buildBoardData,

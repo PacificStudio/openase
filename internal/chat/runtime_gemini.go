@@ -90,7 +90,7 @@ func (r *GeminiRuntime) StartTurn(ctx context.Context, input RuntimeTurnInput) (
 	r.setCancel(input.SessionID, cancel)
 
 	events := make(chan StreamEvent, 16)
-	go r.collectTurn(runCtx, input.SessionID, input.Message, input.MaxTurns, state, process, events)
+	go r.collectTurn(runCtx, input.SessionID, input.Provider, input.Message, input.MaxTurns, state, process, events)
 
 	return TurnStream{Events: events}, nil
 }
@@ -172,6 +172,7 @@ func (r *GeminiRuntime) buildPrompt(
 func (r *GeminiRuntime) collectTurn(
 	ctx context.Context,
 	sessionID SessionID,
+	providerItem catalogdomain.AgentProvider,
 	message string,
 	maxTurns int,
 	state *geminiRuntimeSession,
@@ -250,6 +251,12 @@ func (r *GeminiRuntime) collectTurn(
 		return
 	}
 
+	usageInfo, err := provider.ParseGeminiCLIUsage(stdoutBytes)
+	if err != nil {
+		events <- StreamEvent{Event: "error", Payload: errorPayload{Message: fmt.Sprintf("parse gemini usage: %v", err)}}
+		return
+	}
+
 	responseText := strings.TrimSpace(payload.Response)
 	if responseText != "" {
 		for _, item := range normalizeAssistantText(responseText) {
@@ -272,11 +279,12 @@ func (r *GeminiRuntime) collectTurn(
 	if state != nil {
 		turnsUsed = state.turnsUsed
 	}
+	costUSD := resolveCLIUsageCostUSD(providerItem, usageInfo)
 	events <- StreamEvent{
 		Event: "done",
 		Payload: donePayload{
 			SessionID:      sessionID.String(),
-			CostUSD:        nil,
+			CostUSD:        costUSD,
 			TurnsUsed:      turnsUsed,
 			TurnsRemaining: remainingTurns(maxTurns, turnsUsed),
 		},

@@ -3,6 +3,7 @@ import { normalizeProviderAvailabilityState } from '$lib/features/providers'
 import type {
   AgentInstance,
   AgentRunInstance,
+  ProviderCLIRateLimit,
   ProviderConfig,
   ProviderPermissionProfile,
 } from './types'
@@ -30,6 +31,8 @@ export function buildProviderCards(
     cliCommand: provider.cli_command,
     cliArgs: [...provider.cli_args],
     authConfig: { ...provider.auth_config },
+    cliRateLimit: normalizeProviderCLIRateLimit(provider.cli_rate_limit),
+    cliRateLimitUpdatedAt: provider.cli_rate_limit_updated_at ?? null,
     modelName: provider.model_name,
     modelTemperature: provider.model_temperature,
     modelMaxTokens: provider.model_max_tokens,
@@ -68,6 +71,7 @@ export function buildAgentRows(
       providerId: agent.provider_id,
       providerName: provider?.name ?? 'Unknown provider',
       modelName: provider?.model_name ?? 'Unknown model',
+      adapterType: provider?.adapter_type ?? 'custom',
       permissionProfile: normalizeProviderPermissionProfile(provider?.permission_profile),
       status: normalizeAgentStatus(runtime?.status ?? 'idle'),
       runtimePhase: normalizeRuntimePhase(runtime?.runtime_phase ?? 'none'),
@@ -180,6 +184,8 @@ export function applyUpdatedProviderState(
           cliCommand: updatedProvider.cli_command,
           cliArgs: [...updatedProvider.cli_args],
           authConfig: { ...updatedProvider.auth_config },
+          cliRateLimit: normalizeProviderCLIRateLimit(updatedProvider.cli_rate_limit),
+          cliRateLimitUpdatedAt: updatedProvider.cli_rate_limit_updated_at ?? null,
           modelName: updatedProvider.model_name,
           modelTemperature: updatedProvider.model_temperature,
           modelMaxTokens: updatedProvider.model_max_tokens,
@@ -209,4 +215,27 @@ function normalizeProviderPermissionProfile(
   value: string | undefined | null,
 ): ProviderPermissionProfile {
   return value === 'standard' ? 'standard' : 'unrestricted'
+}
+
+function normalizeProviderCLIRateLimit(
+  value: AgentProvider['cli_rate_limit'] | null | undefined,
+): ProviderCLIRateLimit | null {
+  if (!value) {
+    return null
+  }
+
+  return {
+    provider: value.provider,
+    raw: { ...(value.raw ?? {}) },
+    claudeCode: value.claude_code
+      ? {
+          status: value.claude_code.status,
+          rateLimitType: value.claude_code.rate_limit_type ?? null,
+          resetsAt: value.claude_code.resets_at ?? null,
+          overageStatus: value.claude_code.overage_status ?? null,
+          overageDisabledReason: value.claude_code.overage_disabled_reason ?? null,
+          isUsingOverage: value.claude_code.is_using_overage ?? null,
+        }
+      : null,
+  }
 }

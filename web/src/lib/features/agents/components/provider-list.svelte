@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { adapterIconPath } from '$lib/features/providers'
+  import { adapterIconPath, summarizeProviderRateLimit } from '$lib/features/providers'
   import { ProviderAvailabilityBadge } from '$lib/features/providers'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
@@ -19,6 +19,7 @@
 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
   {#each providers as provider (provider.id)}
     {@const iconPath = adapterIconPath(provider.adapterType)}
+    {@const rateLimit = summarizeProviderRateLimit(provider)}
     <Card.Root class="hover:border-border/80 transition-colors">
       <Card.Header class="flex-row items-start justify-between gap-3 space-y-0 pb-3">
         <div class="flex items-center gap-2.5">
@@ -70,6 +71,16 @@
           <span class="text-muted-foreground">Agents</span>
           <span class="text-foreground tabular-nums">{provider.agentCount}</span>
         </div>
+        {#if rateLimit}
+          <div class="bg-muted/30 rounded-lg border px-3 py-2">
+            <div class="flex items-center justify-between gap-3 text-[11px]">
+              <span class="text-muted-foreground">Rate limit</span>
+              <span class="text-foreground font-medium">{rateLimit.headline}</span>
+            </div>
+            <div class="text-muted-foreground mt-1 text-[11px]">{rateLimit.detail}</div>
+            <div class="text-muted-foreground mt-1 text-[11px]">{rateLimit.updatedLabel}</div>
+          </div>
+        {/if}
       </Card.Content>
       <Card.Footer class="pt-2">
         <Button

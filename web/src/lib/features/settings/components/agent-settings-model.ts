@@ -11,6 +11,19 @@ export type ProviderOption = {
   available: boolean
   availabilityCheckedAt?: string | null
   availabilityReason?: string | null
+  cliRateLimit?: {
+    provider: string
+    raw: Record<string, unknown>
+    claudeCode?: {
+      status: string
+      rateLimitType?: string | null
+      resetsAt?: string | null
+      overageStatus?: string | null
+      overageDisabledReason?: string | null
+      isUsingOverage?: boolean | null
+    } | null
+  } | null
+  cliRateLimitUpdatedAt?: string | null
   agentCount: number
 }
 
@@ -30,6 +43,24 @@ export function buildProviderOptions(
     available: provider.available,
     availabilityCheckedAt: provider.availability_checked_at ?? null,
     availabilityReason: provider.availability_reason ?? null,
+    cliRateLimit: provider.cli_rate_limit
+      ? {
+          provider: provider.cli_rate_limit.provider,
+          raw: { ...(provider.cli_rate_limit.raw ?? {}) },
+          claudeCode: provider.cli_rate_limit.claude_code
+            ? {
+                status: provider.cli_rate_limit.claude_code.status,
+                rateLimitType: provider.cli_rate_limit.claude_code.rate_limit_type ?? null,
+                resetsAt: provider.cli_rate_limit.claude_code.resets_at ?? null,
+                overageStatus: provider.cli_rate_limit.claude_code.overage_status ?? null,
+                overageDisabledReason:
+                  provider.cli_rate_limit.claude_code.overage_disabled_reason ?? null,
+                isUsingOverage: provider.cli_rate_limit.claude_code.is_using_overage ?? null,
+              }
+            : null,
+        }
+      : null,
+    cliRateLimitUpdatedAt: provider.cli_rate_limit_updated_at ?? null,
     agentCount: agentItems.filter((agent) => agent.provider_id === provider.id).length,
   }))
 }

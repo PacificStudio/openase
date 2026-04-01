@@ -277,7 +277,7 @@ func mapClaudeCodeAgentEvents(event provider.ClaudeCodeEvent) []agentEvent {
 		}}
 	case provider.ClaudeCodeEventKindResult:
 		events := make([]agentEvent, 0, 2)
-		if usage := parseClaudeUsage(event.Usage); usage != nil {
+		if usage := agentTokenUsageFromCLIUsage("", "", event.UsageInfo); usage != nil {
 			events = append(events, agentEvent{
 				Type:       agentEventTypeTokenUsageUpdated,
 				TokenUsage: usage,
@@ -293,6 +293,14 @@ func mapClaudeCodeAgentEvents(event provider.ClaudeCodeEvent) []agentEvent {
 		}
 		events = append(events, completed)
 		return events
+	case provider.ClaudeCodeEventKindRateLimit:
+		if event.RateLimitInfo == nil {
+			return nil
+		}
+		return []agentEvent{{
+			Type:      agentEventTypeRateLimitUpdated,
+			RateLimit: event.RateLimitInfo,
+		}}
 	default:
 		return nil
 	}
@@ -325,27 +333,4 @@ func extractClaudeAssistantTextBlocks(raw json.RawMessage) []string {
 		items = append(items, text)
 	}
 	return items
-}
-
-func parseClaudeUsage(raw json.RawMessage) *agentTokenUsageEvent {
-	if len(raw) == 0 {
-		return nil
-	}
-
-	var usage struct {
-		InputTokens  int64 `json:"input_tokens"`
-		OutputTokens int64 `json:"output_tokens"`
-		TotalTokens  int64 `json:"total_tokens"`
-	}
-	if err := json.Unmarshal(raw, &usage); err != nil {
-		return nil
-	}
-	if usage.InputTokens == 0 && usage.OutputTokens == 0 && usage.TotalTokens == 0 {
-		return nil
-	}
-	return &agentTokenUsageEvent{
-		TotalInputTokens:  usage.InputTokens,
-		TotalOutputTokens: usage.OutputTokens,
-		TotalTokens:       usage.TotalTokens,
-	}
 }

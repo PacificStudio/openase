@@ -8,45 +8,25 @@ import {
   updateStatus,
 } from '$lib/api/openase'
 import {
-  createEmptyStatusDraft,
+  type EditableStatus,
   moveStatus,
   normalizeStatuses,
   parseStatusDraft,
   statusSync,
-  type EditableStatus,
+  ticketStatusStageLabel,
   type ParsedStatusDraft,
+  type TicketStatusStage,
 } from '$lib/features/statuses/public'
 import { appStore } from '$lib/stores/app.svelte'
 import { toastStore } from '$lib/stores/toast.svelte'
 import { startStatusRuntimeSync } from './status-runtime-sync'
-
-type StatusSettingsUI = {
-  statuses: EditableStatus[]
-  createName: string
-  createStage: EditableStatus['stage']
-  createColor: string
-  createDefault: boolean
-  createMaxActiveRuns: string
-  loading: boolean
-  creating: boolean
-  resetting: boolean
-  busyStatusId: string
-}
-
-function createStatusSettingsUI(): StatusSettingsUI {
-  return {
-    statuses: [],
-    createName: '',
-    createStage: createEmptyStatusDraft().stage,
-    createColor: createEmptyStatusDraft().color,
-    createDefault: false,
-    createMaxActiveRuns: '',
-    loading: false,
-    creating: false,
-    resetting: false,
-    busyStatusId: '',
-  }
-}
+import {
+  createStatusSettingsUI,
+  resetCreateStatusDraft,
+  statusCreateBody,
+  statusUpdateBody,
+  type StatusSettingsUI,
+} from './status-settings-state-helpers'
 
 type StatusSettingsSnapshot = Awaited<ReturnType<typeof listStatuses>>
 
@@ -81,35 +61,24 @@ export function createStatusSettingsState() {
     assignPayload(await listStatuses(projectId))
   }
 
-  function currentProjectId() {
-    return appStore.currentProject?.id ?? null
-  }
-
-  function resetCreateStatusDraft() {
-    ui.createName = ''
-    ui.createStage = createEmptyStatusDraft().stage
-    ui.createColor = createEmptyStatusDraft().color
-    ui.createDefault = false
-    ui.createMaxActiveRuns = ''
-  }
-
-  function statusUpdateBody(current: EditableStatus, draft: ParsedStatusDraft) {
-    const body: Parameters<typeof updateStatus>[1] = {}
-    if (draft.name !== current.name) body.name = draft.name
-    if (draft.stage !== current.stage) body.stage = draft.stage
-    if (draft.color !== current.color) body.color = draft.color
-    if (draft.isDefault !== current.isDefault) body.is_default = draft.isDefault
-    if (draft.maxActiveRuns !== current.maxActiveRuns) body.max_active_runs = draft.maxActiveRuns
-    return body
-  }
+  const currentProjectId = () => appStore.currentProject?.id ?? null
 
   function reportMutationError(error: unknown, fallback: string) {
     toastStore.error(error instanceof ApiError ? error.detail : fallback)
   }
 
-  function touchAfterReload() {
-    statusSync.touch()
+  async function createStatusFromDraft(
+    projectId: string,
+    draft: ParsedStatusDraft,
+    isDefault: boolean,
+  ) {
+    const payload = await createStatus(projectId, statusCreateBody(draft, isDefault))
+    await reload(projectId)
+    touchAfterReload()
+    return payload
   }
+
+  const touchAfterReload = () => statusSync.touch()
 
   return {
     ui,
@@ -131,16 +100,8 @@ export function createStatusSettingsState() {
 
       ui.creating = true
       try {
-        const payload = await createStatus(projectId, {
-          name: parsed.value.name,
-          stage: parsed.value.stage,
-          color: parsed.value.color,
-          is_default: parsed.value.isDefault,
-          max_active_runs: parsed.value.maxActiveRuns,
-        })
-        await reload(projectId)
-        touchAfterReload()
-        resetCreateStatusDraft()
+        const payload = await createStatusFromDraft(projectId, parsed.value, parsed.value.isDefault)
+        resetCreateStatusDraft(ui)
         toastStore.success(`Created status "${payload.status.name}".`)
       } catch (caughtError) {
         reportMutationError(caughtError, 'Failed to create status.')
@@ -247,6 +208,90 @@ export function createStatusSettingsState() {
         reportMutationError(caughtError, 'Failed to reset statuses.')
       } finally {
         ui.resetting = false
+      }
+    },
+    async moveToStage(statusId: string, newStage: TicketStatusStage) {
+      const projectId = currentProjectId()
+      const current = ui.statuses.find((s) => s.id === statusId)
+      if (!projectId || !current || current.stage === newStage) return
+
+      ui.busyStatusId = statusId
+      try {
+        await updateStatus(statusId, { stage: newStage })
+        await reload(projectId)
+        touchAfterReload()
+        toastStore.success(`Moved "${current.name}" to ${ticketStatusStageLabel(newStage)}.`)
+      } catch (caughtError) {
+        reportMutationError(caughtError, 'Failed to move status.')
+      } finally {
+        ui.busyStatusId = ''
+      }
+    },
+    async createStatusInStage(
+      stage: TicketStatusStage,
+      name: string,
+      color: string,
+      maxActiveRuns: string,
+    ): Promise<boolean> {
+      const projectId = currentProjectId()
+      if (!projectId) return false
+
+      const parsed = parseStatusDraft({ name, stage, color, isDefault: false, maxActiveRuns })
+      if (!parsed.ok) {
+        toastStore.error(parsed.error)
+        return false
+      }
+
+      ui.creating = true
+      try {
+        const payload = await createStatusFromDraft(projectId, parsed.value, false)
+        toastStore.success(`Created status "${payload.status.name}".`)
+        return true
+      } catch (caughtError) {
+        reportMutationError(caughtError, 'Failed to create status.')
+        return false
+      } finally {
+        ui.creating = false
+      }
+    },
+    async moveStatusInStage(statusId: string, direction: 'up' | 'down') {
+      const projectId = currentProjectId()
+      if (!projectId) return
+
+      const target = ui.statuses.find((s) => s.id === statusId)
+      if (!target) return
+
+      const sameStage = ui.statuses
+        .filter((s) => s.stage === target.stage)
+        .sort((a, b) => a.position - b.position)
+
+      const stageIdx = sameStage.findIndex((s) => s.id === statusId)
+      const swapIdx = direction === 'up' ? stageIdx - 1 : stageIdx + 1
+      if (swapIdx < 0 || swapIdx >= sameStage.length) return
+
+      const swapWith = sameStage[swapIdx]
+      const targetPos = target.position
+      const swapPos = swapWith.position
+
+      ui.statuses = ui.statuses.map((s) => {
+        if (s.id === statusId) return { ...s, position: swapPos }
+        if (s.id === swapWith.id) return { ...s, position: targetPos }
+        return s
+      })
+
+      ui.busyStatusId = statusId
+      try {
+        await Promise.all([
+          updateStatus(statusId, { position: swapPos }),
+          updateStatus(swapWith.id, { position: targetPos }),
+        ])
+        await reload(projectId)
+        touchAfterReload()
+      } catch (caughtError) {
+        reportMutationError(caughtError, 'Failed to reorder statuses.')
+        await reload(projectId)
+      } finally {
+        ui.busyStatusId = ''
       }
     },
   }

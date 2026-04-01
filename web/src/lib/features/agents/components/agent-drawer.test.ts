@@ -78,6 +78,8 @@ function makeProvider(): AgentProvider {
     cli_command: 'codex',
     cli_args: ['app-server', '--listen', 'stdio://'],
     auth_config: {},
+    cli_rate_limit: null,
+    cli_rate_limit_updated_at: null,
     model_name: 'gpt-5.4',
     model_temperature: 0,
     model_max_tokens: 32000,

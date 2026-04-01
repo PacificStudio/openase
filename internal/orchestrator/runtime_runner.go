@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -149,6 +150,7 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, runID uuid.UUID
 			state.run.ID,
 			state.ticket.ID,
 			state.launchContext.agent.Edges.Provider.AdapterType,
+			state.launchContext.agent.Edges.Provider.ID,
 			session,
 			turn.TurnID,
 			&highWater,
@@ -286,6 +288,7 @@ func (l *RuntimeLauncher) consumeTurn(
 	runID uuid.UUID,
 	ticketID uuid.UUID,
 	adapterType entagentprovider.AdapterType,
+	providerID uuid.UUID,
 	session agentSession,
 	turnID string,
 	highWater *tokenUsageHighWater,
@@ -301,7 +304,8 @@ func (l *RuntimeLauncher) consumeTurn(
 			}
 			return &turnSessionClosedError{turnID: turnID}
 		}
-		l.runtime.recordCodexEvent(runID, string(event.Type), l.now().UTC())
+		observedAt := l.now().UTC()
+		l.runtime.recordCodexEvent(runID, string(event.Type), observedAt)
 
 		if err := l.persistRuntimeSessionID(ctx, runID, session); err != nil {
 			l.logger.Warn("persist runtime session id", "run_id", runID, "error", err)
@@ -327,6 +331,13 @@ func (l *RuntimeLauncher) consumeTurn(
 				continue
 			}
 			if err := l.recordTokenUsage(ctx, agentID, ticketID, event.TokenUsage, highWater); err != nil {
+				return err
+			}
+		case agentEventTypeRateLimitUpdated:
+			if event.RateLimit == nil {
+				continue
+			}
+			if err := l.recordProviderRateLimit(ctx, providerID, event.RateLimit, observedAt); err != nil {
 				return err
 			}
 		case agentEventTypeOutputProduced:
@@ -667,6 +678,53 @@ func (l *RuntimeLauncher) recordTokenUsage(
 	}
 
 	return nil
+}
+
+func (l *RuntimeLauncher) recordProviderRateLimit(
+	ctx context.Context,
+	providerID uuid.UUID,
+	rateLimit *provider.CLIRateLimit,
+	observedAt time.Time,
+) error {
+	if l == nil || l.client == nil || rateLimit == nil || providerID == uuid.Nil {
+		return nil
+	}
+
+	payload, err := marshalProviderRateLimit(rateLimit)
+	if err != nil {
+		return fmt.Errorf("marshal provider rate limit for provider %s: %w", providerID, err)
+	}
+	if len(payload) == 0 {
+		return nil
+	}
+
+	if _, err := l.client.AgentProvider.Update().
+		Where(entagentprovider.IDEQ(providerID)).
+		SetCliRateLimit(payload).
+		SetCliRateLimitUpdatedAt(observedAt.UTC()).
+		Save(ctx); err != nil {
+		return fmt.Errorf("persist provider rate limit for provider %s: %w", providerID, err)
+	}
+
+	return nil
+}
+
+func marshalProviderRateLimit(rateLimit *provider.CLIRateLimit) (map[string]any, error) {
+	if rateLimit == nil {
+		return nil, nil
+	}
+
+	payload, err := json.Marshal(rateLimit)
+	if err != nil {
+		return nil, err
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		return nil, err
+	}
+
+	return decoded, nil
 }
 
 func (l *RuntimeLauncher) reloadExecutionTicket(ctx context.Context, ticketID uuid.UUID) (*ent.Ticket, error) {

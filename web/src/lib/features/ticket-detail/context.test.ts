@@ -27,6 +27,8 @@ describe('buildTicketDetailContext', () => {
       runtimeControlState: 'active',
       runtimePhase: 'executing',
     })
+    expect(detail.ticket.costTokensInput).toBe(1444743)
+    expect(detail.ticket.costTokensOutput).toBe(23322)
   })
 
   it('parses the unified timeline payload into description, comment, and activity items', () => {

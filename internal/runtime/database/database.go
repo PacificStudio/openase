@@ -33,6 +33,9 @@ func Open(ctx context.Context, dsn string) (*ent.Client, error) {
 	ticketservice.InstallRetryTokenHooks(client)
 
 	if err := withSchemaBootstrapLock(ctx, trimmedDSN, func() error {
+		if err := applyLegacySchemaCompat(ctx, trimmedDSN); err != nil {
+			return err
+		}
 		if err := client.Schema.Create(
 			ctx,
 			entmigrate.WithDropColumn(false),
@@ -47,6 +50,46 @@ func Open(ctx context.Context, dsn string) (*ent.Client, error) {
 	}
 
 	return client, nil
+}
+
+func applyLegacySchemaCompat(ctx context.Context, dsn string) error {
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return fmt.Errorf("open database for legacy schema compat: %w", err)
+	}
+	defer func() {
+		_ = db.Close()
+	}()
+
+	var hasAgentProviders bool
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.tables
+			WHERE table_schema = 'public' AND table_name = 'agent_providers'
+		)`,
+	).Scan(&hasAgentProviders); err != nil {
+		return fmt.Errorf("detect legacy agent provider schema: %w", err)
+	}
+	if !hasAgentProviders {
+		return nil
+	}
+
+	statements := []string{
+		`ALTER TABLE agent_providers ADD COLUMN IF NOT EXISTS cli_rate_limit jsonb`,
+		`ALTER TABLE agent_providers ADD COLUMN IF NOT EXISTS cli_rate_limit_updated_at timestamptz`,
+		`UPDATE agent_providers SET cli_rate_limit = '{}'::jsonb WHERE cli_rate_limit IS NULL`,
+		`ALTER TABLE agent_providers ALTER COLUMN cli_rate_limit SET DEFAULT '{}'::jsonb`,
+		`ALTER TABLE agent_providers ALTER COLUMN cli_rate_limit SET NOT NULL`,
+	}
+	for _, statement := range statements {
+		if _, err := db.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("apply legacy agent provider schema compat: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func withSchemaBootstrapLock(ctx context.Context, dsn string, fn func() error) (err error) {

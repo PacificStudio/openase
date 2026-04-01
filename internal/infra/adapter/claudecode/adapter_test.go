@@ -179,6 +179,7 @@ func TestSessionParsesNDJSONAndTracksSessionID(t *testing.T) {
 		`not-json`,
 		`{"type":"system","subtype":"init","data":{"session_id":"sess-1"}}`,
 		`{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"hello"}]},"model":"claude-sonnet-4-6"}`,
+		`{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1775037600,"rateLimitType":"five_hour","isUsingOverage":false}}`,
 		`{"type":"result","subtype":"success","session_id":"sess-1","result":"done","num_turns":1}`,
 		"",
 	}, "\n")
@@ -211,8 +212,8 @@ func TestSessionParsesNDJSONAndTracksSessionID(t *testing.T) {
 	events := collectEvents(t, session.Events())
 	errors := collectErrors(t, session.Errors())
 
-	if len(events) != 3 {
-		t.Fatalf("expected 3 parsed events, got %d", len(events))
+	if len(events) != 4 {
+		t.Fatalf("expected 4 parsed events, got %d", len(events))
 	}
 	if events[0].Kind != provider.ClaudeCodeEventKindSystem || events[0].SessionID != "sess-1" {
 		t.Fatalf("unexpected system event: %+v", events[0])
@@ -220,8 +221,11 @@ func TestSessionParsesNDJSONAndTracksSessionID(t *testing.T) {
 	if events[1].Kind != provider.ClaudeCodeEventKindAssistant || events[1].Model != "claude-sonnet-4-6" {
 		t.Fatalf("unexpected assistant event: %+v", events[1])
 	}
-	if events[2].Kind != provider.ClaudeCodeEventKindResult || events[2].Result != "done" || events[2].NumTurns != 1 {
-		t.Fatalf("unexpected result event: %+v", events[2])
+	if events[2].Kind != provider.ClaudeCodeEventKindRateLimit || events[2].RateLimitInfo == nil || events[2].RateLimitInfo.ClaudeCode == nil {
+		t.Fatalf("unexpected rate limit event: %+v", events[2])
+	}
+	if events[3].Kind != provider.ClaudeCodeEventKindResult || events[3].Result != "done" || events[3].NumTurns != 1 {
+		t.Fatalf("unexpected result event: %+v", events[3])
 	}
 	if len(errors) != 1 || !strings.Contains(errors[0].Error(), "parse claude code ndjson event") {
 		t.Fatalf("expected one parse error, got %#v", errors)
@@ -321,6 +325,9 @@ func TestSessionReaderAndHelperCoverage(t *testing.T) {
 
 	if kind := mapEventKind("task_notification"); kind != provider.ClaudeCodeEventKindTaskNotice {
 		t.Fatalf("mapEventKind(task_notification)=%q", kind)
+	}
+	if kind := mapEventKind("rate_limit_event"); kind != provider.ClaudeCodeEventKindRateLimit {
+		t.Fatalf("mapEventKind(rate_limit_event)=%q", kind)
 	}
 	if kind := mapEventKind("unknown-type"); kind != provider.ClaudeCodeEventKindUnknown {
 		t.Fatalf("mapEventKind(unknown-type)=%q", kind)

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Agent, AgentProvider, AgentRun, Ticket, Workflow } from '$lib/api/contracts'
-import { buildAgentRows, buildAgentRunRows } from './model'
+import { buildAgentRows, buildAgentRunRows, buildProviderCards } from './model'
 
 const providerFixture: AgentProvider = {
   id: 'provider-1',
@@ -28,6 +28,8 @@ const providerFixture: AgentProvider = {
   cli_command: 'codex',
   cli_args: ['app-server', '--listen', 'stdio://'],
   auth_config: {},
+  cli_rate_limit: null,
+  cli_rate_limit_updated_at: null,
   model_name: 'gpt-5.4',
   model_temperature: 0.1,
   model_max_tokens: 32000,
@@ -215,5 +217,30 @@ describe('agents model', () => {
       status: 'executing',
     })
     expect(rows[1]?.ticket.identifier).toBe('ASE-101')
+  })
+
+  it('maps provider rate limit snapshots', () => {
+    const providerWithRateLimit: AgentProvider = {
+      ...providerFixture,
+      adapter_type: 'claude-code-cli',
+      cli_rate_limit: {
+        provider: 'claude_code',
+        raw: { status: 'allowed' },
+        claude_code: {
+          status: 'allowed',
+          rate_limit_type: 'five_hour',
+          resets_at: '2026-04-01T12:00:00Z',
+          overage_status: 'rejected',
+          overage_disabled_reason: 'org_level_disabled',
+          is_using_overage: false,
+        },
+      },
+      cli_rate_limit_updated_at: '2026-04-01T11:45:00Z',
+    }
+
+    const cards = buildProviderCards([providerWithRateLimit], [agentFixture], null)
+
+    expect(cards[0]?.cliRateLimit?.claudeCode?.rateLimitType).toBe('five_hour')
+    expect(cards[0]?.cliRateLimitUpdatedAt).toBe('2026-04-01T11:45:00Z')
   })
 })

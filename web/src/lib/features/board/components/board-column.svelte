@@ -1,27 +1,42 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
-  import { Inbox } from '@lucide/svelte'
-  import type { BoardColumn, BoardTicket } from '../types'
+  import { Inbox, Plus, Ellipsis, ArrowLeft, ArrowRight, Archive, Trash2 } from '@lucide/svelte'
+  import * as DropdownMenu from '$ui/dropdown-menu'
+  import type { BoardColumn, BoardStatusOption, BoardTicket } from '../types'
   import TicketCard from './ticket-card.svelte'
 
   let {
     column,
+    statuses = [],
     class: className = '',
+    columnIndex = 0,
+    columnCount = 1,
     onticketclick,
     ondragstartticket,
     ondragendticket,
     ondragovercolumn,
     ondropticket,
+    onStatusChange,
+    onPriorityChange,
+    onCreateTicket,
+    onColumnAction,
     isDropTarget = false,
     draggingTicketId = null,
   }: {
     column: BoardColumn
+    statuses?: BoardStatusOption[]
     class?: string
+    columnIndex?: number
+    columnCount?: number
     onticketclick?: (ticket: BoardTicket) => void
     ondragstartticket?: (ticket: BoardTicket) => void
     ondragendticket?: () => void
     ondragovercolumn?: (columnId: string) => void
     ondropticket?: (ticketId: string, columnId: string) => void
+    onStatusChange?: (ticketId: string, statusId: string) => void
+    onPriorityChange?: (ticketId: string, priority: BoardTicket['priority']) => void
+    onCreateTicket?: (statusId: string) => void
+    onColumnAction?: (columnId: string, action: string) => void
     isDropTarget?: boolean
     draggingTicketId?: string | null
   } = $props()
@@ -50,14 +65,66 @@
   )
 </script>
 
-<div class={cn('flex max-w-[320px] min-w-[280px] shrink-0 flex-col', className)}>
-  <div class="mb-2 flex items-center gap-2 px-1">
+<div class={cn('flex h-full min-h-0 max-w-[320px] min-w-[280px] shrink-0 flex-col', className)}>
+  <div class="mb-2 flex items-center gap-1.5 px-1">
     <span class="size-2.5 rounded-full" style="background-color: {column.color}"></span>
     <span class="text-foreground text-sm font-medium">{column.name}</span>
     <span class="text-muted-foreground text-xs">{column.tickets.length}</span>
-    {#if column.wipInfo}
-      <span class="text-muted-foreground ml-auto text-[10px]">{column.wipInfo}</span>
-    {/if}
+
+    <div class="ml-auto flex items-center">
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger
+          class="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex size-6 items-center justify-center rounded transition-colors"
+          aria-label="Column actions"
+        >
+          <Ellipsis class="size-3.5" />
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Content align="end" class="w-40">
+          <DropdownMenu.Item
+            class="gap-2 text-xs"
+            onclick={() => onColumnAction?.(column.id, 'archive_all')}
+            disabled={column.tickets.length === 0}
+          >
+            <Archive class="size-3.5" />
+            Archive all
+          </DropdownMenu.Item>
+          <DropdownMenu.Separator />
+          <DropdownMenu.Item
+            class="gap-2 text-xs"
+            onclick={() => onColumnAction?.(column.id, 'move_left')}
+            disabled={columnIndex === 0}
+          >
+            <ArrowLeft class="size-3.5" />
+            Move left
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            class="gap-2 text-xs"
+            onclick={() => onColumnAction?.(column.id, 'move_right')}
+            disabled={columnIndex >= columnCount - 1}
+          >
+            <ArrowRight class="size-3.5" />
+            Move right
+          </DropdownMenu.Item>
+          <DropdownMenu.Separator />
+          <DropdownMenu.Item
+            class="text-destructive gap-2 text-xs"
+            onclick={() => onColumnAction?.(column.id, 'delete')}
+          >
+            <Trash2 class="size-3.5" />
+            Delete
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
+
+      <button
+        type="button"
+        class="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex size-6 items-center justify-center rounded transition-colors"
+        aria-label="Create ticket in {column.name}"
+        onclick={() => onCreateTicket?.(column.id)}
+      >
+        <Plus class="size-3.5" />
+      </button>
+    </div>
   </div>
 
   <div
@@ -80,9 +147,12 @@
     {#each column.tickets as ticket (ticket.id)}
       <TicketCard
         {ticket}
+        {statuses}
         onclick={onticketclick}
         {ondragstartticket}
         {ondragendticket}
+        {onStatusChange}
+        {onPriorityChange}
         isDragging={draggingTicketId === ticket.id}
         isPendingMove={ticket.isMoving === true}
       />

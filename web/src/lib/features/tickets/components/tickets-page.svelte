@@ -13,8 +13,6 @@
   } from '$lib/api/openase'
   import { statusSync } from '$lib/features/statuses/public'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import { PageScaffold } from '$lib/components/layout'
-  import { Button } from '$ui/button'
   import {
     BoardListView,
     BoardToolbar,
@@ -28,6 +26,7 @@
     type BoardColumnType,
     type BoardFilter,
     type BoardGroupType,
+    type BoardStatusOption,
     type BoardTicket,
     type PendingTicketMove,
   } from '$lib/features/board'
@@ -37,6 +36,7 @@
   let error = $state('')
   let allColumns = $state<BoardColumnType[]>([])
   let allGroups = $state<BoardGroupType[]>([])
+  let allStatuses = $state<BoardStatusOption[]>([])
   let workflows = $state<string[]>([])
   let agentOptions = $state<string[]>([])
   let draggingTicketId = $state<string | null>(null)
@@ -50,29 +50,23 @@
   let filteredColumns = $derived(filterBoardColumns(allColumns, filter))
   let filteredGroups = $derived(projectBoardGroups(allGroups, filteredColumns))
 
-  function isStaleLoad(projectId: string, requestVersion: number) {
-    return activeProjectId !== projectId || requestVersion !== loadRequestVersion
-  }
+  const isStaleLoad = (projectId: string, requestVersion: number) =>
+    activeProjectId !== projectId || requestVersion !== loadRequestVersion
 
   function beginLoad(mode: 'initial' | 'background') {
-    if (mode === 'initial') {
-      loading = true
-    }
+    if (mode === 'initial') loading = true
     error = ''
   }
 
-  function shouldDeferLoadedBoard(mode: 'initial' | 'background') {
-    return mode === 'background' && pendingMoveByTicket.size > 0
-  }
+  const shouldDeferLoadedBoard = (mode: 'initial' | 'background') =>
+    mode === 'background' && pendingMoveByTicket.size > 0
 
-  function finishInitialLoad(
+  const finishInitialLoad = (
     projectId: string,
     requestVersion: number,
     mode: 'initial' | 'background',
-  ) {
-    if (!isStaleLoad(projectId, requestVersion) && mode === 'initial') {
-      loading = false
-    }
+  ) => {
+    if (!isStaleLoad(projectId, requestVersion) && mode === 'initial') loading = false
   }
 
   async function loadBoard(projectId: string, mode: 'initial' | 'background') {
@@ -106,6 +100,7 @@
 
       workflows = nextBoard.workflowTypes
       agentOptions = nextBoard.agentOptions
+      allStatuses = nextBoard.statusOptions
       allGroups = nextBoard.groups
       allColumns = nextBoard.columns
     } catch (caughtError) {
@@ -116,7 +111,7 @@
     }
   }
 
-  function requestReload(projectId: string) {
+  const requestReload = (projectId: string) => {
     queuedReload = true
     void drainReloadQueue(projectId)
   }
@@ -155,6 +150,7 @@
     if (!projectId) {
       allColumns = []
       allGroups = []
+      allStatuses = []
       workflows = []
       agentOptions = []
       error = ''
@@ -182,9 +178,8 @@
     }
   })
 
-  function handleTicketClick(ticket: BoardTicket) {
+  const handleTicketClick = (ticket: BoardTicket) =>
     appStore.openRightPanel({ type: 'ticket', id: ticket.id })
-  }
 
   function handleTicketDragStart(ticket: BoardTicket) {
     if (ticket.isMoving) return
@@ -192,14 +187,36 @@
     dropColumnId = ticket.statusId
   }
 
-  function handleTicketDragEnd() {
+  const handleTicketDragEnd = () => {
     draggingTicketId = null
     dropColumnId = null
   }
 
-  function handleTicketDragOverColumn(columnId: string) {
+  const handleTicketDragOverColumn = (columnId: string) => {
     if (!draggingTicketId) return
     dropColumnId = columnId
+  }
+
+  const handleStatusChange = async (ticketId: string, statusId: string) =>
+    handleTicketDrop(ticketId, statusId)
+
+  async function handlePriorityChange(ticketId: string, priority: string) {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return
+
+    allColumns = patchTicket(allColumns, ticketId, (ticket) => ({
+      ...ticket,
+      priority: priority as BoardTicket['priority'],
+    }))
+
+    try {
+      await updateTicket(ticketId, { priority })
+    } catch (caughtError) {
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update priority.',
+      )
+      requestReload(projectId)
+    }
   }
 
   async function handleTicketDrop(ticketId: string, targetColumnId: string) {
@@ -207,12 +224,9 @@
     const location = findTicketLocation(allColumns, ticketId)
     handleTicketDragEnd()
 
-    if (!projectId || !location || location.ticket.isMoving || pendingMoveByTicket.has(ticketId)) {
+    if (!projectId || !location || location.ticket.isMoving || pendingMoveByTicket.has(ticketId))
       return
-    }
-    if (location.columnId === targetColumnId) {
-      return
-    }
+    if (location.columnId === targetColumnId) return
 
     pendingMoveByTicket.set(ticketId, {
       fromColumnId: location.columnId,
@@ -251,48 +265,35 @@
   }
 </script>
 
-{#snippet actions()}
-  <Button
-    size="sm"
-    disabled={!appStore.currentProject?.id}
-    onclick={() => appStore.openNewTicketDialog()}
-  >
-    New Ticket
-  </Button>
-{/snippet}
-
-<PageScaffold
-  title="Tickets"
-  description="Track tickets across workflow statuses."
-  variant="workspace"
-  {actions}
->
-  <div class="flex min-h-0 flex-1 flex-col gap-4">
-    <BoardToolbar bind:filter {workflows} agents={agentOptions} />
-    {#if error}
-      <div
-        class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
-      >
-        {error}
-      </div>
-    {/if}
-    {#if loading && allColumns.length === 0}
-      <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
-        Loading tickets…
-      </div>
-    {:else if ticketViewStore.mode === 'board'}
-      <BoardView
-        groups={filteredGroups}
-        onticketclick={handleTicketClick}
-        ondragstartticket={handleTicketDragStart}
-        ondragendticket={handleTicketDragEnd}
-        ondragovercolumn={handleTicketDragOverColumn}
-        ondropticket={handleTicketDrop}
-        {draggingTicketId}
-        {dropColumnId}
-      />
-    {:else}
-      <BoardListView columns={filteredColumns} onticketclick={handleTicketClick} />
-    {/if}
-  </div>
-</PageScaffold>
+<div class="flex h-full min-h-0 flex-col gap-2 px-4 py-3">
+  <BoardToolbar bind:filter {workflows} agents={agentOptions} />
+  {#if error}
+    <div
+      class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
+    >
+      {error}
+    </div>
+  {/if}
+  {#if loading && allColumns.length === 0}
+    <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
+      Loading tickets…
+    </div>
+  {:else if ticketViewStore.mode === 'board'}
+    <BoardView
+      groups={filteredGroups}
+      statuses={allStatuses}
+      onticketclick={handleTicketClick}
+      ondragstartticket={handleTicketDragStart}
+      ondragendticket={handleTicketDragEnd}
+      ondragovercolumn={handleTicketDragOverColumn}
+      ondropticket={handleTicketDrop}
+      onStatusChange={handleStatusChange}
+      onPriorityChange={handlePriorityChange}
+      onCreateTicket={(statusId) => appStore.openNewTicketDialog(statusId)}
+      {draggingTicketId}
+      {dropColumnId}
+    />
+  {:else}
+    <BoardListView columns={filteredColumns} onticketclick={handleTicketClick} />
+  {/if}
+</div>

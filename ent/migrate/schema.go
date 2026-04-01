@@ -109,6 +109,8 @@ var (
 		{Name: "cli_command", Type: field.TypeString},
 		{Name: "cli_args", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "auth_config", Type: field.TypeJSON},
+		{Name: "cli_rate_limit", Type: field.TypeJSON},
+		{Name: "cli_rate_limit_updated_at", Type: field.TypeTime, Nullable: true},
 		{Name: "model_name", Type: field.TypeString},
 		{Name: "model_temperature", Type: field.TypeFloat64, Default: 0},
 		{Name: "model_max_tokens", Type: field.TypeInt, Default: 16384},
@@ -126,13 +128,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "agent_providers_machines_providers",
-				Columns:    []*schema.Column{AgentProvidersColumns[13]},
+				Columns:    []*schema.Column{AgentProvidersColumns[15]},
 				RefColumns: []*schema.Column{MachinesColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agent_providers_organizations_providers",
-				Columns:    []*schema.Column{AgentProvidersColumns[14]},
+				Columns:    []*schema.Column{AgentProvidersColumns[16]},
 				RefColumns: []*schema.Column{OrganizationsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -141,7 +143,7 @@ var (
 			{
 				Name:    "agentprovider_organization_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{AgentProvidersColumns[14], AgentProvidersColumns[1]},
+				Columns: []*schema.Column{AgentProvidersColumns[16], AgentProvidersColumns[1]},
 			},
 		},
 	}

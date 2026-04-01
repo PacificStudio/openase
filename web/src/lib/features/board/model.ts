@@ -8,7 +8,7 @@ import {
   type AgentRuntimeInfo,
 } from './model-helpers'
 import { buildBoardGroups } from './grouping'
-import type { BoardColumn, BoardFilter, BoardGroup, BoardTicket } from './types'
+import type { BoardColumn, BoardFilter, BoardGroup, BoardStatusOption, BoardTicket } from './types'
 
 export { projectBoardGroups } from './grouping'
 
@@ -20,6 +20,7 @@ export type PendingTicketMove = {
 export type BoardData = {
   columns: BoardColumn[]
   groups: BoardGroup[]
+  statusOptions: BoardStatusOption[]
   workflowTypes: string[]
   agentOptions: string[]
 }
@@ -68,6 +69,12 @@ export function buildBoardData(
 ): BoardData {
   const workflowTypeById = new Map(workflows.map((workflow) => [workflow.id, workflow.type]))
   const { runtimeByTicketId, agentRuntimeByTicketId } = buildTicketRuntimeById(agents, activity)
+  const statusMap = new Map(
+    statusPayload.statuses.map((s) => [
+      s.id,
+      { name: s.name, color: s.color || '#94a3b8', stage: s.stage },
+    ]),
+  )
   const terminalStatusIds = new Set(
     statusPayload.statuses
       .filter((s) => s.stage === 'completed' || s.stage === 'canceled')
@@ -79,12 +86,24 @@ export function buildBoardData(
     runtimeByTicketId,
     agentRuntimeByTicketId,
     terminalStatusIds,
+    statusMap,
   )
   const groups = buildBoardGroups(statusPayload, ticketsByStatusId)
   const columns = groups.flatMap((group) => group.columns)
 
+  const statusOptions: BoardStatusOption[] = statusPayload.statuses
+    .slice()
+    .sort((a, b) => a.position - b.position)
+    .map((s) => ({
+      id: s.id,
+      name: s.name,
+      color: s.color || '#94a3b8',
+      stage: (s.stage || 'unstarted') as BoardStatusOption['stage'],
+    }))
+
   return {
     groups,
+    statusOptions,
     workflowTypes: Array.from(new Set(workflows.map((workflow) => workflow.type))),
     agentOptions: Array.from(
       new Set(
@@ -196,6 +215,7 @@ function buildBoardTicketsByStatusId(
   runtimeByTicketId: Map<string, { agentName: string; updatedAt: string; timestamp: number }>,
   agentRuntimeByTicketId: Map<string, AgentRuntimeInfo>,
   terminalStatusIds: Set<string>,
+  statusMap: Map<string, { name: string; color: string; stage: string }>,
 ) {
   const ticketsByStatusId = new Map<string, BoardTicket[]>()
 
@@ -205,9 +225,13 @@ function buildBoardTicketsByStatusId(
     const isBlocked = ticket.dependencies.some(
       (dep) => dep.type === 'blocked_by' && !terminalStatusIds.has(dep.target.status_id),
     )
+    const statusInfo = statusMap.get(ticket.status_id)
     const boardTicket: BoardTicket = {
       id: ticket.id,
       statusId: ticket.status_id,
+      statusName: statusInfo?.name ?? 'Unknown',
+      statusColor: statusInfo?.color ?? '#94a3b8',
+      stage: (statusInfo?.stage || 'unstarted') as BoardTicket['stage'],
       identifier: ticket.identifier,
       title: ticket.title,
       priority: normalizePriority(ticket.priority),

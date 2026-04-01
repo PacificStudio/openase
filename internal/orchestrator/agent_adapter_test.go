@@ -139,8 +139,12 @@ func TestClaudeCodeAgentAdapterSatisfiesRuntimeContract(t *testing.T) {
 		t.Fatalf("unexpected first event: %+v", first)
 	}
 	second := requireAgentEvent(t, session.Events())
-	if second.Type != agentEventTypeTurnCompleted || second.Turn == nil || second.Turn.Status != "completed" {
+	if second.Type != agentEventTypeRateLimitUpdated || second.RateLimit == nil || second.RateLimit.ClaudeCode == nil {
 		t.Fatalf("unexpected second event: %+v", second)
+	}
+	third := requireAgentEvent(t, session.Events())
+	if third.Type != agentEventTypeTurnCompleted || third.Turn == nil || third.Turn.Status != "completed" {
+		t.Fatalf("unexpected third event: %+v", third)
 	}
 
 	sessionID, ok := session.SessionID()
@@ -206,8 +210,16 @@ func TestDefaultAgentAdapterRegistryRegistersGeminiRuntimeContract(t *testing.T)
 	}
 
 	second := requireAgentEvent(t, session.Events())
-	if second.Type != agentEventTypeTurnCompleted || second.Turn == nil || second.Turn.Status != "completed" || second.Turn.TurnID != turn.TurnID {
+	if second.Type != agentEventTypeTokenUsageUpdated || second.TokenUsage == nil {
 		t.Fatalf("unexpected second event: %+v", second)
+	}
+	if second.TokenUsage.TotalInputTokens != 120 || second.TokenUsage.TotalOutputTokens != 35 || second.TokenUsage.TotalTokens != 155 {
+		t.Fatalf("unexpected Gemini token usage event: %+v", second.TokenUsage)
+	}
+
+	third := requireAgentEvent(t, session.Events())
+	if third.Type != agentEventTypeTurnCompleted || third.Turn == nil || third.Turn.Status != "completed" || third.Turn.TurnID != turn.TurnID {
+		t.Fatalf("unexpected third event: %+v", third)
 	}
 
 	if manager.capturedSpec.Command != provider.MustParseAgentCLICommand("gemini") {
@@ -289,6 +301,9 @@ func runClaudeRuntimeProtocol(process *runtimeRunnerFakeProcess) error {
 	if _, err := io.WriteString(process.stdoutWrite, `{"type":"assistant","session_id":"claude-session-1","message":{"content":[{"type":"text","text":"Implemented the shared contract."}]}}`+"\n"); err != nil {
 		return err
 	}
+	if _, err := io.WriteString(process.stdoutWrite, `{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1775037600,"rateLimitType":"five_hour","isUsingOverage":false}}`+"\n"); err != nil {
+		return err
+	}
 	if _, err := io.WriteString(process.stdoutWrite, `{"type":"result","subtype":"success","session_id":"claude-session-1","result":"done","num_turns":1}`+"\n"); err != nil {
 		return err
 	}
@@ -310,7 +325,17 @@ func runGeminiRuntimeProtocol(process *runtimeRunnerFakeProcess) error {
 	if _, err := io.ReadAll(process.stdinRead); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(process.stdoutWrite, `{"response":"Implemented the shared contract."}`); err != nil {
+	if _, err := io.WriteString(process.stdoutWrite, `{
+		"response":"Implemented the shared contract.",
+		"stats":{
+			"models":{
+				"gemini-2.5-pro":{
+					"api":{"totalRequests":1,"totalErrors":0,"totalLatencyMs":1200},
+					"tokens":{"input":120,"prompt":120,"candidates":35,"total":155,"cached":0,"thoughts":0,"tool":0}
+				}
+			}
+		}
+	}`); err != nil {
 		return err
 	}
 	process.finish(nil)

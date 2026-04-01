@@ -4,6 +4,7 @@
     adapterDisplayName,
     adapterIconPath,
     ProviderAvailabilityBadge,
+    summarizeProviderRateLimit,
   } from '$lib/features/providers'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
@@ -67,6 +68,7 @@
         {@const isDefault = provider.id === effectiveDefaultId}
         {@const isProjectDefault = provider.id === selectedDefaultProviderId}
         {@const isOrgDefault = provider.id === orgDefaultProviderId}
+        {@const rateLimit = summarizeProviderRateLimit(provider)}
         <div
           class={cn(
             'border-border/60 bg-card/60 flex items-center gap-3 rounded-xl border px-4 py-3',
@@ -123,6 +125,11 @@
               <span>{provider.machineName}</span>
               <span>{provider.agentCount} agent{provider.agentCount !== 1 ? 's' : ''}</span>
             </div>
+            {#if rateLimit}
+              <div class="text-muted-foreground mt-1 text-[11px]">
+                {rateLimit.headline} · {rateLimit.updatedLabel}
+              </div>
+            {/if}
           </div>
 
           <!-- Configure button -->

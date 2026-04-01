@@ -31,6 +31,10 @@ const (
 	FieldCliArgs = "cli_args"
 	// FieldAuthConfig holds the string denoting the auth_config field in the database.
 	FieldAuthConfig = "auth_config"
+	// FieldCliRateLimit holds the string denoting the cli_rate_limit field in the database.
+	FieldCliRateLimit = "cli_rate_limit"
+	// FieldCliRateLimitUpdatedAt holds the string denoting the cli_rate_limit_updated_at field in the database.
+	FieldCliRateLimitUpdatedAt = "cli_rate_limit_updated_at"
 	// FieldModelName holds the string denoting the model_name field in the database.
 	FieldModelName = "model_name"
 	// FieldModelTemperature holds the string denoting the model_temperature field in the database.
@@ -94,6 +98,8 @@ var Columns = []string{
 	FieldCliCommand,
 	FieldCliArgs,
 	FieldAuthConfig,
+	FieldCliRateLimit,
+	FieldCliRateLimitUpdatedAt,
 	FieldModelName,
 	FieldModelTemperature,
 	FieldModelMaxTokens,
@@ -119,6 +125,8 @@ var (
 	CliCommandValidator func(string) error
 	// DefaultAuthConfig holds the default value on creation for the "auth_config" field.
 	DefaultAuthConfig func() map[string]interface{}
+	// DefaultCliRateLimit holds the default value on creation for the "cli_rate_limit" field.
+	DefaultCliRateLimit func() map[string]interface{}
 	// ModelNameValidator is a validator for the "model_name" field. It is called by the builders before save.
 	ModelNameValidator func(string) error
 	// DefaultModelTemperature holds the default value on creation for the "model_temperature" field.
@@ -227,6 +235,11 @@ func ByCliCommand(opts ...sql.OrderTermOption) OrderOption {
 // ByCliArgs orders the results by the cli_args field.
 func ByCliArgs(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCliArgs, opts...).ToFunc()
+}
+
+// ByCliRateLimitUpdatedAt orders the results by the cli_rate_limit_updated_at field.
+func ByCliRateLimitUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCliRateLimitUpdatedAt, opts...).ToFunc()
 }
 
 // ByModelName orders the results by the model_name field.

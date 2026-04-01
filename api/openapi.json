@@ -6901,6 +6901,49 @@
                           "cli_command": {
                             "type": "string"
                           },
+                          "cli_rate_limit": {
+                            "nullable": true,
+                            "properties": {
+                              "claude_code": {
+                                "nullable": true,
+                                "properties": {
+                                  "is_using_overage": {
+                                    "nullable": true,
+                                    "type": "boolean"
+                                  },
+                                  "overage_disabled_reason": {
+                                    "type": "string"
+                                  },
+                                  "overage_status": {
+                                    "type": "string"
+                                  },
+                                  "rate_limit_type": {
+                                    "type": "string"
+                                  },
+                                  "resets_at": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "provider": {
+                                "type": "string"
+                              },
+                              "raw": {
+                                "additionalProperties": {},
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "cli_rate_limit_updated_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "cost_per_input_token": {
                             "format": "double",
                             "type": "number"
@@ -7170,6 +7213,49 @@
                           "type": "array"
                         },
                         "cli_command": {
+                          "type": "string"
+                        },
+                        "cli_rate_limit": {
+                          "nullable": true,
+                          "properties": {
+                            "claude_code": {
+                              "nullable": true,
+                              "properties": {
+                                "is_using_overage": {
+                                  "nullable": true,
+                                  "type": "boolean"
+                                },
+                                "overage_disabled_reason": {
+                                  "type": "string"
+                                },
+                                "overage_status": {
+                                  "type": "string"
+                                },
+                                "rate_limit_type": {
+                                  "type": "string"
+                                },
+                                "resets_at": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "provider": {
+                              "type": "string"
+                            },
+                            "raw": {
+                              "additionalProperties": {},
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "cli_rate_limit_updated_at": {
+                          "nullable": true,
                           "type": "string"
                         },
                         "cost_per_input_token": {
@@ -17631,6 +17717,49 @@
                         "cli_command": {
                           "type": "string"
                         },
+                        "cli_rate_limit": {
+                          "nullable": true,
+                          "properties": {
+                            "claude_code": {
+                              "nullable": true,
+                              "properties": {
+                                "is_using_overage": {
+                                  "nullable": true,
+                                  "type": "boolean"
+                                },
+                                "overage_disabled_reason": {
+                                  "type": "string"
+                                },
+                                "overage_status": {
+                                  "type": "string"
+                                },
+                                "rate_limit_type": {
+                                  "type": "string"
+                                },
+                                "resets_at": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "provider": {
+                              "type": "string"
+                            },
+                            "raw": {
+                              "additionalProperties": {},
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "cli_rate_limit_updated_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "cost_per_input_token": {
                           "format": "double",
                           "type": "number"
@@ -17906,6 +18035,49 @@
                           "type": "array"
                         },
                         "cli_command": {
+                          "type": "string"
+                        },
+                        "cli_rate_limit": {
+                          "nullable": true,
+                          "properties": {
+                            "claude_code": {
+                              "nullable": true,
+                              "properties": {
+                                "is_using_overage": {
+                                  "nullable": true,
+                                  "type": "boolean"
+                                },
+                                "overage_disabled_reason": {
+                                  "type": "string"
+                                },
+                                "overage_status": {
+                                  "type": "string"
+                                },
+                                "rate_limit_type": {
+                                  "type": "string"
+                                },
+                                "resets_at": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "provider": {
+                              "type": "string"
+                            },
+                            "raw": {
+                              "additionalProperties": {},
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "cli_rate_limit_updated_at": {
+                          "nullable": true,
                           "type": "string"
                         },
                         "cost_per_input_token": {

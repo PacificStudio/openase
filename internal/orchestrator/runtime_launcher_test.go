@@ -658,8 +658,15 @@ func TestRuntimeLauncherStartRuntimeSessionSupportsGeminiProvider(t *testing.T) 
 		t.Fatalf("unexpected first event: %+v", first)
 	}
 	second := requireAgentEvent(t, session.Events())
-	if second.Type != agentEventTypeTurnCompleted || second.Turn == nil || second.Turn.TurnID != turn.TurnID {
+	if second.Type != agentEventTypeTokenUsageUpdated || second.TokenUsage == nil {
 		t.Fatalf("unexpected second event: %+v", second)
+	}
+	if second.TokenUsage.TotalInputTokens != 120 || second.TokenUsage.TotalOutputTokens != 35 || second.TokenUsage.TotalTokens != 155 {
+		t.Fatalf("unexpected Gemini token usage event: %+v", second.TokenUsage)
+	}
+	third := requireAgentEvent(t, session.Events())
+	if third.Type != agentEventTypeTurnCompleted || third.Turn == nil || third.Turn.TurnID != turn.TurnID {
+		t.Fatalf("unexpected third event: %+v", third)
 	}
 
 	if manager.capturedSpec.Command != provider.MustParseAgentCLICommand("gemini") {

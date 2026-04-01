@@ -176,7 +176,7 @@ func (m monitoredMachine) toDomain() domain.Machine {
 func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMachine, now time.Time, report *MachineMonitorReport) (monitoredMachine, bool) {
 	level1Due := machineMonitorDue(machine.Resources, "l1", now, machineMonitorLevel1Interval)
 	level2Due := machineMonitorDue(machine.Resources, "l2", now, machineMonitorLevel2Interval)
-	level3Due := hasMachineLabel(machine.Labels, "gpu") && machineMonitorDue(machine.Resources, "l3", now, machineMonitorLevel3Interval)
+	level3Due := machineMonitorDue(machine.Resources, "l3", now, machineMonitorLevel3Interval)
 	level4Due := machineMonitorDue(machine.Resources, "l4", now, machineMonitorLevel4Interval)
 	level5Due := machineMonitorDue(machine.Resources, "l5", now, machineMonitorLevel5Interval)
 	if !level1Due && !level2Due && !level3Due && !level4Due && !level5Due {
@@ -796,15 +796,6 @@ func cloneAnyValue(value any) any {
 	default:
 		return value
 	}
-}
-
-func hasMachineLabel(labels []string, label string) bool {
-	for _, item := range labels {
-		if strings.EqualFold(strings.TrimSpace(item), label) {
-			return true
-		}
-	}
-	return false
 }
 
 func compareAnyInt(left any, right any) int {

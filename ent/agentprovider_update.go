@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -132,6 +133,32 @@ func (_u *AgentProviderUpdate) ClearCliArgs() *AgentProviderUpdate {
 // SetAuthConfig sets the "auth_config" field.
 func (_u *AgentProviderUpdate) SetAuthConfig(v map[string]interface{}) *AgentProviderUpdate {
 	_u.mutation.SetAuthConfig(v)
+	return _u
+}
+
+// SetCliRateLimit sets the "cli_rate_limit" field.
+func (_u *AgentProviderUpdate) SetCliRateLimit(v map[string]interface{}) *AgentProviderUpdate {
+	_u.mutation.SetCliRateLimit(v)
+	return _u
+}
+
+// SetCliRateLimitUpdatedAt sets the "cli_rate_limit_updated_at" field.
+func (_u *AgentProviderUpdate) SetCliRateLimitUpdatedAt(v time.Time) *AgentProviderUpdate {
+	_u.mutation.SetCliRateLimitUpdatedAt(v)
+	return _u
+}
+
+// SetNillableCliRateLimitUpdatedAt sets the "cli_rate_limit_updated_at" field if the given value is not nil.
+func (_u *AgentProviderUpdate) SetNillableCliRateLimitUpdatedAt(v *time.Time) *AgentProviderUpdate {
+	if v != nil {
+		_u.SetCliRateLimitUpdatedAt(*v)
+	}
+	return _u
+}
+
+// ClearCliRateLimitUpdatedAt clears the value of the "cli_rate_limit_updated_at" field.
+func (_u *AgentProviderUpdate) ClearCliRateLimitUpdatedAt() *AgentProviderUpdate {
+	_u.mutation.ClearCliRateLimitUpdatedAt()
 	return _u
 }
 
@@ -449,6 +476,15 @@ func (_u *AgentProviderUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	if value, ok := _u.mutation.AuthConfig(); ok {
 		_spec.SetField(agentprovider.FieldAuthConfig, field.TypeJSON, value)
 	}
+	if value, ok := _u.mutation.CliRateLimit(); ok {
+		_spec.SetField(agentprovider.FieldCliRateLimit, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.CliRateLimitUpdatedAt(); ok {
+		_spec.SetField(agentprovider.FieldCliRateLimitUpdatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.CliRateLimitUpdatedAtCleared() {
+		_spec.ClearField(agentprovider.FieldCliRateLimitUpdatedAt, field.TypeTime)
+	}
 	if value, ok := _u.mutation.ModelName(); ok {
 		_spec.SetField(agentprovider.FieldModelName, field.TypeString, value)
 	}
@@ -749,6 +785,32 @@ func (_u *AgentProviderUpdateOne) ClearCliArgs() *AgentProviderUpdateOne {
 // SetAuthConfig sets the "auth_config" field.
 func (_u *AgentProviderUpdateOne) SetAuthConfig(v map[string]interface{}) *AgentProviderUpdateOne {
 	_u.mutation.SetAuthConfig(v)
+	return _u
+}
+
+// SetCliRateLimit sets the "cli_rate_limit" field.
+func (_u *AgentProviderUpdateOne) SetCliRateLimit(v map[string]interface{}) *AgentProviderUpdateOne {
+	_u.mutation.SetCliRateLimit(v)
+	return _u
+}
+
+// SetCliRateLimitUpdatedAt sets the "cli_rate_limit_updated_at" field.
+func (_u *AgentProviderUpdateOne) SetCliRateLimitUpdatedAt(v time.Time) *AgentProviderUpdateOne {
+	_u.mutation.SetCliRateLimitUpdatedAt(v)
+	return _u
+}
+
+// SetNillableCliRateLimitUpdatedAt sets the "cli_rate_limit_updated_at" field if the given value is not nil.
+func (_u *AgentProviderUpdateOne) SetNillableCliRateLimitUpdatedAt(v *time.Time) *AgentProviderUpdateOne {
+	if v != nil {
+		_u.SetCliRateLimitUpdatedAt(*v)
+	}
+	return _u
+}
+
+// ClearCliRateLimitUpdatedAt clears the value of the "cli_rate_limit_updated_at" field.
+func (_u *AgentProviderUpdateOne) ClearCliRateLimitUpdatedAt() *AgentProviderUpdateOne {
+	_u.mutation.ClearCliRateLimitUpdatedAt()
 	return _u
 }
 
@@ -1095,6 +1157,15 @@ func (_u *AgentProviderUpdateOne) sqlSave(ctx context.Context) (_node *AgentProv
 	}
 	if value, ok := _u.mutation.AuthConfig(); ok {
 		_spec.SetField(agentprovider.FieldAuthConfig, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.CliRateLimit(); ok {
+		_spec.SetField(agentprovider.FieldCliRateLimit, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.CliRateLimitUpdatedAt(); ok {
+		_spec.SetField(agentprovider.FieldCliRateLimitUpdatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.CliRateLimitUpdatedAtCleared() {
+		_spec.ClearField(agentprovider.FieldCliRateLimitUpdatedAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.ModelName(); ok {
 		_spec.SetField(agentprovider.FieldModelName, field.TypeString, value)

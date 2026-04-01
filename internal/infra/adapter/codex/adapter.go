@@ -162,15 +162,19 @@ type TurnError struct {
 }
 
 type TokenUsageEvent struct {
-	ThreadID           string
-	TurnID             string
-	TotalInputTokens   int64
-	TotalOutputTokens  int64
-	LastInputTokens    int64
-	LastOutputTokens   int64
-	TotalTokens        int64
-	LastTokens         int64
-	ModelContextWindow *int64
+	ThreadID               string
+	TurnID                 string
+	TotalInputTokens       int64
+	TotalOutputTokens      int64
+	TotalCachedInputTokens int64
+	TotalReasoningTokens   int64
+	LastInputTokens        int64
+	LastOutputTokens       int64
+	LastCachedInputTokens  int64
+	LastReasoningTokens    int64
+	TotalTokens            int64
+	LastTokens             int64
+	ModelContextWindow     *int64
 }
 
 type OutputEvent struct {
@@ -811,15 +815,19 @@ func (s *Session) handleNotification(message jsonRPCMessage) error {
 		s.emit(Event{
 			Type: EventTypeTokenUsageUpdated,
 			TokenUsage: &TokenUsageEvent{
-				ThreadID:           notification.ThreadID,
-				TurnID:             notification.TurnID,
-				TotalInputTokens:   notification.TokenUsage.Total.InputTokens,
-				TotalOutputTokens:  notification.TokenUsage.Total.OutputTokens,
-				LastInputTokens:    notification.TokenUsage.Last.InputTokens,
-				LastOutputTokens:   notification.TokenUsage.Last.OutputTokens,
-				TotalTokens:        notification.TokenUsage.Total.TotalTokens,
-				LastTokens:         notification.TokenUsage.Last.TotalTokens,
-				ModelContextWindow: notification.TokenUsage.ModelContextWindow,
+				ThreadID:               notification.ThreadID,
+				TurnID:                 notification.TurnID,
+				TotalInputTokens:       notification.TokenUsage.Total.InputTokens,
+				TotalOutputTokens:      notification.TokenUsage.Total.OutputTokens,
+				TotalCachedInputTokens: notification.TokenUsage.Total.CachedInputTokens,
+				TotalReasoningTokens:   notification.TokenUsage.Total.ReasoningOutputTokens,
+				LastInputTokens:        notification.TokenUsage.Last.InputTokens,
+				LastOutputTokens:       notification.TokenUsage.Last.OutputTokens,
+				LastCachedInputTokens:  notification.TokenUsage.Last.CachedInputTokens,
+				LastReasoningTokens:    notification.TokenUsage.Last.ReasoningOutputTokens,
+				TotalTokens:            notification.TokenUsage.Total.TotalTokens,
+				LastTokens:             notification.TokenUsage.Last.TotalTokens,
+				ModelContextWindow:     notification.TokenUsage.ModelContextWindow,
 			},
 		})
 

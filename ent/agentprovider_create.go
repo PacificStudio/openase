@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
@@ -78,6 +79,26 @@ func (_c *AgentProviderCreate) SetCliArgs(v pgarray.StringArray) *AgentProviderC
 // SetAuthConfig sets the "auth_config" field.
 func (_c *AgentProviderCreate) SetAuthConfig(v map[string]interface{}) *AgentProviderCreate {
 	_c.mutation.SetAuthConfig(v)
+	return _c
+}
+
+// SetCliRateLimit sets the "cli_rate_limit" field.
+func (_c *AgentProviderCreate) SetCliRateLimit(v map[string]interface{}) *AgentProviderCreate {
+	_c.mutation.SetCliRateLimit(v)
+	return _c
+}
+
+// SetCliRateLimitUpdatedAt sets the "cli_rate_limit_updated_at" field.
+func (_c *AgentProviderCreate) SetCliRateLimitUpdatedAt(v time.Time) *AgentProviderCreate {
+	_c.mutation.SetCliRateLimitUpdatedAt(v)
+	return _c
+}
+
+// SetNillableCliRateLimitUpdatedAt sets the "cli_rate_limit_updated_at" field if the given value is not nil.
+func (_c *AgentProviderCreate) SetNillableCliRateLimitUpdatedAt(v *time.Time) *AgentProviderCreate {
+	if v != nil {
+		_c.SetCliRateLimitUpdatedAt(*v)
+	}
 	return _c
 }
 
@@ -254,6 +275,10 @@ func (_c *AgentProviderCreate) defaults() {
 		v := agentprovider.DefaultAuthConfig()
 		_c.mutation.SetAuthConfig(v)
 	}
+	if _, ok := _c.mutation.CliRateLimit(); !ok {
+		v := agentprovider.DefaultCliRateLimit()
+		_c.mutation.SetCliRateLimit(v)
+	}
 	if _, ok := _c.mutation.ModelTemperature(); !ok {
 		v := agentprovider.DefaultModelTemperature
 		_c.mutation.SetModelTemperature(v)
@@ -322,6 +347,9 @@ func (_c *AgentProviderCreate) check() error {
 	}
 	if _, ok := _c.mutation.AuthConfig(); !ok {
 		return &ValidationError{Name: "auth_config", err: errors.New(`ent: missing required field "AgentProvider.auth_config"`)}
+	}
+	if _, ok := _c.mutation.CliRateLimit(); !ok {
+		return &ValidationError{Name: "cli_rate_limit", err: errors.New(`ent: missing required field "AgentProvider.cli_rate_limit"`)}
 	}
 	if _, ok := _c.mutation.ModelName(); !ok {
 		return &ValidationError{Name: "model_name", err: errors.New(`ent: missing required field "AgentProvider.model_name"`)}
@@ -410,6 +438,14 @@ func (_c *AgentProviderCreate) createSpec() (*AgentProvider, *sqlgraph.CreateSpe
 	if value, ok := _c.mutation.AuthConfig(); ok {
 		_spec.SetField(agentprovider.FieldAuthConfig, field.TypeJSON, value)
 		_node.AuthConfig = value
+	}
+	if value, ok := _c.mutation.CliRateLimit(); ok {
+		_spec.SetField(agentprovider.FieldCliRateLimit, field.TypeJSON, value)
+		_node.CliRateLimit = value
+	}
+	if value, ok := _c.mutation.CliRateLimitUpdatedAt(); ok {
+		_spec.SetField(agentprovider.FieldCliRateLimitUpdatedAt, field.TypeTime, value)
+		_node.CliRateLimitUpdatedAt = &value
 	}
 	if value, ok := _c.mutation.ModelName(); ok {
 		_spec.SetField(agentprovider.FieldModelName, field.TypeString, value)

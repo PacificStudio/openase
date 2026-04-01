@@ -1,10 +1,11 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
-  import type { BoardGroup, BoardTicket } from '../types'
+  import type { BoardGroup, BoardStatusOption, BoardTicket } from '../types'
   import BoardColumnComponent from './board-column.svelte'
 
   let {
     groups,
+    statuses = [],
     class: className = '',
     onticketclick,
     draggingTicketId = null,
@@ -13,8 +14,13 @@
     ondragendticket,
     ondragovercolumn,
     ondropticket,
+    onStatusChange,
+    onPriorityChange,
+    onCreateTicket,
+    onColumnAction,
   }: {
     groups: BoardGroup[]
+    statuses?: BoardStatusOption[]
     class?: string
     onticketclick?: (ticket: BoardTicket) => void
     draggingTicketId?: string | null
@@ -23,7 +29,15 @@
     ondragendticket?: () => void
     ondragovercolumn?: (columnId: string) => void
     ondropticket?: (ticketId: string, columnId: string) => void
+    onStatusChange?: (ticketId: string, statusId: string) => void
+    onPriorityChange?: (ticketId: string, priority: BoardTicket['priority']) => void
+    onCreateTicket?: (statusId: string) => void
+    onColumnAction?: (columnId: string, action: string) => void
   } = $props()
+
+  const flatColumns = $derived(groups.flatMap((g) => g.columns))
+  const columnIndexById = $derived(new Map(flatColumns.map((col, i) => [col.id, i])))
+  const totalColumns = $derived(flatColumns.length)
 </script>
 
 <div class={cn('flex-1 overflow-x-auto', className)}>
@@ -41,13 +55,6 @@
             <div>
               <h2 class="text-foreground text-sm font-semibold">{group.name}</h2>
             </div>
-            {#if group.wipInfo}
-              <span
-                class="bg-background text-muted-foreground rounded-full border px-2 py-1 text-[10px] font-medium whitespace-nowrap"
-              >
-                {group.wipInfo}
-              </span>
-            {/if}
           </div>
 
           {#if group.columns.length === 0}
@@ -61,11 +68,18 @@
               {#each group.columns as column (column.id)}
                 <BoardColumnComponent
                   {column}
+                  {statuses}
+                  columnIndex={columnIndexById.get(column.id) ?? 0}
+                  columnCount={totalColumns}
                   {onticketclick}
                   {ondragstartticket}
                   {ondragendticket}
                   {ondragovercolumn}
                   {ondropticket}
+                  {onStatusChange}
+                  {onPriorityChange}
+                  {onCreateTicket}
+                  {onColumnAction}
                   isDropTarget={dropColumnId === column.id}
                   {draggingTicketId}
                 />

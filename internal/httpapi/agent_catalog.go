@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -11,31 +12,33 @@ import (
 )
 
 type agentProviderResponse struct {
-	ID                    string                            `json:"id"`
-	OrganizationID        string                            `json:"organization_id"`
-	MachineID             string                            `json:"machine_id"`
-	MachineName           string                            `json:"machine_name"`
-	MachineHost           string                            `json:"machine_host"`
-	MachineStatus         string                            `json:"machine_status"`
-	MachineSSHUser        *string                           `json:"machine_ssh_user,omitempty"`
-	MachineWorkspaceRoot  *string                           `json:"machine_workspace_root,omitempty"`
-	Name                  string                            `json:"name"`
-	AdapterType           string                            `json:"adapter_type"`
-	PermissionProfile     string                            `json:"permission_profile"`
-	AvailabilityState     string                            `json:"availability_state"`
-	Available             bool                              `json:"available"`
-	AvailabilityCheckedAt *string                           `json:"availability_checked_at,omitempty"`
-	AvailabilityReason    *string                           `json:"availability_reason,omitempty"`
-	Capabilities          agentProviderCapabilitiesResponse `json:"capabilities"`
-	CliCommand            string                            `json:"cli_command"`
-	CliArgs               []string                          `json:"cli_args"`
-	AuthConfig            map[string]any                    `json:"auth_config"`
-	ModelName             string                            `json:"model_name"`
-	ModelTemperature      float64                           `json:"model_temperature"`
-	ModelMaxTokens        int                               `json:"model_max_tokens"`
-	MaxParallelRuns       int                               `json:"max_parallel_runs"`
-	CostPerInputToken     float64                           `json:"cost_per_input_token"`
-	CostPerOutputToken    float64                           `json:"cost_per_output_token"`
+	ID                    string                             `json:"id"`
+	OrganizationID        string                             `json:"organization_id"`
+	MachineID             string                             `json:"machine_id"`
+	MachineName           string                             `json:"machine_name"`
+	MachineHost           string                             `json:"machine_host"`
+	MachineStatus         string                             `json:"machine_status"`
+	MachineSSHUser        *string                            `json:"machine_ssh_user,omitempty"`
+	MachineWorkspaceRoot  *string                            `json:"machine_workspace_root,omitempty"`
+	Name                  string                             `json:"name"`
+	AdapterType           string                             `json:"adapter_type"`
+	PermissionProfile     string                             `json:"permission_profile"`
+	AvailabilityState     string                             `json:"availability_state"`
+	Available             bool                               `json:"available"`
+	AvailabilityCheckedAt *string                            `json:"availability_checked_at,omitempty"`
+	AvailabilityReason    *string                            `json:"availability_reason,omitempty"`
+	Capabilities          agentProviderCapabilitiesResponse  `json:"capabilities"`
+	CliCommand            string                             `json:"cli_command"`
+	CliArgs               []string                           `json:"cli_args"`
+	AuthConfig            map[string]any                     `json:"auth_config"`
+	CLIRateLimit          *agentProviderCLIRateLimitResponse `json:"cli_rate_limit,omitempty"`
+	CLIRateLimitUpdatedAt *string                            `json:"cli_rate_limit_updated_at,omitempty"`
+	ModelName             string                             `json:"model_name"`
+	ModelTemperature      float64                            `json:"model_temperature"`
+	ModelMaxTokens        int                                `json:"model_max_tokens"`
+	MaxParallelRuns       int                                `json:"max_parallel_runs"`
+	CostPerInputToken     float64                            `json:"cost_per_input_token"`
+	CostPerOutputToken    float64                            `json:"cost_per_output_token"`
 }
 
 type agentProviderCapabilitiesResponse struct {
@@ -45,6 +48,21 @@ type agentProviderCapabilitiesResponse struct {
 type agentProviderCapabilityResponse struct {
 	State  string  `json:"state"`
 	Reason *string `json:"reason,omitempty"`
+}
+
+type agentProviderCLIRateLimitResponse struct {
+	Provider   string                                    `json:"provider"`
+	ClaudeCode *agentProviderClaudeCodeRateLimitResponse `json:"claude_code,omitempty"`
+	Raw        map[string]any                            `json:"raw,omitempty"`
+}
+
+type agentProviderClaudeCodeRateLimitResponse struct {
+	Status                string  `json:"status,omitempty"`
+	RateLimitType         string  `json:"rate_limit_type,omitempty"`
+	ResetsAt              *string `json:"resets_at,omitempty"`
+	OverageStatus         string  `json:"overage_status,omitempty"`
+	OverageDisabledReason string  `json:"overage_disabled_reason,omitempty"`
+	IsUsingOverage        *bool   `json:"is_using_overage,omitempty"`
 }
 
 type agentProviderModelOptionResponse struct {
@@ -507,16 +525,40 @@ func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 				Reason: stringPointerValue(capabilities.EphemeralChat.Reason),
 			},
 		},
-		CliCommand:         item.CliCommand,
-		CliArgs:            cloneStringSlice(item.CliArgs),
-		AuthConfig:         cloneMap(item.AuthConfig),
-		ModelName:          item.ModelName,
-		ModelTemperature:   item.ModelTemperature,
-		ModelMaxTokens:     item.ModelMaxTokens,
-		MaxParallelRuns:    item.MaxParallelRuns,
-		CostPerInputToken:  item.CostPerInputToken,
-		CostPerOutputToken: item.CostPerOutputToken,
+		CliCommand:            item.CliCommand,
+		CliArgs:               cloneStringSlice(item.CliArgs),
+		AuthConfig:            cloneMap(item.AuthConfig),
+		CLIRateLimit:          mapAgentProviderCLIRateLimitResponse(item.CLIRateLimit),
+		CLIRateLimitUpdatedAt: timePointerString(item.CLIRateLimitUpdatedAt),
+		ModelName:             item.ModelName,
+		ModelTemperature:      item.ModelTemperature,
+		ModelMaxTokens:        item.ModelMaxTokens,
+		MaxParallelRuns:       item.MaxParallelRuns,
+		CostPerInputToken:     item.CostPerInputToken,
+		CostPerOutputToken:    item.CostPerOutputToken,
 	}
+}
+
+func mapAgentProviderCLIRateLimitResponse(raw map[string]any) *agentProviderCLIRateLimitResponse {
+	if len(raw) == 0 {
+		return nil
+	}
+
+	payload, err := json.Marshal(raw)
+	if err != nil {
+		return nil
+	}
+
+	var response agentProviderCLIRateLimitResponse
+	if err := json.Unmarshal(payload, &response); err != nil {
+		return nil
+	}
+	response.Raw = cloneMap(raw)
+	if response.Provider == "" && len(response.Raw) == 0 {
+		return nil
+	}
+
+	return &response
 }
 
 func mapAgentProviderModelCatalogResponses() []agentProviderModelCatalogEntryResponse {

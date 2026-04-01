@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { formatCurrency } from '$lib/utils'
   import type { AgentInstance, AgentRunInstance } from '../types'
   import AgentCardList from './agent-card-list.svelte'
 
@@ -40,8 +39,6 @@
   const totalRunning = $derived(
     agents.filter((a) => a.status === 'running' || a.status === 'claimed').length,
   )
-  const totalRunsToday = $derived(agents.reduce((sum, a) => sum + a.todayCompleted, 0))
-  const totalCostToday = $derived(agents.reduce((sum, a) => sum + a.todayCost, 0))
 </script>
 
 <div class="space-y-4">
@@ -59,18 +56,8 @@
     </div>
   {:else}
     {#if agents.length > 0}
-      <div
-        class="border-border/60 bg-card/60 flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border px-4 py-3 text-sm"
-      >
-        <span class="text-foreground font-medium"
-          >{agents.length} agent{agents.length !== 1 ? 's' : ''}</span
-        >
-        <span class="text-muted-foreground">{totalRunning} running</span>
-        <span class="text-muted-foreground"
-          >{agentRuns.length} active run{agentRuns.length !== 1 ? 's' : ''}</span
-        >
-        <span class="text-muted-foreground">{totalRunsToday} completed today</span>
-        <span class="text-muted-foreground">{formatCurrency(totalCostToday)} today</span>
+      <div class="text-muted-foreground px-1 text-sm">
+        <span class="text-foreground font-medium">{totalRunning}/{agents.length}</span> agents running
       </div>
     {/if}
 

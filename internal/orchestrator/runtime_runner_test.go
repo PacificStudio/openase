@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
@@ -88,7 +89,8 @@ func TestRuntimeLauncherConsumeTurnIncludesSessionExitCause(t *testing.T) {
 		uuid.Nil,
 		uuid.Nil,
 		uuid.Nil,
-		"codex-app-server",
+		entagentprovider.AdapterTypeCodexAppServer,
+		uuid.Nil,
 		agentSession,
 		turn.TurnID,
 		&highWater,
@@ -197,7 +199,8 @@ func TestRuntimeLauncherConsumeTurnReturnsCleanSessionCloseWithoutExitCause(t *t
 		uuid.Nil,
 		uuid.Nil,
 		uuid.Nil,
-		"codex-app-server",
+		entagentprovider.AdapterTypeCodexAppServer,
+		uuid.Nil,
 		agentSession,
 		turn.TurnID,
 		&highWater,

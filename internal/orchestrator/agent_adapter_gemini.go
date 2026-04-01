@@ -298,6 +298,18 @@ func (s *geminiAgentSession) collectTurn(
 		})
 	}
 
+	usageInfo, err := provider.ParseGeminiCLIUsage(stdoutBytes)
+	if err != nil {
+		s.emitTurnFailed(turnID, fmt.Sprintf("parse gemini usage: %v", err))
+		return
+	}
+	if usage := agentTokenUsageFromCLIUsage(s.sessionID, turnID, usageInfo); usage != nil {
+		s.emit(agentEvent{
+			Type:       agentEventTypeTokenUsageUpdated,
+			TokenUsage: usage,
+		})
+	}
+
 	s.appendHistory(prompt, responseText)
 	s.emit(agentEvent{
 		Type: agentEventTypeTurnCompleted,

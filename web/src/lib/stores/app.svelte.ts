@@ -163,11 +163,14 @@ function createAppStore() {
     set newTicketDialogOpen(v) {
       newTicketDialogOpen = v
     },
-    openNewTicketDialog() {
+    newTicketDefaultStatusId: '' as string,
+    openNewTicketDialog(defaultStatusId?: string) {
+      this.newTicketDefaultStatusId = defaultStatusId ?? ''
       newTicketDialogOpen = true
     },
     closeNewTicketDialog() {
       newTicketDialogOpen = false
+      this.newTicketDefaultStatusId = ''
     },
     get rightPanelOpen() {
       return rightPanelOpen

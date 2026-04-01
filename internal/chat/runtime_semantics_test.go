@@ -302,6 +302,57 @@ func TestGeminiRuntimeCloseSessionStopsProcess(t *testing.T) {
 	}
 }
 
+func TestGeminiRuntimeDoneIncludesProviderPricedUsageCost(t *testing.T) {
+	stdin := &trackingWriteCloser{}
+	manager := &fakeAgentCLIProcessManager{
+		process: &fakeAgentCLIProcess{
+			stdin: stdin,
+			stdout: `{
+				"response":"OK",
+				"stats":{
+					"models":{
+						"gemini-2.5-pro":{
+							"api":{"totalRequests":1,"totalErrors":0,"totalLatencyMs":900},
+							"tokens":{"input":120,"prompt":120,"candidates":35,"total":155,"cached":0,"thoughts":0,"tool":0}
+						}
+					}
+				}
+			}`,
+		},
+	}
+	runtime := NewGeminiRuntime(manager)
+
+	stream, err := runtime.StartTurn(context.Background(), RuntimeTurnInput{
+		SessionID:        SessionID("session-gemini-cost"),
+		Message:          "Reply with exactly OK.",
+		SystemPrompt:     "You are OpenASE.",
+		MaxTurns:         DefaultMaxTurns,
+		WorkingDirectory: provider.MustParseAbsolutePath("/tmp/openase"),
+		Provider: catalogdomain.AgentProvider{
+			AdapterType:        catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+			CliCommand:         "gemini",
+			CostPerInputToken:  0.001,
+			CostPerOutputToken: 0.002,
+		},
+	})
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+
+	events := collectStreamEvents(stream.Events)
+	if len(events) != 2 {
+		t.Fatalf("stream event count = %d, want 2: %+v", len(events), events)
+	}
+
+	done, ok := events[1].Payload.(donePayload)
+	if events[1].Event != "done" || !ok {
+		t.Fatalf("last event = %+v, want done payload", events[1])
+	}
+	if done.CostUSD == nil || *done.CostUSD != 0.19 {
+		t.Fatalf("done cost = %#v, want 0.19", done.CostUSD)
+	}
+}
+
 type fakeAgentCLIProcessManager struct {
 	process   provider.AgentCLIProcess
 	startSpec provider.AgentCLIProcessSpec
@@ -383,7 +434,3 @@ type nopWriteCloser struct{}
 func (nopWriteCloser) Write(data []byte) (int, error) { return len(data), nil }
 
 func (nopWriteCloser) Close() error { return nil }
-
-func int64Pointer(value int64) *int64 {
-	return &value
-}

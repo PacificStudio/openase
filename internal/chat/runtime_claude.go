@@ -188,11 +188,15 @@ func mapClaudeEvent(sessionID SessionID, maxTurns int, event provider.ClaudeCode
 		}
 		return []StreamEvent{{Event: "message", Payload: payload}}
 	case provider.ClaudeCodeEventKindResult:
+		costUSD := cloneCostUSD(event.TotalCostUSD)
+		if event.UsageInfo != nil {
+			costUSD = cloneCostUSD(event.UsageInfo.CostUSD)
+		}
 		return []StreamEvent{{
 			Event: "done",
 			Payload: donePayload{
 				SessionID:      sessionID.String(),
-				CostUSD:        event.TotalCostUSD,
+				CostUSD:        costUSD,
 				TurnsUsed:      event.NumTurns,
 				TurnsRemaining: remainingTurns(maxTurns, event.NumTurns),
 			},

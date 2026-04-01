@@ -5651,6 +5651,21 @@ export interface operations {
               }
               cli_args?: string[]
               cli_command?: string
+              cli_rate_limit?: {
+                claude_code?: {
+                  is_using_overage?: boolean | null
+                  overage_disabled_reason?: string
+                  overage_status?: string
+                  rate_limit_type?: string
+                  resets_at?: string | null
+                  status?: string
+                } | null
+                provider?: string
+                raw?: {
+                  [key: string]: unknown
+                }
+              } | null
+              cli_rate_limit_updated_at?: string | null
               /** Format: double */
               cost_per_input_token?: number
               /** Format: double */
@@ -5791,6 +5806,21 @@ export interface operations {
               }
               cli_args?: string[]
               cli_command?: string
+              cli_rate_limit?: {
+                claude_code?: {
+                  is_using_overage?: boolean | null
+                  overage_disabled_reason?: string
+                  overage_status?: string
+                  rate_limit_type?: string
+                  resets_at?: string | null
+                  status?: string
+                } | null
+                provider?: string
+                raw?: {
+                  [key: string]: unknown
+                }
+              } | null
+              cli_rate_limit_updated_at?: string | null
               /** Format: double */
               cost_per_input_token?: number
               /** Format: double */
@@ -11117,6 +11147,21 @@ export interface operations {
               }
               cli_args?: string[]
               cli_command?: string
+              cli_rate_limit?: {
+                claude_code?: {
+                  is_using_overage?: boolean | null
+                  overage_disabled_reason?: string
+                  overage_status?: string
+                  rate_limit_type?: string
+                  resets_at?: string | null
+                  status?: string
+                } | null
+                provider?: string
+                raw?: {
+                  [key: string]: unknown
+                }
+              } | null
+              cli_rate_limit_updated_at?: string | null
               /** Format: double */
               cost_per_input_token?: number
               /** Format: double */
@@ -11257,6 +11302,21 @@ export interface operations {
               }
               cli_args?: string[]
               cli_command?: string
+              cli_rate_limit?: {
+                claude_code?: {
+                  is_using_overage?: boolean | null
+                  overage_disabled_reason?: string
+                  overage_status?: string
+                  rate_limit_type?: string
+                  resets_at?: string | null
+                  status?: string
+                } | null
+                provider?: string
+                raw?: {
+                  [key: string]: unknown
+                }
+              } | null
+              cli_rate_limit_updated_at?: string | null
               /** Format: double */
               cost_per_input_token?: number
               /** Format: double */

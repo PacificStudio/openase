@@ -80,6 +80,11 @@
       workflows = workflowPayload.workflows
       repoOptions = nextRepoOptions
       draft = createNewTicketDraft(nextStatusOptions, nextWorkflowOptions, nextRepoOptions)
+
+      const defaultStatusId = appStore.newTicketDefaultStatusId
+      if (defaultStatusId && nextStatusOptions.some((s) => s.id === defaultStatusId)) {
+        draft = { ...draft, statusId: defaultStatusId }
+      }
     } catch (caughtError) {
       if (requestId !== loadRequestId) return
       toastStore.error(

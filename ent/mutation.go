@@ -2233,40 +2233,42 @@ func (m *AgentMutation) ResetEdge(name string) error {
 // AgentProviderMutation represents an operation that mutates the AgentProvider nodes in the graph.
 type AgentProviderMutation struct {
 	config
-	op                       Op
-	typ                      string
-	id                       *uuid.UUID
-	name                     *string
-	adapter_type             *agentprovider.AdapterType
-	permission_profile       *agentprovider.PermissionProfile
-	cli_command              *string
-	cli_args                 *pgarray.StringArray
-	auth_config              *map[string]interface{}
-	model_name               *string
-	model_temperature        *float64
-	addmodel_temperature     *float64
-	model_max_tokens         *int
-	addmodel_max_tokens      *int
-	max_parallel_runs        *int
-	addmax_parallel_runs     *int
-	cost_per_input_token     *float64
-	addcost_per_input_token  *float64
-	cost_per_output_token    *float64
-	addcost_per_output_token *float64
-	clearedFields            map[string]struct{}
-	organization             *uuid.UUID
-	clearedorganization      bool
-	machine                  *uuid.UUID
-	clearedmachine           bool
-	agents                   map[uuid.UUID]struct{}
-	removedagents            map[uuid.UUID]struct{}
-	clearedagents            bool
-	agent_runs               map[uuid.UUID]struct{}
-	removedagent_runs        map[uuid.UUID]struct{}
-	clearedagent_runs        bool
-	done                     bool
-	oldValue                 func(context.Context) (*AgentProvider, error)
-	predicates               []predicate.AgentProvider
+	op                        Op
+	typ                       string
+	id                        *uuid.UUID
+	name                      *string
+	adapter_type              *agentprovider.AdapterType
+	permission_profile        *agentprovider.PermissionProfile
+	cli_command               *string
+	cli_args                  *pgarray.StringArray
+	auth_config               *map[string]interface{}
+	cli_rate_limit            *map[string]interface{}
+	cli_rate_limit_updated_at *time.Time
+	model_name                *string
+	model_temperature         *float64
+	addmodel_temperature      *float64
+	model_max_tokens          *int
+	addmodel_max_tokens       *int
+	max_parallel_runs         *int
+	addmax_parallel_runs      *int
+	cost_per_input_token      *float64
+	addcost_per_input_token   *float64
+	cost_per_output_token     *float64
+	addcost_per_output_token  *float64
+	clearedFields             map[string]struct{}
+	organization              *uuid.UUID
+	clearedorganization       bool
+	machine                   *uuid.UUID
+	clearedmachine            bool
+	agents                    map[uuid.UUID]struct{}
+	removedagents             map[uuid.UUID]struct{}
+	clearedagents             bool
+	agent_runs                map[uuid.UUID]struct{}
+	removedagent_runs         map[uuid.UUID]struct{}
+	clearedagent_runs         bool
+	done                      bool
+	oldValue                  func(context.Context) (*AgentProvider, error)
+	predicates                []predicate.AgentProvider
 }
 
 var _ ent.Mutation = (*AgentProviderMutation)(nil)
@@ -2672,6 +2674,91 @@ func (m *AgentProviderMutation) OldAuthConfig(ctx context.Context) (v map[string
 // ResetAuthConfig resets all changes to the "auth_config" field.
 func (m *AgentProviderMutation) ResetAuthConfig() {
 	m.auth_config = nil
+}
+
+// SetCliRateLimit sets the "cli_rate_limit" field.
+func (m *AgentProviderMutation) SetCliRateLimit(value map[string]interface{}) {
+	m.cli_rate_limit = &value
+}
+
+// CliRateLimit returns the value of the "cli_rate_limit" field in the mutation.
+func (m *AgentProviderMutation) CliRateLimit() (r map[string]interface{}, exists bool) {
+	v := m.cli_rate_limit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCliRateLimit returns the old "cli_rate_limit" field's value of the AgentProvider entity.
+// If the AgentProvider object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentProviderMutation) OldCliRateLimit(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCliRateLimit is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCliRateLimit requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCliRateLimit: %w", err)
+	}
+	return oldValue.CliRateLimit, nil
+}
+
+// ResetCliRateLimit resets all changes to the "cli_rate_limit" field.
+func (m *AgentProviderMutation) ResetCliRateLimit() {
+	m.cli_rate_limit = nil
+}
+
+// SetCliRateLimitUpdatedAt sets the "cli_rate_limit_updated_at" field.
+func (m *AgentProviderMutation) SetCliRateLimitUpdatedAt(t time.Time) {
+	m.cli_rate_limit_updated_at = &t
+}
+
+// CliRateLimitUpdatedAt returns the value of the "cli_rate_limit_updated_at" field in the mutation.
+func (m *AgentProviderMutation) CliRateLimitUpdatedAt() (r time.Time, exists bool) {
+	v := m.cli_rate_limit_updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCliRateLimitUpdatedAt returns the old "cli_rate_limit_updated_at" field's value of the AgentProvider entity.
+// If the AgentProvider object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentProviderMutation) OldCliRateLimitUpdatedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCliRateLimitUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCliRateLimitUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCliRateLimitUpdatedAt: %w", err)
+	}
+	return oldValue.CliRateLimitUpdatedAt, nil
+}
+
+// ClearCliRateLimitUpdatedAt clears the value of the "cli_rate_limit_updated_at" field.
+func (m *AgentProviderMutation) ClearCliRateLimitUpdatedAt() {
+	m.cli_rate_limit_updated_at = nil
+	m.clearedFields[agentprovider.FieldCliRateLimitUpdatedAt] = struct{}{}
+}
+
+// CliRateLimitUpdatedAtCleared returns if the "cli_rate_limit_updated_at" field was cleared in this mutation.
+func (m *AgentProviderMutation) CliRateLimitUpdatedAtCleared() bool {
+	_, ok := m.clearedFields[agentprovider.FieldCliRateLimitUpdatedAt]
+	return ok
+}
+
+// ResetCliRateLimitUpdatedAt resets all changes to the "cli_rate_limit_updated_at" field.
+func (m *AgentProviderMutation) ResetCliRateLimitUpdatedAt() {
+	m.cli_rate_limit_updated_at = nil
+	delete(m.clearedFields, agentprovider.FieldCliRateLimitUpdatedAt)
 }
 
 // SetModelName sets the "model_name" field.
@@ -3186,7 +3273,7 @@ func (m *AgentProviderMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentProviderMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 16)
 	if m.organization != nil {
 		fields = append(fields, agentprovider.FieldOrganizationID)
 	}
@@ -3210,6 +3297,12 @@ func (m *AgentProviderMutation) Fields() []string {
 	}
 	if m.auth_config != nil {
 		fields = append(fields, agentprovider.FieldAuthConfig)
+	}
+	if m.cli_rate_limit != nil {
+		fields = append(fields, agentprovider.FieldCliRateLimit)
+	}
+	if m.cli_rate_limit_updated_at != nil {
+		fields = append(fields, agentprovider.FieldCliRateLimitUpdatedAt)
 	}
 	if m.model_name != nil {
 		fields = append(fields, agentprovider.FieldModelName)
@@ -3253,6 +3346,10 @@ func (m *AgentProviderMutation) Field(name string) (ent.Value, bool) {
 		return m.CliArgs()
 	case agentprovider.FieldAuthConfig:
 		return m.AuthConfig()
+	case agentprovider.FieldCliRateLimit:
+		return m.CliRateLimit()
+	case agentprovider.FieldCliRateLimitUpdatedAt:
+		return m.CliRateLimitUpdatedAt()
 	case agentprovider.FieldModelName:
 		return m.ModelName()
 	case agentprovider.FieldModelTemperature:
@@ -3290,6 +3387,10 @@ func (m *AgentProviderMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldCliArgs(ctx)
 	case agentprovider.FieldAuthConfig:
 		return m.OldAuthConfig(ctx)
+	case agentprovider.FieldCliRateLimit:
+		return m.OldCliRateLimit(ctx)
+	case agentprovider.FieldCliRateLimitUpdatedAt:
+		return m.OldCliRateLimitUpdatedAt(ctx)
 	case agentprovider.FieldModelName:
 		return m.OldModelName(ctx)
 	case agentprovider.FieldModelTemperature:
@@ -3366,6 +3467,20 @@ func (m *AgentProviderMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetAuthConfig(v)
+		return nil
+	case agentprovider.FieldCliRateLimit:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCliRateLimit(v)
+		return nil
+	case agentprovider.FieldCliRateLimitUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCliRateLimitUpdatedAt(v)
 		return nil
 	case agentprovider.FieldModelName:
 		v, ok := value.(string)
@@ -3505,6 +3620,9 @@ func (m *AgentProviderMutation) ClearedFields() []string {
 	if m.FieldCleared(agentprovider.FieldCliArgs) {
 		fields = append(fields, agentprovider.FieldCliArgs)
 	}
+	if m.FieldCleared(agentprovider.FieldCliRateLimitUpdatedAt) {
+		fields = append(fields, agentprovider.FieldCliRateLimitUpdatedAt)
+	}
 	return fields
 }
 
@@ -3521,6 +3639,9 @@ func (m *AgentProviderMutation) ClearField(name string) error {
 	switch name {
 	case agentprovider.FieldCliArgs:
 		m.ClearCliArgs()
+		return nil
+	case agentprovider.FieldCliRateLimitUpdatedAt:
+		m.ClearCliRateLimitUpdatedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown AgentProvider nullable field %s", name)
@@ -3553,6 +3674,12 @@ func (m *AgentProviderMutation) ResetField(name string) error {
 		return nil
 	case agentprovider.FieldAuthConfig:
 		m.ResetAuthConfig()
+		return nil
+	case agentprovider.FieldCliRateLimit:
+		m.ResetCliRateLimit()
+		return nil
+	case agentprovider.FieldCliRateLimitUpdatedAt:
+		m.ResetCliRateLimitUpdatedAt()
 		return nil
 	case agentprovider.FieldModelName:
 		m.ResetModelName()

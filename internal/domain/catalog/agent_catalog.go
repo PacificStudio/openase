@@ -30,6 +30,8 @@ type AgentProvider struct {
 	CliCommand            string
 	CliArgs               []string
 	AuthConfig            map[string]any
+	CLIRateLimit          map[string]any
+	CLIRateLimitUpdatedAt *time.Time
 	ModelName             string
 	ModelTemperature      float64
 	ModelMaxTokens        int

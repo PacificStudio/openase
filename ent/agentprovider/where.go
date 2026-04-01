@@ -3,6 +3,8 @@
 package agentprovider
 
 import (
+	"time"
+
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
@@ -78,6 +80,11 @@ func CliCommand(v string) predicate.AgentProvider {
 // CliArgs applies equality check predicate on the "cli_args" field. It's identical to CliArgsEQ.
 func CliArgs(v pgarray.StringArray) predicate.AgentProvider {
 	return predicate.AgentProvider(sql.FieldEQ(FieldCliArgs, v))
+}
+
+// CliRateLimitUpdatedAt applies equality check predicate on the "cli_rate_limit_updated_at" field. It's identical to CliRateLimitUpdatedAtEQ.
+func CliRateLimitUpdatedAt(v time.Time) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldEQ(FieldCliRateLimitUpdatedAt, v))
 }
 
 // ModelName applies equality check predicate on the "model_name" field. It's identical to ModelNameEQ.
@@ -368,6 +375,56 @@ func CliArgsIsNil() predicate.AgentProvider {
 // CliArgsNotNil applies the NotNil predicate on the "cli_args" field.
 func CliArgsNotNil() predicate.AgentProvider {
 	return predicate.AgentProvider(sql.FieldNotNull(FieldCliArgs))
+}
+
+// CliRateLimitUpdatedAtEQ applies the EQ predicate on the "cli_rate_limit_updated_at" field.
+func CliRateLimitUpdatedAtEQ(v time.Time) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldEQ(FieldCliRateLimitUpdatedAt, v))
+}
+
+// CliRateLimitUpdatedAtNEQ applies the NEQ predicate on the "cli_rate_limit_updated_at" field.
+func CliRateLimitUpdatedAtNEQ(v time.Time) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldNEQ(FieldCliRateLimitUpdatedAt, v))
+}
+
+// CliRateLimitUpdatedAtIn applies the In predicate on the "cli_rate_limit_updated_at" field.
+func CliRateLimitUpdatedAtIn(vs ...time.Time) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldIn(FieldCliRateLimitUpdatedAt, vs...))
+}
+
+// CliRateLimitUpdatedAtNotIn applies the NotIn predicate on the "cli_rate_limit_updated_at" field.
+func CliRateLimitUpdatedAtNotIn(vs ...time.Time) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldNotIn(FieldCliRateLimitUpdatedAt, vs...))
+}
+
+// CliRateLimitUpdatedAtGT applies the GT predicate on the "cli_rate_limit_updated_at" field.
+func CliRateLimitUpdatedAtGT(v time.Time) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldGT(FieldCliRateLimitUpdatedAt, v))
+}
+
+// CliRateLimitUpdatedAtGTE applies the GTE predicate on the "cli_rate_limit_updated_at" field.
+func CliRateLimitUpdatedAtGTE(v time.Time) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldGTE(FieldCliRateLimitUpdatedAt, v))
+}
+
+// CliRateLimitUpdatedAtLT applies the LT predicate on the "cli_rate_limit_updated_at" field.
+func CliRateLimitUpdatedAtLT(v time.Time) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldLT(FieldCliRateLimitUpdatedAt, v))
+}
+
+// CliRateLimitUpdatedAtLTE applies the LTE predicate on the "cli_rate_limit_updated_at" field.
+func CliRateLimitUpdatedAtLTE(v time.Time) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldLTE(FieldCliRateLimitUpdatedAt, v))
+}
+
+// CliRateLimitUpdatedAtIsNil applies the IsNil predicate on the "cli_rate_limit_updated_at" field.
+func CliRateLimitUpdatedAtIsNil() predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldIsNull(FieldCliRateLimitUpdatedAt))
+}
+
+// CliRateLimitUpdatedAtNotNil applies the NotNil predicate on the "cli_rate_limit_updated_at" field.
+func CliRateLimitUpdatedAtNotNil() predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldNotNull(FieldCliRateLimitUpdatedAt))
 }
 
 // ModelNameEQ applies the EQ predicate on the "model_name" field.

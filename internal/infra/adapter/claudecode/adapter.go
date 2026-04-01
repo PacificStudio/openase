@@ -313,6 +313,7 @@ type rawStreamEvent struct {
 	Result          string          `json:"result"`
 	Model           string          `json:"model"`
 	Usage           json.RawMessage `json:"usage"`
+	RateLimitInfo   json.RawMessage `json:"rate_limit_info"`
 	Event           json.RawMessage `json:"event"`
 	UUID            string          `json:"uuid"`
 	IsError         bool            `json:"is_error"`
@@ -357,6 +358,7 @@ func parseStreamEvent(line []byte) (provider.ClaudeCodeEvent, error) {
 		Result:          raw.Result,
 		Model:           strings.TrimSpace(raw.Model),
 		Usage:           cloneRawJSON(raw.Usage),
+		RateLimit:       cloneRawJSON(raw.RateLimitInfo),
 		Event:           cloneRawJSON(raw.Event),
 		UUID:            strings.TrimSpace(raw.UUID),
 		IsError:         raw.IsError,
@@ -364,6 +366,14 @@ func parseStreamEvent(line []byte) (provider.ClaudeCodeEvent, error) {
 		DurationMS:      raw.DurationMS,
 		DurationAPIMS:   raw.DurationAPIMS,
 		TotalCostUSD:    cloneOptionalFloat(raw.TotalCostUSD),
+	}
+	usageInfo, err := provider.ParseClaudeCodeUsage(raw.Usage, event.Model, raw.TotalCostUSD)
+	if err == nil {
+		event.UsageInfo = usageInfo
+	}
+	rateLimitInfo, err := provider.ParseClaudeCodeRateLimit(raw.RateLimitInfo)
+	if err == nil {
+		event.RateLimitInfo = rateLimitInfo
 	}
 	if event.Kind != provider.ClaudeCodeEventKindUnknown {
 		event.UnknownType = ""
@@ -382,6 +392,8 @@ func mapEventKind(eventType string) provider.ClaudeCodeEventKind {
 		return provider.ClaudeCodeEventKindUser
 	case "result":
 		return provider.ClaudeCodeEventKindResult
+	case "rate_limit_event":
+		return provider.ClaudeCodeEventKindRateLimit
 	case "stream_event":
 		return provider.ClaudeCodeEventKindStream
 	case "task_started":

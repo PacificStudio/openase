@@ -58,6 +58,7 @@ const (
 	agentEventTypeUserInputRequested agentEventType = "user_input_requested"
 	// #nosec G101 -- runtime event identifier, not a credential.
 	agentEventTypeTokenUsageUpdated agentEventType = "token_usage_updated"
+	agentEventTypeRateLimitUpdated  agentEventType = "rate_limit_updated"
 	agentEventTypeOutputProduced    agentEventType = "output_produced"
 	agentEventTypeTurnStarted       agentEventType = "turn_started"
 	agentEventTypeTurnCompleted     agentEventType = "turn_completed"
@@ -70,6 +71,7 @@ type agentEvent struct {
 	Approval   *agentApprovalRequest
 	UserInput  *agentUserInputRequest
 	TokenUsage *agentTokenUsageEvent
+	RateLimit  *provider.CLIRateLimit
 	Output     *agentOutputEvent
 	Turn       *agentTurnEvent
 }
@@ -101,6 +103,30 @@ type agentTokenUsageEvent struct {
 	TotalTokens        int64
 	LastTokens         int64
 	ModelContextWindow *int64
+}
+
+func agentTokenUsageFromCLIUsage(threadID string, turnID string, usage *provider.CLIUsage) *agentTokenUsageEvent {
+	if usage == nil || !usage.HasTokenTotals() {
+		return nil
+	}
+
+	var modelContextWindow *int64
+	if usage.ModelContextWindow != nil {
+		cloned := *usage.ModelContextWindow
+		modelContextWindow = &cloned
+	}
+
+	return &agentTokenUsageEvent{
+		ThreadID:           threadID,
+		TurnID:             turnID,
+		TotalInputTokens:   usage.Total.InputTokens,
+		TotalOutputTokens:  usage.Total.OutputTokens,
+		LastInputTokens:    usage.Delta.InputTokens,
+		LastOutputTokens:   usage.Delta.OutputTokens,
+		TotalTokens:        usage.Total.TotalTokens,
+		LastTokens:         usage.Delta.TotalTokens,
+		ModelContextWindow: modelContextWindow,
+	}
 }
 
 type agentOutputEvent struct {

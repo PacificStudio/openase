@@ -17,6 +17,9 @@ export type BoardGroup = {
 export type BoardTicket = {
   id: string
   statusId: string
+  statusName: string
+  statusColor: string
+  stage: 'backlog' | 'unstarted' | 'started' | 'completed' | 'canceled'
   identifier: string
   title: string
   priority: 'urgent' | 'high' | 'medium' | 'low'
@@ -29,6 +32,13 @@ export type BoardTicket = {
   isMoving?: boolean
   labels?: string[]
   isBlocked?: boolean
+}
+
+export type BoardStatusOption = {
+  id: string
+  name: string
+  color: string
+  stage: BoardTicket['stage']
 }
 
 export type BoardFilter = {

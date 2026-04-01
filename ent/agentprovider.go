@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
@@ -37,6 +38,10 @@ type AgentProvider struct {
 	CliArgs pgarray.StringArray `json:"cli_args,omitempty"`
 	// AuthConfig holds the value of the "auth_config" field.
 	AuthConfig map[string]interface{} `json:"auth_config,omitempty"`
+	// CliRateLimit holds the value of the "cli_rate_limit" field.
+	CliRateLimit map[string]interface{} `json:"cli_rate_limit,omitempty"`
+	// CliRateLimitUpdatedAt holds the value of the "cli_rate_limit_updated_at" field.
+	CliRateLimitUpdatedAt *time.Time `json:"cli_rate_limit_updated_at,omitempty"`
 	// ModelName holds the value of the "model_name" field.
 	ModelName string `json:"model_name,omitempty"`
 	// ModelTemperature holds the value of the "model_temperature" field.
@@ -115,7 +120,7 @@ func (*AgentProvider) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case agentprovider.FieldAuthConfig:
+		case agentprovider.FieldAuthConfig, agentprovider.FieldCliRateLimit:
 			values[i] = new([]byte)
 		case agentprovider.FieldCliArgs:
 			values[i] = new(pgarray.StringArray)
@@ -125,6 +130,8 @@ func (*AgentProvider) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case agentprovider.FieldName, agentprovider.FieldAdapterType, agentprovider.FieldPermissionProfile, agentprovider.FieldCliCommand, agentprovider.FieldModelName:
 			values[i] = new(sql.NullString)
+		case agentprovider.FieldCliRateLimitUpdatedAt:
+			values[i] = new(sql.NullTime)
 		case agentprovider.FieldID, agentprovider.FieldOrganizationID, agentprovider.FieldMachineID:
 			values[i] = new(uuid.UUID)
 		default:
@@ -197,6 +204,21 @@ func (_m *AgentProvider) assignValues(columns []string, values []any) error {
 				if err := json.Unmarshal(*value, &_m.AuthConfig); err != nil {
 					return fmt.Errorf("unmarshal field auth_config: %w", err)
 				}
+			}
+		case agentprovider.FieldCliRateLimit:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field cli_rate_limit", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.CliRateLimit); err != nil {
+					return fmt.Errorf("unmarshal field cli_rate_limit: %w", err)
+				}
+			}
+		case agentprovider.FieldCliRateLimitUpdatedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field cli_rate_limit_updated_at", values[i])
+			} else if value.Valid {
+				_m.CliRateLimitUpdatedAt = new(time.Time)
+				*_m.CliRateLimitUpdatedAt = value.Time
 			}
 		case agentprovider.FieldModelName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -313,6 +335,14 @@ func (_m *AgentProvider) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("auth_config=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AuthConfig))
+	builder.WriteString(", ")
+	builder.WriteString("cli_rate_limit=")
+	builder.WriteString(fmt.Sprintf("%v", _m.CliRateLimit))
+	builder.WriteString(", ")
+	if v := _m.CliRateLimitUpdatedAt; v != nil {
+		builder.WriteString("cli_rate_limit_updated_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("model_name=")
 	builder.WriteString(_m.ModelName)

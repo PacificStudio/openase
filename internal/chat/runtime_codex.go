@@ -8,7 +8,6 @@ import (
 	"time"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
-	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	codexadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
@@ -278,10 +277,24 @@ func (r *CodexRuntime) bridgeTurn(
 				continue
 			}
 
-			costUSD := resolveUsageCostUSD(providerItem, ticketing.RawUsageDelta{
-				InputTokens:  &event.TokenUsage.TotalInputTokens,
-				OutputTokens: &event.TokenUsage.TotalOutputTokens,
-			})
+			usageInfo := provider.NewCodexCLIUsage(
+				provider.CLIUsageTokens{
+					InputTokens:       event.TokenUsage.TotalInputTokens,
+					OutputTokens:      event.TokenUsage.TotalOutputTokens,
+					TotalTokens:       event.TokenUsage.TotalTokens,
+					CachedInputTokens: event.TokenUsage.TotalCachedInputTokens,
+					ReasoningTokens:   event.TokenUsage.TotalReasoningTokens,
+				},
+				provider.CLIUsageTokens{
+					InputTokens:       event.TokenUsage.LastInputTokens,
+					OutputTokens:      event.TokenUsage.LastOutputTokens,
+					TotalTokens:       event.TokenUsage.LastTokens,
+					CachedInputTokens: event.TokenUsage.LastCachedInputTokens,
+					ReasoningTokens:   event.TokenUsage.LastReasoningTokens,
+				},
+				event.TokenUsage.ModelContextWindow,
+			)
+			costUSD := resolveCLIUsageCostUSD(providerItem, usageInfo)
 			if costUSD == nil {
 				continue
 			}

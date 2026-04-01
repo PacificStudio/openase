@@ -1,15 +1,16 @@
 <script lang="ts">
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
+  import * as Dialog from '$ui/dialog'
+  import * as DropdownMenu from '$ui/dropdown-menu'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
   import Circle from '@lucide/svelte/icons/circle'
-  import Pencil from '@lucide/svelte/icons/pencil'
+  import { Ellipsis, Pencil, Trash2 } from '@lucide/svelte'
   import ExternalLink from '@lucide/svelte/icons/external-link'
   import GitBranch from '@lucide/svelte/icons/git-branch'
   import GitPullRequest from '@lucide/svelte/icons/git-pull-request'
-  import Trash2 from '@lucide/svelte/icons/trash-2'
   import { cn } from '$lib/utils'
   import { repoScopeCiStatusOptions, repoScopePrStatusOptions } from '../mutation-shared'
   import type { TicketDetail } from '../types'
@@ -56,7 +57,7 @@
     prStatus: '',
     ciStatus: '',
   })
-  let editing = $state(false)
+  let editOpen = $state(false)
 
   $effect(() => {
     draft.branchName = scope.branchName
@@ -83,17 +84,12 @@
 
   function handleEdit() {
     resetDraft()
-    editing = true
-  }
-
-  function handleCancel() {
-    resetDraft()
-    editing = false
+    editOpen = true
   }
 
   function handleSave() {
     onSave?.(scope.id, draft)
-    editing = false
+    editOpen = false
   }
 </script>
 
@@ -106,30 +102,30 @@
       </div>
     </div>
 
-    <div class="flex items-center gap-1">
-      {#if !editing}
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={saving || deleting}
-          aria-label={`Edit ${scope.repoName} scope`}
-          onclick={handleEdit}
-        >
-          <Pencil class="size-3.5" />
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger>
+        {#snippet child({ props })}
+          <Button variant="ghost" size="icon-xs" {...props}>
+            <Ellipsis class="size-3.5" />
+            <span class="sr-only">More actions</span>
+          </Button>
+        {/snippet}
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="end" class="w-40">
+        <DropdownMenu.Item disabled={saving || deleting} onclick={handleEdit}>
+          <Pencil class="mr-2 size-3.5" />
           Edit
-        </Button>
-      {/if}
-
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        disabled={deleting || saving}
-        aria-label={`Delete ${scope.repoName} scope`}
-        onclick={() => onDelete?.(scope.id)}
-      >
-        <Trash2 class="size-3.5" />
-      </Button>
-    </div>
+        </DropdownMenu.Item>
+        <DropdownMenu.Item
+          class="text-destructive focus:text-destructive"
+          disabled={deleting || saving}
+          onclick={() => onDelete?.(scope.id)}
+        >
+          <Trash2 class="mr-2 size-3.5" />
+          {deleting ? 'Deleting\u2026' : 'Delete'}
+        </DropdownMenu.Item>
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
   </div>
 
   <dl class="mt-3 space-y-2.5">
@@ -192,9 +188,18 @@
       </dd>
     </div>
   </dl>
+</div>
 
-  {#if editing}
-    <div class="mt-4 grid gap-3 border-t pt-4">
+<Dialog.Root bind:open={editOpen}>
+  <Dialog.Content class="sm:max-w-xl">
+    <Dialog.Header>
+      <Dialog.Title>Edit repo scope</Dialog.Title>
+      <Dialog.Description>
+        Update the branch, PR, and CI details for {scope.repoName}.
+      </Dialog.Description>
+    </Dialog.Header>
+
+    <div class="grid gap-3 py-4">
       <div class="space-y-2">
         <Label for={`scope-branch-${scope.id}`}>Branch</Label>
         <Input
@@ -257,13 +262,17 @@
           </Select.Root>
         </div>
       </div>
-
-      <div class="flex justify-end gap-2">
-        <Button variant="outline" size="sm" disabled={saving} onclick={handleCancel}>Cancel</Button>
-        <Button size="sm" disabled={saving} onclick={handleSave}>
-          {saving ? 'Saving…' : 'Save scope'}
-        </Button>
-      </div>
     </div>
-  {/if}
-</div>
+
+    <Dialog.Footer>
+      <Dialog.Close>
+        {#snippet child({ props })}
+          <Button variant="outline" {...props} disabled={saving}>Cancel</Button>
+        {/snippet}
+      </Dialog.Close>
+      <Button disabled={saving} onclick={handleSave}>
+        {saving ? 'Saving\u2026' : 'Save'}
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>

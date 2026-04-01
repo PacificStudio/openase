@@ -11,6 +11,7 @@ import type {
 import { TicketsPage } from '$lib/features/tickets'
 import { orderedStatusPayloadFixture } from '$lib/features/board/test-fixtures'
 import { appStore } from '$lib/stores/app.svelte'
+import { ticketViewStore } from '$lib/stores/ticket-view.svelte'
 
 const {
   listActivity,
@@ -178,6 +179,8 @@ describe('TicketsPage', () => {
   afterEach(() => {
     cleanup()
     appStore.currentProject = null
+    ticketViewStore.setMode('board')
+    localStorage.clear()
     vi.clearAllMocks()
   })
 
@@ -196,10 +199,8 @@ describe('TicketsPage', () => {
 
     expect(await findByText('ASE-202')).toBeTruthy()
     expect(await findByText('Codex Worker')).toBeTruthy()
-    expect(await findByText('Blocked')).toBeTruthy()
+    expect(await findByRole('img', { name: 'Blocked' })).toBeTruthy()
     expect(await findByRole('button', { name: 'Agent' })).toBeTruthy()
-    expect(await findByRole('heading', { name: 'Board' })).toBeTruthy()
-    expect(await findByText('1 / 1 active')).toBeTruthy()
     expect(queryByRole('table')).toBeNull()
 
     await fireEvent.click(await findByRole('button', { name: 'List view' }))
@@ -207,5 +208,24 @@ describe('TicketsPage', () => {
     expect(await findByRole('table')).toBeTruthy()
     expect(await findByText('Updated')).toBeTruthy()
     expect(await findByText('Blocked')).toBeTruthy()
+  })
+
+  it('wires the column create-ticket action to the new ticket dialog', async () => {
+    appStore.currentProject = projectFixture
+
+    listStatuses.mockResolvedValue(statusesFixture)
+    listTickets.mockResolvedValue(ticketsFixture)
+    listWorkflows.mockResolvedValue(workflowsFixture)
+    listAgents.mockResolvedValue(agentsFixture)
+    listActivity.mockResolvedValue(activityFixture)
+    updateTicket.mockResolvedValue({ ticket: ticketsFixture.tickets[0] })
+    connectEventStream.mockReturnValue(() => {})
+
+    const { findByRole } = render(TicketsPage)
+
+    await fireEvent.click(await findByRole('button', { name: 'Create ticket in Todo' }))
+
+    expect(appStore.newTicketDialogOpen).toBe(true)
+    expect(appStore.newTicketDefaultStatusId).toBe('status-1')
   })
 })

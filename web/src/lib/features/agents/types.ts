@@ -4,6 +4,7 @@ export type AgentInstance = {
   providerId: string
   providerName: string
   modelName: string
+  adapterType: string
   permissionProfile: ProviderPermissionProfile
   status: 'idle' | 'claimed' | 'running' | 'paused' | 'failed' | 'terminated'
   runtimePhase: 'none' | 'launching' | 'ready' | 'executing' | 'failed'
@@ -56,6 +57,8 @@ export type ProviderConfig = {
   cliCommand: string
   cliArgs: string[]
   authConfig: Record<string, unknown>
+  cliRateLimit?: ProviderCLIRateLimit | null
+  cliRateLimitUpdatedAt?: string | null
   modelName: string
   modelTemperature: number
   modelMaxTokens: number
@@ -63,6 +66,19 @@ export type ProviderConfig = {
   costPerOutputToken: number
   agentCount: number
   isDefault: boolean
+}
+
+export type ProviderCLIRateLimit = {
+  provider: string
+  raw: Record<string, unknown>
+  claudeCode?: {
+    status: string
+    rateLimitType?: string | null
+    resetsAt?: string | null
+    overageStatus?: string | null
+    overageDisabledReason?: string | null
+    isUsingOverage?: boolean | null
+  } | null
 }
 
 export type ProviderAdapterType = 'claude-code-cli' | 'codex-app-server' | 'gemini-cli' | 'custom'

@@ -1,9 +1,11 @@
 <script lang="ts">
   import { Badge } from '$ui/badge'
   import { cn, formatRelativeTime } from '$lib/utils'
-  import { Ban, Cog, Loader, CircleDot, CircleX } from '@lucide/svelte'
+  import { Ban, Cog, Loader, CircleX } from '@lucide/svelte'
   import * as Tooltip from '$ui/tooltip'
   import type { BoardColumn, BoardTicket } from '../types'
+  import StageIcon from './stage-icon.svelte'
+  import PriorityIcon from './priority-icon.svelte'
 
   let {
     columns,
@@ -24,13 +26,6 @@
       })),
     ),
   )
-
-  const priorityColors: Record<BoardTicket['priority'], string> = {
-    urgent: 'bg-red-500',
-    high: 'bg-orange-500',
-    medium: 'bg-blue-500',
-    low: 'bg-zinc-400',
-  }
 </script>
 
 <div class={cn('flex-1 overflow-x-auto', className)}>
@@ -61,6 +56,7 @@
             >
               <td class="px-4 py-3">
                 <div class="flex items-center gap-2">
+                  <StageIcon stage={row.ticket.stage} color={row.statusColor} />
                   <span class="text-muted-foreground font-mono text-xs"
                     >{row.ticket.identifier}</span
                   >
@@ -78,15 +74,13 @@
               </td>
               <td class="px-4 py-3">
                 <Badge variant="outline" class="gap-1.5 text-xs">
-                  <span class="size-2 rounded-full" style="background-color: {row.statusColor}"
-                  ></span>
+                  <StageIcon stage={row.ticket.stage} color={row.statusColor} class="size-3" />
                   {row.statusName}
                 </Badge>
               </td>
               <td class="px-4 py-3">
                 <div class="flex items-center gap-1.5">
-                  <span class={cn('size-2 rounded-full', priorityColors[row.ticket.priority])}
-                  ></span>
+                  <PriorityIcon priority={row.ticket.priority} />
                   <span class="text-muted-foreground text-xs capitalize">{row.ticket.priority}</span
                   >
                 </div>
@@ -103,8 +97,6 @@
                     <Cog class="size-3 animate-spin text-emerald-500" />
                   {:else if row.ticket.runtimePhase === 'launching'}
                     <Loader class="size-3 animate-spin text-amber-500 [animation-duration:2s]" />
-                  {:else if row.ticket.runtimePhase === 'ready'}
-                    <CircleDot class="size-3 text-sky-500" />
                   {:else if row.ticket.runtimePhase === 'failed'}
                     {#if row.ticket.lastError}
                       <Tooltip.Provider>

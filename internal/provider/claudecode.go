@@ -44,6 +44,7 @@ const (
 	ClaudeCodeEventKindAssistant    ClaudeCodeEventKind = "assistant"
 	ClaudeCodeEventKindUser         ClaudeCodeEventKind = "user"
 	ClaudeCodeEventKindResult       ClaudeCodeEventKind = "result"
+	ClaudeCodeEventKindRateLimit    ClaudeCodeEventKind = "rate_limit_event"
 	ClaudeCodeEventKindStream       ClaudeCodeEventKind = "stream_event"
 	ClaudeCodeEventKindTaskStart    ClaudeCodeEventKind = "task_started"
 	ClaudeCodeEventKindTaskProgress ClaudeCodeEventKind = "task_progress"
@@ -63,6 +64,9 @@ type ClaudeCodeEvent struct {
 	Result          string
 	Model           string
 	Usage           json.RawMessage
+	UsageInfo       *CLIUsage
+	RateLimit       json.RawMessage
+	RateLimitInfo   *CLIRateLimit
 	Event           json.RawMessage
 	UUID            string
 	IsError         bool

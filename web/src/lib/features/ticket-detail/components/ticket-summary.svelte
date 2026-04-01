@@ -7,7 +7,7 @@
   import RotateCcw from '@lucide/svelte/icons/rotate-ccw'
   import User from '@lucide/svelte/icons/user'
   import Workflow from '@lucide/svelte/icons/workflow'
-  import { cn, formatCurrency, formatRelativeTime } from '$lib/utils'
+  import { cn, formatCount, formatCurrency, formatRelativeTime } from '$lib/utils'
   import TicketDependencies from './ticket-dependencies.svelte'
   import TicketExternalLinks from './ticket-external-links.svelte'
   import TicketFieldEditor from './ticket-field-editor.svelte'
@@ -103,6 +103,12 @@
       <span>Attempts</span>
     </div>
     <div class="text-foreground">{ticket.attemptCount}</div>
+
+    <div class="text-muted-foreground">Input Tokens</div>
+    <div class="text-foreground">{formatCount(ticket.costTokensInput)}</div>
+
+    <div class="text-muted-foreground">Output Tokens</div>
+    <div class="text-foreground">{formatCount(ticket.costTokensOutput)}</div>
 
     <div class="text-muted-foreground flex items-center gap-1.5">
       <User class="size-3.5" />

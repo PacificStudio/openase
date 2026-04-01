@@ -25,6 +25,8 @@ func (AgentProvider) Fields() []ent.Field {
 		field.String("cli_command").NotEmpty(),
 		textArrayField("cli_args"),
 		field.JSON("auth_config", map[string]any{}).Default(emptyMap),
+		field.JSON("cli_rate_limit", map[string]any{}).Default(emptyMap),
+		field.Time("cli_rate_limit_updated_at").Optional().Nillable(),
 		field.String("model_name").NotEmpty(),
 		field.Float("model_temperature").Default(0),
 		field.Int("model_max_tokens").Default(16384),

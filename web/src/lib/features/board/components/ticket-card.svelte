@@ -2,45 +2,42 @@
   import { cn, formatRelativeTime, truncate } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import {
-    AlertTriangle,
-    Ban,
-    Bot,
     RotateCcw,
     ShieldAlert,
     Wallet,
     GripVertical,
     Cog,
     Loader,
-    CircleDot,
     CircleX,
   } from '@lucide/svelte'
   import * as Tooltip from '$ui/tooltip'
-  import type { BoardTicket } from '../types'
+  import type { BoardStatusOption, BoardTicket } from '../types'
+  import StatusPicker from './status-picker.svelte'
+  import PriorityPicker from './priority-picker.svelte'
 
   let {
     ticket,
+    statuses = [],
     class: className = '',
     onclick,
     ondragstartticket,
     ondragendticket,
+    onStatusChange,
+    onPriorityChange,
     isDragging = false,
     isPendingMove = false,
   }: {
     ticket: BoardTicket
+    statuses?: BoardStatusOption[]
     class?: string
     onclick?: (ticket: BoardTicket) => void
     ondragstartticket?: (ticket: BoardTicket) => void
     ondragendticket?: () => void
+    onStatusChange?: (ticketId: string, statusId: string) => void
+    onPriorityChange?: (ticketId: string, priority: BoardTicket['priority']) => void
     isDragging?: boolean
     isPendingMove?: boolean
   } = $props()
-
-  const priorityColors: Record<string, string> = {
-    urgent: 'bg-red-500',
-    high: 'bg-orange-500',
-    medium: 'bg-blue-500',
-    low: 'bg-zinc-400',
-  }
 
   const workflowColors: Record<string, string> = {
     coding: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
@@ -52,9 +49,9 @@
 
   const anomalyConfig: Record<
     string,
-    { label: string; variant: 'destructive' | 'secondary'; icon: typeof AlertTriangle }
+    { label: string; variant: 'destructive' | 'secondary'; icon: typeof RotateCcw }
   > = {
-    retry: { label: 'Retrying', variant: 'secondary', icon: RotateCcw },
+    retry: { label: 'Retry paused', variant: 'secondary', icon: RotateCcw },
     awaiting_approval: { label: 'Needs approval', variant: 'secondary', icon: ShieldAlert },
     budget_exhausted: { label: 'Budget exhausted', variant: 'destructive', icon: Wallet },
   }
@@ -116,14 +113,27 @@
   ondragend={handleDragEnd}
 >
   <div class="flex items-start gap-2">
-    <span class={cn('mt-1.5 size-2 shrink-0 rounded-full', priorityColors[ticket.priority])}></span>
+    <div class="relative mt-0.5 shrink-0">
+      <StatusPicker {ticket} {statuses} disabled={isPendingMove} {onStatusChange} />
+      {#if ticket.isBlocked}
+        <svg
+          viewBox="0 0 16 16"
+          class="absolute right-0 bottom-1 size-2.5 text-red-500"
+          role="img"
+          aria-label="Blocked"
+        >
+          <polygon points="5,1 11,1 15,5 15,11 11,15 5,15 1,11 1,5" fill="currentColor" />
+          <rect x="4" y="7" width="8" height="2" rx="0.5" fill="white" />
+        </svg>
+      {/if}
+    </div>
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-1.5">
-        <GripVertical class="text-muted-foreground/70 size-3.5 shrink-0" />
         <span class="text-muted-foreground text-xs font-medium">{ticket.identifier}</span>
         {#if isPendingMove}
           <span class="text-muted-foreground text-[10px]">Moving…</span>
         {/if}
+        <GripVertical class="text-muted-foreground/50 ml-auto size-3.5 shrink-0" />
       </div>
       <p class="text-foreground mt-0.5 text-sm leading-snug font-medium">
         {truncate(ticket.title, 60)}
@@ -132,6 +142,8 @@
   </div>
 
   <div class="mt-2 flex flex-wrap items-center gap-1.5">
+    <PriorityPicker {ticket} disabled={isPendingMove} {onPriorityChange} />
+
     {#if ticket.workflowType}
       <span
         class={cn(
@@ -143,21 +155,14 @@
       </span>
     {/if}
 
-    {#if ticket.isBlocked}
-      <Badge
-        variant="outline"
-        class="h-4 gap-0.5 border-red-500/30 bg-red-500/10 py-0 text-[10px] text-red-500"
-      >
-        <Ban class="size-2.5" />
-        Blocked
-      </Badge>
-    {/if}
-
-    {#if ticket.agentName}
-      <span class="text-muted-foreground inline-flex items-center gap-0.5 text-[10px]">
-        <Bot class="size-3" />
-        {ticket.agentName}
-      </span>
+    {#if ticket.anomaly}
+      {@const config = anomalyConfig[ticket.anomaly]}
+      {#if config}
+        <Badge variant={config.variant} class="h-4 gap-1 text-[10px]">
+          <config.icon class="size-2.5" />
+          {config.label}
+        </Badge>
+      {/if}
     {/if}
 
     {#if ticket.runtimePhase === 'executing'}
@@ -167,10 +172,6 @@
     {:else if ticket.runtimePhase === 'launching'}
       <span class="inline-flex items-center text-amber-500" title="Launching">
         <Loader class="size-3 animate-spin [animation-duration:2s]" />
-      </span>
-    {:else if ticket.runtimePhase === 'ready'}
-      <span class="inline-flex items-center text-sky-500" title="Agent ready">
-        <CircleDot class="size-3" />
       </span>
     {:else if ticket.runtimePhase === 'failed'}
       {#if ticket.lastError}
@@ -196,18 +197,6 @@
       {/if}
     {/if}
   </div>
-
-  {#if ticket.anomaly}
-    {@const config = anomalyConfig[ticket.anomaly]}
-    {#if config}
-      <div class="mt-1.5">
-        <Badge variant={config.variant} class="h-4 gap-1 text-[10px]">
-          <config.icon class="size-2.5" />
-          {config.label}
-        </Badge>
-      </div>
-    {/if}
-  {/if}
 
   <div class="text-muted-foreground/70 mt-1.5 text-[10px]">
     {formatRelativeTime(ticket.updatedAt)}

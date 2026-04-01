@@ -43,10 +43,10 @@ func TestMachineMonitorRunTickCollectsSingleLocalMachine(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run tick: %v", err)
 	}
-	if report.MachinesScanned != 1 || report.L1Checks != 1 || report.L2Checks != 1 || report.L4Checks != 1 || report.L5Checks != 1 {
+	if report.MachinesScanned != 1 || report.L1Checks != 1 || report.L2Checks != 1 || report.L3Checks != 1 || report.L4Checks != 1 || report.L5Checks != 1 {
 		t.Fatalf("expected local machine checks to run, got %+v", report)
 	}
-	if collector.reachabilityCalls != 1 || collector.systemCalls != 1 || collector.agentEnvCalls != 1 || collector.fullAuditCalls != 1 {
+	if collector.reachabilityCalls != 1 || collector.systemCalls != 1 || collector.gpuCalls != 1 || collector.agentEnvCalls != 1 || collector.fullAuditCalls != 1 {
 		t.Fatalf("expected collector to run for local machine, got %+v", collector)
 	}
 }
@@ -122,7 +122,6 @@ func TestMachineMonitorRunTickCollectsL2AndL3Snapshots(t *testing.T) {
 		SetPort(22).
 		SetSSHUser(sshUser).
 		SetSSHKeyPath(sshKeyPath).
-		SetLabels([]string{"gpu", "a100"}).
 		SetStatus(entmachine.StatusOnline).
 		SetResources(map[string]any{}).
 		Save(ctx)
@@ -205,7 +204,6 @@ func TestMachineMonitorRunTickMarksNoGPUMachineUndispatchable(t *testing.T) {
 		SetPort(22).
 		SetSSHUser(sshUser).
 		SetSSHKeyPath(sshKeyPath).
-		SetLabels([]string{"gpu"}).
 		SetStatus(entmachine.StatusOnline).
 		SetResources(map[string]any{
 			"gpu_dispatchable": true,
