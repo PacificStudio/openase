@@ -1206,6 +1206,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/roles/builtin/{roleSlug}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get a builtin workflow role template */
+    get: operations['getBuiltinRole']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/scheduled-jobs/{jobId}': {
     parameters: {
       query?: never
@@ -10785,8 +10802,78 @@ export interface operations {
               name?: string
               slug?: string
               summary?: string
+              workflow_content?: string
               workflow_type?: string
             }[]
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getBuiltinRole: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Builtin role slug. */
+        roleSlug: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get a builtin workflow role template response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            role?: {
+              content?: string
+              harness_path?: string
+              name?: string
+              slug?: string
+              summary?: string
+              workflow_content?: string
+              workflow_type?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
           }
         }
       }
