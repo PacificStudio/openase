@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
-	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
@@ -164,19 +163,6 @@ func ticketCommentMetadata(comment ticketCommentResponse) map[string]any {
 		"edit_count":     comment.EditCount,
 		"is_deleted":     comment.IsDeleted,
 		"changed_fields": []string{"comment"},
-	}
-}
-
-func commentEventTypeForAction(action string) activityevent.Type {
-	switch action {
-	case "created":
-		return activityevent.TypeTicketCommentCreated
-	case "edited":
-		return activityevent.TypeTicketCommentEdited
-	case "deleted":
-		return activityevent.TypeTicketCommentDeleted
-	default:
-		return activityevent.TypeTicketUpdated
 	}
 }
 
