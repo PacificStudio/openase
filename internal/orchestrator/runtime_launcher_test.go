@@ -1128,6 +1128,9 @@ func TestRuntimeLauncherFinishResolvedExecutionReleasesStageOccupancy(t *testing
 	if runAfter.Status != entagentrun.StatusCompleted {
 		t.Fatalf("expected completed run after finish, got %+v", runAfter)
 	}
+	if runAfter.TerminalAt == nil || !runAfter.TerminalAt.UTC().Equal(now) {
+		t.Fatalf("expected completed run terminal_at %s, got %+v", now.Format(time.RFC3339), runAfter.TerminalAt)
+	}
 	if got := statusActiveRuns(ctx, t, client, fixture.projectID, "Todo"); got != 0 {
 		t.Fatalf("expected finish to drop todo status occupancy to 0, got %d", got)
 	}
@@ -1214,6 +1217,9 @@ func TestRuntimeLauncherReleaseExecutionOwnershipPreservesTicketStatusAndComplet
 	}
 	if runAfter.Status != entagentrun.StatusTerminated {
 		t.Fatalf("expected terminated run after release, got %+v", runAfter)
+	}
+	if runAfter.TerminalAt == nil || !runAfter.TerminalAt.UTC().Equal(now) {
+		t.Fatalf("expected terminated run terminal_at %s, got %+v", now.Format(time.RFC3339), runAfter.TerminalAt)
 	}
 	if got := statusActiveRuns(ctx, t, client, fixture.projectID, "Todo"); got != 0 {
 		t.Fatalf("expected release to drop todo status occupancy to 0, got %d", got)

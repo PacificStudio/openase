@@ -79,8 +79,14 @@ type AgentRun struct {
 	Status               AgentRunStatus
 	SessionID            string
 	RuntimeStartedAt     *time.Time
+	TerminalAt           *time.Time
 	LastError            string
 	LastHeartbeatAt      *time.Time
+	InputTokens          int64
+	OutputTokens         int64
+	CachedInputTokens    int64
+	ReasoningTokens      int64
+	TotalTokens          int64
 	CurrentStepStatus    *string
 	CurrentStepSummary   *string
 	CurrentStepChangedAt *time.Time

@@ -5,13 +5,22 @@
     loadOrganizationDashboardSummary,
     type ProjectMetrics,
   } from '$lib/features/dashboard/organization-summary'
+  import {
+    emptyOrganizationTokenUsageAnalytics,
+    loadOrganizationTokenUsage,
+  } from '$lib/features/dashboard/organization-token-usage'
   import { appStore } from '$lib/stores/app.svelte'
   import { organizationPath } from '$lib/stores/app-context'
   import { formatCurrency } from '$lib/utils'
   import { Button } from '$ui/button'
   import { Bot, Coins, FolderOpen, Ticket as TicketIcon } from '@lucide/svelte'
   import StatCard from './stat-card.svelte'
-  import type { DashboardStats } from '../types'
+  import type {
+    DashboardStats,
+    OrganizationTokenUsageAnalytics,
+    OrganizationTokenUsageRange,
+  } from '../types'
+  import OrganizationTokenAnalyticsPanel from './organization-token-analytics-panel.svelte'
   import OrganizationProjectsSection from './organization-projects-section.svelte'
   import OrganizationProvidersSection from './organization-providers-section.svelte'
 
@@ -23,9 +32,12 @@
   let showProviderDialog = $state(false)
 
   let loading = $state(false)
+  let analyticsLoading = $state(false)
   let projectMetrics = $state<Record<string, ProjectMetrics>>({})
   let orgStats = $state<DashboardStats>(emptyOrganizationDashboardStats)
   let activeProjectCount = $state(0)
+  let selectedUsageRange = $state<OrganizationTokenUsageRange>(30)
+  let tokenUsage = $state<OrganizationTokenUsageAnalytics>(emptyOrganizationTokenUsageAnalytics(30))
 
   $effect(() => {
     const orgId = currentOrg?.id
@@ -61,6 +73,44 @@
         activeProjectCount = 0
       } finally {
         if (!cancelled) loading = false
+      }
+    }
+
+    void load()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  })
+
+  $effect(() => {
+    const orgId = currentOrg?.id
+    const refreshKey = `${orgId ?? ''}:${selectedUsageRange}:${appStore.appContextFetchedAt}`
+    void refreshKey
+
+    if (!orgId) {
+      tokenUsage = emptyOrganizationTokenUsageAnalytics(selectedUsageRange)
+      return
+    }
+
+    let cancelled = false
+    const controller = new AbortController()
+
+    const load = async () => {
+      analyticsLoading = true
+
+      try {
+        const analytics = await loadOrganizationTokenUsage(orgId, selectedUsageRange, {
+          signal: controller.signal,
+        })
+        if (cancelled) return
+
+        tokenUsage = analytics
+      } catch {
+        if (cancelled || controller.signal.aborted) return
+        tokenUsage = emptyOrganizationTokenUsageAnalytics(selectedUsageRange)
+      } finally {
+        if (!cancelled) analyticsLoading = false
       }
     }
 
@@ -117,6 +167,15 @@
       />
       <StatCard label="Active Tickets" value={orgStats.activeTickets} icon={TicketIcon} {loading} />
     </div>
+
+    <OrganizationTokenAnalyticsPanel
+      analytics={tokenUsage}
+      selectedRange={selectedUsageRange}
+      loading={analyticsLoading}
+      onSelectRange={(range) => {
+        selectedUsageRange = range
+      }}
+    />
   {/if}
 
   <OrganizationProjectsSection

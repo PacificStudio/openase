@@ -1690,6 +1690,10 @@ func (f *fakeCatalogService) GetOrganizationDashboardSummary(context.Context, uu
 	return domain.OrganizationDashboardSummary{}, nil
 }
 
+func (f *fakeCatalogService) GetOrganizationTokenUsage(context.Context, domain.GetOrganizationTokenUsage) (domain.OrganizationTokenUsageReport, error) {
+	return domain.OrganizationTokenUsageReport{}, nil
+}
+
 func (f *fakeCatalogService) hasProjectRepos(projectID uuid.UUID) bool {
 	for _, item := range f.projectRepos {
 		if item.ProjectID == projectID {

@@ -36,6 +36,7 @@ type Repository interface {
 	DeleteTicketRepoScope(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID, id uuid.UUID) (domain.TicketRepoScope, error)
 	GetWorkspaceDashboardSummary(ctx context.Context) (domain.WorkspaceDashboardSummary, error)
 	GetOrganizationDashboardSummary(ctx context.Context, organizationID uuid.UUID) (domain.OrganizationDashboardSummary, error)
+	GetOrganizationTokenUsage(ctx context.Context, input domain.GetOrganizationTokenUsage) (domain.OrganizationTokenUsageReport, error)
 	ListAgentProviders(ctx context.Context, organizationID uuid.UUID) ([]domain.AgentProvider, error)
 	CreateAgentProvider(ctx context.Context, input domain.CreateAgentProvider) (domain.AgentProvider, error)
 	GetAgentProvider(ctx context.Context, id uuid.UUID) (domain.AgentProvider, error)

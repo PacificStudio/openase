@@ -53,9 +53,36 @@ type organizationProjectSummaryResponse struct {
 	LastActivityAt *string `json:"last_activity_at,omitempty"`
 }
 
+type organizationTokenUsageDayResponse struct {
+	Date              string `json:"date"`
+	InputTokens       int64  `json:"input_tokens"`
+	OutputTokens      int64  `json:"output_tokens"`
+	CachedInputTokens int64  `json:"cached_input_tokens"`
+	ReasoningTokens   int64  `json:"reasoning_tokens"`
+	TotalTokens       int64  `json:"total_tokens"`
+	FinalizedRunCount int    `json:"finalized_run_count"`
+}
+
+type organizationTokenUsagePeakDayResponse struct {
+	Date        string `json:"date"`
+	TotalTokens int64  `json:"total_tokens"`
+}
+
+type organizationTokenUsageSummaryResponse struct {
+	TotalTokens    int64                                  `json:"total_tokens"`
+	AvgDailyTokens int64                                  `json:"avg_daily_tokens"`
+	PeakDay        *organizationTokenUsagePeakDayResponse `json:"peak_day,omitempty"`
+}
+
+type organizationTokenUsageResponse struct {
+	Days    []organizationTokenUsageDayResponse   `json:"days"`
+	Summary organizationTokenUsageSummaryResponse `json:"summary"`
+}
+
 func (s *Server) registerWorkspaceSummaryRoutes(api *echo.Group) {
 	api.GET("/workspace/summary", s.handleGetWorkspaceSummary)
 	api.GET("/orgs/:orgId/summary", s.handleGetOrganizationSummary)
+	api.GET("/orgs/:orgId/token-usage", s.handleGetOrganizationTokenUsage)
 }
 
 func (s *Server) handleGetWorkspaceSummary(c echo.Context) error {
@@ -85,6 +112,28 @@ func (s *Server) handleGetOrganizationSummary(c echo.Context) error {
 		"organization": mapOrganizationDashboardMetrics(summary),
 		"projects":     mapOrganizationProjectSummaries(summary.Projects),
 	})
+}
+
+func (s *Server) handleGetOrganizationTokenUsage(c echo.Context) error {
+	orgID, err := parseUUIDPathParam(c, "orgId")
+	if err != nil {
+		return err
+	}
+
+	query, err := domain.ParseOrganizationTokenUsage(orgID, domain.OrganizationTokenUsageListInput{
+		From: c.QueryParam("from"),
+		To:   c.QueryParam("to"),
+	}, time.Now().UTC())
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	report, err := s.catalog.GetOrganizationTokenUsage(c.Request().Context(), query)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, mapOrganizationTokenUsageResponse(report))
 }
 
 func mapWorkspaceDashboardMetrics(summary domain.WorkspaceDashboardSummary) workspaceDashboardMetricsResponse {
@@ -149,6 +198,36 @@ func mapOrganizationProjectSummaries(items []domain.OrganizationProjectSummary) 
 			projectSummary.LastActivityAt = &value
 		}
 		response = append(response, projectSummary)
+	}
+
+	return response
+}
+
+func mapOrganizationTokenUsageResponse(report domain.OrganizationTokenUsageReport) organizationTokenUsageResponse {
+	response := organizationTokenUsageResponse{
+		Days: make([]organizationTokenUsageDayResponse, 0, len(report.Days)),
+		Summary: organizationTokenUsageSummaryResponse{
+			TotalTokens:    report.Summary.TotalTokens,
+			AvgDailyTokens: report.Summary.AvgDailyTokens,
+		},
+	}
+	if report.Summary.PeakDay != nil {
+		response.Summary.PeakDay = &organizationTokenUsagePeakDayResponse{
+			Date:        report.Summary.PeakDay.Date.UTC().Format("2006-01-02"),
+			TotalTokens: report.Summary.PeakDay.TotalTokens,
+		}
+	}
+
+	for _, item := range report.Days {
+		response.Days = append(response.Days, organizationTokenUsageDayResponse{
+			Date:              item.UsageDate.UTC().Format("2006-01-02"),
+			InputTokens:       item.InputTokens,
+			OutputTokens:      item.OutputTokens,
+			CachedInputTokens: item.CachedInputTokens,
+			ReasoningTokens:   item.ReasoningTokens,
+			TotalTokens:       item.TotalTokens,
+			FinalizedRunCount: item.FinalizedRunCount,
+		})
 	}
 
 	return response

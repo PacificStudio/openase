@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/organization"
+	"github.com/BetterAndBetterII/openase/ent/organizationdailytokenusage"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/google/uuid"
@@ -149,6 +150,21 @@ func (_c *OrganizationCreate) AddNotificationChannels(v ...*NotificationChannel)
 		ids[i] = v[i].ID
 	}
 	return _c.AddNotificationChannelIDs(ids...)
+}
+
+// AddDailyTokenUsageIDs adds the "daily_token_usage" edge to the OrganizationDailyTokenUsage entity by IDs.
+func (_c *OrganizationCreate) AddDailyTokenUsageIDs(ids ...uuid.UUID) *OrganizationCreate {
+	_c.mutation.AddDailyTokenUsageIDs(ids...)
+	return _c
+}
+
+// AddDailyTokenUsage adds the "daily_token_usage" edges to the OrganizationDailyTokenUsage entity.
+func (_c *OrganizationCreate) AddDailyTokenUsage(v ...*OrganizationDailyTokenUsage) *OrganizationCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddDailyTokenUsageIDs(ids...)
 }
 
 // SetDefaultAgentProvider sets the "default_agent_provider" edge to the AgentProvider entity.
@@ -339,6 +355,22 @@ func (_c *OrganizationCreate) createSpec() (*Organization, *sqlgraph.CreateSpec)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(notificationchannel.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.DailyTokenUsageIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.DailyTokenUsageTable,
+			Columns: []string{organization.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationdailytokenusage.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

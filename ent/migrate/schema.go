@@ -155,8 +155,19 @@ var (
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"launching", "ready", "executing", "completed", "errored", "terminated"}},
 		{Name: "session_id", Type: field.TypeString, Nullable: true},
 		{Name: "runtime_started_at", Type: field.TypeTime, Nullable: true},
+		{Name: "terminal_at", Type: field.TypeTime, Nullable: true},
+		{Name: "snapshot_materialized_at", Type: field.TypeTime, Nullable: true},
 		{Name: "last_error", Type: field.TypeString, Nullable: true},
 		{Name: "last_heartbeat_at", Type: field.TypeTime, Nullable: true},
+		{Name: "input_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "output_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "cached_input_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "cache_creation_input_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "reasoning_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "prompt_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "candidate_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "tool_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "total_tokens", Type: field.TypeInt64, Default: 0},
 		{Name: "current_step_status", Type: field.TypeString, Nullable: true},
 		{Name: "current_step_summary", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "current_step_changed_at", Type: field.TypeTime, Nullable: true},
@@ -175,31 +186,31 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "agent_runs_agents_runs",
-				Columns:    []*schema.Column{AgentRunsColumns[11]},
+				Columns:    []*schema.Column{AgentRunsColumns[22]},
 				RefColumns: []*schema.Column{AgentsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agent_runs_agent_providers_agent_runs",
-				Columns:    []*schema.Column{AgentRunsColumns[12]},
+				Columns:    []*schema.Column{AgentRunsColumns[23]},
 				RefColumns: []*schema.Column{AgentProvidersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agent_runs_tickets_agent_runs",
-				Columns:    []*schema.Column{AgentRunsColumns[13]},
+				Columns:    []*schema.Column{AgentRunsColumns[24]},
 				RefColumns: []*schema.Column{TicketsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agent_runs_workflows_agent_runs",
-				Columns:    []*schema.Column{AgentRunsColumns[14]},
+				Columns:    []*schema.Column{AgentRunsColumns[25]},
 				RefColumns: []*schema.Column{WorkflowsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agent_runs_workflow_versions_agent_runs",
-				Columns:    []*schema.Column{AgentRunsColumns[15]},
+				Columns:    []*schema.Column{AgentRunsColumns[26]},
 				RefColumns: []*schema.Column{WorkflowVersionsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -208,17 +219,22 @@ var (
 			{
 				Name:    "agentrun_agent_id_status_last_heartbeat_at",
 				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[11], AgentRunsColumns[2], AgentRunsColumns[6]},
+				Columns: []*schema.Column{AgentRunsColumns[22], AgentRunsColumns[2], AgentRunsColumns[8]},
 			},
 			{
 				Name:    "agentrun_provider_id_status",
 				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[12], AgentRunsColumns[2]},
+				Columns: []*schema.Column{AgentRunsColumns[23], AgentRunsColumns[2]},
 			},
 			{
 				Name:    "agentrun_ticket_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[13], AgentRunsColumns[10]},
+				Columns: []*schema.Column{AgentRunsColumns[24], AgentRunsColumns[21]},
+			},
+			{
+				Name:    "agentrun_ticket_id_terminal_at",
+				Unique:  false,
+				Columns: []*schema.Column{AgentRunsColumns[24], AgentRunsColumns[5]},
 			},
 		},
 	}
@@ -741,6 +757,46 @@ var (
 				Name:    "organization_slug",
 				Unique:  true,
 				Columns: []*schema.Column{OrganizationsColumns[2]},
+			},
+		},
+	}
+	// OrganizationDailyTokenUsagesColumns holds the columns for the "organization_daily_token_usages" table.
+	OrganizationDailyTokenUsagesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "usage_date", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "date"}},
+		{Name: "input_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "output_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "cached_input_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "reasoning_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "total_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "finalized_run_count", Type: field.TypeInt, Default: 0},
+		{Name: "recomputed_at", Type: field.TypeTime},
+		{Name: "source_mode", Type: field.TypeEnum, Enums: []string{"materialized", "lazy_backfill"}, Default: "materialized"},
+		{Name: "organization_id", Type: field.TypeUUID},
+	}
+	// OrganizationDailyTokenUsagesTable holds the schema information for the "organization_daily_token_usages" table.
+	OrganizationDailyTokenUsagesTable = &schema.Table{
+		Name:       "organization_daily_token_usages",
+		Columns:    OrganizationDailyTokenUsagesColumns,
+		PrimaryKey: []*schema.Column{OrganizationDailyTokenUsagesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "organization_daily_token_usages_organizations_daily_token_usage",
+				Columns:    []*schema.Column{OrganizationDailyTokenUsagesColumns[10]},
+				RefColumns: []*schema.Column{OrganizationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "organizationdailytokenusage_organization_id_usage_date",
+				Unique:  true,
+				Columns: []*schema.Column{OrganizationDailyTokenUsagesColumns[10], OrganizationDailyTokenUsagesColumns[1]},
+			},
+			{
+				Name:    "organizationdailytokenusage_usage_date",
+				Unique:  false,
+				Columns: []*schema.Column{OrganizationDailyTokenUsagesColumns[1]},
 			},
 		},
 	}
@@ -1613,6 +1669,7 @@ var (
 		NotificationChannelsTable,
 		NotificationRulesTable,
 		OrganizationsTable,
+		OrganizationDailyTokenUsagesTable,
 		ProjectsTable,
 		ProjectReposTable,
 		ScheduledJobsTable,
@@ -1672,6 +1729,7 @@ func init() {
 	NotificationRulesTable.ForeignKeys[0].RefTable = NotificationChannelsTable
 	NotificationRulesTable.ForeignKeys[1].RefTable = ProjectsTable
 	OrganizationsTable.ForeignKeys[0].RefTable = AgentProvidersTable
+	OrganizationDailyTokenUsagesTable.ForeignKeys[0].RefTable = OrganizationsTable
 	ProjectsTable.ForeignKeys[0].RefTable = OrganizationsTable
 	ProjectsTable.ForeignKeys[1].RefTable = AgentProvidersTable
 	ProjectReposTable.ForeignKeys[0].RefTable = ProjectsTable

@@ -34,10 +34,32 @@ const (
 	FieldSessionID = "session_id"
 	// FieldRuntimeStartedAt holds the string denoting the runtime_started_at field in the database.
 	FieldRuntimeStartedAt = "runtime_started_at"
+	// FieldTerminalAt holds the string denoting the terminal_at field in the database.
+	FieldTerminalAt = "terminal_at"
+	// FieldSnapshotMaterializedAt holds the string denoting the snapshot_materialized_at field in the database.
+	FieldSnapshotMaterializedAt = "snapshot_materialized_at"
 	// FieldLastError holds the string denoting the last_error field in the database.
 	FieldLastError = "last_error"
 	// FieldLastHeartbeatAt holds the string denoting the last_heartbeat_at field in the database.
 	FieldLastHeartbeatAt = "last_heartbeat_at"
+	// FieldInputTokens holds the string denoting the input_tokens field in the database.
+	FieldInputTokens = "input_tokens"
+	// FieldOutputTokens holds the string denoting the output_tokens field in the database.
+	FieldOutputTokens = "output_tokens"
+	// FieldCachedInputTokens holds the string denoting the cached_input_tokens field in the database.
+	FieldCachedInputTokens = "cached_input_tokens"
+	// FieldCacheCreationInputTokens holds the string denoting the cache_creation_input_tokens field in the database.
+	FieldCacheCreationInputTokens = "cache_creation_input_tokens"
+	// FieldReasoningTokens holds the string denoting the reasoning_tokens field in the database.
+	FieldReasoningTokens = "reasoning_tokens"
+	// FieldPromptTokens holds the string denoting the prompt_tokens field in the database.
+	FieldPromptTokens = "prompt_tokens"
+	// FieldCandidateTokens holds the string denoting the candidate_tokens field in the database.
+	FieldCandidateTokens = "candidate_tokens"
+	// FieldToolTokens holds the string denoting the tool_tokens field in the database.
+	FieldToolTokens = "tool_tokens"
+	// FieldTotalTokens holds the string denoting the total_tokens field in the database.
+	FieldTotalTokens = "total_tokens"
 	// FieldCurrentStepStatus holds the string denoting the current_step_status field in the database.
 	FieldCurrentStepStatus = "current_step_status"
 	// FieldCurrentStepSummary holds the string denoting the current_step_summary field in the database.
@@ -143,8 +165,19 @@ var Columns = []string{
 	FieldStatus,
 	FieldSessionID,
 	FieldRuntimeStartedAt,
+	FieldTerminalAt,
+	FieldSnapshotMaterializedAt,
 	FieldLastError,
 	FieldLastHeartbeatAt,
+	FieldInputTokens,
+	FieldOutputTokens,
+	FieldCachedInputTokens,
+	FieldCacheCreationInputTokens,
+	FieldReasoningTokens,
+	FieldPromptTokens,
+	FieldCandidateTokens,
+	FieldToolTokens,
+	FieldTotalTokens,
 	FieldCurrentStepStatus,
 	FieldCurrentStepSummary,
 	FieldCurrentStepChangedAt,
@@ -162,6 +195,24 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultInputTokens holds the default value on creation for the "input_tokens" field.
+	DefaultInputTokens int64
+	// DefaultOutputTokens holds the default value on creation for the "output_tokens" field.
+	DefaultOutputTokens int64
+	// DefaultCachedInputTokens holds the default value on creation for the "cached_input_tokens" field.
+	DefaultCachedInputTokens int64
+	// DefaultCacheCreationInputTokens holds the default value on creation for the "cache_creation_input_tokens" field.
+	DefaultCacheCreationInputTokens int64
+	// DefaultReasoningTokens holds the default value on creation for the "reasoning_tokens" field.
+	DefaultReasoningTokens int64
+	// DefaultPromptTokens holds the default value on creation for the "prompt_tokens" field.
+	DefaultPromptTokens int64
+	// DefaultCandidateTokens holds the default value on creation for the "candidate_tokens" field.
+	DefaultCandidateTokens int64
+	// DefaultToolTokens holds the default value on creation for the "tool_tokens" field.
+	DefaultToolTokens int64
+	// DefaultTotalTokens holds the default value on creation for the "total_tokens" field.
+	DefaultTotalTokens int64
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultID holds the default value on creation for the "id" field.
@@ -248,6 +299,16 @@ func ByRuntimeStartedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRuntimeStartedAt, opts...).ToFunc()
 }
 
+// ByTerminalAt orders the results by the terminal_at field.
+func ByTerminalAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTerminalAt, opts...).ToFunc()
+}
+
+// BySnapshotMaterializedAt orders the results by the snapshot_materialized_at field.
+func BySnapshotMaterializedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSnapshotMaterializedAt, opts...).ToFunc()
+}
+
 // ByLastError orders the results by the last_error field.
 func ByLastError(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldLastError, opts...).ToFunc()
@@ -256,6 +317,51 @@ func ByLastError(opts ...sql.OrderTermOption) OrderOption {
 // ByLastHeartbeatAt orders the results by the last_heartbeat_at field.
 func ByLastHeartbeatAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldLastHeartbeatAt, opts...).ToFunc()
+}
+
+// ByInputTokens orders the results by the input_tokens field.
+func ByInputTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldInputTokens, opts...).ToFunc()
+}
+
+// ByOutputTokens orders the results by the output_tokens field.
+func ByOutputTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOutputTokens, opts...).ToFunc()
+}
+
+// ByCachedInputTokens orders the results by the cached_input_tokens field.
+func ByCachedInputTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCachedInputTokens, opts...).ToFunc()
+}
+
+// ByCacheCreationInputTokens orders the results by the cache_creation_input_tokens field.
+func ByCacheCreationInputTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCacheCreationInputTokens, opts...).ToFunc()
+}
+
+// ByReasoningTokens orders the results by the reasoning_tokens field.
+func ByReasoningTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldReasoningTokens, opts...).ToFunc()
+}
+
+// ByPromptTokens orders the results by the prompt_tokens field.
+func ByPromptTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPromptTokens, opts...).ToFunc()
+}
+
+// ByCandidateTokens orders the results by the candidate_tokens field.
+func ByCandidateTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCandidateTokens, opts...).ToFunc()
+}
+
+// ByToolTokens orders the results by the tool_tokens field.
+func ByToolTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldToolTokens, opts...).ToFunc()
+}
+
+// ByTotalTokens orders the results by the total_tokens field.
+func ByTotalTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTotalTokens, opts...).ToFunc()
 }
 
 // ByCurrentStepStatus orders the results by the current_step_status field.

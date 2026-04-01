@@ -361,6 +361,29 @@ func HasNotificationChannelsWith(preds ...predicate.NotificationChannel) predica
 	})
 }
 
+// HasDailyTokenUsage applies the HasEdge predicate on the "daily_token_usage" edge.
+func HasDailyTokenUsage() predicate.Organization {
+	return predicate.Organization(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, DailyTokenUsageTable, DailyTokenUsageColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasDailyTokenUsageWith applies the HasEdge predicate on the "daily_token_usage" edge with a given conditions (other predicates).
+func HasDailyTokenUsageWith(preds ...predicate.OrganizationDailyTokenUsage) predicate.Organization {
+	return predicate.Organization(func(s *sql.Selector) {
+		step := newDailyTokenUsageStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasDefaultAgentProvider applies the HasEdge predicate on the "default_agent_provider" edge.
 func HasDefaultAgentProvider() predicate.Organization {
 	return predicate.Organization(func(s *sql.Selector) {

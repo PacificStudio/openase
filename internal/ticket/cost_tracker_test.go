@@ -61,6 +61,18 @@ func TestServiceRecordUsageAccumulatesTokensCostAndBudgetPause(t *testing.T) {
 		t.Fatalf("reset statuses: %v", err)
 	}
 	todoID := findStatusIDByName(t, statuses, "Todo")
+	doneID := findStatusIDByName(t, statuses, "Done")
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(project.ID).
+		SetName("Coding").
+		SetType("coding").
+		SetHarnessPath("roles/coding.md").
+		AddPickupStatusIDs(todoID).
+		AddFinishStatusIDs(doneID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
 
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(project.ID).
@@ -81,6 +93,16 @@ func TestServiceRecordUsageAccumulatesTokensCostAndBudgetPause(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
+	runItem, err := client.AgentRun.Create().
+		SetAgentID(agentItem.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(ticketItem.ID).
+		SetProviderID(providerItem.ID).
+		SetStatus("executing").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent run: %v", err)
+	}
 
 	service := NewService(client)
 	inputTokens := int64(120)
@@ -88,6 +110,7 @@ func TestServiceRecordUsageAccumulatesTokensCostAndBudgetPause(t *testing.T) {
 	result, err := service.RecordUsage(ctx, RecordUsageInput{
 		AgentID:  agentItem.ID,
 		TicketID: ticketItem.ID,
+		RunID:    &runItem.ID,
 		Usage: ticketing.RawUsageDelta{
 			InputTokens:  &inputTokens,
 			OutputTokens: &outputTokens,
@@ -122,6 +145,13 @@ func TestServiceRecordUsageAccumulatesTokensCostAndBudgetPause(t *testing.T) {
 	}
 	if agentAfter.TotalTokensUsed != 165 {
 		t.Fatalf("expected total tokens 165, got %d", agentAfter.TotalTokensUsed)
+	}
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload agent run: %v", err)
+	}
+	if runAfter.InputTokens != 120 || runAfter.OutputTokens != 45 || runAfter.TotalTokens != 165 {
+		t.Fatalf("expected run token totals to match usage delta, got %+v", runAfter)
 	}
 
 	costEvents, err := client.ActivityEvent.Query().
