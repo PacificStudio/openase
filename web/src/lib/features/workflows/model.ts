@@ -1,4 +1,4 @@
-import type { HarnessContent, WorkflowSummary } from './types'
+import type { HarnessContent, WorkflowStatusOption, WorkflowSummary } from './types'
 
 export type SkillState = {
   name: string
@@ -47,6 +47,41 @@ export function parseHarnessTemplateStatusBindings(content: string) {
   return {
     pickupStatusNames: parseYamlStringList(statusBlock, 'pickup'),
     finishStatusNames: parseYamlStringList(statusBlock, 'finish'),
+  }
+}
+
+export function resolveHarnessTemplateStatusSelection(
+  content: string,
+  statuses: WorkflowStatusOption[],
+) {
+  try {
+    const bindings = parseHarnessTemplateStatusBindings(content)
+    const pickupStatusIds = resolveTemplateStatusIds(bindings.pickupStatusNames, statuses)
+    const finishStatusIds = resolveTemplateStatusIds(bindings.finishStatusNames, statuses)
+    const missingStatusNames = [...pickupStatusIds.missingNames, ...finishStatusIds.missingNames]
+
+    if (missingStatusNames.length > 0) {
+      return {
+        pickupStatusIds: [] as string[],
+        finishStatusIds: [] as string[],
+        error: `Template status bindings are not configured in this project: ${[...new Set(missingStatusNames)].join(', ')}.`,
+      }
+    }
+
+    return {
+      pickupStatusIds: pickupStatusIds.ids,
+      finishStatusIds: finishStatusIds.ids,
+      error: '',
+    }
+  } catch (caughtError) {
+    return {
+      pickupStatusIds: [] as string[],
+      finishStatusIds: [] as string[],
+      error:
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Failed to parse workflow template status bindings.',
+    }
   }
 }
 
@@ -157,6 +192,26 @@ function dedupeStrings(items: string[]): string[] {
     deduped.push(trimmed)
   }
   return deduped
+}
+
+function resolveTemplateStatusIds(names: string[], statuses: WorkflowStatusOption[]) {
+  const ids: string[] = []
+  const missingNames: string[] = []
+
+  for (const name of names) {
+    const status = statuses.find(
+      (item) => item.name.trim().toLowerCase() === name.trim().toLowerCase(),
+    )
+    if (!status) {
+      missingNames.push(name)
+      continue
+    }
+    if (!ids.includes(status.id)) {
+      ids.push(status.id)
+    }
+  }
+
+  return { ids, missingNames }
 }
 
 export function defaultHarnessTemplate() {

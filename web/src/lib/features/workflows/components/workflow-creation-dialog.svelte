@@ -10,7 +10,7 @@
   import * as Select from '$ui/select'
   import { ChevronRight } from '@lucide/svelte'
   import { createWorkflowWithBinding } from '../data'
-  import { parseHarnessTemplateStatusBindings } from '../model'
+  import { resolveHarnessTemplateStatusSelection } from '../model'
   import {
     createWorkflowHooksDraft,
     parseWorkflowHooksDraft,
@@ -76,29 +76,16 @@
       finishStatusIds = defaultStatusIds
 
       if (templateDraft) {
-        try {
-          const bindings = parseHarnessTemplateStatusBindings(templateDraft.content)
-          const pickupResolution = resolveTemplateStatusIds(bindings.pickupStatusNames)
-          const finishResolution = resolveTemplateStatusIds(bindings.finishStatusNames)
-          const missingNames = [
-            ...new Set([...pickupResolution.missingNames, ...finishResolution.missingNames]),
-          ]
-
-          if (missingNames.length > 0) {
-            templateStatusError = `Template status bindings are not configured in this project: ${missingNames.join(', ')}.`
-            pickupStatusIds = []
-            finishStatusIds = []
-          } else {
-            if (pickupResolution.ids.length > 0) pickupStatusIds = pickupResolution.ids
-            if (finishResolution.ids.length > 0) finishStatusIds = finishResolution.ids
-          }
-        } catch (caughtError) {
-          templateStatusError =
-            caughtError instanceof Error
-              ? caughtError.message
-              : 'Failed to parse workflow template status bindings.'
-          pickupStatusIds = []
-          finishStatusIds = []
+        const templateSelection = resolveHarnessTemplateStatusSelection(
+          templateDraft.content,
+          selectableStatuses,
+        )
+        templateStatusError = templateSelection.error
+        if (templateSelection.pickupStatusIds.length > 0 || templateSelection.error) {
+          pickupStatusIds = templateSelection.pickupStatusIds
+        }
+        if (templateSelection.finishStatusIds.length > 0 || templateSelection.error) {
+          finishStatusIds = templateSelection.finishStatusIds
         }
       }
     }
@@ -162,26 +149,6 @@
     } finally {
       saving = false
     }
-  }
-
-  function resolveTemplateStatusIds(names: string[]) {
-    const ids: string[] = []
-    const missingNames: string[] = []
-
-    for (const name of names) {
-      const status = selectableStatuses.find(
-        (item) => item.name.trim().toLowerCase() === name.trim().toLowerCase(),
-      )
-      if (!status) {
-        missingNames.push(name)
-        continue
-      }
-      if (!ids.includes(status.id)) {
-        ids.push(status.id)
-      }
-    }
-
-    return { ids, missingNames }
   }
 </script>
 
