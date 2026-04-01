@@ -18,8 +18,9 @@
     WorkflowAgentOption,
     WorkflowStatusOption,
     WorkflowSummary,
+    WorkflowTemplateDraft,
   } from '../types'
-  import { type SkillState, toHarnessContent } from '../model'
+  import { normalizeWorkflowType, type SkillState, toHarnessContent } from '../model'
   import { loadWorkflowPageData, loadWorkflowHarness } from '../data'
   import WorkflowsPageBody from './workflows-page-body.svelte'
   import WorkflowsPageHeaderActions from './workflows-page-header-actions.svelte'
@@ -236,7 +237,7 @@
       validating = false
     }
   }
-  let templateDraft = $state<{ name: string; content: string } | null>(null)
+  let templateDraft = $state<WorkflowTemplateDraft | null>(null)
 
   function handleCreateWorkflow() {
     if (statuses.length === 0 || agentOptions.length === 0) return
@@ -249,7 +250,12 @@
       toastStore.error('Configure statuses and agents before creating a workflow.')
       return
     }
-    templateDraft = { name: role.name, content: role.workflow_content || role.content }
+    templateDraft = {
+      name: role.name,
+      content: role.workflow_content || role.content,
+      workflowType: normalizeWorkflowType(role.workflow_type),
+      harnessPath: role.harness_path,
+    }
     showCreateDialog = true
   }
   async function handleToggleSkill(skill: SkillState) {

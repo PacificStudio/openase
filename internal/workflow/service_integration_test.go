@@ -1196,9 +1196,10 @@ Machine {{ machine.name }} {{ accessible_machines[0].ssh_user }}
 Workflow {{ workflow.name }} {{ workflow.type }} {{ workflow.role_name }} {{ workflow.pickup_status }} {{ workflow.finish_status }}
 ProjectWorkflows {% for wf in project.workflows %}{{ wf.role_name }}:{{ wf.pickup_status }}:{{ wf.current_active }}/{{ wf.max_concurrent }}:{{ wf.role_description }}|{% endfor %}
 WorkflowArtifacts {% for wf in project.workflows %}{{ wf.role_name }}={{ wf.finish_status }}:{{ wf.harness_path }}:{{ wf.skills | join(",") }}|{% endfor %}
+WorkflowBindings {% for wf in project.workflows %}{{ wf.role_name }}=pickup[{% for status in wf.pickup_statuses %}{{ status.name }}:{{ status.stage }}|{% endfor %}]finish[{% for status in wf.finish_statuses %}{{ status.name }}:{{ status.stage }}|{% endfor %}];{% endfor %}
 WorkflowHistory {% for wf in project.workflows %}{{ wf.role_name }}={% for recent in wf.recent_tickets %}{{ recent.identifier }}:{{ recent.status }}:{{ recent.retry_paused }}:{{ recent.consecutive_errors }}|{% endfor %};{% endfor %}
-ProjectStatuses {{ project.statuses | map(attribute="name") | join(",") }} first={{ project.statuses[0].color }}
-ProjectMachines {% for machine in project.machines %}{{ machine.name }}:{{ machine.status }}:{{ machine.labels | join(",") }}|{% endfor %}
+ProjectStatuses {% for status in project.statuses %}{{ status.name }}:{{ status.stage }}:{{ status.color }}|{% endfor %}
+ProjectMachines {% for machine in project.machines %}{{ machine.name }}:{{ machine.status }}:{{ machine.resources.transport | default("none") }}:{{ machine.labels | join(",") }}|{% endfor %}
 Platform {{ platform.api_url }} {{ platform.project_id }} {{ platform.ticket_id }}
 Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 {% if attempt > 1 %}retry{% endif %}
@@ -1233,7 +1234,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		AgentID:             fixture.agentID,
 		Name:                "Dispatcher Workflow",
 		Type:                entworkflow.TypeCustom,
-		HarnessContent:      "---\nworkflow:\n  role: dispatcher\nstatus:\n  pickup: \"Backlog\"\n  finish: \"Done\"\n---\n\nEvaluate backlog tickets and route them to the right workflow.\n",
+		HarnessContent:      "---\nworkflow:\n  role: dispatcher\nstatus:\n  pickup: \"Backlog\"\n  finish: \"Backlog\"\n---\n\nEvaluate backlog tickets and route them to the right workflow.\n",
 		Hooks:               map[string]any{},
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
@@ -1241,7 +1242,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		StallTimeoutMinutes: 5,
 		IsActive:            true,
 		PickupStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Backlog"]),
-		FinishStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Done"]),
+		FinishStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Backlog"]),
 	}); err != nil {
 		t.Fatalf("create dispatcher workflow: %v", err)
 	}
@@ -1406,10 +1407,13 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 			AgentToken: "ase_agent_token",
 		},
 		Machine: HarnessMachineData{
-			Name:          "gpu-01",
-			Host:          "10.0.1.10",
-			Description:   "NVIDIA A100 x4",
-			Labels:        []string{"gpu", "a100"},
+			Name:        "gpu-01",
+			Host:        "10.0.1.10",
+			Description: "NVIDIA A100 x4",
+			Labels:      []string{"gpu", "a100"},
+			Resources: map[string]any{
+				"transport": "ssh",
+			},
 			WorkspaceRoot: "/workspaces",
 		},
 		AccessibleMachines: []HarnessAccessibleMachineData{
@@ -1418,14 +1422,20 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 				Host:        "10.0.1.20",
 				Description: "Artifact storage",
 				Labels:      []string{"storage", "nfs"},
-				SSHUser:     "openase",
+				Resources: map[string]any{
+					"transport": "ssh",
+				},
+				SSHUser: "openase",
 			},
 			{
 				Name:        "gpu-01",
 				Host:        "10.0.1.10",
 				Description: "duplicate current machine",
 				Labels:      []string{"gpu", "a100"},
-				SSHUser:     "openase",
+				Resources: map[string]any{
+					"transport": "ssh",
+				},
+				SSHUser: "openase",
 			},
 		},
 	})
@@ -1489,12 +1499,21 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 	if dispatcherContext == nil || dispatcherContext.CurrentActive != 0 || dispatcherContext.MaxConcurrent != 1 || len(dispatcherContext.RecentTickets) != 0 {
 		t.Fatalf("dispatcher workflow context = %+v", dispatcherContext)
 	}
+	if dispatcherContext == nil || len(dispatcherContext.PickupStatuses) != 1 || dispatcherContext.PickupStatuses[0].Name != "Backlog" || dispatcherContext.PickupStatuses[0].Stage != "backlog" {
+		t.Fatalf("dispatcher pickup statuses = %+v", dispatcherContext)
+	}
+	if dispatcherContext == nil || len(dispatcherContext.FinishStatuses) != 1 || dispatcherContext.FinishStatuses[0].Name != "Backlog" || dispatcherContext.FinishStatuses[0].Stage != "backlog" {
+		t.Fatalf("dispatcher finish statuses = %+v", dispatcherContext)
+	}
 
-	if len(data.Project.Statuses) == 0 || data.Project.Statuses[0].Color == "" {
+	if len(data.Project.Statuses) == 0 || data.Project.Statuses[0].Color == "" || data.Project.Statuses[0].Stage == "" {
 		t.Fatalf("project statuses = %+v", data.Project.Statuses)
 	}
 	if len(data.Project.Machines) != 2 || data.Project.Machines[0].Name != "gpu-01" || data.Project.Machines[0].Status != "current" || data.Project.Machines[1].Name != "storage" {
 		t.Fatalf("project machines = %+v", data.Project.Machines)
+	}
+	if data.Project.Machines[0].Resources["transport"] != "ssh" || data.Project.Machines[1].Resources["transport"] != "ssh" {
+		t.Fatalf("project machine resources = %+v", data.Project.Machines)
 	}
 	if data.Platform.ProjectID != fixture.projectID.String() || data.Platform.TicketID != ticketItem.ID.String() {
 		t.Fatalf("platform data = %+v", data.Platform)
@@ -1510,8 +1529,10 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		"Deps ASE-31:blocks:Done",
 		"Agent codex-coding Codex codex-app-server gpt-5.4 47",
 		"ProjectWorkflows fullstack-developer:Todo:1/3:Implement product changes end to end.|dispatcher:Backlog:0/1:Evaluate backlog tickets and route them to the right workflow.|",
+		"WorkflowBindings fullstack-developer=pickup[Todo:unstarted|]finish[Done:completed|];dispatcher=pickup[Backlog:backlog|]finish[Backlog:backlog|];",
 		"WorkflowHistory fullstack-developer=ASE-42:Todo:False:0|ASE-41:In Review:True:2|ASE-40:Todo:False:0|;dispatcher=;",
-		"ProjectMachines gpu-01:current:gpu,a100|storage:accessible:storage,nfs|",
+		"ProjectStatuses Backlog:backlog:#6B7280|Todo:unstarted:#3B82F6|In Progress:started:#F59E0B|In Review:started:#8B5CF6|Done:completed:#10B981|Cancelled:canceled:#4B5563|",
+		"ProjectMachines gpu-01:current:ssh:gpu,a100|storage:accessible:ssh:storage,nfs|",
 		fmt.Sprintf("Platform http://localhost:19836/api/v1 %s %s", fixture.projectID, ticketItem.ID),
 		"retry",
 	} {

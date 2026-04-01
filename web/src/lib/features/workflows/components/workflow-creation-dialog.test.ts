@@ -102,6 +102,8 @@ describe('WorkflowCreationDialog', () => {
         expect.objectContaining({
           agentId: 'agent-1',
           name: 'Workflow 1',
+          workflowType: 'coding',
+          harnessPath: null,
           pickupStatusIds: ['backlog', 'done'],
           finishStatusIds: ['backlog', 'doing'],
         }),
@@ -110,5 +112,92 @@ describe('WorkflowCreationDialog', () => {
       )
     })
     expect(onCreated).toHaveBeenCalledTimes(1)
+  })
+
+  it('preselects pickup and finish statuses from the template frontmatter', async () => {
+    createWorkflowWithBinding.mockResolvedValue({
+      workflow: {
+        id: 'wf-2',
+        name: 'Dispatcher',
+        type: 'custom',
+        agentId: 'agent-1',
+        harnessPath: '.openase/harnesses/roles/dispatcher.md',
+        pickupStatusIds: ['backlog'],
+        pickupStatusLabel: 'Backlog',
+        finishStatusIds: ['backlog'],
+        finishStatusLabel: 'Backlog',
+        maxConcurrent: 1,
+        maxRetry: 1,
+        timeoutMinutes: 30,
+        stallTimeoutMinutes: 10,
+        isActive: true,
+        lastModified: '2026-04-01T10:00:00Z',
+        recentSuccessRate: 0,
+        version: 1,
+        history: [],
+      },
+      selectedId: 'wf-2',
+    })
+
+    const { getAllByRole, getByRole } = render(WorkflowCreationDialog, {
+      props: {
+        open: true,
+        projectId: 'project-1',
+        statuses,
+        agentOptions,
+        existingCount: 1,
+        builtinRoleContent: 'role',
+        templateDraft: {
+          name: 'Dispatcher',
+          content:
+            '---\nworkflow:\n  role: "dispatcher"\nstatus:\n  pickup: "Backlog"\n  finish: ["Backlog"]\n---\n',
+          workflowType: 'custom',
+          harnessPath: '.openase/harnesses/roles/dispatcher.md',
+        },
+      },
+    })
+
+    await fireEvent.click(getByRole('button', { name: 'Create workflow' }))
+
+    await waitFor(() => {
+      expect(createWorkflowWithBinding).toHaveBeenCalledWith(
+        'project-1',
+        expect.objectContaining({
+          name: 'Dispatcher',
+          workflowType: 'custom',
+          harnessPath: '.openase/harnesses/roles/dispatcher.md',
+          pickupStatusIds: ['backlog'],
+          finishStatusIds: ['backlog'],
+        }),
+        statuses,
+        '---\nworkflow:\n  role: "dispatcher"\nstatus:\n  pickup: "Backlog"\n  finish: ["Backlog"]\n---\n',
+      )
+    })
+  })
+
+  it('shows a precise error when template statuses are missing from the project', async () => {
+    const { findByText, getByRole } = render(WorkflowCreationDialog, {
+      props: {
+        open: true,
+        projectId: 'project-1',
+        statuses,
+        agentOptions,
+        existingCount: 1,
+        builtinRoleContent: 'role',
+        templateDraft: {
+          name: 'Dispatcher',
+          content:
+            '---\nworkflow:\n  role: "dispatcher"\nstatus:\n  pickup: "Inbox"\n  finish: "Inbox"\n---\n',
+          workflowType: 'custom',
+          harnessPath: '.openase/harnesses/roles/dispatcher.md',
+        },
+      },
+    })
+
+    expect(
+      await findByText('Template status bindings are not configured in this project: Inbox.'),
+    ).toBeTruthy()
+    expect(getByRole('button', { name: 'Create workflow' }).hasAttribute('disabled')).toBe(true)
+    expect(createWorkflowWithBinding).not.toHaveBeenCalled()
   })
 })

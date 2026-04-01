@@ -26,6 +26,9 @@ func TestDispatcherRoleTemplate(t *testing.T) {
 		"project.workflows",
 		"project.statuses",
 		"project.machines",
+		"pickup_statuses | map(attribute=\"name\")",
+		"stage={{ item.stage }}",
+		"resources={{ item.resources | tojson }}",
 		"move it from {{ workflow.pickup_status }} to the pickup status of the best matching active workflow",
 		"keep it in {{ workflow.finish_status }}",
 	} {

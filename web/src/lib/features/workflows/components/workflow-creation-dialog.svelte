@@ -8,8 +8,14 @@
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
   import { createWorkflowWithBinding } from '../data'
+  import { parseHarnessTemplateStatusBindings } from '../model'
   import { toggleWorkflowStatusSelection } from '../workflow-lifecycle'
-  import type { WorkflowAgentOption, WorkflowStatusOption, WorkflowSummary } from '../types'
+  import type {
+    WorkflowAgentOption,
+    WorkflowStatusOption,
+    WorkflowSummary,
+    WorkflowTemplateDraft,
+  } from '../types'
 
   let {
     open = $bindable(false),
@@ -27,7 +33,7 @@
     agentOptions: WorkflowAgentOption[]
     existingCount: number
     builtinRoleContent: string
-    templateDraft?: { name: string; content: string } | null
+    templateDraft?: WorkflowTemplateDraft | null
     onCreated?: (payload: { workflow: WorkflowSummary; selectedId: string }) => void
   } = $props()
 
@@ -36,6 +42,7 @@
   let agentId = $state('')
   let pickupStatusIds = $state<string[]>([])
   let finishStatusIds = $state<string[]>([])
+  let templateStatusError = $state('')
   let wasOpen = false
 
   const selectedAgentLabel = $derived(
@@ -46,8 +53,38 @@
     if (open && !wasOpen) {
       name = templateDraft?.name ?? `Workflow ${existingCount + 1}`
       agentId = agentOptions[0]?.id ?? ''
-      pickupStatusIds = selectableStatuses[0] ? [selectableStatuses[0].id] : []
-      finishStatusIds = selectableStatuses[0] ? [selectableStatuses[0].id] : []
+      templateStatusError = ''
+
+      const defaultStatusIds = selectableStatuses[0] ? [selectableStatuses[0].id] : []
+      pickupStatusIds = defaultStatusIds
+      finishStatusIds = defaultStatusIds
+
+      if (templateDraft) {
+        try {
+          const bindings = parseHarnessTemplateStatusBindings(templateDraft.content)
+          const pickupResolution = resolveTemplateStatusIds(bindings.pickupStatusNames)
+          const finishResolution = resolveTemplateStatusIds(bindings.finishStatusNames)
+          const missingNames = [
+            ...new Set([...pickupResolution.missingNames, ...finishResolution.missingNames]),
+          ]
+
+          if (missingNames.length > 0) {
+            templateStatusError = `Template status bindings are not configured in this project: ${missingNames.join(', ')}.`
+            pickupStatusIds = []
+            finishStatusIds = []
+          } else {
+            if (pickupResolution.ids.length > 0) pickupStatusIds = pickupResolution.ids
+            if (finishResolution.ids.length > 0) finishStatusIds = finishResolution.ids
+          }
+        } catch (caughtError) {
+          templateStatusError =
+            caughtError instanceof Error
+              ? caughtError.message
+              : 'Failed to parse workflow template status bindings.'
+          pickupStatusIds = []
+          finishStatusIds = []
+        }
+      }
     }
 
     wasOpen = open
@@ -67,6 +104,10 @@
       toastStore.error('Bound agent is required.')
       return
     }
+    if (templateStatusError) {
+      toastStore.error(templateStatusError)
+      return
+    }
     if (pickupStatusIds.length === 0 || finishStatusIds.length === 0) {
       toastStore.error('Pickup and finish status are required.')
       return
@@ -80,6 +121,8 @@
         {
           agentId,
           name: name.trim(),
+          workflowType: templateDraft?.workflowType ?? 'coding',
+          harnessPath: templateDraft?.harnessPath ?? null,
           pickupStatusIds,
           finishStatusIds,
         },
@@ -95,6 +138,26 @@
     } finally {
       saving = false
     }
+  }
+
+  function resolveTemplateStatusIds(names: string[]) {
+    const ids: string[] = []
+    const missingNames: string[] = []
+
+    for (const name of names) {
+      const status = selectableStatuses.find(
+        (item) => item.name.trim().toLowerCase() === name.trim().toLowerCase(),
+      )
+      if (!status) {
+        missingNames.push(name)
+        continue
+      }
+      if (!ids.includes(status.id)) {
+        ids.push(status.id)
+      }
+    }
+
+    return { ids, missingNames }
   }
 </script>
 
@@ -181,8 +244,12 @@
         </div>
       </div>
 
+      {#if templateStatusError}
+        <p class="text-destructive text-xs">{templateStatusError}</p>
+      {/if}
+
       <Dialog.Footer showCloseButton>
-        <Button type="submit" disabled={saving || !projectId}>
+        <Button type="submit" disabled={saving || !projectId || !!templateStatusError}>
           {saving ? 'Creating…' : 'Create workflow'}
         </Button>
       </Dialog.Footer>

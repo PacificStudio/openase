@@ -68,7 +68,66 @@ status:
 	if err != nil {
 		t.Fatalf("ParseActivationTemplate() error = %v", err)
 	}
-	if template.WorkflowName != "QA Engineer" || template.WorkflowType != "test" || template.PickupStatusName != "Todo" || template.FinishStatusName != "Done" {
+	if template.WorkflowName != "QA Engineer" || template.WorkflowType != "test" {
+		t.Fatalf("ParseActivationTemplate() = %+v", template)
+	}
+	if len(template.PickupStatusNames) != 1 || template.PickupStatusNames[0] != "Todo" {
+		t.Fatalf("ParseActivationTemplate() pickup = %+v", template.PickupStatusNames)
+	}
+	if len(template.FinishStatusNames) != 1 || template.FinishStatusNames[0] != "Done" {
+		t.Fatalf("ParseActivationTemplate() finish = %+v", template.FinishStatusNames)
+	}
+}
+
+func TestParseActivationTemplateSupportsStatusLists(t *testing.T) {
+	template, err := ParseActivationTemplate(
+		"dispatcher",
+		".openase/harnesses/roles/dispatcher.md",
+		`---
+workflow:
+  name: "Dispatcher"
+  type: "custom"
+  role: "dispatcher"
+status:
+  pickup:
+    - "Backlog"
+    - "Needs Triage"
+  finish: ["Backlog", "Needs Triage"]
+---
+`,
+		"Route backlog tickets.",
+	)
+	if err != nil {
+		t.Fatalf("ParseActivationTemplate() error = %v", err)
+	}
+	if strings.Join(template.PickupStatusNames, ",") != "Backlog,Needs Triage" {
+		t.Fatalf("unexpected pickup statuses: %+v", template.PickupStatusNames)
+	}
+	if strings.Join(template.FinishStatusNames, ",") != "Backlog,Needs Triage" {
+		t.Fatalf("unexpected finish statuses: %+v", template.FinishStatusNames)
+	}
+}
+
+func TestParseActivationTemplateDeduplicatesStatusLists(t *testing.T) {
+	template, err := ParseActivationTemplate(
+		"dispatcher",
+		".openase/harnesses/roles/dispatcher.md",
+		`---
+workflow:
+  name: "Dispatcher"
+  type: "custom"
+  role: "dispatcher"
+status:
+  pickup: ["Backlog", "backlog", "Backlog"]
+  finish: "Backlog"
+---
+`,
+		"Route backlog tickets.",
+	)
+	if err != nil {
+		t.Fatalf("ParseActivationTemplate() error = %v", err)
+	}
+	if len(template.PickupStatusNames) != 1 || template.PickupStatusNames[0] != "Backlog" {
 		t.Fatalf("ParseActivationTemplate() = %+v", template)
 	}
 }
