@@ -129,36 +129,37 @@ type CommentRevision struct {
 
 // Ticket is the API-facing ticket aggregate returned by the service layer.
 type Ticket struct {
-	ID                uuid.UUID          `json:"id"`
-	ProjectID         uuid.UUID          `json:"project_id"`
-	Identifier        string             `json:"identifier"`
-	Title             string             `json:"title"`
-	Description       string             `json:"description"`
-	StatusID          uuid.UUID          `json:"status_id"`
-	StatusName        string             `json:"status_name"`
-	Priority          entticket.Priority `json:"priority"`
-	Type              entticket.Type     `json:"type"`
-	WorkflowID        *uuid.UUID         `json:"workflow_id,omitempty"`
-	CurrentRunID      *uuid.UUID         `json:"current_run_id,omitempty"`
-	TargetMachineID   *uuid.UUID         `json:"target_machine_id,omitempty"`
-	CreatedBy         string             `json:"created_by"`
-	Parent            *TicketReference   `json:"parent,omitempty"`
-	Children          []TicketReference  `json:"children"`
-	Dependencies      []Dependency       `json:"dependencies"`
-	ExternalLinks     []ExternalLink     `json:"external_links"`
-	ExternalRef       string             `json:"external_ref"`
-	BudgetUSD         float64            `json:"budget_usd"`
-	CostTokensInput   int64              `json:"cost_tokens_input"`
-	CostTokensOutput  int64              `json:"cost_tokens_output"`
-	CostAmount        float64            `json:"cost_amount"`
-	AttemptCount      int                `json:"attempt_count"`
-	ConsecutiveErrors int                `json:"consecutive_errors"`
-	StartedAt         *time.Time         `json:"started_at,omitempty"`
-	CompletedAt       *time.Time         `json:"completed_at,omitempty"`
-	NextRetryAt       *time.Time         `json:"next_retry_at,omitempty"`
-	RetryPaused       bool               `json:"retry_paused"`
-	PauseReason       string             `json:"pause_reason,omitempty"`
-	CreatedAt         time.Time          `json:"created_at"`
+	ID                   uuid.UUID          `json:"id"`
+	ProjectID            uuid.UUID          `json:"project_id"`
+	Identifier           string             `json:"identifier"`
+	Title                string             `json:"title"`
+	Description          string             `json:"description"`
+	StatusID             uuid.UUID          `json:"status_id"`
+	StatusName           string             `json:"status_name"`
+	Priority             entticket.Priority `json:"priority"`
+	Type                 entticket.Type     `json:"type"`
+	WorkflowID           *uuid.UUID         `json:"workflow_id,omitempty"`
+	CurrentRunID         *uuid.UUID         `json:"current_run_id,omitempty"`
+	TargetMachineID      *uuid.UUID         `json:"target_machine_id,omitempty"`
+	CreatedBy            string             `json:"created_by"`
+	Parent               *TicketReference   `json:"parent,omitempty"`
+	Children             []TicketReference  `json:"children"`
+	Dependencies         []Dependency       `json:"dependencies"`
+	IncomingDependencies []Dependency       `json:"incoming_dependencies"`
+	ExternalLinks        []ExternalLink     `json:"external_links"`
+	ExternalRef          string             `json:"external_ref"`
+	BudgetUSD            float64            `json:"budget_usd"`
+	CostTokensInput      int64              `json:"cost_tokens_input"`
+	CostTokensOutput     int64              `json:"cost_tokens_output"`
+	CostAmount           float64            `json:"cost_amount"`
+	AttemptCount         int                `json:"attempt_count"`
+	ConsecutiveErrors    int                `json:"consecutive_errors"`
+	StartedAt            *time.Time         `json:"started_at,omitempty"`
+	CompletedAt          *time.Time         `json:"completed_at,omitempty"`
+	NextRetryAt          *time.Time         `json:"next_retry_at,omitempty"`
+	RetryPaused          bool               `json:"retry_paused"`
+	PauseReason          string             `json:"pause_reason,omitempty"`
+	CreatedAt            time.Time          `json:"created_at"`
 }
 
 // ListInput filters ticket queries within a project.
@@ -442,6 +443,19 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]Ticket, error) {
 		WithParent(func(query *ent.TicketQuery) {
 			query.WithStatus()
 		}).
+		WithOutgoingDependencies(func(query *ent.TicketDependencyQuery) {
+			query.Order(ent.Asc(entticketdependency.FieldType), ent.Asc(entticketdependency.FieldTargetTicketID)).
+				WithTargetTicket(func(ticketQuery *ent.TicketQuery) {
+					ticketQuery.WithStatus()
+				})
+		}).
+		WithIncomingDependencies(func(query *ent.TicketDependencyQuery) {
+			query.Where(entticketdependency.TypeEQ(entticketdependency.TypeBlocks)).
+				Order(ent.Asc(entticketdependency.FieldSourceTicketID)).
+				WithSourceTicket(func(ticketQuery *ent.TicketQuery) {
+					ticketQuery.WithStatus()
+				})
+		}).
 		WithExternalLinks(func(query *ent.TicketExternalLinkQuery) {
 			query.Order(ent.Asc(entticketexternallink.FieldCreatedAt), ent.Asc(entticketexternallink.FieldID))
 		})
@@ -487,6 +501,13 @@ func (s *Service) Get(ctx context.Context, ticketID uuid.UUID) (Ticket, error) {
 		WithOutgoingDependencies(func(query *ent.TicketDependencyQuery) {
 			query.Order(ent.Asc(entticketdependency.FieldType), ent.Asc(entticketdependency.FieldTargetTicketID)).
 				WithTargetTicket(func(ticketQuery *ent.TicketQuery) {
+					ticketQuery.WithStatus()
+				})
+		}).
+		WithIncomingDependencies(func(query *ent.TicketDependencyQuery) {
+			query.Where(entticketdependency.TypeEQ(entticketdependency.TypeBlocks)).
+				Order(ent.Asc(entticketdependency.FieldSourceTicketID)).
+				WithSourceTicket(func(ticketQuery *ent.TicketQuery) {
 					ticketQuery.WithStatus()
 				})
 		}).
@@ -878,7 +899,10 @@ func (s *Service) RemoveDependency(ctx context.Context, ticketID uuid.UUID, depe
 	dependency, err := tx.TicketDependency.Query().
 		Where(
 			entticketdependency.ID(dependencyID),
-			entticketdependency.SourceTicketIDEQ(ticketID),
+			entticketdependency.Or(
+				entticketdependency.SourceTicketIDEQ(ticketID),
+				entticketdependency.TargetTicketIDEQ(ticketID),
+			),
 		).
 		Only(ctx)
 	if err != nil {
@@ -886,6 +910,9 @@ func (s *Service) RemoveDependency(ctx context.Context, ticketID uuid.UUID, depe
 			return DeleteDependencyResult{}, ErrDependencyNotFound
 		}
 		return DeleteDependencyResult{}, fmt.Errorf("get ticket dependency for delete: %w", err)
+	}
+	if dependency.Type == entticketdependency.TypeSubIssue && dependency.SourceTicketID != ticketID {
+		return DeleteDependencyResult{}, ErrDependencyNotFound
 	}
 
 	if dependency.Type == entticketdependency.TypeSubIssue {
@@ -1760,34 +1787,35 @@ func optionalUUIDPointerEqual(left *uuid.UUID, right *uuid.UUID) bool {
 
 func mapTicket(item *ent.Ticket) Ticket {
 	result := Ticket{
-		ID:                item.ID,
-		ProjectID:         item.ProjectID,
-		Identifier:        item.Identifier,
-		Title:             item.Title,
-		Description:       item.Description,
-		StatusID:          item.StatusID,
-		Priority:          item.Priority,
-		Type:              item.Type,
-		WorkflowID:        item.WorkflowID,
-		CurrentRunID:      item.CurrentRunID,
-		TargetMachineID:   item.TargetMachineID,
-		CreatedBy:         item.CreatedBy,
-		Children:          []TicketReference{},
-		Dependencies:      []Dependency{},
-		ExternalLinks:     []ExternalLink{},
-		ExternalRef:       item.ExternalRef,
-		BudgetUSD:         item.BudgetUsd,
-		CostTokensInput:   item.CostTokensInput,
-		CostTokensOutput:  item.CostTokensOutput,
-		CostAmount:        item.CostAmount,
-		AttemptCount:      item.AttemptCount,
-		ConsecutiveErrors: item.ConsecutiveErrors,
-		StartedAt:         item.StartedAt,
-		CompletedAt:       item.CompletedAt,
-		NextRetryAt:       item.NextRetryAt,
-		RetryPaused:       item.RetryPaused,
-		PauseReason:       item.PauseReason,
-		CreatedAt:         item.CreatedAt,
+		ID:                   item.ID,
+		ProjectID:            item.ProjectID,
+		Identifier:           item.Identifier,
+		Title:                item.Title,
+		Description:          item.Description,
+		StatusID:             item.StatusID,
+		Priority:             item.Priority,
+		Type:                 item.Type,
+		WorkflowID:           item.WorkflowID,
+		CurrentRunID:         item.CurrentRunID,
+		TargetMachineID:      item.TargetMachineID,
+		CreatedBy:            item.CreatedBy,
+		Children:             []TicketReference{},
+		Dependencies:         []Dependency{},
+		IncomingDependencies: []Dependency{},
+		ExternalLinks:        []ExternalLink{},
+		ExternalRef:          item.ExternalRef,
+		BudgetUSD:            item.BudgetUsd,
+		CostTokensInput:      item.CostTokensInput,
+		CostTokensOutput:     item.CostTokensOutput,
+		CostAmount:           item.CostAmount,
+		AttemptCount:         item.AttemptCount,
+		ConsecutiveErrors:    item.ConsecutiveErrors,
+		StartedAt:            item.StartedAt,
+		CompletedAt:          item.CompletedAt,
+		NextRetryAt:          item.NextRetryAt,
+		RetryPaused:          item.RetryPaused,
+		PauseReason:          item.PauseReason,
+		CreatedAt:            item.CreatedAt,
 	}
 
 	if item.Edges.Status != nil {
@@ -1803,6 +1831,9 @@ func mapTicket(item *ent.Ticket) Ticket {
 	for _, dependency := range item.Edges.OutgoingDependencies {
 		result.Dependencies = append(result.Dependencies, mapDependency(dependency))
 	}
+	for _, dependency := range item.Edges.IncomingDependencies {
+		result.IncomingDependencies = append(result.IncomingDependencies, mapIncomingDependency(dependency))
+	}
 	for _, externalLink := range item.Edges.ExternalLinks {
 		result.ExternalLinks = append(result.ExternalLinks, mapExternalLink(externalLink))
 	}
@@ -1817,6 +1848,18 @@ func mapDependency(item *ent.TicketDependency) Dependency {
 	}
 	if item.Edges.TargetTicket != nil {
 		dependency.Target = mapTicketReference(item.Edges.TargetTicket)
+	}
+
+	return dependency
+}
+
+func mapIncomingDependency(item *ent.TicketDependency) Dependency {
+	dependency := Dependency{
+		ID:   item.ID,
+		Type: item.Type,
+	}
+	if item.Edges.SourceTicket != nil {
+		dependency.Target = mapTicketReference(item.Edges.SourceTicket)
 	}
 
 	return dependency

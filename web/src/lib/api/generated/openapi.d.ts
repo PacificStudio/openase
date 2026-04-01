@@ -13245,7 +13245,7 @@ export interface operations {
         'application/json': {
           /** @description Target ticket ID referenced by the dependency. */
           target_ticket_id?: string
-          /** @description Dependency relationship type. */
+          /** @description Dependency relationship type. Supported values: blocks, blocked_by, sub_issue. */
           type?: string
         }
       }

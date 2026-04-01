@@ -22,10 +22,13 @@ export type BoardTicket = {
   priority: 'urgent' | 'high' | 'medium' | 'low'
   workflowType?: string
   agentName?: string
-  anomaly?: 'retry' | 'hook_failed' | 'awaiting_approval' | 'budget_exhausted'
+  anomaly?: 'retry' | 'awaiting_approval' | 'budget_exhausted'
+  runtimePhase?: 'none' | 'launching' | 'ready' | 'executing' | 'failed'
+  lastError?: string
   updatedAt: string
   isMoving?: boolean
   labels?: string[]
+  isBlocked?: boolean
 }
 
 export type BoardFilter = {

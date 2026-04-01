@@ -501,18 +501,31 @@ func (s *Server) handleAddTicketDependency(c echo.Context) error {
 		return err
 	}
 
-	input, err := parseAddDependencyRequest(ticketID, raw)
+	parsed, err := parseAddDependencyRequest(ticketID, raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
 
-	dependency, err := s.ticketService.AddDependency(c.Request().Context(), input)
+	dependency, err := s.ticketService.AddDependency(c.Request().Context(), parsed.Input)
 	if err != nil {
 		return writeTicketError(c, err)
 	}
+	ticketItem, err := s.ticketService.Get(c.Request().Context(), ticketID)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+	relationship, ok := findTicketDependencyResponse(ticketItem, dependency.ID)
+	if !ok {
+		return writeAPIError(
+			c,
+			http.StatusInternalServerError,
+			"DEPENDENCY_VIEW_MISSING",
+			"created dependency missing from current ticket relationship view",
+		)
+	}
 
 	return c.JSON(http.StatusCreated, map[string]any{
-		"dependency": mapTicketDependencyResponse(dependency),
+		"dependency": relationship,
 	})
 }
 
@@ -1013,9 +1026,7 @@ func mapTicketResponse(item ticketservice.Ticket) ticketResponse {
 	for _, child := range item.Children {
 		response.Children = append(response.Children, mapTicketReferenceResponse(child))
 	}
-	for _, dependency := range item.Dependencies {
-		response.Dependencies = append(response.Dependencies, mapTicketDependencyResponse(dependency))
-	}
+	response.Dependencies = mapTicketDependencyResponses(item)
 	for _, externalLink := range item.ExternalLinks {
 		response.ExternalLinks = append(response.ExternalLinks, mapTicketExternalLinkResponse(externalLink))
 	}
@@ -1024,11 +1035,42 @@ func mapTicketResponse(item ticketservice.Ticket) ticketResponse {
 }
 
 func mapTicketDependencyResponse(item ticketservice.Dependency) ticketDependencyResponse {
+	return mapTicketDependencyResponseWithRelation(item, mapDependencyType(string(item.Type)))
+}
+
+func mapTicketDependencyResponseWithRelation(item ticketservice.Dependency, relation string) ticketDependencyResponse {
 	return ticketDependencyResponse{
 		ID:     item.ID.String(),
-		Type:   mapDependencyType(string(item.Type)),
+		Type:   relation,
 		Target: mapTicketReferenceResponse(item.Target),
 	}
+}
+
+func mapTicketDependencyResponses(item ticketservice.Ticket) []ticketDependencyResponse {
+	responses := make([]ticketDependencyResponse, 0, len(item.Dependencies)+len(item.IncomingDependencies))
+	for _, dependency := range item.IncomingDependencies {
+		responses = append(responses, mapTicketDependencyResponseWithRelation(dependency, "blocked_by"))
+	}
+	for _, dependency := range item.Dependencies {
+		responses = append(responses, mapTicketDependencyResponse(dependency))
+	}
+
+	return responses
+}
+
+func findTicketDependencyResponse(item ticketservice.Ticket, dependencyID uuid.UUID) (ticketDependencyResponse, bool) {
+	for _, dependency := range item.IncomingDependencies {
+		if dependency.ID == dependencyID {
+			return mapTicketDependencyResponseWithRelation(dependency, "blocked_by"), true
+		}
+	}
+	for _, dependency := range item.Dependencies {
+		if dependency.ID == dependencyID {
+			return mapTicketDependencyResponse(dependency), true
+		}
+	}
+
+	return ticketDependencyResponse{}, false
 }
 
 func mapTicketReferenceResponse(item ticketservice.TicketReference) ticketReferenceResponse {

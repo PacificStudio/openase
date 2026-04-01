@@ -427,13 +427,205 @@ func TestChatRouteLogsStructuredStartFailures(t *testing.T) {
 	}
 }
 
+func TestChatRouteStreamsPeriodicKeepalives(t *testing.T) {
+	originalInterval := chatSSEKeepaliveInterval
+	chatSSEKeepaliveInterval = 5 * time.Millisecond
+	defer func() {
+		chatSSEKeepaliveInterval = originalInterval
+	}()
+
+	projectID := uuid.New()
+	providerID := uuid.New()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	chatSvc := chatservice.NewService(
+		logger,
+		streamingChatRuntimeStub{
+			stream: func() <-chan chatservice.StreamEvent {
+				events := make(chan chatservice.StreamEvent)
+				go func() {
+					time.Sleep(12 * time.Millisecond)
+					events <- chatservice.StreamEvent{
+						Event: "done",
+						Payload: map[string]any{
+							"session_id": "session-keepalive-1",
+							"turns_used": 1,
+						},
+					}
+					close(events)
+				}()
+				return events
+			},
+		},
+		chatCatalogStub{
+			project: catalogdomain.Project{
+				ID:             projectID,
+				OrganizationID: uuid.New(),
+				Name:           "OpenASE",
+			},
+			providers: []catalogdomain.AgentProvider{
+				{
+					ID:          providerID,
+					Name:        "Codex",
+					AdapterType: catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+					Available:   true,
+				},
+			},
+		},
+		chatTicketStub{},
+		chatWorkflowStub{},
+		"",
+	)
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023, WriteTimeout: time.Second},
+		config.GitHubConfig{},
+		logger,
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithChatService(chatSvc),
+	)
+
+	body := mustMarshalJSON(t, map[string]any{
+		"message": "keep streaming",
+		"source":  "project_sidebar",
+		"context": map[string]any{
+			"project_id": projectID.String(),
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat", bytes.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set(chatUserHeader, "browser-user-keepalive")
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if got := strings.Count(rec.Body.String(), ": keepalive\n\n"); got < 2 {
+		t.Fatalf("expected at least two keepalive comments, got %d in %q", got, rec.Body.String())
+	}
+}
+
+func TestChatRouteLogsUnexpectedStreamTermination(t *testing.T) {
+	projectID := uuid.New()
+	providerID := uuid.New()
+	var logBuffer bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logBuffer, nil))
+	chatSvc := chatservice.NewService(
+		logger,
+		streamingChatRuntimeStub{
+			stream: func() <-chan chatservice.StreamEvent {
+				events := make(chan chatservice.StreamEvent, 1)
+				events <- chatservice.StreamEvent{
+					Event: "message",
+					Payload: map[string]any{
+						"type":    "text",
+						"content": "partial reply",
+					},
+				}
+				close(events)
+				return events
+			},
+		},
+		chatCatalogStub{
+			project: catalogdomain.Project{
+				ID:             projectID,
+				OrganizationID: uuid.New(),
+				Name:           "OpenASE",
+			},
+			providers: []catalogdomain.AgentProvider{
+				{
+					ID:          providerID,
+					Name:        "Codex",
+					AdapterType: catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+					Available:   true,
+				},
+			},
+		},
+		chatTicketStub{},
+		chatWorkflowStub{},
+		"",
+	)
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023, WriteTimeout: time.Second},
+		config.GitHubConfig{},
+		logger,
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithChatService(chatSvc),
+	)
+
+	body := mustMarshalJSON(t, map[string]any{
+		"message":     "edit this harness",
+		"source":      "project_sidebar",
+		"provider_id": providerID.String(),
+		"context": map[string]any{
+			"project_id": projectID.String(),
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat", bytes.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set(chatUserHeader, "browser-user-stream")
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	logOutput := logBuffer.String()
+	for _, want := range []string{
+		"chat stream terminated before completion",
+		"chat_source=project_sidebar",
+		"chat_project_id=" + projectID.String(),
+		"chat_provider_id=" + providerID.String(),
+		"chat_user_id=browser-user-stream",
+		"last_event=message",
+		"terminal_event_seen=false",
+	} {
+		if !strings.Contains(logOutput, want) {
+			t.Fatalf("expected log output to contain %q, got %q", want, logOutput)
+		}
+	}
+}
+
 type fakeClaudeAdapter struct {
 	session  *fakeClaudeSession
 	lastSpec provider.ClaudeCodeSessionSpec
 }
 
+type streamingChatRuntimeStub struct {
+	stream func() <-chan chatservice.StreamEvent
+}
+
 type chatRuntimeStub struct {
 	startErr error
+}
+
+func (s streamingChatRuntimeStub) Supports(catalogdomain.AgentProvider) bool {
+	return true
+}
+
+func (s streamingChatRuntimeStub) StartTurn(
+	context.Context,
+	chatservice.RuntimeTurnInput,
+) (chatservice.TurnStream, error) {
+	return chatservice.TurnStream{Events: s.stream()}, nil
+}
+
+func (s streamingChatRuntimeStub) CloseSession(chatservice.SessionID) bool {
+	return false
 }
 
 func (s chatRuntimeStub) Supports(catalogdomain.AgentProvider) bool {

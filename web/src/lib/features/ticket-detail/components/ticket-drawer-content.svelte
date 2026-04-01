@@ -16,6 +16,8 @@
   import TicketHeader from './ticket-header.svelte'
   import TicketHooks from './ticket-hooks.svelte'
   import TicketRepos from './ticket-repos.svelte'
+  import TicketRuntimeStateCard from './ticket-runtime-state-card.svelte'
+  import type { DependencyDraft } from '../mutation-shared'
   import type {
     HookExecution,
     TicketCommentRevision,
@@ -79,10 +81,7 @@
     deletingCommentId?: string | null
     onClose?: () => void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
-    onAddDependency?: (draft: {
-      targetTicketId: string
-      relation: string
-    }) => Promise<boolean> | boolean
+    onAddDependency?: (draft: DependencyDraft) => Promise<boolean> | boolean
     onDeleteDependency?: (dependencyId: string) => void
     onCreateExternalLink?: (draft: {
       type: string
@@ -176,6 +175,10 @@
   <!-- Right sidebar: metadata -->
   <div class="border-border w-full shrink-0 overflow-y-auto border-t md:w-80 md:border-t-0">
     <div class="flex flex-col gap-5 px-5 py-5">
+      <TicketRuntimeStateCard {ticket} />
+
+      <Separator />
+
       <!-- Metadata grid -->
       <section class="space-y-3">
         <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">

@@ -75,7 +75,19 @@ const ticketsFixture: TicketPayload = {
       created_by: 'codex',
       parent: null,
       children: [],
-      dependencies: [],
+      dependencies: [
+        {
+          id: 'dep-1',
+          type: 'blocked_by',
+          target: {
+            id: 'ticket-9',
+            identifier: 'ASE-201',
+            title: 'Unblock infra',
+            status_id: 'status-2',
+            status_name: 'Doing',
+          },
+        },
+      ],
       external_links: [],
       external_ref: '',
       budget_usd: 0,
@@ -184,6 +196,7 @@ describe('TicketsPage', () => {
 
     expect(await findByText('ASE-202')).toBeTruthy()
     expect(await findByText('Codex Worker')).toBeTruthy()
+    expect(await findByText('Blocked')).toBeTruthy()
     expect(await findByRole('button', { name: 'Agent' })).toBeTruthy()
     expect(await findByRole('heading', { name: 'Board' })).toBeTruthy()
     expect(await findByText('1 / 1 active')).toBeTruthy()
@@ -193,5 +206,6 @@ describe('TicketsPage', () => {
 
     expect(await findByRole('table')).toBeTruthy()
     expect(await findByText('Updated')).toBeTruthy()
+    expect(await findByText('Blocked')).toBeTruthy()
   })
 })

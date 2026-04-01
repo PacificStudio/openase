@@ -99,10 +99,20 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseAddDependencyRequest() error = %v", err)
 	}
-	if dependencyInput.Type != entticketdependency.TypeSubIssue {
+	if dependencyInput.Input.Type != entticketdependency.TypeSubIssue {
 		t.Fatalf("parseAddDependencyRequest() = %+v", dependencyInput)
 	}
-	if _, err := parseAddDependencyRequest(ticketID, rawAddDependencyRequest{TargetTicketID: parentID, Type: "invalid"}); err == nil || !strings.Contains(err.Error(), "blocks, sub_issue") {
+	blockedByInput, err := parseAddDependencyRequest(ticketID, rawAddDependencyRequest{
+		TargetTicketID: parentID,
+		Type:           "blocked_by",
+	})
+	if err != nil {
+		t.Fatalf("parseAddDependencyRequest(blocked_by) error = %v", err)
+	}
+	if blockedByInput.Input.Type != entticketdependency.TypeBlocks || blockedByInput.Input.TicketID.String() != parentID || blockedByInput.Input.TargetTicketID != ticketID {
+		t.Fatalf("parseAddDependencyRequest(blocked_by) = %+v", blockedByInput)
+	}
+	if _, err := parseAddDependencyRequest(ticketID, rawAddDependencyRequest{TargetTicketID: parentID, Type: "invalid"}); err == nil || !strings.Contains(err.Error(), "blocks, blocked_by, sub_issue") {
 		t.Fatalf("parseAddDependencyRequest(invalid type) error = %v", err)
 	}
 
@@ -164,9 +174,6 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	}
 	if _, err := parseTicketType("invalid"); err == nil || !strings.Contains(err.Error(), "feature, bugfix, refactor, chore, epic") {
 		t.Fatalf("parseTicketType(invalid) error = %v", err)
-	}
-	if got, err := parseDependencyType("blocks"); err != nil || got != entticketdependency.TypeBlocks {
-		t.Fatalf("parseDependencyType() = (%q, %v)", got, err)
 	}
 	if got, err := parseExternalLinkType(" custom "); err != nil || got != entticketexternallink.LinkTypeCustom {
 		t.Fatalf("parseExternalLinkType() = (%q, %v)", got, err)

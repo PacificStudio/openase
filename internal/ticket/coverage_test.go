@@ -125,6 +125,13 @@ func TestTicketHelperFunctions(t *testing.T) {
 			TargetTicket: childTicket,
 		},
 	}
+	incomingDependency := &ent.TicketDependency{
+		ID:   uuid.New(),
+		Type: entticketdependency.TypeBlocks,
+		Edges: ent.TicketDependencyEdges{
+			SourceTicket: parentTicket,
+		},
+	}
 	externalLink := &ent.TicketExternalLink{
 		ID:         uuid.New(),
 		LinkType:   entticketexternallink.LinkTypeGithubPr,
@@ -189,12 +196,13 @@ func TestTicketHelperFunctions(t *testing.T) {
 			Parent:               parentTicket,
 			Children:             []*ent.Ticket{childTicket},
 			OutgoingDependencies: []*ent.TicketDependency{dependency},
+			IncomingDependencies: []*ent.TicketDependency{incomingDependency},
 			ExternalLinks:        []*ent.TicketExternalLink{externalLink},
 		},
 	}
 
 	mappedTicket := mapTicket(ticketItem)
-	if mappedTicket.StatusName != "In Progress" || mappedTicket.Parent == nil || len(mappedTicket.Children) != 1 || len(mappedTicket.Dependencies) != 1 || len(mappedTicket.ExternalLinks) != 1 {
+	if mappedTicket.StatusName != "In Progress" || mappedTicket.Parent == nil || len(mappedTicket.Children) != 1 || len(mappedTicket.Dependencies) != 1 || len(mappedTicket.IncomingDependencies) != 1 || len(mappedTicket.ExternalLinks) != 1 {
 		t.Fatalf("mapTicket() = %+v", mappedTicket)
 	}
 	if mappedTicket.Parent.StatusName != "Backlog" {
@@ -202,6 +210,9 @@ func TestTicketHelperFunctions(t *testing.T) {
 	}
 	if mapped := mapDependency(dependency); mapped.Target.Identifier != "ASE-2" {
 		t.Fatalf("mapDependency() = %+v", mapped)
+	}
+	if mapped := mapIncomingDependency(incomingDependency); mapped.Target.Identifier != "ASE-1" {
+		t.Fatalf("mapIncomingDependency() = %+v", mapped)
 	}
 	if mapped := mapExternalLink(externalLink); mapped.URL != externalLink.URL || mapped.CreatedAt != now {
 		t.Fatalf("mapExternalLink() = %+v", mapped)

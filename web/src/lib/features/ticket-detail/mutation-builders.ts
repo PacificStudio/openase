@@ -63,7 +63,7 @@ export function buildAddDependencyMutation(
   if (
     currentTicket.dependencies.some((dependency) => dependency.targetId === draft.targetTicketId)
   ) {
-    return { ok: false, error: 'That dependency already exists on this ticket.' }
+    return { ok: false, error: 'That relationship already exists on this ticket.' }
   }
   if (!dependencyRelationOptions.some((option) => option.value === draft.relation)) {
     return { ok: false, error: 'Select a valid dependency relation.' }
@@ -86,10 +86,11 @@ export function buildAddDependencyMutation(
             identifier: target.identifier,
             title: target.title,
             relation: draft.relation,
+            stage: 'unstarted',
           },
         ],
       }),
-      successMessage: 'Dependency added.',
+      successMessage: 'Relationship added.',
     },
   }
 }
@@ -177,7 +178,7 @@ export function buildDeleteDependencyMutation(
         ...ticket,
         dependencies: ticket.dependencies.filter((item) => item.id !== dependencyId),
       }),
-      successMessage: `Removed dependency ${dependency.identifier}.`,
+      successMessage: `Removed relationship ${dependency.identifier}.`,
     },
   }
 }

@@ -94,6 +94,13 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	if blocksDependency.Target.ID != fixture.legacyTicketID || blocksDependency.Type != entticketdependency.TypeBlocks {
 		t.Fatalf("AddDependency(blocks) = %+v", blocksDependency)
 	}
+	legacyBlockedByParent, err := service.Get(ctx, fixture.legacyTicketID)
+	if err != nil {
+		t.Fatalf("Get(legacy blocked by parent) error = %v", err)
+	}
+	if len(legacyBlockedByParent.IncomingDependencies) != 1 || legacyBlockedByParent.IncomingDependencies[0].ID != blocksDependency.ID || legacyBlockedByParent.IncomingDependencies[0].Target.ID != parent.ID {
+		t.Fatalf("Get(legacy blocked by parent) = %+v", legacyBlockedByParent)
+	}
 	if _, err := service.AddDependency(ctx, AddDependencyInput{
 		TicketID:       parent.ID,
 		TargetTicketID: fixture.legacyTicketID,
@@ -108,6 +115,22 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	}
 	if removeBlocksResult.DeletedDependencyID != blocksDependency.ID {
 		t.Fatalf("RemoveDependency(blocks) = %+v", removeBlocksResult)
+	}
+
+	blocksDependency, err = service.AddDependency(ctx, AddDependencyInput{
+		TicketID:       parent.ID,
+		TargetTicketID: fixture.legacyTicketID,
+		Type:           entticketdependency.TypeBlocks,
+	})
+	if err != nil {
+		t.Fatalf("AddDependency(blocks re-add) error = %v", err)
+	}
+	removeInboundBlocksResult, err := service.RemoveDependency(ctx, fixture.legacyTicketID, blocksDependency.ID)
+	if err != nil {
+		t.Fatalf("RemoveDependency(blocks via target) error = %v", err)
+	}
+	if removeInboundBlocksResult.DeletedDependencyID != blocksDependency.ID {
+		t.Fatalf("RemoveDependency(blocks via target) = %+v", removeInboundBlocksResult)
 	}
 
 	removeSubIssueResult, err := service.RemoveDependency(ctx, child.ID, child.Dependencies[0].ID)
@@ -464,7 +487,7 @@ func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 		t.Fatalf("RemoveDependency(missing) error = %v, want %v", err, ErrDependencyNotFound)
 	}
 	if _, err := service.RemoveDependency(ctx, parent.ID, child.Dependencies[0].ID); err != ErrDependencyNotFound {
-		t.Fatalf("RemoveDependency(wrong source ticket) error = %v, want %v", err, ErrDependencyNotFound)
+		t.Fatalf("RemoveDependency(sub-issue via parent target) error = %v, want %v", err, ErrDependencyNotFound)
 	}
 
 	link, err := service.AddExternalLink(ctx, AddExternalLinkInput{

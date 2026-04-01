@@ -1,7 +1,20 @@
 <script lang="ts">
   import { cn, formatRelativeTime, truncate } from '$lib/utils'
   import { Badge } from '$ui/badge'
-  import { Bot, AlertTriangle, RotateCcw, ShieldAlert, Wallet, GripVertical } from '@lucide/svelte'
+  import {
+    AlertTriangle,
+    Ban,
+    Bot,
+    RotateCcw,
+    ShieldAlert,
+    Wallet,
+    GripVertical,
+    Cog,
+    Loader,
+    CircleDot,
+    CircleX,
+  } from '@lucide/svelte'
+  import * as Tooltip from '$ui/tooltip'
   import type { BoardTicket } from '../types'
 
   let {
@@ -41,7 +54,6 @@
     string,
     { label: string; variant: 'destructive' | 'secondary'; icon: typeof AlertTriangle }
   > = {
-    hook_failed: { label: 'Hook failed', variant: 'destructive', icon: AlertTriangle },
     retry: { label: 'Retrying', variant: 'secondary', icon: RotateCcw },
     awaiting_approval: { label: 'Needs approval', variant: 'secondary', icon: ShieldAlert },
     budget_exhausted: { label: 'Budget exhausted', variant: 'destructive', icon: Wallet },
@@ -131,11 +143,57 @@
       </span>
     {/if}
 
+    {#if ticket.isBlocked}
+      <Badge
+        variant="outline"
+        class="h-4 gap-0.5 border-red-500/30 bg-red-500/10 py-0 text-[10px] text-red-500"
+      >
+        <Ban class="size-2.5" />
+        Blocked
+      </Badge>
+    {/if}
+
     {#if ticket.agentName}
       <span class="text-muted-foreground inline-flex items-center gap-0.5 text-[10px]">
         <Bot class="size-3" />
         {ticket.agentName}
       </span>
+    {/if}
+
+    {#if ticket.runtimePhase === 'executing'}
+      <span class="inline-flex items-center text-emerald-500" title="Executing">
+        <Cog class="size-3 animate-spin" />
+      </span>
+    {:else if ticket.runtimePhase === 'launching'}
+      <span class="inline-flex items-center text-amber-500" title="Launching">
+        <Loader class="size-3 animate-spin [animation-duration:2s]" />
+      </span>
+    {:else if ticket.runtimePhase === 'ready'}
+      <span class="inline-flex items-center text-sky-500" title="Agent ready">
+        <CircleDot class="size-3" />
+      </span>
+    {:else if ticket.runtimePhase === 'failed'}
+      {#if ticket.lastError}
+        <Tooltip.Provider>
+          <Tooltip.Root>
+            <Tooltip.Trigger class="inline-flex items-center text-red-500">
+              <CircleX class="size-3" />
+            </Tooltip.Trigger>
+            <Tooltip.Portal>
+              <Tooltip.Content
+                side="top"
+                class="bg-popover text-popover-foreground max-w-64 rounded-md border px-3 py-2 text-xs shadow-md"
+              >
+                {ticket.lastError}
+              </Tooltip.Content>
+            </Tooltip.Portal>
+          </Tooltip.Root>
+        </Tooltip.Provider>
+      {:else}
+        <span class="inline-flex items-center text-red-500" title="Failed">
+          <CircleX class="size-3" />
+        </span>
+      {/if}
     {/if}
   </div>
 

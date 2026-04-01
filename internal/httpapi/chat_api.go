@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -22,6 +23,8 @@ import (
 )
 
 const chatUserHeader = "X-OpenASE-Chat-User"
+
+var chatSSEKeepaliveInterval = 5 * time.Second
 
 type rawCreateConversationRequest struct {
 	Source     string `json:"source"`
@@ -80,6 +83,14 @@ func (s *Server) handleStartChat(c echo.Context) error {
 		return writeChatError(c, err)
 	}
 
+	streamLog := s.chatStreamLogger(c, input, userID)
+	streamStartedAt := time.Now()
+	heartbeat := time.NewTicker(s.chatStreamKeepaliveInterval())
+	defer heartbeat.Stop()
+	eventsSent := 0
+	lastEvent := "keepalive"
+	terminalEventSeen := false
+
 	response := c.Response()
 	response.Header().Set(echo.HeaderContentType, "text/event-stream")
 	response.Header().Set(echo.HeaderCacheControl, "no-cache")
@@ -89,21 +100,74 @@ func (s *Server) handleStartChat(c echo.Context) error {
 
 	flusher, ok := response.Writer.(http.Flusher)
 	if !ok {
+		streamLog.Error("chat stream missing http flusher")
 		return fmt.Errorf("response writer does not support flushing")
 	}
 	if _, err := response.Write([]byte(": keepalive\n\n")); err != nil {
+		streamLog.Warn("chat stream initial keepalive write failed", "error", err)
 		return nil
 	}
 	flusher.Flush()
 
-	for event := range stream.Events {
-		if err := writeSSEFrame(response, event.Event, event.Payload); err != nil {
+	for {
+		select {
+		case <-c.Request().Context().Done():
+			streamLog.Warn(
+				"chat stream request context ended before completion",
+				"error", c.Request().Context().Err(),
+				"duration", time.Since(streamStartedAt).String(),
+				"events_sent", eventsSent,
+				"last_event", lastEvent,
+				"terminal_event_seen", terminalEventSeen,
+			)
 			return nil
+		case <-heartbeat.C:
+			if _, err := response.Write([]byte(": keepalive\n\n")); err != nil {
+				streamLog.Warn(
+					"chat stream keepalive write failed",
+					"error", err,
+					"duration", time.Since(streamStartedAt).String(),
+					"events_sent", eventsSent,
+					"last_event", lastEvent,
+					"terminal_event_seen", terminalEventSeen,
+				)
+				return nil
+			}
+			lastEvent = "keepalive"
+			flusher.Flush()
+		case event, ok := <-stream.Events:
+			if !ok {
+				if !terminalEventSeen {
+					streamLog.Warn(
+						"chat stream terminated before completion",
+						"duration", time.Since(streamStartedAt).String(),
+						"events_sent", eventsSent,
+						"last_event", lastEvent,
+						"terminal_event_seen", terminalEventSeen,
+					)
+				}
+				return nil
+			}
+			if err := writeSSEFrame(response, event.Event, event.Payload); err != nil {
+				streamLog.Warn(
+					"chat stream event write failed",
+					"error", err,
+					"duration", time.Since(streamStartedAt).String(),
+					"events_sent", eventsSent,
+					"last_event", lastEvent,
+					"event", event.Event,
+					"terminal_event_seen", terminalEventSeen,
+				)
+				return nil
+			}
+			eventsSent++
+			lastEvent = event.Event
+			if event.Event == "done" || event.Event == "error" {
+				terminalEventSeen = true
+			}
+			flusher.Flush()
 		}
-		flusher.Flush()
 	}
-
-	return nil
 }
 
 func (s *Server) handleDeleteChat(c echo.Context) error {
@@ -147,6 +211,46 @@ func (s *Server) logChatStartFailure(
 		"chat_user_id", string(userID),
 	)
 	log.Error("chat start failed", "error", err)
+}
+
+func (s *Server) chatStreamLogger(
+	c echo.Context,
+	input chatservice.StartInput,
+	userID chatservice.UserID,
+) *slog.Logger {
+	if s == nil || s.logger == nil {
+		return nil
+	}
+
+	return s.logger.With(
+		"request_id", c.Response().Header().Get(echo.HeaderXRequestID),
+		"chat_source", string(input.Source),
+		"chat_project_id", input.Context.ProjectID.String(),
+		"chat_workflow_id", optionalChatUUIDString(input.Context.WorkflowID),
+		"chat_ticket_id", optionalChatUUIDString(input.Context.TicketID),
+		"chat_provider_id", optionalChatUUIDString(input.ProviderID),
+		"chat_session_id", optionalChatSessionIDString(input.SessionID),
+		"chat_user_id", string(userID),
+	)
+}
+
+func (s *Server) chatStreamKeepaliveInterval() time.Duration {
+	interval := chatSSEKeepaliveInterval
+	if interval <= 0 {
+		interval = time.Second
+	}
+	if s == nil || s.cfg.WriteTimeout <= 0 {
+		return interval
+	}
+
+	maxInterval := s.cfg.WriteTimeout / 2
+	if maxInterval <= 0 {
+		return interval
+	}
+	if interval > maxInterval {
+		return maxInterval
+	}
+	return interval
 }
 
 func optionalChatUUIDString(value *uuid.UUID) string {

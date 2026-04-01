@@ -68,7 +68,8 @@ export type TicketDetail = {
     targetId: string
     identifier: string
     title: string
-    relation: string
+    relation: 'blocks' | 'blocked_by' | 'sub_issue'
+    stage: 'backlog' | 'unstarted' | 'started' | 'completed' | 'canceled'
   }>
   externalLinks: TicketExternalLink[]
   children: Array<{ id: string; identifier: string; title: string; status: string }>

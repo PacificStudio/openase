@@ -52,6 +52,7 @@ import type {
   SkillCreateResponse,
   SkillDeleteResponse,
   SkillDetailResponse,
+  SkillFilesPayload,
   SkillHistoryPayload,
   SkillRefreshResponse,
   SkillBindingUpdateResponse,
@@ -986,6 +987,10 @@ export function getSkill(skillId: string) {
 
 export function listSkillHistory(skillId: string) {
   return api.get<SkillHistoryPayload>(`/api/v1/skills/${skillId}/history`)
+}
+
+export function getSkillFiles(skillId: string) {
+  return api.get<SkillFilesPayload>(`/api/v1/skills/${skillId}/files`)
 }
 
 export function updateSkill(

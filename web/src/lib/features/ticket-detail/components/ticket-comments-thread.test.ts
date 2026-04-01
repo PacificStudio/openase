@@ -72,6 +72,106 @@ const timeline: TicketTimelineItem[] = [
   },
 ]
 
+const attemptTimeline: TicketTimelineItem[] = [
+  {
+    id: 'description:ticket-1',
+    ticketId: 'ticket-1',
+    kind: 'description',
+    actor: { name: 'tester', type: 'user' },
+    title: 'Add comment history',
+    bodyMarkdown: 'Ticket description',
+    createdAt: '2026-03-27T12:00:00Z',
+    updatedAt: '2026-03-27T12:00:00Z',
+    isCollapsible: false,
+    isDeleted: false,
+    identifier: 'ASE-335',
+  },
+  {
+    id: 'activity:attempt-1-claimed',
+    ticketId: 'ticket-1',
+    kind: 'activity',
+    actor: { name: 'workflow-seed', type: 'agent' },
+    eventType: 'agent.claimed',
+    title: 'agent.claimed',
+    bodyText: 'Agent claimed the ticket.',
+    createdAt: '2026-03-27T12:01:00Z',
+    updatedAt: '2026-03-27T12:01:00Z',
+    isCollapsible: true,
+    isDeleted: false,
+    metadata: { run_id: 'run-1' },
+  },
+  {
+    id: 'activity:attempt-1-launching',
+    ticketId: 'ticket-1',
+    kind: 'activity',
+    actor: { name: 'workflow-seed', type: 'agent' },
+    eventType: 'agent.launching',
+    title: 'agent.launching',
+    bodyText: 'Agent is launching.',
+    createdAt: '2026-03-27T12:02:00Z',
+    updatedAt: '2026-03-27T12:02:00Z',
+    isCollapsible: true,
+    isDeleted: false,
+    metadata: { run_id: 'run-1' },
+  },
+  {
+    id: 'activity:attempt-1-failed',
+    ticketId: 'ticket-1',
+    kind: 'activity',
+    actor: { name: 'workflow-seed', type: 'agent' },
+    eventType: 'agent.failed',
+    title: 'agent.failed',
+    bodyText: 'Agent failed to launch.',
+    createdAt: '2026-03-27T12:03:00Z',
+    updatedAt: '2026-03-27T12:03:00Z',
+    isCollapsible: true,
+    isDeleted: false,
+    metadata: { run_id: 'run-1' },
+  },
+  {
+    id: 'activity:attempt-2-claimed',
+    ticketId: 'ticket-1',
+    kind: 'activity',
+    actor: { name: 'workflow-seed', type: 'agent' },
+    eventType: 'agent.claimed',
+    title: 'agent.claimed',
+    bodyText: 'Agent claimed the ticket again.',
+    createdAt: '2026-03-27T12:10:00Z',
+    updatedAt: '2026-03-27T12:10:00Z',
+    isCollapsible: true,
+    isDeleted: false,
+    metadata: { run_id: 'run-2' },
+  },
+  {
+    id: 'activity:attempt-2-launching',
+    ticketId: 'ticket-1',
+    kind: 'activity',
+    actor: { name: 'workflow-seed', type: 'agent' },
+    eventType: 'agent.launching',
+    title: 'agent.launching',
+    bodyText: 'Agent is launching again.',
+    createdAt: '2026-03-27T12:11:00Z',
+    updatedAt: '2026-03-27T12:11:00Z',
+    isCollapsible: true,
+    isDeleted: false,
+    metadata: { run_id: 'run-2' },
+  },
+  {
+    id: 'activity:attempt-2-ready',
+    ticketId: 'ticket-1',
+    kind: 'activity',
+    actor: { name: 'workflow-seed', type: 'agent' },
+    eventType: 'agent.ready',
+    title: 'agent.ready',
+    bodyText: 'Agent is ready.',
+    createdAt: '2026-03-27T12:12:00Z',
+    updatedAt: '2026-03-27T12:12:00Z',
+    isCollapsible: true,
+    isDeleted: false,
+    metadata: { run_id: 'run-2' },
+  },
+]
+
 const revisions: TicketCommentRevision[] = [
   {
     id: 'revision-2',
@@ -142,5 +242,25 @@ describe('TicketCommentsThread', () => {
     await fireEvent.click(getByLabelText('Expand comment by reviewer'))
 
     expect(await findByText('Updated comment body')).toBeTruthy()
+  })
+
+  it('groups repeated agent lifecycle events into collapsible attempts', async () => {
+    const { findByText, getByLabelText, queryByText } = render(TicketCommentsThread, {
+      props: {
+        ticket,
+        timeline: attemptTimeline,
+      },
+    })
+
+    expect(await findByText('Attempt 1')).toBeTruthy()
+    expect(await findByText('Attempt 2')).toBeTruthy()
+    expect(await findByText('Ready')).toBeTruthy()
+    expect(await findByText('Agent is ready.')).toBeTruthy()
+    expect(await findByText('Attempt collapsed.')).toBeTruthy()
+    expect(queryByText('Agent failed to launch.')).toBeNull()
+
+    await fireEvent.click(getByLabelText('Expand attempt 1'))
+
+    expect(await findByText('Agent failed to launch.')).toBeTruthy()
   })
 })

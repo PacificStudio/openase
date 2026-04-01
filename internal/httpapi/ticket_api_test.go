@@ -287,6 +287,55 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 		t.Fatalf("expected parent detail to expose blocks dependency, got %+v", parentAfterBlocksResp.Ticket.Dependencies)
 	}
 
+	peerAfterBlocksResp := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/tickets/%s", peerCreateResp.Ticket.ID),
+		nil,
+		http.StatusOK,
+		&peerAfterBlocksResp,
+	)
+	if len(peerAfterBlocksResp.Ticket.Dependencies) != 1 || peerAfterBlocksResp.Ticket.Dependencies[0].Type != "blocked_by" || peerAfterBlocksResp.Ticket.Dependencies[0].Target.ID != parentCreateResp.Ticket.ID {
+		t.Fatalf("expected peer detail to expose blocked_by relationship, got %+v", peerAfterBlocksResp.Ticket.Dependencies)
+	}
+
+	deleteBlocksResp := ticketservice.DeleteDependencyResult{}
+	executeJSON(
+		t,
+		server,
+		http.MethodDelete,
+		fmt.Sprintf("/api/v1/tickets/%s/dependencies/%s", peerCreateResp.Ticket.ID, blockDependencyResp.Dependency.ID),
+		nil,
+		http.StatusOK,
+		&deleteBlocksResp,
+	)
+	if deleteBlocksResp.DeletedDependencyID.String() != blockDependencyResp.Dependency.ID {
+		t.Fatalf("unexpected inbound blocks delete response: %+v", deleteBlocksResp)
+	}
+
+	blockedByResp := struct {
+		Dependency ticketDependencyResponse `json:"dependency"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/tickets/%s/dependencies", peerCreateResp.Ticket.ID),
+		map[string]any{
+			"target_ticket_id": parentCreateResp.Ticket.ID,
+			"type":             "blocked_by",
+		},
+		http.StatusCreated,
+		&blockedByResp,
+	)
+	if blockedByResp.Dependency.Type != "blocked_by" || blockedByResp.Dependency.Target.ID != parentCreateResp.Ticket.ID {
+		t.Fatalf("unexpected blocked_by dependency response: %+v", blockedByResp.Dependency)
+	}
+
 	commentCreateResp := struct {
 		Comment ticketCommentResponse `json:"comment"`
 	}{}
@@ -484,6 +533,101 @@ func TestTicketRoutesExposeStartedAndCompletedTimestamps(t *testing.T) {
 	}
 	if responseBody.Ticket.CompletedAt == nil || *responseBody.Ticket.CompletedAt != completedAt.Format(time.RFC3339) {
 		t.Fatalf("expected completed_at %s, got %+v", completedAt.Format(time.RFC3339), responseBody.Ticket.CompletedAt)
+	}
+}
+
+func TestTicketListExposesBlockedByRelationships(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40031},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-ticket-list-blocked").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase-ticket-list-blocked").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	statusSvc := ticketstatus.NewService(client)
+	statuses, err := statusSvc.ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	doingID := findStatusIDByName(t, statuses, "In Review")
+
+	blocker, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-1").
+		SetTitle("Blocking prerequisite").
+		SetStatusID(doingID).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create blocker ticket: %v", err)
+	}
+	target, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-2").
+		SetTitle("Blocked target").
+		SetStatusID(todoID).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create target ticket: %v", err)
+	}
+	if _, err := client.TicketDependency.Create().
+		SetSourceTicketID(blocker.ID).
+		SetTargetTicketID(target.ID).
+		SetType(entticketdependency.TypeBlocks).
+		Save(ctx); err != nil {
+		t.Fatalf("create dependency: %v", err)
+	}
+
+	responseBody := struct {
+		Tickets []ticketResponse `json:"tickets"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/tickets", project.ID),
+		nil,
+		http.StatusOK,
+		&responseBody,
+	)
+
+	var targetTicket *ticketResponse
+	for index := range responseBody.Tickets {
+		if responseBody.Tickets[index].ID == target.ID.String() {
+			targetTicket = &responseBody.Tickets[index]
+			break
+		}
+	}
+	if targetTicket == nil {
+		t.Fatalf("target ticket missing from list response: %+v", responseBody.Tickets)
+	}
+	if len(targetTicket.Dependencies) != 1 || targetTicket.Dependencies[0].Type != "blocked_by" || targetTicket.Dependencies[0].Target.ID != blocker.ID.String() {
+		t.Fatalf("expected blocked_by dependency in ticket list response, got %+v", targetTicket.Dependencies)
 	}
 }
 

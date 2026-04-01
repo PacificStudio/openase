@@ -1368,7 +1368,7 @@ var (
 		"edit_reason": "Reason recorded for editing the comment.",
 	}
 	openAPIDependencyRequestDescriptions = map[string]string{
-		"type":             "Dependency relationship type.",
+		"type":             "Dependency relationship type. Supported values: blocks, blocked_by, sub_issue.",
 		"target_ticket_id": "Target ticket ID referenced by the dependency.",
 	}
 	openAPIExternalLinkRequestDescriptions = map[string]string{

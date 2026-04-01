@@ -135,7 +135,6 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
 
 export const settingsCapabilityBySection: Record<SettingsSection, CapabilityKey> = {
   general: 'generalSettings',
-  skills: 'skillsSettings',
   repositories: 'repositoriesSettings',
   statuses: 'statusesSettings',
   agents: 'agentsSettings',

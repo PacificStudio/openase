@@ -5,6 +5,7 @@ export const projectSections = [
   'machines',
   'activity',
   'workflows',
+  'skills',
   'scheduled-jobs',
   'settings',
 ] as const
@@ -66,7 +67,8 @@ export function projectSectionFromPathname(
     return 'dashboard'
   }
 
-  return asProjectSection(suffix) ?? 'dashboard'
+  const firstSegment = suffix.split('/')[0]
+  return asProjectSection(firstSegment) ?? 'dashboard'
 }
 
 function asProjectSection(value: string): ProjectSection | null {

@@ -8,6 +8,7 @@ import {
   Settings,
   TicketCheck,
   Workflow,
+  Wrench,
 } from '@lucide/svelte'
 import type { Component } from 'svelte'
 
@@ -33,6 +34,7 @@ const projectSections = [
   { label: 'Machines', icon: Server, section: 'machines' as const },
   { label: 'Activity', icon: Activity, section: 'activity' as const },
   { label: 'Workflows', icon: Workflow, section: 'workflows' as const },
+  { label: 'Skills', icon: Wrench, section: 'skills' as const },
   { label: 'Scheduled Jobs', icon: CalendarClock, section: 'scheduled-jobs' as const },
   { label: 'Settings', icon: Settings, section: 'settings' as const },
 ]

@@ -50,6 +50,10 @@ type rawAddDependencyRequest struct {
 	Type           string `json:"type"`
 }
 
+type parsedAddDependencyRequest struct {
+	Input ticketservice.AddDependencyInput
+}
+
 type rawAddExternalLinkRequest struct {
 	Type       string  `json:"type"`
 	URL        string  `json:"url"`
@@ -216,22 +220,40 @@ func parseUpdateTicketRequest(ticketID uuid.UUID, raw rawUpdateTicketRequest) (t
 	return input, nil
 }
 
-func parseAddDependencyRequest(ticketID uuid.UUID, raw rawAddDependencyRequest) (ticketservice.AddDependencyInput, error) {
+func parseAddDependencyRequest(ticketID uuid.UUID, raw rawAddDependencyRequest) (parsedAddDependencyRequest, error) {
 	targetTicketID, err := parseUUIDString("target_ticket_id", raw.TargetTicketID)
 	if err != nil {
-		return ticketservice.AddDependencyInput{}, err
+		return parsedAddDependencyRequest{}, err
 	}
 
-	dependencyType, err := parseDependencyType(raw.Type)
-	if err != nil {
-		return ticketservice.AddDependencyInput{}, err
+	switch strings.ToLower(strings.TrimSpace(raw.Type)) {
+	case "blocks":
+		return parsedAddDependencyRequest{
+			Input: ticketservice.AddDependencyInput{
+				TicketID:       ticketID,
+				TargetTicketID: targetTicketID,
+				Type:           entticketdependency.TypeBlocks,
+			},
+		}, nil
+	case "blocked_by", "blocked-by":
+		return parsedAddDependencyRequest{
+			Input: ticketservice.AddDependencyInput{
+				TicketID:       targetTicketID,
+				TargetTicketID: ticketID,
+				Type:           entticketdependency.TypeBlocks,
+			},
+		}, nil
+	case "sub_issue", "sub-issue":
+		return parsedAddDependencyRequest{
+			Input: ticketservice.AddDependencyInput{
+				TicketID:       ticketID,
+				TargetTicketID: targetTicketID,
+				Type:           entticketdependency.TypeSubIssue,
+			},
+		}, nil
+	default:
+		return parsedAddDependencyRequest{}, fmt.Errorf("type must be one of blocks, blocked_by, sub_issue")
 	}
-
-	return ticketservice.AddDependencyInput{
-		TicketID:       ticketID,
-		TargetTicketID: targetTicketID,
-		Type:           dependencyType,
-	}, nil
 }
 
 func parseAddExternalLinkRequest(ticketID uuid.UUID, raw rawAddExternalLinkRequest) (ticketservice.AddExternalLinkInput, error) {
@@ -346,17 +368,6 @@ func parseTicketType(raw string) (entticket.Type, error) {
 	}
 
 	return ticketType, nil
-}
-
-func parseDependencyType(raw string) (entticketdependency.Type, error) {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "blocks":
-		return entticketdependency.TypeBlocks, nil
-	case "sub_issue", "sub-issue":
-		return entticketdependency.TypeSubIssue, nil
-	default:
-		return "", fmt.Errorf("type must be one of blocks, sub_issue")
-	}
 }
 
 func parseExternalLinkType(raw string) (entticketexternallink.LinkType, error) {

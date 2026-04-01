@@ -1,6 +1,8 @@
 <script lang="ts">
   import { Badge } from '$ui/badge'
   import { cn, formatRelativeTime } from '$lib/utils'
+  import { Ban, Cog, Loader, CircleDot, CircleX } from '@lucide/svelte'
+  import * as Tooltip from '$ui/tooltip'
   import type { BoardColumn, BoardTicket } from '../types'
 
   let {
@@ -63,6 +65,15 @@
                     >{row.ticket.identifier}</span
                   >
                   <span class="text-foreground">{row.ticket.title}</span>
+                  {#if row.ticket.isBlocked}
+                    <Badge
+                      variant="outline"
+                      class="h-4 gap-0.5 border-red-500/30 bg-red-500/10 py-0 text-[10px] text-red-500"
+                    >
+                      <Ban class="size-2.5" />
+                      Blocked
+                    </Badge>
+                  {/if}
                 </div>
               </td>
               <td class="px-4 py-3">
@@ -86,9 +97,36 @@
                 </span>
               </td>
               <td class="px-4 py-3">
-                <span class="text-muted-foreground text-xs"
-                  >{row.ticket.agentName ?? 'Unassigned'}</span
-                >
+                <span class="text-muted-foreground flex items-center gap-1.5 text-xs">
+                  {row.ticket.agentName ?? 'Unassigned'}
+                  {#if row.ticket.runtimePhase === 'executing'}
+                    <Cog class="size-3 animate-spin text-emerald-500" />
+                  {:else if row.ticket.runtimePhase === 'launching'}
+                    <Loader class="size-3 animate-spin text-amber-500 [animation-duration:2s]" />
+                  {:else if row.ticket.runtimePhase === 'ready'}
+                    <CircleDot class="size-3 text-sky-500" />
+                  {:else if row.ticket.runtimePhase === 'failed'}
+                    {#if row.ticket.lastError}
+                      <Tooltip.Provider>
+                        <Tooltip.Root>
+                          <Tooltip.Trigger class="inline-flex text-red-500">
+                            <CircleX class="size-3" />
+                          </Tooltip.Trigger>
+                          <Tooltip.Portal>
+                            <Tooltip.Content
+                              side="top"
+                              class="bg-popover text-popover-foreground max-w-64 rounded-md border px-3 py-2 text-xs shadow-md"
+                            >
+                              {row.ticket.lastError}
+                            </Tooltip.Content>
+                          </Tooltip.Portal>
+                        </Tooltip.Root>
+                      </Tooltip.Provider>
+                    {:else}
+                      <CircleX class="size-3 text-red-500" />
+                    {/if}
+                  {/if}
+                </span>
               </td>
               <td class="px-4 py-3 text-right">
                 <span class="text-muted-foreground text-xs">

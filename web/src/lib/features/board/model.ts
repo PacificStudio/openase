@@ -1,4 +1,12 @@
 import type { ActivityEvent, Agent, StatusPayload, Ticket, Workflow } from '$lib/api/contracts'
+import {
+  buildTicketRuntimeById,
+  inferAnomaly,
+  isDefined,
+  normalizePriority,
+  normalizeRuntimePhase,
+  type AgentRuntimeInfo,
+} from './model-helpers'
 import { buildBoardGroups } from './grouping'
 import type { BoardColumn, BoardFilter, BoardGroup, BoardTicket } from './types'
 
@@ -59,11 +67,18 @@ export function buildBoardData(
   activity: ActivityEvent[],
 ): BoardData {
   const workflowTypeById = new Map(workflows.map((workflow) => [workflow.id, workflow.type]))
-  const runtimeByTicketId = buildTicketRuntimeById(agents, activity)
+  const { runtimeByTicketId, agentRuntimeByTicketId } = buildTicketRuntimeById(agents, activity)
+  const terminalStatusIds = new Set(
+    statusPayload.statuses
+      .filter((s) => s.stage === 'completed' || s.stage === 'canceled')
+      .map((s) => s.id),
+  )
   const ticketsByStatusId = buildBoardTicketsByStatusId(
     tickets,
     workflowTypeById,
     runtimeByTicketId,
+    agentRuntimeByTicketId,
+    terminalStatusIds,
   )
   const groups = buildBoardGroups(statusPayload, ticketsByStatusId)
   const columns = groups.flatMap((group) => group.columns)
@@ -175,44 +190,21 @@ function clampIndex(index: number, length: number) {
   return Math.max(0, Math.min(index, length))
 }
 
-function buildTicketRuntimeById(agents: Agent[], activity: ActivityEvent[]) {
-  const agentNameById = new Map(agents.map((agent) => [agent.id, agent.name]))
-  const runtimeByTicketId = new Map<
-    string,
-    { agentName: string; updatedAt: string; timestamp: number }
-  >()
-
-  for (const event of activity) {
-    if (!event.ticket_id) continue
-
-    const agentName = getActivityAgentName(event, agentNameById)
-    if (!agentName) continue
-
-    const timestamp = Date.parse(event.created_at)
-    const current = runtimeByTicketId.get(event.ticket_id)
-    if (current && !Number.isNaN(timestamp) && current.timestamp > timestamp) {
-      continue
-    }
-
-    runtimeByTicketId.set(event.ticket_id, {
-      agentName,
-      updatedAt: event.created_at,
-      timestamp: Number.isNaN(timestamp) ? 0 : timestamp,
-    })
-  }
-
-  return runtimeByTicketId
-}
-
 function buildBoardTicketsByStatusId(
   tickets: Ticket[],
   workflowTypeById: Map<string, string>,
   runtimeByTicketId: Map<string, { agentName: string; updatedAt: string; timestamp: number }>,
+  agentRuntimeByTicketId: Map<string, AgentRuntimeInfo>,
+  terminalStatusIds: Set<string>,
 ) {
   const ticketsByStatusId = new Map<string, BoardTicket[]>()
 
   for (const ticket of tickets) {
     const runtime = runtimeByTicketId.get(ticket.id)
+    const agentRuntime = agentRuntimeByTicketId.get(ticket.id)
+    const isBlocked = ticket.dependencies.some(
+      (dep) => dep.type === 'blocked_by' && !terminalStatusIds.has(dep.target.status_id),
+    )
     const boardTicket: BoardTicket = {
       id: ticket.id,
       statusId: ticket.status_id,
@@ -223,9 +215,12 @@ function buildBoardTicketsByStatusId(
         ? (workflowTypeById.get(ticket.workflow_id) ?? undefined)
         : undefined,
       agentName: runtime?.agentName,
+      runtimePhase: normalizeRuntimePhase(agentRuntime?.runtimePhase),
+      lastError: agentRuntime?.lastError || undefined,
       updatedAt: runtime?.updatedAt ?? ticket.created_at,
       labels: [],
       anomaly: inferAnomaly(ticket),
+      isBlocked: isBlocked || undefined,
     }
 
     const current = ticketsByStatusId.get(ticket.status_id)
@@ -238,37 +233,4 @@ function buildBoardTicketsByStatusId(
   }
 
   return ticketsByStatusId
-}
-
-function getActivityAgentName(
-  event: Pick<ActivityEvent, 'agent_id' | 'metadata'>,
-  agentNameById: Map<string, string>,
-) {
-  const metadataAgentName = event.metadata.agent_name
-  if (typeof metadataAgentName === 'string' && metadataAgentName.trim() !== '') {
-    return metadataAgentName
-  }
-
-  return event.agent_id ? agentNameById.get(event.agent_id) : undefined
-}
-
-function normalizePriority(priority: string): BoardTicket['priority'] {
-  if (priority === 'urgent' || priority === 'high' || priority === 'medium' || priority === 'low') {
-    return priority
-  }
-
-  return 'medium'
-}
-
-function inferAnomaly(
-  ticket: Pick<Ticket, 'budget_usd' | 'cost_amount' | 'consecutive_errors' | 'retry_paused'>,
-): BoardTicket['anomaly'] | undefined {
-  if (ticket.retry_paused) return 'retry'
-  if (ticket.consecutive_errors > 0) return 'hook_failed'
-  if (ticket.budget_usd > 0 && ticket.cost_amount >= ticket.budget_usd) return 'budget_exhausted'
-  return undefined
-}
-
-function isDefined<T>(value: T | undefined): value is T {
-  return value !== undefined
 }

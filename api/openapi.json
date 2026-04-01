@@ -21787,7 +21787,7 @@
                     "type": "string"
                   },
                   "type": {
-                    "description": "Dependency relationship type.",
+                    "description": "Dependency relationship type. Supported values: blocks, blocked_by, sub_issue.",
                     "type": "string"
                   }
                 },

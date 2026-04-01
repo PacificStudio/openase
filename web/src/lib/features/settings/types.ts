@@ -1,6 +1,5 @@
 export const settingsSections = [
   'general',
-  'skills',
   'repositories',
   'statuses',
   'agents',

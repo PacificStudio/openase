@@ -44,7 +44,19 @@ const ticketsFixture: Ticket[] = [
     created_by: 'codex',
     parent: null,
     children: [],
-    dependencies: [],
+    dependencies: [
+      {
+        id: 'dep-1',
+        type: 'blocked_by',
+        target: {
+          id: 'ticket-9',
+          identifier: 'ASE-201',
+          title: 'Unblock infra',
+          status_id: 'status-2',
+          status_name: 'Doing',
+        },
+      },
+    ],
     external_links: [],
     external_ref: '',
     budget_usd: 0,
@@ -121,6 +133,7 @@ describe('board model', () => {
       workflowType: 'coding',
       agentName: 'Codex Worker',
       updatedAt: '2026-03-22T09:30:00Z',
+      isBlocked: true,
     })
     expect('prCount' in (board.columns[1]?.tickets[0] ?? {})).toBe(false)
     expect('prStatus' in (board.columns[1]?.tickets[0] ?? {})).toBe(false)
