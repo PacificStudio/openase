@@ -78,6 +78,7 @@ describe('WorkflowDetailPanel', () => {
       expect(onSave).toHaveBeenCalledWith({
         agent_id: 'agent-1',
         finish_status_ids: ['done', 'doing'],
+        hooks: undefined,
         is_active: true,
         max_concurrent: 1,
         max_retry_attempts: 1,
