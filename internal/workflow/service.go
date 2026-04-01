@@ -26,7 +26,6 @@ import (
 	entworkflowskillbinding "github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	entworkflowversion "github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/BetterAndBetterII/openase/internal/builtin"
-	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	"github.com/google/uuid"
 )
@@ -36,8 +35,6 @@ var (
 	ErrProjectNotFound     = errors.New("project not found")
 	ErrWorkflowNotFound    = errors.New("workflow not found")
 	ErrStatusNotFound      = errors.New("workflow status not found in project")
-	ErrPickupStatusStage   = errors.New("workflow pickup statuses must use backlog, unstarted, or started stages")
-	ErrFinishStatusStage   = errors.New("workflow finish statuses must use completed or canceled stages")
 	ErrAgentNotFound       = errors.New("workflow agent not found in project")
 	ErrWorkflowConflict    = errors.New("workflow conflict")
 	ErrWorkflowInUse       = errors.New("workflow is still referenced by project or tickets")
@@ -524,10 +521,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 	if err := s.ensureAgentBelongsToProject(ctx, input.ProjectID, input.AgentID); err != nil {
 		return WorkflowDetail{}, err
 	}
-	if err := s.ensureStatusBindingsAllowPickup(ctx, input.ProjectID, pickupStatusIDs); err != nil {
+	if err := s.ensureStatusBindingsBelongToProject(ctx, input.ProjectID, pickupStatusIDs); err != nil {
 		return WorkflowDetail{}, err
 	}
-	if err := s.ensureStatusBindingsAllowFinish(ctx, input.ProjectID, finishStatusIDs); err != nil {
+	if err := s.ensureStatusBindingsBelongToProject(ctx, input.ProjectID, finishStatusIDs); err != nil {
 		return WorkflowDetail{}, err
 	}
 	harnessPath, err := s.resolveCreateHarnessPath(input.Name, input.HarnessPath)
@@ -668,7 +665,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 	if input.PickupStatusIDs.Set {
 		nextPickupStatusIDs = input.PickupStatusIDs.Value
 	}
-	if err := s.ensureStatusBindingsAllowPickup(ctx, projectID, nextPickupStatusIDs); err != nil {
+	if err := s.ensureStatusBindingsBelongToProject(ctx, projectID, nextPickupStatusIDs); err != nil {
 		return WorkflowDetail{}, err
 	}
 
@@ -676,7 +673,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 	if input.FinishStatusIDs.Set {
 		nextFinishStatusIDs = input.FinishStatusIDs.Value
 	}
-	if err := s.ensureStatusBindingsAllowFinish(ctx, projectID, nextFinishStatusIDs); err != nil {
+	if err := s.ensureStatusBindingsBelongToProject(ctx, projectID, nextFinishStatusIDs); err != nil {
 		return WorkflowDetail{}, err
 	}
 
@@ -937,46 +934,6 @@ func (s *Service) ensureStatusBindingsBelongToProject(ctx context.Context, proje
 		return ErrStatusNotFound
 	}
 
-	return nil
-}
-
-func (s *Service) ensureStatusBindingsAllowPickup(ctx context.Context, projectID uuid.UUID, statusIDs StatusBindingSet) error {
-	return s.ensureStatusBindingsMatchStage(ctx, projectID, statusIDs, func(stage ticketing.StatusStage) bool {
-		return stage.AllowsWorkflowPickup()
-	}, ErrPickupStatusStage)
-}
-
-func (s *Service) ensureStatusBindingsAllowFinish(ctx context.Context, projectID uuid.UUID, statusIDs StatusBindingSet) error {
-	return s.ensureStatusBindingsMatchStage(ctx, projectID, statusIDs, func(stage ticketing.StatusStage) bool {
-		return stage.AllowsWorkflowFinish()
-	}, ErrFinishStatusStage)
-}
-
-func (s *Service) ensureStatusBindingsMatchStage(
-	ctx context.Context,
-	projectID uuid.UUID,
-	statusIDs StatusBindingSet,
-	allowed func(ticketing.StatusStage) bool,
-	stageErr error,
-) error {
-	statuses, err := s.client.TicketStatus.Query().
-		Where(
-			entticketstatus.IDIn(statusIDs.IDs()...),
-			entticketstatus.ProjectIDEQ(projectID),
-		).
-		All(ctx)
-	if err != nil {
-		return fmt.Errorf("check workflow status bindings: %w", err)
-	}
-	if len(statuses) != statusIDs.Len() {
-		return ErrStatusNotFound
-	}
-	for _, status := range statuses {
-		stage := ticketing.StatusStage(status.Stage)
-		if !stage.IsValid() || !allowed(stage) {
-			return stageErr
-		}
-	}
 	return nil
 }
 

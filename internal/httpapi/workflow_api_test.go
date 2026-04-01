@@ -340,6 +340,113 @@ func TestWorkflowRoutesCRUDHarnessVersionsWithoutRepoSync(t *testing.T) {
 	)
 }
 
+func TestWorkflowRoutesAllowFinishStatusInStartedStage(t *testing.T) {
+	client := openTestEntClient(t)
+	serviceRepoRoot := createTestGitRepo(t)
+	primaryRepoRoot := createTestGitRepo(t)
+
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), serviceRepoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			t.Errorf("close workflow service: %v", closeErr)
+		}
+	})
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		ticketstatus.NewService(client),
+		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		workflowSvc,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-finish-status").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase-finish-status").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	createPrimaryProjectRepo(ctx, t, client, project.ID, primaryRepoRoot)
+
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	inReviewID := findStatusIDByName(t, statuses, "In Review")
+
+	provider, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(localMachine.ID).
+		SetName("Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	agent, err := client.Agent.Create().
+		SetProviderID(provider.ID).
+		SetProjectID(project.ID).
+		SetName("codex-coding").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+
+	createResp := struct {
+		Workflow workflowResponse `json:"workflow"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
+		map[string]any{
+			"agent_id":          agent.ID.String(),
+			"name":              "Review Workflow",
+			"type":              "coding",
+			"pickup_status_ids": []string{todoID.String()},
+			"finish_status_ids": []string{inReviewID.String()},
+			"harness_content":   "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+		},
+		http.StatusCreated,
+		&createResp,
+	)
+
+	if len(createResp.Workflow.FinishStatusIDs) != 1 || createResp.Workflow.FinishStatusIDs[0] != inReviewID.String() {
+		t.Fatalf("expected finish status to keep In Review binding, got %+v", createResp.Workflow.FinishStatusIDs)
+	}
+}
+
 func TestWorkflowCreateDoesNotRequireProjectRepo(t *testing.T) {
 	client := openTestEntClient(t)
 	serviceRepoRoot := createTestGitRepo(t)

@@ -75,7 +75,7 @@ function buildProjectHref(
   section: (typeof projectSections)[number]['section'],
 ) {
   if (!currentOrgId || !currentProjectId) {
-    return section === 'dashboard' ? '/projects' : `/${section}`
+    return currentOrgId ? organizationPath(currentOrgId) : '/orgs'
   }
 
   return projectPath(currentOrgId, currentProjectId, section)
@@ -88,10 +88,7 @@ function buildProjectActive(
   section: (typeof projectSections)[number]['section'],
 ) {
   if (!currentOrgId || !currentProjectId) {
-    const fallbackPath = section === 'dashboard' ? '/projects' : `/${section}`
-    return section === 'dashboard'
-      ? currentPath === fallbackPath
-      : currentPath.startsWith(fallbackPath)
+    return false
   }
 
   const href = projectPath(currentOrgId, currentProjectId, section)

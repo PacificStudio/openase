@@ -3,6 +3,7 @@
   import type { TicketStatus, Workflow } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
   import { createTicket, listProjectRepos, listStatuses, listWorkflows } from '$lib/api/openase'
+  import { projectPath } from '$lib/stores/app-context'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
@@ -112,11 +113,12 @@
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
 
-    const projectId = appStore.currentProject?.id
-    if (!projectId) {
+    const currentProject = appStore.currentProject
+    if (!currentProject) {
       toastStore.error('Select a project before creating a ticket.')
       return
     }
+    const projectId = currentProject.id
 
     const parsedDraft = parseNewTicketDraft(draft, repoOptions)
     if (!parsedDraft.ok) {
@@ -132,7 +134,7 @@
 
       appStore.closeNewTicketDialog()
       draft = createNewTicketDraft(statusOptions, workflowOptions, repoOptions)
-      await goto('/tickets')
+      await goto(projectPath(currentProject.organization_id, currentProject.id, 'tickets'))
       appStore.openRightPanel({ type: 'ticket', id: createdTicketId })
     } catch (caughtError) {
       toastStore.error(

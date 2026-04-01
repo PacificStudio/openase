@@ -77,14 +77,15 @@ func TestRuntimeLauncherRunTickTransitionsClaimedAgentToReady(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
 	}
-	if err := os.WriteFile(harnessPath, []byte(`---
+	harnessContent := `---
 workflow:
   role: coding
 ---
 
 Current {{ machine.name }} root={{ machine.workspace_root }}
 Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh_user }}@{{ machine.host }}|{% endfor %}
-`), 0o600); err != nil {
+`
+	if err := os.WriteFile(harnessPath, []byte(harnessContent), 0o600); err != nil {
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
@@ -92,7 +93,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, harnessContent)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -336,13 +337,14 @@ func TestRuntimeLauncherRunTickLaunchesConcurrentRunsForSameAgent(t *testing.T) 
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
 	}
-	if err := os.WriteFile(harnessPath, []byte(`---
+	harnessContent := `---
 workflow:
   role: coding
 ---
 
 	Parallel runtime launch test
-	`), 0o600); err != nil {
+	`
+	if err := os.WriteFile(harnessPath, []byte(harnessContent), 0o600); err != nil {
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
@@ -350,7 +352,7 @@ workflow:
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, harnessContent)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -490,13 +492,14 @@ func TestRuntimeLauncherRunTickContinuesWhenLifecyclePublishBlocks(t *testing.T)
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
 	}
-	if err := os.WriteFile(harnessPath, []byte(`---
+	harnessContent := `---
 workflow:
   role: coding
 ---
 
 Blocked lifecycle publish regression test.
-`), 0o600); err != nil {
+`
+	if err := os.WriteFile(harnessPath, []byte(harnessContent), 0o600); err != nil {
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
@@ -504,7 +507,7 @@ Blocked lifecycle publish regression test.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, harnessContent)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -696,13 +699,14 @@ func TestRuntimeLauncherRunTickDoesNotStarveLaterLaunchesWhenFirstStartBlocks(t 
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
 	}
-	if err := os.WriteFile(harnessPath, []byte(`---
+	harnessContent := `---
 workflow:
   role: coding
 ---
 
 Launch starvation regression test.
-`), 0o600); err != nil {
+`
+	if err := os.WriteFile(harnessPath, []byte(harnessContent), 0o600); err != nil {
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
@@ -710,7 +714,7 @@ Launch starvation regression test.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, harnessContent)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -828,13 +832,14 @@ func TestRuntimeLauncherRunTickLaunchTimeoutMarksRunErrored(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
 	}
-	if err := os.WriteFile(harnessPath, []byte(`---
+	harnessContent := `---
 workflow:
   role: coding
 ---
 
 Blocked launch should time out cleanly.
-`), 0o600); err != nil {
+`
+	if err := os.WriteFile(harnessPath, []byte(harnessContent), 0o600); err != nil {
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
@@ -842,7 +847,7 @@ Blocked launch should time out cleanly.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, harnessContent)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -1352,13 +1357,14 @@ func TestRuntimeLauncherRunTickDropsCachedSessionWhenAgentLeavesRunningState(t *
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
 	}
-	if err := os.WriteFile(harnessPath, []byte(`---
+	harnessContent := `---
 workflow:
   role: coding
 ---
 
 Runtime reconcile test
-`), 0o600); err != nil {
+`
+	if err := os.WriteFile(harnessPath, []byte(harnessContent), 0o600); err != nil {
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
@@ -1366,7 +1372,7 @@ Runtime reconcile test
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, harnessContent)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -1470,13 +1476,14 @@ func TestRuntimeLauncherRunTickExecutesTurnsRecordsUsageAndSchedulesContinuation
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
 	}
-	if err := os.WriteFile(harnessPath, []byte(`---
+	harnessContent := `---
 workflow:
   role: coding
 ---
 
 Implement the ticket using the current workspace.
-`), 0o600); err != nil {
+`
+	if err := os.WriteFile(harnessPath, []byte(harnessContent), 0o600); err != nil {
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
@@ -1484,7 +1491,7 @@ Implement the ticket using the current workspace.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, harnessContent)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -1647,13 +1654,14 @@ func TestRuntimeLauncherExposesAgentOutputViaHTTPAndSSEDuringExecution(t *testin
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
 	}
-	if err := os.WriteFile(harnessPath, []byte(`---
+	harnessContent := `---
 workflow:
   role: coding
 ---
 
 Emit visible runtime output.
-`), 0o600); err != nil {
+`
+	if err := os.WriteFile(harnessPath, []byte(harnessContent), 0o600); err != nil {
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
@@ -1661,7 +1669,7 @@ Emit visible runtime output.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, harnessContent)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -2196,13 +2204,14 @@ func TestRuntimeLauncherRunTickMarksRetryOnTurnFailure(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
 	}
-	if err := os.WriteFile(harnessPath, []byte(`---
+	harnessContent := `---
 workflow:
   role: coding
 ---
 
 Handle a failing runtime turn.
-`), 0o600); err != nil {
+`
+	if err := os.WriteFile(harnessPath, []byte(harnessContent), 0o600); err != nil {
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
@@ -2210,7 +2219,7 @@ Handle a failing runtime turn.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, harnessContent)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -2354,13 +2363,14 @@ func TestRuntimeLauncherRunsTicketHooksAcrossSuccessfulLifecycle(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
 	}
-	if err := os.WriteFile(harnessPath, []byte(`---
+	harnessContent := `---
 workflow:
   role: coding
 ---
 
 Exercise successful ticket hook lifecycle.
-`), 0o600); err != nil {
+`
+	if err := os.WriteFile(harnessPath, []byte(harnessContent), 0o600); err != nil {
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
@@ -2368,7 +2378,7 @@ Exercise successful ticket hook lifecycle.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, harnessContent)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -2527,13 +2537,14 @@ func TestRuntimeLauncherRunsErrorHookWhenLaunchHookBlocks(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
 		t.Fatalf("create harness dir: %v", err)
 	}
-	if err := os.WriteFile(harnessPath, []byte(`---
+	harnessContent := `---
 workflow:
   role: coding
 ---
 
 Exercise failing ticket hook lifecycle.
-`), 0o600); err != nil {
+`
+	if err := os.WriteFile(harnessPath, []byte(harnessContent), 0o600); err != nil {
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
@@ -2541,7 +2552,7 @@ Exercise failing ticket hook lifecycle.
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, harnessContent)
 	t.Cleanup(func() {
 		if err := workflowSvc.Close(); err != nil {
 			t.Errorf("close workflow service: %v", err)
@@ -3476,7 +3487,7 @@ func newRuntimeExecutionFixture(
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	publishRuntimeLauncherWorkflowVersion(ctx, t, client, workflowItem.ID, repoRoot)
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, string(harnessContent))
 
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
@@ -3611,28 +3622,6 @@ func commitRuntimeLauncherRepo(t *testing.T, repoRoot string) {
 
 	runRuntimeLauncherGit(t, repoRoot, "add", ".")
 	runRuntimeLauncherGit(t, repoRoot, "commit", "-m", "Seed harness")
-}
-
-func publishRuntimeLauncherWorkflowVersion(
-	ctx context.Context,
-	t *testing.T,
-	client *ent.Client,
-	workflowID uuid.UUID,
-	repoRoot string,
-) {
-	t.Helper()
-
-	workflowItem, err := client.Workflow.Get(ctx, workflowID)
-	if err != nil {
-		t.Fatalf("load workflow for harness version: %v", err)
-	}
-	harnessPath := filepath.Join(repoRoot, workflowItem.HarnessPath)
-	// #nosec G304 -- test reads the harness from the temp repo root created in the fixture.
-	contentBytes, err := os.ReadFile(harnessPath)
-	if err != nil {
-		t.Fatalf("read harness file %s: %v", harnessPath, err)
-	}
-	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowID, string(contentBytes))
 }
 
 func publishRuntimeLauncherWorkflowVersionContent(
