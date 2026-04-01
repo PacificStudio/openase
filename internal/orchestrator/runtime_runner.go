@@ -681,6 +681,7 @@ func (l *RuntimeLauncher) recordTokenUsage(
 		Usage: ticketing.RawUsageDelta{
 			InputTokens:  int64Pointer(inputDelta),
 			OutputTokens: int64Pointer(outputDelta),
+			CostUSD:      cloneCostUSD(usage.CostUSD),
 		},
 	}, provider.NewNoopMetricsProvider())
 	if err != nil {

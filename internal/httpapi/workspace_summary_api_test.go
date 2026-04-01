@@ -14,6 +14,7 @@ import (
 	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/internal/config"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
@@ -228,7 +229,7 @@ func TestWorkspaceSummaryRouteReturnsAggregates(t *testing.T) {
 		SetType(entticket.TypeFeature).
 		SetCreatedBy("user:test").
 		SetCostAmount(5.00).
-		SetCreatedAt(now.Add(-30 * time.Minute)).
+		SetCreatedAt(yesterday).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create active ticket: %v", err)
@@ -259,6 +260,30 @@ func TestWorkspaceSummaryRouteReturnsAggregates(t *testing.T) {
 		SetCreatedAt(yesterday).
 		Save(ctx); err != nil {
 		t.Fatalf("create beta backlog ticket: %v", err)
+	}
+	if _, err := client.ActivityEvent.Create().
+		SetProjectID(projectAlpha.ID).
+		SetTicketID(activeTicket.ID).
+		SetEventType(ticketing.CostRecordedEventType).
+		SetMetadata(map[string]any{
+			"cost_usd":    5.00,
+			"cost_source": ticketing.UsageCostSourceEstimated.String(),
+		}).
+		SetCreatedAt(now.Add(-20 * time.Minute)).
+		Save(ctx); err != nil {
+		t.Fatalf("create active ticket cost event: %v", err)
+	}
+	if _, err := client.ActivityEvent.Create().
+		SetProjectID(projectAlpha.ID).
+		SetTicketID(completedToday.ID).
+		SetEventType(ticketing.CostRecordedEventType).
+		SetMetadata(map[string]any{
+			"cost_usd":    9.75,
+			"cost_source": ticketing.UsageCostSourceActual.String(),
+		}).
+		SetCreatedAt(now.Add(-10 * time.Minute)).
+		Save(ctx); err != nil {
+		t.Fatalf("create completed ticket cost event: %v", err)
 	}
 
 	runItem, err := client.AgentRun.Create().

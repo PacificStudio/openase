@@ -4,22 +4,22 @@
   import type { DashboardUsageLeader } from '../types'
 
   let {
-    newTicketsTodayCost,
-    projectCost,
+    ticketSpendToday,
+    ticketSpendTotal,
     ticketInputTokens,
     ticketOutputTokens,
-    totalAgentTokens,
+    agentLifetimeTokens,
     ticketsCreatedToday,
     ticketsCompletedToday,
     topCostTicket,
     topTokenAgent,
     class: className = '',
   }: {
-    newTicketsTodayCost: number
-    projectCost: number
+    ticketSpendToday: number
+    ticketSpendTotal: number
     ticketInputTokens: number
     ticketOutputTokens: number
-    totalAgentTokens: number
+    agentLifetimeTokens: number
     ticketsCreatedToday: number
     ticketsCompletedToday: number
     topCostTicket?: DashboardUsageLeader | null
@@ -43,10 +43,10 @@
           class="text-muted-foreground flex items-center gap-2 text-[11px] tracking-[0.12em] uppercase"
         >
           <DollarSign class="size-3" />
-          <span>New Today</span>
+          <span>Spend Today</span>
         </div>
         <p class="text-foreground mt-1 text-base font-semibold">
-          {formatCurrency(newTicketsTodayCost)}
+          {formatCurrency(ticketSpendToday)}
         </p>
       </div>
       <div class="bg-muted/40 rounded-md px-3 py-2">
@@ -54,9 +54,11 @@
           class="text-muted-foreground flex items-center gap-2 text-[11px] tracking-[0.12em] uppercase"
         >
           <ReceiptText class="size-3" />
-          <span>Project Total</span>
+          <span>Ticket Spend Total</span>
         </div>
-        <p class="text-foreground mt-1 text-base font-semibold">{formatCurrency(projectCost)}</p>
+        <p class="text-foreground mt-1 text-base font-semibold">
+          {formatCurrency(ticketSpendTotal)}
+        </p>
       </div>
       <div class="bg-muted/40 rounded-md px-3 py-2">
         <div class="text-muted-foreground text-[11px] tracking-[0.12em] uppercase">
@@ -78,18 +80,23 @@
 
     <div class="flex items-center justify-between gap-4">
       <div>
-        <div class="text-muted-foreground text-xs">Ticket tokens total</div>
+        <div class="text-muted-foreground text-xs">Ticket-scoped tokens</div>
         <div class="text-foreground mt-1 text-lg font-semibold">
           {formatCount(totalTicketTokens)}
         </div>
       </div>
       <div class="text-right">
-        <div class="text-muted-foreground text-xs">Agent runtime tokens</div>
+        <div class="text-muted-foreground text-xs">Agent lifetime tokens</div>
         <div class="text-foreground mt-1 text-lg font-semibold">
-          {formatCount(totalAgentTokens)}
+          {formatCount(agentLifetimeTokens)}
         </div>
       </div>
     </div>
+
+    <p class="text-muted-foreground text-xs">
+      Ticket counters come from ticket usage records. Agent counters are lifetime per-agent totals
+      and may not reconcile 1:1.
+    </p>
 
     <div class="bg-border h-px"></div>
 
@@ -112,7 +119,7 @@
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
           <Bot class="text-muted-foreground size-3" />
-          <span class="text-muted-foreground text-xs">Top token agent</span>
+          <span class="text-muted-foreground text-xs">Top lifetime-token agent</span>
         </div>
         <div class="text-right">
           <span class="text-foreground text-sm">{topTokenAgent.name}</span>

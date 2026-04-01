@@ -110,8 +110,8 @@
       <StatCard label="Active Projects" value={activeProjectCount} icon={FolderOpen} {loading} />
       <StatCard label="Running Agents" value={orgStats.runningAgents} icon={Bot} {loading} />
       <StatCard
-        label="Today's Cost"
-        value={formatCurrency(orgStats.newTicketsTodayCost)}
+        label="Today's Spend"
+        value={formatCurrency(orgStats.ticketSpendToday)}
         icon={Coins}
         {loading}
       />
