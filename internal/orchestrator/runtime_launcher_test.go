@@ -590,6 +590,8 @@ Blocked lifecycle publish regression test.
 }
 
 func TestRuntimeLauncherStartRuntimeSessionSupportsGeminiProvider(t *testing.T) {
+	ensureGeminiCLIProbePath(t)
+
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
