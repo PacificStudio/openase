@@ -37,6 +37,16 @@ vi.mock('$lib/api/chat', () => ({
 import { createProjectConversationController } from './project-conversation-controller.svelte'
 import { providerFixtures } from './ephemeral-chat-session-controller.test-helpers'
 
+function deferredPromise<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+  return { promise, resolve, reject }
+}
+
 describe('createProjectConversationController', () => {
   afterEach(() => {
     vi.clearAllMocks()
@@ -44,6 +54,8 @@ describe('createProjectConversationController', () => {
   })
 
   it('creates a new conversation for the active tab and submits the first turn without waiting for the stream', async () => {
+    const stream = deferredPromise<void>()
+
     createProjectConversation.mockResolvedValue({
       conversation: {
         id: 'conversation-1',
@@ -51,7 +63,7 @@ describe('createProjectConversationController', () => {
         lastActivityAt: '2026-04-01T10:00:00Z',
       },
     })
-    watchProjectConversation.mockResolvedValue(undefined)
+    watchProjectConversation.mockReturnValue(stream.promise)
     startProjectConversationTurn.mockResolvedValue({
       turn: { id: 'turn-1', turn_index: 1, status: 'started' },
     })
@@ -84,6 +96,48 @@ describe('createProjectConversationController', () => {
     ])
     expect(controller.tabs).toHaveLength(1)
     expect(controller.tabs[0]?.conversationId).toBe('conversation-1')
+
+    stream.resolve()
+  })
+
+  it('blocks duplicate sends while the active tab is creating its first conversation', async () => {
+    const create = deferredPromise<{
+      conversation: { id: string; providerId: string; lastActivityAt: string }
+    }>()
+
+    createProjectConversation.mockReturnValue(create.promise)
+    watchProjectConversation.mockResolvedValue(undefined)
+    startProjectConversationTurn.mockResolvedValue({
+      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
+    })
+
+    const controller = createProjectConversationController({
+      getProjectId: () => 'project-1',
+    })
+    controller.syncProviders(providerFixtures, 'provider-1')
+
+    const firstSend = controller.sendTurn('First question')
+    expect(controller.phase).toBe('creating_conversation')
+    expect(controller.inputDisabled).toBe(true)
+
+    await controller.sendTurn('Second question')
+
+    expect(createProjectConversation).toHaveBeenCalledTimes(1)
+    expect(startProjectConversationTurn).not.toHaveBeenCalled()
+
+    create.resolve({
+      conversation: {
+        id: 'conversation-1',
+        providerId: 'provider-1',
+        lastActivityAt: '2026-04-01T10:00:00Z',
+      },
+    })
+    await firstSend
+
+    expect(startProjectConversationTurn).toHaveBeenCalledTimes(1)
+    expect(controller.entries.filter((entry) => entry.kind === 'text')).toMatchObject([
+      { role: 'user', content: 'First question' },
+    ])
   })
 
   it('blocks follow-up sends only for the same tab while an interrupt is pending', async () => {

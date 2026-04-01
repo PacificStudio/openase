@@ -31,6 +31,7 @@
     findTopCostTicket,
     findTopTokenAgent,
   } from '../model'
+  import { loadOrganizationDashboardSummary } from '../organization-summary'
   import type {
     DashboardStats,
     ProjectStatus,
@@ -71,13 +72,13 @@
     runningAgents: 0,
     activeTickets: 0,
     pendingApprovals: 0,
-    newTicketsTodayCost: 0,
-    projectCost: 0,
+    ticketSpendToday: 0,
+    ticketSpendTotal: 0,
     ticketsCreatedToday: 0,
     ticketsCompletedToday: 0,
     ticketInputTokens: 0,
     ticketOutputTokens: 0,
-    totalAgentTokens: 0,
+    agentLifetimeTokens: 0,
     avgCycleMinutes: 0,
     prMergeRate: 0,
   })
@@ -168,6 +169,7 @@
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
+    const orgId = appStore.currentOrg?.id
     if (!projectId) {
       activities = []
       exceptions = []
@@ -191,18 +193,27 @@
       }
 
       try {
-        const [agentPayload, ticketPayload, activityPayload, systemPayload, hrAdvisorPayload] =
-          await Promise.all([
-            listAgents(projectId),
-            listTickets(projectId),
-            listActivity(projectId, { limit: 24 }),
-            getSystemDashboard(),
-            getHRAdvisor(projectId).catch(() => null),
-          ])
+        const [
+          agentPayload,
+          ticketPayload,
+          activityPayload,
+          systemPayload,
+          hrAdvisorPayload,
+          organizationSummary,
+        ] = await Promise.all([
+          listAgents(projectId),
+          listTickets(projectId),
+          listActivity(projectId, { limit: 24 }),
+          getSystemDashboard(),
+          getHRAdvisor(projectId).catch(() => null),
+          orgId ? loadOrganizationDashboardSummary(orgId).catch(() => null) : Promise.resolve(null),
+        ])
 
         if (cancelled) return
 
-        stats = buildDashboardStats(agentPayload.agents, ticketPayload.tickets)
+        stats = buildDashboardStats(agentPayload.agents, ticketPayload.tickets, {
+          ticketSpendToday: organizationSummary?.projectMetrics[projectId]?.todayCost ?? 0,
+        })
         topCostTicket = findTopCostTicket(ticketPayload.tickets)
         topTokenAgent = findTopTokenAgent(agentPayload.agents)
         memory = systemPayload.memory
@@ -444,11 +455,11 @@
         {:else if !error}
           <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <CostSnapshotPanel
-              newTicketsTodayCost={stats.newTicketsTodayCost}
-              projectCost={stats.projectCost}
+              ticketSpendToday={stats.ticketSpendToday}
+              ticketSpendTotal={stats.ticketSpendTotal}
               ticketInputTokens={stats.ticketInputTokens}
               ticketOutputTokens={stats.ticketOutputTokens}
-              totalAgentTokens={stats.totalAgentTokens}
+              agentLifetimeTokens={stats.agentLifetimeTokens}
               ticketsCreatedToday={stats.ticketsCreatedToday}
               ticketsCompletedToday={stats.ticketsCompletedToday}
               {topCostTicket}

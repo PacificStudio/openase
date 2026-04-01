@@ -433,6 +433,12 @@ export function createProjectConversationController(
     async openConversation(nextConversationId: string) {
       await openConversationInTab(nextConversationId)
     },
+    async selectConversation(nextConversationId: string) {
+      if (!nextConversationId) {
+        return
+      }
+      await openConversationInTab(nextConversationId)
+    },
     selectTab(nextTabId: string) {
       if (!findTab(nextTabId)) {
         return

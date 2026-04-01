@@ -3,6 +3,7 @@ package ticket
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
@@ -21,6 +22,7 @@ type AppliedUsage struct {
 	InputTokens  int64   `json:"input_tokens"`
 	OutputTokens int64   `json:"output_tokens"`
 	CostUSD      float64 `json:"cost_usd"`
+	CostSource   string  `json:"cost_source"`
 }
 
 type RecordUsageResult struct {
@@ -80,7 +82,7 @@ func (s *Service) RecordUsage(
 		return RecordUsageResult{}, fmt.Errorf("agent provider must be loaded for usage accounting")
 	}
 
-	costUSD, err := usageDelta.ResolveCostUSD(ticketing.ModelPricing{
+	resolvedCost, err := usageDelta.ResolveCost(ticketing.ModelPricing{
 		CostPerInputToken:  agentItem.Edges.Provider.CostPerInputToken,
 		CostPerOutputToken: agentItem.Edges.Provider.CostPerOutputToken,
 	})
@@ -88,11 +90,11 @@ func (s *Service) RecordUsage(
 		return RecordUsageResult{}, err
 	}
 
-	nextCostAmount := ticketing.RoundUSD(ticketItem.CostAmount + costUSD)
+	nextCostAmount := ticketItem.CostAmount + resolvedCost.AmountUSD
 	update := tx.Ticket.UpdateOneID(ticketItem.ID).
 		AddCostTokensInput(usageDelta.InputTokens).
 		AddCostTokensOutput(usageDelta.OutputTokens).
-		AddCostAmount(costUSD)
+		AddCostAmount(resolvedCost.AmountUSD)
 
 	if ticketing.ShouldPauseForBudget(nextCostAmount, ticketItem.BudgetUsd) &&
 		(!ticketItem.RetryPaused || ticketItem.PauseReason == "" || ticketItem.PauseReason == ticketing.PauseReasonBudgetExhausted.String()) {
@@ -111,13 +113,30 @@ func (s *Service) RecordUsage(
 			return RecordUsageResult{}, fmt.Errorf("update agent usage counters: %w", err)
 		}
 	}
+	if _, err := tx.ActivityEvent.Create().
+		SetProjectID(ticketItem.ProjectID).
+		SetTicketID(ticketItem.ID).
+		SetAgentID(agentItem.ID).
+		SetEventType(ticketing.CostRecordedEventType).
+		SetMessage("").
+		SetMetadata(map[string]any{
+			"input_tokens":  usageDelta.InputTokens,
+			"output_tokens": usageDelta.OutputTokens,
+			"total_tokens":  usageDelta.TotalTokens(),
+			"cost_usd":      resolvedCost.AmountUSD,
+			"cost_source":   resolvedCost.Source.String(),
+		}).
+		SetCreatedAt(time.Now().UTC()).
+		Save(ctx); err != nil {
+		return RecordUsageResult{}, fmt.Errorf("create ticket cost event: %w", err)
+	}
 
 	if err := tx.Commit(); err != nil {
 		return RecordUsageResult{}, fmt.Errorf("commit ticket usage tx: %w", err)
 	}
 
 	recordTokenUsageMetrics(metrics, agentItem, usageDelta)
-	recordCostUsageMetrics(metrics, agentItem, ticketItem.ProjectID, costUSD)
+	recordCostUsageMetrics(metrics, agentItem, ticketItem.ProjectID, resolvedCost.AmountUSD)
 
 	ticketAfter, err := s.Get(ctx, ticketItem.ID)
 	if err != nil {
@@ -129,7 +148,8 @@ func (s *Service) RecordUsage(
 		Applied: AppliedUsage{
 			InputTokens:  usageDelta.InputTokens,
 			OutputTokens: usageDelta.OutputTokens,
-			CostUSD:      costUSD,
+			CostUSD:      resolvedCost.AmountUSD,
+			CostSource:   resolvedCost.Source.String(),
 		},
 		BudgetExceeded: ticketing.ShouldPauseForBudget(ticketAfter.CostAmount, ticketAfter.BudgetUSD),
 	}, nil

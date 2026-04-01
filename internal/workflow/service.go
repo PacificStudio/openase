@@ -483,6 +483,22 @@ func mapTicketHookConfigError(err error) error {
 	return fmt.Errorf("%w: %s", ErrHookConfigInvalid, message)
 }
 
+func (s *Service) logHookConfigValidationFailure(operation string, projectID uuid.UUID, workflowID *uuid.UUID, err error) {
+	if err == nil {
+		return
+	}
+
+	attrs := []any{
+		"operation", operation,
+		"project_id", projectID,
+		"error", err,
+	}
+	if workflowID != nil {
+		attrs = append(attrs, "workflow_id", *workflowID)
+	}
+	s.logger.Warn("workflow hook configuration invalid", attrs...)
+}
+
 func (s *Service) List(ctx context.Context, projectID uuid.UUID) ([]Workflow, error) {
 	if s.client == nil {
 		return nil, ErrUnavailable
@@ -567,6 +583,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 	}
 	parsedHooks, err := validateConfiguredHooks(input.Hooks)
 	if err != nil {
+		s.logHookConfigValidationFailure("create_workflow", input.ProjectID, nil, err)
 		return WorkflowDetail{}, err
 	}
 
@@ -714,6 +731,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 	}
 	parsedHooks, err := validateConfiguredHooks(nextHooksRaw)
 	if err != nil {
+		s.logHookConfigValidationFailure("update_workflow", projectID, &current.ID, err)
 		return WorkflowDetail{}, err
 	}
 
@@ -865,6 +883,7 @@ func (s *Service) UpdateHarness(ctx context.Context, input UpdateHarnessInput) (
 	}
 	parsedHooks, err := validateConfiguredHooks(item.Hooks)
 	if err != nil {
+		s.logHookConfigValidationFailure("update_workflow_harness", item.ProjectID, &item.ID, err)
 		return HarnessDocument{}, err
 	}
 

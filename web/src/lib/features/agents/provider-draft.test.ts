@@ -48,4 +48,27 @@ describe('provider draft', () => {
       })
     }
   })
+
+  it('converts USD per 1M token inputs back to per-token pricing', () => {
+    const parsed = parseProviderDraft({
+      ...createEmptyProviderDraft(),
+      machineId: 'machine-1',
+      name: 'Codex Local',
+      adapterType: 'codex-app-server',
+      modelName: 'gpt-5.4',
+      modelTemperature: '0',
+      modelMaxTokens: '16384',
+      maxParallelRuns: '',
+      costPerInputToken: '3',
+      costPerOutputToken: '15',
+    })
+
+    expect(parsed).toEqual({
+      ok: true,
+      value: expect.objectContaining({
+        cost_per_input_token: 0.000003,
+        cost_per_output_token: 0.000015,
+      }),
+    })
+  })
 })

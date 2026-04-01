@@ -67,8 +67,11 @@ func (e *Engine) run(ctx context.Context, stream <-chan provider.Event) {
 			if err != nil {
 				e.logger.Warn(
 					"notification event ignored",
+					"operation", "build_notification_rule_context",
 					"topic", event.Topic.String(),
 					"type", event.Type.String(),
+					"payload_bytes", len(event.Payload),
+					"published_at", event.PublishedAt.UTC().Format(time.RFC3339),
 					"error", err,
 				)
 				continue
@@ -103,8 +106,12 @@ func (e *Engine) run(ctx context.Context, stream <-chan provider.Event) {
 				if err := e.service.SendRule(ctx, rule, message); err != nil {
 					e.logger.Warn(
 						"notification dispatch failed",
+						"operation", "send_notification_rule",
 						"rule_id", rule.ID.String(),
 						"project_id", projectID.String(),
+						"channel_id", rule.Channel.ID.String(),
+						"channel_name", rule.Channel.Name,
+						"channel_type", rule.Channel.Type.String(),
 						"type", event.Type.String(),
 						"error", err,
 					)

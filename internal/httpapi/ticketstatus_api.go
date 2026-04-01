@@ -156,6 +156,7 @@ func writeTicketStatusError(c echo.Context, err error) error {
 }
 
 func writeAPIError(c echo.Context, statusCode int, code string, message string) error {
+	logAPIBoundaryError(c, statusCode, code, message)
 	return c.JSON(statusCode, map[string]string{
 		"code":    code,
 		"message": message,
@@ -163,6 +164,7 @@ func writeAPIError(c echo.Context, statusCode int, code string, message string) 
 }
 
 func writeAPIErrorWithDetails(c echo.Context, statusCode int, code string, message string, details any) error {
+	logAPIBoundaryError(c, statusCode, code, message)
 	payload := map[string]any{
 		"code":    code,
 		"message": message,

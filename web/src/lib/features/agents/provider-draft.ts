@@ -30,6 +30,8 @@ export const providerPermissionProfileOptions: Array<{
   },
 ]
 
+const TOKENS_PER_MILLION = 1_000_000
+
 export function createEmptyProviderDraft(): ProviderDraft {
   return {
     machineId: '',
@@ -64,8 +66,8 @@ export function providerToDraft(provider: ProviderConfig): ProviderDraft {
     modelTemperature: String(provider.modelTemperature),
     modelMaxTokens: String(provider.modelMaxTokens),
     maxParallelRuns: provider.maxParallelRuns > 0 ? String(provider.maxParallelRuns) : '',
-    costPerInputToken: String(provider.costPerInputToken),
-    costPerOutputToken: String(provider.costPerOutputToken),
+    costPerInputToken: formatPricingPerMillion(provider.costPerInputToken),
+    costPerOutputToken: formatPricingPerMillion(provider.costPerOutputToken),
   }
 }
 
@@ -116,12 +118,18 @@ export function parseProviderDraft(draft: ProviderDraft): ProviderDraftParseResu
     return maxParallelRuns
   }
 
-  const costPerInputToken = parseNonNegativeNumber('Input token cost', draft.costPerInputToken)
+  const costPerInputToken = parsePricingPerMillion(
+    'Input pricing (USD per 1M tokens)',
+    draft.costPerInputToken,
+  )
   if (!costPerInputToken.ok) {
     return costPerInputToken
   }
 
-  const costPerOutputToken = parseNonNegativeNumber('Output token cost', draft.costPerOutputToken)
+  const costPerOutputToken = parsePricingPerMillion(
+    'Output pricing (USD per 1M tokens)',
+    draft.costPerOutputToken,
+  )
   if (!costPerOutputToken.ok) {
     return costPerOutputToken
   }
@@ -181,6 +189,25 @@ function parseNonNegativeNumber(
     return { ok: false, error: `${label} must be a number greater than or equal to 0.` }
   }
   return { ok: true, value }
+}
+
+function parsePricingPerMillion(
+  label: string,
+  raw: string,
+): { ok: true; value: number } | { ok: false; error: string } {
+  const parsed = parseNonNegativeNumber(label, raw)
+  if (!parsed.ok) {
+    return parsed
+  }
+
+  return {
+    ok: true,
+    value: parsed.value / TOKENS_PER_MILLION,
+  }
+}
+
+function formatPricingPerMillion(value: number) {
+  return String(value * TOKENS_PER_MILLION)
 }
 
 function parsePositiveInteger(
