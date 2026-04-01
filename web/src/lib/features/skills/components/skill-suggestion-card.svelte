@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { DiffPreview, HarnessSuggestion } from '../assistant'
+  import StructuredDiffPreview from '$lib/features/chat/structured-diff-preview.svelte'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import HarnessDiffPreview from './harness-diff-preview.svelte'
+  import type { DiffPreview, SkillSuggestion } from '../assistant'
 
   let {
     suggestion,
@@ -10,7 +10,7 @@
     suggestionAlreadyApplied,
     onApply,
   }: {
-    suggestion: HarnessSuggestion
+    suggestion: SkillSuggestion
     preview: DiffPreview
     suggestionAlreadyApplied: boolean
     onApply?: () => void
@@ -19,7 +19,10 @@
 
 <div class="space-y-2 rounded-lg border border-sky-500/30 bg-sky-500/8 p-2">
   <div class="flex items-center justify-between gap-2">
-    <p class="text-muted-foreground truncate text-[11px] leading-4">{suggestion.summary}</p>
+    <div class="min-w-0">
+      <p class="text-muted-foreground truncate text-[11px] leading-4">{suggestion.summary}</p>
+      <p class="text-muted-foreground truncate text-[10px] leading-4">{suggestion.path}</p>
+    </div>
     {#if suggestionAlreadyApplied}
       <Badge variant="outline" class="shrink-0 text-[10px]">Applied</Badge>
     {:else}
@@ -29,5 +32,5 @@
     {/if}
   </div>
 
-  <HarnessDiffPreview {preview} />
+  <StructuredDiffPreview {preview} />
 </div>

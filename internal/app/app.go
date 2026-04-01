@@ -179,6 +179,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		chatProcessManager,
 		sshPool,
 	)
+	projectConversationSvc.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(client))
 	server := httpapi.NewServer(
 		a.config.Server,
 		a.config.GitHub,

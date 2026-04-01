@@ -14,6 +14,9 @@
   import { projectPath } from '$lib/stores/app-context'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Skeleton } from '$ui/skeleton'
+  import { cn } from '$lib/utils'
+  import { GripVertical } from '@lucide/svelte'
+  import SkillAiSidebar from './skill-ai-sidebar.svelte'
   import SkillEditorHeader from './skill-editor-header.svelte'
   import {
     formatBytes,
@@ -52,6 +55,11 @@
   let busy = $state(false)
   let editDescription = $state('')
   let metadataOpen = $state(true)
+  let showAssistant = $state(false)
+  let assistantWidth = $state(340)
+  let dragging = $state(false)
+  let dragStartX = $state(0)
+  let dragStartWidth = $state(0)
 
   let selectedFilePath = $state<string | null>(null)
   let selectedTreePath = $state<string | null>(null)
@@ -76,9 +84,14 @@
   )
 
   const activeContent = $derived(selectedFile?.content ?? '')
+  const selectedFileIsText = $derived(selectedFile?.encoding === 'utf8')
 
   const fileCount = $derived(draftFiles.length)
   const totalSize = $derived(draftFiles.reduce((sum, f) => sum + f.size_bytes, 0))
+  const providers = $derived(appStore.providers ?? [])
+
+  const MIN_SIDEBAR_WIDTH = 260
+  const MAX_SIDEBAR_WIDTH = 560
 
   // Load skill data
   $effect(() => {
@@ -189,6 +202,31 @@
     draftFiles = draftFiles.map((file) =>
       file.path === path ? updateDraftTextFileContent(file, value) : file,
     )
+  }
+
+  function handleApplyAssistantSuggestion(path: string, value: string) {
+    handleContentChange(path, value)
+    selectFile(path)
+  }
+
+  function handleDragStart(event: PointerEvent) {
+    dragging = true
+    dragStartX = event.clientX
+    dragStartWidth = assistantWidth
+    ;(event.target as HTMLElement).setPointerCapture(event.pointerId)
+  }
+
+  function handleDragMove(event: PointerEvent) {
+    if (!dragging) return
+    const delta = dragStartX - event.clientX
+    assistantWidth = Math.min(
+      MAX_SIDEBAR_WIDTH,
+      Math.max(MIN_SIDEBAR_WIDTH, dragStartWidth + delta),
+    )
+  }
+
+  function handleDragEnd() {
+    dragging = false
   }
 
   function replaceOpenPathPrefix(previousPath: string, nextPath: string) {
@@ -555,41 +593,79 @@
       {busy}
       {hasDirtyChanges}
       {metadataOpen}
+      assistantOpen={showAssistant}
+      assistantDisabled={!selectedFileIsText && !showAssistant}
       onNavigateBack={navigateBack}
       onSave={() => void handleSave()}
       onToggleEnabled={() => void handleToggleEnabled()}
       onDelete={() => void handleDelete()}
       onToggleMetadata={() => (metadataOpen = !metadataOpen)}
+      onToggleAssistant={() => (showAssistant = !showAssistant)}
     />
 
-    <SkillEditorWorkspace
-      files={draftFiles}
-      {emptyDirectoryPaths}
-      selectedPath={selectedFilePath}
-      {selectedTreePath}
-      {openFiles}
-      {dirtyPaths}
-      {selectedFile}
-      {activeContent}
-      {skill}
-      {workflows}
-      {history}
-      {busy}
-      {metadataOpen}
-      {pendingCreate}
-      bind:editDescription
-      onSelectTreeNode={selectTreeNode}
-      onCreateFile={handleCreateFile}
-      onCreateFolder={handleCreateFolder}
-      onCreateCommit={handleCreateCommit}
-      onCreateCancel={handleCreateCancel}
-      onRenameNode={handleRenameNode}
-      onDeleteNode={handleDeleteNode}
-      onSelectTab={(path) => selectFile(path)}
-      onCloseTab={closeTab}
-      onContentChange={handleContentChange}
-      onToggleBinding={handleWorkflowBinding}
-    />
+    <div class="flex min-h-0 flex-1 overflow-hidden">
+      <div class="min-w-0 flex-1 overflow-hidden">
+        <SkillEditorWorkspace
+          files={draftFiles}
+          {emptyDirectoryPaths}
+          selectedPath={selectedFilePath}
+          {selectedTreePath}
+          {openFiles}
+          {dirtyPaths}
+          {selectedFile}
+          {activeContent}
+          {skill}
+          {workflows}
+          {history}
+          {busy}
+          {metadataOpen}
+          {pendingCreate}
+          bind:editDescription
+          onSelectTreeNode={selectTreeNode}
+          onCreateFile={handleCreateFile}
+          onCreateFolder={handleCreateFolder}
+          onCreateCommit={handleCreateCommit}
+          onCreateCancel={handleCreateCancel}
+          onRenameNode={handleRenameNode}
+          onDeleteNode={handleDeleteNode}
+          onSelectTab={(path) => selectFile(path)}
+          onCloseTab={closeTab}
+          onContentChange={handleContentChange}
+          onToggleBinding={handleWorkflowBinding}
+        />
+      </div>
+
+      {#if showAssistant}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          class={cn(
+            'hover:bg-border relative w-1 shrink-0 cursor-col-resize touch-none',
+            dragging && 'bg-border',
+          )}
+          onpointerdown={handleDragStart}
+          onpointermove={handleDragMove}
+          onpointerup={handleDragEnd}
+          onpointercancel={handleDragEnd}
+        >
+          <div class="absolute inset-y-0 left-1/2 -translate-x-1/2">
+            <GripVertical class="text-muted-foreground/60 size-4" />
+          </div>
+        </div>
+
+        <aside class="border-border shrink-0 border-l" style:width={`${assistantWidth}px`}>
+          <SkillAiSidebar
+            projectId={appStore.currentProject?.id}
+            {providers}
+            skillId={skill.id}
+            {selectedFilePath}
+            selectedFileContent={activeContent}
+            {selectedFileIsText}
+            onApplySuggestion={handleApplyAssistantSuggestion}
+          />
+        </aside>
+      {/if}
+    </div>
 
     <SkillEditorStatusBar
       {fileCount}

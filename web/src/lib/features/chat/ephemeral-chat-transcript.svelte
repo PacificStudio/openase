@@ -27,7 +27,7 @@
   )
 </script>
 
-<div class="space-y-3">
+<div class="space-y-1.5">
   {#each visibleEntries as entry (entry.id)}
     {#if entry.kind === 'action_proposal'}
       <EphemeralChatActionProposalCard
@@ -40,14 +40,11 @@
     {:else}
       <div
         class={cn(
-          'rounded-2xl border px-3 py-2.5 text-sm leading-6',
-          entry.role === 'user' && 'bg-primary text-primary-foreground',
-          entry.role === 'assistant' && 'border-border bg-muted/40 text-foreground',
+          'rounded-lg px-2.5 py-1.5 text-xs leading-5',
+          entry.role === 'user' && 'bg-primary text-primary-foreground ml-6',
+          entry.role === 'assistant' && 'border-border bg-muted/40 text-foreground mr-6 border',
         )}
       >
-        <div class="mb-1 text-[10px] font-semibold tracking-[0.16em] uppercase opacity-70">
-          {entry.role}
-        </div>
         {#if entry.role === 'assistant'}
           <ChatMarkdownContent source={entry.content} />
         {:else}
@@ -59,9 +56,9 @@
 
   {#if pending && !hasStreamingAssistantEntry}
     <div
-      class="border-border bg-muted/30 flex items-center gap-2 rounded-2xl border px-3 py-2.5 text-sm"
+      class="border-border bg-muted/30 flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs"
     >
-      <LoaderCircle class="size-4 animate-spin" />
+      <LoaderCircle class="size-3 animate-spin" />
       Thinking…
     </div>
   {/if}

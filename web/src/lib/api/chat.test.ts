@@ -102,4 +102,47 @@ describe('streamChatTurn', () => {
       }),
     )
   })
+
+  it('serializes skill editor chat context', async () => {
+    consumeEventStream.mockImplementation(async () => {})
+
+    await streamChatTurn(
+      {
+        message: 'Tighten this deploy script.',
+        source: 'skill_editor',
+        providerId: 'provider-1',
+        sessionId: 'session-skill-1',
+        context: {
+          projectId: 'project-1',
+          skillId: 'skill-1',
+          skillFilePath: 'scripts/redeploy.sh',
+          skillFileDraft: '#!/usr/bin/env bash\necho updated\n',
+        },
+      },
+      {
+        onEvent: () => {},
+      },
+    )
+
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/chat',
+      expect.objectContaining({
+        body: JSON.stringify({
+          message: 'Tighten this deploy script.',
+          source: 'skill_editor',
+          provider_id: 'provider-1',
+          session_id: 'session-skill-1',
+          context: {
+            project_id: 'project-1',
+            workflow_id: undefined,
+            ticket_id: undefined,
+            harness_draft: undefined,
+            skill_id: 'skill-1',
+            skill_file_path: 'scripts/redeploy.sh',
+            skill_file_draft: '#!/usr/bin/env bash\necho updated\n',
+          },
+        }),
+      }),
+    )
+  })
 })

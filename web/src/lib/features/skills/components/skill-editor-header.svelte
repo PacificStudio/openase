@@ -3,6 +3,7 @@
   import { Button } from '$ui/button'
   import {
     ArrowLeft,
+    Bot,
     Power,
     PowerOff,
     Save,
@@ -17,21 +18,27 @@
     busy = false,
     hasDirtyChanges = false,
     metadataOpen = true,
+    assistantOpen = false,
+    assistantDisabled = false,
     onNavigateBack,
     onSave,
     onToggleEnabled,
     onDelete,
     onToggleMetadata,
+    onToggleAssistant,
   }: {
     skill: Skill
     busy?: boolean
     hasDirtyChanges?: boolean
     metadataOpen?: boolean
+    assistantOpen?: boolean
+    assistantDisabled?: boolean
     onNavigateBack?: () => void
     onSave?: () => void
     onToggleEnabled?: () => void
     onDelete?: () => void
     onToggleMetadata?: () => void
+    onToggleAssistant?: () => void
   } = $props()
 </script>
 
@@ -63,6 +70,17 @@
     >
       <Save class="size-3" />
       {busy ? 'Saving\u2026' : 'Save'}
+    </Button>
+    <Button
+      variant="ghost"
+      size="sm"
+      class="h-7 gap-1 px-2 text-xs"
+      title="Toggle AI editor"
+      onclick={onToggleAssistant}
+      disabled={assistantDisabled}
+    >
+      <Bot class="size-3.5" />
+      <span class={assistantOpen ? 'text-primary' : ''}>AI</span>
     </Button>
     <Button
       variant="ghost"

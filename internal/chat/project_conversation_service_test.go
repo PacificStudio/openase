@@ -2,12 +2,21 @@ package chat
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	chatrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
+	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/google/uuid"
 )
 
@@ -397,6 +406,125 @@ func TestProjectConversationStartTurnClosesPreviousLiveRuntimeForSameUserProject
 	}
 }
 
+func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironment(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repo := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repo.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	remoteRepoPath, _ := createConversationRemoteRepo(t, "main", map[string]string{
+		"README.md": "project ai repo",
+	})
+	workspaceRoot := t.TempDir()
+	processManager := &fakeAgentCLIProcessManager{
+		process: &fakeAgentCLIProcess{
+			stdin:  &trackingWriteCloser{},
+			stdout: `{"response":"OK"}`,
+		},
+	}
+	workflowSync := fakeProjectConversationWorkflowSync{}
+	catalog := fakeProjectConversationCatalog{
+		fakeCatalogReader: fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             project.ID,
+				OrganizationID: org.ID,
+				Name:           "OpenASE",
+				Slug:           "openase",
+				Description:    "Issue-driven automation",
+			},
+			projectRepos: []catalogdomain.ProjectRepo{
+				{
+					ID:            uuid.New(),
+					ProjectID:     project.ID,
+					Name:          "backend",
+					RepositoryURL: remoteRepoPath,
+					DefaultBranch: "main",
+				},
+			},
+			providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+				providerID: {
+					ID:             providerID,
+					OrganizationID: org.ID,
+					MachineID:      machineID,
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+					CliCommand:     "gemini",
+				},
+			},
+		},
+		machine: catalogdomain.Machine{
+			ID:            machineID,
+			Name:          catalogdomain.LocalMachineName,
+			Host:          catalogdomain.LocalMachineHost,
+			WorkspaceRoot: stringPointer(workspaceRoot),
+		},
+	}
+
+	service := NewProjectConversationService(
+		nil,
+		repo,
+		catalog,
+		fakeTicketReader{},
+		workflowSync,
+		processManager,
+		nil,
+	)
+	service.ConfigurePlatformEnvironment("http://127.0.0.1:19836/api/v1/platform", fakeProjectConversationAgentPlatform{})
+
+	if _, err := service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Inspect the project"); err != nil {
+		t.Fatalf("start conversation turn: %v", err)
+	}
+
+	workspacePath := filepath.Join(
+		workspaceRoot,
+		org.ID.String(),
+		"openase",
+		projectConversationWorkspaceName(conversation.ID),
+	)
+	assertConversationFileExists(t, filepath.Join(workspacePath, "backend", "README.md"))
+	assertConversationFileExists(t, filepath.Join(workspacePath, ".openase", "bin", "openase"))
+	assertConversationFileExists(t, filepath.Join(workspacePath, ".agent", "skills", "openase-platform", "SKILL.md"))
+
+	repository, err := git.PlainOpen(filepath.Join(workspacePath, "backend"))
+	if err != nil {
+		t.Fatalf("open prepared repo: %v", err)
+	}
+	head, err := repository.Head()
+	if err != nil {
+		t.Fatalf("repository head: %v", err)
+	}
+	if head.Name().Short() != "agent/"+projectConversationWorkspaceName(conversation.ID) {
+		t.Fatalf("head branch = %q", head.Name().Short())
+	}
+
+	environment := processManager.startSpec.Environment
+	if !containsEnvironmentPrefix(environment, "OPENASE_REAL_BIN=") {
+		t.Fatalf("expected OPENASE_REAL_BIN in environment, got %+v", environment)
+	}
+	if !containsEnvironmentPrefix(environment, "OPENASE_API_URL=http://127.0.0.1:19836/api/v1/platform") {
+		t.Fatalf("expected OPENASE_API_URL in environment, got %+v", environment)
+	}
+	if !containsEnvironmentPrefix(environment, "OPENASE_AGENT_TOKEN=ase_agent_project_conversation") {
+		t.Fatalf("expected OPENASE_AGENT_TOKEN in environment, got %+v", environment)
+	}
+	if !containsEnvironmentPrefix(environment, "OPENASE_PROJECT_ID="+project.ID.String()) {
+		t.Fatalf("expected OPENASE_PROJECT_ID in environment, got %+v", environment)
+	}
+}
+
 type fakeProjectConversationCatalog struct {
 	fakeCatalogReader
 	machine    catalogdomain.Machine
@@ -445,6 +573,111 @@ func (r *fakeProjectConversationCodexRuntime) RespondInterrupt(
 
 func (r *fakeProjectConversationCodexRuntime) SessionAnchor(SessionID) RuntimeSessionAnchor {
 	return RuntimeSessionAnchor{}
+}
+
+type fakeProjectConversationWorkflowSync struct {
+	harnessWorkflowReader
+}
+
+func (fakeProjectConversationWorkflowSync) RefreshSkills(
+	_ context.Context,
+	input workflowservice.RefreshSkillsInput,
+) (workflowservice.RefreshSkillsResult, error) {
+	target, err := workflowservice.ResolveSkillTargetForRuntime(input.WorkspaceRoot, input.AdapterType)
+	if err != nil {
+		return workflowservice.RefreshSkillsResult{}, err
+	}
+	skillDir := filepath.Join(target.SkillsDir, "openase-platform")
+	if err := os.MkdirAll(skillDir, 0o750); err != nil {
+		return workflowservice.RefreshSkillsResult{}, err
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# openase-platform\n"), 0o600); err != nil {
+		return workflowservice.RefreshSkillsResult{}, err
+	}
+	wrapperPath := filepath.Join(input.WorkspaceRoot, ".openase", "bin", "openase")
+	if err := os.MkdirAll(filepath.Dir(wrapperPath), 0o750); err != nil {
+		return workflowservice.RefreshSkillsResult{}, err
+	}
+	if err := os.WriteFile(wrapperPath, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		return workflowservice.RefreshSkillsResult{}, err
+	}
+	return workflowservice.RefreshSkillsResult{
+		SkillsDir:      target.SkillsDir,
+		InjectedSkills: []string{"openase-platform"},
+	}, nil
+}
+
+type fakeProjectConversationAgentPlatform struct{}
+
+func (fakeProjectConversationAgentPlatform) IssueToken(
+	context.Context,
+	agentplatform.IssueInput,
+) (agentplatform.IssuedToken, error) {
+	return agentplatform.IssuedToken{Token: "ase_agent_project_conversation"}, nil
+}
+
+func createConversationRemoteRepo(
+	t *testing.T,
+	defaultBranch string,
+	files map[string]string,
+) (string, plumbing.Hash) {
+	t.Helper()
+
+	repoPath := t.TempDir()
+	repository, err := git.PlainInit(repoPath, false)
+	if err != nil {
+		t.Fatalf("init repository: %v", err)
+	}
+
+	worktree, err := repository.Worktree()
+	if err != nil {
+		t.Fatalf("worktree: %v", err)
+	}
+	for path, content := range files {
+		absolutePath := filepath.Join(repoPath, path)
+		if err := os.MkdirAll(filepath.Dir(absolutePath), 0o750); err != nil {
+			t.Fatalf("mkdir %s: %v", path, err)
+		}
+		if err := os.WriteFile(absolutePath, []byte(content), 0o600); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+		if _, err := worktree.Add(path); err != nil {
+			t.Fatalf("add %s: %v", path, err)
+		}
+	}
+	hash, err := worktree.Commit("initial commit", &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "Codex",
+			Email: "codex@example.com",
+			When:  time.Now().UTC(),
+		},
+	})
+	if err != nil {
+		t.Fatalf("commit repository: %v", err)
+	}
+	if err := repository.Storer.SetReference(plumbing.NewHashReference(plumbing.NewBranchReferenceName(defaultBranch), hash)); err != nil {
+		t.Fatalf("set default branch: %v", err)
+	}
+	if err := worktree.Checkout(&git.CheckoutOptions{Branch: plumbing.NewBranchReferenceName(defaultBranch)}); err != nil {
+		t.Fatalf("checkout default branch: %v", err)
+	}
+	return repoPath, hash
+}
+
+func assertConversationFileExists(t *testing.T, path string) {
+	t.Helper()
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("expected %s to exist: %v", path, err)
+	}
+}
+
+func containsEnvironmentPrefix(environment []string, prefix string) bool {
+	for _, entry := range environment {
+		if strings.HasPrefix(entry, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func createProjectConversationTestProject(

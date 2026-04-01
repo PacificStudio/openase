@@ -41,6 +41,7 @@ type Source string
 
 const (
 	SourceHarnessEditor  Source = "harness_editor"
+	SourceSkillEditor    Source = "skill_editor"
 	SourceProjectSidebar Source = "project_sidebar"
 	SourceTicketDetail   Source = "ticket_detail"
 )
@@ -54,17 +55,23 @@ type RawStartInput struct {
 }
 
 type RawChatContext struct {
-	ProjectID    *string `json:"project_id"`
-	WorkflowID   *string `json:"workflow_id"`
-	TicketID     *string `json:"ticket_id"`
-	HarnessDraft *string `json:"harness_draft"`
+	ProjectID      *string `json:"project_id"`
+	WorkflowID     *string `json:"workflow_id"`
+	TicketID       *string `json:"ticket_id"`
+	HarnessDraft   *string `json:"harness_draft"`
+	SkillID        *string `json:"skill_id"`
+	SkillFilePath  *string `json:"skill_file_path"`
+	SkillFileDraft *string `json:"skill_file_draft"`
 }
 
 type Context struct {
-	ProjectID    uuid.UUID
-	WorkflowID   *uuid.UUID
-	TicketID     *uuid.UUID
-	HarnessDraft *string
+	ProjectID      uuid.UUID
+	WorkflowID     *uuid.UUID
+	TicketID       *uuid.UUID
+	HarnessDraft   *string
+	SkillID        *uuid.UUID
+	SkillFilePath  *string
+	SkillFileDraft *string
 }
 
 type StartInput struct {
@@ -101,6 +108,7 @@ type ticketReader interface {
 type workflowReader interface {
 	Get(ctx context.Context, workflowID uuid.UUID) (workflowservice.WorkflowDetail, error)
 	List(ctx context.Context, projectID uuid.UUID) ([]workflowservice.Workflow, error)
+	GetSkill(ctx context.Context, skillID uuid.UUID) (workflowservice.SkillDetail, error)
 }
 
 type statusReader interface {
@@ -200,10 +208,16 @@ func ParseStartInput(raw RawStartInput) (StartInput, error) {
 	if err != nil {
 		return StartInput{}, err
 	}
-	if err := validateSourceContext(source, workflowID, ticketID); err != nil {
+	skillID, err := parseOptionalUUIDPointer("context.skill_id", raw.Context.SkillID)
+	if err != nil {
+		return StartInput{}, err
+	}
+	if err := validateSourceContext(source, workflowID, ticketID, skillID); err != nil {
 		return StartInput{}, err
 	}
 	harnessDraft := cloneOptionalString(raw.Context.HarnessDraft)
+	skillFilePath := cloneOptionalString(raw.Context.SkillFilePath)
+	skillFileDraft := cloneOptionalString(raw.Context.SkillFileDraft)
 
 	sessionID, err := parseOptionalSessionID(raw.SessionID)
 	if err != nil {
@@ -215,10 +229,13 @@ func ParseStartInput(raw RawStartInput) (StartInput, error) {
 		Source:     source,
 		ProviderID: providerID,
 		Context: Context{
-			ProjectID:    projectID,
-			WorkflowID:   workflowID,
-			TicketID:     ticketID,
-			HarnessDraft: harnessDraft,
+			ProjectID:      projectID,
+			WorkflowID:     workflowID,
+			TicketID:       ticketID,
+			HarnessDraft:   harnessDraft,
+			SkillID:        skillID,
+			SkillFilePath:  skillFilePath,
+			SkillFileDraft: skillFileDraft,
 		},
 		SessionID: sessionID,
 	}, nil
@@ -565,6 +582,10 @@ func (s *Service) buildSystemPrompt(
 		if err := s.writeHarnessEditorContext(ctx, &sb, project, input); err != nil {
 			return "", err
 		}
+	case SourceSkillEditor:
+		if err := s.writeSkillEditorContext(ctx, &sb, project, input); err != nil {
+			return "", err
+		}
 	case SourceProjectSidebar:
 		if err := s.writeProjectSidebarContext(ctx, &sb, project); err != nil {
 			return "", err
@@ -696,6 +717,108 @@ func (s *Service) writeHarnessEditorContext(
 	sb.WriteString("- 如果上下文已足够，就直接给出贴合当前项目状态与拓扑的 diff；如果上下文不足，就先提最少但足够的澄清问题。\n")
 	sb.WriteString("- 如果无法可靠地产出结构化 diff，才回退为简要说明加完整 Harness markdown 代码块。\n")
 	sb.WriteString("- 只有在用户明确要求平台写操作时才输出 action_proposal；普通 Harness 建议不要输出 action_proposal。\n")
+	return nil
+}
+
+func (s *Service) writeSkillEditorContext(
+	ctx context.Context,
+	sb *strings.Builder,
+	project catalogdomain.Project,
+	input StartInput,
+) error {
+	skillID := uuidPtrValue(input.Context.SkillID)
+	skillItem, err := s.workflows.GetSkill(ctx, skillID)
+	if err != nil {
+		return fmt.Errorf("get skill for chat context: %w", err)
+	}
+
+	selectedPath := "SKILL.md"
+	if input.Context.SkillFilePath != nil && strings.TrimSpace(*input.Context.SkillFilePath) != "" {
+		selectedPath = strings.TrimSpace(*input.Context.SkillFilePath)
+	}
+
+	var selectedFile *workflowservice.SkillBundleFile
+	for index := range skillItem.Files {
+		if skillItem.Files[index].Path == selectedPath {
+			selectedFile = &skillItem.Files[index]
+			break
+		}
+	}
+
+	sb.WriteString("## 来源: Skill 编辑器\n")
+	_, _ = fmt.Fprintf(sb, "项目: %s\n", project.Name)
+	_, _ = fmt.Fprintf(sb, "Skill: %s | 版本: %d | 启用: %t\n", skillItem.Name, skillItem.CurrentVersion, skillItem.IsEnabled)
+	_, _ = fmt.Fprintf(sb, "Path: %s | Bundle Hash: %s | Files: %d\n", skillItem.Path, skillItem.BundleHash, skillItem.FileCount)
+	if skillItem.Description != "" {
+		_, _ = fmt.Fprintf(sb, "Description: %s\n", skillItem.Description)
+	}
+	if len(skillItem.BoundWorkflows) > 0 {
+		sb.WriteString("\n### 绑定的 Workflows\n")
+		for _, binding := range skillItem.BoundWorkflows {
+			_, _ = fmt.Fprintf(sb, "- %s (%s)\n", binding.Name, binding.HarnessPath)
+		}
+	}
+
+	sb.WriteString("\n### Skill Bundle 文件清单\n")
+	for _, file := range skillItem.Files {
+		_, _ = fmt.Fprintf(
+			sb,
+			"- %s [kind=%s, encoding=%s, size=%d]",
+			file.Path,
+			file.FileKind,
+			file.Encoding,
+			file.SizeBytes,
+		)
+		if file.IsExecutable {
+			sb.WriteString(" executable=true")
+		}
+		sb.WriteByte('\n')
+	}
+
+	_, _ = fmt.Fprintf(sb, "\n### 当前选中文件\n- path: %s\n", selectedPath)
+	if selectedFile == nil {
+		sb.WriteString("- 当前选中文件不存在于已发布 bundle 中，按未保存的新文件处理。\n")
+	} else {
+		_, _ = fmt.Fprintf(sb, "- kind: %s\n- encoding: %s\n- media_type: %s\n", selectedFile.FileKind, selectedFile.Encoding, selectedFile.MediaType)
+	}
+
+	publishedContent := ""
+	if selectedFile != nil && selectedFile.Encoding == "utf8" {
+		publishedContent = string(selectedFile.Content)
+	}
+	if publishedContent != "" {
+		sb.WriteString("\n### 已发布文件内容\n")
+		sb.WriteString("```text\n")
+		sb.WriteString(publishedContent)
+		if !strings.HasSuffix(publishedContent, "\n") {
+			sb.WriteByte('\n')
+		}
+		sb.WriteString("```\n")
+	}
+
+	if draft := input.Context.SkillFileDraft; draft != nil {
+		sb.WriteString("\n### 当前编辑器草稿（未保存）\n")
+		if strings.TrimSpace(*draft) == "" {
+			sb.WriteString("（当前草稿为空）\n")
+		} else {
+			sb.WriteString("```text\n")
+			sb.WriteString(*draft)
+			if !strings.HasSuffix(*draft, "\n") {
+				sb.WriteByte('\n')
+			}
+			sb.WriteString("```\n")
+		}
+	}
+
+	sb.WriteString("\n### Skill 编辑要求\n")
+	sb.WriteString("- 只围绕当前选中的文件给建议，不要改写未选中的 bundle 文件。\n")
+	sb.WriteString("- 优先保留现有 skill 的职责边界、frontmatter name、描述和目录结构。\n")
+	sb.WriteString("- 如果用户请求的是脚本或参考文档，保持对应语言/格式的语法正确，不要强行改成 markdown。\n")
+	sb.WriteString("- 当用户请求直接修改文件时，优先输出一个结构化 diff JSON 对象，供编辑器直接安全应用。\n")
+	sb.WriteString("- diff JSON 格式如下：{\"type\":\"diff\",\"file\":\"相对文件路径\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"原行\"},{\"op\":\"add\",\"text\":\"新增行\"}]}]}\n")
+	sb.WriteString("- `file` 必须精确等于当前选中文件路径，`hunks` 使用 1-based 行号，`lines[].op` 只能是 `context` / `add` / `remove`。\n")
+	sb.WriteString("- 如果无法可靠地产出结构化 diff，才回退为简要说明加完整文件代码块。\n")
+	sb.WriteString("- 普通 skill 编辑建议不要输出 action_proposal；只有在用户明确要求平台写操作时才输出 action_proposal。\n")
 	return nil
 }
 
@@ -854,18 +977,22 @@ func hasModelFlag(args []string) bool {
 func parseSource(raw string) (Source, error) {
 	source := Source(strings.TrimSpace(raw))
 	switch source {
-	case SourceHarnessEditor, SourceProjectSidebar, SourceTicketDetail:
+	case SourceHarnessEditor, SourceSkillEditor, SourceProjectSidebar, SourceTicketDetail:
 		return source, nil
 	default:
 		return "", fmt.Errorf("%w: %q", ErrSourceUnsupported, raw)
 	}
 }
 
-func validateSourceContext(source Source, workflowID *uuid.UUID, ticketID *uuid.UUID) error {
+func validateSourceContext(source Source, workflowID *uuid.UUID, ticketID *uuid.UUID, skillID *uuid.UUID) error {
 	switch source {
 	case SourceHarnessEditor:
 		if workflowID == nil {
 			return fmt.Errorf("context.workflow_id is required for source %s", source)
+		}
+	case SourceSkillEditor:
+		if skillID == nil {
+			return fmt.Errorf("context.skill_id is required for source %s", source)
 		}
 	case SourceTicketDetail:
 		if ticketID == nil {
