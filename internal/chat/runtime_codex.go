@@ -152,6 +152,7 @@ func (r *CodexRuntime) ensureSession(ctx context.Context, input RuntimeTurnInput
 			ClientTitle:   "OpenASE",
 		},
 		Thread: codexadapter.ThreadStartParams{
+			ResumeThreadID:         strings.TrimSpace(input.ResumeProviderThreadID),
 			WorkingDirectory:       input.WorkingDirectory.String(),
 			Model:                  input.Provider.ModelName,
 			ServiceName:            "openase",
@@ -175,7 +176,10 @@ func (r *CodexRuntime) ensureSession(ctx context.Context, input RuntimeTurnInput
 		return nil, fmt.Errorf("start codex chat session: %w", err)
 	}
 
-	state = &codexRuntimeSession{session: session}
+	state = &codexRuntimeSession{
+		session:    session,
+		lastTurnID: strings.TrimSpace(input.ResumeProviderTurnID),
+	}
 
 	r.mu.Lock()
 	existing := r.sessions[input.SessionID]

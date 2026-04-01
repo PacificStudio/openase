@@ -119,6 +119,7 @@ export default defineConfig(
       'src/lib/features/tickets/components/new-ticket-dialog.svelte',
       'src/lib/features/tickets/components/tickets-page.svelte',
       'src/lib/features/workflows/components/harness-ai-sidebar-streaming.test.ts',
+      'src/lib/features/chat/project-conversation-controller.svelte.ts',
       'src/lib/features/workflows/components/workflows-page.svelte',
     ],
     rules: {

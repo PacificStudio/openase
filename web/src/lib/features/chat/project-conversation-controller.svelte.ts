@@ -1,7 +1,9 @@
 import {
   createProjectConversation,
+  listProjectConversations,
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
+  type ProjectConversation,
 } from '$lib/api/chat'
 import type { AgentProvider } from '$lib/api/contracts'
 import {
@@ -43,6 +45,7 @@ export function createProjectConversationController(
 ) {
   let providers = $state<AgentProvider[]>([])
   let providerId = $state('')
+  let conversations = $state<ProjectConversation[]>([])
   const state = $state<ProjectConversationControllerState>({
     phase: 'idle',
     conversationId: '',
@@ -66,6 +69,9 @@ export function createProjectConversationController(
   return {
     get providers() {
       return providers
+    },
+    get conversations() {
+      return conversations
     },
     get providerId() {
       return providerId
@@ -120,6 +126,10 @@ export function createProjectConversationController(
       }
       const currentOperationId = beginProjectConversationOperation(state, 'restoring')
       try {
+        conversations = await listProjectConversations({
+          projectId: input.getProjectId(),
+          providerId,
+        }).then((payload) => payload.conversations)
         await restoreProjectConversation({
           projectId: input.getProjectId(),
           providerId,
@@ -135,6 +145,7 @@ export function createProjectConversationController(
               setConversationId: (nextId) => {
                 if (isCurrentProjectConversationOperation(state, currentOperationId)) {
                   state.conversationId = nextId
+                  storeProjectConversationId(input.getProjectId(), providerId, nextId)
                 }
               },
               setEntries: (nextEntries) => {
@@ -176,9 +187,60 @@ export function createProjectConversationController(
       }
       invalidateProjectConversationStream(state)
       providerId = nextProviderId
+      conversations = []
       state.conversationId = ''
       state.entries = []
       state.activeAssistantEntryId = ''
+    },
+    async selectConversation(nextConversationId: string) {
+      if (state.phase !== 'idle') {
+        return
+      }
+
+      invalidateProjectConversationStream(state)
+      state.activeAssistantEntryId = ''
+
+      if (!nextConversationId) {
+        state.conversationId = ''
+        state.entries = []
+        return
+      }
+
+      const currentOperationId = beginProjectConversationOperation(state, 'restoring')
+      try {
+        await loadProjectConversation({
+          conversationId: nextConversationId,
+          mapEntries: mapPersistedEntries,
+          setConversationId: (nextId) => {
+            if (isCurrentProjectConversationOperation(state, currentOperationId)) {
+              state.conversationId = nextId
+              storeProjectConversationId(input.getProjectId(), providerId, nextId)
+            }
+          },
+          setEntries: (nextEntries) => {
+            if (isCurrentProjectConversationOperation(state, currentOperationId)) {
+              state.entries = nextEntries as ProjectConversationTranscriptEntry[]
+            }
+          },
+          resetActiveAssistantEntry: () => {
+            if (isCurrentProjectConversationOperation(state, currentOperationId)) {
+              state.activeAssistantEntryId = ''
+            }
+          },
+          connectStream,
+        })
+        setProjectConversationIdleIfCurrent(state, currentOperationId)
+      } catch (caughtError) {
+        if (!isCurrentProjectConversationOperation(state, currentOperationId)) {
+          return
+        }
+        state.phase = 'idle'
+        input.onError?.(
+          caughtError instanceof Error
+            ? caughtError.message
+            : 'Failed to switch project conversation.',
+        )
+      }
     },
     async sendTurn(message: string) {
       const trimmed = message.trim()
@@ -204,6 +266,7 @@ export function createProjectConversationController(
             return
           }
           state.conversationId = createPayload.conversation.id
+          conversations = [createPayload.conversation, ...conversations]
           storeProjectConversationId(projectId, providerId, state.conversationId)
           state.phase = 'connecting_stream'
           connectStream(state.conversationId)

@@ -30,6 +30,8 @@ type RuntimeTurnInput struct {
 	Message                string
 	SystemPrompt           string
 	WorkingDirectory       provider.AbsolutePath
+	ResumeProviderThreadID string
+	ResumeProviderTurnID   string
 	MaxTurns               int
 	MaxBudgetUSD           float64
 	PersistentConversation bool

@@ -144,7 +144,6 @@ RULES = (
         forbidden_import_prefixes=(go_import_prefix("ent"),),
         exceptions=(
             ExceptionEntry("internal/ticket/cost_tracker.go", go_import_prefix("ent"), "TODO(openase-228): move ent-backed ticket persistence behind repo boundary"),
-            ExceptionEntry("internal/ticket/repo_scope_sync.go", go_import_prefix("ent"), "TODO(openase-228): move ent-backed repo scope sync behind repo boundary"),
             ExceptionEntry("internal/ticket/service.go", go_import_prefix("ent"), "TODO(openase-228): split ticket persistence and orchestration from service layer"),
             ExceptionEntry("internal/ticketstatus/service.go", go_import_prefix("ent"), "TODO(openase-228): split ticket status persistence from service layer"),
             ExceptionEntry("internal/workflow/harness_template.go", go_import_prefix("ent"), "TODO(openase-228): stop reading ent models directly in workflow services"),
@@ -170,7 +169,6 @@ RULES = (
         file_prefixes=INTERFACE_ENTRY,
         forbidden_import_prefixes=(go_import_prefix("ent"),),
         exceptions=(
-            ExceptionEntry("internal/httpapi/github_webhook.go", go_import_prefix("ent"), "TODO(openase-228): stop mapping webhook payloads with ent enums in httpapi"),
             ExceptionEntry("internal/httpapi/ticket_api.go", go_import_prefix("ent"), "TODO(openase-228): move ent ticket enums out of HTTP handlers"),
             ExceptionEntry("internal/httpapi/ticket_requests.go", go_import_prefix("ent"), "TODO(openase-228): replace ent-backed request DTO enums with boundary-owned types"),
             ExceptionEntry("internal/httpapi/workflow_requests.go", go_import_prefix("ent"), "TODO(openase-228): replace ent-backed request DTO enums with boundary-owned types"),

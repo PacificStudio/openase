@@ -67,6 +67,7 @@ type InitializeParams struct {
 }
 
 type ThreadStartParams struct {
+	ResumeThreadID         string
 	WorkingDirectory       string
 	Model                  string
 	ModelProvider          string
@@ -277,22 +278,26 @@ func (a *Adapter) Start(ctx context.Context, request StartRequest) (*Session, er
 		return nil, fmt.Errorf("notify codex app server initialized: %w", err)
 	}
 
-	threadParams, err := newWireThreadStartParams(request.Thread)
-	if err != nil {
-		_ = session.stopWithTimeout()
-		return nil, err
-	}
+	if resumeThreadID := strings.TrimSpace(request.Thread.ResumeThreadID); resumeThreadID != "" {
+		session.threadID = resumeThreadID
+	} else {
+		threadParams, err := newWireThreadStartParams(request.Thread)
+		if err != nil {
+			_ = session.stopWithTimeout()
+			return nil, err
+		}
 
-	var threadResponse wireThreadStartResponse
-	if err := session.call(ctx, methodThreadStart, threadParams, &threadResponse); err != nil {
-		_ = session.stopWithTimeout()
-		return nil, fmt.Errorf("start codex thread: %w", err)
+		var threadResponse wireThreadStartResponse
+		if err := session.call(ctx, methodThreadStart, threadParams, &threadResponse); err != nil {
+			_ = session.stopWithTimeout()
+			return nil, fmt.Errorf("start codex thread: %w", err)
+		}
+		if strings.TrimSpace(threadResponse.Thread.ID) == "" {
+			_ = session.stopWithTimeout()
+			return nil, fmt.Errorf("codex thread/start response missing thread id")
+		}
+		session.threadID = threadResponse.Thread.ID
 	}
-	if strings.TrimSpace(threadResponse.Thread.ID) == "" {
-		_ = session.stopWithTimeout()
-		return nil, fmt.Errorf("codex thread/start response missing thread id")
-	}
-	session.threadID = threadResponse.Thread.ID
 	session.autoApproveRequests = approvalPolicyIsNever(request.Thread.ApprovalPolicy)
 	session.defaultTurnWorkingDirectory = strings.TrimSpace(request.Turn.WorkingDirectory)
 	session.defaultTurnTitle = strings.TrimSpace(request.Turn.Title)

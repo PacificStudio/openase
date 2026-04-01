@@ -61,6 +61,13 @@ type liveProjectConversation struct {
 	workspace provider.AbsolutePath
 }
 
+type projectConversationLiveKey struct {
+	UserID     string
+	ProjectID  uuid.UUID
+	ProviderID uuid.UUID
+	Source     domain.Source
+}
+
 type projectConversationCodexRuntime interface {
 	Runtime
 	RespondInterrupt(
@@ -87,6 +94,7 @@ type ProjectConversationService struct {
 
 	liveMu        sync.Mutex
 	live          map[uuid.UUID]*liveProjectConversation
+	liveByKey     map[projectConversationLiveKey]uuid.UUID
 	watchers      map[uuid.UUID]map[int]chan StreamEvent
 	nextWatcher   int
 	turnLocks     userLockRegistry
@@ -114,6 +122,7 @@ func NewProjectConversationService(
 		localProcessManager: localProcessManager,
 		sshPool:             sshPool,
 		live:                map[uuid.UUID]*liveProjectConversation{},
+		liveByKey:           map[projectConversationLiveKey]uuid.UUID{},
 		watchers:            map[uuid.UUID]map[int]chan StreamEvent{},
 	}
 	service.promptBuilder = &Service{
@@ -123,6 +132,20 @@ func NewProjectConversationService(
 		workflows: workflows,
 	}
 	return service
+}
+
+func projectConversationLiveConversationKey(conversation domain.Conversation) projectConversationLiveKey {
+	return projectConversationLiveKey{
+		UserID:     strings.TrimSpace(conversation.UserID),
+		ProjectID:  conversation.ProjectID,
+		ProviderID: conversation.ProviderID,
+		Source:     conversation.Source,
+	}
+}
+
+func projectConversationTurnLockKey(conversation domain.Conversation) UserID {
+	key := projectConversationLiveConversationKey(conversation)
+	return UserID(fmt.Sprintf("%s:%s:%s:%s", key.UserID, key.ProjectID, key.ProviderID, key.Source))
 }
 
 func (s *ProjectConversationService) CreateConversation(
@@ -237,7 +260,7 @@ func (s *ProjectConversationService) StartTurn(
 		return domain.Turn{}, err
 	}
 
-	unlock := s.turnLocks.Lock(UserID(conversationID.String()))
+	unlock := s.turnLocks.Lock(projectConversationTurnLockKey(conversation))
 	defer unlock()
 
 	project, err := s.catalog.GetProject(ctx, conversation.ProjectID)
@@ -249,12 +272,18 @@ func (s *ProjectConversationService) StartTurn(
 		return domain.Turn{}, fmt.Errorf("get provider for chat turn: %w", err)
 	}
 
-	live, hadLive, err := s.ensureLiveRuntime(ctx, conversationID, project, providerItem)
+	live, hadLive, err := s.ensureLiveRuntime(ctx, conversation, project, providerItem)
 	if err != nil {
 		return domain.Turn{}, err
 	}
 
-	systemPrompt, err := s.buildProjectConversationPrompt(ctx, conversation, project, !hadLive)
+	includeRecovery := !hadLive
+	if providerItem.AdapterType == catalogdomain.AgentProviderAdapterTypeCodexAppServer &&
+		strings.TrimSpace(stringPointerValue(conversation.ProviderThreadID)) != "" {
+		includeRecovery = false
+	}
+
+	systemPrompt, err := s.buildProjectConversationPrompt(ctx, conversation, project, includeRecovery)
 	if err != nil {
 		return domain.Turn{}, err
 	}
@@ -270,6 +299,8 @@ func (s *ProjectConversationService) StartTurn(
 		Message:                strings.TrimSpace(message),
 		SystemPrompt:           systemPrompt,
 		WorkingDirectory:       live.workspace,
+		ResumeProviderThreadID: strings.TrimSpace(stringPointerValue(conversation.ProviderThreadID)),
+		ResumeProviderTurnID:   strings.TrimSpace(stringPointerValue(conversation.LastTurnID)),
 		MaxTurns:               0,
 		MaxBudgetUSD:           0,
 		PersistentConversation: true,
@@ -359,19 +390,21 @@ func (s *ProjectConversationService) AppendActionExecutionResult(
 }
 
 func (s *ProjectConversationService) CloseRuntime(ctx context.Context, userID UserID, conversationID uuid.UUID) error {
-	if _, err := s.GetConversation(ctx, userID, conversationID); err != nil {
+	conversation, err := s.GetConversation(ctx, userID, conversationID)
+	if err != nil {
 		return err
 	}
 
 	s.liveMu.Lock()
 	live := s.live[conversationID]
 	delete(s.live, conversationID)
+	delete(s.liveByKey, projectConversationLiveConversationKey(conversation))
 	s.liveMu.Unlock()
 
 	if live != nil && live.runtime != nil {
 		live.runtime.CloseSession(SessionID(conversationID.String()))
 	}
-	_, err := s.repo.CloseConversationRuntime(ctx, conversationID)
+	_, err = s.repo.CloseConversationRuntime(ctx, conversationID)
 	return err
 }
 
@@ -510,16 +543,34 @@ func (s *ProjectConversationService) handleConversationMessage(
 
 func (s *ProjectConversationService) ensureLiveRuntime(
 	ctx context.Context,
-	conversationID uuid.UUID,
+	conversation domain.Conversation,
 	project catalogdomain.Project,
 	providerItem catalogdomain.AgentProvider,
 ) (*liveProjectConversation, bool, error) {
+	conversationID := conversation.ID
+	liveKey := projectConversationLiveConversationKey(conversation)
+
 	s.liveMu.Lock()
 	if existing := s.live[conversationID]; existing != nil {
 		s.liveMu.Unlock()
 		return existing, true, nil
 	}
+	previousConversationID := s.liveByKey[liveKey]
+	previousLive := s.live[previousConversationID]
+	if previousConversationID != uuid.Nil && previousConversationID != conversationID {
+		delete(s.live, previousConversationID)
+		delete(s.liveByKey, liveKey)
+	}
 	s.liveMu.Unlock()
+
+	if previousConversationID != uuid.Nil && previousConversationID != conversationID {
+		if previousLive != nil && previousLive.runtime != nil {
+			previousLive.runtime.CloseSession(SessionID(previousConversationID.String()))
+		}
+		if _, err := s.repo.CloseConversationRuntime(ctx, previousConversationID); err != nil {
+			return nil, false, err
+		}
+	}
 
 	machine, err := s.catalog.GetMachine(ctx, providerItem.MachineID)
 	if err != nil {
@@ -563,6 +614,7 @@ func (s *ProjectConversationService) ensureLiveRuntime(
 	}
 	s.liveMu.Lock()
 	s.live[conversationID] = live
+	s.liveByKey[liveKey] = conversationID
 	s.liveMu.Unlock()
 	return live, false, nil
 }

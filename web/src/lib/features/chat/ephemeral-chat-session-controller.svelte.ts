@@ -86,7 +86,6 @@ export function createEphemeralChatSessionController(
       finalizeAssistantTextChunk({ entries, activeAssistantEntryId, entryCounter }),
     )
   }
-
   function handleStreamEvent(event: ChatStreamEvent) {
     if (event.kind === 'session') {
       sessionId = event.payload.sessionId

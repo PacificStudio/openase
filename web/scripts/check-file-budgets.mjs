@@ -67,6 +67,8 @@ const budgetRules = [
         'Skill bundle draft helpers remain centralized until tree and path utilities are split out.',
       'src/lib/features/workflows/components/harness-ai-sidebar-streaming.test.ts':
         'Harness AI long-stream regression coverage stays in one integration-style test while SSE helpers remain inline.',
+      'src/lib/features/chat/project-conversation-controller.svelte.ts':
+        'Project conversation controller remains centralized while conversation restore and switch flows are still being integrated.',
       'src/lib/features/workflows/components/workflows-page.test.ts':
         'Workflow page interaction coverage remains bundled until test helper extraction lands.',
     },

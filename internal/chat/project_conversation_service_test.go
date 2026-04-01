@@ -295,6 +295,108 @@ func TestProjectConversationRespondInterruptRoutesExactRequestID(t *testing.T) {
 	}
 }
 
+func TestProjectConversationStartTurnClosesPreviousLiveRuntimeForSameUserProjectProvider(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repo := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+
+	firstConversation, err := repo.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create first conversation: %v", err)
+	}
+	secondConversation, err := repo.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create second conversation: %v", err)
+	}
+
+	workspaceRoot := t.TempDir()
+	providerItem := catalogdomain.AgentProvider{
+		ID:             providerID,
+		OrganizationID: org.ID,
+		MachineID:      machineID,
+		AdapterType:    catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+		CliCommand:     "gemini",
+	}
+	catalog := fakeProjectConversationCatalog{
+		fakeCatalogReader: fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             project.ID,
+				OrganizationID: org.ID,
+				Name:           "OpenASE",
+				Slug:           "openase",
+				Description:    "Issue-driven automation",
+			},
+			providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+				providerID: providerItem,
+			},
+		},
+		machine: catalogdomain.Machine{
+			ID:            machineID,
+			Name:          catalogdomain.LocalMachineName,
+			Host:          catalogdomain.LocalMachineHost,
+			WorkspaceRoot: stringPointer(workspaceRoot),
+		},
+	}
+	service := NewProjectConversationService(
+		nil,
+		repo,
+		catalog,
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		&fakeAgentCLIProcessManager{
+			process: &fakeAgentCLIProcess{
+				stdin:  &trackingWriteCloser{},
+				stdout: `{"response":"OK"}`,
+			},
+		},
+		nil,
+	)
+
+	previousRuntime := &fakeRuntime{closeResult: true}
+	liveKey := projectConversationLiveConversationKey(firstConversation)
+	service.live[firstConversation.ID] = &liveProjectConversation{runtime: previousRuntime}
+	service.liveByKey[liveKey] = firstConversation.ID
+
+	if _, err := service.StartTurn(ctx, UserID("user:conversation"), secondConversation.ID, "Switch to this conversation"); err != nil {
+		t.Fatalf("start second conversation turn: %v", err)
+	}
+
+	if len(previousRuntime.closeCalls) != 1 || previousRuntime.closeCalls[0] != SessionID(firstConversation.ID.String()) {
+		t.Fatalf("previous runtime close calls = %+v, want [%s]", previousRuntime.closeCalls, firstConversation.ID)
+	}
+
+	updatedFirst, err := repo.GetConversation(ctx, firstConversation.ID)
+	if err != nil {
+		t.Fatalf("get first conversation: %v", err)
+	}
+	if updatedFirst.Status != chatdomain.ConversationStatusClosed {
+		t.Fatalf("first conversation status = %q, want closed", updatedFirst.Status)
+	}
+
+	if got := service.liveByKey[liveKey]; got != secondConversation.ID {
+		t.Fatalf("live conversation for key = %s, want %s", got, secondConversation.ID)
+	}
+	if service.live[secondConversation.ID] == nil {
+		t.Fatal("expected second conversation live runtime to be registered")
+	}
+}
+
 type fakeProjectConversationCatalog struct {
 	fakeCatalogReader
 	machine    catalogdomain.Machine

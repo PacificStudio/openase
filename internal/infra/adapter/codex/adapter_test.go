@@ -234,6 +234,109 @@ func TestAdapterStartSendPromptAndRespondToolCall(t *testing.T) {
 	}
 }
 
+func TestAdapterStartCanAttachExistingThreadWithoutThreadStart(t *testing.T) {
+	process := newFakeProcess()
+	manager := &fakeProcessManager{process: process}
+	adapter, err := NewAdapter(AdapterOptions{ProcessManager: manager})
+	if err != nil {
+		t.Fatalf("NewAdapter returned error: %v", err)
+	}
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- runProtocolServer(process, func(decoder *json.Decoder, encoder *json.Encoder) error {
+			initialize, err := readMessage(decoder)
+			if err != nil {
+				return err
+			}
+			if initialize.Method != methodInitialize {
+				return errors.New("expected initialize request")
+			}
+			if err := encoder.Encode(jsonRPCMessage{
+				JSONRPC: jsonRPCVersion,
+				ID:      initialize.ID,
+				Result: mustMarshalJSON(wireInitializeResponse{
+					UserAgent:      "codex-cli/1.0.0",
+					PlatformFamily: "unix",
+					PlatformOS:     "linux",
+				}),
+			}); err != nil {
+				return err
+			}
+
+			initialized, err := readMessage(decoder)
+			if err != nil {
+				return err
+			}
+			if initialized.Method != methodInitialized {
+				return errors.New("expected initialized notification")
+			}
+
+			turnStart, err := readMessage(decoder)
+			if err != nil {
+				return err
+			}
+			if turnStart.Method != methodTurnStart {
+				return errors.New("expected turn/start request")
+			}
+
+			var turnParams wireTurnStartParams
+			if err := decodeParams(turnStart.Params, &turnParams); err != nil {
+				return err
+			}
+			if turnParams.ThreadID != "thread-existing" {
+				return errors.New("expected attached thread id")
+			}
+
+			return encoder.Encode(jsonRPCMessage{
+				JSONRPC: jsonRPCVersion,
+				ID:      turnStart.ID,
+				Result: mustMarshalJSON(wireTurnStartResponse{
+					Turn: wireTurn{ID: "turn-existing", Status: "inProgress"},
+				}),
+			})
+		})
+	}()
+
+	processSpec, err := provider.NewAgentCLIProcessSpec(
+		provider.MustParseAgentCLICommand("codex"),
+		[]string{"app-server", "--listen", "stdio://"},
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewAgentCLIProcessSpec returned error: %v", err)
+	}
+
+	session, err := adapter.Start(context.Background(), StartRequest{
+		Process: processSpec,
+		Thread: ThreadStartParams{
+			ResumeThreadID: "thread-existing",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+	if session.ThreadID() != "thread-existing" {
+		t.Fatalf("expected attached thread id, got %q", session.ThreadID())
+	}
+
+	turn, err := session.SendPrompt(context.Background(), "Continue this thread.")
+	if err != nil {
+		t.Fatalf("SendPrompt returned error: %v", err)
+	}
+	if turn.TurnID != "turn-existing" {
+		t.Fatalf("expected turn-existing, got %q", turn.TurnID)
+	}
+
+	if err := session.Stop(context.Background()); err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
+	if err := <-serverDone; err != nil {
+		t.Fatalf("fake server returned error: %v", err)
+	}
+}
+
 func TestAdapterRespondsMethodNotFoundForUnsupportedServerRequest(t *testing.T) {
 	process := newFakeProcess()
 	adapter, err := NewAdapter(AdapterOptions{ProcessManager: &fakeProcessManager{process: process}})

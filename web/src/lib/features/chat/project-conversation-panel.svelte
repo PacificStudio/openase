@@ -45,6 +45,7 @@
   const activeProviders = $derived(providers.length > 0 ? providers : loadedProviders)
   const chatProviders = $derived(controller.providers)
   const providerId = $derived(controller.providerId)
+  const conversations = $derived(controller.conversations)
   const entries = $derived(controller.entries)
   const pending = $derived(controller.pending)
   const phase = $derived(controller.phase)
@@ -123,6 +124,28 @@
     await controller.sendTurn(message)
   }
 
+  function formatConversationLabel(conversation: {
+    rollingSummary?: string
+    lastActivityAt?: string
+  }) {
+    const summary = (conversation.rollingSummary ?? '').trim()
+    if (summary) {
+      return summary.length > 48 ? `${summary.slice(0, 48)}…` : summary
+    }
+
+    const timestamp = new Date(conversation.lastActivityAt ?? '')
+    if (Number.isNaN(timestamp.getTime())) {
+      return 'Untitled conversation'
+    }
+
+    return `Conversation · ${timestamp.toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })}`
+  }
+
   function getStatusMessage(
     currentPhase: ProjectConversationPhase,
     hasPendingInterrupt: boolean,
@@ -173,6 +196,30 @@
       <RefreshCcw class="size-3.5" />
     </Button>
   </div>
+
+  {#if conversations.length > 0}
+    <div class="border-border border-b px-4 py-2">
+      <label
+        class="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-[0.16em] uppercase"
+        for="project-conversation-select"
+      >
+        Conversation
+      </label>
+      <select
+        id="project-conversation-select"
+        class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+        disabled={providerSelectionDisabled}
+        value={controller.conversationId}
+        onchange={(event) =>
+          void controller.selectConversation((event.currentTarget as HTMLSelectElement).value)}
+      >
+        <option value="">New conversation</option>
+        {#each conversations as conversation (conversation.id)}
+          <option value={conversation.id}>{formatConversationLabel(conversation)}</option>
+        {/each}
+      </select>
+    </div>
+  {/if}
 
   <ScrollArea class="min-h-0 flex-1 px-4 py-4">
     <ProjectConversationTranscript
