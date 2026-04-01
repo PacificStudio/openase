@@ -292,9 +292,5 @@ function workflowLabel(
 }
 
 function currentTicketLabel(ticketID: string | null | undefined) {
-  if (!ticketID) {
-    return ''
-  }
-
-  return `Ticket ${ticketID.slice(0, 8)}`
+  return ticketID ? `Ticket ${ticketID.slice(0, 8)}` : ''
 }

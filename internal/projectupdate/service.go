@@ -564,35 +564,6 @@ func (s *Service) getThread(ctx context.Context, projectID, threadID uuid.UUID) 
 	return item, nil
 }
 
-func (s *Service) getThreadAndComment(ctx context.Context, projectID, threadID, commentID uuid.UUID) (*entdb.ProjectUpdateThread, *entdb.ProjectUpdateComment, error) {
-	threadQuery := s.client.ProjectUpdateThread.Query().Where(
-		entprojectupdatethread.IDEQ(threadID),
-		entprojectupdatethread.ProjectIDEQ(projectID),
-	)
-	thread, err := threadQuery.Only(ctx)
-	if err != nil {
-		if entdb.IsNotFound(err) {
-			return nil, nil, ErrThreadNotFound
-		}
-		return nil, nil, fmt.Errorf("get project update thread for comment: %w", err)
-	}
-
-	comment, err := s.client.ProjectUpdateComment.Query().
-		Where(
-			entprojectupdatecomment.IDEQ(commentID),
-			entprojectupdatecomment.ThreadIDEQ(thread.ID),
-			entprojectupdatecomment.IsDeleted(false),
-		).
-		Only(ctx)
-	if err != nil {
-		if entdb.IsNotFound(err) {
-			return nil, nil, ErrCommentNotFound
-		}
-		return nil, nil, fmt.Errorf("get project update comment: %w", err)
-	}
-	return thread, comment, nil
-}
-
 func (s *Service) getThreadAndCommentTx(
 	ctx context.Context,
 	tx *entdb.Tx,
