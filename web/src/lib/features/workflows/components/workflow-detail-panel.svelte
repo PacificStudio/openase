@@ -1,5 +1,6 @@
+<!-- eslint-disable max-lines -->
 <script lang="ts">
-  import { cn, formatRelativeTime } from '$lib/utils'
+  import { cn } from '$lib/utils'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Separator } from '$ui/separator'
@@ -13,11 +14,20 @@
     type WorkflowLifecycleDraft,
     type WorkflowLifecyclePayload,
   } from '../workflow-lifecycle'
+  import {
+    createWorkflowHooksDraft,
+    parseWorkflowHooksDraft,
+    validateWorkflowHooksDraft,
+    workflowHooksDraftSignature,
+    type WorkflowHooksDraft,
+  } from '../workflow-hooks'
   import WorkflowAgentBindingCard from './workflow-agent-binding-card.svelte'
   import WorkflowAgentSelectOption from './workflow-agent-select-option.svelte'
   import WorkflowAgentSelectTrigger from './workflow-agent-select-trigger.svelte'
   import WorkflowDetailActions from './workflow-detail-actions.svelte'
   import WorkflowDetailHeader from './workflow-detail-header.svelte'
+  import WorkflowDetailHistorySection from './workflow-detail-history-section.svelte'
+  import WorkflowDetailHooksSection from './workflow-detail-hooks-section.svelte'
   import WorkflowNumberField from './workflow-number-field.svelte'
   import WorkflowStatusChipSelector from './workflow-status-chip-selector.svelte'
   let {
@@ -53,8 +63,11 @@
   })
   let draftKey = $state('')
   let formError = $state('')
+  let hookDraft = $state<WorkflowHooksDraft>(createWorkflowHooksDraft())
 
   const baseDraft = $derived(createWorkflowLifecycleDraft(workflow))
+  const baseHookDraft = $derived(createWorkflowHooksDraft(workflow.rawHooks ?? workflow.hooks))
+  const hookValidation = $derived(validateWorkflowHooksDraft(hookDraft))
   const isDirty = $derived(
     draft.agentId !== baseDraft.agentId ||
       draft.name !== baseDraft.name ||
@@ -64,7 +77,8 @@
       draft.maxRetryAttempts !== baseDraft.maxRetryAttempts ||
       draft.timeoutMinutes !== baseDraft.timeoutMinutes ||
       draft.stallTimeoutMinutes !== baseDraft.stallTimeoutMinutes ||
-      draft.isActive !== baseDraft.isActive,
+      draft.isActive !== baseDraft.isActive ||
+      workflowHooksDraftSignature(hookDraft) !== workflowHooksDraftSignature(baseHookDraft),
   )
   const selectedAgent = $derived(agentOptions.find((option) => option.id === draft.agentId) ?? null)
   const selectableStatuses = $derived(statuses)
@@ -82,11 +96,13 @@
       workflow.maxRetry,
       workflow.timeoutMinutes,
       workflow.stallTimeoutMinutes,
+      JSON.stringify(workflow.rawHooks ?? workflow.hooks ?? {}),
     ].join(':')
 
     if (nextKey === draftKey) return
 
     draft = createWorkflowLifecycleDraft(workflow)
+    hookDraft = createWorkflowHooksDraft(workflow.rawHooks ?? workflow.hooks)
     draftKey = nextKey
     formError = ''
   })
@@ -126,7 +142,16 @@
       return
     }
 
-    await onSave?.(parsed.value)
+    const parsedHooks = parseWorkflowHooksDraft(hookDraft)
+    if (!parsedHooks.ok) {
+      formError = parsedHooks.error
+      return
+    }
+
+    await onSave?.({
+      ...parsed.value,
+      hooks: parsedHooks.value,
+    })
   }
 
   async function handleDelete() {
@@ -149,36 +174,7 @@
 
   <Separator />
 
-  {#if workflow.history.length > 0}
-    <div class="bg-muted/20 space-y-2 px-4 py-3">
-      <div class="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
-        Control Plane
-      </div>
-      <div class="flex flex-wrap items-center gap-2 text-xs">
-        <span class="text-foreground rounded-full border px-2 py-0.5 font-medium">
-          Published v{workflow.version}
-        </span>
-        <span class="text-muted-foreground">{workflow.history.length} recorded version(s)</span>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        {#each workflow.history.slice(0, 4) as item (item.id)}
-          <div class="bg-background rounded-lg border px-2.5 py-1.5 text-xs">
-            <div class="text-foreground font-medium">
-              v{item.version}
-              {#if item.version === workflow.version}
-                <span class="text-muted-foreground">· current</span>
-              {/if}
-            </div>
-            <div class="text-muted-foreground mt-0.5">
-              {formatRelativeTime(item.createdAt)} by {item.createdBy}
-            </div>
-          </div>
-        {/each}
-      </div>
-    </div>
-
-    <Separator />
-  {/if}
+  <WorkflowDetailHistorySection {workflow} />
 
   <form class="flex flex-1 flex-col" onsubmit={handleSubmit}>
     <div class="flex-1 space-y-6 px-4 py-4">
@@ -285,6 +281,18 @@
           onToggle={toggleFinishStatus}
         />
       </div>
+
+      <Separator />
+
+      <WorkflowDetailHooksSection
+        draft={hookDraft}
+        validation={hookValidation}
+        disabled={saving || deleting}
+        onChange={(nextDraft) => {
+          hookDraft = nextDraft
+          formError = ''
+        }}
+      />
     </div>
 
     <WorkflowDetailActions
