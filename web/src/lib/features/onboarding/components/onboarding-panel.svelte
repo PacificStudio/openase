@@ -70,15 +70,7 @@
     ai_discovery: Sparkles,
   }
 
-  const selectedProviderId = $derived(
-    data
-      ? (appStore.currentProject?.default_agent_provider_id ??
-          data.provider.providers.find(
-            (p) => p.availability_state === 'available' || p.availability_state === 'ready',
-          )?.id ??
-          '')
-      : '',
-  )
+  const selectedProviderId = $derived(data ? data.provider.selectedProviderId : '')
 
   $effect(() => {
     void projectId
@@ -253,6 +245,9 @@
                     {projectId}
                     {orgId}
                     initialState={data.provider}
+                    onStateChange={(provider) => {
+                      data = { ...data!, provider }
+                    }}
                     onComplete={(providerId) => {
                       data = {
                         ...data!,

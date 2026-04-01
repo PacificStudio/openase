@@ -1,4 +1,5 @@
 import {
+  getProject,
   getSecuritySettings,
   listAgents,
   listProjectRepos,
@@ -15,6 +16,7 @@ export async function loadOnboardingData(
   orgId: string,
 ): Promise<OnboardingData> {
   const [
+    projectPayload,
     securityPayload,
     repoPayload,
     providerPayload,
@@ -23,6 +25,7 @@ export async function loadOnboardingData(
     ticketPayload,
     statusPayload,
   ] = await Promise.all([
+    getProject(projectId),
     getSecuritySettings(projectId).catch(() => null),
     listProjectRepos(projectId),
     listProviders(orgId),
@@ -62,7 +65,7 @@ export async function loadOnboardingData(
     },
     provider: {
       providers: providerPayload.providers,
-      selectedProviderId: '',
+      selectedProviderId: projectPayload.project.default_agent_provider_id ?? '',
     },
     agentWorkflow: {
       agents: agentPayload.agents,

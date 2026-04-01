@@ -44,10 +44,16 @@ export function isStepCompleted(step: OnboardingStepId, data: OnboardingData): b
       return data.github.hasToken && data.github.probeStatus === 'valid' && data.github.confirmed
     case 'repo':
       return data.repo.repos.length > 0
-    case 'provider':
-      return data.provider.providers.some(
-        (p) => p.availability_state === 'available' || p.availability_state === 'ready',
+    case 'provider': {
+      const selectedProvider = data.provider.providers.find(
+        (provider) => provider.id === data.provider.selectedProviderId,
       )
+      return Boolean(
+        selectedProvider &&
+        (selectedProvider.availability_state === 'available' ||
+          selectedProvider.availability_state === 'ready'),
+      )
+    }
     case 'agent_workflow':
       return data.agentWorkflow.agents.length > 0 && data.agentWorkflow.workflows.length > 0
     case 'first_ticket':
