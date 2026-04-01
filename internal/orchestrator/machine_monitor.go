@@ -10,10 +10,8 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
-	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
-	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -372,35 +370,11 @@ func (m *MachineMonitor) providerActivityProjectIDs(
 	organizationID uuid.UUID,
 	providerID uuid.UUID,
 ) ([]uuid.UUID, error) {
-	projectItems, err := m.client.Project.Query().
-		Where(entproject.OrganizationIDEQ(organizationID)).
-		All(ctx)
+	projectIDs, err := providerActivityProjectIDs(ctx, m.client, organizationID, providerID)
 	if err != nil {
 		return nil, fmt.Errorf("list projects for provider availability activity: %w", err)
 	}
-	projectIDs := make([]uuid.UUID, 0, len(projectItems))
-	for _, item := range projectItems {
-		if item.DefaultAgentProviderID != nil && *item.DefaultAgentProviderID == providerID {
-			projectIDs = append(projectIDs, item.ID)
-			continue
-		}
-		used, err := m.client.Agent.Query().
-			Where(
-				entagent.ProjectIDEQ(item.ID),
-				entagent.ProviderIDEQ(providerID),
-			).
-			Exist(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("list provider-bound agents for activity: %w", err)
-		}
-		if used {
-			projectIDs = append(projectIDs, item.ID)
-		}
-	}
-	slices.SortFunc(projectIDs, func(left uuid.UUID, right uuid.UUID) int {
-		return strings.Compare(left.String(), right.String())
-	})
-	return slices.Compact(projectIDs), nil
+	return projectIDs, nil
 }
 
 func (m *MachineMonitor) publishMachineEvent(
