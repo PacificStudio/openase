@@ -1,4 +1,5 @@
 import type { TicketStatusStage } from '$lib/features/statuses/public'
+import type { WorkflowHooksPayload } from './workflow-hooks'
 
 export type WorkflowType =
   | 'coding'
@@ -35,6 +36,8 @@ export type WorkflowSummary = {
   recentSuccessRate: number
   version: number
   history: WorkflowVersionSummary[]
+  hooks?: WorkflowHooksPayload
+  rawHooks?: Record<string, unknown>
 }
 
 export type WorkflowStatusOption = {
