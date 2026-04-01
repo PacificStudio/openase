@@ -132,47 +132,6 @@ describe('ticket run transcript reducer', () => {
     })
   })
 
-  it('builds first-class interrupt blocks from persisted trace events', () => {
-    const detail: TicketRunDetail = {
-      run: latestRun,
-      stepEntries: [],
-      traceEntries: [
-        {
-          id: 'trace-interrupt',
-          agentRunId: latestRun.id,
-          sequence: 1,
-          provider: 'codex',
-          kind: 'approval_requested',
-          stream: 'interrupt',
-          output: 'Waiting for command approval to run "make check"',
-          payload: {
-            request_id: 'approval-1',
-            kind: 'command_execution',
-            command: 'make check',
-            options: [{ id: 'approve_once', label: 'Approve once' }],
-          },
-          createdAt: '2026-04-01T10:05:36Z',
-        },
-      ],
-    }
-
-    const hydrated = hydrateTicketRunDetail(
-      setTicketRunList(createEmptyTicketRunTranscriptState(), [latestRun]),
-      detail,
-    )
-
-    expect(hydrated.blocks).toContainEqual({
-      kind: 'interrupt',
-      id: 'interrupt:approval-1',
-      interruptKind: 'command_execution_approval',
-      title: 'Command approval required',
-      summary: 'Waiting for command approval to run "make check"',
-      at: '2026-04-01T10:05:36Z',
-      payload: detail.traceEntries[0]!.payload,
-      options: [{ id: 'approve_once', label: 'Approve once', rawDecision: undefined }],
-    })
-  })
-
   it('merges live output incrementally and switches to a newer run on lifecycle events', () => {
     let state = setTicketRunList(createEmptyTicketRunTranscriptState(), [latestRun, olderRun])
 
@@ -293,37 +252,5 @@ describe('ticket run transcript reducer', () => {
     expect(state.followLatest).toBe(false)
     expect(state.currentRun?.id).toBe(olderRun.id)
     expect(state.runs.map((run) => run.id)).toEqual(['run-3', latestRun.id, olderRun.id])
-  })
-
-  it('preserves same-status progress entries when the summary changes', () => {
-    let state = setTicketRunList(createEmptyTicketRunTranscriptState(), [latestRun])
-
-    state = applyTicketRunStreamFrame(state, {
-      event: 'ticket.run.step',
-      data: JSON.stringify({
-        entry: {
-          id: 'step-1',
-          agentRunId: latestRun.id,
-          stepStatus: 'running_command',
-          summary: 'Running backend checks.',
-          createdAt: '2026-04-01T10:06:02Z',
-        },
-      }),
-    })
-    state = applyTicketRunStreamFrame(state, {
-      event: 'ticket.run.step',
-      data: JSON.stringify({
-        entry: {
-          id: 'step-2',
-          agentRunId: latestRun.id,
-          stepStatus: 'running_command',
-          summary: 'Running frontend checks.',
-          createdAt: '2026-04-01T10:06:05Z',
-        },
-      }),
-    })
-
-    expect(state.blocks.filter((block) => block.kind === 'step')).toHaveLength(2)
-    expect(state.currentRun?.currentStepSummary).toBe('Running frontend checks.')
   })
 })

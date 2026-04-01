@@ -10,11 +10,16 @@ import {
 } from './drawer-run-transcript'
 import {
   applyTicketRunStreamFrame,
-  createEmptyTicketRunTranscriptState,
   hydrateTicketRunDetail,
   selectTicketRun,
 } from './run-transcript'
 import { mapTicketRunDetail } from './run-transcript-data'
+import {
+  applyTicketDrawerContext,
+  applyTicketDrawerRunTranscriptState,
+  applyTicketDrawerTimelineRefresh,
+  readTicketDrawerRunTranscriptState,
+} from './drawer-state-mutators'
 import type {
   HookExecution,
   TicketDetail,
@@ -26,10 +31,7 @@ import type {
   TicketTimelineItem,
 } from './types'
 
-type LoadOptions = {
-  background?: boolean
-  preserveMessages?: boolean
-}
+type LoadOptions = { background?: boolean; preserveMessages?: boolean }
 
 type TicketDrawerStateDeps = {
   fetchContext: typeof fetchTicketDetailContext
@@ -41,10 +43,7 @@ const defaultDeps: TicketDrawerStateDeps = {
 }
 
 export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {}) {
-  const resolvedDeps = {
-    ...defaultDeps,
-    ...deps,
-  }
+  const resolvedDeps = { ...defaultDeps, ...deps }
 
   const state = $state({
     loading: false,
@@ -83,45 +82,6 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
   let timelineRefreshQueued = false
   let timelineRefreshLoop: Promise<void> | null = null
 
-  function applyFullContext(detailContext: Awaited<ReturnType<typeof fetchTicketDetailContext>>) {
-    state.ticket = detailContext.ticket
-    state.timeline = detailContext.timeline
-    state.hooks = detailContext.hooks
-    state.statuses = detailContext.statuses
-    state.dependencyCandidates = detailContext.dependencyCandidates
-    state.repoOptions = detailContext.repoOptions
-  }
-
-  function applyTimelineRefresh(
-    detailContext: Awaited<ReturnType<typeof fetchTicketDetailContext>>,
-  ) {
-    state.ticket = detailContext.ticket
-    state.timeline = detailContext.timeline
-    state.hooks = detailContext.hooks
-  }
-
-  function applyRunTranscriptState(
-    nextState: ReturnType<typeof createEmptyTicketRunTranscriptState>,
-  ) {
-    state.runs = nextState.runs
-    state.selectedRunId = nextState.selectedRunId
-    state.followLatest = nextState.followLatest
-    state.currentRun = nextState.currentRun
-    state.runBlocks = nextState.blocks
-    state.runBlockCache = nextState.blockCache
-  }
-
-  function getRunTranscriptState() {
-    return {
-      runs: state.runs,
-      selectedRunId: state.selectedRunId,
-      followLatest: state.followLatest,
-      currentRun: state.currentRun,
-      blocks: state.runBlocks,
-      blockCache: state.runBlockCache,
-    }
-  }
-
   async function runTimelineRefresh(projectId: string, ticketId: string) {
     if (state.loading || !state.ticket) {
       return
@@ -140,7 +100,7 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
           if (requestId !== loadRequestId || !state.ticket) {
             continue
           }
-          applyTimelineRefresh(detailContext)
+          applyTicketDrawerTimelineRefresh(state, detailContext)
         } catch (caughtError) {
           if (requestId !== loadRequestId || !state.ticket) {
             continue
@@ -181,10 +141,13 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
         const detailContext = await resolvedDeps.fetchContext(projectId, ticketId)
         if (requestId !== loadRequestId) return
 
-        applyFullContext(detailContext)
+        applyTicketDrawerContext(state, detailContext)
         await loadTicketDrawerRunTranscript(
           resolvedDeps,
-          { getState: getRunTranscriptState, setState: applyRunTranscriptState },
+          {
+            getState: () => readTicketDrawerRunTranscriptState(state),
+            setState: (nextState) => applyTicketDrawerRunTranscriptState(state, nextState),
+          },
           projectId,
           ticketId,
           requestId,
@@ -219,8 +182,8 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
       state.runStreamState = nextState
     },
     applyRunStreamFrame(frame: Pick<SSEFrame, 'event' | 'data'>) {
-      const nextState = applyTicketRunStreamFrame(getRunTranscriptState(), frame)
-      applyRunTranscriptState(nextState)
+      const nextState = applyTicketRunStreamFrame(readTicketDrawerRunTranscriptState(state), frame)
+      applyTicketDrawerRunTranscriptState(state, nextState)
     },
     async recoverRunTranscript(projectId: string, ticketId: string) {
       if (state.loading || !state.ticket) {
@@ -233,7 +196,10 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
       try {
         await recoverTicketDrawerRunTranscript(
           resolvedDeps,
-          { getState: getRunTranscriptState, setState: applyRunTranscriptState },
+          {
+            getState: () => readTicketDrawerRunTranscriptState(state),
+            setState: (nextState) => applyTicketDrawerRunTranscriptState(state, nextState),
+          },
           projectId,
           ticketId,
           requestId,
@@ -258,8 +224,8 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
       }
     },
     async selectRun(projectId: string, ticketId: string, runId: string) {
-      const optimisticState = selectTicketRun(getRunTranscriptState(), runId)
-      applyRunTranscriptState(optimisticState)
+      const optimisticState = selectTicketRun(readTicketDrawerRunTranscriptState(state), runId)
+      applyTicketDrawerRunTranscriptState(state, optimisticState)
 
       if (optimisticState.currentRun?.id !== runId) {
         return
@@ -274,7 +240,10 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
           return
         }
 
-        applyRunTranscriptState(hydrateTicketRunDetail(getRunTranscriptState(), detail))
+        applyTicketDrawerRunTranscriptState(
+          state,
+          hydrateTicketRunDetail(readTicketDrawerRunTranscriptState(state), detail),
+        )
       } catch (caughtError) {
         if (requestId !== runDetailRequestId) {
           return
