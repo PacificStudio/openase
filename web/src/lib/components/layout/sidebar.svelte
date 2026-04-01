@@ -92,11 +92,11 @@
             onpointerenter={() => warmRoute(item.href)}
           >
             <Icon class="size-4 shrink-0" />
-            <span class="truncate">{item.label}</span>
+            <span class="truncate transition-opacity duration-200">{item.label}</span>
             {#if item.badge}
               <Badge
                 variant="secondary"
-                class="ml-auto h-5 min-w-5 justify-center px-1 text-[10px]"
+                class="ml-auto h-5 min-w-5 justify-center px-1 text-[10px] transition-opacity duration-200"
               >
                 {item.badge}
               </Badge>

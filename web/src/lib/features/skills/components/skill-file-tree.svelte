@@ -124,6 +124,7 @@
   }
 
   function handleInlineKeydown(event: KeyboardEvent) {
+    if (event.isComposing) return
     if (event.key === 'Enter') {
       event.preventDefault()
       if (renamingPath) commitRename()

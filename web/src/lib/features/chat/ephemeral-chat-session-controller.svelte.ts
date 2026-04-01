@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { ApiError } from '$lib/api/client'
 import {
   closeChatSession,
@@ -35,6 +36,9 @@ type EphemeralChatContext = {
   workflowId?: string
   ticketId?: string
   harnessDraft?: string
+  skillId?: string
+  skillFilePath?: string
+  skillFileDraft?: string
 }
 
 type CreateEphemeralChatSessionControllerInput = {
@@ -128,8 +132,13 @@ export function createEphemeralChatSessionController(
     activeAssistantEntryId = ''
     pending = false
     sessionId = ''
-    if (options.clearEntries) entries = []
-    if (!activeSessionId) return
+    if (options.clearEntries) {
+      entries = []
+    }
+
+    if (!activeSessionId) {
+      return
+    }
     try {
       await closeChatSession(activeSessionId)
     } catch (caughtError) {
@@ -152,7 +161,6 @@ export function createEphemeralChatSessionController(
       if (!isActionProposalEntry(entry) || entry.id !== entryId) {
         return entry
       }
-
       return {
         ...entry,
         status: nextState.status,
@@ -184,7 +192,9 @@ export function createEphemeralChatSessionController(
     },
     syncProviders(nextProviders: AgentProvider[], defaultProviderId: string | null | undefined) {
       providers = listEphemeralChatProviders(nextProviders)
-      if (shouldKeepEphemeralChatProvider(providers, providerId)) return
+      if (shouldKeepEphemeralChatProvider(providers, providerId)) {
+        return
+      }
       const nextProviderId = pickDefaultEphemeralChatProvider(providers, defaultProviderId)
       if (providerId && providerId !== nextProviderId)
         void closeActiveSession({ clearEntries: true, suppressError: true })
@@ -233,7 +243,21 @@ export function createEphemeralChatSessionController(
       } catch (caughtError) {
         if (activeRequestId === requestId && !isAbortError(caughtError)) {
           finalizeActiveAssistantText()
-          input.onError?.(describeTurnFailure(caughtError, { streamStarted, partialReplyReceived }))
+          const errorMessage = describeTurnFailure(caughtError, {
+            streamStarted,
+            partialReplyReceived,
+          })
+          console.error('Ephemeral chat turn failed', {
+            source: input.getSource(),
+            providerId,
+            sessionId,
+            context: inputContext.context,
+            streamStarted,
+            partialReplyReceived,
+            error: caughtError,
+            errorMessage,
+          })
+          input.onError?.(errorMessage)
         }
       } finally {
         if (activeRequestId === requestId && abortController === controller) {
@@ -273,7 +297,9 @@ export function createEphemeralChatSessionController(
       appendEntry('system', 'Cancelled the proposed platform actions.')
     },
     async selectProvider(nextProviderId: string) {
-      if (nextProviderId === providerId) return
+      if (nextProviderId === providerId) {
+        return
+      }
       providerId = nextProviderId
       await closeActiveSession({ clearEntries: true })
     },

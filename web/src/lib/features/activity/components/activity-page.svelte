@@ -178,7 +178,7 @@
     {:else if filtered.length > 0}
       <ActivityTimeline entries={filtered} />
     {:else}
-      <div class="flex flex-col items-center justify-center py-20">
+      <div class="animate-fade-in-up flex flex-col items-center justify-center py-20">
         <div class="bg-muted/60 mb-4 flex size-12 items-center justify-center rounded-full">
           <Activity class="text-muted-foreground size-5" />
         </div>

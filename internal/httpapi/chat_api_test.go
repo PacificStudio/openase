@@ -697,6 +697,10 @@ func (chatWorkflowStub) List(context.Context, uuid.UUID) ([]workflowservice.Work
 	return nil, nil
 }
 
+func (chatWorkflowStub) GetSkill(context.Context, uuid.UUID) (workflowservice.SkillDetail, error) {
+	return workflowservice.SkillDetail{}, errors.New("not implemented")
+}
+
 func (f *fakeClaudeAdapter) Start(_ context.Context, spec provider.ClaudeCodeSessionSpec) (provider.ClaudeCodeSession, error) {
 	f.lastSpec = spec
 	return f.session, nil
@@ -754,6 +758,10 @@ func (staticWorkflowReader) Get(context.Context, uuid.UUID) (workflowservice.Wor
 
 func (staticWorkflowReader) List(context.Context, uuid.UUID) ([]workflowservice.Workflow, error) {
 	return nil, nil
+}
+
+func (staticWorkflowReader) GetSkill(context.Context, uuid.UUID) (workflowservice.SkillDetail, error) {
+	return workflowservice.SkillDetail{}, workflowservice.ErrSkillNotFound
 }
 
 func mustMarshalJSON(t *testing.T, value any) []byte {

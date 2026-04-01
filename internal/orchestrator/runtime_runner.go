@@ -120,6 +120,9 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, runID uuid.UUID
 	lastError := ""
 	var lastState runtimeExecutionState
 	for turnNumber := 1; turnNumber <= defaultRuntimeMaxTurns; turnNumber++ {
+		if l.loadSession(runID) != session {
+			return
+		}
 		state, prompt, err := l.loadExecutionState(ctx, runID, turnNumber, lastError)
 		if err != nil {
 			l.logger.Error("load execution state", "run_id", runID, "error", err)
@@ -135,6 +138,10 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, runID uuid.UUID
 
 		turn, err := session.SendPrompt(ctx, prompt)
 		if err != nil {
+			reloadedTicket, reloadErr := l.reloadExecutionTicket(ctx, state.ticket.ID)
+			if reloadErr == nil && classifyRuntimeTicket(reloadedTicket, state.run.ID, state.run.WorkflowID) != runtimeTicketActive {
+				return
+			}
 			l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, state.ticket.ID, err)
 			return
 		}
@@ -165,6 +172,9 @@ func (l *RuntimeLauncher) runReadyExecution(ctx context.Context, runID uuid.UUID
 				return
 			}
 			l.handleExecutionFailure(ctx, state.run.ID, state.agent.ID, state.ticket.ID, err)
+			return
+		}
+		if l.loadSession(runID) != session {
 			return
 		}
 		if err := l.tickets.RunLifecycleHook(ctx, ticketservice.RunLifecycleHookInput{
@@ -808,6 +818,7 @@ func (l *RuntimeLauncher) releaseExecutionOwnership(ctx context.Context, runID u
 		runtimeEventMetadataForState(reloaded),
 		l.now().UTC(),
 	)
+	l.cleanupRunWorkspacesBestEffort(ctx, runID, "execution release")
 	return nil
 }
 
@@ -886,6 +897,7 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, runID uui
 		runtimeEventMetadataForState(agentItem),
 		now,
 	)
+	l.cleanupRunWorkspacesBestEffort(ctx, runID, "execution finished")
 	return nil
 }
 
@@ -947,6 +959,7 @@ func (l *RuntimeLauncher) handleExecutionFailure(ctx context.Context, runID uuid
 	if _, err := retrySvc.MarkAttemptFailed(ctx, ticketID); err != nil {
 		l.logger.Error("mark execution failed retry", "ticket_id", ticketID, "agent_id", agentID, "error", err)
 	}
+	l.cleanupRunWorkspacesBestEffort(ctx, runID, "execution failed")
 }
 
 func (l *RuntimeLauncher) scheduleContinuation(ctx context.Context, runID uuid.UUID, agentID uuid.UUID, ticketID uuid.UUID) error {

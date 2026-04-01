@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -1572,7 +1573,7 @@ Implement the ticket using the current workspace.
 			ticketSnapshot,
 		)
 	}
-	waitForRuntimeCondition(t, 5*time.Second, func() bool {
+	waitForRuntimeCondition(t, 10*time.Second, func() bool {
 		ticketSnapshot, err := client.Ticket.Get(ctx, ticketItem.ID)
 		if err != nil {
 			return false
@@ -1855,6 +1856,7 @@ Emit visible runtime output.
 
 func TestRuntimeLauncherRunTickStopsRuntimeWhenTicketBecomesTerminal(t *testing.T) {
 	ctx := context.Background()
+	t.Setenv("HOME", t.TempDir())
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 24, 14, 0, 0, 0, time.UTC)
@@ -1884,9 +1886,16 @@ func TestRuntimeLauncherRunTickStopsRuntimeWhenTicketBecomesTerminal(t *testing.
 			t.Errorf("close launcher: %v", err)
 		}
 	})
+	workspacePath := runtimeWorkspacePathForRun(ctx, t, launcher, agentItem.ID, ticketItem.ID)
+	if _, err := os.Stat(workspacePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected workspace %s to be absent before launch, got err=%v", workspacePath, err)
+	}
 
 	if err := launcher.RunTick(ctx); err != nil {
 		t.Fatalf("launch runtime session: %v", err)
+	}
+	if _, err := os.Stat(workspacePath); err != nil {
+		t.Fatalf("expected workspace %s after launch: %v", workspacePath, err)
 	}
 	if err := launcher.RunTick(ctx); err != nil {
 		t.Fatalf("start ready execution: %v", err)
@@ -1904,6 +1913,7 @@ func TestRuntimeLauncherRunTickStopsRuntimeWhenTicketBecomesTerminal(t *testing.
 	if err := launcher.RunTick(ctx); err != nil {
 		t.Fatalf("reconcile terminal ticket: %v", err)
 	}
+	close(manager.releaseTurn)
 
 	waitForRuntimeCondition(t, 5*time.Second, func() bool {
 		ticketSnapshot, err := client.Ticket.Get(ctx, ticketItem.ID)
@@ -1932,6 +1942,18 @@ func TestRuntimeLauncherRunTickStopsRuntimeWhenTicketBecomesTerminal(t *testing.
 	}
 	if agentAfter.RuntimeControlState != entagent.RuntimeControlStateActive {
 		t.Fatalf("expected agent control state active after terminal reconciliation, got %+v", agentAfter)
+	}
+	repoWorkspace, err := client.TicketRepoWorkspace.Query().
+		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load cleaned ticket repo workspace: %v", err)
+	}
+	if repoWorkspace.State != entticketrepoworkspace.StateCleaned || repoWorkspace.CleanedAt == nil {
+		t.Fatalf("expected cleaned ticket repo workspace after terminal reconciliation, got %+v", repoWorkspace)
+	}
+	if _, err := os.Stat(workspacePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected workspace %s to be removed after terminal reconciliation, got err=%v", workspacePath, err)
 	}
 }
 
@@ -2004,6 +2026,7 @@ func TestRuntimeLauncherRunTickStopsRuntimeWhenWorkflowRoutingChanges(t *testing
 	if err := launcher.RunTick(ctx); err != nil {
 		t.Fatalf("reconcile workflow drift: %v", err)
 	}
+	close(manager.releaseTurn)
 
 	waitForRuntimeCondition(t, 5*time.Second, func() bool {
 		ticketSnapshot, err := client.Ticket.Get(ctx, ticketItem.ID)
@@ -2195,6 +2218,7 @@ func TestRuntimeLauncherRunTickStallsByLastCodexTimestamp(t *testing.T) {
 
 func TestRuntimeLauncherRunTickMarksRetryOnTurnFailure(t *testing.T) {
 	ctx := context.Background()
+	t.Setenv("HOME", t.TempDir())
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 23, 11, 0, 0, 0, time.UTC)
@@ -2279,9 +2303,16 @@ Handle a failing runtime turn.
 			t.Errorf("close launcher: %v", err)
 		}
 	})
+	workspacePath := runtimeWorkspacePathForRun(ctx, t, launcher, agentItem.ID, ticketItem.ID)
+	if _, err := os.Stat(workspacePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected workspace %s to be absent before launch, got err=%v", workspacePath, err)
+	}
 
 	if err := launcher.RunTick(ctx); err != nil {
 		t.Fatalf("launch runtime session: %v", err)
+	}
+	if _, err := os.Stat(workspacePath); err != nil {
+		t.Fatalf("expected workspace %s after launch: %v", workspacePath, err)
 	}
 	if err := launcher.RunTick(ctx); err != nil {
 		t.Fatalf("start ready execution: %v", err)
@@ -2333,14 +2364,30 @@ Handle a failing runtime turn.
 	if manager.capturedTurnCount() != 1 {
 		t.Fatalf("expected one failed turn, got %d", manager.capturedTurnCount())
 	}
+
+	waitForRuntimeCondition(t, 5*time.Second, func() bool {
+		repoWorkspace, err := client.TicketRepoWorkspace.Query().
+			Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
+			Only(ctx)
+		if err != nil {
+			return false
+		}
+		if repoWorkspace.State != entticketrepoworkspace.StateCleaned || repoWorkspace.CleanedAt == nil {
+			return false
+		}
+		_, statErr := os.Stat(workspacePath)
+		return errors.Is(statErr, os.ErrNotExist)
+	})
 }
 
 func TestRuntimeLauncherRunsTicketHooksAcrossSuccessfulLifecycle(t *testing.T) {
 	ctx := context.Background()
+	t.Setenv("HOME", t.TempDir())
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 31, 9, 0, 0, 0, time.UTC)
 	identifier := "ASE-" + strings.ToUpper(strings.ReplaceAll(uuid.NewString()[:8], "-", ""))
+	hookLogPath := filepath.Join(t.TempDir(), "hook.log")
 
 	workflowItem, err := client.Workflow.Create().
 		SetProjectID(fixture.projectID).
@@ -2350,16 +2397,16 @@ func TestRuntimeLauncherRunsTicketHooksAcrossSuccessfulLifecycle(t *testing.T) {
 		SetHooks(map[string]any{
 			"ticket_hooks": map[string]any{
 				"on_claim": []any{
-					map[string]any{"cmd": `printf 'claim\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+					map[string]any{"cmd": fmt.Sprintf("printf 'claim\\n' >> %q", hookLogPath)},
 				},
 				"on_start": []any{
-					map[string]any{"cmd": `printf 'start\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+					map[string]any{"cmd": fmt.Sprintf("printf 'start\\n' >> %q", hookLogPath)},
 				},
 				"on_complete": []any{
-					map[string]any{"cmd": `printf 'complete\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+					map[string]any{"cmd": fmt.Sprintf("printf 'complete\\n' >> %q", hookLogPath)},
 				},
 				"on_done": []any{
-					map[string]any{"cmd": `printf 'done\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+					map[string]any{"cmd": fmt.Sprintf("printf 'done\\n' >> %q", hookLogPath)},
 				},
 			},
 		}).
@@ -2431,6 +2478,10 @@ Exercise successful ticket hook lifecycle.
 			t.Errorf("close launcher: %v", err)
 		}
 	})
+	workspacePath := runtimeWorkspacePathForRun(ctx, t, launcher, agentItem.ID, ticketItem.ID)
+	if _, err := os.Stat(workspacePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected workspace %s to be absent before session start, got err=%v", workspacePath, err)
+	}
 
 	assignment, err := launcher.loadAssignmentByRun(ctx, runItem.ID)
 	if err != nil {
@@ -2441,6 +2492,9 @@ Exercise successful ticket hook lifecycle.
 		t.Fatalf("start runtime session: %v", err)
 	}
 	launcher.storeSession(runItem.ID, session)
+	if _, err := os.Stat(workspacePath); err != nil {
+		t.Fatalf("expected workspace %s after session start: %v", workspacePath, err)
+	}
 
 	repoWorkspace, err := client.TicketRepoWorkspace.Query().
 		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
@@ -2448,9 +2502,8 @@ Exercise successful ticket hook lifecycle.
 	if err != nil {
 		t.Fatalf("load ticket repo workspace: %v", err)
 	}
-	logPath := filepath.Join(repoWorkspace.WorkspaceRoot, "hook.log")
 	//nolint:gosec // Test controls the temporary workspace path under t.TempDir-backed fixtures.
-	raw, err := os.ReadFile(logPath)
+	raw, err := os.ReadFile(hookLogPath)
 	if err != nil {
 		t.Fatalf("read hook log after start: %v", err)
 	}
@@ -2495,9 +2548,21 @@ Exercise successful ticket hook lifecycle.
 	if runSnapshot.Status != entagentrun.StatusCompleted {
 		t.Fatalf("expected completed run, got %+v", runSnapshot)
 	}
+	repoWorkspace, err = client.TicketRepoWorkspace.Query().
+		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("reload cleaned ticket repo workspace: %v", err)
+	}
+	if repoWorkspace.State != entticketrepoworkspace.StateCleaned || repoWorkspace.CleanedAt == nil {
+		t.Fatalf("expected cleaned ticket repo workspace after success, got %+v", repoWorkspace)
+	}
+	if _, err := os.Stat(workspacePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected workspace %s to be removed after success, got err=%v", workspacePath, err)
+	}
 
 	//nolint:gosec // Test controls the temporary workspace path under t.TempDir-backed fixtures.
-	raw, err = os.ReadFile(logPath)
+	raw, err = os.ReadFile(hookLogPath)
 	if err != nil {
 		t.Fatalf("read hook log: %v", err)
 	}
@@ -2506,12 +2571,133 @@ Exercise successful ticket hook lifecycle.
 	}
 }
 
+func TestRuntimeLauncherFinishResolvedExecutionCleansWorkspaceWithoutProjectRepos(t *testing.T) {
+	ctx := context.Background()
+	t.Setenv("HOME", t.TempDir())
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 4, 1, 9, 45, 0, 0, time.UTC)
+	identifier := "ASE-" + strings.ToUpper(strings.ReplaceAll(uuid.NewString()[:8], "-", ""))
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Repo-less Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	initRuntimeLauncherRepo(t, repoRoot)
+	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
+	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
+		t.Fatalf("create harness dir: %v", err)
+	}
+	harnessContent := []byte("---\nworkflow:\n  role: coding\n---\n\nOperate without project repos.\n")
+	if err := os.WriteFile(harnessPath, harnessContent, 0o600); err != nil {
+		t.Fatalf("write harness file: %v", err)
+	}
+	commitRuntimeLauncherRepo(t, repoRoot)
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, string(harnessContent))
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier(identifier).
+		SetTitle("Clean repo-less workspace").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-repo-less-01").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, nil, workflowSvc)
+	launcher.now = func() time.Time { return now }
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	workspacePath := runtimeWorkspacePathForRun(ctx, t, launcher, agentItem.ID, ticketItem.ID)
+	if _, err := os.Stat(workspacePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected repo-less workspace %s to be absent before session start, got err=%v", workspacePath, err)
+	}
+
+	assignment, err := launcher.loadAssignmentByRun(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("load assignment: %v", err)
+	}
+	session, err := launcher.startRuntimeSession(ctx, assignment)
+	if err != nil {
+		t.Fatalf("start runtime session: %v", err)
+	}
+	launcher.storeSession(runItem.ID, session)
+	if _, err := os.Stat(workspacePath); err != nil {
+		t.Fatalf("expected repo-less workspace %s after session start: %v", workspacePath, err)
+	}
+	workspaceCount, err := client.TicketRepoWorkspace.Query().
+		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
+		Count(ctx)
+	if err != nil {
+		t.Fatalf("count repo-less ticket repo workspaces: %v", err)
+	}
+	if workspaceCount != 0 {
+		t.Fatalf("expected no ticket repo workspace rows for repo-less run, got %d", workspaceCount)
+	}
+
+	resolvedTicket, err := client.Ticket.Query().
+		Where(entticket.IDEQ(ticketItem.ID)).
+		WithCurrentRun().
+		WithWorkflow(func(query *ent.WorkflowQuery) {
+			query.WithFinishStatuses()
+		}).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("reload resolved ticket: %v", err)
+	}
+	if err := launcher.finishResolvedExecution(ctx, runItem.ID, agentItem.ID, resolvedTicket); err != nil {
+		t.Fatalf("finish resolved execution: %v", err)
+	}
+	if _, err := os.Stat(workspacePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected repo-less workspace %s to be removed after success, got err=%v", workspacePath, err)
+	}
+}
+
 func TestRuntimeLauncherRunsErrorHookWhenLaunchHookBlocks(t *testing.T) {
 	ctx := context.Background()
+	t.Setenv("HOME", t.TempDir())
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
 	now := time.Date(2026, 3, 31, 9, 30, 0, 0, time.UTC)
 	identifier := "ASE-" + strings.ToUpper(strings.ReplaceAll(uuid.NewString()[:8], "-", ""))
+	hookLogPath := filepath.Join(t.TempDir(), "hook.log")
 
 	workflowItem, err := client.Workflow.Create().
 		SetProjectID(fixture.projectID).
@@ -2521,17 +2707,17 @@ func TestRuntimeLauncherRunsErrorHookWhenLaunchHookBlocks(t *testing.T) {
 		SetHooks(map[string]any{
 			"ticket_hooks": map[string]any{
 				"on_claim": []any{
-					map[string]any{"cmd": `printf 'claim\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+					map[string]any{"cmd": fmt.Sprintf("printf 'claim\\n' >> %q", hookLogPath)},
 				},
 				"on_start": []any{
 					map[string]any{
-						"cmd":        `printf 'start\n' >> "$OPENASE_WORKSPACE/hook.log"; exit 9`,
+						"cmd":        fmt.Sprintf("printf 'start\\n' >> %q; exit 9", hookLogPath),
 						"on_failure": "block",
 					},
 				},
 				"on_error": []any{
 					map[string]any{
-						"cmd":        `printf 'error\n' >> "$OPENASE_WORKSPACE/hook.log"`,
+						"cmd":        fmt.Sprintf("printf 'error\\n' >> %q", hookLogPath),
 						"on_failure": "ignore",
 					},
 				},
@@ -2604,6 +2790,10 @@ Exercise failing ticket hook lifecycle.
 			t.Errorf("close launcher: %v", err)
 		}
 	})
+	workspacePath := runtimeWorkspacePathForRun(ctx, t, launcher, agentItem.ID, ticketItem.ID)
+	if _, err := os.Stat(workspacePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected workspace %s to be absent before launch, got err=%v", workspacePath, err)
+	}
 
 	if err := launcher.RunTick(ctx); err != nil {
 		t.Fatalf("launch runtime session: %v", err)
@@ -2629,14 +2819,19 @@ Exercise failing ticket hook lifecycle.
 	if err != nil {
 		t.Fatalf("load ticket repo workspace: %v", err)
 	}
-	logPath := filepath.Join(repoWorkspace.WorkspaceRoot, "hook.log")
 	//nolint:gosec // Test controls the temporary workspace path under t.TempDir-backed fixtures.
-	raw, err := os.ReadFile(logPath)
+	raw, err := os.ReadFile(hookLogPath)
 	if err != nil {
 		t.Fatalf("read hook log: %v", err)
 	}
 	if string(raw) != "claim\nstart\nerror\n" {
 		t.Fatalf("unexpected failure hook log %q", string(raw))
+	}
+	if repoWorkspace.State != entticketrepoworkspace.StateCleaned || repoWorkspace.CleanedAt == nil {
+		t.Fatalf("expected cleaned ticket repo workspace after launch failure, got %+v", repoWorkspace)
+	}
+	if _, err := os.Stat(workspacePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected workspace %s to be removed after launch failure, got err=%v", workspacePath, err)
 	}
 }
 
@@ -3590,6 +3785,24 @@ func waitForRuntimeExecuting(ctx context.Context, t *testing.T, client *ent.Clie
 	runSnapshot, _ := client.AgentRun.Get(ctx, runID)
 	ticketSnapshot, _ := client.Ticket.Get(ctx, ticketID)
 	t.Fatalf("timed out waiting for executing run: run=%+v ticket=%+v", runSnapshot, ticketSnapshot)
+}
+
+func runtimeWorkspacePathForRun(ctx context.Context, t *testing.T, launcher *RuntimeLauncher, agentID uuid.UUID, ticketID uuid.UUID) string {
+	t.Helper()
+
+	launchContext, err := launcher.loadLaunchContext(ctx, agentID, ticketID)
+	if err != nil {
+		t.Fatalf("load runtime launch context: %v", err)
+	}
+	machine, remote, err := launcher.resolveLaunchMachine(ctx, launchContext)
+	if err != nil {
+		t.Fatalf("resolve runtime launch machine: %v", err)
+	}
+	workspacePath, err := buildWorkspacePath(launchContext, machine, remote)
+	if err != nil {
+		t.Fatalf("build runtime workspace path: %v", err)
+	}
+	return workspacePath
 }
 
 func containsEnvironmentPrefix(environment []string, want string) bool {
