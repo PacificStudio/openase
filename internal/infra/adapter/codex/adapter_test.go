@@ -969,17 +969,7 @@ func TestSessionStopAddsDefaultTimeoutWhenDeadlineIsMissing(t *testing.T) {
 func TestSessionStopDropsLateNotificationsAfterShutdown(t *testing.T) {
 	process := newFakeProcess()
 	process.stopFn = func(context.Context) error {
-		select {
-		case <-process.stopOnce.ch:
-			return nil
-		default:
-		}
-
-		close(process.stopOnce.ch)
-		process.waitMu.Lock()
-		process.waitErr = nil
-		process.waitMu.Unlock()
-		close(process.done)
+		process.signalStopped(nil)
 		return nil
 	}
 
@@ -1185,7 +1175,15 @@ type fakeProcess struct {
 }
 
 type syncOnce struct {
-	ch chan struct{}
+	once sync.Once
+	ch   chan struct{}
+}
+
+func (s *syncOnce) Do(fn func()) {
+	s.once.Do(func() {
+		close(s.ch)
+		fn()
+	})
 }
 
 func newFakeProcess() *fakeProcess {
@@ -1224,12 +1222,17 @@ func (p *fakeProcess) Stop(ctx context.Context) error {
 	return nil
 }
 
+func (p *fakeProcess) signalStopped(err error) {
+	p.stopOnce.Do(func() {
+		p.waitMu.Lock()
+		p.waitErr = err
+		p.waitMu.Unlock()
+		close(p.done)
+	})
+}
+
 func (p *fakeProcess) finish(err error) {
-	select {
-	case <-p.stopOnce.ch:
-		return
-	default:
-		close(p.stopOnce.ch)
+	p.stopOnce.Do(func() {
 		_ = p.stdinWrite.Close()
 		_ = p.stdoutWrite.Close()
 		_ = p.stderrWrite.Close()
@@ -1237,7 +1240,7 @@ func (p *fakeProcess) finish(err error) {
 		p.waitErr = err
 		p.waitMu.Unlock()
 		close(p.done)
-	}
+	})
 }
 
 func runProtocolServer(process *fakeProcess, handler func(decoder *json.Decoder, encoder *json.Encoder) error) error {
