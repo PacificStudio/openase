@@ -97,6 +97,7 @@ describe('TicketRunHistoryPanel', () => {
         runs: [latestRun, failedRun],
         currentRun: latestRun,
         blocks: latestBlocks,
+        runStreamState: 'live',
       },
     })
 

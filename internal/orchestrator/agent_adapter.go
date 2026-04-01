@@ -88,11 +88,24 @@ type agentToolCallRequest struct {
 
 type agentApprovalRequest struct {
 	RequestID string
+	ThreadID  string
+	TurnID    string
 	Kind      string
+	Options   []agentApprovalOption
+	Payload   map[string]any
 }
 
 type agentUserInputRequest struct {
 	RequestID string
+	ThreadID  string
+	TurnID    string
+	Payload   map[string]any
+}
+
+type agentApprovalOption struct {
+	ID          string
+	Label       string
+	RawDecision string
 }
 
 type agentTokenUsageEvent struct {
