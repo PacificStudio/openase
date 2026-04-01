@@ -181,6 +181,7 @@ function makeProvider(overrides: Partial<AgentProvider> = {}): AgentProvider {
     max_parallel_runs: 1,
     cost_per_input_token: 0,
     cost_per_output_token: 0,
+    pricing_config: {},
     ...overrides,
   }
 }

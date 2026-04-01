@@ -1,27 +1,46 @@
 import type { AgentProvider } from '$lib/api/contracts'
 
-type EphemeralChatCapabilityState = AgentProvider['capabilities']['ephemeral_chat']['state']
+type EphemeralChatCapabilityState = 'available' | 'unavailable' | 'unsupported'
+
+function getEphemeralChatCapability(provider: AgentProvider) {
+  return {
+    state: normalizeEphemeralChatCapabilityState(provider.capabilities.ephemeral_chat?.state),
+    reason: provider.capabilities.ephemeral_chat?.reason ?? null,
+  }
+}
+
+function normalizeEphemeralChatCapabilityState(
+  state: string | null | undefined,
+): EphemeralChatCapabilityState {
+  switch (state) {
+    case 'available':
+    case 'unavailable':
+      return state
+    default:
+      return 'unsupported'
+  }
+}
 
 export function supportsEphemeralChat(provider: AgentProvider): boolean {
-  return provider.capabilities.ephemeral_chat.state !== 'unsupported'
+  return getEphemeralChatCapability(provider).state !== 'unsupported'
 }
 
 export function hasAvailableEphemeralChat(provider: AgentProvider): boolean {
-  return provider.capabilities.ephemeral_chat.state === 'available'
+  return getEphemeralChatCapability(provider).state === 'available'
 }
 
 export function ephemeralChatCapabilityState(
   provider: AgentProvider,
 ): EphemeralChatCapabilityState {
-  return provider.capabilities.ephemeral_chat.state
+  return getEphemeralChatCapability(provider).state
 }
 
 export function ephemeralChatCapabilityReason(provider: AgentProvider): string | null {
-  return provider.capabilities.ephemeral_chat.reason ?? null
+  return getEphemeralChatCapability(provider).reason ?? null
 }
 
 export function ephemeralChatCapabilityLabel(provider: AgentProvider): string {
-  switch (provider.capabilities.ephemeral_chat.state) {
+  switch (getEphemeralChatCapability(provider).state) {
     case 'available':
       return 'Ready'
     case 'unavailable':

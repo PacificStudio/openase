@@ -786,6 +786,7 @@ function createInitialState(): MockState {
       max_parallel_runs: 0,
       cost_per_input_token: 0,
       cost_per_output_token: 0,
+      pricing_config: {},
     },
     {
       id: CLAUDE_PROVIDER_ID,
@@ -817,6 +818,7 @@ function createInitialState(): MockState {
       max_parallel_runs: 0,
       cost_per_input_token: 0,
       cost_per_output_token: 0,
+      pricing_config: {},
     },
     {
       id: GEMINI_PROVIDER_ID,
@@ -848,6 +850,7 @@ function createInitialState(): MockState {
       max_parallel_runs: 0,
       cost_per_input_token: 0,
       cost_per_output_token: 0,
+      pricing_config: {},
     },
     {
       id: OPENAI_PROVIDER_ID,
@@ -879,6 +882,7 @@ function createInitialState(): MockState {
       max_parallel_runs: 0,
       cost_per_input_token: 0,
       cost_per_output_token: 0,
+      pricing_config: {},
     },
   ]
 

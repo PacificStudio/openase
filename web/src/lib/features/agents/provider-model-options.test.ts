@@ -13,6 +13,7 @@ const providerModelCatalogFixture: AgentProviderModelCatalogEntry[] = [
         description: 'Latest frontier agentic coding model.',
         recommended: true,
         preview: false,
+        pricing_config: null,
       },
       {
         id: 'gpt-5.4-mini',
@@ -20,6 +21,7 @@ const providerModelCatalogFixture: AgentProviderModelCatalogEntry[] = [
         description: 'Smaller frontier agentic coding model.',
         recommended: false,
         preview: false,
+        pricing_config: null,
       },
     ],
   },
@@ -32,6 +34,7 @@ const providerModelCatalogFixture: AgentProviderModelCatalogEntry[] = [
         description: 'Let Gemini CLI route requests.',
         recommended: true,
         preview: false,
+        pricing_config: null,
       },
       {
         id: 'gemini-3-flash-preview',
@@ -39,6 +42,7 @@ const providerModelCatalogFixture: AgentProviderModelCatalogEntry[] = [
         description: 'Preview Gemini 3 Flash model.',
         recommended: false,
         preview: true,
+        pricing_config: null,
       },
     ],
   },

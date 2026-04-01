@@ -3,6 +3,7 @@
   import { providerAvailabilityHeadline } from '$lib/features/providers'
   import * as Select from '$ui/select'
   import {
+    ephemeralChatCapabilityState,
     ephemeralChatCapabilityLabel,
     ephemeralChatCapabilityReason,
     hasAvailableEphemeralChat,
@@ -24,7 +25,7 @@
     return hasAvailableEphemeralChat(provider)
       ? null
       : providerAvailabilityHeadline(
-          provider.capabilities.ephemeral_chat.state,
+          ephemeralChatCapabilityState(provider),
           ephemeralChatCapabilityReason(provider),
         )
   }

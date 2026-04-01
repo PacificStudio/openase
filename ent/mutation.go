@@ -2260,6 +2260,7 @@ type AgentProviderMutation struct {
 	addcost_per_input_token   *float64
 	cost_per_output_token     *float64
 	addcost_per_output_token  *float64
+	pricing_config            *map[string]interface{}
 	clearedFields             map[string]struct{}
 	organization              *uuid.UUID
 	clearedorganization       bool
@@ -3082,6 +3083,42 @@ func (m *AgentProviderMutation) ResetCostPerOutputToken() {
 	m.addcost_per_output_token = nil
 }
 
+// SetPricingConfig sets the "pricing_config" field.
+func (m *AgentProviderMutation) SetPricingConfig(value map[string]interface{}) {
+	m.pricing_config = &value
+}
+
+// PricingConfig returns the value of the "pricing_config" field in the mutation.
+func (m *AgentProviderMutation) PricingConfig() (r map[string]interface{}, exists bool) {
+	v := m.pricing_config
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPricingConfig returns the old "pricing_config" field's value of the AgentProvider entity.
+// If the AgentProvider object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentProviderMutation) OldPricingConfig(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPricingConfig is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPricingConfig requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPricingConfig: %w", err)
+	}
+	return oldValue.PricingConfig, nil
+}
+
+// ResetPricingConfig resets all changes to the "pricing_config" field.
+func (m *AgentProviderMutation) ResetPricingConfig() {
+	m.pricing_config = nil
+}
+
 // ClearOrganization clears the "organization" edge to the Organization entity.
 func (m *AgentProviderMutation) ClearOrganization() {
 	m.clearedorganization = true
@@ -3278,7 +3315,7 @@ func (m *AgentProviderMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentProviderMutation) Fields() []string {
-	fields := make([]string, 0, 16)
+	fields := make([]string, 0, 17)
 	if m.organization != nil {
 		fields = append(fields, agentprovider.FieldOrganizationID)
 	}
@@ -3327,6 +3364,9 @@ func (m *AgentProviderMutation) Fields() []string {
 	if m.cost_per_output_token != nil {
 		fields = append(fields, agentprovider.FieldCostPerOutputToken)
 	}
+	if m.pricing_config != nil {
+		fields = append(fields, agentprovider.FieldPricingConfig)
+	}
 	return fields
 }
 
@@ -3367,6 +3407,8 @@ func (m *AgentProviderMutation) Field(name string) (ent.Value, bool) {
 		return m.CostPerInputToken()
 	case agentprovider.FieldCostPerOutputToken:
 		return m.CostPerOutputToken()
+	case agentprovider.FieldPricingConfig:
+		return m.PricingConfig()
 	}
 	return nil, false
 }
@@ -3408,6 +3450,8 @@ func (m *AgentProviderMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldCostPerInputToken(ctx)
 	case agentprovider.FieldCostPerOutputToken:
 		return m.OldCostPerOutputToken(ctx)
+	case agentprovider.FieldPricingConfig:
+		return m.OldPricingConfig(ctx)
 	}
 	return nil, fmt.Errorf("unknown AgentProvider field %s", name)
 }
@@ -3528,6 +3572,13 @@ func (m *AgentProviderMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetCostPerOutputToken(v)
+		return nil
+	case agentprovider.FieldPricingConfig:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPricingConfig(v)
 		return nil
 	}
 	return fmt.Errorf("unknown AgentProvider field %s", name)
@@ -3703,6 +3754,9 @@ func (m *AgentProviderMutation) ResetField(name string) error {
 		return nil
 	case agentprovider.FieldCostPerOutputToken:
 		m.ResetCostPerOutputToken()
+		return nil
+	case agentprovider.FieldPricingConfig:
+		m.ResetPricingConfig()
 		return nil
 	}
 	return fmt.Errorf("unknown AgentProvider field %s", name)

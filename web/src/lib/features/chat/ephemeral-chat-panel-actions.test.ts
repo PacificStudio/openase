@@ -105,6 +105,7 @@ const providerFixtures: AgentProvider[] = [
     max_parallel_runs: 2,
     cost_per_input_token: 0,
     cost_per_output_token: 0,
+    pricing_config: {},
   },
   {
     id: 'provider-2',
@@ -139,6 +140,7 @@ const providerFixtures: AgentProvider[] = [
     max_parallel_runs: 2,
     cost_per_input_token: 0,
     cost_per_output_token: 0,
+    pricing_config: {},
   },
 ]
 
@@ -233,12 +235,9 @@ describe('EphemeralChatPanel actions and lifecycle', () => {
 
   it('resets the conversation by closing the active session and clearing the transcript', async () => {
     let turnCount = 0
-
     streamChatTurn.mockImplementation(async (request, handlers) => {
       turnCount += 1
-
       expect(request.sessionId).toBeUndefined()
-
       handlers.onEvent({
         kind: 'session',
         payload: { sessionId: `session-reset-${turnCount}` },
@@ -277,9 +276,7 @@ describe('EphemeralChatPanel actions and lifecycle', () => {
     const prompt = getByPlaceholderText('Ask…')
     await sendMessage(prompt, 'Explain the failure.')
     expect(await findByText('First reply before reset.')).toBeTruthy()
-
     await fireEvent.click(getByRole('button', { name: 'Reset conversation' }))
-
     await waitFor(() => {
       expect(closeChatSession).toHaveBeenCalledWith('session-reset-1')
     })
@@ -287,9 +284,7 @@ describe('EphemeralChatPanel actions and lifecycle', () => {
       expect(queryByText('Explain the failure.')).toBeNull()
       expect(queryByText('First reply before reset.')).toBeNull()
     })
-
     await sendMessage(prompt, 'Start over with a fresh answer.')
-
     expect(await findByText('Second reply after reset.')).toBeTruthy()
     expect(streamChatTurn.mock.calls[1][0]).toMatchObject({
       providerId: 'provider-1',

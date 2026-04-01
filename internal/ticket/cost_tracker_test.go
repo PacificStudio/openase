@@ -242,7 +242,7 @@ func TestServiceRecordUsageEdgeCases(t *testing.T) {
 		AgentID:  projectAgent.ID,
 		TicketID: ticketItem.ID,
 		Usage:    ticketing.RawUsageDelta{},
-	}, nil); err == nil || err.Error() != "usage delta must include input_tokens, output_tokens, or cost_usd" {
+	}, nil); err == nil || err.Error() != "usage delta must include billable tokens, cache usage, or cost_usd" {
 		t.Fatalf("RecordUsage(empty usage) error = %v", err)
 	}
 

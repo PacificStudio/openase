@@ -338,8 +338,10 @@
         ticket={drawerState.ticket}
         hooks={drawerState.hooks}
         timeline={drawerState.timeline}
+        runs={drawerState.runs}
         currentRun={drawerState.currentRun}
         runBlocks={drawerState.runBlocks}
+        loadingRunId={drawerState.loadingRunId}
         statuses={drawerState.statuses}
         dependencyCandidates={drawerState.dependencyCandidates}
         repoOptions={drawerState.repoOptions}
@@ -357,6 +359,8 @@
         resumingRetry={drawerState.resumingRetry}
         onClose={appStore.closeRightPanel}
         onSaveFields={handleSaveFields}
+        onSelectRun={(runId) =>
+          projectId && ticketId ? drawerState.selectRun(projectId, ticketId, runId) : undefined}
         onResumeRetry={handleResumeRetry}
         onAddDependency={handleAddDependency}
         onDeleteDependency={handleDeleteDependency}

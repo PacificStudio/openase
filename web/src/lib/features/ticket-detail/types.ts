@@ -222,6 +222,9 @@ export type TicketRunTranscriptBlock =
 
 export type TicketRunTranscriptState = {
   runs: TicketRun[]
+  selectedRunId: string | null
+  followLatest: boolean
   currentRun: TicketRun | null
   blocks: TicketRunTranscriptBlock[]
+  blockCache: Record<string, TicketRunTranscriptBlock[]>
 }

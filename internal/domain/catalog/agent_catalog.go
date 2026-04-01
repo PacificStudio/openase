@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/BetterAndBetterII/openase/internal/domain/pricing"
 	"github.com/google/uuid"
 )
 
@@ -38,6 +39,7 @@ type AgentProvider struct {
 	MaxParallelRuns       int
 	CostPerInputToken     float64
 	CostPerOutputToken    float64
+	PricingConfig         pricing.ProviderModelPricingConfig
 }
 
 type Agent struct {
@@ -99,6 +101,7 @@ type AgentProviderInput struct {
 	MaxParallelRuns    *int           `json:"max_parallel_runs"`
 	CostPerInputToken  *float64       `json:"cost_per_input_token"`
 	CostPerOutputToken *float64       `json:"cost_per_output_token"`
+	PricingConfig      map[string]any `json:"pricing_config"`
 }
 
 type AgentInput struct {
@@ -121,6 +124,7 @@ type CreateAgentProvider struct {
 	MaxParallelRuns    int
 	CostPerInputToken  float64
 	CostPerOutputToken float64
+	PricingConfig      pricing.ProviderModelPricingConfig
 }
 
 type UpdateAgentProvider struct {
@@ -139,6 +143,7 @@ type UpdateAgentProvider struct {
 	MaxParallelRuns    int
 	CostPerInputToken  float64
 	CostPerOutputToken float64
+	PricingConfig      pricing.ProviderModelPricingConfig
 }
 
 type CreateAgent struct {
@@ -213,6 +218,13 @@ func ParseCreateAgentProvider(organizationID uuid.UUID, raw AgentProviderInput) 
 		return CreateAgentProvider{}, err
 	}
 
+	pricingConfig, err := pricing.ParseRawProviderModelPricingConfig(raw.PricingConfig, costPerInputToken, costPerOutputToken)
+	if err != nil {
+		return CreateAgentProvider{}, err
+	}
+	costPerInputToken = pricingConfig.SummaryInputPerToken()
+	costPerOutputToken = pricingConfig.SummaryOutputPerToken()
+
 	return CreateAgentProvider{
 		OrganizationID:     organizationID,
 		MachineID:          machineID,
@@ -228,6 +240,7 @@ func ParseCreateAgentProvider(organizationID uuid.UUID, raw AgentProviderInput) 
 		MaxParallelRuns:    maxParallelRuns,
 		CostPerInputToken:  costPerInputToken,
 		CostPerOutputToken: costPerOutputToken,
+		PricingConfig:      pricingConfig,
 	}, nil
 }
 
@@ -253,6 +266,7 @@ func ParseUpdateAgentProvider(id uuid.UUID, organizationID uuid.UUID, raw AgentP
 		MaxParallelRuns:    input.MaxParallelRuns,
 		CostPerInputToken:  input.CostPerInputToken,
 		CostPerOutputToken: input.CostPerOutputToken,
+		PricingConfig:      input.PricingConfig,
 	}, nil
 }
 

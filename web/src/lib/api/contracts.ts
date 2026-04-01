@@ -25,6 +25,7 @@ type DeepRequired<T> = T extends readonly (infer Item)[]
     : T extends object
       ? { [K in keyof T]-?: DeepRequired<Defined<T[K]>> }
       : Defined<T>
+type ShallowRequired<T> = T extends object ? { [K in keyof T]-?: Defined<T[K]> } : Defined<T>
 
 export type SystemDashboardResponse = DeepRequired<ResponseFor<'/api/v1/system/dashboard', 'get'>>
 export type SystemMemorySnapshot = SystemDashboardResponse['memory']
@@ -47,20 +48,41 @@ export type OrganizationProjectSummary = ItemOf<
   NonNullable<OrganizationSummaryResponse['projects']>
 >
 
-export type AgentProviderListPayload = DeepRequired<
-  ResponseFor<'/api/v1/orgs/{orgId}/providers', 'get'>
+type RawAgentProviderListPayload = ResponseFor<'/api/v1/orgs/{orgId}/providers', 'get'>
+type RawAgentProviderResponse = ResponseFor<'/api/v1/orgs/{orgId}/providers', 'post'>
+export type AgentProvider = ShallowRequired<
+  ItemOf<Defined<RawAgentProviderListPayload['providers']>>
 >
-export type AgentProviderResponse = DeepRequired<
-  ResponseFor<'/api/v1/orgs/{orgId}/providers', 'post'>
+export type AgentProviderListPayload = Omit<
+  ShallowRequired<RawAgentProviderListPayload>,
+  'providers'
+> & {
+  providers: AgentProvider[]
+}
+export type AgentProviderResponse = Omit<ShallowRequired<RawAgentProviderResponse>, 'provider'> & {
+  provider: AgentProvider
+}
+
+type RawAgentProviderModelCatalogPayload = ResponseFor<'/api/v1/provider-model-options', 'get'>
+export type AgentProviderModelOption = ShallowRequired<
+  ItemOf<
+    Defined<
+      ItemOf<Defined<RawAgentProviderModelCatalogPayload['adapter_model_options']>>['options']
+    >
+  >
 >
-export type AgentProvider = ItemOf<AgentProviderListPayload['providers']>
-export type AgentProviderModelCatalogPayload = DeepRequired<
-  ResponseFor<'/api/v1/provider-model-options', 'get'>
->
-export type AgentProviderModelCatalogEntry = ItemOf<
-  AgentProviderModelCatalogPayload['adapter_model_options']
->
-export type AgentProviderModelOption = ItemOf<AgentProviderModelCatalogEntry['options']>
+export type AgentProviderModelCatalogEntry = Omit<
+  ShallowRequired<ItemOf<Defined<RawAgentProviderModelCatalogPayload['adapter_model_options']>>>,
+  'options'
+> & {
+  options: AgentProviderModelOption[]
+}
+export type AgentProviderModelCatalogPayload = Omit<
+  ShallowRequired<RawAgentProviderModelCatalogPayload>,
+  'adapter_model_options'
+> & {
+  adapter_model_options: AgentProviderModelCatalogEntry[]
+}
 
 export type ProjectPayload = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}/projects', 'get'>>
 export type ProjectCreateResponse = DeepRequired<

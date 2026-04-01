@@ -263,6 +263,7 @@ func annotateAgentProvidersAvailability(
 }
 
 func annotateAgentProviderAvailability(item domain.AgentProvider) domain.AgentProvider {
+	item = domain.DeriveAgentProviderPricing(item)
 	item = domain.DeriveAgentProviderAvailability(item, time.Now().UTC())
 	return domain.DeriveAgentProviderCapabilities(item)
 }

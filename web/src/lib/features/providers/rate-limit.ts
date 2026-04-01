@@ -191,11 +191,11 @@ export function summarizeAgentProviderRateLimit(
     modelName: provider.model_name,
     cliRateLimitUpdatedAt: provider.cli_rate_limit_updated_at ?? null,
     cliRateLimit: {
-      provider: provider.cli_rate_limit.provider,
+      provider: provider.cli_rate_limit.provider ?? '',
       raw: { ...(provider.cli_rate_limit.raw ?? {}) },
       claudeCode: provider.cli_rate_limit.claude_code
         ? {
-            status: provider.cli_rate_limit.claude_code.status,
+            status: provider.cli_rate_limit.claude_code.status ?? '',
             rateLimitType: provider.cli_rate_limit.claude_code.rate_limit_type ?? null,
             resetsAt: provider.cli_rate_limit.claude_code.resets_at ?? null,
             overageStatus: provider.cli_rate_limit.claude_code.overage_status ?? null,

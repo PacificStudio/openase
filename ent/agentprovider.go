@@ -54,6 +54,8 @@ type AgentProvider struct {
 	CostPerInputToken float64 `json:"cost_per_input_token,omitempty"`
 	// CostPerOutputToken holds the value of the "cost_per_output_token" field.
 	CostPerOutputToken float64 `json:"cost_per_output_token,omitempty"`
+	// PricingConfig holds the value of the "pricing_config" field.
+	PricingConfig map[string]interface{} `json:"pricing_config,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the AgentProviderQuery when eager-loading is set.
 	Edges        AgentProviderEdges `json:"edges"`
@@ -120,7 +122,7 @@ func (*AgentProvider) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case agentprovider.FieldAuthConfig, agentprovider.FieldCliRateLimit:
+		case agentprovider.FieldAuthConfig, agentprovider.FieldCliRateLimit, agentprovider.FieldPricingConfig:
 			values[i] = new([]byte)
 		case agentprovider.FieldCliArgs:
 			values[i] = new(pgarray.StringArray)
@@ -256,6 +258,14 @@ func (_m *AgentProvider) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.CostPerOutputToken = value.Float64
 			}
+		case agentprovider.FieldPricingConfig:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field pricing_config", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.PricingConfig); err != nil {
+					return fmt.Errorf("unmarshal field pricing_config: %w", err)
+				}
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -361,6 +371,9 @@ func (_m *AgentProvider) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("cost_per_output_token=")
 	builder.WriteString(fmt.Sprintf("%v", _m.CostPerOutputToken))
+	builder.WriteString(", ")
+	builder.WriteString("pricing_config=")
+	builder.WriteString(fmt.Sprintf("%v", _m.PricingConfig))
 	builder.WriteByte(')')
 	return builder.String()
 }
