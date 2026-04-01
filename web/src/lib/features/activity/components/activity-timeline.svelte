@@ -165,15 +165,16 @@
         {group.label}
       </h3>
       <div class="space-y-1">
-        {#each group.entries as entry (entry.id)}
+        {#each group.entries as entry, idx (entry.id)}
           {@const style = getStyle(entry.eventType)}
           {@const Icon = style.icon}
           {@const highlight = isHighlight(entry.eventType)}
           <div
             class={cn(
-              'flex items-start gap-3 rounded-md px-3 py-2.5 transition-colors',
+              'animate-stagger flex items-start gap-3 rounded-md px-3 py-2.5 transition-colors',
               highlight && style.bgColor,
             )}
+            style="--stagger-index: {idx}"
           >
             <span
               class={cn(

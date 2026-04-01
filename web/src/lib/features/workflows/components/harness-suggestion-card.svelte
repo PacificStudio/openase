@@ -17,20 +17,17 @@
   } = $props()
 </script>
 
-<div class="space-y-3 rounded-2xl border border-sky-500/30 bg-sky-500/8 p-3">
-  <div class="flex items-start justify-between gap-3">
-    <div>
-      <div class="text-sm font-medium">Suggested Harness Update</div>
-      <p class="text-muted-foreground mt-1 text-xs leading-5">{suggestion.summary}</p>
-    </div>
+<div class="space-y-2 rounded-lg border border-sky-500/30 bg-sky-500/8 p-2">
+  <div class="flex items-center justify-between gap-2">
+    <p class="text-muted-foreground truncate text-[11px] leading-4">{suggestion.summary}</p>
     {#if suggestionAlreadyApplied}
-      <Badge variant="outline" class="text-[10px]">Applied</Badge>
+      <Badge variant="outline" class="shrink-0 text-[10px]">Applied</Badge>
+    {:else}
+      <Button size="sm" class="h-6 shrink-0 px-2.5 text-[11px]" onclick={() => onApply?.()}>
+        Apply
+      </Button>
     {/if}
   </div>
 
   <HarnessDiffPreview {preview} />
-
-  <Button size="sm" class="w-full" onclick={() => onApply?.()} disabled={suggestionAlreadyApplied}>
-    Apply to Editor
-  </Button>
 </div>

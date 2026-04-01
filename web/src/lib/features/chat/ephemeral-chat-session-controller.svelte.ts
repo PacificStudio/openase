@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { ApiError } from '$lib/api/client'
 import {
   closeChatSession,
@@ -24,6 +25,7 @@ import {
   finalizeAssistantTextChunk,
   isAbortError,
   isActionProposalEntry,
+  isTextPayload,
   mapChatPayloadToTranscriptEntry,
   type EphemeralChatRole,
   type EphemeralChatTranscriptEntry,
@@ -34,6 +36,9 @@ type EphemeralChatContext = {
   workflowId?: string
   ticketId?: string
   harnessDraft?: string
+  skillId?: string
+  skillFilePath?: string
+  skillFileDraft?: string
 }
 
 type CreateEphemeralChatSessionControllerInput = {
@@ -80,7 +85,6 @@ export function createEphemeralChatSessionController(
     entryCounter += 1
     entries = [...entries, mapChatPayloadToTranscriptEntry(`entry-${entryCounter}`, event.payload)]
   }
-
   function finalizeActiveAssistantText() {
     applyAssistantTextUpdate(
       finalizeAssistantTextChunk({ entries, activeAssistantEntryId, entryCounter }),
@@ -91,7 +95,6 @@ export function createEphemeralChatSessionController(
       sessionId = event.payload.sessionId
       return
     }
-
     if (event.kind === 'done') {
       sessionId = event.payload.sessionId
       finalizeActiveAssistantText()
@@ -99,23 +102,21 @@ export function createEphemeralChatSessionController(
       pending = false
       return
     }
-
     if (event.kind === 'error') {
       finalizeActiveAssistantText()
       input.onError?.(event.payload.message)
       pending = false
       return
     }
-
     const messageEvent = event as Extract<ChatStreamEvent, { kind: 'message' }>
     const payload = messageEvent.payload
-    if (payload.type === 'text') {
+    if (isTextPayload(payload)) {
       applyAssistantTextUpdate(
         appendAssistantTextChunk({
           entries,
           activeAssistantEntryId,
           entryCounter,
-          content: (payload as Extract<typeof payload, { type: 'text' }>).content,
+          content: payload.content,
         }),
       )
       return
@@ -123,17 +124,14 @@ export function createEphemeralChatSessionController(
 
     appendMappedEntry(messageEvent)
   }
-
   async function closeActiveSession(options: CloseSessionOptions) {
     const activeSessionId = sessionId
     const closeRequestId = ++requestId
-
     abortController?.abort()
     abortController = null
     activeAssistantEntryId = ''
     pending = false
     sessionId = ''
-
     if (options.clearEntries) {
       entries = []
     }
@@ -141,7 +139,6 @@ export function createEphemeralChatSessionController(
     if (!activeSessionId) {
       return
     }
-
     try {
       await closeChatSession(activeSessionId)
     } catch (caughtError) {
@@ -153,7 +150,6 @@ export function createEphemeralChatSessionController(
       )
     }
   }
-
   function updateActionProposalEntry(
     entryId: string,
     nextState: {
@@ -165,7 +161,6 @@ export function createEphemeralChatSessionController(
       if (!isActionProposalEntry(entry) || entry.id !== entryId) {
         return entry
       }
-
       return {
         ...entry,
         status: nextState.status,
@@ -173,7 +168,6 @@ export function createEphemeralChatSessionController(
       }
     })
   }
-
   return {
     get providers() {
       return providers
@@ -198,15 +192,12 @@ export function createEphemeralChatSessionController(
     },
     syncProviders(nextProviders: AgentProvider[], defaultProviderId: string | null | undefined) {
       providers = listEphemeralChatProviders(nextProviders)
-
       if (shouldKeepEphemeralChatProvider(providers, providerId)) {
         return
       }
-
       const nextProviderId = pickDefaultEphemeralChatProvider(providers, defaultProviderId)
-      if (providerId && providerId !== nextProviderId) {
+      if (providerId && providerId !== nextProviderId)
         void closeActiveSession({ clearEntries: true, suppressError: true })
-      }
       providerId = nextProviderId
     },
     async sendTurn(inputContext: { message: string; context: EphemeralChatContext }) {
@@ -214,17 +205,14 @@ export function createEphemeralChatSessionController(
       if (!message || !inputContext.context.projectId || !providerId || pending) {
         return
       }
-
       appendEntry('user', message)
       activeAssistantEntryId = ''
       pending = true
-
       const controller = new AbortController()
       const activeRequestId = ++requestId
       abortController = controller
       let streamStarted = false
       let partialReplyReceived = false
-
       try {
         await streamChatTurn(
           {
@@ -241,7 +229,11 @@ export function createEphemeralChatSessionController(
                 return
               }
               streamStarted = true
-              if (event.kind === 'message' && event.payload.type === 'text' && event.payload.content) {
+              if (
+                event.kind === 'message' &&
+                isTextPayload(event.payload) &&
+                event.payload.content
+              ) {
                 partialReplyReceived = true
               }
               handleStreamEvent(event)
@@ -251,7 +243,21 @@ export function createEphemeralChatSessionController(
       } catch (caughtError) {
         if (activeRequestId === requestId && !isAbortError(caughtError)) {
           finalizeActiveAssistantText()
-          input.onError?.(describeTurnFailure(caughtError, { streamStarted, partialReplyReceived }))
+          const errorMessage = describeTurnFailure(caughtError, {
+            streamStarted,
+            partialReplyReceived,
+          })
+          console.error('Ephemeral chat turn failed', {
+            source: input.getSource(),
+            providerId,
+            sessionId,
+            context: inputContext.context,
+            streamStarted,
+            partialReplyReceived,
+            error: caughtError,
+            errorMessage,
+          })
+          input.onError?.(errorMessage)
         }
       } finally {
         if (activeRequestId === requestId && abortController === controller) {
@@ -294,7 +300,6 @@ export function createEphemeralChatSessionController(
       if (nextProviderId === providerId) {
         return
       }
-
       providerId = nextProviderId
       await closeActiveSession({ clearEntries: true })
     },

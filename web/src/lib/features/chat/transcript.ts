@@ -1,4 +1,9 @@
-import type { ChatActionProposalPayload, ChatDiffPayload, ChatMessagePayload } from '$lib/api/chat'
+import type {
+  ChatActionProposalPayload,
+  ChatBundleDiffPayload,
+  ChatDiffPayload,
+  ChatMessagePayload,
+} from '$lib/api/chat'
 import type { ChatActionExecutionResult } from './action-proposal-executor'
 
 export type EphemeralChatRole = 'user' | 'assistant' | 'system'
@@ -27,10 +32,18 @@ export type EphemeralChatDiffEntry = {
   diff: ChatDiffPayload
 }
 
+export type EphemeralChatBundleDiffEntry = {
+  id: string
+  role: 'assistant'
+  kind: 'bundle_diff'
+  bundleDiff: ChatBundleDiffPayload
+}
+
 export type EphemeralChatTranscriptEntry =
   | EphemeralChatTextEntry
   | EphemeralChatActionProposalEntry
   | EphemeralChatDiffEntry
+  | EphemeralChatBundleDiffEntry
 
 type AssistantTextUpdate = {
   entries: EphemeralChatTranscriptEntry[]
@@ -72,6 +85,15 @@ export function mapChatPayloadToTranscriptEntry(
     }
   }
 
+  if (isBundleDiffPayload(payload)) {
+    return {
+      id,
+      role: 'assistant',
+      kind: 'bundle_diff',
+      bundleDiff: payload,
+    }
+  }
+
   return {
     id,
     role: 'system',
@@ -106,6 +128,12 @@ export function isActionProposalEntry(
 
 export function isDiffEntry(entry: EphemeralChatTranscriptEntry): entry is EphemeralChatDiffEntry {
   return entry.kind === 'diff'
+}
+
+export function isBundleDiffEntry(
+  entry: EphemeralChatTranscriptEntry,
+): entry is EphemeralChatBundleDiffEntry {
+  return entry.kind === 'bundle_diff'
 }
 
 export function isTextTranscriptEntry(
@@ -194,7 +222,7 @@ function describeSystemMessage(type: string) {
   }
 }
 
-function isTextPayload(
+export function isTextPayload(
   payload: ChatMessagePayload,
 ): payload is Extract<ChatMessagePayload, { type: 'text' }> {
   return payload.type === 'text'
@@ -210,4 +238,10 @@ function isDiffPayload(
   payload: ChatMessagePayload,
 ): payload is Extract<ChatMessagePayload, { type: 'diff' }> {
   return payload.type === 'diff'
+}
+
+function isBundleDiffPayload(
+  payload: ChatMessagePayload,
+): payload is Extract<ChatMessagePayload, { type: 'bundle_diff' }> {
+  return payload.type === 'bundle_diff'
 }

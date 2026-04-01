@@ -30,6 +30,7 @@ type RuntimeTurnInput struct {
 	Message                string
 	SystemPrompt           string
 	WorkingDirectory       provider.AbsolutePath
+	Environment            []string
 	ResumeProviderThreadID string
 	ResumeProviderTurnID   string
 	MaxTurns               int

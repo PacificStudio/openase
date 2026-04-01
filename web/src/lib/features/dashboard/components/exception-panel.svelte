@@ -40,9 +40,9 @@
   </div>
 
   <div class="divide-border divide-y">
-    {#each exceptions as item (item.id)}
+    {#each exceptions as item, idx (item.id)}
       {@const Icon = iconMap[item.type]}
-      <div class="flex items-start gap-3 px-4 py-3">
+      <div class="animate-stagger flex items-start gap-3 px-4 py-3" style="--stagger-index: {idx}">
         <Icon class={cn('mt-0.5 size-4 shrink-0', colorMap[item.type])} />
         <div class="min-w-0 flex-1">
           <p class="text-foreground text-sm leading-snug">{item.message}</p>

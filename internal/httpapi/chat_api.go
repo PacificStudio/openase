@@ -74,6 +74,12 @@ func (s *Server) handleStartChat(c echo.Context) error {
 	lastEvent := "keepalive"
 	terminalEventSeen := false
 
+	if err := http.NewResponseController(c.Response().Writer).SetWriteDeadline(time.Time{}); err != nil &&
+		!errors.Is(err, http.ErrNotSupported) {
+		streamLog.Error("disable chat sse write deadline failed", "error", err)
+		return fmt.Errorf("disable chat sse write deadline: %w", err)
+	}
+
 	response := c.Response()
 	response.Header().Set(echo.HeaderContentType, "text/event-stream")
 	response.Header().Set(echo.HeaderCacheControl, "no-cache")
@@ -441,6 +447,11 @@ func (s *Server) handleProjectConversationStream(c echo.Context) error {
 	}
 	events, cleanup := s.projectConversationService.WatchConversation(c.Request().Context(), conversationID)
 	defer cleanup()
+
+	if err := http.NewResponseController(c.Response().Writer).SetWriteDeadline(time.Time{}); err != nil &&
+		!errors.Is(err, http.ErrNotSupported) {
+		return fmt.Errorf("disable project conversation sse write deadline: %w", err)
+	}
 
 	response := c.Response()
 	response.Header().Set(echo.HeaderContentType, "text/event-stream")

@@ -15,6 +15,7 @@ export type WorkflowLifecycleDraft = {
 export type WorkflowLifecyclePayload = {
   agent_id: string
   finish_status_ids: string[]
+  hooks?: Record<string, unknown> | null
   is_active: boolean
   max_concurrent: number
   max_retry_attempts: number

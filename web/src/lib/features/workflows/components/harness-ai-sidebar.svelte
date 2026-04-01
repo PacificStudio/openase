@@ -140,9 +140,9 @@
 </script>
 
 <div class="bg-background flex h-full min-h-0 flex-col">
-  <div class="border-border flex items-center justify-between gap-2 border-b px-4 py-2">
-    <div class="flex items-center gap-2">
-      <h2 class="text-sm font-semibold">Harness AI</h2>
+  <div class="border-border flex items-center justify-between gap-2 border-b px-3 py-1">
+    <div class="flex items-center gap-1.5">
+      <span class="text-muted-foreground text-[11px] font-medium">AI</span>
       <EphemeralChatProviderSelect
         providers={chatProviders}
         {providerId}
@@ -153,17 +153,17 @@
     <Button
       variant="ghost"
       size="sm"
-      class="size-7 p-0"
+      class="size-6 p-0"
       aria-label="Reset conversation"
       onclick={() => void resetConversation()}
       disabled={entries.length === 0 && !pending}
     >
-      <RefreshCcw class="size-3.5" />
+      <RefreshCcw class="size-3" />
     </Button>
   </div>
 
-  <ScrollArea class="min-h-0 flex-1 px-4 py-4">
-    <div class="space-y-3">
+  <ScrollArea class="min-h-0 flex-1 px-3 py-2">
+    <div class="space-y-2">
       {#if entries.length === 0}
         <HarnessChatEmptyState />
       {/if}
@@ -185,14 +185,14 @@
     </div>
   </ScrollArea>
 
-  <div class="border-border border-t px-4 py-3">
+  <div class="border-border border-t px-3 py-1.5">
     <div
-      class="border-input focus-within:ring-ring flex items-center gap-2 rounded-lg border px-3 py-1.5 focus-within:ring-1"
+      class="border-input focus-within:ring-ring flex items-center gap-1.5 rounded-md border px-2.5 py-1 focus-within:ring-1"
     >
       <Textarea
         bind:value={prompt}
         rows={1}
-        class="min-h-0 flex-1 resize-none border-0 px-0 py-1.5 text-sm shadow-none focus-visible:ring-0"
+        class="min-h-0 flex-1 resize-none border-0 px-0 py-1 text-xs shadow-none focus-visible:ring-0"
         placeholder="Ask AI to refine this harness…"
         disabled={!projectId || !workflowId || !providerId}
         onkeydown={handlePromptKeydown}
@@ -200,11 +200,11 @@
       <Button
         variant="ghost"
         size="sm"
-        class="size-7 shrink-0 p-0"
+        class="size-6 shrink-0 p-0"
         onclick={() => void handleSend()}
         disabled={!prompt.trim() || sendDisabled}
       >
-        <Send class="size-4" />
+        <Send class="size-3.5" />
       </Button>
     </div>
   </div>
