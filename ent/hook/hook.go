@@ -189,6 +189,18 @@ func (f OrganizationFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.OrganizationMutation", m)
 }
 
+// The OrganizationDailyTokenUsageFunc type is an adapter to allow the use of ordinary
+// function as OrganizationDailyTokenUsage mutator.
+type OrganizationDailyTokenUsageFunc func(context.Context, *ent.OrganizationDailyTokenUsageMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f OrganizationDailyTokenUsageFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.OrganizationDailyTokenUsageMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.OrganizationDailyTokenUsageMutation", m)
+}
+
 // The ProjectFunc type is an adapter to allow the use of ordinary
 // function as Project mutator.
 type ProjectFunc func(context.Context, *ent.ProjectMutation) (ent.Value, error)

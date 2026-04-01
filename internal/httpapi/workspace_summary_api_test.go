@@ -389,6 +389,259 @@ func TestOrganizationSummaryRouteRejectsInvalidAndMissingIDs(t *testing.T) {
 	}
 }
 
+func TestOrganizationTokenUsageRouteMaterializesBackfillsAndAvoidsDoubleCount(t *testing.T) {
+	client := openTestEntClient(t)
+	server := newWorkspaceSummaryTestServer(client)
+	ctx := context.Background()
+
+	org, err := client.Organization.Create().
+		SetName("Acme").
+		SetSlug("acme").
+		SetStatus(entorganization.StatusActive).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	machine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("acme-host").
+		SetHost("acme-host").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create machine: %v", err)
+	}
+	providerItem, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(machine.ID).
+		SetName("Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCustom).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("Alpha").
+		SetSlug("alpha").
+		SetDescription("Analytics test").
+		SetStatus("active").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	doneID := findStatusIDByName(t, statuses, "Done")
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(project.ID).
+		SetName("Coding").
+		SetType("coding").
+		SetHarnessPath("roles/coding.md").
+		AddPickupStatusIDs(todoID).
+		AddFinishStatusIDs(doneID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	agentItem, err := client.Agent.Create().
+		SetProjectID(project.ID).
+		SetProviderID(providerItem.ID).
+		SetName("runner").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+
+	makeTicket := func(identifier string) *ent.Ticket {
+		t.Helper()
+		item, createErr := client.Ticket.Create().
+			SetProjectID(project.ID).
+			SetIdentifier(identifier).
+			SetTitle(identifier).
+			SetStatusID(todoID).
+			SetPriority(entticket.PriorityMedium).
+			SetType(entticket.TypeFeature).
+			SetCreatedBy("user:test").
+			Save(ctx)
+		if createErr != nil {
+			t.Fatalf("create ticket %s: %v", identifier, createErr)
+		}
+		return item
+	}
+
+	dayOneEarly := time.Date(2026, 3, 29, 0, 5, 0, 0, time.UTC)
+	dayOneLate := time.Date(2026, 3, 29, 23, 59, 0, 0, time.UTC)
+	dayTwoEarly := time.Date(2026, 3, 30, 0, 1, 0, 0, time.UTC)
+	dayThree := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
+
+	runOne, err := client.AgentRun.Create().
+		SetAgentID(agentItem.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(makeTicket("ASE-201").ID).
+		SetProviderID(providerItem.ID).
+		SetStatus(entagentrun.StatusCompleted).
+		SetTerminalAt(dayOneEarly).
+		SetSnapshotMaterializedAt(dayOneEarly.Add(1 * time.Minute)).
+		SetInputTokens(10).
+		SetOutputTokens(5).
+		SetCachedInputTokens(2).
+		SetReasoningTokens(1).
+		SetTotalTokens(15).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create run one: %v", err)
+	}
+	if _, err := client.OrganizationDailyTokenUsage.Create().
+		SetOrganizationID(org.ID).
+		SetUsageDate(dayOneEarly).
+		SetInputTokens(runOne.InputTokens).
+		SetOutputTokens(runOne.OutputTokens).
+		SetCachedInputTokens(runOne.CachedInputTokens).
+		SetReasoningTokens(runOne.ReasoningTokens).
+		SetTotalTokens(runOne.TotalTokens).
+		SetFinalizedRunCount(1).
+		SetRecomputedAt(dayOneEarly.Add(2 * time.Minute)).
+		Save(ctx); err != nil {
+		t.Fatalf("seed daily usage row: %v", err)
+	}
+
+	runTwo, err := client.AgentRun.Create().
+		SetAgentID(agentItem.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(makeTicket("ASE-202").ID).
+		SetProviderID(providerItem.ID).
+		SetStatus(entagentrun.StatusErrored).
+		SetTerminalAt(dayOneLate).
+		SetInputTokens(7).
+		SetOutputTokens(3).
+		SetCachedInputTokens(4).
+		SetReasoningTokens(2).
+		SetTotalTokens(10).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create run two: %v", err)
+	}
+
+	runThree, err := client.AgentRun.Create().
+		SetAgentID(agentItem.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(makeTicket("ASE-203").ID).
+		SetProviderID(providerItem.ID).
+		SetStatus(entagentrun.StatusTerminated).
+		SetTerminalAt(dayTwoEarly).
+		SetInputTokens(4).
+		SetOutputTokens(1).
+		SetCachedInputTokens(1).
+		SetReasoningTokens(1).
+		SetTotalTokens(5).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create run three: %v", err)
+	}
+
+	type tokenUsagePayload struct {
+		Days    []organizationTokenUsageDayResponse   `json:"days"`
+		Summary organizationTokenUsageSummaryResponse `json:"summary"`
+	}
+
+	firstPayload := tokenUsagePayload{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/orgs/"+org.ID.String()+"/token-usage?from=2026-03-29&to=2026-03-31",
+		nil,
+		http.StatusOK,
+		&firstPayload,
+	)
+
+	if len(firstPayload.Days) != 3 {
+		t.Fatalf("expected 3 token-usage days, got %+v", firstPayload.Days)
+	}
+	if firstPayload.Days[0].Date != "2026-03-29" || firstPayload.Days[0].TotalTokens != 25 || firstPayload.Days[0].FinalizedRunCount != 2 {
+		t.Fatalf("unexpected 2026-03-29 usage: %+v", firstPayload.Days[0])
+	}
+	if firstPayload.Days[1].Date != "2026-03-30" || firstPayload.Days[1].TotalTokens != 5 || firstPayload.Days[1].FinalizedRunCount != 1 {
+		t.Fatalf("unexpected 2026-03-30 usage: %+v", firstPayload.Days[1])
+	}
+	if firstPayload.Days[2].Date != "2026-03-31" || firstPayload.Days[2].TotalTokens != 0 || firstPayload.Days[2].FinalizedRunCount != 0 {
+		t.Fatalf("unexpected 2026-03-31 usage: %+v", firstPayload.Days[2])
+	}
+	if firstPayload.Summary.TotalTokens != 30 || firstPayload.Summary.AvgDailyTokens != 10 {
+		t.Fatalf("unexpected usage summary: %+v", firstPayload.Summary)
+	}
+	if firstPayload.Summary.PeakDay == nil || firstPayload.Summary.PeakDay.Date != "2026-03-29" || firstPayload.Summary.PeakDay.TotalTokens != 25 {
+		t.Fatalf("unexpected peak day: %+v", firstPayload.Summary.PeakDay)
+	}
+
+	secondPayload := tokenUsagePayload{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/orgs/"+org.ID.String()+"/token-usage?from=2026-03-29&to=2026-03-31",
+		nil,
+		http.StatusOK,
+		&secondPayload,
+	)
+	if secondPayload.Days[0].TotalTokens != 25 || secondPayload.Days[0].FinalizedRunCount != 2 {
+		t.Fatalf("expected repeated query to avoid double-counting, got %+v", secondPayload.Days[0])
+	}
+
+	rows, err := client.OrganizationDailyTokenUsage.Query().All(ctx)
+	if err != nil {
+		t.Fatalf("query daily usage rows: %v", err)
+	}
+	if len(rows) != 3 {
+		t.Fatalf("expected 3 persisted daily usage rows, got %+v", rows)
+	}
+	if row := findUsageRowByDate(t, rows, dayOneEarly); row.TotalTokens != 25 || row.FinalizedRunCount != 2 || row.SourceMode.String() != "materialized" {
+		t.Fatalf("unexpected materialized day one row: %+v", row)
+	}
+	if row := findUsageRowByDate(t, rows, dayTwoEarly); row.TotalTokens != 5 || row.FinalizedRunCount != 1 || row.SourceMode.String() != "materialized" {
+		t.Fatalf("unexpected materialized day two row: %+v", row)
+	}
+	if row := findUsageRowByDate(t, rows, dayThree); row.TotalTokens != 0 || row.FinalizedRunCount != 0 || row.SourceMode.String() != "lazy_backfill" {
+		t.Fatalf("unexpected lazy backfill day three row: %+v", row)
+	}
+
+	runTwoAfter, err := client.AgentRun.Get(ctx, runTwo.ID)
+	if err != nil {
+		t.Fatalf("reload run two: %v", err)
+	}
+	if runTwoAfter.SnapshotMaterializedAt == nil {
+		t.Fatalf("expected run two snapshot to be marked materialized, got %+v", runTwoAfter)
+	}
+	runThreeAfter, err := client.AgentRun.Get(ctx, runThree.ID)
+	if err != nil {
+		t.Fatalf("reload run three: %v", err)
+	}
+	if runThreeAfter.SnapshotMaterializedAt == nil {
+		t.Fatalf("expected run three snapshot to be marked materialized, got %+v", runThreeAfter)
+	}
+}
+
+func findUsageRowByDate(t *testing.T, rows []*ent.OrganizationDailyTokenUsage, day time.Time) *ent.OrganizationDailyTokenUsage {
+	t.Helper()
+
+	want := day.UTC().Format("2006-01-02")
+	for _, row := range rows {
+		if row != nil && row.UsageDate.UTC().Format("2006-01-02") == want {
+			return row
+		}
+	}
+
+	t.Fatalf("daily usage row for %s not found in %+v", want, rows)
+	return nil
+}
+
 func newWorkspaceSummaryTestServer(client *ent.Client) *Server {
 	return NewServer(
 		config.ServerConfig{Port: 40023},

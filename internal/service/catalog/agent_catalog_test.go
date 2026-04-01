@@ -978,6 +978,10 @@ func (r *stubRepository) GetOrganizationDashboardSummary(context.Context, uuid.U
 	return domain.OrganizationDashboardSummary{}, nil
 }
 
+func (r *stubRepository) GetOrganizationTokenUsage(context.Context, domain.GetOrganizationTokenUsage) (domain.OrganizationTokenUsageReport, error) {
+	return domain.OrganizationTokenUsageReport{}, nil
+}
+
 var _ Repository = (*stubRepository)(nil)
 
 func equalStrings(left []string, right []string) bool {

@@ -20,6 +20,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
+	"github.com/BetterAndBetterII/openase/ent/organizationdailytokenusage"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatecomment"
@@ -138,8 +139,44 @@ func init() {
 	agentprovider.DefaultID = agentproviderDescID.Default.(func() uuid.UUID)
 	agentrunFields := schema.AgentRun{}.Fields()
 	_ = agentrunFields
+	// agentrunDescInputTokens is the schema descriptor for input_tokens field.
+	agentrunDescInputTokens := agentrunFields[14].Descriptor()
+	// agentrun.DefaultInputTokens holds the default value on creation for the input_tokens field.
+	agentrun.DefaultInputTokens = agentrunDescInputTokens.Default.(int64)
+	// agentrunDescOutputTokens is the schema descriptor for output_tokens field.
+	agentrunDescOutputTokens := agentrunFields[15].Descriptor()
+	// agentrun.DefaultOutputTokens holds the default value on creation for the output_tokens field.
+	agentrun.DefaultOutputTokens = agentrunDescOutputTokens.Default.(int64)
+	// agentrunDescCachedInputTokens is the schema descriptor for cached_input_tokens field.
+	agentrunDescCachedInputTokens := agentrunFields[16].Descriptor()
+	// agentrun.DefaultCachedInputTokens holds the default value on creation for the cached_input_tokens field.
+	agentrun.DefaultCachedInputTokens = agentrunDescCachedInputTokens.Default.(int64)
+	// agentrunDescCacheCreationInputTokens is the schema descriptor for cache_creation_input_tokens field.
+	agentrunDescCacheCreationInputTokens := agentrunFields[17].Descriptor()
+	// agentrun.DefaultCacheCreationInputTokens holds the default value on creation for the cache_creation_input_tokens field.
+	agentrun.DefaultCacheCreationInputTokens = agentrunDescCacheCreationInputTokens.Default.(int64)
+	// agentrunDescReasoningTokens is the schema descriptor for reasoning_tokens field.
+	agentrunDescReasoningTokens := agentrunFields[18].Descriptor()
+	// agentrun.DefaultReasoningTokens holds the default value on creation for the reasoning_tokens field.
+	agentrun.DefaultReasoningTokens = agentrunDescReasoningTokens.Default.(int64)
+	// agentrunDescPromptTokens is the schema descriptor for prompt_tokens field.
+	agentrunDescPromptTokens := agentrunFields[19].Descriptor()
+	// agentrun.DefaultPromptTokens holds the default value on creation for the prompt_tokens field.
+	agentrun.DefaultPromptTokens = agentrunDescPromptTokens.Default.(int64)
+	// agentrunDescCandidateTokens is the schema descriptor for candidate_tokens field.
+	agentrunDescCandidateTokens := agentrunFields[20].Descriptor()
+	// agentrun.DefaultCandidateTokens holds the default value on creation for the candidate_tokens field.
+	agentrun.DefaultCandidateTokens = agentrunDescCandidateTokens.Default.(int64)
+	// agentrunDescToolTokens is the schema descriptor for tool_tokens field.
+	agentrunDescToolTokens := agentrunFields[21].Descriptor()
+	// agentrun.DefaultToolTokens holds the default value on creation for the tool_tokens field.
+	agentrun.DefaultToolTokens = agentrunDescToolTokens.Default.(int64)
+	// agentrunDescTotalTokens is the schema descriptor for total_tokens field.
+	agentrunDescTotalTokens := agentrunFields[22].Descriptor()
+	// agentrun.DefaultTotalTokens holds the default value on creation for the total_tokens field.
+	agentrun.DefaultTotalTokens = agentrunDescTotalTokens.Default.(int64)
 	// agentrunDescCreatedAt is the schema descriptor for created_at field.
-	agentrunDescCreatedAt := agentrunFields[15].Descriptor()
+	agentrunDescCreatedAt := agentrunFields[26].Descriptor()
 	// agentrun.DefaultCreatedAt holds the default value on creation for the created_at field.
 	agentrun.DefaultCreatedAt = agentrunDescCreatedAt.Default.(func() time.Time)
 	// agentrunDescID is the schema descriptor for id field.
@@ -408,6 +445,36 @@ func init() {
 	organizationDescID := organizationFields[0].Descriptor()
 	// organization.DefaultID holds the default value on creation for the id field.
 	organization.DefaultID = organizationDescID.Default.(func() uuid.UUID)
+	organizationdailytokenusageFields := schema.OrganizationDailyTokenUsage{}.Fields()
+	_ = organizationdailytokenusageFields
+	// organizationdailytokenusageDescInputTokens is the schema descriptor for input_tokens field.
+	organizationdailytokenusageDescInputTokens := organizationdailytokenusageFields[3].Descriptor()
+	// organizationdailytokenusage.DefaultInputTokens holds the default value on creation for the input_tokens field.
+	organizationdailytokenusage.DefaultInputTokens = organizationdailytokenusageDescInputTokens.Default.(int64)
+	// organizationdailytokenusageDescOutputTokens is the schema descriptor for output_tokens field.
+	organizationdailytokenusageDescOutputTokens := organizationdailytokenusageFields[4].Descriptor()
+	// organizationdailytokenusage.DefaultOutputTokens holds the default value on creation for the output_tokens field.
+	organizationdailytokenusage.DefaultOutputTokens = organizationdailytokenusageDescOutputTokens.Default.(int64)
+	// organizationdailytokenusageDescCachedInputTokens is the schema descriptor for cached_input_tokens field.
+	organizationdailytokenusageDescCachedInputTokens := organizationdailytokenusageFields[5].Descriptor()
+	// organizationdailytokenusage.DefaultCachedInputTokens holds the default value on creation for the cached_input_tokens field.
+	organizationdailytokenusage.DefaultCachedInputTokens = organizationdailytokenusageDescCachedInputTokens.Default.(int64)
+	// organizationdailytokenusageDescReasoningTokens is the schema descriptor for reasoning_tokens field.
+	organizationdailytokenusageDescReasoningTokens := organizationdailytokenusageFields[6].Descriptor()
+	// organizationdailytokenusage.DefaultReasoningTokens holds the default value on creation for the reasoning_tokens field.
+	organizationdailytokenusage.DefaultReasoningTokens = organizationdailytokenusageDescReasoningTokens.Default.(int64)
+	// organizationdailytokenusageDescTotalTokens is the schema descriptor for total_tokens field.
+	organizationdailytokenusageDescTotalTokens := organizationdailytokenusageFields[7].Descriptor()
+	// organizationdailytokenusage.DefaultTotalTokens holds the default value on creation for the total_tokens field.
+	organizationdailytokenusage.DefaultTotalTokens = organizationdailytokenusageDescTotalTokens.Default.(int64)
+	// organizationdailytokenusageDescFinalizedRunCount is the schema descriptor for finalized_run_count field.
+	organizationdailytokenusageDescFinalizedRunCount := organizationdailytokenusageFields[8].Descriptor()
+	// organizationdailytokenusage.DefaultFinalizedRunCount holds the default value on creation for the finalized_run_count field.
+	organizationdailytokenusage.DefaultFinalizedRunCount = organizationdailytokenusageDescFinalizedRunCount.Default.(int)
+	// organizationdailytokenusageDescID is the schema descriptor for id field.
+	organizationdailytokenusageDescID := organizationdailytokenusageFields[0].Descriptor()
+	// organizationdailytokenusage.DefaultID holds the default value on creation for the id field.
+	organizationdailytokenusage.DefaultID = organizationdailytokenusageDescID.Default.(func() uuid.UUID)
 	projectFields := schema.Project{}.Fields()
 	_ = projectFields
 	// projectDescName is the schema descriptor for name field.

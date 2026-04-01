@@ -51,6 +51,9 @@ type NotificationRule func(*sql.Selector)
 // Organization is the predicate function for organization builders.
 type Organization func(*sql.Selector)
 
+// OrganizationDailyTokenUsage is the predicate function for organizationdailytokenusage builders.
+type OrganizationDailyTokenUsage func(*sql.Selector)
+
 // Project is the predicate function for project builders.
 type Project func(*sql.Selector)
 

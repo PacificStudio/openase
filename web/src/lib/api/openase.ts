@@ -89,6 +89,7 @@ import type {
   HRAdvisorResponse,
   Organization,
   OrganizationSummaryResponse,
+  OrganizationTokenUsageResponse,
   OrganizationArchiveResponse,
   OrganizationResponse,
   OrganizationUpdateResponse,
@@ -129,6 +130,24 @@ export function getWorkspaceSummary(opts?: { signal?: AbortSignal }) {
 
 export function getOrganizationSummary(orgId: string, opts?: { signal?: AbortSignal }) {
   return api.get<OrganizationSummaryResponse>(`/api/v1/orgs/${orgId}/summary`, opts)
+}
+
+export function getOrganizationTokenUsage(
+  orgId: string,
+  query: {
+    from: string
+    to: string
+  },
+  opts?: { signal?: AbortSignal },
+) {
+  const params = new URLSearchParams({
+    from: query.from,
+    to: query.to,
+  })
+  return api.get<OrganizationTokenUsageResponse>(
+    `/api/v1/orgs/${orgId}/token-usage?${params.toString()}`,
+    opts,
+  )
 }
 
 export function createOrganization(body: {

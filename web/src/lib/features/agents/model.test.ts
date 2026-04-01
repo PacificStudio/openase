@@ -163,6 +163,7 @@ const agentRunsFixture: AgentRun[] = [
     runtime_started_at: '2026-03-27T10:02:00Z',
     last_error: '',
     last_heartbeat_at: '2026-03-27T10:03:00Z',
+    terminal_at: null,
     created_at: '2026-03-27T10:02:00Z',
   },
   {
@@ -178,6 +179,7 @@ const agentRunsFixture: AgentRun[] = [
     runtime_started_at: '2026-03-27T10:01:00Z',
     last_error: '',
     last_heartbeat_at: '2026-03-27T10:02:30Z',
+    terminal_at: null,
     created_at: '2026-03-27T10:01:00Z',
   },
 ]

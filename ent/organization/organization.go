@@ -35,6 +35,8 @@ const (
 	EdgeMachines = "machines"
 	// EdgeNotificationChannels holds the string denoting the notification_channels edge name in mutations.
 	EdgeNotificationChannels = "notification_channels"
+	// EdgeDailyTokenUsage holds the string denoting the daily_token_usage edge name in mutations.
+	EdgeDailyTokenUsage = "daily_token_usage"
 	// EdgeDefaultAgentProvider holds the string denoting the default_agent_provider edge name in mutations.
 	EdgeDefaultAgentProvider = "default_agent_provider"
 	// Table holds the table name of the organization in the database.
@@ -67,6 +69,13 @@ const (
 	NotificationChannelsInverseTable = "notification_channels"
 	// NotificationChannelsColumn is the table column denoting the notification_channels relation/edge.
 	NotificationChannelsColumn = "organization_id"
+	// DailyTokenUsageTable is the table that holds the daily_token_usage relation/edge.
+	DailyTokenUsageTable = "organization_daily_token_usages"
+	// DailyTokenUsageInverseTable is the table name for the OrganizationDailyTokenUsage entity.
+	// It exists in this package in order to avoid circular dependency with the "organizationdailytokenusage" package.
+	DailyTokenUsageInverseTable = "organization_daily_token_usages"
+	// DailyTokenUsageColumn is the table column denoting the daily_token_usage relation/edge.
+	DailyTokenUsageColumn = "organization_id"
 	// DefaultAgentProviderTable is the table that holds the default_agent_provider relation/edge.
 	DefaultAgentProviderTable = "organizations"
 	// DefaultAgentProviderInverseTable is the table name for the AgentProvider entity.
@@ -216,6 +225,20 @@ func ByNotificationChannels(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOpt
 	}
 }
 
+// ByDailyTokenUsageCount orders the results by daily_token_usage count.
+func ByDailyTokenUsageCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newDailyTokenUsageStep(), opts...)
+	}
+}
+
+// ByDailyTokenUsage orders the results by daily_token_usage terms.
+func ByDailyTokenUsage(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newDailyTokenUsageStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByDefaultAgentProviderField orders the results by default_agent_provider field.
 func ByDefaultAgentProviderField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -248,6 +271,13 @@ func newNotificationChannelsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(NotificationChannelsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, NotificationChannelsTable, NotificationChannelsColumn),
+	)
+}
+func newDailyTokenUsageStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(DailyTokenUsageInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, DailyTokenUsageTable, DailyTokenUsageColumn),
 	)
 }
 func newDefaultAgentProviderStep() *sqlgraph.Step {

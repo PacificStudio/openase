@@ -42,6 +42,8 @@ type Tx struct {
 	NotificationRule *NotificationRuleClient
 	// Organization is the client for interacting with the Organization builders.
 	Organization *OrganizationClient
+	// OrganizationDailyTokenUsage is the client for interacting with the OrganizationDailyTokenUsage builders.
+	OrganizationDailyTokenUsage *OrganizationDailyTokenUsageClient
 	// Project is the client for interacting with the Project builders.
 	Project *ProjectClient
 	// ProjectRepo is the client for interacting with the ProjectRepo builders.
@@ -232,6 +234,7 @@ func (tx *Tx) init() {
 	tx.NotificationChannel = NewNotificationChannelClient(tx.config)
 	tx.NotificationRule = NewNotificationRuleClient(tx.config)
 	tx.Organization = NewOrganizationClient(tx.config)
+	tx.OrganizationDailyTokenUsage = NewOrganizationDailyTokenUsageClient(tx.config)
 	tx.Project = NewProjectClient(tx.config)
 	tx.ProjectRepo = NewProjectRepoClient(tx.config)
 	tx.ProjectUpdateComment = NewProjectUpdateCommentClient(tx.config)

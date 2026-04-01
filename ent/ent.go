@@ -27,6 +27,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
+	"github.com/BetterAndBetterII/openase/ent/organizationdailytokenusage"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatecomment"
@@ -124,6 +125,7 @@ func checkColumn(t, c string) error {
 			notificationchannel.Table:          notificationchannel.ValidColumn,
 			notificationrule.Table:             notificationrule.ValidColumn,
 			organization.Table:                 organization.ValidColumn,
+			organizationdailytokenusage.Table:  organizationdailytokenusage.ValidColumn,
 			project.Table:                      project.ValidColumn,
 			projectrepo.Table:                  projectrepo.ValidColumn,
 			projectupdatecomment.Table:         projectupdatecomment.ValidColumn,

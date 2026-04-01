@@ -260,6 +260,7 @@ type OpenAPIAgentRun struct {
 	Status            string   `json:"status"`
 	SessionID         string   `json:"session_id"`
 	RuntimeStartedAt  *string  `json:"runtime_started_at,omitempty"`
+	TerminalAt        *string  `json:"terminal_at,omitempty"`
 	LastError         string   `json:"last_error"`
 	LastHeartbeatAt   *string  `json:"last_heartbeat_at,omitempty"`
 	CreatedAt         string   `json:"created_at"`
@@ -402,6 +403,7 @@ type OpenAPITicketRun struct {
 	CreatedAt          string  `json:"created_at"`
 	RuntimeStartedAt   *string `json:"runtime_started_at,omitempty"`
 	LastHeartbeatAt    *string `json:"last_heartbeat_at,omitempty"`
+	TerminalAt         *string `json:"terminal_at,omitempty"`
 	CompletedAt        *string `json:"completed_at,omitempty"`
 	LastError          *string `json:"last_error,omitempty"`
 }
@@ -838,6 +840,32 @@ type OpenAPIProjectResponse struct {
 type OpenAPIOrganizationSummaryResponse struct {
 	Organization OpenAPIOrganizationDashboardMetrics `json:"organization"`
 	Projects     []OpenAPIOrganizationProjectSummary `json:"projects"`
+}
+
+type OpenAPIOrganizationTokenUsageDay struct {
+	Date              string `json:"date"`
+	InputTokens       int64  `json:"input_tokens"`
+	OutputTokens      int64  `json:"output_tokens"`
+	CachedInputTokens int64  `json:"cached_input_tokens"`
+	ReasoningTokens   int64  `json:"reasoning_tokens"`
+	TotalTokens       int64  `json:"total_tokens"`
+	FinalizedRunCount int    `json:"finalized_run_count"`
+}
+
+type OpenAPIOrganizationTokenUsagePeakDay struct {
+	Date        string `json:"date"`
+	TotalTokens int64  `json:"total_tokens"`
+}
+
+type OpenAPIOrganizationTokenUsageSummary struct {
+	TotalTokens    int64                                 `json:"total_tokens"`
+	AvgDailyTokens int64                                 `json:"avg_daily_tokens"`
+	PeakDay        *OpenAPIOrganizationTokenUsagePeakDay `json:"peak_day,omitempty"`
+}
+
+type OpenAPIOrganizationTokenUsageResponse struct {
+	Days    []OpenAPIOrganizationTokenUsageDay   `json:"days"`
+	Summary OpenAPIOrganizationTokenUsageSummary `json:"summary"`
 }
 
 type OpenAPIMachinesResponse struct {
@@ -1801,6 +1829,29 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	}
 	orgSummaryGet.AddParameter(uuidPathParameter("orgId", "Organization ID."))
 	b.doc.AddOperation("/api/v1/orgs/{orgId}/summary", http.MethodGet, orgSummaryGet)
+
+	orgTokenUsageGet, err := b.jsonOperation(
+		"getOrganizationTokenUsage",
+		"Get organization daily token usage for a UTC date range",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIOrganizationTokenUsageResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	orgTokenUsageGet.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	orgTokenUsageGet.AddParameter(openapi3.NewQueryParameter("from").
+		WithDescription("UTC start date in YYYY-MM-DD format. Defaults to the last 30 days when omitted with to.").
+		WithSchema(openapi3.NewStringSchema()))
+	orgTokenUsageGet.AddParameter(openapi3.NewQueryParameter("to").
+		WithDescription("UTC end date in YYYY-MM-DD format. Defaults to today when omitted with from.").
+		WithSchema(openapi3.NewStringSchema()))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/token-usage", http.MethodGet, orgTokenUsageGet)
 
 	orgProjectsGet, err := b.jsonOperation(
 		"listProjects",

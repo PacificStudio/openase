@@ -14,6 +14,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/organization"
+	"github.com/BetterAndBetterII/openase/ent/organizationdailytokenusage"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/internal/domain/githubauth"
@@ -179,6 +180,21 @@ func (_u *OrganizationUpdate) AddNotificationChannels(v ...*NotificationChannel)
 	return _u.AddNotificationChannelIDs(ids...)
 }
 
+// AddDailyTokenUsageIDs adds the "daily_token_usage" edge to the OrganizationDailyTokenUsage entity by IDs.
+func (_u *OrganizationUpdate) AddDailyTokenUsageIDs(ids ...uuid.UUID) *OrganizationUpdate {
+	_u.mutation.AddDailyTokenUsageIDs(ids...)
+	return _u
+}
+
+// AddDailyTokenUsage adds the "daily_token_usage" edges to the OrganizationDailyTokenUsage entity.
+func (_u *OrganizationUpdate) AddDailyTokenUsage(v ...*OrganizationDailyTokenUsage) *OrganizationUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDailyTokenUsageIDs(ids...)
+}
+
 // SetDefaultAgentProvider sets the "default_agent_provider" edge to the AgentProvider entity.
 func (_u *OrganizationUpdate) SetDefaultAgentProvider(v *AgentProvider) *OrganizationUpdate {
 	return _u.SetDefaultAgentProviderID(v.ID)
@@ -271,6 +287,27 @@ func (_u *OrganizationUpdate) RemoveNotificationChannels(v ...*NotificationChann
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveNotificationChannelIDs(ids...)
+}
+
+// ClearDailyTokenUsage clears all "daily_token_usage" edges to the OrganizationDailyTokenUsage entity.
+func (_u *OrganizationUpdate) ClearDailyTokenUsage() *OrganizationUpdate {
+	_u.mutation.ClearDailyTokenUsage()
+	return _u
+}
+
+// RemoveDailyTokenUsageIDs removes the "daily_token_usage" edge to OrganizationDailyTokenUsage entities by IDs.
+func (_u *OrganizationUpdate) RemoveDailyTokenUsageIDs(ids ...uuid.UUID) *OrganizationUpdate {
+	_u.mutation.RemoveDailyTokenUsageIDs(ids...)
+	return _u
+}
+
+// RemoveDailyTokenUsage removes "daily_token_usage" edges to OrganizationDailyTokenUsage entities.
+func (_u *OrganizationUpdate) RemoveDailyTokenUsage(v ...*OrganizationDailyTokenUsage) *OrganizationUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDailyTokenUsageIDs(ids...)
 }
 
 // ClearDefaultAgentProvider clears the "default_agent_provider" edge to the AgentProvider entity.
@@ -539,6 +576,51 @@ func (_u *OrganizationUpdate) sqlSave(ctx context.Context) (_node int, err error
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.DailyTokenUsageCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.DailyTokenUsageTable,
+			Columns: []string{organization.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationdailytokenusage.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDailyTokenUsageIDs(); len(nodes) > 0 && !_u.mutation.DailyTokenUsageCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.DailyTokenUsageTable,
+			Columns: []string{organization.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationdailytokenusage.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DailyTokenUsageIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.DailyTokenUsageTable,
+			Columns: []string{organization.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationdailytokenusage.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.DefaultAgentProviderCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -734,6 +816,21 @@ func (_u *OrganizationUpdateOne) AddNotificationChannels(v ...*NotificationChann
 	return _u.AddNotificationChannelIDs(ids...)
 }
 
+// AddDailyTokenUsageIDs adds the "daily_token_usage" edge to the OrganizationDailyTokenUsage entity by IDs.
+func (_u *OrganizationUpdateOne) AddDailyTokenUsageIDs(ids ...uuid.UUID) *OrganizationUpdateOne {
+	_u.mutation.AddDailyTokenUsageIDs(ids...)
+	return _u
+}
+
+// AddDailyTokenUsage adds the "daily_token_usage" edges to the OrganizationDailyTokenUsage entity.
+func (_u *OrganizationUpdateOne) AddDailyTokenUsage(v ...*OrganizationDailyTokenUsage) *OrganizationUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDailyTokenUsageIDs(ids...)
+}
+
 // SetDefaultAgentProvider sets the "default_agent_provider" edge to the AgentProvider entity.
 func (_u *OrganizationUpdateOne) SetDefaultAgentProvider(v *AgentProvider) *OrganizationUpdateOne {
 	return _u.SetDefaultAgentProviderID(v.ID)
@@ -826,6 +923,27 @@ func (_u *OrganizationUpdateOne) RemoveNotificationChannels(v ...*NotificationCh
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveNotificationChannelIDs(ids...)
+}
+
+// ClearDailyTokenUsage clears all "daily_token_usage" edges to the OrganizationDailyTokenUsage entity.
+func (_u *OrganizationUpdateOne) ClearDailyTokenUsage() *OrganizationUpdateOne {
+	_u.mutation.ClearDailyTokenUsage()
+	return _u
+}
+
+// RemoveDailyTokenUsageIDs removes the "daily_token_usage" edge to OrganizationDailyTokenUsage entities by IDs.
+func (_u *OrganizationUpdateOne) RemoveDailyTokenUsageIDs(ids ...uuid.UUID) *OrganizationUpdateOne {
+	_u.mutation.RemoveDailyTokenUsageIDs(ids...)
+	return _u
+}
+
+// RemoveDailyTokenUsage removes "daily_token_usage" edges to OrganizationDailyTokenUsage entities.
+func (_u *OrganizationUpdateOne) RemoveDailyTokenUsage(v ...*OrganizationDailyTokenUsage) *OrganizationUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDailyTokenUsageIDs(ids...)
 }
 
 // ClearDefaultAgentProvider clears the "default_agent_provider" edge to the AgentProvider entity.
@@ -1117,6 +1235,51 @@ func (_u *OrganizationUpdateOne) sqlSave(ctx context.Context) (_node *Organizati
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(notificationchannel.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DailyTokenUsageCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.DailyTokenUsageTable,
+			Columns: []string{organization.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationdailytokenusage.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDailyTokenUsageIDs(); len(nodes) > 0 && !_u.mutation.DailyTokenUsageCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.DailyTokenUsageTable,
+			Columns: []string{organization.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationdailytokenusage.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DailyTokenUsageIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.DailyTokenUsageTable,
+			Columns: []string{organization.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationdailytokenusage.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

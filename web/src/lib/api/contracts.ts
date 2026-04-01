@@ -47,6 +47,10 @@ export type OrganizationDashboardSummary = NonNullable<OrganizationSummaryRespon
 export type OrganizationProjectSummary = ItemOf<
   NonNullable<OrganizationSummaryResponse['projects']>
 >
+export type OrganizationTokenUsageResponse = ResponseFor<'/api/v1/orgs/{orgId}/token-usage', 'get'>
+export type OrganizationTokenUsageDay = ItemOf<NonNullable<OrganizationTokenUsageResponse['days']>>
+export type OrganizationTokenUsageSummary = NonNullable<OrganizationTokenUsageResponse['summary']>
+export type OrganizationTokenUsagePeakDay = NonNullable<OrganizationTokenUsageSummary['peak_day']>
 
 type RawAgentProviderListPayload = ResponseFor<'/api/v1/orgs/{orgId}/providers', 'get'>
 type RawAgentProviderResponse = ResponseFor<'/api/v1/orgs/{orgId}/providers', 'post'>

@@ -145,6 +145,7 @@ func releaseCurrentRunClaim(ctx context.Context, tx *ent.Tx, ticketItem *ent.Tic
 
 	if _, err := tx.AgentRun.UpdateOneID(runItem.ID).
 		SetStatus(entagentrun.StatusErrored).
+		SetTerminalAt(time.Now().UTC()).
 		ClearSessionID().
 		ClearRuntimeStartedAt().
 		ClearLastHeartbeatAt().

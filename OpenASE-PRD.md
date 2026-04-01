@@ -2400,6 +2400,23 @@ OpenASE 应采用 Symphony 已文档化的 token accounting 规则：
 
 OpenASE 第一阶段不要试图一次补完复杂交互式审批、Hook Gate、复杂 pause/resume。只要先把“真实 turn 能跑起来、能连续、能失败重试、不会重复记账”这四件事做扎实，链路就会从 `runtime ready` 变成真正可执行。
 
+#### 11.3.8 Organization Token Analytics Snapshot 规则
+
+Organization Dashboard 的 token 趋势图与日历热力图必须基于**run 终态日快照**，而不是 ticket 创建日或当前累计值反推。
+
+- 按 `AgentRun.terminal_at` 的 **UTC day** 归因 token usage
+- 只有进入 terminal 状态的 run 才能计入 org 级 daily snapshot
+- daily snapshot 至少保留：
+  - `input_tokens`
+  - `output_tokens`
+  - `cached_input_tokens`
+  - `reasoning_tokens`
+  - `total_tokens`
+  - `finalized_run_count`
+- 新 run 终态落库时，应增量 materialize 到对应 org/day snapshot
+- 历史窗口首次查询时，允许按需 lazy backfill 缺失日期，而不是做一次性全量历史迁移
+- Organization Overview 默认展示最近 30 天 token analytics，并提供 7d / 30d / 90d / 365d 快捷窗口
+
 ### 11.4 Gemini CLI 适配器
 
 与 Claude Code 类似，通过 CLI subprocess + stdio stream 接入。
