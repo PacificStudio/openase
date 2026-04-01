@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -26,22 +27,18 @@ func (s *Server) publishTicketEvent(
 	if _, err := activityevent.ParseRawType(eventType.String()); err != nil {
 		return fmt.Errorf("parse ticket activity event type: %w", err)
 	}
-
-	var activityItem *activityEventResponse
-	if s.ticketService != nil {
-		recorded, err := s.ticketService.RecordActivityEvent(ctx, ticketservice.RecordActivityEventInput{
+	createdAt := time.Now().UTC()
+	if s.activityEmitter != nil {
+		if _, err := s.activityEmitter.Emit(ctx, activitysvc.RecordInput{
 			ProjectID: ticket.ProjectID,
 			TicketID:  &ticket.ID,
 			EventType: eventType,
 			Message:   buildTicketActivityMessage(eventType, ticket),
 			Metadata:  buildTicketActivityMetadata(eventType, ticket),
-			CreatedAt: time.Now().UTC(),
-		})
-		if err != nil {
+			CreatedAt: createdAt,
+		}); err != nil {
 			return fmt.Errorf("record ticket activity event: %w", err)
 		}
-		mapped := mapActivityEventResponse(recorded)
-		activityItem = &mapped
 	}
 
 	providerEventType, err := provider.ParseEventType(eventType.String())
@@ -56,29 +53,13 @@ func (s *Server) publishTicketEvent(
 	event, err := provider.NewJSONEvent(ticketEventsTopic, providerEventType, map[string]any{
 		"project_id": ticket.ProjectID.String(),
 		"ticket":     mapTicketResponse(ticket),
-	}, time.Now())
+	}, createdAt)
 	if err != nil {
 		return fmt.Errorf("build ticket event: %w", err)
 	}
 
 	if err := s.events.Publish(ctx, event); err != nil {
 		return fmt.Errorf("publish ticket event: %w", err)
-	}
-	if activityItem == nil {
-		return nil
-	}
-
-	activityEvent, err := provider.NewJSONEvent(
-		activityStreamTopic,
-		providerEventType,
-		map[string]any{"event": activityItem},
-		time.Now(),
-	)
-	if err != nil {
-		return fmt.Errorf("build activity event: %w", err)
-	}
-	if err := s.events.Publish(ctx, activityEvent); err != nil {
-		return fmt.Errorf("publish activity event: %w", err)
 	}
 
 	return nil

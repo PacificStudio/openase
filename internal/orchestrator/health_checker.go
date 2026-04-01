@@ -12,6 +12,7 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	"github.com/BetterAndBetterII/openase/internal/provider"
 )
 
 const (
@@ -34,6 +35,7 @@ type HealthChecker struct {
 	logger  *slog.Logger
 	now     func() time.Time
 	runtime *RuntimeStateStore
+	events  provider.EventProvider
 }
 
 type claimHealthState struct {
@@ -63,6 +65,13 @@ func (h *HealthChecker) ConfigureRuntimeState(store *RuntimeStateStore) {
 		return
 	}
 	h.runtime = store
+}
+
+func (h *HealthChecker) ConfigureEvents(events provider.EventProvider) {
+	if h == nil {
+		return
+	}
+	h.events = events
 }
 
 // Run evaluates the current orchestrator health.
@@ -231,5 +240,6 @@ func (h *HealthChecker) releaseStalledClaim(
 		now,
 		"health_checker",
 		"runtime stalled or heartbeat missing",
+		h.events,
 	)
 }

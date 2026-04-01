@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -16,6 +17,8 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
@@ -704,6 +707,11 @@ func (l *RuntimeLauncher) recordProviderRateLimit(
 		return nil
 	}
 
+	currentProvider, err := l.client.AgentProvider.Get(ctx, providerID)
+	if err != nil {
+		return fmt.Errorf("load provider %s before rate limit update: %w", providerID, err)
+	}
+
 	payload, err := marshalProviderRateLimit(rateLimit)
 	if err != nil {
 		return fmt.Errorf("marshal provider rate limit for provider %s: %w", providerID, err)
@@ -711,13 +719,42 @@ func (l *RuntimeLauncher) recordProviderRateLimit(
 	if len(payload) == 0 {
 		return nil
 	}
+	snapshotChanged := !reflect.DeepEqual(currentProvider.CliRateLimit, payload)
 
-	if _, err := l.client.AgentProvider.Update().
-		Where(entagentprovider.IDEQ(providerID)).
+	updatedProvider, err := l.client.AgentProvider.UpdateOneID(providerID).
 		SetCliRateLimit(payload).
 		SetCliRateLimitUpdatedAt(observedAt.UTC()).
-		Save(ctx); err != nil {
+		Save(ctx)
+	if err != nil {
 		return fmt.Errorf("persist provider rate limit for provider %s: %w", providerID, err)
+	}
+	if !snapshotChanged {
+		return nil
+	}
+
+	projectIDs, err := providerActivityProjectIDs(ctx, l.client, updatedProvider.OrganizationID, updatedProvider.ID)
+	if err != nil {
+		return fmt.Errorf("list provider rate limit activity projects for provider %s: %w", providerID, err)
+	}
+
+	emitter := activitysvc.NewEmitter(activitysvc.EntRecorder{Client: l.client}, l.events)
+	for _, projectID := range projectIDs {
+		if _, err := emitter.Emit(ctx, activitysvc.RecordInput{
+			ProjectID: projectID,
+			EventType: activityevent.TypeProviderRateLimitUpdated,
+			Message:   fmt.Sprintf("Updated provider rate limit snapshot for %s", updatedProvider.Name),
+			Metadata: map[string]any{
+				"provider_id":           updatedProvider.ID.String(),
+				"provider_name":         updatedProvider.Name,
+				"machine_id":            updatedProvider.MachineID.String(),
+				"rate_limit":            cloneLifecycleMetadata(payload),
+				"rate_limit_updated_at": observedAt.UTC().Format(time.RFC3339),
+				"changed_fields":        []string{"cli_rate_limit"},
+			},
+			CreatedAt: observedAt.UTC(),
+		}); err != nil {
+			return fmt.Errorf("emit provider rate limit activity for provider %s: %w", providerID, err)
+		}
 	}
 
 	return nil

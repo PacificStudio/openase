@@ -2,7 +2,10 @@ package httpapi
 
 import (
 	"net/http"
+	"slices"
 
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/labstack/echo/v4"
 )
@@ -54,6 +57,22 @@ func (s *Server) createProjectRepo(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: item.ProjectID,
+		EventType: activityevent.TypeProjectRepoCreated,
+		Message:   "Added project repo " + item.Name,
+		Metadata: map[string]any{
+			"repo_id":           item.ID.String(),
+			"repo_name":         item.Name,
+			"repository_url":    item.RepositoryURL,
+			"default_branch":    item.DefaultBranch,
+			"workspace_dirname": item.WorkspaceDirname,
+			"labels":            append([]string(nil), item.Labels...),
+			"changed_fields":    []string{"repo"},
+		},
+	}); err != nil {
+		return writeCatalogError(c, err)
+	}
 
 	return c.JSON(http.StatusCreated, map[string]any{
 		"repo": mapProjectRepoResponse(item),
@@ -89,6 +108,40 @@ func (s *Server) patchProjectRepo(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
+	changedFields := make([]string, 0, 5)
+	if current.Name != item.Name {
+		changedFields = append(changedFields, "name")
+	}
+	if current.RepositoryURL != item.RepositoryURL {
+		changedFields = append(changedFields, "repository_url")
+	}
+	if current.DefaultBranch != item.DefaultBranch {
+		changedFields = append(changedFields, "default_branch")
+	}
+	if current.WorkspaceDirname != item.WorkspaceDirname {
+		changedFields = append(changedFields, "workspace_dirname")
+	}
+	if !slices.Equal(current.Labels, item.Labels) {
+		changedFields = append(changedFields, "labels")
+	}
+	if len(changedFields) > 0 {
+		if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+			ProjectID: item.ProjectID,
+			EventType: activityevent.TypeProjectRepoUpdated,
+			Message:   "Updated project repo " + item.Name,
+			Metadata: map[string]any{
+				"repo_id":           item.ID.String(),
+				"repo_name":         item.Name,
+				"repository_url":    item.RepositoryURL,
+				"default_branch":    item.DefaultBranch,
+				"workspace_dirname": item.WorkspaceDirname,
+				"labels":            append([]string(nil), item.Labels...),
+				"changed_fields":    changedFields,
+			},
+		}); err != nil {
+			return writeCatalogError(c, err)
+		}
+	}
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"repo": mapProjectRepoResponse(item),
@@ -107,6 +160,22 @@ func (s *Server) deleteProjectRepo(c echo.Context) error {
 
 	item, err := s.catalog.DeleteProjectRepo(c.Request().Context(), projectID, repoID)
 	if err != nil {
+		return writeCatalogError(c, err)
+	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: item.ProjectID,
+		EventType: activityevent.TypeProjectRepoDeleted,
+		Message:   "Removed project repo " + item.Name,
+		Metadata: map[string]any{
+			"repo_id":           item.ID.String(),
+			"repo_name":         item.Name,
+			"repository_url":    item.RepositoryURL,
+			"default_branch":    item.DefaultBranch,
+			"workspace_dirname": item.WorkspaceDirname,
+			"labels":            append([]string(nil), item.Labels...),
+			"changed_fields":    []string{"repo"},
+		},
+	}); err != nil {
 		return writeCatalogError(c, err)
 	}
 

@@ -1289,7 +1289,7 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	if _, err := client.ActivityEvent.Create().
 		SetProjectID(project.ID).
 		SetTicketID(ticketItem.ID).
-		SetEventType("comment_added").
+		SetEventType("ticket_comment.created").
 		SetMessage("Looks good.\n\n- Please include PR links.").
 		SetMetadata(map[string]any{"comment_author": "user:reviewer"}).
 		SetCreatedAt(detailBaseTime.Add(2 * time.Minute)).

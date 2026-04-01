@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/labstack/echo/v4"
 )
@@ -112,6 +114,23 @@ func (s *Server) handleCreateWorkflow(c echo.Context) error {
 	if err != nil {
 		return writeWorkflowError(c, err)
 	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: item.ProjectID,
+		AgentID:   item.AgentID,
+		EventType: activityevent.TypeWorkflowCreated,
+		Message:   "Created workflow " + item.Name,
+		Metadata: map[string]any{
+			"workflow_id":       item.ID.String(),
+			"workflow_name":     item.Name,
+			"workflow_type":     item.Type.String(),
+			"is_active":         item.IsActive,
+			"pickup_status_ids": item.PickupStatusIDs,
+			"finish_status_ids": item.FinishStatusIDs,
+			"changed_fields":    []string{"workflow"},
+		},
+	}); err != nil {
+		return writeWorkflowError(c, err)
+	}
 
 	return c.JSON(http.StatusCreated, map[string]any{
 		"workflow": mapWorkflowDetailResponse(item),
@@ -157,9 +176,145 @@ func (s *Server) handleUpdateWorkflow(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
+	current, err := s.workflowService.Get(c.Request().Context(), workflowID)
+	if err != nil {
+		return writeWorkflowError(c, err)
+	}
 
 	item, err := s.workflowService.Update(c.Request().Context(), input)
 	if err != nil {
+		return writeWorkflowError(c, err)
+	}
+	activityInputs := make([]activitysvc.RecordInput, 0, 8)
+	if raw.IsActive != nil {
+		eventType := activityevent.TypeWorkflowDeactivated
+		message := "Deactivated workflow " + item.Name
+		if *raw.IsActive {
+			eventType = activityevent.TypeWorkflowActivated
+			message = "Activated workflow " + item.Name
+		}
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: item.ProjectID,
+			AgentID:   item.AgentID,
+			EventType: eventType,
+			Message:   message,
+			Metadata: map[string]any{
+				"workflow_id":    item.ID.String(),
+				"workflow_name":  item.Name,
+				"is_active":      item.IsActive,
+				"changed_fields": []string{"is_active"},
+			},
+		})
+	}
+	if raw.Hooks != nil {
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: item.ProjectID,
+			AgentID:   item.AgentID,
+			EventType: activityevent.TypeWorkflowHooksUpdated,
+			Message:   "Updated workflow hooks for " + item.Name,
+			Metadata: map[string]any{
+				"workflow_id":    item.ID.String(),
+				"workflow_name":  item.Name,
+				"changed_fields": []string{"hooks"},
+			},
+		})
+	}
+	if raw.AgentID != nil {
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: item.ProjectID,
+			AgentID:   item.AgentID,
+			EventType: activityevent.TypeWorkflowAgentChanged,
+			Message:   "Changed workflow agent for " + item.Name,
+			Metadata: map[string]any{
+				"workflow_id":    item.ID.String(),
+				"workflow_name":  item.Name,
+				"from_agent_id":  current.AgentID,
+				"to_agent_id":    item.AgentID,
+				"changed_fields": []string{"agent_id"},
+			},
+		})
+	}
+	if raw.PickupStatusIDs != nil {
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: item.ProjectID,
+			AgentID:   item.AgentID,
+			EventType: activityevent.TypeWorkflowPickupStatusesChanged,
+			Message:   "Updated workflow pickup statuses for " + item.Name,
+			Metadata: map[string]any{
+				"workflow_id":       item.ID.String(),
+				"workflow_name":     item.Name,
+				"pickup_status_ids": item.PickupStatusIDs,
+				"changed_fields":    []string{"pickup_status_ids"},
+			},
+		})
+	}
+	if raw.FinishStatusIDs != nil {
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: item.ProjectID,
+			AgentID:   item.AgentID,
+			EventType: activityevent.TypeWorkflowFinishStatusesChanged,
+			Message:   "Updated workflow finish statuses for " + item.Name,
+			Metadata: map[string]any{
+				"workflow_id":       item.ID.String(),
+				"workflow_name":     item.Name,
+				"finish_status_ids": item.FinishStatusIDs,
+				"changed_fields":    []string{"finish_status_ids"},
+			},
+		})
+	}
+	if raw.MaxConcurrent != nil {
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: item.ProjectID,
+			AgentID:   item.AgentID,
+			EventType: activityevent.TypeWorkflowConcurrencyChanged,
+			Message:   "Changed workflow concurrency for " + item.Name,
+			Metadata: map[string]any{
+				"workflow_id":    item.ID.String(),
+				"workflow_name":  item.Name,
+				"max_concurrent": item.MaxConcurrent,
+				"changed_fields": []string{"max_concurrent"},
+			},
+		})
+	}
+	if raw.MaxRetryAttempts != nil {
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: item.ProjectID,
+			AgentID:   item.AgentID,
+			EventType: activityevent.TypeWorkflowRetryPolicyChanged,
+			Message:   "Changed workflow retry policy for " + item.Name,
+			Metadata: map[string]any{
+				"workflow_id":        item.ID.String(),
+				"workflow_name":      item.Name,
+				"max_retry_attempts": item.MaxRetryAttempts,
+				"changed_fields":     []string{"max_retry_attempts"},
+			},
+		})
+	}
+	if raw.TimeoutMinutes != nil || raw.StallTimeoutMinutes != nil {
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: item.ProjectID,
+			AgentID:   item.AgentID,
+			EventType: activityevent.TypeWorkflowTimeoutChanged,
+			Message:   "Changed workflow timeouts for " + item.Name,
+			Metadata:  workflowTimeoutMetadata(raw, mapWorkflowDetailResponse(item)),
+		})
+	}
+	if raw.Name != nil || raw.Type != nil || raw.HarnessPath != nil {
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: item.ProjectID,
+			AgentID:   item.AgentID,
+			EventType: activityevent.TypeWorkflowUpdated,
+			Message:   "Updated workflow " + item.Name,
+			Metadata: map[string]any{
+				"workflow_id":    item.ID.String(),
+				"workflow_name":  item.Name,
+				"workflow_type":  item.Type.String(),
+				"harness_path":   item.HarnessPath,
+				"changed_fields": workflowChangedFields(raw),
+			},
+		})
+	}
+	if err := s.emitActivities(c.Request().Context(), activityInputs...); err != nil {
 		return writeWorkflowError(c, err)
 	}
 
@@ -180,6 +335,19 @@ func (s *Server) handleDeleteWorkflow(c echo.Context) error {
 
 	item, err := s.workflowService.Delete(c.Request().Context(), workflowID)
 	if err != nil {
+		return writeWorkflowError(c, err)
+	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: item.ProjectID,
+		AgentID:   item.AgentID,
+		EventType: activityevent.TypeWorkflowDeleted,
+		Message:   "Deleted workflow " + item.Name,
+		Metadata: map[string]any{
+			"workflow_id":    item.ID.String(),
+			"workflow_name":  item.Name,
+			"changed_fields": []string{"workflow"},
+		},
+	}); err != nil {
 		return writeWorkflowError(c, err)
 	}
 
@@ -250,6 +418,25 @@ func (s *Server) handleUpdateWorkflowHarness(c echo.Context) error {
 
 	document, err := s.workflowService.UpdateHarness(c.Request().Context(), input)
 	if err != nil {
+		return writeWorkflowError(c, err)
+	}
+	workflowItem, err := s.workflowService.Get(c.Request().Context(), workflowID)
+	if err != nil {
+		return writeWorkflowError(c, err)
+	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: workflowItem.ProjectID,
+		AgentID:   workflowItem.AgentID,
+		EventType: activityevent.TypeWorkflowHarnessUpdated,
+		Message:   "Updated workflow harness for " + workflowItem.Name,
+		Metadata: map[string]any{
+			"workflow_id":    workflowItem.ID.String(),
+			"workflow_name":  workflowItem.Name,
+			"harness_path":   document.Path,
+			"version":        document.Version,
+			"changed_fields": []string{"harness"},
+		},
+	}); err != nil {
 		return writeWorkflowError(c, err)
 	}
 

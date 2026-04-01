@@ -11,8 +11,11 @@ import (
 	"testing"
 	"time"
 
+	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
+	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 )
@@ -128,6 +131,115 @@ func TestRuntimeLauncherConsumeTurnIncludesSessionExitCause(t *testing.T) {
 
 	if err := <-serverDone; err != nil {
 		t.Fatalf("fake server returned error: %v", err)
+	}
+}
+
+func TestRuntimeLauncherRecordProviderRateLimitEmitsCanonicalActivity(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	fixture.createAgent(ctx, t, "codex-rate-limit-01", 0)
+
+	bus := eventinfra.NewChannelBus()
+	defer func() {
+		if err := bus.Close(); err != nil {
+			t.Fatalf("bus.Close() error = %v", err)
+		}
+	}()
+	stream, err := bus.Subscribe(ctx, activityLifecycleTopic)
+	if err != nil {
+		t.Fatalf("Subscribe(activity lifecycle) error = %v", err)
+	}
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, nil, nil, nil)
+	observedAt := time.Date(2026, time.April, 1, 18, 55, 0, 0, time.UTC)
+	usedPercent := 42.5
+	resetAt := observedAt.Add(15 * time.Minute)
+	rateLimit := &provider.CLIRateLimit{
+		Provider: provider.CLIRateLimitProviderCodex,
+		Codex: &provider.CodexRateLimit{
+			LimitID:   "codex-limit",
+			LimitName: "Codex Pro",
+			PlanType:  "pro",
+			Primary: &provider.CodexRateLimitWindow{
+				UsedPercent:   &usedPercent,
+				WindowMinutes: 60,
+				ResetsAt:      &resetAt,
+			},
+		},
+		Raw: map[string]any{"limit_id": "codex-limit"},
+	}
+
+	if err := launcher.recordProviderRateLimit(ctx, fixture.providerID, rateLimit, observedAt); err != nil {
+		t.Fatalf("recordProviderRateLimit() error = %v", err)
+	}
+
+	updatedProvider, err := client.AgentProvider.Get(ctx, fixture.providerID)
+	if err != nil {
+		t.Fatalf("reload provider: %v", err)
+	}
+	if updatedProvider.CliRateLimitUpdatedAt == nil || !updatedProvider.CliRateLimitUpdatedAt.UTC().Equal(observedAt) {
+		t.Fatalf("expected cli_rate_limit_updated_at %s, got %+v", observedAt.Format(time.RFC3339), updatedProvider.CliRateLimitUpdatedAt)
+	}
+	if updatedProvider.CliRateLimit["provider"] != string(provider.CLIRateLimitProviderCodex) {
+		t.Fatalf("persisted provider rate limit = %+v", updatedProvider.CliRateLimit)
+	}
+
+	activities, err := client.ActivityEvent.Query().
+		Where(
+			entactivityevent.ProjectIDEQ(fixture.projectID),
+			entactivityevent.EventTypeEQ(activityevent.TypeProviderRateLimitUpdated.String()),
+		).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("query provider rate limit activities: %v", err)
+	}
+	if len(activities) != 1 {
+		t.Fatalf("expected one provider rate limit activity, got %+v", activities)
+	}
+	if activities[0].Metadata["provider_id"] != fixture.providerID.String() {
+		t.Fatalf("provider rate limit activity metadata = %+v", activities[0].Metadata)
+	}
+
+	select {
+	case event := <-stream:
+		if event.Topic != activityLifecycleTopic || event.Type != provider.MustParseEventType(activityevent.TypeProviderRateLimitUpdated.String()) {
+			t.Fatalf("activity event = %+v", event)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for provider rate limit activity event")
+	}
+
+	nextObservedAt := observedAt.Add(5 * time.Minute)
+	if err := launcher.recordProviderRateLimit(ctx, fixture.providerID, rateLimit, nextObservedAt); err != nil {
+		t.Fatalf("recordProviderRateLimit(second) error = %v", err)
+	}
+
+	activities, err = client.ActivityEvent.Query().
+		Where(
+			entactivityevent.ProjectIDEQ(fixture.projectID),
+			entactivityevent.EventTypeEQ(activityevent.TypeProviderRateLimitUpdated.String()),
+		).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("query provider rate limit activities after duplicate payload: %v", err)
+	}
+	if len(activities) != 1 {
+		t.Fatalf("expected duplicate payload to avoid extra activity rows, got %+v", activities)
+	}
+
+	updatedProvider, err = client.AgentProvider.Get(ctx, fixture.providerID)
+	if err != nil {
+		t.Fatalf("reload provider after duplicate payload: %v", err)
+	}
+	if updatedProvider.CliRateLimitUpdatedAt == nil || !updatedProvider.CliRateLimitUpdatedAt.UTC().Equal(nextObservedAt) {
+		t.Fatalf("expected latest cli_rate_limit_updated_at %s, got %+v", nextObservedAt.Format(time.RFC3339), updatedProvider.CliRateLimitUpdatedAt)
+	}
+
+	select {
+	case event := <-stream:
+		t.Fatalf("unexpected duplicate activity stream event: %+v", event)
+	case <-time.After(200 * time.Millisecond):
 	}
 }
 
