@@ -105,7 +105,7 @@
         {loading}
       />
       <StatCard
-        label="Today's Cost"
+        label="Today's Spend"
         value={formatCurrency(workspaceStats.todayCost)}
         icon={Coins}
         {loading}

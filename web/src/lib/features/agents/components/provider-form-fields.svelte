@@ -213,27 +213,37 @@
 
           {#if showCostFields}
             <div class="space-y-2">
-              <Label for="provider-cost-input">Input token cost</Label>
+              <Label for="provider-cost-input">Input pricing (USD / 1M tokens)</Label>
               <Input
                 id="provider-cost-input"
                 type="number"
                 min="0"
-                step="0.000001"
+                step="0.01"
+                placeholder="3.00"
                 value={draft.costPerInputToken}
                 oninput={(event) => onFieldChange?.('costPerInputToken', fieldValue(event))}
               />
+              <p class="text-muted-foreground text-xs">
+                Enter the published per-million-token rate. Example: `$3.00 / 1M` stores `0.000003`
+                USD per token internally.
+              </p>
             </div>
 
             <div class="space-y-2">
-              <Label for="provider-cost-output">Output token cost</Label>
+              <Label for="provider-cost-output">Output pricing (USD / 1M tokens)</Label>
               <Input
                 id="provider-cost-output"
                 type="number"
                 min="0"
-                step="0.000001"
+                step="0.01"
+                placeholder="15.00"
                 value={draft.costPerOutputToken}
                 oninput={(event) => onFieldChange?.('costPerOutputToken', fieldValue(event))}
               />
+              <p class="text-muted-foreground text-xs">
+                Use provider list pricing as-is here, in `USD / 1M tokens`, to avoid 1,000x or
+                1,000,000x entry mistakes.
+              </p>
             </div>
           {/if}
         </div>

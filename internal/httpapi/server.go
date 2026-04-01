@@ -153,6 +153,7 @@ func NewServer(
 			opt(server)
 		}
 	}
+	e.Use(server.injectRequestLogger())
 	e.Use(server.traceRequest())
 	e.Use(server.metricsMiddleware())
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -114,6 +115,57 @@ func TestNotificationRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 				t.Fatalf("%s %s = %d %s, want %d containing %q", testCase.method, testCase.target, rec.Code, rec.Body.String(), testCase.wantStatus, testCase.wantBody)
 			}
 		})
+	}
+}
+
+func TestNotificationRoutesLogStructuredBoundaryErrors(t *testing.T) {
+	client := openTestEntClient(t)
+	var logBuffer bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logBuffer, nil))
+
+	webhookServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer webhookServer.Close()
+
+	server := NewServer(
+		config.ServerConfig{Port: 40025},
+		config.GitHubConfig{},
+		logger,
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithNotificationService(notificationservice.NewService(client, logger, webhookServer.Client())),
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("OpenASE").
+		SetSlug("openase-notification-log-errors").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+
+	rec := performJSONRequest(t, server, http.MethodPost, fmt.Sprintf("/api/v1/orgs/%s/channels", org.ID), `{"name":"","type":"webhook","config":{}}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("unexpected status: %d %s", rec.Code, rec.Body.String())
+	}
+
+	logOutput := logBuffer.String()
+	for _, want := range []string{
+		"http api boundary error",
+		"error_code=INVALID_REQUEST",
+		"route=/api/v1/orgs/:orgId/channels",
+		"request_id=",
+		"operation=api_boundary_error",
+	} {
+		if !strings.Contains(logOutput, want) {
+			t.Fatalf("expected log output to contain %q, got %s", want, logOutput)
+		}
 	}
 }
 

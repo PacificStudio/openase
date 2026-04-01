@@ -182,6 +182,8 @@ func TestClaudeCodeAgentAdapterSatisfiesRuntimeContract(t *testing.T) {
 }
 
 func TestDefaultAgentAdapterRegistryRegistersGeminiRuntimeContract(t *testing.T) {
+	ensureGeminiCLIProbePath(t)
+
 	process := newRuntimeRunnerFakeProcess()
 	probeProcess := &stubGeminiProbeProcess{
 		stdout: io.NopCloser(strings.NewReader(`{"authType":"oauth-personal","remaining":3,"limit":10,"resetTime":"2026-04-02T10:02:55Z","buckets":[{"modelId":"gemini-2.5-pro","tokenType":"REQUESTS","remainingFraction":0.3,"resetTime":"2026-04-02T10:02:55Z"}]}`)),

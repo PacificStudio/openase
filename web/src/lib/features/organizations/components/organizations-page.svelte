@@ -96,7 +96,7 @@
       <StatCard label="Running Agents" value={workspaceStats.runningAgents} icon={Bot} />
       <StatCard label="Active Tickets" value={workspaceStats.activeTickets} icon={Ticket} />
       <StatCard
-        label="Today's Cost"
+        label="Today's Spend"
         value={formatCurrency(workspaceStats.todayCost)}
         icon={Coins}
       />

@@ -83,12 +83,16 @@ func decodeJSON(c echo.Context, target any) error {
 	decoder := json.NewDecoder(c.Request().Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
+		message := fmt.Sprintf("invalid JSON body: %v", err)
+		logAPIBoundaryError(c, http.StatusBadRequest, "INVALID_REQUEST", message)
 		if writeErr := c.JSON(http.StatusBadRequest, errorResponse(fmt.Sprintf("invalid JSON body: %v", err))); writeErr != nil {
 			return writeErr
 		}
 		return errAPIResponseCommitted
 	}
 	if decoder.More() {
+		message := "invalid JSON body: multiple JSON values are not allowed"
+		logAPIBoundaryError(c, http.StatusBadRequest, "INVALID_REQUEST", message)
 		if writeErr := c.JSON(http.StatusBadRequest, errorResponse("invalid JSON body: multiple JSON values are not allowed")); writeErr != nil {
 			return writeErr
 		}
@@ -101,6 +105,7 @@ func decodeJSON(c echo.Context, target any) error {
 func parseUUIDPathParam(c echo.Context, name string) (uuid.UUID, error) {
 	parsed, err := parseUUIDPathParamValue(c, name)
 	if err != nil {
+		logAPIBoundaryError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 		if writeErr := c.JSON(http.StatusBadRequest, errorResponse(err.Error())); writeErr != nil {
 			return uuid.UUID{}, writeErr
 		}

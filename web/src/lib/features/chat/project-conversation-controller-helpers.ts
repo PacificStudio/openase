@@ -65,6 +65,12 @@ export function invalidateProjectConversationStream(state: ProjectConversationCo
   state.abortController = null
 }
 
+export function clearProjectConversationSelection(state: ProjectConversationControllerState) {
+  state.conversationId = ''
+  state.entries = []
+  state.activeAssistantEntryId = ''
+}
+
 export function projectConversationHasPendingInterrupt(
   entries: ProjectConversationTranscriptEntry[],
 ) {
