@@ -152,29 +152,6 @@ type agentRunResponse struct {
 	CreatedAt         string   `json:"created_at"`
 }
 
-type agentProviderPatchRequest struct {
-	MachineID          *string         `json:"machine_id"`
-	Name               *string         `json:"name"`
-	AdapterType        *string         `json:"adapter_type"`
-	PermissionProfile  *string         `json:"permission_profile"`
-	CliCommand         *string         `json:"cli_command"`
-	CliArgs            *[]string       `json:"cli_args"`
-	AuthConfig         *map[string]any `json:"auth_config"`
-	ModelName          *string         `json:"model_name"`
-	ModelTemperature   *float64        `json:"model_temperature"`
-	ModelMaxTokens     *int            `json:"model_max_tokens"`
-	MaxParallelRuns    *int            `json:"max_parallel_runs"`
-	CostPerInputToken  *float64        `json:"cost_per_input_token"`
-	CostPerOutputToken *float64        `json:"cost_per_output_token"`
-}
-
-type agentPatchRequest struct {
-	// Agent provider ID used to run the agent.
-	ProviderID *string `json:"provider_id"`
-	// Human-readable agent name.
-	Name *string `json:"name"`
-}
-
 func (s *Server) listAgentProviders(c echo.Context) error {
 	orgID, err := parseUUIDPathParam(c, "orgId")
 	if err != nil {
@@ -255,62 +232,7 @@ func (s *Server) patchAgentProvider(c echo.Context) error {
 		return err
 	}
 
-	request := domain.AgentProviderInput{
-		MachineID:          current.MachineID.String(),
-		Name:               current.Name,
-		AdapterType:        current.AdapterType.String(),
-		PermissionProfile:  mapAgentProviderResponse(current).PermissionProfile,
-		CliCommand:         current.CliCommand,
-		CliArgs:            append([]string(nil), current.CliArgs...),
-		AuthConfig:         cloneMap(current.AuthConfig),
-		ModelName:          current.ModelName,
-		ModelTemperature:   floatPointer(current.ModelTemperature),
-		ModelMaxTokens:     intPointer(current.ModelMaxTokens),
-		MaxParallelRuns:    intPointer(current.MaxParallelRuns),
-		CostPerInputToken:  floatPointer(current.CostPerInputToken),
-		CostPerOutputToken: floatPointer(current.CostPerOutputToken),
-	}
-	if patch.MachineID != nil {
-		request.MachineID = *patch.MachineID
-	}
-	if patch.Name != nil {
-		request.Name = *patch.Name
-	}
-	if patch.AdapterType != nil {
-		request.AdapterType = *patch.AdapterType
-	}
-	if patch.PermissionProfile != nil {
-		request.PermissionProfile = *patch.PermissionProfile
-	}
-	if patch.CliCommand != nil {
-		request.CliCommand = *patch.CliCommand
-	}
-	if patch.CliArgs != nil {
-		request.CliArgs = append([]string(nil), (*patch.CliArgs)...)
-	}
-	if patch.AuthConfig != nil {
-		request.AuthConfig = cloneMap(*patch.AuthConfig)
-	}
-	if patch.ModelName != nil {
-		request.ModelName = *patch.ModelName
-	}
-	if patch.ModelTemperature != nil {
-		request.ModelTemperature = patch.ModelTemperature
-	}
-	if patch.ModelMaxTokens != nil {
-		request.ModelMaxTokens = patch.ModelMaxTokens
-	}
-	if patch.MaxParallelRuns != nil {
-		request.MaxParallelRuns = patch.MaxParallelRuns
-	}
-	if patch.CostPerInputToken != nil {
-		request.CostPerInputToken = patch.CostPerInputToken
-	}
-	if patch.CostPerOutputToken != nil {
-		request.CostPerOutputToken = patch.CostPerOutputToken
-	}
-
-	input, err := domain.ParseUpdateAgentProvider(providerID, current.OrganizationID, request)
+	input, err := parseAgentProviderPatchRequest(providerID, current, patch)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, errorResponse(err.Error()))
 	}
@@ -415,18 +337,7 @@ func (s *Server) patchAgent(c echo.Context) error {
 		return err
 	}
 
-	request := domain.AgentInput{
-		ProviderID: current.ProviderID.String(),
-		Name:       current.Name,
-	}
-	if patch.ProviderID != nil {
-		request.ProviderID = *patch.ProviderID
-	}
-	if patch.Name != nil {
-		request.Name = *patch.Name
-	}
-
-	input, err := domain.ParseUpdateAgent(agentID, current.ProjectID, request)
+	input, err := parseAgentPatchRequest(agentID, current, patch)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, errorResponse(err.Error()))
 	}

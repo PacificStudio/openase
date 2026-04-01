@@ -57,8 +57,14 @@ func (r routeRegistrar) registerAPIRoutes() {
 		r.server.registerAgentPlatformRoutes(r.api.Group("/platform", r.server.authenticateAgentToken))
 	}
 	if r.server.catalog != nil {
-		r.server.registerCatalogRoutes(r.api)
+		r.server.registerOrganizationRoutes(r.api)
+		r.server.registerProjectRoutes(r.api)
+		r.server.registerMachineRoutes(r.api)
+		r.server.registerProjectRepoRoutes(r.api)
+		r.server.registerCatalogAgentRoutes(r.api)
+		r.server.registerCatalogActivityRoutes(r.api)
 		r.server.registerAppContextRoutes(r.api)
+		r.server.registerWorkspaceSummaryRoutes(r.api)
 	}
 	r.server.registerTicketRoutes(r.api)
 	r.server.registerChatRoutes(r.api)
@@ -70,7 +76,7 @@ func (r routeRegistrar) registerAPIRoutes() {
 	r.server.registerSkillRoutes(r.api)
 	r.server.registerRoleLibraryRoutes(r.api)
 	r.server.registerHRAdvisorRoutes(r.api)
-	r.server.registerTicketStatusRoutes()
+	r.server.registerTicketStatusRoutes(r.api)
 }
 
 func (r routeRegistrar) registerUIRoutes() {

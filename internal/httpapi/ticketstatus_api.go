@@ -8,12 +8,12 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func (s *Server) registerTicketStatusRoutes() {
-	s.echo.GET("/api/v1/projects/:projectId/statuses", s.handleListTicketStatuses)
-	s.echo.POST("/api/v1/projects/:projectId/statuses", s.handleCreateTicketStatus)
-	s.echo.POST("/api/v1/projects/:projectId/statuses/reset", s.handleResetTicketStatuses)
-	s.echo.PATCH("/api/v1/statuses/:statusId", s.handleUpdateTicketStatus)
-	s.echo.DELETE("/api/v1/statuses/:statusId", s.handleDeleteTicketStatus)
+func (s *Server) registerTicketStatusRoutes(api *echo.Group) {
+	api.GET("/projects/:projectId/statuses", s.handleListTicketStatuses)
+	api.POST("/projects/:projectId/statuses", s.handleCreateTicketStatus)
+	api.POST("/projects/:projectId/statuses/reset", s.handleResetTicketStatuses)
+	api.PATCH("/statuses/:statusId", s.handleUpdateTicketStatus)
+	api.DELETE("/statuses/:statusId", s.handleDeleteTicketStatus)
 }
 
 func (s *Server) handleListTicketStatuses(c echo.Context) error {

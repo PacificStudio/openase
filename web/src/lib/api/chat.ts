@@ -17,6 +17,7 @@ export type ChatTurnRequest = {
     projectId: string
     workflowId?: string
     ticketId?: string
+    harnessDraft?: string
   }
 }
 
@@ -177,6 +178,7 @@ export async function streamChatTurn(
         project_id: request.context.projectId,
         workflow_id: request.context.workflowId,
         ticket_id: request.context.ticketId,
+        harness_draft: request.context.harnessDraft,
       },
     }),
     credentials: 'same-origin',

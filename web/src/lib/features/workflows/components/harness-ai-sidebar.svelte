@@ -96,6 +96,7 @@
         context: {
           projectId: projectId!,
           workflowId: workflowId!,
+          harnessDraft: draftContent,
         },
       })
     } finally {

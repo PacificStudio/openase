@@ -514,9 +514,10 @@ type OpenAPITicketAssignedAgent struct {
 }
 
 type OpenAPIChatContext struct {
-	ProjectID  string  `json:"project_id"`
-	WorkflowID *string `json:"workflow_id,omitempty"`
-	TicketID   *string `json:"ticket_id,omitempty"`
+	ProjectID    string  `json:"project_id"`
+	WorkflowID   *string `json:"workflow_id,omitempty"`
+	TicketID     *string `json:"ticket_id,omitempty"`
+	HarnessDraft *string `json:"harness_draft,omitempty"`
 }
 
 type OpenAPIChatStartRequest struct {
@@ -1349,14 +1350,15 @@ var (
 		"create_bootstrap_ticket": "Whether activation should create a bootstrap ticket immediately.",
 	}
 	openAPIChatRequestDescriptions = map[string]string{
-		"message":             "User message content for the chat turn.",
-		"provider_id":         "Optional provider ID used to run this chat session.",
-		"session_id":          "Optional existing chat session ID to resume.",
-		"source":              "Source identifier for the chat request, such as web or cli.",
-		"context":             "Optional project, ticket, or workflow context attached to the chat turn.",
-		"context.project_id":  "Project ID supplied to ground the chat request.",
-		"context.ticket_id":   "Optional ticket ID supplied to ground the chat request.",
-		"context.workflow_id": "Optional workflow ID supplied to ground the chat request.",
+		"message":               "User message content for the chat turn.",
+		"provider_id":           "Optional provider ID used to run this chat session.",
+		"session_id":            "Optional existing chat session ID to resume.",
+		"source":                "Source identifier for the chat request, such as web or cli.",
+		"context":               "Optional project, ticket, or workflow context attached to the chat turn.",
+		"context.project_id":    "Project ID supplied to ground the chat request.",
+		"context.harness_draft": "Optional unsaved harness draft from the editor so the AI can reason about the current in-memory workflow text.",
+		"context.ticket_id":     "Optional ticket ID supplied to ground the chat request.",
+		"context.workflow_id":   "Optional workflow ID supplied to ground the chat request.",
 	}
 	openAPIProjectConversationCreateDescriptions = map[string]string{
 		"source":             "Project conversation source and currently must be project_sidebar.",

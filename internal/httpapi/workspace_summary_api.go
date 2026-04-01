@@ -53,6 +53,11 @@ type organizationProjectSummaryResponse struct {
 	LastActivityAt *string `json:"last_activity_at,omitempty"`
 }
 
+func (s *Server) registerWorkspaceSummaryRoutes(api *echo.Group) {
+	api.GET("/workspace/summary", s.handleGetWorkspaceSummary)
+	api.GET("/orgs/:orgId/summary", s.handleGetOrganizationSummary)
+}
+
 func (s *Server) handleGetWorkspaceSummary(c echo.Context) error {
 	summary, err := s.catalog.GetWorkspaceDashboardSummary(c.Request().Context())
 	if err != nil {

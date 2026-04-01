@@ -53,6 +53,7 @@ describe('streamChatTurn', () => {
         context: {
           projectId: 'project-1',
           workflowId: 'workflow-1',
+          harnessDraft: '---\nworkflow:\n  name: Draft\n---\n',
         },
       },
       {
@@ -83,5 +84,22 @@ describe('streamChatTurn', () => {
         },
       },
     ])
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/chat',
+      expect.objectContaining({
+        body: JSON.stringify({
+          message: 'Help me tighten this harness.',
+          source: 'harness_editor',
+          provider_id: undefined,
+          session_id: undefined,
+          context: {
+            project_id: 'project-1',
+            workflow_id: 'workflow-1',
+            ticket_id: undefined,
+            harness_draft: '---\nworkflow:\n  name: Draft\n---\n',
+          },
+        }),
+      }),
+    )
   })
 })

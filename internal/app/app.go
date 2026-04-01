@@ -167,6 +167,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		catalogSvc,
 		ticketSvc,
 		workflowSvc,
+		ticketStatusSvc,
 		chatWorkingDirectory,
 	)
 	projectConversationSvc := chatservice.NewProjectConversationService(

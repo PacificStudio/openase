@@ -341,6 +341,7 @@ describe('HarnessAiSidebar long streaming', () => {
       context: {
         project_id: 'project-1',
         workflow_id: 'workflow-1',
+        harness_draft: harnessContent,
       },
     })
     expect(postRequests[0]?.body?.session_id).toBeUndefined()
@@ -355,6 +356,7 @@ describe('HarnessAiSidebar long streaming', () => {
       context: {
         project_id: 'project-1',
         workflow_id: 'workflow-1',
+        harness_draft: harnessContent,
       },
     })
     expect(turnIndex).toBe(2)

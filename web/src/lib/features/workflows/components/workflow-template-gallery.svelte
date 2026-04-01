@@ -58,17 +58,14 @@
     void listBuiltinRoles()
       .then((payload) => {
         if (!cancelled) {
+          loading = false
           roles = payload.roles
         }
       })
       .catch(() => {
         if (!cancelled) {
-          roles = []
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
           loading = false
+          roles = []
         }
       })
 

@@ -1,54 +1,20 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
-	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
 const agentClaimsContextKey = "agent_platform_claims"
-
-type rawAgentCreateTicketRequest struct {
-	Title          string   `json:"title"`
-	Description    string   `json:"description"`
-	StatusID       *string  `json:"status_id"`
-	Priority       *string  `json:"priority"`
-	Type           *string  `json:"type"`
-	WorkflowID     *string  `json:"workflow_id"`
-	ParentTicketID *string  `json:"parent_ticket_id"`
-	ExternalRef    *string  `json:"external_ref"`
-	BudgetUSD      *float64 `json:"budget_usd"`
-}
-
-type rawAgentUpdateTicketRequest struct {
-	Title       *string `json:"title"`
-	Description *string `json:"description"`
-	ExternalRef *string `json:"external_ref"`
-	StatusID    *string `json:"status_id"`
-	StatusName  *string `json:"status_name"`
-}
-
-type rawAgentReportUsageRequest struct {
-	InputTokens  *int64   `json:"input_tokens"`
-	OutputTokens *int64   `json:"output_tokens"`
-	CostUSD      *float64 `json:"cost_usd"`
-}
-
-type rawAgentTicketCommentRequest struct {
-	Body string `json:"body"`
-}
-
-type rawAgentProjectPatchRequest struct {
-	Description *string `json:"description"`
-}
 
 func (s *Server) registerAgentPlatformRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/tickets", s.handleAgentListTickets)
@@ -129,17 +95,7 @@ func (s *Server) handleAgentCreateTicket(c echo.Context) error {
 		return err
 	}
 
-	input, err := parseCreateTicketRequest(projectID, rawCreateTicketRequest{
-		Title:          raw.Title,
-		Description:    raw.Description,
-		StatusID:       raw.StatusID,
-		Priority:       raw.Priority,
-		Type:           raw.Type,
-		WorkflowID:     raw.WorkflowID,
-		ParentTicketID: raw.ParentTicketID,
-		ExternalRef:    raw.ExternalRef,
-		BudgetUSD:      raw.BudgetUSD,
-	})
+	input, err := parseAgentCreateTicketRequest(projectID, raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
@@ -221,42 +177,20 @@ func (s *Server) handleAgentUpdateOwnTicket(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	if raw.StatusID != nil && raw.StatusName != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "status_id and status_name cannot be provided together")
-	}
-
-	input := ticketservice.UpdateInput{TicketID: current.ID}
-	if raw.Title != nil {
-		title := strings.TrimSpace(*raw.Title)
-		if title == "" {
-			return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "title must not be empty")
-		}
-		input.Title = ticketservice.Some(title)
-	}
-	if raw.Description != nil {
-		input.Description = ticketservice.Some(strings.TrimSpace(*raw.Description))
-	}
-	if raw.ExternalRef != nil {
-		input.ExternalRef = ticketservice.Some(strings.TrimSpace(*raw.ExternalRef))
-	}
-	if raw.StatusID != nil {
-		statusID, err := parseUUIDString("status_id", *raw.StatusID)
-		if err != nil {
-			return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-		}
-		input.StatusID = ticketservice.Some(statusID)
-	}
-	if raw.StatusName != nil {
+	resolveStatusID := func(ctx context.Context, projectID uuid.UUID, statusName string) (uuid.UUID, error) {
 		if s.ticketStatusService == nil {
-			return writeTicketStatusError(c, ticketstatus.ErrUnavailable)
+			return uuid.UUID{}, ticketstatus.ErrUnavailable
 		}
-		statusID, err := s.ticketStatusService.ResolveStatusIDByName(c.Request().Context(), current.ProjectID, *raw.StatusName)
-		if err != nil {
+		return s.ticketStatusService.ResolveStatusIDByName(ctx, projectID, statusName)
+	}
+	input, err := parseAgentUpdateTicketRequest(c.Request().Context(), current.ProjectID, current.ID, claims.CreatedBy(), raw, resolveStatusID)
+	if err != nil {
+		var statusNameErr agentStatusNameResolutionError
+		if errors.As(err, &statusNameErr) || errors.Is(err, ticketstatus.ErrUnavailable) {
 			return writeTicketStatusError(c, err)
 		}
-		input.StatusID = ticketservice.Some(statusID)
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
-	input.CreatedBy = ticketservice.Some(claims.CreatedBy())
 
 	item, err := s.ticketService.Update(c.Request().Context(), input)
 	if err != nil {
@@ -292,11 +226,7 @@ func (s *Server) handleAgentReportUsage(c echo.Context) error {
 	result, err := s.ticketService.RecordUsage(c.Request().Context(), ticketservice.RecordUsageInput{
 		AgentID:  claims.AgentID,
 		TicketID: current.ID,
-		Usage: ticketing.RawUsageDelta{
-			InputTokens:  raw.InputTokens,
-			OutputTokens: raw.OutputTokens,
-			CostUSD:      raw.CostUSD,
-		},
+		Usage:    parseAgentReportUsageRequest(raw),
 	}, s.metrics)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
@@ -353,10 +283,7 @@ func (s *Server) handleAgentCreateOwnTicketComment(c echo.Context) error {
 		return err
 	}
 
-	input, err := parseCreateTicketCommentRequest(current.ID, rawCreateTicketCommentRequest{
-		Body:      raw.Body,
-		CreatedBy: stringPointer(claims.CreatedBy()),
-	})
+	input, err := parseAgentCreateTicketCommentRequest(current.ID, claims.CreatedBy(), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
@@ -394,11 +321,7 @@ func (s *Server) handleAgentUpdateOwnTicketComment(c echo.Context) error {
 		return err
 	}
 
-	input, err := parseUpdateTicketCommentRequest(current.ID, commentID, rawUpdateTicketCommentRequest{
-		Body:       raw.Body,
-		EditedBy:   stringPointer(claims.CreatedBy()),
-		EditReason: stringPointer("agent_workpad_update"),
-	})
+	input, err := parseAgentUpdateTicketCommentRequest(current.ID, commentID, claims.CreatedBy(), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
@@ -440,22 +363,9 @@ func (s *Server) handleAgentUpdateProject(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	if raw.Description == nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "description is required")
-	}
-
-	request := domain.ProjectInput{
-		Name:                   current.Name,
-		Slug:                   current.Slug,
-		Description:            strings.TrimSpace(*raw.Description),
-		Status:                 current.Status.String(),
-		DefaultAgentProviderID: uuidToStringPointer(current.DefaultAgentProviderID),
-		AccessibleMachineIDs:   uuidSliceToStrings(current.AccessibleMachineIDs),
-		MaxConcurrentAgents:    intPointer(current.MaxConcurrentAgents),
-	}
-	input, err := domain.ParseUpdateProject(projectID, current.OrganizationID, request)
+	input, err := parseAgentProjectPatchRequest(projectID, current, raw)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse(err.Error()))
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
 
 	item, err := s.catalog.UpdateProject(c.Request().Context(), input)

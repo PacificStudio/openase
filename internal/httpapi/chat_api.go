@@ -26,23 +26,6 @@ const chatUserHeader = "X-OpenASE-Chat-User"
 
 var chatSSEKeepaliveInterval = 5 * time.Second
 
-type rawCreateConversationRequest struct {
-	Source     string `json:"source"`
-	ProviderID string `json:"provider_id"`
-	Context    struct {
-		ProjectID string `json:"project_id"`
-	} `json:"context"`
-}
-
-type rawConversationTurnRequest struct {
-	Message string `json:"message"`
-}
-
-type rawInterruptResponseRequest struct {
-	Decision *string        `json:"decision"`
-	Answer   map[string]any `json:"answer"`
-}
-
 func (s *Server) registerChatRoutes(api *echo.Group) {
 	api.POST("/chat", s.handleStartChat)
 	api.DELETE("/chat/:sessionId", s.handleDeleteChat)
@@ -317,28 +300,28 @@ func (s *Server) handleCreateProjectConversation(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	source, err := chatdomain.ParseSource(raw.Source)
+	request, err := parseCreateProjectConversationRequest(raw)
 	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_SOURCE", err.Error())
+		code := "INVALID_REQUEST"
+		if strings.Contains(err.Error(), "source") {
+			code = "INVALID_CHAT_SOURCE"
+		}
+		return writeAPIError(c, http.StatusBadRequest, code, err.Error())
 	}
-	if source != chatdomain.SourceProjectSidebar {
+	if request.Source != chatdomain.SourceProjectSidebar {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_SOURCE", "project conversations only support project_sidebar")
-	}
-
-	projectID, err := parseUUIDString("context.project_id", raw.Context.ProjectID)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
-	providerID, err := parseUUIDString("provider_id", raw.ProviderID)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
 	userID, err := chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
 	}
 
-	conversation, err := s.projectConversationService.CreateConversation(c.Request().Context(), userID, projectID, providerID)
+	conversation, err := s.projectConversationService.CreateConversation(
+		c.Request().Context(),
+		userID,
+		request.ProjectID,
+		request.ProviderID,
+	)
 	if err != nil {
 		return writeProjectConversationError(c, err)
 	}
@@ -430,9 +413,9 @@ func (s *Server) handleStartProjectConversationTurn(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	message := strings.TrimSpace(raw.Message)
-	if message == "" {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "message must not be empty")
+	message, err := parseProjectConversationTurnRequest(raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
 
 	turn, err := s.projectConversationService.StartTurn(c.Request().Context(), userID, conversationID, message)
@@ -511,10 +494,13 @@ func (s *Server) handleRespondProjectConversationInterrupt(c echo.Context) error
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	interrupt, err := s.projectConversationService.RespondInterrupt(c.Request().Context(), userID, conversationID, interruptID, chatdomain.InterruptResponse{
-		Decision: raw.Decision,
-		Answer:   raw.Answer,
-	})
+	interrupt, err := s.projectConversationService.RespondInterrupt(
+		c.Request().Context(),
+		userID,
+		conversationID,
+		interruptID,
+		parseInterruptResponseRequest(raw),
+	)
 	if err != nil {
 		return writeProjectConversationError(c, err)
 	}

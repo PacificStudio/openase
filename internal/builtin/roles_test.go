@@ -26,6 +26,8 @@ func TestDispatcherRoleTemplate(t *testing.T) {
 		"project.workflows",
 		"project.statuses",
 		"project.machines",
+		"move it from {{ workflow.pickup_status }} to the pickup status of the best matching active workflow",
+		"keep it in {{ workflow.finish_status }}",
 	} {
 		if !strings.Contains(role.Content, want) {
 			t.Fatalf("expected dispatcher harness to contain %q, got:\n%s", want, role.Content)
@@ -57,6 +59,7 @@ func TestHarnessOptimizerRoleTemplate(t *testing.T) {
 		`- "tickets.update.self"`,
 		"project.workflows",
 		"recent_tickets",
+		"Only move the ticket to {{ workflow.finish_status }}",
 	} {
 		if !strings.Contains(role.Content, want) {
 			t.Fatalf("expected harness optimizer content to contain %q, got:\n%s", want, role.Content)
@@ -86,6 +89,8 @@ func TestEnvProvisionerRoleTemplate(t *testing.T) {
 		`- setup-gh-cli`,
 		"target machine environment over SSH",
 		"makes the machine dispatchable again",
+		"Current machine: {{ machine.name }}",
+		"Only move the ticket to {{ workflow.finish_status }}",
 	} {
 		if !strings.Contains(role.Content, want) {
 			t.Fatalf("expected env provisioner content to contain %q, got:\n%s", want, role.Content)
@@ -114,7 +119,20 @@ func TestRolesHelpers(t *testing.T) {
 	if custom.HarnessPath != ".openase/harnesses/roles/coding.md" {
 		t.Fatalf("HarnessPath=%q, want %q", custom.HarnessPath, ".openase/harnesses/roles/coding.md")
 	}
-	for _, want := range []string{`name: "Coding"`, `type: "coding"`, `role: "coding"`, `- write-test`, `- review-code`, "Do the work."} {
+	for _, want := range []string{
+		`name: "Coding"`,
+		`type: "coding"`,
+		`role: "coding"`,
+		`- write-test`,
+		`- review-code`,
+		"## Runtime Context",
+		"{{ workflow.pickup_status }}",
+		"{{ workflow.finish_status }}",
+		"## Workpad",
+		"## Status Control",
+		"## Execution Rules",
+		"Do the work.",
+	} {
 		if !strings.Contains(custom.Content, want) {
 			t.Fatalf("expected generated content to contain %q, got:\n%s", want, custom.Content)
 		}

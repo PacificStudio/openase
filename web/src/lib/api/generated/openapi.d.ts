@@ -2411,6 +2411,8 @@ export interface operations {
         'application/json': {
           /** @description Optional project, ticket, or workflow context attached to the chat turn. */
           context?: {
+            /** @description Optional unsaved harness draft from the editor so the AI can reason about the current in-memory workflow text. */
+            harness_draft?: string | null
             /** @description Project ID supplied to ground the chat request. */
             project_id?: string
             /** @description Optional ticket ID supplied to ground the chat request. */

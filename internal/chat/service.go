@@ -14,6 +14,7 @@ import (
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
+	ticketstatusservice "github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
@@ -53,15 +54,17 @@ type RawStartInput struct {
 }
 
 type RawChatContext struct {
-	ProjectID  *string `json:"project_id"`
-	WorkflowID *string `json:"workflow_id"`
-	TicketID   *string `json:"ticket_id"`
+	ProjectID    *string `json:"project_id"`
+	WorkflowID   *string `json:"workflow_id"`
+	TicketID     *string `json:"ticket_id"`
+	HarnessDraft *string `json:"harness_draft"`
 }
 
 type Context struct {
-	ProjectID  uuid.UUID
-	WorkflowID *uuid.UUID
-	TicketID   *uuid.UUID
+	ProjectID    uuid.UUID
+	WorkflowID   *uuid.UUID
+	TicketID     *uuid.UUID
+	HarnessDraft *string
 }
 
 type StartInput struct {
@@ -84,6 +87,7 @@ type TurnStream struct {
 type catalogReader interface {
 	GetProject(ctx context.Context, id uuid.UUID) (catalogdomain.Project, error)
 	ListActivityEvents(ctx context.Context, input catalogdomain.ListActivityEvents) ([]catalogdomain.ActivityEvent, error)
+	ListProjectRepos(ctx context.Context, projectID uuid.UUID) ([]catalogdomain.ProjectRepo, error)
 	ListTicketRepoScopes(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID) ([]catalogdomain.TicketRepoScope, error)
 	ListAgentProviders(ctx context.Context, organizationID uuid.UUID) ([]catalogdomain.AgentProvider, error)
 	GetAgentProvider(ctx context.Context, id uuid.UUID) (catalogdomain.AgentProvider, error)
@@ -96,6 +100,11 @@ type ticketReader interface {
 
 type workflowReader interface {
 	Get(ctx context.Context, workflowID uuid.UUID) (workflowservice.WorkflowDetail, error)
+	List(ctx context.Context, projectID uuid.UUID) ([]workflowservice.Workflow, error)
+}
+
+type statusReader interface {
+	List(ctx context.Context, projectID uuid.UUID) (ticketstatusservice.ListResult, error)
 }
 
 type Service struct {
@@ -104,6 +113,7 @@ type Service struct {
 	catalog      catalogReader
 	tickets      ticketReader
 	workflows    workflowReader
+	statuses     statusReader
 	workingDir   provider.AbsolutePath
 	maxTurns     int
 	maxBudgetUSD float64
@@ -142,6 +152,7 @@ func NewService(
 	catalog catalogReader,
 	tickets ticketReader,
 	workflows workflowReader,
+	statuses statusReader,
 	workingDir provider.AbsolutePath,
 ) *Service {
 	if logger == nil {
@@ -154,6 +165,7 @@ func NewService(
 		catalog:      catalog,
 		tickets:      tickets,
 		workflows:    workflows,
+		statuses:     statuses,
 		workingDir:   workingDir,
 		maxTurns:     DefaultMaxTurns,
 		maxBudgetUSD: DefaultMaxBudgetUSD,
@@ -191,6 +203,7 @@ func ParseStartInput(raw RawStartInput) (StartInput, error) {
 	if err := validateSourceContext(source, workflowID, ticketID); err != nil {
 		return StartInput{}, err
 	}
+	harnessDraft := cloneOptionalString(raw.Context.HarnessDraft)
 
 	sessionID, err := parseOptionalSessionID(raw.SessionID)
 	if err != nil {
@@ -202,9 +215,10 @@ func ParseStartInput(raw RawStartInput) (StartInput, error) {
 		Source:     source,
 		ProviderID: providerID,
 		Context: Context{
-			ProjectID:  projectID,
-			WorkflowID: workflowID,
-			TicketID:   ticketID,
+			ProjectID:    projectID,
+			WorkflowID:   workflowID,
+			TicketID:     ticketID,
+			HarnessDraft: harnessDraft,
 		},
 		SessionID: sessionID,
 	}, nil
@@ -585,7 +599,9 @@ func (s *Service) writeHarnessEditorContext(
 
 	sb.WriteString("## 来源: Harness 编辑器\n")
 	_, _ = fmt.Fprintf(sb, "项目: %s\n", project.Name)
-	_, _ = fmt.Fprintf(sb, "Workflow: %s (%s)\n\n", workflowItem.Name, workflowItem.Type)
+	_, _ = fmt.Fprintf(sb, "Workflow: %s (%s)\n", workflowItem.Name, workflowItem.Type)
+	_, _ = fmt.Fprintf(sb, "Harness Path: %s | Active: %t | Version: %d\n", workflowItem.HarnessPath, workflowItem.IsActive, workflowItem.Version)
+	_, _ = fmt.Fprintf(sb, "并发: %d | 最大重试: %d | 超时: %d 分钟 | 卡住超时: %d 分钟\n\n", workflowItem.MaxConcurrent, workflowItem.MaxRetryAttempts, workflowItem.TimeoutMinutes, workflowItem.StallTimeoutMinutes)
 	sb.WriteString("### 当前 Harness\n")
 	sb.WriteString("```markdown\n")
 	sb.WriteString(workflowItem.HarnessContent)
@@ -593,13 +609,91 @@ func (s *Service) writeHarnessEditorContext(
 		sb.WriteByte('\n')
 	}
 	sb.WriteString("```\n\n")
+	if draft := input.Context.HarnessDraft; draft != nil && *draft != workflowItem.HarnessContent {
+		sb.WriteString("### 当前编辑器草稿（未保存）\n")
+		if *draft == "" {
+			sb.WriteString("（当前草稿为空）\n\n")
+		} else {
+			sb.WriteString("```markdown\n")
+			sb.WriteString(*draft)
+			if !strings.HasSuffix(*draft, "\n") {
+				sb.WriteByte('\n')
+			}
+			sb.WriteString("```\n\n")
+		}
+	}
+
+	statusLines, statusNamesByID, err := s.renderHarnessStatusContext(ctx, project.ID)
+	if err != nil {
+		return err
+	}
+	if statusLines != "" {
+		sb.WriteString("### 项目状态拓扑\n")
+		sb.WriteString(statusLines)
+		sb.WriteByte('\n')
+	}
+
+	workflowLines, workflowNamesByID, err := s.renderHarnessWorkflowTopology(ctx, project.ID, workflowID, statusNamesByID)
+	if err != nil {
+		return err
+	}
+	if workflowLines != "" {
+		sb.WriteString("### 项目 Workflow 拓扑\n")
+		sb.WriteString(workflowLines)
+		sb.WriteByte('\n')
+	}
+
+	repoLines, err := s.renderHarnessRepoContext(ctx, project.ID)
+	if err != nil {
+		return err
+	}
+	if repoLines != "" {
+		sb.WriteString("### 项目仓库边界\n")
+		sb.WriteString(repoLines)
+		sb.WriteByte('\n')
+	}
+
+	ticketLines, err := s.renderHarnessTicketSamples(ctx, project.ID, workflowNamesByID)
+	if err != nil {
+		return err
+	}
+	if ticketLines != "" {
+		sb.WriteString("### 最近工单样本\n")
+		sb.WriteString(ticketLines)
+		sb.WriteByte('\n')
+	}
+
+	activityItems, err := s.listRecentActivity(ctx, project.ID, nil, 15)
+	if err != nil {
+		return err
+	}
+	sb.WriteString("### 最近活动样本\n")
+	sb.WriteString(renderActivityLines(activityItems))
+	sb.WriteByte('\n')
+
 	sb.WriteString("### 可用模板变量\n")
 	sb.WriteString(renderHarnessVariableDictionary())
 	sb.WriteByte('\n')
+	sb.WriteString("\n### 专业 Workflow 设计基线\n")
+	sb.WriteString("- Harness 必须准确贴合当前项目真实的状态流转，不要默认使用 `Todo -> Done`，除非上下文明确如此。\n")
+	sb.WriteString("- 产物应明确职责边界、接单状态、交付状态、完成定义、repo 作用域、验证要求、失败/阻塞处理和 handoff 规则。\n")
+	sb.WriteString("- 优先复用当前项目已有 workflows 的分工，避免写出和现有 lane 冲突或重复负责的 workflow。\n")
+	sb.WriteString("- 如果用户要的是“专业 workflow”，默认要写成可执行 SOP，而不是泛泛而谈的角色描述。\n")
+	sb.WriteString("- 不要虚构平台能力；需要平台写操作时只能通过 action_proposal 提议。\n")
+	sb.WriteString("\n### 先推断，缺失再澄清\n")
+	sb.WriteString("在给出 harness diff 前，先基于上下文判断下面 7 项是否已经明确；缺任何关键项时，先问定向澄清问题，不要直接产出 workflow 文本：\n")
+	sb.WriteString("- 1. 这个 workflow 的职责边界是什么。\n")
+	sb.WriteString("- 2. 它从哪个状态接单（pickup status）。\n")
+	sb.WriteString("- 3. 它把工单推进到哪个状态（finish status）。\n")
+	sb.WriteString("- 4. 它的完成定义是什么，例如代码提交、PR 创建、CI 通过还是已 merge。\n")
+	sb.WriteString("- 5. 它允许主动做哪些平台写操作，例如改状态、建子工单、更新 repo scope。\n")
+	sb.WriteString("- 6. 它默认覆盖哪些 repo 或 repo scope。\n")
+	sb.WriteString("- 7. 遇到失败、阻塞、缺信息、CI 红灯时应该怎么处理。\n")
 	sb.WriteString("\n### Harness 编辑器回复要求\n")
 	sb.WriteString("- 当用户请求修改 Harness 时，优先输出一个结构化 diff JSON 对象，供编辑器直接安全应用。\n")
 	sb.WriteString("- diff JSON 格式如下：{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"# Title\"},{\"op\":\"add\",\"text\":\"新增内容\"}]}]}\n")
 	sb.WriteString("- `file` 固定写 `harness content`，`hunks` 使用 1-based 行号，`lines[].op` 只能是 `context` / `add` / `remove`。\n")
+	sb.WriteString("- 如果上下文已足够，就直接给出贴合当前项目状态与拓扑的 diff；如果上下文不足，就先提最少但足够的澄清问题。\n")
 	sb.WriteString("- 如果无法可靠地产出结构化 diff，才回退为简要说明加完整 Harness markdown 代码块。\n")
 	sb.WriteString("- 只有在用户明确要求平台写操作时才输出 action_proposal；普通 Harness 建议不要输出 action_proposal。\n")
 	return nil
@@ -822,6 +916,14 @@ func parseOptionalSessionID(raw *string) (*SessionID, error) {
 	return &parsed, nil
 }
 
+func cloneOptionalString(raw *string) *string {
+	if raw == nil {
+		return nil
+	}
+	value := *raw
+	return &value
+}
+
 func renderHarnessVariableDictionary() string {
 	var sb strings.Builder
 	for _, group := range workflowservice.HarnessVariableDictionary() {
@@ -881,4 +983,159 @@ func uuidPtrValue(value *uuid.UUID) uuid.UUID {
 		return uuid.UUID{}
 	}
 	return *value
+}
+
+func (s *Service) renderHarnessStatusContext(
+	ctx context.Context,
+	projectID uuid.UUID,
+) (string, map[uuid.UUID]string, error) {
+	if s.statuses == nil {
+		return "", map[uuid.UUID]string{}, nil
+	}
+
+	result, err := s.statuses.List(ctx, projectID)
+	if err != nil {
+		return "", nil, fmt.Errorf("list ticket statuses for chat context: %w", err)
+	}
+
+	statusNamesByID := make(map[uuid.UUID]string, len(result.Statuses))
+	if len(result.Statuses) == 0 {
+		return "- 无\n", statusNamesByID, nil
+	}
+
+	var sb strings.Builder
+	for _, item := range result.Statuses {
+		statusNamesByID[item.ID] = item.Name
+		_, _ = fmt.Fprintf(&sb, "- %d. %s [stage=%s", item.Position, item.Name, item.Stage)
+		if item.IsDefault {
+			sb.WriteString(", default=true")
+		}
+		if item.MaxActiveRuns != nil {
+			_, _ = fmt.Fprintf(&sb, ", max_active_runs=%d", *item.MaxActiveRuns)
+		}
+		sb.WriteString("]\n")
+	}
+	return sb.String(), statusNamesByID, nil
+}
+
+func (s *Service) renderHarnessWorkflowTopology(
+	ctx context.Context,
+	projectID uuid.UUID,
+	currentWorkflowID uuid.UUID,
+	statusNamesByID map[uuid.UUID]string,
+) (string, map[uuid.UUID]string, error) {
+	items, err := s.workflows.List(ctx, projectID)
+	if err != nil {
+		return "", nil, fmt.Errorf("list workflows for chat context: %w", err)
+	}
+
+	workflowNamesByID := make(map[uuid.UUID]string, len(items))
+	if len(items) == 0 {
+		return "- 无\n", workflowNamesByID, nil
+	}
+
+	var sb strings.Builder
+	for _, item := range items {
+		workflowNamesByID[item.ID] = item.Name
+		_, _ = fmt.Fprintf(&sb, "- %s [%s]", item.Name, item.Type)
+		if item.ID == currentWorkflowID {
+			sb.WriteString(" (current)")
+		}
+		_, _ = fmt.Fprintf(
+			&sb,
+			" pickup=%s finish=%s active=%t harness=%s retry=%d timeout=%d concurrent=%d\n",
+			renderStatusBindingNames(item.PickupStatusIDs, statusNamesByID),
+			renderStatusBindingNames(item.FinishStatusIDs, statusNamesByID),
+			item.IsActive,
+			item.HarnessPath,
+			item.MaxRetryAttempts,
+			item.TimeoutMinutes,
+			item.MaxConcurrent,
+		)
+	}
+	return sb.String(), workflowNamesByID, nil
+}
+
+func (s *Service) renderHarnessRepoContext(ctx context.Context, projectID uuid.UUID) (string, error) {
+	repos, err := s.catalog.ListProjectRepos(ctx, projectID)
+	if err != nil {
+		return "", fmt.Errorf("list project repos for chat context: %w", err)
+	}
+	if len(repos) == 0 {
+		return "- 无\n", nil
+	}
+
+	var sb strings.Builder
+	for _, repo := range repos {
+		_, _ = fmt.Fprintf(
+			&sb,
+			"- %s default_branch=%s workspace=%s url=%s",
+			repo.Name,
+			repo.DefaultBranch,
+			repo.WorkspaceDirname,
+			repo.RepositoryURL,
+		)
+		if len(repo.Labels) > 0 {
+			_, _ = fmt.Fprintf(&sb, " labels=%s", strings.Join(repo.Labels, ", "))
+		}
+		sb.WriteByte('\n')
+	}
+	return sb.String(), nil
+}
+
+func (s *Service) renderHarnessTicketSamples(
+	ctx context.Context,
+	projectID uuid.UUID,
+	workflowNamesByID map[uuid.UUID]string,
+) (string, error) {
+	items, err := s.tickets.List(ctx, ticketservice.ListInput{
+		ProjectID: projectID,
+		Limit:     12,
+	})
+	if err != nil {
+		return "", fmt.Errorf("list tickets for chat context: %w", err)
+	}
+	if len(items) == 0 {
+		return "- 无\n", nil
+	}
+
+	var sb strings.Builder
+	for _, item := range items {
+		workflowName := "unassigned"
+		if item.WorkflowID != nil {
+			if name, ok := workflowNamesByID[*item.WorkflowID]; ok {
+				workflowName = name
+			} else {
+				workflowName = item.WorkflowID.String()
+			}
+		}
+		_, _ = fmt.Fprintf(
+			&sb,
+			"- %s %s | status=%s | workflow=%s | attempts=%d | paused=%t | consecutive_errors=%d\n",
+			item.Identifier,
+			item.Title,
+			item.StatusName,
+			workflowName,
+			item.AttemptCount,
+			item.RetryPaused,
+			item.ConsecutiveErrors,
+		)
+	}
+	return sb.String(), nil
+}
+
+func renderStatusBindingNames(statusIDs []uuid.UUID, statusNamesByID map[uuid.UUID]string) string {
+	if len(statusIDs) == 0 {
+		return "none"
+	}
+
+	names := make([]string, 0, len(statusIDs))
+	for _, statusID := range statusIDs {
+		if name, ok := statusNamesByID[statusID]; ok {
+			names = append(names, name)
+			continue
+		}
+		names = append(names, statusID.String())
+	}
+	return strings.Join(names, ", ")
 }

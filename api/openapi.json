@@ -1302,6 +1302,11 @@
                   "context": {
                     "description": "Optional project, ticket, or workflow context attached to the chat turn.",
                     "properties": {
+                      "harness_draft": {
+                        "description": "Optional unsaved harness draft from the editor so the AI can reason about the current in-memory workflow text.",
+                        "nullable": true,
+                        "type": "string"
+                      },
                       "project_id": {
                         "description": "Project ID supplied to ground the chat request.",
                         "type": "string"

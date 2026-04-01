@@ -203,7 +203,11 @@ describe('HarnessAiSidebar', () => {
       source: 'harness_editor',
       providerId: 'provider-1',
       sessionId: undefined,
-      context: { projectId: 'project-1', workflowId: 'workflow-1' },
+      context: {
+        projectId: 'project-1',
+        workflowId: 'workflow-1',
+        harnessDraft: harnessContent,
+      },
     })
 
     // Turn 2: confirm — assistant returns diff

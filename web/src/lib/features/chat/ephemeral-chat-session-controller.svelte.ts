@@ -29,7 +29,12 @@ import {
   type EphemeralChatTranscriptEntry,
 } from './transcript'
 
-type EphemeralChatContext = { projectId: string; workflowId?: string; ticketId?: string }
+type EphemeralChatContext = {
+  projectId: string
+  workflowId?: string
+  ticketId?: string
+  harnessDraft?: string
+}
 
 type CreateEphemeralChatSessionControllerInput = {
   getSource: () => ChatSource

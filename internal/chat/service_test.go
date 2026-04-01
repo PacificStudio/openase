@@ -13,6 +13,7 @@ import (
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
+	ticketstatusservice "github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
@@ -27,6 +28,25 @@ func TestParseStartInputRequiresTicketForTicketDetail(t *testing.T) {
 	})
 	if err == nil || err.Error() != "context.ticket_id is required for source ticket_detail" {
 		t.Fatalf("expected missing ticket_id error, got %v", err)
+	}
+}
+
+func TestParseStartInputPreservesHarnessDraft(t *testing.T) {
+	draft := "---\nworkflow:\n  name: Draft\n---\n"
+	input, err := ParseStartInput(RawStartInput{
+		Message: "Refine this harness",
+		Source:  string(SourceHarnessEditor),
+		Context: RawChatContext{
+			ProjectID:    stringPointer("550e8400-e29b-41d4-a716-446655440000"),
+			WorkflowID:   stringPointer("660e8400-e29b-41d4-a716-446655440000"),
+			HarnessDraft: &draft,
+		},
+	})
+	if err != nil {
+		t.Fatalf("ParseStartInput() error = %v", err)
+	}
+	if input.Context.HarnessDraft == nil || *input.Context.HarnessDraft != draft {
+		t.Fatalf("expected harness draft to round-trip, got %#v", input.Context.HarnessDraft)
 	}
 }
 
@@ -78,13 +98,97 @@ func TestParseDiffPayloadTextAcceptsStructuredJSON(t *testing.T) {
 
 func TestBuildSystemPromptGuidesHarnessEditorReplies(t *testing.T) {
 	workflowID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
-	service := NewService(nil, nil, nil, nil, harnessWorkflowReader{
+	service := NewService(nil, nil, fakeCatalogReader{
+		projectRepos: []catalogdomain.ProjectRepo{
+			{
+				ID:               uuid.MustParse("440e8400-e29b-41d4-a716-446655440000"),
+				Name:             "openase-web",
+				DefaultBranch:    "main",
+				WorkspaceDirname: "web",
+				RepositoryURL:    "https://github.com/BetterAndBetterII/openase",
+				Labels:           []string{"frontend"},
+			},
+		},
+		activityEvents: []catalogdomain.ActivityEvent{
+			{
+				CreatedAt: time.Date(2026, 4, 1, 10, 0, 0, 0, time.UTC),
+				EventType: activityevent.TypeTicketUpdated,
+				Message:   "Updated review workflow bindings",
+			},
+		},
+	}, fakeTicketReader{
+		items: []ticketservice.Ticket{
+			{
+				Identifier:        "ASE-401",
+				Title:             "Tighten workflow status handling",
+				StatusName:        "In Review",
+				WorkflowID:        &workflowID,
+				AttemptCount:      2,
+				ConsecutiveErrors: 1,
+			},
+		},
+	}, harnessWorkflowReader{
 		detail: workflowservice.WorkflowDetail{
 			Workflow: workflowservice.Workflow{
-				Name: "Coding Workflow",
-				Type: "coding",
+				ID:               workflowID,
+				Name:             "Coding Workflow",
+				Type:             "coding",
+				HarnessPath:      ".openase/harnesses/workflows/coding.md",
+				MaxConcurrent:    1,
+				MaxRetryAttempts: 3,
+				TimeoutMinutes:   90,
+				IsActive:         true,
+				Version:          7,
+				PickupStatusIDs: []uuid.UUID{
+					uuid.MustParse("770e8400-e29b-41d4-a716-446655440000"),
+				},
+				FinishStatusIDs: []uuid.UUID{
+					uuid.MustParse("880e8400-e29b-41d4-a716-446655440000"),
+				},
 			},
 			HarnessContent: "---\ntype: coding\n---\n\nWrite code.\n",
+		},
+		list: []workflowservice.Workflow{
+			{
+				ID:               workflowID,
+				Name:             "Coding Workflow",
+				Type:             "coding",
+				HarnessPath:      ".openase/harnesses/workflows/coding.md",
+				MaxConcurrent:    1,
+				MaxRetryAttempts: 3,
+				TimeoutMinutes:   90,
+				IsActive:         true,
+				PickupStatusIDs: []uuid.UUID{
+					uuid.MustParse("770e8400-e29b-41d4-a716-446655440000"),
+				},
+				FinishStatusIDs: []uuid.UUID{
+					uuid.MustParse("880e8400-e29b-41d4-a716-446655440000"),
+				},
+			},
+			{
+				ID:               uuid.MustParse("990e8400-e29b-41d4-a716-446655440000"),
+				Name:             "Review Workflow",
+				Type:             "review",
+				HarnessPath:      ".openase/harnesses/workflows/review.md",
+				MaxConcurrent:    1,
+				MaxRetryAttempts: 1,
+				TimeoutMinutes:   45,
+				IsActive:         true,
+				PickupStatusIDs: []uuid.UUID{
+					uuid.MustParse("880e8400-e29b-41d4-a716-446655440000"),
+				},
+				FinishStatusIDs: []uuid.UUID{
+					uuid.MustParse("aa0e8400-e29b-41d4-a716-446655440000"),
+				},
+			},
+		},
+	}, fakeStatusReader{
+		result: ticketstatusservice.ListResult{
+			Statuses: []ticketstatusservice.Status{
+				{ID: uuid.MustParse("770e8400-e29b-41d4-a716-446655440000"), Name: "Backlog", Stage: "queued", Position: 1, IsDefault: true},
+				{ID: uuid.MustParse("880e8400-e29b-41d4-a716-446655440000"), Name: "In Review", Stage: "active", Position: 2},
+				{ID: uuid.MustParse("aa0e8400-e29b-41d4-a716-446655440000"), Name: "Done", Stage: "done", Position: 3},
+			},
 		},
 	}, "")
 
@@ -93,8 +197,9 @@ func TestBuildSystemPromptGuidesHarnessEditorReplies(t *testing.T) {
 		StartInput{
 			Source: SourceHarnessEditor,
 			Context: Context{
-				ProjectID:  uuid.MustParse("660e8400-e29b-41d4-a716-446655440000"),
-				WorkflowID: &workflowID,
+				ProjectID:    uuid.MustParse("660e8400-e29b-41d4-a716-446655440000"),
+				WorkflowID:   &workflowID,
+				HarnessDraft: stringPointer("---\ntype: coding\n---\n\nWrite code carefully.\n"),
 			},
 		},
 		catalogdomain.Project{Name: "OpenASE"},
@@ -103,6 +208,16 @@ func TestBuildSystemPromptGuidesHarnessEditorReplies(t *testing.T) {
 		t.Fatalf("build system prompt: %v", err)
 	}
 	if !containsAll(prompt,
+		"### 当前编辑器草稿（未保存）",
+		"Write code carefully.",
+		"### 项目状态拓扑",
+		"- 1. Backlog [stage=queued, default=true]",
+		"### 项目 Workflow 拓扑",
+		"Review Workflow [review]",
+		"### 最近工单样本",
+		"### 专业 Workflow 设计基线",
+		"### 先推断，缺失再澄清",
+		"1. 这个 workflow 的职责边界是什么。",
 		"Harness 编辑器回复要求",
 		"结构化 diff JSON 对象",
 		"\"type\":\"diff\",\"file\":\"harness content\"",
@@ -185,7 +300,7 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 			{StatusName: "Todo", RetryPaused: true},
 		},
 	}
-	service := NewService(nil, runtime, catalog, tickets, harnessWorkflowReader{}, "")
+	service := NewService(nil, runtime, catalog, tickets, harnessWorkflowReader{}, nil, "")
 
 	stream, err := service.StartTurn(context.Background(), UserID("user:test"), StartInput{
 		Message: "Summarize project",
@@ -299,6 +414,7 @@ func TestBuildSystemPromptIncludesTicketDetailAndHookHistory(t *testing.T) {
 			},
 		},
 		harnessWorkflowReader{},
+		nil,
 		"",
 	)
 
@@ -404,7 +520,7 @@ func TestChatHelperCoverageAndRegistry(t *testing.T) {
 		t.Fatal("isHookActivityEvent() should be false for non-hook event types")
 	}
 
-	if _, err := NewService(nil, nil, nil, nil, nil, "").StartTurn(context.Background(), AnonymousUserID, StartInput{}); !errors.Is(err, ErrUnavailable) {
+	if _, err := NewService(nil, nil, nil, nil, nil, nil, "").StartTurn(context.Background(), AnonymousUserID, StartInput{}); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("StartTurn() unavailable error = %v, want %v", err, ErrUnavailable)
 	}
 
@@ -471,6 +587,7 @@ func TestStartTurnReplacesExistingSessionForSameUser(t *testing.T) {
 		},
 		fakeTicketReader{},
 		harnessWorkflowReader{},
+		nil,
 		"",
 	)
 
@@ -545,6 +662,7 @@ func TestStartTurnRejectsResumeAcrossUsers(t *testing.T) {
 		},
 		fakeTicketReader{},
 		harnessWorkflowReader{},
+		nil,
 		"",
 	)
 
@@ -599,6 +717,7 @@ func TestStartTurnRejectsExhaustedSession(t *testing.T) {
 		},
 		fakeTicketReader{},
 		harnessWorkflowReader{},
+		nil,
 		"",
 	)
 
@@ -658,6 +777,7 @@ func TestStartTurnAllowsUnlimitedProjectSidebarResume(t *testing.T) {
 		},
 		fakeTicketReader{},
 		harnessWorkflowReader{},
+		nil,
 		"",
 	)
 
@@ -730,6 +850,7 @@ func TestStartTurnUsesProjectDefaultEphemeralChatProvider(t *testing.T) {
 		},
 		fakeTicketReader{},
 		harnessWorkflowReader{},
+		nil,
 		"",
 	)
 
@@ -795,6 +916,7 @@ func TestStartTurnFallsBackWhenDefaultProviderDoesNotSupportEphemeralChat(t *tes
 		},
 		fakeTicketReader{},
 		harnessWorkflowReader{},
+		nil,
 		"",
 	)
 
@@ -841,6 +963,7 @@ func TestStartTurnRejectsExplicitUnsupportedEphemeralChatProvider(t *testing.T) 
 		},
 		fakeTicketReader{},
 		harnessWorkflowReader{},
+		nil,
 		"",
 	)
 
@@ -887,6 +1010,7 @@ func TestStartTurnRejectsExplicitUnavailableEphemeralChatProvider(t *testing.T) 
 		},
 		fakeTicketReader{},
 		harnessWorkflowReader{},
+		nil,
 		"",
 	)
 
@@ -947,6 +1071,7 @@ func TestStartTurnRejectsResumeAfterBudgetExceeded(t *testing.T) {
 		},
 		fakeTicketReader{},
 		harnessWorkflowReader{},
+		nil,
 		"",
 	)
 	service.maxBudgetUSD = 0.10
@@ -1018,6 +1143,7 @@ func TestStartTurnAllowsResumeWhenProviderSpendUnavailable(t *testing.T) {
 		},
 		fakeTicketReader{},
 		harnessWorkflowReader{},
+		nil,
 		"",
 	)
 	service.maxBudgetUSD = 0.01
@@ -1070,10 +1196,15 @@ func TestBuildCodexArgsDoesNotAppendModelFlag(t *testing.T) {
 
 type harnessWorkflowReader struct {
 	detail workflowservice.WorkflowDetail
+	list   []workflowservice.Workflow
 }
 
 func (r harnessWorkflowReader) Get(context.Context, uuid.UUID) (workflowservice.WorkflowDetail, error) {
 	return r.detail, nil
+}
+
+func (r harnessWorkflowReader) List(context.Context, uuid.UUID) ([]workflowservice.Workflow, error) {
+	return r.list, nil
 }
 
 func stringPointer(value string) *string {
@@ -1094,6 +1225,8 @@ type fakeCatalogReader struct {
 	projectErr       error
 	activityEvents   []catalogdomain.ActivityEvent
 	activityErr      error
+	projectRepos     []catalogdomain.ProjectRepo
+	projectRepoErr   error
 	repoScopes       []catalogdomain.TicketRepoScope
 	repoScopeErr     error
 	providers        []catalogdomain.AgentProvider
@@ -1108,6 +1241,10 @@ func (r fakeCatalogReader) GetProject(context.Context, uuid.UUID) (catalogdomain
 
 func (r fakeCatalogReader) ListActivityEvents(context.Context, catalogdomain.ListActivityEvents) ([]catalogdomain.ActivityEvent, error) {
 	return r.activityEvents, r.activityErr
+}
+
+func (r fakeCatalogReader) ListProjectRepos(context.Context, uuid.UUID) ([]catalogdomain.ProjectRepo, error) {
+	return r.projectRepos, r.projectRepoErr
 }
 
 func (r fakeCatalogReader) ListTicketRepoScopes(context.Context, uuid.UUID, uuid.UUID) ([]catalogdomain.TicketRepoScope, error) {
@@ -1141,6 +1278,15 @@ func (r fakeTicketReader) Get(context.Context, uuid.UUID) (ticketservice.Ticket,
 
 func (r fakeTicketReader) List(context.Context, ticketservice.ListInput) ([]ticketservice.Ticket, error) {
 	return r.items, r.listErr
+}
+
+type fakeStatusReader struct {
+	result ticketstatusservice.ListResult
+	err    error
+}
+
+func (r fakeStatusReader) List(context.Context, uuid.UUID) (ticketstatusservice.ListResult, error) {
+	return r.result, r.err
 }
 
 type fakeRuntime struct {

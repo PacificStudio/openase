@@ -13,6 +13,8 @@ const {
   validateHarness,
   bindWorkflowSkills,
   unbindWorkflowSkills,
+  listBuiltinRoles,
+  getBuiltinRole,
 } = vi.hoisted(() => ({
   loadWorkflowPageData: vi.fn(),
   loadWorkflowHarness: vi.fn(),
@@ -20,6 +22,8 @@ const {
   validateHarness: vi.fn(),
   bindWorkflowSkills: vi.fn(),
   unbindWorkflowSkills: vi.fn(),
+  listBuiltinRoles: vi.fn(),
+  getBuiltinRole: vi.fn(),
 }))
 
 vi.mock('../data', () => ({
@@ -32,6 +36,8 @@ vi.mock('$lib/api/openase', () => ({
   validateHarness,
   bindWorkflowSkills,
   unbindWorkflowSkills,
+  listBuiltinRoles,
+  getBuiltinRole,
 }))
 
 const { toastStore } = vi.hoisted(() => ({
@@ -148,6 +154,23 @@ describe('WorkflowsPage', () => {
     // "Coding Workflow" appears in both the list and editor toolbar
     expect((await findAllByText('Coding Workflow')).length).toBeGreaterThanOrEqual(1)
     expect(await findByText('Validate')).toBeTruthy()
+  })
+
+  it('opens builtin workflow templates from the page header', async () => {
+    appStore.currentOrg = orgFixture
+    appStore.currentProject = projectFixture
+
+    loadWorkflowPageData.mockResolvedValue(pageDataFixture)
+    listBuiltinRoles.mockResolvedValue({ roles: [] })
+
+    const { findAllByText, findByRole, findByText, findByTestId } = render(WorkflowsPage)
+
+    expect((await findAllByText('Coding Workflow')).length).toBeGreaterThanOrEqual(1)
+
+    await fireEvent.click(await findByRole('button', { name: 'Templates' }))
+
+    expect(await findByTestId('workflow-template-gallery')).toBeTruthy()
+    expect(await findByText('Workflow Templates')).toBeTruthy()
   })
 
   it('updates harness content after successful skill bind', async () => {

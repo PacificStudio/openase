@@ -180,6 +180,7 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 			catalogSvc,
 			ticketservice.NewService(client),
 			staticWorkflowReader{},
+			nil,
 			"",
 		)),
 	)
@@ -287,6 +288,7 @@ func TestChatDeleteRouteAndErrorMappings(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 		"",
 	)
 	server := NewServer(
@@ -376,6 +378,7 @@ func TestChatRouteLogsStructuredStartFailures(t *testing.T) {
 		},
 		chatTicketStub{},
 		chatWorkflowStub{},
+		nil,
 		"",
 	)
 
@@ -473,6 +476,7 @@ func TestChatRouteStreamsPeriodicKeepalives(t *testing.T) {
 		},
 		chatTicketStub{},
 		chatWorkflowStub{},
+		nil,
 		"",
 	)
 
@@ -549,6 +553,7 @@ func TestChatRouteLogsUnexpectedStreamTermination(t *testing.T) {
 		},
 		chatTicketStub{},
 		chatWorkflowStub{},
+		nil,
 		"",
 	)
 
@@ -653,6 +658,10 @@ func (s chatCatalogStub) ListActivityEvents(context.Context, catalogdomain.ListA
 	return nil, nil
 }
 
+func (s chatCatalogStub) ListProjectRepos(context.Context, uuid.UUID) ([]catalogdomain.ProjectRepo, error) {
+	return nil, nil
+}
+
 func (s chatCatalogStub) ListTicketRepoScopes(context.Context, uuid.UUID, uuid.UUID) ([]catalogdomain.TicketRepoScope, error) {
 	return nil, nil
 }
@@ -682,6 +691,10 @@ type chatWorkflowStub struct{}
 
 func (chatWorkflowStub) Get(context.Context, uuid.UUID) (workflowservice.WorkflowDetail, error) {
 	return workflowservice.WorkflowDetail{}, errors.New("not implemented")
+}
+
+func (chatWorkflowStub) List(context.Context, uuid.UUID) ([]workflowservice.Workflow, error) {
+	return nil, nil
 }
 
 func (f *fakeClaudeAdapter) Start(_ context.Context, spec provider.ClaudeCodeSessionSpec) (provider.ClaudeCodeSession, error) {
@@ -737,6 +750,10 @@ type staticWorkflowReader struct{}
 
 func (staticWorkflowReader) Get(context.Context, uuid.UUID) (workflowservice.WorkflowDetail, error) {
 	return workflowservice.WorkflowDetail{}, workflowservice.ErrWorkflowNotFound
+}
+
+func (staticWorkflowReader) List(context.Context, uuid.UUID) ([]workflowservice.Workflow, error) {
+	return nil, nil
 }
 
 func mustMarshalJSON(t *testing.T, value any) []byte {
