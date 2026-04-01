@@ -162,3 +162,66 @@ export type TicketActivity = {
   timestamp: string
   agentName?: string
 }
+
+export type TicketRun = {
+  id: string
+  attemptNumber: number
+  agentId: string
+  agentName: string
+  provider: string
+  status: 'launching' | 'ready' | 'executing' | 'stalled' | 'failed' | 'completed'
+  currentStepStatus?: string
+  currentStepSummary?: string
+  createdAt: string
+  runtimeStartedAt?: string
+  lastHeartbeatAt?: string
+  completedAt?: string
+  lastError?: string
+}
+
+export type TicketRunTraceEntry = {
+  id: string
+  agentRunId: string
+  sequence: number
+  provider: string
+  kind: string
+  stream: string
+  output: string
+  payload: Record<string, unknown>
+  createdAt: string
+}
+
+export type TicketRunStepEntry = {
+  id: string
+  agentRunId: string
+  stepStatus: string
+  summary: string
+  sourceTraceEventId?: string
+  createdAt: string
+}
+
+export type TicketRunDetail = {
+  run: TicketRun
+  traceEntries: TicketRunTraceEntry[]
+  stepEntries: TicketRunStepEntry[]
+}
+
+export type TicketRunLifecycleEvent = {
+  eventType: string
+  message: string
+  createdAt: string
+}
+
+export type TicketRunTranscriptBlock =
+  | { kind: 'phase'; id: string; phase: string; at: string; summary: string }
+  | { kind: 'step'; id: string; stepStatus: string; summary: string; at: string }
+  | { kind: 'assistant_message'; id: string; itemId?: string; text: string; streaming: boolean }
+  | { kind: 'tool_call'; id: string; toolName: string; summary?: string; at: string }
+  | { kind: 'terminal_output'; id: string; itemId?: string; text: string; streaming: boolean }
+  | { kind: 'result'; id: string; outcome: 'completed' | 'failed' | 'stalled'; summary: string }
+
+export type TicketRunTranscriptState = {
+  runs: TicketRun[]
+  currentRun: TicketRun | null
+  blocks: TicketRunTranscriptBlock[]
+}

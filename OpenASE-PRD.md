@@ -5399,6 +5399,8 @@ openase reconcile --dry-run    # 只报告不一致，不修复
 | POST | `/api/v1/projects/:projectId/tickets` | 创建工单 | body: `{title, description, priority, type, workflow_id?, repo_scopes?}` |
 | GET | `/api/v1/tickets/:ticketId` | 工单详情（基础详情） | |
 | GET | `/api/v1/projects/:projectId/tickets/:ticketId/detail` | 工单详情聚合视图（含 description entry、timeline、RepoScopes、依赖） | |
+| GET | `/api/v1/projects/:projectId/tickets/:ticketId/runs` | 列出该 Ticket 的运行会话（最新优先，带 attempt 与当前步骤摘要） | |
+| GET | `/api/v1/projects/:projectId/tickets/:ticketId/runs/:runId` | 获取单次 Ticket 运行的 transcript 数据（`AgentRun + AgentTraceEvent + AgentStepEvent`） | |
 | PATCH | `/api/v1/tickets/:ticketId` | 更新工单（标题、描述、优先级） | |
 | POST | `/api/v1/tickets/:ticketId/transition` | 状态转换 | body: `{to_status_id: "uuid" 或 to_status_name: "待测试", comment?}`（传自定义状态名或 ID） |
 | POST | `/api/v1/tickets/:ticketId/cancel` | 取消工单 | body: `{reason?}` |
@@ -5476,6 +5478,7 @@ openase reconcile --dry-run    # 只报告不一致，不修复
 | GET | `/api/v1/projects/:projectId/activity/stream` | 业务活动流；只推 coarse-grained `ActivityEvent`，不推 token 级 output |
 | GET | `/api/v1/projects/:projectId/agents/:agentId/output/stream` | Agent 细粒度输出流；只推 `AgentTraceEvent` |
 | GET | `/api/v1/projects/:projectId/agents/:agentId/steps/stream` | Agent 动作阶段流；只推 `AgentStepEvent` |
+| GET | `/api/v1/projects/:projectId/tickets/:ticketId/runs/stream` | Ticket-native 运行 transcript 流；底层复用 activity / trace / step 主题并按 ticket 聚合 |
 | GET | `/api/v1/projects/:projectId/hooks/stream` | `hook.started`, `hook.passed`, `hook.failed` |
 
 **Coding Agent Launch Verification**
@@ -5486,6 +5489,7 @@ openase reconcile --dry-run    # 只报告不一致，不修复
 - `failed` 或 `runtime_phase=failed`：显示失败态和 `last_error`
 - activity 面板为空时显示 “No business activity yet”，不能把 0 行 output 当成未启动或失败
 - Agent output 面板为空时显示 “No trace events yet”，表示当前还没有细粒度运行输出，不代表 runtime 启动失败
+- Ticket detail 的 Runs 面板默认显示 latest run transcript；discussion/comments 与 execution transcript 分开渲染，前者继续基于 comment/activity，后者基于 ticket-native run 数据路径
 - Black-box 验收至少覆盖：创建 idle Agent + pickup Ticket，观测 `claimed`，再观测 `running + ready + session_id + heartbeat`，并收到 `agent.ready`；随后在 output/step 流中分别看到 `AgentTraceEvent` 与 `AgentStepEvent`
 
 **Webhook 接收**

@@ -16005,6 +16005,478 @@
         ]
       }
     },
+    "/api/v1/projects/{projectId}/tickets/{ticketId}/runs": {
+      "get": {
+        "operationId": "listTicketRuns",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Ticket ID.",
+            "in": "path",
+            "name": "ticketId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "runs": {
+                      "items": {
+                        "properties": {
+                          "agent_id": {
+                            "type": "string"
+                          },
+                          "agent_name": {
+                            "type": "string"
+                          },
+                          "attempt_number": {
+                            "type": "integer"
+                          },
+                          "completed_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "current_step_status": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "current_step_summary": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "last_error": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "last_heartbeat_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "provider": {
+                            "type": "string"
+                          },
+                          "runtime_started_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List ticket runs response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List ticket runs",
+        "tags": [
+          "tickets"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/stream": {
+      "get": {
+        "operationId": "streamTicketRuns",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Ticket ID.",
+            "in": "path",
+            "name": "ticketId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Server-sent events stream."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Stream ticket run transcript events",
+        "tags": [
+          "streams"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}": {
+      "get": {
+        "operationId": "getTicketRun",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Ticket ID.",
+            "in": "path",
+            "name": "ticketId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Run ID.",
+            "in": "path",
+            "name": "runId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "run": {
+                      "properties": {
+                        "agent_id": {
+                          "type": "string"
+                        },
+                        "agent_name": {
+                          "type": "string"
+                        },
+                        "attempt_number": {
+                          "type": "integer"
+                        },
+                        "completed_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "current_step_status": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "current_step_summary": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "last_error": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_heartbeat_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "provider": {
+                          "type": "string"
+                        },
+                        "runtime_started_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "step_entries": {
+                      "items": {
+                        "properties": {
+                          "agent_run_id": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "source_trace_event_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "step_status": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "trace_entries": {
+                      "items": {
+                        "properties": {
+                          "agent_run_id": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "output": {
+                            "type": "string"
+                          },
+                          "payload": {
+                            "additionalProperties": {},
+                            "type": "object"
+                          },
+                          "provider": {
+                            "type": "string"
+                          },
+                          "sequence": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
+                          "stream": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get ticket run transcript data response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Get ticket run transcript data",
+        "tags": [
+          "tickets"
+        ]
+      }
+    },
     "/api/v1/projects/{projectId}/workflows": {
       "get": {
         "operationId": "listWorkflows",

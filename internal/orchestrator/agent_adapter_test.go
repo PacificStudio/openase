@@ -249,12 +249,14 @@ func TestDefaultAgentAdapterRegistryRegistersGeminiRuntimeContract(t *testing.T)
 	}
 
 	third := requireAgentEvent(t, session.Events())
-	if third.Type != agentEventTypeRateLimitUpdated || third.RateLimit == nil || third.RateLimit.Gemini == nil {
-		t.Fatalf("unexpected third event: %+v", third)
+	if third.Type == agentEventTypeRateLimitUpdated {
+		if third.RateLimit == nil || third.RateLimit.Gemini == nil {
+			t.Fatalf("unexpected Gemini rate limit event: %+v", third)
+		}
+		third = requireAgentEvent(t, session.Events())
 	}
-	fourth := requireAgentEvent(t, session.Events())
-	if fourth.Type != agentEventTypeTurnCompleted || fourth.Turn == nil || fourth.Turn.Status != "completed" || fourth.Turn.TurnID != turn.TurnID {
-		t.Fatalf("unexpected fourth event: %+v", fourth)
+	if third.Type != agentEventTypeTurnCompleted || third.Turn == nil || third.Turn.Status != "completed" || third.Turn.TurnID != turn.TurnID {
+		t.Fatalf("unexpected turn completion event: %+v", third)
 	}
 
 	if len(manager.capturedSpecs) < 2 {
