@@ -179,10 +179,7 @@ func (c ProviderModelPricingConfig) ToMap() map[string]any {
 	}
 
 	var decoded map[string]any
-	if err := json.Unmarshal(payload, &decoded); err != nil {
-		return map[string]any{}
-	}
-
+	_ = json.Unmarshal(payload, &decoded)
 	return decoded
 }
 

@@ -192,6 +192,37 @@ func TestUsageDeltaResolveCostUsesGeminiTieredCaching(t *testing.T) {
 	}
 }
 
+func TestUsageDeltaResolveCostClampsNegativeStandardInputTokens(t *testing.T) {
+	inputTokens := int64(10)
+	cachedInputTokens := int64(8)
+	cacheWrite5mTokens := int64(8)
+
+	usage, err := ParseRawUsageDelta(RawUsageDelta{
+		InputTokens:                &inputTokens,
+		CachedInputTokens:          &cachedInputTokens,
+		CacheCreationInputTokens5m: &cacheWrite5mTokens,
+	})
+	if err != nil {
+		t.Fatalf("ParseRawUsageDelta returned error: %v", err)
+	}
+
+	resolved, err := usage.ResolveCost(pricing.ProviderModelPricingConfig{
+		SourceKind:  pricing.PricingSourceKindOfficial,
+		PricingMode: pricing.PricingModeFlat,
+		Rates: pricing.ProviderModelPricingRates{
+			InputPerToken:                 1,
+			CachedInputReadPerToken:       0.5,
+			CacheWriteFiveMinutesPerToken: 2,
+		},
+	})
+	if err != nil {
+		t.Fatalf("ResolveCost returned error: %v", err)
+	}
+	if resolved.AmountUSD != 20 {
+		t.Fatalf("ResolveCost amount = %.6f, want 20.000000", resolved.AmountUSD)
+	}
+}
+
 func TestUsageDeltaResolveCostDoesNotRoundSmallDeltas(t *testing.T) {
 	inputTokens := int64(1)
 
@@ -230,6 +261,24 @@ func TestUsageDeltaResolveCostUSDReturnsAmountOnly(t *testing.T) {
 	}
 }
 
+func TestUsageDeltaResolveCostRejectsInvalidPricingConfig(t *testing.T) {
+	inputTokens := int64(1)
+
+	usage, err := ParseRawUsageDelta(RawUsageDelta{
+		InputTokens: &inputTokens,
+	})
+	if err != nil {
+		t.Fatalf("ParseRawUsageDelta returned error: %v", err)
+	}
+
+	_, err = usage.ResolveCost(pricing.ProviderModelPricingConfig{
+		SourceKind: pricing.PricingSourceKind("bad"),
+	})
+	if err == nil || err.Error() != "pricing_config.source_kind must be custom or official" {
+		t.Fatalf("expected invalid pricing config error, got %v", err)
+	}
+}
+
 func TestUsageDeltaValidationHelpers(t *testing.T) {
 	negativeTokens := int64(-1)
 	if _, err := ParseRawUsageDelta(RawUsageDelta{InputTokens: &negativeTokens}); err == nil {
@@ -256,6 +305,13 @@ func TestUsageDeltaValidationHelpers(t *testing.T) {
 	}
 	if got, err := parseOptionalNonNegativeFloat64("cost_usd", nil); err != nil || got != nil {
 		t.Fatalf("parseOptionalNonNegativeFloat64(nil) = %v, %v; want nil, nil", got, err)
+	}
+	cacheStorageHours := 2.5
+	if got, err := parseNonNegativeFloat64Value("cache_storage_hours", &cacheStorageHours); err != nil || got != 2.5 {
+		t.Fatalf("parseNonNegativeFloat64Value(&hours) = %.2f, %v; want 2.5, nil", got, err)
+	}
+	if got, err := parseNonNegativeFloat64Value("cache_storage_hours", nil); err != nil || got != 0 {
+		t.Fatalf("parseNonNegativeFloat64Value(nil) = %.2f, %v; want 0, nil", got, err)
 	}
 
 	explicitCost := 0.123
@@ -286,6 +342,83 @@ func TestUsageDeltaValidationHelpers(t *testing.T) {
 	unroundedCost := 0.000004
 	if got, err := parseOptionalNonNegativeFloat64("cost_usd", &unroundedCost); err != nil || got == nil || *got != unroundedCost {
 		t.Fatalf("parseOptionalNonNegativeFloat64(unrounded) = %v, %v; want %.6f, nil", got, err, unroundedCost)
+	}
+}
+
+func TestParseRawUsageDeltaExtendedFields(t *testing.T) {
+	value := func(v int64) *int64 { return &v }
+	hours := 1.5
+
+	usage, err := ParseRawUsageDelta(RawUsageDelta{
+		InputTokens:                value(100),
+		OutputTokens:               value(50),
+		CachedInputTokens:          value(10),
+		CacheCreationInputTokens:   value(11),
+		CacheCreationInputTokens5m: value(12),
+		CacheCreationInputTokens1h: value(13),
+		PromptTokens:               value(90),
+		CandidateTokens:            value(14),
+		ToolTokens:                 value(15),
+		ReasoningTokens:            value(16),
+		CacheStorageTokens:         value(17),
+		CacheStorageHours:          &hours,
+		ModelContextWindow:         value(18),
+	})
+	if err != nil {
+		t.Fatalf("ParseRawUsageDelta returned error: %v", err)
+	}
+	if usage.CacheCreationInputTokens != 11 ||
+		usage.CacheCreationInputTokens5m != 12 ||
+		usage.CacheCreationInputTokens1h != 13 ||
+		usage.CandidateTokens != 14 ||
+		usage.ToolTokens != 15 ||
+		usage.ReasoningTokens != 16 ||
+		usage.CacheStorageTokens != 17 ||
+		usage.CacheStorageHours != 1.5 ||
+		usage.ModelContextWindow != 18 {
+		t.Fatalf("ParseRawUsageDelta() extended fields = %+v", usage)
+	}
+}
+
+func TestParseRawUsageDeltaRejectsNegativeExtendedFields(t *testing.T) {
+	intPtr := func(v int64) *int64 { return &v }
+	floatPtr := func(v float64) *float64 { return &v }
+
+	testCases := []RawUsageDelta{
+		{InputTokens: intPtr(1), CachedInputTokens: intPtr(-1)},
+		{InputTokens: intPtr(1), CacheCreationInputTokens: intPtr(-1)},
+		{InputTokens: intPtr(1), CacheCreationInputTokens5m: intPtr(-1)},
+		{InputTokens: intPtr(1), CacheCreationInputTokens1h: intPtr(-1)},
+		{InputTokens: intPtr(1), PromptTokens: intPtr(-1)},
+		{InputTokens: intPtr(1), CandidateTokens: intPtr(-1)},
+		{InputTokens: intPtr(1), ToolTokens: intPtr(-1)},
+		{InputTokens: intPtr(1), ReasoningTokens: intPtr(-1)},
+		{InputTokens: intPtr(1), CacheStorageTokens: intPtr(-1)},
+		{InputTokens: intPtr(1), CacheStorageHours: floatPtr(-1)},
+		{InputTokens: intPtr(1), ModelContextWindow: intPtr(-1)},
+	}
+
+	for _, raw := range testCases {
+		if _, err := ParseRawUsageDelta(raw); err == nil {
+			t.Fatalf("ParseRawUsageDelta(%+v) expected validation error", raw)
+		}
+	}
+}
+
+func TestUsageDeltaCacheWriteTokens(t *testing.T) {
+	fiveMinuteDefault := UsageDelta{CacheCreationInputTokens: 3}
+	if fiveMinutes, oneHour := fiveMinuteDefault.cacheWriteTokens(pricing.CacheWriteWindowFiveMinutes); fiveMinutes != 3 || oneHour != 0 {
+		t.Fatalf("cacheWriteTokens(5m default) = %d, %d; want 3, 0", fiveMinutes, oneHour)
+	}
+
+	oneHourDefault := UsageDelta{CacheCreationInputTokens: 4}
+	if fiveMinutes, oneHour := oneHourDefault.cacheWriteTokens(pricing.CacheWriteWindowOneHour); fiveMinutes != 0 || oneHour != 4 {
+		t.Fatalf("cacheWriteTokens(1h default) = %d, %d; want 0, 4", fiveMinutes, oneHour)
+	}
+
+	explicit := UsageDelta{CacheCreationInputTokens: 5, CacheCreationInputTokens5m: 6, CacheCreationInputTokens1h: 7}
+	if fiveMinutes, oneHour := explicit.cacheWriteTokens(pricing.CacheWriteWindowFiveMinutes); fiveMinutes != 6 || oneHour != 7 {
+		t.Fatalf("cacheWriteTokens(explicit) = %d, %d; want 6, 7", fiveMinutes, oneHour)
 	}
 }
 
