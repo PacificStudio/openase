@@ -89,6 +89,27 @@ func TestUsageDeltaResolveCostDoesNotRoundSmallDeltas(t *testing.T) {
 	}
 }
 
+func TestUsageDeltaResolveCostUSDReturnsAmountOnly(t *testing.T) {
+	inputTokens := int64(2)
+
+	usage, err := ParseRawUsageDelta(RawUsageDelta{
+		InputTokens: &inputTokens,
+	})
+	if err != nil {
+		t.Fatalf("ParseRawUsageDelta returned error: %v", err)
+	}
+
+	costUSD, err := usage.ResolveCostUSD(ModelPricing{
+		CostPerInputToken: 0.5,
+	})
+	if err != nil {
+		t.Fatalf("ResolveCostUSD returned error: %v", err)
+	}
+	if costUSD != 1 {
+		t.Fatalf("ResolveCostUSD = %.2f, want 1.00", costUSD)
+	}
+}
+
 func TestUsageDeltaValidationHelpers(t *testing.T) {
 	negativeTokens := int64(-1)
 	if _, err := ParseRawUsageDelta(RawUsageDelta{InputTokens: &negativeTokens}); err == nil {
@@ -141,5 +162,14 @@ func TestUsageDeltaValidationHelpers(t *testing.T) {
 	unroundedCost := 0.000004
 	if got, err := parseOptionalNonNegativeFloat64("cost_usd", &unroundedCost); err != nil || got == nil || *got != unroundedCost {
 		t.Fatalf("parseOptionalNonNegativeFloat64(unrounded) = %v, %v; want %.6f, nil", got, err, unroundedCost)
+	}
+}
+
+func TestUsageCostHelpers(t *testing.T) {
+	if rounded := RoundUSD(1.235); rounded != 1.24 {
+		t.Fatalf("RoundUSD(1.235) = %.2f, want 1.24", rounded)
+	}
+	if UsageCostSourceActual.String() != "actual" {
+		t.Fatalf("UsageCostSourceActual.String() = %q, want actual", UsageCostSourceActual.String())
 	}
 }
