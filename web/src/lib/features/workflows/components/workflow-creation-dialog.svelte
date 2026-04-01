@@ -3,12 +3,20 @@
   import { toastStore } from '$lib/stores/toast.svelte'
   import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
+  import * as Collapsible from '$ui/collapsible'
   import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
+  import { ChevronRight } from '@lucide/svelte'
   import { createWorkflowWithBinding } from '../data'
   import { parseHarnessTemplateStatusBindings } from '../model'
+  import {
+    createWorkflowHooksDraft,
+    parseWorkflowHooksDraft,
+    validateWorkflowHooksDraft,
+    type WorkflowHooksDraft,
+  } from '../workflow-hooks'
   import { toggleWorkflowStatusSelection } from '../workflow-lifecycle'
   import type {
     WorkflowAgentOption,
@@ -16,6 +24,7 @@
     WorkflowSummary,
     WorkflowTemplateDraft,
   } from '../types'
+  import WorkflowHooksEditor from './workflow-hooks-editor.svelte'
 
   let {
     open = $bindable(false),
@@ -43,17 +52,24 @@
   let pickupStatusIds = $state<string[]>([])
   let finishStatusIds = $state<string[]>([])
   let templateStatusError = $state('')
+  let advancedOpen = $state(false)
+  let hookDraft = $state<WorkflowHooksDraft>(createWorkflowHooksDraft())
+  let hookError = $state('')
   let wasOpen = false
 
   const selectedAgentLabel = $derived(
     agentOptions.find((option) => option.id === agentId)?.label ?? 'Select bound agent',
   )
   const selectableStatuses = $derived(statuses)
+  const hookValidation = $derived(validateWorkflowHooksDraft(hookDraft))
   $effect(() => {
     if (open && !wasOpen) {
       name = templateDraft?.name ?? `Workflow ${existingCount + 1}`
       agentId = agentOptions[0]?.id ?? ''
       templateStatusError = ''
+      advancedOpen = false
+      hookDraft = createWorkflowHooksDraft()
+      hookError = ''
 
       const defaultStatusIds = selectableStatuses[0] ? [selectableStatuses[0].id] : []
       pickupStatusIds = defaultStatusIds
@@ -113,6 +129,13 @@
       return
     }
 
+    const parsedHooks = parseWorkflowHooksDraft(hookDraft)
+    if (!parsedHooks.ok) {
+      hookError = parsedHooks.error
+      advancedOpen = true
+      return
+    }
+
     saving = true
 
     try {
@@ -125,6 +148,7 @@
           harnessPath: templateDraft?.harnessPath ?? null,
           pickupStatusIds,
           finishStatusIds,
+          hooks: parsedHooks.value,
         },
         statuses,
         templateDraft?.content ?? builtinRoleContent,
@@ -247,6 +271,44 @@
       {#if templateStatusError}
         <p class="text-destructive text-xs">{templateStatusError}</p>
       {/if}
+      <Collapsible.Root bind:open={advancedOpen}>
+        <Collapsible.Trigger>
+          {#snippet child({ props })}
+            <button
+              {...props}
+              type="button"
+              class="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm transition-colors"
+            >
+              <ChevronRight class="size-4 transition-transform {advancedOpen ? 'rotate-90' : ''}" />
+              Advanced
+            </button>
+          {/snippet}
+        </Collapsible.Trigger>
+        <Collapsible.Content>
+          <div class="mt-3 space-y-4">
+            <div class="space-y-1">
+              <div class="text-sm font-medium">Hooks</div>
+              <p class="text-muted-foreground text-xs">
+                Configure optional workflow and ticket lifecycle hooks.
+              </p>
+            </div>
+
+            <WorkflowHooksEditor
+              draft={hookDraft}
+              validation={hookValidation}
+              disabled={saving}
+              onChange={(nextDraft) => {
+                hookDraft = nextDraft
+                hookError = ''
+              }}
+            />
+
+            {#if hookError}
+              <p class="text-destructive text-xs">{hookError}</p>
+            {/if}
+          </div>
+        </Collapsible.Content>
+      </Collapsible.Root>
 
       <Dialog.Footer showCloseButton>
         <Button type="submit" disabled={saving || !projectId || !!templateStatusError}>

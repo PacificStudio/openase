@@ -25,6 +25,7 @@ import {
   finalizeAssistantTextChunk,
   isAbortError,
   isActionProposalEntry,
+  isTextPayload,
   mapChatPayloadToTranscriptEntry,
   type EphemeralChatRole,
   type EphemeralChatTranscriptEntry,
@@ -107,16 +108,15 @@ export function createEphemeralChatSessionController(
       pending = false
       return
     }
-
     const messageEvent = event as Extract<ChatStreamEvent, { kind: 'message' }>
     const payload = messageEvent.payload
-    if (payload.type === 'text') {
+    if (isTextPayload(payload)) {
       applyAssistantTextUpdate(
         appendAssistantTextChunk({
           entries,
           activeAssistantEntryId,
           entryCounter,
-          content: (payload as Extract<typeof payload, { type: 'text' }>).content,
+          content: payload.content,
         }),
       )
       return
@@ -124,7 +124,6 @@ export function createEphemeralChatSessionController(
 
     appendMappedEntry(messageEvent)
   }
-
   async function closeActiveSession(options: CloseSessionOptions) {
     const activeSessionId = sessionId
     const closeRequestId = ++requestId
@@ -136,6 +135,7 @@ export function createEphemeralChatSessionController(
     if (options.clearEntries) {
       entries = []
     }
+
     if (!activeSessionId) {
       return
     }
@@ -150,7 +150,6 @@ export function createEphemeralChatSessionController(
       )
     }
   }
-
   function updateActionProposalEntry(
     entryId: string,
     nextState: {
@@ -169,7 +168,6 @@ export function createEphemeralChatSessionController(
       }
     })
   }
-
   return {
     get providers() {
       return providers
@@ -198,9 +196,8 @@ export function createEphemeralChatSessionController(
         return
       }
       const nextProviderId = pickDefaultEphemeralChatProvider(providers, defaultProviderId)
-      if (providerId && providerId !== nextProviderId) {
+      if (providerId && providerId !== nextProviderId)
         void closeActiveSession({ clearEntries: true, suppressError: true })
-      }
       providerId = nextProviderId
     },
     async sendTurn(inputContext: { message: string; context: EphemeralChatContext }) {
@@ -232,11 +229,12 @@ export function createEphemeralChatSessionController(
                 return
               }
               streamStarted = true
-              if (event.kind === 'message') {
-                const payload = event.payload
-                if (payload.type === 'text' && 'content' in payload && payload.content) {
-                  partialReplyReceived = true
-                }
+              if (
+                event.kind === 'message' &&
+                isTextPayload(event.payload) &&
+                event.payload.content
+              ) {
+                partialReplyReceived = true
               }
               handleStreamEvent(event)
             },
