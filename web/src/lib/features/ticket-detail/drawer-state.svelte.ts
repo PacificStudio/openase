@@ -1,15 +1,13 @@
 import { ApiError } from '$lib/api/client'
 import type { SSEFrame } from '$lib/api/sse'
 import { toastStore } from '$lib/stores/toast.svelte'
-import { getTicketRun, listTicketRuns } from '$lib/api/openase'
 import { fetchTicketDetailContext } from './context'
-import { mapTicketRunDetail, mapTicketRuns } from './run-transcript-data'
 import {
-  applyTicketRunStreamFrame,
-  createEmptyTicketRunTranscriptState,
-  hydrateTicketRunDetail,
-  setTicketRunList,
-} from './run-transcript'
+  defaultTicketDrawerRunTranscriptDeps,
+  loadTicketDrawerRunTranscript,
+  type TicketDrawerRunTranscriptDeps,
+} from './drawer-run-transcript'
+import { applyTicketRunStreamFrame, createEmptyTicketRunTranscriptState } from './run-transcript'
 import type {
   HookExecution,
   TicketDetail,
@@ -28,14 +26,11 @@ type LoadOptions = {
 
 type TicketDrawerStateDeps = {
   fetchContext: typeof fetchTicketDetailContext
-  fetchRuns: typeof listTicketRuns
-  fetchRun: typeof getTicketRun
-}
+} & TicketDrawerRunTranscriptDeps
 
 const defaultDeps: TicketDrawerStateDeps = {
   fetchContext: fetchTicketDetailContext,
-  fetchRuns: listTicketRuns,
-  fetchRun: getTicketRun,
+  ...defaultTicketDrawerRunTranscriptDeps,
 }
 
 export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {}) {
@@ -44,92 +39,70 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
     ...deps,
   }
 
-  let loading = $state(false)
-  let error = $state('')
-  let ticket = $state<TicketDetail | null>(null)
-  let timeline = $state<TicketTimelineItem[]>([])
-  let hooks = $state<HookExecution[]>([])
-  let statuses = $state<TicketStatusOption[]>([])
-  let dependencyCandidates = $state<TicketReferenceOption[]>([])
-  let repoOptions = $state<TicketRepoOption[]>([])
-  let runs = $state<TicketRun[]>([])
-  let currentRun = $state<TicketRun | null>(null)
-  let runBlocks = $state<TicketRunTranscriptBlock[]>([])
-  let savingFields = $state(false)
-  let creatingDependency = $state(false)
-  let deletingDependencyId = $state<string | null>(null)
-  let creatingExternalLink = $state(false)
-  let deletingExternalLinkId = $state<string | null>(null)
-  let creatingRepoScope = $state(false)
-  let updatingRepoScopeId = $state<string | null>(null)
-  let deletingRepoScopeId = $state<string | null>(null)
-  let creatingComment = $state(false)
-  let updatingCommentId = $state<string | null>(null)
-  let deletingCommentId = $state<string | null>(null)
-  let resumingRetry = $state(false)
+  const state = $state({
+    loading: false,
+    error: '',
+    ticket: null as TicketDetail | null,
+    timeline: [] as TicketTimelineItem[],
+    hooks: [] as HookExecution[],
+    statuses: [] as TicketStatusOption[],
+    dependencyCandidates: [] as TicketReferenceOption[],
+    repoOptions: [] as TicketRepoOption[],
+    runs: [] as TicketRun[],
+    currentRun: null as TicketRun | null,
+    runBlocks: [] as TicketRunTranscriptBlock[],
+    savingFields: false,
+    creatingDependency: false,
+    deletingDependencyId: null as string | null,
+    creatingExternalLink: false,
+    deletingExternalLinkId: null as string | null,
+    creatingRepoScope: false,
+    updatingRepoScopeId: null as string | null,
+    deletingRepoScopeId: null as string | null,
+    creatingComment: false,
+    updatingCommentId: null as string | null,
+    deletingCommentId: null as string | null,
+    resumingRetry: false,
+  })
   let loadRequestId = 0
   let timelineRefreshQueued = false
   let timelineRefreshLoop: Promise<void> | null = null
 
   function applyFullContext(detailContext: Awaited<ReturnType<typeof fetchTicketDetailContext>>) {
-    ticket = detailContext.ticket
-    timeline = detailContext.timeline
-    hooks = detailContext.hooks
-    statuses = detailContext.statuses
-    dependencyCandidates = detailContext.dependencyCandidates
-    repoOptions = detailContext.repoOptions
+    state.ticket = detailContext.ticket
+    state.timeline = detailContext.timeline
+    state.hooks = detailContext.hooks
+    state.statuses = detailContext.statuses
+    state.dependencyCandidates = detailContext.dependencyCandidates
+    state.repoOptions = detailContext.repoOptions
   }
 
   function applyTimelineRefresh(
     detailContext: Awaited<ReturnType<typeof fetchTicketDetailContext>>,
   ) {
-    ticket = detailContext.ticket
-    timeline = detailContext.timeline
-    hooks = detailContext.hooks
+    state.ticket = detailContext.ticket
+    state.timeline = detailContext.timeline
+    state.hooks = detailContext.hooks
   }
 
   function applyRunTranscriptState(
     nextState: ReturnType<typeof createEmptyTicketRunTranscriptState>,
   ) {
-    runs = nextState.runs
-    currentRun = nextState.currentRun
-    runBlocks = nextState.blocks
+    state.runs = nextState.runs
+    state.currentRun = nextState.currentRun
+    state.runBlocks = nextState.blocks
   }
 
   function getRunTranscriptState() {
     return {
-      runs,
-      currentRun,
-      blocks: runBlocks,
+      runs: state.runs,
+      currentRun: state.currentRun,
+      blocks: state.runBlocks,
     }
-  }
-
-  async function loadRunTranscript(projectId: string, ticketId: string, requestId: number) {
-    const runList = mapTicketRuns(await resolvedDeps.fetchRuns(projectId, ticketId))
-    if (requestId !== loadRequestId) {
-      return
-    }
-
-    let nextState = setTicketRunList(createEmptyTicketRunTranscriptState(), runList)
-    applyRunTranscriptState(nextState)
-
-    if (!nextState.currentRun) {
-      return
-    }
-
-    const detail = mapTicketRunDetail(
-      await resolvedDeps.fetchRun(projectId, ticketId, nextState.currentRun.id),
-    )
-    if (requestId !== loadRequestId) {
-      return
-    }
-
-    nextState = hydrateTicketRunDetail(nextState, detail)
-    applyRunTranscriptState(nextState)
   }
 
   async function runTimelineRefresh(projectId: string, ticketId: string) {
-    if (loading || !ticket) {
+    if (state.loading || !state.ticket) {
       return
     }
     if (timelineRefreshLoop) {
@@ -138,17 +111,17 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
     }
 
     timelineRefreshLoop = (async () => {
-      while (timelineRefreshQueued && !loading && ticket) {
+      while (timelineRefreshQueued && !state.loading && state.ticket) {
         timelineRefreshQueued = false
         const requestId = loadRequestId
         try {
           const detailContext = await resolvedDeps.fetchContext(projectId, ticketId)
-          if (requestId !== loadRequestId || !ticket) {
+          if (requestId !== loadRequestId || !state.ticket) {
             continue
           }
           applyTimelineRefresh(detailContext)
         } catch (caughtError) {
-          if (requestId !== loadRequestId || !ticket) {
+          if (requestId !== loadRequestId || !state.ticket) {
             continue
           }
           const message =
@@ -165,118 +138,7 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
     await timelineRefreshLoop
   }
 
-  return {
-    get loading() {
-      return loading
-    },
-    get error() {
-      return error
-    },
-    get ticket() {
-      return ticket
-    },
-    set ticket(value) {
-      ticket = value
-    },
-    get hooks() {
-      return hooks
-    },
-    get timeline() {
-      return timeline
-    },
-    set timeline(value) {
-      timeline = value
-    },
-    get statuses() {
-      return statuses
-    },
-    get dependencyCandidates() {
-      return dependencyCandidates
-    },
-    get repoOptions() {
-      return repoOptions
-    },
-    get runs() {
-      return runs
-    },
-    get currentRun() {
-      return currentRun
-    },
-    get runBlocks() {
-      return runBlocks
-    },
-    get savingFields() {
-      return savingFields
-    },
-    set savingFields(value) {
-      savingFields = value
-    },
-    get creatingDependency() {
-      return creatingDependency
-    },
-    set creatingDependency(value) {
-      creatingDependency = value
-    },
-    get deletingDependencyId() {
-      return deletingDependencyId
-    },
-    set deletingDependencyId(value) {
-      deletingDependencyId = value
-    },
-    get creatingExternalLink() {
-      return creatingExternalLink
-    },
-    set creatingExternalLink(value) {
-      creatingExternalLink = value
-    },
-    get deletingExternalLinkId() {
-      return deletingExternalLinkId
-    },
-    set deletingExternalLinkId(value) {
-      deletingExternalLinkId = value
-    },
-    get creatingRepoScope() {
-      return creatingRepoScope
-    },
-    set creatingRepoScope(value) {
-      creatingRepoScope = value
-    },
-    get updatingRepoScopeId() {
-      return updatingRepoScopeId
-    },
-    set updatingRepoScopeId(value) {
-      updatingRepoScopeId = value
-    },
-    get deletingRepoScopeId() {
-      return deletingRepoScopeId
-    },
-    set deletingRepoScopeId(value) {
-      deletingRepoScopeId = value
-    },
-    get creatingComment() {
-      return creatingComment
-    },
-    set creatingComment(value) {
-      creatingComment = value
-    },
-    get updatingCommentId() {
-      return updatingCommentId
-    },
-    set updatingCommentId(value) {
-      updatingCommentId = value
-    },
-    get deletingCommentId() {
-      return deletingCommentId
-    },
-    set deletingCommentId(value) {
-      deletingCommentId = value
-    },
-    get resumingRetry() {
-      return resumingRetry
-    },
-    set resumingRetry(value) {
-      resumingRetry = value
-    },
+  return Object.assign(state, {
     clearMutationMessages() {
       // no-op: toasts auto-dismiss
     },
@@ -289,15 +151,22 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
     async load(projectId: string, ticketId: string, options: LoadOptions = {}) {
       const requestId = ++loadRequestId
       if (!options.background) {
-        loading = true
-        error = ''
+        state.loading = true
+        state.error = ''
       }
       try {
         const detailContext = await resolvedDeps.fetchContext(projectId, ticketId)
         if (requestId !== loadRequestId) return
 
         applyFullContext(detailContext)
-        await loadRunTranscript(projectId, ticketId, requestId)
+        await loadTicketDrawerRunTranscript(
+          resolvedDeps,
+          { getState: getRunTranscriptState, setState: applyRunTranscriptState },
+          projectId,
+          ticketId,
+          requestId,
+          (activeRequestID) => activeRequestID === loadRequestId,
+        )
       } catch (caughtError) {
         if (requestId !== loadRequestId) return
         const message =
@@ -305,16 +174,16 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
         if (options.background) {
           toastStore.error(message)
         } else {
-          error = message
+          state.error = message
         }
       } finally {
         if (requestId === loadRequestId && !options.background) {
-          loading = false
+          state.loading = false
         }
       }
     },
     async refreshTimeline(projectId: string, ticketId: string) {
-      if (loading || !ticket) {
+      if (state.loading || !state.ticket) {
         return
       }
       timelineRefreshQueued = true
@@ -331,29 +200,29 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
       loadRequestId += 1
       timelineRefreshQueued = false
       timelineRefreshLoop = null
-      loading = false
-      error = ''
-      ticket = null
-      timeline = []
-      hooks = []
-      statuses = []
-      dependencyCandidates = []
-      repoOptions = []
-      runs = []
-      currentRun = null
-      runBlocks = []
-      savingFields = false
-      creatingDependency = false
-      deletingDependencyId = null
-      creatingExternalLink = false
-      deletingExternalLinkId = null
-      creatingRepoScope = false
-      updatingRepoScopeId = null
-      deletingRepoScopeId = null
-      creatingComment = false
-      updatingCommentId = null
-      deletingCommentId = null
-      resumingRetry = false
+      state.loading = false
+      state.error = ''
+      state.ticket = null
+      state.timeline = []
+      state.hooks = []
+      state.statuses = []
+      state.dependencyCandidates = []
+      state.repoOptions = []
+      state.runs = []
+      state.currentRun = null
+      state.runBlocks = []
+      state.savingFields = false
+      state.creatingDependency = false
+      state.deletingDependencyId = null
+      state.creatingExternalLink = false
+      state.deletingExternalLinkId = null
+      state.creatingRepoScope = false
+      state.updatingRepoScopeId = null
+      state.deletingRepoScopeId = null
+      state.creatingComment = false
+      state.updatingCommentId = null
+      state.deletingCommentId = null
+      state.resumingRetry = false
     },
-  }
+  })
 }

@@ -183,14 +183,12 @@
     />
   </div>
 
-  <!-- Right sidebar: metadata -->
   <div class="border-border w-full shrink-0 overflow-y-auto border-t md:w-80 md:border-t-0">
     <div class="flex flex-col gap-5 px-5 py-5">
       <TicketRuntimeStateCard {ticket} {resumingRetry} {onResumeRetry} />
 
       <Separator />
 
-      <!-- Metadata grid -->
       <section class="space-y-3">
         <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
           Details
@@ -259,7 +257,6 @@
 
       <Separator />
 
-      <!-- External Links -->
       <TicketExternalLinks
         links={ticket.externalLinks}
         creating={creatingExternalLink}
@@ -270,7 +267,6 @@
 
       <Separator />
 
-      <!-- Dependencies -->
       <TicketDependencies
         {ticket}
         availableTickets={dependencyCandidates}
@@ -282,7 +278,6 @@
 
       <Separator />
 
-      <!-- Repositories -->
       <TicketRepos
         {ticket}
         repos={repoOptions}
@@ -294,7 +289,6 @@
         {onDeleteScope}
       />
 
-      <!-- Hooks -->
       {#if hooks.length > 0}
         <Separator />
         <TicketHooks {hooks} />
