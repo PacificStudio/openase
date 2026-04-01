@@ -673,6 +673,126 @@ func TestActivateHRRecommendationRouteCreatesWorkflowAgentAndBootstrapTicket(t *
 	}
 }
 
+func TestActivateHRRecommendationRouteMapsDispatcherToBacklogStageWhenNamesAreCustomized(t *testing.T) {
+	client := openTestEntClient(t)
+	repoRoot := createTestGitRepo(t)
+
+	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			t.Errorf("close workflow service: %v", closeErr)
+		}
+	})
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		workflowSvc,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus("online").
+		SetResources(map[string]any{
+			"monitor": map[string]any{
+				"l4": map[string]any{
+					"checked_at": time.Now().UTC().Format(time.RFC3339),
+					"codex": map[string]any{
+						"installed":   true,
+						"auth_status": "logged_in",
+						"auth_mode":   "login",
+						"ready":       true,
+					},
+				},
+			},
+		}).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	provider, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(localMachine.ID).
+		SetName("OpenAI Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent provider: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		SetStatus("In Progress").
+		SetDefaultAgentProviderID(provider.ID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	createPrimaryProjectRepo(ctx, t, client, project.ID, repoRoot)
+	attachPrimaryProjectRepoCheckout(ctx, t, client, project.ID, localMachine.ID, repoRoot)
+
+	statusResult, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	backlogID := findStatusIDByName(t, statusResult, "Backlog")
+	if _, err := client.TicketStatus.UpdateOneID(backlogID).
+		SetName("Inbox").
+		Save(ctx); err != nil {
+		t.Fatalf("rename backlog status: %v", err)
+	}
+
+	resp := hrAdvisorActivationResponse{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/hr-advisor/activate", project.ID),
+		map[string]any{
+			"role_slug":               "dispatcher",
+			"create_bootstrap_ticket": true,
+		},
+		http.StatusCreated,
+		&resp,
+	)
+
+	if resp.RoleSlug != "dispatcher" || resp.Workflow.Name != "Dispatcher" {
+		t.Fatalf("unexpected activation response: %+v", resp)
+	}
+	if strings.Join(resp.Workflow.PickupStatusIDs, ",") != backlogID.String() {
+		t.Fatalf("expected dispatcher pickup to bind renamed backlog status %s, got %+v", backlogID, resp.Workflow)
+	}
+	if strings.Join(resp.Workflow.FinishStatusIDs, ",") != backlogID.String() {
+		t.Fatalf("expected dispatcher finish to bind renamed backlog status %s, got %+v", backlogID, resp.Workflow)
+	}
+	if resp.BootstrapTicket.Ticket == nil || resp.BootstrapTicket.Ticket.StatusID != backlogID.String() || resp.BootstrapTicket.Ticket.StatusName != "Inbox" {
+		t.Fatalf("expected bootstrap ticket to use renamed backlog lane, got %+v", resp.BootstrapTicket)
+	}
+}
+
 func TestActivateHRRecommendationRouteReturnsConflictWhenNoProviderIsAvailable(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)

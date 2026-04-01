@@ -10,6 +10,7 @@
   import * as Select from '$ui/select'
   import { ChevronRight } from '@lucide/svelte'
   import { createWorkflowWithBinding } from '../data'
+  import { resolveHarnessTemplateStatusSelection } from '../model'
   import {
     createWorkflowHooksDraft,
     parseWorkflowHooksDraft,
@@ -17,7 +18,12 @@
     type WorkflowHooksDraft,
   } from '../workflow-hooks'
   import { toggleWorkflowStatusSelection } from '../workflow-lifecycle'
-  import type { WorkflowAgentOption, WorkflowStatusOption, WorkflowSummary } from '../types'
+  import type {
+    WorkflowAgentOption,
+    WorkflowStatusOption,
+    WorkflowSummary,
+    WorkflowTemplateDraft,
+  } from '../types'
   import WorkflowHooksEditor from './workflow-hooks-editor.svelte'
 
   let {
@@ -36,7 +42,7 @@
     agentOptions: WorkflowAgentOption[]
     existingCount: number
     builtinRoleContent: string
-    templateDraft?: { name: string; content: string } | null
+    templateDraft?: WorkflowTemplateDraft | null
     onCreated?: (payload: { workflow: WorkflowSummary; selectedId: string }) => void
   } = $props()
 
@@ -45,6 +51,7 @@
   let agentId = $state('')
   let pickupStatusIds = $state<string[]>([])
   let finishStatusIds = $state<string[]>([])
+  let templateStatusError = $state('')
   let advancedOpen = $state(false)
   let hookDraft = $state<WorkflowHooksDraft>(createWorkflowHooksDraft())
   let hookError = $state('')
@@ -59,11 +66,28 @@
     if (open && !wasOpen) {
       name = templateDraft?.name ?? `Workflow ${existingCount + 1}`
       agentId = agentOptions[0]?.id ?? ''
-      pickupStatusIds = selectableStatuses[0] ? [selectableStatuses[0].id] : []
-      finishStatusIds = selectableStatuses[0] ? [selectableStatuses[0].id] : []
+      templateStatusError = ''
       advancedOpen = false
       hookDraft = createWorkflowHooksDraft()
       hookError = ''
+
+      const defaultStatusIds = selectableStatuses[0] ? [selectableStatuses[0].id] : []
+      pickupStatusIds = defaultStatusIds
+      finishStatusIds = defaultStatusIds
+
+      if (templateDraft) {
+        const templateSelection = resolveHarnessTemplateStatusSelection(
+          templateDraft.content,
+          selectableStatuses,
+        )
+        templateStatusError = templateSelection.error
+        if (templateSelection.pickupStatusIds.length > 0 || templateSelection.error) {
+          pickupStatusIds = templateSelection.pickupStatusIds
+        }
+        if (templateSelection.finishStatusIds.length > 0 || templateSelection.error) {
+          finishStatusIds = templateSelection.finishStatusIds
+        }
+      }
     }
 
     wasOpen = open
@@ -81,6 +105,10 @@
     }
     if (!agentId) {
       toastStore.error('Bound agent is required.')
+      return
+    }
+    if (templateStatusError) {
+      toastStore.error(templateStatusError)
       return
     }
     if (pickupStatusIds.length === 0 || finishStatusIds.length === 0) {
@@ -103,6 +131,8 @@
         {
           agentId,
           name: name.trim(),
+          workflowType: templateDraft?.workflowType ?? 'coding',
+          harnessPath: templateDraft?.harnessPath ?? null,
           pickupStatusIds,
           finishStatusIds,
           hooks: parsedHooks.value,
@@ -205,6 +235,9 @@
         </div>
       </div>
 
+      {#if templateStatusError}
+        <p class="text-destructive text-xs">{templateStatusError}</p>
+      {/if}
       <Collapsible.Root bind:open={advancedOpen}>
         <Collapsible.Trigger>
           {#snippet child({ props })}
@@ -245,7 +278,7 @@
       </Collapsible.Root>
 
       <Dialog.Footer showCloseButton>
-        <Button type="submit" disabled={saving || !projectId}>
+        <Button type="submit" disabled={saving || !projectId || !!templateStatusError}>
           {saving ? 'Creating…' : 'Create workflow'}
         </Button>
       </Dialog.Footer>

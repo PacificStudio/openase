@@ -53,6 +53,7 @@ describe('createWorkflowWithBinding', () => {
       {
         agentId: 'agent-1',
         name: 'Workflow 1',
+        workflowType: 'coding',
         pickupStatusIds: ['todo'],
         finishStatusIds: ['done'],
         hooks: {

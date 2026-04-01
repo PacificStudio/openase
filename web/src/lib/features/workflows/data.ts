@@ -198,6 +198,8 @@ export async function createWorkflowWithBinding(
   input: {
     agentId: string
     name: string
+    workflowType: string
+    harnessPath?: string | null
     pickupStatusIds: string[]
     finishStatusIds: string[]
     hooks?: WorkflowHooksPayload
@@ -208,7 +210,8 @@ export async function createWorkflowWithBinding(
   const response = await createWorkflow(projectId, {
     agent_id: input.agentId,
     name: input.name,
-    type: 'coding',
+    type: input.workflowType,
+    harness_path: input.harnessPath ?? null,
     pickup_status_ids: input.pickupStatusIds,
     finish_status_ids: input.finishStatusIds,
     harness_content: builtinRoleContent || defaultHarnessTemplate(),

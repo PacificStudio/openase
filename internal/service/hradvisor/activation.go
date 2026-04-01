@@ -30,8 +30,9 @@ type activationCatalog interface {
 }
 
 type ActivationStatus struct {
-	ID   uuid.UUID
-	Name string
+	ID    uuid.UUID
+	Name  string
+	Stage string
 }
 
 type ActivationWorkflow struct {
@@ -182,7 +183,7 @@ func (s *ActivationService) Activate(
 	if err != nil {
 		return ActivationResult{}, err
 	}
-	pickupStatusID, finishStatusID, err := resolveActivationStatusIDs(statuses, template)
+	pickupStatusIDs, finishStatusIDs, err := resolveActivationStatusIDs(statuses, template)
 	if err != nil {
 		return ActivationResult{}, err
 	}
@@ -222,8 +223,8 @@ func (s *ActivationService) Activate(
 		TimeoutMinutes:      30,
 		StallTimeoutMinutes: 5,
 		IsActive:            true,
-		PickupStatusIDs:     []uuid.UUID{pickupStatusID},
-		FinishStatusIDs:     []uuid.UUID{finishStatusID},
+		PickupStatusIDs:     pickupStatusIDs,
+		FinishStatusIDs:     finishStatusIDs,
 	})
 	if err != nil {
 		if _, rollbackErr := s.catalog.DeleteAgent(ctx, createdAgent.ID); rollbackErr != nil {
@@ -258,7 +259,7 @@ func (s *ActivationService) Activate(
 		ProjectID:   input.ProjectID,
 		Title:       draft.Title,
 		Description: draft.Description,
-		StatusID:    &pickupStatusID,
+		StatusID:    &pickupStatusIDs[0],
 		Priority:    draft.Priority,
 		Type:        draft.Type,
 		WorkflowID:  &createdWorkflow.ID,
@@ -322,22 +323,101 @@ func activationWorkflowExists(items []ActivationWorkflow, harnessPath string) bo
 func resolveActivationStatusIDs(
 	statuses []ActivationStatus,
 	template hrdomain.ActivationTemplate,
-) (uuid.UUID, uuid.UUID, error) {
-	statusesByName := make(map[string]uuid.UUID, len(statuses))
+) ([]uuid.UUID, []uuid.UUID, error) {
+	pickupStatusIDs, err := resolveActivationStatusBinding(statuses, template, "pickup", template.PickupStatusNames)
+	if err != nil {
+		return nil, nil, err
+	}
+	finishStatusIDs, err := resolveActivationStatusBinding(statuses, template, "finish", template.FinishStatusNames)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return pickupStatusIDs, finishStatusIDs, nil
+}
+
+func resolveActivationStatusBinding(
+	statuses []ActivationStatus,
+	template hrdomain.ActivationTemplate,
+	binding string,
+	statusNames []string,
+) ([]uuid.UUID, error) {
+	statusesByName := make(map[string]ActivationStatus, len(statuses))
+	statusesByStage := make(map[string][]ActivationStatus)
 	for _, statusItem := range statuses {
-		statusesByName[strings.TrimSpace(statusItem.Name)] = statusItem.ID
+		nameKey := normalizeActivationStatusKey(statusItem.Name)
+		if nameKey != "" {
+			statusesByName[nameKey] = statusItem
+		}
+		stageKey := normalizeActivationStatusKey(statusItem.Stage)
+		if stageKey != "" {
+			statusesByStage[stageKey] = append(statusesByStage[stageKey], statusItem)
+		}
 	}
 
-	pickupStatusID, ok := statusesByName[template.PickupStatusName]
-	if !ok {
-		return uuid.Nil, uuid.Nil, fmt.Errorf("%w: pickup status %q", ErrActivationStatusNotFound, template.PickupStatusName)
+	resolved := make([]uuid.UUID, 0, len(statusNames))
+	seen := make(map[uuid.UUID]struct{}, len(statusNames))
+	for _, rawName := range statusNames {
+		statusItem, err := resolveActivationStatus(statusesByName, statusesByStage, template, binding, rawName)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := seen[statusItem.ID]; ok {
+			continue
+		}
+		seen[statusItem.ID] = struct{}{}
+		resolved = append(resolved, statusItem.ID)
 	}
-	finishStatusID, ok := statusesByName[template.FinishStatusName]
-	if !ok {
-		return uuid.Nil, uuid.Nil, fmt.Errorf("%w: finish status %q", ErrActivationStatusNotFound, template.FinishStatusName)
+	if len(resolved) == 0 {
+		return nil, fmt.Errorf("%w: %s binding requires at least one configured status", ErrActivationStatusNotFound, binding)
+	}
+	return resolved, nil
+}
+
+func resolveActivationStatus(
+	statusesByName map[string]ActivationStatus,
+	statusesByStage map[string][]ActivationStatus,
+	template hrdomain.ActivationTemplate,
+	binding string,
+	rawName string,
+) (ActivationStatus, error) {
+	name := strings.TrimSpace(rawName)
+	if item, ok := statusesByName[normalizeActivationStatusKey(name)]; ok {
+		return item, nil
 	}
 
-	return pickupStatusID, finishStatusID, nil
+	if template.RoleSlug == "dispatcher" {
+		candidates := statusesByStage["backlog"]
+		if len(candidates) == 1 {
+			return candidates[0], nil
+		}
+		if len(candidates) > 1 {
+			names := make([]string, 0, len(candidates))
+			for _, candidate := range candidates {
+				names = append(names, candidate.Name)
+			}
+			sort.Strings(names)
+			return ActivationStatus{}, fmt.Errorf(
+				"%w: dispatcher %s status %q is ambiguous; configure exactly one backlog-stage status or restore the literal name. candidates=%s",
+				ErrActivationStatusNotFound,
+				binding,
+				name,
+				strings.Join(names, ", "),
+			)
+		}
+		return ActivationStatus{}, fmt.Errorf(
+			"%w: dispatcher %s status %q requires a configured status with stage \"backlog\"",
+			ErrActivationStatusNotFound,
+			binding,
+			name,
+		)
+	}
+
+	return ActivationStatus{}, fmt.Errorf("%w: %s status %q", ErrActivationStatusNotFound, binding, name)
+}
+
+func normalizeActivationStatusKey(raw string) string {
+	return strings.ToLower(strings.TrimSpace(raw))
 }
 
 func selectActivationProvider(

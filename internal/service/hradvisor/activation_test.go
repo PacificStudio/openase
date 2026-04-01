@@ -46,8 +46,8 @@ func TestActivateCreatesWorkflowAgentAndBootstrapTicket(t *testing.T) {
 	}
 	statusStub := &stubActivationStatuses{
 		list: []ActivationStatus{
-			{ID: todoID, Name: "Todo"},
-			{ID: doneID, Name: "Done"},
+			{ID: todoID, Name: "Todo", Stage: "unstarted"},
+			{ID: doneID, Name: "Done", Stage: "completed"},
 		},
 	}
 	ticketStub := &stubActivationTickets{
@@ -106,7 +106,7 @@ func TestActivateFailsWhenRequiredStatusMissing(t *testing.T) {
 		},
 		&stubActivationWorkflows{},
 		&stubActivationStatuses{
-			list: []ActivationStatus{{ID: uuid.New(), Name: "Todo"}},
+			list: []ActivationStatus{{ID: uuid.New(), Name: "Todo", Stage: "unstarted"}},
 		},
 		nil,
 	)
@@ -139,8 +139,8 @@ func TestActivateRollsBackAgentWhenWorkflowCreateFails(t *testing.T) {
 		&stubActivationWorkflows{createErr: errors.New("workflow create failed")},
 		&stubActivationStatuses{
 			list: []ActivationStatus{
-				{ID: todoID, Name: "Todo"},
-				{ID: doneID, Name: "Done"},
+				{ID: todoID, Name: "Todo", Stage: "unstarted"},
+				{ID: doneID, Name: "Done", Stage: "completed"},
 			},
 		},
 		nil,
@@ -153,6 +153,105 @@ func TestActivateRollsBackAgentWhenWorkflowCreateFails(t *testing.T) {
 	if catalogStub.deletedAgentID != agentID {
 		t.Fatalf("expected agent rollback for %s, got %s", agentID, catalogStub.deletedAgentID)
 	}
+}
+
+func TestActivateDispatcherFallsBackToBacklogStageForRenamedStatuses(t *testing.T) {
+	projectID := uuid.New()
+	orgID := uuid.New()
+	providerID := uuid.New()
+	backlogID := uuid.New()
+	agentID := uuid.New()
+	workflowID := uuid.New()
+
+	workflowStub := &stubActivationWorkflows{
+		createdWorkflow: ActivationWorkflow{
+			ID:              workflowID,
+			ProjectID:       projectID,
+			AgentID:         &agentID,
+			Name:            "Dispatcher",
+			Type:            "custom",
+			HarnessPath:     ".openase/harnesses/roles/dispatcher.md",
+			HarnessContent:  "content",
+			Version:         1,
+			IsActive:        true,
+			PickupStatusIDs: []uuid.UUID{backlogID},
+			FinishStatusIDs: []uuid.UUID{backlogID},
+		},
+	}
+
+	service := NewActivationService(
+		&stubActivationCatalog{
+			project: catalogdomain.Project{ID: projectID, OrganizationID: orgID, DefaultAgentProviderID: &providerID},
+			org:     catalogdomain.Organization{ID: orgID},
+			providers: []catalogdomain.AgentProvider{
+				{ID: providerID, Name: "OpenAI Codex", AdapterType: catalogdomain.AgentProviderAdapterTypeCodexAppServer, Available: true},
+			},
+			createdAgent: catalogdomain.Agent{ID: agentID, ProjectID: projectID, ProviderID: providerID, Name: "Dispatcher Agent"},
+		},
+		workflowStub,
+		&stubActivationStatuses{
+			list: []ActivationStatus{
+				{ID: backlogID, Name: "Inbox", Stage: "backlog"},
+			},
+		},
+		nil,
+	)
+
+	result, err := service.Activate(context.Background(), mustParseActivationInput(t, projectID, "dispatcher", false))
+	if err != nil {
+		t.Fatalf("Activate() error = %v", err)
+	}
+	if workflowStub.createInput == nil {
+		t.Fatal("expected workflow create input")
+	}
+	if strings.Join(uuidStrings(workflowStub.createInput.PickupStatusIDs), ",") != backlogID.String() {
+		t.Fatalf("unexpected dispatcher pickup binding: %+v", workflowStub.createInput.PickupStatusIDs)
+	}
+	if strings.Join(uuidStrings(workflowStub.createInput.FinishStatusIDs), ",") != backlogID.String() {
+		t.Fatalf("unexpected dispatcher finish binding: %+v", workflowStub.createInput.FinishStatusIDs)
+	}
+	if strings.Join(uuidStrings(result.Workflow.PickupStatusIDs), ",") != backlogID.String() {
+		t.Fatalf("unexpected dispatcher result pickup binding: %+v", result.Workflow.PickupStatusIDs)
+	}
+}
+
+func TestActivateDispatcherFailsPreciselyWithoutBacklogStage(t *testing.T) {
+	projectID := uuid.New()
+	orgID := uuid.New()
+	providerID := uuid.New()
+
+	service := NewActivationService(
+		&stubActivationCatalog{
+			project: catalogdomain.Project{ID: projectID, OrganizationID: orgID, DefaultAgentProviderID: &providerID},
+			org:     catalogdomain.Organization{ID: orgID},
+			providers: []catalogdomain.AgentProvider{
+				{ID: providerID, Name: "OpenAI Codex", AdapterType: catalogdomain.AgentProviderAdapterTypeCodexAppServer, Available: true},
+			},
+		},
+		&stubActivationWorkflows{},
+		&stubActivationStatuses{
+			list: []ActivationStatus{
+				{ID: uuid.New(), Name: "Inbox", Stage: "unstarted"},
+			},
+		},
+		nil,
+	)
+
+	_, err := service.Activate(context.Background(), mustParseActivationInput(t, projectID, "dispatcher", false))
+	if !errors.Is(err, ErrActivationStatusNotFound) {
+		t.Fatalf("expected status error, got %v", err)
+	}
+	if err == nil || !strings.Contains(err.Error(), `requires a configured status with stage "backlog"`) {
+		t.Fatalf("expected precise dispatcher stage error, got %v", err)
+	}
+}
+
+func uuidStrings(items []uuid.UUID) []string {
+	values := make([]string, 0, len(items))
+	for _, item := range items {
+		values = append(values, item.String())
+	}
+	return values
 }
 
 func mustParseActivationInput(

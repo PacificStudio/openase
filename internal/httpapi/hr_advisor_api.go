@@ -508,8 +508,9 @@ func (a hrAdvisorStatusAdapter) List(ctx context.Context, projectID uuid.UUID) (
 	statuses := make([]hrservice.ActivationStatus, 0, len(result.Statuses))
 	for _, item := range result.Statuses {
 		statuses = append(statuses, hrservice.ActivationStatus{
-			ID:   item.ID,
-			Name: item.Name,
+			ID:    item.ID,
+			Name:  item.Name,
+			Stage: item.Stage,
 		})
 	}
 
