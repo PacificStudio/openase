@@ -1,7 +1,11 @@
 import type { ProjectConversationStreamEvent } from '$lib/api/chat'
 import {
   appendProjectConversationAssistantChunk,
+  appendProjectConversationTranscriptEntry,
   appendProjectConversationTextEntry,
+  createProjectConversationActionProposalEntry,
+  createProjectConversationDiffEntry,
+  createProjectConversationInterruptEntry,
   finalizeProjectConversationAssistantEntry,
   type ProjectConversationTranscriptEntry,
 } from './project-conversation-transcript-state'
@@ -76,6 +80,13 @@ export function appendProjectConversationText(
   state.entries = appendProjectConversationTextEntry(state.entries, role, content, {
     entryId: `entry-${state.entryCounter}`,
   })
+}
+
+export function appendProjectConversationStructuredEntry(
+  state: ProjectConversationControllerState,
+  entry: ProjectConversationTranscriptEntry,
+) {
+  state.entries = appendProjectConversationTranscriptEntry(state.entries, entry)
 }
 
 export function finalizeProjectConversationEntry(state: ProjectConversationControllerState) {
@@ -164,28 +175,55 @@ export function applyProjectConversationStreamEvent(params: {
       appendProjectConversationChunk(params.state, content),
     finalizeAssistantEntry: () => finalizeProjectConversationEntry(params.state),
     appendActionProposal: (entryId, payload) => {
-      params.state.entries = [
-        ...params.state.entries,
-        {
+      appendProjectConversationStructuredEntry(
+        params.state,
+        createProjectConversationActionProposalEntry({
           id: entryId ?? `entry-${++params.state.entryCounter}`,
-          kind: 'action_proposal',
-          role: 'assistant',
           proposal: payload as never,
-          status: 'pending',
-          results: [],
-        },
-      ]
+        }),
+      )
     },
     appendDiff: (entryId, payload) => {
-      params.state.entries = [
-        ...params.state.entries,
-        {
+      appendProjectConversationStructuredEntry(
+        params.state,
+        createProjectConversationDiffEntry({
           id: entryId ?? `entry-${++params.state.entryCounter}`,
-          kind: 'diff',
-          role: 'assistant',
-          diff: payload as never,
-        },
-      ]
+          payload,
+        }),
+      )
+    },
+    appendToolCall: (payload) => {
+      params.state.entryCounter += 1
+      appendProjectConversationStructuredEntry(params.state, {
+        id: `entry-${params.state.entryCounter}`,
+        kind: 'tool_call',
+        role: 'system',
+        tool: payload.tool,
+        arguments: payload.arguments,
+      })
+    },
+    appendCommandOutput: (payload) => {
+      params.state.entryCounter += 1
+      appendProjectConversationStructuredEntry(params.state, {
+        id: `entry-${params.state.entryCounter}`,
+        kind: 'command_output',
+        role: 'system',
+        stream: payload.stream,
+        phase: payload.phase,
+        snapshot: payload.snapshot,
+        content: payload.content,
+      })
+    },
+    appendTaskStatus: (payload) => {
+      params.state.entryCounter += 1
+      appendProjectConversationStructuredEntry(params.state, {
+        id: `entry-${params.state.entryCounter}`,
+        kind: 'task_status',
+        role: 'system',
+        statusType: payload.statusType,
+        title: payload.title,
+        detail: payload.detail,
+      })
     },
     confirmActionResult: (entryId, results) => {
       params.state.entries = params.state.entries.map((entry) =>
@@ -196,20 +234,17 @@ export function applyProjectConversationStreamEvent(params: {
     },
     appendInterrupt: (payload) => {
       params.state.entryCounter += 1
-      params.state.entries = [
-        ...params.state.entries,
-        {
+      appendProjectConversationStructuredEntry(
+        params.state,
+        createProjectConversationInterruptEntry({
           id: `entry-${params.state.entryCounter}`,
-          kind: 'interrupt',
-          role: 'system',
           interruptId: payload.interruptId,
           provider: payload.provider,
           interruptKind: payload.kind,
           payload: payload.payload,
           options: payload.options,
-          status: 'pending',
-        },
-      ]
+        }),
+      )
     },
     resolveInterrupt: (interruptId, decision) => {
       params.state.entries = params.state.entries.map((entry) =>

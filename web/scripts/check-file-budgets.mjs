@@ -55,6 +55,8 @@ const budgetRules = [
         'Ticket creation dialog still hosts staged form orchestration until dialog sections are extracted.',
       'src/lib/features/tickets/components/tickets-page.svelte':
         'Tickets page still owns board loading and stream orchestration until board controller extraction lands.',
+      'src/lib/features/chat/project-conversation-transcript.svelte':
+        'Project conversation transcript still centralizes interrupt response UX while runtime cards continue to settle.',
       'src/lib/features/workflows/components/workflow-editor-panel.svelte':
         'Workflow editor panel temporarily keeps toolbar, bindings, and AI sidebar orchestration together until panel extraction lands.',
       'src/lib/features/workflows/components/workflows-page.svelte':

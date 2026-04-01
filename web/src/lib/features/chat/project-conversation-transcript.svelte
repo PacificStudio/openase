@@ -6,6 +6,8 @@
   import EphemeralChatActionProposalCard from './ephemeral-chat-action-proposal-card.svelte'
   import EphemeralChatDiffCard from './ephemeral-chat-diff-card.svelte'
   import ChatMarkdownContent from './chat-markdown-content.svelte'
+  import ProjectConversationCommandOutputCard from './project-conversation-command-output-card.svelte'
+  import ProjectConversationToolCallCard from './project-conversation-tool-call-card.svelte'
   import type { ProjectConversationTranscriptEntry } from './project-conversation-transcript-state'
 
   let {
@@ -64,6 +66,60 @@
     const value = question?.question
     return typeof value === 'string' ? value : 'Additional input is required to continue this turn.'
   }
+
+  function formatJSON(value: unknown) {
+    const formatted = JSON.stringify(value ?? {}, null, 2)
+    return formatted ?? '{}'
+  }
+
+  function readInterruptString(
+    entry: Extract<ProjectConversationTranscriptEntry, { kind: 'interrupt' }>,
+    ...keys: string[]
+  ) {
+    for (const key of keys) {
+      const value = entry.payload[key]
+      if (typeof value === 'string' && value.trim()) {
+        return value
+      }
+    }
+    return ''
+  }
+
+  function interruptTitle(
+    entry: Extract<ProjectConversationTranscriptEntry, { kind: 'interrupt' }>,
+  ) {
+    if (entry.interruptKind === 'user_input') {
+      return 'User input required'
+    }
+    if (entry.interruptKind === 'file_change_approval') {
+      return 'File change approval required'
+    }
+    return 'Command approval required'
+  }
+
+  function interruptTarget(
+    entry: Extract<ProjectConversationTranscriptEntry, { kind: 'interrupt' }>,
+  ) {
+    return readInterruptString(entry, 'file', 'path')
+  }
+
+  function interruptCommand(
+    entry: Extract<ProjectConversationTranscriptEntry, { kind: 'interrupt' }>,
+  ) {
+    return readInterruptString(entry, 'command')
+  }
+
+  function interruptPatch(
+    entry: Extract<ProjectConversationTranscriptEntry, { kind: 'interrupt' }>,
+  ) {
+    return readInterruptString(entry, 'patch')
+  }
+
+  function hasInterruptPayload(
+    entry: Extract<ProjectConversationTranscriptEntry, { kind: 'interrupt' }>,
+  ) {
+    return Object.keys(entry.payload).length > 0
+  }
 </script>
 
 <div class="space-y-3">
@@ -76,18 +132,73 @@
       />
     {:else if entry.kind === 'diff'}
       <EphemeralChatDiffCard {entry} />
+    {:else if entry.kind === 'tool_call'}
+      <ProjectConversationToolCallCard {entry} />
+    {:else if entry.kind === 'command_output'}
+      <ProjectConversationCommandOutputCard {entry} />
+    {:else if entry.kind === 'task_status'}
+      <div class="border-border/70 bg-muted/20 rounded-2xl border px-3 py-2.5 text-sm">
+        <div class="mb-1 text-[10px] font-semibold tracking-[0.16em] uppercase opacity-70">
+          status
+        </div>
+        <div class="font-medium">{entry.title}</div>
+        {#if entry.detail}
+          <div class="text-muted-foreground mt-1 text-xs leading-5 whitespace-pre-wrap">
+            {entry.detail}
+          </div>
+        {/if}
+      </div>
     {:else if entry.kind === 'interrupt'}
       <div class="rounded-2xl border border-amber-300 bg-amber-50/70 px-3 py-3 text-sm">
         <div class="mb-1 text-[10px] font-semibold tracking-[0.16em] text-amber-700 uppercase">
           interrupt
         </div>
-        <div class="mb-2 font-medium text-amber-900">
-          {entry.interruptKind === 'user_input'
-            ? 'User input required'
-            : entry.interruptKind === 'file_change_approval'
-              ? 'File change approval required'
-              : 'Command approval required'}
-        </div>
+        <div class="mb-2 font-medium text-amber-900">{interruptTitle(entry)}</div>
+
+        {#if interruptCommand(entry)}
+          <div class="mb-2 rounded-xl border border-amber-300/70 bg-white/80 px-3 py-2">
+            <div class="mb-1 text-[10px] font-semibold tracking-[0.14em] text-amber-700 uppercase">
+              command
+            </div>
+            <pre
+              class="font-mono text-xs leading-5 whitespace-pre-wrap text-amber-950">{interruptCommand(
+                entry,
+              )}</pre>
+          </div>
+        {/if}
+
+        {#if interruptTarget(entry)}
+          <div class="mb-2 rounded-xl border border-amber-300/70 bg-white/80 px-3 py-2">
+            <div class="mb-1 text-[10px] font-semibold tracking-[0.14em] text-amber-700 uppercase">
+              target
+            </div>
+            <div class="font-mono text-xs leading-5 text-amber-950">{interruptTarget(entry)}</div>
+          </div>
+        {/if}
+
+        {#if interruptPatch(entry)}
+          <details class="mb-2 rounded-xl border border-amber-300/70 bg-white/80">
+            <summary class="cursor-pointer px-3 py-2 text-xs font-medium text-amber-900">
+              Patch preview
+            </summary>
+            <pre
+              class="overflow-x-auto border-t border-amber-300/70 px-3 py-2 font-mono text-xs leading-5 whitespace-pre-wrap text-amber-950">{interruptPatch(
+                entry,
+              )}</pre>
+          </details>
+        {/if}
+
+        {#if hasInterruptPayload(entry)}
+          <details class="mb-2 rounded-xl border border-amber-300/70 bg-white/80">
+            <summary class="cursor-pointer px-3 py-2 text-xs font-medium text-amber-900">
+              Payload details
+            </summary>
+            <pre
+              class="overflow-x-auto border-t border-amber-300/70 px-3 py-2 font-mono text-xs leading-5 whitespace-pre-wrap text-amber-950">{formatJSON(
+                entry.payload,
+              )}</pre>
+          </details>
+        {/if}
 
         {#if entry.status === 'resolved'}
           <div class="text-xs text-amber-800">
