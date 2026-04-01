@@ -37,12 +37,20 @@ const budgetRules = [
         'Agent drawer is temporarily oversized while provider and runtime controls remain in one panel.',
       'src/lib/features/dashboard/components/org-dashboard.svelte':
         'Dashboard summary and advisor layout remain colocated pending dashboard panel extraction.',
+      'src/lib/features/onboarding/components/onboarding-panel.svelte':
+        'Onboarding panel still coordinates the full multi-step flow until onboarding controller extraction lands.',
+      'src/lib/features/onboarding/components/step-repo.svelte':
+        'Onboarding repo step keeps create and link flows together until onboarding step extraction lands.',
       'src/lib/features/settings/components/workflow-scheduled-job-cron-picker.svelte':
         'Cron picker keeps presets and field editor together until scheduled job form extraction lands.',
       'src/lib/features/skills/components/skill-editor-page.svelte':
         'Skill editor page still hosts save/binding orchestration until controller extraction lands.',
+      'src/lib/features/tickets/components/new-ticket-dialog.svelte':
+        'Ticket creation dialog still hosts staged form orchestration until dialog sections are extracted.',
       'src/lib/features/tickets/components/tickets-page.svelte':
         'Tickets page still owns board loading and stream orchestration until board controller extraction lands.',
+      'src/lib/features/workflows/components/workflows-page.svelte':
+        'Workflows page still coordinates editor, history, and skill bindings until controller extraction lands.',
     },
   },
   {
@@ -57,6 +65,8 @@ const budgetRules = [
         'Board controls regression coverage remains consolidated while the control matrix is still evolving.',
       'src/lib/features/skills/components/skill-bundle-editor.ts':
         'Skill bundle draft helpers remain centralized until tree and path utilities are split out.',
+      'src/lib/features/workflows/components/harness-ai-sidebar-streaming.test.ts':
+        'Harness AI long-stream regression coverage stays in one integration-style test while SSE helpers remain inline.',
       'src/lib/features/workflows/components/workflows-page.test.ts':
         'Workflow page interaction coverage remains bundled until test helper extraction lands.',
     },

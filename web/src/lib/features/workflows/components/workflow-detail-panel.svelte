@@ -232,6 +232,8 @@
             label="Max Concurrent"
             value={draft.maxConcurrent}
             icon={Layers3}
+            placeholder="Unlimited"
+            min="1"
             disabled={saving || deleting}
             oninput={(value) => updateDraftField('maxConcurrent', value)}
           />
@@ -240,6 +242,7 @@
             label="Max Retry"
             value={draft.maxRetryAttempts}
             icon={RotateCcw}
+            min="0"
             disabled={saving || deleting}
             oninput={(value) => updateDraftField('maxRetryAttempts', value)}
           />
@@ -248,6 +251,7 @@
             label="Timeout (min)"
             value={draft.timeoutMinutes}
             icon={Clock3}
+            min="1"
             disabled={saving || deleting}
             oninput={(value) => updateDraftField('timeoutMinutes', value)}
           />
@@ -256,6 +260,7 @@
             label="Stall Timeout (min)"
             value={draft.stallTimeoutMinutes}
             icon={Clock3}
+            min="1"
             disabled={saving || deleting}
             oninput={(value) => updateDraftField('stallTimeoutMinutes', value)}
           />

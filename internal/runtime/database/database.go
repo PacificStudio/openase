@@ -82,6 +82,7 @@ func applyLegacySchemaCompat(ctx context.Context, dsn string) error {
 		`UPDATE agent_providers SET cli_rate_limit = '{}'::jsonb WHERE cli_rate_limit IS NULL`,
 		`ALTER TABLE agent_providers ALTER COLUMN cli_rate_limit SET DEFAULT '{}'::jsonb`,
 		`ALTER TABLE agent_providers ALTER COLUMN cli_rate_limit SET NOT NULL`,
+		`DROP TABLE IF EXISTS issue_connectors`,
 	}
 	for _, statement := range statements {
 		if _, err := db.ExecContext(ctx, statement); err != nil {

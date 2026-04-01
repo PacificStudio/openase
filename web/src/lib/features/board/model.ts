@@ -100,6 +100,7 @@ export function buildBoardData(
       color: s.color || '#94a3b8',
       stage: (s.stage || 'unstarted') as BoardStatusOption['stage'],
       position: s.position,
+      maxActiveRuns: typeof s.max_active_runs === 'number' ? s.max_active_runs : null,
     }))
 
   return {

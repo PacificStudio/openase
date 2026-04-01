@@ -7,13 +7,11 @@
     totalSizeLabel,
     selectedFile = null,
     dirtyCount = 0,
-    editing = false,
   }: {
     fileCount: number
     totalSizeLabel: string
     selectedFile?: SkillFile | null
     dirtyCount?: number
-    editing?: boolean
   } = $props()
 </script>
 
@@ -29,7 +27,7 @@
       <Badge variant="outline" class="h-4 px-1 text-[9px]">executable</Badge>
     {/if}
   {/if}
-  {#if editing && dirtyCount > 0}
+  {#if dirtyCount > 0}
     <span class="text-primary ml-auto font-medium">{dirtyCount} unsaved</span>
   {/if}
 </footer>

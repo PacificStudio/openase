@@ -23,6 +23,8 @@
     onToggleTheme,
     onNewTicket,
     onOpenSearch,
+    onCreateOrg,
+    onCreateProject,
   }: {
     organizations?: Organization[]
     projects?: Project[]
@@ -38,6 +40,8 @@
     onToggleTheme?: () => void
     onNewTicket?: () => void
     onOpenSearch?: () => void
+    onCreateOrg?: () => void
+    onCreateProject?: () => void
   } = $props()
 
   function handleOrgSelect(orgId: string) {
@@ -86,7 +90,22 @@
       {/snippet}
     </DropdownMenu.Trigger>
     <DropdownMenu.Content class="w-56">
-      <DropdownMenu.Label>Organizations</DropdownMenu.Label>
+      <DropdownMenu.Label class="flex items-center justify-between">
+        <span>Organizations</span>
+        {#if onCreateOrg}
+          <button
+            type="button"
+            class="text-muted-foreground hover:text-foreground hover:bg-accent -mr-1 flex size-5 items-center justify-center rounded"
+            onclick={(e) => {
+              e.stopPropagation()
+              onCreateOrg()
+            }}
+            title="Create organization"
+          >
+            <Plus class="size-3.5" />
+          </button>
+        {/if}
+      </DropdownMenu.Label>
       {#if organizations.length > 0}
         {#each organizations as organization (organization.id)}
           <DropdownMenu.Item
@@ -125,7 +144,22 @@
         {/snippet}
       </DropdownMenu.Trigger>
       <DropdownMenu.Content class="w-64">
-        <DropdownMenu.Label>Projects</DropdownMenu.Label>
+        <DropdownMenu.Label class="flex items-center justify-between">
+          <span>Projects</span>
+          {#if onCreateProject}
+            <button
+              type="button"
+              class="text-muted-foreground hover:text-foreground hover:bg-accent -mr-1 flex size-5 items-center justify-center rounded"
+              onclick={(e) => {
+                e.stopPropagation()
+                onCreateProject()
+              }}
+              title="Create project"
+            >
+              <Plus class="size-3.5" />
+            </button>
+          {/if}
+        </DropdownMenu.Label>
         {#if projects.length > 0}
           {#each projects as project (project.id)}
             <DropdownMenu.Item

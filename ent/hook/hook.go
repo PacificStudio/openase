@@ -141,18 +141,6 @@ func (f ChatTurnFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, er
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChatTurnMutation", m)
 }
 
-// The IssueConnectorFunc type is an adapter to allow the use of ordinary
-// function as IssueConnector mutator.
-type IssueConnectorFunc func(context.Context, *ent.IssueConnectorMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f IssueConnectorFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.IssueConnectorMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.IssueConnectorMutation", m)
-}
-
 // The MachineFunc type is an adapter to allow the use of ordinary
 // function as Machine mutator.
 type MachineFunc func(context.Context, *ent.MachineMutation) (ent.Value, error)

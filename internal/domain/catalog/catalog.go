@@ -46,8 +46,6 @@ type TicketRepoScope struct {
 	RepoID         uuid.UUID
 	BranchName     string
 	PullRequestURL *string
-	PrStatus       TicketRepoScopePRStatus
-	CiStatus       TicketRepoScopeCIStatus
 }
 
 type OrganizationInput struct {
@@ -78,8 +76,6 @@ type TicketRepoScopeInput struct {
 	RepoID         string  `json:"repo_id"`
 	BranchName     *string `json:"branch_name"`
 	PullRequestURL *string `json:"pull_request_url"`
-	PrStatus       string  `json:"pr_status"`
-	CiStatus       string  `json:"ci_status"`
 }
 
 type CreateOrganization struct {
@@ -143,8 +139,6 @@ type CreateTicketRepoScope struct {
 	RepoID         uuid.UUID
 	BranchName     *string
 	PullRequestURL *string
-	PrStatus       TicketRepoScopePRStatus
-	CiStatus       TicketRepoScopeCIStatus
 }
 
 type UpdateTicketRepoScope struct {
@@ -154,8 +148,6 @@ type UpdateTicketRepoScope struct {
 	RepoID         uuid.UUID
 	BranchName     *string
 	PullRequestURL *string
-	PrStatus       TicketRepoScopePRStatus
-	CiStatus       TicketRepoScopeCIStatus
 }
 
 func ParseCreateOrganization(raw OrganizationInput) (CreateOrganization, error) {
@@ -312,24 +304,12 @@ func ParseCreateTicketRepoScope(projectID uuid.UUID, ticketID uuid.UUID, raw Tic
 		return CreateTicketRepoScope{}, err
 	}
 
-	prStatus, err := parseTicketRepoScopePrStatus(raw.PrStatus)
-	if err != nil {
-		return CreateTicketRepoScope{}, err
-	}
-
-	ciStatus, err := parseTicketRepoScopeCiStatus(raw.CiStatus)
-	if err != nil {
-		return CreateTicketRepoScope{}, err
-	}
-
 	return CreateTicketRepoScope{
 		ProjectID:      projectID,
 		TicketID:       ticketID,
 		RepoID:         repoID,
 		BranchName:     parseOptionalText(raw.BranchName),
 		PullRequestURL: parseOptionalText(raw.PullRequestURL),
-		PrStatus:       prStatus,
-		CiStatus:       ciStatus,
 	}, nil
 }
 
@@ -346,8 +326,6 @@ func ParseUpdateTicketRepoScope(id uuid.UUID, projectID uuid.UUID, ticketID uuid
 		RepoID:         input.RepoID,
 		BranchName:     input.BranchName,
 		PullRequestURL: input.PullRequestURL,
-		PrStatus:       input.PrStatus,
-		CiStatus:       input.CiStatus,
 	}, nil
 }
 
@@ -505,37 +483,11 @@ func parseProjectStatus(raw string) (ProjectStatus, error) {
 
 func parseMaxConcurrentAgents(raw *int) (int, error) {
 	if raw == nil {
-		return DefaultProjectMaxConcurrentAgents, nil
+		return 0, nil
 	}
-	if *raw < 1 {
-		return 0, fmt.Errorf("max_concurrent_agents must be greater than zero")
+	if *raw < 0 {
+		return 0, fmt.Errorf("max_concurrent_agents must be greater than or equal to zero")
 	}
 
 	return *raw, nil
-}
-
-func parseTicketRepoScopePrStatus(raw string) (TicketRepoScopePRStatus, error) {
-	if strings.TrimSpace(raw) == "" {
-		return DefaultTicketRepoScopePRStatus, nil
-	}
-
-	status := TicketRepoScopePRStatus(strings.ToLower(strings.TrimSpace(raw)))
-	if !status.IsValid() {
-		return "", fmt.Errorf("pr_status must be one of none, open, changes_requested, approved, merged, closed")
-	}
-
-	return status, nil
-}
-
-func parseTicketRepoScopeCiStatus(raw string) (TicketRepoScopeCIStatus, error) {
-	if strings.TrimSpace(raw) == "" {
-		return DefaultTicketRepoScopeCIStatus, nil
-	}
-
-	status := TicketRepoScopeCIStatus(strings.ToLower(strings.TrimSpace(raw)))
-	if !status.IsValid() {
-		return "", fmt.Errorf("ci_status must be one of pending, passing, failing")
-	}
-
-	return status, nil
 }

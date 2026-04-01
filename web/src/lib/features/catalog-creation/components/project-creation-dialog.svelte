@@ -18,12 +18,13 @@
   import { projectPath } from '$lib/stores/app-context'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
+  import * as Collapsible from '$ui/collapsible'
   import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
   import { Textarea } from '$ui/textarea'
-  import { Wrench } from '@lucide/svelte'
+  import { ChevronRight, Wrench } from '@lucide/svelte'
 
   let {
     orgId,
@@ -40,22 +41,13 @@
   let draft = $state<ProjectCreationDraft>(createProjectDraft())
   let slugDirty = $state(false)
   let creating = $state(false)
+  let advancedOpen = $state(false)
 
   $effect(() => {
     if (!open) {
       draft = createProjectDraft(defaultProviderId)
     }
   })
-
-  function providerLabel(provider: AgentProvider) {
-    const availabilityLabel = providerAvailabilityLabel(provider.availability_state)
-    return `${provider.name} (${availabilityLabel})`
-  }
-
-  function selectedProviderLabel() {
-    const provider = providers.find((item) => item.id === draft.defaultAgentProviderId)
-    return provider ? providerLabel(provider) : 'None'
-  }
 
   function selectedProvider() {
     return providers.find((item) => item.id === draft.defaultAgentProviderId) ?? null
@@ -65,6 +57,7 @@
     draft = createProjectDraft(defaultProviderId)
     slugDirty = false
     creating = false
+    advancedOpen = false
   }
 
   function updateName(value: string) {
@@ -117,9 +110,6 @@
   <Dialog.Content class="sm:max-w-lg">
     <Dialog.Header>
       <Dialog.Title>Create project</Dialog.Title>
-      <Dialog.Description>
-        Set up a new project scope with its route slug, lifecycle, and concurrency limits.
-      </Dialog.Description>
     </Dialog.Header>
 
     <form
@@ -129,43 +119,31 @@
         void handleSubmit()
       }}
     >
-      <div class="grid gap-4 sm:grid-cols-2">
-        <div class="space-y-2">
-          <Label for="project-name">Name</Label>
-          <Input
-            id="project-name"
-            value={draft.name}
-            placeholder="Automation Platform"
-            oninput={(event) => updateName((event.currentTarget as HTMLInputElement).value)}
-          />
-        </div>
-
-        <div class="space-y-2">
-          <Label for="project-slug">Slug</Label>
-          <Input
-            id="project-slug"
-            value={draft.slug}
-            placeholder="automation-platform"
-            oninput={(event) => updateSlug((event.currentTarget as HTMLInputElement).value)}
-          />
-        </div>
+      <div class="space-y-2">
+        <Label for="project-name">Name</Label>
+        <Input
+          id="project-name"
+          value={draft.name}
+          placeholder="Automation Platform"
+          oninput={(event) => updateName((event.currentTarget as HTMLInputElement).value)}
+        />
       </div>
 
       <div class="space-y-2">
         <Label for="project-description">Description</Label>
         <Textarea
           id="project-description"
-          rows={3}
+          rows={2}
           value={draft.description}
-          placeholder="What this project owns and what success looks like."
+          placeholder="Brief project description"
           oninput={(event) =>
             updateField('description', (event.currentTarget as HTMLTextAreaElement).value)}
         />
       </div>
 
-      <div class="grid gap-4 sm:grid-cols-3">
+      <div class="grid gap-4 sm:grid-cols-2">
         <div class="space-y-2">
-          <Label>Lifecycle</Label>
+          <Label>Status</Label>
           <Select.Root
             type="single"
             value={draft.status}
@@ -178,24 +156,6 @@
               {/each}
             </Select.Content>
           </Select.Root>
-          <p class="text-muted-foreground text-xs">
-            New projects also start with default board statuses: Backlog, Todo, In Progress, In
-            Review, Done, and Cancelled.
-          </p>
-        </div>
-
-        <div class="space-y-2">
-          <Label for="project-max-agents">Max agents</Label>
-          <Input
-            id="project-max-agents"
-            type="number"
-            min="1"
-            step="1"
-            value={draft.maxConcurrentAgents}
-            placeholder="Default"
-            oninput={(event) =>
-              updateField('maxConcurrentAgents', (event.currentTarget as HTMLInputElement).value)}
-          />
         </div>
 
         <div class="space-y-2">
@@ -205,25 +165,23 @@
             value={draft.defaultAgentProviderId}
             onValueChange={(value) => updateField('defaultAgentProviderId', value || '')}
           >
-            <Select.Trigger class="h-auto w-full py-2">
+            <Select.Trigger class="w-full">
               {@const provider = selectedProvider()}
               {#if provider}
                 {@const iconPath = adapterIconPath(provider.adapter_type)}
-                <div class="flex items-center gap-2.5">
+                <span class="flex items-center gap-2 truncate">
                   {#if iconPath}
-                    <img src={iconPath} alt="" class="size-5 shrink-0" />
+                    <img src={iconPath} alt="" class="size-4 shrink-0" />
                   {:else}
-                    <Wrench class="text-muted-foreground size-5 shrink-0" />
+                    <Wrench class="text-muted-foreground size-4 shrink-0" />
                   {/if}
-                  <div class="min-w-0 text-left">
-                    <div class="text-foreground truncate text-sm font-medium">{provider.name}</div>
-                    <div class="text-muted-foreground truncate text-xs">
-                      {providerAvailabilityLabel(provider.availability_state)}
-                    </div>
-                  </div>
-                </div>
+                  <span class="truncate">{provider.name}</span>
+                  <span class="text-muted-foreground shrink-0 text-xs">
+                    {providerAvailabilityLabel(provider.availability_state)}
+                  </span>
+                </span>
               {:else}
-                {selectedProviderLabel()}
+                None
               {/if}
             </Select.Trigger>
             <Select.Content>
@@ -231,19 +189,21 @@
               {#each providers as provider (provider.id)}
                 {@const iconPath = adapterIconPath(provider.adapter_type)}
                 <Select.Item value={provider.id}>
-                  <div class="flex items-center gap-2.5 py-0.5">
+                  <span class="flex items-center gap-2">
                     {#if iconPath}
                       <img src={iconPath} alt="" class="size-4 shrink-0" />
                     {:else}
                       <Wrench class="text-muted-foreground size-4 shrink-0" />
                     {/if}
-                    <div class="min-w-0">
-                      <div class="truncate text-sm">{provider.name}</div>
-                      <div class="text-muted-foreground text-xs">
-                        {providerAvailabilityLabel(provider.availability_state)}
-                      </div>
-                    </div>
-                  </div>
+                    <span class="truncate">{provider.name}</span>
+                    <span
+                      class="shrink-0 text-xs {providerIsDispatchReady(provider.availability_state)
+                        ? 'text-emerald-600'
+                        : 'text-muted-foreground'}"
+                    >
+                      {providerAvailabilityLabel(provider.availability_state)}
+                    </span>
+                  </span>
                 </Select.Item>
               {/each}
             </Select.Content>
@@ -251,13 +211,50 @@
         </div>
       </div>
 
-      {#if providers.some((provider) => !providerIsDispatchReady(provider.availability_state))}
-        <p class="text-muted-foreground text-xs">
-          Only `Ready` providers can accept new work. `Unknown`, `Unavailable`, and `Stale`
-          providers remain selectable for defaults, but the scheduler will not dispatch to them
-          until a fresh L4 check marks them ready.
-        </p>
-      {/if}
+      <Collapsible.Root bind:open={advancedOpen}>
+        <Collapsible.Trigger>
+          {#snippet child({ props })}
+            <button
+              {...props}
+              type="button"
+              class="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm transition-colors"
+            >
+              <ChevronRight class="size-4 transition-transform {advancedOpen ? 'rotate-90' : ''}" />
+              Advanced settings
+            </button>
+          {/snippet}
+        </Collapsible.Trigger>
+        <Collapsible.Content>
+          <div class="mt-3 grid gap-4 sm:grid-cols-2">
+            <div class="space-y-2">
+              <Label for="project-slug">Slug</Label>
+              <Input
+                id="project-slug"
+                value={draft.slug}
+                placeholder="auto-generated"
+                oninput={(event) => updateSlug((event.currentTarget as HTMLInputElement).value)}
+              />
+            </div>
+
+            <div class="space-y-2">
+              <Label for="project-max-agents">Max agents</Label>
+              <Input
+                id="project-max-agents"
+                type="number"
+                min="1"
+                step="1"
+                value={draft.maxConcurrentAgents}
+                placeholder="Unlimited"
+                oninput={(event) =>
+                  updateField(
+                    'maxConcurrentAgents',
+                    (event.currentTarget as HTMLInputElement).value,
+                  )}
+              />
+            </div>
+          </div>
+        </Collapsible.Content>
+      </Collapsible.Root>
 
       <Dialog.Footer>
         <Dialog.Close>

@@ -5,6 +5,7 @@
     type ParsedStatusDraft,
     type TicketStatusStage,
   } from '$lib/features/statuses/public'
+  import { StageIcon } from '$lib/features/board/public'
   import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
@@ -42,20 +43,20 @@
     ) => Promise<boolean>
   } = $props()
 
-  const stageAccent: Record<TicketStatusStage, string> = {
-    backlog: 'border-l-slate-400',
-    unstarted: 'border-l-blue-400',
-    started: 'border-l-amber-400',
-    completed: 'border-l-emerald-400',
-    canceled: 'border-l-rose-400',
+  const stageDropHighlight: Record<TicketStatusStage, string> = {
+    backlog: 'bg-slate-400/5',
+    unstarted: 'bg-blue-400/5',
+    started: 'bg-amber-400/5',
+    completed: 'bg-emerald-400/5',
+    canceled: 'bg-rose-400/5',
   }
 
-  const stageDropHighlight: Record<TicketStatusStage, string> = {
-    backlog: 'ring-slate-400/40 bg-slate-400/5',
-    unstarted: 'ring-blue-400/40 bg-blue-400/5',
-    started: 'ring-amber-400/40 bg-amber-400/5',
-    completed: 'ring-emerald-400/40 bg-emerald-400/5',
-    canceled: 'ring-rose-400/40 bg-rose-400/5',
+  const stageColors: Record<TicketStatusStage, string> = {
+    backlog: '#94a3b8',
+    unstarted: '#60a5fa',
+    started: '#fbbf24',
+    completed: '#34d399',
+    canceled: '#fb7185',
   }
 
   type StageGroup = {
@@ -138,14 +139,13 @@
 {#if loading}
   <div class="text-muted-foreground text-sm">Loading statuses…</div>
 {:else}
-  <div class="space-y-4">
+  <div class="space-y-6">
     {#each stageGroups as group (group.stage)}
       <section
         class={cn(
-          'rounded-lg border-l-[3px] transition-all',
-          stageAccent[group.stage],
+          'rounded-lg transition-all',
           dropTargetStage === group.stage && dragSourceStage !== group.stage
-            ? `ring-2 ${stageDropHighlight[group.stage]}`
+            ? stageDropHighlight[group.stage]
             : '',
         )}
         ondragover={(e) => handleStageDragOver(group.stage, e)}
@@ -154,10 +154,11 @@
         role="group"
         aria-label="{group.label} stage"
       >
-        <div class="flex items-center justify-between px-4 py-2.5">
+        <div class="flex items-center justify-between px-1 pb-2">
           <div class="flex items-center gap-2">
-            <h3 class="text-foreground text-sm font-semibold">{group.label}</h3>
-            <span class="text-muted-foreground text-xs">({group.statuses.length})</span>
+            <StageIcon stage={group.stage} color={stageColors[group.stage]} class="size-4" />
+            <h3 class="text-foreground text-sm font-medium">{group.label}</h3>
+            <span class="text-muted-foreground text-xs">{group.statuses.length}</span>
           </div>
           {#if addingInStage !== group.stage}
             <Button
@@ -173,15 +174,11 @@
           {/if}
         </div>
 
-        <div class="px-2 pb-2">
+        <div class="border-border border-t">
           {#if group.statuses.length === 0 && addingInStage !== group.stage}
-            <div
-              class="text-muted-foreground rounded-md border border-dashed px-4 py-3 text-center text-xs"
-            >
-              No statuses
-            </div>
+            <div class="text-muted-foreground px-4 py-3 text-center text-xs">No statuses</div>
           {:else}
-            <div class="space-y-0.5" role="list">
+            <div class="space-y-0.5 pt-1" role="list">
               {#each group.statuses as status, idx (status.id)}
                 <StatusSettingsRow
                   {status}
@@ -219,7 +216,7 @@
                 min="1"
                 step="1"
                 class="h-8 w-28 text-sm"
-                placeholder="Max runs"
+                placeholder="Unlimited"
               />
               <Button
                 size="sm"

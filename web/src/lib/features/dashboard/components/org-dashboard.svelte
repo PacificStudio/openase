@@ -21,6 +21,7 @@
   import CostSnapshotPanel from './cost-snapshot-panel.svelte'
   import HRAdvisorPanel from './hr-advisor-panel.svelte'
   import MemorySnapshotPanel from './memory-snapshot-panel.svelte'
+  import { OnboardingPanel } from '$lib/features/onboarding'
   import { Bot, Coins, Pencil, Ticket, X, Check } from '@lucide/svelte'
   import {
     buildActivityItems,
@@ -90,7 +91,19 @@
   let editName = $state('')
   let editDescription = $state('')
   let savingInfo = $state(false)
+  let onboardingDismissed = $state(false)
   const totalTicketTokens = $derived(stats.ticketInputTokens + stats.ticketOutputTokens)
+
+  // Show onboarding when project has no tickets and no agents (empty project)
+  const showOnboarding = $derived(
+    !onboardingDismissed &&
+      !loading &&
+      stats.activeTickets === 0 &&
+      stats.runningAgents === 0 &&
+      activities.length === 0 &&
+      Boolean(appStore.currentProject?.id) &&
+      Boolean(appStore.currentOrg?.id),
+  )
   const currentStatus = $derived((appStore.currentProject?.status ?? 'Planned') as ProjectStatus)
   const projectName = $derived(appStore.currentProject?.name ?? 'Untitled Project')
   const projectDescription = $derived(appStore.currentProject?.description ?? '')
@@ -311,57 +324,69 @@
   </div>
 
   <!-- Content -->
-  <div class="min-h-0 flex-1 px-4 py-4 pb-8 sm:px-6">
-    <div class="space-y-6">
-      {#if loading}
-        <div
-          class="border-border bg-card text-muted-foreground rounded-md border px-4 py-10 text-center text-sm"
-        >
-          Loading dashboard…
-        </div>
-      {:else if error}
-        <div
-          class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
-        >
-          {error}
-        </div>
-      {:else}
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Running Agents" value={stats.runningAgents} icon={Bot} />
-          <StatCard label="Active Tickets" value={stats.activeTickets} icon={Ticket} />
-          <StatCard label="Ticket Tokens" value={formatCount(totalTicketTokens)} icon={Coins} />
-          <StatCard
-            label="Heap In Use"
-            value={memory ? formatBytes(memory.heap_inuse_bytes) : '—'}
-          />
-        </div>
+  <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-8 sm:px-6">
+    {#if showOnboarding && appStore.currentProject && appStore.currentOrg}
+      <OnboardingPanel
+        projectId={appStore.currentProject.id}
+        orgId={appStore.currentOrg.id}
+        {projectName}
+        projectStatus={currentStatus}
+        onOnboardingComplete={() => {
+          onboardingDismissed = true
+        }}
+      />
+    {:else}
+      <div class="space-y-6">
+        {#if loading}
+          <div
+            class="border-border bg-card text-muted-foreground rounded-md border px-4 py-10 text-center text-sm"
+          >
+            Loading dashboard…
+          </div>
+        {:else if error}
+          <div
+            class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
+          >
+            {error}
+          </div>
+        {:else}
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard label="Running Agents" value={stats.runningAgents} icon={Bot} />
+            <StatCard label="Active Tickets" value={stats.activeTickets} icon={Ticket} />
+            <StatCard label="Ticket Tokens" value={formatCount(totalTicketTokens)} icon={Coins} />
+            <StatCard
+              label="Heap In Use"
+              value={memory ? formatBytes(memory.heap_inuse_bytes) : '—'}
+            />
+          </div>
 
-        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <CostSnapshotPanel
-            newTicketsTodayCost={stats.newTicketsTodayCost}
-            projectCost={stats.projectCost}
-            ticketInputTokens={stats.ticketInputTokens}
-            ticketOutputTokens={stats.ticketOutputTokens}
-            totalAgentTokens={stats.totalAgentTokens}
-            ticketsCreatedToday={stats.ticketsCreatedToday}
-            ticketsCompletedToday={stats.ticketsCompletedToday}
-            {topCostTicket}
-            {topTokenAgent}
-          />
-          <ExceptionPanel {exceptions} />
-        </div>
+          <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <CostSnapshotPanel
+              newTicketsTodayCost={stats.newTicketsTodayCost}
+              projectCost={stats.projectCost}
+              ticketInputTokens={stats.ticketInputTokens}
+              ticketOutputTokens={stats.ticketOutputTokens}
+              totalAgentTokens={stats.totalAgentTokens}
+              ticketsCreatedToday={stats.ticketsCreatedToday}
+              ticketsCompletedToday={stats.ticketsCompletedToday}
+              {topCostTicket}
+              {topTokenAgent}
+            />
+            <ExceptionPanel {exceptions} />
+          </div>
 
-        <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <ActivityFeedPanel {activities} class="lg:col-span-2" />
-          <MemorySnapshotPanel {memory} />
-        </div>
+          <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <ActivityFeedPanel {activities} class="lg:col-span-2" />
+            <MemorySnapshotPanel {memory} />
+          </div>
 
-        {#if hrAdvisor && appStore.currentProject}
-          {#key appStore.currentProject.id}
-            <HRAdvisorPanel projectId={appStore.currentProject.id} advisor={hrAdvisor} />
-          {/key}
+          {#if hrAdvisor && appStore.currentProject}
+            {#key appStore.currentProject.id}
+              <HRAdvisorPanel projectId={appStore.currentProject.id} advisor={hrAdvisor} />
+            {/key}
+          {/if}
         {/if}
-      {/if}
-    </div>
+      </div>
+    {/if}
   </div>
 </div>

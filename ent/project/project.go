@@ -61,8 +61,6 @@ const (
 	EdgeChatConversations = "chat_conversations"
 	// EdgeNotificationRules holds the string denoting the notification_rules edge name in mutations.
 	EdgeNotificationRules = "notification_rules"
-	// EdgeIssueConnectors holds the string denoting the issue_connectors edge name in mutations.
-	EdgeIssueConnectors = "issue_connectors"
 	// EdgeDefaultAgentProvider holds the string denoting the default_agent_provider edge name in mutations.
 	EdgeDefaultAgentProvider = "default_agent_provider"
 	// Table holds the table name of the project in the database.
@@ -165,13 +163,6 @@ const (
 	NotificationRulesInverseTable = "notification_rules"
 	// NotificationRulesColumn is the table column denoting the notification_rules relation/edge.
 	NotificationRulesColumn = "project_id"
-	// IssueConnectorsTable is the table that holds the issue_connectors relation/edge.
-	IssueConnectorsTable = "issue_connectors"
-	// IssueConnectorsInverseTable is the table name for the IssueConnector entity.
-	// It exists in this package in order to avoid circular dependency with the "entissueconnector" package.
-	IssueConnectorsInverseTable = "issue_connectors"
-	// IssueConnectorsColumn is the table column denoting the issue_connectors relation/edge.
-	IssueConnectorsColumn = "project_id"
 	// DefaultAgentProviderTable is the table that holds the default_agent_provider relation/edge.
 	DefaultAgentProviderTable = "projects"
 	// DefaultAgentProviderInverseTable is the table name for the AgentProvider entity.
@@ -453,20 +444,6 @@ func ByNotificationRules(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption
 	}
 }
 
-// ByIssueConnectorsCount orders the results by issue_connectors count.
-func ByIssueConnectorsCount(opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborsCount(s, newIssueConnectorsStep(), opts...)
-	}
-}
-
-// ByIssueConnectors orders the results by issue_connectors terms.
-func ByIssueConnectors(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newIssueConnectorsStep(), append([]sql.OrderTerm{term}, terms...)...)
-	}
-}
-
 // ByDefaultAgentProviderField orders the results by default_agent_provider field.
 func ByDefaultAgentProviderField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -569,13 +546,6 @@ func newNotificationRulesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(NotificationRulesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, NotificationRulesTable, NotificationRulesColumn),
-	)
-}
-func newIssueConnectorsStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(IssueConnectorsInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.O2M, false, IssueConnectorsTable, IssueConnectorsColumn),
 	)
 }
 func newDefaultAgentProviderStep() *sqlgraph.Step {

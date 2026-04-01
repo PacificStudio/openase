@@ -23,8 +23,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
 	"github.com/BetterAndBetterII/openase/ent/chatturn"
-
-	entissueconnector "github.com/BetterAndBetterII/openase/ent/issueconnector"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
@@ -118,7 +116,6 @@ func checkColumn(t, c string) error {
 			chatentry.Table:             chatentry.ValidColumn,
 			chatpendinginterrupt.Table:  chatpendinginterrupt.ValidColumn,
 			chatturn.Table:              chatturn.ValidColumn,
-			entissueconnector.Table:     entissueconnector.ValidColumn,
 			machine.Table:               machine.ValidColumn,
 			notificationchannel.Table:   notificationchannel.ValidColumn,
 			notificationrule.Table:      notificationrule.ValidColumn,

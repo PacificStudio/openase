@@ -217,8 +217,6 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 		ProjectID: project.ID,
 		TicketID:  ticketItem.ID,
 		RepoID:    repoOne.ID,
-		PrStatus:  domain.TicketRepoScopePRStatusOpen,
-		CiStatus:  domain.TicketRepoScopeCIStatusPending,
 	})
 	if err != nil {
 		t.Fatalf("CreateTicketRepoScope() scopeOne error = %v", err)
@@ -233,8 +231,6 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 		RepoID:         repoTwo.ID,
 		BranchName:     strPtr("fix/openase-278-coverage"),
 		PullRequestURL: strPtr("https://github.com/GrandCX/openase/pull/278"),
-		PrStatus:       domain.TicketRepoScopePRStatusOpen,
-		CiStatus:       domain.TicketRepoScopeCIStatusPassing,
 	})
 	if err != nil {
 		t.Fatalf("CreateTicketRepoScope() scopeTwo error = %v", err)
@@ -266,8 +262,6 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 		RepoID:         repoOne.ID,
 		BranchName:     strPtr("fix/openase-278-core"),
 		PullRequestURL: strPtr("https://github.com/GrandCX/openase/pull/279"),
-		PrStatus:       domain.TicketRepoScopePRStatusApproved,
-		CiStatus:       domain.TicketRepoScopeCIStatusPassing,
 	})
 	if err != nil {
 		t.Fatalf("UpdateTicketRepoScope() scopeOne error = %v", err)
@@ -283,8 +277,6 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 		RepoID:         repoTwo.ID,
 		BranchName:     nil,
 		PullRequestURL: nil,
-		PrStatus:       domain.TicketRepoScopePRStatusMerged,
-		CiStatus:       domain.TicketRepoScopeCIStatusPassing,
 	})
 	if err != nil {
 		t.Fatalf("UpdateTicketRepoScope() error = %v", err)
@@ -391,8 +383,6 @@ func TestEntRepositoryEnsurePrimaryFallbackPromotesExcludedOnlyRecord(t *testing
 		ProjectID: project.ID,
 		TicketID:  ticketItem.ID,
 		RepoID:    projectRepo.ID,
-		PrStatus:  domain.TicketRepoScopePRStatusOpen,
-		CiStatus:  domain.TicketRepoScopeCIStatusPending,
 	})
 	if err != nil {
 		t.Fatalf("CreateTicketRepoScope() error = %v", err)
@@ -692,8 +682,6 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 		ProjectID: project.ID,
 		TicketID:  ticketItem.ID,
 		RepoID:    projectRepo.ID,
-		PrStatus:  domain.TicketRepoScopePRStatusOpen,
-		CiStatus:  domain.TicketRepoScopeCIStatusPending,
 	}); err != nil {
 		t.Fatalf("CreateTicketRepoScope() error = %v", err)
 	}
@@ -701,8 +689,6 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 		ProjectID: project.ID,
 		TicketID:  ticketItem.ID,
 		RepoID:    projectRepo.ID,
-		PrStatus:  domain.TicketRepoScopePRStatusOpen,
-		CiStatus:  domain.TicketRepoScopeCIStatusPending,
 	}); !errors.Is(err, domain.ErrTicketRepoScopeConflict) {
 		t.Fatalf("CreateTicketRepoScope(duplicate repo) error = %v, want %v", err, domain.ErrTicketRepoScopeConflict)
 	}
@@ -719,8 +705,6 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 		ProjectID: project.ID,
 		TicketID:  ticketItem.ID,
 		RepoID:    uuid.New(),
-		PrStatus:  domain.TicketRepoScopePRStatusOpen,
-		CiStatus:  domain.TicketRepoScopeCIStatusPending,
 	}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("CreateTicketRepoScope(missing repo) error = %v, want %v", err, ErrNotFound)
 	}
@@ -729,8 +713,6 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 		ProjectID: project.ID,
 		TicketID:  ticketItem.ID,
 		RepoID:    projectRepo.ID,
-		PrStatus:  domain.TicketRepoScopePRStatusOpen,
-		CiStatus:  domain.TicketRepoScopeCIStatusPending,
 	}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("UpdateTicketRepoScope(missing) error = %v, want %v", err, ErrNotFound)
 	}

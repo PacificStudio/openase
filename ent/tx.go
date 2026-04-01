@@ -34,8 +34,6 @@ type Tx struct {
 	ChatPendingInterrupt *ChatPendingInterruptClient
 	// ChatTurn is the client for interacting with the ChatTurn builders.
 	ChatTurn *ChatTurnClient
-	// IssueConnector is the client for interacting with the IssueConnector builders.
-	IssueConnector *IssueConnectorClient
 	// Machine is the client for interacting with the Machine builders.
 	Machine *MachineClient
 	// NotificationChannel is the client for interacting with the NotificationChannel builders.
@@ -222,7 +220,6 @@ func (tx *Tx) init() {
 	tx.ChatEntry = NewChatEntryClient(tx.config)
 	tx.ChatPendingInterrupt = NewChatPendingInterruptClient(tx.config)
 	tx.ChatTurn = NewChatTurnClient(tx.config)
-	tx.IssueConnector = NewIssueConnectorClient(tx.config)
 	tx.Machine = NewMachineClient(tx.config)
 	tx.NotificationChannel = NewNotificationChannelClient(tx.config)
 	tx.NotificationRule = NewNotificationRuleClient(tx.config)

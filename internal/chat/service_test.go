@@ -261,8 +261,6 @@ func TestBuildSystemPromptIncludesTicketDetailAndHookHistory(t *testing.T) {
 				{
 					RepoID:     uuid.MustParse("bb0e8400-e29b-41d4-a716-446655440000"),
 					BranchName: "feat/openase-278-coverage",
-					PrStatus:   "open",
-					CiStatus:   "passing",
 				},
 			},
 			activityEvents: []catalogdomain.ActivityEvent{
@@ -319,7 +317,7 @@ func TestBuildSystemPromptIncludesTicketDetailAndHookHistory(t *testing.T) {
 		"工单: ASE-278 - Finish backend coverage rollout",
 		"状态: In Review | 优先级: high | 尝试次数: 3",
 		"### 依赖工单",
-		"repo=bb0e8400-e29b-41d4-a716-446655440000 branch=feat/openase-278-coverage pr_status=open ci_status=passing",
+		"repo=bb0e8400-e29b-41d4-a716-446655440000 branch=feat/openase-278-coverage",
 		"### Hook 历史",
 		"go test ./... failed in auth package",
 		"\"type\":\"action_proposal\"",

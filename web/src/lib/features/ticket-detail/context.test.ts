@@ -6,7 +6,6 @@ import {
   repoPayloadFixture,
   statusPayloadFixture,
   ticketPayloadFixture,
-  workflowPayloadFixture,
 } from './context.test-fixtures'
 
 describe('buildTicketDetailContext', () => {
@@ -14,7 +13,6 @@ describe('buildTicketDetailContext', () => {
     const detail = buildTicketDetailContext(
       detailPayloadFixture,
       statusPayloadFixture,
-      workflowPayloadFixture,
       repoPayloadFixture,
       ticketPayloadFixture,
       'ticket-1',
@@ -35,7 +33,6 @@ describe('buildTicketDetailContext', () => {
     const detail = buildTicketDetailContext(
       detailPayloadFixture,
       statusPayloadFixture,
-      workflowPayloadFixture,
       repoPayloadFixture,
       ticketPayloadFixture,
       'ticket-1',
@@ -97,7 +94,6 @@ describe('buildTicketDetailContext', () => {
     const detail = buildTicketDetailContext(
       detailPayloadFixture,
       statusPayloadFixture,
-      workflowPayloadFixture,
       repoPayloadFixture,
       ticketPayloadFixture,
       'ticket-1',

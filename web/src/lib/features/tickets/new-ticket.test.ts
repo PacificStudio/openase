@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { createNewTicketDraft, parseNewTicketDraft, type TicketRepoOption } from './new-ticket'
 
-const statusOptions = [{ id: 'todo', label: 'Todo' }]
+const statusOptions = [{ id: 'todo', label: 'Todo', color: '#94a3b8', stage: 'unstarted' as const }]
 const workflowOptions = [{ id: 'coding', label: 'Coding' }]
 
 describe('new ticket repo scope parsing', () => {

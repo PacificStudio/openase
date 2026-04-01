@@ -16,22 +16,6 @@ export const dependencyRelationActions = [
   },
 ] as const
 
-export const repoScopePrStatusOptions = [
-  { value: '', label: 'Unset' },
-  { value: 'open', label: 'Open' },
-  { value: 'draft', label: 'Draft' },
-  { value: 'merged', label: 'Merged' },
-  { value: 'closed', label: 'Closed' },
-] as const
-
-export const repoScopeCiStatusOptions = [
-  { value: '', label: 'Unset' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'running', label: 'Running' },
-  { value: 'pass', label: 'Pass' },
-  { value: 'fail', label: 'Fail' },
-] as const
-
 export type TicketFieldDraft = {
   title: string
   description: string
@@ -47,8 +31,6 @@ export type RepoScopeDraft = {
   repoId: string
   branchName: string
   pullRequestUrl: string
-  prStatus: string
-  ciStatus: string
 }
 
 export type ExistingRepoScopeDraft = Omit<RepoScopeDraft, 'repoId'>

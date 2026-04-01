@@ -100,16 +100,12 @@
       repoId: string
       branchName: string
       pullRequestUrl: string
-      prStatus: string
-      ciStatus: string
     }) => Promise<boolean> | boolean
     onUpdateScope?: (
       scopeId: string,
       draft: {
         branchName: string
         pullRequestUrl: string
-        prStatus: string
-        ciStatus: string
       },
     ) => void
     onDeleteScope?: (scopeId: string) => void

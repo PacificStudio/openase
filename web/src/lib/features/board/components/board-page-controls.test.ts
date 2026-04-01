@@ -5,6 +5,7 @@ import type {
   ActivityPayload,
   AgentPayload,
   Project,
+  StatusPayload,
   Ticket,
   TicketPayload,
   WorkflowListPayload,
@@ -226,7 +227,7 @@ describe('TicketsPage board controls', () => {
   it('enables move left and move right only within the current stage', async () => {
     appStore.currentProject = projectFixture
 
-    const currentStatuses = cloneValue({
+    const currentStatuses: StatusPayload = cloneValue({
       statuses: [
         {
           id: 'status-backlog',
@@ -343,6 +344,174 @@ describe('TicketsPage board controls', () => {
     await assertColumnMoveState(findByRole, 'Done', {
       leftDisabled: true,
       rightDisabled: true,
+    })
+  })
+
+  it('shows concurrency actions in the column menu and only enables clear when a limit exists', async () => {
+    appStore.currentProject = projectFixture
+
+    const currentStatuses: StatusPayload = cloneValue({
+      statuses: [
+        {
+          id: 'status-todo',
+          project_id: 'project-1',
+          name: 'Todo',
+          stage: 'unstarted' as const,
+          color: '#2563eb',
+          icon: '',
+          is_default: true,
+          description: '',
+          position: 1,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+        {
+          id: 'status-doing',
+          project_id: 'project-1',
+          name: 'Doing',
+          stage: 'started' as const,
+          color: '#f59e0b',
+          icon: '',
+          is_default: false,
+          description: '',
+          position: 2,
+          active_runs: 1,
+          max_active_runs: 3,
+        },
+      ],
+    })
+
+    listStatuses.mockImplementation(async () => cloneValue(currentStatuses))
+    listTickets.mockResolvedValue({ tickets: [] })
+    listWorkflows.mockResolvedValue(workflowsFixture)
+    listAgents.mockResolvedValue(agentsFixture)
+    listActivity.mockResolvedValue(activityFixture)
+    updateTicket.mockResolvedValue({ ticket: ticketsFixture.tickets[0] })
+    updateStatus.mockResolvedValue({ status: currentStatuses.statuses[0] })
+    connectEventStream.mockReturnValue(() => {})
+
+    const { findByRole } = render(TicketsPage)
+
+    await openColumnActionMenu(findByRole, 'Todo')
+    expect(await findByRole('menuitem', { name: 'Set concurrency' })).toBeTruthy()
+    expect(
+      (await findByRole('menuitem', { name: 'Clear concurrency' })).hasAttribute('data-disabled'),
+    ).toBe(true)
+    await fireEvent.keyDown(document.body, { key: 'Escape' })
+
+    await openColumnActionMenu(findByRole, 'Doing')
+    expect(await findByRole('menuitem', { name: 'Set concurrency' })).toBeTruthy()
+    expect(
+      (await findByRole('menuitem', { name: 'Clear concurrency' })).hasAttribute('data-disabled'),
+    ).toBe(false)
+  })
+
+  it('updates a status concurrency limit from the column menu prompt', async () => {
+    appStore.currentProject = projectFixture
+
+    const currentStatuses: StatusPayload = cloneValue({
+      statuses: [
+        {
+          id: 'status-todo',
+          project_id: 'project-1',
+          name: 'Todo',
+          stage: 'unstarted' as const,
+          color: '#2563eb',
+          icon: '',
+          is_default: true,
+          description: '',
+          position: 1,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+      ],
+    })
+
+    listStatuses.mockImplementation(async () => cloneValue(currentStatuses))
+    listTickets.mockResolvedValue({ tickets: [] })
+    listWorkflows.mockResolvedValue(workflowsFixture)
+    listAgents.mockResolvedValue(agentsFixture)
+    listActivity.mockResolvedValue(activityFixture)
+    updateTicket.mockResolvedValue({ ticket: ticketsFixture.tickets[0] })
+    updateStatus.mockImplementation(
+      async (statusId: string, patch: { max_active_runs?: number | null }) => {
+        const status = currentStatuses.statuses.find((item) => item.id === statusId)
+        if (!status) throw new Error(`unknown status ${statusId}`)
+        status.max_active_runs = patch.max_active_runs ?? null
+        return { status: cloneValue(status) }
+      },
+    )
+    connectEventStream.mockReturnValue(() => {})
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('3')
+
+    const { findByRole } = render(TicketsPage)
+
+    await openColumnActionMenu(findByRole, 'Todo')
+    await fireEvent.click(await findByRole('menuitem', { name: 'Set concurrency' }))
+
+    await waitFor(() => {
+      expect(promptSpy).toHaveBeenCalledWith(
+        'Set concurrency limit for "Todo". Leave blank for Unlimited.',
+        '',
+      )
+      expect(updateStatus).toHaveBeenCalledWith('status-todo', { max_active_runs: 3 })
+    })
+  })
+
+  it('clears a status concurrency limit and ignores invalid prompt values', async () => {
+    appStore.currentProject = projectFixture
+
+    const currentStatuses: StatusPayload = cloneValue({
+      statuses: [
+        {
+          id: 'status-todo',
+          project_id: 'project-1',
+          name: 'Todo',
+          stage: 'unstarted' as const,
+          color: '#2563eb',
+          icon: '',
+          is_default: true,
+          description: '',
+          position: 1,
+          active_runs: 1,
+          max_active_runs: 2,
+        },
+      ],
+    })
+
+    listStatuses.mockImplementation(async () => cloneValue(currentStatuses))
+    listTickets.mockResolvedValue({ tickets: [] })
+    listWorkflows.mockResolvedValue(workflowsFixture)
+    listAgents.mockResolvedValue(agentsFixture)
+    listActivity.mockResolvedValue(activityFixture)
+    updateTicket.mockResolvedValue({ ticket: ticketsFixture.tickets[0] })
+    updateStatus.mockImplementation(
+      async (statusId: string, patch: { max_active_runs?: number | null }) => {
+        const status = currentStatuses.statuses.find((item) => item.id === statusId)
+        if (!status) throw new Error(`unknown status ${statusId}`)
+        status.max_active_runs = patch.max_active_runs ?? null
+        return { status: cloneValue(status) }
+      },
+    )
+    connectEventStream.mockReturnValue(() => {})
+
+    const { findByRole } = render(TicketsPage)
+
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('0')
+    await openColumnActionMenu(findByRole, 'Todo')
+    await fireEvent.click(await findByRole('menuitem', { name: 'Set concurrency' }))
+    expect(updateStatus).not.toHaveBeenCalled()
+    expect(promptSpy).toHaveBeenCalledWith(
+      'Set concurrency limit for "Todo". Leave blank for Unlimited.',
+      '2',
+    )
+
+    promptSpy.mockRestore()
+    await openColumnActionMenu(findByRole, 'Todo')
+    await fireEvent.click(await findByRole('menuitem', { name: 'Clear concurrency' }))
+
+    await waitFor(() => {
+      expect(updateStatus).toHaveBeenCalledWith('status-todo', { max_active_runs: null })
     })
   })
 

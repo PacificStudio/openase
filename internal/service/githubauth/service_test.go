@@ -118,6 +118,7 @@ func TestSaveManualCredentialPersistsOrganizationProbeLifecycle(t *testing.T) {
 		case "/user":
 			w.Header().Set("X-OAuth-Scopes", "repo,read:org")
 			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"login":"octocat"}`))
 		case "/repos/grandcx/openase":
 			w.WriteHeader(http.StatusOK)
 		default:
@@ -143,6 +144,9 @@ func TestSaveManualCredentialPersistsOrganizationProbeLifecycle(t *testing.T) {
 	}
 	if security.Organization.Probe.State != domain.ProbeStateValid || !security.Organization.Probe.Valid {
 		t.Fatalf("SaveManualCredential().Probe = %+v", security.Organization.Probe)
+	}
+	if security.Organization.Probe.Login != "octocat" {
+		t.Fatalf("SaveManualCredential().Probe.Login = %q", security.Organization.Probe.Login)
 	}
 	if repository.context.OrganizationCredential == nil {
 		t.Fatal("expected organization credential to be persisted")
@@ -178,6 +182,7 @@ func TestImportGHCLICredentialPersistsProjectOverride(t *testing.T) {
 		case "/user":
 			w.Header().Set("X-OAuth-Scopes", "repo")
 			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"login":"octocat"}`))
 		case "/repos/grandcx/openase":
 			w.WriteHeader(http.StatusOK)
 		default:
@@ -197,6 +202,9 @@ func TestImportGHCLICredentialPersistsProjectOverride(t *testing.T) {
 
 	if !security.ProjectOverride.Configured || security.ProjectOverride.Source != domain.SourceGHCLIImport {
 		t.Fatalf("ImportGHCLICredential().ProjectOverride = %+v", security.ProjectOverride)
+	}
+	if security.ProjectOverride.Probe.Login != "octocat" {
+		t.Fatalf("ImportGHCLICredential().ProjectOverride.Probe.Login = %q", security.ProjectOverride.Probe.Login)
 	}
 	if repository.context.ProjectCredential == nil || repository.context.ProjectCredential.Source != domain.SourceGHCLIImport {
 		t.Fatalf("persisted project credential = %+v", repository.context.ProjectCredential)
@@ -303,6 +311,7 @@ func TestProbeResolvedCredentialPersistsValidProbe(t *testing.T) {
 		case "/user":
 			w.Header().Set("X-OAuth-Scopes", "repo,read:org")
 			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"login":"octocat"}`))
 		case "/repos/grandcx/openase":
 			w.WriteHeader(http.StatusOK)
 		default:
@@ -349,6 +358,7 @@ func TestProbeResolvedCredentialMarksInsufficientPermissions(t *testing.T) {
 		switch r.URL.Path {
 		case "/user":
 			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"login":"octocat"}`))
 		case "/repos/grandcx/private-repo":
 			w.WriteHeader(http.StatusForbidden)
 		default:

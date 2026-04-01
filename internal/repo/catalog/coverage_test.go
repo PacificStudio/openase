@@ -12,7 +12,6 @@ import (
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
-	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/google/uuid"
 )
@@ -31,18 +30,6 @@ func TestCatalogEnumMappings(t *testing.T) {
 	}
 	if got := toDomainProjectStatus("In Progress"); got != domain.ProjectStatusInProgress {
 		t.Fatalf("toDomainProjectStatus() = %q", got)
-	}
-	if got := toEntTicketRepoScopePRStatus(domain.TicketRepoScopePRStatusMerged); got != entticketreposcope.PrStatusMerged {
-		t.Fatalf("toEntTicketRepoScopePRStatus() = %q", got)
-	}
-	if got := toDomainTicketRepoScopePRStatus(entticketreposcope.PrStatusOpen); got != domain.TicketRepoScopePRStatusOpen {
-		t.Fatalf("toDomainTicketRepoScopePRStatus() = %q", got)
-	}
-	if got := toEntTicketRepoScopeCIStatus(domain.TicketRepoScopeCIStatusPassing); got != entticketreposcope.CiStatusPassing {
-		t.Fatalf("toEntTicketRepoScopeCIStatus() = %q", got)
-	}
-	if got := toDomainTicketRepoScopeCIStatus(entticketreposcope.CiStatusFailing); got != domain.TicketRepoScopeCIStatusFailing {
-		t.Fatalf("toDomainTicketRepoScopeCIStatus() = %q", got)
 	}
 	if got := toEntMachineStatus(domain.MachineStatusOnline); got != entmachine.StatusOnline {
 		t.Fatalf("toEntMachineStatus() = %q", got)
@@ -122,8 +109,6 @@ func TestCatalogMappingHelpers(t *testing.T) {
 		RepoID:         repoID,
 		BranchName:     "fix/openase-278-coverage",
 		PullRequestURL: pullRequestURL,
-		PrStatus:       entticketreposcope.PrStatusOpen,
-		CiStatus:       entticketreposcope.CiStatusPassing,
 	}
 	machine := &ent.Machine{
 		ID:              machineID,
@@ -219,7 +204,7 @@ func TestCatalogMappingHelpers(t *testing.T) {
 	}
 
 	mappedScope := mapTicketRepoScope(ticketRepoScope)
-	if mappedScope.PullRequestURL == nil || *mappedScope.PullRequestURL != pullRequestURL || mappedScope.PrStatus != domain.TicketRepoScopePRStatusOpen {
+	if mappedScope.PullRequestURL == nil || *mappedScope.PullRequestURL != pullRequestURL {
 		t.Fatalf("mapTicketRepoScope() = %+v", mappedScope)
 	}
 	if mapped := mapTicketRepoScopes([]*ent.TicketRepoScope{ticketRepoScope}); len(mapped) != 1 || mapped[0].ID != ticketRepoScope.ID {

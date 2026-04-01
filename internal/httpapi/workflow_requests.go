@@ -73,7 +73,7 @@ func parseCreateWorkflowRequest(projectID uuid.UUID, raw rawCreateWorkflowReques
 		return workflowservice.CreateInput{}, err
 	}
 
-	maxConcurrent, err := parsePositiveInt("max_concurrent", raw.MaxConcurrent, 3)
+	maxConcurrent, err := parseConcurrencyLimit("max_concurrent", raw.MaxConcurrent)
 	if err != nil {
 		return workflowservice.CreateInput{}, err
 	}
@@ -152,8 +152,10 @@ func parseUpdateWorkflowRequest(workflowID uuid.UUID, raw rawUpdateWorkflowReque
 	}
 
 	if raw.MaxConcurrent != nil {
-		if *raw.MaxConcurrent < 1 {
-			return workflowservice.UpdateInput{}, fmt.Errorf("max_concurrent must be greater than zero")
+		if *raw.MaxConcurrent < 0 {
+			return workflowservice.UpdateInput{}, fmt.Errorf(
+				"max_concurrent must be greater than or equal to zero",
+			)
 		}
 		input.MaxConcurrent = workflowservice.Some(*raw.MaxConcurrent)
 	}
@@ -268,6 +270,17 @@ func parsePositiveInt(fieldName string, raw *int, defaultValue int) (int, error)
 	}
 	if *raw < 1 {
 		return 0, fmt.Errorf("%s must be greater than zero", fieldName)
+	}
+
+	return *raw, nil
+}
+
+func parseConcurrencyLimit(fieldName string, raw *int) (int, error) {
+	if raw == nil {
+		return 0, nil
+	}
+	if *raw < 0 {
+		return 0, fmt.Errorf("%s must be greater than or equal to zero", fieldName)
 	}
 
 	return *raw, nil

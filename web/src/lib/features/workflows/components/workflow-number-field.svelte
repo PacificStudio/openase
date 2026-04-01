@@ -8,6 +8,9 @@
     label,
     value,
     icon,
+    placeholder = '',
+    min = undefined,
+    step = '1',
     disabled = false,
     oninput,
   }: {
@@ -15,6 +18,9 @@
     label: string
     value: string
     icon: Component
+    placeholder?: string
+    min?: string | undefined
+    step?: string
     disabled?: boolean
     oninput?: (value: string) => void
   } = $props()
@@ -31,8 +37,12 @@
     <Input
       {id}
       class="pl-9"
+      type="number"
+      {min}
+      {step}
       inputmode="numeric"
       {value}
+      {placeholder}
       {disabled}
       oninput={(event) => oninput?.((event.currentTarget as HTMLInputElement).value)}
     />

@@ -20,7 +20,6 @@ export type CapabilityKey =
   | 'skillsSettings'
   | 'workflowsSettings'
   | 'agentsSettings'
-  | 'connectorsSettings'
   | 'notificationsSettings'
   | 'securitySettings'
 
@@ -116,11 +115,6 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
     summary:
       'Agent governance settings now surface default provider selection, registered agent inventory, inline deletion for inactive agent definitions, and ownership boundaries while live runtime controls stay on the Agents page.',
   },
-  connectorsSettings: {
-    state: 'available',
-    summary:
-      'Connector settings are wired to project-scoped CRUD, connection test, manual sync, and runtime stats endpoints from the shipped Settings surface.',
-  },
   notificationsSettings: {
     state: 'available',
     summary:
@@ -138,7 +132,6 @@ export const settingsCapabilityBySection: Record<SettingsSection, CapabilityKey>
   repositories: 'repositoriesSettings',
   statuses: 'statusesSettings',
   agents: 'agentsSettings',
-  connectors: 'connectorsSettings',
   notifications: 'notificationsSettings',
   security: 'securitySettings',
 }

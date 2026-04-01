@@ -198,7 +198,7 @@ func ParseCreateAgentProvider(organizationID uuid.UUID, raw AgentProviderInput) 
 		return CreateAgentProvider{}, err
 	}
 
-	maxParallelRuns, err := parsePositiveInt("max_parallel_runs", raw.MaxParallelRuns, DefaultAgentProviderMaxParallelRuns)
+	maxParallelRuns, err := parseConcurrencyLimit("max_parallel_runs", raw.MaxParallelRuns)
 	if err != nil {
 		return CreateAgentProvider{}, err
 	}
@@ -495,6 +495,17 @@ func parsePositiveInt(fieldName string, raw *int, defaultValue int) (int, error)
 	}
 	if *raw <= 0 {
 		return 0, fmt.Errorf("%s must be greater than zero", fieldName)
+	}
+
+	return *raw, nil
+}
+
+func parseConcurrencyLimit(fieldName string, raw *int) (int, error) {
+	if raw == nil {
+		return 0, nil
+	}
+	if *raw < 0 {
+		return 0, fmt.Errorf("%s must be greater than or equal to zero", fieldName)
 	}
 
 	return *raw, nil

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { beforeNavigate } from '$app/navigation'
   import { projectPath } from '$lib/stores/app-context'
   import { appStore } from '$lib/stores/app.svelte'
   import { PageScaffold } from '$lib/components/layout'
@@ -42,6 +43,24 @@
   let variableGroups = $state<HarnessVariableGroup[]>([])
   let selectedWorkflow = $derived(workflows.find((workflow) => workflow.id === selectedId) ?? null)
   let isDirty = $derived(harness ? draftHarness !== harness.rawContent : false)
+
+  // Warn on browser close/refresh with unsaved changes
+  $effect(() => {
+    if (!isDirty) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  })
+
+  // Warn on in-app navigation with unsaved changes
+  beforeNavigate((navigation) => {
+    if (isDirty && !confirm('You have unsaved changes. Are you sure you want to leave?')) {
+      navigation.cancel()
+    }
+  })
+
   const settingsHref = $derived(
     appStore.currentOrg?.id && appStore.currentProject?.id
       ? projectPath(appStore.currentOrg.id, appStore.currentProject.id, 'settings')
@@ -282,7 +301,14 @@
     {statuses}
     {agentOptions}
     {builtinRoleContent}
-    onSelectedIdChange={(id) => (selectedId = id)}
+    onSelectedIdChange={(id) => {
+      if (
+        isDirty &&
+        !confirm('You have unsaved changes. Are you sure you want to switch workflows?')
+      )
+        return
+      selectedId = id
+    }}
     onDraftChange={(raw) => (draftHarness = raw)}
     onApplyAssistantDraft={handleApplyAssistantDraft}
     onSave={() => void handleSave()}

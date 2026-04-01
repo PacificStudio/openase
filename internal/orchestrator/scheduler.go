@@ -178,9 +178,6 @@ func (s *Scheduler) tryDispatch(ctx context.Context, workflow *ent.Workflow, tic
 	if project == nil {
 		return false, "", fmt.Errorf("workflow %s missing project edge", workflow.ID)
 	}
-	if workflow.MaxConcurrent <= 0 || project.MaxConcurrentAgents <= 0 {
-		return false, skipReasonMaxConcurrency, nil
-	}
 	agent, err := s.resolveWorkflowAgent(ctx, workflow)
 	if err != nil {
 		return false, "", fmt.Errorf("resolve workflow agent: %w", err)
@@ -334,7 +331,7 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 	if err != nil {
 		return "", fmt.Errorf("count workflow concurrency: %w", err)
 	}
-	if workflowActive >= workflow.MaxConcurrent {
+	if workflow.MaxConcurrent > 0 && workflowActive >= workflow.MaxConcurrent {
 		return skipReasonMaxConcurrency, nil
 	}
 
@@ -347,7 +344,7 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 	if err != nil {
 		return "", fmt.Errorf("count project concurrency: %w", err)
 	}
-	if projectActive >= projectMaxConcurrent {
+	if projectMaxConcurrent > 0 && projectActive >= projectMaxConcurrent {
 		return skipReasonMaxConcurrency, nil
 	}
 
@@ -360,7 +357,7 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 	if err != nil {
 		return "", fmt.Errorf("count provider concurrency: %w", err)
 	}
-	if providerActive >= providerItem.MaxParallelRuns {
+	if providerItem.MaxParallelRuns > 0 && providerActive >= providerItem.MaxParallelRuns {
 		return skipReasonProviderBusy, nil
 	}
 

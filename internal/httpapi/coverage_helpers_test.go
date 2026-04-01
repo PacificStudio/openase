@@ -259,7 +259,7 @@ func TestWorkflowRequestParsersCoverTrimmedAndInvalidInputs(t *testing.T) {
 		{name: "invalid agent id", raw: rawUpdateWorkflowRequest{AgentID: stringPointer("bad")}, want: "agent_id must be a valid UUID"},
 		{name: "empty name", raw: rawUpdateWorkflowRequest{Name: stringPointer("   ")}, want: "name must not be empty"},
 		{name: "invalid type", raw: rawUpdateWorkflowRequest{Type: stringPointer("bad")}, want: "type must be one of"},
-		{name: "invalid max concurrent", raw: rawUpdateWorkflowRequest{MaxConcurrent: intPointer(0)}, want: "max_concurrent must be greater than zero"},
+		{name: "invalid max concurrent", raw: rawUpdateWorkflowRequest{MaxConcurrent: intPointer(-1)}, want: "max_concurrent must be greater than or equal to zero"},
 		{name: "invalid max retry", raw: rawUpdateWorkflowRequest{MaxRetryAttempts: intPointer(-1)}, want: "max_retry_attempts must be greater than or equal to zero"},
 		{name: "invalid timeout", raw: rawUpdateWorkflowRequest{TimeoutMinutes: intPointer(0)}, want: "timeout_minutes must be greater than zero"},
 		{name: "invalid stall timeout", raw: rawUpdateWorkflowRequest{StallTimeoutMinutes: intPointer(0)}, want: "stall_timeout_minutes must be greater than zero"},
@@ -273,12 +273,15 @@ func TestWorkflowRequestParsersCoverTrimmedAndInvalidInputs(t *testing.T) {
 		})
 	}
 
-	defaultPositive, err := parsePositiveInt("max_concurrent", nil, 3)
-	if err != nil || defaultPositive != 3 {
-		t.Fatalf("parsePositiveInt(nil) = (%d, %v), want (3, nil)", defaultPositive, err)
+	defaultConcurrency, err := parseConcurrencyLimit("max_concurrent", nil)
+	if err != nil || defaultConcurrency != 0 {
+		t.Fatalf("parseConcurrencyLimit(nil) = (%d, %v), want (0, nil)", defaultConcurrency, err)
 	}
-	if _, err := parsePositiveInt("max_concurrent", intPointer(0), 3); err == nil {
-		t.Fatal("parsePositiveInt() expected error for zero")
+	if got, err := parseConcurrencyLimit("max_concurrent", intPointer(0)); err != nil || got != 0 {
+		t.Fatalf("parseConcurrencyLimit(0) = (%d, %v), want (0, nil)", got, err)
+	}
+	if _, err := parseConcurrencyLimit("max_concurrent", intPointer(-1)); err == nil {
+		t.Fatal("parseConcurrencyLimit() expected error for negative value")
 	}
 	defaultNonNegative, err := parseMaxRetryAttempts(nil, 2)
 	if err != nil || defaultNonNegative != 2 {
@@ -296,18 +299,6 @@ func TestCatalogConflictMessageStripsConflictPrefix(t *testing.T) {
 	}
 	if got := catalogConflictMessage(errors.New("another problem")); got != "another problem" {
 		t.Fatalf("catalogConflictMessage() passthrough = %q", got)
-	}
-}
-
-func TestWebhookErrorFormattingHelpers(t *testing.T) {
-	if got := (*inboundWebhookError)(nil).Error(); got != "" {
-		t.Fatalf("(*inboundWebhookError)(nil).Error() = %q, want empty string", got)
-	}
-	if got := (&inboundWebhookError{Message: "invalid signature"}).Error(); got != "invalid signature" {
-		t.Fatalf("inboundWebhookError.Error() = %q", got)
-	}
-	if got := (errInboundWebhookPayloadTooLarge{MaxPayloadBytes: 128}).Error(); got != "request body exceeds 128 bytes" {
-		t.Fatalf("errInboundWebhookPayloadTooLarge.Error() = %q", got)
 	}
 }
 

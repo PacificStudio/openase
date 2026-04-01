@@ -36,6 +36,7 @@ export function buildProviderCards(
     modelName: provider.model_name,
     modelTemperature: provider.model_temperature,
     modelMaxTokens: provider.model_max_tokens,
+    maxParallelRuns: provider.max_parallel_runs,
     costPerInputToken: provider.cost_per_input_token,
     costPerOutputToken: provider.cost_per_output_token,
     agentCount: agentItems.filter((agent) => agent.provider_id === provider.id).length,
@@ -189,6 +190,7 @@ export function applyUpdatedProviderState(
           modelName: updatedProvider.model_name,
           modelTemperature: updatedProvider.model_temperature,
           modelMaxTokens: updatedProvider.model_max_tokens,
+          maxParallelRuns: updatedProvider.max_parallel_runs,
           costPerInputToken: updatedProvider.cost_per_input_token,
           costPerOutputToken: updatedProvider.cost_per_output_token,
         }

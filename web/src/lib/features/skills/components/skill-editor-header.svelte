@@ -3,12 +3,10 @@
   import { Button } from '$ui/button'
   import {
     ArrowLeft,
-    Pencil,
     Power,
     PowerOff,
     Save,
     Trash2,
-    X,
     PanelRightOpen,
     PanelRightClose,
   } from '@lucide/svelte'
@@ -16,25 +14,21 @@
 
   let {
     skill,
-    editing = false,
     busy = false,
+    hasDirtyChanges = false,
     metadataOpen = true,
     onNavigateBack,
-    onCancelEditing,
     onSave,
-    onStartEditing,
     onToggleEnabled,
     onDelete,
     onToggleMetadata,
   }: {
     skill: Skill
-    editing?: boolean
     busy?: boolean
+    hasDirtyChanges?: boolean
     metadataOpen?: boolean
     onNavigateBack?: () => void
-    onCancelEditing?: () => void
     onSave?: () => void
-    onStartEditing?: () => void
     onToggleEnabled?: () => void
     onDelete?: () => void
     onToggleMetadata?: () => void
@@ -61,33 +55,15 @@
   </div>
 
   <div class="flex items-center gap-1">
-    {#if editing}
-      <Button
-        variant="ghost"
-        size="sm"
-        class="h-7 gap-1 px-2 text-xs"
-        onclick={onCancelEditing}
-        disabled={busy}
-      >
-        <X class="size-3" />
-        Cancel
-      </Button>
-      <Button size="sm" class="h-7 gap-1 px-2 text-xs" onclick={onSave} disabled={busy}>
-        <Save class="size-3" />
-        {busy ? 'Saving…' : 'Publish'}
-      </Button>
-    {:else}
-      <Button
-        variant="ghost"
-        size="sm"
-        class="size-7 p-0"
-        title="Edit skill"
-        onclick={onStartEditing}
-        disabled={busy}
-      >
-        <Pencil class="size-3.5" />
-      </Button>
-    {/if}
+    <Button
+      size="sm"
+      class="h-7 gap-1 px-2 text-xs"
+      onclick={onSave}
+      disabled={busy || !hasDirtyChanges}
+    >
+      <Save class="size-3" />
+      {busy ? 'Saving\u2026' : 'Save'}
+    </Button>
     <Button
       variant="ghost"
       size="sm"

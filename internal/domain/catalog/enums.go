@@ -24,7 +24,7 @@ type ProjectStatus string
 
 const (
 	DefaultProjectStatus              ProjectStatus = ProjectStatusPlanned
-	DefaultProjectMaxConcurrentAgents               = 5
+	DefaultProjectMaxConcurrentAgents               = 0
 
 	ProjectStatusBacklog    ProjectStatus = "Backlog"
 	ProjectStatusPlanned    ProjectStatus = "Planned"
@@ -46,53 +46,6 @@ func (s ProjectStatus) IsValid() bool {
 		ProjectStatusCompleted,
 		ProjectStatusCanceled,
 		ProjectStatusArchived:
-		return true
-	default:
-		return false
-	}
-}
-
-type TicketRepoScopePRStatus string
-
-const (
-	DefaultTicketRepoScopePRStatus          TicketRepoScopePRStatus = TicketRepoScopePRStatusNone
-	TicketRepoScopePRStatusNone             TicketRepoScopePRStatus = "none"
-	TicketRepoScopePRStatusOpen             TicketRepoScopePRStatus = "open"
-	TicketRepoScopePRStatusChangesRequested TicketRepoScopePRStatus = "changes_requested"
-	TicketRepoScopePRStatusApproved         TicketRepoScopePRStatus = "approved"
-	TicketRepoScopePRStatusMerged           TicketRepoScopePRStatus = "merged"
-	TicketRepoScopePRStatusClosed           TicketRepoScopePRStatus = "closed"
-)
-
-func (s TicketRepoScopePRStatus) String() string {
-	return string(s)
-}
-
-func (s TicketRepoScopePRStatus) IsValid() bool {
-	switch s {
-	case TicketRepoScopePRStatusNone, TicketRepoScopePRStatusOpen, TicketRepoScopePRStatusChangesRequested, TicketRepoScopePRStatusApproved, TicketRepoScopePRStatusMerged, TicketRepoScopePRStatusClosed:
-		return true
-	default:
-		return false
-	}
-}
-
-type TicketRepoScopeCIStatus string
-
-const (
-	DefaultTicketRepoScopeCIStatus TicketRepoScopeCIStatus = TicketRepoScopeCIStatusPending
-	TicketRepoScopeCIStatusPending TicketRepoScopeCIStatus = "pending"
-	TicketRepoScopeCIStatusPassing TicketRepoScopeCIStatus = "passing"
-	TicketRepoScopeCIStatusFailing TicketRepoScopeCIStatus = "failing"
-)
-
-func (s TicketRepoScopeCIStatus) String() string {
-	return string(s)
-}
-
-func (s TicketRepoScopeCIStatus) IsValid() bool {
-	switch s {
-	case TicketRepoScopeCIStatusPending, TicketRepoScopeCIStatusPassing, TicketRepoScopeCIStatusFailing:
 		return true
 	default:
 		return false
@@ -174,7 +127,7 @@ type AgentProviderAdapterType string
 const (
 	DefaultAgentProviderModelTemperature   float64 = 0
 	DefaultAgentProviderModelMaxTokens             = 16384
-	DefaultAgentProviderMaxParallelRuns            = 5
+	DefaultAgentProviderMaxParallelRuns            = 0
 	DefaultAgentProviderCostPerInputToken  float64 = 0
 	DefaultAgentProviderCostPerOutputToken float64 = 0
 

@@ -427,9 +427,7 @@ func (r *EntRepository) CreateTicketRepoScope(ctx context.Context, input domain.
 	builder := tx.TicketRepoScope.Create().
 		SetTicketID(input.TicketID).
 		SetRepoID(input.RepoID).
-		SetBranchName(branchName).
-		SetPrStatus(toEntTicketRepoScopePRStatus(input.PrStatus)).
-		SetCiStatus(toEntTicketRepoScopeCIStatus(input.CiStatus))
+		SetBranchName(branchName)
 	if input.PullRequestURL != nil {
 		builder.SetPullRequestURL(*input.PullRequestURL)
 	}
@@ -485,9 +483,7 @@ func (r *EntRepository) UpdateTicketRepoScope(ctx context.Context, input domain.
 	}
 
 	builder := tx.TicketRepoScope.UpdateOneID(input.ID).
-		SetBranchName(branchName).
-		SetPrStatus(toEntTicketRepoScopePRStatus(input.PrStatus)).
-		SetCiStatus(toEntTicketRepoScopeCIStatus(input.CiStatus))
+		SetBranchName(branchName)
 	if input.PullRequestURL != nil {
 		builder.SetPullRequestURL(*input.PullRequestURL)
 	} else {
@@ -710,8 +706,6 @@ func mapTicketRepoScope(item *ent.TicketRepoScope) domain.TicketRepoScope {
 		RepoID:         item.RepoID,
 		BranchName:     item.BranchName,
 		PullRequestURL: optionalString(item.PullRequestURL),
-		PrStatus:       toDomainTicketRepoScopePRStatus(item.PrStatus),
-		CiStatus:       toDomainTicketRepoScopeCIStatus(item.CiStatus),
 	}
 }
 

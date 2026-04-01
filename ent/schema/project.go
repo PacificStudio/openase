@@ -32,7 +32,7 @@ func (Project) Fields() []ent.Field {
 			Nillable(),
 		field.JSON("accessible_machine_ids", []uuid.UUID{}).
 			Default(emptyUUIDs),
-		field.Int("max_concurrent_agents").Default(5),
+		field.Int("max_concurrent_agents").Default(0),
 	}
 }
 
@@ -57,7 +57,6 @@ func (Project) Edges() []ent.Edge {
 		edge.To("activity_events", ActivityEvent.Type),
 		edge.To("chat_conversations", ChatConversation.Type),
 		edge.To("notification_rules", NotificationRule.Type),
-		edge.To("issue_connectors", IssueConnector.Type),
 		edge.To("default_agent_provider", AgentProvider.Type).
 			Field("default_agent_provider_id").
 			Unique(),

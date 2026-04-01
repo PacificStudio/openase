@@ -6,12 +6,10 @@
   let {
     file,
     content,
-    editing = false,
     onContentChange,
   }: {
     file: SkillFile | null
     content: string
-    editing?: boolean
     onContentChange?: (path: string, value: string) => void
   } = $props()
 
@@ -29,15 +27,11 @@
     <p>Binary file ({file.media_type})</p>
     <p class="text-xs">{file.size_bytes.toLocaleString()} bytes</p>
   </div>
-{:else if editing}
+{:else}
   <Textarea
     value={content}
     class="h-full min-h-0 flex-1 resize-none rounded-none border-0 font-mono text-sm leading-relaxed focus-visible:ring-0"
     oninput={(event) =>
       onContentChange?.(file.path, (event.currentTarget as HTMLTextAreaElement).value)}
   />
-{:else}
-  <pre
-    class="flex-1 overflow-auto p-4 font-mono text-sm leading-relaxed whitespace-pre-wrap">{content ||
-      '(empty)'}</pre>
 {/if}

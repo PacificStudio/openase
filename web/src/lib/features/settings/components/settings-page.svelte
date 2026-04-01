@@ -5,7 +5,6 @@
   import type { SettingsSection } from '../types'
   import { settingsSections } from '../types'
   import AgentSettings from './agent-settings.svelte'
-  import ConnectorsSettings from './connectors-settings.svelte'
   import SettingsNav from './settings-nav.svelte'
   import GeneralSettings from './general-settings.svelte'
   import NotificationSettings from './notification-settings.svelte'
@@ -61,8 +60,6 @@
         <RepositoriesSettings />
       {:else if activeSection === 'agents'}
         <AgentSettings />
-      {:else if activeSection === 'connectors'}
-        <ConnectorsSettings />
       {:else if activeSection === 'notifications'}
         <NotificationSettings />
       {:else if activeSection === 'security'}

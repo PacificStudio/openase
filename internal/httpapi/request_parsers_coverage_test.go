@@ -342,11 +342,14 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 	if got, err := parseOptionalUUIDString("status_id", strPtr(" ")); err != nil || got != nil {
 		t.Fatalf("parseOptionalUUIDString(blank) = (%v, %v)", got, err)
 	}
-	if got, err := parsePositiveInt("max_concurrent", nil, 3); err != nil || got != 3 {
-		t.Fatalf("parsePositiveInt(default) = (%d, %v)", got, err)
+	if got, err := parseConcurrencyLimit("max_concurrent", nil); err != nil || got != 0 {
+		t.Fatalf("parseConcurrencyLimit(default) = (%d, %v)", got, err)
 	}
-	if _, err := parsePositiveInt("max_concurrent", intPtr(0), 3); err == nil || !strings.Contains(err.Error(), "greater than zero") {
-		t.Fatalf("parsePositiveInt(invalid) error = %v", err)
+	if got, err := parseConcurrencyLimit("max_concurrent", intPtr(0)); err != nil || got != 0 {
+		t.Fatalf("parseConcurrencyLimit(zero) = (%d, %v)", got, err)
+	}
+	if _, err := parseConcurrencyLimit("max_concurrent", intPtr(-1)); err == nil || !strings.Contains(err.Error(), "greater than or equal to zero") {
+		t.Fatalf("parseConcurrencyLimit(invalid) error = %v", err)
 	}
 	if got, err := parseMaxRetryAttempts(nil, 2); err != nil || got != 2 {
 		t.Fatalf("parseMaxRetryAttempts(default) = (%d, %v)", got, err)

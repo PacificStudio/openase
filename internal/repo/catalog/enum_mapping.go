@@ -6,7 +6,6 @@ import (
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
-	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 )
 
@@ -24,22 +23,6 @@ func toEntProjectStatus(status domain.ProjectStatus) string {
 
 func toDomainProjectStatus(status string) domain.ProjectStatus {
 	return domain.ProjectStatus(status)
-}
-
-func toEntTicketRepoScopePRStatus(status domain.TicketRepoScopePRStatus) entticketreposcope.PrStatus {
-	return entticketreposcope.PrStatus(status)
-}
-
-func toDomainTicketRepoScopePRStatus(status entticketreposcope.PrStatus) domain.TicketRepoScopePRStatus {
-	return domain.TicketRepoScopePRStatus(status)
-}
-
-func toEntTicketRepoScopeCIStatus(status domain.TicketRepoScopeCIStatus) entticketreposcope.CiStatus {
-	return entticketreposcope.CiStatus(status)
-}
-
-func toDomainTicketRepoScopeCIStatus(status entticketreposcope.CiStatus) domain.TicketRepoScopeCIStatus {
-	return domain.TicketRepoScopeCIStatus(status)
 }
 
 func toEntMachineStatus(status domain.MachineStatus) entmachine.Status {

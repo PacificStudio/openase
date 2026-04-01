@@ -48,6 +48,7 @@ function createAppStore() {
   let rightPanelContent = $state<AppPanelContent | null>(null)
   let sseStatus = $state<'idle' | 'connecting' | 'live' | 'retrying'>('idle')
   let theme = $state<AppTheme>('dark')
+  let projectAssistantRequest = $state<{ prompt: string; timestamp: number } | null>(null)
   return {
     get currentOrg() {
       return currentOrg
@@ -200,6 +201,17 @@ function createAppStore() {
     },
     toggleTheme() {
       theme = flipTheme(theme)
+    },
+    get projectAssistantRequest() {
+      return projectAssistantRequest
+    },
+    requestProjectAssistant(prompt = '') {
+      projectAssistantRequest = { prompt, timestamp: Date.now() }
+    },
+    consumeProjectAssistantRequest() {
+      const request = projectAssistantRequest
+      projectAssistantRequest = null
+      return request
     },
   }
 }

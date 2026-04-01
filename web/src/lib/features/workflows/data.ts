@@ -205,7 +205,7 @@ export async function createWorkflowWithBinding(
     finish_status_ids: input.finishStatusIds,
     harness_content: builtinRoleContent || defaultHarnessTemplate(),
     is_active: true,
-    max_concurrent: 1,
+    max_concurrent: 0,
     max_retry_attempts: 1,
     timeout_minutes: 30,
   })

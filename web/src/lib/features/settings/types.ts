@@ -3,7 +3,6 @@ export const settingsSections = [
   'repositories',
   'statuses',
   'agents',
-  'connectors',
   'notifications',
   'security',
 ] as const

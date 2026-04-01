@@ -690,7 +690,11 @@ func (s *Service) writeTicketDetailContext(
 	if len(repoScopes) > 0 {
 		sb.WriteString("\n### 仓库范围\n")
 		for _, scope := range repoScopes {
-			_, _ = fmt.Fprintf(sb, "- repo=%s branch=%s pr_status=%s ci_status=%s\n", scope.RepoID, scope.BranchName, scope.PrStatus, scope.CiStatus)
+			_, _ = fmt.Fprintf(sb, "- repo=%s branch=%s", scope.RepoID, scope.BranchName)
+			if scope.PullRequestURL != nil && *scope.PullRequestURL != "" {
+				_, _ = fmt.Fprintf(sb, " pr_url=%s", *scope.PullRequestURL)
+			}
+			sb.WriteString("\n")
 		}
 	}
 	sb.WriteString("\n### 活动日志\n")

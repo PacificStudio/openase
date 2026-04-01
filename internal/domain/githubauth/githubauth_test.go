@@ -60,6 +60,7 @@ func TestNormalizeProbe(t *testing.T) {
 		State:       ProbeState("bad"),
 		Configured:  false,
 		Valid:       true,
+		Login:       "  octocat  ",
 		Permissions: []string{"issues:write", "contents:read", "issues:write"},
 		RepoAccess:  RepoAccess("bad"),
 		CheckedAt:   &checkedAt,
@@ -72,6 +73,9 @@ func TestNormalizeProbe(t *testing.T) {
 	}
 	if !got.Configured || !got.Valid {
 		t.Fatalf("unexpected normalized config flags: %#v", got)
+	}
+	if got.Login != "octocat" {
+		t.Fatalf("unexpected login: %q", got.Login)
 	}
 	if got.RepoAccess != RepoAccessNotChecked {
 		t.Fatalf("unexpected repo access: %s", got.RepoAccess)

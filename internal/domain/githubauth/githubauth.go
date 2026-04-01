@@ -103,6 +103,7 @@ type TokenProbe struct {
 	State       ProbeState `json:"state"`
 	Configured  bool       `json:"configured"`
 	Valid       bool       `json:"valid"`
+	Login       string     `json:"login,omitempty"`
 	Permissions []string   `json:"permissions"`
 	RepoAccess  RepoAccess `json:"repo_access"`
 	CheckedAt   *time.Time `json:"checked_at,omitempty"`
@@ -166,6 +167,7 @@ func NormalizeProbe(raw *TokenProbe, configured bool) TokenProbe {
 		State:       raw.State,
 		Configured:  true,
 		Valid:       raw.Valid,
+		Login:       strings.TrimSpace(raw.Login),
 		Permissions: append([]string(nil), raw.Permissions...),
 		RepoAccess:  raw.RepoAccess,
 		CheckedAt:   cloneTime(raw.CheckedAt),

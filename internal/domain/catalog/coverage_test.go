@@ -381,7 +381,7 @@ func TestCatalogAgentParsersAndRuntimeHelpers(t *testing.T) {
 		{MachineID: machineID.String(), Name: "Codex", AdapterType: "codex-app-server", ModelName: " "},
 		{MachineID: machineID.String(), Name: "Codex", AdapterType: "codex-app-server", ModelName: "gpt-5.4", ModelTemperature: floatPtr(-1)},
 		{MachineID: machineID.String(), Name: "Codex", AdapterType: "codex-app-server", ModelName: "gpt-5.4", ModelMaxTokens: intPtr(0)},
-		{MachineID: machineID.String(), Name: "Codex", AdapterType: "codex-app-server", ModelName: "gpt-5.4", MaxParallelRuns: intPtr(0)},
+		{MachineID: machineID.String(), Name: "Codex", AdapterType: "codex-app-server", ModelName: "gpt-5.4", MaxParallelRuns: intPtr(-1)},
 		{MachineID: machineID.String(), Name: "Codex", AdapterType: "codex-app-server", ModelName: "gpt-5.4", CostPerInputToken: floatPtr(-1)},
 		{MachineID: machineID.String(), Name: "Codex", AdapterType: "codex-app-server", ModelName: "gpt-5.4", CostPerOutputToken: floatPtr(-1)},
 	}
@@ -677,7 +677,7 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if _, err := ParseCreateProject(orgID, ProjectInput{Name: "P", Slug: "p", Status: "planned"}); err == nil {
 		t.Fatal("ParseCreateProject() expected lowercase status validation error")
 	}
-	if _, err := ParseCreateProject(orgID, ProjectInput{Name: "P", Slug: "p", MaxConcurrentAgents: intPtr(0)}); err == nil {
+	if _, err := ParseCreateProject(orgID, ProjectInput{Name: "P", Slug: "p", MaxConcurrentAgents: intPtr(-1)}); err == nil {
 		t.Fatal("ParseCreateProject() expected max_concurrent_agents validation error")
 	}
 
@@ -757,8 +757,6 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 		RepoID:         repoID.String(),
 		BranchName:     &branchName,
 		PullRequestURL: &prURL,
-		PrStatus:       " open ",
-		CiStatus:       " passing ",
 	})
 	if err != nil {
 		t.Fatalf("ParseCreateTicketRepoScope() error = %v", err)
@@ -770,7 +768,7 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseUpdateTicketRepoScope() error = %v", err)
 	}
-	if updateScope.PrStatus != DefaultTicketRepoScopePRStatus || updateScope.CiStatus != DefaultTicketRepoScopeCIStatus {
+	if updateScope.BranchName != nil || updateScope.PullRequestURL != nil {
 		t.Fatalf("ParseUpdateTicketRepoScope() defaults = %+v", updateScope)
 	}
 	updateScope, err = ParseUpdateTicketRepoScope(uuid.New(), projectID, ticketID, TicketRepoScopeInput{RepoID: repoID.String(), BranchName: stringPtr("feature/demo")})
@@ -782,12 +780,6 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	}
 	if _, err := ParseCreateTicketRepoScope(projectID, ticketID, TicketRepoScopeInput{RepoID: "bad"}); err == nil {
 		t.Fatal("ParseCreateTicketRepoScope() expected repo_id validation error")
-	}
-	if _, err := ParseCreateTicketRepoScope(projectID, ticketID, TicketRepoScopeInput{RepoID: repoID.String(), PrStatus: "bad"}); err == nil {
-		t.Fatal("ParseCreateTicketRepoScope() expected pr_status validation error")
-	}
-	if _, err := ParseCreateTicketRepoScope(projectID, ticketID, TicketRepoScopeInput{RepoID: repoID.String(), CiStatus: "bad"}); err == nil {
-		t.Fatal("ParseCreateTicketRepoScope() expected ci_status validation error")
 	}
 	if _, err := ParseUpdateTicketRepoScope(uuid.New(), projectID, ticketID, TicketRepoScopeInput{RepoID: "bad"}); err == nil {
 		t.Fatal("ParseUpdateTicketRepoScope() expected validation error")
@@ -835,14 +827,11 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if _, err := parseProjectStatus(" In Progress "); err == nil {
 		t.Fatal("parseProjectStatus() expected exact-match validation error")
 	}
-	if _, err := parseMaxConcurrentAgents(intPtr(0)); err == nil {
+	if got, err := parseMaxConcurrentAgents(intPtr(0)); err != nil || got != 0 {
+		t.Fatalf("parseMaxConcurrentAgents(0) = (%d, %v), want (0, nil)", got, err)
+	}
+	if _, err := parseMaxConcurrentAgents(intPtr(-1)); err == nil {
 		t.Fatal("parseMaxConcurrentAgents() expected validation error")
-	}
-	if _, err := parseTicketRepoScopePrStatus("invalid"); err == nil {
-		t.Fatal("parseTicketRepoScopePrStatus() expected validation error")
-	}
-	if _, err := parseTicketRepoScopeCiStatus("invalid"); err == nil {
-		t.Fatal("parseTicketRepoScopeCiStatus() expected validation error")
 	}
 }
 
@@ -1487,8 +1476,6 @@ func TestCatalogRuntimeControlAndEnumHelpers(t *testing.T) {
 	}{
 		{"org", OrganizationStatusActive, OrganizationStatusActive.IsValid, "active"},
 		{"project", ProjectStatusCanceled, ProjectStatusCanceled.IsValid, "Canceled"},
-		{"repo_pr", TicketRepoScopePRStatusMerged, TicketRepoScopePRStatusMerged.IsValid, "merged"},
-		{"repo_ci", TicketRepoScopeCIStatusPassing, TicketRepoScopeCIStatusPassing.IsValid, "passing"},
 		{"machine", MachineStatusOffline, MachineStatusOffline.IsValid, "offline"},
 		{"provider_capability", AgentProviderCapabilityStateUnsupported, AgentProviderCapabilityStateUnsupported.IsValid, "unsupported"},
 		{"adapter", AgentProviderAdapterTypeCustom, AgentProviderAdapterTypeCustom.IsValid, "custom"},
@@ -1502,9 +1489,8 @@ func TestCatalogRuntimeControlAndEnumHelpers(t *testing.T) {
 			t.Fatalf("%s validity/string mismatch", check.name)
 		}
 	}
-	if OrganizationStatus("bad").IsValid() || ProjectStatus("bad").IsValid() || TicketRepoScopePRStatus("bad").IsValid() ||
-		TicketRepoScopeCIStatus("bad").IsValid() || MachineStatus("bad").IsValid() || AgentProviderCapabilityState("bad").IsValid() ||
-		AgentProviderAdapterType("bad").IsValid() || AgentStatus("bad").IsValid() || AgentRuntimePhase("bad").IsValid() ||
+	if OrganizationStatus("bad").IsValid() || ProjectStatus("bad").IsValid() || MachineStatus("bad").IsValid() ||
+		AgentProviderCapabilityState("bad").IsValid() || AgentProviderAdapterType("bad").IsValid() || AgentStatus("bad").IsValid() || AgentRuntimePhase("bad").IsValid() ||
 		AgentRunStatus("bad").IsValid() || AgentRuntimeControlState("bad").IsValid() {
 		t.Fatal("expected invalid enum values to be rejected")
 	}

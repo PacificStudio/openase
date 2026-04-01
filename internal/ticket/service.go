@@ -73,6 +73,10 @@ func Some[T any](value T) Optional[T] {
 	return Optional[T]{Set: true, Value: value}
 }
 
+func timeNowUTC() time.Time {
+	return time.Now().UTC()
+}
+
 // TicketReference is a compact ticket summary used inside relationships.
 type TicketReference struct {
 	ID         uuid.UUID `json:"id"`

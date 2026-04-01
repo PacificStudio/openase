@@ -77,8 +77,6 @@ type ticketRepoScopeResponse struct {
 	RepoID         string  `json:"repo_id"`
 	BranchName     string  `json:"branch_name"`
 	PullRequestURL *string `json:"pull_request_url,omitempty"`
-	PrStatus       string  `json:"pr_status"`
-	CiStatus       string  `json:"ci_status"`
 }
 
 type organizationPatchRequest struct {
@@ -122,8 +120,6 @@ type projectRepoPatchRequest struct {
 type ticketRepoScopePatchRequest struct {
 	BranchName     *string `json:"branch_name"`
 	PullRequestURL *string `json:"pull_request_url"`
-	PrStatus       *string `json:"pr_status"`
-	CiStatus       *string `json:"ci_status"`
 }
 
 func (s *Server) registerCatalogRoutes(api *echo.Group) {
@@ -823,20 +819,12 @@ func (s *Server) patchTicketRepoScope(c echo.Context) error {
 		RepoID:         current.RepoID.String(),
 		BranchName:     stringPointer(current.BranchName),
 		PullRequestURL: current.PullRequestURL,
-		PrStatus:       current.PrStatus.String(),
-		CiStatus:       current.CiStatus.String(),
 	}
 	if patch.BranchName != nil {
 		request.BranchName = patch.BranchName
 	}
 	if patch.PullRequestURL != nil {
 		request.PullRequestURL = patch.PullRequestURL
-	}
-	if patch.PrStatus != nil {
-		request.PrStatus = *patch.PrStatus
-	}
-	if patch.CiStatus != nil {
-		request.CiStatus = *patch.CiStatus
 	}
 	input, err := domain.ParseUpdateTicketRepoScope(scopeID, projectID, ticketID, request)
 	if err != nil {
@@ -1119,8 +1107,6 @@ func mapTicketRepoScopeResponse(item domain.TicketRepoScope) ticketRepoScopeResp
 		RepoID:         item.RepoID.String(),
 		BranchName:     item.BranchName,
 		PullRequestURL: item.PullRequestURL,
-		PrStatus:       item.PrStatus.String(),
-		CiStatus:       item.CiStatus.String(),
 	}
 }
 

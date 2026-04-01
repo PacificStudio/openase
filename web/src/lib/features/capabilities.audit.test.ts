@@ -8,8 +8,6 @@ import {
 } from '$lib/features/capabilities'
 import type { SettingsSection } from '$lib/features/settings/types'
 import agentSettingsSource from './settings/components/agent-settings.svelte?raw'
-import connectorsSettingsSource from './settings/components/connectors-settings.svelte?raw'
-import connectorsSettingsStateSource from './settings/components/connectors-settings-state.svelte.ts?raw'
 import generalSettingsSource from './settings/components/general-settings.svelte?raw'
 import notificationSettingsSource from './settings/components/notification-settings.svelte?raw'
 import repositoriesSettingsSource from './settings/components/repositories-settings.svelte?raw'
@@ -35,8 +33,6 @@ type SettingsAuditCase = {
 
 const sourceByFile: Record<string, string> = {
   './settings/components/agent-settings.svelte': agentSettingsSource,
-  './settings/components/connectors-settings.svelte': connectorsSettingsSource,
-  './settings/components/connectors-settings-state.svelte.ts': connectorsSettingsStateSource,
   './settings/components/general-settings.svelte': generalSettingsSource,
   './settings/components/notification-settings.svelte': notificationSettingsSource,
   './settings/components/repositories-settings.svelte': repositoriesSettingsSource,
@@ -122,24 +118,6 @@ const settingsAuditCases: SettingsAuditCase[] = [
       {
         file: './settings/components/agent-settings.svelte',
         snippets: ['listProviders(orgId)', 'listAgents(projectId)', 'updateProject(projectId, {'],
-      },
-    ],
-  },
-  {
-    section: 'connectors',
-    capability: 'connectorsSettings',
-    expectedState: 'available',
-    summarySnippets: ['project-scoped CRUD', 'manual sync', 'runtime stats endpoints'],
-    sources: [
-      {
-        file: './settings/components/connectors-settings-state.svelte.ts',
-        snippets: [
-          'listIssueConnectors(projectId)',
-          'createIssueConnector(projectId, {',
-          'updateIssueConnector(ui.editingConnectorId, {',
-          'syncIssueConnector(connector.id)',
-          'const payload = await getIssueConnectorStats(connectorId)',
-        ],
       },
     ],
   },

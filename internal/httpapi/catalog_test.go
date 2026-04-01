@@ -361,8 +361,6 @@ func TestCatalogRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		TicketID:   ticketID,
 		RepoID:     repoID,
 		BranchName: "main",
-		PrStatus:   "open",
-		CiStatus:   "pending",
 	}
 
 	for _, testCase := range []struct {
@@ -412,7 +410,7 @@ func TestCatalogRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		{name: "create repo scope invalid payload", method: http.MethodPost, path: "/api/v1/projects/" + projectID.String() + "/tickets/" + ticketID.String() + "/repo-scopes", body: `{"repo_id":"bad"}`, wantStatus: http.StatusBadRequest, wantBody: "repo_id must be a valid UUID"},
 		{name: "create repo scope conflict", method: http.MethodPost, path: "/api/v1/projects/" + projectID.String() + "/tickets/" + ticketID.String() + "/repo-scopes", body: `{"repo_id":"` + repoID.String() + `"}`, wantStatus: http.StatusConflict, wantBody: "TICKET_REPO_SCOPE_CONFLICT"},
 		{name: "patch repo scope invalid scope id", method: http.MethodPatch, path: "/api/v1/projects/" + projectID.String() + "/tickets/" + ticketID.String() + "/repo-scopes/not-a-uuid", body: `{}`, wantStatus: http.StatusBadRequest, wantBody: "scopeId must be a valid UUID"},
-		{name: "patch repo scope invalid payload", method: http.MethodPatch, path: "/api/v1/projects/" + projectID.String() + "/tickets/" + ticketID.String() + "/repo-scopes/" + scopeID.String(), body: `{"pr_status":"bad"}`, wantStatus: http.StatusBadRequest, wantBody: "pr_status must be one of"},
+		{name: "patch repo scope invalid payload", method: http.MethodPatch, path: "/api/v1/projects/" + projectID.String() + "/tickets/" + ticketID.String() + "/repo-scopes/" + scopeID.String(), body: `{"repo_id":"bad"}`, wantStatus: http.StatusBadRequest, wantBody: "invalid JSON body"},
 		{name: "delete repo scope invalid ticket id", method: http.MethodDelete, path: "/api/v1/projects/" + projectID.String() + "/tickets/not-a-uuid/repo-scopes/" + scopeID.String(), wantStatus: http.StatusBadRequest, wantBody: "ticketId must be a valid UUID"},
 		{name: "delete repo scope missing", method: http.MethodDelete, path: "/api/v1/projects/" + projectID.String() + "/tickets/" + ticketID.String() + "/repo-scopes/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "resource not found"},
 	} {
@@ -1014,8 +1012,6 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 			"repo_id":          frontendRepo.ID.String(),
 			"branch_name":      "agent/codex/ASE-8",
 			"pull_request_url": "https://github.com/acme/frontend/pull/8",
-			"pr_status":        "open",
-			"ci_status":        "pending",
 		},
 		http.StatusCreated,
 		&frontendCreate,
@@ -1049,13 +1045,12 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 		http.MethodPatch,
 		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes/"+backendCreate.RepoScope.ID,
 		map[string]any{
-			"pr_status": "approved",
-			"ci_status": "passing",
+			"pull_request_url": "https://github.com/acme/backend/pull/7",
 		},
 		http.StatusOK,
 		&backendUpdate,
 	)
-	if backendUpdate.RepoScope.PrStatus != "approved" || backendUpdate.RepoScope.CiStatus != "passing" {
+	if backendUpdate.RepoScope.PullRequestURL == nil || *backendUpdate.RepoScope.PullRequestURL != "https://github.com/acme/backend/pull/7" {
 		t.Fatalf("unexpected backend scope after update: %+v", backendUpdate.RepoScope)
 	}
 
@@ -1635,8 +1630,6 @@ func (f *fakeCatalogService) CreateTicketRepoScope(_ context.Context, input doma
 		RepoID:         input.RepoID,
 		BranchName:     branchName,
 		PullRequestURL: input.PullRequestURL,
-		PrStatus:       input.PrStatus,
-		CiStatus:       input.CiStatus,
 	}
 	f.ticketScopes[item.ID] = item
 
@@ -1670,8 +1663,6 @@ func (f *fakeCatalogService) UpdateTicketRepoScope(_ context.Context, input doma
 		item.BranchName = *input.BranchName
 	}
 	item.PullRequestURL = input.PullRequestURL
-	item.PrStatus = input.PrStatus
-	item.CiStatus = input.CiStatus
 	f.ticketScopes[item.ID] = item
 
 	return item, nil

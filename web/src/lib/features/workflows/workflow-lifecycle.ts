@@ -32,7 +32,7 @@ export function createWorkflowLifecycleDraft(workflow: WorkflowSummary): Workflo
     name: workflow.name,
     pickupStatusIds: [...workflow.pickupStatusIds],
     finishStatusIds: [...workflow.finishStatusIds],
-    maxConcurrent: String(workflow.maxConcurrent),
+    maxConcurrent: workflow.maxConcurrent > 0 ? String(workflow.maxConcurrent) : '',
     maxRetryAttempts: String(workflow.maxRetry),
     timeoutMinutes: String(workflow.timeoutMinutes),
     stallTimeoutMinutes: String(Math.max(workflow.stallTimeoutMinutes, 1)),
@@ -57,7 +57,7 @@ export function parseWorkflowLifecycleDraft(
     return { ok: false, error: 'At least one finish status is required.' }
   }
 
-  const maxConcurrent = parseIntegerField(draft.maxConcurrent, 'Max concurrent', 1)
+  const maxConcurrent = parseOptionalPositiveIntegerField(draft.maxConcurrent, 'Max concurrent')
   if (!maxConcurrent.ok) return maxConcurrent
 
   const maxRetryAttempts = parseIntegerField(draft.maxRetryAttempts, 'Max retry', 0)
@@ -110,6 +110,24 @@ function parseIntegerField(value: string, label: string, minimum: number): Parse
           ? `${label} must be zero or greater.`
           : `${label} must be at least ${minimum}.`,
     }
+  }
+
+  return { ok: true, value: parsed }
+}
+
+function parseOptionalPositiveIntegerField(value: string, label: string): ParseResult<number> {
+  const normalized = value.trim()
+  if (!normalized) {
+    return { ok: true, value: 0 }
+  }
+
+  if (!/^\d+$/.test(normalized)) {
+    return { ok: false, error: `${label} must be a whole number.` }
+  }
+
+  const parsed = Number.parseInt(normalized, 10)
+  if (parsed < 1) {
+    return { ok: false, error: `${label} must be a positive integer.` }
   }
 
   return { ok: true, value: parsed }

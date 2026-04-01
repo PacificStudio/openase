@@ -16,7 +16,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	"github.com/BetterAndBetterII/openase/ent/chatconversation"
-	entissueconnector "github.com/BetterAndBetterII/openase/ent/issueconnector"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
@@ -341,21 +340,6 @@ func (_c *ProjectCreate) AddNotificationRules(v ...*NotificationRule) *ProjectCr
 		ids[i] = v[i].ID
 	}
 	return _c.AddNotificationRuleIDs(ids...)
-}
-
-// AddIssueConnectorIDs adds the "issue_connectors" edge to the IssueConnector entity by IDs.
-func (_c *ProjectCreate) AddIssueConnectorIDs(ids ...uuid.UUID) *ProjectCreate {
-	_c.mutation.AddIssueConnectorIDs(ids...)
-	return _c
-}
-
-// AddIssueConnectors adds the "issue_connectors" edges to the IssueConnector entity.
-func (_c *ProjectCreate) AddIssueConnectors(v ...*IssueConnector) *ProjectCreate {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _c.AddIssueConnectorIDs(ids...)
 }
 
 // SetDefaultAgentProvider sets the "default_agent_provider" edge to the AgentProvider entity.
@@ -734,22 +718,6 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(notificationrule.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges = append(_spec.Edges, edge)
-	}
-	if nodes := _c.mutation.IssueConnectorsIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   project.IssueConnectorsTable,
-			Columns: []string{project.IssueConnectorsColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(entissueconnector.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

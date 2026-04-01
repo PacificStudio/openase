@@ -113,7 +113,7 @@
         step="1"
         disabled={busy}
         class="h-9 w-32 text-sm"
-        placeholder="Max runs"
+        placeholder="Unlimited"
       />
       <Button size="sm" disabled={busy} onclick={handleSave}>Save</Button>
       <Button variant="ghost" size="sm" disabled={busy} onclick={exitEdit}>

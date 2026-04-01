@@ -279,6 +279,10 @@
       await handleColumnMove(columnId, 'left')
     } else if (action === 'move_right') {
       await handleColumnMove(columnId, 'right')
+    } else if (action === 'set_concurrency') {
+      await handleColumnConcurrency(columnId)
+    } else if (action === 'clear_concurrency') {
+      await handleColumnConcurrency(columnId, null)
     }
   }
 
@@ -308,6 +312,42 @@
     } catch (caughtError) {
       toastStore.error(
         caughtError instanceof ApiError ? caughtError.detail : 'Failed to reorder statuses.',
+      )
+    }
+  }
+
+  async function handleColumnConcurrency(statusId: string, nextMaxActiveRuns?: number | null) {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return
+
+    const currentStatus = allStatuses.find((status) => status.id === statusId)
+    if (!currentStatus) return
+
+    let parsedMaxActiveRuns = nextMaxActiveRuns
+    if (parsedMaxActiveRuns === undefined) {
+      const rawValue = window.prompt(
+        `Set concurrency limit for "${currentStatus.name}". Leave blank for Unlimited.`,
+        currentStatus.maxActiveRuns?.toString() ?? '',
+      )
+      if (rawValue === null) return
+
+      const normalized = rawValue.trim()
+      if (!normalized) {
+        parsedMaxActiveRuns = null
+      } else if (!/^\d+$/.test(normalized) || Number.parseInt(normalized, 10) < 1) {
+        toastStore.error('Status concurrency must be a positive integer or left blank.')
+        return
+      } else {
+        parsedMaxActiveRuns = Number.parseInt(normalized, 10)
+      }
+    }
+
+    try {
+      await updateStatus(statusId, { max_active_runs: parsedMaxActiveRuns })
+      requestReload(projectId)
+    } catch (caughtError) {
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update concurrency.',
       )
     }
   }

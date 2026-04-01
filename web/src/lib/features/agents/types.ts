@@ -62,6 +62,7 @@ export type ProviderConfig = {
   modelName: string
   modelTemperature: number
   modelMaxTokens: number
+  maxParallelRuns: number
   costPerInputToken: number
   costPerOutputToken: number
   agentCount: number
@@ -123,6 +124,7 @@ export type ProviderDraft = {
   modelName: string
   modelTemperature: string
   modelMaxTokens: string
+  maxParallelRuns: string
   costPerInputToken: string
   costPerOutputToken: string
 }
@@ -140,6 +142,7 @@ export type ProviderMutation = {
   model_name: string
   model_temperature: number
   model_max_tokens: number
+  max_parallel_runs: number
   cost_per_input_token: number
   cost_per_output_token: number
 }

@@ -582,7 +582,7 @@ func TestBuiltinRoleLibraryRoute(t *testing.T) {
 	if len(resp.Roles) != 17 {
 		t.Fatalf("expected 17 builtin roles, got %+v", resp.Roles)
 	}
-	if resp.Roles[0].HarnessPath == "" || resp.Roles[0].Content == "" {
+	if resp.Roles[0].HarnessPath == "" || resp.Roles[0].Content == "" || resp.Roles[0].WorkflowContent == "" {
 		t.Fatalf("expected role payload to include harness path and content, got %+v", resp.Roles[0])
 	}
 	if resp.Roles[0].Slug != "dispatcher" {
@@ -590,6 +590,59 @@ func TestBuiltinRoleLibraryRoute(t *testing.T) {
 	}
 	findBuiltinRoleResponse(t, resp.Roles, "harness-optimizer")
 	findBuiltinRoleResponse(t, resp.Roles, "env-provisioner")
+}
+
+func TestBuiltinRoleDetailRoute(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	resp := builtinRoleDetailResponse{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/roles/builtin/fullstack-developer",
+		nil,
+		http.StatusOK,
+		&resp,
+	)
+	if resp.Role.Slug != "fullstack-developer" {
+		t.Fatalf("expected fullstack-developer role, got %+v", resp.Role)
+	}
+	if resp.Role.Content == "" || resp.Role.WorkflowContent == "" {
+		t.Fatalf("expected role detail to include workflow content, got %+v", resp.Role)
+	}
+	if resp.Role.Content != resp.Role.WorkflowContent {
+		t.Fatalf("expected workflow content alias to match content, got %+v", resp.Role)
+	}
+}
+
+func TestBuiltinRoleDetailRouteRejectsMissingRole(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	rec := performJSONRequest(t, server, http.MethodGet, "/api/v1/roles/builtin/missing-role", "")
+	if rec.Code != http.StatusNotFound || !strings.Contains(rec.Body.String(), "ROLE_TEMPLATE_NOT_FOUND") {
+		t.Fatalf("expected ROLE_TEMPLATE_NOT_FOUND, got %d: %s", rec.Code, rec.Body.String())
+	}
 }
 
 func TestSkillBindRouteRejectsMissingSkill(t *testing.T) {

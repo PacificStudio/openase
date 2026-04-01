@@ -3,7 +3,6 @@
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
-  import { repoScopeCiStatusOptions, repoScopePrStatusOptions } from '../mutation-shared'
   import type { TicketRepoOption } from '../types'
 
   let {
@@ -18,8 +17,6 @@
       repoId: string
       branchName: string
       pullRequestUrl: string
-      prStatus: string
-      ciStatus: string
     }) => Promise<boolean> | boolean
     onCancel?: () => void
   } = $props()
@@ -27,8 +24,6 @@
   let createRepoId = $state('')
   let createBranchName = $state('')
   let createPullRequestUrl = $state('')
-  let createPrStatus = $state('')
-  let createCiStatus = $state('')
 
   $effect(() => {
     if (!repos.length) {
@@ -54,14 +49,10 @@
         repoId: createRepoId,
         branchName: createBranchName,
         pullRequestUrl: createPullRequestUrl,
-        prStatus: createPrStatus,
-        ciStatus: createCiStatus,
       })) ?? false
 
     if (accepted) {
       createPullRequestUrl = ''
-      createPrStatus = ''
-      createCiStatus = ''
     }
   }
 </script>
@@ -96,51 +87,6 @@
     <Label for="new-scope-pr-url">Pull request URL</Label>
     <Input id="new-scope-pr-url" bind:value={createPullRequestUrl} placeholder="https://..." />
   </div>
-
-  <div class="grid gap-3 sm:grid-cols-2">
-    <div class="space-y-2">
-      <Label>PR status</Label>
-      <Select.Root
-        type="single"
-        value={createPrStatus}
-        onValueChange={(value) => {
-          createPrStatus = value || ''
-        }}
-      >
-        <Select.Trigger class="w-full">
-          {repoScopePrStatusOptions.find((option) => option.value === createPrStatus)?.label ??
-            'Unset'}
-        </Select.Trigger>
-        <Select.Content>
-          {#each repoScopePrStatusOptions as option (option.value)}
-            <Select.Item value={option.value}>{option.label}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
-    </div>
-
-    <div class="space-y-2">
-      <Label>CI status</Label>
-      <Select.Root
-        type="single"
-        value={createCiStatus}
-        onValueChange={(value) => {
-          createCiStatus = value || ''
-        }}
-      >
-        <Select.Trigger class="w-full">
-          {repoScopeCiStatusOptions.find((option) => option.value === createCiStatus)?.label ??
-            'Unset'}
-        </Select.Trigger>
-        <Select.Content>
-          {#each repoScopeCiStatusOptions as option (option.value)}
-            <Select.Item value={option.value}>{option.label}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
-    </div>
-  </div>
-
   <div class="flex justify-end gap-2">
     {#if onCancel}
       <Button size="sm" variant="outline" onclick={onCancel} disabled={creating}>Cancel</Button>

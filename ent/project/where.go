@@ -791,29 +791,6 @@ func HasNotificationRulesWith(preds ...predicate.NotificationRule) predicate.Pro
 	})
 }
 
-// HasIssueConnectors applies the HasEdge predicate on the "issue_connectors" edge.
-func HasIssueConnectors() predicate.Project {
-	return predicate.Project(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, IssueConnectorsTable, IssueConnectorsColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasIssueConnectorsWith applies the HasEdge predicate on the "issue_connectors" edge with a given conditions (other predicates).
-func HasIssueConnectorsWith(preds ...predicate.IssueConnector) predicate.Project {
-	return predicate.Project(func(s *sql.Selector) {
-		step := newIssueConnectorsStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
 // HasDefaultAgentProvider applies the HasEdge predicate on the "default_agent_provider" edge.
 func HasDefaultAgentProvider() predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {

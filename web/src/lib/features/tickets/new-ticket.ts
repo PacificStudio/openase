@@ -9,6 +9,13 @@ export type TicketOption = {
   label: string
 }
 
+export type TicketStatusOption = {
+  id: string
+  label: string
+  color: string
+  stage: 'backlog' | 'unstarted' | 'started' | 'completed' | 'canceled'
+}
+
 export type TicketRepoOption = {
   id: string
   label: string
@@ -38,13 +45,15 @@ export type NewTicketPayload = {
 
 type ParsedDraft = { ok: true; payload: NewTicketPayload } | { ok: false; error: string }
 
-export function mapTicketStatusOptions(statuses: TicketStatus[]): TicketOption[] {
+export function mapTicketStatusOptions(statuses: TicketStatus[]): TicketStatusOption[] {
   return statuses
     .slice()
     .sort((left, right) => left.position - right.position)
     .map((status) => ({
       id: status.id,
       label: status.name,
+      color: status.color || '#94a3b8',
+      stage: (status.stage || 'unstarted') as TicketStatusOption['stage'],
     }))
 }
 
@@ -77,7 +86,7 @@ export function mapProjectRepoOptions(
 }
 
 export function createNewTicketDraft(
-  statusOptions: TicketOption[],
+  statusOptions: TicketStatusOption[],
   workflowOptions: TicketOption[],
   repoOptions: TicketRepoOption[],
 ): NewTicketDraft {

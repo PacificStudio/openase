@@ -125,8 +125,6 @@ type ticketRepoScopeDetailResponse struct {
 	Repo           *projectRepoResponse `json:"repo,omitempty"`
 	BranchName     string               `json:"branch_name"`
 	PullRequestURL *string              `json:"pull_request_url,omitempty"`
-	PrStatus       string               `json:"pr_status"`
-	CiStatus       string               `json:"ci_status"`
 }
 
 type ticketAssignedAgentResponse struct {
@@ -701,8 +699,6 @@ func mapTicketRepoScopeDetailResponse(
 		Repo:           repoResponse,
 		BranchName:     item.BranchName,
 		PullRequestURL: item.PullRequestURL,
-		PrStatus:       item.PrStatus.String(),
-		CiStatus:       item.CiStatus.String(),
 	}
 }
 

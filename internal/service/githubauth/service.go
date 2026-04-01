@@ -6,6 +6,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -463,6 +464,16 @@ func (s *Service) probeToken(ctx context.Context, token string, repositoryURL st
 
 	switch userResponse.StatusCode {
 	case http.StatusOK:
+		var userPayload struct {
+			Login string `json:"login"`
+		}
+		if err := json.NewDecoder(userResponse.Body).Decode(&userPayload); err != nil {
+			s.logger.Warn("github credential user probe decode failed", "repository_url", repositoryURL, "error", err)
+			probe.State = domain.ProbeStateError
+			probe.LastError = "GitHub user probe returned invalid JSON"
+			return probe, nil
+		}
+		probe.Login = strings.TrimSpace(userPayload.Login)
 		probe.State = domain.ProbeStateValid
 		probe.Valid = true
 	case http.StatusUnauthorized:

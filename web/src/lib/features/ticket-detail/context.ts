@@ -1,16 +1,9 @@
-import {
-  getTicketDetail,
-  listProjectRepos,
-  listStatuses,
-  listTickets,
-  listWorkflows,
-} from '$lib/api/openase'
+import { getTicketDetail, listProjectRepos, listStatuses, listTickets } from '$lib/api/openase'
 import type {
   ProjectRepoPayload,
   StatusPayload,
   TicketDetailPayload,
   TicketPayload,
-  WorkflowListPayload,
 } from '$lib/api/contracts'
 import type {
   HookExecution,
@@ -35,7 +28,6 @@ export async function fetchTicketDetailContext(projectId: string, ticketId: stri
   const payloads = await Promise.all([
     getTicketDetail(projectId, ticketId),
     listStatuses(projectId),
-    listWorkflows(projectId),
     listProjectRepos(projectId),
     listTickets(projectId),
   ])
@@ -46,16 +38,13 @@ export async function fetchTicketDetailContext(projectId: string, ticketId: stri
 export function buildTicketDetailContext(
   detailPayload: TicketDetailPayload,
   statusPayload: StatusPayload,
-  workflowPayload: WorkflowListPayload,
   repoPayload: ProjectRepoPayload,
   ticketPayload: TicketPayload,
   currentTicketId: string,
 ): TicketDetailContext {
   const statusMap = new Map(statusPayload.statuses.map((status) => [status.id, status]))
-  const workflowMap = new Map(workflowPayload.workflows.map((workflow) => [workflow.id, workflow]))
   const detailTicket = detailPayload.ticket
   const status = statusMap.get(detailTicket.status_id)
-  const workflow = detailTicket.workflow_id ? workflowMap.get(detailTicket.workflow_id) : null
 
   return {
     statuses: statusPayload.statuses
@@ -93,13 +82,6 @@ export function buildTicketDetailContext(
       },
       priority: normalizePriority(detailTicket.priority),
       type: normalizeType(detailTicket.type),
-      workflow: workflow
-        ? {
-            id: workflow.id,
-            name: workflow.name,
-            type: workflow.type,
-          }
-        : undefined,
       assignedAgent: detailPayload.assigned_agent
         ? {
             id: detailPayload.assigned_agent.id,
@@ -115,8 +97,6 @@ export function buildTicketDetailContext(
         repoName: scope.repo?.name ?? 'Detached repository',
         branchName: scope.branch_name,
         prUrl: scope.pull_request_url ?? undefined,
-        prStatus: scope.pr_status ?? undefined,
-        ciStatus: scope.ci_status ?? undefined,
       })),
       attemptCount: detailTicket.attempt_count,
       retryPaused: detailTicket.retry_paused,

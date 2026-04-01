@@ -42,6 +42,7 @@ export function createEmptyProviderDraft(): ProviderDraft {
     modelName: '',
     modelTemperature: '0',
     modelMaxTokens: '1',
+    maxParallelRuns: '',
     costPerInputToken: '0',
     costPerOutputToken: '0',
   }
@@ -62,6 +63,7 @@ export function providerToDraft(provider: ProviderConfig): ProviderDraft {
     modelName: provider.modelName,
     modelTemperature: String(provider.modelTemperature),
     modelMaxTokens: String(provider.modelMaxTokens),
+    maxParallelRuns: provider.maxParallelRuns > 0 ? String(provider.maxParallelRuns) : '',
     costPerInputToken: String(provider.costPerInputToken),
     costPerOutputToken: String(provider.costPerOutputToken),
   }
@@ -109,6 +111,11 @@ export function parseProviderDraft(draft: ProviderDraft): ProviderDraftParseResu
     return modelMaxTokens
   }
 
+  const maxParallelRuns = parseOptionalPositiveInteger('Max parallel runs', draft.maxParallelRuns)
+  if (!maxParallelRuns.ok) {
+    return maxParallelRuns
+  }
+
   const costPerInputToken = parseNonNegativeNumber('Input token cost', draft.costPerInputToken)
   if (!costPerInputToken.ok) {
     return costPerInputToken
@@ -137,6 +144,7 @@ export function parseProviderDraft(draft: ProviderDraft): ProviderDraftParseResu
       model_name: modelName,
       model_temperature: modelTemperature.value,
       model_max_tokens: modelMaxTokens.value,
+      max_parallel_runs: maxParallelRuns.value,
       cost_per_input_token: costPerInputToken.value,
       cost_per_output_token: costPerOutputToken.value,
     },
@@ -184,6 +192,23 @@ function parsePositiveInteger(
     return { ok: false, error: `${label} must be a positive integer.` }
   }
   return { ok: true, value }
+}
+
+function parseOptionalPositiveInteger(
+  label: string,
+  raw: string,
+): { ok: true; value: number } | { ok: false; error: string } {
+  const value = raw.trim()
+  if (!value) {
+    return { ok: true, value: 0 }
+  }
+
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return { ok: false, error: `${label} must be a positive integer.` }
+  }
+
+  return { ok: true, value: parsed }
 }
 
 function parseAuthConfig(

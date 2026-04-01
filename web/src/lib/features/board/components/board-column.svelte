@@ -70,6 +70,7 @@
   const canMoveRight = $derived(
     stageStatusIndex >= 0 && stageStatusIndex < stageStatuses.length - 1,
   )
+  const hasConcurrencyLimit = $derived(currentStatus?.maxActiveRuns != null)
 </script>
 
 <div class={cn('flex h-full min-h-0 max-w-[320px] min-w-[280px] shrink-0 flex-col', className)}>
@@ -87,6 +88,20 @@
           <Ellipsis class="size-3.5" />
         </DropdownMenu.Trigger>
         <DropdownMenu.Content align="end" class="w-40">
+          <DropdownMenu.Item
+            class="text-xs"
+            onclick={() => onColumnAction?.(column.id, 'set_concurrency')}
+          >
+            Set concurrency
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            class="text-xs"
+            onclick={() => onColumnAction?.(column.id, 'clear_concurrency')}
+            disabled={!hasConcurrencyLimit}
+          >
+            Clear concurrency
+          </DropdownMenu.Item>
+          <DropdownMenu.Separator />
           <DropdownMenu.Item
             class="gap-2 text-xs"
             onclick={() => onColumnAction?.(column.id, 'archive_all')}

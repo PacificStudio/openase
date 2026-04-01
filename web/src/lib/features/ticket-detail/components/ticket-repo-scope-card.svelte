@@ -1,31 +1,19 @@
 <script lang="ts">
-  import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
   import * as DropdownMenu from '$ui/dropdown-menu'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
-  import * as Select from '$ui/select'
-  import Circle from '@lucide/svelte/icons/circle'
   import { Ellipsis, Pencil, Trash2 } from '@lucide/svelte'
   import ExternalLink from '@lucide/svelte/icons/external-link'
   import GitBranch from '@lucide/svelte/icons/git-branch'
   import GitPullRequest from '@lucide/svelte/icons/git-pull-request'
   import { cn } from '$lib/utils'
-  import { repoScopeCiStatusOptions, repoScopePrStatusOptions } from '../mutation-shared'
   import type { TicketDetail } from '../types'
-  import {
-    ciStatusConfig,
-    getCiStatusLabel,
-    getPrStatusLabel,
-    prStatusConfig,
-  } from './ticket-repo-scope-card.shared'
 
   type ScopeDraft = {
     branchName: string
     pullRequestUrl: string
-    prStatus: string
-    ciStatus: string
   }
 
   const summaryLabelClass = 'text-muted-foreground text-[10px] font-medium uppercase tracking-wide'
@@ -44,8 +32,6 @@
       draft: {
         branchName: string
         pullRequestUrl: string
-        prStatus: string
-        ciStatus: string
       },
     ) => void
     onDelete?: (scopeId: string) => void
@@ -54,16 +40,12 @@
   let draft = $state<ScopeDraft>({
     branchName: '',
     pullRequestUrl: '',
-    prStatus: '',
-    ciStatus: '',
   })
   let editOpen = $state(false)
 
   $effect(() => {
     draft.branchName = scope.branchName
     draft.pullRequestUrl = scope.prUrl ?? ''
-    draft.prStatus = scope.prStatus ?? ''
-    draft.ciStatus = scope.ciStatus ?? ''
   })
 
   function updateDraft(key: keyof ScopeDraft, value: string | boolean) {
@@ -77,8 +59,6 @@
     draft = {
       branchName: scope.branchName,
       pullRequestUrl: scope.prUrl ?? '',
-      prStatus: scope.prStatus ?? '',
-      ciStatus: scope.ciStatus ?? '',
     }
   }
 
@@ -141,12 +121,7 @@
       <dt class={cn(summaryLabelClass, 'w-16 shrink-0 pt-0.5')}>PR</dt>
       <dd class="min-w-0 text-xs">
         <div class="flex items-center gap-1.5">
-          <GitPullRequest
-            class={cn(
-              'size-3.5 shrink-0',
-              prStatusConfig[scope.prStatus ?? 'open']?.class ?? 'text-muted-foreground',
-            )}
-          />
+          <GitPullRequest class="text-muted-foreground size-3.5 shrink-0" />
           {#if scope.prUrl}
             <a
               href={scope.prUrl}
@@ -160,31 +135,7 @@
           {:else}
             <span class="text-muted-foreground">No PR linked</span>
           {/if}
-          <Badge
-            variant="outline"
-            class={cn(
-              'h-4 shrink-0 py-0 text-[10px]',
-              scope.prStatus ? prStatusConfig[scope.prStatus]?.class : 'text-muted-foreground',
-            )}
-          >
-            {getPrStatusLabel(scope.prStatus)}
-          </Badge>
         </div>
-      </dd>
-    </div>
-
-    <div class="flex items-start gap-2">
-      <dt class={cn(summaryLabelClass, 'w-16 shrink-0 pt-0.5')}>CI</dt>
-      <dd class="text-foreground flex items-center gap-1.5 text-xs">
-        {#if scope.ciStatus}
-          {@const ci = ciStatusConfig[scope.ciStatus]}
-          {#if ci}
-            <ci.icon class={cn('size-3.5 shrink-0', ci.class)} />
-          {/if}
-        {:else}
-          <Circle class="text-muted-foreground size-3.5 shrink-0" />
-        {/if}
-        <span>{getCiStatusLabel(scope.ciStatus)}</span>
       </dd>
     </div>
   </dl>
@@ -194,9 +145,7 @@
   <Dialog.Content class="sm:max-w-xl">
     <Dialog.Header>
       <Dialog.Title>Edit repo scope</Dialog.Title>
-      <Dialog.Description>
-        Update the branch, PR, and CI details for {scope.repoName}.
-      </Dialog.Description>
+      <Dialog.Description>Update the branch and PR link for {scope.repoName}.</Dialog.Description>
     </Dialog.Header>
 
     <div class="grid gap-3 py-4">
@@ -217,50 +166,6 @@
           placeholder="https://..."
           oninput={(event) => updateDraft('pullRequestUrl', event.currentTarget.value)}
         />
-      </div>
-
-      <div class="grid gap-3 sm:grid-cols-2">
-        <div class="space-y-2">
-          <Label>PR status</Label>
-          <Select.Root
-            type="single"
-            value={draft.prStatus}
-            onValueChange={(value) => {
-              updateDraft('prStatus', value || '')
-            }}
-          >
-            <Select.Trigger class="w-full">
-              {repoScopePrStatusOptions.find((option) => option.value === draft.prStatus)?.label ??
-                'Unset'}
-            </Select.Trigger>
-            <Select.Content>
-              {#each repoScopePrStatusOptions as option (option.value)}
-                <Select.Item value={option.value}>{option.label}</Select.Item>
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-
-        <div class="space-y-2">
-          <Label>CI status</Label>
-          <Select.Root
-            type="single"
-            value={draft.ciStatus}
-            onValueChange={(value) => {
-              updateDraft('ciStatus', value || '')
-            }}
-          >
-            <Select.Trigger class="w-full">
-              {repoScopeCiStatusOptions.find((option) => option.value === draft.ciStatus)?.label ??
-                'Unset'}
-            </Select.Trigger>
-            <Select.Content>
-              {#each repoScopeCiStatusOptions as option (option.value)}
-                <Select.Item value={option.value}>{option.label}</Select.Item>
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
       </div>
     </div>
 

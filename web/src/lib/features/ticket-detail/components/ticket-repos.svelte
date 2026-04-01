@@ -25,16 +25,12 @@
       repoId: string
       branchName: string
       pullRequestUrl: string
-      prStatus: string
-      ciStatus: string
     }) => Promise<boolean> | boolean
     onUpdateScope?: (
       scopeId: string,
       draft: {
         branchName: string
         pullRequestUrl: string
-        prStatus: string
-        ciStatus: string
       },
     ) => void
     onDeleteScope?: (scopeId: string) => void
@@ -46,8 +42,6 @@
     repoId: string
     branchName: string
     pullRequestUrl: string
-    prStatus: string
-    ciStatus: string
   }) {
     const accepted = (await onCreateScope?.(draft)) ?? false
     if (accepted) {
@@ -74,9 +68,9 @@
       <Dialog.Content class="sm:max-w-xl">
         <Dialog.Header>
           <Dialog.Title>Add repo scope</Dialog.Title>
-          <Dialog.Description>
-            Link a repository branch and its PR/CI lifecycle to this ticket.
-          </Dialog.Description>
+          <Dialog.Description
+            >Link a repository branch and PR reference to this ticket.</Dialog.Description
+          >
         </Dialog.Header>
 
         <TicketRepoCreateForm

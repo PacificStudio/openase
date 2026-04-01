@@ -12,7 +12,7 @@
 
   let projectName = $state('')
   let description = $state('')
-  let maxConcurrentAgents = $state('1')
+  let maxConcurrentAgents = $state('')
   let saving = $state(false)
   let archiving = $state(false)
 
@@ -21,13 +21,16 @@
     if (!project) {
       projectName = ''
       description = ''
-      maxConcurrentAgents = '1'
+      maxConcurrentAgents = ''
       return
     }
 
     projectName = project.name
     description = project.description
-    maxConcurrentAgents = String(project.max_concurrent_agents)
+    maxConcurrentAgents =
+      typeof project.max_concurrent_agents === 'number' && project.max_concurrent_agents > 0
+        ? String(project.max_concurrent_agents)
+        : ''
   })
 
   async function handleSave() {
@@ -37,10 +40,22 @@
     saving = true
 
     try {
+      const normalizedMaxConcurrentAgents = maxConcurrentAgents.trim()
+      const parsedMaxConcurrentAgents = normalizedMaxConcurrentAgents
+        ? Number(normalizedMaxConcurrentAgents)
+        : 0
+      if (!Number.isInteger(parsedMaxConcurrentAgents) || parsedMaxConcurrentAgents < 0) {
+        toastStore.error('Max concurrent agents must be a positive integer or left blank.')
+        return
+      }
+      if (parsedMaxConcurrentAgents === 0 && normalizedMaxConcurrentAgents !== '') {
+        toastStore.error('Max concurrent agents must be a positive integer or left blank.')
+        return
+      }
       const payload = await updateProject(projectId, {
         name: projectName,
         description,
-        max_concurrent_agents: Number(maxConcurrentAgents),
+        max_concurrent_agents: parsedMaxConcurrentAgents,
       })
       appStore.currentProject = payload.project
       toastStore.success('Project settings saved.')
@@ -102,9 +117,17 @@
 
     <div class="space-y-2">
       <Label for="max-agents">Max concurrent agents</Label>
-      <Input id="max-agents" type="number" bind:value={maxConcurrentAgents} class="w-24" />
+      <Input
+        id="max-agents"
+        type="number"
+        min="1"
+        step="1"
+        bind:value={maxConcurrentAgents}
+        class="w-24"
+        placeholder="Unlimited"
+      />
       <p class="text-muted-foreground text-xs">
-        Limit the number of agents running simultaneously.
+        Leave blank for unlimited. If set, use a positive integer.
       </p>
     </div>
   </div>

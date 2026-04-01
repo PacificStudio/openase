@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	securitySettingsConnectorEndpoint = "POST /api/v1/webhooks/:connector/:provider"
+	securitySettingsConnectorEndpoint = "Not supported in current version"
 	//nolint:gosec // This is an environment variable name, not a credential value.
 	securitySettingsAgentTokenEnvVar    = "OPENASE_AGENT_TOKEN"
 	securitySettingsAgentTokenTransport = "Bearer token"
@@ -46,6 +46,7 @@ type securityGitHubTokenProbeResponse struct {
 	State       string   `json:"state"`
 	Configured  bool     `json:"configured"`
 	Valid       bool     `json:"valid"`
+	Login       string   `json:"login,omitempty"`
 	Permissions []string `json:"permissions"`
 	RepoAccess  string   `json:"repo_access"`
 	CheckedAt   *string  `json:"checked_at,omitempty"`
@@ -311,6 +312,7 @@ func mapGitHubTokenProbe(probe githubauthdomain.TokenProbe) securityGitHubTokenP
 		State:       string(probe.State),
 		Configured:  probe.Configured,
 		Valid:       probe.Valid,
+		Login:       probe.Login,
 		Permissions: slices.Clone(probe.Permissions),
 		RepoAccess:  string(probe.RepoAccess),
 		LastError:   probe.LastError,

@@ -5,6 +5,8 @@
   import Sidebar from '$lib/components/layout/sidebar.svelte'
   import TopBar from '$lib/components/layout/top-bar.svelte'
   import { ProjectAssistantSheet } from '$lib/features/chat'
+  import { OrganizationCreationDialog } from '$lib/features/catalog-creation'
+  import { ProjectCreationDialog } from '$lib/features/catalog-creation'
   import { GlobalSearchDialog } from '$lib/features/search'
   import { NewTicketDialog } from '$lib/features/tickets'
   import { TicketDrawer } from '$lib/features/ticket-detail'
@@ -28,6 +30,8 @@
     appStore.rightPanelContent?.type === 'ticket' ? appStore.rightPanelContent.id : null,
   )
   let searchOpen = $state(false)
+  let createOrgOpen = $state(false)
+  let createProjectOpen = $state(false)
   let projectAssistantOpen = $state(false)
   let projectAssistantPrompt = $state('')
   const projectHealth = $derived.by(() => {
@@ -167,6 +171,17 @@
     projectAssistantOpen = true
   }
 
+  // Listen for store-based project assistant requests (from onboarding, etc.)
+  $effect(() => {
+    const request = appStore.projectAssistantRequest
+    if (request) {
+      const consumed = appStore.consumeProjectAssistantRequest()
+      if (consumed) {
+        handleOpenProjectAssistant(consumed.prompt)
+      }
+    }
+  })
+
   function handleNewTicket() {
     appStore.openNewTicketDialog()
   }
@@ -191,6 +206,12 @@
     onToggleTheme={handleToggleTheme}
     onNewTicket={handleNewTicket}
     onOpenSearch={handleOpenSearch}
+    onCreateOrg={() => {
+      createOrgOpen = true
+    }}
+    onCreateProject={() => {
+      createProjectOpen = true
+    }}
   />
 
   <div class="flex flex-1 overflow-hidden">
@@ -231,6 +252,15 @@
   />
 
   <NewTicketDialog />
+
+  <OrganizationCreationDialog bind:open={createOrgOpen} />
+
+  <ProjectCreationDialog
+    orgId={appStore.currentOrg?.id ?? ''}
+    providers={appStore.providers ?? []}
+    defaultProviderId={appStore.currentProject?.default_agent_provider_id ?? null}
+    bind:open={createProjectOpen}
+  />
 
   <ProjectAssistantSheet
     bind:open={projectAssistantOpen}

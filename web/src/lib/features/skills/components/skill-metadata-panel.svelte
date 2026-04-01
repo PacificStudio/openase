@@ -15,7 +15,6 @@
   let {
     skill,
     workflows = [],
-    editing = false,
     busy = false,
     editDescription = $bindable(''),
     history = [],
@@ -23,7 +22,6 @@
   }: {
     skill: Skill
     workflows?: Workflow[]
-    editing?: boolean
     busy?: boolean
     editDescription?: string
     history?: SkillHistoryEntry[]
@@ -41,18 +39,12 @@
     <h4 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
       Description
     </h4>
-    {#if editing}
-      <Input
-        bind:value={editDescription}
-        placeholder="Human-readable description"
-        class="h-8 text-xs"
-        disabled={busy}
-      />
-    {:else}
-      <p class="text-muted-foreground text-xs leading-relaxed">
-        {skill.description || 'No description'}
-      </p>
-    {/if}
+    <Input
+      bind:value={editDescription}
+      placeholder="Human-readable description"
+      class="h-8 text-xs"
+      disabled={busy}
+    />
   </section>
 
   <!-- Metadata -->

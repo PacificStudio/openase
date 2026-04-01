@@ -371,23 +371,6 @@ func TestOrchestratorGuardAndConstructorCoverage(t *testing.T) {
 		t.Fatalf("MachineMonitor.RunTick(no collector) = %+v, %v", report, err)
 	}
 
-	syncer := NewConnectorSyncer(nil, nil, nil, nil)
-	if syncer == nil || syncer.logger == nil || syncer.now == nil {
-		t.Fatalf("NewConnectorSyncer() = %+v", syncer)
-	}
-	if _, err := syncer.SyncAll(ctx); err == nil || err.Error() != "connector syncer unavailable" {
-		t.Fatalf("ConnectorSyncer.SyncAll(unavailable) error = %v", err)
-	}
-	if _, err := syncer.SyncConnector(ctx, uuid.New()); err == nil || err.Error() != "connector syncer unavailable" {
-		t.Fatalf("ConnectorSyncer.SyncConnector(unavailable) error = %v", err)
-	}
-	if _, err := syncer.HandleWebhook(ctx, uuid.New(), nil, nil); err == nil || err.Error() != "connector syncer unavailable" {
-		t.Fatalf("ConnectorSyncer.HandleWebhook(unavailable) error = %v", err)
-	}
-	if err := syncer.SyncBack(ctx, SyncBackRequest{ConnectorID: uuid.New()}); err == nil || err.Error() != "connector syncer unavailable" {
-		t.Fatalf("ConnectorSyncer.SyncBack(unavailable) error = %v", err)
-	}
-
 	if err := (*RuntimeLauncher)(nil).Close(ctx); err != nil {
 		t.Fatalf("RuntimeLauncher.Close(nil) error = %v", err)
 	}

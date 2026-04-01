@@ -27,7 +27,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
 	"github.com/BetterAndBetterII/openase/ent/chatturn"
-	entissueconnector "github.com/BetterAndBetterII/openase/ent/issueconnector"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
@@ -79,8 +78,6 @@ type Client struct {
 	ChatPendingInterrupt *ChatPendingInterruptClient
 	// ChatTurn is the client for interacting with the ChatTurn builders.
 	ChatTurn *ChatTurnClient
-	// IssueConnector is the client for interacting with the IssueConnector builders.
-	IssueConnector *IssueConnectorClient
 	// Machine is the client for interacting with the Machine builders.
 	Machine *MachineClient
 	// NotificationChannel is the client for interacting with the NotificationChannel builders.
@@ -147,7 +144,6 @@ func (c *Client) init() {
 	c.ChatEntry = NewChatEntryClient(c.config)
 	c.ChatPendingInterrupt = NewChatPendingInterruptClient(c.config)
 	c.ChatTurn = NewChatTurnClient(c.config)
-	c.IssueConnector = NewIssueConnectorClient(c.config)
 	c.Machine = NewMachineClient(c.config)
 	c.NotificationChannel = NewNotificationChannelClient(c.config)
 	c.NotificationRule = NewNotificationRuleClient(c.config)
@@ -273,7 +269,6 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ChatEntry:             NewChatEntryClient(cfg),
 		ChatPendingInterrupt:  NewChatPendingInterruptClient(cfg),
 		ChatTurn:              NewChatTurnClient(cfg),
-		IssueConnector:        NewIssueConnectorClient(cfg),
 		Machine:               NewMachineClient(cfg),
 		NotificationChannel:   NewNotificationChannelClient(cfg),
 		NotificationRule:      NewNotificationRuleClient(cfg),
@@ -326,7 +321,6 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ChatEntry:             NewChatEntryClient(cfg),
 		ChatPendingInterrupt:  NewChatPendingInterruptClient(cfg),
 		ChatTurn:              NewChatTurnClient(cfg),
-		IssueConnector:        NewIssueConnectorClient(cfg),
 		Machine:               NewMachineClient(cfg),
 		NotificationChannel:   NewNotificationChannelClient(cfg),
 		NotificationRule:      NewNotificationRuleClient(cfg),
@@ -380,13 +374,12 @@ func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
 		c.AgentToken, c.AgentTraceEvent, c.ChatConversation, c.ChatEntry,
-		c.ChatPendingInterrupt, c.ChatTurn, c.IssueConnector, c.Machine,
-		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
-		c.ProjectRepo, c.ScheduledJob, c.Skill, c.SkillBlob, c.SkillVersion,
-		c.SkillVersionFile, c.Ticket, c.TicketComment, c.TicketCommentRevision,
-		c.TicketDependency, c.TicketExternalLink, c.TicketRepoScope,
-		c.TicketRepoWorkspace, c.TicketStatus, c.Workflow, c.WorkflowSkillBinding,
-		c.WorkflowVersion,
+		c.ChatPendingInterrupt, c.ChatTurn, c.Machine, c.NotificationChannel,
+		c.NotificationRule, c.Organization, c.Project, c.ProjectRepo, c.ScheduledJob,
+		c.Skill, c.SkillBlob, c.SkillVersion, c.SkillVersionFile, c.Ticket,
+		c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
+		c.TicketExternalLink, c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus,
+		c.Workflow, c.WorkflowSkillBinding, c.WorkflowVersion,
 	} {
 		n.Use(hooks...)
 	}
@@ -398,13 +391,12 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
 		c.AgentToken, c.AgentTraceEvent, c.ChatConversation, c.ChatEntry,
-		c.ChatPendingInterrupt, c.ChatTurn, c.IssueConnector, c.Machine,
-		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
-		c.ProjectRepo, c.ScheduledJob, c.Skill, c.SkillBlob, c.SkillVersion,
-		c.SkillVersionFile, c.Ticket, c.TicketComment, c.TicketCommentRevision,
-		c.TicketDependency, c.TicketExternalLink, c.TicketRepoScope,
-		c.TicketRepoWorkspace, c.TicketStatus, c.Workflow, c.WorkflowSkillBinding,
-		c.WorkflowVersion,
+		c.ChatPendingInterrupt, c.ChatTurn, c.Machine, c.NotificationChannel,
+		c.NotificationRule, c.Organization, c.Project, c.ProjectRepo, c.ScheduledJob,
+		c.Skill, c.SkillBlob, c.SkillVersion, c.SkillVersionFile, c.Ticket,
+		c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
+		c.TicketExternalLink, c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus,
+		c.Workflow, c.WorkflowSkillBinding, c.WorkflowVersion,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -435,8 +427,6 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ChatPendingInterrupt.mutate(ctx, m)
 	case *ChatTurnMutation:
 		return c.ChatTurn.mutate(ctx, m)
-	case *IssueConnectorMutation:
-		return c.IssueConnector.mutate(ctx, m)
 	case *MachineMutation:
 		return c.Machine.mutate(ctx, m)
 	case *NotificationChannelMutation:
@@ -2717,155 +2707,6 @@ func (c *ChatTurnClient) mutate(ctx context.Context, m *ChatTurnMutation) (Value
 	}
 }
 
-// IssueConnectorClient is a client for the IssueConnector schema.
-type IssueConnectorClient struct {
-	config
-}
-
-// NewIssueConnectorClient returns a client for the IssueConnector from the given config.
-func NewIssueConnectorClient(c config) *IssueConnectorClient {
-	return &IssueConnectorClient{config: c}
-}
-
-// Use adds a list of mutation hooks to the hooks stack.
-// A call to `Use(f, g, h)` equals to `entissueconnector.Hooks(f(g(h())))`.
-func (c *IssueConnectorClient) Use(hooks ...Hook) {
-	c.hooks.IssueConnector = append(c.hooks.IssueConnector, hooks...)
-}
-
-// Intercept adds a list of query interceptors to the interceptors stack.
-// A call to `Intercept(f, g, h)` equals to `entissueconnector.Intercept(f(g(h())))`.
-func (c *IssueConnectorClient) Intercept(interceptors ...Interceptor) {
-	c.inters.IssueConnector = append(c.inters.IssueConnector, interceptors...)
-}
-
-// Create returns a builder for creating a IssueConnector entity.
-func (c *IssueConnectorClient) Create() *IssueConnectorCreate {
-	mutation := newIssueConnectorMutation(c.config, OpCreate)
-	return &IssueConnectorCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// CreateBulk returns a builder for creating a bulk of IssueConnector entities.
-func (c *IssueConnectorClient) CreateBulk(builders ...*IssueConnectorCreate) *IssueConnectorCreateBulk {
-	return &IssueConnectorCreateBulk{config: c.config, builders: builders}
-}
-
-// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
-// a builder and applies setFunc on it.
-func (c *IssueConnectorClient) MapCreateBulk(slice any, setFunc func(*IssueConnectorCreate, int)) *IssueConnectorCreateBulk {
-	rv := reflect.ValueOf(slice)
-	if rv.Kind() != reflect.Slice {
-		return &IssueConnectorCreateBulk{err: fmt.Errorf("calling to IssueConnectorClient.MapCreateBulk with wrong type %T, need slice", slice)}
-	}
-	builders := make([]*IssueConnectorCreate, rv.Len())
-	for i := 0; i < rv.Len(); i++ {
-		builders[i] = c.Create()
-		setFunc(builders[i], i)
-	}
-	return &IssueConnectorCreateBulk{config: c.config, builders: builders}
-}
-
-// Update returns an update builder for IssueConnector.
-func (c *IssueConnectorClient) Update() *IssueConnectorUpdate {
-	mutation := newIssueConnectorMutation(c.config, OpUpdate)
-	return &IssueConnectorUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOne returns an update builder for the given entity.
-func (c *IssueConnectorClient) UpdateOne(_m *IssueConnector) *IssueConnectorUpdateOne {
-	mutation := newIssueConnectorMutation(c.config, OpUpdateOne, withIssueConnector(_m))
-	return &IssueConnectorUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOneID returns an update builder for the given id.
-func (c *IssueConnectorClient) UpdateOneID(id uuid.UUID) *IssueConnectorUpdateOne {
-	mutation := newIssueConnectorMutation(c.config, OpUpdateOne, withIssueConnectorID(id))
-	return &IssueConnectorUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// Delete returns a delete builder for IssueConnector.
-func (c *IssueConnectorClient) Delete() *IssueConnectorDelete {
-	mutation := newIssueConnectorMutation(c.config, OpDelete)
-	return &IssueConnectorDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// DeleteOne returns a builder for deleting the given entity.
-func (c *IssueConnectorClient) DeleteOne(_m *IssueConnector) *IssueConnectorDeleteOne {
-	return c.DeleteOneID(_m.ID)
-}
-
-// DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *IssueConnectorClient) DeleteOneID(id uuid.UUID) *IssueConnectorDeleteOne {
-	builder := c.Delete().Where(entissueconnector.ID(id))
-	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
-	return &IssueConnectorDeleteOne{builder}
-}
-
-// Query returns a query builder for IssueConnector.
-func (c *IssueConnectorClient) Query() *IssueConnectorQuery {
-	return &IssueConnectorQuery{
-		config: c.config,
-		ctx:    &QueryContext{Type: TypeIssueConnector},
-		inters: c.Interceptors(),
-	}
-}
-
-// Get returns a IssueConnector entity by its id.
-func (c *IssueConnectorClient) Get(ctx context.Context, id uuid.UUID) (*IssueConnector, error) {
-	return c.Query().Where(entissueconnector.ID(id)).Only(ctx)
-}
-
-// GetX is like Get, but panics if an error occurs.
-func (c *IssueConnectorClient) GetX(ctx context.Context, id uuid.UUID) *IssueConnector {
-	obj, err := c.Get(ctx, id)
-	if err != nil {
-		panic(err)
-	}
-	return obj
-}
-
-// QueryProject queries the project edge of a IssueConnector.
-func (c *IssueConnectorClient) QueryProject(_m *IssueConnector) *ProjectQuery {
-	query := (&ProjectClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(entissueconnector.Table, entissueconnector.FieldID, id),
-			sqlgraph.To(project.Table, project.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, entissueconnector.ProjectTable, entissueconnector.ProjectColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// Hooks returns the client hooks.
-func (c *IssueConnectorClient) Hooks() []Hook {
-	return c.hooks.IssueConnector
-}
-
-// Interceptors returns the client interceptors.
-func (c *IssueConnectorClient) Interceptors() []Interceptor {
-	return c.inters.IssueConnector
-}
-
-func (c *IssueConnectorClient) mutate(ctx context.Context, m *IssueConnectorMutation) (Value, error) {
-	switch m.Op() {
-	case OpCreate:
-		return (&IssueConnectorCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdate:
-		return (&IssueConnectorUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdateOne:
-		return (&IssueConnectorUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpDelete, OpDeleteOne:
-		return (&IssueConnectorDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
-	default:
-		return nil, fmt.Errorf("ent: unknown IssueConnector mutation op: %q", m.Op())
-	}
-}
-
 // MachineClient is a client for the Machine schema.
 type MachineClient struct {
 	config
@@ -3915,22 +3756,6 @@ func (c *ProjectClient) QueryNotificationRules(_m *Project) *NotificationRuleQue
 			sqlgraph.From(project.Table, project.FieldID, id),
 			sqlgraph.To(notificationrule.Table, notificationrule.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, project.NotificationRulesTable, project.NotificationRulesColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// QueryIssueConnectors queries the issue_connectors edge of a Project.
-func (c *ProjectClient) QueryIssueConnectors(_m *Project) *IssueConnectorQuery {
-	query := (&IssueConnectorClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(project.Table, project.FieldID, id),
-			sqlgraph.To(entissueconnector.Table, entissueconnector.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, project.IssueConnectorsTable, project.IssueConnectorsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -7253,19 +7078,19 @@ type (
 	hooks struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn,
-		IssueConnector, Machine, NotificationChannel, NotificationRule, Organization,
-		Project, ProjectRepo, ScheduledJob, Skill, SkillBlob, SkillVersion,
-		SkillVersionFile, Ticket, TicketComment, TicketCommentRevision,
-		TicketDependency, TicketExternalLink, TicketRepoScope, TicketRepoWorkspace,
-		TicketStatus, Workflow, WorkflowSkillBinding, WorkflowVersion []ent.Hook
+		Machine, NotificationChannel, NotificationRule, Organization, Project,
+		ProjectRepo, ScheduledJob, Skill, SkillBlob, SkillVersion, SkillVersionFile,
+		Ticket, TicketComment, TicketCommentRevision, TicketDependency,
+		TicketExternalLink, TicketRepoScope, TicketRepoWorkspace, TicketStatus,
+		Workflow, WorkflowSkillBinding, WorkflowVersion []ent.Hook
 	}
 	inters struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn,
-		IssueConnector, Machine, NotificationChannel, NotificationRule, Organization,
-		Project, ProjectRepo, ScheduledJob, Skill, SkillBlob, SkillVersion,
-		SkillVersionFile, Ticket, TicketComment, TicketCommentRevision,
-		TicketDependency, TicketExternalLink, TicketRepoScope, TicketRepoWorkspace,
-		TicketStatus, Workflow, WorkflowSkillBinding, WorkflowVersion []ent.Interceptor
+		Machine, NotificationChannel, NotificationRule, Organization, Project,
+		ProjectRepo, ScheduledJob, Skill, SkillBlob, SkillVersion, SkillVersionFile,
+		Ticket, TicketComment, TicketCommentRevision, TicketDependency,
+		TicketExternalLink, TicketRepoScope, TicketRepoWorkspace, TicketStatus,
+		Workflow, WorkflowSkillBinding, WorkflowVersion []ent.Interceptor
 	}
 )

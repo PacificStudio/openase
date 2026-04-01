@@ -22,7 +22,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
 	"github.com/BetterAndBetterII/openase/ent/chatturn"
-	entissueconnector "github.com/BetterAndBetterII/openase/ent/issueconnector"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
@@ -47,7 +46,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/BetterAndBetterII/openase/internal/domain/githubauth"
-	"github.com/BetterAndBetterII/openase/internal/domain/issueconnector"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
@@ -72,7 +70,6 @@ const (
 	TypeChatEntry             = "ChatEntry"
 	TypeChatPendingInterrupt  = "ChatPendingInterrupt"
 	TypeChatTurn              = "ChatTurn"
-	TypeIssueConnector        = "IssueConnector"
 	TypeMachine               = "Machine"
 	TypeNotificationChannel   = "NotificationChannel"
 	TypeNotificationRule      = "NotificationRule"
@@ -12811,865 +12808,6 @@ func (m *ChatTurnMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown ChatTurn edge %s", name)
 }
 
-// IssueConnectorMutation represents an operation that mutates the IssueConnector nodes in the graph.
-type IssueConnectorMutation struct {
-	config
-	op             Op
-	typ            string
-	id             *uuid.UUID
-	_type          *string
-	name           *string
-	status         *string
-	_config        *issueconnector.Config
-	last_sync_at   *time.Time
-	last_error     *string
-	stats          *issueconnector.SyncStats
-	created_at     *time.Time
-	clearedFields  map[string]struct{}
-	project        *uuid.UUID
-	clearedproject bool
-	done           bool
-	oldValue       func(context.Context) (*IssueConnector, error)
-	predicates     []predicate.IssueConnector
-}
-
-var _ ent.Mutation = (*IssueConnectorMutation)(nil)
-
-// issueconnectorOption allows management of the mutation configuration using functional options.
-type issueconnectorOption func(*IssueConnectorMutation)
-
-// newIssueConnectorMutation creates new mutation for the IssueConnector entity.
-func newIssueConnectorMutation(c config, op Op, opts ...issueconnectorOption) *IssueConnectorMutation {
-	m := &IssueConnectorMutation{
-		config:        c,
-		op:            op,
-		typ:           TypeIssueConnector,
-		clearedFields: make(map[string]struct{}),
-	}
-	for _, opt := range opts {
-		opt(m)
-	}
-	return m
-}
-
-// withIssueConnectorID sets the ID field of the mutation.
-func withIssueConnectorID(id uuid.UUID) issueconnectorOption {
-	return func(m *IssueConnectorMutation) {
-		var (
-			err   error
-			once  sync.Once
-			value *IssueConnector
-		)
-		m.oldValue = func(ctx context.Context) (*IssueConnector, error) {
-			once.Do(func() {
-				if m.done {
-					err = errors.New("querying old values post mutation is not allowed")
-				} else {
-					value, err = m.Client().IssueConnector.Get(ctx, id)
-				}
-			})
-			return value, err
-		}
-		m.id = &id
-	}
-}
-
-// withIssueConnector sets the old IssueConnector of the mutation.
-func withIssueConnector(node *IssueConnector) issueconnectorOption {
-	return func(m *IssueConnectorMutation) {
-		m.oldValue = func(context.Context) (*IssueConnector, error) {
-			return node, nil
-		}
-		m.id = &node.ID
-	}
-}
-
-// Client returns a new `ent.Client` from the mutation. If the mutation was
-// executed in a transaction (ent.Tx), a transactional client is returned.
-func (m IssueConnectorMutation) Client() *Client {
-	client := &Client{config: m.config}
-	client.init()
-	return client
-}
-
-// Tx returns an `ent.Tx` for mutations that were executed in transactions;
-// it returns an error otherwise.
-func (m IssueConnectorMutation) Tx() (*Tx, error) {
-	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("ent: mutation is not running in a transaction")
-	}
-	tx := &Tx{config: m.config}
-	tx.init()
-	return tx, nil
-}
-
-// SetID sets the value of the id field. Note that this
-// operation is only accepted on creation of IssueConnector entities.
-func (m *IssueConnectorMutation) SetID(id uuid.UUID) {
-	m.id = &id
-}
-
-// ID returns the ID value in the mutation. Note that the ID is only available
-// if it was provided to the builder or after it was returned from the database.
-func (m *IssueConnectorMutation) ID() (id uuid.UUID, exists bool) {
-	if m.id == nil {
-		return
-	}
-	return *m.id, true
-}
-
-// IDs queries the database and returns the entity ids that match the mutation's predicate.
-// That means, if the mutation is applied within a transaction with an isolation level such
-// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
-// or updated by the mutation.
-func (m *IssueConnectorMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
-	switch {
-	case m.op.Is(OpUpdateOne | OpDeleteOne):
-		id, exists := m.ID()
-		if exists {
-			return []uuid.UUID{id}, nil
-		}
-		fallthrough
-	case m.op.Is(OpUpdate | OpDelete):
-		return m.Client().IssueConnector.Query().Where(m.predicates...).IDs(ctx)
-	default:
-		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
-	}
-}
-
-// SetProjectID sets the "project_id" field.
-func (m *IssueConnectorMutation) SetProjectID(u uuid.UUID) {
-	m.project = &u
-}
-
-// ProjectID returns the value of the "project_id" field in the mutation.
-func (m *IssueConnectorMutation) ProjectID() (r uuid.UUID, exists bool) {
-	v := m.project
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldProjectID returns the old "project_id" field's value of the IssueConnector entity.
-// If the IssueConnector object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *IssueConnectorMutation) OldProjectID(ctx context.Context) (v uuid.UUID, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldProjectID is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldProjectID requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldProjectID: %w", err)
-	}
-	return oldValue.ProjectID, nil
-}
-
-// ResetProjectID resets all changes to the "project_id" field.
-func (m *IssueConnectorMutation) ResetProjectID() {
-	m.project = nil
-}
-
-// SetType sets the "type" field.
-func (m *IssueConnectorMutation) SetType(s string) {
-	m._type = &s
-}
-
-// GetType returns the value of the "type" field in the mutation.
-func (m *IssueConnectorMutation) GetType() (r string, exists bool) {
-	v := m._type
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldType returns the old "type" field's value of the IssueConnector entity.
-// If the IssueConnector object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *IssueConnectorMutation) OldType(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldType is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldType requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldType: %w", err)
-	}
-	return oldValue.Type, nil
-}
-
-// ResetType resets all changes to the "type" field.
-func (m *IssueConnectorMutation) ResetType() {
-	m._type = nil
-}
-
-// SetName sets the "name" field.
-func (m *IssueConnectorMutation) SetName(s string) {
-	m.name = &s
-}
-
-// Name returns the value of the "name" field in the mutation.
-func (m *IssueConnectorMutation) Name() (r string, exists bool) {
-	v := m.name
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldName returns the old "name" field's value of the IssueConnector entity.
-// If the IssueConnector object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *IssueConnectorMutation) OldName(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldName is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldName requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldName: %w", err)
-	}
-	return oldValue.Name, nil
-}
-
-// ResetName resets all changes to the "name" field.
-func (m *IssueConnectorMutation) ResetName() {
-	m.name = nil
-}
-
-// SetStatus sets the "status" field.
-func (m *IssueConnectorMutation) SetStatus(s string) {
-	m.status = &s
-}
-
-// Status returns the value of the "status" field in the mutation.
-func (m *IssueConnectorMutation) Status() (r string, exists bool) {
-	v := m.status
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldStatus returns the old "status" field's value of the IssueConnector entity.
-// If the IssueConnector object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *IssueConnectorMutation) OldStatus(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldStatus requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
-	}
-	return oldValue.Status, nil
-}
-
-// ResetStatus resets all changes to the "status" field.
-func (m *IssueConnectorMutation) ResetStatus() {
-	m.status = nil
-}
-
-// SetConfig sets the "config" field.
-func (m *IssueConnectorMutation) SetConfig(i issueconnector.Config) {
-	m._config = &i
-}
-
-// Config returns the value of the "config" field in the mutation.
-func (m *IssueConnectorMutation) Config() (r issueconnector.Config, exists bool) {
-	v := m._config
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldConfig returns the old "config" field's value of the IssueConnector entity.
-// If the IssueConnector object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *IssueConnectorMutation) OldConfig(ctx context.Context) (v issueconnector.Config, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldConfig is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldConfig requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldConfig: %w", err)
-	}
-	return oldValue.Config, nil
-}
-
-// ResetConfig resets all changes to the "config" field.
-func (m *IssueConnectorMutation) ResetConfig() {
-	m._config = nil
-}
-
-// SetLastSyncAt sets the "last_sync_at" field.
-func (m *IssueConnectorMutation) SetLastSyncAt(t time.Time) {
-	m.last_sync_at = &t
-}
-
-// LastSyncAt returns the value of the "last_sync_at" field in the mutation.
-func (m *IssueConnectorMutation) LastSyncAt() (r time.Time, exists bool) {
-	v := m.last_sync_at
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldLastSyncAt returns the old "last_sync_at" field's value of the IssueConnector entity.
-// If the IssueConnector object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *IssueConnectorMutation) OldLastSyncAt(ctx context.Context) (v *time.Time, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldLastSyncAt is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldLastSyncAt requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldLastSyncAt: %w", err)
-	}
-	return oldValue.LastSyncAt, nil
-}
-
-// ClearLastSyncAt clears the value of the "last_sync_at" field.
-func (m *IssueConnectorMutation) ClearLastSyncAt() {
-	m.last_sync_at = nil
-	m.clearedFields[entissueconnector.FieldLastSyncAt] = struct{}{}
-}
-
-// LastSyncAtCleared returns if the "last_sync_at" field was cleared in this mutation.
-func (m *IssueConnectorMutation) LastSyncAtCleared() bool {
-	_, ok := m.clearedFields[entissueconnector.FieldLastSyncAt]
-	return ok
-}
-
-// ResetLastSyncAt resets all changes to the "last_sync_at" field.
-func (m *IssueConnectorMutation) ResetLastSyncAt() {
-	m.last_sync_at = nil
-	delete(m.clearedFields, entissueconnector.FieldLastSyncAt)
-}
-
-// SetLastError sets the "last_error" field.
-func (m *IssueConnectorMutation) SetLastError(s string) {
-	m.last_error = &s
-}
-
-// LastError returns the value of the "last_error" field in the mutation.
-func (m *IssueConnectorMutation) LastError() (r string, exists bool) {
-	v := m.last_error
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldLastError returns the old "last_error" field's value of the IssueConnector entity.
-// If the IssueConnector object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *IssueConnectorMutation) OldLastError(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldLastError is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldLastError requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldLastError: %w", err)
-	}
-	return oldValue.LastError, nil
-}
-
-// ClearLastError clears the value of the "last_error" field.
-func (m *IssueConnectorMutation) ClearLastError() {
-	m.last_error = nil
-	m.clearedFields[entissueconnector.FieldLastError] = struct{}{}
-}
-
-// LastErrorCleared returns if the "last_error" field was cleared in this mutation.
-func (m *IssueConnectorMutation) LastErrorCleared() bool {
-	_, ok := m.clearedFields[entissueconnector.FieldLastError]
-	return ok
-}
-
-// ResetLastError resets all changes to the "last_error" field.
-func (m *IssueConnectorMutation) ResetLastError() {
-	m.last_error = nil
-	delete(m.clearedFields, entissueconnector.FieldLastError)
-}
-
-// SetStats sets the "stats" field.
-func (m *IssueConnectorMutation) SetStats(is issueconnector.SyncStats) {
-	m.stats = &is
-}
-
-// Stats returns the value of the "stats" field in the mutation.
-func (m *IssueConnectorMutation) Stats() (r issueconnector.SyncStats, exists bool) {
-	v := m.stats
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldStats returns the old "stats" field's value of the IssueConnector entity.
-// If the IssueConnector object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *IssueConnectorMutation) OldStats(ctx context.Context) (v issueconnector.SyncStats, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldStats is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldStats requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldStats: %w", err)
-	}
-	return oldValue.Stats, nil
-}
-
-// ResetStats resets all changes to the "stats" field.
-func (m *IssueConnectorMutation) ResetStats() {
-	m.stats = nil
-}
-
-// SetCreatedAt sets the "created_at" field.
-func (m *IssueConnectorMutation) SetCreatedAt(t time.Time) {
-	m.created_at = &t
-}
-
-// CreatedAt returns the value of the "created_at" field in the mutation.
-func (m *IssueConnectorMutation) CreatedAt() (r time.Time, exists bool) {
-	v := m.created_at
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldCreatedAt returns the old "created_at" field's value of the IssueConnector entity.
-// If the IssueConnector object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *IssueConnectorMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
-	}
-	return oldValue.CreatedAt, nil
-}
-
-// ResetCreatedAt resets all changes to the "created_at" field.
-func (m *IssueConnectorMutation) ResetCreatedAt() {
-	m.created_at = nil
-}
-
-// ClearProject clears the "project" edge to the Project entity.
-func (m *IssueConnectorMutation) ClearProject() {
-	m.clearedproject = true
-	m.clearedFields[entissueconnector.FieldProjectID] = struct{}{}
-}
-
-// ProjectCleared reports if the "project" edge to the Project entity was cleared.
-func (m *IssueConnectorMutation) ProjectCleared() bool {
-	return m.clearedproject
-}
-
-// ProjectIDs returns the "project" edge IDs in the mutation.
-// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// ProjectID instead. It exists only for internal usage by the builders.
-func (m *IssueConnectorMutation) ProjectIDs() (ids []uuid.UUID) {
-	if id := m.project; id != nil {
-		ids = append(ids, *id)
-	}
-	return
-}
-
-// ResetProject resets all changes to the "project" edge.
-func (m *IssueConnectorMutation) ResetProject() {
-	m.project = nil
-	m.clearedproject = false
-}
-
-// Where appends a list predicates to the IssueConnectorMutation builder.
-func (m *IssueConnectorMutation) Where(ps ...predicate.IssueConnector) {
-	m.predicates = append(m.predicates, ps...)
-}
-
-// WhereP appends storage-level predicates to the IssueConnectorMutation builder. Using this method,
-// users can use type-assertion to append predicates that do not depend on any generated package.
-func (m *IssueConnectorMutation) WhereP(ps ...func(*sql.Selector)) {
-	p := make([]predicate.IssueConnector, len(ps))
-	for i := range ps {
-		p[i] = ps[i]
-	}
-	m.Where(p...)
-}
-
-// Op returns the operation name.
-func (m *IssueConnectorMutation) Op() Op {
-	return m.op
-}
-
-// SetOp allows setting the mutation operation.
-func (m *IssueConnectorMutation) SetOp(op Op) {
-	m.op = op
-}
-
-// Type returns the node type of this mutation (IssueConnector).
-func (m *IssueConnectorMutation) Type() string {
-	return m.typ
-}
-
-// Fields returns all fields that were changed during this mutation. Note that in
-// order to get all numeric fields that were incremented/decremented, call
-// AddedFields().
-func (m *IssueConnectorMutation) Fields() []string {
-	fields := make([]string, 0, 9)
-	if m.project != nil {
-		fields = append(fields, entissueconnector.FieldProjectID)
-	}
-	if m._type != nil {
-		fields = append(fields, entissueconnector.FieldType)
-	}
-	if m.name != nil {
-		fields = append(fields, entissueconnector.FieldName)
-	}
-	if m.status != nil {
-		fields = append(fields, entissueconnector.FieldStatus)
-	}
-	if m._config != nil {
-		fields = append(fields, entissueconnector.FieldConfig)
-	}
-	if m.last_sync_at != nil {
-		fields = append(fields, entissueconnector.FieldLastSyncAt)
-	}
-	if m.last_error != nil {
-		fields = append(fields, entissueconnector.FieldLastError)
-	}
-	if m.stats != nil {
-		fields = append(fields, entissueconnector.FieldStats)
-	}
-	if m.created_at != nil {
-		fields = append(fields, entissueconnector.FieldCreatedAt)
-	}
-	return fields
-}
-
-// Field returns the value of a field with the given name. The second boolean
-// return value indicates that this field was not set, or was not defined in the
-// schema.
-func (m *IssueConnectorMutation) Field(name string) (ent.Value, bool) {
-	switch name {
-	case entissueconnector.FieldProjectID:
-		return m.ProjectID()
-	case entissueconnector.FieldType:
-		return m.GetType()
-	case entissueconnector.FieldName:
-		return m.Name()
-	case entissueconnector.FieldStatus:
-		return m.Status()
-	case entissueconnector.FieldConfig:
-		return m.Config()
-	case entissueconnector.FieldLastSyncAt:
-		return m.LastSyncAt()
-	case entissueconnector.FieldLastError:
-		return m.LastError()
-	case entissueconnector.FieldStats:
-		return m.Stats()
-	case entissueconnector.FieldCreatedAt:
-		return m.CreatedAt()
-	}
-	return nil, false
-}
-
-// OldField returns the old value of the field from the database. An error is
-// returned if the mutation operation is not UpdateOne, or the query to the
-// database failed.
-func (m *IssueConnectorMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
-	switch name {
-	case entissueconnector.FieldProjectID:
-		return m.OldProjectID(ctx)
-	case entissueconnector.FieldType:
-		return m.OldType(ctx)
-	case entissueconnector.FieldName:
-		return m.OldName(ctx)
-	case entissueconnector.FieldStatus:
-		return m.OldStatus(ctx)
-	case entissueconnector.FieldConfig:
-		return m.OldConfig(ctx)
-	case entissueconnector.FieldLastSyncAt:
-		return m.OldLastSyncAt(ctx)
-	case entissueconnector.FieldLastError:
-		return m.OldLastError(ctx)
-	case entissueconnector.FieldStats:
-		return m.OldStats(ctx)
-	case entissueconnector.FieldCreatedAt:
-		return m.OldCreatedAt(ctx)
-	}
-	return nil, fmt.Errorf("unknown IssueConnector field %s", name)
-}
-
-// SetField sets the value of a field with the given name. It returns an error if
-// the field is not defined in the schema, or if the type mismatched the field
-// type.
-func (m *IssueConnectorMutation) SetField(name string, value ent.Value) error {
-	switch name {
-	case entissueconnector.FieldProjectID:
-		v, ok := value.(uuid.UUID)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetProjectID(v)
-		return nil
-	case entissueconnector.FieldType:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetType(v)
-		return nil
-	case entissueconnector.FieldName:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetName(v)
-		return nil
-	case entissueconnector.FieldStatus:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetStatus(v)
-		return nil
-	case entissueconnector.FieldConfig:
-		v, ok := value.(issueconnector.Config)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetConfig(v)
-		return nil
-	case entissueconnector.FieldLastSyncAt:
-		v, ok := value.(time.Time)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetLastSyncAt(v)
-		return nil
-	case entissueconnector.FieldLastError:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetLastError(v)
-		return nil
-	case entissueconnector.FieldStats:
-		v, ok := value.(issueconnector.SyncStats)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetStats(v)
-		return nil
-	case entissueconnector.FieldCreatedAt:
-		v, ok := value.(time.Time)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetCreatedAt(v)
-		return nil
-	}
-	return fmt.Errorf("unknown IssueConnector field %s", name)
-}
-
-// AddedFields returns all numeric fields that were incremented/decremented during
-// this mutation.
-func (m *IssueConnectorMutation) AddedFields() []string {
-	return nil
-}
-
-// AddedField returns the numeric value that was incremented/decremented on a field
-// with the given name. The second boolean return value indicates that this field
-// was not set, or was not defined in the schema.
-func (m *IssueConnectorMutation) AddedField(name string) (ent.Value, bool) {
-	return nil, false
-}
-
-// AddField adds the value to the field with the given name. It returns an error if
-// the field is not defined in the schema, or if the type mismatched the field
-// type.
-func (m *IssueConnectorMutation) AddField(name string, value ent.Value) error {
-	switch name {
-	}
-	return fmt.Errorf("unknown IssueConnector numeric field %s", name)
-}
-
-// ClearedFields returns all nullable fields that were cleared during this
-// mutation.
-func (m *IssueConnectorMutation) ClearedFields() []string {
-	var fields []string
-	if m.FieldCleared(entissueconnector.FieldLastSyncAt) {
-		fields = append(fields, entissueconnector.FieldLastSyncAt)
-	}
-	if m.FieldCleared(entissueconnector.FieldLastError) {
-		fields = append(fields, entissueconnector.FieldLastError)
-	}
-	return fields
-}
-
-// FieldCleared returns a boolean indicating if a field with the given name was
-// cleared in this mutation.
-func (m *IssueConnectorMutation) FieldCleared(name string) bool {
-	_, ok := m.clearedFields[name]
-	return ok
-}
-
-// ClearField clears the value of the field with the given name. It returns an
-// error if the field is not defined in the schema.
-func (m *IssueConnectorMutation) ClearField(name string) error {
-	switch name {
-	case entissueconnector.FieldLastSyncAt:
-		m.ClearLastSyncAt()
-		return nil
-	case entissueconnector.FieldLastError:
-		m.ClearLastError()
-		return nil
-	}
-	return fmt.Errorf("unknown IssueConnector nullable field %s", name)
-}
-
-// ResetField resets all changes in the mutation for the field with the given name.
-// It returns an error if the field is not defined in the schema.
-func (m *IssueConnectorMutation) ResetField(name string) error {
-	switch name {
-	case entissueconnector.FieldProjectID:
-		m.ResetProjectID()
-		return nil
-	case entissueconnector.FieldType:
-		m.ResetType()
-		return nil
-	case entissueconnector.FieldName:
-		m.ResetName()
-		return nil
-	case entissueconnector.FieldStatus:
-		m.ResetStatus()
-		return nil
-	case entissueconnector.FieldConfig:
-		m.ResetConfig()
-		return nil
-	case entissueconnector.FieldLastSyncAt:
-		m.ResetLastSyncAt()
-		return nil
-	case entissueconnector.FieldLastError:
-		m.ResetLastError()
-		return nil
-	case entissueconnector.FieldStats:
-		m.ResetStats()
-		return nil
-	case entissueconnector.FieldCreatedAt:
-		m.ResetCreatedAt()
-		return nil
-	}
-	return fmt.Errorf("unknown IssueConnector field %s", name)
-}
-
-// AddedEdges returns all edge names that were set/added in this mutation.
-func (m *IssueConnectorMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
-	if m.project != nil {
-		edges = append(edges, entissueconnector.EdgeProject)
-	}
-	return edges
-}
-
-// AddedIDs returns all IDs (to other nodes) that were added for the given edge
-// name in this mutation.
-func (m *IssueConnectorMutation) AddedIDs(name string) []ent.Value {
-	switch name {
-	case entissueconnector.EdgeProject:
-		if id := m.project; id != nil {
-			return []ent.Value{*id}
-		}
-	}
-	return nil
-}
-
-// RemovedEdges returns all edge names that were removed in this mutation.
-func (m *IssueConnectorMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
-	return edges
-}
-
-// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
-// the given name in this mutation.
-func (m *IssueConnectorMutation) RemovedIDs(name string) []ent.Value {
-	return nil
-}
-
-// ClearedEdges returns all edge names that were cleared in this mutation.
-func (m *IssueConnectorMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
-	if m.clearedproject {
-		edges = append(edges, entissueconnector.EdgeProject)
-	}
-	return edges
-}
-
-// EdgeCleared returns a boolean which indicates if the edge with the given name
-// was cleared in this mutation.
-func (m *IssueConnectorMutation) EdgeCleared(name string) bool {
-	switch name {
-	case entissueconnector.EdgeProject:
-		return m.clearedproject
-	}
-	return false
-}
-
-// ClearEdge clears the value of the edge with the given name. It returns an error
-// if that edge is not defined in the schema.
-func (m *IssueConnectorMutation) ClearEdge(name string) error {
-	switch name {
-	case entissueconnector.EdgeProject:
-		m.ClearProject()
-		return nil
-	}
-	return fmt.Errorf("unknown IssueConnector unique edge %s", name)
-}
-
-// ResetEdge resets all changes to the edge with the given name in this mutation.
-// It returns an error if the edge is not defined in the schema.
-func (m *IssueConnectorMutation) ResetEdge(name string) error {
-	switch name {
-	case entissueconnector.EdgeProject:
-		m.ResetProject()
-		return nil
-	}
-	return fmt.Errorf("unknown IssueConnector edge %s", name)
-}
-
 // MachineMutation represents an operation that mutates the Machine nodes in the graph.
 type MachineMutation struct {
 	config
@@ -17798,9 +16936,6 @@ type ProjectMutation struct {
 	notification_rules            map[uuid.UUID]struct{}
 	removednotification_rules     map[uuid.UUID]struct{}
 	clearednotification_rules     bool
-	issue_connectors              map[uuid.UUID]struct{}
-	removedissue_connectors       map[uuid.UUID]struct{}
-	clearedissue_connectors       bool
 	default_agent_provider        *uuid.UUID
 	cleareddefault_agent_provider bool
 	done                          bool
@@ -19088,60 +18223,6 @@ func (m *ProjectMutation) ResetNotificationRules() {
 	m.removednotification_rules = nil
 }
 
-// AddIssueConnectorIDs adds the "issue_connectors" edge to the IssueConnector entity by ids.
-func (m *ProjectMutation) AddIssueConnectorIDs(ids ...uuid.UUID) {
-	if m.issue_connectors == nil {
-		m.issue_connectors = make(map[uuid.UUID]struct{})
-	}
-	for i := range ids {
-		m.issue_connectors[ids[i]] = struct{}{}
-	}
-}
-
-// ClearIssueConnectors clears the "issue_connectors" edge to the IssueConnector entity.
-func (m *ProjectMutation) ClearIssueConnectors() {
-	m.clearedissue_connectors = true
-}
-
-// IssueConnectorsCleared reports if the "issue_connectors" edge to the IssueConnector entity was cleared.
-func (m *ProjectMutation) IssueConnectorsCleared() bool {
-	return m.clearedissue_connectors
-}
-
-// RemoveIssueConnectorIDs removes the "issue_connectors" edge to the IssueConnector entity by IDs.
-func (m *ProjectMutation) RemoveIssueConnectorIDs(ids ...uuid.UUID) {
-	if m.removedissue_connectors == nil {
-		m.removedissue_connectors = make(map[uuid.UUID]struct{})
-	}
-	for i := range ids {
-		delete(m.issue_connectors, ids[i])
-		m.removedissue_connectors[ids[i]] = struct{}{}
-	}
-}
-
-// RemovedIssueConnectors returns the removed IDs of the "issue_connectors" edge to the IssueConnector entity.
-func (m *ProjectMutation) RemovedIssueConnectorsIDs() (ids []uuid.UUID) {
-	for id := range m.removedissue_connectors {
-		ids = append(ids, id)
-	}
-	return
-}
-
-// IssueConnectorsIDs returns the "issue_connectors" edge IDs in the mutation.
-func (m *ProjectMutation) IssueConnectorsIDs() (ids []uuid.UUID) {
-	for id := range m.issue_connectors {
-		ids = append(ids, id)
-	}
-	return
-}
-
-// ResetIssueConnectors resets all changes to the "issue_connectors" edge.
-func (m *ProjectMutation) ResetIssueConnectors() {
-	m.issue_connectors = nil
-	m.clearedissue_connectors = false
-	m.removedissue_connectors = nil
-}
-
 // ClearDefaultAgentProvider clears the "default_agent_provider" edge to the AgentProvider entity.
 func (m *ProjectMutation) ClearDefaultAgentProvider() {
 	m.cleareddefault_agent_provider = true
@@ -19497,7 +18578,7 @@ func (m *ProjectMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ProjectMutation) AddedEdges() []string {
-	edges := make([]string, 0, 16)
+	edges := make([]string, 0, 15)
 	if m.organization != nil {
 		edges = append(edges, project.EdgeOrganization)
 	}
@@ -19539,9 +18620,6 @@ func (m *ProjectMutation) AddedEdges() []string {
 	}
 	if m.notification_rules != nil {
 		edges = append(edges, project.EdgeNotificationRules)
-	}
-	if m.issue_connectors != nil {
-		edges = append(edges, project.EdgeIssueConnectors)
 	}
 	if m.default_agent_provider != nil {
 		edges = append(edges, project.EdgeDefaultAgentProvider)
@@ -19635,12 +18713,6 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
-	case project.EdgeIssueConnectors:
-		ids := make([]ent.Value, 0, len(m.issue_connectors))
-		for id := range m.issue_connectors {
-			ids = append(ids, id)
-		}
-		return ids
 	case project.EdgeDefaultAgentProvider:
 		if id := m.default_agent_provider; id != nil {
 			return []ent.Value{*id}
@@ -19651,7 +18723,7 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ProjectMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 16)
+	edges := make([]string, 0, 15)
 	if m.removedrepos != nil {
 		edges = append(edges, project.EdgeRepos)
 	}
@@ -19690,9 +18762,6 @@ func (m *ProjectMutation) RemovedEdges() []string {
 	}
 	if m.removednotification_rules != nil {
 		edges = append(edges, project.EdgeNotificationRules)
-	}
-	if m.removedissue_connectors != nil {
-		edges = append(edges, project.EdgeIssueConnectors)
 	}
 	return edges
 }
@@ -19779,19 +18848,13 @@ func (m *ProjectMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
-	case project.EdgeIssueConnectors:
-		ids := make([]ent.Value, 0, len(m.removedissue_connectors))
-		for id := range m.removedissue_connectors {
-			ids = append(ids, id)
-		}
-		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ProjectMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 16)
+	edges := make([]string, 0, 15)
 	if m.clearedorganization {
 		edges = append(edges, project.EdgeOrganization)
 	}
@@ -19834,9 +18897,6 @@ func (m *ProjectMutation) ClearedEdges() []string {
 	if m.clearednotification_rules {
 		edges = append(edges, project.EdgeNotificationRules)
 	}
-	if m.clearedissue_connectors {
-		edges = append(edges, project.EdgeIssueConnectors)
-	}
 	if m.cleareddefault_agent_provider {
 		edges = append(edges, project.EdgeDefaultAgentProvider)
 	}
@@ -19875,8 +18935,6 @@ func (m *ProjectMutation) EdgeCleared(name string) bool {
 		return m.clearedchat_conversations
 	case project.EdgeNotificationRules:
 		return m.clearednotification_rules
-	case project.EdgeIssueConnectors:
-		return m.clearedissue_connectors
 	case project.EdgeDefaultAgentProvider:
 		return m.cleareddefault_agent_provider
 	}
@@ -19942,9 +19000,6 @@ func (m *ProjectMutation) ResetEdge(name string) error {
 		return nil
 	case project.EdgeNotificationRules:
 		m.ResetNotificationRules()
-		return nil
-	case project.EdgeIssueConnectors:
-		m.ResetIssueConnectors()
 		return nil
 	case project.EdgeDefaultAgentProvider:
 		m.ResetDefaultAgentProvider()

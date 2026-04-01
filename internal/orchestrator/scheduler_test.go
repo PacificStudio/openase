@@ -553,6 +553,77 @@ func TestSchedulerRunTickSkipsBusyProviderWhenParallelRunLimitReached(t *testing
 	}
 }
 
+func TestSchedulerRunTickTreatsZeroConcurrencyLimitsAsUnlimited(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	now := time.Date(2026, 3, 20, 12, 25, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
+
+	if _, err := client.Project.UpdateOneID(fixture.projectID).SetMaxConcurrentAgents(0).Save(ctx); err != nil {
+		t.Fatalf("set project max concurrent agents: %v", err)
+	}
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).SetMaxParallelRuns(0).Save(ctx); err != nil {
+		t.Fatalf("set provider max parallel runs: %v", err)
+	}
+
+	workflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(0).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	agentItem := fixture.createAgent(ctx, t, "provider-bound-unlimited", 0)
+	if _, err := client.Workflow.UpdateOneID(workflow.ID).SetAgentID(agentItem.ID).Save(ctx); err != nil {
+		t.Fatalf("bind workflow agent: %v", err)
+	}
+
+	for i, identifier := range []string{"ASE-302U1", "ASE-302U2", "ASE-302U3"} {
+		if _, err := client.Ticket.Create().
+			SetProjectID(fixture.projectID).
+			SetIdentifier(identifier).
+			SetTitle("Unlimited slot test").
+			SetStatusID(fixture.statusIDs["Todo"]).
+			SetPriority(entticket.PriorityUrgent).
+			SetCreatedBy("user:test").
+			SetCreatedAt(now.Add(time.Duration(i) * time.Minute)).
+			Save(ctx); err != nil {
+			t.Fatalf("create ticket %s: %v", identifier, err)
+		}
+	}
+
+	report, err := newTestScheduler(client, now).RunTick(ctx)
+	if err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+	if report.TicketsDispatched != 3 {
+		t.Fatalf("expected all tickets to dispatch with unlimited limits, got %+v", report)
+	}
+	if report.TicketsSkipped[skipReasonMaxConcurrency] != 0 || report.TicketsSkipped[skipReasonProviderBusy] != 0 {
+		t.Fatalf("expected no concurrency-limit skips, got %+v", report)
+	}
+
+	activeRunCount, err := client.Ticket.Query().
+		Where(
+			entticket.ProjectIDEQ(fixture.projectID),
+			entticket.WorkflowIDEQ(workflow.ID),
+			entticket.CurrentRunIDNotNil(),
+		).
+		Count(ctx)
+	if err != nil {
+		t.Fatalf("count active claimed tickets: %v", err)
+	}
+	if activeRunCount != 3 {
+		t.Fatalf("expected 3 active claimed tickets, got %d", activeRunCount)
+	}
+}
+
 func TestSchedulerRunTickPublishesClaimedLifecycleAndClearsRuntimeState(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)

@@ -57,8 +57,6 @@ export type TicketDetail = {
     repoName: string
     branchName: string
     prUrl?: string
-    prStatus?: string
-    ciStatus?: string
   }>
   attemptCount: number
   retryPaused: boolean

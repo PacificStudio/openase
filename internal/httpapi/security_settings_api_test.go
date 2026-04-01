@@ -64,11 +64,14 @@ func TestSecuritySettingsRouteReturnsCurrentBoundary(t *testing.T) {
 	if payload.Security.GitHub.Effective.Scope != "organization" || payload.Security.GitHub.Effective.Source != "gh_cli_import" {
 		t.Fatalf("expected effective GitHub credential metadata, got %+v", payload.Security.GitHub.Effective)
 	}
+	if payload.Security.GitHub.Effective.Probe.Login != "octocat" {
+		t.Fatalf("expected effective GitHub login octocat, got %+v", payload.Security.GitHub.Effective.Probe)
+	}
 	if !payload.Security.GitHub.Organization.Configured || payload.Security.GitHub.ProjectOverride.Configured {
 		t.Fatalf("expected scoped GitHub slots, got %+v", payload.Security.GitHub)
 	}
-	if payload.Security.Webhooks.ConnectorEndpoint != "POST /api/v1/webhooks/:connector/:provider" {
-		t.Fatalf("expected connector webhook endpoint, got %+v", payload.Security.Webhooks)
+	if payload.Security.Webhooks.ConnectorEndpoint != "Not supported in current version" {
+		t.Fatalf("expected webhook sync to be disabled, got %+v", payload.Security.Webhooks)
 	}
 	if len(payload.Security.Deferred) == 0 {
 		t.Fatal("expected deferred security scope to be described")
@@ -317,6 +320,7 @@ func sampleProjectSecurity() githubauthservice.ProjectSecurity {
 				State:       githubauthdomain.ProbeStateValid,
 				Configured:  true,
 				Valid:       true,
+				Login:       "octocat",
 				Permissions: []string{"read:org", "repo"},
 				RepoAccess:  githubauthdomain.RepoAccessGranted,
 				CheckedAt:   checkedAt,
@@ -331,6 +335,7 @@ func sampleProjectSecurity() githubauthservice.ProjectSecurity {
 				State:       githubauthdomain.ProbeStateValid,
 				Configured:  true,
 				Valid:       true,
+				Login:       "octocat",
 				Permissions: []string{"read:org", "repo"},
 				RepoAccess:  githubauthdomain.RepoAccessGranted,
 				CheckedAt:   checkedAt,

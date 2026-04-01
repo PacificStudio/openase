@@ -22,7 +22,6 @@ import (
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	githubreposervice "github.com/BetterAndBetterII/openase/internal/service/githubrepo"
-	issueconnectorservice "github.com/BetterAndBetterII/openase/internal/service/issueconnector"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -40,7 +39,6 @@ type Server struct {
 	metricsHandler             http.Handler
 	echo                       *echo.Echo
 	sseHub                     *sse.Hub
-	inboundWebhooks            *inboundWebhookReceiver
 	ticketService              *ticketservice.Service
 	ticketStatusService        *ticketstatus.Service
 	agentPlatform              *agentplatform.Service
@@ -52,7 +50,6 @@ type Server struct {
 	projectConversationService *chatservice.ProjectConversationService
 	githubAuthService          githubauthservice.SecurityManager
 	githubRepoService          githubreposervice.Service
-	issueConnectorSvc          *issueconnectorservice.Service
 	memoryCollector            runtimeobservability.ProcessMemoryCollector
 }
 
@@ -85,12 +82,6 @@ func WithGitHubAuthService(service githubauthservice.SecurityManager) ServerOpti
 func WithGitHubRepoService(service githubreposervice.Service) ServerOption {
 	return func(server *Server) {
 		server.githubRepoService = service
-	}
-}
-
-func WithIssueConnectorService(service *issueconnectorservice.Service) ServerOption {
-	return func(server *Server) {
-		server.issueConnectorSvc = service
 	}
 }
 
@@ -157,7 +148,6 @@ func NewServer(
 		workflowService:     workflowService,
 		memoryCollector:     runtimeobservability.RuntimeProcessMemoryCollector{},
 	}
-	server.inboundWebhooks = newInboundWebhookReceiver(server.logger, newGitHubRepoScopeWebhookEndpoint(server))
 	for _, opt := range opts {
 		if opt != nil {
 			opt(server)

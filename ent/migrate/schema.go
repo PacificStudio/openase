@@ -114,7 +114,7 @@ var (
 		{Name: "model_name", Type: field.TypeString},
 		{Name: "model_temperature", Type: field.TypeFloat64, Default: 0},
 		{Name: "model_max_tokens", Type: field.TypeInt, Default: 16384},
-		{Name: "max_parallel_runs", Type: field.TypeInt, Default: 5},
+		{Name: "max_parallel_runs", Type: field.TypeInt, Default: 0},
 		{Name: "cost_per_input_token", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "numeric(18,8)"}},
 		{Name: "cost_per_output_token", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "numeric(18,8)"}},
 		{Name: "machine_id", Type: field.TypeUUID},
@@ -575,45 +575,6 @@ var (
 			},
 		},
 	}
-	// IssueConnectorsColumns holds the columns for the "issue_connectors" table.
-	IssueConnectorsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUUID},
-		{Name: "type", Type: field.TypeString},
-		{Name: "name", Type: field.TypeString},
-		{Name: "status", Type: field.TypeString, Default: "active"},
-		{Name: "config", Type: field.TypeJSON},
-		{Name: "last_sync_at", Type: field.TypeTime, Nullable: true},
-		{Name: "last_error", Type: field.TypeString, Nullable: true, Size: 2147483647},
-		{Name: "stats", Type: field.TypeJSON},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "project_id", Type: field.TypeUUID},
-	}
-	// IssueConnectorsTable holds the schema information for the "issue_connectors" table.
-	IssueConnectorsTable = &schema.Table{
-		Name:       "issue_connectors",
-		Columns:    IssueConnectorsColumns,
-		PrimaryKey: []*schema.Column{IssueConnectorsColumns[0]},
-		ForeignKeys: []*schema.ForeignKey{
-			{
-				Symbol:     "issue_connectors_projects_issue_connectors",
-				Columns:    []*schema.Column{IssueConnectorsColumns[9]},
-				RefColumns: []*schema.Column{ProjectsColumns[0]},
-				OnDelete:   schema.NoAction,
-			},
-		},
-		Indexes: []*schema.Index{
-			{
-				Name:    "issueconnector_project_id_name",
-				Unique:  true,
-				Columns: []*schema.Column{IssueConnectorsColumns[9], IssueConnectorsColumns[2]},
-			},
-			{
-				Name:    "issueconnector_project_id_type",
-				Unique:  false,
-				Columns: []*schema.Column{IssueConnectorsColumns[9], IssueConnectorsColumns[1]},
-			},
-		},
-	}
 	// MachinesColumns holds the columns for the "machines" table.
 	MachinesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -792,7 +753,7 @@ var (
 		{Name: "github_outbound_credential", Type: field.TypeJSON, Nullable: true},
 		{Name: "github_token_probe", Type: field.TypeJSON, Nullable: true},
 		{Name: "accessible_machine_ids", Type: field.TypeJSON},
-		{Name: "max_concurrent_agents", Type: field.TypeInt, Default: 5},
+		{Name: "max_concurrent_agents", Type: field.TypeInt, Default: 0},
 		{Name: "organization_id", Type: field.TypeUUID},
 		{Name: "default_agent_provider_id", Type: field.TypeUUID, Nullable: true},
 	}
@@ -1459,7 +1420,7 @@ var (
 		{Name: "type", Type: field.TypeEnum, Enums: []string{"coding", "test", "doc", "security", "deploy", "refine-harness", "custom"}},
 		{Name: "harness_path", Type: field.TypeString},
 		{Name: "hooks", Type: field.TypeJSON},
-		{Name: "max_concurrent", Type: field.TypeInt, Default: 3},
+		{Name: "max_concurrent", Type: field.TypeInt, Default: 0},
 		{Name: "max_retry_attempts", Type: field.TypeInt, Default: 3},
 		{Name: "timeout_minutes", Type: field.TypeInt, Default: 60},
 		{Name: "stall_timeout_minutes", Type: field.TypeInt, Default: 5},
@@ -1647,7 +1608,6 @@ var (
 		ChatEntriesTable,
 		ChatPendingInterruptsTable,
 		ChatTurnsTable,
-		IssueConnectorsTable,
 		MachinesTable,
 		NotificationChannelsTable,
 		NotificationRulesTable,
@@ -1706,7 +1666,6 @@ func init() {
 	ChatPendingInterruptsTable.ForeignKeys[0].RefTable = ChatConversationsTable
 	ChatPendingInterruptsTable.ForeignKeys[1].RefTable = ChatTurnsTable
 	ChatTurnsTable.ForeignKeys[0].RefTable = ChatConversationsTable
-	IssueConnectorsTable.ForeignKeys[0].RefTable = ProjectsTable
 	MachinesTable.ForeignKeys[0].RefTable = OrganizationsTable
 	NotificationChannelsTable.ForeignKeys[0].RefTable = OrganizationsTable
 	NotificationRulesTable.ForeignKeys[0].RefTable = NotificationChannelsTable

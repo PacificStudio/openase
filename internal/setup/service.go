@@ -427,7 +427,7 @@ func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err
 		Name:                   input.Project.Name,
 		Slug:                   safeSlug(input.Project.Name),
 		Status:                 "In Progress",
-		MaxConcurrentAgents:    intPtr(5),
+		MaxConcurrentAgents:    intPtr(0),
 		DefaultAgentProviderID: defaultProviderID,
 	})
 	if err != nil {
