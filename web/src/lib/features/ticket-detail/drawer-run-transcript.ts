@@ -30,7 +30,11 @@ export async function loadTicketDrawerRunTranscript(
   requestId: number,
   isCurrentRequest: (requestId: number) => boolean,
 ) {
-  const runList = mapTicketRuns(await deps.fetchRuns(projectId, ticketId))
+  const runList = mapTicketRuns(
+    await (deps.fetchRuns === listTicketRuns
+      ? listTicketRuns(projectId, ticketId)
+      : deps.fetchRuns(projectId, ticketId)),
+  )
   if (!isCurrentRequest(requestId)) {
     return
   }
@@ -43,7 +47,9 @@ export async function loadTicketDrawerRunTranscript(
   }
 
   const detail = mapTicketRunDetail(
-    await deps.fetchRun(projectId, ticketId, nextState.currentRun.id),
+    await (deps.fetchRun === getTicketRun
+      ? getTicketRun(projectId, ticketId, nextState.currentRun.id)
+      : deps.fetchRun(projectId, ticketId, nextState.currentRun.id)),
   )
   if (!isCurrentRequest(requestId)) {
     return
