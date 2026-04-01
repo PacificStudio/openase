@@ -4,12 +4,12 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { Badge } from '$ui/badge'
   import Button from '$ui/button/button.svelte'
+  import { Skeleton } from '$ui/skeleton'
   import {
     Bot,
     ChevronDown,
     ChevronUp,
-    GripHorizontal,
-    Loader2,
+    GripVertical,
     PanelLeftClose,
     PanelLeftOpen,
     Settings,
@@ -64,10 +64,10 @@
   } = $props()
 
   let showAssistant = $state(false)
-  let assistantHeight = $state(320)
+  let assistantWidth = $state(340)
   let dragging = $state(false)
-  let dragStartY = $state(0)
-  let dragStartHeight = $state(0)
+  let dragStartX = $state(0)
+  let dragStartWidth = $state(0)
   let issuesExpanded = $state(false)
 
   const skillsSettingsHref = $derived.by(() => {
@@ -81,22 +81,22 @@
     variableGroups.reduce((count, group) => count + group.variables.length, 0),
   )
 
-  const MIN_DRAWER_HEIGHT = 200
-  const MAX_DRAWER_HEIGHT = 600
+  const MIN_SIDEBAR_WIDTH = 260
+  const MAX_SIDEBAR_WIDTH = 560
 
   function handleDragStart(e: PointerEvent) {
     dragging = true
-    dragStartY = e.clientY
-    dragStartHeight = assistantHeight
+    dragStartX = e.clientX
+    dragStartWidth = assistantWidth
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
   }
 
   function handleDragMove(e: PointerEvent) {
     if (!dragging) return
-    const delta = dragStartY - e.clientY
-    assistantHeight = Math.min(
-      MAX_DRAWER_HEIGHT,
-      Math.max(MIN_DRAWER_HEIGHT, dragStartHeight + delta),
+    const delta = dragStartX - e.clientX
+    assistantWidth = Math.min(
+      MAX_SIDEBAR_WIDTH,
+      Math.max(MIN_SIDEBAR_WIDTH, dragStartWidth + delta),
     )
   }
 
@@ -196,72 +196,86 @@
     </div>
   </div>
 
-  <!-- Editor + AI drawer vertical split -->
-  <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+  <!-- Editor + AI sidebar horizontal split -->
+  <div class="flex min-h-0 flex-1 overflow-hidden">
     {#if loadingHarness && !harness}
-      <div
-        class="text-muted-foreground flex min-h-0 flex-1 items-center justify-center gap-2 text-sm"
-      >
-        <Loader2 class="size-4 animate-spin" />
-        Loading harness…
+      <div class="flex-1 space-y-2.5 p-4">
+        <Skeleton class="h-3.5 w-[30%]" />
+        <Skeleton class="h-3.5 w-[65%]" />
+        <Skeleton class="h-3.5 w-[45%]" />
+        <Skeleton class="h-3.5 w-[80%]" />
+        <Skeleton class="h-3.5 w-[35%]" />
+        <div class="h-2"></div>
+        <Skeleton class="h-3.5 w-[50%]" />
+        <Skeleton class="h-3.5 w-[70%]" />
+        <Skeleton class="h-3.5 w-[55%]" />
+        <Skeleton class="h-3.5 w-[40%]" />
+        <Skeleton class="h-3.5 w-[75%]" />
+        <div class="h-2"></div>
+        <Skeleton class="h-3.5 w-[60%]" />
+        <Skeleton class="h-3.5 w-[85%]" />
+        <Skeleton class="h-3.5 w-[42%]" />
       </div>
     {:else if harness}
-      <!-- Editor area -->
-      <div class="min-h-0 flex-1 overflow-hidden">
-        <HarnessEditor
-          content={harness}
-          filePath={selectedWorkflow?.harnessPath ?? ''}
-          version={selectedWorkflow?.version ?? 1}
-          {variableGroups}
-          onchange={onDraftChange}
-        />
+      <!-- Editor column -->
+      <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <!-- Editor area -->
+        <div class="min-h-0 flex-1 overflow-hidden">
+          <HarnessEditor
+            content={harness}
+            filePath={selectedWorkflow?.harnessPath ?? ''}
+            version={selectedWorkflow?.version ?? 1}
+            {variableGroups}
+            onchange={onDraftChange}
+          />
+        </div>
+
+        <!-- Validation issues bar -->
+        {#if validationIssues.length > 0}
+          <div class="border-border border-t">
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-amber-400 hover:bg-amber-500/5"
+              onclick={() => (issuesExpanded = !issuesExpanded)}
+            >
+              {#if issuesExpanded}
+                <ChevronDown class="size-3" />
+              {:else}
+                <ChevronUp class="size-3" />
+              {/if}
+              <span class="font-medium"
+                >{validationIssues.length} validation issue{validationIssues.length > 1
+                  ? 's'
+                  : ''}</span
+              >
+              {#if !issuesExpanded}
+                <span class="text-muted-foreground truncate">— {validationIssues[0].message}</span>
+              {/if}
+            </button>
+            {#if issuesExpanded}
+              <div
+                class="max-h-32 space-y-1 overflow-y-auto border-t border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-200"
+              >
+                {#each validationIssues as issue, index (index)}
+                  <div>
+                    {issue.level?.toUpperCase() ?? 'ISSUE'}: {issue.message}
+                    {#if issue.line}
+                      at line {issue.line}
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {/if}
       </div>
 
-      <!-- Validation issues bar -->
-      {#if validationIssues.length > 0}
-        <div class="border-border border-t">
-          <button
-            type="button"
-            class="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-amber-400 hover:bg-amber-500/5"
-            onclick={() => (issuesExpanded = !issuesExpanded)}
-          >
-            {#if issuesExpanded}
-              <ChevronDown class="size-3" />
-            {:else}
-              <ChevronUp class="size-3" />
-            {/if}
-            <span class="font-medium"
-              >{validationIssues.length} validation issue{validationIssues.length > 1
-                ? 's'
-                : ''}</span
-            >
-            {#if !issuesExpanded}
-              <span class="text-muted-foreground truncate">— {validationIssues[0].message}</span>
-            {/if}
-          </button>
-          {#if issuesExpanded}
-            <div
-              class="max-h-32 space-y-1 overflow-y-auto border-t border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-200"
-            >
-              {#each validationIssues as issue, index (index)}
-                <div>
-                  {issue.level?.toUpperCase() ?? 'ISSUE'}: {issue.message}
-                  {#if issue.line}
-                    at line {issue.line}
-                  {/if}
-                </div>
-              {/each}
-            </div>
-          {/if}
-        </div>
-      {/if}
-
-      <!-- AI bottom drawer -->
+      <!-- AI right sidebar -->
       {#if showAssistant}
-        <div class="border-border flex flex-col border-t" style="height: {assistantHeight}px">
+        <div class="border-border flex border-l" style="width: {assistantWidth}px">
           <!-- Drag handle -->
           <div
-            class="border-border hover:bg-muted/50 flex cursor-row-resize items-center justify-center py-1 select-none"
+            class="hover:bg-muted/50 flex w-1 cursor-col-resize items-center justify-center select-none"
             role="separator"
             tabindex="-1"
             onpointerdown={handleDragStart}
@@ -269,9 +283,9 @@
             onpointerup={handleDragEnd}
             onpointercancel={handleDragEnd}
           >
-            <GripHorizontal class="text-muted-foreground size-4" />
+            <GripVertical class="text-muted-foreground/40 size-3" />
           </div>
-          <div class="min-h-0 flex-1 overflow-hidden">
+          <div class="min-w-0 flex-1 overflow-hidden">
             <HarnessAISidebar
               {projectId}
               {providers}

@@ -92,7 +92,7 @@ func (r *ClaudeRuntime) buildSessionSpec(input RuntimeTurnInput) (provider.Claud
 		command,
 		buildBaseArgs(input.Provider.CliArgs, input.Provider.ModelName),
 		workingDirectory,
-		provider.AuthConfigEnvironment(input.Provider.AuthConfig),
+		append(provider.AuthConfigEnvironment(input.Provider.AuthConfig), input.Environment...),
 		nil,
 		input.SystemPrompt,
 		maxTurnsPointer,

@@ -4,6 +4,7 @@ import {
   isActionProposalPayload,
   isDiffPayload,
   isTextPayload,
+  mapProjectConversationTaskEntry,
 } from './project-conversation-transcript-state'
 
 type ProjectConversationStreamHandlers = {
@@ -11,6 +12,18 @@ type ProjectConversationStreamHandlers = {
   finalizeAssistantEntry: () => void
   appendActionProposal: (entryId: string | undefined, payload: Record<string, unknown>) => void
   appendDiff: (entryId: string | undefined, payload: Record<string, unknown>) => void
+  appendToolCall: (payload: { tool: string; arguments: unknown }) => void
+  appendCommandOutput: (payload: {
+    stream: string
+    phase?: string
+    snapshot: boolean
+    content: string
+  }) => void
+  appendTaskStatus: (payload: {
+    statusType: 'task_started' | 'task_progress' | 'task_notification' | 'turn_done' | 'error'
+    title: string
+    detail?: string
+  }) => void
   confirmActionResult: (entryId: string, results: ChatActionExecutionResult[]) => void
   appendInterrupt: (payload: {
     interruptId: string
@@ -52,6 +65,41 @@ export function handleProjectConversationStreamEvent(
       handlers.appendDiff(payload.entryId, payload)
       return
     }
+    if (!('raw' in payload)) {
+      return
+    }
+
+    const taskEntry = mapProjectConversationTaskEntry({
+      id: '',
+      type: payload.type,
+      raw: payload.raw,
+    })
+    if (taskEntry?.kind === 'tool_call') {
+      handlers.appendToolCall({
+        tool: taskEntry.tool,
+        arguments: taskEntry.arguments,
+      })
+      return
+    }
+
+    if (taskEntry?.kind === 'command_output') {
+      handlers.appendCommandOutput({
+        stream: taskEntry.stream,
+        phase: taskEntry.phase,
+        snapshot: taskEntry.snapshot,
+        content: taskEntry.content,
+      })
+      return
+    }
+
+    if (taskEntry?.kind === 'task_status') {
+      handlers.appendTaskStatus({
+        statusType: taskEntry.statusType,
+        title: taskEntry.title,
+        detail: taskEntry.detail,
+      })
+      return
+    }
 
     if (payload.type === 'action_result') {
       const resultPayload = (
@@ -81,11 +129,24 @@ export function handleProjectConversationStreamEvent(
 
   if (event.kind === 'turn_done') {
     handlers.finalizeAssistantEntry()
+    handlers.appendTaskStatus({
+      statusType: 'turn_done',
+      title: 'Turn completed',
+      detail:
+        typeof event.payload.costUSD === 'number'
+          ? `Cost: $${event.payload.costUSD.toFixed(2)}`
+          : undefined,
+    })
     handlers.setPending(false)
     return
   }
 
   handlers.finalizeAssistantEntry()
+  handlers.appendTaskStatus({
+    statusType: 'error',
+    title: 'Turn failed',
+    detail: event.payload.message,
+  })
   handlers.setPending(false)
   handlers.onError(event.payload.message)
 }

@@ -232,6 +232,7 @@ describe('createEphemeralChatSessionController', () => {
 
   it('surfaces a transient stream interruption clearly and finalizes any partial assistant reply', async () => {
     const onError = vi.fn()
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     streamChatTurn.mockImplementation(async (_request, handlers) => {
       handlers.onEvent({
         kind: 'session',
@@ -264,6 +265,22 @@ describe('createEphemeralChatSessionController', () => {
 
     expect(onError).toHaveBeenCalledWith(
       'The reply stopped mid-stream because the browser connection closed before OpenASE sent the final completion event. The partial reply was kept above. This usually means the OpenASE server restarted during the turn or the network connection reset. Retry the request.',
+    )
+    expect(consoleError).toHaveBeenCalledWith(
+      'Ephemeral chat turn failed',
+      expect.objectContaining({
+        source: 'project_sidebar',
+        providerId: 'provider-1',
+        sessionId: 'session-1',
+        context: {
+          projectId: 'project-1',
+        },
+        streamStarted: true,
+        partialReplyReceived: true,
+        error: expect.any(TypeError),
+        errorMessage:
+          'The reply stopped mid-stream because the browser connection closed before OpenASE sent the final completion event. The partial reply was kept above. This usually means the OpenASE server restarted during the turn or the network connection reset. Retry the request.',
+      }),
     )
     expect(controller.sessionId).toBe('session-1')
     expect(controller.pending).toBe(false)

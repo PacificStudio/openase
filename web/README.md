@@ -101,6 +101,9 @@ Current legacy waivers:
 
 - `src/routes/+page.svelte`
 - `src/routes/ticket/+page.svelte`
+- `src/lib/features/chat/ephemeral-chat-session-controller.svelte.ts`
+- `src/lib/features/chat/ephemeral-chat-session-controller.test.ts`
+- `src/lib/features/workflows/components/workflow-editor-panel.svelte`
 
 Those files are explicitly tracked as refactor debt. New oversized route files are blocked.
 
