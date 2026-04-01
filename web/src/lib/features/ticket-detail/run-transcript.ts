@@ -18,6 +18,7 @@ import {
   seedRunBlocks,
   sortTicketRuns,
 } from './run-transcript-blocks'
+import { buildInterruptBlock } from './run-transcript-interrupts'
 import { cacheSelectedState, syncSelectedBlocks, syncSelectedRun } from './run-transcript-selection'
 
 export function createEmptyTicketRunTranscriptState(): TicketRunTranscriptState {
@@ -253,6 +254,17 @@ export function applyTicketRunTraceEntry(
           },
         ],
       })
+    case 'approval_requested':
+    case 'user_input_requested': {
+      const interruptBlock = buildInterruptBlock(entry)
+      if (!interruptBlock || hasBlock(state.blocks, interruptBlock.id)) {
+        return state
+      }
+      return cacheSelectedState({
+        ...state,
+        blocks: [...state.blocks, interruptBlock],
+      })
+    }
     default:
       return state
   }

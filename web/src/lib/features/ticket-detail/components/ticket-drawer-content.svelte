@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { StreamConnectionState } from '$lib/api/sse'
   import { appStore } from '$lib/stores/app.svelte'
   import { EphemeralChatPanel } from '$lib/features/chat'
   import TicketDrawerMainTabs from './ticket-drawer-main-tabs.svelte'
@@ -26,6 +27,8 @@
     currentRun = null,
     runBlocks = [],
     loadingRunId = null,
+    runStreamState = 'idle',
+    recoveringRunTranscript = false,
     statuses,
     dependencyCandidates,
     repoOptions,
@@ -65,6 +68,8 @@
     currentRun?: TicketRun | null
     runBlocks?: TicketRunTranscriptBlock[]
     loadingRunId?: string | null
+    runStreamState?: StreamConnectionState
+    recoveringRunTranscript?: boolean
     statuses: TicketStatusOption[]
     dependencyCandidates: TicketReferenceOption[]
     repoOptions: TicketRepoOption[]
@@ -161,6 +166,8 @@
       {currentRun}
       {runBlocks}
       {loadingRunId}
+      {runStreamState}
+      {recoveringRunTranscript}
       {savingFields}
       {creatingComment}
       {updatingCommentId}

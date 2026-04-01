@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { StreamConnectionState } from '$lib/api/sse'
   import { Badge } from '$ui/badge'
   import { formatRelativeTime } from '$lib/utils'
   import TicketRunTranscriptPanel from './ticket-run-transcript-panel.svelte'
@@ -10,6 +11,8 @@
     currentRun = null,
     blocks = [],
     loadingRunId = null,
+    runStreamState = 'idle',
+    recoveringRunTranscript = false,
     resumingRetry = false,
     onSelectRun,
     onResumeRetry,
@@ -19,6 +22,8 @@
     currentRun?: TicketRun | null
     blocks?: TicketRunTranscriptBlock[]
     loadingRunId?: string | null
+    runStreamState?: StreamConnectionState
+    recoveringRunTranscript?: boolean
     resumingRetry?: boolean
     onSelectRun?: (runId: string) => Promise<void> | void
     onResumeRetry?: () => Promise<void> | void
@@ -30,6 +35,7 @@
     if (run.status === 'completed') return 'Completed'
     if (run.status === 'failed') return 'Failed'
     if (run.status === 'stalled') return 'Stalled'
+    if ((run.currentStepStatus ?? '').toLowerCase().includes('approval')) return 'Awaiting Approval'
     if ((run.currentStepStatus ?? '').toLowerCase().includes('input')) return 'Waiting Input'
     if (run.status === 'launching') return 'Launching'
     return 'Running'
@@ -141,6 +147,8 @@
       {blocks}
       latestRunId={latestRun?.id ?? null}
       loading={loadingRunId === currentRun?.id}
+      streamState={runStreamState}
+      recovering={recoveringRunTranscript}
       canResumeRetry={ticket.retryPaused &&
         ticket.pauseReason === 'repeated_stalls' &&
         latestRun?.id === currentRun?.id}

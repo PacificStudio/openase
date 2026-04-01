@@ -1,4 +1,4 @@
-import { connectEventStream, type SSEFrame } from '$lib/api/sse'
+import { connectEventStream, type SSEFrame, type StreamConnectionState } from '$lib/api/sse'
 import { frameReferencesTicket } from './context'
 
 export function connectTicketDetailStreams(
@@ -7,6 +7,7 @@ export function connectTicketDetailStreams(
   handlers: {
     onRelevantEvent: () => void
     onRunFrame: (frame: SSEFrame) => void
+    onRunStateChange?: (state: StreamConnectionState) => void
   },
 ) {
   const connect = (path: string, label: string) =>
@@ -31,6 +32,9 @@ export function connectTicketDetailStreams(
     {
       onEvent: (frame) => {
         handlers.onRunFrame(frame)
+      },
+      onStateChange: (state) => {
+        handlers.onRunStateChange?.(state)
       },
       onError: (streamError) => {
         console.error('Ticket detail runs stream error:', streamError)

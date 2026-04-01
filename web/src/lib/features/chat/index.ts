@@ -2,6 +2,7 @@ export { default as EphemeralChatActionProposalCard } from './ephemeral-chat-act
 export { default as EphemeralChatProviderSelect } from './ephemeral-chat-provider-select.svelte'
 export { default as EphemeralChatPanel } from './ephemeral-chat-panel.svelte'
 export { default as EphemeralChatTranscript } from './ephemeral-chat-transcript.svelte'
+export { default as ChatMarkdownContent } from './chat-markdown-content.svelte'
 export { default as ProjectConversationPanel } from './project-conversation-panel.svelte'
 export { default as ProjectAssistantSheet } from './project-assistant-sheet.svelte'
 export { default as StructuredDiffPreview } from './structured-diff-preview.svelte'

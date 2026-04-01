@@ -92,12 +92,25 @@
       return
     }
 
+    let runStreamNeedsRecovery = false
+
     return connectTicketDetailStreams(projectId, ticketId, {
       onRelevantEvent: () => {
         void drawerState.refreshTimeline(projectId, ticketId)
       },
       onRunFrame: (frame) => {
         drawerState.applyRunStreamFrame(frame)
+      },
+      onRunStateChange: (state) => {
+        drawerState.setRunStreamState(state)
+        if (state === 'retrying') {
+          runStreamNeedsRecovery = true
+          return
+        }
+        if (state === 'live' && runStreamNeedsRecovery) {
+          runStreamNeedsRecovery = false
+          void drawerState.recoverRunTranscript(projectId, ticketId)
+        }
       },
     })
   })
@@ -342,6 +355,8 @@
         currentRun={drawerState.currentRun}
         runBlocks={drawerState.runBlocks}
         loadingRunId={drawerState.loadingRunId}
+        runStreamState={drawerState.runStreamState}
+        recoveringRunTranscript={drawerState.recoveringRunTranscript}
         statuses={drawerState.statuses}
         dependencyCandidates={drawerState.dependencyCandidates}
         repoOptions={drawerState.repoOptions}

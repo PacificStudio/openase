@@ -9,11 +9,13 @@ import (
 const AgentStepEventType = "agent.step"
 
 const (
-	AgentTraceKindAssistantDelta    = "assistant_delta"
-	AgentTraceKindAssistantSnapshot = "assistant_snapshot"
-	AgentTraceKindCommandDelta      = "command_output_delta"
-	AgentTraceKindCommandSnapshot   = "command_output_snapshot"
-	AgentTraceKindToolCallStarted   = "tool_call_started"
+	AgentTraceKindAssistantDelta     = "assistant_delta"
+	AgentTraceKindAssistantSnapshot  = "assistant_snapshot"
+	AgentTraceKindCommandDelta       = "command_output_delta"
+	AgentTraceKindCommandSnapshot    = "command_output_snapshot"
+	AgentTraceKindToolCallStarted    = "tool_call_started"
+	AgentTraceKindApprovalRequested  = "approval_requested"
+	AgentTraceKindUserInputRequested = "user_input_requested"
 )
 
 type AgentTraceEntry struct {

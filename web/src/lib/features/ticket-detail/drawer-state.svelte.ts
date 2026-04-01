@@ -1,19 +1,25 @@
 import { ApiError } from '$lib/api/client'
-import type { SSEFrame } from '$lib/api/sse'
+import type { SSEFrame, StreamConnectionState } from '$lib/api/sse'
 import { toastStore } from '$lib/stores/toast.svelte'
 import { fetchTicketDetailContext } from './context'
 import {
+  recoverTicketDrawerRunTranscript,
   defaultTicketDrawerRunTranscriptDeps,
   loadTicketDrawerRunTranscript,
   type TicketDrawerRunTranscriptDeps,
 } from './drawer-run-transcript'
 import {
   applyTicketRunStreamFrame,
-  createEmptyTicketRunTranscriptState,
   hydrateTicketRunDetail,
   selectTicketRun,
 } from './run-transcript'
 import { mapTicketRunDetail } from './run-transcript-data'
+import {
+  applyTicketDrawerContext,
+  applyTicketDrawerRunTranscriptState,
+  applyTicketDrawerTimelineRefresh,
+  readTicketDrawerRunTranscriptState,
+} from './drawer-state-mutators'
 import type {
   HookExecution,
   TicketDetail,
@@ -25,10 +31,7 @@ import type {
   TicketTimelineItem,
 } from './types'
 
-type LoadOptions = {
-  background?: boolean
-  preserveMessages?: boolean
-}
+type LoadOptions = { background?: boolean; preserveMessages?: boolean }
 
 type TicketDrawerStateDeps = {
   fetchContext: typeof fetchTicketDetailContext
@@ -40,10 +43,7 @@ const defaultDeps: TicketDrawerStateDeps = {
 }
 
 export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {}) {
-  const resolvedDeps = {
-    ...defaultDeps,
-    ...deps,
-  }
+  const resolvedDeps = { ...defaultDeps, ...deps }
 
   const state = $state({
     loading: false,
@@ -61,6 +61,8 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
     runBlocks: [] as TicketRunTranscriptBlock[],
     runBlockCache: {} as Record<string, TicketRunTranscriptBlock[]>,
     loadingRunId: null as string | null,
+    runStreamState: 'idle' as StreamConnectionState,
+    recoveringRunTranscript: false,
     savingFields: false,
     creatingDependency: false,
     deletingDependencyId: null as string | null,
@@ -76,47 +78,9 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
   })
   let loadRequestId = 0
   let runDetailRequestId = 0
+  let runRecoveryRequestId = 0
   let timelineRefreshQueued = false
   let timelineRefreshLoop: Promise<void> | null = null
-
-  function applyFullContext(detailContext: Awaited<ReturnType<typeof fetchTicketDetailContext>>) {
-    state.ticket = detailContext.ticket
-    state.timeline = detailContext.timeline
-    state.hooks = detailContext.hooks
-    state.statuses = detailContext.statuses
-    state.dependencyCandidates = detailContext.dependencyCandidates
-    state.repoOptions = detailContext.repoOptions
-  }
-
-  function applyTimelineRefresh(
-    detailContext: Awaited<ReturnType<typeof fetchTicketDetailContext>>,
-  ) {
-    state.ticket = detailContext.ticket
-    state.timeline = detailContext.timeline
-    state.hooks = detailContext.hooks
-  }
-
-  function applyRunTranscriptState(
-    nextState: ReturnType<typeof createEmptyTicketRunTranscriptState>,
-  ) {
-    state.runs = nextState.runs
-    state.selectedRunId = nextState.selectedRunId
-    state.followLatest = nextState.followLatest
-    state.currentRun = nextState.currentRun
-    state.runBlocks = nextState.blocks
-    state.runBlockCache = nextState.blockCache
-  }
-
-  function getRunTranscriptState() {
-    return {
-      runs: state.runs,
-      selectedRunId: state.selectedRunId,
-      followLatest: state.followLatest,
-      currentRun: state.currentRun,
-      blocks: state.runBlocks,
-      blockCache: state.runBlockCache,
-    }
-  }
 
   async function runTimelineRefresh(projectId: string, ticketId: string) {
     if (state.loading || !state.ticket) {
@@ -136,7 +100,7 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
           if (requestId !== loadRequestId || !state.ticket) {
             continue
           }
-          applyTimelineRefresh(detailContext)
+          applyTicketDrawerTimelineRefresh(state, detailContext)
         } catch (caughtError) {
           if (requestId !== loadRequestId || !state.ticket) {
             continue
@@ -177,10 +141,13 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
         const detailContext = await resolvedDeps.fetchContext(projectId, ticketId)
         if (requestId !== loadRequestId) return
 
-        applyFullContext(detailContext)
+        applyTicketDrawerContext(state, detailContext)
         await loadTicketDrawerRunTranscript(
           resolvedDeps,
-          { getState: getRunTranscriptState, setState: applyRunTranscriptState },
+          {
+            getState: () => readTicketDrawerRunTranscriptState(state),
+            setState: (nextState) => applyTicketDrawerRunTranscriptState(state, nextState),
+          },
           projectId,
           ticketId,
           requestId,
@@ -211,13 +178,54 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
         await runTimelineRefresh(projectId, ticketId)
       }
     },
+    setRunStreamState(nextState: StreamConnectionState) {
+      state.runStreamState = nextState
+    },
     applyRunStreamFrame(frame: Pick<SSEFrame, 'event' | 'data'>) {
-      const nextState = applyTicketRunStreamFrame(getRunTranscriptState(), frame)
-      applyRunTranscriptState(nextState)
+      const nextState = applyTicketRunStreamFrame(readTicketDrawerRunTranscriptState(state), frame)
+      applyTicketDrawerRunTranscriptState(state, nextState)
+    },
+    async recoverRunTranscript(projectId: string, ticketId: string) {
+      if (state.loading || !state.ticket) {
+        return
+      }
+
+      const requestId = ++runRecoveryRequestId
+      state.recoveringRunTranscript = true
+
+      try {
+        await recoverTicketDrawerRunTranscript(
+          resolvedDeps,
+          {
+            getState: () => readTicketDrawerRunTranscriptState(state),
+            setState: (nextState) => applyTicketDrawerRunTranscriptState(state, nextState),
+          },
+          projectId,
+          ticketId,
+          requestId,
+          (activeRequestID) =>
+            activeRequestID === runRecoveryRequestId &&
+            !state.loading &&
+            state.ticket?.id === ticketId,
+        )
+      } catch (caughtError) {
+        if (requestId !== runRecoveryRequestId) {
+          return
+        }
+        const message =
+          caughtError instanceof ApiError
+            ? caughtError.detail
+            : 'Failed to recover ticket run transcript.'
+        toastStore.error(message)
+      } finally {
+        if (requestId === runRecoveryRequestId) {
+          state.recoveringRunTranscript = false
+        }
+      }
     },
     async selectRun(projectId: string, ticketId: string, runId: string) {
-      const optimisticState = selectTicketRun(getRunTranscriptState(), runId)
-      applyRunTranscriptState(optimisticState)
+      const optimisticState = selectTicketRun(readTicketDrawerRunTranscriptState(state), runId)
+      applyTicketDrawerRunTranscriptState(state, optimisticState)
 
       if (optimisticState.currentRun?.id !== runId) {
         return
@@ -232,7 +240,10 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
           return
         }
 
-        applyRunTranscriptState(hydrateTicketRunDetail(getRunTranscriptState(), detail))
+        applyTicketDrawerRunTranscriptState(
+          state,
+          hydrateTicketRunDetail(readTicketDrawerRunTranscriptState(state), detail),
+        )
       } catch (caughtError) {
         if (requestId !== runDetailRequestId) {
           return
@@ -268,6 +279,8 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
       state.runBlocks = []
       state.runBlockCache = {}
       state.loadingRunId = null
+      state.runStreamState = 'idle'
+      state.recoveringRunTranscript = false
       state.savingFields = false
       state.creatingDependency = false
       state.deletingDependencyId = null
