@@ -66,7 +66,7 @@ func (r *GeminiRuntime) StartTurn(ctx context.Context, input RuntimeTurnInput) (
 		command,
 		buildGeminiArgs(input.Provider.CliArgs, input.Provider.ModelName, prompt),
 		workingDirectory,
-		provider.AuthConfigEnvironment(input.Provider.AuthConfig),
+		append(provider.AuthConfigEnvironment(input.Provider.AuthConfig), input.Environment...),
 	)
 	if err != nil {
 		return TurnStream{}, err

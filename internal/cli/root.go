@@ -192,6 +192,7 @@ func runWithConfig(
 		Overrides:  overrides,
 	})
 	if err != nil {
+		logConfigLoadFailure(configFile, overrides, err)
 		return err
 	}
 

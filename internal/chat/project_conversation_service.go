@@ -1,14 +1,19 @@
 package chat
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
+	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	claudecodeadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/claudecode"
@@ -17,6 +22,7 @@ import (
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	chatrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
+	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
 
@@ -32,9 +38,19 @@ type projectConversationCatalog interface {
 	GetMachine(ctx context.Context, id uuid.UUID) (catalogdomain.Machine, error)
 	GetAgentProvider(ctx context.Context, id uuid.UUID) (catalogdomain.AgentProvider, error)
 	ListAgentProviders(ctx context.Context, organizationID uuid.UUID) ([]catalogdomain.AgentProvider, error)
+	ListAgents(ctx context.Context, projectID uuid.UUID) ([]catalogdomain.Agent, error)
 	ListProjectRepos(ctx context.Context, projectID uuid.UUID) ([]catalogdomain.ProjectRepo, error)
 	ListTicketRepoScopes(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID) ([]catalogdomain.TicketRepoScope, error)
 	ListActivityEvents(ctx context.Context, input catalogdomain.ListActivityEvents) ([]catalogdomain.ActivityEvent, error)
+	CreateAgent(ctx context.Context, input catalogdomain.CreateAgent) (catalogdomain.Agent, error)
+}
+
+type projectConversationSkillSync interface {
+	RefreshSkills(ctx context.Context, input workflowservice.RefreshSkillsInput) (workflowservice.RefreshSkillsResult, error)
+}
+
+type projectConversationAgentPlatform interface {
+	IssueToken(ctx context.Context, input agentplatform.IssueInput) (agentplatform.IssuedToken, error)
 }
 
 type projectConversationRepository interface {
@@ -88,9 +104,12 @@ type ProjectConversationService struct {
 	catalog   projectConversationCatalog
 	tickets   ticketReader
 	workflows workflowReader
+	skillSync projectConversationSkillSync
 
 	localProcessManager provider.AgentCLIProcessManager
 	sshPool             *sshinfra.Pool
+	platformAPIURL      string
+	agentPlatform       projectConversationAgentPlatform
 
 	liveMu        sync.Mutex
 	live          map[uuid.UUID]*liveProjectConversation
@@ -125,6 +144,9 @@ func NewProjectConversationService(
 		liveByKey:           map[projectConversationLiveKey]uuid.UUID{},
 		watchers:            map[uuid.UUID]map[int]chan StreamEvent{},
 	}
+	if syncer, ok := workflows.(projectConversationSkillSync); ok {
+		service.skillSync = syncer
+	}
 	service.promptBuilder = &Service{
 		logger:    service.logger,
 		catalog:   catalog,
@@ -132,6 +154,17 @@ func NewProjectConversationService(
 		workflows: workflows,
 	}
 	return service
+}
+
+func (s *ProjectConversationService) ConfigurePlatformEnvironment(
+	apiURL string,
+	platform projectConversationAgentPlatform,
+) {
+	if s == nil {
+		return
+	}
+	s.platformAPIURL = strings.TrimSpace(apiURL)
+	s.agentPlatform = platform
 }
 
 func projectConversationLiveConversationKey(conversation domain.Conversation) projectConversationLiveKey {
@@ -299,6 +332,7 @@ func (s *ProjectConversationService) StartTurn(
 		Message:                strings.TrimSpace(message),
 		SystemPrompt:           systemPrompt,
 		WorkingDirectory:       live.workspace,
+		Environment:            s.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem),
 		ResumeProviderThreadID: strings.TrimSpace(stringPointerValue(conversation.ProviderThreadID)),
 		ResumeProviderTurnID:   strings.TrimSpace(stringPointerValue(conversation.LastTurnID)),
 		MaxTurns:               0,
@@ -577,7 +611,7 @@ func (s *ProjectConversationService) ensureLiveRuntime(
 		return nil, false, fmt.Errorf("get chat provider machine: %w", err)
 	}
 
-	workspacePath, err := s.ensureConversationWorkspace(ctx, machine, project, conversationID)
+	workspacePath, err := s.ensureConversationWorkspace(ctx, machine, project, providerItem, conversationID)
 	if err != nil {
 		return nil, false, err
 	}
@@ -666,6 +700,7 @@ func (s *ProjectConversationService) ensureConversationWorkspace(
 	ctx context.Context,
 	machine catalogdomain.Machine,
 	project catalogdomain.Project,
+	providerItem catalogdomain.AgentProvider,
 	conversationID uuid.UUID,
 ) (provider.AbsolutePath, error) {
 	root := ""
@@ -682,34 +717,42 @@ func (s *ProjectConversationService) ensureConversationWorkspace(
 		return "", fmt.Errorf("chat provider machine %s is missing workspace_root", machine.Name)
 	}
 
-	path, err := workspaceinfra.TicketWorkspacePath(root, project.OrganizationID.String(), project.Slug, "conv-"+conversationID.String())
+	projectRepos, err := s.catalog.ListProjectRepos(ctx, project.ID)
 	if err != nil {
-		return "", fmt.Errorf("derive project conversation workspace: %w", err)
+		return "", fmt.Errorf("list project repos for conversation workspace: %w", err)
 	}
-
+	request, err := workspaceinfra.ParseSetupRequest(workspaceinfra.SetupInput{
+		WorkspaceRoot:    root,
+		OrganizationSlug: project.OrganizationID.String(),
+		ProjectSlug:      project.Slug,
+		AgentName:        projectConversationAgentName(conversationID),
+		TicketIdentifier: projectConversationWorkspaceName(conversationID),
+		Repos:            mapConversationWorkspaceRepos(projectRepos),
+	})
+	if err != nil {
+		return "", fmt.Errorf("build project conversation workspace request: %w", err)
+	}
+	var workspaceItem workspaceinfra.Workspace
 	if machine.Host == catalogdomain.LocalMachineHost {
-		if err := os.MkdirAll(path, 0o750); err != nil {
-			return "", fmt.Errorf("create local chat workspace: %w", err)
+		workspaceItem, err = workspaceinfra.NewManager().Prepare(ctx, request)
+		if err != nil {
+			return "", fmt.Errorf("prepare local chat workspace: %w", err)
 		}
 	} else {
 		if s.sshPool == nil {
 			return "", fmt.Errorf("ssh pool unavailable for machine %s", machine.Name)
 		}
-		client, err := s.sshPool.Get(ctx, machine)
+		workspaceItem, err = workspaceinfra.NewRemoteManager(s.sshPool).Prepare(ctx, machine, request)
 		if err != nil {
-			return "", err
-		}
-		session, err := client.NewSession()
-		if err != nil {
-			return "", fmt.Errorf("open ssh session for chat workspace: %w", err)
-		}
-		defer func() { _ = session.Close() }()
-		if _, err := session.CombinedOutput("mkdir -p " + sshinfra.ShellQuote(path)); err != nil {
-			return "", fmt.Errorf("create remote chat workspace: %w", err)
+			return "", fmt.Errorf("prepare remote chat workspace: %w", err)
 		}
 	}
 
-	return provider.ParseAbsolutePath(filepath.Clean(path))
+	if err := s.syncConversationWorkspaceSkills(ctx, machine, project.ID, workspaceItem.Path, string(providerItem.AdapterType)); err != nil {
+		return "", err
+	}
+
+	return provider.ParseAbsolutePath(filepath.Clean(workspaceItem.Path))
 }
 
 func (s *ProjectConversationService) resolveProcessManager(
@@ -823,6 +866,316 @@ func cloneMapAny(value map[string]any) map[string]any {
 		copied[key] = item
 	}
 	return copied
+}
+
+func (s *ProjectConversationService) buildConversationRuntimeEnvironment(
+	ctx context.Context,
+	conversation domain.Conversation,
+	project catalogdomain.Project,
+	providerItem catalogdomain.AgentProvider,
+) []string {
+	environment := make([]string, 0, 6)
+	if providerItem.MachineHost == "" || providerItem.MachineHost == catalogdomain.LocalMachineHost {
+		if executable, err := os.Executable(); err == nil && strings.TrimSpace(executable) != "" {
+			environment = append(environment, "OPENASE_REAL_BIN="+executable)
+		}
+	}
+
+	if s == nil || s.agentPlatform == nil || s.catalog == nil || strings.TrimSpace(s.platformAPIURL) == "" {
+		return environment
+	}
+
+	agentID, err := s.ensureConversationAgent(ctx, conversation.ProjectID, providerItem.ID, conversation.ID)
+	if err != nil {
+		s.logger.Warn("ensure project conversation runtime agent failed", "conversation_id", conversation.ID, "error", err)
+		return environment
+	}
+	scopes := append(agentplatform.DefaultScopes(), agentplatform.PrivilegedScopes()...)
+	scopes = slices.Compact(scopes)
+	issued, err := s.agentPlatform.IssueToken(ctx, agentplatform.IssueInput{
+		AgentID:   agentID,
+		ProjectID: project.ID,
+		TicketID:  conversation.ID,
+		Scopes:    scopes,
+	})
+	if err != nil {
+		s.logger.Warn("issue project conversation platform token failed", "conversation_id", conversation.ID, "error", err)
+		return environment
+	}
+
+	return append(environment,
+		"OPENASE_API_URL="+s.platformAPIURL,
+		"OPENASE_AGENT_TOKEN="+issued.Token,
+		"OPENASE_PROJECT_ID="+project.ID.String(),
+	)
+}
+
+func (s *ProjectConversationService) ensureConversationAgent(
+	ctx context.Context,
+	projectID uuid.UUID,
+	providerID uuid.UUID,
+	conversationID uuid.UUID,
+) (uuid.UUID, error) {
+	agentName := projectConversationAgentName(conversationID)
+	agents, err := s.catalog.ListAgents(ctx, projectID)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("list project agents for conversation runtime: %w", err)
+	}
+	for _, item := range agents {
+		if item.Name == agentName {
+			return item.ID, nil
+		}
+	}
+
+	created, err := s.catalog.CreateAgent(ctx, catalogdomain.CreateAgent{
+		ProjectID:           projectID,
+		ProviderID:          providerID,
+		Name:                agentName,
+		RuntimeControlState: catalogdomain.AgentRuntimeControlStateActive,
+	})
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("create project conversation runtime agent: %w", err)
+	}
+	return created.ID, nil
+}
+
+func (s *ProjectConversationService) syncConversationWorkspaceSkills(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	projectID uuid.UUID,
+	workspaceRoot string,
+	adapterType string,
+) error {
+	if s == nil || s.skillSync == nil {
+		return nil
+	}
+
+	if machine.Host == catalogdomain.LocalMachineHost {
+		_, err := s.skillSync.RefreshSkills(ctx, workflowservice.RefreshSkillsInput{
+			ProjectID:     projectID,
+			WorkspaceRoot: workspaceRoot,
+			AdapterType:   adapterType,
+		})
+		if err != nil {
+			return fmt.Errorf("refresh local project conversation skills: %w", err)
+		}
+		return nil
+	}
+
+	tempRoot, err := os.MkdirTemp("", "openase-project-conversation-skills-*")
+	if err != nil {
+		return fmt.Errorf("create temp skills workspace: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(tempRoot) }()
+
+	_, err = s.skillSync.RefreshSkills(ctx, workflowservice.RefreshSkillsInput{
+		ProjectID:     projectID,
+		WorkspaceRoot: tempRoot,
+		AdapterType:   adapterType,
+	})
+	if err != nil {
+		return fmt.Errorf("refresh remote project conversation skills snapshot: %w", err)
+	}
+	if err := s.copyConversationWorkspaceArtifactsRemote(ctx, machine, tempRoot, workspaceRoot, adapterType); err != nil {
+		return fmt.Errorf("sync remote project conversation skills: %w", err)
+	}
+	return nil
+}
+
+func (s *ProjectConversationService) copyConversationWorkspaceArtifactsRemote(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	localRoot string,
+	remoteWorkspaceRoot string,
+	adapterType string,
+) error {
+	if s == nil || s.sshPool == nil {
+		return fmt.Errorf("ssh pool unavailable for remote machine %s", machine.Name)
+	}
+
+	target, err := workflowservice.ResolveSkillTargetForRuntime(remoteWorkspaceRoot, adapterType)
+	if err != nil {
+		return err
+	}
+	relativePaths := conversationWorkspaceArtifactPaths(localRoot, adapterType)
+
+	client, err := s.sshPool.Get(ctx, machine)
+	if err != nil {
+		return err
+	}
+	session, err := client.NewSession()
+	if err != nil {
+		return fmt.Errorf("open ssh session for project conversation skill sync: %w", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	stdin, err := session.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("open ssh stdin for project conversation skill sync: %w", err)
+	}
+	stderr, err := session.StderrPipe()
+	if err != nil {
+		_ = stdin.Close()
+		return fmt.Errorf("open ssh stderr for project conversation skill sync: %w", err)
+	}
+	var stderrBuffer bytes.Buffer
+	stderrDone := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(&stderrBuffer, stderr)
+		close(stderrDone)
+	}()
+
+	command := strings.Join([]string{
+		"set -eu",
+		"rm -rf " + sshinfra.ShellQuote(target.SkillsDir),
+		"rm -rf " + sshinfra.ShellQuote(filepath.Join(remoteWorkspaceRoot, ".openase", "bin")),
+		"mkdir -p " + sshinfra.ShellQuote(remoteWorkspaceRoot),
+		"tar -C " + sshinfra.ShellQuote(remoteWorkspaceRoot) + " -xf -",
+	}, " && ")
+	if err := session.Start(command); err != nil {
+		_ = stdin.Close()
+		<-stderrDone
+		return fmt.Errorf("start ssh skill sync command: %w", err)
+	}
+
+	tarWriter := tar.NewWriter(stdin)
+	writeErr := writeConversationWorkspaceArchive(tarWriter, localRoot, relativePaths)
+	closeErr := tarWriter.Close()
+	stdinCloseErr := stdin.Close()
+	waitErr := session.Wait()
+	<-stderrDone
+	if writeErr != nil {
+		return writeErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if stdinCloseErr != nil {
+		return stdinCloseErr
+	}
+	if waitErr != nil {
+		return fmt.Errorf("%w: %s", waitErr, strings.TrimSpace(stderrBuffer.String()))
+	}
+	return nil
+}
+
+func conversationWorkspaceArtifactPaths(workspaceRoot string, adapterType string) []string {
+	paths := []string{}
+	for _, relative := range []string{".openase", skillTargetRelativePath(workspaceRoot, adapterType)} {
+		if strings.TrimSpace(relative) == "" {
+			continue
+		}
+		absolute := filepath.Join(workspaceRoot, relative)
+		if _, err := os.Stat(absolute); err == nil {
+			paths = append(paths, relative)
+		}
+	}
+	return paths
+}
+
+func skillTargetRelativePath(workspaceRoot string, adapterType string) string {
+	target, err := workflowservice.ResolveSkillTargetForRuntime(workspaceRoot, adapterType)
+	if err != nil {
+		return ""
+	}
+	relative, err := filepath.Rel(workspaceRoot, target.SkillsDir)
+	if err != nil {
+		return ""
+	}
+	return filepath.ToSlash(relative)
+}
+
+func writeConversationWorkspaceArchive(
+	writer *tar.Writer,
+	root string,
+	relativePaths []string,
+) (returnErr error) {
+	rootFS, err := os.OpenRoot(root)
+	if err != nil {
+		return fmt.Errorf("open workspace root: %w", err)
+	}
+	defer func() {
+		if closeErr := rootFS.Close(); returnErr == nil && closeErr != nil {
+			returnErr = fmt.Errorf("close workspace root: %w", closeErr)
+		}
+	}()
+	for _, relative := range relativePaths {
+		absolute := filepath.Join(root, relative)
+		if _, err := os.Stat(absolute); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return fmt.Errorf("stat workspace artifact %s: %w", relative, err)
+		}
+		if err := filepath.Walk(absolute, func(path string, info os.FileInfo, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if info == nil {
+				var err error
+				info, err = os.Lstat(path)
+				if err != nil {
+					return err
+				}
+			}
+			header, err := tar.FileInfoHeader(info, "")
+			if err != nil {
+				return err
+			}
+			relativeName, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			header.Name = filepath.ToSlash(relativeName)
+			if info.IsDir() {
+				header.Name += "/"
+			}
+			if err := writer.WriteHeader(header); err != nil {
+				return err
+			}
+			if !info.Mode().IsRegular() {
+				return nil
+			}
+			file, err := rootFS.Open(relativeName)
+			if err != nil {
+				return err
+			}
+			_, copyErr := io.Copy(writer, file)
+			closeErr := file.Close()
+			if copyErr != nil {
+				return copyErr
+			}
+			return closeErr
+		}); err != nil {
+			return fmt.Errorf("archive workspace artifact %s: %w", relative, err)
+		}
+	}
+	return nil
+}
+
+func mapConversationWorkspaceRepos(items []catalogdomain.ProjectRepo) []workspaceinfra.RepoInput {
+	repos := make([]workspaceinfra.RepoInput, 0, len(items))
+	for _, item := range items {
+		repo := workspaceinfra.RepoInput{
+			Name:          item.Name,
+			RepositoryURL: item.RepositoryURL,
+			DefaultBranch: item.DefaultBranch,
+		}
+		if workspaceDirname := strings.TrimSpace(item.WorkspaceDirname); workspaceDirname != "" && workspaceDirname != strings.TrimSpace(item.Name) {
+			value := workspaceDirname
+			repo.WorkspaceDirname = &value
+		}
+		repos = append(repos, repo)
+	}
+	return repos
+}
+
+func projectConversationAgentName(conversationID uuid.UUID) string {
+	return "project-ai-" + strings.TrimSpace(conversationID.String())
+}
+
+func projectConversationWorkspaceName(conversationID uuid.UUID) string {
+	return "conv-" + strings.TrimSpace(conversationID.String())
 }
 
 func newCodexAdapterForManager(manager provider.AgentCLIProcessManager) (*codexadapter.Adapter, error) {

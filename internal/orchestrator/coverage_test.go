@@ -215,6 +215,34 @@ func TestOrchestratorHelperCoverage(t *testing.T) {
 	}
 }
 
+func TestAgentTokenUsageFromCLIUsagePreservesProviderReportedCost(t *testing.T) {
+	costUSD := 0.012345
+	usage := agentTokenUsageFromCLIUsage("thread-1", "turn-1", &provider.CLIUsage{
+		CostUSD: &costUSD,
+		Total: provider.CLIUsageTokens{
+			InputTokens:  120,
+			OutputTokens: 35,
+			TotalTokens:  155,
+		},
+		Delta: provider.CLIUsageTokens{
+			InputTokens:  20,
+			OutputTokens: 5,
+			TotalTokens:  25,
+		},
+	})
+	if usage == nil {
+		t.Fatal("agentTokenUsageFromCLIUsage() = nil, want usage event")
+	}
+	if usage.CostUSD == nil || *usage.CostUSD != costUSD {
+		t.Fatalf("agentTokenUsageFromCLIUsage() cost = %#v, want %.6f", usage.CostUSD, costUSD)
+	}
+
+	*usage.CostUSD = 0.5
+	if costUSD != 0.012345 {
+		t.Fatalf("agentTokenUsageFromCLIUsage() should clone provider cost, got %.6f", costUSD)
+	}
+}
+
 func TestRuntimeLauncherWorkspaceHelperCoverage(t *testing.T) {
 	t.Run("build local openase environment", func(t *testing.T) {
 		env, err := buildLocalOpenASEEnvironment()

@@ -161,7 +161,15 @@ func (s *Server) handleOrganizationScopedEventStream(
 
 			scopedEvent, matched, err := buildOrganizationScopedStreamEvent(orgID, event)
 			if err != nil {
-				s.logger.Warn("skip malformed organization-scoped stream event", "topic", topic.String(), "error", err)
+				s.logger.Warn(
+					"skip malformed organization-scoped stream event",
+					"operation", "build_organization_scoped_stream_event",
+					"organization_id", orgID,
+					"topic", topic.String(),
+					"type", event.Type.String(),
+					"payload_bytes", len(event.Payload),
+					"error", err,
+				)
 				continue
 			}
 			if !matched {

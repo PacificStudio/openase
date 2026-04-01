@@ -20,6 +20,11 @@ import type {
   WorkflowSummary,
   WorkflowVersionSummary,
 } from './types'
+import {
+  mergeWorkflowHooksPayload,
+  readWorkflowHooksPayload,
+  type WorkflowHooksPayload,
+} from './workflow-hooks'
 
 export function mapWorkflowSummary(
   workflow: Awaited<ReturnType<typeof listWorkflows>>['workflows'][number],
@@ -51,6 +56,8 @@ export function mapWorkflowSummary(
     recentSuccessRate: 0,
     version: workflow.version,
     history: [],
+    hooks: readWorkflowHooksPayload(workflow.hooks),
+    rawHooks: workflow.hooks,
   }
 }
 
@@ -193,6 +200,7 @@ export async function createWorkflowWithBinding(
     name: string
     pickupStatusIds: string[]
     finishStatusIds: string[]
+    hooks?: WorkflowHooksPayload
   },
   statuses: WorkflowStatusOption[],
   builtinRoleContent: string,
@@ -208,6 +216,7 @@ export async function createWorkflowWithBinding(
     max_concurrent: 0,
     max_retry_attempts: 1,
     timeout_minutes: 30,
+    hooks: mergeWorkflowHooksPayload(input.hooks),
   })
 
   if (!response.workflow) {
@@ -239,6 +248,8 @@ export async function createWorkflowWithBinding(
     recentSuccessRate: 0,
     version: createdWorkflow.version,
     history: [],
+    hooks: readWorkflowHooksPayload(createdWorkflow.hooks),
+    rawHooks: createdWorkflow.hooks,
   }
 
   return {

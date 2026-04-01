@@ -65,6 +65,9 @@ export function handleProjectConversationStreamEvent(
       handlers.appendDiff(payload.entryId, payload)
       return
     }
+    if (!('raw' in payload)) {
+      return
+    }
 
     const taskEntry = mapProjectConversationTaskEntry({
       id: '',

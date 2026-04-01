@@ -37,7 +37,7 @@
         {@const metrics = projectMetrics[project.id]}
         <a
           href={currentOrgId ? projectPath(currentOrgId, project.id) : '/'}
-          class="border-border bg-card hover:bg-muted/30 rounded-lg border p-5 transition-colors"
+          class="border-border bg-card hover:bg-muted/30 hover-lift rounded-lg border p-5 transition-colors"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0 flex-1">

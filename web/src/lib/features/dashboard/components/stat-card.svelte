@@ -20,7 +20,7 @@
   } = $props()
 </script>
 
-<div class={cn('border-border bg-card rounded-md border p-4', className)}>
+<div class={cn('border-border bg-card hover-lift rounded-md border p-4', className)}>
   <div class="flex items-center justify-between">
     <span class="text-muted-foreground text-xs">{label}</span>
     {#if Icon}
@@ -30,7 +30,9 @@
   {#if loading}
     <Skeleton class="mt-2 h-8 w-16" />
   {:else}
-    <div class="text-foreground mt-2 text-2xl font-semibold">{value}</div>
+    {#key value}
+      <div class="text-foreground animate-count-pop mt-2 text-2xl font-semibold">{value}</div>
+    {/key}
   {/if}
   {#if trend && !loading}
     <div class={cn('mt-1 text-xs', trend.positive ? 'text-success' : 'text-destructive')}>

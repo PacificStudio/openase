@@ -44,7 +44,7 @@
             class={cn(
               'size-2',
               wf.isActive
-                ? 'fill-emerald-500 text-emerald-500'
+                ? 'animate-pulse-dot fill-emerald-500 text-emerald-500'
                 : 'fill-neutral-500 text-neutral-500',
             )}
           />

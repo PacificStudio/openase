@@ -194,24 +194,27 @@
       {/each}
     </div>
   {:else if filteredSkills.length === 0}
-    <div class="text-muted-foreground rounded-lg border border-dashed py-12 text-center text-sm">
+    <div
+      class="animate-fade-in-up text-muted-foreground rounded-lg border border-dashed py-12 text-center text-sm"
+    >
       {skills.length === 0
         ? 'No skills yet. Create one to get started.'
         : 'No skills match your filters.'}
     </div>
   {:else}
     <div class="divide-border divide-y rounded-lg border">
-      {#each filteredSkills as skill (skill.id)}
+      {#each filteredSkills as skill, idx (skill.id)}
         {@const boundCount = skill.bound_workflows.length}
         {@const boundNames = skill.bound_workflows.map((w) => w.name).join(', ')}
         <button
           type="button"
-          class="group hover:bg-muted/40 flex w-full items-start gap-3 px-4 py-3 text-left transition-colors"
+          class="group hover:bg-muted/40 animate-stagger flex w-full items-start gap-3 px-4 py-3 text-left transition-colors"
+          style="--stagger-index: {idx}"
           onclick={() => openSkill(skill)}
         >
           <span
             class="mt-1.5 size-2 shrink-0 rounded-full {skill.is_enabled
-              ? 'bg-emerald-500'
+              ? 'animate-pulse-dot bg-emerald-500'
               : 'bg-muted-foreground/40'}"
             title={skill.is_enabled ? 'Enabled' : 'Disabled'}
           ></span>
