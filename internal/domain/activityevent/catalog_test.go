@@ -16,6 +16,12 @@ func TestCatalogHelpers(t *testing.T) {
 	if TypeAgentReady.IsHook() {
 		t.Fatal("expected non-hook event to stay non-hook")
 	}
+	if !TypeTicketCommentEdited.IsTicketComment() {
+		t.Fatal("expected ticket comment event to be recognized")
+	}
+	if TypeAgentReady.IsTicketComment() {
+		t.Fatal("expected non-ticket-comment event to stay non-ticket-comment")
+	}
 
 	catalog := Catalog()
 	if len(catalog) == 0 {
