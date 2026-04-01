@@ -205,7 +205,7 @@
   {:else}
     <div class="divide-border divide-y rounded-lg border">
       {#each filteredSkills as skill (skill.id)}
-        <SkillSettingsCard {skill} {workflows} onSelect={openDetail} />
+        <SkillSettingsCard {skill} onSelect={openDetail} />
       {/each}
     </div>
   {/if}
@@ -226,11 +226,7 @@
     <SheetHeader class="border-border shrink-0 border-b px-6 py-4 text-left">
       <div class="flex items-center justify-between gap-4 pr-10">
         <SheetTitle class="text-base">New Skill</SheetTitle>
-        <Button
-          size="sm"
-          onclick={() => void handleCreate()}
-          disabled={creating}
-        >
+        <Button size="sm" onclick={() => void handleCreate()} disabled={creating}>
           {creating ? 'Creating…' : 'Create'}
         </Button>
       </div>
@@ -239,7 +235,7 @@
     <div class="flex-1 space-y-4 overflow-y-auto px-6 py-5">
       <div class="grid gap-4 sm:grid-cols-2">
         <div class="space-y-1.5">
-          <span class="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
+          <span class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
             Name
           </span>
           <Input
@@ -250,7 +246,7 @@
           />
         </div>
         <div class="space-y-1.5">
-          <span class="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
+          <span class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
             Description
           </span>
           <Input
@@ -263,7 +259,7 @@
       </div>
 
       <div class="space-y-1.5">
-        <span class="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
+        <span class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
           SKILL.md
         </span>
         <Textarea

@@ -3627,6 +3627,7 @@ func publishRuntimeLauncherWorkflowVersion(
 		t.Fatalf("load workflow for harness version: %v", err)
 	}
 	harnessPath := filepath.Join(repoRoot, workflowItem.HarnessPath)
+	// #nosec G304 -- test reads the harness from the temp repo root created in the fixture.
 	contentBytes, err := os.ReadFile(harnessPath)
 	if err != nil {
 		t.Fatalf("read harness file %s: %v", harnessPath, err)

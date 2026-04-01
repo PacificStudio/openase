@@ -1,15 +1,13 @@
 <script lang="ts">
-  import type { Skill, Workflow } from '$lib/api/contracts'
+  import type { Skill } from '$lib/api/contracts'
   import { Badge } from '$ui/badge'
   import { Link2 } from '@lucide/svelte'
 
   let {
     skill,
-    workflows,
     onSelect,
   }: {
     skill: Skill
-    workflows: Workflow[]
     onSelect?: (skill: Skill) => void
   } = $props()
 
@@ -23,7 +21,9 @@
   onclick={() => onSelect?.(skill)}
 >
   <span
-    class="mt-1.5 size-2 shrink-0 rounded-full {skill.is_enabled ? 'bg-emerald-500' : 'bg-muted-foreground/40'}"
+    class="mt-1.5 size-2 shrink-0 rounded-full {skill.is_enabled
+      ? 'bg-emerald-500'
+      : 'bg-muted-foreground/40'}"
     title={skill.is_enabled ? 'Enabled' : 'Disabled'}
   ></span>
 

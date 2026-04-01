@@ -1,28 +1,8 @@
 import { cleanup, render } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { Skill, Workflow } from '$lib/api/contracts'
+import type { Skill } from '$lib/api/contracts'
 import SkillSettingsCard from './skill-settings-card.svelte'
-
-const workflows: Workflow[] = [
-  {
-    id: 'wf-1',
-    project_id: 'project-1',
-    agent_id: null,
-    name: 'Coding Workflow',
-    type: 'coding',
-    harness_path: '.openase/harnesses/coding.md',
-    hooks: {},
-    max_concurrent: 1,
-    max_retry_attempts: 1,
-    timeout_minutes: 30,
-    stall_timeout_minutes: 5,
-    version: 3,
-    is_active: true,
-    pickup_status_ids: ['todo'],
-    finish_status_ids: ['done'],
-  } as Workflow,
-]
 
 const skill: Skill = {
   id: 'skill-1',
@@ -49,7 +29,6 @@ describe('SkillSettingsCard', () => {
     const { getByText } = render(SkillSettingsCard, {
       props: {
         skill,
-        workflows,
         onSelect: vi.fn(),
       },
     })
@@ -61,7 +40,6 @@ describe('SkillSettingsCard', () => {
     const { getByText } = render(SkillSettingsCard, {
       props: {
         skill,
-        workflows,
         onSelect: vi.fn(),
       },
     })
@@ -74,7 +52,6 @@ describe('SkillSettingsCard', () => {
     const { getByText } = render(SkillSettingsCard, {
       props: {
         skill,
-        workflows,
         onSelect,
       },
     })
