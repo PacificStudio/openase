@@ -1089,7 +1089,16 @@ func writeConversationWorkspaceArchive(
 	writer *tar.Writer,
 	root string,
 	relativePaths []string,
-) error {
+) (returnErr error) {
+	rootFS, err := os.OpenRoot(root)
+	if err != nil {
+		return fmt.Errorf("open workspace root: %w", err)
+	}
+	defer func() {
+		if closeErr := rootFS.Close(); returnErr == nil && closeErr != nil {
+			returnErr = fmt.Errorf("close workspace root: %w", closeErr)
+		}
+	}()
 	for _, relative := range relativePaths {
 		absolute := filepath.Join(root, relative)
 		if _, err := os.Stat(absolute); err != nil {
@@ -1127,7 +1136,7 @@ func writeConversationWorkspaceArchive(
 			if !info.Mode().IsRegular() {
 				return nil
 			}
-			file, err := os.Open(path)
+			file, err := rootFS.Open(relativeName)
 			if err != nil {
 				return err
 			}

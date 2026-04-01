@@ -1,11 +1,6 @@
 import type { ChatDiffPayload } from '$lib/api/chat'
-import type { EphemeralChatTranscriptEntry } from '$lib/features/chat'
-import { applyStructuredDiffToText } from '$lib/features/chat/structured-diff'
-export {
-  buildDiffPreview,
-  fingerprintSuggestion,
-  type DiffPreview,
-} from '$lib/features/chat/structured-diff'
+import { applyStructuredDiffToText, type EphemeralChatTranscriptEntry } from '$lib/features/chat'
+export { buildDiffPreview, fingerprintSuggestion, type DiffPreview } from '$lib/features/chat'
 
 export type HarnessSuggestion = {
   content: string

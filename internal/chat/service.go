@@ -796,6 +796,24 @@ func (s *Service) writeSkillEditorContext(
 		sb.WriteString("```\n")
 	}
 
+	otherTextFiles := 0
+	for _, file := range skillItem.Files {
+		if file.Path == selectedPath || file.Encoding != "utf8" || len(file.Content) == 0 {
+			continue
+		}
+		if otherTextFiles == 0 {
+			sb.WriteString("\n### 其他可编辑文本文件内容\n")
+		}
+		otherTextFiles++
+		_, _ = fmt.Fprintf(sb, "\n#### %s\n", file.Path)
+		sb.WriteString("```text\n")
+		sb.WriteString(string(file.Content))
+		if !strings.HasSuffix(string(file.Content), "\n") {
+			sb.WriteByte('\n')
+		}
+		sb.WriteString("```\n")
+	}
+
 	if draft := input.Context.SkillFileDraft; draft != nil {
 		sb.WriteString("\n### 当前编辑器草稿（未保存）\n")
 		if strings.TrimSpace(*draft) == "" {
@@ -811,12 +829,14 @@ func (s *Service) writeSkillEditorContext(
 	}
 
 	sb.WriteString("\n### Skill 编辑要求\n")
-	sb.WriteString("- 只围绕当前选中的文件给建议，不要改写未选中的 bundle 文件。\n")
+	sb.WriteString("- 优先围绕当前选中的文件给建议；只有在需求天然跨文件时，才同时改动多个 bundle 文件。\n")
 	sb.WriteString("- 优先保留现有 skill 的职责边界、frontmatter name、描述和目录结构。\n")
 	sb.WriteString("- 如果用户请求的是脚本或参考文档，保持对应语言/格式的语法正确，不要强行改成 markdown。\n")
-	sb.WriteString("- 当用户请求直接修改文件时，优先输出一个结构化 diff JSON 对象，供编辑器直接安全应用。\n")
-	sb.WriteString("- diff JSON 格式如下：{\"type\":\"diff\",\"file\":\"相对文件路径\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"原行\"},{\"op\":\"add\",\"text\":\"新增行\"}]}]}\n")
-	sb.WriteString("- `file` 必须精确等于当前选中文件路径，`hunks` 使用 1-based 行号，`lines[].op` 只能是 `context` / `add` / `remove`。\n")
+	sb.WriteString("- 当用户请求直接修改文件时，优先输出结构化 diff JSON，供编辑器直接安全应用。\n")
+	sb.WriteString("- 单文件改动使用：{\"type\":\"diff\",\"file\":\"相对文件路径\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"原行\"},{\"op\":\"add\",\"text\":\"新增行\"}]}]}\n")
+	sb.WriteString("- 多文件改动使用：{\"type\":\"bundle_diff\",\"files\":[{\"file\":\"SKILL.md\",\"hunks\":[...]},{\"file\":\"scripts/redeploy.sh\",\"hunks\":[...]}]}\n")
+	sb.WriteString("- 单文件 `diff.file` 必须精确等于目标文件路径；多文件 `bundle_diff.files[].file` 必须是 bundle 内相对文件路径，允许创建新的 UTF-8 文本文件。\n")
+	sb.WriteString("- 所有 `hunks` 使用 1-based 行号，`lines[].op` 只能是 `context` / `add` / `remove`。\n")
 	sb.WriteString("- 如果无法可靠地产出结构化 diff，才回退为简要说明加完整文件代码块。\n")
 	sb.WriteString("- 普通 skill 编辑建议不要输出 action_proposal；只有在用户明确要求平台写操作时才输出 action_proposal。\n")
 	return nil

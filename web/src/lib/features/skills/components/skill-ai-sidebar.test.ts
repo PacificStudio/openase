@@ -24,7 +24,7 @@ vi.mock('$lib/stores/app.svelte', () => ({
   },
 }))
 
-import type { AgentProvider } from '$lib/api/contracts'
+import type { AgentProvider, SkillFile } from '$lib/api/contracts'
 import SkillAiSidebar from './skill-ai-sidebar.svelte'
 
 const providerFixtures: AgentProvider[] = [
@@ -84,6 +84,34 @@ const updatedFileContent = [
   'Verify rollback steps before production deploys.',
 ].join('\n')
 
+const scriptContent = '#!/usr/bin/env bash\necho old\n'
+const updatedScriptContent = '#!/usr/bin/env bash\necho deploying'
+
+const fileFixtures: SkillFile[] = [
+  {
+    path: 'SKILL.md',
+    file_kind: 'entrypoint',
+    media_type: 'text/markdown; charset=utf-8',
+    encoding: 'utf8',
+    is_executable: false,
+    size_bytes: fileContent.length,
+    sha256: 'sha-entry',
+    content: fileContent,
+    content_base64: 'ignored',
+  },
+  {
+    path: 'scripts/redeploy.sh',
+    file_kind: 'script',
+    media_type: 'text/x-shellscript; charset=utf-8',
+    encoding: 'utf8',
+    is_executable: true,
+    size_bytes: scriptContent.length,
+    sha256: 'sha-script',
+    content: scriptContent,
+    content_base64: 'ignored',
+  },
+]
+
 describe('SkillAiSidebar', () => {
   beforeAll(() => {
     HTMLElement.prototype.scrollIntoView ??= vi.fn()
@@ -99,7 +127,7 @@ describe('SkillAiSidebar', () => {
     vi.clearAllMocks()
   })
 
-  it('reuses the session and applies a structured diff suggestion for the selected file', async () => {
+  it('reuses the session, lets users switch diff files, and applies all suggested files', async () => {
     let turnCount = 0
 
     streamChatTurn.mockImplementation(async (request, handlers) => {
@@ -137,19 +165,39 @@ describe('SkillAiSidebar', () => {
       handlers.onEvent({
         kind: 'message',
         payload: {
-          type: 'diff',
-          file: 'SKILL.md',
-          hunks: [
+          type: 'bundle_diff',
+          files: [
             {
-              oldStart: 5,
-              oldLines: 2,
-              newStart: 5,
-              newLines: 4,
-              lines: [
-                { op: 'context', text: '' },
-                { op: 'context', text: 'Use safe steps.' },
-                { op: 'add', text: '' },
-                { op: 'add', text: 'Verify rollback steps before production deploys.' },
+              file: 'SKILL.md',
+              hunks: [
+                {
+                  oldStart: 5,
+                  oldLines: 2,
+                  newStart: 5,
+                  newLines: 4,
+                  lines: [
+                    { op: 'context', text: '' },
+                    { op: 'context', text: 'Use safe steps.' },
+                    { op: 'add', text: '' },
+                    { op: 'add', text: 'Verify rollback steps before production deploys.' },
+                  ],
+                },
+              ],
+            },
+            {
+              file: 'scripts/redeploy.sh',
+              hunks: [
+                {
+                  oldStart: 1,
+                  oldLines: 2,
+                  newStart: 1,
+                  newLines: 2,
+                  lines: [
+                    { op: 'context', text: '#!/usr/bin/env bash' },
+                    { op: 'remove', text: 'echo old' },
+                    { op: 'add', text: 'echo deploying' },
+                  ],
+                },
               ],
             },
           ],
@@ -172,11 +220,11 @@ describe('SkillAiSidebar', () => {
         projectId: 'project-1',
         providers: providerFixtures,
         skillId: 'skill-1',
+        files: fileFixtures,
         selectedFilePath: 'SKILL.md',
-        selectedFileContent: fileContent,
         selectedFileIsText: true,
-        onApplySuggestion: (path: string, content: string) =>
-          appliedSuggestions.push({ path, content }),
+        onApplySuggestion: (files: Array<{ path: string; content: string }>) =>
+          appliedSuggestions.push(...files),
       },
     })
 
@@ -205,15 +253,23 @@ describe('SkillAiSidebar', () => {
     await fireEvent.input(prompt, { target: { value: 'Yes, show the patch.' } })
     await fireEvent.keyDown(prompt, { key: 'Enter' })
 
-    expect(await findByText('Structured Diff')).toBeTruthy()
-    expect((await screen.findAllByText('SKILL.md')).length).toBeGreaterThanOrEqual(2)
+    expect(await findByText('Structured Bundle Diff')).toBeTruthy()
+    expect(await findByText('2 files')).toBeTruthy()
+    expect(await findByText('Verify rollback steps before production deploys.')).toBeTruthy()
+    expect((await screen.findAllByText('scripts/redeploy.sh')).length).toBeGreaterThanOrEqual(1)
 
-    await fireEvent.click(getByRole('button', { name: 'Apply' }))
+    await fireEvent.click(getByRole('button', { name: 'scripts/redeploy.sh' }))
+    expect(await findByText('echo deploying')).toBeTruthy()
 
-    expect(appliedSuggestions).toEqual([{ path: 'SKILL.md', content: updatedFileContent }])
+    await fireEvent.click(getByRole('button', { name: 'Apply All' }))
+
+    expect(appliedSuggestions).toEqual([
+      { path: 'SKILL.md', content: updatedFileContent },
+      { path: 'scripts/redeploy.sh', content: updatedScriptContent },
+    ])
 
     await waitFor(() => {
-      expect(queryByRole('button', { name: 'Apply' })).toBeNull()
+      expect(queryByRole('button', { name: 'Apply All' })).toBeNull()
     })
   })
 })

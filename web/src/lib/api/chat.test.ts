@@ -145,4 +145,101 @@ describe('streamChatTurn', () => {
       }),
     )
   })
+
+  it('parses structured bundle diff payloads distinctly from text', async () => {
+    consumeEventStream.mockImplementation(async (_body, onFrame) => {
+      onFrame({
+        event: 'message',
+        data: JSON.stringify({
+          type: 'bundle_diff',
+          files: [
+            {
+              file: 'SKILL.md',
+              hunks: [
+                {
+                  old_start: 1,
+                  old_lines: 1,
+                  new_start: 1,
+                  new_lines: 2,
+                  lines: [
+                    { op: 'context', text: '---' },
+                    { op: 'add', text: 'new line' },
+                  ],
+                },
+              ],
+            },
+            {
+              file: 'scripts/redeploy.sh',
+              hunks: [
+                {
+                  old_start: 1,
+                  old_lines: 0,
+                  new_start: 1,
+                  new_lines: 1,
+                  lines: [{ op: 'add', text: '#!/usr/bin/env bash' }],
+                },
+              ],
+            },
+          ],
+        }),
+      })
+    })
+
+    const events: unknown[] = []
+    await streamChatTurn(
+      {
+        message: 'Refactor this skill bundle.',
+        source: 'skill_editor',
+        context: {
+          projectId: 'project-1',
+          skillId: 'skill-1',
+          skillFilePath: 'SKILL.md',
+          skillFileDraft: '---\nname: "deploy"\n---\n',
+        },
+      },
+      {
+        onEvent: (event) => {
+          events.push(event)
+        },
+      },
+    )
+
+    expect(events).toEqual([
+      {
+        kind: 'message',
+        payload: {
+          type: 'bundle_diff',
+          files: [
+            {
+              file: 'SKILL.md',
+              hunks: [
+                {
+                  oldStart: 1,
+                  oldLines: 1,
+                  newStart: 1,
+                  newLines: 2,
+                  lines: [
+                    { op: 'context', text: '---' },
+                    { op: 'add', text: 'new line' },
+                  ],
+                },
+              ],
+            },
+            {
+              file: 'scripts/redeploy.sh',
+              hunks: [
+                {
+                  oldStart: 1,
+                  oldLines: 0,
+                  newStart: 1,
+                  newLines: 1,
+                  lines: [{ op: 'add', text: '#!/usr/bin/env bash' }],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ])
+  })
 })

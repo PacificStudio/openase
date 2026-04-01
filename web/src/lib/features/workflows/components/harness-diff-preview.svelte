@@ -1,5 +1,5 @@
 <script lang="ts">
-  import StructuredDiffPreview from '$lib/features/chat/structured-diff-preview.svelte'
+  import { StructuredDiffPreview } from '$lib/features/chat'
   import type { DiffPreview } from '../assistant'
 
   let {

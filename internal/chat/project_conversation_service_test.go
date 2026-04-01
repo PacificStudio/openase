@@ -517,7 +517,7 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 	if !containsEnvironmentPrefix(environment, "OPENASE_API_URL=http://127.0.0.1:19836/api/v1/platform") {
 		t.Fatalf("expected OPENASE_API_URL in environment, got %+v", environment)
 	}
-	if !containsEnvironmentPrefix(environment, "OPENASE_AGENT_TOKEN=ase_agent_project_conversation") {
+	if !containsEnvironmentPrefix(environment, "OPENASE_AGENT_TOKEN=project-conversation-placeholder") {
 		t.Fatalf("expected OPENASE_AGENT_TOKEN in environment, got %+v", environment)
 	}
 	if !containsEnvironmentPrefix(environment, "OPENASE_PROJECT_ID="+project.ID.String()) {
@@ -598,7 +598,7 @@ func (fakeProjectConversationWorkflowSync) RefreshSkills(
 	if err := os.MkdirAll(filepath.Dir(wrapperPath), 0o750); err != nil {
 		return workflowservice.RefreshSkillsResult{}, err
 	}
-	if err := os.WriteFile(wrapperPath, []byte("#!/bin/sh\n"), 0o700); err != nil {
+	if err := os.WriteFile(wrapperPath, []byte("#!/bin/sh\n"), 0o600); err != nil {
 		return workflowservice.RefreshSkillsResult{}, err
 	}
 	return workflowservice.RefreshSkillsResult{
@@ -613,7 +613,7 @@ func (fakeProjectConversationAgentPlatform) IssueToken(
 	context.Context,
 	agentplatform.IssueInput,
 ) (agentplatform.IssuedToken, error) {
-	return agentplatform.IssuedToken{Token: "ase_agent_project_conversation"}, nil
+	return agentplatform.IssuedToken{Token: "project-conversation-placeholder"}, nil
 }
 
 func createConversationRemoteRepo(

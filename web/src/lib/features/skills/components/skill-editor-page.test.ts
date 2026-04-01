@@ -108,16 +108,7 @@ const initialContent = [
   'Use safe steps.',
 ].join('\n')
 
-const updatedContent = [
-  '---',
-  'name: "deploy"',
-  'description: "Deploy safely"',
-  '---',
-  '',
-  'Use safe steps.',
-  '',
-  'Verify rollback steps before production deploys.',
-].join('\n')
+const runbookContent = ['# Runbook', '', '1. Verify rollback before deploy.'].join('\n')
 
 describe('SkillEditorPage', () => {
   beforeAll(() => {
@@ -139,7 +130,7 @@ describe('SkillEditorPage', () => {
     vi.clearAllMocks()
   })
 
-  it('applies an AI diff suggestion back into the active skill file editor', async () => {
+  it('applies an AI multi-file suggestion back into the skill bundle editor', async () => {
     appStore.currentProject = {
       id: 'project-1',
       organization_id: 'org-1',
@@ -192,19 +183,39 @@ describe('SkillEditorPage', () => {
       handlers.onEvent({
         kind: 'message',
         payload: {
-          type: 'diff',
-          file: 'SKILL.md',
-          hunks: [
+          type: 'bundle_diff',
+          files: [
             {
-              oldStart: 5,
-              oldLines: 2,
-              newStart: 5,
-              newLines: 4,
-              lines: [
-                { op: 'context', text: '' },
-                { op: 'context', text: 'Use safe steps.' },
-                { op: 'add', text: '' },
-                { op: 'add', text: 'Verify rollback steps before production deploys.' },
+              file: 'SKILL.md',
+              hunks: [
+                {
+                  oldStart: 5,
+                  oldLines: 2,
+                  newStart: 5,
+                  newLines: 4,
+                  lines: [
+                    { op: 'context', text: '' },
+                    { op: 'context', text: 'Use safe steps.' },
+                    { op: 'add', text: '' },
+                    { op: 'add', text: 'Verify rollback steps before production deploys.' },
+                  ],
+                },
+              ],
+            },
+            {
+              file: 'references/runbook.md',
+              hunks: [
+                {
+                  oldStart: 1,
+                  oldLines: 0,
+                  newStart: 1,
+                  newLines: 3,
+                  lines: [
+                    { op: 'add', text: '# Runbook' },
+                    { op: 'add', text: '' },
+                    { op: 'add', text: '1. Verify rollback before deploy.' },
+                  ],
+                },
               ],
             },
           ],
@@ -247,11 +258,12 @@ describe('SkillEditorPage', () => {
     await fireEvent.input(prompt, { target: { value: 'Make the deploy skill safer.' } })
     await fireEvent.keyDown(prompt, { key: 'Enter' })
 
-    await fireEvent.click(await findByRole('button', { name: 'Apply' }))
+    await fireEvent.click(await findByRole('button', { name: 'references/runbook.md' }))
+    await fireEvent.click(await findByRole('button', { name: 'Apply All' }))
 
     const saveButton = getByRole('button', { name: 'Save' }) as HTMLButtonElement
     await waitFor(() => {
-      expect(resolvedEditor.value).toBe(updatedContent)
+      expect(resolvedEditor.value).toBe(runbookContent)
       expect(saveButton.disabled).toBe(false)
     })
 

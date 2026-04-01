@@ -73,6 +73,17 @@ export type ChatDiffPayload = {
   hunks: ChatDiffHunk[]
 }
 
+export type ChatBundleDiffFile = {
+  file: string
+  hunks: ChatDiffHunk[]
+}
+
+export type ChatBundleDiffPayload = {
+  type: 'bundle_diff'
+  entryId?: string
+  files: ChatBundleDiffFile[]
+}
+
 export type ChatTaskPayload = {
   type: string
   raw?: unknown
@@ -81,6 +92,7 @@ export type ChatTaskPayload = {
 export type ChatMessagePayload =
   | ChatTextPayload
   | ChatDiffPayload
+  | ChatBundleDiffPayload
   | ChatActionProposalPayload
   | ChatTaskPayload
 
@@ -491,6 +503,14 @@ function parseMessagePayload(payload: unknown): ChatMessagePayload {
     }
   }
 
+  if (type === 'bundle_diff') {
+    return {
+      type,
+      entryId: readOptionalString(object, 'entry_id'),
+      files: readBundleDiffFiles(object),
+    }
+  }
+
   return {
     type,
     raw: object,
@@ -629,6 +649,27 @@ function readDiffHunks(object: Record<string, unknown>): ChatDiffHunk[] {
   }
 
   return hunks.map((hunk, index) => parseDiffHunk(hunk, index))
+}
+
+function readBundleDiffFiles(object: Record<string, unknown>): ChatBundleDiffFile[] {
+  const files = object.files
+  if (!Array.isArray(files) || files.length === 0) {
+    throw new Error('chat stream bundle_diff files must be a non-empty array')
+  }
+
+  const seen = new Set<string>()
+  return files.map((item, index) => {
+    const fileObject = parseRequiredObject(item)
+    const file = readRequiredString(fileObject, 'file')
+    if (seen.has(file)) {
+      throw new Error(`chat stream bundle_diff file ${index} is duplicated`)
+    }
+    seen.add(file)
+    return {
+      file,
+      hunks: readDiffHunks(fileObject),
+    }
+  })
 }
 
 function parseDiffHunk(value: unknown, index: number): ChatDiffHunk {

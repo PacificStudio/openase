@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import type { AgentProvider } from '$lib/api/contracts'
+  import type { AgentProvider, SkillFile } from '$lib/api/contracts'
   import {
     createEphemeralChatSessionController,
     EphemeralChatProviderSelect,
@@ -12,7 +12,11 @@
   import { ScrollArea } from '$ui/scroll-area'
   import Textarea from '$ui/textarea/textarea.svelte'
   import { RefreshCcw, Send } from '@lucide/svelte'
-  import { buildDiffPreview, findLatestSkillSuggestion, fingerprintSuggestion } from '../assistant'
+  import {
+    buildDiffPreview,
+    findLatestSkillSuggestion,
+    fingerprintSuggestion,
+  } from '$lib/features/skills/assistant'
   import SkillChatEmptyState from './skill-chat-empty-state.svelte'
   import SkillSuggestionCard from './skill-suggestion-card.svelte'
 
@@ -20,18 +24,21 @@
     projectId,
     providers = [],
     skillId,
+    files = [],
     selectedFilePath,
-    selectedFileContent,
     selectedFileIsText = true,
     onApplySuggestion,
   }: {
     projectId?: string
     providers?: AgentProvider[]
     skillId?: string
+    files?: SkillFile[]
     selectedFilePath?: string | null
-    selectedFileContent: string
     selectedFileIsText?: boolean
-    onApplySuggestion?: (path: string, content: string) => void
+    onApplySuggestion?: (
+      files: Array<{ path: string; content: string }>,
+      focusPath?: string,
+    ) => void
   } = $props()
 
   let prompt = $state('')
@@ -47,17 +54,50 @@
   const pending = $derived(chatController.pending)
   const entries = $derived(chatController.entries)
   const normalizedSelectedPath = $derived(selectedFilePath?.trim() ?? '')
+  const selectedFileContent = $derived(
+    files.find((file) => file.path === normalizedSelectedPath)?.content ?? '',
+  )
   const suggestion = $derived(
     normalizedSelectedPath && selectedFileIsText
-      ? findLatestSkillSuggestion(entries, normalizedSelectedPath, selectedFileContent)
+      ? findLatestSkillSuggestion(entries, {
+          selectedFilePath: normalizedSelectedPath,
+          files,
+        })
       : null,
   )
-  const preview = $derived(
-    suggestion ? buildDiffPreview(selectedFileContent, suggestion.content) : null,
+  let selectedSuggestionPath = $state('')
+  const previewTarget = $derived(
+    suggestion?.files.find((file) => file.path === selectedSuggestionPath) ??
+      suggestion?.files[0] ??
+      null,
   )
-  const currentFingerprint = $derived(suggestion ? fingerprintSuggestion(suggestion.content) : '')
+  const preview = $derived(
+    previewTarget
+      ? buildDiffPreview(
+          files.find((file) => file.path === previewTarget.path)?.content ?? '',
+          previewTarget.content,
+        )
+      : null,
+  )
+  const currentFingerprint = $derived(
+    suggestion
+      ? fingerprintSuggestion(
+          suggestion.files.map((file) => `${file.path}\n${file.content}`).join('\n\n'),
+        )
+      : '',
+  )
+  const previewList = $derived(
+    suggestion?.files.map((file) => ({
+      path: file.path,
+      preview: buildDiffPreview(
+        files.find((current) => current.path === file.path)?.content ?? '',
+        file.content,
+      ),
+    })) ?? [],
+  )
   const suggestionAlreadyApplied = $derived(
-    Boolean(preview && !preview.hasChanges) || appliedFingerprint === currentFingerprint,
+    (previewList.length > 0 && previewList.every((item) => !item.preview.hasChanges)) ||
+      appliedFingerprint === currentFingerprint,
   )
 
   $effect(() => {
@@ -71,7 +111,23 @@
     previousContextKey = contextKey
     prompt = ''
     appliedFingerprint = ''
+    selectedSuggestionPath = ''
     void chatController.resetConversation()
+  })
+
+  $effect(() => {
+    if (!suggestion || suggestion.files.length === 0) {
+      selectedSuggestionPath = ''
+      return
+    }
+    const stillExists = suggestion.files.some((file) => file.path === selectedSuggestionPath)
+    if (stillExists) {
+      return
+    }
+    selectedSuggestionPath =
+      suggestion.files.find((file) => file.path === normalizedSelectedPath)?.path ??
+      suggestion.files[0]?.path ??
+      ''
   })
 
   $effect(() => {
@@ -125,8 +181,8 @@
 
   function handleApply() {
     if (!suggestion) return
-    onApplySuggestion?.(suggestion.path, suggestion.content)
-    appliedFingerprint = fingerprintSuggestion(suggestion.content)
+    onApplySuggestion?.(suggestion.files, selectedSuggestionPath || suggestion.files[0]?.path)
+    appliedFingerprint = currentFingerprint
   }
 
   function handlePromptKeydown(event: KeyboardEvent) {
@@ -196,8 +252,10 @@
       {#if suggestion && preview}
         <SkillSuggestionCard
           {suggestion}
+          selectedPath={selectedSuggestionPath}
           {preview}
           {suggestionAlreadyApplied}
+          onSelectPath={(path) => (selectedSuggestionPath = path)}
           onApply={handleApply}
         />
       {/if}

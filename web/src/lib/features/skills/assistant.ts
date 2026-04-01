@@ -1,15 +1,16 @@
+import type { SkillFile } from '$lib/api/contracts'
 import type { EphemeralChatTranscriptEntry } from '$lib/features/chat'
-import { applyStructuredDiffToText } from '$lib/features/chat/structured-diff'
+import { applyStructuredDiffToText } from '$lib/features/chat'
 
-export {
-  buildDiffPreview,
-  fingerprintSuggestion,
-  type DiffPreview,
-} from '$lib/features/chat/structured-diff'
+export { buildDiffPreview, fingerprintSuggestion, type DiffPreview } from '$lib/features/chat'
 
-export type SkillSuggestion = {
+export type SkillSuggestedFile = {
   path: string
   content: string
+}
+
+export type SkillSuggestion = {
+  files: SkillSuggestedFile[]
   summary: string
 }
 
@@ -17,13 +18,19 @@ const fencedBlockPattern = /```(?:[a-z0-9_+-]+)?\s*([\s\S]*?)```/gi
 
 export function findLatestSkillSuggestion(
   entries: EphemeralChatTranscriptEntry[],
-  currentFilePath: string,
-  currentContent = '',
+  input: {
+    selectedFilePath: string
+    files: SkillFile[]
+  },
 ): SkillSuggestion | null {
-  const normalizedCurrentPath = normalizePath(currentFilePath)
-  if (!normalizedCurrentPath) {
+  const normalizedSelectedPath = normalizePath(input.selectedFilePath)
+  if (!normalizedSelectedPath) {
     return null
   }
+
+  const filesByPath = new Map(
+    input.files.map((file) => [normalizePath(file.path), file] satisfies [string, SkillFile]),
+  )
 
   for (let index = entries.length - 1; index >= 0; index -= 1) {
     const entry = entries[index]
@@ -31,18 +38,31 @@ export function findLatestSkillSuggestion(
       continue
     }
 
-    if (entry.kind === 'diff') {
-      if (normalizePath(entry.diff.file) !== normalizedCurrentPath) {
-        continue
-      }
-      const content = applyStructuredDiffToText(currentContent, entry.diff)
-      if (content == null) {
+    if (entry.kind === 'bundle_diff') {
+      const suggestedFiles = entry.bundleDiff.files
+        .map((item) => buildSuggestedFile(filesByPath, normalizePath(item.file), item.hunks))
+        .filter((item): item is SkillSuggestedFile => item !== null)
+      if (suggestedFiles.length === 0) {
         continue
       }
       return {
-        path: normalizedCurrentPath,
-        content,
-        summary: `Suggested update for ${normalizedCurrentPath}.`,
+        files: sortSuggestedFiles(suggestedFiles, normalizedSelectedPath),
+        summary: `Suggested multi-file update for ${suggestedFiles.length} files.`,
+      }
+    }
+
+    if (entry.kind === 'diff') {
+      const suggestedFile = buildSuggestedFile(
+        filesByPath,
+        normalizePath(entry.diff.file),
+        entry.diff.hunks,
+      )
+      if (!suggestedFile) {
+        continue
+      }
+      return {
+        files: [suggestedFile],
+        summary: `Suggested update for ${suggestedFile.path}.`,
       }
     }
 
@@ -55,13 +75,55 @@ export function findLatestSkillSuggestion(
       continue
     }
     return {
-      path: normalizedCurrentPath,
-      content: suggestionContent,
+      files: [{ path: normalizedSelectedPath, content: suggestionContent }],
       summary: normalizeSuggestionSummary(stripCodeBlocks(entry.content)),
     }
   }
 
   return null
+}
+
+function buildSuggestedFile(
+  filesByPath: Map<string, SkillFile>,
+  normalizedPath: string,
+  hunks: Array<{
+    oldStart: number
+    oldLines: number
+    newStart: number
+    newLines: number
+    lines: Array<{ op: 'context' | 'add' | 'remove'; text: string }>
+  }>,
+) {
+  if (!normalizedPath) {
+    return null
+  }
+
+  const existing = filesByPath.get(normalizedPath)
+  if (existing && existing.encoding !== 'utf8') {
+    return null
+  }
+
+  const content = applyStructuredDiffToText(existing?.content ?? '', {
+    type: 'diff',
+    file: normalizedPath,
+    hunks,
+  })
+  if (content == null) {
+    return null
+  }
+
+  return {
+    path: normalizedPath,
+    content,
+  } satisfies SkillSuggestedFile
+}
+
+function sortSuggestedFiles(files: SkillSuggestedFile[], selectedFilePath: string) {
+  return [...files].sort((left, right) => {
+    if (left.path === selectedFilePath) return -1
+    if (right.path === selectedFilePath) return 1
+    return left.path.localeCompare(right.path)
+  })
 }
 
 function extractTextSuggestion(text: string) {

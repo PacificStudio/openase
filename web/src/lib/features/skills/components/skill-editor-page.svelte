@@ -204,9 +204,38 @@
     )
   }
 
-  function handleApplyAssistantSuggestion(path: string, value: string) {
-    handleContentChange(path, value)
-    selectFile(path)
+  function handleApplyAssistantSuggestion(
+    suggestedFiles: Array<{ path: string; content: string }>,
+    focusPath?: string,
+  ) {
+    if (suggestedFiles.length === 0) {
+      return
+    }
+
+    const suggestionMap = new Map(suggestedFiles.map((file) => [file.path, file.content]))
+    let nextDraftFiles = draftFiles
+    for (const file of suggestedFiles) {
+      if (!nextDraftFiles.some((item) => item.path === file.path)) {
+        nextDraftFiles = addDraftTextFile(
+          nextDraftFiles,
+          emptyDirectoryPaths,
+          file.path,
+          file.content,
+        )
+      }
+    }
+
+    draftFiles = nextDraftFiles.map((file) => {
+      const suggestedContent = suggestionMap.get(file.path)
+      return suggestedContent === undefined
+        ? file
+        : updateDraftTextFileContent(file, suggestedContent)
+    })
+
+    const nextFocusPath = focusPath ?? suggestedFiles[0]?.path
+    if (nextFocusPath) {
+      selectFile(nextFocusPath)
+    }
   }
 
   function handleDragStart(event: PointerEvent) {
@@ -658,8 +687,8 @@
             projectId={appStore.currentProject?.id}
             {providers}
             skillId={skill.id}
+            files={draftFiles}
             {selectedFilePath}
-            selectedFileContent={activeContent}
             {selectedFileIsText}
             onApplySuggestion={handleApplyAssistantSuggestion}
           />

@@ -122,6 +122,16 @@ func TestParseDiffPayloadTextAcceptsStructuredJSON(t *testing.T) {
 	}
 }
 
+func TestParseBundleDiffPayloadTextAcceptsStructuredJSON(t *testing.T) {
+	payload, ok := parseBundleDiffPayloadText("```json\n{\"type\":\"bundle_diff\",\"files\":[{\"file\":\"SKILL.md\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"---\"},{\"op\":\"add\",\"text\":\"new line\"}]}]},{\"file\":\"scripts/redeploy.sh\",\"hunks\":[{\"old_start\":1,\"old_lines\":0,\"new_start\":1,\"new_lines\":1,\"lines\":[{\"op\":\"add\",\"text\":\"#!/usr/bin/env bash\"}]}]}]}\n```")
+	if !ok {
+		t.Fatalf("expected bundle diff payload to parse")
+	}
+	if payload.Type != chatMessageTypeBundleDiff || len(payload.Files) != 2 {
+		t.Fatalf("unexpected bundle diff payload: %#v", payload)
+	}
+}
+
 func TestBuildSystemPromptGuidesHarnessEditorReplies(t *testing.T) {
 	workflowID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
 	service := NewService(nil, nil, fakeCatalogReader{
@@ -327,11 +337,14 @@ func TestBuildSystemPromptGuidesSkillEditorReplies(t *testing.T) {
 		"path: scripts/redeploy.sh",
 		"### 已发布文件内容",
 		"echo old",
+		"### 其他可编辑文本文件内容",
+		"#### references/runbook.md",
 		"### 当前编辑器草稿（未保存）",
 		"echo new",
 		"### Skill 编辑要求",
 		"\"type\":\"diff\",\"file\":\"相对文件路径\"",
-		"`file` 必须精确等于当前选中文件路径",
+		"\"type\":\"bundle_diff\",\"files\"",
+		"`bundle_diff.files[].file` 必须是 bundle 内相对文件路径",
 	) {
 		t.Fatalf("expected skill-editor response instructions in prompt, got %q", prompt)
 	}
