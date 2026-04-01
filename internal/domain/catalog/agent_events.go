@@ -22,9 +22,12 @@ type AgentTraceEntry struct {
 	AgentID    uuid.UUID
 	TicketID   *uuid.UUID
 	AgentRunID uuid.UUID
+	Sequence   int64
+	Provider   string
 	Kind       string
 	Stream     string
 	Output     string
+	Payload    map[string]any
 	CreatedAt  time.Time
 }
 
@@ -59,6 +62,18 @@ type ListAgentSteps struct {
 	AgentID   uuid.UUID
 	TicketID  *uuid.UUID
 	Limit     int
+}
+
+type ListAgentRunTraceEntries struct {
+	ProjectID  uuid.UUID
+	AgentRunID uuid.UUID
+	Limit      int
+}
+
+type ListAgentRunStepEntries struct {
+	ProjectID  uuid.UUID
+	AgentRunID uuid.UUID
+	Limit      int
 }
 
 func ParseListAgentSteps(projectID uuid.UUID, agentID uuid.UUID, raw AgentEventListInput) (ListAgentSteps, error) {

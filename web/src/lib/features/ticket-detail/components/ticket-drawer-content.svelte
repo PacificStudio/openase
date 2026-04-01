@@ -16,6 +16,7 @@
   import TicketHeader from './ticket-header.svelte'
   import TicketHooks from './ticket-hooks.svelte'
   import TicketRepos from './ticket-repos.svelte'
+  import TicketRunTranscriptPanel from './ticket-run-transcript-panel.svelte'
   import TicketRuntimeStateCard from './ticket-runtime-state-card.svelte'
   import type { DependencyDraft } from '../mutation-shared'
   import type {
@@ -24,6 +25,8 @@
     TicketDetail,
     TicketReferenceOption,
     TicketRepoOption,
+    TicketRun,
+    TicketRunTranscriptBlock,
     TicketStatusOption,
     TicketTimelineItem,
   } from '../types'
@@ -33,6 +36,8 @@
     projectId,
     hooks,
     timeline,
+    currentRun = null,
+    runBlocks = [],
     statuses,
     dependencyCandidates,
     repoOptions,
@@ -67,6 +72,8 @@
     projectId: string
     hooks: HookExecution[]
     timeline: TicketTimelineItem[]
+    currentRun?: TicketRun | null
+    runBlocks?: TicketRunTranscriptBlock[]
     statuses: TicketStatusOption[]
     dependencyCandidates: TicketReferenceOption[]
     repoOptions: TicketRepoOption[]
@@ -158,19 +165,23 @@
 {/if}
 
 <div class="flex flex-1 flex-col overflow-hidden md:flex-row">
-  <TicketCommentsThread
-    {ticket}
-    {timeline}
-    {savingFields}
-    {creatingComment}
-    {updatingCommentId}
-    {deletingCommentId}
-    {onSaveFields}
-    {onCreateComment}
-    {onUpdateComment}
-    {onDeleteComment}
-    {onLoadCommentHistory}
-  />
+  <div class="flex flex-1 flex-col overflow-hidden border-r">
+    <TicketRunTranscriptPanel run={currentRun} blocks={runBlocks} />
+
+    <TicketCommentsThread
+      {ticket}
+      {timeline}
+      {savingFields}
+      {creatingComment}
+      {updatingCommentId}
+      {deletingCommentId}
+      {onSaveFields}
+      {onCreateComment}
+      {onUpdateComment}
+      {onDeleteComment}
+      {onLoadCommentHistory}
+    />
+  </div>
 
   <!-- Right sidebar: metadata -->
   <div class="border-border w-full shrink-0 overflow-y-auto border-t md:w-80 md:border-t-0">

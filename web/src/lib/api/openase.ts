@@ -65,6 +65,8 @@ import type {
   StatusResponse,
   SystemDashboardResponse,
   TicketDetailPayload,
+  TicketRunDetailPayload,
+  TicketRunListPayload,
   TicketDependencyDeleteResponse,
   TicketDependencyResponse,
   TicketCreateResponse,
@@ -567,6 +569,16 @@ export function deleteTicketExternalLink(ticketId: string, externalLinkId: strin
 
 export function getTicketDetail(projectId: string, ticketId: string) {
   return api.get<TicketDetailPayload>(`/api/v1/projects/${projectId}/tickets/${ticketId}/detail`)
+}
+
+export function listTicketRuns(projectId: string, ticketId: string) {
+  return api.get<TicketRunListPayload>(`/api/v1/projects/${projectId}/tickets/${ticketId}/runs`)
+}
+
+export function getTicketRun(projectId: string, ticketId: string, runId: string) {
+  return api.get<TicketRunDetailPayload>(
+    `/api/v1/projects/${projectId}/tickets/${ticketId}/runs/${runId}`,
+  )
 }
 
 export function listProjectRepos(projectId: string) {

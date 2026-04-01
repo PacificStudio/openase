@@ -1,11 +1,22 @@
 import { ApiError } from '$lib/api/client'
+import type { SSEFrame } from '$lib/api/sse'
 import { toastStore } from '$lib/stores/toast.svelte'
+import { getTicketRun, listTicketRuns } from '$lib/api/openase'
 import { fetchTicketDetailContext } from './context'
+import { mapTicketRunDetail, mapTicketRuns } from './run-transcript-data'
+import {
+  applyTicketRunStreamFrame,
+  createEmptyTicketRunTranscriptState,
+  hydrateTicketRunDetail,
+  setTicketRunList,
+} from './run-transcript'
 import type {
   HookExecution,
   TicketDetail,
   TicketReferenceOption,
   TicketRepoOption,
+  TicketRun,
+  TicketRunTranscriptBlock,
   TicketStatusOption,
   TicketTimelineItem,
 } from './types'
@@ -17,13 +28,22 @@ type LoadOptions = {
 
 type TicketDrawerStateDeps = {
   fetchContext: typeof fetchTicketDetailContext
+  fetchRuns: typeof listTicketRuns
+  fetchRun: typeof getTicketRun
 }
 
 const defaultDeps: TicketDrawerStateDeps = {
   fetchContext: fetchTicketDetailContext,
+  fetchRuns: listTicketRuns,
+  fetchRun: getTicketRun,
 }
 
-export function createTicketDrawerState(deps: TicketDrawerStateDeps = defaultDeps) {
+export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {}) {
+  const resolvedDeps = {
+    ...defaultDeps,
+    ...deps,
+  }
+
   let loading = $state(false)
   let error = $state('')
   let ticket = $state<TicketDetail | null>(null)
@@ -32,6 +52,9 @@ export function createTicketDrawerState(deps: TicketDrawerStateDeps = defaultDep
   let statuses = $state<TicketStatusOption[]>([])
   let dependencyCandidates = $state<TicketReferenceOption[]>([])
   let repoOptions = $state<TicketRepoOption[]>([])
+  let runs = $state<TicketRun[]>([])
+  let currentRun = $state<TicketRun | null>(null)
+  let runBlocks = $state<TicketRunTranscriptBlock[]>([])
   let savingFields = $state(false)
   let creatingDependency = $state(false)
   let deletingDependencyId = $state<string | null>(null)
@@ -65,6 +88,46 @@ export function createTicketDrawerState(deps: TicketDrawerStateDeps = defaultDep
     hooks = detailContext.hooks
   }
 
+  function applyRunTranscriptState(
+    nextState: ReturnType<typeof createEmptyTicketRunTranscriptState>,
+  ) {
+    runs = nextState.runs
+    currentRun = nextState.currentRun
+    runBlocks = nextState.blocks
+  }
+
+  function getRunTranscriptState() {
+    return {
+      runs,
+      currentRun,
+      blocks: runBlocks,
+    }
+  }
+
+  async function loadRunTranscript(projectId: string, ticketId: string, requestId: number) {
+    const runList = mapTicketRuns(await resolvedDeps.fetchRuns(projectId, ticketId))
+    if (requestId !== loadRequestId) {
+      return
+    }
+
+    let nextState = setTicketRunList(createEmptyTicketRunTranscriptState(), runList)
+    applyRunTranscriptState(nextState)
+
+    if (!nextState.currentRun) {
+      return
+    }
+
+    const detail = mapTicketRunDetail(
+      await resolvedDeps.fetchRun(projectId, ticketId, nextState.currentRun.id),
+    )
+    if (requestId !== loadRequestId) {
+      return
+    }
+
+    nextState = hydrateTicketRunDetail(nextState, detail)
+    applyRunTranscriptState(nextState)
+  }
+
   async function runTimelineRefresh(projectId: string, ticketId: string) {
     if (loading || !ticket) {
       return
@@ -79,7 +142,7 @@ export function createTicketDrawerState(deps: TicketDrawerStateDeps = defaultDep
         timelineRefreshQueued = false
         const requestId = loadRequestId
         try {
-          const detailContext = await deps.fetchContext(projectId, ticketId)
+          const detailContext = await resolvedDeps.fetchContext(projectId, ticketId)
           if (requestId !== loadRequestId || !ticket) {
             continue
           }
@@ -132,6 +195,15 @@ export function createTicketDrawerState(deps: TicketDrawerStateDeps = defaultDep
     },
     get repoOptions() {
       return repoOptions
+    },
+    get runs() {
+      return runs
+    },
+    get currentRun() {
+      return currentRun
+    },
+    get runBlocks() {
+      return runBlocks
     },
     get savingFields() {
       return savingFields
@@ -221,10 +293,11 @@ export function createTicketDrawerState(deps: TicketDrawerStateDeps = defaultDep
         error = ''
       }
       try {
-        const detailContext = await deps.fetchContext(projectId, ticketId)
+        const detailContext = await resolvedDeps.fetchContext(projectId, ticketId)
         if (requestId !== loadRequestId) return
 
         applyFullContext(detailContext)
+        await loadRunTranscript(projectId, ticketId, requestId)
       } catch (caughtError) {
         if (requestId !== loadRequestId) return
         const message =
@@ -250,6 +323,10 @@ export function createTicketDrawerState(deps: TicketDrawerStateDeps = defaultDep
         await runTimelineRefresh(projectId, ticketId)
       }
     },
+    applyRunStreamFrame(frame: Pick<SSEFrame, 'event' | 'data'>) {
+      const nextState = applyTicketRunStreamFrame(getRunTranscriptState(), frame)
+      applyRunTranscriptState(nextState)
+    },
     reset() {
       loadRequestId += 1
       timelineRefreshQueued = false
@@ -262,6 +339,9 @@ export function createTicketDrawerState(deps: TicketDrawerStateDeps = defaultDep
       statuses = []
       dependencyCandidates = []
       repoOptions = []
+      runs = []
+      currentRun = null
+      runBlocks = []
       savingFields = false
       creatingDependency = false
       deletingDependencyId = null

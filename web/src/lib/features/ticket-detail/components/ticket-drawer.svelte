@@ -92,8 +92,13 @@
       return
     }
 
-    return connectTicketDetailStreams(projectId, ticketId, () => {
-      void drawerState.refreshTimeline(projectId, ticketId)
+    return connectTicketDetailStreams(projectId, ticketId, {
+      onRelevantEvent: () => {
+        void drawerState.refreshTimeline(projectId, ticketId)
+      },
+      onRunFrame: (frame) => {
+        drawerState.applyRunStreamFrame(frame)
+      },
     })
   })
 
@@ -333,6 +338,8 @@
         ticket={drawerState.ticket}
         hooks={drawerState.hooks}
         timeline={drawerState.timeline}
+        currentRun={drawerState.currentRun}
+        runBlocks={drawerState.runBlocks}
         statuses={drawerState.statuses}
         dependencyCandidates={drawerState.dependencyCandidates}
         repoOptions={drawerState.repoOptions}

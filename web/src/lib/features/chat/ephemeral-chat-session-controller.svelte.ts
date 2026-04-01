@@ -241,7 +241,12 @@ export function createEphemeralChatSessionController(
                 return
               }
               streamStarted = true
-              if (event.kind === 'message' && event.payload.type === 'text' && event.payload.content) {
+              if (
+                event.kind === 'message' &&
+                event.payload.type === 'text' &&
+                'content' in event.payload &&
+                event.payload.content
+              ) {
                 partialReplyReceived = true
               }
               handleStreamEvent(event)
