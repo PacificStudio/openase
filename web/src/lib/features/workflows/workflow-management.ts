@@ -2,6 +2,7 @@ import { deleteWorkflow, updateWorkflow } from '$lib/api/openase'
 import type { WorkflowStatusOption, WorkflowSummary } from './types'
 import { mapWorkflowSummary } from './data'
 import type { WorkflowLifecyclePayload } from './workflow-lifecycle'
+import { mergeWorkflowHooksPayload } from './workflow-hooks'
 
 export async function saveWorkflowLifecycle(
   workflowId: string,
@@ -9,7 +10,10 @@ export async function saveWorkflowLifecycle(
   statuses: WorkflowStatusOption[],
   currentWorkflow?: WorkflowSummary,
 ): Promise<WorkflowSummary> {
-  const response = await updateWorkflow(workflowId, payload)
+  const response = await updateWorkflow(workflowId, {
+    ...payload,
+    hooks: mergeWorkflowHooksPayload(payload.hooks ?? undefined, currentWorkflow?.rawHooks),
+  })
   const statusNamesById = new Map(statuses.map((status) => [status.id, status.name]))
   const nextWorkflow = mapWorkflowSummary(response.workflow, statusNamesById)
   return {
