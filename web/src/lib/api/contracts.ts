@@ -168,6 +168,15 @@ export type TicketCommentRevisionListResponse = DeepRequired<
   ResponseFor<'/api/v1/tickets/{ticketId}/comments/{commentId}/revisions', 'get'>
 >
 export type TicketCommentRevisionRecord = ItemOf<TicketCommentRevisionListResponse['revisions']>
+export type TicketRunListPayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/tickets/{ticketId}/runs', 'get'>
+>
+export type TicketRunDetailPayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}', 'get'>
+>
+export type TicketRunRecord = ItemOf<TicketRunListPayload['runs']>
+export type TicketRunTraceRecord = ItemOf<TicketRunDetailPayload['trace_entries']>
+export type TicketRunStepRecord = ItemOf<TicketRunDetailPayload['step_entries']>
 export type TicketDependencyResponse = DeepRequired<
   ResponseFor<'/api/v1/tickets/{ticketId}/dependencies', 'post'>
 >

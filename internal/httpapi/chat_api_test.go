@@ -430,6 +430,35 @@ func TestChatRouteLogsStructuredStartFailures(t *testing.T) {
 	}
 }
 
+func TestWriteProjectConversationErrorMappings(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		err        error
+		wantStatus int
+		wantCode   string
+	}{
+		{name: "turn active", err: chatservice.ErrConversationTurnActive, wantStatus: http.StatusConflict, wantCode: "PROJECT_CONVERSATION_TURN_ALREADY_ACTIVE"},
+		{name: "generic conflict", err: chatservice.ErrConversationConflict, wantStatus: http.StatusConflict, wantCode: "CHAT_CONVERSATION_CONFLICT"},
+		{name: "missing conversation", err: chatservice.ErrConversationNotFound, wantStatus: http.StatusNotFound, wantCode: "CHAT_CONVERSATION_NOT_FOUND"},
+		{name: "runtime missing", err: chatservice.ErrConversationRuntimeAbsent, wantStatus: http.StatusConflict, wantCode: "CHAT_CONVERSATION_RUNTIME_UNAVAILABLE"},
+		{name: "internal", err: errors.New("boom"), wantStatus: http.StatusInternalServerError, wantCode: "INTERNAL_ERROR"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec := httptest.NewRecorder()
+			ctx := e.NewContext(req, rec)
+
+			if err := writeProjectConversationError(ctx, tc.err); err != nil {
+				t.Fatalf("writeProjectConversationError() error = %v", err)
+			}
+			if rec.Code != tc.wantStatus || !strings.Contains(rec.Body.String(), tc.wantCode) {
+				t.Fatalf("writeProjectConversationError(%s) = %d %s", tc.name, rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
 func TestChatRouteStreamsPeriodicKeepalives(t *testing.T) {
 	originalInterval := chatSSEKeepaliveInterval
 	chatSSEKeepaliveInterval = 5 * time.Millisecond

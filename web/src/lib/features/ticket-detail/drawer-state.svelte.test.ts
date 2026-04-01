@@ -83,6 +83,13 @@ function createDeferred<T>() {
   return { promise, resolve, reject }
 }
 
+function createRunDeps() {
+  return {
+    fetchRuns: vi.fn().mockResolvedValue({ runs: [] }),
+    fetchRun: vi.fn().mockResolvedValue({ run: null, trace_entries: [], step_entries: [] }),
+  }
+}
+
 describe('createTicketDrawerState', () => {
   it('refreshes only the live ticket timeline snapshot', async () => {
     const initialContext = buildContext()
@@ -125,7 +132,7 @@ describe('createTicketDrawerState', () => {
       .mockResolvedValueOnce(initialContext)
       .mockResolvedValueOnce(refreshedContext)
 
-    const state = createTicketDrawerState({ fetchContext })
+    const state = createTicketDrawerState({ fetchContext, ...createRunDeps() })
 
     await state.load('project-1', 'ticket-1')
     await state.refreshTimeline('project-1', 'ticket-1')
@@ -189,7 +196,7 @@ describe('createTicketDrawerState', () => {
       .mockReturnValueOnce(deferredRefresh.promise)
       .mockResolvedValueOnce(finalContext)
 
-    const state = createTicketDrawerState({ fetchContext })
+    const state = createTicketDrawerState({ fetchContext, ...createRunDeps() })
     await state.load('project-1', 'ticket-1')
 
     const firstRefresh = state.refreshTimeline('project-1', 'ticket-1')

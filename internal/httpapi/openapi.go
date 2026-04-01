@@ -390,6 +390,43 @@ type OpenAPIAgentStepEntry struct {
 	CreatedAt          string  `json:"created_at"`
 }
 
+type OpenAPITicketRun struct {
+	ID                 string  `json:"id"`
+	AttemptNumber      int     `json:"attempt_number"`
+	AgentID            string  `json:"agent_id"`
+	AgentName          string  `json:"agent_name"`
+	Provider           string  `json:"provider"`
+	Status             string  `json:"status"`
+	CurrentStepStatus  *string `json:"current_step_status,omitempty"`
+	CurrentStepSummary *string `json:"current_step_summary,omitempty"`
+	CreatedAt          string  `json:"created_at"`
+	RuntimeStartedAt   *string `json:"runtime_started_at,omitempty"`
+	LastHeartbeatAt    *string `json:"last_heartbeat_at,omitempty"`
+	CompletedAt        *string `json:"completed_at,omitempty"`
+	LastError          *string `json:"last_error,omitempty"`
+}
+
+type OpenAPITicketRunTraceEntry struct {
+	ID         string         `json:"id"`
+	AgentRunID string         `json:"agent_run_id"`
+	Sequence   int64          `json:"sequence"`
+	Provider   string         `json:"provider"`
+	Kind       string         `json:"kind"`
+	Stream     string         `json:"stream"`
+	Output     string         `json:"output"`
+	Payload    map[string]any `json:"payload"`
+	CreatedAt  string         `json:"created_at"`
+}
+
+type OpenAPITicketRunStepEntry struct {
+	ID                 string  `json:"id"`
+	AgentRunID         string  `json:"agent_run_id"`
+	StepStatus         string  `json:"step_status"`
+	Summary            string  `json:"summary"`
+	SourceTraceEventID *string `json:"source_trace_event_id,omitempty"`
+	CreatedAt          string  `json:"created_at"`
+}
+
 type OpenAPITicketReference struct {
 	ID         string `json:"id"`
 	Identifier string `json:"identifier"`
@@ -823,6 +860,16 @@ type OpenAPIAgentOutputEntriesResponse struct {
 
 type OpenAPIAgentStepEntriesResponse struct {
 	Entries []OpenAPIAgentStepEntry `json:"entries"`
+}
+
+type OpenAPITicketRunsResponse struct {
+	Runs []OpenAPITicketRun `json:"runs"`
+}
+
+type OpenAPITicketRunResponse struct {
+	Run          OpenAPITicketRun             `json:"run"`
+	TraceEntries []OpenAPITicketRunTraceEntry `json:"trace_entries"`
+	StepEntries  []OpenAPITicketRunStepEntry  `json:"step_entries"`
 }
 
 type OpenAPIActivityEventsResponse struct {
@@ -3352,6 +3399,43 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 	ticketDetailGet.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets/{ticketId}/detail", http.MethodGet, ticketDetailGet)
 
+	ticketRunsGet, err := b.jsonOperation(
+		"listTicketRuns",
+		"List ticket runs",
+		[]string{"tickets"},
+		http.StatusOK,
+		OpenAPITicketRunsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	ticketRunsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	ticketRunsGet.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets/{ticketId}/runs", http.MethodGet, ticketRunsGet)
+
+	ticketRunGet, err := b.jsonOperation(
+		"getTicketRun",
+		"Get ticket run transcript data",
+		[]string{"tickets"},
+		http.StatusOK,
+		OpenAPITicketRunResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	ticketRunGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	ticketRunGet.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	ticketRunGet.AddParameter(uuidPathParameter("runId", "Run ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}", http.MethodGet, ticketRunGet)
+
 	return nil
 }
 
@@ -3932,6 +4016,21 @@ func (b openAPISpecBuilder) addStreamOperations() error {
 	agentStepStream.AddParameter(uuidPathParameter("agentId", "Agent ID."))
 	agentStepStream.AddParameter(uuidQueryParameter("ticket_id", "Filter streamed steps by ticket ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/agents/{agentId}/steps/stream", http.MethodGet, agentStepStream)
+
+	ticketRunStream, err := b.streamOperation(
+		"streamTicketRuns",
+		"Stream ticket run transcript events",
+		[]string{"streams"},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	ticketRunStream.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	ticketRunStream.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets/{ticketId}/runs/stream", http.MethodGet, ticketRunStream)
 
 	return nil
 }
