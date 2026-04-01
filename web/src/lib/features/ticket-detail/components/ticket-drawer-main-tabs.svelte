@@ -2,7 +2,13 @@
   import * as Tabs from '$ui/tabs'
   import TicketCommentsThread from './ticket-comments-thread.svelte'
   import TicketRunHistoryPanel from './ticket-run-history-panel.svelte'
-  import type { TicketCommentRevision, TicketDetail, TicketRun, TicketRunTranscriptBlock, TicketTimelineItem } from '../types'
+  import type {
+    TicketCommentRevision,
+    TicketDetail,
+    TicketRun,
+    TicketRunTranscriptBlock,
+    TicketTimelineItem,
+  } from '../types'
 
   let {
     ticket,

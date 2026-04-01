@@ -5,7 +5,6 @@ import type {
   TicketRunLifecycleEvent,
   TicketRunStepEntry,
   TicketRunTraceEntry,
-  TicketRunTranscriptBlock,
   TicketRunTranscriptState,
 } from './types'
 import {
@@ -19,6 +18,7 @@ import {
   seedRunBlocks,
   sortTicketRuns,
 } from './run-transcript-blocks'
+import { cacheSelectedState, syncSelectedBlocks, syncSelectedRun } from './run-transcript-selection'
 
 export function createEmptyTicketRunTranscriptState(): TicketRunTranscriptState {
   return {
@@ -140,9 +140,7 @@ export function applyTicketRunLifecycleEvent(
 ): TicketRunTranscriptState {
   const runs = mergeRun(state.runs, run)
   const baseBlocks =
-    state.selectedRunId === run.id
-      ? state.blocks
-      : state.blockCache[run.id] ?? seedRunBlocks(run)
+    state.selectedRunId === run.id ? state.blocks : (state.blockCache[run.id] ?? seedRunBlocks(run))
 
   const nextBlock = buildLifecycleBlock(lifecycle)
   const runBlocks =
@@ -257,64 +255,5 @@ export function applyTicketRunTraceEntry(
       })
     default:
       return state
-  }
-}
-
-function syncSelectedRun(state: TicketRunTranscriptState): TicketRunTranscriptState {
-  const latestRun = state.runs[0] ?? null
-  if (!latestRun) {
-    return {
-      ...state,
-      selectedRunId: null,
-      followLatest: true,
-      currentRun: null,
-      blocks: [],
-    }
-  }
-
-  let followLatest = state.followLatest
-  let selectedRunId = state.selectedRunId
-
-  if (!selectedRunId) {
-    selectedRunId = latestRun.id
-    followLatest = true
-  }
-
-  if (followLatest) {
-    selectedRunId = latestRun.id
-  }
-
-  const selectedRun = state.runs.find((run) => run.id === selectedRunId) ?? latestRun
-  if (!state.runs.some((run) => run.id === selectedRun.id)) {
-    followLatest = true
-    selectedRunId = latestRun.id
-  }
-
-  return {
-    ...state,
-    selectedRunId,
-    followLatest,
-    currentRun: selectedRun,
-    blocks: state.blockCache[selectedRun.id] ?? seedRunBlocks(selectedRun),
-  }
-}
-
-function syncSelectedBlocks(
-  state: TicketRunTranscriptState,
-): Record<string, TicketRunTranscriptBlock[]> {
-  if (!state.currentRun || state.blocks.length === 0) {
-    return state.blockCache
-  }
-
-  return {
-    ...state.blockCache,
-    [state.currentRun.id]: state.blocks,
-  }
-}
-
-function cacheSelectedState(state: TicketRunTranscriptState): TicketRunTranscriptState {
-  return {
-    ...state,
-    blockCache: syncSelectedBlocks(state),
   }
 }

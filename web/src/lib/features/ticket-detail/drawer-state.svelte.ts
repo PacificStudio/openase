@@ -227,9 +227,7 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
       state.loadingRunId = runId
 
       try {
-        const detail = mapTicketRunDetail(
-          await resolvedDeps.fetchRun(projectId, ticketId, runId),
-        )
+        const detail = mapTicketRunDetail(await resolvedDeps.fetchRun(projectId, ticketId, runId))
         if (requestId !== runDetailRequestId) {
           return
         }

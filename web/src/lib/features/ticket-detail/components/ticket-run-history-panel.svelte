@@ -114,7 +114,10 @@
                   </div>
                   <p class="text-muted-foreground mt-1 truncate text-xs">{run.agentName}</p>
                 </div>
-                <Badge variant="outline" class={`h-5 shrink-0 px-2 text-[10px] ${statusClass(run)}`}>
+                <Badge
+                  variant="outline"
+                  class={`h-5 shrink-0 px-2 text-[10px] ${statusClass(run)}`}
+                >
                   {statusLabel(run)}
                 </Badge>
               </div>
@@ -135,7 +138,7 @@
 
     <TicketRunTranscriptPanel
       run={currentRun}
-      blocks={blocks}
+      {blocks}
       latestRunId={latestRun?.id ?? null}
       loading={loadingRunId === currentRun?.id}
       canResumeRetry={ticket.retryPaused &&

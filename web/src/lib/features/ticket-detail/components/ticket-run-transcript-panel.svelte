@@ -130,7 +130,9 @@
         {#if run.completedAt}
           <span class="text-muted-foreground">Completed {formatRelativeTime(run.completedAt)}</span>
         {:else if run.lastHeartbeatAt}
-          <span class="text-muted-foreground">Updated {formatRelativeTime(run.lastHeartbeatAt)}</span>
+          <span class="text-muted-foreground"
+            >Updated {formatRelativeTime(run.lastHeartbeatAt)}</span
+          >
         {/if}
       </div>
     {/if}
