@@ -1,6 +1,5 @@
 import {
   createProjectConversation,
-  listProjectConversations,
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
   type ProjectConversation,
@@ -13,22 +12,17 @@ import {
 import {
   appendProjectConversationText,
   beginProjectConversationOperation,
+  clearProjectConversationSelection,
   connectProjectConversationStream,
   invalidateProjectConversationStream,
-  isCurrentProjectConversationOperation,
   projectConversationHasPendingInterrupt,
-  setProjectConversationIdleIfCurrent,
   type ProjectConversationControllerState,
 } from './project-conversation-controller-helpers'
 import {
-  mapPersistedEntries,
-  type ProjectConversationTranscriptEntry,
-} from './project-conversation-transcript-state'
-import {
-  readProjectConversationId,
-  storeProjectConversationId,
-} from './project-conversation-storage'
-import { loadProjectConversation, restoreProjectConversation } from './project-conversation-runtime'
+  restoreProjectConversationControllerState,
+  selectProjectConversationControllerState,
+} from './project-conversation-controller-loaders'
+import { storeProjectConversationId } from './project-conversation-storage'
 import {
   listEphemeralChatProviders,
   pickDefaultEphemeralChatProvider,
@@ -66,6 +60,7 @@ export function createProjectConversationController(
       onError: input.onError,
     })
   }
+
   return {
     get providers() {
       return providers
@@ -121,65 +116,22 @@ export function createProjectConversationController(
       providerId = pickDefaultEphemeralChatProvider(providers, defaultProviderId)
     },
     async restore() {
-      if (!input.getProjectId() || !providerId || state.phase !== 'idle') {
+      const projectId = input.getProjectId()
+      if (!projectId || !providerId || state.phase !== 'idle') {
         return
       }
-      const currentOperationId = beginProjectConversationOperation(state, 'restoring')
-      try {
-        conversations = await listProjectConversations({
-          projectId: input.getProjectId(),
-          providerId,
-        }).then((payload) => payload.conversations)
-        await restoreProjectConversation({
-          projectId: input.getProjectId(),
-          providerId,
-          readConversationId: readProjectConversationId,
-          storeConversationId: storeProjectConversationId,
-          loadConversation: async (nextConversationId) => {
-            if (!isCurrentProjectConversationOperation(state, currentOperationId)) {
-              return
-            }
-            await loadProjectConversation({
-              conversationId: nextConversationId,
-              mapEntries: mapPersistedEntries,
-              setConversationId: (nextId) => {
-                if (isCurrentProjectConversationOperation(state, currentOperationId)) {
-                  state.conversationId = nextId
-                  storeProjectConversationId(input.getProjectId(), providerId, nextId)
-                }
-              },
-              setEntries: (nextEntries) => {
-                if (isCurrentProjectConversationOperation(state, currentOperationId)) {
-                  state.entries = nextEntries as ProjectConversationTranscriptEntry[]
-                }
-              },
-              resetActiveAssistantEntry: () => {
-                if (isCurrentProjectConversationOperation(state, currentOperationId)) {
-                  state.activeAssistantEntryId = ''
-                }
-              },
-              connectStream,
-            })
-          },
-          clearConversation: () => {
-            if (isCurrentProjectConversationOperation(state, currentOperationId)) {
-              state.conversationId = ''
-              state.entries = []
-            }
-          },
-        })
-        setProjectConversationIdleIfCurrent(state, currentOperationId)
-      } catch (caughtError) {
-        if (!isCurrentProjectConversationOperation(state, currentOperationId)) {
-          return
-        }
-        state.phase = 'idle'
-        input.onError?.(
-          caughtError instanceof Error
-            ? caughtError.message
-            : 'Failed to restore project conversation.',
-        )
-      }
+
+      await restoreProjectConversationControllerState({
+        state,
+        projectId,
+        providerId,
+        currentOperationId: beginProjectConversationOperation(state, 'restoring'),
+        connectStream,
+        setConversations: (nextConversations) => {
+          conversations = nextConversations
+        },
+        onError: input.onError,
+      })
     },
     async selectProvider(nextProviderId: string) {
       if (!nextProviderId || providerId === nextProviderId || state.phase !== 'idle') {
@@ -188,12 +140,11 @@ export function createProjectConversationController(
       invalidateProjectConversationStream(state)
       providerId = nextProviderId
       conversations = []
-      state.conversationId = ''
-      state.entries = []
-      state.activeAssistantEntryId = ''
+      clearProjectConversationSelection(state)
     },
     async selectConversation(nextConversationId: string) {
-      if (state.phase !== 'idle') {
+      const projectId = input.getProjectId()
+      if (!projectId || state.phase !== 'idle') {
         return
       }
 
@@ -201,46 +152,19 @@ export function createProjectConversationController(
       state.activeAssistantEntryId = ''
 
       if (!nextConversationId) {
-        state.conversationId = ''
-        state.entries = []
+        clearProjectConversationSelection(state)
         return
       }
 
-      const currentOperationId = beginProjectConversationOperation(state, 'restoring')
-      try {
-        await loadProjectConversation({
-          conversationId: nextConversationId,
-          mapEntries: mapPersistedEntries,
-          setConversationId: (nextId) => {
-            if (isCurrentProjectConversationOperation(state, currentOperationId)) {
-              state.conversationId = nextId
-              storeProjectConversationId(input.getProjectId(), providerId, nextId)
-            }
-          },
-          setEntries: (nextEntries) => {
-            if (isCurrentProjectConversationOperation(state, currentOperationId)) {
-              state.entries = nextEntries as ProjectConversationTranscriptEntry[]
-            }
-          },
-          resetActiveAssistantEntry: () => {
-            if (isCurrentProjectConversationOperation(state, currentOperationId)) {
-              state.activeAssistantEntryId = ''
-            }
-          },
-          connectStream,
-        })
-        setProjectConversationIdleIfCurrent(state, currentOperationId)
-      } catch (caughtError) {
-        if (!isCurrentProjectConversationOperation(state, currentOperationId)) {
-          return
-        }
-        state.phase = 'idle'
-        input.onError?.(
-          caughtError instanceof Error
-            ? caughtError.message
-            : 'Failed to switch project conversation.',
-        )
-      }
+      await selectProjectConversationControllerState({
+        state,
+        projectId,
+        providerId,
+        conversationId: nextConversationId,
+        currentOperationId: beginProjectConversationOperation(state, 'restoring'),
+        connectStream,
+        onError: input.onError,
+      })
     },
     async sendTurn(message: string) {
       const trimmed = message.trim()
@@ -262,7 +186,7 @@ export function createProjectConversationController(
       try {
         if (!state.conversationId) {
           const createPayload = await createProjectConversation({ providerId, projectId })
-          if (!isCurrentProjectConversationOperation(state, currentOperationId)) {
+          if (currentOperationId !== state.operationId) {
             return
           }
           state.conversationId = createPayload.conversation.id
@@ -275,7 +199,7 @@ export function createProjectConversationController(
           connectStream(state.conversationId)
         }
 
-        if (!isCurrentProjectConversationOperation(state, currentOperationId)) {
+        if (currentOperationId !== state.operationId) {
           return
         }
 
@@ -283,7 +207,7 @@ export function createProjectConversationController(
         state.activeAssistantEntryId = ''
         state.phase = 'submitting_turn'
         await startProjectConversationTurn(state.conversationId, trimmed)
-        if (!isCurrentProjectConversationOperation(state, currentOperationId)) {
+        if (currentOperationId !== state.operationId) {
           return
         }
         if (projectConversationHasPendingInterrupt(state.entries)) {
@@ -292,7 +216,7 @@ export function createProjectConversationController(
           state.phase = 'awaiting_reply'
         }
       } catch (caughtError) {
-        if (!isCurrentProjectConversationOperation(state, currentOperationId)) {
+        if (currentOperationId !== state.operationId) {
           return
         }
         state.phase = 'idle'
@@ -306,12 +230,10 @@ export function createProjectConversationController(
       const activeConversationId = state.conversationId
       invalidateProjectConversationStream(state)
       await resetProjectConversationRuntime(activeConversationId)
-      if (!isCurrentProjectConversationOperation(state, currentOperationId)) {
+      if (currentOperationId !== state.operationId) {
         return
       }
-      state.conversationId = ''
-      state.entries = []
-      state.activeAssistantEntryId = ''
+      clearProjectConversationSelection(state)
       state.phase = 'idle'
     },
     async confirmActionProposal(entryId: string) {
