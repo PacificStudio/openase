@@ -59,6 +59,20 @@ func (_u *TicketStatusUpdate) SetNillableName(v *string) *TicketStatusUpdate {
 	return _u
 }
 
+// SetStage sets the "stage" field.
+func (_u *TicketStatusUpdate) SetStage(v ticketstatus.Stage) *TicketStatusUpdate {
+	_u.mutation.SetStage(v)
+	return _u
+}
+
+// SetNillableStage sets the "stage" field if the given value is not nil.
+func (_u *TicketStatusUpdate) SetNillableStage(v *ticketstatus.Stage) *TicketStatusUpdate {
+	if v != nil {
+		_u.SetStage(*v)
+	}
+	return _u
+}
+
 // SetColor sets the "color" field.
 func (_u *TicketStatusUpdate) SetColor(v string) *TicketStatusUpdate {
 	_u.mutation.SetColor(v)
@@ -333,6 +347,11 @@ func (_u *TicketStatusUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "TicketStatus.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Stage(); ok {
+		if err := ticketstatus.StageValidator(v); err != nil {
+			return &ValidationError{Name: "stage", err: fmt.Errorf(`ent: validator failed for field "TicketStatus.stage": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Color(); ok {
 		if err := ticketstatus.ColorValidator(v); err != nil {
 			return &ValidationError{Name: "color", err: fmt.Errorf(`ent: validator failed for field "TicketStatus.color": %w`, err)}
@@ -358,6 +377,9 @@ func (_u *TicketStatusUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(ticketstatus.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Stage(); ok {
+		_spec.SetField(ticketstatus.FieldStage, field.TypeEnum, value)
 	}
 	if value, ok := _u.mutation.Color(); ok {
 		_spec.SetField(ticketstatus.FieldColor, field.TypeString, value)
@@ -600,6 +622,20 @@ func (_u *TicketStatusUpdateOne) SetName(v string) *TicketStatusUpdateOne {
 func (_u *TicketStatusUpdateOne) SetNillableName(v *string) *TicketStatusUpdateOne {
 	if v != nil {
 		_u.SetName(*v)
+	}
+	return _u
+}
+
+// SetStage sets the "stage" field.
+func (_u *TicketStatusUpdateOne) SetStage(v ticketstatus.Stage) *TicketStatusUpdateOne {
+	_u.mutation.SetStage(v)
+	return _u
+}
+
+// SetNillableStage sets the "stage" field if the given value is not nil.
+func (_u *TicketStatusUpdateOne) SetNillableStage(v *ticketstatus.Stage) *TicketStatusUpdateOne {
+	if v != nil {
+		_u.SetStage(*v)
 	}
 	return _u
 }
@@ -891,6 +927,11 @@ func (_u *TicketStatusUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "TicketStatus.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Stage(); ok {
+		if err := ticketstatus.StageValidator(v); err != nil {
+			return &ValidationError{Name: "stage", err: fmt.Errorf(`ent: validator failed for field "TicketStatus.stage": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Color(); ok {
 		if err := ticketstatus.ColorValidator(v); err != nil {
 			return &ValidationError{Name: "color", err: fmt.Errorf(`ent: validator failed for field "TicketStatus.color": %w`, err)}
@@ -933,6 +974,9 @@ func (_u *TicketStatusUpdateOne) sqlSave(ctx context.Context) (_node *TicketStat
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(ticketstatus.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Stage(); ok {
+		_spec.SetField(ticketstatus.FieldStage, field.TypeEnum, value)
 	}
 	if value, ok := _u.mutation.Color(); ok {
 		_spec.SetField(ticketstatus.FieldColor, field.TypeString, value)

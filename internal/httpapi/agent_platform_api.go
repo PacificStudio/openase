@@ -449,7 +449,6 @@ func (s *Server) handleAgentUpdateProject(c echo.Context) error {
 		Slug:                   current.Slug,
 		Description:            strings.TrimSpace(*raw.Description),
 		Status:                 current.Status.String(),
-		DefaultWorkflowID:      uuidToStringPointer(current.DefaultWorkflowID),
 		DefaultAgentProviderID: uuidToStringPointer(current.DefaultAgentProviderID),
 		AccessibleMachineIDs:   uuidSliceToStrings(current.AccessibleMachineIDs),
 		MaxConcurrentAgents:    intPointer(current.MaxConcurrentAgents),

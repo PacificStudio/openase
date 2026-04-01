@@ -66,8 +66,14 @@ type ScheduledJob func(*sql.Selector)
 // Skill is the predicate function for skill builders.
 type Skill func(*sql.Selector)
 
+// SkillBlob is the predicate function for skillblob builders.
+type SkillBlob func(*sql.Selector)
+
 // SkillVersion is the predicate function for skillversion builders.
 type SkillVersion func(*sql.Selector)
+
+// SkillVersionFile is the predicate function for skillversionfile builders.
+type SkillVersionFile func(*sql.Selector)
 
 // Ticket is the predicate function for ticket builders.
 type Ticket func(*sql.Selector)

@@ -52,8 +52,12 @@ type Tx struct {
 	ScheduledJob *ScheduledJobClient
 	// Skill is the client for interacting with the Skill builders.
 	Skill *SkillClient
+	// SkillBlob is the client for interacting with the SkillBlob builders.
+	SkillBlob *SkillBlobClient
 	// SkillVersion is the client for interacting with the SkillVersion builders.
 	SkillVersion *SkillVersionClient
+	// SkillVersionFile is the client for interacting with the SkillVersionFile builders.
+	SkillVersionFile *SkillVersionFileClient
 	// Ticket is the client for interacting with the Ticket builders.
 	Ticket *TicketClient
 	// TicketComment is the client for interacting with the TicketComment builders.
@@ -227,7 +231,9 @@ func (tx *Tx) init() {
 	tx.ProjectRepo = NewProjectRepoClient(tx.config)
 	tx.ScheduledJob = NewScheduledJobClient(tx.config)
 	tx.Skill = NewSkillClient(tx.config)
+	tx.SkillBlob = NewSkillBlobClient(tx.config)
 	tx.SkillVersion = NewSkillVersionClient(tx.config)
+	tx.SkillVersionFile = NewSkillVersionFileClient(tx.config)
 	tx.Ticket = NewTicketClient(tx.config)
 	tx.TicketComment = NewTicketCommentClient(tx.config)
 	tx.TicketCommentRevision = NewTicketCommentRevisionClient(tx.config)

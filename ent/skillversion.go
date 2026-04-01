@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -27,6 +28,14 @@ type SkillVersion struct {
 	ContentMarkdown string `json:"content_markdown,omitempty"`
 	// ContentHash holds the value of the "content_hash" field.
 	ContentHash string `json:"content_hash,omitempty"`
+	// BundleHash holds the value of the "bundle_hash" field.
+	BundleHash string `json:"bundle_hash,omitempty"`
+	// ManifestJSON holds the value of the "manifest_json" field.
+	ManifestJSON map[string]interface{} `json:"manifest_json,omitempty"`
+	// SizeBytes holds the value of the "size_bytes" field.
+	SizeBytes int64 `json:"size_bytes,omitempty"`
+	// FileCount holds the value of the "file_count" field.
+	FileCount int `json:"file_count,omitempty"`
 	// CreatedBy holds the value of the "created_by" field.
 	CreatedBy string `json:"created_by,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -41,11 +50,13 @@ type SkillVersion struct {
 type SkillVersionEdges struct {
 	// Skill holds the value of the skill edge.
 	Skill *Skill `json:"skill,omitempty"`
+	// Files holds the value of the files edge.
+	Files []*SkillVersionFile `json:"files,omitempty"`
 	// RequiredByBindings holds the value of the required_by_bindings edge.
 	RequiredByBindings []*WorkflowSkillBinding `json:"required_by_bindings,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // SkillOrErr returns the Skill value or an error if the edge
@@ -59,10 +70,19 @@ func (e SkillVersionEdges) SkillOrErr() (*Skill, error) {
 	return nil, &NotLoadedError{edge: "skill"}
 }
 
+// FilesOrErr returns the Files value or an error if the edge
+// was not loaded in eager-loading.
+func (e SkillVersionEdges) FilesOrErr() ([]*SkillVersionFile, error) {
+	if e.loadedTypes[1] {
+		return e.Files, nil
+	}
+	return nil, &NotLoadedError{edge: "files"}
+}
+
 // RequiredByBindingsOrErr returns the RequiredByBindings value or an error if the edge
 // was not loaded in eager-loading.
 func (e SkillVersionEdges) RequiredByBindingsOrErr() ([]*WorkflowSkillBinding, error) {
-	if e.loadedTypes[1] {
+	if e.loadedTypes[2] {
 		return e.RequiredByBindings, nil
 	}
 	return nil, &NotLoadedError{edge: "required_by_bindings"}
@@ -73,9 +93,11 @@ func (*SkillVersion) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case skillversion.FieldVersion:
+		case skillversion.FieldManifestJSON:
+			values[i] = new([]byte)
+		case skillversion.FieldVersion, skillversion.FieldSizeBytes, skillversion.FieldFileCount:
 			values[i] = new(sql.NullInt64)
-		case skillversion.FieldContentMarkdown, skillversion.FieldContentHash, skillversion.FieldCreatedBy:
+		case skillversion.FieldContentMarkdown, skillversion.FieldContentHash, skillversion.FieldBundleHash, skillversion.FieldCreatedBy:
 			values[i] = new(sql.NullString)
 		case skillversion.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -126,6 +148,32 @@ func (_m *SkillVersion) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.ContentHash = value.String
 			}
+		case skillversion.FieldBundleHash:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field bundle_hash", values[i])
+			} else if value.Valid {
+				_m.BundleHash = value.String
+			}
+		case skillversion.FieldManifestJSON:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field manifest_json", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.ManifestJSON); err != nil {
+					return fmt.Errorf("unmarshal field manifest_json: %w", err)
+				}
+			}
+		case skillversion.FieldSizeBytes:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field size_bytes", values[i])
+			} else if value.Valid {
+				_m.SizeBytes = value.Int64
+			}
+		case skillversion.FieldFileCount:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field file_count", values[i])
+			} else if value.Valid {
+				_m.FileCount = int(value.Int64)
+			}
 		case skillversion.FieldCreatedBy:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field created_by", values[i])
@@ -154,6 +202,11 @@ func (_m *SkillVersion) Value(name string) (ent.Value, error) {
 // QuerySkill queries the "skill" edge of the SkillVersion entity.
 func (_m *SkillVersion) QuerySkill() *SkillQuery {
 	return NewSkillVersionClient(_m.config).QuerySkill(_m)
+}
+
+// QueryFiles queries the "files" edge of the SkillVersion entity.
+func (_m *SkillVersion) QueryFiles() *SkillVersionFileQuery {
+	return NewSkillVersionClient(_m.config).QueryFiles(_m)
 }
 
 // QueryRequiredByBindings queries the "required_by_bindings" edge of the SkillVersion entity.
@@ -195,6 +248,18 @@ func (_m *SkillVersion) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("content_hash=")
 	builder.WriteString(_m.ContentHash)
+	builder.WriteString(", ")
+	builder.WriteString("bundle_hash=")
+	builder.WriteString(_m.BundleHash)
+	builder.WriteString(", ")
+	builder.WriteString("manifest_json=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ManifestJSON))
+	builder.WriteString(", ")
+	builder.WriteString("size_bytes=")
+	builder.WriteString(fmt.Sprintf("%v", _m.SizeBytes))
+	builder.WriteString(", ")
+	builder.WriteString("file_count=")
+	builder.WriteString(fmt.Sprintf("%v", _m.FileCount))
 	builder.WriteString(", ")
 	builder.WriteString("created_by=")
 	builder.WriteString(_m.CreatedBy)

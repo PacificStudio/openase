@@ -89,6 +89,20 @@ func (_u *AgentProviderUpdate) SetNillableAdapterType(v *agentprovider.AdapterTy
 	return _u
 }
 
+// SetPermissionProfile sets the "permission_profile" field.
+func (_u *AgentProviderUpdate) SetPermissionProfile(v agentprovider.PermissionProfile) *AgentProviderUpdate {
+	_u.mutation.SetPermissionProfile(v)
+	return _u
+}
+
+// SetNillablePermissionProfile sets the "permission_profile" field if the given value is not nil.
+func (_u *AgentProviderUpdate) SetNillablePermissionProfile(v *agentprovider.PermissionProfile) *AgentProviderUpdate {
+	if v != nil {
+		_u.SetPermissionProfile(*v)
+	}
+	return _u
+}
+
 // SetCliCommand sets the "cli_command" field.
 func (_u *AgentProviderUpdate) SetCliCommand(v string) *AgentProviderUpdate {
 	_u.mutation.SetCliCommand(v)
@@ -378,6 +392,11 @@ func (_u *AgentProviderUpdate) check() error {
 			return &ValidationError{Name: "adapter_type", err: fmt.Errorf(`ent: validator failed for field "AgentProvider.adapter_type": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.PermissionProfile(); ok {
+		if err := agentprovider.PermissionProfileValidator(v); err != nil {
+			return &ValidationError{Name: "permission_profile", err: fmt.Errorf(`ent: validator failed for field "AgentProvider.permission_profile": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.CliCommand(); ok {
 		if err := agentprovider.CliCommandValidator(v); err != nil {
 			return &ValidationError{Name: "cli_command", err: fmt.Errorf(`ent: validator failed for field "AgentProvider.cli_command": %w`, err)}
@@ -414,6 +433,9 @@ func (_u *AgentProviderUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	}
 	if value, ok := _u.mutation.AdapterType(); ok {
 		_spec.SetField(agentprovider.FieldAdapterType, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.PermissionProfile(); ok {
+		_spec.SetField(agentprovider.FieldPermissionProfile, field.TypeEnum, value)
 	}
 	if value, ok := _u.mutation.CliCommand(); ok {
 		_spec.SetField(agentprovider.FieldCliCommand, field.TypeString, value)
@@ -680,6 +702,20 @@ func (_u *AgentProviderUpdateOne) SetAdapterType(v agentprovider.AdapterType) *A
 func (_u *AgentProviderUpdateOne) SetNillableAdapterType(v *agentprovider.AdapterType) *AgentProviderUpdateOne {
 	if v != nil {
 		_u.SetAdapterType(*v)
+	}
+	return _u
+}
+
+// SetPermissionProfile sets the "permission_profile" field.
+func (_u *AgentProviderUpdateOne) SetPermissionProfile(v agentprovider.PermissionProfile) *AgentProviderUpdateOne {
+	_u.mutation.SetPermissionProfile(v)
+	return _u
+}
+
+// SetNillablePermissionProfile sets the "permission_profile" field if the given value is not nil.
+func (_u *AgentProviderUpdateOne) SetNillablePermissionProfile(v *agentprovider.PermissionProfile) *AgentProviderUpdateOne {
+	if v != nil {
+		_u.SetPermissionProfile(*v)
 	}
 	return _u
 }
@@ -986,6 +1022,11 @@ func (_u *AgentProviderUpdateOne) check() error {
 			return &ValidationError{Name: "adapter_type", err: fmt.Errorf(`ent: validator failed for field "AgentProvider.adapter_type": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.PermissionProfile(); ok {
+		if err := agentprovider.PermissionProfileValidator(v); err != nil {
+			return &ValidationError{Name: "permission_profile", err: fmt.Errorf(`ent: validator failed for field "AgentProvider.permission_profile": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.CliCommand(); ok {
 		if err := agentprovider.CliCommandValidator(v); err != nil {
 			return &ValidationError{Name: "cli_command", err: fmt.Errorf(`ent: validator failed for field "AgentProvider.cli_command": %w`, err)}
@@ -1039,6 +1080,9 @@ func (_u *AgentProviderUpdateOne) sqlSave(ctx context.Context) (_node *AgentProv
 	}
 	if value, ok := _u.mutation.AdapterType(); ok {
 		_spec.SetField(agentprovider.FieldAdapterType, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.PermissionProfile(); ok {
+		_spec.SetField(agentprovider.FieldPermissionProfile, field.TypeEnum, value)
 	}
 	if value, ok := _u.mutation.CliCommand(); ok {
 		_spec.SetField(agentprovider.FieldCliCommand, field.TypeString, value)

@@ -71,6 +71,10 @@ type githubRepository struct {
 	Owner         githubUser `json:"owner"`
 }
 
+type githubRepositorySearchResponse struct {
+	Items []githubRepository `json:"items"`
+}
+
 type createUserRepositoryPayload struct {
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
@@ -151,33 +155,86 @@ func (s *service) ListRepositories(ctx context.Context, input domain.ListReposit
 	}
 
 	query := strings.ToLower(strings.TrimSpace(input.Query))
-	page := input.Page
+	if query == "" {
+		return s.listBrowsableRepositories(ctx, input.ProjectID, token, input.Page)
+	}
+
+	return s.searchRepositories(ctx, input.ProjectID, token, query, input.Page)
+}
+
+func (s *service) listBrowsableRepositories(
+	ctx context.Context,
+	projectID uuid.UUID,
+	token string,
+	page int,
+) (domain.RepositoryPage, error) {
+	endpoint, err := s.buildURL("user", "repos")
+	if err != nil {
+		return domain.RepositoryPage{}, err
+	}
+	endpoint = endpoint + "?" + url.Values{
+		"affiliation": []string{"owner,collaborator,organization_member"},
+		"page":        []string{strconv.Itoa(page)},
+		"per_page":    []string{strconv.Itoa(pageSize)},
+		"sort":        []string{"updated"},
+	}.Encode()
+
+	var payload []githubRepository
+	headers, err := s.doJSON(ctx, http.MethodGet, endpoint, token, nil, http.StatusOK, &payload)
+	if err != nil {
+		s.logger.Error("list github repositories failed", "project_id", projectID.String(), "operation", "list_repositories", "page", page, "query", "", "error", err)
+		return domain.RepositoryPage{}, err
+	}
+
+	repositories := make([]domain.Repository, 0, len(payload))
+	for _, repo := range payload {
+		repositories = append(repositories, mapRepository(repo))
+	}
+	if !hasNextLink(headers) {
+		return domain.RepositoryPage{Repositories: repositories}, nil
+	}
+	return domain.RepositoryPage{Repositories: repositories, NextCursor: strconv.Itoa(page + 1)}, nil
+}
+
+func (s *service) searchRepositories(
+	ctx context.Context,
+	projectID uuid.UUID,
+	token string,
+	query string,
+	page int,
+) (domain.RepositoryPage, error) {
+	namespaces, err := s.loadSearchNamespaces(ctx, projectID, token)
+	if err != nil {
+		return domain.RepositoryPage{}, err
+	}
+
 	collected := make([]domain.Repository, 0, pageSize)
 	scannedPages := 0
 	nextCursor := ""
 
 	for {
-		endpoint, err := s.buildURL("user", "repos")
+		endpoint, err := s.buildURL("search", "repositories")
 		if err != nil {
 			return domain.RepositoryPage{}, err
 		}
 		endpoint = endpoint + "?" + url.Values{
-			"affiliation": []string{"owner,collaborator,organization_member"},
-			"page":        []string{strconv.Itoa(page)},
-			"per_page":    []string{strconv.Itoa(pageSize)},
-			"sort":        []string{"updated"},
+			"q":        []string{buildRepositorySearchQuery(query, namespaces)},
+			"page":     []string{strconv.Itoa(page)},
+			"per_page": []string{strconv.Itoa(pageSize)},
+			"sort":     []string{"updated"},
+			"order":    []string{"desc"},
 		}.Encode()
 
-		var payload []githubRepository
+		var payload githubRepositorySearchResponse
 		headers, err := s.doJSON(ctx, http.MethodGet, endpoint, token, nil, http.StatusOK, &payload)
 		if err != nil {
-			s.logger.Error("list github repositories failed", "project_id", input.ProjectID.String(), "operation", "list_repositories", "page", page, "query", query, "error", err)
+			s.logger.Error("search github repositories failed", "project_id", projectID.String(), "operation", "search_repositories", "page", page, "query", query, "error", err)
 			return domain.RepositoryPage{}, err
 		}
 
-		for _, repo := range payload {
+		for _, repo := range payload.Items {
 			mapped := mapRepository(repo)
-			if query != "" && !matchesRepositoryQuery(mapped, query) {
+			if !matchesRepositoryQuery(mapped, query) {
 				continue
 			}
 			collected = append(collected, mapped)
@@ -195,7 +252,7 @@ func (s *service) ListRepositories(ctx context.Context, input domain.ListReposit
 		}
 		page++
 		nextCursor = strconv.Itoa(page)
-		if query == "" || scannedPages >= maxSearchPages {
+		if scannedPages >= maxSearchPages {
 			return domain.RepositoryPage{Repositories: collected, NextCursor: nextCursor}, nil
 		}
 	}
@@ -274,6 +331,48 @@ func (s *service) loadCurrentUser(ctx context.Context, token string) (githubUser
 		return githubUser{}, fmt.Errorf("GitHub user probe returned an empty login")
 	}
 	return user, nil
+}
+
+func (s *service) loadSearchNamespaces(
+	ctx context.Context,
+	projectID uuid.UUID,
+	token string,
+) ([]domain.Namespace, error) {
+	user, err := s.loadCurrentUser(ctx, token)
+	if err != nil {
+		s.logger.Error("load github search namespaces failed", "project_id", projectID.String(), "operation", "search_namespaces", "error", err)
+		return nil, err
+	}
+
+	namespaces := []domain.Namespace{{
+		Login: user.Login,
+		Kind:  domain.NamespaceKindUser,
+	}}
+
+	orgsEndpoint, err := s.buildURL("user", "orgs")
+	if err != nil {
+		return nil, err
+	}
+	orgsEndpoint += "?per_page=100"
+
+	var organizations []githubOrganization
+	if _, err := s.doJSON(ctx, http.MethodGet, orgsEndpoint, token, nil, http.StatusOK, &organizations); err != nil {
+		s.logger.Error("load github organizations for search failed", "project_id", projectID.String(), "operation", "search_namespaces", "error", err)
+		return nil, err
+	}
+
+	for _, org := range organizations {
+		login := strings.TrimSpace(org.Login)
+		if login == "" || strings.EqualFold(login, user.Login) {
+			continue
+		}
+		namespaces = append(namespaces, domain.Namespace{
+			Login: login,
+			Kind:  domain.NamespaceKindOrganization,
+		})
+	}
+
+	return namespaces, nil
 }
 
 func (s *service) buildURL(parts ...string) (string, error) {
@@ -412,6 +511,31 @@ func matchesRepositoryQuery(repo domain.Repository, query string) bool {
 	return strings.Contains(strings.ToLower(repo.Name), query) ||
 		strings.Contains(strings.ToLower(repo.FullName), query) ||
 		strings.Contains(strings.ToLower(repo.Owner), query)
+}
+
+func buildRepositorySearchQuery(query string, namespaces []domain.Namespace) string {
+	parts := []string{query, "fork:true"}
+	qualifiers := make([]string, 0, len(namespaces))
+	for _, namespace := range namespaces {
+		login := strings.TrimSpace(namespace.Login)
+		if login == "" {
+			continue
+		}
+		switch namespace.Kind {
+		case domain.NamespaceKindUser:
+			qualifiers = append(qualifiers, "user:"+login)
+		case domain.NamespaceKindOrganization:
+			qualifiers = append(qualifiers, "org:"+login)
+		}
+	}
+
+	if len(qualifiers) == 1 {
+		parts = append(parts, qualifiers[0])
+	} else if len(qualifiers) > 1 {
+		parts = append(parts, "("+strings.Join(qualifiers, " OR ")+")")
+	}
+
+	return strings.Join(parts, " ")
 }
 
 func hasNextLink(headers http.Header) bool {

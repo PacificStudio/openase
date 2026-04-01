@@ -95,20 +95,6 @@ func (_c *ProjectCreate) SetGithubTokenProbe(v *githubauth.TokenProbe) *ProjectC
 	return _c
 }
 
-// SetDefaultWorkflowID sets the "default_workflow_id" field.
-func (_c *ProjectCreate) SetDefaultWorkflowID(v uuid.UUID) *ProjectCreate {
-	_c.mutation.SetDefaultWorkflowID(v)
-	return _c
-}
-
-// SetNillableDefaultWorkflowID sets the "default_workflow_id" field if the given value is not nil.
-func (_c *ProjectCreate) SetNillableDefaultWorkflowID(v *uuid.UUID) *ProjectCreate {
-	if v != nil {
-		_c.SetDefaultWorkflowID(*v)
-	}
-	return _c
-}
-
 // SetDefaultAgentProviderID sets the "default_agent_provider_id" field.
 func (_c *ProjectCreate) SetDefaultAgentProviderID(v uuid.UUID) *ProjectCreate {
 	_c.mutation.SetDefaultAgentProviderID(v)
@@ -370,11 +356,6 @@ func (_c *ProjectCreate) AddIssueConnectors(v ...*IssueConnector) *ProjectCreate
 		ids[i] = v[i].ID
 	}
 	return _c.AddIssueConnectorIDs(ids...)
-}
-
-// SetDefaultWorkflow sets the "default_workflow" edge to the Workflow entity.
-func (_c *ProjectCreate) SetDefaultWorkflow(v *Workflow) *ProjectCreate {
-	return _c.SetDefaultWorkflowID(v.ID)
 }
 
 // SetDefaultAgentProvider sets the "default_agent_provider" edge to the AgentProvider entity.
@@ -774,23 +755,6 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_spec.Edges = append(_spec.Edges, edge)
-	}
-	if nodes := _c.mutation.DefaultWorkflowIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: false,
-			Table:   project.DefaultWorkflowTable,
-			Columns: []string{project.DefaultWorkflowColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_node.DefaultWorkflowID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.DefaultAgentProviderIDs(); len(nodes) > 0 {

@@ -52,7 +52,20 @@ export async function executeActionProposal(
   const results: ChatActionExecutionResult[] = []
 
   for (const [index, action] of proposal.actions.entries()) {
-    const supportedAction = parseSupportedAction(action)
+    let supportedAction: SupportedAction | null
+    try {
+      supportedAction = parseSupportedAction(action)
+    } catch (caughtError) {
+      results.push({
+        actionIndex: index,
+        action,
+        ok: false,
+        summary: `${action.method} ${action.path} failed.`,
+        detail: formatExecutionError(caughtError),
+      })
+      continue
+    }
+
     if (!supportedAction) {
       results.push({
         actionIndex: index,

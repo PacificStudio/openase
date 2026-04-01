@@ -2,8 +2,10 @@ const ORG_ID = 'org-e2e'
 const PROJECT_ID = 'project-e2e'
 const LOCAL_MACHINE_ID = 'machine-local'
 const GPU_MACHINE_ID = 'machine-gpu'
-const DEFAULT_PROVIDER_ID = 'provider-codex'
-const CLAUDE_PROVIDER_ID = 'provider-claude'
+const DEFAULT_PROVIDER_ID = '1c7cae12-cafc-4359-90ed-5ab8a8574c63'
+const CLAUDE_PROVIDER_ID = '22b906e4-d906-4b21-908a-9bf1e28d075a'
+const GEMINI_PROVIDER_ID = 'ed7e5e5e-7d06-4685-8de6-45b502d7d393'
+const OPENAI_PROVIDER_ID = '92619809-3a75-42a7-83e6-a6f93f6b3a6b'
 const DEFAULT_AGENT_ID = 'agent-coder'
 const DEFAULT_WORKFLOW_ID = 'workflow-coding'
 const DEFAULT_REPO_ID = 'repo-todo'
@@ -100,6 +102,9 @@ export async function handleMockApi(request: Request, url: URL): Promise<Respons
   }
   if (segments[0] === 'workflows') {
     return handleWorkflowRoutes(request, segments)
+  }
+  if (segments[0] === 'chat') {
+    return handleChatRoutes(request, segments)
   }
   if (segments[0] === 'skills') {
     return handleSkillRoutes(request, segments)
@@ -536,6 +541,53 @@ async function handleWorkflowRoutes(request: Request, segments: string[]) {
   return notFound('Mock workflow route not found.')
 }
 
+async function handleChatRoutes(request: Request, segments: string[]) {
+  if (segments.length === 1) {
+    if (request.method === 'POST') {
+      return streamResponse()
+    }
+    return notFound('Mock chat route not found.')
+  }
+
+  if (segments[1] !== 'conversations') {
+    return notFound('Mock chat route not found.')
+  }
+
+  if (segments.length === 2 && request.method === 'GET') {
+    return jsonResponse({ conversations: [] })
+  }
+
+  if (segments.length === 2 && request.method === 'POST') {
+    return jsonResponse(
+      {
+        conversation: {
+          id: 'conversation-e2e',
+          project_id: PROJECT_ID,
+          user_id: 'chat-user-e2e',
+          source: 'project_sidebar',
+          provider_id: DEFAULT_PROVIDER_ID,
+          status: 'active',
+          rolling_summary: '',
+          last_activity_at: nowIso,
+          created_at: nowIso,
+          updated_at: nowIso,
+        },
+      },
+      201,
+    )
+  }
+
+  if (segments.length === 3 && request.method === 'GET') {
+    return notFound('Project conversation not found.')
+  }
+
+  if (segments[3] === 'entries' && request.method === 'GET') {
+    return jsonResponse({ entries: [] })
+  }
+
+  return notFound('Mock chat route not found.')
+}
+
 async function handleSkillRoutes(request: Request, segments: string[]) {
   const skillId = segments[1]
   const skill = findById(mockState.skills, skillId)
@@ -620,7 +672,6 @@ function createInitialState(): MockState {
       slug: 'todo-app',
       description: 'Playwright fixture project',
       status: 'active',
-      default_workflow_id: DEFAULT_WORKFLOW_ID,
       default_agent_provider_id: DEFAULT_PROVIDER_ID,
       max_concurrent_agents: 4,
     },
@@ -692,17 +743,18 @@ function createInitialState(): MockState {
   const providers = [
     {
       id: DEFAULT_PROVIDER_ID,
+      organization_id: ORG_ID,
       org_id: ORG_ID,
-      machine_id: GPU_MACHINE_ID,
-      machine_name: 'gpu-runner-01',
-      machine_host: '10.0.0.42',
+      machine_id: LOCAL_MACHINE_ID,
+      machine_name: 'local',
+      machine_host: 'local',
       machine_status: 'online',
-      machine_workspace_root: '/srv/openase/workspace',
-      name: 'Codex Primary',
+      machine_workspace_root: '~/.openase/workspace',
+      name: 'Fake Codex Validation Provider',
       adapter_type: 'codex-app-server',
       availability_state: 'available',
       available: true,
-      availability_checked_at: nowIso,
+      availability_checked_at: '2026-04-01T02:54:26Z',
       availability_reason: null,
       capabilities: {
         ephemeral_chat: {
@@ -710,29 +762,30 @@ function createInitialState(): MockState {
           reason: null,
         },
       },
-      cli_command: 'codex',
-      cli_args: ['app-server', '--listen', 'stdio://'],
-      auth_config: { profile: 'default' },
+      cli_command: 'python3',
+      cli_args: ['/home/yuzhong/workspace/openase/scripts/dev/fake_codex_app_server.py'],
+      auth_config: {},
       model_name: 'gpt-5.4',
-      model_temperature: 0.2,
-      model_max_tokens: 8192,
+      model_temperature: 0,
+      model_max_tokens: 16384,
       max_parallel_runs: 5,
-      cost_per_input_token: 0.000001,
-      cost_per_output_token: 0.000002,
+      cost_per_input_token: 0,
+      cost_per_output_token: 0,
     },
     {
       id: CLAUDE_PROVIDER_ID,
+      organization_id: ORG_ID,
       org_id: ORG_ID,
       machine_id: LOCAL_MACHINE_ID,
       machine_name: 'local',
       machine_host: 'local',
       machine_status: 'online',
       machine_workspace_root: '~/.openase/workspace',
-      name: 'Claude Local',
+      name: 'Claude Code',
       adapter_type: 'claude-code-cli',
       availability_state: 'available',
       available: true,
-      availability_checked_at: nowIso,
+      availability_checked_at: '2026-04-01T02:54:26Z',
       availability_reason: null,
       capabilities: {
         ephemeral_chat: {
@@ -743,12 +796,74 @@ function createInitialState(): MockState {
       cli_command: 'claude',
       cli_args: [],
       auth_config: {},
-      model_name: 'claude-sonnet-4',
-      model_temperature: 0.1,
-      model_max_tokens: 4096,
+      model_name: 'claude-opus-4-6',
+      model_temperature: 0,
+      model_max_tokens: 16384,
       max_parallel_runs: 5,
-      cost_per_input_token: 0.000002,
-      cost_per_output_token: 0.000004,
+      cost_per_input_token: 0,
+      cost_per_output_token: 0,
+    },
+    {
+      id: GEMINI_PROVIDER_ID,
+      organization_id: ORG_ID,
+      org_id: ORG_ID,
+      machine_id: LOCAL_MACHINE_ID,
+      machine_name: 'local',
+      machine_host: 'local',
+      machine_status: 'online',
+      machine_workspace_root: '~/.openase/workspace',
+      name: 'Gemini CLI',
+      adapter_type: 'gemini-cli',
+      availability_state: 'available',
+      available: true,
+      availability_checked_at: '2026-04-01T02:54:26Z',
+      availability_reason: null,
+      capabilities: {
+        ephemeral_chat: {
+          state: 'available',
+          reason: null,
+        },
+      },
+      cli_command: 'gemini',
+      cli_args: [],
+      auth_config: {},
+      model_name: 'gemini-2.5-pro',
+      model_temperature: 0,
+      model_max_tokens: 16384,
+      max_parallel_runs: 5,
+      cost_per_input_token: 0,
+      cost_per_output_token: 0,
+    },
+    {
+      id: OPENAI_PROVIDER_ID,
+      organization_id: ORG_ID,
+      org_id: ORG_ID,
+      machine_id: LOCAL_MACHINE_ID,
+      machine_name: 'local',
+      machine_host: 'local',
+      machine_status: 'online',
+      machine_workspace_root: '~/.openase/workspace',
+      name: 'OpenAI Codex',
+      adapter_type: 'codex-app-server',
+      availability_state: 'available',
+      available: true,
+      availability_checked_at: '2026-04-01T02:54:26Z',
+      availability_reason: null,
+      capabilities: {
+        ephemeral_chat: {
+          state: 'available',
+          reason: null,
+        },
+      },
+      cli_command: 'codex',
+      cli_args: ['app-server', '--listen', 'stdio://'],
+      auth_config: {},
+      model_name: 'gpt-5.4',
+      model_temperature: 0,
+      model_max_tokens: 16384,
+      max_parallel_runs: 5,
+      cost_per_input_token: 0,
+      cost_per_output_token: 0,
     },
   ]
 

@@ -67,6 +67,17 @@
   <section class="space-y-2">
     <h3 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">Details</h3>
     <div class="space-y-2.5 text-sm">
+      <div class="flex items-center justify-between">
+        <span class="text-muted-foreground">Permission</span>
+        <span
+          class="text-foreground text-xs font-medium capitalize {agent.permissionProfile ===
+          'unrestricted'
+            ? 'text-amber-600 dark:text-amber-400'
+            : ''}"
+        >
+          {agent.permissionProfile}
+        </span>
+      </div>
       {#if agent.lastHeartbeat}
         <div class="flex items-center justify-between">
           <span class="text-muted-foreground">Heartbeat</span>

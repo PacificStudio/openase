@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/infra/adapter/claudecode"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
@@ -19,6 +20,9 @@ func (claudeCodeAgentAdapter) Start(ctx context.Context, spec agentSessionStartS
 	}
 
 	baseArgs := append([]string(nil), spec.Process.Args...)
+	if normalizeAgentPermissionProfile(spec.PermissionProfile) == catalogdomain.AgentProviderPermissionProfileUnrestricted && !hasClaudePermissionBypassArg(baseArgs) {
+		baseArgs = append(baseArgs, "--permission-mode", "bypassPermissions")
+	}
 	if trimmed := strings.TrimSpace(spec.Model); trimmed != "" && !hasClaudeModelArg(baseArgs) {
 		baseArgs = append(baseArgs, "--model", trimmed)
 	}
@@ -56,6 +60,9 @@ func (claudeCodeAgentAdapter) Resume(ctx context.Context, spec agentSessionResum
 	}
 
 	baseArgs := append([]string(nil), spec.StartSpec.Process.Args...)
+	if normalizeAgentPermissionProfile(spec.StartSpec.PermissionProfile) == catalogdomain.AgentProviderPermissionProfileUnrestricted && !hasClaudePermissionBypassArg(baseArgs) {
+		baseArgs = append(baseArgs, "--permission-mode", "bypassPermissions")
+	}
 	if trimmed := strings.TrimSpace(spec.StartSpec.Model); trimmed != "" && !hasClaudeModelArg(baseArgs) {
 		baseArgs = append(baseArgs, "--model", trimmed)
 	}
@@ -89,6 +96,21 @@ func hasClaudeModelArg(args []string) bool {
 			return true
 		}
 		if strings.HasPrefix(args[index], "--model=") {
+			return true
+		}
+	}
+	return false
+}
+
+func hasClaudePermissionBypassArg(args []string) bool {
+	for index := 0; index < len(args); index++ {
+		if args[index] == "--dangerously-skip-permissions" {
+			return true
+		}
+		if args[index] == "--permission-mode" && index+1 < len(args) && strings.EqualFold(strings.TrimSpace(args[index+1]), "bypassPermissions") {
+			return true
+		}
+		if strings.EqualFold(strings.TrimSpace(args[index]), "--permission-mode=bypassPermissions") {
 			return true
 		}
 	}

@@ -60,6 +60,7 @@ func (r *EntRepository) CreateAgentProvider(ctx context.Context, input domain.Cr
 		SetMachineID(input.MachineID).
 		SetName(input.Name).
 		SetAdapterType(toEntAgentProviderAdapterType(input.AdapterType)).
+		SetPermissionProfile(entagentprovider.PermissionProfile(normalizeProviderPermissionProfile(input.PermissionProfile).String())).
 		SetCliCommand(input.CliCommand).
 		SetCliArgs(pgarray.StringArray(input.CliArgs)).
 		SetAuthConfig(input.AuthConfig).
@@ -103,6 +104,7 @@ func (r *EntRepository) UpdateAgentProvider(ctx context.Context, input domain.Up
 		SetMachineID(input.MachineID).
 		SetName(input.Name).
 		SetAdapterType(toEntAgentProviderAdapterType(input.AdapterType)).
+		SetPermissionProfile(entagentprovider.PermissionProfile(normalizeProviderPermissionProfile(input.PermissionProfile).String())).
 		SetCliCommand(input.CliCommand).
 		SetCliArgs(pgarray.StringArray(input.CliArgs)).
 		SetAuthConfig(input.AuthConfig).
@@ -343,6 +345,7 @@ func mapAgentProvider(item *ent.AgentProvider) domain.AgentProvider {
 		MachineResources:     machineResources,
 		Name:                 item.Name,
 		AdapterType:          toDomainAgentProviderAdapterType(item.AdapterType),
+		PermissionProfile:    normalizeProviderPermissionProfile(domain.AgentProviderPermissionProfile(item.PermissionProfile)),
 		CliCommand:           item.CliCommand,
 		CliArgs:              append([]string(nil), item.CliArgs...),
 		AuthConfig:           cloneAnyMap(item.AuthConfig),
@@ -353,6 +356,15 @@ func mapAgentProvider(item *ent.AgentProvider) domain.AgentProvider {
 		CostPerInputToken:    item.CostPerInputToken,
 		CostPerOutputToken:   item.CostPerOutputToken,
 	}
+}
+
+func normalizeProviderPermissionProfile(
+	profile domain.AgentProviderPermissionProfile,
+) domain.AgentProviderPermissionProfile {
+	if !profile.IsValid() {
+		return domain.DefaultAgentProviderPermissionProfile
+	}
+	return profile
 }
 
 type agentCurrentRunSummary struct {

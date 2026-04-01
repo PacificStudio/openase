@@ -3,6 +3,8 @@
 package ticketstatus
 
 import (
+	"fmt"
+
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/google/uuid"
@@ -17,6 +19,8 @@ const (
 	FieldProjectID = "project_id"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
+	// FieldStage holds the string denoting the stage field in the database.
+	FieldStage = "stage"
 	// FieldColor holds the string denoting the color field in the database.
 	FieldColor = "color"
 	// FieldIcon holds the string denoting the icon field in the database.
@@ -70,6 +74,7 @@ var Columns = []string{
 	FieldID,
 	FieldProjectID,
 	FieldName,
+	FieldStage,
 	FieldColor,
 	FieldIcon,
 	FieldPosition,
@@ -110,6 +115,35 @@ var (
 	DefaultID func() uuid.UUID
 )
 
+// Stage defines the type for the "stage" enum field.
+type Stage string
+
+// StageUnstarted is the default value of the Stage enum.
+const DefaultStage = StageUnstarted
+
+// Stage values.
+const (
+	StageBacklog   Stage = "backlog"
+	StageUnstarted Stage = "unstarted"
+	StageStarted   Stage = "started"
+	StageCompleted Stage = "completed"
+	StageCanceled  Stage = "canceled"
+)
+
+func (s Stage) String() string {
+	return string(s)
+}
+
+// StageValidator is a validator for the "stage" field enum values. It is called by the builders before save.
+func StageValidator(s Stage) error {
+	switch s {
+	case StageBacklog, StageUnstarted, StageStarted, StageCompleted, StageCanceled:
+		return nil
+	default:
+		return fmt.Errorf("ticketstatus: invalid enum value for stage field: %q", s)
+	}
+}
+
 // OrderOption defines the ordering options for the TicketStatus queries.
 type OrderOption func(*sql.Selector)
 
@@ -126,6 +160,11 @@ func ByProjectID(opts ...sql.OrderTermOption) OrderOption {
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
+}
+
+// ByStage orders the results by the stage field.
+func ByStage(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStage, opts...).ToFunc()
 }
 
 // ByColor orders the results by the color field.

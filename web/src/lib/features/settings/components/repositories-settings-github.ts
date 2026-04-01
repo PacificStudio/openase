@@ -28,6 +28,15 @@ type GitHubActionOptions = {
 
 export function createRepositoriesGitHubActions(options: GitHubActionOptions) {
   const { ui, getProjectId, reloadRepos, setSelectedRepoId, closeEditor } = options
+  const repositoriesCache = new Map<
+    string,
+    { repositories: GitHubRepositoryRecord[]; nextCursor: string }
+  >()
+  let repositoriesRequestSequence = 0
+
+  function buildRepositoriesCacheKey(projectId: string, query: string, cursor: string) {
+    return `${projectId}::${query.trim().toLowerCase()}::${cursor.trim()}`
+  }
 
   function reset() {
     ui.githubRepoQuery = ''
@@ -41,6 +50,7 @@ export function createRepositoriesGitHubActions(options: GitHubActionOptions) {
     ui.githubNamespacesLoading = false
     ui.githubCreateDraft = createEmptyGitHubRepositoryCreateDraft()
     ui.githubCreating = false
+    repositoriesCache.clear()
   }
 
   async function loadNamespaces() {
@@ -74,21 +84,44 @@ export function createRepositoriesGitHubActions(options: GitHubActionOptions) {
     }
 
     const append = opts?.append ?? false
+    const cursor = opts?.cursor?.trim() ?? ''
+    const cacheKey = buildRepositoriesCacheKey(projectId, ui.githubRepoQuery, cursor)
+    const cached = repositoriesCache.get(cacheKey)
+    if (cached) {
+      ui.githubRepoError = ''
+      ui.githubRepos = append ? [...ui.githubRepos, ...cached.repositories] : cached.repositories
+      ui.githubReposNextCursor = cached.nextCursor
+      ui.githubReposLoading = false
+      ui.githubReposLoadingMore = false
+      return
+    }
+
     if (append) {
       ui.githubReposLoadingMore = true
     } else {
       ui.githubReposLoading = true
       ui.githubRepoError = ''
     }
+    const requestSequence = ++repositoriesRequestSequence
 
     try {
       const payload = await listGitHubRepositories(projectId, {
         query: ui.githubRepoQuery,
-        cursor: opts?.cursor,
+        cursor: cursor || undefined,
+      })
+      if (requestSequence !== repositoriesRequestSequence) {
+        return
+      }
+      repositoriesCache.set(cacheKey, {
+        repositories: payload.repositories,
+        nextCursor: payload.next_cursor,
       })
       ui.githubRepos = append ? [...ui.githubRepos, ...payload.repositories] : payload.repositories
       ui.githubReposNextCursor = payload.next_cursor
     } catch (error) {
+      if (requestSequence !== repositoriesRequestSequence) {
+        return
+      }
       if (!append) {
         ui.githubRepos = []
       }
@@ -96,8 +129,10 @@ export function createRepositoriesGitHubActions(options: GitHubActionOptions) {
       ui.githubRepoError =
         error instanceof ApiError ? error.detail : 'Failed to load GitHub repositories.'
     } finally {
-      ui.githubReposLoading = false
-      ui.githubReposLoadingMore = false
+      if (requestSequence === repositoriesRequestSequence) {
+        ui.githubReposLoading = false
+        ui.githubReposLoadingMore = false
+      }
     }
   }
 
@@ -152,6 +187,7 @@ export function createRepositoriesGitHubActions(options: GitHubActionOptions) {
         projectId,
         githubRepositoryToMutationInput(created.repository),
       )
+      repositoriesCache.clear()
       setSelectedRepoId(payload.repo.id)
       closeEditor()
       await reportMutation(projectId, 'created', 'Repository created.')

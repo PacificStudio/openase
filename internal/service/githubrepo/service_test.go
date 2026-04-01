@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -28,14 +29,17 @@ func (s stubResolver) ResolveProjectCredential(context.Context, uuid.UUID) (gith
 	}, nil
 }
 
-func TestListRepositoriesFiltersAcrossPages(t *testing.T) {
+func TestListRepositoriesSearchesViaGitHubSearchAPI(t *testing.T) {
+	var queries []url.Values
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/user/repos" && r.URL.Query().Get("page") == "1":
-			w.Header().Set("Link", `<https://example.test/user/repos?page=2>; rel="next"`)
-			_, _ = io.WriteString(w, `[{"id":1,"name":"frontend","full_name":"acme/frontend","private":true,"html_url":"https://github.com/acme/frontend","clone_url":"https://github.com/acme/frontend.git","default_branch":"main","visibility":"private","owner":{"login":"acme"}}]`)
-		case r.Method == http.MethodGet && r.URL.Path == "/user/repos" && r.URL.Query().Get("page") == "2":
-			_, _ = io.WriteString(w, `[{"id":2,"name":"backend","full_name":"acme/backend","private":true,"html_url":"https://github.com/acme/backend","clone_url":"https://github.com/acme/backend.git","default_branch":"develop","visibility":"private","owner":{"login":"acme"}}]`)
+		case r.Method == http.MethodGet && r.URL.Path == "/user":
+			_, _ = io.WriteString(w, `{"login":"octocat"}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/user/orgs":
+			_, _ = io.WriteString(w, `[{"login":"acme"},{"login":"platform"}]`)
+		case r.Method == http.MethodGet && r.URL.Path == "/search/repositories":
+			queries = append(queries, r.URL.Query())
+			_, _ = io.WriteString(w, `{"items":[{"id":2,"name":"backend","full_name":"acme/backend","private":true,"html_url":"https://github.com/acme/backend","clone_url":"https://github.com/acme/backend.git","default_branch":"develop","visibility":"private","owner":{"login":"acme"}}]}`)
 		default:
 			t.Fatalf("unexpected request %s %s", r.Method, r.URL.String())
 		}
@@ -58,6 +62,47 @@ func TestListRepositoriesFiltersAcrossPages(t *testing.T) {
 	}
 	if page.NextCursor != "" {
 		t.Fatalf("ListRepositories() next_cursor = %q, want empty", page.NextCursor)
+	}
+	if len(queries) != 1 {
+		t.Fatalf("search query count = %d, want 1", len(queries))
+	}
+	if queries[0].Get("page") != "1" || queries[0].Get("sort") != "updated" || queries[0].Get("order") != "desc" {
+		t.Fatalf("search query params = %v", queries[0])
+	}
+	searchQuery := queries[0].Get("q")
+	if !strings.Contains(searchQuery, "back") || !strings.Contains(searchQuery, "user:octocat") || !strings.Contains(searchQuery, "org:acme") || !strings.Contains(searchQuery, "org:platform") || !strings.Contains(searchQuery, "fork:true") {
+		t.Fatalf("search query = %q", searchQuery)
+	}
+}
+
+func TestListRepositoriesBrowsesUserReposWhenQueryEmpty(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/user/repos" && r.URL.Query().Get("page") == "2":
+			w.Header().Set("Link", `<https://example.test/user/repos?page=3>; rel="next"`)
+			_, _ = io.WriteString(w, `[{"id":1,"name":"frontend","full_name":"acme/frontend","private":true,"html_url":"https://github.com/acme/frontend","clone_url":"https://github.com/acme/frontend.git","default_branch":"main","visibility":"private","owner":{"login":"acme"}}]`)
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.String())
+		}
+	}))
+	defer server.Close()
+
+	svc := NewService(stubResolver{token: "ghu_test"}, server.Client()).(*service)
+	svc.baseURL = server.URL
+
+	page, err := svc.ListRepositories(context.Background(), domain.ListRepositoriesInput{
+		ProjectID: uuid.New(),
+		Query:     "",
+		Page:      2,
+	})
+	if err != nil {
+		t.Fatalf("ListRepositories() error = %v", err)
+	}
+	if len(page.Repositories) != 1 || page.Repositories[0].FullName != "acme/frontend" {
+		t.Fatalf("ListRepositories() = %+v", page)
+	}
+	if page.NextCursor != "3" {
+		t.Fatalf("ListRepositories() next_cursor = %q, want 3", page.NextCursor)
 	}
 }
 

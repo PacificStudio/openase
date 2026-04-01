@@ -80,7 +80,7 @@ func TestCatalogMappingHelpers(t *testing.T) {
 	runID := uuid.New()
 	now := time.Date(2026, 3, 27, 12, 0, 0, 0, time.FixedZone("UTC+2", 2*60*60))
 	defaultAgentProviderID := uuid.New()
-	defaultWorkflowID := uuid.New()
+	workflowID := uuid.New()
 	stageWorkspaceDirname := "openase"
 	pullRequestURL := "https://github.com/GrandCX/openase/pull/278"
 	sshUser := "codex"
@@ -103,7 +103,6 @@ func TestCatalogMappingHelpers(t *testing.T) {
 		Slug:                   "openase",
 		Description:            "automation",
 		Status:                 "In Progress",
-		DefaultWorkflowID:      &defaultWorkflowID,
 		DefaultAgentProviderID: &defaultAgentProviderID,
 		AccessibleMachineIds:   []uuid.UUID{machineID},
 		MaxConcurrentAgents:    4,
@@ -164,7 +163,7 @@ func TestCatalogMappingHelpers(t *testing.T) {
 	run := &ent.AgentRun{
 		ID:               runID,
 		AgentID:          agentID,
-		WorkflowID:       defaultWorkflowID,
+		WorkflowID:       workflowID,
 		TicketID:         ticketID,
 		ProviderID:       providerID,
 		Status:           entagentrun.StatusExecuting,

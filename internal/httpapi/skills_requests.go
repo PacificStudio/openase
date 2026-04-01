@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strings"
 
@@ -18,12 +19,26 @@ type rawUpdateWorkflowSkillsRequest struct {
 	Skills []string `json:"skills"`
 }
 
+type rawSkillBundleFileRequest struct {
+	Path          string `json:"path"`
+	ContentBase64 string `json:"content_base64"`
+	MediaType     string `json:"media_type"`
+	IsExecutable  bool   `json:"is_executable"`
+}
+
 type rawCreateSkillRequest struct {
 	Name        string `json:"name"`
 	Content     string `json:"content"`
 	Description string `json:"description"`
 	CreatedBy   string `json:"created_by"`
 	IsEnabled   *bool  `json:"is_enabled"`
+}
+
+type rawImportSkillBundleRequest struct {
+	Name      string                      `json:"name"`
+	CreatedBy string                      `json:"created_by"`
+	IsEnabled *bool                       `json:"is_enabled"`
+	Files     []rawSkillBundleFileRequest `json:"files"`
 }
 
 type rawUpdateSkillRequest struct {
@@ -89,6 +104,45 @@ func parseCreateSkillRequest(projectID uuid.UUID, raw rawCreateSkillRequest) (wo
 		Description: strings.TrimSpace(raw.Description),
 		CreatedBy:   strings.TrimSpace(raw.CreatedBy),
 		Enabled:     raw.IsEnabled,
+	}, nil
+}
+
+func parseImportSkillBundleRequest(
+	projectID uuid.UUID,
+	raw rawImportSkillBundleRequest,
+) (workflowservice.CreateSkillBundleInput, error) {
+	name := strings.TrimSpace(raw.Name)
+	if name == "" {
+		return workflowservice.CreateSkillBundleInput{}, fmt.Errorf("name must not be empty")
+	}
+	if len(raw.Files) == 0 {
+		return workflowservice.CreateSkillBundleInput{}, fmt.Errorf("files must not be empty")
+	}
+
+	files := make([]workflowservice.SkillBundleFileInput, 0, len(raw.Files))
+	for _, item := range raw.Files {
+		path := strings.TrimSpace(item.Path)
+		if path == "" {
+			return workflowservice.CreateSkillBundleInput{}, fmt.Errorf("files.path must not be empty")
+		}
+		content, err := base64.StdEncoding.DecodeString(strings.TrimSpace(item.ContentBase64))
+		if err != nil {
+			return workflowservice.CreateSkillBundleInput{}, fmt.Errorf("files.content_base64 must be valid base64")
+		}
+		files = append(files, workflowservice.SkillBundleFileInput{
+			Path:         path,
+			Content:      content,
+			IsExecutable: item.IsExecutable,
+			MediaType:    strings.TrimSpace(item.MediaType),
+		})
+	}
+
+	return workflowservice.CreateSkillBundleInput{
+		ProjectID: projectID,
+		Name:      name,
+		Files:     files,
+		CreatedBy: strings.TrimSpace(raw.CreatedBy),
+		Enabled:   raw.IsEnabled,
 	}, nil
 }
 

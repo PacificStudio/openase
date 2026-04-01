@@ -21,6 +21,7 @@ type agentProviderResponse struct {
 	MachineWorkspaceRoot  *string                           `json:"machine_workspace_root,omitempty"`
 	Name                  string                            `json:"name"`
 	AdapterType           string                            `json:"adapter_type"`
+	PermissionProfile     string                            `json:"permission_profile"`
 	AvailabilityState     string                            `json:"availability_state"`
 	Available             bool                              `json:"available"`
 	AvailabilityCheckedAt *string                           `json:"availability_checked_at,omitempty"`
@@ -105,6 +106,7 @@ type agentProviderPatchRequest struct {
 	MachineID          *string         `json:"machine_id"`
 	Name               *string         `json:"name"`
 	AdapterType        *string         `json:"adapter_type"`
+	PermissionProfile  *string         `json:"permission_profile"`
 	CliCommand         *string         `json:"cli_command"`
 	CliArgs            *[]string       `json:"cli_args"`
 	AuthConfig         *map[string]any `json:"auth_config"`
@@ -207,6 +209,7 @@ func (s *Server) patchAgentProvider(c echo.Context) error {
 		MachineID:          current.MachineID.String(),
 		Name:               current.Name,
 		AdapterType:        current.AdapterType.String(),
+		PermissionProfile:  mapAgentProviderResponse(current).PermissionProfile,
 		CliCommand:         current.CliCommand,
 		CliArgs:            append([]string(nil), current.CliArgs...),
 		AuthConfig:         cloneMap(current.AuthConfig),
@@ -225,6 +228,9 @@ func (s *Server) patchAgentProvider(c echo.Context) error {
 	}
 	if patch.AdapterType != nil {
 		request.AdapterType = *patch.AdapterType
+	}
+	if patch.PermissionProfile != nil {
+		request.PermissionProfile = *patch.PermissionProfile
 	}
 	if patch.CliCommand != nil {
 		request.CliCommand = *patch.CliCommand
@@ -469,6 +475,10 @@ func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 	if !availabilityState.IsValid() {
 		availabilityState = domain.AgentProviderAvailabilityStateUnknown
 	}
+	permissionProfile := item.PermissionProfile
+	if !permissionProfile.IsValid() {
+		permissionProfile = domain.DefaultAgentProviderPermissionProfile
+	}
 	capabilities := domain.DeriveAgentProviderCapabilities(item).Capabilities
 	capabilityState := capabilities.EphemeralChat.State
 	if !capabilityState.IsValid() {
@@ -486,6 +496,7 @@ func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 		MachineWorkspaceRoot:  stringPointerValue(item.MachineWorkspaceRoot),
 		Name:                  item.Name,
 		AdapterType:           item.AdapterType.String(),
+		PermissionProfile:     permissionProfile.String(),
 		AvailabilityState:     availabilityState.String(),
 		Available:             item.Available,
 		AvailabilityCheckedAt: timePointerString(item.AvailabilityCheckedAt),

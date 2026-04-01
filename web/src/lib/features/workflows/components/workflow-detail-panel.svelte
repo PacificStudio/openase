@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { allowsWorkflowFinish, allowsWorkflowPickup } from '$lib/features/statuses/public'
   import { cn, formatRelativeTime } from '$lib/utils'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
@@ -67,6 +68,8 @@
       draft.isActive !== baseDraft.isActive,
   )
   const selectedAgent = $derived(agentOptions.find((option) => option.id === draft.agentId) ?? null)
+  const pickupStatuses = $derived(statuses.filter((status) => allowsWorkflowPickup(status.stage)))
+  const finishStatuses = $derived(statuses.filter((status) => allowsWorkflowFinish(status.stage)))
 
   $effect(() => {
     const nextKey = [
@@ -266,14 +269,14 @@
       <div class="space-y-4">
         <WorkflowStatusChipSelector
           label="Pickup Statuses"
-          {statuses}
+          statuses={pickupStatuses}
           selectedStatusIds={draft.pickupStatusIds}
           disabled={saving || deleting}
           onToggle={togglePickupStatus}
         />
         <WorkflowStatusChipSelector
           label="Finish Statuses"
-          {statuses}
+          statuses={finishStatuses}
           selectedStatusIds={draft.finishStatusIds}
           disabled={saving || deleting}
           onToggle={toggleFinishStatus}

@@ -27,8 +27,6 @@ const (
 	FieldGithubOutboundCredential = "github_outbound_credential"
 	// FieldGithubTokenProbe holds the string denoting the github_token_probe field in the database.
 	FieldGithubTokenProbe = "github_token_probe"
-	// FieldDefaultWorkflowID holds the string denoting the default_workflow_id field in the database.
-	FieldDefaultWorkflowID = "default_workflow_id"
 	// FieldDefaultAgentProviderID holds the string denoting the default_agent_provider_id field in the database.
 	FieldDefaultAgentProviderID = "default_agent_provider_id"
 	// FieldAccessibleMachineIds holds the string denoting the accessible_machine_ids field in the database.
@@ -65,8 +63,6 @@ const (
 	EdgeNotificationRules = "notification_rules"
 	// EdgeIssueConnectors holds the string denoting the issue_connectors edge name in mutations.
 	EdgeIssueConnectors = "issue_connectors"
-	// EdgeDefaultWorkflow holds the string denoting the default_workflow edge name in mutations.
-	EdgeDefaultWorkflow = "default_workflow"
 	// EdgeDefaultAgentProvider holds the string denoting the default_agent_provider edge name in mutations.
 	EdgeDefaultAgentProvider = "default_agent_provider"
 	// Table holds the table name of the project in the database.
@@ -176,13 +172,6 @@ const (
 	IssueConnectorsInverseTable = "issue_connectors"
 	// IssueConnectorsColumn is the table column denoting the issue_connectors relation/edge.
 	IssueConnectorsColumn = "project_id"
-	// DefaultWorkflowTable is the table that holds the default_workflow relation/edge.
-	DefaultWorkflowTable = "projects"
-	// DefaultWorkflowInverseTable is the table name for the Workflow entity.
-	// It exists in this package in order to avoid circular dependency with the "workflow" package.
-	DefaultWorkflowInverseTable = "workflows"
-	// DefaultWorkflowColumn is the table column denoting the default_workflow relation/edge.
-	DefaultWorkflowColumn = "default_workflow_id"
 	// DefaultAgentProviderTable is the table that holds the default_agent_provider relation/edge.
 	DefaultAgentProviderTable = "projects"
 	// DefaultAgentProviderInverseTable is the table name for the AgentProvider entity.
@@ -202,7 +191,6 @@ var Columns = []string{
 	FieldStatus,
 	FieldGithubOutboundCredential,
 	FieldGithubTokenProbe,
-	FieldDefaultWorkflowID,
 	FieldDefaultAgentProviderID,
 	FieldAccessibleMachineIds,
 	FieldMaxConcurrentAgents,
@@ -264,11 +252,6 @@ func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
-}
-
-// ByDefaultWorkflowID orders the results by the default_workflow_id field.
-func ByDefaultWorkflowID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldDefaultWorkflowID, opts...).ToFunc()
 }
 
 // ByDefaultAgentProviderID orders the results by the default_agent_provider_id field.
@@ -484,13 +467,6 @@ func ByIssueConnectors(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
-// ByDefaultWorkflowField orders the results by default_workflow field.
-func ByDefaultWorkflowField(field string, opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newDefaultWorkflowStep(), sql.OrderByField(field, opts...))
-	}
-}
-
 // ByDefaultAgentProviderField orders the results by default_agent_provider field.
 func ByDefaultAgentProviderField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -600,13 +576,6 @@ func newIssueConnectorsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(IssueConnectorsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, IssueConnectorsTable, IssueConnectorsColumn),
-	)
-}
-func newDefaultWorkflowStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(DefaultWorkflowInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, false, DefaultWorkflowTable, DefaultWorkflowColumn),
 	)
 }
 func newDefaultAgentProviderStep() *sqlgraph.Step {

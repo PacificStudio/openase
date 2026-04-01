@@ -8,6 +8,7 @@
     parseProviderDraft,
     ProviderModelPicker,
     providerAdapterOptions,
+    providerPermissionProfileOptions,
   } from '$lib/features/agents/public'
   import type { ProviderDraft } from '$lib/features/agents/public'
   import { toastStore } from '$lib/stores/toast.svelte'
@@ -165,6 +166,31 @@
         </div>
 
         <div class="space-y-2">
+          <Label>Permission mode</Label>
+          <Select.Root
+            type="single"
+            value={draft.permissionProfile}
+            onValueChange={(value) => updateField('permissionProfile', value || 'unrestricted')}
+          >
+            <Select.Trigger class="w-full">
+              {providerPermissionProfileOptions.find(
+                (option) => option.value === draft.permissionProfile,
+              )?.label ?? 'Select permission mode'}
+            </Select.Trigger>
+            <Select.Content>
+              {#each providerPermissionProfileOptions as option (option.value)}
+                <Select.Item value={option.value}>{option.label}</Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
+          <p class="text-muted-foreground text-xs">
+            {providerPermissionProfileOptions.find(
+              (option) => option.value === draft.permissionProfile,
+            )?.description}
+          </p>
+        </div>
+
+        <div class="space-y-2">
           <ProviderModelPicker
             adapterType={draft.adapterType}
             modelName={draft.modelName}
@@ -197,6 +223,9 @@
             oninput={(event) =>
               updateField('cliArgs', (event.currentTarget as HTMLTextAreaElement).value)}
           />
+          <p class="text-muted-foreground text-xs">
+            OpenASE injects adapter-managed permission flags from Permission mode.
+          </p>
         </div>
       </div>
 

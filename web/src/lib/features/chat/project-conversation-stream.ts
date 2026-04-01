@@ -22,6 +22,7 @@ type ProjectConversationStreamHandlers = {
   resolveInterrupt: (interruptId: string, decision?: string) => void
   setConversationId: (conversationId: string) => void
   setPending: (value: boolean) => void
+  setPhase: (phase: 'awaiting_interrupt') => void
   onError: (message: string) => void
 }
 
@@ -67,7 +68,7 @@ export function handleProjectConversationStreamEvent(
 
   if (event.kind === 'interrupt_requested') {
     handlers.finalizeAssistantEntry()
-    handlers.setPending(false)
+    handlers.setPhase('awaiting_interrupt')
     handlers.appendInterrupt(event.payload)
     return
   }

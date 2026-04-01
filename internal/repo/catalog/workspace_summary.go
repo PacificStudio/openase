@@ -104,11 +104,11 @@ func (r *EntRepository) GetWorkspaceDashboardSummary(ctx context.Context) (domai
 		if !ok {
 			continue
 		}
-		statusName := ""
+		statusStage := ""
 		if ticket.Edges.Status != nil {
-			statusName = ticket.Edges.Status.Name
+			statusStage = string(ticket.Edges.Status.Stage)
 		}
-		if !domain.IsTerminalTicketStatusName(statusName) {
+		if !domain.IsTerminalTicketStatusStage(statusStage) {
 			summary.ActiveTickets++
 			if orgSummary := orgSummaries[orgID]; orgSummary != nil {
 				orgSummary.ActiveTickets++
@@ -194,11 +194,11 @@ func (r *EntRepository) GetOrganizationDashboardSummary(ctx context.Context, org
 		if projectSummary == nil {
 			continue
 		}
-		statusName := ""
+		statusStage := ""
 		if ticket.Edges.Status != nil {
-			statusName = ticket.Edges.Status.Name
+			statusStage = string(ticket.Edges.Status.Stage)
 		}
-		if !domain.IsTerminalTicketStatusName(statusName) {
+		if !domain.IsTerminalTicketStatusStage(statusStage) {
 			projectSummary.ActiveTickets++
 			summary.ActiveTickets++
 		}

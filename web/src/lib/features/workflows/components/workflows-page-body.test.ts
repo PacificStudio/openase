@@ -65,8 +65,8 @@ const defaultProps = {
   skillStates: [] as SkillState[],
   validationIssues: [] as HarnessValidationIssue[],
   statuses: [
-    { id: 'todo', name: 'To Do' },
-    { id: 'done', name: 'Done' },
+    { id: 'todo', name: 'To Do', stage: 'unstarted' as const },
+    { id: 'done', name: 'Done', stage: 'completed' as const },
   ],
   agentOptions: [],
 }

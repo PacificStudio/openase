@@ -25,7 +25,6 @@ type Project struct {
 	Slug                   string
 	Description            string
 	Status                 ProjectStatus
-	DefaultWorkflowID      *uuid.UUID
 	DefaultAgentProviderID *uuid.UUID
 	AccessibleMachineIDs   []uuid.UUID
 	MaxConcurrentAgents    int
@@ -62,7 +61,6 @@ type ProjectInput struct {
 	Slug                   string   `json:"slug"`
 	Description            string   `json:"description"`
 	Status                 string   `json:"status"`
-	DefaultWorkflowID      *string  `json:"default_workflow_id"`
 	DefaultAgentProviderID *string  `json:"default_agent_provider_id"`
 	AccessibleMachineIDs   []string `json:"accessible_machine_ids"`
 	MaxConcurrentAgents    *int     `json:"max_concurrent_agents"`
@@ -103,7 +101,6 @@ type CreateProject struct {
 	Slug                   string
 	Description            string
 	Status                 ProjectStatus
-	DefaultWorkflowID      *uuid.UUID
 	DefaultAgentProviderID *uuid.UUID
 	AccessibleMachineIDs   []uuid.UUID
 	MaxConcurrentAgents    int
@@ -116,7 +113,6 @@ type UpdateProject struct {
 	Slug                   string
 	Description            string
 	Status                 ProjectStatus
-	DefaultWorkflowID      *uuid.UUID
 	DefaultAgentProviderID *uuid.UUID
 	AccessibleMachineIDs   []uuid.UUID
 	MaxConcurrentAgents    int
@@ -210,11 +206,6 @@ func ParseCreateProject(organizationID uuid.UUID, raw ProjectInput) (CreateProje
 		return CreateProject{}, err
 	}
 
-	defaultWorkflowID, err := parseOptionalUUID("default_workflow_id", raw.DefaultWorkflowID)
-	if err != nil {
-		return CreateProject{}, err
-	}
-
 	defaultAgentProviderID, err := parseOptionalUUID("default_agent_provider_id", raw.DefaultAgentProviderID)
 	if err != nil {
 		return CreateProject{}, err
@@ -240,7 +231,6 @@ func ParseCreateProject(organizationID uuid.UUID, raw ProjectInput) (CreateProje
 		Slug:                   slug,
 		Description:            strings.TrimSpace(raw.Description),
 		Status:                 status,
-		DefaultWorkflowID:      defaultWorkflowID,
 		DefaultAgentProviderID: defaultAgentProviderID,
 		AccessibleMachineIDs:   accessibleMachineIDs,
 		MaxConcurrentAgents:    maxConcurrentAgents,
@@ -260,7 +250,6 @@ func ParseUpdateProject(id uuid.UUID, organizationID uuid.UUID, raw ProjectInput
 		Slug:                   input.Slug,
 		Description:            input.Description,
 		Status:                 input.Status,
-		DefaultWorkflowID:      input.DefaultWorkflowID,
 		DefaultAgentProviderID: input.DefaultAgentProviderID,
 		AccessibleMachineIDs:   input.AccessibleMachineIDs,
 		MaxConcurrentAgents:    input.MaxConcurrentAgents,

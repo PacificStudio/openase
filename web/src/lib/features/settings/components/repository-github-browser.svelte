@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import { Input } from '$ui/input'
+  import { Search } from '@lucide/svelte'
   import type { GitHubRepositoryRecord } from '../repositories-model'
 
   let {
@@ -31,28 +31,27 @@
   } = $props()
 </script>
 
-<section class="border-border bg-card/60 space-y-4 rounded-xl border p-4">
-  <div class="space-y-1">
-    <h3 class="text-foreground text-sm font-semibold">Bind from GitHub</h3>
-    <p class="text-muted-foreground text-xs">
-      Pick an existing repository from the current GitHub credential instead of typing clone URLs by
-      hand.
-    </p>
-  </div>
-
-  <div class="flex flex-col gap-2 sm:flex-row">
-    <Input
+<div class="flex flex-col gap-3">
+  <div
+    class="border-input focus-within:ring-ring flex items-center gap-2 rounded-md border px-3 focus-within:ring-1"
+  >
+    <Search class="text-muted-foreground size-3.5 shrink-0" />
+    <input
+      type="text"
       value={query}
-      placeholder="Search owner or repo"
+      placeholder="Search repositories…"
+      class="placeholder:text-muted-foreground h-9 flex-1 bg-transparent text-sm outline-none"
       oninput={(event) => onQueryChange?.((event.currentTarget as HTMLInputElement).value)}
       onkeydown={(event) => {
-        if (event.key === 'Enter') {
+        if (event.key === 'Enter' && !event.isComposing) {
           event.preventDefault()
           onSearch?.()
         }
       }}
     />
-    <Button variant="outline" onclick={onSearch} disabled={loading}>Search</Button>
+    {#if loading}
+      <span class="text-muted-foreground shrink-0 text-xs">Searching…</span>
+    {/if}
   </div>
 
   {#if error}
@@ -60,39 +59,52 @@
   {/if}
 
   {#if loading && repos.length === 0}
-    <div class="text-muted-foreground py-6 text-sm">Loading GitHub repositories…</div>
+    <div class="text-muted-foreground py-6 text-center text-xs">Loading repositories…</div>
   {:else if repos.length === 0}
-    <div class="text-muted-foreground py-6 text-sm">
-      No GitHub repositories matched the current search.
+    <div class="text-muted-foreground py-6 text-center text-xs">
+      No repositories matched. Try a different search.
     </div>
   {:else}
-    <div class="space-y-2">
-      {#each repos as repo (repo.id)}
-        <article class="border-border/60 flex items-center gap-3 rounded-lg border px-3 py-3">
+    <div
+      class="border-border overflow-y-auto rounded-md border"
+      style="max-height: calc(100vh - 220px)"
+    >
+      {#each repos as repo, index (repo.id)}
+        <button
+          type="button"
+          class="hover:bg-muted/50 flex w-full items-center gap-3 px-3 py-2 text-left transition-colors disabled:opacity-50
+            {index > 0 ? 'border-border/40 border-t' : ''}"
+          disabled={bindingRepoFullName === repo.full_name}
+          onclick={() => onBind?.(repo)}
+        >
           <div class="min-w-0 flex-1">
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="text-foreground text-sm font-medium">{repo.full_name}</span>
-              <Badge variant="outline" class="capitalize">{repo.visibility}</Badge>
-              <span class="text-muted-foreground text-[11px] uppercase">{repo.default_branch}</span>
+            <div class="flex items-center gap-2">
+              <span class="text-foreground truncate text-sm font-medium">{repo.full_name}</span>
+              <Badge variant="outline" class="h-4 shrink-0 px-1.5 text-[10px] capitalize">
+                {repo.visibility}
+              </Badge>
+              <span class="text-muted-foreground shrink-0 text-[10px]">{repo.default_branch}</span>
             </div>
-            <div class="text-muted-foreground mt-1 truncate text-xs">{repo.clone_url}</div>
           </div>
-
-          <Button
-            size="sm"
-            disabled={bindingRepoFullName === repo.full_name}
-            onclick={() => onBind?.(repo)}
-          >
+          <span class="text-muted-foreground shrink-0 text-xs">
             {bindingRepoFullName === repo.full_name ? 'Binding…' : 'Bind'}
-          </Button>
-        </article>
+          </span>
+        </button>
       {/each}
+
+      {#if nextCursor}
+        <div class="border-border/40 border-t px-3 py-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            class="h-7 w-full text-xs"
+            onclick={onLoadMore}
+            disabled={loadingMore}
+          >
+            {loadingMore ? 'Loading…' : 'Load more'}
+          </Button>
+        </div>
+      {/if}
     </div>
   {/if}
-
-  {#if nextCursor}
-    <Button variant="outline" size="sm" onclick={onLoadMore} disabled={loadingMore}>
-      {loadingMore ? 'Loading…' : 'Load more'}
-    </Button>
-  {/if}
-</section>
+</div>

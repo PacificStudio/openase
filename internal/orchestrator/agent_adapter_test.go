@@ -11,6 +11,7 @@ import (
 	"time"
 
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
 
@@ -219,6 +220,9 @@ func TestDefaultAgentAdapterRegistryRegistersGeminiRuntimeContract(t *testing.T)
 	if !strings.Contains(joinedArgs, "--output-format json") {
 		t.Fatalf("process args = %v, want json output mode", manager.capturedSpec.Args)
 	}
+	if !strings.Contains(joinedArgs, "--approval-mode=yolo") {
+		t.Fatalf("process args = %v, want yolo approval mode", manager.capturedSpec.Args)
+	}
 	if !strings.Contains(joinedArgs, "-p") {
 		t.Fatalf("process args = %v, want prompt flag", manager.capturedSpec.Args)
 	}
@@ -228,6 +232,33 @@ func TestDefaultAgentAdapterRegistryRegistersGeminiRuntimeContract(t *testing.T)
 	}
 	if err := session.Stop(context.Background()); err != nil {
 		t.Fatalf("Stop returned error: %v", err)
+	}
+}
+
+func TestAgentPermissionProfileHelpers(t *testing.T) {
+	if got := codexApprovalPolicy(catalogdomain.AgentProviderPermissionProfileStandard); got != "on-request" {
+		t.Fatalf("codexApprovalPolicy(standard) = %q", got)
+	}
+	if got := codexSandboxMode(catalogdomain.AgentProviderPermissionProfileStandard); got != "workspace-write" {
+		t.Fatalf("codexSandboxMode(standard) = %q", got)
+	}
+	if got := codexSandboxPolicy(catalogdomain.AgentProviderPermissionProfileStandard)["type"]; got != "workspaceWrite" {
+		t.Fatalf("codexSandboxPolicy(standard) = %+v", codexSandboxPolicy(catalogdomain.AgentProviderPermissionProfileStandard))
+	}
+	if got := codexApprovalPolicy(""); got != "never" {
+		t.Fatalf("codexApprovalPolicy(default) = %q", got)
+	}
+	if !hasClaudePermissionBypassArg([]string{"--permission-mode=bypassPermissions"}) {
+		t.Fatal("hasClaudePermissionBypassArg() expected true")
+	}
+	if hasClaudePermissionBypassArg([]string{"--permission-mode", "default"}) {
+		t.Fatal("hasClaudePermissionBypassArg() expected false")
+	}
+	if got := buildGeminiPermissionArgs(catalogdomain.AgentProviderPermissionProfileStandard); got != nil {
+		t.Fatalf("buildGeminiPermissionArgs(standard) = %v", got)
+	}
+	if got := buildGeminiPermissionArgs(""); len(got) != 1 || got[0] != "--approval-mode=yolo" {
+		t.Fatalf("buildGeminiPermissionArgs(default) = %v", got)
 	}
 }
 

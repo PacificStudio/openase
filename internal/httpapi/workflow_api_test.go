@@ -939,7 +939,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		AgentID:             agent.ID,
 		Name:                "Dispatcher Workflow",
 		Type:                "custom",
-		HarnessContent:      "---\nworkflow:\n  role: dispatcher\nstatus:\n  pickup: \"Backlog\"\n  finish: \"Backlog\"\n---\n\nEvaluate backlog tickets and route them to the right workflow.\n",
+		HarnessContent:      "---\nworkflow:\n  role: dispatcher\nstatus:\n  pickup: \"Backlog\"\n  finish: \"Done\"\n---\n\nEvaluate backlog tickets and route them to the right workflow.\n",
 		Hooks:               map[string]any{},
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
@@ -947,7 +947,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		StallTimeoutMinutes: 5,
 		IsActive:            true,
 		PickupStatusIDs:     workflowservice.MustStatusBindingSet(backlogID),
-		FinishStatusIDs:     workflowservice.MustStatusBindingSet(backlogID),
+		FinishStatusIDs:     workflowservice.MustStatusBindingSet(doneID),
 	}); err != nil {
 		t.Fatalf("create dispatcher workflow: %v", err)
 	}
@@ -1121,7 +1121,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		"Machine gpu-01 openase",
 		"Workflow Coding Workflow coding fullstack-developer Todo Done",
 		"ProjectWorkflows fullstack-developer:Todo:1/3:Implement product changes end to end.|dispatcher:Backlog:0/1:Evaluate backlog tickets and route them to the right workflow.|",
-		"WorkflowArtifacts fullstack-developer=Done:.openase/harnesses/coding-workflow.md:commit,openase-platform|dispatcher=Backlog:.openase/harnesses/dispatcher-workflow.md:|",
+		"WorkflowArtifacts fullstack-developer=Done:.openase/harnesses/coding-workflow.md:commit,openase-platform|dispatcher=Done:.openase/harnesses/dispatcher-workflow.md:|",
 		"WorkflowHistory fullstack-developer=ASE-41:In Review:True:2|ASE-40:Todo:False:0|;dispatcher=;",
 		"ProjectStatuses Backlog,Todo,In Progress,In Review,Done,Cancelled first=#6B7280",
 		"ProjectMachines gpu-01:current:gpu,a100|storage:accessible:storage,nfs|",

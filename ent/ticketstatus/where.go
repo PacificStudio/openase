@@ -179,6 +179,26 @@ func NameContainsFold(v string) predicate.TicketStatus {
 	return predicate.TicketStatus(sql.FieldContainsFold(FieldName, v))
 }
 
+// StageEQ applies the EQ predicate on the "stage" field.
+func StageEQ(v Stage) predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldEQ(FieldStage, v))
+}
+
+// StageNEQ applies the NEQ predicate on the "stage" field.
+func StageNEQ(v Stage) predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldNEQ(FieldStage, v))
+}
+
+// StageIn applies the In predicate on the "stage" field.
+func StageIn(vs ...Stage) predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldIn(FieldStage, vs...))
+}
+
+// StageNotIn applies the NotIn predicate on the "stage" field.
+func StageNotIn(vs ...Stage) predicate.TicketStatus {
+	return predicate.TicketStatus(sql.FieldNotIn(FieldStage, vs...))
+}
+
 // ColorEQ applies the EQ predicate on the "color" field.
 func ColorEQ(v string) predicate.TicketStatus {
 	return predicate.TicketStatus(sql.FieldEQ(FieldColor, v))

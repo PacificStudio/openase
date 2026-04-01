@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/google/uuid"
 )
 
@@ -54,13 +55,9 @@ type OrganizationProjectSummary struct {
 	LastActivityAt *time.Time
 }
 
-func IsTerminalTicketStatusName(name string) bool {
-	switch strings.ToLower(strings.TrimSpace(name)) {
-	case "done", "cancelled", "canceled", "archived":
-		return true
-	default:
-		return false
-	}
+func IsTerminalTicketStatusStage(stage string) bool {
+	parsed := ticketing.StatusStage(strings.ToLower(strings.TrimSpace(stage)))
+	return parsed.IsValid() && parsed.IsTerminal()
 }
 
 func IsActiveProjectStatus(status string) bool {

@@ -5458,7 +5458,6 @@ export interface operations {
             projects?: {
               accessible_machine_ids?: string[]
               default_agent_provider_id?: string | null
-              default_workflow_id?: string | null
               description?: string
               id?: string
               max_concurrent_agents?: number
@@ -5526,8 +5525,6 @@ export interface operations {
           accessible_machine_ids?: string[]
           /** @description Optional default agent provider ID for the project. */
           default_agent_provider_id?: string | null
-          /** @description Optional default workflow ID for newly created tickets in the project. */
-          default_workflow_id?: string | null
           /** @description Human-readable project description. */
           description?: string
           /** @description Maximum number of agents that may run concurrently in the project. */
@@ -5552,7 +5549,6 @@ export interface operations {
             project?: {
               accessible_machine_ids?: string[]
               default_agent_provider_id?: string | null
-              default_workflow_id?: string | null
               description?: string
               id?: string
               max_concurrent_agents?: number
@@ -5656,6 +5652,7 @@ export interface operations {
               model_temperature?: number
               name?: string
               organization_id?: string
+              permission_profile?: string
             }[]
           }
         }
@@ -5718,7 +5715,7 @@ export interface operations {
           auth_config?: {
             [key: string]: unknown
           }
-          /** @description Additional CLI arguments passed to the provider command. */
+          /** @description Additional CLI arguments passed to the provider command after OpenASE applies adapter-managed launch settings. */
           cli_args?: string[]
           /** @description CLI command used to launch the provider. */
           cli_command?: string
@@ -5747,6 +5744,8 @@ export interface operations {
           model_temperature?: number | null
           /** @description Human-readable provider name. */
           name?: string
+          /** @description Managed permission profile used to render adapter-specific approval and sandbox options. */
+          permission_profile?: string
         }
       }
     }
@@ -5793,6 +5792,7 @@ export interface operations {
               model_temperature?: number
               name?: string
               organization_id?: string
+              permission_profile?: string
             }
           }
         }
@@ -5989,7 +5989,6 @@ export interface operations {
             project?: {
               accessible_machine_ids?: string[]
               default_agent_provider_id?: string | null
-              default_workflow_id?: string | null
               description?: string
               id?: string
               max_concurrent_agents?: number
@@ -6061,7 +6060,6 @@ export interface operations {
             project?: {
               accessible_machine_ids?: string[]
               default_agent_provider_id?: string | null
-              default_workflow_id?: string | null
               description?: string
               id?: string
               max_concurrent_agents?: number
@@ -6141,8 +6139,6 @@ export interface operations {
           accessible_machine_ids?: string[] | null
           /** @description Optional default agent provider ID for the project. */
           default_agent_provider_id?: string | null
-          /** @description Optional default workflow ID for newly created tickets in the project. */
-          default_workflow_id?: string | null
           /** @description Human-readable project description. */
           description?: string | null
           /** @description Maximum number of agents that may run concurrently in the project. */
@@ -6167,7 +6163,6 @@ export interface operations {
             project?: {
               accessible_machine_ids?: string[]
               default_agent_provider_id?: string | null
-              default_workflow_id?: string | null
               description?: string
               id?: string
               max_concurrent_agents?: number
@@ -9688,6 +9683,7 @@ export interface operations {
               name?: string
               position?: number
               project_id?: string
+              stage?: string
             }[]
           }
         }
@@ -9758,6 +9754,8 @@ export interface operations {
           name?: string
           /** @description Zero-based display order of the status. */
           position?: number | null
+          /** @description Lifecycle stage for the status. One of backlog, unstarted, started, completed, or canceled. */
+          stage?: string
         }
       }
     }
@@ -9780,6 +9778,7 @@ export interface operations {
               name?: string
               position?: number
               project_id?: string
+              stage?: string
             }
           }
         }
@@ -9864,6 +9863,7 @@ export interface operations {
               name?: string
               position?: number
               project_id?: string
+              stage?: string
             }[]
           }
         }
@@ -11128,6 +11128,7 @@ export interface operations {
               model_temperature?: number
               name?: string
               organization_id?: string
+              permission_profile?: string
             }
           }
         }
@@ -11190,7 +11191,7 @@ export interface operations {
           auth_config?: {
             [key: string]: unknown
           } | null
-          /** @description Additional CLI arguments passed to the provider command. */
+          /** @description Additional CLI arguments passed to the provider command after OpenASE applies adapter-managed launch settings. */
           cli_args?: string[] | null
           /** @description CLI command used to launch the provider. */
           cli_command?: string | null
@@ -11219,6 +11220,8 @@ export interface operations {
           model_temperature?: number | null
           /** @description Human-readable provider name. */
           name?: string | null
+          /** @description Managed permission profile used to render adapter-specific approval and sandbox options. */
+          permission_profile?: string | null
         }
       }
     }
@@ -11265,6 +11268,7 @@ export interface operations {
               model_temperature?: number
               name?: string
               organization_id?: string
+              permission_profile?: string
             }
           }
         }
@@ -12435,6 +12439,8 @@ export interface operations {
           name?: string | null
           /** @description Zero-based display order of the status. */
           position?: number | null
+          /** @description Lifecycle stage for the status. One of backlog, unstarted, started, completed, or canceled. */
+          stage?: string | null
         }
       }
     }
@@ -12457,6 +12463,7 @@ export interface operations {
               name?: string
               position?: number
               project_id?: string
+              stage?: string
             }
           }
         }

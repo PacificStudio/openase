@@ -534,6 +534,81 @@ func TestReconcileLegacyProjectAccessibleMachineIDsAddsMissingColumnAndBackfills
 	}
 }
 
+func TestReconcileLegacyProjectDefaultWorkflowRejectsMalformedDSN(t *testing.T) {
+	err := reconcileLegacyProjectDefaultWorkflow(context.Background(), "postgres://%zz")
+	if err == nil || !strings.Contains(err.Error(), "ping database for project default workflow reconciliation") {
+		t.Fatalf("reconcileLegacyProjectDefaultWorkflow(malformed dsn) error = %v", err)
+	}
+}
+
+func TestReconcileLegacyProjectDefaultWorkflowDropsLegacyColumn(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := startEmbeddedPostgres(t)
+
+	bootstrapClient, err := ent.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open bootstrap ent client: %v", err)
+	}
+	if err := bootstrapClient.Schema.Create(ctx); err != nil {
+		t.Fatalf("create bootstrap schema: %v", err)
+	}
+
+	org, err := bootstrapClient.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-default-workflow-drop").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	if _, err := bootstrapClient.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase-default-workflow-drop").
+		Save(ctx); err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	if err := bootstrapClient.Close(); err != nil {
+		t.Fatalf("close bootstrap ent client: %v", err)
+	}
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open sql db: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("close sql db: %v", err)
+		}
+	})
+
+	if _, err := db.ExecContext(ctx, `ALTER TABLE "projects" ADD COLUMN "default_workflow_id" uuid NULL`); err != nil {
+		t.Fatalf("add legacy project default workflow column: %v", err)
+	}
+
+	if err := reconcileLegacyProjectDefaultWorkflow(ctx, dsn); err != nil {
+		t.Fatalf("reconcileLegacyProjectDefaultWorkflow() error = %v", err)
+	}
+
+	var columnExists bool
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = current_schema()
+			  AND table_name = 'projects'
+			  AND column_name = 'default_workflow_id'
+		)`,
+	).Scan(&columnExists); err != nil {
+		t.Fatalf("check default_workflow_id column after reconciliation: %v", err)
+	}
+	if columnExists {
+		t.Fatal("expected default_workflow_id column to be removed")
+	}
+}
+
 func TestReconcileLegacyAgentProviderMachineIDsSkipsWhenProviderTableMissing(t *testing.T) {
 	ctx := context.Background()
 	dsn := startEmbeddedPostgres(t)
@@ -858,6 +933,121 @@ func TestOpenRemovesLegacyTicketStageSchemaBeforeMigration(t *testing.T) {
 	if legacyIndexExists(ctx, t, db, "ticketstatus_project_id_stage_id_position") {
 		t.Fatal("expected legacy ticket status stage index to be removed")
 	}
+}
+
+func TestOpenBackfillsLegacyTicketStatusStages(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := startEmbeddedPostgres(t)
+
+	bootstrapClient, err := ent.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open bootstrap ent client: %v", err)
+	}
+	if err := bootstrapClient.Schema.Create(ctx); err != nil {
+		t.Fatalf("create bootstrap schema: %v", err)
+	}
+
+	org, err := bootstrapClient.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-stage-backfill").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := bootstrapClient.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase-stage-backfill").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	statusSvc := ticketstatus.NewService(bootstrapClient)
+	statuses, err := statusSvc.ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset statuses: %v", err)
+	}
+	backlogID := findStatusID(t, statuses, "Backlog")
+	todoID := findStatusID(t, statuses, "Todo")
+	doneID := findStatusID(t, statuses, "Done")
+
+	qaStatus, err := bootstrapClient.TicketStatus.Create().
+		SetProjectID(project.ID).
+		SetName("QA Signoff").
+		SetStage("unstarted").
+		SetColor("#ffffff").
+		SetPosition(9).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create qa status: %v", err)
+	}
+	wontFixStatus, err := bootstrapClient.TicketStatus.Create().
+		SetProjectID(project.ID).
+		SetName("Won't Fix").
+		SetStage("unstarted").
+		SetColor("#000000").
+		SetPosition(10).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create wont-fix status: %v", err)
+	}
+
+	if _, err := bootstrapClient.Workflow.Create().
+		SetProjectID(project.ID).
+		SetName("Legacy Workflow").
+		SetType("coding").
+		SetHarnessPath("roles/legacy.md").
+		AddPickupStatusIDs(todoID).
+		AddFinishStatusIDs(qaStatus.ID, wontFixStatus.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open sql db: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("close sql db: %v", err)
+		}
+	})
+
+	if _, err := db.ExecContext(ctx, `UPDATE "ticket_status" SET "stage" = 'unstarted' WHERE "id" IN ($1, $2)`, backlogID, doneID); err != nil {
+		t.Fatalf("reset legacy default status stages: %v", err)
+	}
+	if err := bootstrapClient.Close(); err != nil {
+		t.Fatalf("close bootstrap ent client: %v", err)
+	}
+
+	client, err := Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open runtime database: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := client.Close(); err != nil {
+			t.Errorf("close runtime ent client: %v", err)
+		}
+	})
+
+	assertTicketStatusStage := func(statusID uuid.UUID, want string) {
+		t.Helper()
+		statusItem, err := client.TicketStatus.Get(ctx, statusID)
+		if err != nil {
+			t.Fatalf("reload ticket status %s: %v", statusID, err)
+		}
+		if string(statusItem.Stage) != want {
+			t.Fatalf("ticket status %s stage = %q, want %q", statusID, statusItem.Stage, want)
+		}
+	}
+
+	assertTicketStatusStage(backlogID, "backlog")
+	assertTicketStatusStage(doneID, "completed")
+	assertTicketStatusStage(qaStatus.ID, "completed")
+	assertTicketStatusStage(wontFixStatus.ID, "canceled")
 }
 
 func TestReconcileLegacyAgentProviderMachineIDsAddsMissingColumnAndBackfills(t *testing.T) {

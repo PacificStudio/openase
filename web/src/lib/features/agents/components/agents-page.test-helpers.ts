@@ -9,7 +9,6 @@ export const projectFixture: Project = {
   slug: 'openase',
   description: '',
   status: 'active',
-  default_workflow_id: null,
   default_agent_provider_id: null,
   accessible_machine_ids: [],
   max_concurrent_agents: 4,
@@ -30,6 +29,7 @@ export function makeAgent(overrides: Partial<AgentInstance> = {}): AgentInstance
     providerId: 'provider-1',
     providerName: 'Codex',
     modelName: 'gpt-5.4',
+    permissionProfile: 'unrestricted',
     status: 'running',
     runtimePhase: 'ready',
     runtimeControlState: 'active',
@@ -46,7 +46,7 @@ export function makeAgent(overrides: Partial<AgentInstance> = {}): AgentInstance
     todayCompleted: 0,
     todayCost: 0,
     ...overrides,
-  }
+  } as AgentInstance
 }
 
 export function makePageData(agent: AgentInstance): AgentsPageData {
@@ -88,6 +88,7 @@ export function makePageData(agent: AgentInstance): AgentsPageData {
         machine_workspace_root: '/workspace',
         name: 'Codex',
         adapter_type: 'codex-app-server',
+        permission_profile: 'unrestricted',
         availability_state: 'ready',
         available: true,
         availability_checked_at: '2026-03-27T12:00:00Z',

@@ -382,6 +382,7 @@ func newSkillCommand() *cobra.Command {
 		Use:   "skill",
 		Short: "Operate on skills through the OpenASE API.",
 	}
+	command.AddCommand(newSkillImportCommand())
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "list [projectId]", Short: "List project skills.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [projectId]", Short: "Create a skill.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "refresh [projectId]", Short: "Refresh workspace skills.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills/refresh", PositionalParams: []string{"projectId"}}))

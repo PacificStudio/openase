@@ -33,7 +33,6 @@
   mode={state.ui.mode}
   selectedRepo={state.selectedRepo}
   draft={state.ui.draft}
-  reposCount={state.ui.repos.length}
   saving={state.ui.saving}
   githubRepos={state.ui.githubRepos}
   githubRepoQuery={state.ui.githubRepoQuery}

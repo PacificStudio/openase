@@ -338,6 +338,21 @@ func TestCatalogAgentParsersAndRuntimeHelpers(t *testing.T) {
 	if _, err := parseAgentProviderAdapterType("bogus"); err == nil {
 		t.Fatal("parseAgentProviderAdapterType() expected validation error")
 	}
+	if _, err := parseAgentProviderPermissionProfile("bogus"); err == nil {
+		t.Fatal("parseAgentProviderPermissionProfile() expected validation error")
+	}
+	if got, err := parseAgentProviderPermissionProfile(""); err != nil || got != DefaultAgentProviderPermissionProfile {
+		t.Fatalf("parseAgentProviderPermissionProfile(\"\") = %q, %v; want %q, nil", got, err, DefaultAgentProviderPermissionProfile)
+	}
+	if got, err := parseAgentProviderPermissionProfile(" STANDARD "); err != nil || got != AgentProviderPermissionProfileStandard {
+		t.Fatalf("parseAgentProviderPermissionProfile(\" STANDARD \") = %q, %v; want %q, nil", got, err, AgentProviderPermissionProfileStandard)
+	}
+	if !AgentProviderPermissionProfile(AgentProviderPermissionProfileUnrestricted).IsValid() {
+		t.Fatal("AgentProviderPermissionProfileUnrestricted.IsValid() expected true")
+	}
+	if got := AgentProviderPermissionProfile(AgentProviderPermissionProfileStandard).String(); got != "standard" {
+		t.Fatalf("AgentProviderPermissionProfileStandard.String() = %q; want %q", got, "standard")
+	}
 	if _, err := parseStringList("cli_args", []string{"ok", " "}); err == nil {
 		t.Fatal("parseStringList() expected empty item validation error")
 	}
@@ -361,6 +376,7 @@ func TestCatalogAgentParsersAndRuntimeHelpers(t *testing.T) {
 		{Name: "Codex", AdapterType: "codex-app-server", ModelName: "gpt-5.4"},
 		{MachineID: machineID.String(), Name: " ", AdapterType: "codex-app-server", ModelName: "gpt-5.4"},
 		{MachineID: machineID.String(), Name: "Codex", AdapterType: "bad", ModelName: "gpt-5.4"},
+		{MachineID: machineID.String(), Name: "Codex", AdapterType: "codex-app-server", PermissionProfile: "bad", ModelName: "gpt-5.4"},
 		{MachineID: machineID.String(), Name: "Codex", AdapterType: "codex-app-server", CliArgs: []string{" "}, ModelName: "gpt-5.4"},
 		{MachineID: machineID.String(), Name: "Codex", AdapterType: "codex-app-server", ModelName: " "},
 		{MachineID: machineID.String(), Name: "Codex", AdapterType: "codex-app-server", ModelName: "gpt-5.4", ModelTemperature: floatPtr(-1)},
@@ -572,7 +588,6 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	orgID := uuid.New()
 	repoID := uuid.New()
 	ticketID := uuid.New()
-	workflowID := uuid.New()
 	defaultProviderID := uuid.New()
 	accessibleA := uuid.New()
 	accessibleB := uuid.New()
@@ -614,7 +629,6 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 		Slug:                   " Coverage-Rollout ",
 		Description:            " Raise backend coverage ",
 		Status:                 ProjectStatusInProgress.String(),
-		DefaultWorkflowID:      stringPtr(workflowID.String()),
 		DefaultAgentProviderID: stringPtr(defaultProviderID.String()),
 		AccessibleMachineIDs:   []string{accessibleA.String(), accessibleA.String(), accessibleB.String()},
 		MaxConcurrentAgents:    &maxConcurrent,
@@ -638,9 +652,6 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	}
 	if updateProject.Status != ProjectStatusCompleted {
 		t.Fatalf("ParseUpdateProject(success) = %+v", updateProject)
-	}
-	if _, err := ParseCreateProject(orgID, ProjectInput{Name: "P", Slug: "p", DefaultWorkflowID: stringPtr("bad")}); err == nil {
-		t.Fatal("ParseCreateProject() expected workflow validation error")
 	}
 	if _, err := ParseCreateProject(orgID, ProjectInput{Name: " ", Slug: "p"}); err == nil {
 		t.Fatal("ParseCreateProject() expected name validation error")

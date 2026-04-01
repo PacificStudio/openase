@@ -14,6 +14,7 @@ const providerFixture: AgentProvider = {
   machine_workspace_root: '/workspace',
   name: 'Codex',
   adapter_type: 'codex-app-server',
+  permission_profile: 'unrestricted',
   available: true,
   availability_checked_at: '2026-03-27T10:00:00Z',
   availability_reason: null,

@@ -23,12 +23,22 @@ const (
 	FieldContentMarkdown = "content_markdown"
 	// FieldContentHash holds the string denoting the content_hash field in the database.
 	FieldContentHash = "content_hash"
+	// FieldBundleHash holds the string denoting the bundle_hash field in the database.
+	FieldBundleHash = "bundle_hash"
+	// FieldManifestJSON holds the string denoting the manifest_json field in the database.
+	FieldManifestJSON = "manifest_json"
+	// FieldSizeBytes holds the string denoting the size_bytes field in the database.
+	FieldSizeBytes = "size_bytes"
+	// FieldFileCount holds the string denoting the file_count field in the database.
+	FieldFileCount = "file_count"
 	// FieldCreatedBy holds the string denoting the created_by field in the database.
 	FieldCreatedBy = "created_by"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeSkill holds the string denoting the skill edge name in mutations.
 	EdgeSkill = "skill"
+	// EdgeFiles holds the string denoting the files edge name in mutations.
+	EdgeFiles = "files"
 	// EdgeRequiredByBindings holds the string denoting the required_by_bindings edge name in mutations.
 	EdgeRequiredByBindings = "required_by_bindings"
 	// Table holds the table name of the skillversion in the database.
@@ -40,6 +50,13 @@ const (
 	SkillInverseTable = "skills"
 	// SkillColumn is the table column denoting the skill relation/edge.
 	SkillColumn = "skill_id"
+	// FilesTable is the table that holds the files relation/edge.
+	FilesTable = "skill_version_files"
+	// FilesInverseTable is the table name for the SkillVersionFile entity.
+	// It exists in this package in order to avoid circular dependency with the "skillversionfile" package.
+	FilesInverseTable = "skill_version_files"
+	// FilesColumn is the table column denoting the files relation/edge.
+	FilesColumn = "skill_version_id"
 	// RequiredByBindingsTable is the table that holds the required_by_bindings relation/edge.
 	RequiredByBindingsTable = "workflow_skill_bindings"
 	// RequiredByBindingsInverseTable is the table name for the WorkflowSkillBinding entity.
@@ -56,6 +73,10 @@ var Columns = []string{
 	FieldVersion,
 	FieldContentMarkdown,
 	FieldContentHash,
+	FieldBundleHash,
+	FieldManifestJSON,
+	FieldSizeBytes,
+	FieldFileCount,
 	FieldCreatedBy,
 	FieldCreatedAt,
 }
@@ -73,6 +94,12 @@ func ValidColumn(column string) bool {
 var (
 	// ContentHashValidator is a validator for the "content_hash" field. It is called by the builders before save.
 	ContentHashValidator func(string) error
+	// DefaultManifestJSON holds the default value on creation for the "manifest_json" field.
+	DefaultManifestJSON func() map[string]interface{}
+	// DefaultSizeBytes holds the default value on creation for the "size_bytes" field.
+	DefaultSizeBytes int64
+	// DefaultFileCount holds the default value on creation for the "file_count" field.
+	DefaultFileCount int
 	// DefaultCreatedBy holds the default value on creation for the "created_by" field.
 	DefaultCreatedBy string
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
@@ -109,6 +136,21 @@ func ByContentHash(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldContentHash, opts...).ToFunc()
 }
 
+// ByBundleHash orders the results by the bundle_hash field.
+func ByBundleHash(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBundleHash, opts...).ToFunc()
+}
+
+// BySizeBytes orders the results by the size_bytes field.
+func BySizeBytes(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSizeBytes, opts...).ToFunc()
+}
+
+// ByFileCount orders the results by the file_count field.
+func ByFileCount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFileCount, opts...).ToFunc()
+}
+
 // ByCreatedBy orders the results by the created_by field.
 func ByCreatedBy(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCreatedBy, opts...).ToFunc()
@@ -123,6 +165,20 @@ func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 func BySkillField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newSkillStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByFilesCount orders the results by files count.
+func ByFilesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newFilesStep(), opts...)
+	}
+}
+
+// ByFiles orders the results by files terms.
+func ByFiles(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newFilesStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
 
@@ -144,6 +200,13 @@ func newSkillStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(SkillInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, SkillTable, SkillColumn),
+	)
+}
+func newFilesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(FilesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, FilesTable, FilesColumn),
 	)
 }
 func newRequiredByBindingsStep() *sqlgraph.Step {

@@ -22,6 +22,8 @@ type TicketStatus struct {
 	ProjectID uuid.UUID `json:"project_id,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
+	// Stage holds the value of the "stage" field.
+	Stage ticketstatus.Stage `json:"stage,omitempty"`
 	// Color holds the value of the "color" field.
 	Color string `json:"color,omitempty"`
 	// Icon holds the value of the "icon" field.
@@ -102,7 +104,7 @@ func (*TicketStatus) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case ticketstatus.FieldPosition, ticketstatus.FieldMaxActiveRuns:
 			values[i] = new(sql.NullInt64)
-		case ticketstatus.FieldName, ticketstatus.FieldColor, ticketstatus.FieldIcon, ticketstatus.FieldDescription:
+		case ticketstatus.FieldName, ticketstatus.FieldStage, ticketstatus.FieldColor, ticketstatus.FieldIcon, ticketstatus.FieldDescription:
 			values[i] = new(sql.NullString)
 		case ticketstatus.FieldID, ticketstatus.FieldProjectID:
 			values[i] = new(uuid.UUID)
@@ -138,6 +140,12 @@ func (_m *TicketStatus) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field name", values[i])
 			} else if value.Valid {
 				_m.Name = value.String
+			}
+		case ticketstatus.FieldStage:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field stage", values[i])
+			} else if value.Valid {
+				_m.Stage = ticketstatus.Stage(value.String)
 			}
 		case ticketstatus.FieldColor:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -237,6 +245,9 @@ func (_m *TicketStatus) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)
+	builder.WriteString(", ")
+	builder.WriteString("stage=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Stage))
 	builder.WriteString(", ")
 	builder.WriteString("color=")
 	builder.WriteString(_m.Color)

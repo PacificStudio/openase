@@ -830,7 +830,6 @@ def main() -> int:
             f"/api/v1/projects/{project['id']}",
             {
                 "default_agent_provider_id": provider["id"],
-                "default_workflow_id": workflow["id"],
             },
         )
         print("[8/12] create linked OpenASE tickets, repo scopes, and draft PRs")

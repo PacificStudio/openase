@@ -29,6 +29,8 @@ type AgentProvider struct {
 	Name string `json:"name,omitempty"`
 	// AdapterType holds the value of the "adapter_type" field.
 	AdapterType agentprovider.AdapterType `json:"adapter_type,omitempty"`
+	// PermissionProfile holds the value of the "permission_profile" field.
+	PermissionProfile agentprovider.PermissionProfile `json:"permission_profile,omitempty"`
 	// CliCommand holds the value of the "cli_command" field.
 	CliCommand string `json:"cli_command,omitempty"`
 	// CliArgs holds the value of the "cli_args" field.
@@ -121,7 +123,7 @@ func (*AgentProvider) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case agentprovider.FieldModelMaxTokens, agentprovider.FieldMaxParallelRuns:
 			values[i] = new(sql.NullInt64)
-		case agentprovider.FieldName, agentprovider.FieldAdapterType, agentprovider.FieldCliCommand, agentprovider.FieldModelName:
+		case agentprovider.FieldName, agentprovider.FieldAdapterType, agentprovider.FieldPermissionProfile, agentprovider.FieldCliCommand, agentprovider.FieldModelName:
 			values[i] = new(sql.NullString)
 		case agentprovider.FieldID, agentprovider.FieldOrganizationID, agentprovider.FieldMachineID:
 			values[i] = new(uuid.UUID)
@@ -169,6 +171,12 @@ func (_m *AgentProvider) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field adapter_type", values[i])
 			} else if value.Valid {
 				_m.AdapterType = agentprovider.AdapterType(value.String)
+			}
+		case agentprovider.FieldPermissionProfile:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field permission_profile", values[i])
+			} else if value.Valid {
+				_m.PermissionProfile = agentprovider.PermissionProfile(value.String)
 			}
 		case agentprovider.FieldCliCommand:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -293,6 +301,9 @@ func (_m *AgentProvider) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("adapter_type=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AdapterType))
+	builder.WriteString(", ")
+	builder.WriteString("permission_profile=")
+	builder.WriteString(fmt.Sprintf("%v", _m.PermissionProfile))
 	builder.WriteString(", ")
 	builder.WriteString("cli_command=")
 	builder.WriteString(_m.CliCommand)

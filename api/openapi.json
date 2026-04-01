@@ -6567,10 +6567,6 @@
                             "nullable": true,
                             "type": "string"
                           },
-                          "default_workflow_id": {
-                            "nullable": true,
-                            "type": "string"
-                          },
                           "description": {
                             "type": "string"
                           },
@@ -6695,11 +6691,6 @@
                     "nullable": true,
                     "type": "string"
                   },
-                  "default_workflow_id": {
-                    "description": "Optional default workflow ID for newly created tickets in the project.",
-                    "nullable": true,
-                    "type": "string"
-                  },
                   "description": {
                     "description": "Human-readable project description.",
                     "type": "string"
@@ -6744,10 +6735,6 @@
                           "type": "array"
                         },
                         "default_agent_provider_id": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "default_workflow_id": {
                           "nullable": true,
                           "type": "string"
                         },
@@ -6963,6 +6950,9 @@
                           },
                           "organization_id": {
                             "type": "string"
+                          },
+                          "permission_profile": {
+                            "type": "string"
                           }
                         },
                         "type": "object"
@@ -7065,7 +7055,7 @@
                     "type": "object"
                   },
                   "cli_args": {
-                    "description": "Additional CLI arguments passed to the provider command.",
+                    "description": "Additional CLI arguments passed to the provider command after OpenASE applies adapter-managed launch settings.",
                     "items": {
                       "type": "string"
                     },
@@ -7113,6 +7103,10 @@
                   },
                   "name": {
                     "description": "Human-readable provider name.",
+                    "type": "string"
+                  },
+                  "permission_profile": {
+                    "description": "Managed permission profile used to render adapter-specific approval and sandbox options.",
                     "type": "string"
                   }
                 },
@@ -7226,6 +7220,9 @@
                           "type": "string"
                         },
                         "organization_id": {
+                          "type": "string"
+                        },
+                        "permission_profile": {
                           "type": "string"
                         }
                       },
@@ -7559,10 +7556,6 @@
                           "nullable": true,
                           "type": "string"
                         },
-                        "default_workflow_id": {
-                          "nullable": true,
-                          "type": "string"
-                        },
                         "description": {
                           "type": "string"
                         },
@@ -7704,10 +7697,6 @@
                           "nullable": true,
                           "type": "string"
                         },
-                        "default_workflow_id": {
-                          "nullable": true,
-                          "type": "string"
-                        },
                         "description": {
                           "type": "string"
                         },
@@ -7831,11 +7820,6 @@
                     "nullable": true,
                     "type": "string"
                   },
-                  "default_workflow_id": {
-                    "description": "Optional default workflow ID for newly created tickets in the project.",
-                    "nullable": true,
-                    "type": "string"
-                  },
                   "description": {
                     "description": "Human-readable project description.",
                     "nullable": true,
@@ -7884,10 +7868,6 @@
                           "type": "array"
                         },
                         "default_agent_provider_id": {
-                          "nullable": true,
-                          "type": "string"
-                        },
-                        "default_workflow_id": {
                           "nullable": true,
                           "type": "string"
                         },
@@ -14764,6 +14744,9 @@
                           },
                           "project_id": {
                             "type": "string"
+                          },
+                          "stage": {
+                            "type": "string"
                           }
                         },
                         "type": "object"
@@ -14885,6 +14868,10 @@
                     "description": "Zero-based display order of the status.",
                     "nullable": true,
                     "type": "integer"
+                  },
+                  "stage": {
+                    "description": "Lifecycle stage for the status. One of backlog, unstarted, started, completed, or canceled.",
+                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -14931,6 +14918,9 @@
                           "type": "integer"
                         },
                         "project_id": {
+                          "type": "string"
+                        },
+                        "stage": {
                           "type": "string"
                         }
                       },
@@ -15075,6 +15065,9 @@
                             "type": "integer"
                           },
                           "project_id": {
+                            "type": "string"
+                          },
+                          "stage": {
                             "type": "string"
                           }
                         },
@@ -17717,6 +17710,9 @@
                         },
                         "organization_id": {
                           "type": "string"
+                        },
+                        "permission_profile": {
+                          "type": "string"
                         }
                       },
                       "type": "object"
@@ -17819,7 +17815,7 @@
                     "type": "object"
                   },
                   "cli_args": {
-                    "description": "Additional CLI arguments passed to the provider command.",
+                    "description": "Additional CLI arguments passed to the provider command after OpenASE applies adapter-managed launch settings.",
                     "items": {
                       "type": "string"
                     },
@@ -17871,6 +17867,11 @@
                   },
                   "name": {
                     "description": "Human-readable provider name.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "permission_profile": {
+                    "description": "Managed permission profile used to render adapter-specific approval and sandbox options.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -17985,6 +17986,9 @@
                           "type": "string"
                         },
                         "organization_id": {
+                          "type": "string"
+                        },
+                        "permission_profile": {
                           "type": "string"
                         }
                       },
@@ -20188,6 +20192,11 @@
                     "description": "Zero-based display order of the status.",
                     "nullable": true,
                     "type": "integer"
+                  },
+                  "stage": {
+                    "description": "Lifecycle stage for the status. One of backlog, unstarted, started, completed, or canceled.",
+                    "nullable": true,
+                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -20234,6 +20243,9 @@
                           "type": "integer"
                         },
                         "project_id": {
+                          "type": "string"
+                        },
+                        "stage": {
                           "type": "string"
                         }
                       },

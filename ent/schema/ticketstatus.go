@@ -5,6 +5,7 @@ import (
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 )
 
 type TicketStatus struct {
@@ -16,6 +17,15 @@ func (TicketStatus) Fields() []ent.Field {
 		uuidField(),
 		field.UUID("project_id", uuidZero()),
 		field.String("name").NotEmpty(),
+		field.Enum("stage").
+			Values(
+				ticketing.StatusStageBacklog.String(),
+				ticketing.StatusStageUnstarted.String(),
+				ticketing.StatusStageStarted.String(),
+				ticketing.StatusStageCompleted.String(),
+				ticketing.StatusStageCanceled.String(),
+			).
+			Default(ticketing.DefaultStatusStage.String()),
 		field.String("color").NotEmpty(),
 		field.String("icon").Optional(),
 		field.Int("position").Default(0),

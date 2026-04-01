@@ -35,6 +35,20 @@ func (_c *TicketStatusCreate) SetName(v string) *TicketStatusCreate {
 	return _c
 }
 
+// SetStage sets the "stage" field.
+func (_c *TicketStatusCreate) SetStage(v ticketstatus.Stage) *TicketStatusCreate {
+	_c.mutation.SetStage(v)
+	return _c
+}
+
+// SetNillableStage sets the "stage" field if the given value is not nil.
+func (_c *TicketStatusCreate) SetNillableStage(v *ticketstatus.Stage) *TicketStatusCreate {
+	if v != nil {
+		_c.SetStage(*v)
+	}
+	return _c
+}
+
 // SetColor sets the "color" field.
 func (_c *TicketStatusCreate) SetColor(v string) *TicketStatusCreate {
 	_c.mutation.SetColor(v)
@@ -210,6 +224,10 @@ func (_c *TicketStatusCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *TicketStatusCreate) defaults() {
+	if _, ok := _c.mutation.Stage(); !ok {
+		v := ticketstatus.DefaultStage
+		_c.mutation.SetStage(v)
+	}
 	if _, ok := _c.mutation.Position(); !ok {
 		v := ticketstatus.DefaultPosition
 		_c.mutation.SetPosition(v)
@@ -235,6 +253,14 @@ func (_c *TicketStatusCreate) check() error {
 	if v, ok := _c.mutation.Name(); ok {
 		if err := ticketstatus.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "TicketStatus.name": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.Stage(); !ok {
+		return &ValidationError{Name: "stage", err: errors.New(`ent: missing required field "TicketStatus.stage"`)}
+	}
+	if v, ok := _c.mutation.Stage(); ok {
+		if err := ticketstatus.StageValidator(v); err != nil {
+			return &ValidationError{Name: "stage", err: fmt.Errorf(`ent: validator failed for field "TicketStatus.stage": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Color(); !ok {
@@ -292,6 +318,10 @@ func (_c *TicketStatusCreate) createSpec() (*TicketStatus, *sqlgraph.CreateSpec)
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(ticketstatus.FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if value, ok := _c.mutation.Stage(); ok {
+		_spec.SetField(ticketstatus.FieldStage, field.TypeEnum, value)
+		_node.Stage = value
 	}
 	if value, ok := _c.mutation.Color(); ok {
 		_spec.SetField(ticketstatus.FieldColor, field.TypeString, value)

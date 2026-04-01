@@ -2,22 +2,17 @@
   import type { AgentProviderModelCatalogEntry, Machine } from '$lib/api/contracts'
   import { listProviderModelOptions } from '$lib/api/openase'
   import { Badge } from '$ui/badge'
-  import { Button } from '$ui/button'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
-  import {
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetFooter,
-    SheetHeader,
-    SheetTitle,
-  } from '$ui/sheet'
+  import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
   import { Textarea } from '$ui/textarea'
   import { ChevronDown, ChevronUp } from '@lucide/svelte'
-  import { providerAdapterOptions } from '../provider-draft'
+  import { providerAdapterOptions, providerPermissionProfileOptions } from '../provider-draft'
   import type { ProviderConfig, ProviderDraft, ProviderDraftField } from '../types'
+  import { draftFieldValue } from './provider-config-sheet-events'
+  import ProviderConfigSheetEmptyState from './provider-config-sheet-empty-state.svelte'
+  import ProviderConfigSheetFooter from './provider-config-sheet-footer.svelte'
   import ProviderModelPicker from './provider-model-picker.svelte'
 
   let {
@@ -37,11 +32,6 @@
     onDraftChange?: (field: ProviderDraftField, value: string) => void
     onSave?: () => void
   } = $props()
-
-  function updateField(field: ProviderDraftField, event: Event) {
-    const target = event.currentTarget as HTMLInputElement | HTMLTextAreaElement
-    onDraftChange?.(field, target.value)
-  }
 
   let modelCatalog = $state<AgentProviderModelCatalogEntry[]>([])
   let advancedOpen = $state(false)
@@ -97,7 +87,7 @@
               <Input
                 id="provider-name"
                 value={draft.name}
-                oninput={(event) => updateField('name', event)}
+                oninput={(event) => onDraftChange?.('name', draftFieldValue(event))}
               />
             </div>
 
@@ -140,6 +130,32 @@
                 </Select.Content>
               </Select.Root>
             </div>
+
+            <div class="space-y-2">
+              <Label>Permission mode</Label>
+              <Select.Root
+                type="single"
+                value={draft.permissionProfile}
+                onValueChange={(value) =>
+                  onDraftChange?.('permissionProfile', value || 'unrestricted')}
+              >
+                <Select.Trigger class="w-full">
+                  {providerPermissionProfileOptions.find(
+                    (option) => option.value === draft.permissionProfile,
+                  )?.label ?? 'Select permission mode'}
+                </Select.Trigger>
+                <Select.Content>
+                  {#each providerPermissionProfileOptions as option (option.value)}
+                    <Select.Item value={option.value}>{option.label}</Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+              <p class="text-muted-foreground text-xs">
+                {providerPermissionProfileOptions.find(
+                  (option) => option.value === draft.permissionProfile,
+                )?.description}
+              </p>
+            </div>
           </div>
 
           <div class="space-y-2">
@@ -175,7 +191,7 @@
                       id="provider-cli-command"
                       value={draft.cliCommand}
                       placeholder="codex"
-                      oninput={(event) => updateField('cliCommand', event)}
+                      oninput={(event) => onDraftChange?.('cliCommand', draftFieldValue(event))}
                     />
                     <p class="text-muted-foreground text-xs">
                       Leave empty to use the adapter default.
@@ -190,7 +206,8 @@
                       min="0"
                       step="0.01"
                       value={draft.modelTemperature}
-                      oninput={(event) => updateField('modelTemperature', event)}
+                      oninput={(event) =>
+                        onDraftChange?.('modelTemperature', draftFieldValue(event))}
                     />
                   </div>
                 </div>
@@ -202,9 +219,12 @@
                     value={draft.cliArgs}
                     rows={3}
                     placeholder={`app-server\n--listen\nstdio://`}
-                    oninput={(event) => updateField('cliArgs', event)}
+                    oninput={(event) => onDraftChange?.('cliArgs', draftFieldValue(event))}
                   />
                   <p class="text-muted-foreground text-xs">One argument per line.</p>
+                  <p class="text-muted-foreground text-xs">
+                    OpenASE injects adapter-managed permission flags from Permission mode.
+                  </p>
                 </div>
 
                 <div class="space-y-2">
@@ -214,7 +234,7 @@
                     value={draft.authConfig}
                     rows={4}
                     placeholder={`{\n  "token": "secret"\n}`}
-                    oninput={(event) => updateField('authConfig', event)}
+                    oninput={(event) => onDraftChange?.('authConfig', draftFieldValue(event))}
                   />
                   <p class="text-muted-foreground text-xs">JSON object. Leave blank to clear.</p>
                 </div>
@@ -228,7 +248,7 @@
                       min="1"
                       step="1"
                       value={draft.modelMaxTokens}
-                      oninput={(event) => updateField('modelMaxTokens', event)}
+                      oninput={(event) => onDraftChange?.('modelMaxTokens', draftFieldValue(event))}
                     />
                   </div>
 
@@ -240,7 +260,8 @@
                       min="0"
                       step="0.000001"
                       value={draft.costPerInputToken}
-                      oninput={(event) => updateField('costPerInputToken', event)}
+                      oninput={(event) =>
+                        onDraftChange?.('costPerInputToken', draftFieldValue(event))}
                     />
                   </div>
 
@@ -252,7 +273,8 @@
                       min="0"
                       step="0.000001"
                       value={draft.costPerOutputToken}
-                      oninput={(event) => updateField('costPerOutputToken', event)}
+                      oninput={(event) =>
+                        onDraftChange?.('costPerOutputToken', draftFieldValue(event))}
                     />
                   </div>
                 </div>
@@ -262,16 +284,9 @@
         </div>
       </div>
 
-      <SheetFooter class="border-border border-t px-6 py-4">
-        <Button variant="outline" onclick={() => (open = false)} disabled={saving}>Cancel</Button>
-        <Button onclick={onSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Save changes'}
-        </Button>
-      </SheetFooter>
+      <ProviderConfigSheetFooter {saving} onCancel={() => (open = false)} {onSave} />
     {:else}
-      <div class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-sm">
-        Select a provider to configure.
-      </div>
+      <ProviderConfigSheetEmptyState />
     {/if}
   </SheetContent>
 </Sheet>

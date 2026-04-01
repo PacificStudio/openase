@@ -70,7 +70,6 @@ const projectFixture: Project = {
   slug: 'test-project',
   description: '',
   status: 'active',
-  default_workflow_id: null,
   default_agent_provider_id: null,
   accessible_machine_ids: [],
   max_concurrent_agents: 4,

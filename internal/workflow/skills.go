@@ -18,7 +18,9 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entskill "github.com/BetterAndBetterII/openase/ent/skill"
+	entskillblob "github.com/BetterAndBetterII/openase/ent/skillblob"
 	entskillversion "github.com/BetterAndBetterII/openase/ent/skillversion"
+	entskillversionfile "github.com/BetterAndBetterII/openase/ent/skillversionfile"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	entworkflowskillbinding "github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -58,9 +60,12 @@ type skillDocument struct {
 }
 
 type SkillDetail struct {
-	Skill
-	Content string           `json:"content"`
-	History []VersionSummary `json:"history"`
+	Skill      `json:",inline"`
+	Content    string            `json:"content"`
+	BundleHash string            `json:"bundle_hash"`
+	FileCount  int               `json:"file_count"`
+	Files      []SkillBundleFile `json:"files"`
+	History    []VersionSummary  `json:"history"`
 }
 
 type CreateSkillInput struct {
@@ -76,6 +81,19 @@ type UpdateSkillInput struct {
 	SkillID     uuid.UUID
 	Content     string
 	Description string
+}
+
+type CreateSkillBundleInput struct {
+	ProjectID uuid.UUID
+	Name      string
+	Files     []SkillBundleFileInput
+	CreatedBy string
+	Enabled   *bool
+}
+
+type UpdateSkillBundleInput struct {
+	SkillID uuid.UUID
+	Files   []SkillBundleFileInput
 }
 
 type UpdateSkillBindingsInput struct {
@@ -290,6 +308,20 @@ func buildSkillContent(name string, description string, body string) string {
 }
 
 func (s *Service) CreateSkill(ctx context.Context, input CreateSkillInput) (SkillDetail, error) {
+	bundle, err := buildSingleFileSkillBundle(input.Name, input.Content, input.Description)
+	if err != nil {
+		return SkillDetail{}, err
+	}
+	return s.CreateSkillBundle(ctx, CreateSkillBundleInput{
+		ProjectID: input.ProjectID,
+		Name:      bundle.Name,
+		Files:     bundleFilesToInput(bundle.Files),
+		CreatedBy: input.CreatedBy,
+		Enabled:   input.Enabled,
+	})
+}
+
+func (s *Service) CreateSkillBundle(ctx context.Context, input CreateSkillBundleInput) (SkillDetail, error) {
 	if s.client == nil {
 		return SkillDetail{}, ErrUnavailable
 	}
@@ -299,23 +331,14 @@ func (s *Service) CreateSkill(ctx context.Context, input CreateSkillInput) (Skil
 	if err := s.ensureBuiltinSkills(ctx, input.ProjectID); err != nil {
 		return SkillDetail{}, err
 	}
-	names, err := normalizeSkillNames([]string{input.Name})
+	bundle, err := parseSkillBundle(input.Name, input.Files)
 	if err != nil {
 		return SkillDetail{}, err
 	}
-	name := names[0]
+	name := bundle.Name
 	if _, err := s.skillByName(ctx, input.ProjectID, name); err == nil {
 		return SkillDetail{}, fmt.Errorf("%w: skill %q already exists", ErrSkillInvalid, name)
 	} else if !errors.Is(err, ErrSkillNotFound) {
-		return SkillDetail{}, err
-	}
-
-	content, err := ensureSkillContent(name, input.Content, input.Description)
-	if err != nil {
-		return SkillDetail{}, err
-	}
-	description, err := skillDescriptionFromContent(content)
-	if err != nil {
 		return SkillDetail{}, err
 	}
 
@@ -338,7 +361,7 @@ func (s *Service) CreateSkill(ctx context.Context, input CreateSkillInput) (Skil
 	skillItem, err := tx.Skill.Create().
 		SetProjectID(input.ProjectID).
 		SetName(name).
-		SetDescription(description).
+		SetDescription(bundle.Description).
 		SetIsBuiltin(false).
 		SetIsEnabled(enabled).
 		SetCreatedBy(createdBy).
@@ -349,16 +372,9 @@ func (s *Service) CreateSkill(ctx context.Context, input CreateSkillInput) (Skil
 		return SkillDetail{}, fmt.Errorf("create skill: %w", err)
 	}
 
-	versionItem, err := tx.SkillVersion.Create().
-		SetSkillID(skillItem.ID).
-		SetVersion(1).
-		SetContentMarkdown(content).
-		SetContentHash(contentHash(content)).
-		SetCreatedBy(createdBy).
-		SetCreatedAt(now).
-		Save(ctx)
+	versionItem, err := s.storeSkillBundleVersion(ctx, tx, skillItem.ID, 1, bundle, createdBy, now)
 	if err != nil {
-		return SkillDetail{}, fmt.Errorf("create skill version: %w", err)
+		return SkillDetail{}, err
 	}
 
 	skillItem, err = tx.Skill.UpdateOneID(skillItem.ID).
@@ -380,12 +396,36 @@ func (s *Service) UpdateSkill(ctx context.Context, input UpdateSkillInput) (Skil
 	if err != nil {
 		return SkillDetail{}, err
 	}
-
-	content, err := ensureSkillContent(record.skill.Name, input.Content, input.Description)
+	bundle, err := buildSingleFileSkillBundle(record.skill.Name, input.Content, input.Description)
 	if err != nil {
 		return SkillDetail{}, err
 	}
-	description, err := skillDescriptionFromContent(content)
+	return s.UpdateSkillBundle(ctx, UpdateSkillBundleInput{
+		SkillID: input.SkillID,
+		Files:   bundleFilesToInput(bundle.Files),
+	})
+}
+
+func bundleFilesToInput(files []SkillBundleFile) []SkillBundleFileInput {
+	inputs := make([]SkillBundleFileInput, 0, len(files))
+	for _, file := range files {
+		inputs = append(inputs, SkillBundleFileInput{
+			Path:         file.Path,
+			Content:      append([]byte(nil), file.Content...),
+			IsExecutable: file.IsExecutable,
+			MediaType:    file.MediaType,
+		})
+	}
+	return inputs
+}
+
+func (s *Service) UpdateSkillBundle(ctx context.Context, input UpdateSkillBundleInput) (SkillDetail, error) {
+	record, err := s.resolveSkillRecord(ctx, input.SkillID)
+	if err != nil {
+		return SkillDetail{}, err
+	}
+
+	bundle, err := parseSkillBundle(record.skill.Name, input.Files)
 	if err != nil {
 		return SkillDetail{}, err
 	}
@@ -400,19 +440,13 @@ func (s *Service) UpdateSkill(ctx context.Context, input UpdateSkillInput) (Skil
 	}
 	defer rollback(tx)
 
-	versionItem, err := tx.SkillVersion.Create().
-		SetSkillID(record.skill.ID).
-		SetVersion(currentVersion.Version + 1).
-		SetContentMarkdown(content).
-		SetContentHash(contentHash(content)).
-		SetCreatedBy(record.skill.CreatedBy).
-		Save(ctx)
+	versionItem, err := s.storeSkillBundleVersion(ctx, tx, record.skill.ID, currentVersion.Version+1, bundle, record.skill.CreatedBy, time.Time{})
 	if err != nil {
-		return SkillDetail{}, fmt.Errorf("create updated skill version: %w", err)
+		return SkillDetail{}, err
 	}
 
 	updatedSkill, err := tx.Skill.UpdateOneID(record.skill.ID).
-		SetDescription(description).
+		SetDescription(bundle.Description).
 		SetCurrentVersionID(versionItem.ID).
 		SetUpdatedAt(time.Now().UTC()).
 		Save(ctx)
@@ -628,17 +662,142 @@ func (s *Service) buildSkillDetail(ctx context.Context, record resolvedSkillReco
 		if err != nil {
 			return SkillDetail{}, err
 		}
+		files, err := s.skillVersionFiles(ctx, versionItem.ID)
+		if err != nil {
+			return SkillDetail{}, err
+		}
 		history, err := s.ListSkillVersions(ctx, record.skill.ID)
 		if err != nil {
 			return SkillDetail{}, err
 		}
 		return SkillDetail{
-			Skill:   item,
-			Content: versionItem.ContentMarkdown,
-			History: history,
+			Skill:      item,
+			Content:    versionItem.ContentMarkdown,
+			BundleHash: strings.TrimSpace(versionItem.BundleHash),
+			FileCount:  versionItem.FileCount,
+			Files:      files,
+			History:    history,
 		}, nil
 	}
 	return SkillDetail{}, ErrSkillNotFound
+}
+
+func (s *Service) skillVersionFiles(ctx context.Context, versionID uuid.UUID) ([]SkillBundleFile, error) {
+	items, err := s.client.SkillVersionFile.Query().
+		Where(entskillversionfile.SkillVersionIDEQ(versionID)).
+		WithContentBlob().
+		Order(ent.Asc(entskillversionfile.FieldPath)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list skill version files: %w", err)
+	}
+
+	files := make([]SkillBundleFile, 0, len(items))
+	for _, item := range items {
+		if item.Edges.ContentBlob == nil {
+			return nil, fmt.Errorf("list skill version files: content blob missing for %s", item.Path)
+		}
+		files = append(files, SkillBundleFile{
+			Path:         item.Path,
+			FileKind:     item.FileKind.String(),
+			MediaType:    item.MediaType,
+			Encoding:     item.Encoding.String(),
+			IsExecutable: item.IsExecutable,
+			SizeBytes:    item.SizeBytes,
+			SHA256:       item.Sha256,
+			Content:      append([]byte(nil), item.Edges.ContentBlob.ContentBytes...),
+		})
+	}
+	return files, nil
+}
+
+func (s *Service) storeSkillBundleVersion(
+	ctx context.Context,
+	tx *ent.Tx,
+	skillID uuid.UUID,
+	version int,
+	bundle SkillBundle,
+	createdBy string,
+	createdAt time.Time,
+) (*ent.SkillVersion, error) {
+	if tx == nil {
+		return nil, fmt.Errorf("store skill bundle version: tx must not be nil")
+	}
+
+	versionCreate := tx.SkillVersion.Create().
+		SetSkillID(skillID).
+		SetVersion(version).
+		SetContentMarkdown(bundle.EntrypointBody).
+		SetContentHash(bundle.EntrypointSHA256).
+		SetBundleHash(bundle.BundleHash).
+		SetManifestJSON(bundle.Manifest).
+		SetSizeBytes(bundle.SizeBytes).
+		SetFileCount(bundle.FileCount).
+		SetCreatedBy(createdBy)
+	if !createdAt.IsZero() {
+		versionCreate.SetCreatedAt(createdAt)
+	}
+	versionItem, err := versionCreate.Save(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create skill bundle version: %w", err)
+	}
+
+	for _, file := range bundle.Files {
+		blobID, err := s.ensureSkillBlob(ctx, tx, file)
+		if err != nil {
+			return nil, err
+		}
+		fileCreate := tx.SkillVersionFile.Create().
+			SetSkillVersionID(versionItem.ID).
+			SetContentBlobID(blobID).
+			SetPath(file.Path).
+			SetFileKind(entskillversionfile.FileKind(file.FileKind)).
+			SetMediaType(file.MediaType).
+			SetEncoding(entskillversionfile.Encoding(file.Encoding)).
+			SetIsExecutable(file.IsExecutable).
+			SetSizeBytes(file.SizeBytes).
+			SetSha256(file.SHA256)
+		if !createdAt.IsZero() {
+			fileCreate.SetCreatedAt(createdAt)
+		}
+		if _, err := fileCreate.Save(ctx); err != nil {
+			return nil, fmt.Errorf("create skill version file %s: %w", file.Path, err)
+		}
+	}
+
+	return versionItem, nil
+}
+
+func (s *Service) ensureSkillBlob(ctx context.Context, tx *ent.Tx, file SkillBundleFile) (uuid.UUID, error) {
+	existing, err := tx.SkillBlob.Query().
+		Where(entskillblob.Sha256EQ(file.SHA256)).
+		Only(ctx)
+	if err == nil {
+		return existing.ID, nil
+	}
+	if err != nil && !ent.IsNotFound(err) {
+		return uuid.Nil, fmt.Errorf("query skill blob %s: %w", file.Path, err)
+	}
+
+	blobItem, err := tx.SkillBlob.Create().
+		SetSha256(file.SHA256).
+		SetSizeBytes(file.SizeBytes).
+		SetCompression(entskillblob.CompressionNone).
+		SetContentBytes(file.Content).
+		Save(ctx)
+	if err != nil {
+		if ent.IsConstraintError(err) {
+			existing, retryErr := tx.SkillBlob.Query().
+				Where(entskillblob.Sha256EQ(file.SHA256)).
+				Only(ctx)
+			if retryErr != nil {
+				return uuid.Nil, fmt.Errorf("reload conflicted skill blob %s: %w", file.Path, retryErr)
+			}
+			return existing.ID, nil
+		}
+		return uuid.Nil, fmt.Errorf("create skill blob %s: %w", file.Path, err)
+	}
+	return blobItem.ID, nil
 }
 
 func (s *Service) resolveInjectedSkillNames(
@@ -717,7 +876,11 @@ func (s *Service) RefreshSkills(ctx context.Context, input RefreshSkillsInput) (
 		if err != nil {
 			return RefreshSkillsResult{}, err
 		}
-		if err := writeProjectedSkill(target.skillsDir.String(), name, versionItem.ContentMarkdown); err != nil {
+		files, err := s.skillVersionFiles(ctx, versionItem.ID)
+		if err != nil {
+			return RefreshSkillsResult{}, err
+		}
+		if err := writeProjectedSkillBundle(target.skillsDir.String(), name, files, versionItem.ContentMarkdown); err != nil {
 			return RefreshSkillsResult{}, fmt.Errorf("refresh skill %s: %w", name, err)
 		}
 	}
@@ -825,6 +988,34 @@ func writeProjectedSkill(skillsDir string, name string, content string) error {
 	}
 	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(content), 0o600); err != nil {
 		return fmt.Errorf("write projected skill: %w", err)
+	}
+	return nil
+}
+
+func writeProjectedSkillBundle(skillsDir string, name string, files []SkillBundleFile, fallbackContent string) error {
+	if len(files) == 0 {
+		return writeProjectedSkill(skillsDir, name, fallbackContent)
+	}
+
+	skillDir := filepath.Join(skillsDir, name)
+	if err := os.RemoveAll(skillDir); err != nil {
+		return fmt.Errorf("reset projected skill directory: %w", err)
+	}
+	for _, file := range files {
+		targetPath := filepath.Join(skillDir, filepath.FromSlash(file.Path))
+		if err := ensureCopyTargetWithinRoot(skillDir, targetPath); err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0o750); err != nil {
+			return fmt.Errorf("create projected skill parent: %w", err)
+		}
+		mode := os.FileMode(0o600)
+		if file.IsExecutable {
+			mode = 0o700
+		}
+		if err := os.WriteFile(targetPath, file.Content, mode); err != nil {
+			return fmt.Errorf("write projected skill file %s: %w", file.Path, err)
+		}
 	}
 	return nil
 }

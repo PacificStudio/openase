@@ -33,6 +33,9 @@ func TestCreateAgentProviderAutoDetectsCLICommand(t *testing.T) {
 	if repo.createdProvider == nil || repo.createdProvider.CliCommand != "/usr/local/bin/codex" {
 		t.Fatalf("expected repo to receive resolved cli command, got %+v", repo.createdProvider)
 	}
+	if repo.createdProvider == nil || repo.createdProvider.PermissionProfile != domain.AgentProviderPermissionProfileUnrestricted {
+		t.Fatalf("expected default permission profile to be unrestricted, got %+v", repo.createdProvider)
+	}
 	if want := []string{"app-server", "--listen", "stdio://"}; !equalStrings(item.CliArgs, want) {
 		t.Fatalf("expected default codex cli args %v, got %v", want, item.CliArgs)
 	}
@@ -103,6 +106,65 @@ func TestUpdateAgentProviderDefaultsCodexCLIArgs(t *testing.T) {
 	}
 	if repo.updatedProvider == nil || !equalStrings(repo.updatedProvider.CliArgs, []string{"app-server", "--listen", "stdio://"}) {
 		t.Fatalf("expected repo update to receive default codex args, got %+v", repo.updatedProvider)
+	}
+}
+
+func TestCreateAgentProviderNormalizesManagedPermissionFlags(t *testing.T) {
+	repo := &stubRepository{}
+	svc := New(repo, stubExecutableResolver{
+		paths: map[string]string{
+			"codex":  "/usr/local/bin/codex",
+			"claude": "/usr/local/bin/claude",
+			"gemini": "/usr/local/bin/gemini",
+		},
+	}, nil)
+
+	cases := []struct {
+		name        string
+		adapterType domain.AgentProviderAdapterType
+		inputArgs   []string
+		wantArgs    []string
+	}{
+		{
+			name:        "codex strips launch and permission flags",
+			adapterType: domain.AgentProviderAdapterTypeCodexAppServer,
+			inputArgs:   []string{"app-server", "--listen", "ws://127.0.0.1:7777", "--sandbox", "danger-full-access", "--ask-for-approval", "never", "--trace"},
+			wantArgs:    []string{"app-server", "--listen", "stdio://", "--trace"},
+		},
+		{
+			name:        "claude strips permission flags",
+			adapterType: domain.AgentProviderAdapterTypeClaudeCodeCLI,
+			inputArgs:   []string{"--dangerously-skip-permissions", "--permission-mode", "bypassPermissions", "--verbose"},
+			wantArgs:    []string{"--verbose"},
+		},
+		{
+			name:        "gemini strips yolo flags",
+			adapterType: domain.AgentProviderAdapterTypeGeminiCLI,
+			inputArgs:   []string{"--approval-mode=yolo", "--sandbox=false"},
+			wantArgs:    []string{"--sandbox=false"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo.createdProvider = nil
+			_, err := svc.CreateAgentProvider(context.Background(), domain.CreateAgentProvider{
+				OrganizationID:    uuid.New(),
+				MachineID:         uuid.New(),
+				Name:              "Provider",
+				AdapterType:       tc.adapterType,
+				PermissionProfile: domain.AgentProviderPermissionProfileStandard,
+				ModelName:         "model",
+				AuthConfig:        map[string]any{},
+				CliArgs:           tc.inputArgs,
+			})
+			if err != nil {
+				t.Fatalf("CreateAgentProvider returned error: %v", err)
+			}
+			if repo.createdProvider == nil || !equalStrings(repo.createdProvider.CliArgs, tc.wantArgs) {
+				t.Fatalf("stored cli args = %+v, want %v", repo.createdProvider, tc.wantArgs)
+			}
+		})
 	}
 }
 

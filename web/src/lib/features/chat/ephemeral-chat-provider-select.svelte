@@ -11,10 +11,12 @@
   let {
     providers,
     providerId,
+    disabled = false,
     onProviderChange,
   }: {
     providers: AgentProvider[]
     providerId: string
+    disabled?: boolean
     onProviderChange?: (providerId: string) => void
   } = $props()
 
@@ -40,7 +42,7 @@
 <Select.Root
   type="single"
   value={providerId}
-  disabled={providers.length === 0}
+  disabled={disabled || providers.length === 0}
   onValueChange={(value) => onProviderChange?.(value || '')}
 >
   <Select.Trigger

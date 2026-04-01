@@ -155,18 +155,24 @@ func buildRemoteMaterializeRuntimeSnapshotCommand(
 		"set -eu",
 		"rm -rf " + sshinfra.ShellQuote(target.SkillsDir),
 		"mkdir -p " + sshinfra.ShellQuote(target.SkillsDir),
-		buildRemoteWriteFileCommand(harnessPath, snapshot.Workflow.Content, false),
-		buildRemoteWriteFileCommand(filepath.Join(workspaceRoot, ".openase", "bin", "openase"), runtimeOpenASECLIWrapperScript(), true),
+		buildRemoteWriteFileCommand(harnessPath, []byte(snapshot.Workflow.Content), false),
+		buildRemoteWriteFileCommand(filepath.Join(workspaceRoot, ".openase", "bin", "openase"), []byte(runtimeOpenASECLIWrapperScript()), true),
 	}
 	for _, skill := range snapshot.Skills {
-		lines = append(lines, buildRemoteWriteFileCommand(filepath.Join(target.SkillsDir, skill.Name, "SKILL.md"), skill.Content, false))
+		if len(skill.Files) == 0 {
+			lines = append(lines, buildRemoteWriteFileCommand(filepath.Join(target.SkillsDir, skill.Name, "SKILL.md"), []byte(skill.Content), false))
+			continue
+		}
+		for _, file := range skill.Files {
+			lines = append(lines, buildRemoteWriteFileCommand(filepath.Join(target.SkillsDir, skill.Name, filepath.FromSlash(file.Path)), file.Content, file.IsExecutable))
+		}
 	}
 
 	return strings.Join(lines, "\n"), nil
 }
 
-func buildRemoteWriteFileCommand(path string, content string, executable bool) string {
-	encoded := base64.StdEncoding.EncodeToString([]byte(content))
+func buildRemoteWriteFileCommand(path string, content []byte, executable bool) string {
+	encoded := base64.StdEncoding.EncodeToString(content)
 	lines := []string{
 		"mkdir -p " + sshinfra.ShellQuote(filepath.Dir(path)),
 		"printf %s " + sshinfra.ShellQuote(encoded) + " | base64 -d > " + sshinfra.ShellQuote(path),

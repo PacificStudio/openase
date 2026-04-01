@@ -18,6 +18,10 @@ func (SkillVersion) Fields() []ent.Field {
 		field.Int("version"),
 		field.Text("content_markdown"),
 		field.String("content_hash").NotEmpty(),
+		field.String("bundle_hash").Optional(),
+		field.JSON("manifest_json", map[string]any{}).Default(emptyMap),
+		field.Int64("size_bytes").Default(0),
+		field.Int("file_count").Default(0),
 		field.String("created_by").Default("system:workflow-service"),
 		createdAtField(),
 	}
@@ -30,6 +34,7 @@ func (SkillVersion) Edges() []ent.Edge {
 			Field("skill_id").
 			Unique().
 			Required(),
+		edge.To("files", SkillVersionFile.Type),
 		edge.To("required_by_bindings", WorkflowSkillBinding.Type),
 	}
 }

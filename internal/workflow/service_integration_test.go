@@ -230,22 +230,12 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 		t.Fatalf("stored workflow version still carries projected bindings: %q", currentVersion.ContentMarkdown)
 	}
 
-	if err := client.Project.UpdateOneID(fixture.projectID).SetDefaultWorkflowID(created.ID).Exec(ctx); err != nil {
-		t.Fatalf("set default workflow: %v", err)
-	}
 	deleted, err := service.Delete(ctx, created.ID)
 	if err != nil {
 		t.Fatalf("Delete() error = %v", err)
 	}
 	if deleted.ID != created.ID {
 		t.Fatalf("Delete() = %+v", deleted)
-	}
-	projectAfterDelete, err := client.Project.Get(ctx, fixture.projectID)
-	if err != nil {
-		t.Fatalf("load project after delete: %v", err)
-	}
-	if projectAfterDelete.DefaultWorkflowID != nil {
-		t.Fatalf("project default workflow = %v, want nil", projectAfterDelete.DefaultWorkflowID)
 	}
 	if _, err := service.Get(ctx, created.ID); !errors.Is(err, ErrWorkflowNotFound) {
 		t.Fatalf("Get() after delete error = %v, want %v", err, ErrWorkflowNotFound)
@@ -366,6 +356,216 @@ func TestRuntimeSnapshotMaterializationAndRecordedResolution(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(claudeRoot, ".claude", "skills", "runtime-skill", "SKILL.md")); err != nil {
 		t.Fatalf("expected claude skill projection: %v", err)
+	}
+}
+
+func TestSkillBundleStorageRefreshAndRuntimeSnapshots(t *testing.T) {
+	ctx := context.Background()
+	client := openWorkflowTestEntClient(t)
+	repoRoot := createWorkflowTestGitRepo(t)
+	service := newWorkflowTestService(t, client, repoRoot)
+	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
+
+	createdWorkflow, err := service.Create(ctx, CreateInput{
+		ProjectID:           fixture.projectID,
+		AgentID:             fixture.agentID,
+		Name:                "Bundle Workflow",
+		Type:                entworkflow.TypeCoding,
+		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Bundle Workflow\n",
+		MaxConcurrent:       1,
+		MaxRetryAttempts:    1,
+		TimeoutMinutes:      30,
+		StallTimeoutMinutes: 5,
+		IsActive:            true,
+		PickupStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Todo"]),
+		FinishStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Done"]),
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	skillV1, err := service.CreateSkillBundle(ctx, CreateSkillBundleInput{
+		ProjectID: fixture.projectID,
+		Name:      "deploy-openase",
+		Files: []SkillBundleFileInput{
+			{
+				Path: "SKILL.md",
+				Content: []byte(strings.TrimSpace(`
+---
+name: "deploy-openase"
+description: "Safely redeploy OpenASE"
+---
+
+# Deploy OpenASE
+
+Use the bundled scripts to redeploy the local service.
+`) + "\n"),
+				MediaType: "text/markdown; charset=utf-8",
+			},
+			{
+				Path:         "scripts/redeploy.sh",
+				Content:      []byte("#!/usr/bin/env bash\necho v1\n"),
+				IsExecutable: true,
+				MediaType:    "text/x-shellscript; charset=utf-8",
+			},
+			{
+				Path:      "references/runbook.md",
+				Content:   []byte("# Runbook\n\nStep v1\n"),
+				MediaType: "text/markdown; charset=utf-8",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateSkillBundle() error = %v", err)
+	}
+	if skillV1.FileCount != 3 || len(skillV1.Files) != 3 || skillV1.BundleHash == "" {
+		t.Fatalf("CreateSkillBundle() = %+v", skillV1)
+	}
+	if got := findSkillBundleFile(t, skillV1.Files, "scripts/redeploy.sh"); !got.IsExecutable || string(got.Content) != "#!/usr/bin/env bash\necho v1\n" {
+		t.Fatalf("unexpected stored script file = %+v", got)
+	}
+
+	if _, err := service.BindSkills(ctx, UpdateWorkflowSkillsInput{
+		WorkflowID: createdWorkflow.ID,
+		Skills:     []string{"deploy-openase"},
+	}); err != nil {
+		t.Fatalf("BindSkills() error = %v", err)
+	}
+
+	workspaceRoot := t.TempDir()
+	refreshResult, err := service.RefreshSkills(ctx, RefreshSkillsInput{
+		ProjectID:     fixture.projectID,
+		WorkspaceRoot: workspaceRoot,
+		AdapterType:   string(entagentprovider.AdapterTypeCodexAppServer),
+		WorkflowID:    &createdWorkflow.ID,
+	})
+	if err != nil {
+		t.Fatalf("RefreshSkills() error = %v", err)
+	}
+	if !slices.Contains(refreshResult.InjectedSkills, "deploy-openase") || !slices.Contains(refreshResult.InjectedSkills, "openase-platform") {
+		t.Fatalf("RefreshSkills() = %+v", refreshResult)
+	}
+
+	scriptPath := filepath.Join(workspaceRoot, ".codex", "skills", "deploy-openase", "scripts", "redeploy.sh")
+	scriptInfo, err := os.Stat(scriptPath)
+	if err != nil {
+		t.Fatalf("stat projected script: %v", err)
+	}
+	if scriptInfo.Mode()&0o111 == 0 {
+		t.Fatalf("expected projected script to be executable, mode=%v", scriptInfo.Mode())
+	}
+	// #nosec G304 -- scriptPath is built from the test-controlled temporary workspace root.
+	if projectedScript, err := os.ReadFile(scriptPath); err != nil || string(projectedScript) != "#!/usr/bin/env bash\necho v1\n" {
+		t.Fatalf("projected script = %q, err=%v", string(projectedScript), err)
+	}
+	projectedReferencePath := filepath.Join(
+		workspaceRoot,
+		".codex",
+		"skills",
+		"deploy-openase",
+		"references",
+		"runbook.md",
+	)
+	// #nosec G304 -- projectedReferencePath is built from the test-controlled temporary workspace root.
+	if projectedReference, err := os.ReadFile(projectedReferencePath); err != nil || string(projectedReference) != "# Runbook\n\nStep v1\n" {
+		t.Fatalf("projected reference = %q, err=%v", string(projectedReference), err)
+	}
+
+	snapshotV1, err := service.ResolveRuntimeSnapshot(ctx, createdWorkflow.ID)
+	if err != nil {
+		t.Fatalf("ResolveRuntimeSnapshot(v1) error = %v", err)
+	}
+	runtimeSkillV1 := findRuntimeSkillSnapshot(t, snapshotV1.Skills, "deploy-openase")
+	if len(runtimeSkillV1.Files) != 3 {
+		t.Fatalf("expected runtime bundle files, got %+v", runtimeSkillV1)
+	}
+	if got := findRuntimeSkillFile(t, runtimeSkillV1.Files, "scripts/redeploy.sh"); !got.IsExecutable || string(got.Content) != "#!/usr/bin/env bash\necho v1\n" {
+		t.Fatalf("unexpected runtime script file = %+v", got)
+	}
+
+	updatedSkill, err := service.UpdateSkillBundle(ctx, UpdateSkillBundleInput{
+		SkillID: skillV1.ID,
+		Files: []SkillBundleFileInput{
+			{
+				Path: "SKILL.md",
+				Content: []byte(strings.TrimSpace(`
+---
+name: "deploy-openase"
+description: "Safely redeploy OpenASE"
+---
+
+# Deploy OpenASE
+
+Use the bundled scripts to redeploy the local service.
+
+Version 2.
+`) + "\n"),
+				MediaType: "text/markdown; charset=utf-8",
+			},
+			{
+				Path:         "scripts/redeploy.sh",
+				Content:      []byte("#!/usr/bin/env bash\necho v2\n"),
+				IsExecutable: true,
+				MediaType:    "text/x-shellscript; charset=utf-8",
+			},
+			{
+				Path:      "references/runbook.md",
+				Content:   []byte("# Runbook\n\nStep v2\n"),
+				MediaType: "text/markdown; charset=utf-8",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("UpdateSkillBundle() error = %v", err)
+	}
+	if updatedSkill.CurrentVersion != 2 || updatedSkill.FileCount != 3 {
+		t.Fatalf("UpdateSkillBundle() = %+v", updatedSkill)
+	}
+
+	snapshotV2, err := service.ResolveRuntimeSnapshot(ctx, createdWorkflow.ID)
+	if err != nil {
+		t.Fatalf("ResolveRuntimeSnapshot(v2) error = %v", err)
+	}
+	runtimeSkillV2 := findRuntimeSkillSnapshot(t, snapshotV2.Skills, "deploy-openase")
+	if runtimeSkillV2.VersionID == runtimeSkillV1.VersionID {
+		t.Fatalf("expected skill version to advance, got %+v", snapshotV2.Skills)
+	}
+	if got := findRuntimeSkillFile(t, runtimeSkillV2.Files, "scripts/redeploy.sh"); string(got.Content) != "#!/usr/bin/env bash\necho v2\n" {
+		t.Fatalf("unexpected v2 runtime script = %+v", got)
+	}
+
+	recordedV1, err := service.ResolveRecordedRuntimeSnapshot(ctx, ResolveRecordedRuntimeSnapshotInput{
+		WorkflowID:        createdWorkflow.ID,
+		WorkflowVersionID: &snapshotV1.Workflow.VersionID,
+		SkillVersionIDs:   skillVersionIDs(snapshotV1.Skills),
+	})
+	if err != nil {
+		t.Fatalf("ResolveRecordedRuntimeSnapshot(v1) error = %v", err)
+	}
+	recordedSkillV1 := findRuntimeSkillSnapshot(t, recordedV1.Skills, "deploy-openase")
+	if got := findRuntimeSkillFile(t, recordedSkillV1.Files, "scripts/redeploy.sh"); string(got.Content) != "#!/usr/bin/env bash\necho v1\n" {
+		t.Fatalf("expected recorded v1 runtime script, got %+v", got)
+	}
+
+	recordedRoot := t.TempDir()
+	if _, err := service.MaterializeRuntimeSnapshot(MaterializeRuntimeSnapshotInput{
+		WorkspaceRoot: recordedRoot,
+		AdapterType:   string(entagentprovider.AdapterTypeCodexAppServer),
+		Snapshot:      recordedV1,
+	}); err != nil {
+		t.Fatalf("MaterializeRuntimeSnapshot(recorded v1) error = %v", err)
+	}
+	recordedScriptPath := filepath.Join(recordedRoot, ".codex", "skills", "deploy-openase", "scripts", "redeploy.sh")
+	recordedInfo, err := os.Stat(recordedScriptPath)
+	if err != nil {
+		t.Fatalf("stat recorded projected script: %v", err)
+	}
+	if recordedInfo.Mode()&0o111 == 0 {
+		t.Fatalf("expected recorded projected script to stay executable, mode=%v", recordedInfo.Mode())
+	}
+	// #nosec G304 -- recordedScriptPath is built from the test-controlled temporary workspace root.
+	if recordedScript, err := os.ReadFile(recordedScriptPath); err != nil || string(recordedScript) != "#!/usr/bin/env bash\necho v1\n" {
+		t.Fatalf("recorded projected script = %q, err=%v", string(recordedScript), err)
 	}
 }
 
@@ -1071,7 +1271,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		AgentID:             fixture.agentID,
 		Name:                "Dispatcher Workflow",
 		Type:                entworkflow.TypeCustom,
-		HarnessContent:      "---\nworkflow:\n  role: dispatcher\nstatus:\n  pickup: \"Backlog\"\n  finish: \"Backlog\"\n---\n\nEvaluate backlog tickets and route them to the right workflow.\n",
+		HarnessContent:      "---\nworkflow:\n  role: dispatcher\nstatus:\n  pickup: \"Backlog\"\n  finish: \"Done\"\n---\n\nEvaluate backlog tickets and route them to the right workflow.\n",
 		Hooks:               map[string]any{},
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
@@ -1079,7 +1279,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		StallTimeoutMinutes: 5,
 		IsActive:            true,
 		PickupStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Backlog"]),
-		FinishStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Backlog"]),
+		FinishStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Done"]),
 	}); err != nil {
 		t.Fatalf("create dispatcher workflow: %v", err)
 	}
@@ -1500,6 +1700,30 @@ func findRuntimeSkillSnapshot(t *testing.T, items []RuntimeSkillSnapshot, name s
 	}
 	t.Fatalf("runtime skill %s not found in %+v", name, items)
 	return RuntimeSkillSnapshot{}
+}
+
+func findRuntimeSkillFile(t *testing.T, items []RuntimeSkillFileSnapshot, path string) RuntimeSkillFileSnapshot {
+	t.Helper()
+
+	for _, item := range items {
+		if item.Path == path {
+			return item
+		}
+	}
+	t.Fatalf("runtime skill file %s not found in %+v", path, items)
+	return RuntimeSkillFileSnapshot{}
+}
+
+func findSkillBundleFile(t *testing.T, items []SkillBundleFile, path string) SkillBundleFile {
+	t.Helper()
+
+	for _, item := range items {
+		if item.Path == path {
+			return item
+		}
+	}
+	t.Fatalf("skill bundle file %s not found in %+v", path, items)
+	return SkillBundleFile{}
 }
 
 func skillVersionIDs(items []RuntimeSkillSnapshot) []uuid.UUID {

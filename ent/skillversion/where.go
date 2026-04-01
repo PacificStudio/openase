@@ -76,6 +76,21 @@ func ContentHash(v string) predicate.SkillVersion {
 	return predicate.SkillVersion(sql.FieldEQ(FieldContentHash, v))
 }
 
+// BundleHash applies equality check predicate on the "bundle_hash" field. It's identical to BundleHashEQ.
+func BundleHash(v string) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldEQ(FieldBundleHash, v))
+}
+
+// SizeBytes applies equality check predicate on the "size_bytes" field. It's identical to SizeBytesEQ.
+func SizeBytes(v int64) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldEQ(FieldSizeBytes, v))
+}
+
+// FileCount applies equality check predicate on the "file_count" field. It's identical to FileCountEQ.
+func FileCount(v int) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldEQ(FieldFileCount, v))
+}
+
 // CreatedBy applies equality check predicate on the "created_by" field. It's identical to CreatedByEQ.
 func CreatedBy(v string) predicate.SkillVersion {
 	return predicate.SkillVersion(sql.FieldEQ(FieldCreatedBy, v))
@@ -276,6 +291,161 @@ func ContentHashContainsFold(v string) predicate.SkillVersion {
 	return predicate.SkillVersion(sql.FieldContainsFold(FieldContentHash, v))
 }
 
+// BundleHashEQ applies the EQ predicate on the "bundle_hash" field.
+func BundleHashEQ(v string) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldEQ(FieldBundleHash, v))
+}
+
+// BundleHashNEQ applies the NEQ predicate on the "bundle_hash" field.
+func BundleHashNEQ(v string) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldNEQ(FieldBundleHash, v))
+}
+
+// BundleHashIn applies the In predicate on the "bundle_hash" field.
+func BundleHashIn(vs ...string) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldIn(FieldBundleHash, vs...))
+}
+
+// BundleHashNotIn applies the NotIn predicate on the "bundle_hash" field.
+func BundleHashNotIn(vs ...string) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldNotIn(FieldBundleHash, vs...))
+}
+
+// BundleHashGT applies the GT predicate on the "bundle_hash" field.
+func BundleHashGT(v string) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldGT(FieldBundleHash, v))
+}
+
+// BundleHashGTE applies the GTE predicate on the "bundle_hash" field.
+func BundleHashGTE(v string) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldGTE(FieldBundleHash, v))
+}
+
+// BundleHashLT applies the LT predicate on the "bundle_hash" field.
+func BundleHashLT(v string) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldLT(FieldBundleHash, v))
+}
+
+// BundleHashLTE applies the LTE predicate on the "bundle_hash" field.
+func BundleHashLTE(v string) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldLTE(FieldBundleHash, v))
+}
+
+// BundleHashContains applies the Contains predicate on the "bundle_hash" field.
+func BundleHashContains(v string) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldContains(FieldBundleHash, v))
+}
+
+// BundleHashHasPrefix applies the HasPrefix predicate on the "bundle_hash" field.
+func BundleHashHasPrefix(v string) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldHasPrefix(FieldBundleHash, v))
+}
+
+// BundleHashHasSuffix applies the HasSuffix predicate on the "bundle_hash" field.
+func BundleHashHasSuffix(v string) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldHasSuffix(FieldBundleHash, v))
+}
+
+// BundleHashIsNil applies the IsNil predicate on the "bundle_hash" field.
+func BundleHashIsNil() predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldIsNull(FieldBundleHash))
+}
+
+// BundleHashNotNil applies the NotNil predicate on the "bundle_hash" field.
+func BundleHashNotNil() predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldNotNull(FieldBundleHash))
+}
+
+// BundleHashEqualFold applies the EqualFold predicate on the "bundle_hash" field.
+func BundleHashEqualFold(v string) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldEqualFold(FieldBundleHash, v))
+}
+
+// BundleHashContainsFold applies the ContainsFold predicate on the "bundle_hash" field.
+func BundleHashContainsFold(v string) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldContainsFold(FieldBundleHash, v))
+}
+
+// SizeBytesEQ applies the EQ predicate on the "size_bytes" field.
+func SizeBytesEQ(v int64) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldEQ(FieldSizeBytes, v))
+}
+
+// SizeBytesNEQ applies the NEQ predicate on the "size_bytes" field.
+func SizeBytesNEQ(v int64) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldNEQ(FieldSizeBytes, v))
+}
+
+// SizeBytesIn applies the In predicate on the "size_bytes" field.
+func SizeBytesIn(vs ...int64) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldIn(FieldSizeBytes, vs...))
+}
+
+// SizeBytesNotIn applies the NotIn predicate on the "size_bytes" field.
+func SizeBytesNotIn(vs ...int64) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldNotIn(FieldSizeBytes, vs...))
+}
+
+// SizeBytesGT applies the GT predicate on the "size_bytes" field.
+func SizeBytesGT(v int64) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldGT(FieldSizeBytes, v))
+}
+
+// SizeBytesGTE applies the GTE predicate on the "size_bytes" field.
+func SizeBytesGTE(v int64) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldGTE(FieldSizeBytes, v))
+}
+
+// SizeBytesLT applies the LT predicate on the "size_bytes" field.
+func SizeBytesLT(v int64) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldLT(FieldSizeBytes, v))
+}
+
+// SizeBytesLTE applies the LTE predicate on the "size_bytes" field.
+func SizeBytesLTE(v int64) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldLTE(FieldSizeBytes, v))
+}
+
+// FileCountEQ applies the EQ predicate on the "file_count" field.
+func FileCountEQ(v int) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldEQ(FieldFileCount, v))
+}
+
+// FileCountNEQ applies the NEQ predicate on the "file_count" field.
+func FileCountNEQ(v int) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldNEQ(FieldFileCount, v))
+}
+
+// FileCountIn applies the In predicate on the "file_count" field.
+func FileCountIn(vs ...int) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldIn(FieldFileCount, vs...))
+}
+
+// FileCountNotIn applies the NotIn predicate on the "file_count" field.
+func FileCountNotIn(vs ...int) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldNotIn(FieldFileCount, vs...))
+}
+
+// FileCountGT applies the GT predicate on the "file_count" field.
+func FileCountGT(v int) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldGT(FieldFileCount, v))
+}
+
+// FileCountGTE applies the GTE predicate on the "file_count" field.
+func FileCountGTE(v int) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldGTE(FieldFileCount, v))
+}
+
+// FileCountLT applies the LT predicate on the "file_count" field.
+func FileCountLT(v int) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldLT(FieldFileCount, v))
+}
+
+// FileCountLTE applies the LTE predicate on the "file_count" field.
+func FileCountLTE(v int) predicate.SkillVersion {
+	return predicate.SkillVersion(sql.FieldLTE(FieldFileCount, v))
+}
+
 // CreatedByEQ applies the EQ predicate on the "created_by" field.
 func CreatedByEQ(v string) predicate.SkillVersion {
 	return predicate.SkillVersion(sql.FieldEQ(FieldCreatedBy, v))
@@ -396,6 +566,29 @@ func HasSkill() predicate.SkillVersion {
 func HasSkillWith(preds ...predicate.Skill) predicate.SkillVersion {
 	return predicate.SkillVersion(func(s *sql.Selector) {
 		step := newSkillStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasFiles applies the HasEdge predicate on the "files" edge.
+func HasFiles() predicate.SkillVersion {
+	return predicate.SkillVersion(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, FilesTable, FilesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasFilesWith applies the HasEdge predicate on the "files" edge with a given conditions (other predicates).
+func HasFilesWith(preds ...predicate.SkillVersionFile) predicate.SkillVersion {
+	return predicate.SkillVersion(func(s *sql.Selector) {
+		step := newFilesStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

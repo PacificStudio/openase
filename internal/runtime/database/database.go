@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entmigrate "github.com/BetterAndBetterII/openase/ent/migrate"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	// Register ent runtime hooks for generated schema metadata.
 	_ "github.com/BetterAndBetterII/openase/ent/runtime"
@@ -40,6 +42,9 @@ func Open(ctx context.Context, dsn string) (*ent.Client, error) {
 		if err := reconcileLegacyProjectAccessibleMachineIDs(ctx, trimmedDSN); err != nil {
 			return err
 		}
+		if err := reconcileLegacyProjectDefaultWorkflow(ctx, trimmedDSN); err != nil {
+			return err
+		}
 		if err := reconcileLegacyAgentProviderMachineIDs(ctx, trimmedDSN); err != nil {
 			return err
 		}
@@ -51,6 +56,9 @@ func Open(ctx context.Context, dsn string) (*ent.Client, error) {
 			return fmt.Errorf("migrate database schema: %w", err)
 		}
 		if err := reconcileLegacyTicketStageSchema(ctx, trimmedDSN); err != nil {
+			return err
+		}
+		if err := reconcileLegacyTicketStatusStages(ctx, trimmedDSN); err != nil {
 			return err
 		}
 		if err := reconcileLegacyProjectRepoSemantics(ctx, trimmedDSN); err != nil {
@@ -166,6 +174,62 @@ func reconcileLegacyProjectAccessibleMachineIDs(ctx context.Context, dsn string)
 	return nil
 }
 
+func reconcileLegacyProjectDefaultWorkflow(ctx context.Context, dsn string) error {
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return fmt.Errorf("open database for project default workflow reconciliation: %w", err)
+	}
+	defer func() {
+		_ = db.Close()
+	}()
+
+	if err := db.PingContext(ctx); err != nil {
+		return fmt.Errorf("ping database for project default workflow reconciliation: %w", err)
+	}
+
+	var projectTableExists bool
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.tables
+			WHERE table_schema = current_schema()
+			  AND table_name = 'projects'
+		)`,
+	).Scan(&projectTableExists); err != nil {
+		return fmt.Errorf("check projects table for default workflow reconciliation: %w", err)
+	}
+	if !projectTableExists {
+		return nil
+	}
+
+	var columnExists bool
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = current_schema()
+			  AND table_name = 'projects'
+			  AND column_name = 'default_workflow_id'
+		)`,
+	).Scan(&columnExists); err != nil {
+		return fmt.Errorf("check default_workflow_id column: %w", err)
+	}
+	if !columnExists {
+		return nil
+	}
+
+	if _, err := db.ExecContext(ctx, `ALTER TABLE "projects" DROP CONSTRAINT IF EXISTS "projects_workflows_default_workflow"`); err != nil {
+		return fmt.Errorf("drop projects default workflow foreign key: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE "projects" DROP COLUMN IF EXISTS "default_workflow_id"`); err != nil {
+		return fmt.Errorf("drop projects default workflow column: %w", err)
+	}
+
+	return nil
+}
+
 func reconcileLegacyTicketStageSchema(ctx context.Context, dsn string) error {
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
@@ -240,6 +304,118 @@ func reconcileLegacyTicketStageSchema(ctx context.Context, dsn string) error {
 	}
 
 	return nil
+}
+
+func reconcileLegacyTicketStatusStages(ctx context.Context, dsn string) error {
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return fmt.Errorf("open database for ticket status stage reconciliation: %w", err)
+	}
+	defer func() {
+		_ = db.Close()
+	}()
+
+	if err := db.PingContext(ctx); err != nil {
+		return fmt.Errorf("ping database for ticket status stage reconciliation: %w", err)
+	}
+
+	statusTableExists, err := tableExists(ctx, db, "ticket_status")
+	if err != nil {
+		return err
+	}
+	if !statusTableExists {
+		return nil
+	}
+
+	stageExists, err := columnExists(ctx, db, "ticket_status", "stage")
+	if err != nil {
+		return err
+	}
+	if !stageExists {
+		return nil
+	}
+
+	finishTableExists, err := tableExists(ctx, db, "workflow_finish_statuses")
+	if err != nil {
+		return err
+	}
+
+	query := `SELECT ts."id", ts."name", ts."stage", FALSE FROM "ticket_status" AS ts`
+	if finishTableExists {
+		query = `SELECT ts."id", ts."name", ts."stage",
+			EXISTS (
+				SELECT 1
+				FROM "workflow_finish_statuses" AS wfs
+				WHERE wfs."ticket_status_id" = ts."id"
+			) AS finish_bound
+			FROM "ticket_status" AS ts`
+	}
+
+	rows, err := db.QueryContext(ctx, query)
+	if err != nil {
+		return fmt.Errorf("query ticket status stage rows: %w", err)
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	for rows.Next() {
+		var (
+			statusID    uuid.UUID
+			name        string
+			rawStage    string
+			finishBound bool
+		)
+		if err := rows.Scan(&statusID, &name, &rawStage, &finishBound); err != nil {
+			return fmt.Errorf("scan ticket status stage row: %w", err)
+		}
+
+		currentStage := ticketing.StatusStage(strings.ToLower(strings.TrimSpace(rawStage)))
+		targetStage, shouldUpdate, warn := inferLegacyStatusStage(name, currentStage, finishBound)
+		if warn {
+			slog.Warn(
+				"ticket status stage migration left ambiguous status at default stage",
+				"status_id", statusID,
+				"name", name,
+				"stage", currentStage.String(),
+			)
+		}
+		if !shouldUpdate {
+			continue
+		}
+		if _, err := db.ExecContext(
+			ctx,
+			`UPDATE "ticket_status" SET "stage" = $1 WHERE "id" = $2`,
+			targetStage.String(),
+			statusID,
+		); err != nil {
+			return fmt.Errorf("update ticket status %s stage: %w", statusID, err)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate ticket status stage rows: %w", err)
+	}
+
+	return nil
+}
+
+func inferLegacyStatusStage(name string, currentStage ticketing.StatusStage, finishBound bool) (ticketing.StatusStage, bool, bool) {
+	if currentStage.IsValid() && currentStage != ticketing.DefaultStatusStage {
+		return currentStage, false, false
+	}
+	if inferred, ok := ticketing.DefaultTemplateStatusStage(name); ok {
+		return inferred, inferred != currentStage, false
+	}
+	if finishBound {
+		if inferred, ok := ticketing.InferStatusStageFromName(name); ok && inferred == ticketing.StatusStageCanceled {
+			return ticketing.StatusStageCanceled, ticketing.StatusStageCanceled != currentStage, false
+		}
+		return ticketing.StatusStageCompleted, ticketing.StatusStageCompleted != currentStage, false
+	}
+	if !currentStage.IsValid() {
+		return ticketing.DefaultStatusStage, true, true
+	}
+	return currentStage, false, true
 }
 
 func reconcileLegacyTicketIdentifierIndex(ctx context.Context, dsn string) error {

@@ -95,7 +95,6 @@ export function parseProjectUpdateBody(
   const object = requireBodyObject(body)
   return {
     default_agent_provider_id: readOptionalNullableString(object, 'default_agent_provider_id'),
-    default_workflow_id: readOptionalNullableString(object, 'default_workflow_id'),
     description: readOptionalNullableString(object, 'description'),
     max_concurrent_agents: readOptionalNullableNumber(object, 'max_concurrent_agents'),
     name: readOptionalNullableString(object, 'name'),

@@ -33,7 +33,9 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/skill"
+	"github.com/BetterAndBetterII/openase/ent/skillblob"
 	"github.com/BetterAndBetterII/openase/ent/skillversion"
+	"github.com/BetterAndBetterII/openase/ent/skillversionfile"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
 	"github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
@@ -125,7 +127,9 @@ func checkColumn(t, c string) error {
 			projectrepo.Table:           projectrepo.ValidColumn,
 			scheduledjob.Table:          scheduledjob.ValidColumn,
 			skill.Table:                 skill.ValidColumn,
+			skillblob.Table:             skillblob.ValidColumn,
 			skillversion.Table:          skillversion.ValidColumn,
+			skillversionfile.Table:      skillversionfile.ValidColumn,
 			ticket.Table:                ticket.ValidColumn,
 			ticketcomment.Table:         ticketcomment.ValidColumn,
 			ticketcommentrevision.Table: ticketcommentrevision.ValidColumn,

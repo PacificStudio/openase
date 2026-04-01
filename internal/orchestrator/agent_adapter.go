@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
 
@@ -28,6 +29,7 @@ type agentSessionStartSpec struct {
 	ProcessManager        provider.AgentCLIProcessManager
 	WorkingDirectory      string
 	Model                 string
+	PermissionProfile     catalogdomain.AgentProviderPermissionProfile
 	DeveloperInstructions string
 	TurnTitle             string
 }

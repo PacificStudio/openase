@@ -1,72 +1,33 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
-  import { appStore } from '$lib/stores/app.svelte'
-  import { archiveProject, listWorkflows, updateProject } from '$lib/api/openase'
-  import type { Workflow } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
+  import { archiveProject, updateProject } from '$lib/api/openase'
+  import { appStore } from '$lib/stores/app.svelte'
   import { organizationPath } from '$lib/stores/app-context'
   import { toastStore } from '$lib/stores/toast.svelte'
+  import { Button } from '$ui/button'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
-  import { Button } from '$ui/button'
-  import * as Select from '$ui/select'
   import { Separator } from '$ui/separator'
 
   let projectName = $state('')
   let description = $state('')
-  let defaultWorkflow = $state('')
   let maxConcurrentAgents = $state('1')
-  let workflows = $state<Array<{ value: string; label: string }>>([])
   let saving = $state(false)
   let archiving = $state(false)
-  let loadingWorkflows = $state(false)
 
   $effect(() => {
     const project = appStore.currentProject
     if (!project) {
       projectName = ''
       description = ''
-      defaultWorkflow = ''
       maxConcurrentAgents = '1'
       return
     }
 
     projectName = project.name
     description = project.description
-    defaultWorkflow = project.default_workflow_id ?? ''
     maxConcurrentAgents = String(project.max_concurrent_agents)
-  })
-
-  $effect(() => {
-    const projectId = appStore.currentProject?.id
-    if (!projectId) {
-      workflows = []
-      loadingWorkflows = false
-      return
-    }
-
-    let cancelled = false
-    const load = async () => {
-      loadingWorkflows = true
-      try {
-        const payload = await listWorkflows(projectId)
-        if (cancelled) return
-        workflows = payload.workflows.map((workflow: Workflow) => ({
-          value: workflow.id,
-          label: workflow.name,
-        }))
-      } finally {
-        if (!cancelled) {
-          loadingWorkflows = false
-        }
-      }
-    }
-
-    void load()
-
-    return () => {
-      cancelled = true
-    }
   })
 
   async function handleSave() {
@@ -79,7 +40,6 @@
       const payload = await updateProject(projectId, {
         name: projectName,
         description,
-        default_workflow_id: defaultWorkflow || null,
         max_concurrent_agents: Number(maxConcurrentAgents),
       })
       appStore.currentProject = payload.project
@@ -138,29 +98,6 @@
     <div class="space-y-2">
       <Label for="description">Description</Label>
       <Input id="description" bind:value={description} />
-    </div>
-
-    <div class="space-y-2">
-      <Label>Default workflow</Label>
-      <Select.Root
-        type="single"
-        onValueChange={(v) => {
-          defaultWorkflow = v || ''
-        }}
-      >
-        <Select.Trigger class="w-full">
-          {#if loadingWorkflows}
-            Loading workflows…
-          {:else}
-            {workflows.find((w) => w.value === defaultWorkflow)?.label ?? 'No default workflow'}
-          {/if}
-        </Select.Trigger>
-        <Select.Content>
-          {#each workflows as w (w.value)}
-            <Select.Item value={w.value}>{w.label}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
     </div>
 
     <div class="space-y-2">

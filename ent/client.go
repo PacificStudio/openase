@@ -36,7 +36,9 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/skill"
+	"github.com/BetterAndBetterII/openase/ent/skillblob"
 	"github.com/BetterAndBetterII/openase/ent/skillversion"
+	"github.com/BetterAndBetterII/openase/ent/skillversionfile"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
 	"github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
@@ -95,8 +97,12 @@ type Client struct {
 	ScheduledJob *ScheduledJobClient
 	// Skill is the client for interacting with the Skill builders.
 	Skill *SkillClient
+	// SkillBlob is the client for interacting with the SkillBlob builders.
+	SkillBlob *SkillBlobClient
 	// SkillVersion is the client for interacting with the SkillVersion builders.
 	SkillVersion *SkillVersionClient
+	// SkillVersionFile is the client for interacting with the SkillVersionFile builders.
+	SkillVersionFile *SkillVersionFileClient
 	// Ticket is the client for interacting with the Ticket builders.
 	Ticket *TicketClient
 	// TicketComment is the client for interacting with the TicketComment builders.
@@ -150,7 +156,9 @@ func (c *Client) init() {
 	c.ProjectRepo = NewProjectRepoClient(c.config)
 	c.ScheduledJob = NewScheduledJobClient(c.config)
 	c.Skill = NewSkillClient(c.config)
+	c.SkillBlob = NewSkillBlobClient(c.config)
 	c.SkillVersion = NewSkillVersionClient(c.config)
+	c.SkillVersionFile = NewSkillVersionFileClient(c.config)
 	c.Ticket = NewTicketClient(c.config)
 	c.TicketComment = NewTicketCommentClient(c.config)
 	c.TicketCommentRevision = NewTicketCommentRevisionClient(c.config)
@@ -274,7 +282,9 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ProjectRepo:           NewProjectRepoClient(cfg),
 		ScheduledJob:          NewScheduledJobClient(cfg),
 		Skill:                 NewSkillClient(cfg),
+		SkillBlob:             NewSkillBlobClient(cfg),
 		SkillVersion:          NewSkillVersionClient(cfg),
+		SkillVersionFile:      NewSkillVersionFileClient(cfg),
 		Ticket:                NewTicketClient(cfg),
 		TicketComment:         NewTicketCommentClient(cfg),
 		TicketCommentRevision: NewTicketCommentRevisionClient(cfg),
@@ -325,7 +335,9 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ProjectRepo:           NewProjectRepoClient(cfg),
 		ScheduledJob:          NewScheduledJobClient(cfg),
 		Skill:                 NewSkillClient(cfg),
+		SkillBlob:             NewSkillBlobClient(cfg),
 		SkillVersion:          NewSkillVersionClient(cfg),
+		SkillVersionFile:      NewSkillVersionFileClient(cfg),
 		Ticket:                NewTicketClient(cfg),
 		TicketComment:         NewTicketCommentClient(cfg),
 		TicketCommentRevision: NewTicketCommentRevisionClient(cfg),
@@ -370,10 +382,11 @@ func (c *Client) Use(hooks ...Hook) {
 		c.AgentToken, c.AgentTraceEvent, c.ChatConversation, c.ChatEntry,
 		c.ChatPendingInterrupt, c.ChatTurn, c.IssueConnector, c.Machine,
 		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
-		c.ProjectRepo, c.ScheduledJob, c.Skill, c.SkillVersion, c.Ticket,
-		c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
-		c.TicketExternalLink, c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus,
-		c.Workflow, c.WorkflowSkillBinding, c.WorkflowVersion,
+		c.ProjectRepo, c.ScheduledJob, c.Skill, c.SkillBlob, c.SkillVersion,
+		c.SkillVersionFile, c.Ticket, c.TicketComment, c.TicketCommentRevision,
+		c.TicketDependency, c.TicketExternalLink, c.TicketRepoScope,
+		c.TicketRepoWorkspace, c.TicketStatus, c.Workflow, c.WorkflowSkillBinding,
+		c.WorkflowVersion,
 	} {
 		n.Use(hooks...)
 	}
@@ -387,10 +400,11 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.AgentToken, c.AgentTraceEvent, c.ChatConversation, c.ChatEntry,
 		c.ChatPendingInterrupt, c.ChatTurn, c.IssueConnector, c.Machine,
 		c.NotificationChannel, c.NotificationRule, c.Organization, c.Project,
-		c.ProjectRepo, c.ScheduledJob, c.Skill, c.SkillVersion, c.Ticket,
-		c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
-		c.TicketExternalLink, c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus,
-		c.Workflow, c.WorkflowSkillBinding, c.WorkflowVersion,
+		c.ProjectRepo, c.ScheduledJob, c.Skill, c.SkillBlob, c.SkillVersion,
+		c.SkillVersionFile, c.Ticket, c.TicketComment, c.TicketCommentRevision,
+		c.TicketDependency, c.TicketExternalLink, c.TicketRepoScope,
+		c.TicketRepoWorkspace, c.TicketStatus, c.Workflow, c.WorkflowSkillBinding,
+		c.WorkflowVersion,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -439,8 +453,12 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ScheduledJob.mutate(ctx, m)
 	case *SkillMutation:
 		return c.Skill.mutate(ctx, m)
+	case *SkillBlobMutation:
+		return c.SkillBlob.mutate(ctx, m)
 	case *SkillVersionMutation:
 		return c.SkillVersion.mutate(ctx, m)
+	case *SkillVersionFileMutation:
+		return c.SkillVersionFile.mutate(ctx, m)
 	case *TicketMutation:
 		return c.Ticket.mutate(ctx, m)
 	case *TicketCommentMutation:
@@ -3920,22 +3938,6 @@ func (c *ProjectClient) QueryIssueConnectors(_m *Project) *IssueConnectorQuery {
 	return query
 }
 
-// QueryDefaultWorkflow queries the default_workflow edge of a Project.
-func (c *ProjectClient) QueryDefaultWorkflow(_m *Project) *WorkflowQuery {
-	query := (&WorkflowClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(project.Table, project.FieldID, id),
-			sqlgraph.To(workflow.Table, workflow.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, project.DefaultWorkflowTable, project.DefaultWorkflowColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
 // QueryDefaultAgentProvider queries the default_agent_provider edge of a Project.
 func (c *ProjectClient) QueryDefaultAgentProvider(_m *Project) *AgentProviderQuery {
 	query := (&AgentProviderClient{config: c.config}).Query()
@@ -4520,6 +4522,155 @@ func (c *SkillClient) mutate(ctx context.Context, m *SkillMutation) (Value, erro
 	}
 }
 
+// SkillBlobClient is a client for the SkillBlob schema.
+type SkillBlobClient struct {
+	config
+}
+
+// NewSkillBlobClient returns a client for the SkillBlob from the given config.
+func NewSkillBlobClient(c config) *SkillBlobClient {
+	return &SkillBlobClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `skillblob.Hooks(f(g(h())))`.
+func (c *SkillBlobClient) Use(hooks ...Hook) {
+	c.hooks.SkillBlob = append(c.hooks.SkillBlob, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `skillblob.Intercept(f(g(h())))`.
+func (c *SkillBlobClient) Intercept(interceptors ...Interceptor) {
+	c.inters.SkillBlob = append(c.inters.SkillBlob, interceptors...)
+}
+
+// Create returns a builder for creating a SkillBlob entity.
+func (c *SkillBlobClient) Create() *SkillBlobCreate {
+	mutation := newSkillBlobMutation(c.config, OpCreate)
+	return &SkillBlobCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of SkillBlob entities.
+func (c *SkillBlobClient) CreateBulk(builders ...*SkillBlobCreate) *SkillBlobCreateBulk {
+	return &SkillBlobCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *SkillBlobClient) MapCreateBulk(slice any, setFunc func(*SkillBlobCreate, int)) *SkillBlobCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &SkillBlobCreateBulk{err: fmt.Errorf("calling to SkillBlobClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*SkillBlobCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &SkillBlobCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for SkillBlob.
+func (c *SkillBlobClient) Update() *SkillBlobUpdate {
+	mutation := newSkillBlobMutation(c.config, OpUpdate)
+	return &SkillBlobUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SkillBlobClient) UpdateOne(_m *SkillBlob) *SkillBlobUpdateOne {
+	mutation := newSkillBlobMutation(c.config, OpUpdateOne, withSkillBlob(_m))
+	return &SkillBlobUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SkillBlobClient) UpdateOneID(id uuid.UUID) *SkillBlobUpdateOne {
+	mutation := newSkillBlobMutation(c.config, OpUpdateOne, withSkillBlobID(id))
+	return &SkillBlobUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for SkillBlob.
+func (c *SkillBlobClient) Delete() *SkillBlobDelete {
+	mutation := newSkillBlobMutation(c.config, OpDelete)
+	return &SkillBlobDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *SkillBlobClient) DeleteOne(_m *SkillBlob) *SkillBlobDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *SkillBlobClient) DeleteOneID(id uuid.UUID) *SkillBlobDeleteOne {
+	builder := c.Delete().Where(skillblob.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SkillBlobDeleteOne{builder}
+}
+
+// Query returns a query builder for SkillBlob.
+func (c *SkillBlobClient) Query() *SkillBlobQuery {
+	return &SkillBlobQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSkillBlob},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a SkillBlob entity by its id.
+func (c *SkillBlobClient) Get(ctx context.Context, id uuid.UUID) (*SkillBlob, error) {
+	return c.Query().Where(skillblob.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SkillBlobClient) GetX(ctx context.Context, id uuid.UUID) *SkillBlob {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryFiles queries the files edge of a SkillBlob.
+func (c *SkillBlobClient) QueryFiles(_m *SkillBlob) *SkillVersionFileQuery {
+	query := (&SkillVersionFileClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(skillblob.Table, skillblob.FieldID, id),
+			sqlgraph.To(skillversionfile.Table, skillversionfile.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, skillblob.FilesTable, skillblob.FilesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *SkillBlobClient) Hooks() []Hook {
+	return c.hooks.SkillBlob
+}
+
+// Interceptors returns the client interceptors.
+func (c *SkillBlobClient) Interceptors() []Interceptor {
+	return c.inters.SkillBlob
+}
+
+func (c *SkillBlobClient) mutate(ctx context.Context, m *SkillBlobMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&SkillBlobCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&SkillBlobUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&SkillBlobUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&SkillBlobDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown SkillBlob mutation op: %q", m.Op())
+	}
+}
+
 // SkillVersionClient is a client for the SkillVersion schema.
 type SkillVersionClient struct {
 	config
@@ -4644,6 +4795,22 @@ func (c *SkillVersionClient) QuerySkill(_m *SkillVersion) *SkillQuery {
 	return query
 }
 
+// QueryFiles queries the files edge of a SkillVersion.
+func (c *SkillVersionClient) QueryFiles(_m *SkillVersion) *SkillVersionFileQuery {
+	query := (&SkillVersionFileClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(skillversion.Table, skillversion.FieldID, id),
+			sqlgraph.To(skillversionfile.Table, skillversionfile.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, skillversion.FilesTable, skillversion.FilesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryRequiredByBindings queries the required_by_bindings edge of a SkillVersion.
 func (c *SkillVersionClient) QueryRequiredByBindings(_m *SkillVersion) *WorkflowSkillBindingQuery {
 	query := (&WorkflowSkillBindingClient{config: c.config}).Query()
@@ -4682,6 +4849,171 @@ func (c *SkillVersionClient) mutate(ctx context.Context, m *SkillVersionMutation
 		return (&SkillVersionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown SkillVersion mutation op: %q", m.Op())
+	}
+}
+
+// SkillVersionFileClient is a client for the SkillVersionFile schema.
+type SkillVersionFileClient struct {
+	config
+}
+
+// NewSkillVersionFileClient returns a client for the SkillVersionFile from the given config.
+func NewSkillVersionFileClient(c config) *SkillVersionFileClient {
+	return &SkillVersionFileClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `skillversionfile.Hooks(f(g(h())))`.
+func (c *SkillVersionFileClient) Use(hooks ...Hook) {
+	c.hooks.SkillVersionFile = append(c.hooks.SkillVersionFile, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `skillversionfile.Intercept(f(g(h())))`.
+func (c *SkillVersionFileClient) Intercept(interceptors ...Interceptor) {
+	c.inters.SkillVersionFile = append(c.inters.SkillVersionFile, interceptors...)
+}
+
+// Create returns a builder for creating a SkillVersionFile entity.
+func (c *SkillVersionFileClient) Create() *SkillVersionFileCreate {
+	mutation := newSkillVersionFileMutation(c.config, OpCreate)
+	return &SkillVersionFileCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of SkillVersionFile entities.
+func (c *SkillVersionFileClient) CreateBulk(builders ...*SkillVersionFileCreate) *SkillVersionFileCreateBulk {
+	return &SkillVersionFileCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *SkillVersionFileClient) MapCreateBulk(slice any, setFunc func(*SkillVersionFileCreate, int)) *SkillVersionFileCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &SkillVersionFileCreateBulk{err: fmt.Errorf("calling to SkillVersionFileClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*SkillVersionFileCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &SkillVersionFileCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for SkillVersionFile.
+func (c *SkillVersionFileClient) Update() *SkillVersionFileUpdate {
+	mutation := newSkillVersionFileMutation(c.config, OpUpdate)
+	return &SkillVersionFileUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SkillVersionFileClient) UpdateOne(_m *SkillVersionFile) *SkillVersionFileUpdateOne {
+	mutation := newSkillVersionFileMutation(c.config, OpUpdateOne, withSkillVersionFile(_m))
+	return &SkillVersionFileUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SkillVersionFileClient) UpdateOneID(id uuid.UUID) *SkillVersionFileUpdateOne {
+	mutation := newSkillVersionFileMutation(c.config, OpUpdateOne, withSkillVersionFileID(id))
+	return &SkillVersionFileUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for SkillVersionFile.
+func (c *SkillVersionFileClient) Delete() *SkillVersionFileDelete {
+	mutation := newSkillVersionFileMutation(c.config, OpDelete)
+	return &SkillVersionFileDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *SkillVersionFileClient) DeleteOne(_m *SkillVersionFile) *SkillVersionFileDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *SkillVersionFileClient) DeleteOneID(id uuid.UUID) *SkillVersionFileDeleteOne {
+	builder := c.Delete().Where(skillversionfile.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SkillVersionFileDeleteOne{builder}
+}
+
+// Query returns a query builder for SkillVersionFile.
+func (c *SkillVersionFileClient) Query() *SkillVersionFileQuery {
+	return &SkillVersionFileQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSkillVersionFile},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a SkillVersionFile entity by its id.
+func (c *SkillVersionFileClient) Get(ctx context.Context, id uuid.UUID) (*SkillVersionFile, error) {
+	return c.Query().Where(skillversionfile.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SkillVersionFileClient) GetX(ctx context.Context, id uuid.UUID) *SkillVersionFile {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySkillVersion queries the skill_version edge of a SkillVersionFile.
+func (c *SkillVersionFileClient) QuerySkillVersion(_m *SkillVersionFile) *SkillVersionQuery {
+	query := (&SkillVersionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(skillversionfile.Table, skillversionfile.FieldID, id),
+			sqlgraph.To(skillversion.Table, skillversion.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, skillversionfile.SkillVersionTable, skillversionfile.SkillVersionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryContentBlob queries the content_blob edge of a SkillVersionFile.
+func (c *SkillVersionFileClient) QueryContentBlob(_m *SkillVersionFile) *SkillBlobQuery {
+	query := (&SkillBlobClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(skillversionfile.Table, skillversionfile.FieldID, id),
+			sqlgraph.To(skillblob.Table, skillblob.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, skillversionfile.ContentBlobTable, skillversionfile.ContentBlobColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *SkillVersionFileClient) Hooks() []Hook {
+	return c.hooks.SkillVersionFile
+}
+
+// Interceptors returns the client interceptors.
+func (c *SkillVersionFileClient) Interceptors() []Interceptor {
+	return c.inters.SkillVersionFile
+}
+
+func (c *SkillVersionFileClient) mutate(ctx context.Context, m *SkillVersionFileMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&SkillVersionFileCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&SkillVersionFileUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&SkillVersionFileUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&SkillVersionFileDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown SkillVersionFile mutation op: %q", m.Op())
 	}
 }
 
@@ -6922,18 +7254,18 @@ type (
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn,
 		IssueConnector, Machine, NotificationChannel, NotificationRule, Organization,
-		Project, ProjectRepo, ScheduledJob, Skill, SkillVersion, Ticket, TicketComment,
-		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
-		TicketRepoWorkspace, TicketStatus, Workflow, WorkflowSkillBinding,
-		WorkflowVersion []ent.Hook
+		Project, ProjectRepo, ScheduledJob, Skill, SkillBlob, SkillVersion,
+		SkillVersionFile, Ticket, TicketComment, TicketCommentRevision,
+		TicketDependency, TicketExternalLink, TicketRepoScope, TicketRepoWorkspace,
+		TicketStatus, Workflow, WorkflowSkillBinding, WorkflowVersion []ent.Hook
 	}
 	inters struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn,
 		IssueConnector, Machine, NotificationChannel, NotificationRule, Organization,
-		Project, ProjectRepo, ScheduledJob, Skill, SkillVersion, Ticket, TicketComment,
-		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
-		TicketRepoWorkspace, TicketStatus, Workflow, WorkflowSkillBinding,
-		WorkflowVersion []ent.Interceptor
+		Project, ProjectRepo, ScheduledJob, Skill, SkillBlob, SkillVersion,
+		SkillVersionFile, Ticket, TicketComment, TicketCommentRevision,
+		TicketDependency, TicketExternalLink, TicketRepoScope, TicketRepoWorkspace,
+		TicketStatus, Workflow, WorkflowSkillBinding, WorkflowVersion []ent.Interceptor
 	}
 )

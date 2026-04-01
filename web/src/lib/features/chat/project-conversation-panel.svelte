@@ -9,6 +9,7 @@
   import Textarea from '$ui/textarea/textarea.svelte'
   import { RefreshCcw, Send } from '@lucide/svelte'
   import { createProjectConversationController } from './project-conversation-controller.svelte'
+  import type { ProjectConversationPhase } from './project-conversation-controller-helpers'
   import EphemeralChatProviderSelect from './ephemeral-chat-provider-select.svelte'
   import ProjectConversationTranscript from './project-conversation-transcript.svelte'
 
@@ -46,6 +47,10 @@
   const providerId = $derived(controller.providerId)
   const entries = $derived(controller.entries)
   const pending = $derived(controller.pending)
+  const phase = $derived(controller.phase)
+  const inputDisabled = $derived(controller.inputDisabled)
+  const providerSelectionDisabled = $derived(controller.providerSelectionDisabled)
+  const statusMessage = $derived(getStatusMessage(phase, controller.hasPendingInterrupt))
 
   $effect(() => {
     if (providers.length > 0 || !organizationId) {
@@ -85,8 +90,10 @@
   })
 
   $effect(() => {
+    const nextProviders = activeProviders
+    const nextDefaultProviderId = defaultProviderId
     untrack(() => {
-      controller.syncProviders(activeProviders, defaultProviderId)
+      controller.syncProviders(nextProviders, nextDefaultProviderId)
     })
   })
 
@@ -115,6 +122,32 @@
     prompt = ''
     await controller.sendTurn(message)
   }
+
+  function getStatusMessage(
+    currentPhase: ProjectConversationPhase,
+    hasPendingInterrupt: boolean,
+  ): string | null {
+    if (hasPendingInterrupt) {
+      return 'Additional input is required before the conversation can continue.'
+    }
+
+    switch (currentPhase) {
+      case 'restoring':
+        return 'Restoring the latest project conversation…'
+      case 'creating_conversation':
+        return 'Creating a fresh project conversation…'
+      case 'connecting_stream':
+        return 'Connecting the live conversation stream…'
+      case 'submitting_turn':
+        return 'Sending your message…'
+      case 'awaiting_reply':
+        return 'Waiting for the assistant reply…'
+      case 'resetting':
+        return 'Resetting the current conversation…'
+      default:
+        return null
+    }
+  }
 </script>
 
 <div class="bg-background flex h-full min-h-0 flex-col">
@@ -124,6 +157,7 @@
       <EphemeralChatProviderSelect
         providers={chatProviders}
         {providerId}
+        disabled={providerSelectionDisabled}
         onProviderChange={(nextProviderId) => void controller.selectProvider(nextProviderId)}
       />
     </div>
@@ -132,6 +166,7 @@
       variant="ghost"
       size="sm"
       class="size-7 p-0"
+      aria-label="Reset conversation"
       onclick={() => void controller.resetConversation()}
       disabled={entries.length === 0 && !pending}
     >
@@ -155,6 +190,8 @@
       <div class="text-destructive mb-2 text-xs">{providerError}</div>
     {:else if chatProviders.length === 0}
       <div class="text-muted-foreground mb-2 text-xs">No chat provider available.</div>
+    {:else if statusMessage}
+      <div class="text-muted-foreground mb-2 text-xs">{statusMessage}</div>
     {/if}
 
     <div
@@ -165,7 +202,7 @@
         rows={1}
         class="min-h-0 flex-1 resize-none border-0 px-0 py-1.5 text-sm shadow-none focus-visible:ring-0"
         {placeholder}
-        disabled={!context.projectId || !providerId}
+        disabled={inputDisabled}
         onkeydown={(event) => {
           if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
             event.preventDefault()
@@ -177,8 +214,9 @@
         variant="ghost"
         size="sm"
         class="size-7 shrink-0 p-0"
+        aria-label="Send message"
         onclick={() => void handleSend()}
-        disabled={!prompt.trim() || !context.projectId || !providerId || pending}
+        disabled={!prompt.trim() || inputDisabled}
       >
         <Send class="size-4" />
       </Button>

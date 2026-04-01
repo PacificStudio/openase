@@ -838,6 +838,7 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 		ProcessManager:        processManager,
 		WorkingDirectory:      workingDirectory.String(),
 		Model:                 launchContext.agent.Edges.Provider.ModelName,
+		PermissionProfile:     catalogdomain.AgentProviderPermissionProfile(launchContext.agent.Edges.Provider.PermissionProfile),
 		DeveloperInstructions: developerInstructions,
 		TurnTitle:             fmt.Sprintf("%s: %s", launchContext.ticket.Identifier, launchContext.ticket.Title),
 	})

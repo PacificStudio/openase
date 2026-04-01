@@ -58,6 +58,7 @@ func TestTicketStatusRoutesCRUDAndReset(t *testing.T) {
 		fmt.Sprintf("/api/v1/projects/%s/statuses", project.ID),
 		map[string]any{
 			"name":            "QA",
+			"stage":           "started",
 			"color":           "#FF00AA",
 			"max_active_runs": 1,
 			"description":     "quality gate",
@@ -65,7 +66,7 @@ func TestTicketStatusRoutesCRUDAndReset(t *testing.T) {
 		http.StatusCreated,
 		&createResp,
 	)
-	if createResp.Status.Name != "QA" || createResp.Status.MaxActiveRuns == nil || *createResp.Status.MaxActiveRuns != 1 {
+	if createResp.Status.Name != "QA" || createResp.Status.Stage != "started" || createResp.Status.MaxActiveRuns == nil || *createResp.Status.MaxActiveRuns != 1 {
 		t.Fatalf("expected created status to carry max_active_runs, got %+v", createResp.Status)
 	}
 
@@ -79,8 +80,9 @@ func TestTicketStatusRoutesCRUDAndReset(t *testing.T) {
 		fmt.Sprintf("/api/v1/statuses/%s", createResp.Status.ID),
 		map[string]any{
 			"name":            "Ready for QA",
+			"stage":           "completed",
 			"icon":            "shield-check",
-			"is_default":      true,
+			"is_default":      false,
 			"position":        9,
 			"max_active_runs": nil,
 			"description":     "review before merge",
@@ -89,8 +91,8 @@ func TestTicketStatusRoutesCRUDAndReset(t *testing.T) {
 		http.StatusOK,
 		&updateResp,
 	)
-	if updateResp.Status.Name != "Ready for QA" || !updateResp.Status.IsDefault || updateResp.Status.MaxActiveRuns != nil {
-		t.Fatalf("expected updated status to become default and clear max_active_runs, got %+v", updateResp.Status)
+	if updateResp.Status.Name != "Ready for QA" || updateResp.Status.Stage != "completed" || updateResp.Status.IsDefault || updateResp.Status.MaxActiveRuns != nil {
+		t.Fatalf("expected updated status to change stage and clear max_active_runs, got %+v", updateResp.Status)
 	}
 
 	workflowWithDeletedStatus, err := client.Workflow.Create().
@@ -204,6 +206,17 @@ func TestTicketStatusRoutesValidateRequests(t *testing.T) {
 	)
 	if badBody.Code != http.StatusBadRequest {
 		t.Fatalf("expected invalid max_active_runs to return 400, got %d: %s", badBody.Code, badBody.Body.String())
+	}
+
+	invalidStageBody := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/statuses", project.ID),
+		`{"name":"QA","stage":"done","color":"#ffffff"}`,
+	)
+	if invalidStageBody.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid stage to return 400, got %d: %s", invalidStageBody.Code, invalidStageBody.Body.String())
 	}
 }
 

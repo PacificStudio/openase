@@ -1427,28 +1427,22 @@ func TestSchedulerHelperCoverage(t *testing.T) {
 		t.Fatalf("resolveExecutionMachine(org mismatch) = %+v, %+v, %q, %v", machine, providerItem, reason, err)
 	}
 
-	doneStatusID := fixture.statusIDs["Done"]
 	if !isDependencyResolved(&ent.Ticket{CompletedAt: timePointer(time.Now())}) {
 		t.Fatal("isDependencyResolved(completedAt) expected true")
 	}
 	if !isDependencyResolved(&ent.Ticket{
-		StatusID: doneStatusID,
 		Edges: ent.TicketEdges{
-			Workflow: &ent.Workflow{
-				Edges: ent.WorkflowEdges{
-					FinishStatuses: []*ent.TicketStatus{{ID: doneStatusID}},
-				},
-			},
+			Status: &ent.TicketStatus{Stage: "completed"},
 		},
 	}) {
-		t.Fatal("isDependencyResolved(finish status) expected true")
+		t.Fatal("isDependencyResolved(completed stage) expected true")
 	}
 	if !isDependencyResolved(&ent.Ticket{
 		Edges: ent.TicketEdges{
-			Status: &ent.TicketStatus{Name: "Done"},
+			Status: &ent.TicketStatus{Stage: "canceled"},
 		},
 	}) {
-		t.Fatal("isDependencyResolved(done status name) expected true")
+		t.Fatal("isDependencyResolved(canceled stage) expected true")
 	}
 	if isDependencyResolved(&ent.Ticket{StatusID: fixture.statusIDs["Todo"]}) {
 		t.Fatal("isDependencyResolved(todo) expected false")

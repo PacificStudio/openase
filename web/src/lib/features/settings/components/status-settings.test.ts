@@ -48,6 +48,7 @@ function buildPayload() {
         id: 'status-1',
         project_id: 'project-1',
         name: 'Todo',
+        stage: 'unstarted',
         color: '#94a3b8',
         icon: '',
         position: 0,
@@ -60,6 +61,7 @@ function buildPayload() {
         id: 'status-2',
         project_id: 'project-1',
         name: 'Doing',
+        stage: 'started',
         color: '#fbbf24',
         icon: '',
         position: 1,
@@ -80,7 +82,6 @@ function seedProject() {
     slug: 'openase',
     description: '',
     status: 'active',
-    default_workflow_id: null,
     default_agent_provider_id: null,
     accessible_machine_ids: [],
     max_concurrent_agents: 4,
@@ -99,13 +100,17 @@ describe('Status settings', () => {
     vi.clearAllMocks()
   })
 
-  it('renders the status editor without stage management', async () => {
-    const { findByDisplayValue, findByText, queryByText } = render(StatusSettings)
+  it('renders the status editor with stage management', async () => {
+    const { findByDisplayValue, findByText } = render(StatusSettings)
 
     expect(await findByText('Statuses')).toBeTruthy()
     expect(await findByDisplayValue('Todo')).toBeTruthy()
     expect(await findByText('1 / 1 active')).toBeTruthy()
-    expect(queryByText('Stages')).toBeNull()
+    expect(
+      await findByText(
+        'Stage controls lifecycle semantics such as dependency resolution and workflow terminal states.',
+      ),
+    ).toBeTruthy()
   })
 
   it('creates a status from the management panel', async () => {
@@ -114,6 +119,7 @@ describe('Status settings', () => {
         id: 'status-3',
         project_id: 'project-1',
         name: 'Review',
+        stage: 'started',
         color: '#6366f1',
         icon: '',
         position: 2,

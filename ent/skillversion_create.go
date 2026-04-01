@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/skillversion"
+	"github.com/BetterAndBetterII/openase/ent/skillversionfile"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/google/uuid"
 )
@@ -44,6 +45,54 @@ func (_c *SkillVersionCreate) SetContentMarkdown(v string) *SkillVersionCreate {
 // SetContentHash sets the "content_hash" field.
 func (_c *SkillVersionCreate) SetContentHash(v string) *SkillVersionCreate {
 	_c.mutation.SetContentHash(v)
+	return _c
+}
+
+// SetBundleHash sets the "bundle_hash" field.
+func (_c *SkillVersionCreate) SetBundleHash(v string) *SkillVersionCreate {
+	_c.mutation.SetBundleHash(v)
+	return _c
+}
+
+// SetNillableBundleHash sets the "bundle_hash" field if the given value is not nil.
+func (_c *SkillVersionCreate) SetNillableBundleHash(v *string) *SkillVersionCreate {
+	if v != nil {
+		_c.SetBundleHash(*v)
+	}
+	return _c
+}
+
+// SetManifestJSON sets the "manifest_json" field.
+func (_c *SkillVersionCreate) SetManifestJSON(v map[string]interface{}) *SkillVersionCreate {
+	_c.mutation.SetManifestJSON(v)
+	return _c
+}
+
+// SetSizeBytes sets the "size_bytes" field.
+func (_c *SkillVersionCreate) SetSizeBytes(v int64) *SkillVersionCreate {
+	_c.mutation.SetSizeBytes(v)
+	return _c
+}
+
+// SetNillableSizeBytes sets the "size_bytes" field if the given value is not nil.
+func (_c *SkillVersionCreate) SetNillableSizeBytes(v *int64) *SkillVersionCreate {
+	if v != nil {
+		_c.SetSizeBytes(*v)
+	}
+	return _c
+}
+
+// SetFileCount sets the "file_count" field.
+func (_c *SkillVersionCreate) SetFileCount(v int) *SkillVersionCreate {
+	_c.mutation.SetFileCount(v)
+	return _c
+}
+
+// SetNillableFileCount sets the "file_count" field if the given value is not nil.
+func (_c *SkillVersionCreate) SetNillableFileCount(v *int) *SkillVersionCreate {
+	if v != nil {
+		_c.SetFileCount(*v)
+	}
 	return _c
 }
 
@@ -92,6 +141,21 @@ func (_c *SkillVersionCreate) SetNillableID(v *uuid.UUID) *SkillVersionCreate {
 // SetSkill sets the "skill" edge to the Skill entity.
 func (_c *SkillVersionCreate) SetSkill(v *Skill) *SkillVersionCreate {
 	return _c.SetSkillID(v.ID)
+}
+
+// AddFileIDs adds the "files" edge to the SkillVersionFile entity by IDs.
+func (_c *SkillVersionCreate) AddFileIDs(ids ...uuid.UUID) *SkillVersionCreate {
+	_c.mutation.AddFileIDs(ids...)
+	return _c
+}
+
+// AddFiles adds the "files" edges to the SkillVersionFile entity.
+func (_c *SkillVersionCreate) AddFiles(v ...*SkillVersionFile) *SkillVersionCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddFileIDs(ids...)
 }
 
 // AddRequiredByBindingIDs adds the "required_by_bindings" edge to the WorkflowSkillBinding entity by IDs.
@@ -144,6 +208,18 @@ func (_c *SkillVersionCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *SkillVersionCreate) defaults() {
+	if _, ok := _c.mutation.ManifestJSON(); !ok {
+		v := skillversion.DefaultManifestJSON()
+		_c.mutation.SetManifestJSON(v)
+	}
+	if _, ok := _c.mutation.SizeBytes(); !ok {
+		v := skillversion.DefaultSizeBytes
+		_c.mutation.SetSizeBytes(v)
+	}
+	if _, ok := _c.mutation.FileCount(); !ok {
+		v := skillversion.DefaultFileCount
+		_c.mutation.SetFileCount(v)
+	}
 	if _, ok := _c.mutation.CreatedBy(); !ok {
 		v := skillversion.DefaultCreatedBy
 		_c.mutation.SetCreatedBy(v)
@@ -176,6 +252,15 @@ func (_c *SkillVersionCreate) check() error {
 		if err := skillversion.ContentHashValidator(v); err != nil {
 			return &ValidationError{Name: "content_hash", err: fmt.Errorf(`ent: validator failed for field "SkillVersion.content_hash": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.ManifestJSON(); !ok {
+		return &ValidationError{Name: "manifest_json", err: errors.New(`ent: missing required field "SkillVersion.manifest_json"`)}
+	}
+	if _, ok := _c.mutation.SizeBytes(); !ok {
+		return &ValidationError{Name: "size_bytes", err: errors.New(`ent: missing required field "SkillVersion.size_bytes"`)}
+	}
+	if _, ok := _c.mutation.FileCount(); !ok {
+		return &ValidationError{Name: "file_count", err: errors.New(`ent: missing required field "SkillVersion.file_count"`)}
 	}
 	if _, ok := _c.mutation.CreatedBy(); !ok {
 		return &ValidationError{Name: "created_by", err: errors.New(`ent: missing required field "SkillVersion.created_by"`)}
@@ -233,6 +318,22 @@ func (_c *SkillVersionCreate) createSpec() (*SkillVersion, *sqlgraph.CreateSpec)
 		_spec.SetField(skillversion.FieldContentHash, field.TypeString, value)
 		_node.ContentHash = value
 	}
+	if value, ok := _c.mutation.BundleHash(); ok {
+		_spec.SetField(skillversion.FieldBundleHash, field.TypeString, value)
+		_node.BundleHash = value
+	}
+	if value, ok := _c.mutation.ManifestJSON(); ok {
+		_spec.SetField(skillversion.FieldManifestJSON, field.TypeJSON, value)
+		_node.ManifestJSON = value
+	}
+	if value, ok := _c.mutation.SizeBytes(); ok {
+		_spec.SetField(skillversion.FieldSizeBytes, field.TypeInt64, value)
+		_node.SizeBytes = value
+	}
+	if value, ok := _c.mutation.FileCount(); ok {
+		_spec.SetField(skillversion.FieldFileCount, field.TypeInt, value)
+		_node.FileCount = value
+	}
 	if value, ok := _c.mutation.CreatedBy(); ok {
 		_spec.SetField(skillversion.FieldCreatedBy, field.TypeString, value)
 		_node.CreatedBy = value
@@ -256,6 +357,22 @@ func (_c *SkillVersionCreate) createSpec() (*SkillVersion, *sqlgraph.CreateSpec)
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.SkillID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.FilesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   skillversion.FilesTable,
+			Columns: []string{skillversion.FilesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(skillversionfile.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.RequiredByBindingsIDs(); len(nodes) > 0 {

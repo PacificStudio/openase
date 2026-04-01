@@ -146,26 +146,6 @@ func (_u *ProjectUpdate) ClearGithubTokenProbe() *ProjectUpdate {
 	return _u
 }
 
-// SetDefaultWorkflowID sets the "default_workflow_id" field.
-func (_u *ProjectUpdate) SetDefaultWorkflowID(v uuid.UUID) *ProjectUpdate {
-	_u.mutation.SetDefaultWorkflowID(v)
-	return _u
-}
-
-// SetNillableDefaultWorkflowID sets the "default_workflow_id" field if the given value is not nil.
-func (_u *ProjectUpdate) SetNillableDefaultWorkflowID(v *uuid.UUID) *ProjectUpdate {
-	if v != nil {
-		_u.SetDefaultWorkflowID(*v)
-	}
-	return _u
-}
-
-// ClearDefaultWorkflowID clears the value of the "default_workflow_id" field.
-func (_u *ProjectUpdate) ClearDefaultWorkflowID() *ProjectUpdate {
-	_u.mutation.ClearDefaultWorkflowID()
-	return _u
-}
-
 // SetDefaultAgentProviderID sets the "default_agent_provider_id" field.
 func (_u *ProjectUpdate) SetDefaultAgentProviderID(v uuid.UUID) *ProjectUpdate {
 	_u.mutation.SetDefaultAgentProviderID(v)
@@ -432,11 +412,6 @@ func (_u *ProjectUpdate) AddIssueConnectors(v ...*IssueConnector) *ProjectUpdate
 		ids[i] = v[i].ID
 	}
 	return _u.AddIssueConnectorIDs(ids...)
-}
-
-// SetDefaultWorkflow sets the "default_workflow" edge to the Workflow entity.
-func (_u *ProjectUpdate) SetDefaultWorkflow(v *Workflow) *ProjectUpdate {
-	return _u.SetDefaultWorkflowID(v.ID)
 }
 
 // SetDefaultAgentProvider sets the "default_agent_provider" edge to the AgentProvider entity.
@@ -747,12 +722,6 @@ func (_u *ProjectUpdate) RemoveIssueConnectors(v ...*IssueConnector) *ProjectUpd
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveIssueConnectorIDs(ids...)
-}
-
-// ClearDefaultWorkflow clears the "default_workflow" edge to the Workflow entity.
-func (_u *ProjectUpdate) ClearDefaultWorkflow() *ProjectUpdate {
-	_u.mutation.ClearDefaultWorkflow()
-	return _u
 }
 
 // ClearDefaultAgentProvider clears the "default_agent_provider" edge to the AgentProvider entity.
@@ -1518,35 +1487,6 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if _u.mutation.DefaultWorkflowCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: false,
-			Table:   project.DefaultWorkflowTable,
-			Columns: []string{project.DefaultWorkflowColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.DefaultWorkflowIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: false,
-			Table:   project.DefaultWorkflowTable,
-			Columns: []string{project.DefaultWorkflowColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
 	if _u.mutation.DefaultAgentProviderCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -1693,26 +1633,6 @@ func (_u *ProjectUpdateOne) SetGithubTokenProbe(v *githubauth.TokenProbe) *Proje
 // ClearGithubTokenProbe clears the value of the "github_token_probe" field.
 func (_u *ProjectUpdateOne) ClearGithubTokenProbe() *ProjectUpdateOne {
 	_u.mutation.ClearGithubTokenProbe()
-	return _u
-}
-
-// SetDefaultWorkflowID sets the "default_workflow_id" field.
-func (_u *ProjectUpdateOne) SetDefaultWorkflowID(v uuid.UUID) *ProjectUpdateOne {
-	_u.mutation.SetDefaultWorkflowID(v)
-	return _u
-}
-
-// SetNillableDefaultWorkflowID sets the "default_workflow_id" field if the given value is not nil.
-func (_u *ProjectUpdateOne) SetNillableDefaultWorkflowID(v *uuid.UUID) *ProjectUpdateOne {
-	if v != nil {
-		_u.SetDefaultWorkflowID(*v)
-	}
-	return _u
-}
-
-// ClearDefaultWorkflowID clears the value of the "default_workflow_id" field.
-func (_u *ProjectUpdateOne) ClearDefaultWorkflowID() *ProjectUpdateOne {
-	_u.mutation.ClearDefaultWorkflowID()
 	return _u
 }
 
@@ -1982,11 +1902,6 @@ func (_u *ProjectUpdateOne) AddIssueConnectors(v ...*IssueConnector) *ProjectUpd
 		ids[i] = v[i].ID
 	}
 	return _u.AddIssueConnectorIDs(ids...)
-}
-
-// SetDefaultWorkflow sets the "default_workflow" edge to the Workflow entity.
-func (_u *ProjectUpdateOne) SetDefaultWorkflow(v *Workflow) *ProjectUpdateOne {
-	return _u.SetDefaultWorkflowID(v.ID)
 }
 
 // SetDefaultAgentProvider sets the "default_agent_provider" edge to the AgentProvider entity.
@@ -2297,12 +2212,6 @@ func (_u *ProjectUpdateOne) RemoveIssueConnectors(v ...*IssueConnector) *Project
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveIssueConnectorIDs(ids...)
-}
-
-// ClearDefaultWorkflow clears the "default_workflow" edge to the Workflow entity.
-func (_u *ProjectUpdateOne) ClearDefaultWorkflow() *ProjectUpdateOne {
-	_u.mutation.ClearDefaultWorkflow()
-	return _u
 }
 
 // ClearDefaultAgentProvider clears the "default_agent_provider" edge to the AgentProvider entity.
@@ -3091,35 +3000,6 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(entissueconnector.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.DefaultWorkflowCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: false,
-			Table:   project.DefaultWorkflowTable,
-			Columns: []string{project.DefaultWorkflowColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.DefaultWorkflowIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: false,
-			Table:   project.DefaultWorkflowTable,
-			Columns: []string{project.DefaultWorkflowColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workflow.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

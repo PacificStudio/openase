@@ -10,7 +10,6 @@ const projectFixture: Project = {
   slug: 'todoapp',
   description: 'Shared ticket workflow and automation dashboard.',
   status: 'Planned',
-  default_workflow_id: null,
   default_agent_provider_id: null,
   accessible_machine_ids: [],
   max_concurrent_agents: 5,

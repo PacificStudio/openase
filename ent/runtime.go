@@ -26,7 +26,9 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/schema"
 	"github.com/BetterAndBetterII/openase/ent/skill"
+	"github.com/BetterAndBetterII/openase/ent/skillblob"
 	"github.com/BetterAndBetterII/openase/ent/skillversion"
+	"github.com/BetterAndBetterII/openase/ent/skillversionfile"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
 	"github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
@@ -89,35 +91,35 @@ func init() {
 	// agentprovider.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	agentprovider.NameValidator = agentproviderDescName.Validators[0].(func(string) error)
 	// agentproviderDescCliCommand is the schema descriptor for cli_command field.
-	agentproviderDescCliCommand := agentproviderFields[5].Descriptor()
+	agentproviderDescCliCommand := agentproviderFields[6].Descriptor()
 	// agentprovider.CliCommandValidator is a validator for the "cli_command" field. It is called by the builders before save.
 	agentprovider.CliCommandValidator = agentproviderDescCliCommand.Validators[0].(func(string) error)
 	// agentproviderDescAuthConfig is the schema descriptor for auth_config field.
-	agentproviderDescAuthConfig := agentproviderFields[7].Descriptor()
+	agentproviderDescAuthConfig := agentproviderFields[8].Descriptor()
 	// agentprovider.DefaultAuthConfig holds the default value on creation for the auth_config field.
 	agentprovider.DefaultAuthConfig = agentproviderDescAuthConfig.Default.(func() map[string]interface{})
 	// agentproviderDescModelName is the schema descriptor for model_name field.
-	agentproviderDescModelName := agentproviderFields[8].Descriptor()
+	agentproviderDescModelName := agentproviderFields[9].Descriptor()
 	// agentprovider.ModelNameValidator is a validator for the "model_name" field. It is called by the builders before save.
 	agentprovider.ModelNameValidator = agentproviderDescModelName.Validators[0].(func(string) error)
 	// agentproviderDescModelTemperature is the schema descriptor for model_temperature field.
-	agentproviderDescModelTemperature := agentproviderFields[9].Descriptor()
+	agentproviderDescModelTemperature := agentproviderFields[10].Descriptor()
 	// agentprovider.DefaultModelTemperature holds the default value on creation for the model_temperature field.
 	agentprovider.DefaultModelTemperature = agentproviderDescModelTemperature.Default.(float64)
 	// agentproviderDescModelMaxTokens is the schema descriptor for model_max_tokens field.
-	agentproviderDescModelMaxTokens := agentproviderFields[10].Descriptor()
+	agentproviderDescModelMaxTokens := agentproviderFields[11].Descriptor()
 	// agentprovider.DefaultModelMaxTokens holds the default value on creation for the model_max_tokens field.
 	agentprovider.DefaultModelMaxTokens = agentproviderDescModelMaxTokens.Default.(int)
 	// agentproviderDescMaxParallelRuns is the schema descriptor for max_parallel_runs field.
-	agentproviderDescMaxParallelRuns := agentproviderFields[11].Descriptor()
+	agentproviderDescMaxParallelRuns := agentproviderFields[12].Descriptor()
 	// agentprovider.DefaultMaxParallelRuns holds the default value on creation for the max_parallel_runs field.
 	agentprovider.DefaultMaxParallelRuns = agentproviderDescMaxParallelRuns.Default.(int)
 	// agentproviderDescCostPerInputToken is the schema descriptor for cost_per_input_token field.
-	agentproviderDescCostPerInputToken := agentproviderFields[12].Descriptor()
+	agentproviderDescCostPerInputToken := agentproviderFields[13].Descriptor()
 	// agentprovider.DefaultCostPerInputToken holds the default value on creation for the cost_per_input_token field.
 	agentprovider.DefaultCostPerInputToken = agentproviderDescCostPerInputToken.Default.(float64)
 	// agentproviderDescCostPerOutputToken is the schema descriptor for cost_per_output_token field.
-	agentproviderDescCostPerOutputToken := agentproviderFields[13].Descriptor()
+	agentproviderDescCostPerOutputToken := agentproviderFields[14].Descriptor()
 	// agentprovider.DefaultCostPerOutputToken holds the default value on creation for the cost_per_output_token field.
 	agentprovider.DefaultCostPerOutputToken = agentproviderDescCostPerOutputToken.Default.(float64)
 	// agentproviderDescID is the schema descriptor for id field.
@@ -437,11 +439,11 @@ func init() {
 	// project.DefaultStatus holds the default value on creation for the status field.
 	project.DefaultStatus = projectDescStatus.Default.(string)
 	// projectDescAccessibleMachineIds is the schema descriptor for accessible_machine_ids field.
-	projectDescAccessibleMachineIds := projectFields[10].Descriptor()
+	projectDescAccessibleMachineIds := projectFields[9].Descriptor()
 	// project.DefaultAccessibleMachineIds holds the default value on creation for the accessible_machine_ids field.
 	project.DefaultAccessibleMachineIds = projectDescAccessibleMachineIds.Default.(func() []uuid.UUID)
 	// projectDescMaxConcurrentAgents is the schema descriptor for max_concurrent_agents field.
-	projectDescMaxConcurrentAgents := projectFields[11].Descriptor()
+	projectDescMaxConcurrentAgents := projectFields[10].Descriptor()
 	// project.DefaultMaxConcurrentAgents holds the default value on creation for the max_concurrent_agents field.
 	project.DefaultMaxConcurrentAgents = projectDescMaxConcurrentAgents.Default.(int)
 	// projectDescID is the schema descriptor for id field.
@@ -528,24 +530,84 @@ func init() {
 	skillDescID := skillFields[0].Descriptor()
 	// skill.DefaultID holds the default value on creation for the id field.
 	skill.DefaultID = skillDescID.Default.(func() uuid.UUID)
+	skillblobFields := schema.SkillBlob{}.Fields()
+	_ = skillblobFields
+	// skillblobDescSha256 is the schema descriptor for sha256 field.
+	skillblobDescSha256 := skillblobFields[1].Descriptor()
+	// skillblob.Sha256Validator is a validator for the "sha256" field. It is called by the builders before save.
+	skillblob.Sha256Validator = skillblobDescSha256.Validators[0].(func(string) error)
+	// skillblobDescSizeBytes is the schema descriptor for size_bytes field.
+	skillblobDescSizeBytes := skillblobFields[2].Descriptor()
+	// skillblob.DefaultSizeBytes holds the default value on creation for the size_bytes field.
+	skillblob.DefaultSizeBytes = skillblobDescSizeBytes.Default.(int64)
+	// skillblobDescCreatedAt is the schema descriptor for created_at field.
+	skillblobDescCreatedAt := skillblobFields[5].Descriptor()
+	// skillblob.DefaultCreatedAt holds the default value on creation for the created_at field.
+	skillblob.DefaultCreatedAt = skillblobDescCreatedAt.Default.(func() time.Time)
+	// skillblobDescID is the schema descriptor for id field.
+	skillblobDescID := skillblobFields[0].Descriptor()
+	// skillblob.DefaultID holds the default value on creation for the id field.
+	skillblob.DefaultID = skillblobDescID.Default.(func() uuid.UUID)
 	skillversionFields := schema.SkillVersion{}.Fields()
 	_ = skillversionFields
 	// skillversionDescContentHash is the schema descriptor for content_hash field.
 	skillversionDescContentHash := skillversionFields[4].Descriptor()
 	// skillversion.ContentHashValidator is a validator for the "content_hash" field. It is called by the builders before save.
 	skillversion.ContentHashValidator = skillversionDescContentHash.Validators[0].(func(string) error)
+	// skillversionDescManifestJSON is the schema descriptor for manifest_json field.
+	skillversionDescManifestJSON := skillversionFields[6].Descriptor()
+	// skillversion.DefaultManifestJSON holds the default value on creation for the manifest_json field.
+	skillversion.DefaultManifestJSON = skillversionDescManifestJSON.Default.(func() map[string]interface{})
+	// skillversionDescSizeBytes is the schema descriptor for size_bytes field.
+	skillversionDescSizeBytes := skillversionFields[7].Descriptor()
+	// skillversion.DefaultSizeBytes holds the default value on creation for the size_bytes field.
+	skillversion.DefaultSizeBytes = skillversionDescSizeBytes.Default.(int64)
+	// skillversionDescFileCount is the schema descriptor for file_count field.
+	skillversionDescFileCount := skillversionFields[8].Descriptor()
+	// skillversion.DefaultFileCount holds the default value on creation for the file_count field.
+	skillversion.DefaultFileCount = skillversionDescFileCount.Default.(int)
 	// skillversionDescCreatedBy is the schema descriptor for created_by field.
-	skillversionDescCreatedBy := skillversionFields[5].Descriptor()
+	skillversionDescCreatedBy := skillversionFields[9].Descriptor()
 	// skillversion.DefaultCreatedBy holds the default value on creation for the created_by field.
 	skillversion.DefaultCreatedBy = skillversionDescCreatedBy.Default.(string)
 	// skillversionDescCreatedAt is the schema descriptor for created_at field.
-	skillversionDescCreatedAt := skillversionFields[6].Descriptor()
+	skillversionDescCreatedAt := skillversionFields[10].Descriptor()
 	// skillversion.DefaultCreatedAt holds the default value on creation for the created_at field.
 	skillversion.DefaultCreatedAt = skillversionDescCreatedAt.Default.(func() time.Time)
 	// skillversionDescID is the schema descriptor for id field.
 	skillversionDescID := skillversionFields[0].Descriptor()
 	// skillversion.DefaultID holds the default value on creation for the id field.
 	skillversion.DefaultID = skillversionDescID.Default.(func() uuid.UUID)
+	skillversionfileFields := schema.SkillVersionFile{}.Fields()
+	_ = skillversionfileFields
+	// skillversionfileDescPath is the schema descriptor for path field.
+	skillversionfileDescPath := skillversionfileFields[3].Descriptor()
+	// skillversionfile.PathValidator is a validator for the "path" field. It is called by the builders before save.
+	skillversionfile.PathValidator = skillversionfileDescPath.Validators[0].(func(string) error)
+	// skillversionfileDescMediaType is the schema descriptor for media_type field.
+	skillversionfileDescMediaType := skillversionfileFields[5].Descriptor()
+	// skillversionfile.DefaultMediaType holds the default value on creation for the media_type field.
+	skillversionfile.DefaultMediaType = skillversionfileDescMediaType.Default.(string)
+	// skillversionfileDescIsExecutable is the schema descriptor for is_executable field.
+	skillversionfileDescIsExecutable := skillversionfileFields[7].Descriptor()
+	// skillversionfile.DefaultIsExecutable holds the default value on creation for the is_executable field.
+	skillversionfile.DefaultIsExecutable = skillversionfileDescIsExecutable.Default.(bool)
+	// skillversionfileDescSizeBytes is the schema descriptor for size_bytes field.
+	skillversionfileDescSizeBytes := skillversionfileFields[8].Descriptor()
+	// skillversionfile.DefaultSizeBytes holds the default value on creation for the size_bytes field.
+	skillversionfile.DefaultSizeBytes = skillversionfileDescSizeBytes.Default.(int64)
+	// skillversionfileDescSha256 is the schema descriptor for sha256 field.
+	skillversionfileDescSha256 := skillversionfileFields[9].Descriptor()
+	// skillversionfile.Sha256Validator is a validator for the "sha256" field. It is called by the builders before save.
+	skillversionfile.Sha256Validator = skillversionfileDescSha256.Validators[0].(func(string) error)
+	// skillversionfileDescCreatedAt is the schema descriptor for created_at field.
+	skillversionfileDescCreatedAt := skillversionfileFields[10].Descriptor()
+	// skillversionfile.DefaultCreatedAt holds the default value on creation for the created_at field.
+	skillversionfile.DefaultCreatedAt = skillversionfileDescCreatedAt.Default.(func() time.Time)
+	// skillversionfileDescID is the schema descriptor for id field.
+	skillversionfileDescID := skillversionfileFields[0].Descriptor()
+	// skillversionfile.DefaultID holds the default value on creation for the id field.
+	skillversionfile.DefaultID = skillversionfileDescID.Default.(func() uuid.UUID)
 	ticketFields := schema.Ticket{}.Fields()
 	_ = ticketFields
 	// ticketDescIdentifier is the schema descriptor for identifier field.
@@ -731,15 +793,15 @@ func init() {
 	// ticketstatus.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	ticketstatus.NameValidator = ticketstatusDescName.Validators[0].(func(string) error)
 	// ticketstatusDescColor is the schema descriptor for color field.
-	ticketstatusDescColor := ticketstatusFields[3].Descriptor()
+	ticketstatusDescColor := ticketstatusFields[4].Descriptor()
 	// ticketstatus.ColorValidator is a validator for the "color" field. It is called by the builders before save.
 	ticketstatus.ColorValidator = ticketstatusDescColor.Validators[0].(func(string) error)
 	// ticketstatusDescPosition is the schema descriptor for position field.
-	ticketstatusDescPosition := ticketstatusFields[5].Descriptor()
+	ticketstatusDescPosition := ticketstatusFields[6].Descriptor()
 	// ticketstatus.DefaultPosition holds the default value on creation for the position field.
 	ticketstatus.DefaultPosition = ticketstatusDescPosition.Default.(int)
 	// ticketstatusDescIsDefault is the schema descriptor for is_default field.
-	ticketstatusDescIsDefault := ticketstatusFields[7].Descriptor()
+	ticketstatusDescIsDefault := ticketstatusFields[8].Descriptor()
 	// ticketstatus.DefaultIsDefault holds the default value on creation for the is_default field.
 	ticketstatus.DefaultIsDefault = ticketstatusDescIsDefault.Default.(bool)
 	// ticketstatusDescID is the schema descriptor for id field.

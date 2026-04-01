@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -19,12 +20,13 @@ func (s *service) ListAgentProviders(ctx context.Context, organizationID uuid.UU
 }
 
 func (s *service) CreateAgentProvider(ctx context.Context, input domain.CreateAgentProvider) (domain.AgentProvider, error) {
+	input.PermissionProfile = normalizeAgentProviderPermissionProfile(input.PermissionProfile)
 	resolved, err := s.resolveAgentProviderCLICommand(input.AdapterType, input.CliCommand)
 	if err != nil {
 		return domain.AgentProvider{}, err
 	}
 	input.CliCommand = resolved
-	input.CliArgs = defaultAgentProviderCLIArgs(input.AdapterType, input.CliArgs)
+	input.CliArgs = normalizeAgentProviderCLIArgs(input.AdapterType, input.CliArgs)
 
 	item, err := s.repo.CreateAgentProvider(ctx, input)
 	if err != nil {
@@ -44,12 +46,13 @@ func (s *service) GetAgentProvider(ctx context.Context, id uuid.UUID) (domain.Ag
 }
 
 func (s *service) UpdateAgentProvider(ctx context.Context, input domain.UpdateAgentProvider) (domain.AgentProvider, error) {
+	input.PermissionProfile = normalizeAgentProviderPermissionProfile(input.PermissionProfile)
 	resolved, err := s.resolveAgentProviderCLICommand(input.AdapterType, input.CliCommand)
 	if err != nil {
 		return domain.AgentProvider{}, err
 	}
 	input.CliCommand = resolved
-	input.CliArgs = defaultAgentProviderCLIArgs(input.AdapterType, input.CliArgs)
+	input.CliArgs = normalizeAgentProviderCLIArgs(input.AdapterType, input.CliArgs)
 
 	item, err := s.repo.UpdateAgentProvider(ctx, input)
 	if err != nil {
@@ -155,17 +158,97 @@ func defaultAgentProviderCommand(adapterType domain.AgentProviderAdapterType) (s
 	}
 }
 
-func defaultAgentProviderCLIArgs(adapterType domain.AgentProviderAdapterType, cliArgs []string) []string {
-	if len(cliArgs) > 0 {
-		return append([]string(nil), cliArgs...)
-	}
-
+func normalizeAgentProviderCLIArgs(adapterType domain.AgentProviderAdapterType, cliArgs []string) []string {
+	args := append([]string(nil), cliArgs...)
 	switch adapterType {
 	case domain.AgentProviderAdapterTypeCodexAppServer:
-		return []string{"app-server", "--listen", "stdio://"}
+		return normalizeCodexCLIArgs(args)
+	case domain.AgentProviderAdapterTypeClaudeCodeCLI:
+		return stripClaudePermissionArgs(args)
+	case domain.AgentProviderAdapterTypeGeminiCLI:
+		return stripGeminiPermissionArgs(args)
 	default:
-		return nil
+		return args
 	}
+}
+
+func normalizeCodexCLIArgs(args []string) []string {
+	stripped := make([]string, 0, len(args))
+	for index := 0; index < len(args); index++ {
+		switch arg := args[index]; arg {
+		case "app-server":
+			continue
+		case "--listen", "-a", "--ask-for-approval", "-s", "--sandbox":
+			if index+1 < len(args) {
+				index++
+			}
+			continue
+		case "--full-auto", "--dangerously-bypass-approvals-and-sandbox":
+			continue
+		default:
+			if strings.HasPrefix(arg, "--listen=") ||
+				strings.HasPrefix(arg, "--ask-for-approval=") ||
+				strings.HasPrefix(arg, "--sandbox=") {
+				continue
+			}
+			stripped = append(stripped, arg)
+		}
+	}
+
+	return append([]string{"app-server", "--listen", "stdio://"}, stripped...)
+}
+
+func stripClaudePermissionArgs(args []string) []string {
+	stripped := make([]string, 0, len(args))
+	for index := 0; index < len(args); index++ {
+		switch arg := args[index]; arg {
+		case "--dangerously-skip-permissions":
+			continue
+		case "--permission-mode":
+			if index+1 < len(args) {
+				index++
+			}
+			continue
+		default:
+			if strings.HasPrefix(arg, "--permission-mode=") {
+				continue
+			}
+			stripped = append(stripped, arg)
+		}
+	}
+
+	return stripped
+}
+
+func stripGeminiPermissionArgs(args []string) []string {
+	stripped := make([]string, 0, len(args))
+	for index := 0; index < len(args); index++ {
+		switch arg := args[index]; arg {
+		case "-y", "--yolo":
+			continue
+		case "--approval-mode":
+			if index+1 < len(args) {
+				index++
+			}
+			continue
+		default:
+			if strings.HasPrefix(arg, "--approval-mode=") {
+				continue
+			}
+			stripped = append(stripped, arg)
+		}
+	}
+
+	return stripped
+}
+
+func normalizeAgentProviderPermissionProfile(
+	profile domain.AgentProviderPermissionProfile,
+) domain.AgentProviderPermissionProfile {
+	if !profile.IsValid() {
+		return domain.DefaultAgentProviderPermissionProfile
+	}
+	return profile
 }
 
 func annotateAgentProvidersAvailability(

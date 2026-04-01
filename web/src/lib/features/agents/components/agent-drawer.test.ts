@@ -64,6 +64,7 @@ function makeProvider(): AgentProvider {
     machine_workspace_root: '/workspace',
     name: 'OpenAI Codex',
     adapter_type: 'codex-app-server',
+    permission_profile: 'unrestricted',
     availability_state: 'available',
     available: true,
     availability_checked_at: '2026-04-01T11:00:00Z',

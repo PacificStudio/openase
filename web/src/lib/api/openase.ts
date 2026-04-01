@@ -229,7 +229,6 @@ export function createProject(
     slug: string
     description?: string
     status?: string
-    default_workflow_id?: string | null
     default_agent_provider_id?: string | null
     accessible_machine_ids?: string[]
     max_concurrent_agents?: number
@@ -284,6 +283,7 @@ export function createProvider(
     machine_id: string
     name: string
     adapter_type: string
+    permission_profile?: string
     cli_command?: string
     cli_args?: string[]
     auth_config?: Record<string, unknown>
@@ -450,7 +450,6 @@ export function updateProject(
   projectId: string,
   body: {
     default_agent_provider_id?: string | null
-    default_workflow_id?: string | null
     description?: string | null
     max_concurrent_agents?: number | null
     name?: string | null
@@ -548,6 +547,7 @@ export function createStatus(
   projectId: string,
   body: {
     name: string
+    stage?: string
     color: string
     icon?: string
     position?: number
@@ -567,6 +567,7 @@ export function updateStatus(
   statusId: string,
   body: {
     name?: string
+    stage?: string
     color?: string
     icon?: string
     position?: number
@@ -1054,6 +1055,7 @@ export function updateProvider(
     machine_id?: string
     name?: string
     adapter_type?: string
+    permission_profile?: string
     cli_command?: string
     cli_args?: string[]
     auth_config?: Record<string, unknown>

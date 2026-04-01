@@ -23,6 +23,7 @@ import { startStatusRuntimeSync } from './status-runtime-sync'
 type StatusSettingsUI = {
   statuses: EditableStatus[]
   createName: string
+  createStage: EditableStatus['stage']
   createColor: string
   createDefault: boolean
   createMaxActiveRuns: string
@@ -36,6 +37,7 @@ function createStatusSettingsUI(): StatusSettingsUI {
   return {
     statuses: [],
     createName: '',
+    createStage: createEmptyStatusDraft().stage,
     createColor: createEmptyStatusDraft().color,
     createDefault: false,
     createMaxActiveRuns: '',
@@ -85,6 +87,7 @@ export function createStatusSettingsState() {
 
   function resetCreateStatusDraft() {
     ui.createName = ''
+    ui.createStage = createEmptyStatusDraft().stage
     ui.createColor = createEmptyStatusDraft().color
     ui.createDefault = false
     ui.createMaxActiveRuns = ''
@@ -93,6 +96,7 @@ export function createStatusSettingsState() {
   function statusUpdateBody(current: EditableStatus, draft: ParsedStatusDraft) {
     const body: Parameters<typeof updateStatus>[1] = {}
     if (draft.name !== current.name) body.name = draft.name
+    if (draft.stage !== current.stage) body.stage = draft.stage
     if (draft.color !== current.color) body.color = draft.color
     if (draft.isDefault !== current.isDefault) body.is_default = draft.isDefault
     if (draft.maxActiveRuns !== current.maxActiveRuns) body.max_active_runs = draft.maxActiveRuns
@@ -115,6 +119,7 @@ export function createStatusSettingsState() {
 
       const parsed = parseStatusDraft({
         name: ui.createName,
+        stage: ui.createStage,
         color: ui.createColor,
         isDefault: ui.createDefault,
         maxActiveRuns: ui.createMaxActiveRuns,
@@ -128,6 +133,7 @@ export function createStatusSettingsState() {
       try {
         const payload = await createStatus(projectId, {
           name: parsed.value.name,
+          stage: parsed.value.stage,
           color: parsed.value.color,
           is_default: parsed.value.isDefault,
           max_active_runs: parsed.value.maxActiveRuns,

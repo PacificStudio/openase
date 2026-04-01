@@ -55,7 +55,6 @@ type ProjectQuery struct {
 	withChatConversations    *ChatConversationQuery
 	withNotificationRules    *NotificationRuleQuery
 	withIssueConnectors      *IssueConnectorQuery
-	withDefaultWorkflow      *WorkflowQuery
 	withDefaultAgentProvider *AgentProviderQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -423,28 +422,6 @@ func (_q *ProjectQuery) QueryIssueConnectors() *IssueConnectorQuery {
 	return query
 }
 
-// QueryDefaultWorkflow chains the current query on the "default_workflow" edge.
-func (_q *ProjectQuery) QueryDefaultWorkflow() *WorkflowQuery {
-	query := (&WorkflowClient{config: _q.config}).Query()
-	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
-		if err := _q.prepareQuery(ctx); err != nil {
-			return nil, err
-		}
-		selector := _q.sqlQuery(ctx)
-		if err := selector.Err(); err != nil {
-			return nil, err
-		}
-		step := sqlgraph.NewStep(
-			sqlgraph.From(project.Table, project.FieldID, selector),
-			sqlgraph.To(workflow.Table, workflow.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, project.DefaultWorkflowTable, project.DefaultWorkflowColumn),
-		)
-		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
-		return fromU, nil
-	}
-	return query
-}
-
 // QueryDefaultAgentProvider chains the current query on the "default_agent_provider" edge.
 func (_q *ProjectQuery) QueryDefaultAgentProvider() *AgentProviderQuery {
 	query := (&AgentProviderClient{config: _q.config}).Query()
@@ -674,7 +651,6 @@ func (_q *ProjectQuery) Clone() *ProjectQuery {
 		withChatConversations:    _q.withChatConversations.Clone(),
 		withNotificationRules:    _q.withNotificationRules.Clone(),
 		withIssueConnectors:      _q.withIssueConnectors.Clone(),
-		withDefaultWorkflow:      _q.withDefaultWorkflow.Clone(),
 		withDefaultAgentProvider: _q.withDefaultAgentProvider.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
@@ -847,17 +823,6 @@ func (_q *ProjectQuery) WithIssueConnectors(opts ...func(*IssueConnectorQuery)) 
 	return _q
 }
 
-// WithDefaultWorkflow tells the query-builder to eager-load the nodes that are connected to
-// the "default_workflow" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *ProjectQuery) WithDefaultWorkflow(opts ...func(*WorkflowQuery)) *ProjectQuery {
-	query := (&WorkflowClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withDefaultWorkflow = query
-	return _q
-}
-
 // WithDefaultAgentProvider tells the query-builder to eager-load the nodes that are connected to
 // the "default_agent_provider" edge. The optional arguments are used to configure the query builder of the edge.
 func (_q *ProjectQuery) WithDefaultAgentProvider(opts ...func(*AgentProviderQuery)) *ProjectQuery {
@@ -947,7 +912,7 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 	var (
 		nodes       = []*Project{}
 		_spec       = _q.querySpec()
-		loadedTypes = [17]bool{
+		loadedTypes = [16]bool{
 			_q.withOrganization != nil,
 			_q.withRepos != nil,
 			_q.withSkills != nil,
@@ -963,7 +928,6 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 			_q.withChatConversations != nil,
 			_q.withNotificationRules != nil,
 			_q.withIssueConnectors != nil,
-			_q.withDefaultWorkflow != nil,
 			_q.withDefaultAgentProvider != nil,
 		}
 	)
@@ -1090,12 +1054,6 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 		if err := _q.loadIssueConnectors(ctx, query, nodes,
 			func(n *Project) { n.Edges.IssueConnectors = []*IssueConnector{} },
 			func(n *Project, e *IssueConnector) { n.Edges.IssueConnectors = append(n.Edges.IssueConnectors, e) }); err != nil {
-			return nil, err
-		}
-	}
-	if query := _q.withDefaultWorkflow; query != nil {
-		if err := _q.loadDefaultWorkflow(ctx, query, nodes, nil,
-			func(n *Project, e *Workflow) { n.Edges.DefaultWorkflow = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -1557,38 +1515,6 @@ func (_q *ProjectQuery) loadIssueConnectors(ctx context.Context, query *IssueCon
 	}
 	return nil
 }
-func (_q *ProjectQuery) loadDefaultWorkflow(ctx context.Context, query *WorkflowQuery, nodes []*Project, init func(*Project), assign func(*Project, *Workflow)) error {
-	ids := make([]uuid.UUID, 0, len(nodes))
-	nodeids := make(map[uuid.UUID][]*Project)
-	for i := range nodes {
-		if nodes[i].DefaultWorkflowID == nil {
-			continue
-		}
-		fk := *nodes[i].DefaultWorkflowID
-		if _, ok := nodeids[fk]; !ok {
-			ids = append(ids, fk)
-		}
-		nodeids[fk] = append(nodeids[fk], nodes[i])
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-	query.Where(workflow.IDIn(ids...))
-	neighbors, err := query.All(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		nodes, ok := nodeids[n.ID]
-		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "default_workflow_id" returned %v`, n.ID)
-		}
-		for i := range nodes {
-			assign(nodes[i], n)
-		}
-	}
-	return nil
-}
 func (_q *ProjectQuery) loadDefaultAgentProvider(ctx context.Context, query *AgentProviderQuery, nodes []*Project, init func(*Project), assign func(*Project, *AgentProvider)) error {
 	ids := make([]uuid.UUID, 0, len(nodes))
 	nodeids := make(map[uuid.UUID][]*Project)
@@ -1649,9 +1575,6 @@ func (_q *ProjectQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withOrganization != nil {
 			_spec.Node.AddColumnOnce(project.FieldOrganizationID)
-		}
-		if _q.withDefaultWorkflow != nil {
-			_spec.Node.AddColumnOnce(project.FieldDefaultWorkflowID)
 		}
 		if _q.withDefaultAgentProvider != nil {
 			_spec.Node.AddColumnOnce(project.FieldDefaultAgentProviderID)

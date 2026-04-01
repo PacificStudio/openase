@@ -11,6 +11,7 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/google/uuid"
 )
 
@@ -21,6 +22,7 @@ var (
 	ErrStatusNotFound          = errors.New("ticket status not found")
 	ErrDuplicateStatusName     = errors.New("ticket status name already exists in project")
 	ErrDefaultStatusRequired   = errors.New("at least one default ticket status is required")
+	ErrDefaultStatusStage      = errors.New("default ticket status must use a non-terminal stage")
 	ErrCannotDeleteLastStatus  = errors.New("cannot delete the last ticket status in a project")
 	ErrReplacementStatusAbsent = errors.New("replacement ticket status not found")
 )
@@ -41,6 +43,7 @@ type Status struct {
 	ID            uuid.UUID `json:"id"`
 	ProjectID     uuid.UUID `json:"project_id"`
 	Name          string    `json:"name"`
+	Stage         string    `json:"stage"`
 	Color         string    `json:"color"`
 	Icon          string    `json:"icon"`
 	Position      int       `json:"position"`
@@ -55,6 +58,7 @@ type StatusRuntimeSnapshot struct {
 	StatusID      uuid.UUID `json:"status_id"`
 	ProjectID     uuid.UUID `json:"project_id"`
 	Name          string    `json:"name"`
+	Stage         string    `json:"stage"`
 	Position      int       `json:"position"`
 	MaxActiveRuns *int      `json:"max_active_runs,omitempty"`
 	ActiveRuns    int       `json:"active_runs"`
@@ -69,6 +73,7 @@ type ListResult struct {
 type CreateInput struct {
 	ProjectID     uuid.UUID
 	Name          string
+	Stage         ticketing.StatusStage
 	Color         string
 	Icon          string
 	Position      Optional[int]
@@ -81,6 +86,7 @@ type CreateInput struct {
 type UpdateInput struct {
 	StatusID      uuid.UUID
 	Name          Optional[string]
+	Stage         Optional[ticketing.StatusStage]
 	Color         Optional[string]
 	Icon          Optional[string]
 	Position      Optional[int]
@@ -186,8 +192,15 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Status, error)
 	if !input.Position.Set {
 		position = nextStatusPosition(projectStatuses)
 	}
+	stage, err := normalizeStatusStage(input.Stage)
+	if err != nil {
+		return Status{}, err
+	}
 
 	isDefault := input.IsDefault || !hasDefault(projectStatuses)
+	if isDefault && stage.IsTerminal() {
+		return Status{}, ErrDefaultStatusStage
+	}
 	if isDefault {
 		if err := clearProjectDefault(ctx, tx, input.ProjectID); err != nil {
 			return Status{}, err
@@ -197,6 +210,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Status, error)
 	builder := tx.TicketStatus.Create().
 		SetProjectID(input.ProjectID).
 		SetName(input.Name).
+		SetStage(toEntStatusStage(stage)).
 		SetColor(input.Color).
 		SetPosition(position).
 		SetIsDefault(isDefault)
@@ -268,10 +282,26 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Status, error)
 			return Status{}, err
 		}
 	}
+	nextStage := ticketing.StatusStage(current.Stage)
+	if input.Stage.Set {
+		nextStage, err = normalizeStatusStage(input.Stage.Value)
+		if err != nil {
+			return Status{}, err
+		}
+	}
+	if current.IsDefault && nextStage.IsTerminal() {
+		return Status{}, ErrDefaultStatusStage
+	}
+	if input.IsDefault.Set && input.IsDefault.Value && nextStage.IsTerminal() {
+		return Status{}, ErrDefaultStatusStage
+	}
 
 	builder := tx.TicketStatus.UpdateOneID(current.ID)
 	if input.Name.Set {
 		builder.SetName(input.Name.Value)
+	}
+	if input.Stage.Set {
+		builder.SetStage(toEntStatusStage(nextStage))
 	}
 	if input.Color.Set {
 		builder.SetColor(input.Color.Value)
@@ -416,6 +446,7 @@ func (s *Service) ResetToDefaultTemplate(ctx context.Context, projectID uuid.UUI
 	for _, item := range defaultStatusTemplate {
 		if current, ok := existingByName[item.Name]; ok {
 			builder := tx.TicketStatus.UpdateOneID(current.ID).
+				SetStage(toEntStatusStage(item.Stage)).
 				SetColor(item.Color).
 				SetPosition(item.Position).
 				SetIsDefault(item.IsDefault)
@@ -447,6 +478,7 @@ func (s *Service) ResetToDefaultTemplate(ctx context.Context, projectID uuid.UUI
 		builder := tx.TicketStatus.Create().
 			SetProjectID(projectID).
 			SetName(item.Name).
+			SetStage(toEntStatusStage(item.Stage)).
 			SetColor(item.Color).
 			SetPosition(item.Position).
 			SetIsDefault(item.IsDefault)
@@ -733,6 +765,7 @@ func mapStatus(status *ent.TicketStatus, activeRuns int) Status {
 		ID:            status.ID,
 		ProjectID:     status.ProjectID,
 		Name:          status.Name,
+		Stage:         string(status.Stage),
 		Color:         status.Color,
 		Icon:          status.Icon,
 		Position:      status.Position,
@@ -758,6 +791,7 @@ func buildStatusRuntimeSnapshots(statuses []*ent.TicketStatus, activeRunsByStatu
 			StatusID:      status.ID,
 			ProjectID:     status.ProjectID,
 			Name:          status.Name,
+			Stage:         string(status.Stage),
 			Position:      status.Position,
 			MaxActiveRuns: cloneIntPointer(status.MaxActiveRuns),
 			ActiveRuns:    activeRunsByStatusID[status.ID],
@@ -816,6 +850,7 @@ func runtimeCountMap(counts []StatusRuntimeSnapshot) map[uuid.UUID]int {
 
 type templateStatus struct {
 	Name          string
+	Stage         ticketing.StatusStage
 	Color         string
 	Icon          string
 	Position      int
@@ -825,12 +860,12 @@ type templateStatus struct {
 }
 
 var defaultStatusTemplate = []templateStatus{
-	{Name: "Backlog", Color: "#6B7280", Icon: "archive", Position: 0, IsDefault: true, Description: "积压"},
-	{Name: "Todo", Color: "#3B82F6", Icon: "list-todo", Position: 1, Description: "就绪等待"},
-	{Name: "In Progress", Color: "#F59E0B", Icon: "play-circle", Position: 2, Description: "进行中"},
-	{Name: "In Review", Color: "#8B5CF6", Icon: "search-check", Position: 3, Description: "审查中"},
-	{Name: "Done", Color: "#10B981", Icon: "check-circle-2", Position: 4, Description: "已完成"},
-	{Name: "Cancelled", Color: "#4B5563", Icon: "circle-slash", Position: 5, Description: "已取消"},
+	{Name: "Backlog", Stage: ticketing.StatusStageBacklog, Color: "#6B7280", Icon: "archive", Position: 0, IsDefault: true, Description: "积压"},
+	{Name: "Todo", Stage: ticketing.StatusStageUnstarted, Color: "#3B82F6", Icon: "list-todo", Position: 1, Description: "就绪等待"},
+	{Name: "In Progress", Stage: ticketing.StatusStageStarted, Color: "#F59E0B", Icon: "play-circle", Position: 2, Description: "进行中"},
+	{Name: "In Review", Stage: ticketing.StatusStageStarted, Color: "#8B5CF6", Icon: "search-check", Position: 3, Description: "审查中"},
+	{Name: "Done", Stage: ticketing.StatusStageCompleted, Color: "#10B981", Icon: "check-circle-2", Position: 4, Description: "已完成"},
+	{Name: "Cancelled", Stage: ticketing.StatusStageCanceled, Color: "#4B5563", Icon: "circle-slash", Position: 5, Description: "已取消"},
 }
 
 func templateNameSet() map[string]bool {
@@ -848,4 +883,18 @@ func DefaultTemplateNames() []string {
 		names = append(names, item.Name)
 	}
 	return names
+}
+
+func normalizeStatusStage(stage ticketing.StatusStage) (ticketing.StatusStage, error) {
+	if stage == "" {
+		return ticketing.DefaultStatusStage, nil
+	}
+	if !stage.IsValid() {
+		return "", fmt.Errorf("status stage %q is invalid", stage)
+	}
+	return stage, nil
+}
+
+func toEntStatusStage(stage ticketing.StatusStage) entticketstatus.Stage {
+	return entticketstatus.Stage(stage.String())
 }

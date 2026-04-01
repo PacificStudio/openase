@@ -64,6 +64,9 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 	if providerPayload.Provider.CliCommand != "codex" {
 		t.Fatalf("expected provider cli_command to round-trip, got %+v", providerPayload.Provider)
 	}
+	if providerPayload.Provider.PermissionProfile != string(domain.AgentProviderPermissionProfileUnrestricted) {
+		t.Fatalf("expected provider permission_profile to default to unrestricted, got %+v", providerPayload.Provider)
+	}
 	if providerPayload.Provider.MaxParallelRuns != domain.DefaultAgentProviderMaxParallelRuns {
 		t.Fatalf("expected provider max_parallel_runs default to round-trip, got %+v", providerPayload.Provider)
 	}
@@ -864,6 +867,7 @@ func (f *fakeCatalogService) CreateAgentProvider(_ context.Context, input domain
 		MachineResources:     cloneMap(machine.Resources),
 		Name:                 input.Name,
 		AdapterType:          input.AdapterType,
+		PermissionProfile:    input.PermissionProfile,
 		CliCommand:           input.CliCommand,
 		CliArgs:              append([]string(nil), input.CliArgs...),
 		AuthConfig:           cloneMap(input.AuthConfig),
@@ -914,6 +918,7 @@ func (f *fakeCatalogService) UpdateAgentProvider(_ context.Context, input domain
 		MachineResources:     cloneMap(machine.Resources),
 		Name:                 input.Name,
 		AdapterType:          input.AdapterType,
+		PermissionProfile:    input.PermissionProfile,
 		CliCommand:           input.CliCommand,
 		CliArgs:              append([]string(nil), input.CliArgs...),
 		AuthConfig:           cloneMap(input.AuthConfig),

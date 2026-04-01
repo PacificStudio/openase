@@ -1,5 +1,5 @@
 {
-  "openapi_sha256": "5bfe4ebfd631b0c339c9c3d5b7b256b749187f17de99860f9886d0c05752f297",
+  "openapi_sha256": "6cdf016aeee3040ccf7e96093baca426d79ab5a5bcb24a5f6f203690969c056b",
   "commands": [
     {
       "use": "list [projectId]",
@@ -406,11 +406,6 @@
           "kind": "string"
         },
         {
-          "name": "default_workflow_id",
-          "description": "Optional default workflow ID for newly created tickets in the project.",
-          "kind": "string"
-        },
-        {
           "name": "description",
           "description": "Human-readable project description.",
           "kind": "string"
@@ -462,11 +457,6 @@
         {
           "name": "default_agent_provider_id",
           "description": "Optional default agent provider ID for the project.",
-          "kind": "string"
-        },
-        {
-          "name": "default_workflow_id",
-          "description": "Optional default workflow ID for newly created tickets in the project.",
           "kind": "string"
         },
         {
@@ -1195,7 +1185,7 @@
         },
         {
           "name": "cli_args",
-          "description": "Additional CLI arguments passed to the provider command.",
+          "description": "Additional CLI arguments passed to the provider command after OpenASE applies adapter-managed launch settings.",
           "kind": "string_slice"
         },
         {
@@ -1241,6 +1231,11 @@
         {
           "name": "name",
           "description": "Human-readable provider name.",
+          "kind": "string"
+        },
+        {
+          "name": "permission_profile",
+          "description": "Managed permission profile used to render adapter-specific approval and sandbox options.",
           "kind": "string"
         }
       ]
@@ -1269,7 +1264,7 @@
         },
         {
           "name": "cli_args",
-          "description": "Additional CLI arguments passed to the provider command.",
+          "description": "Additional CLI arguments passed to the provider command after OpenASE applies adapter-managed launch settings.",
           "kind": "string_slice"
         },
         {
@@ -1315,6 +1310,11 @@
         {
           "name": "name",
           "description": "Human-readable provider name.",
+          "kind": "string"
+        },
+        {
+          "name": "permission_profile",
+          "description": "Managed permission profile used to render adapter-specific approval and sandbox options.",
           "kind": "string"
         }
       ]

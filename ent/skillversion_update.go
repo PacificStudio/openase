@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/skillversion"
+	"github.com/BetterAndBetterII/openase/ent/skillversionfile"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/google/uuid"
 )
@@ -93,6 +94,74 @@ func (_u *SkillVersionUpdate) SetNillableContentHash(v *string) *SkillVersionUpd
 	return _u
 }
 
+// SetBundleHash sets the "bundle_hash" field.
+func (_u *SkillVersionUpdate) SetBundleHash(v string) *SkillVersionUpdate {
+	_u.mutation.SetBundleHash(v)
+	return _u
+}
+
+// SetNillableBundleHash sets the "bundle_hash" field if the given value is not nil.
+func (_u *SkillVersionUpdate) SetNillableBundleHash(v *string) *SkillVersionUpdate {
+	if v != nil {
+		_u.SetBundleHash(*v)
+	}
+	return _u
+}
+
+// ClearBundleHash clears the value of the "bundle_hash" field.
+func (_u *SkillVersionUpdate) ClearBundleHash() *SkillVersionUpdate {
+	_u.mutation.ClearBundleHash()
+	return _u
+}
+
+// SetManifestJSON sets the "manifest_json" field.
+func (_u *SkillVersionUpdate) SetManifestJSON(v map[string]interface{}) *SkillVersionUpdate {
+	_u.mutation.SetManifestJSON(v)
+	return _u
+}
+
+// SetSizeBytes sets the "size_bytes" field.
+func (_u *SkillVersionUpdate) SetSizeBytes(v int64) *SkillVersionUpdate {
+	_u.mutation.ResetSizeBytes()
+	_u.mutation.SetSizeBytes(v)
+	return _u
+}
+
+// SetNillableSizeBytes sets the "size_bytes" field if the given value is not nil.
+func (_u *SkillVersionUpdate) SetNillableSizeBytes(v *int64) *SkillVersionUpdate {
+	if v != nil {
+		_u.SetSizeBytes(*v)
+	}
+	return _u
+}
+
+// AddSizeBytes adds value to the "size_bytes" field.
+func (_u *SkillVersionUpdate) AddSizeBytes(v int64) *SkillVersionUpdate {
+	_u.mutation.AddSizeBytes(v)
+	return _u
+}
+
+// SetFileCount sets the "file_count" field.
+func (_u *SkillVersionUpdate) SetFileCount(v int) *SkillVersionUpdate {
+	_u.mutation.ResetFileCount()
+	_u.mutation.SetFileCount(v)
+	return _u
+}
+
+// SetNillableFileCount sets the "file_count" field if the given value is not nil.
+func (_u *SkillVersionUpdate) SetNillableFileCount(v *int) *SkillVersionUpdate {
+	if v != nil {
+		_u.SetFileCount(*v)
+	}
+	return _u
+}
+
+// AddFileCount adds value to the "file_count" field.
+func (_u *SkillVersionUpdate) AddFileCount(v int) *SkillVersionUpdate {
+	_u.mutation.AddFileCount(v)
+	return _u
+}
+
 // SetCreatedBy sets the "created_by" field.
 func (_u *SkillVersionUpdate) SetCreatedBy(v string) *SkillVersionUpdate {
 	_u.mutation.SetCreatedBy(v)
@@ -110,6 +179,21 @@ func (_u *SkillVersionUpdate) SetNillableCreatedBy(v *string) *SkillVersionUpdat
 // SetSkill sets the "skill" edge to the Skill entity.
 func (_u *SkillVersionUpdate) SetSkill(v *Skill) *SkillVersionUpdate {
 	return _u.SetSkillID(v.ID)
+}
+
+// AddFileIDs adds the "files" edge to the SkillVersionFile entity by IDs.
+func (_u *SkillVersionUpdate) AddFileIDs(ids ...uuid.UUID) *SkillVersionUpdate {
+	_u.mutation.AddFileIDs(ids...)
+	return _u
+}
+
+// AddFiles adds the "files" edges to the SkillVersionFile entity.
+func (_u *SkillVersionUpdate) AddFiles(v ...*SkillVersionFile) *SkillVersionUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddFileIDs(ids...)
 }
 
 // AddRequiredByBindingIDs adds the "required_by_bindings" edge to the WorkflowSkillBinding entity by IDs.
@@ -136,6 +220,27 @@ func (_u *SkillVersionUpdate) Mutation() *SkillVersionMutation {
 func (_u *SkillVersionUpdate) ClearSkill() *SkillVersionUpdate {
 	_u.mutation.ClearSkill()
 	return _u
+}
+
+// ClearFiles clears all "files" edges to the SkillVersionFile entity.
+func (_u *SkillVersionUpdate) ClearFiles() *SkillVersionUpdate {
+	_u.mutation.ClearFiles()
+	return _u
+}
+
+// RemoveFileIDs removes the "files" edge to SkillVersionFile entities by IDs.
+func (_u *SkillVersionUpdate) RemoveFileIDs(ids ...uuid.UUID) *SkillVersionUpdate {
+	_u.mutation.RemoveFileIDs(ids...)
+	return _u
+}
+
+// RemoveFiles removes "files" edges to SkillVersionFile entities.
+func (_u *SkillVersionUpdate) RemoveFiles(v ...*SkillVersionFile) *SkillVersionUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveFileIDs(ids...)
 }
 
 // ClearRequiredByBindings clears all "required_by_bindings" edges to the WorkflowSkillBinding entity.
@@ -223,6 +328,27 @@ func (_u *SkillVersionUpdate) sqlSave(ctx context.Context) (_node int, err error
 	if value, ok := _u.mutation.ContentHash(); ok {
 		_spec.SetField(skillversion.FieldContentHash, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.BundleHash(); ok {
+		_spec.SetField(skillversion.FieldBundleHash, field.TypeString, value)
+	}
+	if _u.mutation.BundleHashCleared() {
+		_spec.ClearField(skillversion.FieldBundleHash, field.TypeString)
+	}
+	if value, ok := _u.mutation.ManifestJSON(); ok {
+		_spec.SetField(skillversion.FieldManifestJSON, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.SizeBytes(); ok {
+		_spec.SetField(skillversion.FieldSizeBytes, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedSizeBytes(); ok {
+		_spec.AddField(skillversion.FieldSizeBytes, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.FileCount(); ok {
+		_spec.SetField(skillversion.FieldFileCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedFileCount(); ok {
+		_spec.AddField(skillversion.FieldFileCount, field.TypeInt, value)
+	}
 	if value, ok := _u.mutation.CreatedBy(); ok {
 		_spec.SetField(skillversion.FieldCreatedBy, field.TypeString, value)
 	}
@@ -248,6 +374,51 @@ func (_u *SkillVersionUpdate) sqlSave(ctx context.Context) (_node int, err error
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(skill.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.FilesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   skillversion.FilesTable,
+			Columns: []string{skillversion.FilesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(skillversionfile.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedFilesIDs(); len(nodes) > 0 && !_u.mutation.FilesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   skillversion.FilesTable,
+			Columns: []string{skillversion.FilesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(skillversionfile.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.FilesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   skillversion.FilesTable,
+			Columns: []string{skillversion.FilesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(skillversionfile.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -383,6 +554,74 @@ func (_u *SkillVersionUpdateOne) SetNillableContentHash(v *string) *SkillVersion
 	return _u
 }
 
+// SetBundleHash sets the "bundle_hash" field.
+func (_u *SkillVersionUpdateOne) SetBundleHash(v string) *SkillVersionUpdateOne {
+	_u.mutation.SetBundleHash(v)
+	return _u
+}
+
+// SetNillableBundleHash sets the "bundle_hash" field if the given value is not nil.
+func (_u *SkillVersionUpdateOne) SetNillableBundleHash(v *string) *SkillVersionUpdateOne {
+	if v != nil {
+		_u.SetBundleHash(*v)
+	}
+	return _u
+}
+
+// ClearBundleHash clears the value of the "bundle_hash" field.
+func (_u *SkillVersionUpdateOne) ClearBundleHash() *SkillVersionUpdateOne {
+	_u.mutation.ClearBundleHash()
+	return _u
+}
+
+// SetManifestJSON sets the "manifest_json" field.
+func (_u *SkillVersionUpdateOne) SetManifestJSON(v map[string]interface{}) *SkillVersionUpdateOne {
+	_u.mutation.SetManifestJSON(v)
+	return _u
+}
+
+// SetSizeBytes sets the "size_bytes" field.
+func (_u *SkillVersionUpdateOne) SetSizeBytes(v int64) *SkillVersionUpdateOne {
+	_u.mutation.ResetSizeBytes()
+	_u.mutation.SetSizeBytes(v)
+	return _u
+}
+
+// SetNillableSizeBytes sets the "size_bytes" field if the given value is not nil.
+func (_u *SkillVersionUpdateOne) SetNillableSizeBytes(v *int64) *SkillVersionUpdateOne {
+	if v != nil {
+		_u.SetSizeBytes(*v)
+	}
+	return _u
+}
+
+// AddSizeBytes adds value to the "size_bytes" field.
+func (_u *SkillVersionUpdateOne) AddSizeBytes(v int64) *SkillVersionUpdateOne {
+	_u.mutation.AddSizeBytes(v)
+	return _u
+}
+
+// SetFileCount sets the "file_count" field.
+func (_u *SkillVersionUpdateOne) SetFileCount(v int) *SkillVersionUpdateOne {
+	_u.mutation.ResetFileCount()
+	_u.mutation.SetFileCount(v)
+	return _u
+}
+
+// SetNillableFileCount sets the "file_count" field if the given value is not nil.
+func (_u *SkillVersionUpdateOne) SetNillableFileCount(v *int) *SkillVersionUpdateOne {
+	if v != nil {
+		_u.SetFileCount(*v)
+	}
+	return _u
+}
+
+// AddFileCount adds value to the "file_count" field.
+func (_u *SkillVersionUpdateOne) AddFileCount(v int) *SkillVersionUpdateOne {
+	_u.mutation.AddFileCount(v)
+	return _u
+}
+
 // SetCreatedBy sets the "created_by" field.
 func (_u *SkillVersionUpdateOne) SetCreatedBy(v string) *SkillVersionUpdateOne {
 	_u.mutation.SetCreatedBy(v)
@@ -400,6 +639,21 @@ func (_u *SkillVersionUpdateOne) SetNillableCreatedBy(v *string) *SkillVersionUp
 // SetSkill sets the "skill" edge to the Skill entity.
 func (_u *SkillVersionUpdateOne) SetSkill(v *Skill) *SkillVersionUpdateOne {
 	return _u.SetSkillID(v.ID)
+}
+
+// AddFileIDs adds the "files" edge to the SkillVersionFile entity by IDs.
+func (_u *SkillVersionUpdateOne) AddFileIDs(ids ...uuid.UUID) *SkillVersionUpdateOne {
+	_u.mutation.AddFileIDs(ids...)
+	return _u
+}
+
+// AddFiles adds the "files" edges to the SkillVersionFile entity.
+func (_u *SkillVersionUpdateOne) AddFiles(v ...*SkillVersionFile) *SkillVersionUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddFileIDs(ids...)
 }
 
 // AddRequiredByBindingIDs adds the "required_by_bindings" edge to the WorkflowSkillBinding entity by IDs.
@@ -426,6 +680,27 @@ func (_u *SkillVersionUpdateOne) Mutation() *SkillVersionMutation {
 func (_u *SkillVersionUpdateOne) ClearSkill() *SkillVersionUpdateOne {
 	_u.mutation.ClearSkill()
 	return _u
+}
+
+// ClearFiles clears all "files" edges to the SkillVersionFile entity.
+func (_u *SkillVersionUpdateOne) ClearFiles() *SkillVersionUpdateOne {
+	_u.mutation.ClearFiles()
+	return _u
+}
+
+// RemoveFileIDs removes the "files" edge to SkillVersionFile entities by IDs.
+func (_u *SkillVersionUpdateOne) RemoveFileIDs(ids ...uuid.UUID) *SkillVersionUpdateOne {
+	_u.mutation.RemoveFileIDs(ids...)
+	return _u
+}
+
+// RemoveFiles removes "files" edges to SkillVersionFile entities.
+func (_u *SkillVersionUpdateOne) RemoveFiles(v ...*SkillVersionFile) *SkillVersionUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveFileIDs(ids...)
 }
 
 // ClearRequiredByBindings clears all "required_by_bindings" edges to the WorkflowSkillBinding entity.
@@ -543,6 +818,27 @@ func (_u *SkillVersionUpdateOne) sqlSave(ctx context.Context) (_node *SkillVersi
 	if value, ok := _u.mutation.ContentHash(); ok {
 		_spec.SetField(skillversion.FieldContentHash, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.BundleHash(); ok {
+		_spec.SetField(skillversion.FieldBundleHash, field.TypeString, value)
+	}
+	if _u.mutation.BundleHashCleared() {
+		_spec.ClearField(skillversion.FieldBundleHash, field.TypeString)
+	}
+	if value, ok := _u.mutation.ManifestJSON(); ok {
+		_spec.SetField(skillversion.FieldManifestJSON, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.SizeBytes(); ok {
+		_spec.SetField(skillversion.FieldSizeBytes, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedSizeBytes(); ok {
+		_spec.AddField(skillversion.FieldSizeBytes, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.FileCount(); ok {
+		_spec.SetField(skillversion.FieldFileCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedFileCount(); ok {
+		_spec.AddField(skillversion.FieldFileCount, field.TypeInt, value)
+	}
 	if value, ok := _u.mutation.CreatedBy(); ok {
 		_spec.SetField(skillversion.FieldCreatedBy, field.TypeString, value)
 	}
@@ -568,6 +864,51 @@ func (_u *SkillVersionUpdateOne) sqlSave(ctx context.Context) (_node *SkillVersi
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(skill.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.FilesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   skillversion.FilesTable,
+			Columns: []string{skillversion.FilesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(skillversionfile.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedFilesIDs(); len(nodes) > 0 && !_u.mutation.FilesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   skillversion.FilesTable,
+			Columns: []string{skillversion.FilesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(skillversionfile.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.FilesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   skillversion.FilesTable,
+			Columns: []string{skillversion.FilesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(skillversionfile.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

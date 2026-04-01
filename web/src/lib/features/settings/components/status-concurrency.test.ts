@@ -10,6 +10,7 @@ describe('StatusConcurrency', () => {
         id: 'status-1',
         project_id: 'project-1',
         name: 'Todo',
+        stage: 'unstarted',
         color: '#2563eb',
         icon: '',
         is_default: true,

@@ -26,24 +26,17 @@
   } = $props()
 </script>
 
-<section class="border-border bg-card/60 space-y-4 rounded-xl border p-4">
-  <div class="space-y-1">
-    <h3 class="text-foreground text-sm font-semibold">Create on GitHub</h3>
-    <p class="text-muted-foreground text-xs">
-      Create a repository from OpenASE and bind it to this project immediately.
-    </p>
-  </div>
-
-  <div class="grid gap-4 md:grid-cols-2">
-    <div class="space-y-2">
-      <Label>Namespace</Label>
+<div class="space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="space-y-1.5">
+      <Label class="text-xs">Namespace</Label>
       <Select.Root
         type="single"
         value={draft.owner}
         onValueChange={(value) => onDraftChange?.('owner', value || '')}
       >
         <Select.Trigger class="w-full">
-          {draft.owner || (loadingNamespaces ? 'Loading namespaces…' : 'Select namespace')}
+          {draft.owner || (loadingNamespaces ? 'Loading…' : 'Select namespace')}
         </Select.Trigger>
         <Select.Content>
           {#each namespaces as namespace (namespace.login)}
@@ -55,8 +48,8 @@
       </Select.Root>
     </div>
 
-    <div class="space-y-2">
-      <Label>Visibility</Label>
+    <div class="space-y-1.5">
+      <Label class="text-xs">Visibility</Label>
       <Select.Root
         type="single"
         value={draft.visibility}
@@ -71,29 +64,31 @@
     </div>
   </div>
 
-  <div class="space-y-2">
-    <Label for="github-create-repo-name">Repository name</Label>
+  <div class="space-y-1.5">
+    <Label for="github-create-repo-name" class="text-xs">Repository name</Label>
     <Input
       id="github-create-repo-name"
       value={draft.name}
       placeholder="backend"
+      class="h-9 text-sm"
       oninput={(event) => onDraftChange?.('name', (event.currentTarget as HTMLInputElement).value)}
     />
   </div>
 
-  <div class="space-y-2">
-    <Label for="github-create-repo-description">Description</Label>
+  <div class="space-y-1.5">
+    <Label for="github-create-repo-description" class="text-xs">Description</Label>
     <Textarea
       id="github-create-repo-description"
-      rows={3}
+      rows={2}
       value={draft.description}
-      placeholder="Optional GitHub repository description"
+      placeholder="Optional"
+      class="text-sm"
       oninput={(event) =>
         onDraftChange?.('description', (event.currentTarget as HTMLTextAreaElement).value)}
     />
   </div>
 
   <Button onclick={onCreate} disabled={creating || loadingNamespaces || namespaces.length === 0}>
-    {creating ? 'Creating…' : 'Create on GitHub and bind'}
+    {creating ? 'Creating…' : 'Create and bind'}
   </Button>
-</section>
+</div>

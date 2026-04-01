@@ -144,6 +144,8 @@ func writeTicketStatusError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusNotFound, "STATUS_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketstatus.ErrDuplicateStatusName):
 		return writeAPIError(c, http.StatusConflict, "STATUS_NAME_CONFLICT", err.Error())
+	case errors.Is(err, ticketstatus.ErrDefaultStatusStage):
+		return writeAPIError(c, http.StatusConflict, "DEFAULT_STATUS_STAGE_INVALID", err.Error())
 	case errors.Is(err, ticketstatus.ErrCannotDeleteLastStatus):
 		return writeAPIError(c, http.StatusConflict, "LAST_STATUS_DELETE_FORBIDDEN", err.Error())
 	case errors.Is(err, ticketstatus.ErrDefaultStatusRequired):

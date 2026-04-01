@@ -4,6 +4,7 @@ export type AgentInstance = {
   providerId: string
   providerName: string
   modelName: string
+  permissionProfile: ProviderPermissionProfile
   status: 'idle' | 'claimed' | 'running' | 'paused' | 'failed' | 'terminated'
   runtimePhase: 'none' | 'launching' | 'ready' | 'executing' | 'failed'
   runtimeControlState: 'active' | 'pause_requested' | 'paused'
@@ -47,6 +48,7 @@ export type ProviderConfig = {
   machineWorkspaceRoot?: string | null
   name: string
   adapterType: string
+  permissionProfile: ProviderPermissionProfile
   availabilityState: string
   available: boolean
   availabilityCheckedAt?: string | null
@@ -64,11 +66,13 @@ export type ProviderConfig = {
 }
 
 export type ProviderAdapterType = 'claude-code-cli' | 'codex-app-server' | 'gemini-cli' | 'custom'
+export type ProviderPermissionProfile = 'standard' | 'unrestricted'
 
 export type ProviderDraft = {
   machineId: string
   name: string
   adapterType: string
+  permissionProfile: string
   cliCommand: string
   cliArgs: string
   authConfig: string
@@ -85,6 +89,7 @@ export type ProviderMutation = {
   machine_id: string
   name: string
   adapter_type: ProviderAdapterType
+  permission_profile: ProviderPermissionProfile
   cli_command: string
   cli_args: string[]
   auth_config: Record<string, unknown>

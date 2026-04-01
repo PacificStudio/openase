@@ -3,6 +3,7 @@ import type {
   ProviderDraft,
   ProviderDraftParseResult,
   ProviderAdapterType,
+  ProviderPermissionProfile,
 } from './types'
 
 export const providerAdapterOptions: Array<{ value: ProviderAdapterType; label: string }> = [
@@ -12,11 +13,29 @@ export const providerAdapterOptions: Array<{ value: ProviderAdapterType; label: 
   { value: 'custom', label: 'Custom' },
 ]
 
+export const providerPermissionProfileOptions: Array<{
+  value: ProviderPermissionProfile
+  label: string
+  description: string
+}> = [
+  {
+    value: 'unrestricted',
+    label: 'Unrestricted',
+    description: 'Auto-approve all actions. Codex also disables sandbox boundaries.',
+  },
+  {
+    value: 'standard',
+    label: 'Standard',
+    description: 'Do not inject provider-managed bypass flags. Use only if prompts are acceptable.',
+  },
+]
+
 export function createEmptyProviderDraft(): ProviderDraft {
   return {
     machineId: '',
     name: '',
     adapterType: 'custom',
+    permissionProfile: 'unrestricted',
     cliCommand: '',
     cliArgs: '',
     authConfig: '',
@@ -33,6 +52,7 @@ export function providerToDraft(provider: ProviderConfig): ProviderDraft {
     machineId: provider.machineId,
     name: provider.name,
     adapterType: provider.adapterType,
+    permissionProfile: provider.permissionProfile,
     cliCommand: provider.cliCommand,
     cliArgs: provider.cliArgs.join('\n'),
     authConfig:
@@ -63,6 +83,14 @@ export function parseProviderDraft(draft: ProviderDraft): ProviderDraftParseResu
     return {
       ok: false,
       error: `Adapter type must be one of ${providerAdapterOptions.map((option) => option.value).join(', ')}.`,
+    }
+  }
+
+  const permissionProfile = parseProviderPermissionProfile(draft.permissionProfile)
+  if (!permissionProfile) {
+    return {
+      ok: false,
+      error: `Permission mode must be one of ${providerPermissionProfileOptions.map((option) => option.value).join(', ')}.`,
     }
   }
 
@@ -102,6 +130,7 @@ export function parseProviderDraft(draft: ProviderDraft): ProviderDraftParseResu
       machine_id: machineId,
       name,
       adapter_type: adapterType,
+      permission_profile: permissionProfile,
       cli_command: draft.cliCommand.trim(),
       cli_args: splitLines(draft.cliArgs),
       auth_config: authConfig.value,
@@ -118,6 +147,13 @@ function parseProviderAdapterType(raw: string): ProviderAdapterType | null {
   const value = raw.trim().toLowerCase()
   return providerAdapterOptions.some((option) => option.value === value)
     ? (value as ProviderAdapterType)
+    : null
+}
+
+function parseProviderPermissionProfile(raw: string): ProviderPermissionProfile | null {
+  const value = raw.trim().toLowerCase()
+  return providerPermissionProfileOptions.some((option) => option.value === value)
+    ? (value as ProviderPermissionProfile)
     : null
 }
 

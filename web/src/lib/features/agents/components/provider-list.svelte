@@ -52,12 +52,19 @@
           <span class="text-foreground font-mono">{provider.modelName}</span>
         </div>
         <div class="flex items-center justify-between text-xs">
-          <span class="text-muted-foreground">Machine</span>
-          <span class="text-foreground">{provider.machineName}</span>
+          <span class="text-muted-foreground">Permission</span>
+          <span
+            class="text-foreground text-[11px] font-medium capitalize {provider.permissionProfile ===
+            'unrestricted'
+              ? 'text-amber-600 dark:text-amber-400'
+              : ''}"
+          >
+            {provider.permissionProfile}
+          </span>
         </div>
         <div class="flex items-center justify-between text-xs">
-          <span class="text-muted-foreground">Status</span>
-          <span class="text-foreground">{provider.machineStatus}</span>
+          <span class="text-muted-foreground">Machine</span>
+          <span class="text-foreground">{provider.machineName}</span>
         </div>
         <div class="flex items-center justify-between text-xs">
           <span class="text-muted-foreground">Agents</span>

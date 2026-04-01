@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
+  import { allowsWorkflowFinish, allowsWorkflowPickup } from '$lib/features/statuses/public'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
@@ -39,15 +40,17 @@
   const selectedAgentLabel = $derived(
     agentOptions.find((option) => option.id === agentId)?.label ?? 'Select bound agent',
   )
+  const pickupStatuses = $derived(statuses.filter((status) => allowsWorkflowPickup(status.stage)))
+  const finishStatuses = $derived(statuses.filter((status) => allowsWorkflowFinish(status.stage)))
   $effect(() => {
     if (open && !wasOpen) {
       name = `Workflow ${existingCount + 1}`
       agentId = agentOptions[0]?.id ?? ''
-      pickupStatusIds = statuses[0] ? [statuses[0].id] : []
-      finishStatusIds = statuses.at(-1)
-        ? [statuses.at(-1)!.id]
-        : statuses[0]
-          ? [statuses[0].id]
+      pickupStatusIds = pickupStatuses[0] ? [pickupStatuses[0].id] : []
+      finishStatusIds = finishStatuses[0]
+        ? [finishStatuses[0].id]
+        : pickupStatuses[0]
+          ? [pickupStatuses[0].id]
           : []
     }
 
@@ -140,7 +143,7 @@
         <div class="space-y-2">
           <Label>Pickup Statuses</Label>
           <div class="flex flex-wrap gap-2">
-            {#each statuses as status (status.id)}
+            {#each pickupStatuses as status (status.id)}
               <button
                 type="button"
                 class={cn(
@@ -162,7 +165,7 @@
         <div class="space-y-2">
           <Label>Finish Statuses</Label>
           <div class="flex flex-wrap gap-2">
-            {#each statuses as status (status.id)}
+            {#each finishStatuses as status (status.id)}
               <button
                 type="button"
                 class={cn(

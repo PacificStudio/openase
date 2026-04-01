@@ -1,6 +1,10 @@
 <script lang="ts">
   import type { AgentProviderModelCatalogEntry, Machine } from '$lib/api/contracts'
-  import { ProviderModelPicker, providerAdapterOptions } from '$lib/features/agents/public'
+  import {
+    ProviderModelPicker,
+    providerAdapterOptions,
+    providerPermissionProfileOptions,
+  } from '$lib/features/agents/public'
   import type { ProviderDraft } from '$lib/features/agents/public'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
@@ -76,6 +80,31 @@
               {/each}
             </Select.Content>
           </Select.Root>
+        </div>
+
+        <div class="space-y-2">
+          <Label>Permission mode</Label>
+          <Select.Root
+            type="single"
+            value={draft.permissionProfile}
+            onValueChange={(value) => onFieldChange?.('permissionProfile', value || 'unrestricted')}
+          >
+            <Select.Trigger class="w-full">
+              {providerPermissionProfileOptions.find(
+                (option) => option.value === draft.permissionProfile,
+              )?.label ?? 'Select permission mode'}
+            </Select.Trigger>
+            <Select.Content>
+              {#each providerPermissionProfileOptions as option (option.value)}
+                <Select.Item value={option.value}>{option.label}</Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
+          <p class="text-muted-foreground text-xs">
+            {providerPermissionProfileOptions.find(
+              (option) => option.value === draft.permissionProfile,
+            )?.description}
+          </p>
         </div>
 
         <div class="space-y-2">
@@ -166,6 +195,9 @@
                   onFieldChange?.('cliArgs', (event.currentTarget as HTMLTextAreaElement).value)}
               />
               <p class="text-muted-foreground text-xs">One argument per line.</p>
+              <p class="text-muted-foreground text-xs">
+                OpenASE injects adapter-managed permission flags from Permission mode.
+              </p>
             </div>
 
             <div class="space-y-2">

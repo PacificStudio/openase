@@ -12,21 +12,15 @@ import { isAbortError } from './project-conversation-storage'
 export function startProjectConversationStream(params: {
   conversationId: string
   abortController: AbortController | null
-  requestId: number
   onEvent: (event: ProjectConversationStreamEvent) => void
   onError: (message: string) => void
 }) {
   params.abortController?.abort()
 
   const controller = new AbortController()
-  const nextRequestId = params.requestId + 1
   const stream = watchProjectConversation(params.conversationId, {
     signal: controller.signal,
-    onEvent: (event) => {
-      if (nextRequestId === params.requestId + 1) {
-        params.onEvent(event)
-      }
-    },
+    onEvent: params.onEvent,
   }).catch((caughtError) => {
     if (isAbortError(caughtError)) {
       return
@@ -38,7 +32,7 @@ export function startProjectConversationStream(params: {
     )
   })
 
-  return { controller, requestId: nextRequestId, stream }
+  return { controller, stream }
 }
 
 export async function restoreProjectConversation(params: {
@@ -83,11 +77,11 @@ export async function loadProjectConversation(params: {
   setConversationId: (conversationId: string) => void
   setEntries: (entries: unknown) => void
   resetActiveAssistantEntry: () => void
-  connectStream: (conversationId: string) => Promise<void>
+  connectStream: (conversationId: string) => void
 }) {
   const payload = await listProjectConversationEntries(params.conversationId)
   params.setConversationId(params.conversationId)
   params.setEntries(params.mapEntries(payload.entries))
   params.resetActiveAssistantEntry()
-  await params.connectStream(params.conversationId)
+  params.connectStream(params.conversationId)
 }

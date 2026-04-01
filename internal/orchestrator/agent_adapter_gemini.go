@@ -10,6 +10,7 @@ import (
 	"time"
 
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 )
@@ -35,6 +36,7 @@ type geminiAgentSession struct {
 	process               provider.AgentCLIProcessSpec
 	processManager        provider.AgentCLIProcessManager
 	model                 string
+	permissionProfile     catalogdomain.AgentProviderPermissionProfile
 	developerInstructions string
 
 	events chan agentEvent
@@ -62,6 +64,7 @@ func newGeminiAgentSession(spec agentSessionStartSpec) *geminiAgentSession {
 		process:               spec.Process,
 		processManager:        spec.ProcessManager,
 		model:                 spec.Model,
+		permissionProfile:     spec.PermissionProfile,
 		developerInstructions: spec.DeveloperInstructions,
 		sessionID:             "gemini-session-" + uuid.NewString(),
 		events:                make(chan agentEvent, 64),
@@ -104,9 +107,13 @@ func (s *geminiAgentSession) SendPrompt(ctx context.Context, prompt string) (age
 	s.turnCount++
 	turnID := fmt.Sprintf("%s-turn-%d", s.sessionID, s.turnCount)
 	promptText := s.buildPromptLocked(prompt)
+	processArgs := buildGeminiTurnArgs(s.process.Args, s.model, promptText)
+	if permissionArgs := buildGeminiPermissionArgs(s.permissionProfile); len(permissionArgs) > 0 {
+		processArgs = append(processArgs, permissionArgs...)
+	}
 	processSpec, err := provider.NewAgentCLIProcessSpec(
 		s.process.Command,
-		buildGeminiTurnArgs(s.process.Args, s.model, promptText),
+		processArgs,
 		s.process.WorkingDirectory,
 		s.process.Environment,
 	)
@@ -367,6 +374,14 @@ func buildGeminiTurnArgs(baseArgs []string, model string, prompt string) []strin
 	}
 	args = append(args, "-p", prompt, "--output-format", "json")
 	return args
+}
+
+func buildGeminiPermissionArgs(profile catalogdomain.AgentProviderPermissionProfile) []string {
+	profile = normalizeAgentPermissionProfile(profile)
+	if profile != catalogdomain.AgentProviderPermissionProfileUnrestricted {
+		return nil
+	}
+	return []string{"--approval-mode=yolo"}
 }
 
 func hasGeminiModelArg(args []string) bool {

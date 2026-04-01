@@ -12,7 +12,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/project"
-	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/google/uuid"
 )
@@ -36,8 +35,6 @@ type Project struct {
 	GithubOutboundCredential *githubauth.StoredCredential `json:"github_outbound_credential,omitempty"`
 	// GithubTokenProbe holds the value of the "github_token_probe" field.
 	GithubTokenProbe *githubauth.TokenProbe `json:"github_token_probe,omitempty"`
-	// DefaultWorkflowID holds the value of the "default_workflow_id" field.
-	DefaultWorkflowID *uuid.UUID `json:"default_workflow_id,omitempty"`
 	// DefaultAgentProviderID holds the value of the "default_agent_provider_id" field.
 	DefaultAgentProviderID *uuid.UUID `json:"default_agent_provider_id,omitempty"`
 	// AccessibleMachineIds holds the value of the "accessible_machine_ids" field.
@@ -82,13 +79,11 @@ type ProjectEdges struct {
 	NotificationRules []*NotificationRule `json:"notification_rules,omitempty"`
 	// IssueConnectors holds the value of the issue_connectors edge.
 	IssueConnectors []*IssueConnector `json:"issue_connectors,omitempty"`
-	// DefaultWorkflow holds the value of the default_workflow edge.
-	DefaultWorkflow *Workflow `json:"default_workflow,omitempty"`
 	// DefaultAgentProvider holds the value of the default_agent_provider edge.
 	DefaultAgentProvider *AgentProvider `json:"default_agent_provider,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [17]bool
+	loadedTypes [16]bool
 }
 
 // OrganizationOrErr returns the Organization value or an error if the edge
@@ -228,23 +223,12 @@ func (e ProjectEdges) IssueConnectorsOrErr() ([]*IssueConnector, error) {
 	return nil, &NotLoadedError{edge: "issue_connectors"}
 }
 
-// DefaultWorkflowOrErr returns the DefaultWorkflow value or an error if the edge
-// was not loaded in eager-loading, or loaded but was not found.
-func (e ProjectEdges) DefaultWorkflowOrErr() (*Workflow, error) {
-	if e.DefaultWorkflow != nil {
-		return e.DefaultWorkflow, nil
-	} else if e.loadedTypes[15] {
-		return nil, &NotFoundError{label: workflow.Label}
-	}
-	return nil, &NotLoadedError{edge: "default_workflow"}
-}
-
 // DefaultAgentProviderOrErr returns the DefaultAgentProvider value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e ProjectEdges) DefaultAgentProviderOrErr() (*AgentProvider, error) {
 	if e.DefaultAgentProvider != nil {
 		return e.DefaultAgentProvider, nil
-	} else if e.loadedTypes[16] {
+	} else if e.loadedTypes[15] {
 		return nil, &NotFoundError{label: agentprovider.Label}
 	}
 	return nil, &NotLoadedError{edge: "default_agent_provider"}
@@ -255,7 +239,7 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case project.FieldDefaultWorkflowID, project.FieldDefaultAgentProviderID:
+		case project.FieldDefaultAgentProviderID:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case project.FieldGithubOutboundCredential, project.FieldGithubTokenProbe, project.FieldAccessibleMachineIds:
 			values[i] = new([]byte)
@@ -331,13 +315,6 @@ func (_m *Project) assignValues(columns []string, values []any) error {
 				if err := json.Unmarshal(*value, &_m.GithubTokenProbe); err != nil {
 					return fmt.Errorf("unmarshal field github_token_probe: %w", err)
 				}
-			}
-		case project.FieldDefaultWorkflowID:
-			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field default_workflow_id", values[i])
-			} else if value.Valid {
-				_m.DefaultWorkflowID = new(uuid.UUID)
-				*_m.DefaultWorkflowID = *value.S.(*uuid.UUID)
 			}
 		case project.FieldDefaultAgentProviderID:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
@@ -448,11 +425,6 @@ func (_m *Project) QueryIssueConnectors() *IssueConnectorQuery {
 	return NewProjectClient(_m.config).QueryIssueConnectors(_m)
 }
 
-// QueryDefaultWorkflow queries the "default_workflow" edge of the Project entity.
-func (_m *Project) QueryDefaultWorkflow() *WorkflowQuery {
-	return NewProjectClient(_m.config).QueryDefaultWorkflow(_m)
-}
-
 // QueryDefaultAgentProvider queries the "default_agent_provider" edge of the Project entity.
 func (_m *Project) QueryDefaultAgentProvider() *AgentProviderQuery {
 	return NewProjectClient(_m.config).QueryDefaultAgentProvider(_m)
@@ -501,11 +473,6 @@ func (_m *Project) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("github_token_probe=")
 	builder.WriteString(fmt.Sprintf("%v", _m.GithubTokenProbe))
-	builder.WriteString(", ")
-	if v := _m.DefaultWorkflowID; v != nil {
-		builder.WriteString("default_workflow_id=")
-		builder.WriteString(fmt.Sprintf("%v", *v))
-	}
 	builder.WriteString(", ")
 	if v := _m.DefaultAgentProviderID; v != nil {
 		builder.WriteString("default_agent_provider_id=")

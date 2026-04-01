@@ -1,7 +1,18 @@
 import type { TicketStatus } from '$lib/api/contracts'
 
+export type TicketStatusStage = 'backlog' | 'unstarted' | 'started' | 'completed' | 'canceled'
+
+export const ticketStatusStageOptions: Array<{ value: TicketStatusStage; label: string }> = [
+  { value: 'backlog', label: 'Backlog' },
+  { value: 'unstarted', label: 'Unstarted' },
+  { value: 'started', label: 'Started' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'canceled', label: 'Canceled' },
+]
+
 export type StatusDraft = {
   name: string
+  stage: TicketStatusStage
   color: string
   isDefault: boolean
   maxActiveRuns: string
@@ -9,6 +20,7 @@ export type StatusDraft = {
 
 export type ParsedStatusDraft = {
   name: string
+  stage: TicketStatusStage
   color: string
   isDefault: boolean
   maxActiveRuns: number | null
@@ -27,6 +39,7 @@ const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i
 export function createEmptyStatusDraft(): StatusDraft {
   return {
     name: '',
+    stage: 'unstarted',
     color: '#94a3b8',
     isDefault: false,
     maxActiveRuns: '',
@@ -40,6 +53,7 @@ export function normalizeStatuses(statuses: TicketStatus[]): EditableStatus[] {
     .map((status) => ({
       id: status.id,
       name: status.name,
+      stage: isTicketStatusStage(status.stage) ? status.stage : 'unstarted',
       color: (status.color || '#94a3b8').toLowerCase(),
       isDefault: status.is_default,
       maxActiveRuns: typeof status.max_active_runs === 'number' ? status.max_active_runs : null,
@@ -53,6 +67,9 @@ export function parseStatusDraft(raw: StatusDraft): ParseResult<ParsedStatusDraf
   if (!name) {
     return { ok: false, error: 'Status name is required.' }
   }
+  if (!isTicketStatusStage(raw.stage)) {
+    return { ok: false, error: 'Status stage is required.' }
+  }
 
   const color = raw.color.trim()
   if (!HEX_COLOR_PATTERN.test(color)) {
@@ -65,6 +82,7 @@ export function parseStatusDraft(raw: StatusDraft): ParseResult<ParsedStatusDraf
       ok: true,
       value: {
         name,
+        stage: raw.stage,
         color: color.toLowerCase(),
         isDefault: raw.isDefault,
         maxActiveRuns: null,
@@ -81,11 +99,32 @@ export function parseStatusDraft(raw: StatusDraft): ParseResult<ParsedStatusDraf
     ok: true,
     value: {
       name,
+      stage: raw.stage,
       color: color.toLowerCase(),
       isDefault: raw.isDefault,
       maxActiveRuns: parsed,
     },
   }
+}
+
+export function isTerminalTicketStatusStage(stage: TicketStatusStage): boolean {
+  return stage === 'completed' || stage === 'canceled'
+}
+
+export function allowsWorkflowPickup(stage: TicketStatusStage): boolean {
+  return !isTerminalTicketStatusStage(stage)
+}
+
+export function allowsWorkflowFinish(stage: TicketStatusStage): boolean {
+  return isTerminalTicketStatusStage(stage)
+}
+
+export function ticketStatusStageLabel(stage: TicketStatusStage): string {
+  return ticketStatusStageOptions.find((option) => option.value === stage)?.label ?? stage
+}
+
+function isTicketStatusStage(value: string): value is TicketStatusStage {
+  return ticketStatusStageOptions.some((option) => option.value === value)
 }
 
 export function moveStatus(

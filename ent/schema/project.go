@@ -27,9 +27,6 @@ func (Project) Fields() []ent.Field {
 			Optional(),
 		field.JSON("github_token_probe", &githubauth.TokenProbe{}).
 			Optional(),
-		field.UUID("default_workflow_id", uuidZero()).
-			Optional().
-			Nillable(),
 		field.UUID("default_agent_provider_id", uuidZero()).
 			Optional().
 			Nillable(),
@@ -61,9 +58,6 @@ func (Project) Edges() []ent.Edge {
 		edge.To("chat_conversations", ChatConversation.Type),
 		edge.To("notification_rules", NotificationRule.Type),
 		edge.To("issue_connectors", IssueConnector.Type),
-		edge.To("default_workflow", Workflow.Type).
-			Field("default_workflow_id").
-			Unique(),
 		edge.To("default_agent_provider", AgentProvider.Type).
 			Field("default_agent_provider_id").
 			Unique(),

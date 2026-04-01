@@ -1,12 +1,15 @@
 <script lang="ts">
+  import { ticketStatusStageOptions, type TicketStatusStage } from '$lib/features/statuses/public'
   import { Button } from '$ui/button'
   import { Checkbox } from '$ui/checkbox'
   import { Input } from '$ui/input'
+  import * as Select from '$ui/select'
   import Plus from '@lucide/svelte/icons/plus'
   import RotateCcw from '@lucide/svelte/icons/rotate-ccw'
 
   let {
     name = $bindable(''),
+    stage = $bindable('unstarted'),
     color = $bindable('#94a3b8'),
     isDefault = $bindable(false),
     maxActiveRuns = $bindable(''),
@@ -17,6 +20,7 @@
     onReset,
   }: {
     name?: string
+    stage?: TicketStatusStage
     color?: string
     isDefault?: boolean
     maxActiveRuns?: string
@@ -50,6 +54,22 @@
         class="size-9 shrink-0 rounded border-0 bg-transparent p-0"
       />
       <Input bind:value={name} class="h-9 flex-1 text-sm" placeholder="New status name" />
+      <Select.Root
+        type="single"
+        value={stage}
+        disabled={creating || loading}
+        onValueChange={(value) => (stage = (value as TicketStatusStage) || 'unstarted')}
+      >
+        <Select.Trigger class="h-9 w-40"
+          >{ticketStatusStageOptions.find((option) => option.value === stage)?.label ??
+            'Stage'}</Select.Trigger
+        >
+        <Select.Content>
+          {#each ticketStatusStageOptions as option (option.value)}
+            <Select.Item value={option.value}>{option.label}</Select.Item>
+          {/each}
+        </Select.Content>
+      </Select.Root>
       <Input
         bind:value={maxActiveRuns}
         type="number"
@@ -73,7 +93,7 @@
       </span>
     </label>
     <p class="text-muted-foreground text-xs">
-      Leave concurrency blank for unlimited pickup from this status.
+      Stage controls lifecycle semantics such as dependency resolution and workflow terminal states.
     </p>
   </div>
 </div>

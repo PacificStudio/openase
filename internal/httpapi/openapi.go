@@ -36,7 +36,6 @@ type OpenAPIProject struct {
 	Slug                   string   `json:"slug"`
 	Description            string   `json:"description"`
 	Status                 string   `json:"status"`
-	DefaultWorkflowID      *string  `json:"default_workflow_id,omitempty"`
 	DefaultAgentProviderID *string  `json:"default_agent_provider_id,omitempty"`
 	AccessibleMachineIDs   []string `json:"accessible_machine_ids,omitempty"`
 	MaxConcurrentAgents    int      `json:"max_concurrent_agents"`
@@ -133,6 +132,7 @@ type OpenAPIAgentProvider struct {
 	MachineWorkspaceRoot  *string                          `json:"machine_workspace_root,omitempty"`
 	Name                  string                           `json:"name"`
 	AdapterType           string                           `json:"adapter_type"`
+	PermissionProfile     string                           `json:"permission_profile"`
 	AvailabilityState     string                           `json:"availability_state"`
 	Available             bool                             `json:"available"`
 	AvailabilityCheckedAt *string                          `json:"availability_checked_at,omitempty"`
@@ -486,6 +486,7 @@ type OpenAPITicketStatus struct {
 	ID            string `json:"id"`
 	ProjectID     string `json:"project_id"`
 	Name          string `json:"name"`
+	Stage         string `json:"stage"`
 	Color         string `json:"color"`
 	Icon          string `json:"icon"`
 	Position      int    `json:"position"`
@@ -1223,6 +1224,7 @@ type OpenAPIAddTicketDependencyRequest rawAddDependencyRequest
 type OpenAPICreateTicketExternalLinkRequest rawAddExternalLinkRequest
 type OpenAPICreateTicketStatusRequest struct {
 	Name          string `json:"name"`
+	Stage         string `json:"stage"`
 	Color         string `json:"color"`
 	Icon          string `json:"icon"`
 	Position      *int   `json:"position"`
@@ -1233,6 +1235,7 @@ type OpenAPICreateTicketStatusRequest struct {
 
 type OpenAPIUpdateTicketStatusRequest struct {
 	Name          *string `json:"name"`
+	Stage         *string `json:"stage"`
 	Color         *string `json:"color"`
 	Icon          *string `json:"icon"`
 	Position      *int    `json:"position"`
@@ -1275,7 +1278,6 @@ var (
 		"slug":                      "Stable URL-safe project slug.",
 		"description":               "Human-readable project description.",
 		"status":                    "Current project lifecycle status name.",
-		"default_workflow_id":       "Optional default workflow ID for newly created tickets in the project.",
 		"default_agent_provider_id": "Optional default agent provider ID for the project.",
 		"accessible_machine_ids":    "Machine IDs that the project is allowed to use.",
 		"max_concurrent_agents":     "Maximum number of agents that may run concurrently in the project.",
@@ -1284,8 +1286,9 @@ var (
 		"name":                  "Human-readable provider name.",
 		"machine_id":            "Machine ID where this provider runs.",
 		"adapter_type":          "Adapter type used to launch and communicate with the provider.",
+		"permission_profile":    "Managed permission profile used to render adapter-specific approval and sandbox options.",
 		"cli_command":           "CLI command used to launch the provider.",
-		"cli_args":              "Additional CLI arguments passed to the provider command.",
+		"cli_args":              "Additional CLI arguments passed to the provider command after OpenASE applies adapter-managed launch settings.",
 		"auth_config":           "Provider-specific authentication configuration object.",
 		"model_name":            "Model name configured for the provider.",
 		"model_temperature":     "Sampling temperature configured for the provider model.",
@@ -1380,6 +1383,7 @@ var (
 	}
 	openAPIStatusRequestDescriptions = map[string]string{
 		"name":            "Human-readable status name.",
+		"stage":           "Lifecycle stage for the status. One of backlog, unstarted, started, completed, or canceled.",
 		"color":           "Display color for the status.",
 		"icon":            "Display icon identifier for the status.",
 		"position":        "Zero-based display order of the status.",

@@ -19,6 +19,7 @@ import (
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	domaincatalog "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -468,9 +469,6 @@ func (s *Scheduler) isTicketBlocked(ctx context.Context, ticketID uuid.UUID) (bo
 			entticketdependency.TypeEQ(entticketdependency.TypeBlocks),
 		).
 		WithSourceTicket(func(query *ent.TicketQuery) {
-			query.WithWorkflow(func(workflowQuery *ent.WorkflowQuery) {
-				workflowQuery.WithFinishStatuses()
-			})
 			query.WithStatus()
 		}).
 		All(ctx)
@@ -496,12 +494,11 @@ func isDependencyResolved(ticket *ent.Ticket) bool {
 		return true
 	}
 
-	if workflow := ticket.Edges.Workflow; workflow != nil && slices.Contains(ticketStatusIDs(workflow.Edges.FinishStatuses), ticket.StatusID) {
-		return true
-	}
-
-	if status := ticket.Edges.Status; status != nil && strings.EqualFold(status.Name, "Done") {
-		return true
+	if status := ticket.Edges.Status; status != nil {
+		stage := ticketing.StatusStage(status.Stage)
+		if stage.IsValid() && stage.IsTerminal() {
+			return true
+		}
 	}
 
 	return false

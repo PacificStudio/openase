@@ -10,6 +10,7 @@ import {
   listStatuses,
   listWorkflows,
 } from '$lib/api/openase'
+import type { TicketStatusStage } from '$lib/features/statuses/public'
 import { defaultHarnessTemplate, normalizeWorkflowType, toHarnessContent } from './model'
 import type { SkillState } from './model'
 import type {
@@ -97,7 +98,11 @@ export function mapStatusOptions(
   return statuses
     .slice()
     .sort((left, right) => left.position - right.position)
-    .map((status) => ({ id: status.id, name: status.name }))
+    .map((status) => ({
+      id: status.id,
+      name: status.name,
+      stage: (status.stage as TicketStatusStage) ?? 'unstarted',
+    }))
 }
 
 export async function loadWorkflowCatalog(projectId: string, orgId: string) {

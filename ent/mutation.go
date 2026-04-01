@@ -32,7 +32,9 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/skill"
+	"github.com/BetterAndBetterII/openase/ent/skillblob"
 	"github.com/BetterAndBetterII/openase/ent/skillversion"
+	"github.com/BetterAndBetterII/openase/ent/skillversionfile"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketcomment"
 	"github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
@@ -79,7 +81,9 @@ const (
 	TypeProjectRepo           = "ProjectRepo"
 	TypeScheduledJob          = "ScheduledJob"
 	TypeSkill                 = "Skill"
+	TypeSkillBlob             = "SkillBlob"
 	TypeSkillVersion          = "SkillVersion"
+	TypeSkillVersionFile      = "SkillVersionFile"
 	TypeTicket                = "Ticket"
 	TypeTicketComment         = "TicketComment"
 	TypeTicketCommentRevision = "TicketCommentRevision"
@@ -2234,6 +2238,7 @@ type AgentProviderMutation struct {
 	id                       *uuid.UUID
 	name                     *string
 	adapter_type             *agentprovider.AdapterType
+	permission_profile       *agentprovider.PermissionProfile
 	cli_command              *string
 	cli_args                 *pgarray.StringArray
 	auth_config              *map[string]interface{}
@@ -2510,6 +2515,42 @@ func (m *AgentProviderMutation) OldAdapterType(ctx context.Context) (v agentprov
 // ResetAdapterType resets all changes to the "adapter_type" field.
 func (m *AgentProviderMutation) ResetAdapterType() {
 	m.adapter_type = nil
+}
+
+// SetPermissionProfile sets the "permission_profile" field.
+func (m *AgentProviderMutation) SetPermissionProfile(ap agentprovider.PermissionProfile) {
+	m.permission_profile = &ap
+}
+
+// PermissionProfile returns the value of the "permission_profile" field in the mutation.
+func (m *AgentProviderMutation) PermissionProfile() (r agentprovider.PermissionProfile, exists bool) {
+	v := m.permission_profile
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPermissionProfile returns the old "permission_profile" field's value of the AgentProvider entity.
+// If the AgentProvider object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentProviderMutation) OldPermissionProfile(ctx context.Context) (v agentprovider.PermissionProfile, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPermissionProfile is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPermissionProfile requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPermissionProfile: %w", err)
+	}
+	return oldValue.PermissionProfile, nil
+}
+
+// ResetPermissionProfile resets all changes to the "permission_profile" field.
+func (m *AgentProviderMutation) ResetPermissionProfile() {
+	m.permission_profile = nil
 }
 
 // SetCliCommand sets the "cli_command" field.
@@ -3145,7 +3186,7 @@ func (m *AgentProviderMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentProviderMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 14)
 	if m.organization != nil {
 		fields = append(fields, agentprovider.FieldOrganizationID)
 	}
@@ -3157,6 +3198,9 @@ func (m *AgentProviderMutation) Fields() []string {
 	}
 	if m.adapter_type != nil {
 		fields = append(fields, agentprovider.FieldAdapterType)
+	}
+	if m.permission_profile != nil {
+		fields = append(fields, agentprovider.FieldPermissionProfile)
 	}
 	if m.cli_command != nil {
 		fields = append(fields, agentprovider.FieldCliCommand)
@@ -3201,6 +3245,8 @@ func (m *AgentProviderMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case agentprovider.FieldAdapterType:
 		return m.AdapterType()
+	case agentprovider.FieldPermissionProfile:
+		return m.PermissionProfile()
 	case agentprovider.FieldCliCommand:
 		return m.CliCommand()
 	case agentprovider.FieldCliArgs:
@@ -3236,6 +3282,8 @@ func (m *AgentProviderMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldName(ctx)
 	case agentprovider.FieldAdapterType:
 		return m.OldAdapterType(ctx)
+	case agentprovider.FieldPermissionProfile:
+		return m.OldPermissionProfile(ctx)
 	case agentprovider.FieldCliCommand:
 		return m.OldCliCommand(ctx)
 	case agentprovider.FieldCliArgs:
@@ -3290,6 +3338,13 @@ func (m *AgentProviderMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetAdapterType(v)
+		return nil
+	case agentprovider.FieldPermissionProfile:
+		v, ok := value.(agentprovider.PermissionProfile)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPermissionProfile(v)
 		return nil
 	case agentprovider.FieldCliCommand:
 		v, ok := value.(string)
@@ -3486,6 +3541,9 @@ func (m *AgentProviderMutation) ResetField(name string) error {
 		return nil
 	case agentprovider.FieldAdapterType:
 		m.ResetAdapterType()
+		return nil
+	case agentprovider.FieldPermissionProfile:
+		m.ResetPermissionProfile()
 		return nil
 	case agentprovider.FieldCliCommand:
 		m.ResetCliCommand()
@@ -17616,8 +17674,6 @@ type ProjectMutation struct {
 	issue_connectors              map[uuid.UUID]struct{}
 	removedissue_connectors       map[uuid.UUID]struct{}
 	clearedissue_connectors       bool
-	default_workflow              *uuid.UUID
-	cleareddefault_workflow       bool
 	default_agent_provider        *uuid.UUID
 	cleareddefault_agent_provider bool
 	done                          bool
@@ -18018,55 +18074,6 @@ func (m *ProjectMutation) GithubTokenProbeCleared() bool {
 func (m *ProjectMutation) ResetGithubTokenProbe() {
 	m.github_token_probe = nil
 	delete(m.clearedFields, project.FieldGithubTokenProbe)
-}
-
-// SetDefaultWorkflowID sets the "default_workflow_id" field.
-func (m *ProjectMutation) SetDefaultWorkflowID(u uuid.UUID) {
-	m.default_workflow = &u
-}
-
-// DefaultWorkflowID returns the value of the "default_workflow_id" field in the mutation.
-func (m *ProjectMutation) DefaultWorkflowID() (r uuid.UUID, exists bool) {
-	v := m.default_workflow
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldDefaultWorkflowID returns the old "default_workflow_id" field's value of the Project entity.
-// If the Project object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ProjectMutation) OldDefaultWorkflowID(ctx context.Context) (v *uuid.UUID, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldDefaultWorkflowID is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldDefaultWorkflowID requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldDefaultWorkflowID: %w", err)
-	}
-	return oldValue.DefaultWorkflowID, nil
-}
-
-// ClearDefaultWorkflowID clears the value of the "default_workflow_id" field.
-func (m *ProjectMutation) ClearDefaultWorkflowID() {
-	m.default_workflow = nil
-	m.clearedFields[project.FieldDefaultWorkflowID] = struct{}{}
-}
-
-// DefaultWorkflowIDCleared returns if the "default_workflow_id" field was cleared in this mutation.
-func (m *ProjectMutation) DefaultWorkflowIDCleared() bool {
-	_, ok := m.clearedFields[project.FieldDefaultWorkflowID]
-	return ok
-}
-
-// ResetDefaultWorkflowID resets all changes to the "default_workflow_id" field.
-func (m *ProjectMutation) ResetDefaultWorkflowID() {
-	m.default_workflow = nil
-	delete(m.clearedFields, project.FieldDefaultWorkflowID)
 }
 
 // SetDefaultAgentProviderID sets the "default_agent_provider_id" field.
@@ -19008,33 +19015,6 @@ func (m *ProjectMutation) ResetIssueConnectors() {
 	m.removedissue_connectors = nil
 }
 
-// ClearDefaultWorkflow clears the "default_workflow" edge to the Workflow entity.
-func (m *ProjectMutation) ClearDefaultWorkflow() {
-	m.cleareddefault_workflow = true
-	m.clearedFields[project.FieldDefaultWorkflowID] = struct{}{}
-}
-
-// DefaultWorkflowCleared reports if the "default_workflow" edge to the Workflow entity was cleared.
-func (m *ProjectMutation) DefaultWorkflowCleared() bool {
-	return m.DefaultWorkflowIDCleared() || m.cleareddefault_workflow
-}
-
-// DefaultWorkflowIDs returns the "default_workflow" edge IDs in the mutation.
-// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// DefaultWorkflowID instead. It exists only for internal usage by the builders.
-func (m *ProjectMutation) DefaultWorkflowIDs() (ids []uuid.UUID) {
-	if id := m.default_workflow; id != nil {
-		ids = append(ids, *id)
-	}
-	return
-}
-
-// ResetDefaultWorkflow resets all changes to the "default_workflow" edge.
-func (m *ProjectMutation) ResetDefaultWorkflow() {
-	m.default_workflow = nil
-	m.cleareddefault_workflow = false
-}
-
 // ClearDefaultAgentProvider clears the "default_agent_provider" edge to the AgentProvider entity.
 func (m *ProjectMutation) ClearDefaultAgentProvider() {
 	m.cleareddefault_agent_provider = true
@@ -19096,7 +19076,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 10)
 	if m.organization != nil {
 		fields = append(fields, project.FieldOrganizationID)
 	}
@@ -19117,9 +19097,6 @@ func (m *ProjectMutation) Fields() []string {
 	}
 	if m.github_token_probe != nil {
 		fields = append(fields, project.FieldGithubTokenProbe)
-	}
-	if m.default_workflow != nil {
-		fields = append(fields, project.FieldDefaultWorkflowID)
 	}
 	if m.default_agent_provider != nil {
 		fields = append(fields, project.FieldDefaultAgentProviderID)
@@ -19152,8 +19129,6 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.GithubOutboundCredential()
 	case project.FieldGithubTokenProbe:
 		return m.GithubTokenProbe()
-	case project.FieldDefaultWorkflowID:
-		return m.DefaultWorkflowID()
 	case project.FieldDefaultAgentProviderID:
 		return m.DefaultAgentProviderID()
 	case project.FieldAccessibleMachineIds:
@@ -19183,8 +19158,6 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldGithubOutboundCredential(ctx)
 	case project.FieldGithubTokenProbe:
 		return m.OldGithubTokenProbe(ctx)
-	case project.FieldDefaultWorkflowID:
-		return m.OldDefaultWorkflowID(ctx)
 	case project.FieldDefaultAgentProviderID:
 		return m.OldDefaultAgentProviderID(ctx)
 	case project.FieldAccessibleMachineIds:
@@ -19248,13 +19221,6 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetGithubTokenProbe(v)
-		return nil
-	case project.FieldDefaultWorkflowID:
-		v, ok := value.(uuid.UUID)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetDefaultWorkflowID(v)
 		return nil
 	case project.FieldDefaultAgentProviderID:
 		v, ok := value.(uuid.UUID)
@@ -19331,9 +19297,6 @@ func (m *ProjectMutation) ClearedFields() []string {
 	if m.FieldCleared(project.FieldGithubTokenProbe) {
 		fields = append(fields, project.FieldGithubTokenProbe)
 	}
-	if m.FieldCleared(project.FieldDefaultWorkflowID) {
-		fields = append(fields, project.FieldDefaultWorkflowID)
-	}
 	if m.FieldCleared(project.FieldDefaultAgentProviderID) {
 		fields = append(fields, project.FieldDefaultAgentProviderID)
 	}
@@ -19359,9 +19322,6 @@ func (m *ProjectMutation) ClearField(name string) error {
 		return nil
 	case project.FieldGithubTokenProbe:
 		m.ClearGithubTokenProbe()
-		return nil
-	case project.FieldDefaultWorkflowID:
-		m.ClearDefaultWorkflowID()
 		return nil
 	case project.FieldDefaultAgentProviderID:
 		m.ClearDefaultAgentProviderID()
@@ -19395,9 +19355,6 @@ func (m *ProjectMutation) ResetField(name string) error {
 	case project.FieldGithubTokenProbe:
 		m.ResetGithubTokenProbe()
 		return nil
-	case project.FieldDefaultWorkflowID:
-		m.ResetDefaultWorkflowID()
-		return nil
 	case project.FieldDefaultAgentProviderID:
 		m.ResetDefaultAgentProviderID()
 		return nil
@@ -19413,7 +19370,7 @@ func (m *ProjectMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ProjectMutation) AddedEdges() []string {
-	edges := make([]string, 0, 17)
+	edges := make([]string, 0, 16)
 	if m.organization != nil {
 		edges = append(edges, project.EdgeOrganization)
 	}
@@ -19458,9 +19415,6 @@ func (m *ProjectMutation) AddedEdges() []string {
 	}
 	if m.issue_connectors != nil {
 		edges = append(edges, project.EdgeIssueConnectors)
-	}
-	if m.default_workflow != nil {
-		edges = append(edges, project.EdgeDefaultWorkflow)
 	}
 	if m.default_agent_provider != nil {
 		edges = append(edges, project.EdgeDefaultAgentProvider)
@@ -19560,10 +19514,6 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
-	case project.EdgeDefaultWorkflow:
-		if id := m.default_workflow; id != nil {
-			return []ent.Value{*id}
-		}
 	case project.EdgeDefaultAgentProvider:
 		if id := m.default_agent_provider; id != nil {
 			return []ent.Value{*id}
@@ -19574,7 +19524,7 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ProjectMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 17)
+	edges := make([]string, 0, 16)
 	if m.removedrepos != nil {
 		edges = append(edges, project.EdgeRepos)
 	}
@@ -19714,7 +19664,7 @@ func (m *ProjectMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ProjectMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 17)
+	edges := make([]string, 0, 16)
 	if m.clearedorganization {
 		edges = append(edges, project.EdgeOrganization)
 	}
@@ -19760,9 +19710,6 @@ func (m *ProjectMutation) ClearedEdges() []string {
 	if m.clearedissue_connectors {
 		edges = append(edges, project.EdgeIssueConnectors)
 	}
-	if m.cleareddefault_workflow {
-		edges = append(edges, project.EdgeDefaultWorkflow)
-	}
 	if m.cleareddefault_agent_provider {
 		edges = append(edges, project.EdgeDefaultAgentProvider)
 	}
@@ -19803,8 +19750,6 @@ func (m *ProjectMutation) EdgeCleared(name string) bool {
 		return m.clearednotification_rules
 	case project.EdgeIssueConnectors:
 		return m.clearedissue_connectors
-	case project.EdgeDefaultWorkflow:
-		return m.cleareddefault_workflow
 	case project.EdgeDefaultAgentProvider:
 		return m.cleareddefault_agent_provider
 	}
@@ -19817,9 +19762,6 @@ func (m *ProjectMutation) ClearEdge(name string) error {
 	switch name {
 	case project.EdgeOrganization:
 		m.ClearOrganization()
-		return nil
-	case project.EdgeDefaultWorkflow:
-		m.ClearDefaultWorkflow()
 		return nil
 	case project.EdgeDefaultAgentProvider:
 		m.ClearDefaultAgentProvider()
@@ -19876,9 +19818,6 @@ func (m *ProjectMutation) ResetEdge(name string) error {
 		return nil
 	case project.EdgeIssueConnectors:
 		m.ResetIssueConnectors()
-		return nil
-	case project.EdgeDefaultWorkflow:
-		m.ResetDefaultWorkflow()
 		return nil
 	case project.EdgeDefaultAgentProvider:
 		m.ResetDefaultAgentProvider()
@@ -22711,6 +22650,683 @@ func (m *SkillMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown Skill edge %s", name)
 }
 
+// SkillBlobMutation represents an operation that mutates the SkillBlob nodes in the graph.
+type SkillBlobMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *uuid.UUID
+	sha256        *string
+	size_bytes    *int64
+	addsize_bytes *int64
+	compression   *skillblob.Compression
+	content_bytes *[]byte
+	created_at    *time.Time
+	clearedFields map[string]struct{}
+	files         map[uuid.UUID]struct{}
+	removedfiles  map[uuid.UUID]struct{}
+	clearedfiles  bool
+	done          bool
+	oldValue      func(context.Context) (*SkillBlob, error)
+	predicates    []predicate.SkillBlob
+}
+
+var _ ent.Mutation = (*SkillBlobMutation)(nil)
+
+// skillblobOption allows management of the mutation configuration using functional options.
+type skillblobOption func(*SkillBlobMutation)
+
+// newSkillBlobMutation creates new mutation for the SkillBlob entity.
+func newSkillBlobMutation(c config, op Op, opts ...skillblobOption) *SkillBlobMutation {
+	m := &SkillBlobMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeSkillBlob,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withSkillBlobID sets the ID field of the mutation.
+func withSkillBlobID(id uuid.UUID) skillblobOption {
+	return func(m *SkillBlobMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *SkillBlob
+		)
+		m.oldValue = func(ctx context.Context) (*SkillBlob, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().SkillBlob.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSkillBlob sets the old SkillBlob of the mutation.
+func withSkillBlob(node *SkillBlob) skillblobOption {
+	return func(m *SkillBlobMutation) {
+		m.oldValue = func(context.Context) (*SkillBlob, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m SkillBlobMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m SkillBlobMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of SkillBlob entities.
+func (m *SkillBlobMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *SkillBlobMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *SkillBlobMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().SkillBlob.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSha256 sets the "sha256" field.
+func (m *SkillBlobMutation) SetSha256(s string) {
+	m.sha256 = &s
+}
+
+// Sha256 returns the value of the "sha256" field in the mutation.
+func (m *SkillBlobMutation) Sha256() (r string, exists bool) {
+	v := m.sha256
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSha256 returns the old "sha256" field's value of the SkillBlob entity.
+// If the SkillBlob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillBlobMutation) OldSha256(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSha256 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSha256 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSha256: %w", err)
+	}
+	return oldValue.Sha256, nil
+}
+
+// ResetSha256 resets all changes to the "sha256" field.
+func (m *SkillBlobMutation) ResetSha256() {
+	m.sha256 = nil
+}
+
+// SetSizeBytes sets the "size_bytes" field.
+func (m *SkillBlobMutation) SetSizeBytes(i int64) {
+	m.size_bytes = &i
+	m.addsize_bytes = nil
+}
+
+// SizeBytes returns the value of the "size_bytes" field in the mutation.
+func (m *SkillBlobMutation) SizeBytes() (r int64, exists bool) {
+	v := m.size_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSizeBytes returns the old "size_bytes" field's value of the SkillBlob entity.
+// If the SkillBlob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillBlobMutation) OldSizeBytes(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSizeBytes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSizeBytes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSizeBytes: %w", err)
+	}
+	return oldValue.SizeBytes, nil
+}
+
+// AddSizeBytes adds i to the "size_bytes" field.
+func (m *SkillBlobMutation) AddSizeBytes(i int64) {
+	if m.addsize_bytes != nil {
+		*m.addsize_bytes += i
+	} else {
+		m.addsize_bytes = &i
+	}
+}
+
+// AddedSizeBytes returns the value that was added to the "size_bytes" field in this mutation.
+func (m *SkillBlobMutation) AddedSizeBytes() (r int64, exists bool) {
+	v := m.addsize_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSizeBytes resets all changes to the "size_bytes" field.
+func (m *SkillBlobMutation) ResetSizeBytes() {
+	m.size_bytes = nil
+	m.addsize_bytes = nil
+}
+
+// SetCompression sets the "compression" field.
+func (m *SkillBlobMutation) SetCompression(s skillblob.Compression) {
+	m.compression = &s
+}
+
+// Compression returns the value of the "compression" field in the mutation.
+func (m *SkillBlobMutation) Compression() (r skillblob.Compression, exists bool) {
+	v := m.compression
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompression returns the old "compression" field's value of the SkillBlob entity.
+// If the SkillBlob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillBlobMutation) OldCompression(ctx context.Context) (v skillblob.Compression, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompression is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompression requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompression: %w", err)
+	}
+	return oldValue.Compression, nil
+}
+
+// ResetCompression resets all changes to the "compression" field.
+func (m *SkillBlobMutation) ResetCompression() {
+	m.compression = nil
+}
+
+// SetContentBytes sets the "content_bytes" field.
+func (m *SkillBlobMutation) SetContentBytes(b []byte) {
+	m.content_bytes = &b
+}
+
+// ContentBytes returns the value of the "content_bytes" field in the mutation.
+func (m *SkillBlobMutation) ContentBytes() (r []byte, exists bool) {
+	v := m.content_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContentBytes returns the old "content_bytes" field's value of the SkillBlob entity.
+// If the SkillBlob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillBlobMutation) OldContentBytes(ctx context.Context) (v []byte, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContentBytes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContentBytes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContentBytes: %w", err)
+	}
+	return oldValue.ContentBytes, nil
+}
+
+// ResetContentBytes resets all changes to the "content_bytes" field.
+func (m *SkillBlobMutation) ResetContentBytes() {
+	m.content_bytes = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *SkillBlobMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *SkillBlobMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the SkillBlob entity.
+// If the SkillBlob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillBlobMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *SkillBlobMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// AddFileIDs adds the "files" edge to the SkillVersionFile entity by ids.
+func (m *SkillBlobMutation) AddFileIDs(ids ...uuid.UUID) {
+	if m.files == nil {
+		m.files = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.files[ids[i]] = struct{}{}
+	}
+}
+
+// ClearFiles clears the "files" edge to the SkillVersionFile entity.
+func (m *SkillBlobMutation) ClearFiles() {
+	m.clearedfiles = true
+}
+
+// FilesCleared reports if the "files" edge to the SkillVersionFile entity was cleared.
+func (m *SkillBlobMutation) FilesCleared() bool {
+	return m.clearedfiles
+}
+
+// RemoveFileIDs removes the "files" edge to the SkillVersionFile entity by IDs.
+func (m *SkillBlobMutation) RemoveFileIDs(ids ...uuid.UUID) {
+	if m.removedfiles == nil {
+		m.removedfiles = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.files, ids[i])
+		m.removedfiles[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedFiles returns the removed IDs of the "files" edge to the SkillVersionFile entity.
+func (m *SkillBlobMutation) RemovedFilesIDs() (ids []uuid.UUID) {
+	for id := range m.removedfiles {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// FilesIDs returns the "files" edge IDs in the mutation.
+func (m *SkillBlobMutation) FilesIDs() (ids []uuid.UUID) {
+	for id := range m.files {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetFiles resets all changes to the "files" edge.
+func (m *SkillBlobMutation) ResetFiles() {
+	m.files = nil
+	m.clearedfiles = false
+	m.removedfiles = nil
+}
+
+// Where appends a list predicates to the SkillBlobMutation builder.
+func (m *SkillBlobMutation) Where(ps ...predicate.SkillBlob) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the SkillBlobMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *SkillBlobMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.SkillBlob, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *SkillBlobMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *SkillBlobMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (SkillBlob).
+func (m *SkillBlobMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *SkillBlobMutation) Fields() []string {
+	fields := make([]string, 0, 5)
+	if m.sha256 != nil {
+		fields = append(fields, skillblob.FieldSha256)
+	}
+	if m.size_bytes != nil {
+		fields = append(fields, skillblob.FieldSizeBytes)
+	}
+	if m.compression != nil {
+		fields = append(fields, skillblob.FieldCompression)
+	}
+	if m.content_bytes != nil {
+		fields = append(fields, skillblob.FieldContentBytes)
+	}
+	if m.created_at != nil {
+		fields = append(fields, skillblob.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *SkillBlobMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case skillblob.FieldSha256:
+		return m.Sha256()
+	case skillblob.FieldSizeBytes:
+		return m.SizeBytes()
+	case skillblob.FieldCompression:
+		return m.Compression()
+	case skillblob.FieldContentBytes:
+		return m.ContentBytes()
+	case skillblob.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *SkillBlobMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case skillblob.FieldSha256:
+		return m.OldSha256(ctx)
+	case skillblob.FieldSizeBytes:
+		return m.OldSizeBytes(ctx)
+	case skillblob.FieldCompression:
+		return m.OldCompression(ctx)
+	case skillblob.FieldContentBytes:
+		return m.OldContentBytes(ctx)
+	case skillblob.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown SkillBlob field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SkillBlobMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case skillblob.FieldSha256:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSha256(v)
+		return nil
+	case skillblob.FieldSizeBytes:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSizeBytes(v)
+		return nil
+	case skillblob.FieldCompression:
+		v, ok := value.(skillblob.Compression)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompression(v)
+		return nil
+	case skillblob.FieldContentBytes:
+		v, ok := value.([]byte)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContentBytes(v)
+		return nil
+	case skillblob.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SkillBlob field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *SkillBlobMutation) AddedFields() []string {
+	var fields []string
+	if m.addsize_bytes != nil {
+		fields = append(fields, skillblob.FieldSizeBytes)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *SkillBlobMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case skillblob.FieldSizeBytes:
+		return m.AddedSizeBytes()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SkillBlobMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case skillblob.FieldSizeBytes:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSizeBytes(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SkillBlob numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *SkillBlobMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *SkillBlobMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *SkillBlobMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown SkillBlob nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *SkillBlobMutation) ResetField(name string) error {
+	switch name {
+	case skillblob.FieldSha256:
+		m.ResetSha256()
+		return nil
+	case skillblob.FieldSizeBytes:
+		m.ResetSizeBytes()
+		return nil
+	case skillblob.FieldCompression:
+		m.ResetCompression()
+		return nil
+	case skillblob.FieldContentBytes:
+		m.ResetContentBytes()
+		return nil
+	case skillblob.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown SkillBlob field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *SkillBlobMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.files != nil {
+		edges = append(edges, skillblob.EdgeFiles)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *SkillBlobMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case skillblob.EdgeFiles:
+		ids := make([]ent.Value, 0, len(m.files))
+		for id := range m.files {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *SkillBlobMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.removedfiles != nil {
+		edges = append(edges, skillblob.EdgeFiles)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *SkillBlobMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case skillblob.EdgeFiles:
+		ids := make([]ent.Value, 0, len(m.removedfiles))
+		for id := range m.removedfiles {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *SkillBlobMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedfiles {
+		edges = append(edges, skillblob.EdgeFiles)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *SkillBlobMutation) EdgeCleared(name string) bool {
+	switch name {
+	case skillblob.EdgeFiles:
+		return m.clearedfiles
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *SkillBlobMutation) ClearEdge(name string) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown SkillBlob unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *SkillBlobMutation) ResetEdge(name string) error {
+	switch name {
+	case skillblob.EdgeFiles:
+		m.ResetFiles()
+		return nil
+	}
+	return fmt.Errorf("unknown SkillBlob edge %s", name)
+}
+
 // SkillVersionMutation represents an operation that mutates the SkillVersion nodes in the graph.
 type SkillVersionMutation struct {
 	config
@@ -22721,11 +23337,20 @@ type SkillVersionMutation struct {
 	addversion                  *int
 	content_markdown            *string
 	content_hash                *string
+	bundle_hash                 *string
+	manifest_json               *map[string]interface{}
+	size_bytes                  *int64
+	addsize_bytes               *int64
+	file_count                  *int
+	addfile_count               *int
 	created_by                  *string
 	created_at                  *time.Time
 	clearedFields               map[string]struct{}
 	skill                       *uuid.UUID
 	clearedskill                bool
+	files                       map[uuid.UUID]struct{}
+	removedfiles                map[uuid.UUID]struct{}
+	clearedfiles                bool
 	required_by_bindings        map[uuid.UUID]struct{}
 	removedrequired_by_bindings map[uuid.UUID]struct{}
 	clearedrequired_by_bindings bool
@@ -23002,6 +23627,203 @@ func (m *SkillVersionMutation) ResetContentHash() {
 	m.content_hash = nil
 }
 
+// SetBundleHash sets the "bundle_hash" field.
+func (m *SkillVersionMutation) SetBundleHash(s string) {
+	m.bundle_hash = &s
+}
+
+// BundleHash returns the value of the "bundle_hash" field in the mutation.
+func (m *SkillVersionMutation) BundleHash() (r string, exists bool) {
+	v := m.bundle_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBundleHash returns the old "bundle_hash" field's value of the SkillVersion entity.
+// If the SkillVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillVersionMutation) OldBundleHash(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBundleHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBundleHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBundleHash: %w", err)
+	}
+	return oldValue.BundleHash, nil
+}
+
+// ClearBundleHash clears the value of the "bundle_hash" field.
+func (m *SkillVersionMutation) ClearBundleHash() {
+	m.bundle_hash = nil
+	m.clearedFields[skillversion.FieldBundleHash] = struct{}{}
+}
+
+// BundleHashCleared returns if the "bundle_hash" field was cleared in this mutation.
+func (m *SkillVersionMutation) BundleHashCleared() bool {
+	_, ok := m.clearedFields[skillversion.FieldBundleHash]
+	return ok
+}
+
+// ResetBundleHash resets all changes to the "bundle_hash" field.
+func (m *SkillVersionMutation) ResetBundleHash() {
+	m.bundle_hash = nil
+	delete(m.clearedFields, skillversion.FieldBundleHash)
+}
+
+// SetManifestJSON sets the "manifest_json" field.
+func (m *SkillVersionMutation) SetManifestJSON(value map[string]interface{}) {
+	m.manifest_json = &value
+}
+
+// ManifestJSON returns the value of the "manifest_json" field in the mutation.
+func (m *SkillVersionMutation) ManifestJSON() (r map[string]interface{}, exists bool) {
+	v := m.manifest_json
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldManifestJSON returns the old "manifest_json" field's value of the SkillVersion entity.
+// If the SkillVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillVersionMutation) OldManifestJSON(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldManifestJSON is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldManifestJSON requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldManifestJSON: %w", err)
+	}
+	return oldValue.ManifestJSON, nil
+}
+
+// ResetManifestJSON resets all changes to the "manifest_json" field.
+func (m *SkillVersionMutation) ResetManifestJSON() {
+	m.manifest_json = nil
+}
+
+// SetSizeBytes sets the "size_bytes" field.
+func (m *SkillVersionMutation) SetSizeBytes(i int64) {
+	m.size_bytes = &i
+	m.addsize_bytes = nil
+}
+
+// SizeBytes returns the value of the "size_bytes" field in the mutation.
+func (m *SkillVersionMutation) SizeBytes() (r int64, exists bool) {
+	v := m.size_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSizeBytes returns the old "size_bytes" field's value of the SkillVersion entity.
+// If the SkillVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillVersionMutation) OldSizeBytes(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSizeBytes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSizeBytes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSizeBytes: %w", err)
+	}
+	return oldValue.SizeBytes, nil
+}
+
+// AddSizeBytes adds i to the "size_bytes" field.
+func (m *SkillVersionMutation) AddSizeBytes(i int64) {
+	if m.addsize_bytes != nil {
+		*m.addsize_bytes += i
+	} else {
+		m.addsize_bytes = &i
+	}
+}
+
+// AddedSizeBytes returns the value that was added to the "size_bytes" field in this mutation.
+func (m *SkillVersionMutation) AddedSizeBytes() (r int64, exists bool) {
+	v := m.addsize_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSizeBytes resets all changes to the "size_bytes" field.
+func (m *SkillVersionMutation) ResetSizeBytes() {
+	m.size_bytes = nil
+	m.addsize_bytes = nil
+}
+
+// SetFileCount sets the "file_count" field.
+func (m *SkillVersionMutation) SetFileCount(i int) {
+	m.file_count = &i
+	m.addfile_count = nil
+}
+
+// FileCount returns the value of the "file_count" field in the mutation.
+func (m *SkillVersionMutation) FileCount() (r int, exists bool) {
+	v := m.file_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFileCount returns the old "file_count" field's value of the SkillVersion entity.
+// If the SkillVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillVersionMutation) OldFileCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFileCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFileCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFileCount: %w", err)
+	}
+	return oldValue.FileCount, nil
+}
+
+// AddFileCount adds i to the "file_count" field.
+func (m *SkillVersionMutation) AddFileCount(i int) {
+	if m.addfile_count != nil {
+		*m.addfile_count += i
+	} else {
+		m.addfile_count = &i
+	}
+}
+
+// AddedFileCount returns the value that was added to the "file_count" field in this mutation.
+func (m *SkillVersionMutation) AddedFileCount() (r int, exists bool) {
+	v := m.addfile_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetFileCount resets all changes to the "file_count" field.
+func (m *SkillVersionMutation) ResetFileCount() {
+	m.file_count = nil
+	m.addfile_count = nil
+}
+
 // SetCreatedBy sets the "created_by" field.
 func (m *SkillVersionMutation) SetCreatedBy(s string) {
 	m.created_by = &s
@@ -23101,6 +23923,60 @@ func (m *SkillVersionMutation) ResetSkill() {
 	m.clearedskill = false
 }
 
+// AddFileIDs adds the "files" edge to the SkillVersionFile entity by ids.
+func (m *SkillVersionMutation) AddFileIDs(ids ...uuid.UUID) {
+	if m.files == nil {
+		m.files = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.files[ids[i]] = struct{}{}
+	}
+}
+
+// ClearFiles clears the "files" edge to the SkillVersionFile entity.
+func (m *SkillVersionMutation) ClearFiles() {
+	m.clearedfiles = true
+}
+
+// FilesCleared reports if the "files" edge to the SkillVersionFile entity was cleared.
+func (m *SkillVersionMutation) FilesCleared() bool {
+	return m.clearedfiles
+}
+
+// RemoveFileIDs removes the "files" edge to the SkillVersionFile entity by IDs.
+func (m *SkillVersionMutation) RemoveFileIDs(ids ...uuid.UUID) {
+	if m.removedfiles == nil {
+		m.removedfiles = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.files, ids[i])
+		m.removedfiles[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedFiles returns the removed IDs of the "files" edge to the SkillVersionFile entity.
+func (m *SkillVersionMutation) RemovedFilesIDs() (ids []uuid.UUID) {
+	for id := range m.removedfiles {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// FilesIDs returns the "files" edge IDs in the mutation.
+func (m *SkillVersionMutation) FilesIDs() (ids []uuid.UUID) {
+	for id := range m.files {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetFiles resets all changes to the "files" edge.
+func (m *SkillVersionMutation) ResetFiles() {
+	m.files = nil
+	m.clearedfiles = false
+	m.removedfiles = nil
+}
+
 // AddRequiredByBindingIDs adds the "required_by_bindings" edge to the WorkflowSkillBinding entity by ids.
 func (m *SkillVersionMutation) AddRequiredByBindingIDs(ids ...uuid.UUID) {
 	if m.required_by_bindings == nil {
@@ -23189,7 +24065,7 @@ func (m *SkillVersionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SkillVersionMutation) Fields() []string {
-	fields := make([]string, 0, 6)
+	fields := make([]string, 0, 10)
 	if m.skill != nil {
 		fields = append(fields, skillversion.FieldSkillID)
 	}
@@ -23201,6 +24077,18 @@ func (m *SkillVersionMutation) Fields() []string {
 	}
 	if m.content_hash != nil {
 		fields = append(fields, skillversion.FieldContentHash)
+	}
+	if m.bundle_hash != nil {
+		fields = append(fields, skillversion.FieldBundleHash)
+	}
+	if m.manifest_json != nil {
+		fields = append(fields, skillversion.FieldManifestJSON)
+	}
+	if m.size_bytes != nil {
+		fields = append(fields, skillversion.FieldSizeBytes)
+	}
+	if m.file_count != nil {
+		fields = append(fields, skillversion.FieldFileCount)
 	}
 	if m.created_by != nil {
 		fields = append(fields, skillversion.FieldCreatedBy)
@@ -23224,6 +24112,14 @@ func (m *SkillVersionMutation) Field(name string) (ent.Value, bool) {
 		return m.ContentMarkdown()
 	case skillversion.FieldContentHash:
 		return m.ContentHash()
+	case skillversion.FieldBundleHash:
+		return m.BundleHash()
+	case skillversion.FieldManifestJSON:
+		return m.ManifestJSON()
+	case skillversion.FieldSizeBytes:
+		return m.SizeBytes()
+	case skillversion.FieldFileCount:
+		return m.FileCount()
 	case skillversion.FieldCreatedBy:
 		return m.CreatedBy()
 	case skillversion.FieldCreatedAt:
@@ -23245,6 +24141,14 @@ func (m *SkillVersionMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldContentMarkdown(ctx)
 	case skillversion.FieldContentHash:
 		return m.OldContentHash(ctx)
+	case skillversion.FieldBundleHash:
+		return m.OldBundleHash(ctx)
+	case skillversion.FieldManifestJSON:
+		return m.OldManifestJSON(ctx)
+	case skillversion.FieldSizeBytes:
+		return m.OldSizeBytes(ctx)
+	case skillversion.FieldFileCount:
+		return m.OldFileCount(ctx)
 	case skillversion.FieldCreatedBy:
 		return m.OldCreatedBy(ctx)
 	case skillversion.FieldCreatedAt:
@@ -23286,6 +24190,34 @@ func (m *SkillVersionMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetContentHash(v)
 		return nil
+	case skillversion.FieldBundleHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBundleHash(v)
+		return nil
+	case skillversion.FieldManifestJSON:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetManifestJSON(v)
+		return nil
+	case skillversion.FieldSizeBytes:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSizeBytes(v)
+		return nil
+	case skillversion.FieldFileCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFileCount(v)
+		return nil
 	case skillversion.FieldCreatedBy:
 		v, ok := value.(string)
 		if !ok {
@@ -23311,6 +24243,12 @@ func (m *SkillVersionMutation) AddedFields() []string {
 	if m.addversion != nil {
 		fields = append(fields, skillversion.FieldVersion)
 	}
+	if m.addsize_bytes != nil {
+		fields = append(fields, skillversion.FieldSizeBytes)
+	}
+	if m.addfile_count != nil {
+		fields = append(fields, skillversion.FieldFileCount)
+	}
 	return fields
 }
 
@@ -23321,6 +24259,10 @@ func (m *SkillVersionMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case skillversion.FieldVersion:
 		return m.AddedVersion()
+	case skillversion.FieldSizeBytes:
+		return m.AddedSizeBytes()
+	case skillversion.FieldFileCount:
+		return m.AddedFileCount()
 	}
 	return nil, false
 }
@@ -23337,6 +24279,20 @@ func (m *SkillVersionMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddVersion(v)
 		return nil
+	case skillversion.FieldSizeBytes:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSizeBytes(v)
+		return nil
+	case skillversion.FieldFileCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddFileCount(v)
+		return nil
 	}
 	return fmt.Errorf("unknown SkillVersion numeric field %s", name)
 }
@@ -23344,7 +24300,11 @@ func (m *SkillVersionMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *SkillVersionMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(skillversion.FieldBundleHash) {
+		fields = append(fields, skillversion.FieldBundleHash)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -23357,6 +24317,11 @@ func (m *SkillVersionMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *SkillVersionMutation) ClearField(name string) error {
+	switch name {
+	case skillversion.FieldBundleHash:
+		m.ClearBundleHash()
+		return nil
+	}
 	return fmt.Errorf("unknown SkillVersion nullable field %s", name)
 }
 
@@ -23376,6 +24341,18 @@ func (m *SkillVersionMutation) ResetField(name string) error {
 	case skillversion.FieldContentHash:
 		m.ResetContentHash()
 		return nil
+	case skillversion.FieldBundleHash:
+		m.ResetBundleHash()
+		return nil
+	case skillversion.FieldManifestJSON:
+		m.ResetManifestJSON()
+		return nil
+	case skillversion.FieldSizeBytes:
+		m.ResetSizeBytes()
+		return nil
+	case skillversion.FieldFileCount:
+		m.ResetFileCount()
+		return nil
 	case skillversion.FieldCreatedBy:
 		m.ResetCreatedBy()
 		return nil
@@ -23388,9 +24365,12 @@ func (m *SkillVersionMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *SkillVersionMutation) AddedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.skill != nil {
 		edges = append(edges, skillversion.EdgeSkill)
+	}
+	if m.files != nil {
+		edges = append(edges, skillversion.EdgeFiles)
 	}
 	if m.required_by_bindings != nil {
 		edges = append(edges, skillversion.EdgeRequiredByBindings)
@@ -23406,6 +24386,12 @@ func (m *SkillVersionMutation) AddedIDs(name string) []ent.Value {
 		if id := m.skill; id != nil {
 			return []ent.Value{*id}
 		}
+	case skillversion.EdgeFiles:
+		ids := make([]ent.Value, 0, len(m.files))
+		for id := range m.files {
+			ids = append(ids, id)
+		}
+		return ids
 	case skillversion.EdgeRequiredByBindings:
 		ids := make([]ent.Value, 0, len(m.required_by_bindings))
 		for id := range m.required_by_bindings {
@@ -23418,7 +24404,10 @@ func (m *SkillVersionMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *SkillVersionMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
+	if m.removedfiles != nil {
+		edges = append(edges, skillversion.EdgeFiles)
+	}
 	if m.removedrequired_by_bindings != nil {
 		edges = append(edges, skillversion.EdgeRequiredByBindings)
 	}
@@ -23429,6 +24418,12 @@ func (m *SkillVersionMutation) RemovedEdges() []string {
 // the given name in this mutation.
 func (m *SkillVersionMutation) RemovedIDs(name string) []ent.Value {
 	switch name {
+	case skillversion.EdgeFiles:
+		ids := make([]ent.Value, 0, len(m.removedfiles))
+		for id := range m.removedfiles {
+			ids = append(ids, id)
+		}
+		return ids
 	case skillversion.EdgeRequiredByBindings:
 		ids := make([]ent.Value, 0, len(m.removedrequired_by_bindings))
 		for id := range m.removedrequired_by_bindings {
@@ -23441,9 +24436,12 @@ func (m *SkillVersionMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *SkillVersionMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.clearedskill {
 		edges = append(edges, skillversion.EdgeSkill)
+	}
+	if m.clearedfiles {
+		edges = append(edges, skillversion.EdgeFiles)
 	}
 	if m.clearedrequired_by_bindings {
 		edges = append(edges, skillversion.EdgeRequiredByBindings)
@@ -23457,6 +24455,8 @@ func (m *SkillVersionMutation) EdgeCleared(name string) bool {
 	switch name {
 	case skillversion.EdgeSkill:
 		return m.clearedskill
+	case skillversion.EdgeFiles:
+		return m.clearedfiles
 	case skillversion.EdgeRequiredByBindings:
 		return m.clearedrequired_by_bindings
 	}
@@ -23481,11 +24481,968 @@ func (m *SkillVersionMutation) ResetEdge(name string) error {
 	case skillversion.EdgeSkill:
 		m.ResetSkill()
 		return nil
+	case skillversion.EdgeFiles:
+		m.ResetFiles()
+		return nil
 	case skillversion.EdgeRequiredByBindings:
 		m.ResetRequiredByBindings()
 		return nil
 	}
 	return fmt.Errorf("unknown SkillVersion edge %s", name)
+}
+
+// SkillVersionFileMutation represents an operation that mutates the SkillVersionFile nodes in the graph.
+type SkillVersionFileMutation struct {
+	config
+	op                   Op
+	typ                  string
+	id                   *uuid.UUID
+	_path                *string
+	file_kind            *skillversionfile.FileKind
+	media_type           *string
+	encoding             *skillversionfile.Encoding
+	is_executable        *bool
+	size_bytes           *int64
+	addsize_bytes        *int64
+	sha256               *string
+	created_at           *time.Time
+	clearedFields        map[string]struct{}
+	skill_version        *uuid.UUID
+	clearedskill_version bool
+	content_blob         *uuid.UUID
+	clearedcontent_blob  bool
+	done                 bool
+	oldValue             func(context.Context) (*SkillVersionFile, error)
+	predicates           []predicate.SkillVersionFile
+}
+
+var _ ent.Mutation = (*SkillVersionFileMutation)(nil)
+
+// skillversionfileOption allows management of the mutation configuration using functional options.
+type skillversionfileOption func(*SkillVersionFileMutation)
+
+// newSkillVersionFileMutation creates new mutation for the SkillVersionFile entity.
+func newSkillVersionFileMutation(c config, op Op, opts ...skillversionfileOption) *SkillVersionFileMutation {
+	m := &SkillVersionFileMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeSkillVersionFile,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withSkillVersionFileID sets the ID field of the mutation.
+func withSkillVersionFileID(id uuid.UUID) skillversionfileOption {
+	return func(m *SkillVersionFileMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *SkillVersionFile
+		)
+		m.oldValue = func(ctx context.Context) (*SkillVersionFile, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().SkillVersionFile.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSkillVersionFile sets the old SkillVersionFile of the mutation.
+func withSkillVersionFile(node *SkillVersionFile) skillversionfileOption {
+	return func(m *SkillVersionFileMutation) {
+		m.oldValue = func(context.Context) (*SkillVersionFile, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m SkillVersionFileMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m SkillVersionFileMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of SkillVersionFile entities.
+func (m *SkillVersionFileMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *SkillVersionFileMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *SkillVersionFileMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().SkillVersionFile.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSkillVersionID sets the "skill_version_id" field.
+func (m *SkillVersionFileMutation) SetSkillVersionID(u uuid.UUID) {
+	m.skill_version = &u
+}
+
+// SkillVersionID returns the value of the "skill_version_id" field in the mutation.
+func (m *SkillVersionFileMutation) SkillVersionID() (r uuid.UUID, exists bool) {
+	v := m.skill_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSkillVersionID returns the old "skill_version_id" field's value of the SkillVersionFile entity.
+// If the SkillVersionFile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillVersionFileMutation) OldSkillVersionID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSkillVersionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSkillVersionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSkillVersionID: %w", err)
+	}
+	return oldValue.SkillVersionID, nil
+}
+
+// ResetSkillVersionID resets all changes to the "skill_version_id" field.
+func (m *SkillVersionFileMutation) ResetSkillVersionID() {
+	m.skill_version = nil
+}
+
+// SetContentBlobID sets the "content_blob_id" field.
+func (m *SkillVersionFileMutation) SetContentBlobID(u uuid.UUID) {
+	m.content_blob = &u
+}
+
+// ContentBlobID returns the value of the "content_blob_id" field in the mutation.
+func (m *SkillVersionFileMutation) ContentBlobID() (r uuid.UUID, exists bool) {
+	v := m.content_blob
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContentBlobID returns the old "content_blob_id" field's value of the SkillVersionFile entity.
+// If the SkillVersionFile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillVersionFileMutation) OldContentBlobID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContentBlobID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContentBlobID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContentBlobID: %w", err)
+	}
+	return oldValue.ContentBlobID, nil
+}
+
+// ResetContentBlobID resets all changes to the "content_blob_id" field.
+func (m *SkillVersionFileMutation) ResetContentBlobID() {
+	m.content_blob = nil
+}
+
+// SetPath sets the "path" field.
+func (m *SkillVersionFileMutation) SetPath(s string) {
+	m._path = &s
+}
+
+// Path returns the value of the "path" field in the mutation.
+func (m *SkillVersionFileMutation) Path() (r string, exists bool) {
+	v := m._path
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPath returns the old "path" field's value of the SkillVersionFile entity.
+// If the SkillVersionFile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillVersionFileMutation) OldPath(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPath is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPath requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPath: %w", err)
+	}
+	return oldValue.Path, nil
+}
+
+// ResetPath resets all changes to the "path" field.
+func (m *SkillVersionFileMutation) ResetPath() {
+	m._path = nil
+}
+
+// SetFileKind sets the "file_kind" field.
+func (m *SkillVersionFileMutation) SetFileKind(sk skillversionfile.FileKind) {
+	m.file_kind = &sk
+}
+
+// FileKind returns the value of the "file_kind" field in the mutation.
+func (m *SkillVersionFileMutation) FileKind() (r skillversionfile.FileKind, exists bool) {
+	v := m.file_kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFileKind returns the old "file_kind" field's value of the SkillVersionFile entity.
+// If the SkillVersionFile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillVersionFileMutation) OldFileKind(ctx context.Context) (v skillversionfile.FileKind, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFileKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFileKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFileKind: %w", err)
+	}
+	return oldValue.FileKind, nil
+}
+
+// ResetFileKind resets all changes to the "file_kind" field.
+func (m *SkillVersionFileMutation) ResetFileKind() {
+	m.file_kind = nil
+}
+
+// SetMediaType sets the "media_type" field.
+func (m *SkillVersionFileMutation) SetMediaType(s string) {
+	m.media_type = &s
+}
+
+// MediaType returns the value of the "media_type" field in the mutation.
+func (m *SkillVersionFileMutation) MediaType() (r string, exists bool) {
+	v := m.media_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMediaType returns the old "media_type" field's value of the SkillVersionFile entity.
+// If the SkillVersionFile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillVersionFileMutation) OldMediaType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMediaType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMediaType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMediaType: %w", err)
+	}
+	return oldValue.MediaType, nil
+}
+
+// ResetMediaType resets all changes to the "media_type" field.
+func (m *SkillVersionFileMutation) ResetMediaType() {
+	m.media_type = nil
+}
+
+// SetEncoding sets the "encoding" field.
+func (m *SkillVersionFileMutation) SetEncoding(s skillversionfile.Encoding) {
+	m.encoding = &s
+}
+
+// Encoding returns the value of the "encoding" field in the mutation.
+func (m *SkillVersionFileMutation) Encoding() (r skillversionfile.Encoding, exists bool) {
+	v := m.encoding
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEncoding returns the old "encoding" field's value of the SkillVersionFile entity.
+// If the SkillVersionFile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillVersionFileMutation) OldEncoding(ctx context.Context) (v skillversionfile.Encoding, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEncoding is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEncoding requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEncoding: %w", err)
+	}
+	return oldValue.Encoding, nil
+}
+
+// ResetEncoding resets all changes to the "encoding" field.
+func (m *SkillVersionFileMutation) ResetEncoding() {
+	m.encoding = nil
+}
+
+// SetIsExecutable sets the "is_executable" field.
+func (m *SkillVersionFileMutation) SetIsExecutable(b bool) {
+	m.is_executable = &b
+}
+
+// IsExecutable returns the value of the "is_executable" field in the mutation.
+func (m *SkillVersionFileMutation) IsExecutable() (r bool, exists bool) {
+	v := m.is_executable
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsExecutable returns the old "is_executable" field's value of the SkillVersionFile entity.
+// If the SkillVersionFile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillVersionFileMutation) OldIsExecutable(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsExecutable is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsExecutable requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsExecutable: %w", err)
+	}
+	return oldValue.IsExecutable, nil
+}
+
+// ResetIsExecutable resets all changes to the "is_executable" field.
+func (m *SkillVersionFileMutation) ResetIsExecutable() {
+	m.is_executable = nil
+}
+
+// SetSizeBytes sets the "size_bytes" field.
+func (m *SkillVersionFileMutation) SetSizeBytes(i int64) {
+	m.size_bytes = &i
+	m.addsize_bytes = nil
+}
+
+// SizeBytes returns the value of the "size_bytes" field in the mutation.
+func (m *SkillVersionFileMutation) SizeBytes() (r int64, exists bool) {
+	v := m.size_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSizeBytes returns the old "size_bytes" field's value of the SkillVersionFile entity.
+// If the SkillVersionFile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillVersionFileMutation) OldSizeBytes(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSizeBytes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSizeBytes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSizeBytes: %w", err)
+	}
+	return oldValue.SizeBytes, nil
+}
+
+// AddSizeBytes adds i to the "size_bytes" field.
+func (m *SkillVersionFileMutation) AddSizeBytes(i int64) {
+	if m.addsize_bytes != nil {
+		*m.addsize_bytes += i
+	} else {
+		m.addsize_bytes = &i
+	}
+}
+
+// AddedSizeBytes returns the value that was added to the "size_bytes" field in this mutation.
+func (m *SkillVersionFileMutation) AddedSizeBytes() (r int64, exists bool) {
+	v := m.addsize_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSizeBytes resets all changes to the "size_bytes" field.
+func (m *SkillVersionFileMutation) ResetSizeBytes() {
+	m.size_bytes = nil
+	m.addsize_bytes = nil
+}
+
+// SetSha256 sets the "sha256" field.
+func (m *SkillVersionFileMutation) SetSha256(s string) {
+	m.sha256 = &s
+}
+
+// Sha256 returns the value of the "sha256" field in the mutation.
+func (m *SkillVersionFileMutation) Sha256() (r string, exists bool) {
+	v := m.sha256
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSha256 returns the old "sha256" field's value of the SkillVersionFile entity.
+// If the SkillVersionFile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillVersionFileMutation) OldSha256(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSha256 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSha256 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSha256: %w", err)
+	}
+	return oldValue.Sha256, nil
+}
+
+// ResetSha256 resets all changes to the "sha256" field.
+func (m *SkillVersionFileMutation) ResetSha256() {
+	m.sha256 = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *SkillVersionFileMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *SkillVersionFileMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the SkillVersionFile entity.
+// If the SkillVersionFile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SkillVersionFileMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *SkillVersionFileMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearSkillVersion clears the "skill_version" edge to the SkillVersion entity.
+func (m *SkillVersionFileMutation) ClearSkillVersion() {
+	m.clearedskill_version = true
+	m.clearedFields[skillversionfile.FieldSkillVersionID] = struct{}{}
+}
+
+// SkillVersionCleared reports if the "skill_version" edge to the SkillVersion entity was cleared.
+func (m *SkillVersionFileMutation) SkillVersionCleared() bool {
+	return m.clearedskill_version
+}
+
+// SkillVersionIDs returns the "skill_version" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SkillVersionID instead. It exists only for internal usage by the builders.
+func (m *SkillVersionFileMutation) SkillVersionIDs() (ids []uuid.UUID) {
+	if id := m.skill_version; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSkillVersion resets all changes to the "skill_version" edge.
+func (m *SkillVersionFileMutation) ResetSkillVersion() {
+	m.skill_version = nil
+	m.clearedskill_version = false
+}
+
+// ClearContentBlob clears the "content_blob" edge to the SkillBlob entity.
+func (m *SkillVersionFileMutation) ClearContentBlob() {
+	m.clearedcontent_blob = true
+	m.clearedFields[skillversionfile.FieldContentBlobID] = struct{}{}
+}
+
+// ContentBlobCleared reports if the "content_blob" edge to the SkillBlob entity was cleared.
+func (m *SkillVersionFileMutation) ContentBlobCleared() bool {
+	return m.clearedcontent_blob
+}
+
+// ContentBlobIDs returns the "content_blob" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ContentBlobID instead. It exists only for internal usage by the builders.
+func (m *SkillVersionFileMutation) ContentBlobIDs() (ids []uuid.UUID) {
+	if id := m.content_blob; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetContentBlob resets all changes to the "content_blob" edge.
+func (m *SkillVersionFileMutation) ResetContentBlob() {
+	m.content_blob = nil
+	m.clearedcontent_blob = false
+}
+
+// Where appends a list predicates to the SkillVersionFileMutation builder.
+func (m *SkillVersionFileMutation) Where(ps ...predicate.SkillVersionFile) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the SkillVersionFileMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *SkillVersionFileMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.SkillVersionFile, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *SkillVersionFileMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *SkillVersionFileMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (SkillVersionFile).
+func (m *SkillVersionFileMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *SkillVersionFileMutation) Fields() []string {
+	fields := make([]string, 0, 10)
+	if m.skill_version != nil {
+		fields = append(fields, skillversionfile.FieldSkillVersionID)
+	}
+	if m.content_blob != nil {
+		fields = append(fields, skillversionfile.FieldContentBlobID)
+	}
+	if m._path != nil {
+		fields = append(fields, skillversionfile.FieldPath)
+	}
+	if m.file_kind != nil {
+		fields = append(fields, skillversionfile.FieldFileKind)
+	}
+	if m.media_type != nil {
+		fields = append(fields, skillversionfile.FieldMediaType)
+	}
+	if m.encoding != nil {
+		fields = append(fields, skillversionfile.FieldEncoding)
+	}
+	if m.is_executable != nil {
+		fields = append(fields, skillversionfile.FieldIsExecutable)
+	}
+	if m.size_bytes != nil {
+		fields = append(fields, skillversionfile.FieldSizeBytes)
+	}
+	if m.sha256 != nil {
+		fields = append(fields, skillversionfile.FieldSha256)
+	}
+	if m.created_at != nil {
+		fields = append(fields, skillversionfile.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *SkillVersionFileMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case skillversionfile.FieldSkillVersionID:
+		return m.SkillVersionID()
+	case skillversionfile.FieldContentBlobID:
+		return m.ContentBlobID()
+	case skillversionfile.FieldPath:
+		return m.Path()
+	case skillversionfile.FieldFileKind:
+		return m.FileKind()
+	case skillversionfile.FieldMediaType:
+		return m.MediaType()
+	case skillversionfile.FieldEncoding:
+		return m.Encoding()
+	case skillversionfile.FieldIsExecutable:
+		return m.IsExecutable()
+	case skillversionfile.FieldSizeBytes:
+		return m.SizeBytes()
+	case skillversionfile.FieldSha256:
+		return m.Sha256()
+	case skillversionfile.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *SkillVersionFileMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case skillversionfile.FieldSkillVersionID:
+		return m.OldSkillVersionID(ctx)
+	case skillversionfile.FieldContentBlobID:
+		return m.OldContentBlobID(ctx)
+	case skillversionfile.FieldPath:
+		return m.OldPath(ctx)
+	case skillversionfile.FieldFileKind:
+		return m.OldFileKind(ctx)
+	case skillversionfile.FieldMediaType:
+		return m.OldMediaType(ctx)
+	case skillversionfile.FieldEncoding:
+		return m.OldEncoding(ctx)
+	case skillversionfile.FieldIsExecutable:
+		return m.OldIsExecutable(ctx)
+	case skillversionfile.FieldSizeBytes:
+		return m.OldSizeBytes(ctx)
+	case skillversionfile.FieldSha256:
+		return m.OldSha256(ctx)
+	case skillversionfile.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown SkillVersionFile field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SkillVersionFileMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case skillversionfile.FieldSkillVersionID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSkillVersionID(v)
+		return nil
+	case skillversionfile.FieldContentBlobID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContentBlobID(v)
+		return nil
+	case skillversionfile.FieldPath:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPath(v)
+		return nil
+	case skillversionfile.FieldFileKind:
+		v, ok := value.(skillversionfile.FileKind)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFileKind(v)
+		return nil
+	case skillversionfile.FieldMediaType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMediaType(v)
+		return nil
+	case skillversionfile.FieldEncoding:
+		v, ok := value.(skillversionfile.Encoding)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEncoding(v)
+		return nil
+	case skillversionfile.FieldIsExecutable:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsExecutable(v)
+		return nil
+	case skillversionfile.FieldSizeBytes:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSizeBytes(v)
+		return nil
+	case skillversionfile.FieldSha256:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSha256(v)
+		return nil
+	case skillversionfile.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SkillVersionFile field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *SkillVersionFileMutation) AddedFields() []string {
+	var fields []string
+	if m.addsize_bytes != nil {
+		fields = append(fields, skillversionfile.FieldSizeBytes)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *SkillVersionFileMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case skillversionfile.FieldSizeBytes:
+		return m.AddedSizeBytes()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SkillVersionFileMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case skillversionfile.FieldSizeBytes:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSizeBytes(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SkillVersionFile numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *SkillVersionFileMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *SkillVersionFileMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *SkillVersionFileMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown SkillVersionFile nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *SkillVersionFileMutation) ResetField(name string) error {
+	switch name {
+	case skillversionfile.FieldSkillVersionID:
+		m.ResetSkillVersionID()
+		return nil
+	case skillversionfile.FieldContentBlobID:
+		m.ResetContentBlobID()
+		return nil
+	case skillversionfile.FieldPath:
+		m.ResetPath()
+		return nil
+	case skillversionfile.FieldFileKind:
+		m.ResetFileKind()
+		return nil
+	case skillversionfile.FieldMediaType:
+		m.ResetMediaType()
+		return nil
+	case skillversionfile.FieldEncoding:
+		m.ResetEncoding()
+		return nil
+	case skillversionfile.FieldIsExecutable:
+		m.ResetIsExecutable()
+		return nil
+	case skillversionfile.FieldSizeBytes:
+		m.ResetSizeBytes()
+		return nil
+	case skillversionfile.FieldSha256:
+		m.ResetSha256()
+		return nil
+	case skillversionfile.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown SkillVersionFile field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *SkillVersionFileMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.skill_version != nil {
+		edges = append(edges, skillversionfile.EdgeSkillVersion)
+	}
+	if m.content_blob != nil {
+		edges = append(edges, skillversionfile.EdgeContentBlob)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *SkillVersionFileMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case skillversionfile.EdgeSkillVersion:
+		if id := m.skill_version; id != nil {
+			return []ent.Value{*id}
+		}
+	case skillversionfile.EdgeContentBlob:
+		if id := m.content_blob; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *SkillVersionFileMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *SkillVersionFileMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *SkillVersionFileMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedskill_version {
+		edges = append(edges, skillversionfile.EdgeSkillVersion)
+	}
+	if m.clearedcontent_blob {
+		edges = append(edges, skillversionfile.EdgeContentBlob)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *SkillVersionFileMutation) EdgeCleared(name string) bool {
+	switch name {
+	case skillversionfile.EdgeSkillVersion:
+		return m.clearedskill_version
+	case skillversionfile.EdgeContentBlob:
+		return m.clearedcontent_blob
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *SkillVersionFileMutation) ClearEdge(name string) error {
+	switch name {
+	case skillversionfile.EdgeSkillVersion:
+		m.ClearSkillVersion()
+		return nil
+	case skillversionfile.EdgeContentBlob:
+		m.ClearContentBlob()
+		return nil
+	}
+	return fmt.Errorf("unknown SkillVersionFile unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *SkillVersionFileMutation) ResetEdge(name string) error {
+	switch name {
+	case skillversionfile.EdgeSkillVersion:
+		m.ResetSkillVersion()
+		return nil
+	case skillversionfile.EdgeContentBlob:
+		m.ResetContentBlob()
+		return nil
+	}
+	return fmt.Errorf("unknown SkillVersionFile edge %s", name)
 }
 
 // TicketMutation represents an operation that mutates the Ticket nodes in the graph.
@@ -32227,6 +34184,7 @@ type TicketStatusMutation struct {
 	typ                     string
 	id                      *uuid.UUID
 	name                    *string
+	stage                   *ticketstatus.Stage
 	color                   *string
 	icon                    *string
 	position                *int
@@ -32426,6 +34384,42 @@ func (m *TicketStatusMutation) OldName(ctx context.Context) (v string, err error
 // ResetName resets all changes to the "name" field.
 func (m *TicketStatusMutation) ResetName() {
 	m.name = nil
+}
+
+// SetStage sets the "stage" field.
+func (m *TicketStatusMutation) SetStage(t ticketstatus.Stage) {
+	m.stage = &t
+}
+
+// Stage returns the value of the "stage" field in the mutation.
+func (m *TicketStatusMutation) Stage() (r ticketstatus.Stage, exists bool) {
+	v := m.stage
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStage returns the old "stage" field's value of the TicketStatus entity.
+// If the TicketStatus object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketStatusMutation) OldStage(ctx context.Context) (v ticketstatus.Stage, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStage: %w", err)
+	}
+	return oldValue.Stage, nil
+}
+
+// ResetStage resets all changes to the "stage" field.
+func (m *TicketStatusMutation) ResetStage() {
+	m.stage = nil
 }
 
 // SetColor sets the "color" field.
@@ -32947,12 +34941,15 @@ func (m *TicketStatusMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TicketStatusMutation) Fields() []string {
-	fields := make([]string, 0, 8)
+	fields := make([]string, 0, 9)
 	if m.project != nil {
 		fields = append(fields, ticketstatus.FieldProjectID)
 	}
 	if m.name != nil {
 		fields = append(fields, ticketstatus.FieldName)
+	}
+	if m.stage != nil {
+		fields = append(fields, ticketstatus.FieldStage)
 	}
 	if m.color != nil {
 		fields = append(fields, ticketstatus.FieldColor)
@@ -32984,6 +34981,8 @@ func (m *TicketStatusMutation) Field(name string) (ent.Value, bool) {
 		return m.ProjectID()
 	case ticketstatus.FieldName:
 		return m.Name()
+	case ticketstatus.FieldStage:
+		return m.Stage()
 	case ticketstatus.FieldColor:
 		return m.Color()
 	case ticketstatus.FieldIcon:
@@ -33009,6 +35008,8 @@ func (m *TicketStatusMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldProjectID(ctx)
 	case ticketstatus.FieldName:
 		return m.OldName(ctx)
+	case ticketstatus.FieldStage:
+		return m.OldStage(ctx)
 	case ticketstatus.FieldColor:
 		return m.OldColor(ctx)
 	case ticketstatus.FieldIcon:
@@ -33043,6 +35044,13 @@ func (m *TicketStatusMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetName(v)
+		return nil
+	case ticketstatus.FieldStage:
+		v, ok := value.(ticketstatus.Stage)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStage(v)
 		return nil
 	case ticketstatus.FieldColor:
 		v, ok := value.(string)
@@ -33188,6 +35196,9 @@ func (m *TicketStatusMutation) ResetField(name string) error {
 		return nil
 	case ticketstatus.FieldName:
 		m.ResetName()
+		return nil
+	case ticketstatus.FieldStage:
+		m.ResetStage()
 		return nil
 	case ticketstatus.FieldColor:
 		m.ResetColor()

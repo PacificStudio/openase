@@ -23,6 +23,8 @@ const (
 	FieldName = "name"
 	// FieldAdapterType holds the string denoting the adapter_type field in the database.
 	FieldAdapterType = "adapter_type"
+	// FieldPermissionProfile holds the string denoting the permission_profile field in the database.
+	FieldPermissionProfile = "permission_profile"
 	// FieldCliCommand holds the string denoting the cli_command field in the database.
 	FieldCliCommand = "cli_command"
 	// FieldCliArgs holds the string denoting the cli_args field in the database.
@@ -88,6 +90,7 @@ var Columns = []string{
 	FieldMachineID,
 	FieldName,
 	FieldAdapterType,
+	FieldPermissionProfile,
 	FieldCliCommand,
 	FieldCliArgs,
 	FieldAuthConfig,
@@ -157,6 +160,32 @@ func AdapterTypeValidator(at AdapterType) error {
 	}
 }
 
+// PermissionProfile defines the type for the "permission_profile" enum field.
+type PermissionProfile string
+
+// PermissionProfileUnrestricted is the default value of the PermissionProfile enum.
+const DefaultPermissionProfile = PermissionProfileUnrestricted
+
+// PermissionProfile values.
+const (
+	PermissionProfileStandard     PermissionProfile = "standard"
+	PermissionProfileUnrestricted PermissionProfile = "unrestricted"
+)
+
+func (pp PermissionProfile) String() string {
+	return string(pp)
+}
+
+// PermissionProfileValidator is a validator for the "permission_profile" field enum values. It is called by the builders before save.
+func PermissionProfileValidator(pp PermissionProfile) error {
+	switch pp {
+	case PermissionProfileStandard, PermissionProfileUnrestricted:
+		return nil
+	default:
+		return fmt.Errorf("agentprovider: invalid enum value for permission_profile field: %q", pp)
+	}
+}
+
 // OrderOption defines the ordering options for the AgentProvider queries.
 type OrderOption func(*sql.Selector)
 
@@ -183,6 +212,11 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // ByAdapterType orders the results by the adapter_type field.
 func ByAdapterType(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAdapterType, opts...).ToFunc()
+}
+
+// ByPermissionProfile orders the results by the permission_profile field.
+func ByPermissionProfile(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPermissionProfile, opts...).ToFunc()
 }
 
 // ByCliCommand orders the results by the cli_command field.

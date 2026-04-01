@@ -24,7 +24,6 @@ function createProvisionalProject(orgId: string, id: string, previous: Project |
     slug: previous?.slug ?? id,
     description: previous?.description ?? '',
     status: previous?.status ?? 'active',
-    default_workflow_id: previous?.default_workflow_id ?? '',
     default_agent_provider_id: previous?.default_agent_provider_id ?? '',
     max_concurrent_agents: previous?.max_concurrent_agents ?? 0,
     accessible_machine_ids: previous?.accessible_machine_ids ?? [],

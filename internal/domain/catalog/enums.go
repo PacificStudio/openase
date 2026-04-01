@@ -197,6 +197,27 @@ func (s AgentProviderAdapterType) IsValid() bool {
 	}
 }
 
+type AgentProviderPermissionProfile string
+
+const (
+	DefaultAgentProviderPermissionProfile      = AgentProviderPermissionProfileUnrestricted
+	AgentProviderPermissionProfileStandard     = "standard"
+	AgentProviderPermissionProfileUnrestricted = "unrestricted"
+)
+
+func (s AgentProviderPermissionProfile) String() string {
+	return string(s)
+}
+
+func (s AgentProviderPermissionProfile) IsValid() bool {
+	switch s {
+	case AgentProviderPermissionProfileStandard, AgentProviderPermissionProfileUnrestricted:
+		return true
+	default:
+		return false
+	}
+}
+
 type AgentStatus string
 
 const (

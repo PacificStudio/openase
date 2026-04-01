@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
+import { cleanup, fireEvent, render } from '@testing-library/svelte'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 const {
@@ -83,6 +83,7 @@ const providerFixtures: AgentProvider[] = [
     machine_workspace_root: '/workspace',
     name: 'Codex',
     adapter_type: 'codex-app-server',
+    permission_profile: 'unrestricted',
     availability_state: 'available',
     available: true,
     availability_checked_at: '2026-03-28T12:00:00Z',
@@ -103,7 +104,44 @@ const providerFixtures: AgentProvider[] = [
     cost_per_input_token: 0,
     cost_per_output_token: 0,
   },
+  {
+    id: 'provider-2',
+    organization_id: 'org-1',
+    machine_id: 'machine-1',
+    machine_name: 'Localhost',
+    machine_host: '127.0.0.1',
+    machine_status: 'online',
+    machine_ssh_user: null,
+    machine_workspace_root: '/workspace',
+    name: 'Claude',
+    adapter_type: 'claude-code',
+    permission_profile: 'unrestricted',
+    availability_state: 'available',
+    available: true,
+    availability_checked_at: '2026-03-28T12:00:00Z',
+    availability_reason: null,
+    capabilities: {
+      ephemeral_chat: {
+        state: 'available',
+        reason: null,
+      },
+    },
+    cli_command: 'claude',
+    cli_args: [],
+    auth_config: {},
+    model_name: 'claude-sonnet-4',
+    model_temperature: 0,
+    model_max_tokens: 4096,
+    max_parallel_runs: 2,
+    cost_per_input_token: 0,
+    cost_per_output_token: 0,
+  },
 ]
+
+async function sendMessage(prompt: HTMLElement, message: string) {
+  await fireEvent.input(prompt, { target: { value: message } })
+  await fireEvent.keyDown(prompt, { key: 'Enter' })
+}
 
 describe('EphemeralChatPanel', () => {
   beforeAll(() => {
@@ -122,78 +160,107 @@ describe('EphemeralChatPanel', () => {
     vi.clearAllMocks()
   })
 
-  it('renders, confirms, and executes an action proposal through the existing API client', async () => {
-    streamChatTurn.mockImplementation(async (_request, handlers) => {
-      handlers.onEvent({
-        kind: 'message',
-        payload: {
-          type: 'action_proposal',
-          summary: 'Create 1 child ticket',
-          actions: [
-            {
-              method: 'POST',
-              path: '/api/v1/projects/project-1/tickets',
-              body: {
-                title: 'Implement child ticket',
-                priority: 'high',
-              },
-            },
-          ],
-        },
-      })
-      handlers.onEvent({
-        kind: 'done',
-        payload: {
-          sessionId: 'session-1',
-          turnsUsed: 1,
-          turnsRemaining: 9,
-        },
-      })
+  it('completes a two-turn ticket_detail conversation with session reuse', async () => {
+    let turnCount = 0
+
+    streamChatTurn.mockImplementation(async (request, handlers) => {
+      turnCount += 1
+
+      if (turnCount === 1) {
+        handlers.onEvent({
+          kind: 'session',
+          payload: { sessionId: 'session-ticket-1' },
+        })
+        handlers.onEvent({
+          kind: 'message',
+          payload: {
+            type: 'text',
+            content: 'This ticket failed because the test assertion timed out after 30 seconds.',
+          },
+        })
+        handlers.onEvent({
+          kind: 'done',
+          payload: {
+            sessionId: 'session-ticket-1',
+            turnsUsed: 1,
+            turnsRemaining: 9,
+          },
+        })
+      } else {
+        expect(request.sessionId).toBe('session-ticket-1')
+
+        handlers.onEvent({
+          kind: 'session',
+          payload: { sessionId: 'session-ticket-1' },
+        })
+        handlers.onEvent({
+          kind: 'message',
+          payload: {
+            type: 'text',
+            content:
+              'You should increase the timeout to 60 seconds and add a retry with exponential backoff.',
+          },
+        })
+        handlers.onEvent({
+          kind: 'done',
+          payload: {
+            sessionId: 'session-ticket-1',
+            turnsUsed: 2,
+            turnsRemaining: 8,
+          },
+        })
+      }
     })
-    createTicket.mockResolvedValue({
-      ticket: {
-        id: 'ticket-1',
+
+    const { getByPlaceholderText, findByText } = render(EphemeralChatPanel, {
+      props: {
+        source: 'ticket_detail',
+        context: { projectId: 'project-1', ticketId: 'ticket-1' },
+        providers: providerFixtures,
+        defaultProviderId: 'provider-1',
+        title: 'Ticket AI',
+        placeholder: 'Ask about failures…',
       },
     })
 
-    const { getByPlaceholderText, getByRole, findByText } = render(EphemeralChatPanel, {
-      props: {
-        source: 'project_sidebar',
-        context: { projectId: 'project-1' },
-        providers: providerFixtures,
-        defaultProviderId: 'provider-1',
-      },
+    const prompt = getByPlaceholderText('Ask about failures…')
+
+    // Turn 1
+    await sendMessage(prompt, 'Why did this ticket fail?')
+
+    expect(
+      await findByText('This ticket failed because the test assertion timed out after 30 seconds.'),
+    ).toBeTruthy()
+
+    expect(streamChatTurn).toHaveBeenCalledTimes(1)
+    expect(streamChatTurn.mock.calls[0][0]).toMatchObject({
+      message: 'Why did this ticket fail?',
+      source: 'ticket_detail',
+      providerId: 'provider-1',
+      sessionId: undefined,
+      context: { projectId: 'project-1', ticketId: 'ticket-1' },
     })
+
+    // Turn 2 — follow-up should reuse the session
+    await sendMessage(prompt, 'How should I fix it?')
 
     expect(
       await findByText(
-        'The first reply starts a grouped project conversation. Assistant markdown streams into a single reply block per turn.',
+        'You should increase the timeout to 60 seconds and add a retry with exponential backoff.',
       ),
     ).toBeTruthy()
 
-    const prompt = getByPlaceholderText('Ask a question about this project.')
-    await fireEvent.input(prompt, { target: { value: 'Split this work into a child ticket.' } })
-    await fireEvent.click(getByRole('button', { name: 'Send' }))
-
-    await findByText('Create 1 child ticket')
-    await fireEvent.click(getByRole('button', { name: 'Confirm' }))
-
-    await waitFor(() => {
-      expect(createTicket).toHaveBeenCalledWith('project-1', {
-        title: 'Implement child ticket',
-        priority: 'high',
-        description: undefined,
-        status_id: undefined,
-        type: undefined,
-        workflow_id: undefined,
-        created_by: undefined,
-        parent_ticket_id: undefined,
-        external_ref: undefined,
-        budget_usd: undefined,
-      })
+    expect(streamChatTurn).toHaveBeenCalledTimes(2)
+    expect(streamChatTurn.mock.calls[1][0]).toMatchObject({
+      message: 'How should I fix it?',
+      source: 'ticket_detail',
+      providerId: 'provider-1',
+      sessionId: 'session-ticket-1',
+      context: { projectId: 'project-1', ticketId: 'ticket-1' },
     })
 
-    expect(await findByText('POST /api/v1/projects/project-1/tickets succeeded.')).toBeTruthy()
-    expect(await findByText('Executed 1 proposed platform action.')).toBeTruthy()
+    // Both user messages visible in transcript
+    expect(await findByText('Why did this ticket fail?')).toBeTruthy()
+    expect(await findByText('How should I fix it?')).toBeTruthy()
   })
 })

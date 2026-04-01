@@ -153,6 +153,7 @@
       variant="ghost"
       size="sm"
       class="size-7 p-0"
+      aria-label="Reset conversation"
       onclick={() => void resetConversation()}
       disabled={entries.length === 0 && !pending}
     >

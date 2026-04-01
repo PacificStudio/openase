@@ -186,9 +186,6 @@ func (r *EntRepository) CreateProject(ctx context.Context, input domain.CreatePr
 		SetStatus(toEntProjectStatus(input.Status)).
 		SetAccessibleMachineIds(input.AccessibleMachineIDs).
 		SetMaxConcurrentAgents(input.MaxConcurrentAgents)
-	if input.DefaultWorkflowID != nil {
-		builder.SetDefaultWorkflowID(*input.DefaultWorkflowID)
-	}
 	if input.DefaultAgentProviderID != nil {
 		builder.SetDefaultAgentProviderID(*input.DefaultAgentProviderID)
 	}
@@ -219,11 +216,6 @@ func (r *EntRepository) UpdateProject(ctx context.Context, input domain.UpdatePr
 		SetStatus(toEntProjectStatus(input.Status)).
 		SetAccessibleMachineIds(input.AccessibleMachineIDs).
 		SetMaxConcurrentAgents(input.MaxConcurrentAgents)
-	if input.DefaultWorkflowID != nil {
-		builder.SetDefaultWorkflowID(*input.DefaultWorkflowID)
-	} else {
-		builder.ClearDefaultWorkflowID()
-	}
 	if input.DefaultAgentProviderID != nil {
 		builder.SetDefaultAgentProviderID(*input.DefaultAgentProviderID)
 	} else {
@@ -649,7 +641,6 @@ func mapProject(item *ent.Project) domain.Project {
 		Slug:                   item.Slug,
 		Description:            item.Description,
 		Status:                 toDomainProjectStatus(item.Status),
-		DefaultWorkflowID:      item.DefaultWorkflowID,
 		DefaultAgentProviderID: item.DefaultAgentProviderID,
 		AccessibleMachineIDs:   append([]uuid.UUID(nil), item.AccessibleMachineIds...),
 		MaxConcurrentAgents:    item.MaxConcurrentAgents,

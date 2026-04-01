@@ -220,6 +220,7 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 
 	createStatusInput, err := parseCreateTicketStatusRequest(projectID, rawCreateTicketStatusRequest{
 		Name:          " Ready ",
+		Stage:         " started ",
 		Color:         " green ",
 		Icon:          " play ",
 		Position:      &position,
@@ -230,7 +231,7 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseCreateTicketStatusRequest() error = %v", err)
 	}
-	if createStatusInput.Name != "Ready" || createStatusInput.Color != "green" || !createStatusInput.Position.Set || createStatusInput.MaxActiveRuns == nil || *createStatusInput.MaxActiveRuns != 3 {
+	if createStatusInput.Name != "Ready" || createStatusInput.Stage.String() != "started" || createStatusInput.Color != "green" || !createStatusInput.Position.Set || createStatusInput.MaxActiveRuns == nil || *createStatusInput.MaxActiveRuns != 3 {
 		t.Fatalf("parseCreateTicketStatusRequest() = %+v", createStatusInput)
 	}
 	if _, err := parseCreateTicketStatusRequest(projectID, rawCreateTicketStatusRequest{Name: "ok"}); err == nil || !strings.Contains(err.Error(), "color must not be empty") {
@@ -239,6 +240,7 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 
 	updateStatusInput, err := parseUpdateTicketStatusRequest(statusID, rawUpdateTicketStatusRequest{
 		Name:          strPtr(" Done "),
+		Stage:         strPtr(" completed "),
 		Color:         strPtr(" blue "),
 		Icon:          strPtr(" check "),
 		Position:      &position,
@@ -249,7 +251,7 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseUpdateTicketStatusRequest() error = %v", err)
 	}
-	if !updateStatusInput.MaxActiveRuns.Set || updateStatusInput.MaxActiveRuns.Value == nil || *updateStatusInput.MaxActiveRuns.Value != maxActiveRuns {
+	if !updateStatusInput.Stage.Set || updateStatusInput.Stage.Value.String() != "completed" || !updateStatusInput.MaxActiveRuns.Set || updateStatusInput.MaxActiveRuns.Value == nil || *updateStatusInput.MaxActiveRuns.Value != maxActiveRuns {
 		t.Fatalf("parseUpdateTicketStatusRequest() = %+v", updateStatusInput)
 	}
 	if _, err := parseUpdateTicketStatusRequest(statusID, rawUpdateTicketStatusRequest{Color: strPtr("  ")}); err == nil || !strings.Contains(err.Error(), "color must not be empty") {

@@ -31,7 +31,6 @@ type projectResponse struct {
 	Slug                   string   `json:"slug"`
 	Description            string   `json:"description"`
 	Status                 string   `json:"status"`
-	DefaultWorkflowID      *string  `json:"default_workflow_id,omitempty"`
 	DefaultAgentProviderID *string  `json:"default_agent_provider_id,omitempty"`
 	AccessibleMachineIDs   []string `json:"accessible_machine_ids,omitempty"`
 	MaxConcurrentAgents    int      `json:"max_concurrent_agents"`
@@ -93,7 +92,6 @@ type projectPatchRequest struct {
 	Slug                   *string   `json:"slug"`
 	Description            *string   `json:"description"`
 	Status                 *string   `json:"status"`
-	DefaultWorkflowID      *string   `json:"default_workflow_id"`
 	DefaultAgentProviderID *string   `json:"default_agent_provider_id"`
 	AccessibleMachineIDs   *[]string `json:"accessible_machine_ids"`
 	MaxConcurrentAgents    *int      `json:"max_concurrent_agents"`
@@ -570,7 +568,6 @@ func (s *Server) patchProject(c echo.Context) error {
 		Slug:                   current.Slug,
 		Description:            current.Description,
 		Status:                 current.Status.String(),
-		DefaultWorkflowID:      uuidToStringPointer(current.DefaultWorkflowID),
 		DefaultAgentProviderID: uuidToStringPointer(current.DefaultAgentProviderID),
 		AccessibleMachineIDs:   uuidSliceToStrings(current.AccessibleMachineIDs),
 		MaxConcurrentAgents:    intPointer(current.MaxConcurrentAgents),
@@ -586,9 +583,6 @@ func (s *Server) patchProject(c echo.Context) error {
 	}
 	if patch.Status != nil {
 		request.Status = *patch.Status
-	}
-	if patch.DefaultWorkflowID != nil {
-		request.DefaultWorkflowID = patch.DefaultWorkflowID
 	}
 	if patch.DefaultAgentProviderID != nil {
 		request.DefaultAgentProviderID = patch.DefaultAgentProviderID
@@ -1050,7 +1044,6 @@ func mapProjectResponse(item domain.Project) projectResponse {
 		Slug:                   item.Slug,
 		Description:            item.Description,
 		Status:                 item.Status.String(),
-		DefaultWorkflowID:      uuidToStringPointer(item.DefaultWorkflowID),
 		DefaultAgentProviderID: uuidToStringPointer(item.DefaultAgentProviderID),
 		AccessibleMachineIDs:   uuidSliceToStrings(item.AccessibleMachineIDs),
 		MaxConcurrentAgents:    item.MaxConcurrentAgents,

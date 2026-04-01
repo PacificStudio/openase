@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 )
 
@@ -31,18 +32,15 @@ func (codexAgentAdapter) Start(ctx context.Context, spec agentSessionStartSpec) 
 			Model:                  spec.Model,
 			ServiceName:            "openase",
 			DeveloperInstructions:  spec.DeveloperInstructions,
-			ApprovalPolicy:         "never",
-			Sandbox:                "danger-full-access",
+			ApprovalPolicy:         codexApprovalPolicy(spec.PermissionProfile),
+			Sandbox:                codexSandboxMode(spec.PermissionProfile),
 			PersistExtendedHistory: true,
 		},
 		Turn: codex.TurnConfig{
 			WorkingDirectory: spec.WorkingDirectory,
 			Title:            spec.TurnTitle,
-			ApprovalPolicy:   "never",
-			SandboxPolicy: map[string]any{
-				"type":          "dangerFullAccess",
-				"networkAccess": true,
-			},
+			ApprovalPolicy:   codexApprovalPolicy(spec.PermissionProfile),
+			SandboxPolicy:    codexSandboxPolicy(spec.PermissionProfile),
 		},
 	})
 	if err != nil {
@@ -54,6 +52,44 @@ func (codexAgentAdapter) Start(ctx context.Context, spec agentSessionStartSpec) 
 
 func (codexAgentAdapter) Resume(_ context.Context, spec agentSessionResumeSpec) (agentSession, error) {
 	return nil, unsupportedAgentAdapter{reason: "Codex app-server sessions cannot be resumed across orchestrator processes"}.unsupportedError("resume")
+}
+
+func codexApprovalPolicy(profile catalogdomain.AgentProviderPermissionProfile) string {
+	profile = normalizeAgentPermissionProfile(profile)
+	if profile == catalogdomain.AgentProviderPermissionProfileStandard {
+		return "on-request"
+	}
+	return "never"
+}
+
+func codexSandboxMode(profile catalogdomain.AgentProviderPermissionProfile) string {
+	profile = normalizeAgentPermissionProfile(profile)
+	if profile == catalogdomain.AgentProviderPermissionProfileStandard {
+		return "workspace-write"
+	}
+	return "danger-full-access"
+}
+
+func codexSandboxPolicy(profile catalogdomain.AgentProviderPermissionProfile) map[string]any {
+	profile = normalizeAgentPermissionProfile(profile)
+	if profile == catalogdomain.AgentProviderPermissionProfileStandard {
+		return map[string]any{
+			"type": "workspaceWrite",
+		}
+	}
+	return map[string]any{
+		"type":          "dangerFullAccess",
+		"networkAccess": true,
+	}
+}
+
+func normalizeAgentPermissionProfile(
+	profile catalogdomain.AgentProviderPermissionProfile,
+) catalogdomain.AgentProviderPermissionProfile {
+	if !profile.IsValid() {
+		return catalogdomain.DefaultAgentProviderPermissionProfile
+	}
+	return profile
 }
 
 type codexAgentSession struct {

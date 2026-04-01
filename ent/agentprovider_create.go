@@ -49,6 +49,20 @@ func (_c *AgentProviderCreate) SetAdapterType(v agentprovider.AdapterType) *Agen
 	return _c
 }
 
+// SetPermissionProfile sets the "permission_profile" field.
+func (_c *AgentProviderCreate) SetPermissionProfile(v agentprovider.PermissionProfile) *AgentProviderCreate {
+	_c.mutation.SetPermissionProfile(v)
+	return _c
+}
+
+// SetNillablePermissionProfile sets the "permission_profile" field if the given value is not nil.
+func (_c *AgentProviderCreate) SetNillablePermissionProfile(v *agentprovider.PermissionProfile) *AgentProviderCreate {
+	if v != nil {
+		_c.SetPermissionProfile(*v)
+	}
+	return _c
+}
+
 // SetCliCommand sets the "cli_command" field.
 func (_c *AgentProviderCreate) SetCliCommand(v string) *AgentProviderCreate {
 	_c.mutation.SetCliCommand(v)
@@ -232,6 +246,10 @@ func (_c *AgentProviderCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *AgentProviderCreate) defaults() {
+	if _, ok := _c.mutation.PermissionProfile(); !ok {
+		v := agentprovider.DefaultPermissionProfile
+		_c.mutation.SetPermissionProfile(v)
+	}
 	if _, ok := _c.mutation.AuthConfig(); !ok {
 		v := agentprovider.DefaultAuthConfig()
 		_c.mutation.SetAuthConfig(v)
@@ -284,6 +302,14 @@ func (_c *AgentProviderCreate) check() error {
 	if v, ok := _c.mutation.AdapterType(); ok {
 		if err := agentprovider.AdapterTypeValidator(v); err != nil {
 			return &ValidationError{Name: "adapter_type", err: fmt.Errorf(`ent: validator failed for field "AgentProvider.adapter_type": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.PermissionProfile(); !ok {
+		return &ValidationError{Name: "permission_profile", err: errors.New(`ent: missing required field "AgentProvider.permission_profile"`)}
+	}
+	if v, ok := _c.mutation.PermissionProfile(); ok {
+		if err := agentprovider.PermissionProfileValidator(v); err != nil {
+			return &ValidationError{Name: "permission_profile", err: fmt.Errorf(`ent: validator failed for field "AgentProvider.permission_profile": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.CliCommand(); !ok {
@@ -368,6 +394,10 @@ func (_c *AgentProviderCreate) createSpec() (*AgentProvider, *sqlgraph.CreateSpe
 	if value, ok := _c.mutation.AdapterType(); ok {
 		_spec.SetField(agentprovider.FieldAdapterType, field.TypeEnum, value)
 		_node.AdapterType = value
+	}
+	if value, ok := _c.mutation.PermissionProfile(); ok {
+		_spec.SetField(agentprovider.FieldPermissionProfile, field.TypeEnum, value)
+		_node.PermissionProfile = value
 	}
 	if value, ok := _c.mutation.CliCommand(); ok {
 		_spec.SetField(agentprovider.FieldCliCommand, field.TypeString, value)

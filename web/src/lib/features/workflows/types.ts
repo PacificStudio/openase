@@ -1,3 +1,5 @@
+import type { TicketStatusStage } from '$lib/features/statuses/public'
+
 export type WorkflowType =
   | 'coding'
   | 'test'
@@ -38,6 +40,7 @@ export type WorkflowSummary = {
 export type WorkflowStatusOption = {
   id: string
   name: string
+  stage: TicketStatusStage
 }
 
 export type WorkflowAgentOption = {

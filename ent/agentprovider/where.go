@@ -235,6 +235,26 @@ func AdapterTypeNotIn(vs ...AdapterType) predicate.AgentProvider {
 	return predicate.AgentProvider(sql.FieldNotIn(FieldAdapterType, vs...))
 }
 
+// PermissionProfileEQ applies the EQ predicate on the "permission_profile" field.
+func PermissionProfileEQ(v PermissionProfile) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldEQ(FieldPermissionProfile, v))
+}
+
+// PermissionProfileNEQ applies the NEQ predicate on the "permission_profile" field.
+func PermissionProfileNEQ(v PermissionProfile) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldNEQ(FieldPermissionProfile, v))
+}
+
+// PermissionProfileIn applies the In predicate on the "permission_profile" field.
+func PermissionProfileIn(vs ...PermissionProfile) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldIn(FieldPermissionProfile, vs...))
+}
+
+// PermissionProfileNotIn applies the NotIn predicate on the "permission_profile" field.
+func PermissionProfileNotIn(vs ...PermissionProfile) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldNotIn(FieldPermissionProfile, vs...))
+}
+
 // CliCommandEQ applies the EQ predicate on the "cli_command" field.
 func CliCommandEQ(v string) predicate.AgentProvider {
 	return predicate.AgentProvider(sql.FieldEQ(FieldCliCommand, v))

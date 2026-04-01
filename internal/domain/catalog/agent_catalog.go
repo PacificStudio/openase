@@ -21,6 +21,7 @@ type AgentProvider struct {
 	MachineResources      map[string]any
 	Name                  string
 	AdapterType           AgentProviderAdapterType
+	PermissionProfile     AgentProviderPermissionProfile
 	AvailabilityState     AgentProviderAvailabilityState
 	Available             bool
 	AvailabilityCheckedAt *time.Time
@@ -86,6 +87,7 @@ type AgentProviderInput struct {
 	MachineID          string         `json:"machine_id"`
 	Name               string         `json:"name"`
 	AdapterType        string         `json:"adapter_type"`
+	PermissionProfile  string         `json:"permission_profile"`
 	CliCommand         string         `json:"cli_command"`
 	CliArgs            []string       `json:"cli_args"`
 	AuthConfig         map[string]any `json:"auth_config"`
@@ -107,6 +109,7 @@ type CreateAgentProvider struct {
 	MachineID          uuid.UUID
 	Name               string
 	AdapterType        AgentProviderAdapterType
+	PermissionProfile  AgentProviderPermissionProfile
 	CliCommand         string
 	CliArgs            []string
 	AuthConfig         map[string]any
@@ -124,6 +127,7 @@ type UpdateAgentProvider struct {
 	MachineID          uuid.UUID
 	Name               string
 	AdapterType        AgentProviderAdapterType
+	PermissionProfile  AgentProviderPermissionProfile
 	CliCommand         string
 	CliArgs            []string
 	AuthConfig         map[string]any
@@ -163,6 +167,11 @@ func ParseCreateAgentProvider(organizationID uuid.UUID, raw AgentProviderInput) 
 	}
 
 	adapterType, err := parseAgentProviderAdapterType(raw.AdapterType)
+	if err != nil {
+		return CreateAgentProvider{}, err
+	}
+
+	permissionProfile, err := parseAgentProviderPermissionProfile(raw.PermissionProfile)
 	if err != nil {
 		return CreateAgentProvider{}, err
 	}
@@ -207,6 +216,7 @@ func ParseCreateAgentProvider(organizationID uuid.UUID, raw AgentProviderInput) 
 		MachineID:          machineID,
 		Name:               name,
 		AdapterType:        adapterType,
+		PermissionProfile:  permissionProfile,
 		CliCommand:         strings.TrimSpace(raw.CliCommand),
 		CliArgs:            cliArgs,
 		AuthConfig:         cloneAnyMap(raw.AuthConfig),
@@ -231,6 +241,7 @@ func ParseUpdateAgentProvider(id uuid.UUID, organizationID uuid.UUID, raw AgentP
 		MachineID:          input.MachineID,
 		Name:               input.Name,
 		AdapterType:        input.AdapterType,
+		PermissionProfile:  input.PermissionProfile,
 		CliCommand:         input.CliCommand,
 		CliArgs:            input.CliArgs,
 		AuthConfig:         input.AuthConfig,
@@ -443,6 +454,20 @@ func parseAgentProviderAdapterType(raw string) (AgentProviderAdapterType, error)
 	}
 
 	return adapterType, nil
+}
+
+func parseAgentProviderPermissionProfile(raw string) (AgentProviderPermissionProfile, error) {
+	trimmed := strings.TrimSpace(strings.ToLower(raw))
+	if trimmed == "" {
+		return DefaultAgentProviderPermissionProfile, nil
+	}
+
+	profile := AgentProviderPermissionProfile(trimmed)
+	if !profile.IsValid() {
+		return "", fmt.Errorf("permission_profile must be one of standard, unrestricted")
+	}
+
+	return profile, nil
 }
 
 func parseStringList(fieldName string, raw []string) ([]string, error) {

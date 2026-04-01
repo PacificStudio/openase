@@ -1,6 +1,11 @@
 import type { AgentPayload, AgentProvider, AgentRun, Ticket, Workflow } from '$lib/api/contracts'
 import { normalizeProviderAvailabilityState } from '$lib/features/providers'
-import type { AgentInstance, AgentRunInstance, ProviderConfig } from './types'
+import type {
+  AgentInstance,
+  AgentRunInstance,
+  ProviderConfig,
+  ProviderPermissionProfile,
+} from './types'
 import { normalizeAgentStatus, normalizeRuntimeControlState, normalizeRuntimePhase } from './state'
 
 export function buildProviderCards(
@@ -17,6 +22,7 @@ export function buildProviderCards(
     machineWorkspaceRoot: provider.machine_workspace_root ?? null,
     name: provider.name,
     adapterType: provider.adapter_type,
+    permissionProfile: normalizeProviderPermissionProfile(provider.permission_profile),
     availabilityState: normalizeProviderAvailabilityState(provider.availability_state),
     available: provider.available,
     availabilityCheckedAt: provider.availability_checked_at ?? null,
@@ -62,6 +68,7 @@ export function buildAgentRows(
       providerId: agent.provider_id,
       providerName: provider?.name ?? 'Unknown provider',
       modelName: provider?.model_name ?? 'Unknown model',
+      permissionProfile: normalizeProviderPermissionProfile(provider?.permission_profile),
       status: normalizeAgentStatus(runtime?.status ?? 'idle'),
       runtimePhase: normalizeRuntimePhase(runtime?.runtime_phase ?? 'none'),
       runtimeControlState: normalizeRuntimeControlState(agent.runtime_control_state),
@@ -165,6 +172,7 @@ export function applyUpdatedProviderState(
           machineWorkspaceRoot: updatedProvider.machine_workspace_root ?? null,
           name: updatedProvider.name,
           adapterType: updatedProvider.adapter_type,
+          permissionProfile: normalizeProviderPermissionProfile(updatedProvider.permission_profile),
           availabilityState: normalizeProviderAvailabilityState(updatedProvider.availability_state),
           available: updatedProvider.available,
           availabilityCheckedAt: updatedProvider.availability_checked_at ?? null,
@@ -195,4 +203,10 @@ export function applyUpdatedProviderState(
     agents: nextAgents,
     provider: nextProviders.find((provider) => provider.id === updatedProvider.id) ?? null,
   }
+}
+
+function normalizeProviderPermissionProfile(
+  value: string | undefined | null,
+): ProviderPermissionProfile {
+  return value === 'standard' ? 'standard' : 'unrestricted'
 }

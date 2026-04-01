@@ -29,7 +29,14 @@ type RuntimeSkillSnapshot struct {
 	VersionID  uuid.UUID
 	Version    int
 	Content    string
+	Files      []RuntimeSkillFileSnapshot
 	IsRequired bool
+}
+
+type RuntimeSkillFileSnapshot struct {
+	Path         string
+	Content      []byte
+	IsExecutable bool
 }
 
 type MaterializeRuntimeSnapshotInput struct {
@@ -83,7 +90,7 @@ func (s *Service) MaterializeRuntimeSnapshot(input MaterializeRuntimeSnapshotInp
 
 	skillVersionIDs := make([]uuid.UUID, 0, len(input.Snapshot.Skills))
 	for _, skill := range input.Snapshot.Skills {
-		if err := writeProjectedSkill(target.skillsDir.String(), skill.Name, skill.Content); err != nil {
+		if err := writeRuntimeSkillSnapshot(target.skillsDir.String(), skill); err != nil {
 			return MaterializedRuntimeSnapshot{}, fmt.Errorf("materialize skill %s: %w", skill.Name, err)
 		}
 		skillVersionIDs = append(skillVersionIDs, skill.VersionID)
@@ -98,6 +105,18 @@ func (s *Service) MaterializeRuntimeSnapshot(input MaterializeRuntimeSnapshotInp
 		WorkflowVersionID: input.Snapshot.Workflow.VersionID,
 		SkillVersionIDs:   skillVersionIDs,
 	}, nil
+}
+
+func writeRuntimeSkillSnapshot(skillsDir string, skill RuntimeSkillSnapshot) error {
+	files := make([]SkillBundleFile, 0, len(skill.Files))
+	for _, file := range skill.Files {
+		files = append(files, SkillBundleFile{
+			Path:         file.Path,
+			IsExecutable: file.IsExecutable,
+			Content:      append([]byte(nil), file.Content...),
+		})
+	}
+	return writeProjectedSkillBundle(skillsDir, skill.Name, files, skill.Content)
 }
 
 func ResolveHarnessTargetForRuntime(workspaceRoot string, harnessPath string) (string, error) {

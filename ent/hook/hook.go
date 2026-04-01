@@ -249,6 +249,18 @@ func (f SkillFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SkillMutation", m)
 }
 
+// The SkillBlobFunc type is an adapter to allow the use of ordinary
+// function as SkillBlob mutator.
+type SkillBlobFunc func(context.Context, *ent.SkillBlobMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SkillBlobFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SkillBlobMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SkillBlobMutation", m)
+}
+
 // The SkillVersionFunc type is an adapter to allow the use of ordinary
 // function as SkillVersion mutator.
 type SkillVersionFunc func(context.Context, *ent.SkillVersionMutation) (ent.Value, error)
@@ -259,6 +271,18 @@ func (f SkillVersionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SkillVersionMutation", m)
+}
+
+// The SkillVersionFileFunc type is an adapter to allow the use of ordinary
+// function as SkillVersionFile mutator.
+type SkillVersionFileFunc func(context.Context, *ent.SkillVersionFileMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SkillVersionFileFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SkillVersionFileMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SkillVersionFileMutation", m)
 }
 
 // The TicketFunc type is an adapter to allow the use of ordinary

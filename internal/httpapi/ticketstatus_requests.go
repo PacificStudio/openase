@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -13,6 +14,7 @@ import (
 
 type rawCreateTicketStatusRequest struct {
 	Name          string `json:"name"`
+	Stage         string `json:"stage"`
 	Color         string `json:"color"`
 	Icon          string `json:"icon"`
 	Position      *int   `json:"position"`
@@ -23,6 +25,7 @@ type rawCreateTicketStatusRequest struct {
 
 type rawUpdateTicketStatusRequest struct {
 	Name          *string          `json:"name"`
+	Stage         *string          `json:"stage"`
 	Color         *string          `json:"color"`
 	Icon          *string          `json:"icon"`
 	Position      *int             `json:"position"`
@@ -65,11 +68,19 @@ func parseCreateTicketStatusRequest(projectID uuid.UUID, raw rawCreateTicketStat
 	input := ticketstatus.CreateInput{
 		ProjectID:     projectID,
 		Name:          name,
+		Stage:         ticketing.DefaultStatusStage,
 		Color:         color,
 		Icon:          strings.TrimSpace(raw.Icon),
 		MaxActiveRuns: raw.MaxActiveRuns,
 		IsDefault:     raw.IsDefault,
 		Description:   strings.TrimSpace(raw.Description),
+	}
+	if strings.TrimSpace(raw.Stage) != "" {
+		stage, err := ticketing.ParseStatusStage(raw.Stage)
+		if err != nil {
+			return ticketstatus.CreateInput{}, err
+		}
+		input.Stage = stage
 	}
 	if raw.Position != nil {
 		if *raw.Position < 0 {
@@ -93,6 +104,14 @@ func parseUpdateTicketStatusRequest(statusID uuid.UUID, raw rawUpdateTicketStatu
 			return ticketstatus.UpdateInput{}, fmt.Errorf("name must not be empty")
 		}
 		input.Name = ticketstatus.Some(name)
+	}
+
+	if raw.Stage != nil {
+		stage, err := ticketing.ParseStatusStage(*raw.Stage)
+		if err != nil {
+			return ticketstatus.UpdateInput{}, err
+		}
+		input.Stage = ticketstatus.Some(stage)
 	}
 
 	if raw.Color != nil {

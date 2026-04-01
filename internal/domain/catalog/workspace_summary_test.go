@@ -2,23 +2,22 @@ package catalog
 
 import "testing"
 
-func TestIsTerminalTicketStatusName(t *testing.T) {
+func TestIsTerminalTicketStatusStage(t *testing.T) {
 	testCases := []struct {
 		name   string
 		input  string
 		expect bool
 	}{
-		{name: "done", input: "Done", expect: true},
-		{name: "cancelled with whitespace", input: " cancelled ", expect: true},
-		{name: "american canceled", input: "CANCELED", expect: true},
-		{name: "archived", input: "archived", expect: true},
-		{name: "active status", input: "in_progress", expect: false},
+		{name: "completed", input: "completed", expect: true},
+		{name: "canceled with whitespace", input: " canceled ", expect: true},
+		{name: "invalid stage", input: "done", expect: false},
+		{name: "active stage", input: "started", expect: false},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			if got := IsTerminalTicketStatusName(testCase.input); got != testCase.expect {
-				t.Fatalf("IsTerminalTicketStatusName(%q) = %t, want %t", testCase.input, got, testCase.expect)
+			if got := IsTerminalTicketStatusStage(testCase.input); got != testCase.expect {
+				t.Fatalf("IsTerminalTicketStatusStage(%q) = %t, want %t", testCase.input, got, testCase.expect)
 			}
 		})
 	}

@@ -26,6 +26,7 @@ import (
 	entworkflowskillbinding "github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	entworkflowversion "github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/BetterAndBetterII/openase/internal/builtin"
+	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	"github.com/google/uuid"
 )
@@ -35,6 +36,8 @@ var (
 	ErrProjectNotFound     = errors.New("project not found")
 	ErrWorkflowNotFound    = errors.New("workflow not found")
 	ErrStatusNotFound      = errors.New("workflow status not found in project")
+	ErrPickupStatusStage   = errors.New("workflow pickup statuses must use backlog, unstarted, or started stages")
+	ErrFinishStatusStage   = errors.New("workflow finish statuses must use completed or canceled stages")
 	ErrAgentNotFound       = errors.New("workflow agent not found in project")
 	ErrWorkflowConflict    = errors.New("workflow conflict")
 	ErrWorkflowInUse       = errors.New("workflow is still referenced by project or tickets")
@@ -297,7 +300,13 @@ func (s *Service) ensureBuiltinSkills(ctx context.Context, projectID uuid.UUID) 
 			rollback(tx)
 			return err
 		}
-		description, err := skillDescriptionFromContent(content)
+		bundle, err := parseSkillBundle(template.Name, []SkillBundleFileInput{
+			{
+				Path:      "SKILL.md",
+				Content:   []byte(content),
+				MediaType: "text/markdown; charset=utf-8",
+			},
+		})
 		if err != nil {
 			rollback(tx)
 			return err
@@ -306,7 +315,7 @@ func (s *Service) ensureBuiltinSkills(ctx context.Context, projectID uuid.UUID) 
 		skillItem, err := tx.Skill.Create().
 			SetProjectID(projectID).
 			SetName(template.Name).
-			SetDescription(description).
+			SetDescription(bundle.Description).
 			SetIsBuiltin(true).
 			SetIsEnabled(true).
 			SetCreatedBy("builtin:openase").
@@ -321,14 +330,7 @@ func (s *Service) ensureBuiltinSkills(ctx context.Context, projectID uuid.UUID) 
 			return fmt.Errorf("create builtin skill %s: %w", template.Name, err)
 		}
 
-		versionItem, err := tx.SkillVersion.Create().
-			SetSkillID(skillItem.ID).
-			SetVersion(1).
-			SetContentMarkdown(content).
-			SetContentHash(contentHash(content)).
-			SetCreatedBy("builtin:openase").
-			SetCreatedAt(now).
-			Save(ctx)
+		versionItem, err := s.storeSkillBundleVersion(ctx, tx, skillItem.ID, 1, bundle, "builtin:openase", now)
 		if err != nil {
 			rollback(tx)
 			return fmt.Errorf("create builtin skill version %s: %w", template.Name, err)
@@ -607,10 +609,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 	if err := s.ensureAgentBelongsToProject(ctx, input.ProjectID, input.AgentID); err != nil {
 		return WorkflowDetail{}, err
 	}
-	if err := s.ensureStatusBindingsBelongToProject(ctx, input.ProjectID, pickupStatusIDs); err != nil {
+	if err := s.ensureStatusBindingsAllowPickup(ctx, input.ProjectID, pickupStatusIDs); err != nil {
 		return WorkflowDetail{}, err
 	}
-	if err := s.ensureStatusBindingsBelongToProject(ctx, input.ProjectID, finishStatusIDs); err != nil {
+	if err := s.ensureStatusBindingsAllowFinish(ctx, input.ProjectID, finishStatusIDs); err != nil {
 		return WorkflowDetail{}, err
 	}
 	harnessPath, err := s.resolveCreateHarnessPath(input.Name, input.HarnessPath)
@@ -751,7 +753,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 	if input.PickupStatusIDs.Set {
 		nextPickupStatusIDs = input.PickupStatusIDs.Value
 	}
-	if err := s.ensureStatusBindingsBelongToProject(ctx, projectID, nextPickupStatusIDs); err != nil {
+	if err := s.ensureStatusBindingsAllowPickup(ctx, projectID, nextPickupStatusIDs); err != nil {
 		return WorkflowDetail{}, err
 	}
 
@@ -759,7 +761,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 	if input.FinishStatusIDs.Set {
 		nextFinishStatusIDs = input.FinishStatusIDs.Value
 	}
-	if err := s.ensureStatusBindingsBelongToProject(ctx, projectID, nextFinishStatusIDs); err != nil {
+	if err := s.ensureStatusBindingsAllowFinish(ctx, projectID, nextFinishStatusIDs); err != nil {
 		return WorkflowDetail{}, err
 	}
 
@@ -860,13 +862,6 @@ func (s *Service) Delete(ctx context.Context, workflowID uuid.UUID) (Workflow, e
 		return Workflow{}, fmt.Errorf("start workflow delete tx: %w", err)
 	}
 	defer rollback(tx)
-
-	if err := tx.Project.Update().
-		Where(entproject.DefaultWorkflowIDEQ(current.ID)).
-		ClearDefaultWorkflowID().
-		Exec(ctx); err != nil {
-		return Workflow{}, fmt.Errorf("clear project default workflow reference: %w", err)
-	}
 
 	if _, err := tx.WorkflowSkillBinding.Delete().
 		Where(entworkflowskillbinding.WorkflowIDEQ(current.ID)).
@@ -1014,7 +1009,7 @@ func (s *Service) ensureProjectExists(ctx context.Context, projectID uuid.UUID) 
 }
 
 func (s *Service) ensureStatusBindingsBelongToProject(ctx context.Context, projectID uuid.UUID, statusIDs StatusBindingSet) error {
-	exists, err := s.client.TicketStatus.Query().
+	count, err := s.client.TicketStatus.Query().
 		Where(
 			entticketstatus.IDIn(statusIDs.IDs()...),
 			entticketstatus.ProjectIDEQ(projectID),
@@ -1023,10 +1018,50 @@ func (s *Service) ensureStatusBindingsBelongToProject(ctx context.Context, proje
 	if err != nil {
 		return fmt.Errorf("check workflow status existence: %w", err)
 	}
-	if exists != statusIDs.Len() {
+	if count != statusIDs.Len() {
 		return ErrStatusNotFound
 	}
 
+	return nil
+}
+
+func (s *Service) ensureStatusBindingsAllowPickup(ctx context.Context, projectID uuid.UUID, statusIDs StatusBindingSet) error {
+	return s.ensureStatusBindingsMatchStage(ctx, projectID, statusIDs, func(stage ticketing.StatusStage) bool {
+		return stage.AllowsWorkflowPickup()
+	}, ErrPickupStatusStage)
+}
+
+func (s *Service) ensureStatusBindingsAllowFinish(ctx context.Context, projectID uuid.UUID, statusIDs StatusBindingSet) error {
+	return s.ensureStatusBindingsMatchStage(ctx, projectID, statusIDs, func(stage ticketing.StatusStage) bool {
+		return stage.AllowsWorkflowFinish()
+	}, ErrFinishStatusStage)
+}
+
+func (s *Service) ensureStatusBindingsMatchStage(
+	ctx context.Context,
+	projectID uuid.UUID,
+	statusIDs StatusBindingSet,
+	allowed func(ticketing.StatusStage) bool,
+	stageErr error,
+) error {
+	statuses, err := s.client.TicketStatus.Query().
+		Where(
+			entticketstatus.IDIn(statusIDs.IDs()...),
+			entticketstatus.ProjectIDEQ(projectID),
+		).
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("check workflow status bindings: %w", err)
+	}
+	if len(statuses) != statusIDs.Len() {
+		return ErrStatusNotFound
+	}
+	for _, status := range statuses {
+		stage := ticketing.StatusStage(status.Stage)
+		if !stage.IsValid() || !allowed(stage) {
+			return stageErr
+		}
+	}
 	return nil
 }
 
@@ -1497,12 +1532,17 @@ func (s *Service) runtimeSkillSnapshots(
 		if err != nil {
 			return nil, err
 		}
+		files, err := s.runtimeSkillFiles(ctx, versionItem.ID)
+		if err != nil {
+			return nil, err
+		}
 		snapshots = append(snapshots, RuntimeSkillSnapshot{
 			SkillID:    skillItem.ID,
 			Name:       skillItem.Name,
 			VersionID:  versionItem.ID,
 			Version:    versionItem.Version,
 			Content:    versionItem.ContentMarkdown,
+			Files:      files,
 			IsRequired: binding.RequiredVersionID != nil && *binding.RequiredVersionID != uuid.Nil,
 		})
 		seen[skillItem.ID] = struct{}{}
@@ -1518,12 +1558,17 @@ func (s *Service) runtimeSkillSnapshots(
 			if versionErr != nil {
 				return nil, versionErr
 			}
+			files, filesErr := s.runtimeSkillFiles(ctx, versionItem.ID)
+			if filesErr != nil {
+				return nil, filesErr
+			}
 			snapshots = append(snapshots, RuntimeSkillSnapshot{
 				SkillID:   platformSkill.ID,
 				Name:      platformSkill.Name,
 				VersionID: versionItem.ID,
 				Version:   versionItem.Version,
 				Content:   versionItem.ContentMarkdown,
+				Files:     files,
 			})
 		}
 	}
@@ -1635,6 +1680,10 @@ func (s *Service) recordedSkillSnapshots(
 		if versionItem.Edges.Skill == nil || versionItem.Edges.Skill.ProjectID != projectID {
 			return nil, fmt.Errorf("%w: recorded skill version %s is outside project %s", ErrSkillInvalid, versionID, projectID)
 		}
+		files, err := s.runtimeSkillFiles(ctx, versionItem.ID)
+		if err != nil {
+			return nil, err
+		}
 
 		snapshots = append(snapshots, RuntimeSkillSnapshot{
 			SkillID:   versionItem.Edges.Skill.ID,
@@ -1642,12 +1691,29 @@ func (s *Service) recordedSkillSnapshots(
 			VersionID: versionItem.ID,
 			Version:   versionItem.Version,
 			Content:   versionItem.ContentMarkdown,
+			Files:     files,
 		})
 	}
 
 	sort.SliceStable(snapshots, func(i int, j int) bool {
 		return snapshots[i].Name < snapshots[j].Name
 	})
+	return snapshots, nil
+}
+
+func (s *Service) runtimeSkillFiles(ctx context.Context, versionID uuid.UUID) ([]RuntimeSkillFileSnapshot, error) {
+	files, err := s.skillVersionFiles(ctx, versionID)
+	if err != nil {
+		return nil, err
+	}
+	snapshots := make([]RuntimeSkillFileSnapshot, 0, len(files))
+	for _, file := range files {
+		snapshots = append(snapshots, RuntimeSkillFileSnapshot{
+			Path:         file.Path,
+			Content:      append([]byte(nil), file.Content...),
+			IsExecutable: file.IsExecutable,
+		})
+	}
 	return snapshots, nil
 }
 

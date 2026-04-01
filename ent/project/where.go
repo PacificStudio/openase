@@ -79,11 +79,6 @@ func Status(v string) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldStatus, v))
 }
 
-// DefaultWorkflowID applies equality check predicate on the "default_workflow_id" field. It's identical to DefaultWorkflowIDEQ.
-func DefaultWorkflowID(v uuid.UUID) predicate.Project {
-	return predicate.Project(sql.FieldEQ(FieldDefaultWorkflowID, v))
-}
-
 // DefaultAgentProviderID applies equality check predicate on the "default_agent_provider_id" field. It's identical to DefaultAgentProviderIDEQ.
 func DefaultAgentProviderID(v uuid.UUID) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldDefaultAgentProviderID, v))
@@ -402,36 +397,6 @@ func GithubTokenProbeIsNil() predicate.Project {
 // GithubTokenProbeNotNil applies the NotNil predicate on the "github_token_probe" field.
 func GithubTokenProbeNotNil() predicate.Project {
 	return predicate.Project(sql.FieldNotNull(FieldGithubTokenProbe))
-}
-
-// DefaultWorkflowIDEQ applies the EQ predicate on the "default_workflow_id" field.
-func DefaultWorkflowIDEQ(v uuid.UUID) predicate.Project {
-	return predicate.Project(sql.FieldEQ(FieldDefaultWorkflowID, v))
-}
-
-// DefaultWorkflowIDNEQ applies the NEQ predicate on the "default_workflow_id" field.
-func DefaultWorkflowIDNEQ(v uuid.UUID) predicate.Project {
-	return predicate.Project(sql.FieldNEQ(FieldDefaultWorkflowID, v))
-}
-
-// DefaultWorkflowIDIn applies the In predicate on the "default_workflow_id" field.
-func DefaultWorkflowIDIn(vs ...uuid.UUID) predicate.Project {
-	return predicate.Project(sql.FieldIn(FieldDefaultWorkflowID, vs...))
-}
-
-// DefaultWorkflowIDNotIn applies the NotIn predicate on the "default_workflow_id" field.
-func DefaultWorkflowIDNotIn(vs ...uuid.UUID) predicate.Project {
-	return predicate.Project(sql.FieldNotIn(FieldDefaultWorkflowID, vs...))
-}
-
-// DefaultWorkflowIDIsNil applies the IsNil predicate on the "default_workflow_id" field.
-func DefaultWorkflowIDIsNil() predicate.Project {
-	return predicate.Project(sql.FieldIsNull(FieldDefaultWorkflowID))
-}
-
-// DefaultWorkflowIDNotNil applies the NotNil predicate on the "default_workflow_id" field.
-func DefaultWorkflowIDNotNil() predicate.Project {
-	return predicate.Project(sql.FieldNotNull(FieldDefaultWorkflowID))
 }
 
 // DefaultAgentProviderIDEQ applies the EQ predicate on the "default_agent_provider_id" field.
@@ -841,29 +806,6 @@ func HasIssueConnectors() predicate.Project {
 func HasIssueConnectorsWith(preds ...predicate.IssueConnector) predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {
 		step := newIssueConnectorsStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
-// HasDefaultWorkflow applies the HasEdge predicate on the "default_workflow" edge.
-func HasDefaultWorkflow() predicate.Project {
-	return predicate.Project(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, DefaultWorkflowTable, DefaultWorkflowColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasDefaultWorkflowWith applies the HasEdge predicate on the "default_workflow" edge with a given conditions (other predicates).
-func HasDefaultWorkflowWith(preds ...predicate.Workflow) predicate.Project {
-	return predicate.Project(func(s *sql.Selector) {
-		step := newDefaultWorkflowStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

@@ -15,6 +15,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/skillversion"
+	"github.com/BetterAndBetterII/openase/ent/skillversionfile"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/google/uuid"
 )
@@ -27,6 +28,7 @@ type SkillVersionQuery struct {
 	inters                 []Interceptor
 	predicates             []predicate.SkillVersion
 	withSkill              *SkillQuery
+	withFiles              *SkillVersionFileQuery
 	withRequiredByBindings *WorkflowSkillBindingQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -79,6 +81,28 @@ func (_q *SkillVersionQuery) QuerySkill() *SkillQuery {
 			sqlgraph.From(skillversion.Table, skillversion.FieldID, selector),
 			sqlgraph.To(skill.Table, skill.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, skillversion.SkillTable, skillversion.SkillColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryFiles chains the current query on the "files" edge.
+func (_q *SkillVersionQuery) QueryFiles() *SkillVersionFileQuery {
+	query := (&SkillVersionFileClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(skillversion.Table, skillversion.FieldID, selector),
+			sqlgraph.To(skillversionfile.Table, skillversionfile.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, skillversion.FilesTable, skillversion.FilesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -301,6 +325,7 @@ func (_q *SkillVersionQuery) Clone() *SkillVersionQuery {
 		inters:                 append([]Interceptor{}, _q.inters...),
 		predicates:             append([]predicate.SkillVersion{}, _q.predicates...),
 		withSkill:              _q.withSkill.Clone(),
+		withFiles:              _q.withFiles.Clone(),
 		withRequiredByBindings: _q.withRequiredByBindings.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
@@ -316,6 +341,17 @@ func (_q *SkillVersionQuery) WithSkill(opts ...func(*SkillQuery)) *SkillVersionQ
 		opt(query)
 	}
 	_q.withSkill = query
+	return _q
+}
+
+// WithFiles tells the query-builder to eager-load the nodes that are connected to
+// the "files" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *SkillVersionQuery) WithFiles(opts ...func(*SkillVersionFileQuery)) *SkillVersionQuery {
+	query := (&SkillVersionFileClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withFiles = query
 	return _q
 }
 
@@ -408,8 +444,9 @@ func (_q *SkillVersionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	var (
 		nodes       = []*SkillVersion{}
 		_spec       = _q.querySpec()
-		loadedTypes = [2]bool{
+		loadedTypes = [3]bool{
 			_q.withSkill != nil,
+			_q.withFiles != nil,
 			_q.withRequiredByBindings != nil,
 		}
 	)
@@ -434,6 +471,13 @@ func (_q *SkillVersionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	if query := _q.withSkill; query != nil {
 		if err := _q.loadSkill(ctx, query, nodes, nil,
 			func(n *SkillVersion, e *Skill) { n.Edges.Skill = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withFiles; query != nil {
+		if err := _q.loadFiles(ctx, query, nodes,
+			func(n *SkillVersion) { n.Edges.Files = []*SkillVersionFile{} },
+			func(n *SkillVersion, e *SkillVersionFile) { n.Edges.Files = append(n.Edges.Files, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -475,6 +519,36 @@ func (_q *SkillVersionQuery) loadSkill(ctx context.Context, query *SkillQuery, n
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (_q *SkillVersionQuery) loadFiles(ctx context.Context, query *SkillVersionFileQuery, nodes []*SkillVersion, init func(*SkillVersion), assign func(*SkillVersion, *SkillVersionFile)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*SkillVersion)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(skillversionfile.FieldSkillVersionID)
+	}
+	query.Where(predicate.SkillVersionFile(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(skillversion.FilesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SkillVersionID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "skill_version_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

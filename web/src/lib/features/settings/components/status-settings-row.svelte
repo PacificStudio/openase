@@ -1,14 +1,18 @@
 <script lang="ts">
   import {
     parseStatusDraft,
+    ticketStatusStageLabel,
+    ticketStatusStageOptions,
     type EditableStatus,
     type ParsedStatusDraft,
     type StatusDraft,
+    type TicketStatusStage,
   } from '$lib/features/statuses/public'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import * as DropdownMenu from '$ui/dropdown-menu'
   import { Input } from '$ui/input'
+  import * as Select from '$ui/select'
   import { ArrowDown, ArrowUp, CircleDot, Ellipsis, Save, Trash2 } from '@lucide/svelte'
 
   let {
@@ -37,6 +41,7 @@
 
   let draft = $state<StatusDraft>({
     name: '',
+    stage: 'unstarted',
     color: '#94a3b8',
     isDefault: false,
     maxActiveRuns: '',
@@ -45,6 +50,7 @@
 
   const dirty = $derived(
     draft.name.trim() !== status.name ||
+      draft.stage !== status.stage ||
       draft.color.toLowerCase() !== status.color.toLowerCase() ||
       draft.maxActiveRuns !== (status.maxActiveRuns?.toString() ?? ''),
   )
@@ -52,6 +58,7 @@
   $effect(() => {
     draft = {
       name: status.name,
+      stage: status.stage,
       color: status.color,
       isDefault: status.isDefault,
       maxActiveRuns: status.maxActiveRuns?.toString() ?? '',
@@ -88,6 +95,21 @@
       class="h-9 flex-1 text-sm"
       placeholder="Status name"
     />
+    <Select.Root
+      type="single"
+      value={draft.stage}
+      disabled={busy}
+      onValueChange={(value) => (draft.stage = (value as TicketStatusStage) || status.stage)}
+    >
+      <Select.Trigger class="h-9 w-40">
+        {ticketStatusStageLabel(draft.stage)}
+      </Select.Trigger>
+      <Select.Content>
+        {#each ticketStatusStageOptions as option (option.value)}
+          <Select.Item value={option.value}>{option.label}</Select.Item>
+        {/each}
+      </Select.Content>
+    </Select.Root>
     <Input
       bind:value={draft.maxActiveRuns}
       type="number"
@@ -101,6 +123,10 @@
     {#if status.isDefault}
       <Badge variant="secondary" class="shrink-0 text-[10px]">Default</Badge>
     {/if}
+
+    <Badge variant="outline" class="shrink-0 text-[10px]">
+      {ticketStatusStageLabel(status.stage)}
+    </Badge>
 
     {#if status.maxActiveRuns}
       <Badge variant="outline" class="shrink-0 text-[10px]">

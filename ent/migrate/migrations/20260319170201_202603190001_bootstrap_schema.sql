@@ -86,7 +86,6 @@ CREATE TABLE "projects" (
   "status" character varying NOT NULL DEFAULT 'planning',
   "max_concurrent_agents" bigint NOT NULL DEFAULT 5,
   "organization_id" uuid NOT NULL,
-  "default_workflow_id" uuid NULL,
   "default_agent_provider_id" uuid NULL,
   PRIMARY KEY ("id")
 );
@@ -250,7 +249,7 @@ ALTER TABLE "organizations" ADD CONSTRAINT "organizations_agent_providers_defaul
 -- Modify "project_repos" table
 ALTER TABLE "project_repos" ADD CONSTRAINT "project_repos_projects_repos" FOREIGN KEY ("project_id") REFERENCES "projects" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION;
 -- Modify "projects" table
-ALTER TABLE "projects" ADD CONSTRAINT "projects_agent_providers_default_agent_provider" FOREIGN KEY ("default_agent_provider_id") REFERENCES "agent_providers" ("id") ON UPDATE NO ACTION ON DELETE SET NULL, ADD CONSTRAINT "projects_organizations_projects" FOREIGN KEY ("organization_id") REFERENCES "organizations" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION, ADD CONSTRAINT "projects_workflows_default_workflow" FOREIGN KEY ("default_workflow_id") REFERENCES "workflows" ("id") ON UPDATE NO ACTION ON DELETE SET NULL;
+ALTER TABLE "projects" ADD CONSTRAINT "projects_agent_providers_default_agent_provider" FOREIGN KEY ("default_agent_provider_id") REFERENCES "agent_providers" ("id") ON UPDATE NO ACTION ON DELETE SET NULL, ADD CONSTRAINT "projects_organizations_projects" FOREIGN KEY ("organization_id") REFERENCES "organizations" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION;
 -- Modify "scheduled_jobs" table
 ALTER TABLE "scheduled_jobs" ADD CONSTRAINT "scheduled_jobs_projects_scheduled_jobs" FOREIGN KEY ("project_id") REFERENCES "projects" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION, ADD CONSTRAINT "scheduled_jobs_workflows_scheduled_jobs" FOREIGN KEY ("workflow_id") REFERENCES "workflows" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION;
 -- Modify "ticket_dependencies" table

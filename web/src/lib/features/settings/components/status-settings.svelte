@@ -20,6 +20,7 @@
   <div class="space-y-6">
     <StatusSettingsCreate
       bind:name={state.ui.createName}
+      bind:stage={state.ui.createStage}
       bind:color={state.ui.createColor}
       bind:isDefault={state.ui.createDefault}
       bind:maxActiveRuns={state.ui.createMaxActiveRuns}

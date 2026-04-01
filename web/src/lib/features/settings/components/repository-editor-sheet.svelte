@@ -1,8 +1,11 @@
 <script lang="ts">
   import { Button } from '$ui/button'
-  import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
+  import { Sheet, SheetContent, SheetHeader, SheetTitle } from '$ui/sheet'
+  import * as Tabs from '$ui/tabs'
   import type { ProjectRepoRecord } from '$lib/api/contracts'
-  import RepositoryEditor from './repository-editor.svelte'
+  import RepositoryEditorForm from './repository-editor-form.svelte'
+  import RepositoryGitHubBrowser from './repository-github-browser.svelte'
+  import RepositoryGitHubCreate from './repository-github-create.svelte'
   import type {
     GitHubRepositoryCreateDraft,
     GitHubRepositoryNamespace,
@@ -16,7 +19,6 @@
     mode,
     selectedRepo,
     draft,
-    reposCount = 0,
     saving = false,
     githubRepos = [],
     githubRepoQuery = '',
@@ -42,7 +44,6 @@
     mode: RepositoryEditorMode
     selectedRepo: ProjectRepoRecord | null
     draft: RepositoryDraft
-    reposCount?: number
     saving?: boolean
     githubRepos?: GitHubRepositoryRecord[]
     githubRepoQuery?: string
@@ -72,50 +73,71 @@
     class="flex w-full flex-col gap-0 p-0 sm:max-w-xl"
     data-testid="repository-editor-sheet"
   >
-    <SheetHeader class="border-border border-b px-6 py-5 text-left">
-      <div class="flex items-start justify-between gap-4 pr-10">
-        <div class="min-w-0 space-y-2">
-          <SheetTitle>
-            {mode === 'create' ? 'Add repository' : (selectedRepo?.name ?? 'Edit repository')}
-          </SheetTitle>
-          <SheetDescription>
-            Configure repository metadata that ticket repo scopes, workflows, and workspace
-            preparation consume.
-          </SheetDescription>
-        </div>
-
-        <Button size="sm" onclick={onSave} disabled={saving} data-testid="repository-save-button">
-          {saving ? 'Saving…' : mode === 'create' ? 'Create repository' : 'Save changes'}
-        </Button>
+    <SheetHeader class="border-border border-b px-6 py-4 text-left">
+      <div class="flex items-center justify-between gap-4 pr-10">
+        <SheetTitle class="text-base">
+          {mode === 'create' ? 'Add repository' : (selectedRepo?.name ?? 'Edit repository')}
+        </SheetTitle>
+        {#if mode === 'edit'}
+          <Button size="sm" onclick={onSave} disabled={saving} data-testid="repository-save-button">
+            {saving ? 'Saving…' : 'Save changes'}
+          </Button>
+        {/if}
       </div>
     </SheetHeader>
 
-    <div class="flex-1 overflow-y-auto px-6 py-6">
-      <RepositoryEditor
-        {mode}
-        {selectedRepo}
-        {draft}
-        {reposCount}
-        {saving}
-        {githubRepos}
-        {githubRepoQuery}
-        {githubReposLoading}
-        {githubReposLoadingMore}
-        {githubReposNextCursor}
-        {githubRepoError}
-        {githubBindingRepoFullName}
-        {githubNamespaces}
-        {githubNamespacesLoading}
-        {githubCreateDraft}
-        {githubCreating}
-        {onDraftChange}
-        {onGitHubRepoQueryChange}
-        {onGitHubRepoSearch}
-        {onGitHubRepoLoadMore}
-        {onBindGitHubRepo}
-        {onGitHubCreateDraftChange}
-        {onCreateGitHubRepoAndBind}
-      />
-    </div>
+    {#if mode === 'create'}
+      <div class="flex flex-1 flex-col overflow-hidden">
+        <Tabs.Root value="github" class="flex flex-1 flex-col overflow-hidden">
+          <div class="border-border border-b px-6 pt-2">
+            <Tabs.List>
+              <Tabs.Trigger value="github">GitHub</Tabs.Trigger>
+              <Tabs.Trigger value="create">Create repo</Tabs.Trigger>
+              <Tabs.Trigger value="manual">Manual</Tabs.Trigger>
+            </Tabs.List>
+          </div>
+
+          <Tabs.Content value="github" class="flex-1 overflow-y-auto px-6 py-4">
+            <RepositoryGitHubBrowser
+              repos={githubRepos}
+              query={githubRepoQuery}
+              loading={githubReposLoading}
+              loadingMore={githubReposLoadingMore}
+              nextCursor={githubReposNextCursor}
+              error={githubRepoError}
+              bindingRepoFullName={githubBindingRepoFullName}
+              onQueryChange={onGitHubRepoQueryChange}
+              onSearch={onGitHubRepoSearch}
+              onLoadMore={onGitHubRepoLoadMore}
+              onBind={onBindGitHubRepo}
+            />
+          </Tabs.Content>
+
+          <Tabs.Content value="create" class="flex-1 overflow-y-auto px-6 py-4">
+            <RepositoryGitHubCreate
+              namespaces={githubNamespaces}
+              draft={githubCreateDraft}
+              loadingNamespaces={githubNamespacesLoading}
+              creating={githubCreating}
+              onDraftChange={onGitHubCreateDraftChange}
+              onCreate={onCreateGitHubRepoAndBind}
+            />
+          </Tabs.Content>
+
+          <Tabs.Content value="manual" class="flex-1 overflow-y-auto px-6 py-4">
+            <RepositoryEditorForm {draft} {onDraftChange} compact />
+            <div class="mt-4">
+              <Button onclick={onSave} disabled={saving} data-testid="repository-save-button">
+                {saving ? 'Creating…' : 'Create repository'}
+              </Button>
+            </div>
+          </Tabs.Content>
+        </Tabs.Root>
+      </div>
+    {:else}
+      <div class="flex-1 overflow-y-auto px-6 py-5">
+        <RepositoryEditorForm {draft} {onDraftChange} />
+      </div>
+    {/if}
   </SheetContent>
 </Sheet>

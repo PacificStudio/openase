@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/base64"
 	"net/http"
 	"time"
 
@@ -31,6 +32,7 @@ type skillVersionResponse struct {
 type skillDetailResponse struct {
 	Skill   skillResponse          `json:"skill"`
 	Content string                 `json:"content"`
+	Files   []skillFileResponse    `json:"files,omitempty"`
 	History []skillVersionResponse `json:"history"`
 }
 
@@ -49,11 +51,29 @@ type skillSyncResponse struct {
 	InjectedSkills []string `json:"injected_skills,omitempty"`
 }
 
+type skillFileResponse struct {
+	Path          string `json:"path"`
+	FileKind      string `json:"file_kind"`
+	MediaType     string `json:"media_type"`
+	Encoding      string `json:"encoding"`
+	IsExecutable  bool   `json:"is_executable"`
+	SizeBytes     int64  `json:"size_bytes"`
+	SHA256        string `json:"sha256"`
+	Content       string `json:"content,omitempty"`
+	ContentBase64 string `json:"content_base64,omitempty"`
+}
+
+type skillFilesResponse struct {
+	Files []skillFileResponse `json:"files"`
+}
+
 func (s *Server) registerSkillRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/skills", s.handleListSkills)
 	api.POST("/projects/:projectId/skills", s.handleCreateSkill)
+	api.POST("/projects/:projectId/skills/import", s.handleImportSkillBundle)
 	api.POST("/projects/:projectId/skills/refresh", s.handleRefreshSkills)
 	api.GET("/skills/:skillId", s.handleGetSkill)
+	api.GET("/skills/:skillId/files", s.handleGetSkillFiles)
 	api.GET("/skills/:skillId/history", s.handleGetSkillHistory)
 	api.PUT("/skills/:skillId", s.handleUpdateSkill)
 	api.DELETE("/skills/:skillId", s.handleDeleteSkill)
@@ -113,6 +133,34 @@ func (s *Server) handleCreateSkill(c echo.Context) error {
 	return c.JSON(http.StatusCreated, mapSkillDetailResponse(item))
 }
 
+func (s *Server) handleImportSkillBundle(c echo.Context) error {
+	if s.workflowService == nil {
+		return writeWorkflowError(c, workflowservice.ErrUnavailable)
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+
+	var raw rawImportSkillBundleRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+
+	input, err := parseImportSkillBundleRequest(projectID, raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	item, err := s.workflowService.CreateSkillBundle(c.Request().Context(), input)
+	if err != nil {
+		return writeWorkflowError(c, err)
+	}
+
+	return c.JSON(http.StatusCreated, mapSkillDetailResponse(item))
+}
+
 func (s *Server) handleRefreshSkills(c echo.Context) error {
 	if s.workflowService == nil {
 		return writeWorkflowError(c, workflowservice.ErrUnavailable)
@@ -160,6 +208,26 @@ func (s *Server) handleGetSkill(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, mapSkillDetailResponse(item))
+}
+
+func (s *Server) handleGetSkillFiles(c echo.Context) error {
+	if s.workflowService == nil {
+		return writeWorkflowError(c, workflowservice.ErrUnavailable)
+	}
+
+	skillID, err := parseUUIDPathParamValue(c, "skillId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_SKILL_ID", err.Error())
+	}
+
+	item, err := s.workflowService.GetSkill(c.Request().Context(), skillID)
+	if err != nil {
+		return writeWorkflowError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, skillFilesResponse{
+		Files: mapSkillFileResponses(item.Files),
+	})
 }
 
 func (s *Server) handleGetSkillHistory(c echo.Context) error {
@@ -388,8 +456,30 @@ func mapSkillDetailResponse(item workflowservice.SkillDetail) skillDetailRespons
 	return skillDetailResponse{
 		Skill:   mapSkillResponse(item.Skill),
 		Content: item.Content,
+		Files:   mapSkillFileResponses(item.Files),
 		History: mapSkillVersionResponses(item.History),
 	}
+}
+
+func mapSkillFileResponses(items []workflowservice.SkillBundleFile) []skillFileResponse {
+	response := make([]skillFileResponse, 0, len(items))
+	for _, item := range items {
+		file := skillFileResponse{
+			Path:          item.Path,
+			FileKind:      item.FileKind,
+			MediaType:     item.MediaType,
+			Encoding:      item.Encoding,
+			IsExecutable:  item.IsExecutable,
+			SizeBytes:     item.SizeBytes,
+			SHA256:        item.SHA256,
+			ContentBase64: base64.StdEncoding.EncodeToString(item.Content),
+		}
+		if item.Encoding == "utf8" {
+			file.Content = string(item.Content)
+		}
+		response = append(response, file)
+	}
+	return response
 }
 
 func mapSkillWorkflowBindings(items []workflowservice.SkillWorkflowBinding) []skillWorkflowBindingResponse {

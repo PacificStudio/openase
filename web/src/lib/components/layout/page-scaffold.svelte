@@ -22,7 +22,7 @@
   } = $props()
 </script>
 
-<div class={cn('flex h-full min-h-0 flex-col', className)}>
+<div class={cn('flex min-h-0 flex-col', variant === 'workspace' && 'h-full', className)}>
   <PageHeader {title} {description} {actions} />
   <div
     class={cn(

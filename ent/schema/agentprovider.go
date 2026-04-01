@@ -19,6 +19,9 @@ func (AgentProvider) Fields() []ent.Field {
 		field.String("name").NotEmpty(),
 		field.Enum("adapter_type").
 			Values("claude-code-cli", "codex-app-server", "gemini-cli", "custom"),
+		field.Enum("permission_profile").
+			Values("standard", "unrestricted").
+			Default("unrestricted"),
 		field.String("cli_command").NotEmpty(),
 		textArrayField("cli_args"),
 		field.JSON("auth_config", map[string]any{}).Default(emptyMap),
