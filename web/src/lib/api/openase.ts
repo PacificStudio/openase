@@ -39,13 +39,11 @@ import type {
   ProjectArchiveResponse,
   ProjectUpdateCommentCreateResponse,
   ProjectUpdateCommentDeleteResponse,
-  ProjectUpdateCommentRevisionListResponse,
   ProjectUpdateCommentResponse,
   ProjectUpdateCreateResponse,
   ProjectUpdatePayload,
   ProjectUpdateThreadDeleteResponse,
   ProjectUpdateThreadResponse,
-  ProjectUpdateThreadRevisionListResponse,
   ProjectRepoResponse,
   ProjectCreateResponse,
   ProjectPayload,
@@ -381,15 +379,9 @@ export function deleteProjectUpdateThread(projectId: string, threadId: string) {
   )
 }
 
-export function listProjectUpdateThreadRevisions(projectId: string, threadId: string) {
-  return api.get<ProjectUpdateThreadRevisionListResponse>(
-    `/api/v1/projects/${projectId}/updates/${threadId}/revisions`,
-  )
-}
-
 export function createProjectUpdateComment(
-  projectId: string,
-  threadId: string,
+	projectId: string,
+	threadId: string,
   body: {
     body: string
     created_by?: string
@@ -423,18 +415,8 @@ export function deleteProjectUpdateComment(projectId: string, threadId: string, 
   )
 }
 
-export function listProjectUpdateCommentRevisions(
-  projectId: string,
-  threadId: string,
-  commentId: string,
-) {
-  return api.get<ProjectUpdateCommentRevisionListResponse>(
-    `/api/v1/projects/${projectId}/updates/${threadId}/comments/${commentId}/revisions`,
-  )
-}
-
 export function listAgents(projectId: string) {
-  return api.get<AgentPayload>(`/api/v1/projects/${projectId}/agents`)
+	return api.get<AgentPayload>(`/api/v1/projects/${projectId}/agents`)
 }
 
 export function listAgentRuns(projectId: string) {
