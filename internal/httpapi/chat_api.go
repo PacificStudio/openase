@@ -587,6 +587,10 @@ func (s *Server) handleDeleteProjectConversationRuntime(c echo.Context) error {
 
 func writeProjectConversationError(c echo.Context, err error) error {
 	switch {
+	case errors.Is(err, chatservice.ErrConversationTurnActive):
+		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_TURN_ALREADY_ACTIVE", err.Error())
+	case errors.Is(err, chatservice.ErrConversationConflict):
+		return writeAPIError(c, http.StatusConflict, "CHAT_CONVERSATION_CONFLICT", err.Error())
 	case errors.Is(err, chatservice.ErrConversationNotFound), errors.Is(err, chatservice.ErrPendingInterruptNotFound):
 		return writeAPIError(c, http.StatusNotFound, "CHAT_CONVERSATION_NOT_FOUND", err.Error())
 	case errors.Is(err, chatservice.ErrConversationRuntimeAbsent):

@@ -56,146 +56,15 @@ describe('ProjectConversationPanel', () => {
     window.localStorage.clear()
   })
 
-  it('disables input and send controls while an interrupt response is pending', async () => {
-    let streamHandlers:
-      | {
-          onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void
-        }
-      | undefined
-
-    listProjectConversations.mockResolvedValue({ conversations: [] })
-    createProjectConversation.mockResolvedValue({
-      conversation: { id: 'conversation-1' },
-    })
-    watchProjectConversation.mockImplementation(async (_conversationId, handlers) => {
-      streamHandlers = handlers
-    })
-    startProjectConversationTurn.mockResolvedValue({
-      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
-    })
-
-    const { getByPlaceholderText, getByRole, findByText } = render(ProjectConversationPanel, {
-      props: {
-        context: { projectId: 'project-1' },
-        providers: providerFixtures,
-        defaultProviderId: 'provider-1',
-        placeholder: 'Ask anything about this project…',
-      },
-    })
-
-    const prompt = getByPlaceholderText('Ask anything about this project…') as HTMLTextAreaElement
-    const sendButton = getByRole('button', { name: 'Send message' }) as HTMLButtonElement
-
-    await waitFor(() => {
-      expect(listProjectConversations).toHaveBeenCalledTimes(2)
-    })
-
-    await fireEvent.input(prompt, { target: { value: 'Summarize the repo.' } })
-    await fireEvent.keyDown(prompt, { key: 'Enter' })
-    await waitFor(() => {
-      expect(startProjectConversationTurn).toHaveBeenCalledWith(
-        'conversation-1',
-        'Summarize the repo.',
-      )
-      expect(streamHandlers).toBeDefined()
-    })
-
-    streamHandlers?.onEvent({
-      kind: 'interrupt_requested',
-      payload: {
-        interruptId: 'interrupt-1',
-        provider: 'codex',
-        kind: 'user_input',
-        options: [],
-        payload: {
-          questions: [
-            {
-              id: 'approval',
-              question: 'Approve this change?',
-            },
-          ],
-        },
-      },
-    })
-
-    await waitFor(() => {
-      expect(prompt.disabled).toBe(true)
-      expect(sendButton.disabled).toBe(true)
-    })
-    expect(await findByText('User input required')).toBeTruthy()
-  })
-
-  it('renders a conversation selector and loads the chosen history', async () => {
-    listProjectConversations.mockResolvedValue({
-      conversations: [
-        {
-          id: 'conversation-1',
-          rollingSummary: 'Most recent summary',
-          lastActivityAt: '2026-04-01T10:00:00Z',
-          providerId: 'provider-1',
-        },
-        {
-          id: 'conversation-2',
-          rollingSummary: 'Older discussion',
-          lastActivityAt: '2026-03-31T09:00:00Z',
-          providerId: 'provider-1',
-        },
-      ],
-    })
-    listProjectConversationEntries.mockImplementation(async (conversationId: string) => ({
-      entries:
-        conversationId === 'conversation-2'
-          ? [
-              {
-                id: 'entry-2',
-                conversationId: 'conversation-2',
-                turnId: 'turn-2',
-                seq: 1,
-                kind: 'user_message',
-                payload: { content: 'Continue the older plan' },
-                createdAt: '2026-03-31T09:00:00Z',
-              },
-            ]
-          : [
-              {
-                id: 'entry-1',
-                conversationId: 'conversation-1',
-                turnId: 'turn-1',
-                seq: 1,
-                kind: 'user_message',
-                payload: { content: 'Current conversation' },
-                createdAt: '2026-04-01T10:00:00Z',
-              },
-            ],
-    }))
-    watchProjectConversation.mockResolvedValue(undefined)
-
-    const { findByLabelText, findByText } = render(ProjectConversationPanel, {
-      props: {
-        context: { projectId: 'project-1' },
-        providers: providerFixtures,
-        defaultProviderId: 'provider-1',
-      },
-    })
-
-    const selector = (await findByLabelText('Conversation')) as HTMLSelectElement
-    await findByText('Current conversation')
-    expect(selector.value).toBe('conversation-1')
-
-    await fireEvent.change(selector, { target: { value: 'conversation-2' } })
-
-    await findByText('Continue the older plan')
-    expect(listProjectConversationEntries).toHaveBeenLastCalledWith('conversation-2')
-    expect(watchProjectConversation).toHaveBeenLastCalledWith(
-      'conversation-2',
-      expect.objectContaining({
-        signal: expect.any(AbortSignal),
-        onEvent: expect.any(Function),
+  it('renders multiple restored tabs with per-tab status badges', async () => {
+    window.localStorage.setItem(
+      'openase.project-conversation.project-1.provider-1',
+      JSON.stringify({
+        conversationIds: ['conversation-2', 'conversation-1'],
+        activeConversationId: 'conversation-1',
       }),
     )
-  })
 
-  it('continues the selected conversation when sending a new message after switching sessions', async () => {
     listProjectConversations.mockResolvedValue({
       conversations: [
         {
@@ -239,49 +108,165 @@ describe('ProjectConversationPanel', () => {
             ],
     }))
     watchProjectConversation.mockResolvedValue(undefined)
-    startProjectConversationTurn.mockResolvedValue({
-      turn: { id: 'turn-3', turn_index: 2, status: 'started' },
+
+    const { findAllByText, findByText, getByRole } = render(ProjectConversationPanel, {
+      props: {
+        context: { projectId: 'project-1' },
+        providers: providerFixtures,
+        defaultProviderId: 'provider-1',
+        placeholder: 'Ask anything about this project…',
+      },
     })
 
-    const { findByLabelText, findByPlaceholderText, findByText, getByRole, queryAllByText } =
-      render(ProjectConversationPanel, {
+    await findByText('Current conversation')
+    expect((await findAllByText('Restored')).length).toBeGreaterThanOrEqual(1)
+    expect(getByRole('button', { name: /^Older discussion Restored$/ })).toBeTruthy()
+    expect(getByRole('button', { name: /^Current conversation Restored$/ })).toBeTruthy()
+  })
+
+  it('keeps the composer enabled on an idle tab while another tab is waiting on input', async () => {
+    const streamHandlers = new Map<
+      string,
+      { onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void }
+    >()
+
+    listProjectConversations.mockResolvedValue({ conversations: [] })
+    createProjectConversation
+      .mockResolvedValueOnce({
+        conversation: {
+          id: 'conversation-1',
+          providerId: 'provider-1',
+          lastActivityAt: '2026-04-01T10:00:00Z',
+        },
+      })
+      .mockResolvedValueOnce({
+        conversation: {
+          id: 'conversation-2',
+          providerId: 'provider-1',
+          lastActivityAt: '2026-04-01T10:05:00Z',
+        },
+      })
+    watchProjectConversation.mockImplementation(async (conversationId, handlers) => {
+      streamHandlers.set(conversationId, handlers)
+    })
+    startProjectConversationTurn.mockResolvedValue({
+      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
+    })
+
+    const { getByPlaceholderText, getByRole, findByText, getAllByRole } = render(
+      ProjectConversationPanel,
+      {
         props: {
           context: { projectId: 'project-1' },
           providers: providerFixtures,
           defaultProviderId: 'provider-1',
           placeholder: 'Ask anything about this project…',
         },
-      })
+      },
+    )
 
-    const selector = (await findByLabelText('Conversation')) as HTMLSelectElement
-    expect(Array.from(selector.options).map((option) => option.textContent)).toEqual([
-      'New conversation',
-      'Current conversation',
-      'Older discussion',
-    ])
+    const prompt = getByPlaceholderText('Ask anything about this project…') as HTMLTextAreaElement
+    const sendButton = getByRole('button', { name: 'Send message' }) as HTMLButtonElement
 
-    await waitFor(() => {
-      expect(listProjectConversationEntries).toHaveBeenCalledWith('conversation-1')
-    })
-    await fireEvent.change(selector, { target: { value: 'conversation-2' } })
-
-    await findByText('Continue the older plan')
-    expect(queryAllByText('Current conversation')).toHaveLength(1)
-
-    const prompt = (await findByPlaceholderText(
-      'Ask anything about this project…',
-    )) as HTMLTextAreaElement
-    const sendButton = getByRole('button', { name: 'Send message' })
-
-    await fireEvent.input(prompt, { target: { value: 'Follow up on the older plan' } })
+    await fireEvent.input(prompt, { target: { value: 'Summarize the repo.' } })
     await fireEvent.click(sendButton)
-
     await waitFor(() => {
-      expect(startProjectConversationTurn).toHaveBeenLastCalledWith(
-        'conversation-2',
-        'Follow up on the older plan',
+      expect(startProjectConversationTurn).toHaveBeenCalledWith(
+        'conversation-1',
+        'Summarize the repo.',
       )
     })
-    expect(await findByText('Follow up on the older plan')).toBeTruthy()
+
+    streamHandlers.get('conversation-1')?.onEvent({
+      kind: 'interrupt_requested',
+      payload: {
+        interruptId: 'interrupt-1',
+        provider: 'codex',
+        kind: 'user_input',
+        options: [],
+        payload: {
+          questions: [{ id: 'approval', question: 'Approve this change?' }],
+        },
+      },
+    })
+
+    await findByText('Input required')
+    expect(prompt.disabled).toBe(true)
+
+    await fireEvent.click(getByRole('button', { name: /New Tab/i }))
+
+    const updatedPrompt = getByPlaceholderText(
+      'Ask anything about this project…',
+    ) as HTMLTextAreaElement
+    const updatedSendButton = getByRole('button', { name: 'Send message' }) as HTMLButtonElement
+
+    expect(updatedPrompt.disabled).toBe(false)
+
+    await fireEvent.input(updatedPrompt, { target: { value: 'Parallel tab keeps working.' } })
+    await fireEvent.click(updatedSendButton)
+
+    await waitFor(() => {
+      expect(startProjectConversationTurn).toHaveBeenNthCalledWith(
+        2,
+        'conversation-2',
+        'Parallel tab keeps working.',
+      )
+    })
+
+    expect(getAllByRole('button', { name: /Close /i }).length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('closes one tab without affecting the other tab', async () => {
+    listProjectConversations.mockResolvedValue({ conversations: [] })
+    createProjectConversation
+      .mockResolvedValueOnce({
+        conversation: {
+          id: 'conversation-1',
+          providerId: 'provider-1',
+          lastActivityAt: '2026-04-01T10:00:00Z',
+        },
+      })
+      .mockResolvedValueOnce({
+        conversation: {
+          id: 'conversation-2',
+          providerId: 'provider-1',
+          lastActivityAt: '2026-04-01T10:05:00Z',
+        },
+      })
+    watchProjectConversation.mockResolvedValue(undefined)
+    startProjectConversationTurn.mockResolvedValue({
+      turn: { id: 'turn-4', turn_index: 1, status: 'started' },
+    })
+
+    const { getByPlaceholderText, getByRole, queryByRole } = render(ProjectConversationPanel, {
+      props: {
+        context: { projectId: 'project-1' },
+        providers: providerFixtures,
+        defaultProviderId: 'provider-1',
+        placeholder: 'Ask anything about this project…',
+      },
+    })
+
+    const prompt = getByPlaceholderText('Ask anything about this project…') as HTMLTextAreaElement
+    await fireEvent.input(prompt, { target: { value: 'First tab' } })
+    await fireEvent.click(getByRole('button', { name: 'Send message' }))
+    await waitFor(() => {
+      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-1', 'First tab')
+    })
+
+    await fireEvent.click(getByRole('button', { name: /New Tab/i }))
+    const secondPrompt = getByPlaceholderText(
+      'Ask anything about this project…',
+    ) as HTMLTextAreaElement
+    await fireEvent.input(secondPrompt, { target: { value: 'Second tab' } })
+    await fireEvent.click(getByRole('button', { name: 'Send message' }))
+    await waitFor(() => {
+      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-2', 'Second tab')
+    })
+
+    await fireEvent.click(getByRole('button', { name: 'Close First tab' }))
+
+    expect(queryByRole('button', { name: /^First tab$/ })).toBeNull()
+    expect(getByRole('button', { name: /^Second tab Running$/ })).toBeTruthy()
   })
 })
