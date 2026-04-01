@@ -7,6 +7,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
@@ -82,10 +83,14 @@ func (s *Service) RecordUsage(
 		return RecordUsageResult{}, fmt.Errorf("agent provider must be loaded for usage accounting")
 	}
 
-	resolvedCost, err := usageDelta.ResolveCost(ticketing.ModelPricing{
-		CostPerInputToken:  agentItem.Edges.Provider.CostPerInputToken,
-		CostPerOutputToken: agentItem.Edges.Provider.CostPerOutputToken,
-	})
+	pricingConfig := catalogdomain.ResolveAgentProviderPricingConfig(
+		catalogdomain.AgentProviderAdapterType(agentItem.Edges.Provider.AdapterType),
+		agentItem.Edges.Provider.ModelName,
+		agentItem.Edges.Provider.CostPerInputToken,
+		agentItem.Edges.Provider.CostPerOutputToken,
+		agentItem.Edges.Provider.PricingConfig,
+	)
+	resolvedCost, err := usageDelta.ResolveCost(pricingConfig)
 	if err != nil {
 		return RecordUsageResult{}, err
 	}

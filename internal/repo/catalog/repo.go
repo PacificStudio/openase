@@ -652,6 +652,13 @@ func rollbackOnError(_ context.Context, tx *ent.Tx, errp *error) {
 
 func createBuiltinAgentProviders(ctx context.Context, tx *ent.Tx, organizationID uuid.UUID, machineID uuid.UUID) error {
 	for _, template := range domain.BuiltinAgentProviderTemplates() {
+		pricingConfig := domain.ResolveAgentProviderPricingConfig(
+			template.AdapterType,
+			template.ModelName,
+			0,
+			0,
+			nil,
+		)
 		builder := tx.AgentProvider.Create().
 			SetOrganizationID(organizationID).
 			SetMachineID(machineID).
@@ -660,7 +667,10 @@ func createBuiltinAgentProviders(ctx context.Context, tx *ent.Tx, organizationID
 			SetCliCommand(template.Command).
 			SetCliArgs(append([]string(nil), template.CliArgs...)).
 			SetAuthConfig(map[string]any{}).
-			SetModelName(template.ModelName)
+			SetModelName(template.ModelName).
+			SetCostPerInputToken(pricingConfig.SummaryInputPerToken()).
+			SetCostPerOutputToken(pricingConfig.SummaryOutputPerToken()).
+			SetPricingConfig(pricingConfig.ToMap())
 		if _, err := builder.Save(ctx); err != nil {
 			return mapWriteError("create builtin agent provider", err)
 		}

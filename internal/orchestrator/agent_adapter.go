@@ -96,16 +96,28 @@ type agentUserInputRequest struct {
 }
 
 type agentTokenUsageEvent struct {
-	ThreadID           string
-	TurnID             string
-	TotalInputTokens   int64
-	TotalOutputTokens  int64
-	LastInputTokens    int64
-	LastOutputTokens   int64
-	TotalTokens        int64
-	LastTokens         int64
-	CostUSD            *float64
-	ModelContextWindow *int64
+	ThreadID                      string
+	TurnID                        string
+	TotalInputTokens              int64
+	TotalOutputTokens             int64
+	TotalCachedInputTokens        int64
+	TotalCacheCreationInputTokens int64
+	TotalReasoningTokens          int64
+	TotalPromptTokens             int64
+	TotalCandidateTokens          int64
+	TotalToolTokens               int64
+	LastInputTokens               int64
+	LastOutputTokens              int64
+	LastCachedInputTokens         int64
+	LastCacheCreationInputTokens  int64
+	LastReasoningTokens           int64
+	LastPromptTokens              int64
+	LastCandidateTokens           int64
+	LastToolTokens                int64
+	TotalTokens                   int64
+	LastTokens                    int64
+	CostUSD                       *float64
+	ModelContextWindow            *int64
 }
 
 func agentTokenUsageFromCLIUsage(threadID string, turnID string, usage *provider.CLIUsage) *agentTokenUsageEvent {
@@ -120,16 +132,28 @@ func agentTokenUsageFromCLIUsage(threadID string, turnID string, usage *provider
 	}
 
 	return &agentTokenUsageEvent{
-		ThreadID:           threadID,
-		TurnID:             turnID,
-		TotalInputTokens:   usage.Total.InputTokens,
-		TotalOutputTokens:  usage.Total.OutputTokens,
-		LastInputTokens:    usage.Delta.InputTokens,
-		LastOutputTokens:   usage.Delta.OutputTokens,
-		TotalTokens:        usage.Total.TotalTokens,
-		LastTokens:         usage.Delta.TotalTokens,
-		CostUSD:            cloneCostUSD(usage.CostUSD),
-		ModelContextWindow: modelContextWindow,
+		ThreadID:                      threadID,
+		TurnID:                        turnID,
+		TotalInputTokens:              usage.Total.InputTokens,
+		TotalOutputTokens:             usage.Total.OutputTokens,
+		TotalCachedInputTokens:        usage.Total.CachedInputTokens,
+		TotalCacheCreationInputTokens: usage.Total.CacheCreationInputTokens,
+		TotalReasoningTokens:          usage.Total.ReasoningTokens,
+		TotalPromptTokens:             usage.Total.PromptTokens,
+		TotalCandidateTokens:          usage.Total.CandidateTokens,
+		TotalToolTokens:               usage.Total.ToolTokens,
+		LastInputTokens:               usage.Delta.InputTokens,
+		LastOutputTokens:              usage.Delta.OutputTokens,
+		LastCachedInputTokens:         usage.Delta.CachedInputTokens,
+		LastCacheCreationInputTokens:  usage.Delta.CacheCreationInputTokens,
+		LastReasoningTokens:           usage.Delta.ReasoningTokens,
+		LastPromptTokens:              usage.Delta.PromptTokens,
+		LastCandidateTokens:           usage.Delta.CandidateTokens,
+		LastToolTokens:                usage.Delta.ToolTokens,
+		TotalTokens:                   usage.Total.TotalTokens,
+		LastTokens:                    usage.Delta.TotalTokens,
+		CostUSD:                       cloneCostUSD(usage.CostUSD),
+		ModelContextWindow:            modelContextWindow,
 	}
 }
 

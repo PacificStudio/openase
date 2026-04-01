@@ -5277,6 +5277,50 @@ export interface operations {
               name?: string
               organization_id?: string
               permission_profile?: string
+              pricing_config?: {
+                default_cache_write_window?: string
+                model_id?: string
+                notes?: string[]
+                pricing_mode?: string
+                provider?: string
+                rates?: {
+                  /** Format: double */
+                  cache_storage_per_token_hour?: number
+                  /** Format: double */
+                  cache_write_1h_per_token?: number
+                  /** Format: double */
+                  cache_write_5m_per_token?: number
+                  /** Format: double */
+                  cached_input_read_per_token?: number
+                  /** Format: double */
+                  input_per_token?: number
+                  /** Format: double */
+                  output_per_token?: number
+                }
+                source_kind?: string
+                source_url?: string
+                source_verified_at?: string
+                tiers?: {
+                  label?: string
+                  /** Format: int64 */
+                  max_prompt_tokens?: number
+                  rates?: {
+                    /** Format: double */
+                    cache_storage_per_token_hour?: number
+                    /** Format: double */
+                    cache_write_1h_per_token?: number
+                    /** Format: double */
+                    cache_write_5m_per_token?: number
+                    /** Format: double */
+                    cached_input_read_per_token?: number
+                    /** Format: double */
+                    input_per_token?: number
+                    /** Format: double */
+                    output_per_token?: number
+                  }
+                }[]
+                version?: string
+              }
             }[]
           }
         }
@@ -5370,6 +5414,10 @@ export interface operations {
           name?: string
           /** @description Managed permission profile used to render adapter-specific approval and sandbox options. */
           permission_profile?: string
+          /** @description Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata. */
+          pricing_config?: {
+            [key: string]: unknown
+          }
         }
       }
     }
@@ -5467,6 +5515,50 @@ export interface operations {
               name?: string
               organization_id?: string
               permission_profile?: string
+              pricing_config?: {
+                default_cache_write_window?: string
+                model_id?: string
+                notes?: string[]
+                pricing_mode?: string
+                provider?: string
+                rates?: {
+                  /** Format: double */
+                  cache_storage_per_token_hour?: number
+                  /** Format: double */
+                  cache_write_1h_per_token?: number
+                  /** Format: double */
+                  cache_write_5m_per_token?: number
+                  /** Format: double */
+                  cached_input_read_per_token?: number
+                  /** Format: double */
+                  input_per_token?: number
+                  /** Format: double */
+                  output_per_token?: number
+                }
+                source_kind?: string
+                source_url?: string
+                source_verified_at?: string
+                tiers?: {
+                  label?: string
+                  /** Format: int64 */
+                  max_prompt_tokens?: number
+                  rates?: {
+                    /** Format: double */
+                    cache_storage_per_token_hour?: number
+                    /** Format: double */
+                    cache_write_1h_per_token?: number
+                    /** Format: double */
+                    cache_write_5m_per_token?: number
+                    /** Format: double */
+                    cached_input_read_per_token?: number
+                    /** Format: double */
+                    input_per_token?: number
+                    /** Format: double */
+                    output_per_token?: number
+                  }
+                }[]
+                version?: string
+              }
             }
           }
         }
@@ -10703,6 +10795,50 @@ export interface operations {
                 id?: string
                 label?: string
                 preview?: boolean
+                pricing_config?: {
+                  default_cache_write_window?: string
+                  model_id?: string
+                  notes?: string[]
+                  pricing_mode?: string
+                  provider?: string
+                  rates?: {
+                    /** Format: double */
+                    cache_storage_per_token_hour?: number
+                    /** Format: double */
+                    cache_write_1h_per_token?: number
+                    /** Format: double */
+                    cache_write_5m_per_token?: number
+                    /** Format: double */
+                    cached_input_read_per_token?: number
+                    /** Format: double */
+                    input_per_token?: number
+                    /** Format: double */
+                    output_per_token?: number
+                  }
+                  source_kind?: string
+                  source_url?: string
+                  source_verified_at?: string
+                  tiers?: {
+                    label?: string
+                    /** Format: int64 */
+                    max_prompt_tokens?: number
+                    rates?: {
+                      /** Format: double */
+                      cache_storage_per_token_hour?: number
+                      /** Format: double */
+                      cache_write_1h_per_token?: number
+                      /** Format: double */
+                      cache_write_5m_per_token?: number
+                      /** Format: double */
+                      cached_input_read_per_token?: number
+                      /** Format: double */
+                      input_per_token?: number
+                      /** Format: double */
+                      output_per_token?: number
+                    }
+                  }[]
+                  version?: string
+                } | null
                 recommended?: boolean
               }[]
             }[]
@@ -10828,6 +10964,50 @@ export interface operations {
               name?: string
               organization_id?: string
               permission_profile?: string
+              pricing_config?: {
+                default_cache_write_window?: string
+                model_id?: string
+                notes?: string[]
+                pricing_mode?: string
+                provider?: string
+                rates?: {
+                  /** Format: double */
+                  cache_storage_per_token_hour?: number
+                  /** Format: double */
+                  cache_write_1h_per_token?: number
+                  /** Format: double */
+                  cache_write_5m_per_token?: number
+                  /** Format: double */
+                  cached_input_read_per_token?: number
+                  /** Format: double */
+                  input_per_token?: number
+                  /** Format: double */
+                  output_per_token?: number
+                }
+                source_kind?: string
+                source_url?: string
+                source_verified_at?: string
+                tiers?: {
+                  label?: string
+                  /** Format: int64 */
+                  max_prompt_tokens?: number
+                  rates?: {
+                    /** Format: double */
+                    cache_storage_per_token_hour?: number
+                    /** Format: double */
+                    cache_write_1h_per_token?: number
+                    /** Format: double */
+                    cache_write_5m_per_token?: number
+                    /** Format: double */
+                    cached_input_read_per_token?: number
+                    /** Format: double */
+                    input_per_token?: number
+                    /** Format: double */
+                    output_per_token?: number
+                  }
+                }[]
+                version?: string
+              }
             }
           }
         }
@@ -10921,6 +11101,10 @@ export interface operations {
           name?: string | null
           /** @description Managed permission profile used to render adapter-specific approval and sandbox options. */
           permission_profile?: string | null
+          /** @description Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata. */
+          pricing_config?: {
+            [key: string]: unknown
+          } | null
         }
       }
     }
@@ -11018,6 +11202,50 @@ export interface operations {
               name?: string
               organization_id?: string
               permission_profile?: string
+              pricing_config?: {
+                default_cache_write_window?: string
+                model_id?: string
+                notes?: string[]
+                pricing_mode?: string
+                provider?: string
+                rates?: {
+                  /** Format: double */
+                  cache_storage_per_token_hour?: number
+                  /** Format: double */
+                  cache_write_1h_per_token?: number
+                  /** Format: double */
+                  cache_write_5m_per_token?: number
+                  /** Format: double */
+                  cached_input_read_per_token?: number
+                  /** Format: double */
+                  input_per_token?: number
+                  /** Format: double */
+                  output_per_token?: number
+                }
+                source_kind?: string
+                source_url?: string
+                source_verified_at?: string
+                tiers?: {
+                  label?: string
+                  /** Format: int64 */
+                  max_prompt_tokens?: number
+                  rates?: {
+                    /** Format: double */
+                    cache_storage_per_token_hour?: number
+                    /** Format: double */
+                    cache_write_1h_per_token?: number
+                    /** Format: double */
+                    cache_write_5m_per_token?: number
+                    /** Format: double */
+                    cached_input_read_per_token?: number
+                    /** Format: double */
+                    input_per_token?: number
+                    /** Format: double */
+                    output_per_token?: number
+                  }
+                }[]
+                version?: string
+              }
             }
           }
         }

@@ -44,10 +44,14 @@ func TestBuiltinAgentProviderModelOptionsGemini(t *testing.T) {
 func TestBuiltinAgentProviderModelOptionsReturnsClone(t *testing.T) {
 	options := BuiltinAgentProviderModelOptions(AgentProviderAdapterTypeCodexAppServer)
 	options[0].ID = "changed"
+	options[0].PricingConfig.Rates.InputPerToken = 123
 
 	fresh := BuiltinAgentProviderModelOptions(AgentProviderAdapterTypeCodexAppServer)
 	if fresh[0].ID != "gpt-5.4" {
 		t.Fatalf("BuiltinAgentProviderModelOptions() did not return a clone: %+v", fresh[0])
+	}
+	if fresh[0].PricingConfig == nil || fresh[0].PricingConfig.Rates.InputPerToken == 123 {
+		t.Fatalf("BuiltinAgentProviderModelOptions() did not clone pricing config: %+v", fresh[0])
 	}
 }
 
@@ -71,5 +75,15 @@ func TestBuiltinAgentProviderAdaptersWithModelOptionsReturnsClone(t *testing.T) 
 	fresh := BuiltinAgentProviderAdaptersWithModelOptions()
 	if fresh[0] != AgentProviderAdapterTypeCodexAppServer {
 		t.Fatalf("BuiltinAgentProviderAdaptersWithModelOptions() did not return a clone: %+v", fresh)
+	}
+}
+
+func TestBuiltinPricingConfigPointer(t *testing.T) {
+	ptr := builtinPricingConfigPointer(AgentProviderAdapterTypeCodexAppServer, "gpt-5.4")
+	if ptr == nil || ptr.ModelID != "gpt-5.4" {
+		t.Fatalf("builtinPricingConfigPointer() = %+v, want gpt-5.4 pricing config", ptr)
+	}
+	if builtinPricingConfigPointer(AgentProviderAdapterTypeCodexAppServer, "unknown") != nil {
+		t.Fatal("builtinPricingConfigPointer() expected nil for unknown model")
 	}
 }

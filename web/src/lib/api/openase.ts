@@ -222,6 +222,7 @@ export function createProvider(
     max_parallel_runs?: number
     cost_per_input_token?: number
     cost_per_output_token?: number
+    pricing_config?: Record<string, unknown>
   },
 ) {
   return api.post<AgentProviderResponse>(`/api/v1/orgs/${orgId}/providers`, { body })
@@ -942,6 +943,7 @@ export function updateProvider(
     max_parallel_runs?: number
     cost_per_input_token?: number
     cost_per_output_token?: number
+    pricing_config?: Record<string, unknown>
   },
 ) {
   return api.patch<{ provider?: AgentProvider }>(`/api/v1/providers/${providerId}`, { body })

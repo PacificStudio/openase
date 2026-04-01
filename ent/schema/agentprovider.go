@@ -37,6 +37,7 @@ func (AgentProvider) Fields() []ent.Field {
 		field.Float("cost_per_output_token").
 			SchemaType(rateColumn()).
 			Default(0),
+		field.JSON("pricing_config", map[string]any{}).Default(emptyMap),
 	}
 }
 

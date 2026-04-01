@@ -11,14 +11,18 @@ func resolveUsageCostUSD(providerItem catalogdomain.AgentProvider, raw ticketing
 	if err != nil {
 		return nil
 	}
-	if usage.ExplicitCostUSD == nil && !providerHasUsagePricing(providerItem) {
+	pricingConfig := catalogdomain.ResolveAgentProviderPricingConfig(
+		providerItem.AdapterType,
+		providerItem.ModelName,
+		providerItem.CostPerInputToken,
+		providerItem.CostPerOutputToken,
+		providerItem.PricingConfig.ToMap(),
+	)
+	if usage.ExplicitCostUSD == nil && !pricingConfig.HasAnyPricing() {
 		return nil
 	}
 
-	costUSD, err := usage.ResolveCostUSD(ticketing.ModelPricing{
-		CostPerInputToken:  providerItem.CostPerInputToken,
-		CostPerOutputToken: providerItem.CostPerOutputToken,
-	})
+	costUSD, err := usage.ResolveCostUSD(pricingConfig)
 	if err != nil {
 		return nil
 	}
@@ -40,12 +44,29 @@ func resolveCLIUsageCostUSD(providerItem catalogdomain.AgentProvider, usage *pro
 	if usage.Total.OutputTokens > 0 {
 		raw.OutputTokens = int64Pointer(usage.Total.OutputTokens)
 	}
+	if usage.Total.CachedInputTokens > 0 {
+		raw.CachedInputTokens = int64Pointer(usage.Total.CachedInputTokens)
+	}
+	if usage.Total.CacheCreationInputTokens > 0 {
+		raw.CacheCreationInputTokens = int64Pointer(usage.Total.CacheCreationInputTokens)
+	}
+	if usage.Total.PromptTokens > 0 {
+		raw.PromptTokens = int64Pointer(usage.Total.PromptTokens)
+	}
+	if usage.Total.CandidateTokens > 0 {
+		raw.CandidateTokens = int64Pointer(usage.Total.CandidateTokens)
+	}
+	if usage.Total.ToolTokens > 0 {
+		raw.ToolTokens = int64Pointer(usage.Total.ToolTokens)
+	}
+	if usage.Total.ReasoningTokens > 0 {
+		raw.ReasoningTokens = int64Pointer(usage.Total.ReasoningTokens)
+	}
+	if usage.ModelContextWindow != nil {
+		raw.ModelContextWindow = int64Pointer(*usage.ModelContextWindow)
+	}
 
 	return resolveUsageCostUSD(providerItem, raw)
-}
-
-func providerHasUsagePricing(providerItem catalogdomain.AgentProvider) bool {
-	return providerItem.CostPerInputToken > 0 || providerItem.CostPerOutputToken > 0
 }
 
 func cloneCostUSD(costUSD *float64) *float64 {

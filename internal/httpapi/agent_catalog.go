@@ -10,6 +10,7 @@ import (
 	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/domain/pricing"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -43,6 +44,7 @@ type agentProviderResponse struct {
 	MaxParallelRuns       int                                `json:"max_parallel_runs"`
 	CostPerInputToken     float64                            `json:"cost_per_input_token"`
 	CostPerOutputToken    float64                            `json:"cost_per_output_token"`
+	PricingConfig         pricing.ProviderModelPricingConfig `json:"pricing_config"`
 }
 
 type agentProviderCapabilitiesResponse struct {
@@ -102,11 +104,12 @@ type agentProviderGeminiRateLimitBucketResponse struct {
 }
 
 type agentProviderModelOptionResponse struct {
-	ID          string `json:"id"`
-	Label       string `json:"label"`
-	Description string `json:"description"`
-	Recommended bool   `json:"recommended"`
-	Preview     bool   `json:"preview"`
+	ID            string                              `json:"id"`
+	Label         string                              `json:"label"`
+	Description   string                              `json:"description"`
+	Recommended   bool                                `json:"recommended"`
+	Preview       bool                                `json:"preview"`
+	PricingConfig *pricing.ProviderModelPricingConfig `json:"pricing_config,omitempty"`
 }
 
 type agentProviderModelCatalogEntryResponse struct {
@@ -660,6 +663,7 @@ func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 		MaxParallelRuns:       item.MaxParallelRuns,
 		CostPerInputToken:     item.CostPerInputToken,
 		CostPerOutputToken:    item.CostPerOutputToken,
+		PricingConfig:         item.PricingConfig.Clone(),
 	}
 }
 
@@ -704,11 +708,12 @@ func mapAgentProviderModelOptionResponses(
 	responses := make([]agentProviderModelOptionResponse, 0, len(items))
 	for _, item := range items {
 		responses = append(responses, agentProviderModelOptionResponse{
-			ID:          item.ID,
-			Label:       item.Label,
-			Description: item.Description,
-			Recommended: item.Recommended,
-			Preview:     item.Preview,
+			ID:            item.ID,
+			Label:         item.Label,
+			Description:   item.Description,
+			Recommended:   item.Recommended,
+			Preview:       item.Preview,
+			PricingConfig: clonePricingConfigPointer(item.PricingConfig),
 		})
 	}
 
@@ -729,6 +734,16 @@ func timePointerString(value *time.Time) *string {
 	}
 	formatted := value.UTC().Format(time.RFC3339)
 	return &formatted
+}
+
+func clonePricingConfigPointer(
+	value *pricing.ProviderModelPricingConfig,
+) *pricing.ProviderModelPricingConfig {
+	if value == nil {
+		return nil
+	}
+	cloned := value.Clone()
+	return &cloned
 }
 
 func mapAgentResponses(items []domain.Agent) []agentResponse {
