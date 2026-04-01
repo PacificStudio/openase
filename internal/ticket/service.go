@@ -1561,6 +1561,7 @@ func releaseTicketAgentClaim(ctx context.Context, tx *ent.Tx, ticketItem *ent.Ti
 
 		runUpdate := tx.AgentRun.UpdateOneID(currentRun.ID).
 			SetStatus(runStatus).
+			SetTerminalAt(timeNowUTC()).
 			ClearSessionID().
 			ClearRuntimeStartedAt().
 			ClearLastHeartbeatAt()

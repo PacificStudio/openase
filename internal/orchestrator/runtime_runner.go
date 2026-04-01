@@ -23,6 +23,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
 )
@@ -372,7 +373,7 @@ func (l *RuntimeLauncher) consumeTurn(
 			if !turnMatches(turnID, event.TokenUsage.TurnID) {
 				continue
 			}
-			if err := l.recordTokenUsage(ctx, agentID, ticketID, event.TokenUsage, highWater); err != nil {
+			if err := l.recordTokenUsage(ctx, agentID, runID, ticketID, event.TokenUsage, highWater); err != nil {
 				return err
 			}
 		case agentEventTypeRateLimitUpdated:
@@ -918,6 +919,7 @@ func (l *RuntimeLauncher) touchHeartbeat(ctx context.Context, runID uuid.UUID) e
 func (l *RuntimeLauncher) recordTokenUsage(
 	ctx context.Context,
 	agentID uuid.UUID,
+	runID uuid.UUID,
 	ticketID uuid.UUID,
 	usage *agentTokenUsageEvent,
 	highWater *tokenUsageHighWater,
@@ -982,6 +984,7 @@ func (l *RuntimeLauncher) recordTokenUsage(
 	result, err := l.tickets.RecordUsage(ctx, ticketservice.RecordUsageInput{
 		AgentID:  agentID,
 		TicketID: ticketID,
+		RunID:    &runID,
 		Usage: ticketing.RawUsageDelta{
 			InputTokens:              int64Pointer(inputDelta),
 			OutputTokens:             int64Pointer(outputDelta),
@@ -1143,13 +1146,17 @@ func (l *RuntimeLauncher) releaseExecutionOwnership(ctx context.Context, runID u
 
 	if _, err := clearRuntimeStateOne(
 		tx.AgentRun.UpdateOneID(runID).
-			SetStatus(entagentrun.StatusTerminated),
+			SetStatus(entagentrun.StatusTerminated).
+			SetTerminalAt(l.now().UTC()),
 	).Save(ctx); err != nil {
 		return fmt.Errorf("reset run %s after execution release: %w", runID, err)
 	}
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit execution release tx: %w", err)
+	}
+	if err := catalogrepo.MaterializeAgentRunDailyUsage(ctx, l.client, runID, l.now().UTC()); err != nil {
+		return err
 	}
 
 	reloaded, err := loadAgentLifecycleState(ctx, l.client, agentID, &runID)
@@ -1217,13 +1224,17 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, runID uui
 
 	if _, err := clearRuntimeStateOne(
 		tx.AgentRun.UpdateOneID(runID).
-			SetStatus(entagentrun.StatusCompleted),
+			SetStatus(entagentrun.StatusCompleted).
+			SetTerminalAt(now),
 	).Save(ctx); err != nil {
 		return fmt.Errorf("update run %s after execution: %w", runID, err)
 	}
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit finish execution tx: %w", err)
+	}
+	if err := catalogrepo.MaterializeAgentRunDailyUsage(ctx, l.client, runID, now); err != nil {
+		return err
 	}
 	l.tickets.RunLifecycleHookBestEffort(ctx, ticketservice.RunLifecycleHookInput{
 		TicketID: ticket.ID,
@@ -1281,8 +1292,10 @@ func (l *RuntimeLauncher) handleExecutionFailure(ctx context.Context, runID uuid
 	if _, err := l.client.AgentRun.Update().
 		Where(entagentrun.IDEQ(runID)).
 		SetStatus(entagentrun.StatusErrored).
+		SetTerminalAt(now).
 		SetLastError(strings.TrimSpace(failure.Error())).
 		Save(ctx); err == nil {
+		_ = catalogrepo.MaterializeAgentRunDailyUsage(ctx, l.client, runID, now)
 		l.tickets.RunLifecycleHookBestEffort(ctx, ticketservice.RunLifecycleHookInput{
 			TicketID: ticketID,
 			RunID:    runID,
@@ -1343,13 +1356,17 @@ func (l *RuntimeLauncher) scheduleContinuation(ctx context.Context, runID uuid.U
 
 	if _, err := clearRuntimeStateOne(
 		tx.AgentRun.UpdateOneID(runID).
-			SetStatus(entagentrun.StatusTerminated),
+			SetStatus(entagentrun.StatusTerminated).
+			SetTerminalAt(l.now().UTC()),
 	).Save(ctx); err != nil {
 		return fmt.Errorf("reset run %s after continuation limit: %w", runID, err)
 	}
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit continuation tx: %w", err)
+	}
+	if err := catalogrepo.MaterializeAgentRunDailyUsage(ctx, l.client, runID, l.now().UTC()); err != nil {
+		return err
 	}
 
 	reloaded, err := loadAgentLifecycleState(ctx, l.client, agentID, &runID)

@@ -29,6 +29,7 @@ import (
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -230,7 +231,8 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 						entagentrun.IDEQ(assignment.run.ID),
 						entagentrun.StatusIn(entagentrun.StatusLaunching, entagentrun.StatusReady, entagentrun.StatusExecuting),
 					).
-					SetStatus(entagentrun.StatusTerminated),
+					SetStatus(entagentrun.StatusTerminated).
+					SetTerminalAt(now),
 			).Save(ctx); err != nil {
 				rollback(tx)
 				l.logger.Warn("mark agent run terminated", "agent_id", assignment.agent.ID, "run_id", assignment.run.ID, "error", err)
@@ -252,6 +254,9 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 			if err := tx.Commit(); err != nil {
 				l.logger.Warn("commit graceful shutdown release", "agent_id", assignment.agent.ID, "run_id", assignment.run.ID, "error", err)
 				continue
+			}
+			if err := catalogrepo.MaterializeAgentRunDailyUsage(ctx, l.client, assignment.run.ID, now); err != nil {
+				l.logger.Warn("materialize graceful shutdown run usage", "run_id", assignment.run.ID, "error", err)
 			}
 		}
 
@@ -467,6 +472,7 @@ func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUI
 			entagentrun.StatusEQ(entagentrun.StatusLaunching),
 		).
 		SetStatus(entagentrun.StatusErrored).
+		SetTerminalAt(now).
 		SetLastError(strings.TrimSpace(launchErr.Error())).
 		ClearSessionID().
 		ClearRuntimeStartedAt().
@@ -477,6 +483,9 @@ func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUI
 	}
 	if count == 0 {
 		return nil
+	}
+	if err := catalogrepo.MaterializeAgentRunDailyUsage(ctx, l.client, runID, now); err != nil {
+		return err
 	}
 	l.tickets.RunLifecycleHookBestEffort(ctx, ticketservice.RunLifecycleHookInput{
 		TicketID: ticketID,
@@ -694,13 +703,17 @@ func (l *RuntimeLauncher) pauseAgent(ctx context.Context, assignment runtimeAssi
 				entagentrun.IDEQ(assignment.run.ID),
 				entagentrun.StatusIn(entagentrun.StatusLaunching, entagentrun.StatusReady, entagentrun.StatusExecuting),
 			).
-			SetStatus(entagentrun.StatusTerminated),
+			SetStatus(entagentrun.StatusTerminated).
+			SetTerminalAt(pausedAt),
 	).Save(ctx)
 	if err != nil {
 		return fmt.Errorf("mark agent %s paused: %w", assignment.agent.ID, err)
 	}
 	if pausedCount == 0 {
 		return nil
+	}
+	if err := catalogrepo.MaterializeAgentRunDailyUsage(ctx, l.client, assignment.run.ID, pausedAt); err != nil {
+		return err
 	}
 
 	if _, err := l.client.Agent.UpdateOneID(assignment.agent.ID).

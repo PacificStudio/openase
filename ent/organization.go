@@ -48,11 +48,13 @@ type OrganizationEdges struct {
 	Machines []*Machine `json:"machines,omitempty"`
 	// NotificationChannels holds the value of the notification_channels edge.
 	NotificationChannels []*NotificationChannel `json:"notification_channels,omitempty"`
+	// DailyTokenUsage holds the value of the daily_token_usage edge.
+	DailyTokenUsage []*OrganizationDailyTokenUsage `json:"daily_token_usage,omitempty"`
 	// DefaultAgentProvider holds the value of the default_agent_provider edge.
 	DefaultAgentProvider *AgentProvider `json:"default_agent_provider,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [6]bool
 }
 
 // ProjectsOrErr returns the Projects value or an error if the edge
@@ -91,12 +93,21 @@ func (e OrganizationEdges) NotificationChannelsOrErr() ([]*NotificationChannel, 
 	return nil, &NotLoadedError{edge: "notification_channels"}
 }
 
+// DailyTokenUsageOrErr returns the DailyTokenUsage value or an error if the edge
+// was not loaded in eager-loading.
+func (e OrganizationEdges) DailyTokenUsageOrErr() ([]*OrganizationDailyTokenUsage, error) {
+	if e.loadedTypes[4] {
+		return e.DailyTokenUsage, nil
+	}
+	return nil, &NotLoadedError{edge: "daily_token_usage"}
+}
+
 // DefaultAgentProviderOrErr returns the DefaultAgentProvider value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e OrganizationEdges) DefaultAgentProviderOrErr() (*AgentProvider, error) {
 	if e.DefaultAgentProvider != nil {
 		return e.DefaultAgentProvider, nil
-	} else if e.loadedTypes[4] {
+	} else if e.loadedTypes[5] {
 		return nil, &NotFoundError{label: agentprovider.Label}
 	}
 	return nil, &NotLoadedError{edge: "default_agent_provider"}
@@ -208,6 +219,11 @@ func (_m *Organization) QueryMachines() *MachineQuery {
 // QueryNotificationChannels queries the "notification_channels" edge of the Organization entity.
 func (_m *Organization) QueryNotificationChannels() *NotificationChannelQuery {
 	return NewOrganizationClient(_m.config).QueryNotificationChannels(_m)
+}
+
+// QueryDailyTokenUsage queries the "daily_token_usage" edge of the Organization entity.
+func (_m *Organization) QueryDailyTokenUsage() *OrganizationDailyTokenUsageQuery {
+	return NewOrganizationClient(_m.config).QueryDailyTokenUsage(_m)
 }
 
 // QueryDefaultAgentProvider queries the "default_agent_provider" edge of the Organization entity.

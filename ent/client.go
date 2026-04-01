@@ -31,6 +31,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
+	"github.com/BetterAndBetterII/openase/ent/organizationdailytokenusage"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
@@ -86,6 +87,8 @@ type Client struct {
 	NotificationRule *NotificationRuleClient
 	// Organization is the client for interacting with the Organization builders.
 	Organization *OrganizationClient
+	// OrganizationDailyTokenUsage is the client for interacting with the OrganizationDailyTokenUsage builders.
+	OrganizationDailyTokenUsage *OrganizationDailyTokenUsageClient
 	// Project is the client for interacting with the Project builders.
 	Project *ProjectClient
 	// ProjectRepo is the client for interacting with the ProjectRepo builders.
@@ -148,6 +151,7 @@ func (c *Client) init() {
 	c.NotificationChannel = NewNotificationChannelClient(c.config)
 	c.NotificationRule = NewNotificationRuleClient(c.config)
 	c.Organization = NewOrganizationClient(c.config)
+	c.OrganizationDailyTokenUsage = NewOrganizationDailyTokenUsageClient(c.config)
 	c.Project = NewProjectClient(c.config)
 	c.ProjectRepo = NewProjectRepoClient(c.config)
 	c.ScheduledJob = NewScheduledJobClient(c.config)
@@ -256,41 +260,42 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:                   ctx,
-		config:                cfg,
-		ActivityEvent:         NewActivityEventClient(cfg),
-		Agent:                 NewAgentClient(cfg),
-		AgentProvider:         NewAgentProviderClient(cfg),
-		AgentRun:              NewAgentRunClient(cfg),
-		AgentStepEvent:        NewAgentStepEventClient(cfg),
-		AgentToken:            NewAgentTokenClient(cfg),
-		AgentTraceEvent:       NewAgentTraceEventClient(cfg),
-		ChatConversation:      NewChatConversationClient(cfg),
-		ChatEntry:             NewChatEntryClient(cfg),
-		ChatPendingInterrupt:  NewChatPendingInterruptClient(cfg),
-		ChatTurn:              NewChatTurnClient(cfg),
-		Machine:               NewMachineClient(cfg),
-		NotificationChannel:   NewNotificationChannelClient(cfg),
-		NotificationRule:      NewNotificationRuleClient(cfg),
-		Organization:          NewOrganizationClient(cfg),
-		Project:               NewProjectClient(cfg),
-		ProjectRepo:           NewProjectRepoClient(cfg),
-		ScheduledJob:          NewScheduledJobClient(cfg),
-		Skill:                 NewSkillClient(cfg),
-		SkillBlob:             NewSkillBlobClient(cfg),
-		SkillVersion:          NewSkillVersionClient(cfg),
-		SkillVersionFile:      NewSkillVersionFileClient(cfg),
-		Ticket:                NewTicketClient(cfg),
-		TicketComment:         NewTicketCommentClient(cfg),
-		TicketCommentRevision: NewTicketCommentRevisionClient(cfg),
-		TicketDependency:      NewTicketDependencyClient(cfg),
-		TicketExternalLink:    NewTicketExternalLinkClient(cfg),
-		TicketRepoScope:       NewTicketRepoScopeClient(cfg),
-		TicketRepoWorkspace:   NewTicketRepoWorkspaceClient(cfg),
-		TicketStatus:          NewTicketStatusClient(cfg),
-		Workflow:              NewWorkflowClient(cfg),
-		WorkflowSkillBinding:  NewWorkflowSkillBindingClient(cfg),
-		WorkflowVersion:       NewWorkflowVersionClient(cfg),
+		ctx:                         ctx,
+		config:                      cfg,
+		ActivityEvent:               NewActivityEventClient(cfg),
+		Agent:                       NewAgentClient(cfg),
+		AgentProvider:               NewAgentProviderClient(cfg),
+		AgentRun:                    NewAgentRunClient(cfg),
+		AgentStepEvent:              NewAgentStepEventClient(cfg),
+		AgentToken:                  NewAgentTokenClient(cfg),
+		AgentTraceEvent:             NewAgentTraceEventClient(cfg),
+		ChatConversation:            NewChatConversationClient(cfg),
+		ChatEntry:                   NewChatEntryClient(cfg),
+		ChatPendingInterrupt:        NewChatPendingInterruptClient(cfg),
+		ChatTurn:                    NewChatTurnClient(cfg),
+		Machine:                     NewMachineClient(cfg),
+		NotificationChannel:         NewNotificationChannelClient(cfg),
+		NotificationRule:            NewNotificationRuleClient(cfg),
+		Organization:                NewOrganizationClient(cfg),
+		OrganizationDailyTokenUsage: NewOrganizationDailyTokenUsageClient(cfg),
+		Project:                     NewProjectClient(cfg),
+		ProjectRepo:                 NewProjectRepoClient(cfg),
+		ScheduledJob:                NewScheduledJobClient(cfg),
+		Skill:                       NewSkillClient(cfg),
+		SkillBlob:                   NewSkillBlobClient(cfg),
+		SkillVersion:                NewSkillVersionClient(cfg),
+		SkillVersionFile:            NewSkillVersionFileClient(cfg),
+		Ticket:                      NewTicketClient(cfg),
+		TicketComment:               NewTicketCommentClient(cfg),
+		TicketCommentRevision:       NewTicketCommentRevisionClient(cfg),
+		TicketDependency:            NewTicketDependencyClient(cfg),
+		TicketExternalLink:          NewTicketExternalLinkClient(cfg),
+		TicketRepoScope:             NewTicketRepoScopeClient(cfg),
+		TicketRepoWorkspace:         NewTicketRepoWorkspaceClient(cfg),
+		TicketStatus:                NewTicketStatusClient(cfg),
+		Workflow:                    NewWorkflowClient(cfg),
+		WorkflowSkillBinding:        NewWorkflowSkillBindingClient(cfg),
+		WorkflowVersion:             NewWorkflowVersionClient(cfg),
 	}, nil
 }
 
@@ -308,41 +313,42 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:                   ctx,
-		config:                cfg,
-		ActivityEvent:         NewActivityEventClient(cfg),
-		Agent:                 NewAgentClient(cfg),
-		AgentProvider:         NewAgentProviderClient(cfg),
-		AgentRun:              NewAgentRunClient(cfg),
-		AgentStepEvent:        NewAgentStepEventClient(cfg),
-		AgentToken:            NewAgentTokenClient(cfg),
-		AgentTraceEvent:       NewAgentTraceEventClient(cfg),
-		ChatConversation:      NewChatConversationClient(cfg),
-		ChatEntry:             NewChatEntryClient(cfg),
-		ChatPendingInterrupt:  NewChatPendingInterruptClient(cfg),
-		ChatTurn:              NewChatTurnClient(cfg),
-		Machine:               NewMachineClient(cfg),
-		NotificationChannel:   NewNotificationChannelClient(cfg),
-		NotificationRule:      NewNotificationRuleClient(cfg),
-		Organization:          NewOrganizationClient(cfg),
-		Project:               NewProjectClient(cfg),
-		ProjectRepo:           NewProjectRepoClient(cfg),
-		ScheduledJob:          NewScheduledJobClient(cfg),
-		Skill:                 NewSkillClient(cfg),
-		SkillBlob:             NewSkillBlobClient(cfg),
-		SkillVersion:          NewSkillVersionClient(cfg),
-		SkillVersionFile:      NewSkillVersionFileClient(cfg),
-		Ticket:                NewTicketClient(cfg),
-		TicketComment:         NewTicketCommentClient(cfg),
-		TicketCommentRevision: NewTicketCommentRevisionClient(cfg),
-		TicketDependency:      NewTicketDependencyClient(cfg),
-		TicketExternalLink:    NewTicketExternalLinkClient(cfg),
-		TicketRepoScope:       NewTicketRepoScopeClient(cfg),
-		TicketRepoWorkspace:   NewTicketRepoWorkspaceClient(cfg),
-		TicketStatus:          NewTicketStatusClient(cfg),
-		Workflow:              NewWorkflowClient(cfg),
-		WorkflowSkillBinding:  NewWorkflowSkillBindingClient(cfg),
-		WorkflowVersion:       NewWorkflowVersionClient(cfg),
+		ctx:                         ctx,
+		config:                      cfg,
+		ActivityEvent:               NewActivityEventClient(cfg),
+		Agent:                       NewAgentClient(cfg),
+		AgentProvider:               NewAgentProviderClient(cfg),
+		AgentRun:                    NewAgentRunClient(cfg),
+		AgentStepEvent:              NewAgentStepEventClient(cfg),
+		AgentToken:                  NewAgentTokenClient(cfg),
+		AgentTraceEvent:             NewAgentTraceEventClient(cfg),
+		ChatConversation:            NewChatConversationClient(cfg),
+		ChatEntry:                   NewChatEntryClient(cfg),
+		ChatPendingInterrupt:        NewChatPendingInterruptClient(cfg),
+		ChatTurn:                    NewChatTurnClient(cfg),
+		Machine:                     NewMachineClient(cfg),
+		NotificationChannel:         NewNotificationChannelClient(cfg),
+		NotificationRule:            NewNotificationRuleClient(cfg),
+		Organization:                NewOrganizationClient(cfg),
+		OrganizationDailyTokenUsage: NewOrganizationDailyTokenUsageClient(cfg),
+		Project:                     NewProjectClient(cfg),
+		ProjectRepo:                 NewProjectRepoClient(cfg),
+		ScheduledJob:                NewScheduledJobClient(cfg),
+		Skill:                       NewSkillClient(cfg),
+		SkillBlob:                   NewSkillBlobClient(cfg),
+		SkillVersion:                NewSkillVersionClient(cfg),
+		SkillVersionFile:            NewSkillVersionFileClient(cfg),
+		Ticket:                      NewTicketClient(cfg),
+		TicketComment:               NewTicketCommentClient(cfg),
+		TicketCommentRevision:       NewTicketCommentRevisionClient(cfg),
+		TicketDependency:            NewTicketDependencyClient(cfg),
+		TicketExternalLink:          NewTicketExternalLinkClient(cfg),
+		TicketRepoScope:             NewTicketRepoScopeClient(cfg),
+		TicketRepoWorkspace:         NewTicketRepoWorkspaceClient(cfg),
+		TicketStatus:                NewTicketStatusClient(cfg),
+		Workflow:                    NewWorkflowClient(cfg),
+		WorkflowSkillBinding:        NewWorkflowSkillBindingClient(cfg),
+		WorkflowVersion:             NewWorkflowVersionClient(cfg),
 	}, nil
 }
 
@@ -375,11 +381,12 @@ func (c *Client) Use(hooks ...Hook) {
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
 		c.AgentToken, c.AgentTraceEvent, c.ChatConversation, c.ChatEntry,
 		c.ChatPendingInterrupt, c.ChatTurn, c.Machine, c.NotificationChannel,
-		c.NotificationRule, c.Organization, c.Project, c.ProjectRepo, c.ScheduledJob,
-		c.Skill, c.SkillBlob, c.SkillVersion, c.SkillVersionFile, c.Ticket,
-		c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
-		c.TicketExternalLink, c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus,
-		c.Workflow, c.WorkflowSkillBinding, c.WorkflowVersion,
+		c.NotificationRule, c.Organization, c.OrganizationDailyTokenUsage, c.Project,
+		c.ProjectRepo, c.ScheduledJob, c.Skill, c.SkillBlob, c.SkillVersion,
+		c.SkillVersionFile, c.Ticket, c.TicketComment, c.TicketCommentRevision,
+		c.TicketDependency, c.TicketExternalLink, c.TicketRepoScope,
+		c.TicketRepoWorkspace, c.TicketStatus, c.Workflow, c.WorkflowSkillBinding,
+		c.WorkflowVersion,
 	} {
 		n.Use(hooks...)
 	}
@@ -392,11 +399,12 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
 		c.AgentToken, c.AgentTraceEvent, c.ChatConversation, c.ChatEntry,
 		c.ChatPendingInterrupt, c.ChatTurn, c.Machine, c.NotificationChannel,
-		c.NotificationRule, c.Organization, c.Project, c.ProjectRepo, c.ScheduledJob,
-		c.Skill, c.SkillBlob, c.SkillVersion, c.SkillVersionFile, c.Ticket,
-		c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
-		c.TicketExternalLink, c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus,
-		c.Workflow, c.WorkflowSkillBinding, c.WorkflowVersion,
+		c.NotificationRule, c.Organization, c.OrganizationDailyTokenUsage, c.Project,
+		c.ProjectRepo, c.ScheduledJob, c.Skill, c.SkillBlob, c.SkillVersion,
+		c.SkillVersionFile, c.Ticket, c.TicketComment, c.TicketCommentRevision,
+		c.TicketDependency, c.TicketExternalLink, c.TicketRepoScope,
+		c.TicketRepoWorkspace, c.TicketStatus, c.Workflow, c.WorkflowSkillBinding,
+		c.WorkflowVersion,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -435,6 +443,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.NotificationRule.mutate(ctx, m)
 	case *OrganizationMutation:
 		return c.Organization.mutate(ctx, m)
+	case *OrganizationDailyTokenUsageMutation:
+		return c.OrganizationDailyTokenUsage.mutate(ctx, m)
 	case *ProjectMutation:
 		return c.Project.mutate(ctx, m)
 	case *ProjectRepoMutation:
@@ -3390,6 +3400,22 @@ func (c *OrganizationClient) QueryNotificationChannels(_m *Organization) *Notifi
 	return query
 }
 
+// QueryDailyTokenUsage queries the daily_token_usage edge of a Organization.
+func (c *OrganizationClient) QueryDailyTokenUsage(_m *Organization) *OrganizationDailyTokenUsageQuery {
+	query := (&OrganizationDailyTokenUsageClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(organization.Table, organization.FieldID, id),
+			sqlgraph.To(organizationdailytokenusage.Table, organizationdailytokenusage.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, organization.DailyTokenUsageTable, organization.DailyTokenUsageColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryDefaultAgentProvider queries the default_agent_provider edge of a Organization.
 func (c *OrganizationClient) QueryDefaultAgentProvider(_m *Organization) *AgentProviderQuery {
 	query := (&AgentProviderClient{config: c.config}).Query()
@@ -3428,6 +3454,155 @@ func (c *OrganizationClient) mutate(ctx context.Context, m *OrganizationMutation
 		return (&OrganizationDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Organization mutation op: %q", m.Op())
+	}
+}
+
+// OrganizationDailyTokenUsageClient is a client for the OrganizationDailyTokenUsage schema.
+type OrganizationDailyTokenUsageClient struct {
+	config
+}
+
+// NewOrganizationDailyTokenUsageClient returns a client for the OrganizationDailyTokenUsage from the given config.
+func NewOrganizationDailyTokenUsageClient(c config) *OrganizationDailyTokenUsageClient {
+	return &OrganizationDailyTokenUsageClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `organizationdailytokenusage.Hooks(f(g(h())))`.
+func (c *OrganizationDailyTokenUsageClient) Use(hooks ...Hook) {
+	c.hooks.OrganizationDailyTokenUsage = append(c.hooks.OrganizationDailyTokenUsage, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `organizationdailytokenusage.Intercept(f(g(h())))`.
+func (c *OrganizationDailyTokenUsageClient) Intercept(interceptors ...Interceptor) {
+	c.inters.OrganizationDailyTokenUsage = append(c.inters.OrganizationDailyTokenUsage, interceptors...)
+}
+
+// Create returns a builder for creating a OrganizationDailyTokenUsage entity.
+func (c *OrganizationDailyTokenUsageClient) Create() *OrganizationDailyTokenUsageCreate {
+	mutation := newOrganizationDailyTokenUsageMutation(c.config, OpCreate)
+	return &OrganizationDailyTokenUsageCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of OrganizationDailyTokenUsage entities.
+func (c *OrganizationDailyTokenUsageClient) CreateBulk(builders ...*OrganizationDailyTokenUsageCreate) *OrganizationDailyTokenUsageCreateBulk {
+	return &OrganizationDailyTokenUsageCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *OrganizationDailyTokenUsageClient) MapCreateBulk(slice any, setFunc func(*OrganizationDailyTokenUsageCreate, int)) *OrganizationDailyTokenUsageCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &OrganizationDailyTokenUsageCreateBulk{err: fmt.Errorf("calling to OrganizationDailyTokenUsageClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*OrganizationDailyTokenUsageCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &OrganizationDailyTokenUsageCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for OrganizationDailyTokenUsage.
+func (c *OrganizationDailyTokenUsageClient) Update() *OrganizationDailyTokenUsageUpdate {
+	mutation := newOrganizationDailyTokenUsageMutation(c.config, OpUpdate)
+	return &OrganizationDailyTokenUsageUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *OrganizationDailyTokenUsageClient) UpdateOne(_m *OrganizationDailyTokenUsage) *OrganizationDailyTokenUsageUpdateOne {
+	mutation := newOrganizationDailyTokenUsageMutation(c.config, OpUpdateOne, withOrganizationDailyTokenUsage(_m))
+	return &OrganizationDailyTokenUsageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *OrganizationDailyTokenUsageClient) UpdateOneID(id uuid.UUID) *OrganizationDailyTokenUsageUpdateOne {
+	mutation := newOrganizationDailyTokenUsageMutation(c.config, OpUpdateOne, withOrganizationDailyTokenUsageID(id))
+	return &OrganizationDailyTokenUsageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for OrganizationDailyTokenUsage.
+func (c *OrganizationDailyTokenUsageClient) Delete() *OrganizationDailyTokenUsageDelete {
+	mutation := newOrganizationDailyTokenUsageMutation(c.config, OpDelete)
+	return &OrganizationDailyTokenUsageDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *OrganizationDailyTokenUsageClient) DeleteOne(_m *OrganizationDailyTokenUsage) *OrganizationDailyTokenUsageDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *OrganizationDailyTokenUsageClient) DeleteOneID(id uuid.UUID) *OrganizationDailyTokenUsageDeleteOne {
+	builder := c.Delete().Where(organizationdailytokenusage.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &OrganizationDailyTokenUsageDeleteOne{builder}
+}
+
+// Query returns a query builder for OrganizationDailyTokenUsage.
+func (c *OrganizationDailyTokenUsageClient) Query() *OrganizationDailyTokenUsageQuery {
+	return &OrganizationDailyTokenUsageQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeOrganizationDailyTokenUsage},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a OrganizationDailyTokenUsage entity by its id.
+func (c *OrganizationDailyTokenUsageClient) Get(ctx context.Context, id uuid.UUID) (*OrganizationDailyTokenUsage, error) {
+	return c.Query().Where(organizationdailytokenusage.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *OrganizationDailyTokenUsageClient) GetX(ctx context.Context, id uuid.UUID) *OrganizationDailyTokenUsage {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryOrganization queries the organization edge of a OrganizationDailyTokenUsage.
+func (c *OrganizationDailyTokenUsageClient) QueryOrganization(_m *OrganizationDailyTokenUsage) *OrganizationQuery {
+	query := (&OrganizationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(organizationdailytokenusage.Table, organizationdailytokenusage.FieldID, id),
+			sqlgraph.To(organization.Table, organization.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, organizationdailytokenusage.OrganizationTable, organizationdailytokenusage.OrganizationColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *OrganizationDailyTokenUsageClient) Hooks() []Hook {
+	return c.hooks.OrganizationDailyTokenUsage
+}
+
+// Interceptors returns the client interceptors.
+func (c *OrganizationDailyTokenUsageClient) Interceptors() []Interceptor {
+	return c.inters.OrganizationDailyTokenUsage
+}
+
+func (c *OrganizationDailyTokenUsageClient) mutate(ctx context.Context, m *OrganizationDailyTokenUsageMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&OrganizationDailyTokenUsageCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&OrganizationDailyTokenUsageUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&OrganizationDailyTokenUsageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&OrganizationDailyTokenUsageDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown OrganizationDailyTokenUsage mutation op: %q", m.Op())
 	}
 }
 
@@ -7078,19 +7253,21 @@ type (
 	hooks struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn,
-		Machine, NotificationChannel, NotificationRule, Organization, Project,
-		ProjectRepo, ScheduledJob, Skill, SkillBlob, SkillVersion, SkillVersionFile,
-		Ticket, TicketComment, TicketCommentRevision, TicketDependency,
-		TicketExternalLink, TicketRepoScope, TicketRepoWorkspace, TicketStatus,
-		Workflow, WorkflowSkillBinding, WorkflowVersion []ent.Hook
+		Machine, NotificationChannel, NotificationRule, Organization,
+		OrganizationDailyTokenUsage, Project, ProjectRepo, ScheduledJob, Skill,
+		SkillBlob, SkillVersion, SkillVersionFile, Ticket, TicketComment,
+		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
+		TicketRepoWorkspace, TicketStatus, Workflow, WorkflowSkillBinding,
+		WorkflowVersion []ent.Hook
 	}
 	inters struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn,
-		Machine, NotificationChannel, NotificationRule, Organization, Project,
-		ProjectRepo, ScheduledJob, Skill, SkillBlob, SkillVersion, SkillVersionFile,
-		Ticket, TicketComment, TicketCommentRevision, TicketDependency,
-		TicketExternalLink, TicketRepoScope, TicketRepoWorkspace, TicketStatus,
-		Workflow, WorkflowSkillBinding, WorkflowVersion []ent.Interceptor
+		Machine, NotificationChannel, NotificationRule, Organization,
+		OrganizationDailyTokenUsage, Project, ProjectRepo, ScheduledJob, Skill,
+		SkillBlob, SkillVersion, SkillVersionFile, Ticket, TicketComment,
+		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
+		TicketRepoWorkspace, TicketStatus, Workflow, WorkflowSkillBinding,
+		WorkflowVersion []ent.Interceptor
 	}
 )

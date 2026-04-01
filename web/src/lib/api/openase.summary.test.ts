@@ -18,7 +18,7 @@ vi.mock('./client', () => ({
   },
 }))
 
-import { getOrganizationSummary, getWorkspaceSummary } from './openase'
+import { getOrganizationSummary, getOrganizationTokenUsage, getWorkspaceSummary } from './openase'
 
 describe('workspace summary helpers', () => {
   beforeEach(() => {
@@ -41,5 +41,17 @@ describe('workspace summary helpers', () => {
     await getOrganizationSummary('org-123', { signal })
 
     expect(get).toHaveBeenCalledWith('/api/v1/orgs/org-123/summary', { signal })
+  })
+
+  it('calls the organization token usage endpoint with an explicit range', async () => {
+    const signal = new AbortController().signal
+    get.mockResolvedValue({ days: [], summary: { total_tokens: 0, avg_daily_tokens: 0 } })
+
+    await getOrganizationTokenUsage('org-123', { from: '2026-03-03', to: '2026-04-01' }, { signal })
+
+    expect(get).toHaveBeenCalledWith(
+      '/api/v1/orgs/org-123/token-usage?from=2026-03-03&to=2026-04-01',
+      { signal },
+    )
   })
 })

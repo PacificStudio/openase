@@ -751,11 +751,11 @@ func TestRuntimeRunnerHelperCoverage(t *testing.T) {
 	}
 
 	highWater := &tokenUsageHighWater{}
-	if err := (*RuntimeLauncher)(nil).recordTokenUsage(context.Background(), uuid.New(), uuid.New(), nil, highWater); err != nil {
+	if err := (*RuntimeLauncher)(nil).recordTokenUsage(context.Background(), uuid.New(), uuid.New(), uuid.New(), nil, highWater); err != nil {
 		t.Fatalf("recordTokenUsage(nil launcher) error = %v", err)
 	}
 	launcher.tickets = ticketservice.NewService(nil)
-	if err := launcher.recordTokenUsage(context.Background(), uuid.New(), uuid.New(), &agentTokenUsageEvent{
+	if err := launcher.recordTokenUsage(context.Background(), uuid.New(), uuid.New(), uuid.New(), &agentTokenUsageEvent{
 		TotalInputTokens:  5,
 		TotalOutputTokens: 3,
 	}, highWater); err == nil || !strings.Contains(err.Error(), "record token usage for ticket") {
@@ -764,7 +764,7 @@ func TestRuntimeRunnerHelperCoverage(t *testing.T) {
 	if highWater.inputTokens != 5 || highWater.outputTokens != 3 {
 		t.Fatalf("recordTokenUsage() highWater = %+v", highWater)
 	}
-	if err := launcher.recordTokenUsage(context.Background(), uuid.New(), uuid.New(), &agentTokenUsageEvent{
+	if err := launcher.recordTokenUsage(context.Background(), uuid.New(), uuid.New(), uuid.New(), &agentTokenUsageEvent{
 		TotalInputTokens:  4,
 		TotalOutputTokens: 2,
 	}, highWater); err != nil {

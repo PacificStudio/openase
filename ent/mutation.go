@@ -26,6 +26,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
+	"github.com/BetterAndBetterII/openase/ent/organizationdailytokenusage"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
@@ -59,39 +60,40 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeActivityEvent         = "ActivityEvent"
-	TypeAgent                 = "Agent"
-	TypeAgentProvider         = "AgentProvider"
-	TypeAgentRun              = "AgentRun"
-	TypeAgentStepEvent        = "AgentStepEvent"
-	TypeAgentToken            = "AgentToken"
-	TypeAgentTraceEvent       = "AgentTraceEvent"
-	TypeChatConversation      = "ChatConversation"
-	TypeChatEntry             = "ChatEntry"
-	TypeChatPendingInterrupt  = "ChatPendingInterrupt"
-	TypeChatTurn              = "ChatTurn"
-	TypeMachine               = "Machine"
-	TypeNotificationChannel   = "NotificationChannel"
-	TypeNotificationRule      = "NotificationRule"
-	TypeOrganization          = "Organization"
-	TypeProject               = "Project"
-	TypeProjectRepo           = "ProjectRepo"
-	TypeScheduledJob          = "ScheduledJob"
-	TypeSkill                 = "Skill"
-	TypeSkillBlob             = "SkillBlob"
-	TypeSkillVersion          = "SkillVersion"
-	TypeSkillVersionFile      = "SkillVersionFile"
-	TypeTicket                = "Ticket"
-	TypeTicketComment         = "TicketComment"
-	TypeTicketCommentRevision = "TicketCommentRevision"
-	TypeTicketDependency      = "TicketDependency"
-	TypeTicketExternalLink    = "TicketExternalLink"
-	TypeTicketRepoScope       = "TicketRepoScope"
-	TypeTicketRepoWorkspace   = "TicketRepoWorkspace"
-	TypeTicketStatus          = "TicketStatus"
-	TypeWorkflow              = "Workflow"
-	TypeWorkflowSkillBinding  = "WorkflowSkillBinding"
-	TypeWorkflowVersion       = "WorkflowVersion"
+	TypeActivityEvent               = "ActivityEvent"
+	TypeAgent                       = "Agent"
+	TypeAgentProvider               = "AgentProvider"
+	TypeAgentRun                    = "AgentRun"
+	TypeAgentStepEvent              = "AgentStepEvent"
+	TypeAgentToken                  = "AgentToken"
+	TypeAgentTraceEvent             = "AgentTraceEvent"
+	TypeChatConversation            = "ChatConversation"
+	TypeChatEntry                   = "ChatEntry"
+	TypeChatPendingInterrupt        = "ChatPendingInterrupt"
+	TypeChatTurn                    = "ChatTurn"
+	TypeMachine                     = "Machine"
+	TypeNotificationChannel         = "NotificationChannel"
+	TypeNotificationRule            = "NotificationRule"
+	TypeOrganization                = "Organization"
+	TypeOrganizationDailyTokenUsage = "OrganizationDailyTokenUsage"
+	TypeProject                     = "Project"
+	TypeProjectRepo                 = "ProjectRepo"
+	TypeScheduledJob                = "ScheduledJob"
+	TypeSkill                       = "Skill"
+	TypeSkillBlob                   = "SkillBlob"
+	TypeSkillVersion                = "SkillVersion"
+	TypeSkillVersionFile            = "SkillVersionFile"
+	TypeTicket                      = "Ticket"
+	TypeTicketComment               = "TicketComment"
+	TypeTicketCommentRevision       = "TicketCommentRevision"
+	TypeTicketDependency            = "TicketDependency"
+	TypeTicketExternalLink          = "TicketExternalLink"
+	TypeTicketRepoScope             = "TicketRepoScope"
+	TypeTicketRepoWorkspace         = "TicketRepoWorkspace"
+	TypeTicketStatus                = "TicketStatus"
+	TypeWorkflow                    = "Workflow"
+	TypeWorkflowSkillBinding        = "WorkflowSkillBinding"
+	TypeWorkflowVersion             = "WorkflowVersion"
 )
 
 // ActivityEventMutation represents an operation that mutates the ActivityEvent nodes in the graph.
@@ -3903,45 +3905,65 @@ func (m *AgentProviderMutation) ResetEdge(name string) error {
 // AgentRunMutation represents an operation that mutates the AgentRun nodes in the graph.
 type AgentRunMutation struct {
 	config
-	op                            Op
-	typ                           string
-	id                            *uuid.UUID
-	skill_version_ids             *pgarray.StringArray
-	status                        *agentrun.Status
-	session_id                    *string
-	runtime_started_at            *time.Time
-	last_error                    *string
-	last_heartbeat_at             *time.Time
-	current_step_status           *string
-	current_step_summary          *string
-	current_step_changed_at       *time.Time
-	created_at                    *time.Time
-	clearedFields                 map[string]struct{}
-	agent                         *uuid.UUID
-	clearedagent                  bool
-	workflow                      *uuid.UUID
-	clearedworkflow               bool
-	workflow_version              *uuid.UUID
-	clearedworkflow_version       bool
-	ticket                        *uuid.UUID
-	clearedticket                 bool
-	provider                      *uuid.UUID
-	clearedprovider               bool
-	current_for_ticket            map[uuid.UUID]struct{}
-	removedcurrent_for_ticket     map[uuid.UUID]struct{}
-	clearedcurrent_for_ticket     bool
-	ticket_repo_workspaces        map[uuid.UUID]struct{}
-	removedticket_repo_workspaces map[uuid.UUID]struct{}
-	clearedticket_repo_workspaces bool
-	agent_trace_events            map[uuid.UUID]struct{}
-	removedagent_trace_events     map[uuid.UUID]struct{}
-	clearedagent_trace_events     bool
-	agent_step_events             map[uuid.UUID]struct{}
-	removedagent_step_events      map[uuid.UUID]struct{}
-	clearedagent_step_events      bool
-	done                          bool
-	oldValue                      func(context.Context) (*AgentRun, error)
-	predicates                    []predicate.AgentRun
+	op                             Op
+	typ                            string
+	id                             *uuid.UUID
+	skill_version_ids              *pgarray.StringArray
+	status                         *agentrun.Status
+	session_id                     *string
+	runtime_started_at             *time.Time
+	terminal_at                    *time.Time
+	snapshot_materialized_at       *time.Time
+	last_error                     *string
+	last_heartbeat_at              *time.Time
+	input_tokens                   *int64
+	addinput_tokens                *int64
+	output_tokens                  *int64
+	addoutput_tokens               *int64
+	cached_input_tokens            *int64
+	addcached_input_tokens         *int64
+	cache_creation_input_tokens    *int64
+	addcache_creation_input_tokens *int64
+	reasoning_tokens               *int64
+	addreasoning_tokens            *int64
+	prompt_tokens                  *int64
+	addprompt_tokens               *int64
+	candidate_tokens               *int64
+	addcandidate_tokens            *int64
+	tool_tokens                    *int64
+	addtool_tokens                 *int64
+	total_tokens                   *int64
+	addtotal_tokens                *int64
+	current_step_status            *string
+	current_step_summary           *string
+	current_step_changed_at        *time.Time
+	created_at                     *time.Time
+	clearedFields                  map[string]struct{}
+	agent                          *uuid.UUID
+	clearedagent                   bool
+	workflow                       *uuid.UUID
+	clearedworkflow                bool
+	workflow_version               *uuid.UUID
+	clearedworkflow_version        bool
+	ticket                         *uuid.UUID
+	clearedticket                  bool
+	provider                       *uuid.UUID
+	clearedprovider                bool
+	current_for_ticket             map[uuid.UUID]struct{}
+	removedcurrent_for_ticket      map[uuid.UUID]struct{}
+	clearedcurrent_for_ticket      bool
+	ticket_repo_workspaces         map[uuid.UUID]struct{}
+	removedticket_repo_workspaces  map[uuid.UUID]struct{}
+	clearedticket_repo_workspaces  bool
+	agent_trace_events             map[uuid.UUID]struct{}
+	removedagent_trace_events      map[uuid.UUID]struct{}
+	clearedagent_trace_events      bool
+	agent_step_events              map[uuid.UUID]struct{}
+	removedagent_step_events       map[uuid.UUID]struct{}
+	clearedagent_step_events       bool
+	done                           bool
+	oldValue                       func(context.Context) (*AgentRun, error)
+	predicates                     []predicate.AgentRun
 }
 
 var _ ent.Mutation = (*AgentRunMutation)(nil)
@@ -4424,6 +4446,104 @@ func (m *AgentRunMutation) ResetRuntimeStartedAt() {
 	delete(m.clearedFields, agentrun.FieldRuntimeStartedAt)
 }
 
+// SetTerminalAt sets the "terminal_at" field.
+func (m *AgentRunMutation) SetTerminalAt(t time.Time) {
+	m.terminal_at = &t
+}
+
+// TerminalAt returns the value of the "terminal_at" field in the mutation.
+func (m *AgentRunMutation) TerminalAt() (r time.Time, exists bool) {
+	v := m.terminal_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTerminalAt returns the old "terminal_at" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldTerminalAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTerminalAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTerminalAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTerminalAt: %w", err)
+	}
+	return oldValue.TerminalAt, nil
+}
+
+// ClearTerminalAt clears the value of the "terminal_at" field.
+func (m *AgentRunMutation) ClearTerminalAt() {
+	m.terminal_at = nil
+	m.clearedFields[agentrun.FieldTerminalAt] = struct{}{}
+}
+
+// TerminalAtCleared returns if the "terminal_at" field was cleared in this mutation.
+func (m *AgentRunMutation) TerminalAtCleared() bool {
+	_, ok := m.clearedFields[agentrun.FieldTerminalAt]
+	return ok
+}
+
+// ResetTerminalAt resets all changes to the "terminal_at" field.
+func (m *AgentRunMutation) ResetTerminalAt() {
+	m.terminal_at = nil
+	delete(m.clearedFields, agentrun.FieldTerminalAt)
+}
+
+// SetSnapshotMaterializedAt sets the "snapshot_materialized_at" field.
+func (m *AgentRunMutation) SetSnapshotMaterializedAt(t time.Time) {
+	m.snapshot_materialized_at = &t
+}
+
+// SnapshotMaterializedAt returns the value of the "snapshot_materialized_at" field in the mutation.
+func (m *AgentRunMutation) SnapshotMaterializedAt() (r time.Time, exists bool) {
+	v := m.snapshot_materialized_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSnapshotMaterializedAt returns the old "snapshot_materialized_at" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldSnapshotMaterializedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSnapshotMaterializedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSnapshotMaterializedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSnapshotMaterializedAt: %w", err)
+	}
+	return oldValue.SnapshotMaterializedAt, nil
+}
+
+// ClearSnapshotMaterializedAt clears the value of the "snapshot_materialized_at" field.
+func (m *AgentRunMutation) ClearSnapshotMaterializedAt() {
+	m.snapshot_materialized_at = nil
+	m.clearedFields[agentrun.FieldSnapshotMaterializedAt] = struct{}{}
+}
+
+// SnapshotMaterializedAtCleared returns if the "snapshot_materialized_at" field was cleared in this mutation.
+func (m *AgentRunMutation) SnapshotMaterializedAtCleared() bool {
+	_, ok := m.clearedFields[agentrun.FieldSnapshotMaterializedAt]
+	return ok
+}
+
+// ResetSnapshotMaterializedAt resets all changes to the "snapshot_materialized_at" field.
+func (m *AgentRunMutation) ResetSnapshotMaterializedAt() {
+	m.snapshot_materialized_at = nil
+	delete(m.clearedFields, agentrun.FieldSnapshotMaterializedAt)
+}
+
 // SetLastError sets the "last_error" field.
 func (m *AgentRunMutation) SetLastError(s string) {
 	m.last_error = &s
@@ -4520,6 +4640,510 @@ func (m *AgentRunMutation) LastHeartbeatAtCleared() bool {
 func (m *AgentRunMutation) ResetLastHeartbeatAt() {
 	m.last_heartbeat_at = nil
 	delete(m.clearedFields, agentrun.FieldLastHeartbeatAt)
+}
+
+// SetInputTokens sets the "input_tokens" field.
+func (m *AgentRunMutation) SetInputTokens(i int64) {
+	m.input_tokens = &i
+	m.addinput_tokens = nil
+}
+
+// InputTokens returns the value of the "input_tokens" field in the mutation.
+func (m *AgentRunMutation) InputTokens() (r int64, exists bool) {
+	v := m.input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInputTokens returns the old "input_tokens" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldInputTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInputTokens: %w", err)
+	}
+	return oldValue.InputTokens, nil
+}
+
+// AddInputTokens adds i to the "input_tokens" field.
+func (m *AgentRunMutation) AddInputTokens(i int64) {
+	if m.addinput_tokens != nil {
+		*m.addinput_tokens += i
+	} else {
+		m.addinput_tokens = &i
+	}
+}
+
+// AddedInputTokens returns the value that was added to the "input_tokens" field in this mutation.
+func (m *AgentRunMutation) AddedInputTokens() (r int64, exists bool) {
+	v := m.addinput_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetInputTokens resets all changes to the "input_tokens" field.
+func (m *AgentRunMutation) ResetInputTokens() {
+	m.input_tokens = nil
+	m.addinput_tokens = nil
+}
+
+// SetOutputTokens sets the "output_tokens" field.
+func (m *AgentRunMutation) SetOutputTokens(i int64) {
+	m.output_tokens = &i
+	m.addoutput_tokens = nil
+}
+
+// OutputTokens returns the value of the "output_tokens" field in the mutation.
+func (m *AgentRunMutation) OutputTokens() (r int64, exists bool) {
+	v := m.output_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOutputTokens returns the old "output_tokens" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldOutputTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOutputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOutputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOutputTokens: %w", err)
+	}
+	return oldValue.OutputTokens, nil
+}
+
+// AddOutputTokens adds i to the "output_tokens" field.
+func (m *AgentRunMutation) AddOutputTokens(i int64) {
+	if m.addoutput_tokens != nil {
+		*m.addoutput_tokens += i
+	} else {
+		m.addoutput_tokens = &i
+	}
+}
+
+// AddedOutputTokens returns the value that was added to the "output_tokens" field in this mutation.
+func (m *AgentRunMutation) AddedOutputTokens() (r int64, exists bool) {
+	v := m.addoutput_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetOutputTokens resets all changes to the "output_tokens" field.
+func (m *AgentRunMutation) ResetOutputTokens() {
+	m.output_tokens = nil
+	m.addoutput_tokens = nil
+}
+
+// SetCachedInputTokens sets the "cached_input_tokens" field.
+func (m *AgentRunMutation) SetCachedInputTokens(i int64) {
+	m.cached_input_tokens = &i
+	m.addcached_input_tokens = nil
+}
+
+// CachedInputTokens returns the value of the "cached_input_tokens" field in the mutation.
+func (m *AgentRunMutation) CachedInputTokens() (r int64, exists bool) {
+	v := m.cached_input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCachedInputTokens returns the old "cached_input_tokens" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldCachedInputTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCachedInputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCachedInputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCachedInputTokens: %w", err)
+	}
+	return oldValue.CachedInputTokens, nil
+}
+
+// AddCachedInputTokens adds i to the "cached_input_tokens" field.
+func (m *AgentRunMutation) AddCachedInputTokens(i int64) {
+	if m.addcached_input_tokens != nil {
+		*m.addcached_input_tokens += i
+	} else {
+		m.addcached_input_tokens = &i
+	}
+}
+
+// AddedCachedInputTokens returns the value that was added to the "cached_input_tokens" field in this mutation.
+func (m *AgentRunMutation) AddedCachedInputTokens() (r int64, exists bool) {
+	v := m.addcached_input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCachedInputTokens resets all changes to the "cached_input_tokens" field.
+func (m *AgentRunMutation) ResetCachedInputTokens() {
+	m.cached_input_tokens = nil
+	m.addcached_input_tokens = nil
+}
+
+// SetCacheCreationInputTokens sets the "cache_creation_input_tokens" field.
+func (m *AgentRunMutation) SetCacheCreationInputTokens(i int64) {
+	m.cache_creation_input_tokens = &i
+	m.addcache_creation_input_tokens = nil
+}
+
+// CacheCreationInputTokens returns the value of the "cache_creation_input_tokens" field in the mutation.
+func (m *AgentRunMutation) CacheCreationInputTokens() (r int64, exists bool) {
+	v := m.cache_creation_input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCacheCreationInputTokens returns the old "cache_creation_input_tokens" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldCacheCreationInputTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCacheCreationInputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCacheCreationInputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCacheCreationInputTokens: %w", err)
+	}
+	return oldValue.CacheCreationInputTokens, nil
+}
+
+// AddCacheCreationInputTokens adds i to the "cache_creation_input_tokens" field.
+func (m *AgentRunMutation) AddCacheCreationInputTokens(i int64) {
+	if m.addcache_creation_input_tokens != nil {
+		*m.addcache_creation_input_tokens += i
+	} else {
+		m.addcache_creation_input_tokens = &i
+	}
+}
+
+// AddedCacheCreationInputTokens returns the value that was added to the "cache_creation_input_tokens" field in this mutation.
+func (m *AgentRunMutation) AddedCacheCreationInputTokens() (r int64, exists bool) {
+	v := m.addcache_creation_input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCacheCreationInputTokens resets all changes to the "cache_creation_input_tokens" field.
+func (m *AgentRunMutation) ResetCacheCreationInputTokens() {
+	m.cache_creation_input_tokens = nil
+	m.addcache_creation_input_tokens = nil
+}
+
+// SetReasoningTokens sets the "reasoning_tokens" field.
+func (m *AgentRunMutation) SetReasoningTokens(i int64) {
+	m.reasoning_tokens = &i
+	m.addreasoning_tokens = nil
+}
+
+// ReasoningTokens returns the value of the "reasoning_tokens" field in the mutation.
+func (m *AgentRunMutation) ReasoningTokens() (r int64, exists bool) {
+	v := m.reasoning_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReasoningTokens returns the old "reasoning_tokens" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldReasoningTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReasoningTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReasoningTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReasoningTokens: %w", err)
+	}
+	return oldValue.ReasoningTokens, nil
+}
+
+// AddReasoningTokens adds i to the "reasoning_tokens" field.
+func (m *AgentRunMutation) AddReasoningTokens(i int64) {
+	if m.addreasoning_tokens != nil {
+		*m.addreasoning_tokens += i
+	} else {
+		m.addreasoning_tokens = &i
+	}
+}
+
+// AddedReasoningTokens returns the value that was added to the "reasoning_tokens" field in this mutation.
+func (m *AgentRunMutation) AddedReasoningTokens() (r int64, exists bool) {
+	v := m.addreasoning_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetReasoningTokens resets all changes to the "reasoning_tokens" field.
+func (m *AgentRunMutation) ResetReasoningTokens() {
+	m.reasoning_tokens = nil
+	m.addreasoning_tokens = nil
+}
+
+// SetPromptTokens sets the "prompt_tokens" field.
+func (m *AgentRunMutation) SetPromptTokens(i int64) {
+	m.prompt_tokens = &i
+	m.addprompt_tokens = nil
+}
+
+// PromptTokens returns the value of the "prompt_tokens" field in the mutation.
+func (m *AgentRunMutation) PromptTokens() (r int64, exists bool) {
+	v := m.prompt_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPromptTokens returns the old "prompt_tokens" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldPromptTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPromptTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPromptTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPromptTokens: %w", err)
+	}
+	return oldValue.PromptTokens, nil
+}
+
+// AddPromptTokens adds i to the "prompt_tokens" field.
+func (m *AgentRunMutation) AddPromptTokens(i int64) {
+	if m.addprompt_tokens != nil {
+		*m.addprompt_tokens += i
+	} else {
+		m.addprompt_tokens = &i
+	}
+}
+
+// AddedPromptTokens returns the value that was added to the "prompt_tokens" field in this mutation.
+func (m *AgentRunMutation) AddedPromptTokens() (r int64, exists bool) {
+	v := m.addprompt_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPromptTokens resets all changes to the "prompt_tokens" field.
+func (m *AgentRunMutation) ResetPromptTokens() {
+	m.prompt_tokens = nil
+	m.addprompt_tokens = nil
+}
+
+// SetCandidateTokens sets the "candidate_tokens" field.
+func (m *AgentRunMutation) SetCandidateTokens(i int64) {
+	m.candidate_tokens = &i
+	m.addcandidate_tokens = nil
+}
+
+// CandidateTokens returns the value of the "candidate_tokens" field in the mutation.
+func (m *AgentRunMutation) CandidateTokens() (r int64, exists bool) {
+	v := m.candidate_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCandidateTokens returns the old "candidate_tokens" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldCandidateTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCandidateTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCandidateTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCandidateTokens: %w", err)
+	}
+	return oldValue.CandidateTokens, nil
+}
+
+// AddCandidateTokens adds i to the "candidate_tokens" field.
+func (m *AgentRunMutation) AddCandidateTokens(i int64) {
+	if m.addcandidate_tokens != nil {
+		*m.addcandidate_tokens += i
+	} else {
+		m.addcandidate_tokens = &i
+	}
+}
+
+// AddedCandidateTokens returns the value that was added to the "candidate_tokens" field in this mutation.
+func (m *AgentRunMutation) AddedCandidateTokens() (r int64, exists bool) {
+	v := m.addcandidate_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCandidateTokens resets all changes to the "candidate_tokens" field.
+func (m *AgentRunMutation) ResetCandidateTokens() {
+	m.candidate_tokens = nil
+	m.addcandidate_tokens = nil
+}
+
+// SetToolTokens sets the "tool_tokens" field.
+func (m *AgentRunMutation) SetToolTokens(i int64) {
+	m.tool_tokens = &i
+	m.addtool_tokens = nil
+}
+
+// ToolTokens returns the value of the "tool_tokens" field in the mutation.
+func (m *AgentRunMutation) ToolTokens() (r int64, exists bool) {
+	v := m.tool_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldToolTokens returns the old "tool_tokens" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldToolTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldToolTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldToolTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldToolTokens: %w", err)
+	}
+	return oldValue.ToolTokens, nil
+}
+
+// AddToolTokens adds i to the "tool_tokens" field.
+func (m *AgentRunMutation) AddToolTokens(i int64) {
+	if m.addtool_tokens != nil {
+		*m.addtool_tokens += i
+	} else {
+		m.addtool_tokens = &i
+	}
+}
+
+// AddedToolTokens returns the value that was added to the "tool_tokens" field in this mutation.
+func (m *AgentRunMutation) AddedToolTokens() (r int64, exists bool) {
+	v := m.addtool_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetToolTokens resets all changes to the "tool_tokens" field.
+func (m *AgentRunMutation) ResetToolTokens() {
+	m.tool_tokens = nil
+	m.addtool_tokens = nil
+}
+
+// SetTotalTokens sets the "total_tokens" field.
+func (m *AgentRunMutation) SetTotalTokens(i int64) {
+	m.total_tokens = &i
+	m.addtotal_tokens = nil
+}
+
+// TotalTokens returns the value of the "total_tokens" field in the mutation.
+func (m *AgentRunMutation) TotalTokens() (r int64, exists bool) {
+	v := m.total_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTotalTokens returns the old "total_tokens" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldTotalTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTotalTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTotalTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTotalTokens: %w", err)
+	}
+	return oldValue.TotalTokens, nil
+}
+
+// AddTotalTokens adds i to the "total_tokens" field.
+func (m *AgentRunMutation) AddTotalTokens(i int64) {
+	if m.addtotal_tokens != nil {
+		*m.addtotal_tokens += i
+	} else {
+		m.addtotal_tokens = &i
+	}
+}
+
+// AddedTotalTokens returns the value that was added to the "total_tokens" field in this mutation.
+func (m *AgentRunMutation) AddedTotalTokens() (r int64, exists bool) {
+	v := m.addtotal_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTotalTokens resets all changes to the "total_tokens" field.
+func (m *AgentRunMutation) ResetTotalTokens() {
+	m.total_tokens = nil
+	m.addtotal_tokens = nil
 }
 
 // SetCurrentStepStatus sets the "current_step_status" field.
@@ -5090,7 +5714,7 @@ func (m *AgentRunMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentRunMutation) Fields() []string {
-	fields := make([]string, 0, 15)
+	fields := make([]string, 0, 26)
 	if m.agent != nil {
 		fields = append(fields, agentrun.FieldAgentID)
 	}
@@ -5118,11 +5742,44 @@ func (m *AgentRunMutation) Fields() []string {
 	if m.runtime_started_at != nil {
 		fields = append(fields, agentrun.FieldRuntimeStartedAt)
 	}
+	if m.terminal_at != nil {
+		fields = append(fields, agentrun.FieldTerminalAt)
+	}
+	if m.snapshot_materialized_at != nil {
+		fields = append(fields, agentrun.FieldSnapshotMaterializedAt)
+	}
 	if m.last_error != nil {
 		fields = append(fields, agentrun.FieldLastError)
 	}
 	if m.last_heartbeat_at != nil {
 		fields = append(fields, agentrun.FieldLastHeartbeatAt)
+	}
+	if m.input_tokens != nil {
+		fields = append(fields, agentrun.FieldInputTokens)
+	}
+	if m.output_tokens != nil {
+		fields = append(fields, agentrun.FieldOutputTokens)
+	}
+	if m.cached_input_tokens != nil {
+		fields = append(fields, agentrun.FieldCachedInputTokens)
+	}
+	if m.cache_creation_input_tokens != nil {
+		fields = append(fields, agentrun.FieldCacheCreationInputTokens)
+	}
+	if m.reasoning_tokens != nil {
+		fields = append(fields, agentrun.FieldReasoningTokens)
+	}
+	if m.prompt_tokens != nil {
+		fields = append(fields, agentrun.FieldPromptTokens)
+	}
+	if m.candidate_tokens != nil {
+		fields = append(fields, agentrun.FieldCandidateTokens)
+	}
+	if m.tool_tokens != nil {
+		fields = append(fields, agentrun.FieldToolTokens)
+	}
+	if m.total_tokens != nil {
+		fields = append(fields, agentrun.FieldTotalTokens)
 	}
 	if m.current_step_status != nil {
 		fields = append(fields, agentrun.FieldCurrentStepStatus)
@@ -5162,10 +5819,32 @@ func (m *AgentRunMutation) Field(name string) (ent.Value, bool) {
 		return m.SessionID()
 	case agentrun.FieldRuntimeStartedAt:
 		return m.RuntimeStartedAt()
+	case agentrun.FieldTerminalAt:
+		return m.TerminalAt()
+	case agentrun.FieldSnapshotMaterializedAt:
+		return m.SnapshotMaterializedAt()
 	case agentrun.FieldLastError:
 		return m.LastError()
 	case agentrun.FieldLastHeartbeatAt:
 		return m.LastHeartbeatAt()
+	case agentrun.FieldInputTokens:
+		return m.InputTokens()
+	case agentrun.FieldOutputTokens:
+		return m.OutputTokens()
+	case agentrun.FieldCachedInputTokens:
+		return m.CachedInputTokens()
+	case agentrun.FieldCacheCreationInputTokens:
+		return m.CacheCreationInputTokens()
+	case agentrun.FieldReasoningTokens:
+		return m.ReasoningTokens()
+	case agentrun.FieldPromptTokens:
+		return m.PromptTokens()
+	case agentrun.FieldCandidateTokens:
+		return m.CandidateTokens()
+	case agentrun.FieldToolTokens:
+		return m.ToolTokens()
+	case agentrun.FieldTotalTokens:
+		return m.TotalTokens()
 	case agentrun.FieldCurrentStepStatus:
 		return m.CurrentStepStatus()
 	case agentrun.FieldCurrentStepSummary:
@@ -5201,10 +5880,32 @@ func (m *AgentRunMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldSessionID(ctx)
 	case agentrun.FieldRuntimeStartedAt:
 		return m.OldRuntimeStartedAt(ctx)
+	case agentrun.FieldTerminalAt:
+		return m.OldTerminalAt(ctx)
+	case agentrun.FieldSnapshotMaterializedAt:
+		return m.OldSnapshotMaterializedAt(ctx)
 	case agentrun.FieldLastError:
 		return m.OldLastError(ctx)
 	case agentrun.FieldLastHeartbeatAt:
 		return m.OldLastHeartbeatAt(ctx)
+	case agentrun.FieldInputTokens:
+		return m.OldInputTokens(ctx)
+	case agentrun.FieldOutputTokens:
+		return m.OldOutputTokens(ctx)
+	case agentrun.FieldCachedInputTokens:
+		return m.OldCachedInputTokens(ctx)
+	case agentrun.FieldCacheCreationInputTokens:
+		return m.OldCacheCreationInputTokens(ctx)
+	case agentrun.FieldReasoningTokens:
+		return m.OldReasoningTokens(ctx)
+	case agentrun.FieldPromptTokens:
+		return m.OldPromptTokens(ctx)
+	case agentrun.FieldCandidateTokens:
+		return m.OldCandidateTokens(ctx)
+	case agentrun.FieldToolTokens:
+		return m.OldToolTokens(ctx)
+	case agentrun.FieldTotalTokens:
+		return m.OldTotalTokens(ctx)
 	case agentrun.FieldCurrentStepStatus:
 		return m.OldCurrentStepStatus(ctx)
 	case agentrun.FieldCurrentStepSummary:
@@ -5285,6 +5986,20 @@ func (m *AgentRunMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetRuntimeStartedAt(v)
 		return nil
+	case agentrun.FieldTerminalAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTerminalAt(v)
+		return nil
+	case agentrun.FieldSnapshotMaterializedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSnapshotMaterializedAt(v)
+		return nil
 	case agentrun.FieldLastError:
 		v, ok := value.(string)
 		if !ok {
@@ -5298,6 +6013,69 @@ func (m *AgentRunMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetLastHeartbeatAt(v)
+		return nil
+	case agentrun.FieldInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInputTokens(v)
+		return nil
+	case agentrun.FieldOutputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutputTokens(v)
+		return nil
+	case agentrun.FieldCachedInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCachedInputTokens(v)
+		return nil
+	case agentrun.FieldCacheCreationInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCacheCreationInputTokens(v)
+		return nil
+	case agentrun.FieldReasoningTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReasoningTokens(v)
+		return nil
+	case agentrun.FieldPromptTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPromptTokens(v)
+		return nil
+	case agentrun.FieldCandidateTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCandidateTokens(v)
+		return nil
+	case agentrun.FieldToolTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetToolTokens(v)
+		return nil
+	case agentrun.FieldTotalTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTotalTokens(v)
 		return nil
 	case agentrun.FieldCurrentStepStatus:
 		v, ok := value.(string)
@@ -5334,13 +6112,61 @@ func (m *AgentRunMutation) SetField(name string, value ent.Value) error {
 // AddedFields returns all numeric fields that were incremented/decremented during
 // this mutation.
 func (m *AgentRunMutation) AddedFields() []string {
-	return nil
+	var fields []string
+	if m.addinput_tokens != nil {
+		fields = append(fields, agentrun.FieldInputTokens)
+	}
+	if m.addoutput_tokens != nil {
+		fields = append(fields, agentrun.FieldOutputTokens)
+	}
+	if m.addcached_input_tokens != nil {
+		fields = append(fields, agentrun.FieldCachedInputTokens)
+	}
+	if m.addcache_creation_input_tokens != nil {
+		fields = append(fields, agentrun.FieldCacheCreationInputTokens)
+	}
+	if m.addreasoning_tokens != nil {
+		fields = append(fields, agentrun.FieldReasoningTokens)
+	}
+	if m.addprompt_tokens != nil {
+		fields = append(fields, agentrun.FieldPromptTokens)
+	}
+	if m.addcandidate_tokens != nil {
+		fields = append(fields, agentrun.FieldCandidateTokens)
+	}
+	if m.addtool_tokens != nil {
+		fields = append(fields, agentrun.FieldToolTokens)
+	}
+	if m.addtotal_tokens != nil {
+		fields = append(fields, agentrun.FieldTotalTokens)
+	}
+	return fields
 }
 
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
 func (m *AgentRunMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case agentrun.FieldInputTokens:
+		return m.AddedInputTokens()
+	case agentrun.FieldOutputTokens:
+		return m.AddedOutputTokens()
+	case agentrun.FieldCachedInputTokens:
+		return m.AddedCachedInputTokens()
+	case agentrun.FieldCacheCreationInputTokens:
+		return m.AddedCacheCreationInputTokens()
+	case agentrun.FieldReasoningTokens:
+		return m.AddedReasoningTokens()
+	case agentrun.FieldPromptTokens:
+		return m.AddedPromptTokens()
+	case agentrun.FieldCandidateTokens:
+		return m.AddedCandidateTokens()
+	case agentrun.FieldToolTokens:
+		return m.AddedToolTokens()
+	case agentrun.FieldTotalTokens:
+		return m.AddedTotalTokens()
+	}
 	return nil, false
 }
 
@@ -5349,6 +6175,69 @@ func (m *AgentRunMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *AgentRunMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case agentrun.FieldInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddInputTokens(v)
+		return nil
+	case agentrun.FieldOutputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOutputTokens(v)
+		return nil
+	case agentrun.FieldCachedInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCachedInputTokens(v)
+		return nil
+	case agentrun.FieldCacheCreationInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCacheCreationInputTokens(v)
+		return nil
+	case agentrun.FieldReasoningTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddReasoningTokens(v)
+		return nil
+	case agentrun.FieldPromptTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPromptTokens(v)
+		return nil
+	case agentrun.FieldCandidateTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCandidateTokens(v)
+		return nil
+	case agentrun.FieldToolTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddToolTokens(v)
+		return nil
+	case agentrun.FieldTotalTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTotalTokens(v)
+		return nil
 	}
 	return fmt.Errorf("unknown AgentRun numeric field %s", name)
 }
@@ -5368,6 +6257,12 @@ func (m *AgentRunMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(agentrun.FieldRuntimeStartedAt) {
 		fields = append(fields, agentrun.FieldRuntimeStartedAt)
+	}
+	if m.FieldCleared(agentrun.FieldTerminalAt) {
+		fields = append(fields, agentrun.FieldTerminalAt)
+	}
+	if m.FieldCleared(agentrun.FieldSnapshotMaterializedAt) {
+		fields = append(fields, agentrun.FieldSnapshotMaterializedAt)
 	}
 	if m.FieldCleared(agentrun.FieldLastError) {
 		fields = append(fields, agentrun.FieldLastError)
@@ -5409,6 +6304,12 @@ func (m *AgentRunMutation) ClearField(name string) error {
 		return nil
 	case agentrun.FieldRuntimeStartedAt:
 		m.ClearRuntimeStartedAt()
+		return nil
+	case agentrun.FieldTerminalAt:
+		m.ClearTerminalAt()
+		return nil
+	case agentrun.FieldSnapshotMaterializedAt:
+		m.ClearSnapshotMaterializedAt()
 		return nil
 	case agentrun.FieldLastError:
 		m.ClearLastError()
@@ -5460,11 +6361,44 @@ func (m *AgentRunMutation) ResetField(name string) error {
 	case agentrun.FieldRuntimeStartedAt:
 		m.ResetRuntimeStartedAt()
 		return nil
+	case agentrun.FieldTerminalAt:
+		m.ResetTerminalAt()
+		return nil
+	case agentrun.FieldSnapshotMaterializedAt:
+		m.ResetSnapshotMaterializedAt()
+		return nil
 	case agentrun.FieldLastError:
 		m.ResetLastError()
 		return nil
 	case agentrun.FieldLastHeartbeatAt:
 		m.ResetLastHeartbeatAt()
+		return nil
+	case agentrun.FieldInputTokens:
+		m.ResetInputTokens()
+		return nil
+	case agentrun.FieldOutputTokens:
+		m.ResetOutputTokens()
+		return nil
+	case agentrun.FieldCachedInputTokens:
+		m.ResetCachedInputTokens()
+		return nil
+	case agentrun.FieldCacheCreationInputTokens:
+		m.ResetCacheCreationInputTokens()
+		return nil
+	case agentrun.FieldReasoningTokens:
+		m.ResetReasoningTokens()
+		return nil
+	case agentrun.FieldPromptTokens:
+		m.ResetPromptTokens()
+		return nil
+	case agentrun.FieldCandidateTokens:
+		m.ResetCandidateTokens()
+		return nil
+	case agentrun.FieldToolTokens:
+		m.ResetToolTokens()
+		return nil
+	case agentrun.FieldTotalTokens:
+		m.ResetTotalTokens()
 		return nil
 	case agentrun.FieldCurrentStepStatus:
 		m.ResetCurrentStepStatus()
@@ -15906,6 +16840,9 @@ type OrganizationMutation struct {
 	notification_channels         map[uuid.UUID]struct{}
 	removednotification_channels  map[uuid.UUID]struct{}
 	clearednotification_channels  bool
+	daily_token_usage             map[uuid.UUID]struct{}
+	removeddaily_token_usage      map[uuid.UUID]struct{}
+	cleareddaily_token_usage      bool
 	default_agent_provider        *uuid.UUID
 	cleareddefault_agent_provider bool
 	done                          bool
@@ -16488,6 +17425,60 @@ func (m *OrganizationMutation) ResetNotificationChannels() {
 	m.removednotification_channels = nil
 }
 
+// AddDailyTokenUsageIDs adds the "daily_token_usage" edge to the OrganizationDailyTokenUsage entity by ids.
+func (m *OrganizationMutation) AddDailyTokenUsageIDs(ids ...uuid.UUID) {
+	if m.daily_token_usage == nil {
+		m.daily_token_usage = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.daily_token_usage[ids[i]] = struct{}{}
+	}
+}
+
+// ClearDailyTokenUsage clears the "daily_token_usage" edge to the OrganizationDailyTokenUsage entity.
+func (m *OrganizationMutation) ClearDailyTokenUsage() {
+	m.cleareddaily_token_usage = true
+}
+
+// DailyTokenUsageCleared reports if the "daily_token_usage" edge to the OrganizationDailyTokenUsage entity was cleared.
+func (m *OrganizationMutation) DailyTokenUsageCleared() bool {
+	return m.cleareddaily_token_usage
+}
+
+// RemoveDailyTokenUsageIDs removes the "daily_token_usage" edge to the OrganizationDailyTokenUsage entity by IDs.
+func (m *OrganizationMutation) RemoveDailyTokenUsageIDs(ids ...uuid.UUID) {
+	if m.removeddaily_token_usage == nil {
+		m.removeddaily_token_usage = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.daily_token_usage, ids[i])
+		m.removeddaily_token_usage[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedDailyTokenUsage returns the removed IDs of the "daily_token_usage" edge to the OrganizationDailyTokenUsage entity.
+func (m *OrganizationMutation) RemovedDailyTokenUsageIDs() (ids []uuid.UUID) {
+	for id := range m.removeddaily_token_usage {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// DailyTokenUsageIDs returns the "daily_token_usage" edge IDs in the mutation.
+func (m *OrganizationMutation) DailyTokenUsageIDs() (ids []uuid.UUID) {
+	for id := range m.daily_token_usage {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetDailyTokenUsage resets all changes to the "daily_token_usage" edge.
+func (m *OrganizationMutation) ResetDailyTokenUsage() {
+	m.daily_token_usage = nil
+	m.cleareddaily_token_usage = false
+	m.removeddaily_token_usage = nil
+}
+
 // ClearDefaultAgentProvider clears the "default_agent_provider" edge to the AgentProvider entity.
 func (m *OrganizationMutation) ClearDefaultAgentProvider() {
 	m.cleareddefault_agent_provider = true
@@ -16754,7 +17745,7 @@ func (m *OrganizationMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *OrganizationMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.projects != nil {
 		edges = append(edges, organization.EdgeProjects)
 	}
@@ -16766,6 +17757,9 @@ func (m *OrganizationMutation) AddedEdges() []string {
 	}
 	if m.notification_channels != nil {
 		edges = append(edges, organization.EdgeNotificationChannels)
+	}
+	if m.daily_token_usage != nil {
+		edges = append(edges, organization.EdgeDailyTokenUsage)
 	}
 	if m.default_agent_provider != nil {
 		edges = append(edges, organization.EdgeDefaultAgentProvider)
@@ -16801,6 +17795,12 @@ func (m *OrganizationMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case organization.EdgeDailyTokenUsage:
+		ids := make([]ent.Value, 0, len(m.daily_token_usage))
+		for id := range m.daily_token_usage {
+			ids = append(ids, id)
+		}
+		return ids
 	case organization.EdgeDefaultAgentProvider:
 		if id := m.default_agent_provider; id != nil {
 			return []ent.Value{*id}
@@ -16811,7 +17811,7 @@ func (m *OrganizationMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *OrganizationMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.removedprojects != nil {
 		edges = append(edges, organization.EdgeProjects)
 	}
@@ -16823,6 +17823,9 @@ func (m *OrganizationMutation) RemovedEdges() []string {
 	}
 	if m.removednotification_channels != nil {
 		edges = append(edges, organization.EdgeNotificationChannels)
+	}
+	if m.removeddaily_token_usage != nil {
+		edges = append(edges, organization.EdgeDailyTokenUsage)
 	}
 	return edges
 }
@@ -16855,13 +17858,19 @@ func (m *OrganizationMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case organization.EdgeDailyTokenUsage:
+		ids := make([]ent.Value, 0, len(m.removeddaily_token_usage))
+		for id := range m.removeddaily_token_usage {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *OrganizationMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.clearedprojects {
 		edges = append(edges, organization.EdgeProjects)
 	}
@@ -16873,6 +17882,9 @@ func (m *OrganizationMutation) ClearedEdges() []string {
 	}
 	if m.clearednotification_channels {
 		edges = append(edges, organization.EdgeNotificationChannels)
+	}
+	if m.cleareddaily_token_usage {
+		edges = append(edges, organization.EdgeDailyTokenUsage)
 	}
 	if m.cleareddefault_agent_provider {
 		edges = append(edges, organization.EdgeDefaultAgentProvider)
@@ -16892,6 +17904,8 @@ func (m *OrganizationMutation) EdgeCleared(name string) bool {
 		return m.clearedmachines
 	case organization.EdgeNotificationChannels:
 		return m.clearednotification_channels
+	case organization.EdgeDailyTokenUsage:
+		return m.cleareddaily_token_usage
 	case organization.EdgeDefaultAgentProvider:
 		return m.cleareddefault_agent_provider
 	}
@@ -16925,11 +17939,1087 @@ func (m *OrganizationMutation) ResetEdge(name string) error {
 	case organization.EdgeNotificationChannels:
 		m.ResetNotificationChannels()
 		return nil
+	case organization.EdgeDailyTokenUsage:
+		m.ResetDailyTokenUsage()
+		return nil
 	case organization.EdgeDefaultAgentProvider:
 		m.ResetDefaultAgentProvider()
 		return nil
 	}
 	return fmt.Errorf("unknown Organization edge %s", name)
+}
+
+// OrganizationDailyTokenUsageMutation represents an operation that mutates the OrganizationDailyTokenUsage nodes in the graph.
+type OrganizationDailyTokenUsageMutation struct {
+	config
+	op                     Op
+	typ                    string
+	id                     *uuid.UUID
+	usage_date             *time.Time
+	input_tokens           *int64
+	addinput_tokens        *int64
+	output_tokens          *int64
+	addoutput_tokens       *int64
+	cached_input_tokens    *int64
+	addcached_input_tokens *int64
+	reasoning_tokens       *int64
+	addreasoning_tokens    *int64
+	total_tokens           *int64
+	addtotal_tokens        *int64
+	finalized_run_count    *int
+	addfinalized_run_count *int
+	recomputed_at          *time.Time
+	source_mode            *organizationdailytokenusage.SourceMode
+	clearedFields          map[string]struct{}
+	organization           *uuid.UUID
+	clearedorganization    bool
+	done                   bool
+	oldValue               func(context.Context) (*OrganizationDailyTokenUsage, error)
+	predicates             []predicate.OrganizationDailyTokenUsage
+}
+
+var _ ent.Mutation = (*OrganizationDailyTokenUsageMutation)(nil)
+
+// organizationdailytokenusageOption allows management of the mutation configuration using functional options.
+type organizationdailytokenusageOption func(*OrganizationDailyTokenUsageMutation)
+
+// newOrganizationDailyTokenUsageMutation creates new mutation for the OrganizationDailyTokenUsage entity.
+func newOrganizationDailyTokenUsageMutation(c config, op Op, opts ...organizationdailytokenusageOption) *OrganizationDailyTokenUsageMutation {
+	m := &OrganizationDailyTokenUsageMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeOrganizationDailyTokenUsage,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withOrganizationDailyTokenUsageID sets the ID field of the mutation.
+func withOrganizationDailyTokenUsageID(id uuid.UUID) organizationdailytokenusageOption {
+	return func(m *OrganizationDailyTokenUsageMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *OrganizationDailyTokenUsage
+		)
+		m.oldValue = func(ctx context.Context) (*OrganizationDailyTokenUsage, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().OrganizationDailyTokenUsage.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withOrganizationDailyTokenUsage sets the old OrganizationDailyTokenUsage of the mutation.
+func withOrganizationDailyTokenUsage(node *OrganizationDailyTokenUsage) organizationdailytokenusageOption {
+	return func(m *OrganizationDailyTokenUsageMutation) {
+		m.oldValue = func(context.Context) (*OrganizationDailyTokenUsage, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m OrganizationDailyTokenUsageMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m OrganizationDailyTokenUsageMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of OrganizationDailyTokenUsage entities.
+func (m *OrganizationDailyTokenUsageMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *OrganizationDailyTokenUsageMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *OrganizationDailyTokenUsageMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().OrganizationDailyTokenUsage.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetOrganizationID sets the "organization_id" field.
+func (m *OrganizationDailyTokenUsageMutation) SetOrganizationID(u uuid.UUID) {
+	m.organization = &u
+}
+
+// OrganizationID returns the value of the "organization_id" field in the mutation.
+func (m *OrganizationDailyTokenUsageMutation) OrganizationID() (r uuid.UUID, exists bool) {
+	v := m.organization
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOrganizationID returns the old "organization_id" field's value of the OrganizationDailyTokenUsage entity.
+// If the OrganizationDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationDailyTokenUsageMutation) OldOrganizationID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOrganizationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOrganizationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOrganizationID: %w", err)
+	}
+	return oldValue.OrganizationID, nil
+}
+
+// ResetOrganizationID resets all changes to the "organization_id" field.
+func (m *OrganizationDailyTokenUsageMutation) ResetOrganizationID() {
+	m.organization = nil
+}
+
+// SetUsageDate sets the "usage_date" field.
+func (m *OrganizationDailyTokenUsageMutation) SetUsageDate(t time.Time) {
+	m.usage_date = &t
+}
+
+// UsageDate returns the value of the "usage_date" field in the mutation.
+func (m *OrganizationDailyTokenUsageMutation) UsageDate() (r time.Time, exists bool) {
+	v := m.usage_date
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUsageDate returns the old "usage_date" field's value of the OrganizationDailyTokenUsage entity.
+// If the OrganizationDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationDailyTokenUsageMutation) OldUsageDate(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUsageDate is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUsageDate requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUsageDate: %w", err)
+	}
+	return oldValue.UsageDate, nil
+}
+
+// ResetUsageDate resets all changes to the "usage_date" field.
+func (m *OrganizationDailyTokenUsageMutation) ResetUsageDate() {
+	m.usage_date = nil
+}
+
+// SetInputTokens sets the "input_tokens" field.
+func (m *OrganizationDailyTokenUsageMutation) SetInputTokens(i int64) {
+	m.input_tokens = &i
+	m.addinput_tokens = nil
+}
+
+// InputTokens returns the value of the "input_tokens" field in the mutation.
+func (m *OrganizationDailyTokenUsageMutation) InputTokens() (r int64, exists bool) {
+	v := m.input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInputTokens returns the old "input_tokens" field's value of the OrganizationDailyTokenUsage entity.
+// If the OrganizationDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationDailyTokenUsageMutation) OldInputTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInputTokens: %w", err)
+	}
+	return oldValue.InputTokens, nil
+}
+
+// AddInputTokens adds i to the "input_tokens" field.
+func (m *OrganizationDailyTokenUsageMutation) AddInputTokens(i int64) {
+	if m.addinput_tokens != nil {
+		*m.addinput_tokens += i
+	} else {
+		m.addinput_tokens = &i
+	}
+}
+
+// AddedInputTokens returns the value that was added to the "input_tokens" field in this mutation.
+func (m *OrganizationDailyTokenUsageMutation) AddedInputTokens() (r int64, exists bool) {
+	v := m.addinput_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetInputTokens resets all changes to the "input_tokens" field.
+func (m *OrganizationDailyTokenUsageMutation) ResetInputTokens() {
+	m.input_tokens = nil
+	m.addinput_tokens = nil
+}
+
+// SetOutputTokens sets the "output_tokens" field.
+func (m *OrganizationDailyTokenUsageMutation) SetOutputTokens(i int64) {
+	m.output_tokens = &i
+	m.addoutput_tokens = nil
+}
+
+// OutputTokens returns the value of the "output_tokens" field in the mutation.
+func (m *OrganizationDailyTokenUsageMutation) OutputTokens() (r int64, exists bool) {
+	v := m.output_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOutputTokens returns the old "output_tokens" field's value of the OrganizationDailyTokenUsage entity.
+// If the OrganizationDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationDailyTokenUsageMutation) OldOutputTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOutputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOutputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOutputTokens: %w", err)
+	}
+	return oldValue.OutputTokens, nil
+}
+
+// AddOutputTokens adds i to the "output_tokens" field.
+func (m *OrganizationDailyTokenUsageMutation) AddOutputTokens(i int64) {
+	if m.addoutput_tokens != nil {
+		*m.addoutput_tokens += i
+	} else {
+		m.addoutput_tokens = &i
+	}
+}
+
+// AddedOutputTokens returns the value that was added to the "output_tokens" field in this mutation.
+func (m *OrganizationDailyTokenUsageMutation) AddedOutputTokens() (r int64, exists bool) {
+	v := m.addoutput_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetOutputTokens resets all changes to the "output_tokens" field.
+func (m *OrganizationDailyTokenUsageMutation) ResetOutputTokens() {
+	m.output_tokens = nil
+	m.addoutput_tokens = nil
+}
+
+// SetCachedInputTokens sets the "cached_input_tokens" field.
+func (m *OrganizationDailyTokenUsageMutation) SetCachedInputTokens(i int64) {
+	m.cached_input_tokens = &i
+	m.addcached_input_tokens = nil
+}
+
+// CachedInputTokens returns the value of the "cached_input_tokens" field in the mutation.
+func (m *OrganizationDailyTokenUsageMutation) CachedInputTokens() (r int64, exists bool) {
+	v := m.cached_input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCachedInputTokens returns the old "cached_input_tokens" field's value of the OrganizationDailyTokenUsage entity.
+// If the OrganizationDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationDailyTokenUsageMutation) OldCachedInputTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCachedInputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCachedInputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCachedInputTokens: %w", err)
+	}
+	return oldValue.CachedInputTokens, nil
+}
+
+// AddCachedInputTokens adds i to the "cached_input_tokens" field.
+func (m *OrganizationDailyTokenUsageMutation) AddCachedInputTokens(i int64) {
+	if m.addcached_input_tokens != nil {
+		*m.addcached_input_tokens += i
+	} else {
+		m.addcached_input_tokens = &i
+	}
+}
+
+// AddedCachedInputTokens returns the value that was added to the "cached_input_tokens" field in this mutation.
+func (m *OrganizationDailyTokenUsageMutation) AddedCachedInputTokens() (r int64, exists bool) {
+	v := m.addcached_input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCachedInputTokens resets all changes to the "cached_input_tokens" field.
+func (m *OrganizationDailyTokenUsageMutation) ResetCachedInputTokens() {
+	m.cached_input_tokens = nil
+	m.addcached_input_tokens = nil
+}
+
+// SetReasoningTokens sets the "reasoning_tokens" field.
+func (m *OrganizationDailyTokenUsageMutation) SetReasoningTokens(i int64) {
+	m.reasoning_tokens = &i
+	m.addreasoning_tokens = nil
+}
+
+// ReasoningTokens returns the value of the "reasoning_tokens" field in the mutation.
+func (m *OrganizationDailyTokenUsageMutation) ReasoningTokens() (r int64, exists bool) {
+	v := m.reasoning_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReasoningTokens returns the old "reasoning_tokens" field's value of the OrganizationDailyTokenUsage entity.
+// If the OrganizationDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationDailyTokenUsageMutation) OldReasoningTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReasoningTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReasoningTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReasoningTokens: %w", err)
+	}
+	return oldValue.ReasoningTokens, nil
+}
+
+// AddReasoningTokens adds i to the "reasoning_tokens" field.
+func (m *OrganizationDailyTokenUsageMutation) AddReasoningTokens(i int64) {
+	if m.addreasoning_tokens != nil {
+		*m.addreasoning_tokens += i
+	} else {
+		m.addreasoning_tokens = &i
+	}
+}
+
+// AddedReasoningTokens returns the value that was added to the "reasoning_tokens" field in this mutation.
+func (m *OrganizationDailyTokenUsageMutation) AddedReasoningTokens() (r int64, exists bool) {
+	v := m.addreasoning_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetReasoningTokens resets all changes to the "reasoning_tokens" field.
+func (m *OrganizationDailyTokenUsageMutation) ResetReasoningTokens() {
+	m.reasoning_tokens = nil
+	m.addreasoning_tokens = nil
+}
+
+// SetTotalTokens sets the "total_tokens" field.
+func (m *OrganizationDailyTokenUsageMutation) SetTotalTokens(i int64) {
+	m.total_tokens = &i
+	m.addtotal_tokens = nil
+}
+
+// TotalTokens returns the value of the "total_tokens" field in the mutation.
+func (m *OrganizationDailyTokenUsageMutation) TotalTokens() (r int64, exists bool) {
+	v := m.total_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTotalTokens returns the old "total_tokens" field's value of the OrganizationDailyTokenUsage entity.
+// If the OrganizationDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationDailyTokenUsageMutation) OldTotalTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTotalTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTotalTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTotalTokens: %w", err)
+	}
+	return oldValue.TotalTokens, nil
+}
+
+// AddTotalTokens adds i to the "total_tokens" field.
+func (m *OrganizationDailyTokenUsageMutation) AddTotalTokens(i int64) {
+	if m.addtotal_tokens != nil {
+		*m.addtotal_tokens += i
+	} else {
+		m.addtotal_tokens = &i
+	}
+}
+
+// AddedTotalTokens returns the value that was added to the "total_tokens" field in this mutation.
+func (m *OrganizationDailyTokenUsageMutation) AddedTotalTokens() (r int64, exists bool) {
+	v := m.addtotal_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTotalTokens resets all changes to the "total_tokens" field.
+func (m *OrganizationDailyTokenUsageMutation) ResetTotalTokens() {
+	m.total_tokens = nil
+	m.addtotal_tokens = nil
+}
+
+// SetFinalizedRunCount sets the "finalized_run_count" field.
+func (m *OrganizationDailyTokenUsageMutation) SetFinalizedRunCount(i int) {
+	m.finalized_run_count = &i
+	m.addfinalized_run_count = nil
+}
+
+// FinalizedRunCount returns the value of the "finalized_run_count" field in the mutation.
+func (m *OrganizationDailyTokenUsageMutation) FinalizedRunCount() (r int, exists bool) {
+	v := m.finalized_run_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFinalizedRunCount returns the old "finalized_run_count" field's value of the OrganizationDailyTokenUsage entity.
+// If the OrganizationDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationDailyTokenUsageMutation) OldFinalizedRunCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFinalizedRunCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFinalizedRunCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFinalizedRunCount: %w", err)
+	}
+	return oldValue.FinalizedRunCount, nil
+}
+
+// AddFinalizedRunCount adds i to the "finalized_run_count" field.
+func (m *OrganizationDailyTokenUsageMutation) AddFinalizedRunCount(i int) {
+	if m.addfinalized_run_count != nil {
+		*m.addfinalized_run_count += i
+	} else {
+		m.addfinalized_run_count = &i
+	}
+}
+
+// AddedFinalizedRunCount returns the value that was added to the "finalized_run_count" field in this mutation.
+func (m *OrganizationDailyTokenUsageMutation) AddedFinalizedRunCount() (r int, exists bool) {
+	v := m.addfinalized_run_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetFinalizedRunCount resets all changes to the "finalized_run_count" field.
+func (m *OrganizationDailyTokenUsageMutation) ResetFinalizedRunCount() {
+	m.finalized_run_count = nil
+	m.addfinalized_run_count = nil
+}
+
+// SetRecomputedAt sets the "recomputed_at" field.
+func (m *OrganizationDailyTokenUsageMutation) SetRecomputedAt(t time.Time) {
+	m.recomputed_at = &t
+}
+
+// RecomputedAt returns the value of the "recomputed_at" field in the mutation.
+func (m *OrganizationDailyTokenUsageMutation) RecomputedAt() (r time.Time, exists bool) {
+	v := m.recomputed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRecomputedAt returns the old "recomputed_at" field's value of the OrganizationDailyTokenUsage entity.
+// If the OrganizationDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationDailyTokenUsageMutation) OldRecomputedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRecomputedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRecomputedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRecomputedAt: %w", err)
+	}
+	return oldValue.RecomputedAt, nil
+}
+
+// ResetRecomputedAt resets all changes to the "recomputed_at" field.
+func (m *OrganizationDailyTokenUsageMutation) ResetRecomputedAt() {
+	m.recomputed_at = nil
+}
+
+// SetSourceMode sets the "source_mode" field.
+func (m *OrganizationDailyTokenUsageMutation) SetSourceMode(om organizationdailytokenusage.SourceMode) {
+	m.source_mode = &om
+}
+
+// SourceMode returns the value of the "source_mode" field in the mutation.
+func (m *OrganizationDailyTokenUsageMutation) SourceMode() (r organizationdailytokenusage.SourceMode, exists bool) {
+	v := m.source_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourceMode returns the old "source_mode" field's value of the OrganizationDailyTokenUsage entity.
+// If the OrganizationDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationDailyTokenUsageMutation) OldSourceMode(ctx context.Context) (v organizationdailytokenusage.SourceMode, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourceMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourceMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourceMode: %w", err)
+	}
+	return oldValue.SourceMode, nil
+}
+
+// ResetSourceMode resets all changes to the "source_mode" field.
+func (m *OrganizationDailyTokenUsageMutation) ResetSourceMode() {
+	m.source_mode = nil
+}
+
+// ClearOrganization clears the "organization" edge to the Organization entity.
+func (m *OrganizationDailyTokenUsageMutation) ClearOrganization() {
+	m.clearedorganization = true
+	m.clearedFields[organizationdailytokenusage.FieldOrganizationID] = struct{}{}
+}
+
+// OrganizationCleared reports if the "organization" edge to the Organization entity was cleared.
+func (m *OrganizationDailyTokenUsageMutation) OrganizationCleared() bool {
+	return m.clearedorganization
+}
+
+// OrganizationIDs returns the "organization" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// OrganizationID instead. It exists only for internal usage by the builders.
+func (m *OrganizationDailyTokenUsageMutation) OrganizationIDs() (ids []uuid.UUID) {
+	if id := m.organization; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetOrganization resets all changes to the "organization" edge.
+func (m *OrganizationDailyTokenUsageMutation) ResetOrganization() {
+	m.organization = nil
+	m.clearedorganization = false
+}
+
+// Where appends a list predicates to the OrganizationDailyTokenUsageMutation builder.
+func (m *OrganizationDailyTokenUsageMutation) Where(ps ...predicate.OrganizationDailyTokenUsage) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the OrganizationDailyTokenUsageMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *OrganizationDailyTokenUsageMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.OrganizationDailyTokenUsage, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *OrganizationDailyTokenUsageMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *OrganizationDailyTokenUsageMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (OrganizationDailyTokenUsage).
+func (m *OrganizationDailyTokenUsageMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *OrganizationDailyTokenUsageMutation) Fields() []string {
+	fields := make([]string, 0, 10)
+	if m.organization != nil {
+		fields = append(fields, organizationdailytokenusage.FieldOrganizationID)
+	}
+	if m.usage_date != nil {
+		fields = append(fields, organizationdailytokenusage.FieldUsageDate)
+	}
+	if m.input_tokens != nil {
+		fields = append(fields, organizationdailytokenusage.FieldInputTokens)
+	}
+	if m.output_tokens != nil {
+		fields = append(fields, organizationdailytokenusage.FieldOutputTokens)
+	}
+	if m.cached_input_tokens != nil {
+		fields = append(fields, organizationdailytokenusage.FieldCachedInputTokens)
+	}
+	if m.reasoning_tokens != nil {
+		fields = append(fields, organizationdailytokenusage.FieldReasoningTokens)
+	}
+	if m.total_tokens != nil {
+		fields = append(fields, organizationdailytokenusage.FieldTotalTokens)
+	}
+	if m.finalized_run_count != nil {
+		fields = append(fields, organizationdailytokenusage.FieldFinalizedRunCount)
+	}
+	if m.recomputed_at != nil {
+		fields = append(fields, organizationdailytokenusage.FieldRecomputedAt)
+	}
+	if m.source_mode != nil {
+		fields = append(fields, organizationdailytokenusage.FieldSourceMode)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *OrganizationDailyTokenUsageMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case organizationdailytokenusage.FieldOrganizationID:
+		return m.OrganizationID()
+	case organizationdailytokenusage.FieldUsageDate:
+		return m.UsageDate()
+	case organizationdailytokenusage.FieldInputTokens:
+		return m.InputTokens()
+	case organizationdailytokenusage.FieldOutputTokens:
+		return m.OutputTokens()
+	case organizationdailytokenusage.FieldCachedInputTokens:
+		return m.CachedInputTokens()
+	case organizationdailytokenusage.FieldReasoningTokens:
+		return m.ReasoningTokens()
+	case organizationdailytokenusage.FieldTotalTokens:
+		return m.TotalTokens()
+	case organizationdailytokenusage.FieldFinalizedRunCount:
+		return m.FinalizedRunCount()
+	case organizationdailytokenusage.FieldRecomputedAt:
+		return m.RecomputedAt()
+	case organizationdailytokenusage.FieldSourceMode:
+		return m.SourceMode()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *OrganizationDailyTokenUsageMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case organizationdailytokenusage.FieldOrganizationID:
+		return m.OldOrganizationID(ctx)
+	case organizationdailytokenusage.FieldUsageDate:
+		return m.OldUsageDate(ctx)
+	case organizationdailytokenusage.FieldInputTokens:
+		return m.OldInputTokens(ctx)
+	case organizationdailytokenusage.FieldOutputTokens:
+		return m.OldOutputTokens(ctx)
+	case organizationdailytokenusage.FieldCachedInputTokens:
+		return m.OldCachedInputTokens(ctx)
+	case organizationdailytokenusage.FieldReasoningTokens:
+		return m.OldReasoningTokens(ctx)
+	case organizationdailytokenusage.FieldTotalTokens:
+		return m.OldTotalTokens(ctx)
+	case organizationdailytokenusage.FieldFinalizedRunCount:
+		return m.OldFinalizedRunCount(ctx)
+	case organizationdailytokenusage.FieldRecomputedAt:
+		return m.OldRecomputedAt(ctx)
+	case organizationdailytokenusage.FieldSourceMode:
+		return m.OldSourceMode(ctx)
+	}
+	return nil, fmt.Errorf("unknown OrganizationDailyTokenUsage field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *OrganizationDailyTokenUsageMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case organizationdailytokenusage.FieldOrganizationID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOrganizationID(v)
+		return nil
+	case organizationdailytokenusage.FieldUsageDate:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUsageDate(v)
+		return nil
+	case organizationdailytokenusage.FieldInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInputTokens(v)
+		return nil
+	case organizationdailytokenusage.FieldOutputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutputTokens(v)
+		return nil
+	case organizationdailytokenusage.FieldCachedInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCachedInputTokens(v)
+		return nil
+	case organizationdailytokenusage.FieldReasoningTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReasoningTokens(v)
+		return nil
+	case organizationdailytokenusage.FieldTotalTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTotalTokens(v)
+		return nil
+	case organizationdailytokenusage.FieldFinalizedRunCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFinalizedRunCount(v)
+		return nil
+	case organizationdailytokenusage.FieldRecomputedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRecomputedAt(v)
+		return nil
+	case organizationdailytokenusage.FieldSourceMode:
+		v, ok := value.(organizationdailytokenusage.SourceMode)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourceMode(v)
+		return nil
+	}
+	return fmt.Errorf("unknown OrganizationDailyTokenUsage field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *OrganizationDailyTokenUsageMutation) AddedFields() []string {
+	var fields []string
+	if m.addinput_tokens != nil {
+		fields = append(fields, organizationdailytokenusage.FieldInputTokens)
+	}
+	if m.addoutput_tokens != nil {
+		fields = append(fields, organizationdailytokenusage.FieldOutputTokens)
+	}
+	if m.addcached_input_tokens != nil {
+		fields = append(fields, organizationdailytokenusage.FieldCachedInputTokens)
+	}
+	if m.addreasoning_tokens != nil {
+		fields = append(fields, organizationdailytokenusage.FieldReasoningTokens)
+	}
+	if m.addtotal_tokens != nil {
+		fields = append(fields, organizationdailytokenusage.FieldTotalTokens)
+	}
+	if m.addfinalized_run_count != nil {
+		fields = append(fields, organizationdailytokenusage.FieldFinalizedRunCount)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *OrganizationDailyTokenUsageMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case organizationdailytokenusage.FieldInputTokens:
+		return m.AddedInputTokens()
+	case organizationdailytokenusage.FieldOutputTokens:
+		return m.AddedOutputTokens()
+	case organizationdailytokenusage.FieldCachedInputTokens:
+		return m.AddedCachedInputTokens()
+	case organizationdailytokenusage.FieldReasoningTokens:
+		return m.AddedReasoningTokens()
+	case organizationdailytokenusage.FieldTotalTokens:
+		return m.AddedTotalTokens()
+	case organizationdailytokenusage.FieldFinalizedRunCount:
+		return m.AddedFinalizedRunCount()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *OrganizationDailyTokenUsageMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case organizationdailytokenusage.FieldInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddInputTokens(v)
+		return nil
+	case organizationdailytokenusage.FieldOutputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOutputTokens(v)
+		return nil
+	case organizationdailytokenusage.FieldCachedInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCachedInputTokens(v)
+		return nil
+	case organizationdailytokenusage.FieldReasoningTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddReasoningTokens(v)
+		return nil
+	case organizationdailytokenusage.FieldTotalTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTotalTokens(v)
+		return nil
+	case organizationdailytokenusage.FieldFinalizedRunCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddFinalizedRunCount(v)
+		return nil
+	}
+	return fmt.Errorf("unknown OrganizationDailyTokenUsage numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *OrganizationDailyTokenUsageMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *OrganizationDailyTokenUsageMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *OrganizationDailyTokenUsageMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown OrganizationDailyTokenUsage nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *OrganizationDailyTokenUsageMutation) ResetField(name string) error {
+	switch name {
+	case organizationdailytokenusage.FieldOrganizationID:
+		m.ResetOrganizationID()
+		return nil
+	case organizationdailytokenusage.FieldUsageDate:
+		m.ResetUsageDate()
+		return nil
+	case organizationdailytokenusage.FieldInputTokens:
+		m.ResetInputTokens()
+		return nil
+	case organizationdailytokenusage.FieldOutputTokens:
+		m.ResetOutputTokens()
+		return nil
+	case organizationdailytokenusage.FieldCachedInputTokens:
+		m.ResetCachedInputTokens()
+		return nil
+	case organizationdailytokenusage.FieldReasoningTokens:
+		m.ResetReasoningTokens()
+		return nil
+	case organizationdailytokenusage.FieldTotalTokens:
+		m.ResetTotalTokens()
+		return nil
+	case organizationdailytokenusage.FieldFinalizedRunCount:
+		m.ResetFinalizedRunCount()
+		return nil
+	case organizationdailytokenusage.FieldRecomputedAt:
+		m.ResetRecomputedAt()
+		return nil
+	case organizationdailytokenusage.FieldSourceMode:
+		m.ResetSourceMode()
+		return nil
+	}
+	return fmt.Errorf("unknown OrganizationDailyTokenUsage field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *OrganizationDailyTokenUsageMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.organization != nil {
+		edges = append(edges, organizationdailytokenusage.EdgeOrganization)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *OrganizationDailyTokenUsageMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case organizationdailytokenusage.EdgeOrganization:
+		if id := m.organization; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *OrganizationDailyTokenUsageMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *OrganizationDailyTokenUsageMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *OrganizationDailyTokenUsageMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedorganization {
+		edges = append(edges, organizationdailytokenusage.EdgeOrganization)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *OrganizationDailyTokenUsageMutation) EdgeCleared(name string) bool {
+	switch name {
+	case organizationdailytokenusage.EdgeOrganization:
+		return m.clearedorganization
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *OrganizationDailyTokenUsageMutation) ClearEdge(name string) error {
+	switch name {
+	case organizationdailytokenusage.EdgeOrganization:
+		m.ClearOrganization()
+		return nil
+	}
+	return fmt.Errorf("unknown OrganizationDailyTokenUsage unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *OrganizationDailyTokenUsageMutation) ResetEdge(name string) error {
+	switch name {
+	case organizationdailytokenusage.EdgeOrganization:
+		m.ResetOrganization()
+		return nil
+	}
+	return fmt.Errorf("unknown OrganizationDailyTokenUsage edge %s", name)
 }
 
 // ProjectMutation represents an operation that mutates the Project nodes in the graph.
