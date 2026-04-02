@@ -27,6 +27,7 @@ import (
 	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	ticketingdomain "github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
@@ -1110,6 +1111,7 @@ type repoWorkspacePlan struct {
 	RepoID       uuid.UUID
 	RepoName     string
 	WorkspaceDir string
+	BranchName   string
 	HeadCommit   string
 	Input        workspaceinfra.RepoInput
 }
@@ -1241,7 +1243,11 @@ func buildWorkspaceRequest(
 		return workspaceinfra.SetupRequest{}, nil, err
 	}
 
-	repoPlans, err := buildWorkspaceRepoPlans(launchContext.projectRepos, launchContext.ticketScopes)
+	repoPlans, err := buildWorkspaceRepoPlans(
+		launchContext.ticket.Identifier,
+		launchContext.projectRepos,
+		launchContext.ticketScopes,
+	)
 	if err != nil {
 		return workspaceinfra.SetupRequest{}, nil, err
 	}
@@ -1300,6 +1306,7 @@ func buildWorkspacePath(launchContext runtimeLaunchContext, machine catalogdomai
 }
 
 func buildWorkspaceRepoPlans(
+	ticketIdentifier string,
 	projectRepos []*ent.ProjectRepo,
 	ticketScopes []*ent.TicketRepoScope,
 ) ([]repoWorkspacePlan, error) {
@@ -1315,6 +1322,7 @@ func buildWorkspaceRepoPlans(
 	plans := make([]repoWorkspacePlan, 0, len(selectedRepos))
 	for _, repo := range selectedRepos {
 		workspaceDirname := resolvedWorkspaceDirname(repo)
+		effectiveBranchName := ticketingdomain.DefaultRepoWorkBranch(ticketIdentifier)
 		input := workspaceinfra.RepoInput{
 			Name:          repo.Name,
 			RepositoryURL: strings.TrimSpace(repo.RepositoryURL),
@@ -1324,13 +1332,17 @@ func buildWorkspaceRepoPlans(
 			input.WorkspaceDirname = &workspaceDirname
 		}
 		if scope, ok := scopeByRepoID[repo.ID]; ok {
-			branchName := scope.BranchName
-			input.BranchName = &branchName
+			branchOverride := ticketingdomain.NormalizeRepoWorkBranchOverride(scope.BranchName)
+			effectiveBranchName = ticketingdomain.ResolveRepoWorkBranch(ticketIdentifier, scope.BranchName)
+			if branchOverride != "" {
+				input.BranchName = &branchOverride
+			}
 		}
 		plans = append(plans, repoWorkspacePlan{
 			RepoID:       repo.ID,
 			RepoName:     repo.Name,
 			WorkspaceDir: workspaceDirname,
+			BranchName:   effectiveBranchName,
 			Input:        input,
 		})
 	}
@@ -1496,7 +1508,7 @@ func (l *RuntimeLauncher) ensureTicketRepoWorkspaceRecords(
 				SetRepoID(plan.RepoID).
 				SetWorkspaceRoot(workspaceRoot).
 				SetRepoPath(repoPath).
-				SetBranchName(request.BranchName).
+				SetBranchName(plan.BranchName).
 				SetState(entticketrepoworkspace.StatePlanned)
 			if plan.HeadCommit != "" {
 				create.SetHeadCommit(plan.HeadCommit)
@@ -1510,7 +1522,7 @@ func (l *RuntimeLauncher) ensureTicketRepoWorkspaceRecords(
 			update := l.client.TicketRepoWorkspace.UpdateOneID(existing.ID).
 				SetWorkspaceRoot(workspaceRoot).
 				SetRepoPath(repoPath).
-				SetBranchName(request.BranchName).
+				SetBranchName(plan.BranchName).
 				SetState(entticketrepoworkspace.StatePlanned).
 				ClearLastError().
 				ClearPreparedAt().

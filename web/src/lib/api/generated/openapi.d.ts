@@ -7927,7 +7927,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Default branch name used when a repo scope does not provide an explicit branch override. */
+          /** @description Repository base branch used when OpenASE creates a new ticket work branch. */
           default_branch?: string
           /** @description Labels attached to the repository for workflow selection and filtering. */
           labels?: string[]
@@ -8109,7 +8109,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Default branch name used when a repo scope does not provide an explicit branch override. */
+          /** @description Repository base branch used when OpenASE creates a new ticket work branch. */
           default_branch?: string | null
           /** @description Labels attached to the repository for workflow selection and filtering. */
           labels?: string[] | null
@@ -9832,7 +9832,7 @@ export interface operations {
           priority?: string | null
           /** @description Optional repository scopes attached at ticket creation time. Multi-repo projects must supply explicit repo scopes; single-repo projects auto-select the only repo when omitted. */
           repo_scopes?: {
-            /** @description Optional branch name for the scoped repository checkout. When omitted, the repository default branch is used. */
+            /** @description Optional work-branch override for the scoped repository. When omitted or blank, OpenASE uses the generated ticket branch. */
             branch_name?: string | null
             /** @description Repository ID attached to the ticket scope. */
             repo_id?: string
@@ -10045,6 +10045,9 @@ export interface operations {
             }[]
             repo_scopes?: {
               branch_name?: string
+              branch_source?: string
+              default_branch?: string
+              effective_branch_name?: string
               id?: string
               pull_request_url?: string | null
               repo?: {
@@ -10270,7 +10273,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Branch name associated with the scoped repository checkout. */
+          /** @description Optional work-branch override for the scoped repository. Leave blank to use the generated ticket branch. */
           branch_name?: string | null
           /** @description Pull request URL associated with the repository scope. */
           pull_request_url?: string | null
@@ -10448,7 +10451,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Branch name associated with the scoped repository checkout. */
+          /** @description Optional work-branch override for the scoped repository. Send an empty string to clear the override and use the generated ticket branch. */
           branch_name?: string | null
           /** @description Pull request URL associated with the repository scope. */
           pull_request_url?: string | null

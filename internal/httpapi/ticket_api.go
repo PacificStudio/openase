@@ -13,6 +13,7 @@ import (
 	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	ticketingdomain "github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -120,12 +121,15 @@ type ticketResponse struct {
 }
 
 type ticketRepoScopeDetailResponse struct {
-	ID             string               `json:"id"`
-	TicketID       string               `json:"ticket_id"`
-	RepoID         string               `json:"repo_id"`
-	Repo           *projectRepoResponse `json:"repo,omitempty"`
-	BranchName     string               `json:"branch_name"`
-	PullRequestURL *string              `json:"pull_request_url,omitempty"`
+	ID                  string               `json:"id"`
+	TicketID            string               `json:"ticket_id"`
+	RepoID              string               `json:"repo_id"`
+	Repo                *projectRepoResponse `json:"repo,omitempty"`
+	BranchName          string               `json:"branch_name"`
+	DefaultBranch       string               `json:"default_branch"`
+	EffectiveBranchName string               `json:"effective_branch_name"`
+	BranchSource        string               `json:"branch_source"`
+	PullRequestURL      *string              `json:"pull_request_url,omitempty"`
 }
 
 type ticketAssignedAgentResponse struct {
@@ -302,7 +306,7 @@ func (s *Server) handleGetTicketDetail(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"assigned_agent": assignedAgent,
 		"ticket":         mapTicketResponse(item),
-		"repo_scopes":    mapTicketRepoScopeDetailResponses(repoScopes, indexProjectRepoResponses(projectRepos)),
+		"repo_scopes":    mapTicketRepoScopeDetailResponses(item.Identifier, repoScopes, indexProjectRepoResponses(projectRepos)),
 		"comments":       mapTicketCommentResponses(comments),
 		"timeline":       buildTicketTimeline(item, comments, activity),
 		"activity":       mapActivityEventResponses(activity),
@@ -716,18 +720,20 @@ func writeTicketError(c echo.Context, err error) error {
 }
 
 func mapTicketRepoScopeDetailResponses(
+	ticketIdentifier string,
 	items []domain.TicketRepoScope,
 	reposByID map[string]projectRepoResponse,
 ) []ticketRepoScopeDetailResponse {
 	response := make([]ticketRepoScopeDetailResponse, 0, len(items))
 	for _, item := range items {
-		response = append(response, mapTicketRepoScopeDetailResponse(item, reposByID[item.RepoID.String()]))
+		response = append(response, mapTicketRepoScopeDetailResponse(ticketIdentifier, item, reposByID[item.RepoID.String()]))
 	}
 
 	return response
 }
 
 func mapTicketRepoScopeDetailResponse(
+	ticketIdentifier string,
 	item domain.TicketRepoScope,
 	repo projectRepoResponse,
 ) ticketRepoScopeDetailResponse {
@@ -738,12 +744,15 @@ func mapTicketRepoScopeDetailResponse(
 	}
 
 	return ticketRepoScopeDetailResponse{
-		ID:             item.ID.String(),
-		TicketID:       item.TicketID.String(),
-		RepoID:         item.RepoID.String(),
-		Repo:           repoResponse,
-		BranchName:     item.BranchName,
-		PullRequestURL: item.PullRequestURL,
+		ID:                  item.ID.String(),
+		TicketID:            item.TicketID.String(),
+		RepoID:              item.RepoID.String(),
+		Repo:                repoResponse,
+		BranchName:          item.BranchName,
+		DefaultBranch:       repo.DefaultBranch,
+		EffectiveBranchName: ticketingdomain.ResolveRepoWorkBranch(ticketIdentifier, item.BranchName),
+		BranchSource:        string(ticketingdomain.RepoWorkBranchSourceForOverride(item.BranchName)),
+		PullRequestURL:      item.PullRequestURL,
 	}
 }
 

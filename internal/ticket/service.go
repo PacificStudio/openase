@@ -661,12 +661,9 @@ func (s *Service) createTicketRepoScopes(
 		}
 		seenRepoIDs[scope.RepoID] = struct{}{}
 
-		branchName := strings.TrimSpace(repo.DefaultBranch)
+		branchName := ""
 		if scope.BranchName != nil {
 			branchName = strings.TrimSpace(*scope.BranchName)
-		}
-		if branchName == "" {
-			branchName = "main"
 		}
 
 		if _, err := tx.TicketRepoScope.Create().

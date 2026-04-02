@@ -58,6 +58,9 @@ export type TicketDetail = {
     repoId: string
     repoName: string
     branchName: string
+    defaultBranch: string
+    effectiveBranchName: string
+    branchSource: 'generated' | 'override'
     prUrl?: string
   }>
   attemptCount: number

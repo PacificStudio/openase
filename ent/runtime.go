@@ -925,10 +925,6 @@ func init() {
 	ticketexternallink.DefaultID = ticketexternallinkDescID.Default.(func() uuid.UUID)
 	ticketreposcopeFields := schema.TicketRepoScope{}.Fields()
 	_ = ticketreposcopeFields
-	// ticketreposcopeDescBranchName is the schema descriptor for branch_name field.
-	ticketreposcopeDescBranchName := ticketreposcopeFields[3].Descriptor()
-	// ticketreposcope.BranchNameValidator is a validator for the "branch_name" field. It is called by the builders before save.
-	ticketreposcope.BranchNameValidator = ticketreposcopeDescBranchName.Validators[0].(func(string) error)
 	// ticketreposcopeDescID is the schema descriptor for id field.
 	ticketreposcopeDescID := ticketreposcopeFields[0].Descriptor()
 	// ticketreposcope.DefaultID holds the default value on creation for the id field.

@@ -777,14 +777,14 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseUpdateTicketRepoScope() error = %v", err)
 	}
-	if updateScope.BranchName != nil || updateScope.PullRequestURL != nil {
+	if updateScope.BranchName != nil || updateScope.PullRequestURL != nil || updateScope.BranchNameSet || updateScope.PullRequestSet {
 		t.Fatalf("ParseUpdateTicketRepoScope() defaults = %+v", updateScope)
 	}
 	updateScope, err = ParseUpdateTicketRepoScope(uuid.New(), projectID, ticketID, TicketRepoScopeInput{RepoID: repoID.String(), BranchName: stringPtr("feature/demo")})
 	if err != nil {
 		t.Fatalf("ParseUpdateTicketRepoScope(success) error = %v", err)
 	}
-	if updateScope.BranchName == nil || *updateScope.BranchName != "feature/demo" {
+	if updateScope.BranchName == nil || *updateScope.BranchName != "feature/demo" || !updateScope.BranchNameSet {
 		t.Fatalf("ParseUpdateTicketRepoScope(success) = %+v", updateScope)
 	}
 	if _, err := ParseCreateTicketRepoScope(projectID, ticketID, TicketRepoScopeInput{RepoID: "bad"}); err == nil {

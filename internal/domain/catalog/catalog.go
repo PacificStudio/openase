@@ -148,7 +148,9 @@ type UpdateTicketRepoScope struct {
 	TicketID       uuid.UUID
 	RepoID         uuid.UUID
 	BranchName     *string
+	BranchNameSet  bool
 	PullRequestURL *string
+	PullRequestSet bool
 }
 
 func ParseCreateOrganization(raw OrganizationInput) (CreateOrganization, error) {
@@ -345,7 +347,9 @@ func ParseUpdateTicketRepoScope(id uuid.UUID, projectID uuid.UUID, ticketID uuid
 		TicketID:       input.TicketID,
 		RepoID:         input.RepoID,
 		BranchName:     input.BranchName,
+		BranchNameSet:  raw.BranchName != nil,
 		PullRequestURL: input.PullRequestURL,
+		PullRequestSet: raw.PullRequestURL != nil,
 	}, nil
 }
 

@@ -3113,6 +3113,36 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 	}
 }
 
+func TestBuildWorkspaceRepoPlansUsesGeneratedTicketBranchWhenScopeOverrideBlank(t *testing.T) {
+	repoID := uuid.New()
+	plans, err := buildWorkspaceRepoPlans(
+		"ASE-475",
+		[]*ent.ProjectRepo{
+			{
+				ID:            repoID,
+				Name:          "backend",
+				RepositoryURL: "https://github.com/acme/backend.git",
+				DefaultBranch: "main",
+			},
+		},
+		[]*ent.TicketRepoScope{
+			{
+				RepoID:     repoID,
+				BranchName: "   ",
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("build workspace repo plans: %v", err)
+	}
+	if len(plans) != 1 {
+		t.Fatalf("expected one plan, got %+v", plans)
+	}
+	if plans[0].BranchName != "agent/ASE-475" || plans[0].Input.BranchName != nil {
+		t.Fatalf("expected generated ticket branch plan, got %+v", plans[0])
+	}
+}
+
 func TestRuntimeLauncherRunTickFailsWhenRemoteCodexEnvironmentIsNotReady(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
