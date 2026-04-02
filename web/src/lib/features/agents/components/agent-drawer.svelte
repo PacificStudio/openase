@@ -11,6 +11,13 @@
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
   import { Check, Pencil, Wrench, X } from '@lucide/svelte'
   import AgentDrawerContent from './agent-drawer-content.svelte'
+  import {
+    agentStatusDot,
+    agentStatusLabel,
+    agentStatusVariant,
+    canPauseAgent,
+    canResumeAgent,
+  } from './agent-drawer-state'
   import type { AgentInstance } from '../types'
 
   let {
@@ -34,45 +41,6 @@
   let editNameValue = $state('')
   let savingName = $state(false)
   let savingProvider = $state(false)
-
-  const statusVariant: Record<AgentInstance['status'], string> = {
-    idle: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
-    claimed: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
-    running: 'bg-blue-500/15 text-blue-700 dark:text-blue-400',
-    paused: 'bg-orange-500/15 text-orange-700 dark:text-orange-400',
-    failed: 'bg-red-500/15 text-red-700 dark:text-red-400',
-    terminated: 'bg-slate-500/15 text-slate-600 dark:text-slate-400',
-  }
-
-  const statusDot: Record<AgentInstance['status'], string> = {
-    idle: 'bg-emerald-500',
-    claimed: 'bg-amber-500',
-    running: 'bg-blue-500',
-    paused: 'bg-orange-500',
-    failed: 'bg-red-500',
-    terminated: 'bg-slate-500',
-  }
-
-  const statusLabels: Record<AgentInstance['status'], string> = {
-    idle: 'Idle',
-    claimed: 'Claimed',
-    running: 'Running',
-    paused: 'Paused',
-    failed: 'Failed',
-    terminated: 'Terminated',
-  }
-
-  function canPause(a: AgentInstance) {
-    return (
-      a.runtimeControlState === 'active' &&
-      a.activeRunCount > 0 &&
-      (a.status === 'claimed' || a.status === 'running')
-    )
-  }
-
-  function canResume(a: AgentInstance) {
-    return a.runtimeControlState === 'paused'
-  }
 
   const selectedProvider = $derived(
     agent ? (providers.find((provider) => provider.id === agent.providerId) ?? null) : null,
@@ -198,7 +166,9 @@
       <!-- Header -->
       <SheetHeader class="border-border border-b px-6 py-5">
         <div class="flex items-start gap-3">
-          <span class={cn('mt-2 size-2.5 shrink-0 rounded-full', statusDot[agent.status])}></span>
+          <span
+            class={cn('mt-2 size-2.5 shrink-0 rounded-full', agentStatusDot[agent.status])}
+          ></span>
           <div class="min-w-0 flex-1">
             {#if editingName}
               <div class="flex items-center gap-1.5">
@@ -297,10 +267,10 @@
           <span
             class={cn(
               'mt-0.5 inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-medium',
-              statusVariant[agent.status],
+              agentStatusVariant[agent.status],
             )}
           >
-            {statusLabels[agent.status]}
+            {agentStatusLabel[agent.status]}
             {#if agent.runtimeControlState !== 'active'}
               <span class="ml-1 opacity-70">
                 · {agent.runtimeControlState === 'pause_requested' ? 'Pausing' : 'Paused'}
@@ -312,8 +282,8 @@
       <AgentDrawerContent
         {agent}
         {actionBusy}
-        canPause={canPause(agent)}
-        canResume={canResume(agent)}
+        canPause={canPauseAgent(agent)}
+        canResume={canResumeAgent(agent)}
         onPause={handlePause}
         onResume={handleResume}
         onDelete={handleDelete}

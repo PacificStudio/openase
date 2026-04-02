@@ -16,6 +16,7 @@
   import TicketDescriptionTimelineItem from './ticket-description-timeline-item.svelte'
   import TicketMarkdownContent from './ticket-markdown-content.svelte'
   import TicketTimelineActivityItem from './ticket-timeline-activity-item.svelte'
+  import { getEditedTimelineLabel, isEditedTimelineItem } from './ticket-comments-thread-helpers'
   import TicketTimelineComposer from './ticket-timeline-composer.svelte'
   import { groupDiscussionTimeline, type ActivityGroup } from '../discussion-grouping'
   import type {
@@ -93,15 +94,6 @@
 
     const success = (await onDeleteComment?.(commentId)) ?? false
     if (success && editingCommentId === commentId) cancelCommentEdit()
-  }
-
-  function isEdited(item: TicketTimelineItem) {
-    return Boolean(item.editedAt) || item.updatedAt !== item.createdAt
-  }
-
-  function editedLabel(item: TicketTimelineItem) {
-    const editedAt = item.editedAt ?? item.updatedAt
-    return editedAt && isEdited(item) ? `edited ${formatRelativeTime(editedAt)}` : null
   }
 
   function isCommentCollapsed(commentId: string) {
@@ -198,16 +190,15 @@
                     <span class="text-muted-foreground text-[11px]"
                       >{formatRelativeTime(item.createdAt)}</span
                     >
-                    {#if isEdited(item)}
+                    {#if isEditedTimelineItem(item)}
                       <span class="text-muted-foreground text-[10px] italic"
-                        >{editedLabel(item)}</span
+                        >{getEditedTimelineLabel(item)}</span
                       >
                     {/if}
                     {#if item.isDeleted}
                       <Badge variant="outline" class="h-4 px-1.5 py-0 text-[9px]">Deleted</Badge>
                     {/if}
                   </div>
-
                   <div class="flex shrink-0 items-center">
                     {#if editingCommentId !== item.commentId}
                       <Button
@@ -252,7 +243,6 @@
                     </Button>
                   </div>
                 </div>
-
                 <div class="px-3 py-2">
                   {#if editingCommentId === item.commentId}
                     <div class="space-y-2">

@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import WorkflowCreationDialog from './workflow-creation-dialog.svelte'
 
@@ -46,8 +46,14 @@ const agentOptions = [
 ]
 
 describe('WorkflowCreationDialog', () => {
-  afterEach(() => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(async () => {
     cleanup()
+    await vi.runOnlyPendingTimersAsync()
+    vi.useRealTimers()
     vi.clearAllMocks()
   })
 

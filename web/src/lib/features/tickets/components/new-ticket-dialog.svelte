@@ -6,25 +6,19 @@
   import { projectPath } from '$lib/stores/app-context'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
-  import { Checkbox } from '$ui/checkbox'
   import * as Dialog from '$ui/dialog'
-  import * as Popover from '$ui/popover'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Textarea } from '$ui/textarea'
-  import { ChevronDown, GitBranch } from '@lucide/svelte'
-  import { PriorityIcon, StageIcon } from '$lib/features/board/public'
   import {
     createNewTicketDraft,
     mapProjectRepoOptions,
     mapTicketStatusOptions,
     parseNewTicketDraft,
-    type TicketRepoOption,
-    ticketPriorityOptions,
     type NewTicketDraft,
   } from '../new-ticket'
+  import NewTicketDialogMetadata from './new-ticket-dialog-metadata.svelte'
 
   const priorityLabels: Record<string, string> = {
     urgent: 'Urgent',
@@ -34,7 +28,7 @@
   }
 
   let statuses = $state<TicketStatus[]>([])
-  let repoOptions = $state<TicketRepoOption[]>([])
+  let repoOptions = $state<ReturnType<typeof mapProjectRepoOptions>>([])
   let loading = $state(false)
   let saving = $state(false)
   let draft = $state<NewTicketDraft>(createNewTicketDraft([], []))
@@ -46,9 +40,6 @@
   let repoPopoverOpen = $state(false)
 
   const statusOptions = $derived(mapTicketStatusOptions(statuses))
-
-  const selectedStatus = $derived(statusOptions.find((s) => s.id === draft.statusId) ?? null)
-  const selectedRepoCount = $derived(draft.repoIds.length)
 
   $effect(() => {
     const projectId = appStore.currentProject?.id ?? ''
@@ -201,122 +192,20 @@
         />
       </div>
 
-      <!-- Metadata pickers row -->
-      <div class="flex flex-wrap items-center gap-2">
-        <!-- Status picker -->
-        <Popover.Root bind:open={statusPopoverOpen}>
-          <Popover.Trigger
-            class={cn(
-              'border-border hover:bg-muted inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors',
-              (loading || saving) && 'pointer-events-none opacity-50',
-            )}
-            disabled={loading || saving || statusOptions.length === 0}
-          >
-            {#if selectedStatus}
-              <StageIcon
-                stage={selectedStatus.stage}
-                color={selectedStatus.color}
-                class="size-3.5"
-              />
-              <span class="text-foreground max-w-28 truncate">{selectedStatus.label}</span>
-            {:else}
-              <StageIcon stage="unstarted" class="size-3.5" />
-              <span class="text-muted-foreground">Status</span>
-            {/if}
-            <ChevronDown class="text-muted-foreground size-3" />
-          </Popover.Trigger>
-          <Popover.Content align="start" class="w-48 gap-0 p-0.5">
-            {#each statusOptions as option (option.id)}
-              <button
-                type="button"
-                class={cn(
-                  'hover:bg-muted flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
-                  option.id === draft.statusId && 'bg-muted',
-                )}
-                onclick={() => selectStatus(option.id)}
-              >
-                <StageIcon stage={option.stage} color={option.color} class="size-3.5" />
-                <span class="text-foreground truncate">{option.label}</span>
-              </button>
-            {/each}
-          </Popover.Content>
-        </Popover.Root>
-
-        <!-- Priority picker -->
-        <Popover.Root bind:open={priorityPopoverOpen}>
-          <Popover.Trigger
-            class={cn(
-              'border-border hover:bg-muted inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors',
-              (loading || saving) && 'pointer-events-none opacity-50',
-            )}
-            disabled={loading || saving}
-          >
-            <PriorityIcon priority={draft.priority} class="size-3.5" />
-            <span class="text-foreground">{priorityLabels[draft.priority]}</span>
-            <ChevronDown class="text-muted-foreground size-3" />
-          </Popover.Trigger>
-          <Popover.Content align="start" class="w-36 gap-0 p-0.5">
-            {#each ticketPriorityOptions as priority (priority)}
-              <button
-                type="button"
-                class={cn(
-                  'hover:bg-muted flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
-                  priority === draft.priority && 'bg-muted',
-                )}
-                onclick={() => selectPriority(priority)}
-              >
-                <PriorityIcon {priority} class="size-3.5" />
-                <span class="text-foreground">{priorityLabels[priority]}</span>
-              </button>
-            {/each}
-          </Popover.Content>
-        </Popover.Root>
-
-        <!-- Repo scope picker (multi-select) -->
-        {#if repoOptions.length > 0}
-          <Popover.Root bind:open={repoPopoverOpen}>
-            <Popover.Trigger
-              class={cn(
-                'border-border hover:bg-muted inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors',
-                (loading || saving) && 'pointer-events-none opacity-50',
-              )}
-              disabled={loading || saving}
-            >
-              <GitBranch class="text-muted-foreground size-3.5" />
-              {#if selectedRepoCount === 0}
-                <span class="text-muted-foreground">Repos</span>
-              {:else if selectedRepoCount === 1}
-                <span class="text-foreground max-w-28 truncate">
-                  {repoOptions.find((r) => draft.repoIds.includes(r.id))?.label ?? '1 repo'}
-                </span>
-              {:else}
-                <span class="text-foreground">{selectedRepoCount} repos</span>
-              {/if}
-              <ChevronDown class="text-muted-foreground size-3" />
-            </Popover.Trigger>
-            <Popover.Content align="start" class="max-h-56 w-64 gap-0 overflow-y-auto p-1">
-              {#each repoOptions as option (option.id)}
-                <label
-                  class={cn(
-                    'hover:bg-muted flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs transition-colors',
-                  )}
-                >
-                  <Checkbox
-                    class="size-3.5"
-                    checked={draft.repoIds.includes(option.id)}
-                    disabled={loading || saving}
-                    onCheckedChange={() => toggleRepoScope(option.id)}
-                  />
-                  <div class="min-w-0 flex-1">
-                    <span class="text-foreground truncate">{option.label}</span>
-                    <span class="text-muted-foreground ml-1">({option.defaultBranch})</span>
-                  </div>
-                </label>
-              {/each}
-            </Popover.Content>
-          </Popover.Root>
-        {/if}
-      </div>
+      <NewTicketDialogMetadata
+        {loading}
+        {saving}
+        {draft}
+        {statusOptions}
+        {repoOptions}
+        {priorityLabels}
+        bind:statusPopoverOpen
+        bind:priorityPopoverOpen
+        bind:repoPopoverOpen
+        onSelectStatus={selectStatus}
+        onSelectPriority={selectPriority}
+        onToggleRepoScope={toggleRepoScope}
+      />
 
       <Dialog.Footer showCloseButton>
         <Button type="submit" disabled={saving || loading || !appStore.currentProject?.id}>

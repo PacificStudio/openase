@@ -1,4 +1,3 @@
-<!-- eslint-disable max-lines -->
 <script lang="ts">
   import { untrack } from 'svelte'
   import { ApiError } from '$lib/api/client'
@@ -9,13 +8,9 @@
   import ProjectConversationComposer from './project-conversation-composer.svelte'
   import ProjectConversationContent from './project-conversation-content.svelte'
   import ProjectConversationHeader from './project-conversation-header.svelte'
-  import {
-    describeProjectAIFocus,
-    projectAIFocusKey,
-    type ProjectAIFocus,
-  } from './project-ai-focus'
+  import { describeProjectAIFocus, projectAIFocusKey, type ProjectAIFocus } from './project-ai-focus'
   import { getProjectConversationStatusMessage } from './project-conversation-panel-labels'
-  import { getEligibleInitialPromptSignature } from './project-conversation-panel-prompt'
+  import { applyEligibleInitialPrompt } from './project-conversation-panel-prompt'
 
   let {
     context,
@@ -82,19 +77,6 @@
   )
   const focusCard = $derived(focusForSend ? describeProjectAIFocus(focusForSend) : null)
 
-  function applyInitialPromptIfEligible(restoreKey: string, nextInitialPrompt: string) {
-    const result = getEligibleInitialPromptSignature({
-      restoreKey,
-      nextInitialPrompt,
-      activeTabId,
-      appliedInitialPromptSignature,
-      activeDraft: draft,
-    })
-    if (!result) return
-    appliedInitialPromptSignature = result.signature
-    if (result.shouldApplyDraft) controller.setDraft(nextInitialPrompt)
-  }
-
   $effect(() => {
     if (providers.length > 0 || !organizationId) {
       loadingProviders = false
@@ -153,7 +135,14 @@
     const restore = async () => {
       await controller.restore()
       if (!cancelled) {
-        applyInitialPromptIfEligible(restoreKey, initialPrompt)
+        appliedInitialPromptSignature = applyEligibleInitialPrompt({
+          restoreKey,
+          nextInitialPrompt: initialPrompt,
+          activeTabId,
+          appliedInitialPromptSignature,
+          activeDraft: draft,
+          setDraft: controller.setDraft,
+        })
       }
     }
 
@@ -174,7 +163,6 @@
       suppressedFocusKey = ''
     }
   })
-
   $effect(() => {
     const restoreKey = `${context.projectId}:${providerId}`
     if (!context.projectId || !providerId || !activeTabId) {
@@ -185,7 +173,14 @@
     if (!nextInitialPrompt) {
       return
     }
-    applyInitialPromptIfEligible(restoreKey, initialPrompt)
+    appliedInitialPromptSignature = applyEligibleInitialPrompt({
+      restoreKey,
+      nextInitialPrompt: initialPrompt,
+      activeTabId,
+      appliedInitialPromptSignature,
+      activeDraft: draft,
+      setDraft: controller.setDraft,
+    })
   })
 
   $effect(() => {
@@ -244,7 +239,6 @@
   function handleDismissFocus() {
     suppressedFocusKey = effectiveFocusKey
   }
-
   function handleCancelQueuedTurn(queuedTurnId: string) {
     controller.cancelQueuedTurn(queuedTurnId)
   }

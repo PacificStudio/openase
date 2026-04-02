@@ -23,9 +23,11 @@ describe('OrganizationProvidersSection', () => {
       },
     })
 
-    expect(getByText('Rate limit')).toBeTruthy()
-    expect(getByText('15.0% used · 300m window · pro')).toBeTruthy()
-    expect(getByText(/Primary resets/)).toBeTruthy()
+    expect(getByText('Primary')).toBeTruthy()
+    expect(getByText('15.0% used')).toBeTruthy()
+    expect(getByText('· 300m')).toBeTruthy()
+    expect(getByText('· pro')).toBeTruthy()
+    expect(getByText(/Resets/)).toBeTruthy()
     expect(getByText(/Updated 15m ago/)).toBeTruthy()
     expect(getByText('Default')).toBeTruthy()
   })

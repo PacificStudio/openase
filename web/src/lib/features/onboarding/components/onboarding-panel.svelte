@@ -2,7 +2,6 @@
   import { cn } from '$lib/utils'
   import { ApiError } from '$lib/api/client'
   import { appStore } from '$lib/stores/app.svelte'
-  import { Button } from '$ui/button'
   import {
     Github,
     FolderGit2,
@@ -14,20 +13,12 @@
     Lock,
     Loader2,
     CircleDot,
-    BookOpen,
-    Terminal,
-    FileText,
-    ExternalLink,
   } from '@lucide/svelte'
   import type { OnboardingData, OnboardingStep, OnboardingStepId } from '../types'
   import { buildOnboardingSteps, currentActiveStep } from '../model'
   import { loadOnboardingData } from '../data'
-  import StepGithubToken from './step-github-token.svelte'
-  import StepRepo from './step-repo.svelte'
-  import StepProvider from './step-provider.svelte'
-  import StepAgentWorkflow from './step-agent-workflow.svelte'
-  import StepFirstTicket from './step-first-ticket.svelte'
-  import StepAiDiscovery from './step-ai-discovery.svelte'
+  import OnboardingHelpLinks from './onboarding-help-links.svelte'
+  import OnboardingStepDetails from './onboarding-step-details.svelte'
 
   let {
     projectId,
@@ -116,10 +107,6 @@
       }
     }
     void load()
-  }
-
-  function handleSkipOnboarding() {
-    onOnboardingComplete()
   }
 </script>
 
@@ -229,140 +216,26 @@
             <!-- Expanded content -->
             {#if isExpanded && !isLocked}
               <div class="border-border border-t px-5 pt-4 pb-5 pl-[4.5rem]">
-                {#if step.id === 'github_token'}
-                  <StepGithubToken
-                    {projectId}
-                    initialState={data.github}
-                    onComplete={(updated) => {
-                      data = { ...data!, github: updated }
-                      refreshData()
-                    }}
-                  />
-                {:else if step.id === 'repo'}
-                  <StepRepo
-                    {projectId}
-                    initialState={data.repo}
-                    onComplete={(repos) => {
-                      data = { ...data!, repo: { ...data!.repo, repos } }
-                    }}
-                  />
-                {:else if step.id === 'provider'}
-                  <StepProvider
-                    {projectId}
-                    {orgId}
-                    initialState={data.provider}
-                    onStateChange={(provider) => {
-                      data = { ...data!, provider }
-                    }}
-                    onComplete={(providerId) => {
-                      data = {
-                        ...data!,
-                        provider: { ...data!.provider, selectedProviderId: providerId },
-                      }
-                      refreshData()
-                    }}
-                  />
-                {:else if step.id === 'agent_workflow'}
-                  <StepAgentWorkflow
-                    {projectId}
-                    providerId={selectedProviderId}
-                    {projectStatus}
-                    initialState={data.agentWorkflow}
-                    onComplete={(agents, workflows) => {
-                      data = {
-                        ...data!,
-                        agentWorkflow: { ...data!.agentWorkflow, agents, workflows },
-                      }
-                    }}
-                  />
-                {:else if step.id === 'first_ticket'}
-                  <StepFirstTicket
-                    {projectId}
-                    {orgId}
-                    {projectStatus}
-                    statuses={data.agentWorkflow.statuses}
-                    ticketCount={data.firstTicket.ticketCount}
-                    onComplete={() => {
-                      data = {
-                        ...data!,
-                        firstTicket: { ticketCount: data!.firstTicket.ticketCount + 1 },
-                      }
-                    }}
-                  />
-                {:else if step.id === 'ai_discovery'}
-                  <StepAiDiscovery
-                    {orgId}
-                    {projectId}
-                    hasWorkflow={data.agentWorkflow.workflows.length > 0}
-                    onOpenProjectAI={openProjectAssistant}
-                    onComplete={() => {
-                      data = {
-                        ...data!,
-                        aiDiscovery: { completed: true },
-                      }
-                      onOnboardingComplete()
-                    }}
-                  />
-                {/if}
-
-                {#if !isCompleted}
-                  <div class="mt-4 flex items-center justify-between gap-3 border-t pt-4">
-                    <p class="text-muted-foreground text-xs">
-                      不想继续配置的话，可以直接跳过导览并结束。
-                    </p>
-                    <Button variant="ghost" size="sm" class="text-xs" onclick={handleSkipOnboarding}
-                      >跳过导览</Button
-                    >
-                  </div>
-                {/if}
+                <OnboardingStepDetails
+                  {step}
+                  data={data}
+                  {projectId}
+                  {orgId}
+                  {projectStatus}
+                  {selectedProviderId}
+                  onOpenProjectAI={openProjectAssistant}
+                  onRefreshData={refreshData}
+                  onDataChange={(nextData) => {
+                    data = nextData
+                  }}
+                  {onOnboardingComplete}
+                />
               </div>
             {/if}
           </div>
         {/each}
       </div>
     </div>
-
-    <!-- Help section -->
-    <div class="border-border bg-card rounded-xl border p-5">
-      <h3 class="text-foreground mb-3 text-sm font-medium">帮助资源</h3>
-      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <a
-          href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="border-border hover:bg-muted/50 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors"
-        >
-          <Github class="text-muted-foreground size-3.5 shrink-0" />
-          <span class="text-foreground">GitHub Token 帮助</span>
-          <ExternalLink class="text-muted-foreground ml-auto size-3" />
-        </a>
-        <a
-          href="https://docs.anthropic.com/en/docs/build-with-claude/computer-use"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="border-border hover:bg-muted/50 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors"
-        >
-          <Terminal class="text-muted-foreground size-3.5 shrink-0" />
-          <span class="text-foreground">CLI 安装文档</span>
-          <ExternalLink class="text-muted-foreground ml-auto size-3" />
-        </a>
-        <button
-          type="button"
-          class="border-border hover:bg-muted/50 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors"
-          onclick={() => openProjectAssistant('帮我看看项目的 Harness 示例')}
-        >
-          <FileText class="text-muted-foreground size-3.5 shrink-0" />
-          <span class="text-foreground">示例 Harness</span>
-        </button>
-        <button
-          type="button"
-          class="border-border hover:bg-muted/50 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors"
-          onclick={() => openProjectAssistant('教我如何使用 CLI 创建和管理工单')}
-        >
-          <BookOpen class="text-muted-foreground size-3.5 shrink-0" />
-          <span class="text-foreground">CLI 使用示例</span>
-        </button>
-      </div>
-    </div>
+    <OnboardingHelpLinks onOpenProjectAI={openProjectAssistant} />
   {/if}
 </div>

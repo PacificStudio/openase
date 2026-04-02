@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render } from '@testing-library/svelte'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { AgentProvider } from '$lib/api/contracts'
 import EphemeralChatProviderSelect from './ephemeral-chat-provider-select.svelte'
@@ -84,8 +84,14 @@ describe('EphemeralChatProviderSelect', () => {
     HTMLElement.prototype.releasePointerCapture ??= vi.fn()
   })
 
-  afterEach(() => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(async () => {
     cleanup()
+    await vi.runOnlyPendingTimersAsync()
+    vi.useRealTimers()
   })
 
   it('shows provider contract details and keeps unavailable providers visible but disabled', async () => {
@@ -101,6 +107,7 @@ describe('EphemeralChatProviderSelect', () => {
     const trigger = getByLabelText('Chat model')
     await fireEvent.pointerDown(trigger)
     await fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    await vi.runOnlyPendingTimersAsync()
 
     expect(getByText('Codex · codex-app-server')).toBeTruthy()
     expect(getByText('Ready')).toBeTruthy()

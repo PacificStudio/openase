@@ -8,13 +8,15 @@
     skill,
     workflows = [],
     busy = false,
-    editDescription = $bindable(''),
+    editDescription = '',
+    onEditDescriptionChange,
     onToggleBinding,
   }: {
     skill: Skill
     workflows?: Workflow[]
     busy?: boolean
     editDescription?: string
+    onEditDescriptionChange?: (value: string) => void
     onToggleBinding?: (workflowId: string, shouldBind: boolean) => Promise<void> | void
   } = $props()
 
@@ -27,10 +29,11 @@
   <!-- Description (inline editable) -->
   <input
     type="text"
-    bind:value={editDescription}
+    value={editDescription}
     placeholder="Description..."
     class="text-foreground placeholder:text-muted-foreground/50 min-w-0 flex-1 truncate bg-transparent text-[11px] outline-none"
     disabled={busy}
+    oninput={(event) => onEditDescriptionChange?.((event.currentTarget as HTMLInputElement).value)}
   />
 
   <!-- Divider -->
