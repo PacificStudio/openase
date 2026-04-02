@@ -1177,6 +1177,8 @@ type OpenAPIDeleteSkillResponse struct {
 	DeletedSkillID string `json:"deleted_skill_id"`
 }
 
+type OpenAPISkillRefinementRequest rawSkillRefinementRequest
+
 type OpenAPIRolesResponse struct {
 	Roles []OpenAPIBuiltinRole `json:"roles"`
 }
@@ -1634,6 +1636,16 @@ var (
 		"adapter_type":   "Agent adapter type used to derive the runtime skill directory.",
 		"workflow_id":    "Optional workflow ID used to project only the currently bound enabled skills.",
 	}
+	openAPISkillRefinementDescriptions = map[string]string{
+		"project_id":             "Project ID that owns the skill draft and provider selection.",
+		"message":                "Requested improvement goal that Codex should fix and verify against the current draft bundle.",
+		"provider_id":            "Optional provider ID. Phase 1 supports Codex-backed refinement only.",
+		"files":                  "Current draft skill bundle files from the editor.",
+		"files[].path":           "Bundle-relative file path using forward slashes.",
+		"files[].content_base64": "Base64-encoded file bytes for this draft bundle entry.",
+		"files[].media_type":     "Optional media type persisted with the file entry.",
+		"files[].is_executable":  "Whether the projected file should be marked executable at runtime.",
+	}
 	openAPISkillBindingTargetDescriptions = map[string]string{
 		"workflow_ids": "Workflow IDs that should bind or unbind this skill.",
 	}
@@ -1688,6 +1700,7 @@ var (
 		"PUT /api/v1/skills/{skillId}":                                                                 openAPISkillUpdateDescriptions,
 		"POST /api/v1/skills/{skillId}/bind":                                                           openAPISkillBindingTargetDescriptions,
 		"POST /api/v1/skills/{skillId}/unbind":                                                         openAPISkillBindingTargetDescriptions,
+		"POST /api/v1/skills/{skillId}/refinement-runs":                                                openAPISkillRefinementDescriptions,
 		"POST /api/v1/workflows/{workflowId}/skills/bind":                                              openAPISkillBindingDescriptions,
 		"POST /api/v1/workflows/{workflowId}/skills/unbind":                                            openAPISkillBindingDescriptions,
 	}
@@ -3380,6 +3393,51 @@ func (b openAPISpecBuilder) addWorkflowOperations() error {
 	}
 	unbindSkill.AddParameter(uuidPathParameter("skillId", "Skill ID."))
 	b.doc.AddOperation("/api/v1/skills/{skillId}/unbind", http.MethodPost, unbindSkill)
+
+	refinementRunStart, err := b.streamOperation(
+		"startSkillRefinement",
+		"Start a Codex-backed skill fix-and-verify refinement run",
+		[]string{"skills"},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	refinementBodyRef, err := b.schemaRef(OpenAPISkillRefinementRequest{})
+	if err != nil {
+		return err
+	}
+	refinementRunStart.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithDescription("Skill fix-and-verify refinement request body.").
+			WithJSONSchemaRef(refinementBodyRef).
+			WithRequired(true),
+	}
+	refinementRunStart.AddParameter(uuidPathParameter("skillId", "Skill ID."))
+	b.doc.AddOperation("/api/v1/skills/{skillId}/refinement-runs", http.MethodPost, refinementRunStart)
+
+	refinementRunDelete := openapi3.NewOperation()
+	refinementRunDelete.OperationID = "closeSkillRefinementRun"
+	refinementRunDelete.Summary = "Close a skill refinement run and clean up its temporary workspace"
+	refinementRunDelete.Tags = []string{"skills"}
+	refinementRunDelete.Responses = openapi3.NewResponsesWithCapacity(3)
+	refinementRunDelete.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Skill refinement run closed."))
+	for _, code := range []int{http.StatusBadRequest, http.StatusNotFound, http.StatusInternalServerError} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		refinementRunDelete.AddResponse(code, errorResponse)
+	}
+	refinementRunDelete.AddParameter(openapi3.NewPathParameter("sessionId").
+		WithDescription("Skill refinement session ID.").
+		WithRequired(true).
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	b.doc.AddOperation("/api/v1/skills/refinement-runs/{sessionId}", http.MethodDelete, refinementRunDelete)
 
 	bindSkills, err := b.jsonOperation(
 		"bindWorkflowSkills",

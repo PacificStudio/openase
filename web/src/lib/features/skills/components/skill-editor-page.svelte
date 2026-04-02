@@ -232,35 +232,21 @@
     )
   }
 
-  function handleApplyAssistantSuggestion(
-    suggestedFiles: Array<{ path: string; content: string }>,
-    focusPath?: string,
-  ) {
+  function handleApplyAssistantSuggestion(suggestedFiles: SkillFile[], focusPath?: string) {
     if (suggestedFiles.length === 0) {
       return
     }
 
-    const suggestionMap = new Map(suggestedFiles.map((file) => [file.path, file.content]))
-    let nextDraftFiles = draftFiles
-    for (const file of suggestedFiles) {
-      if (!nextDraftFiles.some((item) => item.path === file.path)) {
-        nextDraftFiles = addDraftTextFile(
-          nextDraftFiles,
-          emptyDirectoryPaths,
-          file.path,
-          file.content,
-        )
-      }
-    }
+    draftFiles = suggestedFiles.map(cloneSkillFile)
+    emptyDirectoryPaths = []
 
-    draftFiles = nextDraftFiles.map((file) => {
-      const suggestedContent = suggestionMap.get(file.path)
-      return suggestedContent === undefined
-        ? file
-        : updateDraftTextFileContent(file, suggestedContent)
-    })
+    const validPaths = new Set(suggestedFiles.map((file) => file.path))
+    openFilePaths = openFilePaths.filter((path) => validPaths.has(path))
 
-    const nextFocusPath = focusPath ?? suggestedFiles[0]?.path
+    const nextFocusPath =
+      focusPath ??
+      suggestedFiles.find((file) => file.encoding === 'utf8')?.path ??
+      suggestedFiles[0]?.path
     if (nextFocusPath) {
       selectFile(nextFocusPath)
     }
@@ -716,8 +702,6 @@
             {providers}
             skillId={skill.id}
             files={draftFiles}
-            {selectedFilePath}
-            {selectedFileIsText}
             onApplySuggestion={handleApplyAssistantSuggestion}
           />
         </aside>

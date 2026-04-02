@@ -1431,6 +1431,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/skills/refinement-runs/{sessionId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Close a skill refinement run and clean up its temporary workspace */
+    delete: operations['closeSkillRefinementRun']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/skills/{skillId}': {
     parameters: {
       query?: never
@@ -1529,6 +1546,23 @@ export interface paths {
     get: operations['getSkillHistory']
     put?: never
     post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/skills/{skillId}/refinement-runs': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Start a Codex-backed skill fix-and-verify refinement run */
+    post: operations['startSkillRefinement']
     delete?: never
     options?: never
     head?: never
@@ -12851,6 +12885,63 @@ export interface operations {
       }
     }
   }
+  closeSkillRefinementRun: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Skill refinement session ID. */
+        sessionId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Skill refinement run closed. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   getSkill: {
     parameters: {
       query?: never
@@ -13530,6 +13621,100 @@ export interface operations {
       }
       /** @description Not Found response. */
       404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  startSkillRefinement: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Skill ID. */
+        skillId: string
+      }
+      cookie?: never
+    }
+    /** @description Skill fix-and-verify refinement request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Current draft skill bundle files from the editor. */
+          files?: {
+            /** @description Base64-encoded file bytes for this draft bundle entry. */
+            content_base64?: string
+            /** @description Whether the projected file should be marked executable at runtime. */
+            is_executable?: boolean
+            /** @description Optional media type persisted with the file entry. */
+            media_type?: string
+            /** @description Bundle-relative file path using forward slashes. */
+            path?: string
+          }[]
+          /** @description Requested improvement goal that Codex should fix and verify against the current draft bundle. */
+          message?: string
+          /** @description Project ID that owns the skill draft and provider selection. */
+          project_id?: string
+          /** @description Optional provider ID. Phase 1 supports Codex-backed refinement only. */
+          provider_id?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Server-sent events stream. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/event-stream': string
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
         headers: {
           [name: string]: unknown
         }

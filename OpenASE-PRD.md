@@ -10328,6 +10328,75 @@ Repository 不承担 bundle 解析逻辑。
 - 新 runtime 自动拿最新版本
 - 已运行中的 runtime 不自动刷新
 
+### 34.11 Skill Editor 的 Fix-and-Verify 闭环
+
+Skill Editor 不能只给“未验证建议”。对于 draft skill bundle，平台必须提供一个独立于 project conversation / ticket workspace 的 **fix-and-verify refinement loop**。
+
+#### 34.11.1 独立 session
+
+- 每次 `Fix and verify` 都创建一个独立的 skill refinement session
+- session 维护：
+  - 选定的 Provider（Phase 1 先支持 Codex）
+  - 一个隔离的临时 workspace
+  - 同一 workspace 上的多次 retry turn
+  - 可显式关闭的 runtime session 与 cleanup 逻辑
+- 这不是 project conversation 的变体；不要复用工单工作区或 workflow 运行工作区
+
+建议目录：
+
+- `~/.openase/skill-tests/<project>/<skill>/<session>/workspace`
+
+#### 34.11.2 Draft bundle 是真相源
+
+- Skill Editor 的当前 draft bundle 才是 refinement 的输入真相源
+- 平台必须接受完整 `files[]` 草稿，而不是只读取最新已发布版本
+- 在启动 Codex 前，平台先把该 draft bundle materialize 到：
+  - `.codex/skills/<skill>/...`
+- 临时 workspace 只是 projection，不会自动覆盖控制面数据
+
+#### 34.11.3 内部执行循环
+
+平台内部按如下顺序执行：
+
+1. 读取 editor draft bundle
+2. materialize 到 skill test workspace
+3. 启动 Codex session
+4. Codex 直接编辑 bundle 文件并运行验证命令
+5. 若失败，平台在同一 session / workspace 内发起 bounded retry
+6. 直到得到：
+   - `verified`
+   - `blocked`
+   - `unverified`（仅当 runtime-backed verification 根本无法完成时）
+
+关键规则：
+
+- 没有真实 runtime-backed verification 成功，就不能把结果标记为 `verified`
+- `verified` 必须伴随最终 candidate bundle
+- `blocked` 必须伴随明确 failure reason 和验证证据摘要
+- refinement session 关闭或 reset 后，平台必须清理临时 workspace 与 provider session
+
+#### 34.11.4 UI 返回模型
+
+Skill Editor 必须以单一动作暴露该闭环：
+
+- 主按钮：`Fix and verify`
+- 运行态至少显示：
+  - `editing`
+  - `testing`
+  - `retrying`
+  - `verified`
+  - `blocked`
+- 返回结果至少包含：
+  - `status`
+  - `workspace_path`
+  - provider thread / turn 标识（若可用）
+  - transcript / transcript summary
+  - command output summary
+  - final candidate files / bundle diff
+  - `failure_reason`
+
+只有 `verified` 结果允许被一键 apply 回当前 draft bundle。
+
 ### 34.11 管理操作
 
 | 操作 | 说明 |

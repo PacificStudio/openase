@@ -16,9 +16,9 @@ const { bindSkill, deleteSkill, disableSkill, enableSkill, unbindSkill, updateSk
   }),
 )
 
-const { closeChatSession, streamChatTurn } = vi.hoisted(() => ({
-  closeChatSession: vi.fn(),
-  streamChatTurn: vi.fn(),
+const { closeSkillRefinementSession, streamSkillRefinement } = vi.hoisted(() => ({
+  closeSkillRefinementSession: vi.fn(),
+  streamSkillRefinement: vi.fn(),
 }))
 
 vi.mock('$app/navigation', () => ({
@@ -45,9 +45,9 @@ vi.mock('$lib/api/openase', () => ({
   updateSkill,
 }))
 
-vi.mock('$lib/api/chat', () => ({
-  closeChatSession,
-  streamChatTurn,
+vi.mock('$lib/api/skill-refinement', () => ({
+  closeSkillRefinementSession,
+  streamSkillRefinement,
 }))
 
 vi.mock('$lib/stores/toast.svelte', () => ({
@@ -176,58 +176,68 @@ describe('SkillEditorPage', () => {
       workflows: [],
     })
 
-    streamChatTurn.mockImplementation(async (_request, handlers) => {
+    streamSkillRefinement.mockImplementation(async (_request, handlers) => {
       handlers.onEvent({
         kind: 'session',
-        payload: { sessionId: 'session-skill-1' },
-      })
-      handlers.onEvent({
-        kind: 'message',
         payload: {
-          type: 'bundle_diff',
-          files: [
-            {
-              file: 'SKILL.md',
-              hunks: [
-                {
-                  oldStart: 5,
-                  oldLines: 2,
-                  newStart: 5,
-                  newLines: 4,
-                  lines: [
-                    { op: 'context', text: '' },
-                    { op: 'context', text: 'Use safe steps.' },
-                    { op: 'add', text: '' },
-                    { op: 'add', text: 'Verify rollback steps before production deploys.' },
-                  ],
-                },
-              ],
-            },
-            {
-              file: 'references/runbook.md',
-              hunks: [
-                {
-                  oldStart: 1,
-                  oldLines: 0,
-                  newStart: 1,
-                  newLines: 3,
-                  lines: [
-                    { op: 'add', text: '# Runbook' },
-                    { op: 'add', text: '' },
-                    { op: 'add', text: '1. Verify rollback before deploy.' },
-                  ],
-                },
-              ],
-            },
-          ],
+          sessionId: 'session-skill-1',
+          workspacePath: '/tmp/skill-tests/openase/deploy/session-skill-1/workspace',
         },
       })
       handlers.onEvent({
-        kind: 'done',
+        kind: 'status',
         payload: {
           sessionId: 'session-skill-1',
-          turnsUsed: 1,
-          turnsRemaining: 9,
+          phase: 'testing',
+          attempt: 1,
+          message: 'Codex is running verification commands.',
+        },
+      })
+      handlers.onEvent({
+        kind: 'result',
+        payload: {
+          sessionId: 'session-skill-1',
+          status: 'verified',
+          workspacePath: '/tmp/skill-tests/openase/deploy/session-skill-1/workspace',
+          providerId: 'provider-1',
+          providerName: 'Codex',
+          attempts: 1,
+          transcriptSummary: 'Bundle verified after tightening the deploy instructions.',
+          commandOutputSummary: 'bash -n scripts/redeploy.sh\n./scripts/redeploy.sh',
+          candidateBundleHash: 'bundle-hash-1',
+          candidateFiles: [
+            {
+              path: 'SKILL.md',
+              file_kind: 'entrypoint',
+              media_type: 'text/markdown; charset=utf-8',
+              encoding: 'utf8',
+              is_executable: false,
+              size_bytes: initialContent.length + 49,
+              sha256: 'sha-entry-verified',
+              content: [
+                '---',
+                'name: "deploy"',
+                'description: "Deploy safely"',
+                '---',
+                '',
+                'Use safe steps.',
+                '',
+                'Verify rollback steps before production deploys.',
+              ].join('\n'),
+              content_base64: 'ignored',
+            },
+            {
+              path: 'references/runbook.md',
+              file_kind: 'reference',
+              media_type: 'text/markdown; charset=utf-8',
+              encoding: 'utf8',
+              is_executable: false,
+              size_bytes: runbookContent.length,
+              sha256: 'sha-runbook',
+              content: runbookContent,
+              content_base64: 'ignored',
+            },
+          ],
         },
       })
     })
@@ -253,11 +263,13 @@ describe('SkillEditorPage', () => {
     const resolvedEditor = editor
     expect(resolvedEditor.value).toBe(initialContent)
 
-    await fireEvent.click(await findByRole('button', { name: 'AI' }))
+    await fireEvent.click(await findByRole('button', { name: 'Fix & verify' }))
 
-    const prompt = await findByPlaceholderText('Ask AI to refine SKILL.md…')
+    const prompt = await findByPlaceholderText(
+      'Describe what Codex should improve and verify for this draft bundle…',
+    )
     await fireEvent.input(prompt, { target: { value: 'Make the deploy skill safer.' } })
-    await fireEvent.keyDown(prompt, { key: 'Enter' })
+    await fireEvent.click(await findByRole('button', { name: 'Fix and verify' }))
 
     await fireEvent.click(await findByRole('button', { name: 'references/runbook.md' }))
     await fireEvent.click(await findByRole('button', { name: 'Apply All' }))
@@ -268,13 +280,12 @@ describe('SkillEditorPage', () => {
       expect(saveButton.disabled).toBe(false)
     })
 
-    expect(streamChatTurn).toHaveBeenCalledWith(
+    expect(streamSkillRefinement).toHaveBeenCalledWith(
       expect.objectContaining({
-        source: 'skill_editor',
-        context: expect.objectContaining({
-          skillId: 'skill-1',
-          skillFilePath: 'SKILL.md',
-        }),
+        projectId: 'project-1',
+        skillId: 'skill-1',
+        providerId: 'provider-1',
+        message: 'Make the deploy skill safer.',
       }),
       expect.any(Object),
     )
