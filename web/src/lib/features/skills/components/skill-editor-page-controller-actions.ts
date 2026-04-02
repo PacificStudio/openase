@@ -15,7 +15,11 @@ import {
   type SkillTreeKind,
   updateDraftTextFileContent,
 } from './skill-bundle-editor'
-import { loadSkillEditorData, selectInitialSkillFiles, type SkillEditorHistoryEntry } from './skill-editor-page.helpers'
+import {
+  loadSkillEditorData,
+  selectInitialSkillFiles,
+  type SkillEditorHistoryEntry,
+} from './skill-editor-page.helpers'
 
 export type SkillEditorPendingCreate = { kind: 'file' | 'folder'; parentPath: string } | null
 
@@ -49,34 +53,54 @@ export type SkillEditorPageControllerActionsState = {
   selectFile: (path: string) => void
 }
 
-function replaceOpenPathPrefix(state: SkillEditorPageControllerActionsState, previousPath: string, nextPath: string) {
+function replaceOpenPathPrefix(
+  state: SkillEditorPageControllerActionsState,
+  previousPath: string,
+  nextPath: string,
+) {
   state.setOpenFilePaths(
-    state.getOpenFilePaths().map((path) =>
-      path === previousPath || path.startsWith(`${previousPath}/`)
-        ? `${nextPath}${path.slice(previousPath.length)}`
-        : path,
-    ),
+    state
+      .getOpenFilePaths()
+      .map((path) =>
+        path === previousPath || path.startsWith(`${previousPath}/`)
+          ? `${nextPath}${path.slice(previousPath.length)}`
+          : path,
+      ),
   )
   const selectedFilePath = state.getSelectedFilePath()
-  if (selectedFilePath && (selectedFilePath === previousPath || selectedFilePath.startsWith(`${previousPath}/`))) {
+  if (
+    selectedFilePath &&
+    (selectedFilePath === previousPath || selectedFilePath.startsWith(`${previousPath}/`))
+  ) {
     state.setSelectedFilePath(`${nextPath}${selectedFilePath.slice(previousPath.length)}`)
   }
   const selectedTreePath = state.getSelectedTreePath()
-  if (selectedTreePath && (selectedTreePath === previousPath || selectedTreePath.startsWith(`${previousPath}/`))) {
+  if (
+    selectedTreePath &&
+    (selectedTreePath === previousPath || selectedTreePath.startsWith(`${previousPath}/`))
+  ) {
     state.setSelectedTreePath(`${nextPath}${selectedTreePath.slice(previousPath.length)}`)
   }
 }
 
 function removeOpenPathsUnder(state: SkillEditorPageControllerActionsState, targetPath: string) {
   state.setOpenFilePaths(
-    state.getOpenFilePaths().filter((path) => path !== targetPath && !path.startsWith(`${targetPath}/`)),
+    state
+      .getOpenFilePaths()
+      .filter((path) => path !== targetPath && !path.startsWith(`${targetPath}/`)),
   )
   const selectedFilePath = state.getSelectedFilePath()
-  if (selectedFilePath && (selectedFilePath === targetPath || selectedFilePath.startsWith(`${targetPath}/`))) {
+  if (
+    selectedFilePath &&
+    (selectedFilePath === targetPath || selectedFilePath.startsWith(`${targetPath}/`))
+  ) {
     state.setSelectedFilePath(state.getOpenFilePaths().at(-1) ?? null)
   }
   const selectedTreePath = state.getSelectedTreePath()
-  if (selectedTreePath && (selectedTreePath === targetPath || selectedTreePath.startsWith(`${targetPath}/`))) {
+  if (
+    selectedTreePath &&
+    (selectedTreePath === targetPath || selectedTreePath.startsWith(`${targetPath}/`))
+  ) {
     state.setSelectedTreePath(state.getSelectedFilePath())
     state.setSelectedTreeKind(state.getSelectedFilePath() ? 'file' : null)
   }
@@ -151,9 +175,9 @@ export function handleContentChange(
   value: string,
 ) {
   state.setDraftFiles(
-    state.getDraftFiles().map((file) =>
-      file.path === path ? updateDraftTextFileContent(file, value) : file,
-    ),
+    state
+      .getDraftFiles()
+      .map((file) => (file.path === path ? updateDraftTextFileContent(file, value) : file)),
   )
 }
 
@@ -190,12 +214,16 @@ export function handleCreateCommit(
   state.setPendingCreate(null)
   try {
     if (kind === 'file') {
-      state.setDraftFiles(addDraftTextFile(state.getDraftFiles(), state.getEmptyDirectoryPaths(), fullPath))
+      state.setDraftFiles(
+        addDraftTextFile(state.getDraftFiles(), state.getEmptyDirectoryPaths(), fullPath),
+      )
       const nextFile = state.getDraftFiles().at(-1)
       if (nextFile) state.selectFile(nextFile.path)
       return
     }
-    state.setEmptyDirectoryPaths(addEmptyDirectory(state.getEmptyDirectoryPaths(), state.getDraftFiles(), fullPath))
+    state.setEmptyDirectoryPaths(
+      addEmptyDirectory(state.getEmptyDirectoryPaths(), state.getDraftFiles(), fullPath),
+    )
     state.setSelectedTreePath(normalizeSkillBundlePath(fullPath))
     state.setSelectedTreeKind('directory')
   } catch (err) {
@@ -248,7 +276,11 @@ export function handleDeleteNode(
     if (kind === 'file') {
       state.setDraftFiles(deleteFilePath(state.getDraftFiles(), path))
     } else {
-      const deleted = deleteDirectoryPath(state.getDraftFiles(), state.getEmptyDirectoryPaths(), path)
+      const deleted = deleteDirectoryPath(
+        state.getDraftFiles(),
+        state.getEmptyDirectoryPaths(),
+        path,
+      )
       state.setDraftFiles(deleted.files)
       state.setEmptyDirectoryPaths(deleted.emptyDirectoryPaths)
     }

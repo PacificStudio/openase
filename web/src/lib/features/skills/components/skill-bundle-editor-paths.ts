@@ -80,4 +80,3 @@ export function defaultChildDirectoryPath(
   const parent = parentPath(selectedPath)
   return parent ? `${parent}/folder` : 'folder'
 }
-

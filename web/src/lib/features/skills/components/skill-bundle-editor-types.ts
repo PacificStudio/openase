@@ -9,4 +9,3 @@ export type SkillTreeEntry = {
   name: string
   path: string
 }
-

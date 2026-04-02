@@ -18,9 +18,15 @@ import {
   setProjectConversationIdleIfCurrent,
 } from './project-conversation-controller-helpers'
 import { loadProjectConversation } from './project-conversation-runtime'
-import { mapPersistedEntries, type ProjectConversationTranscriptEntry } from './project-conversation-transcript-state'
+import {
+  mapPersistedEntries,
+  type ProjectConversationTranscriptEntry,
+} from './project-conversation-transcript-state'
 import type { ProjectAIFocus } from './project-ai-focus'
-import type { CreateProjectConversationControllerInput, ProjectConversationTabState } from './project-conversation-controller-state'
+import type {
+  CreateProjectConversationControllerInput,
+  ProjectConversationTabState,
+} from './project-conversation-controller-state'
 
 type ProjectConversationControllerRuntimeInput = {
   controllerInput: CreateProjectConversationControllerInput
@@ -36,7 +42,9 @@ type ProjectConversationControllerRuntimeInput = {
   persistTabs: () => void
 }
 
-export function createProjectConversationControllerRuntime(input: ProjectConversationControllerRuntimeInput) {
+export function createProjectConversationControllerRuntime(
+  input: ProjectConversationControllerRuntimeInput,
+) {
   const conversations = createProjectConversationControllerConversations({
     getProjectId: input.controllerInput.getProjectId,
     getProviderId: input.getProviderId,
@@ -67,23 +75,31 @@ export function createProjectConversationControllerRuntime(input: ProjectConvers
     tab.workspaceDiffError = ''
     try {
       const payload = await getProjectConversationWorkspaceDiff(conversationId)
-      if (currentRequestId !== tab.workspaceDiffRequestId || tab.conversationId !== conversationId) return
+      if (currentRequestId !== tab.workspaceDiffRequestId || tab.conversationId !== conversationId)
+        return
       tab.workspaceDiff = payload.workspaceDiff
     } catch (caughtError) {
-      if (currentRequestId !== tab.workspaceDiffRequestId || tab.conversationId !== conversationId) return
+      if (currentRequestId !== tab.workspaceDiffRequestId || tab.conversationId !== conversationId)
+        return
       tab.workspaceDiff = null
       tab.workspaceDiffError =
         caughtError instanceof Error
           ? caughtError.message
           : 'Failed to load Project AI workspace changes.'
     } finally {
-      if (currentRequestId === tab.workspaceDiffRequestId && tab.conversationId === conversationId) {
+      if (
+        currentRequestId === tab.workspaceDiffRequestId &&
+        tab.conversationId === conversationId
+      ) {
         tab.workspaceDiffLoading = false
       }
     }
   }
 
-  function handleTabStreamEvent(tab: ProjectConversationTabState, event: ProjectConversationStreamEvent) {
+  function handleTabStreamEvent(
+    tab: ProjectConversationTabState,
+    event: ProjectConversationStreamEvent,
+  ) {
     if (event.kind === 'session') {
       tab.conversationId = conversations.applySessionPayload(tab.conversationId, event.payload)
     }
@@ -103,7 +119,8 @@ export function createProjectConversationControllerRuntime(input: ProjectConvers
         conversationId,
         mapEntries: mapPersistedEntries,
         setConversationId: (nextId) => {
-          if (isCurrentProjectConversationOperation(tab, currentOperationId)) tab.conversationId = nextId
+          if (isCurrentProjectConversationOperation(tab, currentOperationId))
+            tab.conversationId = nextId
         },
         setEntries: (nextEntries) => {
           if (isCurrentProjectConversationOperation(tab, currentOperationId)) {
@@ -113,7 +130,8 @@ export function createProjectConversationControllerRuntime(input: ProjectConvers
           }
         },
         resetActiveAssistantEntry: () => {
-          if (isCurrentProjectConversationOperation(tab, currentOperationId)) tab.activeAssistantEntryId = ''
+          if (isCurrentProjectConversationOperation(tab, currentOperationId))
+            tab.activeAssistantEntryId = ''
         },
         connectStream: (nextConversationId) => connectTabStream(tab, nextConversationId),
       })
@@ -193,7 +211,9 @@ export function createProjectConversationControllerRuntime(input: ProjectConvers
         input.setConversations(
           conversations.sortProjectConversations([
             createPayload.conversation,
-            ...input.getConversations().filter((conversation) => conversation.id !== createPayload.conversation.id),
+            ...input
+              .getConversations()
+              .filter((conversation) => conversation.id !== createPayload.conversation.id),
           ]),
         )
         input.persistTabs()

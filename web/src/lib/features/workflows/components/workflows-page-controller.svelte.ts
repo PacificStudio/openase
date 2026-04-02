@@ -5,11 +5,7 @@ import { appStore } from '$lib/stores/app.svelte'
 import { PROJECT_AI_FOCUS_PRIORITY } from '$lib/features/chat'
 import { toastStore } from '$lib/stores/toast.svelte'
 import { ApiError } from '$lib/api/client'
-import type {
-  AgentProvider,
-  BuiltinRole,
-  HarnessValidationIssue,
-} from '$lib/api/contracts'
+import type { AgentProvider, BuiltinRole, HarnessValidationIssue } from '$lib/api/contracts'
 import type {
   HarnessVariableGroup,
   WorkflowAgentOption,
@@ -57,33 +53,38 @@ export function createWorkflowsPageController() {
   let providers = $state<AgentProvider[]>([])
   let variableGroups = $state<HarnessVariableGroup[]>([])
   let templateDraft = $state<WorkflowTemplateDraft | null>(null)
-  const controllerState: WorkflowsPageControllerActionsState = createWorkflowsPageControllerActionsState({
-    getSelectedId: () => selectedId,
-    setSelectedId: (value) => (selectedId = value),
-    getHarness: () => harness,
-    setHarness: (value) => (harness = value),
-    getDraftHarness: () => draftHarness,
-    setDraftHarness: (value) => (draftHarness = value),
-    getLoadedHarnessWorkflowId: () => loadedHarnessWorkflowId,
-    setLoadedHarnessWorkflowId: (value) => (loadedHarnessWorkflowId = value),
-    getSkillStates: () => skillStates,
-    setSkillStates: (value) => (skillStates = value),
-    getValidationIssues: () => validationIssues,
-    setValidationIssues: (value) => (validationIssues = value),
-    getWorkflows: () => workflows,
-    setWorkflows: (value) => (workflows = value),
-    getTemplateDraft: () => templateDraft,
-    setTemplateDraft: (value) => (templateDraft = value),
-    getStatuses: () => statuses,
-    getAgentOptions: () => agentOptions,
-    getIsDirty: () => isDirty,
-  })
+  const controllerState: WorkflowsPageControllerActionsState =
+    createWorkflowsPageControllerActionsState({
+      getSelectedId: () => selectedId,
+      setSelectedId: (value) => (selectedId = value),
+      getHarness: () => harness,
+      setHarness: (value) => (harness = value),
+      getDraftHarness: () => draftHarness,
+      setDraftHarness: (value) => (draftHarness = value),
+      getLoadedHarnessWorkflowId: () => loadedHarnessWorkflowId,
+      setLoadedHarnessWorkflowId: (value) => (loadedHarnessWorkflowId = value),
+      getSkillStates: () => skillStates,
+      setSkillStates: (value) => (skillStates = value),
+      getValidationIssues: () => validationIssues,
+      setValidationIssues: (value) => (validationIssues = value),
+      getWorkflows: () => workflows,
+      setWorkflows: (value) => (workflows = value),
+      getTemplateDraft: () => templateDraft,
+      setTemplateDraft: (value) => (templateDraft = value),
+      getStatuses: () => statuses,
+      getAgentOptions: () => agentOptions,
+      getIsDirty: () => isDirty,
+    })
 
-  const selectedWorkflow = $derived(workflows.find((workflow) => workflow.id === selectedId) ?? null)
+  const selectedWorkflow = $derived(
+    workflows.find((workflow) => workflow.id === selectedId) ?? null,
+  )
   const isDirty = $derived(harness ? draftHarness !== harness.rawContent : false)
-  const settingsHref = $derived(appStore.currentOrg?.id && appStore.currentProject?.id
-    ? projectPath(appStore.currentOrg.id, appStore.currentProject.id, 'settings')
-    : null)
+  const settingsHref = $derived(
+    appStore.currentOrg?.id && appStore.currentProject?.id
+      ? projectPath(appStore.currentOrg.id, appStore.currentProject.id, 'settings')
+      : null,
+  )
 
   $effect(() => {
     if (!isDirty) return
@@ -95,7 +96,8 @@ export function createWorkflowsPageController() {
   })
 
   beforeNavigate((navigation) => {
-    if (isDirty && !confirm('You have unsaved changes. Are you sure you want to leave?')) navigation.cancel()
+    if (isDirty && !confirm('You have unsaved changes. Are you sure you want to leave?'))
+      navigation.cancel()
   })
 
   function resetWorkflowContent() {
@@ -153,14 +155,17 @@ export function createWorkflowsPageController() {
       } catch (caughtError) {
         if (cancelled) return
         resetWorkflowContent()
-        loadError = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load workflows.'
+        loadError =
+          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load workflows.'
       } finally {
         if (!cancelled) loading = false
       }
     }
 
     void load()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   })
 
   $effect(() => {
@@ -200,7 +205,9 @@ export function createWorkflowsPageController() {
     }
 
     void doLoadHarness()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   })
 
   $effect(() => {
@@ -232,36 +239,96 @@ export function createWorkflowsPageController() {
   })
 
   return {
-    get showDetail() { return showDetail },
-    set showDetail(value: boolean) { showDetail = value },
-    get showCreateDialog() { return showCreateDialog },
-    set showCreateDialog(value: boolean) { showCreateDialog = value },
-    get showTemplateGallery() { return showTemplateGallery },
-    set showTemplateGallery(value: boolean) { showTemplateGallery = value },
-    get showList() { return showList },
-    set showList(value: boolean) { showList = value },
-    get loading() { return loading },
-    get loadingHarness() { return loadingHarness },
-    get saving() { return saving },
-    get validating() { return validating },
-    get loadError() { return loadError },
-    get workflows() { return workflows },
-    set workflows(value: WorkflowSummary[]) { workflows = value },
-    get selectedId() { return selectedId },
-    get harness() { return harness },
-    get draftHarness() { return draftHarness },
-    set draftHarness(value: string) { draftHarness = value },
-    get skillStates() { return skillStates },
-    get validationIssues() { return validationIssues },
-    get builtinRoleContent() { return builtinRoleContent },
-    get statuses() { return statuses },
-    get agentOptions() { return agentOptions },
-    get providers() { return providers },
-    get variableGroups() { return variableGroups },
-    get selectedWorkflow() { return selectedWorkflow },
-    get isDirty() { return isDirty },
-    get settingsHref() { return settingsHref },
-    get templateDraft() { return templateDraft },
+    get showDetail() {
+      return showDetail
+    },
+    set showDetail(value: boolean) {
+      showDetail = value
+    },
+    get showCreateDialog() {
+      return showCreateDialog
+    },
+    set showCreateDialog(value: boolean) {
+      showCreateDialog = value
+    },
+    get showTemplateGallery() {
+      return showTemplateGallery
+    },
+    set showTemplateGallery(value: boolean) {
+      showTemplateGallery = value
+    },
+    get showList() {
+      return showList
+    },
+    set showList(value: boolean) {
+      showList = value
+    },
+    get loading() {
+      return loading
+    },
+    get loadingHarness() {
+      return loadingHarness
+    },
+    get saving() {
+      return saving
+    },
+    get validating() {
+      return validating
+    },
+    get loadError() {
+      return loadError
+    },
+    get workflows() {
+      return workflows
+    },
+    set workflows(value: WorkflowSummary[]) {
+      workflows = value
+    },
+    get selectedId() {
+      return selectedId
+    },
+    get harness() {
+      return harness
+    },
+    get draftHarness() {
+      return draftHarness
+    },
+    set draftHarness(value: string) {
+      draftHarness = value
+    },
+    get skillStates() {
+      return skillStates
+    },
+    get validationIssues() {
+      return validationIssues
+    },
+    get builtinRoleContent() {
+      return builtinRoleContent
+    },
+    get statuses() {
+      return statuses
+    },
+    get agentOptions() {
+      return agentOptions
+    },
+    get providers() {
+      return providers
+    },
+    get variableGroups() {
+      return variableGroups
+    },
+    get selectedWorkflow() {
+      return selectedWorkflow
+    },
+    get isDirty() {
+      return isDirty
+    },
+    get settingsHref() {
+      return settingsHref
+    },
+    get templateDraft() {
+      return templateDraft
+    },
     handleCreateWorkflow: () => {
       showCreateDialog = openWorkflowCreateDialog(controllerState)
     },

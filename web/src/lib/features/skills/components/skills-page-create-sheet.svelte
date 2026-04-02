@@ -40,7 +40,12 @@
           <span class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
             Name
           </span>
-          <Input bind:value={name} placeholder="deploy-docker" class="h-9 text-sm" disabled={creating} />
+          <Input
+            bind:value={name}
+            placeholder="deploy-docker"
+            class="h-9 text-sm"
+            disabled={creating}
+          />
         </div>
         <div class="space-y-1.5">
           <span class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">

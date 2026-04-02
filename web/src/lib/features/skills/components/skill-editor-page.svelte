@@ -15,7 +15,10 @@
   const controller = createSkillEditorPageController({ getSkillId: () => skillId })
 </script>
 
-<svelte:window onkeydown={controller.handleKeydown} onbeforeunload={controller.handleBeforeUnload} />
+<svelte:window
+  onkeydown={controller.handleKeydown}
+  onbeforeunload={controller.handleBeforeUnload}
+/>
 
 {#if controller.loading}
   <div class="flex h-full flex-col">
@@ -160,7 +163,10 @@
           </div>
         </div>
 
-        <aside class="border-border shrink-0 border-l" style:width={`${controller.assistantWidth}px`}>
+        <aside
+          class="border-border shrink-0 border-l"
+          style:width={`${controller.assistantWidth}px`}
+        >
           <SkillAiSidebar
             projectId={appStore.currentProject?.id}
             providers={controller.providers}

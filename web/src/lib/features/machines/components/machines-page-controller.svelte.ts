@@ -101,17 +101,39 @@ export function createMachinesPageController() {
   })
   const loadState: MachinesPageControllerLoadState = {
     ...controllerState,
-    get loading() { return loading },
-    set loading(value) { loading = value },
-    get refreshing() { return refreshing },
-    set refreshing(value) { refreshing = value },
-    get activeOrgId() { return activeOrgId },
-    get listRequestVersion() { return listRequestVersion },
-    set listRequestVersion(value) { listRequestVersion = value },
-    get queuedReload() { return queuedReload },
-    set queuedReload(value) { queuedReload = value },
-    get reloadInFlight() { return reloadInFlight },
-    set reloadInFlight(value) { reloadInFlight = value },
+    get loading() {
+      return loading
+    },
+    set loading(value) {
+      loading = value
+    },
+    get refreshing() {
+      return refreshing
+    },
+    set refreshing(value) {
+      refreshing = value
+    },
+    get activeOrgId() {
+      return activeOrgId
+    },
+    get listRequestVersion() {
+      return listRequestVersion
+    },
+    set listRequestVersion(value) {
+      listRequestVersion = value
+    },
+    get queuedReload() {
+      return queuedReload
+    },
+    set queuedReload(value) {
+      queuedReload = value
+    },
+    get reloadInFlight() {
+      return reloadInFlight
+    },
+    set reloadInFlight(value) {
+      reloadInFlight = value
+    },
   }
 
   $effect(() => {
@@ -241,7 +263,8 @@ export function createMachinesPageController() {
   $effect(() => {
     return syncMachinesPageProjectAIFocus({
       clearFocus: (owner) => appStore.clearProjectAssistantFocus(owner),
-      setFocus: (owner, focus, priority) => appStore.setProjectAssistantFocus(owner, focus, priority),
+      setFocus: (owner, focus, priority) =>
+        appStore.setProjectAssistantFocus(owner, focus, priority),
       owner: 'machines-page',
       projectId: currentProjectId,
       editorOpen,
@@ -261,33 +284,80 @@ export function createMachinesPageController() {
   }
 
   const view: MachinesPageControllerView = {
-    get routeOrgId() { return routeOrgId },
-    get loading() { return loading },
-    get refreshing() { return refreshing },
-    get workspaceState() { return workspaceState },
-    get listMessage() { return listMessage },
-    get machines() { return machines },
-    get filteredMachines() { return filteredMachines },
-    get selectedId() { return selectedId },
-    get selectedMachine() { return selectedMachine },
-    get mode() { return mode },
-    get draft() { return draft },
-    set draft(value) { draft = value },
-    get snapshot() { return snapshot },
-    get probe() { return probe },
-    get loadingHealth() { return loadingHealth },
-    get refreshingHealthMachineId() { return refreshingHealthMachineId },
-    get saving() { return saving },
-    get testingMachineId() { return testingMachineId },
-    get deletingMachineId() { return deletingMachineId },
-    get editorOpen() { return editorOpen },
-    set editorOpen(value) { editorOpen = value },
-    get searchQuery() { return searchQuery },
-    set searchQuery(value) { searchQuery = value },
+    get routeOrgId() {
+      return routeOrgId
+    },
+    get loading() {
+      return loading
+    },
+    get refreshing() {
+      return refreshing
+    },
+    get workspaceState() {
+      return workspaceState
+    },
+    get listMessage() {
+      return listMessage
+    },
+    get machines() {
+      return machines
+    },
+    get filteredMachines() {
+      return filteredMachines
+    },
+    get selectedId() {
+      return selectedId
+    },
+    get selectedMachine() {
+      return selectedMachine
+    },
+    get mode() {
+      return mode
+    },
+    get draft() {
+      return draft
+    },
+    set draft(value) {
+      draft = value
+    },
+    get snapshot() {
+      return snapshot
+    },
+    get probe() {
+      return probe
+    },
+    get loadingHealth() {
+      return loadingHealth
+    },
+    get refreshingHealthMachineId() {
+      return refreshingHealthMachineId
+    },
+    get saving() {
+      return saving
+    },
+    get testingMachineId() {
+      return testingMachineId
+    },
+    get deletingMachineId() {
+      return deletingMachineId
+    },
+    get editorOpen() {
+      return editorOpen
+    },
+    set editorOpen(value) {
+      editorOpen = value
+    },
+    get searchQuery() {
+      return searchQuery
+    },
+    set searchQuery(value) {
+      searchQuery = value
+    },
     handleRefresh,
     startCreate: () => startMachineCreate(controllerState),
     openMachine,
-    handleRefreshHealth: (machineId: string) => handleMachineHealthRefresh(controllerState, machineId),
+    handleRefreshHealth: (machineId: string) =>
+      handleMachineHealthRefresh(controllerState, machineId),
     handleSave,
     handleTest: (machineId: string) => handleMachineTest(controllerState, machineId),
     handleDelete: (machineId: string) => handleMachineDelete(controllerState, machineId),

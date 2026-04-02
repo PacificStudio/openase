@@ -54,7 +54,7 @@
     {/if}
   </div>
 
-  <ProjectUpdateComposer creating={creatingThread} onSubmit={onSubmit} />
+  <ProjectUpdateComposer creating={creatingThread} {onSubmit} />
 
   {#if error}
     <div
@@ -65,7 +65,9 @@
   {/if}
 
   {#if notice}
-    <div class="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+    <div
+      class="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700"
+    >
       {notice}
     </div>
   {/if}

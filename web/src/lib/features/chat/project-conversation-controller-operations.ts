@@ -31,7 +31,9 @@ type ProjectConversationControllerOperationsInput = {
   persistTabs: () => void
 }
 
-export function createProjectConversationControllerOperations(input: ProjectConversationControllerOperationsInput) {
+export function createProjectConversationControllerOperations(
+  input: ProjectConversationControllerOperationsInput,
+) {
   let restoreOperationID = 0
   const runtime = createProjectConversationControllerRuntime(input)
 
@@ -52,7 +54,9 @@ export function createProjectConversationControllerOperations(input: ProjectConv
       if (currentRestoreID !== restoreOperationID) return
 
       input.setConversations(runtime.sortProjectConversations(listPayload.conversations))
-      const availableConversationIDs = new Set(listPayload.conversations.map((conversation) => conversation.id))
+      const availableConversationIDs = new Set(
+        listPayload.conversations.map((conversation) => conversation.id),
+      )
       const persisted = readProjectConversationTabs(projectId, providerId)
       const restoredConversationIDs = persisted.conversationIds.filter((conversationId) =>
         availableConversationIDs.has(conversationId),
@@ -60,7 +64,8 @@ export function createProjectConversationControllerOperations(input: ProjectConv
       const fallbackConversationID =
         restoredConversationIDs.length === 0 ? (listPayload.conversations[0]?.id ?? '') : ''
       const preferredConversationID =
-        (persisted.activeConversationId && availableConversationIDs.has(persisted.activeConversationId)
+        (persisted.activeConversationId &&
+        availableConversationIDs.has(persisted.activeConversationId)
           ? persisted.activeConversationId
           : restoredConversationIDs[0]) || fallbackConversationID
       const initialConversationIDs = preferredConversationID ? [preferredConversationID] : []
@@ -70,7 +75,8 @@ export function createProjectConversationControllerOperations(input: ProjectConv
         const reusableBlank =
           activeTab && !activeTab.conversationId && activeTab.entries.length === 0
             ? activeTab
-            : (input.getTabs().find((tab) => !tab.conversationId && tab.entries.length === 0) ?? null)
+            : (input.getTabs().find((tab) => !tab.conversationId && tab.entries.length === 0) ??
+              null)
         const blankTab = reusableBlank ?? input.newTabState(false)
         blankTab.restored = false
         blankTab.phase = 'idle'
@@ -86,7 +92,14 @@ export function createProjectConversationControllerOperations(input: ProjectConv
         if (currentRestoreID !== restoreOperationID) return
         const tab = input.getTabs()[index]
         const conversationId = initialConversationIDs[index]
-        if (tab && (await runtime.loadTabConversation(tab, conversationId, restoredConversationIDs.includes(conversationId)))) {
+        if (
+          tab &&
+          (await runtime.loadTabConversation(
+            tab,
+            conversationId,
+            restoredConversationIDs.includes(conversationId),
+          ))
+        ) {
           loadedTabIDs.add(tab.id)
         }
       }
@@ -110,7 +123,11 @@ export function createProjectConversationControllerOperations(input: ProjectConv
   }
 
   async function selectProvider(nextProviderId: string) {
-    if (!nextProviderId || input.getProviderId() === nextProviderId || input.getTabs().some((tab) => tab.phase !== 'idle')) {
+    if (
+      !nextProviderId ||
+      input.getProviderId() === nextProviderId ||
+      input.getTabs().some((tab) => tab.phase !== 'idle')
+    ) {
       return
     }
     disposeProjectConversationTabs(input.getTabs())
@@ -122,13 +139,15 @@ export function createProjectConversationControllerOperations(input: ProjectConv
   }
 
   function createTab() {
-    const existingBlank = input.getTabs().find(
-      (tab) =>
-        !tab.conversationId &&
-        tab.entries.length === 0 &&
-        tab.phase === 'idle' &&
-        tab.draft.trim().length === 0,
-    )
+    const existingBlank = input
+      .getTabs()
+      .find(
+        (tab) =>
+          !tab.conversationId &&
+          tab.entries.length === 0 &&
+          tab.phase === 'idle' &&
+          tab.draft.trim().length === 0,
+      )
     if (existingBlank) {
       input.setActiveTabId(existingBlank.id)
       input.persistTabs()

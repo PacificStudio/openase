@@ -34,9 +34,11 @@ export function getEligibleInitialPromptSignature({
   }
 }
 
-export function applyEligibleInitialPrompt(params: EligibleInitialPromptInput & {
-  setDraft: (value: string) => void
-}) {
+export function applyEligibleInitialPrompt(
+  params: EligibleInitialPromptInput & {
+    setDraft: (value: string) => void
+  },
+) {
   const result = getEligibleInitialPromptSignature(params)
   if (!result) {
     return params.appliedInitialPromptSignature

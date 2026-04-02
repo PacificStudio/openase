@@ -2,11 +2,7 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { ticketViewStore } from '$lib/stores/ticket-view.svelte'
   import { ticketBoardToolbarStore } from '../board-toolbar-store.svelte'
-  import {
-    BoardListView,
-    BoardToolbar,
-    BoardView,
-  } from '$lib/features/board'
+  import { BoardListView, BoardToolbar, BoardView } from '$lib/features/board'
   import { createTicketsPageController } from './tickets-page-controller.svelte'
 
   const controller = createTicketsPageController()
@@ -112,6 +108,9 @@
       dropColumnId={controller.dropColumnId}
     />
   {:else}
-    <BoardListView columns={controller.filteredColumns} onticketclick={controller.handleTicketClick} />
+    <BoardListView
+      columns={controller.filteredColumns}
+      onticketclick={controller.handleTicketClick}
+    />
   {/if}
 </div>

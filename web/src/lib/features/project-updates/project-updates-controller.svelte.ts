@@ -76,10 +76,7 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     })
   })
 
-  async function loadProjectUpdates(
-    projectId: string,
-    options: LoadProjectUpdatesOptions = {},
-  ) {
+  async function loadProjectUpdates(projectId: string, options: LoadProjectUpdatesOptions = {}) {
     const version = ++requestVersion
     if (options.showLoading) {
       loading = true

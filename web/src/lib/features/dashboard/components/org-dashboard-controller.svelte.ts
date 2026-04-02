@@ -98,7 +98,9 @@ export function createOrgDashboardController() {
     editDescription = projectDescription
     editingInfo = true
   }
-  function cancelEditInfo() { editingInfo = false }
+  function cancelEditInfo() {
+    editingInfo = false
+  }
   async function saveInfo() {
     const projectId = appStore.currentProject?.id
     if (!projectId || savingInfo) return
@@ -266,26 +268,66 @@ export function createOrgDashboardController() {
   })
 
   return {
-    get loading() { return loading },
-    get error() { return error },
-    get stats() { return stats },
-    get exceptions() { return exceptions },
-    get activities() { return activities },
-    get hrAdvisor() { return hrAdvisor },
-    get memory() { return memory },
-    get savingStatus() { return savingStatus },
-    get editingInfo() { return editingInfo },
-    get editName() { return editName },
-    get editDescription() { return editDescription },
-    get savingInfo() { return savingInfo },
-    get totalTicketTokens() { return totalTicketTokens },
-    get showOnboarding() { return showOnboarding },
-    get currentStatus() { return currentStatus },
-    get projectName() { return projectName },
-    get projectDescription() { return projectDescription },
-    get projectUpdates() { return projectUpdates },
-    setEditName(value: string) { editName = value },
-    setEditDescription(value: string) { editDescription = value },
+    get loading() {
+      return loading
+    },
+    get error() {
+      return error
+    },
+    get stats() {
+      return stats
+    },
+    get exceptions() {
+      return exceptions
+    },
+    get activities() {
+      return activities
+    },
+    get hrAdvisor() {
+      return hrAdvisor
+    },
+    get memory() {
+      return memory
+    },
+    get savingStatus() {
+      return savingStatus
+    },
+    get editingInfo() {
+      return editingInfo
+    },
+    get editName() {
+      return editName
+    },
+    get editDescription() {
+      return editDescription
+    },
+    get savingInfo() {
+      return savingInfo
+    },
+    get totalTicketTokens() {
+      return totalTicketTokens
+    },
+    get showOnboarding() {
+      return showOnboarding
+    },
+    get currentStatus() {
+      return currentStatus
+    },
+    get projectName() {
+      return projectName
+    },
+    get projectDescription() {
+      return projectDescription
+    },
+    get projectUpdates() {
+      return projectUpdates
+    },
+    setEditName(value: string) {
+      editName = value
+    },
+    setEditDescription(value: string) {
+      editDescription = value
+    },
     startEditInfo,
     cancelEditInfo,
     saveInfo,

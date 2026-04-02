@@ -1,10 +1,7 @@
 import { ApiError } from '$lib/api/client'
 import type { SSEFrame, StreamConnectionState } from '$lib/api/sse'
 import { toastStore } from '$lib/stores/toast.svelte'
-import {
-  fetchTicketDetailLiveContext,
-  fetchTicketDetailProjectReferenceData,
-} from './context'
+import { fetchTicketDetailLiveContext, fetchTicketDetailProjectReferenceData } from './context'
 import {
   recoverTicketDrawerRunTranscript,
   defaultTicketDrawerRunTranscriptDeps,

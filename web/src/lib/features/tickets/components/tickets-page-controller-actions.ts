@@ -51,7 +51,10 @@ export function handleTicketDragOverColumn(
 }
 
 export async function handlePriorityChange(
-  state: Pick<TicketsPageControllerActionsState, 'allColumns' | 'persistBoardSnapshot' | 'requestReload'>,
+  state: Pick<
+    TicketsPageControllerActionsState,
+    'allColumns' | 'persistBoardSnapshot' | 'requestReload'
+  >,
   ticketId: string,
   priority: string,
 ) {

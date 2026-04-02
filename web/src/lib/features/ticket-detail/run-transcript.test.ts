@@ -7,7 +7,12 @@ import {
   selectTicketRun,
   setTicketRunList,
 } from './run-transcript'
-import { buildHydratedRunDetail, buildNewerRun, latestRun, olderRun } from './run-transcript.test-fixtures'
+import {
+  buildHydratedRunDetail,
+  buildNewerRun,
+  latestRun,
+  olderRun,
+} from './run-transcript.test-fixtures'
 import type { TicketRunTranscriptBlock } from './types'
 
 describe('ticket run transcript reducer', () => {

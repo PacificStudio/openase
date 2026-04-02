@@ -1,11 +1,7 @@
-import {
-  type ProjectConversation,
-} from '$lib/api/chat'
+import { type ProjectConversation } from '$lib/api/chat'
 import type { AgentProvider } from '$lib/api/contracts'
 import type { ProjectAIFocus } from './project-ai-focus'
-import {
-  projectConversationHasPendingInterrupt,
-} from './project-conversation-controller-helpers'
+import { projectConversationHasPendingInterrupt } from './project-conversation-controller-helpers'
 import { createProjectConversationControllerOperations } from './project-conversation-controller-operations'
 import {
   canQueueProjectConversationTurn,
@@ -56,10 +52,7 @@ export function createProjectConversationController(
     })
   }
 
-  function nextQueuedTurn(turn: {
-    message: string
-    focus: ProjectAIFocus | null
-  }) {
+  function nextQueuedTurn(turn: { message: string; focus: ProjectAIFocus | null }) {
     nextQueuedTurnID += 1
     return {
       id: `queued-turn-${nextQueuedTurnID}`,

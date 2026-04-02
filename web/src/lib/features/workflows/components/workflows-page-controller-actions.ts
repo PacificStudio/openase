@@ -58,25 +58,63 @@ export function createWorkflowsPageControllerActionsState(input: {
   getIsDirty(): boolean
 }): WorkflowsPageControllerActionsState {
   return {
-    get selectedId() { return input.getSelectedId() },
-    set selectedId(value) { input.setSelectedId(value) },
-    get harness() { return input.getHarness() },
-    set harness(value) { input.setHarness(value) },
-    get draftHarness() { return input.getDraftHarness() },
-    set draftHarness(value) { input.setDraftHarness(value) },
-    get loadedHarnessWorkflowId() { return input.getLoadedHarnessWorkflowId() },
-    set loadedHarnessWorkflowId(value) { input.setLoadedHarnessWorkflowId(value) },
-    get skillStates() { return input.getSkillStates() },
-    set skillStates(value) { input.setSkillStates(value) },
-    get validationIssues() { return input.getValidationIssues() },
-    set validationIssues(value) { input.setValidationIssues(value) },
-    get workflows() { return input.getWorkflows() },
-    set workflows(value) { input.setWorkflows(value) },
-    get templateDraft() { return input.getTemplateDraft() },
-    set templateDraft(value) { input.setTemplateDraft(value) },
-    get statuses() { return input.getStatuses() },
-    get agentOptions() { return input.getAgentOptions() },
-    get isDirty() { return input.getIsDirty() },
+    get selectedId() {
+      return input.getSelectedId()
+    },
+    set selectedId(value) {
+      input.setSelectedId(value)
+    },
+    get harness() {
+      return input.getHarness()
+    },
+    set harness(value) {
+      input.setHarness(value)
+    },
+    get draftHarness() {
+      return input.getDraftHarness()
+    },
+    set draftHarness(value) {
+      input.setDraftHarness(value)
+    },
+    get loadedHarnessWorkflowId() {
+      return input.getLoadedHarnessWorkflowId()
+    },
+    set loadedHarnessWorkflowId(value) {
+      input.setLoadedHarnessWorkflowId(value)
+    },
+    get skillStates() {
+      return input.getSkillStates()
+    },
+    set skillStates(value) {
+      input.setSkillStates(value)
+    },
+    get validationIssues() {
+      return input.getValidationIssues()
+    },
+    set validationIssues(value) {
+      input.setValidationIssues(value)
+    },
+    get workflows() {
+      return input.getWorkflows()
+    },
+    set workflows(value) {
+      input.setWorkflows(value)
+    },
+    get templateDraft() {
+      return input.getTemplateDraft()
+    },
+    set templateDraft(value) {
+      input.setTemplateDraft(value)
+    },
+    get statuses() {
+      return input.getStatuses()
+    },
+    get agentOptions() {
+      return input.getAgentOptions()
+    },
+    get isDirty() {
+      return input.getIsDirty()
+    },
   }
 }
 
@@ -165,10 +203,7 @@ export function handleCreateWorkflow(
 }
 
 export function handleUseWorkflowTemplate(
-  state: Pick<
-    WorkflowsPageControllerActionsState,
-    'statuses' | 'agentOptions' | 'templateDraft'
-  >,
+  state: Pick<WorkflowsPageControllerActionsState, 'statuses' | 'agentOptions' | 'templateDraft'>,
   role: BuiltinRole,
 ) {
   if (state.statuses.length === 0 || state.agentOptions.length === 0) {
@@ -239,7 +274,10 @@ export function selectWorkflow(
   state: Pick<WorkflowsPageControllerActionsState, 'selectedId' | 'isDirty'>,
   nextSelectedId: string,
 ) {
-  if (state.isDirty && !confirm('You have unsaved changes. Are you sure you want to switch workflows?')) {
+  if (
+    state.isDirty &&
+    !confirm('You have unsaved changes. Are you sure you want to switch workflows?')
+  ) {
     return
   }
   state.selectedId = nextSelectedId

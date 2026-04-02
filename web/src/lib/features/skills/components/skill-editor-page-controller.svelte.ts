@@ -53,9 +53,13 @@ export function createSkillEditorPageController(input: { getSkillId: () => strin
   const descriptionDirty = $derived(skill ? editDescription.trim() !== skill.description : false)
   const hasDirtyChanges = $derived(dirtyPaths.size > 0 || descriptionDirty)
   const emptyDraftDirectories = $derived(listEmptyDirectories(draftFiles, emptyDirectoryPaths))
-  const selectedFile = $derived(selectedFilePath ? (draftFiles.find((file) => file.path === selectedFilePath) ?? null) : null)
+  const selectedFile = $derived(
+    selectedFilePath ? (draftFiles.find((file) => file.path === selectedFilePath) ?? null) : null,
+  )
   const openFiles = $derived(
-    openFilePaths.map((path) => draftFiles.find((file) => file.path === path)).filter((file): file is SkillFile => file !== undefined),
+    openFilePaths
+      .map((path) => draftFiles.find((file) => file.path === path))
+      .filter((file): file is SkillFile => file !== undefined),
   )
   const activeContent = $derived(selectedFile?.content ?? '')
   const selectedFileIsText = $derived(selectedFile?.encoding === 'utf8')
@@ -108,12 +112,15 @@ export function createSkillEditorPageController(input: { getSkillId: () => strin
         const loaded = await loadSkillEditorData(skillId, appStore.currentProject?.id)
         if (!cancelled) applyInitialSkillLoad(state, loaded)
       } catch (err) {
-        if (!cancelled) toastStore.error(err instanceof ApiError ? err.detail : 'Failed to load skill.')
+        if (!cancelled)
+          toastStore.error(err instanceof ApiError ? err.detail : 'Failed to load skill.')
       } finally {
         if (!cancelled) loading = false
       }
     })()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   })
 
   $effect(() => {
@@ -135,7 +142,9 @@ export function createSkillEditorPageController(input: { getSkillId: () => strin
       },
       PROJECT_AI_FOCUS_PRIORITY.workspace,
     )
-    return () => { appStore.clearProjectAssistantFocus(projectAIFocusOwner) }
+    return () => {
+      appStore.clearProjectAssistantFocus(projectAIFocusOwner)
+    }
   })
 
   beforeNavigate(({ cancel }) => {
@@ -183,10 +192,15 @@ export function createSkillEditorPageController(input: { getSkillId: () => strin
 
   function handleDragMove(event: PointerEvent) {
     if (!dragging) return
-    assistantWidth = Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, dragStartWidth + dragStartX - event.clientX))
+    assistantWidth = Math.min(
+      MAX_SIDEBAR_WIDTH,
+      Math.max(MIN_SIDEBAR_WIDTH, dragStartWidth + dragStartX - event.clientX),
+    )
   }
 
-  function handleDragEnd() { dragging = false }
+  function handleDragEnd() {
+    dragging = false
+  }
 
   function setEditDescription(value: string) {
     editDescription = value
@@ -206,7 +220,9 @@ export function createSkillEditorPageController(input: { getSkillId: () => strin
     if (!skill) return
     busy = true
     try {
-      skill = skill.is_enabled ? (await disableSkill(skill.id)).skill : (await enableSkill(skill.id)).skill
+      skill = skill.is_enabled
+        ? (await disableSkill(skill.id)).skill
+        : (await enableSkill(skill.id)).skill
       toastStore.success(`${skill.is_enabled ? 'Enabled' : 'Disabled'} ${skill.name}.`)
     } catch (err) {
       toastStore.error(err instanceof ApiError ? err.detail : 'Failed to update skill state.')
@@ -216,7 +232,8 @@ export function createSkillEditorPageController(input: { getSkillId: () => strin
   }
 
   async function handleDelete() {
-    if (!skill || !window.confirm(`Delete "${skill.name}" and remove it from all workflows?`)) return
+    if (!skill || !window.confirm(`Delete "${skill.name}" and remove it from all workflows?`))
+      return
     busy = true
     try {
       await deleteSkill(skill.id)
@@ -233,9 +250,14 @@ export function createSkillEditorPageController(input: { getSkillId: () => strin
     if (!skill) return
     busy = true
     try {
-      skill = shouldBind ? (await bindSkill(skill.id, [workflowId])).skill : (await unbindSkill(skill.id, [workflowId])).skill
-      const workflowName = workflows.find((workflow) => workflow.id === workflowId)?.name ?? 'workflow'
-      toastStore.success(`${shouldBind ? 'Bound' : 'Unbound'} ${skill.name} ${shouldBind ? 'to' : 'from'} ${workflowName}.`)
+      skill = shouldBind
+        ? (await bindSkill(skill.id, [workflowId])).skill
+        : (await unbindSkill(skill.id, [workflowId])).skill
+      const workflowName =
+        workflows.find((workflow) => workflow.id === workflowId)?.name ?? 'workflow'
+      toastStore.success(
+        `${shouldBind ? 'Bound' : 'Unbound'} ${skill.name} ${shouldBind ? 'to' : 'from'} ${workflowName}.`,
+      )
     } catch (err) {
       toastStore.error(err instanceof ApiError ? err.detail : 'Failed to update skill binding.')
     } finally {
@@ -244,31 +266,81 @@ export function createSkillEditorPageController(input: { getSkillId: () => strin
   }
 
   return {
-    get skill() { return skill },
-    get files() { return files },
-    get draftFiles() { return draftFiles },
-    get emptyDirectoryPaths() { return emptyDirectoryPaths },
-    get history() { return history },
-    get workflows() { return workflows },
-    get loading() { return loading },
-    get busy() { return busy },
-    get editDescription() { return editDescription },
-    get showAssistant() { return showAssistant },
-    set showAssistant(value: boolean) { showAssistant = value },
-    get assistantWidth() { return assistantWidth },
-    get dragging() { return dragging },
-    get selectedFilePath() { return selectedFilePath },
-    get selectedTreePath() { return selectedTreePath },
-    get openFiles() { return openFiles },
-    get dirtyPaths() { return dirtyPaths },
-    get selectedFile() { return selectedFile },
-    get activeContent() { return activeContent },
-    get pendingCreate() { return pendingCreate },
-    get hasDirtyChanges() { return hasDirtyChanges },
-    get selectedFileIsText() { return selectedFileIsText },
-    get fileCount() { return fileCount },
-    get totalSize() { return totalSize },
-    get providers() { return providers },
+    get skill() {
+      return skill
+    },
+    get files() {
+      return files
+    },
+    get draftFiles() {
+      return draftFiles
+    },
+    get emptyDirectoryPaths() {
+      return emptyDirectoryPaths
+    },
+    get history() {
+      return history
+    },
+    get workflows() {
+      return workflows
+    },
+    get loading() {
+      return loading
+    },
+    get busy() {
+      return busy
+    },
+    get editDescription() {
+      return editDescription
+    },
+    get showAssistant() {
+      return showAssistant
+    },
+    set showAssistant(value: boolean) {
+      showAssistant = value
+    },
+    get assistantWidth() {
+      return assistantWidth
+    },
+    get dragging() {
+      return dragging
+    },
+    get selectedFilePath() {
+      return selectedFilePath
+    },
+    get selectedTreePath() {
+      return selectedTreePath
+    },
+    get openFiles() {
+      return openFiles
+    },
+    get dirtyPaths() {
+      return dirtyPaths
+    },
+    get selectedFile() {
+      return selectedFile
+    },
+    get activeContent() {
+      return activeContent
+    },
+    get pendingCreate() {
+      return pendingCreate
+    },
+    get hasDirtyChanges() {
+      return hasDirtyChanges
+    },
+    get selectedFileIsText() {
+      return selectedFileIsText
+    },
+    get fileCount() {
+      return fileCount
+    },
+    get totalSize() {
+      return totalSize
+    },
+    get providers() {
+      return providers
+    },
     setEditDescription,
     handleKeydown,
     handleBeforeUnload,

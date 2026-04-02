@@ -20,7 +20,11 @@
     showComments?: boolean
     onCommentKeydown?: (event: KeyboardEvent) => void
     onCreateComment?: () => void
-    onUpdateComment?: (threadId: string, commentId: string, body: string) => Promise<boolean> | boolean
+    onUpdateComment?: (
+      threadId: string,
+      commentId: string,
+      body: string,
+    ) => Promise<boolean> | boolean
     onDeleteComment?: (threadId: string, commentId: string) => Promise<boolean> | boolean
   } = $props()
 </script>

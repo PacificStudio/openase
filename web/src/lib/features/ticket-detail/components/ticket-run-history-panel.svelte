@@ -2,10 +2,7 @@
   import { tick } from 'svelte'
   import type { StreamConnectionState } from '$lib/api/sse'
   import TicketRunHistoryAttempt from './ticket-run-history-attempt.svelte'
-  import {
-    FINISHED_RUN_STATUSES,
-    renderKeyForBlocks,
-  } from './ticket-run-history-panel-view-model'
+  import { FINISHED_RUN_STATUSES, renderKeyForBlocks } from './ticket-run-history-panel-view-model'
   import type { TicketDetail, TicketRun, TicketRunTranscriptBlock } from '../types'
 
   const autoFollowThresholdPx = 80
@@ -200,7 +197,7 @@
         onSelectRun={selectRun}
         onToggleOutput={toggleOutputExpansion}
         onToggleNoiseGroup={toggleNoiseGroup}
-        onResumeRetry={onResumeRetry}
+        {onResumeRetry}
         onJumpToLive={jumpToLive}
       />
     {/each}

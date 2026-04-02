@@ -35,16 +35,18 @@
         selectedPath={selectedSuggestionPath}
         {preview}
         {suggestionAlreadyApplied}
-        onSelectPath={onSelectPath}
-        onApply={onApply}
-        onDismiss={onDismiss}
+        {onSelectPath}
+        {onApply}
+        {onDismiss}
       />
     {/if}
 
     {#if result.failureReason}
       <div class="rounded-lg border border-rose-500/30 bg-rose-500/8 p-3">
         <p class="text-[11px] font-medium tracking-[0.18em] text-rose-200 uppercase">Failure</p>
-        <p class="mt-2 text-xs leading-5 whitespace-pre-wrap text-rose-50">{result.failureReason}</p>
+        <p class="mt-2 text-xs leading-5 whitespace-pre-wrap text-rose-50">
+          {result.failureReason}
+        </p>
       </div>
     {/if}
 

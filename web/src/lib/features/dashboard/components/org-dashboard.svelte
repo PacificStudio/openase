@@ -7,9 +7,7 @@
   import OrgDashboardHeader from './org-dashboard-header.svelte'
   import OrgDashboardUpdatesPanel from './org-dashboard-updates-panel.svelte'
   import { createOrgDashboardController } from './org-dashboard-controller.svelte'
-  import {
-    OnboardingPanel,
-  } from '$lib/features/onboarding'
+  import { OnboardingPanel } from '$lib/features/onboarding'
   import { Bot, Coins, Ticket } from '@lucide/svelte'
 
   const controller = createOrgDashboardController()
@@ -68,12 +66,16 @@
             <div class="flex items-center gap-1">
               <Bot class="text-muted-foreground size-3" />
               <span class="text-muted-foreground text-[11px]">Agents</span>
-              <span class="text-foreground text-xs font-semibold">{controller.stats.runningAgents}</span>
+              <span class="text-foreground text-xs font-semibold"
+                >{controller.stats.runningAgents}</span
+              >
             </div>
             <div class="flex items-center gap-1">
               <Ticket class="text-muted-foreground size-3" />
               <span class="text-muted-foreground text-[11px]">Tickets</span>
-              <span class="text-foreground text-xs font-semibold">{controller.stats.activeTickets}</span>
+              <span class="text-foreground text-xs font-semibold"
+                >{controller.stats.activeTickets}</span
+              >
             </div>
             <div class="flex items-center gap-1">
               <Coins class="text-muted-foreground size-3" />

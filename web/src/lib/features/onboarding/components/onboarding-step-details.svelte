@@ -98,7 +98,7 @@
     {orgId}
     {projectId}
     hasWorkflow={data.agentWorkflow.workflows.length > 0}
-    onOpenProjectAI={onOpenProjectAI}
+    {onOpenProjectAI}
     onComplete={() => {
       onDataChange({
         ...data,
@@ -111,9 +111,7 @@
 
 {#if step.status !== 'completed'}
   <div class="mt-4 flex items-center justify-between gap-3 border-t pt-4">
-    <p class="text-muted-foreground text-xs">
-      不想继续配置的话，可以直接跳过导览并结束。
-    </p>
+    <p class="text-muted-foreground text-xs">不想继续配置的话，可以直接跳过导览并结束。</p>
     <Button variant="ghost" size="sm" class="text-xs" onclick={onOnboardingComplete}>
       跳过导览
     </Button>

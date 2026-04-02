@@ -1,6 +1,4 @@
-import type {
-  SkillRefinementStreamEvent,
-} from '$lib/api/skill-refinement'
+import type { SkillRefinementStreamEvent } from '$lib/api/skill-refinement'
 import {
   appendProjectConversationTextEntry,
   appendProjectConversationTranscriptEntry,

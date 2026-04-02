@@ -28,9 +28,13 @@ export function createProjectConversationControllerConversations(
     const now = new Date().toISOString()
     input.setConversations(
       sortProjectConversations(
-        input.getConversations().map((conversation) =>
-          conversation.id === conversationId ? { ...conversation, lastActivityAt: now } : conversation,
-        ),
+        input
+          .getConversations()
+          .map((conversation) =>
+            conversation.id === conversationId
+              ? { ...conversation, lastActivityAt: now }
+              : conversation,
+          ),
       ),
     )
   }
@@ -44,8 +48,13 @@ export function createProjectConversationControllerConversations(
     )
   }
 
-  function applySessionPayload(tabConversationId: string, payload: ProjectConversationSessionPayload) {
-    const existing = input.getConversations().find((conversation) => conversation.id === payload.conversationId)
+  function applySessionPayload(
+    tabConversationId: string,
+    payload: ProjectConversationSessionPayload,
+  ) {
+    const existing = input
+      .getConversations()
+      .find((conversation) => conversation.id === payload.conversationId)
     const now = new Date().toISOString()
     upsertConversation({
       id: payload.conversationId,

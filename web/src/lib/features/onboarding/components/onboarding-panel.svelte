@@ -218,7 +218,7 @@
               <div class="border-border border-t px-5 pt-4 pb-5 pl-[4.5rem]">
                 <OnboardingStepDetails
                   {step}
-                  data={data}
+                  {data}
                   {projectId}
                   {orgId}
                   {projectStatus}

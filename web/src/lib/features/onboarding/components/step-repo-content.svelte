@@ -170,7 +170,10 @@
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <Button onclick={onCreateRepo} disabled={creating || !newRepoName.trim() || !selectedNamespace}>
+          <Button
+            onclick={onCreateRepo}
+            disabled={creating || !newRepoName.trim() || !selectedNamespace}
+          >
             {#if creating}
               <Loader2 class="mr-1.5 size-3.5 animate-spin" />
               创建中...
@@ -240,7 +243,10 @@
         </div>
 
         <div class="flex items-center gap-2">
-          <Button onclick={onLinkRepo} disabled={linking || !linkRepoUrl.trim() || !linkRepoName.trim()}>
+          <Button
+            onclick={onLinkRepo}
+            disabled={linking || !linkRepoUrl.trim() || !linkRepoName.trim()}
+          >
             {#if linking}
               <Loader2 class="mr-1.5 size-3.5 animate-spin" />
               关联中...

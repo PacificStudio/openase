@@ -89,7 +89,10 @@
     )}
   />
   <span class="font-medium">#{run.attemptNumber}</span>
-  <Badge variant="outline" class={cn('h-4 shrink-0 px-1.5 py-0 text-[9px]', ticketRunStatusClass(run))}>
+  <Badge
+    variant="outline"
+    class={cn('h-4 shrink-0 px-1.5 py-0 text-[9px]', ticketRunStatusClass(run))}
+  >
     {ticketRunStatusLabel(run)}
   </Badge>
   {#if live}
@@ -167,7 +170,9 @@
                       {group.summary}
                     </span>
                     {#if group.detail}
-                      <span class="text-muted-foreground/60 shrink-0 text-[10px]">{group.detail}</span>
+                      <span class="text-muted-foreground/60 shrink-0 text-[10px]"
+                        >{group.detail}</span
+                      >
                     {/if}
                   </button>
                   {#if isExpanded}
@@ -177,7 +182,13 @@
                           <span class="text-[10px] font-medium tracking-wider uppercase">
                             {blockLabel(b)}
                           </span>
-                          <span class="truncate">{b.kind === 'tool_call' ? b.toolName : 'summary' in b ? b.summary : ''}</span>
+                          <span class="truncate"
+                            >{b.kind === 'tool_call'
+                              ? b.toolName
+                              : 'summary' in b
+                                ? b.summary
+                                : ''}</span
+                          >
                         </div>
                       {/each}
                     </div>
@@ -210,7 +221,12 @@
                     <TicketRunTranscriptInterruptCard {block} />
                   </article>
                 {:else if block.kind === 'result'}
-                  <article class={cn('flex items-center gap-2 rounded-md border px-3 py-2 text-xs', blockCardClass(block))}>
+                  <article
+                    class={cn(
+                      'flex items-center gap-2 rounded-md border px-3 py-2 text-xs',
+                      blockCardClass(block),
+                    )}
+                  >
                     <span class="font-medium">{blockLabel(block)}</span>
                     <span>{block.summary}</span>
                   </article>
@@ -243,8 +259,15 @@
   </div>
 
   {#if liveSelected && showJumpToLive}
-    <div class="border-border bg-background/95 sticky bottom-0 z-10 border-t px-4 py-1.5 backdrop-blur">
-      <Button size="sm" variant="outline" class="h-6 px-2 text-[11px]" onclick={() => void onJumpToLive?.()}>
+    <div
+      class="border-border bg-background/95 sticky bottom-0 z-10 border-t px-4 py-1.5 backdrop-blur"
+    >
+      <Button
+        size="sm"
+        variant="outline"
+        class="h-6 px-2 text-[11px]"
+        onclick={() => void onJumpToLive?.()}
+      >
         Jump to live
       </Button>
     </div>

@@ -1,10 +1,6 @@
 import { toastStore } from '$lib/stores/toast.svelte'
 import { createEmptyMachineDraft, machineToDraft } from '../model'
-import {
-  type MachinesPageViewState,
-  createNoOrgState,
-  createStartCreateState,
-} from '../page-state'
+import { type MachinesPageViewState, createNoOrgState, createStartCreateState } from '../page-state'
 import type {
   MachineDraft,
   MachineItem,
@@ -84,32 +80,84 @@ export function createMachinesPageControllerOpsState(input: {
   persistMachinesPageCache(orgId: string): void
 }): MachinesPageControllerOpsState {
   return {
-    get routeOrgId() { return input.getRouteOrgId() },
-    get selectedId() { return input.getSelectedId() },
-    get searchQuery() { return input.getSearchQuery() },
-    get machines() { return input.getMachines() },
-    set machines(value) { input.setMachines(value) },
-    get selectedMachine() { return input.getSelectedMachine() },
-    get mode() { return input.getMode() },
-    get draft() { return input.getDraft() },
-    set draft(value) { input.setDraft(value) },
-    get snapshot() { return input.getSnapshot() },
-    set snapshot(value) { input.setSnapshot(value) },
-    get probe() { return input.getProbe() },
-    set probe(value) { input.setProbe(value) },
-    get editorOpen() { return input.getEditorOpen() },
-    set editorOpen(value) { input.setEditorOpen(value) },
-    get activeOrgId() { return input.getActiveOrgId() },
-    get snapshotRequestVersion() { return input.getSnapshotRequestVersion() },
-    set snapshotRequestVersion(value) { input.setSnapshotRequestVersion(value) },
-    get loadingHealth() { return input.getLoadingHealth() },
-    set loadingHealth(value) { input.setLoadingHealth(value) },
-    get testingMachineId() { return input.getTestingMachineId() },
-    set testingMachineId(value) { input.setTestingMachineId(value) },
-    get refreshingHealthMachineId() { return input.getRefreshingHealthMachineId() },
-    set refreshingHealthMachineId(value) { input.setRefreshingHealthMachineId(value) },
-    get deletingMachineId() { return input.getDeletingMachineId() },
-    set deletingMachineId(value) { input.setDeletingMachineId(value) },
+    get routeOrgId() {
+      return input.getRouteOrgId()
+    },
+    get selectedId() {
+      return input.getSelectedId()
+    },
+    get searchQuery() {
+      return input.getSearchQuery()
+    },
+    get machines() {
+      return input.getMachines()
+    },
+    set machines(value) {
+      input.setMachines(value)
+    },
+    get selectedMachine() {
+      return input.getSelectedMachine()
+    },
+    get mode() {
+      return input.getMode()
+    },
+    get draft() {
+      return input.getDraft()
+    },
+    set draft(value) {
+      input.setDraft(value)
+    },
+    get snapshot() {
+      return input.getSnapshot()
+    },
+    set snapshot(value) {
+      input.setSnapshot(value)
+    },
+    get probe() {
+      return input.getProbe()
+    },
+    set probe(value) {
+      input.setProbe(value)
+    },
+    get editorOpen() {
+      return input.getEditorOpen()
+    },
+    set editorOpen(value) {
+      input.setEditorOpen(value)
+    },
+    get activeOrgId() {
+      return input.getActiveOrgId()
+    },
+    get snapshotRequestVersion() {
+      return input.getSnapshotRequestVersion()
+    },
+    set snapshotRequestVersion(value) {
+      input.setSnapshotRequestVersion(value)
+    },
+    get loadingHealth() {
+      return input.getLoadingHealth()
+    },
+    set loadingHealth(value) {
+      input.setLoadingHealth(value)
+    },
+    get testingMachineId() {
+      return input.getTestingMachineId()
+    },
+    set testingMachineId(value) {
+      input.setTestingMachineId(value)
+    },
+    get refreshingHealthMachineId() {
+      return input.getRefreshingHealthMachineId()
+    },
+    set refreshingHealthMachineId(value) {
+      input.setRefreshingHealthMachineId(value)
+    },
+    get deletingMachineId() {
+      return input.getDeletingMachineId()
+    },
+    set deletingMachineId(value) {
+      input.setDeletingMachineId(value)
+    },
     applyViewState: input.applyViewState,
     persistMachinesPageCache: input.persistMachinesPageCache,
   }
@@ -150,10 +198,7 @@ export async function loadMachineResources(
 }
 
 export function resetMachineDraft(
-  state: Pick<
-    MachinesPageControllerOpsState,
-    'mode' | 'selectedId' | 'selectedMachine' | 'draft'
-  >,
+  state: Pick<MachinesPageControllerOpsState, 'mode' | 'selectedId' | 'selectedMachine' | 'draft'>,
   machineId?: string,
 ) {
   if (machineId && machineId !== state.selectedId) return
@@ -183,10 +228,7 @@ export function startMachineCreate(
   state.editorOpen = true
 }
 
-export async function handleMachineTest(
-  state: MachinesPageControllerOpsState,
-  machineId: string,
-) {
+export async function handleMachineTest(state: MachinesPageControllerOpsState, machineId: string) {
   if (!state.machines.find((item) => item.id === machineId)) return
   state.testingMachineId = machineId
   try {

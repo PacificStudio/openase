@@ -94,7 +94,6 @@
     manualValue = (event.currentTarget as HTMLInputElement).value
     emitChange()
   }
-
 </script>
 
 <div class="space-y-3">

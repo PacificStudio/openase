@@ -8,7 +8,11 @@
   import ProjectConversationComposer from './project-conversation-composer.svelte'
   import ProjectConversationContent from './project-conversation-content.svelte'
   import ProjectConversationHeader from './project-conversation-header.svelte'
-  import { describeProjectAIFocus, projectAIFocusKey, type ProjectAIFocus } from './project-ai-focus'
+  import {
+    describeProjectAIFocus,
+    projectAIFocusKey,
+    type ProjectAIFocus,
+  } from './project-ai-focus'
   import { getProjectConversationStatusMessage } from './project-conversation-panel-labels'
   import { applyEligibleInitialPrompt } from './project-conversation-panel-prompt'
 

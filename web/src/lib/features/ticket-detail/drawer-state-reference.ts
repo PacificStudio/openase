@@ -80,7 +80,11 @@ export function createTicketDrawerReferenceController(input: ReferenceController
           if (requestId !== input.getLoadRequestId() || !input.getTicket()) {
             continue
           }
-          const detailContext = await input.fetchLiveContext(projectId, ticketId, currentReferenceData!)
+          const detailContext = await input.fetchLiveContext(
+            projectId,
+            ticketId,
+            currentReferenceData!,
+          )
           if (requestId !== input.getLoadRequestId() || !input.getTicket()) {
             continue
           }
@@ -178,4 +182,3 @@ export function createTicketDrawerReferenceController(input: ReferenceController
     },
   }
 }
-

@@ -1,5 +1,10 @@
 import { storeProjectConversationTabs } from './project-conversation-storage'
-import { projectConversationHasPendingInterrupt, invalidateProjectConversationStream, type ProjectConversationControllerState, type ProjectConversationPhase } from './project-conversation-controller-helpers'
+import {
+  projectConversationHasPendingInterrupt,
+  invalidateProjectConversationStream,
+  type ProjectConversationControllerState,
+  type ProjectConversationPhase,
+} from './project-conversation-controller-helpers'
 import type { ProjectConversationTranscriptEntry } from './project-conversation-transcript-state'
 import type { ProjectAIFocus } from './project-ai-focus'
 
@@ -34,7 +39,10 @@ export type ProjectConversationTabSummary = {
   entries: ProjectConversationTranscriptEntry[]
 }
 
-export function createProjectConversationTabState(tabNumber: number, restored = false): ProjectConversationTabState {
+export function createProjectConversationTabState(
+  tabNumber: number,
+  restored = false,
+): ProjectConversationTabState {
   return {
     id: `tab-${tabNumber}`,
     restored,

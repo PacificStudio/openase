@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { ProjectConversationTranscript, type ProjectConversationTranscriptEntry } from '$lib/features/chat'
+  import {
+    ProjectConversationTranscript,
+    type ProjectConversationTranscriptEntry,
+  } from '$lib/features/chat'
   import { Badge } from '$ui/badge'
   import { LoaderCircle, ShieldCheck, ShieldX, Wrench } from '@lucide/svelte'
   import type { SkillRefinementAnchorState } from './skill-refinement-transcript'
@@ -79,7 +82,8 @@
           {/if}
         </div>
         <p class="text-muted-foreground text-xs leading-5">
-          {phaseMessage || 'Ask Codex to edit the draft bundle and verify it in an isolated workspace.'}
+          {phaseMessage ||
+            'Ask Codex to edit the draft bundle and verify it in an isolated workspace.'}
         </p>
       </div>
       {#if phase === 'verified'}
@@ -114,7 +118,9 @@
   </div>
 
   {#if pending && phase === 'editing'}
-    <div class="flex items-center gap-2 rounded-md bg-sky-500/10 px-2.5 py-1.5 text-[11px] text-sky-300">
+    <div
+      class="flex items-center gap-2 rounded-md bg-sky-500/10 px-2.5 py-1.5 text-[11px] text-sky-300"
+    >
       <LoaderCircle class="size-3 shrink-0 animate-spin" />
       Suggesting diff...
     </div>

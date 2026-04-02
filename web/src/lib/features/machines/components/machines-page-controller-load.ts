@@ -1,7 +1,10 @@
 import { toastStore } from '$lib/stores/toast.svelte'
 import { syncMachineListState } from './machines-page-state-sync'
 import { loadMachines, machineErrorMessage } from './machines-page-api'
-import { loadMachineResources, type MachinesPageControllerOpsState } from './machines-page-controller-ops'
+import {
+  loadMachineResources,
+  type MachinesPageControllerOpsState,
+} from './machines-page-controller-ops'
 
 export type MachinesPageControllerLoadState = MachinesPageControllerOpsState & {
   get loading(): boolean
@@ -28,7 +31,11 @@ export async function loadMachineList(
   state.refreshing = options.background
   try {
     const nextMachines = await loadMachines(orgId)
-    if (options.cancelled?.() || state.activeOrgId !== orgId || requestVersion !== state.listRequestVersion) {
+    if (
+      options.cancelled?.() ||
+      state.activeOrgId !== orgId ||
+      requestVersion !== state.listRequestVersion
+    ) {
       return
     }
     const nextState = syncMachineListState({
@@ -45,7 +52,11 @@ export async function loadMachineList(
       await loadMachineResources(state, nextState.selectedMachineId)
     }
   } catch (caughtError) {
-    if (options.cancelled?.() || state.activeOrgId !== orgId || requestVersion !== state.listRequestVersion) {
+    if (
+      options.cancelled?.() ||
+      state.activeOrgId !== orgId ||
+      requestVersion !== state.listRequestVersion
+    ) {
       return
     }
     if (options.background && state.machines.length > 0) {
@@ -63,7 +74,11 @@ export async function loadMachineList(
       )
     }
   } finally {
-    if (!options.cancelled?.() && state.activeOrgId === orgId && requestVersion === state.listRequestVersion) {
+    if (
+      !options.cancelled?.() &&
+      state.activeOrgId === orgId &&
+      requestVersion === state.listRequestVersion
+    ) {
       state.loading = false
       state.refreshing = false
     }
@@ -84,7 +99,8 @@ async function drainMachineReloadQueue(
   orgId: string,
   cancelled?: () => boolean,
 ) {
-  if (!state.queuedReload || state.reloadInFlight || state.activeOrgId !== orgId || cancelled?.()) return
+  if (!state.queuedReload || state.reloadInFlight || state.activeOrgId !== orgId || cancelled?.())
+    return
   state.reloadInFlight = true
   state.queuedReload = false
   try {

@@ -1,6 +1,12 @@
 import { appStore } from '$lib/stores/app.svelte'
 import { ApiError } from '$lib/api/client'
-import { listActivity, listAgents, listStatuses, listTickets, listWorkflows } from '$lib/api/openase'
+import {
+  listActivity,
+  listAgents,
+  listStatuses,
+  listTickets,
+  listWorkflows,
+} from '$lib/api/openase'
 import { subscribeProjectEvents } from '$lib/features/project-events'
 import { statusSync } from '$lib/features/statuses/public'
 import {
@@ -48,14 +54,30 @@ export function createTicketsPageController() {
   let queuedReload = false
   let reloadInFlight = false
   const controllerState: TicketsPageControllerActionsState = {
-    get allColumns() { return allColumns },
-    set allColumns(value) { allColumns = value },
-    get allStatuses() { return allStatuses },
-    get pendingMoveByTicket() { return pendingMoveByTicket },
-    get draggingTicketId() { return draggingTicketId },
-    set draggingTicketId(value) { draggingTicketId = value },
-    get dropColumnId() { return dropColumnId },
-    set dropColumnId(value) { dropColumnId = value },
+    get allColumns() {
+      return allColumns
+    },
+    set allColumns(value) {
+      allColumns = value
+    },
+    get allStatuses() {
+      return allStatuses
+    },
+    get pendingMoveByTicket() {
+      return pendingMoveByTicket
+    },
+    get draggingTicketId() {
+      return draggingTicketId
+    },
+    set draggingTicketId(value) {
+      draggingTicketId = value
+    },
+    get dropColumnId() {
+      return dropColumnId
+    },
+    set dropColumnId(value) {
+      dropColumnId = value
+    },
     persistBoardSnapshot,
     requestReload,
   }
@@ -68,7 +90,9 @@ export function createTicketsPageController() {
   )
   const hiddenColumns = $derived.by((): HiddenColumn[] => {
     if (!ticketBoardToolbarStore.hideEmpty) return []
-    const visibleIds = new Set(filteredGroups.flatMap((group) => group.columns.map((column) => column.id)))
+    const visibleIds = new Set(
+      filteredGroups.flatMap((group) => group.columns.map((column) => column.id)),
+    )
     return filteredColumns
       .filter((column) => !visibleIds.has(column.id))
       .map((column) => ({
@@ -267,17 +291,39 @@ export function createTicketsPageController() {
   }
 
   return {
-    get loading() { return loading },
-    get error() { return error },
-    get allColumns() { return allColumns },
-    get allStatuses() { return allStatuses },
-    get workflows() { return workflows },
-    get agentOptions() { return agentOptions },
-    get draggingTicketId() { return draggingTicketId },
-    get dropColumnId() { return dropColumnId },
-    get filteredColumns() { return filteredColumns },
-    get filteredGroups() { return filteredGroups },
-    get hiddenColumns() { return hiddenColumns },
+    get loading() {
+      return loading
+    },
+    get error() {
+      return error
+    },
+    get allColumns() {
+      return allColumns
+    },
+    get allStatuses() {
+      return allStatuses
+    },
+    get workflows() {
+      return workflows
+    },
+    get agentOptions() {
+      return agentOptions
+    },
+    get draggingTicketId() {
+      return draggingTicketId
+    },
+    get dropColumnId() {
+      return dropColumnId
+    },
+    get filteredColumns() {
+      return filteredColumns
+    },
+    get filteredGroups() {
+      return filteredGroups
+    },
+    get hiddenColumns() {
+      return hiddenColumns
+    },
     handleTicketClick,
     handleTicketDragStart,
     handleTicketDragEnd,

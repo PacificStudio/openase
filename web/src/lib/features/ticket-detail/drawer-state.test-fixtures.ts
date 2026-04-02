@@ -77,4 +77,3 @@ export function createRunDeps() {
     fetchRun: vi.fn().mockResolvedValue({ run: null, trace_entries: [], step_entries: [] }),
   }
 }
-
