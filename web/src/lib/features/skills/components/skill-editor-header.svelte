@@ -1,43 +1,41 @@
 <script lang="ts">
+  import { formatRelativeTime } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import {
-    ArrowLeft,
-    Bot,
-    Power,
-    PowerOff,
-    Save,
-    Trash2,
-    PanelRightOpen,
-    PanelRightClose,
-  } from '@lucide/svelte'
+  import * as Popover from '$ui/popover'
+  import { ArrowLeft, Bot, Clock, Power, PowerOff, Save, Trash2 } from '@lucide/svelte'
   import type { Skill } from '$lib/api/contracts'
+
+  type SkillHistoryEntry = {
+    id: string
+    version: number
+    created_by: string
+    created_at: string
+  }
 
   let {
     skill,
     busy = false,
     hasDirtyChanges = false,
-    metadataOpen = true,
     assistantOpen = false,
     assistantDisabled = false,
+    history = [],
     onNavigateBack,
     onSave,
     onToggleEnabled,
     onDelete,
-    onToggleMetadata,
     onToggleAssistant,
   }: {
     skill: Skill
     busy?: boolean
     hasDirtyChanges?: boolean
-    metadataOpen?: boolean
     assistantOpen?: boolean
     assistantDisabled?: boolean
+    history?: SkillHistoryEntry[]
     onNavigateBack?: () => void
     onSave?: () => void
     onToggleEnabled?: () => void
     onDelete?: () => void
-    onToggleMetadata?: () => void
     onToggleAssistant?: () => void
   } = $props()
 </script>
@@ -57,7 +55,39 @@
       <Badge variant="outline" class="text-[10px] uppercase">
         {skill.is_builtin ? 'builtin' : 'custom'}
       </Badge>
-      <Badge variant="outline" class="text-[10px]">v{skill.current_version}</Badge>
+      {#if history.length > 0}
+        <Popover.Root>
+          <Popover.Trigger>
+            <Badge variant="outline" class="hover:bg-muted cursor-pointer text-[10px]">
+              v{skill.current_version}
+            </Badge>
+          </Popover.Trigger>
+          <Popover.Content class="w-64 p-0" align="start">
+            <div class="border-border border-b px-3 py-1.5">
+              <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase"
+                >Version History</span
+              >
+            </div>
+            <div class="max-h-48 overflow-y-auto py-1">
+              {#each history as item (item.id)}
+                <div class="flex items-center gap-2 px-3 py-1 text-xs">
+                  <Clock class="text-muted-foreground size-3 shrink-0" />
+                  <span class="text-foreground font-medium">v{item.version}</span>
+                  {#if item.version === skill.current_version}
+                    <Badge variant="secondary" class="h-4 px-1 text-[9px]">current</Badge>
+                  {/if}
+                  <span class="text-muted-foreground truncate">{item.created_by}</span>
+                  <span class="text-muted-foreground ml-auto shrink-0 text-[10px]">
+                    {formatRelativeTime(item.created_at)}
+                  </span>
+                </div>
+              {/each}
+            </div>
+          </Popover.Content>
+        </Popover.Root>
+      {:else}
+        <Badge variant="outline" class="text-[10px]">v{skill.current_version}</Badge>
+      {/if}
     </div>
   </div>
 
@@ -105,20 +135,6 @@
       disabled={busy}
     >
       <Trash2 class="size-3.5" />
-    </Button>
-    <div class="bg-border mx-1 h-4 w-px"></div>
-    <Button
-      variant="ghost"
-      size="sm"
-      class="size-7 p-0"
-      title={metadataOpen ? 'Hide metadata' : 'Show metadata'}
-      onclick={onToggleMetadata}
-    >
-      {#if metadataOpen}
-        <PanelRightClose class="size-3.5" />
-      {:else}
-        <PanelRightOpen class="size-3.5" />
-      {/if}
     </Button>
   </div>
 </header>

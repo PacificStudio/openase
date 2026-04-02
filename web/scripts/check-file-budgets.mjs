@@ -87,6 +87,10 @@ const budgetRules = [
         'Dashboard refresh regression coverage stays consolidated while the event-driven dashboard invalidation model is still settling.',
       'src/lib/features/skills/components/skill-bundle-editor.ts':
         'Skill bundle draft helpers remain centralized until tree and path utilities are split out.',
+      'src/lib/features/skills/components/skill-ai-sidebar.test.ts':
+        'Skill refinement sidebar regression coverage remains bundled while transcript, result, and retry scenarios continue to expand.',
+      'src/lib/features/skills/components/skill-refinement-transcript.ts':
+        'Skill refinement transcript folding remains centralized while message, plan, diff, and anchor reducers are still being split.',
       'src/lib/features/ticket-detail/drawer-state.svelte.test.ts':
         'Ticket drawer state regression coverage remains bundled while reference caching and run transcript recovery continue to evolve.',
       'src/lib/features/ticket-detail/drawer-state.svelte.ts':
@@ -97,6 +101,8 @@ const budgetRules = [
         'Ticket run transcript reducer still centralizes lifecycle, step, and trace folding until transcript reducers are split by event family.',
       'src/lib/features/workflows/components/harness-ai-sidebar-streaming.test.ts':
         'Harness AI long-stream regression coverage stays in one integration-style test while SSE helpers remain inline.',
+      'src/lib/features/workflows/components/harness-ai-sidebar.test.ts':
+        'Harness AI sidebar regression coverage remains bundled while provider, streaming, and reset scenarios continue to evolve.',
       'src/lib/features/workflows/components/workflows-page.test.ts':
         'Workflow page interaction coverage remains bundled until test helper extraction lands.',
     },
