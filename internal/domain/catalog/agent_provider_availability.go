@@ -6,18 +6,20 @@ import (
 )
 
 const (
-	ProviderAvailabilityL4Interval   = 30 * time.Minute
-	ProviderAvailabilityStaleAfter   = 2 * ProviderAvailabilityL4Interval
-	providerReasonMachineOffline     = "machine_offline"
-	providerReasonMachineDegraded    = "machine_degraded"
-	providerReasonMachineMaintenance = "machine_maintenance"
-	providerReasonL4SnapshotMissing  = "l4_snapshot_missing"
-	providerReasonStaleL4Snapshot    = "stale_l4_snapshot"
-	providerReasonCLIMissing         = "cli_missing"
-	providerReasonNotLoggedIn        = "not_logged_in"
-	providerReasonNotReady           = "not_ready"
-	providerReasonConfigIncomplete   = "config_incomplete"
-	providerReasonUnsupportedAdapter = "unsupported_adapter"
+	ProviderAvailabilityL4Interval          = 30 * time.Minute
+	ProviderAvailabilityStaleAfter          = 2 * ProviderAvailabilityL4Interval
+	providerReasonMachineOffline            = "machine_offline"
+	providerReasonMachineDegraded           = "machine_degraded"
+	providerReasonMachineMaintenance        = "machine_maintenance"
+	providerReasonL4SnapshotMissing         = "l4_snapshot_missing"
+	providerReasonStaleL4Snapshot           = "stale_l4_snapshot"
+	providerReasonCLIMissing                = "cli_missing"
+	providerReasonNotLoggedIn               = "not_logged_in"
+	providerReasonNotReady                  = "not_ready"
+	providerReasonConfigIncomplete          = "config_incomplete"
+	providerReasonUnsupportedAdapter        = "unsupported_adapter"
+	providerReasonRemoteMachineNotSupported = "remote_machine_not_supported"
+	providerReasonSkillAIRequiresCodex      = "skill_ai_requires_codex"
 )
 
 func DeriveAgentProviderAvailability(item AgentProvider, now time.Time) AgentProvider {
