@@ -308,14 +308,18 @@ var (
 	// AgentTokensColumns holds the columns for the "agent_tokens" table.
 	AgentTokensColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
+		{Name: "principal_kind", Type: field.TypeEnum, Enums: []string{"ticket_agent", "project_conversation"}},
+		{Name: "principal_id", Type: field.TypeUUID},
+		{Name: "principal_name", Type: field.TypeString},
 		{Name: "token_hash", Type: field.TypeString},
 		{Name: "scopes", Type: field.TypeJSON},
 		{Name: "expires_at", Type: field.TypeTime},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "last_used_at", Type: field.TypeTime, Nullable: true},
-		{Name: "agent_id", Type: field.TypeUUID},
+		{Name: "agent_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "conversation_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "project_id", Type: field.TypeUUID},
-		{Name: "ticket_id", Type: field.TypeUUID},
+		{Name: "ticket_id", Type: field.TypeUUID, Nullable: true},
 	}
 	// AgentTokensTable holds the schema information for the "agent_tokens" table.
 	AgentTokensTable = &schema.Table{
@@ -325,38 +329,54 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "agent_tokens_agents_tokens",
-				Columns:    []*schema.Column{AgentTokensColumns[6]},
+				Columns:    []*schema.Column{AgentTokensColumns[9]},
 				RefColumns: []*schema.Column{AgentsColumns[0]},
-				OnDelete:   schema.NoAction,
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "agent_tokens_chat_conversations_agent_tokens",
+				Columns:    []*schema.Column{AgentTokensColumns[10]},
+				RefColumns: []*schema.Column{ChatConversationsColumns[0]},
+				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "agent_tokens_projects_agent_tokens",
-				Columns:    []*schema.Column{AgentTokensColumns[7]},
+				Columns:    []*schema.Column{AgentTokensColumns[11]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agent_tokens_tickets_agent_tokens",
-				Columns:    []*schema.Column{AgentTokensColumns[8]},
+				Columns:    []*schema.Column{AgentTokensColumns[12]},
 				RefColumns: []*schema.Column{TicketsColumns[0]},
-				OnDelete:   schema.NoAction,
+				OnDelete:   schema.SetNull,
 			},
 		},
 		Indexes: []*schema.Index{
 			{
 				Name:    "agenttoken_token_hash",
 				Unique:  true,
-				Columns: []*schema.Column{AgentTokensColumns[1]},
+				Columns: []*schema.Column{AgentTokensColumns[4]},
 			},
 			{
 				Name:    "agenttoken_project_id_ticket_id",
 				Unique:  false,
-				Columns: []*schema.Column{AgentTokensColumns[7], AgentTokensColumns[8]},
+				Columns: []*schema.Column{AgentTokensColumns[11], AgentTokensColumns[12]},
+			},
+			{
+				Name:    "agenttoken_project_id_conversation_id",
+				Unique:  false,
+				Columns: []*schema.Column{AgentTokensColumns[11], AgentTokensColumns[10]},
+			},
+			{
+				Name:    "agenttoken_principal_kind_principal_id",
+				Unique:  false,
+				Columns: []*schema.Column{AgentTokensColumns[1], AgentTokensColumns[2]},
 			},
 			{
 				Name:    "agenttoken_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{AgentTokensColumns[3]},
+				Columns: []*schema.Column{AgentTokensColumns[6]},
 			},
 		},
 	}
@@ -840,6 +860,182 @@ var (
 				Name:    "project_organization_id_slug",
 				Unique:  true,
 				Columns: []*schema.Column{ProjectsColumns[9], ProjectsColumns[2]},
+			},
+		},
+	}
+	// ProjectConversationPrincipalsColumns holds the columns for the "project_conversation_principals" table.
+	ProjectConversationPrincipalsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "conversation_id", Type: field.TypeUUID, Unique: true},
+		{Name: "project_id", Type: field.TypeUUID},
+		{Name: "provider_id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"active", "closed"}, Default: "active"},
+		{Name: "runtime_state", Type: field.TypeEnum, Enums: []string{"inactive", "ready", "executing", "interrupted"}, Default: "inactive"},
+		{Name: "current_session_id", Type: field.TypeString, Nullable: true},
+		{Name: "current_workspace_path", Type: field.TypeString, Nullable: true},
+		{Name: "current_run_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "last_heartbeat_at", Type: field.TypeTime, Nullable: true},
+		{Name: "current_step_status", Type: field.TypeString, Nullable: true},
+		{Name: "current_step_summary", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "current_step_changed_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "closed_at", Type: field.TypeTime, Nullable: true},
+	}
+	// ProjectConversationPrincipalsTable holds the schema information for the "project_conversation_principals" table.
+	ProjectConversationPrincipalsTable = &schema.Table{
+		Name:       "project_conversation_principals",
+		Columns:    ProjectConversationPrincipalsColumns,
+		PrimaryKey: []*schema.Column{ProjectConversationPrincipalsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "projectconversationprincipal_project_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectConversationPrincipalsColumns[2], ProjectConversationPrincipalsColumns[5]},
+			},
+			{
+				Name:    "projectconversationprincipal_project_id_runtime_state",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectConversationPrincipalsColumns[2], ProjectConversationPrincipalsColumns[6]},
+			},
+			{
+				Name:    "projectconversationprincipal_current_run_id",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectConversationPrincipalsColumns[9]},
+			},
+		},
+	}
+	// ProjectConversationRunsColumns holds the columns for the "project_conversation_runs" table.
+	ProjectConversationRunsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "principal_id", Type: field.TypeUUID},
+		{Name: "conversation_id", Type: field.TypeUUID},
+		{Name: "project_id", Type: field.TypeUUID},
+		{Name: "provider_id", Type: field.TypeUUID},
+		{Name: "turn_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"launching", "executing", "interrupted", "completed", "failed", "terminated"}},
+		{Name: "session_id", Type: field.TypeString, Nullable: true},
+		{Name: "workspace_path", Type: field.TypeString, Nullable: true},
+		{Name: "provider_thread_id", Type: field.TypeString, Nullable: true},
+		{Name: "provider_turn_id", Type: field.TypeString, Nullable: true},
+		{Name: "runtime_started_at", Type: field.TypeTime, Nullable: true},
+		{Name: "terminal_at", Type: field.TypeTime, Nullable: true},
+		{Name: "last_error", Type: field.TypeString, Nullable: true},
+		{Name: "last_heartbeat_at", Type: field.TypeTime, Nullable: true},
+		{Name: "cost_amount", Type: field.TypeFloat64, Default: 0},
+		{Name: "input_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "output_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "cached_input_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "cache_creation_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "reasoning_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "prompt_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "candidate_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "tool_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "total_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "current_step_status", Type: field.TypeString, Nullable: true},
+		{Name: "current_step_summary", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "current_step_changed_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// ProjectConversationRunsTable holds the schema information for the "project_conversation_runs" table.
+	ProjectConversationRunsTable = &schema.Table{
+		Name:       "project_conversation_runs",
+		Columns:    ProjectConversationRunsColumns,
+		PrimaryKey: []*schema.Column{ProjectConversationRunsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "projectconversationrun_principal_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectConversationRunsColumns[1], ProjectConversationRunsColumns[28]},
+			},
+			{
+				Name:    "projectconversationrun_conversation_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectConversationRunsColumns[2], ProjectConversationRunsColumns[28]},
+			},
+			{
+				Name:    "projectconversationrun_status_last_heartbeat_at",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectConversationRunsColumns[6], ProjectConversationRunsColumns[14]},
+			},
+			{
+				Name:    "projectconversationrun_turn_id",
+				Unique:  true,
+				Columns: []*schema.Column{ProjectConversationRunsColumns[5]},
+			},
+		},
+	}
+	// ProjectConversationStepEventsColumns holds the columns for the "project_conversation_step_events" table.
+	ProjectConversationStepEventsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "principal_id", Type: field.TypeUUID},
+		{Name: "run_id", Type: field.TypeUUID},
+		{Name: "conversation_id", Type: field.TypeUUID},
+		{Name: "project_id", Type: field.TypeUUID},
+		{Name: "step_status", Type: field.TypeString},
+		{Name: "summary", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "source_trace_event_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// ProjectConversationStepEventsTable holds the schema information for the "project_conversation_step_events" table.
+	ProjectConversationStepEventsTable = &schema.Table{
+		Name:       "project_conversation_step_events",
+		Columns:    ProjectConversationStepEventsColumns,
+		PrimaryKey: []*schema.Column{ProjectConversationStepEventsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "projectconversationstepevent_run_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectConversationStepEventsColumns[2], ProjectConversationStepEventsColumns[8]},
+			},
+			{
+				Name:    "projectconversationstepevent_conversation_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectConversationStepEventsColumns[3], ProjectConversationStepEventsColumns[8]},
+			},
+			{
+				Name:    "projectconversationstepevent_principal_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectConversationStepEventsColumns[1], ProjectConversationStepEventsColumns[8]},
+			},
+		},
+	}
+	// ProjectConversationTraceEventsColumns holds the columns for the "project_conversation_trace_events" table.
+	ProjectConversationTraceEventsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "principal_id", Type: field.TypeUUID},
+		{Name: "run_id", Type: field.TypeUUID},
+		{Name: "conversation_id", Type: field.TypeUUID},
+		{Name: "project_id", Type: field.TypeUUID},
+		{Name: "sequence", Type: field.TypeInt64},
+		{Name: "provider", Type: field.TypeString},
+		{Name: "kind", Type: field.TypeString},
+		{Name: "stream", Type: field.TypeString},
+		{Name: "text", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "payload", Type: field.TypeJSON},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// ProjectConversationTraceEventsTable holds the schema information for the "project_conversation_trace_events" table.
+	ProjectConversationTraceEventsTable = &schema.Table{
+		Name:       "project_conversation_trace_events",
+		Columns:    ProjectConversationTraceEventsColumns,
+		PrimaryKey: []*schema.Column{ProjectConversationTraceEventsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "projectconversationtraceevent_run_id_sequence",
+				Unique:  true,
+				Columns: []*schema.Column{ProjectConversationTraceEventsColumns[2], ProjectConversationTraceEventsColumns[5]},
+			},
+			{
+				Name:    "projectconversationtraceevent_conversation_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectConversationTraceEventsColumns[3], ProjectConversationTraceEventsColumns[11]},
+			},
+			{
+				Name:    "projectconversationtraceevent_principal_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectConversationTraceEventsColumns[1], ProjectConversationTraceEventsColumns[11]},
 			},
 		},
 	}
@@ -1828,6 +2024,10 @@ var (
 		OrganizationsTable,
 		OrganizationDailyTokenUsagesTable,
 		ProjectsTable,
+		ProjectConversationPrincipalsTable,
+		ProjectConversationRunsTable,
+		ProjectConversationStepEventsTable,
+		ProjectConversationTraceEventsTable,
 		ProjectReposTable,
 		ProjectUpdateCommentsTable,
 		ProjectUpdateCommentRevisionsTable,
@@ -1873,8 +2073,9 @@ func init() {
 	AgentStepEventsTable.ForeignKeys[3].RefTable = ProjectsTable
 	AgentStepEventsTable.ForeignKeys[4].RefTable = TicketsTable
 	AgentTokensTable.ForeignKeys[0].RefTable = AgentsTable
-	AgentTokensTable.ForeignKeys[1].RefTable = ProjectsTable
-	AgentTokensTable.ForeignKeys[2].RefTable = TicketsTable
+	AgentTokensTable.ForeignKeys[1].RefTable = ChatConversationsTable
+	AgentTokensTable.ForeignKeys[2].RefTable = ProjectsTable
+	AgentTokensTable.ForeignKeys[3].RefTable = TicketsTable
 	AgentTraceEventsTable.ForeignKeys[0].RefTable = AgentsTable
 	AgentTraceEventsTable.ForeignKeys[1].RefTable = AgentRunsTable
 	AgentTraceEventsTable.ForeignKeys[2].RefTable = ProjectsTable

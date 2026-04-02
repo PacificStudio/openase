@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
+	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
@@ -47,6 +48,12 @@ func (_u *AgentTokenUpdate) SetNillableAgentID(v *uuid.UUID) *AgentTokenUpdate {
 	return _u
 }
 
+// ClearAgentID clears the value of the "agent_id" field.
+func (_u *AgentTokenUpdate) ClearAgentID() *AgentTokenUpdate {
+	_u.mutation.ClearAgentID()
+	return _u
+}
+
 // SetProjectID sets the "project_id" field.
 func (_u *AgentTokenUpdate) SetProjectID(v uuid.UUID) *AgentTokenUpdate {
 	_u.mutation.SetProjectID(v)
@@ -71,6 +78,74 @@ func (_u *AgentTokenUpdate) SetTicketID(v uuid.UUID) *AgentTokenUpdate {
 func (_u *AgentTokenUpdate) SetNillableTicketID(v *uuid.UUID) *AgentTokenUpdate {
 	if v != nil {
 		_u.SetTicketID(*v)
+	}
+	return _u
+}
+
+// ClearTicketID clears the value of the "ticket_id" field.
+func (_u *AgentTokenUpdate) ClearTicketID() *AgentTokenUpdate {
+	_u.mutation.ClearTicketID()
+	return _u
+}
+
+// SetConversationID sets the "conversation_id" field.
+func (_u *AgentTokenUpdate) SetConversationID(v uuid.UUID) *AgentTokenUpdate {
+	_u.mutation.SetConversationID(v)
+	return _u
+}
+
+// SetNillableConversationID sets the "conversation_id" field if the given value is not nil.
+func (_u *AgentTokenUpdate) SetNillableConversationID(v *uuid.UUID) *AgentTokenUpdate {
+	if v != nil {
+		_u.SetConversationID(*v)
+	}
+	return _u
+}
+
+// ClearConversationID clears the value of the "conversation_id" field.
+func (_u *AgentTokenUpdate) ClearConversationID() *AgentTokenUpdate {
+	_u.mutation.ClearConversationID()
+	return _u
+}
+
+// SetPrincipalKind sets the "principal_kind" field.
+func (_u *AgentTokenUpdate) SetPrincipalKind(v agenttoken.PrincipalKind) *AgentTokenUpdate {
+	_u.mutation.SetPrincipalKind(v)
+	return _u
+}
+
+// SetNillablePrincipalKind sets the "principal_kind" field if the given value is not nil.
+func (_u *AgentTokenUpdate) SetNillablePrincipalKind(v *agenttoken.PrincipalKind) *AgentTokenUpdate {
+	if v != nil {
+		_u.SetPrincipalKind(*v)
+	}
+	return _u
+}
+
+// SetPrincipalID sets the "principal_id" field.
+func (_u *AgentTokenUpdate) SetPrincipalID(v uuid.UUID) *AgentTokenUpdate {
+	_u.mutation.SetPrincipalID(v)
+	return _u
+}
+
+// SetNillablePrincipalID sets the "principal_id" field if the given value is not nil.
+func (_u *AgentTokenUpdate) SetNillablePrincipalID(v *uuid.UUID) *AgentTokenUpdate {
+	if v != nil {
+		_u.SetPrincipalID(*v)
+	}
+	return _u
+}
+
+// SetPrincipalName sets the "principal_name" field.
+func (_u *AgentTokenUpdate) SetPrincipalName(v string) *AgentTokenUpdate {
+	_u.mutation.SetPrincipalName(v)
+	return _u
+}
+
+// SetNillablePrincipalName sets the "principal_name" field if the given value is not nil.
+func (_u *AgentTokenUpdate) SetNillablePrincipalName(v *string) *AgentTokenUpdate {
+	if v != nil {
+		_u.SetPrincipalName(*v)
 	}
 	return _u
 }
@@ -150,6 +225,11 @@ func (_u *AgentTokenUpdate) SetTicket(v *Ticket) *AgentTokenUpdate {
 	return _u.SetTicketID(v.ID)
 }
 
+// SetConversation sets the "conversation" edge to the ChatConversation entity.
+func (_u *AgentTokenUpdate) SetConversation(v *ChatConversation) *AgentTokenUpdate {
+	return _u.SetConversationID(v.ID)
+}
+
 // Mutation returns the AgentTokenMutation object of the builder.
 func (_u *AgentTokenUpdate) Mutation() *AgentTokenMutation {
 	return _u.mutation
@@ -170,6 +250,12 @@ func (_u *AgentTokenUpdate) ClearProject() *AgentTokenUpdate {
 // ClearTicket clears the "ticket" edge to the Ticket entity.
 func (_u *AgentTokenUpdate) ClearTicket() *AgentTokenUpdate {
 	_u.mutation.ClearTicket()
+	return _u
+}
+
+// ClearConversation clears the "conversation" edge to the ChatConversation entity.
+func (_u *AgentTokenUpdate) ClearConversation() *AgentTokenUpdate {
+	_u.mutation.ClearConversation()
 	return _u
 }
 
@@ -202,19 +288,23 @@ func (_u *AgentTokenUpdate) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *AgentTokenUpdate) check() error {
+	if v, ok := _u.mutation.PrincipalKind(); ok {
+		if err := agenttoken.PrincipalKindValidator(v); err != nil {
+			return &ValidationError{Name: "principal_kind", err: fmt.Errorf(`ent: validator failed for field "AgentToken.principal_kind": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.PrincipalName(); ok {
+		if err := agenttoken.PrincipalNameValidator(v); err != nil {
+			return &ValidationError{Name: "principal_name", err: fmt.Errorf(`ent: validator failed for field "AgentToken.principal_name": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.TokenHash(); ok {
 		if err := agenttoken.TokenHashValidator(v); err != nil {
 			return &ValidationError{Name: "token_hash", err: fmt.Errorf(`ent: validator failed for field "AgentToken.token_hash": %w`, err)}
 		}
 	}
-	if _u.mutation.AgentCleared() && len(_u.mutation.AgentIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "AgentToken.agent"`)
-	}
 	if _u.mutation.ProjectCleared() && len(_u.mutation.ProjectIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "AgentToken.project"`)
-	}
-	if _u.mutation.TicketCleared() && len(_u.mutation.TicketIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "AgentToken.ticket"`)
 	}
 	return nil
 }
@@ -230,6 +320,15 @@ func (_u *AgentTokenUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := _u.mutation.PrincipalKind(); ok {
+		_spec.SetField(agenttoken.FieldPrincipalKind, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.PrincipalID(); ok {
+		_spec.SetField(agenttoken.FieldPrincipalID, field.TypeUUID, value)
+	}
+	if value, ok := _u.mutation.PrincipalName(); ok {
+		_spec.SetField(agenttoken.FieldPrincipalName, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.TokenHash(); ok {
 		_spec.SetField(agenttoken.FieldTokenHash, field.TypeString, value)
@@ -338,6 +437,35 @@ func (_u *AgentTokenUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.ConversationCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   agenttoken.ConversationTable,
+			Columns: []string{agenttoken.ConversationColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatconversation.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ConversationIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   agenttoken.ConversationTable,
+			Columns: []string{agenttoken.ConversationColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatconversation.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{agenttoken.Label}
@@ -372,6 +500,12 @@ func (_u *AgentTokenUpdateOne) SetNillableAgentID(v *uuid.UUID) *AgentTokenUpdat
 	return _u
 }
 
+// ClearAgentID clears the value of the "agent_id" field.
+func (_u *AgentTokenUpdateOne) ClearAgentID() *AgentTokenUpdateOne {
+	_u.mutation.ClearAgentID()
+	return _u
+}
+
 // SetProjectID sets the "project_id" field.
 func (_u *AgentTokenUpdateOne) SetProjectID(v uuid.UUID) *AgentTokenUpdateOne {
 	_u.mutation.SetProjectID(v)
@@ -396,6 +530,74 @@ func (_u *AgentTokenUpdateOne) SetTicketID(v uuid.UUID) *AgentTokenUpdateOne {
 func (_u *AgentTokenUpdateOne) SetNillableTicketID(v *uuid.UUID) *AgentTokenUpdateOne {
 	if v != nil {
 		_u.SetTicketID(*v)
+	}
+	return _u
+}
+
+// ClearTicketID clears the value of the "ticket_id" field.
+func (_u *AgentTokenUpdateOne) ClearTicketID() *AgentTokenUpdateOne {
+	_u.mutation.ClearTicketID()
+	return _u
+}
+
+// SetConversationID sets the "conversation_id" field.
+func (_u *AgentTokenUpdateOne) SetConversationID(v uuid.UUID) *AgentTokenUpdateOne {
+	_u.mutation.SetConversationID(v)
+	return _u
+}
+
+// SetNillableConversationID sets the "conversation_id" field if the given value is not nil.
+func (_u *AgentTokenUpdateOne) SetNillableConversationID(v *uuid.UUID) *AgentTokenUpdateOne {
+	if v != nil {
+		_u.SetConversationID(*v)
+	}
+	return _u
+}
+
+// ClearConversationID clears the value of the "conversation_id" field.
+func (_u *AgentTokenUpdateOne) ClearConversationID() *AgentTokenUpdateOne {
+	_u.mutation.ClearConversationID()
+	return _u
+}
+
+// SetPrincipalKind sets the "principal_kind" field.
+func (_u *AgentTokenUpdateOne) SetPrincipalKind(v agenttoken.PrincipalKind) *AgentTokenUpdateOne {
+	_u.mutation.SetPrincipalKind(v)
+	return _u
+}
+
+// SetNillablePrincipalKind sets the "principal_kind" field if the given value is not nil.
+func (_u *AgentTokenUpdateOne) SetNillablePrincipalKind(v *agenttoken.PrincipalKind) *AgentTokenUpdateOne {
+	if v != nil {
+		_u.SetPrincipalKind(*v)
+	}
+	return _u
+}
+
+// SetPrincipalID sets the "principal_id" field.
+func (_u *AgentTokenUpdateOne) SetPrincipalID(v uuid.UUID) *AgentTokenUpdateOne {
+	_u.mutation.SetPrincipalID(v)
+	return _u
+}
+
+// SetNillablePrincipalID sets the "principal_id" field if the given value is not nil.
+func (_u *AgentTokenUpdateOne) SetNillablePrincipalID(v *uuid.UUID) *AgentTokenUpdateOne {
+	if v != nil {
+		_u.SetPrincipalID(*v)
+	}
+	return _u
+}
+
+// SetPrincipalName sets the "principal_name" field.
+func (_u *AgentTokenUpdateOne) SetPrincipalName(v string) *AgentTokenUpdateOne {
+	_u.mutation.SetPrincipalName(v)
+	return _u
+}
+
+// SetNillablePrincipalName sets the "principal_name" field if the given value is not nil.
+func (_u *AgentTokenUpdateOne) SetNillablePrincipalName(v *string) *AgentTokenUpdateOne {
+	if v != nil {
+		_u.SetPrincipalName(*v)
 	}
 	return _u
 }
@@ -475,6 +677,11 @@ func (_u *AgentTokenUpdateOne) SetTicket(v *Ticket) *AgentTokenUpdateOne {
 	return _u.SetTicketID(v.ID)
 }
 
+// SetConversation sets the "conversation" edge to the ChatConversation entity.
+func (_u *AgentTokenUpdateOne) SetConversation(v *ChatConversation) *AgentTokenUpdateOne {
+	return _u.SetConversationID(v.ID)
+}
+
 // Mutation returns the AgentTokenMutation object of the builder.
 func (_u *AgentTokenUpdateOne) Mutation() *AgentTokenMutation {
 	return _u.mutation
@@ -495,6 +702,12 @@ func (_u *AgentTokenUpdateOne) ClearProject() *AgentTokenUpdateOne {
 // ClearTicket clears the "ticket" edge to the Ticket entity.
 func (_u *AgentTokenUpdateOne) ClearTicket() *AgentTokenUpdateOne {
 	_u.mutation.ClearTicket()
+	return _u
+}
+
+// ClearConversation clears the "conversation" edge to the ChatConversation entity.
+func (_u *AgentTokenUpdateOne) ClearConversation() *AgentTokenUpdateOne {
+	_u.mutation.ClearConversation()
 	return _u
 }
 
@@ -540,19 +753,23 @@ func (_u *AgentTokenUpdateOne) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *AgentTokenUpdateOne) check() error {
+	if v, ok := _u.mutation.PrincipalKind(); ok {
+		if err := agenttoken.PrincipalKindValidator(v); err != nil {
+			return &ValidationError{Name: "principal_kind", err: fmt.Errorf(`ent: validator failed for field "AgentToken.principal_kind": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.PrincipalName(); ok {
+		if err := agenttoken.PrincipalNameValidator(v); err != nil {
+			return &ValidationError{Name: "principal_name", err: fmt.Errorf(`ent: validator failed for field "AgentToken.principal_name": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.TokenHash(); ok {
 		if err := agenttoken.TokenHashValidator(v); err != nil {
 			return &ValidationError{Name: "token_hash", err: fmt.Errorf(`ent: validator failed for field "AgentToken.token_hash": %w`, err)}
 		}
 	}
-	if _u.mutation.AgentCleared() && len(_u.mutation.AgentIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "AgentToken.agent"`)
-	}
 	if _u.mutation.ProjectCleared() && len(_u.mutation.ProjectIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "AgentToken.project"`)
-	}
-	if _u.mutation.TicketCleared() && len(_u.mutation.TicketIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "AgentToken.ticket"`)
 	}
 	return nil
 }
@@ -585,6 +802,15 @@ func (_u *AgentTokenUpdateOne) sqlSave(ctx context.Context) (_node *AgentToken, 
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := _u.mutation.PrincipalKind(); ok {
+		_spec.SetField(agenttoken.FieldPrincipalKind, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.PrincipalID(); ok {
+		_spec.SetField(agenttoken.FieldPrincipalID, field.TypeUUID, value)
+	}
+	if value, ok := _u.mutation.PrincipalName(); ok {
+		_spec.SetField(agenttoken.FieldPrincipalName, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.TokenHash(); ok {
 		_spec.SetField(agenttoken.FieldTokenHash, field.TypeString, value)
@@ -686,6 +912,35 @@ func (_u *AgentTokenUpdateOne) sqlSave(ctx context.Context) (_node *AgentToken, 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ConversationCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   agenttoken.ConversationTable,
+			Columns: []string{agenttoken.ConversationColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatconversation.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ConversationIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   agenttoken.ConversationTable,
+			Columns: []string{agenttoken.ConversationColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatconversation.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
