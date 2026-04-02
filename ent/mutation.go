@@ -29,6 +29,10 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/organizationdailytokenusage"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
+	"github.com/BetterAndBetterII/openase/ent/projectconversationprincipal"
+	"github.com/BetterAndBetterII/openase/ent/projectconversationrun"
+	"github.com/BetterAndBetterII/openase/ent/projectconversationstepevent"
+	"github.com/BetterAndBetterII/openase/ent/projectconversationtraceevent"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatecomment"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatecommentrevision"
@@ -64,44 +68,48 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeActivityEvent                = "ActivityEvent"
-	TypeAgent                        = "Agent"
-	TypeAgentProvider                = "AgentProvider"
-	TypeAgentRun                     = "AgentRun"
-	TypeAgentStepEvent               = "AgentStepEvent"
-	TypeAgentToken                   = "AgentToken"
-	TypeAgentTraceEvent              = "AgentTraceEvent"
-	TypeChatConversation             = "ChatConversation"
-	TypeChatEntry                    = "ChatEntry"
-	TypeChatPendingInterrupt         = "ChatPendingInterrupt"
-	TypeChatTurn                     = "ChatTurn"
-	TypeMachine                      = "Machine"
-	TypeNotificationChannel          = "NotificationChannel"
-	TypeNotificationRule             = "NotificationRule"
-	TypeOrganization                 = "Organization"
-	TypeOrganizationDailyTokenUsage  = "OrganizationDailyTokenUsage"
-	TypeProject                      = "Project"
-	TypeProjectRepo                  = "ProjectRepo"
-	TypeProjectUpdateComment         = "ProjectUpdateComment"
-	TypeProjectUpdateCommentRevision = "ProjectUpdateCommentRevision"
-	TypeProjectUpdateThread          = "ProjectUpdateThread"
-	TypeProjectUpdateThreadRevision  = "ProjectUpdateThreadRevision"
-	TypeScheduledJob                 = "ScheduledJob"
-	TypeSkill                        = "Skill"
-	TypeSkillBlob                    = "SkillBlob"
-	TypeSkillVersion                 = "SkillVersion"
-	TypeSkillVersionFile             = "SkillVersionFile"
-	TypeTicket                       = "Ticket"
-	TypeTicketComment                = "TicketComment"
-	TypeTicketCommentRevision        = "TicketCommentRevision"
-	TypeTicketDependency             = "TicketDependency"
-	TypeTicketExternalLink           = "TicketExternalLink"
-	TypeTicketRepoScope              = "TicketRepoScope"
-	TypeTicketRepoWorkspace          = "TicketRepoWorkspace"
-	TypeTicketStatus                 = "TicketStatus"
-	TypeWorkflow                     = "Workflow"
-	TypeWorkflowSkillBinding         = "WorkflowSkillBinding"
-	TypeWorkflowVersion              = "WorkflowVersion"
+	TypeActivityEvent                 = "ActivityEvent"
+	TypeAgent                         = "Agent"
+	TypeAgentProvider                 = "AgentProvider"
+	TypeAgentRun                      = "AgentRun"
+	TypeAgentStepEvent                = "AgentStepEvent"
+	TypeAgentToken                    = "AgentToken"
+	TypeAgentTraceEvent               = "AgentTraceEvent"
+	TypeChatConversation              = "ChatConversation"
+	TypeChatEntry                     = "ChatEntry"
+	TypeChatPendingInterrupt          = "ChatPendingInterrupt"
+	TypeChatTurn                      = "ChatTurn"
+	TypeMachine                       = "Machine"
+	TypeNotificationChannel           = "NotificationChannel"
+	TypeNotificationRule              = "NotificationRule"
+	TypeOrganization                  = "Organization"
+	TypeOrganizationDailyTokenUsage   = "OrganizationDailyTokenUsage"
+	TypeProject                       = "Project"
+	TypeProjectConversationPrincipal  = "ProjectConversationPrincipal"
+	TypeProjectConversationRun        = "ProjectConversationRun"
+	TypeProjectConversationStepEvent  = "ProjectConversationStepEvent"
+	TypeProjectConversationTraceEvent = "ProjectConversationTraceEvent"
+	TypeProjectRepo                   = "ProjectRepo"
+	TypeProjectUpdateComment          = "ProjectUpdateComment"
+	TypeProjectUpdateCommentRevision  = "ProjectUpdateCommentRevision"
+	TypeProjectUpdateThread           = "ProjectUpdateThread"
+	TypeProjectUpdateThreadRevision   = "ProjectUpdateThreadRevision"
+	TypeScheduledJob                  = "ScheduledJob"
+	TypeSkill                         = "Skill"
+	TypeSkillBlob                     = "SkillBlob"
+	TypeSkillVersion                  = "SkillVersion"
+	TypeSkillVersionFile              = "SkillVersionFile"
+	TypeTicket                        = "Ticket"
+	TypeTicketComment                 = "TicketComment"
+	TypeTicketCommentRevision         = "TicketCommentRevision"
+	TypeTicketDependency              = "TicketDependency"
+	TypeTicketExternalLink            = "TicketExternalLink"
+	TypeTicketRepoScope               = "TicketRepoScope"
+	TypeTicketRepoWorkspace           = "TicketRepoWorkspace"
+	TypeTicketStatus                  = "TicketStatus"
+	TypeWorkflow                      = "Workflow"
+	TypeWorkflowSkillBinding          = "WorkflowSkillBinding"
+	TypeWorkflowVersion               = "WorkflowVersion"
 )
 
 // ActivityEventMutation represents an operation that mutates the ActivityEvent nodes in the graph.
@@ -7668,25 +7676,30 @@ func (m *AgentStepEventMutation) ResetEdge(name string) error {
 // AgentTokenMutation represents an operation that mutates the AgentToken nodes in the graph.
 type AgentTokenMutation struct {
 	config
-	op             Op
-	typ            string
-	id             *uuid.UUID
-	token_hash     *string
-	scopes         *[]string
-	appendscopes   []string
-	expires_at     *time.Time
-	created_at     *time.Time
-	last_used_at   *time.Time
-	clearedFields  map[string]struct{}
-	agent          *uuid.UUID
-	clearedagent   bool
-	project        *uuid.UUID
-	clearedproject bool
-	ticket         *uuid.UUID
-	clearedticket  bool
-	done           bool
-	oldValue       func(context.Context) (*AgentToken, error)
-	predicates     []predicate.AgentToken
+	op                  Op
+	typ                 string
+	id                  *uuid.UUID
+	principal_kind      *agenttoken.PrincipalKind
+	principal_id        *uuid.UUID
+	principal_name      *string
+	token_hash          *string
+	scopes              *[]string
+	appendscopes        []string
+	expires_at          *time.Time
+	created_at          *time.Time
+	last_used_at        *time.Time
+	clearedFields       map[string]struct{}
+	agent               *uuid.UUID
+	clearedagent        bool
+	project             *uuid.UUID
+	clearedproject      bool
+	ticket              *uuid.UUID
+	clearedticket       bool
+	conversation        *uuid.UUID
+	clearedconversation bool
+	done                bool
+	oldValue            func(context.Context) (*AgentToken, error)
+	predicates          []predicate.AgentToken
 }
 
 var _ ent.Mutation = (*AgentTokenMutation)(nil)
@@ -7810,7 +7823,7 @@ func (m *AgentTokenMutation) AgentID() (r uuid.UUID, exists bool) {
 // OldAgentID returns the old "agent_id" field's value of the AgentToken entity.
 // If the AgentToken object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *AgentTokenMutation) OldAgentID(ctx context.Context) (v uuid.UUID, err error) {
+func (m *AgentTokenMutation) OldAgentID(ctx context.Context) (v *uuid.UUID, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldAgentID is only allowed on UpdateOne operations")
 	}
@@ -7824,9 +7837,22 @@ func (m *AgentTokenMutation) OldAgentID(ctx context.Context) (v uuid.UUID, err e
 	return oldValue.AgentID, nil
 }
 
+// ClearAgentID clears the value of the "agent_id" field.
+func (m *AgentTokenMutation) ClearAgentID() {
+	m.agent = nil
+	m.clearedFields[agenttoken.FieldAgentID] = struct{}{}
+}
+
+// AgentIDCleared returns if the "agent_id" field was cleared in this mutation.
+func (m *AgentTokenMutation) AgentIDCleared() bool {
+	_, ok := m.clearedFields[agenttoken.FieldAgentID]
+	return ok
+}
+
 // ResetAgentID resets all changes to the "agent_id" field.
 func (m *AgentTokenMutation) ResetAgentID() {
 	m.agent = nil
+	delete(m.clearedFields, agenttoken.FieldAgentID)
 }
 
 // SetProjectID sets the "project_id" field.
@@ -7882,7 +7908,7 @@ func (m *AgentTokenMutation) TicketID() (r uuid.UUID, exists bool) {
 // OldTicketID returns the old "ticket_id" field's value of the AgentToken entity.
 // If the AgentToken object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *AgentTokenMutation) OldTicketID(ctx context.Context) (v uuid.UUID, err error) {
+func (m *AgentTokenMutation) OldTicketID(ctx context.Context) (v *uuid.UUID, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldTicketID is only allowed on UpdateOne operations")
 	}
@@ -7896,9 +7922,179 @@ func (m *AgentTokenMutation) OldTicketID(ctx context.Context) (v uuid.UUID, err 
 	return oldValue.TicketID, nil
 }
 
+// ClearTicketID clears the value of the "ticket_id" field.
+func (m *AgentTokenMutation) ClearTicketID() {
+	m.ticket = nil
+	m.clearedFields[agenttoken.FieldTicketID] = struct{}{}
+}
+
+// TicketIDCleared returns if the "ticket_id" field was cleared in this mutation.
+func (m *AgentTokenMutation) TicketIDCleared() bool {
+	_, ok := m.clearedFields[agenttoken.FieldTicketID]
+	return ok
+}
+
 // ResetTicketID resets all changes to the "ticket_id" field.
 func (m *AgentTokenMutation) ResetTicketID() {
 	m.ticket = nil
+	delete(m.clearedFields, agenttoken.FieldTicketID)
+}
+
+// SetConversationID sets the "conversation_id" field.
+func (m *AgentTokenMutation) SetConversationID(u uuid.UUID) {
+	m.conversation = &u
+}
+
+// ConversationID returns the value of the "conversation_id" field in the mutation.
+func (m *AgentTokenMutation) ConversationID() (r uuid.UUID, exists bool) {
+	v := m.conversation
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConversationID returns the old "conversation_id" field's value of the AgentToken entity.
+// If the AgentToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTokenMutation) OldConversationID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConversationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConversationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConversationID: %w", err)
+	}
+	return oldValue.ConversationID, nil
+}
+
+// ClearConversationID clears the value of the "conversation_id" field.
+func (m *AgentTokenMutation) ClearConversationID() {
+	m.conversation = nil
+	m.clearedFields[agenttoken.FieldConversationID] = struct{}{}
+}
+
+// ConversationIDCleared returns if the "conversation_id" field was cleared in this mutation.
+func (m *AgentTokenMutation) ConversationIDCleared() bool {
+	_, ok := m.clearedFields[agenttoken.FieldConversationID]
+	return ok
+}
+
+// ResetConversationID resets all changes to the "conversation_id" field.
+func (m *AgentTokenMutation) ResetConversationID() {
+	m.conversation = nil
+	delete(m.clearedFields, agenttoken.FieldConversationID)
+}
+
+// SetPrincipalKind sets the "principal_kind" field.
+func (m *AgentTokenMutation) SetPrincipalKind(ak agenttoken.PrincipalKind) {
+	m.principal_kind = &ak
+}
+
+// PrincipalKind returns the value of the "principal_kind" field in the mutation.
+func (m *AgentTokenMutation) PrincipalKind() (r agenttoken.PrincipalKind, exists bool) {
+	v := m.principal_kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPrincipalKind returns the old "principal_kind" field's value of the AgentToken entity.
+// If the AgentToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTokenMutation) OldPrincipalKind(ctx context.Context) (v agenttoken.PrincipalKind, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPrincipalKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPrincipalKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPrincipalKind: %w", err)
+	}
+	return oldValue.PrincipalKind, nil
+}
+
+// ResetPrincipalKind resets all changes to the "principal_kind" field.
+func (m *AgentTokenMutation) ResetPrincipalKind() {
+	m.principal_kind = nil
+}
+
+// SetPrincipalID sets the "principal_id" field.
+func (m *AgentTokenMutation) SetPrincipalID(u uuid.UUID) {
+	m.principal_id = &u
+}
+
+// PrincipalID returns the value of the "principal_id" field in the mutation.
+func (m *AgentTokenMutation) PrincipalID() (r uuid.UUID, exists bool) {
+	v := m.principal_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPrincipalID returns the old "principal_id" field's value of the AgentToken entity.
+// If the AgentToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTokenMutation) OldPrincipalID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPrincipalID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPrincipalID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPrincipalID: %w", err)
+	}
+	return oldValue.PrincipalID, nil
+}
+
+// ResetPrincipalID resets all changes to the "principal_id" field.
+func (m *AgentTokenMutation) ResetPrincipalID() {
+	m.principal_id = nil
+}
+
+// SetPrincipalName sets the "principal_name" field.
+func (m *AgentTokenMutation) SetPrincipalName(s string) {
+	m.principal_name = &s
+}
+
+// PrincipalName returns the value of the "principal_name" field in the mutation.
+func (m *AgentTokenMutation) PrincipalName() (r string, exists bool) {
+	v := m.principal_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPrincipalName returns the old "principal_name" field's value of the AgentToken entity.
+// If the AgentToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTokenMutation) OldPrincipalName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPrincipalName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPrincipalName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPrincipalName: %w", err)
+	}
+	return oldValue.PrincipalName, nil
+}
+
+// ResetPrincipalName resets all changes to the "principal_name" field.
+func (m *AgentTokenMutation) ResetPrincipalName() {
+	m.principal_name = nil
 }
 
 // SetTokenHash sets the "token_hash" field.
@@ -8117,7 +8313,7 @@ func (m *AgentTokenMutation) ClearAgent() {
 
 // AgentCleared reports if the "agent" edge to the Agent entity was cleared.
 func (m *AgentTokenMutation) AgentCleared() bool {
-	return m.clearedagent
+	return m.AgentIDCleared() || m.clearedagent
 }
 
 // AgentIDs returns the "agent" edge IDs in the mutation.
@@ -8171,7 +8367,7 @@ func (m *AgentTokenMutation) ClearTicket() {
 
 // TicketCleared reports if the "ticket" edge to the Ticket entity was cleared.
 func (m *AgentTokenMutation) TicketCleared() bool {
-	return m.clearedticket
+	return m.TicketIDCleared() || m.clearedticket
 }
 
 // TicketIDs returns the "ticket" edge IDs in the mutation.
@@ -8188,6 +8384,33 @@ func (m *AgentTokenMutation) TicketIDs() (ids []uuid.UUID) {
 func (m *AgentTokenMutation) ResetTicket() {
 	m.ticket = nil
 	m.clearedticket = false
+}
+
+// ClearConversation clears the "conversation" edge to the ChatConversation entity.
+func (m *AgentTokenMutation) ClearConversation() {
+	m.clearedconversation = true
+	m.clearedFields[agenttoken.FieldConversationID] = struct{}{}
+}
+
+// ConversationCleared reports if the "conversation" edge to the ChatConversation entity was cleared.
+func (m *AgentTokenMutation) ConversationCleared() bool {
+	return m.ConversationIDCleared() || m.clearedconversation
+}
+
+// ConversationIDs returns the "conversation" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ConversationID instead. It exists only for internal usage by the builders.
+func (m *AgentTokenMutation) ConversationIDs() (ids []uuid.UUID) {
+	if id := m.conversation; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetConversation resets all changes to the "conversation" edge.
+func (m *AgentTokenMutation) ResetConversation() {
+	m.conversation = nil
+	m.clearedconversation = false
 }
 
 // Where appends a list predicates to the AgentTokenMutation builder.
@@ -8224,7 +8447,7 @@ func (m *AgentTokenMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentTokenMutation) Fields() []string {
-	fields := make([]string, 0, 8)
+	fields := make([]string, 0, 12)
 	if m.agent != nil {
 		fields = append(fields, agenttoken.FieldAgentID)
 	}
@@ -8233,6 +8456,18 @@ func (m *AgentTokenMutation) Fields() []string {
 	}
 	if m.ticket != nil {
 		fields = append(fields, agenttoken.FieldTicketID)
+	}
+	if m.conversation != nil {
+		fields = append(fields, agenttoken.FieldConversationID)
+	}
+	if m.principal_kind != nil {
+		fields = append(fields, agenttoken.FieldPrincipalKind)
+	}
+	if m.principal_id != nil {
+		fields = append(fields, agenttoken.FieldPrincipalID)
+	}
+	if m.principal_name != nil {
+		fields = append(fields, agenttoken.FieldPrincipalName)
 	}
 	if m.token_hash != nil {
 		fields = append(fields, agenttoken.FieldTokenHash)
@@ -8263,6 +8498,14 @@ func (m *AgentTokenMutation) Field(name string) (ent.Value, bool) {
 		return m.ProjectID()
 	case agenttoken.FieldTicketID:
 		return m.TicketID()
+	case agenttoken.FieldConversationID:
+		return m.ConversationID()
+	case agenttoken.FieldPrincipalKind:
+		return m.PrincipalKind()
+	case agenttoken.FieldPrincipalID:
+		return m.PrincipalID()
+	case agenttoken.FieldPrincipalName:
+		return m.PrincipalName()
 	case agenttoken.FieldTokenHash:
 		return m.TokenHash()
 	case agenttoken.FieldScopes:
@@ -8288,6 +8531,14 @@ func (m *AgentTokenMutation) OldField(ctx context.Context, name string) (ent.Val
 		return m.OldProjectID(ctx)
 	case agenttoken.FieldTicketID:
 		return m.OldTicketID(ctx)
+	case agenttoken.FieldConversationID:
+		return m.OldConversationID(ctx)
+	case agenttoken.FieldPrincipalKind:
+		return m.OldPrincipalKind(ctx)
+	case agenttoken.FieldPrincipalID:
+		return m.OldPrincipalID(ctx)
+	case agenttoken.FieldPrincipalName:
+		return m.OldPrincipalName(ctx)
 	case agenttoken.FieldTokenHash:
 		return m.OldTokenHash(ctx)
 	case agenttoken.FieldScopes:
@@ -8327,6 +8578,34 @@ func (m *AgentTokenMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetTicketID(v)
+		return nil
+	case agenttoken.FieldConversationID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConversationID(v)
+		return nil
+	case agenttoken.FieldPrincipalKind:
+		v, ok := value.(agenttoken.PrincipalKind)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPrincipalKind(v)
+		return nil
+	case agenttoken.FieldPrincipalID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPrincipalID(v)
+		return nil
+	case agenttoken.FieldPrincipalName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPrincipalName(v)
 		return nil
 	case agenttoken.FieldTokenHash:
 		v, ok := value.(string)
@@ -8393,6 +8672,15 @@ func (m *AgentTokenMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *AgentTokenMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(agenttoken.FieldAgentID) {
+		fields = append(fields, agenttoken.FieldAgentID)
+	}
+	if m.FieldCleared(agenttoken.FieldTicketID) {
+		fields = append(fields, agenttoken.FieldTicketID)
+	}
+	if m.FieldCleared(agenttoken.FieldConversationID) {
+		fields = append(fields, agenttoken.FieldConversationID)
+	}
 	if m.FieldCleared(agenttoken.FieldLastUsedAt) {
 		fields = append(fields, agenttoken.FieldLastUsedAt)
 	}
@@ -8410,6 +8698,15 @@ func (m *AgentTokenMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *AgentTokenMutation) ClearField(name string) error {
 	switch name {
+	case agenttoken.FieldAgentID:
+		m.ClearAgentID()
+		return nil
+	case agenttoken.FieldTicketID:
+		m.ClearTicketID()
+		return nil
+	case agenttoken.FieldConversationID:
+		m.ClearConversationID()
+		return nil
 	case agenttoken.FieldLastUsedAt:
 		m.ClearLastUsedAt()
 		return nil
@@ -8429,6 +8726,18 @@ func (m *AgentTokenMutation) ResetField(name string) error {
 		return nil
 	case agenttoken.FieldTicketID:
 		m.ResetTicketID()
+		return nil
+	case agenttoken.FieldConversationID:
+		m.ResetConversationID()
+		return nil
+	case agenttoken.FieldPrincipalKind:
+		m.ResetPrincipalKind()
+		return nil
+	case agenttoken.FieldPrincipalID:
+		m.ResetPrincipalID()
+		return nil
+	case agenttoken.FieldPrincipalName:
+		m.ResetPrincipalName()
 		return nil
 	case agenttoken.FieldTokenHash:
 		m.ResetTokenHash()
@@ -8451,7 +8760,7 @@ func (m *AgentTokenMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AgentTokenMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.agent != nil {
 		edges = append(edges, agenttoken.EdgeAgent)
 	}
@@ -8460,6 +8769,9 @@ func (m *AgentTokenMutation) AddedEdges() []string {
 	}
 	if m.ticket != nil {
 		edges = append(edges, agenttoken.EdgeTicket)
+	}
+	if m.conversation != nil {
+		edges = append(edges, agenttoken.EdgeConversation)
 	}
 	return edges
 }
@@ -8480,13 +8792,17 @@ func (m *AgentTokenMutation) AddedIDs(name string) []ent.Value {
 		if id := m.ticket; id != nil {
 			return []ent.Value{*id}
 		}
+	case agenttoken.EdgeConversation:
+		if id := m.conversation; id != nil {
+			return []ent.Value{*id}
+		}
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AgentTokenMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	return edges
 }
 
@@ -8498,7 +8814,7 @@ func (m *AgentTokenMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AgentTokenMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.clearedagent {
 		edges = append(edges, agenttoken.EdgeAgent)
 	}
@@ -8507,6 +8823,9 @@ func (m *AgentTokenMutation) ClearedEdges() []string {
 	}
 	if m.clearedticket {
 		edges = append(edges, agenttoken.EdgeTicket)
+	}
+	if m.clearedconversation {
+		edges = append(edges, agenttoken.EdgeConversation)
 	}
 	return edges
 }
@@ -8521,6 +8840,8 @@ func (m *AgentTokenMutation) EdgeCleared(name string) bool {
 		return m.clearedproject
 	case agenttoken.EdgeTicket:
 		return m.clearedticket
+	case agenttoken.EdgeConversation:
+		return m.clearedconversation
 	}
 	return false
 }
@@ -8538,6 +8859,9 @@ func (m *AgentTokenMutation) ClearEdge(name string) error {
 	case agenttoken.EdgeTicket:
 		m.ClearTicket()
 		return nil
+	case agenttoken.EdgeConversation:
+		m.ClearConversation()
+		return nil
 	}
 	return fmt.Errorf("unknown AgentToken unique edge %s", name)
 }
@@ -8554,6 +8878,9 @@ func (m *AgentTokenMutation) ResetEdge(name string) error {
 		return nil
 	case agenttoken.EdgeTicket:
 		m.ResetTicket()
+		return nil
+	case agenttoken.EdgeConversation:
+		m.ResetConversation()
 		return nil
 	}
 	return fmt.Errorf("unknown AgentToken edge %s", name)
@@ -9797,6 +10124,9 @@ type ChatConversationMutation struct {
 	pending_interrupts                 map[uuid.UUID]struct{}
 	removedpending_interrupts          map[uuid.UUID]struct{}
 	clearedpending_interrupts          bool
+	agent_tokens                       map[uuid.UUID]struct{}
+	removedagent_tokens                map[uuid.UUID]struct{}
+	clearedagent_tokens                bool
 	done                               bool
 	oldValue                           func(context.Context) (*ChatConversation, error)
 	predicates                         []predicate.ChatConversation
@@ -10644,6 +10974,60 @@ func (m *ChatConversationMutation) ResetPendingInterrupts() {
 	m.removedpending_interrupts = nil
 }
 
+// AddAgentTokenIDs adds the "agent_tokens" edge to the AgentToken entity by ids.
+func (m *ChatConversationMutation) AddAgentTokenIDs(ids ...uuid.UUID) {
+	if m.agent_tokens == nil {
+		m.agent_tokens = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.agent_tokens[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAgentTokens clears the "agent_tokens" edge to the AgentToken entity.
+func (m *ChatConversationMutation) ClearAgentTokens() {
+	m.clearedagent_tokens = true
+}
+
+// AgentTokensCleared reports if the "agent_tokens" edge to the AgentToken entity was cleared.
+func (m *ChatConversationMutation) AgentTokensCleared() bool {
+	return m.clearedagent_tokens
+}
+
+// RemoveAgentTokenIDs removes the "agent_tokens" edge to the AgentToken entity by IDs.
+func (m *ChatConversationMutation) RemoveAgentTokenIDs(ids ...uuid.UUID) {
+	if m.removedagent_tokens == nil {
+		m.removedagent_tokens = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.agent_tokens, ids[i])
+		m.removedagent_tokens[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAgentTokens returns the removed IDs of the "agent_tokens" edge to the AgentToken entity.
+func (m *ChatConversationMutation) RemovedAgentTokensIDs() (ids []uuid.UUID) {
+	for id := range m.removedagent_tokens {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AgentTokensIDs returns the "agent_tokens" edge IDs in the mutation.
+func (m *ChatConversationMutation) AgentTokensIDs() (ids []uuid.UUID) {
+	for id := range m.agent_tokens {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAgentTokens resets all changes to the "agent_tokens" edge.
+func (m *ChatConversationMutation) ResetAgentTokens() {
+	m.agent_tokens = nil
+	m.clearedagent_tokens = false
+	m.removedagent_tokens = nil
+}
+
 // Where appends a list predicates to the ChatConversationMutation builder.
 func (m *ChatConversationMutation) Where(ps ...predicate.ChatConversation) {
 	m.predicates = append(m.predicates, ps...)
@@ -11014,7 +11398,7 @@ func (m *ChatConversationMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ChatConversationMutation) AddedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.project != nil {
 		edges = append(edges, chatconversation.EdgeProject)
 	}
@@ -11026,6 +11410,9 @@ func (m *ChatConversationMutation) AddedEdges() []string {
 	}
 	if m.pending_interrupts != nil {
 		edges = append(edges, chatconversation.EdgePendingInterrupts)
+	}
+	if m.agent_tokens != nil {
+		edges = append(edges, chatconversation.EdgeAgentTokens)
 	}
 	return edges
 }
@@ -11056,13 +11443,19 @@ func (m *ChatConversationMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case chatconversation.EdgeAgentTokens:
+		ids := make([]ent.Value, 0, len(m.agent_tokens))
+		for id := range m.agent_tokens {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ChatConversationMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.removedturns != nil {
 		edges = append(edges, chatconversation.EdgeTurns)
 	}
@@ -11071,6 +11464,9 @@ func (m *ChatConversationMutation) RemovedEdges() []string {
 	}
 	if m.removedpending_interrupts != nil {
 		edges = append(edges, chatconversation.EdgePendingInterrupts)
+	}
+	if m.removedagent_tokens != nil {
+		edges = append(edges, chatconversation.EdgeAgentTokens)
 	}
 	return edges
 }
@@ -11097,13 +11493,19 @@ func (m *ChatConversationMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case chatconversation.EdgeAgentTokens:
+		ids := make([]ent.Value, 0, len(m.removedagent_tokens))
+		for id := range m.removedagent_tokens {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ChatConversationMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.clearedproject {
 		edges = append(edges, chatconversation.EdgeProject)
 	}
@@ -11115,6 +11517,9 @@ func (m *ChatConversationMutation) ClearedEdges() []string {
 	}
 	if m.clearedpending_interrupts {
 		edges = append(edges, chatconversation.EdgePendingInterrupts)
+	}
+	if m.clearedagent_tokens {
+		edges = append(edges, chatconversation.EdgeAgentTokens)
 	}
 	return edges
 }
@@ -11131,6 +11536,8 @@ func (m *ChatConversationMutation) EdgeCleared(name string) bool {
 		return m.clearedentries
 	case chatconversation.EdgePendingInterrupts:
 		return m.clearedpending_interrupts
+	case chatconversation.EdgeAgentTokens:
+		return m.clearedagent_tokens
 	}
 	return false
 }
@@ -11161,6 +11568,9 @@ func (m *ChatConversationMutation) ResetEdge(name string) error {
 		return nil
 	case chatconversation.EdgePendingInterrupts:
 		m.ResetPendingInterrupts()
+		return nil
+	case chatconversation.EdgeAgentTokens:
+		m.ResetAgentTokens()
 		return nil
 	}
 	return fmt.Errorf("unknown ChatConversation edge %s", name)
@@ -21404,6 +21814,5338 @@ func (m *ProjectMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown Project edge %s", name)
+}
+
+// ProjectConversationPrincipalMutation represents an operation that mutates the ProjectConversationPrincipal nodes in the graph.
+type ProjectConversationPrincipalMutation struct {
+	config
+	op                      Op
+	typ                     string
+	id                      *uuid.UUID
+	conversation_id         *uuid.UUID
+	project_id              *uuid.UUID
+	provider_id             *uuid.UUID
+	name                    *string
+	status                  *projectconversationprincipal.Status
+	runtime_state           *projectconversationprincipal.RuntimeState
+	current_session_id      *string
+	current_workspace_path  *string
+	current_run_id          *uuid.UUID
+	last_heartbeat_at       *time.Time
+	current_step_status     *string
+	current_step_summary    *string
+	current_step_changed_at *time.Time
+	created_at              *time.Time
+	updated_at              *time.Time
+	closed_at               *time.Time
+	clearedFields           map[string]struct{}
+	done                    bool
+	oldValue                func(context.Context) (*ProjectConversationPrincipal, error)
+	predicates              []predicate.ProjectConversationPrincipal
+}
+
+var _ ent.Mutation = (*ProjectConversationPrincipalMutation)(nil)
+
+// projectconversationprincipalOption allows management of the mutation configuration using functional options.
+type projectconversationprincipalOption func(*ProjectConversationPrincipalMutation)
+
+// newProjectConversationPrincipalMutation creates new mutation for the ProjectConversationPrincipal entity.
+func newProjectConversationPrincipalMutation(c config, op Op, opts ...projectconversationprincipalOption) *ProjectConversationPrincipalMutation {
+	m := &ProjectConversationPrincipalMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeProjectConversationPrincipal,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withProjectConversationPrincipalID sets the ID field of the mutation.
+func withProjectConversationPrincipalID(id uuid.UUID) projectconversationprincipalOption {
+	return func(m *ProjectConversationPrincipalMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ProjectConversationPrincipal
+		)
+		m.oldValue = func(ctx context.Context) (*ProjectConversationPrincipal, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ProjectConversationPrincipal.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withProjectConversationPrincipal sets the old ProjectConversationPrincipal of the mutation.
+func withProjectConversationPrincipal(node *ProjectConversationPrincipal) projectconversationprincipalOption {
+	return func(m *ProjectConversationPrincipalMutation) {
+		m.oldValue = func(context.Context) (*ProjectConversationPrincipal, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ProjectConversationPrincipalMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ProjectConversationPrincipalMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ProjectConversationPrincipal entities.
+func (m *ProjectConversationPrincipalMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ProjectConversationPrincipalMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ProjectConversationPrincipalMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ProjectConversationPrincipal.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetConversationID sets the "conversation_id" field.
+func (m *ProjectConversationPrincipalMutation) SetConversationID(u uuid.UUID) {
+	m.conversation_id = &u
+}
+
+// ConversationID returns the value of the "conversation_id" field in the mutation.
+func (m *ProjectConversationPrincipalMutation) ConversationID() (r uuid.UUID, exists bool) {
+	v := m.conversation_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConversationID returns the old "conversation_id" field's value of the ProjectConversationPrincipal entity.
+// If the ProjectConversationPrincipal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationPrincipalMutation) OldConversationID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConversationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConversationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConversationID: %w", err)
+	}
+	return oldValue.ConversationID, nil
+}
+
+// ResetConversationID resets all changes to the "conversation_id" field.
+func (m *ProjectConversationPrincipalMutation) ResetConversationID() {
+	m.conversation_id = nil
+}
+
+// SetProjectID sets the "project_id" field.
+func (m *ProjectConversationPrincipalMutation) SetProjectID(u uuid.UUID) {
+	m.project_id = &u
+}
+
+// ProjectID returns the value of the "project_id" field in the mutation.
+func (m *ProjectConversationPrincipalMutation) ProjectID() (r uuid.UUID, exists bool) {
+	v := m.project_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectID returns the old "project_id" field's value of the ProjectConversationPrincipal entity.
+// If the ProjectConversationPrincipal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationPrincipalMutation) OldProjectID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectID: %w", err)
+	}
+	return oldValue.ProjectID, nil
+}
+
+// ResetProjectID resets all changes to the "project_id" field.
+func (m *ProjectConversationPrincipalMutation) ResetProjectID() {
+	m.project_id = nil
+}
+
+// SetProviderID sets the "provider_id" field.
+func (m *ProjectConversationPrincipalMutation) SetProviderID(u uuid.UUID) {
+	m.provider_id = &u
+}
+
+// ProviderID returns the value of the "provider_id" field in the mutation.
+func (m *ProjectConversationPrincipalMutation) ProviderID() (r uuid.UUID, exists bool) {
+	v := m.provider_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProviderID returns the old "provider_id" field's value of the ProjectConversationPrincipal entity.
+// If the ProjectConversationPrincipal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationPrincipalMutation) OldProviderID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProviderID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProviderID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProviderID: %w", err)
+	}
+	return oldValue.ProviderID, nil
+}
+
+// ResetProviderID resets all changes to the "provider_id" field.
+func (m *ProjectConversationPrincipalMutation) ResetProviderID() {
+	m.provider_id = nil
+}
+
+// SetName sets the "name" field.
+func (m *ProjectConversationPrincipalMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *ProjectConversationPrincipalMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the ProjectConversationPrincipal entity.
+// If the ProjectConversationPrincipal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationPrincipalMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *ProjectConversationPrincipalMutation) ResetName() {
+	m.name = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *ProjectConversationPrincipalMutation) SetStatus(pr projectconversationprincipal.Status) {
+	m.status = &pr
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *ProjectConversationPrincipalMutation) Status() (r projectconversationprincipal.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the ProjectConversationPrincipal entity.
+// If the ProjectConversationPrincipal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationPrincipalMutation) OldStatus(ctx context.Context) (v projectconversationprincipal.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *ProjectConversationPrincipalMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetRuntimeState sets the "runtime_state" field.
+func (m *ProjectConversationPrincipalMutation) SetRuntimeState(ps projectconversationprincipal.RuntimeState) {
+	m.runtime_state = &ps
+}
+
+// RuntimeState returns the value of the "runtime_state" field in the mutation.
+func (m *ProjectConversationPrincipalMutation) RuntimeState() (r projectconversationprincipal.RuntimeState, exists bool) {
+	v := m.runtime_state
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRuntimeState returns the old "runtime_state" field's value of the ProjectConversationPrincipal entity.
+// If the ProjectConversationPrincipal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationPrincipalMutation) OldRuntimeState(ctx context.Context) (v projectconversationprincipal.RuntimeState, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRuntimeState is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRuntimeState requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRuntimeState: %w", err)
+	}
+	return oldValue.RuntimeState, nil
+}
+
+// ResetRuntimeState resets all changes to the "runtime_state" field.
+func (m *ProjectConversationPrincipalMutation) ResetRuntimeState() {
+	m.runtime_state = nil
+}
+
+// SetCurrentSessionID sets the "current_session_id" field.
+func (m *ProjectConversationPrincipalMutation) SetCurrentSessionID(s string) {
+	m.current_session_id = &s
+}
+
+// CurrentSessionID returns the value of the "current_session_id" field in the mutation.
+func (m *ProjectConversationPrincipalMutation) CurrentSessionID() (r string, exists bool) {
+	v := m.current_session_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCurrentSessionID returns the old "current_session_id" field's value of the ProjectConversationPrincipal entity.
+// If the ProjectConversationPrincipal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationPrincipalMutation) OldCurrentSessionID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCurrentSessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCurrentSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCurrentSessionID: %w", err)
+	}
+	return oldValue.CurrentSessionID, nil
+}
+
+// ClearCurrentSessionID clears the value of the "current_session_id" field.
+func (m *ProjectConversationPrincipalMutation) ClearCurrentSessionID() {
+	m.current_session_id = nil
+	m.clearedFields[projectconversationprincipal.FieldCurrentSessionID] = struct{}{}
+}
+
+// CurrentSessionIDCleared returns if the "current_session_id" field was cleared in this mutation.
+func (m *ProjectConversationPrincipalMutation) CurrentSessionIDCleared() bool {
+	_, ok := m.clearedFields[projectconversationprincipal.FieldCurrentSessionID]
+	return ok
+}
+
+// ResetCurrentSessionID resets all changes to the "current_session_id" field.
+func (m *ProjectConversationPrincipalMutation) ResetCurrentSessionID() {
+	m.current_session_id = nil
+	delete(m.clearedFields, projectconversationprincipal.FieldCurrentSessionID)
+}
+
+// SetCurrentWorkspacePath sets the "current_workspace_path" field.
+func (m *ProjectConversationPrincipalMutation) SetCurrentWorkspacePath(s string) {
+	m.current_workspace_path = &s
+}
+
+// CurrentWorkspacePath returns the value of the "current_workspace_path" field in the mutation.
+func (m *ProjectConversationPrincipalMutation) CurrentWorkspacePath() (r string, exists bool) {
+	v := m.current_workspace_path
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCurrentWorkspacePath returns the old "current_workspace_path" field's value of the ProjectConversationPrincipal entity.
+// If the ProjectConversationPrincipal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationPrincipalMutation) OldCurrentWorkspacePath(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCurrentWorkspacePath is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCurrentWorkspacePath requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCurrentWorkspacePath: %w", err)
+	}
+	return oldValue.CurrentWorkspacePath, nil
+}
+
+// ClearCurrentWorkspacePath clears the value of the "current_workspace_path" field.
+func (m *ProjectConversationPrincipalMutation) ClearCurrentWorkspacePath() {
+	m.current_workspace_path = nil
+	m.clearedFields[projectconversationprincipal.FieldCurrentWorkspacePath] = struct{}{}
+}
+
+// CurrentWorkspacePathCleared returns if the "current_workspace_path" field was cleared in this mutation.
+func (m *ProjectConversationPrincipalMutation) CurrentWorkspacePathCleared() bool {
+	_, ok := m.clearedFields[projectconversationprincipal.FieldCurrentWorkspacePath]
+	return ok
+}
+
+// ResetCurrentWorkspacePath resets all changes to the "current_workspace_path" field.
+func (m *ProjectConversationPrincipalMutation) ResetCurrentWorkspacePath() {
+	m.current_workspace_path = nil
+	delete(m.clearedFields, projectconversationprincipal.FieldCurrentWorkspacePath)
+}
+
+// SetCurrentRunID sets the "current_run_id" field.
+func (m *ProjectConversationPrincipalMutation) SetCurrentRunID(u uuid.UUID) {
+	m.current_run_id = &u
+}
+
+// CurrentRunID returns the value of the "current_run_id" field in the mutation.
+func (m *ProjectConversationPrincipalMutation) CurrentRunID() (r uuid.UUID, exists bool) {
+	v := m.current_run_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCurrentRunID returns the old "current_run_id" field's value of the ProjectConversationPrincipal entity.
+// If the ProjectConversationPrincipal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationPrincipalMutation) OldCurrentRunID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCurrentRunID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCurrentRunID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCurrentRunID: %w", err)
+	}
+	return oldValue.CurrentRunID, nil
+}
+
+// ClearCurrentRunID clears the value of the "current_run_id" field.
+func (m *ProjectConversationPrincipalMutation) ClearCurrentRunID() {
+	m.current_run_id = nil
+	m.clearedFields[projectconversationprincipal.FieldCurrentRunID] = struct{}{}
+}
+
+// CurrentRunIDCleared returns if the "current_run_id" field was cleared in this mutation.
+func (m *ProjectConversationPrincipalMutation) CurrentRunIDCleared() bool {
+	_, ok := m.clearedFields[projectconversationprincipal.FieldCurrentRunID]
+	return ok
+}
+
+// ResetCurrentRunID resets all changes to the "current_run_id" field.
+func (m *ProjectConversationPrincipalMutation) ResetCurrentRunID() {
+	m.current_run_id = nil
+	delete(m.clearedFields, projectconversationprincipal.FieldCurrentRunID)
+}
+
+// SetLastHeartbeatAt sets the "last_heartbeat_at" field.
+func (m *ProjectConversationPrincipalMutation) SetLastHeartbeatAt(t time.Time) {
+	m.last_heartbeat_at = &t
+}
+
+// LastHeartbeatAt returns the value of the "last_heartbeat_at" field in the mutation.
+func (m *ProjectConversationPrincipalMutation) LastHeartbeatAt() (r time.Time, exists bool) {
+	v := m.last_heartbeat_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastHeartbeatAt returns the old "last_heartbeat_at" field's value of the ProjectConversationPrincipal entity.
+// If the ProjectConversationPrincipal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationPrincipalMutation) OldLastHeartbeatAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastHeartbeatAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastHeartbeatAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastHeartbeatAt: %w", err)
+	}
+	return oldValue.LastHeartbeatAt, nil
+}
+
+// ClearLastHeartbeatAt clears the value of the "last_heartbeat_at" field.
+func (m *ProjectConversationPrincipalMutation) ClearLastHeartbeatAt() {
+	m.last_heartbeat_at = nil
+	m.clearedFields[projectconversationprincipal.FieldLastHeartbeatAt] = struct{}{}
+}
+
+// LastHeartbeatAtCleared returns if the "last_heartbeat_at" field was cleared in this mutation.
+func (m *ProjectConversationPrincipalMutation) LastHeartbeatAtCleared() bool {
+	_, ok := m.clearedFields[projectconversationprincipal.FieldLastHeartbeatAt]
+	return ok
+}
+
+// ResetLastHeartbeatAt resets all changes to the "last_heartbeat_at" field.
+func (m *ProjectConversationPrincipalMutation) ResetLastHeartbeatAt() {
+	m.last_heartbeat_at = nil
+	delete(m.clearedFields, projectconversationprincipal.FieldLastHeartbeatAt)
+}
+
+// SetCurrentStepStatus sets the "current_step_status" field.
+func (m *ProjectConversationPrincipalMutation) SetCurrentStepStatus(s string) {
+	m.current_step_status = &s
+}
+
+// CurrentStepStatus returns the value of the "current_step_status" field in the mutation.
+func (m *ProjectConversationPrincipalMutation) CurrentStepStatus() (r string, exists bool) {
+	v := m.current_step_status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCurrentStepStatus returns the old "current_step_status" field's value of the ProjectConversationPrincipal entity.
+// If the ProjectConversationPrincipal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationPrincipalMutation) OldCurrentStepStatus(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCurrentStepStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCurrentStepStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCurrentStepStatus: %w", err)
+	}
+	return oldValue.CurrentStepStatus, nil
+}
+
+// ClearCurrentStepStatus clears the value of the "current_step_status" field.
+func (m *ProjectConversationPrincipalMutation) ClearCurrentStepStatus() {
+	m.current_step_status = nil
+	m.clearedFields[projectconversationprincipal.FieldCurrentStepStatus] = struct{}{}
+}
+
+// CurrentStepStatusCleared returns if the "current_step_status" field was cleared in this mutation.
+func (m *ProjectConversationPrincipalMutation) CurrentStepStatusCleared() bool {
+	_, ok := m.clearedFields[projectconversationprincipal.FieldCurrentStepStatus]
+	return ok
+}
+
+// ResetCurrentStepStatus resets all changes to the "current_step_status" field.
+func (m *ProjectConversationPrincipalMutation) ResetCurrentStepStatus() {
+	m.current_step_status = nil
+	delete(m.clearedFields, projectconversationprincipal.FieldCurrentStepStatus)
+}
+
+// SetCurrentStepSummary sets the "current_step_summary" field.
+func (m *ProjectConversationPrincipalMutation) SetCurrentStepSummary(s string) {
+	m.current_step_summary = &s
+}
+
+// CurrentStepSummary returns the value of the "current_step_summary" field in the mutation.
+func (m *ProjectConversationPrincipalMutation) CurrentStepSummary() (r string, exists bool) {
+	v := m.current_step_summary
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCurrentStepSummary returns the old "current_step_summary" field's value of the ProjectConversationPrincipal entity.
+// If the ProjectConversationPrincipal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationPrincipalMutation) OldCurrentStepSummary(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCurrentStepSummary is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCurrentStepSummary requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCurrentStepSummary: %w", err)
+	}
+	return oldValue.CurrentStepSummary, nil
+}
+
+// ClearCurrentStepSummary clears the value of the "current_step_summary" field.
+func (m *ProjectConversationPrincipalMutation) ClearCurrentStepSummary() {
+	m.current_step_summary = nil
+	m.clearedFields[projectconversationprincipal.FieldCurrentStepSummary] = struct{}{}
+}
+
+// CurrentStepSummaryCleared returns if the "current_step_summary" field was cleared in this mutation.
+func (m *ProjectConversationPrincipalMutation) CurrentStepSummaryCleared() bool {
+	_, ok := m.clearedFields[projectconversationprincipal.FieldCurrentStepSummary]
+	return ok
+}
+
+// ResetCurrentStepSummary resets all changes to the "current_step_summary" field.
+func (m *ProjectConversationPrincipalMutation) ResetCurrentStepSummary() {
+	m.current_step_summary = nil
+	delete(m.clearedFields, projectconversationprincipal.FieldCurrentStepSummary)
+}
+
+// SetCurrentStepChangedAt sets the "current_step_changed_at" field.
+func (m *ProjectConversationPrincipalMutation) SetCurrentStepChangedAt(t time.Time) {
+	m.current_step_changed_at = &t
+}
+
+// CurrentStepChangedAt returns the value of the "current_step_changed_at" field in the mutation.
+func (m *ProjectConversationPrincipalMutation) CurrentStepChangedAt() (r time.Time, exists bool) {
+	v := m.current_step_changed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCurrentStepChangedAt returns the old "current_step_changed_at" field's value of the ProjectConversationPrincipal entity.
+// If the ProjectConversationPrincipal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationPrincipalMutation) OldCurrentStepChangedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCurrentStepChangedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCurrentStepChangedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCurrentStepChangedAt: %w", err)
+	}
+	return oldValue.CurrentStepChangedAt, nil
+}
+
+// ClearCurrentStepChangedAt clears the value of the "current_step_changed_at" field.
+func (m *ProjectConversationPrincipalMutation) ClearCurrentStepChangedAt() {
+	m.current_step_changed_at = nil
+	m.clearedFields[projectconversationprincipal.FieldCurrentStepChangedAt] = struct{}{}
+}
+
+// CurrentStepChangedAtCleared returns if the "current_step_changed_at" field was cleared in this mutation.
+func (m *ProjectConversationPrincipalMutation) CurrentStepChangedAtCleared() bool {
+	_, ok := m.clearedFields[projectconversationprincipal.FieldCurrentStepChangedAt]
+	return ok
+}
+
+// ResetCurrentStepChangedAt resets all changes to the "current_step_changed_at" field.
+func (m *ProjectConversationPrincipalMutation) ResetCurrentStepChangedAt() {
+	m.current_step_changed_at = nil
+	delete(m.clearedFields, projectconversationprincipal.FieldCurrentStepChangedAt)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ProjectConversationPrincipalMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ProjectConversationPrincipalMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ProjectConversationPrincipal entity.
+// If the ProjectConversationPrincipal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationPrincipalMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ProjectConversationPrincipalMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *ProjectConversationPrincipalMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *ProjectConversationPrincipalMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the ProjectConversationPrincipal entity.
+// If the ProjectConversationPrincipal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationPrincipalMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *ProjectConversationPrincipalMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetClosedAt sets the "closed_at" field.
+func (m *ProjectConversationPrincipalMutation) SetClosedAt(t time.Time) {
+	m.closed_at = &t
+}
+
+// ClosedAt returns the value of the "closed_at" field in the mutation.
+func (m *ProjectConversationPrincipalMutation) ClosedAt() (r time.Time, exists bool) {
+	v := m.closed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldClosedAt returns the old "closed_at" field's value of the ProjectConversationPrincipal entity.
+// If the ProjectConversationPrincipal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationPrincipalMutation) OldClosedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldClosedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldClosedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldClosedAt: %w", err)
+	}
+	return oldValue.ClosedAt, nil
+}
+
+// ClearClosedAt clears the value of the "closed_at" field.
+func (m *ProjectConversationPrincipalMutation) ClearClosedAt() {
+	m.closed_at = nil
+	m.clearedFields[projectconversationprincipal.FieldClosedAt] = struct{}{}
+}
+
+// ClosedAtCleared returns if the "closed_at" field was cleared in this mutation.
+func (m *ProjectConversationPrincipalMutation) ClosedAtCleared() bool {
+	_, ok := m.clearedFields[projectconversationprincipal.FieldClosedAt]
+	return ok
+}
+
+// ResetClosedAt resets all changes to the "closed_at" field.
+func (m *ProjectConversationPrincipalMutation) ResetClosedAt() {
+	m.closed_at = nil
+	delete(m.clearedFields, projectconversationprincipal.FieldClosedAt)
+}
+
+// Where appends a list predicates to the ProjectConversationPrincipalMutation builder.
+func (m *ProjectConversationPrincipalMutation) Where(ps ...predicate.ProjectConversationPrincipal) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ProjectConversationPrincipalMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ProjectConversationPrincipalMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ProjectConversationPrincipal, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ProjectConversationPrincipalMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ProjectConversationPrincipalMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ProjectConversationPrincipal).
+func (m *ProjectConversationPrincipalMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ProjectConversationPrincipalMutation) Fields() []string {
+	fields := make([]string, 0, 16)
+	if m.conversation_id != nil {
+		fields = append(fields, projectconversationprincipal.FieldConversationID)
+	}
+	if m.project_id != nil {
+		fields = append(fields, projectconversationprincipal.FieldProjectID)
+	}
+	if m.provider_id != nil {
+		fields = append(fields, projectconversationprincipal.FieldProviderID)
+	}
+	if m.name != nil {
+		fields = append(fields, projectconversationprincipal.FieldName)
+	}
+	if m.status != nil {
+		fields = append(fields, projectconversationprincipal.FieldStatus)
+	}
+	if m.runtime_state != nil {
+		fields = append(fields, projectconversationprincipal.FieldRuntimeState)
+	}
+	if m.current_session_id != nil {
+		fields = append(fields, projectconversationprincipal.FieldCurrentSessionID)
+	}
+	if m.current_workspace_path != nil {
+		fields = append(fields, projectconversationprincipal.FieldCurrentWorkspacePath)
+	}
+	if m.current_run_id != nil {
+		fields = append(fields, projectconversationprincipal.FieldCurrentRunID)
+	}
+	if m.last_heartbeat_at != nil {
+		fields = append(fields, projectconversationprincipal.FieldLastHeartbeatAt)
+	}
+	if m.current_step_status != nil {
+		fields = append(fields, projectconversationprincipal.FieldCurrentStepStatus)
+	}
+	if m.current_step_summary != nil {
+		fields = append(fields, projectconversationprincipal.FieldCurrentStepSummary)
+	}
+	if m.current_step_changed_at != nil {
+		fields = append(fields, projectconversationprincipal.FieldCurrentStepChangedAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, projectconversationprincipal.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, projectconversationprincipal.FieldUpdatedAt)
+	}
+	if m.closed_at != nil {
+		fields = append(fields, projectconversationprincipal.FieldClosedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ProjectConversationPrincipalMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case projectconversationprincipal.FieldConversationID:
+		return m.ConversationID()
+	case projectconversationprincipal.FieldProjectID:
+		return m.ProjectID()
+	case projectconversationprincipal.FieldProviderID:
+		return m.ProviderID()
+	case projectconversationprincipal.FieldName:
+		return m.Name()
+	case projectconversationprincipal.FieldStatus:
+		return m.Status()
+	case projectconversationprincipal.FieldRuntimeState:
+		return m.RuntimeState()
+	case projectconversationprincipal.FieldCurrentSessionID:
+		return m.CurrentSessionID()
+	case projectconversationprincipal.FieldCurrentWorkspacePath:
+		return m.CurrentWorkspacePath()
+	case projectconversationprincipal.FieldCurrentRunID:
+		return m.CurrentRunID()
+	case projectconversationprincipal.FieldLastHeartbeatAt:
+		return m.LastHeartbeatAt()
+	case projectconversationprincipal.FieldCurrentStepStatus:
+		return m.CurrentStepStatus()
+	case projectconversationprincipal.FieldCurrentStepSummary:
+		return m.CurrentStepSummary()
+	case projectconversationprincipal.FieldCurrentStepChangedAt:
+		return m.CurrentStepChangedAt()
+	case projectconversationprincipal.FieldCreatedAt:
+		return m.CreatedAt()
+	case projectconversationprincipal.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case projectconversationprincipal.FieldClosedAt:
+		return m.ClosedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ProjectConversationPrincipalMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case projectconversationprincipal.FieldConversationID:
+		return m.OldConversationID(ctx)
+	case projectconversationprincipal.FieldProjectID:
+		return m.OldProjectID(ctx)
+	case projectconversationprincipal.FieldProviderID:
+		return m.OldProviderID(ctx)
+	case projectconversationprincipal.FieldName:
+		return m.OldName(ctx)
+	case projectconversationprincipal.FieldStatus:
+		return m.OldStatus(ctx)
+	case projectconversationprincipal.FieldRuntimeState:
+		return m.OldRuntimeState(ctx)
+	case projectconversationprincipal.FieldCurrentSessionID:
+		return m.OldCurrentSessionID(ctx)
+	case projectconversationprincipal.FieldCurrentWorkspacePath:
+		return m.OldCurrentWorkspacePath(ctx)
+	case projectconversationprincipal.FieldCurrentRunID:
+		return m.OldCurrentRunID(ctx)
+	case projectconversationprincipal.FieldLastHeartbeatAt:
+		return m.OldLastHeartbeatAt(ctx)
+	case projectconversationprincipal.FieldCurrentStepStatus:
+		return m.OldCurrentStepStatus(ctx)
+	case projectconversationprincipal.FieldCurrentStepSummary:
+		return m.OldCurrentStepSummary(ctx)
+	case projectconversationprincipal.FieldCurrentStepChangedAt:
+		return m.OldCurrentStepChangedAt(ctx)
+	case projectconversationprincipal.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case projectconversationprincipal.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case projectconversationprincipal.FieldClosedAt:
+		return m.OldClosedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ProjectConversationPrincipal field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectConversationPrincipalMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case projectconversationprincipal.FieldConversationID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConversationID(v)
+		return nil
+	case projectconversationprincipal.FieldProjectID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectID(v)
+		return nil
+	case projectconversationprincipal.FieldProviderID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProviderID(v)
+		return nil
+	case projectconversationprincipal.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case projectconversationprincipal.FieldStatus:
+		v, ok := value.(projectconversationprincipal.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case projectconversationprincipal.FieldRuntimeState:
+		v, ok := value.(projectconversationprincipal.RuntimeState)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRuntimeState(v)
+		return nil
+	case projectconversationprincipal.FieldCurrentSessionID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCurrentSessionID(v)
+		return nil
+	case projectconversationprincipal.FieldCurrentWorkspacePath:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCurrentWorkspacePath(v)
+		return nil
+	case projectconversationprincipal.FieldCurrentRunID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCurrentRunID(v)
+		return nil
+	case projectconversationprincipal.FieldLastHeartbeatAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastHeartbeatAt(v)
+		return nil
+	case projectconversationprincipal.FieldCurrentStepStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCurrentStepStatus(v)
+		return nil
+	case projectconversationprincipal.FieldCurrentStepSummary:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCurrentStepSummary(v)
+		return nil
+	case projectconversationprincipal.FieldCurrentStepChangedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCurrentStepChangedAt(v)
+		return nil
+	case projectconversationprincipal.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case projectconversationprincipal.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case projectconversationprincipal.FieldClosedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetClosedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectConversationPrincipal field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ProjectConversationPrincipalMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ProjectConversationPrincipalMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectConversationPrincipalMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown ProjectConversationPrincipal numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ProjectConversationPrincipalMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(projectconversationprincipal.FieldCurrentSessionID) {
+		fields = append(fields, projectconversationprincipal.FieldCurrentSessionID)
+	}
+	if m.FieldCleared(projectconversationprincipal.FieldCurrentWorkspacePath) {
+		fields = append(fields, projectconversationprincipal.FieldCurrentWorkspacePath)
+	}
+	if m.FieldCleared(projectconversationprincipal.FieldCurrentRunID) {
+		fields = append(fields, projectconversationprincipal.FieldCurrentRunID)
+	}
+	if m.FieldCleared(projectconversationprincipal.FieldLastHeartbeatAt) {
+		fields = append(fields, projectconversationprincipal.FieldLastHeartbeatAt)
+	}
+	if m.FieldCleared(projectconversationprincipal.FieldCurrentStepStatus) {
+		fields = append(fields, projectconversationprincipal.FieldCurrentStepStatus)
+	}
+	if m.FieldCleared(projectconversationprincipal.FieldCurrentStepSummary) {
+		fields = append(fields, projectconversationprincipal.FieldCurrentStepSummary)
+	}
+	if m.FieldCleared(projectconversationprincipal.FieldCurrentStepChangedAt) {
+		fields = append(fields, projectconversationprincipal.FieldCurrentStepChangedAt)
+	}
+	if m.FieldCleared(projectconversationprincipal.FieldClosedAt) {
+		fields = append(fields, projectconversationprincipal.FieldClosedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ProjectConversationPrincipalMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ProjectConversationPrincipalMutation) ClearField(name string) error {
+	switch name {
+	case projectconversationprincipal.FieldCurrentSessionID:
+		m.ClearCurrentSessionID()
+		return nil
+	case projectconversationprincipal.FieldCurrentWorkspacePath:
+		m.ClearCurrentWorkspacePath()
+		return nil
+	case projectconversationprincipal.FieldCurrentRunID:
+		m.ClearCurrentRunID()
+		return nil
+	case projectconversationprincipal.FieldLastHeartbeatAt:
+		m.ClearLastHeartbeatAt()
+		return nil
+	case projectconversationprincipal.FieldCurrentStepStatus:
+		m.ClearCurrentStepStatus()
+		return nil
+	case projectconversationprincipal.FieldCurrentStepSummary:
+		m.ClearCurrentStepSummary()
+		return nil
+	case projectconversationprincipal.FieldCurrentStepChangedAt:
+		m.ClearCurrentStepChangedAt()
+		return nil
+	case projectconversationprincipal.FieldClosedAt:
+		m.ClearClosedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectConversationPrincipal nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ProjectConversationPrincipalMutation) ResetField(name string) error {
+	switch name {
+	case projectconversationprincipal.FieldConversationID:
+		m.ResetConversationID()
+		return nil
+	case projectconversationprincipal.FieldProjectID:
+		m.ResetProjectID()
+		return nil
+	case projectconversationprincipal.FieldProviderID:
+		m.ResetProviderID()
+		return nil
+	case projectconversationprincipal.FieldName:
+		m.ResetName()
+		return nil
+	case projectconversationprincipal.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case projectconversationprincipal.FieldRuntimeState:
+		m.ResetRuntimeState()
+		return nil
+	case projectconversationprincipal.FieldCurrentSessionID:
+		m.ResetCurrentSessionID()
+		return nil
+	case projectconversationprincipal.FieldCurrentWorkspacePath:
+		m.ResetCurrentWorkspacePath()
+		return nil
+	case projectconversationprincipal.FieldCurrentRunID:
+		m.ResetCurrentRunID()
+		return nil
+	case projectconversationprincipal.FieldLastHeartbeatAt:
+		m.ResetLastHeartbeatAt()
+		return nil
+	case projectconversationprincipal.FieldCurrentStepStatus:
+		m.ResetCurrentStepStatus()
+		return nil
+	case projectconversationprincipal.FieldCurrentStepSummary:
+		m.ResetCurrentStepSummary()
+		return nil
+	case projectconversationprincipal.FieldCurrentStepChangedAt:
+		m.ResetCurrentStepChangedAt()
+		return nil
+	case projectconversationprincipal.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case projectconversationprincipal.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case projectconversationprincipal.FieldClosedAt:
+		m.ResetClosedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectConversationPrincipal field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ProjectConversationPrincipalMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ProjectConversationPrincipalMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ProjectConversationPrincipalMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ProjectConversationPrincipalMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ProjectConversationPrincipalMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ProjectConversationPrincipalMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ProjectConversationPrincipalMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown ProjectConversationPrincipal unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ProjectConversationPrincipalMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown ProjectConversationPrincipal edge %s", name)
+}
+
+// ProjectConversationRunMutation represents an operation that mutates the ProjectConversationRun nodes in the graph.
+type ProjectConversationRunMutation struct {
+	config
+	op                       Op
+	typ                      string
+	id                       *uuid.UUID
+	principal_id             *uuid.UUID
+	conversation_id          *uuid.UUID
+	project_id               *uuid.UUID
+	provider_id              *uuid.UUID
+	turn_id                  *uuid.UUID
+	status                   *projectconversationrun.Status
+	session_id               *string
+	workspace_path           *string
+	provider_thread_id       *string
+	provider_turn_id         *string
+	runtime_started_at       *time.Time
+	terminal_at              *time.Time
+	last_error               *string
+	last_heartbeat_at        *time.Time
+	cost_amount              *float64
+	addcost_amount           *float64
+	input_tokens             *int64
+	addinput_tokens          *int64
+	output_tokens            *int64
+	addoutput_tokens         *int64
+	cached_input_tokens      *int64
+	addcached_input_tokens   *int64
+	cache_creation_tokens    *int64
+	addcache_creation_tokens *int64
+	reasoning_tokens         *int64
+	addreasoning_tokens      *int64
+	prompt_tokens            *int64
+	addprompt_tokens         *int64
+	candidate_tokens         *int64
+	addcandidate_tokens      *int64
+	tool_tokens              *int64
+	addtool_tokens           *int64
+	total_tokens             *int64
+	addtotal_tokens          *int64
+	current_step_status      *string
+	current_step_summary     *string
+	current_step_changed_at  *time.Time
+	created_at               *time.Time
+	clearedFields            map[string]struct{}
+	done                     bool
+	oldValue                 func(context.Context) (*ProjectConversationRun, error)
+	predicates               []predicate.ProjectConversationRun
+}
+
+var _ ent.Mutation = (*ProjectConversationRunMutation)(nil)
+
+// projectconversationrunOption allows management of the mutation configuration using functional options.
+type projectconversationrunOption func(*ProjectConversationRunMutation)
+
+// newProjectConversationRunMutation creates new mutation for the ProjectConversationRun entity.
+func newProjectConversationRunMutation(c config, op Op, opts ...projectconversationrunOption) *ProjectConversationRunMutation {
+	m := &ProjectConversationRunMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeProjectConversationRun,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withProjectConversationRunID sets the ID field of the mutation.
+func withProjectConversationRunID(id uuid.UUID) projectconversationrunOption {
+	return func(m *ProjectConversationRunMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ProjectConversationRun
+		)
+		m.oldValue = func(ctx context.Context) (*ProjectConversationRun, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ProjectConversationRun.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withProjectConversationRun sets the old ProjectConversationRun of the mutation.
+func withProjectConversationRun(node *ProjectConversationRun) projectconversationrunOption {
+	return func(m *ProjectConversationRunMutation) {
+		m.oldValue = func(context.Context) (*ProjectConversationRun, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ProjectConversationRunMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ProjectConversationRunMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ProjectConversationRun entities.
+func (m *ProjectConversationRunMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ProjectConversationRunMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ProjectConversationRunMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ProjectConversationRun.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetPrincipalID sets the "principal_id" field.
+func (m *ProjectConversationRunMutation) SetPrincipalID(u uuid.UUID) {
+	m.principal_id = &u
+}
+
+// PrincipalID returns the value of the "principal_id" field in the mutation.
+func (m *ProjectConversationRunMutation) PrincipalID() (r uuid.UUID, exists bool) {
+	v := m.principal_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPrincipalID returns the old "principal_id" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldPrincipalID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPrincipalID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPrincipalID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPrincipalID: %w", err)
+	}
+	return oldValue.PrincipalID, nil
+}
+
+// ResetPrincipalID resets all changes to the "principal_id" field.
+func (m *ProjectConversationRunMutation) ResetPrincipalID() {
+	m.principal_id = nil
+}
+
+// SetConversationID sets the "conversation_id" field.
+func (m *ProjectConversationRunMutation) SetConversationID(u uuid.UUID) {
+	m.conversation_id = &u
+}
+
+// ConversationID returns the value of the "conversation_id" field in the mutation.
+func (m *ProjectConversationRunMutation) ConversationID() (r uuid.UUID, exists bool) {
+	v := m.conversation_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConversationID returns the old "conversation_id" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldConversationID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConversationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConversationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConversationID: %w", err)
+	}
+	return oldValue.ConversationID, nil
+}
+
+// ResetConversationID resets all changes to the "conversation_id" field.
+func (m *ProjectConversationRunMutation) ResetConversationID() {
+	m.conversation_id = nil
+}
+
+// SetProjectID sets the "project_id" field.
+func (m *ProjectConversationRunMutation) SetProjectID(u uuid.UUID) {
+	m.project_id = &u
+}
+
+// ProjectID returns the value of the "project_id" field in the mutation.
+func (m *ProjectConversationRunMutation) ProjectID() (r uuid.UUID, exists bool) {
+	v := m.project_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectID returns the old "project_id" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldProjectID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectID: %w", err)
+	}
+	return oldValue.ProjectID, nil
+}
+
+// ResetProjectID resets all changes to the "project_id" field.
+func (m *ProjectConversationRunMutation) ResetProjectID() {
+	m.project_id = nil
+}
+
+// SetProviderID sets the "provider_id" field.
+func (m *ProjectConversationRunMutation) SetProviderID(u uuid.UUID) {
+	m.provider_id = &u
+}
+
+// ProviderID returns the value of the "provider_id" field in the mutation.
+func (m *ProjectConversationRunMutation) ProviderID() (r uuid.UUID, exists bool) {
+	v := m.provider_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProviderID returns the old "provider_id" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldProviderID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProviderID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProviderID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProviderID: %w", err)
+	}
+	return oldValue.ProviderID, nil
+}
+
+// ResetProviderID resets all changes to the "provider_id" field.
+func (m *ProjectConversationRunMutation) ResetProviderID() {
+	m.provider_id = nil
+}
+
+// SetTurnID sets the "turn_id" field.
+func (m *ProjectConversationRunMutation) SetTurnID(u uuid.UUID) {
+	m.turn_id = &u
+}
+
+// TurnID returns the value of the "turn_id" field in the mutation.
+func (m *ProjectConversationRunMutation) TurnID() (r uuid.UUID, exists bool) {
+	v := m.turn_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTurnID returns the old "turn_id" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldTurnID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTurnID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTurnID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTurnID: %w", err)
+	}
+	return oldValue.TurnID, nil
+}
+
+// ClearTurnID clears the value of the "turn_id" field.
+func (m *ProjectConversationRunMutation) ClearTurnID() {
+	m.turn_id = nil
+	m.clearedFields[projectconversationrun.FieldTurnID] = struct{}{}
+}
+
+// TurnIDCleared returns if the "turn_id" field was cleared in this mutation.
+func (m *ProjectConversationRunMutation) TurnIDCleared() bool {
+	_, ok := m.clearedFields[projectconversationrun.FieldTurnID]
+	return ok
+}
+
+// ResetTurnID resets all changes to the "turn_id" field.
+func (m *ProjectConversationRunMutation) ResetTurnID() {
+	m.turn_id = nil
+	delete(m.clearedFields, projectconversationrun.FieldTurnID)
+}
+
+// SetStatus sets the "status" field.
+func (m *ProjectConversationRunMutation) SetStatus(pr projectconversationrun.Status) {
+	m.status = &pr
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *ProjectConversationRunMutation) Status() (r projectconversationrun.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldStatus(ctx context.Context) (v projectconversationrun.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *ProjectConversationRunMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetSessionID sets the "session_id" field.
+func (m *ProjectConversationRunMutation) SetSessionID(s string) {
+	m.session_id = &s
+}
+
+// SessionID returns the value of the "session_id" field in the mutation.
+func (m *ProjectConversationRunMutation) SessionID() (r string, exists bool) {
+	v := m.session_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSessionID returns the old "session_id" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldSessionID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSessionID: %w", err)
+	}
+	return oldValue.SessionID, nil
+}
+
+// ClearSessionID clears the value of the "session_id" field.
+func (m *ProjectConversationRunMutation) ClearSessionID() {
+	m.session_id = nil
+	m.clearedFields[projectconversationrun.FieldSessionID] = struct{}{}
+}
+
+// SessionIDCleared returns if the "session_id" field was cleared in this mutation.
+func (m *ProjectConversationRunMutation) SessionIDCleared() bool {
+	_, ok := m.clearedFields[projectconversationrun.FieldSessionID]
+	return ok
+}
+
+// ResetSessionID resets all changes to the "session_id" field.
+func (m *ProjectConversationRunMutation) ResetSessionID() {
+	m.session_id = nil
+	delete(m.clearedFields, projectconversationrun.FieldSessionID)
+}
+
+// SetWorkspacePath sets the "workspace_path" field.
+func (m *ProjectConversationRunMutation) SetWorkspacePath(s string) {
+	m.workspace_path = &s
+}
+
+// WorkspacePath returns the value of the "workspace_path" field in the mutation.
+func (m *ProjectConversationRunMutation) WorkspacePath() (r string, exists bool) {
+	v := m.workspace_path
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWorkspacePath returns the old "workspace_path" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldWorkspacePath(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWorkspacePath is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWorkspacePath requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWorkspacePath: %w", err)
+	}
+	return oldValue.WorkspacePath, nil
+}
+
+// ClearWorkspacePath clears the value of the "workspace_path" field.
+func (m *ProjectConversationRunMutation) ClearWorkspacePath() {
+	m.workspace_path = nil
+	m.clearedFields[projectconversationrun.FieldWorkspacePath] = struct{}{}
+}
+
+// WorkspacePathCleared returns if the "workspace_path" field was cleared in this mutation.
+func (m *ProjectConversationRunMutation) WorkspacePathCleared() bool {
+	_, ok := m.clearedFields[projectconversationrun.FieldWorkspacePath]
+	return ok
+}
+
+// ResetWorkspacePath resets all changes to the "workspace_path" field.
+func (m *ProjectConversationRunMutation) ResetWorkspacePath() {
+	m.workspace_path = nil
+	delete(m.clearedFields, projectconversationrun.FieldWorkspacePath)
+}
+
+// SetProviderThreadID sets the "provider_thread_id" field.
+func (m *ProjectConversationRunMutation) SetProviderThreadID(s string) {
+	m.provider_thread_id = &s
+}
+
+// ProviderThreadID returns the value of the "provider_thread_id" field in the mutation.
+func (m *ProjectConversationRunMutation) ProviderThreadID() (r string, exists bool) {
+	v := m.provider_thread_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProviderThreadID returns the old "provider_thread_id" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldProviderThreadID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProviderThreadID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProviderThreadID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProviderThreadID: %w", err)
+	}
+	return oldValue.ProviderThreadID, nil
+}
+
+// ClearProviderThreadID clears the value of the "provider_thread_id" field.
+func (m *ProjectConversationRunMutation) ClearProviderThreadID() {
+	m.provider_thread_id = nil
+	m.clearedFields[projectconversationrun.FieldProviderThreadID] = struct{}{}
+}
+
+// ProviderThreadIDCleared returns if the "provider_thread_id" field was cleared in this mutation.
+func (m *ProjectConversationRunMutation) ProviderThreadIDCleared() bool {
+	_, ok := m.clearedFields[projectconversationrun.FieldProviderThreadID]
+	return ok
+}
+
+// ResetProviderThreadID resets all changes to the "provider_thread_id" field.
+func (m *ProjectConversationRunMutation) ResetProviderThreadID() {
+	m.provider_thread_id = nil
+	delete(m.clearedFields, projectconversationrun.FieldProviderThreadID)
+}
+
+// SetProviderTurnID sets the "provider_turn_id" field.
+func (m *ProjectConversationRunMutation) SetProviderTurnID(s string) {
+	m.provider_turn_id = &s
+}
+
+// ProviderTurnID returns the value of the "provider_turn_id" field in the mutation.
+func (m *ProjectConversationRunMutation) ProviderTurnID() (r string, exists bool) {
+	v := m.provider_turn_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProviderTurnID returns the old "provider_turn_id" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldProviderTurnID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProviderTurnID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProviderTurnID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProviderTurnID: %w", err)
+	}
+	return oldValue.ProviderTurnID, nil
+}
+
+// ClearProviderTurnID clears the value of the "provider_turn_id" field.
+func (m *ProjectConversationRunMutation) ClearProviderTurnID() {
+	m.provider_turn_id = nil
+	m.clearedFields[projectconversationrun.FieldProviderTurnID] = struct{}{}
+}
+
+// ProviderTurnIDCleared returns if the "provider_turn_id" field was cleared in this mutation.
+func (m *ProjectConversationRunMutation) ProviderTurnIDCleared() bool {
+	_, ok := m.clearedFields[projectconversationrun.FieldProviderTurnID]
+	return ok
+}
+
+// ResetProviderTurnID resets all changes to the "provider_turn_id" field.
+func (m *ProjectConversationRunMutation) ResetProviderTurnID() {
+	m.provider_turn_id = nil
+	delete(m.clearedFields, projectconversationrun.FieldProviderTurnID)
+}
+
+// SetRuntimeStartedAt sets the "runtime_started_at" field.
+func (m *ProjectConversationRunMutation) SetRuntimeStartedAt(t time.Time) {
+	m.runtime_started_at = &t
+}
+
+// RuntimeStartedAt returns the value of the "runtime_started_at" field in the mutation.
+func (m *ProjectConversationRunMutation) RuntimeStartedAt() (r time.Time, exists bool) {
+	v := m.runtime_started_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRuntimeStartedAt returns the old "runtime_started_at" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldRuntimeStartedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRuntimeStartedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRuntimeStartedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRuntimeStartedAt: %w", err)
+	}
+	return oldValue.RuntimeStartedAt, nil
+}
+
+// ClearRuntimeStartedAt clears the value of the "runtime_started_at" field.
+func (m *ProjectConversationRunMutation) ClearRuntimeStartedAt() {
+	m.runtime_started_at = nil
+	m.clearedFields[projectconversationrun.FieldRuntimeStartedAt] = struct{}{}
+}
+
+// RuntimeStartedAtCleared returns if the "runtime_started_at" field was cleared in this mutation.
+func (m *ProjectConversationRunMutation) RuntimeStartedAtCleared() bool {
+	_, ok := m.clearedFields[projectconversationrun.FieldRuntimeStartedAt]
+	return ok
+}
+
+// ResetRuntimeStartedAt resets all changes to the "runtime_started_at" field.
+func (m *ProjectConversationRunMutation) ResetRuntimeStartedAt() {
+	m.runtime_started_at = nil
+	delete(m.clearedFields, projectconversationrun.FieldRuntimeStartedAt)
+}
+
+// SetTerminalAt sets the "terminal_at" field.
+func (m *ProjectConversationRunMutation) SetTerminalAt(t time.Time) {
+	m.terminal_at = &t
+}
+
+// TerminalAt returns the value of the "terminal_at" field in the mutation.
+func (m *ProjectConversationRunMutation) TerminalAt() (r time.Time, exists bool) {
+	v := m.terminal_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTerminalAt returns the old "terminal_at" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldTerminalAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTerminalAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTerminalAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTerminalAt: %w", err)
+	}
+	return oldValue.TerminalAt, nil
+}
+
+// ClearTerminalAt clears the value of the "terminal_at" field.
+func (m *ProjectConversationRunMutation) ClearTerminalAt() {
+	m.terminal_at = nil
+	m.clearedFields[projectconversationrun.FieldTerminalAt] = struct{}{}
+}
+
+// TerminalAtCleared returns if the "terminal_at" field was cleared in this mutation.
+func (m *ProjectConversationRunMutation) TerminalAtCleared() bool {
+	_, ok := m.clearedFields[projectconversationrun.FieldTerminalAt]
+	return ok
+}
+
+// ResetTerminalAt resets all changes to the "terminal_at" field.
+func (m *ProjectConversationRunMutation) ResetTerminalAt() {
+	m.terminal_at = nil
+	delete(m.clearedFields, projectconversationrun.FieldTerminalAt)
+}
+
+// SetLastError sets the "last_error" field.
+func (m *ProjectConversationRunMutation) SetLastError(s string) {
+	m.last_error = &s
+}
+
+// LastError returns the value of the "last_error" field in the mutation.
+func (m *ProjectConversationRunMutation) LastError() (r string, exists bool) {
+	v := m.last_error
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastError returns the old "last_error" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldLastError(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastError is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastError requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastError: %w", err)
+	}
+	return oldValue.LastError, nil
+}
+
+// ClearLastError clears the value of the "last_error" field.
+func (m *ProjectConversationRunMutation) ClearLastError() {
+	m.last_error = nil
+	m.clearedFields[projectconversationrun.FieldLastError] = struct{}{}
+}
+
+// LastErrorCleared returns if the "last_error" field was cleared in this mutation.
+func (m *ProjectConversationRunMutation) LastErrorCleared() bool {
+	_, ok := m.clearedFields[projectconversationrun.FieldLastError]
+	return ok
+}
+
+// ResetLastError resets all changes to the "last_error" field.
+func (m *ProjectConversationRunMutation) ResetLastError() {
+	m.last_error = nil
+	delete(m.clearedFields, projectconversationrun.FieldLastError)
+}
+
+// SetLastHeartbeatAt sets the "last_heartbeat_at" field.
+func (m *ProjectConversationRunMutation) SetLastHeartbeatAt(t time.Time) {
+	m.last_heartbeat_at = &t
+}
+
+// LastHeartbeatAt returns the value of the "last_heartbeat_at" field in the mutation.
+func (m *ProjectConversationRunMutation) LastHeartbeatAt() (r time.Time, exists bool) {
+	v := m.last_heartbeat_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastHeartbeatAt returns the old "last_heartbeat_at" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldLastHeartbeatAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastHeartbeatAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastHeartbeatAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastHeartbeatAt: %w", err)
+	}
+	return oldValue.LastHeartbeatAt, nil
+}
+
+// ClearLastHeartbeatAt clears the value of the "last_heartbeat_at" field.
+func (m *ProjectConversationRunMutation) ClearLastHeartbeatAt() {
+	m.last_heartbeat_at = nil
+	m.clearedFields[projectconversationrun.FieldLastHeartbeatAt] = struct{}{}
+}
+
+// LastHeartbeatAtCleared returns if the "last_heartbeat_at" field was cleared in this mutation.
+func (m *ProjectConversationRunMutation) LastHeartbeatAtCleared() bool {
+	_, ok := m.clearedFields[projectconversationrun.FieldLastHeartbeatAt]
+	return ok
+}
+
+// ResetLastHeartbeatAt resets all changes to the "last_heartbeat_at" field.
+func (m *ProjectConversationRunMutation) ResetLastHeartbeatAt() {
+	m.last_heartbeat_at = nil
+	delete(m.clearedFields, projectconversationrun.FieldLastHeartbeatAt)
+}
+
+// SetCostAmount sets the "cost_amount" field.
+func (m *ProjectConversationRunMutation) SetCostAmount(f float64) {
+	m.cost_amount = &f
+	m.addcost_amount = nil
+}
+
+// CostAmount returns the value of the "cost_amount" field in the mutation.
+func (m *ProjectConversationRunMutation) CostAmount() (r float64, exists bool) {
+	v := m.cost_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCostAmount returns the old "cost_amount" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldCostAmount(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCostAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCostAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCostAmount: %w", err)
+	}
+	return oldValue.CostAmount, nil
+}
+
+// AddCostAmount adds f to the "cost_amount" field.
+func (m *ProjectConversationRunMutation) AddCostAmount(f float64) {
+	if m.addcost_amount != nil {
+		*m.addcost_amount += f
+	} else {
+		m.addcost_amount = &f
+	}
+}
+
+// AddedCostAmount returns the value that was added to the "cost_amount" field in this mutation.
+func (m *ProjectConversationRunMutation) AddedCostAmount() (r float64, exists bool) {
+	v := m.addcost_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCostAmount resets all changes to the "cost_amount" field.
+func (m *ProjectConversationRunMutation) ResetCostAmount() {
+	m.cost_amount = nil
+	m.addcost_amount = nil
+}
+
+// SetInputTokens sets the "input_tokens" field.
+func (m *ProjectConversationRunMutation) SetInputTokens(i int64) {
+	m.input_tokens = &i
+	m.addinput_tokens = nil
+}
+
+// InputTokens returns the value of the "input_tokens" field in the mutation.
+func (m *ProjectConversationRunMutation) InputTokens() (r int64, exists bool) {
+	v := m.input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInputTokens returns the old "input_tokens" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldInputTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInputTokens: %w", err)
+	}
+	return oldValue.InputTokens, nil
+}
+
+// AddInputTokens adds i to the "input_tokens" field.
+func (m *ProjectConversationRunMutation) AddInputTokens(i int64) {
+	if m.addinput_tokens != nil {
+		*m.addinput_tokens += i
+	} else {
+		m.addinput_tokens = &i
+	}
+}
+
+// AddedInputTokens returns the value that was added to the "input_tokens" field in this mutation.
+func (m *ProjectConversationRunMutation) AddedInputTokens() (r int64, exists bool) {
+	v := m.addinput_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetInputTokens resets all changes to the "input_tokens" field.
+func (m *ProjectConversationRunMutation) ResetInputTokens() {
+	m.input_tokens = nil
+	m.addinput_tokens = nil
+}
+
+// SetOutputTokens sets the "output_tokens" field.
+func (m *ProjectConversationRunMutation) SetOutputTokens(i int64) {
+	m.output_tokens = &i
+	m.addoutput_tokens = nil
+}
+
+// OutputTokens returns the value of the "output_tokens" field in the mutation.
+func (m *ProjectConversationRunMutation) OutputTokens() (r int64, exists bool) {
+	v := m.output_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOutputTokens returns the old "output_tokens" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldOutputTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOutputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOutputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOutputTokens: %w", err)
+	}
+	return oldValue.OutputTokens, nil
+}
+
+// AddOutputTokens adds i to the "output_tokens" field.
+func (m *ProjectConversationRunMutation) AddOutputTokens(i int64) {
+	if m.addoutput_tokens != nil {
+		*m.addoutput_tokens += i
+	} else {
+		m.addoutput_tokens = &i
+	}
+}
+
+// AddedOutputTokens returns the value that was added to the "output_tokens" field in this mutation.
+func (m *ProjectConversationRunMutation) AddedOutputTokens() (r int64, exists bool) {
+	v := m.addoutput_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetOutputTokens resets all changes to the "output_tokens" field.
+func (m *ProjectConversationRunMutation) ResetOutputTokens() {
+	m.output_tokens = nil
+	m.addoutput_tokens = nil
+}
+
+// SetCachedInputTokens sets the "cached_input_tokens" field.
+func (m *ProjectConversationRunMutation) SetCachedInputTokens(i int64) {
+	m.cached_input_tokens = &i
+	m.addcached_input_tokens = nil
+}
+
+// CachedInputTokens returns the value of the "cached_input_tokens" field in the mutation.
+func (m *ProjectConversationRunMutation) CachedInputTokens() (r int64, exists bool) {
+	v := m.cached_input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCachedInputTokens returns the old "cached_input_tokens" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldCachedInputTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCachedInputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCachedInputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCachedInputTokens: %w", err)
+	}
+	return oldValue.CachedInputTokens, nil
+}
+
+// AddCachedInputTokens adds i to the "cached_input_tokens" field.
+func (m *ProjectConversationRunMutation) AddCachedInputTokens(i int64) {
+	if m.addcached_input_tokens != nil {
+		*m.addcached_input_tokens += i
+	} else {
+		m.addcached_input_tokens = &i
+	}
+}
+
+// AddedCachedInputTokens returns the value that was added to the "cached_input_tokens" field in this mutation.
+func (m *ProjectConversationRunMutation) AddedCachedInputTokens() (r int64, exists bool) {
+	v := m.addcached_input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCachedInputTokens resets all changes to the "cached_input_tokens" field.
+func (m *ProjectConversationRunMutation) ResetCachedInputTokens() {
+	m.cached_input_tokens = nil
+	m.addcached_input_tokens = nil
+}
+
+// SetCacheCreationTokens sets the "cache_creation_tokens" field.
+func (m *ProjectConversationRunMutation) SetCacheCreationTokens(i int64) {
+	m.cache_creation_tokens = &i
+	m.addcache_creation_tokens = nil
+}
+
+// CacheCreationTokens returns the value of the "cache_creation_tokens" field in the mutation.
+func (m *ProjectConversationRunMutation) CacheCreationTokens() (r int64, exists bool) {
+	v := m.cache_creation_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCacheCreationTokens returns the old "cache_creation_tokens" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldCacheCreationTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCacheCreationTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCacheCreationTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCacheCreationTokens: %w", err)
+	}
+	return oldValue.CacheCreationTokens, nil
+}
+
+// AddCacheCreationTokens adds i to the "cache_creation_tokens" field.
+func (m *ProjectConversationRunMutation) AddCacheCreationTokens(i int64) {
+	if m.addcache_creation_tokens != nil {
+		*m.addcache_creation_tokens += i
+	} else {
+		m.addcache_creation_tokens = &i
+	}
+}
+
+// AddedCacheCreationTokens returns the value that was added to the "cache_creation_tokens" field in this mutation.
+func (m *ProjectConversationRunMutation) AddedCacheCreationTokens() (r int64, exists bool) {
+	v := m.addcache_creation_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCacheCreationTokens resets all changes to the "cache_creation_tokens" field.
+func (m *ProjectConversationRunMutation) ResetCacheCreationTokens() {
+	m.cache_creation_tokens = nil
+	m.addcache_creation_tokens = nil
+}
+
+// SetReasoningTokens sets the "reasoning_tokens" field.
+func (m *ProjectConversationRunMutation) SetReasoningTokens(i int64) {
+	m.reasoning_tokens = &i
+	m.addreasoning_tokens = nil
+}
+
+// ReasoningTokens returns the value of the "reasoning_tokens" field in the mutation.
+func (m *ProjectConversationRunMutation) ReasoningTokens() (r int64, exists bool) {
+	v := m.reasoning_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReasoningTokens returns the old "reasoning_tokens" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldReasoningTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReasoningTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReasoningTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReasoningTokens: %w", err)
+	}
+	return oldValue.ReasoningTokens, nil
+}
+
+// AddReasoningTokens adds i to the "reasoning_tokens" field.
+func (m *ProjectConversationRunMutation) AddReasoningTokens(i int64) {
+	if m.addreasoning_tokens != nil {
+		*m.addreasoning_tokens += i
+	} else {
+		m.addreasoning_tokens = &i
+	}
+}
+
+// AddedReasoningTokens returns the value that was added to the "reasoning_tokens" field in this mutation.
+func (m *ProjectConversationRunMutation) AddedReasoningTokens() (r int64, exists bool) {
+	v := m.addreasoning_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetReasoningTokens resets all changes to the "reasoning_tokens" field.
+func (m *ProjectConversationRunMutation) ResetReasoningTokens() {
+	m.reasoning_tokens = nil
+	m.addreasoning_tokens = nil
+}
+
+// SetPromptTokens sets the "prompt_tokens" field.
+func (m *ProjectConversationRunMutation) SetPromptTokens(i int64) {
+	m.prompt_tokens = &i
+	m.addprompt_tokens = nil
+}
+
+// PromptTokens returns the value of the "prompt_tokens" field in the mutation.
+func (m *ProjectConversationRunMutation) PromptTokens() (r int64, exists bool) {
+	v := m.prompt_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPromptTokens returns the old "prompt_tokens" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldPromptTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPromptTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPromptTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPromptTokens: %w", err)
+	}
+	return oldValue.PromptTokens, nil
+}
+
+// AddPromptTokens adds i to the "prompt_tokens" field.
+func (m *ProjectConversationRunMutation) AddPromptTokens(i int64) {
+	if m.addprompt_tokens != nil {
+		*m.addprompt_tokens += i
+	} else {
+		m.addprompt_tokens = &i
+	}
+}
+
+// AddedPromptTokens returns the value that was added to the "prompt_tokens" field in this mutation.
+func (m *ProjectConversationRunMutation) AddedPromptTokens() (r int64, exists bool) {
+	v := m.addprompt_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPromptTokens resets all changes to the "prompt_tokens" field.
+func (m *ProjectConversationRunMutation) ResetPromptTokens() {
+	m.prompt_tokens = nil
+	m.addprompt_tokens = nil
+}
+
+// SetCandidateTokens sets the "candidate_tokens" field.
+func (m *ProjectConversationRunMutation) SetCandidateTokens(i int64) {
+	m.candidate_tokens = &i
+	m.addcandidate_tokens = nil
+}
+
+// CandidateTokens returns the value of the "candidate_tokens" field in the mutation.
+func (m *ProjectConversationRunMutation) CandidateTokens() (r int64, exists bool) {
+	v := m.candidate_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCandidateTokens returns the old "candidate_tokens" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldCandidateTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCandidateTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCandidateTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCandidateTokens: %w", err)
+	}
+	return oldValue.CandidateTokens, nil
+}
+
+// AddCandidateTokens adds i to the "candidate_tokens" field.
+func (m *ProjectConversationRunMutation) AddCandidateTokens(i int64) {
+	if m.addcandidate_tokens != nil {
+		*m.addcandidate_tokens += i
+	} else {
+		m.addcandidate_tokens = &i
+	}
+}
+
+// AddedCandidateTokens returns the value that was added to the "candidate_tokens" field in this mutation.
+func (m *ProjectConversationRunMutation) AddedCandidateTokens() (r int64, exists bool) {
+	v := m.addcandidate_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCandidateTokens resets all changes to the "candidate_tokens" field.
+func (m *ProjectConversationRunMutation) ResetCandidateTokens() {
+	m.candidate_tokens = nil
+	m.addcandidate_tokens = nil
+}
+
+// SetToolTokens sets the "tool_tokens" field.
+func (m *ProjectConversationRunMutation) SetToolTokens(i int64) {
+	m.tool_tokens = &i
+	m.addtool_tokens = nil
+}
+
+// ToolTokens returns the value of the "tool_tokens" field in the mutation.
+func (m *ProjectConversationRunMutation) ToolTokens() (r int64, exists bool) {
+	v := m.tool_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldToolTokens returns the old "tool_tokens" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldToolTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldToolTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldToolTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldToolTokens: %w", err)
+	}
+	return oldValue.ToolTokens, nil
+}
+
+// AddToolTokens adds i to the "tool_tokens" field.
+func (m *ProjectConversationRunMutation) AddToolTokens(i int64) {
+	if m.addtool_tokens != nil {
+		*m.addtool_tokens += i
+	} else {
+		m.addtool_tokens = &i
+	}
+}
+
+// AddedToolTokens returns the value that was added to the "tool_tokens" field in this mutation.
+func (m *ProjectConversationRunMutation) AddedToolTokens() (r int64, exists bool) {
+	v := m.addtool_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetToolTokens resets all changes to the "tool_tokens" field.
+func (m *ProjectConversationRunMutation) ResetToolTokens() {
+	m.tool_tokens = nil
+	m.addtool_tokens = nil
+}
+
+// SetTotalTokens sets the "total_tokens" field.
+func (m *ProjectConversationRunMutation) SetTotalTokens(i int64) {
+	m.total_tokens = &i
+	m.addtotal_tokens = nil
+}
+
+// TotalTokens returns the value of the "total_tokens" field in the mutation.
+func (m *ProjectConversationRunMutation) TotalTokens() (r int64, exists bool) {
+	v := m.total_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTotalTokens returns the old "total_tokens" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldTotalTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTotalTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTotalTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTotalTokens: %w", err)
+	}
+	return oldValue.TotalTokens, nil
+}
+
+// AddTotalTokens adds i to the "total_tokens" field.
+func (m *ProjectConversationRunMutation) AddTotalTokens(i int64) {
+	if m.addtotal_tokens != nil {
+		*m.addtotal_tokens += i
+	} else {
+		m.addtotal_tokens = &i
+	}
+}
+
+// AddedTotalTokens returns the value that was added to the "total_tokens" field in this mutation.
+func (m *ProjectConversationRunMutation) AddedTotalTokens() (r int64, exists bool) {
+	v := m.addtotal_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTotalTokens resets all changes to the "total_tokens" field.
+func (m *ProjectConversationRunMutation) ResetTotalTokens() {
+	m.total_tokens = nil
+	m.addtotal_tokens = nil
+}
+
+// SetCurrentStepStatus sets the "current_step_status" field.
+func (m *ProjectConversationRunMutation) SetCurrentStepStatus(s string) {
+	m.current_step_status = &s
+}
+
+// CurrentStepStatus returns the value of the "current_step_status" field in the mutation.
+func (m *ProjectConversationRunMutation) CurrentStepStatus() (r string, exists bool) {
+	v := m.current_step_status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCurrentStepStatus returns the old "current_step_status" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldCurrentStepStatus(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCurrentStepStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCurrentStepStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCurrentStepStatus: %w", err)
+	}
+	return oldValue.CurrentStepStatus, nil
+}
+
+// ClearCurrentStepStatus clears the value of the "current_step_status" field.
+func (m *ProjectConversationRunMutation) ClearCurrentStepStatus() {
+	m.current_step_status = nil
+	m.clearedFields[projectconversationrun.FieldCurrentStepStatus] = struct{}{}
+}
+
+// CurrentStepStatusCleared returns if the "current_step_status" field was cleared in this mutation.
+func (m *ProjectConversationRunMutation) CurrentStepStatusCleared() bool {
+	_, ok := m.clearedFields[projectconversationrun.FieldCurrentStepStatus]
+	return ok
+}
+
+// ResetCurrentStepStatus resets all changes to the "current_step_status" field.
+func (m *ProjectConversationRunMutation) ResetCurrentStepStatus() {
+	m.current_step_status = nil
+	delete(m.clearedFields, projectconversationrun.FieldCurrentStepStatus)
+}
+
+// SetCurrentStepSummary sets the "current_step_summary" field.
+func (m *ProjectConversationRunMutation) SetCurrentStepSummary(s string) {
+	m.current_step_summary = &s
+}
+
+// CurrentStepSummary returns the value of the "current_step_summary" field in the mutation.
+func (m *ProjectConversationRunMutation) CurrentStepSummary() (r string, exists bool) {
+	v := m.current_step_summary
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCurrentStepSummary returns the old "current_step_summary" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldCurrentStepSummary(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCurrentStepSummary is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCurrentStepSummary requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCurrentStepSummary: %w", err)
+	}
+	return oldValue.CurrentStepSummary, nil
+}
+
+// ClearCurrentStepSummary clears the value of the "current_step_summary" field.
+func (m *ProjectConversationRunMutation) ClearCurrentStepSummary() {
+	m.current_step_summary = nil
+	m.clearedFields[projectconversationrun.FieldCurrentStepSummary] = struct{}{}
+}
+
+// CurrentStepSummaryCleared returns if the "current_step_summary" field was cleared in this mutation.
+func (m *ProjectConversationRunMutation) CurrentStepSummaryCleared() bool {
+	_, ok := m.clearedFields[projectconversationrun.FieldCurrentStepSummary]
+	return ok
+}
+
+// ResetCurrentStepSummary resets all changes to the "current_step_summary" field.
+func (m *ProjectConversationRunMutation) ResetCurrentStepSummary() {
+	m.current_step_summary = nil
+	delete(m.clearedFields, projectconversationrun.FieldCurrentStepSummary)
+}
+
+// SetCurrentStepChangedAt sets the "current_step_changed_at" field.
+func (m *ProjectConversationRunMutation) SetCurrentStepChangedAt(t time.Time) {
+	m.current_step_changed_at = &t
+}
+
+// CurrentStepChangedAt returns the value of the "current_step_changed_at" field in the mutation.
+func (m *ProjectConversationRunMutation) CurrentStepChangedAt() (r time.Time, exists bool) {
+	v := m.current_step_changed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCurrentStepChangedAt returns the old "current_step_changed_at" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldCurrentStepChangedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCurrentStepChangedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCurrentStepChangedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCurrentStepChangedAt: %w", err)
+	}
+	return oldValue.CurrentStepChangedAt, nil
+}
+
+// ClearCurrentStepChangedAt clears the value of the "current_step_changed_at" field.
+func (m *ProjectConversationRunMutation) ClearCurrentStepChangedAt() {
+	m.current_step_changed_at = nil
+	m.clearedFields[projectconversationrun.FieldCurrentStepChangedAt] = struct{}{}
+}
+
+// CurrentStepChangedAtCleared returns if the "current_step_changed_at" field was cleared in this mutation.
+func (m *ProjectConversationRunMutation) CurrentStepChangedAtCleared() bool {
+	_, ok := m.clearedFields[projectconversationrun.FieldCurrentStepChangedAt]
+	return ok
+}
+
+// ResetCurrentStepChangedAt resets all changes to the "current_step_changed_at" field.
+func (m *ProjectConversationRunMutation) ResetCurrentStepChangedAt() {
+	m.current_step_changed_at = nil
+	delete(m.clearedFields, projectconversationrun.FieldCurrentStepChangedAt)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ProjectConversationRunMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ProjectConversationRunMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ProjectConversationRunMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// Where appends a list predicates to the ProjectConversationRunMutation builder.
+func (m *ProjectConversationRunMutation) Where(ps ...predicate.ProjectConversationRun) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ProjectConversationRunMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ProjectConversationRunMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ProjectConversationRun, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ProjectConversationRunMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ProjectConversationRunMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ProjectConversationRun).
+func (m *ProjectConversationRunMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ProjectConversationRunMutation) Fields() []string {
+	fields := make([]string, 0, 28)
+	if m.principal_id != nil {
+		fields = append(fields, projectconversationrun.FieldPrincipalID)
+	}
+	if m.conversation_id != nil {
+		fields = append(fields, projectconversationrun.FieldConversationID)
+	}
+	if m.project_id != nil {
+		fields = append(fields, projectconversationrun.FieldProjectID)
+	}
+	if m.provider_id != nil {
+		fields = append(fields, projectconversationrun.FieldProviderID)
+	}
+	if m.turn_id != nil {
+		fields = append(fields, projectconversationrun.FieldTurnID)
+	}
+	if m.status != nil {
+		fields = append(fields, projectconversationrun.FieldStatus)
+	}
+	if m.session_id != nil {
+		fields = append(fields, projectconversationrun.FieldSessionID)
+	}
+	if m.workspace_path != nil {
+		fields = append(fields, projectconversationrun.FieldWorkspacePath)
+	}
+	if m.provider_thread_id != nil {
+		fields = append(fields, projectconversationrun.FieldProviderThreadID)
+	}
+	if m.provider_turn_id != nil {
+		fields = append(fields, projectconversationrun.FieldProviderTurnID)
+	}
+	if m.runtime_started_at != nil {
+		fields = append(fields, projectconversationrun.FieldRuntimeStartedAt)
+	}
+	if m.terminal_at != nil {
+		fields = append(fields, projectconversationrun.FieldTerminalAt)
+	}
+	if m.last_error != nil {
+		fields = append(fields, projectconversationrun.FieldLastError)
+	}
+	if m.last_heartbeat_at != nil {
+		fields = append(fields, projectconversationrun.FieldLastHeartbeatAt)
+	}
+	if m.cost_amount != nil {
+		fields = append(fields, projectconversationrun.FieldCostAmount)
+	}
+	if m.input_tokens != nil {
+		fields = append(fields, projectconversationrun.FieldInputTokens)
+	}
+	if m.output_tokens != nil {
+		fields = append(fields, projectconversationrun.FieldOutputTokens)
+	}
+	if m.cached_input_tokens != nil {
+		fields = append(fields, projectconversationrun.FieldCachedInputTokens)
+	}
+	if m.cache_creation_tokens != nil {
+		fields = append(fields, projectconversationrun.FieldCacheCreationTokens)
+	}
+	if m.reasoning_tokens != nil {
+		fields = append(fields, projectconversationrun.FieldReasoningTokens)
+	}
+	if m.prompt_tokens != nil {
+		fields = append(fields, projectconversationrun.FieldPromptTokens)
+	}
+	if m.candidate_tokens != nil {
+		fields = append(fields, projectconversationrun.FieldCandidateTokens)
+	}
+	if m.tool_tokens != nil {
+		fields = append(fields, projectconversationrun.FieldToolTokens)
+	}
+	if m.total_tokens != nil {
+		fields = append(fields, projectconversationrun.FieldTotalTokens)
+	}
+	if m.current_step_status != nil {
+		fields = append(fields, projectconversationrun.FieldCurrentStepStatus)
+	}
+	if m.current_step_summary != nil {
+		fields = append(fields, projectconversationrun.FieldCurrentStepSummary)
+	}
+	if m.current_step_changed_at != nil {
+		fields = append(fields, projectconversationrun.FieldCurrentStepChangedAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, projectconversationrun.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ProjectConversationRunMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case projectconversationrun.FieldPrincipalID:
+		return m.PrincipalID()
+	case projectconversationrun.FieldConversationID:
+		return m.ConversationID()
+	case projectconversationrun.FieldProjectID:
+		return m.ProjectID()
+	case projectconversationrun.FieldProviderID:
+		return m.ProviderID()
+	case projectconversationrun.FieldTurnID:
+		return m.TurnID()
+	case projectconversationrun.FieldStatus:
+		return m.Status()
+	case projectconversationrun.FieldSessionID:
+		return m.SessionID()
+	case projectconversationrun.FieldWorkspacePath:
+		return m.WorkspacePath()
+	case projectconversationrun.FieldProviderThreadID:
+		return m.ProviderThreadID()
+	case projectconversationrun.FieldProviderTurnID:
+		return m.ProviderTurnID()
+	case projectconversationrun.FieldRuntimeStartedAt:
+		return m.RuntimeStartedAt()
+	case projectconversationrun.FieldTerminalAt:
+		return m.TerminalAt()
+	case projectconversationrun.FieldLastError:
+		return m.LastError()
+	case projectconversationrun.FieldLastHeartbeatAt:
+		return m.LastHeartbeatAt()
+	case projectconversationrun.FieldCostAmount:
+		return m.CostAmount()
+	case projectconversationrun.FieldInputTokens:
+		return m.InputTokens()
+	case projectconversationrun.FieldOutputTokens:
+		return m.OutputTokens()
+	case projectconversationrun.FieldCachedInputTokens:
+		return m.CachedInputTokens()
+	case projectconversationrun.FieldCacheCreationTokens:
+		return m.CacheCreationTokens()
+	case projectconversationrun.FieldReasoningTokens:
+		return m.ReasoningTokens()
+	case projectconversationrun.FieldPromptTokens:
+		return m.PromptTokens()
+	case projectconversationrun.FieldCandidateTokens:
+		return m.CandidateTokens()
+	case projectconversationrun.FieldToolTokens:
+		return m.ToolTokens()
+	case projectconversationrun.FieldTotalTokens:
+		return m.TotalTokens()
+	case projectconversationrun.FieldCurrentStepStatus:
+		return m.CurrentStepStatus()
+	case projectconversationrun.FieldCurrentStepSummary:
+		return m.CurrentStepSummary()
+	case projectconversationrun.FieldCurrentStepChangedAt:
+		return m.CurrentStepChangedAt()
+	case projectconversationrun.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ProjectConversationRunMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case projectconversationrun.FieldPrincipalID:
+		return m.OldPrincipalID(ctx)
+	case projectconversationrun.FieldConversationID:
+		return m.OldConversationID(ctx)
+	case projectconversationrun.FieldProjectID:
+		return m.OldProjectID(ctx)
+	case projectconversationrun.FieldProviderID:
+		return m.OldProviderID(ctx)
+	case projectconversationrun.FieldTurnID:
+		return m.OldTurnID(ctx)
+	case projectconversationrun.FieldStatus:
+		return m.OldStatus(ctx)
+	case projectconversationrun.FieldSessionID:
+		return m.OldSessionID(ctx)
+	case projectconversationrun.FieldWorkspacePath:
+		return m.OldWorkspacePath(ctx)
+	case projectconversationrun.FieldProviderThreadID:
+		return m.OldProviderThreadID(ctx)
+	case projectconversationrun.FieldProviderTurnID:
+		return m.OldProviderTurnID(ctx)
+	case projectconversationrun.FieldRuntimeStartedAt:
+		return m.OldRuntimeStartedAt(ctx)
+	case projectconversationrun.FieldTerminalAt:
+		return m.OldTerminalAt(ctx)
+	case projectconversationrun.FieldLastError:
+		return m.OldLastError(ctx)
+	case projectconversationrun.FieldLastHeartbeatAt:
+		return m.OldLastHeartbeatAt(ctx)
+	case projectconversationrun.FieldCostAmount:
+		return m.OldCostAmount(ctx)
+	case projectconversationrun.FieldInputTokens:
+		return m.OldInputTokens(ctx)
+	case projectconversationrun.FieldOutputTokens:
+		return m.OldOutputTokens(ctx)
+	case projectconversationrun.FieldCachedInputTokens:
+		return m.OldCachedInputTokens(ctx)
+	case projectconversationrun.FieldCacheCreationTokens:
+		return m.OldCacheCreationTokens(ctx)
+	case projectconversationrun.FieldReasoningTokens:
+		return m.OldReasoningTokens(ctx)
+	case projectconversationrun.FieldPromptTokens:
+		return m.OldPromptTokens(ctx)
+	case projectconversationrun.FieldCandidateTokens:
+		return m.OldCandidateTokens(ctx)
+	case projectconversationrun.FieldToolTokens:
+		return m.OldToolTokens(ctx)
+	case projectconversationrun.FieldTotalTokens:
+		return m.OldTotalTokens(ctx)
+	case projectconversationrun.FieldCurrentStepStatus:
+		return m.OldCurrentStepStatus(ctx)
+	case projectconversationrun.FieldCurrentStepSummary:
+		return m.OldCurrentStepSummary(ctx)
+	case projectconversationrun.FieldCurrentStepChangedAt:
+		return m.OldCurrentStepChangedAt(ctx)
+	case projectconversationrun.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ProjectConversationRun field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectConversationRunMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case projectconversationrun.FieldPrincipalID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPrincipalID(v)
+		return nil
+	case projectconversationrun.FieldConversationID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConversationID(v)
+		return nil
+	case projectconversationrun.FieldProjectID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectID(v)
+		return nil
+	case projectconversationrun.FieldProviderID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProviderID(v)
+		return nil
+	case projectconversationrun.FieldTurnID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTurnID(v)
+		return nil
+	case projectconversationrun.FieldStatus:
+		v, ok := value.(projectconversationrun.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case projectconversationrun.FieldSessionID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSessionID(v)
+		return nil
+	case projectconversationrun.FieldWorkspacePath:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWorkspacePath(v)
+		return nil
+	case projectconversationrun.FieldProviderThreadID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProviderThreadID(v)
+		return nil
+	case projectconversationrun.FieldProviderTurnID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProviderTurnID(v)
+		return nil
+	case projectconversationrun.FieldRuntimeStartedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRuntimeStartedAt(v)
+		return nil
+	case projectconversationrun.FieldTerminalAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTerminalAt(v)
+		return nil
+	case projectconversationrun.FieldLastError:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastError(v)
+		return nil
+	case projectconversationrun.FieldLastHeartbeatAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastHeartbeatAt(v)
+		return nil
+	case projectconversationrun.FieldCostAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCostAmount(v)
+		return nil
+	case projectconversationrun.FieldInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInputTokens(v)
+		return nil
+	case projectconversationrun.FieldOutputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutputTokens(v)
+		return nil
+	case projectconversationrun.FieldCachedInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCachedInputTokens(v)
+		return nil
+	case projectconversationrun.FieldCacheCreationTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCacheCreationTokens(v)
+		return nil
+	case projectconversationrun.FieldReasoningTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReasoningTokens(v)
+		return nil
+	case projectconversationrun.FieldPromptTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPromptTokens(v)
+		return nil
+	case projectconversationrun.FieldCandidateTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCandidateTokens(v)
+		return nil
+	case projectconversationrun.FieldToolTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetToolTokens(v)
+		return nil
+	case projectconversationrun.FieldTotalTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTotalTokens(v)
+		return nil
+	case projectconversationrun.FieldCurrentStepStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCurrentStepStatus(v)
+		return nil
+	case projectconversationrun.FieldCurrentStepSummary:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCurrentStepSummary(v)
+		return nil
+	case projectconversationrun.FieldCurrentStepChangedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCurrentStepChangedAt(v)
+		return nil
+	case projectconversationrun.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectConversationRun field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ProjectConversationRunMutation) AddedFields() []string {
+	var fields []string
+	if m.addcost_amount != nil {
+		fields = append(fields, projectconversationrun.FieldCostAmount)
+	}
+	if m.addinput_tokens != nil {
+		fields = append(fields, projectconversationrun.FieldInputTokens)
+	}
+	if m.addoutput_tokens != nil {
+		fields = append(fields, projectconversationrun.FieldOutputTokens)
+	}
+	if m.addcached_input_tokens != nil {
+		fields = append(fields, projectconversationrun.FieldCachedInputTokens)
+	}
+	if m.addcache_creation_tokens != nil {
+		fields = append(fields, projectconversationrun.FieldCacheCreationTokens)
+	}
+	if m.addreasoning_tokens != nil {
+		fields = append(fields, projectconversationrun.FieldReasoningTokens)
+	}
+	if m.addprompt_tokens != nil {
+		fields = append(fields, projectconversationrun.FieldPromptTokens)
+	}
+	if m.addcandidate_tokens != nil {
+		fields = append(fields, projectconversationrun.FieldCandidateTokens)
+	}
+	if m.addtool_tokens != nil {
+		fields = append(fields, projectconversationrun.FieldToolTokens)
+	}
+	if m.addtotal_tokens != nil {
+		fields = append(fields, projectconversationrun.FieldTotalTokens)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ProjectConversationRunMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case projectconversationrun.FieldCostAmount:
+		return m.AddedCostAmount()
+	case projectconversationrun.FieldInputTokens:
+		return m.AddedInputTokens()
+	case projectconversationrun.FieldOutputTokens:
+		return m.AddedOutputTokens()
+	case projectconversationrun.FieldCachedInputTokens:
+		return m.AddedCachedInputTokens()
+	case projectconversationrun.FieldCacheCreationTokens:
+		return m.AddedCacheCreationTokens()
+	case projectconversationrun.FieldReasoningTokens:
+		return m.AddedReasoningTokens()
+	case projectconversationrun.FieldPromptTokens:
+		return m.AddedPromptTokens()
+	case projectconversationrun.FieldCandidateTokens:
+		return m.AddedCandidateTokens()
+	case projectconversationrun.FieldToolTokens:
+		return m.AddedToolTokens()
+	case projectconversationrun.FieldTotalTokens:
+		return m.AddedTotalTokens()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectConversationRunMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case projectconversationrun.FieldCostAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCostAmount(v)
+		return nil
+	case projectconversationrun.FieldInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddInputTokens(v)
+		return nil
+	case projectconversationrun.FieldOutputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOutputTokens(v)
+		return nil
+	case projectconversationrun.FieldCachedInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCachedInputTokens(v)
+		return nil
+	case projectconversationrun.FieldCacheCreationTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCacheCreationTokens(v)
+		return nil
+	case projectconversationrun.FieldReasoningTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddReasoningTokens(v)
+		return nil
+	case projectconversationrun.FieldPromptTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPromptTokens(v)
+		return nil
+	case projectconversationrun.FieldCandidateTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCandidateTokens(v)
+		return nil
+	case projectconversationrun.FieldToolTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddToolTokens(v)
+		return nil
+	case projectconversationrun.FieldTotalTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTotalTokens(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectConversationRun numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ProjectConversationRunMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(projectconversationrun.FieldTurnID) {
+		fields = append(fields, projectconversationrun.FieldTurnID)
+	}
+	if m.FieldCleared(projectconversationrun.FieldSessionID) {
+		fields = append(fields, projectconversationrun.FieldSessionID)
+	}
+	if m.FieldCleared(projectconversationrun.FieldWorkspacePath) {
+		fields = append(fields, projectconversationrun.FieldWorkspacePath)
+	}
+	if m.FieldCleared(projectconversationrun.FieldProviderThreadID) {
+		fields = append(fields, projectconversationrun.FieldProviderThreadID)
+	}
+	if m.FieldCleared(projectconversationrun.FieldProviderTurnID) {
+		fields = append(fields, projectconversationrun.FieldProviderTurnID)
+	}
+	if m.FieldCleared(projectconversationrun.FieldRuntimeStartedAt) {
+		fields = append(fields, projectconversationrun.FieldRuntimeStartedAt)
+	}
+	if m.FieldCleared(projectconversationrun.FieldTerminalAt) {
+		fields = append(fields, projectconversationrun.FieldTerminalAt)
+	}
+	if m.FieldCleared(projectconversationrun.FieldLastError) {
+		fields = append(fields, projectconversationrun.FieldLastError)
+	}
+	if m.FieldCleared(projectconversationrun.FieldLastHeartbeatAt) {
+		fields = append(fields, projectconversationrun.FieldLastHeartbeatAt)
+	}
+	if m.FieldCleared(projectconversationrun.FieldCurrentStepStatus) {
+		fields = append(fields, projectconversationrun.FieldCurrentStepStatus)
+	}
+	if m.FieldCleared(projectconversationrun.FieldCurrentStepSummary) {
+		fields = append(fields, projectconversationrun.FieldCurrentStepSummary)
+	}
+	if m.FieldCleared(projectconversationrun.FieldCurrentStepChangedAt) {
+		fields = append(fields, projectconversationrun.FieldCurrentStepChangedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ProjectConversationRunMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ProjectConversationRunMutation) ClearField(name string) error {
+	switch name {
+	case projectconversationrun.FieldTurnID:
+		m.ClearTurnID()
+		return nil
+	case projectconversationrun.FieldSessionID:
+		m.ClearSessionID()
+		return nil
+	case projectconversationrun.FieldWorkspacePath:
+		m.ClearWorkspacePath()
+		return nil
+	case projectconversationrun.FieldProviderThreadID:
+		m.ClearProviderThreadID()
+		return nil
+	case projectconversationrun.FieldProviderTurnID:
+		m.ClearProviderTurnID()
+		return nil
+	case projectconversationrun.FieldRuntimeStartedAt:
+		m.ClearRuntimeStartedAt()
+		return nil
+	case projectconversationrun.FieldTerminalAt:
+		m.ClearTerminalAt()
+		return nil
+	case projectconversationrun.FieldLastError:
+		m.ClearLastError()
+		return nil
+	case projectconversationrun.FieldLastHeartbeatAt:
+		m.ClearLastHeartbeatAt()
+		return nil
+	case projectconversationrun.FieldCurrentStepStatus:
+		m.ClearCurrentStepStatus()
+		return nil
+	case projectconversationrun.FieldCurrentStepSummary:
+		m.ClearCurrentStepSummary()
+		return nil
+	case projectconversationrun.FieldCurrentStepChangedAt:
+		m.ClearCurrentStepChangedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectConversationRun nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ProjectConversationRunMutation) ResetField(name string) error {
+	switch name {
+	case projectconversationrun.FieldPrincipalID:
+		m.ResetPrincipalID()
+		return nil
+	case projectconversationrun.FieldConversationID:
+		m.ResetConversationID()
+		return nil
+	case projectconversationrun.FieldProjectID:
+		m.ResetProjectID()
+		return nil
+	case projectconversationrun.FieldProviderID:
+		m.ResetProviderID()
+		return nil
+	case projectconversationrun.FieldTurnID:
+		m.ResetTurnID()
+		return nil
+	case projectconversationrun.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case projectconversationrun.FieldSessionID:
+		m.ResetSessionID()
+		return nil
+	case projectconversationrun.FieldWorkspacePath:
+		m.ResetWorkspacePath()
+		return nil
+	case projectconversationrun.FieldProviderThreadID:
+		m.ResetProviderThreadID()
+		return nil
+	case projectconversationrun.FieldProviderTurnID:
+		m.ResetProviderTurnID()
+		return nil
+	case projectconversationrun.FieldRuntimeStartedAt:
+		m.ResetRuntimeStartedAt()
+		return nil
+	case projectconversationrun.FieldTerminalAt:
+		m.ResetTerminalAt()
+		return nil
+	case projectconversationrun.FieldLastError:
+		m.ResetLastError()
+		return nil
+	case projectconversationrun.FieldLastHeartbeatAt:
+		m.ResetLastHeartbeatAt()
+		return nil
+	case projectconversationrun.FieldCostAmount:
+		m.ResetCostAmount()
+		return nil
+	case projectconversationrun.FieldInputTokens:
+		m.ResetInputTokens()
+		return nil
+	case projectconversationrun.FieldOutputTokens:
+		m.ResetOutputTokens()
+		return nil
+	case projectconversationrun.FieldCachedInputTokens:
+		m.ResetCachedInputTokens()
+		return nil
+	case projectconversationrun.FieldCacheCreationTokens:
+		m.ResetCacheCreationTokens()
+		return nil
+	case projectconversationrun.FieldReasoningTokens:
+		m.ResetReasoningTokens()
+		return nil
+	case projectconversationrun.FieldPromptTokens:
+		m.ResetPromptTokens()
+		return nil
+	case projectconversationrun.FieldCandidateTokens:
+		m.ResetCandidateTokens()
+		return nil
+	case projectconversationrun.FieldToolTokens:
+		m.ResetToolTokens()
+		return nil
+	case projectconversationrun.FieldTotalTokens:
+		m.ResetTotalTokens()
+		return nil
+	case projectconversationrun.FieldCurrentStepStatus:
+		m.ResetCurrentStepStatus()
+		return nil
+	case projectconversationrun.FieldCurrentStepSummary:
+		m.ResetCurrentStepSummary()
+		return nil
+	case projectconversationrun.FieldCurrentStepChangedAt:
+		m.ResetCurrentStepChangedAt()
+		return nil
+	case projectconversationrun.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectConversationRun field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ProjectConversationRunMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ProjectConversationRunMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ProjectConversationRunMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ProjectConversationRunMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ProjectConversationRunMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ProjectConversationRunMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ProjectConversationRunMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown ProjectConversationRun unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ProjectConversationRunMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown ProjectConversationRun edge %s", name)
+}
+
+// ProjectConversationStepEventMutation represents an operation that mutates the ProjectConversationStepEvent nodes in the graph.
+type ProjectConversationStepEventMutation struct {
+	config
+	op                    Op
+	typ                   string
+	id                    *uuid.UUID
+	principal_id          *uuid.UUID
+	run_id                *uuid.UUID
+	conversation_id       *uuid.UUID
+	project_id            *uuid.UUID
+	step_status           *string
+	summary               *string
+	source_trace_event_id *uuid.UUID
+	created_at            *time.Time
+	clearedFields         map[string]struct{}
+	done                  bool
+	oldValue              func(context.Context) (*ProjectConversationStepEvent, error)
+	predicates            []predicate.ProjectConversationStepEvent
+}
+
+var _ ent.Mutation = (*ProjectConversationStepEventMutation)(nil)
+
+// projectconversationstepeventOption allows management of the mutation configuration using functional options.
+type projectconversationstepeventOption func(*ProjectConversationStepEventMutation)
+
+// newProjectConversationStepEventMutation creates new mutation for the ProjectConversationStepEvent entity.
+func newProjectConversationStepEventMutation(c config, op Op, opts ...projectconversationstepeventOption) *ProjectConversationStepEventMutation {
+	m := &ProjectConversationStepEventMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeProjectConversationStepEvent,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withProjectConversationStepEventID sets the ID field of the mutation.
+func withProjectConversationStepEventID(id uuid.UUID) projectconversationstepeventOption {
+	return func(m *ProjectConversationStepEventMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ProjectConversationStepEvent
+		)
+		m.oldValue = func(ctx context.Context) (*ProjectConversationStepEvent, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ProjectConversationStepEvent.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withProjectConversationStepEvent sets the old ProjectConversationStepEvent of the mutation.
+func withProjectConversationStepEvent(node *ProjectConversationStepEvent) projectconversationstepeventOption {
+	return func(m *ProjectConversationStepEventMutation) {
+		m.oldValue = func(context.Context) (*ProjectConversationStepEvent, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ProjectConversationStepEventMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ProjectConversationStepEventMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ProjectConversationStepEvent entities.
+func (m *ProjectConversationStepEventMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ProjectConversationStepEventMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ProjectConversationStepEventMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ProjectConversationStepEvent.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetPrincipalID sets the "principal_id" field.
+func (m *ProjectConversationStepEventMutation) SetPrincipalID(u uuid.UUID) {
+	m.principal_id = &u
+}
+
+// PrincipalID returns the value of the "principal_id" field in the mutation.
+func (m *ProjectConversationStepEventMutation) PrincipalID() (r uuid.UUID, exists bool) {
+	v := m.principal_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPrincipalID returns the old "principal_id" field's value of the ProjectConversationStepEvent entity.
+// If the ProjectConversationStepEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationStepEventMutation) OldPrincipalID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPrincipalID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPrincipalID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPrincipalID: %w", err)
+	}
+	return oldValue.PrincipalID, nil
+}
+
+// ResetPrincipalID resets all changes to the "principal_id" field.
+func (m *ProjectConversationStepEventMutation) ResetPrincipalID() {
+	m.principal_id = nil
+}
+
+// SetRunID sets the "run_id" field.
+func (m *ProjectConversationStepEventMutation) SetRunID(u uuid.UUID) {
+	m.run_id = &u
+}
+
+// RunID returns the value of the "run_id" field in the mutation.
+func (m *ProjectConversationStepEventMutation) RunID() (r uuid.UUID, exists bool) {
+	v := m.run_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRunID returns the old "run_id" field's value of the ProjectConversationStepEvent entity.
+// If the ProjectConversationStepEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationStepEventMutation) OldRunID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRunID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRunID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRunID: %w", err)
+	}
+	return oldValue.RunID, nil
+}
+
+// ResetRunID resets all changes to the "run_id" field.
+func (m *ProjectConversationStepEventMutation) ResetRunID() {
+	m.run_id = nil
+}
+
+// SetConversationID sets the "conversation_id" field.
+func (m *ProjectConversationStepEventMutation) SetConversationID(u uuid.UUID) {
+	m.conversation_id = &u
+}
+
+// ConversationID returns the value of the "conversation_id" field in the mutation.
+func (m *ProjectConversationStepEventMutation) ConversationID() (r uuid.UUID, exists bool) {
+	v := m.conversation_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConversationID returns the old "conversation_id" field's value of the ProjectConversationStepEvent entity.
+// If the ProjectConversationStepEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationStepEventMutation) OldConversationID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConversationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConversationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConversationID: %w", err)
+	}
+	return oldValue.ConversationID, nil
+}
+
+// ResetConversationID resets all changes to the "conversation_id" field.
+func (m *ProjectConversationStepEventMutation) ResetConversationID() {
+	m.conversation_id = nil
+}
+
+// SetProjectID sets the "project_id" field.
+func (m *ProjectConversationStepEventMutation) SetProjectID(u uuid.UUID) {
+	m.project_id = &u
+}
+
+// ProjectID returns the value of the "project_id" field in the mutation.
+func (m *ProjectConversationStepEventMutation) ProjectID() (r uuid.UUID, exists bool) {
+	v := m.project_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectID returns the old "project_id" field's value of the ProjectConversationStepEvent entity.
+// If the ProjectConversationStepEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationStepEventMutation) OldProjectID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectID: %w", err)
+	}
+	return oldValue.ProjectID, nil
+}
+
+// ResetProjectID resets all changes to the "project_id" field.
+func (m *ProjectConversationStepEventMutation) ResetProjectID() {
+	m.project_id = nil
+}
+
+// SetStepStatus sets the "step_status" field.
+func (m *ProjectConversationStepEventMutation) SetStepStatus(s string) {
+	m.step_status = &s
+}
+
+// StepStatus returns the value of the "step_status" field in the mutation.
+func (m *ProjectConversationStepEventMutation) StepStatus() (r string, exists bool) {
+	v := m.step_status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStepStatus returns the old "step_status" field's value of the ProjectConversationStepEvent entity.
+// If the ProjectConversationStepEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationStepEventMutation) OldStepStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStepStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStepStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStepStatus: %w", err)
+	}
+	return oldValue.StepStatus, nil
+}
+
+// ResetStepStatus resets all changes to the "step_status" field.
+func (m *ProjectConversationStepEventMutation) ResetStepStatus() {
+	m.step_status = nil
+}
+
+// SetSummary sets the "summary" field.
+func (m *ProjectConversationStepEventMutation) SetSummary(s string) {
+	m.summary = &s
+}
+
+// Summary returns the value of the "summary" field in the mutation.
+func (m *ProjectConversationStepEventMutation) Summary() (r string, exists bool) {
+	v := m.summary
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSummary returns the old "summary" field's value of the ProjectConversationStepEvent entity.
+// If the ProjectConversationStepEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationStepEventMutation) OldSummary(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSummary is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSummary requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSummary: %w", err)
+	}
+	return oldValue.Summary, nil
+}
+
+// ClearSummary clears the value of the "summary" field.
+func (m *ProjectConversationStepEventMutation) ClearSummary() {
+	m.summary = nil
+	m.clearedFields[projectconversationstepevent.FieldSummary] = struct{}{}
+}
+
+// SummaryCleared returns if the "summary" field was cleared in this mutation.
+func (m *ProjectConversationStepEventMutation) SummaryCleared() bool {
+	_, ok := m.clearedFields[projectconversationstepevent.FieldSummary]
+	return ok
+}
+
+// ResetSummary resets all changes to the "summary" field.
+func (m *ProjectConversationStepEventMutation) ResetSummary() {
+	m.summary = nil
+	delete(m.clearedFields, projectconversationstepevent.FieldSummary)
+}
+
+// SetSourceTraceEventID sets the "source_trace_event_id" field.
+func (m *ProjectConversationStepEventMutation) SetSourceTraceEventID(u uuid.UUID) {
+	m.source_trace_event_id = &u
+}
+
+// SourceTraceEventID returns the value of the "source_trace_event_id" field in the mutation.
+func (m *ProjectConversationStepEventMutation) SourceTraceEventID() (r uuid.UUID, exists bool) {
+	v := m.source_trace_event_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourceTraceEventID returns the old "source_trace_event_id" field's value of the ProjectConversationStepEvent entity.
+// If the ProjectConversationStepEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationStepEventMutation) OldSourceTraceEventID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourceTraceEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourceTraceEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourceTraceEventID: %w", err)
+	}
+	return oldValue.SourceTraceEventID, nil
+}
+
+// ClearSourceTraceEventID clears the value of the "source_trace_event_id" field.
+func (m *ProjectConversationStepEventMutation) ClearSourceTraceEventID() {
+	m.source_trace_event_id = nil
+	m.clearedFields[projectconversationstepevent.FieldSourceTraceEventID] = struct{}{}
+}
+
+// SourceTraceEventIDCleared returns if the "source_trace_event_id" field was cleared in this mutation.
+func (m *ProjectConversationStepEventMutation) SourceTraceEventIDCleared() bool {
+	_, ok := m.clearedFields[projectconversationstepevent.FieldSourceTraceEventID]
+	return ok
+}
+
+// ResetSourceTraceEventID resets all changes to the "source_trace_event_id" field.
+func (m *ProjectConversationStepEventMutation) ResetSourceTraceEventID() {
+	m.source_trace_event_id = nil
+	delete(m.clearedFields, projectconversationstepevent.FieldSourceTraceEventID)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ProjectConversationStepEventMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ProjectConversationStepEventMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ProjectConversationStepEvent entity.
+// If the ProjectConversationStepEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationStepEventMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ProjectConversationStepEventMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// Where appends a list predicates to the ProjectConversationStepEventMutation builder.
+func (m *ProjectConversationStepEventMutation) Where(ps ...predicate.ProjectConversationStepEvent) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ProjectConversationStepEventMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ProjectConversationStepEventMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ProjectConversationStepEvent, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ProjectConversationStepEventMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ProjectConversationStepEventMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ProjectConversationStepEvent).
+func (m *ProjectConversationStepEventMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ProjectConversationStepEventMutation) Fields() []string {
+	fields := make([]string, 0, 8)
+	if m.principal_id != nil {
+		fields = append(fields, projectconversationstepevent.FieldPrincipalID)
+	}
+	if m.run_id != nil {
+		fields = append(fields, projectconversationstepevent.FieldRunID)
+	}
+	if m.conversation_id != nil {
+		fields = append(fields, projectconversationstepevent.FieldConversationID)
+	}
+	if m.project_id != nil {
+		fields = append(fields, projectconversationstepevent.FieldProjectID)
+	}
+	if m.step_status != nil {
+		fields = append(fields, projectconversationstepevent.FieldStepStatus)
+	}
+	if m.summary != nil {
+		fields = append(fields, projectconversationstepevent.FieldSummary)
+	}
+	if m.source_trace_event_id != nil {
+		fields = append(fields, projectconversationstepevent.FieldSourceTraceEventID)
+	}
+	if m.created_at != nil {
+		fields = append(fields, projectconversationstepevent.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ProjectConversationStepEventMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case projectconversationstepevent.FieldPrincipalID:
+		return m.PrincipalID()
+	case projectconversationstepevent.FieldRunID:
+		return m.RunID()
+	case projectconversationstepevent.FieldConversationID:
+		return m.ConversationID()
+	case projectconversationstepevent.FieldProjectID:
+		return m.ProjectID()
+	case projectconversationstepevent.FieldStepStatus:
+		return m.StepStatus()
+	case projectconversationstepevent.FieldSummary:
+		return m.Summary()
+	case projectconversationstepevent.FieldSourceTraceEventID:
+		return m.SourceTraceEventID()
+	case projectconversationstepevent.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ProjectConversationStepEventMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case projectconversationstepevent.FieldPrincipalID:
+		return m.OldPrincipalID(ctx)
+	case projectconversationstepevent.FieldRunID:
+		return m.OldRunID(ctx)
+	case projectconversationstepevent.FieldConversationID:
+		return m.OldConversationID(ctx)
+	case projectconversationstepevent.FieldProjectID:
+		return m.OldProjectID(ctx)
+	case projectconversationstepevent.FieldStepStatus:
+		return m.OldStepStatus(ctx)
+	case projectconversationstepevent.FieldSummary:
+		return m.OldSummary(ctx)
+	case projectconversationstepevent.FieldSourceTraceEventID:
+		return m.OldSourceTraceEventID(ctx)
+	case projectconversationstepevent.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ProjectConversationStepEvent field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectConversationStepEventMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case projectconversationstepevent.FieldPrincipalID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPrincipalID(v)
+		return nil
+	case projectconversationstepevent.FieldRunID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRunID(v)
+		return nil
+	case projectconversationstepevent.FieldConversationID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConversationID(v)
+		return nil
+	case projectconversationstepevent.FieldProjectID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectID(v)
+		return nil
+	case projectconversationstepevent.FieldStepStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStepStatus(v)
+		return nil
+	case projectconversationstepevent.FieldSummary:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSummary(v)
+		return nil
+	case projectconversationstepevent.FieldSourceTraceEventID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourceTraceEventID(v)
+		return nil
+	case projectconversationstepevent.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectConversationStepEvent field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ProjectConversationStepEventMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ProjectConversationStepEventMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectConversationStepEventMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown ProjectConversationStepEvent numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ProjectConversationStepEventMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(projectconversationstepevent.FieldSummary) {
+		fields = append(fields, projectconversationstepevent.FieldSummary)
+	}
+	if m.FieldCleared(projectconversationstepevent.FieldSourceTraceEventID) {
+		fields = append(fields, projectconversationstepevent.FieldSourceTraceEventID)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ProjectConversationStepEventMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ProjectConversationStepEventMutation) ClearField(name string) error {
+	switch name {
+	case projectconversationstepevent.FieldSummary:
+		m.ClearSummary()
+		return nil
+	case projectconversationstepevent.FieldSourceTraceEventID:
+		m.ClearSourceTraceEventID()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectConversationStepEvent nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ProjectConversationStepEventMutation) ResetField(name string) error {
+	switch name {
+	case projectconversationstepevent.FieldPrincipalID:
+		m.ResetPrincipalID()
+		return nil
+	case projectconversationstepevent.FieldRunID:
+		m.ResetRunID()
+		return nil
+	case projectconversationstepevent.FieldConversationID:
+		m.ResetConversationID()
+		return nil
+	case projectconversationstepevent.FieldProjectID:
+		m.ResetProjectID()
+		return nil
+	case projectconversationstepevent.FieldStepStatus:
+		m.ResetStepStatus()
+		return nil
+	case projectconversationstepevent.FieldSummary:
+		m.ResetSummary()
+		return nil
+	case projectconversationstepevent.FieldSourceTraceEventID:
+		m.ResetSourceTraceEventID()
+		return nil
+	case projectconversationstepevent.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectConversationStepEvent field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ProjectConversationStepEventMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ProjectConversationStepEventMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ProjectConversationStepEventMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ProjectConversationStepEventMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ProjectConversationStepEventMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ProjectConversationStepEventMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ProjectConversationStepEventMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown ProjectConversationStepEvent unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ProjectConversationStepEventMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown ProjectConversationStepEvent edge %s", name)
+}
+
+// ProjectConversationTraceEventMutation represents an operation that mutates the ProjectConversationTraceEvent nodes in the graph.
+type ProjectConversationTraceEventMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *uuid.UUID
+	principal_id    *uuid.UUID
+	run_id          *uuid.UUID
+	conversation_id *uuid.UUID
+	project_id      *uuid.UUID
+	sequence        *int64
+	addsequence     *int64
+	provider        *string
+	kind            *string
+	stream          *string
+	text            *string
+	payload         *map[string]interface{}
+	created_at      *time.Time
+	clearedFields   map[string]struct{}
+	done            bool
+	oldValue        func(context.Context) (*ProjectConversationTraceEvent, error)
+	predicates      []predicate.ProjectConversationTraceEvent
+}
+
+var _ ent.Mutation = (*ProjectConversationTraceEventMutation)(nil)
+
+// projectconversationtraceeventOption allows management of the mutation configuration using functional options.
+type projectconversationtraceeventOption func(*ProjectConversationTraceEventMutation)
+
+// newProjectConversationTraceEventMutation creates new mutation for the ProjectConversationTraceEvent entity.
+func newProjectConversationTraceEventMutation(c config, op Op, opts ...projectconversationtraceeventOption) *ProjectConversationTraceEventMutation {
+	m := &ProjectConversationTraceEventMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeProjectConversationTraceEvent,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withProjectConversationTraceEventID sets the ID field of the mutation.
+func withProjectConversationTraceEventID(id uuid.UUID) projectconversationtraceeventOption {
+	return func(m *ProjectConversationTraceEventMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ProjectConversationTraceEvent
+		)
+		m.oldValue = func(ctx context.Context) (*ProjectConversationTraceEvent, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ProjectConversationTraceEvent.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withProjectConversationTraceEvent sets the old ProjectConversationTraceEvent of the mutation.
+func withProjectConversationTraceEvent(node *ProjectConversationTraceEvent) projectconversationtraceeventOption {
+	return func(m *ProjectConversationTraceEventMutation) {
+		m.oldValue = func(context.Context) (*ProjectConversationTraceEvent, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ProjectConversationTraceEventMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ProjectConversationTraceEventMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ProjectConversationTraceEvent entities.
+func (m *ProjectConversationTraceEventMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ProjectConversationTraceEventMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ProjectConversationTraceEventMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ProjectConversationTraceEvent.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetPrincipalID sets the "principal_id" field.
+func (m *ProjectConversationTraceEventMutation) SetPrincipalID(u uuid.UUID) {
+	m.principal_id = &u
+}
+
+// PrincipalID returns the value of the "principal_id" field in the mutation.
+func (m *ProjectConversationTraceEventMutation) PrincipalID() (r uuid.UUID, exists bool) {
+	v := m.principal_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPrincipalID returns the old "principal_id" field's value of the ProjectConversationTraceEvent entity.
+// If the ProjectConversationTraceEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationTraceEventMutation) OldPrincipalID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPrincipalID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPrincipalID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPrincipalID: %w", err)
+	}
+	return oldValue.PrincipalID, nil
+}
+
+// ResetPrincipalID resets all changes to the "principal_id" field.
+func (m *ProjectConversationTraceEventMutation) ResetPrincipalID() {
+	m.principal_id = nil
+}
+
+// SetRunID sets the "run_id" field.
+func (m *ProjectConversationTraceEventMutation) SetRunID(u uuid.UUID) {
+	m.run_id = &u
+}
+
+// RunID returns the value of the "run_id" field in the mutation.
+func (m *ProjectConversationTraceEventMutation) RunID() (r uuid.UUID, exists bool) {
+	v := m.run_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRunID returns the old "run_id" field's value of the ProjectConversationTraceEvent entity.
+// If the ProjectConversationTraceEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationTraceEventMutation) OldRunID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRunID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRunID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRunID: %w", err)
+	}
+	return oldValue.RunID, nil
+}
+
+// ResetRunID resets all changes to the "run_id" field.
+func (m *ProjectConversationTraceEventMutation) ResetRunID() {
+	m.run_id = nil
+}
+
+// SetConversationID sets the "conversation_id" field.
+func (m *ProjectConversationTraceEventMutation) SetConversationID(u uuid.UUID) {
+	m.conversation_id = &u
+}
+
+// ConversationID returns the value of the "conversation_id" field in the mutation.
+func (m *ProjectConversationTraceEventMutation) ConversationID() (r uuid.UUID, exists bool) {
+	v := m.conversation_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConversationID returns the old "conversation_id" field's value of the ProjectConversationTraceEvent entity.
+// If the ProjectConversationTraceEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationTraceEventMutation) OldConversationID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConversationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConversationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConversationID: %w", err)
+	}
+	return oldValue.ConversationID, nil
+}
+
+// ResetConversationID resets all changes to the "conversation_id" field.
+func (m *ProjectConversationTraceEventMutation) ResetConversationID() {
+	m.conversation_id = nil
+}
+
+// SetProjectID sets the "project_id" field.
+func (m *ProjectConversationTraceEventMutation) SetProjectID(u uuid.UUID) {
+	m.project_id = &u
+}
+
+// ProjectID returns the value of the "project_id" field in the mutation.
+func (m *ProjectConversationTraceEventMutation) ProjectID() (r uuid.UUID, exists bool) {
+	v := m.project_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectID returns the old "project_id" field's value of the ProjectConversationTraceEvent entity.
+// If the ProjectConversationTraceEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationTraceEventMutation) OldProjectID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectID: %w", err)
+	}
+	return oldValue.ProjectID, nil
+}
+
+// ResetProjectID resets all changes to the "project_id" field.
+func (m *ProjectConversationTraceEventMutation) ResetProjectID() {
+	m.project_id = nil
+}
+
+// SetSequence sets the "sequence" field.
+func (m *ProjectConversationTraceEventMutation) SetSequence(i int64) {
+	m.sequence = &i
+	m.addsequence = nil
+}
+
+// Sequence returns the value of the "sequence" field in the mutation.
+func (m *ProjectConversationTraceEventMutation) Sequence() (r int64, exists bool) {
+	v := m.sequence
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSequence returns the old "sequence" field's value of the ProjectConversationTraceEvent entity.
+// If the ProjectConversationTraceEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationTraceEventMutation) OldSequence(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSequence is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSequence requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSequence: %w", err)
+	}
+	return oldValue.Sequence, nil
+}
+
+// AddSequence adds i to the "sequence" field.
+func (m *ProjectConversationTraceEventMutation) AddSequence(i int64) {
+	if m.addsequence != nil {
+		*m.addsequence += i
+	} else {
+		m.addsequence = &i
+	}
+}
+
+// AddedSequence returns the value that was added to the "sequence" field in this mutation.
+func (m *ProjectConversationTraceEventMutation) AddedSequence() (r int64, exists bool) {
+	v := m.addsequence
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSequence resets all changes to the "sequence" field.
+func (m *ProjectConversationTraceEventMutation) ResetSequence() {
+	m.sequence = nil
+	m.addsequence = nil
+}
+
+// SetProvider sets the "provider" field.
+func (m *ProjectConversationTraceEventMutation) SetProvider(s string) {
+	m.provider = &s
+}
+
+// Provider returns the value of the "provider" field in the mutation.
+func (m *ProjectConversationTraceEventMutation) Provider() (r string, exists bool) {
+	v := m.provider
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProvider returns the old "provider" field's value of the ProjectConversationTraceEvent entity.
+// If the ProjectConversationTraceEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationTraceEventMutation) OldProvider(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProvider is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProvider requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProvider: %w", err)
+	}
+	return oldValue.Provider, nil
+}
+
+// ResetProvider resets all changes to the "provider" field.
+func (m *ProjectConversationTraceEventMutation) ResetProvider() {
+	m.provider = nil
+}
+
+// SetKind sets the "kind" field.
+func (m *ProjectConversationTraceEventMutation) SetKind(s string) {
+	m.kind = &s
+}
+
+// Kind returns the value of the "kind" field in the mutation.
+func (m *ProjectConversationTraceEventMutation) Kind() (r string, exists bool) {
+	v := m.kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldKind returns the old "kind" field's value of the ProjectConversationTraceEvent entity.
+// If the ProjectConversationTraceEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationTraceEventMutation) OldKind(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldKind: %w", err)
+	}
+	return oldValue.Kind, nil
+}
+
+// ResetKind resets all changes to the "kind" field.
+func (m *ProjectConversationTraceEventMutation) ResetKind() {
+	m.kind = nil
+}
+
+// SetStream sets the "stream" field.
+func (m *ProjectConversationTraceEventMutation) SetStream(s string) {
+	m.stream = &s
+}
+
+// Stream returns the value of the "stream" field in the mutation.
+func (m *ProjectConversationTraceEventMutation) Stream() (r string, exists bool) {
+	v := m.stream
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStream returns the old "stream" field's value of the ProjectConversationTraceEvent entity.
+// If the ProjectConversationTraceEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationTraceEventMutation) OldStream(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStream is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStream requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStream: %w", err)
+	}
+	return oldValue.Stream, nil
+}
+
+// ResetStream resets all changes to the "stream" field.
+func (m *ProjectConversationTraceEventMutation) ResetStream() {
+	m.stream = nil
+}
+
+// SetText sets the "text" field.
+func (m *ProjectConversationTraceEventMutation) SetText(s string) {
+	m.text = &s
+}
+
+// Text returns the value of the "text" field in the mutation.
+func (m *ProjectConversationTraceEventMutation) Text() (r string, exists bool) {
+	v := m.text
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldText returns the old "text" field's value of the ProjectConversationTraceEvent entity.
+// If the ProjectConversationTraceEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationTraceEventMutation) OldText(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldText is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldText requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldText: %w", err)
+	}
+	return oldValue.Text, nil
+}
+
+// ClearText clears the value of the "text" field.
+func (m *ProjectConversationTraceEventMutation) ClearText() {
+	m.text = nil
+	m.clearedFields[projectconversationtraceevent.FieldText] = struct{}{}
+}
+
+// TextCleared returns if the "text" field was cleared in this mutation.
+func (m *ProjectConversationTraceEventMutation) TextCleared() bool {
+	_, ok := m.clearedFields[projectconversationtraceevent.FieldText]
+	return ok
+}
+
+// ResetText resets all changes to the "text" field.
+func (m *ProjectConversationTraceEventMutation) ResetText() {
+	m.text = nil
+	delete(m.clearedFields, projectconversationtraceevent.FieldText)
+}
+
+// SetPayload sets the "payload" field.
+func (m *ProjectConversationTraceEventMutation) SetPayload(value map[string]interface{}) {
+	m.payload = &value
+}
+
+// Payload returns the value of the "payload" field in the mutation.
+func (m *ProjectConversationTraceEventMutation) Payload() (r map[string]interface{}, exists bool) {
+	v := m.payload
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPayload returns the old "payload" field's value of the ProjectConversationTraceEvent entity.
+// If the ProjectConversationTraceEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationTraceEventMutation) OldPayload(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPayload is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPayload requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPayload: %w", err)
+	}
+	return oldValue.Payload, nil
+}
+
+// ResetPayload resets all changes to the "payload" field.
+func (m *ProjectConversationTraceEventMutation) ResetPayload() {
+	m.payload = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ProjectConversationTraceEventMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ProjectConversationTraceEventMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ProjectConversationTraceEvent entity.
+// If the ProjectConversationTraceEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationTraceEventMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ProjectConversationTraceEventMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// Where appends a list predicates to the ProjectConversationTraceEventMutation builder.
+func (m *ProjectConversationTraceEventMutation) Where(ps ...predicate.ProjectConversationTraceEvent) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ProjectConversationTraceEventMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ProjectConversationTraceEventMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ProjectConversationTraceEvent, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ProjectConversationTraceEventMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ProjectConversationTraceEventMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ProjectConversationTraceEvent).
+func (m *ProjectConversationTraceEventMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ProjectConversationTraceEventMutation) Fields() []string {
+	fields := make([]string, 0, 11)
+	if m.principal_id != nil {
+		fields = append(fields, projectconversationtraceevent.FieldPrincipalID)
+	}
+	if m.run_id != nil {
+		fields = append(fields, projectconversationtraceevent.FieldRunID)
+	}
+	if m.conversation_id != nil {
+		fields = append(fields, projectconversationtraceevent.FieldConversationID)
+	}
+	if m.project_id != nil {
+		fields = append(fields, projectconversationtraceevent.FieldProjectID)
+	}
+	if m.sequence != nil {
+		fields = append(fields, projectconversationtraceevent.FieldSequence)
+	}
+	if m.provider != nil {
+		fields = append(fields, projectconversationtraceevent.FieldProvider)
+	}
+	if m.kind != nil {
+		fields = append(fields, projectconversationtraceevent.FieldKind)
+	}
+	if m.stream != nil {
+		fields = append(fields, projectconversationtraceevent.FieldStream)
+	}
+	if m.text != nil {
+		fields = append(fields, projectconversationtraceevent.FieldText)
+	}
+	if m.payload != nil {
+		fields = append(fields, projectconversationtraceevent.FieldPayload)
+	}
+	if m.created_at != nil {
+		fields = append(fields, projectconversationtraceevent.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ProjectConversationTraceEventMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case projectconversationtraceevent.FieldPrincipalID:
+		return m.PrincipalID()
+	case projectconversationtraceevent.FieldRunID:
+		return m.RunID()
+	case projectconversationtraceevent.FieldConversationID:
+		return m.ConversationID()
+	case projectconversationtraceevent.FieldProjectID:
+		return m.ProjectID()
+	case projectconversationtraceevent.FieldSequence:
+		return m.Sequence()
+	case projectconversationtraceevent.FieldProvider:
+		return m.Provider()
+	case projectconversationtraceevent.FieldKind:
+		return m.Kind()
+	case projectconversationtraceevent.FieldStream:
+		return m.Stream()
+	case projectconversationtraceevent.FieldText:
+		return m.Text()
+	case projectconversationtraceevent.FieldPayload:
+		return m.Payload()
+	case projectconversationtraceevent.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ProjectConversationTraceEventMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case projectconversationtraceevent.FieldPrincipalID:
+		return m.OldPrincipalID(ctx)
+	case projectconversationtraceevent.FieldRunID:
+		return m.OldRunID(ctx)
+	case projectconversationtraceevent.FieldConversationID:
+		return m.OldConversationID(ctx)
+	case projectconversationtraceevent.FieldProjectID:
+		return m.OldProjectID(ctx)
+	case projectconversationtraceevent.FieldSequence:
+		return m.OldSequence(ctx)
+	case projectconversationtraceevent.FieldProvider:
+		return m.OldProvider(ctx)
+	case projectconversationtraceevent.FieldKind:
+		return m.OldKind(ctx)
+	case projectconversationtraceevent.FieldStream:
+		return m.OldStream(ctx)
+	case projectconversationtraceevent.FieldText:
+		return m.OldText(ctx)
+	case projectconversationtraceevent.FieldPayload:
+		return m.OldPayload(ctx)
+	case projectconversationtraceevent.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ProjectConversationTraceEvent field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectConversationTraceEventMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case projectconversationtraceevent.FieldPrincipalID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPrincipalID(v)
+		return nil
+	case projectconversationtraceevent.FieldRunID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRunID(v)
+		return nil
+	case projectconversationtraceevent.FieldConversationID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConversationID(v)
+		return nil
+	case projectconversationtraceevent.FieldProjectID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectID(v)
+		return nil
+	case projectconversationtraceevent.FieldSequence:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSequence(v)
+		return nil
+	case projectconversationtraceevent.FieldProvider:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProvider(v)
+		return nil
+	case projectconversationtraceevent.FieldKind:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetKind(v)
+		return nil
+	case projectconversationtraceevent.FieldStream:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStream(v)
+		return nil
+	case projectconversationtraceevent.FieldText:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetText(v)
+		return nil
+	case projectconversationtraceevent.FieldPayload:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPayload(v)
+		return nil
+	case projectconversationtraceevent.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectConversationTraceEvent field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ProjectConversationTraceEventMutation) AddedFields() []string {
+	var fields []string
+	if m.addsequence != nil {
+		fields = append(fields, projectconversationtraceevent.FieldSequence)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ProjectConversationTraceEventMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case projectconversationtraceevent.FieldSequence:
+		return m.AddedSequence()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectConversationTraceEventMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case projectconversationtraceevent.FieldSequence:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSequence(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectConversationTraceEvent numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ProjectConversationTraceEventMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(projectconversationtraceevent.FieldText) {
+		fields = append(fields, projectconversationtraceevent.FieldText)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ProjectConversationTraceEventMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ProjectConversationTraceEventMutation) ClearField(name string) error {
+	switch name {
+	case projectconversationtraceevent.FieldText:
+		m.ClearText()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectConversationTraceEvent nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ProjectConversationTraceEventMutation) ResetField(name string) error {
+	switch name {
+	case projectconversationtraceevent.FieldPrincipalID:
+		m.ResetPrincipalID()
+		return nil
+	case projectconversationtraceevent.FieldRunID:
+		m.ResetRunID()
+		return nil
+	case projectconversationtraceevent.FieldConversationID:
+		m.ResetConversationID()
+		return nil
+	case projectconversationtraceevent.FieldProjectID:
+		m.ResetProjectID()
+		return nil
+	case projectconversationtraceevent.FieldSequence:
+		m.ResetSequence()
+		return nil
+	case projectconversationtraceevent.FieldProvider:
+		m.ResetProvider()
+		return nil
+	case projectconversationtraceevent.FieldKind:
+		m.ResetKind()
+		return nil
+	case projectconversationtraceevent.FieldStream:
+		m.ResetStream()
+		return nil
+	case projectconversationtraceevent.FieldText:
+		m.ResetText()
+		return nil
+	case projectconversationtraceevent.FieldPayload:
+		m.ResetPayload()
+		return nil
+	case projectconversationtraceevent.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectConversationTraceEvent field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ProjectConversationTraceEventMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ProjectConversationTraceEventMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ProjectConversationTraceEventMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ProjectConversationTraceEventMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ProjectConversationTraceEventMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ProjectConversationTraceEventMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ProjectConversationTraceEventMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown ProjectConversationTraceEvent unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ProjectConversationTraceEventMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown ProjectConversationTraceEvent edge %s", name)
 }
 
 // ProjectRepoMutation represents an operation that mutates the ProjectRepo nodes in the graph.

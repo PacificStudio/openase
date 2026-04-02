@@ -12,6 +12,9 @@ import (
 	entchatentry "github.com/BetterAndBetterII/openase/ent/chatentry"
 	entchatpendinginterrupt "github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
 	entchatturn "github.com/BetterAndBetterII/openase/ent/chatturn"
+	entprojectconversationprincipal "github.com/BetterAndBetterII/openase/ent/projectconversationprincipal"
+	entprojectconversationrun "github.com/BetterAndBetterII/openase/ent/projectconversationrun"
+	entprojectconversationtraceevent "github.com/BetterAndBetterII/openase/ent/projectconversationtraceevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	"github.com/google/uuid"
 )
@@ -32,7 +35,13 @@ func NewEntRepository(client *ent.Client) *Repository {
 }
 
 func (r *Repository) CreateConversation(ctx context.Context, input domain.CreateConversation) (domain.Conversation, error) {
-	item, err := r.client.ChatConversation.Create().
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return domain.Conversation{}, fmt.Errorf("start create chat conversation transaction: %w", err)
+	}
+	defer rollbackOnError(ctx, tx, &err)
+
+	item, err := tx.ChatConversation.Create().
 		SetProjectID(input.ProjectID).
 		SetUserID(strings.TrimSpace(input.UserID)).
 		SetSource(string(input.Source)).
@@ -42,8 +51,286 @@ func (r *Repository) CreateConversation(ctx context.Context, input domain.Create
 	if err != nil {
 		return domain.Conversation{}, mapWriteError("create chat conversation", err)
 	}
+	if _, err := tx.ProjectConversationPrincipal.Create().
+		SetID(item.ID).
+		SetConversationID(item.ID).
+		SetProjectID(item.ProjectID).
+		SetProviderID(item.ProviderID).
+		SetName(defaultProjectConversationPrincipalName(item.ID)).
+		SetStatus(entprojectconversationprincipal.StatusActive).
+		SetRuntimeState(entprojectconversationprincipal.RuntimeStateInactive).
+		Save(ctx); err != nil {
+		return domain.Conversation{}, mapWriteError("create project conversation principal", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return domain.Conversation{}, fmt.Errorf("commit create chat conversation: %w", err)
+	}
 
 	return mapConversation(item), nil
+}
+
+func (r *Repository) EnsurePrincipal(ctx context.Context, input domain.EnsurePrincipalInput) (domain.ProjectConversationPrincipal, error) {
+	item, err := r.client.ProjectConversationPrincipal.Query().
+		Where(entprojectconversationprincipal.ConversationIDEQ(input.ConversationID)).
+		Only(ctx)
+	switch {
+	case err == nil:
+		return mapPrincipal(item), nil
+	case !ent.IsNotFound(err):
+		return domain.ProjectConversationPrincipal{}, fmt.Errorf("get project conversation principal: %w", err)
+	}
+
+	item, err = r.client.ProjectConversationPrincipal.Create().
+		SetID(input.ConversationID).
+		SetConversationID(input.ConversationID).
+		SetProjectID(input.ProjectID).
+		SetProviderID(input.ProviderID).
+		SetName(strings.TrimSpace(input.Name)).
+		SetStatus(entprojectconversationprincipal.StatusActive).
+		SetRuntimeState(entprojectconversationprincipal.RuntimeStateInactive).
+		Save(ctx)
+	if err != nil {
+		return domain.ProjectConversationPrincipal{}, mapWriteError("create project conversation principal", err)
+	}
+	return mapPrincipal(item), nil
+}
+
+func (r *Repository) GetPrincipal(ctx context.Context, conversationID uuid.UUID) (domain.ProjectConversationPrincipal, error) {
+	item, err := r.client.ProjectConversationPrincipal.Query().
+		Where(entprojectconversationprincipal.ConversationIDEQ(conversationID)).
+		Only(ctx)
+	if err != nil {
+		return domain.ProjectConversationPrincipal{}, mapReadError("get project conversation principal", err)
+	}
+	return mapPrincipal(item), nil
+}
+
+func (r *Repository) UpdatePrincipalRuntime(ctx context.Context, input domain.UpdatePrincipalRuntimeInput) (domain.ProjectConversationPrincipal, error) {
+	builder := r.client.ProjectConversationPrincipal.UpdateOneID(input.PrincipalID).
+		SetRuntimeState(entprojectconversationprincipal.RuntimeState(input.RuntimeState))
+	if input.CurrentSessionID != nil {
+		if trimmed := strings.TrimSpace(*input.CurrentSessionID); trimmed != "" {
+			builder.SetCurrentSessionID(trimmed)
+		} else {
+			builder.ClearCurrentSessionID()
+		}
+	}
+	if input.CurrentWorkspacePath != nil {
+		if trimmed := strings.TrimSpace(*input.CurrentWorkspacePath); trimmed != "" {
+			builder.SetCurrentWorkspacePath(trimmed)
+		} else {
+			builder.ClearCurrentWorkspacePath()
+		}
+	}
+	if input.CurrentRunID != nil {
+		if *input.CurrentRunID != uuid.Nil {
+			builder.SetCurrentRunID(*input.CurrentRunID)
+		} else {
+			builder.ClearCurrentRunID()
+		}
+	}
+	if input.LastHeartbeatAt != nil {
+		builder.SetLastHeartbeatAt(*input.LastHeartbeatAt)
+	}
+	if input.CurrentStepStatus != nil {
+		if trimmed := strings.TrimSpace(*input.CurrentStepStatus); trimmed != "" {
+			builder.SetCurrentStepStatus(trimmed)
+		} else {
+			builder.ClearCurrentStepStatus()
+		}
+	}
+	if input.CurrentStepSummary != nil {
+		if trimmed := strings.TrimSpace(*input.CurrentStepSummary); trimmed != "" {
+			builder.SetCurrentStepSummary(trimmed)
+		} else {
+			builder.ClearCurrentStepSummary()
+		}
+	}
+	if input.CurrentStepChangedAt != nil {
+		builder.SetCurrentStepChangedAt(*input.CurrentStepChangedAt)
+	}
+	item, err := builder.Save(ctx)
+	if err != nil {
+		return domain.ProjectConversationPrincipal{}, mapWriteError("update project conversation principal runtime", err)
+	}
+	return mapPrincipal(item), nil
+}
+
+func (r *Repository) ClosePrincipal(ctx context.Context, input domain.ClosePrincipalInput) (domain.ProjectConversationPrincipal, error) {
+	item, err := r.client.ProjectConversationPrincipal.UpdateOneID(input.PrincipalID).
+		SetRuntimeState(entprojectconversationprincipal.RuntimeStateInactive).
+		ClearCurrentSessionID().
+		ClearCurrentWorkspacePath().
+		ClearCurrentRunID().
+		ClearCurrentStepStatus().
+		ClearCurrentStepSummary().
+		ClearCurrentStepChangedAt().
+		Save(ctx)
+	if err != nil {
+		return domain.ProjectConversationPrincipal{}, mapWriteError("close project conversation principal", err)
+	}
+	return mapPrincipal(item), nil
+}
+
+func (r *Repository) CreateRun(ctx context.Context, input domain.CreateRunInput) (domain.ProjectConversationRun, error) {
+	builder := r.client.ProjectConversationRun.Create().
+		SetID(input.RunID).
+		SetPrincipalID(input.PrincipalID).
+		SetConversationID(input.ConversationID).
+		SetProjectID(input.ProjectID).
+		SetProviderID(input.ProviderID).
+		SetStatus(entprojectconversationrun.Status(input.Status))
+	if input.TurnID != nil {
+		builder.SetTurnID(*input.TurnID)
+	}
+	if input.SessionID != nil {
+		builder.SetSessionID(strings.TrimSpace(*input.SessionID))
+	}
+	if input.WorkspacePath != nil {
+		builder.SetWorkspacePath(strings.TrimSpace(*input.WorkspacePath))
+	}
+	if input.ProviderThreadID != nil {
+		builder.SetProviderThreadID(strings.TrimSpace(*input.ProviderThreadID))
+	}
+	if input.ProviderTurnID != nil {
+		builder.SetProviderTurnID(strings.TrimSpace(*input.ProviderTurnID))
+	}
+	if input.RuntimeStartedAt != nil {
+		builder.SetRuntimeStartedAt(*input.RuntimeStartedAt)
+	}
+	if input.LastHeartbeatAt != nil {
+		builder.SetLastHeartbeatAt(*input.LastHeartbeatAt)
+	}
+	if input.CurrentStepStatus != nil {
+		builder.SetCurrentStepStatus(strings.TrimSpace(*input.CurrentStepStatus))
+	}
+	if input.CurrentStepSummary != nil {
+		builder.SetCurrentStepSummary(strings.TrimSpace(*input.CurrentStepSummary))
+	}
+	if input.CurrentStepChangedAt != nil {
+		builder.SetCurrentStepChangedAt(*input.CurrentStepChangedAt)
+	}
+	item, err := builder.Save(ctx)
+	if err != nil {
+		return domain.ProjectConversationRun{}, mapWriteError("create project conversation run", err)
+	}
+	return mapRun(item), nil
+}
+
+func (r *Repository) GetRunByTurnID(ctx context.Context, turnID uuid.UUID) (domain.ProjectConversationRun, error) {
+	item, err := r.client.ProjectConversationRun.Query().
+		Where(entprojectconversationrun.TurnIDEQ(turnID)).
+		Only(ctx)
+	if err != nil {
+		return domain.ProjectConversationRun{}, mapReadError("get project conversation run by turn", err)
+	}
+	return mapRun(item), nil
+}
+
+func (r *Repository) UpdateRun(ctx context.Context, input domain.UpdateRunInput) (domain.ProjectConversationRun, error) {
+	builder := r.client.ProjectConversationRun.UpdateOneID(input.RunID)
+	if input.Status != nil {
+		builder.SetStatus(entprojectconversationrun.Status(*input.Status))
+	}
+	if input.ProviderThreadID != nil {
+		if trimmed := strings.TrimSpace(*input.ProviderThreadID); trimmed != "" {
+			builder.SetProviderThreadID(trimmed)
+		} else {
+			builder.ClearProviderThreadID()
+		}
+	}
+	if input.ProviderTurnID != nil {
+		if trimmed := strings.TrimSpace(*input.ProviderTurnID); trimmed != "" {
+			builder.SetProviderTurnID(trimmed)
+		} else {
+			builder.ClearProviderTurnID()
+		}
+	}
+	if input.TerminalAt != nil {
+		builder.SetTerminalAt(*input.TerminalAt)
+	}
+	if input.LastError != nil {
+		if trimmed := strings.TrimSpace(*input.LastError); trimmed != "" {
+			builder.SetLastError(trimmed)
+		} else {
+			builder.ClearLastError()
+		}
+	}
+	if input.LastHeartbeatAt != nil {
+		builder.SetLastHeartbeatAt(*input.LastHeartbeatAt)
+	}
+	if input.CostAmount != nil {
+		builder.SetCostAmount(*input.CostAmount)
+	}
+	if input.CurrentStepStatus != nil {
+		if trimmed := strings.TrimSpace(*input.CurrentStepStatus); trimmed != "" {
+			builder.SetCurrentStepStatus(trimmed)
+		} else {
+			builder.ClearCurrentStepStatus()
+		}
+	}
+	if input.CurrentStepSummary != nil {
+		if trimmed := strings.TrimSpace(*input.CurrentStepSummary); trimmed != "" {
+			builder.SetCurrentStepSummary(trimmed)
+		} else {
+			builder.ClearCurrentStepSummary()
+		}
+	}
+	if input.CurrentStepChangedAt != nil {
+		builder.SetCurrentStepChangedAt(*input.CurrentStepChangedAt)
+	}
+	item, err := builder.Save(ctx)
+	if err != nil {
+		return domain.ProjectConversationRun{}, mapWriteError("update project conversation run", err)
+	}
+	return mapRun(item), nil
+}
+
+func (r *Repository) AppendTraceEvent(ctx context.Context, input domain.AppendTraceEventInput) (domain.ProjectConversationTraceEvent, error) {
+	sequenceCount, err := r.client.ProjectConversationTraceEvent.Query().
+		Where(entprojectconversationtraceevent.RunIDEQ(input.RunID)).
+		Count(ctx)
+	if err != nil {
+		return domain.ProjectConversationTraceEvent{}, fmt.Errorf("count project conversation trace events: %w", err)
+	}
+	builder := r.client.ProjectConversationTraceEvent.Create().
+		SetPrincipalID(input.PrincipalID).
+		SetRunID(input.RunID).
+		SetConversationID(input.ConversationID).
+		SetProjectID(input.ProjectID).
+		SetSequence(int64(sequenceCount)).
+		SetProvider(strings.TrimSpace(input.Provider)).
+		SetKind(strings.TrimSpace(input.Kind)).
+		SetStream(strings.TrimSpace(input.Stream)).
+		SetPayload(cloneMap(input.Payload))
+	if input.Text != nil {
+		builder.SetText(strings.TrimSpace(*input.Text))
+	}
+	item, err := builder.Save(ctx)
+	if err != nil {
+		return domain.ProjectConversationTraceEvent{}, mapWriteError("append project conversation trace event", err)
+	}
+	return mapTraceEvent(item), nil
+}
+
+func (r *Repository) AppendStepEvent(ctx context.Context, input domain.AppendStepEventInput) (domain.ProjectConversationStepEvent, error) {
+	builder := r.client.ProjectConversationStepEvent.Create().
+		SetPrincipalID(input.PrincipalID).
+		SetRunID(input.RunID).
+		SetConversationID(input.ConversationID).
+		SetProjectID(input.ProjectID).
+		SetStepStatus(strings.TrimSpace(input.StepStatus))
+	if input.Summary != nil {
+		builder.SetSummary(strings.TrimSpace(*input.Summary))
+	}
+	if input.SourceTraceEventID != nil {
+		builder.SetSourceTraceEventID(*input.SourceTraceEventID)
+	}
+	item, err := builder.Save(ctx)
+	if err != nil {
+		return domain.ProjectConversationStepEvent{}, mapWriteError("append project conversation step event", err)
+	}
+	return mapStepEvent(item), nil
 }
 
 func (r *Repository) ListConversations(ctx context.Context, filter domain.ListConversationsFilter) ([]domain.Conversation, error) {
@@ -536,6 +823,97 @@ func mapPendingInterrupt(item *ent.ChatPendingInterrupt) domain.PendingInterrupt
 		CreatedAt:         item.CreatedAt,
 		UpdatedAt:         item.UpdatedAt,
 	}
+}
+
+func mapPrincipal(item *ent.ProjectConversationPrincipal) domain.ProjectConversationPrincipal {
+	return domain.ProjectConversationPrincipal{
+		ID:                   item.ID,
+		ConversationID:       item.ConversationID,
+		ProjectID:            item.ProjectID,
+		ProviderID:           item.ProviderID,
+		Name:                 item.Name,
+		Status:               domain.PrincipalStatus(item.Status),
+		RuntimeState:         domain.RuntimeState(item.RuntimeState),
+		CurrentSessionID:     cloneStringPointer(item.CurrentSessionID),
+		CurrentWorkspacePath: cloneStringPointer(item.CurrentWorkspacePath),
+		CurrentRunID:         cloneUUIDPointer(item.CurrentRunID),
+		LastHeartbeatAt:      cloneTimePointer(item.LastHeartbeatAt),
+		CurrentStepStatus:    cloneStringPointer(item.CurrentStepStatus),
+		CurrentStepSummary:   cloneStringPointer(item.CurrentStepSummary),
+		CurrentStepChangedAt: cloneTimePointer(item.CurrentStepChangedAt),
+		ClosedAt:             cloneTimePointer(item.ClosedAt),
+		CreatedAt:            item.CreatedAt,
+		UpdatedAt:            item.UpdatedAt,
+	}
+}
+
+func mapRun(item *ent.ProjectConversationRun) domain.ProjectConversationRun {
+	return domain.ProjectConversationRun{
+		ID:                   item.ID,
+		PrincipalID:          item.PrincipalID,
+		ConversationID:       item.ConversationID,
+		ProjectID:            item.ProjectID,
+		ProviderID:           item.ProviderID,
+		TurnID:               cloneUUIDPointer(item.TurnID),
+		Status:               domain.RunStatus(item.Status),
+		SessionID:            cloneStringPointer(item.SessionID),
+		WorkspacePath:        cloneStringPointer(item.WorkspacePath),
+		ProviderThreadID:     cloneStringPointer(item.ProviderThreadID),
+		ProviderTurnID:       cloneStringPointer(item.ProviderTurnID),
+		RuntimeStartedAt:     cloneTimePointer(item.RuntimeStartedAt),
+		TerminalAt:           cloneTimePointer(item.TerminalAt),
+		LastError:            cloneStringPointer(item.LastError),
+		LastHeartbeatAt:      cloneTimePointer(item.LastHeartbeatAt),
+		CostAmount:           item.CostAmount,
+		InputTokens:          item.InputTokens,
+		OutputTokens:         item.OutputTokens,
+		CachedInputTokens:    item.CachedInputTokens,
+		CacheCreationTokens:  item.CacheCreationTokens,
+		ReasoningTokens:      item.ReasoningTokens,
+		PromptTokens:         item.PromptTokens,
+		CandidateTokens:      item.CandidateTokens,
+		ToolTokens:           item.ToolTokens,
+		TotalTokens:          item.TotalTokens,
+		CurrentStepStatus:    cloneStringPointer(item.CurrentStepStatus),
+		CurrentStepSummary:   cloneStringPointer(item.CurrentStepSummary),
+		CurrentStepChangedAt: cloneTimePointer(item.CurrentStepChangedAt),
+		CreatedAt:            item.CreatedAt,
+	}
+}
+
+func mapTraceEvent(item *ent.ProjectConversationTraceEvent) domain.ProjectConversationTraceEvent {
+	return domain.ProjectConversationTraceEvent{
+		ID:             item.ID,
+		PrincipalID:    item.PrincipalID,
+		RunID:          item.RunID,
+		ConversationID: item.ConversationID,
+		ProjectID:      item.ProjectID,
+		Sequence:       item.Sequence,
+		Provider:       item.Provider,
+		Kind:           item.Kind,
+		Stream:         item.Stream,
+		Text:           cloneStringPointer(item.Text),
+		Payload:        cloneMap(item.Payload),
+		CreatedAt:      item.CreatedAt,
+	}
+}
+
+func mapStepEvent(item *ent.ProjectConversationStepEvent) domain.ProjectConversationStepEvent {
+	return domain.ProjectConversationStepEvent{
+		ID:                 item.ID,
+		PrincipalID:        item.PrincipalID,
+		RunID:              item.RunID,
+		ConversationID:     item.ConversationID,
+		ProjectID:          item.ProjectID,
+		StepStatus:         item.StepStatus,
+		Summary:            cloneStringPointer(item.Summary),
+		SourceTraceEventID: cloneUUIDPointer(item.SourceTraceEventID),
+		CreatedAt:          item.CreatedAt,
+	}
+}
+
+func defaultProjectConversationPrincipalName(conversationID uuid.UUID) string {
+	return "project-conversation:" + strings.TrimSpace(conversationID.String())
 }
 
 func cloneStringPointer(value *string) *string {

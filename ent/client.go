@@ -33,6 +33,10 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/organizationdailytokenusage"
 	"github.com/BetterAndBetterII/openase/ent/project"
+	"github.com/BetterAndBetterII/openase/ent/projectconversationprincipal"
+	"github.com/BetterAndBetterII/openase/ent/projectconversationrun"
+	"github.com/BetterAndBetterII/openase/ent/projectconversationstepevent"
+	"github.com/BetterAndBetterII/openase/ent/projectconversationtraceevent"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatecomment"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatecommentrevision"
@@ -95,6 +99,14 @@ type Client struct {
 	OrganizationDailyTokenUsage *OrganizationDailyTokenUsageClient
 	// Project is the client for interacting with the Project builders.
 	Project *ProjectClient
+	// ProjectConversationPrincipal is the client for interacting with the ProjectConversationPrincipal builders.
+	ProjectConversationPrincipal *ProjectConversationPrincipalClient
+	// ProjectConversationRun is the client for interacting with the ProjectConversationRun builders.
+	ProjectConversationRun *ProjectConversationRunClient
+	// ProjectConversationStepEvent is the client for interacting with the ProjectConversationStepEvent builders.
+	ProjectConversationStepEvent *ProjectConversationStepEventClient
+	// ProjectConversationTraceEvent is the client for interacting with the ProjectConversationTraceEvent builders.
+	ProjectConversationTraceEvent *ProjectConversationTraceEventClient
 	// ProjectRepo is the client for interacting with the ProjectRepo builders.
 	ProjectRepo *ProjectRepoClient
 	// ProjectUpdateComment is the client for interacting with the ProjectUpdateComment builders.
@@ -165,6 +177,10 @@ func (c *Client) init() {
 	c.Organization = NewOrganizationClient(c.config)
 	c.OrganizationDailyTokenUsage = NewOrganizationDailyTokenUsageClient(c.config)
 	c.Project = NewProjectClient(c.config)
+	c.ProjectConversationPrincipal = NewProjectConversationPrincipalClient(c.config)
+	c.ProjectConversationRun = NewProjectConversationRunClient(c.config)
+	c.ProjectConversationStepEvent = NewProjectConversationStepEventClient(c.config)
+	c.ProjectConversationTraceEvent = NewProjectConversationTraceEventClient(c.config)
 	c.ProjectRepo = NewProjectRepoClient(c.config)
 	c.ProjectUpdateComment = NewProjectUpdateCommentClient(c.config)
 	c.ProjectUpdateCommentRevision = NewProjectUpdateCommentRevisionClient(c.config)
@@ -276,46 +292,50 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:                          ctx,
-		config:                       cfg,
-		ActivityEvent:                NewActivityEventClient(cfg),
-		Agent:                        NewAgentClient(cfg),
-		AgentProvider:                NewAgentProviderClient(cfg),
-		AgentRun:                     NewAgentRunClient(cfg),
-		AgentStepEvent:               NewAgentStepEventClient(cfg),
-		AgentToken:                   NewAgentTokenClient(cfg),
-		AgentTraceEvent:              NewAgentTraceEventClient(cfg),
-		ChatConversation:             NewChatConversationClient(cfg),
-		ChatEntry:                    NewChatEntryClient(cfg),
-		ChatPendingInterrupt:         NewChatPendingInterruptClient(cfg),
-		ChatTurn:                     NewChatTurnClient(cfg),
-		Machine:                      NewMachineClient(cfg),
-		NotificationChannel:          NewNotificationChannelClient(cfg),
-		NotificationRule:             NewNotificationRuleClient(cfg),
-		Organization:                 NewOrganizationClient(cfg),
-		OrganizationDailyTokenUsage:  NewOrganizationDailyTokenUsageClient(cfg),
-		Project:                      NewProjectClient(cfg),
-		ProjectRepo:                  NewProjectRepoClient(cfg),
-		ProjectUpdateComment:         NewProjectUpdateCommentClient(cfg),
-		ProjectUpdateCommentRevision: NewProjectUpdateCommentRevisionClient(cfg),
-		ProjectUpdateThread:          NewProjectUpdateThreadClient(cfg),
-		ProjectUpdateThreadRevision:  NewProjectUpdateThreadRevisionClient(cfg),
-		ScheduledJob:                 NewScheduledJobClient(cfg),
-		Skill:                        NewSkillClient(cfg),
-		SkillBlob:                    NewSkillBlobClient(cfg),
-		SkillVersion:                 NewSkillVersionClient(cfg),
-		SkillVersionFile:             NewSkillVersionFileClient(cfg),
-		Ticket:                       NewTicketClient(cfg),
-		TicketComment:                NewTicketCommentClient(cfg),
-		TicketCommentRevision:        NewTicketCommentRevisionClient(cfg),
-		TicketDependency:             NewTicketDependencyClient(cfg),
-		TicketExternalLink:           NewTicketExternalLinkClient(cfg),
-		TicketRepoScope:              NewTicketRepoScopeClient(cfg),
-		TicketRepoWorkspace:          NewTicketRepoWorkspaceClient(cfg),
-		TicketStatus:                 NewTicketStatusClient(cfg),
-		Workflow:                     NewWorkflowClient(cfg),
-		WorkflowSkillBinding:         NewWorkflowSkillBindingClient(cfg),
-		WorkflowVersion:              NewWorkflowVersionClient(cfg),
+		ctx:                           ctx,
+		config:                        cfg,
+		ActivityEvent:                 NewActivityEventClient(cfg),
+		Agent:                         NewAgentClient(cfg),
+		AgentProvider:                 NewAgentProviderClient(cfg),
+		AgentRun:                      NewAgentRunClient(cfg),
+		AgentStepEvent:                NewAgentStepEventClient(cfg),
+		AgentToken:                    NewAgentTokenClient(cfg),
+		AgentTraceEvent:               NewAgentTraceEventClient(cfg),
+		ChatConversation:              NewChatConversationClient(cfg),
+		ChatEntry:                     NewChatEntryClient(cfg),
+		ChatPendingInterrupt:          NewChatPendingInterruptClient(cfg),
+		ChatTurn:                      NewChatTurnClient(cfg),
+		Machine:                       NewMachineClient(cfg),
+		NotificationChannel:           NewNotificationChannelClient(cfg),
+		NotificationRule:              NewNotificationRuleClient(cfg),
+		Organization:                  NewOrganizationClient(cfg),
+		OrganizationDailyTokenUsage:   NewOrganizationDailyTokenUsageClient(cfg),
+		Project:                       NewProjectClient(cfg),
+		ProjectConversationPrincipal:  NewProjectConversationPrincipalClient(cfg),
+		ProjectConversationRun:        NewProjectConversationRunClient(cfg),
+		ProjectConversationStepEvent:  NewProjectConversationStepEventClient(cfg),
+		ProjectConversationTraceEvent: NewProjectConversationTraceEventClient(cfg),
+		ProjectRepo:                   NewProjectRepoClient(cfg),
+		ProjectUpdateComment:          NewProjectUpdateCommentClient(cfg),
+		ProjectUpdateCommentRevision:  NewProjectUpdateCommentRevisionClient(cfg),
+		ProjectUpdateThread:           NewProjectUpdateThreadClient(cfg),
+		ProjectUpdateThreadRevision:   NewProjectUpdateThreadRevisionClient(cfg),
+		ScheduledJob:                  NewScheduledJobClient(cfg),
+		Skill:                         NewSkillClient(cfg),
+		SkillBlob:                     NewSkillBlobClient(cfg),
+		SkillVersion:                  NewSkillVersionClient(cfg),
+		SkillVersionFile:              NewSkillVersionFileClient(cfg),
+		Ticket:                        NewTicketClient(cfg),
+		TicketComment:                 NewTicketCommentClient(cfg),
+		TicketCommentRevision:         NewTicketCommentRevisionClient(cfg),
+		TicketDependency:              NewTicketDependencyClient(cfg),
+		TicketExternalLink:            NewTicketExternalLinkClient(cfg),
+		TicketRepoScope:               NewTicketRepoScopeClient(cfg),
+		TicketRepoWorkspace:           NewTicketRepoWorkspaceClient(cfg),
+		TicketStatus:                  NewTicketStatusClient(cfg),
+		Workflow:                      NewWorkflowClient(cfg),
+		WorkflowSkillBinding:          NewWorkflowSkillBindingClient(cfg),
+		WorkflowVersion:               NewWorkflowVersionClient(cfg),
 	}, nil
 }
 
@@ -333,46 +353,50 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:                          ctx,
-		config:                       cfg,
-		ActivityEvent:                NewActivityEventClient(cfg),
-		Agent:                        NewAgentClient(cfg),
-		AgentProvider:                NewAgentProviderClient(cfg),
-		AgentRun:                     NewAgentRunClient(cfg),
-		AgentStepEvent:               NewAgentStepEventClient(cfg),
-		AgentToken:                   NewAgentTokenClient(cfg),
-		AgentTraceEvent:              NewAgentTraceEventClient(cfg),
-		ChatConversation:             NewChatConversationClient(cfg),
-		ChatEntry:                    NewChatEntryClient(cfg),
-		ChatPendingInterrupt:         NewChatPendingInterruptClient(cfg),
-		ChatTurn:                     NewChatTurnClient(cfg),
-		Machine:                      NewMachineClient(cfg),
-		NotificationChannel:          NewNotificationChannelClient(cfg),
-		NotificationRule:             NewNotificationRuleClient(cfg),
-		Organization:                 NewOrganizationClient(cfg),
-		OrganizationDailyTokenUsage:  NewOrganizationDailyTokenUsageClient(cfg),
-		Project:                      NewProjectClient(cfg),
-		ProjectRepo:                  NewProjectRepoClient(cfg),
-		ProjectUpdateComment:         NewProjectUpdateCommentClient(cfg),
-		ProjectUpdateCommentRevision: NewProjectUpdateCommentRevisionClient(cfg),
-		ProjectUpdateThread:          NewProjectUpdateThreadClient(cfg),
-		ProjectUpdateThreadRevision:  NewProjectUpdateThreadRevisionClient(cfg),
-		ScheduledJob:                 NewScheduledJobClient(cfg),
-		Skill:                        NewSkillClient(cfg),
-		SkillBlob:                    NewSkillBlobClient(cfg),
-		SkillVersion:                 NewSkillVersionClient(cfg),
-		SkillVersionFile:             NewSkillVersionFileClient(cfg),
-		Ticket:                       NewTicketClient(cfg),
-		TicketComment:                NewTicketCommentClient(cfg),
-		TicketCommentRevision:        NewTicketCommentRevisionClient(cfg),
-		TicketDependency:             NewTicketDependencyClient(cfg),
-		TicketExternalLink:           NewTicketExternalLinkClient(cfg),
-		TicketRepoScope:              NewTicketRepoScopeClient(cfg),
-		TicketRepoWorkspace:          NewTicketRepoWorkspaceClient(cfg),
-		TicketStatus:                 NewTicketStatusClient(cfg),
-		Workflow:                     NewWorkflowClient(cfg),
-		WorkflowSkillBinding:         NewWorkflowSkillBindingClient(cfg),
-		WorkflowVersion:              NewWorkflowVersionClient(cfg),
+		ctx:                           ctx,
+		config:                        cfg,
+		ActivityEvent:                 NewActivityEventClient(cfg),
+		Agent:                         NewAgentClient(cfg),
+		AgentProvider:                 NewAgentProviderClient(cfg),
+		AgentRun:                      NewAgentRunClient(cfg),
+		AgentStepEvent:                NewAgentStepEventClient(cfg),
+		AgentToken:                    NewAgentTokenClient(cfg),
+		AgentTraceEvent:               NewAgentTraceEventClient(cfg),
+		ChatConversation:              NewChatConversationClient(cfg),
+		ChatEntry:                     NewChatEntryClient(cfg),
+		ChatPendingInterrupt:          NewChatPendingInterruptClient(cfg),
+		ChatTurn:                      NewChatTurnClient(cfg),
+		Machine:                       NewMachineClient(cfg),
+		NotificationChannel:           NewNotificationChannelClient(cfg),
+		NotificationRule:              NewNotificationRuleClient(cfg),
+		Organization:                  NewOrganizationClient(cfg),
+		OrganizationDailyTokenUsage:   NewOrganizationDailyTokenUsageClient(cfg),
+		Project:                       NewProjectClient(cfg),
+		ProjectConversationPrincipal:  NewProjectConversationPrincipalClient(cfg),
+		ProjectConversationRun:        NewProjectConversationRunClient(cfg),
+		ProjectConversationStepEvent:  NewProjectConversationStepEventClient(cfg),
+		ProjectConversationTraceEvent: NewProjectConversationTraceEventClient(cfg),
+		ProjectRepo:                   NewProjectRepoClient(cfg),
+		ProjectUpdateComment:          NewProjectUpdateCommentClient(cfg),
+		ProjectUpdateCommentRevision:  NewProjectUpdateCommentRevisionClient(cfg),
+		ProjectUpdateThread:           NewProjectUpdateThreadClient(cfg),
+		ProjectUpdateThreadRevision:   NewProjectUpdateThreadRevisionClient(cfg),
+		ScheduledJob:                  NewScheduledJobClient(cfg),
+		Skill:                         NewSkillClient(cfg),
+		SkillBlob:                     NewSkillBlobClient(cfg),
+		SkillVersion:                  NewSkillVersionClient(cfg),
+		SkillVersionFile:              NewSkillVersionFileClient(cfg),
+		Ticket:                        NewTicketClient(cfg),
+		TicketComment:                 NewTicketCommentClient(cfg),
+		TicketCommentRevision:         NewTicketCommentRevisionClient(cfg),
+		TicketDependency:              NewTicketDependencyClient(cfg),
+		TicketExternalLink:            NewTicketExternalLinkClient(cfg),
+		TicketRepoScope:               NewTicketRepoScopeClient(cfg),
+		TicketRepoWorkspace:           NewTicketRepoWorkspaceClient(cfg),
+		TicketStatus:                  NewTicketStatusClient(cfg),
+		Workflow:                      NewWorkflowClient(cfg),
+		WorkflowSkillBinding:          NewWorkflowSkillBindingClient(cfg),
+		WorkflowVersion:               NewWorkflowVersionClient(cfg),
 	}, nil
 }
 
@@ -406,9 +430,11 @@ func (c *Client) Use(hooks ...Hook) {
 		c.AgentToken, c.AgentTraceEvent, c.ChatConversation, c.ChatEntry,
 		c.ChatPendingInterrupt, c.ChatTurn, c.Machine, c.NotificationChannel,
 		c.NotificationRule, c.Organization, c.OrganizationDailyTokenUsage, c.Project,
-		c.ProjectRepo, c.ProjectUpdateComment, c.ProjectUpdateCommentRevision,
-		c.ProjectUpdateThread, c.ProjectUpdateThreadRevision, c.ScheduledJob, c.Skill,
-		c.SkillBlob, c.SkillVersion, c.SkillVersionFile, c.Ticket, c.TicketComment,
+		c.ProjectConversationPrincipal, c.ProjectConversationRun,
+		c.ProjectConversationStepEvent, c.ProjectConversationTraceEvent, c.ProjectRepo,
+		c.ProjectUpdateComment, c.ProjectUpdateCommentRevision, c.ProjectUpdateThread,
+		c.ProjectUpdateThreadRevision, c.ScheduledJob, c.Skill, c.SkillBlob,
+		c.SkillVersion, c.SkillVersionFile, c.Ticket, c.TicketComment,
 		c.TicketCommentRevision, c.TicketDependency, c.TicketExternalLink,
 		c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus, c.Workflow,
 		c.WorkflowSkillBinding, c.WorkflowVersion,
@@ -425,9 +451,11 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.AgentToken, c.AgentTraceEvent, c.ChatConversation, c.ChatEntry,
 		c.ChatPendingInterrupt, c.ChatTurn, c.Machine, c.NotificationChannel,
 		c.NotificationRule, c.Organization, c.OrganizationDailyTokenUsage, c.Project,
-		c.ProjectRepo, c.ProjectUpdateComment, c.ProjectUpdateCommentRevision,
-		c.ProjectUpdateThread, c.ProjectUpdateThreadRevision, c.ScheduledJob, c.Skill,
-		c.SkillBlob, c.SkillVersion, c.SkillVersionFile, c.Ticket, c.TicketComment,
+		c.ProjectConversationPrincipal, c.ProjectConversationRun,
+		c.ProjectConversationStepEvent, c.ProjectConversationTraceEvent, c.ProjectRepo,
+		c.ProjectUpdateComment, c.ProjectUpdateCommentRevision, c.ProjectUpdateThread,
+		c.ProjectUpdateThreadRevision, c.ScheduledJob, c.Skill, c.SkillBlob,
+		c.SkillVersion, c.SkillVersionFile, c.Ticket, c.TicketComment,
 		c.TicketCommentRevision, c.TicketDependency, c.TicketExternalLink,
 		c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus, c.Workflow,
 		c.WorkflowSkillBinding, c.WorkflowVersion,
@@ -473,6 +501,14 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.OrganizationDailyTokenUsage.mutate(ctx, m)
 	case *ProjectMutation:
 		return c.Project.mutate(ctx, m)
+	case *ProjectConversationPrincipalMutation:
+		return c.ProjectConversationPrincipal.mutate(ctx, m)
+	case *ProjectConversationRunMutation:
+		return c.ProjectConversationRun.mutate(ctx, m)
+	case *ProjectConversationStepEventMutation:
+		return c.ProjectConversationStepEvent.mutate(ctx, m)
+	case *ProjectConversationTraceEventMutation:
+		return c.ProjectConversationTraceEvent.mutate(ctx, m)
 	case *ProjectRepoMutation:
 		return c.ProjectRepo.mutate(ctx, m)
 	case *ProjectUpdateCommentMutation:
@@ -1805,6 +1841,22 @@ func (c *AgentTokenClient) QueryTicket(_m *AgentToken) *TicketQuery {
 	return query
 }
 
+// QueryConversation queries the conversation edge of a AgentToken.
+func (c *AgentTokenClient) QueryConversation(_m *AgentToken) *ChatConversationQuery {
+	query := (&ChatConversationClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agenttoken.Table, agenttoken.FieldID, id),
+			sqlgraph.To(chatconversation.Table, chatconversation.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agenttoken.ConversationTable, agenttoken.ConversationColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *AgentTokenClient) Hooks() []Hook {
 	return c.hooks.AgentToken
@@ -2208,6 +2260,22 @@ func (c *ChatConversationClient) QueryPendingInterrupts(_m *ChatConversation) *C
 			sqlgraph.From(chatconversation.Table, chatconversation.FieldID, id),
 			sqlgraph.To(chatpendinginterrupt.Table, chatpendinginterrupt.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, chatconversation.PendingInterruptsTable, chatconversation.PendingInterruptsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAgentTokens queries the agent_tokens edge of a ChatConversation.
+func (c *ChatConversationClient) QueryAgentTokens(_m *ChatConversation) *AgentTokenQuery {
+	query := (&AgentTokenClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatconversation.Table, chatconversation.FieldID, id),
+			sqlgraph.To(agenttoken.Table, agenttoken.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, chatconversation.AgentTokensTable, chatconversation.AgentTokensColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -4026,6 +4094,538 @@ func (c *ProjectClient) mutate(ctx context.Context, m *ProjectMutation) (Value, 
 		return (&ProjectDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Project mutation op: %q", m.Op())
+	}
+}
+
+// ProjectConversationPrincipalClient is a client for the ProjectConversationPrincipal schema.
+type ProjectConversationPrincipalClient struct {
+	config
+}
+
+// NewProjectConversationPrincipalClient returns a client for the ProjectConversationPrincipal from the given config.
+func NewProjectConversationPrincipalClient(c config) *ProjectConversationPrincipalClient {
+	return &ProjectConversationPrincipalClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `projectconversationprincipal.Hooks(f(g(h())))`.
+func (c *ProjectConversationPrincipalClient) Use(hooks ...Hook) {
+	c.hooks.ProjectConversationPrincipal = append(c.hooks.ProjectConversationPrincipal, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `projectconversationprincipal.Intercept(f(g(h())))`.
+func (c *ProjectConversationPrincipalClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ProjectConversationPrincipal = append(c.inters.ProjectConversationPrincipal, interceptors...)
+}
+
+// Create returns a builder for creating a ProjectConversationPrincipal entity.
+func (c *ProjectConversationPrincipalClient) Create() *ProjectConversationPrincipalCreate {
+	mutation := newProjectConversationPrincipalMutation(c.config, OpCreate)
+	return &ProjectConversationPrincipalCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ProjectConversationPrincipal entities.
+func (c *ProjectConversationPrincipalClient) CreateBulk(builders ...*ProjectConversationPrincipalCreate) *ProjectConversationPrincipalCreateBulk {
+	return &ProjectConversationPrincipalCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ProjectConversationPrincipalClient) MapCreateBulk(slice any, setFunc func(*ProjectConversationPrincipalCreate, int)) *ProjectConversationPrincipalCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ProjectConversationPrincipalCreateBulk{err: fmt.Errorf("calling to ProjectConversationPrincipalClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ProjectConversationPrincipalCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ProjectConversationPrincipalCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ProjectConversationPrincipal.
+func (c *ProjectConversationPrincipalClient) Update() *ProjectConversationPrincipalUpdate {
+	mutation := newProjectConversationPrincipalMutation(c.config, OpUpdate)
+	return &ProjectConversationPrincipalUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ProjectConversationPrincipalClient) UpdateOne(_m *ProjectConversationPrincipal) *ProjectConversationPrincipalUpdateOne {
+	mutation := newProjectConversationPrincipalMutation(c.config, OpUpdateOne, withProjectConversationPrincipal(_m))
+	return &ProjectConversationPrincipalUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ProjectConversationPrincipalClient) UpdateOneID(id uuid.UUID) *ProjectConversationPrincipalUpdateOne {
+	mutation := newProjectConversationPrincipalMutation(c.config, OpUpdateOne, withProjectConversationPrincipalID(id))
+	return &ProjectConversationPrincipalUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ProjectConversationPrincipal.
+func (c *ProjectConversationPrincipalClient) Delete() *ProjectConversationPrincipalDelete {
+	mutation := newProjectConversationPrincipalMutation(c.config, OpDelete)
+	return &ProjectConversationPrincipalDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ProjectConversationPrincipalClient) DeleteOne(_m *ProjectConversationPrincipal) *ProjectConversationPrincipalDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ProjectConversationPrincipalClient) DeleteOneID(id uuid.UUID) *ProjectConversationPrincipalDeleteOne {
+	builder := c.Delete().Where(projectconversationprincipal.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ProjectConversationPrincipalDeleteOne{builder}
+}
+
+// Query returns a query builder for ProjectConversationPrincipal.
+func (c *ProjectConversationPrincipalClient) Query() *ProjectConversationPrincipalQuery {
+	return &ProjectConversationPrincipalQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeProjectConversationPrincipal},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ProjectConversationPrincipal entity by its id.
+func (c *ProjectConversationPrincipalClient) Get(ctx context.Context, id uuid.UUID) (*ProjectConversationPrincipal, error) {
+	return c.Query().Where(projectconversationprincipal.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ProjectConversationPrincipalClient) GetX(ctx context.Context, id uuid.UUID) *ProjectConversationPrincipal {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ProjectConversationPrincipalClient) Hooks() []Hook {
+	return c.hooks.ProjectConversationPrincipal
+}
+
+// Interceptors returns the client interceptors.
+func (c *ProjectConversationPrincipalClient) Interceptors() []Interceptor {
+	return c.inters.ProjectConversationPrincipal
+}
+
+func (c *ProjectConversationPrincipalClient) mutate(ctx context.Context, m *ProjectConversationPrincipalMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ProjectConversationPrincipalCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ProjectConversationPrincipalUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ProjectConversationPrincipalUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ProjectConversationPrincipalDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ProjectConversationPrincipal mutation op: %q", m.Op())
+	}
+}
+
+// ProjectConversationRunClient is a client for the ProjectConversationRun schema.
+type ProjectConversationRunClient struct {
+	config
+}
+
+// NewProjectConversationRunClient returns a client for the ProjectConversationRun from the given config.
+func NewProjectConversationRunClient(c config) *ProjectConversationRunClient {
+	return &ProjectConversationRunClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `projectconversationrun.Hooks(f(g(h())))`.
+func (c *ProjectConversationRunClient) Use(hooks ...Hook) {
+	c.hooks.ProjectConversationRun = append(c.hooks.ProjectConversationRun, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `projectconversationrun.Intercept(f(g(h())))`.
+func (c *ProjectConversationRunClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ProjectConversationRun = append(c.inters.ProjectConversationRun, interceptors...)
+}
+
+// Create returns a builder for creating a ProjectConversationRun entity.
+func (c *ProjectConversationRunClient) Create() *ProjectConversationRunCreate {
+	mutation := newProjectConversationRunMutation(c.config, OpCreate)
+	return &ProjectConversationRunCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ProjectConversationRun entities.
+func (c *ProjectConversationRunClient) CreateBulk(builders ...*ProjectConversationRunCreate) *ProjectConversationRunCreateBulk {
+	return &ProjectConversationRunCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ProjectConversationRunClient) MapCreateBulk(slice any, setFunc func(*ProjectConversationRunCreate, int)) *ProjectConversationRunCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ProjectConversationRunCreateBulk{err: fmt.Errorf("calling to ProjectConversationRunClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ProjectConversationRunCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ProjectConversationRunCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ProjectConversationRun.
+func (c *ProjectConversationRunClient) Update() *ProjectConversationRunUpdate {
+	mutation := newProjectConversationRunMutation(c.config, OpUpdate)
+	return &ProjectConversationRunUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ProjectConversationRunClient) UpdateOne(_m *ProjectConversationRun) *ProjectConversationRunUpdateOne {
+	mutation := newProjectConversationRunMutation(c.config, OpUpdateOne, withProjectConversationRun(_m))
+	return &ProjectConversationRunUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ProjectConversationRunClient) UpdateOneID(id uuid.UUID) *ProjectConversationRunUpdateOne {
+	mutation := newProjectConversationRunMutation(c.config, OpUpdateOne, withProjectConversationRunID(id))
+	return &ProjectConversationRunUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ProjectConversationRun.
+func (c *ProjectConversationRunClient) Delete() *ProjectConversationRunDelete {
+	mutation := newProjectConversationRunMutation(c.config, OpDelete)
+	return &ProjectConversationRunDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ProjectConversationRunClient) DeleteOne(_m *ProjectConversationRun) *ProjectConversationRunDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ProjectConversationRunClient) DeleteOneID(id uuid.UUID) *ProjectConversationRunDeleteOne {
+	builder := c.Delete().Where(projectconversationrun.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ProjectConversationRunDeleteOne{builder}
+}
+
+// Query returns a query builder for ProjectConversationRun.
+func (c *ProjectConversationRunClient) Query() *ProjectConversationRunQuery {
+	return &ProjectConversationRunQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeProjectConversationRun},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ProjectConversationRun entity by its id.
+func (c *ProjectConversationRunClient) Get(ctx context.Context, id uuid.UUID) (*ProjectConversationRun, error) {
+	return c.Query().Where(projectconversationrun.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ProjectConversationRunClient) GetX(ctx context.Context, id uuid.UUID) *ProjectConversationRun {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ProjectConversationRunClient) Hooks() []Hook {
+	return c.hooks.ProjectConversationRun
+}
+
+// Interceptors returns the client interceptors.
+func (c *ProjectConversationRunClient) Interceptors() []Interceptor {
+	return c.inters.ProjectConversationRun
+}
+
+func (c *ProjectConversationRunClient) mutate(ctx context.Context, m *ProjectConversationRunMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ProjectConversationRunCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ProjectConversationRunUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ProjectConversationRunUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ProjectConversationRunDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ProjectConversationRun mutation op: %q", m.Op())
+	}
+}
+
+// ProjectConversationStepEventClient is a client for the ProjectConversationStepEvent schema.
+type ProjectConversationStepEventClient struct {
+	config
+}
+
+// NewProjectConversationStepEventClient returns a client for the ProjectConversationStepEvent from the given config.
+func NewProjectConversationStepEventClient(c config) *ProjectConversationStepEventClient {
+	return &ProjectConversationStepEventClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `projectconversationstepevent.Hooks(f(g(h())))`.
+func (c *ProjectConversationStepEventClient) Use(hooks ...Hook) {
+	c.hooks.ProjectConversationStepEvent = append(c.hooks.ProjectConversationStepEvent, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `projectconversationstepevent.Intercept(f(g(h())))`.
+func (c *ProjectConversationStepEventClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ProjectConversationStepEvent = append(c.inters.ProjectConversationStepEvent, interceptors...)
+}
+
+// Create returns a builder for creating a ProjectConversationStepEvent entity.
+func (c *ProjectConversationStepEventClient) Create() *ProjectConversationStepEventCreate {
+	mutation := newProjectConversationStepEventMutation(c.config, OpCreate)
+	return &ProjectConversationStepEventCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ProjectConversationStepEvent entities.
+func (c *ProjectConversationStepEventClient) CreateBulk(builders ...*ProjectConversationStepEventCreate) *ProjectConversationStepEventCreateBulk {
+	return &ProjectConversationStepEventCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ProjectConversationStepEventClient) MapCreateBulk(slice any, setFunc func(*ProjectConversationStepEventCreate, int)) *ProjectConversationStepEventCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ProjectConversationStepEventCreateBulk{err: fmt.Errorf("calling to ProjectConversationStepEventClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ProjectConversationStepEventCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ProjectConversationStepEventCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ProjectConversationStepEvent.
+func (c *ProjectConversationStepEventClient) Update() *ProjectConversationStepEventUpdate {
+	mutation := newProjectConversationStepEventMutation(c.config, OpUpdate)
+	return &ProjectConversationStepEventUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ProjectConversationStepEventClient) UpdateOne(_m *ProjectConversationStepEvent) *ProjectConversationStepEventUpdateOne {
+	mutation := newProjectConversationStepEventMutation(c.config, OpUpdateOne, withProjectConversationStepEvent(_m))
+	return &ProjectConversationStepEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ProjectConversationStepEventClient) UpdateOneID(id uuid.UUID) *ProjectConversationStepEventUpdateOne {
+	mutation := newProjectConversationStepEventMutation(c.config, OpUpdateOne, withProjectConversationStepEventID(id))
+	return &ProjectConversationStepEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ProjectConversationStepEvent.
+func (c *ProjectConversationStepEventClient) Delete() *ProjectConversationStepEventDelete {
+	mutation := newProjectConversationStepEventMutation(c.config, OpDelete)
+	return &ProjectConversationStepEventDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ProjectConversationStepEventClient) DeleteOne(_m *ProjectConversationStepEvent) *ProjectConversationStepEventDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ProjectConversationStepEventClient) DeleteOneID(id uuid.UUID) *ProjectConversationStepEventDeleteOne {
+	builder := c.Delete().Where(projectconversationstepevent.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ProjectConversationStepEventDeleteOne{builder}
+}
+
+// Query returns a query builder for ProjectConversationStepEvent.
+func (c *ProjectConversationStepEventClient) Query() *ProjectConversationStepEventQuery {
+	return &ProjectConversationStepEventQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeProjectConversationStepEvent},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ProjectConversationStepEvent entity by its id.
+func (c *ProjectConversationStepEventClient) Get(ctx context.Context, id uuid.UUID) (*ProjectConversationStepEvent, error) {
+	return c.Query().Where(projectconversationstepevent.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ProjectConversationStepEventClient) GetX(ctx context.Context, id uuid.UUID) *ProjectConversationStepEvent {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ProjectConversationStepEventClient) Hooks() []Hook {
+	return c.hooks.ProjectConversationStepEvent
+}
+
+// Interceptors returns the client interceptors.
+func (c *ProjectConversationStepEventClient) Interceptors() []Interceptor {
+	return c.inters.ProjectConversationStepEvent
+}
+
+func (c *ProjectConversationStepEventClient) mutate(ctx context.Context, m *ProjectConversationStepEventMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ProjectConversationStepEventCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ProjectConversationStepEventUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ProjectConversationStepEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ProjectConversationStepEventDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ProjectConversationStepEvent mutation op: %q", m.Op())
+	}
+}
+
+// ProjectConversationTraceEventClient is a client for the ProjectConversationTraceEvent schema.
+type ProjectConversationTraceEventClient struct {
+	config
+}
+
+// NewProjectConversationTraceEventClient returns a client for the ProjectConversationTraceEvent from the given config.
+func NewProjectConversationTraceEventClient(c config) *ProjectConversationTraceEventClient {
+	return &ProjectConversationTraceEventClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `projectconversationtraceevent.Hooks(f(g(h())))`.
+func (c *ProjectConversationTraceEventClient) Use(hooks ...Hook) {
+	c.hooks.ProjectConversationTraceEvent = append(c.hooks.ProjectConversationTraceEvent, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `projectconversationtraceevent.Intercept(f(g(h())))`.
+func (c *ProjectConversationTraceEventClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ProjectConversationTraceEvent = append(c.inters.ProjectConversationTraceEvent, interceptors...)
+}
+
+// Create returns a builder for creating a ProjectConversationTraceEvent entity.
+func (c *ProjectConversationTraceEventClient) Create() *ProjectConversationTraceEventCreate {
+	mutation := newProjectConversationTraceEventMutation(c.config, OpCreate)
+	return &ProjectConversationTraceEventCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ProjectConversationTraceEvent entities.
+func (c *ProjectConversationTraceEventClient) CreateBulk(builders ...*ProjectConversationTraceEventCreate) *ProjectConversationTraceEventCreateBulk {
+	return &ProjectConversationTraceEventCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ProjectConversationTraceEventClient) MapCreateBulk(slice any, setFunc func(*ProjectConversationTraceEventCreate, int)) *ProjectConversationTraceEventCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ProjectConversationTraceEventCreateBulk{err: fmt.Errorf("calling to ProjectConversationTraceEventClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ProjectConversationTraceEventCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ProjectConversationTraceEventCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ProjectConversationTraceEvent.
+func (c *ProjectConversationTraceEventClient) Update() *ProjectConversationTraceEventUpdate {
+	mutation := newProjectConversationTraceEventMutation(c.config, OpUpdate)
+	return &ProjectConversationTraceEventUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ProjectConversationTraceEventClient) UpdateOne(_m *ProjectConversationTraceEvent) *ProjectConversationTraceEventUpdateOne {
+	mutation := newProjectConversationTraceEventMutation(c.config, OpUpdateOne, withProjectConversationTraceEvent(_m))
+	return &ProjectConversationTraceEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ProjectConversationTraceEventClient) UpdateOneID(id uuid.UUID) *ProjectConversationTraceEventUpdateOne {
+	mutation := newProjectConversationTraceEventMutation(c.config, OpUpdateOne, withProjectConversationTraceEventID(id))
+	return &ProjectConversationTraceEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ProjectConversationTraceEvent.
+func (c *ProjectConversationTraceEventClient) Delete() *ProjectConversationTraceEventDelete {
+	mutation := newProjectConversationTraceEventMutation(c.config, OpDelete)
+	return &ProjectConversationTraceEventDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ProjectConversationTraceEventClient) DeleteOne(_m *ProjectConversationTraceEvent) *ProjectConversationTraceEventDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ProjectConversationTraceEventClient) DeleteOneID(id uuid.UUID) *ProjectConversationTraceEventDeleteOne {
+	builder := c.Delete().Where(projectconversationtraceevent.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ProjectConversationTraceEventDeleteOne{builder}
+}
+
+// Query returns a query builder for ProjectConversationTraceEvent.
+func (c *ProjectConversationTraceEventClient) Query() *ProjectConversationTraceEventQuery {
+	return &ProjectConversationTraceEventQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeProjectConversationTraceEvent},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ProjectConversationTraceEvent entity by its id.
+func (c *ProjectConversationTraceEventClient) Get(ctx context.Context, id uuid.UUID) (*ProjectConversationTraceEvent, error) {
+	return c.Query().Where(projectconversationtraceevent.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ProjectConversationTraceEventClient) GetX(ctx context.Context, id uuid.UUID) *ProjectConversationTraceEvent {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ProjectConversationTraceEventClient) Hooks() []Hook {
+	return c.hooks.ProjectConversationTraceEvent
+}
+
+// Interceptors returns the client interceptors.
+func (c *ProjectConversationTraceEventClient) Interceptors() []Interceptor {
+	return c.inters.ProjectConversationTraceEvent
+}
+
+func (c *ProjectConversationTraceEventClient) mutate(ctx context.Context, m *ProjectConversationTraceEventMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ProjectConversationTraceEventCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ProjectConversationTraceEventUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ProjectConversationTraceEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ProjectConversationTraceEventDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ProjectConversationTraceEvent mutation op: %q", m.Op())
 	}
 }
 
@@ -7948,7 +8548,9 @@ type (
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn,
 		Machine, NotificationChannel, NotificationRule, Organization,
-		OrganizationDailyTokenUsage, Project, ProjectRepo, ProjectUpdateComment,
+		OrganizationDailyTokenUsage, Project, ProjectConversationPrincipal,
+		ProjectConversationRun, ProjectConversationStepEvent,
+		ProjectConversationTraceEvent, ProjectRepo, ProjectUpdateComment,
 		ProjectUpdateCommentRevision, ProjectUpdateThread, ProjectUpdateThreadRevision,
 		ScheduledJob, Skill, SkillBlob, SkillVersion, SkillVersionFile, Ticket,
 		TicketComment, TicketCommentRevision, TicketDependency, TicketExternalLink,
@@ -7959,7 +8561,9 @@ type (
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn,
 		Machine, NotificationChannel, NotificationRule, Organization,
-		OrganizationDailyTokenUsage, Project, ProjectRepo, ProjectUpdateComment,
+		OrganizationDailyTokenUsage, Project, ProjectConversationPrincipal,
+		ProjectConversationRun, ProjectConversationStepEvent,
+		ProjectConversationTraceEvent, ProjectRepo, ProjectUpdateComment,
 		ProjectUpdateCommentRevision, ProjectUpdateThread, ProjectUpdateThreadRevision,
 		ScheduledJob, Skill, SkillBlob, SkillVersion, SkillVersionFile, Ticket,
 		TicketComment, TicketCommentRevision, TicketDependency, TicketExternalLink,

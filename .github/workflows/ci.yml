@@ -14,12 +14,15 @@ jobs:
     outputs:
       go_changed: ${{ steps.detect.outputs.go_changed }}
       web_changed: ${{ steps.detect.outputs.web_changed }}
+      openapi_check_changed: ${{ steps.detect.outputs.openapi_check_changed }}
+      frontend_api_audit_changed: ${{ steps.detect.outputs.frontend_api_audit_changed }}
 
     steps:
       - name: Check Out Repository
         uses: actions/checkout@v5
         with:
           clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Detect Changed Paths
@@ -30,12 +33,14 @@ jobs:
 
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             base_rev="${{ github.event.pull_request.base.sha }}"
+            head_rev="${{ github.event.pull_request.head.sha }}"
           else
             git fetch --no-tags origin main
             base_rev="$(git merge-base origin/main HEAD)"
+            head_rev="HEAD"
           fi
 
-          mapfile -t changed_files < <(git diff --name-only "${base_rev}"...HEAD)
+          mapfile -t changed_files < <(git diff --name-only "${base_rev}"..."${head_rev}")
 
           printf 'Comparing against %s\n' "${base_rev}"
           if [[ "${#changed_files[@]}" -eq 0 ]]; then
@@ -47,37 +52,57 @@ jobs:
 
           go_changed=false
           web_changed=false
+          openapi_check_changed=false
+          frontend_api_audit_changed=false
 
           for file in "${changed_files[@]}"; do
             case "${file}" in
               .github/workflows/*)
                 go_changed=true
                 web_changed=true
+                openapi_check_changed=true
                 ;;
-              *.go|go.mod|go.sum|Makefile|.golangci.yml|.golangci.yaml|api/*)
+              *.go|go.mod|go.sum|api/*)
                 go_changed=true
+                openapi_check_changed=true
+                ;;
+              Makefile)
+                go_changed=true
+                openapi_check_changed=true
                 ;;
               scripts/ci/*)
                 go_changed=true
                 ;;
               web/*)
                 web_changed=true
+                frontend_api_audit_changed=true
+                ;;
+              scripts/dev/audit_frontend_api_usage.py|scripts/dev/frontend_api_audit_ignores.json)
+                frontend_api_audit_changed=true
+                ;;
+              .golangci.yml|.golangci.yaml)
+                go_changed=true
                 ;;
             esac
           done
 
           printf 'go_changed=%s\n' "${go_changed}" >> "${GITHUB_OUTPUT}"
           printf 'web_changed=%s\n' "${web_changed}" >> "${GITHUB_OUTPUT}"
+          printf 'openapi_check_changed=%s\n' "${openapi_check_changed}" >> "${GITHUB_OUTPUT}"
+          printf 'frontend_api_audit_changed=%s\n' "${frontend_api_audit_changed}" >> "${GITHUB_OUTPUT}"
 
-  api-contract:
-    name: API Contract Checks
+  openapi-check:
+    name: OpenAPI Check
     runs-on: [self-hosted, Linux, X64]
+    needs: changes
+    if: needs.changes.outputs.openapi_check_changed == 'true'
 
     steps:
       - name: Check Out Repository
         uses: actions/checkout@v5
         with:
           clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set Up pnpm
         uses: pnpm/action-setup@v4
@@ -116,17 +141,36 @@ jobs:
           go version
 
       - name: Verify Generated OpenAPI Artifacts
-        run: make openapi-check
+        run: make openapi-check-ci
+
+  frontend-api-audit-check:
+    name: Frontend API Audit Check
+    runs-on: [self-hosted, Linux, X64]
+    needs: changes
+    if: needs.changes.outputs.frontend_api_audit_changed == 'true'
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+        with:
+          clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Decide Whether To Audit Frontend API Usage
+        id: scope
+        run: echo "run_audit=${{ needs.changes.outputs.frontend_api_audit_changed }}" >> "${GITHUB_OUTPUT}"
+
+      - name: Skip Frontend API Audit
+        if: steps.scope.outputs.run_audit != 'true'
+        run: echo "No frontend API audit relevant changes detected; skipping."
 
       - name: Audit Frontend API Usage Coverage
+        if: steps.scope.outputs.run_audit == 'true'
         run: make frontend-api-audit-check
-
   frontend:
     name: Frontend Checks
     runs-on: [self-hosted, Linux, X64]
-    needs:
-      - changes
-      - api-contract
+    needs: changes
     if: needs.changes.outputs.web_changed == 'true'
     defaults:
       run:
@@ -137,6 +181,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set Up pnpm
         uses: pnpm/action-setup@v4
@@ -150,10 +195,8 @@ jobs:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
-      - name: Reset pnpm Store
-        run: |
-          store_dir="$(pnpm store path --silent)"
-          rm -rf "${store_dir}"
+      - name: Reset Frontend Test Artifacts
+        run: rm -rf test-results ../.playwright-artifacts
 
       - name: Install Web Dependencies
         run: pnpm install --frozen-lockfile
@@ -184,18 +227,24 @@ jobs:
           path: internal/webui/static
           if-no-files-found: error
 
+      - name: Cleanup Frontend Test Artifacts
+        if: always()
+        run: rm -rf test-results ../.playwright-artifacts
+
   backend:
     name: Backend Checks
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 60
     needs:
       - changes
-      - api-contract
+      - openapi-check
+      - frontend-api-audit-check
       - frontend
     if: |
       always() &&
       needs.changes.result == 'success' &&
-      needs['api-contract'].result == 'success' &&
+      (needs['openapi-check'].result == 'success' || needs['openapi-check'].result == 'skipped') &&
+      (needs['frontend-api-audit-check'].result == 'success' || needs['frontend-api-audit-check'].result == 'skipped') &&
       needs.changes.outputs.go_changed == 'true' &&
       (needs.frontend.result == 'success' || needs.frontend.result == 'skipped')
 
@@ -204,6 +253,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Download Embedded Web Assets
         if: needs.changes.outputs.web_changed == 'true'
@@ -287,6 +337,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Ensure Embedded Web Placeholder
