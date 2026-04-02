@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render } from '@testing-library/svelte'
+import { cleanup, fireEvent, render, within } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { HarnessContent, HarnessVariableGroup } from '../types'
@@ -74,6 +74,20 @@ describe('WorkflowEditorPanel', () => {
     })
   }
 
+  async function openSkillsDropdown(container: HTMLElement) {
+    const trigger = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Skills'),
+    )
+    expect(trigger).toBeTruthy()
+    await fireEvent.click(trigger as HTMLElement)
+  }
+
+  function getSkillToggle(skillName: string, actionTitle: 'Bind skill' | 'Unbind skill') {
+    const row = within(document.body).getByText(skillName).closest('button')
+    expect(row).toBeTruthy()
+    return within(row as HTMLElement).getByTitle(actionTitle)
+  }
+
   it('renders the toolbar with workflow name and action buttons', async () => {
     const { getByText, getByTitle } = renderPanel()
 
@@ -93,23 +107,24 @@ describe('WorkflowEditorPanel', () => {
     expect(queryByText('Unsaved')).toBeNull()
   })
 
-  it('renders skill pills in the toolbar with correct bound state', () => {
-    const { getByTitle } = renderPanel()
+  it('renders skill toggles in the skills dropdown with correct bound state', async () => {
+    const { container } = renderPanel()
 
-    const lintButton = getByTitle('Unbind lint: Run linters on changed files')
-    const testButton = getByTitle('Bind test-runner: Execute test suites')
+    await openSkillsDropdown(container)
+
+    const lintButton = getSkillToggle('lint', 'Unbind skill')
+    const testButton = getSkillToggle('test-runner', 'Bind skill')
 
     expect(lintButton).toBeTruthy()
     expect(testButton).toBeTruthy()
-    expect(lintButton.textContent).toContain('lint')
-    expect(testButton.textContent).toContain('test-runner')
   })
 
-  it('calls onToggleSkill when a skill pill is clicked', async () => {
+  it('calls onToggleSkill when a skill toggle is clicked from the dropdown', async () => {
     const onToggleSkill = vi.fn()
-    const { getByTitle } = renderPanel({ onToggleSkill })
+    const { container } = renderPanel({ onToggleSkill })
 
-    await fireEvent.click(getByTitle('Bind test-runner: Execute test suites'))
+    await openSkillsDropdown(container)
+    await fireEvent.click(getSkillToggle('test-runner', 'Bind skill'))
 
     expect(onToggleSkill).toHaveBeenCalledTimes(1)
     expect(onToggleSkill).toHaveBeenCalledWith(skillStatesFixture[1])
