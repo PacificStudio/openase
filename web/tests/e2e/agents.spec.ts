@@ -9,7 +9,7 @@ test('agents providers and registration remain responsive', async ({
     page,
     scenario: 'agent_settings_page_ready',
     budgetMs: 800,
-    ready: page.getByRole('button', { name: 'Configure' }).first(),
+    ready: page.getByRole('heading', { name: 'Agent Providers' }),
     testInfo,
     action: async () => {
       await page.goto(`${projectPath('settings')}#agents`)
@@ -17,7 +17,9 @@ test('agents providers and registration remain responsive', async ({
   })
 
   await expect(page).toHaveURL(/\/settings#agents$/)
-  await expect(page.getByRole('button', { name: 'Configure' }).first()).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Agent Providers' })).toBeVisible()
+  await expect(page.getByText('Fake Codex Validation Provider')).toBeVisible()
+  await expect(page.locator('button[title="Configure provider"]').first()).toBeVisible()
 
   await measureFeedback({
     scenario: 'provider_config_drawer_open',
@@ -25,7 +27,7 @@ test('agents providers and registration remain responsive', async ({
     ready: page.getByTestId('provider-config-sheet'),
     testInfo,
     action: async () => {
-      await page.getByRole('button', { name: 'Configure' }).first().click()
+      await page.locator('button[title="Configure provider"]').first().click()
     },
   })
 
