@@ -7,7 +7,7 @@
     type SkillRefinementResultPayload,
   } from '$lib/api/skill-refinement'
   import type { AgentProvider, SkillFile } from '$lib/api/contracts'
-  import { EphemeralChatProviderSelect } from '$lib/features/chat'
+  import { EphemeralChatProviderSelect, ProjectConversationTranscript } from '$lib/features/chat'
   import {
     listProviderCapabilityProviders,
     pickDefaultProviderCapability,
@@ -23,6 +23,12 @@
   import { LoaderCircle, Plus, ShieldCheck, ShieldX, Sparkles, Wrench } from '@lucide/svelte'
   import SkillSuggestionCard from './skill-suggestion-card.svelte'
   import { encodeUTF8Base64 } from './skill-bundle-editor'
+  import {
+    appendSkillRefinementTranscriptEvent,
+    createSkillRefinementTranscriptState,
+    updateSkillRefinementAnchorState,
+    type SkillRefinementAnchorState,
+  } from './skill-refinement-transcript'
 
   let {
     projectId,
@@ -50,6 +56,9 @@
   let phaseMessage = $state('')
   let attempt = $state(0)
   let result = $state<SkillRefinementResultPayload | null>(null)
+  let transcriptState = $state(createSkillRefinementTranscriptState())
+  let transcriptEntries = $derived(transcriptState.entries)
+  let anchorState = $state<SkillRefinementAnchorState>({})
   let selectedSuggestionPath = $state('')
   let appliedBundleHash = $state('')
   let dismissed = $state(false)
@@ -98,6 +107,12 @@
     (result?.candidateBundleHash && appliedBundleHash === result.candidateBundleHash) ||
       (previewList.length > 0 && previewList.every((item) => !item.preview.hasChanges)),
   )
+  const providerAnchorLabel = $derived.by(() => {
+    const kind = anchorState.anchorKind?.trim()
+    if (kind === 'session') return 'Provider Session'
+    if (kind === 'thread') return 'Provider Thread'
+    return 'Provider Anchor'
+  })
   const sendDisabled = $derived(!projectId || !skillId || !providerId || !prompt.trim() || pending)
 
   $effect(() => {
@@ -161,6 +176,8 @@
     phase = ''
     phaseMessage = ''
     attempt = 0
+    transcriptState = createSkillRefinementTranscriptState()
+    anchorState = {}
     selectedSuggestionPath = ''
     if (options.clearResult) {
       result = null
@@ -194,6 +211,8 @@
     phase = 'editing'
     phaseMessage = 'Preparing the draft bundle for Codex.'
     attempt = 0
+    transcriptState = createSkillRefinementTranscriptState()
+    anchorState = {}
     appliedBundleHash = ''
 
     const controller = new AbortController()
@@ -225,6 +244,19 @@
                 phase = event.payload.phase
                 phaseMessage = event.payload.message
                 attempt = event.payload.attempt
+                transcriptState = appendSkillRefinementTranscriptEvent(transcriptState, event)
+                return
+              case 'message':
+              case 'interrupt_requested':
+              case 'thread_status':
+              case 'session_state':
+              case 'plan_updated':
+              case 'diff_updated':
+              case 'reasoning_updated':
+              case 'thread_compacted':
+              case 'session_anchor':
+                transcriptState = appendSkillRefinementTranscriptEvent(transcriptState, event)
+                anchorState = updateSkillRefinementAnchorState(anchorState, event)
                 return
               case 'result':
                 result = event.payload
@@ -234,10 +266,13 @@
                     ? event.payload.transcriptSummary || 'Verification passed.'
                     : event.payload.failureReason || 'Verification did not pass.'
                 attempt = event.payload.attempts
+                transcriptState = appendSkillRefinementTranscriptEvent(transcriptState, event)
+                anchorState = updateSkillRefinementAnchorState(anchorState, event)
                 return
               case 'error':
                 phase = 'blocked'
                 phaseMessage = event.payload.message
+                transcriptState = appendSkillRefinementTranscriptEvent(transcriptState, event)
                 toastStore.error(event.payload.message)
                 return
             }
@@ -383,6 +418,20 @@
             <p class="mt-1 font-mono text-[11px] leading-5 break-all">{workspacePath}</p>
           </div>
         {/if}
+
+        {#if anchorState.anchorId}
+          <div class="mt-3 rounded-md border border-white/6 bg-black/20 px-2.5 py-2">
+            <p class="text-muted-foreground text-[10px] tracking-[0.18em] uppercase">
+              {providerAnchorLabel}
+            </p>
+            <p class="mt-1 font-mono text-[11px] leading-5 break-all">{anchorState.anchorId}</p>
+            {#if anchorState.turnId}
+              <p class="text-muted-foreground mt-1 text-[11px] leading-5 break-all">
+                turn: <span class="font-mono">{anchorState.turnId}</span>
+              </p>
+            {/if}
+          </div>
+        {/if}
       </div>
 
       {#if pending && !result && phase === 'editing'}
@@ -391,6 +440,15 @@
         >
           <LoaderCircle class="size-3 shrink-0 animate-spin" />
           Suggesting diff...
+        </div>
+      {/if}
+
+      {#if transcriptEntries.length > 0}
+        <div class="rounded-lg border border-white/8 bg-white/3 p-2">
+          <div class="mb-2 px-1">
+            <p class="text-muted-foreground text-[10px] tracking-[0.18em] uppercase">Transcript</p>
+          </div>
+          <ProjectConversationTranscript entries={transcriptEntries} {pending} />
         </div>
       {/if}
 

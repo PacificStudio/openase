@@ -91,6 +91,14 @@ type skillRefinementAttemptOutcome struct {
 	providerTurnID    string
 }
 
+type skillRefinementRuntimeEventParseResult struct {
+	ForwardEvents []StreamEvent
+	AssistantText string
+	CommandOutput string
+	EmitTesting   bool
+	TurnErr       error
+}
+
 type skillRefinementSessionRecord struct {
 	UserID        UserID
 	ProviderID    uuid.UUID
@@ -447,35 +455,30 @@ func (s *SkillRefinementService) runAttempt(
 	var turnErr error
 
 	for event := range stream.Events {
-		switch payload := event.Payload.(type) {
-		case textPayload:
-			if payload.Type == chatMessageTypeText && strings.TrimSpace(payload.Content) != "" {
-				assistantTexts = append(assistantTexts, payload.Content)
+		parsed := parseSkillRefinementRuntimeEvent(event, testingEmitted)
+		if strings.TrimSpace(parsed.AssistantText) != "" {
+			assistantTexts = append(assistantTexts, parsed.AssistantText)
+		}
+		if strings.TrimSpace(parsed.CommandOutput) != "" {
+			commandOutputs = append(commandOutputs, parsed.CommandOutput)
+		}
+		if parsed.EmitTesting && !testingEmitted {
+			testingEmitted = true
+			events <- StreamEvent{
+				Event: "status",
+				Payload: SkillRefinementStatusPayload{
+					SessionID: sessionID.String(),
+					Phase:     "testing",
+					Attempt:   attempt,
+					Message:   "Codex is running verification commands.",
+				},
 			}
-		case map[string]any:
-			if stringValue(payload["type"]) != chatMessageTypeTaskProgress {
-				continue
-			}
-			raw, _ := payload["raw"].(map[string]any)
-			text := strings.TrimSpace(stringValue(raw["text"]))
-			if text == "" {
-				continue
-			}
-			commandOutputs = append(commandOutputs, text)
-			if !testingEmitted {
-				testingEmitted = true
-				events <- StreamEvent{
-					Event: "status",
-					Payload: SkillRefinementStatusPayload{
-						SessionID: sessionID.String(),
-						Phase:     "testing",
-						Attempt:   attempt,
-						Message:   "Codex is running verification commands.",
-					},
-				}
-			}
-		case errorPayload:
-			turnErr = errors.New(strings.TrimSpace(payload.Message))
+		}
+		for _, item := range parsed.ForwardEvents {
+			events <- item
+		}
+		if parsed.TurnErr != nil {
+			turnErr = parsed.TurnErr
 		}
 	}
 	if turnErr != nil {
@@ -717,6 +720,61 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func parseSkillRefinementRuntimeEvent(
+	event StreamEvent,
+	testingEmitted bool,
+) skillRefinementRuntimeEventParseResult {
+	result := skillRefinementRuntimeEventParseResult{}
+
+	switch event.Event {
+	case "message":
+		result.ForwardEvents = []StreamEvent{event}
+		switch payload := event.Payload.(type) {
+		case textPayload:
+			if payload.Type == chatMessageTypeText && strings.TrimSpace(payload.Content) != "" {
+				result.AssistantText = payload.Content
+			}
+		case map[string]any:
+			if strings.TrimSpace(stringValue(payload["type"])) != chatMessageTypeTaskProgress {
+				return result
+			}
+			raw, _ := payload["raw"].(map[string]any)
+			text := strings.TrimSpace(stringValue(raw["text"]))
+			if text == "" {
+				return result
+			}
+			result.CommandOutput = text
+			result.EmitTesting = !testingEmitted
+		}
+	case "interrupt_requested",
+		"thread_status",
+		"session_state",
+		"thread_compacted",
+		"plan_updated",
+		"diff_updated",
+		"reasoning_updated",
+		"session_anchor":
+		result.ForwardEvents = []StreamEvent{event}
+	case "error", "interrupted":
+		switch payload := event.Payload.(type) {
+		case errorPayload:
+			message := strings.TrimSpace(payload.Message)
+			if message == "" {
+				message = "skill refinement runtime failed"
+			}
+			result.TurnErr = errors.New(message)
+		default:
+			result.TurnErr = errors.New("skill refinement runtime failed")
+		}
+	default:
+		if strings.TrimSpace(event.Event) != "" {
+			result.ForwardEvents = []StreamEvent{event}
+		}
+	}
+
+	return result
 }
 
 func (s *SkillRefinementService) emitTerminalError(events chan<- StreamEvent, message string) {
