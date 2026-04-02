@@ -138,7 +138,8 @@
                 {:else}
                   <Wrench class="text-muted-foreground size-4 shrink-0" />
                 {/if}
-                <span class="truncate">{selectedProvider.name} · {selectedProvider.model_name}</span>
+                <span class="truncate">{selectedProvider.name} · {selectedProvider.model_name}</span
+                >
               </div>
             {:else}
               {agent.providerName} · {agent.modelName}

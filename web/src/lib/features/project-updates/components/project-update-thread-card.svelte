@@ -261,8 +261,8 @@
           }}
           onCreateComment={handleCreateComment}
           onCommentKeydown={handleCommentKeydown}
-          onUpdateComment={onUpdateComment}
-          onDeleteComment={onDeleteComment}
+          {onUpdateComment}
+          {onDeleteComment}
         />
       </div>
 

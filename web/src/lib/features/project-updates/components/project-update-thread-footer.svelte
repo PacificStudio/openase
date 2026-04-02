@@ -43,7 +43,11 @@
   {/if}
   {#if thread.commentCount > 0}
     <span>&middot;</span>
-    <button type="button" class="hover:text-foreground transition-colors" onclick={onToggleComments}>
+    <button
+      type="button"
+      class="hover:text-foreground transition-colors"
+      onclick={onToggleComments}
+    >
       {thread.commentCount}
       {thread.commentCount === 1 ? 'reply' : 'replies'}
     </button>
