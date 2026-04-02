@@ -18,9 +18,8 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
-	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
@@ -29,7 +28,7 @@ func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -44,8 +43,8 @@ func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		workflowSvc,
@@ -81,7 +80,7 @@ func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 	}
 	attachPrimaryProjectRepoCheckout(ctx, t, client, project.ID, localMachine.ID, repoRoot)
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
@@ -221,7 +220,7 @@ func TestHRAdvisorRouteReturnsDefaultRecommendationsForFreshProject(t *testing.T
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -236,8 +235,8 @@ func TestHRAdvisorRouteReturnsDefaultRecommendationsForFreshProject(t *testing.T
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		workflowSvc,
@@ -295,7 +294,7 @@ func TestHRAdvisorRouteIncludesDocumentationDriftTrendEvidence(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -310,8 +309,8 @@ func TestHRAdvisorRouteIncludesDocumentationDriftTrendEvidence(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		workflowSvc,
@@ -387,7 +386,7 @@ func TestHRAdvisorRouteIncludesDispatcherRecommendationFromBacklogPressure(t *te
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -402,8 +401,8 @@ func TestHRAdvisorRouteIncludesDispatcherRecommendationFromBacklogPressure(t *te
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		workflowSvc,
@@ -439,7 +438,7 @@ func TestHRAdvisorRouteIncludesDispatcherRecommendationFromBacklogPressure(t *te
 	}
 	attachPrimaryProjectRepoCheckout(ctx, t, client, project.ID, localMachine.ID, repoRoot)
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
@@ -543,7 +542,7 @@ func TestActivateHRRecommendationRouteCreatesWorkflowAgentAndBootstrapTicket(t *
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -558,8 +557,8 @@ func TestActivateHRRecommendationRouteCreatesWorkflowAgentAndBootstrapTicket(t *
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		workflowSvc,
@@ -619,7 +618,7 @@ func TestActivateHRRecommendationRouteCreatesWorkflowAgentAndBootstrapTicket(t *
 	}
 	createPrimaryProjectRepo(ctx, t, client, project.ID, repoRoot)
 	attachPrimaryProjectRepoCheckout(ctx, t, client, project.ID, localMachine.ID, repoRoot)
-	if _, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID); err != nil {
+	if _, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID); err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
 
@@ -677,7 +676,7 @@ func TestActivateHRRecommendationRouteMapsDispatcherToBacklogStageWhenNamesAreCu
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -692,8 +691,8 @@ func TestActivateHRRecommendationRouteMapsDispatcherToBacklogStageWhenNamesAreCu
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		workflowSvc,
@@ -754,7 +753,7 @@ func TestActivateHRRecommendationRouteMapsDispatcherToBacklogStageWhenNamesAreCu
 	createPrimaryProjectRepo(ctx, t, client, project.ID, repoRoot)
 	attachPrimaryProjectRepoCheckout(ctx, t, client, project.ID, localMachine.ID, repoRoot)
 
-	statusResult, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statusResult, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
@@ -797,7 +796,7 @@ func TestActivateHRRecommendationRouteReturnsConflictWhenNoProviderIsAvailable(t
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -812,8 +811,8 @@ func TestActivateHRRecommendationRouteReturnsConflictWhenNoProviderIsAvailable(t
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		workflowSvc,
@@ -837,7 +836,7 @@ func TestActivateHRRecommendationRouteReturnsConflictWhenNoProviderIsAvailable(t
 		t.Fatalf("create project: %v", err)
 	}
 	createPrimaryProjectRepo(ctx, t, client, project.ID, repoRoot)
-	if _, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID); err != nil {
+	if _, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID); err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
 

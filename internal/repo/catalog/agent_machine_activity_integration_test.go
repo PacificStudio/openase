@@ -10,7 +10,6 @@ import (
 	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
 )
 
@@ -340,7 +339,7 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 		t.Fatalf("CreateAgent(cross org provider) error = %v, want %v", err, ErrInvalidInput)
 	}
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("ResetToDefaultTemplate() error = %v", err)
 	}

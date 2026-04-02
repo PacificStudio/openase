@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
+	agentplatformrepo "github.com/BetterAndBetterII/openase/internal/repo/agentplatform"
 	chatrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
 	"github.com/BetterAndBetterII/openase/internal/testutil/pgtest"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -32,7 +33,7 @@ func TestIssueAndAuthenticateToken(t *testing.T) {
 	ctx := context.Background()
 	projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
 
-	service := NewService(client)
+	service := NewService(agentplatformrepo.NewEntRepository(client))
 	service.now = func() time.Time {
 		return time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
 	}
@@ -82,14 +83,13 @@ func TestIssueAndAuthenticateProjectConversationToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create conversation: %v", err)
 	}
-	conversationID := conversation.ID
 
-	service := NewService(client)
+	service := NewService(agentplatformrepo.NewEntRepository(client))
 	issued, err := service.IssueToken(ctx, IssueInput{
 		PrincipalKind:  PrincipalKindProjectConversation,
-		PrincipalID:    conversationID,
+		PrincipalID:    conversation.ID,
 		ProjectID:      projectID,
-		ConversationID: conversationID,
+		ConversationID: conversation.ID,
 	})
 	if err != nil {
 		t.Fatalf("IssueToken(project conversation) returned error: %v", err)
@@ -99,12 +99,13 @@ func TestIssueAndAuthenticateProjectConversationToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Authenticate(project conversation) returned error: %v", err)
 	}
-	if claims.PrincipalKind != PrincipalKindProjectConversation || claims.PrincipalID != conversationID || claims.ConversationID != conversationID {
+	if claims.PrincipalKind != PrincipalKindProjectConversation || claims.PrincipalID != conversation.ID || claims.ConversationID != conversation.ID {
 		t.Fatalf("unexpected project conversation claims: %+v", claims)
 	}
 	if claims.TicketID != uuid.Nil || claims.AgentID != uuid.Nil {
 		t.Fatalf("project conversation claims should not carry ticket/agent ids: %+v", claims)
 	}
+
 	wantScopes := DefaultScopesForPrincipalKind(PrincipalKindProjectConversation)
 	slices.Sort(wantScopes)
 	gotScopes := append([]string(nil), claims.Scopes...)
@@ -112,7 +113,7 @@ func TestIssueAndAuthenticateProjectConversationToken(t *testing.T) {
 	if !slices.Equal(gotScopes, wantScopes) {
 		t.Fatalf("Scopes=%v, want %v", gotScopes, wantScopes)
 	}
-	if claims.CreatedBy() != "project-conversation:"+conversationID.String() {
+	if claims.CreatedBy() != "project-conversation:"+conversation.ID.String() {
 		t.Fatalf("CreatedBy() = %q", claims.CreatedBy())
 	}
 }
@@ -122,7 +123,7 @@ func TestIssueTokenRejectsMissingProjectConversationPrincipal(t *testing.T) {
 	ctx := context.Background()
 	projectID, _, _ := seedAgentPlatformFixture(ctx, t, client)
 
-	service := NewService(client)
+	service := NewService(agentplatformrepo.NewEntRepository(client))
 	_, err := service.IssueToken(ctx, IssueInput{
 		PrincipalKind:  PrincipalKindProjectConversation,
 		PrincipalID:    uuid.New(),
@@ -139,7 +140,7 @@ func TestIssueTokenUsesDefaultScopes(t *testing.T) {
 	ctx := context.Background()
 	projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
 
-	service := NewService(client)
+	service := NewService(agentplatformrepo.NewEntRepository(client))
 	issued, err := service.IssueToken(ctx, IssueInput{
 		AgentID:   agentID,
 		ProjectID: projectID,
@@ -168,7 +169,7 @@ func TestIssueTokenConstrainsScopesToWhitelist(t *testing.T) {
 	ctx := context.Background()
 	projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
 
-	service := NewService(client)
+	service := NewService(agentplatformrepo.NewEntRepository(client))
 	issued, err := service.IssueToken(ctx, IssueInput{
 		AgentID:   agentID,
 		ProjectID: projectID,
@@ -209,7 +210,7 @@ func TestAuthenticateRejectsExpiredToken(t *testing.T) {
 	ctx := context.Background()
 	projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
 
-	service := NewService(client)
+	service := NewService(agentplatformrepo.NewEntRepository(client))
 	baseTime := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
 	service.now = func() time.Time { return baseTime }
 
@@ -234,7 +235,7 @@ func TestProjectTokenInventorySummarizesProjectExposure(t *testing.T) {
 	ctx := context.Background()
 	projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
 
-	service := NewService(client)
+	service := NewService(agentplatformrepo.NewEntRepository(client))
 	baseTime := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
 	service.now = func() time.Time { return baseTime }
 
@@ -373,7 +374,7 @@ func TestAgentPlatformUtilityAndFailurePaths(t *testing.T) {
 
 		client := openTestEntClient(t)
 		projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
-		service := NewService(client)
+		service := NewService(agentplatformrepo.NewEntRepository(client))
 		service.now = func() time.Time { return time.Date(2026, 3, 27, 16, 0, 0, 0, time.UTC) }
 
 		if _, err := service.IssueToken(ctx, IssueInput{ProjectID: projectID, TicketID: ticketID}); err == nil || err.Error() != "agent_id must be a valid UUID" {
@@ -494,7 +495,7 @@ func seedAgentPlatformFixture(ctx context.Context, t *testing.T, client *ent.Cli
 	if err != nil {
 		t.Fatalf("create provider: %v", err)
 	}
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}

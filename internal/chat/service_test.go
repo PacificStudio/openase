@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -570,7 +569,7 @@ func TestBuildSystemPromptIncludesTicketDetailAndHookHistory(t *testing.T) {
 				AttemptCount: 3,
 				Dependencies: []ticketservice.Dependency{
 					{
-						Type: entticketdependency.TypeBlocks,
+						Type: ticketservice.DependencyTypeBlocks,
 						Target: ticketservice.TicketReference{
 							Identifier: "ASE-100",
 							Title:      "Primary blocker",

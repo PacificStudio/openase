@@ -6,10 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
-	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
-	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
-	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
+	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
@@ -48,7 +46,7 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseCreateTicketRequest() error = %v", err)
 	}
-	if createInput.Title != "Ticket title" || createInput.Priority != entticket.PriorityHigh || createInput.Type != entticket.TypeBugfix {
+	if createInput.Title != "Ticket title" || createInput.Priority != ticketservice.PriorityHigh || createInput.Type != ticketservice.TypeBugfix {
 		t.Fatalf("parseCreateTicketRequest() = %+v", createInput)
 	}
 	if createInput.CreatedBy != "codex" || createInput.ExternalRef != "GH-42" || createInput.BudgetUSD != 12.5 {
@@ -99,7 +97,7 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseAddDependencyRequest() error = %v", err)
 	}
-	if dependencyInput.Input.Type != entticketdependency.TypeSubIssue {
+	if dependencyInput.Input.Type != ticketservice.DependencyTypeSubIssue {
 		t.Fatalf("parseAddDependencyRequest() = %+v", dependencyInput)
 	}
 	blockedByInput, err := parseAddDependencyRequest(ticketID, rawAddDependencyRequest{
@@ -109,7 +107,7 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseAddDependencyRequest(blocked_by) error = %v", err)
 	}
-	if blockedByInput.Input.Type != entticketdependency.TypeBlocks || blockedByInput.Input.TicketID.String() != parentID || blockedByInput.Input.TargetTicketID != ticketID {
+	if blockedByInput.Input.Type != ticketservice.DependencyTypeBlocks || blockedByInput.Input.TicketID.String() != parentID || blockedByInput.Input.TargetTicketID != ticketID {
 		t.Fatalf("parseAddDependencyRequest(blocked_by) = %+v", blockedByInput)
 	}
 	if _, err := parseAddDependencyRequest(ticketID, rawAddDependencyRequest{TargetTicketID: parentID, Type: "invalid"}); err == nil || !strings.Contains(err.Error(), "blocks, blocked_by, sub_issue") {
@@ -127,7 +125,7 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseAddExternalLinkRequest() error = %v", err)
 	}
-	if externalLinkInput.LinkType != entticketexternallink.LinkTypeGithubIssue || externalLinkInput.Relation != entticketexternallink.RelationCausedBy {
+	if externalLinkInput.LinkType != ticketservice.ExternalLinkTypeGithubIssue || externalLinkInput.Relation != ticketservice.ExternalLinkRelationCausedBy {
 		t.Fatalf("parseAddExternalLinkRequest() = %+v", externalLinkInput)
 	}
 	if _, err := parseAddExternalLinkRequest(ticketID, rawAddExternalLinkRequest{Type: "custom", URL: "/relative", ExternalID: "x"}); err == nil || !strings.Contains(err.Error(), "valid absolute URL") {
@@ -163,22 +161,22 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 		t.Fatalf("parseUpdateTicketCommentRequest(blank body) error = %v", err)
 	}
 
-	if got, err := parseTicketPriority(" urgent "); err != nil || got != entticket.PriorityUrgent {
+	if got, err := parseTicketPriority(" urgent "); err != nil || got != ticketservice.PriorityUrgent {
 		t.Fatalf("parseTicketPriority() = (%q, %v)", got, err)
 	}
 	if _, err := parseTicketPriority("invalid"); err == nil || !strings.Contains(err.Error(), "urgent, high, medium, low") {
 		t.Fatalf("parseTicketPriority(invalid) error = %v", err)
 	}
-	if got, err := parseTicketType(" epic "); err != nil || got != entticket.TypeEpic {
+	if got, err := parseTicketType(" epic "); err != nil || got != ticketservice.TypeEpic {
 		t.Fatalf("parseTicketType() = (%q, %v)", got, err)
 	}
 	if _, err := parseTicketType("invalid"); err == nil || !strings.Contains(err.Error(), "feature, bugfix, refactor, chore, epic") {
 		t.Fatalf("parseTicketType(invalid) error = %v", err)
 	}
-	if got, err := parseExternalLinkType(" custom "); err != nil || got != entticketexternallink.LinkTypeCustom {
+	if got, err := parseExternalLinkType(" custom "); err != nil || got != ticketservice.ExternalLinkTypeCustom {
 		t.Fatalf("parseExternalLinkType() = (%q, %v)", got, err)
 	}
-	if got, err := parseExternalLinkRelation(" related "); err != nil || got != entticketexternallink.RelationRelated {
+	if got, err := parseExternalLinkRelation(" related "); err != nil || got != ticketservice.ExternalLinkRelationRelated {
 		t.Fatalf("parseExternalLinkRelation() = (%q, %v)", got, err)
 	}
 	if _, err := parseExternalLinkRelation("invalid"); err == nil || !strings.Contains(err.Error(), "resolves, related, caused_by") {
@@ -291,7 +289,7 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseCreateWorkflowRequest() error = %v", err)
 	}
-	if createWorkflowInput.Name != "CI" || createWorkflowInput.Type != entworkflow.TypeCoding || createWorkflowInput.IsActive {
+	if createWorkflowInput.Name != "CI" || createWorkflowInput.Type != workflowservice.TypeCoding || createWorkflowInput.IsActive {
 		t.Fatalf("parseCreateWorkflowRequest() = %+v", createWorkflowInput)
 	}
 	if _, err := parseCreateWorkflowRequest(projectID, rawCreateWorkflowRequest{Name: "ok", Type: "coding", AgentID: "bad"}); err == nil || !strings.Contains(err.Error(), "agent_id must be a valid UUID") {
@@ -330,7 +328,7 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 		t.Fatalf("parseUpdateHarnessRequest(blank) error = %v", err)
 	}
 
-	if got, err := parseWorkflowType("deploy"); err != nil || got != entworkflow.TypeDeploy {
+	if got, err := parseWorkflowType("deploy"); err != nil || got != workflowservice.TypeDeploy {
 		t.Fatalf("parseWorkflowType() = (%q, %v)", got, err)
 	}
 	if _, err := parseWorkflowType("invalid"); err == nil || !strings.Contains(err.Error(), "coding, test, doc") {

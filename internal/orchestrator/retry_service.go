@@ -10,7 +10,7 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
-	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
+	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
 	"github.com/google/uuid"
 )
 
@@ -78,7 +78,7 @@ func (s *RetryService) MarkAttemptFailed(ctx context.Context, ticketID uuid.UUID
 		pauseReason = ticketing.PauseReasonBudgetExhausted
 	}
 
-	update := ticketservice.ScheduleRetryOne(
+	update := ticketrepo.ScheduleRetryOne(
 		tx.Ticket.UpdateOneID(current.ID).
 			ClearCurrentRunID().
 			SetAttemptCount(nextAttemptCount).

@@ -27,9 +27,15 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	agentplatformrepo "github.com/BetterAndBetterII/openase/internal/repo/agentplatform"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	chatconversationrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
 	githubauthrepo "github.com/BetterAndBetterII/openase/internal/repo/githubauth"
+	notificationrepo "github.com/BetterAndBetterII/openase/internal/repo/notification"
+	scheduledjobrepo "github.com/BetterAndBetterII/openase/internal/repo/scheduledjob"
+	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
+	ticketstatusrepo "github.com/BetterAndBetterII/openase/internal/repo/ticketstatus"
+	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
 	runtimeobservability "github.com/BetterAndBetterII/openase/internal/runtime/observability"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
@@ -122,10 +128,11 @@ func (a *App) RunServe(ctx context.Context) error {
 		return err
 	}
 	githubRepoSvc := githubreposervice.NewService(githubAuthSvc, http.DefaultClient)
-	ticketSvc := ticketservice.NewService(client)
+	ticketSvc := ticketservice.NewService(ticketrepo.NewEntRepository(client))
 	ticketSvc.ConfigureSSHPool(sshPool)
-	ticketSvc.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(client))
-	ticketStatusSvc := ticketstatus.NewService(client)
+	ticketSvc.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(agentplatformrepo.NewEntRepository(client)))
+	ticketStatusRepo := ticketstatusrepo.NewEntRepository(client)
+	ticketStatusSvc := ticketstatus.NewService(ticketStatusRepo)
 	catalogSvc := catalogservice.New(
 		catalogRepo,
 		executable.NewPathResolver(),
@@ -136,15 +143,15 @@ func (a *App) RunServe(ctx context.Context) error {
 			return err
 		})),
 	)
-	notificationSvc := notificationservice.NewService(client, a.logger, http.DefaultClient)
+	notificationSvc := notificationservice.NewService(notificationrepo.NewEntRepository(client), a.logger, http.DefaultClient)
 	if err := notificationservice.NewEngine(notificationSvc, a.events, a.logger).Start(ctx); err != nil {
 		return err
 	}
-	workflowSvc, err := workflowservice.NewService(client, a.logger, "")
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), a.logger, "")
 	if err != nil {
 		return err
 	}
-	scheduledJobSvc := scheduledjobservice.NewService(client, ticketSvc, a.logger)
+	scheduledJobSvc := scheduledjobservice.NewService(scheduledjobrepo.NewEntRepository(client), ticketSvc, a.logger)
 	defer func() {
 		if closeErr := workflowSvc.Close(); closeErr != nil {
 			a.logger.Error("close workflow service", "error", closeErr)
@@ -189,7 +196,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		chatProcessManager,
 		sshPool,
 	)
-	projectConversationSvc.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(client))
+	projectConversationSvc.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(agentplatformrepo.NewEntRepository(client)))
 	projectConversationSvc.ConfigureGitHubCredentials(githubAuthSvc)
 	projectUpdateSvc := projectupdateservice.NewService(
 		client,
@@ -202,7 +209,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		a.events,
 		ticketSvc,
 		ticketStatusSvc,
-		agentplatform.NewService(client),
+		agentplatform.NewService(agentplatformrepo.NewEntRepository(client)),
 		catalogSvc,
 		workflowSvc,
 		httpapi.WithGitHubAuthService(githubAuthSvc),
@@ -237,7 +244,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 		}
 	}()
 
-	workflowSvc, err := workflowservice.NewService(client, a.logger, "")
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), a.logger, "")
 	if err != nil {
 		return err
 	}
@@ -262,6 +269,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	ticketStatusRepo := ticketstatusrepo.NewEntRepository(client)
 	scheduler := orchestrator.NewScheduler(client, a.logger, a.events)
 	healthChecker := orchestrator.NewHealthChecker(client, a.logger)
 	machineMonitor := orchestrator.NewMachineMonitor(client, a.logger, sshinfra.NewMonitorCollector(sshPool))
@@ -279,7 +287,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	healthChecker.ConfigureRuntimeState(runtimeState)
 	runtimeLauncher.ConfigureRuntimeState(runtimeState)
 	runtimeLauncher.ConfigureGitHubCredentials(githubAuthSvc)
-	runtimeLauncher.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(client))
+	runtimeLauncher.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(agentplatformrepo.NewEntRepository(client)))
 	defer func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -321,7 +329,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 			machineReport, machineErr := machineMonitor.RunTick(tickCtx)
 			report, runErr := scheduler.RunTick(tickCtx)
 			launchErr := runtimeLauncher.RunTick(tickCtx)
-			statusSnapshots, statusErr := ticketstatus.ListStatusRuntimeSnapshots(tickCtx, client)
+			statusSnapshots, statusErr := ticketstatus.ListStatusRuntimeSnapshots(tickCtx, ticketStatusRepo)
 			payload := map[string]any{
 				"mode":           string(a.config.Server.Mode),
 				"time":           tick.UTC().Format(time.RFC3339),

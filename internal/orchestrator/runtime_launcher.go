@@ -33,6 +33,7 @@ import (
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -119,7 +120,7 @@ func NewRuntimeLauncher(
 		executions:     map[uuid.UUID]struct{}{},
 		summaryJobs:    map[uuid.UUID]struct{}{},
 		summaryTimeout: defaultCompletionSummaryTimeout,
-		tickets:        ticketservice.NewService(client),
+		tickets:        ticketservice.NewService(ticketrepo.NewEntRepository(client)),
 	}
 	launcher.tickets.ConfigureSSHPool(sshPool)
 	return launcher

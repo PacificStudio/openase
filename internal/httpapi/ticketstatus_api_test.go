@@ -227,7 +227,7 @@ func newTicketStatusTestServer(client *ent.Client) *Server {
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
-		ticketstatus.NewService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		nil,

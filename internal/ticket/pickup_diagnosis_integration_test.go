@@ -9,7 +9,6 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
-	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/google/uuid"
@@ -19,7 +18,7 @@ func TestGetPickupDiagnosisRetryBackoff(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedTicketServiceFixture(ctx, t, client)
-	service := NewService(client)
+	service := newTicketService(client)
 
 	ticketItem := createDiagnosisTicket(ctx, t, service, fixture)
 	nextRetryAt := time.Now().UTC().Add(20 * time.Minute).Truncate(time.Second)
@@ -47,7 +46,7 @@ func TestGetPickupDiagnosisRetryPausedRepeatedStalls(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedTicketServiceFixture(ctx, t, client)
-	service := NewService(client)
+	service := newTicketService(client)
 
 	ticketItem := createDiagnosisTicket(ctx, t, service, fixture)
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
@@ -75,7 +74,7 @@ func TestGetPickupDiagnosisBlockedDependency(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedTicketServiceFixture(ctx, t, client)
-	service := NewService(client)
+	service := newTicketService(client)
 
 	blocker := createDiagnosisTicket(ctx, t, service, fixture)
 	target := createDiagnosisTicket(ctx, t, service, fixture)
@@ -104,14 +103,14 @@ func TestGetPickupDiagnosisNoMatchingActiveWorkflow(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedTicketServiceFixture(ctx, t, client)
-	service := NewService(client)
+	service := newTicketService(client)
 
 	ticketItem, err := service.Create(ctx, CreateInput{
 		ProjectID: fixture.projectID,
 		Title:     "Needs dispatcher",
 		StatusID:  &fixture.backlogID,
-		Priority:  entticket.PriorityMedium,
-		Type:      entticket.TypeFeature,
+		Priority:  PriorityMedium,
+		Type:      TypeFeature,
 	})
 	if err != nil {
 		t.Fatalf("Create(backlog) error = %v", err)
@@ -131,7 +130,7 @@ func TestGetPickupDiagnosisAgentPaused(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedTicketServiceFixture(ctx, t, client)
-	service := NewService(client)
+	service := newTicketService(client)
 
 	ticketItem := createDiagnosisTicket(ctx, t, service, fixture)
 	if _, err := client.Agent.UpdateOneID(fixture.agentID).
@@ -192,7 +191,7 @@ func TestGetPickupDiagnosisProviderAvailability(t *testing.T) {
 			ctx := context.Background()
 			client := openTestEntClient(t)
 			fixture := seedTicketServiceFixture(ctx, t, client)
-			service := NewService(client)
+			service := newTicketService(client)
 			ticketItem := createDiagnosisTicket(ctx, t, service, fixture)
 
 			tc.mutate(ctx, t, client, fixture)
@@ -280,7 +279,7 @@ func TestGetPickupDiagnosisConcurrencyBlocks(t *testing.T) {
 			ctx := context.Background()
 			client := openTestEntClient(t)
 			fixture := seedTicketServiceFixture(ctx, t, client)
-			service := NewService(client)
+			service := newTicketService(client)
 			makeProviderReady(ctx, t, client, fixture, time.Now().UTC(), true)
 
 			candidate := createDiagnosisTicket(ctx, t, service, fixture)
@@ -304,7 +303,7 @@ func TestGetPickupDiagnosisRunningAndCompleted(t *testing.T) {
 		ctx := context.Background()
 		client := openTestEntClient(t)
 		fixture := seedTicketServiceFixture(ctx, t, client)
-		service := NewService(client)
+		service := newTicketService(client)
 		ticketItem := createDiagnosisTicket(ctx, t, service, fixture)
 		seedDiagnosisCurrentRun(ctx, t, client, fixture, ticketItem.ID)
 
@@ -321,13 +320,13 @@ func TestGetPickupDiagnosisRunningAndCompleted(t *testing.T) {
 		ctx := context.Background()
 		client := openTestEntClient(t)
 		fixture := seedTicketServiceFixture(ctx, t, client)
-		service := NewService(client)
+		service := newTicketService(client)
 		ticketItem, err := service.Create(ctx, CreateInput{
 			ProjectID: fixture.projectID,
 			Title:     "Completed ticket",
 			StatusID:  &fixture.doneID,
-			Priority:  entticket.PriorityMedium,
-			Type:      entticket.TypeFeature,
+			Priority:  PriorityMedium,
+			Type:      TypeFeature,
 		})
 		if err != nil {
 			t.Fatalf("Create(done) error = %v", err)
@@ -360,8 +359,8 @@ func createDiagnosisTicket(
 		Title:      "Diagnosis target",
 		StatusID:   &fixture.todoID,
 		WorkflowID: &fixture.workflowID,
-		Priority:   entticket.PriorityMedium,
-		Type:       entticket.TypeFeature,
+		Priority:   PriorityMedium,
+		Type:       TypeFeature,
 	})
 	if err != nil {
 		t.Fatalf("Create(diagnosis target) error = %v", err)

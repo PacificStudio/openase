@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -247,7 +246,7 @@ func (s *Server) handleListTickets(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
 	}
 
-	parsedPriorities := make([]entticket.Priority, 0, len(parseCSVQueryValues(c, "priority")))
+	parsedPriorities := make([]ticketservice.Priority, 0, len(parseCSVQueryValues(c, "priority")))
 	for _, raw := range parseCSVQueryValues(c, "priority") {
 		priority, parseErr := parseTicketPriority(raw)
 		if parseErr != nil {
@@ -259,7 +258,7 @@ func (s *Server) handleListTickets(c echo.Context) error {
 	input := ticketservice.ListInput{
 		ProjectID:   projectID,
 		StatusNames: parseCSVQueryValues(c, "status_name"),
-		Priorities:  make([]entticket.Priority, 0, len(parsedPriorities)),
+		Priorities:  make([]ticketservice.Priority, 0, len(parsedPriorities)),
 		Limit:       0,
 	}
 	input.Priorities = append(input.Priorities, parsedPriorities...)

@@ -5,9 +5,6 @@ import (
 	"net/url"
 	"strings"
 
-	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
-	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
-	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -93,7 +90,7 @@ func parseCreateTicketRequest(projectID uuid.UUID, raw rawCreateTicketRequest) (
 		return ticketservice.CreateInput{}, err
 	}
 
-	priority := entticket.DefaultPriority
+	priority := ticketservice.DefaultPriority
 	if raw.Priority != nil {
 		priority, err = parseTicketPriority(*raw.Priority)
 		if err != nil {
@@ -101,7 +98,7 @@ func parseCreateTicketRequest(projectID uuid.UUID, raw rawCreateTicketRequest) (
 		}
 	}
 
-	ticketType := entticket.DefaultType
+	ticketType := ticketservice.DefaultType
 	if raw.Type != nil {
 		ticketType, err = parseTicketType(*raw.Type)
 		if err != nil {
@@ -231,7 +228,7 @@ func parseAddDependencyRequest(ticketID uuid.UUID, raw rawAddDependencyRequest) 
 			Input: ticketservice.AddDependencyInput{
 				TicketID:       ticketID,
 				TargetTicketID: targetTicketID,
-				Type:           entticketdependency.TypeBlocks,
+				Type:           ticketservice.DependencyTypeBlocks,
 			},
 		}, nil
 	case "blocked_by", "blocked-by":
@@ -239,7 +236,7 @@ func parseAddDependencyRequest(ticketID uuid.UUID, raw rawAddDependencyRequest) 
 			Input: ticketservice.AddDependencyInput{
 				TicketID:       targetTicketID,
 				TargetTicketID: ticketID,
-				Type:           entticketdependency.TypeBlocks,
+				Type:           ticketservice.DependencyTypeBlocks,
 			},
 		}, nil
 	case "sub_issue", "sub-issue":
@@ -247,7 +244,7 @@ func parseAddDependencyRequest(ticketID uuid.UUID, raw rawAddDependencyRequest) 
 			Input: ticketservice.AddDependencyInput{
 				TicketID:       ticketID,
 				TargetTicketID: targetTicketID,
-				Type:           entticketdependency.TypeSubIssue,
+				Type:           ticketservice.DependencyTypeSubIssue,
 			},
 		}, nil
 	default:
@@ -272,7 +269,7 @@ func parseAddExternalLinkRequest(ticketID uuid.UUID, raw rawAddExternalLinkReque
 		return ticketservice.AddExternalLinkInput{}, fmt.Errorf("external_id must not be empty")
 	}
 
-	relation := entticketexternallink.DefaultRelation
+	relation := ticketservice.DefaultExternalLinkRelation
 	if raw.Relation != nil {
 		relation, err = parseExternalLinkRelation(*raw.Relation)
 		if err != nil {
@@ -351,40 +348,20 @@ func parseExternalLinkID(c echo.Context) (uuid.UUID, error) {
 	return parseUUIDPathParamValue(c, "externalLinkId")
 }
 
-func parseTicketPriority(raw string) (entticket.Priority, error) {
-	priority := entticket.Priority(strings.ToLower(strings.TrimSpace(raw)))
-	if err := entticket.PriorityValidator(priority); err != nil {
-		return "", fmt.Errorf("priority must be one of urgent, high, medium, low")
-	}
-
-	return priority, nil
+func parseTicketPriority(raw string) (ticketservice.Priority, error) {
+	return ticketservice.ParsePriority(raw)
 }
 
-func parseTicketType(raw string) (entticket.Type, error) {
-	ticketType := entticket.Type(strings.ToLower(strings.TrimSpace(raw)))
-	if err := entticket.TypeValidator(ticketType); err != nil {
-		return "", fmt.Errorf("type must be one of feature, bugfix, refactor, chore, epic")
-	}
-
-	return ticketType, nil
+func parseTicketType(raw string) (ticketservice.Type, error) {
+	return ticketservice.ParseType(raw)
 }
 
-func parseExternalLinkType(raw string) (entticketexternallink.LinkType, error) {
-	linkType := entticketexternallink.LinkType(strings.ToLower(strings.TrimSpace(raw)))
-	if err := entticketexternallink.LinkTypeValidator(linkType); err != nil {
-		return "", fmt.Errorf("type must be one of github_issue, gitlab_issue, jira_ticket, github_pr, gitlab_mr, custom")
-	}
-
-	return linkType, nil
+func parseExternalLinkType(raw string) (ticketservice.ExternalLinkType, error) {
+	return ticketservice.ParseExternalLinkType(raw)
 }
 
-func parseExternalLinkRelation(raw string) (entticketexternallink.Relation, error) {
-	relation := entticketexternallink.Relation(strings.ToLower(strings.TrimSpace(raw)))
-	if err := entticketexternallink.RelationValidator(relation); err != nil {
-		return "", fmt.Errorf("relation must be one of resolves, related, caused_by")
-	}
-
-	return relation, nil
+func parseExternalLinkRelation(raw string) (ticketservice.ExternalLinkRelation, error) {
+	return ticketservice.ParseExternalLinkRelation(raw)
 }
 
 func parseCSVQueryValues(c echo.Context, name string) []string {

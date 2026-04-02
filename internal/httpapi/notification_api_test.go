@@ -18,6 +18,7 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	notificationrepo "github.com/BetterAndBetterII/openase/internal/repo/notification"
 	"github.com/google/uuid"
 )
 
@@ -39,7 +40,7 @@ func TestNotificationRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		WithNotificationService(notificationservice.NewService(client, logger, webhookServer.Client())),
+		WithNotificationService(notificationservice.NewService(notificationrepo.NewEntRepository(client), logger, webhookServer.Client())),
 	)
 	unavailableServer := NewServer(
 		config.ServerConfig{Port: 40026},
@@ -85,7 +86,7 @@ func TestNotificationRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse channel: %v", err)
 	}
-	service := notificationservice.NewService(client, logger, webhookServer.Client())
+	service := notificationservice.NewService(notificationrepo.NewEntRepository(client), logger, webhookServer.Client())
 	channel, err := service.Create(ctx, channelInput)
 	if err != nil {
 		t.Fatalf("create channel: %v", err)
@@ -138,7 +139,7 @@ func TestNotificationRoutesLogStructuredBoundaryErrors(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		WithNotificationService(notificationservice.NewService(client, logger, webhookServer.Client())),
+		WithNotificationService(notificationservice.NewService(notificationrepo.NewEntRepository(client), logger, webhookServer.Client())),
 	)
 
 	ctx := context.Background()
@@ -200,7 +201,7 @@ func TestNotificationChannelRoutesCRUDAndTestSend(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		WithNotificationService(notificationservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), webhookServer.Client())),
+		WithNotificationService(notificationservice.NewService(notificationrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), webhookServer.Client())),
 	)
 
 	ctx := context.Background()
@@ -334,9 +335,9 @@ func TestNotificationRuleRoutesCRUDAndEventCatalog(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		WithNotificationService(notificationservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), webhookServer.Client())),
+		WithNotificationService(notificationservice.NewService(notificationrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), webhookServer.Client())),
 	)
-	service := notificationservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), webhookServer.Client())
+	service := notificationservice.NewService(notificationrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), webhookServer.Client())
 
 	ctx := context.Background()
 	org, err := client.Organization.Create().
@@ -494,7 +495,7 @@ func TestNotificationEngineDispatchesMatchingRulesBestEffort(t *testing.T) {
 	defer webhookServer.Close()
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	service := notificationservice.NewService(client, logger, webhookServer.Client())
+	service := notificationservice.NewService(notificationrepo.NewEntRepository(client), logger, webhookServer.Client())
 	engine := notificationservice.NewEngine(service, bus, logger)
 	if err := engine.Start(ctx); err != nil {
 		t.Fatalf("start notification engine: %v", err)
