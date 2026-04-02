@@ -1413,13 +1413,14 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	}
 
 	var payload struct {
-		AssignedAgent *ticketAssignedAgentResponse    `json:"assigned_agent"`
-		Ticket        ticketResponse                  `json:"ticket"`
-		RepoScopes    []ticketRepoScopeDetailResponse `json:"repo_scopes"`
-		Comments      []ticketCommentResponse         `json:"comments"`
-		Timeline      []ticketTimelineItemResponse    `json:"timeline"`
-		Activity      []activityEventResponse         `json:"activity"`
-		HookHistory   []activityEventResponse         `json:"hook_history"`
+		AssignedAgent   *ticketAssignedAgentResponse    `json:"assigned_agent"`
+		PickupDiagnosis ticketPickupDiagnosisResponse   `json:"pickup_diagnosis"`
+		Ticket          ticketResponse                  `json:"ticket"`
+		RepoScopes      []ticketRepoScopeDetailResponse `json:"repo_scopes"`
+		Comments        []ticketCommentResponse         `json:"comments"`
+		Timeline        []ticketTimelineItemResponse    `json:"timeline"`
+		Activity        []activityEventResponse         `json:"activity"`
+		HookHistory     []activityEventResponse         `json:"hook_history"`
 	}
 	executeJSON(
 		t,
@@ -1445,6 +1446,9 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	}
 	if payload.AssignedAgent.RuntimePhase == nil || *payload.AssignedAgent.RuntimePhase != "executing" {
 		t.Fatalf("expected assigned agent runtime phase executing, got %+v", payload.AssignedAgent)
+	}
+	if payload.PickupDiagnosis.PrimaryReasonCode != "running_current_run" || payload.PickupDiagnosis.State != "running" {
+		t.Fatalf("expected pickup diagnosis to expose running current run, got %+v", payload.PickupDiagnosis)
 	}
 	if len(payload.Ticket.ExternalLinks) != 1 || payload.Ticket.ExternalLinks[0].ExternalID != "acme/frontend#9" {
 		t.Fatalf("expected ticket detail to include external links, got %+v", payload.Ticket.ExternalLinks)

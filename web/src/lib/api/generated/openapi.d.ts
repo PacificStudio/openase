@@ -10157,6 +10157,72 @@ export interface operations {
               project_id?: string
               ticket_id?: string | null
             }[]
+            pickup_diagnosis?: {
+              agent?: {
+                id?: string
+                name?: string
+                runtime_control_state?: string
+              } | null
+              blocked_by?: {
+                id?: string
+                identifier?: string
+                status_id?: string
+                status_name?: string
+                title?: string
+              }[]
+              capacity?: {
+                project?: {
+                  active_runs?: number
+                  capacity?: number
+                  limited?: boolean
+                }
+                provider?: {
+                  active_runs?: number
+                  capacity?: number
+                  limited?: boolean
+                }
+                status?: {
+                  active_runs?: number
+                  capacity?: number | null
+                  limited?: boolean
+                }
+                workflow?: {
+                  active_runs?: number
+                  capacity?: number
+                  limited?: boolean
+                }
+              }
+              next_action_hint?: string
+              primary_reason_code?: string
+              primary_reason_message?: string
+              provider?: {
+                availability_reason?: string | null
+                availability_state?: string
+                id?: string
+                machine_id?: string
+                machine_name?: string
+                machine_status?: string
+                name?: string
+              } | null
+              reasons?: {
+                code?: string
+                message?: string
+                severity?: string
+              }[]
+              retry?: {
+                attempt_count?: number
+                next_retry_at?: string | null
+                pause_reason?: string
+                retry_paused?: boolean
+              }
+              state?: string
+              workflow?: {
+                id?: string
+                is_active?: boolean
+                name?: string
+                pickup_status_match?: boolean
+              } | null
+            }
             repo_scopes?: {
               branch_name?: string
               branch_source?: string

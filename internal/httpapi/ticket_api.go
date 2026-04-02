@@ -140,6 +140,83 @@ type ticketAssignedAgentResponse struct {
 	RuntimePhase        *string `json:"runtime_phase,omitempty"`
 }
 
+type ticketPickupDiagnosisReasonResponse struct {
+	Code     string `json:"code"`
+	Message  string `json:"message"`
+	Severity string `json:"severity"`
+}
+
+type ticketPickupDiagnosisWorkflowResponse struct {
+	ID                string `json:"id"`
+	Name              string `json:"name"`
+	IsActive          bool   `json:"is_active"`
+	PickupStatusMatch bool   `json:"pickup_status_match"`
+}
+
+type ticketPickupDiagnosisAgentResponse struct {
+	ID                  string `json:"id"`
+	Name                string `json:"name"`
+	RuntimeControlState string `json:"runtime_control_state"`
+}
+
+type ticketPickupDiagnosisProviderResponse struct {
+	ID                 string  `json:"id"`
+	Name               string  `json:"name"`
+	MachineID          string  `json:"machine_id"`
+	MachineName        string  `json:"machine_name"`
+	MachineStatus      string  `json:"machine_status"`
+	AvailabilityState  string  `json:"availability_state"`
+	AvailabilityReason *string `json:"availability_reason,omitempty"`
+}
+
+type ticketPickupDiagnosisRetryResponse struct {
+	AttemptCount int     `json:"attempt_count"`
+	RetryPaused  bool    `json:"retry_paused"`
+	PauseReason  string  `json:"pause_reason,omitempty"`
+	NextRetryAt  *string `json:"next_retry_at,omitempty"`
+}
+
+type ticketPickupDiagnosisCapacityBucketResponse struct {
+	Limited    bool `json:"limited"`
+	ActiveRuns int  `json:"active_runs"`
+	Capacity   int  `json:"capacity"`
+}
+
+type ticketPickupDiagnosisStatusCapacityResponse struct {
+	Limited    bool `json:"limited"`
+	ActiveRuns int  `json:"active_runs"`
+	Capacity   *int `json:"capacity"`
+}
+
+type ticketPickupDiagnosisBlockedTicketResponse struct {
+	ID         string `json:"id"`
+	Identifier string `json:"identifier"`
+	Title      string `json:"title"`
+	StatusID   string `json:"status_id"`
+	StatusName string `json:"status_name"`
+}
+
+type ticketPickupDiagnosisCapacityResponse struct {
+	Workflow ticketPickupDiagnosisCapacityBucketResponse `json:"workflow"`
+	Project  ticketPickupDiagnosisCapacityBucketResponse `json:"project"`
+	Provider ticketPickupDiagnosisCapacityBucketResponse `json:"provider"`
+	Status   ticketPickupDiagnosisStatusCapacityResponse `json:"status"`
+}
+
+type ticketPickupDiagnosisResponse struct {
+	State                string                                       `json:"state"`
+	PrimaryReasonCode    string                                       `json:"primary_reason_code"`
+	PrimaryReasonMessage string                                       `json:"primary_reason_message"`
+	NextActionHint       string                                       `json:"next_action_hint,omitempty"`
+	Reasons              []ticketPickupDiagnosisReasonResponse        `json:"reasons"`
+	Workflow             *ticketPickupDiagnosisWorkflowResponse       `json:"workflow,omitempty"`
+	Agent                *ticketPickupDiagnosisAgentResponse          `json:"agent,omitempty"`
+	Provider             *ticketPickupDiagnosisProviderResponse       `json:"provider,omitempty"`
+	Retry                ticketPickupDiagnosisRetryResponse           `json:"retry"`
+	Capacity             ticketPickupDiagnosisCapacityResponse        `json:"capacity"`
+	BlockedBy            []ticketPickupDiagnosisBlockedTicketResponse `json:"blocked_by"`
+}
+
 func (s *Server) registerTicketRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/tickets", s.handleListTickets)
 	api.POST("/projects/:projectId/tickets", s.handleCreateTicket)
@@ -302,15 +379,20 @@ func (s *Server) handleGetTicketDetail(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
+	pickupDiagnosis, err := s.ticketService.GetPickupDiagnosis(c.Request().Context(), ticketID)
+	if err != nil && !errors.Is(err, ticketservice.ErrUnavailable) {
+		return writeTicketError(c, err)
+	}
 
 	return c.JSON(http.StatusOK, map[string]any{
-		"assigned_agent": assignedAgent,
-		"ticket":         mapTicketResponse(item),
-		"repo_scopes":    mapTicketRepoScopeDetailResponses(item.Identifier, repoScopes, indexProjectRepoResponses(projectRepos)),
-		"comments":       mapTicketCommentResponses(comments),
-		"timeline":       buildTicketTimeline(item, comments, activity),
-		"activity":       mapActivityEventResponses(activity),
-		"hook_history":   mapActivityEventResponses(filterHookActivityEvents(activity)),
+		"assigned_agent":   assignedAgent,
+		"pickup_diagnosis": mapPickupDiagnosisResponse(pickupDiagnosis),
+		"ticket":           mapTicketResponse(item),
+		"repo_scopes":      mapTicketRepoScopeDetailResponses(item.Identifier, repoScopes, indexProjectRepoResponses(projectRepos)),
+		"comments":         mapTicketCommentResponses(comments),
+		"timeline":         buildTicketTimeline(item, comments, activity),
+		"activity":         mapActivityEventResponses(activity),
+		"hook_history":     mapActivityEventResponses(filterHookActivityEvents(activity)),
 	})
 }
 
@@ -1207,6 +1289,96 @@ func mapTicketAssignedAgentResponse(agentItem domain.Agent, providerItem domain.
 	if agentItem.Runtime != nil {
 		runtimePhase := agentItem.Runtime.RuntimePhase.String()
 		response.RuntimePhase = &runtimePhase
+	}
+
+	return response
+}
+
+func mapPickupDiagnosisResponse(item ticketservice.PickupDiagnosis) ticketPickupDiagnosisResponse {
+	response := ticketPickupDiagnosisResponse{
+		State:                string(item.State),
+		PrimaryReasonCode:    string(item.PrimaryReasonCode),
+		PrimaryReasonMessage: item.PrimaryReasonMessage,
+		NextActionHint:       item.NextActionHint,
+		Reasons:              []ticketPickupDiagnosisReasonResponse{},
+		BlockedBy:            []ticketPickupDiagnosisBlockedTicketResponse{},
+		Retry: ticketPickupDiagnosisRetryResponse{
+			AttemptCount: item.Retry.AttemptCount,
+			RetryPaused:  item.Retry.RetryPaused,
+			PauseReason:  item.Retry.PauseReason,
+		},
+		Capacity: ticketPickupDiagnosisCapacityResponse{
+			Workflow: ticketPickupDiagnosisCapacityBucketResponse{
+				Limited:    item.Capacity.Workflow.Limited,
+				ActiveRuns: item.Capacity.Workflow.ActiveRuns,
+				Capacity:   item.Capacity.Workflow.Capacity,
+			},
+			Project: ticketPickupDiagnosisCapacityBucketResponse{
+				Limited:    item.Capacity.Project.Limited,
+				ActiveRuns: item.Capacity.Project.ActiveRuns,
+				Capacity:   item.Capacity.Project.Capacity,
+			},
+			Provider: ticketPickupDiagnosisCapacityBucketResponse{
+				Limited:    item.Capacity.Provider.Limited,
+				ActiveRuns: item.Capacity.Provider.ActiveRuns,
+				Capacity:   item.Capacity.Provider.Capacity,
+			},
+			Status: ticketPickupDiagnosisStatusCapacityResponse{
+				Limited:    item.Capacity.Status.Limited,
+				ActiveRuns: item.Capacity.Status.ActiveRuns,
+				Capacity:   item.Capacity.Status.Capacity,
+			},
+		},
+	}
+
+	if item.Retry.NextRetryAt != nil {
+		nextRetryAt := item.Retry.NextRetryAt.UTC().Format(time.RFC3339)
+		response.Retry.NextRetryAt = &nextRetryAt
+	}
+	for _, reason := range item.Reasons {
+		response.Reasons = append(response.Reasons, ticketPickupDiagnosisReasonResponse{
+			Code:     string(reason.Code),
+			Message:  reason.Message,
+			Severity: string(reason.Severity),
+		})
+	}
+	if item.Workflow != nil {
+		response.Workflow = &ticketPickupDiagnosisWorkflowResponse{
+			ID:                item.Workflow.ID.String(),
+			Name:              item.Workflow.Name,
+			IsActive:          item.Workflow.IsActive,
+			PickupStatusMatch: item.Workflow.PickupStatusMatch,
+		}
+	}
+	if item.Agent != nil {
+		response.Agent = &ticketPickupDiagnosisAgentResponse{
+			ID:                  item.Agent.ID.String(),
+			Name:                item.Agent.Name,
+			RuntimeControlState: item.Agent.RuntimeControlState.String(),
+		}
+	}
+	if item.Provider != nil {
+		response.Provider = &ticketPickupDiagnosisProviderResponse{
+			ID:                item.Provider.ID.String(),
+			Name:              item.Provider.Name,
+			MachineID:         item.Provider.MachineID.String(),
+			MachineName:       item.Provider.MachineName,
+			MachineStatus:     item.Provider.MachineStatus.String(),
+			AvailabilityState: item.Provider.AvailabilityState.String(),
+		}
+		if item.Provider.AvailabilityReason != nil {
+			reason := *item.Provider.AvailabilityReason
+			response.Provider.AvailabilityReason = &reason
+		}
+	}
+	for _, blocker := range item.BlockedBy {
+		response.BlockedBy = append(response.BlockedBy, ticketPickupDiagnosisBlockedTicketResponse{
+			ID:         blocker.ID.String(),
+			Identifier: blocker.Identifier,
+			Title:      blocker.Title,
+			StatusID:   blocker.StatusID.String(),
+			StatusName: blocker.StatusName,
+		})
 	}
 
 	return response

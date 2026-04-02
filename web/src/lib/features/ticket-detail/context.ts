@@ -176,6 +176,79 @@ export function buildTicketDetailLiveContext(
       costTokensOutput: detailTicket.cost_tokens_output,
       costAmount: detailTicket.cost_amount,
       budgetUsd: detailTicket.budget_usd,
+      pickupDiagnosis: {
+        state: detailPayload.pickup_diagnosis.state,
+        primaryReasonCode: detailPayload.pickup_diagnosis.primary_reason_code,
+        primaryReasonMessage: detailPayload.pickup_diagnosis.primary_reason_message,
+        nextActionHint: detailPayload.pickup_diagnosis.next_action_hint || undefined,
+        reasons: detailPayload.pickup_diagnosis.reasons.map((reason) => ({
+          code: reason.code,
+          message: reason.message,
+          severity: reason.severity as 'info' | 'warning' | 'error',
+        })),
+        workflow: detailPayload.pickup_diagnosis.workflow
+          ? {
+              id: detailPayload.pickup_diagnosis.workflow.id,
+              name: detailPayload.pickup_diagnosis.workflow.name,
+              isActive: detailPayload.pickup_diagnosis.workflow.is_active,
+              pickupStatusMatch: detailPayload.pickup_diagnosis.workflow.pickup_status_match,
+            }
+          : undefined,
+        agent: detailPayload.pickup_diagnosis.agent
+          ? {
+              id: detailPayload.pickup_diagnosis.agent.id,
+              name: detailPayload.pickup_diagnosis.agent.name,
+              runtimeControlState: detailPayload.pickup_diagnosis.agent.runtime_control_state,
+            }
+          : undefined,
+        provider: detailPayload.pickup_diagnosis.provider
+          ? {
+              id: detailPayload.pickup_diagnosis.provider.id,
+              name: detailPayload.pickup_diagnosis.provider.name,
+              machineId: detailPayload.pickup_diagnosis.provider.machine_id,
+              machineName: detailPayload.pickup_diagnosis.provider.machine_name,
+              machineStatus: detailPayload.pickup_diagnosis.provider.machine_status,
+              availabilityState: detailPayload.pickup_diagnosis.provider.availability_state,
+              availabilityReason:
+                detailPayload.pickup_diagnosis.provider.availability_reason || undefined,
+            }
+          : undefined,
+        retry: {
+          attemptCount: detailPayload.pickup_diagnosis.retry.attempt_count,
+          retryPaused: detailPayload.pickup_diagnosis.retry.retry_paused,
+          pauseReason: detailPayload.pickup_diagnosis.retry.pause_reason || undefined,
+          nextRetryAt: detailPayload.pickup_diagnosis.retry.next_retry_at || undefined,
+        },
+        capacity: {
+          workflow: {
+            limited: detailPayload.pickup_diagnosis.capacity.workflow.limited,
+            activeRuns: detailPayload.pickup_diagnosis.capacity.workflow.active_runs,
+            capacity: detailPayload.pickup_diagnosis.capacity.workflow.capacity,
+          },
+          project: {
+            limited: detailPayload.pickup_diagnosis.capacity.project.limited,
+            activeRuns: detailPayload.pickup_diagnosis.capacity.project.active_runs,
+            capacity: detailPayload.pickup_diagnosis.capacity.project.capacity,
+          },
+          provider: {
+            limited: detailPayload.pickup_diagnosis.capacity.provider.limited,
+            activeRuns: detailPayload.pickup_diagnosis.capacity.provider.active_runs,
+            capacity: detailPayload.pickup_diagnosis.capacity.provider.capacity,
+          },
+          status: {
+            limited: detailPayload.pickup_diagnosis.capacity.status.limited,
+            activeRuns: detailPayload.pickup_diagnosis.capacity.status.active_runs,
+            capacity: detailPayload.pickup_diagnosis.capacity.status.capacity ?? undefined,
+          },
+        },
+        blockedBy: detailPayload.pickup_diagnosis.blocked_by.map((blocker) => ({
+          id: blocker.id,
+          identifier: blocker.identifier,
+          title: blocker.title,
+          statusId: blocker.status_id,
+          statusName: blocker.status_name,
+        })),
+      },
       dependencies: detailTicket.dependencies.map((dependency) => {
         const targetStatus = statusMap.get(dependency.target.status_id)!
         const stage = targetStatus.stage as TicketDetail['dependencies'][number]['stage']
