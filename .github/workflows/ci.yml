@@ -155,8 +155,113 @@ jobs:
           store_dir="$(pnpm store path --silent)"
           rm -rf "${store_dir}"
 
+      - name: Remove Frontend Test Artifacts
+        run: |
+          rm -rf test-results .playwright-artifacts
+
       - name: Install Web Dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Stage Playwright System Dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! command -v apt-get >/dev/null 2>&1 || ! command -v dpkg-deb >/dev/null 2>&1; then
+            echo "apt-get and dpkg-deb are required to stage Playwright system dependencies on this runner" >&2
+            exit 1
+          fi
+
+          choose_package() {
+            for candidate in "$@"; do
+              candidate_version="$(apt-cache policy "${candidate}" 2>/dev/null | awk '/Candidate:/ { print $2 }')"
+              if [[ -n "${candidate_version}" && "${candidate_version}" != "(none)" ]]; then
+                printf '%s\n' "${candidate}"
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          resolve_download_package() {
+            local dep="${1%:any}"
+            choose_package "${dep}" "${dep}t64"
+          }
+
+          packages=(
+            "$(choose_package libasound2t64 libasound2)"
+            "$(choose_package libatk-bridge2.0-0t64 libatk-bridge2.0-0)"
+            "$(choose_package libatk1.0-0t64 libatk1.0-0)"
+            "$(choose_package libcups2t64 libcups2)"
+            "$(choose_package libatspi2.0-0t64 libatspi2.0-0)"
+            libcairo2
+            libdbus-1-3
+            libdrm2
+            libgbm1
+            "$(choose_package libglib2.0-0t64 libglib2.0-0)"
+            libnspr4
+            libnss3
+            libpango-1.0-0
+            libx11-6
+            libxcb1
+            libxcomposite1
+            libxdamage1
+            libxext6
+            libxfixes3
+            libxkbcommon0
+            libxrandr2
+            xvfb
+            fonts-noto-color-emoji
+            fonts-unifont
+            libfontconfig1
+            libfreetype6
+            xfonts-cyrillic
+            xfonts-scalable
+            fonts-liberation
+            fonts-ipafont-gothic
+            fonts-wqy-zenhei
+            fonts-tlwg-loma-otf
+            fonts-freefont-ttf
+          )
+
+          mapfile -t packages < <(printf '%s\n' "${packages[@]}" | awk 'NF')
+          mapfile -t download_packages < <(
+            {
+              printf '%s\n' "${packages[@]}"
+              apt-cache depends \
+                --recurse \
+                --no-recommends \
+                --no-suggests \
+                --no-conflicts \
+                --no-breaks \
+                --no-replaces \
+                --no-enhances \
+                "${packages[@]}" 2>/dev/null | awk '/^[[:space:]]*(Pre)?Depends: / { print $2 }'
+            } | sed -E 's/^<(.+)>$/\1/' | awk 'NF' | sort -u | while IFS= read -r dep; do
+              resolve_download_package "${dep}"
+            done | sort -u
+          )
+
+          deps_root="${RUNNER_TEMP}/playwright-deps"
+          pkg_dir="${deps_root}/packages"
+          root_dir="${deps_root}/root"
+          rm -rf "${deps_root}"
+          mkdir -p "${pkg_dir}" "${root_dir}"
+
+          (
+            cd "${pkg_dir}"
+            apt-get download "${download_packages[@]}"
+          )
+
+          find "${pkg_dir}" -name '*.deb' -print0 | while IFS= read -r -d '' deb; do
+            dpkg-deb -x "${deb}" "${root_dir}"
+          done
+
+          {
+            printf 'LD_LIBRARY_PATH=%s\n' "${root_dir}/usr/lib/x86_64-linux-gnu:${root_dir}/lib/x86_64-linux-gnu:${root_dir}/usr/lib:${LD_LIBRARY_PATH:-}"
+            printf 'FONTCONFIG_PATH=%s\n' "${root_dir}/etc/fonts"
+            printf 'XDG_DATA_DIRS=%s\n' "${root_dir}/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+          } >> "${GITHUB_ENV}"
 
       - name: Install Playwright Browser
         run: pnpm exec playwright install chromium
