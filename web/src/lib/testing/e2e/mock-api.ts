@@ -1716,6 +1716,7 @@ function buildTicketDetailPayload(ticketId: string) {
       ticketId === DEFAULT_TICKET_ID
         ? 'Repeated hook failures'
         : (asString(ticket.pause_reason) ?? ''),
+    next_retry_at: ticketId === DEFAULT_TICKET_ID ? null : (asString(ticket.next_retry_at) ?? null),
     dependencies:
       ticketId === DEFAULT_TICKET_ID
         ? [
