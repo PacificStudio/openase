@@ -156,6 +156,8 @@ type OpenAPIAgentProvider struct {
 
 type OpenAPIAgentProviderCapabilities struct {
 	EphemeralChat OpenAPIAgentProviderCapability `json:"ephemeral_chat"`
+	HarnessAI     OpenAPIAgentProviderCapability `json:"harness_ai"`
+	SkillAI       OpenAPIAgentProviderCapability `json:"skill_ai"`
 }
 
 type OpenAPIAgentProviderCapability struct {

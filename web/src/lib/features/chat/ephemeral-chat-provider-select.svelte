@@ -4,32 +4,35 @@
   import * as Select from '$ui/select'
   import * as Tooltip from '$ui/tooltip'
   import {
-    ephemeralChatCapabilityState,
-    ephemeralChatCapabilityLabel,
-    ephemeralChatCapabilityReason,
-    hasAvailableEphemeralChat,
+    hasAvailableProviderCapability,
+    providerCapabilityLabel,
+    providerCapabilityReason,
+    providerCapabilityState,
+    type ProviderCapabilityName,
   } from './provider-options'
 
   let {
     providers,
     providerId,
+    capability = 'ephemeral_chat',
     disabled = false,
     switchHint = '',
     onProviderChange,
   }: {
     providers: AgentProvider[]
     providerId: string
+    capability?: ProviderCapabilityName
     disabled?: boolean
     switchHint?: string
     onProviderChange?: (providerId: string) => void
   } = $props()
 
   function providerReason(provider: AgentProvider) {
-    return hasAvailableEphemeralChat(provider)
+    return hasAvailableProviderCapability(provider, capability)
       ? null
       : providerAvailabilityHeadline(
-          ephemeralChatCapabilityState(provider),
-          ephemeralChatCapabilityReason(provider),
+          providerCapabilityState(provider, capability),
+          providerCapabilityReason(provider, capability),
         )
   }
 
@@ -77,7 +80,7 @@
     {#each providers as provider (provider.id)}
       <Select.Item
         value={provider.id}
-        disabled={!hasAvailableEphemeralChat(provider)}
+        disabled={!hasAvailableProviderCapability(provider, capability)}
         label={provider.model_name}
       >
         <div class="flex w-full items-start justify-between gap-3">
@@ -91,7 +94,7 @@
             {/if}
           </div>
           <div class="text-muted-foreground shrink-0 text-[10px]">
-            {ephemeralChatCapabilityLabel(provider)}
+            {providerCapabilityLabel(provider, capability)}
           </div>
         </div>
       </Select.Item>

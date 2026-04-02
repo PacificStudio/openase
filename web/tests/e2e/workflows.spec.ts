@@ -68,5 +68,5 @@ test('scheduled jobs creation remains responsive', async ({ page, projectPath },
     },
   })
 
-  await expect(page.getByText('Morning sync')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Morning sync 0 9 * * 1-5' }).first()).toBeVisible()
 })

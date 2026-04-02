@@ -40,6 +40,7 @@
   let previousContextKey = ''
   const chatController = createEphemeralChatSessionController({
     getSource: () => 'harness_editor',
+    capability: 'harness_ai',
     onError: (message) => toastStore.error(message),
   })
 
@@ -161,6 +162,7 @@
       <span class="text-muted-foreground text-[11px] font-medium">AI</span>
       <EphemeralChatProviderSelect
         providers={chatProviders}
+        capability="harness_ai"
         {providerId}
         onProviderChange={(nextProviderId) => void handleProviderChange(nextProviderId)}
       />

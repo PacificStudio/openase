@@ -544,58 +544,13 @@ func (s *SkillRefinementService) resolveProvider(
 	if err != nil {
 		return catalogdomain.AgentProvider{}, fmt.Errorf("list project providers for skill refinement: %w", err)
 	}
-
-	candidates := make([]catalogdomain.AgentProvider, 0, len(providers))
-	for _, item := range providers {
-		if item.AdapterType != catalogdomain.AgentProviderAdapterTypeCodexAppServer {
-			continue
-		}
-		candidates = append(candidates, catalogdomain.DeriveAgentProviderCapabilities(item))
-	}
-	if rawProviderID != nil {
-		for _, item := range candidates {
-			if item.ID != *rawProviderID {
-				continue
-			}
-			return s.validateProvider(item)
-		}
-		return catalogdomain.AgentProvider{}, ErrProviderNotFound
-	}
-	if project.DefaultAgentProviderID != nil {
-		for _, item := range candidates {
-			if item.ID != *project.DefaultAgentProviderID {
-				continue
-			}
-			if validated, validateErr := s.validateProvider(item); validateErr == nil {
-				return validated, nil
-			}
-		}
-	}
-	for _, item := range candidates {
-		if validated, validateErr := s.validateProvider(item); validateErr == nil {
-			return validated, nil
-		}
-	}
-	return catalogdomain.AgentProvider{}, ErrProviderNotFound
-}
-
-func (s *SkillRefinementService) validateProvider(
-	providerItem catalogdomain.AgentProvider,
-) (catalogdomain.AgentProvider, error) {
-	capability := resolveEphemeralChatCapability(providerItem)
-	switch capability.State {
-	case catalogdomain.AgentProviderCapabilityStateUnsupported:
-		return catalogdomain.AgentProvider{}, providerResolutionError(ErrProviderUnsupported, providerItem, capability)
-	case catalogdomain.AgentProviderCapabilityStateUnavailable:
-		return catalogdomain.AgentProvider{}, providerResolutionError(ErrProviderUnavailable, providerItem, capability)
-	}
-	if providerItem.AdapterType != catalogdomain.AgentProviderAdapterTypeCodexAppServer {
-		return catalogdomain.AgentProvider{}, fmt.Errorf("%w: provider=%s reason=adapter_not_supported", ErrProviderUnsupported, providerItem.Name)
-	}
-	if !s.runtime.Supports(providerItem) {
-		return catalogdomain.AgentProvider{}, fmt.Errorf("%w: provider=%s reason=runtime_missing", ErrProviderUnsupported, providerItem.Name)
-	}
-	return providerItem, nil
+	return resolveProviderForSurface(
+		providers,
+		project.DefaultAgentProviderID,
+		rawProviderID,
+		providerSurfaceSkillAI,
+		s.runtime.Supports,
+	)
 }
 
 func (s *SkillRefinementService) prepareWorkspaceRoot(

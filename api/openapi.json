@@ -6357,6 +6357,30 @@
                                   }
                                 },
                                 "type": "object"
+                              },
+                              "harness_ai": {
+                                "properties": {
+                                  "reason": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "state": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "skill_ai": {
+                                "properties": {
+                                  "reason": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "state": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
                               }
                             },
                             "type": "object"
@@ -6876,6 +6900,30 @@
                         "capabilities": {
                           "properties": {
                             "ephemeral_chat": {
+                              "properties": {
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "harness_ai": {
+                              "properties": {
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "skill_ai": {
                               "properties": {
                                 "reason": {
                                   "nullable": true,
@@ -19237,6 +19285,30 @@
                                 }
                               },
                               "type": "object"
+                            },
+                            "harness_ai": {
+                              "properties": {
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "skill_ai": {
+                              "properties": {
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
                             }
                           },
                           "type": "object"
@@ -19763,6 +19835,30 @@
                         "capabilities": {
                           "properties": {
                             "ephemeral_chat": {
+                              "properties": {
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "harness_ai": {
+                              "properties": {
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "skill_ai": {
                               "properties": {
                                 "reason": {
                                   "nullable": true,
