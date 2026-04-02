@@ -155,6 +155,10 @@ jobs:
           store_dir="$(pnpm store path --silent)"
           rm -rf "${store_dir}"
 
+      - name: Remove Frontend Test Artifacts
+        run: |
+          rm -rf test-results .playwright-artifacts
+
       - name: Install Web Dependencies
         run: pnpm install --frozen-lockfile
 
