@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
+import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiError } from '$lib/api/client'
@@ -143,6 +143,26 @@ describe('WorkflowsPage', () => {
     vi.clearAllMocks()
   })
 
+  async function openSkillsDropdown() {
+    await waitFor(() => {
+      const buttons = Array.from(document.body.querySelectorAll('button')).filter((button) =>
+        button.textContent?.includes('Skills'),
+      )
+      expect(buttons.length).toBeGreaterThan(0)
+    })
+    const trigger = Array.from(document.body.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Skills'),
+    )
+    expect(trigger).toBeTruthy()
+    await fireEvent.click(trigger as HTMLElement)
+  }
+
+  function getSkillToggle(skillName: string, actionTitle: 'Bind skill' | 'Unbind skill') {
+    const row = within(document.body).getByText(skillName).closest('button')
+    expect(row).toBeTruthy()
+    return within(row as HTMLElement).getByTitle(actionTitle)
+  }
+
   it('renders the workflows page and loads data', async () => {
     appStore.currentOrg = orgFixture
     appStore.currentProject = projectFixture
@@ -210,9 +230,10 @@ describe('WorkflowsPage', () => {
       },
     })
 
-    const { findByTitle } = render(WorkflowsPage)
+    render(WorkflowsPage)
 
-    const lintButton = await findByTitle('Bind lint: Run linters')
+    await openSkillsDropdown()
+    const lintButton = getSkillToggle('lint', 'Bind skill')
     await fireEvent.click(lintButton)
 
     await waitFor(() => {
@@ -238,19 +259,20 @@ describe('WorkflowsPage', () => {
       ],
     })
 
-    const { findByTitle, findAllByText } = render(WorkflowsPage)
+    const { findAllByText, container } = render(WorkflowsPage)
 
     // Wait for page to load
     await findAllByText('Coding Workflow')
 
     // Simulate a draft change to make isDirty true
     // We do this by finding the textarea and typing in it
-    const textarea = document.querySelector('textarea')
+    const textarea = container.querySelector('textarea')
     if (textarea) {
       await fireEvent.input(textarea, { target: { value: 'modified content' } })
     }
 
-    const lintButton = await findByTitle('Unbind lint: Run linters')
+    await openSkillsDropdown()
+    const lintButton = getSkillToggle('lint', 'Unbind skill')
     await fireEvent.click(lintButton)
 
     await waitFor(() => {
@@ -268,9 +290,10 @@ describe('WorkflowsPage', () => {
     loadWorkflowPageData.mockResolvedValue(pageDataFixture)
     bindWorkflowSkills.mockRejectedValue(new Error('Network error'))
 
-    const { findByTitle } = render(WorkflowsPage)
+    render(WorkflowsPage)
 
-    const lintButton = await findByTitle('Bind lint: Run linters')
+    await openSkillsDropdown()
+    const lintButton = getSkillToggle('lint', 'Bind skill')
     await fireEvent.click(lintButton)
 
     await waitFor(() => {
@@ -301,9 +324,10 @@ describe('WorkflowsPage', () => {
       },
     })
 
-    const { findByTitle } = render(WorkflowsPage)
+    render(WorkflowsPage)
 
-    const commitButton = await findByTitle('Bind commit: Commit the current work.')
+    await openSkillsDropdown()
+    const commitButton = getSkillToggle('commit', 'Bind skill')
     await fireEvent.click(commitButton)
 
     await waitFor(() => {
