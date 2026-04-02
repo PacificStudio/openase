@@ -170,7 +170,8 @@ jobs:
 
           choose_package() {
             for candidate in "$@"; do
-              if apt-cache show "${candidate}" >/dev/null 2>&1; then
+              candidate_version="$(apt-cache policy "${candidate}" 2>/dev/null | awk '/Candidate:/ { print $2 }')"
+              if [[ -n "${candidate_version}" && "${candidate_version}" != "(none)" ]]; then
                 printf '%s\n' "${candidate}"
                 return 0
               fi
@@ -183,7 +184,7 @@ jobs:
             "$(choose_package libatk-bridge2.0-0t64 libatk-bridge2.0-0)"
             "$(choose_package libatk1.0-0t64 libatk1.0-0)"
             "$(choose_package libcups2t64 libcups2)"
-            libatspi2.0-0
+            "$(choose_package libatspi2.0-0t64 libatspi2.0-0)"
             libcairo2
             libdbus-1-3
             libdrm2
