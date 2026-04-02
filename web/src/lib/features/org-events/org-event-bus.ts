@@ -128,6 +128,15 @@ function ensureRuntimeConnection(runtime: Runtime) {
   )
 }
 
+function organizationEventStreamPath(orgId: string, scope: OrganizationEventScope) {
+  switch (scope) {
+    case 'machines':
+      return `/api/v1/orgs/${orgId}/machines/stream`
+    case 'providers':
+      return `/api/v1/orgs/${orgId}/providers/stream`
+  }
+}
+
 function cleanupRuntime(runtime: Runtime) {
   if (
     runtime.retainers === 0 &&
@@ -170,13 +179,4 @@ function parseOrganizationEventEnvelope(
 
 function buildRuntimeKey(orgId: string, scope: OrganizationEventScope) {
   return `${orgId}:${scope}`
-}
-
-function organizationEventStreamPath(orgId: string, scope: OrganizationEventScope) {
-  switch (scope) {
-    case 'machines':
-      return `/api/v1/orgs/${orgId}/machines/stream`
-    case 'providers':
-      return `/api/v1/orgs/${orgId}/providers/stream`
-  }
 }

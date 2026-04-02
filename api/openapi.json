@@ -2693,6 +2693,143 @@
                         "nullable": true,
                         "type": "string"
                       },
+                      "ticket_assigned_agent": {
+                        "description": "Assigned agent summary for the focused ticket.",
+                        "nullable": true,
+                        "properties": {
+                          "id": {
+                            "description": "Assigned agent ID for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "name": {
+                            "description": "Assigned agent name for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "provider": {
+                            "description": "Assigned agent provider name for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "runtime_control_state": {
+                            "description": "Assigned agent runtime control state for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "runtime_phase": {
+                            "description": "Assigned agent runtime phase for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "ticket_attempt_count": {
+                        "description": "Current attempt count for the focused ticket.",
+                        "nullable": true,
+                        "type": "integer"
+                      },
+                      "ticket_current_run": {
+                        "description": "Current run summary for the focused ticket.",
+                        "nullable": true,
+                        "properties": {
+                          "attempt_number": {
+                            "description": "Attempt number for the current focused ticket run.",
+                            "nullable": true,
+                            "type": "integer"
+                          },
+                          "current_step_status": {
+                            "description": "Current step status for the focused ticket run.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "current_step_summary": {
+                            "description": "Current step summary for the focused ticket run.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "Current run ID for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "last_error": {
+                            "description": "Last error observed on the focused ticket run.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "status": {
+                            "description": "Current run status for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "ticket_dependencies": {
+                        "description": "Dependency summary for the focused ticket.",
+                        "items": {
+                          "properties": {
+                            "identifier": {
+                              "description": "Human-readable identifier for a related dependency ticket.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "relation": {
+                              "description": "Dependency relation such as blocks or blocked_by.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "status": {
+                              "description": "Current status of the related dependency ticket.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "title": {
+                              "description": "Title of a related dependency ticket.",
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "ticket_description": {
+                        "description": "Ticket description currently in focus.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "ticket_hook_history": {
+                        "description": "Recent hook execution history for the focused ticket.",
+                        "items": {
+                          "properties": {
+                            "hook_name": {
+                              "description": "Hook name for a recent focused ticket hook execution.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "output": {
+                              "description": "Captured output summary for a recent focused ticket hook.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "status": {
+                              "description": "Execution status for a recent focused ticket hook.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "timestamp": {
+                              "description": "Execution timestamp for a recent focused ticket hook.",
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
                       "ticket_id": {
                         "description": "Ticket ID currently in focus.",
                         "nullable": true,
@@ -2703,10 +2840,100 @@
                         "nullable": true,
                         "type": "string"
                       },
+                      "ticket_pause_reason": {
+                        "description": "Reason retries are paused for the focused ticket.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "ticket_priority": {
+                        "description": "Ticket priority currently in focus.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "ticket_recent_activity": {
+                        "description": "Recent ticket-scoped activity for the focused ticket.",
+                        "items": {
+                          "properties": {
+                            "created_at": {
+                              "description": "Creation timestamp for a recent focused ticket event.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "event_type": {
+                              "description": "Activity event type for a recent focused ticket event.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "message": {
+                              "description": "Human-readable summary for a recent focused ticket event.",
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "ticket_repo_scopes": {
+                        "description": "Repo scopes and PR references for the focused ticket.",
+                        "items": {
+                          "properties": {
+                            "branch_name": {
+                              "description": "Branch name associated with the focused ticket scope.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "pull_request_url": {
+                              "description": "Pull request URL associated with the focused ticket scope.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "repo_id": {
+                              "description": "Repository ID included in the focused ticket scope.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "repo_name": {
+                              "description": "Repository name included in the focused ticket scope.",
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "ticket_retry_paused": {
+                        "description": "Whether retries are currently paused for the focused ticket.",
+                        "nullable": true,
+                        "type": "boolean"
+                      },
                       "ticket_status": {
                         "description": "Ticket status currently in focus.",
                         "nullable": true,
                         "type": "string"
+                      },
+                      "ticket_target_machine": {
+                        "description": "Target machine summary for the focused ticket.",
+                        "nullable": true,
+                        "properties": {
+                          "host": {
+                            "description": "Target machine host for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "Target machine ID for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "name": {
+                            "description": "Target machine name for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
                       },
                       "ticket_title": {
                         "description": "Ticket title currently in focus.",

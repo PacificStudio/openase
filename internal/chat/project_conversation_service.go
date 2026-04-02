@@ -360,6 +360,8 @@ func (s *ProjectConversationService) StartTurn(
 		return domain.Turn{}, err
 	}
 
+	promptFocus := focus
+
 	includeRecovery := !hadLive
 	resumeThreadID := strings.TrimSpace(stringPointerValue(conversation.ProviderThreadID))
 	resumeTurnID := strings.TrimSpace(stringPointerValue(conversation.LastTurnID))
@@ -369,7 +371,7 @@ func (s *ProjectConversationService) StartTurn(
 			if live.codex == nil {
 				break
 			}
-			resumePrompt, resumePromptErr := s.buildProjectConversationPrompt(ctx, conversation, project, focus, false)
+			resumePrompt, resumePromptErr := s.buildProjectConversationPrompt(ctx, conversation, project, promptFocus, false)
 			if resumePromptErr != nil {
 				return domain.Turn{}, resumePromptErr
 			}
@@ -382,6 +384,7 @@ func (s *ProjectConversationService) StartTurn(
 				resumePrompt,
 				resumeThreadID,
 				resumeTurnID,
+				promptFocus,
 			))
 			switch {
 			case resumeErr == nil:
@@ -408,13 +411,22 @@ func (s *ProjectConversationService) StartTurn(
 		}
 	}
 
-	systemPrompt, err := s.buildProjectConversationPrompt(ctx, conversation, project, focus, includeRecovery)
+	systemPrompt, err := s.buildProjectConversationPrompt(ctx, conversation, project, promptFocus, includeRecovery)
 	if err != nil {
 		return domain.Turn{}, err
 	}
 
 	turn, _, err := s.repo.CreateTurnWithUserEntry(ctx, conversationID, strings.TrimSpace(message))
 	if err != nil {
+		return domain.Turn{}, err
+	}
+	if _, err := s.repo.AppendEntry(
+		ctx,
+		conversationID,
+		&turn.ID,
+		domain.EntryKindSystem,
+		serializeProjectConversationFocus(promptFocus),
+	); err != nil {
 		return domain.Turn{}, err
 	}
 
@@ -458,7 +470,7 @@ func (s *ProjectConversationService) StartTurn(
 		Message:                strings.TrimSpace(message),
 		SystemPrompt:           systemPrompt,
 		WorkingDirectory:       live.workspace,
-		Environment:            s.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem),
+		Environment:            s.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, promptFocus),
 		ResumeProviderThreadID: resumeThreadID,
 		ResumeProviderTurnID:   resumeTurnID,
 		MaxTurns:               0,
@@ -553,6 +565,10 @@ func (s *ProjectConversationService) RespondInterrupt(
 		if s.catalog == nil || providerItem.ID == uuid.Nil {
 			return domain.PendingInterrupt{}, ErrConversationRuntimeAbsent
 		}
+		storedFocus, focusErr := s.loadLatestConversationFocus(ctx, conversationID)
+		if focusErr != nil {
+			return domain.PendingInterrupt{}, focusErr
+		}
 		var ensureErr error
 		live, _, ensureErr = s.ensureLiveRuntime(ctx, conversation, project, providerItem)
 		if ensureErr != nil {
@@ -562,7 +578,7 @@ func (s *ProjectConversationService) RespondInterrupt(
 			return domain.PendingInterrupt{}, ErrConversationRuntimeAbsent
 		}
 		if live.codex != nil {
-			systemPrompt, promptErr := s.buildProjectConversationPrompt(ctx, conversation, project, nil, false)
+			systemPrompt, promptErr := s.buildProjectConversationPrompt(ctx, conversation, project, storedFocus, false)
 			if promptErr != nil {
 				return domain.PendingInterrupt{}, promptErr
 			}
@@ -575,6 +591,7 @@ func (s *ProjectConversationService) RespondInterrupt(
 				systemPrompt,
 				strings.TrimSpace(stringPointerValue(conversation.ProviderThreadID)),
 				strings.TrimSpace(stringPointerValue(conversation.LastTurnID)),
+				storedFocus,
 			))
 			if ensureErr != nil {
 				if codexadapter.IsThreadNotFoundError(ensureErr) {
@@ -586,6 +603,10 @@ func (s *ProjectConversationService) RespondInterrupt(
 	}
 
 	runtimeKind := runtimeInterruptKind(interrupt.Kind)
+	storedFocus, err := s.loadLatestConversationFocus(ctx, conversationID)
+	if err != nil {
+		return domain.PendingInterrupt{}, err
+	}
 	stream, err := live.interrupt.RespondInterrupt(ctx, RuntimeInterruptResponseInput{
 		SessionID:              SessionID(conversationID.String()),
 		Provider:               live.provider,
@@ -595,7 +616,7 @@ func (s *ProjectConversationService) RespondInterrupt(
 		Answer:                 cloneMapAny(response.Answer),
 		Payload:                cloneMapAny(interrupt.Payload),
 		WorkingDirectory:       live.workspace,
-		Environment:            s.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem),
+		Environment:            s.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, storedFocus),
 		ResumeProviderThreadID: strings.TrimSpace(stringPointerValue(conversation.ProviderThreadID)),
 		ResumeProviderTurnID:   strings.TrimSpace(stringPointerValue(conversation.LastTurnID)),
 		PersistentConversation: true,
@@ -1252,6 +1273,7 @@ func (s *ProjectConversationService) buildConversationRuntimeInput(
 	systemPrompt string,
 	resumeThreadID string,
 	resumeTurnID string,
+	focus *ProjectConversationFocus,
 ) RuntimeTurnInput {
 	return RuntimeTurnInput{
 		SessionID:              SessionID(conversation.ID.String()),
@@ -1259,7 +1281,7 @@ func (s *ProjectConversationService) buildConversationRuntimeInput(
 		Message:                "",
 		SystemPrompt:           systemPrompt,
 		WorkingDirectory:       workspace,
-		Environment:            s.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem),
+		Environment:            s.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, focus),
 		ResumeProviderThreadID: strings.TrimSpace(resumeThreadID),
 		ResumeProviderTurnID:   strings.TrimSpace(resumeTurnID),
 		MaxTurns:               0,
@@ -1496,8 +1518,21 @@ func (s *ProjectConversationService) buildProjectConversationPrompt(
 	if err != nil {
 		return "", err
 	}
+
+	var builder strings.Builder
+	builder.WriteString(basePrompt)
+	if ticketFocus := focusTicket(focus); ticketFocus != nil {
+		ticketCapsule, capsuleErr := s.renderProjectConversationTicketCapsule(ctx, project, ticketFocus)
+		if capsuleErr != nil {
+			return "", capsuleErr
+		}
+		if strings.TrimSpace(ticketCapsule) != "" {
+			builder.WriteString("\n\n")
+			builder.WriteString(ticketCapsule)
+		}
+	}
 	if !includeRecovery {
-		return basePrompt, nil
+		return builder.String(), nil
 	}
 
 	entries, err := s.repo.ListEntries(ctx, conversation.ID)
@@ -1505,11 +1540,9 @@ func (s *ProjectConversationService) buildProjectConversationPrompt(
 		return "", err
 	}
 	if len(entries) == 0 && strings.TrimSpace(conversation.RollingSummary) == "" {
-		return basePrompt, nil
+		return builder.String(), nil
 	}
 
-	var builder strings.Builder
-	builder.WriteString(basePrompt)
 	builder.WriteString("\n\n## Previous conversation\n")
 	if strings.TrimSpace(conversation.RollingSummary) != "" {
 		builder.WriteString("Rolling summary:\n")
@@ -1722,6 +1755,7 @@ func (s *ProjectConversationService) buildConversationRuntimeEnvironment(
 	conversation domain.Conversation,
 	project catalogdomain.Project,
 	providerItem catalogdomain.AgentProvider,
+	focus *ProjectConversationFocus,
 ) []string {
 	environment := make([]string, 0, 6)
 	if providerItem.MachineHost == "" || providerItem.MachineHost == catalogdomain.LocalMachineHost {
@@ -1759,12 +1793,16 @@ func (s *ProjectConversationService) buildConversationRuntimeEnvironment(
 		return environment
 	}
 
-	return append(environment,
+	environment = append(environment,
 		"OPENASE_API_URL="+s.platformAPIURL,
 		"OPENASE_AGENT_TOKEN="+issued.Token,
 		"OPENASE_PROJECT_ID="+project.ID.String(),
 		"OPENASE_CONVERSATION_ID="+conversation.ID.String(),
 	)
+	if ticketFocus := focusTicket(focus); ticketFocus != nil {
+		environment = append(environment, "OPENASE_TICKET_ID="+ticketFocus.ID.String())
+	}
+	return environment
 }
 
 func (s *ProjectConversationService) syncConversationWorkspaceSkills(

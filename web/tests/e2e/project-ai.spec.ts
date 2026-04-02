@@ -69,6 +69,45 @@ test('project ai creates a new conversation and streams the first reply', async 
   await expect(page.getByText('Thinking...')).not.toBeVisible({ timeout: 10_000 })
 })
 
+test('ticket drawer routes AI through ticket-focused Project AI with a complete capsule', async ({
+  page,
+  projectPath,
+}) => {
+  await page.goto(projectPath('tickets'))
+  await expect(page.getByText('ASE-101')).toBeVisible({ timeout: 10_000 })
+
+  await page.getByText('ASE-101').click()
+
+  await expect(page.getByRole('button', { name: 'AI 分析' })).toBeVisible({ timeout: 10_000 })
+  await page.getByRole('button', { name: 'AI 分析' }).click()
+  await expect(
+    page.getByPlaceholder('Ask about this ticket without restating the basics…'),
+  ).toBeVisible({
+    timeout: 10_000,
+  })
+  await expect(page.getByRole('heading', { name: 'Project AI' })).toBeVisible()
+
+  const prompt = page.getByPlaceholder('Ask about this ticket without restating the basics…')
+  const sendButton = page.locator('button[aria-label="Send message"]:visible')
+
+  await prompt.fill('Why is this ticket not running?')
+  await sendButton.click()
+  await expect(
+    page.getByText(/Retries are paused=true because "Repeated hook failures"/),
+  ).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByText(/latest failure was "ticket\.on_complete hook failed"/)).toBeVisible({
+    timeout: 10_000,
+  })
+
+  await prompt.fill('Create one child ticket for the retry investigation')
+  await sendButton.click()
+  await expect(page.getByText('Create a retry investigation child ticket')).toBeVisible({
+    timeout: 10_000,
+  })
+  await page.getByRole('button', { name: 'Confirm' }).click()
+  await expect(page.getByText('Executed')).toBeVisible({ timeout: 10_000 })
+})
+
 test('harness ai provider picker matches the available provider catalog', async ({
   page,
   projectPath,

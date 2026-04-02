@@ -21,6 +21,7 @@ const baseTicket: TicketDetail = {
   },
   repoScopes: [],
   attemptCount: 3,
+  consecutiveErrors: 0,
   retryPaused: false,
   costTokensInput: 0,
   costTokensOutput: 0,
