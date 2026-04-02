@@ -2754,6 +2754,188 @@
         ]
       }
     },
+    "/api/v1/chat/conversations/{conversationId}/workspace-diff": {
+      "get": {
+        "operationId": "getProjectConversationWorkspaceDiff",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "workspace_diff": {
+                      "properties": {
+                        "added": {
+                          "type": "integer"
+                        },
+                        "conversation_id": {
+                          "type": "string"
+                        },
+                        "dirty": {
+                          "type": "boolean"
+                        },
+                        "files_changed": {
+                          "type": "integer"
+                        },
+                        "removed": {
+                          "type": "integer"
+                        },
+                        "repos": {
+                          "items": {
+                            "properties": {
+                              "added": {
+                                "type": "integer"
+                              },
+                              "branch": {
+                                "type": "string"
+                              },
+                              "dirty": {
+                                "type": "boolean"
+                              },
+                              "files": {
+                                "items": {
+                                  "properties": {
+                                    "added": {
+                                      "type": "integer"
+                                    },
+                                    "path": {
+                                      "type": "string"
+                                    },
+                                    "removed": {
+                                      "type": "integer"
+                                    },
+                                    "status": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              },
+                              "files_changed": {
+                                "type": "integer"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "path": {
+                                "type": "string"
+                              },
+                              "removed": {
+                                "type": "integer"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "repos_changed": {
+                          "type": "integer"
+                        },
+                        "workspace_path": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get project conversation workspace diff summary response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Get project conversation workspace diff summary",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
     "/api/v1/chat/{sessionId}": {
       "delete": {
         "operationId": "closeEphemeralChat",

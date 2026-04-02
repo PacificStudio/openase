@@ -9284,8 +9284,10 @@ Project Conversation 中 turn 的中断流程：
 
 - `project_sidebar` 采用常规聊天体验，不再使用固定 turn cap 作为 transcript UX
 - `project_sidebar` 支持同一 `(project, provider)` 下的多 conversation tabs；每个 tab 对应一个独立 `conversation_id`
+- `project_sidebar` 必须把 Project AI workspace 的隔离语义说清楚：隔离单位是 `conversation_id`，不是浏览器 tab；同一 `conversation_id` 在多个浏览器 tab 中看到的是同一个 conversation workspace / branch
 - `project_sidebar` 中一个 assistant turn 只对应一个可变 transcript block；流式增量必须合并到当前 assistant 回复中，不能把 chunk 边界暴露成多个气泡
 - 当 turn 因 Codex interrupt 暂停时，前端应在 transcript 中插入 interrupt card，而不是让用户误以为 turn 已完成
+- `project_sidebar` 必须持久显示当前 conversation workspace 的 dirty summary，明确标注这是 OpenASE-managed Project AI workspace，而不是用户自己的本地 checkout；摘要至少覆盖 repo 级 branch/path/文件数/`+/-` 总计，以及文件级 status/`+/-`
 - 同一 `conversation_id` 在任一时刻最多只允许一个 active turn；多 tab 并发仅限不同 conversation 之间
 - provider 切换会创建新的 conversation，不复用上一 provider 的 provider-native thread
 
@@ -9358,6 +9360,7 @@ Project Conversation 需要最小持久化模型：
 
 - `project_sidebar` 按 `(project_id, provider_id)` 维度恢复已打开的 conversation tabs 和当前选中的 tab
 - 若 localStorage 中某个 `conversation_id` 已不存在、无权限或 provider 不匹配，只移除该失效 tab，不影响其余 tabs 的恢复
+- workspace diff summary 在 restore、turn 完成以及 live runtime reset / reconnect 后都必须重新读取；其 truth source 是 conversation workspace 中各 repo 的实际 git 状态，而不是流式 tool-call 推断
 
 Project Conversation 因此是“**conversation 持久化，live runtime 可回收**”的模型，而不是“session_id 永久等于一个活进程”。
 
@@ -9398,6 +9401,7 @@ Ephemeral Chat 保持单次 turn 的轻量 API：
 | GET | `/api/v1/chat/conversations` | 查询当前用户在某 project/provider/source 下的 conversation 列表或当前活跃 conversation |
 | GET | `/api/v1/chat/conversations/:conversationId` | 获取 conversation 元数据 |
 | GET | `/api/v1/chat/conversations/:conversationId/entries` | 拉取历史 transcript |
+| GET | `/api/v1/chat/conversations/:conversationId/workspace-diff` | 读取当前 conversation workspace 的 repo/file diff 摘要 |
 | POST | `/api/v1/chat/conversations/:conversationId/turns` | 发送一轮用户消息 |
 | GET | `/api/v1/chat/conversations/:conversationId/stream` | watch 当前 conversation 的实时事件 |
 | POST | `/api/v1/chat/conversations/:conversationId/interrupts/:interruptId/respond` | 对 Codex interrupt 提交 decision / answer |

@@ -337,6 +337,39 @@ type OpenAPIProjectConversationEntriesResponse struct {
 	Entries []OpenAPIProjectConversationEntry `json:"entries"`
 }
 
+type OpenAPIProjectConversationWorkspaceDiffFile struct {
+	Path    string `json:"path"`
+	Status  string `json:"status"`
+	Added   int    `json:"added"`
+	Removed int    `json:"removed"`
+}
+
+type OpenAPIProjectConversationWorkspaceDiffRepo struct {
+	Name         string                                        `json:"name"`
+	Path         string                                        `json:"path"`
+	Branch       string                                        `json:"branch"`
+	Dirty        bool                                          `json:"dirty"`
+	FilesChanged int                                           `json:"files_changed"`
+	Added        int                                           `json:"added"`
+	Removed      int                                           `json:"removed"`
+	Files        []OpenAPIProjectConversationWorkspaceDiffFile `json:"files"`
+}
+
+type OpenAPIProjectConversationWorkspaceDiff struct {
+	ConversationID string                                        `json:"conversation_id"`
+	WorkspacePath  string                                        `json:"workspace_path"`
+	Dirty          bool                                          `json:"dirty"`
+	ReposChanged   int                                           `json:"repos_changed"`
+	FilesChanged   int                                           `json:"files_changed"`
+	Added          int                                           `json:"added"`
+	Removed        int                                           `json:"removed"`
+	Repos          []OpenAPIProjectConversationWorkspaceDiffRepo `json:"repos"`
+}
+
+type OpenAPIProjectConversationWorkspaceDiffResponse struct {
+	WorkspaceDiff OpenAPIProjectConversationWorkspaceDiff `json:"workspace_diff"`
+}
+
 type OpenAPIProjectConversationTurn struct {
 	ID        string `json:"id"`
 	TurnIndex int    `json:"turn_index"`
@@ -4176,6 +4209,24 @@ func (b openAPISpecBuilder) addChatOperations() error {
 	}
 	projectConversationEntries.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
 	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/entries", http.MethodGet, projectConversationEntries)
+
+	projectConversationWorkspaceDiff, err := b.jsonOperation(
+		"getProjectConversationWorkspaceDiff",
+		"Get project conversation workspace diff summary",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationWorkspaceDiffResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationWorkspaceDiff.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace-diff", http.MethodGet, projectConversationWorkspaceDiff)
 
 	projectConversationTurn, err := b.jsonOperation(
 		"startProjectConversationTurn",

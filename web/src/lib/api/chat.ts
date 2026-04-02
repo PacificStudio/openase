@@ -133,6 +133,42 @@ export type ProjectConversationEntry = {
   createdAt: string
 }
 
+export type ProjectConversationWorkspaceFileStatus =
+  | 'modified'
+  | 'added'
+  | 'deleted'
+  | 'renamed'
+  | 'untracked'
+
+export type ProjectConversationWorkspaceDiffFile = {
+  path: string
+  status: ProjectConversationWorkspaceFileStatus
+  added: number
+  removed: number
+}
+
+export type ProjectConversationWorkspaceDiffRepo = {
+  name: string
+  path: string
+  branch: string
+  dirty: boolean
+  filesChanged: number
+  added: number
+  removed: number
+  files: ProjectConversationWorkspaceDiffFile[]
+}
+
+export type ProjectConversationWorkspaceDiff = {
+  conversationId: string
+  workspacePath: string
+  dirty: boolean
+  reposChanged: number
+  filesChanged: number
+  added: number
+  removed: number
+  repos: ProjectConversationWorkspaceDiffRepo[]
+}
+
 export type ProjectConversationInterruptOption = {
   id: string
   label: string
@@ -264,6 +300,18 @@ export function listProjectConversationEntries(conversationId: string) {
   return fetchJSON<{ entries: ProjectConversationEntry[] }>(
     `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/entries`,
   )
+}
+
+export async function getProjectConversationWorkspaceDiff(conversationId: string) {
+  const payload = await fetchJSON<{ workspace_diff?: unknown }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace-diff`,
+  )
+  const object = parseRequiredObject(payload as Record<string, unknown>)
+  return {
+    workspaceDiff: parseProjectConversationWorkspaceDiff(
+      object.workspace_diff ?? object.workspaceDiff ?? object,
+    ),
+  }
 }
 
 export function startProjectConversationTurn(conversationId: string, message: string) {
@@ -474,6 +522,78 @@ function parseProjectConversationStreamEvent(
   }
 }
 
+function parseProjectConversationWorkspaceDiff(value: unknown): ProjectConversationWorkspaceDiff {
+  const object = parseRequiredObject(value)
+  return {
+    conversationId: readRequiredString(object, 'conversation_id'),
+    workspacePath: readRequiredString(object, 'workspace_path'),
+    dirty: readRequiredBoolean(object, 'dirty'),
+    reposChanged: readRequiredNumber(object, 'repos_changed'),
+    filesChanged: readRequiredNumber(object, 'files_changed'),
+    added: readRequiredNumber(object, 'added'),
+    removed: readRequiredNumber(object, 'removed'),
+    repos: readProjectConversationWorkspaceDiffRepos(object),
+  }
+}
+
+function readProjectConversationWorkspaceDiffRepos(
+  object: Record<string, unknown>,
+): ProjectConversationWorkspaceDiffRepo[] {
+  const value = object.repos
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.map((item) => {
+    const repo = parseRequiredObject(item)
+    return {
+      name: readRequiredString(repo, 'name'),
+      path: readRequiredString(repo, 'path'),
+      branch: readRequiredString(repo, 'branch'),
+      dirty: readRequiredBoolean(repo, 'dirty'),
+      filesChanged: readRequiredNumber(repo, 'files_changed'),
+      added: readRequiredNumber(repo, 'added'),
+      removed: readRequiredNumber(repo, 'removed'),
+      files: readProjectConversationWorkspaceDiffFiles(repo),
+    }
+  })
+}
+
+function readProjectConversationWorkspaceDiffFiles(
+  object: Record<string, unknown>,
+): ProjectConversationWorkspaceDiffFile[] {
+  const value = object.files
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.map((item) => {
+    const file = parseRequiredObject(item)
+    const status = readRequiredString(file, 'status')
+    if (!isProjectConversationWorkspaceFileStatus(status)) {
+      throw new Error(`project conversation workspace file status ${status} is unsupported`)
+    }
+    return {
+      path: readRequiredString(file, 'path'),
+      status,
+      added: readRequiredNumber(file, 'added'),
+      removed: readRequiredNumber(file, 'removed'),
+    }
+  })
+}
+
+function isProjectConversationWorkspaceFileStatus(
+  value: string,
+): value is ProjectConversationWorkspaceFileStatus {
+  return (
+    value === 'modified' ||
+    value === 'added' ||
+    value === 'deleted' ||
+    value === 'renamed' ||
+    value === 'untracked'
+  )
+}
+
 function parseMessagePayload(payload: unknown): ChatMessagePayload {
   const object = parseRequiredObject(payload)
   const type = readRequiredString(object, 'type')
@@ -574,6 +694,14 @@ function readRequiredNumber(object: Record<string, unknown>, key: string): numbe
   const value = object[key]
   if (typeof value !== 'number' || Number.isNaN(value)) {
     throw new Error(`chat stream payload field ${key} must be a number`)
+  }
+  return value
+}
+
+function readRequiredBoolean(object: Record<string, unknown>, key: string): boolean {
+  const value = object[key]
+  if (typeof value !== 'boolean') {
+    throw new Error(`chat stream payload field ${key} must be a boolean`)
   }
   return value
 }

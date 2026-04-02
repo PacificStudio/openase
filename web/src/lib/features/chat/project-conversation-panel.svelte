@@ -11,6 +11,7 @@
   import { createProjectConversationController } from './project-conversation-controller.svelte'
   import { getProjectConversationStatusMessage } from './project-conversation-panel-labels'
   import ProjectConversationTabStrip from './project-conversation-tab-strip.svelte'
+  import ProjectConversationWorkspaceSummary from './project-conversation-workspace-summary.svelte'
   import EphemeralChatProviderSelect from './ephemeral-chat-provider-select.svelte'
   import ProjectConversationTranscript from './project-conversation-transcript.svelte'
 
@@ -51,6 +52,9 @@
   const activeTabId = $derived(controller.activeTabId)
   const activeTab = $derived(tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null)
   const entries = $derived(controller.entries)
+  const workspaceDiff = $derived(controller.workspaceDiff)
+  const workspaceDiffLoading = $derived(controller.workspaceDiffLoading)
+  const workspaceDiffError = $derived(controller.workspaceDiffError)
   const pending = $derived(controller.pending)
   const phase = $derived(controller.phase)
   const inputDisabled = $derived(controller.inputDisabled)
@@ -189,6 +193,13 @@
     onSelectTab={(tabId) => controller.selectTab(tabId)}
     onCloseTab={(tabId) => controller.closeTab(tabId)}
     onOpenConversation={(conversationId) => void handleOpenConversation(conversationId)}
+  />
+
+  <ProjectConversationWorkspaceSummary
+    conversationId={activeTab?.conversationId ?? ''}
+    {workspaceDiff}
+    loading={workspaceDiffLoading}
+    error={workspaceDiffError}
   />
 
   <ScrollArea class="min-h-0 flex-1 px-4 py-4">
