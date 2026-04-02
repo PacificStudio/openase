@@ -40,41 +40,7 @@ vi.mock('$lib/api/chat', () => ({
 
 import ProjectConversationPanel from './project-conversation-panel.svelte'
 import { providerFixtures } from './ephemeral-chat-session-controller.test-helpers'
-
-function createWorkspaceDiff(conversationId: string, dirty = false) {
-  return {
-    workspaceDiff: {
-      conversationId,
-      workspacePath: `/tmp/${conversationId}`,
-      dirty,
-      reposChanged: dirty ? 1 : 0,
-      filesChanged: dirty ? 1 : 0,
-      added: dirty ? 4 : 0,
-      removed: dirty ? 1 : 0,
-      repos: dirty
-        ? [
-            {
-              name: 'openase',
-              path: 'services/openase',
-              branch: 'agent/conv-123',
-              dirty: true,
-              filesChanged: 1,
-              added: 4,
-              removed: 1,
-              files: [
-                {
-                  path: 'web/src/app.ts',
-                  status: 'modified',
-                  added: 4,
-                  removed: 1,
-                },
-              ],
-            },
-          ]
-        : [],
-    },
-  }
-}
+import { createWorkspaceDiff } from './project-conversation-panel.test-helpers'
 
 describe('ProjectConversationPanel', () => {
   beforeAll(() => {
@@ -166,55 +132,6 @@ describe('ProjectConversationPanel', () => {
     expect((await findAllByText('Restored')).length).toBeGreaterThanOrEqual(1)
     expect(getByRole('button', { name: /^Older discussion Restored$/ })).toBeTruthy()
     expect(getAllByRole('button', { name: /Restored$/ }).length).toBeGreaterThanOrEqual(2)
-  })
-
-  it('renders repo-level totals and file rows for Project AI workspace changes', async () => {
-    listProjectConversations.mockResolvedValue({
-      conversations: [
-        {
-          id: 'conversation-1',
-          rollingSummary: 'Current conversation',
-          lastActivityAt: '2026-04-01T10:00:00Z',
-          providerId: 'provider-1',
-        },
-      ],
-    })
-    getProjectConversationWorkspaceDiff.mockResolvedValue(
-      createWorkspaceDiff('conversation-1', true),
-    )
-    listProjectConversationEntries.mockResolvedValue({
-      entries: [
-        {
-          id: 'entry-1',
-          conversationId: 'conversation-1',
-          turnId: 'turn-1',
-          seq: 1,
-          kind: 'user_message',
-          payload: { content: 'Current conversation' },
-          createdAt: '2026-04-01T10:00:00Z',
-        },
-      ],
-    })
-    watchProjectConversation.mockResolvedValue(undefined)
-
-    const { findByText } = render(ProjectConversationPanel, {
-      props: {
-        context: { projectId: 'project-1' },
-        providers: providerFixtures,
-        defaultProviderId: 'provider-1',
-        placeholder: 'Ask anything about this project…',
-      },
-    })
-
-    await findByText('Workspace changes')
-    await findByText(
-      'These changes live inside the OpenASE-managed Project AI workspace for this conversation.',
-    )
-    await findByText('Uncommitted changes in this Project AI workspace')
-    await findByText('1 repo changed · +4 -1')
-    await findByText('services/openase · agent/conv-123')
-    await findByText('web/src/app.ts')
-    await findByText('modified')
   })
 
   it('keeps the composer enabled on an idle tab while another tab is waiting on input', async () => {
