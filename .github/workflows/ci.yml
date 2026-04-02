@@ -22,6 +22,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Detect Changed Paths
@@ -101,6 +102,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set Up pnpm
         uses: pnpm/action-setup@v4
@@ -152,6 +154,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Decide Whether To Audit Frontend API Usage
         id: scope
@@ -178,6 +181,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set Up pnpm
         uses: pnpm/action-setup@v4
@@ -242,6 +246,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Download Embedded Web Assets
         if: needs.changes.outputs.web_changed == 'true'
@@ -325,6 +330,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Ensure Embedded Web Placeholder
