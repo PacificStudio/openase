@@ -17,7 +17,7 @@ export type ProjectConversationActionProposalEntry = {
   kind: 'action_proposal'
   role: 'assistant'
   proposal: ChatActionProposalPayload
-  status: 'pending' | 'executing' | 'confirmed'
+  status: 'pending' | 'executing' | 'confirmed' | 'cancelled'
   results: ChatActionExecutionResult[]
 }
 
@@ -43,6 +43,7 @@ export type ProjectConversationCommandOutputEntry = {
   role: 'system'
   turnId?: string
   stream: string
+  command?: string
   phase?: string
   snapshot: boolean
   content: string
@@ -53,7 +54,15 @@ export type ProjectConversationTaskStatusEntry = {
   kind: 'task_status'
   role: 'system'
   turnId?: string
-  statusType: 'task_started' | 'task_progress' | 'task_notification' | 'turn_done' | 'error'
+  statusType:
+    | 'task_started'
+    | 'task_progress'
+    | 'task_notification'
+    | 'reasoning_updated'
+    | 'turn_done'
+    | 'error'
+    | 'thread_status'
+    | 'session_state'
   title: string
   detail?: string
   raw?: Record<string, unknown>
@@ -98,6 +107,7 @@ export function appendProjectConversationTranscriptEntry(
       ...entries.slice(0, -1),
       {
         ...last,
+        command: entry.command || last.command,
         snapshot: entry.snapshot,
         content: entry.snapshot ? entry.content : `${last.content}${entry.content}`,
       } satisfies ProjectConversationCommandOutputEntry,

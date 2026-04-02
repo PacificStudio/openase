@@ -71,6 +71,14 @@ export function summarizeToolCall(entry: ProjectConversationToolCallEntry): stri
   }
 }
 
+function summarizeCommandOutput(entry: ProjectConversationCommandOutputEntry): string {
+  const command = entry.command?.trim()
+  if (!command) {
+    return 'Command output'
+  }
+  return `Ran \`${truncateInline(command, 60)}\``
+}
+
 /**
  * Determine if a tool call is an "exploring" operation (read, search, list).
  */
@@ -101,8 +109,12 @@ function buildGroupSummary(entries: ProjectConversationTranscriptEntry[]): {
   )
 
   if (toolCalls.length === 0) {
-    if (outputs.length > 0)
-      return { summary: 'Command output', detail: `${outputs.length} output block(s)` }
+    if (outputs.length > 0) {
+      return {
+        summary: summarizeCommandOutput(outputs[0]),
+        detail: `${outputs.length} output block(s)`,
+      }
+    }
     return { summary: 'System activity', detail: `${entries.length} event(s)` }
   }
 

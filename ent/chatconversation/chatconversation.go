@@ -29,6 +29,10 @@ const (
 	FieldProviderThreadID = "provider_thread_id"
 	// FieldLastTurnID holds the string denoting the last_turn_id field in the database.
 	FieldLastTurnID = "last_turn_id"
+	// FieldProviderThreadStatus holds the string denoting the provider_thread_status field in the database.
+	FieldProviderThreadStatus = "provider_thread_status"
+	// FieldProviderThreadActiveFlags holds the string denoting the provider_thread_active_flags field in the database.
+	FieldProviderThreadActiveFlags = "provider_thread_active_flags"
 	// FieldRollingSummary holds the string denoting the rolling_summary field in the database.
 	FieldRollingSummary = "rolling_summary"
 	// FieldLastActivityAt holds the string denoting the last_activity_at field in the database.
@@ -87,6 +91,8 @@ var Columns = []string{
 	FieldStatus,
 	FieldProviderThreadID,
 	FieldLastTurnID,
+	FieldProviderThreadStatus,
+	FieldProviderThreadActiveFlags,
 	FieldRollingSummary,
 	FieldLastActivityAt,
 	FieldCreatedAt,
@@ -165,6 +171,11 @@ func ByProviderThreadID(opts ...sql.OrderTermOption) OrderOption {
 // ByLastTurnID orders the results by the last_turn_id field.
 func ByLastTurnID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldLastTurnID, opts...).ToFunc()
+}
+
+// ByProviderThreadStatus orders the results by the provider_thread_status field.
+func ByProviderThreadStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProviderThreadStatus, opts...).ToFunc()
 }
 
 // ByRollingSummary orders the results by the rolling_summary field.

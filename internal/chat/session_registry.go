@@ -35,15 +35,18 @@ func (u UserID) String() string {
 }
 
 type sessionState struct {
-	UserID           UserID
-	ProviderID       uuid.UUID
-	MaxTurns         int
-	MaxBudgetUSD     float64
-	TurnsUsed        int
-	CostUSD          float64
-	HasCostUSD       bool
-	Released         bool
-	ExhaustedMessage string
+	UserID                    UserID
+	ProviderID                uuid.UUID
+	MaxTurns                  int
+	MaxBudgetUSD              float64
+	TurnsUsed                 int
+	CostUSD                   float64
+	HasCostUSD                bool
+	Released                  bool
+	ExhaustedMessage          string
+	ResumeProviderThreadID    string
+	ProviderThreadStatus      string
+	ProviderThreadActiveFlags []string
 }
 
 type sessionRegistry struct {
@@ -84,6 +87,31 @@ func (r *sessionRegistry) Register(
 		MaxBudgetUSD: maxBudgetUSD,
 	}
 	r.byUser[userID] = sessionID
+}
+
+func (r *sessionRegistry) Remember(sessionID SessionID, state sessionState) {
+	if sessionID == "" || state.UserID == "" || state.ProviderID == uuid.Nil {
+		return
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.bySession == nil {
+		r.bySession = make(map[SessionID]sessionState)
+	}
+	if r.byUser == nil {
+		r.byUser = make(map[UserID]SessionID)
+	}
+
+	if previousSessionID, ok := r.byUser[state.UserID]; ok && previousSessionID != sessionID {
+		delete(r.bySession, previousSessionID)
+	}
+
+	cloned := state
+	cloned.ProviderThreadActiveFlags = append([]string(nil), state.ProviderThreadActiveFlags...)
+	r.bySession[sessionID] = cloned
+	r.byUser[state.UserID] = sessionID
 }
 
 func (r *sessionRegistry) Resolve(sessionID SessionID) (sessionState, bool) {
@@ -172,6 +200,41 @@ func (r *sessionRegistry) MarkReleased(sessionID SessionID, exhaustedMessage str
 
 	state.Released = true
 	state.ExhaustedMessage = strings.TrimSpace(exhaustedMessage)
+	r.bySession[sessionID] = state
+	return state, true
+}
+
+func (r *sessionRegistry) UpdateProviderAnchor(
+	sessionID SessionID,
+	providerThreadID string,
+	providerThreadStatus string,
+	providerThreadActiveFlags []string,
+) (sessionState, bool) {
+	if sessionID == "" {
+		return sessionState{}, false
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.bySession == nil {
+		return sessionState{}, false
+	}
+
+	state, ok := r.bySession[sessionID]
+	if !ok {
+		return sessionState{}, false
+	}
+
+	if trimmed := strings.TrimSpace(providerThreadID); trimmed != "" {
+		state.ResumeProviderThreadID = trimmed
+	}
+	if trimmed := strings.TrimSpace(providerThreadStatus); trimmed != "" {
+		state.ProviderThreadStatus = trimmed
+	}
+	if providerThreadActiveFlags != nil {
+		state.ProviderThreadActiveFlags = append([]string(nil), providerThreadActiveFlags...)
+	}
 	r.bySession[sessionID] = state
 	return state, true
 }

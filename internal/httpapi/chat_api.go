@@ -14,6 +14,7 @@ import (
 	"time"
 
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -332,7 +333,7 @@ func (s *Server) handleCreateProjectConversation(c echo.Context) error {
 	if err != nil {
 		return writeProjectConversationError(c, err)
 	}
-	return c.JSON(http.StatusCreated, map[string]any{"conversation": mapProjectConversationResponse(conversation)})
+	return c.JSON(http.StatusCreated, map[string]any{"conversation": s.mapProjectConversationResponse(c.Request().Context(), conversation)})
 }
 
 func (s *Server) handleListProjectConversations(c echo.Context) error {
@@ -362,7 +363,7 @@ func (s *Server) handleListProjectConversations(c echo.Context) error {
 	if err != nil {
 		return writeProjectConversationError(c, err)
 	}
-	return c.JSON(http.StatusOK, map[string]any{"conversations": mapProjectConversationResponses(items)})
+	return c.JSON(http.StatusOK, map[string]any{"conversations": s.mapProjectConversationResponses(c.Request().Context(), items)})
 }
 
 func (s *Server) handleGetProjectConversation(c echo.Context) error {
@@ -381,7 +382,7 @@ func (s *Server) handleGetProjectConversation(c echo.Context) error {
 	if err != nil {
 		return writeProjectConversationError(c, err)
 	}
-	return c.JSON(http.StatusOK, map[string]any{"conversation": mapProjectConversationResponse(item)})
+	return c.JSON(http.StatusOK, map[string]any{"conversation": s.mapProjectConversationResponse(c.Request().Context(), item)})
 }
 
 func (s *Server) handleListProjectConversationEntries(c echo.Context) error {
@@ -628,16 +629,16 @@ func writeProjectConversationError(c echo.Context, err error) error {
 	}
 }
 
-func mapProjectConversationResponses(items []chatdomain.Conversation) []map[string]any {
+func (s *Server) mapProjectConversationResponses(ctx context.Context, items []chatdomain.Conversation) []map[string]any {
 	response := make([]map[string]any, 0, len(items))
 	for _, item := range items {
-		response = append(response, mapProjectConversationResponse(item))
+		response = append(response, s.mapProjectConversationResponse(ctx, item))
 	}
 	return response
 }
 
-func mapProjectConversationResponse(item chatdomain.Conversation) map[string]any {
-	return map[string]any{
+func (s *Server) mapProjectConversationResponse(ctx context.Context, item chatdomain.Conversation) map[string]any {
+	response := map[string]any{
 		"id":               item.ID.String(),
 		"project_id":       item.ProjectID.String(),
 		"user_id":          item.UserID,
@@ -649,6 +650,35 @@ func mapProjectConversationResponse(item chatdomain.Conversation) map[string]any
 		"created_at":       item.CreatedAt.UTC().Format(time.RFC3339),
 		"updated_at":       item.UpdatedAt.UTC().Format(time.RFC3339),
 	}
+	if s != nil && s.catalog != nil {
+		if providerItem, err := s.catalog.GetAgentProvider(ctx, item.ProviderID); err == nil {
+			switch providerItem.AdapterType {
+			case catalogdomain.AgentProviderAdapterTypeCodexAppServer:
+				response["provider_anchor_kind"] = "thread"
+				response["provider_turn_supported"] = true
+			case catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI:
+				response["provider_anchor_kind"] = "session"
+				response["provider_turn_supported"] = false
+			}
+		}
+	}
+	if item.ProviderThreadID != nil {
+		response["provider_thread_id"] = *item.ProviderThreadID
+		response["provider_anchor_id"] = *item.ProviderThreadID
+	}
+	if item.LastTurnID != nil {
+		response["last_turn_id"] = *item.LastTurnID
+		response["provider_turn_id"] = *item.LastTurnID
+	}
+	if item.ProviderThreadStatus != nil {
+		response["provider_thread_status"] = *item.ProviderThreadStatus
+		response["provider_status"] = *item.ProviderThreadStatus
+	}
+	if len(item.ProviderThreadActiveFlags) > 0 {
+		response["provider_thread_active_flags"] = append([]string(nil), item.ProviderThreadActiveFlags...)
+		response["provider_active_flags"] = append([]string(nil), item.ProviderThreadActiveFlags...)
+	}
+	return response
 }
 
 func mapProjectConversationEntries(items []chatdomain.Entry) []map[string]any {

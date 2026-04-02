@@ -46,7 +46,10 @@ func (m *RemoteManager) Prepare(ctx context.Context, machine domain.Machine, req
 		_ = session.Close()
 	}()
 
-	command := buildPrepareWorkspaceCommand(request)
+	command, err := buildPrepareWorkspaceCommand(request)
+	if err != nil {
+		return Workspace{}, fmt.Errorf("build remote workspace command: %w", err)
+	}
 	if output, err := session.CombinedOutput(command); err != nil {
 		return Workspace{}, fmt.Errorf("prepare remote workspace: %w: %s", err, strings.TrimSpace(string(output)))
 	}
@@ -80,7 +83,7 @@ func (m *RemoteManager) Prepare(ctx context.Context, machine domain.Machine, req
 	}, nil
 }
 
-func buildPrepareWorkspaceCommand(request SetupRequest) string {
+func buildPrepareWorkspaceCommand(request SetupRequest) (string, error) {
 	lines := make([]string, 0, 2+8*len(request.Repos))
 	workspacePath, _ := TicketWorkspacePath(
 		request.WorkspaceRoot,
@@ -95,17 +98,57 @@ func buildPrepareWorkspaceCommand(request SetupRequest) string {
 
 	for _, repo := range request.Repos {
 		repoPath := RepoPath(workspacePath, repo.WorkspaceDirname, repo.Name)
+		cloneCommand, err := buildRemoteGitCommand(
+			repo,
+			"clone",
+			"--branch",
+			repo.DefaultBranch,
+			"--single-branch",
+			repo.RepositoryURL,
+			repoPath,
+		)
+		if err != nil {
+			return "", err
+		}
+		fetchCommand, err := buildRemoteGitCommand(
+			repo,
+			"-C",
+			repoPath,
+			"fetch",
+			"origin",
+		)
+		if err != nil {
+			return "", err
+		}
 		lines = append(lines,
 			"mkdir -p "+sshinfra.ShellQuote(filepath.Dir(repoPath)),
 			"if [ -e "+sshinfra.ShellQuote(repoPath)+" ] && [ ! -d "+sshinfra.ShellQuote(filepath.Join(repoPath, ".git"))+" ]; then echo "+sshinfra.ShellQuote("repository path "+repoPath+" is not a git clone")+" >&2; exit 1; fi",
-			"if [ ! -e "+sshinfra.ShellQuote(repoPath)+" ]; then git clone --branch "+sshinfra.ShellQuote(repo.DefaultBranch)+" --single-branch "+sshinfra.ShellQuote(repo.RepositoryURL)+" "+sshinfra.ShellQuote(repoPath)+"; fi",
+			"if [ ! -e "+sshinfra.ShellQuote(repoPath)+" ]; then "+cloneCommand+"; fi",
 			"actual_origin=$(git -C "+sshinfra.ShellQuote(repoPath)+" remote get-url origin)",
 			"if [ \"$actual_origin\" != "+sshinfra.ShellQuote(repo.RepositoryURL)+" ]; then echo "+sshinfra.ShellQuote("origin remote URL mismatch")+" >&2; exit 1; fi",
-			"git -C "+sshinfra.ShellQuote(repoPath)+" fetch origin",
+			fetchCommand,
 			"git -C "+sshinfra.ShellQuote(repoPath)+" rev-parse --verify "+sshinfra.ShellQuote("origin/"+repo.DefaultBranch)+" >/dev/null",
 			"git -C "+sshinfra.ShellQuote(repoPath)+" checkout -B "+sshinfra.ShellQuote(repo.BranchName)+" "+sshinfra.ShellQuote("origin/"+repo.DefaultBranch),
 		)
 	}
 
-	return strings.Join(lines, "\n")
+	return strings.Join(lines, "\n"), nil
+}
+
+func buildRemoteGitCommand(repo RepoRequest, args ...string) (string, error) {
+	parts := []string{"git"}
+	configKey, headerValue, ok, err := repositoryHTTPSExtraHeader(repo)
+	if err != nil {
+		return "", err
+	}
+	if ok {
+		parts = append(parts, "-c", configKey+"="+headerValue, "-c", "credential.helper=")
+	}
+	parts = append(parts, args...)
+
+	quoted := make([]string, 0, len(parts))
+	for _, part := range parts {
+		quoted = append(quoted, sshinfra.ShellQuote(part))
+	}
+	return strings.Join(quoted, " "), nil
 }

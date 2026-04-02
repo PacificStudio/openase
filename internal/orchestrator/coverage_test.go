@@ -257,6 +257,41 @@ func TestRuntimeLauncherWorkspaceHelperCoverage(t *testing.T) {
 		}
 	})
 
+	t.Run("build github token environment", func(t *testing.T) {
+		env := buildGitHubTokenEnvironment(nil, "ghu_test")
+		if len(env) != 6 {
+			t.Fatalf("buildGitHubTokenEnvironment() len = %d, want 6: %+v", len(env), env)
+		}
+		if env[0] != "GH_TOKEN=ghu_test" {
+			t.Fatalf("buildGitHubTokenEnvironment() GH_TOKEN = %q", env[0])
+		}
+		if env[1] != "GIT_CONFIG_COUNT=2" {
+			t.Fatalf("buildGitHubTokenEnvironment() GIT_CONFIG_COUNT = %q", env[1])
+		}
+		if env[2] != "GIT_CONFIG_KEY_0=http.https://github.com/.extraheader" {
+			t.Fatalf("buildGitHubTokenEnvironment() key0 = %q", env[2])
+		}
+		if !strings.HasPrefix(env[3], "GIT_CONFIG_VALUE_0=AUTHORIZATION: basic ") {
+			t.Fatalf("buildGitHubTokenEnvironment() value0 = %q", env[3])
+		}
+		if env[4] != "GIT_CONFIG_KEY_1=credential.helper" || env[5] != "GIT_CONFIG_VALUE_1=" {
+			t.Fatalf("buildGitHubTokenEnvironment() helper entries = %+v", env[4:])
+		}
+	})
+
+	t.Run("build github token environment appends to existing git config", func(t *testing.T) {
+		env := buildGitHubTokenEnvironment([]string{"GIT_CONFIG_COUNT=1"}, "ghu_test")
+		if env[1] != "GIT_CONFIG_COUNT=3" {
+			t.Fatalf("buildGitHubTokenEnvironment(existing) GIT_CONFIG_COUNT = %q", env[1])
+		}
+		if env[2] != "GIT_CONFIG_KEY_1=http.https://github.com/.extraheader" {
+			t.Fatalf("buildGitHubTokenEnvironment(existing) key1 = %q", env[2])
+		}
+		if env[4] != "GIT_CONFIG_KEY_2=credential.helper" {
+			t.Fatalf("buildGitHubTokenEnvironment(existing) key2 = %q", env[4])
+		}
+	})
+
 	t.Run("working directory selection", func(t *testing.T) {
 		primaryRepoID := uuid.New()
 		secondaryRepoID := uuid.New()

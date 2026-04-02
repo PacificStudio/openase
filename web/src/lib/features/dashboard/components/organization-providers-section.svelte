@@ -4,6 +4,7 @@
     providerAvailabilityBadgeVariant,
     providerAvailabilityLabel,
     summarizeAgentProviderRateLimit,
+    ProviderRateLimitDisplay,
   } from '$lib/features/providers'
   import { Badge } from '$ui/badge'
 
@@ -30,13 +31,8 @@
             <p class="text-foreground truncate text-sm font-medium">{provider.name}</p>
             <p class="text-muted-foreground truncate text-xs">{provider.model_name}</p>
             {#if rateLimit}
-              <div class="bg-muted/30 mt-2 rounded-lg border px-3 py-2 text-[11px]">
-                <div class="flex items-center justify-between gap-3">
-                  <span class="text-muted-foreground">Rate limit</span>
-                  <span class="text-foreground font-medium">{rateLimit.headline}</span>
-                </div>
-                <div class="text-muted-foreground mt-1">{rateLimit.detail}</div>
-                <div class="text-muted-foreground mt-1">{rateLimit.updatedLabel}</div>
+              <div class="mt-2">
+                <ProviderRateLimitDisplay {rateLimit} />
               </div>
             {/if}
           </div>

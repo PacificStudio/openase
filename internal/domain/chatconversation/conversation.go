@@ -61,18 +61,28 @@ const (
 )
 
 type Conversation struct {
-	ID               uuid.UUID
-	ProjectID        uuid.UUID
-	UserID           string
-	Source           Source
-	ProviderID       uuid.UUID
-	Status           ConversationStatus
-	ProviderThreadID *string
-	LastTurnID       *string
-	RollingSummary   string
-	LastActivityAt   time.Time
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	ID                        uuid.UUID
+	ProjectID                 uuid.UUID
+	UserID                    string
+	Source                    Source
+	ProviderID                uuid.UUID
+	Status                    ConversationStatus
+	ProviderThreadID          *string
+	LastTurnID                *string
+	ProviderThreadStatus      *string
+	ProviderThreadActiveFlags []string
+	RollingSummary            string
+	LastActivityAt            time.Time
+	CreatedAt                 time.Time
+	UpdatedAt                 time.Time
+}
+
+type ConversationAnchors struct {
+	ProviderThreadID          *string
+	LastTurnID                *string
+	ProviderThreadStatus      *string
+	ProviderThreadActiveFlags *[]string
+	RollingSummary            string
 }
 
 type Turn struct {

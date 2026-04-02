@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
@@ -14,6 +15,7 @@ import (
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	transport "github.com/go-git/go-git/v5/plumbing/transport"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 )
 
@@ -38,6 +40,13 @@ type RepoInput struct {
 	DefaultBranch    string
 	WorkspaceDirname *string
 	BranchName       *string
+	HTTPBasicAuth    *HTTPBasicAuthInput
+}
+
+// HTTPBasicAuthInput describes raw HTTPS credentials for one repository.
+type HTTPBasicAuthInput struct {
+	Username string
+	Password string
 }
 
 // SetupRequest is the parsed workspace preparation request.
@@ -58,6 +67,13 @@ type RepoRequest struct {
 	WorkspaceDirname string
 	BranchName       string
 	HeadCommit       string
+	HTTPBasicAuth    *HTTPBasicAuthRequest
+}
+
+// HTTPBasicAuthRequest is the parsed HTTPS credential for one repository.
+type HTTPBasicAuthRequest struct {
+	Username string
+	Password string
 }
 
 // Workspace describes a prepared ticket workspace on disk.
@@ -220,12 +236,38 @@ func parseRepoInput(index int, input RepoInput, branchName string) (RepoRequest,
 		branchName = parsedBranchName
 	}
 
+	httpBasicAuth, err := parseHTTPBasicAuth(fmt.Sprintf("repos[%d].http_basic_auth", index), input.HTTPBasicAuth)
+	if err != nil {
+		return RepoRequest{}, err
+	}
+
 	return RepoRequest{
 		Name:             name,
 		RepositoryURL:    repositoryURL,
 		DefaultBranch:    defaultBranch,
 		WorkspaceDirname: workspaceDirname,
 		BranchName:       branchName,
+		HTTPBasicAuth:    httpBasicAuth,
+	}, nil
+}
+
+func parseHTTPBasicAuth(fieldName string, input *HTTPBasicAuthInput) (*HTTPBasicAuthRequest, error) {
+	if input == nil {
+		return nil, nil
+	}
+
+	username := strings.TrimSpace(input.Username)
+	if username == "" {
+		return nil, fmt.Errorf("%s.username must not be empty", fieldName)
+	}
+	password := strings.TrimSpace(input.Password)
+	if password == "" {
+		return nil, fmt.Errorf("%s.password must not be empty", fieldName)
+	}
+
+	return &HTTPBasicAuthRequest{
+		Username: username,
+		Password: password,
 	}, nil
 }
 
@@ -311,7 +353,7 @@ func parseRepositorySource(fieldName string, raw string) (string, error) {
 }
 
 func prepareRepository(ctx context.Context, repoPath string, repo RepoRequest) (string, error) {
-	repository, err := cloneOrOpenRepository(ctx, repoPath, repo.RepositoryURL)
+	repository, err := cloneOrOpenRepository(ctx, repoPath, repo)
 	if err != nil {
 		return "", fmt.Errorf("prepare repo %s: %w", repo.Name, err)
 	}
@@ -328,17 +370,17 @@ func prepareRepository(ctx context.Context, repoPath string, repo RepoRequest) (
 	return headCommit, nil
 }
 
-func cloneOrOpenRepository(ctx context.Context, repoPath string, repositoryURL string) (*git.Repository, error) {
+func cloneOrOpenRepository(ctx context.Context, repoPath string, repo RepoRequest) (*git.Repository, error) {
 	stat, err := os.Stat(repoPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			cloneOptions, cloneOptionsErr := buildCloneOptions(repositoryURL)
+			cloneOptions, cloneOptionsErr := buildCloneOptions(repo)
 			if cloneOptionsErr != nil {
-				return nil, fmt.Errorf("build clone options for %s: %w", repositoryURL, cloneOptionsErr)
+				return nil, fmt.Errorf("build clone options for %s: %w", repo.RepositoryURL, cloneOptionsErr)
 			}
 			repository, cloneErr := git.PlainCloneContext(ctx, repoPath, false, cloneOptions)
 			if cloneErr != nil {
-				return nil, fmt.Errorf("clone repository %s into %s: %w", repositoryURL, repoPath, cloneErr)
+				return nil, fmt.Errorf("clone repository %s into %s: %w", repo.RepositoryURL, repoPath, cloneErr)
 			}
 
 			return repository, nil
@@ -355,17 +397,17 @@ func cloneOrOpenRepository(ctx context.Context, repoPath string, repositoryURL s
 		return nil, fmt.Errorf("open repository %s: %w", repoPath, err)
 	}
 
-	if err := fetchRepository(ctx, repository, repositoryURL); err != nil {
+	if err := fetchRepository(ctx, repository, repo); err != nil {
 		return nil, fmt.Errorf("fetch repository %s: %w", repoPath, err)
 	}
 
 	return repository, nil
 }
 
-func fetchRepository(ctx context.Context, repository *git.Repository, repositoryURL string) error {
-	fetchOptions, err := buildFetchOptions(repositoryURL)
+func fetchRepository(ctx context.Context, repository *git.Repository, repo RepoRequest) error {
+	fetchOptions, err := buildFetchOptions(repo)
 	if err != nil {
-		return fmt.Errorf("build fetch options for %s: %w", repositoryURL, err)
+		return fmt.Errorf("build fetch options for %s: %w", repo.RepositoryURL, err)
 	}
 	err = repository.FetchContext(ctx, fetchOptions)
 	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
@@ -429,19 +471,19 @@ func ensureFeatureBranchCheckedOut(repository *git.Repository, defaultBranch str
 	return head.Hash().String(), nil
 }
 
-func buildCloneOptions(repositoryURL string) (*git.CloneOptions, error) {
-	auth, err := buildRepositoryAuthMethod(repositoryURL)
+func buildCloneOptions(repo RepoRequest) (*git.CloneOptions, error) {
+	auth, err := buildRepositoryAuthMethod(repo)
 	if err != nil {
 		return nil, err
 	}
 	return &git.CloneOptions{
-		URL:  repositoryURL,
+		URL:  repo.RepositoryURL,
 		Auth: auth,
 	}, nil
 }
 
-func buildFetchOptions(repositoryURL string) (*git.FetchOptions, error) {
-	auth, err := buildRepositoryAuthMethod(repositoryURL)
+func buildFetchOptions(repo RepoRequest) (*git.FetchOptions, error) {
+	auth, err := buildRepositoryAuthMethod(repo)
 	if err != nil {
 		return nil, err
 	}
@@ -451,13 +493,19 @@ func buildFetchOptions(repositoryURL string) (*git.FetchOptions, error) {
 	}, nil
 }
 
-func buildRepositoryAuthMethod(repositoryURL string) (transport.AuthMethod, error) {
-	endpoint, err := transport.NewEndpoint(repositoryURL)
+func buildRepositoryAuthMethod(repo RepoRequest) (transport.AuthMethod, error) {
+	endpoint, err := transport.NewEndpoint(repo.RepositoryURL)
 	if err != nil {
-		return nil, fmt.Errorf("parse repository URL %q: %w", repositoryURL, err)
+		return nil, fmt.Errorf("parse repository URL %q: %w", repo.RepositoryURL, err)
 	}
 	if endpoint.Protocol != "ssh" {
-		return nil, nil
+		if repo.HTTPBasicAuth == nil || (endpoint.Protocol != "https" && endpoint.Protocol != "http") {
+			return nil, nil
+		}
+		return &githttp.BasicAuth{
+			Username: repo.HTTPBasicAuth.Username,
+			Password: repo.HTTPBasicAuth.Password,
+		}, nil
 	}
 
 	keyPath, hasKey, err := defaultSSHPrivateKeyPath()
@@ -478,6 +526,23 @@ func buildRepositoryAuthMethod(repositoryURL string) (transport.AuthMethod, erro
 		return nil, fmt.Errorf("load ssh private key %s: %w", keyPath, err)
 	}
 	return auth, nil
+}
+
+func repositoryHTTPSExtraHeader(repo RepoRequest) (string, string, bool, error) {
+	if repo.HTTPBasicAuth == nil {
+		return "", "", false, nil
+	}
+
+	endpoint, err := transport.NewEndpoint(repo.RepositoryURL)
+	if err != nil {
+		return "", "", false, fmt.Errorf("parse repository URL %q: %w", repo.RepositoryURL, err)
+	}
+	if endpoint.Protocol != "https" && endpoint.Protocol != "http" {
+		return "", "", false, nil
+	}
+
+	authToken := base64.StdEncoding.EncodeToString([]byte(repo.HTTPBasicAuth.Username + ":" + repo.HTTPBasicAuth.Password))
+	return "http." + endpoint.Protocol + "://" + endpoint.Host + "/.extraheader", "AUTHORIZATION: basic " + authToken, true, nil
 }
 
 func defaultSSHPrivateKeyPath() (string, bool, error) {

@@ -25,6 +25,8 @@ func (ChatConversation) Fields() []ent.Field {
 		field.String("status").Default("active"),
 		field.String("provider_thread_id").Optional().Nillable(),
 		field.String("last_turn_id").Optional().Nillable(),
+		field.String("provider_thread_status").Optional().Nillable(),
+		field.JSON("provider_thread_active_flags", []string{}).Optional(),
 		field.Text("rolling_summary").Optional(),
 		field.Time("last_activity_at").Default(time.Now).UpdateDefault(time.Now),
 		createdAtField(),

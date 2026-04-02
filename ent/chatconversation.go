@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -33,6 +34,10 @@ type ChatConversation struct {
 	ProviderThreadID *string `json:"provider_thread_id,omitempty"`
 	// LastTurnID holds the value of the "last_turn_id" field.
 	LastTurnID *string `json:"last_turn_id,omitempty"`
+	// ProviderThreadStatus holds the value of the "provider_thread_status" field.
+	ProviderThreadStatus *string `json:"provider_thread_status,omitempty"`
+	// ProviderThreadActiveFlags holds the value of the "provider_thread_active_flags" field.
+	ProviderThreadActiveFlags []string `json:"provider_thread_active_flags,omitempty"`
 	// RollingSummary holds the value of the "rolling_summary" field.
 	RollingSummary string `json:"rolling_summary,omitempty"`
 	// LastActivityAt holds the value of the "last_activity_at" field.
@@ -105,7 +110,9 @@ func (*ChatConversation) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case chatconversation.FieldUserID, chatconversation.FieldSource, chatconversation.FieldStatus, chatconversation.FieldProviderThreadID, chatconversation.FieldLastTurnID, chatconversation.FieldRollingSummary:
+		case chatconversation.FieldProviderThreadActiveFlags:
+			values[i] = new([]byte)
+		case chatconversation.FieldUserID, chatconversation.FieldSource, chatconversation.FieldStatus, chatconversation.FieldProviderThreadID, chatconversation.FieldLastTurnID, chatconversation.FieldProviderThreadStatus, chatconversation.FieldRollingSummary:
 			values[i] = new(sql.NullString)
 		case chatconversation.FieldLastActivityAt, chatconversation.FieldCreatedAt, chatconversation.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -175,6 +182,21 @@ func (_m *ChatConversation) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.LastTurnID = new(string)
 				*_m.LastTurnID = value.String
+			}
+		case chatconversation.FieldProviderThreadStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field provider_thread_status", values[i])
+			} else if value.Valid {
+				_m.ProviderThreadStatus = new(string)
+				*_m.ProviderThreadStatus = value.String
+			}
+		case chatconversation.FieldProviderThreadActiveFlags:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field provider_thread_active_flags", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.ProviderThreadActiveFlags); err != nil {
+					return fmt.Errorf("unmarshal field provider_thread_active_flags: %w", err)
+				}
 			}
 		case chatconversation.FieldRollingSummary:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -280,6 +302,14 @@ func (_m *ChatConversation) String() string {
 		builder.WriteString("last_turn_id=")
 		builder.WriteString(*v)
 	}
+	builder.WriteString(", ")
+	if v := _m.ProviderThreadStatus; v != nil {
+		builder.WriteString("provider_thread_status=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	builder.WriteString("provider_thread_active_flags=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ProviderThreadActiveFlags))
 	builder.WriteString(", ")
 	builder.WriteString("rolling_summary=")
 	builder.WriteString(_m.RollingSummary)

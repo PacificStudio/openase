@@ -110,6 +110,8 @@ describe('createProjectConversationController', () => {
       focus: undefined,
     })
     expect(controller.phase).toBe('awaiting_reply')
+    expect(controller.inputDisabled).toBe(false)
+    expect(controller.sendDisabled).toBe(true)
     expect(controller.entries).toMatchObject([
       { kind: 'text', role: 'user', content: 'Summarize this project.' },
     ])
@@ -180,7 +182,8 @@ describe('createProjectConversationController', () => {
 
     const firstSend = controller.sendTurn('First question')
     expect(controller.phase).toBe('creating_conversation')
-    expect(controller.inputDisabled).toBe(true)
+    expect(controller.inputDisabled).toBe(false)
+    expect(controller.sendDisabled).toBe(true)
 
     await controller.sendTurn('Second question')
 
@@ -200,6 +203,55 @@ describe('createProjectConversationController', () => {
     expect(controller.entries.filter((entry) => entry.kind === 'text')).toMatchObject([
       { role: 'user', content: 'First question' },
     ])
+  })
+
+  it('queues a follow-up turn while busy and sends it once the tab is idle again', async () => {
+    const streamHandlers = new Map<
+      string,
+      { onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void }
+    >()
+
+    createProjectConversation.mockResolvedValue({
+      conversation: {
+        id: 'conversation-1',
+        providerId: 'provider-1',
+        lastActivityAt: '2026-04-01T10:00:00Z',
+      },
+    })
+    getProjectConversationWorkspaceDiff.mockResolvedValue(createWorkspaceDiff('conversation-1'))
+    watchProjectConversation.mockImplementation(async (conversationId, handlers) => {
+      streamHandlers.set(conversationId, handlers)
+    })
+    startProjectConversationTurn.mockResolvedValue({
+      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
+    })
+
+    const controller = createProjectConversationController({
+      getProjectId: () => 'project-1',
+    })
+    controller.syncProviders(providerFixtures, 'provider-1')
+
+    await controller.sendTurn('First question')
+
+    expect(controller.phase).toBe('awaiting_reply')
+    expect(controller.canQueueTurn).toBe(true)
+    expect(controller.enqueueTurn('Second question')).toBe(true)
+    expect(controller.queuedTurns).toMatchObject([{ message: 'Second question' }])
+
+    streamHandlers.get('conversation-1')?.onEvent({
+      kind: 'turn_done',
+      payload: {},
+    })
+
+    expect(controller.phase).toBe('idle')
+    expect(controller.canQueueTurn).toBe(true)
+    await controller.sendNextQueuedTurn()
+
+    expect(startProjectConversationTurn).toHaveBeenNthCalledWith(2, 'conversation-1', {
+      message: 'Second question',
+      focus: undefined,
+    })
+    expect(controller.queuedTurns).toHaveLength(0)
   })
 
   it('does not crash when a conversation arrives without lastActivityAt', async () => {
@@ -225,10 +277,10 @@ describe('createProjectConversationController', () => {
       controller.sendTurn('Still works without activity timestamp'),
     ).resolves.toBeUndefined()
 
-    expect(startProjectConversationTurn).toHaveBeenCalledWith(
-      'conversation-1',
-      'Still works without activity timestamp',
-    )
+    expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-1', {
+      message: 'Still works without activity timestamp',
+      focus: undefined,
+    })
     expect(controller.tabs[0]?.conversationId).toBe('conversation-1')
     expect(controller.phase).toBe('awaiting_reply')
   })
@@ -294,6 +346,7 @@ describe('createProjectConversationController', () => {
     expect(controller.phase).toBe('awaiting_interrupt')
     expect(controller.hasPendingInterrupt).toBe(true)
     expect(controller.inputDisabled).toBe(true)
+    expect(controller.sendDisabled).toBe(true)
 
     await controller.sendTurn('This should stay blocked')
     expect(startProjectConversationTurn).toHaveBeenCalledTimes(1)
@@ -302,6 +355,7 @@ describe('createProjectConversationController', () => {
     const secondTabId = controller.tabs.find((tab) => tab.conversationId === '')?.id ?? ''
     controller.selectTab(secondTabId)
     expect(controller.inputDisabled).toBe(false)
+    expect(controller.sendDisabled).toBe(false)
 
     await controller.sendTurn('Independent tab keeps working')
 

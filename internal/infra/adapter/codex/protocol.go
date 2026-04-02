@@ -18,6 +18,10 @@ const (
 	methodInitialize               = "initialize"
 	methodInitialized              = "initialized"
 	methodThreadStart              = "thread/start"
+	methodThreadResume             = "thread/resume"
+	methodThreadStarted            = "thread/started"
+	methodThreadStatusChanged      = "thread/status/changed"
+	methodThreadCompacted          = "thread/compacted"
 	methodTurnStart                = "turn/start"
 	methodToolCall                 = "item/tool/call"
 	methodCommandApproval          = "item/commandExecution/requestApproval"
@@ -30,8 +34,13 @@ const (
 	methodCommandOutput            = "item/commandExecution/outputDelta"
 	methodTurnStarted              = "turn/started"
 	methodTurnCompleted            = "turn/completed"
+	methodTurnDiffUpdated          = "turn/diff/updated"
+	methodTurnPlanUpdated          = "turn/plan/updated"
 	methodTurnFailed               = "turn/failed"
 	methodTurnCancelled            = "turn/cancelled"
+	methodReasoningSummaryPart     = "item/reasoning/summaryPartAdded"
+	methodReasoningSummaryText     = "item/reasoning/summaryTextDelta"
+	methodReasoningText            = "item/reasoning/textDelta"
 	methodTokenUsageUpdated        = "thread/tokenUsage/updated"
 	methodAccountRateLimitsUpdated = "account/rateLimits/updated"
 	methodTurnError                = "error"
@@ -124,6 +133,19 @@ type jsonRPCError struct {
 	Data    json.RawMessage `json:"data,omitempty"`
 }
 
+type RPCError struct {
+	Method  string
+	Code    int
+	Message string
+}
+
+func (e *RPCError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return fmt.Sprintf("codex %s failed: %s (%d)", e.Method, e.Message, e.Code)
+}
+
 func (m jsonRPCMessage) validate() error {
 	if trimmed := strings.TrimSpace(m.JSONRPC); trimmed != "" && trimmed != jsonRPCVersion {
 		return fmt.Errorf("unsupported jsonrpc version %q", m.JSONRPC)
@@ -186,8 +208,37 @@ type wireThreadStartResponse struct {
 	Thread wireThread `json:"thread"`
 }
 
+type wireThreadResumeParams struct {
+	ThreadID string `json:"threadId"`
+	wireThreadStartParams
+}
+
+type wireThreadResumeResponse struct {
+	Thread wireThread `json:"thread"`
+}
+
 type wireThread struct {
-	ID string `json:"id"`
+	ID     string            `json:"id"`
+	Status *wireThreadStatus `json:"status,omitempty"`
+}
+
+type wireThreadStatus struct {
+	Type        string   `json:"type"`
+	ActiveFlags []string `json:"activeFlags,omitempty"`
+}
+
+type wireThreadStatusChangedNotification struct {
+	ThreadID string           `json:"threadId"`
+	Status   wireThreadStatus `json:"status"`
+}
+
+type wireThreadStartedNotification struct {
+	Thread wireThread `json:"thread"`
+}
+
+type wireContextCompactedNotification struct {
+	ThreadID string `json:"threadId"`
+	TurnID   string `json:"turnId"`
 }
 
 type wireTurnStartParams struct {
@@ -233,6 +284,24 @@ type wireTurnNotification struct {
 	Turn     wireTurn `json:"turn"`
 }
 
+type wireTurnPlanStep struct {
+	Step   string `json:"step"`
+	Status string `json:"status"`
+}
+
+type wireTurnPlanUpdatedNotification struct {
+	ThreadID    string             `json:"threadId"`
+	TurnID      string             `json:"turnId"`
+	Explanation *string            `json:"explanation"`
+	Plan        []wireTurnPlanStep `json:"plan"`
+}
+
+type wireTurnDiffUpdatedNotification struct {
+	ThreadID string `json:"threadId"`
+	TurnID   string `json:"turnId"`
+	Diff     string `json:"diff"`
+}
+
 type wireErrorNotification struct {
 	Error     wireTurnError `json:"error"`
 	WillRetry bool          `json:"willRetry"`
@@ -257,10 +326,34 @@ type wireAgentMessageDeltaNotification struct {
 	Delta    string `json:"delta"`
 }
 
+type wireReasoningSummaryPartAddedNotification struct {
+	ThreadID     string `json:"threadId"`
+	TurnID       string `json:"turnId"`
+	ItemID       string `json:"itemId"`
+	SummaryIndex int    `json:"summaryIndex"`
+}
+
+type wireReasoningSummaryTextDeltaNotification struct {
+	ThreadID     string `json:"threadId"`
+	TurnID       string `json:"turnId"`
+	ItemID       string `json:"itemId"`
+	Delta        string `json:"delta"`
+	SummaryIndex int    `json:"summaryIndex"`
+}
+
+type wireReasoningTextDeltaNotification struct {
+	ThreadID     string `json:"threadId"`
+	TurnID       string `json:"turnId"`
+	ItemID       string `json:"itemId"`
+	Delta        string `json:"delta"`
+	ContentIndex int    `json:"contentIndex"`
+}
+
 type wireCommandExecutionOutputDeltaNotification struct {
 	ThreadID string `json:"threadId"`
 	TurnID   string `json:"turnId"`
 	ItemID   string `json:"itemId"`
+	Command  string `json:"command,omitempty"`
 	Delta    string `json:"delta"`
 }
 
@@ -275,6 +368,7 @@ type wireThreadItem struct {
 	Type             string  `json:"type"`
 	Text             string  `json:"text,omitempty"`
 	Phase            string  `json:"phase,omitempty"`
+	Command          *string `json:"command,omitempty"`
 	AggregatedOutput *string `json:"aggregatedOutput,omitempty"`
 }
 

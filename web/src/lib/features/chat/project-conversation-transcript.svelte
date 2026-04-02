@@ -18,11 +18,13 @@
     entries,
     pending = false,
     onConfirmActionProposal,
+    onCancelActionProposal,
     onRespondInterrupt,
   }: {
     entries: ProjectConversationTranscriptEntry[]
     pending?: boolean
     onConfirmActionProposal?: (entryId: string) => Promise<void> | void
+    onCancelActionProposal?: (entryId: string) => void
     onRespondInterrupt?: (input: {
       interruptId: string
       decision?: string
@@ -54,7 +56,7 @@
         <EphemeralChatActionProposalCard
           {entry}
           onConfirm={onConfirmActionProposal}
-          onCancel={undefined}
+          onCancel={onCancelActionProposal}
         />
       {:else if entry.kind === 'diff'}
         <EphemeralChatDiffCard {entry} />

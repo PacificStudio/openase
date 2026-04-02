@@ -1,4 +1,4 @@
-import { cleanup, render } from '@testing-library/svelte'
+import { cleanup, fireEvent, render } from '@testing-library/svelte'
 import { afterEach, describe, expect, it } from 'vitest'
 import ProjectConversationTranscript from './project-conversation-transcript.svelte'
 
@@ -133,5 +133,51 @@ describe('ProjectConversationTranscript', () => {
     })
 
     expect(getByText('Thinking...')).toBeTruthy()
+  })
+
+  it('renders codex thread and claude session status entries inside the operation group', async () => {
+    const { getByRole, getByText } = render(ProjectConversationTranscript, {
+      props: {
+        entries: [
+          {
+            id: 'entry-thread-status',
+            kind: 'task_status',
+            role: 'system',
+            statusType: 'thread_status',
+            title: 'Codex thread status',
+            detail: 'waitingOnApproval · waitingOnApproval',
+            raw: {
+              anchor_kind: 'thread',
+              thread_id: 'thread-1',
+              status: 'waitingOnApproval',
+              active_flags: ['waitingOnApproval'],
+            },
+          },
+          {
+            id: 'entry-session-state',
+            kind: 'task_status',
+            role: 'system',
+            statusType: 'session_state',
+            title: 'Claude session status',
+            detail: 'requires_action · approval required · requires_action',
+            raw: {
+              anchor_kind: 'session',
+              status: 'requires_action',
+              detail: 'approval required',
+              active_flags: ['requires_action'],
+            },
+          },
+        ],
+      },
+    })
+
+    await fireEvent.click(getByRole('button', { name: /System activity/i }))
+    await fireEvent.click(getByRole('button', { name: /Codex thread status/i }))
+    await fireEvent.click(getByRole('button', { name: /Claude session status/i }))
+
+    expect(getByText('Codex thread status')).toBeTruthy()
+    expect(getByText('Claude session status')).toBeTruthy()
+    expect(getByText('waitingOnApproval · waitingOnApproval')).toBeTruthy()
+    expect(getByText('requires_action · approval required · requires_action')).toBeTruthy()
   })
 })

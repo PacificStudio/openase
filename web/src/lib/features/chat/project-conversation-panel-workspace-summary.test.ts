@@ -1,5 +1,5 @@
-import { cleanup, render } from '@testing-library/svelte'
-import { afterEach, beforeAll, describe, it, vi } from 'vitest'
+import { cleanup, fireEvent, render } from '@testing-library/svelte'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 const {
   closeProjectConversationRuntime,
@@ -60,7 +60,7 @@ describe('ProjectConversationPanel workspace summary', () => {
     window.localStorage.clear()
   })
 
-  it('renders repo-level totals and file rows for Project AI workspace changes', async () => {
+  it('renders compact workspace bar and expands to show repo details', async () => {
     listProjectConversations.mockResolvedValue({
       conversations: [
         {
@@ -89,7 +89,7 @@ describe('ProjectConversationPanel workspace summary', () => {
     })
     watchProjectConversation.mockResolvedValue(undefined)
 
-    const { findByText } = render(ProjectConversationPanel, {
+    const { findByText, queryByText } = render(ProjectConversationPanel, {
       props: {
         context: { projectId: 'project-1' },
         providers: providerFixtures,
@@ -98,12 +98,19 @@ describe('ProjectConversationPanel workspace summary', () => {
       },
     })
 
+    // Compact bar shows summary
     await findByText('Workspace changes')
-    await findByText(
-      'These changes live inside the OpenASE-managed Project AI workspace for this conversation.',
-    )
-    await findByText('Uncommitted changes in this Project AI workspace')
     await findByText('1 repo changed · +4 -1')
+
+    // Details are hidden by default
+    expect(queryByText('Uncommitted changes in this Project AI workspace')).toBeNull()
+
+    // Click to expand
+    const bar = await findByText('Workspace changes')
+    await fireEvent.click(bar.closest('button')!)
+
+    // Now details are visible
+    await findByText('Uncommitted changes in this Project AI workspace')
     await findByText('services/openase · agent/conv-123')
     await findByText('web/src/app.ts')
     await findByText('modified')

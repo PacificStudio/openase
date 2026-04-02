@@ -75,6 +75,47 @@ func TestListRepositoriesSearchesViaGitHubSearchAPI(t *testing.T) {
 	}
 }
 
+func TestListRepositoriesFallsBackToBrowsableReposWhenSearchReturnsNoMatches(t *testing.T) {
+	var requests []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests = append(requests, r.Method+" "+r.URL.String())
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/user":
+			_, _ = io.WriteString(w, `{"login":"octocat"}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/user/orgs":
+			_, _ = io.WriteString(w, `[]`)
+		case r.Method == http.MethodGet && r.URL.Path == "/search/repositories":
+			_, _ = io.WriteString(w, `{"items":[]}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/user/repos" && r.URL.Query().Get("page") == "1":
+			_, _ = io.WriteString(w, `[{"id":1193730355,"name":"TodoApp","full_name":"octocat/TodoApp","private":true,"html_url":"https://github.com/octocat/TodoApp","clone_url":"https://github.com/octocat/TodoApp.git","default_branch":"main","visibility":"private","owner":{"login":"octocat"}}]`)
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.String())
+		}
+	}))
+	defer server.Close()
+
+	svc := NewService(stubResolver{token: "ghu_test"}, server.Client()).(*service)
+	svc.baseURL = server.URL
+
+	page, err := svc.ListRepositories(context.Background(), domain.ListRepositoriesInput{
+		ProjectID: uuid.New(),
+		Query:     "todo",
+		Page:      1,
+	})
+	if err != nil {
+		t.Fatalf("ListRepositories() error = %v", err)
+	}
+	if len(page.Repositories) != 1 || page.Repositories[0].FullName != "octocat/TodoApp" {
+		t.Fatalf("ListRepositories() = %+v", page)
+	}
+	if len(requests) < 4 {
+		t.Fatalf("requests = %#v, want search plus browse fallback", requests)
+	}
+	if !strings.Contains(requests[2], "/search/repositories") || !strings.Contains(requests[3], "/user/repos?") {
+		t.Fatalf("requests = %#v, want search then user/repos fallback", requests)
+	}
+}
+
 func TestListRepositoriesBrowsesUserReposWhenQueryEmpty(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {

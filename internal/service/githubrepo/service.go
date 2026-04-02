@@ -159,7 +159,15 @@ func (s *service) ListRepositories(ctx context.Context, input domain.ListReposit
 		return s.listBrowsableRepositories(ctx, input.ProjectID, token, input.Page)
 	}
 
-	return s.searchRepositories(ctx, input.ProjectID, token, query, input.Page)
+	page, err := s.searchRepositories(ctx, input.ProjectID, token, query, input.Page)
+	if err != nil {
+		return domain.RepositoryPage{}, err
+	}
+	if len(page.Repositories) > 0 || page.NextCursor != "" {
+		return page, nil
+	}
+
+	return s.searchBrowsableRepositories(ctx, input.ProjectID, token, query, input.Page)
 }
 
 func (s *service) listBrowsableRepositories(
@@ -255,6 +263,50 @@ func (s *service) searchRepositories(
 		if scannedPages >= maxSearchPages {
 			return domain.RepositoryPage{Repositories: collected, NextCursor: nextCursor}, nil
 		}
+	}
+}
+
+func (s *service) searchBrowsableRepositories(
+	ctx context.Context,
+	projectID uuid.UUID,
+	token string,
+	query string,
+	page int,
+) (domain.RepositoryPage, error) {
+	collected := make([]domain.Repository, 0, pageSize)
+	currentPage := page
+	scannedPages := 0
+
+	for {
+		browsePage, err := s.listBrowsableRepositories(ctx, projectID, token, currentPage)
+		if err != nil {
+			return domain.RepositoryPage{}, err
+		}
+
+		for _, repo := range browsePage.Repositories {
+			if !matchesRepositoryQuery(repo, query) {
+				continue
+			}
+			collected = append(collected, repo)
+			if len(collected) == pageSize {
+				return domain.RepositoryPage{
+					Repositories: collected,
+					NextCursor:   browsePage.NextCursor,
+				}, nil
+			}
+		}
+
+		scannedPages++
+		if browsePage.NextCursor == "" {
+			return domain.RepositoryPage{Repositories: collected}, nil
+		}
+		if scannedPages >= maxSearchPages {
+			return domain.RepositoryPage{
+				Repositories: collected,
+				NextCursor:   browsePage.NextCursor,
+			}, nil
+		}
+		currentPage++
 	}
 }
 

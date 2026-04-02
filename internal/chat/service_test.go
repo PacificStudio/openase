@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -807,6 +808,178 @@ func TestStartTurnRejectsResumeAcrossUsers(t *testing.T) {
 		SessionID: &sessionID,
 	}); !errors.Is(err, ErrSessionNotFound) {
 		t.Fatalf("resume across users error = %v, want %v", err, ErrSessionNotFound)
+	}
+}
+
+func TestStartTurnSessionPayloadDeclaresProcessLocalResumeContract(t *testing.T) {
+	t.Parallel()
+
+	projectID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440000")
+	orgID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440000")
+	runtime := &fakeRuntime{
+		startFn: func(input RuntimeTurnInput) []StreamEvent {
+			return []StreamEvent{{
+				Event:   "done",
+				Payload: donePayload{SessionID: input.SessionID.String(), TurnsUsed: 1},
+			}}
+		},
+	}
+	service := NewService(
+		nil,
+		runtime,
+		fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             projectID,
+				OrganizationID: orgID,
+				Name:           "OpenASE",
+			},
+			providers: []catalogdomain.AgentProvider{{
+				ID:             uuid.MustParse("880e8400-e29b-41d4-a716-446655440000"),
+				OrganizationID: orgID,
+				Name:           "Codex",
+				AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+				CliCommand:     "codex",
+				Available:      true,
+			}},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		nil,
+		"",
+	)
+
+	stream, err := service.StartTurn(context.Background(), UserID("user:alice"), StartInput{
+		Message: "hello",
+		Source:  SourceProjectSidebar,
+		Context: Context{ProjectID: projectID},
+	})
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+	events := collectStreamEvents(stream.Events)
+	session, ok := events[0].Payload.(sessionPayload)
+	if !ok {
+		t.Fatalf("expected session payload, got %#v", events[0].Payload)
+	}
+	if session.ProviderResumeSupported {
+		t.Fatalf("expected provider resume unsupported for ephemeral chat, got %+v", session)
+	}
+	if session.ResumeScope != "process_local" {
+		t.Fatalf("expected process_local resume scope, got %+v", session)
+	}
+}
+
+func TestStartTurnClaudeSessionResumesFromDurableStoreAcrossRestart(t *testing.T) {
+	t.Parallel()
+
+	projectID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440000")
+	orgID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440000")
+	providerID := uuid.MustParse("880e8400-e29b-41d4-a716-446655440000")
+	storePath := filepath.Join(t.TempDir(), "ephemeral-sessions.json")
+
+	buildService := func(runtime *fakeRuntime) *Service {
+		service := NewService(
+			nil,
+			runtime,
+			fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             projectID,
+					OrganizationID: orgID,
+					Name:           "OpenASE",
+				},
+				providers: []catalogdomain.AgentProvider{{
+					ID:             providerID,
+					OrganizationID: orgID,
+					Name:           "Claude Code",
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
+					CliCommand:     "claude",
+					Available:      true,
+				}},
+			},
+			fakeTicketReader{},
+			harnessWorkflowReader{},
+			nil,
+			"",
+		)
+		service.EnableDurableSessions(storePath)
+		return service
+	}
+
+	firstRuntime := &fakeRuntime{
+		startFn: func(input RuntimeTurnInput) []StreamEvent {
+			return []StreamEvent{
+				{
+					Event: "session_anchor",
+					Payload: RuntimeSessionAnchor{
+						ProviderThreadID:      "claude-session-1",
+						ProviderAnchorID:      "claude-session-1",
+						ProviderAnchorKind:    "session",
+						ProviderTurnSupported: false,
+					},
+				},
+				{
+					Event: "session_state",
+					Payload: runtimeSessionStatePayload{
+						Status:      "requires_action",
+						ActiveFlags: []string{"requires_action"},
+					},
+				},
+				{
+					Event: "done",
+					Payload: donePayload{
+						SessionID: input.SessionID.String(),
+						TurnsUsed: 1,
+					},
+				},
+			}
+		},
+	}
+	firstService := buildService(firstRuntime)
+
+	firstStream, err := firstService.StartTurn(context.Background(), UserID("user:alice"), StartInput{
+		Message: "Investigate",
+		Source:  SourceProjectSidebar,
+		Context: Context{ProjectID: projectID},
+	})
+	if err != nil {
+		t.Fatalf("first StartTurn() error = %v", err)
+	}
+	firstEvents := collectStreamEvents(firstStream.Events)
+	firstSession, ok := firstEvents[0].Payload.(sessionPayload)
+	if !ok {
+		t.Fatalf("expected session payload, got %#v", firstEvents[0].Payload)
+	}
+	if !firstSession.ProviderResumeSupported || firstSession.ResumeScope != "host_local" {
+		t.Fatalf("unexpected durable session payload: %+v", firstSession)
+	}
+	sessionID := SessionID(firstSession.SessionID)
+
+	secondRuntime := &fakeRuntime{
+		startFn: func(input RuntimeTurnInput) []StreamEvent {
+			return []StreamEvent{{
+				Event: "done",
+				Payload: donePayload{
+					SessionID: input.SessionID.String(),
+					TurnsUsed: 2,
+				},
+			}}
+		},
+	}
+	secondService := buildService(secondRuntime)
+
+	secondStream, err := secondService.StartTurn(context.Background(), UserID("user:alice"), StartInput{
+		Message:   "Continue",
+		Source:    SourceProjectSidebar,
+		Context:   Context{ProjectID: projectID},
+		SessionID: &sessionID,
+	})
+	if err != nil {
+		t.Fatalf("second StartTurn() error = %v", err)
+	}
+	_ = collectStreamEvents(secondStream.Events)
+
+	if secondRuntime.lastInput.ResumeProviderThreadID != "claude-session-1" {
+		t.Fatalf("resume provider thread id = %q, want claude-session-1", secondRuntime.lastInput.ResumeProviderThreadID)
 	}
 }
 

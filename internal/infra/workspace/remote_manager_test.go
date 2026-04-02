@@ -44,7 +44,7 @@ func TestRemoteManagerPrepareBuildsCloneAndCheckoutCommands(t *testing.T) {
 	if workspaceItem.Path != "/srv/openase/workspaces/acme/payments/ASE-104" {
 		t.Fatalf("expected workspace path, got %q", workspaceItem.Path)
 	}
-	if !strings.Contains(session.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/acme/payments/ASE-104/backend'") {
+	if !strings.Contains(session.command, "'git' 'clone' '--branch' 'main' '--single-branch' 'git@github.com:acme/backend.git' '/srv/openase/workspaces/acme/payments/ASE-104/backend'") {
 		t.Fatalf("expected clone command, got %q", session.command)
 	}
 	if !strings.Contains(session.command, "git -C '/srv/openase/workspaces/acme/payments/ASE-104/backend' checkout -B 'agent/ASE-104' 'origin/main'") {
@@ -70,12 +70,48 @@ func TestBuildPrepareWorkspaceCommandUsesRepositoryURLAsOrigin(t *testing.T) {
 		},
 	}
 
-	command := buildPrepareWorkspaceCommand(request)
-	if !strings.Contains(command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git'") {
+	command, err := buildPrepareWorkspaceCommand(request)
+	if err != nil {
+		t.Fatalf("buildPrepareWorkspaceCommand() error = %v", err)
+	}
+	if !strings.Contains(command, "'git' 'clone' '--branch' 'main' '--single-branch' 'git@github.com:acme/backend.git'") {
 		t.Fatalf("expected repository clone command, got %q", command)
 	}
 	if !strings.Contains(command, "if [ \"$actual_origin\" != 'git@github.com:acme/backend.git' ]; then") {
 		t.Fatalf("expected origin verification against repository URL, got %q", command)
+	}
+}
+
+func TestBuildPrepareWorkspaceCommandAddsHTTPSAuthForGitHubRepos(t *testing.T) {
+	request := SetupRequest{
+		WorkspaceRoot:    "/srv/openase/workspaces",
+		OrganizationSlug: "acme",
+		ProjectSlug:      "payments",
+		TicketIdentifier: "ASE-105",
+		BranchName:       "agent/ASE-105",
+		Repos: []RepoRequest{
+			{
+				Name:          "backend",
+				RepositoryURL: "https://github.com/acme/backend.git",
+				DefaultBranch: "main",
+				BranchName:    "agent/ASE-105",
+				HTTPBasicAuth: &HTTPBasicAuthRequest{
+					Username: "x-access-token",
+					Password: "ghu_test",
+				},
+			},
+		},
+	}
+
+	command, err := buildPrepareWorkspaceCommand(request)
+	if err != nil {
+		t.Fatalf("buildPrepareWorkspaceCommand() error = %v", err)
+	}
+	if !strings.Contains(command, "'-c' 'http.https://github.com/.extraheader=AUTHORIZATION: basic ") {
+		t.Fatalf("expected GitHub auth extraheader, got %q", command)
+	}
+	if !strings.Contains(command, "'-c' 'credential.helper=' '-C'") {
+		t.Fatalf("expected disabled credential helper for authenticated fetch, got %q", command)
 	}
 }
 

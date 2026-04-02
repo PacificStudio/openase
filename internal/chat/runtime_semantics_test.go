@@ -257,6 +257,97 @@ func TestMapClaudeEventDoneIncludesProviderReportedCost(t *testing.T) {
 	}
 }
 
+func TestMapClaudeEventPromotesSessionStateChanges(t *testing.T) {
+	events := mapClaudeEvent(SessionID("session-claude-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
+		Kind:    provider.ClaudeCodeEventKindStream,
+		Subtype: "session_state_changed",
+		Event: mustMarshalJSON(t, map[string]any{
+			"state":        "requires_action",
+			"active_flags": []string{"requires_action"},
+			"detail":       "approval required",
+		}),
+	})
+	if len(events) != 1 {
+		t.Fatalf("mapClaudeEvent() len = %d, want 1", len(events))
+	}
+	if events[0].Event != "session_state" {
+		t.Fatalf("event kind = %q, want session_state", events[0].Event)
+	}
+	payload, ok := events[0].Payload.(runtimeSessionStatePayload)
+	if !ok {
+		t.Fatalf("payload = %#v, want runtimeSessionStatePayload", events[0].Payload)
+	}
+	if payload.Status != "requires_action" || payload.Detail != "approval required" {
+		t.Fatalf("unexpected session state payload: %#v", payload)
+	}
+	if len(payload.ActiveFlags) != 1 || payload.ActiveFlags[0] != "requires_action" {
+		t.Fatalf("unexpected session state flags: %#v", payload.ActiveFlags)
+	}
+}
+
+func TestClaudeRuntimeStartTurnUsesPersistentResumeSessionIDAndEmitsSessionAnchor(t *testing.T) {
+	stdin := &trackingWriteCloser{}
+	manager := &fakeAgentCLIProcessManager{
+		process: &fakeAgentCLIProcess{
+			stdin: stdin,
+			stdout: strings.Join([]string{
+				`{"type":"system","subtype":"init","data":{"session_id":"claude-session-42"}}`,
+				`{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"OK"}]}}`,
+				`{"type":"result","subtype":"success","session_id":"claude-session-42","num_turns":1}`,
+			}, "\n"),
+		},
+	}
+	runtime := NewClaudeRuntime(newClaudeAdapterForManager(manager))
+
+	stream, err := runtime.StartTurn(context.Background(), RuntimeTurnInput{
+		SessionID:              SessionID("session-claude-runtime"),
+		Message:                "Resume this project conversation",
+		SystemPrompt:           "You are OpenASE.",
+		ResumeProviderThreadID: "claude-session-existing",
+		PersistentConversation: true,
+		Provider: catalogdomain.AgentProvider{
+			AdapterType: catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
+			CliCommand:  "claude",
+		},
+	})
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+
+	if joined := strings.Join(manager.startSpec.Args, " "); !strings.Contains(joined, "--resume claude-session-existing") {
+		t.Fatalf("process args = %v, want durable --resume anchor", manager.startSpec.Args)
+	}
+	if !strings.Contains(strings.Join(manager.startSpec.Environment, "\n"), claudeCodeResumeInterruptedTurnEnv+"=1") {
+		t.Fatalf("process environment = %v, want %s=1", manager.startSpec.Environment, claudeCodeResumeInterruptedTurnEnv)
+	}
+
+	events := collectStreamEvents(stream.Events)
+	if len(events) != 3 {
+		t.Fatalf("stream event count = %d, want 3: %+v", len(events), events)
+	}
+
+	anchor, ok := events[0].Payload.(RuntimeSessionAnchor)
+	if events[0].Event != "session_anchor" || !ok {
+		t.Fatalf("first event = %+v, want session anchor payload", events[0])
+	}
+	if anchor.ProviderThreadID != "claude-session-42" {
+		t.Fatalf("anchor provider thread id = %q, want claude-session-42", anchor.ProviderThreadID)
+	}
+
+	done, ok := events[2].Payload.(donePayload)
+	if events[2].Event != "done" || !ok {
+		t.Fatalf("last event = %+v, want done payload", events[2])
+	}
+	if done.SessionID != "session-claude-runtime" || done.TurnsUsed != 1 {
+		t.Fatalf("unexpected done payload: %#v", done)
+	}
+
+	resolved := runtime.SessionAnchor(SessionID("session-claude-runtime"))
+	if resolved.ProviderThreadID != "claude-session-42" {
+		t.Fatalf("resolved session anchor = %+v, want provider thread claude-session-42", resolved)
+	}
+}
+
 func TestGeminiRuntimeCloseSessionStopsProcess(t *testing.T) {
 	process := &fakeAgentCLIProcess{
 		stdin:         &trackingWriteCloser{},

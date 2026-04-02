@@ -141,4 +141,63 @@ describe('handleProjectConversationStreamEvent', () => {
       },
     })
   })
+
+  it('maps codex thread and claude session status messages into structured status entries', () => {
+    const handlers = createHandlers()
+
+    handleProjectConversationStreamEvent(
+      {
+        kind: 'message',
+        payload: {
+          type: 'thread_status',
+          raw: {
+            anchor_kind: 'thread',
+            thread_id: 'thread-1',
+            status: 'waitingOnApproval',
+            active_flags: ['waitingOnApproval'],
+          },
+        },
+      },
+      handlers,
+    )
+
+    handleProjectConversationStreamEvent(
+      {
+        kind: 'message',
+        payload: {
+          type: 'session_state',
+          raw: {
+            anchor_kind: 'session',
+            status: 'requires_action',
+            detail: 'approval required',
+            active_flags: ['requires_action'],
+          },
+        },
+      },
+      handlers,
+    )
+
+    expect(handlers.appendTaskStatus).toHaveBeenNthCalledWith(1, {
+      statusType: 'thread_status',
+      title: 'Codex thread status',
+      detail: 'waitingOnApproval · waitingOnApproval',
+      raw: {
+        anchor_kind: 'thread',
+        thread_id: 'thread-1',
+        status: 'waitingOnApproval',
+        active_flags: ['waitingOnApproval'],
+      },
+    })
+    expect(handlers.appendTaskStatus).toHaveBeenNthCalledWith(2, {
+      statusType: 'session_state',
+      title: 'Claude session status',
+      detail: 'requires_action · approval required · requires_action',
+      raw: {
+        anchor_kind: 'session',
+        status: 'requires_action',
+        detail: 'approval required',
+        active_flags: ['requires_action'],
+      },
+    })
+  })
 })

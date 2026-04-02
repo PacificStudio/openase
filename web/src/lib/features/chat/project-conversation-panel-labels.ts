@@ -12,6 +12,7 @@ export type ProjectConversationTabView = {
   pending: boolean
   hasPendingInterrupt: boolean
   restored: boolean
+  draft: string
 }
 
 const MAX_LABEL_LENGTH = 32
@@ -30,7 +31,7 @@ function findRecentUserMessage(entries: ProjectConversationTranscriptEntry[]) {
 }
 
 export function formatProjectConversationLabel(
-  tab: Pick<ProjectConversationTabView, 'conversationId' | 'entries'>,
+  tab: Pick<ProjectConversationTabView, 'conversationId' | 'entries' | 'draft'>,
   conversations: ProjectConversation[],
 ) {
   const conversation = conversations.find((item) => item.id === tab.conversationId)
@@ -42,6 +43,11 @@ export function formatProjectConversationLabel(
   const recentUserMessage = findRecentUserMessage(tab.entries)
   if (recentUserMessage?.content) {
     return truncateLabel(recentUserMessage.content.trim())
+  }
+
+  const draft = tab.draft.trim()
+  if (draft) {
+    return truncateLabel(draft)
   }
 
   if (!tab.conversationId) {

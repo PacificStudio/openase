@@ -15,6 +15,7 @@ import (
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 )
 
@@ -163,7 +164,7 @@ func TestBuildCloneOptionsUsesConfiguredSSHKeyForSSHURL(t *testing.T) {
 	keyPath := writeTestPrivateKey(t)
 	t.Setenv("OPENASE_GIT_SSH_KEY_PATH", keyPath)
 
-	options, err := buildCloneOptions("git@github.com:acme/private-repo.git")
+	options, err := buildCloneOptions(RepoRequest{RepositoryURL: "git@github.com:acme/private-repo.git"})
 	if err != nil {
 		t.Fatalf("buildCloneOptions() error = %v", err)
 	}
@@ -181,12 +182,32 @@ func TestBuildCloneOptionsUsesConfiguredSSHKeyForSSHURL(t *testing.T) {
 }
 
 func TestBuildCloneOptionsLeavesHTTPSAuthEmpty(t *testing.T) {
-	options, err := buildCloneOptions("https://github.com/acme/public-repo.git")
+	options, err := buildCloneOptions(RepoRequest{RepositoryURL: "https://github.com/acme/public-repo.git"})
 	if err != nil {
 		t.Fatalf("buildCloneOptions() error = %v", err)
 	}
 	if options.Auth != nil {
 		t.Fatalf("buildCloneOptions() auth = %T, want nil for HTTPS", options.Auth)
+	}
+}
+
+func TestBuildCloneOptionsUsesHTTPBasicAuthForHTTPSURL(t *testing.T) {
+	options, err := buildCloneOptions(RepoRequest{
+		RepositoryURL: "https://github.com/acme/private-repo.git",
+		HTTPBasicAuth: &HTTPBasicAuthRequest{
+			Username: "x-access-token",
+			Password: "ghu_test",
+		},
+	})
+	if err != nil {
+		t.Fatalf("buildCloneOptions() error = %v", err)
+	}
+	auth, ok := options.Auth.(*githttp.BasicAuth)
+	if !ok {
+		t.Fatalf("buildCloneOptions() auth type = %T, want *http.BasicAuth", options.Auth)
+	}
+	if auth.Username != "x-access-token" || auth.Password != "ghu_test" {
+		t.Fatalf("buildCloneOptions() auth = %+v", auth)
 	}
 }
 
@@ -275,7 +296,7 @@ func TestWorkspaceLayoutAndParserHelpers(t *testing.T) {
 	if err := os.WriteFile(notDirPath, []byte("not a directory"), 0o600); err != nil {
 		t.Fatalf("WriteFile(notDirPath) error = %v", err)
 	}
-	if _, err := cloneOrOpenRepository(context.Background(), notDirPath, "/tmp/example.invalid/repo.git"); err == nil || !strings.Contains(err.Error(), "is not a directory") {
+	if _, err := cloneOrOpenRepository(context.Background(), notDirPath, RepoRequest{RepositoryURL: "/tmp/example.invalid/repo.git"}); err == nil || !strings.Contains(err.Error(), "is not a directory") {
 		t.Fatalf("cloneOrOpenRepository(file path) error = %v", err)
 	}
 }

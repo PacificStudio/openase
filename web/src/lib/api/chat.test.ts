@@ -348,6 +348,46 @@ describe('watchProjectConversation', () => {
       },
     ])
   })
+
+  it('parses provider anchor metadata from session events', async () => {
+    consumeEventStream.mockImplementation(async (_body, onFrame) => {
+      onFrame({
+        event: 'session',
+        data: JSON.stringify({
+          conversation_id: 'conversation-1',
+          runtime_state: 'ready',
+          provider_anchor_kind: 'session',
+          provider_anchor_id: 'claude-session-1',
+          provider_turn_supported: false,
+          provider_status: 'requires_action',
+          provider_active_flags: ['requires_action'],
+        }),
+      })
+    })
+
+    const events: unknown[] = []
+    await watchProjectConversation('conversation-1', {
+      onEvent: (event) => {
+        events.push(event)
+      },
+    })
+
+    expect(events).toEqual([
+      {
+        kind: 'session',
+        payload: {
+          conversationId: 'conversation-1',
+          runtimeState: 'ready',
+          providerAnchorKind: 'session',
+          providerAnchorId: 'claude-session-1',
+          providerTurnId: undefined,
+          providerTurnSupported: false,
+          providerStatus: 'requires_action',
+          providerActiveFlags: ['requires_action'],
+        },
+      },
+    ])
+  })
 })
 
 describe('project conversation REST mapping', () => {
@@ -427,6 +467,7 @@ describe('project conversation REST mapping', () => {
           userId: 'user-1',
           source: 'project_sidebar',
           providerId: 'provider-1',
+          providerActiveFlags: [],
           status: 'active',
           rollingSummary: 'Latest thread',
           lastActivityAt: '2026-04-02T05:00:00Z',
@@ -445,6 +486,7 @@ describe('project conversation REST mapping', () => {
         userId: 'user-1',
         source: 'project_sidebar',
         providerId: 'provider-2',
+        providerActiveFlags: [],
         status: 'active',
         rollingSummary: '',
         lastActivityAt: '2026-04-02T06:00:00Z',
@@ -460,6 +502,7 @@ describe('project conversation REST mapping', () => {
         userId: 'user-1',
         source: 'project_sidebar',
         providerId: 'provider-3',
+        providerActiveFlags: [],
         status: 'active',
         rollingSummary: 'Recovered thread',
         lastActivityAt: '2026-04-02T07:05:00Z',

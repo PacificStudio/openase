@@ -91,6 +91,26 @@ func (_c *ChatConversationCreate) SetNillableLastTurnID(v *string) *ChatConversa
 	return _c
 }
 
+// SetProviderThreadStatus sets the "provider_thread_status" field.
+func (_c *ChatConversationCreate) SetProviderThreadStatus(v string) *ChatConversationCreate {
+	_c.mutation.SetProviderThreadStatus(v)
+	return _c
+}
+
+// SetNillableProviderThreadStatus sets the "provider_thread_status" field if the given value is not nil.
+func (_c *ChatConversationCreate) SetNillableProviderThreadStatus(v *string) *ChatConversationCreate {
+	if v != nil {
+		_c.SetProviderThreadStatus(*v)
+	}
+	return _c
+}
+
+// SetProviderThreadActiveFlags sets the "provider_thread_active_flags" field.
+func (_c *ChatConversationCreate) SetProviderThreadActiveFlags(v []string) *ChatConversationCreate {
+	_c.mutation.SetProviderThreadActiveFlags(v)
+	return _c
+}
+
 // SetRollingSummary sets the "rolling_summary" field.
 func (_c *ChatConversationCreate) SetRollingSummary(v string) *ChatConversationCreate {
 	_c.mutation.SetRollingSummary(v)
@@ -365,6 +385,14 @@ func (_c *ChatConversationCreate) createSpec() (*ChatConversation, *sqlgraph.Cre
 	if value, ok := _c.mutation.LastTurnID(); ok {
 		_spec.SetField(chatconversation.FieldLastTurnID, field.TypeString, value)
 		_node.LastTurnID = &value
+	}
+	if value, ok := _c.mutation.ProviderThreadStatus(); ok {
+		_spec.SetField(chatconversation.FieldProviderThreadStatus, field.TypeString, value)
+		_node.ProviderThreadStatus = &value
+	}
+	if value, ok := _c.mutation.ProviderThreadActiveFlags(); ok {
+		_spec.SetField(chatconversation.FieldProviderThreadActiveFlags, field.TypeJSON, value)
+		_node.ProviderThreadActiveFlags = value
 	}
 	if value, ok := _c.mutation.RollingSummary(); ok {
 		_spec.SetField(chatconversation.FieldRollingSummary, field.TypeString, value)

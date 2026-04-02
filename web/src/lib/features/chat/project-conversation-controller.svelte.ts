@@ -5,6 +5,7 @@ import {
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
   type ProjectConversation,
+  type ProjectConversationSessionPayload,
   type ProjectConversationStreamEvent,
   type ProjectConversationTurnRequest,
 } from '$lib/api/chat'
@@ -45,9 +46,18 @@ type CreateProjectConversationControllerInput = {
   onError?: (message: string) => void
 }
 
+type QueuedProjectTurn = {
+  id: string
+  message: string
+  focus: ProjectAIFocus | null
+  createdAt: string
+}
+
 type ProjectConversationTabState = ProjectConversationControllerState & {
   id: string
   restored: boolean
+  draft: string
+  queuedTurns: QueuedProjectTurn[]
 }
 
 type ProjectConversationTabSummary = {
@@ -57,6 +67,8 @@ type ProjectConversationTabSummary = {
   pending: boolean
   hasPendingInterrupt: boolean
   restored: boolean
+  draft: string
+  queuedTurns: QueuedProjectTurn[]
   entries: ProjectConversationTranscriptEntry[]
 }
 
@@ -69,6 +81,7 @@ export function createProjectConversationController(
   let tabs = $state<ProjectConversationTabState[]>([])
   let activeTabId = $state('')
   let nextTabID = 0
+  let nextQueuedTurnID = 0
   let restoreOperationID = 0
 
   function newTabState(restored = false): ProjectConversationTabState {
@@ -76,6 +89,8 @@ export function createProjectConversationController(
     return {
       id: `tab-${nextTabID}`,
       restored,
+      draft: '',
+      queuedTurns: [],
       phase: 'idle',
       conversationId: '',
       entries: [],
@@ -107,6 +122,8 @@ export function createProjectConversationController(
       pending: isTabPending(tab),
       hasPendingInterrupt: projectConversationHasPendingInterrupt(tab.entries),
       restored: tab.restored,
+      draft: tab.draft,
+      queuedTurns: tab.queuedTurns,
       entries: tab.entries,
     }
   }
@@ -129,6 +146,25 @@ export function createProjectConversationController(
       return
     }
     activeTabId = tabs[0]?.id ?? ''
+  }
+
+  function canQueueOnTab(tab: ProjectConversationTabState | null) {
+    return (
+      !!input.getProjectId() &&
+      !!providerId &&
+      tab != null &&
+      (isTabPending(tab) || (tab.phase === 'idle' && tab.queuedTurns.length > 0)) &&
+      !projectConversationHasPendingInterrupt(tab.entries)
+    )
+  }
+
+  function nextQueuedTurn(turn: Omit<QueuedProjectTurn, 'id' | 'createdAt'>): QueuedProjectTurn {
+    nextQueuedTurnID += 1
+    return {
+      id: `queued-turn-${nextQueuedTurnID}`,
+      createdAt: new Date().toISOString(),
+      ...turn,
+    }
   }
 
   function persistTabs() {
@@ -202,6 +238,9 @@ export function createProjectConversationController(
     tab: ProjectConversationTabState,
     event: ProjectConversationStreamEvent,
   ) {
+    if (event.kind === 'session') {
+      applySessionPayload(tab, event.payload)
+    }
     if ((event.kind === 'session' || event.kind === 'turn_done') && tab.conversationId) {
       void refreshTabWorkspaceDiff(tab, tab.conversationId)
     }
@@ -226,6 +265,42 @@ export function createProjectConversationController(
       conversation,
       ...conversations.filter((current) => current.id !== conversation.id),
     ])
+  }
+
+  function applySessionPayload(
+    tab: ProjectConversationTabState,
+    payload: ProjectConversationSessionPayload,
+  ) {
+    const existing = conversations.find(
+      (conversation) => conversation.id === payload.conversationId,
+    )
+    const now = new Date().toISOString()
+
+    upsertConversation({
+      id: payload.conversationId,
+      projectId: existing?.projectId ?? input.getProjectId(),
+      userId: existing?.userId ?? '',
+      source: 'project_sidebar',
+      providerId: existing?.providerId ?? providerId,
+      providerAnchorKind: payload.providerAnchorKind ?? existing?.providerAnchorKind,
+      providerAnchorId: payload.providerAnchorId ?? existing?.providerAnchorId,
+      providerTurnId: payload.providerTurnId ?? existing?.providerTurnId,
+      providerTurnSupported: payload.providerTurnSupported ?? existing?.providerTurnSupported,
+      providerStatus: payload.providerStatus ?? existing?.providerStatus,
+      providerActiveFlags:
+        payload.providerActiveFlags.length > 0
+          ? [...payload.providerActiveFlags]
+          : [...(existing?.providerActiveFlags ?? [])],
+      status: existing?.status ?? '',
+      rollingSummary: existing?.rollingSummary ?? '',
+      lastActivityAt: now,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    })
+
+    if (!tab.conversationId && payload.conversationId) {
+      tab.conversationId = payload.conversationId
+    }
   }
 
   function sortProjectConversations(items: ProjectConversation[]) {
@@ -321,7 +396,8 @@ export function createProjectConversationController(
       activeTab &&
       !activeTab.conversationId &&
       activeTab.entries.length === 0 &&
-      activeTab.phase === 'idle'
+      activeTab.phase === 'idle' &&
+      activeTab.draft.trim().length === 0
         ? activeTab
         : newTabState(false)
     if (target !== activeTab) {
@@ -339,6 +415,82 @@ export function createProjectConversationController(
     }
 
     touchConversation(nextConversationId)
+  }
+
+  async function sendTurnInTab(
+    activeTab: ProjectConversationTabState | null,
+    message: string,
+    focus?: ProjectAIFocus | null,
+  ) {
+    const trimmed = message.trim()
+    const projectId = input.getProjectId()
+    if (
+      !trimmed ||
+      !projectId ||
+      !providerId ||
+      activeTab == null ||
+      activeTab.phase !== 'idle' ||
+      projectConversationHasPendingInterrupt(activeTab.entries)
+    ) {
+      return false
+    }
+
+    const currentOperationId = beginProjectConversationOperation(
+      activeTab,
+      activeTab.conversationId ? 'submitting_turn' : 'creating_conversation',
+    )
+
+    try {
+      if (!activeTab.conversationId) {
+        const createPayload = await createProjectConversation({ providerId, projectId })
+        if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) {
+          return false
+        }
+        activeTab.conversationId = createPayload.conversation.id
+        activeTab.restored = false
+        upsertConversation(createPayload.conversation)
+        persistTabs()
+        activeTab.phase = 'connecting_stream'
+        connectTabStream(activeTab, activeTab.conversationId)
+      } else if (!activeTab.abortController) {
+        activeTab.phase = 'connecting_stream'
+        connectTabStream(activeTab, activeTab.conversationId)
+      }
+
+      if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) {
+        return false
+      }
+
+      appendProjectConversationText(activeTab, 'user', trimmed)
+      activeTab.activeAssistantEntryId = ''
+      activeTab.restored = false
+      activeTab.phase = 'submitting_turn'
+      const request: ProjectConversationTurnRequest = {
+        message: trimmed,
+        focus: focus ?? undefined,
+      }
+      await startProjectConversationTurn(activeTab.conversationId, request)
+      if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) {
+        return false
+      }
+      touchConversation(activeTab.conversationId)
+      if (projectConversationHasPendingInterrupt(activeTab.entries)) {
+        activeTab.phase = 'awaiting_interrupt'
+      } else if (activeTab.phase === 'submitting_turn') {
+        activeTab.phase = 'awaiting_reply'
+      }
+      persistTabs()
+      return true
+    } catch (caughtError) {
+      if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) {
+        return false
+      }
+      activeTab.phase = 'idle'
+      input.onError?.(
+        caughtError instanceof Error ? caughtError.message : 'Failed to send project message.',
+      )
+      return false
+    }
   }
 
   ensureTabExists()
@@ -378,6 +530,12 @@ export function createProjectConversationController(
     get entries() {
       return getActiveTab()?.entries ?? []
     },
+    get draft() {
+      return getActiveTab()?.draft ?? ''
+    },
+    get queuedTurns() {
+      return getActiveTab()?.queuedTurns ?? []
+    },
     get workspaceDiff() {
       return getActiveTab()?.workspaceDiff ?? null
     },
@@ -397,12 +555,31 @@ export function createProjectConversationController(
         !input.getProjectId() ||
         !providerId ||
         activeTab == null ||
+        projectConversationHasPendingInterrupt(activeTab.entries)
+      )
+    },
+    get sendDisabled() {
+      const activeTab = getActiveTab()
+      return (
+        !input.getProjectId() ||
+        !providerId ||
+        activeTab == null ||
         activeTab.phase !== 'idle' ||
         projectConversationHasPendingInterrupt(activeTab.entries)
       )
     },
+    get canQueueTurn() {
+      return canQueueOnTab(getActiveTab())
+    },
     get providerSelectionDisabled() {
       return tabs.some((tab) => tab.phase !== 'idle')
+    },
+    setDraft(value: string) {
+      const activeTab = getActiveTab()
+      if (!activeTab) {
+        return
+      }
+      activeTab.draft = value
     },
     syncProviders(nextProviders: AgentProvider[], defaultProviderId: string | null | undefined) {
       providers = listEphemeralChatProviders(nextProviders)
@@ -445,12 +622,22 @@ export function createProjectConversationController(
               ? [fallbackConversationID]
               : []
 
-        tabs = initialConversationIDs.map(() => newTabState(true))
-        if (tabs.length === 0) {
-          ensureTabExists()
+        if (initialConversationIDs.length === 0) {
+          const activeTab = getActiveTab()
+          const reusableBlank =
+            activeTab && !activeTab.conversationId && activeTab.entries.length === 0
+              ? activeTab
+              : (tabs.find((tab) => !tab.conversationId && tab.entries.length === 0) ?? null)
+          const blankTab = reusableBlank ?? newTabState(false)
+          blankTab.restored = false
+          blankTab.phase = 'idle'
+          tabs = [blankTab]
+          activeTabId = blankTab.id
           persistTabs()
           return
         }
+
+        tabs = initialConversationIDs.map(() => newTabState(true))
 
         const loadedTabIDs = new Set<string>()
         for (let index = 0; index < initialConversationIDs.length; index += 1) {
@@ -503,7 +690,11 @@ export function createProjectConversationController(
     },
     createTab() {
       const existingBlank = tabs.find(
-        (tab) => !tab.conversationId && tab.entries.length === 0 && tab.phase === 'idle',
+        (tab) =>
+          !tab.conversationId &&
+          tab.entries.length === 0 &&
+          tab.phase === 'idle' &&
+          tab.draft.trim().length === 0,
       )
       if (existingBlank) {
         activeTabId = existingBlank.id
@@ -547,74 +738,53 @@ export function createProjectConversationController(
       ensureTabExists()
       persistTabs()
     },
-    async sendTurn(message: string, focus?: ProjectAIFocus | null) {
-      const trimmed = message.trim()
-      const projectId = input.getProjectId()
+    enqueueTurn(message: string, focus?: ProjectAIFocus | null) {
       const activeTab = getActiveTab()
-      if (
-        !trimmed ||
-        !projectId ||
-        !providerId ||
-        activeTab == null ||
-        activeTab.phase !== 'idle' ||
-        projectConversationHasPendingInterrupt(activeTab.entries)
-      ) {
-        return
+      const trimmed = message.trim()
+      if (!trimmed || !canQueueOnTab(activeTab)) {
+        return false
       }
-      const currentOperationId = beginProjectConversationOperation(
-        activeTab,
-        activeTab.conversationId ? 'submitting_turn' : 'creating_conversation',
-      )
 
-      try {
-        if (!activeTab.conversationId) {
-          const createPayload = await createProjectConversation({ providerId, projectId })
-          if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) {
-            return
-          }
-          activeTab.conversationId = createPayload.conversation.id
-          activeTab.restored = false
-          upsertConversation(createPayload.conversation)
-          persistTabs()
-          activeTab.phase = 'connecting_stream'
-          connectTabStream(activeTab, activeTab.conversationId)
-        } else if (!activeTab.abortController) {
-          activeTab.phase = 'connecting_stream'
-          connectTabStream(activeTab, activeTab.conversationId)
-        }
-
-        if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) {
-          return
-        }
-
-        appendProjectConversationText(activeTab, 'user', trimmed)
-        activeTab.activeAssistantEntryId = ''
-        activeTab.restored = false
-        activeTab.phase = 'submitting_turn'
-        const request: ProjectConversationTurnRequest = {
+      activeTab.queuedTurns = [
+        ...activeTab.queuedTurns,
+        nextQueuedTurn({
           message: trimmed,
-          focus: focus ?? undefined,
-        }
-        await startProjectConversationTurn(activeTab.conversationId, request)
-        if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) {
-          return
-        }
-        touchConversation(activeTab.conversationId)
-        if (projectConversationHasPendingInterrupt(activeTab.entries)) {
-          activeTab.phase = 'awaiting_interrupt'
-        } else if (activeTab.phase === 'submitting_turn') {
-          activeTab.phase = 'awaiting_reply'
-        }
-        persistTabs()
-      } catch (caughtError) {
-        if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) {
-          return
-        }
-        activeTab.phase = 'idle'
-        input.onError?.(
-          caughtError instanceof Error ? caughtError.message : 'Failed to send project message.',
-        )
+          focus: focus ?? null,
+        }),
+      ]
+      return true
+    },
+    cancelQueuedTurn(queueTurnId: string) {
+      const activeTab = getActiveTab()
+      if (!activeTab) {
+        return false
       }
+
+      const nextQueuedTurns = activeTab.queuedTurns.filter((turn) => turn.id !== queueTurnId)
+      if (nextQueuedTurns.length === activeTab.queuedTurns.length) {
+        return false
+      }
+
+      activeTab.queuedTurns = nextQueuedTurns
+      return true
+    },
+    async sendNextQueuedTurn() {
+      const activeTab = getActiveTab()
+      const nextQueued = activeTab?.queuedTurns[0]
+      if (!activeTab || !nextQueued) {
+        return false
+      }
+
+      const sent = await sendTurnInTab(activeTab, nextQueued.message, nextQueued.focus)
+      if (!sent) {
+        return false
+      }
+
+      activeTab.queuedTurns = activeTab.queuedTurns.filter((turn) => turn.id !== nextQueued.id)
+      return true
+    },
+    async sendTurn(message: string, focus?: ProjectAIFocus | null) {
+      await sendTurnInTab(getActiveTab(), message, focus)
     },
     async resetConversation() {
       const activeTab = getActiveTab()
@@ -643,6 +813,7 @@ export function createProjectConversationController(
       if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) {
         return
       }
+      activeTab.queuedTurns = []
       activeTab.phase = 'idle'
       activeTab.restored = false
       persistTabs()
@@ -661,6 +832,17 @@ export function createProjectConversationController(
         },
         onError: input.onError,
       })
+    },
+    cancelActionProposal(entryId: string) {
+      const activeTab = getActiveTab()
+      if (!activeTab) {
+        return
+      }
+      activeTab.entries = activeTab.entries.map((entry) =>
+        entry.kind === 'action_proposal' && entry.id === entryId && entry.status === 'pending'
+          ? { ...entry, status: 'cancelled' }
+          : entry,
+      )
     },
     async respondInterrupt(inputValue: {
       interruptId: string

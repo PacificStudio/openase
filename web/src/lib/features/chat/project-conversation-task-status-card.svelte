@@ -18,6 +18,11 @@
         return Loader
       case 'task_notification':
         return Info
+      case 'reasoning_updated':
+        return Info
+      case 'thread_status':
+      case 'session_state':
+        return Info
       case 'turn_done':
         return CheckCircle
       case 'error':
@@ -33,6 +38,12 @@
         return 'text-sky-400'
       case 'task_notification':
         return 'text-muted-foreground'
+      case 'reasoning_updated':
+        return 'text-amber-500'
+      case 'thread_status':
+        return 'text-sky-500'
+      case 'session_state':
+        return 'text-amber-600'
       case 'turn_done':
         return 'text-emerald-500'
       case 'error':

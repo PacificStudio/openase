@@ -344,19 +344,37 @@ func (r *Repository) UpdateConversationAnchors(
 	ctx context.Context,
 	conversationID uuid.UUID,
 	status domain.ConversationStatus,
-	providerThreadID *string,
-	lastTurnID *string,
-	rollingSummary string,
+	anchors domain.ConversationAnchors,
 ) (domain.Conversation, error) {
 	builder := r.client.ChatConversation.UpdateOneID(conversationID).
 		SetStatus(string(status)).
-		SetRollingSummary(strings.TrimSpace(rollingSummary)).
 		SetLastActivityAt(time.Now().UTC())
-	if providerThreadID != nil && strings.TrimSpace(*providerThreadID) != "" {
-		builder.SetProviderThreadID(strings.TrimSpace(*providerThreadID))
+	if trimmed := strings.TrimSpace(anchors.RollingSummary); trimmed != "" {
+		builder.SetRollingSummary(trimmed)
 	}
-	if lastTurnID != nil && strings.TrimSpace(*lastTurnID) != "" {
-		builder.SetLastTurnID(strings.TrimSpace(*lastTurnID))
+	if anchors.ProviderThreadID != nil {
+		if trimmed := strings.TrimSpace(*anchors.ProviderThreadID); trimmed != "" {
+			builder.SetProviderThreadID(trimmed)
+		} else {
+			builder.ClearProviderThreadID()
+		}
+	}
+	if anchors.LastTurnID != nil {
+		if trimmed := strings.TrimSpace(*anchors.LastTurnID); trimmed != "" {
+			builder.SetLastTurnID(trimmed)
+		} else {
+			builder.ClearLastTurnID()
+		}
+	}
+	if anchors.ProviderThreadStatus != nil {
+		if trimmed := strings.TrimSpace(*anchors.ProviderThreadStatus); trimmed != "" {
+			builder.SetProviderThreadStatus(trimmed)
+		} else {
+			builder.ClearProviderThreadStatus()
+		}
+	}
+	if anchors.ProviderThreadActiveFlags != nil {
+		builder.SetProviderThreadActiveFlags(append([]string(nil), (*anchors.ProviderThreadActiveFlags)...))
 	}
 	item, err := builder.Save(ctx)
 	if err != nil {
@@ -368,6 +386,8 @@ func (r *Repository) UpdateConversationAnchors(
 func (r *Repository) CloseConversationRuntime(ctx context.Context, conversationID uuid.UUID) (domain.Conversation, error) {
 	item, err := r.client.ChatConversation.UpdateOneID(conversationID).
 		SetStatus(string(domain.ConversationStatusClosed)).
+		SetProviderThreadStatus("notLoaded").
+		SetProviderThreadActiveFlags([]string{}).
 		SetLastActivityAt(time.Now().UTC()).
 		Save(ctx)
 	if err != nil {
@@ -441,18 +461,20 @@ func mapConversations(items []*ent.ChatConversation) []domain.Conversation {
 
 func mapConversation(item *ent.ChatConversation) domain.Conversation {
 	return domain.Conversation{
-		ID:               item.ID,
-		ProjectID:        item.ProjectID,
-		UserID:           item.UserID,
-		Source:           domain.Source(item.Source),
-		ProviderID:       item.ProviderID,
-		Status:           domain.ConversationStatus(item.Status),
-		ProviderThreadID: cloneStringPointer(item.ProviderThreadID),
-		LastTurnID:       cloneStringPointer(item.LastTurnID),
-		RollingSummary:   item.RollingSummary,
-		LastActivityAt:   item.LastActivityAt,
-		CreatedAt:        item.CreatedAt,
-		UpdatedAt:        item.UpdatedAt,
+		ID:                        item.ID,
+		ProjectID:                 item.ProjectID,
+		UserID:                    item.UserID,
+		Source:                    domain.Source(item.Source),
+		ProviderID:                item.ProviderID,
+		Status:                    domain.ConversationStatus(item.Status),
+		ProviderThreadID:          cloneStringPointer(item.ProviderThreadID),
+		LastTurnID:                cloneStringPointer(item.LastTurnID),
+		ProviderThreadStatus:      cloneStringPointer(item.ProviderThreadStatus),
+		ProviderThreadActiveFlags: append([]string(nil), item.ProviderThreadActiveFlags...),
+		RollingSummary:            item.RollingSummary,
+		LastActivityAt:            item.LastActivityAt,
+		CreatedAt:                 item.CreatedAt,
+		UpdatedAt:                 item.UpdatedAt,
 	}
 }
 

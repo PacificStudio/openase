@@ -4,16 +4,11 @@
   import { connectEventStream } from '$lib/api/sse'
   import Sidebar from '$lib/components/layout/sidebar.svelte'
   import TopBar from '$lib/components/layout/top-bar.svelte'
-  import { ProjectAssistantSheet } from '$lib/features/chat'
-  import { OrganizationCreationDialog } from '$lib/features/catalog-creation'
-  import { ProjectCreationDialog } from '$lib/features/catalog-creation'
-  import { GlobalSearchDialog } from '$lib/features/search'
-  import { NewTicketDialog } from '$lib/features/tickets'
-  import { TicketDrawer } from '$lib/features/ticket-detail'
   import { appStore } from '$lib/stores/app.svelte'
   import type { AppRouteContext, ProjectSection } from '$lib/stores/app-context'
   import { cn } from '$lib/utils'
   import type { Snippet } from 'svelte'
+  import ProjectShellOverlays from './project-shell-overlays.svelte'
 
   type ShellData = {
     routeContext: AppRouteContext
@@ -34,11 +29,23 @@
   let createProjectOpen = $state(false)
   let projectAssistantOpen = $state(false)
   let projectAssistantPrompt = $state('')
-  const projectHealth = $derived.by(() => {
+  const projectHealth = $derived.by((): 'healthy' | 'degraded' | 'critical' => {
     const status = appStore.currentProject?.status?.toLowerCase()
     if (status === 'healthy' || status === 'active') return 'healthy'
     if (status === 'blocked' || status === 'archived') return 'critical'
     return 'degraded'
+  })
+
+  const projectHealthLabel = $derived.by(() => {
+    const status = appStore.currentProject?.status ?? ''
+    switch (projectHealth) {
+      case 'healthy':
+        return `All systems healthy${status ? ` (${status})` : ''}`
+      case 'degraded':
+        return `Project status: ${status || 'degraded'}`
+      case 'critical':
+        return `Project status: ${status || 'critical'} — may need attention`
+    }
   })
 
   const isNewTicketEnabled = $derived(Boolean(appStore.currentProject?.id))
@@ -153,6 +160,15 @@
         event.preventDefault()
         searchOpen = true
       }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'i') {
+        event.preventDefault()
+        if (projectAssistantOpen) {
+          projectAssistantOpen = false
+        } else {
+          handleOpenProjectAssistant()
+        }
+      }
     }
 
     window.addEventListener('keydown', handleKeydown)
@@ -200,6 +216,8 @@
     currentSection={data.currentSection}
     orgName={appStore.currentOrg?.name ?? 'No organization'}
     projectName={appStore.currentProject?.name ?? ''}
+    projectHealth={appStore.currentProject ? projectHealth : null}
+    {projectHealthLabel}
     sseStatus={appStore.sseStatus}
     searchEnabled={appStore.organizations.length > 0}
     newTicketEnabled={isNewTicketEnabled}
@@ -227,8 +245,6 @@
         currentOrgId={appStore.currentOrg?.id ?? null}
         currentProjectId={appStore.currentProject?.id ?? null}
         projectSelected={Boolean(appStore.currentProject)}
-        projectName={appStore.currentProject?.name ?? ''}
-        {projectHealth}
         agentCount={appStore.agentCount}
         onOpenProjectAssistant={() => handleOpenProjectAssistant()}
         onToggleCollapse={() => appStore.toggleSidebar()}
@@ -240,47 +256,19 @@
     </main>
   </div>
 
-  <TicketDrawer
-    projectId={appStore.currentProject?.id}
-    ticketId={currentTicketId}
-    open={appStore.rightPanelOpen}
-    onOpenChange={(open) => {
-      if (!open) {
-        appStore.closeRightPanel()
-      }
-    }}
-  />
-
-  <NewTicketDialog />
-
-  <OrganizationCreationDialog bind:open={createOrgOpen} />
-
-  <ProjectCreationDialog
-    orgId={appStore.currentOrg?.id ?? ''}
-    providers={appStore.providers ?? []}
-    defaultProviderId={appStore.currentProject?.default_agent_provider_id ?? null}
-    bind:open={createProjectOpen}
-  />
-
-  <ProjectAssistantSheet
-    bind:open={projectAssistantOpen}
-    organizationId={appStore.currentOrg?.id ?? ''}
-    projectId={appStore.currentProject?.id ?? ''}
-    defaultProviderId={appStore.currentProject?.default_agent_provider_id ?? null}
-    initialPrompt={projectAssistantPrompt}
-  />
-
-  <GlobalSearchDialog
-    bind:open={searchOpen}
-    organizations={appStore.organizations}
-    projects={appStore.projects}
+  <ProjectShellOverlays
     currentOrg={appStore.currentOrg}
     currentProject={appStore.currentProject}
     currentSection={data.currentSection}
+    {currentTicketId}
+    bind:searchOpen
+    bind:createOrgOpen
+    bind:createProjectOpen
+    bind:projectAssistantOpen
+    {projectAssistantPrompt}
     newTicketEnabled={isNewTicketEnabled}
     onToggleTheme={handleToggleTheme}
     onNewTicket={handleNewTicket}
     onOpenProjectAssistant={handleOpenProjectAssistant}
-    onOpenTicket={(ticketId) => appStore.openRightPanel({ type: 'ticket', id: ticketId })}
   />
 </div>

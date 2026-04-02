@@ -14,8 +14,6 @@
     currentOrgId = null,
     currentProjectId = null,
     projectSelected = false,
-    projectName = '',
-    projectHealth = 'healthy' as 'healthy' | 'degraded' | 'critical',
     agentCount = 0,
     onOpenProjectAssistant,
     onToggleCollapse,
@@ -25,8 +23,6 @@
     currentOrgId?: string | null
     currentProjectId?: string | null
     projectSelected?: boolean
-    projectName?: string
-    projectHealth?: 'healthy' | 'degraded' | 'critical'
     agentCount?: number
     onOpenProjectAssistant?: () => void
     onToggleCollapse?: () => void
@@ -35,14 +31,6 @@
   const globalNav: SidebarNavItem[] = $derived(buildGlobalNav(currentPath, currentOrgId))
   const projectNav: SidebarNavItem[] = $derived(
     buildProjectNav({ currentPath, currentOrgId, currentProjectId, agentCount }),
-  )
-
-  const healthColor = $derived(
-    projectHealth === 'healthy'
-      ? 'bg-success'
-      : projectHealth === 'degraded'
-        ? 'bg-warning'
-        : 'bg-destructive',
   )
 
   function warmRoute(href: string) {
@@ -107,38 +95,6 @@
     </div>
     {#if projectSelected}
       <Separator class="my-3" />
-      {#if !collapsed}
-        <div class="mb-2 flex items-center gap-2 px-2.5">
-          <span class={cn('size-2 shrink-0 rounded-full', healthColor)}></span>
-          <span class="text-sidebar-foreground truncate text-xs font-medium">{projectName}</span>
-        </div>
-        <div class="mb-3 px-2.5">
-          <Button variant="outline" size="sm" class="w-full" onclick={onOpenProjectAssistant}>
-            <Bot class="size-4" />
-            Ask AI
-          </Button>
-        </div>
-      {:else}
-        <div class="mb-2 flex flex-col items-center gap-2">
-          <span class={cn('size-2 rounded-full', healthColor)}></span>
-          <Tooltip.Root>
-            <Tooltip.Trigger>
-              {#snippet child({ props })}
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  {...props}
-                  onclick={onOpenProjectAssistant}
-                  aria-label="Ask AI"
-                >
-                  <Bot class="size-4" />
-                </Button>
-              {/snippet}
-            </Tooltip.Trigger>
-            <Tooltip.Content side="right" class="text-xs">Ask AI</Tooltip.Content>
-          </Tooltip.Root>
-        </div>
-      {/if}
       <div class="space-y-0.5">
         {#each projectNav as item}
           {@const Icon = item.icon}
@@ -203,6 +159,44 @@
     {/if}
   </div>
   <div class="border-border shrink-0 border-t p-2">
+    {#if projectSelected}
+      {#if collapsed}
+        <Tooltip.Root>
+          <Tooltip.Trigger>
+            {#snippet child({ props })}
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                class="mb-1 w-full"
+                {...props}
+                onclick={onOpenProjectAssistant}
+                aria-label="Ask AI"
+              >
+                <Bot class="size-4" />
+              </Button>
+            {/snippet}
+          </Tooltip.Trigger>
+          <Tooltip.Content side="right" class="text-xs">
+            Ask AI
+            <kbd
+              class="bg-muted text-muted-foreground ml-1.5 rounded px-1 py-0.5 font-mono text-[10px]"
+              >⌘I</kbd
+            >
+          </Tooltip.Content>
+        </Tooltip.Root>
+      {:else}
+        <Button
+          variant="ghost"
+          size="sm"
+          class="text-sidebar-foreground hover:bg-sidebar-accent mb-1 w-full justify-start"
+          onclick={onOpenProjectAssistant}
+        >
+          <Bot class="mr-2 size-4" />
+          <span class="flex-1 text-left text-xs">Ask AI</span>
+          <kbd class="text-muted-foreground/50 text-[10px] font-normal">⌘I</kbd>
+        </Button>
+      {/if}
+    {/if}
     <Button
       variant="ghost"
       size="sm"
