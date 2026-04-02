@@ -1,9 +1,11 @@
 import {
   createProjectConversation,
+  getProjectConversationWorkspaceDiff,
   listProjectConversations,
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
   type ProjectConversation,
+  type ProjectConversationStreamEvent,
   type ProjectConversationTurnRequest,
 } from '$lib/api/chat'
 import type { AgentProvider } from '$lib/api/contracts'
@@ -77,6 +79,10 @@ export function createProjectConversationController(
       phase: 'idle',
       conversationId: '',
       entries: [],
+      workspaceDiff: null,
+      workspaceDiffLoading: false,
+      workspaceDiffError: '',
+      workspaceDiffRequestId: 0,
       activeAssistantEntryId: '',
       abortController: null,
       entryCounter: 0,
@@ -144,7 +150,61 @@ export function createProjectConversationController(
       state: tab,
       conversationId: nextConversationId,
       onError: input.onError,
+      onEvent: (event) => handleTabStreamEvent(tab, event),
     })
+  }
+
+  async function refreshTabWorkspaceDiff(tab: ProjectConversationTabState, conversationId: string) {
+    if (!conversationId) {
+      tab.workspaceDiff = null
+      tab.workspaceDiffLoading = false
+      tab.workspaceDiffError = ''
+      return
+    }
+
+    tab.workspaceDiffRequestId += 1
+    const currentRequestId = tab.workspaceDiffRequestId
+    tab.workspaceDiffLoading = true
+    tab.workspaceDiffError = ''
+
+    try {
+      const payload = await getProjectConversationWorkspaceDiff(conversationId)
+      if (
+        currentRequestId !== tab.workspaceDiffRequestId ||
+        tab.conversationId !== conversationId
+      ) {
+        return
+      }
+      tab.workspaceDiff = payload.workspaceDiff
+    } catch (caughtError) {
+      if (
+        currentRequestId !== tab.workspaceDiffRequestId ||
+        tab.conversationId !== conversationId
+      ) {
+        return
+      }
+      tab.workspaceDiff = null
+      tab.workspaceDiffError =
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Failed to load Project AI workspace changes.'
+    } finally {
+      if (
+        currentRequestId === tab.workspaceDiffRequestId &&
+        tab.conversationId === conversationId
+      ) {
+        tab.workspaceDiffLoading = false
+      }
+    }
+  }
+
+  function handleTabStreamEvent(
+    tab: ProjectConversationTabState,
+    event: ProjectConversationStreamEvent,
+  ) {
+    if ((event.kind === 'session' || event.kind === 'turn_done') && tab.conversationId) {
+      void refreshTabWorkspaceDiff(tab, tab.conversationId)
+    }
   }
 
   function touchConversation(conversationId: string) {
@@ -199,6 +259,7 @@ export function createProjectConversationController(
         },
         connectStream: (nextConversationId) => connectTabStream(tab, nextConversationId),
       })
+      await refreshTabWorkspaceDiff(tab, conversationId)
       if (isCurrentProjectConversationOperation(tab, currentOperationId)) {
         tab.restored = restored
       }
@@ -302,6 +363,15 @@ export function createProjectConversationController(
     },
     get entries() {
       return getActiveTab()?.entries ?? []
+    },
+    get workspaceDiff() {
+      return getActiveTab()?.workspaceDiff ?? null
+    },
+    get workspaceDiffLoading() {
+      return getActiveTab()?.workspaceDiffLoading ?? false
+    },
+    get workspaceDiffError() {
+      return getActiveTab()?.workspaceDiffError ?? ''
     },
     get hasPendingInterrupt() {
       const activeTab = getActiveTab()
@@ -543,14 +613,22 @@ export function createProjectConversationController(
       invalidateProjectConversationStream(activeTab)
       if (activeConversationId) {
         await resetProjectConversationRuntime(activeConversationId)
+        if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) {
+          return
+        }
+        activeTab.activeAssistantEntryId = ''
+        activeTab.phase = 'connecting_stream'
+        connectTabStream(activeTab, activeConversationId)
+        await refreshTabWorkspaceDiff(activeTab, activeConversationId)
+      } else {
+        activeTab.entries = []
+        activeTab.workspaceDiff = null
+        activeTab.workspaceDiffLoading = false
+        activeTab.workspaceDiffError = ''
       }
       if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) {
         return
       }
-
-      activeTab.conversationId = ''
-      activeTab.entries = []
-      activeTab.activeAssistantEntryId = ''
       activeTab.phase = 'idle'
       activeTab.restored = false
       persistTabs()

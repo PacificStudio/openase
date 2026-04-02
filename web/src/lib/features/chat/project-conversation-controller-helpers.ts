@@ -1,4 +1,7 @@
-import type { ProjectConversationStreamEvent } from '$lib/api/chat'
+import type {
+  ProjectConversationStreamEvent,
+  ProjectConversationWorkspaceDiff,
+} from '$lib/api/chat'
 import {
   appendProjectConversationAssistantChunk,
   appendProjectConversationTranscriptEntry,
@@ -26,6 +29,10 @@ export type ProjectConversationControllerState = {
   phase: ProjectConversationPhase
   conversationId: string
   entries: ProjectConversationTranscriptEntry[]
+  workspaceDiff: ProjectConversationWorkspaceDiff | null
+  workspaceDiffLoading: boolean
+  workspaceDiffError: string
+  workspaceDiffRequestId: number
   activeAssistantEntryId: string
   abortController: AbortController | null
   entryCounter: number
@@ -67,6 +74,9 @@ export function invalidateProjectConversationStream(state: ProjectConversationCo
 export function clearProjectConversationSelection(state: ProjectConversationControllerState) {
   state.conversationId = ''
   state.entries = []
+  state.workspaceDiff = null
+  state.workspaceDiffLoading = false
+  state.workspaceDiffError = ''
   state.activeAssistantEntryId = ''
 }
 
@@ -125,6 +135,7 @@ export function connectProjectConversationStream(params: {
   state: ProjectConversationControllerState
   conversationId: string
   onError?: (message: string) => void
+  onEvent?: (event: ProjectConversationStreamEvent) => void
 }) {
   const currentStreamId = params.state.streamId + 1
   const started = startProjectConversationStream({
@@ -139,6 +150,7 @@ export function connectProjectConversationStream(params: {
         event,
         onError: params.onError,
       })
+      params.onEvent?.(event)
     },
     onError: (message) => {
       if (currentStreamId !== params.state.streamId) {

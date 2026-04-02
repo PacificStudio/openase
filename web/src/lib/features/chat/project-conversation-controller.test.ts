@@ -5,6 +5,7 @@ const {
   createProjectConversation,
   executeProjectConversationActionProposal,
   getProjectConversation,
+  getProjectConversationWorkspaceDiff,
   listProjectConversationEntries,
   listProjectConversations,
   respondProjectConversationInterrupt,
@@ -15,6 +16,7 @@ const {
   createProjectConversation: vi.fn(),
   executeProjectConversationActionProposal: vi.fn(),
   getProjectConversation: vi.fn(),
+  getProjectConversationWorkspaceDiff: vi.fn(),
   listProjectConversationEntries: vi.fn(),
   listProjectConversations: vi.fn(),
   respondProjectConversationInterrupt: vi.fn(),
@@ -27,6 +29,7 @@ vi.mock('$lib/api/chat', () => ({
   createProjectConversation,
   executeProjectConversationActionProposal,
   getProjectConversation,
+  getProjectConversationWorkspaceDiff,
   listProjectConversationEntries,
   listProjectConversations,
   respondProjectConversationInterrupt,
@@ -36,6 +39,21 @@ vi.mock('$lib/api/chat', () => ({
 
 import { createProjectConversationController } from './project-conversation-controller.svelte'
 import { providerFixtures } from './ephemeral-chat-session-controller.test-helpers'
+
+function createWorkspaceDiff(conversationId: string) {
+  return {
+    workspaceDiff: {
+      conversationId,
+      workspacePath: `/tmp/${conversationId}`,
+      dirty: false,
+      reposChanged: 0,
+      filesChanged: 0,
+      added: 0,
+      removed: 0,
+      repos: [],
+    },
+  }
+}
 
 function deferredPromise<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -63,6 +81,7 @@ describe('createProjectConversationController', () => {
         lastActivityAt: '2026-04-01T10:00:00Z',
       },
     })
+    getProjectConversationWorkspaceDiff.mockResolvedValue(createWorkspaceDiff('conversation-1'))
     watchProjectConversation.mockReturnValue(stream.promise)
     startProjectConversationTurn.mockResolvedValue({
       turn: { id: 'turn-1', turn_index: 1, status: 'started' },
@@ -148,6 +167,7 @@ describe('createProjectConversationController', () => {
     }>()
 
     createProjectConversation.mockReturnValue(create.promise)
+    getProjectConversationWorkspaceDiff.mockResolvedValue(createWorkspaceDiff('conversation-1'))
     watchProjectConversation.mockResolvedValue(undefined)
     startProjectConversationTurn.mockResolvedValue({
       turn: { id: 'turn-1', turn_index: 1, status: 'started' },
@@ -203,6 +223,9 @@ describe('createProjectConversationController', () => {
           lastActivityAt: '2026-04-01T10:05:00Z',
         },
       })
+    getProjectConversationWorkspaceDiff
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-2'))
     watchProjectConversation.mockImplementation(async (conversationId, handlers) => {
       streamHandlers.set(conversationId, handlers)
     })
@@ -307,6 +330,9 @@ describe('createProjectConversationController', () => {
         },
       ],
     })
+    getProjectConversationWorkspaceDiff
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-2'))
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
     listProjectConversationEntries.mockImplementation(async (conversationId: string) => ({
       entries:
         conversationId === 'conversation-2'
@@ -358,6 +384,7 @@ describe('createProjectConversationController', () => {
     expect(controller.conversationId).toBe('conversation-2')
     expect(controller.entries).toMatchObject([{ kind: 'text', content: 'Continue the older plan' }])
     expect(listProjectConversationEntries).toHaveBeenCalledTimes(2)
+    expect(getProjectConversationWorkspaceDiff).toHaveBeenCalledTimes(2)
   })
 
   it('closes only the selected tab and keeps the remaining tab active', async () => {
@@ -376,6 +403,9 @@ describe('createProjectConversationController', () => {
           lastActivityAt: '2026-04-01T10:05:00Z',
         },
       })
+    getProjectConversationWorkspaceDiff
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-2'))
     watchProjectConversation.mockResolvedValue(undefined)
     startProjectConversationTurn.mockResolvedValue({
       turn: { id: 'turn-1', turn_index: 1, status: 'started' },

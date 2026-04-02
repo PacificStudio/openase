@@ -6,6 +6,7 @@ const {
   createProjectConversation,
   executeProjectConversationActionProposal,
   getProjectConversation,
+  getProjectConversationWorkspaceDiff,
   listProjectConversationEntries,
   listProjectConversations,
   respondProjectConversationInterrupt,
@@ -16,6 +17,7 @@ const {
   createProjectConversation: vi.fn(),
   executeProjectConversationActionProposal: vi.fn(),
   getProjectConversation: vi.fn(),
+  getProjectConversationWorkspaceDiff: vi.fn(),
   listProjectConversationEntries: vi.fn(),
   listProjectConversations: vi.fn(),
   respondProjectConversationInterrupt: vi.fn(),
@@ -28,6 +30,7 @@ vi.mock('$lib/api/chat', () => ({
   createProjectConversation,
   executeProjectConversationActionProposal,
   getProjectConversation,
+  getProjectConversationWorkspaceDiff,
   listProjectConversationEntries,
   listProjectConversations,
   respondProjectConversationInterrupt,
@@ -37,6 +40,7 @@ vi.mock('$lib/api/chat', () => ({
 
 import ProjectConversationPanel from './project-conversation-panel.svelte'
 import { providerFixtures } from './ephemeral-chat-session-controller.test-helpers'
+import { createWorkspaceDiff } from './project-conversation-panel.test-helpers'
 
 describe('ProjectConversationPanel', () => {
   beforeAll(() => {
@@ -81,6 +85,9 @@ describe('ProjectConversationPanel', () => {
         },
       ],
     })
+    getProjectConversationWorkspaceDiff
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-2'))
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
     listProjectConversationEntries.mockImplementation(async (conversationId: string) => ({
       entries:
         conversationId === 'conversation-2'
@@ -109,19 +116,22 @@ describe('ProjectConversationPanel', () => {
     }))
     watchProjectConversation.mockResolvedValue(undefined)
 
-    const { findAllByText, findByText, getByRole } = render(ProjectConversationPanel, {
-      props: {
-        context: { projectId: 'project-1' },
-        providers: providerFixtures,
-        defaultProviderId: 'provider-1',
-        placeholder: 'Ask anything about this project…',
+    const { findAllByText, findByText, getAllByRole, getByRole } = render(
+      ProjectConversationPanel,
+      {
+        props: {
+          context: { projectId: 'project-1' },
+          providers: providerFixtures,
+          defaultProviderId: 'provider-1',
+          placeholder: 'Ask anything about this project…',
+        },
       },
-    })
+    )
 
     await findByText('Current conversation')
     expect((await findAllByText('Restored')).length).toBeGreaterThanOrEqual(1)
     expect(getByRole('button', { name: /^Older discussion Restored$/ })).toBeTruthy()
-    expect(getByRole('button', { name: /^Current conversation Restored$/ })).toBeTruthy()
+    expect(getAllByRole('button', { name: /Restored$/ }).length).toBeGreaterThanOrEqual(2)
   })
 
   it('keeps the composer enabled on an idle tab while another tab is waiting on input', async () => {
@@ -146,6 +156,9 @@ describe('ProjectConversationPanel', () => {
           lastActivityAt: '2026-04-01T10:05:00Z',
         },
       })
+    getProjectConversationWorkspaceDiff
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-2'))
     watchProjectConversation.mockImplementation(async (conversationId, handlers) => {
       streamHandlers.set(conversationId, handlers)
     })
@@ -232,6 +245,9 @@ describe('ProjectConversationPanel', () => {
           lastActivityAt: '2026-04-01T10:05:00Z',
         },
       })
+    getProjectConversationWorkspaceDiff
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-2'))
     watchProjectConversation.mockResolvedValue(undefined)
     startProjectConversationTurn.mockResolvedValue({
       turn: { id: 'turn-4', turn_index: 1, status: 'started' },

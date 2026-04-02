@@ -246,6 +246,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/chat/conversations/{conversationId}/workspace-diff': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get project conversation workspace diff summary */
+    get: operations['getProjectConversationWorkspaceDiff']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/chat/{sessionId}': {
     parameters: {
       query?: never
@@ -3504,6 +3521,102 @@ export interface operations {
       }
       /** @description Conflict response. */
       409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getProjectConversationWorkspaceDiff: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get project conversation workspace diff summary response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            workspace_diff?: {
+              added?: number
+              conversation_id?: string
+              dirty?: boolean
+              files_changed?: number
+              removed?: number
+              repos?: {
+                added?: number
+                branch?: string
+                dirty?: boolean
+                files?: {
+                  added?: number
+                  path?: string
+                  removed?: number
+                  status?: string
+                }[]
+                files_changed?: number
+                name?: string
+                path?: string
+                removed?: number
+              }[]
+              repos_changed?: number
+              workspace_path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
         headers: {
           [name: string]: unknown
         }
