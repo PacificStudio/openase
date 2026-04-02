@@ -1,71 +1,75 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import type { AgentProvider, SkillFile } from '$lib/api/contracts'
   import {
-    createEphemeralChatSessionController,
-    EphemeralChatProviderSelect,
-    EphemeralChatTranscript,
-  } from '$lib/features/chat'
+    closeSkillRefinementSession,
+    streamSkillRefinement,
+    type SkillRefinementResultPayload,
+  } from '$lib/api/skill-refinement'
+  import type { AgentProvider, SkillFile } from '$lib/api/contracts'
+  import { EphemeralChatProviderSelect } from '$lib/features/chat'
+  import {
+    listEphemeralChatProviders,
+    pickDefaultEphemeralChatProvider,
+    shouldKeepEphemeralChatProvider,
+  } from '$lib/features/chat/provider-options'
+  import { buildDiffPreview } from '$lib/features/skills/assistant'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
+  import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { ScrollArea } from '$ui/scroll-area'
   import Textarea from '$ui/textarea/textarea.svelte'
-  import { RefreshCcw, Send } from '@lucide/svelte'
-  import {
-    buildDiffPreview,
-    findLatestSkillSuggestion,
-    fingerprintSuggestion,
-  } from '$lib/features/skills/assistant'
-  import SkillChatEmptyState from './skill-chat-empty-state.svelte'
+  import { RefreshCcw, ShieldCheck, ShieldX, Sparkles, Wrench } from '@lucide/svelte'
   import SkillSuggestionCard from './skill-suggestion-card.svelte'
+  import { encodeUTF8Base64 } from './skill-bundle-editor'
 
   let {
     projectId,
     providers = [],
     skillId,
     files = [],
-    selectedFilePath,
-    selectedFileIsText = true,
     onApplySuggestion,
   }: {
     projectId?: string
     providers?: AgentProvider[]
     skillId?: string
     files?: SkillFile[]
-    selectedFilePath?: string | null
-    selectedFileIsText?: boolean
-    onApplySuggestion?: (
-      files: Array<{ path: string; content: string }>,
-      focusPath?: string,
-    ) => void
+    onApplySuggestion?: (files: SkillFile[], focusPath?: string) => void
   } = $props()
 
   let prompt = $state('')
-  let appliedFingerprint = $state('')
+  let refinementProviders = $state<AgentProvider[]>([])
+  let providerId = $state('')
+  let pending = $state(false)
+  let sessionId = $state('')
+  let workspacePath = $state('')
+  let phase = $state<
+    '' | 'editing' | 'testing' | 'retrying' | 'verified' | 'blocked' | 'unverified'
+  >('')
+  let phaseMessage = $state('')
+  let attempt = $state(0)
+  let result = $state<SkillRefinementResultPayload | null>(null)
+  let selectedSuggestionPath = $state('')
+  let appliedBundleHash = $state('')
   let previousContextKey = ''
-  const chatController = createEphemeralChatSessionController({
-    getSource: () => 'skill_editor',
-    onError: (message) => toastStore.error(message),
-  })
+  let abortController: AbortController | null = null
 
-  const chatProviders = $derived(chatController.providers)
-  const providerId = $derived(chatController.providerId)
-  const pending = $derived(chatController.pending)
-  const entries = $derived(chatController.entries)
-  const normalizedSelectedPath = $derived(selectedFilePath?.trim() ?? '')
-  const selectedFileContent = $derived(
-    files.find((file) => file.path === normalizedSelectedPath)?.content ?? '',
+  const textPreviewFiles = $derived(
+    result?.candidateFiles.filter(
+      (file) => file.encoding === 'utf8' && typeof file.content === 'string',
+    ) ?? [],
   )
   const suggestion = $derived(
-    normalizedSelectedPath && selectedFileIsText
-      ? findLatestSkillSuggestion(entries, {
-          selectedFilePath: normalizedSelectedPath,
-          files,
-        })
+    result?.status === 'verified' && textPreviewFiles.length > 0
+      ? {
+          summary: result.transcriptSummary || 'Codex verified this draft bundle.',
+          files: textPreviewFiles.map((file) => ({
+            path: file.path,
+            content: file.content ?? '',
+          })),
+        }
       : null,
   )
-  let selectedSuggestionPath = $state('')
   const previewTarget = $derived(
     suggestion?.files.find((file) => file.path === selectedSuggestionPath) ??
       suggestion?.files[0] ??
@@ -79,13 +83,6 @@
         )
       : null,
   )
-  const currentFingerprint = $derived(
-    suggestion
-      ? fingerprintSuggestion(
-          suggestion.files.map((file) => `${file.path}\n${file.content}`).join('\n\n'),
-        )
-      : '',
-  )
   const previewList = $derived(
     suggestion?.files.map((file) => ({
       path: file.path,
@@ -96,23 +93,40 @@
     })) ?? [],
   )
   const suggestionAlreadyApplied = $derived(
-    (previewList.length > 0 && previewList.every((item) => !item.preview.hasChanges)) ||
-      appliedFingerprint === currentFingerprint,
+    (result?.candidateBundleHash && appliedBundleHash === result.candidateBundleHash) ||
+      (previewList.length > 0 && previewList.every((item) => !item.preview.hasChanges)),
   )
+  const sendDisabled = $derived(!projectId || !skillId || !providerId || !prompt.trim() || pending)
 
   $effect(() => {
-    const contextKey =
-      projectId && skillId && normalizedSelectedPath
-        ? `${projectId}:${skillId}:${normalizedSelectedPath}`
-        : ''
+    const nextProviders = providers
+    const nextDefaultProviderId = appStore.currentProject?.default_agent_provider_id ?? ''
+    untrack(() => {
+      refinementProviders = listEphemeralChatProviders(nextProviders)
+      if (shouldKeepEphemeralChatProvider(refinementProviders, providerId)) {
+        return
+      }
+      const nextProviderId = pickDefaultEphemeralChatProvider(
+        refinementProviders,
+        nextDefaultProviderId,
+      )
+      if (providerId && providerId !== nextProviderId) {
+        void closeActiveSession({ clearResult: true, suppressError: true })
+      }
+      providerId = nextProviderId
+    })
+  })
+
+  $effect(() => {
+    const contextKey = projectId && skillId ? `${projectId}:${skillId}` : ''
     if (contextKey === previousContextKey) {
       return
     }
     previousContextKey = contextKey
     prompt = ''
-    appliedFingerprint = ''
+    appliedBundleHash = ''
     selectedSuggestionPath = ''
-    void chatController.resetConversation()
+    void closeActiveSession({ clearResult: true, suppressError: true })
   })
 
   $effect(() => {
@@ -124,65 +138,138 @@
     if (stillExists) {
       return
     }
-    selectedSuggestionPath =
-      suggestion.files.find((file) => file.path === normalizedSelectedPath)?.path ??
-      suggestion.files[0]?.path ??
-      ''
-  })
-
-  $effect(() => {
-    const nextProviders = providers
-    const nextDefaultProviderId = appStore.currentProject?.default_agent_provider_id ?? ''
-    untrack(() => {
-      chatController.syncProviders(nextProviders, nextDefaultProviderId)
-    })
+    selectedSuggestionPath = suggestion.files[0]?.path ?? ''
   })
 
   $effect(() => {
     return () => {
-      void chatController.dispose()
+      void closeActiveSession({ clearResult: false, suppressError: true })
     }
   })
 
-  let sending = $state(false)
-  const sendDisabled = $derived(
-    !projectId ||
-      !skillId ||
-      !normalizedSelectedPath ||
-      !providerId ||
-      pending ||
-      sending ||
-      !selectedFileIsText,
-  )
-
-  async function handleSend() {
-    const message = prompt.trim()
-    if (!message || sendDisabled) {
+  async function closeActiveSession(options: { clearResult: boolean; suppressError?: boolean }) {
+    const activeSessionId = sessionId
+    abortController?.abort()
+    abortController = null
+    pending = false
+    sessionId = ''
+    workspacePath = ''
+    phase = ''
+    phaseMessage = ''
+    attempt = 0
+    selectedSuggestionPath = ''
+    if (options.clearResult) {
+      result = null
+    }
+    if (!activeSessionId) {
       return
     }
+    try {
+      await closeSkillRefinementSession(activeSessionId)
+    } catch (caughtError) {
+      if (options.suppressError) {
+        return
+      }
+      toastStore.error(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Failed to close skill refinement session.',
+      )
+    }
+  }
 
-    sending = true
+  async function handleSend() {
+    if (sendDisabled) {
+      return
+    }
+    const message = prompt.trim()
     prompt = ''
+    pending = true
+    result = null
+    phase = 'editing'
+    phaseMessage = 'Preparing the draft bundle for Codex.'
+    attempt = 0
+    appliedBundleHash = ''
+
+    const controller = new AbortController()
+    abortController = controller
 
     try {
-      await chatController.sendTurn({
-        message,
-        context: {
+      await streamSkillRefinement(
+        {
           projectId: projectId!,
           skillId: skillId!,
-          skillFilePath: normalizedSelectedPath,
-          skillFileDraft: selectedFileContent,
+          message,
+          providerId,
+          files: files.map((file) => ({
+            path: file.path,
+            contentBase64: file.content_base64 ?? encodeUTF8Base64(file.content ?? ''),
+            mediaType: file.media_type,
+            isExecutable: file.is_executable,
+          })),
         },
-      })
+        {
+          signal: controller.signal,
+          onEvent: (event) => {
+            switch (event.kind) {
+              case 'session':
+                sessionId = event.payload.sessionId
+                workspacePath = event.payload.workspacePath
+                return
+              case 'status':
+                phase = event.payload.phase
+                phaseMessage = event.payload.message
+                attempt = event.payload.attempt
+                return
+              case 'result':
+                result = event.payload
+                phase = event.payload.status
+                phaseMessage =
+                  event.payload.status === 'verified'
+                    ? event.payload.transcriptSummary || 'Verification passed.'
+                    : event.payload.failureReason || 'Verification did not pass.'
+                attempt = event.payload.attempts
+                return
+              case 'error':
+                phase = 'blocked'
+                phaseMessage = event.payload.message
+                toastStore.error(event.payload.message)
+                return
+            }
+          },
+        },
+      )
+    } catch (caughtError) {
+      if (!(caughtError instanceof DOMException && caughtError.name === 'AbortError')) {
+        toastStore.error(
+          caughtError instanceof Error ? caughtError.message : 'Skill refinement failed.',
+        )
+        phase = 'blocked'
+        phaseMessage =
+          caughtError instanceof Error ? caughtError.message : 'Skill refinement failed.'
+      }
     } finally {
-      sending = false
+      if (abortController === controller) {
+        abortController = null
+      }
+      pending = false
     }
   }
 
   function handleApply() {
-    if (!suggestion) return
-    onApplySuggestion?.(suggestion.files, selectedSuggestionPath || suggestion.files[0]?.path)
-    appliedFingerprint = currentFingerprint
+    if (!result || result.status !== 'verified') {
+      return
+    }
+    onApplySuggestion?.(result.candidateFiles, selectedSuggestionPath || suggestion?.files[0]?.path)
+    appliedBundleHash = result.candidateBundleHash ?? ''
+  }
+
+  async function handleProviderChange(nextProviderId: string) {
+    if (nextProviderId === providerId) {
+      return
+    }
+    providerId = nextProviderId
+    await closeActiveSession({ clearResult: true })
   }
 
   function handlePromptKeydown(event: KeyboardEvent) {
@@ -193,33 +280,49 @@
     void handleSend()
   }
 
-  async function resetConversation() {
-    prompt = ''
-    appliedFingerprint = ''
-    await chatController.resetConversation()
+  function phaseBadgeClass(value: typeof phase) {
+    switch (value) {
+      case 'verified':
+        return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+      case 'blocked':
+        return 'border-rose-500/40 bg-rose-500/10 text-rose-200'
+      case 'unverified':
+        return 'border-amber-500/40 bg-amber-500/10 text-amber-200'
+      case 'testing':
+        return 'border-sky-500/40 bg-sky-500/10 text-sky-200'
+      case 'retrying':
+        return 'border-orange-500/40 bg-orange-500/10 text-orange-200'
+      default:
+        return 'border-primary/30 bg-primary/10 text-foreground'
+    }
   }
 
-  async function handleProviderChange(nextProviderId: string) {
-    prompt = ''
-    appliedFingerprint = ''
-    await chatController.selectProvider(nextProviderId)
-  }
-
-  async function handleConfirmActionProposal(entryId: string) {
-    await chatController.confirmActionProposal(entryId)
-  }
-
-  function handleCancelActionProposal(entryId: string) {
-    chatController.cancelActionProposal(entryId)
+  function phaseLabel(value: typeof phase) {
+    switch (value) {
+      case 'editing':
+        return 'Editing'
+      case 'testing':
+        return 'Testing'
+      case 'retrying':
+        return 'Retrying'
+      case 'verified':
+        return 'Verified'
+      case 'blocked':
+        return 'Blocked'
+      case 'unverified':
+        return 'Unverified'
+      default:
+        return 'Idle'
+    }
   }
 </script>
 
 <div class="bg-background flex h-full min-h-0 flex-col">
   <div class="border-border flex items-center justify-between gap-2 border-b px-3 py-1">
     <div class="flex min-w-0 items-center gap-1.5">
-      <span class="text-muted-foreground text-[11px] font-medium">AI</span>
+      <span class="text-muted-foreground text-[11px] font-medium">Fix & verify</span>
       <EphemeralChatProviderSelect
-        providers={chatProviders}
+        providers={refinementProviders}
         {providerId}
         onProviderChange={(nextProviderId) => void handleProviderChange(nextProviderId)}
       />
@@ -229,65 +332,116 @@
       variant="ghost"
       size="sm"
       class="size-6 p-0"
-      aria-label="Reset conversation"
-      onclick={() => void resetConversation()}
-      disabled={entries.length === 0 && !pending}
+      aria-label="Reset refinement run"
+      onclick={() => void closeActiveSession({ clearResult: true })}
+      disabled={!sessionId && !result && !pending}
     >
       <RefreshCcw class="size-3" />
     </Button>
   </div>
 
   <ScrollArea class="min-h-0 flex-1 px-3 py-2">
-    <div class="space-y-2">
-      {#if entries.length === 0}
-        <SkillChatEmptyState />
-      {/if}
-      <EphemeralChatTranscript
-        {entries}
-        {pending}
-        onConfirmActionProposal={handleConfirmActionProposal}
-        onCancelActionProposal={handleCancelActionProposal}
-      />
+    <div class="space-y-3">
+      <div class="rounded-lg border border-white/8 bg-white/4 p-3">
+        <div class="flex items-start justify-between gap-3">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <Badge variant="outline" class={phaseBadgeClass(phase)}>
+                {phaseLabel(phase)}
+              </Badge>
+              {#if attempt > 0}
+                <span class="text-muted-foreground text-[11px]">Attempt {attempt}</span>
+              {/if}
+            </div>
+            <p class="text-muted-foreground text-xs leading-5">
+              {phaseMessage ||
+                'Ask Codex to edit the draft bundle and verify it in an isolated workspace.'}
+            </p>
+          </div>
+          {#if phase === 'verified'}
+            <ShieldCheck class="mt-0.5 size-4 shrink-0 text-emerald-300" />
+          {:else if phase === 'blocked' || phase === 'unverified'}
+            <ShieldX class="mt-0.5 size-4 shrink-0 text-rose-300" />
+          {:else}
+            <Wrench class="mt-0.5 size-4 shrink-0 text-sky-300" />
+          {/if}
+        </div>
 
-      {#if suggestion && preview}
-        <SkillSuggestionCard
-          {suggestion}
-          selectedPath={selectedSuggestionPath}
-          {preview}
-          {suggestionAlreadyApplied}
-          onSelectPath={(path) => (selectedSuggestionPath = path)}
-          onApply={handleApply}
-        />
+        {#if workspacePath}
+          <div class="mt-3 rounded-md border border-white/6 bg-black/20 px-2.5 py-2">
+            <p class="text-muted-foreground text-[10px] tracking-[0.18em] uppercase">Workspace</p>
+            <p class="mt-1 font-mono text-[11px] leading-5 break-all">{workspacePath}</p>
+          </div>
+        {/if}
+      </div>
+
+      {#if result}
+        <div class="space-y-3">
+          {#if result.status === 'verified' && suggestion && preview}
+            <SkillSuggestionCard
+              {suggestion}
+              selectedPath={selectedSuggestionPath}
+              {preview}
+              {suggestionAlreadyApplied}
+              onSelectPath={(path) => (selectedSuggestionPath = path)}
+              onApply={handleApply}
+            />
+          {/if}
+
+          {#if result.failureReason}
+            <div class="rounded-lg border border-rose-500/30 bg-rose-500/8 p-3">
+              <p class="text-[11px] font-medium tracking-[0.18em] text-rose-200 uppercase">
+                Failure
+              </p>
+              <p class="mt-2 text-xs leading-5 whitespace-pre-wrap text-rose-50">
+                {result.failureReason}
+              </p>
+            </div>
+          {/if}
+
+          {#if result.transcriptSummary}
+            <div class="rounded-lg border border-white/8 bg-white/4 p-3">
+              <div class="flex items-center gap-2">
+                <Sparkles class="size-3.5 text-sky-200" />
+                <p class="text-[11px] font-medium tracking-[0.18em] uppercase">
+                  Transcript Summary
+                </p>
+              </div>
+              <p class="mt-2 text-xs leading-5 whitespace-pre-wrap">{result.transcriptSummary}</p>
+            </div>
+          {/if}
+
+          {#if result.commandOutputSummary}
+            <div class="rounded-lg border border-white/8 bg-black/20 p-3">
+              <p class="text-muted-foreground text-[11px] font-medium tracking-[0.18em] uppercase">
+                Verification Output
+              </p>
+              <pre class="mt-2 font-mono text-[11px] leading-5 break-words whitespace-pre-wrap">
+{result.commandOutputSummary}</pre>
+            </div>
+          {/if}
+        </div>
       {/if}
     </div>
   </ScrollArea>
 
-  <div class="border-border border-t px-3 py-1.5">
-    <div
-      class="border-input focus-within:ring-ring flex items-center gap-1.5 rounded-md border px-2.5 py-1 focus-within:ring-1"
-    >
+  <div class="border-border border-t px-3 py-2">
+    <div class="space-y-2">
       <Textarea
         bind:value={prompt}
-        rows={1}
-        class="min-h-0 flex-1 resize-none border-0 px-0 py-1 text-xs shadow-none focus-visible:ring-0"
-        placeholder={selectedFileIsText
-          ? `Ask AI to refine ${normalizedSelectedPath || 'this file'}…`
-          : 'Select a UTF-8 text file to edit with AI…'}
-        disabled={!projectId ||
-          !skillId ||
-          !providerId ||
-          !normalizedSelectedPath ||
-          !selectedFileIsText}
+        rows={4}
+        class="min-h-[88px] resize-none text-xs"
+        placeholder="Describe what Codex should improve and verify for this draft bundle…"
+        disabled={!projectId || !skillId || !providerId || pending}
         onkeydown={handlePromptKeydown}
       />
       <Button
-        variant="ghost"
-        size="sm"
-        class="size-6 shrink-0 p-0"
+        class="h-8 w-full gap-2 text-xs"
         onclick={() => void handleSend()}
-        disabled={!prompt.trim() || sendDisabled}
+        disabled={sendDisabled}
       >
-        <Send class="size-3.5" />
+        <ShieldCheck class="size-3.5" />
+        {pending ? 'Running verification…' : 'Fix and verify'}
       </Button>
     </div>
   </div>
