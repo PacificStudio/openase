@@ -2618,6 +2618,119 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "focus": {
+                    "description": "Optional per-turn focus context describing the currently selected workflow, skill, ticket, or machine surface.",
+                    "nullable": true,
+                    "properties": {
+                      "bound_workflow_names": {
+                        "description": "Workflow names currently bound to the focused skill.",
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "harness_path": {
+                        "description": "Harness path for the focused workflow.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "has_dirty_draft": {
+                        "description": "Whether the focused workflow or skill surface currently has unsaved draft edits.",
+                        "nullable": true,
+                        "type": "boolean"
+                      },
+                      "health_summary": {
+                        "description": "Compact health or resource summary for the focused machine.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "is_active": {
+                        "description": "Whether the focused workflow is currently active.",
+                        "nullable": true,
+                        "type": "boolean"
+                      },
+                      "kind": {
+                        "description": "Focused surface kind. Supported values are workflow, skill, ticket, and machine.",
+                        "type": "string"
+                      },
+                      "machine_host": {
+                        "description": "Machine host currently in focus.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "machine_id": {
+                        "description": "Machine ID currently in focus.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "machine_name": {
+                        "description": "Machine name currently in focus.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "machine_status": {
+                        "description": "Machine runtime status currently in focus.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "selected_area": {
+                        "description": "UI sub-area currently in focus, such as harness, detail, or health.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "selected_file_path": {
+                        "description": "Selected bundle file path for the focused skill surface.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "skill_id": {
+                        "description": "Skill ID currently in focus.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "skill_name": {
+                        "description": "Skill name currently in focus.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "ticket_id": {
+                        "description": "Ticket ID currently in focus.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "ticket_identifier": {
+                        "description": "Human-readable ticket identifier currently in focus.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "ticket_status": {
+                        "description": "Ticket status currently in focus.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "ticket_title": {
+                        "description": "Ticket title currently in focus.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "workflow_id": {
+                        "description": "Workflow ID currently in focus.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "workflow_name": {
+                        "description": "Workflow name currently in focus.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "workflow_type": {
+                        "description": "Workflow type currently in focus.",
+                        "nullable": true,
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
                   "message": {
                     "description": "User message content appended as the next project conversation turn.",
                     "type": "string"
@@ -2749,6 +2862,188 @@
           }
         },
         "summary": "Start a project conversation turn",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/api/v1/chat/conversations/{conversationId}/workspace-diff": {
+      "get": {
+        "operationId": "getProjectConversationWorkspaceDiff",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "workspace_diff": {
+                      "properties": {
+                        "added": {
+                          "type": "integer"
+                        },
+                        "conversation_id": {
+                          "type": "string"
+                        },
+                        "dirty": {
+                          "type": "boolean"
+                        },
+                        "files_changed": {
+                          "type": "integer"
+                        },
+                        "removed": {
+                          "type": "integer"
+                        },
+                        "repos": {
+                          "items": {
+                            "properties": {
+                              "added": {
+                                "type": "integer"
+                              },
+                              "branch": {
+                                "type": "string"
+                              },
+                              "dirty": {
+                                "type": "boolean"
+                              },
+                              "files": {
+                                "items": {
+                                  "properties": {
+                                    "added": {
+                                      "type": "integer"
+                                    },
+                                    "path": {
+                                      "type": "string"
+                                    },
+                                    "removed": {
+                                      "type": "integer"
+                                    },
+                                    "status": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              },
+                              "files_changed": {
+                                "type": "integer"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "path": {
+                                "type": "string"
+                              },
+                              "removed": {
+                                "type": "integer"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "repos_changed": {
+                          "type": "integer"
+                        },
+                        "workspace_path": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get project conversation workspace diff summary response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Get project conversation workspace diff summary",
         "tags": [
           "chat"
         ]
@@ -20925,6 +21220,85 @@
         ]
       }
     },
+    "/api/v1/skills/refinement-runs/{sessionId}": {
+      "delete": {
+        "operationId": "closeSkillRefinementRun",
+        "parameters": [
+          {
+            "description": "Skill refinement session ID.",
+            "in": "path",
+            "name": "sessionId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Skill refinement run closed."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Close a skill refinement run and clean up its temporary workspace",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
     "/api/v1/skills/{skillId}": {
       "delete": {
         "operationId": "deleteSkill",
@@ -22294,6 +22668,161 @@
           }
         },
         "summary": "List published skill versions",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/api/v1/skills/{skillId}/refinement-runs": {
+      "post": {
+        "operationId": "startSkillRefinement",
+        "parameters": [
+          {
+            "description": "Skill ID.",
+            "in": "path",
+            "name": "skillId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "files": {
+                    "description": "Current draft skill bundle files from the editor.",
+                    "items": {
+                      "properties": {
+                        "content_base64": {
+                          "description": "Base64-encoded file bytes for this draft bundle entry.",
+                          "type": "string"
+                        },
+                        "is_executable": {
+                          "description": "Whether the projected file should be marked executable at runtime.",
+                          "type": "boolean"
+                        },
+                        "media_type": {
+                          "description": "Optional media type persisted with the file entry.",
+                          "type": "string"
+                        },
+                        "path": {
+                          "description": "Bundle-relative file path using forward slashes.",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "message": {
+                    "description": "Requested improvement goal that Codex should fix and verify against the current draft bundle.",
+                    "type": "string"
+                  },
+                  "project_id": {
+                    "description": "Project ID that owns the skill draft and provider selection.",
+                    "type": "string"
+                  },
+                  "provider_id": {
+                    "description": "Optional provider ID. Phase 1 supports Codex-backed refinement only.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Skill fix-and-verify refinement request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Server-sent events stream."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Start a Codex-backed skill fix-and-verify refinement run",
         "tags": [
           "skills"
         ]

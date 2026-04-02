@@ -230,6 +230,7 @@
                     initialState={data.github}
                     onComplete={(updated) => {
                       data = { ...data!, github: updated }
+                      refreshData()
                     }}
                   />
                 {:else if step.id === 'repo'}
@@ -274,7 +275,7 @@
                     {projectId}
                     {orgId}
                     {projectStatus}
-                    workflows={data.agentWorkflow.workflows}
+                    statuses={data.agentWorkflow.statuses}
                     ticketCount={data.firstTicket.ticketCount}
                     onComplete={() => {
                       data = {

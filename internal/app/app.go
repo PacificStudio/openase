@@ -159,11 +159,12 @@ func (a *App) RunServe(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("construct chat codex adapter: %w", err)
 	}
+	codexRuntime := chatservice.NewCodexRuntime(codexRuntimeAdapter)
 	chatSvc := chatservice.NewService(
 		a.logger,
 		chatservice.NewRuntime(
 			chatservice.NewClaudeRuntime(claudecodeadapter.NewAdapter(chatProcessManager)),
-			chatservice.NewCodexRuntime(codexRuntimeAdapter),
+			codexRuntime,
 			chatservice.NewGeminiRuntime(chatProcessManager),
 		),
 		catalogSvc,
@@ -171,6 +172,12 @@ func (a *App) RunServe(ctx context.Context) error {
 		workflowSvc,
 		ticketStatusSvc,
 		chatWorkingDirectory,
+	)
+	skillRefinementSvc := chatservice.NewSkillRefinementService(
+		a.logger,
+		codexRuntime,
+		catalogSvc,
+		workflowSvc,
 	)
 	projectConversationSvc := chatservice.NewProjectConversationService(
 		a.logger,
@@ -205,6 +212,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithNotificationService(notificationSvc),
 		httpapi.WithProjectUpdateService(projectUpdateSvc),
 		httpapi.WithChatService(chatSvc),
+		httpapi.WithSkillRefinementService(skillRefinementSvc),
 		httpapi.WithProjectConversationService(projectConversationSvc),
 	)
 	driver, err := a.config.ResolvedEventDriver()

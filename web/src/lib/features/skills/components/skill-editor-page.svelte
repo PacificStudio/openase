@@ -2,6 +2,7 @@
   import { goto, beforeNavigate } from '$app/navigation'
   import { ApiError } from '$lib/api/client'
   import type { SkillFile, Skill, Workflow } from '$lib/api/contracts'
+  import { PROJECT_AI_FOCUS_PRIORITY } from '$lib/features/chat'
   import {
     bindSkill,
     deleteSkill,
@@ -43,6 +44,7 @@
   import SkillEditorWorkspace from './skill-editor-workspace.svelte'
 
   let { skillId }: { skillId: string } = $props()
+  const projectAIFocusOwner = 'skill-editor-page'
 
   let skill = $state<Skill | null>(null)
   let files = $state<SkillFile[]>([])
@@ -147,6 +149,32 @@
     }
   }
 
+  $effect(() => {
+    const projectId = appStore.currentProject?.id
+    if (!projectId || loading || !skill) {
+      appStore.clearProjectAssistantFocus(projectAIFocusOwner)
+      return
+    }
+
+    appStore.setProjectAssistantFocus(
+      projectAIFocusOwner,
+      {
+        kind: 'skill',
+        projectId,
+        skillId: skill.id,
+        skillName: skill.name,
+        selectedFilePath: selectedFilePath ?? 'SKILL.md',
+        boundWorkflowNames: skill.bound_workflows.map((workflow) => workflow.name),
+        hasDirtyDraft: hasDirtyChanges,
+      },
+      PROJECT_AI_FOCUS_PRIORITY.workspace,
+    )
+
+    return () => {
+      appStore.clearProjectAssistantFocus(projectAIFocusOwner)
+    }
+  })
+
   // Warn on browser tab close with unsaved changes
   function handleBeforeUnload(event: BeforeUnloadEvent) {
     if (hasDirtyChanges) {
@@ -204,35 +232,21 @@
     )
   }
 
-  function handleApplyAssistantSuggestion(
-    suggestedFiles: Array<{ path: string; content: string }>,
-    focusPath?: string,
-  ) {
+  function handleApplyAssistantSuggestion(suggestedFiles: SkillFile[], focusPath?: string) {
     if (suggestedFiles.length === 0) {
       return
     }
 
-    const suggestionMap = new Map(suggestedFiles.map((file) => [file.path, file.content]))
-    let nextDraftFiles = draftFiles
-    for (const file of suggestedFiles) {
-      if (!nextDraftFiles.some((item) => item.path === file.path)) {
-        nextDraftFiles = addDraftTextFile(
-          nextDraftFiles,
-          emptyDirectoryPaths,
-          file.path,
-          file.content,
-        )
-      }
-    }
+    draftFiles = suggestedFiles.map(cloneSkillFile)
+    emptyDirectoryPaths = []
 
-    draftFiles = nextDraftFiles.map((file) => {
-      const suggestedContent = suggestionMap.get(file.path)
-      return suggestedContent === undefined
-        ? file
-        : updateDraftTextFileContent(file, suggestedContent)
-    })
+    const validPaths = new Set(suggestedFiles.map((file) => file.path))
+    openFilePaths = openFilePaths.filter((path) => validPaths.has(path))
 
-    const nextFocusPath = focusPath ?? suggestedFiles[0]?.path
+    const nextFocusPath =
+      focusPath ??
+      suggestedFiles.find((file) => file.encoding === 'utf8')?.path ??
+      suggestedFiles[0]?.path
     if (nextFocusPath) {
       selectFile(nextFocusPath)
     }
@@ -688,8 +702,6 @@
             {providers}
             skillId={skill.id}
             files={draftFiles}
-            {selectedFilePath}
-            {selectedFileIsText}
             onApplySuggestion={handleApplyAssistantSuggestion}
           />
         </aside>

@@ -33,6 +33,7 @@ func (s *Server) registerChatRoutes(api *echo.Group) {
 	api.GET("/chat/conversations", s.handleListProjectConversations)
 	api.GET("/chat/conversations/:conversationId", s.handleGetProjectConversation)
 	api.GET("/chat/conversations/:conversationId/entries", s.handleListProjectConversationEntries)
+	api.GET("/chat/conversations/:conversationId/workspace-diff", s.handleGetProjectConversationWorkspaceDiff)
 	api.POST("/chat/conversations/:conversationId/turns", s.handleStartProjectConversationTurn)
 	api.GET("/chat/conversations/:conversationId/stream", s.handleProjectConversationStream)
 	api.POST("/chat/conversations/:conversationId/interrupts/:interruptId/respond", s.handleRespondProjectConversationInterrupt)
@@ -402,6 +403,25 @@ func (s *Server) handleListProjectConversationEntries(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{"entries": mapProjectConversationEntries(items)})
 }
 
+func (s *Server) handleGetProjectConversationWorkspaceDiff(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	userID, err := chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
+	}
+	item, err := s.projectConversationService.GetWorkspaceDiff(c.Request().Context(), userID, conversationID)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{"workspace_diff": mapProjectConversationWorkspaceDiffResponse(item)})
+}
+
 func (s *Server) handleStartProjectConversationTurn(c echo.Context) error {
 	if s.projectConversationService == nil {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
@@ -419,12 +439,18 @@ func (s *Server) handleStartProjectConversationTurn(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	message, err := parseProjectConversationTurnRequest(raw)
+	request, err := parseProjectConversationTurnRequest(raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
 
-	turn, err := s.projectConversationService.StartTurn(c.Request().Context(), userID, conversationID, message)
+	turn, err := s.projectConversationService.StartTurn(
+		c.Request().Context(),
+		userID,
+		conversationID,
+		request.Message,
+		request.Focus,
+	)
 	if err != nil {
 		return writeProjectConversationError(c, err)
 	}
@@ -646,6 +672,44 @@ func mapProjectConversationEntry(item chatdomain.Entry) map[string]any {
 		payload["turn_id"] = item.TurnID.String()
 	}
 	return payload
+}
+
+func mapProjectConversationWorkspaceDiffResponse(
+	item chatservice.ProjectConversationWorkspaceDiff,
+) map[string]any {
+	repos := make([]map[string]any, 0, len(item.Repos))
+	for _, repo := range item.Repos {
+		files := make([]map[string]any, 0, len(repo.Files))
+		for _, file := range repo.Files {
+			files = append(files, map[string]any{
+				"path":    file.Path,
+				"status":  string(file.Status),
+				"added":   file.Added,
+				"removed": file.Removed,
+			})
+		}
+		repos = append(repos, map[string]any{
+			"name":          repo.Name,
+			"path":          repo.Path,
+			"branch":        repo.Branch,
+			"dirty":         repo.Dirty,
+			"files_changed": repo.FilesChanged,
+			"added":         repo.Added,
+			"removed":       repo.Removed,
+			"files":         files,
+		})
+	}
+
+	return map[string]any{
+		"conversation_id": item.ConversationID.String(),
+		"workspace_path":  item.WorkspacePath,
+		"dirty":           item.Dirty,
+		"repos_changed":   item.ReposChanged,
+		"files_changed":   item.FilesChanged,
+		"added":           item.Added,
+		"removed":         item.Removed,
+		"repos":           repos,
+	}
 }
 
 func mapPendingInterruptResponse(item chatdomain.PendingInterrupt) map[string]any {

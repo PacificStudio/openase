@@ -9284,8 +9284,10 @@ Project Conversation 中 turn 的中断流程：
 
 - `project_sidebar` 采用常规聊天体验，不再使用固定 turn cap 作为 transcript UX
 - `project_sidebar` 支持同一 `(project, provider)` 下的多 conversation tabs；每个 tab 对应一个独立 `conversation_id`
+- `project_sidebar` 必须把 Project AI workspace 的隔离语义说清楚：隔离单位是 `conversation_id`，不是浏览器 tab；同一 `conversation_id` 在多个浏览器 tab 中看到的是同一个 conversation workspace / branch
 - `project_sidebar` 中一个 assistant turn 只对应一个可变 transcript block；流式增量必须合并到当前 assistant 回复中，不能把 chunk 边界暴露成多个气泡
 - 当 turn 因 Codex interrupt 暂停时，前端应在 transcript 中插入 interrupt card，而不是让用户误以为 turn 已完成
+- `project_sidebar` 必须持久显示当前 conversation workspace 的 dirty summary，明确标注这是 OpenASE-managed Project AI workspace，而不是用户自己的本地 checkout；摘要至少覆盖 repo 级 branch/path/文件数/`+/-` 总计，以及文件级 status/`+/-`
 - 同一 `conversation_id` 在任一时刻最多只允许一个 active turn；多 tab 并发仅限不同 conversation 之间
 - provider 切换会创建新的 conversation，不复用上一 provider 的 provider-native thread
 
@@ -9358,6 +9360,7 @@ Project Conversation 需要最小持久化模型：
 
 - `project_sidebar` 按 `(project_id, provider_id)` 维度恢复已打开的 conversation tabs 和当前选中的 tab
 - 若 localStorage 中某个 `conversation_id` 已不存在、无权限或 provider 不匹配，只移除该失效 tab，不影响其余 tabs 的恢复
+- workspace diff summary 在 restore、turn 完成以及 live runtime reset / reconnect 后都必须重新读取；其 truth source 是 conversation workspace 中各 repo 的实际 git 状态，而不是流式 tool-call 推断
 
 Project Conversation 因此是“**conversation 持久化，live runtime 可回收**”的模型，而不是“session_id 永久等于一个活进程”。
 
@@ -9398,6 +9401,7 @@ Ephemeral Chat 保持单次 turn 的轻量 API：
 | GET | `/api/v1/chat/conversations` | 查询当前用户在某 project/provider/source 下的 conversation 列表或当前活跃 conversation |
 | GET | `/api/v1/chat/conversations/:conversationId` | 获取 conversation 元数据 |
 | GET | `/api/v1/chat/conversations/:conversationId/entries` | 拉取历史 transcript |
+| GET | `/api/v1/chat/conversations/:conversationId/workspace-diff` | 读取当前 conversation workspace 的 repo/file diff 摘要 |
 | POST | `/api/v1/chat/conversations/:conversationId/turns` | 发送一轮用户消息 |
 | GET | `/api/v1/chat/conversations/:conversationId/stream` | watch 当前 conversation 的实时事件 |
 | POST | `/api/v1/chat/conversations/:conversationId/interrupts/:interruptId/respond` | 对 Codex interrupt 提交 decision / answer |
@@ -10327,6 +10331,75 @@ Repository 不承担 bundle 解析逻辑。
 
 - 新 runtime 自动拿最新版本
 - 已运行中的 runtime 不自动刷新
+
+### 34.11 Skill Editor 的 Fix-and-Verify 闭环
+
+Skill Editor 不能只给“未验证建议”。对于 draft skill bundle，平台必须提供一个独立于 project conversation / ticket workspace 的 **fix-and-verify refinement loop**。
+
+#### 34.11.1 独立 session
+
+- 每次 `Fix and verify` 都创建一个独立的 skill refinement session
+- session 维护：
+  - 选定的 Provider（Phase 1 先支持 Codex）
+  - 一个隔离的临时 workspace
+  - 同一 workspace 上的多次 retry turn
+  - 可显式关闭的 runtime session 与 cleanup 逻辑
+- 这不是 project conversation 的变体；不要复用工单工作区或 workflow 运行工作区
+
+建议目录：
+
+- `~/.openase/skill-tests/<project>/<skill>/<session>/workspace`
+
+#### 34.11.2 Draft bundle 是真相源
+
+- Skill Editor 的当前 draft bundle 才是 refinement 的输入真相源
+- 平台必须接受完整 `files[]` 草稿，而不是只读取最新已发布版本
+- 在启动 Codex 前，平台先把该 draft bundle materialize 到：
+  - `.codex/skills/<skill>/...`
+- 临时 workspace 只是 projection，不会自动覆盖控制面数据
+
+#### 34.11.3 内部执行循环
+
+平台内部按如下顺序执行：
+
+1. 读取 editor draft bundle
+2. materialize 到 skill test workspace
+3. 启动 Codex session
+4. Codex 直接编辑 bundle 文件并运行验证命令
+5. 若失败，平台在同一 session / workspace 内发起 bounded retry
+6. 直到得到：
+   - `verified`
+   - `blocked`
+   - `unverified`（仅当 runtime-backed verification 根本无法完成时）
+
+关键规则：
+
+- 没有真实 runtime-backed verification 成功，就不能把结果标记为 `verified`
+- `verified` 必须伴随最终 candidate bundle
+- `blocked` 必须伴随明确 failure reason 和验证证据摘要
+- refinement session 关闭或 reset 后，平台必须清理临时 workspace 与 provider session
+
+#### 34.11.4 UI 返回模型
+
+Skill Editor 必须以单一动作暴露该闭环：
+
+- 主按钮：`Fix and verify`
+- 运行态至少显示：
+  - `editing`
+  - `testing`
+  - `retrying`
+  - `verified`
+  - `blocked`
+- 返回结果至少包含：
+  - `status`
+  - `workspace_path`
+  - provider thread / turn 标识（若可用）
+  - transcript / transcript summary
+  - command output summary
+  - final candidate files / bundle diff
+  - `failure_reason`
+
+只有 `verified` 结果允许被一键 apply 回当前 draft bundle。
 
 ### 34.11 管理操作
 

@@ -1,5 +1,6 @@
 import { ApiError } from './client'
 import { consumeEventStream, type SSEFrame } from './sse'
+import type { ProjectAIFocus } from '$lib/features/chat/project-ai-focus'
 
 const chatUserHeader = 'X-OpenASE-Chat-User'
 const chatUserStorageKey = 'openase.ephemeral-chat-user-id'
@@ -133,6 +134,42 @@ export type ProjectConversationEntry = {
   createdAt: string
 }
 
+export type ProjectConversationWorkspaceFileStatus =
+  | 'modified'
+  | 'added'
+  | 'deleted'
+  | 'renamed'
+  | 'untracked'
+
+export type ProjectConversationWorkspaceDiffFile = {
+  path: string
+  status: ProjectConversationWorkspaceFileStatus
+  added: number
+  removed: number
+}
+
+export type ProjectConversationWorkspaceDiffRepo = {
+  name: string
+  path: string
+  branch: string
+  dirty: boolean
+  filesChanged: number
+  added: number
+  removed: number
+  files: ProjectConversationWorkspaceDiffFile[]
+}
+
+export type ProjectConversationWorkspaceDiff = {
+  conversationId: string
+  workspacePath: string
+  dirty: boolean
+  reposChanged: number
+  filesChanged: number
+  added: number
+  removed: number
+  repos: ProjectConversationWorkspaceDiffRepo[]
+}
+
 export type ProjectConversationInterruptOption = {
   id: string
   label: string
@@ -149,6 +186,11 @@ export type ProjectConversationInterruptRequestedPayload = {
 export type ProjectConversationInterruptResolvedPayload = {
   interruptId: string
   decision?: string
+}
+
+export type ProjectConversationTurnRequest = {
+  message: string
+  focus?: ProjectAIFocus | null
 }
 
 export type ProjectConversationTurnDonePayload = {
@@ -301,14 +343,80 @@ export function listProjectConversationEntries(conversationId: string) {
   }))
 }
 
-export function startProjectConversationTurn(conversationId: string, message: string) {
+export async function getProjectConversationWorkspaceDiff(conversationId: string) {
+  const payload = await fetchJSON<{ workspace_diff?: unknown }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace-diff`,
+  )
+  const object = parseRequiredObject(payload as Record<string, unknown>)
+  return {
+    workspaceDiff: parseProjectConversationWorkspaceDiff(
+      object.workspace_diff ?? object.workspaceDiff ?? object,
+    ),
+  }
+}
+
+export function startProjectConversationTurn(
+  conversationId: string,
+  request: ProjectConversationTurnRequest,
+) {
   return fetchJSON<{ turn: { id: string; turn_index: number; status: string } }>(
     `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/turns`,
     {
       method: 'POST',
-      body: { message },
+      body: {
+        message: request.message,
+        focus: serializeProjectConversationFocus(request.focus),
+      },
     },
   )
+}
+
+function serializeProjectConversationFocus(focus: ProjectAIFocus | null | undefined) {
+  if (!focus) {
+    return undefined
+  }
+
+  switch (focus.kind) {
+    case 'workflow':
+      return {
+        kind: focus.kind,
+        workflow_id: focus.workflowId,
+        workflow_name: focus.workflowName,
+        workflow_type: focus.workflowType,
+        harness_path: focus.harnessPath,
+        is_active: focus.isActive,
+        selected_area: focus.selectedArea,
+        has_dirty_draft: focus.hasDirtyDraft,
+      }
+    case 'skill':
+      return {
+        kind: focus.kind,
+        skill_id: focus.skillId,
+        skill_name: focus.skillName,
+        selected_file_path: focus.selectedFilePath,
+        bound_workflow_names: focus.boundWorkflowNames,
+        has_dirty_draft: focus.hasDirtyDraft,
+      }
+    case 'ticket':
+      return {
+        kind: focus.kind,
+        ticket_id: focus.ticketId,
+        ticket_identifier: focus.ticketIdentifier,
+        ticket_title: focus.ticketTitle,
+        ticket_status: focus.ticketStatus,
+        selected_area: focus.selectedArea,
+      }
+    case 'machine':
+      return {
+        kind: focus.kind,
+        machine_id: focus.machineId,
+        machine_name: focus.machineName,
+        machine_host: focus.machineHost,
+        machine_status: focus.machineStatus,
+        selected_area: focus.selectedArea,
+        health_summary: focus.healthSummary,
+      }
+  }
 }
 
 export async function watchProjectConversation(
@@ -515,6 +623,78 @@ function parseProjectConversationStreamEvent(
   }
 }
 
+function parseProjectConversationWorkspaceDiff(value: unknown): ProjectConversationWorkspaceDiff {
+  const object = parseRequiredObject(value)
+  return {
+    conversationId: readRequiredString(object, 'conversation_id'),
+    workspacePath: readRequiredString(object, 'workspace_path'),
+    dirty: readRequiredBoolean(object, 'dirty'),
+    reposChanged: readRequiredNumber(object, 'repos_changed'),
+    filesChanged: readRequiredNumber(object, 'files_changed'),
+    added: readRequiredNumber(object, 'added'),
+    removed: readRequiredNumber(object, 'removed'),
+    repos: readProjectConversationWorkspaceDiffRepos(object),
+  }
+}
+
+function readProjectConversationWorkspaceDiffRepos(
+  object: Record<string, unknown>,
+): ProjectConversationWorkspaceDiffRepo[] {
+  const value = object.repos
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.map((item) => {
+    const repo = parseRequiredObject(item)
+    return {
+      name: readRequiredString(repo, 'name'),
+      path: readRequiredString(repo, 'path'),
+      branch: readRequiredString(repo, 'branch'),
+      dirty: readRequiredBoolean(repo, 'dirty'),
+      filesChanged: readRequiredNumber(repo, 'files_changed'),
+      added: readRequiredNumber(repo, 'added'),
+      removed: readRequiredNumber(repo, 'removed'),
+      files: readProjectConversationWorkspaceDiffFiles(repo),
+    }
+  })
+}
+
+function readProjectConversationWorkspaceDiffFiles(
+  object: Record<string, unknown>,
+): ProjectConversationWorkspaceDiffFile[] {
+  const value = object.files
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.map((item) => {
+    const file = parseRequiredObject(item)
+    const status = readRequiredString(file, 'status')
+    if (!isProjectConversationWorkspaceFileStatus(status)) {
+      throw new Error(`project conversation workspace file status ${status} is unsupported`)
+    }
+    return {
+      path: readRequiredString(file, 'path'),
+      status,
+      added: readRequiredNumber(file, 'added'),
+      removed: readRequiredNumber(file, 'removed'),
+    }
+  })
+}
+
+function isProjectConversationWorkspaceFileStatus(
+  value: string,
+): value is ProjectConversationWorkspaceFileStatus {
+  return (
+    value === 'modified' ||
+    value === 'added' ||
+    value === 'deleted' ||
+    value === 'renamed' ||
+    value === 'untracked'
+  )
+}
+
 function parseMessagePayload(payload: unknown): ChatMessagePayload {
   const object = parseRequiredObject(payload)
   const type = readRequiredString(object, 'type')
@@ -647,6 +827,14 @@ function readRequiredNumber(object: Record<string, unknown>, key: string): numbe
   const value = object[key]
   if (typeof value !== 'number' || Number.isNaN(value)) {
     throw new Error(`chat stream payload field ${key} must be a number`)
+  }
+  return value
+}
+
+function readRequiredBoolean(object: Record<string, unknown>, key: string): boolean {
+  const value = object[key]
+  if (typeof value !== 'boolean') {
+    throw new Error(`chat stream payload field ${key} must be a boolean`)
   }
   return value
 }

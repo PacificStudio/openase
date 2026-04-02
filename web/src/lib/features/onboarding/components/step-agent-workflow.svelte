@@ -45,6 +45,11 @@
   const preset = $derived(getBootstrapPreset(projectStatus))
   const isTerminal = $derived(isTerminalProjectStatus(projectStatus))
 
+  function findStatusByName(name: string, statuses: AgentWorkflowState['statuses']) {
+    const target = name.trim().toLowerCase()
+    return statuses.find((status) => status.name.trim().toLowerCase() === target)
+  }
+
   async function handleBootstrap() {
     if (!providerId) {
       toastStore.error('请先选择一个 Provider。')
@@ -52,15 +57,17 @@
     }
     bootstrapping = true
     try {
-      // Find appropriate pickup and finish statuses
+      // Find the configured canonical statuses for the onboarding bootstrap.
       const statusPayload = await listStatuses(projectId)
       const statuses = statusPayload.statuses
 
-      const pickupStatus = statuses.find((s) => s.stage === preset.pickupStage)
-      const finishStatus = statuses.find((s) => s.stage === preset.finishStage)
+      const pickupStatus = findStatusByName(preset.pickupStatusName, statuses)
+      const finishStatus = findStatusByName(preset.finishStatusName, statuses)
 
       if (!pickupStatus || !finishStatus) {
-        toastStore.error('未找到匹配的 Pickup 或 Finish 状态，请先在设置中配置状态。')
+        toastStore.error(
+          `未找到状态「${preset.pickupStatusName}」或「${preset.finishStatusName}」，请先在设置中配置状态。`,
+        )
         return
       }
 
@@ -181,7 +188,7 @@
           <div>
             <p class="text-foreground text-sm">状态流转</p>
             <p class="text-muted-foreground text-xs">
-              Pickup：{preset.pickupStage} → Finish：{preset.finishStage}
+              Pickup：{preset.pickupStatusName} → Finish：{preset.finishStatusName}
             </p>
           </div>
         </div>

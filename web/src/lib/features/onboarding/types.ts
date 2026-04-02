@@ -67,8 +67,8 @@ export type ProjectBootstrapPreset = {
   roleName: string
   roleSlug: string
   workflowType: string
-  pickupStage: string
-  finishStage: string
+  pickupStatusName: string
+  finishStatusName: string
   agentNameSuggestion: string
   exampleTicketTitle: string
 }

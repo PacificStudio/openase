@@ -5,6 +5,7 @@ const {
   createProjectConversation,
   executeProjectConversationActionProposal,
   getProjectConversation,
+  getProjectConversationWorkspaceDiff,
   listProjectConversationEntries,
   listProjectConversations,
   respondProjectConversationInterrupt,
@@ -15,6 +16,7 @@ const {
   createProjectConversation: vi.fn(),
   executeProjectConversationActionProposal: vi.fn(),
   getProjectConversation: vi.fn(),
+  getProjectConversationWorkspaceDiff: vi.fn(),
   listProjectConversationEntries: vi.fn(),
   listProjectConversations: vi.fn(),
   respondProjectConversationInterrupt: vi.fn(),
@@ -27,6 +29,7 @@ vi.mock('$lib/api/chat', () => ({
   createProjectConversation,
   executeProjectConversationActionProposal,
   getProjectConversation,
+  getProjectConversationWorkspaceDiff,
   listProjectConversationEntries,
   listProjectConversations,
   respondProjectConversationInterrupt,
@@ -37,14 +40,39 @@ vi.mock('$lib/api/chat', () => ({
 import { createProjectConversationController } from './project-conversation-controller.svelte'
 import { providerFixtures } from './ephemeral-chat-session-controller.test-helpers'
 
-function deferredPromise<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((nextResolve, nextReject) => {
-    resolve = nextResolve
-    reject = nextReject
-  })
-  return { promise, resolve, reject }
+function createWorkspaceDiff(conversationId: string, dirty = true) {
+  return {
+    workspaceDiff: {
+      conversationId,
+      workspacePath: `/tmp/${conversationId}`,
+      dirty,
+      reposChanged: dirty ? 1 : 0,
+      filesChanged: dirty ? 1 : 0,
+      added: dirty ? 3 : 0,
+      removed: dirty ? 1 : 0,
+      repos: dirty
+        ? [
+            {
+              name: 'openase',
+              path: 'openase',
+              branch: 'agent/conv-1',
+              dirty: true,
+              filesChanged: 1,
+              added: 3,
+              removed: 1,
+              files: [
+                {
+                  path: 'README.md',
+                  status: 'modified',
+                  added: 3,
+                  removed: 1,
+                },
+              ],
+            },
+          ]
+        : [],
+    },
+  }
 }
 
 describe('createProjectConversationController restore flows', () => {
@@ -53,20 +81,19 @@ describe('createProjectConversationController restore flows', () => {
     window.localStorage.clear()
   })
 
-  it('ignores late stream events after reset clears the active runtime', async () => {
-    const stream = deferredPromise<void>()
-    let streamHandlers:
-      | {
-          onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void
-        }
-      | undefined
+  it('refreshes workspace diff on turn completion and preserves it after runtime reset', async () => {
+    const streamHandlers: Array<{
+      onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void
+    }> = []
 
     createProjectConversation.mockResolvedValue({
       conversation: { id: 'conversation-1' },
     })
+    getProjectConversationWorkspaceDiff
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
     watchProjectConversation.mockImplementation(async (_conversationId, handlers) => {
-      streamHandlers = handlers
-      return stream.promise
+      streamHandlers.push(handlers)
     })
     startProjectConversationTurn.mockResolvedValue({
       turn: { id: 'turn-1', turn_index: 1, status: 'started' },
@@ -79,29 +106,40 @@ describe('createProjectConversationController restore flows', () => {
     controller.syncProviders(providerFixtures, 'provider-1')
 
     await controller.sendTurn('Race test')
-    await controller.resetConversation()
-
-    streamHandlers?.onEvent({
-      kind: 'message',
-      payload: {
-        type: 'text',
-        content: 'late assistant reply',
-      },
-    })
-    streamHandlers?.onEvent({
+    streamHandlers[0]?.onEvent({
       kind: 'turn_done',
       payload: {
         conversationId: 'conversation-1',
         turnId: 'turn-1',
       },
     })
+    await Promise.resolve()
+
+    await controller.resetConversation()
+
+    streamHandlers[0]?.onEvent({
+      kind: 'message',
+      payload: {
+        type: 'text',
+        content: 'late assistant reply',
+      },
+    })
 
     expect(closeProjectConversationRuntime).toHaveBeenCalledWith('conversation-1')
     expect(controller.phase).toBe('idle')
-    expect(controller.conversationId).toBe('')
-    expect(controller.entries).toEqual([])
-
-    stream.resolve()
+    expect(controller.conversationId).toBe('conversation-1')
+    expect(
+      controller.entries.some(
+        (entry) => entry.kind === 'text' && entry.role === 'user' && entry.content === 'Race test',
+      ),
+    ).toBe(true)
+    expect(
+      controller.entries.some(
+        (entry) => entry.kind === 'text' && entry.content === 'late assistant reply',
+      ),
+    ).toBe(false)
+    expect(controller.workspaceDiff?.dirty).toBe(true)
+    expect(getProjectConversationWorkspaceDiff).toHaveBeenCalledTimes(2)
   })
 
   it('switches conversations, reloads the matching transcript, and continues the selected session', async () => {
@@ -121,6 +159,9 @@ describe('createProjectConversationController restore flows', () => {
         },
       ],
     })
+    getProjectConversationWorkspaceDiff
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1', false))
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-2'))
     listProjectConversationEntries.mockImplementation(async (conversationId: string) => ({
       entries:
         conversationId === 'conversation-2'
@@ -185,14 +226,16 @@ describe('createProjectConversationController restore flows', () => {
         (entry) => entry.kind === 'text' && entry.content === 'Current conversation',
       ),
     ).toBe(false)
+    expect(controller.workspaceDiff?.conversationId).toBe('conversation-2')
+    expect(getProjectConversationWorkspaceDiff).toHaveBeenLastCalledWith('conversation-2')
 
     await controller.sendTurn('Follow up on the older plan')
 
     expect(createProjectConversation).not.toHaveBeenCalled()
-    expect(startProjectConversationTurn).toHaveBeenLastCalledWith(
-      'conversation-2',
-      'Follow up on the older plan',
-    )
+    expect(startProjectConversationTurn).toHaveBeenLastCalledWith('conversation-2', {
+      message: 'Follow up on the older plan',
+      focus: undefined,
+    })
     expect(controller.entries).toMatchObject([
       { kind: 'text', role: 'user', content: 'Continue the older plan' },
       { kind: 'text', role: 'user', content: 'Follow up on the older plan' },

@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { loadOnboardingData } from './data'
 
 const {
+  getProject,
   getSecuritySettings,
   listAgents,
   listGitHubNamespaces,
@@ -12,6 +13,7 @@ const {
   listTickets,
   listWorkflows,
 } = vi.hoisted(() => ({
+  getProject: vi.fn(),
   getSecuritySettings: vi.fn(),
   listAgents: vi.fn(),
   listGitHubNamespaces: vi.fn(),
@@ -23,6 +25,7 @@ const {
 }))
 
 vi.mock('$lib/api/openase', () => ({
+  getProject,
   getSecuritySettings,
   listAgents,
   listGitHubNamespaces,
@@ -36,6 +39,19 @@ vi.mock('$lib/api/openase', () => ({
 describe('loadOnboardingData', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    getProject.mockResolvedValue({
+      project: {
+        id: 'project-1',
+        organization_id: 'org-1',
+        name: 'OpenASE',
+        slug: 'openase',
+        description: '',
+        status: 'Planned',
+        default_agent_provider_id: null,
+        accessible_machine_ids: [],
+        max_concurrent_agents: 0,
+      },
+    })
     getSecuritySettings.mockResolvedValue({
       security: {
         github: {

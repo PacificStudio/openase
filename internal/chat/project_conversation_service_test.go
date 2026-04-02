@@ -13,6 +13,8 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
+	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
+	"github.com/BetterAndBetterII/openase/internal/provider"
 	chatrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	git "github.com/go-git/go-git/v5"
@@ -88,7 +90,7 @@ func TestProjectConversationPromptIncludesRecoverySummaryAndTranscript(t *testin
 		Name:           "OpenASE",
 		Slug:           "openase",
 		Description:    "Issue-driven automation",
-	}, true)
+	}, nil, true)
 	if err != nil {
 		t.Fatalf("build recovery prompt: %v", err)
 	}
@@ -102,6 +104,74 @@ func TestProjectConversationPromptIncludesRecoverySummaryAndTranscript(t *testin
 		"Continue from this conversation state",
 	) {
 		t.Fatalf("expected recovery prompt context, got %q", prompt)
+	}
+}
+
+func TestProjectConversationPromptIncludesCurrentFocus(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	service := NewProjectConversationService(
+		nil,
+		nil,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             uuid.MustParse("550e8400-e29b-41d4-a716-446655440000"),
+					OrganizationID: uuid.MustParse("660e8400-e29b-41d4-a716-446655440000"),
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		nil,
+		nil,
+	)
+
+	prompt, err := service.buildProjectConversationPrompt(
+		ctx,
+		chatdomain.Conversation{
+			ID:        uuid.MustParse("770e8400-e29b-41d4-a716-446655440000"),
+			ProjectID: uuid.MustParse("550e8400-e29b-41d4-a716-446655440000"),
+		},
+		catalogdomain.Project{
+			ID:             uuid.MustParse("550e8400-e29b-41d4-a716-446655440000"),
+			OrganizationID: uuid.MustParse("660e8400-e29b-41d4-a716-446655440000"),
+			Name:           "OpenASE",
+			Slug:           "openase",
+			Description:    "Issue-driven automation",
+		},
+		&ProjectConversationFocus{
+			Kind: ProjectConversationFocusWorkflow,
+			Workflow: &ProjectConversationWorkflowFocus{
+				ID:            uuid.MustParse("880e8400-e29b-41d4-a716-446655440000"),
+				Name:          "Backend Engineer",
+				Type:          "coding",
+				HarnessPath:   ".openase/harnesses/backend.md",
+				IsActive:      true,
+				SelectedArea:  "harness",
+				HasDirtyDraft: true,
+			},
+		},
+		false,
+	)
+	if err != nil {
+		t.Fatalf("build project conversation prompt: %v", err)
+	}
+
+	if !containsAll(
+		prompt,
+		"### 当前用户关注区域",
+		"- 类型: workflow",
+		"- 名称: Backend Engineer",
+		"- harness_path: .openase/harnesses/backend.md",
+		"- selected_area: harness",
+		"- has_dirty_draft: true",
+	) {
+		t.Fatalf("expected focus context in prompt, got %q", prompt)
 	}
 }
 
@@ -381,7 +451,7 @@ func TestProjectConversationStartTurnKeepsOtherLiveConversationsRunning(t *testi
 	previousRuntime := &fakeRuntime{closeResult: true}
 	service.live[firstConversation.ID] = &liveProjectConversation{runtime: previousRuntime}
 
-	if _, err := service.StartTurn(ctx, UserID("user:conversation"), secondConversation.ID, "Switch to this conversation"); err != nil {
+	if _, err := service.StartTurn(ctx, UserID("user:conversation"), secondConversation.ID, "Switch to this conversation", nil); err != nil {
 		t.Fatalf("start second conversation turn: %v", err)
 	}
 
@@ -474,6 +544,7 @@ func TestProjectConversationStartTurnRejectsSecondActiveTurnInSameConversation(t
 		UserID("user:conversation"),
 		conversation.ID,
 		"Second turn should be rejected",
+		nil,
 	)
 	if !errors.Is(err, ErrConversationTurnActive) {
 		t.Fatalf("expected ErrConversationTurnActive, got %v", err)
@@ -558,7 +629,7 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 	)
 	service.ConfigurePlatformEnvironment("http://127.0.0.1:19836/api/v1/platform", fakeProjectConversationAgentPlatform{})
 
-	if _, err := service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Inspect the project"); err != nil {
+	if _, err := service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Inspect the project", nil); err != nil {
 		t.Fatalf("start conversation turn: %v", err)
 	}
 
@@ -597,6 +668,231 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 	if !containsEnvironmentPrefix(environment, "OPENASE_PROJECT_ID="+project.ID.String()) {
 		t.Fatalf("expected OPENASE_PROJECT_ID in environment, got %+v", environment)
 	}
+}
+
+func TestProjectConversationWorkspaceDiffSummary(t *testing.T) {
+	t.Parallel()
+
+	t.Run("clean workspace", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+			{
+				name:  "backend",
+				files: map[string]string{"README.md": "line one\nline two\n"},
+			},
+		})
+
+		summary, err := fixture.service.GetWorkspaceDiff(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+		)
+		if err != nil {
+			t.Fatalf("GetWorkspaceDiff() error = %v", err)
+		}
+		if summary.WorkspacePath != fixture.workspacePath {
+			t.Fatalf("workspace path = %q, want %q", summary.WorkspacePath, fixture.workspacePath)
+		}
+		if summary.Dirty || summary.ReposChanged != 0 || summary.FilesChanged != 0 || len(summary.Repos) != 0 {
+			t.Fatalf("expected clean workspace summary, got %+v", summary)
+		}
+	})
+
+	t.Run("modified tracked file", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+			{
+				name:  "backend",
+				files: map[string]string{"README.md": "line one\nline two\n"},
+			},
+		})
+		writeConversationWorkspaceFile(t, filepath.Join(fixture.repoPaths["backend"], "README.md"), "line one\nline two\nline three\n")
+
+		summary, err := fixture.service.GetWorkspaceDiff(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+		)
+		if err != nil {
+			t.Fatalf("GetWorkspaceDiff() error = %v", err)
+		}
+		if !summary.Dirty || summary.ReposChanged != 1 || summary.FilesChanged != 1 || summary.Added != 1 || summary.Removed != 0 {
+			t.Fatalf("unexpected modified summary: %+v", summary)
+		}
+		repo := summary.Repos[0]
+		if repo.Name != "backend" || repo.Branch != "agent/"+projectConversationWorkspaceName(fixture.conversation.ID) {
+			t.Fatalf("unexpected repo summary: %+v", repo)
+		}
+		if repo.Path != "backend" || repo.FilesChanged != 1 || repo.Added != 1 || repo.Removed != 0 {
+			t.Fatalf("unexpected repo totals: %+v", repo)
+		}
+		if len(repo.Files) != 1 || repo.Files[0].Path != "README.md" || repo.Files[0].Status != ProjectConversationWorkspaceFileStatusModified || repo.Files[0].Added != 1 || repo.Files[0].Removed != 0 {
+			t.Fatalf("unexpected file diff: %+v", repo.Files)
+		}
+	})
+
+	t.Run("untracked file", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+			{
+				name:  "backend",
+				files: map[string]string{"README.md": "line one\n"},
+			},
+		})
+		writeConversationWorkspaceFile(t, filepath.Join(fixture.repoPaths["backend"], "notes.txt"), "note one\nnote two\n")
+
+		summary, err := fixture.service.GetWorkspaceDiff(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+		)
+		if err != nil {
+			t.Fatalf("GetWorkspaceDiff() error = %v", err)
+		}
+		repo := summary.Repos[0]
+		if repo.Added != 2 || repo.Removed != 0 {
+			t.Fatalf("unexpected untracked totals: %+v", repo)
+		}
+		if len(repo.Files) != 1 || repo.Files[0].Path != "notes.txt" || repo.Files[0].Status != ProjectConversationWorkspaceFileStatusUntracked || repo.Files[0].Added != 2 || repo.Files[0].Removed != 0 {
+			t.Fatalf("unexpected untracked file diff: %+v", repo.Files)
+		}
+	})
+
+	t.Run("deleted file", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+			{
+				name:  "backend",
+				files: map[string]string{"README.md": "line one\nline two\n"},
+			},
+		})
+		if err := os.Remove(filepath.Join(fixture.repoPaths["backend"], "README.md")); err != nil {
+			t.Fatalf("remove tracked file: %v", err)
+		}
+
+		summary, err := fixture.service.GetWorkspaceDiff(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+		)
+		if err != nil {
+			t.Fatalf("GetWorkspaceDiff() error = %v", err)
+		}
+		repo := summary.Repos[0]
+		if repo.Added != 0 || repo.Removed != 2 {
+			t.Fatalf("unexpected deleted totals: %+v", repo)
+		}
+		if len(repo.Files) != 1 || repo.Files[0].Path != "README.md" || repo.Files[0].Status != ProjectConversationWorkspaceFileStatusDeleted || repo.Files[0].Added != 0 || repo.Files[0].Removed != 2 {
+			t.Fatalf("unexpected deleted file diff: %+v", repo.Files)
+		}
+	})
+
+	t.Run("multi repo workspace summary", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+			{
+				name:             "backend",
+				workspaceDirname: "services/backend",
+				files:            map[string]string{"README.md": "backend\n"},
+			},
+			{
+				name:             "frontend",
+				workspaceDirname: "apps/frontend",
+				files:            map[string]string{"src/app.ts": "export const app = 1\n"},
+			},
+		})
+		writeConversationWorkspaceFile(t, filepath.Join(fixture.repoPaths["backend"], "README.md"), "backend\nupdated\n")
+		writeConversationWorkspaceFile(t, filepath.Join(fixture.repoPaths["frontend"], "src/new.ts"), "export const next = 2\n")
+
+		summary, err := fixture.service.GetWorkspaceDiff(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+		)
+		if err != nil {
+			t.Fatalf("GetWorkspaceDiff() error = %v", err)
+		}
+		if !summary.Dirty || summary.ReposChanged != 2 || summary.FilesChanged != 2 || summary.Added != 2 || summary.Removed != 0 {
+			t.Fatalf("unexpected multi-repo summary: %+v", summary)
+		}
+		paths := []string{summary.Repos[0].Path, summary.Repos[1].Path}
+		if !containsAll(strings.Join(paths, ","), "apps/frontend", "services/backend") {
+			t.Fatalf("unexpected repo paths: %+v", summary.Repos)
+		}
+	})
+
+	t.Run("runtime closed workspace still reports dirty state", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+			{
+				name:  "backend",
+				files: map[string]string{"README.md": "line one\n"},
+			},
+		})
+		workspacePath, err := provider.ParseAbsolutePath(fixture.workspacePath)
+		if err != nil {
+			t.Fatalf("parse workspace path: %v", err)
+		}
+		fixture.service.live[fixture.conversation.ID] = &liveProjectConversation{
+			runtime:   &fakeRuntime{closeResult: true},
+			workspace: workspacePath,
+		}
+		writeConversationWorkspaceFile(t, filepath.Join(fixture.repoPaths["backend"], "README.md"), "line one\nline two\n")
+		if err := fixture.service.CloseRuntime(fixture.ctx, UserID("user:conversation"), fixture.conversation.ID); err != nil {
+			t.Fatalf("CloseRuntime() error = %v", err)
+		}
+
+		summary, err := fixture.service.GetWorkspaceDiff(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+		)
+		if err != nil {
+			t.Fatalf("GetWorkspaceDiff() error = %v", err)
+		}
+		if !summary.Dirty || summary.ReposChanged != 1 || summary.Repos[0].Files[0].Added != 1 {
+			t.Fatalf("unexpected closed-runtime summary: %+v", summary)
+		}
+	})
+
+	t.Run("same conversation lookup is stable", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+			{
+				name:  "backend",
+				files: map[string]string{"README.md": "line one\n"},
+			},
+		})
+		writeConversationWorkspaceFile(t, filepath.Join(fixture.repoPaths["backend"], "README.md"), "line one\nline two\n")
+
+		first, err := fixture.service.GetWorkspaceDiff(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+		)
+		if err != nil {
+			t.Fatalf("first GetWorkspaceDiff() error = %v", err)
+		}
+		second, err := fixture.service.GetWorkspaceDiff(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+		)
+		if err != nil {
+			t.Fatalf("second GetWorkspaceDiff() error = %v", err)
+		}
+
+		if first.WorkspacePath != second.WorkspacePath || first.Added != second.Added || first.Removed != second.Removed || len(first.Repos) != len(second.Repos) {
+			t.Fatalf("expected stable workspace summaries, got first=%+v second=%+v", first, second)
+		}
+	})
 }
 
 type fakeProjectConversationCatalog struct {
@@ -782,4 +1078,125 @@ func createProjectConversationTestProject(
 
 type projectConversationTestEntity struct {
 	ID uuid.UUID
+}
+
+type projectConversationWorkspaceRepoFixture struct {
+	name             string
+	workspaceDirname string
+	files            map[string]string
+}
+
+type projectConversationWorkspaceDiffFixture struct {
+	ctx           context.Context
+	service       *ProjectConversationService
+	conversation  chatdomain.Conversation
+	workspacePath string
+	repoPaths     map[string]string
+}
+
+func setupProjectConversationWorkspaceDiffFixture(
+	t *testing.T,
+	repos []projectConversationWorkspaceRepoFixture,
+) projectConversationWorkspaceDiffFixture {
+	t.Helper()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	projectRepos := make([]catalogdomain.ProjectRepo, 0, len(repos))
+	for _, repo := range repos {
+		remoteRepoPath, _ := createConversationRemoteRepo(t, "main", repo.files)
+		projectRepo := catalogdomain.ProjectRepo{
+			ID:            uuid.New(),
+			ProjectID:     project.ID,
+			Name:          repo.name,
+			RepositoryURL: remoteRepoPath,
+			DefaultBranch: "main",
+		}
+		if strings.TrimSpace(repo.workspaceDirname) != "" {
+			projectRepo.WorkspaceDirname = repo.workspaceDirname
+		}
+		projectRepos = append(projectRepos, projectRepo)
+	}
+
+	workspaceRoot := t.TempDir()
+	projectItem := catalogdomain.Project{
+		ID:             project.ID,
+		OrganizationID: org.ID,
+		Name:           "OpenASE",
+		Slug:           "openase",
+		Description:    "Issue-driven automation",
+	}
+	providerItem := catalogdomain.AgentProvider{
+		ID:             providerID,
+		OrganizationID: org.ID,
+		MachineID:      machineID,
+		AdapterType:    catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+		CliCommand:     "gemini",
+	}
+	catalog := fakeProjectConversationCatalog{
+		fakeCatalogReader: fakeCatalogReader{
+			project:      projectItem,
+			projectRepos: projectRepos,
+			providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+				providerID: providerItem,
+			},
+		},
+		machine: catalogdomain.Machine{
+			ID:            machineID,
+			Name:          catalogdomain.LocalMachineName,
+			Host:          catalogdomain.LocalMachineHost,
+			WorkspaceRoot: stringPointer(workspaceRoot),
+		},
+	}
+
+	service := NewProjectConversationService(
+		nil,
+		repoStore,
+		catalog,
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		nil,
+		nil,
+	)
+	workspace, err := service.ensureConversationWorkspace(ctx, catalog.machine, projectItem, providerItem, conversation.ID)
+	if err != nil {
+		t.Fatalf("ensureConversationWorkspace() error = %v", err)
+	}
+
+	repoPaths := make(map[string]string, len(projectRepos))
+	for _, repo := range projectRepos {
+		repoPaths[repo.Name] = workspaceinfra.RepoPath(workspace.String(), repo.WorkspaceDirname, repo.Name)
+	}
+
+	return projectConversationWorkspaceDiffFixture{
+		ctx:           ctx,
+		service:       service,
+		conversation:  conversation,
+		workspacePath: workspace.String(),
+		repoPaths:     repoPaths,
+	}
+}
+
+func writeConversationWorkspaceFile(t *testing.T, path string, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		t.Fatalf("mkdir %s: %v", path, err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
 }

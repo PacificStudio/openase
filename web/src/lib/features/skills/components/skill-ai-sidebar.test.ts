@@ -1,14 +1,14 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
-const { closeChatSession, streamChatTurn } = vi.hoisted(() => ({
-  closeChatSession: vi.fn(),
-  streamChatTurn: vi.fn(),
+const { closeSkillRefinementSession, streamSkillRefinement } = vi.hoisted(() => ({
+  closeSkillRefinementSession: vi.fn(),
+  streamSkillRefinement: vi.fn(),
 }))
 
-vi.mock('$lib/api/chat', () => ({
-  closeChatSession,
-  streamChatTurn,
+vi.mock('$lib/api/skill-refinement', () => ({
+  closeSkillRefinementSession,
+  streamSkillRefinement,
 }))
 
 vi.mock('$lib/stores/toast.svelte', () => ({
@@ -74,7 +74,7 @@ const fileContent = [
   'Use safe steps.',
 ].join('\n')
 
-const updatedFileContent = [
+const verifiedContent = [
   '---',
   'name: "deploy"',
   'description: "Deploy safely"',
@@ -84,9 +84,6 @@ const updatedFileContent = [
   '',
   'Verify rollback steps before production deploys.',
 ].join('\n')
-
-const scriptContent = '#!/usr/bin/env bash\necho old\n'
-const updatedScriptContent = '#!/usr/bin/env bash\necho deploying'
 
 const fileFixtures: SkillFile[] = [
   {
@@ -106,9 +103,9 @@ const fileFixtures: SkillFile[] = [
     media_type: 'text/x-shellscript; charset=utf-8',
     encoding: 'utf8',
     is_executable: true,
-    size_bytes: scriptContent.length,
+    size_bytes: 29,
     sha256: 'sha-script',
-    content: scriptContent,
+    content: '#!/usr/bin/env bash\necho old\n',
     content_base64: 'ignored',
   },
 ]
@@ -128,149 +125,159 @@ describe('SkillAiSidebar', () => {
     vi.clearAllMocks()
   })
 
-  it('reuses the session, lets users switch diff files, and applies all suggested files', async () => {
-    let turnCount = 0
-
-    streamChatTurn.mockImplementation(async (request, handlers) => {
-      turnCount += 1
-
-      if (turnCount === 1) {
-        handlers.onEvent({
-          kind: 'session',
-          payload: { sessionId: 'session-skill-1' },
-        })
-        handlers.onEvent({
-          kind: 'message',
-          payload: {
-            type: 'text',
-            content: 'I can tighten the deploy instructions. Want a concrete patch?',
-          },
-        })
-        handlers.onEvent({
-          kind: 'done',
-          payload: {
-            sessionId: 'session-skill-1',
-            turnsUsed: 1,
-            turnsRemaining: 9,
-          },
-        })
-        return
-      }
-
-      expect(request.sessionId).toBe('session-skill-1')
-
+  it('transitions from idle to running to verified and applies the verified bundle', async () => {
+    streamSkillRefinement.mockImplementation(async (request, handlers) => {
       handlers.onEvent({
         kind: 'session',
-        payload: { sessionId: 'session-skill-1' },
+        payload: {
+          sessionId: 'session-1',
+          workspacePath: '/tmp/skill-tests/openase/deploy/session-1/workspace',
+        },
       })
       handlers.onEvent({
-        kind: 'message',
+        kind: 'status',
         payload: {
-          type: 'bundle_diff',
-          files: [
+          sessionId: 'session-1',
+          phase: 'editing',
+          attempt: 1,
+          message: 'Codex is editing the draft bundle.',
+        },
+      })
+      handlers.onEvent({
+        kind: 'status',
+        payload: {
+          sessionId: 'session-1',
+          phase: 'testing',
+          attempt: 1,
+          message: 'Codex is running verification commands.',
+        },
+      })
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      handlers.onEvent({
+        kind: 'result',
+        payload: {
+          sessionId: 'session-1',
+          status: 'verified',
+          workspacePath: '/tmp/skill-tests/openase/deploy/session-1/workspace',
+          providerId: 'provider-1',
+          providerName: 'Codex',
+          providerThreadId: 'thread-1',
+          providerTurnId: 'turn-1',
+          attempts: 1,
+          transcriptSummary: 'Bundle verified after tightening the deploy instructions.',
+          commandOutputSummary: 'bash -n scripts/redeploy.sh\n./scripts/redeploy.sh',
+          candidateBundleHash: 'bundle-hash-1',
+          candidateFiles: [
             {
-              file: 'SKILL.md',
-              hunks: [
-                {
-                  oldStart: 5,
-                  oldLines: 2,
-                  newStart: 5,
-                  newLines: 4,
-                  lines: [
-                    { op: 'context', text: '' },
-                    { op: 'context', text: 'Use safe steps.' },
-                    { op: 'add', text: '' },
-                    { op: 'add', text: 'Verify rollback steps before production deploys.' },
-                  ],
-                },
-              ],
+              ...fileFixtures[0],
+              content: verifiedContent,
+              size_bytes: verifiedContent.length,
+              sha256: 'sha-entry-verified',
             },
-            {
-              file: 'scripts/redeploy.sh',
-              hunks: [
-                {
-                  oldStart: 1,
-                  oldLines: 2,
-                  newStart: 1,
-                  newLines: 2,
-                  lines: [
-                    { op: 'context', text: '#!/usr/bin/env bash' },
-                    { op: 'remove', text: 'echo old' },
-                    { op: 'add', text: 'echo deploying' },
-                  ],
-                },
-              ],
-            },
+            fileFixtures[1],
           ],
         },
       })
-      handlers.onEvent({
-        kind: 'done',
-        payload: {
-          sessionId: 'session-skill-1',
-          turnsUsed: 2,
-          turnsRemaining: 8,
-        },
+
+      expect(request).toMatchObject({
+        projectId: 'project-1',
+        skillId: 'skill-1',
+        providerId: 'provider-1',
+        message: 'Make the deploy skill safer.',
       })
     })
 
-    const appliedSuggestions: Array<{ path: string; content: string }> = []
+    const appliedBundles: SkillFile[][] = []
 
-    const { getByPlaceholderText, getByRole, queryByRole, findByText } = render(SkillAiSidebar, {
+    const { getByPlaceholderText, getByRole, findByText } = render(SkillAiSidebar, {
       props: {
         projectId: 'project-1',
         providers: providerFixtures,
         skillId: 'skill-1',
         files: fileFixtures,
-        selectedFilePath: 'SKILL.md',
-        selectedFileIsText: true,
-        onApplySuggestion: (files: Array<{ path: string; content: string }>) =>
-          appliedSuggestions.push(...files),
+        onApplySuggestion: (bundle: SkillFile[]) => appliedBundles.push(bundle),
       },
     })
 
-    const prompt = getByPlaceholderText('Ask AI to refine SKILL.md…')
-    await fireEvent.input(prompt, {
-      target: { value: 'Make the deploy instructions safer.' },
-    })
-    await fireEvent.keyDown(prompt, { key: 'Enter' })
+    await findByText('Idle')
 
-    expect(
-      await findByText('I can tighten the deploy instructions. Want a concrete patch?'),
-    ).toBeTruthy()
-    expect(streamChatTurn).toHaveBeenCalledTimes(1)
-    expect(streamChatTurn.mock.calls[0][0]).toMatchObject({
-      message: 'Make the deploy instructions safer.',
-      source: 'skill_editor',
-      providerId: 'provider-1',
-      context: {
-        projectId: 'project-1',
-        skillId: 'skill-1',
-        skillFilePath: 'SKILL.md',
-        skillFileDraft: fileContent,
-      },
-    })
+    const prompt = getByPlaceholderText(
+      'Describe what Codex should improve and verify for this draft bundle…',
+    )
+    await fireEvent.input(prompt, { target: { value: 'Make the deploy skill safer.' } })
+    await fireEvent.click(getByRole('button', { name: 'Fix and verify' }))
 
-    await fireEvent.input(prompt, { target: { value: 'Yes, show the patch.' } })
-    await fireEvent.keyDown(prompt, { key: 'Enter' })
-
-    expect(await findByText('Structured Bundle Diff')).toBeTruthy()
-    expect(await findByText('2 files')).toBeTruthy()
-    expect(await findByText('Verify rollback steps before production deploys.')).toBeTruthy()
-    expect((await screen.findAllByText('scripts/redeploy.sh')).length).toBeGreaterThanOrEqual(1)
-
-    await fireEvent.click(getByRole('button', { name: 'scripts/redeploy.sh' }))
-    expect(await findByText('echo deploying')).toBeTruthy()
-
-    await fireEvent.click(getByRole('button', { name: 'Apply All' }))
-
-    expect(appliedSuggestions).toEqual([
-      { path: 'SKILL.md', content: updatedFileContent },
-      { path: 'scripts/redeploy.sh', content: updatedScriptContent },
-    ])
-
+    await findByText('Testing')
+    await findByText('Verified')
     await waitFor(() => {
-      expect(queryByRole('button', { name: 'Apply All' })).toBeNull()
+      expect(
+        document.body.textContent?.includes(
+          'Bundle verified after tightening the deploy instructions.',
+        ),
+      ).toBe(true)
     })
+    await fireEvent.click(await findByText('Apply All'))
+
+    expect(appliedBundles).toHaveLength(1)
+    expect(appliedBundles[0][0]?.content).toBe(verifiedContent)
+  })
+
+  it('transitions from idle to running to blocked and surfaces failure evidence', async () => {
+    streamSkillRefinement.mockImplementation(async (_request, handlers) => {
+      handlers.onEvent({
+        kind: 'session',
+        payload: {
+          sessionId: 'session-2',
+          workspacePath: '/tmp/skill-tests/openase/deploy/session-2/workspace',
+        },
+      })
+      handlers.onEvent({
+        kind: 'status',
+        payload: {
+          sessionId: 'session-2',
+          phase: 'editing',
+          attempt: 1,
+          message: 'Codex is editing the draft bundle.',
+        },
+      })
+      handlers.onEvent({
+        kind: 'result',
+        payload: {
+          sessionId: 'session-2',
+          status: 'blocked',
+          workspacePath: '/tmp/skill-tests/openase/deploy/session-2/workspace',
+          providerId: 'provider-1',
+          providerName: 'Codex',
+          attempts: 2,
+          transcriptSummary: 'Codex could not make the script pass shell validation.',
+          commandOutputSummary: 'bash -n scripts/redeploy.sh\nscripts/redeploy.sh: syntax error',
+          failureReason: 'shell script still has a syntax error near line 4',
+          candidateFiles: fileFixtures,
+        },
+      })
+    })
+
+    const { getByPlaceholderText, getByRole, findByText, queryByText } = render(SkillAiSidebar, {
+      props: {
+        projectId: 'project-1',
+        providers: providerFixtures,
+        skillId: 'skill-1',
+        files: fileFixtures,
+      },
+    })
+
+    const prompt = getByPlaceholderText(
+      'Describe what Codex should improve and verify for this draft bundle…',
+    )
+    await fireEvent.input(prompt, { target: { value: 'Fix the broken deploy script.' } })
+    await fireEvent.click(getByRole('button', { name: 'Fix and verify' }))
+
+    await findByText('Blocked')
+    await waitFor(() => {
+      expect(
+        document.body.textContent?.includes('shell script still has a syntax error near line 4'),
+      ).toBe(true)
+    })
+    expect(queryByText('Apply All')).toBeNull()
   })
 })

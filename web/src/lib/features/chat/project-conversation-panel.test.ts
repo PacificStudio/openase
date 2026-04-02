@@ -6,6 +6,7 @@ const {
   createProjectConversation,
   executeProjectConversationActionProposal,
   getProjectConversation,
+  getProjectConversationWorkspaceDiff,
   listProjectConversationEntries,
   listProjectConversations,
   respondProjectConversationInterrupt,
@@ -16,6 +17,7 @@ const {
   createProjectConversation: vi.fn(),
   executeProjectConversationActionProposal: vi.fn(),
   getProjectConversation: vi.fn(),
+  getProjectConversationWorkspaceDiff: vi.fn(),
   listProjectConversationEntries: vi.fn(),
   listProjectConversations: vi.fn(),
   respondProjectConversationInterrupt: vi.fn(),
@@ -28,6 +30,7 @@ vi.mock('$lib/api/chat', () => ({
   createProjectConversation,
   executeProjectConversationActionProposal,
   getProjectConversation,
+  getProjectConversationWorkspaceDiff,
   listProjectConversationEntries,
   listProjectConversations,
   respondProjectConversationInterrupt,
@@ -37,6 +40,7 @@ vi.mock('$lib/api/chat', () => ({
 
 import ProjectConversationPanel from './project-conversation-panel.svelte'
 import { providerFixtures } from './ephemeral-chat-session-controller.test-helpers'
+import { createWorkspaceDiff } from './project-conversation-panel.test-helpers'
 
 describe('ProjectConversationPanel', () => {
   beforeAll(() => {
@@ -81,6 +85,9 @@ describe('ProjectConversationPanel', () => {
         },
       ],
     })
+    getProjectConversationWorkspaceDiff
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-2'))
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
     listProjectConversationEntries.mockImplementation(async (conversationId: string) => ({
       entries:
         conversationId === 'conversation-2'
@@ -109,19 +116,23 @@ describe('ProjectConversationPanel', () => {
     }))
     watchProjectConversation.mockResolvedValue(undefined)
 
-    const { findAllByText, findByText, getByRole } = render(ProjectConversationPanel, {
-      props: {
-        context: { projectId: 'project-1' },
-        providers: providerFixtures,
-        defaultProviderId: 'provider-1',
-        placeholder: 'Ask anything about this project…',
+    const { findAllByText, findByText, getAllByRole, getByRole } = render(
+      ProjectConversationPanel,
+      {
+        props: {
+          context: { projectId: 'project-1' },
+          providers: providerFixtures,
+          defaultProviderId: 'provider-1',
+          placeholder: 'Ask anything about this project…',
+        },
       },
-    })
+    )
 
     await findByText('Current conversation')
     expect((await findAllByText('Restored')).length).toBeGreaterThanOrEqual(1)
     expect(getByRole('tab', { name: /^Older discussion Restored$/ })).toBeTruthy()
     expect(getByRole('tab', { name: /^Current conversation Restored$/ })).toBeTruthy()
+    expect(getAllByRole('tab', { name: /Restored$/ }).length).toBeGreaterThanOrEqual(2)
   })
 
   it('keeps the composer enabled on an idle tab while another tab is waiting on input', async () => {
@@ -146,6 +157,9 @@ describe('ProjectConversationPanel', () => {
           lastActivityAt: '2026-04-01T10:05:00Z',
         },
       })
+    getProjectConversationWorkspaceDiff
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-2'))
     watchProjectConversation.mockImplementation(async (conversationId, handlers) => {
       streamHandlers.set(conversationId, handlers)
     })
@@ -171,10 +185,10 @@ describe('ProjectConversationPanel', () => {
     await fireEvent.input(prompt, { target: { value: 'Summarize the repo.' } })
     await fireEvent.click(sendButton)
     await waitFor(() => {
-      expect(startProjectConversationTurn).toHaveBeenCalledWith(
-        'conversation-1',
-        'Summarize the repo.',
-      )
+      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-1', {
+        message: 'Summarize the repo.',
+        focus: undefined,
+      })
     })
 
     streamHandlers.get('conversation-1')?.onEvent({
@@ -206,11 +220,10 @@ describe('ProjectConversationPanel', () => {
     await fireEvent.click(updatedSendButton)
 
     await waitFor(() => {
-      expect(startProjectConversationTurn).toHaveBeenNthCalledWith(
-        2,
-        'conversation-2',
-        'Parallel tab keeps working.',
-      )
+      expect(startProjectConversationTurn).toHaveBeenNthCalledWith(2, 'conversation-2', {
+        message: 'Parallel tab keeps working.',
+        focus: undefined,
+      })
     })
 
     expect(getAllByRole('button', { name: /Close /i }).length).toBeGreaterThanOrEqual(1)
@@ -233,6 +246,9 @@ describe('ProjectConversationPanel', () => {
           lastActivityAt: '2026-04-01T10:05:00Z',
         },
       })
+    getProjectConversationWorkspaceDiff
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-2'))
     watchProjectConversation.mockResolvedValue(undefined)
     startProjectConversationTurn.mockResolvedValue({
       turn: { id: 'turn-4', turn_index: 1, status: 'started' },
@@ -251,7 +267,10 @@ describe('ProjectConversationPanel', () => {
     await fireEvent.input(prompt, { target: { value: 'First tab' } })
     await fireEvent.click(getByRole('button', { name: 'Send message' }))
     await waitFor(() => {
-      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-1', 'First tab')
+      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-1', {
+        message: 'First tab',
+        focus: undefined,
+      })
     })
 
     await fireEvent.click(getByRole('button', { name: /New Tab/i }))
@@ -261,7 +280,10 @@ describe('ProjectConversationPanel', () => {
     await fireEvent.input(secondPrompt, { target: { value: 'Second tab' } })
     await fireEvent.click(getByRole('button', { name: 'Send message' }))
     await waitFor(() => {
-      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-2', 'Second tab')
+      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-2', {
+        message: 'Second tab',
+        focus: undefined,
+      })
     })
 
     await fireEvent.click(getByRole('button', { name: 'Close First tab' }))

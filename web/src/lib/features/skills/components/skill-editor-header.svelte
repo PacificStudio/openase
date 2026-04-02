@@ -75,12 +75,12 @@
       variant="ghost"
       size="sm"
       class="h-7 gap-1 px-2 text-xs"
-      title="Toggle AI editor"
+      title="Toggle fix and verify panel"
       onclick={onToggleAssistant}
       disabled={assistantDisabled}
     >
       <Bot class="size-3.5" />
-      <span class={assistantOpen ? 'text-primary' : ''}>AI</span>
+      <span class={assistantOpen ? 'text-primary' : ''}>Fix &amp; verify</span>
     </Button>
     <Button
       variant="ghost"

@@ -61,6 +61,15 @@
     }
   })
 
+  $effect(() => {
+    if (repos.length === 0 && initialState.repos.length > 0) {
+      repos = [...initialState.repos]
+    }
+    if (namespaces.length === 0 && initialState.namespaces.length > 0) {
+      namespaces = [...initialState.namespaces]
+    }
+  })
+
   async function loadNamespaces() {
     try {
       const payload = await listGitHubNamespaces(projectId)
@@ -70,17 +79,22 @@
     }
   }
 
-  async function handleSearchRepos() {
-    if (!repoSearchQuery.trim()) return
+  async function loadBrowsableRepositories(query?: string) {
     searchingRepos = true
     try {
-      const payload = await listGitHubRepositories(projectId, { query: repoSearchQuery.trim() })
+      const payload = await listGitHubRepositories(projectId, {
+        query: query?.trim() || undefined,
+      })
       searchResults = payload.repositories
     } catch (caughtError) {
       toastStore.error(caughtError instanceof ApiError ? caughtError.detail : '搜索仓库失败。')
     } finally {
       searchingRepos = false
     }
+  }
+
+  async function handleSearchRepos() {
+    await loadBrowsableRepositories(repoSearchQuery)
   }
 
   function selectSearchResult(repo: GitHubRepositoryRecord) {
@@ -142,6 +156,11 @@
     mode = 'create'
     void loadNamespaces()
   }
+
+  function enterLinkMode() {
+    mode = 'link'
+    void loadBrowsableRepositories()
+  }
 </script>
 
 <div class="space-y-4">
@@ -194,7 +213,7 @@
         <button
           type="button"
           class="border-border hover:border-primary/50 hover:bg-primary/5 flex items-start gap-3 rounded-lg border p-4 text-left transition-colors"
-          onclick={() => (mode = 'link')}
+          onclick={enterLinkMode}
         >
           <div class="bg-primary/10 flex size-9 shrink-0 items-center justify-center rounded-lg">
             <Link class="text-primary size-4" />
@@ -275,11 +294,11 @@
     {:else}
       <div class="space-y-3">
         <div>
-          <p class="text-foreground mb-1 text-xs font-medium">搜索 GitHub 仓库</p>
+          <p class="text-foreground mb-1 text-xs font-medium">搜索或浏览 GitHub 仓库</p>
           <div class="flex items-center gap-2">
             <Input
               bind:value={repoSearchQuery}
-              placeholder="搜索仓库名称..."
+              placeholder="搜索仓库名称，或直接浏览最近可访问仓库..."
               class="h-9 flex-1 text-sm"
               onkeydown={(e) => {
                 if (e.key === 'Enter') void handleSearchRepos()

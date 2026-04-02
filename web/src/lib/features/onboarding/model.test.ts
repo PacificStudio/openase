@@ -44,6 +44,10 @@ describe('onboarding model', () => {
 
   it('uses the role presets expected by project status', () => {
     expect(getBootstrapPreset('Planned').roleSlug).toBe('product-manager')
+    expect(getBootstrapPreset('Planned').pickupStatusName).toBe('Backlog')
+    expect(getBootstrapPreset('Planned').finishStatusName).toBe('Done')
     expect(getBootstrapPreset('In Progress').roleSlug).toBe('fullstack-developer')
+    expect(getBootstrapPreset('In Progress').pickupStatusName).toBe('Backlog')
+    expect(getBootstrapPreset('In Progress').finishStatusName).toBe('Done')
   })
 })

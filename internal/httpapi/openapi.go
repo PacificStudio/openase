@@ -294,7 +294,32 @@ type OpenAPIProjectConversationCreateRequest struct {
 }
 
 type OpenAPIProjectConversationTurnRequest struct {
-	Message string `json:"message"`
+	Message string                               `json:"message"`
+	Focus   *OpenAPIProjectConversationTurnFocus `json:"focus,omitempty"`
+}
+
+type OpenAPIProjectConversationTurnFocus struct {
+	Kind               string   `json:"kind"`
+	WorkflowID         *string  `json:"workflow_id,omitempty"`
+	WorkflowName       *string  `json:"workflow_name,omitempty"`
+	WorkflowType       *string  `json:"workflow_type,omitempty"`
+	HarnessPath        *string  `json:"harness_path,omitempty"`
+	IsActive           *bool    `json:"is_active,omitempty"`
+	SelectedArea       *string  `json:"selected_area,omitempty"`
+	HasDirtyDraft      *bool    `json:"has_dirty_draft,omitempty"`
+	SkillID            *string  `json:"skill_id,omitempty"`
+	SkillName          *string  `json:"skill_name,omitempty"`
+	SelectedFilePath   *string  `json:"selected_file_path,omitempty"`
+	BoundWorkflowNames []string `json:"bound_workflow_names,omitempty"`
+	TicketID           *string  `json:"ticket_id,omitempty"`
+	TicketIdentifier   *string  `json:"ticket_identifier,omitempty"`
+	TicketTitle        *string  `json:"ticket_title,omitempty"`
+	TicketStatus       *string  `json:"ticket_status,omitempty"`
+	MachineID          *string  `json:"machine_id,omitempty"`
+	MachineName        *string  `json:"machine_name,omitempty"`
+	MachineHost        *string  `json:"machine_host,omitempty"`
+	MachineStatus      *string  `json:"machine_status,omitempty"`
+	HealthSummary      *string  `json:"health_summary,omitempty"`
 }
 
 type OpenAPIProjectConversationInterruptResponseRequest struct {
@@ -335,6 +360,39 @@ type OpenAPIProjectConversationEntry struct {
 
 type OpenAPIProjectConversationEntriesResponse struct {
 	Entries []OpenAPIProjectConversationEntry `json:"entries"`
+}
+
+type OpenAPIProjectConversationWorkspaceDiffFile struct {
+	Path    string `json:"path"`
+	Status  string `json:"status"`
+	Added   int    `json:"added"`
+	Removed int    `json:"removed"`
+}
+
+type OpenAPIProjectConversationWorkspaceDiffRepo struct {
+	Name         string                                        `json:"name"`
+	Path         string                                        `json:"path"`
+	Branch       string                                        `json:"branch"`
+	Dirty        bool                                          `json:"dirty"`
+	FilesChanged int                                           `json:"files_changed"`
+	Added        int                                           `json:"added"`
+	Removed      int                                           `json:"removed"`
+	Files        []OpenAPIProjectConversationWorkspaceDiffFile `json:"files"`
+}
+
+type OpenAPIProjectConversationWorkspaceDiff struct {
+	ConversationID string                                        `json:"conversation_id"`
+	WorkspacePath  string                                        `json:"workspace_path"`
+	Dirty          bool                                          `json:"dirty"`
+	ReposChanged   int                                           `json:"repos_changed"`
+	FilesChanged   int                                           `json:"files_changed"`
+	Added          int                                           `json:"added"`
+	Removed        int                                           `json:"removed"`
+	Repos          []OpenAPIProjectConversationWorkspaceDiffRepo `json:"repos"`
+}
+
+type OpenAPIProjectConversationWorkspaceDiffResponse struct {
+	WorkspaceDiff OpenAPIProjectConversationWorkspaceDiff `json:"workspace_diff"`
 }
 
 type OpenAPIProjectConversationTurn struct {
@@ -1152,6 +1210,8 @@ type OpenAPIDeleteSkillResponse struct {
 	DeletedSkillID string `json:"deleted_skill_id"`
 }
 
+type OpenAPISkillRefinementRequest rawSkillRefinementRequest
+
 type OpenAPIRolesResponse struct {
 	Roles []OpenAPIBuiltinRole `json:"roles"`
 }
@@ -1557,7 +1617,29 @@ var (
 		"context.project_id": "Project ID that owns the conversation workspace and transcript.",
 	}
 	openAPIProjectConversationTurnDescriptions = map[string]string{
-		"message": "User message content appended as the next project conversation turn.",
+		"message":                    "User message content appended as the next project conversation turn.",
+		"focus":                      "Optional per-turn focus context describing the currently selected workflow, skill, ticket, or machine surface.",
+		"focus.kind":                 "Focused surface kind. Supported values are workflow, skill, ticket, and machine.",
+		"focus.workflow_id":          "Workflow ID currently in focus.",
+		"focus.workflow_name":        "Workflow name currently in focus.",
+		"focus.workflow_type":        "Workflow type currently in focus.",
+		"focus.harness_path":         "Harness path for the focused workflow.",
+		"focus.is_active":            "Whether the focused workflow is currently active.",
+		"focus.selected_area":        "UI sub-area currently in focus, such as harness, detail, or health.",
+		"focus.has_dirty_draft":      "Whether the focused workflow or skill surface currently has unsaved draft edits.",
+		"focus.skill_id":             "Skill ID currently in focus.",
+		"focus.skill_name":           "Skill name currently in focus.",
+		"focus.selected_file_path":   "Selected bundle file path for the focused skill surface.",
+		"focus.bound_workflow_names": "Workflow names currently bound to the focused skill.",
+		"focus.ticket_id":            "Ticket ID currently in focus.",
+		"focus.ticket_identifier":    "Human-readable ticket identifier currently in focus.",
+		"focus.ticket_title":         "Ticket title currently in focus.",
+		"focus.ticket_status":        "Ticket status currently in focus.",
+		"focus.machine_id":           "Machine ID currently in focus.",
+		"focus.machine_name":         "Machine name currently in focus.",
+		"focus.machine_host":         "Machine host currently in focus.",
+		"focus.machine_status":       "Machine runtime status currently in focus.",
+		"focus.health_summary":       "Compact health or resource summary for the focused machine.",
 	}
 	openAPIProjectConversationInterruptResponseDescriptions = map[string]string{
 		"decision": "Provider-native interrupt decision identifier such as approve_once.",
@@ -1586,6 +1668,16 @@ var (
 		"workspace_root": "Workspace repository root that owns the agent skill directory.",
 		"adapter_type":   "Agent adapter type used to derive the runtime skill directory.",
 		"workflow_id":    "Optional workflow ID used to project only the currently bound enabled skills.",
+	}
+	openAPISkillRefinementDescriptions = map[string]string{
+		"project_id":             "Project ID that owns the skill draft and provider selection.",
+		"message":                "Requested improvement goal that Codex should fix and verify against the current draft bundle.",
+		"provider_id":            "Optional provider ID. Phase 1 supports Codex-backed refinement only.",
+		"files":                  "Current draft skill bundle files from the editor.",
+		"files[].path":           "Bundle-relative file path using forward slashes.",
+		"files[].content_base64": "Base64-encoded file bytes for this draft bundle entry.",
+		"files[].media_type":     "Optional media type persisted with the file entry.",
+		"files[].is_executable":  "Whether the projected file should be marked executable at runtime.",
 	}
 	openAPISkillBindingTargetDescriptions = map[string]string{
 		"workflow_ids": "Workflow IDs that should bind or unbind this skill.",
@@ -1641,6 +1733,7 @@ var (
 		"PUT /api/v1/skills/{skillId}":                                                                 openAPISkillUpdateDescriptions,
 		"POST /api/v1/skills/{skillId}/bind":                                                           openAPISkillBindingTargetDescriptions,
 		"POST /api/v1/skills/{skillId}/unbind":                                                         openAPISkillBindingTargetDescriptions,
+		"POST /api/v1/skills/{skillId}/refinement-runs":                                                openAPISkillRefinementDescriptions,
 		"POST /api/v1/workflows/{workflowId}/skills/bind":                                              openAPISkillBindingDescriptions,
 		"POST /api/v1/workflows/{workflowId}/skills/unbind":                                            openAPISkillBindingDescriptions,
 	}
@@ -3334,6 +3427,51 @@ func (b openAPISpecBuilder) addWorkflowOperations() error {
 	unbindSkill.AddParameter(uuidPathParameter("skillId", "Skill ID."))
 	b.doc.AddOperation("/api/v1/skills/{skillId}/unbind", http.MethodPost, unbindSkill)
 
+	refinementRunStart, err := b.streamOperation(
+		"startSkillRefinement",
+		"Start a Codex-backed skill fix-and-verify refinement run",
+		[]string{"skills"},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	refinementBodyRef, err := b.schemaRef(OpenAPISkillRefinementRequest{})
+	if err != nil {
+		return err
+	}
+	refinementRunStart.RequestBody = &openapi3.RequestBodyRef{
+		Value: openapi3.NewRequestBody().
+			WithDescription("Skill fix-and-verify refinement request body.").
+			WithJSONSchemaRef(refinementBodyRef).
+			WithRequired(true),
+	}
+	refinementRunStart.AddParameter(uuidPathParameter("skillId", "Skill ID."))
+	b.doc.AddOperation("/api/v1/skills/{skillId}/refinement-runs", http.MethodPost, refinementRunStart)
+
+	refinementRunDelete := openapi3.NewOperation()
+	refinementRunDelete.OperationID = "closeSkillRefinementRun"
+	refinementRunDelete.Summary = "Close a skill refinement run and clean up its temporary workspace"
+	refinementRunDelete.Tags = []string{"skills"}
+	refinementRunDelete.Responses = openapi3.NewResponsesWithCapacity(3)
+	refinementRunDelete.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Skill refinement run closed."))
+	for _, code := range []int{http.StatusBadRequest, http.StatusNotFound, http.StatusInternalServerError} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		refinementRunDelete.AddResponse(code, errorResponse)
+	}
+	refinementRunDelete.AddParameter(openapi3.NewPathParameter("sessionId").
+		WithDescription("Skill refinement session ID.").
+		WithRequired(true).
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	b.doc.AddOperation("/api/v1/skills/refinement-runs/{sessionId}", http.MethodDelete, refinementRunDelete)
+
 	bindSkills, err := b.jsonOperation(
 		"bindWorkflowSkills",
 		"Bind skills to a workflow harness",
@@ -4176,6 +4314,24 @@ func (b openAPISpecBuilder) addChatOperations() error {
 	}
 	projectConversationEntries.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
 	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/entries", http.MethodGet, projectConversationEntries)
+
+	projectConversationWorkspaceDiff, err := b.jsonOperation(
+		"getProjectConversationWorkspaceDiff",
+		"Get project conversation workspace diff summary",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationWorkspaceDiffResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationWorkspaceDiff.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace-diff", http.MethodGet, projectConversationWorkspaceDiff)
 
 	projectConversationTurn, err := b.jsonOperation(
 		"startProjectConversationTurn",

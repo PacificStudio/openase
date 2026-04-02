@@ -106,8 +106,8 @@ export function getBootstrapPreset(projectStatus: string): ProjectBootstrapPrese
         roleName: 'Coder',
         roleSlug: 'fullstack-developer',
         workflowType: 'coding',
-        pickupStage: 'started',
-        finishStage: 'completed',
+        pickupStatusName: 'Backlog',
+        finishStatusName: 'Done',
         agentNameSuggestion: 'coder-01',
         exampleTicketTitle: '实现项目的第一个核心功能',
       }
@@ -118,8 +118,8 @@ export function getBootstrapPreset(projectStatus: string): ProjectBootstrapPrese
         roleName: '产品经理',
         roleSlug: 'product-manager',
         workflowType: 'custom',
-        pickupStage: 'unstarted',
-        finishStage: 'completed',
+        pickupStatusName: 'Backlog',
+        finishStatusName: 'Done',
         agentNameSuggestion: 'product-manager-01',
         exampleTicketTitle: '梳理项目需求并输出第一版 PRD',
       }
