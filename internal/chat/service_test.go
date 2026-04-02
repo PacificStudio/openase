@@ -133,6 +133,48 @@ func TestParseBundleDiffPayloadTextAcceptsStructuredJSON(t *testing.T) {
 	}
 }
 
+func TestNormalizeAssistantTextSplitsTrailingDiffFromMixedText(t *testing.T) {
+	events := normalizeAssistantText(
+		"我先按当前 Harness 和项目状态拓扑定位可改位置，直接给可应用的结构化 diff。\n" +
+			"{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"---\"},{\"op\":\"add\",\"text\":\"new line\"}]}]}",
+	)
+	if len(events) != 2 {
+		t.Fatalf("event count = %d, want 2: %+v", len(events), events)
+	}
+
+	text, ok := events[0].Payload.(textPayload)
+	if !ok {
+		t.Fatalf("first payload = %#v, want text payload", events[0].Payload)
+	}
+	if !strings.Contains(text.Content, "结构化 diff") {
+		t.Fatalf("first text payload = %#v, want explanatory prose", text)
+	}
+
+	diff, ok := events[1].Payload.(diffPayload)
+	if !ok {
+		t.Fatalf("second payload = %#v, want diff payload", events[1].Payload)
+	}
+	if diff.File != "harness content" || len(diff.Hunks) != 1 {
+		t.Fatalf("unexpected diff payload: %#v", diff)
+	}
+}
+
+func TestNormalizeAssistantTextCollapsesRepeatedTrailingDiffJSON(t *testing.T) {
+	diffJSON := "{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"---\"},{\"op\":\"add\",\"text\":\"new line\"}]}]}"
+	events := normalizeAssistantText("先给说明。" + diffJSON + diffJSON)
+	if len(events) != 2 {
+		t.Fatalf("event count = %d, want 2: %+v", len(events), events)
+	}
+
+	diff, ok := events[1].Payload.(diffPayload)
+	if !ok {
+		t.Fatalf("second payload = %#v, want diff payload", events[1].Payload)
+	}
+	if diff.File != "harness content" || len(diff.Hunks) != 1 {
+		t.Fatalf("unexpected diff payload: %#v", diff)
+	}
+}
+
 func TestBuildSystemPromptGuidesHarnessEditorReplies(t *testing.T) {
 	workflowID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
 	service := NewService(nil, nil, fakeCatalogReader{

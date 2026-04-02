@@ -75,6 +75,10 @@ const budgetRules = [
         'Dashboard regression coverage still combines initial load, refresh invalidation, and advisor rendering cases until dashboard test fixtures split by panel.',
       'src/lib/features/skills/components/skill-bundle-editor.ts':
         'Skill bundle editor still centralizes draft mutations, tree normalization, and path rewrites until file-tree helpers split from draft reducers.',
+      'src/lib/features/skills/components/skill-ai-sidebar.test.ts':
+        'Skill AI sidebar coverage still bundles transcript, verified result, and retry flows until sidebar test builders split by refinement phase.',
+      'src/lib/features/skills/components/skill-refinement-transcript.ts':
+        'Skill refinement transcript still folds message, plan, diff, and anchor events in one reducer until event-family parsers split behind a shared transcript assembler.',
       'src/lib/features/ticket-detail/drawer-state.svelte.test.ts':
         'Ticket drawer state coverage still mixes reference cache recovery with run transcript selection until drawer-state fixtures split by state slice.',
       'src/lib/features/ticket-detail/drawer-state.svelte.ts':
@@ -85,6 +89,8 @@ const budgetRules = [
         'Run transcript reducer still folds lifecycle, step, and trace events in one module until event-family reducers extract behind a shared transcript assembler.',
       'src/lib/features/workflows/components/harness-ai-sidebar-streaming.test.ts':
         'Harness AI streaming coverage still keeps long-stream SSE assertions in one integration test until sidebar stream helpers extract.',
+      'src/lib/features/workflows/components/harness-ai-sidebar.test.ts':
+        'Harness AI sidebar coverage still mixes provider selection, streaming, and reset flows until sidebar test builders split by interaction surface.',
       'src/lib/features/workflows/components/workflows-page.test.ts':
         'Workflow page coverage still mixes editor, history, and binding interactions until page-level workflow test helpers split by surface.',
     },

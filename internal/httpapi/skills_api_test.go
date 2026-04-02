@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,11 +15,14 @@ import (
 
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/internal/builtin"
+	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 )
 
 func TestSkillRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
@@ -358,6 +362,299 @@ func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 		if item.Name == "deploy-docker" {
 			t.Fatalf("expected deprecated harvest path to avoid creating deploy-docker, got %+v", item)
 		}
+	}
+}
+
+func TestSkillRefinementRouteStreamsRichRuntimeEvents(t *testing.T) {
+	projectID := uuid.New()
+	orgID := uuid.New()
+	providerID := uuid.New()
+	skillID := uuid.New()
+
+	providerItem := catalogdomain.AgentProvider{
+		ID:                providerID,
+		OrganizationID:    orgID,
+		Name:              "Codex",
+		AdapterType:       catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+		AvailabilityState: catalogdomain.AgentProviderAvailabilityStateAvailable,
+		Available:         true,
+		ModelName:         "gpt-5.4",
+	}
+
+	runtime := &httpSkillRefinementRuntime{
+		events: []chatservice.StreamEvent{
+			{
+				Event: "session_anchor",
+				Payload: chatservice.RuntimeSessionAnchor{
+					ProviderThreadID:      "thread-http",
+					LastTurnID:            "turn-http",
+					ProviderAnchorID:      "thread-http",
+					ProviderAnchorKind:    "thread",
+					ProviderTurnSupported: true,
+				},
+			},
+			{
+				Event:   "thread_status",
+				Payload: mapRuntimeThreadStatusPayload("thread-http", "active", []string{"running"}),
+			},
+			{
+				Event: "message",
+				Payload: map[string]any{
+					"type": "task_started",
+					"raw":  map[string]any{"thread_id": "thread-http", "turn_id": "turn-http"},
+				},
+			},
+			{
+				Event: "message",
+				Payload: map[string]any{
+					"type": "task_progress",
+					"raw":  map[string]any{"text": "bash -n scripts/check.sh\n./scripts/check.sh\nverified"},
+				},
+			},
+			{
+				Event:   "interrupt_requested",
+				Payload: mapRuntimeInterruptEvent("req-http", "command_execution", map[string]any{"command": "git status"}),
+			},
+			{
+				Event: "session_state",
+				Payload: map[string]any{
+					"status":       "active",
+					"active_flags": []string{"running"},
+					"detail":       "Verification running",
+				},
+			},
+			{
+				Event:   "plan_updated",
+				Payload: mapRuntimePlanUpdatedPayload("thread-http", "turn-http"),
+			},
+			{
+				Event:   "diff_updated",
+				Payload: mapRuntimeDiffUpdatedPayload("thread-http", "turn-http", "diff --git a/SKILL.md b/SKILL.md"),
+			},
+			{
+				Event:   "reasoning_updated",
+				Payload: mapRuntimeReasoningUpdatedPayload("thread-http", "turn-http", "item-1"),
+			},
+			{
+				Event:   "message",
+				Payload: map[string]any{"type": "text", "content": `{"type":"skill_refinement_result","status":"verified","summary":"Bundle verified from HTTP SSE","verification_notes":"Verification command succeeded"}`},
+			},
+		},
+		anchor: chatservice.RuntimeSessionAnchor{
+			ProviderThreadID:      "thread-http",
+			LastTurnID:            "turn-http",
+			ProviderAnchorID:      "thread-http",
+			ProviderAnchorKind:    "thread",
+			ProviderTurnSupported: true,
+		},
+	}
+
+	service := chatservice.NewSkillRefinementService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		runtime,
+		httpSkillRefinementCatalog{
+			project: catalogdomain.Project{
+				ID:                     projectID,
+				OrganizationID:         orgID,
+				Name:                   "OpenASE",
+				DefaultAgentProviderID: &providerID,
+			},
+			providers: []catalogdomain.AgentProvider{providerItem},
+		},
+		httpSkillRefinementWorkflow{
+			skill: workflowservice.SkillDetail{
+				Skill: workflowservice.Skill{
+					ID:             skillID,
+					Name:           "deploy-openase",
+					CurrentVersion: 1,
+					IsEnabled:      true,
+				},
+			},
+		},
+	)
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithSkillRefinementService(service),
+	)
+
+	requestBody := fmt.Sprintf(`{
+		"project_id":"%s",
+		"message":"Tighten the skill and keep the event stream detailed.",
+		"provider_id":"%s",
+		"files":[
+			{"path":"SKILL.md","content_base64":"%s","media_type":"text/markdown; charset=utf-8","is_executable":false},
+			{"path":"scripts/check.sh","content_base64":"%s","media_type":"text/x-shellscript; charset=utf-8","is_executable":true}
+		]
+	}`,
+		projectID,
+		providerID,
+		base64.StdEncoding.EncodeToString([]byte("---\nname: deploy-openase\ndescription: Safely redeploy OpenASE\n---\n\n# Deploy\n")),
+		base64.StdEncoding.EncodeToString([]byte("#!/usr/bin/env bash\necho verified\n")),
+	)
+
+	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/skills/%s/refinement-runs", skillID), strings.NewReader(requestBody))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set(chatUserHeader, "user:skill-http")
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if contentType := rec.Header().Get(echo.HeaderContentType); contentType != "text/event-stream" {
+		t.Fatalf("expected text/event-stream, got %q", contentType)
+	}
+
+	body := rec.Body.String()
+	for _, expected := range []string{
+		"event: session",
+		"event: status",
+		"event: session_anchor",
+		"event: thread_status",
+		"event: message",
+		"event: interrupt_requested",
+		"event: session_state",
+		"event: plan_updated",
+		"event: diff_updated",
+		"event: reasoning_updated",
+		"event: result",
+		`"provider_thread_id":"thread-http"`,
+		`"provider_turn_id":"turn-http"`,
+		`"type":"task_progress"`,
+		`"request_id":"req-http"`,
+	} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("expected SSE body to contain %q, got %q", expected, body)
+		}
+	}
+}
+
+type httpSkillRefinementRuntime struct {
+	events []chatservice.StreamEvent
+	anchor chatservice.RuntimeSessionAnchor
+}
+
+func (r *httpSkillRefinementRuntime) Supports(catalogdomain.AgentProvider) bool {
+	return true
+}
+
+func (r *httpSkillRefinementRuntime) StartTurn(context.Context, chatservice.RuntimeTurnInput) (chatservice.TurnStream, error) {
+	events := make(chan chatservice.StreamEvent, len(r.events))
+	for _, event := range r.events {
+		events <- event
+	}
+	close(events)
+	return chatservice.TurnStream{Events: events}, nil
+}
+
+func (r *httpSkillRefinementRuntime) CloseSession(chatservice.SessionID) bool {
+	return true
+}
+
+func (r *httpSkillRefinementRuntime) SessionAnchor(chatservice.SessionID) chatservice.RuntimeSessionAnchor {
+	return r.anchor
+}
+
+type httpSkillRefinementCatalog struct {
+	project   catalogdomain.Project
+	providers []catalogdomain.AgentProvider
+}
+
+func (c httpSkillRefinementCatalog) GetProject(context.Context, uuid.UUID) (catalogdomain.Project, error) {
+	return c.project, nil
+}
+
+func (httpSkillRefinementCatalog) ListActivityEvents(context.Context, catalogdomain.ListActivityEvents) ([]catalogdomain.ActivityEvent, error) {
+	return nil, nil
+}
+
+func (httpSkillRefinementCatalog) ListProjectRepos(context.Context, uuid.UUID) ([]catalogdomain.ProjectRepo, error) {
+	return nil, nil
+}
+
+func (httpSkillRefinementCatalog) ListTicketRepoScopes(context.Context, uuid.UUID, uuid.UUID) ([]catalogdomain.TicketRepoScope, error) {
+	return nil, nil
+}
+
+func (c httpSkillRefinementCatalog) ListAgentProviders(context.Context, uuid.UUID) ([]catalogdomain.AgentProvider, error) {
+	return c.providers, nil
+}
+
+func (c httpSkillRefinementCatalog) GetAgentProvider(context.Context, uuid.UUID) (catalogdomain.AgentProvider, error) {
+	if len(c.providers) == 0 {
+		return catalogdomain.AgentProvider{}, fmt.Errorf("provider not found")
+	}
+	return c.providers[0], nil
+}
+
+type httpSkillRefinementWorkflow struct {
+	skill workflowservice.SkillDetail
+}
+
+func (httpSkillRefinementWorkflow) Get(context.Context, uuid.UUID) (workflowservice.WorkflowDetail, error) {
+	return workflowservice.WorkflowDetail{}, nil
+}
+
+func (httpSkillRefinementWorkflow) List(context.Context, uuid.UUID) ([]workflowservice.Workflow, error) {
+	return nil, nil
+}
+
+func (w httpSkillRefinementWorkflow) GetSkill(context.Context, uuid.UUID) (workflowservice.SkillDetail, error) {
+	return w.skill, nil
+}
+
+func mapRuntimeThreadStatusPayload(threadID string, status string, activeFlags []string) map[string]any {
+	return map[string]any{
+		"thread_id":    threadID,
+		"status":       status,
+		"active_flags": activeFlags,
+	}
+}
+
+func mapRuntimeInterruptEvent(requestID string, kind string, payload map[string]any) map[string]any {
+	return map[string]any{
+		"request_id": requestID,
+		"kind":       kind,
+		"payload":    payload,
+	}
+}
+
+func mapRuntimePlanUpdatedPayload(threadID string, turnID string) map[string]any {
+	return map[string]any{
+		"thread_id": threadID,
+		"turn_id":   turnID,
+		"plan": []map[string]any{
+			{"step": "Inspect", "status": "completed"},
+			{"step": "Verify", "status": "completed"},
+		},
+	}
+}
+
+func mapRuntimeDiffUpdatedPayload(threadID string, turnID string, diff string) map[string]any {
+	return map[string]any{
+		"thread_id": threadID,
+		"turn_id":   turnID,
+		"diff":      diff,
+	}
+}
+
+func mapRuntimeReasoningUpdatedPayload(threadID string, turnID string, itemID string) map[string]any {
+	return map[string]any{
+		"thread_id": threadID,
+		"turn_id":   turnID,
+		"item_id":   itemID,
+		"kind":      "summary_text_delta",
+		"delta":     "Reasoning",
 	}
 }
 

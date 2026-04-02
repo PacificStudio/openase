@@ -60,9 +60,86 @@ export type SkillRefinementErrorPayload = {
   message: string
 }
 
+export type SkillRefinementMessagePayload = Record<string, unknown> & {
+  type: string
+  content?: string
+  raw?: Record<string, unknown>
+}
+
+export type SkillRefinementInterruptPayload = {
+  requestId: string
+  kind: string
+  options: Array<{ id: string; label: string }>
+  payload: Record<string, unknown>
+}
+
+export type SkillRefinementThreadStatusPayload = {
+  threadId: string
+  status: string
+  activeFlags: string[]
+  entryId?: string
+}
+
+export type SkillRefinementSessionStatePayload = {
+  status: string
+  activeFlags: string[]
+  detail?: string
+  raw?: Record<string, unknown>
+  entryId?: string
+}
+
+export type SkillRefinementPlanUpdatedPayload = {
+  threadId: string
+  turnId: string
+  explanation?: string
+  plan: Array<{ step: string; status: string }>
+  entryId?: string
+}
+
+export type SkillRefinementDiffUpdatedPayload = {
+  threadId: string
+  turnId: string
+  diff: string
+  entryId?: string
+}
+
+export type SkillRefinementReasoningUpdatedPayload = {
+  threadId: string
+  turnId: string
+  itemId: string
+  kind: string
+  delta?: string
+  summaryIndex?: number
+  contentIndex?: number
+  entryId?: string
+}
+
+export type SkillRefinementThreadCompactedPayload = {
+  threadId: string
+  turnId: string
+  entryId?: string
+}
+
+export type SkillRefinementSessionAnchorPayload = {
+  providerThreadId?: string
+  providerTurnId?: string
+  providerAnchorId?: string
+  providerAnchorKind?: string
+  providerTurnSupported?: boolean
+}
+
 export type SkillRefinementStreamEvent =
   | { kind: 'session'; payload: SkillRefinementSessionPayload }
   | { kind: 'status'; payload: SkillRefinementStatusPayload }
+  | { kind: 'message'; payload: SkillRefinementMessagePayload }
+  | { kind: 'interrupt_requested'; payload: SkillRefinementInterruptPayload }
+  | { kind: 'thread_status'; payload: SkillRefinementThreadStatusPayload }
+  | { kind: 'session_state'; payload: SkillRefinementSessionStatePayload }
+  | { kind: 'plan_updated'; payload: SkillRefinementPlanUpdatedPayload }
+  | { kind: 'diff_updated'; payload: SkillRefinementDiffUpdatedPayload }
+  | { kind: 'reasoning_updated'; payload: SkillRefinementReasoningUpdatedPayload }
+  | { kind: 'thread_compacted'; payload: SkillRefinementThreadCompactedPayload }
+  | { kind: 'session_anchor'; payload: SkillRefinementSessionAnchorPayload }
   | { kind: 'result'; payload: SkillRefinementResultPayload }
   | { kind: 'error'; payload: SkillRefinementErrorPayload }
 
@@ -127,7 +204,9 @@ export async function closeSkillRefinementSession(sessionId: string) {
   }
 }
 
-function parseSkillRefinementStreamEvent(frame: SSEFrame): SkillRefinementStreamEvent | null {
+export function parseSkillRefinementStreamEvent(
+  frame: SSEFrame,
+): SkillRefinementStreamEvent | null {
   const payload = parseJSONObject(frame.data)
   if (payload == null) {
     return null
@@ -174,6 +253,136 @@ function parseSkillRefinementStreamEvent(frame: SSEFrame): SkillRefinementStream
           failureReason: readOptionalString(object, 'failure_reason'),
           candidateFiles: readSkillFiles(object, 'candidate_files'),
           candidateBundleHash: readOptionalString(object, 'candidate_bundle_hash'),
+        },
+      }
+    }
+    case 'message': {
+      const object = parseRequiredObject(payload)
+      return {
+        kind: 'message',
+        payload: {
+          ...object,
+          type: readRequiredString(object, 'type'),
+          content: readOptionalString(object, 'content'),
+          raw: readOptionalObject(object, 'raw'),
+        },
+      }
+    }
+    case 'interrupt_requested': {
+      const object = parseRequiredObject(payload)
+      return {
+        kind: 'interrupt_requested',
+        payload: {
+          requestId: readRequiredString(object, 'request_id'),
+          kind: readRequiredString(object, 'kind'),
+          options: readDecisionOptions(object, 'options'),
+          payload: readOptionalObject(object, 'payload') ?? {},
+        },
+      }
+    }
+    case 'thread_status': {
+      const object = parseRequiredObject(payload)
+      return {
+        kind: 'thread_status',
+        payload: {
+          threadId: readRequiredString(object, 'thread_id'),
+          status: readRequiredString(object, 'status'),
+          activeFlags: readStringArray(object, 'active_flags'),
+          entryId: readOptionalString(object, 'entry_id'),
+        },
+      }
+    }
+    case 'session_state': {
+      const object = parseRequiredObject(payload)
+      return {
+        kind: 'session_state',
+        payload: {
+          status: readRequiredString(object, 'status'),
+          activeFlags: readStringArray(object, 'active_flags'),
+          detail: readOptionalString(object, 'detail'),
+          raw: readOptionalObject(object, 'raw'),
+          entryId: readOptionalString(object, 'entry_id'),
+        },
+      }
+    }
+    case 'plan_updated': {
+      const object = parseRequiredObject(payload)
+      return {
+        kind: 'plan_updated',
+        payload: {
+          threadId: readRequiredString(object, 'thread_id'),
+          turnId: readRequiredString(object, 'turn_id'),
+          explanation: readOptionalString(object, 'explanation'),
+          plan: readPlanItems(object, 'plan'),
+          entryId: readOptionalString(object, 'entry_id'),
+        },
+      }
+    }
+    case 'diff_updated': {
+      const object = parseRequiredObject(payload)
+      return {
+        kind: 'diff_updated',
+        payload: {
+          threadId: readRequiredString(object, 'thread_id'),
+          turnId: readRequiredString(object, 'turn_id'),
+          diff: readRequiredString(object, 'diff'),
+          entryId: readOptionalString(object, 'entry_id'),
+        },
+      }
+    }
+    case 'reasoning_updated': {
+      const object = parseRequiredObject(payload)
+      return {
+        kind: 'reasoning_updated',
+        payload: {
+          threadId: readRequiredString(object, 'thread_id'),
+          turnId: readRequiredString(object, 'turn_id'),
+          itemId: readRequiredString(object, 'item_id'),
+          kind: readRequiredString(object, 'kind'),
+          delta: readOptionalString(object, 'delta'),
+          summaryIndex: readOptionalNumber(object, 'summary_index'),
+          contentIndex: readOptionalNumber(object, 'content_index'),
+          entryId: readOptionalString(object, 'entry_id'),
+        },
+      }
+    }
+    case 'thread_compacted': {
+      const object = parseRequiredObject(payload)
+      return {
+        kind: 'thread_compacted',
+        payload: {
+          threadId: readRequiredString(object, 'thread_id'),
+          turnId: readRequiredString(object, 'turn_id'),
+          entryId: readOptionalString(object, 'entry_id'),
+        },
+      }
+    }
+    case 'session_anchor': {
+      const object = parseRequiredObject(payload)
+      return {
+        kind: 'session_anchor',
+        payload: {
+          providerThreadId: readOptionalStringField(
+            object,
+            'provider_thread_id',
+            'ProviderThreadID',
+          ),
+          providerTurnId: readOptionalStringField(object, 'provider_turn_id', 'LastTurnID'),
+          providerAnchorId: readOptionalStringField(
+            object,
+            'provider_anchor_id',
+            'ProviderAnchorID',
+          ),
+          providerAnchorKind: readOptionalStringField(
+            object,
+            'provider_anchor_kind',
+            'ProviderAnchorKind',
+          ),
+          providerTurnSupported: readOptionalBooleanField(
+            object,
+            'provider_turn_supported',
+            'ProviderTurnSupported',
+          ),
         },
       }
     }
@@ -257,12 +466,95 @@ function readRequiredNumber(object: Record<string, unknown>, key: string): numbe
   return value
 }
 
+function readOptionalNumber(object: Record<string, unknown>, key: string): number | undefined {
+  const value = object[key]
+  return typeof value === 'number' && !Number.isNaN(value) ? value : undefined
+}
+
 function readRequiredBoolean(object: Record<string, unknown>, key: string): boolean {
   const value = object[key]
   if (typeof value !== 'boolean') {
     throw new Error(`skill refinement stream payload field ${key} must be a boolean`)
   }
   return value
+}
+
+function readOptionalObject(
+  object: Record<string, unknown>,
+  key: string,
+): Record<string, unknown> | undefined {
+  const value = object[key]
+  if (value == null || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined
+  }
+  return value as Record<string, unknown>
+}
+
+function readStringArray(object: Record<string, unknown>, key: string): string[] {
+  const value = object[key]
+  if (!Array.isArray(value)) {
+    return []
+  }
+  return value
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter((item) => item !== '')
+}
+
+function readDecisionOptions(
+  object: Record<string, unknown>,
+  key: string,
+): Array<{ id: string; label: string }> {
+  const value = object[key]
+  if (!Array.isArray(value)) {
+    return []
+  }
+  return value
+    .map((item) => {
+      const record = parseRequiredObject(item)
+      const id = readRequiredString(record, 'id')
+      const label = readRequiredString(record, 'label')
+      return { id, label }
+    })
+    .filter(Boolean)
+}
+
+function readPlanItems(
+  object: Record<string, unknown>,
+  key: string,
+): Array<{ step: string; status: string }> {
+  const value = object[key]
+  if (!Array.isArray(value)) {
+    return []
+  }
+  return value
+    .map((item) => {
+      const record = parseRequiredObject(item)
+      return {
+        step: readRequiredString(record, 'step'),
+        status: readRequiredString(record, 'status'),
+      }
+    })
+    .filter(Boolean)
+}
+
+function readOptionalStringField(object: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = readOptionalString(object, key)
+    if (value) {
+      return value
+    }
+  }
+  return undefined
+}
+
+function readOptionalBooleanField(object: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = object[key]
+    if (typeof value === 'boolean') {
+      return value
+    }
+  }
+  return undefined
 }
 
 function readSkillFiles(object: Record<string, unknown>, key: string): SkillFile[] {
