@@ -520,6 +520,7 @@ func mapCodexAssistantOutput(
 		state = &codexAssistantItemState{}
 		items[itemID] = state
 	}
+	emittedText := state.text.String()
 	combined := state.append(output.Text, output.Snapshot)
 
 	if state.waitingOnSnapshot {
@@ -542,7 +543,7 @@ func mapCodexAssistantOutput(
 	if output.Snapshot {
 		delete(items, itemID)
 		if state.emittedText {
-			return nil
+			return normalizeAssistantSnapshotSupplement(combined, emittedText)
 		}
 		return normalizeAssistantText(combined)
 	}
@@ -554,6 +555,30 @@ func mapCodexAssistantOutput(
 func shouldDelayCodexAssistantEmission(text string) bool {
 	trimmed := strings.TrimLeft(text, " \t\r\n")
 	return strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "```")
+}
+
+func normalizeAssistantSnapshotSupplement(snapshotText string, emittedText string) []StreamEvent {
+	leadingText, payload, ok := extractStructuredAssistantPayload(snapshotText)
+	if !ok {
+		return nil
+	}
+
+	emittedComparable := comparableAssistantText(emittedText)
+	leadingComparable := comparableAssistantText(leadingText)
+	if emittedComparable == "" || leadingComparable == "" {
+		return []StreamEvent{{Event: "message", Payload: payload}}
+	}
+	if leadingComparable == emittedComparable ||
+		strings.HasPrefix(leadingComparable, emittedComparable) ||
+		strings.HasPrefix(emittedComparable, leadingComparable) {
+		return []StreamEvent{{Event: "message", Payload: payload}}
+	}
+
+	return []StreamEvent{{Event: "message", Payload: payload}}
+}
+
+func comparableAssistantText(text string) string {
+	return strings.TrimSpace(strings.ReplaceAll(text, "\r\n", "\n"))
 }
 
 func (s *codexAssistantItemState) append(text string, snapshot bool) string {

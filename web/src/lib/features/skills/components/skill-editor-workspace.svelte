@@ -1,10 +1,9 @@
 <script lang="ts">
-  import type { Skill, SkillFile, Workflow } from '$lib/api/contracts'
+  import type { SkillFile } from '$lib/api/contracts'
   import SkillFileEditor from './skill-file-editor.svelte'
   import SkillFileTabs from './skill-file-tabs.svelte'
   import SkillFileTree from './skill-file-tree.svelte'
   import type { SkillTreeKind } from './skill-bundle-editor'
-  import SkillMetadataPanel from './skill-metadata-panel.svelte'
   import { FilePlus2, FolderPlus } from '@lucide/svelte'
 
   let {
@@ -16,13 +15,7 @@
     dirtyPaths,
     selectedFile,
     activeContent,
-    skill,
-    workflows,
-    history,
-    busy = false,
-    metadataOpen = true,
     pendingCreate = null,
-    editDescription = $bindable(''),
     onSelectTreeNode,
     onCreateFile,
     onCreateFolder,
@@ -33,7 +26,6 @@
     onSelectTab,
     onCloseTab,
     onContentChange,
-    onToggleBinding,
   }: {
     files: SkillFile[]
     emptyDirectoryPaths?: string[]
@@ -43,13 +35,7 @@
     dirtyPaths: Set<string>
     selectedFile: SkillFile | null
     activeContent: string
-    skill: Skill
-    workflows: Workflow[]
-    history: Array<{ id: string; version: number; created_by: string; created_at: string }>
-    busy?: boolean
-    metadataOpen?: boolean
     pendingCreate?: { kind: 'file' | 'folder'; parentPath: string } | null
-    editDescription?: string
     onSelectTreeNode?: (path: string, kind: SkillTreeKind) => void
     onCreateFile?: () => void
     onCreateFolder?: () => void
@@ -60,7 +46,6 @@
     onSelectTab?: (path: string) => void
     onCloseTab?: (path: string) => void
     onContentChange?: (path: string, value: string) => void
-    onToggleBinding?: (workflowId: string, shouldBind: boolean) => void
   } = $props()
 </script>
 
@@ -110,17 +95,4 @@
       <SkillFileEditor file={selectedFile} content={activeContent} {onContentChange} />
     </div>
   </div>
-
-  {#if metadataOpen}
-    <aside class="border-border w-64 shrink-0 overflow-y-auto border-l p-3">
-      <SkillMetadataPanel
-        {skill}
-        {workflows}
-        {busy}
-        bind:editDescription
-        {history}
-        {onToggleBinding}
-      />
-    </aside>
-  {/if}
 </div>

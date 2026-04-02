@@ -2,6 +2,7 @@ package chat
 
 import (
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -17,6 +18,7 @@ const (
 )
 
 var codeFencePattern = regexp.MustCompile("(?s)^```(?:json)?\\s*(\\{.*\\})\\s*```$")
+var trailingCodeFencePattern = regexp.MustCompile("(?s)```(?:json)?\\s*(\\{.*?\\})\\s*```\\s*$")
 
 type diffPayload struct {
 	Type  string     `json:"type"`
@@ -64,14 +66,13 @@ func newTaskMessageEvent(kind string, raw any) StreamEvent {
 }
 
 func normalizeAssistantText(text string) []StreamEvent {
-	if proposal, ok := parseActionProposalText(text); ok {
-		return []StreamEvent{{Event: "message", Payload: proposal}}
-	}
-	if bundleDiff, ok := parseBundleDiffPayloadText(text); ok {
-		return []StreamEvent{{Event: "message", Payload: bundleDiff}}
-	}
-	if diff, ok := parseDiffPayloadText(text); ok {
-		return []StreamEvent{{Event: "message", Payload: diff}}
+	if leadingText, payload, ok := extractStructuredAssistantPayload(text); ok {
+		events := make([]StreamEvent, 0, 2)
+		if trimmed := strings.TrimSpace(leadingText); trimmed != "" {
+			events = append(events, newTextMessageEvent(trimmed))
+		}
+		events = append(events, StreamEvent{Event: "message", Payload: payload})
+		return events
 	}
 
 	return []StreamEvent{newTextMessageEvent(text)}
@@ -185,6 +186,113 @@ func parseBundleDiffPayloadText(text string) (bundleDiffPayload, bool) {
 		}
 	}
 	return payload, true
+}
+
+func extractStructuredAssistantPayload(text string) (string, any, bool) {
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return "", nil, false
+	}
+
+	if payload, ok := parseStructuredPayloadCandidate(trimmed); ok {
+		return "", payload, true
+	}
+
+	if matches := trailingCodeFencePattern.FindAllStringSubmatchIndex(trimmed, -1); len(matches) > 0 {
+		last := matches[len(matches)-1]
+		if len(last) >= 4 {
+			candidate := strings.TrimSpace(trimmed[last[2]:last[3]])
+			if payload, ok := parseStructuredPayloadCandidate(candidate); ok {
+				return strings.TrimSpace(trimmed[:last[0]]), payload, true
+			}
+		}
+	}
+
+	if leadingText, payload, ok := extractTrailingStructuredPayloadSequence(trimmed); ok {
+		return leadingText, payload, true
+	}
+
+	return "", nil, false
+}
+
+func parseStructuredPayloadCandidate(text string) (any, bool) {
+	if proposal, ok := parseActionProposalText(text); ok {
+		return proposal, true
+	}
+	if bundleDiff, ok := parseBundleDiffPayloadText(text); ok {
+		return bundleDiff, true
+	}
+	if diff, ok := parseDiffPayloadText(text); ok {
+		return diff, true
+	}
+	return nil, false
+}
+
+func extractTrailingStructuredPayloadSequence(text string) (string, any, bool) {
+	for start := 0; start < len(text); start++ {
+		if text[start] != '{' {
+			continue
+		}
+
+		payload, next, ok := decodeStructuredPayloadAt(text, start)
+		if !ok {
+			continue
+		}
+
+		fingerprint := structuredPayloadFingerprint(payload)
+		position := skipStructuredWhitespace(text, next)
+		for position < len(text) {
+			nextPayload, nextEnd, nextOK := decodeStructuredPayloadAt(text, position)
+			if !nextOK || structuredPayloadFingerprint(nextPayload) != fingerprint {
+				ok = false
+				break
+			}
+			payload = nextPayload
+			position = skipStructuredWhitespace(text, nextEnd)
+		}
+
+		if !ok || position != len(text) {
+			continue
+		}
+
+		return strings.TrimSpace(text[:start]), payload, true
+	}
+
+	return "", nil, false
+}
+
+func decodeStructuredPayloadAt(text string, start int) (any, int, bool) {
+	decoder := json.NewDecoder(strings.NewReader(text[start:]))
+	var raw json.RawMessage
+	if err := decoder.Decode(&raw); err != nil {
+		return nil, 0, false
+	}
+
+	payload, ok := parseStructuredPayloadCandidate(string(raw))
+	if !ok {
+		return nil, 0, false
+	}
+	return payload, start + int(decoder.InputOffset()), true
+}
+
+func skipStructuredWhitespace(text string, start int) int {
+	for start < len(text) {
+		switch text[start] {
+		case ' ', '\t', '\r', '\n':
+			start++
+		default:
+			return start
+		}
+	}
+	return start
+}
+
+func structuredPayloadFingerprint(payload any) string {
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Sprintf("%T", payload)
+	}
+	return string(encoded)
 }
 
 func isValidDiffHunk(hunk diffHunk) bool {
