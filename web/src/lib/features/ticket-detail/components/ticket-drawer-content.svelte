@@ -21,7 +21,6 @@
     TicketStatusOption,
     TicketTimelineItem,
   } from '../types'
-
   let {
     ticket,
     projectId,

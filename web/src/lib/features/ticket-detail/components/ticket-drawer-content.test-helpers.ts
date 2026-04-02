@@ -1,4 +1,5 @@
 import { render } from '@testing-library/svelte'
+import type { AgentProvider } from '$lib/api/contracts'
 import { appStore } from '$lib/stores/app.svelte'
 import type {
   HookExecution,
@@ -8,6 +9,79 @@ import type {
   TicketTimelineItem,
 } from '../types'
 import TicketDrawerContent from './ticket-drawer-content.svelte'
+
+export const providerFixtures: AgentProvider[] = [
+  {
+    id: 'provider-1',
+    organization_id: 'org-1',
+    machine_id: 'machine-1',
+    machine_name: 'Localhost',
+    machine_host: '127.0.0.1',
+    machine_status: 'online',
+    machine_ssh_user: null,
+    machine_workspace_root: '/workspace',
+    name: 'Codex',
+    adapter_type: 'codex-app-server',
+    permission_profile: 'unrestricted',
+    availability_state: 'available',
+    available: true,
+    availability_checked_at: '2026-03-28T12:00:00Z',
+    availability_reason: null,
+    capabilities: {
+      ephemeral_chat: {
+        state: 'available',
+        reason: null,
+      },
+    },
+    cli_command: 'codex',
+    cli_args: [],
+    auth_config: {},
+    cli_rate_limit: null,
+    cli_rate_limit_updated_at: null,
+    model_name: 'gpt-5.4',
+    model_temperature: 0,
+    model_max_tokens: 4096,
+    max_parallel_runs: 2,
+    cost_per_input_token: 0,
+    cost_per_output_token: 0,
+    pricing_config: {},
+  },
+  {
+    id: 'provider-2',
+    organization_id: 'org-1',
+    machine_id: 'machine-1',
+    machine_name: 'Localhost',
+    machine_host: '127.0.0.1',
+    machine_status: 'online',
+    machine_ssh_user: null,
+    machine_workspace_root: '/workspace',
+    name: 'Claude',
+    adapter_type: 'claude-code-cli',
+    permission_profile: 'unrestricted',
+    availability_state: 'available',
+    available: true,
+    availability_checked_at: '2026-03-28T12:00:00Z',
+    availability_reason: null,
+    capabilities: {
+      ephemeral_chat: {
+        state: 'available',
+        reason: null,
+      },
+    },
+    cli_command: 'claude',
+    cli_args: [],
+    auth_config: {},
+    cli_rate_limit: null,
+    cli_rate_limit_updated_at: null,
+    model_name: 'claude-sonnet-4',
+    model_temperature: 0,
+    model_max_tokens: 4096,
+    max_parallel_runs: 2,
+    cost_per_input_token: 0,
+    cost_per_output_token: 0,
+    pricing_config: {},
+  },
+]
 
 export const statusesFixture: TicketStatusOption[] = [
   { id: 'status-1', name: 'In Review', color: '#f59e0b' },
@@ -110,6 +184,41 @@ export const currentRunFixture: TicketRun = {
 export function resetTicketDrawerTestAppStore() {
   appStore.currentOrg = null
   appStore.currentProject = null
+}
+
+export function createWorkspaceDiff(conversationId: string, dirty = false) {
+  return {
+    workspaceDiff: {
+      conversationId,
+      workspacePath: `/tmp/${conversationId}`,
+      dirty,
+      reposChanged: dirty ? 1 : 0,
+      filesChanged: dirty ? 1 : 0,
+      added: dirty ? 4 : 0,
+      removed: dirty ? 1 : 0,
+      repos: dirty
+        ? [
+            {
+              name: 'openase',
+              path: 'services/openase',
+              branch: 'agent/conv-123',
+              dirty: true,
+              filesChanged: 1,
+              added: 4,
+              removed: 1,
+              files: [
+                {
+                  path: 'web/src/app.ts',
+                  status: 'modified',
+                  added: 4,
+                  removed: 1,
+                },
+              ],
+            },
+          ]
+        : [],
+    },
+  }
 }
 
 export function renderTicketDrawerContent() {

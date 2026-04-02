@@ -56,9 +56,9 @@ vi.mock('$lib/api/openase', async () => {
   }
 })
 
-import { providerFixtures } from '$lib/features/chat/ephemeral-chat-session-controller.test-helpers'
-import { createWorkspaceDiff } from '$lib/features/chat/project-conversation-panel.test-helpers'
 import {
+  createWorkspaceDiff,
+  providerFixtures,
   renderTicketDrawerContent,
   resetTicketDrawerTestAppStore,
 } from './ticket-drawer-content.test-helpers'
