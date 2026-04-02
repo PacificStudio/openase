@@ -124,8 +124,6 @@ jobs:
   frontend:
     name: Frontend Checks
     runs-on: [self-hosted, Linux, X64]
-    container:
-      image: mcr.microsoft.com/playwright:v1.58.2-noble
     needs:
       - changes
       - api-contract
@@ -159,6 +157,9 @@ jobs:
 
       - name: Install Web Dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Browser And System Dependencies
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Run Web CI
         shell: bash
