@@ -106,23 +106,26 @@ function ensureRuntimeConnection(runtime: Runtime) {
     return
   }
 
-  runtime.disconnect = connectEventStream(`/api/v1/orgs/${runtime.orgId}/${runtime.scope}/stream`, {
-    onEvent: (frame) => {
-      const event = parseOrganizationEventEnvelope(frame)
-      if (!event) {
-        return
-      }
-      for (const listener of [...runtime.eventListeners]) {
-        listener(event)
-      }
+  runtime.disconnect = connectEventStream(
+    organizationEventStreamPath(runtime.orgId, runtime.scope),
+    {
+      onEvent: (frame) => {
+        const event = parseOrganizationEventEnvelope(frame)
+        if (!event) {
+          return
+        }
+        for (const listener of [...runtime.eventListeners]) {
+          listener(event)
+        }
+      },
+      onStateChange: (state) => {
+        setRuntimeState(runtime, state)
+      },
+      onError: (error) => {
+        console.error(`Organization ${runtime.scope} event bus error:`, error)
+      },
     },
-    onStateChange: (state) => {
-      setRuntimeState(runtime, state)
-    },
-    onError: (error) => {
-      console.error(`Organization ${runtime.scope} event bus error:`, error)
-    },
-  })
+  )
 }
 
 function cleanupRuntime(runtime: Runtime) {
@@ -167,4 +170,11 @@ function parseOrganizationEventEnvelope(
 
 function buildRuntimeKey(orgId: string, scope: OrganizationEventScope) {
   return `${orgId}:${scope}`
+}
+
+function organizationEventStreamPath(orgId: string, scope: OrganizationEventScope) {
+  if (scope === 'machines') {
+    return `/api/v1/orgs/${orgId}/machines/stream`
+  }
+  return `/api/v1/orgs/${orgId}/providers/stream`
 }
