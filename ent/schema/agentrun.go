@@ -44,6 +44,15 @@ func (AgentRun) Fields() []ent.Field {
 		field.String("current_step_status").Optional().Nillable(),
 		field.Text("current_step_summary").Optional().Nillable(),
 		field.Time("current_step_changed_at").Optional().Nillable(),
+		field.Enum("completion_summary_status").
+			Values("pending", "completed", "failed").
+			Optional().
+			Nillable(),
+		field.Text("completion_summary_markdown").Optional().Nillable(),
+		field.JSON("completion_summary_json", map[string]any{}).Optional(),
+		field.JSON("completion_summary_input", map[string]any{}).Optional(),
+		field.Time("completion_summary_generated_at").Optional().Nillable(),
+		field.Text("completion_summary_error").Optional().Nillable(),
 		createdAtField(),
 	}
 }

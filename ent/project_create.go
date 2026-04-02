@@ -129,6 +129,20 @@ func (_c *ProjectCreate) SetNillableMaxConcurrentAgents(v *int) *ProjectCreate {
 	return _c
 }
 
+// SetAgentRunSummaryPrompt sets the "agent_run_summary_prompt" field.
+func (_c *ProjectCreate) SetAgentRunSummaryPrompt(v string) *ProjectCreate {
+	_c.mutation.SetAgentRunSummaryPrompt(v)
+	return _c
+}
+
+// SetNillableAgentRunSummaryPrompt sets the "agent_run_summary_prompt" field if the given value is not nil.
+func (_c *ProjectCreate) SetNillableAgentRunSummaryPrompt(v *string) *ProjectCreate {
+	if v != nil {
+		_c.SetAgentRunSummaryPrompt(*v)
+	}
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *ProjectCreate) SetID(v uuid.UUID) *ProjectCreate {
 	_c.mutation.SetID(v)
@@ -515,6 +529,10 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.MaxConcurrentAgents(); ok {
 		_spec.SetField(project.FieldMaxConcurrentAgents, field.TypeInt, value)
 		_node.MaxConcurrentAgents = value
+	}
+	if value, ok := _c.mutation.AgentRunSummaryPrompt(); ok {
+		_spec.SetField(project.FieldAgentRunSummaryPrompt, field.TypeString, value)
+		_node.AgentRunSummaryPrompt = value
 	}
 	if nodes := _c.mutation.OrganizationIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

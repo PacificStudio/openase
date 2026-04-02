@@ -1,21 +1,29 @@
-import { cleanup, fireEvent, waitFor } from '@testing-library/svelte'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 const { loadSkillEditorData } = vi.hoisted(() => ({
   loadSkillEditorData: vi.fn(),
 }))
 
+const { bindSkill, deleteSkill, disableSkill, enableSkill, unbindSkill, updateSkill } = vi.hoisted(
+  () => ({
+    bindSkill: vi.fn(),
+    deleteSkill: vi.fn(),
+    disableSkill: vi.fn(),
+    enableSkill: vi.fn(),
+    unbindSkill: vi.fn(),
+    updateSkill: vi.fn(),
+  }),
+)
+
 const { closeSkillRefinementSession, streamSkillRefinement } = vi.hoisted(() => ({
   closeSkillRefinementSession: vi.fn(),
   streamSkillRefinement: vi.fn(),
 }))
 
-const { toastStore } = vi.hoisted(() => ({
-  toastStore: {
-    success: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-  },
+vi.mock('$app/navigation', () => ({
+  goto: vi.fn(),
+  beforeNavigate: vi.fn(),
 }))
 
 vi.mock('./skill-editor-page.helpers', async () => {
@@ -29,12 +37,12 @@ vi.mock('./skill-editor-page.helpers', async () => {
 })
 
 vi.mock('$lib/api/openase', () => ({
-  bindSkill: vi.fn(),
-  deleteSkill: vi.fn(),
-  disableSkill: vi.fn(),
-  enableSkill: vi.fn(),
-  unbindSkill: vi.fn(),
-  updateSkill: vi.fn(),
+  bindSkill,
+  deleteSkill,
+  disableSkill,
+  enableSkill,
+  unbindSkill,
+  updateSkill,
 }))
 
 vi.mock('$lib/api/skill-refinement', () => ({
@@ -42,15 +50,67 @@ vi.mock('$lib/api/skill-refinement', () => ({
   streamSkillRefinement,
 }))
 
-vi.mock('$lib/stores/toast.svelte', () => ({ toastStore }))
+vi.mock('$lib/stores/toast.svelte', () => ({
+  toastStore: {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+  },
+}))
 
-import {
-  renderSkillEditorPage,
-  resetSkillEditorAppStore,
-  runbookContent,
-} from './skill-editor-page.test-helpers'
+import { appStore } from '$lib/stores/app.svelte'
+import type { AgentProvider } from '$lib/api/contracts'
+import SkillEditorPage from './skill-editor-page.svelte'
 
-describe('SkillEditorPage AI refinement', () => {
+const providerFixtures: AgentProvider[] = [
+  {
+    id: 'provider-1',
+    organization_id: 'org-1',
+    machine_id: 'machine-1',
+    machine_name: 'Localhost',
+    machine_host: '127.0.0.1',
+    machine_status: 'online',
+    machine_ssh_user: null,
+    machine_workspace_root: '/workspace',
+    name: 'Codex',
+    adapter_type: 'codex-app-server',
+    permission_profile: 'unrestricted',
+    availability_state: 'available',
+    available: true,
+    availability_checked_at: '2026-03-28T12:00:00Z',
+    availability_reason: null,
+    capabilities: {
+      ephemeral_chat: { state: 'available', reason: null },
+      harness_ai: { state: 'available', reason: null },
+      skill_ai: { state: 'available', reason: null },
+    },
+    cli_command: 'codex',
+    cli_args: [],
+    auth_config: {},
+    cli_rate_limit: null,
+    cli_rate_limit_updated_at: null,
+    model_name: 'gpt-5.4',
+    model_temperature: 0,
+    model_max_tokens: 4096,
+    max_parallel_runs: 2,
+    cost_per_input_token: 0,
+    cost_per_output_token: 0,
+    pricing_config: {},
+  },
+]
+
+const initialContent = [
+  '---',
+  'name: "deploy"',
+  'description: "Deploy safely"',
+  '---',
+  '',
+  'Use safe steps.',
+].join('\n')
+
+const runbookContent = ['# Runbook', '', '1. Verify rollback before deploy.'].join('\n')
+
+describe('SkillEditorPage AI bundle apply', () => {
   beforeAll(() => {
     HTMLElement.prototype.scrollIntoView ??= vi.fn()
     HTMLElement.prototype.hasPointerCapture ??= vi.fn(() => false)
@@ -64,19 +124,63 @@ describe('SkillEditorPage AI refinement', () => {
 
   afterEach(() => {
     cleanup()
-    resetSkillEditorAppStore()
+    appStore.currentOrg = null
+    appStore.currentProject = null
+    appStore.providers = []
     vi.clearAllMocks()
   })
 
   it('applies an AI multi-file suggestion back into the skill bundle editor', async () => {
-    const initialEditorContent = [
-      '---',
-      'name: "deploy"',
-      'description: "Deploy safely"',
-      '---',
-      '',
-      'Use safe steps.',
-    ].join('\n')
+    appStore.currentOrg = {
+      id: 'org-1',
+      name: 'OpenAI',
+      slug: 'openai',
+      status: 'active',
+      default_agent_provider_id: 'provider-1',
+    }
+    appStore.currentProject = {
+      id: 'project-1',
+      organization_id: 'org-1',
+      name: 'OpenASE',
+      slug: 'openase',
+      description: '',
+      status: 'active',
+      default_agent_provider_id: 'provider-1',
+      accessible_machine_ids: [],
+      max_concurrent_agents: 4,
+    }
+    appStore.providers = providerFixtures
+
+    loadSkillEditorData.mockResolvedValue({
+      skill: {
+        id: 'skill-1',
+        name: 'deploy',
+        description: 'Deploy safely',
+        path: '.openase/skills/deploy/SKILL.md',
+        current_version: 3,
+        is_builtin: false,
+        is_enabled: true,
+        created_by: 'user:manual',
+        created_at: '2026-04-01T12:00:00Z',
+        bound_workflows: [],
+      },
+      content: initialContent,
+      files: [
+        {
+          path: 'SKILL.md',
+          file_kind: 'entrypoint',
+          media_type: 'text/markdown; charset=utf-8',
+          encoding: 'utf8',
+          is_executable: false,
+          size_bytes: initialContent.length,
+          sha256: 'sha-entry',
+          content: initialContent,
+          content_base64: 'ignored',
+        },
+      ],
+      history: [],
+      workflows: [],
+    })
 
     streamSkillRefinement.mockImplementation(async (_request, handlers) => {
       handlers.onEvent({
@@ -114,7 +218,7 @@ describe('SkillEditorPage AI refinement', () => {
               media_type: 'text/markdown; charset=utf-8',
               encoding: 'utf8',
               is_executable: false,
-              size_bytes: initialEditorContent.length + 49,
+              size_bytes: initialContent.length + 49,
               sha256: 'sha-entry-verified',
               content: [
                 '---',
@@ -144,8 +248,9 @@ describe('SkillEditorPage AI refinement', () => {
       })
     })
 
-    const { container, findByRole, findByPlaceholderText, getByRole } =
-      await renderSkillEditorPage(loadSkillEditorData)
+    const { container, findByRole, findByPlaceholderText, getByRole } = render(SkillEditorPage, {
+      props: { skillId: 'skill-1' },
+    })
 
     let editor: HTMLTextAreaElement | undefined
     await waitFor(() => {
@@ -153,7 +258,7 @@ describe('SkillEditorPage AI refinement', () => {
       editor =
         candidates.find(
           (item): item is HTMLTextAreaElement =>
-            item instanceof HTMLTextAreaElement && item.value === initialEditorContent,
+            item instanceof HTMLTextAreaElement && item.value === initialContent,
         ) ?? undefined
       expect(editor).toBeDefined()
     })
@@ -162,7 +267,7 @@ describe('SkillEditorPage AI refinement', () => {
       throw new Error('expected skill editor textarea to render')
     }
     const resolvedEditor = editor
-    expect(resolvedEditor.value).toBe(initialEditorContent)
+    expect(resolvedEditor.value).toBe(initialContent)
 
     await fireEvent.click(await findByRole('button', { name: 'Fix & verify' }))
 

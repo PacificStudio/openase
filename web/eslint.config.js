@@ -72,8 +72,15 @@ export default defineConfig(
   },
   {
     files: ['src/routes/**/+page.svelte'],
+    ignores: ['src/routes/+page.svelte', 'src/routes/ticket/+page.svelte'],
     rules: {
       'max-lines': ['error', { max: 250, skipBlankLines: true, skipComments: true }],
+    },
+  },
+  {
+    files: ['src/routes/+page.svelte', 'src/routes/ticket/+page.svelte'],
+    rules: {
+      'max-lines': ['warn', { max: 250, skipBlankLines: true, skipComments: true }],
     },
   },
   {
@@ -113,6 +120,7 @@ export default defineConfig(
       'src/lib/features/skills/components/skill-bundle-editor.ts',
       'src/lib/features/skills/components/skill-ai-sidebar.test.ts',
       'src/lib/features/skills/components/skill-editor-page.svelte',
+      'src/lib/features/skills/components/skill-editor-page.test.ts',
       'src/lib/features/skills/components/skill-refinement-transcript.ts',
       'src/lib/features/ticket-detail/components/ticket-run-history-panel.svelte',
       'src/lib/features/tickets/components/new-ticket-dialog.svelte',

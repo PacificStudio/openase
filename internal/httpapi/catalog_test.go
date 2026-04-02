@@ -122,7 +122,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	}
 
 	accessibleMachineID := uuid.NewString()
-	projectBody := fmt.Sprintf(`{"name":"OpenASE","slug":"openase","description":"Main control plane","status":"In Progress","accessible_machine_ids":["%s"],"max_concurrent_agents":8}`, accessibleMachineID)
+	projectBody := fmt.Sprintf(`{"name":"OpenASE","slug":"openase","description":"Main control plane","status":"In Progress","accessible_machine_ids":["%s"],"max_concurrent_agents":8,"agent_run_summary_prompt":"Summarize ticket runs."}`, accessibleMachineID)
 	projectRec := performJSONRequest(
 		t,
 		server,
@@ -140,6 +140,9 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	decodeResponse(t, projectRec, &createProjectPayload)
 	if createProjectPayload.Project.Status != "In Progress" || createProjectPayload.Project.MaxConcurrentAgents != 8 {
 		t.Fatalf("unexpected created project payload: %+v", createProjectPayload.Project)
+	}
+	if createProjectPayload.Project.AgentRunSummaryPrompt == nil || *createProjectPayload.Project.AgentRunSummaryPrompt != "Summarize ticket runs." {
+		t.Fatalf("expected project summary prompt to round-trip on create, got %+v", createProjectPayload.Project)
 	}
 	if len(createProjectPayload.Project.AccessibleMachineIDs) != 1 || createProjectPayload.Project.AccessibleMachineIDs[0] != accessibleMachineID {
 		t.Fatalf("expected project accessible machines to round-trip, got %+v", createProjectPayload.Project)
@@ -189,7 +192,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		server,
 		http.MethodPatch,
 		"/api/v1/projects/"+createProjectPayload.Project.ID,
-		fmt.Sprintf(`{"status":"Canceled","accessible_machine_ids":["%s"],"max_concurrent_agents":3}`, updatedAccessibleMachineID),
+		fmt.Sprintf(`{"status":"Canceled","accessible_machine_ids":["%s"],"max_concurrent_agents":3,"agent_run_summary_prompt":""}`, updatedAccessibleMachineID),
 	)
 	if patchProjectRec.Code != http.StatusOK {
 		t.Fatalf("expected project patch 200, got %d: %s", patchProjectRec.Code, patchProjectRec.Body.String())
@@ -201,6 +204,9 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	decodeResponse(t, patchProjectRec, &patchProjectPayload)
 	if patchProjectPayload.Project.Status != "Canceled" || patchProjectPayload.Project.MaxConcurrentAgents != 3 {
 		t.Fatalf("unexpected patched project payload: %+v", patchProjectPayload.Project)
+	}
+	if patchProjectPayload.Project.AgentRunSummaryPrompt != nil {
+		t.Fatalf("expected blank prompt patch to fall back to unset, got %+v", patchProjectPayload.Project)
 	}
 	if len(patchProjectPayload.Project.AccessibleMachineIDs) != 1 || patchProjectPayload.Project.AccessibleMachineIDs[0] != updatedAccessibleMachineID {
 		t.Fatalf("expected patched project accessible machines to round-trip, got %+v", patchProjectPayload.Project)
@@ -1465,6 +1471,7 @@ func (f *fakeCatalogService) CreateProject(_ context.Context, input domain.Creat
 		DefaultAgentProviderID: input.DefaultAgentProviderID,
 		AccessibleMachineIDs:   append([]uuid.UUID(nil), input.AccessibleMachineIDs...),
 		MaxConcurrentAgents:    input.MaxConcurrentAgents,
+		AgentRunSummaryPrompt:  input.AgentRunSummaryPrompt,
 	}
 	f.projects[project.ID] = project
 
@@ -1495,6 +1502,7 @@ func (f *fakeCatalogService) UpdateProject(_ context.Context, input domain.Updat
 		DefaultAgentProviderID: input.DefaultAgentProviderID,
 		AccessibleMachineIDs:   append([]uuid.UUID(nil), input.AccessibleMachineIDs...),
 		MaxConcurrentAgents:    input.MaxConcurrentAgents,
+		AgentRunSummaryPrompt:  input.AgentRunSummaryPrompt,
 	}
 	f.projects[input.ID] = item
 

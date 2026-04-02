@@ -190,6 +190,29 @@ func (s AgentStatus) String() string {
 	return string(s)
 }
 
+type AgentRunCompletionSummaryStatus string
+
+const (
+	AgentRunCompletionSummaryStatusPending   AgentRunCompletionSummaryStatus = "pending"
+	AgentRunCompletionSummaryStatusCompleted AgentRunCompletionSummaryStatus = "completed"
+	AgentRunCompletionSummaryStatusFailed    AgentRunCompletionSummaryStatus = "failed"
+)
+
+func (s AgentRunCompletionSummaryStatus) String() string {
+	return string(s)
+}
+
+func (s AgentRunCompletionSummaryStatus) IsValid() bool {
+	switch s {
+	case AgentRunCompletionSummaryStatusPending,
+		AgentRunCompletionSummaryStatusCompleted,
+		AgentRunCompletionSummaryStatusFailed:
+		return true
+	default:
+		return false
+	}
+}
+
 func (s AgentStatus) IsValid() bool {
 	switch s {
 	case AgentStatusIdle, AgentStatusClaimed, AgentStatusRunning, AgentStatusPaused, AgentStatusFailed, AgentStatusTerminated:

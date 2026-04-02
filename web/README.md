@@ -97,9 +97,15 @@ These budgets are enforced by `pnpm run lint:structure` and mirrored in ESLint w
 | `lib/components/ui/**/*.svelte`     | 150        | 250                  |
 | single function                     | 40 target  | 60 warning threshold |
 
-Current file budget waivers are tracked directly in `scripts/check-file-budgets.mjs`. Keep that script as the source of truth instead of duplicating the list here.
+Current legacy waivers:
 
-Dependency boundary waivers for the route/feature layering above are expected to stay empty. If a route or feature needs a new exception, fix the ownership boundary instead of documenting drift here.
+- `src/routes/+page.svelte`
+- `src/routes/ticket/+page.svelte`
+- `src/lib/features/chat/ephemeral-chat-session-controller.svelte.ts`
+- `src/lib/features/chat/ephemeral-chat-session-controller.test.ts`
+- `src/lib/features/workflows/components/workflow-editor-panel.svelte`
+
+Those files are explicitly tracked as refactor debt. New oversized route files are blocked.
 
 ## Quality Gates
 

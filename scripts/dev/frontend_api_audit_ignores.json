@@ -76,7 +76,7 @@
       "method": "get",
       "path": "/api/v1/orgs/{orgId}/machines/stream",
       "categories": ["backend_only"],
-      "reason": "Machine management currently refreshes the organization machine list on demand and does not keep a dedicated live machine event stream subscription."
+      "reason": "The machines UI currently refreshes through snapshot polling and targeted mutations rather than maintaining an organization-wide machine event stream subscription."
     },
     {
       "method": "get",

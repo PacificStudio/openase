@@ -66,6 +66,18 @@ const (
 	FieldCurrentStepSummary = "current_step_summary"
 	// FieldCurrentStepChangedAt holds the string denoting the current_step_changed_at field in the database.
 	FieldCurrentStepChangedAt = "current_step_changed_at"
+	// FieldCompletionSummaryStatus holds the string denoting the completion_summary_status field in the database.
+	FieldCompletionSummaryStatus = "completion_summary_status"
+	// FieldCompletionSummaryMarkdown holds the string denoting the completion_summary_markdown field in the database.
+	FieldCompletionSummaryMarkdown = "completion_summary_markdown"
+	// FieldCompletionSummaryJSON holds the string denoting the completion_summary_json field in the database.
+	FieldCompletionSummaryJSON = "completion_summary_json"
+	// FieldCompletionSummaryInput holds the string denoting the completion_summary_input field in the database.
+	FieldCompletionSummaryInput = "completion_summary_input"
+	// FieldCompletionSummaryGeneratedAt holds the string denoting the completion_summary_generated_at field in the database.
+	FieldCompletionSummaryGeneratedAt = "completion_summary_generated_at"
+	// FieldCompletionSummaryError holds the string denoting the completion_summary_error field in the database.
+	FieldCompletionSummaryError = "completion_summary_error"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeAgent holds the string denoting the agent edge name in mutations.
@@ -181,6 +193,12 @@ var Columns = []string{
 	FieldCurrentStepStatus,
 	FieldCurrentStepSummary,
 	FieldCurrentStepChangedAt,
+	FieldCompletionSummaryStatus,
+	FieldCompletionSummaryMarkdown,
+	FieldCompletionSummaryJSON,
+	FieldCompletionSummaryInput,
+	FieldCompletionSummaryGeneratedAt,
+	FieldCompletionSummaryError,
 	FieldCreatedAt,
 }
 
@@ -243,6 +261,30 @@ func StatusValidator(s Status) error {
 		return nil
 	default:
 		return fmt.Errorf("agentrun: invalid enum value for status field: %q", s)
+	}
+}
+
+// CompletionSummaryStatus defines the type for the "completion_summary_status" enum field.
+type CompletionSummaryStatus string
+
+// CompletionSummaryStatus values.
+const (
+	CompletionSummaryStatusPending   CompletionSummaryStatus = "pending"
+	CompletionSummaryStatusCompleted CompletionSummaryStatus = "completed"
+	CompletionSummaryStatusFailed    CompletionSummaryStatus = "failed"
+)
+
+func (css CompletionSummaryStatus) String() string {
+	return string(css)
+}
+
+// CompletionSummaryStatusValidator is a validator for the "completion_summary_status" field enum values. It is called by the builders before save.
+func CompletionSummaryStatusValidator(css CompletionSummaryStatus) error {
+	switch css {
+	case CompletionSummaryStatusPending, CompletionSummaryStatusCompleted, CompletionSummaryStatusFailed:
+		return nil
+	default:
+		return fmt.Errorf("agentrun: invalid enum value for completion_summary_status field: %q", css)
 	}
 }
 
@@ -377,6 +419,26 @@ func ByCurrentStepSummary(opts ...sql.OrderTermOption) OrderOption {
 // ByCurrentStepChangedAt orders the results by the current_step_changed_at field.
 func ByCurrentStepChangedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCurrentStepChangedAt, opts...).ToFunc()
+}
+
+// ByCompletionSummaryStatus orders the results by the completion_summary_status field.
+func ByCompletionSummaryStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCompletionSummaryStatus, opts...).ToFunc()
+}
+
+// ByCompletionSummaryMarkdown orders the results by the completion_summary_markdown field.
+func ByCompletionSummaryMarkdown(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCompletionSummaryMarkdown, opts...).ToFunc()
+}
+
+// ByCompletionSummaryGeneratedAt orders the results by the completion_summary_generated_at field.
+func ByCompletionSummaryGeneratedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCompletionSummaryGeneratedAt, opts...).ToFunc()
+}
+
+// ByCompletionSummaryError orders the results by the completion_summary_error field.
+func ByCompletionSummaryError(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCompletionSummaryError, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.
