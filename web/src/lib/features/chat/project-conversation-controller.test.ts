@@ -225,13 +225,10 @@ describe('createProjectConversationController', () => {
       controller.sendTurn('Still works without activity timestamp'),
     ).resolves.toBeUndefined()
 
-    expect(startProjectConversationTurn).toHaveBeenCalledWith(
-      'conversation-1',
-      {
-        message: 'Still works without activity timestamp',
-        focus: undefined,
-      },
-    )
+    expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-1', {
+      message: 'Still works without activity timestamp',
+      focus: undefined,
+    })
     expect(controller.tabs[0]?.conversationId).toBe('conversation-1')
     expect(controller.phase).toBe('awaiting_reply')
   })
