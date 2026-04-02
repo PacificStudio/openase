@@ -158,13 +158,13 @@ jobs:
       - name: Install Web Dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Playwright System Dependencies
+      - name: Stage Playwright System Dependencies
         shell: bash
         run: |
           set -euo pipefail
 
-          if ! command -v sudo >/dev/null 2>&1; then
-            echo "sudo is required to install Playwright system dependencies on this runner" >&2
+          if ! command -v apt-get >/dev/null 2>&1 || ! command -v dpkg-deb >/dev/null 2>&1; then
+            echo "apt-get and dpkg-deb are required to stage Playwright system dependencies on this runner" >&2
             exit 1
           fi
 
@@ -214,8 +214,26 @@ jobs:
             fonts-freefont-ttf
           )
 
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends "${packages[@]}"
+          deps_root="${RUNNER_TEMP}/playwright-deps"
+          pkg_dir="${deps_root}/packages"
+          root_dir="${deps_root}/root"
+          rm -rf "${deps_root}"
+          mkdir -p "${pkg_dir}" "${root_dir}"
+
+          (
+            cd "${pkg_dir}"
+            apt-get download "${packages[@]}"
+          )
+
+          find "${pkg_dir}" -name '*.deb' -print0 | while IFS= read -r -d '' deb; do
+            dpkg-deb -x "${deb}" "${root_dir}"
+          done
+
+          {
+            printf 'LD_LIBRARY_PATH=%s\n' "${root_dir}/usr/lib/x86_64-linux-gnu:${root_dir}/lib/x86_64-linux-gnu:${root_dir}/usr/lib:${LD_LIBRARY_PATH:-}"
+            printf 'FONTCONFIG_PATH=%s\n' "${root_dir}/etc/fonts"
+            printf 'XDG_DATA_DIRS=%s\n' "${root_dir}/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+          } >> "${GITHUB_ENV}"
 
       - name: Install Playwright Browser
         run: pnpm exec playwright install chromium
