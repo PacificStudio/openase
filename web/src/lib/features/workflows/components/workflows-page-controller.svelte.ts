@@ -1,5 +1,4 @@
 import { untrack } from 'svelte'
-import { beforeNavigate } from '$app/navigation'
 import { projectPath } from '$lib/stores/app-context'
 import { appStore } from '$lib/stores/app.svelte'
 import { PROJECT_AI_FOCUS_PRIORITY } from '$lib/features/chat'
@@ -16,7 +15,6 @@ import type {
 import { type SkillState, toHarnessContent } from '../model'
 import { loadWorkflowHarness, loadWorkflowPageData } from '../data'
 import {
-  createWorkflowsPageControllerActionsState,
   type WorkflowsPageControllerActionsState,
   applyAssistantDraft,
   handleCreateWorkflow as openWorkflowCreateDialog,
@@ -27,54 +25,59 @@ import {
   handleWorkflowCreated,
   selectWorkflow,
 } from './workflows-page-controller-actions'
+import { createWorkflowsPageControllerApi } from './workflows-page-controller-api'
+import {
+  createWorkflowsPageBeforeUnloadGuard,
+  registerWorkflowsPageNavigationGuard,
+} from './workflows-page-controller-guards'
+import { createResetWorkflowsPageContent } from './workflows-page-controller-reset'
+import { createWorkflowsPageControllerState } from './workflows-page-controller-state'
 
 const projectAIFocusOwner = 'workflow-page'
-
 export function createWorkflowsPageController() {
-  let showDetail = $state(false)
-  let showCreateDialog = $state(false)
-  let showTemplateGallery = $state(false)
-  let showList = $state(true)
-  let loading = $state(false)
-  let loadingHarness = $state(false)
-  let saving = $state(false)
-  let validating = $state(false)
-  let loadError = $state('')
-  let workflows = $state<WorkflowSummary[]>([])
-  let selectedId = $state('')
+  let showDetail = $state(false),
+    showCreateDialog = $state(false),
+    showTemplateGallery = $state(false),
+    showList = $state(true)
+  let loading = $state(false),
+    loadingHarness = $state(false),
+    saving = $state(false),
+    validating = $state(false)
+  let loadError = $state(''),
+    workflows = $state<WorkflowSummary[]>([]),
+    selectedId = $state('')
   let harness = $state<ReturnType<typeof toHarnessContent> | null>(null)
-  let draftHarness = $state('')
-  let loadedHarnessWorkflowId = $state('')
-  let skillStates = $state<SkillState[]>([])
-  let validationIssues = $state<HarnessValidationIssue[]>([])
-  let builtinRoleContent = $state('')
-  let statuses = $state<WorkflowStatusOption[]>([])
-  let agentOptions = $state<WorkflowAgentOption[]>([])
-  let providers = $state<AgentProvider[]>([])
-  let variableGroups = $state<HarnessVariableGroup[]>([])
-  let templateDraft = $state<WorkflowTemplateDraft | null>(null)
-  const controllerState: WorkflowsPageControllerActionsState =
-    createWorkflowsPageControllerActionsState({
-      getSelectedId: () => selectedId,
-      setSelectedId: (value) => (selectedId = value),
-      getHarness: () => harness,
-      setHarness: (value) => (harness = value),
-      getDraftHarness: () => draftHarness,
-      setDraftHarness: (value) => (draftHarness = value),
-      getLoadedHarnessWorkflowId: () => loadedHarnessWorkflowId,
-      setLoadedHarnessWorkflowId: (value) => (loadedHarnessWorkflowId = value),
-      getSkillStates: () => skillStates,
-      setSkillStates: (value) => (skillStates = value),
-      getValidationIssues: () => validationIssues,
-      setValidationIssues: (value) => (validationIssues = value),
-      getWorkflows: () => workflows,
-      setWorkflows: (value) => (workflows = value),
-      getTemplateDraft: () => templateDraft,
-      setTemplateDraft: (value) => (templateDraft = value),
-      getStatuses: () => statuses,
-      getAgentOptions: () => agentOptions,
-      getIsDirty: () => isDirty,
-    })
+  let draftHarness = $state(''),
+    loadedHarnessWorkflowId = $state(''),
+    skillStates = $state<SkillState[]>([]),
+    validationIssues = $state<HarnessValidationIssue[]>([]),
+    builtinRoleContent = $state(''),
+    statuses = $state<WorkflowStatusOption[]>([]),
+    agentOptions = $state<WorkflowAgentOption[]>([]),
+    providers = $state<AgentProvider[]>([]),
+    variableGroups = $state<HarnessVariableGroup[]>([]),
+    templateDraft = $state<WorkflowTemplateDraft | null>(null)
+  const controllerState: WorkflowsPageControllerActionsState = createWorkflowsPageControllerState({
+    getSelectedId: () => selectedId,
+    setSelectedId: (value) => (selectedId = value),
+    getHarness: () => harness,
+    setHarness: (value) => (harness = value),
+    getDraftHarness: () => draftHarness,
+    setDraftHarness: (value) => (draftHarness = value),
+    getLoadedHarnessWorkflowId: () => loadedHarnessWorkflowId,
+    setLoadedHarnessWorkflowId: (value) => (loadedHarnessWorkflowId = value),
+    getSkillStates: () => skillStates,
+    setSkillStates: (value) => (skillStates = value),
+    getValidationIssues: () => validationIssues,
+    setValidationIssues: (value) => (validationIssues = value),
+    getWorkflows: () => workflows,
+    setWorkflows: (value) => (workflows = value),
+    getTemplateDraft: () => templateDraft,
+    setTemplateDraft: (value) => (templateDraft = value),
+    getStatuses: () => statuses,
+    getAgentOptions: () => agentOptions,
+    getIsDirty: () => isDirty,
+  })
 
   const selectedWorkflow = $derived(
     workflows.find((workflow) => workflow.id === selectedId) ?? null,
@@ -86,33 +89,23 @@ export function createWorkflowsPageController() {
       : null,
   )
 
-  $effect(() => {
-    if (!isDirty) return
-    const handler = (event: BeforeUnloadEvent) => {
-      event.preventDefault()
-    }
-    window.addEventListener('beforeunload', handler)
-    return () => window.removeEventListener('beforeunload', handler)
-  })
+  $effect(() => createWorkflowsPageBeforeUnloadGuard(isDirty))
 
-  beforeNavigate((navigation) => {
-    if (isDirty && !confirm('You have unsaved changes. Are you sure you want to leave?'))
-      navigation.cancel()
-  })
+  registerWorkflowsPageNavigationGuard(() => isDirty)
 
-  function resetWorkflowContent() {
-    workflows = []
-    selectedId = ''
-    harness = null
-    draftHarness = ''
-    loadedHarnessWorkflowId = ''
-    skillStates = []
-    statuses = []
-    agentOptions = []
-    providers = []
-    variableGroups = []
-    validationIssues = []
-  }
+  const resetWorkflowContent = createResetWorkflowsPageContent({
+    setWorkflows: (value) => (workflows = value),
+    setSelectedId: (value) => (selectedId = value),
+    setHarness: (value) => (harness = value),
+    setDraftHarness: (value) => (draftHarness = value),
+    setLoadedHarnessWorkflowId: (value) => (loadedHarnessWorkflowId = value),
+    setSkillStates: (value) => (skillStates = value),
+    setStatuses: (value) => (statuses = value),
+    setAgentOptions: (value) => (agentOptions = value),
+    setProviders: (value) => (providers = value),
+    setVariableGroups: (value) => (variableGroups = value),
+    setValidationIssues: (value) => (validationIssues = value),
+  })
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
@@ -238,97 +231,37 @@ export function createWorkflowsPageController() {
     }
   })
 
-  return {
-    get showDetail() {
-      return showDetail
-    },
-    set showDetail(value: boolean) {
-      showDetail = value
-    },
-    get showCreateDialog() {
-      return showCreateDialog
-    },
-    set showCreateDialog(value: boolean) {
-      showCreateDialog = value
-    },
-    get showTemplateGallery() {
-      return showTemplateGallery
-    },
-    set showTemplateGallery(value: boolean) {
-      showTemplateGallery = value
-    },
-    get showList() {
-      return showList
-    },
-    set showList(value: boolean) {
-      showList = value
-    },
-    get loading() {
-      return loading
-    },
-    get loadingHarness() {
-      return loadingHarness
-    },
-    get saving() {
-      return saving
-    },
-    get validating() {
-      return validating
-    },
-    get loadError() {
-      return loadError
-    },
-    get workflows() {
-      return workflows
-    },
-    set workflows(value: WorkflowSummary[]) {
-      workflows = value
-    },
-    get selectedId() {
-      return selectedId
-    },
-    get harness() {
-      return harness
-    },
-    get draftHarness() {
-      return draftHarness
-    },
-    set draftHarness(value: string) {
-      draftHarness = value
-    },
-    get skillStates() {
-      return skillStates
-    },
-    get validationIssues() {
-      return validationIssues
-    },
-    get builtinRoleContent() {
-      return builtinRoleContent
-    },
-    get statuses() {
-      return statuses
-    },
-    get agentOptions() {
-      return agentOptions
-    },
-    get providers() {
-      return providers
-    },
-    get variableGroups() {
-      return variableGroups
-    },
-    get selectedWorkflow() {
-      return selectedWorkflow
-    },
-    get isDirty() {
-      return isDirty
-    },
-    get settingsHref() {
-      return settingsHref
-    },
-    get templateDraft() {
-      return templateDraft
-    },
+  return createWorkflowsPageControllerApi({
+    getShowDetail: () => showDetail,
+    setShowDetail: (value) => (showDetail = value),
+    getShowCreateDialog: () => showCreateDialog,
+    setShowCreateDialog: (value) => (showCreateDialog = value),
+    getShowTemplateGallery: () => showTemplateGallery,
+    setShowTemplateGallery: (value) => (showTemplateGallery = value),
+    getShowList: () => showList,
+    setShowList: (value) => (showList = value),
+    getLoading: () => loading,
+    getLoadingHarness: () => loadingHarness,
+    getSaving: () => saving,
+    getValidating: () => validating,
+    getLoadError: () => loadError,
+    getWorkflows: () => workflows,
+    setWorkflows: (value) => (workflows = value),
+    getSelectedId: () => selectedId,
+    getHarness: () => harness,
+    getDraftHarness: () => draftHarness,
+    setDraftHarness: (value) => (draftHarness = value),
+    getSkillStates: () => skillStates,
+    getValidationIssues: () => validationIssues,
+    getBuiltinRoleContent: () => builtinRoleContent,
+    getStatuses: () => statuses,
+    getAgentOptions: () => agentOptions,
+    getProviders: () => providers,
+    getVariableGroups: () => variableGroups,
+    getSelectedWorkflow: () => selectedWorkflow,
+    getIsDirty: () => isDirty,
+    getSettingsHref: () => settingsHref,
+    getTemplateDraft: () => templateDraft,
     handleCreateWorkflow: () => {
       showCreateDialog = openWorkflowCreateDialog(controllerState)
     },
@@ -361,5 +294,5 @@ export function createWorkflowsPageController() {
     handleCreated: (input: { workflow: WorkflowSummary; selectedId: string }) => {
       handleWorkflowCreated(controllerState, input)
     },
-  }
+  })
 }

@@ -1,14 +1,26 @@
-import { goto, beforeNavigate } from '$app/navigation'
-import { PROJECT_AI_FOCUS_PRIORITY } from '$lib/features/chat'
-import { ApiError } from '$lib/api/client'
+import { goto } from '$app/navigation'
 import type { SkillFile, Skill, Workflow } from '$lib/api/contracts'
-import { bindSkill, deleteSkill, disableSkill, enableSkill, unbindSkill } from '$lib/api/openase'
 import { appStore } from '$lib/stores/app.svelte'
 import { projectPath } from '$lib/stores/app-context'
-import { toastStore } from '$lib/stores/toast.svelte'
 import { computeDirtyPaths, listEmptyDirectories, type SkillTreeKind } from './skill-bundle-editor'
+import { createSkillEditorPageControllerApi } from './skill-editor-page-controller-api'
 import {
-  applyInitialSkillLoad,
+  createSkillEditorLoadEffect,
+  createSkillEditorProjectFocusEffect,
+} from './skill-editor-page-controller-effects'
+import {
+  handleSkillEditorBeforeUnload,
+  handleSkillEditorKeydown,
+  registerSkillEditorNavigationGuard,
+} from './skill-editor-page-controller-navigation'
+import {
+  handleDeleteSkill,
+  handleToggleSkillEnabled,
+  handleWorkflowBindingMutation,
+} from './skill-editor-page-controller-mutations'
+import { createSkillEditorPageLayoutController } from './skill-editor-page-controller-layout'
+import { createSkillEditorPageControllerState } from './skill-editor-page-controller-state'
+import {
   closeTab as closeEditorTab,
   handleApplyAssistantSuggestion as applyAssistantSuggestion,
   handleContentChange as updateEditorContent,
@@ -22,9 +34,8 @@ import {
   type SkillEditorPageControllerActionsState,
   type SkillEditorPendingCreate,
 } from './skill-editor-page-controller-actions'
-import { loadSkillEditorData, type SkillEditorHistoryEntry } from './skill-editor-page.helpers'
+import type { SkillEditorHistoryEntry } from './skill-editor-page.helpers'
 
-const projectAIFocusOwner = 'skill-editor-page'
 const MIN_SIDEBAR_WIDTH = 260
 const MAX_SIDEBAR_WIDTH = 560
 
@@ -66,8 +77,25 @@ export function createSkillEditorPageController(input: { getSkillId: () => strin
   const fileCount = $derived(draftFiles.length)
   const totalSize = $derived(draftFiles.reduce((sum, file) => sum + file.size_bytes, 0))
   const providers = $derived(appStore.providers ?? [])
+  const layout = createSkillEditorPageLayoutController({
+    getOpenFilePaths: () => openFilePaths,
+    setOpenFilePaths: (value) => (openFilePaths = value),
+    setSelectedFilePath: (value) => (selectedFilePath = value),
+    setSelectedTreePath: (value) => (selectedTreePath = value),
+    setSelectedTreeKind: (value) => (selectedTreeKind = value),
+    setDragging: (value) => (dragging = value),
+    getDragging: () => dragging,
+    setDragStartX: (value) => (dragStartX = value),
+    getDragStartX: () => dragStartX,
+    setDragStartWidth: (value) => (dragStartWidth = value),
+    getDragStartWidth: () => dragStartWidth,
+    getAssistantWidth: () => assistantWidth,
+    setAssistantWidth: (value) => (assistantWidth = value),
+    minWidth: MIN_SIDEBAR_WIDTH,
+    maxWidth: MAX_SIDEBAR_WIDTH,
+  })
 
-  const state: SkillEditorPageControllerActionsState = {
+  const state: SkillEditorPageControllerActionsState = createSkillEditorPageControllerState({
     getSkill: () => skill,
     setSkill: (value) => (skill = value),
     setFiles: (value) => (files = value),
@@ -99,69 +127,47 @@ export function createSkillEditorPageController(input: { getSkillId: () => strin
     setPendingCreate: (value) => (pendingCreate = value),
     getHasDirtyChanges: () => hasDirtyChanges,
     getEmptyDraftDirectories: () => emptyDraftDirectories,
-    selectFile,
-  }
-
-  $effect(() => {
-    const skillId = input.getSkillId()
-    if (!skillId) return
-    let cancelled = false
-    loading = true
-    void (async () => {
-      try {
-        const loaded = await loadSkillEditorData(skillId, appStore.currentProject?.id)
-        if (!cancelled) applyInitialSkillLoad(state, loaded)
-      } catch (err) {
-        if (!cancelled)
-          toastStore.error(err instanceof ApiError ? err.detail : 'Failed to load skill.')
-      } finally {
-        if (!cancelled) loading = false
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
+    selectFile: layout.selectFile,
   })
 
   $effect(() => {
-    const projectId = appStore.currentProject?.id
-    if (!projectId || loading || !skill) {
-      appStore.clearProjectAssistantFocus(projectAIFocusOwner)
-      return
-    }
-    appStore.setProjectAssistantFocus(
-      projectAIFocusOwner,
-      {
-        kind: 'skill',
-        projectId,
-        skillId: skill.id,
-        skillName: skill.name,
-        selectedFilePath: selectedFilePath ?? 'SKILL.md',
-        boundWorkflowNames: skill.bound_workflows.map((workflow) => workflow.name),
-        hasDirtyDraft: hasDirtyChanges,
-      },
-      PROJECT_AI_FOCUS_PRIORITY.workspace,
-    )
-    return () => {
-      appStore.clearProjectAssistantFocus(projectAIFocusOwner)
-    }
+    return createSkillEditorLoadEffect({
+      getSkillId: input.getSkillId,
+      getProjectId: () => appStore.currentProject?.id,
+      setLoading: (value) => (loading = value),
+      state,
+    })
   })
 
-  beforeNavigate(({ cancel }) => {
-    if (hasDirtyChanges && !window.confirm('You have unsaved changes. Leave without saving?')) {
-      cancel()
-    }
+  $effect(() => {
+    return createSkillEditorProjectFocusEffect({
+      projectId: appStore.currentProject?.id,
+      loading,
+      skill,
+      selectedFilePath,
+      hasDirtyChanges,
+    })
+  })
+
+  registerSkillEditorNavigationGuard({
+    getHasDirtyChanges: () => hasDirtyChanges,
+    getBusy: () => busy,
+    handleSave,
   })
 
   function handleKeydown(event: KeyboardEvent) {
-    if ((event.metaKey || event.ctrlKey) && event.key === 's') {
-      event.preventDefault()
-      if (!busy && hasDirtyChanges) void handleSave()
-    }
+    handleSkillEditorKeydown(
+      {
+        getHasDirtyChanges: () => hasDirtyChanges,
+        getBusy: () => busy,
+        handleSave,
+      },
+      event,
+    )
   }
 
   function handleBeforeUnload(event: BeforeUnloadEvent) {
-    if (hasDirtyChanges) event.preventDefault()
+    handleSkillEditorBeforeUnload(hasDirtyChanges, event)
   }
 
   function navigateBack() {
@@ -171,35 +177,23 @@ export function createSkillEditorPageController(input: { getSkillId: () => strin
   }
 
   function selectFile(path: string) {
-    selectedFilePath = path
-    selectedTreePath = path
-    selectedTreeKind = 'file'
-    if (!openFilePaths.includes(path)) openFilePaths = [...openFilePaths, path]
+    layout.selectFile(path)
   }
 
   function selectTreeNode(path: string, kind: SkillTreeKind) {
-    selectedTreePath = path
-    selectedTreeKind = kind
-    if (kind === 'file') selectFile(path)
+    layout.selectTreeNode(path, kind)
   }
 
   function handleDragStart(event: PointerEvent) {
-    dragging = true
-    dragStartX = event.clientX
-    dragStartWidth = assistantWidth
-    ;(event.target as HTMLElement).setPointerCapture(event.pointerId)
+    layout.handleDragStart(event)
   }
 
   function handleDragMove(event: PointerEvent) {
-    if (!dragging) return
-    assistantWidth = Math.min(
-      MAX_SIDEBAR_WIDTH,
-      Math.max(MIN_SIDEBAR_WIDTH, dragStartWidth + dragStartX - event.clientX),
-    )
+    layout.handleDragMove(event)
   }
 
   function handleDragEnd() {
-    dragging = false
+    layout.handleDragEnd()
   }
 
   function setEditDescription(value: string) {
@@ -217,154 +211,87 @@ export function createSkillEditorPageController(input: { getSkillId: () => strin
   }
 
   async function handleToggleEnabled() {
-    if (!skill) return
-    busy = true
-    try {
-      skill = skill.is_enabled
-        ? (await disableSkill(skill.id)).skill
-        : (await enableSkill(skill.id)).skill
-      toastStore.success(`${skill.is_enabled ? 'Enabled' : 'Disabled'} ${skill.name}.`)
-    } catch (err) {
-      toastStore.error(err instanceof ApiError ? err.detail : 'Failed to update skill state.')
-    } finally {
-      busy = false
-    }
+    await handleToggleSkillEnabled({
+      getSkill: () => skill,
+      setSkill: (value) => (skill = value),
+      getWorkflows: () => workflows,
+      setBusy: (value) => (busy = value),
+      navigateBack,
+    })
   }
 
   async function handleDelete() {
-    if (!skill || !window.confirm(`Delete "${skill.name}" and remove it from all workflows?`))
-      return
-    busy = true
-    try {
-      await deleteSkill(skill.id)
-      toastStore.success(`Deleted ${skill.name}.`)
-      navigateBack()
-    } catch (err) {
-      toastStore.error(err instanceof ApiError ? err.detail : 'Failed to delete skill.')
-    } finally {
-      busy = false
-    }
+    await handleDeleteSkill({
+      getSkill: () => skill,
+      setSkill: (value) => (skill = value),
+      getWorkflows: () => workflows,
+      setBusy: (value) => (busy = value),
+      navigateBack,
+    })
   }
 
   async function handleWorkflowBinding(workflowId: string, shouldBind: boolean) {
-    if (!skill) return
-    busy = true
-    try {
-      skill = shouldBind
-        ? (await bindSkill(skill.id, [workflowId])).skill
-        : (await unbindSkill(skill.id, [workflowId])).skill
-      const workflowName =
-        workflows.find((workflow) => workflow.id === workflowId)?.name ?? 'workflow'
-      toastStore.success(
-        `${shouldBind ? 'Bound' : 'Unbound'} ${skill.name} ${shouldBind ? 'to' : 'from'} ${workflowName}.`,
-      )
-    } catch (err) {
-      toastStore.error(err instanceof ApiError ? err.detail : 'Failed to update skill binding.')
-    } finally {
-      busy = false
-    }
+    await handleWorkflowBindingMutation(
+      {
+        getSkill: () => skill,
+        setSkill: (value) => (skill = value),
+        getWorkflows: () => workflows,
+        setBusy: (value) => (busy = value),
+        navigateBack,
+      },
+      workflowId,
+      shouldBind,
+    )
   }
 
-  return {
-    get skill() {
-      return skill
-    },
-    get files() {
-      return files
-    },
-    get draftFiles() {
-      return draftFiles
-    },
-    get emptyDirectoryPaths() {
-      return emptyDirectoryPaths
-    },
-    get history() {
-      return history
-    },
-    get workflows() {
-      return workflows
-    },
-    get loading() {
-      return loading
-    },
-    get busy() {
-      return busy
-    },
-    get editDescription() {
-      return editDescription
-    },
-    get showAssistant() {
-      return showAssistant
-    },
-    set showAssistant(value: boolean) {
-      showAssistant = value
-    },
-    get assistantWidth() {
-      return assistantWidth
-    },
-    get dragging() {
-      return dragging
-    },
-    get selectedFilePath() {
-      return selectedFilePath
-    },
-    get selectedTreePath() {
-      return selectedTreePath
-    },
-    get openFiles() {
-      return openFiles
-    },
-    get dirtyPaths() {
-      return dirtyPaths
-    },
-    get selectedFile() {
-      return selectedFile
-    },
-    get activeContent() {
-      return activeContent
-    },
-    get pendingCreate() {
-      return pendingCreate
-    },
-    get hasDirtyChanges() {
-      return hasDirtyChanges
-    },
-    get selectedFileIsText() {
-      return selectedFileIsText
-    },
-    get fileCount() {
-      return fileCount
-    },
-    get totalSize() {
-      return totalSize
-    },
-    get providers() {
-      return providers
-    },
+  return createSkillEditorPageControllerApi({
+    getSkill: () => skill,
+    getFiles: () => files,
+    getDraftFiles: () => draftFiles,
+    getEmptyDirectoryPaths: () => emptyDirectoryPaths,
+    getHistory: () => history,
+    getWorkflows: () => workflows,
+    getLoading: () => loading,
+    getBusy: () => busy,
+    getEditDescription: () => editDescription,
+    getShowAssistant: () => showAssistant,
+    setShowAssistant: (value) => (showAssistant = value),
+    getAssistantWidth: () => assistantWidth,
+    getDragging: () => dragging,
+    getSelectedFilePath: () => selectedFilePath,
+    getSelectedTreePath: () => selectedTreePath,
+    getOpenFiles: () => openFiles,
+    getDirtyPaths: () => dirtyPaths,
+    getSelectedFile: () => selectedFile,
+    getActiveContent: () => activeContent,
+    getPendingCreate: () => pendingCreate,
+    getHasDirtyChanges: () => hasDirtyChanges,
+    getSelectedFileIsText: () => selectedFileIsText,
+    getFileCount: () => fileCount,
+    getTotalSize: () => totalSize,
+    getProviders: () => providers,
     setEditDescription,
     handleKeydown,
     handleBeforeUnload,
     navigateBack,
     selectFile,
     selectTreeNode,
-    closeTab: (path: string) => closeEditorTab(state, path),
-    handleContentChange: (path: string, value: string) => updateEditorContent(state, path, value),
-    handleApplyAssistantSuggestion: (suggestedFiles: SkillFile[], focusPath?: string) =>
-      applyAssistantSuggestion(state, suggestedFiles, focusPath),
     handleDragStart,
     handleDragMove,
     handleDragEnd,
+    closeTab: (path) => closeEditorTab(state, path),
+    handleContentChange: (path, value) => updateEditorContent(state, path, value),
+    handleApplyAssistantSuggestion: (suggestedFiles: SkillFile[], focusPath?: string) =>
+      applyAssistantSuggestion(state, suggestedFiles, focusPath),
     handleCreateFile: () => createFileDraft(state),
     handleCreateFolder: () => createFolderDraft(state),
-    handleCreateCommit: (fullPath: string, kind: 'file' | 'folder') =>
-      commitPendingCreate(state, fullPath, kind),
+    handleCreateCommit: (fullPath, kind) => commitPendingCreate(state, fullPath, kind),
     handleCreateCancel: () => cancelPendingCreate(state),
-    handleRenameNode: (oldPath: string, newPath: string, kind: SkillTreeKind) =>
-      renameTreeNode(state, oldPath, newPath, kind),
-    handleDeleteNode: (path: string, kind: SkillTreeKind) => deleteTreeNode(state, path, kind),
+    handleRenameNode: (oldPath, newPath, kind) => renameTreeNode(state, oldPath, newPath, kind),
+    handleDeleteNode: (path, kind) => deleteTreeNode(state, path, kind),
     handleSave,
     handleToggleEnabled,
     handleDelete,
     handleWorkflowBinding,
-  }
+  })
 }

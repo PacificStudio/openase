@@ -25,9 +25,6 @@ import {
   writeMachinesPageCache,
 } from '../machines-page-cache'
 import {
-  type MachinesPageControllerOpsState,
-  type MachinesPageControllerView,
-  createMachinesPageControllerOpsState,
   handleMachineDelete,
   handleMachineHealthRefresh,
   handleMachineTest,
@@ -36,37 +33,43 @@ import {
   startMachineCreate,
 } from './machines-page-controller-ops'
 import {
+  type MachinesPageControllerOpsState,
+  createMachinesPageControllerOpsState,
+} from './machines-page-controller-types'
+import { createMachinesPageControllerLoadState } from './machines-page-controller-load-state'
+import { createMachinesPageControllerView } from './machines-page-controller-view'
+import {
   loadMachineList,
   requestMachineReload,
   type MachinesPageControllerLoadState,
 } from './machines-page-controller-load'
 export function createMachinesPageController() {
-  let loading = $state(false)
-  let refreshing = $state(false)
-  let loadingHealth = $state(false)
-  let saving = $state(false)
-  let editorOpen = $state(false)
-  let refreshingHealthMachineId = $state('')
-  let testingMachineId = $state('')
-  let deletingMachineId = $state('')
-  let workspaceState = $state<MachineWorkspaceState>('loading')
-  let routeOrgId = $state('')
-  let listMessage = $state('')
-  let machines = $state<MachineItem[]>([])
-  let selectedId = $state('')
-  let mode = $state<'create' | 'edit'>('edit')
-  let searchQuery = $state('')
+  let loading = $state(false),
+    refreshing = $state(false),
+    loadingHealth = $state(false),
+    saving = $state(false),
+    editorOpen = $state(false)
+  let refreshingHealthMachineId = $state(''),
+    testingMachineId = $state(''),
+    deletingMachineId = $state('')
+  let workspaceState = $state<MachineWorkspaceState>('loading'),
+    routeOrgId = $state(''),
+    listMessage = $state(''),
+    machines = $state<MachineItem[]>([]),
+    selectedId = $state(''),
+    mode = $state<'create' | 'edit'>('edit'),
+    searchQuery = $state('')
   let draft = $state<MachineDraft>(createEmptyMachineDraft())
   let snapshot = $state<MachineSnapshot | null>(null)
   let probe = $state<MachineProbeResult | null>(null)
-  let activeOrgId = $state('')
-  let listRequestVersion = $state(0)
-  let snapshotRequestVersion = $state(0)
-  let queuedReload = $state(false)
-  let reloadInFlight = $state(false)
+  let activeOrgId = $state(''),
+    listRequestVersion = $state(0),
+    snapshotRequestVersion = $state(0),
+    queuedReload = $state(false),
+    reloadInFlight = $state(false)
 
-  const currentOrgId = $derived(appStore.currentOrg?.id ?? '')
-  const currentProjectId = $derived(appStore.currentProject?.id ?? '')
+  const currentOrgId = $derived(appStore.currentOrg?.id ?? ''),
+    currentProjectId = $derived(appStore.currentProject?.id ?? '')
   const selectedMachine = $derived(machines.find((machine) => machine.id === selectedId) ?? null)
   const filteredMachines = $derived(filterMachines(machines, searchQuery))
   const controllerState: MachinesPageControllerOpsState = createMachinesPageControllerOpsState({
@@ -99,42 +102,20 @@ export function createMachinesPageController() {
     applyViewState,
     persistMachinesPageCache,
   })
-  const loadState: MachinesPageControllerLoadState = {
-    ...controllerState,
-    get loading() {
-      return loading
-    },
-    set loading(value) {
-      loading = value
-    },
-    get refreshing() {
-      return refreshing
-    },
-    set refreshing(value) {
-      refreshing = value
-    },
-    get activeOrgId() {
-      return activeOrgId
-    },
-    get listRequestVersion() {
-      return listRequestVersion
-    },
-    set listRequestVersion(value) {
-      listRequestVersion = value
-    },
-    get queuedReload() {
-      return queuedReload
-    },
-    set queuedReload(value) {
-      queuedReload = value
-    },
-    get reloadInFlight() {
-      return reloadInFlight
-    },
-    set reloadInFlight(value) {
-      reloadInFlight = value
-    },
-  }
+  const loadState: MachinesPageControllerLoadState = createMachinesPageControllerLoadState({
+    controllerState,
+    getLoading: () => loading,
+    setLoading: (value) => (loading = value),
+    getRefreshing: () => refreshing,
+    setRefreshing: (value) => (refreshing = value),
+    getActiveOrgId: () => activeOrgId,
+    getListRequestVersion: () => listRequestVersion,
+    setListRequestVersion: (value) => (listRequestVersion = value),
+    getQueuedReload: () => queuedReload,
+    setQueuedReload: (value) => (queuedReload = value),
+    getReloadInFlight: () => reloadInFlight,
+    setReloadInFlight: (value) => (reloadInFlight = value),
+  })
 
   $effect(() => {
     if (!currentOrgId) {
@@ -276,92 +257,40 @@ export function createMachinesPageController() {
 
   function persistMachinesPageCache(orgId: string) {
     if (!orgId) return
-    writeMachinesPageCache(orgId, {
-      machines,
-      selectedId,
-      searchQuery,
-    })
+    writeMachinesPageCache(orgId, { machines, selectedId, searchQuery })
   }
 
-  const view: MachinesPageControllerView = {
-    get routeOrgId() {
-      return routeOrgId
-    },
-    get loading() {
-      return loading
-    },
-    get refreshing() {
-      return refreshing
-    },
-    get workspaceState() {
-      return workspaceState
-    },
-    get listMessage() {
-      return listMessage
-    },
-    get machines() {
-      return machines
-    },
-    get filteredMachines() {
-      return filteredMachines
-    },
-    get selectedId() {
-      return selectedId
-    },
-    get selectedMachine() {
-      return selectedMachine
-    },
-    get mode() {
-      return mode
-    },
-    get draft() {
-      return draft
-    },
-    set draft(value) {
-      draft = value
-    },
-    get snapshot() {
-      return snapshot
-    },
-    get probe() {
-      return probe
-    },
-    get loadingHealth() {
-      return loadingHealth
-    },
-    get refreshingHealthMachineId() {
-      return refreshingHealthMachineId
-    },
-    get saving() {
-      return saving
-    },
-    get testingMachineId() {
-      return testingMachineId
-    },
-    get deletingMachineId() {
-      return deletingMachineId
-    },
-    get editorOpen() {
-      return editorOpen
-    },
-    set editorOpen(value) {
-      editorOpen = value
-    },
-    get searchQuery() {
-      return searchQuery
-    },
-    set searchQuery(value) {
-      searchQuery = value
-    },
+  return createMachinesPageControllerView({
+    getRouteOrgId: () => routeOrgId,
+    getLoading: () => loading,
+    getRefreshing: () => refreshing,
+    getWorkspaceState: () => workspaceState,
+    getListMessage: () => listMessage,
+    getMachines: () => machines,
+    getFilteredMachines: () => filteredMachines,
+    getSelectedId: () => selectedId,
+    getSelectedMachine: () => selectedMachine,
+    getMode: () => mode,
+    getDraft: () => draft,
+    setDraft: (value) => (draft = value),
+    getSnapshot: () => snapshot,
+    getProbe: () => probe,
+    getLoadingHealth: () => loadingHealth,
+    getRefreshingHealthMachineId: () => refreshingHealthMachineId,
+    getSaving: () => saving,
+    getTestingMachineId: () => testingMachineId,
+    getDeletingMachineId: () => deletingMachineId,
+    getEditorOpen: () => editorOpen,
+    setEditorOpen: (value) => (editorOpen = value),
+    getSearchQuery: () => searchQuery,
+    setSearchQuery: (value) => (searchQuery = value),
     handleRefresh,
     startCreate: () => startMachineCreate(controllerState),
     openMachine,
-    handleRefreshHealth: (machineId: string) =>
-      handleMachineHealthRefresh(controllerState, machineId),
+    handleRefreshHealth: (machineId) => handleMachineHealthRefresh(controllerState, machineId),
     handleSave,
-    handleTest: (machineId: string) => handleMachineTest(controllerState, machineId),
-    handleDelete: (machineId: string) => handleMachineDelete(controllerState, machineId),
+    handleTest: (machineId) => handleMachineTest(controllerState, machineId),
+    handleDelete: (machineId) => handleMachineDelete(controllerState, machineId),
     resetDraft: (machineId?: string) => resetMachineDraft(controllerState, machineId),
-  }
-  return view
+  })
 }

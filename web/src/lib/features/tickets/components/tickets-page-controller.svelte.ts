@@ -36,6 +36,8 @@ import {
   handleTicketDragStart as startTicketDrag,
   handleTicketDrop as dropTicket,
 } from './tickets-page-controller-actions'
+import { createTicketsPageControllerApi } from './tickets-page-controller-api'
+import { createTicketsPageControllerState } from './tickets-page-controller-state'
 
 export function createTicketsPageController() {
   let loading = $state(false)
@@ -53,34 +55,18 @@ export function createTicketsPageController() {
   let loadRequestVersion = 0
   let queuedReload = false
   let reloadInFlight = false
-  const controllerState: TicketsPageControllerActionsState = {
-    get allColumns() {
-      return allColumns
-    },
-    set allColumns(value) {
-      allColumns = value
-    },
-    get allStatuses() {
-      return allStatuses
-    },
-    get pendingMoveByTicket() {
-      return pendingMoveByTicket
-    },
-    get draggingTicketId() {
-      return draggingTicketId
-    },
-    set draggingTicketId(value) {
-      draggingTicketId = value
-    },
-    get dropColumnId() {
-      return dropColumnId
-    },
-    set dropColumnId(value) {
-      dropColumnId = value
-    },
+  const controllerState: TicketsPageControllerActionsState = createTicketsPageControllerState({
+    getAllColumns: () => allColumns,
+    setAllColumns: (value) => (allColumns = value),
+    getAllStatuses: () => allStatuses,
+    pendingMoveByTicket,
+    getDraggingTicketId: () => draggingTicketId,
+    setDraggingTicketId: (value) => (draggingTicketId = value),
+    getDropColumnId: () => dropColumnId,
+    setDropColumnId: (value) => (dropColumnId = value),
     persistBoardSnapshot,
     requestReload,
-  }
+  })
 
   const filteredColumns = $derived(filterBoardColumns(allColumns, ticketBoardToolbarStore.filter))
   const filteredGroups = $derived(
@@ -290,47 +276,24 @@ export function createTicketsPageController() {
     await runColumnAction(controllerState, columnId, action)
   }
 
-  return {
-    get loading() {
-      return loading
-    },
-    get error() {
-      return error
-    },
-    get allColumns() {
-      return allColumns
-    },
-    get allStatuses() {
-      return allStatuses
-    },
-    get workflows() {
-      return workflows
-    },
-    get agentOptions() {
-      return agentOptions
-    },
-    get draggingTicketId() {
-      return draggingTicketId
-    },
-    get dropColumnId() {
-      return dropColumnId
-    },
-    get filteredColumns() {
-      return filteredColumns
-    },
-    get filteredGroups() {
-      return filteredGroups
-    },
-    get hiddenColumns() {
-      return hiddenColumns
-    },
+  return createTicketsPageControllerApi({
+    getLoading: () => loading,
+    getError: () => error,
+    getAllColumns: () => allColumns,
+    getAllStatuses: () => allStatuses,
+    getWorkflows: () => workflows,
+    getAgentOptions: () => agentOptions,
+    getDraggingTicketId: () => draggingTicketId,
+    getDropColumnId: () => dropColumnId,
+    getFilteredColumns: () => filteredColumns,
+    getFilteredGroups: () => filteredGroups,
+    getHiddenColumns: () => hiddenColumns,
     handleTicketClick,
     handleTicketDragStart,
     handleTicketDragEnd,
     handleTicketDragOverColumn,
     handleTicketDrop,
-    handleStatusChange: handleTicketDrop,
     handlePriorityChange,
     handleColumnAction,
-  }
+  })
 }

@@ -1,23 +1,31 @@
-import { untrack } from 'svelte'
 import {
   closeSkillRefinementSession,
   streamSkillRefinement,
   type SkillRefinementResultPayload,
 } from '$lib/api/skill-refinement'
-import type { AgentProvider, SkillFile } from '$lib/api/contracts'
-import {
-  listProviderCapabilityProviders,
-  pickDefaultProviderCapability,
-  shouldKeepProviderCapability,
-} from '$lib/features/chat'
-import {
-  buildDiffPreview,
-  type DiffPreview,
-  type SkillSuggestion,
-} from '$lib/features/skills/assistant'
-import { appStore } from '$lib/stores/app.svelte'
+import type { AgentProvider } from '$lib/api/contracts'
+import type { DiffPreview, SkillSuggestion } from '$lib/features/skills/assistant'
 import { toastStore } from '$lib/stores/toast.svelte'
 import { encodeUTF8Base64 } from './skill-bundle-editor'
+import { createSkillAISidebarControllerApi } from './skill-ai-sidebar-controller-api'
+import {
+  createSkillAISidebarCleanup,
+  syncSkillAIContext,
+  syncSkillAIRefinementProviders,
+  syncSkillAISuggestionSelection,
+} from './skill-ai-sidebar-controller-effects'
+import {
+  buildSkillAISuggestionPreview,
+  buildSkillAISuggestionPreviewList,
+  createSkillAISuggestion,
+  isSkillAISuggestionAlreadyApplied,
+} from './skill-ai-sidebar-controller-preview'
+import type { SkillAISidebarInput } from './skill-ai-sidebar-controller-types'
+import {
+  dismissSkillAISuggestion,
+  handleSkillAIProviderChange,
+  handleSkillAIPromptKeydown,
+} from './skill-ai-sidebar-controller-ui'
 import {
   appendSkillRefinementTranscriptEvent,
   createSkillRefinementTranscriptState,
@@ -25,126 +33,76 @@ import {
   type SkillRefinementAnchorState,
 } from './skill-refinement-transcript'
 
-type SkillAISidebarInput = {
-  getProjectId: () => string | undefined
-  getProviders: () => AgentProvider[]
-  getSkillId: () => string | undefined
-  getFiles: () => SkillFile[]
-  onApplySuggestion?: (files: SkillFile[], focusPath?: string) => void
-}
-
 export function createSkillAISidebarController(input: SkillAISidebarInput) {
   let prompt = $state('')
-  let refinementProviders = $state<AgentProvider[]>([])
-  let providerId = $state('')
-  let pending = $state(false)
-  let sessionId = $state('')
-  let workspacePath = $state('')
+  let refinementProviders = $state<AgentProvider[]>([]),
+    providerId = $state(''),
+    pending = $state(false),
+    sessionId = $state(''),
+    workspacePath = $state('')
   let phase = $state<
     '' | 'editing' | 'testing' | 'retrying' | 'verified' | 'blocked' | 'unverified'
   >('')
-  let phaseMessage = $state('')
-  let attempt = $state(0)
+  let phaseMessage = $state(''),
+    attempt = $state(0)
   let result = $state<SkillRefinementResultPayload | null>(null)
-  let transcriptState = $state(createSkillRefinementTranscriptState())
-  let anchorState = $state<SkillRefinementAnchorState>({})
-  let selectedSuggestionPath = $state('')
-  let appliedBundleHash = $state('')
-  let dismissed = $state(false)
-  let previousContextKey = ''
+  let transcriptState = $state(createSkillRefinementTranscriptState()),
+    anchorState = $state<SkillRefinementAnchorState>({})
+  let selectedSuggestionPath = $state(''),
+    appliedBundleHash = $state('')
+  let dismissed = $state(false),
+    previousContextKey = ''
   let abortController: AbortController | null = null
 
   const transcriptEntries = $derived(transcriptState.entries)
-  const textPreviewFiles = $derived(
-    result?.candidateFiles.filter(
-      (file) => file.encoding === 'utf8' && typeof file.content === 'string',
-    ) ?? [],
-  )
-  const suggestion = $derived<SkillSuggestion | null>(
-    result?.status === 'verified' && textPreviewFiles.length > 0
-      ? {
-          summary: result.transcriptSummary || 'Codex verified this draft bundle.',
-          files: textPreviewFiles.map((file) => ({
-            path: file.path,
-            content: file.content ?? '',
-          })),
-        }
-      : null,
-  )
-  const previewTarget = $derived(
-    suggestion?.files.find((file) => file.path === selectedSuggestionPath) ??
-      suggestion?.files[0] ??
-      null,
-  )
+  const suggestion = $derived<SkillSuggestion | null>(createSkillAISuggestion(result))
   const preview = $derived<DiffPreview | null>(
-    previewTarget
-      ? buildDiffPreview(
-          input.getFiles().find((file) => file.path === previewTarget.path)?.content ?? '',
-          previewTarget.content,
-        )
-      : null,
+    buildSkillAISuggestionPreview(input.getFiles(), suggestion, selectedSuggestionPath),
   )
-  const previewList = $derived(
-    suggestion?.files.map((file) => ({
-      path: file.path,
-      preview: buildDiffPreview(
-        input.getFiles().find((current) => current.path === file.path)?.content ?? '',
-        file.content,
-      ),
-    })) ?? [],
-  )
+  const previewList = $derived(buildSkillAISuggestionPreviewList(input.getFiles(), suggestion))
   const suggestionAlreadyApplied = $derived(
-    (result?.candidateBundleHash && appliedBundleHash === result.candidateBundleHash) ||
-      (previewList.length > 0 && previewList.every((item) => !item.preview.hasChanges)),
+    isSkillAISuggestionAlreadyApplied(result, appliedBundleHash, previewList),
   )
   const sendDisabled = $derived(
     !input.getProjectId() || !input.getSkillId() || !providerId || !prompt.trim() || pending,
   )
 
   $effect(() => {
-    const nextProviders = input.getProviders()
-    const nextDefaultProviderId = appStore.currentProject?.default_agent_provider_id ?? ''
-    untrack(() => {
-      refinementProviders = listProviderCapabilityProviders(nextProviders, 'skill_ai')
-      if (shouldKeepProviderCapability(refinementProviders, providerId, 'skill_ai')) return
-      const nextProviderId = pickDefaultProviderCapability(
-        refinementProviders,
-        nextDefaultProviderId,
-        'skill_ai',
-      )
-      if (providerId && providerId !== nextProviderId) {
-        void closeActiveSession({ clearResult: true, suppressError: true })
-      }
-      providerId = nextProviderId
+    syncSkillAIRefinementProviders({
+      providers: input.getProviders(),
+      providerId,
+      setRefinementProviders: (value) => (refinementProviders = value),
+      setProviderId: (value) => (providerId = value),
+      closeActiveSession,
     })
   })
 
   $effect(() => {
-    const projectId = input.getProjectId()
-    const skillId = input.getSkillId()
-    const contextKey = projectId && skillId ? `${projectId}:${skillId}` : ''
-    if (contextKey === previousContextKey) return
-    previousContextKey = contextKey
-    prompt = ''
-    appliedBundleHash = ''
-    dismissed = false
-    selectedSuggestionPath = ''
-    void closeActiveSession({ clearResult: true, suppressError: true })
+    syncSkillAIContext({
+      projectId: input.getProjectId(),
+      skillId: input.getSkillId(),
+      previousContextKey,
+      setPreviousContextKey: (value) => (previousContextKey = value),
+      resetContext: () => {
+        prompt = ''
+        appliedBundleHash = ''
+        dismissed = false
+        selectedSuggestionPath = ''
+      },
+      closeActiveSession,
+    })
   })
 
   $effect(() => {
-    if (!suggestion || suggestion.files.length === 0) {
-      selectedSuggestionPath = ''
-      return
-    }
-    if (suggestion.files.some((file) => file.path === selectedSuggestionPath)) return
-    selectedSuggestionPath = suggestion.files[0]?.path ?? ''
+    syncSkillAISuggestionSelection({
+      suggestion,
+      selectedSuggestionPath,
+      setSelectedSuggestionPath: (value) => (selectedSuggestionPath = value),
+    })
   })
 
   $effect(() => {
-    return () => {
-      void closeActiveSession({ clearResult: false, suppressError: true })
-    }
+    return createSkillAISidebarCleanup(closeActiveSession)
   })
 
   async function closeActiveSession(options: { clearResult: boolean; suppressError?: boolean }) {
@@ -280,88 +238,41 @@ export function createSkillAISidebarController(input: SkillAISidebarInput) {
     appliedBundleHash = result.candidateBundleHash ?? ''
   }
 
-  function handleDismiss() {
-    dismissed = true
-  }
-
   async function handleProviderChange(nextProviderId: string) {
-    if (nextProviderId === providerId) return
-    providerId = nextProviderId
-    await closeActiveSession({ clearResult: true })
+    await handleSkillAIProviderChange(
+      providerId,
+      nextProviderId,
+      (value) => (providerId = value),
+      closeActiveSession,
+    )
   }
 
-  function handlePromptKeydown(event: KeyboardEvent) {
-    if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return
-    event.preventDefault()
-    void handleSend()
-  }
-
-  return {
-    get prompt() {
-      return prompt
-    },
-    get refinementProviders() {
-      return refinementProviders
-    },
-    get providerId() {
-      return providerId
-    },
-    get pending() {
-      return pending
-    },
-    get sessionId() {
-      return sessionId
-    },
-    get workspacePath() {
-      return workspacePath
-    },
-    get phase() {
-      return phase
-    },
-    get phaseMessage() {
-      return phaseMessage
-    },
-    get attempt() {
-      return attempt
-    },
-    get result() {
-      return result
-    },
-    get transcriptEntries() {
-      return transcriptEntries
-    },
-    get anchorState() {
-      return anchorState
-    },
-    get selectedSuggestionPath() {
-      return selectedSuggestionPath
-    },
-    get dismissed() {
-      return dismissed
-    },
-    get suggestion() {
-      return suggestion
-    },
-    get preview() {
-      return preview
-    },
-    get suggestionAlreadyApplied() {
-      return suggestionAlreadyApplied
-    },
-    get sendDisabled() {
-      return sendDisabled
-    },
-    setPrompt(value: string) {
-      prompt = value
-    },
-    selectSuggestionPath(path: string) {
-      selectedSuggestionPath = path
-    },
+  return createSkillAISidebarControllerApi({
+    getPrompt: () => prompt,
+    getRefinementProviders: () => refinementProviders,
+    getProviderId: () => providerId,
+    getPending: () => pending,
+    getSessionId: () => sessionId,
+    getWorkspacePath: () => workspacePath,
+    getPhase: () => phase,
+    getPhaseMessage: () => phaseMessage,
+    getAttempt: () => attempt,
+    getResult: () => result,
+    getTranscriptEntries: () => transcriptEntries,
+    getAnchorState: () => anchorState,
+    getSelectedSuggestionPath: () => selectedSuggestionPath,
+    getDismissed: () => dismissed,
+    getSuggestion: () => suggestion,
+    getPreview: () => preview,
+    getSuggestionAlreadyApplied: () => suggestionAlreadyApplied,
+    getSendDisabled: () => sendDisabled,
+    setPrompt: (value) => (prompt = value),
+    selectSuggestionPath: (path) => (selectedSuggestionPath = path),
     closeActiveSession,
     handleSend,
     handleApply,
-    handleDismiss,
+    handleDismiss: () => dismissSkillAISuggestion((value) => (dismissed = value)),
     handleProviderChange,
-    handlePromptKeydown,
-  }
+    handlePromptKeydown: (event) => handleSkillAIPromptKeydown(event, handleSend),
+  })
 }

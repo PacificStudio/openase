@@ -39,24 +39,24 @@
   } = $props()
 
   let suppressedFocusKey = $state('')
-  let loadingProviders = $state(false)
-  let providerError = $state('')
-  let loadedProviders = $state<AgentProvider[]>([])
-  let previousRestoreKey = ''
-  let appliedInitialPromptSignature = $state('')
-  let autoDispatchQueueTurnId = $state('')
+  let loadingProviders = $state(false),
+    providerError = $state(''),
+    loadedProviders = $state<AgentProvider[]>([])
+  let previousRestoreKey = '',
+    appliedInitialPromptSignature = $state(''),
+    autoDispatchQueueTurnId = $state('')
 
   const controller = createProjectConversationController({
     getProjectId: () => context.projectId,
     onError: (message) => toastStore.error(message),
   })
 
-  const activeProviders = $derived(providers.length > 0 ? providers : loadedProviders)
-  const chatProviders = $derived(controller.providers)
-  const providerId = $derived(controller.providerId)
-  const conversations = $derived(controller.conversations)
-  const tabs = $derived(controller.tabs)
-  const activeTabId = $derived(controller.activeTabId)
+  const activeProviders = $derived(providers.length > 0 ? providers : loadedProviders),
+    chatProviders = $derived(controller.providers),
+    providerId = $derived(controller.providerId),
+    conversations = $derived(controller.conversations),
+    tabs = $derived(controller.tabs),
+    activeTabId = $derived(controller.activeTabId)
   const activeTab = $derived(tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null)
   const draft = $derived(controller.draft)
   const queuedTurns = $derived(controller.queuedTurns)
@@ -156,11 +156,7 @@
     }
   })
 
-  $effect(() => {
-    return () => {
-      controller.dispose()
-    }
-  })
+  $effect(() => () => controller.dispose())
 
   $effect(() => {
     if (!effectiveFocusKey) {

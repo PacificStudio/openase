@@ -1,10 +1,8 @@
 import { toastStore } from '$lib/stores/toast.svelte'
 import { syncMachineListState } from './machines-page-state-sync'
 import { loadMachines, machineErrorMessage } from './machines-page-api'
-import {
-  loadMachineResources,
-  type MachinesPageControllerOpsState,
-} from './machines-page-controller-ops'
+import { loadMachineResources } from './machines-page-controller-ops'
+import type { MachinesPageControllerOpsState } from './machines-page-controller-types'
 
 export type MachinesPageControllerLoadState = MachinesPageControllerOpsState & {
   get loading(): boolean
