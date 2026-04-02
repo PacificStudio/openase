@@ -234,6 +234,7 @@ export function applyProjectConversationStreamEvent(params: {
         statusType: payload.statusType,
         title: payload.title,
         detail: payload.detail,
+        raw: payload.raw,
       })
     },
     confirmActionResult: (entryId, results) => {

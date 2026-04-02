@@ -263,6 +263,7 @@ export async function createWorkflowWithBinding(
 
 function mapSkillStates(
   skills: Array<{
+    id: string
     name: string
     description: string
     path: string
@@ -271,6 +272,7 @@ function mapSkillStates(
   workflowId?: string,
 ): SkillState[] {
   return skills.map((skill) => ({
+    id: skill.id,
     name: skill.name,
     description: skill.description,
     path: skill.path,

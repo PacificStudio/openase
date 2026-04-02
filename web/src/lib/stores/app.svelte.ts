@@ -1,8 +1,15 @@
 import type { AgentProvider, Organization, Project } from '$lib/api/contracts'
+import type { ProjectAIFocus } from '$lib/features/chat/project-ai-focus'
 import type { ProjectSection } from '$lib/stores/app-context'
 
 type AppPanelContent = { type: 'ticket'; id: string } | { type: 'agent'; id: string }
 export type AppTheme = 'light' | 'dark'
+type ProjectAssistantFocusRegistration = {
+  owner: string
+  focus: ProjectAIFocus
+  priority: number
+  updatedAt: number
+}
 
 const flipTheme = (theme: AppTheme): AppTheme => (theme === 'dark' ? 'light' : 'dark')
 
@@ -49,6 +56,7 @@ function createAppStore() {
   let sseStatus = $state<'idle' | 'connecting' | 'live' | 'retrying'>('idle')
   let theme = $state<AppTheme>('dark')
   let projectAssistantRequest = $state<{ prompt: string; timestamp: number } | null>(null)
+  let projectAssistantFocus = $state<ProjectAssistantFocusRegistration[]>([])
   return {
     get currentOrg() {
       return currentOrg
@@ -205,6 +213,13 @@ function createAppStore() {
     get projectAssistantRequest() {
       return projectAssistantRequest
     },
+    get projectAssistantFocus() {
+      return (
+        [...projectAssistantFocus].sort(
+          (left, right) => right.priority - left.priority || right.updatedAt - left.updatedAt,
+        )[0]?.focus ?? null
+      )
+    },
     requestProjectAssistant(prompt = '') {
       projectAssistantRequest = { prompt, timestamp: Date.now() }
     },
@@ -212,6 +227,17 @@ function createAppStore() {
       const request = projectAssistantRequest
       projectAssistantRequest = null
       return request
+    },
+    setProjectAssistantFocus(owner: string, focus: ProjectAIFocus, priority = 0) {
+      projectAssistantFocus = [
+        ...projectAssistantFocus.filter((registration) => registration.owner !== owner),
+        { owner, focus, priority, updatedAt: Date.now() },
+      ]
+    },
+    clearProjectAssistantFocus(owner: string) {
+      projectAssistantFocus = projectAssistantFocus.filter(
+        (registration) => registration.owner !== owner,
+      )
     },
   }
 }

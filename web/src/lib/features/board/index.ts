@@ -9,6 +9,7 @@ export type {
   BoardTicket,
   BoardFilter,
   BoardStatusOption,
+  HiddenColumn,
 } from './types'
 export {
   buildBoardData,

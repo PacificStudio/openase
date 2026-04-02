@@ -38,8 +38,15 @@ const workflowFixture = {
 }
 
 const skillStatesFixture: SkillState[] = [
-  { name: 'lint', description: 'Run linters on changed files', path: 'skills/lint', bound: true },
   {
+    id: 'sk-1',
+    name: 'lint',
+    description: 'Run linters on changed files',
+    path: 'skills/lint',
+    bound: true,
+  },
+  {
+    id: 'sk-2',
     name: 'test-runner',
     description: 'Execute test suites',
     path: 'skills/test-runner',

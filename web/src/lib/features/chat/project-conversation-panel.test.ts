@@ -184,10 +184,10 @@ describe('ProjectConversationPanel', () => {
     await fireEvent.input(prompt, { target: { value: 'Summarize the repo.' } })
     await fireEvent.click(sendButton)
     await waitFor(() => {
-      expect(startProjectConversationTurn).toHaveBeenCalledWith(
-        'conversation-1',
-        'Summarize the repo.',
-      )
+      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-1', {
+        message: 'Summarize the repo.',
+        focus: undefined,
+      })
     })
 
     streamHandlers.get('conversation-1')?.onEvent({
@@ -219,11 +219,10 @@ describe('ProjectConversationPanel', () => {
     await fireEvent.click(updatedSendButton)
 
     await waitFor(() => {
-      expect(startProjectConversationTurn).toHaveBeenNthCalledWith(
-        2,
-        'conversation-2',
-        'Parallel tab keeps working.',
-      )
+      expect(startProjectConversationTurn).toHaveBeenNthCalledWith(2, 'conversation-2', {
+        message: 'Parallel tab keeps working.',
+        focus: undefined,
+      })
     })
 
     expect(getAllByRole('button', { name: /Close /i }).length).toBeGreaterThanOrEqual(1)
@@ -267,7 +266,10 @@ describe('ProjectConversationPanel', () => {
     await fireEvent.input(prompt, { target: { value: 'First tab' } })
     await fireEvent.click(getByRole('button', { name: 'Send message' }))
     await waitFor(() => {
-      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-1', 'First tab')
+      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-1', {
+        message: 'First tab',
+        focus: undefined,
+      })
     })
 
     await fireEvent.click(getByRole('button', { name: /New Tab/i }))
@@ -277,7 +279,10 @@ describe('ProjectConversationPanel', () => {
     await fireEvent.input(secondPrompt, { target: { value: 'Second tab' } })
     await fireEvent.click(getByRole('button', { name: 'Send message' }))
     await waitFor(() => {
-      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-2', 'Second tab')
+      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-2', {
+        message: 'Second tab',
+        focus: undefined,
+      })
     })
 
     await fireEvent.click(getByRole('button', { name: 'Close First tab' }))

@@ -7,8 +7,13 @@
   import { Button } from '$ui/button'
   import { ScrollArea } from '$ui/scroll-area'
   import Textarea from '$ui/textarea/textarea.svelte'
-  import { Plus, RefreshCcw, Send } from '@lucide/svelte'
+  import { Plus, RefreshCcw, Send, X } from '@lucide/svelte'
   import { createProjectConversationController } from './project-conversation-controller.svelte'
+  import {
+    describeProjectAIFocus,
+    projectAIFocusKey,
+    type ProjectAIFocus,
+  } from './project-ai-focus'
   import { getProjectConversationStatusMessage } from './project-conversation-panel-labels'
   import ProjectConversationTabStrip from './project-conversation-tab-strip.svelte'
   import ProjectConversationWorkspaceSummary from './project-conversation-workspace-summary.svelte'
@@ -20,6 +25,7 @@
     organizationId = '',
     providers = [],
     defaultProviderId = null,
+    focus = null,
     title = 'Project AI',
     placeholder = 'Ask anything about this project…',
     initialPrompt = '',
@@ -28,12 +34,14 @@
     organizationId?: string
     providers?: AgentProvider[]
     defaultProviderId?: string | null
+    focus?: ProjectAIFocus | null
     title?: string
     placeholder?: string
     initialPrompt?: string
   } = $props()
 
   let prompt = $state('')
+  let suppressedFocusKey = $state('')
   let loadingProviders = $state(false)
   let providerError = $state('')
   let loadedProviders = $state<AgentProvider[]>([])
@@ -62,6 +70,12 @@
   const statusMessage = $derived(
     getProjectConversationStatusMessage(phase, controller.hasPendingInterrupt),
   )
+  const effectiveFocus = $derived(focus && focus.projectId === context.projectId ? focus : null)
+  const effectiveFocusKey = $derived(projectAIFocusKey(effectiveFocus))
+  const focusForSend = $derived(
+    effectiveFocus && suppressedFocusKey !== effectiveFocusKey ? effectiveFocus : null,
+  )
+  const focusCard = $derived(focusForSend ? describeProjectAIFocus(focusForSend) : null)
   const openConversationIds = $derived(
     new Set(tabs.map((tab) => tab.conversationId).filter((conversationId) => conversationId)),
   )
@@ -130,14 +144,22 @@
     }
   })
 
+  $effect(() => {
+    if (!effectiveFocusKey) {
+      suppressedFocusKey = ''
+    }
+  })
+
   async function handleSend() {
     const message = prompt.trim()
     if (!message || !context.projectId || !providerId || pending) {
       return
     }
 
+    const nextFocus = suppressedFocusKey === effectiveFocusKey ? null : effectiveFocus
     prompt = ''
-    await controller.sendTurn(message)
+    await controller.sendTurn(message, nextFocus)
+    suppressedFocusKey = ''
   }
 
   async function handleOpenConversation(nextConversationId: string) {
@@ -223,6 +245,33 @@
     {:else if activeTab?.restored}
       <div class="text-muted-foreground mb-2 text-xs">
         This tab was restored from your last session.
+      </div>
+    {/if}
+
+    {#if focusCard}
+      <div
+        class="bg-muted/40 mb-2 flex items-start justify-between gap-3 rounded-lg border px-3 py-2"
+      >
+        <div class="min-w-0">
+          <div class="text-muted-foreground text-[11px] font-medium tracking-[0.16em] uppercase">
+            Current focus
+          </div>
+          <div class="truncate text-sm font-medium">{focusCard.label}: {focusCard.title}</div>
+          {#if focusCard.detail}
+            <div class="text-muted-foreground truncate text-xs">{focusCard.detail}</div>
+          {/if}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          class="text-muted-foreground hover:text-foreground size-7 shrink-0 p-0"
+          aria-label="Remove focus for this send"
+          onclick={() => {
+            suppressedFocusKey = effectiveFocusKey
+          }}
+        >
+          <X class="size-4" />
+        </Button>
       </div>
     {/if}
 

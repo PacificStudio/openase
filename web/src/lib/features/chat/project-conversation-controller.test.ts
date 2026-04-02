@@ -105,10 +105,10 @@ describe('createProjectConversationController', () => {
         onEvent: expect.any(Function),
       }),
     )
-    expect(startProjectConversationTurn).toHaveBeenCalledWith(
-      'conversation-1',
-      'Summarize this project.',
-    )
+    expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-1', {
+      message: 'Summarize this project.',
+      focus: undefined,
+    })
     expect(controller.phase).toBe('awaiting_reply')
     expect(controller.entries).toMatchObject([
       { kind: 'text', role: 'user', content: 'Summarize this project.' },
@@ -117,6 +117,48 @@ describe('createProjectConversationController', () => {
     expect(controller.tabs[0]?.conversationId).toBe('conversation-1')
 
     stream.resolve()
+  })
+
+  it('passes per-turn focus metadata through to the project conversation turn request', async () => {
+    createProjectConversation.mockResolvedValue({
+      conversation: {
+        id: 'conversation-1',
+        providerId: 'provider-1',
+        lastActivityAt: '2026-04-01T10:00:00Z',
+      },
+    })
+    watchProjectConversation.mockResolvedValue(undefined)
+    startProjectConversationTurn.mockResolvedValue({
+      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
+    })
+
+    const controller = createProjectConversationController({
+      getProjectId: () => 'project-1',
+    })
+    controller.syncProviders(providerFixtures, 'provider-1')
+
+    await controller.sendTurn('帮我看看这里要怎么改', {
+      kind: 'ticket',
+      projectId: 'project-1',
+      ticketId: 'ticket-1',
+      ticketIdentifier: 'T-123',
+      ticketTitle: 'Investigate CI failure',
+      ticketStatus: 'In Review',
+      selectedArea: 'detail',
+    })
+
+    expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-1', {
+      message: '帮我看看这里要怎么改',
+      focus: {
+        kind: 'ticket',
+        projectId: 'project-1',
+        ticketId: 'ticket-1',
+        ticketIdentifier: 'T-123',
+        ticketTitle: 'Investigate CI failure',
+        ticketStatus: 'In Review',
+        selectedArea: 'detail',
+      },
+    })
   })
 
   it('blocks duplicate sends while the active tab is creating its first conversation', async () => {
@@ -232,11 +274,10 @@ describe('createProjectConversationController', () => {
 
     await controller.sendTurn('Independent tab keeps working')
 
-    expect(startProjectConversationTurn).toHaveBeenNthCalledWith(
-      2,
-      'conversation-2',
-      'Independent tab keeps working',
-    )
+    expect(startProjectConversationTurn).toHaveBeenNthCalledWith(2, 'conversation-2', {
+      message: 'Independent tab keeps working',
+      focus: undefined,
+    })
 
     const firstTabId =
       controller.tabs.find((tab) => tab.conversationId === 'conversation-1')?.id ?? ''
