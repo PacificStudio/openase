@@ -189,10 +189,10 @@ describe('createProjectConversationController restore flows', () => {
     await controller.sendTurn('Follow up on the older plan')
 
     expect(createProjectConversation).not.toHaveBeenCalled()
-    expect(startProjectConversationTurn).toHaveBeenLastCalledWith(
-      'conversation-2',
-      'Follow up on the older plan',
-    )
+    expect(startProjectConversationTurn).toHaveBeenLastCalledWith('conversation-2', {
+      message: 'Follow up on the older plan',
+      focus: undefined,
+    })
     expect(controller.entries).toMatchObject([
       { kind: 'text', role: 'user', content: 'Continue the older plan' },
       { kind: 'text', role: 'user', content: 'Follow up on the older plan' },

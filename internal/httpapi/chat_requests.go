@@ -3,6 +3,7 @@ package httpapi
 import (
 	"strings"
 
+	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	"github.com/google/uuid"
 )
@@ -16,7 +17,8 @@ type rawCreateConversationRequest struct {
 }
 
 type rawConversationTurnRequest struct {
-	Message string `json:"message"`
+	Message string                                   `json:"message"`
+	Focus   *chatservice.RawProjectConversationFocus `json:"focus"`
 }
 
 type rawInterruptResponseRequest struct {
@@ -28,6 +30,11 @@ type createProjectConversationRequest struct {
 	Source     chatdomain.Source
 	ProjectID  uuid.UUID
 	ProviderID uuid.UUID
+}
+
+type projectConversationTurnRequest struct {
+	Message string
+	Focus   *chatservice.ProjectConversationFocus
 }
 
 func parseCreateProjectConversationRequest(raw rawCreateConversationRequest) (createProjectConversationRequest, error) {
@@ -51,12 +58,19 @@ func parseCreateProjectConversationRequest(raw rawCreateConversationRequest) (cr
 	}, nil
 }
 
-func parseProjectConversationTurnRequest(raw rawConversationTurnRequest) (string, error) {
+func parseProjectConversationTurnRequest(raw rawConversationTurnRequest) (projectConversationTurnRequest, error) {
 	message := strings.TrimSpace(raw.Message)
 	if message == "" {
-		return "", writeableError("message must not be empty")
+		return projectConversationTurnRequest{}, writeableError("message must not be empty")
 	}
-	return message, nil
+	focus, err := chatservice.ParseProjectConversationFocus(raw.Focus)
+	if err != nil {
+		return projectConversationTurnRequest{}, writeableError(err.Error())
+	}
+	return projectConversationTurnRequest{
+		Message: message,
+		Focus:   focus,
+	}, nil
 }
 
 func parseInterruptResponseRequest(raw rawInterruptResponseRequest) chatdomain.InterruptResponse {

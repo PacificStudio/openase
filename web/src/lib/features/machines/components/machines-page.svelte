@@ -1,6 +1,7 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
+  import { syncMachinesPageProjectAIFocus } from './machines-page-focus'
   import MachinesPageBody from './machines-page-body.svelte'
   import { syncMachineListState } from './machines-page-state-sync'
   import { connectMachinesPageStream } from './machines-page-streams'
@@ -32,7 +33,6 @@
     MachineSnapshot,
     MachineWorkspaceState,
   } from '../types'
-
   let loading = $state(false),
     refreshing = $state(false),
     loadingHealth = $state(false),
@@ -51,6 +51,7 @@
   let draft = $state<MachineDraft>(createEmptyMachineDraft()),
     snapshot = $state<MachineSnapshot | null>(null),
     probe = $state<MachineProbeResult | null>(null)
+  const projectAIFocusOwner = 'machines-page'
   const selectedMachine = $derived(machines.find((machine) => machine.id === selectedId) ?? null),
     filteredMachines = $derived(filterMachines(machines, searchQuery))
   $effect(() => {
@@ -63,13 +64,11 @@
       return
     }
     const orgId = currentOrg.id
-
     let cancelled = false
     void loadMachineList(orgId, { background: false, cancelled: () => cancelled })
     const disconnect = connectMachinesPageStream(orgId, () => {
       void loadMachineList(orgId, { background: true, cancelled: () => cancelled })
     })
-
     return () => {
       cancelled = true
       disconnect()
@@ -84,7 +83,6 @@
   ) {
     loading = !options.background
     refreshing = options.background
-
     try {
       const nextMachines = await loadMachines(orgId)
       if (options.cancelled?.()) return
@@ -148,7 +146,7 @@
     }
   }
   function startCreate() {
-    if (!routeOrgId) return applyViewState(createNoOrgState())
+    if (!routeOrgId) return void applyViewState(createNoOrgState())
     applyViewState({ ...createStartCreateState(routeOrgId, machines), searchQuery })
     editorOpen = true
   }
@@ -167,7 +165,6 @@
       toastStore.error(parsed.ok ? 'Organization context is unavailable.' : parsed.error)
       return
     }
-
     saving = true
     try {
       const result = await saveMachine(routeOrgId, selectedMachine, mode, parsed.value)
@@ -183,7 +180,6 @@
       saving = false
     }
   }
-
   async function handleTest(machineId: string) {
     const machine = machines.find((item) => item.id === machineId)
     if (!machine) return
@@ -204,7 +200,6 @@
       testingMachineId = ''
     }
   }
-
   async function handleRefreshHealth(machineId: string) {
     const machine = machines.find((item) => item.id === machineId)
     if (!machine) return
@@ -222,7 +217,6 @@
       refreshingHealthMachineId = ''
     }
   }
-
   async function handleDelete(machineId: string) {
     const machine = machines.find((item) => item.id === machineId)
     if (!machine) return
@@ -253,6 +247,19 @@
       deletingMachineId = ''
     }
   }
+  $effect(() => {
+    return syncMachinesPageProjectAIFocus({
+      clearFocus: (owner) => appStore.clearProjectAssistantFocus(owner),
+      setFocus: (owner, focus, priority) =>
+        appStore.setProjectAssistantFocus(owner, focus, priority),
+      owner: projectAIFocusOwner,
+      projectId: appStore.currentProject?.id ?? '',
+      editorOpen,
+      mode,
+      selectedMachine,
+      snapshot,
+    })
+  })
 </script>
 
 <MachinesPageBody

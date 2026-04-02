@@ -4,6 +4,7 @@
   import { projectPath } from '$lib/stores/app-context'
   import { appStore } from '$lib/stores/app.svelte'
   import { PageScaffold } from '$lib/components/layout'
+  import { PROJECT_AI_FOCUS_PRIORITY } from '$lib/features/chat'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { ApiError } from '$lib/api/client'
   import {
@@ -26,6 +27,7 @@
   import WorkflowsPageHeaderActions from './workflows-page-header-actions.svelte'
   import WorkflowTemplateGallery from './workflow-template-gallery.svelte'
   import type { BuiltinRole } from '$lib/api/contracts'
+  const projectAIFocusOwner = 'workflow-page'
   let showDetail = $state(false),
     showCreateDialog = $state(false),
     showTemplateGallery = $state(false),
@@ -183,6 +185,34 @@
     void doLoadHarness()
     return () => {
       cancelled = true
+    }
+  })
+
+  $effect(() => {
+    const projectId = appStore.currentProject?.id
+    if (!projectId || loading || !selectedWorkflow) {
+      appStore.clearProjectAssistantFocus(projectAIFocusOwner)
+      return
+    }
+
+    appStore.setProjectAssistantFocus(
+      projectAIFocusOwner,
+      {
+        kind: 'workflow',
+        projectId,
+        workflowId: selectedWorkflow.id,
+        workflowName: selectedWorkflow.name,
+        workflowType: selectedWorkflow.type,
+        harnessPath: selectedWorkflow.harnessPath,
+        isActive: selectedWorkflow.isActive,
+        selectedArea: 'harness',
+        hasDirtyDraft: isDirty,
+      },
+      PROJECT_AI_FOCUS_PRIORITY.workspace,
+    )
+
+    return () => {
+      appStore.clearProjectAssistantFocus(projectAIFocusOwner)
     }
   })
   async function handleSave() {
