@@ -24,7 +24,7 @@ func (s *ProjectConversationService) loadLatestConversationFocus(
 		return nil, err
 	}
 
-	for index := len(entries) - 1; index >= 0; index -= 1 {
+	for index := len(entries) - 1; index >= 0; index-- {
 		entry := entries[index]
 		if entry.Kind != domain.EntryKindSystem {
 			continue

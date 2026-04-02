@@ -27,8 +27,10 @@ test('global search finds a ticket and opens its detail drawer', async ({ page }
 
   await page.getByRole('option', { name: /ASE-101 Improve machine management UX/i }).click()
 
-  await expect(page.getByText('Improve machine management UX')).toBeVisible()
-  await expect(page.getByText('ASE-101')).toBeVisible()
+  const ticketDrawer = page.getByRole('dialog', { name: /ASE-101/i })
+
+  await expect(ticketDrawer).toBeVisible()
+  await expect(ticketDrawer.getByText('Improve machine management UX')).toBeVisible()
 })
 
 test('global search finds workflows and navigates to the workflows page', async ({ page }) => {
