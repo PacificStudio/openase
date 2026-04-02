@@ -62,9 +62,11 @@ type ChatConversationEdges struct {
 	Entries []*ChatEntry `json:"entries,omitempty"`
 	// PendingInterrupts holds the value of the pending_interrupts edge.
 	PendingInterrupts []*ChatPendingInterrupt `json:"pending_interrupts,omitempty"`
+	// AgentTokens holds the value of the agent_tokens edge.
+	AgentTokens []*AgentToken `json:"agent_tokens,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [5]bool
 }
 
 // ProjectOrErr returns the Project value or an error if the edge
@@ -103,6 +105,15 @@ func (e ChatConversationEdges) PendingInterruptsOrErr() ([]*ChatPendingInterrupt
 		return e.PendingInterrupts, nil
 	}
 	return nil, &NotLoadedError{edge: "pending_interrupts"}
+}
+
+// AgentTokensOrErr returns the AgentTokens value or an error if the edge
+// was not loaded in eager-loading.
+func (e ChatConversationEdges) AgentTokensOrErr() ([]*AgentToken, error) {
+	if e.loadedTypes[4] {
+		return e.AgentTokens, nil
+	}
+	return nil, &NotLoadedError{edge: "agent_tokens"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -253,6 +264,11 @@ func (_m *ChatConversation) QueryEntries() *ChatEntryQuery {
 // QueryPendingInterrupts queries the "pending_interrupts" edge of the ChatConversation entity.
 func (_m *ChatConversation) QueryPendingInterrupts() *ChatPendingInterruptQuery {
 	return NewChatConversationClient(_m.config).QueryPendingInterrupts(_m)
+}
+
+// QueryAgentTokens queries the "agent_tokens" edge of the ChatConversation entity.
+func (_m *ChatConversation) QueryAgentTokens() *AgentTokenQuery {
+	return NewChatConversationClient(_m.config).QueryAgentTokens(_m)
 }
 
 // Update returns a builder for updating this ChatConversation.

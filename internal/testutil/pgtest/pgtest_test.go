@@ -143,7 +143,7 @@ func TestStartSharedServerProcessDoesNotRetryNonPortErrors(t *testing.T) {
 	})
 
 	rootDir := filepath.Join(t.TempDir(), "attempt-1")
-	if err := os.MkdirAll(rootDir, 0o755); err != nil {
+	if err := os.MkdirAll(rootDir, 0o750); err != nil {
 		t.Fatalf("MkdirAll(%s) error = %v", rootDir, err)
 	}
 
@@ -324,6 +324,95 @@ func TestLockSharedServerAssetsSerializesCallers(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("second lock did not acquire after first lock released")
+	}
+}
+
+func TestStartSharedServerProcessWaitsForAssetsLockBeforeCreatingController(t *testing.T) {
+	lockSharedServerTestGlobals(t)
+
+	originalCreateRootDir := createSharedServerRootDir
+	originalAllocatePort := allocateSharedServerPort
+	originalResolveAssetsRoot := resolveSharedServerAssetsRoot
+	originalNewPostgres := newPostgresController
+	t.Cleanup(func() {
+		createSharedServerRootDir = originalCreateRootDir
+		allocateSharedServerPort = originalAllocatePort
+		resolveSharedServerAssetsRoot = originalResolveAssetsRoot
+		newPostgresController = originalNewPostgres
+	})
+
+	rootBase := t.TempDir()
+	rootDir := filepath.Join(rootBase, "attempt-1")
+	if err := os.MkdirAll(rootDir, 0o750); err != nil {
+		t.Fatalf("MkdirAll(%s) error = %v", rootDir, err)
+	}
+	createSharedServerRootDir = func(prefix string) (string, error) {
+		return rootDir, nil
+	}
+	allocateSharedServerPort = func() (uint32, error) {
+		return 43001, nil
+	}
+
+	sharedRoot := filepath.Join(rootBase, "shared")
+	resolveSharedServerAssetsRoot = func() (string, error) {
+		return sharedRoot, nil
+	}
+
+	controllerCreated := make(chan struct{}, 1)
+	newPostgresController = func(rootDir string, port uint32) (postgresController, error) {
+		controllerCreated <- struct{}{}
+		return &fakePostgresController{}, nil
+	}
+
+	releaseAssetsLock, err := lockSharedServerAssets()
+	if err != nil {
+		t.Fatalf("lockSharedServerAssets() error = %v", err)
+	}
+	defer func() {
+		if releaseErr := releaseAssetsLock(); releaseErr != nil {
+			t.Errorf("release shared assets lock: %v", releaseErr)
+		}
+	}()
+
+	startResult := make(chan sharedServerStartResult, 1)
+	startErr := make(chan error, 1)
+	go func() {
+		started, err := startSharedServerProcess("serialized-controller")
+		if err != nil {
+			startErr <- err
+			return
+		}
+		startResult <- started
+	}()
+
+	select {
+	case err := <-startErr:
+		t.Fatalf("startSharedServerProcess() failed unexpectedly: %v", err)
+	case <-controllerCreated:
+		t.Fatal("controller creation should wait until shared assets lock is released")
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	if err := releaseAssetsLock(); err != nil {
+		t.Fatalf("release shared assets lock: %v", err)
+	}
+	releaseAssetsLock = func() error { return nil }
+
+	select {
+	case err := <-startErr:
+		t.Fatalf("startSharedServerProcess() failed unexpectedly: %v", err)
+	case started := <-startResult:
+		if started.port != 43001 {
+			t.Fatalf("port = %d, want %d", started.port, 43001)
+		}
+		if err := started.pg.Stop(); err != nil {
+			t.Fatalf("Stop() error = %v", err)
+		}
+		if err := os.RemoveAll(started.rootDir); err != nil {
+			t.Fatalf("RemoveAll(%s) error = %v", started.rootDir, err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("startSharedServerProcess() did not proceed after lock release")
 	}
 }
 

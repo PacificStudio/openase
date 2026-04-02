@@ -57,6 +57,18 @@ type OrganizationDailyTokenUsage func(*sql.Selector)
 // Project is the predicate function for project builders.
 type Project func(*sql.Selector)
 
+// ProjectConversationPrincipal is the predicate function for projectconversationprincipal builders.
+type ProjectConversationPrincipal func(*sql.Selector)
+
+// ProjectConversationRun is the predicate function for projectconversationrun builders.
+type ProjectConversationRun func(*sql.Selector)
+
+// ProjectConversationStepEvent is the predicate function for projectconversationstepevent builders.
+type ProjectConversationStepEvent func(*sql.Selector)
+
+// ProjectConversationTraceEvent is the predicate function for projectconversationtraceevent builders.
+type ProjectConversationTraceEvent func(*sql.Selector)
+
 // ProjectRepo is the predicate function for projectrepo builders.
 type ProjectRepo func(*sql.Selector)
 

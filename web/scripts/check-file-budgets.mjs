@@ -89,6 +89,8 @@ const budgetRules = [
         'Skill bundle draft helpers remain centralized until tree and path utilities are split out.',
       'src/lib/features/skills/components/skill-ai-sidebar.test.ts':
         'Skill refinement sidebar regression coverage remains bundled while transcript, result, and retry scenarios continue to expand.',
+      'src/lib/features/skills/components/skill-editor-page.test.ts':
+        'Skill editor page regression coverage remains bundled while save, binding, and refinement scenarios are still being split into helpers.',
       'src/lib/features/skills/components/skill-refinement-transcript.ts':
         'Skill refinement transcript folding remains centralized while message, plan, diff, and anchor reducers are still being split.',
       'src/lib/features/ticket-detail/drawer-state.svelte.test.ts':

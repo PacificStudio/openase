@@ -730,6 +730,113 @@ func TestChatRouteStreamsPeriodicKeepalives(t *testing.T) {
 	}
 }
 
+func TestProjectConversationActionProposalExecutionUsesHumanConfirmedAuditActor(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	if _, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID); err != nil {
+		t.Fatalf("reset statuses: %v", err)
+	}
+	repoStore := chatrepo.NewEntRepository(client)
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "browser-user",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	proposalEntry, err := repoStore.AppendEntry(ctx, conversation.ID, nil, chatdomain.EntryKindActionProposal, map[string]any{
+		"type":    "action_proposal",
+		"summary": "Create follow-up ticket",
+		"actions": []any{
+			map[string]any{
+				"method": http.MethodPost,
+				"path":   "/api/v1/projects/" + project.ID.String() + "/tickets",
+				"body": map[string]any{
+					"title":       "Conversation follow-up",
+					"description": "Created from action proposal",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("append proposal entry: %v", err)
+	}
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		repoStore,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		nil,
+		nil,
+		nil,
+		WithProjectConversationService(projectConversationService),
+	)
+
+	payload := map[string]any{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/chat/conversations/"+conversation.ID.String()+"/action-proposals/"+proposalEntry.ID.String()+"/execute",
+		nil,
+		map[string]string{chatUserHeader: "browser-user"},
+		http.StatusOK,
+		&payload,
+	)
+	resultEntry, ok := payload["result_entry"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected result_entry payload, got %+v", payload)
+	}
+	entryPayload, ok := resultEntry["payload"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected result entry payload map, got %+v", resultEntry)
+	}
+	wantActor := "user:browser-user via project-conversation:" + conversation.ID.String()
+	if entryPayload["executed_by"] != wantActor {
+		t.Fatalf("executed_by = %#v, want %q", entryPayload["executed_by"], wantActor)
+	}
+
+	tickets, err := ticketservice.NewService(client).List(ctx, ticketservice.ListInput{ProjectID: project.ID})
+	if err != nil {
+		t.Fatalf("list tickets: %v", err)
+	}
+	if len(tickets) != 1 || tickets[0].CreatedBy != wantActor {
+		t.Fatalf("unexpected created tickets: %+v", tickets)
+	}
+}
+
 func TestChatRouteLogsUnexpectedStreamTermination(t *testing.T) {
 	projectID := uuid.New()
 	providerID := uuid.New()
