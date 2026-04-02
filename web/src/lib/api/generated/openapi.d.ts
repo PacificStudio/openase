@@ -3391,12 +3391,101 @@ export interface operations {
             skill_id?: string | null
             /** @description Skill name currently in focus. */
             skill_name?: string | null
+            /** @description Assigned agent summary for the focused ticket. */
+            ticket_assigned_agent?: {
+              /** @description Assigned agent ID for the focused ticket. */
+              id?: string | null
+              /** @description Assigned agent name for the focused ticket. */
+              name?: string | null
+              /** @description Assigned agent provider name for the focused ticket. */
+              provider?: string | null
+              /** @description Assigned agent runtime control state for the focused ticket. */
+              runtime_control_state?: string | null
+              /** @description Assigned agent runtime phase for the focused ticket. */
+              runtime_phase?: string | null
+            } | null
+            /** @description Current attempt count for the focused ticket. */
+            ticket_attempt_count?: number | null
+            /** @description Current run summary for the focused ticket. */
+            ticket_current_run?: {
+              /** @description Attempt number for the current focused ticket run. */
+              attempt_number?: number | null
+              /** @description Current step status for the focused ticket run. */
+              current_step_status?: string | null
+              /** @description Current step summary for the focused ticket run. */
+              current_step_summary?: string | null
+              /** @description Current run ID for the focused ticket. */
+              id?: string | null
+              /** @description Last error observed on the focused ticket run. */
+              last_error?: string | null
+              /** @description Current run status for the focused ticket. */
+              status?: string | null
+            } | null
+            /** @description Dependency summary for the focused ticket. */
+            ticket_dependencies?: {
+              /** @description Human-readable identifier for a related dependency ticket. */
+              identifier?: string | null
+              /** @description Dependency relation such as blocks or blocked_by. */
+              relation?: string | null
+              /** @description Current status of the related dependency ticket. */
+              status?: string | null
+              /** @description Title of a related dependency ticket. */
+              title?: string | null
+            }[]
+            /** @description Ticket description currently in focus. */
+            ticket_description?: string | null
+            /** @description Recent hook execution history for the focused ticket. */
+            ticket_hook_history?: {
+              /** @description Hook name for a recent focused ticket hook execution. */
+              hook_name?: string | null
+              /** @description Captured output summary for a recent focused ticket hook. */
+              output?: string | null
+              /** @description Execution status for a recent focused ticket hook. */
+              status?: string | null
+              /** @description Execution timestamp for a recent focused ticket hook. */
+              timestamp?: string | null
+            }[]
             /** @description Ticket ID currently in focus. */
             ticket_id?: string | null
             /** @description Human-readable ticket identifier currently in focus. */
             ticket_identifier?: string | null
+            /** @description Reason retries are paused for the focused ticket. */
+            ticket_pause_reason?: string | null
+            /** @description Ticket priority currently in focus. */
+            ticket_priority?: string | null
+            /** @description Recent ticket-scoped activity for the focused ticket. */
+            ticket_recent_activity?: {
+              /** @description Creation timestamp for a recent focused ticket event. */
+              created_at?: string | null
+              /** @description Activity event type for a recent focused ticket event. */
+              event_type?: string | null
+              /** @description Human-readable summary for a recent focused ticket event. */
+              message?: string | null
+            }[]
+            /** @description Repo scopes and PR references for the focused ticket. */
+            ticket_repo_scopes?: {
+              /** @description Branch name associated with the focused ticket scope. */
+              branch_name?: string | null
+              /** @description Pull request URL associated with the focused ticket scope. */
+              pull_request_url?: string | null
+              /** @description Repository ID included in the focused ticket scope. */
+              repo_id?: string | null
+              /** @description Repository name included in the focused ticket scope. */
+              repo_name?: string | null
+            }[]
+            /** @description Whether retries are currently paused for the focused ticket. */
+            ticket_retry_paused?: boolean | null
             /** @description Ticket status currently in focus. */
             ticket_status?: string | null
+            /** @description Target machine summary for the focused ticket. */
+            ticket_target_machine?: {
+              /** @description Target machine host for the focused ticket. */
+              host?: string | null
+              /** @description Target machine ID for the focused ticket. */
+              id?: string | null
+              /** @description Target machine name for the focused ticket. */
+              name?: string | null
+            } | null
             /** @description Ticket title currently in focus. */
             ticket_title?: string | null
             /** @description Workflow ID currently in focus. */
