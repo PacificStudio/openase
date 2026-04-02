@@ -195,6 +195,9 @@ jobs:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
+      - name: Reset Frontend Test Artifacts
+        run: rm -rf test-results ../.playwright-artifacts
+
       - name: Install Web Dependencies
         run: pnpm install --frozen-lockfile
 
