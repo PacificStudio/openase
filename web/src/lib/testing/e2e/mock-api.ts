@@ -51,6 +51,7 @@ type MockState = {
     repo: number
     workflow: number
     agent: number
+    skill: number
     scheduledJob: number
     projectConversation: number
     projectConversationEntry: number
@@ -326,6 +327,43 @@ async function handleProjectRoutes(request: Request, segments: string[], _url: U
     return jsonResponse({
       skills: clone(mockState.skills.filter((skill) => skill.project_id === projectId)),
     })
+  }
+
+  if (segments[2] === 'skills' && request.method === 'POST') {
+    const body = await readBody<Record<string, unknown>>(request)
+    const name = asString(body.name)?.trim() || `skill-${++mockState.counters.skill}`
+    const description = asString(body.description) ?? ''
+    const content = asString(body.content) ?? ''
+    const created = {
+      id: `skill-${name}`,
+      project_id: projectId,
+      name,
+      description,
+      path: `/skills/${name}`,
+      current_version: 1,
+      is_builtin: false,
+      is_enabled: asBoolean(body.is_enabled) ?? true,
+      created_by: 'user:manual',
+      created_at: nowIso,
+      bound_workflows: [],
+      content,
+      files: [
+        {
+          path: 'SKILL.md',
+          file_kind: 'entrypoint',
+          media_type: 'text/markdown; charset=utf-8',
+          encoding: 'utf8',
+          is_executable: false,
+          size_bytes: content.length,
+          sha256: `sha-skill-${name}-1`,
+          content,
+          content_base64: 'ignored',
+        },
+      ],
+      history: [{ id: `skill-${name}-v1`, version: 1, created_by: 'user:manual', created_at: nowIso }],
+    }
+    mockState.skills.unshift(created)
+    return jsonResponse({ skill: clone(created), content }, 201)
   }
 
   if (segments[2] === 'scheduled-jobs') {
@@ -728,17 +766,137 @@ async function handleSkillRoutes(request: Request, segments: string[]) {
     return notFound('Skill not found.')
   }
 
+  const boundWorkflowRefs = (entries: Record<string, unknown>[] | undefined) =>
+    (entries ?? []).map((entry) => {
+      const workflowId = asString(entry.id)
+      const workflow = workflowId ? findById(mockState.workflows, workflowId) : null
+      return workflow ? { id: workflow.id, name: workflow.name } : { id: workflowId }
+    })
+
+  const currentFiles = () =>
+    clone(
+      ((skill.files as Record<string, unknown>[] | undefined) ?? [
+        {
+          path: 'SKILL.md',
+          file_kind: 'entrypoint',
+          media_type: 'text/markdown; charset=utf-8',
+          encoding: 'utf8',
+          is_executable: false,
+          size_bytes: asString(skill.content)?.length ?? 0,
+          sha256: `sha-${skillId}-${skill.current_version ?? 1}`,
+          content: skill.content,
+          content_base64: 'ignored',
+        },
+      ]) as Record<string, unknown>[],
+    )
+
   if (segments[2] === 'history' && request.method === 'GET') {
     return jsonResponse({
       history: clone((skill.history as Record<string, unknown>[]) ?? []),
     })
   }
 
+  if (segments[2] === 'files' && request.method === 'GET') {
+    return jsonResponse({
+      files: currentFiles(),
+    })
+  }
+
   if (segments.length === 2 && request.method === 'GET') {
     return jsonResponse({
-      skill: clone(skill),
+      skill: clone({
+        ...skill,
+        bound_workflows: boundWorkflowRefs(skill.bound_workflows as Record<string, unknown>[]),
+      }),
       content: skill.content,
       history: clone((skill.history as Record<string, unknown>[]) ?? []),
+    })
+  }
+
+  if (segments.length === 2 && request.method === 'PUT') {
+    const body = await readBody<Record<string, unknown>>(request)
+    const nextVersion = (asNumber(skill.current_version) ?? 0) + 1
+    const nextContent = asString(body.content) ?? asString(skill.content) ?? ''
+    const nextDescription = asString(body.description) ?? asString(skill.description) ?? ''
+    const requestFiles = (asObjectArray(body.files) ?? []).map((file, index) => ({
+      path: asString(file.path) ?? `file-${index}`,
+      file_kind: asString(file.file_kind) ?? (index === 0 ? 'entrypoint' : 'reference'),
+      media_type: asString(file.media_type) ?? 'text/markdown; charset=utf-8',
+      encoding: 'utf8',
+      is_executable: asBoolean(file.is_executable) ?? false,
+      size_bytes: (asString(file.content) ?? asString(file.content_base64) ?? '').length,
+      sha256: `sha-${skillId}-${nextVersion}-${index}`,
+      content: asString(file.content) ?? decodeBase64UTF8(asString(file.content_base64) ?? ''),
+      content_base64: asString(file.content_base64) ?? 'ignored',
+    }))
+    skill.description = nextDescription
+    skill.content = nextContent
+    skill.current_version = nextVersion
+    skill.files =
+      requestFiles.length > 0
+        ? requestFiles
+        : [
+            {
+              path: 'SKILL.md',
+              file_kind: 'entrypoint',
+              media_type: 'text/markdown; charset=utf-8',
+              encoding: 'utf8',
+              is_executable: false,
+              size_bytes: nextContent.length,
+              sha256: `sha-${skillId}-${nextVersion}`,
+              content: nextContent,
+              content_base64: 'ignored',
+            },
+          ]
+    skill.history = [
+      {
+        id: `${skillId}-v${nextVersion}`,
+        version: nextVersion,
+        created_by: 'user:manual',
+        created_at: nowIso,
+      },
+      ...((skill.history as Record<string, unknown>[]) ?? []),
+    ]
+    return jsonResponse({
+      skill: clone({
+        ...skill,
+        bound_workflows: boundWorkflowRefs(skill.bound_workflows as Record<string, unknown>[]),
+      }),
+    })
+  }
+
+  if (segments.length === 2 && request.method === 'DELETE') {
+    mockState.skills = mockState.skills.filter((item) => item.id !== skillId)
+    return jsonResponse({ skill: clone(skill) })
+  }
+
+  if (segments[2] === 'enable' && request.method === 'POST') {
+    skill.is_enabled = true
+    return jsonResponse({ skill: clone(skill) })
+  }
+
+  if (segments[2] === 'disable' && request.method === 'POST') {
+    skill.is_enabled = false
+    return jsonResponse({ skill: clone(skill) })
+  }
+
+  if ((segments[2] === 'bind' || segments[2] === 'unbind') && request.method === 'POST') {
+    const body = await readBody<Record<string, unknown>>(request)
+    const workflowIds = asStringArray(body.workflow_ids)
+    const existing = (skill.bound_workflows as Record<string, unknown>[] | undefined) ?? []
+    const nextBound =
+      segments[2] === 'bind'
+        ? dedupeById([
+            ...existing,
+            ...workflowIds.map((workflowId) => ({ id: workflowId })),
+          ])
+        : existing.filter((item) => !workflowIds.includes(asString(item.id) ?? ''))
+    skill.bound_workflows = nextBound
+    return jsonResponse({
+      skill: clone({
+        ...skill,
+        bound_workflows: boundWorkflowRefs(nextBound),
+      }),
     })
   }
 
@@ -1308,6 +1466,7 @@ function createInitialState(): MockState {
       repo: 1,
       workflow: 1,
       agent: 1,
+      skill: 2,
       scheduledJob: 1,
       projectConversation: 0,
       projectConversationEntry: 0,
@@ -1598,6 +1757,22 @@ function asStringArray(value: JsonValue | undefined): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string')
     : []
+}
+
+function asObjectArray(value: JsonValue | undefined): Record<string, unknown>[] | null {
+  return Array.isArray(value)
+    ? value.filter(
+        (item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item),
+      )
+    : null
+}
+
+function decodeBase64UTF8(value: string): string {
+  try {
+    return Buffer.from(value, 'base64').toString('utf8')
+  } catch {
+    return ''
+  }
 }
 
 async function readBody<T>(request: Request): Promise<T> {
