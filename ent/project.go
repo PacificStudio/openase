@@ -41,6 +41,8 @@ type Project struct {
 	AccessibleMachineIds []uuid.UUID `json:"accessible_machine_ids,omitempty"`
 	// MaxConcurrentAgents holds the value of the "max_concurrent_agents" field.
 	MaxConcurrentAgents int `json:"max_concurrent_agents,omitempty"`
+	// AgentRunSummaryPrompt holds the value of the "agent_run_summary_prompt" field.
+	AgentRunSummaryPrompt string `json:"agent_run_summary_prompt,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ProjectQuery when eager-loading is set.
 	Edges        ProjectEdges `json:"edges"`
@@ -245,7 +247,7 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case project.FieldMaxConcurrentAgents:
 			values[i] = new(sql.NullInt64)
-		case project.FieldName, project.FieldSlug, project.FieldDescription, project.FieldStatus:
+		case project.FieldName, project.FieldSlug, project.FieldDescription, project.FieldStatus, project.FieldAgentRunSummaryPrompt:
 			values[i] = new(sql.NullString)
 		case project.FieldID, project.FieldOrganizationID:
 			values[i] = new(uuid.UUID)
@@ -336,6 +338,12 @@ func (_m *Project) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field max_concurrent_agents", values[i])
 			} else if value.Valid {
 				_m.MaxConcurrentAgents = int(value.Int64)
+			}
+		case project.FieldAgentRunSummaryPrompt:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field agent_run_summary_prompt", values[i])
+			} else if value.Valid {
+				_m.AgentRunSummaryPrompt = value.String
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -484,6 +492,9 @@ func (_m *Project) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("max_concurrent_agents=")
 	builder.WriteString(fmt.Sprintf("%v", _m.MaxConcurrentAgents))
+	builder.WriteString(", ")
+	builder.WriteString("agent_run_summary_prompt=")
+	builder.WriteString(_m.AgentRunSummaryPrompt)
 	builder.WriteByte(')')
 	return builder.String()
 }

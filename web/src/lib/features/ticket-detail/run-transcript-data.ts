@@ -34,6 +34,15 @@ function mapTicketRun(item: TicketRunRecord): TicketRun {
     lastHeartbeatAt: item.last_heartbeat_at ?? undefined,
     completedAt: item.completed_at ?? undefined,
     lastError: item.last_error ?? undefined,
+    completionSummary: item.completion_summary
+      ? {
+          status: item.completion_summary.status,
+          markdown: item.completion_summary.markdown ?? undefined,
+          json: item.completion_summary.json ?? undefined,
+          generatedAt: item.completion_summary.generated_at ?? undefined,
+          error: item.completion_summary.error ?? undefined,
+        }
+      : undefined,
   }
 }
 

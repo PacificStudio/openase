@@ -177,6 +177,21 @@ func CurrentStepChangedAt(v time.Time) predicate.AgentRun {
 	return predicate.AgentRun(sql.FieldEQ(FieldCurrentStepChangedAt, v))
 }
 
+// CompletionSummaryMarkdown applies equality check predicate on the "completion_summary_markdown" field. It's identical to CompletionSummaryMarkdownEQ.
+func CompletionSummaryMarkdown(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldCompletionSummaryMarkdown, v))
+}
+
+// CompletionSummaryGeneratedAt applies equality check predicate on the "completion_summary_generated_at" field. It's identical to CompletionSummaryGeneratedAtEQ.
+func CompletionSummaryGeneratedAt(v time.Time) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldCompletionSummaryGeneratedAt, v))
+}
+
+// CompletionSummaryError applies equality check predicate on the "completion_summary_error" field. It's identical to CompletionSummaryErrorEQ.
+func CompletionSummaryError(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldCompletionSummaryError, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.AgentRun {
 	return predicate.AgentRun(sql.FieldEQ(FieldCreatedAt, v))
@@ -1270,6 +1285,256 @@ func CurrentStepChangedAtIsNil() predicate.AgentRun {
 // CurrentStepChangedAtNotNil applies the NotNil predicate on the "current_step_changed_at" field.
 func CurrentStepChangedAtNotNil() predicate.AgentRun {
 	return predicate.AgentRun(sql.FieldNotNull(FieldCurrentStepChangedAt))
+}
+
+// CompletionSummaryStatusEQ applies the EQ predicate on the "completion_summary_status" field.
+func CompletionSummaryStatusEQ(v CompletionSummaryStatus) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldCompletionSummaryStatus, v))
+}
+
+// CompletionSummaryStatusNEQ applies the NEQ predicate on the "completion_summary_status" field.
+func CompletionSummaryStatusNEQ(v CompletionSummaryStatus) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNEQ(FieldCompletionSummaryStatus, v))
+}
+
+// CompletionSummaryStatusIn applies the In predicate on the "completion_summary_status" field.
+func CompletionSummaryStatusIn(vs ...CompletionSummaryStatus) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIn(FieldCompletionSummaryStatus, vs...))
+}
+
+// CompletionSummaryStatusNotIn applies the NotIn predicate on the "completion_summary_status" field.
+func CompletionSummaryStatusNotIn(vs ...CompletionSummaryStatus) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotIn(FieldCompletionSummaryStatus, vs...))
+}
+
+// CompletionSummaryStatusIsNil applies the IsNil predicate on the "completion_summary_status" field.
+func CompletionSummaryStatusIsNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIsNull(FieldCompletionSummaryStatus))
+}
+
+// CompletionSummaryStatusNotNil applies the NotNil predicate on the "completion_summary_status" field.
+func CompletionSummaryStatusNotNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotNull(FieldCompletionSummaryStatus))
+}
+
+// CompletionSummaryMarkdownEQ applies the EQ predicate on the "completion_summary_markdown" field.
+func CompletionSummaryMarkdownEQ(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldCompletionSummaryMarkdown, v))
+}
+
+// CompletionSummaryMarkdownNEQ applies the NEQ predicate on the "completion_summary_markdown" field.
+func CompletionSummaryMarkdownNEQ(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNEQ(FieldCompletionSummaryMarkdown, v))
+}
+
+// CompletionSummaryMarkdownIn applies the In predicate on the "completion_summary_markdown" field.
+func CompletionSummaryMarkdownIn(vs ...string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIn(FieldCompletionSummaryMarkdown, vs...))
+}
+
+// CompletionSummaryMarkdownNotIn applies the NotIn predicate on the "completion_summary_markdown" field.
+func CompletionSummaryMarkdownNotIn(vs ...string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotIn(FieldCompletionSummaryMarkdown, vs...))
+}
+
+// CompletionSummaryMarkdownGT applies the GT predicate on the "completion_summary_markdown" field.
+func CompletionSummaryMarkdownGT(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGT(FieldCompletionSummaryMarkdown, v))
+}
+
+// CompletionSummaryMarkdownGTE applies the GTE predicate on the "completion_summary_markdown" field.
+func CompletionSummaryMarkdownGTE(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGTE(FieldCompletionSummaryMarkdown, v))
+}
+
+// CompletionSummaryMarkdownLT applies the LT predicate on the "completion_summary_markdown" field.
+func CompletionSummaryMarkdownLT(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLT(FieldCompletionSummaryMarkdown, v))
+}
+
+// CompletionSummaryMarkdownLTE applies the LTE predicate on the "completion_summary_markdown" field.
+func CompletionSummaryMarkdownLTE(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLTE(FieldCompletionSummaryMarkdown, v))
+}
+
+// CompletionSummaryMarkdownContains applies the Contains predicate on the "completion_summary_markdown" field.
+func CompletionSummaryMarkdownContains(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldContains(FieldCompletionSummaryMarkdown, v))
+}
+
+// CompletionSummaryMarkdownHasPrefix applies the HasPrefix predicate on the "completion_summary_markdown" field.
+func CompletionSummaryMarkdownHasPrefix(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldHasPrefix(FieldCompletionSummaryMarkdown, v))
+}
+
+// CompletionSummaryMarkdownHasSuffix applies the HasSuffix predicate on the "completion_summary_markdown" field.
+func CompletionSummaryMarkdownHasSuffix(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldHasSuffix(FieldCompletionSummaryMarkdown, v))
+}
+
+// CompletionSummaryMarkdownIsNil applies the IsNil predicate on the "completion_summary_markdown" field.
+func CompletionSummaryMarkdownIsNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIsNull(FieldCompletionSummaryMarkdown))
+}
+
+// CompletionSummaryMarkdownNotNil applies the NotNil predicate on the "completion_summary_markdown" field.
+func CompletionSummaryMarkdownNotNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotNull(FieldCompletionSummaryMarkdown))
+}
+
+// CompletionSummaryMarkdownEqualFold applies the EqualFold predicate on the "completion_summary_markdown" field.
+func CompletionSummaryMarkdownEqualFold(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEqualFold(FieldCompletionSummaryMarkdown, v))
+}
+
+// CompletionSummaryMarkdownContainsFold applies the ContainsFold predicate on the "completion_summary_markdown" field.
+func CompletionSummaryMarkdownContainsFold(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldContainsFold(FieldCompletionSummaryMarkdown, v))
+}
+
+// CompletionSummaryJSONIsNil applies the IsNil predicate on the "completion_summary_json" field.
+func CompletionSummaryJSONIsNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIsNull(FieldCompletionSummaryJSON))
+}
+
+// CompletionSummaryJSONNotNil applies the NotNil predicate on the "completion_summary_json" field.
+func CompletionSummaryJSONNotNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotNull(FieldCompletionSummaryJSON))
+}
+
+// CompletionSummaryInputIsNil applies the IsNil predicate on the "completion_summary_input" field.
+func CompletionSummaryInputIsNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIsNull(FieldCompletionSummaryInput))
+}
+
+// CompletionSummaryInputNotNil applies the NotNil predicate on the "completion_summary_input" field.
+func CompletionSummaryInputNotNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotNull(FieldCompletionSummaryInput))
+}
+
+// CompletionSummaryGeneratedAtEQ applies the EQ predicate on the "completion_summary_generated_at" field.
+func CompletionSummaryGeneratedAtEQ(v time.Time) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldCompletionSummaryGeneratedAt, v))
+}
+
+// CompletionSummaryGeneratedAtNEQ applies the NEQ predicate on the "completion_summary_generated_at" field.
+func CompletionSummaryGeneratedAtNEQ(v time.Time) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNEQ(FieldCompletionSummaryGeneratedAt, v))
+}
+
+// CompletionSummaryGeneratedAtIn applies the In predicate on the "completion_summary_generated_at" field.
+func CompletionSummaryGeneratedAtIn(vs ...time.Time) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIn(FieldCompletionSummaryGeneratedAt, vs...))
+}
+
+// CompletionSummaryGeneratedAtNotIn applies the NotIn predicate on the "completion_summary_generated_at" field.
+func CompletionSummaryGeneratedAtNotIn(vs ...time.Time) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotIn(FieldCompletionSummaryGeneratedAt, vs...))
+}
+
+// CompletionSummaryGeneratedAtGT applies the GT predicate on the "completion_summary_generated_at" field.
+func CompletionSummaryGeneratedAtGT(v time.Time) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGT(FieldCompletionSummaryGeneratedAt, v))
+}
+
+// CompletionSummaryGeneratedAtGTE applies the GTE predicate on the "completion_summary_generated_at" field.
+func CompletionSummaryGeneratedAtGTE(v time.Time) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGTE(FieldCompletionSummaryGeneratedAt, v))
+}
+
+// CompletionSummaryGeneratedAtLT applies the LT predicate on the "completion_summary_generated_at" field.
+func CompletionSummaryGeneratedAtLT(v time.Time) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLT(FieldCompletionSummaryGeneratedAt, v))
+}
+
+// CompletionSummaryGeneratedAtLTE applies the LTE predicate on the "completion_summary_generated_at" field.
+func CompletionSummaryGeneratedAtLTE(v time.Time) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLTE(FieldCompletionSummaryGeneratedAt, v))
+}
+
+// CompletionSummaryGeneratedAtIsNil applies the IsNil predicate on the "completion_summary_generated_at" field.
+func CompletionSummaryGeneratedAtIsNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIsNull(FieldCompletionSummaryGeneratedAt))
+}
+
+// CompletionSummaryGeneratedAtNotNil applies the NotNil predicate on the "completion_summary_generated_at" field.
+func CompletionSummaryGeneratedAtNotNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotNull(FieldCompletionSummaryGeneratedAt))
+}
+
+// CompletionSummaryErrorEQ applies the EQ predicate on the "completion_summary_error" field.
+func CompletionSummaryErrorEQ(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldCompletionSummaryError, v))
+}
+
+// CompletionSummaryErrorNEQ applies the NEQ predicate on the "completion_summary_error" field.
+func CompletionSummaryErrorNEQ(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNEQ(FieldCompletionSummaryError, v))
+}
+
+// CompletionSummaryErrorIn applies the In predicate on the "completion_summary_error" field.
+func CompletionSummaryErrorIn(vs ...string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIn(FieldCompletionSummaryError, vs...))
+}
+
+// CompletionSummaryErrorNotIn applies the NotIn predicate on the "completion_summary_error" field.
+func CompletionSummaryErrorNotIn(vs ...string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotIn(FieldCompletionSummaryError, vs...))
+}
+
+// CompletionSummaryErrorGT applies the GT predicate on the "completion_summary_error" field.
+func CompletionSummaryErrorGT(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGT(FieldCompletionSummaryError, v))
+}
+
+// CompletionSummaryErrorGTE applies the GTE predicate on the "completion_summary_error" field.
+func CompletionSummaryErrorGTE(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGTE(FieldCompletionSummaryError, v))
+}
+
+// CompletionSummaryErrorLT applies the LT predicate on the "completion_summary_error" field.
+func CompletionSummaryErrorLT(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLT(FieldCompletionSummaryError, v))
+}
+
+// CompletionSummaryErrorLTE applies the LTE predicate on the "completion_summary_error" field.
+func CompletionSummaryErrorLTE(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLTE(FieldCompletionSummaryError, v))
+}
+
+// CompletionSummaryErrorContains applies the Contains predicate on the "completion_summary_error" field.
+func CompletionSummaryErrorContains(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldContains(FieldCompletionSummaryError, v))
+}
+
+// CompletionSummaryErrorHasPrefix applies the HasPrefix predicate on the "completion_summary_error" field.
+func CompletionSummaryErrorHasPrefix(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldHasPrefix(FieldCompletionSummaryError, v))
+}
+
+// CompletionSummaryErrorHasSuffix applies the HasSuffix predicate on the "completion_summary_error" field.
+func CompletionSummaryErrorHasSuffix(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldHasSuffix(FieldCompletionSummaryError, v))
+}
+
+// CompletionSummaryErrorIsNil applies the IsNil predicate on the "completion_summary_error" field.
+func CompletionSummaryErrorIsNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIsNull(FieldCompletionSummaryError))
+}
+
+// CompletionSummaryErrorNotNil applies the NotNil predicate on the "completion_summary_error" field.
+func CompletionSummaryErrorNotNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotNull(FieldCompletionSummaryError))
+}
+
+// CompletionSummaryErrorEqualFold applies the EqualFold predicate on the "completion_summary_error" field.
+func CompletionSummaryErrorEqualFold(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEqualFold(FieldCompletionSummaryError, v))
+}
+
+// CompletionSummaryErrorContainsFold applies the ContainsFold predicate on the "completion_summary_error" field.
+func CompletionSummaryErrorContainsFold(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldContainsFold(FieldCompletionSummaryError, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

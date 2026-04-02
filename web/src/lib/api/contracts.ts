@@ -88,15 +88,24 @@ export type AgentProviderModelCatalogPayload = Omit<
   adapter_model_options: AgentProviderModelCatalogEntry[]
 }
 
-export type ProjectPayload = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}/projects', 'get'>>
-export type ProjectCreateResponse = DeepRequired<
-  ResponseFor<'/api/v1/orgs/{orgId}/projects', 'post'>
->
-export type ProjectResponse = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}', 'get'>>
+type RawProjectPayload = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}/projects', 'get'>>
+type RawProjectCreateResponse = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}/projects', 'post'>>
+type RawProjectResponse = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}', 'get'>>
+export type Project = Omit<ItemOf<RawProjectPayload['projects']>, 'agent_run_summary_prompt'> & {
+  agent_run_summary_prompt?: string
+}
+export type ProjectPayload = Omit<RawProjectPayload, 'projects'> & {
+  projects: Project[]
+}
+export type ProjectCreateResponse = Omit<RawProjectCreateResponse, 'project'> & {
+  project: Project
+}
+export type ProjectResponse = Omit<RawProjectResponse, 'project'> & {
+  project: Project
+}
 export type ProjectArchiveResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}', 'delete'>
 >
-export type Project = ItemOf<ProjectPayload['projects']>
 
 export type MachinePayload = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}/machines', 'get'>>
 export type MachineCreateResponse = DeepRequired<
@@ -210,13 +219,31 @@ export type TicketCommentRevisionListResponse = DeepRequired<
   ResponseFor<'/api/v1/tickets/{ticketId}/comments/{commentId}/revisions', 'get'>
 >
 export type TicketCommentRevisionRecord = ItemOf<TicketCommentRevisionListResponse['revisions']>
-export type TicketRunListPayload = DeepRequired<
+type RawTicketRunListPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/tickets/{ticketId}/runs', 'get'>
 >
-export type TicketRunDetailPayload = DeepRequired<
+type RawTicketRunDetailPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}', 'get'>
 >
-export type TicketRunRecord = ItemOf<TicketRunListPayload['runs']>
+export type TicketRunCompletionSummaryRecord = {
+  status: 'pending' | 'completed' | 'failed'
+  markdown?: string
+  json?: Record<string, unknown>
+  generated_at?: string
+  error?: string
+}
+export type TicketRunRecord = Omit<
+  ItemOf<RawTicketRunListPayload['runs']>,
+  'completion_summary'
+> & {
+  completion_summary?: TicketRunCompletionSummaryRecord
+}
+export type TicketRunListPayload = Omit<RawTicketRunListPayload, 'runs'> & {
+  runs: TicketRunRecord[]
+}
+export type TicketRunDetailPayload = Omit<RawTicketRunDetailPayload, 'run'> & {
+  run: TicketRunRecord
+}
 export type TicketRunTraceRecord = ItemOf<TicketRunDetailPayload['trace_entries']>
 export type TicketRunStepRecord = ItemOf<TicketRunDetailPayload['step_entries']>
 export type TicketDependencyResponse = DeepRequired<

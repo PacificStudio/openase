@@ -6019,6 +6019,10 @@
                             },
                             "type": "array"
                           },
+                          "agent_run_summary_prompt": {
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "default_agent_provider_id": {
                             "nullable": true,
                             "type": "string"
@@ -6142,6 +6146,11 @@
                     },
                     "type": "array"
                   },
+                  "agent_run_summary_prompt": {
+                    "description": "Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt.",
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "default_agent_provider_id": {
                     "description": "Optional default agent provider ID for the project.",
                     "nullable": true,
@@ -6189,6 +6198,10 @@
                             "type": "string"
                           },
                           "type": "array"
+                        },
+                        "agent_run_summary_prompt": {
+                          "nullable": true,
+                          "type": "string"
                         },
                         "default_agent_provider_id": {
                           "nullable": true,
@@ -7684,6 +7697,10 @@
                           },
                           "type": "array"
                         },
+                        "agent_run_summary_prompt": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
@@ -7825,6 +7842,10 @@
                           },
                           "type": "array"
                         },
+                        "agent_run_summary_prompt": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
@@ -7947,6 +7968,11 @@
                     "nullable": true,
                     "type": "array"
                   },
+                  "agent_run_summary_prompt": {
+                    "description": "Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt.",
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "default_agent_provider_id": {
                     "description": "Optional default agent provider ID for the project.",
                     "nullable": true,
@@ -7998,6 +8024,10 @@
                             "type": "string"
                           },
                           "type": "array"
+                        },
+                        "agent_run_summary_prompt": {
+                          "nullable": true,
+                          "type": "string"
                         },
                         "default_agent_provider_id": {
                           "nullable": true,
@@ -16530,6 +16560,31 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "completion_summary": {
+                            "nullable": true,
+                            "properties": {
+                              "error": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "generated_at": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "json": {
+                                "additionalProperties": {},
+                                "type": "object"
+                              },
+                              "markdown": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
                           "created_at": {
                             "type": "string"
                           },
@@ -16694,6 +16749,31 @@
                         "completed_at": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "completion_summary": {
+                          "nullable": true,
+                          "properties": {
+                            "error": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "generated_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "json": {
+                              "additionalProperties": {},
+                              "type": "object"
+                            },
+                            "markdown": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
                         },
                         "created_at": {
                           "type": "string"

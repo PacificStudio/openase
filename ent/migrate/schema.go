@@ -171,6 +171,12 @@ var (
 		{Name: "current_step_status", Type: field.TypeString, Nullable: true},
 		{Name: "current_step_summary", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "current_step_changed_at", Type: field.TypeTime, Nullable: true},
+		{Name: "completion_summary_status", Type: field.TypeEnum, Nullable: true, Enums: []string{"pending", "completed", "failed"}},
+		{Name: "completion_summary_markdown", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "completion_summary_json", Type: field.TypeJSON, Nullable: true},
+		{Name: "completion_summary_input", Type: field.TypeJSON, Nullable: true},
+		{Name: "completion_summary_generated_at", Type: field.TypeTime, Nullable: true},
+		{Name: "completion_summary_error", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "agent_id", Type: field.TypeUUID},
 		{Name: "provider_id", Type: field.TypeUUID},
@@ -186,31 +192,31 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "agent_runs_agents_runs",
-				Columns:    []*schema.Column{AgentRunsColumns[22]},
+				Columns:    []*schema.Column{AgentRunsColumns[28]},
 				RefColumns: []*schema.Column{AgentsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agent_runs_agent_providers_agent_runs",
-				Columns:    []*schema.Column{AgentRunsColumns[23]},
+				Columns:    []*schema.Column{AgentRunsColumns[29]},
 				RefColumns: []*schema.Column{AgentProvidersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agent_runs_tickets_agent_runs",
-				Columns:    []*schema.Column{AgentRunsColumns[24]},
+				Columns:    []*schema.Column{AgentRunsColumns[30]},
 				RefColumns: []*schema.Column{TicketsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agent_runs_workflows_agent_runs",
-				Columns:    []*schema.Column{AgentRunsColumns[25]},
+				Columns:    []*schema.Column{AgentRunsColumns[31]},
 				RefColumns: []*schema.Column{WorkflowsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "agent_runs_workflow_versions_agent_runs",
-				Columns:    []*schema.Column{AgentRunsColumns[26]},
+				Columns:    []*schema.Column{AgentRunsColumns[32]},
 				RefColumns: []*schema.Column{WorkflowVersionsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -219,22 +225,22 @@ var (
 			{
 				Name:    "agentrun_agent_id_status_last_heartbeat_at",
 				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[22], AgentRunsColumns[2], AgentRunsColumns[8]},
+				Columns: []*schema.Column{AgentRunsColumns[28], AgentRunsColumns[2], AgentRunsColumns[8]},
 			},
 			{
 				Name:    "agentrun_provider_id_status",
 				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[23], AgentRunsColumns[2]},
+				Columns: []*schema.Column{AgentRunsColumns[29], AgentRunsColumns[2]},
 			},
 			{
 				Name:    "agentrun_ticket_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[24], AgentRunsColumns[21]},
+				Columns: []*schema.Column{AgentRunsColumns[30], AgentRunsColumns[27]},
 			},
 			{
 				Name:    "agentrun_ticket_id_terminal_at",
 				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[24], AgentRunsColumns[5]},
+				Columns: []*schema.Column{AgentRunsColumns[30], AgentRunsColumns[5]},
 			},
 		},
 	}
@@ -813,6 +819,7 @@ var (
 		{Name: "github_token_probe", Type: field.TypeJSON, Nullable: true},
 		{Name: "accessible_machine_ids", Type: field.TypeJSON},
 		{Name: "max_concurrent_agents", Type: field.TypeInt, Default: 0},
+		{Name: "agent_run_summary_prompt", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "organization_id", Type: field.TypeUUID},
 		{Name: "default_agent_provider_id", Type: field.TypeUUID, Nullable: true},
 	}
@@ -824,13 +831,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "projects_organizations_projects",
-				Columns:    []*schema.Column{ProjectsColumns[9]},
+				Columns:    []*schema.Column{ProjectsColumns[10]},
 				RefColumns: []*schema.Column{OrganizationsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "projects_agent_providers_default_agent_provider",
-				Columns:    []*schema.Column{ProjectsColumns[10]},
+				Columns:    []*schema.Column{ProjectsColumns[11]},
 				RefColumns: []*schema.Column{AgentProvidersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -839,7 +846,7 @@ var (
 			{
 				Name:    "project_organization_id_slug",
 				Unique:  true,
-				Columns: []*schema.Column{ProjectsColumns[9], ProjectsColumns[2]},
+				Columns: []*schema.Column{ProjectsColumns[10], ProjectsColumns[2]},
 			},
 		},
 	}

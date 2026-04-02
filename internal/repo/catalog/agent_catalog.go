@@ -472,29 +472,41 @@ func mapAgentRunList(items []*ent.AgentRun) []domain.AgentRun {
 }
 
 func mapAgentRun(item *ent.AgentRun) domain.AgentRun {
+	var completionSummaryStatus *domain.AgentRunCompletionSummaryStatus
+	if item.CompletionSummaryStatus != nil {
+		status := domain.AgentRunCompletionSummaryStatus(*item.CompletionSummaryStatus)
+		completionSummaryStatus = &status
+	}
+
 	return domain.AgentRun{
-		ID:                   item.ID,
-		AgentID:              item.AgentID,
-		WorkflowID:           item.WorkflowID,
-		WorkflowVersionID:    cloneUUIDPointer(item.WorkflowVersionID),
-		TicketID:             item.TicketID,
-		ProviderID:           item.ProviderID,
-		SkillVersionIDs:      parseUUIDArray(item.SkillVersionIds),
-		Status:               toDomainAgentRunStatus(item.Status),
-		SessionID:            item.SessionID,
-		RuntimeStartedAt:     cloneTimePointer(item.RuntimeStartedAt),
-		TerminalAt:           cloneTimePointer(item.TerminalAt),
-		LastError:            item.LastError,
-		LastHeartbeatAt:      cloneTimePointer(item.LastHeartbeatAt),
-		InputTokens:          item.InputTokens,
-		OutputTokens:         item.OutputTokens,
-		CachedInputTokens:    item.CachedInputTokens,
-		ReasoningTokens:      item.ReasoningTokens,
-		TotalTokens:          item.TotalTokens,
-		CurrentStepStatus:    cloneStringPointer(item.CurrentStepStatus),
-		CurrentStepSummary:   cloneStringPointer(item.CurrentStepSummary),
-		CurrentStepChangedAt: cloneTimePointer(item.CurrentStepChangedAt),
-		CreatedAt:            item.CreatedAt.UTC(),
+		ID:                           item.ID,
+		AgentID:                      item.AgentID,
+		WorkflowID:                   item.WorkflowID,
+		WorkflowVersionID:            cloneUUIDPointer(item.WorkflowVersionID),
+		TicketID:                     item.TicketID,
+		ProviderID:                   item.ProviderID,
+		SkillVersionIDs:              parseUUIDArray(item.SkillVersionIds),
+		Status:                       toDomainAgentRunStatus(item.Status),
+		SessionID:                    item.SessionID,
+		RuntimeStartedAt:             cloneTimePointer(item.RuntimeStartedAt),
+		TerminalAt:                   cloneTimePointer(item.TerminalAt),
+		LastError:                    item.LastError,
+		LastHeartbeatAt:              cloneTimePointer(item.LastHeartbeatAt),
+		InputTokens:                  item.InputTokens,
+		OutputTokens:                 item.OutputTokens,
+		CachedInputTokens:            item.CachedInputTokens,
+		ReasoningTokens:              item.ReasoningTokens,
+		TotalTokens:                  item.TotalTokens,
+		CurrentStepStatus:            cloneStringPointer(item.CurrentStepStatus),
+		CurrentStepSummary:           cloneStringPointer(item.CurrentStepSummary),
+		CurrentStepChangedAt:         cloneTimePointer(item.CurrentStepChangedAt),
+		CompletionSummaryStatus:      completionSummaryStatus,
+		CompletionSummaryMarkdown:    cloneStringPointer(item.CompletionSummaryMarkdown),
+		CompletionSummaryJSON:        cloneAnyMap(item.CompletionSummaryJSON),
+		CompletionSummaryInput:       cloneAnyMap(item.CompletionSummaryInput),
+		CompletionSummaryGeneratedAt: cloneTimePointer(item.CompletionSummaryGeneratedAt),
+		CompletionSummaryError:       cloneStringPointer(item.CompletionSummaryError),
+		CreatedAt:                    item.CreatedAt.UTC(),
 	}
 }
 

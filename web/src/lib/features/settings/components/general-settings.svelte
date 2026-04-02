@@ -9,10 +9,12 @@
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Separator } from '$ui/separator'
+  import { Textarea } from '$ui/textarea'
 
   let projectName = $state('')
   let description = $state('')
   let maxConcurrentAgents = $state('')
+  let agentRunSummaryPrompt = $state('')
   let saving = $state(false)
   let archiving = $state(false)
 
@@ -22,6 +24,7 @@
       projectName = ''
       description = ''
       maxConcurrentAgents = ''
+      agentRunSummaryPrompt = ''
       return
     }
 
@@ -31,6 +34,7 @@
       typeof project.max_concurrent_agents === 'number' && project.max_concurrent_agents > 0
         ? String(project.max_concurrent_agents)
         : ''
+    agentRunSummaryPrompt = project.agent_run_summary_prompt ?? ''
   })
 
   async function handleSave() {
@@ -56,6 +60,7 @@
         name: projectName,
         description,
         max_concurrent_agents: parsedMaxConcurrentAgents,
+        agent_run_summary_prompt: agentRunSummaryPrompt.trim(),
       })
       appStore.currentProject = payload.project
       toastStore.success('Project settings saved.')
@@ -98,7 +103,7 @@
   <div>
     <h2 class="text-foreground text-base font-semibold">General</h2>
     <p class="text-muted-foreground mt-1 text-sm">
-      Project name, description, and archive controls.
+      Project name, summary prompt, description, and archive controls.
     </p>
   </div>
 
@@ -113,6 +118,21 @@
     <div class="space-y-2">
       <Label for="description">Description</Label>
       <Input id="description" bind:value={description} />
+    </div>
+
+    <div class="space-y-2">
+      <Label for="agent-run-summary-prompt">Run summary prompt</Label>
+      <Textarea
+        id="agent-run-summary-prompt"
+        bind:value={agentRunSummaryPrompt}
+        rows={10}
+        class="min-h-48 font-mono text-sm"
+        placeholder="Leave blank to use the built-in post-run summary prompt."
+      />
+      <p class="text-muted-foreground text-xs">
+        Used for asynchronous post-run ticket summaries. Leave blank to fall back to the built-in
+        default prompt.
+      </p>
     </div>
 
     <div class="space-y-2">

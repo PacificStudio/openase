@@ -185,7 +185,8 @@ func (r *EntRepository) CreateProject(ctx context.Context, input domain.CreatePr
 		SetDescription(input.Description).
 		SetStatus(toEntProjectStatus(input.Status)).
 		SetAccessibleMachineIds(input.AccessibleMachineIDs).
-		SetMaxConcurrentAgents(input.MaxConcurrentAgents)
+		SetMaxConcurrentAgents(input.MaxConcurrentAgents).
+		SetAgentRunSummaryPrompt(input.AgentRunSummaryPrompt)
 	if input.DefaultAgentProviderID != nil {
 		builder.SetDefaultAgentProviderID(*input.DefaultAgentProviderID)
 	}
@@ -215,7 +216,8 @@ func (r *EntRepository) UpdateProject(ctx context.Context, input domain.UpdatePr
 		SetDescription(input.Description).
 		SetStatus(toEntProjectStatus(input.Status)).
 		SetAccessibleMachineIds(input.AccessibleMachineIDs).
-		SetMaxConcurrentAgents(input.MaxConcurrentAgents)
+		SetMaxConcurrentAgents(input.MaxConcurrentAgents).
+		SetAgentRunSummaryPrompt(input.AgentRunSummaryPrompt)
 	if input.DefaultAgentProviderID != nil {
 		builder.SetDefaultAgentProviderID(*input.DefaultAgentProviderID)
 	} else {
@@ -640,6 +642,7 @@ func mapProject(item *ent.Project) domain.Project {
 		DefaultAgentProviderID: item.DefaultAgentProviderID,
 		AccessibleMachineIDs:   append([]uuid.UUID(nil), item.AccessibleMachineIds...),
 		MaxConcurrentAgents:    item.MaxConcurrentAgents,
+		AgentRunSummaryPrompt:  item.AgentRunSummaryPrompt,
 	}
 }
 

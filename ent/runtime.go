@@ -176,7 +176,7 @@ func init() {
 	// agentrun.DefaultTotalTokens holds the default value on creation for the total_tokens field.
 	agentrun.DefaultTotalTokens = agentrunDescTotalTokens.Default.(int64)
 	// agentrunDescCreatedAt is the schema descriptor for created_at field.
-	agentrunDescCreatedAt := agentrunFields[26].Descriptor()
+	agentrunDescCreatedAt := agentrunFields[32].Descriptor()
 	// agentrun.DefaultCreatedAt holds the default value on creation for the created_at field.
 	agentrun.DefaultCreatedAt = agentrunDescCreatedAt.Default.(func() time.Time)
 	// agentrunDescID is the schema descriptor for id field.

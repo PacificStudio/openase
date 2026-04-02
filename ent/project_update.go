@@ -199,6 +199,26 @@ func (_u *ProjectUpdate) AddMaxConcurrentAgents(v int) *ProjectUpdate {
 	return _u
 }
 
+// SetAgentRunSummaryPrompt sets the "agent_run_summary_prompt" field.
+func (_u *ProjectUpdate) SetAgentRunSummaryPrompt(v string) *ProjectUpdate {
+	_u.mutation.SetAgentRunSummaryPrompt(v)
+	return _u
+}
+
+// SetNillableAgentRunSummaryPrompt sets the "agent_run_summary_prompt" field if the given value is not nil.
+func (_u *ProjectUpdate) SetNillableAgentRunSummaryPrompt(v *string) *ProjectUpdate {
+	if v != nil {
+		_u.SetAgentRunSummaryPrompt(*v)
+	}
+	return _u
+}
+
+// ClearAgentRunSummaryPrompt clears the value of the "agent_run_summary_prompt" field.
+func (_u *ProjectUpdate) ClearAgentRunSummaryPrompt() *ProjectUpdate {
+	_u.mutation.ClearAgentRunSummaryPrompt()
+	return _u
+}
+
 // SetOrganization sets the "organization" edge to the Organization entity.
 func (_u *ProjectUpdate) SetOrganization(v *Organization) *ProjectUpdate {
 	return _u.SetOrganizationID(v.ID)
@@ -827,6 +847,12 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedMaxConcurrentAgents(); ok {
 		_spec.AddField(project.FieldMaxConcurrentAgents, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AgentRunSummaryPrompt(); ok {
+		_spec.SetField(project.FieldAgentRunSummaryPrompt, field.TypeString, value)
+	}
+	if _u.mutation.AgentRunSummaryPromptCleared() {
+		_spec.ClearField(project.FieldAgentRunSummaryPrompt, field.TypeString)
 	}
 	if _u.mutation.OrganizationCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1689,6 +1715,26 @@ func (_u *ProjectUpdateOne) AddMaxConcurrentAgents(v int) *ProjectUpdateOne {
 	return _u
 }
 
+// SetAgentRunSummaryPrompt sets the "agent_run_summary_prompt" field.
+func (_u *ProjectUpdateOne) SetAgentRunSummaryPrompt(v string) *ProjectUpdateOne {
+	_u.mutation.SetAgentRunSummaryPrompt(v)
+	return _u
+}
+
+// SetNillableAgentRunSummaryPrompt sets the "agent_run_summary_prompt" field if the given value is not nil.
+func (_u *ProjectUpdateOne) SetNillableAgentRunSummaryPrompt(v *string) *ProjectUpdateOne {
+	if v != nil {
+		_u.SetAgentRunSummaryPrompt(*v)
+	}
+	return _u
+}
+
+// ClearAgentRunSummaryPrompt clears the value of the "agent_run_summary_prompt" field.
+func (_u *ProjectUpdateOne) ClearAgentRunSummaryPrompt() *ProjectUpdateOne {
+	_u.mutation.ClearAgentRunSummaryPrompt()
+	return _u
+}
+
 // SetOrganization sets the "organization" edge to the Organization entity.
 func (_u *ProjectUpdateOne) SetOrganization(v *Organization) *ProjectUpdateOne {
 	return _u.SetOrganizationID(v.ID)
@@ -2347,6 +2393,12 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 	}
 	if value, ok := _u.mutation.AddedMaxConcurrentAgents(); ok {
 		_spec.AddField(project.FieldMaxConcurrentAgents, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AgentRunSummaryPrompt(); ok {
+		_spec.SetField(project.FieldAgentRunSummaryPrompt, field.TypeString, value)
+	}
+	if _u.mutation.AgentRunSummaryPromptCleared() {
+		_spec.ClearField(project.FieldAgentRunSummaryPrompt, field.TypeString)
 	}
 	if _u.mutation.OrganizationCleared() {
 		edge := &sqlgraph.EdgeSpec{

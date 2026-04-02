@@ -5277,6 +5277,7 @@ export interface operations {
           'application/json': {
             projects?: {
               accessible_machine_ids?: string[]
+              agent_run_summary_prompt?: string | null
               default_agent_provider_id?: string | null
               description?: string
               id?: string
@@ -5343,6 +5344,8 @@ export interface operations {
         'application/json': {
           /** @description Machine IDs that the project is allowed to use. */
           accessible_machine_ids?: string[]
+          /** @description Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt. */
+          agent_run_summary_prompt?: string | null
           /** @description Optional default agent provider ID for the project. */
           default_agent_provider_id?: string | null
           /** @description Human-readable project description. */
@@ -5368,6 +5371,7 @@ export interface operations {
           'application/json': {
             project?: {
               accessible_machine_ids?: string[]
+              agent_run_summary_prompt?: string | null
               default_agent_provider_id?: string | null
               description?: string
               id?: string
@@ -6090,6 +6094,7 @@ export interface operations {
           'application/json': {
             project?: {
               accessible_machine_ids?: string[]
+              agent_run_summary_prompt?: string | null
               default_agent_provider_id?: string | null
               description?: string
               id?: string
@@ -6161,6 +6166,7 @@ export interface operations {
           'application/json': {
             project?: {
               accessible_machine_ids?: string[]
+              agent_run_summary_prompt?: string | null
               default_agent_provider_id?: string | null
               description?: string
               id?: string
@@ -6239,6 +6245,8 @@ export interface operations {
         'application/json': {
           /** @description Machine IDs that the project is allowed to use. */
           accessible_machine_ids?: string[] | null
+          /** @description Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt. */
+          agent_run_summary_prompt?: string | null
           /** @description Optional default agent provider ID for the project. */
           default_agent_provider_id?: string | null
           /** @description Human-readable project description. */
@@ -6264,6 +6272,7 @@ export interface operations {
           'application/json': {
             project?: {
               accessible_machine_ids?: string[]
+              agent_run_summary_prompt?: string | null
               default_agent_provider_id?: string | null
               description?: string
               id?: string
@@ -10549,6 +10558,15 @@ export interface operations {
               agent_name?: string
               attempt_number?: number
               completed_at?: string | null
+              completion_summary?: {
+                error?: string | null
+                generated_at?: string | null
+                json?: {
+                  [key: string]: unknown
+                }
+                markdown?: string | null
+                status?: string
+              } | null
               created_at?: string
               current_step_status?: string | null
               current_step_summary?: string | null
@@ -10629,6 +10647,15 @@ export interface operations {
               agent_name?: string
               attempt_number?: number
               completed_at?: string | null
+              completion_summary?: {
+                error?: string | null
+                generated_at?: string | null
+                json?: {
+                  [key: string]: unknown
+                }
+                markdown?: string | null
+                status?: string
+              } | null
               created_at?: string
               current_step_status?: string | null
               current_step_summary?: string | null

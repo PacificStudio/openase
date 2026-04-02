@@ -40,6 +40,7 @@ type OpenAPIProject struct {
 	DefaultAgentProviderID *string  `json:"default_agent_provider_id,omitempty"`
 	AccessibleMachineIDs   []string `json:"accessible_machine_ids,omitempty"`
 	MaxConcurrentAgents    int      `json:"max_concurrent_agents"`
+	AgentRunSummaryPrompt  *string  `json:"agent_run_summary_prompt,omitempty"`
 }
 
 type OpenAPIWorkspaceDashboardMetrics struct {
@@ -450,20 +451,29 @@ type OpenAPIAgentStepEntry struct {
 }
 
 type OpenAPITicketRun struct {
-	ID                 string  `json:"id"`
-	AttemptNumber      int     `json:"attempt_number"`
-	AgentID            string  `json:"agent_id"`
-	AgentName          string  `json:"agent_name"`
-	Provider           string  `json:"provider"`
-	Status             string  `json:"status"`
-	CurrentStepStatus  *string `json:"current_step_status,omitempty"`
-	CurrentStepSummary *string `json:"current_step_summary,omitempty"`
-	CreatedAt          string  `json:"created_at"`
-	RuntimeStartedAt   *string `json:"runtime_started_at,omitempty"`
-	LastHeartbeatAt    *string `json:"last_heartbeat_at,omitempty"`
-	TerminalAt         *string `json:"terminal_at,omitempty"`
-	CompletedAt        *string `json:"completed_at,omitempty"`
-	LastError          *string `json:"last_error,omitempty"`
+	ID                 string                             `json:"id"`
+	AttemptNumber      int                                `json:"attempt_number"`
+	AgentID            string                             `json:"agent_id"`
+	AgentName          string                             `json:"agent_name"`
+	Provider           string                             `json:"provider"`
+	Status             string                             `json:"status"`
+	CurrentStepStatus  *string                            `json:"current_step_status,omitempty"`
+	CurrentStepSummary *string                            `json:"current_step_summary,omitempty"`
+	CreatedAt          string                             `json:"created_at"`
+	RuntimeStartedAt   *string                            `json:"runtime_started_at,omitempty"`
+	LastHeartbeatAt    *string                            `json:"last_heartbeat_at,omitempty"`
+	TerminalAt         *string                            `json:"terminal_at,omitempty"`
+	CompletedAt        *string                            `json:"completed_at,omitempty"`
+	LastError          *string                            `json:"last_error,omitempty"`
+	CompletionSummary  *OpenAPITicketRunCompletionSummary `json:"completion_summary,omitempty"`
+}
+
+type OpenAPITicketRunCompletionSummary struct {
+	Status      string         `json:"status"`
+	Markdown    *string        `json:"markdown,omitempty"`
+	JSON        map[string]any `json:"json,omitempty"`
+	GeneratedAt *string        `json:"generated_at,omitempty"`
+	Error       *string        `json:"error,omitempty"`
 }
 
 type OpenAPITicketRunTraceEntry struct {
@@ -1446,6 +1456,7 @@ var (
 		"default_agent_provider_id": "Optional default agent provider ID for the project.",
 		"accessible_machine_ids":    "Machine IDs that the project is allowed to use.",
 		"max_concurrent_agents":     "Maximum number of agents that may run concurrently in the project.",
+		"agent_run_summary_prompt":  "Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt.",
 	}
 	openAPIProviderRequestDescriptions = map[string]string{
 		"name":                  "Human-readable provider name.",
