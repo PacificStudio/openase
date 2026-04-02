@@ -698,6 +698,10 @@ func (s *Server) requireAgentOwnTicket(c echo.Context, scope agentplatform.Scope
 	if !ok {
 		return agentplatform.Claims{}, ticketservice.Ticket{}, false
 	}
+	if !claims.IsTicketAgent() {
+		_ = writeAPIError(c, http.StatusForbidden, "AGENT_PRINCIPAL_KIND_FORBIDDEN", "project conversation principals cannot access ticket-runtime-only endpoints")
+		return agentplatform.Claims{}, ticketservice.Ticket{}, false
+	}
 
 	ticketID, err := parseTicketID(c)
 	if err != nil {
@@ -743,8 +747,12 @@ func writeAgentPlatformError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusUnauthorized, "AGENT_TOKEN_EXPIRED", err.Error())
 	case errors.Is(err, agentplatform.ErrInvalidScope):
 		return writeAPIError(c, http.StatusForbidden, "AGENT_SCOPE_INVALID", err.Error())
+	case errors.Is(err, agentplatform.ErrInvalidPrincipal):
+		return writeAPIError(c, http.StatusUnauthorized, "AGENT_PRINCIPAL_INVALID", err.Error())
 	case errors.Is(err, agentplatform.ErrAgentNotFound):
 		return writeAPIError(c, http.StatusUnauthorized, "AGENT_NOT_FOUND", err.Error())
+	case errors.Is(err, agentplatform.ErrPrincipalNotFound):
+		return writeAPIError(c, http.StatusUnauthorized, "AGENT_PRINCIPAL_NOT_FOUND", err.Error())
 	case errors.Is(err, agentplatform.ErrProjectMismatch):
 		return writeAPIError(c, http.StatusUnauthorized, "AGENT_PROJECT_MISMATCH", err.Error())
 	default:

@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
+	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/google/uuid"
@@ -23,11 +24,19 @@ type AgentToken struct {
 	// ID of the ent.
 	ID uuid.UUID `json:"id,omitempty"`
 	// AgentID holds the value of the "agent_id" field.
-	AgentID uuid.UUID `json:"agent_id,omitempty"`
+	AgentID *uuid.UUID `json:"agent_id,omitempty"`
 	// ProjectID holds the value of the "project_id" field.
 	ProjectID uuid.UUID `json:"project_id,omitempty"`
 	// TicketID holds the value of the "ticket_id" field.
-	TicketID uuid.UUID `json:"ticket_id,omitempty"`
+	TicketID *uuid.UUID `json:"ticket_id,omitempty"`
+	// ConversationID holds the value of the "conversation_id" field.
+	ConversationID *uuid.UUID `json:"conversation_id,omitempty"`
+	// PrincipalKind holds the value of the "principal_kind" field.
+	PrincipalKind agenttoken.PrincipalKind `json:"principal_kind,omitempty"`
+	// PrincipalID holds the value of the "principal_id" field.
+	PrincipalID uuid.UUID `json:"principal_id,omitempty"`
+	// PrincipalName holds the value of the "principal_name" field.
+	PrincipalName string `json:"principal_name,omitempty"`
 	// TokenHash holds the value of the "token_hash" field.
 	TokenHash string `json:"token_hash,omitempty"`
 	// Scopes holds the value of the "scopes" field.
@@ -52,9 +61,11 @@ type AgentTokenEdges struct {
 	Project *Project `json:"project,omitempty"`
 	// Ticket holds the value of the ticket edge.
 	Ticket *Ticket `json:"ticket,omitempty"`
+	// Conversation holds the value of the conversation edge.
+	Conversation *ChatConversation `json:"conversation,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [4]bool
 }
 
 // AgentOrErr returns the Agent value or an error if the edge
@@ -90,18 +101,31 @@ func (e AgentTokenEdges) TicketOrErr() (*Ticket, error) {
 	return nil, &NotLoadedError{edge: "ticket"}
 }
 
+// ConversationOrErr returns the Conversation value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e AgentTokenEdges) ConversationOrErr() (*ChatConversation, error) {
+	if e.Conversation != nil {
+		return e.Conversation, nil
+	} else if e.loadedTypes[3] {
+		return nil, &NotFoundError{label: chatconversation.Label}
+	}
+	return nil, &NotLoadedError{edge: "conversation"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*AgentToken) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case agenttoken.FieldAgentID, agenttoken.FieldTicketID, agenttoken.FieldConversationID:
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case agenttoken.FieldScopes:
 			values[i] = new([]byte)
-		case agenttoken.FieldTokenHash:
+		case agenttoken.FieldPrincipalKind, agenttoken.FieldPrincipalName, agenttoken.FieldTokenHash:
 			values[i] = new(sql.NullString)
 		case agenttoken.FieldExpiresAt, agenttoken.FieldCreatedAt, agenttoken.FieldLastUsedAt:
 			values[i] = new(sql.NullTime)
-		case agenttoken.FieldID, agenttoken.FieldAgentID, agenttoken.FieldProjectID, agenttoken.FieldTicketID:
+		case agenttoken.FieldID, agenttoken.FieldProjectID, agenttoken.FieldPrincipalID:
 			values[i] = new(uuid.UUID)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -125,10 +149,11 @@ func (_m *AgentToken) assignValues(columns []string, values []any) error {
 				_m.ID = *value
 			}
 		case agenttoken.FieldAgentID:
-			if value, ok := values[i].(*uuid.UUID); !ok {
+			if value, ok := values[i].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field agent_id", values[i])
-			} else if value != nil {
-				_m.AgentID = *value
+			} else if value.Valid {
+				_m.AgentID = new(uuid.UUID)
+				*_m.AgentID = *value.S.(*uuid.UUID)
 			}
 		case agenttoken.FieldProjectID:
 			if value, ok := values[i].(*uuid.UUID); !ok {
@@ -137,10 +162,36 @@ func (_m *AgentToken) assignValues(columns []string, values []any) error {
 				_m.ProjectID = *value
 			}
 		case agenttoken.FieldTicketID:
-			if value, ok := values[i].(*uuid.UUID); !ok {
+			if value, ok := values[i].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field ticket_id", values[i])
+			} else if value.Valid {
+				_m.TicketID = new(uuid.UUID)
+				*_m.TicketID = *value.S.(*uuid.UUID)
+			}
+		case agenttoken.FieldConversationID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field conversation_id", values[i])
+			} else if value.Valid {
+				_m.ConversationID = new(uuid.UUID)
+				*_m.ConversationID = *value.S.(*uuid.UUID)
+			}
+		case agenttoken.FieldPrincipalKind:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field principal_kind", values[i])
+			} else if value.Valid {
+				_m.PrincipalKind = agenttoken.PrincipalKind(value.String)
+			}
+		case agenttoken.FieldPrincipalID:
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field principal_id", values[i])
 			} else if value != nil {
-				_m.TicketID = *value
+				_m.PrincipalID = *value
+			}
+		case agenttoken.FieldPrincipalName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field principal_name", values[i])
+			} else if value.Valid {
+				_m.PrincipalName = value.String
 			}
 		case agenttoken.FieldTokenHash:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -203,6 +254,11 @@ func (_m *AgentToken) QueryTicket() *TicketQuery {
 	return NewAgentTokenClient(_m.config).QueryTicket(_m)
 }
 
+// QueryConversation queries the "conversation" edge of the AgentToken entity.
+func (_m *AgentToken) QueryConversation() *ChatConversationQuery {
+	return NewAgentTokenClient(_m.config).QueryConversation(_m)
+}
+
 // Update returns a builder for updating this AgentToken.
 // Note that you need to call AgentToken.Unwrap() before calling this method if this AgentToken
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -226,14 +282,32 @@ func (_m *AgentToken) String() string {
 	var builder strings.Builder
 	builder.WriteString("AgentToken(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
-	builder.WriteString("agent_id=")
-	builder.WriteString(fmt.Sprintf("%v", _m.AgentID))
+	if v := _m.AgentID; v != nil {
+		builder.WriteString("agent_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("project_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ProjectID))
 	builder.WriteString(", ")
-	builder.WriteString("ticket_id=")
-	builder.WriteString(fmt.Sprintf("%v", _m.TicketID))
+	if v := _m.TicketID; v != nil {
+		builder.WriteString("ticket_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.ConversationID; v != nil {
+		builder.WriteString("conversation_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("principal_kind=")
+	builder.WriteString(fmt.Sprintf("%v", _m.PrincipalKind))
+	builder.WriteString(", ")
+	builder.WriteString("principal_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.PrincipalID))
+	builder.WriteString(", ")
+	builder.WriteString("principal_name=")
+	builder.WriteString(_m.PrincipalName)
 	builder.WriteString(", ")
 	builder.WriteString("token_hash=")
 	builder.WriteString(_m.TokenHash)

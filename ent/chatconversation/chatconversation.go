@@ -49,6 +49,8 @@ const (
 	EdgeEntries = "entries"
 	// EdgePendingInterrupts holds the string denoting the pending_interrupts edge name in mutations.
 	EdgePendingInterrupts = "pending_interrupts"
+	// EdgeAgentTokens holds the string denoting the agent_tokens edge name in mutations.
+	EdgeAgentTokens = "agent_tokens"
 	// Table holds the table name of the chatconversation in the database.
 	Table = "chat_conversations"
 	// ProjectTable is the table that holds the project relation/edge.
@@ -79,6 +81,13 @@ const (
 	PendingInterruptsInverseTable = "chat_pending_interrupts"
 	// PendingInterruptsColumn is the table column denoting the pending_interrupts relation/edge.
 	PendingInterruptsColumn = "conversation_id"
+	// AgentTokensTable is the table that holds the agent_tokens relation/edge.
+	AgentTokensTable = "agent_tokens"
+	// AgentTokensInverseTable is the table name for the AgentToken entity.
+	// It exists in this package in order to avoid circular dependency with the "agenttoken" package.
+	AgentTokensInverseTable = "agent_tokens"
+	// AgentTokensColumn is the table column denoting the agent_tokens relation/edge.
+	AgentTokensColumn = "conversation_id"
 )
 
 // Columns holds all SQL columns for chatconversation fields.
@@ -246,6 +255,20 @@ func ByPendingInterrupts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption
 		sqlgraph.OrderByNeighborTerms(s, newPendingInterruptsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByAgentTokensCount orders the results by agent_tokens count.
+func ByAgentTokensCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAgentTokensStep(), opts...)
+	}
+}
+
+// ByAgentTokens orders the results by agent_tokens terms.
+func ByAgentTokens(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentTokensStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newProjectStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -272,5 +295,12 @@ func newPendingInterruptsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(PendingInterruptsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, PendingInterruptsTable, PendingInterruptsColumn),
+	)
+}
+func newAgentTokensStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentTokensInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentTokensTable, AgentTokensColumn),
 	)
 }

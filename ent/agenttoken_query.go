@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
+	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
@@ -22,13 +23,14 @@ import (
 // AgentTokenQuery is the builder for querying AgentToken entities.
 type AgentTokenQuery struct {
 	config
-	ctx         *QueryContext
-	order       []agenttoken.OrderOption
-	inters      []Interceptor
-	predicates  []predicate.AgentToken
-	withAgent   *AgentQuery
-	withProject *ProjectQuery
-	withTicket  *TicketQuery
+	ctx              *QueryContext
+	order            []agenttoken.OrderOption
+	inters           []Interceptor
+	predicates       []predicate.AgentToken
+	withAgent        *AgentQuery
+	withProject      *ProjectQuery
+	withTicket       *TicketQuery
+	withConversation *ChatConversationQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -124,6 +126,28 @@ func (_q *AgentTokenQuery) QueryTicket() *TicketQuery {
 			sqlgraph.From(agenttoken.Table, agenttoken.FieldID, selector),
 			sqlgraph.To(ticket.Table, ticket.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, agenttoken.TicketTable, agenttoken.TicketColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryConversation chains the current query on the "conversation" edge.
+func (_q *AgentTokenQuery) QueryConversation() *ChatConversationQuery {
+	query := (&ChatConversationClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agenttoken.Table, agenttoken.FieldID, selector),
+			sqlgraph.To(chatconversation.Table, chatconversation.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agenttoken.ConversationTable, agenttoken.ConversationColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -318,14 +342,15 @@ func (_q *AgentTokenQuery) Clone() *AgentTokenQuery {
 		return nil
 	}
 	return &AgentTokenQuery{
-		config:      _q.config,
-		ctx:         _q.ctx.Clone(),
-		order:       append([]agenttoken.OrderOption{}, _q.order...),
-		inters:      append([]Interceptor{}, _q.inters...),
-		predicates:  append([]predicate.AgentToken{}, _q.predicates...),
-		withAgent:   _q.withAgent.Clone(),
-		withProject: _q.withProject.Clone(),
-		withTicket:  _q.withTicket.Clone(),
+		config:           _q.config,
+		ctx:              _q.ctx.Clone(),
+		order:            append([]agenttoken.OrderOption{}, _q.order...),
+		inters:           append([]Interceptor{}, _q.inters...),
+		predicates:       append([]predicate.AgentToken{}, _q.predicates...),
+		withAgent:        _q.withAgent.Clone(),
+		withProject:      _q.withProject.Clone(),
+		withTicket:       _q.withTicket.Clone(),
+		withConversation: _q.withConversation.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -362,6 +387,17 @@ func (_q *AgentTokenQuery) WithTicket(opts ...func(*TicketQuery)) *AgentTokenQue
 		opt(query)
 	}
 	_q.withTicket = query
+	return _q
+}
+
+// WithConversation tells the query-builder to eager-load the nodes that are connected to
+// the "conversation" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AgentTokenQuery) WithConversation(opts ...func(*ChatConversationQuery)) *AgentTokenQuery {
+	query := (&ChatConversationClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withConversation = query
 	return _q
 }
 
@@ -443,10 +479,11 @@ func (_q *AgentTokenQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*A
 	var (
 		nodes       = []*AgentToken{}
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [4]bool{
 			_q.withAgent != nil,
 			_q.withProject != nil,
 			_q.withTicket != nil,
+			_q.withConversation != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -485,6 +522,12 @@ func (_q *AgentTokenQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*A
 			return nil, err
 		}
 	}
+	if query := _q.withConversation; query != nil {
+		if err := _q.loadConversation(ctx, query, nodes, nil,
+			func(n *AgentToken, e *ChatConversation) { n.Edges.Conversation = e }); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
 }
 
@@ -492,7 +535,10 @@ func (_q *AgentTokenQuery) loadAgent(ctx context.Context, query *AgentQuery, nod
 	ids := make([]uuid.UUID, 0, len(nodes))
 	nodeids := make(map[uuid.UUID][]*AgentToken)
 	for i := range nodes {
-		fk := nodes[i].AgentID
+		if nodes[i].AgentID == nil {
+			continue
+		}
+		fk := *nodes[i].AgentID
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -550,7 +596,10 @@ func (_q *AgentTokenQuery) loadTicket(ctx context.Context, query *TicketQuery, n
 	ids := make([]uuid.UUID, 0, len(nodes))
 	nodeids := make(map[uuid.UUID][]*AgentToken)
 	for i := range nodes {
-		fk := nodes[i].TicketID
+		if nodes[i].TicketID == nil {
+			continue
+		}
+		fk := *nodes[i].TicketID
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -568,6 +617,38 @@ func (_q *AgentTokenQuery) loadTicket(ctx context.Context, query *TicketQuery, n
 		nodes, ok := nodeids[n.ID]
 		if !ok {
 			return fmt.Errorf(`unexpected foreign-key "ticket_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (_q *AgentTokenQuery) loadConversation(ctx context.Context, query *ChatConversationQuery, nodes []*AgentToken, init func(*AgentToken), assign func(*AgentToken, *ChatConversation)) error {
+	ids := make([]uuid.UUID, 0, len(nodes))
+	nodeids := make(map[uuid.UUID][]*AgentToken)
+	for i := range nodes {
+		if nodes[i].ConversationID == nil {
+			continue
+		}
+		fk := *nodes[i].ConversationID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(chatconversation.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "conversation_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -609,6 +690,9 @@ func (_q *AgentTokenQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withTicket != nil {
 			_spec.Node.AddColumnOnce(agenttoken.FieldTicketID)
+		}
+		if _q.withConversation != nil {
+			_spec.Node.AddColumnOnce(agenttoken.FieldConversationID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

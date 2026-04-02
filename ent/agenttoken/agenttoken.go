@@ -3,6 +3,7 @@
 package agenttoken
 
 import (
+	"fmt"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
@@ -21,6 +22,14 @@ const (
 	FieldProjectID = "project_id"
 	// FieldTicketID holds the string denoting the ticket_id field in the database.
 	FieldTicketID = "ticket_id"
+	// FieldConversationID holds the string denoting the conversation_id field in the database.
+	FieldConversationID = "conversation_id"
+	// FieldPrincipalKind holds the string denoting the principal_kind field in the database.
+	FieldPrincipalKind = "principal_kind"
+	// FieldPrincipalID holds the string denoting the principal_id field in the database.
+	FieldPrincipalID = "principal_id"
+	// FieldPrincipalName holds the string denoting the principal_name field in the database.
+	FieldPrincipalName = "principal_name"
 	// FieldTokenHash holds the string denoting the token_hash field in the database.
 	FieldTokenHash = "token_hash"
 	// FieldScopes holds the string denoting the scopes field in the database.
@@ -37,6 +46,8 @@ const (
 	EdgeProject = "project"
 	// EdgeTicket holds the string denoting the ticket edge name in mutations.
 	EdgeTicket = "ticket"
+	// EdgeConversation holds the string denoting the conversation edge name in mutations.
+	EdgeConversation = "conversation"
 	// Table holds the table name of the agenttoken in the database.
 	Table = "agent_tokens"
 	// AgentTable is the table that holds the agent relation/edge.
@@ -60,6 +71,13 @@ const (
 	TicketInverseTable = "tickets"
 	// TicketColumn is the table column denoting the ticket relation/edge.
 	TicketColumn = "ticket_id"
+	// ConversationTable is the table that holds the conversation relation/edge.
+	ConversationTable = "agent_tokens"
+	// ConversationInverseTable is the table name for the ChatConversation entity.
+	// It exists in this package in order to avoid circular dependency with the "chatconversation" package.
+	ConversationInverseTable = "chat_conversations"
+	// ConversationColumn is the table column denoting the conversation relation/edge.
+	ConversationColumn = "conversation_id"
 )
 
 // Columns holds all SQL columns for agenttoken fields.
@@ -68,6 +86,10 @@ var Columns = []string{
 	FieldAgentID,
 	FieldProjectID,
 	FieldTicketID,
+	FieldConversationID,
+	FieldPrincipalKind,
+	FieldPrincipalID,
+	FieldPrincipalName,
 	FieldTokenHash,
 	FieldScopes,
 	FieldExpiresAt,
@@ -86,6 +108,8 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// PrincipalNameValidator is a validator for the "principal_name" field. It is called by the builders before save.
+	PrincipalNameValidator func(string) error
 	// TokenHashValidator is a validator for the "token_hash" field. It is called by the builders before save.
 	TokenHashValidator func(string) error
 	// DefaultScopes holds the default value on creation for the "scopes" field.
@@ -95,6 +119,29 @@ var (
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
+
+// PrincipalKind defines the type for the "principal_kind" enum field.
+type PrincipalKind string
+
+// PrincipalKind values.
+const (
+	PrincipalKindTicketAgent         PrincipalKind = "ticket_agent"
+	PrincipalKindProjectConversation PrincipalKind = "project_conversation"
+)
+
+func (pk PrincipalKind) String() string {
+	return string(pk)
+}
+
+// PrincipalKindValidator is a validator for the "principal_kind" field enum values. It is called by the builders before save.
+func PrincipalKindValidator(pk PrincipalKind) error {
+	switch pk {
+	case PrincipalKindTicketAgent, PrincipalKindProjectConversation:
+		return nil
+	default:
+		return fmt.Errorf("agenttoken: invalid enum value for principal_kind field: %q", pk)
+	}
+}
 
 // OrderOption defines the ordering options for the AgentToken queries.
 type OrderOption func(*sql.Selector)
@@ -117,6 +164,26 @@ func ByProjectID(opts ...sql.OrderTermOption) OrderOption {
 // ByTicketID orders the results by the ticket_id field.
 func ByTicketID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTicketID, opts...).ToFunc()
+}
+
+// ByConversationID orders the results by the conversation_id field.
+func ByConversationID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldConversationID, opts...).ToFunc()
+}
+
+// ByPrincipalKind orders the results by the principal_kind field.
+func ByPrincipalKind(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPrincipalKind, opts...).ToFunc()
+}
+
+// ByPrincipalID orders the results by the principal_id field.
+func ByPrincipalID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPrincipalID, opts...).ToFunc()
+}
+
+// ByPrincipalName orders the results by the principal_name field.
+func ByPrincipalName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPrincipalName, opts...).ToFunc()
 }
 
 // ByTokenHash orders the results by the token_hash field.
@@ -159,6 +226,13 @@ func ByTicketField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newTicketStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByConversationField orders the results by conversation field.
+func ByConversationField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newConversationStep(), sql.OrderByField(field, opts...))
+	}
+}
 func newAgentStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -178,5 +252,12 @@ func newTicketStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(TicketInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, TicketTable, TicketColumn),
+	)
+}
+func newConversationStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ConversationInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, ConversationTable, ConversationColumn),
 	)
 }

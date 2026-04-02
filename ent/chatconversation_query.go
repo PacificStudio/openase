@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
@@ -32,6 +33,7 @@ type ChatConversationQuery struct {
 	withTurns             *ChatTurnQuery
 	withEntries           *ChatEntryQuery
 	withPendingInterrupts *ChatPendingInterruptQuery
+	withAgentTokens       *AgentTokenQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -149,6 +151,28 @@ func (_q *ChatConversationQuery) QueryPendingInterrupts() *ChatPendingInterruptQ
 			sqlgraph.From(chatconversation.Table, chatconversation.FieldID, selector),
 			sqlgraph.To(chatpendinginterrupt.Table, chatpendinginterrupt.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, chatconversation.PendingInterruptsTable, chatconversation.PendingInterruptsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAgentTokens chains the current query on the "agent_tokens" edge.
+func (_q *ChatConversationQuery) QueryAgentTokens() *AgentTokenQuery {
+	query := (&AgentTokenClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(chatconversation.Table, chatconversation.FieldID, selector),
+			sqlgraph.To(agenttoken.Table, agenttoken.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, chatconversation.AgentTokensTable, chatconversation.AgentTokensColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -352,6 +376,7 @@ func (_q *ChatConversationQuery) Clone() *ChatConversationQuery {
 		withTurns:             _q.withTurns.Clone(),
 		withEntries:           _q.withEntries.Clone(),
 		withPendingInterrupts: _q.withPendingInterrupts.Clone(),
+		withAgentTokens:       _q.withAgentTokens.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -399,6 +424,17 @@ func (_q *ChatConversationQuery) WithPendingInterrupts(opts ...func(*ChatPending
 		opt(query)
 	}
 	_q.withPendingInterrupts = query
+	return _q
+}
+
+// WithAgentTokens tells the query-builder to eager-load the nodes that are connected to
+// the "agent_tokens" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ChatConversationQuery) WithAgentTokens(opts ...func(*AgentTokenQuery)) *ChatConversationQuery {
+	query := (&AgentTokenClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAgentTokens = query
 	return _q
 }
 
@@ -480,11 +516,12 @@ func (_q *ChatConversationQuery) sqlAll(ctx context.Context, hooks ...queryHook)
 	var (
 		nodes       = []*ChatConversation{}
 		_spec       = _q.querySpec()
-		loadedTypes = [4]bool{
+		loadedTypes = [5]bool{
 			_q.withProject != nil,
 			_q.withTurns != nil,
 			_q.withEntries != nil,
 			_q.withPendingInterrupts != nil,
+			_q.withAgentTokens != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -531,6 +568,13 @@ func (_q *ChatConversationQuery) sqlAll(ctx context.Context, hooks ...queryHook)
 			func(n *ChatConversation, e *ChatPendingInterrupt) {
 				n.Edges.PendingInterrupts = append(n.Edges.PendingInterrupts, e)
 			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAgentTokens; query != nil {
+		if err := _q.loadAgentTokens(ctx, query, nodes,
+			func(n *ChatConversation) { n.Edges.AgentTokens = []*AgentToken{} },
+			func(n *ChatConversation, e *AgentToken) { n.Edges.AgentTokens = append(n.Edges.AgentTokens, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -651,6 +695,39 @@ func (_q *ChatConversationQuery) loadPendingInterrupts(ctx context.Context, quer
 		node, ok := nodeids[fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "conversation_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *ChatConversationQuery) loadAgentTokens(ctx context.Context, query *AgentTokenQuery, nodes []*ChatConversation, init func(*ChatConversation), assign func(*ChatConversation, *AgentToken)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*ChatConversation)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(agenttoken.FieldConversationID)
+	}
+	query.Where(predicate.AgentToken(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(chatconversation.AgentTokensColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ConversationID
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "conversation_id" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "conversation_id" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}
