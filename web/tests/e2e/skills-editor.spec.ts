@@ -33,9 +33,13 @@ test('skills page supports editing, disabling, and binding a skill', async ({
 
   const editor = page.locator('[data-testid="skill-editor-page"] textarea').first()
   await editor.fill(
-    ['# Deploy OpenASE', '', 'Build and redeploy OpenASE locally.', '', 'Verify rollback steps first.'].join(
-      '\n',
-    ),
+    [
+      '# Deploy OpenASE',
+      '',
+      'Build and redeploy OpenASE locally.',
+      '',
+      'Verify rollback steps first.',
+    ].join('\n'),
   )
 
   await measureCompletion({
