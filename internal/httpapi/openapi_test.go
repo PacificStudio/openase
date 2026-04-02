@@ -57,7 +57,7 @@ func TestBuildOpenAPIDocument(t *testing.T) {
 		"/api/v1/chat/conversations/{conversationId}/action-proposals/{entryId}/execute",
 		"/api/v1/chat/conversations/{conversationId}/runtime",
 		"/api/v1/skills/{skillId}/files",
-		"/api/v1/projects/{projectId}/tickets/stream",
+		"/api/v1/projects/{projectId}/events/stream",
 	}
 	for _, path := range requiredPaths {
 		if doc.Paths.Value(path) == nil {
@@ -147,6 +147,34 @@ func TestBuildOpenAPIDocumentRequestFieldsHaveDescriptions(t *testing.T) {
 	sort.Strings(missing)
 	if len(missing) > 0 {
 		t.Fatalf("openapi request field descriptions must be non-empty:\n%s", strings.Join(missing, "\n"))
+	}
+}
+
+func TestOpenAPIProjectStreamsStayOnCanonicalBus(t *testing.T) {
+	doc, err := BuildOpenAPIDocument()
+	if err != nil {
+		t.Fatalf("build openapi document: %v", err)
+	}
+
+	allowed := map[string]bool{
+		"/api/v1/projects/{projectId}/events/stream":                  true,
+		"/api/v1/projects/{projectId}/agents/{agentId}/output/stream": true,
+		"/api/v1/projects/{projectId}/agents/{agentId}/steps/stream":  true,
+	}
+
+	found := 0
+	for path := range doc.Paths.Map() {
+		if !strings.HasPrefix(path, "/api/v1/projects/{projectId}/") || !strings.HasSuffix(path, "/stream") {
+			continue
+		}
+		found++
+		if !allowed[path] {
+			t.Fatalf("unexpected project stream path in openapi: %s", path)
+		}
+	}
+
+	if found != len(allowed) {
+		t.Fatalf("expected %d project stream paths in openapi, found %d", len(allowed), found)
 	}
 }
 

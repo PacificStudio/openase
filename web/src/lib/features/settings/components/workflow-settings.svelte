@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { StatusPayload } from '$lib/api/contracts'
   import { listStatuses } from '$lib/api/openase'
-  import { connectEventStream } from '$lib/api/sse'
+  import { subscribeProjectEvents } from '$lib/features/project-events'
   import {
     WorkflowLifecycleSidebar,
     WorkflowList,
@@ -87,7 +87,7 @@
     const stopSync = startStatusRuntimeSync({
       projectId,
       loadSnapshot: listStatuses,
-      connectEventStream,
+      subscribeProjectEvents,
       skipInitialLoad: true,
       applySnapshot: (payload) => {
         statusCapacity = payload.statuses

@@ -316,7 +316,7 @@ func TestTicketRunStreamFiltersTicketScopedLifecycleTraceAndStepEvents(t *testin
 
 	response, cancel := openSSERequest(
 		t,
-		testServer.URL+"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticketItem.ID.String()+"/runs/stream",
+		testServer.URL+"/api/v1/projects/"+project.ID.String()+"/events/stream",
 	)
 	t.Cleanup(func() {
 		if err := response.Body.Close(); err != nil {
@@ -398,7 +398,7 @@ func TestTicketRunStreamFiltersTicketScopedLifecycleTraceAndStepEvents(t *testin
 
 	body := readSSEBody(t, response, cancel)
 	if response.StatusCode != http.StatusOK {
-		t.Fatalf("expected ticket run stream 200, got %d", response.StatusCode)
+		t.Fatalf("expected project event bus 200, got %d", response.StatusCode)
 	}
 	if !strings.Contains(body, "\"topic\":\"ticket.run.events\"") {
 		t.Fatalf("expected dedicated ticket run stream topic, got %q", body)
@@ -412,7 +412,7 @@ func TestTicketRunStreamFiltersTicketScopedLifecycleTraceAndStepEvents(t *testin
 	if !strings.Contains(body, "event: ticket.run.step") || !strings.Contains(body, "\"step_status\":\"planning\"") {
 		t.Fatalf("expected step frame, got %q", body)
 	}
-	if strings.Contains(body, "ignore me") {
-		t.Fatalf("did not expect other-ticket lifecycle event in stream, got %q", body)
+	if strings.Contains(body, "\"topic\":\"ticket.run.events\",\"type\":\"ticket.run.lifecycle\",\"payload\":{\"lifecycle\":{\"event_type\":\"agent.ready\",\"message\":\"ignore me\"") {
+		t.Fatalf("did not expect other-ticket lifecycle event to be promoted onto the ticket run bus, got %q", body)
 	}
 }

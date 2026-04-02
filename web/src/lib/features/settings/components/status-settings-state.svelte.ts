@@ -1,5 +1,4 @@
 import { ApiError } from '$lib/api/client'
-import { connectEventStream } from '$lib/api/sse'
 import {
   createStatus,
   deleteStatus,
@@ -17,6 +16,7 @@ import {
   type ParsedStatusDraft,
   type TicketStatusStage,
 } from '$lib/features/statuses/public'
+import { subscribeProjectEvents } from '$lib/features/project-events'
 import { appStore } from '$lib/stores/app.svelte'
 import { toastStore } from '$lib/stores/toast.svelte'
 import { startStatusRuntimeSync } from './status-runtime-sync'
@@ -43,7 +43,7 @@ export function createStatusSettingsState() {
     return startStatusRuntimeSync({
       projectId,
       loadSnapshot: listStatuses,
-      connectEventStream,
+      subscribeProjectEvents,
       applySnapshot: assignPayload,
       setLoading: (loading) => (ui.loading = loading),
       onInitialError: (message) => toastStore.error(message),

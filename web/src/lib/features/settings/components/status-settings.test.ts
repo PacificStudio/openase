@@ -14,8 +14,8 @@ const { createStatus, deleteStatus, listStatuses, resetStatuses, updateStatus } 
   }),
 )
 
-const { connectEventStream } = vi.hoisted(() => ({
-  connectEventStream: vi.fn(() => () => {}),
+const { subscribeProjectEvents } = vi.hoisted(() => ({
+  subscribeProjectEvents: vi.fn(() => () => {}),
 }))
 
 const { toastStore } = vi.hoisted(() => ({
@@ -33,8 +33,8 @@ vi.mock('$lib/api/openase', () => ({
   updateStatus,
 }))
 
-vi.mock('$lib/api/sse', () => ({
-  connectEventStream,
+vi.mock('$lib/features/project-events/project-event-bus', () => ({
+  subscribeProjectEvents,
 }))
 
 vi.mock('$lib/stores/toast.svelte', () => ({
@@ -101,16 +101,14 @@ describe('Status settings', () => {
   })
 
   it('renders the status editor with stage management', async () => {
-    const { findByDisplayValue, findByText } = render(StatusSettings)
+    const { findByText } = render(StatusSettings)
 
     expect(await findByText('Statuses')).toBeTruthy()
-    expect(await findByDisplayValue('Todo')).toBeTruthy()
-    expect(await findByText('1 / 1 active')).toBeTruthy()
-    expect(
-      await findByText(
-        'Stage controls lifecycle semantics such as dependency resolution and workflow terminal states.',
-      ),
-    ).toBeTruthy()
+    expect(await findByText('Todo')).toBeTruthy()
+    expect(await findByText('Doing')).toBeTruthy()
+    expect(await findByText('1/1')).toBeTruthy()
+    expect(await findByText('Backlog')).toBeTruthy()
+    expect(await findByText('Started')).toBeTruthy()
   })
 
   it('creates a status from the management panel', async () => {
@@ -119,7 +117,7 @@ describe('Status settings', () => {
         id: 'status-3',
         project_id: 'project-1',
         name: 'Review',
-        stage: 'started',
+        stage: 'backlog',
         color: '#6366f1',
         icon: '',
         position: 2,
@@ -130,20 +128,23 @@ describe('Status settings', () => {
       },
     })
 
-    const { findAllByPlaceholderText, findByPlaceholderText, getByRole } = render(StatusSettings)
+    const { findByLabelText, findByPlaceholderText } = render(StatusSettings)
 
-    await fireEvent.input(await findByPlaceholderText('New status name'), {
+    const backlogGroup = await findByLabelText('Backlog stage')
+    await fireEvent.click(within(backlogGroup).getByRole('button', { name: 'Add' }))
+    await fireEvent.input(await findByPlaceholderText('Status name'), {
       target: { value: 'Review' },
     })
-    const [createCapacityInput] = await findAllByPlaceholderText('Unlimited')
+    const createCapacityInput = await findByPlaceholderText('Unlimited')
     await fireEvent.input(createCapacityInput, {
       target: { value: '2' },
     })
-    await fireEvent.click(getByRole('button', { name: 'Add' }))
+    await fireEvent.click(within(backlogGroup).getAllByRole('button', { name: 'Add' }).at(-1)!)
 
     await waitFor(() =>
       expect(createStatus).toHaveBeenCalledWith('project-1', {
         name: 'Review',
+        stage: 'backlog',
         color: '#94a3b8',
         is_default: false,
         max_active_runs: 2,
@@ -155,13 +156,15 @@ describe('Status settings', () => {
   it('keeps the status draft when creation fails', async () => {
     createStatus.mockRejectedValue(new Error('conflict'))
 
-    const { findByPlaceholderText, getByRole } = render(StatusSettings)
+    const { findByLabelText, findByPlaceholderText } = render(StatusSettings)
 
-    const nameInput = await findByPlaceholderText('New status name')
+    const backlogGroup = await findByLabelText('Backlog stage')
+    await fireEvent.click(within(backlogGroup).getByRole('button', { name: 'Add' }))
+    const nameInput = await findByPlaceholderText('Status name')
     await fireEvent.input(nameInput, {
       target: { value: 'Review' },
     })
-    await fireEvent.click(getByRole('button', { name: 'Add' }))
+    await fireEvent.click(within(backlogGroup).getAllByRole('button', { name: 'Add' }).at(-1)!)
 
     await waitFor(() => expect(createStatus).toHaveBeenCalledTimes(1))
     expect((nameInput as HTMLInputElement).value).toBe('Review')
@@ -176,13 +179,14 @@ describe('Status settings', () => {
       },
     })
 
-    const { findByDisplayValue } = render(StatusSettings)
+    const { findAllByRole, findByDisplayValue, findByRole } = render(StatusSettings)
+
+    await fireEvent.click((await findAllByRole('button', { name: 'Actions' }))[1])
+    await fireEvent.click(await findByRole('menuitem', { name: 'Edit' }))
 
     const capacityInput = await findByDisplayValue('1')
-    const statusRow = capacityInput.closest('.border-border.rounded-md.border.px-3.py-3')
-    expect(statusRow).toBeTruthy()
     await fireEvent.input(capacityInput, { target: { value: '2' } })
-    await fireEvent.click(within(statusRow as HTMLElement).getByRole('button', { name: 'Save' }))
+    await fireEvent.click(await findByRole('button', { name: 'Save' }))
 
     await waitFor(() =>
       expect(updateStatus).toHaveBeenCalledWith('status-2', { max_active_runs: 2 }),
@@ -198,14 +202,9 @@ describe('Status settings', () => {
       moved_ticket_count: 1,
     })
 
-    const { findByDisplayValue, findByRole } = render(StatusSettings)
+    const { findAllByRole, findByRole } = render(StatusSettings)
 
-    const capacityInput = await findByDisplayValue('1')
-    const statusRow = capacityInput.closest('.border-border.rounded-md.border.px-3.py-3')
-    expect(statusRow).toBeTruthy()
-    await fireEvent.click(
-      within(statusRow as HTMLElement).getByRole('button', { name: 'More actions' }),
-    )
+    await fireEvent.click((await findAllByRole('button', { name: 'Actions' }))[1])
     await fireEvent.click(await findByRole('menuitem', { name: 'Delete' }))
 
     await waitFor(() => expect(deleteStatus).toHaveBeenCalledWith('status-2'))
@@ -221,6 +220,6 @@ describe('Status settings', () => {
 
     expect(await findByText('Statuses')).toBeTruthy()
     expect(listStatuses).toHaveBeenCalledTimes(1)
-    expect(connectEventStream).toHaveBeenCalledTimes(1)
+    expect(subscribeProjectEvents).toHaveBeenCalledTimes(1)
   })
 })

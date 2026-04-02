@@ -1,7 +1,6 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
   import { ticketViewStore } from '$lib/stores/ticket-view.svelte'
-  import { connectEventStream } from '$lib/api/sse'
   import { ApiError } from '$lib/api/client'
   import {
     listActivity,
@@ -12,6 +11,7 @@
     updateStatus,
     updateTicket,
   } from '$lib/api/openase'
+  import { subscribeProjectEvents } from '$lib/features/project-events'
   import { statusSync } from '$lib/features/statuses/public'
   import { toastStore } from '$lib/stores/toast.svelte'
   import {
@@ -176,29 +176,15 @@
     void statusVersion
     void loadBoard(projectId, 'initial')
 
-    const disconnectTickets = connectEventStream(`/api/v1/projects/${projectId}/tickets/stream`, {
-      onEvent: () => {
-        requestReload(projectId)
-      },
-      onError: (streamError) => {
-        console.error('Tickets stream error:', streamError)
-      },
-    })
-    const disconnectAgents = connectEventStream(`/api/v1/projects/${projectId}/agents/stream`, {
-      onEvent: () => {
-        requestReload(projectId)
-      },
-      onError: (streamError) => {
-        console.error('Agents stream error:', streamError)
-      },
+    const disconnectProjectEvents = subscribeProjectEvents(projectId, () => {
+      requestReload(projectId)
     })
 
     return () => {
       if (activeProjectId === projectId) {
         activeProjectId = null
       }
-      disconnectTickets()
-      disconnectAgents()
+      disconnectProjectEvents()
     }
   })
 

@@ -1,16 +1,12 @@
 import { connectEventStream } from '$lib/api/sse'
+import { subscribeProjectEvents } from '$lib/features/project-events'
 
 export function connectAgentsPageStreams(
   projectId: string,
   orgId: string,
   onEvent: () => void,
 ): () => void {
-  const disconnectAgents = connectEventStream(`/api/v1/projects/${projectId}/agents/stream`, {
-    onEvent,
-    onError: (streamError) => {
-      console.error('Agents stream error:', streamError)
-    },
-  })
+  const disconnectAgents = subscribeProjectEvents(projectId, onEvent)
   const disconnectProviders = connectEventStream(`/api/v1/orgs/${orgId}/providers/stream`, {
     onEvent,
     onError: (streamError) => {

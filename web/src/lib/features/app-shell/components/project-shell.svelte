@@ -1,9 +1,9 @@
 <script lang="ts">
   import { page } from '$app/state'
   import { loadAppContext } from '$lib/api/app-context'
-  import { connectEventStream } from '$lib/api/sse'
   import Sidebar from '$lib/components/layout/sidebar.svelte'
   import TopBar from '$lib/components/layout/top-bar.svelte'
+  import { retainProjectEventBus } from '$lib/features/project-events'
   import { ProjectConversationPanel } from '$lib/features/chat'
   import { appStore } from '$lib/stores/app.svelte'
   import type { AppRouteContext, ProjectSection } from '$lib/stores/app-context'
@@ -140,13 +140,9 @@
       return
     }
 
-    return connectEventStream(`/api/v1/projects/${projectId}/activity/stream`, {
-      onEvent: () => {},
+    return retainProjectEventBus(projectId, {
       onStateChange: (state) => {
         appStore.sseStatus = state
-      },
-      onError: () => {
-        appStore.sseStatus = 'retrying'
       },
     })
   })

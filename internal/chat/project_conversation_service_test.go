@@ -823,9 +823,18 @@ func TestProjectConversationCodexResumeInterruptLifecycleAcrossRuntimeRestart(t 
 	if completedTurn == nil {
 		t.Fatal("expected second turn to complete with provider-turn-2")
 	}
-	reloadedConversation, err := repoStore.GetConversation(ctx, conversation.ID)
-	if err != nil {
-		t.Fatalf("reload conversation: %v", err)
+	var reloadedConversation chatdomain.Conversation
+	deadline = time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		item, getErr := repoStore.GetConversation(ctx, conversation.ID)
+		if getErr == nil && item.LastTurnID != nil && *item.LastTurnID == "provider-turn-2" {
+			reloadedConversation = item
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if reloadedConversation.ID == uuid.Nil {
+		t.Fatal("expected conversation anchors to advance to provider-turn-2")
 	}
 	if reloadedConversation.ProviderThreadID == nil || *reloadedConversation.ProviderThreadID != "thread-shared" {
 		t.Fatalf("expected conversation to stay on the same provider thread, got %+v", reloadedConversation)

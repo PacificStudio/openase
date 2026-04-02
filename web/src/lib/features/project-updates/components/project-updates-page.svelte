@@ -1,7 +1,6 @@
 <script lang="ts">
   import { PageScaffold } from '$lib/components/layout'
   import { ApiError } from '$lib/api/client'
-  import { connectEventStream, type SSEFrame } from '$lib/api/sse'
   import {
     createProjectUpdateComment,
     createProjectUpdateThread,
@@ -11,6 +10,11 @@
     updateProjectUpdateComment,
     updateProjectUpdateThread,
   } from '$lib/api/openase'
+  import {
+    isProjectUpdateEvent,
+    subscribeProjectEvents,
+    type ProjectEventEnvelope,
+  } from '$lib/features/project-events'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn } from '$lib/utils'
   import { Skeleton } from '$ui/skeleton'
@@ -40,15 +44,10 @@
     initialLoaded = false
     void loadProjectUpdates(projectId, { showLoading: true })
 
-    return connectEventStream(`/api/v1/projects/${projectId}/activity/stream`, {
-      onEvent: (frame) => {
-        if (isProjectUpdateFrame(frame)) {
-          void loadProjectUpdates(projectId, { preserveMessages: true })
-        }
-      },
-      onError: (streamError) => {
-        console.error('Project updates stream error:', streamError)
-      },
+    return subscribeProjectEvents(projectId, (event) => {
+      if (isProjectUpdateFrame(event)) {
+        void loadProjectUpdates(projectId, { preserveMessages: true })
+      }
     })
   })
 
@@ -195,15 +194,8 @@
     }
   }
 
-  function isProjectUpdateFrame(frame: SSEFrame) {
-    if (frame.event !== 'message') return false
-
-    try {
-      const payload = JSON.parse(frame.data) as { type?: string }
-      return typeof payload.type === 'string' && payload.type.startsWith('project_update_')
-    } catch {
-      return false
-    }
+  function isProjectUpdateFrame(event: ProjectEventEnvelope) {
+    return isProjectUpdateEvent(event)
   }
 </script>
 

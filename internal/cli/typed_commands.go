@@ -421,10 +421,17 @@ func newStreamNamespaceCommand(use string, short string) *cobra.Command {
 		},
 		Example: "openase " + use + " events",
 	}))
-	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "tickets [projectId]", Short: "Stream project ticket events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/stream", PositionalParams: []string{"projectId"}, Example: "openase " + use + " tickets $OPENASE_PROJECT_ID"}))
-	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "agents [projectId]", Short: "Stream project agent events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/stream", PositionalParams: []string{"projectId"}, Example: "openase " + use + " agents $OPENASE_PROJECT_ID"}))
-	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "activity [projectId]", Short: "Stream project activity events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/activity/stream", PositionalParams: []string{"projectId"}, Example: "openase " + use + " activity $OPENASE_PROJECT_ID"}))
-	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "hooks [projectId]", Short: "Stream project hook events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/hooks/stream", PositionalParams: []string{"projectId"}, Example: "openase " + use + " hooks $OPENASE_PROJECT_ID"}))
+	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{
+		Use:              "project [projectId]",
+		Short:            "Stream the passive project event bus.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/events/stream",
+		PositionalParams: []string{"projectId"},
+		HelpNotes: []string{
+			"Passive project UI state must converge on this single stream entrypoint; tickets, agents, activity, hooks, and ticket-run transcript updates are multiplexed here.",
+		},
+		Example: "openase " + use + " project $OPENASE_PROJECT_ID",
+	}))
 	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "output [projectId] [agentId]", Short: "Stream agent output.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/{agentId}/output/stream", PositionalParams: []string{"projectId", "agentId"}, Example: "openase " + use + " output $OPENASE_PROJECT_ID $OPENASE_AGENT_ID"}))
 	command.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{Use: "steps [projectId] [agentId]", Short: "Stream agent steps.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/{agentId}/steps/stream", PositionalParams: []string{"projectId", "agentId"}, Example: "openase " + use + " steps $OPENASE_PROJECT_ID $OPENASE_AGENT_ID"}))
 	return command
@@ -1278,10 +1285,7 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "bind-workflow [workflowId]", Short: "Bind skills to a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/bind", PositionalParams: []string{"workflowId"}},
 		{Use: "unbind-workflow [workflowId]", Short: "Unbind skills from a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/unbind", PositionalParams: []string{"workflowId"}},
 		{Use: "events", Short: "Stream system events.", Method: http.MethodGet, Path: "/api/v1/events/stream"},
-		{Use: "tickets [projectId]", Short: "Stream project ticket events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/stream", PositionalParams: []string{"projectId"}},
-		{Use: "agents [projectId]", Short: "Stream project agent events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/stream", PositionalParams: []string{"projectId"}},
-		{Use: "activity [projectId]", Short: "Stream project activity events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/activity/stream", PositionalParams: []string{"projectId"}},
-		{Use: "hooks [projectId]", Short: "Stream project hook events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/hooks/stream", PositionalParams: []string{"projectId"}},
+		{Use: "project [projectId]", Short: "Stream the passive project event bus.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/events/stream", PositionalParams: []string{"projectId"}},
 		{Use: "output [projectId] [agentId]", Short: "Stream agent output.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/{agentId}/output/stream", PositionalParams: []string{"projectId", "agentId"}},
 		{Use: "steps [projectId] [agentId]", Short: "Stream agent steps.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/{agentId}/steps/stream", PositionalParams: []string{"projectId", "agentId"}},
 	}

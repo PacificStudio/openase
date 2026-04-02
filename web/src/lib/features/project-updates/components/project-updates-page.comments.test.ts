@@ -2,13 +2,13 @@ import { fireEvent, render, waitFor } from '@testing-library/svelte'
 import { describe, expect, it } from 'vitest'
 
 import {
-  connectEventStream,
   createProjectUpdateComment,
   deleteProjectUpdateComment,
   listProjectUpdates,
   makeCommentRecord,
   makeThreadRecord,
   setupProjectUpdatesPageTest,
+  subscribeProjectEvents,
   type StreamEventHandler,
   updateProjectUpdateComment,
 } from './project-updates-page.test-support'
@@ -126,12 +126,12 @@ describe('ProjectUpdatesPage comments and streaming', () => {
     expect(await findByText('Comment deleted.')).toBeTruthy()
     expect(await findByText('This comment was deleted.')).toBeTruthy()
 
-    const streamHandlers = connectEventStream.mock.calls[0]?.[1] as
-      | { onEvent?: StreamEventHandler }
-      | undefined
-    streamHandlers?.onEvent?.({
-      event: 'message',
-      data: JSON.stringify({ type: 'project_update_thread.status_changed' }),
+    const onEvent = subscribeProjectEvents.mock.calls[0]?.[1] as StreamEventHandler | undefined
+    onEvent?.({
+      topic: 'activity.events',
+      type: 'project_update_thread.status_changed',
+      payload: null,
+      publishedAt: '2026-04-01T10:35:00Z',
     })
 
     await waitFor(() => {

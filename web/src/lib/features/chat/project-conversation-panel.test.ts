@@ -60,7 +60,7 @@ describe('ProjectConversationPanel', () => {
     window.localStorage.clear()
   })
 
-  it('renders multiple restored tabs with per-tab status badges', async () => {
+  it('restores only the active persisted tab with a restored badge', async () => {
     window.localStorage.setItem(
       'openase.project-conversation.project-1.provider-1',
       JSON.stringify({
@@ -85,24 +85,11 @@ describe('ProjectConversationPanel', () => {
         },
       ],
     })
-    getProjectConversationWorkspaceDiff
-      .mockResolvedValueOnce(createWorkspaceDiff('conversation-2'))
-      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
+    getProjectConversationWorkspaceDiff.mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
     listProjectConversationEntries.mockImplementation(async (conversationId: string) => ({
       entries:
-        conversationId === 'conversation-2'
+        conversationId === 'conversation-1'
           ? [
-              {
-                id: 'entry-2',
-                conversationId: 'conversation-2',
-                turnId: 'turn-2',
-                seq: 1,
-                kind: 'user_message',
-                payload: { content: 'Continue the older plan' },
-                createdAt: '2026-03-31T09:00:00Z',
-              },
-            ]
-          : [
               {
                 id: 'entry-1',
                 conversationId: 'conversation-1',
@@ -112,11 +99,12 @@ describe('ProjectConversationPanel', () => {
                 payload: { content: 'Current conversation' },
                 createdAt: '2026-04-01T10:00:00Z',
               },
-            ],
+            ]
+          : [],
     }))
     watchProjectConversation.mockResolvedValue(undefined)
 
-    const { findAllByText, findByText, getAllByRole, getByRole } = render(
+    const { findAllByText, getAllByRole, getByRole, queryByRole } = render(
       ProjectConversationPanel,
       {
         props: {
@@ -128,11 +116,11 @@ describe('ProjectConversationPanel', () => {
       },
     )
 
-    await findByText('Current conversation')
+    expect((await findAllByText('Current conversation')).length).toBeGreaterThanOrEqual(1)
     expect((await findAllByText('Restored')).length).toBeGreaterThanOrEqual(1)
-    expect(getByRole('tab', { name: /^Older discussion Restored$/ })).toBeTruthy()
     expect(getByRole('tab', { name: /^Current conversation Restored$/ })).toBeTruthy()
-    expect(getAllByRole('tab', { name: /Restored$/ }).length).toBeGreaterThanOrEqual(2)
+    expect(queryByRole('tab', { name: /^Older discussion Restored$/ })).toBeNull()
+    expect(getAllByRole('tab', { name: /Restored$/ }).length).toBe(1)
   })
 
   it('isolates unsent drafts per tab', async () => {
