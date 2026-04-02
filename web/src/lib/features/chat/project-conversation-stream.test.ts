@@ -81,6 +81,7 @@ describe('handleProjectConversationStreamEvent', () => {
       statusType: 'turn_done',
       title: 'Turn completed',
       detail: 'Cost: $0.03',
+      raw: undefined,
     })
     expect(handlers.setPending).toHaveBeenLastCalledWith(false)
   })
@@ -103,8 +104,41 @@ describe('handleProjectConversationStreamEvent', () => {
       statusType: 'error',
       title: 'Turn failed',
       detail: 'codex chat turn failed',
+      raw: undefined,
     })
     expect(handlers.setPending).toHaveBeenCalledWith(false)
     expect(handlers.onError).toHaveBeenCalledWith('codex chat turn failed')
+  })
+
+  it('preserves structured task status payload details for rendering', () => {
+    const handlers = createHandlers()
+
+    handleProjectConversationStreamEvent(
+      {
+        kind: 'message',
+        payload: {
+          type: 'task_progress',
+          raw: {
+            status: 'running',
+            command: 'pnpm test',
+            file: 'README.md',
+            patch: '@@ -1 +1 @@\n-old\n+new',
+          },
+        },
+      },
+      handlers,
+    )
+
+    expect(handlers.appendTaskStatus).toHaveBeenCalledWith({
+      statusType: 'task_progress',
+      title: 'Task progress',
+      detail: 'Status: running',
+      raw: {
+        status: 'running',
+        command: 'pnpm test',
+        file: 'README.md',
+        patch: '@@ -1 +1 @@\n-old\n+new',
+      },
+    })
   })
 })

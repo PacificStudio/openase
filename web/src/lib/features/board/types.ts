@@ -43,6 +43,13 @@ export type BoardStatusOption = {
   maxActiveRuns: number | null
 }
 
+export type HiddenColumn = {
+  id: string
+  name: string
+  color: string
+  ticketCount: number
+}
+
 export type BoardFilter = {
   workflow?: string
   agent?: string

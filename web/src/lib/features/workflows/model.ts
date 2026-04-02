@@ -1,6 +1,7 @@
 import type { HarnessContent, WorkflowStatusOption, WorkflowSummary } from './types'
 
 export type SkillState = {
+  id: string
   name: string
   description: string
   path: string

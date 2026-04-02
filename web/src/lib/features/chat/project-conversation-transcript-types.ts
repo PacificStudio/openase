@@ -56,6 +56,7 @@ export type ProjectConversationTaskStatusEntry = {
   statusType: 'task_started' | 'task_progress' | 'task_notification' | 'turn_done' | 'error'
   title: string
   detail?: string
+  raw?: Record<string, unknown>
 }
 
 export type ProjectConversationInterruptEntry = {
@@ -147,6 +148,7 @@ export function createProjectConversationTaskStatusEntry(params: {
   statusType: ProjectConversationTaskStatusEntry['statusType']
   title: string
   detail?: string
+  raw?: Record<string, unknown>
 }) {
   return {
     id: params.id,
@@ -156,5 +158,6 @@ export function createProjectConversationTaskStatusEntry(params: {
     statusType: params.statusType,
     title: params.title,
     detail: params.detail,
+    raw: params.raw,
   } satisfies ProjectConversationTaskStatusEntry
 }

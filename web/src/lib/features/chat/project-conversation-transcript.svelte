@@ -6,6 +6,7 @@
   import ChatMarkdownContent from './chat-markdown-content.svelte'
   import ProjectConversationCommandOutputCard from './project-conversation-command-output-card.svelte'
   import ProjectConversationInterruptCard from './project-conversation-interrupt-card.svelte'
+  import ProjectConversationTaskStatusCard from './project-conversation-task-status-card.svelte'
   import ProjectConversationToolCallCard from './project-conversation-tool-call-card.svelte'
   import type { ProjectConversationTranscriptEntry } from './project-conversation-transcript-state'
 
@@ -41,17 +42,7 @@
     {:else if entry.kind === 'command_output'}
       <ProjectConversationCommandOutputCard {entry} />
     {:else if entry.kind === 'task_status'}
-      <div class="border-border/70 bg-muted/20 rounded-2xl border px-3 py-2.5 text-sm">
-        <div class="mb-1 text-[10px] font-semibold tracking-[0.16em] uppercase opacity-70">
-          status
-        </div>
-        <div class="font-medium">{entry.title}</div>
-        {#if entry.detail}
-          <div class="text-muted-foreground mt-1 text-xs leading-5 whitespace-pre-wrap">
-            {entry.detail}
-          </div>
-        {/if}
-      </div>
+      <ProjectConversationTaskStatusCard {entry} />
     {:else if entry.kind === 'interrupt'}
       <ProjectConversationInterruptCard {entry} {onRespondInterrupt} />
     {:else}

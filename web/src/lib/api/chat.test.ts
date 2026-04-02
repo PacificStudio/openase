@@ -8,7 +8,7 @@ vi.mock('./sse', () => ({
   consumeEventStream,
 }))
 
-import { startProjectConversationTurn, streamChatTurn } from './chat'
+import { startProjectConversationTurn, streamChatTurn, watchProjectConversation } from './chat'
 
 describe('streamChatTurn', () => {
   beforeEach(() => {
@@ -291,5 +291,53 @@ describe('startProjectConversationTurn', () => {
         }),
       }),
     )
+  })
+})
+
+describe('watchProjectConversation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        body: {} as ReadableStream<Uint8Array>,
+      }),
+    )
+  })
+
+  it('keeps task message raw payloads on the inner raw object for project conversation streams', async () => {
+    consumeEventStream.mockImplementation(async (_body, onFrame) => {
+      onFrame({
+        event: 'message',
+        data: JSON.stringify({
+          type: 'task_notification',
+          raw: {
+            tool: 'functions.exec_command',
+            arguments: { cmd: 'git status' },
+          },
+        }),
+      })
+    })
+
+    const events: unknown[] = []
+    await watchProjectConversation('conversation-1', {
+      onEvent: (event) => {
+        events.push(event)
+      },
+    })
+
+    expect(events).toEqual([
+      {
+        kind: 'message',
+        payload: {
+          type: 'task_notification',
+          raw: {
+            tool: 'functions.exec_command',
+            arguments: { cmd: 'git status' },
+          },
+        },
+      },
+    ])
   })
 })

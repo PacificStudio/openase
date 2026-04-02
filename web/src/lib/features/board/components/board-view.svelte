@@ -1,11 +1,13 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
-  import type { BoardGroup, BoardStatusOption, BoardTicket } from '../types'
+  import { EyeOff } from '@lucide/svelte'
+  import type { BoardGroup, BoardStatusOption, BoardTicket, HiddenColumn } from '../types'
   import BoardColumnComponent from './board-column.svelte'
 
   let {
     groups,
     statuses = [],
+    hiddenColumns = [],
     class: className = '',
     onticketclick,
     draggingTicketId = null,
@@ -21,6 +23,7 @@
   }: {
     groups: BoardGroup[]
     statuses?: BoardStatusOption[]
+    hiddenColumns?: HiddenColumn[]
     class?: string
     onticketclick?: (ticket: BoardTicket) => void
     draggingTicketId?: string | null
@@ -84,6 +87,25 @@
           {/if}
         </section>
       {/each}
+
+      {#if hiddenColumns.length > 0}
+        <div class="flex h-full min-h-0 w-48 shrink-0 flex-col rounded-xl border px-3 py-2">
+          <div class="text-muted-foreground mb-2 flex items-center gap-1.5">
+            <EyeOff class="size-3" />
+            <span class="text-xs font-medium">Hidden ({hiddenColumns.length})</span>
+          </div>
+          <div class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
+            {#each hiddenColumns as col (col.id)}
+              <div class="text-muted-foreground flex items-center gap-1.5 rounded-md px-1.5 py-1">
+                <span class="size-2 shrink-0 rounded-full" style="background-color: {col.color}"
+                ></span>
+                <span class="min-w-0 flex-1 truncate text-xs">{col.name}</span>
+                <span class="text-muted-foreground/60 shrink-0 text-[10px]">{col.ticketCount}</span>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
     </div>
   {/if}
 </div>
