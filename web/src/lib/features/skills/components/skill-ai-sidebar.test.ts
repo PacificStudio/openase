@@ -152,6 +152,70 @@ describe('SkillAiSidebar', () => {
           message: 'Codex is running verification commands.',
         },
       })
+      handlers.onEvent({
+        kind: 'session_anchor',
+        payload: {
+          providerThreadId: 'thread-1',
+          providerTurnId: 'turn-1',
+          providerAnchorId: 'thread-1',
+          providerAnchorKind: 'thread',
+          providerTurnSupported: true,
+        },
+      })
+      handlers.onEvent({
+        kind: 'thread_status',
+        payload: {
+          threadId: 'thread-1',
+          status: 'active',
+          activeFlags: ['running'],
+          entryId: 'entry-thread-1',
+        },
+      })
+      handlers.onEvent({
+        kind: 'message',
+        payload: {
+          type: 'task_progress',
+          raw: {
+            stream: 'command',
+            command: 'bash -n scripts/redeploy.sh',
+            text: 'bash -n scripts/redeploy.sh\n./scripts/redeploy.sh',
+            snapshot: true,
+          },
+        },
+      })
+      handlers.onEvent({
+        kind: 'plan_updated',
+        payload: {
+          threadId: 'thread-1',
+          turnId: 'turn-1',
+          explanation: 'Inspect and verify the skill bundle.',
+          plan: [
+            { step: 'Inspect', status: 'completed' },
+            { step: 'Verify', status: 'completed' },
+          ],
+          entryId: 'entry-plan-1',
+        },
+      })
+      handlers.onEvent({
+        kind: 'reasoning_updated',
+        payload: {
+          threadId: 'thread-1',
+          turnId: 'turn-1',
+          itemId: 'item-1',
+          kind: 'summary_text_delta',
+          delta: 'Checking the verification transcript.',
+          entryId: 'entry-reasoning-1',
+        },
+      })
+      handlers.onEvent({
+        kind: 'interrupt_requested',
+        payload: {
+          requestId: 'req-1',
+          kind: 'command_execution',
+          payload: { command: 'git status' },
+          options: [{ id: 'approve_once', label: 'Approve once' }],
+        },
+      })
       await new Promise((resolve) => setTimeout(resolve, 0))
       handlers.onEvent({
         kind: 'result',
@@ -209,6 +273,14 @@ describe('SkillAiSidebar', () => {
 
     await findByText('Testing')
     await findByText('Verified')
+    await findByText('Provider Thread')
+    await findByText('thread-1')
+    await findByText('Command approval required')
+    await findByText('Ran `bash -n scripts/redeploy.sh`')
+    await fireEvent.click(await findByText('Ran `bash -n scripts/redeploy.sh`'))
+    await findByText('Codex thread status')
+    await findByText('Plan updated')
+    await findByText('Reasoning update')
     await waitFor(() => {
       expect(
         document.body.textContent?.includes(
@@ -279,5 +351,224 @@ describe('SkillAiSidebar', () => {
       ).toBe(true)
     })
     expect(queryByText('Apply All')).toBeNull()
+  })
+
+  it('renders Claude session anchors and requires_action transcript events', async () => {
+    const claudeProviders: AgentProvider[] = [
+      {
+        ...providerFixtures[0],
+        id: 'provider-claude',
+        name: 'Claude Code',
+        adapter_type: 'claude-code',
+        cli_command: 'claude',
+        model_name: 'claude-opus-4-6',
+      },
+    ]
+
+    streamSkillRefinement.mockImplementation(async (_request, handlers) => {
+      handlers.onEvent({
+        kind: 'session',
+        payload: {
+          sessionId: 'session-claude-1',
+          workspacePath: '/tmp/skill-tests/openase/deploy/session-claude-1/workspace',
+        },
+      })
+      handlers.onEvent({
+        kind: 'status',
+        payload: {
+          sessionId: 'session-claude-1',
+          phase: 'testing',
+          attempt: 1,
+          message: 'Claude is resuming the draft bundle session.',
+        },
+      })
+      handlers.onEvent({
+        kind: 'session_anchor',
+        payload: {
+          providerAnchorId: 'claude-session-1',
+          providerAnchorKind: 'session',
+          providerTurnSupported: false,
+        },
+      })
+      handlers.onEvent({
+        kind: 'session_state',
+        payload: {
+          status: 'requires_action',
+          activeFlags: ['waiting_for_input'],
+          detail: 'Claude is waiting for an approval decision.',
+          entryId: 'entry-session-state-1',
+        },
+      })
+      handlers.onEvent({
+        kind: 'interrupt_requested',
+        payload: {
+          requestId: 'req-claude-1',
+          kind: 'user_input',
+          payload: {
+            question: 'Proceed with updating the runbook?',
+          },
+          options: [
+            { id: 'yes', label: 'Yes' },
+            { id: 'no', label: 'No' },
+          ],
+        },
+      })
+      handlers.onEvent({
+        kind: 'result',
+        payload: {
+          sessionId: 'session-claude-1',
+          status: 'verified',
+          workspacePath: '/tmp/skill-tests/openase/deploy/session-claude-1/workspace',
+          providerId: 'provider-claude',
+          providerName: 'Claude Code',
+          attempts: 1,
+          transcriptSummary: 'Claude updated the runbook after approval.',
+          commandOutputSummary: '',
+          candidateBundleHash: 'bundle-hash-claude-1',
+          candidateFiles: fileFixtures,
+        },
+      })
+    })
+
+    const { getByPlaceholderText, getByRole, findAllByText, findByText } = render(SkillAiSidebar, {
+      props: {
+        projectId: 'project-1',
+        providers: claudeProviders,
+        skillId: 'skill-1',
+        files: fileFixtures,
+      },
+    })
+
+    const prompt = getByPlaceholderText(
+      'Describe what Codex should improve and verify for this draft bundle…',
+    )
+    await fireEvent.input(prompt, {
+      target: { value: 'Update the runbook and ask before editing.' },
+    })
+    await fireEvent.click(getByRole('button', { name: 'Fix and verify' }))
+
+    await findByText('Provider Session')
+    await findByText('claude-session-1')
+    const systemGroups = await findAllByText('System activity')
+    await fireEvent.click(systemGroups[0]!)
+    await findByText('Claude session status')
+    await findByText('User input required')
+    await waitFor(() => {
+      expect(
+        document.body.textContent?.includes('Claude updated the runbook after approval.'),
+      ).toBe(true)
+    })
+  })
+
+  it('renders diff updates, compaction, and anchor detail cards inside the transcript', async () => {
+    streamSkillRefinement.mockImplementation(async (_request, handlers) => {
+      handlers.onEvent({
+        kind: 'session',
+        payload: {
+          sessionId: 'session-3',
+          workspacePath: '/tmp/skill-tests/openase/deploy/session-3/workspace',
+        },
+      })
+      handlers.onEvent({
+        kind: 'status',
+        payload: {
+          sessionId: 'session-3',
+          phase: 'testing',
+          attempt: 1,
+          message: 'Codex is replaying the latest diff and status updates.',
+        },
+      })
+      handlers.onEvent({
+        kind: 'session_anchor',
+        payload: {
+          providerThreadId: 'thread-9',
+          providerTurnId: 'turn-9',
+          providerAnchorId: 'thread-9',
+          providerAnchorKind: 'thread',
+          providerTurnSupported: true,
+        },
+      })
+      handlers.onEvent({
+        kind: 'thread_compacted',
+        payload: {
+          threadId: 'thread-9',
+          turnId: 'turn-9',
+          entryId: 'entry-compact-9',
+        },
+      })
+      handlers.onEvent({
+        kind: 'diff_updated',
+        payload: {
+          threadId: 'thread-9',
+          turnId: 'turn-9',
+          entryId: 'entry-diff-9',
+          diff: [
+            'diff --git a/SKILL.md b/SKILL.md',
+            '--- a/SKILL.md',
+            '+++ b/SKILL.md',
+            '@@ -1,1 +1,2 @@',
+            ' Use safe steps.',
+            '+Add a pre-deploy rollback verification checklist.',
+          ].join('\n'),
+        },
+      })
+      handlers.onEvent({
+        kind: 'result',
+        payload: {
+          sessionId: 'session-3',
+          status: 'verified',
+          workspacePath: '/tmp/skill-tests/openase/deploy/session-3/workspace',
+          providerId: 'provider-1',
+          providerName: 'Codex',
+          providerThreadId: 'thread-9',
+          providerTurnId: 'turn-9',
+          attempts: 1,
+          transcriptSummary: 'Codex replayed the diff and compacted the thread.',
+          commandOutputSummary: '',
+          candidateBundleHash: 'bundle-hash-3',
+          candidateFiles: fileFixtures,
+        },
+      })
+    })
+
+    const { getAllByRole, getByPlaceholderText, getByRole, findAllByText, findByText } = render(
+      SkillAiSidebar,
+      {
+        props: {
+          projectId: 'project-1',
+          providers: providerFixtures,
+          skillId: 'skill-1',
+          files: fileFixtures,
+        },
+      },
+    )
+
+    const prompt = getByPlaceholderText(
+      'Describe what Codex should improve and verify for this draft bundle…',
+    )
+    await fireEvent.input(prompt, { target: { value: 'Show the latest diff and status details.' } })
+    await fireEvent.click(getByRole('button', { name: 'Fix and verify' }))
+
+    await findByText('Provider Thread')
+    await findByText('thread-9')
+    expect((await findAllByText('SKILL.md')).length).toBeGreaterThan(0)
+    await findByText('+Add a pre-deploy rollback verification checklist.')
+
+    for (const button of getAllByRole('button', { name: /System activity/i })) {
+      await fireEvent.click(button)
+    }
+    await findByText('Thread compacted')
+    await findByText('Provider thread anchored')
+
+    await fireEvent.click(getByRole('button', { name: /Thread compacted/i }))
+    await findByText('Thread thread-9 compacted')
+
+    await fireEvent.click(getByRole('button', { name: /Provider thread anchored/i }))
+    await waitFor(() => {
+      const pageText = document.body.textContent ?? ''
+      expect(pageText.includes('anchor: thread-9')).toBe(true)
+      expect(pageText.includes('turn: turn-9')).toBe(true)
+      expect(pageText.includes('turn support: yes')).toBe(true)
+    })
   })
 })

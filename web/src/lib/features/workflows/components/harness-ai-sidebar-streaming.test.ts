@@ -78,6 +78,12 @@ type ChunkedTurnPlan = {
   assistantChunks: string[]
 }
 
+type TimedSSEEvent = {
+  atMs: number
+  event: string
+  payload: Record<string, unknown>
+}
+
 type RecordedRequest = {
   method: string
   url: string
@@ -104,7 +110,7 @@ function splitIntoUnevenChunks(frame: string) {
 }
 
 function buildTimedChunks(plan: ChunkedTurnPlan) {
-  const events = [
+  const events: TimedSSEEvent[] = [
     {
       atMs: 0,
       event: 'session',
@@ -136,6 +142,10 @@ function buildTimedChunks(plan: ChunkedTurnPlan) {
     },
   ]
 
+  return buildTimedChunksFromEvents(events)
+}
+
+function buildTimedChunksFromEvents(events: TimedSSEEvent[]) {
   return events.flatMap(({ atMs, event, payload }) =>
     splitIntoUnevenChunks(formatSSEFrame(event, payload)).map((chunk, index) => ({
       atMs: atMs + index,
@@ -173,6 +183,51 @@ function createChunkedChatStream(plan: ChunkedTurnPlan, signal?: AbortSignal) {
       signal?.addEventListener('abort', abortStream, { once: true })
 
       const timedChunks = buildTimedChunks(plan)
+      for (const [index, chunk] of timedChunks.entries()) {
+        const handle = window.setTimeout(() => {
+          if (closed) {
+            return
+          }
+          controller.enqueue(encoder.encode(chunk.chunk))
+          if (index === timedChunks.length - 1) {
+            closeSafely()
+          }
+        }, chunk.atMs)
+        scheduled.push(handle)
+      }
+    },
+  })
+}
+
+function createTimedEventStream(events: TimedSSEEvent[], signal?: AbortSignal) {
+  const scheduled: number[] = []
+
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      let closed = false
+
+      const closeSafely = () => {
+        if (closed) {
+          return
+        }
+        closed = true
+        controller.close()
+      }
+
+      const abortStream = () => {
+        for (const handle of scheduled) {
+          window.clearTimeout(handle)
+        }
+        if (closed) {
+          return
+        }
+        closed = true
+        controller.error(new DOMException('Aborted', 'AbortError'))
+      }
+
+      signal?.addEventListener('abort', abortStream, { once: true })
+
+      const timedChunks = buildTimedChunksFromEvents(events)
       for (const [index, chunk] of timedChunks.entries()) {
         const handle = window.setTimeout(() => {
           if (closed) {
@@ -362,6 +417,105 @@ describe('HarnessAiSidebar long streaming', () => {
     })
     expect(turnIndex).toBe(2)
     expect(abortedTurns.map((turn) => turn.value)).toEqual([false, false])
+    expect(toastError).not.toHaveBeenCalled()
+  })
+
+  it('renders a structured diff card when the stream sends prose followed by a diff event', async () => {
+    vi.useFakeTimers()
+
+    const streamEvents: TimedSSEEvent[] = [
+      {
+        atMs: 0,
+        event: 'session',
+        payload: { session_id: 'session-harness-regression-1' },
+      },
+      {
+        atMs: 10,
+        event: 'message',
+        payload: {
+          type: 'text',
+          content: '我先按当前 Harness 和项目状态拓扑定位可改位置，直接给可应用的结构化 diff。',
+        },
+      },
+      {
+        atMs: 20,
+        event: 'message',
+        payload: {
+          type: 'diff',
+          file: 'harness content',
+          hunks: [
+            {
+              old_start: 6,
+              old_lines: 1,
+              new_start: 6,
+              new_lines: 1,
+              lines: [
+                { op: 'remove', text: 'Write clean, tested code.' },
+                { op: 'add', text: 'Write clean, tested code and require a PR URL before Done.' },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        atMs: 30,
+        event: 'done',
+        payload: {
+          session_id: 'session-harness-regression-1',
+          turns_used: 1,
+          turns_remaining: 9,
+        },
+      },
+    ]
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+        const method = init?.method ?? 'GET'
+        if (method === 'POST' && url === '/api/v1/chat') {
+          return new Response(createTimedEventStream(streamEvents, init?.signal ?? undefined), {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream' },
+          })
+        }
+
+        if (method === 'DELETE' && url.startsWith('/api/v1/chat/')) {
+          return new Response(null, { status: 204 })
+        }
+
+        throw new Error(`Unexpected fetch request: ${method} ${url}`)
+      }),
+    )
+
+    const { container, getByPlaceholderText, findByText } = render(HarnessAiSidebar, {
+      props: {
+        projectId: 'project-1',
+        workflowId: 'workflow-1',
+        providers: providerFixtures,
+        draftContent: harnessContent,
+      },
+    })
+
+    const prompt = getByPlaceholderText('Ask AI to refine this harness…')
+    await fireEvent.input(prompt, {
+      target: { value: '要求这个产品经理在 Done 前必须 commit push 并开 PR。' },
+    })
+    await fireEvent.keyDown(prompt, { key: 'Enter' })
+
+    await vi.advanceTimersByTimeAsync(100)
+    await flushDom()
+
+    expect(
+      await findByText(
+        '我先按当前 Harness 和项目状态拓扑定位可改位置，直接给可应用的结构化 diff。',
+      ),
+    ).toBeTruthy()
+    expect(await findByText('Structured Diff')).toBeTruthy()
+    expect(await findByText('Apply')).toBeTruthy()
+    expect(container.textContent).not.toContain('{"type":"diff"')
+    expect(container.textContent).not.toContain('"hunks"')
     expect(toastError).not.toHaveBeenCalled()
   })
 })

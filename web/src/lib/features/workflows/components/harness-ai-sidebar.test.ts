@@ -241,4 +241,68 @@ describe('HarnessAiSidebar', () => {
       expect(document.body.textContent).toContain('Applied')
     })
   })
+
+  it('dismisses the current suggestion without applying it', async () => {
+    streamChatTurn.mockImplementation(async (_request, handlers) => {
+      handlers.onEvent({
+        kind: 'session',
+        payload: { sessionId: 'session-harness-dismiss-1' },
+      })
+      handlers.onEvent({
+        kind: 'message',
+        payload: {
+          type: 'diff',
+          file: 'harness content',
+          hunks: [
+            {
+              oldStart: 6,
+              oldLines: 1,
+              newStart: 6,
+              newLines: 1,
+              lines: [
+                { op: 'remove', text: 'Write clean, tested code.' },
+                { op: 'add', text: 'Write clean, tested code with guardrails.' },
+              ],
+            },
+          ],
+        },
+      })
+      handlers.onEvent({
+        kind: 'done',
+        payload: {
+          sessionId: 'session-harness-dismiss-1',
+          turnsUsed: 1,
+          turnsRemaining: 9,
+        },
+      })
+    })
+
+    const appliedSuggestions: string[] = []
+
+    const { getByPlaceholderText, getByRole, findByText, queryByText } = render(HarnessAiSidebar, {
+      props: {
+        projectId: 'project-1',
+        workflowId: 'workflow-1',
+        providers: providerFixtures,
+        draftContent: harnessContent,
+        onApplySuggestion: (content: string) => appliedSuggestions.push(content),
+      },
+    })
+
+    const prompt = getByPlaceholderText('Ask AI to refine this harness…')
+    await fireEvent.input(prompt, {
+      target: { value: 'Tighten this harness.' },
+    })
+    await fireEvent.keyDown(prompt, { key: 'Enter' })
+
+    expect(await findByText('Apply')).toBeTruthy()
+
+    await fireEvent.click(getByRole('button', { name: 'Dismiss suggestion' }))
+
+    await waitFor(() => {
+      expect(queryByText('Apply')).toBeNull()
+      expect(queryByText('Dismiss suggestion')).toBeNull()
+    })
+    expect(appliedSuggestions).toEqual([])
+  })
 })

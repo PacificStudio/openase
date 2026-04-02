@@ -115,9 +115,10 @@
   }
 
   function handleApply() {
-    if (!suggestion) return
-    onApplySuggestion?.(suggestion.content)
-    appliedFingerprint = fingerprintSuggestion(suggestion.content)
+    const currentSuggestion = suggestion
+    if (!currentSuggestion) return
+    onApplySuggestion?.(currentSuggestion.content)
+    appliedFingerprint = fingerprintSuggestion(currentSuggestion.content)
   }
 
   function handlePromptKeydown(event: KeyboardEvent) {
