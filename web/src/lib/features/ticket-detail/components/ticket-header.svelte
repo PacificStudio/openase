@@ -159,7 +159,7 @@
     </button>
     <Select.Root type="single" value={ticket.status.id} onValueChange={handleStatusChange}>
       <Select.Trigger
-        class="h-4.5 shrink-0 gap-1 rounded-full border px-1.5 py-0 text-[10px] leading-none font-medium shadow-none [&_svg]:size-3"
+        class="h-4 shrink-0 gap-0.5 rounded-full border px-1.5 py-0 pr-1 text-[10px] leading-none font-medium shadow-none [&_svg]:!size-2.5"
         disabled={savingFields}
         style="background-color: {ticket.status.color}20; color: {ticket.status
           .color}; border-color: {ticket.status.color}30"

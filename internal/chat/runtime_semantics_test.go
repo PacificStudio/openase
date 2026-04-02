@@ -106,6 +106,42 @@ func TestMapCodexAssistantOutputPromotesDiffFromSnapshot(t *testing.T) {
 	}
 }
 
+func TestMapCodexAssistantOutputPromotesTrailingDiffAfterStreamingProse(t *testing.T) {
+	items := make(map[string]*codexAssistantItemState)
+
+	events := mapCodexAssistantOutput(&codexadapter.OutputEvent{
+		ItemID: "item-1",
+		Stream: "assistant",
+		Text:   "我先按当前 Harness 和项目状态拓扑定位可改位置，直接给可应用的结构化 diff。",
+	}, items)
+	if len(events) != 1 {
+		t.Fatalf("first assistant delta should emit prose text, got %+v", events)
+	}
+
+	text, ok := events[0].Payload.(textPayload)
+	if !ok || !strings.Contains(text.Content, "结构化 diff") {
+		t.Fatalf("first payload = %#v, want explanatory prose text", events[0].Payload)
+	}
+
+	events = mapCodexAssistantOutput(&codexadapter.OutputEvent{
+		ItemID:   "item-1",
+		Stream:   "assistant",
+		Text:     "我先按当前 Harness 和项目状态拓扑定位可改位置，直接给可应用的结构化 diff。{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"---\"},{\"op\":\"add\",\"text\":\"new line\"}]}]}{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"---\"},{\"op\":\"add\",\"text\":\"new line\"}]}]}",
+		Snapshot: true,
+	}, items)
+	if len(events) != 1 {
+		t.Fatalf("snapshot should emit one structured diff supplement, got %+v", events)
+	}
+
+	payload, ok := events[0].Payload.(diffPayload)
+	if !ok {
+		t.Fatalf("snapshot payload = %#v, want diff payload", events[0].Payload)
+	}
+	if payload.Type != chatMessageTypeDiff || payload.File != "harness content" {
+		t.Fatalf("unexpected diff payload: %#v", payload)
+	}
+}
+
 func TestGeminiRuntimeStartTurnPromotesActionProposalJSON(t *testing.T) {
 	stdin := &trackingWriteCloser{}
 	manager := &fakeAgentCLIProcessManager{

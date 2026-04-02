@@ -19,6 +19,7 @@
   import { GripVertical } from '@lucide/svelte'
   import SkillAiSidebar from './skill-ai-sidebar.svelte'
   import SkillEditorHeader from './skill-editor-header.svelte'
+  import SkillMetadataBar from './skill-metadata-bar.svelte'
   import {
     formatBytes,
     loadSkillEditorData,
@@ -56,7 +57,6 @@
   let loading = $state(true)
   let busy = $state(false)
   let editDescription = $state('')
-  let metadataOpen = $state(true)
   let showAssistant = $state(false)
   let assistantWidth = $state(340)
   let dragging = $state(false)
@@ -595,28 +595,7 @@
         </div>
       </div>
 
-      <!-- Skeleton metadata panel -->
-      <aside class="border-border w-64 shrink-0 border-l p-3">
-        <div class="space-y-4">
-          <div class="space-y-1.5">
-            <Skeleton class="h-3 w-20" />
-            <Skeleton class="h-8 w-full rounded-md" />
-          </div>
-          <div class="space-y-1.5">
-            <Skeleton class="h-3 w-10" />
-            <Skeleton class="h-3 w-24" />
-            <Skeleton class="h-3 w-20" />
-            <Skeleton class="h-3 w-32" />
-          </div>
-          <div class="space-y-1.5">
-            <Skeleton class="h-3 w-16" />
-            <div class="flex flex-wrap gap-1">
-              <Skeleton class="h-6 w-20 rounded-md" />
-              <Skeleton class="h-6 w-24 rounded-md" />
-            </div>
-          </div>
-        </div>
-      </aside>
+      <!-- (metadata is now an inline bar, no skeleton sidebar needed) -->
     </div>
 
     <!-- Skeleton status bar -->
@@ -635,15 +614,22 @@
       {skill}
       {busy}
       {hasDirtyChanges}
-      {metadataOpen}
+      {history}
       assistantOpen={showAssistant}
       assistantDisabled={!selectedFileIsText && !showAssistant}
       onNavigateBack={navigateBack}
       onSave={() => void handleSave()}
       onToggleEnabled={() => void handleToggleEnabled()}
       onDelete={() => void handleDelete()}
-      onToggleMetadata={() => (metadataOpen = !metadataOpen)}
       onToggleAssistant={() => (showAssistant = !showAssistant)}
+    />
+
+    <SkillMetadataBar
+      {skill}
+      {workflows}
+      {busy}
+      bind:editDescription
+      onToggleBinding={handleWorkflowBinding}
     />
 
     <div class="flex min-h-0 flex-1 overflow-hidden">
@@ -657,13 +643,7 @@
           {dirtyPaths}
           {selectedFile}
           {activeContent}
-          {skill}
-          {workflows}
-          {history}
-          {busy}
-          {metadataOpen}
           {pendingCreate}
-          bind:editDescription
           onSelectTreeNode={selectTreeNode}
           onCreateFile={handleCreateFile}
           onCreateFolder={handleCreateFolder}
@@ -674,7 +654,6 @@
           onSelectTab={(path) => selectFile(path)}
           onCloseTab={closeTab}
           onContentChange={handleContentChange}
-          onToggleBinding={handleWorkflowBinding}
         />
       </div>
 
