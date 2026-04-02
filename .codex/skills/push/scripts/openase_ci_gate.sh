@@ -6,7 +6,8 @@ usage() {
 Usage: openase_ci_gate.sh [--plan] [--base-rev <rev>]
 
 Mirrors .github/workflows/ci.yml for the current branch:
-- always runs make openapi-check
+- runs make openapi-check-ci when openapi_check_changed=true
+- runs make frontend-api-audit-check when frontend_api_audit_changed=true
 - runs frontend CI when web_changed=true
 - runs backend formatting, tests, coverage gates, and Go lint checks when go_changed=true
 EOF
@@ -106,21 +107,36 @@ mapfile -t changed_files < <(git diff --name-only "${BASE_REV}"...HEAD)
 
 go_changed=false
 web_changed=false
+openapi_check_changed=false
+frontend_api_audit_changed=false
 
 for file in "${changed_files[@]}"; do
   case "${file}" in
     .github/workflows/*)
       go_changed=true
       web_changed=true
+      openapi_check_changed=true
       ;;
-    *.go|go.mod|go.sum|Makefile|.golangci.yml|.golangci.yaml|api/*)
+    *.go|go.mod|go.sum|api/*)
       go_changed=true
+      openapi_check_changed=true
+      ;;
+    Makefile)
+      go_changed=true
+      openapi_check_changed=true
       ;;
     scripts/ci/*)
       go_changed=true
       ;;
     web/*)
       web_changed=true
+      frontend_api_audit_changed=true
+      ;;
+    scripts/dev/audit_frontend_api_usage.py|scripts/dev/frontend_api_audit_ignores.json)
+      frontend_api_audit_changed=true
+      ;;
+    .golangci.yml|.golangci.yaml)
+      go_changed=true
       ;;
   esac
 done
@@ -130,12 +146,20 @@ if [[ "${#changed_files[@]}" -eq 0 ]]; then
   printf 'Changed files:\n  (none)\n'
 else
   printf 'Changed files:\n'
-  printf '  %s\n' "${changed_files[@]}"
+printf '  %s\n' "${changed_files[@]}"
 fi
 printf 'go_changed=%s\n' "${go_changed}"
 printf 'web_changed=%s\n' "${web_changed}"
+printf 'openapi_check_changed=%s\n' "${openapi_check_changed}"
+printf 'frontend_api_audit_changed=%s\n' "${frontend_api_audit_changed}"
 
-run_cmd make openapi-check
+if [[ "${openapi_check_changed}" == "true" ]]; then
+  run_cmd make openapi-check-ci
+fi
+
+if [[ "${frontend_api_audit_changed}" == "true" ]]; then
+  run_cmd make frontend-api-audit-check
+fi
 
 if [[ "${web_changed}" == "true" ]]; then
   run_cmd make web-install

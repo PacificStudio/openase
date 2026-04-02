@@ -48,16 +48,6 @@ func focusTicket(focus *ProjectConversationFocus) *ProjectConversationTicketFocu
 	return focus.Ticket
 }
 
-func projectConversationRuntimeTicketID(
-	conversationID uuid.UUID,
-	focus *ProjectConversationFocus,
-) uuid.UUID {
-	if ticketFocus := focusTicket(focus); ticketFocus != nil {
-		return ticketFocus.ID
-	}
-	return conversationID
-}
-
 func (s *ProjectConversationService) renderProjectConversationTicketCapsule(
 	ctx context.Context,
 	project catalogdomain.Project,

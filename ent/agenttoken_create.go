@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/agent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
+	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/google/uuid"
@@ -30,6 +31,14 @@ func (_c *AgentTokenCreate) SetAgentID(v uuid.UUID) *AgentTokenCreate {
 	return _c
 }
 
+// SetNillableAgentID sets the "agent_id" field if the given value is not nil.
+func (_c *AgentTokenCreate) SetNillableAgentID(v *uuid.UUID) *AgentTokenCreate {
+	if v != nil {
+		_c.SetAgentID(*v)
+	}
+	return _c
+}
+
 // SetProjectID sets the "project_id" field.
 func (_c *AgentTokenCreate) SetProjectID(v uuid.UUID) *AgentTokenCreate {
 	_c.mutation.SetProjectID(v)
@@ -39,6 +48,46 @@ func (_c *AgentTokenCreate) SetProjectID(v uuid.UUID) *AgentTokenCreate {
 // SetTicketID sets the "ticket_id" field.
 func (_c *AgentTokenCreate) SetTicketID(v uuid.UUID) *AgentTokenCreate {
 	_c.mutation.SetTicketID(v)
+	return _c
+}
+
+// SetNillableTicketID sets the "ticket_id" field if the given value is not nil.
+func (_c *AgentTokenCreate) SetNillableTicketID(v *uuid.UUID) *AgentTokenCreate {
+	if v != nil {
+		_c.SetTicketID(*v)
+	}
+	return _c
+}
+
+// SetConversationID sets the "conversation_id" field.
+func (_c *AgentTokenCreate) SetConversationID(v uuid.UUID) *AgentTokenCreate {
+	_c.mutation.SetConversationID(v)
+	return _c
+}
+
+// SetNillableConversationID sets the "conversation_id" field if the given value is not nil.
+func (_c *AgentTokenCreate) SetNillableConversationID(v *uuid.UUID) *AgentTokenCreate {
+	if v != nil {
+		_c.SetConversationID(*v)
+	}
+	return _c
+}
+
+// SetPrincipalKind sets the "principal_kind" field.
+func (_c *AgentTokenCreate) SetPrincipalKind(v agenttoken.PrincipalKind) *AgentTokenCreate {
+	_c.mutation.SetPrincipalKind(v)
+	return _c
+}
+
+// SetPrincipalID sets the "principal_id" field.
+func (_c *AgentTokenCreate) SetPrincipalID(v uuid.UUID) *AgentTokenCreate {
+	_c.mutation.SetPrincipalID(v)
+	return _c
+}
+
+// SetPrincipalName sets the "principal_name" field.
+func (_c *AgentTokenCreate) SetPrincipalName(v string) *AgentTokenCreate {
+	_c.mutation.SetPrincipalName(v)
 	return _c
 }
 
@@ -117,6 +166,11 @@ func (_c *AgentTokenCreate) SetTicket(v *Ticket) *AgentTokenCreate {
 	return _c.SetTicketID(v.ID)
 }
 
+// SetConversation sets the "conversation" edge to the ChatConversation entity.
+func (_c *AgentTokenCreate) SetConversation(v *ChatConversation) *AgentTokenCreate {
+	return _c.SetConversationID(v.ID)
+}
+
 // Mutation returns the AgentTokenMutation object of the builder.
 func (_c *AgentTokenCreate) Mutation() *AgentTokenMutation {
 	return _c.mutation
@@ -168,14 +222,27 @@ func (_c *AgentTokenCreate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_c *AgentTokenCreate) check() error {
-	if _, ok := _c.mutation.AgentID(); !ok {
-		return &ValidationError{Name: "agent_id", err: errors.New(`ent: missing required field "AgentToken.agent_id"`)}
-	}
 	if _, ok := _c.mutation.ProjectID(); !ok {
 		return &ValidationError{Name: "project_id", err: errors.New(`ent: missing required field "AgentToken.project_id"`)}
 	}
-	if _, ok := _c.mutation.TicketID(); !ok {
-		return &ValidationError{Name: "ticket_id", err: errors.New(`ent: missing required field "AgentToken.ticket_id"`)}
+	if _, ok := _c.mutation.PrincipalKind(); !ok {
+		return &ValidationError{Name: "principal_kind", err: errors.New(`ent: missing required field "AgentToken.principal_kind"`)}
+	}
+	if v, ok := _c.mutation.PrincipalKind(); ok {
+		if err := agenttoken.PrincipalKindValidator(v); err != nil {
+			return &ValidationError{Name: "principal_kind", err: fmt.Errorf(`ent: validator failed for field "AgentToken.principal_kind": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.PrincipalID(); !ok {
+		return &ValidationError{Name: "principal_id", err: errors.New(`ent: missing required field "AgentToken.principal_id"`)}
+	}
+	if _, ok := _c.mutation.PrincipalName(); !ok {
+		return &ValidationError{Name: "principal_name", err: errors.New(`ent: missing required field "AgentToken.principal_name"`)}
+	}
+	if v, ok := _c.mutation.PrincipalName(); ok {
+		if err := agenttoken.PrincipalNameValidator(v); err != nil {
+			return &ValidationError{Name: "principal_name", err: fmt.Errorf(`ent: validator failed for field "AgentToken.principal_name": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.TokenHash(); !ok {
 		return &ValidationError{Name: "token_hash", err: errors.New(`ent: missing required field "AgentToken.token_hash"`)}
@@ -194,14 +261,8 @@ func (_c *AgentTokenCreate) check() error {
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "AgentToken.created_at"`)}
 	}
-	if len(_c.mutation.AgentIDs()) == 0 {
-		return &ValidationError{Name: "agent", err: errors.New(`ent: missing required edge "AgentToken.agent"`)}
-	}
 	if len(_c.mutation.ProjectIDs()) == 0 {
 		return &ValidationError{Name: "project", err: errors.New(`ent: missing required edge "AgentToken.project"`)}
-	}
-	if len(_c.mutation.TicketIDs()) == 0 {
-		return &ValidationError{Name: "ticket", err: errors.New(`ent: missing required edge "AgentToken.ticket"`)}
 	}
 	return nil
 }
@@ -238,6 +299,18 @@ func (_c *AgentTokenCreate) createSpec() (*AgentToken, *sqlgraph.CreateSpec) {
 		_node.ID = id
 		_spec.ID.Value = &id
 	}
+	if value, ok := _c.mutation.PrincipalKind(); ok {
+		_spec.SetField(agenttoken.FieldPrincipalKind, field.TypeEnum, value)
+		_node.PrincipalKind = value
+	}
+	if value, ok := _c.mutation.PrincipalID(); ok {
+		_spec.SetField(agenttoken.FieldPrincipalID, field.TypeUUID, value)
+		_node.PrincipalID = value
+	}
+	if value, ok := _c.mutation.PrincipalName(); ok {
+		_spec.SetField(agenttoken.FieldPrincipalName, field.TypeString, value)
+		_node.PrincipalName = value
+	}
 	if value, ok := _c.mutation.TokenHash(); ok {
 		_spec.SetField(agenttoken.FieldTokenHash, field.TypeString, value)
 		_node.TokenHash = value
@@ -272,7 +345,7 @@ func (_c *AgentTokenCreate) createSpec() (*AgentToken, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.AgentID = nodes[0]
+		_node.AgentID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.ProjectIDs(); len(nodes) > 0 {
@@ -306,7 +379,24 @@ func (_c *AgentTokenCreate) createSpec() (*AgentToken, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.TicketID = nodes[0]
+		_node.TicketID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.ConversationIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   agenttoken.ConversationTable,
+			Columns: []string{agenttoken.ConversationColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatconversation.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.ConversationID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

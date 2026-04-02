@@ -158,7 +158,17 @@ test.describe('workflow editor layout', () => {
       },
     })
 
-    await skillsButton.click()
+    const commitToggle = page
+      .getByRole('button', { name: /^commit\b/i })
+      .filter({ has: page.getByTitle('Unbind skill') })
+      .first()
+      .getByTitle('Unbind skill')
+
+    if (!(await commitToggle.isVisible())) {
+      await skillsButton.click()
+    }
+
+    await expect(commitToggle).toBeVisible()
 
     // Unbind the bound skill
     await measureFeedback({
@@ -167,7 +177,7 @@ test.describe('workflow editor layout', () => {
       ready: page.getByText('Unbound commit.'),
       testInfo,
       action: async () => {
-        await commitRow().getByTitle('Unbind skill').click()
+        await commitToggle.click()
       },
     })
   })

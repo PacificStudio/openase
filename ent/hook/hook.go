@@ -213,6 +213,54 @@ func (f ProjectFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, err
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectMutation", m)
 }
 
+// The ProjectConversationPrincipalFunc type is an adapter to allow the use of ordinary
+// function as ProjectConversationPrincipal mutator.
+type ProjectConversationPrincipalFunc func(context.Context, *ent.ProjectConversationPrincipalMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ProjectConversationPrincipalFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ProjectConversationPrincipalMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectConversationPrincipalMutation", m)
+}
+
+// The ProjectConversationRunFunc type is an adapter to allow the use of ordinary
+// function as ProjectConversationRun mutator.
+type ProjectConversationRunFunc func(context.Context, *ent.ProjectConversationRunMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ProjectConversationRunFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ProjectConversationRunMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectConversationRunMutation", m)
+}
+
+// The ProjectConversationStepEventFunc type is an adapter to allow the use of ordinary
+// function as ProjectConversationStepEvent mutator.
+type ProjectConversationStepEventFunc func(context.Context, *ent.ProjectConversationStepEventMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ProjectConversationStepEventFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ProjectConversationStepEventMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectConversationStepEventMutation", m)
+}
+
+// The ProjectConversationTraceEventFunc type is an adapter to allow the use of ordinary
+// function as ProjectConversationTraceEvent mutator.
+type ProjectConversationTraceEventFunc func(context.Context, *ent.ProjectConversationTraceEventMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ProjectConversationTraceEventFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ProjectConversationTraceEventMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectConversationTraceEventMutation", m)
+}
+
 // The ProjectRepoFunc type is an adapter to allow the use of ordinary
 // function as ProjectRepo mutator.
 type ProjectRepoFunc func(context.Context, *ent.ProjectRepoMutation) (ent.Value, error)

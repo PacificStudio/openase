@@ -12,9 +12,10 @@ import {
 } from './ephemeral-chat-session-state'
 import { describeTurnFailure } from './ephemeral-chat-turn-failure'
 import {
-  listEphemeralChatProviders,
-  pickDefaultEphemeralChatProvider,
-  shouldKeepEphemeralChatProvider,
+  listProviderCapabilityProviders,
+  pickDefaultProviderCapability,
+  shouldKeepProviderCapability,
+  type ProviderCapabilityName,
 } from './provider-options'
 import { isAbortError, isActionProposalEntry } from './transcript'
 
@@ -30,6 +31,7 @@ type EphemeralChatContext = {
 
 type CreateEphemeralChatSessionControllerInput = {
   getSource: () => ChatSource
+  capability?: ProviderCapabilityName
   onError?: (message: string) => void
 }
 
@@ -38,6 +40,7 @@ type CloseSessionOptions = { clearEntries: boolean; suppressError?: boolean }
 export function createEphemeralChatSessionController(
   input: CreateEphemeralChatSessionControllerInput,
 ) {
+  const capability = input.capability ?? 'ephemeral_chat'
   let providers = $state<AgentProvider[]>([])
   let providerId = $state('')
   const state = $state<EphemeralChatSessionState>({
@@ -96,11 +99,11 @@ export function createEphemeralChatSessionController(
       )
     },
     syncProviders(nextProviders: AgentProvider[], defaultProviderId: string | null | undefined) {
-      providers = listEphemeralChatProviders(nextProviders)
-      if (shouldKeepEphemeralChatProvider(providers, providerId)) {
+      providers = listProviderCapabilityProviders(nextProviders, capability)
+      if (shouldKeepProviderCapability(providers, providerId, capability)) {
         return
       }
-      const nextProviderId = pickDefaultEphemeralChatProvider(providers, defaultProviderId)
+      const nextProviderId = pickDefaultProviderCapability(providers, defaultProviderId, capability)
       if (providerId && providerId !== nextProviderId) {
         void closeActiveSession({ clearEntries: true, suppressError: true })
       }

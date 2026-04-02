@@ -5,11 +5,13 @@ test('agents providers and registration remain responsive', async ({
   page,
   projectPath,
 }, testInfo) => {
+  const configureProviderButton = page.getByRole('button', { name: 'Configure provider' }).first()
+
   await measureNavigation({
     page,
     scenario: 'agent_settings_page_ready',
     budgetMs: 800,
-    ready: page.getByRole('button', { name: 'Configure' }).first(),
+    ready: configureProviderButton,
     testInfo,
     action: async () => {
       await page.goto(`${projectPath('settings')}#agents`)
@@ -17,7 +19,7 @@ test('agents providers and registration remain responsive', async ({
   })
 
   await expect(page).toHaveURL(/\/settings#agents$/)
-  await expect(page.getByRole('button', { name: 'Configure' }).first()).toBeVisible()
+  await expect(configureProviderButton).toBeVisible()
 
   await measureFeedback({
     scenario: 'provider_config_drawer_open',
@@ -25,7 +27,7 @@ test('agents providers and registration remain responsive', async ({
     ready: page.getByTestId('provider-config-sheet'),
     testInfo,
     action: async () => {
-      await page.getByRole('button', { name: 'Configure' }).first().click()
+      await configureProviderButton.click()
     },
   })
 

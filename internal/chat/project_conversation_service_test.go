@@ -334,6 +334,8 @@ func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *t
 	t.Parallel()
 
 	ctx := context.Background()
+	client := openTestEntClient(t)
+	repo := chatrepo.NewEntRepository(client)
 	projectID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
 	conversationID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440000")
 	providerID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440000")
@@ -342,7 +344,7 @@ func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *t
 
 	service := NewProjectConversationService(
 		nil,
-		nil,
+		repo,
 		fakeProjectConversationCatalog{
 			fakeCatalogReader: fakeCatalogReader{
 				project: catalogdomain.Project{
@@ -399,8 +401,14 @@ func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *t
 	if !containsEnvironmentPrefix(environment, "OPENASE_TICKET_ID="+ticketID.String()) {
 		t.Fatalf("expected OPENASE_TICKET_ID in environment, got %+v", environment)
 	}
-	if platform.lastInput.TicketID != ticketID {
-		t.Fatalf("expected project conversation token to bind the focused ticket, got %+v", platform.lastInput)
+	if platform.lastInput.PrincipalKind != agentplatform.PrincipalKindProjectConversation {
+		t.Fatalf("expected project conversation principal token, got %+v", platform.lastInput)
+	}
+	if platform.lastInput.PrincipalID != conversationID || platform.lastInput.ConversationID != conversationID {
+		t.Fatalf("unexpected principal ids: %+v", platform.lastInput)
+	}
+	if platform.lastInput.AgentID != uuid.Nil || platform.lastInput.TicketID != uuid.Nil {
+		t.Fatalf("project conversation token should not carry agent/ticket ids: %+v", platform.lastInput)
 	}
 
 	platform.lastInput = agentplatform.IssueInput{}
@@ -408,8 +416,14 @@ func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *t
 	if containsEnvironmentPrefix(environment, "OPENASE_TICKET_ID=") {
 		t.Fatalf("did not expect OPENASE_TICKET_ID without ticket focus, got %+v", environment)
 	}
-	if platform.lastInput.TicketID != conversationID {
-		t.Fatalf("expected non-ticket conversation token to fall back to conversation id, got %+v", platform.lastInput)
+	if platform.lastInput.PrincipalKind != agentplatform.PrincipalKindProjectConversation {
+		t.Fatalf("expected project conversation principal token without ticket focus, got %+v", platform.lastInput)
+	}
+	if platform.lastInput.PrincipalID != conversationID || platform.lastInput.ConversationID != conversationID {
+		t.Fatalf("unexpected non-ticket principal ids: %+v", platform.lastInput)
+	}
+	if platform.lastInput.AgentID != uuid.Nil || platform.lastInput.TicketID != uuid.Nil {
+		t.Fatalf("non-ticket project conversation token should not carry agent/ticket ids: %+v", platform.lastInput)
 	}
 }
 
@@ -1410,7 +1424,7 @@ func TestProjectConversationConsumeTurnPersistsProviderTurnIDOnCompletion(t *tes
 		},
 	}
 
-	service.consumeTurn(ctx, conversation.ID, turn, live, TurnStream{Events: events})
+	service.consumeTurn(ctx, conversation.ID, turn, live, chatdomain.ProjectConversationRun{}, TurnStream{Events: events})
 
 	reloadedTurn, err := client.ChatTurn.Get(ctx, turn.ID)
 	if err != nil {
@@ -1475,7 +1489,7 @@ func TestProjectConversationConsumeTurnMarksInterruptedStatus(t *testing.T) {
 		},
 	}
 
-	service.consumeTurn(ctx, conversation.ID, turn, live, TurnStream{Events: events})
+	service.consumeTurn(ctx, conversation.ID, turn, live, chatdomain.ProjectConversationRun{}, TurnStream{Events: events})
 
 	reloadedTurn, err := repoStore.GetConversation(ctx, conversation.ID)
 	if err != nil {
@@ -2130,7 +2144,7 @@ func TestProjectConversationConsumeTurnPersistsThreadStatusAndProtocolEvents(t *
 		},
 	}
 
-	service.consumeTurn(ctx, conversation.ID, turn, live, TurnStream{Events: streamEvents})
+	service.consumeTurn(ctx, conversation.ID, turn, live, chatdomain.ProjectConversationRun{}, TurnStream{Events: streamEvents})
 	cleanup()
 
 	reloadedConversation, err := repoStore.GetConversation(ctx, conversation.ID)
@@ -2225,7 +2239,7 @@ func TestProjectConversationConsumeTurnPersistsInterruptAndSummary(t *testing.T)
 	}
 	close(streamEvents)
 
-	service.consumeTurn(ctx, conversation.ID, turn, &liveProjectConversation{}, TurnStream{Events: streamEvents})
+	service.consumeTurn(ctx, conversation.ID, turn, &liveProjectConversation{}, chatdomain.ProjectConversationRun{}, TurnStream{Events: streamEvents})
 	cleanup()
 
 	pending, err := repo.ListPendingInterrupts(ctx, conversation.ID)
@@ -2630,7 +2644,8 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 		processManager,
 		nil,
 	)
-	service.ConfigurePlatformEnvironment("http://127.0.0.1:19836/api/v1/platform", fakeProjectConversationAgentPlatform{})
+	platform := &fakeProjectConversationAgentPlatform{}
+	service.ConfigurePlatformEnvironment("http://127.0.0.1:19836/api/v1/platform", platform)
 
 	if _, err := service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Inspect the project", nil); err != nil {
 		t.Fatalf("start conversation turn: %v", err)
@@ -2670,6 +2685,69 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 	}
 	if !containsEnvironmentPrefix(environment, "OPENASE_PROJECT_ID="+project.ID.String()) {
 		t.Fatalf("expected OPENASE_PROJECT_ID in environment, got %+v", environment)
+	}
+	if !containsEnvironmentPrefix(environment, "OPENASE_CONVERSATION_ID="+conversation.ID.String()) {
+		t.Fatalf("expected OPENASE_CONVERSATION_ID in environment, got %+v", environment)
+	}
+	if platform.lastInput.PrincipalKind != agentplatform.PrincipalKindProjectConversation {
+		t.Fatalf("expected project conversation principal token, got %+v", platform.lastInput)
+	}
+	if platform.lastInput.PrincipalID != conversation.ID || platform.lastInput.ConversationID != conversation.ID {
+		t.Fatalf("unexpected principal ids: %+v", platform.lastInput)
+	}
+	if platform.lastInput.AgentID != uuid.Nil || platform.lastInput.TicketID != uuid.Nil {
+		t.Fatalf("project conversation token should not carry agent/ticket ids: %+v", platform.lastInput)
+	}
+}
+
+func TestProjectConversationCreateConversationPersistsPrincipalWithoutSyntheticAgent(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	catalog := fakeProjectConversationCatalog{
+		fakeCatalogReader: fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             project.ID,
+				OrganizationID: org.ID,
+				Name:           "OpenASE",
+				Slug:           "openase",
+			},
+			providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+				providerID: {
+					ID:             providerID,
+					OrganizationID: org.ID,
+					MachineID:      machineID,
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+					CliCommand:     "gemini",
+				},
+			},
+		},
+	}
+	service := NewProjectConversationService(nil, chatrepo.NewEntRepository(client), catalog, fakeTicketReader{}, nil, nil, nil)
+
+	conversation, err := service.CreateConversation(ctx, UserID("user:conversation"), project.ID, providerID)
+	if err != nil {
+		t.Fatalf("CreateConversation() error = %v", err)
+	}
+
+	principal, err := client.ProjectConversationPrincipal.Get(ctx, conversation.ID)
+	if err != nil {
+		t.Fatalf("load project conversation principal: %v", err)
+	}
+	if principal.ConversationID != conversation.ID || principal.ProjectID != project.ID || principal.Name != projectConversationPrincipalName(conversation.ID) {
+		t.Fatalf("unexpected principal row: %+v", principal)
+	}
+	agentCount, err := client.Agent.Query().Count(ctx)
+	if err != nil {
+		t.Fatalf("count agents: %v", err)
+	}
+	if agentCount != 0 {
+		t.Fatalf("expected no synthetic agents, found %d", agentCount)
 	}
 }
 
@@ -3046,12 +3124,15 @@ func (fakeProjectConversationWorkflowSync) RefreshSkills(
 	}, nil
 }
 
-type fakeProjectConversationAgentPlatform struct{}
+type fakeProjectConversationAgentPlatform struct {
+	lastInput agentplatform.IssueInput
+}
 
-func (fakeProjectConversationAgentPlatform) IssueToken(
-	context.Context,
-	agentplatform.IssueInput,
+func (p *fakeProjectConversationAgentPlatform) IssueToken(
+	_ context.Context,
+	input agentplatform.IssueInput,
 ) (agentplatform.IssuedToken, error) {
+	p.lastInput = input
 	return agentplatform.IssuedToken{Token: "project-conversation-placeholder"}, nil
 }
 
