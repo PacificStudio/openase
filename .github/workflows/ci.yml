@@ -136,7 +136,13 @@ jobs:
       - name: Check Out Repository
         uses: actions/checkout@v5
         with:
-          clean: true
+          clean: false
+
+      - name: Reset Web Workspace
+        shell: bash
+        run: |
+          git restore --source=HEAD --staged --worktree -- .
+          git clean -ffd .
 
       - name: Set Up pnpm
         uses: pnpm/action-setup@v4
