@@ -18,6 +18,7 @@ import (
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	ticketingdomain "github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/google/uuid"
 	"github.com/nikolalohinski/gonja/v2"
 	"github.com/nikolalohinski/gonja/v2/exec"
@@ -344,8 +345,8 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 		renderTime = time.Now().UTC()
 	}
 
-	scopedRepos, repoBranchByID := mapHarnessScopedRepos(ticketItem.Edges.RepoScopes, workspace)
-	allRepos := mapHarnessAllRepos(projectItem.Edges.Repos, repoBranchByID, workspace)
+	scopedRepos, repoBranchByID := mapHarnessScopedRepos(ticketItem.Identifier, ticketItem.Edges.RepoScopes, workspace)
+	allRepos := mapHarnessAllRepos(ticketItem.Identifier, projectItem.Edges.Repos, repoBranchByID, workspace)
 	projectWorkflows, err := s.mapHarnessProjectWorkflows(ctx, projectItem.Edges.Workflows)
 	if err != nil {
 		return HarnessTemplateData{}, err
@@ -680,7 +681,7 @@ func (d HarnessTemplateData) contextMap() map[string]any {
 	}
 }
 
-func mapHarnessScopedRepos(scopes []*ent.TicketRepoScope, workspace string) ([]HarnessRepoData, map[uuid.UUID]string) {
+func mapHarnessScopedRepos(ticketIdentifier string, scopes []*ent.TicketRepoScope, workspace string) ([]HarnessRepoData, map[uuid.UUID]string) {
 	repos := make([]HarnessRepoData, 0, len(scopes))
 	branches := make(map[uuid.UUID]string, len(scopes))
 	for _, scope := range scopes {
@@ -688,12 +689,13 @@ func mapHarnessScopedRepos(scopes []*ent.TicketRepoScope, workspace string) ([]H
 		if repo == nil {
 			continue
 		}
-		branches[repo.ID] = scope.BranchName
+		effectiveBranchName := ticketingdomain.ResolveRepoWorkBranch(ticketIdentifier, scope.BranchName)
+		branches[repo.ID] = effectiveBranchName
 		repos = append(repos, HarnessRepoData{
 			Name:          repo.Name,
 			URL:           repo.RepositoryURL,
 			Path:          resolveRepoPath(repo.WorkspaceDirname, workspace, repo.Name),
-			Branch:        scope.BranchName,
+			Branch:        effectiveBranchName,
 			DefaultBranch: repo.DefaultBranch,
 			Labels:        append([]string(nil), repo.Labels...),
 		})
@@ -701,12 +703,12 @@ func mapHarnessScopedRepos(scopes []*ent.TicketRepoScope, workspace string) ([]H
 	return repos, branches
 }
 
-func mapHarnessAllRepos(repos []*ent.ProjectRepo, repoBranchByID map[uuid.UUID]string, workspace string) []HarnessRepoData {
+func mapHarnessAllRepos(ticketIdentifier string, repos []*ent.ProjectRepo, repoBranchByID map[uuid.UUID]string, workspace string) []HarnessRepoData {
 	items := make([]HarnessRepoData, 0, len(repos))
 	for _, repo := range repos {
 		branch := repoBranchByID[repo.ID]
 		if branch == "" {
-			branch = repo.DefaultBranch
+			branch = ticketingdomain.DefaultRepoWorkBranch(ticketIdentifier)
 		}
 		items = append(items, HarnessRepoData{
 			Name:          repo.Name,

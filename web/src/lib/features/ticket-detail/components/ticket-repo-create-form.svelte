@@ -34,13 +34,13 @@
 
     if (!repos.some((repo) => repo.id === createRepoId)) {
       createRepoId = repos[0]?.id ?? ''
-      createBranchName = repos[0]?.defaultBranch ?? ''
+      createBranchName = ''
     }
   })
 
   function handleRepoChange(value: string) {
     createRepoId = value
-    createBranchName = repos.find((repo) => repo.id === value)?.defaultBranch ?? ''
+    createBranchName = ''
   }
 
   async function handleCreateScope() {
@@ -52,6 +52,7 @@
       })) ?? false
 
     if (accepted) {
+      createBranchName = ''
       createPullRequestUrl = ''
     }
   }
@@ -79,8 +80,16 @@
   </div>
 
   <div class="space-y-2">
-    <Label for="new-scope-branch">Branch</Label>
-    <Input id="new-scope-branch" bind:value={createBranchName} disabled={!repos.length} />
+    <Label for="new-scope-branch">Work branch override</Label>
+    <Input
+      id="new-scope-branch"
+      bind:value={createBranchName}
+      disabled={!repos.length}
+      placeholder="Leave blank to use the generated ticket branch"
+    />
+    <p class="text-muted-foreground text-xs">
+      Base branch: {repos.find((repo) => repo.id === createRepoId)?.defaultBranch || 'main'}
+    </p>
   </div>
 
   <div class="space-y-2">

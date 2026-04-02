@@ -14,6 +14,7 @@ import type {
   TicketStatusOption,
 } from './types'
 import { inferHookStatus, parseTimelineItem } from './context-timeline'
+import { mapTicketPickupDiagnosis } from './pickup-diagnosis-context'
 
 export type TicketDetailContext = {
   ticket: TicketDetail
@@ -160,6 +161,9 @@ export function buildTicketDetailLiveContext(
         repoId: scope.repo_id,
         repoName: scope.repo?.name ?? 'Detached repository',
         branchName: scope.branch_name,
+        defaultBranch: scope.default_branch,
+        effectiveBranchName: scope.effective_branch_name,
+        branchSource: scope.branch_source === 'override' ? 'override' : 'generated',
         prUrl: scope.pull_request_url ?? undefined,
       })),
       attemptCount: detailTicket.attempt_count,
@@ -173,6 +177,7 @@ export function buildTicketDetailLiveContext(
       costTokensOutput: detailTicket.cost_tokens_output,
       costAmount: detailTicket.cost_amount,
       budgetUsd: detailTicket.budget_usd,
+      pickupDiagnosis: mapTicketPickupDiagnosis(detailPayload.pickup_diagnosis),
       dependencies: detailTicket.dependencies.map((dependency) => {
         const targetStatus = statusMap.get(dependency.target.status_id)!
         const stage = targetStatus.stage as TicketDetail['dependencies'][number]['stage']

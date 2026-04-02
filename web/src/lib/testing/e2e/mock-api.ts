@@ -1716,6 +1716,7 @@ function buildTicketDetailPayload(ticketId: string) {
       ticketId === DEFAULT_TICKET_ID
         ? 'Repeated hook failures'
         : (asString(ticket.pause_reason) ?? ''),
+    next_retry_at: ticketId === DEFAULT_TICKET_ID ? null : (asString(ticket.next_retry_at) ?? null),
     dependencies:
       ticketId === DEFAULT_TICKET_ID
         ? [
@@ -1734,6 +1735,155 @@ function buildTicketDetailPayload(ticketId: string) {
         : [],
     children: [],
   }
+
+  const pickupDiagnosis = ticketRecord.retry_paused
+    ? {
+        state: 'blocked',
+        primary_reason_code: 'retry_paused_repeated_stalls',
+        primary_reason_message: 'Retries are paused after repeated stalls.',
+        next_action_hint: 'Review the last failed attempt, then continue retry when ready.',
+        reasons: [
+          {
+            code: 'retry_paused_repeated_stalls',
+            message: 'Manual retry is required after repeated stalls.',
+            severity: 'warning',
+          },
+        ],
+        workflow: {
+          id: DEFAULT_WORKFLOW_ID,
+          name: 'Coding Workflow',
+          is_active: true,
+          pickup_status_match: true,
+        },
+        agent: {
+          id: DEFAULT_AGENT_ID,
+          name: 'coding-main',
+          runtime_control_state: 'active',
+        },
+        provider: {
+          id: DEFAULT_PROVIDER_ID,
+          name: 'codex-app-server',
+          machine_id: LOCAL_MACHINE_ID,
+          machine_name: 'local-dev',
+          machine_status: 'online',
+          availability_state: 'available',
+          availability_reason: null,
+        },
+        retry: {
+          attempt_count: ticketRecord.attempt_count,
+          retry_paused: ticketRecord.retry_paused,
+          pause_reason: 'repeated_stalls',
+          next_retry_at: null,
+        },
+        capacity: {
+          workflow: { limited: false, active_runs: 0, capacity: 0 },
+          project: { limited: false, active_runs: 0, capacity: 0 },
+          provider: { limited: false, active_runs: 0, capacity: 0 },
+          status: { limited: false, active_runs: 0, capacity: null },
+        },
+        blocked_by: ticketRecord.dependencies
+          .filter((item) => item.type === 'blocked_by')
+          .map((item) => ({
+            id: item.target.id,
+            identifier: item.target.identifier,
+            title: item.target.title,
+            status_id: item.target.status_id,
+            status_name: item.target.status_name,
+          })),
+      }
+    : ticketRecord.current_run_id
+      ? {
+          state: 'running',
+          primary_reason_code: 'running_current_run',
+          primary_reason_message: 'Ticket already has an active run.',
+          next_action_hint: 'Wait for the current run to finish or inspect the active runtime.',
+          reasons: [
+            {
+              code: 'running_current_run',
+              message: 'Current run is still attached to the ticket.',
+              severity: 'info',
+            },
+          ],
+          workflow: {
+            id: DEFAULT_WORKFLOW_ID,
+            name: 'Coding Workflow',
+            is_active: true,
+            pickup_status_match: true,
+          },
+          agent: {
+            id: DEFAULT_AGENT_ID,
+            name: 'coding-main',
+            runtime_control_state: 'active',
+          },
+          provider: {
+            id: DEFAULT_PROVIDER_ID,
+            name: 'codex-app-server',
+            machine_id: LOCAL_MACHINE_ID,
+            machine_name: 'local-dev',
+            machine_status: 'online',
+            availability_state: 'available',
+            availability_reason: null,
+          },
+          retry: {
+            attempt_count: ticketRecord.attempt_count,
+            retry_paused: false,
+            pause_reason: '',
+            next_retry_at: ticketRecord.next_retry_at,
+          },
+          capacity: {
+            workflow: { limited: false, active_runs: 1, capacity: 0 },
+            project: { limited: false, active_runs: 1, capacity: 0 },
+            provider: { limited: false, active_runs: 1, capacity: 0 },
+            status: { limited: false, active_runs: 1, capacity: null },
+          },
+          blocked_by: [],
+        }
+      : {
+          state: 'runnable',
+          primary_reason_code: 'ready_for_pickup',
+          primary_reason_message: 'Ticket is ready for pickup.',
+          next_action_hint: 'Wait for the scheduler to claim the ticket.',
+          reasons: [
+            {
+              code: 'ready_for_pickup',
+              message: 'The scheduler can claim this ticket on the next tick.',
+              severity: 'info',
+            },
+          ],
+          workflow: {
+            id: DEFAULT_WORKFLOW_ID,
+            name: 'Coding Workflow',
+            is_active: true,
+            pickup_status_match: true,
+          },
+          agent: {
+            id: DEFAULT_AGENT_ID,
+            name: 'coding-main',
+            runtime_control_state: 'active',
+          },
+          provider: {
+            id: DEFAULT_PROVIDER_ID,
+            name: 'codex-app-server',
+            machine_id: LOCAL_MACHINE_ID,
+            machine_name: 'local-dev',
+            machine_status: 'online',
+            availability_state: 'available',
+            availability_reason: null,
+          },
+          retry: {
+            attempt_count: ticketRecord.attempt_count,
+            retry_paused: false,
+            pause_reason: '',
+            next_retry_at: ticketRecord.next_retry_at,
+          },
+          capacity: {
+            workflow: { limited: false, active_runs: 0, capacity: 0 },
+            project: { limited: false, active_runs: 0, capacity: 0 },
+            provider: { limited: false, active_runs: 0, capacity: 0 },
+            status: { limited: false, active_runs: 0, capacity: null },
+          },
+          blocked_by: [],
+        }
 
   const repoScopes =
     ticketId === DEFAULT_TICKET_ID && repo
@@ -1800,6 +1950,7 @@ function buildTicketDetailPayload(ticketId: string) {
             runtime_phase: 'executing',
           }
         : null,
+    pickup_diagnosis: pickupDiagnosis,
     ticket: ticketRecord,
     repo_scopes: repoScopes,
     comments: [],

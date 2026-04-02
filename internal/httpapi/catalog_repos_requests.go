@@ -59,14 +59,8 @@ func parseTicketRepoScopePatchRequest(
 ) (domain.UpdateTicketRepoScope, error) {
 	request := domain.TicketRepoScopeInput{
 		RepoID:         current.RepoID.String(),
-		BranchName:     stringPointer(current.BranchName),
-		PullRequestURL: current.PullRequestURL,
-	}
-	if patch.BranchName != nil {
-		request.BranchName = patch.BranchName
-	}
-	if patch.PullRequestURL != nil {
-		request.PullRequestURL = patch.PullRequestURL
+		BranchName:     patch.BranchName,
+		PullRequestURL: patch.PullRequestURL,
 	}
 
 	return domain.ParseUpdateTicketRepoScope(scopeID, projectID, ticketID, request)

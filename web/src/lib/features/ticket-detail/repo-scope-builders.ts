@@ -7,12 +7,13 @@ import {
 } from './mutation-shared'
 
 export function buildCreateRepoScopeMutation(
+  currentTicket: Pick<TicketDetail, 'identifier'>,
   availableRepos: TicketRepoOption[],
   draft: RepoScopeDraft,
 ): ParseResult<{
   body: {
     repo_id: string
-    branch_name: string
+    branch_name: string | null
     pull_request_url: string | null
   }
   optimisticScope: TicketDetail['repoScopes'][number]
@@ -23,10 +24,7 @@ export function buildCreateRepoScopeMutation(
     return { ok: false, error: 'Select a valid repository.' }
   }
 
-  const branchName = draft.branchName.trim() || repo.defaultBranch.trim()
-  if (!branchName) {
-    return { ok: false, error: 'Branch name is required.' }
-  }
+  const branchName = normalizeOptionalText(draft.branchName)
   const pullRequestUrl = normalizeOptionalText(draft.pullRequestUrl)
 
   return {
@@ -41,7 +39,10 @@ export function buildCreateRepoScopeMutation(
         id: `pending-${repo.id}`,
         repoId: repo.id,
         repoName: repo.name,
-        branchName,
+        branchName: branchName ?? '',
+        defaultBranch: repo.defaultBranch,
+        effectiveBranchName: branchName ?? generatedTicketBranchName(currentTicket.identifier),
+        branchSource: branchName ? 'override' : 'generated',
         prUrl: pullRequestUrl ?? undefined,
       },
       successMessage: `Repo scope added for ${repo.name}.`,
@@ -55,7 +56,7 @@ export function buildUpdateRepoScopeMutation(
   draft: ExistingRepoScopeDraft,
 ): ParseResult<{
   body: {
-    branch_name: string
+    branch_name: string | null
     pull_request_url: string | null
   }
   optimisticUpdate: (ticket: TicketDetail) => TicketDetail
@@ -66,10 +67,7 @@ export function buildUpdateRepoScopeMutation(
     return { ok: false, error: 'Repo scope no longer exists in the current ticket state.' }
   }
 
-  const branchName = draft.branchName.trim()
-  if (!branchName) {
-    return { ok: false, error: 'Branch name is required.' }
-  }
+  const branchName = normalizeOptionalText(draft.branchName)
   const pullRequestUrl = normalizeOptionalText(draft.pullRequestUrl)
 
   return {
@@ -86,7 +84,10 @@ export function buildUpdateRepoScopeMutation(
             item.id === scopeId
               ? {
                   ...item,
-                  branchName,
+                  branchName: branchName ?? '',
+                  effectiveBranchName:
+                    branchName ?? generatedTicketBranchName(currentTicket.identifier),
+                  branchSource: branchName ? 'override' : 'generated',
                   prUrl: pullRequestUrl ?? undefined,
                 }
               : item,
@@ -125,4 +126,8 @@ export function buildDeleteRepoScopeMutation(
 function normalizeOptionalText(value: string) {
   const normalized = value.trim()
   return normalized ? normalized : null
+}
+
+function generatedTicketBranchName(ticketIdentifier: string) {
+  return `agent/${ticketIdentifier.trim()}`
 }

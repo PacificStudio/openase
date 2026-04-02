@@ -129,10 +129,9 @@ func parseCreateTicketRequest(projectID uuid.UUID, raw rawCreateTicketRequest) (
 			var branchName *string
 			if scope.BranchName != nil {
 				trimmed := strings.TrimSpace(*scope.BranchName)
-				if trimmed == "" {
-					return ticketservice.CreateInput{}, fmt.Errorf("repo_scopes[%d].branch_name must not be empty when provided", index)
+				if trimmed != "" {
+					branchName = &trimmed
 				}
-				branchName = &trimmed
 			}
 			input.RepoScopes = append(input.RepoScopes, ticketservice.CreateRepoScopeInput{
 				RepoID:     repoID,

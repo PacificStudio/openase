@@ -25,7 +25,7 @@ describe('new ticket repo scope parsing', () => {
         title: 'Ship login validation',
         priority: 'medium',
         status_id: 'todo',
-        repo_scopes: [{ repo_id: 'repo-1', branch_name: 'main' }],
+        repo_scopes: [{ repo_id: 'repo-1' }],
       },
     })
   })
@@ -72,9 +72,38 @@ describe('new ticket repo scope parsing', () => {
         title: 'Ship login validation',
         priority: 'medium',
         status_id: 'todo',
+        repo_scopes: [{ repo_id: 'repo-1' }, { repo_id: 'repo-2' }],
+      },
+    })
+  })
+
+  it('includes explicit repo branch overrides only when the user provides them', () => {
+    const repoOptions: TicketRepoOption[] = [
+      { id: 'repo-1', label: 'backend', defaultBranch: 'main' },
+      { id: 'repo-2', label: 'frontend', defaultBranch: 'develop' },
+    ]
+
+    const parsed = parseNewTicketDraft(
+      {
+        ...createNewTicketDraft(statusOptions, repoOptions),
+        title: 'Ship login validation',
+        repoIds: ['repo-2', 'repo-1'],
+        repoBranchOverrides: {
+          'repo-2': 'release/candidate',
+        },
+      },
+      repoOptions,
+    )
+
+    expect(parsed).toEqual({
+      ok: true,
+      payload: {
+        title: 'Ship login validation',
+        priority: 'medium',
+        status_id: 'todo',
         repo_scopes: [
-          { repo_id: 'repo-1', branch_name: 'main' },
-          { repo_id: 'repo-2', branch_name: 'develop' },
+          { repo_id: 'repo-1' },
+          { repo_id: 'repo-2', branch_name: 'release/candidate' },
         ],
       },
     })

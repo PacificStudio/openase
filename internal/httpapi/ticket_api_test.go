@@ -1413,13 +1413,14 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	}
 
 	var payload struct {
-		AssignedAgent *ticketAssignedAgentResponse    `json:"assigned_agent"`
-		Ticket        ticketResponse                  `json:"ticket"`
-		RepoScopes    []ticketRepoScopeDetailResponse `json:"repo_scopes"`
-		Comments      []ticketCommentResponse         `json:"comments"`
-		Timeline      []ticketTimelineItemResponse    `json:"timeline"`
-		Activity      []activityEventResponse         `json:"activity"`
-		HookHistory   []activityEventResponse         `json:"hook_history"`
+		AssignedAgent   *ticketAssignedAgentResponse    `json:"assigned_agent"`
+		PickupDiagnosis ticketPickupDiagnosisResponse   `json:"pickup_diagnosis"`
+		Ticket          ticketResponse                  `json:"ticket"`
+		RepoScopes      []ticketRepoScopeDetailResponse `json:"repo_scopes"`
+		Comments        []ticketCommentResponse         `json:"comments"`
+		Timeline        []ticketTimelineItemResponse    `json:"timeline"`
+		Activity        []activityEventResponse         `json:"activity"`
+		HookHistory     []activityEventResponse         `json:"hook_history"`
 	}
 	executeJSON(
 		t,
@@ -1446,6 +1447,9 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	if payload.AssignedAgent.RuntimePhase == nil || *payload.AssignedAgent.RuntimePhase != "executing" {
 		t.Fatalf("expected assigned agent runtime phase executing, got %+v", payload.AssignedAgent)
 	}
+	if payload.PickupDiagnosis.PrimaryReasonCode != "running_current_run" || payload.PickupDiagnosis.State != "running" {
+		t.Fatalf("expected pickup diagnosis to expose running current run, got %+v", payload.PickupDiagnosis)
+	}
 	if len(payload.Ticket.ExternalLinks) != 1 || payload.Ticket.ExternalLinks[0].ExternalID != "acme/frontend#9" {
 		t.Fatalf("expected ticket detail to include external links, got %+v", payload.Ticket.ExternalLinks)
 	}
@@ -1462,6 +1466,13 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	frontendScope, ok := repoScopesByName["frontend"]
 	if !ok || frontendScope.PullRequestURL == nil || *frontendScope.PullRequestURL != "https://github.com/acme/frontend/pull/9" {
 		t.Fatalf("expected frontend pull request URL, got %+v", payload.RepoScopes)
+	}
+	if frontendScope.DefaultBranch != "develop" || frontendScope.EffectiveBranchName != "agent/codex/ASE-9" || frontendScope.BranchSource != "override" {
+		t.Fatalf("expected frontend repo scope branch metadata, got %+v", frontendScope)
+	}
+	backendScope, ok := repoScopesByName["backend"]
+	if !ok || backendScope.DefaultBranch != "main" || backendScope.EffectiveBranchName != "main" || backendScope.BranchSource != "override" {
+		t.Fatalf("expected backend repo scope branch metadata, got %+v", backendScope)
 	}
 	if len(payload.Comments) != 1 || payload.Comments[0].CreatedBy != "user:product" || payload.Comments[0].EditCount != 1 || payload.Comments[0].EditedAt == nil {
 		t.Fatalf("expected ticket detail to include comments, got %+v", payload.Comments)

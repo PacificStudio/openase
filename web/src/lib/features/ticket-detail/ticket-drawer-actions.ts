@@ -25,7 +25,13 @@ import {
   buildDeleteRepoScopeMutation,
   buildUpdateRepoScopeMutation,
 } from './repo-scope-builders'
-import { nextRepoScopesForMutation, type DependencyDraft, type ExistingRepoScopeDraft, type RepoScopeDraft, type TicketFieldDraft } from './mutation-shared'
+import {
+  nextRepoScopesForMutation,
+  type DependencyDraft,
+  type ExistingRepoScopeDraft,
+  type RepoScopeDraft,
+  type TicketFieldDraft,
+} from './mutation-shared'
 import type { TicketDetail, TicketExternalLinkDraft } from './types'
 import type { TicketDrawerState } from './drawer-state.svelte'
 
@@ -98,7 +104,7 @@ export function createTicketDrawerActions(input: DrawerActionInput) {
       const ticketId = getTicketId()
       if (!ticket || !projectId || !ticketId) return false
 
-      const mutation = buildCreateRepoScopeMutation(input.drawerState.repoOptions, draft)
+      const mutation = buildCreateRepoScopeMutation(ticket, input.drawerState.repoOptions, draft)
       if (!mutation.ok) {
         input.drawerState.setMutationError(mutation.error)
         return false

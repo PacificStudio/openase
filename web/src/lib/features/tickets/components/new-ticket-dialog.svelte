@@ -38,6 +38,7 @@
   let statusPopoverOpen = $state(false)
   let priorityPopoverOpen = $state(false)
   let repoPopoverOpen = $state(false)
+  let branchConfigOpen = $state(false)
 
   const statusOptions = $derived(mapTicketStatusOptions(statuses))
 
@@ -49,6 +50,7 @@
       openProjectId = ''
       if (!isOpen) {
         saving = false
+        branchConfigOpen = false
       }
       return
     }
@@ -109,12 +111,23 @@
   }
 
   function toggleRepoScope(repoId: string) {
+    const selected = draft.repoIds.includes(repoId)
     updateDraftField(
       'repoIds',
-      draft.repoIds.includes(repoId)
-        ? draft.repoIds.filter((id) => id !== repoId)
-        : [...draft.repoIds, repoId],
+      selected ? draft.repoIds.filter((id) => id !== repoId) : [...draft.repoIds, repoId],
     )
+    if (selected && draft.repoBranchOverrides[repoId] !== undefined) {
+      const nextOverrides = { ...draft.repoBranchOverrides }
+      delete nextOverrides[repoId]
+      updateDraftField('repoBranchOverrides', nextOverrides)
+    }
+  }
+
+  function updateRepoBranchOverride(repoId: string, value: string) {
+    updateDraftField('repoBranchOverrides', {
+      ...draft.repoBranchOverrides,
+      [repoId]: value,
+    })
   }
 
   async function handleSubmit(event: SubmitEvent) {
@@ -202,9 +215,11 @@
         bind:statusPopoverOpen
         bind:priorityPopoverOpen
         bind:repoPopoverOpen
+        bind:branchConfigOpen
         onSelectStatus={selectStatus}
         onSelectPriority={selectPriority}
         onToggleRepoScope={toggleRepoScope}
+        onUpdateRepoBranchOverride={updateRepoBranchOverride}
       />
 
       <Dialog.Footer showCloseButton>

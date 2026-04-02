@@ -792,14 +792,14 @@ Ticket Detail 的主视图不应让前端自己把 `Ticket`、`TicketComment`、
 
 **工单仓库作用域（TicketRepoScope）：**
 
-一个工单可以涉及 Project 下的一个或多个 Repo。TicketRepoScope 记录了每个工单在每个相关 Repo 中的仓库绑定、工作分支以及可选的 PR 链接。
+一个工单可以涉及 Project 下的一个或多个 Repo。TicketRepoScope 记录了每个工单在每个相关 Repo 中的仓库绑定、可选的工作分支 override，以及可选的 PR 链接。
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | UUID | 主键 |
 | ticket_id | FK | 所属工单 |
 | repo_id | FK | 关联的 ProjectRepo |
-| branch_name | String | 在该 Repo 中创建的分支 |
+| branch_name | String | 可选的工作分支 override；为空表示使用系统生成的默认工单分支 |
 | pull_request_url | String | 在该 Repo 中创建的 PR 地址 |
 
 **工单状态与 RepoScope PR 链接的关系：**
@@ -830,7 +830,7 @@ Agent 的 Harness Prompt 中会注入所有 Repo 的路径和说明：
 请在所有相关仓库中完成必要的修改，并为每个仓库创建独立的 PR。
 ```
 
-**分支命名规范**：每个 Repo 的默认工作分支统一命名为 `agent/{ticket-identifier}`。分支归 Ticket 所有，而不是归某个 Agent 所有；Agent 只是执行者，可以在不改分支名的前提下接手其他 Agent 的未完成工作。若 TicketRepoScope 已显式记录 `branch_name`，运行时应直接复用该分支，而不是因为 Agent 变更而判定 branch 失效。
+**分支命名规范**：每个 Repo 的默认工作分支统一命名为 `agent/{ticket-identifier}`。分支归 Ticket 所有，而不是归某个 Agent 所有；Agent 只是执行者，可以在不改分支名的前提下接手其他 Agent 的未完成工作。若 TicketRepoScope 已显式记录 `branch_name`，它表示该 Repo 的工作分支 override；运行时先尝试复用远端已存在的同名分支，若远端不存在，再从 `repo.default_branch` 创建该工作分支。
 
 **Ticket Workspace 约定：**
 
@@ -1694,7 +1694,7 @@ Ticket Hook 在 **每个工单的每次执行过程中触发**，每个工单每
 ticket_hooks:
   on_claim:
 {% for repo in repos %}
-    - cmd: "git fetch origin && git checkout -B agent/{{ ticket.identifier }} origin/{{ repo.default_branch }}"
+    - cmd: "git fetch origin && if git rev-parse --verify origin/{{ repo.branch }} >/dev/null 2>&1; then git checkout -B {{ repo.branch }} origin/{{ repo.branch }}; else git checkout -B {{ repo.branch }} origin/{{ repo.default_branch }}; fi"
       workdir: "{{ repo.name }}"
       timeout: 60
 {% endfor %}
@@ -5488,7 +5488,7 @@ openase reconcile --dry-run    # 只报告不一致，不修复
 | GET | `/api/v1/projects/:projectId/tickets` | 列出工单 | `?status_name=Todo,In+Progress&priority=high&workflow_type=coding&cursor=xxx&limit=20`（status_name 为自定义状态名，非硬编码枚举） |
 | POST | `/api/v1/projects/:projectId/tickets` | 创建工单 | body: `{title, description, priority, type, workflow_id?, repo_scopes?}` |
 | GET | `/api/v1/tickets/:ticketId` | 工单详情（基础详情） | |
-| GET | `/api/v1/projects/:projectId/tickets/:ticketId/detail` | 工单详情聚合视图（含 description entry、timeline、RepoScopes、依赖） | |
+| GET | `/api/v1/projects/:projectId/tickets/:ticketId/detail` | 工单详情聚合视图（含 description entry、timeline、RepoScopes、依赖、pickup_diagnosis） | |
 | GET | `/api/v1/projects/:projectId/tickets/:ticketId/runs` | 列出该 Ticket 的运行会话（最新优先，带 attempt、当前步骤摘要与 completion summary 状态） | |
 | GET | `/api/v1/projects/:projectId/tickets/:ticketId/runs/:runId` | 获取单次 Ticket 运行的 transcript 数据（`AgentRun + AgentTraceEvent + AgentStepEvent + completion summary`） | |
 | PATCH | `/api/v1/tickets/:ticketId` | 更新工单（标题、描述、优先级） | |
@@ -5577,6 +5577,8 @@ openase reconcile --dry-run    # 只报告不一致，不修复
 - Agent output 面板为空时显示 “No trace events yet”，表示当前还没有细粒度运行输出，不代表 runtime 启动失败
 - Ticket detail 的 Runs 面板默认显示 latest run transcript；discussion/comments 与 execution transcript 分开渲染，前者继续基于 comment/activity，后者基于 ticket-native run 数据路径
 - Ticket detail 的 Runs 面板在 transcript 之上额外显示 terminal completion summary 卡片；必须支持 `pending` / `completed` / `failed` 三态，且 summary 只做高信噪比摘要，不替代原始 transcript 证据
+- Ticket detail 侧边 Runtime 卡片必须使用后端返回的 `pickup_diagnosis` 作为真相源，明确说明 Ticket 当前是 `runnable / waiting / blocked / running / completed / unavailable` 的哪一种，而不是让前端自行重建调度器判断
+- `pickup_diagnosis` 必须包含稳定 reason code、主说明、next action hint，以及用于 UI 展示的结构化 workflow / agent / provider / capacity / blocked_by / retry 信息；当 `next_retry_at` 在未来时，前端必须显示实时倒计时和确定性的 UTC 绝对时间
 - Black-box 验收至少覆盖：创建 idle Agent + pickup Ticket，观测 `claimed`，再观测 `running + ready + session_id + heartbeat`，并收到 `agent.ready`；随后在 output/step 流中分别看到 `AgentTraceEvent` 与 `AgentStepEvent`
 
 **Webhook 接收**
@@ -5849,7 +5851,7 @@ git:
 hooks:
   on_claim:
 {% for repo in repos %}
-    - cmd: "git fetch origin && git checkout -B {{ git.branch_pattern }} origin/{{ repo.default_branch }}"
+    - cmd: "git fetch origin && if git rev-parse --verify origin/{{ repo.branch }} >/dev/null 2>&1; then git checkout -B {{ repo.branch }} origin/{{ repo.branch }}; else git checkout -B {{ repo.branch }} origin/{{ repo.default_branch }}; fi"
       workdir: "{{ repo.name }}"
       timeout: 60
 {% endfor %}

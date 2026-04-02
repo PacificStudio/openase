@@ -160,6 +160,52 @@ func TestManagerPrepareFetchesExistingClone(t *testing.T) {
 	assertRemoteBranchHash(t, backendClonePath, "main", updatedHash)
 }
 
+func TestManagerPrepareTracksExistingRemoteWorkBranch(t *testing.T) {
+	repositoryURL, _ := createRemoteRepo(t, "main", map[string]string{
+		"README.md": "base",
+	})
+	workBranchHash := appendCommit(t, repositoryURL, "main", "README.md", "remote work branch")
+
+	repository, err := git.PlainOpen(repositoryURL)
+	if err != nil {
+		t.Fatalf("open repository: %v", err)
+	}
+	if err := repository.Storer.SetReference(
+		plumbing.NewHashReference(plumbing.NewBranchReferenceName("release/ASE-33"), workBranchHash),
+	); err != nil {
+		t.Fatalf("create remote work branch: %v", err)
+	}
+
+	workBranch := "release/ASE-33"
+	request, err := ParseSetupRequest(SetupInput{
+		WorkspaceRoot:    t.TempDir(),
+		OrganizationSlug: "acme",
+		ProjectSlug:      "payments",
+		AgentName:        "codex-01",
+		TicketIdentifier: "ASE-33",
+		Repos: []RepoInput{
+			{
+				Name:          "backend",
+				RepositoryURL: repositoryURL,
+				DefaultBranch: "main",
+				BranchName:    &workBranch,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("parse setup request: %v", err)
+	}
+
+	workspace, err := NewManager().Prepare(context.Background(), request)
+	if err != nil {
+		t.Fatalf("prepare workspace: %v", err)
+	}
+
+	backendClonePath := filepath.Join(workspace.Path, "backend")
+	assertHeadBranch(t, backendClonePath, "release/ASE-33")
+	assertHeadHash(t, backendClonePath, workBranchHash)
+}
+
 func TestBuildCloneOptionsUsesConfiguredSSHKeyForSSHURL(t *testing.T) {
 	keyPath := writeTestPrivateKey(t)
 	t.Setenv("OPENASE_GIT_SSH_KEY_PATH", keyPath)
@@ -460,6 +506,23 @@ func assertHeadBranch(t *testing.T, repoPath string, expectedBranch string) {
 	}
 	if head.Name().Short() != expectedBranch {
 		t.Fatalf("expected branch %s, got %s", expectedBranch, head.Name().Short())
+	}
+}
+
+func assertHeadHash(t *testing.T, repoPath string, expectedHash plumbing.Hash) {
+	t.Helper()
+
+	repository, err := git.PlainOpen(repoPath)
+	if err != nil {
+		t.Fatalf("open repository %s: %v", repoPath, err)
+	}
+
+	head, err := repository.Head()
+	if err != nil {
+		t.Fatalf("load head for %s: %v", repoPath, err)
+	}
+	if head.Hash() != expectedHash {
+		t.Fatalf("expected head hash %s, got %s", expectedHash, head.Hash())
 	}
 }
 

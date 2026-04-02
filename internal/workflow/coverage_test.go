@@ -464,14 +464,14 @@ func TestHarnessTemplateHelpers(t *testing.T) {
 		BranchName: "feature/ase-278",
 		Edges:      ent.TicketRepoScopeEdges{Repo: repo},
 	}
-	scopedRepos, branches := mapHarnessScopedRepos([]*ent.TicketRepoScope{
+	scopedRepos, branches := mapHarnessScopedRepos("ASE-278", []*ent.TicketRepoScope{
 		scope,
 		{Edges: ent.TicketRepoScopeEdges{}},
 	}, "/workspaces/ASE-278")
 	if len(scopedRepos) != 1 || branches[repoID] != "feature/ase-278" || scopedRepos[0].Path != "/workspaces/ASE-278/backend" {
 		t.Fatalf("mapHarnessScopedRepos() = %+v, %+v", scopedRepos, branches)
 	}
-	allRepos := mapHarnessAllRepos([]*ent.ProjectRepo{
+	allRepos := mapHarnessAllRepos("ASE-278", []*ent.ProjectRepo{
 		repo,
 		{
 			ID:               uuid.New(),
@@ -481,7 +481,7 @@ func TestHarnessTemplateHelpers(t *testing.T) {
 			WorkspaceDirname: "/repos/frontend",
 		},
 	}, branches, "/workspaces/ASE-278")
-	if len(allRepos) != 2 || allRepos[0].Branch != "feature/ase-278" || allRepos[1].Path != "/repos/frontend" {
+	if len(allRepos) != 2 || allRepos[0].Branch != "feature/ase-278" || allRepos[1].Branch != "agent/ASE-278" || allRepos[1].Path != "/repos/frontend" {
 		t.Fatalf("mapHarnessAllRepos() = %+v", allRepos)
 	}
 

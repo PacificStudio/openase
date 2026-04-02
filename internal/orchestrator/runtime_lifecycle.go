@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
@@ -475,14 +476,52 @@ func normalizeAgentStepStatus(raw string) string {
 }
 
 func normalizeAgentStepSummary(raw string) string {
+	const maxSummaryBytes = 240
+	const ellipsis = "..."
+
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
 		return ""
 	}
-	if len(trimmed) <= 240 {
+	if len(trimmed) <= maxSummaryBytes {
 		return trimmed
 	}
-	return strings.TrimSpace(trimmed[:240]) + "..."
+
+	limit := maxSummaryBytes - len(ellipsis)
+	if limit <= 0 {
+		return ellipsis
+	}
+
+	truncated := truncateUTF8Bytes(trimmed, limit)
+	if truncated == "" {
+		return ellipsis
+	}
+	return strings.TrimSpace(truncated) + ellipsis
+}
+
+func truncateUTF8Bytes(raw string, maxBytes int) string {
+	if maxBytes <= 0 || raw == "" {
+		return ""
+	}
+	if len(raw) <= maxBytes {
+		return raw
+	}
+
+	lastBoundary := 0
+	for index := range raw {
+		if index > maxBytes {
+			break
+		}
+		lastBoundary = index
+	}
+	if lastBoundary == 0 {
+		_, width := utf8.DecodeRuneInString(raw)
+		if width <= 0 || width > maxBytes {
+			return ""
+		}
+		return raw[:width]
+	}
+	return raw[:lastBoundary]
 }
 
 func lifecycleMessage(eventType provider.EventType, agentName string) string {

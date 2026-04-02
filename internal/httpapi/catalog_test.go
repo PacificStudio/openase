@@ -1002,7 +1002,7 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 		http.StatusCreated,
 		&backendCreate,
 	)
-	if backendCreate.RepoScope.BranchName != "main" {
+	if backendCreate.RepoScope.BranchName != "" {
 		t.Fatalf("unexpected backend scope payload: %+v", backendCreate.RepoScope)
 	}
 
@@ -1051,12 +1051,13 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 		http.MethodPatch,
 		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes/"+backendCreate.RepoScope.ID,
 		map[string]any{
+			"branch_name":      "",
 			"pull_request_url": "https://github.com/acme/backend/pull/7",
 		},
 		http.StatusOK,
 		&backendUpdate,
 	)
-	if backendUpdate.RepoScope.PullRequestURL == nil || *backendUpdate.RepoScope.PullRequestURL != "https://github.com/acme/backend/pull/7" {
+	if backendUpdate.RepoScope.BranchName != "" || backendUpdate.RepoScope.PullRequestURL == nil || *backendUpdate.RepoScope.PullRequestURL != "https://github.com/acme/backend/pull/7" {
 		t.Fatalf("unexpected backend scope after update: %+v", backendUpdate.RepoScope)
 	}
 

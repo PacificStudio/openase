@@ -11430,7 +11430,7 @@
               "schema": {
                 "properties": {
                   "default_branch": {
-                    "description": "Default branch name used when a repo scope does not provide an explicit branch override.",
+                    "description": "Repository base branch used when OpenASE creates a new ticket work branch.",
                     "type": "string"
                   },
                   "labels": {
@@ -11757,7 +11757,7 @@
               "schema": {
                 "properties": {
                   "default_branch": {
-                    "description": "Default branch name used when a repo scope does not provide an explicit branch override.",
+                    "description": "Repository base branch used when OpenASE creates a new ticket work branch.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -15295,7 +15295,7 @@
                     "items": {
                       "properties": {
                         "branch_name": {
-                          "description": "Optional branch name for the scoped repository checkout. When omitted, the repository default branch is used.",
+                          "description": "Optional work-branch override for the scoped repository. When omitted or blank, OpenASE uses the generated ticket branch.",
                           "nullable": true,
                           "type": "string"
                         },
@@ -15805,10 +15805,217 @@
                       },
                       "type": "array"
                     },
+                    "pickup_diagnosis": {
+                      "properties": {
+                        "agent": {
+                          "nullable": true,
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "runtime_control_state": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "blocked_by": {
+                          "items": {
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "identifier": {
+                                "type": "string"
+                              },
+                              "status_id": {
+                                "type": "string"
+                              },
+                              "status_name": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "capacity": {
+                          "properties": {
+                            "project": {
+                              "properties": {
+                                "active_runs": {
+                                  "type": "integer"
+                                },
+                                "capacity": {
+                                  "type": "integer"
+                                },
+                                "limited": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "provider": {
+                              "properties": {
+                                "active_runs": {
+                                  "type": "integer"
+                                },
+                                "capacity": {
+                                  "type": "integer"
+                                },
+                                "limited": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "status": {
+                              "properties": {
+                                "active_runs": {
+                                  "type": "integer"
+                                },
+                                "capacity": {
+                                  "nullable": true,
+                                  "type": "integer"
+                                },
+                                "limited": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "workflow": {
+                              "properties": {
+                                "active_runs": {
+                                  "type": "integer"
+                                },
+                                "capacity": {
+                                  "type": "integer"
+                                },
+                                "limited": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "next_action_hint": {
+                          "type": "string"
+                        },
+                        "primary_reason_code": {
+                          "type": "string"
+                        },
+                        "primary_reason_message": {
+                          "type": "string"
+                        },
+                        "provider": {
+                          "nullable": true,
+                          "properties": {
+                            "availability_reason": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "availability_state": {
+                              "type": "string"
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "machine_id": {
+                              "type": "string"
+                            },
+                            "machine_name": {
+                              "type": "string"
+                            },
+                            "machine_status": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "reasons": {
+                          "items": {
+                            "properties": {
+                              "code": {
+                                "type": "string"
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "retry": {
+                          "properties": {
+                            "attempt_count": {
+                              "type": "integer"
+                            },
+                            "next_retry_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "pause_reason": {
+                              "type": "string"
+                            },
+                            "retry_paused": {
+                              "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "state": {
+                          "type": "string"
+                        },
+                        "workflow": {
+                          "nullable": true,
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "is_active": {
+                              "type": "boolean"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "pickup_status_match": {
+                              "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    },
                     "repo_scopes": {
                       "items": {
                         "properties": {
                           "branch_name": {
+                            "type": "string"
+                          },
+                          "branch_source": {
+                            "type": "string"
+                          },
+                          "default_branch": {
+                            "type": "string"
+                          },
+                          "effective_branch_name": {
                             "type": "string"
                           },
                           "id": {
@@ -16337,7 +16544,7 @@
               "schema": {
                 "properties": {
                   "branch_name": {
-                    "description": "Branch name associated with the scoped repository checkout.",
+                    "description": "Optional work-branch override for the scoped repository. Leave blank to use the generated ticket branch.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -16658,7 +16865,7 @@
               "schema": {
                 "properties": {
                   "branch_name": {
-                    "description": "Branch name associated with the scoped repository checkout.",
+                    "description": "Optional work-branch override for the scoped repository. Send an empty string to clear the override and use the generated ticket branch.",
                     "nullable": true,
                     "type": "string"
                   },

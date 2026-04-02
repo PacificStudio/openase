@@ -221,7 +221,7 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateTicketRepoScope() scopeOne error = %v", err)
 	}
-	if scopeOne.BranchName != "main" {
+	if scopeOne.BranchName != "" {
 		t.Fatalf("CreateTicketRepoScope() scopeOne = %+v", scopeOne)
 	}
 
@@ -261,7 +261,9 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 		TicketID:       ticketItem.ID,
 		RepoID:         repoOne.ID,
 		BranchName:     strPtr("fix/openase-278-core"),
+		BranchNameSet:  true,
 		PullRequestURL: strPtr("https://github.com/GrandCX/openase/pull/279"),
+		PullRequestSet: true,
 	})
 	if err != nil {
 		t.Fatalf("UpdateTicketRepoScope() scopeOne error = %v", err)
@@ -276,12 +278,14 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 		TicketID:       ticketItem.ID,
 		RepoID:         repoTwo.ID,
 		BranchName:     nil,
+		BranchNameSet:  true,
 		PullRequestURL: nil,
+		PullRequestSet: true,
 	})
 	if err != nil {
 		t.Fatalf("UpdateTicketRepoScope() error = %v", err)
 	}
-	if updatedScopeTwo.PullRequestURL != nil || updatedScopeTwo.BranchName != "fix/openase-278-coverage" {
+	if updatedScopeTwo.PullRequestURL != nil || updatedScopeTwo.BranchName != "" {
 		t.Fatalf("UpdateTicketRepoScope() = %+v", updatedScopeTwo)
 	}
 
@@ -392,7 +396,7 @@ func TestEntRepositoryEnsurePrimaryFallbackPromotesExcludedOnlyRecord(t *testing
 	if err != nil {
 		t.Fatalf("GetTicketRepoScope() error = %v", err)
 	}
-	if scope.RepoID != projectRepo.ID || scope.BranchName != "main" {
+	if scope.RepoID != projectRepo.ID || scope.BranchName != "" {
 		t.Fatalf("expected repo scope to persist, got %+v", scope)
 	}
 }

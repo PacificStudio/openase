@@ -32,6 +32,52 @@ describe('buildTicketDetailContext', () => {
     })
     expect(detail.ticket.costTokensInput).toBe(1444743)
     expect(detail.ticket.costTokensOutput).toBe(23322)
+    expect(detail.ticket.pickupDiagnosis).toEqual({
+      state: 'running',
+      primaryReasonCode: 'running_current_run',
+      primaryReasonMessage: 'Ticket already has an active run.',
+      nextActionHint: 'Wait for the current run to finish or inspect the active runtime.',
+      reasons: [
+        {
+          code: 'running_current_run',
+          message: 'Current run is still attached to the ticket.',
+          severity: 'info',
+        },
+      ],
+      workflow: {
+        id: 'workflow-1',
+        name: 'Todo App Coding Workflow',
+        isActive: true,
+        pickupStatusMatch: true,
+      },
+      agent: {
+        id: 'agent-1',
+        name: 'todo-app-coding-01',
+        runtimeControlState: 'active',
+      },
+      provider: {
+        id: 'provider-1',
+        name: 'codex-cloud',
+        machineId: 'machine-1',
+        machineName: 'builder-01',
+        machineStatus: 'online',
+        availabilityState: 'available',
+        availabilityReason: undefined,
+      },
+      retry: {
+        attemptCount: 0,
+        retryPaused: false,
+        pauseReason: undefined,
+        nextRetryAt: undefined,
+      },
+      capacity: {
+        workflow: { limited: true, activeRuns: 1, capacity: 2 },
+        project: { limited: true, activeRuns: 1, capacity: 5 },
+        provider: { limited: true, activeRuns: 1, capacity: 3 },
+        status: { limited: false, activeRuns: 1, capacity: undefined },
+      },
+      blockedBy: [],
+    })
   })
 
   it('parses the unified timeline payload into description, comment, and activity items', () => {

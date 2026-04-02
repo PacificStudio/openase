@@ -440,13 +440,24 @@ func ensureFeatureBranchCheckedOut(repository *git.Repository, defaultBranch str
 	if err != nil {
 		return "", fmt.Errorf("resolve remote default branch %s: %w", defaultBranch, err)
 	}
+	targetHash := remoteRef.Hash()
+
+	featureRemoteRefName := plumbing.NewRemoteReferenceName("origin", featureBranch)
+	featureRemoteRef, err := repository.Reference(featureRemoteRefName, true)
+	switch {
+	case err == nil:
+		targetHash = featureRemoteRef.Hash()
+	case errors.Is(err, plumbing.ErrReferenceNotFound):
+	default:
+		return "", fmt.Errorf("lookup remote work branch %s: %w", featureBranch, err)
+	}
 
 	featureRefName := plumbing.NewBranchReferenceName(featureBranch)
 	if _, err := repository.Reference(featureRefName, true); err != nil {
 		if !errors.Is(err, plumbing.ErrReferenceNotFound) {
 			return "", fmt.Errorf("lookup feature branch %s: %w", featureBranch, err)
 		}
-		if err := repository.Storer.SetReference(plumbing.NewHashReference(featureRefName, remoteRef.Hash())); err != nil {
+		if err := repository.Storer.SetReference(plumbing.NewHashReference(featureRefName, targetHash)); err != nil {
 			return "", fmt.Errorf("create feature branch %s: %w", featureBranch, err)
 		}
 	}
