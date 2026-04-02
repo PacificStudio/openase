@@ -33,6 +33,8 @@ const budgetRules = [
         'Onboarding panel still coordinates the full multi-step flow until onboarding controller extraction lands.',
       'src/lib/features/onboarding/components/step-repo.svelte':
         'Onboarding repo step keeps create and link flows together until onboarding step extraction lands.',
+      'src/lib/features/chat/project-conversation-panel.svelte':
+        'Project conversation panel still coordinates header, transcript shell, and composer while controller extraction continues.',
       'src/lib/features/project-updates/components/project-update-thread-card.svelte':
         'Project update thread card still keeps inline edit and reply flows together until card sections are extracted.',
       'src/lib/features/settings/components/workflow-scheduled-job-cron-picker.svelte':

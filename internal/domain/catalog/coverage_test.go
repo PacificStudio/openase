@@ -691,7 +691,7 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseCreateProjectRepo() error = %v", err)
 	}
-	if createRepo.DefaultBranch != "trunk" || createRepo.WorkspaceDirname != "services/repo" || len(createRepo.Labels) != 2 {
+	if createRepo.RepositoryURL != "https://github.com/grandcx/openase.git" || createRepo.DefaultBranch != "trunk" || createRepo.WorkspaceDirname != "services/repo" || len(createRepo.Labels) != 2 {
 		t.Fatalf("ParseCreateProjectRepo() = %+v", createRepo)
 	}
 	createRepo, err = ParseCreateProjectRepo(projectID, ProjectRepoInput{
@@ -702,7 +702,7 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseCreateProjectRepo(blank workspace dirname) error = %v", err)
 	}
-	if createRepo.WorkspaceDirname != "Backend" {
+	if createRepo.RepositoryURL != "https://github.com/grandcx/openase.git" || createRepo.WorkspaceDirname != "Backend" {
 		t.Fatalf("ParseCreateProjectRepo(blank workspace dirname) = %+v", createRepo)
 	}
 	updateRepo, err := ParseUpdateProjectRepo(uuid.New(), projectID, ProjectRepoInput{
@@ -721,6 +721,9 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	}
 	if len(updateRepo.Labels) != 1 || updateRepo.Labels[0] != "alpha" {
 		t.Fatalf("ParseUpdateProjectRepo(success) = %+v", updateRepo)
+	}
+	if updateRepo.RepositoryURL != "https://github.com/grandcx/openase.git" {
+		t.Fatalf("ParseUpdateProjectRepo(success) repository_url = %q", updateRepo.RepositoryURL)
 	}
 	if _, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{Name: " ", RepositoryURL: "https://github.com"}); err == nil {
 		t.Fatal("ParseCreateProjectRepo() expected name validation error")
@@ -745,6 +748,12 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	}
 	if _, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{Name: "repo", RepositoryURL: "https://github.com", Labels: []string{""}}); err == nil {
 		t.Fatal("ParseCreateProjectRepo() expected labels validation error")
+	}
+	if _, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{Name: "repo", RepositoryURL: "git@github.com:GrandCX/openase.git"}); err == nil {
+		t.Fatal("ParseCreateProjectRepo() expected SSH GitHub URL validation error")
+	}
+	if _, err := ParseUpdateProjectRepo(uuid.New(), projectID, ProjectRepoInput{Name: "Repo", RepositoryURL: "ssh://git@github.com/GrandCX/openase.git"}); err == nil {
+		t.Fatal("ParseUpdateProjectRepo() expected SSH GitHub URL validation error")
 	}
 	if _, err := ParseUpdateProjectRepo(uuid.New(), projectID, ProjectRepoInput{Name: " "}); err == nil {
 		t.Fatal("ParseUpdateProjectRepo() expected validation error")

@@ -438,6 +438,8 @@ var (
 		{Name: "status", Type: field.TypeString, Default: "active"},
 		{Name: "provider_thread_id", Type: field.TypeString, Nullable: true},
 		{Name: "last_turn_id", Type: field.TypeString, Nullable: true},
+		{Name: "provider_thread_status", Type: field.TypeString, Nullable: true},
+		{Name: "provider_thread_active_flags", Type: field.TypeJSON, Nullable: true},
 		{Name: "rolling_summary", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "last_activity_at", Type: field.TypeTime},
 		{Name: "created_at", Type: field.TypeTime},
@@ -452,7 +454,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "chat_conversations_projects_chat_conversations",
-				Columns:    []*schema.Column{ChatConversationsColumns[11]},
+				Columns:    []*schema.Column{ChatConversationsColumns[13]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -461,7 +463,7 @@ var (
 			{
 				Name:    "chatconversation_project_id_user_id_source_provider_id_last_activity_at",
 				Unique:  false,
-				Columns: []*schema.Column{ChatConversationsColumns[11], ChatConversationsColumns[1], ChatConversationsColumns[2], ChatConversationsColumns[3], ChatConversationsColumns[8]},
+				Columns: []*schema.Column{ChatConversationsColumns[13], ChatConversationsColumns[1], ChatConversationsColumns[2], ChatConversationsColumns[3], ChatConversationsColumns[10]},
 			},
 		},
 	}

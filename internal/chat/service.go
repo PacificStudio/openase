@@ -127,6 +127,7 @@ type Service struct {
 	maxTurns     int
 	maxBudgetUSD float64
 	sessions     sessionRegistry
+	sessionStore sessionStore
 	userLocks    userLockRegistry
 }
 
@@ -138,7 +139,9 @@ type donePayload struct {
 }
 
 type sessionPayload struct {
-	SessionID string `json:"session_id"`
+	SessionID               string `json:"session_id"`
+	ProviderResumeSupported bool   `json:"provider_resume_supported"`
+	ResumeScope             string `json:"resume_scope"`
 }
 
 type errorPayload struct {
@@ -179,6 +182,13 @@ func NewService(
 		maxTurns:     DefaultMaxTurns,
 		maxBudgetUSD: DefaultMaxBudgetUSD,
 	}
+}
+
+func (s *Service) EnableDurableSessions(path string) {
+	if s == nil {
+		return
+	}
+	s.sessionStore = newFileSessionStore(strings.TrimSpace(path))
 }
 
 func ParseStartInput(raw RawStartInput) (StartInput, error) {
@@ -288,20 +298,26 @@ func (s *Service) StartTurn(ctx context.Context, userID UserID, input StartInput
 
 	if created {
 		s.sessions.Register(userID, sessionID, providerItem.ID, policy.MaxTurns, policy.MaxBudgetUSD)
+		if err := s.persistSessionState(sessionID); err != nil {
+			s.sessions.Delete(sessionID)
+			return TurnStream{}, err
+		}
 	}
 
 	stream, err := s.runtime.StartTurn(ctx, RuntimeTurnInput{
-		SessionID:        sessionID,
-		Provider:         providerItem,
-		Message:          input.Message,
-		SystemPrompt:     systemPrompt,
-		WorkingDirectory: s.workingDir,
-		MaxTurns:         policy.MaxTurns,
-		MaxBudgetUSD:     policy.MaxBudgetUSD,
+		SessionID:              sessionID,
+		Provider:               providerItem,
+		Message:                input.Message,
+		SystemPrompt:           systemPrompt,
+		WorkingDirectory:       s.workingDir,
+		ResumeProviderThreadID: resumeProviderThreadID(existingSession),
+		MaxTurns:               policy.MaxTurns,
+		MaxBudgetUSD:           policy.MaxBudgetUSD,
 	})
 	if err != nil {
 		if created {
 			s.sessions.Delete(sessionID)
+			_ = s.deletePersistedSession(sessionID)
 		}
 		return TurnStream{}, err
 	}
@@ -313,18 +329,24 @@ func (s *Service) StartTurn(ctx context.Context, userID UserID, input StartInput
 		}
 	}
 
+	providerResumeSupported, resumeScope := s.providerResumeContract(providerItem)
+
 	events := make(chan StreamEvent, 1)
 	go func() {
 		defer close(events)
 
 		events <- StreamEvent{
-			Event:   "session",
-			Payload: sessionPayload{SessionID: sessionID.String()},
+			Event: "session",
+			Payload: sessionPayload{
+				SessionID:               sessionID.String(),
+				ProviderResumeSupported: providerResumeSupported,
+				ResumeScope:             resumeScope,
+			},
 		}
 
 		for event := range stream.Events {
 			events <- event
-			s.handleTerminalEvent(sessionID, event)
+			s.handleRuntimeEvent(sessionID, event)
 		}
 	}()
 
@@ -340,11 +362,20 @@ func (s *Service) CloseSession(userID UserID, sessionID SessionID) bool {
 	defer unlockUser()
 
 	state, ok := s.sessions.ResolveForUser(userID, sessionID)
+	if !ok && s.sessionStore != nil {
+		persisted, persistedOK, err := s.sessionStore.LoadForUser(userID, sessionID)
+		if err == nil && persistedOK {
+			s.sessions.Remember(sessionID, persisted)
+			state = persisted
+			ok = true
+		}
+	}
 	if !ok {
 		return false
 	}
 
 	s.sessions.Delete(sessionID)
+	_ = s.deletePersistedSession(sessionID)
 	if state.Released {
 		return true
 	}
@@ -466,6 +497,17 @@ func (s *Service) resolveExistingSession(userID UserID, rawSessionID *SessionID)
 	}
 
 	state, ok := s.sessions.ResolveForUser(userID, *rawSessionID)
+	if !ok && s.sessionStore != nil {
+		persisted, persistedOK, err := s.sessionStore.LoadForUser(userID, *rawSessionID)
+		if err != nil {
+			return nil, err
+		}
+		if persistedOK {
+			s.sessions.Remember(*rawSessionID, persisted)
+			state = persisted
+			ok = true
+		}
+	}
 	if !ok {
 		return nil, ErrSessionNotFound
 	}
@@ -499,11 +541,19 @@ func (s *Service) closeReplacedSession(userID UserID) {
 	}
 
 	previousSessionID, ok := s.sessions.ResolveUserSession(userID)
+	if !ok && s.sessionStore != nil {
+		persistedSessionID, persistedOK, err := s.sessionStore.ResolveUserSession(userID)
+		if err == nil && persistedOK {
+			previousSessionID = persistedSessionID
+			ok = true
+		}
+	}
 	if !ok {
 		return
 	}
 
 	state, deleted := s.sessions.Delete(previousSessionID)
+	_ = s.deletePersistedSession(previousSessionID)
 	if !deleted || state.Released {
 		return
 	}
@@ -511,9 +561,24 @@ func (s *Service) closeReplacedSession(userID UserID) {
 	s.runtime.CloseSession(previousSessionID)
 }
 
-func (s *Service) handleTerminalEvent(sessionID SessionID, event StreamEvent) {
+func (s *Service) handleRuntimeEvent(sessionID SessionID, event StreamEvent) {
+	if anchor, ok := event.Payload.(RuntimeSessionAnchor); event.Event == "session_anchor" && ok {
+		if _, tracked := s.sessions.UpdateProviderAnchor(sessionID, anchor.ProviderThreadID, anchor.ProviderThreadStatus, anchor.ProviderThreadActiveFlags); tracked {
+			_ = s.persistSessionState(sessionID)
+		}
+		return
+	}
+
+	if payload, ok := event.Payload.(runtimeSessionStatePayload); event.Event == "session_state" && ok {
+		if _, tracked := s.sessions.UpdateProviderAnchor(sessionID, "", payload.Status, payload.ActiveFlags); tracked {
+			_ = s.persistSessionState(sessionID)
+		}
+		return
+	}
+
 	if event.Event == "error" {
 		state, ok := s.sessions.Delete(sessionID)
+		_ = s.deletePersistedSession(sessionID)
 		if ok && !state.Released {
 			s.runtime.CloseSession(sessionID)
 		}
@@ -529,6 +594,7 @@ func (s *Service) handleTerminalEvent(sessionID SessionID, event StreamEvent) {
 	if !tracked {
 		return
 	}
+	_ = s.persistSessionState(sessionID)
 
 	exhaustedMessage := ""
 	switch {
@@ -542,7 +608,46 @@ func (s *Service) handleTerminalEvent(sessionID SessionID, event StreamEvent) {
 	}
 
 	s.sessions.MarkReleased(sessionID, exhaustedMessage)
+	_ = s.persistSessionState(sessionID)
 	s.runtime.CloseSession(sessionID)
+}
+
+func (s *Service) persistSessionState(sessionID SessionID) error {
+	if s == nil || s.sessionStore == nil || sessionID == "" {
+		return nil
+	}
+	state, ok := s.sessions.Resolve(sessionID)
+	if !ok {
+		return nil
+	}
+	return s.sessionStore.Save(sessionID, state)
+}
+
+func (s *Service) deletePersistedSession(sessionID SessionID) error {
+	if s == nil || s.sessionStore == nil || sessionID == "" {
+		return nil
+	}
+	return s.sessionStore.Delete(sessionID)
+}
+
+func resumeProviderThreadID(state *sessionState) string {
+	if state == nil {
+		return ""
+	}
+	return strings.TrimSpace(state.ResumeProviderThreadID)
+}
+
+func (s *Service) providerResumeContract(providerItem catalogdomain.AgentProvider) (bool, string) {
+	if s == nil || s.sessionStore == nil {
+		return false, "process_local"
+	}
+
+	switch providerItem.AdapterType {
+	case catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI:
+		return true, "host_local"
+	default:
+		return false, "process_local"
+	}
 }
 
 func findProvider(items []catalogdomain.AgentProvider, want uuid.UUID) (catalogdomain.AgentProvider, bool) {

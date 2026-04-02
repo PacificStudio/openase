@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
@@ -140,6 +141,44 @@ func (_u *ChatConversationUpdate) SetNillableLastTurnID(v *string) *ChatConversa
 // ClearLastTurnID clears the value of the "last_turn_id" field.
 func (_u *ChatConversationUpdate) ClearLastTurnID() *ChatConversationUpdate {
 	_u.mutation.ClearLastTurnID()
+	return _u
+}
+
+// SetProviderThreadStatus sets the "provider_thread_status" field.
+func (_u *ChatConversationUpdate) SetProviderThreadStatus(v string) *ChatConversationUpdate {
+	_u.mutation.SetProviderThreadStatus(v)
+	return _u
+}
+
+// SetNillableProviderThreadStatus sets the "provider_thread_status" field if the given value is not nil.
+func (_u *ChatConversationUpdate) SetNillableProviderThreadStatus(v *string) *ChatConversationUpdate {
+	if v != nil {
+		_u.SetProviderThreadStatus(*v)
+	}
+	return _u
+}
+
+// ClearProviderThreadStatus clears the value of the "provider_thread_status" field.
+func (_u *ChatConversationUpdate) ClearProviderThreadStatus() *ChatConversationUpdate {
+	_u.mutation.ClearProviderThreadStatus()
+	return _u
+}
+
+// SetProviderThreadActiveFlags sets the "provider_thread_active_flags" field.
+func (_u *ChatConversationUpdate) SetProviderThreadActiveFlags(v []string) *ChatConversationUpdate {
+	_u.mutation.SetProviderThreadActiveFlags(v)
+	return _u
+}
+
+// AppendProviderThreadActiveFlags appends value to the "provider_thread_active_flags" field.
+func (_u *ChatConversationUpdate) AppendProviderThreadActiveFlags(v []string) *ChatConversationUpdate {
+	_u.mutation.AppendProviderThreadActiveFlags(v)
+	return _u
+}
+
+// ClearProviderThreadActiveFlags clears the value of the "provider_thread_active_flags" field.
+func (_u *ChatConversationUpdate) ClearProviderThreadActiveFlags() *ChatConversationUpdate {
+	_u.mutation.ClearProviderThreadActiveFlags()
 	return _u
 }
 
@@ -392,6 +431,23 @@ func (_u *ChatConversationUpdate) sqlSave(ctx context.Context) (_node int, err e
 	}
 	if _u.mutation.LastTurnIDCleared() {
 		_spec.ClearField(chatconversation.FieldLastTurnID, field.TypeString)
+	}
+	if value, ok := _u.mutation.ProviderThreadStatus(); ok {
+		_spec.SetField(chatconversation.FieldProviderThreadStatus, field.TypeString, value)
+	}
+	if _u.mutation.ProviderThreadStatusCleared() {
+		_spec.ClearField(chatconversation.FieldProviderThreadStatus, field.TypeString)
+	}
+	if value, ok := _u.mutation.ProviderThreadActiveFlags(); ok {
+		_spec.SetField(chatconversation.FieldProviderThreadActiveFlags, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedProviderThreadActiveFlags(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, chatconversation.FieldProviderThreadActiveFlags, value)
+		})
+	}
+	if _u.mutation.ProviderThreadActiveFlagsCleared() {
+		_spec.ClearField(chatconversation.FieldProviderThreadActiveFlags, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.RollingSummary(); ok {
 		_spec.SetField(chatconversation.FieldRollingSummary, field.TypeString, value)
@@ -699,6 +755,44 @@ func (_u *ChatConversationUpdateOne) ClearLastTurnID() *ChatConversationUpdateOn
 	return _u
 }
 
+// SetProviderThreadStatus sets the "provider_thread_status" field.
+func (_u *ChatConversationUpdateOne) SetProviderThreadStatus(v string) *ChatConversationUpdateOne {
+	_u.mutation.SetProviderThreadStatus(v)
+	return _u
+}
+
+// SetNillableProviderThreadStatus sets the "provider_thread_status" field if the given value is not nil.
+func (_u *ChatConversationUpdateOne) SetNillableProviderThreadStatus(v *string) *ChatConversationUpdateOne {
+	if v != nil {
+		_u.SetProviderThreadStatus(*v)
+	}
+	return _u
+}
+
+// ClearProviderThreadStatus clears the value of the "provider_thread_status" field.
+func (_u *ChatConversationUpdateOne) ClearProviderThreadStatus() *ChatConversationUpdateOne {
+	_u.mutation.ClearProviderThreadStatus()
+	return _u
+}
+
+// SetProviderThreadActiveFlags sets the "provider_thread_active_flags" field.
+func (_u *ChatConversationUpdateOne) SetProviderThreadActiveFlags(v []string) *ChatConversationUpdateOne {
+	_u.mutation.SetProviderThreadActiveFlags(v)
+	return _u
+}
+
+// AppendProviderThreadActiveFlags appends value to the "provider_thread_active_flags" field.
+func (_u *ChatConversationUpdateOne) AppendProviderThreadActiveFlags(v []string) *ChatConversationUpdateOne {
+	_u.mutation.AppendProviderThreadActiveFlags(v)
+	return _u
+}
+
+// ClearProviderThreadActiveFlags clears the value of the "provider_thread_active_flags" field.
+func (_u *ChatConversationUpdateOne) ClearProviderThreadActiveFlags() *ChatConversationUpdateOne {
+	_u.mutation.ClearProviderThreadActiveFlags()
+	return _u
+}
+
 // SetRollingSummary sets the "rolling_summary" field.
 func (_u *ChatConversationUpdateOne) SetRollingSummary(v string) *ChatConversationUpdateOne {
 	_u.mutation.SetRollingSummary(v)
@@ -978,6 +1072,23 @@ func (_u *ChatConversationUpdateOne) sqlSave(ctx context.Context) (_node *ChatCo
 	}
 	if _u.mutation.LastTurnIDCleared() {
 		_spec.ClearField(chatconversation.FieldLastTurnID, field.TypeString)
+	}
+	if value, ok := _u.mutation.ProviderThreadStatus(); ok {
+		_spec.SetField(chatconversation.FieldProviderThreadStatus, field.TypeString, value)
+	}
+	if _u.mutation.ProviderThreadStatusCleared() {
+		_spec.ClearField(chatconversation.FieldProviderThreadStatus, field.TypeString)
+	}
+	if value, ok := _u.mutation.ProviderThreadActiveFlags(); ok {
+		_spec.SetField(chatconversation.FieldProviderThreadActiveFlags, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedProviderThreadActiveFlags(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, chatconversation.FieldProviderThreadActiveFlags, value)
+		})
+	}
+	if _u.mutation.ProviderThreadActiveFlagsCleared() {
+		_spec.ClearField(chatconversation.FieldProviderThreadActiveFlags, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.RollingSummary(); ok {
 		_spec.SetField(chatconversation.FieldRollingSummary, field.TypeString, value)

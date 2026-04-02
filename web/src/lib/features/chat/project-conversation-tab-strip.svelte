@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { ProjectConversation } from '$lib/api/chat'
   import { cn } from '$lib/utils'
-  import { X } from '@lucide/svelte'
+  import { LoaderCircle, X } from '@lucide/svelte'
   import {
     formatProjectConversationLabel,
     formatProjectConversationTabStatus,
@@ -24,7 +24,7 @@
 
   const canClose = $derived.by(() => {
     return (tab: ProjectConversationTabView) =>
-      tabs.length > 1 || tab.conversationId || tab.entries.length > 0
+      tabs.length > 1 || tab.conversationId || tab.entries.length > 0 || tab.draft.trim().length > 0
   })
 </script>
 
@@ -53,8 +53,11 @@
         {#if isActive}
           <span class="bg-foreground absolute inset-x-2.5 bottom-0 h-[1.5px] rounded-full"></span>
         {/if}
+        {#if tab.pending}
+          <LoaderCircle class="size-3 shrink-0 animate-spin opacity-50" />
+        {/if}
         <span class="max-w-[140px] truncate">{label}</span>
-        {#if status}
+        {#if status && !tab.pending}
           <span class="shrink-0 text-[9px] uppercase opacity-50">{status}</span>
         {/if}
         {#if canClose(tab)}

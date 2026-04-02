@@ -15,12 +15,21 @@ type ProjectConversationStreamHandlers = {
   appendToolCall: (payload: { tool: string; arguments: unknown }) => void
   appendCommandOutput: (payload: {
     stream: string
+    command?: string
     phase?: string
     snapshot: boolean
     content: string
   }) => void
   appendTaskStatus: (payload: {
-    statusType: 'task_started' | 'task_progress' | 'task_notification' | 'turn_done' | 'error'
+    statusType:
+      | 'task_started'
+      | 'task_progress'
+      | 'task_notification'
+      | 'reasoning_updated'
+      | 'turn_done'
+      | 'error'
+      | 'thread_status'
+      | 'session_state'
     title: string
     detail?: string
     raw?: Record<string, unknown>
@@ -86,6 +95,7 @@ export function handleProjectConversationStreamEvent(
     if (taskEntry?.kind === 'command_output') {
       handlers.appendCommandOutput({
         stream: taskEntry.stream,
+        command: taskEntry.command,
         phase: taskEntry.phase,
         snapshot: taskEntry.snapshot,
         content: taskEntry.content,
@@ -126,6 +136,26 @@ export function handleProjectConversationStreamEvent(
   if (event.kind === 'interrupt_resolved') {
     handlers.resolveInterrupt(event.payload.interruptId, event.payload.decision)
     handlers.setPending(true)
+    return
+  }
+
+  if (event.kind === 'reasoning_updated') {
+    handlers.finalizeAssistantEntry()
+    handlers.appendTaskStatus({
+      statusType: 'reasoning_updated',
+      title: 'Reasoning update',
+      detail: event.payload.delta || `Kind: ${event.payload.kind.replace(/_/g, ' ')}`,
+      raw: {
+        thread_id: event.payload.threadId,
+        turn_id: event.payload.turnId,
+        item_id: event.payload.itemId,
+        kind: event.payload.kind,
+        delta: event.payload.delta,
+        summary_index: event.payload.summaryIndex,
+        content_index: event.payload.contentIndex,
+        entry_id: event.payload.entryId,
+      },
+    })
     return
   }
 

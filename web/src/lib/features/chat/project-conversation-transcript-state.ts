@@ -169,7 +169,10 @@ export function mapPersistedEntries(
         id: entry.id,
         turnId: entry.turnId,
         type: String(entry.payload.type ?? ''),
-        raw: entry.payload.raw,
+        raw:
+          entry.payload.raw && typeof entry.payload.raw === 'object'
+            ? entry.payload.raw
+            : entry.payload,
       })
       if (derived) {
         transcript.splice(

@@ -38,6 +38,23 @@ type RuntimeTurnInput struct {
 	PersistentConversation bool
 }
 
+type RuntimeSessionAnchor struct {
+	ProviderThreadID          string
+	LastTurnID                string
+	ProviderThreadStatus      string
+	ProviderThreadActiveFlags []string
+	ProviderAnchorID          string
+	ProviderAnchorKind        string
+	ProviderTurnSupported     bool
+}
+
+type runtimeSessionStatePayload struct {
+	Status      string         `json:"status"`
+	ActiveFlags []string       `json:"active_flags,omitempty"`
+	Detail      string         `json:"detail,omitempty"`
+	Raw         map[string]any `json:"raw,omitempty"`
+}
+
 func remainingTurns(maxTurns int, turnsUsed int) *int {
 	if maxTurns <= 0 {
 		return nil

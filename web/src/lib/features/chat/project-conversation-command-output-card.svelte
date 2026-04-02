@@ -12,6 +12,12 @@
   let expanded = $state(false)
   let showFullOutput = $state(false)
 
+  function truncateInline(text: string, maxLength: number) {
+    if (text.length <= maxLength) return text
+    return `${text.slice(0, maxLength - 3)}...`
+  }
+
+  const title = $derived(entry.command ? truncateInline(entry.command, 72) : 'Output')
   const truncated = $derived(truncateOutput(entry.content, 5, 5))
   const lineCount = $derived(entry.content.split('\n').length)
   const isStderr = $derived(entry.stream === 'stderr')
@@ -39,7 +45,9 @@
     />
     <span class={cn('size-1.5 shrink-0 rounded-full', isStderr ? 'bg-red-400' : 'bg-emerald-400')}
     ></span>
-    <span class="text-foreground min-w-0 flex-1 truncate">Output</span>
+    <span class={cn('text-foreground min-w-0 flex-1 truncate', entry.command && 'font-mono')}>
+      {title}
+    </span>
     <span class="text-muted-foreground/60 flex shrink-0 items-center gap-1.5 text-[10px]">
       {#each metaParts as part, i}
         {#if i > 0}<span class="opacity-40">&middot;</span>{/if}
@@ -50,6 +58,17 @@
 
   {#if expanded}
     <div class="border-border/40 ml-5 border-l pt-1 pb-2 pl-3">
+      {#if entry.command}
+        <div class="mb-2">
+          <div
+            class="text-muted-foreground mb-0.5 text-[10px] font-medium tracking-wider uppercase"
+          >
+            command
+          </div>
+          <pre
+            class="bg-muted/60 overflow-x-auto rounded-md px-2.5 py-1.5 font-mono text-xs leading-5 whitespace-pre-wrap">{entry.command}</pre>
+        </div>
+      {/if}
       <div
         class="overflow-x-auto rounded-md bg-slate-950 px-3 py-2 font-mono text-xs leading-5 whitespace-pre-wrap text-slate-200"
       >

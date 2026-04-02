@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -234,7 +235,7 @@ func TestAdapterStartSendPromptAndRespondToolCall(t *testing.T) {
 	}
 }
 
-func TestAdapterStartCanAttachExistingThreadWithoutThreadStart(t *testing.T) {
+func TestAdapterStartCanResumeExistingThreadBeforeTurnStart(t *testing.T) {
 	process := newFakeProcess()
 	manager := &fakeProcessManager{process: process}
 	adapter, err := NewAdapter(AdapterOptions{ProcessManager: manager})
@@ -270,6 +271,37 @@ func TestAdapterStartCanAttachExistingThreadWithoutThreadStart(t *testing.T) {
 			}
 			if initialized.Method != methodInitialized {
 				return errors.New("expected initialized notification")
+			}
+
+			threadResume, err := readMessage(decoder)
+			if err != nil {
+				return err
+			}
+			if threadResume.Method != methodThreadResume {
+				return errors.New("expected thread/resume request")
+			}
+
+			var resumeParams wireThreadResumeParams
+			if err := decodeParams(threadResume.Params, &resumeParams); err != nil {
+				return err
+			}
+			if resumeParams.ThreadID != "thread-existing" {
+				return errors.New("expected thread/resume id")
+			}
+			if err := encoder.Encode(jsonRPCMessage{
+				JSONRPC: jsonRPCVersion,
+				ID:      threadResume.ID,
+				Result: mustMarshalJSON(wireThreadResumeResponse{
+					Thread: wireThread{
+						ID: "thread-existing",
+						Status: &wireThreadStatus{
+							Type:        "active",
+							ActiveFlags: []string{"waitingOnApproval"},
+						},
+					},
+				}),
+			}); err != nil {
+				return err
 			}
 
 			turnStart, err := readMessage(decoder)
@@ -319,6 +351,10 @@ func TestAdapterStartCanAttachExistingThreadWithoutThreadStart(t *testing.T) {
 	}
 	if session.ThreadID() != "thread-existing" {
 		t.Fatalf("expected attached thread id, got %q", session.ThreadID())
+	}
+	threadStatus := session.ThreadStatus()
+	if threadStatus == nil || threadStatus.Status != "active" || len(threadStatus.ActiveFlags) != 1 || threadStatus.ActiveFlags[0] != "waitingOnApproval" {
+		t.Fatalf("expected resumed thread status, got %+v", threadStatus)
 	}
 
 	turn, err := session.SendPrompt(context.Background(), "Continue this thread.")
@@ -397,6 +433,292 @@ func TestAdapterRespondsMethodNotFoundForUnsupportedServerRequest(t *testing.T) 
 	}
 	if err := session.Stop(context.Background()); err != nil {
 		t.Fatalf("Stop returned error: %v", err)
+	}
+}
+
+func TestAdapterMapsThreadStatusAndTurnCancelledNotifications(t *testing.T) {
+	process := newFakeProcess()
+	manager := &fakeProcessManager{process: process}
+	adapter, err := NewAdapter(AdapterOptions{ProcessManager: manager})
+	if err != nil {
+		t.Fatalf("NewAdapter returned error: %v", err)
+	}
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- runProtocolServer(process, func(decoder *json.Decoder, encoder *json.Encoder) error {
+			if err := completeHandshake(decoder, encoder); err != nil {
+				return err
+			}
+			if err := encoder.Encode(jsonRPCMessage{
+				JSONRPC: jsonRPCVersion,
+				Method:  methodThreadStatusChanged,
+				Params: mustMarshalJSON(wireThreadStatusChangedNotification{
+					ThreadID: "thread-1",
+					Status: wireThreadStatus{
+						Type:        "active",
+						ActiveFlags: []string{"waitingOnUserInput"},
+					},
+				}),
+			}); err != nil {
+				return err
+			}
+			turnStart, err := readMessage(decoder)
+			if err != nil {
+				return err
+			}
+			if turnStart.Method != methodTurnStart {
+				return errors.New("expected turn/start request")
+			}
+			if err := encoder.Encode(jsonRPCMessage{
+				JSONRPC: jsonRPCVersion,
+				ID:      turnStart.ID,
+				Result: mustMarshalJSON(wireTurnStartResponse{
+					Turn: wireTurn{ID: "turn-2", Status: "inProgress"},
+				}),
+			}); err != nil {
+				return err
+			}
+			return encoder.Encode(jsonRPCMessage{
+				JSONRPC: jsonRPCVersion,
+				Method:  methodTurnCancelled,
+				Params: mustMarshalJSON(wireErrorNotification{
+					ThreadID: "thread-1",
+					TurnID:   "turn-2",
+					Error: wireTurnError{
+						Message: "operator interrupted",
+					},
+				}),
+			})
+		})
+	}()
+
+	processSpec, err := provider.NewAgentCLIProcessSpec(
+		provider.MustParseAgentCLICommand("codex"),
+		[]string{"app-server", "--listen", "stdio://"},
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewAgentCLIProcessSpec returned error: %v", err)
+	}
+	session, err := adapter.Start(context.Background(), StartRequest{
+		Process: processSpec,
+		Thread:  ThreadStartParams{WorkingDirectory: "/tmp/openase"},
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	threadStatusEvent := requireEvent(t, session.Events())
+	if threadStatusEvent.Type != EventTypeThreadStatus || threadStatusEvent.ThreadStatus == nil {
+		t.Fatalf("expected thread status event, got %+v", threadStatusEvent)
+	}
+	if threadStatusEvent.ThreadStatus.Status != "active" || len(threadStatusEvent.ThreadStatus.ActiveFlags) != 1 || threadStatusEvent.ThreadStatus.ActiveFlags[0] != "waitingOnUserInput" {
+		t.Fatalf("unexpected thread status payload %+v", threadStatusEvent.ThreadStatus)
+	}
+
+	turn, err := session.SendPrompt(context.Background(), "Need more input")
+	if err != nil {
+		t.Fatalf("SendPrompt returned error: %v", err)
+	}
+	if turn.TurnID != "turn-2" {
+		t.Fatalf("expected turn-2, got %q", turn.TurnID)
+	}
+
+	turnEvent := requireEvent(t, session.Events())
+	if turnEvent.Type != EventTypeTurnInterrupted || turnEvent.Turn == nil || turnEvent.Turn.Status != "interrupted" {
+		t.Fatalf("expected interrupted turn event, got %+v", turnEvent)
+	}
+
+	if err := session.Stop(context.Background()); err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
+	if err := <-serverDone; err != nil {
+		t.Fatalf("fake server returned error: %v", err)
+	}
+}
+
+func TestAdapterMapsThreadLifecyclePlanDiffAndReasoningNotifications(t *testing.T) {
+	process := newFakeProcess()
+	manager := &fakeProcessManager{process: process}
+	adapter, err := NewAdapter(AdapterOptions{ProcessManager: manager})
+	if err != nil {
+		t.Fatalf("NewAdapter returned error: %v", err)
+	}
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- runProtocolServer(process, func(decoder *json.Decoder, encoder *json.Encoder) error {
+			if err := completeHandshake(decoder, encoder); err != nil {
+				return err
+			}
+			if err := encoder.Encode(jsonRPCMessage{
+				JSONRPC: jsonRPCVersion,
+				Method:  methodThreadStarted,
+				Params: mustMarshalJSON(wireThreadStartedNotification{
+					Thread: wireThread{
+						ID: "thread-9",
+						Status: &wireThreadStatus{
+							Type:        "idle",
+							ActiveFlags: []string{"booting"},
+						},
+					},
+				}),
+			}); err != nil {
+				return err
+			}
+
+			turnStart, err := readMessage(decoder)
+			if err != nil {
+				return err
+			}
+			if turnStart.Method != methodTurnStart {
+				return errors.New("expected turn/start request")
+			}
+			if err := encoder.Encode(jsonRPCMessage{
+				JSONRPC: jsonRPCVersion,
+				ID:      turnStart.ID,
+				Result: mustMarshalJSON(wireTurnStartResponse{
+					Turn: wireTurn{ID: "turn-9", Status: "inProgress"},
+				}),
+			}); err != nil {
+				return err
+			}
+
+			notifications := []jsonRPCMessage{
+				{
+					JSONRPC: jsonRPCVersion,
+					Method:  methodTurnPlanUpdated,
+					Params: mustMarshalJSON(wireTurnPlanUpdatedNotification{
+						ThreadID:    "thread-9",
+						TurnID:      "turn-9",
+						Explanation: stringPointer("Need two steps"),
+						Plan: []wireTurnPlanStep{
+							{Step: "Inspect repo", Status: "completed"},
+							{Step: "Patch tests", Status: "in_progress"},
+						},
+					}),
+				},
+				{
+					JSONRPC: jsonRPCVersion,
+					Method:  methodTurnDiffUpdated,
+					Params: mustMarshalJSON(wireTurnDiffUpdatedNotification{
+						ThreadID: "thread-9",
+						TurnID:   "turn-9",
+						Diff:     "diff --git a/app.go b/app.go",
+					}),
+				},
+				{
+					JSONRPC: jsonRPCVersion,
+					Method:  methodReasoningSummaryPart,
+					Params: mustMarshalJSON(wireReasoningSummaryPartAddedNotification{
+						ThreadID:     "thread-9",
+						TurnID:       "turn-9",
+						ItemID:       "item-1",
+						SummaryIndex: 0,
+					}),
+				},
+				{
+					JSONRPC: jsonRPCVersion,
+					Method:  methodReasoningSummaryText,
+					Params: mustMarshalJSON(wireReasoningSummaryTextDeltaNotification{
+						ThreadID:     "thread-9",
+						TurnID:       "turn-9",
+						ItemID:       "item-1",
+						Delta:        "Summarized reasoning",
+						SummaryIndex: 0,
+					}),
+				},
+				{
+					JSONRPC: jsonRPCVersion,
+					Method:  methodReasoningText,
+					Params: mustMarshalJSON(wireReasoningTextDeltaNotification{
+						ThreadID:     "thread-9",
+						TurnID:       "turn-9",
+						ItemID:       "item-1",
+						Delta:        "Detailed reasoning",
+						ContentIndex: 1,
+					}),
+				},
+				{
+					JSONRPC: jsonRPCVersion,
+					Method:  methodThreadCompacted,
+					Params: mustMarshalJSON(wireContextCompactedNotification{
+						ThreadID: "thread-9",
+						TurnID:   "turn-9",
+					}),
+				},
+			}
+			for _, notification := range notifications {
+				if err := encoder.Encode(notification); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}()
+
+	processSpec, err := provider.NewAgentCLIProcessSpec(
+		provider.MustParseAgentCLICommand("codex"),
+		[]string{"app-server", "--listen", "stdio://"},
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewAgentCLIProcessSpec returned error: %v", err)
+	}
+	session, err := adapter.Start(context.Background(), StartRequest{
+		Process: processSpec,
+		Thread:  ThreadStartParams{WorkingDirectory: "/tmp/openase"},
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	threadStarted := requireEvent(t, session.Events())
+	if threadStarted.Type != EventTypeThreadStarted || threadStarted.Thread == nil || threadStarted.Thread.ThreadID != "thread-9" {
+		t.Fatalf("expected thread started event, got %+v", threadStarted)
+	}
+
+	turn, err := session.SendPrompt(context.Background(), "Continue")
+	if err != nil {
+		t.Fatalf("SendPrompt returned error: %v", err)
+	}
+	if turn.TurnID != "turn-9" {
+		t.Fatalf("expected turn-9, got %q", turn.TurnID)
+	}
+
+	planEvent := requireEvent(t, session.Events())
+	if planEvent.Type != EventTypeTurnPlanUpdated || planEvent.Plan == nil || len(planEvent.Plan.Plan) != 2 {
+		t.Fatalf("expected plan update event, got %+v", planEvent)
+	}
+	diffEvent := requireEvent(t, session.Events())
+	if diffEvent.Type != EventTypeTurnDiffUpdated || diffEvent.Diff == nil || !strings.Contains(diffEvent.Diff.Diff, "app.go") {
+		t.Fatalf("expected diff update event, got %+v", diffEvent)
+	}
+	reasoningPart := requireEvent(t, session.Events())
+	if reasoningPart.Type != EventTypeReasoningUpdated || reasoningPart.Reasoning == nil || reasoningPart.Reasoning.Kind != ReasoningKindSummaryPart {
+		t.Fatalf("expected reasoning summary part event, got %+v", reasoningPart)
+	}
+	reasoningSummary := requireEvent(t, session.Events())
+	if reasoningSummary.Reasoning == nil || reasoningSummary.Reasoning.Kind != ReasoningKindSummaryText || reasoningSummary.Reasoning.Delta != "Summarized reasoning" {
+		t.Fatalf("expected reasoning summary text event, got %+v", reasoningSummary)
+	}
+	reasoningText := requireEvent(t, session.Events())
+	if reasoningText.Reasoning == nil || reasoningText.Reasoning.Kind != ReasoningKindText || reasoningText.Reasoning.Delta != "Detailed reasoning" {
+		t.Fatalf("expected reasoning text event, got %+v", reasoningText)
+	}
+	compacted := requireEvent(t, session.Events())
+	if compacted.Type != EventTypeThreadCompacted || compacted.Compaction == nil || compacted.Compaction.ThreadID != "thread-9" {
+		t.Fatalf("expected thread compacted event, got %+v", compacted)
+	}
+
+	if err := session.Stop(context.Background()); err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
+	if err := <-serverDone; err != nil {
+		t.Fatalf("fake server returned error: %v", err)
 	}
 }
 

@@ -9769,34 +9769,37 @@ func (m *AgentTraceEventMutation) ResetEdge(name string) error {
 // ChatConversationMutation represents an operation that mutates the ChatConversation nodes in the graph.
 type ChatConversationMutation struct {
 	config
-	op                        Op
-	typ                       string
-	id                        *uuid.UUID
-	user_id                   *string
-	source                    *string
-	provider_id               *uuid.UUID
-	status                    *string
-	provider_thread_id        *string
-	last_turn_id              *string
-	rolling_summary           *string
-	last_activity_at          *time.Time
-	created_at                *time.Time
-	updated_at                *time.Time
-	clearedFields             map[string]struct{}
-	project                   *uuid.UUID
-	clearedproject            bool
-	turns                     map[uuid.UUID]struct{}
-	removedturns              map[uuid.UUID]struct{}
-	clearedturns              bool
-	entries                   map[uuid.UUID]struct{}
-	removedentries            map[uuid.UUID]struct{}
-	clearedentries            bool
-	pending_interrupts        map[uuid.UUID]struct{}
-	removedpending_interrupts map[uuid.UUID]struct{}
-	clearedpending_interrupts bool
-	done                      bool
-	oldValue                  func(context.Context) (*ChatConversation, error)
-	predicates                []predicate.ChatConversation
+	op                                 Op
+	typ                                string
+	id                                 *uuid.UUID
+	user_id                            *string
+	source                             *string
+	provider_id                        *uuid.UUID
+	status                             *string
+	provider_thread_id                 *string
+	last_turn_id                       *string
+	provider_thread_status             *string
+	provider_thread_active_flags       *[]string
+	appendprovider_thread_active_flags []string
+	rolling_summary                    *string
+	last_activity_at                   *time.Time
+	created_at                         *time.Time
+	updated_at                         *time.Time
+	clearedFields                      map[string]struct{}
+	project                            *uuid.UUID
+	clearedproject                     bool
+	turns                              map[uuid.UUID]struct{}
+	removedturns                       map[uuid.UUID]struct{}
+	clearedturns                       bool
+	entries                            map[uuid.UUID]struct{}
+	removedentries                     map[uuid.UUID]struct{}
+	clearedentries                     bool
+	pending_interrupts                 map[uuid.UUID]struct{}
+	removedpending_interrupts          map[uuid.UUID]struct{}
+	clearedpending_interrupts          bool
+	done                               bool
+	oldValue                           func(context.Context) (*ChatConversation, error)
+	predicates                         []predicate.ChatConversation
 }
 
 var _ ent.Mutation = (*ChatConversationMutation)(nil)
@@ -10181,6 +10184,120 @@ func (m *ChatConversationMutation) ResetLastTurnID() {
 	delete(m.clearedFields, chatconversation.FieldLastTurnID)
 }
 
+// SetProviderThreadStatus sets the "provider_thread_status" field.
+func (m *ChatConversationMutation) SetProviderThreadStatus(s string) {
+	m.provider_thread_status = &s
+}
+
+// ProviderThreadStatus returns the value of the "provider_thread_status" field in the mutation.
+func (m *ChatConversationMutation) ProviderThreadStatus() (r string, exists bool) {
+	v := m.provider_thread_status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProviderThreadStatus returns the old "provider_thread_status" field's value of the ChatConversation entity.
+// If the ChatConversation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ChatConversationMutation) OldProviderThreadStatus(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProviderThreadStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProviderThreadStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProviderThreadStatus: %w", err)
+	}
+	return oldValue.ProviderThreadStatus, nil
+}
+
+// ClearProviderThreadStatus clears the value of the "provider_thread_status" field.
+func (m *ChatConversationMutation) ClearProviderThreadStatus() {
+	m.provider_thread_status = nil
+	m.clearedFields[chatconversation.FieldProviderThreadStatus] = struct{}{}
+}
+
+// ProviderThreadStatusCleared returns if the "provider_thread_status" field was cleared in this mutation.
+func (m *ChatConversationMutation) ProviderThreadStatusCleared() bool {
+	_, ok := m.clearedFields[chatconversation.FieldProviderThreadStatus]
+	return ok
+}
+
+// ResetProviderThreadStatus resets all changes to the "provider_thread_status" field.
+func (m *ChatConversationMutation) ResetProviderThreadStatus() {
+	m.provider_thread_status = nil
+	delete(m.clearedFields, chatconversation.FieldProviderThreadStatus)
+}
+
+// SetProviderThreadActiveFlags sets the "provider_thread_active_flags" field.
+func (m *ChatConversationMutation) SetProviderThreadActiveFlags(s []string) {
+	m.provider_thread_active_flags = &s
+	m.appendprovider_thread_active_flags = nil
+}
+
+// ProviderThreadActiveFlags returns the value of the "provider_thread_active_flags" field in the mutation.
+func (m *ChatConversationMutation) ProviderThreadActiveFlags() (r []string, exists bool) {
+	v := m.provider_thread_active_flags
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProviderThreadActiveFlags returns the old "provider_thread_active_flags" field's value of the ChatConversation entity.
+// If the ChatConversation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ChatConversationMutation) OldProviderThreadActiveFlags(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProviderThreadActiveFlags is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProviderThreadActiveFlags requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProviderThreadActiveFlags: %w", err)
+	}
+	return oldValue.ProviderThreadActiveFlags, nil
+}
+
+// AppendProviderThreadActiveFlags adds s to the "provider_thread_active_flags" field.
+func (m *ChatConversationMutation) AppendProviderThreadActiveFlags(s []string) {
+	m.appendprovider_thread_active_flags = append(m.appendprovider_thread_active_flags, s...)
+}
+
+// AppendedProviderThreadActiveFlags returns the list of values that were appended to the "provider_thread_active_flags" field in this mutation.
+func (m *ChatConversationMutation) AppendedProviderThreadActiveFlags() ([]string, bool) {
+	if len(m.appendprovider_thread_active_flags) == 0 {
+		return nil, false
+	}
+	return m.appendprovider_thread_active_flags, true
+}
+
+// ClearProviderThreadActiveFlags clears the value of the "provider_thread_active_flags" field.
+func (m *ChatConversationMutation) ClearProviderThreadActiveFlags() {
+	m.provider_thread_active_flags = nil
+	m.appendprovider_thread_active_flags = nil
+	m.clearedFields[chatconversation.FieldProviderThreadActiveFlags] = struct{}{}
+}
+
+// ProviderThreadActiveFlagsCleared returns if the "provider_thread_active_flags" field was cleared in this mutation.
+func (m *ChatConversationMutation) ProviderThreadActiveFlagsCleared() bool {
+	_, ok := m.clearedFields[chatconversation.FieldProviderThreadActiveFlags]
+	return ok
+}
+
+// ResetProviderThreadActiveFlags resets all changes to the "provider_thread_active_flags" field.
+func (m *ChatConversationMutation) ResetProviderThreadActiveFlags() {
+	m.provider_thread_active_flags = nil
+	m.appendprovider_thread_active_flags = nil
+	delete(m.clearedFields, chatconversation.FieldProviderThreadActiveFlags)
+}
+
 // SetRollingSummary sets the "rolling_summary" field.
 func (m *ChatConversationMutation) SetRollingSummary(s string) {
 	m.rolling_summary = &s
@@ -10561,7 +10678,7 @@ func (m *ChatConversationMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ChatConversationMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 13)
 	if m.project != nil {
 		fields = append(fields, chatconversation.FieldProjectID)
 	}
@@ -10582,6 +10699,12 @@ func (m *ChatConversationMutation) Fields() []string {
 	}
 	if m.last_turn_id != nil {
 		fields = append(fields, chatconversation.FieldLastTurnID)
+	}
+	if m.provider_thread_status != nil {
+		fields = append(fields, chatconversation.FieldProviderThreadStatus)
+	}
+	if m.provider_thread_active_flags != nil {
+		fields = append(fields, chatconversation.FieldProviderThreadActiveFlags)
 	}
 	if m.rolling_summary != nil {
 		fields = append(fields, chatconversation.FieldRollingSummary)
@@ -10617,6 +10740,10 @@ func (m *ChatConversationMutation) Field(name string) (ent.Value, bool) {
 		return m.ProviderThreadID()
 	case chatconversation.FieldLastTurnID:
 		return m.LastTurnID()
+	case chatconversation.FieldProviderThreadStatus:
+		return m.ProviderThreadStatus()
+	case chatconversation.FieldProviderThreadActiveFlags:
+		return m.ProviderThreadActiveFlags()
 	case chatconversation.FieldRollingSummary:
 		return m.RollingSummary()
 	case chatconversation.FieldLastActivityAt:
@@ -10648,6 +10775,10 @@ func (m *ChatConversationMutation) OldField(ctx context.Context, name string) (e
 		return m.OldProviderThreadID(ctx)
 	case chatconversation.FieldLastTurnID:
 		return m.OldLastTurnID(ctx)
+	case chatconversation.FieldProviderThreadStatus:
+		return m.OldProviderThreadStatus(ctx)
+	case chatconversation.FieldProviderThreadActiveFlags:
+		return m.OldProviderThreadActiveFlags(ctx)
 	case chatconversation.FieldRollingSummary:
 		return m.OldRollingSummary(ctx)
 	case chatconversation.FieldLastActivityAt:
@@ -10714,6 +10845,20 @@ func (m *ChatConversationMutation) SetField(name string, value ent.Value) error 
 		}
 		m.SetLastTurnID(v)
 		return nil
+	case chatconversation.FieldProviderThreadStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProviderThreadStatus(v)
+		return nil
+	case chatconversation.FieldProviderThreadActiveFlags:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProviderThreadActiveFlags(v)
+		return nil
 	case chatconversation.FieldRollingSummary:
 		v, ok := value.(string)
 		if !ok {
@@ -10778,6 +10923,12 @@ func (m *ChatConversationMutation) ClearedFields() []string {
 	if m.FieldCleared(chatconversation.FieldLastTurnID) {
 		fields = append(fields, chatconversation.FieldLastTurnID)
 	}
+	if m.FieldCleared(chatconversation.FieldProviderThreadStatus) {
+		fields = append(fields, chatconversation.FieldProviderThreadStatus)
+	}
+	if m.FieldCleared(chatconversation.FieldProviderThreadActiveFlags) {
+		fields = append(fields, chatconversation.FieldProviderThreadActiveFlags)
+	}
 	if m.FieldCleared(chatconversation.FieldRollingSummary) {
 		fields = append(fields, chatconversation.FieldRollingSummary)
 	}
@@ -10800,6 +10951,12 @@ func (m *ChatConversationMutation) ClearField(name string) error {
 		return nil
 	case chatconversation.FieldLastTurnID:
 		m.ClearLastTurnID()
+		return nil
+	case chatconversation.FieldProviderThreadStatus:
+		m.ClearProviderThreadStatus()
+		return nil
+	case chatconversation.FieldProviderThreadActiveFlags:
+		m.ClearProviderThreadActiveFlags()
 		return nil
 	case chatconversation.FieldRollingSummary:
 		m.ClearRollingSummary()
@@ -10832,6 +10989,12 @@ func (m *ChatConversationMutation) ResetField(name string) error {
 		return nil
 	case chatconversation.FieldLastTurnID:
 		m.ResetLastTurnID()
+		return nil
+	case chatconversation.FieldProviderThreadStatus:
+		m.ResetProviderThreadStatus()
+		return nil
+	case chatconversation.FieldProviderThreadActiveFlags:
+		m.ResetProviderThreadActiveFlags()
 		return nil
 	case chatconversation.FieldRollingSummary:
 		m.ResetRollingSummary()

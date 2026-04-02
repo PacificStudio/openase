@@ -13,7 +13,6 @@ import (
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
-	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
@@ -95,7 +94,6 @@ func (s *Scheduler) RunTick(ctx context.Context) (TickReport, error) {
 	workflows, err := s.client.Workflow.Query().
 		Where(
 			entworkflow.IsActive(true),
-			entworkflow.HasProjectWith(entproject.StatusEQ("In Progress")),
 		).
 		WithProject().
 		WithPickupStatuses(func(query *ent.TicketStatusQuery) {

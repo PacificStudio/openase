@@ -49,6 +49,7 @@ export function mapProjectConversationTaskEntry(params: {
         role: 'system',
         turnId: params.turnId,
         stream,
+        command: readString(raw, 'command') || undefined,
         phase: readString(raw, 'phase') || undefined,
         snapshot: readBoolean(raw, 'snapshot'),
         content,
@@ -58,6 +59,24 @@ export function mapProjectConversationTaskEntry(params: {
 
   const statusDetail = buildTaskDetail(raw)
   switch (params.type) {
+    case 'thread_status':
+      return createProjectConversationTaskStatusEntry({
+        id: params.id,
+        turnId: params.turnId,
+        statusType: 'thread_status',
+        title: 'Codex thread status',
+        detail: buildProviderStateDetail(raw),
+        raw: raw ?? undefined,
+      })
+    case 'session_state':
+      return createProjectConversationTaskStatusEntry({
+        id: params.id,
+        turnId: params.turnId,
+        statusType: 'session_state',
+        title: 'Claude session status',
+        detail: buildProviderStateDetail(raw),
+        raw: raw ?? undefined,
+      })
     case 'task_started':
       return createProjectConversationTaskStatusEntry({
         id: params.id,
@@ -85,9 +104,27 @@ export function mapProjectConversationTaskEntry(params: {
         detail: statusDetail,
         raw: raw ?? undefined,
       })
+    case 'turn_reasoning_updated':
+      return createProjectConversationTaskStatusEntry({
+        id: params.id,
+        turnId: params.turnId,
+        statusType: 'reasoning_updated',
+        title: 'Reasoning update',
+        detail: buildReasoningDetail(raw),
+        raw: raw ?? undefined,
+      })
     default:
       return null
   }
+}
+
+function buildProviderStateDetail(raw: Record<string, unknown> | null) {
+  const status = readString(raw, 'status')
+  const detail = readString(raw, 'detail')
+  const flags = readStringList(raw, 'active_flags')
+
+  const parts = [status, detail, flags.length > 0 ? flags.join(', ') : undefined].filter(Boolean)
+  return parts.length > 0 ? parts.join(' · ') : undefined
 }
 
 export function createProjectConversationTurnDoneEntry(params: {
@@ -199,6 +236,19 @@ function describeStatus(raw: Record<string, unknown> | null) {
   return status ? `Status: ${status}` : undefined
 }
 
+function buildReasoningDetail(raw: Record<string, unknown> | null) {
+  const delta = readString(raw, 'delta')
+  if (delta) {
+    return delta
+  }
+
+  const kind = readString(raw, 'kind')
+  if (!kind) {
+    return undefined
+  }
+  return `Kind: ${kind.replace(/_/g, ' ')}`
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null
@@ -223,4 +273,12 @@ function readNumber(record: Record<string, unknown>, ...keys: string[]) {
     }
   }
   return undefined
+}
+
+function readStringList(record: Record<string, unknown> | null, key: string) {
+  const value = record?.[key]
+  if (!Array.isArray(value)) {
+    return []
+  }
+  return value.filter((item): item is string => typeof item === 'string' && item.trim() !== '')
 }

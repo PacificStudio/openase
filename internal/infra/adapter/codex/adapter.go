@@ -32,9 +32,16 @@ const (
 	EventTypeTokenUsageUpdated EventType = "token_usage_updated"
 	EventTypeRateLimitUpdated  EventType = "rate_limit_updated"
 	EventTypeOutputProduced    EventType = "output_produced"
+	EventTypeThreadStarted     EventType = "thread_started"
+	EventTypeThreadCompacted   EventType = "thread_compacted"
+	EventTypeTurnPlanUpdated   EventType = "turn_plan_updated"
+	EventTypeTurnDiffUpdated   EventType = "turn_diff_updated"
+	EventTypeReasoningUpdated  EventType = "reasoning_updated"
 	EventTypeTurnStarted       EventType = "turn_started"
 	EventTypeTurnCompleted     EventType = "turn_completed"
+	EventTypeTurnInterrupted   EventType = "turn_interrupted"
 	EventTypeTurnFailed        EventType = "turn_failed"
+	EventTypeThreadStatus      EventType = "thread_status"
 )
 
 type ToolCallContentType string
@@ -93,14 +100,20 @@ type TurnStartResult struct {
 }
 
 type Event struct {
-	Type       EventType
-	ToolCall   *ToolCallRequest
-	Approval   *ApprovalRequest
-	UserInput  *UserInputRequest
-	TokenUsage *TokenUsageEvent
-	RateLimit  *provider.CLIRateLimit
-	Output     *OutputEvent
-	Turn       *TurnEvent
+	Type         EventType
+	ToolCall     *ToolCallRequest
+	Approval     *ApprovalRequest
+	UserInput    *UserInputRequest
+	TokenUsage   *TokenUsageEvent
+	RateLimit    *provider.CLIRateLimit
+	Output       *OutputEvent
+	Turn         *TurnEvent
+	ThreadStatus *ThreadStatusEvent
+	Thread       *ThreadEvent
+	Compaction   *ThreadCompactionEvent
+	Plan         *TurnPlanEvent
+	Diff         *TurnDiffEvent
+	Reasoning    *ReasoningEvent
 }
 
 type ToolCallRequest struct {
@@ -159,6 +172,59 @@ type TurnEvent struct {
 	Error    *TurnError
 }
 
+type ThreadStatusEvent struct {
+	ThreadID    string
+	Status      string
+	ActiveFlags []string
+}
+
+type ThreadEvent struct {
+	ThreadID    string
+	Status      string
+	ActiveFlags []string
+}
+
+type ThreadCompactionEvent struct {
+	ThreadID string
+	TurnID   string
+}
+
+type TurnPlanStep struct {
+	Step   string
+	Status string
+}
+
+type TurnPlanEvent struct {
+	ThreadID    string
+	TurnID      string
+	Explanation *string
+	Plan        []TurnPlanStep
+}
+
+type TurnDiffEvent struct {
+	ThreadID string
+	TurnID   string
+	Diff     string
+}
+
+type ReasoningKind string
+
+const (
+	ReasoningKindSummaryPart ReasoningKind = "summary_part_added"
+	ReasoningKindSummaryText ReasoningKind = "summary_text_delta"
+	ReasoningKindText        ReasoningKind = "text_delta"
+)
+
+type ReasoningEvent struct {
+	ThreadID     string
+	TurnID       string
+	ItemID       string
+	Kind         ReasoningKind
+	Delta        string
+	SummaryIndex *int
+	ContentIndex *int
+}
+
 type TurnError struct {
 	Message           string
 	AdditionalDetails string
@@ -185,6 +251,7 @@ type OutputEvent struct {
 	TurnID   string
 	ItemID   string
 	Stream   string
+	Command  string
 	Text     string
 	Phase    string
 	Snapshot bool
@@ -213,8 +280,10 @@ type Session struct {
 	stderrMu sync.Mutex
 	stderr   bytes.Buffer
 
-	threadID string
-	logger   *slog.Logger
+	threadID     string
+	statusMu     sync.RWMutex
+	threadStatus *ThreadStatusEvent
+	logger       *slog.Logger
 
 	autoApproveRequests         bool
 	defaultTurnWorkingDirectory string
@@ -279,7 +348,22 @@ func (a *Adapter) Start(ctx context.Context, request StartRequest) (*Session, er
 	}
 
 	if resumeThreadID := strings.TrimSpace(request.Thread.ResumeThreadID); resumeThreadID != "" {
-		session.threadID = resumeThreadID
+		resumeParams, err := newWireThreadResumeParams(resumeThreadID, request.Thread)
+		if err != nil {
+			_ = session.stopWithTimeout()
+			return nil, err
+		}
+		var threadResponse wireThreadResumeResponse
+		if err := session.call(ctx, methodThreadResume, resumeParams, &threadResponse); err != nil {
+			_ = session.stopWithTimeout()
+			return nil, fmt.Errorf("resume codex thread: %w", err)
+		}
+		if strings.TrimSpace(threadResponse.Thread.ID) == "" {
+			_ = session.stopWithTimeout()
+			return nil, fmt.Errorf("codex thread/resume response missing thread id")
+		}
+		session.threadID = threadResponse.Thread.ID
+		session.setThreadStatus(threadStatusEventFromWire(session.threadID, threadResponse.Thread.Status))
 	} else {
 		threadParams, err := newWireThreadStartParams(request.Thread)
 		if err != nil {
@@ -297,6 +381,7 @@ func (a *Adapter) Start(ctx context.Context, request StartRequest) (*Session, er
 			return nil, fmt.Errorf("codex thread/start response missing thread id")
 		}
 		session.threadID = threadResponse.Thread.ID
+		session.setThreadStatus(threadStatusEventFromWire(session.threadID, threadResponse.Thread.Status))
 	}
 	session.autoApproveRequests = approvalPolicyIsNever(request.Thread.ApprovalPolicy)
 	session.defaultTurnWorkingDirectory = strings.TrimSpace(request.Turn.WorkingDirectory)
@@ -351,6 +436,20 @@ func (s *Session) Diagnostic() SessionDiagnostic {
 	s.stderrMu.Unlock()
 
 	return diagnostic
+}
+
+func (s *Session) ThreadStatus() *ThreadStatusEvent {
+	if s == nil {
+		return nil
+	}
+	s.statusMu.RLock()
+	defer s.statusMu.RUnlock()
+	if s.threadStatus == nil {
+		return nil
+	}
+	copied := *s.threadStatus
+	copied.ActiveFlags = append([]string(nil), s.threadStatus.ActiveFlags...)
+	return &copied
 }
 
 func (s *Session) SendPrompt(ctx context.Context, prompt string) (TurnStartResult, error) {
@@ -575,7 +674,11 @@ func (s *Session) call(ctx context.Context, method string, params any, out any) 
 
 func decodeCallResult(method string, response callResult, out any) error {
 	if response.err != nil {
-		return fmt.Errorf("codex %s failed: %s (%d)", method, response.err.Message, response.err.Code)
+		return &RPCError{
+			Method:  method,
+			Code:    response.err.Code,
+			Message: response.err.Message,
+		}
 	}
 	if out == nil {
 		return nil
@@ -659,6 +762,14 @@ func (s *Session) readLoop() {
 			return
 		}
 	}
+}
+
+func IsThreadNotFoundError(err error) bool {
+	var rpcErr *RPCError
+	if !errors.As(err, &rpcErr) {
+		return false
+	}
+	return rpcErr.Code == -32600 && strings.Contains(strings.ToLower(strings.TrimSpace(rpcErr.Message)), "thread not found")
 }
 
 func (s *Session) handleMessage(message jsonRPCMessage) error {
@@ -779,6 +890,50 @@ func (s *Session) handleServerRequest(message jsonRPCMessage) error {
 
 func (s *Session) handleNotification(message jsonRPCMessage) error {
 	switch message.Method {
+	case methodThreadStarted:
+		var notification wireThreadStartedNotification
+		if err := decodeParams(message.Params, &notification); err != nil {
+			return fmt.Errorf("decode codex thread started notification: %w", err)
+		}
+		if strings.TrimSpace(notification.Thread.ID) != "" {
+			s.threadID = strings.TrimSpace(notification.Thread.ID)
+		}
+		threadEvent := threadEventFromWire(notification.Thread)
+		s.setThreadStatus(threadStatusEventFromThreadEvent(threadEvent))
+		if threadEvent != nil {
+			s.emit(Event{
+				Type:   EventTypeThreadStarted,
+				Thread: threadEvent,
+			})
+		}
+		return nil
+	case methodThreadStatusChanged:
+		var notification wireThreadStatusChangedNotification
+		if err := decodeParams(message.Params, &notification); err != nil {
+			return fmt.Errorf("decode codex thread status notification: %w", err)
+		}
+		event := threadStatusEventFromWire(notification.ThreadID, &notification.Status)
+		s.setThreadStatus(event)
+		if event != nil {
+			s.emit(Event{
+				Type:         EventTypeThreadStatus,
+				ThreadStatus: event,
+			})
+		}
+		return nil
+	case methodThreadCompacted:
+		var notification wireContextCompactedNotification
+		if err := decodeParams(message.Params, &notification); err != nil {
+			return fmt.Errorf("decode codex thread compacted notification: %w", err)
+		}
+		s.emit(Event{
+			Type: EventTypeThreadCompacted,
+			Compaction: &ThreadCompactionEvent{
+				ThreadID: strings.TrimSpace(notification.ThreadID),
+				TurnID:   strings.TrimSpace(notification.TurnID),
+			},
+		})
+		return nil
 	case methodTurnStarted:
 		var notification wireTurnNotification
 		if err := decodeParams(message.Params, &notification); err != nil {
@@ -796,6 +951,42 @@ func (s *Session) handleNotification(message jsonRPCMessage) error {
 		})
 
 		return nil
+	case methodTurnPlanUpdated:
+		var notification wireTurnPlanUpdatedNotification
+		if err := decodeParams(message.Params, &notification); err != nil {
+			return fmt.Errorf("decode codex turn plan notification: %w", err)
+		}
+		plan := make([]TurnPlanStep, 0, len(notification.Plan))
+		for _, item := range notification.Plan {
+			plan = append(plan, TurnPlanStep{
+				Step:   strings.TrimSpace(item.Step),
+				Status: strings.TrimSpace(item.Status),
+			})
+		}
+		s.emit(Event{
+			Type: EventTypeTurnPlanUpdated,
+			Plan: &TurnPlanEvent{
+				ThreadID:    strings.TrimSpace(notification.ThreadID),
+				TurnID:      strings.TrimSpace(notification.TurnID),
+				Explanation: notification.Explanation,
+				Plan:        plan,
+			},
+		})
+		return nil
+	case methodTurnDiffUpdated:
+		var notification wireTurnDiffUpdatedNotification
+		if err := decodeParams(message.Params, &notification); err != nil {
+			return fmt.Errorf("decode codex turn diff notification: %w", err)
+		}
+		s.emit(Event{
+			Type: EventTypeTurnDiffUpdated,
+			Diff: &TurnDiffEvent{
+				ThreadID: strings.TrimSpace(notification.ThreadID),
+				TurnID:   strings.TrimSpace(notification.TurnID),
+				Diff:     notification.Diff,
+			},
+		})
+		return nil
 	case methodTurnCompleted:
 		var notification wireTurnNotification
 		if err := decodeParams(message.Params, &notification); err != nil {
@@ -812,6 +1003,59 @@ func (s *Session) handleNotification(message jsonRPCMessage) error {
 			},
 		})
 
+		return nil
+	case methodReasoningSummaryPart:
+		var notification wireReasoningSummaryPartAddedNotification
+		if err := decodeParams(message.Params, &notification); err != nil {
+			return fmt.Errorf("decode codex reasoning summary part notification: %w", err)
+		}
+		summaryIndex := notification.SummaryIndex
+		s.emit(Event{
+			Type: EventTypeReasoningUpdated,
+			Reasoning: &ReasoningEvent{
+				ThreadID:     strings.TrimSpace(notification.ThreadID),
+				TurnID:       strings.TrimSpace(notification.TurnID),
+				ItemID:       strings.TrimSpace(notification.ItemID),
+				Kind:         ReasoningKindSummaryPart,
+				SummaryIndex: &summaryIndex,
+			},
+		})
+		return nil
+	case methodReasoningSummaryText:
+		var notification wireReasoningSummaryTextDeltaNotification
+		if err := decodeParams(message.Params, &notification); err != nil {
+			return fmt.Errorf("decode codex reasoning summary text notification: %w", err)
+		}
+		summaryIndex := notification.SummaryIndex
+		s.emit(Event{
+			Type: EventTypeReasoningUpdated,
+			Reasoning: &ReasoningEvent{
+				ThreadID:     strings.TrimSpace(notification.ThreadID),
+				TurnID:       strings.TrimSpace(notification.TurnID),
+				ItemID:       strings.TrimSpace(notification.ItemID),
+				Kind:         ReasoningKindSummaryText,
+				Delta:        notification.Delta,
+				SummaryIndex: &summaryIndex,
+			},
+		})
+		return nil
+	case methodReasoningText:
+		var notification wireReasoningTextDeltaNotification
+		if err := decodeParams(message.Params, &notification); err != nil {
+			return fmt.Errorf("decode codex reasoning text notification: %w", err)
+		}
+		contentIndex := notification.ContentIndex
+		s.emit(Event{
+			Type: EventTypeReasoningUpdated,
+			Reasoning: &ReasoningEvent{
+				ThreadID:     strings.TrimSpace(notification.ThreadID),
+				TurnID:       strings.TrimSpace(notification.TurnID),
+				ItemID:       strings.TrimSpace(notification.ItemID),
+				Kind:         ReasoningKindText,
+				Delta:        notification.Delta,
+				ContentIndex: &contentIndex,
+			},
+		})
 		return nil
 	case methodTokenUsageUpdated:
 		var notification wireThreadTokenUsageUpdatedNotification
@@ -890,6 +1134,7 @@ func (s *Session) handleNotification(message jsonRPCMessage) error {
 				TurnID:   notification.TurnID,
 				ItemID:   notification.ItemID,
 				Stream:   "command",
+				Command:  strings.TrimSpace(notification.Command),
 				Text:     notification.Delta,
 			},
 		})
@@ -911,7 +1156,25 @@ func (s *Session) handleNotification(message jsonRPCMessage) error {
 		})
 
 		return nil
-	case methodTurnError, methodTurnFailed, methodTurnCancelled:
+	case methodTurnCancelled:
+		var notification wireErrorNotification
+		if err := decodeParams(message.Params, &notification); err != nil {
+			return fmt.Errorf("decode codex interrupted notification: %w", err)
+		}
+		s.emit(Event{
+			Type: EventTypeTurnInterrupted,
+			Turn: &TurnEvent{
+				ThreadID: notification.ThreadID,
+				TurnID:   notification.TurnID,
+				Status:   "interrupted",
+				Error: &TurnError{
+					Message:           notification.Error.Message,
+					AdditionalDetails: notification.Error.AdditionalDetails,
+				},
+			},
+		})
+		return nil
+	case methodTurnError, methodTurnFailed:
 		var notification wireErrorNotification
 		if err := decodeParams(message.Params, &notification); err != nil {
 			return fmt.Errorf("decode codex error notification: %w", err)
@@ -934,6 +1197,67 @@ func (s *Session) handleNotification(message jsonRPCMessage) error {
 	default:
 		return nil
 	}
+}
+
+func (s *Session) setThreadStatus(status *ThreadStatusEvent) {
+	if s == nil {
+		return
+	}
+	s.statusMu.Lock()
+	defer s.statusMu.Unlock()
+	if status == nil {
+		s.threadStatus = nil
+		return
+	}
+	copied := *status
+	copied.ActiveFlags = append([]string(nil), status.ActiveFlags...)
+	s.threadStatus = &copied
+}
+
+func threadStatusEventFromWire(threadID string, status *wireThreadStatus) *ThreadStatusEvent {
+	if strings.TrimSpace(threadID) == "" || status == nil {
+		return nil
+	}
+	return &ThreadStatusEvent{
+		ThreadID:    strings.TrimSpace(threadID),
+		Status:      strings.TrimSpace(status.Type),
+		ActiveFlags: append([]string(nil), status.ActiveFlags...),
+	}
+}
+
+func threadEventFromWire(thread wireThread) *ThreadEvent {
+	threadID := strings.TrimSpace(thread.ID)
+	if threadID == "" {
+		return nil
+	}
+	result := &ThreadEvent{ThreadID: threadID}
+	if thread.Status != nil {
+		result.Status = strings.TrimSpace(thread.Status.Type)
+		result.ActiveFlags = append([]string(nil), thread.Status.ActiveFlags...)
+	}
+	return result
+}
+
+func threadStatusEventFromThreadEvent(event *ThreadEvent) *ThreadStatusEvent {
+	if event == nil {
+		return nil
+	}
+	return &ThreadStatusEvent{
+		ThreadID:    event.ThreadID,
+		Status:      event.Status,
+		ActiveFlags: append([]string(nil), event.ActiveFlags...),
+	}
+}
+
+func newWireThreadResumeParams(threadID string, params ThreadStartParams) (wireThreadResumeParams, error) {
+	startParams, err := newWireThreadStartParams(params)
+	if err != nil {
+		return wireThreadResumeParams{}, err
+	}
+	return wireThreadResumeParams{
+		ThreadID:              strings.TrimSpace(threadID),
+		wireThreadStartParams: startParams,
+	}, nil
 }
 
 func outputEventFromCompletedItem(notification wireItemCompletedNotification) (*OutputEvent, bool) {
@@ -962,6 +1286,7 @@ func outputEventFromCompletedItem(notification wireItemCompletedNotification) (*
 			TurnID:   notification.TurnID,
 			ItemID:   notification.Item.ID,
 			Stream:   "command",
+			Command:  strings.TrimSpace(optionalStringValue(notification.Item.Command)),
 			Text:     *notification.Item.AggregatedOutput,
 			Snapshot: true,
 		}, true
@@ -1145,6 +1470,13 @@ func mergeTurnConfig(session *Session, config TurnConfig) TurnConfig {
 		merged.SandboxPolicy = cloneJSONCompatibleValue(config.SandboxPolicy)
 	}
 	return merged
+}
+
+func optionalStringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func (s *Session) respondApproval(requestID RequestID, decision string) error {

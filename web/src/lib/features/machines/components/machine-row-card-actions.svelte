@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
   import * as DropdownMenu from '$ui/dropdown-menu'
@@ -28,6 +29,11 @@
 
   let confirmResetOpen = $state(false)
   let confirmDeleteOpen = $state(false)
+
+  async function deferMenuAction(callback?: () => void) {
+    await tick()
+    callback?.()
+  }
 </script>
 
 <div class="flex items-center gap-1">
@@ -62,7 +68,7 @@
         disabled={testing}
         onclick={(event) => {
           event.stopPropagation()
-          onTest?.()
+          void deferMenuAction(onTest)
         }}
       >
         <TestTube2 class="size-3.5" />
@@ -72,7 +78,9 @@
         disabled={!resetEnabled}
         onclick={(event) => {
           event.stopPropagation()
-          confirmResetOpen = true
+          void deferMenuAction(() => {
+            confirmResetOpen = true
+          })
         }}
       >
         <RotateCcw class="size-3.5" />
@@ -84,7 +92,9 @@
         class="text-destructive data-[highlighted]:text-destructive"
         onclick={(event) => {
           event.stopPropagation()
-          confirmDeleteOpen = true
+          void deferMenuAction(() => {
+            confirmDeleteOpen = true
+          })
         }}
       >
         <Trash2 class="size-3.5" />

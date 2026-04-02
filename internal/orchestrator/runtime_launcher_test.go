@@ -33,6 +33,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
@@ -2967,7 +2968,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	if runAfter.SessionID != "thread-runtime-1" {
 		t.Fatalf("expected thread-runtime-1 session id, got %q", runAfter.SessionID)
 	}
-	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
+	if !strings.Contains(prepareSession.command, "'git' 'clone' '--branch' 'main' '--single-branch' 'git@github.com:acme/backend.git' '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
 		t.Fatalf("expected remote workspace clone command, got %q", prepareSession.command)
 	}
 	if !strings.Contains(processSession.startedCommand, "cd '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
@@ -3104,10 +3105,10 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 	if runAfter.Status != entagentrun.StatusReady {
 		t.Fatalf("expected ready run, got %+v", runAfter)
 	}
-	if !strings.Contains(prepareSession.command, "git clone --branch 'main' --single-branch 'git@github.com:acme/backend.git' '/srv/openase/workspaces/better-and-better/openase/ASE-401A/backend'") {
+	if !strings.Contains(prepareSession.command, "'git' 'clone' '--branch' 'main' '--single-branch' 'git@github.com:acme/backend.git' '/srv/openase/workspaces/better-and-better/openase/ASE-401A/backend'") {
 		t.Fatalf("expected remote workspace clone command, got %q", prepareSession.command)
 	}
-	if !strings.Contains(prepareSession.command, "git -C '/srv/openase/workspaces/better-and-better/openase/ASE-401A/backend' fetch origin") {
+	if !strings.Contains(prepareSession.command, "'git' '-C' '/srv/openase/workspaces/better-and-better/openase/ASE-401A/backend' 'fetch' 'origin'") {
 		t.Fatalf("expected remote workspace fetch command, got %q", prepareSession.command)
 	}
 }
@@ -3917,6 +3918,40 @@ func runRuntimeLauncherGit(t *testing.T, repoRoot string, args ...string) {
 	}
 }
 
+func TestRuntimeLauncherApplyGitHubWorkspaceAuthInjectsHTTPSCredentials(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+	launcher := NewRuntimeLauncher(nil, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, nil, nil)
+	launcher.ConfigureGitHubCredentials(runtimeStubGitHubTokenResolver{
+		resolved: githubauthdomain.ResolvedCredential{Token: "ghu_test"},
+	})
+
+	request := workspaceinfra.SetupRequest{
+		Repos: []workspaceinfra.RepoRequest{
+			{RepositoryURL: "https://github.com/acme/private-repo.git"},
+			{RepositoryURL: "git@github.com:acme/private-repo.git"},
+			{RepositoryURL: "https://gitlab.com/acme/private-repo.git"},
+		},
+	}
+
+	updated, err := launcher.applyGitHubWorkspaceAuth(ctx, projectID, request)
+	if err != nil {
+		t.Fatalf("applyGitHubWorkspaceAuth() error = %v", err)
+	}
+	if updated.Repos[0].HTTPBasicAuth == nil {
+		t.Fatal("expected GitHub HTTPS repo auth to be injected")
+	}
+	if updated.Repos[0].HTTPBasicAuth.Username != "x-access-token" || updated.Repos[0].HTTPBasicAuth.Password != "ghu_test" {
+		t.Fatalf("unexpected injected auth %+v", updated.Repos[0].HTTPBasicAuth)
+	}
+	if updated.Repos[1].HTTPBasicAuth != nil {
+		t.Fatalf("expected SSH repo to skip injected HTTP auth, got %+v", updated.Repos[1].HTTPBasicAuth)
+	}
+	if updated.Repos[2].HTTPBasicAuth != nil {
+		t.Fatalf("expected non-GitHub repo to skip injected auth, got %+v", updated.Repos[2].HTTPBasicAuth)
+	}
+}
+
 func decodeLifecycleEnvelope(t *testing.T, payload json.RawMessage) agentLifecycleEnvelope {
 	t.Helper()
 
@@ -3925,6 +3960,18 @@ func decodeLifecycleEnvelope(t *testing.T, payload json.RawMessage) agentLifecyc
 		t.Fatalf("decode lifecycle payload: %v", err)
 	}
 	return decoded
+}
+
+type runtimeStubGitHubTokenResolver struct {
+	resolved githubauthdomain.ResolvedCredential
+	err      error
+}
+
+func (s runtimeStubGitHubTokenResolver) ResolveProjectCredential(context.Context, uuid.UUID) (githubauthdomain.ResolvedCredential, error) {
+	if s.err != nil {
+		return githubauthdomain.ResolvedCredential{}, s.err
+	}
+	return s.resolved, nil
 }
 
 type runtimeFakeProcessManager struct {

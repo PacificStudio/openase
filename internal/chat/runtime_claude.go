@@ -17,6 +17,8 @@ type ClaudeRuntime struct {
 	nativeSessions claudeSessionRegistry
 }
 
+const claudeCodeResumeInterruptedTurnEnv = "CLAUDE_CODE_RESUME_INTERRUPTED_TURN"
+
 func NewClaudeRuntime(adapter provider.ClaudeCodeAdapter) *ClaudeRuntime {
 	if adapter == nil {
 		return nil
@@ -86,17 +88,25 @@ func (r *ClaudeRuntime) buildSessionSpec(input RuntimeTurnInput) (provider.Claud
 		maxTurnsPointer = &maxTurns
 	}
 	maxBudgetUSD := input.MaxBudgetUSD
-	resumeSessionID := r.nativeSessions.Resolve(input.SessionID)
+	var maxBudgetUSDPointer *float64
+	if maxBudgetUSD > 0 {
+		maxBudgetUSDPointer = &maxBudgetUSD
+	}
+	environment := append(provider.AuthConfigEnvironment(input.Provider.AuthConfig), input.Environment...)
+	if input.PersistentConversation && !hasProcessEnvironmentKey(environment, claudeCodeResumeInterruptedTurnEnv) {
+		environment = append(environment, claudeCodeResumeInterruptedTurnEnv+"=1")
+	}
+	resumeSessionID := r.resolveResumeSessionID(input)
 
 	return provider.NewClaudeCodeSessionSpec(
 		command,
 		buildBaseArgs(input.Provider.CliArgs, input.Provider.ModelName),
 		workingDirectory,
-		append(provider.AuthConfigEnvironment(input.Provider.AuthConfig), input.Environment...),
+		environment,
 		nil,
 		input.SystemPrompt,
 		maxTurnsPointer,
-		&maxBudgetUSD,
+		maxBudgetUSDPointer,
 		resumeSessionID,
 		true,
 	)
@@ -123,7 +133,8 @@ func (r *ClaudeRuntime) bridgeSession(
 
 	nativeSessionID, hasNativeSessionID := session.SessionID()
 	if hasNativeSessionID {
-		r.nativeSessions.Register(sessionID, nativeSessionID)
+		r.nativeSessions.RegisterSessionID(sessionID, nativeSessionID)
+		events <- newClaudeSessionAnchorEvent(nativeSessionID)
 	}
 
 	eventCh := session.Events()
@@ -152,11 +163,17 @@ func (r *ClaudeRuntime) bridgeSession(
 				parsed, err := provider.ParseClaudeCodeSessionID(event.SessionID)
 				if err == nil {
 					hasNativeSessionID = true
-					r.nativeSessions.Register(sessionID, parsed)
+					r.nativeSessions.RegisterSessionID(sessionID, parsed)
+					events <- newClaudeSessionAnchorEvent(parsed)
 				}
 			}
 
 			for _, item := range mapClaudeEvent(sessionID, maxTurns, event) {
+				if item.Event == "session_state" {
+					if payload, ok := item.Payload.(runtimeSessionStatePayload); ok {
+						r.nativeSessions.UpdateState(sessionID, payload.Status, payload.ActiveFlags)
+					}
+				}
 				events <- item
 			}
 			if event.Kind == provider.ClaudeCodeEventKindResult {
@@ -166,8 +183,72 @@ func (r *ClaudeRuntime) bridgeSession(
 	}
 }
 
+func (r *ClaudeRuntime) SessionAnchor(sessionID SessionID) RuntimeSessionAnchor {
+	if r == nil {
+		return RuntimeSessionAnchor{}
+	}
+
+	state, ok := r.nativeSessions.Resolve(sessionID)
+	if !ok || state.NativeSessionID == "" {
+		return RuntimeSessionAnchor{}
+	}
+
+	return RuntimeSessionAnchor{
+		ProviderThreadID:          state.NativeSessionID.String(),
+		ProviderThreadStatus:      strings.TrimSpace(state.Status),
+		ProviderThreadActiveFlags: append([]string(nil), state.ActiveFlags...),
+		ProviderAnchorID:          state.NativeSessionID.String(),
+		ProviderAnchorKind:        "session",
+		ProviderTurnSupported:     false,
+	}
+}
+
+func (r *ClaudeRuntime) resolveResumeSessionID(input RuntimeTurnInput) *provider.ClaudeCodeSessionID {
+	if parsed, err := provider.ParseClaudeCodeSessionID(input.ResumeProviderThreadID); err == nil {
+		return &parsed
+	}
+	state, ok := r.nativeSessions.Resolve(input.SessionID)
+	if !ok || state.NativeSessionID == "" {
+		return nil
+	}
+	cloned := state.NativeSessionID
+	return &cloned
+}
+
+func hasProcessEnvironmentKey(entries []string, key string) bool {
+	want := strings.TrimSpace(key)
+	if want == "" {
+		return false
+	}
+
+	for _, entry := range entries {
+		name, _, found := strings.Cut(entry, "=")
+		if found && strings.TrimSpace(name) == want {
+			return true
+		}
+	}
+	return false
+}
+
+func newClaudeSessionAnchorEvent(sessionID provider.ClaudeCodeSessionID) StreamEvent {
+	return StreamEvent{
+		Event: "session_anchor",
+		Payload: RuntimeSessionAnchor{
+			ProviderThreadID:      sessionID.String(),
+			ProviderAnchorID:      sessionID.String(),
+			ProviderAnchorKind:    "session",
+			ProviderTurnSupported: false,
+		},
+	}
+}
+
 func mapClaudeEvent(sessionID SessionID, maxTurns int, event provider.ClaudeCodeEvent) []StreamEvent {
 	switch event.Kind {
+	case provider.ClaudeCodeEventKindSystem, provider.ClaudeCodeEventKindStream:
+		if payload, ok := parseClaudeSessionStatePayload(event); ok {
+			return []StreamEvent{{Event: "session_state", Payload: payload}}
+		}
+		return nil
 	case provider.ClaudeCodeEventKindAssistant:
 		texts := extractAssistantTextBlocks(event.Message)
 		if len(texts) == 0 {
@@ -204,6 +285,134 @@ func mapClaudeEvent(sessionID SessionID, maxTurns int, event provider.ClaudeCode
 	default:
 		return nil
 	}
+}
+
+func parseClaudeSessionStatePayload(event provider.ClaudeCodeEvent) (runtimeSessionStatePayload, bool) {
+	subtype := strings.TrimSpace(event.Subtype)
+	if subtype == "" {
+		return runtimeSessionStatePayload{}, false
+	}
+
+	stateObject := decodeClaudeSessionStateObject(event)
+	status := firstNonEmptyString(
+		readStringMapKey(stateObject, "state"),
+		readStringMapKey(stateObject, "session_state"),
+		readStringMapKey(stateObject, "status"),
+	)
+	if status == "" && subtype == "requires_action" {
+		status = "requires_action"
+	}
+	if status == "" {
+		return runtimeSessionStatePayload{}, false
+	}
+
+	activeFlags := readStringSliceMapKey(stateObject, "active_flags")
+	if len(activeFlags) == 0 {
+		activeFlags = readStringSliceMapKey(stateObject, "activeFlags")
+	}
+	if len(activeFlags) == 0 && status == "requires_action" {
+		activeFlags = []string{"requires_action"}
+	}
+
+	detail := firstNonEmptyString(
+		readStringMapKey(stateObject, "detail"),
+		readStringMapKey(stateObject, "message"),
+		readStringMapKey(stateObject, "reason"),
+		readStringMapKey(asMap(stateObject["requires_action"]), "type"),
+	)
+	if detail == "" && subtype == "requires_action" {
+		detail = "Additional action is required before the session can continue."
+	}
+
+	return runtimeSessionStatePayload{
+		Status:      status,
+		ActiveFlags: append([]string(nil), activeFlags...),
+		Detail:      detail,
+		Raw:         cloneAnyMap(stateObject),
+	}, true
+}
+
+func decodeClaudeSessionStateObject(event provider.ClaudeCodeEvent) map[string]any {
+	if decoded := asMap(decodeRawJSON(event.Event)); decoded != nil {
+		return decoded
+	}
+	if decoded := asMap(decodeRawJSON(event.Data)); decoded != nil {
+		return decoded
+	}
+	raw := asMap(decodeRawJSON(event.Raw))
+	if raw == nil {
+		return map[string]any{}
+	}
+	if nested := asMap(raw["event"]); nested != nil {
+		return nested
+	}
+	if nested := asMap(raw["data"]); nested != nil {
+		return nested
+	}
+	return raw
+}
+
+func asMap(value any) map[string]any {
+	if value == nil {
+		return nil
+	}
+	if typed, ok := value.(map[string]any); ok {
+		return typed
+	}
+	return nil
+}
+
+func readStringMapKey(record map[string]any, key string) string {
+	if record == nil {
+		return ""
+	}
+	value, ok := record[key]
+	if !ok {
+		return ""
+	}
+	text, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(text)
+}
+
+func readStringSliceMapKey(record map[string]any, key string) []string {
+	if record == nil {
+		return nil
+	}
+	raw, ok := record[key]
+	if !ok {
+		return nil
+	}
+	items, ok := raw.([]any)
+	if !ok {
+		if typed, ok := raw.([]string); ok {
+			return append([]string(nil), typed...)
+		}
+		return nil
+	}
+	values := make([]string, 0, len(items))
+	for _, item := range items {
+		text, ok := item.(string)
+		if !ok {
+			continue
+		}
+		trimmed := strings.TrimSpace(text)
+		if trimmed != "" {
+			values = append(values, trimmed)
+		}
+	}
+	return values
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }
 
 type runtimeCancelRegistry struct {
@@ -263,37 +472,62 @@ func (r *runtimeCancelRegistry) Close(sessionID SessionID) bool {
 
 type claudeSessionRegistry struct {
 	mu       sync.Mutex
-	sessions map[SessionID]provider.ClaudeCodeSessionID
+	sessions map[SessionID]claudeRuntimeSessionState
 }
 
-func (r *claudeSessionRegistry) Register(sessionID SessionID, native provider.ClaudeCodeSessionID) {
+type claudeRuntimeSessionState struct {
+	NativeSessionID provider.ClaudeCodeSessionID
+	Status          string
+	ActiveFlags     []string
+}
+
+func (r *claudeSessionRegistry) RegisterSessionID(sessionID SessionID, native provider.ClaudeCodeSessionID) {
 	if sessionID == "" || native == "" {
 		return
 	}
 
 	r.mu.Lock()
 	if r.sessions == nil {
-		r.sessions = make(map[SessionID]provider.ClaudeCodeSessionID)
+		r.sessions = make(map[SessionID]claudeRuntimeSessionState)
 	}
-	r.sessions[sessionID] = native
+	state := r.sessions[sessionID]
+	state.NativeSessionID = native
+	r.sessions[sessionID] = state
 	r.mu.Unlock()
 }
 
-func (r *claudeSessionRegistry) Resolve(sessionID SessionID) *provider.ClaudeCodeSessionID {
+func (r *claudeSessionRegistry) UpdateState(sessionID SessionID, status string, activeFlags []string) {
 	if sessionID == "" {
-		return nil
+		return
+	}
+
+	r.mu.Lock()
+	if r.sessions == nil {
+		r.sessions = make(map[SessionID]claudeRuntimeSessionState)
+	}
+	state := r.sessions[sessionID]
+	state.Status = strings.TrimSpace(status)
+	state.ActiveFlags = append([]string(nil), activeFlags...)
+	r.sessions[sessionID] = state
+	r.mu.Unlock()
+}
+
+func (r *claudeSessionRegistry) Resolve(sessionID SessionID) (claudeRuntimeSessionState, bool) {
+	if sessionID == "" {
+		return claudeRuntimeSessionState{}, false
 	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	native, ok := r.sessions[sessionID]
+	state, ok := r.sessions[sessionID]
 	if !ok {
-		return nil
+		return claudeRuntimeSessionState{}, false
 	}
 
-	cloned := native
-	return &cloned
+	cloned := state
+	cloned.ActiveFlags = append([]string(nil), state.ActiveFlags...)
+	return cloned, true
 }
 
 func (r *claudeSessionRegistry) Delete(sessionID SessionID) {

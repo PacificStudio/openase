@@ -12,3 +12,5 @@ __pycache__/
 *.pyc
 internal/webui/static/*
 !internal/webui/static/.keep
+
+references/**

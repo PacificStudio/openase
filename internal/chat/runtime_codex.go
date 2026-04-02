@@ -19,11 +19,13 @@ type CodexRuntime struct {
 }
 
 type codexRuntimeSession struct {
-	session    *codexadapter.Session
-	costUSD    *float64
-	turnsUsed  int
-	running    bool
-	lastTurnID string
+	session           *codexadapter.Session
+	costUSD           *float64
+	turnsUsed         int
+	running           bool
+	lastTurnID        string
+	threadStatus      string
+	threadActiveFlags []string
 }
 
 type codexAssistantItemState struct {
@@ -44,9 +46,43 @@ type RuntimeInterruptDecision struct {
 	Label string `json:"label"`
 }
 
-type RuntimeSessionAnchor struct {
-	ProviderThreadID string
-	LastTurnID       string
+type runtimeThreadStatusPayload struct {
+	ThreadID    string   `json:"thread_id"`
+	Status      string   `json:"status"`
+	ActiveFlags []string `json:"active_flags,omitempty"`
+}
+
+type runtimeThreadCompactedPayload struct {
+	ThreadID string `json:"thread_id"`
+	TurnID   string `json:"turn_id"`
+}
+
+type runtimePlanStepPayload struct {
+	Step   string `json:"step"`
+	Status string `json:"status"`
+}
+
+type runtimePlanUpdatedPayload struct {
+	ThreadID    string                   `json:"thread_id"`
+	TurnID      string                   `json:"turn_id"`
+	Explanation *string                  `json:"explanation,omitempty"`
+	Plan        []runtimePlanStepPayload `json:"plan"`
+}
+
+type runtimeDiffUpdatedPayload struct {
+	ThreadID string `json:"thread_id"`
+	TurnID   string `json:"turn_id"`
+	Diff     string `json:"diff"`
+}
+
+type runtimeReasoningUpdatedPayload struct {
+	ThreadID     string `json:"thread_id"`
+	TurnID       string `json:"turn_id"`
+	ItemID       string `json:"item_id"`
+	Kind         string `json:"kind"`
+	Delta        string `json:"delta,omitempty"`
+	SummaryIndex *int   `json:"summary_index,omitempty"`
+	ContentIndex *int   `json:"content_index,omitempty"`
 }
 
 func NewCodexRuntime(adapter *codexadapter.Adapter) *CodexRuntime {
@@ -93,6 +129,14 @@ func (r *CodexRuntime) StartTurn(ctx context.Context, input RuntimeTurnInput) (T
 	go r.bridgeTurn(input.SessionID, input.Provider, input.MaxTurns, turn.TurnID, state, events)
 
 	return TurnStream{Events: events}, nil
+}
+
+func (r *CodexRuntime) EnsureSession(ctx context.Context, input RuntimeTurnInput) error {
+	if !r.Supports(input.Provider) {
+		return fmt.Errorf("%w: %s", ErrProviderUnsupported, input.Provider.AdapterType)
+	}
+	_, err := r.ensureSession(ctx, input)
+	return err
 }
 
 func (r *CodexRuntime) CloseSession(sessionID SessionID) bool {
@@ -180,6 +224,10 @@ func (r *CodexRuntime) ensureSession(ctx context.Context, input RuntimeTurnInput
 		session:    session,
 		lastTurnID: strings.TrimSpace(input.ResumeProviderTurnID),
 	}
+	if threadStatus := session.ThreadStatus(); threadStatus != nil {
+		state.threadStatus = strings.TrimSpace(threadStatus.Status)
+		state.threadActiveFlags = append([]string(nil), threadStatus.ActiveFlags...)
+	}
 
 	r.mu.Lock()
 	existing := r.sessions[input.SessionID]
@@ -239,6 +287,7 @@ func (r *CodexRuntime) bridgeTurn(
 			}
 			events <- newTaskMessageEvent(chatMessageTypeTaskProgress, map[string]any{
 				"stream":   event.Output.Stream,
+				"command":  event.Output.Command,
 				"text":     event.Output.Text,
 				"phase":    event.Output.Phase,
 				"snapshot": event.Output.Snapshot,
@@ -306,6 +355,22 @@ func (r *CodexRuntime) bridgeTurn(
 			r.mu.Lock()
 			state.costUSD = costUSD
 			r.mu.Unlock()
+		case codexadapter.EventTypeThreadStarted:
+			if event.Thread == nil {
+				continue
+			}
+			r.mu.Lock()
+			state.threadStatus = strings.TrimSpace(event.Thread.Status)
+			state.threadActiveFlags = append([]string(nil), event.Thread.ActiveFlags...)
+			r.mu.Unlock()
+			events <- StreamEvent{
+				Event: "thread_status",
+				Payload: runtimeThreadStatusPayload{
+					ThreadID:    event.Thread.ThreadID,
+					Status:      event.Thread.Status,
+					ActiveFlags: append([]string(nil), event.Thread.ActiveFlags...),
+				},
+			}
 		case codexadapter.EventTypeTurnCompleted:
 			if event.Turn == nil || event.Turn.TurnID != turnID {
 				continue
@@ -327,6 +392,19 @@ func (r *CodexRuntime) bridgeTurn(
 				},
 			}
 			return
+		case codexadapter.EventTypeTurnInterrupted:
+			if event.Turn == nil || event.Turn.TurnID != turnID {
+				continue
+			}
+			message := "codex chat turn interrupted"
+			if event.Turn.Error != nil && event.Turn.Error.Message != "" {
+				message = event.Turn.Error.Message
+			}
+			events <- StreamEvent{
+				Event:   "interrupted",
+				Payload: errorPayload{Message: message},
+			}
+			return
 		case codexadapter.EventTypeTurnFailed:
 			if event.Turn == nil || event.Turn.TurnID != turnID {
 				continue
@@ -340,6 +418,81 @@ func (r *CodexRuntime) bridgeTurn(
 				Payload: errorPayload{Message: message},
 			}
 			return
+		case codexadapter.EventTypeThreadStatus:
+			if event.ThreadStatus == nil {
+				continue
+			}
+			r.mu.Lock()
+			state.threadStatus = strings.TrimSpace(event.ThreadStatus.Status)
+			state.threadActiveFlags = append([]string(nil), event.ThreadStatus.ActiveFlags...)
+			r.mu.Unlock()
+			events <- StreamEvent{
+				Event: "thread_status",
+				Payload: runtimeThreadStatusPayload{
+					ThreadID:    event.ThreadStatus.ThreadID,
+					Status:      event.ThreadStatus.Status,
+					ActiveFlags: append([]string(nil), event.ThreadStatus.ActiveFlags...),
+				},
+			}
+		case codexadapter.EventTypeThreadCompacted:
+			if event.Compaction == nil || event.Compaction.TurnID != turnID {
+				continue
+			}
+			events <- StreamEvent{
+				Event: "thread_compacted",
+				Payload: runtimeThreadCompactedPayload{
+					ThreadID: event.Compaction.ThreadID,
+					TurnID:   event.Compaction.TurnID,
+				},
+			}
+		case codexadapter.EventTypeTurnPlanUpdated:
+			if event.Plan == nil || event.Plan.TurnID != turnID {
+				continue
+			}
+			plan := make([]runtimePlanStepPayload, 0, len(event.Plan.Plan))
+			for _, item := range event.Plan.Plan {
+				plan = append(plan, runtimePlanStepPayload{
+					Step:   item.Step,
+					Status: item.Status,
+				})
+			}
+			events <- StreamEvent{
+				Event: "plan_updated",
+				Payload: runtimePlanUpdatedPayload{
+					ThreadID:    event.Plan.ThreadID,
+					TurnID:      event.Plan.TurnID,
+					Explanation: event.Plan.Explanation,
+					Plan:        plan,
+				},
+			}
+		case codexadapter.EventTypeTurnDiffUpdated:
+			if event.Diff == nil || event.Diff.TurnID != turnID {
+				continue
+			}
+			events <- StreamEvent{
+				Event: "diff_updated",
+				Payload: runtimeDiffUpdatedPayload{
+					ThreadID: event.Diff.ThreadID,
+					TurnID:   event.Diff.TurnID,
+					Diff:     event.Diff.Diff,
+				},
+			}
+		case codexadapter.EventTypeReasoningUpdated:
+			if event.Reasoning == nil || event.Reasoning.TurnID != turnID {
+				continue
+			}
+			events <- StreamEvent{
+				Event: "reasoning_updated",
+				Payload: runtimeReasoningUpdatedPayload{
+					ThreadID:     event.Reasoning.ThreadID,
+					TurnID:       event.Reasoning.TurnID,
+					ItemID:       event.Reasoning.ItemID,
+					Kind:         string(event.Reasoning.Kind),
+					Delta:        event.Reasoning.Delta,
+					SummaryIndex: event.Reasoning.SummaryIndex,
+					ContentIndex: event.Reasoning.ContentIndex,
+				},
+			}
 		}
 	}
 
@@ -482,8 +635,13 @@ func (r *CodexRuntime) SessionAnchor(sessionID SessionID) RuntimeSessionAnchor {
 		return RuntimeSessionAnchor{}
 	}
 	return RuntimeSessionAnchor{
-		ProviderThreadID: strings.TrimSpace(state.session.ThreadID()),
-		LastTurnID:       strings.TrimSpace(state.lastTurnID),
+		ProviderThreadID:          strings.TrimSpace(state.session.ThreadID()),
+		LastTurnID:                strings.TrimSpace(state.lastTurnID),
+		ProviderThreadStatus:      strings.TrimSpace(state.threadStatus),
+		ProviderThreadActiveFlags: append([]string(nil), state.threadActiveFlags...),
+		ProviderAnchorID:          strings.TrimSpace(state.session.ThreadID()),
+		ProviderAnchorKind:        "thread",
+		ProviderTurnSupported:     true,
 	}
 }
 

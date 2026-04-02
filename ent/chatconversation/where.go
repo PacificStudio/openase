@@ -91,6 +91,11 @@ func LastTurnID(v string) predicate.ChatConversation {
 	return predicate.ChatConversation(sql.FieldEQ(FieldLastTurnID, v))
 }
 
+// ProviderThreadStatus applies equality check predicate on the "provider_thread_status" field. It's identical to ProviderThreadStatusEQ.
+func ProviderThreadStatus(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldEQ(FieldProviderThreadStatus, v))
+}
+
 // RollingSummary applies equality check predicate on the "rolling_summary" field. It's identical to RollingSummaryEQ.
 func RollingSummary(v string) predicate.ChatConversation {
 	return predicate.ChatConversation(sql.FieldEQ(FieldRollingSummary, v))
@@ -514,6 +519,91 @@ func LastTurnIDEqualFold(v string) predicate.ChatConversation {
 // LastTurnIDContainsFold applies the ContainsFold predicate on the "last_turn_id" field.
 func LastTurnIDContainsFold(v string) predicate.ChatConversation {
 	return predicate.ChatConversation(sql.FieldContainsFold(FieldLastTurnID, v))
+}
+
+// ProviderThreadStatusEQ applies the EQ predicate on the "provider_thread_status" field.
+func ProviderThreadStatusEQ(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldEQ(FieldProviderThreadStatus, v))
+}
+
+// ProviderThreadStatusNEQ applies the NEQ predicate on the "provider_thread_status" field.
+func ProviderThreadStatusNEQ(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldNEQ(FieldProviderThreadStatus, v))
+}
+
+// ProviderThreadStatusIn applies the In predicate on the "provider_thread_status" field.
+func ProviderThreadStatusIn(vs ...string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldIn(FieldProviderThreadStatus, vs...))
+}
+
+// ProviderThreadStatusNotIn applies the NotIn predicate on the "provider_thread_status" field.
+func ProviderThreadStatusNotIn(vs ...string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldNotIn(FieldProviderThreadStatus, vs...))
+}
+
+// ProviderThreadStatusGT applies the GT predicate on the "provider_thread_status" field.
+func ProviderThreadStatusGT(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldGT(FieldProviderThreadStatus, v))
+}
+
+// ProviderThreadStatusGTE applies the GTE predicate on the "provider_thread_status" field.
+func ProviderThreadStatusGTE(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldGTE(FieldProviderThreadStatus, v))
+}
+
+// ProviderThreadStatusLT applies the LT predicate on the "provider_thread_status" field.
+func ProviderThreadStatusLT(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldLT(FieldProviderThreadStatus, v))
+}
+
+// ProviderThreadStatusLTE applies the LTE predicate on the "provider_thread_status" field.
+func ProviderThreadStatusLTE(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldLTE(FieldProviderThreadStatus, v))
+}
+
+// ProviderThreadStatusContains applies the Contains predicate on the "provider_thread_status" field.
+func ProviderThreadStatusContains(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldContains(FieldProviderThreadStatus, v))
+}
+
+// ProviderThreadStatusHasPrefix applies the HasPrefix predicate on the "provider_thread_status" field.
+func ProviderThreadStatusHasPrefix(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldHasPrefix(FieldProviderThreadStatus, v))
+}
+
+// ProviderThreadStatusHasSuffix applies the HasSuffix predicate on the "provider_thread_status" field.
+func ProviderThreadStatusHasSuffix(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldHasSuffix(FieldProviderThreadStatus, v))
+}
+
+// ProviderThreadStatusIsNil applies the IsNil predicate on the "provider_thread_status" field.
+func ProviderThreadStatusIsNil() predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldIsNull(FieldProviderThreadStatus))
+}
+
+// ProviderThreadStatusNotNil applies the NotNil predicate on the "provider_thread_status" field.
+func ProviderThreadStatusNotNil() predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldNotNull(FieldProviderThreadStatus))
+}
+
+// ProviderThreadStatusEqualFold applies the EqualFold predicate on the "provider_thread_status" field.
+func ProviderThreadStatusEqualFold(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldEqualFold(FieldProviderThreadStatus, v))
+}
+
+// ProviderThreadStatusContainsFold applies the ContainsFold predicate on the "provider_thread_status" field.
+func ProviderThreadStatusContainsFold(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldContainsFold(FieldProviderThreadStatus, v))
+}
+
+// ProviderThreadActiveFlagsIsNil applies the IsNil predicate on the "provider_thread_active_flags" field.
+func ProviderThreadActiveFlagsIsNil() predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldIsNull(FieldProviderThreadActiveFlags))
+}
+
+// ProviderThreadActiveFlagsNotNil applies the NotNil predicate on the "provider_thread_active_flags" field.
+func ProviderThreadActiveFlagsNotNil() predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldNotNull(FieldProviderThreadActiveFlags))
 }
 
 // RollingSummaryEQ applies the EQ predicate on the "rolling_summary" field.

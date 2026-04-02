@@ -117,6 +117,12 @@ export type ProjectConversation = {
   userId: string
   source: 'project_sidebar'
   providerId: string
+  providerAnchorKind?: 'thread' | 'session'
+  providerAnchorId?: string
+  providerTurnId?: string
+  providerTurnSupported?: boolean
+  providerStatus?: string
+  providerActiveFlags?: string[]
   status: string
   rollingSummary: string
   lastActivityAt: string
@@ -199,9 +205,26 @@ export type ProjectConversationTurnDonePayload = {
   costUSD?: number
 }
 
+export type ProjectConversationReasoningUpdatedPayload = {
+  threadId: string
+  turnId: string
+  itemId: string
+  kind: string
+  delta?: string
+  summaryIndex?: number
+  contentIndex?: number
+  entryId?: string
+}
+
 export type ProjectConversationSessionPayload = {
   conversationId: string
   runtimeState: string
+  providerAnchorKind?: 'thread' | 'session'
+  providerAnchorId?: string
+  providerTurnId?: string
+  providerTurnSupported?: boolean
+  providerStatus?: string
+  providerActiveFlags: string[]
 }
 
 export type ProjectConversationStreamEvent =
@@ -209,6 +232,7 @@ export type ProjectConversationStreamEvent =
   | { kind: 'message'; payload: ChatMessagePayload }
   | { kind: 'interrupt_requested'; payload: ProjectConversationInterruptRequestedPayload }
   | { kind: 'interrupt_resolved'; payload: ProjectConversationInterruptResolvedPayload }
+  | { kind: 'reasoning_updated'; payload: ProjectConversationReasoningUpdatedPayload }
   | { kind: 'turn_done'; payload: ProjectConversationTurnDonePayload }
   | { kind: 'error'; payload: ChatErrorPayload }
 
@@ -219,6 +243,12 @@ type RawProjectConversation = {
   source?: string
   provider_id?: string
   status?: string
+  provider_anchor_kind?: string
+  provider_anchor_id?: string
+  provider_turn_id?: string
+  provider_turn_supported?: boolean
+  provider_status?: string
+  provider_active_flags?: string[]
   rolling_summary?: string
   last_activity_at?: string
   created_at?: string
@@ -577,6 +607,21 @@ function parseProjectConversationStreamEvent(
         payload: {
           conversationId: readRequiredString(object, 'conversation_id'),
           runtimeState: readRequiredString(object, 'runtime_state'),
+          providerAnchorKind: readProviderAnchorKind(object),
+          providerAnchorId:
+            readOptionalString(object, 'provider_anchor_id') ??
+            readOptionalString(object, 'provider_thread_id'),
+          providerTurnId:
+            readOptionalString(object, 'provider_turn_id') ??
+            readOptionalString(object, 'last_turn_id'),
+          providerTurnSupported: readOptionalBoolean(object, 'provider_turn_supported'),
+          providerStatus:
+            readOptionalString(object, 'provider_status') ??
+            readOptionalString(object, 'provider_thread_status'),
+          providerActiveFlags:
+            readOptionalStringList(object, 'provider_active_flags').length > 0
+              ? readOptionalStringList(object, 'provider_active_flags')
+              : readOptionalStringList(object, 'provider_thread_active_flags'),
         },
       }
     }
@@ -602,6 +647,22 @@ function parseProjectConversationStreamEvent(
         payload: {
           interruptId: readRequiredString(object, 'interrupt_id'),
           decision: readOptionalString(object, 'decision'),
+        },
+      }
+    }
+    case 'reasoning_updated': {
+      const object = parseRequiredObject(payload)
+      return {
+        kind: 'reasoning_updated',
+        payload: {
+          threadId: readRequiredString(object, 'thread_id'),
+          turnId: readRequiredString(object, 'turn_id'),
+          itemId: readRequiredString(object, 'item_id'),
+          kind: readRequiredString(object, 'kind'),
+          delta: readOptionalString(object, 'delta'),
+          summaryIndex: readOptionalNumber(object, 'summary_index'),
+          contentIndex: readOptionalNumber(object, 'content_index'),
+          entryId: readOptionalString(object, 'entry_id'),
         },
       }
     }
@@ -773,6 +834,20 @@ function parseProjectConversation(value: unknown): ProjectConversation {
     userId: readOptionalString(object, 'user_id') ?? '',
     source: 'project_sidebar',
     providerId: readOptionalString(object, 'provider_id') ?? '',
+    providerAnchorKind: readProviderAnchorKind(object),
+    providerAnchorId:
+      readOptionalString(object, 'provider_anchor_id') ??
+      readOptionalString(object, 'provider_thread_id'),
+    providerTurnId:
+      readOptionalString(object, 'provider_turn_id') ?? readOptionalString(object, 'last_turn_id'),
+    providerTurnSupported: readOptionalBoolean(object, 'provider_turn_supported'),
+    providerStatus:
+      readOptionalString(object, 'provider_status') ??
+      readOptionalString(object, 'provider_thread_status'),
+    providerActiveFlags:
+      readOptionalStringList(object, 'provider_active_flags').length > 0
+        ? readOptionalStringList(object, 'provider_active_flags')
+        : readOptionalStringList(object, 'provider_thread_active_flags'),
     status: readOptionalString(object, 'status') ?? '',
     rollingSummary: readOptionalString(object, 'rolling_summary') ?? '',
     lastActivityAt: readOptionalString(object, 'last_activity_at') ?? updatedAt ?? createdAt,
@@ -844,6 +919,11 @@ function readOptionalNumber(object: Record<string, unknown>, key: string): numbe
   return typeof value === 'number' && !Number.isNaN(value) ? value : undefined
 }
 
+function readOptionalBoolean(object: Record<string, unknown>, key: string): boolean | undefined {
+  const value = object[key]
+  return typeof value === 'boolean' ? value : undefined
+}
+
 function readOptionalObject(
   object: Record<string, unknown>,
   key: string,
@@ -852,6 +932,21 @@ function readOptionalObject(
   return value != null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : undefined
+}
+
+function readOptionalStringList(object: Record<string, unknown>, key: string): string[] {
+  const value = object[key]
+  if (!Array.isArray(value)) {
+    return []
+  }
+  return value.filter((item): item is string => typeof item === 'string' && item.trim() !== '')
+}
+
+function readProviderAnchorKind(
+  object: Record<string, unknown>,
+): ProjectConversation['providerAnchorKind'] {
+  const value = readOptionalString(object, 'provider_anchor_kind')
+  return value === 'thread' || value === 'session' ? value : undefined
 }
 
 function readInterruptOptions(

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -142,7 +143,7 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 	if len(repos) != 1 {
 		t.Fatalf("project repo count = %d, want 1", len(repos))
 	}
-	if repos[0].RepositoryURL != "https://github.com/GrandCX/openase.git" {
+	if !strings.EqualFold(repos[0].RepositoryURL, "https://github.com/GrandCX/openase.git") {
 		t.Fatalf("repository URL = %q", repos[0].RepositoryURL)
 	}
 

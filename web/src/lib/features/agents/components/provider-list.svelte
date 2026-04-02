@@ -1,6 +1,10 @@
 <script lang="ts">
-  import { adapterIconPath, summarizeProviderRateLimit } from '$lib/features/providers'
-  import { ProviderAvailabilityBadge } from '$lib/features/providers'
+  import {
+    adapterIconPath,
+    summarizeProviderRateLimit,
+    ProviderAvailabilityBadge,
+    ProviderRateLimitDisplay,
+  } from '$lib/features/providers'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
@@ -72,14 +76,7 @@
           <span class="text-foreground tabular-nums">{provider.agentCount}</span>
         </div>
         {#if rateLimit}
-          <div class="bg-muted/30 rounded-lg border px-3 py-2">
-            <div class="flex items-center justify-between gap-3 text-[11px]">
-              <span class="text-muted-foreground">Rate limit</span>
-              <span class="text-foreground font-medium">{rateLimit.headline}</span>
-            </div>
-            <div class="text-muted-foreground mt-1 text-[11px]">{rateLimit.detail}</div>
-            <div class="text-muted-foreground mt-1 text-[11px]">{rateLimit.updatedLabel}</div>
-          </div>
+          <ProviderRateLimitDisplay {rateLimit} />
         {/if}
       </Card.Content>
       <Card.Footer class="pt-2">

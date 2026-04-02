@@ -49,10 +49,19 @@ type ProviderRateLimitView = {
   cliRateLimitUpdatedAt?: string | null
 }
 
+export type RateLimitWindow = {
+  label: string
+  usedPercent: number
+  windowMinutes?: number | null
+  resetsAt?: string | null
+}
+
 export type ProviderRateLimitSummary = {
   headline: string
   detail: string
   updatedLabel: string
+  windows: RateLimitWindow[]
+  planType?: string | null
 }
 
 function formatObservedAt(value: string | null | undefined): string {
@@ -105,6 +114,7 @@ export function summarizeProviderRateLimit(
       headline,
       detail: detailParts.join(' · ') || 'Claude rate limit snapshot captured.',
       updatedLabel,
+      windows: [],
     }
   }
 
@@ -131,10 +141,35 @@ export function summarizeProviderRateLimit(
       detailParts.push(`Secondary resets ${new Date(snapshot.secondary.resetsAt).toLocaleString()}`)
     }
 
+    const windows: RateLimitWindow[] = []
+    if (primary?.usedPercent != null) {
+      const pct = primary.usedPercent <= 1 ? primary.usedPercent * 100 : primary.usedPercent
+      windows.push({
+        label: 'Primary',
+        usedPercent: pct,
+        windowMinutes: primary.windowMinutes,
+        resetsAt: primary.resetsAt,
+      })
+    }
+    if (snapshot.secondary?.usedPercent != null) {
+      const pct =
+        snapshot.secondary.usedPercent <= 1
+          ? snapshot.secondary.usedPercent * 100
+          : snapshot.secondary.usedPercent
+      windows.push({
+        label: 'Secondary',
+        usedPercent: pct,
+        windowMinutes: snapshot.secondary.windowMinutes,
+        resetsAt: snapshot.secondary.resetsAt,
+      })
+    }
+
     return {
       headline: headlineParts.join(' · ') || snapshot.limitId || 'codex rate limit',
       detail: detailParts.join(' · ') || 'Codex rate limit snapshot captured.',
       updatedLabel,
+      windows,
+      planType: snapshot.planType,
     }
   }
 
@@ -146,10 +181,15 @@ export function summarizeProviderRateLimit(
       null
 
     let headline = snapshot.authType || 'gemini rate limit'
+    let geminiUsedPercent: number | null = null
     if (snapshot.remaining != null && snapshot.limit != null) {
       headline = `${snapshot.remaining}/${snapshot.limit} remaining`
+      if (snapshot.limit > 0) {
+        geminiUsedPercent = ((snapshot.limit - snapshot.remaining) / snapshot.limit) * 100
+      }
     } else if (matchingBucket?.remainingFraction != null) {
       headline = `${(matchingBucket.remainingFraction * 100).toFixed(1)}% remaining`
+      geminiUsedPercent = (1 - matchingBucket.remainingFraction) * 100
     }
 
     const detailParts = []
@@ -162,10 +202,20 @@ export function summarizeProviderRateLimit(
       detailParts.push(matchingBucket.modelId)
     }
 
+    const windows: RateLimitWindow[] = []
+    if (geminiUsedPercent != null) {
+      windows.push({
+        label: matchingBucket?.modelId || 'Quota',
+        usedPercent: geminiUsedPercent,
+        resetsAt: snapshot.resetTime || matchingBucket?.resetTime,
+      })
+    }
+
     return {
       headline,
       detail: detailParts.join(' · ') || 'Gemini quota snapshot captured.',
       updatedLabel,
+      windows,
     }
   }
 
@@ -173,6 +223,7 @@ export function summarizeProviderRateLimit(
     headline: provider.cliRateLimit.provider || 'rate limit',
     detail: 'Provider-specific rate limit snapshot captured.',
     updatedLabel,
+    windows: [],
   }
 }
 

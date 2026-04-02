@@ -220,6 +220,7 @@ export function applyProjectConversationStreamEvent(params: {
         kind: 'command_output',
         role: 'system',
         stream: payload.stream,
+        command: payload.command,
         phase: payload.phase,
         snapshot: payload.snapshot,
         content: payload.content,

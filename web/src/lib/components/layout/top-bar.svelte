@@ -2,8 +2,10 @@
   import { goto, preloadCode, preloadData } from '$app/navigation'
   import type { Organization, Project } from '$lib/api/contracts'
   import { organizationPath, projectPath, type ProjectSection } from '$lib/stores/app-context'
+  import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
   import { Separator } from '$ui/separator'
+  import * as Tooltip from '$ui/tooltip'
   import { ChevronDown, Search, Plus, Settings, LogOut, Moon, Check } from '@lucide/svelte'
   import * as DropdownMenu from '$ui/dropdown-menu'
   import * as Avatar from '$ui/avatar'
@@ -16,6 +18,8 @@
     currentSection = 'dashboard' as ProjectSection,
     orgName = 'My Org',
     projectName = '',
+    projectHealth = null,
+    projectHealthLabel = '',
     sseStatus = 'live' as 'idle' | 'connecting' | 'live' | 'retrying',
     searchEnabled = false,
     newTicketEnabled = false,
@@ -33,6 +37,8 @@
     currentSection?: ProjectSection
     orgName?: string
     projectName?: string
+    projectHealth?: 'healthy' | 'degraded' | 'critical' | null
+    projectHealthLabel?: string
     sseStatus?: 'idle' | 'connecting' | 'live' | 'retrying'
     searchEnabled?: boolean
     newTicketEnabled?: boolean
@@ -43,6 +49,19 @@
     onCreateOrg?: () => void
     onCreateProject?: () => void
   } = $props()
+
+  const healthDotClass = $derived.by(() => {
+    switch (projectHealth) {
+      case 'healthy':
+        return 'bg-success'
+      case 'degraded':
+        return 'bg-warning'
+      case 'critical':
+        return 'bg-destructive'
+      default:
+        return ''
+    }
+  })
 
   function handleOrgSelect(orgId: string) {
     return goto(organizationPath(orgId))
@@ -132,6 +151,26 @@
 
   {#if currentOrgId && (projectName || projects.length > 0)}
     <span class="text-muted-foreground/50">/</span>
+    {#if projectHealth}
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          {#snippet child({ props })}
+            <span
+              {...props}
+              class={cn('size-2 shrink-0 cursor-default rounded-full', healthDotClass)}
+            ></span>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content side="bottom" class="max-w-64 text-xs">
+          {projectHealthLabel ||
+            (projectHealth === 'healthy'
+              ? 'All systems healthy'
+              : projectHealth === 'degraded'
+                ? 'Project has warnings'
+                : 'Project has critical issues')}
+        </Tooltip.Content>
+      </Tooltip.Root>
+    {/if}
     <DropdownMenu.Root>
       <DropdownMenu.Trigger>
         {#snippet child({ props })}

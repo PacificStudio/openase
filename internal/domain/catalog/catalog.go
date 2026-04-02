@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/google/uuid"
 )
 
@@ -254,7 +255,7 @@ func ParseCreateProjectRepo(projectID uuid.UUID, raw ProjectRepoInput) (CreatePr
 		return CreateProjectRepo{}, err
 	}
 
-	repositoryURL, err := parseTrimmedRequired("repository_url", raw.RepositoryURL)
+	repositoryURL, err := parseProjectRepoRepositoryURL("repository_url", raw.RepositoryURL)
 	if err != nil {
 		return CreateProjectRepo{}, err
 	}
@@ -296,6 +297,25 @@ func ParseUpdateProjectRepo(id uuid.UUID, projectID uuid.UUID, raw ProjectRepoIn
 		WorkspaceDirname: input.WorkspaceDirname,
 		Labels:           input.Labels,
 	}, nil
+}
+
+func parseProjectRepoRepositoryURL(fieldName string, raw string) (string, error) {
+	repositoryURL, err := parseTrimmedRequired(fieldName, raw)
+	if err != nil {
+		return "", err
+	}
+
+	trimmed := strings.TrimSpace(repositoryURL)
+	lower := strings.ToLower(trimmed)
+	if strings.HasPrefix(lower, "git@github.com:") || strings.HasPrefix(lower, "ssh://git@github.com/") {
+		return "", fmt.Errorf("%s must use https://github.com/...git; ssh GitHub URLs are not allowed", fieldName)
+	}
+
+	if normalized, ok := githubauthdomain.NormalizeGitHubRepositoryURL(trimmed); ok {
+		return normalized, nil
+	}
+
+	return trimmed, nil
 }
 
 func ParseCreateTicketRepoScope(projectID uuid.UUID, ticketID uuid.UUID, raw TicketRepoScopeInput) (CreateTicketRepoScope, error) {

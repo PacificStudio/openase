@@ -149,6 +149,63 @@ func TestSchedulerRunTickMatchesWorkflowPickupAcrossStatuses(t *testing.T) {
 	}
 }
 
+func TestSchedulerRunTickDispatchesActiveWorkflowOutsideInProgressProjects(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	now := time.Date(2026, 3, 20, 10, 5, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
+
+	if _, err := client.Project.UpdateOneID(fixture.projectID).SetStatus("Planned").Save(ctx); err != nil {
+		t.Fatalf("set project status planned: %v", err)
+	}
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Backlog Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Backlog"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	agentItem := fixture.createAgent(ctx, t, "coding-01", 0)
+	if _, err := client.Workflow.UpdateOneID(workflowItem.ID).SetAgentID(agentItem.ID).Save(ctx); err != nil {
+		t.Fatalf("bind workflow agent: %v", err)
+	}
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-110").
+		SetTitle("Dispatch from planned project").
+		SetStatusID(fixture.statusIDs["Backlog"]).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	report, err := newTestScheduler(client, now).RunTick(ctx)
+	if err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+	if report.TicketsDispatched != 1 {
+		t.Fatalf("expected planned project workflow to dispatch, got %+v", report)
+	}
+
+	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket: %v", err)
+	}
+	if ticketAfter.CurrentRunID == nil || ticketAfter.WorkflowID == nil || *ticketAfter.WorkflowID != workflowItem.ID {
+		t.Fatalf("expected ticket to be claimed by workflow, got %+v", ticketAfter)
+	}
+}
+
 func TestSchedulerRunTickUsesMatchedPickupStatusForStatusCapacityInMultiPickupWorkflow(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)

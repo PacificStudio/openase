@@ -173,6 +173,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		ticketStatusSvc,
 		chatWorkingDirectory,
 	)
+	chatSvc.EnableDurableSessions(filepath.Join(homeDir, ".openase", "chat", "ephemeral-sessions.json"))
 	skillRefinementSvc := chatservice.NewSkillRefinementService(
 		a.logger,
 		codexRuntime,
@@ -189,6 +190,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		sshPool,
 	)
 	projectConversationSvc.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(client))
+	projectConversationSvc.ConfigureGitHubCredentials(githubAuthSvc)
 	projectUpdateSvc := projectupdateservice.NewService(
 		client,
 		activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, a.events),

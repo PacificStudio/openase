@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,9 +14,12 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
+	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
+	codexadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	chatrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
+	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -56,9 +60,7 @@ func TestProjectConversationPromptIncludesRecoverySummaryAndTranscript(t *testin
 		ctx,
 		conversation.ID,
 		chatdomain.ConversationStatusActive,
-		nil,
-		nil,
-		"Prior discussion summary",
+		chatdomain.ConversationAnchors{RollingSummary: "Prior discussion summary"},
 	)
 	if err != nil {
 		t.Fatalf("update anchors: %v", err)
@@ -172,6 +174,918 @@ func TestProjectConversationPromptIncludesCurrentFocus(t *testing.T) {
 		"- has_dirty_draft: true",
 	) {
 		t.Fatalf("expected focus context in prompt, got %q", prompt)
+	}
+}
+
+func TestProjectConversationApplyGitHubWorkspaceAuthInjectsHTTPSCredentials(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	projectID := uuid.New()
+	service := NewProjectConversationService(nil, nil, nil, nil, nil, nil, nil)
+	service.ConfigureGitHubCredentials(projectConversationStubGitHubTokenResolver{
+		resolved: githubauthdomain.ResolvedCredential{Token: "ghu_test"},
+	})
+
+	request := workspaceinfra.SetupRequest{
+		Repos: []workspaceinfra.RepoRequest{
+			{RepositoryURL: "https://github.com/acme/private-repo.git"},
+			{RepositoryURL: "git@github.com:acme/private-repo.git"},
+			{RepositoryURL: "https://gitlab.com/acme/private-repo.git"},
+		},
+	}
+
+	updated, err := service.applyGitHubWorkspaceAuth(ctx, projectID, request)
+	if err != nil {
+		t.Fatalf("applyGitHubWorkspaceAuth() error = %v", err)
+	}
+	if updated.Repos[0].HTTPBasicAuth == nil {
+		t.Fatal("expected GitHub HTTPS repo auth to be injected")
+	}
+	if updated.Repos[0].HTTPBasicAuth.Username != "x-access-token" || updated.Repos[0].HTTPBasicAuth.Password != "ghu_test" {
+		t.Fatalf("unexpected injected auth %+v", updated.Repos[0].HTTPBasicAuth)
+	}
+	if updated.Repos[1].HTTPBasicAuth != nil {
+		t.Fatalf("expected SSH repo to skip injected HTTP auth, got %+v", updated.Repos[1].HTTPBasicAuth)
+	}
+	if updated.Repos[2].HTTPBasicAuth != nil {
+		t.Fatalf("expected non-GitHub repo to skip injected auth, got %+v", updated.Repos[2].HTTPBasicAuth)
+	}
+}
+
+func TestProjectConversationApplyGitHubWorkspaceAuthIgnoresMissingCredential(t *testing.T) {
+	t.Parallel()
+
+	service := NewProjectConversationService(nil, nil, nil, nil, nil, nil, nil)
+	service.ConfigureGitHubCredentials(projectConversationStubGitHubTokenResolver{
+		err: githubauthservice.ErrCredentialNotConfigured,
+	})
+
+	request := workspaceinfra.SetupRequest{
+		Repos: []workspaceinfra.RepoRequest{{RepositoryURL: "https://github.com/acme/private-repo.git"}},
+	}
+	updated, err := service.applyGitHubWorkspaceAuth(context.Background(), uuid.New(), request)
+	if err != nil {
+		t.Fatalf("applyGitHubWorkspaceAuth() error = %v", err)
+	}
+	if updated.Repos[0].HTTPBasicAuth != nil {
+		t.Fatalf("expected missing credential to leave request unchanged, got %+v", updated.Repos[0].HTTPBasicAuth)
+	}
+}
+
+func TestProjectConversationStartTurnFallsBackToRecoveryWhenResumeThreadMissing(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	conversation, err = repoStore.UpdateConversationAnchors(ctx, conversation.ID, chatdomain.ConversationStatusActive, chatdomain.ConversationAnchors{
+		ProviderThreadID:     optionalString("thread-stale"),
+		LastTurnID:           optionalString("turn-stale"),
+		RollingSummary:       "Prior discussion summary",
+		ProviderThreadStatus: optionalString("idle"),
+	})
+	if err != nil {
+		t.Fatalf("update conversation anchors: %v", err)
+	}
+
+	fakeCodex := &fakeProjectConversationCodexRuntime{
+		ensureErr:   &codexadapter.RPCError{Method: "thread/resume", Code: -32600, Message: "thread not found: thread-stale"},
+		startStream: TurnStream{Events: closedStreamEvents()},
+	}
+	service := NewProjectConversationService(
+		nil,
+		repoStore,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             project.ID,
+					OrganizationID: org.ID,
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+				providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+					providerID: {
+						ID:             providerID,
+						OrganizationID: org.ID,
+						MachineID:      machineID,
+						AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+						CliCommand:     "codex",
+					},
+				},
+			},
+			machine: catalogdomain.Machine{
+				ID:            machineID,
+				Name:          catalogdomain.LocalMachineName,
+				Host:          catalogdomain.LocalMachineHost,
+				WorkspaceRoot: stringPointer(t.TempDir()),
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		&fakeAgentCLIProcessManager{process: &fakeAgentCLIProcess{stdin: &trackingWriteCloser{}, stdout: `{"response":"OK"}`}},
+		nil,
+	)
+	service.newCodexRuntime = func(provider.AgentCLIProcessManager) (projectConversationCodexRuntime, error) {
+		return fakeCodex, nil
+	}
+
+	turn, err := service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Continue after restart", nil)
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+	if turn.ID == uuid.Nil {
+		t.Fatal("expected persisted turn id")
+	}
+	if fakeCodex.ensureInput.ResumeProviderThreadID != "thread-stale" {
+		t.Fatalf("expected resume attempt with stale thread, got %+v", fakeCodex.ensureInput)
+	}
+	if fakeCodex.startInput.ResumeProviderThreadID != "" || fakeCodex.startInput.ResumeProviderTurnID != "" {
+		t.Fatalf("expected fallback start to clear stale anchors, got %+v", fakeCodex.startInput)
+	}
+	if !strings.Contains(fakeCodex.startInput.SystemPrompt, "Prior discussion summary") {
+		t.Fatalf("expected recovery prompt to include rolling summary, got %q", fakeCodex.startInput.SystemPrompt)
+	}
+
+	reloaded, err := repoStore.GetConversation(ctx, conversation.ID)
+	if err != nil {
+		t.Fatalf("reload conversation: %v", err)
+	}
+	if reloaded.ProviderThreadID != nil || reloaded.LastTurnID != nil {
+		t.Fatalf("expected stale anchors to be cleared, got %+v", reloaded)
+	}
+	if reloaded.ProviderThreadStatus == nil || *reloaded.ProviderThreadStatus != "notLoaded" {
+		t.Fatalf("expected provider thread status notLoaded, got %+v", reloaded.ProviderThreadStatus)
+	}
+}
+
+func TestProjectConversationStartTurnResumesClaudeSessionWithoutRecoveryPrompt(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	const persistentSessionID = "claude-session-77"
+	const rollingSummary = "Claude recovery summary should stay out of the resumed system prompt."
+	conversation, err = repoStore.UpdateConversationAnchors(ctx, conversation.ID, chatdomain.ConversationStatusActive, chatdomain.ConversationAnchors{
+		ProviderThreadID:     optionalString(persistentSessionID),
+		RollingSummary:       rollingSummary,
+		ProviderThreadStatus: optionalString("idle"),
+	})
+	if err != nil {
+		t.Fatalf("update conversation anchors: %v", err)
+	}
+
+	manager := &fakeAgentCLIProcessManager{
+		process: &fakeAgentCLIProcess{
+			stdin: &trackingWriteCloser{},
+			stdout: strings.Join([]string{
+				fmt.Sprintf(`{"type":"system","subtype":"init","data":{"session_id":"%s"}}`, persistentSessionID),
+				`{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Done"}]}}`,
+				fmt.Sprintf(`{"type":"result","subtype":"success","session_id":"%s","num_turns":1}`, persistentSessionID),
+			}, "\n"),
+		},
+	}
+	service := NewProjectConversationService(
+		nil,
+		repoStore,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             project.ID,
+					OrganizationID: org.ID,
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+				providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+					providerID: {
+						ID:             providerID,
+						OrganizationID: org.ID,
+						MachineID:      machineID,
+						AdapterType:    catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
+						CliCommand:     "claude",
+					},
+				},
+			},
+			machine: catalogdomain.Machine{
+				ID:            machineID,
+				Name:          catalogdomain.LocalMachineName,
+				Host:          catalogdomain.LocalMachineHost,
+				WorkspaceRoot: stringPointer(t.TempDir()),
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		manager,
+		nil,
+	)
+
+	turn, err := service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Continue after restart", nil)
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+	if turn.ID == uuid.Nil {
+		t.Fatal("expected persisted turn id")
+	}
+
+	joinedArgs := strings.Join(manager.startSpec.Args, "\n")
+	if !strings.Contains(joinedArgs, "--resume\n"+persistentSessionID) {
+		t.Fatalf("process args = %v, want --resume %s", manager.startSpec.Args, persistentSessionID)
+	}
+	if strings.Contains(joinedArgs, rollingSummary) {
+		t.Fatalf("expected durable claude resume to avoid recovery prompt replay, got args %v", manager.startSpec.Args)
+	}
+	if !strings.Contains(strings.Join(manager.startSpec.Environment, "\n"), claudeCodeResumeInterruptedTurnEnv+"=1") {
+		t.Fatalf("process environment = %v, want %s=1", manager.startSpec.Environment, claudeCodeResumeInterruptedTurnEnv)
+	}
+
+	var completedTurn *ent.ChatTurn
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		item, getErr := client.ChatTurn.Get(ctx, turn.ID)
+		if getErr == nil && item.Status == string(chatdomain.TurnStatusCompleted) {
+			completedTurn = item
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if completedTurn == nil {
+		t.Fatal("expected claude turn to complete")
+	}
+
+	reloadedConversation, err := repoStore.GetConversation(ctx, conversation.ID)
+	if err != nil {
+		t.Fatalf("reload conversation: %v", err)
+	}
+	if reloadedConversation.ProviderThreadID == nil || *reloadedConversation.ProviderThreadID != persistentSessionID {
+		t.Fatalf("expected claude provider session anchor to persist, got %+v", reloadedConversation)
+	}
+}
+
+func TestProjectConversationRespondInterruptRestoresCodexSessionWhenRuntimeMissing(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	conversation, err = repoStore.UpdateConversationAnchors(ctx, conversation.ID, chatdomain.ConversationStatusInterrupted, chatdomain.ConversationAnchors{
+		ProviderThreadID:     optionalString("thread-live"),
+		LastTurnID:           optionalString("turn-live"),
+		RollingSummary:       "Thread paused for approval",
+		ProviderThreadStatus: optionalString("active"),
+	})
+	if err != nil {
+		t.Fatalf("update conversation anchors: %v", err)
+	}
+	turn, _, err := repoStore.CreateTurnWithUserEntry(ctx, conversation.ID, "Need approval")
+	if err != nil {
+		t.Fatalf("create turn: %v", err)
+	}
+	interrupt, _, err := repoStore.CreatePendingInterrupt(ctx, conversation.ID, turn.ID, "req-1", chatdomain.InterruptKindCommandExecutionApproval, map[string]any{
+		"provider": "codex",
+	})
+	if err != nil {
+		t.Fatalf("create pending interrupt: %v", err)
+	}
+
+	fakeCodex := &fakeProjectConversationCodexRuntime{}
+	service := NewProjectConversationService(
+		nil,
+		repoStore,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             project.ID,
+					OrganizationID: org.ID,
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+				providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+					providerID: {
+						ID:             providerID,
+						OrganizationID: org.ID,
+						MachineID:      machineID,
+						AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+						CliCommand:     "codex",
+					},
+				},
+			},
+			machine: catalogdomain.Machine{
+				ID:            machineID,
+				Name:          catalogdomain.LocalMachineName,
+				Host:          catalogdomain.LocalMachineHost,
+				WorkspaceRoot: stringPointer(t.TempDir()),
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		&fakeAgentCLIProcessManager{process: &fakeAgentCLIProcess{stdin: &trackingWriteCloser{}, stdout: `{"response":"OK"}`}},
+		nil,
+	)
+	service.newCodexRuntime = func(provider.AgentCLIProcessManager) (projectConversationCodexRuntime, error) {
+		return fakeCodex, nil
+	}
+
+	resolved, err := service.RespondInterrupt(ctx, UserID("user:conversation"), conversation.ID, interrupt.ID, chatdomain.InterruptResponse{
+		Decision: optionalString("approve_once"),
+	})
+	if err != nil {
+		t.Fatalf("RespondInterrupt() error = %v", err)
+	}
+	if resolved.Status != chatdomain.InterruptStatusResolved {
+		t.Fatalf("expected resolved interrupt, got %+v", resolved)
+	}
+	if fakeCodex.ensureInput.ResumeProviderThreadID != "thread-live" || fakeCodex.ensureInput.ResumeProviderTurnID != "turn-live" {
+		t.Fatalf("expected interrupt recovery to resume thread, got %+v", fakeCodex.ensureInput)
+	}
+	if fakeCodex.requestID != "req-1" || fakeCodex.kind != "command_execution" || fakeCodex.decision != "approve_once" {
+		t.Fatalf("unexpected interrupt response routed to codex runtime: %+v", fakeCodex)
+	}
+}
+
+func TestProjectConversationConsumeTurnPersistsProviderTurnIDOnCompletion(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	turn, _, err := repoStore.CreateTurnWithUserEntry(ctx, conversation.ID, "Finish the task")
+	if err != nil {
+		t.Fatalf("create turn: %v", err)
+	}
+
+	service := NewProjectConversationService(nil, repoStore, fakeProjectConversationCatalog{
+		fakeCatalogReader: fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             project.ID,
+				OrganizationID: org.ID,
+				Name:           "OpenASE",
+				Slug:           "openase",
+			},
+		},
+	}, fakeTicketReader{}, harnessWorkflowReader{}, nil, nil)
+
+	events := make(chan StreamEvent, 1)
+	events <- StreamEvent{Event: "done", Payload: donePayload{SessionID: conversation.ID.String()}}
+	close(events)
+	live := &liveProjectConversation{
+		codex: &fakeProjectConversationCodexRuntime{
+			anchor: RuntimeSessionAnchor{
+				ProviderThreadID:          "thread-1",
+				LastTurnID:                "provider-turn-1",
+				ProviderThreadStatus:      "idle",
+				ProviderThreadActiveFlags: []string{},
+			},
+		},
+	}
+
+	service.consumeTurn(ctx, conversation.ID, turn, live, TurnStream{Events: events})
+
+	reloadedTurn, err := client.ChatTurn.Get(ctx, turn.ID)
+	if err != nil {
+		t.Fatalf("reload turn: %v", err)
+	}
+	if reloadedTurn.ProviderTurnID == nil || *reloadedTurn.ProviderTurnID != "provider-turn-1" {
+		t.Fatalf("expected provider turn id to persist, got %+v", reloadedTurn)
+	}
+	reloadedConversation, err := repoStore.GetConversation(ctx, conversation.ID)
+	if err != nil {
+		t.Fatalf("reload conversation: %v", err)
+	}
+	if reloadedConversation.LastTurnID == nil || *reloadedConversation.LastTurnID != "provider-turn-1" {
+		t.Fatalf("expected conversation last turn anchor to persist, got %+v", reloadedConversation)
+	}
+}
+
+func TestProjectConversationConsumeTurnMarksInterruptedStatus(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	turn, _, err := repoStore.CreateTurnWithUserEntry(ctx, conversation.ID, "Interrupt the task")
+	if err != nil {
+		t.Fatalf("create turn: %v", err)
+	}
+
+	service := NewProjectConversationService(nil, repoStore, fakeProjectConversationCatalog{
+		fakeCatalogReader: fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             project.ID,
+				OrganizationID: org.ID,
+				Name:           "OpenASE",
+				Slug:           "openase",
+			},
+		},
+	}, fakeTicketReader{}, harnessWorkflowReader{}, nil, nil)
+
+	events := make(chan StreamEvent, 1)
+	events <- StreamEvent{Event: "interrupted", Payload: errorPayload{Message: "operator interrupted"}}
+	close(events)
+	live := &liveProjectConversation{
+		codex: &fakeProjectConversationCodexRuntime{
+			anchor: RuntimeSessionAnchor{
+				ProviderThreadID:          "thread-2",
+				LastTurnID:                "provider-turn-2",
+				ProviderThreadStatus:      "active",
+				ProviderThreadActiveFlags: []string{"waitingOnApproval"},
+			},
+		},
+	}
+
+	service.consumeTurn(ctx, conversation.ID, turn, live, TurnStream{Events: events})
+
+	reloadedTurn, err := repoStore.GetConversation(ctx, conversation.ID)
+	if err != nil {
+		t.Fatalf("reload conversation: %v", err)
+	}
+	if reloadedTurn.Status != chatdomain.ConversationStatusInterrupted {
+		t.Fatalf("expected interrupted conversation status, got %+v", reloadedTurn)
+	}
+	turnItem, err := client.ChatTurn.Get(ctx, turn.ID)
+	if err != nil {
+		t.Fatalf("reload turn: %v", err)
+	}
+	if turnItem.Status != string(chatdomain.TurnStatusInterrupted) {
+		t.Fatalf("expected interrupted turn status, got %+v", turnItem)
+	}
+}
+
+func TestProjectConversationCodexResumeInterruptLifecycleAcrossRuntimeRestart(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	conversation, err = repoStore.UpdateConversationAnchors(ctx, conversation.ID, chatdomain.ConversationStatusInterrupted, chatdomain.ConversationAnchors{
+		ProviderThreadID:          optionalString("thread-shared"),
+		LastTurnID:                optionalString("provider-turn-1"),
+		ProviderThreadStatus:      optionalString("active"),
+		ProviderThreadActiveFlags: &[]string{"waitingOnApproval"},
+		RollingSummary:            "Resume the same Codex conversation after restart.",
+	})
+	if err != nil {
+		t.Fatalf("seed conversation anchors: %v", err)
+	}
+	firstTurn, _, err := repoStore.CreateTurnWithUserEntry(ctx, conversation.ID, "Need approval before continuing")
+	if err != nil {
+		t.Fatalf("create first turn: %v", err)
+	}
+	interrupt, _, err := repoStore.CreatePendingInterrupt(ctx, conversation.ID, firstTurn.ID, "req-acceptance", chatdomain.InterruptKindCommandExecutionApproval, map[string]any{
+		"provider": "codex",
+	})
+	if err != nil {
+		t.Fatalf("create pending interrupt: %v", err)
+	}
+
+	runtimes := []*fakeProjectConversationCodexRuntime{
+		{
+			anchor: RuntimeSessionAnchor{
+				ProviderThreadID:          "thread-shared",
+				LastTurnID:                "provider-turn-1",
+				ProviderThreadStatus:      "active",
+				ProviderThreadActiveFlags: []string{"waitingOnApproval"},
+			},
+		},
+		{
+			startStream: TurnStream{Events: streamWithEvents(
+				StreamEvent{Event: "done", Payload: donePayload{SessionID: conversation.ID.String()}},
+			)},
+			anchor: RuntimeSessionAnchor{
+				ProviderThreadID:          "thread-shared",
+				LastTurnID:                "provider-turn-2",
+				ProviderThreadStatus:      "idle",
+				ProviderThreadActiveFlags: []string{},
+			},
+		},
+	}
+	runtimeIndex := 0
+	service := NewProjectConversationService(
+		nil,
+		repoStore,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             project.ID,
+					OrganizationID: org.ID,
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+				providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+					providerID: {
+						ID:             providerID,
+						OrganizationID: org.ID,
+						MachineID:      machineID,
+						AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+						CliCommand:     "codex",
+					},
+				},
+			},
+			machine: catalogdomain.Machine{
+				ID:            machineID,
+				Name:          catalogdomain.LocalMachineName,
+				Host:          catalogdomain.LocalMachineHost,
+				WorkspaceRoot: stringPointer(t.TempDir()),
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		&fakeAgentCLIProcessManager{process: &fakeAgentCLIProcess{stdin: &trackingWriteCloser{}, stdout: `{"response":"OK"}`}},
+		nil,
+	)
+	service.newCodexRuntime = func(provider.AgentCLIProcessManager) (projectConversationCodexRuntime, error) {
+		if runtimeIndex >= len(runtimes) {
+			return runtimes[len(runtimes)-1], nil
+		}
+		runtime := runtimes[runtimeIndex]
+		runtimeIndex++
+		return runtime, nil
+	}
+
+	resolved, err := service.RespondInterrupt(ctx, UserID("user:conversation"), conversation.ID, interrupt.ID, chatdomain.InterruptResponse{
+		Decision: optionalString("approve_once"),
+	})
+	if err != nil {
+		t.Fatalf("RespondInterrupt() error = %v", err)
+	}
+	if resolved.Status != chatdomain.InterruptStatusResolved {
+		t.Fatalf("expected resolved interrupt, got %+v", resolved)
+	}
+	if runtimes[0].ensureInput.ResumeProviderThreadID != "thread-shared" {
+		t.Fatalf("expected interrupt resume to target shared thread, got %+v", runtimes[0].ensureInput)
+	}
+	if _, err := repoStore.CompleteTurn(ctx, firstTurn.ID, chatdomain.TurnStatusCompleted, optionalString("provider-turn-1")); err != nil {
+		t.Fatalf("complete resumed first turn: %v", err)
+	}
+
+	service.liveMu.Lock()
+	delete(service.live, conversation.ID)
+	service.liveMu.Unlock()
+
+	secondTurn, err := service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Continue after approval", nil)
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+	if secondTurn.ID == uuid.Nil {
+		t.Fatal("expected second persisted turn id")
+	}
+	if runtimes[1].ensureInput.ResumeProviderThreadID != "thread-shared" {
+		t.Fatalf("expected resumed thread for second turn, got %+v", runtimes[1].ensureInput)
+	}
+	if strings.Contains(runtimes[1].startInput.SystemPrompt, "Resume the same Codex conversation after restart.") {
+		t.Fatalf("expected resume path to avoid recovery prompt replay, got %q", runtimes[1].startInput.SystemPrompt)
+	}
+
+	var completedTurn *ent.ChatTurn
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		item, getErr := client.ChatTurn.Get(ctx, secondTurn.ID)
+		if getErr == nil && item.ProviderTurnID != nil && *item.ProviderTurnID == "provider-turn-2" && item.Status == string(chatdomain.TurnStatusCompleted) {
+			completedTurn = item
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if completedTurn == nil {
+		t.Fatal("expected second turn to complete with provider-turn-2")
+	}
+	reloadedConversation, err := repoStore.GetConversation(ctx, conversation.ID)
+	if err != nil {
+		t.Fatalf("reload conversation: %v", err)
+	}
+	if reloadedConversation.ProviderThreadID == nil || *reloadedConversation.ProviderThreadID != "thread-shared" {
+		t.Fatalf("expected conversation to stay on the same provider thread, got %+v", reloadedConversation)
+	}
+	if reloadedConversation.LastTurnID == nil || *reloadedConversation.LastTurnID != "provider-turn-2" {
+		t.Fatalf("expected conversation anchor to advance to provider-turn-2, got %+v", reloadedConversation)
+	}
+}
+
+func TestProjectConversationWatchConversationSessionIncludesProviderAnchors(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	_, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	conversation, err = repoStore.UpdateConversationAnchors(ctx, conversation.ID, chatdomain.ConversationStatusActive, chatdomain.ConversationAnchors{
+		ProviderThreadID:          optionalString("thread-visible"),
+		LastTurnID:                optionalString("turn-visible"),
+		ProviderThreadStatus:      optionalString("waitingOnApproval"),
+		ProviderThreadActiveFlags: &[]string{"waitingOnApproval"},
+		RollingSummary:            "summary",
+	})
+	if err != nil {
+		t.Fatalf("update anchors: %v", err)
+	}
+
+	service := NewProjectConversationService(nil, repoStore, nil, nil, nil, nil, nil)
+	events, cleanup := service.WatchConversation(ctx, conversation.ID)
+	defer cleanup()
+
+	first := <-events
+	if first.Event != "session" {
+		t.Fatalf("expected session event, got %+v", first)
+	}
+	payload, ok := first.Payload.(map[string]any)
+	if !ok {
+		t.Fatalf("expected map session payload, got %#v", first.Payload)
+	}
+	if payload["provider_thread_id"] != "thread-visible" || payload["last_turn_id"] != "turn-visible" || payload["provider_thread_status"] != "waitingOnApproval" {
+		t.Fatalf("expected provider anchors in session payload, got %#v", payload)
+	}
+	flags, ok := payload["provider_thread_active_flags"].([]string)
+	if !ok || len(flags) != 1 || flags[0] != "waitingOnApproval" {
+		t.Fatalf("expected active flags in session payload, got %#v", payload["provider_thread_active_flags"])
+	}
+}
+
+func TestProjectConversationWatchConversationSessionDistinguishesClaudeSessionAnchors(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440000")
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	conversation, err = repoStore.UpdateConversationAnchors(ctx, conversation.ID, chatdomain.ConversationStatusActive, chatdomain.ConversationAnchors{
+		ProviderThreadID:          optionalString("claude-session-visible"),
+		ProviderThreadStatus:      optionalString("requires_action"),
+		ProviderThreadActiveFlags: &[]string{"requires_action"},
+	})
+	if err != nil {
+		t.Fatalf("update anchors: %v", err)
+	}
+
+	service := NewProjectConversationService(nil, repoStore, fakeProjectConversationCatalog{
+		fakeCatalogReader: fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             project.ID,
+				OrganizationID: org.ID,
+				Name:           "OpenASE",
+			},
+			providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+				providerID: {
+					ID:             providerID,
+					OrganizationID: org.ID,
+					Name:           "Claude Code",
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
+					CliCommand:     "claude",
+					Available:      true,
+				},
+			},
+		},
+	}, nil, nil, nil, nil)
+	events, cleanup := service.WatchConversation(ctx, conversation.ID)
+	defer cleanup()
+
+	first := <-events
+	if first.Event != "session" {
+		t.Fatalf("expected session event, got %+v", first)
+	}
+	payload, ok := first.Payload.(map[string]any)
+	if !ok {
+		t.Fatalf("expected map session payload, got %#v", first.Payload)
+	}
+	if payload["provider_anchor_kind"] != "session" || payload["provider_anchor_id"] != "claude-session-visible" {
+		t.Fatalf("expected claude session anchor payload, got %#v", payload)
+	}
+	if supported, ok := payload["provider_turn_supported"].(bool); !ok || supported {
+		t.Fatalf("expected provider_turn_supported=false, got %#v", payload["provider_turn_supported"])
+	}
+	if payload["provider_status"] != "requires_action" {
+		t.Fatalf("expected provider_status requires_action, got %#v", payload["provider_status"])
+	}
+	flags, ok := payload["provider_active_flags"].([]string)
+	if !ok || len(flags) != 1 || flags[0] != "requires_action" {
+		t.Fatalf("expected provider_active_flags in session payload, got %#v", payload["provider_active_flags"])
+	}
+}
+
+func TestProjectConversationConsumeTurnPersistsThreadStatusAndProtocolEvents(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	turn, _, err := repoStore.CreateTurnWithUserEntry(ctx, conversation.ID, "Continue")
+	if err != nil {
+		t.Fatalf("create turn: %v", err)
+	}
+
+	service := NewProjectConversationService(nil, repoStore, fakeProjectConversationCatalog{
+		fakeCatalogReader: fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             project.ID,
+				OrganizationID: org.ID,
+				Name:           "OpenASE",
+				Slug:           "openase",
+			},
+		},
+	}, fakeTicketReader{}, harnessWorkflowReader{}, nil, nil)
+	watched, cleanup := service.WatchConversation(ctx, conversation.ID)
+
+	streamEvents := make(chan StreamEvent, 5)
+	streamEvents <- StreamEvent{
+		Event: "thread_status",
+		Payload: runtimeThreadStatusPayload{
+			ThreadID:    "thread-77",
+			Status:      "waitingOnUserInput",
+			ActiveFlags: []string{"waitingOnUserInput"},
+		},
+	}
+	streamEvents <- StreamEvent{
+		Event: "plan_updated",
+		Payload: runtimePlanUpdatedPayload{
+			ThreadID:    "thread-77",
+			TurnID:      "provider-turn-77",
+			Explanation: optionalString("Need two steps"),
+			Plan: []runtimePlanStepPayload{
+				{Step: "Inspect", Status: "completed"},
+				{Step: "Patch", Status: "in_progress"},
+			},
+		},
+	}
+	streamEvents <- StreamEvent{
+		Event: "diff_updated",
+		Payload: runtimeDiffUpdatedPayload{
+			ThreadID: "thread-77",
+			TurnID:   "provider-turn-77",
+			Diff:     "diff --git a/app.go b/app.go",
+		},
+	}
+	streamEvents <- StreamEvent{
+		Event: "reasoning_updated",
+		Payload: runtimeReasoningUpdatedPayload{
+			ThreadID:     "thread-77",
+			TurnID:       "provider-turn-77",
+			ItemID:       "item-1",
+			Kind:         "summary_text_delta",
+			Delta:        "Reasoning text",
+			SummaryIndex: intPointer(0),
+		},
+	}
+	streamEvents <- StreamEvent{Event: "done", Payload: donePayload{SessionID: conversation.ID.String()}}
+	close(streamEvents)
+
+	live := &liveProjectConversation{
+		codex: &fakeProjectConversationCodexRuntime{
+			anchor: RuntimeSessionAnchor{
+				ProviderThreadID:          "thread-77",
+				LastTurnID:                "provider-turn-77",
+				ProviderThreadStatus:      "waitingOnUserInput",
+				ProviderThreadActiveFlags: []string{"waitingOnUserInput"},
+			},
+		},
+	}
+
+	service.consumeTurn(ctx, conversation.ID, turn, live, TurnStream{Events: streamEvents})
+	cleanup()
+
+	reloadedConversation, err := repoStore.GetConversation(ctx, conversation.ID)
+	if err != nil {
+		t.Fatalf("reload conversation: %v", err)
+	}
+	if reloadedConversation.ProviderThreadStatus == nil || *reloadedConversation.ProviderThreadStatus != "waitingOnUserInput" {
+		t.Fatalf("expected persisted provider thread status, got %+v", reloadedConversation.ProviderThreadStatus)
+	}
+	entries, err := repoStore.ListEntries(ctx, conversation.ID)
+	if err != nil {
+		t.Fatalf("list entries: %v", err)
+	}
+	serialized := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		serialized = append(serialized, string(entry.Kind)+":"+stringValue(entry.Payload["type"]))
+	}
+	if !containsAll(strings.Join(serialized, "\n"),
+		"system:thread_status",
+		"system:turn_plan_updated",
+		"system:turn_diff_updated",
+		"system:turn_reasoning_updated",
+	) {
+		t.Fatalf("expected protocol event entries, got %v", serialized)
+	}
+
+	collected := collectStreamEvents(watched)
+	if len(collected) < 5 {
+		t.Fatalf("expected broadcast events, got %d", len(collected))
+	}
+	eventNames := make([]string, 0, len(collected))
+	for _, item := range collected {
+		eventNames = append(eventNames, item.Event)
+	}
+	if !containsAll(strings.Join(eventNames, "\n"),
+		"session",
+		"message",
+		"thread_status",
+		"plan_updated",
+		"diff_updated",
+		"reasoning_updated",
+		"turn_done",
+	) {
+		t.Fatalf("unexpected stream sequence: %+v", collected)
 	}
 }
 
@@ -906,19 +1820,33 @@ func (c fakeProjectConversationCatalog) GetMachine(context.Context, uuid.UUID) (
 }
 
 type fakeProjectConversationCodexRuntime struct {
-	sessionID SessionID
-	requestID string
-	kind      string
-	decision  string
-	answer    map[string]any
+	sessionID   SessionID
+	requestID   string
+	kind        string
+	decision    string
+	answer      map[string]any
+	ensureInput RuntimeTurnInput
+	ensureErr   error
+	startInput  RuntimeTurnInput
+	startStream TurnStream
+	anchor      RuntimeSessionAnchor
 }
 
 func (r *fakeProjectConversationCodexRuntime) Supports(catalogdomain.AgentProvider) bool {
 	return true
 }
 
-func (r *fakeProjectConversationCodexRuntime) StartTurn(context.Context, RuntimeTurnInput) (TurnStream, error) {
-	return TurnStream{}, nil
+func (r *fakeProjectConversationCodexRuntime) StartTurn(_ context.Context, input RuntimeTurnInput) (TurnStream, error) {
+	r.startInput = input
+	if r.startStream.Events == nil {
+		return TurnStream{Events: closedStreamEvents()}, nil
+	}
+	return r.startStream, nil
+}
+
+func (r *fakeProjectConversationCodexRuntime) EnsureSession(_ context.Context, input RuntimeTurnInput) error {
+	r.ensureInput = input
+	return r.ensureErr
 }
 
 func (r *fakeProjectConversationCodexRuntime) CloseSession(SessionID) bool {
@@ -942,7 +1870,25 @@ func (r *fakeProjectConversationCodexRuntime) RespondInterrupt(
 }
 
 func (r *fakeProjectConversationCodexRuntime) SessionAnchor(SessionID) RuntimeSessionAnchor {
-	return RuntimeSessionAnchor{}
+	if r.anchor.ProviderThreadID == "" {
+		return RuntimeSessionAnchor{}
+	}
+	return r.anchor
+}
+
+func closedStreamEvents() <-chan StreamEvent {
+	events := make(chan StreamEvent)
+	close(events)
+	return events
+}
+
+func streamWithEvents(items ...StreamEvent) <-chan StreamEvent {
+	events := make(chan StreamEvent, len(items))
+	for _, item := range items {
+		events <- item
+	}
+	close(events)
+	return events
 }
 
 type fakeProjectConversationWorkflowSync struct {
@@ -1094,6 +2040,18 @@ type projectConversationWorkspaceDiffFixture struct {
 	repoPaths     map[string]string
 }
 
+type projectConversationStubGitHubTokenResolver struct {
+	resolved githubauthdomain.ResolvedCredential
+	err      error
+}
+
+func (s projectConversationStubGitHubTokenResolver) ResolveProjectCredential(context.Context, uuid.UUID) (githubauthdomain.ResolvedCredential, error) {
+	if s.err != nil {
+		return githubauthdomain.ResolvedCredential{}, s.err
+	}
+	return s.resolved, nil
+}
+
 func setupProjectConversationWorkspaceDiffFixture(
 	t *testing.T,
 	repos []projectConversationWorkspaceRepoFixture,
@@ -1199,4 +2157,8 @@ func writeConversationWorkspaceFile(t *testing.T, path string, content string) {
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
+}
+
+func intPointer(value int) *int {
+	return &value
 }

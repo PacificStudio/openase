@@ -1,25 +1,21 @@
+<!-- eslint-disable max-lines -->
 <script lang="ts">
   import { untrack } from 'svelte'
   import { ApiError } from '$lib/api/client'
   import type { AgentProvider } from '$lib/api/contracts'
   import { listProviders } from '$lib/api/openase'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import { Button } from '$ui/button'
-  import { ScrollArea } from '$ui/scroll-area'
-  import Textarea from '$ui/textarea/textarea.svelte'
-  import { Plus, RefreshCcw, Send } from '@lucide/svelte'
   import { createProjectConversationController } from './project-conversation-controller.svelte'
+  import ProjectConversationComposer from './project-conversation-composer.svelte'
+  import ProjectConversationContent from './project-conversation-content.svelte'
+  import ProjectConversationHeader from './project-conversation-header.svelte'
   import {
     describeProjectAIFocus,
     projectAIFocusKey,
     type ProjectAIFocus,
   } from './project-ai-focus'
-  import ProjectConversationFocusCard from './project-conversation-focus-card.svelte'
   import { getProjectConversationStatusMessage } from './project-conversation-panel-labels'
-  import ProjectConversationTabStrip from './project-conversation-tab-strip.svelte'
-  import ProjectConversationWorkspaceSummary from './project-conversation-workspace-summary.svelte'
-  import EphemeralChatProviderSelect from './ephemeral-chat-provider-select.svelte'
-  import ProjectConversationTranscript from './project-conversation-transcript.svelte'
+  import { getEligibleInitialPromptSignature } from './project-conversation-panel-prompt'
 
   let {
     context,
@@ -41,12 +37,13 @@
     initialPrompt?: string
   } = $props()
 
-  let prompt = $state('')
   let suppressedFocusKey = $state('')
   let loadingProviders = $state(false)
   let providerError = $state('')
   let loadedProviders = $state<AgentProvider[]>([])
   let previousRestoreKey = ''
+  let appliedInitialPromptSignature = $state('')
+  let autoDispatchQueueTurnId = $state('')
 
   const controller = createProjectConversationController({
     getProjectId: () => context.projectId,
@@ -60,6 +57,13 @@
   const tabs = $derived(controller.tabs)
   const activeTabId = $derived(controller.activeTabId)
   const activeTab = $derived(tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null)
+  const activeConversation = $derived(
+    conversations.find((conversation) => conversation.id === (activeTab?.conversationId ?? '')) ??
+      null,
+  )
+  const draft = $derived(controller.draft)
+  const queuedTurns = $derived(controller.queuedTurns)
+  const nextQueuedTurn = $derived(queuedTurns[0] ?? null)
   const entries = $derived(controller.entries)
   const workspaceDiff = $derived(controller.workspaceDiff)
   const workspaceDiffLoading = $derived(controller.workspaceDiffLoading)
@@ -67,6 +71,8 @@
   const pending = $derived(controller.pending)
   const phase = $derived(controller.phase)
   const inputDisabled = $derived(controller.inputDisabled)
+  const sendDisabled = $derived(controller.sendDisabled)
+  const canQueueTurn = $derived(controller.canQueueTurn)
   const providerSelectionDisabled = $derived(controller.providerSelectionDisabled)
   const statusMessage = $derived(
     getProjectConversationStatusMessage(phase, controller.hasPendingInterrupt),
@@ -77,6 +83,29 @@
     effectiveFocus && suppressedFocusKey !== effectiveFocusKey ? effectiveFocus : null,
   )
   const focusCard = $derived(focusForSend ? describeProjectAIFocus(focusForSend) : null)
+  const providerAnchorSummary = $derived.by(() => {
+    if (!activeConversation?.providerAnchorId || !activeConversation.providerAnchorKind) {
+      return ''
+    }
+
+    const kindLabel =
+      activeConversation.providerAnchorKind === 'session' ? 'Claude session' : 'Codex thread'
+    const statusLabel = activeConversation.providerStatus?.trim()
+    return statusLabel ? `${kindLabel} · ${statusLabel}` : kindLabel
+  })
+
+  function applyInitialPromptIfEligible(restoreKey: string, nextInitialPrompt: string) {
+    const result = getEligibleInitialPromptSignature({
+      restoreKey,
+      nextInitialPrompt,
+      activeTabId,
+      appliedInitialPromptSignature,
+      activeDraft: draft,
+    })
+    if (!result) return
+    appliedInitialPromptSignature = result.signature
+    if (result.shouldApplyDraft) controller.setDraft(nextInitialPrompt)
+  }
 
   $effect(() => {
     if (providers.length > 0 || !organizationId) {
@@ -129,8 +158,21 @@
       return
     }
     previousRestoreKey = restoreKey
-    prompt = initialPrompt
-    void controller.restore()
+    appliedInitialPromptSignature = ''
+
+    let cancelled = false
+
+    const restore = async () => {
+      await controller.restore()
+      if (!cancelled) {
+        applyInitialPromptIfEligible(restoreKey, initialPrompt)
+      }
+    }
+
+    void restore()
+    return () => {
+      cancelled = true
+    }
   })
 
   $effect(() => {
@@ -145,126 +187,128 @@
     }
   })
 
+  $effect(() => {
+    const restoreKey = `${context.projectId}:${providerId}`
+    if (!context.projectId || !providerId || !activeTabId) {
+      return
+    }
+
+    const nextInitialPrompt = initialPrompt.trim()
+    if (!nextInitialPrompt) {
+      return
+    }
+    applyInitialPromptIfEligible(restoreKey, initialPrompt)
+  })
+
+  $effect(() => {
+    const nextQueuedTurnId = nextQueuedTurn?.id ?? ''
+    const shouldAutoDispatch =
+      !!activeTabId && !!nextQueuedTurnId && phase === 'idle' && !controller.hasPendingInterrupt
+
+    if (!shouldAutoDispatch) {
+      autoDispatchQueueTurnId = ''
+      return
+    }
+
+    if (autoDispatchQueueTurnId === nextQueuedTurnId) {
+      return
+    }
+
+    autoDispatchQueueTurnId = nextQueuedTurnId
+    queueMicrotask(() => {
+      if (
+        autoDispatchQueueTurnId === nextQueuedTurnId &&
+        activeTabId &&
+        (controller.queuedTurns[0]?.id ?? '') === nextQueuedTurnId &&
+        controller.phase === 'idle' &&
+        !controller.hasPendingInterrupt
+      ) {
+        void controller.sendNextQueuedTurn().finally(() => {
+          if (autoDispatchQueueTurnId === nextQueuedTurnId) {
+            autoDispatchQueueTurnId = ''
+          }
+        })
+      }
+    })
+  })
+
   async function handleSend() {
-    const message = prompt.trim()
-    if (!message || !context.projectId || !providerId || pending) {
+    const message = draft.trim()
+    if (!message) {
       return
     }
 
     const nextFocus = suppressedFocusKey === effectiveFocusKey ? null : effectiveFocus
-    prompt = ''
+    if (queuedTurns.length > 0 || sendDisabled) {
+      if (!canQueueTurn || !controller.enqueueTurn(message, nextFocus)) {
+        return
+      }
+      controller.setDraft('')
+      suppressedFocusKey = ''
+      return
+    }
+
+    controller.setDraft('')
     await controller.sendTurn(message, nextFocus)
     suppressedFocusKey = ''
+  }
+
+  function handleDismissFocus() {
+    suppressedFocusKey = effectiveFocusKey
+  }
+
+  function handleCancelQueuedTurn(queuedTurnId: string) {
+    controller.cancelQueuedTurn(queuedTurnId)
   }
 </script>
 
 <div class="bg-background flex h-full min-h-0 flex-col">
-  <div class="border-border flex items-center gap-2 border-b px-3 py-1.5 pr-12">
-    <h2 class="text-xs font-medium">{title}</h2>
-    <EphemeralChatProviderSelect
-      providers={chatProviders}
-      {providerId}
-      disabled={providerSelectionDisabled}
-      onProviderChange={(nextProviderId) => void controller.selectProvider(nextProviderId)}
-    />
-    <div class="ml-auto flex items-center">
-      <Button
-        variant="ghost"
-        size="sm"
-        class="text-muted-foreground h-6 gap-1 px-1.5 text-[11px]"
-        aria-label="New Tab"
-        onclick={() => controller.createTab()}
-        disabled={!providerId}
-      >
-        <Plus class="size-3" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        class="text-muted-foreground size-6 p-0"
-        aria-label="Reset conversation"
-        onclick={() => void controller.resetConversation()}
-        disabled={entries.length === 0 && !pending}
-      >
-        <RefreshCcw class="size-3" />
-      </Button>
-    </div>
-  </div>
+  <ProjectConversationHeader
+    {title}
+    providers={chatProviders}
+    {providerId}
+    {providerSelectionDisabled}
+    resetDisabled={entries.length === 0 && !pending}
+    onProviderChange={(nextProviderId) => void controller.selectProvider(nextProviderId)}
+    onCreateTab={() => controller.createTab()}
+    onResetConversation={() => void controller.resetConversation()}
+  />
 
-  <ProjectConversationTabStrip
+  <ProjectConversationContent
     {tabs}
     {activeTabId}
     {conversations}
-    onSelectTab={(tabId) => controller.selectTab(tabId)}
-    onCloseTab={(tabId) => controller.closeTab(tabId)}
-  />
-
-  <ProjectConversationWorkspaceSummary
     conversationId={activeTab?.conversationId ?? ''}
     {workspaceDiff}
-    loading={workspaceDiffLoading}
-    error={workspaceDiffError}
+    {workspaceDiffLoading}
+    {workspaceDiffError}
+    {entries}
+    {pending}
+    onSelectTab={controller.selectTab}
+    onCloseTab={controller.closeTab}
+    onConfirmActionProposal={controller.confirmActionProposal}
+    onCancelActionProposal={controller.cancelActionProposal}
+    onRespondInterrupt={controller.respondInterrupt}
   />
 
-  <ScrollArea class="min-h-0 flex-1 px-4 py-4">
-    <ProjectConversationTranscript
-      {entries}
-      {pending}
-      onConfirmActionProposal={(entryId) => controller.confirmActionProposal(entryId)}
-      onRespondInterrupt={(payload) => controller.respondInterrupt(payload)}
-    />
-  </ScrollArea>
-
-  <div class="border-border border-t px-3 py-2">
-    {#if loadingProviders}
-      <div class="text-muted-foreground mb-1.5 text-[11px]">Loading providers...</div>
-    {:else if providerError}
-      <div class="text-destructive mb-1.5 text-[11px]">{providerError}</div>
-    {:else if chatProviders.length === 0}
-      <div class="text-muted-foreground mb-1.5 text-[11px]">No chat provider available.</div>
-    {:else if statusMessage}
-      <div class="text-muted-foreground mb-1.5 text-[11px]">{statusMessage}</div>
-    {:else if activeTab?.restored}
-      <div class="text-muted-foreground mb-1.5 text-[11px]">Restored from last session.</div>
-    {/if}
-
-    {#if focusCard}
-      <ProjectConversationFocusCard
-        label={focusCard.label}
-        title={focusCard.title}
-        detail={focusCard.detail}
-        onDismiss={() => {
-          suppressedFocusKey = effectiveFocusKey
-        }}
-      />
-    {/if}
-
-    <div
-      class="border-input focus-within:ring-ring flex items-center gap-1.5 rounded-lg border px-2.5 py-1 focus-within:ring-1"
-    >
-      <Textarea
-        bind:value={prompt}
-        rows={1}
-        class="min-h-0 flex-1 resize-none border-0 px-0 py-1 text-sm shadow-none focus-visible:ring-0"
-        {placeholder}
-        disabled={inputDisabled}
-        onkeydown={(event) => {
-          if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
-            event.preventDefault()
-            void handleSend()
-          }
-        }}
-      />
-      <Button
-        variant="ghost"
-        size="sm"
-        class="text-muted-foreground size-6 shrink-0 p-0"
-        aria-label="Send message"
-        onclick={() => void handleSend()}
-        disabled={!prompt.trim() || inputDisabled}
-      >
-        <Send class="size-3.5" />
-      </Button>
-    </div>
-  </div>
+  <ProjectConversationComposer
+    {loadingProviders}
+    {providerError}
+    providerCount={chatProviders.length}
+    statusMessage={statusMessage ?? undefined}
+    restored={activeTab?.restored ?? false}
+    {providerAnchorSummary}
+    {focusCard}
+    {queuedTurns}
+    hasPendingInterrupt={controller.hasPendingInterrupt}
+    {draft}
+    {placeholder}
+    {inputDisabled}
+    {sendDisabled}
+    {canQueueTurn}
+    onDismissFocus={handleDismissFocus}
+    onCancelQueuedTurn={handleCancelQueuedTurn}
+    onDraftChange={controller.setDraft}
+    onSend={handleSend}
+  />
 </div>

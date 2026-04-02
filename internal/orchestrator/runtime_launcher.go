@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -763,6 +765,11 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 		return nil, err
 	}
 	environment = append(environment, platformEnvironment...)
+	githubEnvironment, err := l.buildGitHubOutboundEnvironment(ctx, launchContext.project.ID, environment)
+	if err != nil {
+		return nil, err
+	}
+	environment = append(environment, githubEnvironment...)
 	if !remote {
 		launcherEnvironment, err := buildLocalOpenASEEnvironment()
 		if err != nil {
@@ -900,6 +907,59 @@ func buildLocalOpenASEEnvironment() ([]string, error) {
 	}
 
 	return []string{"OPENASE_REAL_BIN=" + executable}, nil
+}
+
+func (l *RuntimeLauncher) buildGitHubOutboundEnvironment(
+	ctx context.Context,
+	projectID uuid.UUID,
+	baseEnvironment []string,
+) ([]string, error) {
+	if l == nil || l.githubAuth == nil || projectID == uuid.Nil {
+		return nil, nil
+	}
+
+	resolved, err := l.githubAuth.ResolveProjectCredential(ctx, projectID)
+	if err != nil {
+		if errors.Is(err, githubauthservice.ErrCredentialNotConfigured) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("resolve project GitHub credential for agent environment: %w", err)
+	}
+
+	token := strings.TrimSpace(resolved.Token)
+	if token == "" {
+		return nil, nil
+	}
+
+	return buildGitHubTokenEnvironment(baseEnvironment, token), nil
+}
+
+func buildGitHubTokenEnvironment(baseEnvironment []string, token string) []string {
+	trimmed := strings.TrimSpace(token)
+	if trimmed == "" {
+		return nil
+	}
+
+	environment := make([]string, 0, 6)
+	environment = append(environment, "GH_TOKEN="+trimmed)
+	authHeader := "AUTHORIZATION: basic " + base64.StdEncoding.EncodeToString([]byte("x-access-token:"+trimmed))
+
+	existingConfigCount := 0
+	if rawCount, ok := provider.LookupEnvironmentValue(baseEnvironment, "GIT_CONFIG_COUNT"); ok {
+		if parsedCount, err := strconv.Atoi(strings.TrimSpace(rawCount)); err == nil && parsedCount >= 0 {
+			existingConfigCount = parsedCount
+		}
+	}
+
+	environment = append(
+		environment,
+		"GIT_CONFIG_COUNT="+strconv.Itoa(existingConfigCount+2),
+		"GIT_CONFIG_KEY_"+strconv.Itoa(existingConfigCount)+"=http.https://github.com/.extraheader",
+		"GIT_CONFIG_VALUE_"+strconv.Itoa(existingConfigCount)+"="+authHeader,
+		"GIT_CONFIG_KEY_"+strconv.Itoa(existingConfigCount+1)+"=credential.helper",
+		"GIT_CONFIG_VALUE_"+strconv.Itoa(existingConfigCount+1)+"=",
+	)
+	return environment
 }
 
 func (l *RuntimeLauncher) refreshRemoteWorkspaceSkills(
@@ -1353,6 +1413,10 @@ func (l *RuntimeLauncher) prepareTicketWorkspace(
 	if err != nil {
 		return workspaceinfra.Workspace{}, err
 	}
+	request, err = l.applyGitHubWorkspaceAuth(ctx, launchContext.project.ID, request)
+	if err != nil {
+		return workspaceinfra.Workspace{}, err
+	}
 	if err := l.ensureTicketRepoWorkspaceRecords(ctx, runID, launchContext.ticket.ID, request, repoPlans); err != nil {
 		return workspaceinfra.Workspace{}, err
 	}
@@ -1382,6 +1446,17 @@ func (l *RuntimeLauncher) prepareTicketWorkspace(
 	}
 
 	return workspaceItem, nil
+}
+
+func (l *RuntimeLauncher) applyGitHubWorkspaceAuth(
+	ctx context.Context,
+	projectID uuid.UUID,
+	request workspaceinfra.SetupRequest,
+) (workspaceinfra.SetupRequest, error) {
+	if l == nil {
+		return request, nil
+	}
+	return githubauthservice.ApplyWorkspaceAuth(ctx, l.githubAuth, projectID, request)
 }
 
 func (l *RuntimeLauncher) ensureTicketRepoWorkspaceRecords(

@@ -16,6 +16,7 @@ import (
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -27,6 +28,36 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
+
+func TestMapProjectConversationResponseIncludesProviderAnchors(t *testing.T) {
+	threadID := "thread-1"
+	lastTurnID := "turn-9"
+	threadStatus := "active"
+	response := (&Server{}).mapProjectConversationResponse(context.Background(), chatdomain.Conversation{
+		ID:                        uuid.MustParse("550e8400-e29b-41d4-a716-446655440000"),
+		ProjectID:                 uuid.MustParse("660e8400-e29b-41d4-a716-446655440000"),
+		UserID:                    "user:conversation",
+		Source:                    chatdomain.SourceProjectSidebar,
+		ProviderID:                uuid.MustParse("770e8400-e29b-41d4-a716-446655440000"),
+		Status:                    chatdomain.ConversationStatusInterrupted,
+		ProviderThreadID:          &threadID,
+		LastTurnID:                &lastTurnID,
+		ProviderThreadStatus:      &threadStatus,
+		ProviderThreadActiveFlags: []string{"waitingOnApproval"},
+		RollingSummary:            "summary",
+		LastActivityAt:            time.Unix(1, 0).UTC(),
+		CreatedAt:                 time.Unix(2, 0).UTC(),
+		UpdatedAt:                 time.Unix(3, 0).UTC(),
+	})
+
+	if response["provider_thread_id"] != "thread-1" || response["last_turn_id"] != "turn-9" || response["provider_thread_status"] != "active" {
+		t.Fatalf("unexpected provider anchors: %+v", response)
+	}
+	flags, ok := response["provider_thread_active_flags"].([]string)
+	if !ok || len(flags) != 1 || flags[0] != "waitingOnApproval" {
+		t.Fatalf("unexpected provider active flags: %+v", response["provider_thread_active_flags"])
+	}
+}
 
 func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 	client := openTestEntClient(t)
@@ -225,7 +256,10 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 	if !strings.Contains(textBody, "event: message\n") {
 		t.Fatalf("expected message event in stream, got %q", textBody)
 	}
-	if !strings.Contains(textBody, "event: session\n") || !strings.Contains(textBody, "\"session_id\":\"") {
+	if !strings.Contains(textBody, "event: session\n") ||
+		!strings.Contains(textBody, "\"session_id\":\"") ||
+		!strings.Contains(textBody, "\"provider_resume_supported\":false") ||
+		!strings.Contains(textBody, "\"resume_scope\":\"process_local\"") {
 		t.Fatalf("expected session event with session id, got %q", textBody)
 	}
 	if !strings.Contains(textBody, "The ticket failed because") {

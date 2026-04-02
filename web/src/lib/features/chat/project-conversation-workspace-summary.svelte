@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { cn } from '$lib/utils'
+  import { ChevronRight, GitBranch } from '@lucide/svelte'
   import type {
     ProjectConversationWorkspaceDiff,
     ProjectConversationWorkspaceFileStatus,
@@ -15,6 +17,8 @@
     loading?: boolean
     error?: string
   } = $props()
+
+  let expanded = $state(false)
 
   function formatTotals(added: number, removed: number) {
     return `+${added} -${removed}`
@@ -33,106 +37,123 @@
     switch (status) {
       case 'added':
       case 'untracked':
-        return 'border-emerald-200 bg-emerald-50 text-emerald-700'
+        return 'text-emerald-600'
       case 'deleted':
-        return 'border-rose-200 bg-rose-50 text-rose-700'
+        return 'text-rose-600'
       case 'renamed':
-        return 'border-amber-200 bg-amber-50 text-amber-700'
+        return 'text-amber-600'
       default:
-        return 'border-sky-200 bg-sky-50 text-sky-700'
+        return 'text-sky-600'
     }
   }
+
+  const hasContent = $derived(!!conversationId && !loading && !error && !!workspaceDiff)
+  const isDirty = $derived(workspaceDiff?.dirty ?? false)
 </script>
 
-<section class="border-border bg-muted/20 border-b px-4 py-3">
-  <div class="flex flex-wrap items-center justify-between gap-2">
-    <div>
-      <h3 class="text-sm font-semibold">Workspace changes</h3>
-      <p class="text-muted-foreground text-xs">
-        These changes live inside the OpenASE-managed Project AI workspace for this conversation.
-      </p>
-    </div>
+{#if !conversationId && !loading && !error}
+  <!-- No conversation — hide entirely -->
+{:else}
+  <div class="border-border border-b">
+    <button
+      type="button"
+      class="hover:bg-muted/30 flex w-full items-center gap-2 px-3 py-1 text-left text-[11px] transition-colors"
+      onclick={() => {
+        if (hasContent) expanded = !expanded
+      }}
+      disabled={!hasContent}
+    >
+      {#if hasContent}
+        <ChevronRight
+          class={cn(
+            'text-muted-foreground size-3 shrink-0 transition-transform duration-150',
+            expanded && 'rotate-90',
+          )}
+        />
+      {/if}
 
-    {#if workspaceDiff}
-      <div class="text-xs font-medium">
-        {#if workspaceDiff.dirty}
-          {formatRepoSummary(workspaceDiff)}
+      <span class="text-muted-foreground">Workspace changes</span>
+
+      {#if loading}
+        <span class="text-muted-foreground/60">Loading...</span>
+      {:else if error}
+        <span class="text-destructive truncate">{error}</span>
+      {:else if workspaceDiff}
+        {#if isDirty}
+          <span class="font-medium">{formatRepoSummary(workspaceDiff)}</span>
         {:else}
-          Clean workspace
+          <span class="text-muted-foreground/60">Clean workspace</span>
+        {/if}
+      {/if}
+    </button>
+
+    {#if expanded && workspaceDiff}
+      <div class="border-border border-t px-3 py-2 text-xs">
+        <div class="flex items-center gap-2">
+          <p class={cn('text-[11px] font-medium', isDirty ? 'text-amber-600' : 'text-emerald-600')}>
+            {#if isDirty}
+              Uncommitted changes in this Project AI workspace
+            {:else}
+              No uncommitted changes in this Project AI workspace
+            {/if}
+          </p>
+        </div>
+        <p class="text-muted-foreground/60 mt-0.5 font-mono text-[10px] break-all">
+          {workspaceDiff.workspacePath}
+        </p>
+
+        {#if workspaceDiff.repos.length === 0}
+          <p class="text-muted-foreground mt-2 text-[11px]">
+            No repo changes are currently detected in this conversation workspace.
+          </p>
+        {:else}
+          <div class="mt-2 space-y-1.5">
+            {#each workspaceDiff.repos as repo}
+              <details
+                class="rounded-md border px-2 py-1.5"
+                open={workspaceDiff.repos.length === 1}
+              >
+                <summary class="flex cursor-pointer list-none items-center gap-2">
+                  <GitBranch class="text-muted-foreground size-3 shrink-0" />
+                  <span class="min-w-0 flex-1 truncate font-medium">{repo.name}</span>
+                  <span class="text-muted-foreground/60 font-mono text-[10px]">
+                    {repo.path} · {repo.branch}
+                  </span>
+                  <span class="shrink-0 font-medium">
+                    {formatTotals(repo.added, repo.removed)}
+                  </span>
+                  <span class="text-muted-foreground/60 shrink-0">
+                    {formatFileCount(repo.filesChanged)}
+                  </span>
+                </summary>
+
+                <div class="mt-1.5 space-y-0.5">
+                  {#each repo.files as file}
+                    <div class="hover:bg-muted/30 flex items-center gap-2 rounded px-1.5 py-0.5">
+                      <span
+                        class={cn(
+                          'w-12 shrink-0 text-[10px] font-medium',
+                          statusBadgeClass(file.status),
+                        )}
+                      >
+                        {file.status}
+                      </span>
+                      <span
+                        class="text-foreground/80 min-w-0 flex-1 truncate font-mono text-[11px]"
+                      >
+                        {file.path}
+                      </span>
+                      <span class="text-muted-foreground shrink-0 font-mono text-[10px]">
+                        {formatTotals(file.added, file.removed)}
+                      </span>
+                    </div>
+                  {/each}
+                </div>
+              </details>
+            {/each}
+          </div>
         {/if}
       </div>
     {/if}
   </div>
-
-  {#if !conversationId && !loading && !error}
-    <p class="text-muted-foreground mt-3 text-xs">
-      Start or restore a Project AI conversation to inspect its isolated workspace.
-    </p>
-  {:else if loading}
-    <p class="text-muted-foreground mt-3 text-xs">Loading Project AI workspace changes…</p>
-  {:else if error}
-    <p class="text-destructive mt-3 text-xs">{error}</p>
-  {:else if workspaceDiff}
-    <div class="mt-3 space-y-3">
-      <div class="rounded-lg border px-3 py-2">
-        <p
-          class={`text-xs font-medium ${workspaceDiff.dirty ? 'text-amber-700' : 'text-emerald-700'}`}
-        >
-          {#if workspaceDiff.dirty}
-            Uncommitted changes in this Project AI workspace
-          {:else}
-            No uncommitted changes in this Project AI workspace
-          {/if}
-        </p>
-        <p class="text-muted-foreground mt-1 font-mono text-[11px] break-all">
-          {workspaceDiff.workspacePath}
-        </p>
-      </div>
-
-      {#if workspaceDiff.repos.length === 0}
-        <p class="text-muted-foreground text-xs">
-          No repo changes are currently detected in this conversation workspace.
-        </p>
-      {:else}
-        <div class="space-y-2">
-          {#each workspaceDiff.repos as repo}
-            <details class="rounded-lg border px-3 py-2" open={workspaceDiff.repos.length === 1}>
-              <summary class="cursor-pointer list-none">
-                <div class="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <div class="text-sm font-medium">{repo.name}</div>
-                    <div class="text-muted-foreground font-mono text-[11px] break-all">
-                      {repo.path} · {repo.branch}
-                    </div>
-                  </div>
-                  <div class="text-right text-xs">
-                    <div class="font-medium">{formatTotals(repo.added, repo.removed)}</div>
-                    <div class="text-muted-foreground">{formatFileCount(repo.filesChanged)}</div>
-                  </div>
-                </div>
-              </summary>
-
-              <div class="mt-3 space-y-2">
-                {#each repo.files as file}
-                  <div
-                    class="flex flex-wrap items-start justify-between gap-2 rounded-md border px-2 py-2"
-                  >
-                    <div class="min-w-0 flex-1">
-                      <div class="font-mono text-[11px] break-all">{file.path}</div>
-                      <span
-                        class={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase ${statusBadgeClass(file.status)}`}
-                      >
-                        {file.status}
-                      </span>
-                    </div>
-                    <div class="text-xs font-medium">{formatTotals(file.added, file.removed)}</div>
-                  </div>
-                {/each}
-              </div>
-            </details>
-          {/each}
-        </div>
-      {/if}
-    </div>
-  {/if}
-</section>
+{/if}

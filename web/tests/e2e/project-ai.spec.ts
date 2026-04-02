@@ -53,8 +53,12 @@ test('project ai creates a new conversation and streams the first reply', async 
   })
 
   const prompt = page.getByPlaceholder('Ask anything about this project…')
+  const sendButton = page.locator('button[aria-label="Send message"]:visible')
+
+  await expect(page.getByText('No chat provider available.')).not.toBeVisible()
   await prompt.fill('What repo is connected?')
-  await page.getByRole('button', { name: 'Send message' }).click()
+  await expect(sendButton).toBeEnabled({ timeout: 10_000 })
+  await sendButton.click()
 
   await expect(
     page.locator('.break-words.whitespace-pre-wrap').filter({ hasText: 'What repo is connected?' }),

@@ -26,7 +26,6 @@ describe('Sidebar', () => {
         currentOrgId: 'org-1',
         currentProjectId: 'project-1',
         projectSelected: true,
-        projectName: 'Project One',
       },
     })
 
