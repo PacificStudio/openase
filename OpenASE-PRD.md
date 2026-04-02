@@ -9309,6 +9309,10 @@ Project Conversation 需要最小持久化模型：
 | 实体 | 关键字段 | 说明 |
 |------|---------|------|
 | `chat_conversations` | `id`, `project_id`, `user_id`, `source`, `provider_id`, `status`, `provider_thread_id`, `last_turn_id`, `rolling_summary`, `last_activity_at` | conversation 级稳定主键；前端只认 `conversation_id` |
+| `project_conversation_principals` | `id`, `conversation_id`, `project_id`, `name`, `status`, `runtime_state`, `current_session_id`, `current_workspace_path`, `current_run_id`, `last_heartbeat_at`, `current_step_status`, `current_step_summary`, `current_step_changed_at` | Project Conversation 的一等运行时身份；拥有 live runtime、workspace、session 与 token 边界 |
+| `project_conversation_runs` | `id`, `conversation_principal_id`, `conversation_id`, `project_id`, `turn_id`, `status`, `started_at`, `terminal_at`, `last_heartbeat_at`, `current_step_status`, `current_step_summary`, `input_tokens`, `output_tokens`, `reasoning_tokens`, `total_tokens`, `cost_usd` | 每次 conversation turn 的运行记录；用于恢复、状态展示与成本归因 |
+| `project_conversation_step_events` | `id`, `conversation_run_id`, `conversation_principal_id`, `conversation_id`, `event_type`, `payload_json`, `created_at` | conversation runtime 的步骤级事件流 |
+| `project_conversation_trace_events` | `id`, `conversation_run_id`, `conversation_principal_id`, `conversation_id`, `event_type`, `payload_json`, `created_at` | conversation runtime 的 trace / output / token / interrupt 事件流 |
 | `chat_turns` | `id`, `conversation_id`, `turn_index`, `provider_turn_id`, `status`, `started_at`, `completed_at` | 一个用户消息对应一个 turn |
 | `chat_entries` | `id`, `conversation_id`, `turn_id`, `seq`, `kind`, `payload_json` | 追加式 transcript，覆盖 text / diff / action_proposal / interrupt / result |
 | `chat_pending_interrupts` | `id`, `conversation_id`, `turn_id`, `provider_request_id`, `kind`, `payload_json`, `status`, `resolved_at` | 持久化 Codex 原生审批 / 用户输入中断 |
@@ -9316,9 +9320,45 @@ Project Conversation 需要最小持久化模型：
 字段语义：
 
 - `conversation_id` 是 OpenASE 稳定 ID，对前端公开
+- 每个持久化 `chat_conversation` 必须且只能对应一个 `project_conversation_principal`
+- `ProjectConversationPrincipal` 是 Project AI 的运行时身份，不是 `agents` 表中的隐藏 Agent，也不能由 `project-ai-<conversation-id>` 这类合成名称推导
+- `project_conversation_principals.name` 是显式持久化的 principal 名称，只用于观测、审计与 token claim，不作为从 `agents` 扫描 identity 的兼容约定
 - `provider_thread_id` 是 provider-native 恢复锚点，只在服务端保存
 - `last_turn_id` 只用于 provider 级诊断与恢复，不作为前端主键
+- `current_session_id` / `current_workspace_path` / `current_run_id` / `last_heartbeat_at` / `current_step_*` 是 live runtime 恢复与 UI 观测的一等状态，不得只藏在 transcript payload 中
 - 前端 localStorage 只允许缓存当前 `(project_id, provider_id)` 下的最近 tab 集合与当前激活 tab；权威数据仍以后端 conversation/list API 为准，恢复时只自动拉起 1 个活跃 tab
+
+#### 31.7.2.1 Project Conversation Principal 与 Ticket Agent 的边界
+
+`ProjectConversationPrincipal` 与 `Ticket Agent` 是不同的领域概念：
+
+- `Ticket Agent` 属于编排域，绑定 `agent_id`、ticket current run、scheduler / workflow dispatch 语义
+- `ProjectConversationPrincipal` 属于 direct chat 域，绑定 `conversation_id`、conversation workspace、interrupt / reconnect / transcript 恢复语义
+- 两者可以共享 runtime / token / workspace 基础设施，但谁都不能伪装成对方
+- 新的 Project Conversation runtime 创建路径禁止再创建 synthetic `agents` 行作为兼容实现；迁移代码只允许用于接管旧 conversation 数据
+
+#### 31.7.2.2 Principal-aware Platform Token
+
+Project Conversation 不是只读聊天。它必须拿到可审计、可授权的平台 token，但 token 语义必须是 principal-aware，而不是 agent-only。
+
+统一 token claim 至少包含：
+
+- `principal_kind`
+- `principal_id`
+- `principal_name`
+- `project_id`
+- `ticket_id`（可选）
+- `conversation_id`（可选）
+- `scopes`
+- `expires_at`
+
+其中：
+
+- `ticket_agent` token 继续用于编排 Agent 运行，并保持现有有效能力
+- `project_conversation` token 用于 Project AI runtime，不允许通过伪造 `ticket_id` 冒充工单运行时
+- API 鉴权必须同时检查 scope 与 `principal_kind`
+- 任何 ticket-runtime-only endpoint 都必须显式拒绝 `project_conversation` principal
+- workspace 注入、skill 注入、平台 API 注入都必须基于该 principal-aware token 生效
 
 #### 31.7.3 恢复策略
 
@@ -9461,6 +9501,22 @@ data: {"message":"codex chat turn failed"}
 - provider delta 只能 merge 到当前 block，不能把 chunk 边界暴露成多个气泡
 - `interrupt_requested` 不是 `turn_done`
 
+除 transcript stream 外，后端还必须保留独立的 runtime observability：
+
+- `ProjectConversationRun` 记录当前 turn/run 的状态、成本、token usage 与 terminal 信息
+- `ProjectConversationStepEvent` 记录当前步骤推进、interrupt、resume、done、error 等状态变化
+- `ProjectConversationTraceEvent` 记录模型输出、trace、tool / token / session 事件
+- UI 恢复与调试优先读取 typed runtime state，而不是反向解析 transcript payload
+
+#### 31.8.4 Action Proposal 的审计语义
+
+Project Conversation 中的平台写操作默认仍通过 `action_proposal` + 人类确认完成。最终审计语义必须显式区分发起源：
+
+- 用户在 conversation UI 中确认 proposal 后执行的平台变更，审计 actor 记为 `user:<id> via project-conversation:<conversation_id>`
+- 如果未来开放某些 `project_conversation` direct mutation scope，则必须单独定义允许范围、principal 归因与测试覆盖；不能默认复用用户确认语义
+- 禁止把 conversation 发起的变更静默归因为 synthetic ticket agent
+- replay internal API 时，必须把上述 audited origin 显式写入 mutation payload 或等价审计字段
+
 ### 31.9 与工单 Agent 的区别
 
 | 维度 | 工单 Agent（编排引擎驱动） | Direct Chat（用户直接驱动） |
@@ -9471,9 +9527,10 @@ data: {"message":"codex chat turn failed"}
 | 状态管理 | 工单状态流转、attempt_count | 不驱动 ticket 状态机 |
 | Hook | on_claim / on_complete / on_done | 无 |
 | 成本追踪 | 记入工单 cost_amount | 记入项目级 direct chat / conversation cost |
-| 平台操作 | Agent Token 直接执行 | `action_proposal` 经用户确认后执行 |
+| 运行时身份 | `Ticket Agent` / `agent_id` | `ProjectConversationPrincipal` / `conversation_id` |
+| 平台操作 | `ticket_agent` principal token 直接执行 | 默认 `action_proposal` 经用户确认后执行；token 身份为 `project_conversation` principal |
 | 工具审批 | 编排运行默认无人值守 | Project Conversation 支持 Codex 原生 interrupt |
-| 持久化 | `AgentTraceEvent + AgentStepEvent + ActivityEvent` 分层持久化 | Ephemeral Chat 默认不持久化；Project Conversation 持久化 transcript |
+| 持久化 | `AgentTraceEvent + AgentStepEvent + ActivityEvent` 分层持久化 | Ephemeral Chat 默认不持久化；Project Conversation 使用 `ProjectConversationPrincipal + Run + StepEvent + TraceEvent + transcript` 分层持久化 |
 | 并发 | 支持多个 Agent 定义并行执行多工单；同一个 Agent 定义在并发限制允许时也可同时驱动多个 AgentRun | 以用户/project/provider 维度限制 live runtime 并发 |
 
 ---

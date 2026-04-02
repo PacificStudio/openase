@@ -46,6 +46,14 @@ type Tx struct {
 	OrganizationDailyTokenUsage *OrganizationDailyTokenUsageClient
 	// Project is the client for interacting with the Project builders.
 	Project *ProjectClient
+	// ProjectConversationPrincipal is the client for interacting with the ProjectConversationPrincipal builders.
+	ProjectConversationPrincipal *ProjectConversationPrincipalClient
+	// ProjectConversationRun is the client for interacting with the ProjectConversationRun builders.
+	ProjectConversationRun *ProjectConversationRunClient
+	// ProjectConversationStepEvent is the client for interacting with the ProjectConversationStepEvent builders.
+	ProjectConversationStepEvent *ProjectConversationStepEventClient
+	// ProjectConversationTraceEvent is the client for interacting with the ProjectConversationTraceEvent builders.
+	ProjectConversationTraceEvent *ProjectConversationTraceEventClient
 	// ProjectRepo is the client for interacting with the ProjectRepo builders.
 	ProjectRepo *ProjectRepoClient
 	// ProjectUpdateComment is the client for interacting with the ProjectUpdateComment builders.
@@ -236,6 +244,10 @@ func (tx *Tx) init() {
 	tx.Organization = NewOrganizationClient(tx.config)
 	tx.OrganizationDailyTokenUsage = NewOrganizationDailyTokenUsageClient(tx.config)
 	tx.Project = NewProjectClient(tx.config)
+	tx.ProjectConversationPrincipal = NewProjectConversationPrincipalClient(tx.config)
+	tx.ProjectConversationRun = NewProjectConversationRunClient(tx.config)
+	tx.ProjectConversationStepEvent = NewProjectConversationStepEventClient(tx.config)
+	tx.ProjectConversationTraceEvent = NewProjectConversationTraceEventClient(tx.config)
 	tx.ProjectRepo = NewProjectRepoClient(tx.config)
 	tx.ProjectUpdateComment = NewProjectUpdateCommentClient(tx.config)
 	tx.ProjectUpdateCommentRevision = NewProjectUpdateCommentRevisionClient(tx.config)
