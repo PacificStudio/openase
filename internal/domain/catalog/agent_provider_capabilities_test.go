@@ -103,6 +103,16 @@ func TestResolveAgentProviderHarnessAICapability(t *testing.T) {
 			wantState:  AgentProviderCapabilityStateUnsupported,
 			wantReason: stringPtr(providerReasonRemoteMachineNotSupported),
 		},
+		{
+			name: "unsupported-adapter",
+			item: AgentProvider{
+				AdapterType: AgentProviderAdapterTypeCustom,
+				MachineHost: LocalMachineHost,
+				Available:   true,
+			},
+			wantState:  AgentProviderCapabilityStateUnsupported,
+			wantReason: stringPtr(providerReasonUnsupportedAdapter),
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := ResolveAgentProviderHarnessAICapability(tc.item)
@@ -158,6 +168,15 @@ func TestResolveAgentProviderSkillAICapability(t *testing.T) {
 			},
 			wantState:  AgentProviderCapabilityStateUnsupported,
 			wantReason: stringPtr(providerReasonRemoteMachineNotSupported),
+		},
+		{
+			name: "unavailable-fallback-reason",
+			item: AgentProvider{
+				AdapterType: AgentProviderAdapterTypeCodexAppServer,
+				MachineHost: LocalMachineHost,
+			},
+			wantState:  AgentProviderCapabilityStateUnavailable,
+			wantReason: stringPtr(providerReasonNotReady),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
