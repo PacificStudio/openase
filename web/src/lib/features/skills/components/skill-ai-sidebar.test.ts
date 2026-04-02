@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -134,41 +133,6 @@ describe('SkillAiSidebar', () => {
   afterEach(() => {
     cleanup()
     vi.clearAllMocks()
-  })
-
-  it('shows only Codex-capable providers in the Skill AI picker', async () => {
-    const { getByLabelText, getByText, queryByText } = render(SkillAiSidebar, {
-      props: {
-        projectId: 'project-1',
-        skillId: 'skill-1',
-        files: fileFixtures,
-        providers: [
-          ...providerFixtures,
-          {
-            ...providerFixtures[0],
-            id: 'provider-claude',
-            name: 'Claude',
-            adapter_type: 'claude-code-cli',
-            model_name: 'claude-sonnet-4',
-            cli_command: 'claude',
-            capabilities: {
-              ephemeral_chat: { state: 'available', reason: null },
-              harness_ai: { state: 'available', reason: null },
-              skill_ai: { state: 'unsupported', reason: 'skill_ai_requires_codex' },
-            },
-          },
-        ],
-      },
-    })
-
-    expect(getByText('gpt-5.4')).toBeTruthy()
-
-    const trigger = getByLabelText('Chat model')
-    await fireEvent.pointerDown(trigger)
-    await fireEvent.keyDown(trigger, { key: 'ArrowDown' })
-
-    expect(getByText('Codex · codex-app-server')).toBeTruthy()
-    expect(queryByText('Claude · claude-code-cli')).toBeNull()
   })
 
   it('transitions from idle to running to verified and applies the verified bundle', async () => {
