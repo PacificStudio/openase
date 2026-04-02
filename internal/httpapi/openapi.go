@@ -747,6 +747,83 @@ type OpenAPITicketAssignedAgent struct {
 	RuntimePhase        *string `json:"runtime_phase,omitempty"`
 }
 
+type OpenAPITicketPickupDiagnosisReason struct {
+	Code     string `json:"code"`
+	Message  string `json:"message"`
+	Severity string `json:"severity"`
+}
+
+type OpenAPITicketPickupDiagnosisWorkflow struct {
+	ID                string `json:"id"`
+	Name              string `json:"name"`
+	IsActive          bool   `json:"is_active"`
+	PickupStatusMatch bool   `json:"pickup_status_match"`
+}
+
+type OpenAPITicketPickupDiagnosisAgent struct {
+	ID                  string `json:"id"`
+	Name                string `json:"name"`
+	RuntimeControlState string `json:"runtime_control_state"`
+}
+
+type OpenAPITicketPickupDiagnosisProvider struct {
+	ID                 string  `json:"id"`
+	Name               string  `json:"name"`
+	MachineID          string  `json:"machine_id"`
+	MachineName        string  `json:"machine_name"`
+	MachineStatus      string  `json:"machine_status"`
+	AvailabilityState  string  `json:"availability_state"`
+	AvailabilityReason *string `json:"availability_reason,omitempty"`
+}
+
+type OpenAPITicketPickupDiagnosisRetry struct {
+	AttemptCount int     `json:"attempt_count"`
+	RetryPaused  bool    `json:"retry_paused"`
+	PauseReason  string  `json:"pause_reason,omitempty"`
+	NextRetryAt  *string `json:"next_retry_at,omitempty"`
+}
+
+type OpenAPITicketPickupDiagnosisCapacityBucket struct {
+	Limited    bool `json:"limited"`
+	ActiveRuns int  `json:"active_runs"`
+	Capacity   int  `json:"capacity"`
+}
+
+type OpenAPITicketPickupDiagnosisStatusCapacity struct {
+	Limited    bool `json:"limited"`
+	ActiveRuns int  `json:"active_runs"`
+	Capacity   *int `json:"capacity"`
+}
+
+type OpenAPITicketPickupDiagnosisBlockedTicket struct {
+	ID         string `json:"id"`
+	Identifier string `json:"identifier"`
+	Title      string `json:"title"`
+	StatusID   string `json:"status_id"`
+	StatusName string `json:"status_name"`
+}
+
+type OpenAPITicketPickupDiagnosisCapacity struct {
+	Workflow OpenAPITicketPickupDiagnosisCapacityBucket `json:"workflow"`
+	Project  OpenAPITicketPickupDiagnosisCapacityBucket `json:"project"`
+	Provider OpenAPITicketPickupDiagnosisCapacityBucket `json:"provider"`
+	Status   OpenAPITicketPickupDiagnosisStatusCapacity `json:"status"`
+}
+
+type OpenAPITicketPickupDiagnosis struct {
+	State                string                                      `json:"state"`
+	PrimaryReasonCode    string                                      `json:"primary_reason_code"`
+	PrimaryReasonMessage string                                      `json:"primary_reason_message"`
+	NextActionHint       string                                      `json:"next_action_hint,omitempty"`
+	Reasons              []OpenAPITicketPickupDiagnosisReason        `json:"reasons"`
+	Workflow             *OpenAPITicketPickupDiagnosisWorkflow       `json:"workflow,omitempty"`
+	Agent                *OpenAPITicketPickupDiagnosisAgent          `json:"agent,omitempty"`
+	Provider             *OpenAPITicketPickupDiagnosisProvider       `json:"provider,omitempty"`
+	Retry                OpenAPITicketPickupDiagnosisRetry           `json:"retry"`
+	Capacity             OpenAPITicketPickupDiagnosisCapacity        `json:"capacity"`
+	BlockedBy            []OpenAPITicketPickupDiagnosisBlockedTicket `json:"blocked_by"`
+}
+
 type OpenAPIChatContext struct {
 	ProjectID    string  `json:"project_id"`
 	WorkflowID   *string `json:"workflow_id,omitempty"`
@@ -1416,13 +1493,14 @@ type OpenAPISecuritySettingsResponse struct {
 }
 
 type OpenAPITicketDetailResponse struct {
-	AssignedAgent *OpenAPITicketAssignedAgent    `json:"assigned_agent,omitempty"`
-	Ticket        OpenAPITicket                  `json:"ticket"`
-	RepoScopes    []OpenAPITicketRepoScopeDetail `json:"repo_scopes"`
-	Comments      []OpenAPITicketComment         `json:"comments"`
-	Timeline      []OpenAPITicketTimelineItem    `json:"timeline"`
-	Activity      []OpenAPIActivityEvent         `json:"activity"`
-	HookHistory   []OpenAPIActivityEvent         `json:"hook_history"`
+	AssignedAgent   *OpenAPITicketAssignedAgent    `json:"assigned_agent,omitempty"`
+	PickupDiagnosis OpenAPITicketPickupDiagnosis   `json:"pickup_diagnosis"`
+	Ticket          OpenAPITicket                  `json:"ticket"`
+	RepoScopes      []OpenAPITicketRepoScopeDetail `json:"repo_scopes"`
+	Comments        []OpenAPITicketComment         `json:"comments"`
+	Timeline        []OpenAPITicketTimelineItem    `json:"timeline"`
+	Activity        []OpenAPIActivityEvent         `json:"activity"`
+	HookHistory     []OpenAPIActivityEvent         `json:"hook_history"`
 }
 
 type OpenAPICreateOrganizationRequest catalogdomain.OrganizationInput

@@ -43,6 +43,27 @@ export function cloneTicketDetail(source: TicketDetail): TicketDetail {
     status: { ...source.status },
     workflow: source.workflow ? { ...source.workflow } : undefined,
     assignedAgent: source.assignedAgent ? { ...source.assignedAgent } : undefined,
+    pickupDiagnosis: source.pickupDiagnosis
+      ? {
+          ...source.pickupDiagnosis,
+          reasons: source.pickupDiagnosis.reasons.map((reason) => ({ ...reason })),
+          workflow: source.pickupDiagnosis.workflow
+            ? { ...source.pickupDiagnosis.workflow }
+            : undefined,
+          agent: source.pickupDiagnosis.agent ? { ...source.pickupDiagnosis.agent } : undefined,
+          provider: source.pickupDiagnosis.provider
+            ? { ...source.pickupDiagnosis.provider }
+            : undefined,
+          retry: { ...source.pickupDiagnosis.retry },
+          capacity: {
+            workflow: { ...source.pickupDiagnosis.capacity.workflow },
+            project: { ...source.pickupDiagnosis.capacity.project },
+            provider: { ...source.pickupDiagnosis.capacity.provider },
+            status: { ...source.pickupDiagnosis.capacity.status },
+          },
+          blockedBy: source.pickupDiagnosis.blockedBy.map((blocker) => ({ ...blocker })),
+        }
+      : undefined,
     repoScopes: source.repoScopes.map((scope) => ({ ...scope })),
     dependencies: source.dependencies.map((dependency) => ({ ...dependency })),
     externalLinks: source.externalLinks.map((link) => ({ ...link })),

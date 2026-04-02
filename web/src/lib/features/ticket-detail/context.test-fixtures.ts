@@ -5,6 +5,7 @@ import type {
   TicketPayload,
   WorkflowListPayload,
 } from '$lib/api/contracts'
+import { detailPickupDiagnosisFixture } from './context.test-fixtures.pickup-diagnosis'
 
 export const detailPayloadFixture: TicketDetailPayload = {
   assigned_agent: {
@@ -14,6 +15,7 @@ export const detailPayloadFixture: TicketDetailPayload = {
     runtime_control_state: 'active',
     runtime_phase: 'executing',
   },
+  pickup_diagnosis: detailPickupDiagnosisFixture,
   ticket: {
     id: 'ticket-1',
     project_id: 'project-1',

@@ -1,4 +1,7 @@
 import type { ChatDiffPayload } from '$lib/api/chat'
+import type { TicketPickupDiagnosis } from './pickup-diagnosis'
+
+export type { TicketPickupDiagnosis } from './pickup-diagnosis'
 
 export type TicketStatusOption = {
   id: string
@@ -74,6 +77,7 @@ export type TicketDetail = {
   costTokensOutput: number
   costAmount: number
   budgetUsd: number
+  pickupDiagnosis?: TicketPickupDiagnosis
   dependencies: Array<{
     id: string
     targetId: string
