@@ -32,12 +32,14 @@ jobs:
 
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             base_rev="${{ github.event.pull_request.base.sha }}"
+            head_rev="${{ github.event.pull_request.head.sha }}"
           else
             git fetch --no-tags origin main
             base_rev="$(git merge-base origin/main HEAD)"
+            head_rev="HEAD"
           fi
 
-          mapfile -t changed_files < <(git diff --name-only "${base_rev}"...HEAD)
+          mapfile -t changed_files < <(git diff --name-only "${base_rev}"..."${head_rev}")
 
           printf 'Comparing against %s\n' "${base_rev}"
           if [[ "${#changed_files[@]}" -eq 0 ]]; then
