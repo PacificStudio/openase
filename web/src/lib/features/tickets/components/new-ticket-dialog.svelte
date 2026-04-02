@@ -44,6 +44,7 @@
   let statusPopoverOpen = $state(false)
   let priorityPopoverOpen = $state(false)
   let repoPopoverOpen = $state(false)
+  let branchConfigOpen = $state(false)
 
   const statusOptions = $derived(mapTicketStatusOptions(statuses))
 
@@ -58,6 +59,7 @@
       openProjectId = ''
       if (!isOpen) {
         saving = false
+        branchConfigOpen = false
       }
       return
     }
@@ -118,12 +120,23 @@
   }
 
   function toggleRepoScope(repoId: string) {
+    const selected = draft.repoIds.includes(repoId)
     updateDraftField(
       'repoIds',
-      draft.repoIds.includes(repoId)
-        ? draft.repoIds.filter((id) => id !== repoId)
-        : [...draft.repoIds, repoId],
+      selected ? draft.repoIds.filter((id) => id !== repoId) : [...draft.repoIds, repoId],
     )
+    if (selected && draft.repoBranchOverrides[repoId] !== undefined) {
+      const nextOverrides = { ...draft.repoBranchOverrides }
+      delete nextOverrides[repoId]
+      updateDraftField('repoBranchOverrides', nextOverrides)
+    }
+  }
+
+  function updateRepoBranchOverride(repoId: string, value: string) {
+    updateDraftField('repoBranchOverrides', {
+      ...draft.repoBranchOverrides,
+      [repoId]: value,
+    })
   }
 
   async function handleSubmit(event: SubmitEvent) {
@@ -309,7 +322,7 @@
                   />
                   <div class="min-w-0 flex-1">
                     <span class="text-foreground truncate">{option.label}</span>
-                    <span class="text-muted-foreground ml-1">({option.defaultBranch})</span>
+                    <span class="text-muted-foreground ml-1">base: {option.defaultBranch}</span>
                   </div>
                 </label>
               {/each}
@@ -317,6 +330,54 @@
           </Popover.Root>
         {/if}
       </div>
+
+      {#if selectedRepoCount > 0}
+        <div class="space-y-3 rounded-lg border p-3">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium">Branch configuration</p>
+              <p class="text-muted-foreground text-xs">
+                By default OpenASE will use the generated ticket branch for each selected repo.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={loading || saving}
+              onclick={() => {
+                branchConfigOpen = !branchConfigOpen
+              }}
+            >
+              {branchConfigOpen ? 'Hide advanced' : 'Advanced'}
+            </Button>
+          </div>
+
+          {#if branchConfigOpen}
+            <div class="space-y-3">
+              {#each repoOptions.filter( (option) => draft.repoIds.includes(option.id), ) as option (option.id)}
+                <div class="space-y-2 rounded-md border p-3">
+                  <div>
+                    <p class="text-sm font-medium">{option.label}</p>
+                    <p class="text-muted-foreground text-xs">Base branch: {option.defaultBranch}</p>
+                  </div>
+                  <div class="space-y-1">
+                    <Label for={`repo-override-${option.id}`}>Work branch override</Label>
+                    <Input
+                      id={`repo-override-${option.id}`}
+                      value={draft.repoBranchOverrides[option.id] ?? ''}
+                      placeholder="Leave blank to use the generated ticket branch"
+                      disabled={loading || saving}
+                      oninput={(event) =>
+                        updateRepoBranchOverride(option.id, event.currentTarget.value)}
+                    />
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/if}
 
       <Dialog.Footer showCloseButton>
         <Button type="submit" disabled={saving || loading || !appStore.currentProject?.id}>

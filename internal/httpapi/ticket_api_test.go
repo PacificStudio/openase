@@ -1463,6 +1463,13 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	if !ok || frontendScope.PullRequestURL == nil || *frontendScope.PullRequestURL != "https://github.com/acme/frontend/pull/9" {
 		t.Fatalf("expected frontend pull request URL, got %+v", payload.RepoScopes)
 	}
+	if frontendScope.DefaultBranch != "develop" || frontendScope.EffectiveBranchName != "agent/codex/ASE-9" || frontendScope.BranchSource != "override" {
+		t.Fatalf("expected frontend repo scope branch metadata, got %+v", frontendScope)
+	}
+	backendScope, ok := repoScopesByName["backend"]
+	if !ok || backendScope.DefaultBranch != "main" || backendScope.EffectiveBranchName != "main" || backendScope.BranchSource != "override" {
+		t.Fatalf("expected backend repo scope branch metadata, got %+v", backendScope)
+	}
 	if len(payload.Comments) != 1 || payload.Comments[0].CreatedBy != "user:product" || payload.Comments[0].EditCount != 1 || payload.Comments[0].EditedAt == nil {
 		t.Fatalf("expected ticket detail to include comments, got %+v", payload.Comments)
 	}

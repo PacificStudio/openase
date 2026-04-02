@@ -166,11 +166,6 @@ func (_c *TicketRepoScopeCreate) check() error {
 	if _, ok := _c.mutation.BranchName(); !ok {
 		return &ValidationError{Name: "branch_name", err: errors.New(`ent: missing required field "TicketRepoScope.branch_name"`)}
 	}
-	if v, ok := _c.mutation.BranchName(); ok {
-		if err := ticketreposcope.BranchNameValidator(v); err != nil {
-			return &ValidationError{Name: "branch_name", err: fmt.Errorf(`ent: validator failed for field "TicketRepoScope.branch_name": %w`, err)}
-		}
-	}
 	if _, ok := _c.mutation.PrStatus(); !ok {
 		return &ValidationError{Name: "pr_status", err: errors.New(`ent: missing required field "TicketRepoScope.pr_status"`)}
 	}

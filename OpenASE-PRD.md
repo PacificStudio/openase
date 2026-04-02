@@ -792,14 +792,14 @@ Ticket Detail 的主视图不应让前端自己把 `Ticket`、`TicketComment`、
 
 **工单仓库作用域（TicketRepoScope）：**
 
-一个工单可以涉及 Project 下的一个或多个 Repo。TicketRepoScope 记录了每个工单在每个相关 Repo 中的仓库绑定、工作分支以及可选的 PR 链接。
+一个工单可以涉及 Project 下的一个或多个 Repo。TicketRepoScope 记录了每个工单在每个相关 Repo 中的仓库绑定、可选的工作分支 override，以及可选的 PR 链接。
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | UUID | 主键 |
 | ticket_id | FK | 所属工单 |
 | repo_id | FK | 关联的 ProjectRepo |
-| branch_name | String | 在该 Repo 中创建的分支 |
+| branch_name | String | 可选的工作分支 override；为空表示使用系统生成的默认工单分支 |
 | pull_request_url | String | 在该 Repo 中创建的 PR 地址 |
 
 **工单状态与 RepoScope PR 链接的关系：**
@@ -830,7 +830,7 @@ Agent 的 Harness Prompt 中会注入所有 Repo 的路径和说明：
 请在所有相关仓库中完成必要的修改，并为每个仓库创建独立的 PR。
 ```
 
-**分支命名规范**：每个 Repo 的默认工作分支统一命名为 `agent/{ticket-identifier}`。分支归 Ticket 所有，而不是归某个 Agent 所有；Agent 只是执行者，可以在不改分支名的前提下接手其他 Agent 的未完成工作。若 TicketRepoScope 已显式记录 `branch_name`，运行时应直接复用该分支，而不是因为 Agent 变更而判定 branch 失效。
+**分支命名规范**：每个 Repo 的默认工作分支统一命名为 `agent/{ticket-identifier}`。分支归 Ticket 所有，而不是归某个 Agent 所有；Agent 只是执行者，可以在不改分支名的前提下接手其他 Agent 的未完成工作。若 TicketRepoScope 已显式记录 `branch_name`，它表示该 Repo 的工作分支 override；运行时先尝试复用远端已存在的同名分支，若远端不存在，再从 `repo.default_branch` 创建该工作分支。
 
 **Ticket Workspace 约定：**
 
@@ -1694,7 +1694,7 @@ Ticket Hook 在 **每个工单的每次执行过程中触发**，每个工单每
 ticket_hooks:
   on_claim:
 {% for repo in repos %}
-    - cmd: "git fetch origin && git checkout -B agent/{{ ticket.identifier }} origin/{{ repo.default_branch }}"
+    - cmd: "git fetch origin && if git rev-parse --verify origin/{{ repo.branch }} >/dev/null 2>&1; then git checkout -B {{ repo.branch }} origin/{{ repo.branch }}; else git checkout -B {{ repo.branch }} origin/{{ repo.default_branch }}; fi"
       workdir: "{{ repo.name }}"
       timeout: 60
 {% endfor %}
@@ -5849,7 +5849,7 @@ git:
 hooks:
   on_claim:
 {% for repo in repos %}
-    - cmd: "git fetch origin && git checkout -B {{ git.branch_pattern }} origin/{{ repo.default_branch }}"
+    - cmd: "git fetch origin && if git rev-parse --verify origin/{{ repo.branch }} >/dev/null 2>&1; then git checkout -B {{ repo.branch }} origin/{{ repo.branch }}; else git checkout -B {{ repo.branch }} origin/{{ repo.default_branch }}; fi"
       workdir: "{{ repo.name }}"
       timeout: 60
 {% endfor %}

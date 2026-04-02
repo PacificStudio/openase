@@ -176,11 +176,6 @@ func (_u *TicketRepoScopeUpdate) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *TicketRepoScopeUpdate) check() error {
-	if v, ok := _u.mutation.BranchName(); ok {
-		if err := ticketreposcope.BranchNameValidator(v); err != nil {
-			return &ValidationError{Name: "branch_name", err: fmt.Errorf(`ent: validator failed for field "TicketRepoScope.branch_name": %w`, err)}
-		}
-	}
 	if v, ok := _u.mutation.PrStatus(); ok {
 		if err := ticketreposcope.PrStatusValidator(v); err != nil {
 			return &ValidationError{Name: "pr_status", err: fmt.Errorf(`ent: validator failed for field "TicketRepoScope.pr_status": %w`, err)}
@@ -464,11 +459,6 @@ func (_u *TicketRepoScopeUpdateOne) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *TicketRepoScopeUpdateOne) check() error {
-	if v, ok := _u.mutation.BranchName(); ok {
-		if err := ticketreposcope.BranchNameValidator(v); err != nil {
-			return &ValidationError{Name: "branch_name", err: fmt.Errorf(`ent: validator failed for field "TicketRepoScope.branch_name": %w`, err)}
-		}
-	}
 	if v, ok := _u.mutation.PrStatus(); ok {
 		if err := ticketreposcope.PrStatusValidator(v); err != nil {
 			return &ValidationError{Name: "pr_status", err: fmt.Errorf(`ent: validator failed for field "TicketRepoScope.pr_status": %w`, err)}

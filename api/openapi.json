@@ -11430,7 +11430,7 @@
               "schema": {
                 "properties": {
                   "default_branch": {
-                    "description": "Default branch name used when a repo scope does not provide an explicit branch override.",
+                    "description": "Repository base branch used when OpenASE creates a new ticket work branch.",
                     "type": "string"
                   },
                   "labels": {
@@ -11757,7 +11757,7 @@
               "schema": {
                 "properties": {
                   "default_branch": {
-                    "description": "Default branch name used when a repo scope does not provide an explicit branch override.",
+                    "description": "Repository base branch used when OpenASE creates a new ticket work branch.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -15295,7 +15295,7 @@
                     "items": {
                       "properties": {
                         "branch_name": {
-                          "description": "Optional branch name for the scoped repository checkout. When omitted, the repository default branch is used.",
+                          "description": "Optional work-branch override for the scoped repository. When omitted or blank, OpenASE uses the generated ticket branch.",
                           "nullable": true,
                           "type": "string"
                         },
@@ -15809,6 +15809,15 @@
                       "items": {
                         "properties": {
                           "branch_name": {
+                            "type": "string"
+                          },
+                          "branch_source": {
+                            "type": "string"
+                          },
+                          "default_branch": {
+                            "type": "string"
+                          },
+                          "effective_branch_name": {
                             "type": "string"
                           },
                           "id": {
@@ -16337,7 +16346,7 @@
               "schema": {
                 "properties": {
                   "branch_name": {
-                    "description": "Branch name associated with the scoped repository checkout.",
+                    "description": "Optional work-branch override for the scoped repository. Leave blank to use the generated ticket branch.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -16658,7 +16667,7 @@
               "schema": {
                 "properties": {
                   "branch_name": {
-                    "description": "Branch name associated with the scoped repository checkout.",
+                    "description": "Optional work-branch override for the scoped repository. Send an empty string to clear the override and use the generated ticket branch.",
                     "nullable": true,
                     "type": "string"
                   },

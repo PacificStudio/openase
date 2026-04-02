@@ -71,6 +71,10 @@
     onSave?.(scope.id, draft)
     editOpen = false
   }
+
+  function branchSourceLabel(source: TicketDetail['repoScopes'][number]['branchSource']) {
+    return source === 'override' ? 'Override' : 'Generated'
+  }
 </script>
 
 <div class="border-border bg-muted/20 rounded-lg border p-4">
@@ -110,10 +114,22 @@
 
   <dl class="mt-3 space-y-2.5">
     <div class="flex items-start gap-2">
-      <dt class={cn(summaryLabelClass, 'w-16 shrink-0 pt-0.5')}>Branch</dt>
+      <dt class={cn(summaryLabelClass, 'w-16 shrink-0 pt-0.5')}>Work branch</dt>
       <dd class="text-foreground flex min-w-0 items-center gap-1.5 text-xs">
         <GitBranch class="text-muted-foreground size-3.5 shrink-0" />
-        <span class="break-all">{scope.branchName || 'Unset'}</span>
+        <span class="break-all">{scope.effectiveBranchName}</span>
+        <span
+          class="border-border bg-background rounded-full border px-1.5 py-0.5 text-[10px] tracking-wide uppercase"
+        >
+          {branchSourceLabel(scope.branchSource)}
+        </span>
+      </dd>
+    </div>
+
+    <div class="flex items-start gap-2">
+      <dt class={cn(summaryLabelClass, 'w-16 shrink-0 pt-0.5')}>Base</dt>
+      <dd class="text-muted-foreground min-w-0 text-xs">
+        <span class="break-all">{scope.defaultBranch}</span>
       </dd>
     </div>
 
@@ -145,17 +161,21 @@
   <Dialog.Content class="sm:max-w-xl">
     <Dialog.Header>
       <Dialog.Title>Edit repo scope</Dialog.Title>
-      <Dialog.Description>Update the branch and PR link for {scope.repoName}.</Dialog.Description>
+      <Dialog.Description>
+        Update the optional work branch override and PR link for {scope.repoName}.
+      </Dialog.Description>
     </Dialog.Header>
 
     <div class="grid gap-3 py-4">
       <div class="space-y-2">
-        <Label for={`scope-branch-${scope.id}`}>Branch</Label>
+        <Label for={`scope-branch-${scope.id}`}>Work branch override</Label>
         <Input
           id={`scope-branch-${scope.id}`}
           value={draft.branchName}
+          placeholder="Leave blank to use the generated ticket branch"
           oninput={(event) => updateDraft('branchName', event.currentTarget.value)}
         />
+        <p class="text-muted-foreground text-xs">Base branch: {scope.defaultBranch}</p>
       </div>
 
       <div class="space-y-2">

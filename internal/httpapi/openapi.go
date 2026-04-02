@@ -720,12 +720,15 @@ type OpenAPITicket struct {
 }
 
 type OpenAPITicketRepoScopeDetail struct {
-	ID             string              `json:"id"`
-	TicketID       string              `json:"ticket_id"`
-	RepoID         string              `json:"repo_id"`
-	Repo           *OpenAPIProjectRepo `json:"repo,omitempty"`
-	BranchName     string              `json:"branch_name"`
-	PullRequestURL *string             `json:"pull_request_url,omitempty"`
+	ID                  string              `json:"id"`
+	TicketID            string              `json:"ticket_id"`
+	RepoID              string              `json:"repo_id"`
+	Repo                *OpenAPIProjectRepo `json:"repo,omitempty"`
+	BranchName          string              `json:"branch_name"`
+	DefaultBranch       string              `json:"default_branch"`
+	EffectiveBranchName string              `json:"effective_branch_name"`
+	BranchSource        string              `json:"branch_source"`
+	PullRequestURL      *string             `json:"pull_request_url,omitempty"`
 }
 
 type OpenAPITicketRepoScope struct {
@@ -1541,7 +1544,7 @@ var (
 	openAPIRepoRequestDescriptions = map[string]string{
 		"name":              "Human-readable repository name within the project.",
 		"repository_url":    "Remote Git repository URL.",
-		"default_branch":    "Default branch name used when a repo scope does not provide an explicit branch override.",
+		"default_branch":    "Repository base branch used when OpenASE creates a new ticket work branch.",
 		"workspace_dirname": "Directory name used for this repository inside a ticket workspace.",
 		"labels":            "Labels attached to the repository for workflow selection and filtering.",
 	}
@@ -1594,7 +1597,7 @@ var (
 		"workflow_id":               "Optional workflow ID that should handle the ticket.",
 		"repo_scopes":               "Optional repository scopes attached at ticket creation time. Multi-repo projects must supply explicit repo scopes; single-repo projects auto-select the only repo when omitted.",
 		"repo_scopes[].repo_id":     "Repository ID attached to the ticket scope.",
-		"repo_scopes[].branch_name": "Optional branch name for the scoped repository checkout. When omitted, the repository default branch is used.",
+		"repo_scopes[].branch_name": "Optional work-branch override for the scoped repository. When omitted or blank, OpenASE uses the generated ticket branch.",
 		"parent_ticket_id":          "Optional parent ticket ID for hierarchical ticket relationships.",
 		"external_ref":              "Optional external reference string associated with the ticket.",
 		"created_by":                "Actor identifier recorded as the creator of the ticket.",
@@ -1663,11 +1666,11 @@ var (
 	}
 	openAPIRepoScopeCreateDescriptions = map[string]string{
 		"repo_id":          "Repository ID attached to the ticket scope.",
-		"branch_name":      "Branch name associated with the scoped repository checkout.",
+		"branch_name":      "Optional work-branch override for the scoped repository. Leave blank to use the generated ticket branch.",
 		"pull_request_url": "Pull request URL associated with the repository scope.",
 	}
 	openAPIRepoScopePatchDescriptions = map[string]string{
-		"branch_name":      "Branch name associated with the scoped repository checkout.",
+		"branch_name":      "Optional work-branch override for the scoped repository. Send an empty string to clear the override and use the generated ticket branch.",
 		"pull_request_url": "Pull request URL associated with the repository scope.",
 	}
 	openAPIHRAdvisorActivateDescriptions = map[string]string{

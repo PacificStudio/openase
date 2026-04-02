@@ -23,6 +23,7 @@ export type NewTicketDraft = {
   statusId: string
   priority: TicketPriorityOption
   repoIds: string[]
+  repoBranchOverrides: Record<string, string>
 }
 
 export type NewTicketPayload = {
@@ -77,6 +78,7 @@ export function createNewTicketDraft(
     statusId: statusOptions[0]?.id ?? '',
     priority: 'medium',
     repoIds: repoOptions.length === 1 ? [repoOptions[0].id] : [],
+    repoBranchOverrides: {},
   }
 }
 
@@ -93,7 +95,7 @@ export function parseNewTicketDraft(
   }
 
   const description = draft.description.trim()
-  const repoScopes = buildRepoScopes(repoOptions, draft.repoIds)
+  const repoScopes = buildRepoScopes(repoOptions, draft.repoIds, draft.repoBranchOverrides)
   if ('error' in repoScopes) {
     return {
       ok: false,
@@ -116,6 +118,7 @@ export function parseNewTicketDraft(
 function buildRepoScopes(
   repoOptions: TicketRepoOption[],
   selectedRepoIds: string[],
+  repoBranchOverrides: Record<string, string>,
 ): { value: NewTicketPayload['repo_scopes'] } | { error: string } {
   if (repoOptions.length === 0) {
     return { value: undefined }
@@ -123,11 +126,12 @@ function buildRepoScopes(
 
   if (repoOptions.length === 1) {
     const repo = repoOptions[0]
+    const branchOverride = repoBranchOverrides[repo.id]?.trim()
     return {
       value: [
         {
           repo_id: repo.id,
-          branch_name: repo.defaultBranch || 'main',
+          branch_name: branchOverride || undefined,
         },
       ],
     }
@@ -141,7 +145,7 @@ function buildRepoScopes(
   return {
     value: selectedRepos.map((repo) => ({
       repo_id: repo.id,
-      branch_name: repo.defaultBranch || 'main',
+      branch_name: repoBranchOverrides[repo.id]?.trim() || undefined,
     })),
   }
 }
