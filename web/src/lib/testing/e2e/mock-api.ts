@@ -706,9 +706,7 @@ async function handleChatRoutes(request: Request, segments: string[]) {
       ) ??
       [...mockState.projectConversationEntries]
         .reverse()
-        .find(
-          (entry) => entry.conversation_id === segments[2] && entry.kind === 'action_proposal',
-        )
+        .find((entry) => entry.conversation_id === segments[2] && entry.kind === 'action_proposal')
     if (!proposalEntry || proposalEntry.kind !== 'action_proposal') {
       return notFound('Project conversation action proposal not found.')
     }
