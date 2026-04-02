@@ -1,8 +1,11 @@
 <script lang="ts">
   import type { StreamConnectionState } from '$lib/api/sse'
-  import { PROJECT_AI_FOCUS_PRIORITY } from '$lib/features/chat'
+  import {
+    PROJECT_AI_FOCUS_PRIORITY,
+    ProjectConversationPanel,
+    type ProjectAIFocus,
+  } from '$lib/features/chat'
   import { appStore } from '$lib/stores/app.svelte'
-  import { EphemeralChatPanel } from '$lib/features/chat'
   import TicketDrawerMainTabs from './ticket-drawer-main-tabs.svelte'
   import TicketHeader from './ticket-header.svelte'
   import TicketDrawerSidebar from './ticket-drawer-sidebar.svelte'
@@ -123,8 +126,80 @@
   } = $props()
 
   let assistantOpen = $state(false)
+  let selectedArea = $state<'detail' | 'comments' | 'runs'>('comments')
   let previousTicketId = ''
   const projectAIFocusOwner = 'ticket-drawer'
+
+  function buildTicketProjectAIFocus(): ProjectAIFocus | null {
+    if (!projectId || !ticket.id) {
+      return null
+    }
+
+    return {
+      kind: 'ticket',
+      projectId,
+      ticketId: ticket.id,
+      ticketIdentifier: ticket.identifier,
+      ticketTitle: ticket.title,
+      ticketDescription: ticket.description,
+      ticketStatus: ticket.status.name,
+      ticketPriority: ticket.priority,
+      ticketAttemptCount: ticket.attemptCount,
+      ticketRetryPaused: ticket.retryPaused,
+      ticketPauseReason: ticket.pauseReason,
+      ticketDependencies: ticket.dependencies.map((dependency) => ({
+        identifier: dependency.identifier,
+        title: dependency.title,
+        relation: dependency.relation,
+        status: dependency.stage,
+      })),
+      ticketRepoScopes: ticket.repoScopes.map((scope) => ({
+        repoId: scope.repoId,
+        repoName: scope.repoName,
+        branchName: scope.branchName,
+        pullRequestUrl: scope.prUrl,
+      })),
+      ticketRecentActivity: timeline
+        .filter((item) => item.kind === 'activity')
+        .slice(-12)
+        .map((item) => ({
+          eventType: item.eventType,
+          message: item.bodyText || item.title,
+          createdAt: item.createdAt,
+        })),
+      ticketHookHistory: hooks.slice(-12).map((hook) => ({
+        hookName: hook.hookName,
+        status: hook.status,
+        output: hook.output,
+        timestamp: hook.timestamp,
+      })),
+      ticketAssignedAgent: ticket.assignedAgent
+        ? {
+            id: ticket.assignedAgent.id,
+            name: ticket.assignedAgent.name,
+            provider: ticket.assignedAgent.provider,
+            runtimeControlState: ticket.assignedAgent.runtimeControlState,
+            runtimePhase: ticket.assignedAgent.runtimePhase,
+          }
+        : undefined,
+      ticketCurrentRun: currentRun
+        ? {
+            id: currentRun.id,
+            attemptNumber: currentRun.attemptNumber,
+            status: currentRun.status,
+            currentStepStatus: currentRun.currentStepStatus,
+            currentStepSummary: currentRun.currentStepSummary,
+            lastError: currentRun.lastError,
+          }
+        : undefined,
+      ticketTargetMachine: ticket.targetMachineId
+        ? {
+            id: ticket.targetMachineId,
+          }
+        : undefined,
+      selectedArea,
+    }
+  }
 
   $effect(() => {
     if (ticket.id === previousTicketId) {
@@ -133,27 +208,17 @@
 
     previousTicketId = ticket.id
     assistantOpen = false
+    selectedArea = 'comments'
   })
 
   $effect(() => {
-    if (!projectId || !ticket.id) {
+    const focus = buildTicketProjectAIFocus()
+    if (!focus) {
       appStore.clearProjectAssistantFocus(projectAIFocusOwner)
       return
     }
 
-    appStore.setProjectAssistantFocus(
-      projectAIFocusOwner,
-      {
-        kind: 'ticket',
-        projectId,
-        ticketId: ticket.id,
-        ticketIdentifier: ticket.identifier,
-        ticketTitle: ticket.title,
-        ticketStatus: ticket.status.name,
-        selectedArea: 'detail',
-      },
-      PROJECT_AI_FOCUS_PRIORITY.overlay,
-    )
+    appStore.setProjectAssistantFocus(projectAIFocusOwner, focus, PROJECT_AI_FOCUS_PRIORITY.overlay)
 
     return () => {
       appStore.clearProjectAssistantFocus(projectAIFocusOwner)
@@ -173,13 +238,13 @@
 
 {#if assistantOpen}
   <div class="border-border h-[26rem] border-b">
-    <EphemeralChatPanel
-      source="ticket_detail"
+    <ProjectConversationPanel
       organizationId={appStore.currentOrg?.id ?? ''}
       defaultProviderId={appStore.currentProject?.default_agent_provider_id ?? null}
-      context={{ projectId, ticketId: ticket.id }}
-      title="Ticket AI"
-      placeholder="Ask about failures, execution history, or how to split work…"
+      context={{ projectId }}
+      focus={buildTicketProjectAIFocus()}
+      title="Project AI"
+      placeholder="Ask about this ticket without restating the basics…"
     />
   </div>
 {/if}
@@ -207,6 +272,7 @@
       {onUpdateComment}
       {onDeleteComment}
       {onLoadCommentHistory}
+      onViewChange={(view) => (selectedArea = view)}
     />
   </div>
   <TicketDrawerSidebar

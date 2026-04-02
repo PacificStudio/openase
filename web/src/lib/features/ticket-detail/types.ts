@@ -61,8 +61,12 @@ export type TicketDetail = {
     prUrl?: string
   }>
   attemptCount: number
+  consecutiveErrors: number
   retryPaused: boolean
   pauseReason?: string
+  currentRunId?: string
+  targetMachineId?: string
+  nextRetryAt?: string
   costTokensInput: number
   costTokensOutput: number
   costAmount: number

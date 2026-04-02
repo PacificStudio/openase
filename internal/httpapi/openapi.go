@@ -299,27 +299,89 @@ type OpenAPIProjectConversationTurnRequest struct {
 }
 
 type OpenAPIProjectConversationTurnFocus struct {
-	Kind               string   `json:"kind"`
-	WorkflowID         *string  `json:"workflow_id,omitempty"`
-	WorkflowName       *string  `json:"workflow_name,omitempty"`
-	WorkflowType       *string  `json:"workflow_type,omitempty"`
-	HarnessPath        *string  `json:"harness_path,omitempty"`
-	IsActive           *bool    `json:"is_active,omitempty"`
-	SelectedArea       *string  `json:"selected_area,omitempty"`
-	HasDirtyDraft      *bool    `json:"has_dirty_draft,omitempty"`
-	SkillID            *string  `json:"skill_id,omitempty"`
-	SkillName          *string  `json:"skill_name,omitempty"`
-	SelectedFilePath   *string  `json:"selected_file_path,omitempty"`
-	BoundWorkflowNames []string `json:"bound_workflow_names,omitempty"`
-	TicketID           *string  `json:"ticket_id,omitempty"`
-	TicketIdentifier   *string  `json:"ticket_identifier,omitempty"`
-	TicketTitle        *string  `json:"ticket_title,omitempty"`
-	TicketStatus       *string  `json:"ticket_status,omitempty"`
-	MachineID          *string  `json:"machine_id,omitempty"`
-	MachineName        *string  `json:"machine_name,omitempty"`
-	MachineHost        *string  `json:"machine_host,omitempty"`
-	MachineStatus      *string  `json:"machine_status,omitempty"`
-	HealthSummary      *string  `json:"health_summary,omitempty"`
+	Kind                 string                                         `json:"kind"`
+	WorkflowID           *string                                        `json:"workflow_id,omitempty"`
+	WorkflowName         *string                                        `json:"workflow_name,omitempty"`
+	WorkflowType         *string                                        `json:"workflow_type,omitempty"`
+	HarnessPath          *string                                        `json:"harness_path,omitempty"`
+	IsActive             *bool                                          `json:"is_active,omitempty"`
+	SelectedArea         *string                                        `json:"selected_area,omitempty"`
+	HasDirtyDraft        *bool                                          `json:"has_dirty_draft,omitempty"`
+	SkillID              *string                                        `json:"skill_id,omitempty"`
+	SkillName            *string                                        `json:"skill_name,omitempty"`
+	SelectedFilePath     *string                                        `json:"selected_file_path,omitempty"`
+	BoundWorkflowNames   []string                                       `json:"bound_workflow_names,omitempty"`
+	TicketID             *string                                        `json:"ticket_id,omitempty"`
+	TicketIdentifier     *string                                        `json:"ticket_identifier,omitempty"`
+	TicketTitle          *string                                        `json:"ticket_title,omitempty"`
+	TicketDescription    *string                                        `json:"ticket_description,omitempty"`
+	TicketStatus         *string                                        `json:"ticket_status,omitempty"`
+	TicketPriority       *string                                        `json:"ticket_priority,omitempty"`
+	TicketAttemptCount   *int                                           `json:"ticket_attempt_count,omitempty"`
+	TicketRetryPaused    *bool                                          `json:"ticket_retry_paused,omitempty"`
+	TicketPauseReason    *string                                        `json:"ticket_pause_reason,omitempty"`
+	TicketDependencies   []OpenAPIProjectConversationTicketDependency   `json:"ticket_dependencies,omitempty"`
+	TicketRepoScopes     []OpenAPIProjectConversationTicketRepoScope    `json:"ticket_repo_scopes,omitempty"`
+	TicketRecentActivity []OpenAPIProjectConversationTicketActivity     `json:"ticket_recent_activity,omitempty"`
+	TicketHookHistory    []OpenAPIProjectConversationTicketHook         `json:"ticket_hook_history,omitempty"`
+	TicketAssignedAgent  *OpenAPIProjectConversationTicketAssignedAgent `json:"ticket_assigned_agent,omitempty"`
+	TicketCurrentRun     *OpenAPIProjectConversationTicketRun           `json:"ticket_current_run,omitempty"`
+	TicketTargetMachine  *OpenAPIProjectConversationTicketTargetMachine `json:"ticket_target_machine,omitempty"`
+	MachineID            *string                                        `json:"machine_id,omitempty"`
+	MachineName          *string                                        `json:"machine_name,omitempty"`
+	MachineHost          *string                                        `json:"machine_host,omitempty"`
+	MachineStatus        *string                                        `json:"machine_status,omitempty"`
+	HealthSummary        *string                                        `json:"health_summary,omitempty"`
+}
+
+type OpenAPIProjectConversationTicketDependency struct {
+	Identifier *string `json:"identifier,omitempty"`
+	Title      *string `json:"title,omitempty"`
+	Relation   *string `json:"relation,omitempty"`
+	Status     *string `json:"status,omitempty"`
+}
+
+type OpenAPIProjectConversationTicketRepoScope struct {
+	RepoID         *string `json:"repo_id,omitempty"`
+	RepoName       *string `json:"repo_name,omitempty"`
+	BranchName     *string `json:"branch_name,omitempty"`
+	PullRequestURL *string `json:"pull_request_url,omitempty"`
+}
+
+type OpenAPIProjectConversationTicketActivity struct {
+	EventType *string `json:"event_type,omitempty"`
+	Message   *string `json:"message,omitempty"`
+	CreatedAt *string `json:"created_at,omitempty"`
+}
+
+type OpenAPIProjectConversationTicketHook struct {
+	HookName  *string `json:"hook_name,omitempty"`
+	Status    *string `json:"status,omitempty"`
+	Output    *string `json:"output,omitempty"`
+	Timestamp *string `json:"timestamp,omitempty"`
+}
+
+type OpenAPIProjectConversationTicketAssignedAgent struct {
+	ID                  *string `json:"id,omitempty"`
+	Name                *string `json:"name,omitempty"`
+	Provider            *string `json:"provider,omitempty"`
+	RuntimeControlState *string `json:"runtime_control_state,omitempty"`
+	RuntimePhase        *string `json:"runtime_phase,omitempty"`
+}
+
+type OpenAPIProjectConversationTicketRun struct {
+	ID                 *string `json:"id,omitempty"`
+	AttemptNumber      *int    `json:"attempt_number,omitempty"`
+	Status             *string `json:"status,omitempty"`
+	CurrentStepStatus  *string `json:"current_step_status,omitempty"`
+	CurrentStepSummary *string `json:"current_step_summary,omitempty"`
+	LastError          *string `json:"last_error,omitempty"`
+}
+
+type OpenAPIProjectConversationTicketTargetMachine struct {
+	ID   *string `json:"id,omitempty"`
+	Name *string `json:"name,omitempty"`
+	Host *string `json:"host,omitempty"`
 }
 
 type OpenAPIProjectConversationInterruptResponseRequest struct {
@@ -1617,29 +1679,70 @@ var (
 		"context.project_id": "Project ID that owns the conversation workspace and transcript.",
 	}
 	openAPIProjectConversationTurnDescriptions = map[string]string{
-		"message":                    "User message content appended as the next project conversation turn.",
-		"focus":                      "Optional per-turn focus context describing the currently selected workflow, skill, ticket, or machine surface.",
-		"focus.kind":                 "Focused surface kind. Supported values are workflow, skill, ticket, and machine.",
-		"focus.workflow_id":          "Workflow ID currently in focus.",
-		"focus.workflow_name":        "Workflow name currently in focus.",
-		"focus.workflow_type":        "Workflow type currently in focus.",
-		"focus.harness_path":         "Harness path for the focused workflow.",
-		"focus.is_active":            "Whether the focused workflow is currently active.",
-		"focus.selected_area":        "UI sub-area currently in focus, such as harness, detail, or health.",
-		"focus.has_dirty_draft":      "Whether the focused workflow or skill surface currently has unsaved draft edits.",
-		"focus.skill_id":             "Skill ID currently in focus.",
-		"focus.skill_name":           "Skill name currently in focus.",
-		"focus.selected_file_path":   "Selected bundle file path for the focused skill surface.",
-		"focus.bound_workflow_names": "Workflow names currently bound to the focused skill.",
-		"focus.ticket_id":            "Ticket ID currently in focus.",
-		"focus.ticket_identifier":    "Human-readable ticket identifier currently in focus.",
-		"focus.ticket_title":         "Ticket title currently in focus.",
-		"focus.ticket_status":        "Ticket status currently in focus.",
-		"focus.machine_id":           "Machine ID currently in focus.",
-		"focus.machine_name":         "Machine name currently in focus.",
-		"focus.machine_host":         "Machine host currently in focus.",
-		"focus.machine_status":       "Machine runtime status currently in focus.",
-		"focus.health_summary":       "Compact health or resource summary for the focused machine.",
+		"message":                      "User message content appended as the next project conversation turn.",
+		"focus":                        "Optional per-turn focus context describing the currently selected workflow, skill, ticket, or machine surface.",
+		"focus.kind":                   "Focused surface kind. Supported values are workflow, skill, ticket, and machine.",
+		"focus.workflow_id":            "Workflow ID currently in focus.",
+		"focus.workflow_name":          "Workflow name currently in focus.",
+		"focus.workflow_type":          "Workflow type currently in focus.",
+		"focus.harness_path":           "Harness path for the focused workflow.",
+		"focus.is_active":              "Whether the focused workflow is currently active.",
+		"focus.selected_area":          "UI sub-area currently in focus, such as harness, detail, or health.",
+		"focus.has_dirty_draft":        "Whether the focused workflow or skill surface currently has unsaved draft edits.",
+		"focus.skill_id":               "Skill ID currently in focus.",
+		"focus.skill_name":             "Skill name currently in focus.",
+		"focus.selected_file_path":     "Selected bundle file path for the focused skill surface.",
+		"focus.bound_workflow_names":   "Workflow names currently bound to the focused skill.",
+		"focus.ticket_id":              "Ticket ID currently in focus.",
+		"focus.ticket_identifier":      "Human-readable ticket identifier currently in focus.",
+		"focus.ticket_title":           "Ticket title currently in focus.",
+		"focus.ticket_description":     "Ticket description currently in focus.",
+		"focus.ticket_status":          "Ticket status currently in focus.",
+		"focus.ticket_priority":        "Ticket priority currently in focus.",
+		"focus.ticket_attempt_count":   "Current attempt count for the focused ticket.",
+		"focus.ticket_retry_paused":    "Whether retries are currently paused for the focused ticket.",
+		"focus.ticket_pause_reason":    "Reason retries are paused for the focused ticket.",
+		"focus.ticket_dependencies":    "Dependency summary for the focused ticket.",
+		"focus.ticket_dependencies[].identifier": "Human-readable identifier for a related dependency ticket.",
+		"focus.ticket_dependencies[].title":      "Title of a related dependency ticket.",
+		"focus.ticket_dependencies[].relation":   "Dependency relation such as blocks or blocked_by.",
+		"focus.ticket_dependencies[].status":     "Current status of the related dependency ticket.",
+		"focus.ticket_repo_scopes":     "Repo scopes and PR references for the focused ticket.",
+		"focus.ticket_repo_scopes[].repo_id":          "Repository ID included in the focused ticket scope.",
+		"focus.ticket_repo_scopes[].repo_name":        "Repository name included in the focused ticket scope.",
+		"focus.ticket_repo_scopes[].branch_name":      "Branch name associated with the focused ticket scope.",
+		"focus.ticket_repo_scopes[].pull_request_url": "Pull request URL associated with the focused ticket scope.",
+		"focus.ticket_recent_activity": "Recent ticket-scoped activity for the focused ticket.",
+		"focus.ticket_recent_activity[].event_type":  "Activity event type for a recent focused ticket event.",
+		"focus.ticket_recent_activity[].message":     "Human-readable summary for a recent focused ticket event.",
+		"focus.ticket_recent_activity[].created_at":  "Creation timestamp for a recent focused ticket event.",
+		"focus.ticket_hook_history":    "Recent hook execution history for the focused ticket.",
+		"focus.ticket_hook_history[].hook_name":  "Hook name for a recent focused ticket hook execution.",
+		"focus.ticket_hook_history[].status":     "Execution status for a recent focused ticket hook.",
+		"focus.ticket_hook_history[].output":     "Captured output summary for a recent focused ticket hook.",
+		"focus.ticket_hook_history[].timestamp":  "Execution timestamp for a recent focused ticket hook.",
+		"focus.ticket_assigned_agent":  "Assigned agent summary for the focused ticket.",
+		"focus.ticket_assigned_agent.id":                    "Assigned agent ID for the focused ticket.",
+		"focus.ticket_assigned_agent.name":                  "Assigned agent name for the focused ticket.",
+		"focus.ticket_assigned_agent.provider":              "Assigned agent provider name for the focused ticket.",
+		"focus.ticket_assigned_agent.runtime_control_state": "Assigned agent runtime control state for the focused ticket.",
+		"focus.ticket_assigned_agent.runtime_phase":         "Assigned agent runtime phase for the focused ticket.",
+		"focus.ticket_current_run":     "Current run summary for the focused ticket.",
+		"focus.ticket_current_run.id":                   "Current run ID for the focused ticket.",
+		"focus.ticket_current_run.attempt_number":       "Attempt number for the current focused ticket run.",
+		"focus.ticket_current_run.status":               "Current run status for the focused ticket.",
+		"focus.ticket_current_run.current_step_status":  "Current step status for the focused ticket run.",
+		"focus.ticket_current_run.current_step_summary": "Current step summary for the focused ticket run.",
+		"focus.ticket_current_run.last_error":           "Last error observed on the focused ticket run.",
+		"focus.ticket_target_machine":  "Target machine summary for the focused ticket.",
+		"focus.ticket_target_machine.id":   "Target machine ID for the focused ticket.",
+		"focus.ticket_target_machine.name": "Target machine name for the focused ticket.",
+		"focus.ticket_target_machine.host": "Target machine host for the focused ticket.",
+		"focus.machine_id":             "Machine ID currently in focus.",
+		"focus.machine_name":           "Machine name currently in focus.",
+		"focus.machine_host":           "Machine host currently in focus.",
+		"focus.machine_status":         "Machine runtime status currently in focus.",
+		"focus.health_summary":         "Compact health or resource summary for the focused machine.",
 	}
 	openAPIProjectConversationInterruptResponseDescriptions = map[string]string{
 		"decision": "Provider-native interrupt decision identifier such as approve_once.",
