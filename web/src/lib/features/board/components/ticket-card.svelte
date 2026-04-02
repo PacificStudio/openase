@@ -97,7 +97,7 @@
   type="button"
   draggable={!isPendingMove}
   class={cn(
-    'border-border bg-card w-full rounded-md border p-2.5 text-left',
+    'border-border bg-card w-full shrink-0 rounded-md border p-2.5 text-left',
     'cursor-grab active:cursor-grabbing',
     'hover:border-border/80 hover:bg-accent/50 transition-colors',
     'focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none',

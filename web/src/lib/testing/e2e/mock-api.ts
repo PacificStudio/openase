@@ -360,7 +360,9 @@ async function handleProjectRoutes(request: Request, segments: string[], _url: U
           content_base64: 'ignored',
         },
       ],
-      history: [{ id: `skill-${name}-v1`, version: 1, created_by: 'user:manual', created_at: nowIso }],
+      history: [
+        { id: `skill-${name}-v1`, version: 1, created_by: 'user:manual', created_at: nowIso },
+      ],
     }
     mockState.skills.unshift(created)
     return jsonResponse({ skill: clone(created), content }, 201)
@@ -886,10 +888,7 @@ async function handleSkillRoutes(request: Request, segments: string[]) {
     const existing = (skill.bound_workflows as Record<string, unknown>[] | undefined) ?? []
     const nextBound =
       segments[2] === 'bind'
-        ? dedupeById([
-            ...existing,
-            ...workflowIds.map((workflowId) => ({ id: workflowId })),
-          ])
+        ? dedupeById([...existing, ...workflowIds.map((workflowId) => ({ id: workflowId }))])
         : existing.filter((item) => !workflowIds.includes(asString(item.id) ?? ''))
     skill.bound_workflows = nextBound
     return jsonResponse({
@@ -1762,7 +1761,8 @@ function asStringArray(value: JsonValue | undefined): string[] {
 function asObjectArray(value: JsonValue | undefined): Record<string, unknown>[] | null {
   return Array.isArray(value)
     ? value.filter(
-        (item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item),
+        (item): item is Record<string, unknown> =>
+          !!item && typeof item === 'object' && !Array.isArray(item),
       )
     : null
 }
