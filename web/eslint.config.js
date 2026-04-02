@@ -72,15 +72,8 @@ export default defineConfig(
   },
   {
     files: ['src/routes/**/+page.svelte'],
-    ignores: ['src/routes/+page.svelte', 'src/routes/ticket/+page.svelte'],
     rules: {
       'max-lines': ['error', { max: 250, skipBlankLines: true, skipComments: true }],
-    },
-  },
-  {
-    files: ['src/routes/+page.svelte', 'src/routes/ticket/+page.svelte'],
-    rules: {
-      'max-lines': ['warn', { max: 250, skipBlankLines: true, skipComments: true }],
     },
   },
   {
