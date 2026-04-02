@@ -1,7 +1,7 @@
-import { cleanup, render } from '@testing-library/svelte'
-import type { AgentProvider } from '$lib/api/contracts'
-import { appStore } from '$lib/stores/app.svelte'
-import { vi } from 'vitest'
+/* eslint-disable max-lines */
+
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 const { loadSkillEditorData } = vi.hoisted(() => ({
   loadSkillEditorData: vi.fn(),
@@ -66,22 +66,11 @@ vi.mock('$lib/api/skill-refinement', () => ({
 
 vi.mock('$lib/stores/toast.svelte', () => ({ toastStore }))
 
+import { appStore } from '$lib/stores/app.svelte'
+import type { AgentProvider } from '$lib/api/contracts'
 import SkillEditorPage from './skill-editor-page.svelte'
 
-export {
-  bindSkill,
-  deleteSkill,
-  disableSkill,
-  enableSkill,
-  goto,
-  loadSkillEditorData,
-  streamSkillRefinement,
-  toastStore,
-  unbindSkill,
-  updateSkill,
-}
-
-export const providerFixtures: AgentProvider[] = [
+const providerFixtures: AgentProvider[] = [
   {
     id: 'provider-1',
     organization_id: 'org-1',
@@ -99,10 +88,9 @@ export const providerFixtures: AgentProvider[] = [
     availability_checked_at: '2026-03-28T12:00:00Z',
     availability_reason: null,
     capabilities: {
-      ephemeral_chat: {
-        state: 'available',
-        reason: null,
-      },
+      ephemeral_chat: { state: 'available', reason: null },
+      harness_ai: { state: 'available', reason: null },
+      skill_ai: { state: 'available', reason: null },
     },
     cli_command: 'codex',
     cli_args: [],
@@ -119,7 +107,7 @@ export const providerFixtures: AgentProvider[] = [
   },
 ]
 
-export const initialContent = [
+const initialContent = [
   '---',
   'name: "deploy"',
   'description: "Deploy safely"',
@@ -128,9 +116,9 @@ export const initialContent = [
   'Use safe steps.',
 ].join('\n')
 
-export const runbookContent = ['# Runbook', '', '1. Verify rollback before deploy.'].join('\n')
+const runbookContent = ['# Runbook', '', '1. Verify rollback before deploy.'].join('\n')
 
-export function buildSkillEditorData(overrides: Record<string, unknown> = {}) {
+function buildSkillEditorData(overrides: Record<string, unknown> = {}) {
   const {
     skill: rawSkill,
     files: rawFiles,
@@ -178,26 +166,7 @@ export function buildSkillEditorData(overrides: Record<string, unknown> = {}) {
   }
 }
 
-export function setupSkillEditorPageGlobals() {
-  HTMLElement.prototype.scrollIntoView ??= vi.fn()
-  HTMLElement.prototype.hasPointerCapture ??= vi.fn(() => false)
-  HTMLElement.prototype.releasePointerCapture ??= vi.fn()
-  globalThis.ResizeObserver ??= class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  }
-}
-
-export function resetSkillEditorPageTestState() {
-  cleanup()
-  appStore.currentOrg = null
-  appStore.currentProject = null
-  appStore.providers = []
-  vi.clearAllMocks()
-}
-
-export async function renderPage(overrides: Record<string, unknown> = {}) {
+async function renderPage(overrides: Record<string, unknown> = {}) {
   appStore.currentOrg = {
     id: 'org-1',
     name: 'OpenAI',
@@ -224,3 +193,88 @@ export async function renderPage(overrides: Record<string, unknown> = {}) {
     props: { skillId: 'skill-1' },
   })
 }
+
+describe('SkillEditorPage', () => {
+  beforeAll(() => {
+    HTMLElement.prototype.scrollIntoView ??= vi.fn()
+    HTMLElement.prototype.hasPointerCapture ??= vi.fn(() => false)
+    HTMLElement.prototype.releasePointerCapture ??= vi.fn()
+    globalThis.ResizeObserver ??= class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  })
+
+  afterEach(() => {
+    cleanup()
+    appStore.currentOrg = null
+    appStore.currentProject = null
+    appStore.providers = []
+    vi.clearAllMocks()
+  })
+
+  it('saves edited description and content then reloads the skill data', async () => {
+    const savedContent = `${initialContent}\n\nVerify rollback before production deploys.`
+    loadSkillEditorData
+      .mockResolvedValueOnce(
+        buildSkillEditorData({
+          workflows: [{ id: 'workflow-1', name: 'Coding Workflow' }],
+        }),
+      )
+      .mockResolvedValueOnce(
+        buildSkillEditorData({
+          skill: {
+            description: 'Deploy safely with rollback checks',
+            current_version: 4,
+          },
+          content: savedContent,
+          files: [
+            {
+              path: 'references/runbook.md',
+              file_kind: 'reference',
+              media_type: 'text/markdown; charset=utf-8',
+              encoding: 'utf8',
+              is_executable: false,
+              size_bytes: runbookContent.length,
+              sha256: 'sha-runbook',
+              content: runbookContent,
+              content_base64: 'ignored',
+            },
+          ],
+          workflows: [{ id: 'workflow-1', name: 'Coding Workflow' }],
+        }),
+      )
+    updateSkill.mockResolvedValue({ skill: { id: 'skill-1' } })
+
+    const { container, findByRole, findByPlaceholderText } = await renderPage({
+      workflows: [{ id: 'workflow-1', name: 'Coding Workflow' }],
+    })
+
+    const descriptionInput = (await findByPlaceholderText('Description...')) as HTMLInputElement
+    await fireEvent.input(descriptionInput, {
+      target: { value: 'Deploy safely with rollback checks' },
+    })
+
+    const editor = container.querySelector('textarea')
+    if (!(editor instanceof HTMLTextAreaElement)) {
+      throw new Error('expected skill editor textarea to render')
+    }
+    await fireEvent.input(editor, { target: { value: savedContent } })
+    await fireEvent.click(await findByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(updateSkill).toHaveBeenCalledWith(
+        'skill-1',
+        expect.objectContaining({
+          description: 'Deploy safely with rollback checks',
+          content: savedContent,
+        }),
+      )
+      expect(loadSkillEditorData).toHaveBeenLastCalledWith('skill-1', 'project-1')
+      expect(toastStore.success).toHaveBeenCalledWith('Saved deploy.')
+      expect(descriptionInput.value).toBe('Deploy safely with rollback checks')
+      expect(editor.value).toBe(savedContent)
+    })
+  })
+})

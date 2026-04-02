@@ -45,18 +45,9 @@ const providerFixtures: AgentProvider[] = [
     availability_checked_at: '2026-03-28T12:00:00Z',
     availability_reason: null,
     capabilities: {
-      ephemeral_chat: {
-        state: 'available',
-        reason: null,
-      },
-      harness_ai: {
-        state: 'available',
-        reason: null,
-      },
-      skill_ai: {
-        state: 'available',
-        reason: null,
-      },
+      ephemeral_chat: { state: 'available', reason: null },
+      harness_ai: { state: 'available', reason: null },
+      skill_ai: { state: 'available', reason: null },
     },
     cli_command: 'codex',
     cli_args: [],
@@ -82,7 +73,7 @@ const harnessContent = [
   'Write clean, tested code.',
 ].join('\n')
 
-describe('HarnessAiSidebar reset and diff metadata', () => {
+describe('HarnessAiSidebar dismiss suggestion', () => {
   beforeAll(() => {
     HTMLElement.prototype.scrollIntoView ??= vi.fn()
     HTMLElement.prototype.hasPointerCapture ??= vi.fn(() => false)
@@ -99,75 +90,9 @@ describe('HarnessAiSidebar reset and diff metadata', () => {
     vi.clearAllMocks()
   })
 
-  it('renders the diff card with hunk and line count metadata', async () => {
+  it('dismisses the current suggestion without applying it', async () => {
     streamChatTurn.mockImplementation(async (_request, handlers) => {
-      handlers.onEvent({
-        kind: 'session',
-        payload: { sessionId: 'session-harness-2' },
-      })
-      handlers.onEvent({
-        kind: 'message',
-        payload: {
-          type: 'diff',
-          file: 'harness content',
-          hunks: [
-            {
-              oldStart: 5,
-              oldLines: 1,
-              newStart: 5,
-              newLines: 2,
-              lines: [
-                { op: 'context', text: '' },
-                { op: 'add', text: 'New guardrail line.' },
-              ],
-            },
-            {
-              oldStart: 6,
-              oldLines: 1,
-              newStart: 7,
-              newLines: 1,
-              lines: [
-                { op: 'remove', text: 'Write clean, tested code.' },
-                { op: 'add', text: 'Write clean, well-tested code with guardrails.' },
-              ],
-            },
-          ],
-        },
-      })
-      handlers.onEvent({
-        kind: 'done',
-        payload: {
-          sessionId: 'session-harness-2',
-          turnsUsed: 1,
-          turnsRemaining: 9,
-        },
-      })
-    })
-
-    const { getByPlaceholderText, findByText } = render(HarnessAiSidebar, {
-      props: {
-        projectId: 'project-1',
-        workflowId: 'workflow-1',
-        providers: providerFixtures,
-        draftContent: harnessContent,
-      },
-    })
-
-    const prompt = getByPlaceholderText('Ask AI to refine this harness…')
-    await fireEvent.input(prompt, { target: { value: 'Add guardrails.' } })
-    await fireEvent.keyDown(prompt, { key: 'Enter' })
-
-    expect(await findByText('Structured Diff')).toBeTruthy()
-    expect(await findByText(/2 hunks/)).toBeTruthy()
-    expect(await findByText(/4 line operations/)).toBeTruthy()
-  })
-
-  it('resets the sidebar by closing the session and clearing the current suggestion', async () => {
-    streamChatTurn.mockImplementation(async (_request, handlers) => {
-      handlers.onEvent({
-        kind: 'session',
-        payload: { sessionId: 'session-harness-reset' },
-      })
+      handlers.onEvent({ kind: 'session', payload: { sessionId: 'session-harness-dismiss-1' } })
       handlers.onEvent({
         kind: 'message',
         payload: {
@@ -189,21 +114,18 @@ describe('HarnessAiSidebar reset and diff metadata', () => {
       })
       handlers.onEvent({
         kind: 'done',
-        payload: {
-          sessionId: 'session-harness-reset',
-          turnsUsed: 1,
-          turnsRemaining: 9,
-        },
+        payload: { sessionId: 'session-harness-dismiss-1', turnsUsed: 1, turnsRemaining: 9 },
       })
     })
-    closeChatSession.mockResolvedValue(undefined)
 
+    const appliedSuggestions: string[] = []
     const { getByPlaceholderText, getByRole, findByText, queryByText } = render(HarnessAiSidebar, {
       props: {
         projectId: 'project-1',
         workflowId: 'workflow-1',
         providers: providerFixtures,
         draftContent: harnessContent,
+        onApplySuggestion: (content: string) => appliedSuggestions.push(content),
       },
     })
 
@@ -212,15 +134,12 @@ describe('HarnessAiSidebar reset and diff metadata', () => {
     await fireEvent.keyDown(prompt, { key: 'Enter' })
 
     expect(await findByText('Apply')).toBeTruthy()
+    await fireEvent.click(getByRole('button', { name: 'Dismiss suggestion' }))
 
-    await fireEvent.click(getByRole('button', { name: 'Reset conversation' }))
-
-    await waitFor(() => {
-      expect(closeChatSession).toHaveBeenCalledWith('session-harness-reset')
-    })
     await waitFor(() => {
       expect(queryByText('Apply')).toBeNull()
-      expect(queryByText('Structured Diff')).toBeNull()
+      expect(queryByText('Dismiss suggestion')).toBeNull()
     })
+    expect(appliedSuggestions).toEqual([])
   })
 })

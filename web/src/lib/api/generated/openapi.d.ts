@@ -5451,6 +5451,14 @@ export interface operations {
                   reason?: string | null
                   state?: string
                 }
+                harness_ai?: {
+                  reason?: string | null
+                  state?: string
+                }
+                skill_ai?: {
+                  reason?: string | null
+                  state?: string
+                }
               }
               cli_args?: string[]
               cli_command?: string
@@ -5686,6 +5694,14 @@ export interface operations {
               available?: boolean
               capabilities?: {
                 ephemeral_chat?: {
+                  reason?: string | null
+                  state?: string
+                }
+                harness_ai?: {
+                  reason?: string | null
+                  state?: string
+                }
+                skill_ai?: {
                   reason?: string | null
                   state?: string
                 }
@@ -11895,6 +11911,14 @@ export interface operations {
                   reason?: string | null
                   state?: string
                 }
+                harness_ai?: {
+                  reason?: string | null
+                  state?: string
+                }
+                skill_ai?: {
+                  reason?: string | null
+                  state?: string
+                }
               }
               cli_args?: string[]
               cli_command?: string
@@ -12130,6 +12154,14 @@ export interface operations {
               available?: boolean
               capabilities?: {
                 ephemeral_chat?: {
+                  reason?: string | null
+                  state?: string
+                }
+                harness_ai?: {
+                  reason?: string | null
+                  state?: string
+                }
+                skill_ai?: {
                   reason?: string | null
                   state?: string
                 }

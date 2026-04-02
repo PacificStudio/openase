@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -267,6 +268,129 @@ func TestSkillRefinementServiceReturnsBlockedResultAfterBoundedAttempts(t *testi
 	}
 	if !strings.Contains(resultPayload.FailureReason, "syntax error remains") {
 		t.Fatalf("failure reason = %q", resultPayload.FailureReason)
+	}
+}
+
+func TestSkillRefinementServiceProviderMatrix(t *testing.T) {
+	t.Parallel()
+
+	projectID := uuid.New()
+	orgID := uuid.New()
+	codexLocalID := uuid.New()
+	claudeLocalID := uuid.New()
+	geminiLocalID := uuid.New()
+	codexRemoteID := uuid.New()
+	project := catalogdomain.Project{
+		ID:                     projectID,
+		OrganizationID:         orgID,
+		Name:                   "OpenASE",
+		DefaultAgentProviderID: &claudeLocalID,
+	}
+	providers := []catalogdomain.AgentProvider{
+		{
+			ID:             codexLocalID,
+			OrganizationID: orgID,
+			Name:           "Codex local",
+			AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+			MachineHost:    catalogdomain.LocalMachineHost,
+			Available:      true,
+		},
+		{
+			ID:             claudeLocalID,
+			OrganizationID: orgID,
+			Name:           "Claude local",
+			AdapterType:    catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
+			MachineHost:    catalogdomain.LocalMachineHost,
+			Available:      true,
+		},
+		{
+			ID:             geminiLocalID,
+			OrganizationID: orgID,
+			Name:           "Gemini local",
+			AdapterType:    catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+			MachineHost:    catalogdomain.LocalMachineHost,
+			Available:      true,
+		},
+		{
+			ID:             codexRemoteID,
+			OrganizationID: orgID,
+			Name:           "Codex remote",
+			AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+			MachineHost:    "10.0.0.40",
+			Available:      true,
+		},
+	}
+	service := NewSkillRefinementService(
+		nil,
+		&fakeSkillRefinementRuntime{
+			supportFn: func(provider catalogdomain.AgentProvider) bool {
+				return provider.AdapterType == catalogdomain.AgentProviderAdapterTypeCodexAppServer
+			},
+		},
+		fakeCatalogReader{
+			project:   project,
+			providers: providers,
+		},
+		harnessWorkflowReader{},
+	)
+
+	t.Run("falls back from unsupported default to local codex", func(t *testing.T) {
+		resolved, err := service.resolveProvider(context.Background(), project, nil)
+		if err != nil {
+			t.Fatalf("resolveProvider() error = %v", err)
+		}
+		if resolved.ID != codexLocalID {
+			t.Fatalf("provider id = %s, want %s", resolved.ID, codexLocalID)
+		}
+	})
+
+	for _, tc := range []struct {
+		name       string
+		providerID uuid.UUID
+		wantErr    error
+		wantReason string
+	}{
+		{name: "accepts local codex", providerID: codexLocalID},
+		{
+			name:       "rejects local claude",
+			providerID: claudeLocalID,
+			wantErr:    ErrProviderUnsupported,
+			wantReason: "reason=skill_ai_requires_codex",
+		},
+		{
+			name:       "rejects local gemini",
+			providerID: geminiLocalID,
+			wantErr:    ErrProviderUnsupported,
+			wantReason: "reason=skill_ai_requires_codex",
+		},
+		{
+			name:       "rejects remote codex",
+			providerID: codexRemoteID,
+			wantErr:    ErrProviderUnsupported,
+			wantReason: "reason=remote_machine_not_supported",
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			resolved, err := service.resolveProvider(context.Background(), project, &tc.providerID)
+			if tc.wantErr != nil {
+				if !errors.Is(err, tc.wantErr) {
+					t.Fatalf("resolveProvider() error = %v, want %v", err, tc.wantErr)
+				}
+				if !strings.Contains(err.Error(), tc.wantReason) {
+					t.Fatalf("expected reason %q in %v", tc.wantReason, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("resolveProvider() error = %v", err)
+			}
+			if resolved.ID != tc.providerID {
+				t.Fatalf("provider id = %s, want %s", resolved.ID, tc.providerID)
+			}
+		})
 	}
 }
 

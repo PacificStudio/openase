@@ -1366,6 +1366,197 @@ func TestStartTurnRejectsExplicitUnavailableEphemeralChatProvider(t *testing.T) 
 	}
 }
 
+func TestStartTurnHarnessProviderMatrix(t *testing.T) {
+	t.Parallel()
+
+	projectID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440105")
+	orgID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440105")
+	workflowID := uuid.MustParse("990e8400-e29b-41d4-a716-446655440105")
+	cases := []struct {
+		name       string
+		provider   catalogdomain.AgentProvider
+		wantErr    error
+		wantReason string
+	}{
+		{
+			name: "accepts local codex",
+			provider: catalogdomain.AgentProvider{
+				ID:             uuid.MustParse("880e8400-e29b-41d4-a716-446655440201"),
+				OrganizationID: orgID,
+				Name:           "Codex local",
+				AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+				MachineHost:    catalogdomain.LocalMachineHost,
+				Available:      true,
+			},
+		},
+		{
+			name: "accepts local claude",
+			provider: catalogdomain.AgentProvider{
+				ID:             uuid.MustParse("880e8400-e29b-41d4-a716-446655440202"),
+				OrganizationID: orgID,
+				Name:           "Claude local",
+				AdapterType:    catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
+				MachineHost:    catalogdomain.LocalMachineHost,
+				Available:      true,
+			},
+		},
+		{
+			name: "accepts local gemini",
+			provider: catalogdomain.AgentProvider{
+				ID:             uuid.MustParse("880e8400-e29b-41d4-a716-446655440203"),
+				OrganizationID: orgID,
+				Name:           "Gemini local",
+				AdapterType:    catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+				MachineHost:    catalogdomain.LocalMachineHost,
+				Available:      true,
+			},
+		},
+		{
+			name: "rejects remote codex",
+			provider: catalogdomain.AgentProvider{
+				ID:             uuid.MustParse("880e8400-e29b-41d4-a716-446655440204"),
+				OrganizationID: orgID,
+				Name:           "Codex remote",
+				AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+				MachineHost:    "10.0.0.25",
+				Available:      true,
+			},
+			wantErr:    ErrProviderUnsupported,
+			wantReason: "reason=remote_machine_not_supported",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			runtime := &fakeRuntime{
+				streamEvents: []StreamEvent{{Event: "done", Payload: donePayload{SessionID: "session-1", TurnsUsed: 1}}},
+				supportFn: func(provider catalogdomain.AgentProvider) bool {
+					switch provider.AdapterType {
+					case catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+						catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
+						catalogdomain.AgentProviderAdapterTypeGeminiCLI:
+						return true
+					default:
+						return false
+					}
+				},
+			}
+			service := NewService(
+				nil,
+				runtime,
+				fakeCatalogReader{
+					project: catalogdomain.Project{
+						ID:                     projectID,
+						OrganizationID:         orgID,
+						Name:                   "OpenASE",
+						DefaultAgentProviderID: &tc.provider.ID,
+					},
+					providers: []catalogdomain.AgentProvider{tc.provider},
+				},
+				fakeTicketReader{},
+				harnessWorkflowReader{},
+				nil,
+				"",
+			)
+
+			stream, err := service.StartTurn(context.Background(), UserID("user:harness"), StartInput{
+				Message:    "Tighten the harness boundaries.",
+				Source:     SourceHarnessEditor,
+				ProviderID: &tc.provider.ID,
+				Context: Context{
+					ProjectID:  projectID,
+					WorkflowID: &workflowID,
+				},
+			})
+			if tc.wantErr != nil {
+				if !errors.Is(err, tc.wantErr) {
+					t.Fatalf("StartTurn() error = %v, want %v", err, tc.wantErr)
+				}
+				if !strings.Contains(err.Error(), tc.wantReason) {
+					t.Fatalf("expected reason %q in %v", tc.wantReason, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("StartTurn() error = %v", err)
+			}
+			_ = collectStreamEvents(stream.Events)
+			if runtime.lastInput.Provider.ID != tc.provider.ID {
+				t.Fatalf("provider id = %s, want %s", runtime.lastInput.Provider.ID, tc.provider.ID)
+			}
+		})
+	}
+}
+
+func TestStartTurnHarnessFallsBackPastRemoteDefaultProvider(t *testing.T) {
+	t.Parallel()
+
+	projectID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440106")
+	orgID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440106")
+	workflowID := uuid.MustParse("990e8400-e29b-41d4-a716-446655440106")
+	remoteProviderID := uuid.MustParse("880e8400-e29b-41d4-a716-446655440205")
+	localProviderID := uuid.MustParse("880e8400-e29b-41d4-a716-446655440206")
+	runtime := &fakeRuntime{
+		streamEvents: []StreamEvent{{Event: "done", Payload: donePayload{SessionID: "session-1", TurnsUsed: 1}}},
+		supportFn: func(provider catalogdomain.AgentProvider) bool {
+			return provider.AdapterType == catalogdomain.AgentProviderAdapterTypeCodexAppServer
+		},
+	}
+	service := NewService(
+		nil,
+		runtime,
+		fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:                     projectID,
+				OrganizationID:         orgID,
+				Name:                   "OpenASE",
+				DefaultAgentProviderID: &remoteProviderID,
+			},
+			providers: []catalogdomain.AgentProvider{
+				{
+					ID:             remoteProviderID,
+					OrganizationID: orgID,
+					Name:           "Codex remote",
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+					MachineHost:    "10.0.0.30",
+					Available:      true,
+				},
+				{
+					ID:             localProviderID,
+					OrganizationID: orgID,
+					Name:           "Codex local",
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+					MachineHost:    catalogdomain.LocalMachineHost,
+					Available:      true,
+				},
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		nil,
+		"",
+	)
+
+	stream, err := service.StartTurn(context.Background(), UserID("user:harness"), StartInput{
+		Message: "Tighten the harness boundaries.",
+		Source:  SourceHarnessEditor,
+		Context: Context{
+			ProjectID:  projectID,
+			WorkflowID: &workflowID,
+		},
+	})
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+	_ = collectStreamEvents(stream.Events)
+	if runtime.lastInput.Provider.ID != localProviderID {
+		t.Fatalf("provider id = %s, want fallback %s", runtime.lastInput.Provider.ID, localProviderID)
+	}
+}
+
 func TestStartTurnRejectsResumeAfterBudgetExceeded(t *testing.T) {
 	t.Parallel()
 
