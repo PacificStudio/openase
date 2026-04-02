@@ -151,7 +151,16 @@ jobs:
         with:
           clean: false
 
+      - name: Decide Whether To Audit Frontend API Usage
+        id: scope
+        run: echo "run_audit=${{ needs.changes.outputs.frontend_api_audit_changed }}" >> "${GITHUB_OUTPUT}"
+
+      - name: Skip Frontend API Audit
+        if: steps.scope.outputs.run_audit != 'true'
+        run: echo "No frontend API audit relevant changes detected; skipping."
+
       - name: Audit Frontend API Usage Coverage
+        if: steps.scope.outputs.run_audit == 'true'
         run: make frontend-api-audit-check
   frontend:
     name: Frontend Checks
