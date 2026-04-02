@@ -158,6 +158,65 @@ jobs:
       - name: Install Web Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install Playwright System Dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! command -v sudo >/dev/null 2>&1; then
+            echo "sudo is required to install Playwright system dependencies on this runner" >&2
+            exit 1
+          fi
+
+          choose_package() {
+            for candidate in "$@"; do
+              if apt-cache show "${candidate}" >/dev/null 2>&1; then
+                printf '%s\n' "${candidate}"
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          packages=(
+            "$(choose_package libasound2t64 libasound2)"
+            "$(choose_package libatk-bridge2.0-0t64 libatk-bridge2.0-0)"
+            "$(choose_package libatk1.0-0t64 libatk1.0-0)"
+            "$(choose_package libcups2t64 libcups2)"
+            libatspi2.0-0
+            libcairo2
+            libdbus-1-3
+            libdrm2
+            libgbm1
+            "$(choose_package libglib2.0-0t64 libglib2.0-0)"
+            libnspr4
+            libnss3
+            libpango-1.0-0
+            libx11-6
+            libxcb1
+            libxcomposite1
+            libxdamage1
+            libxext6
+            libxfixes3
+            libxkbcommon0
+            libxrandr2
+            xvfb
+            fonts-noto-color-emoji
+            fonts-unifont
+            libfontconfig1
+            libfreetype6
+            xfonts-cyrillic
+            xfonts-scalable
+            fonts-liberation
+            fonts-ipafont-gothic
+            fonts-wqy-zenhei
+            fonts-tlwg-loma-otf
+            fonts-freefont-ttf
+          )
+
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends "${packages[@]}"
+
       - name: Install Playwright Browser
         run: pnpm exec playwright install chromium
 
