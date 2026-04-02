@@ -893,6 +893,29 @@ func HasPendingInterruptsWith(preds ...predicate.ChatPendingInterrupt) predicate
 	})
 }
 
+// HasAgentTokens applies the HasEdge predicate on the "agent_tokens" edge.
+func HasAgentTokens() predicate.ChatConversation {
+	return predicate.ChatConversation(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AgentTokensTable, AgentTokensColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentTokensWith applies the HasEdge predicate on the "agent_tokens" edge with a given conditions (other predicates).
+func HasAgentTokensWith(preds ...predicate.AgentToken) predicate.ChatConversation {
+	return predicate.ChatConversation(func(s *sql.Selector) {
+		step := newAgentTokensStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.ChatConversation) predicate.ChatConversation {
 	return predicate.ChatConversation(sql.AndPredicates(predicates...))

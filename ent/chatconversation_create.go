@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
@@ -229,6 +230,21 @@ func (_c *ChatConversationCreate) AddPendingInterrupts(v ...*ChatPendingInterrup
 		ids[i] = v[i].ID
 	}
 	return _c.AddPendingInterruptIDs(ids...)
+}
+
+// AddAgentTokenIDs adds the "agent_tokens" edge to the AgentToken entity by IDs.
+func (_c *ChatConversationCreate) AddAgentTokenIDs(ids ...uuid.UUID) *ChatConversationCreate {
+	_c.mutation.AddAgentTokenIDs(ids...)
+	return _c
+}
+
+// AddAgentTokens adds the "agent_tokens" edges to the AgentToken entity.
+func (_c *ChatConversationCreate) AddAgentTokens(v ...*AgentToken) *ChatConversationCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAgentTokenIDs(ids...)
 }
 
 // Mutation returns the ChatConversationMutation object of the builder.
@@ -468,6 +484,22 @@ func (_c *ChatConversationCreate) createSpec() (*ChatConversation, *sqlgraph.Cre
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(chatpendinginterrupt.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AgentTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   chatconversation.AgentTokensTable,
+			Columns: []string{chatconversation.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
