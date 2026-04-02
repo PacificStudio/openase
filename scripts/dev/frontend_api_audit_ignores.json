@@ -68,6 +68,12 @@
     },
     {
       "method": "get",
+      "path": "/api/v1/orgs/{orgId}/machines/stream",
+      "categories": ["backend_only"],
+      "reason": "Machine management currently refreshes from list and health/test actions instead of maintaining a dedicated organization-level machine event stream in the browser."
+    },
+    {
+      "method": "get",
       "path": "/api/v1/machines/{machineId}",
       "categories": ["wrapped_but_unused"],
       "reason": "Machine management currently relies on list, resources, test, and health refresh endpoints instead of a standalone machine detail fetch."
