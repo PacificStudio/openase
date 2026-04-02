@@ -25,46 +25,36 @@ const budgetRules = [
     softLimit: 200,
     hardLimit: 300,
     allowlist: {
-      'src/lib/features/agents/components/agent-drawer.svelte':
-        'Agent drawer is temporarily oversized while provider and runtime controls remain in one panel.',
-      'src/lib/features/app-shell/components/project-shell.svelte':
-        'Project shell still coordinates top bar, sidebar, app-context refresh, and overlays while shell controller extraction continues.',
       'src/lib/features/dashboard/components/org-dashboard.svelte':
-        'Dashboard summary and advisor layout remain colocated pending dashboard panel extraction.',
+        'Dashboard shell still mixes overview KPIs, token analytics, and advisor lane composition until each panel owns its own loading boundary.',
       'src/lib/features/onboarding/components/onboarding-panel.svelte':
-        'Onboarding panel still coordinates the full multi-step flow until onboarding controller extraction lands.',
+        'Onboarding panel still owns cross-step progress, persistence, and completion gating until the step flow moves into a dedicated onboarding controller.',
       'src/lib/features/onboarding/components/step-repo.svelte':
-        'Onboarding repo step keeps create and link flows together until onboarding step extraction lands.',
-      'src/lib/features/chat/project-conversation-panel.svelte':
-        'Project conversation panel still coordinates header, transcript shell, and composer while controller extraction continues.',
-      'src/lib/features/project-updates/components/project-update-thread-card.svelte':
-        'Project update thread card still keeps inline edit and reply flows together until card sections are extracted.',
-      'src/lib/features/project-updates/components/project-updates-page.svelte':
-        'Project updates page still coordinates cache-aware loading, event-driven refresh, and thread mutations until a page controller is extracted.',
+        'Repository onboarding still combines repo creation, existing repo link, and validation messaging until the create-vs-link step bodies split.',
       'src/lib/features/machines/components/machines-page.svelte':
-        'Machines page still coordinates event-driven cache refresh, editor state, and health probes until page controller extraction lands.',
+        'Machines page still owns cache refresh, editor selection, and health probe coordination until machine detail state moves behind a page controller.',
       'src/lib/features/settings/components/workflow-scheduled-job-cron-picker.svelte':
-        'Cron picker keeps presets and field editor together until scheduled job form extraction lands.',
+        'Cron picker still combines visual interval controls and manual expression preview until the picker inputs split from the preview block.',
       'src/lib/features/settings/components/workflow-scheduled-jobs-panel.svelte':
-        'Scheduled jobs panel still coordinates list, editor, and summary sections until panel extraction lands.',
+        'Scheduled jobs panel still owns list loading, editor sheet state, and trigger mutations until a panel controller extracts the job actions.',
       'src/lib/features/skills/components/skill-ai-sidebar.svelte':
-        'Skill fix-and-verify sidebar currently keeps refinement session state and verified result rendering together until sidebar controller extraction lands.',
+        'Skill AI sidebar still combines refinement session control, streaming transcript state, and verified patch rendering until the session controller splits from the result view.',
       'src/lib/features/skills/components/skill-editor-page.svelte':
-        'Skill editor page still hosts save/binding orchestration until controller extraction lands.',
+        'Skill editor page still owns draft save orchestration, binding sheets, and fix-and-verify launch state until the page controller extracts those workflows.',
       'src/lib/features/skills/components/skills-page.svelte':
-        'Skills page still coordinates browser, selection, and editor loading until page controller extraction lands.',
+        'Skills page still mixes browser selection, editor bootstrap, and loading/error states until the browser shell splits from editor state.',
       'src/lib/features/ticket-detail/components/ticket-drawer.svelte':
-        'Ticket drawer still coordinates detail shell, panes, and runtime state until drawer extraction lands.',
+        'Ticket drawer still owns shell layout, pane selection, and runtime status affordances until drawer chrome separates from ticket detail state.',
       'src/lib/features/ticket-detail/components/ticket-comments-thread.svelte':
-        'Ticket discussion thread still keeps grouped activity rendering, comment editing, and composer flow together until discussion sections are extracted.',
+        'Ticket comments thread still combines grouped activity rendering with inline comment editing and composer flow until discussion actions split from the timeline body.',
       'src/lib/features/ticket-detail/components/ticket-run-history-panel.svelte':
-        'Ticket run history panel still combines run rail selection, live transcript rendering, and follow-live behavior until run panel extraction lands.',
+        'Ticket run history panel still combines run rail selection, live transcript rendering, and follow-live controls until the rail and transcript panes split.',
       'src/lib/features/tickets/components/new-ticket-dialog.svelte':
-        'Ticket creation dialog still hosts staged form orchestration until dialog sections are extracted.',
+        'Ticket creation dialog still owns async option loading and the multi-picker metadata row until the metadata controls split from the form body.',
       'src/lib/features/tickets/components/tickets-page.svelte':
-        'Tickets page still owns board loading and stream orchestration until board controller extraction lands.',
+        'Tickets page still owns board bootstrap, stream orchestration, and drawer coordination until board data flow extracts into a page controller.',
       'src/lib/features/workflows/components/workflows-page.svelte':
-        'Workflows page still coordinates editor, history, and skill bindings until controller extraction lands.',
+        'Workflows page still coordinates list selection, editor state, history loading, and skill bindings until workflow page actions move behind a controller.',
     },
   },
   {
@@ -73,32 +63,30 @@ const budgetRules = [
     softLimit: 200,
     hardLimit: 300,
     allowlist: {
-      'src/lib/features/agents/model.test.ts':
-        'Agent provider normalization coverage remains in one test module until scenario helpers are extracted.',
       'src/lib/features/board/components/board-page-controls.test.ts':
-        'Board controls regression coverage remains consolidated while the control matrix is still evolving.',
+        'Board controls coverage still bundles filter, selection, sort, and bulk-action matrices until scenario builders split those behavior families.',
       'src/lib/features/board/components/board-page-runtime-and-drawer.test.ts':
-        'Board runtime stream and drawer regression coverage remain bundled while ticket board helpers are still being split out.',
+        'Board runtime-and-drawer coverage still mixes stream recovery and drawer interaction scenarios until shared board harness helpers extract.',
       'src/lib/features/chat/project-conversation-controller.svelte.ts':
-        'Project conversation controller remains centralized while multi-tab restore and per-tab runtime flows continue to settle.',
+        'Project conversation controller still owns tab persistence, stream lifecycle, and action proposal state until per-tab runtime state splits from restore orchestration.',
       'src/lib/features/chat/project-conversation-controller.test.ts':
-        'Project conversation controller regression coverage remains bundled while multi-tab conversation scenarios are still expanding.',
+        'Project conversation controller coverage still spans restore, queueing, and runtime recovery scenarios until controller test builders split those flows.',
       'src/lib/features/dashboard/components/org-dashboard.test.ts':
-        'Dashboard refresh regression coverage stays consolidated while the event-driven dashboard invalidation model is still settling.',
+        'Dashboard regression coverage still combines initial load, refresh invalidation, and advisor rendering cases until dashboard test fixtures split by panel.',
       'src/lib/features/skills/components/skill-bundle-editor.ts':
-        'Skill bundle draft helpers remain centralized until tree and path utilities are split out.',
+        'Skill bundle editor still centralizes draft mutations, tree normalization, and path rewrites until file-tree helpers split from draft reducers.',
       'src/lib/features/ticket-detail/drawer-state.svelte.test.ts':
-        'Ticket drawer state regression coverage remains bundled while reference caching and run transcript recovery continue to evolve.',
+        'Ticket drawer state coverage still mixes reference cache recovery with run transcript selection until drawer-state fixtures split by state slice.',
       'src/lib/features/ticket-detail/drawer-state.svelte.ts':
-        'Ticket drawer state still coordinates cached references, live refresh, and run transcript selection until a controller split lands.',
+        'Ticket drawer state still owns reference caching, live refresh wiring, and transcript selection until run history state splits from drawer references.',
       'src/lib/features/ticket-detail/run-transcript.test.ts':
-        'Ticket run transcript reducer coverage remains bundled while lifecycle, step, and trace event scenarios continue to expand.',
+        'Run transcript coverage still bundles lifecycle, step, and trace reducer scenarios until transcript fixtures split by event family.',
       'src/lib/features/ticket-detail/run-transcript.ts':
-        'Ticket run transcript reducer still centralizes lifecycle, step, and trace folding until transcript reducers are split by event family.',
+        'Run transcript reducer still folds lifecycle, step, and trace events in one module until event-family reducers extract behind a shared transcript assembler.',
       'src/lib/features/workflows/components/harness-ai-sidebar-streaming.test.ts':
-        'Harness AI long-stream regression coverage stays in one integration-style test while SSE helpers remain inline.',
+        'Harness AI streaming coverage still keeps long-stream SSE assertions in one integration test until sidebar stream helpers extract.',
       'src/lib/features/workflows/components/workflows-page.test.ts':
-        'Workflow page interaction coverage remains bundled until test helper extraction lands.',
+        'Workflow page coverage still mixes editor, history, and binding interactions until page-level workflow test helpers split by surface.',
     },
   },
   {
