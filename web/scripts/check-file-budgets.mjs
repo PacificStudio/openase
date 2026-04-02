@@ -37,6 +37,8 @@ const budgetRules = [
         'Cron picker keeps presets and field editor together until scheduled job form extraction lands.',
       'src/lib/features/settings/components/workflow-scheduled-jobs-panel.svelte':
         'Scheduled jobs panel still coordinates list, editor, and summary sections until panel extraction lands.',
+      'src/lib/features/skills/components/skill-ai-sidebar.svelte':
+        'Skill fix-and-verify sidebar currently keeps refinement session state and verified result rendering together until sidebar controller extraction lands.',
       'src/lib/features/skills/components/skill-editor-page.svelte':
         'Skill editor page still hosts save/binding orchestration until controller extraction lands.',
       'src/lib/features/skills/components/skills-page.svelte':

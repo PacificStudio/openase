@@ -74,30 +74,27 @@ export async function streamSkillRefinement(
   },
 ) {
   const skillId = encodeURIComponent(request.skillId)
-  const response = await fetch(
-    `/api/v1/skills/${skillId}/refinement-runs`,
-    {
-      method: 'POST',
-      headers: {
-        accept: 'text/event-stream',
-        'Content-Type': 'application/json',
-        [chatUserHeader]: resolveChatUserId(),
-      },
-      body: JSON.stringify({
-        project_id: request.projectId,
-        message: request.message,
-        provider_id: request.providerId,
-        files: request.files.map((file) => ({
-          path: file.path,
-          content_base64: file.contentBase64,
-          media_type: file.mediaType,
-          is_executable: file.isExecutable ?? false,
-        })),
-      }),
-      credentials: 'same-origin',
-      signal: handlers.signal,
+  const response = await fetch(`/api/v1/skills/${skillId}/refinement-runs`, {
+    method: 'POST',
+    headers: {
+      accept: 'text/event-stream',
+      'Content-Type': 'application/json',
+      [chatUserHeader]: resolveChatUserId(),
     },
-  )
+    body: JSON.stringify({
+      project_id: request.projectId,
+      message: request.message,
+      provider_id: request.providerId,
+      files: request.files.map((file) => ({
+        path: file.path,
+        content_base64: file.contentBase64,
+        media_type: file.mediaType,
+        is_executable: file.isExecutable ?? false,
+      })),
+    }),
+    credentials: 'same-origin',
+    signal: handlers.signal,
+  })
 
   if (!response.ok) {
     const detail = await response.text().catch(() => response.statusText)

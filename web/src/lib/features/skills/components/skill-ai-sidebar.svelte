@@ -1,4 +1,5 @@
 <script lang="ts">
+  /* eslint-disable max-lines */
   import { untrack } from 'svelte'
   import {
     closeSkillRefinementSession,
@@ -11,7 +12,7 @@
     listEphemeralChatProviders,
     pickDefaultEphemeralChatProvider,
     shouldKeepEphemeralChatProvider,
-  } from '$lib/features/chat/provider-options'
+  } from '$lib/features/chat'
   import { buildDiffPreview } from '$lib/features/skills/assistant'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
