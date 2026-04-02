@@ -9,8 +9,10 @@
     scheduleModeOptions,
     defaultScheduleConfig,
     buildCronExpression,
+    clampScheduleNumber,
     parseCronToConfig,
     getNextTriggerTimes,
+    getScheduleIntervalMax,
     formatTriggerTime,
   } from './cron-utils'
 
@@ -92,12 +94,6 @@
     manualValue = (event.currentTarget as HTMLInputElement).value
     emitChange()
   }
-
-  function clampInt(val: string, min: number, max: number, fallback: number): number {
-    const n = parseInt(val, 10)
-    if (!Number.isFinite(n)) return fallback
-    return Math.max(min, Math.min(max, n))
-  }
 </script>
 
 <div class="space-y-3">
@@ -143,31 +139,18 @@
         <Input
           type="number"
           min="1"
-          max={config.mode === 'seconds'
-            ? 59
-            : config.mode === 'minutes'
-              ? 59
-              : config.mode === 'hours'
-                ? 23
-                : config.mode === 'daily'
-                  ? 365
-                  : 12}
+          max={getScheduleIntervalMax(config.mode)}
           value={String(config.interval)}
           class="h-8 w-16 text-center text-sm"
           oninput={(e) => {
-            const max =
-              config.mode === 'seconds'
-                ? 59
-                : config.mode === 'minutes'
-                  ? 59
-                  : config.mode === 'hours'
-                    ? 23
-                    : config.mode === 'daily'
-                      ? 365
-                      : 12
             updateConfig(
               'interval',
-              clampInt((e.currentTarget as HTMLInputElement).value, 1, max, 1),
+              clampScheduleNumber(
+                (e.currentTarget as HTMLInputElement).value,
+                1,
+                getScheduleIntervalMax(config.mode),
+                1,
+              ),
             )
           }}
         />
@@ -201,7 +184,7 @@
           oninput={(e) =>
             updateConfig(
               'atMinute',
-              clampInt((e.currentTarget as HTMLInputElement).value, 0, 59, 0),
+              clampScheduleNumber((e.currentTarget as HTMLInputElement).value, 0, 59, 0),
             )}
         />
       </div>
@@ -217,7 +200,10 @@
           value={String(config.atHour).padStart(2, '0')}
           class="h-8 w-16 text-center font-mono text-sm"
           oninput={(e) =>
-            updateConfig('atHour', clampInt((e.currentTarget as HTMLInputElement).value, 0, 23, 0))}
+            updateConfig(
+              'atHour',
+              clampScheduleNumber((e.currentTarget as HTMLInputElement).value, 0, 23, 0),
+            )}
         />
         <span class="text-muted-foreground text-sm">:</span>
         <Input
@@ -229,7 +215,7 @@
           oninput={(e) =>
             updateConfig(
               'atMinute',
-              clampInt((e.currentTarget as HTMLInputElement).value, 0, 59, 0),
+              clampScheduleNumber((e.currentTarget as HTMLInputElement).value, 0, 59, 0),
             )}
         />
       </div>
@@ -245,7 +231,10 @@
           value={String(config.atDay)}
           class="h-8 w-16 text-center text-sm"
           oninput={(e) =>
-            updateConfig('atDay', clampInt((e.currentTarget as HTMLInputElement).value, 1, 31, 1))}
+            updateConfig(
+              'atDay',
+              clampScheduleNumber((e.currentTarget as HTMLInputElement).value, 1, 31, 1),
+            )}
         />
         <span class="text-muted-foreground shrink-0 text-xs">at</span>
         <Input
@@ -255,7 +244,10 @@
           value={String(config.atHour).padStart(2, '0')}
           class="h-8 w-16 text-center font-mono text-sm"
           oninput={(e) =>
-            updateConfig('atHour', clampInt((e.currentTarget as HTMLInputElement).value, 0, 23, 0))}
+            updateConfig(
+              'atHour',
+              clampScheduleNumber((e.currentTarget as HTMLInputElement).value, 0, 23, 0),
+            )}
         />
         <span class="text-muted-foreground text-sm">:</span>
         <Input
@@ -267,7 +259,7 @@
           oninput={(e) =>
             updateConfig(
               'atMinute',
-              clampInt((e.currentTarget as HTMLInputElement).value, 0, 59, 0),
+              clampScheduleNumber((e.currentTarget as HTMLInputElement).value, 0, 59, 0),
             )}
         />
       </div>

@@ -143,11 +143,14 @@ function createDeferred<T>() {
 
 describe('TicketsPage board controls', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
     ticketViewStore.setMode('board')
   })
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup()
+    await vi.runOnlyPendingTimersAsync()
+    vi.useRealTimers()
     resetProjectBoardCacheForTests()
     resetTicketBoardToolbarStoreForTests()
     appStore.currentProject = null

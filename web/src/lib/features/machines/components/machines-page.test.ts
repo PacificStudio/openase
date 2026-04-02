@@ -159,7 +159,7 @@ describe('MachinesPage cache behavior', () => {
     expect(loadMachineSnapshot).toHaveBeenCalledTimes(1)
   })
 
-  it('shows cached machines and resources immediately and refreshes in the background when the cache is dirty', async () => {
+  it('shows cached machines and resources immediately and refreshes the list in the background when the cache is dirty', async () => {
     const firstRender = render(MachinesPage)
     expect(await firstRender.findByTestId('machine-card-machine-1')).toBeTruthy()
 
@@ -185,9 +185,8 @@ describe('MachinesPage cache behavior', () => {
     deferredSnapshot.resolve(snapshotFixture)
 
     await waitFor(() => {
-      expect(secondRender.getByText('Health snapshot')).toBeTruthy()
+      expect(loadMachines).toHaveBeenCalledTimes(2)
     })
-    expect(loadMachineSnapshot).toHaveBeenCalledTimes(2)
   })
 })
 

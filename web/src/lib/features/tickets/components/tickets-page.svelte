@@ -1,426 +1,30 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
   import { ticketViewStore } from '$lib/stores/ticket-view.svelte'
-  import { ApiError } from '$lib/api/client'
-  import {
-    listActivity,
-    listAgents,
-    listStatuses,
-    listTickets,
-    listWorkflows,
-    updateStatus,
-    updateTicket,
-  } from '$lib/api/openase'
-  import { subscribeProjectEvents } from '$lib/features/project-events'
-  import { statusSync } from '$lib/features/statuses/public'
-  import {
-    markProjectBoardCacheDirty,
-    readProjectBoardCache,
-    syncProjectBoardCacheStatusVersion,
-    writeProjectBoardCache,
-  } from '../board-cache'
   import { ticketBoardToolbarStore } from '../board-toolbar-store.svelte'
-  import { toastStore } from '$lib/stores/toast.svelte'
-  import {
-    BoardListView,
-    BoardToolbar,
-    BoardView,
-    buildBoardData,
-    filterBoardColumns,
-    findTicketLocation,
-    patchTicket,
-    projectBoardGroups,
-    relocateTicket,
-    type BoardData,
-    type BoardColumnType,
-    type BoardGroupType,
-    type BoardStatusOption,
-    type BoardTicket,
-    type HiddenColumn,
-    type PendingTicketMove,
-  } from '$lib/features/board'
+  import { BoardListView, BoardToolbar, BoardView } from '$lib/features/board'
+  import { createTicketsPageController } from './tickets-page-controller.svelte'
 
-  let loading = $state(false)
-  let error = $state('')
-  let allColumns = $state<BoardColumnType[]>([])
-  let allGroups = $state<BoardGroupType[]>([])
-  let allStatuses = $state<BoardStatusOption[]>([])
-  let workflows = $state<string[]>([])
-  let agentOptions = $state<string[]>([])
-  let draggingTicketId = $state<string | null>(null)
-  let dropColumnId = $state<string | null>(null)
-
-  const pendingMoveByTicket = new Map<string, PendingTicketMove>()
-  let activeProjectId: string | null = null
-  let loadRequestVersion = 0
-  let queuedReload = false
-  let reloadInFlight = false
-  let filteredColumns = $derived(filterBoardColumns(allColumns, ticketBoardToolbarStore.filter))
-  let filteredGroups = $derived(
-    projectBoardGroups(allGroups, filteredColumns, {
-      hideEmpty: ticketBoardToolbarStore.hideEmpty,
-    }),
-  )
-  let hiddenColumns = $derived.by((): HiddenColumn[] => {
-    if (!ticketBoardToolbarStore.hideEmpty) return []
-    const visibleIds = new Set(filteredGroups.flatMap((g) => g.columns.map((c) => c.id)))
-    return filteredColumns
-      .filter((col) => !visibleIds.has(col.id))
-      .map((col) => ({
-        id: col.id,
-        name: col.name,
-        color: col.color,
-        ticketCount: col.tickets.length,
-      }))
-  })
-
-  const isStaleLoad = (projectId: string, requestVersion: number) =>
-    activeProjectId !== projectId || requestVersion !== loadRequestVersion
-
-  function applyBoardSnapshot(nextBoard: BoardData) {
-    workflows = nextBoard.workflowTypes
-    agentOptions = nextBoard.agentOptions
-    allStatuses = nextBoard.statusOptions
-    allGroups = nextBoard.groups
-    allColumns = nextBoard.columns
-  }
-
-  function persistBoardSnapshot(projectId: string) {
-    writeProjectBoardCache(projectId, {
-      workflowTypes: workflows,
-      agentOptions,
-      statusOptions: allStatuses,
-      groups: allGroups,
-      columns: allColumns,
-    })
-  }
-
-  function beginLoad(mode: 'initial' | 'background') {
-    if (mode === 'initial') loading = true
-    error = ''
-  }
-
-  const shouldDeferLoadedBoard = (mode: 'initial' | 'background') =>
-    mode === 'background' && pendingMoveByTicket.size > 0
-
-  const finishInitialLoad = (
-    projectId: string,
-    requestVersion: number,
-    mode: 'initial' | 'background',
-  ) => {
-    if (!isStaleLoad(projectId, requestVersion) && mode === 'initial') loading = false
-  }
-
-  async function loadBoard(projectId: string, mode: 'initial' | 'background') {
-    const requestVersion = ++loadRequestVersion
-    beginLoad(mode)
-
-    try {
-      const [statusPayload, ticketPayload, workflowPayload, agentPayload, activityPayload] =
-        await Promise.all([
-          listStatuses(projectId),
-          listTickets(projectId),
-          listWorkflows(projectId),
-          listAgents(projectId),
-          listActivity(projectId, { limit: 200 }),
-        ])
-      if (isStaleLoad(projectId, requestVersion)) {
-        return
-      }
-      if (shouldDeferLoadedBoard(mode)) {
-        queuedReload = true
-        return
-      }
-
-      const nextBoard = buildBoardData(
-        statusPayload,
-        ticketPayload.tickets,
-        workflowPayload.workflows,
-        agentPayload.agents,
-        activityPayload.events,
-      )
-
-      applyBoardSnapshot(nextBoard)
-      persistBoardSnapshot(projectId)
-    } catch (caughtError) {
-      if (isStaleLoad(projectId, requestVersion)) return
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load tickets.'
-    } finally {
-      finishInitialLoad(projectId, requestVersion, mode)
-    }
-  }
-
-  const requestReload = (projectId: string) => {
-    queuedReload = true
-    void drainReloadQueue(projectId)
-  }
-
-  async function drainReloadQueue(projectId: string) {
-    if (
-      !queuedReload ||
-      reloadInFlight ||
-      pendingMoveByTicket.size > 0 ||
-      activeProjectId !== projectId
-    ) {
-      return
-    }
-
-    reloadInFlight = true
-    queuedReload = false
-    try {
-      await loadBoard(projectId, 'background')
-    } finally {
-      reloadInFlight = false
-      if (queuedReload && pendingMoveByTicket.size === 0 && activeProjectId === projectId) {
-        void drainReloadQueue(projectId)
-      }
-    }
-  }
-
-  $effect(() => {
-    ticketBoardToolbarStore.activateProject(appStore.currentProject?.id ?? null)
-  })
-
-  $effect(() => {
-    const projectId = appStore.currentProject?.id
-    const statusVersion = statusSync.version
-    if (!projectId) {
-      return
-    }
-
-    syncProjectBoardCacheStatusVersion(projectId, statusVersion)
-  })
-
-  $effect(() => {
-    const projectId = appStore.currentProject?.id
-    activeProjectId = projectId ?? null
-    pendingMoveByTicket.clear()
-    queuedReload = false
-    reloadInFlight = false
-    draggingTicketId = null
-    dropColumnId = null
-    if (!projectId) {
-      allColumns = []
-      allGroups = []
-      allStatuses = []
-      workflows = []
-      agentOptions = []
-      error = ''
-      loading = false
-      return
-    }
-
-    const cachedBoard = readProjectBoardCache(projectId)
-    if (cachedBoard) {
-      applyBoardSnapshot(cachedBoard.snapshot)
-      loading = false
-      error = ''
-      if (cachedBoard.dirty) {
-        void loadBoard(projectId, 'background')
-      }
-    } else {
-      void loadBoard(projectId, 'initial')
-    }
-
-    const disconnectProjectEvents = subscribeProjectEvents(projectId, () => {
-      markProjectBoardCacheDirty(projectId)
-      requestReload(projectId)
-    })
-
-    return () => {
-      if (activeProjectId === projectId) {
-        activeProjectId = null
-      }
-      disconnectProjectEvents()
-    }
-  })
-
-  const handleTicketClick = (ticket: BoardTicket) =>
-    appStore.openRightPanel({ type: 'ticket', id: ticket.id })
-
-  function handleTicketDragStart(ticket: BoardTicket) {
-    if (ticket.isMoving) return
-    draggingTicketId = ticket.id
-    dropColumnId = ticket.statusId
-  }
-
-  const handleTicketDragEnd = () => {
-    draggingTicketId = null
-    dropColumnId = null
-  }
-
-  const handleTicketDragOverColumn = (columnId: string) => {
-    if (!draggingTicketId) return
-    dropColumnId = columnId
-  }
-
-  const handleStatusChange = async (ticketId: string, statusId: string) =>
-    handleTicketDrop(ticketId, statusId)
-
-  async function handlePriorityChange(ticketId: string, priority: string) {
-    const projectId = appStore.currentProject?.id
-    if (!projectId) return
-
-    allColumns = patchTicket(allColumns, ticketId, (ticket) => ({
-      ...ticket,
-      priority: priority as BoardTicket['priority'],
-    }))
-    persistBoardSnapshot(projectId)
-
-    try {
-      await updateTicket(ticketId, { priority })
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update priority.',
-      )
-      requestReload(projectId)
-    }
-  }
-
-  async function handleTicketDrop(ticketId: string, targetColumnId: string) {
-    const projectId = appStore.currentProject?.id
-    const location = findTicketLocation(allColumns, ticketId)
-    handleTicketDragEnd()
-
-    if (!projectId || !location || location.ticket.isMoving || pendingMoveByTicket.has(ticketId))
-      return
-    if (location.columnId === targetColumnId) return
-
-    pendingMoveByTicket.set(ticketId, {
-      fromColumnId: location.columnId,
-      fromIndex: location.index,
-    })
-
-    allColumns = relocateTicket(allColumns, ticketId, targetColumnId, {
-      isMoving: true,
-      updatedAt: new Date().toISOString(),
-    })
-    persistBoardSnapshot(projectId)
-
-    try {
-      await updateTicket(ticketId, { status_id: targetColumnId })
-      allColumns = patchTicket(allColumns, ticketId, (ticket) => ({
-        ...ticket,
-        statusId: targetColumnId,
-        isMoving: false,
-      }))
-      persistBoardSnapshot(projectId)
-    } catch (caughtError) {
-      const pendingMove = pendingMoveByTicket.get(ticketId)
-      if (pendingMove) {
-        allColumns = relocateTicket(allColumns, ticketId, pendingMove.fromColumnId, {
-          targetIndex: pendingMove.fromIndex,
-          isMoving: false,
-        })
-      }
-      persistBoardSnapshot(projectId)
-      toastStore.error(
-        caughtError instanceof ApiError
-          ? caughtError.detail
-          : 'Failed to move ticket to the new status.',
-      )
-    } finally {
-      pendingMoveByTicket.delete(ticketId)
-      requestReload(projectId)
-    }
-  }
-
-  async function handleColumnAction(columnId: string, action: string) {
-    if (action === 'move_left') {
-      await handleColumnMove(columnId, 'left')
-    } else if (action === 'move_right') {
-      await handleColumnMove(columnId, 'right')
-    } else if (action === 'set_concurrency') {
-      await handleColumnConcurrency(columnId)
-    } else if (action === 'clear_concurrency') {
-      await handleColumnConcurrency(columnId, null)
-    }
-  }
-
-  async function handleColumnMove(statusId: string, direction: 'left' | 'right') {
-    const projectId = appStore.currentProject?.id
-    if (!projectId) return
-
-    const currentStatus = allStatuses.find((status) => status.id === statusId)
-    if (!currentStatus) return
-
-    const stageStatuses = allStatuses.filter((status) => status.stage === currentStatus.stage)
-    const currentIndex = stageStatuses.findIndex((status) => status.id === statusId)
-    if (currentIndex === -1) return
-
-    const targetIndex = direction === 'left' ? currentIndex - 1 : currentIndex + 1
-    if (targetIndex < 0 || targetIndex >= stageStatuses.length) return
-
-    const targetStatus = stageStatuses[targetIndex]
-    if (!targetStatus) return
-
-    try {
-      await Promise.all([
-        updateStatus(currentStatus.id, { position: targetStatus.position }),
-        updateStatus(targetStatus.id, { position: currentStatus.position }),
-      ])
-      requestReload(projectId)
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to reorder statuses.',
-      )
-    }
-  }
-
-  async function handleColumnConcurrency(statusId: string, nextMaxActiveRuns?: number | null) {
-    const projectId = appStore.currentProject?.id
-    if (!projectId) return
-
-    const currentStatus = allStatuses.find((status) => status.id === statusId)
-    if (!currentStatus) return
-
-    let parsedMaxActiveRuns = nextMaxActiveRuns
-    if (parsedMaxActiveRuns === undefined) {
-      const rawValue = window.prompt(
-        `Set concurrency limit for "${currentStatus.name}". Leave blank for Unlimited.`,
-        currentStatus.maxActiveRuns?.toString() ?? '',
-      )
-      if (rawValue === null) return
-
-      const normalized = rawValue.trim()
-      if (!normalized) {
-        parsedMaxActiveRuns = null
-      } else if (!/^\d+$/.test(normalized) || Number.parseInt(normalized, 10) < 1) {
-        toastStore.error('Status concurrency must be a positive integer or left blank.')
-        return
-      } else {
-        parsedMaxActiveRuns = Number.parseInt(normalized, 10)
-      }
-    }
-
-    try {
-      await updateStatus(statusId, { max_active_runs: parsedMaxActiveRuns })
-      requestReload(projectId)
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update concurrency.',
-      )
-    }
-  }
+  const controller = createTicketsPageController()
 </script>
 
 <div class="flex h-full min-h-0 flex-col gap-2 px-4 py-3">
   <BoardToolbar
     filter={ticketBoardToolbarStore.filter}
     hideEmpty={ticketBoardToolbarStore.hideEmpty}
-    {workflows}
-    agents={agentOptions}
+    workflows={controller.workflows}
+    agents={controller.agentOptions}
     onFilterChange={(next) => ticketBoardToolbarStore.setFilter(next)}
     onHideEmptyChange={(next) => ticketBoardToolbarStore.setHideEmpty(next)}
   />
-  {#if error}
+  {#if controller.error}
     <div
       class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
     >
-      {error}
+      {controller.error}
     </div>
   {/if}
-  {#if loading && allColumns.length === 0}
+  {#if controller.loading && controller.allColumns.length === 0}
     <!-- Skeleton board columns -->
     {#if ticketViewStore.mode === 'board'}
       <div class="flex min-h-0 flex-1 gap-4 overflow-x-auto p-1">
@@ -488,22 +92,25 @@
     {/if}
   {:else if ticketViewStore.mode === 'board'}
     <BoardView
-      groups={filteredGroups}
-      statuses={allStatuses}
-      {hiddenColumns}
-      onticketclick={handleTicketClick}
-      ondragstartticket={handleTicketDragStart}
-      ondragendticket={handleTicketDragEnd}
-      ondragovercolumn={handleTicketDragOverColumn}
-      ondropticket={handleTicketDrop}
-      onStatusChange={handleStatusChange}
-      onPriorityChange={handlePriorityChange}
+      groups={controller.filteredGroups}
+      statuses={controller.allStatuses}
+      hiddenColumns={controller.hiddenColumns}
+      onticketclick={controller.handleTicketClick}
+      ondragstartticket={controller.handleTicketDragStart}
+      ondragendticket={controller.handleTicketDragEnd}
+      ondragovercolumn={controller.handleTicketDragOverColumn}
+      ondropticket={controller.handleTicketDrop}
+      onStatusChange={controller.handleStatusChange}
+      onPriorityChange={controller.handlePriorityChange}
       onCreateTicket={(statusId) => appStore.openNewTicketDialog(statusId)}
-      onColumnAction={handleColumnAction}
-      {draggingTicketId}
-      {dropColumnId}
+      onColumnAction={controller.handleColumnAction}
+      draggingTicketId={controller.draggingTicketId}
+      dropColumnId={controller.dropColumnId}
     />
   {:else}
-    <BoardListView columns={filteredColumns} onticketclick={handleTicketClick} />
+    <BoardListView
+      columns={controller.filteredColumns}
+      onticketclick={controller.handleTicketClick}
+    />
   {/if}
 </div>

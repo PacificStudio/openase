@@ -33,3 +33,18 @@ export function getEligibleInitialPromptSignature({
     shouldApplyDraft: activeDraft.trim().length === 0,
   }
 }
+
+export function applyEligibleInitialPrompt(
+  params: EligibleInitialPromptInput & {
+    setDraft: (value: string) => void
+  },
+) {
+  const result = getEligibleInitialPromptSignature(params)
+  if (!result) {
+    return params.appliedInitialPromptSignature
+  }
+  if (result.shouldApplyDraft) {
+    params.setDraft(params.nextInitialPrompt)
+  }
+  return result.signature
+}

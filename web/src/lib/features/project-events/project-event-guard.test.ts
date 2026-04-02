@@ -13,6 +13,7 @@ const allowedConnectEventStreamImports = new Set([
 
 const allowedProjectStreamSources = new Set([
   path.join(libRoot, 'features/project-events/project-event-bus.ts'),
+  path.join(libRoot, 'testing/e2e/mock-api.ts'),
 ])
 
 describe('project passive event bus guard', () => {

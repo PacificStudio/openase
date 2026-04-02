@@ -26,6 +26,28 @@ export function defaultScheduleConfig(): ScheduleConfig {
   }
 }
 
+export function getScheduleIntervalMax(mode: ScheduleMode) {
+  switch (mode) {
+    case 'seconds':
+    case 'minutes':
+      return 59
+    case 'hours':
+      return 23
+    case 'daily':
+      return 365
+    case 'monthly':
+      return 12
+  }
+}
+
+export function clampScheduleNumber(val: string, min: number, max: number, fallback: number) {
+  const parsed = Number.parseInt(val, 10)
+  if (!Number.isFinite(parsed)) {
+    return fallback
+  }
+  return Math.max(min, Math.min(max, parsed))
+}
+
 export function buildCronExpression(config: ScheduleConfig): string {
   const { mode, interval, atMinute, atHour, atDay } = config
 

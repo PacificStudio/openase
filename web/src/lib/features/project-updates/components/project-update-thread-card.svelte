@@ -4,11 +4,15 @@
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
   import * as Select from '$ui/select'
-  import { AlertTriangle, CircleCheck, CircleX, Pencil, Send, Trash2, X } from '@lucide/svelte'
+  import { Pencil, Trash2, X } from '@lucide/svelte'
   import { isProjectUpdateEdited, projectUpdateEditedLabel } from '../metadata'
   import { projectUpdateStatusLabel } from '../status'
   import type { ProjectUpdateStatus, ProjectUpdateThread } from '../types'
-  import ProjectUpdateCommentItem from './project-update-comment-item.svelte'
+  import {
+    projectUpdateStatusConfig,
+    projectUpdateStatusOptions,
+  } from '../project-update-thread-status'
+  import ProjectUpdateThreadReplies from './project-update-thread-replies.svelte'
 
   let {
     thread,
@@ -42,43 +46,12 @@
   let creatingComment = $state(false)
   let showComments = $state(false)
 
-  const statusConfig: Record<
-    ProjectUpdateStatus,
-    { icon: typeof CircleCheck; dotClass: string; textClass: string }
-  > = {
-    on_track: {
-      icon: CircleCheck,
-      dotClass: 'text-emerald-500',
-      textClass: 'text-emerald-700 dark:text-emerald-400',
-    },
-    at_risk: {
-      icon: AlertTriangle,
-      dotClass: 'text-amber-500',
-      textClass: 'text-amber-700 dark:text-amber-400',
-    },
-    off_track: {
-      icon: CircleX,
-      dotClass: 'text-rose-500',
-      textClass: 'text-rose-700 dark:text-rose-400',
-    },
-  }
-
-  const threadStatusCfg = $derived(statusConfig[thread.status])
+  const threadStatusCfg = $derived(projectUpdateStatusConfig[thread.status])
   const ThreadStatusIcon = $derived(threadStatusCfg.icon)
 
-  const editStatusOptions: Array<{
-    value: ProjectUpdateStatus
-    label: string
-    icon: typeof CircleCheck
-    textClass: string
-  }> = [
-    { value: 'on_track', label: 'On track', icon: CircleCheck, textClass: 'text-emerald-600' },
-    { value: 'at_risk', label: 'At risk', icon: AlertTriangle, textClass: 'text-amber-600' },
-    { value: 'off_track', label: 'Off track', icon: CircleX, textClass: 'text-rose-600' },
-  ]
-
   const currentEditStatusOption = $derived(
-    editStatusOptions.find((o) => o.value === editingStatus) ?? editStatusOptions[0],
+    projectUpdateStatusOptions.find((option) => option.value === editingStatus) ??
+      projectUpdateStatusOptions[0],
   )
   const CurrentEditStatusIcon = $derived(currentEditStatusOption.icon)
 
@@ -168,7 +141,7 @@
           {currentEditStatusOption.label}
         </Select.Trigger>
         <Select.Content>
-          {#each editStatusOptions as opt (opt.value)}
+          {#each projectUpdateStatusOptions as opt (opt.value)}
             {@const Icon = opt.icon}
             <Select.Item value={opt.value}>
               <Icon class={cn('size-3', opt.textClass)} />
@@ -237,7 +210,7 @@
                 {projectUpdateStatusLabel(thread.status)}
               </Select.Trigger>
               <Select.Content>
-                {#each editStatusOptions as opt (opt.value)}
+                {#each projectUpdateStatusOptions as opt (opt.value)}
                   {@const Icon = opt.icon}
                   <Select.Item value={opt.value}>
                     <Icon class={cn('size-3', opt.textClass)} />
@@ -305,46 +278,15 @@
       <p class="text-muted-foreground mt-1.5 ml-6.5 text-xs italic">Deleted</p>
     {/if}
 
-    {#if showComments || thread.commentCount === 0}
-      {#if thread.comments.length > 0 || !thread.isDeleted}
-        <div class="mt-2 ml-6.5 space-y-2">
-          {#each thread.comments as comment (comment.id)}
-            <ProjectUpdateCommentItem
-              threadId={thread.id}
-              {comment}
-              onUpdate={onUpdateComment}
-              onDelete={onDeleteComment}
-            />
-          {/each}
-
-          {#if !thread.isDeleted}
-            <div class="flex items-center gap-2">
-              <input
-                type="text"
-                bind:value={commentDraft}
-                onkeydown={handleCommentKeydown}
-                placeholder="Reply..."
-                aria-label={`Reply to ${thread.title}`}
-                class="text-foreground placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-xs outline-none"
-              />
-              <button
-                type="button"
-                class={cn(
-                  'shrink-0 rounded p-1 transition-colors',
-                  commentDraft.trim() && !creatingComment
-                    ? 'text-primary hover:bg-primary/10'
-                    : 'text-muted-foreground/30 cursor-not-allowed',
-                )}
-                disabled={!commentDraft.trim() || creatingComment}
-                onclick={handleCreateComment}
-                aria-label="Send reply"
-              >
-                <Send class="size-3" />
-              </button>
-            </div>
-          {/if}
-        </div>
-      {/if}
-    {/if}
+    <ProjectUpdateThreadReplies
+      {thread}
+      bind:commentDraft
+      bind:showComments
+      {creatingComment}
+      onCommentKeydown={handleCommentKeydown}
+      onCreateComment={handleCreateComment}
+      {onUpdateComment}
+      {onDeleteComment}
+    />
   </div>
 {/if}

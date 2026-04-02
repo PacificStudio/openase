@@ -1,8 +1,4 @@
-import type {
-  SkillRefinementMessagePayload,
-  SkillRefinementSessionAnchorPayload,
-  SkillRefinementStreamEvent,
-} from '$lib/api/skill-refinement'
+import type { SkillRefinementStreamEvent } from '$lib/api/skill-refinement'
 import {
   appendProjectConversationTextEntry,
   appendProjectConversationTranscriptEntry,
@@ -14,6 +10,13 @@ import {
   mapProjectConversationTaskEntry,
   type ProjectConversationTranscriptEntry,
 } from '$lib/features/chat'
+import { mapSkillRefinementMessageEvent } from './skill-refinement-transcript-message'
+import {
+  formatSkillRefinementAnchorDetail,
+  formatSkillRefinementAnchorTitle,
+  formatSkillRefinementPlanDetail,
+  mapSkillRefinementStatusEvent,
+} from './skill-refinement-transcript-status'
 
 export type SkillRefinementTranscriptState = {
   entries: ProjectConversationTranscriptEntry[]
@@ -138,7 +141,7 @@ export function appendSkillRefinementTranscriptEvent(
           id: consumeEntryId(),
           statusType: 'task_notification',
           title: 'Plan updated',
-          detail: formatPlanDetail(event.payload.explanation, event.payload.plan),
+          detail: formatSkillRefinementPlanDetail(event.payload.explanation, event.payload.plan),
           raw: {
             thread_id: event.payload.threadId,
             turn_id: event.payload.turnId,
@@ -217,8 +220,8 @@ export function appendSkillRefinementTranscriptEvent(
         createProjectConversationTaskStatusEntry({
           id: consumeEntryId(),
           statusType: 'task_notification',
-          title: formatAnchorTitle(event.payload),
-          detail: formatAnchorDetail(event.payload),
+          title: formatSkillRefinementAnchorTitle(event.payload),
+          detail: formatSkillRefinementAnchorDetail(event.payload),
           raw: {
             provider_anchor_id: event.payload.providerAnchorId,
             provider_anchor_kind: event.payload.providerAnchorKind,
@@ -276,128 +279,4 @@ export function updateSkillRefinementAnchorState(
     default:
       return anchor
   }
-}
-
-function mapSkillRefinementStatusEvent(
-  event: Extract<SkillRefinementStreamEvent, { kind: 'status' }>,
-  id: string,
-) {
-  switch (event.payload.phase) {
-    case 'editing':
-      return createProjectConversationTaskStatusEntry({
-        id,
-        statusType: 'task_started',
-        title: 'Draft refinement started',
-        detail: event.payload.message,
-      })
-    case 'testing':
-      return createProjectConversationTaskStatusEntry({
-        id,
-        statusType: 'task_progress',
-        title: 'Verification running',
-        detail: event.payload.message,
-      })
-    case 'retrying':
-      return createProjectConversationTaskStatusEntry({
-        id,
-        statusType: 'task_notification',
-        title: 'Retrying refinement',
-        detail: event.payload.message,
-      })
-    case 'verified':
-      return createProjectConversationTurnDoneEntry({ id })
-    case 'blocked':
-    case 'unverified':
-      return createProjectConversationErrorEntry({
-        id,
-        message: event.payload.message,
-      })
-    default:
-      return null
-  }
-}
-
-function mapSkillRefinementMessageEvent(
-  payload: SkillRefinementMessagePayload,
-  id: string,
-): ProjectConversationTranscriptEntry | { kind: 'text'; content: string } | null {
-  if (payload.type === 'text') {
-    const content = typeof payload.content === 'string' ? payload.content.trim() : ''
-    if (!content || looksLikeSkillRefinementResult(content)) {
-      return null
-    }
-    return { kind: 'text', content }
-  }
-
-  if (payload.type === 'diff' && isRecord(payload)) {
-    return {
-      id,
-      kind: 'diff',
-      role: 'assistant',
-      diff: {
-        type: 'diff',
-        file: typeof payload.file === 'string' ? payload.file : '',
-        hunks: Array.isArray(payload.hunks) ? (payload.hunks as never[]) : [],
-      },
-    } satisfies ProjectConversationTranscriptEntry
-  }
-
-  const derived = mapProjectConversationTaskEntry({
-    id,
-    type: payload.type,
-    raw: payload.raw ?? payload,
-  })
-  return derived
-}
-
-function looksLikeSkillRefinementResult(content: string) {
-  try {
-    const parsed = JSON.parse(content) as unknown
-    return (
-      isRecord(parsed) &&
-      parsed.type === 'skill_refinement_result' &&
-      typeof parsed.status === 'string'
-    )
-  } catch {
-    return false
-  }
-}
-
-function formatPlanDetail(
-  explanation: string | undefined,
-  plan: Array<{ step: string; status: string }>,
-) {
-  const steps = plan
-    .map((item) => `${item.status.replaceAll('_', ' ')}: ${item.step}`)
-    .filter((item) => item.trim() !== '')
-  return [explanation, steps.join('\n')].filter(Boolean).join('\n\n') || undefined
-}
-
-function formatAnchorTitle(anchor: SkillRefinementSessionAnchorPayload) {
-  switch ((anchor.providerAnchorKind || '').trim()) {
-    case 'session':
-      return 'Provider session anchored'
-    case 'thread':
-      return 'Provider thread anchored'
-    default:
-      return 'Provider anchor updated'
-  }
-}
-
-function formatAnchorDetail(anchor: SkillRefinementSessionAnchorPayload) {
-  const lines: string[] = []
-  if (anchor.providerAnchorId) {
-    lines.push(`anchor: ${anchor.providerAnchorId}`)
-  }
-  if (anchor.providerTurnId) {
-    lines.push(`turn: ${anchor.providerTurnId}`)
-  }
-  if (typeof anchor.providerTurnSupported === 'boolean') {
-    lines.push(`turn support: ${anchor.providerTurnSupported ? 'yes' : 'no'}`)
-  }
-  return lines.join('\n') || undefined
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value != null && typeof value === 'object' && !Array.isArray(value)
 }

@@ -13,6 +13,7 @@ import notificationSettingsSource from './settings/components/notification-setti
 import repositoriesSettingsSource from './settings/components/repositories-settings.svelte?raw'
 import repositoriesSettingsStateSource from './settings/components/repositories-settings-state.svelte.ts?raw'
 import securitySettingsSource from './settings/components/security-settings.svelte?raw'
+import securitySettingsGithubOutboundCredentialsSource from './settings/components/security-settings-github-outbound-credentials.svelte?raw'
 import settingsPageSource from './settings/components/settings-page.svelte?raw'
 import statusSettingsSource from './settings/components/status-settings.svelte?raw'
 import statusSettingsStateSource from './settings/components/status-settings-state.svelte.ts?raw'
@@ -38,6 +39,8 @@ const sourceByFile: Record<string, string> = {
   './settings/components/repositories-settings.svelte': repositoriesSettingsSource,
   './settings/components/repositories-settings-state.svelte.ts': repositoriesSettingsStateSource,
   './settings/components/security-settings.svelte': securitySettingsSource,
+  './settings/components/security-settings-github-outbound-credentials.svelte':
+    securitySettingsGithubOutboundCredentialsSource,
   './settings/components/settings-page.svelte': settingsPageSource,
   './settings/components/status-settings.svelte': statusSettingsSource,
   './settings/components/status-settings-state.svelte.ts': statusSettingsStateSource,
@@ -68,11 +71,7 @@ const settingsAuditCases: SettingsAuditCase[] = [
     sources: [
       {
         file: './settings/components/general-settings.svelte',
-        snippets: [
-          'listWorkflows(projectId)',
-          'updateProject(projectId, {',
-          'archiveProject(projectId)',
-        ],
+        snippets: ['updateProject(projectId, {', 'archiveProject(projectId)'],
       },
     ],
   },
@@ -101,7 +100,7 @@ const settingsAuditCases: SettingsAuditCase[] = [
       {
         file: './settings/components/status-settings-state.svelte.ts',
         snippets: [
-          'createStatus(projectId, {',
+          'createStatus(projectId, statusCreateBody(draft, isDefault))',
           'updateStatus(statusId, body)',
           'deleteStatus(status.id)',
           'resetStatuses(projectId)',
@@ -153,7 +152,11 @@ const settingsAuditCases: SettingsAuditCase[] = [
       },
       {
         file: './settings/components/security-settings.svelte',
-        snippets: ['const payload = await getSecuritySettings(projectId)', 'Explicitly deferred'],
+        snippets: ['const payload = await getSecuritySettings(projectId)'],
+      },
+      {
+        file: './settings/components/security-settings-github-outbound-credentials.svelte',
+        snippets: ['GitHub Device Flow remains deferred.'],
       },
     ],
   },

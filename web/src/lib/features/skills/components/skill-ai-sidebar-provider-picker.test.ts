@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render } from '@testing-library/svelte'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('$lib/api/skill-refinement', () => ({
   closeSkillRefinementSession: vi.fn(),
@@ -85,8 +85,14 @@ describe('SkillAiSidebar provider picker', () => {
     }
   })
 
-  afterEach(() => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(async () => {
     cleanup()
+    await vi.runOnlyPendingTimersAsync()
+    vi.useRealTimers()
     vi.clearAllMocks()
   })
 
@@ -120,6 +126,7 @@ describe('SkillAiSidebar provider picker', () => {
     const trigger = getByLabelText('Chat model')
     await fireEvent.pointerDown(trigger)
     await fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    await vi.runOnlyPendingTimersAsync()
 
     expect(getByText('Codex · codex-app-server')).toBeTruthy()
     expect(queryByText('Claude · claude-code-cli')).toBeNull()
