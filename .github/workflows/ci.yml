@@ -227,6 +227,10 @@ jobs:
           path: internal/webui/static
           if-no-files-found: error
 
+      - name: Cleanup Frontend Test Artifacts
+        if: always()
+        run: rm -rf test-results ../.playwright-artifacts
+
   backend:
     name: Backend Checks
     runs-on: [self-hosted, Linux, X64]
