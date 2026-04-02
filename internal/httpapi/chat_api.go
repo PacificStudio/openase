@@ -419,12 +419,18 @@ func (s *Server) handleStartProjectConversationTurn(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	message, err := parseProjectConversationTurnRequest(raw)
+	request, err := parseProjectConversationTurnRequest(raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
 
-	turn, err := s.projectConversationService.StartTurn(c.Request().Context(), userID, conversationID, message)
+	turn, err := s.projectConversationService.StartTurn(
+		c.Request().Context(),
+		userID,
+		conversationID,
+		request.Message,
+		request.Focus,
+	)
 	if err != nil {
 		return writeProjectConversationError(c, err)
 	}

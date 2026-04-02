@@ -72,6 +72,7 @@ type Context struct {
 	SkillID        *uuid.UUID
 	SkillFilePath  *string
 	SkillFileDraft *string
+	ProjectFocus   *ProjectConversationFocus
 }
 
 type StartInput struct {
@@ -587,7 +588,7 @@ func (s *Service) buildSystemPrompt(
 			return "", err
 		}
 	case SourceProjectSidebar:
-		if err := s.writeProjectSidebarContext(ctx, &sb, project); err != nil {
+		if err := s.writeProjectSidebarContext(ctx, &sb, project, input.Context.ProjectFocus); err != nil {
 			return "", err
 		}
 	case SourceTicketDetail:
@@ -846,6 +847,7 @@ func (s *Service) writeProjectSidebarContext(
 	ctx context.Context,
 	sb *strings.Builder,
 	project catalogdomain.Project,
+	focus *ProjectConversationFocus,
 ) error {
 	tickets, err := s.tickets.List(ctx, ticketservice.ListInput{ProjectID: project.ID})
 	if err != nil {
@@ -884,9 +886,81 @@ func (s *Service) writeProjectSidebarContext(
 	_, _ = fmt.Fprintf(sb, "- 进行中: %d\n", inProgress)
 	_, _ = fmt.Fprintf(sb, "- 已完成: %d\n", completed)
 	_, _ = fmt.Fprintf(sb, "- 失败/暂停: %d\n", failing)
+	if focus != nil {
+		sb.WriteString("\n### 当前用户关注区域\n")
+		sb.WriteString(renderProjectConversationFocus(focus))
+	}
 	sb.WriteString("\n### 最近活动\n")
 	sb.WriteString(renderActivityLines(activityItems))
 	return nil
+}
+
+func renderProjectConversationFocus(focus *ProjectConversationFocus) string {
+	if focus == nil {
+		return "- 无\n"
+	}
+
+	var sb strings.Builder
+	switch focus.Kind {
+	case ProjectConversationFocusWorkflow:
+		if focus.Workflow == nil {
+			return "- 无\n"
+		}
+		_, _ = fmt.Fprintf(&sb, "- 类型: workflow\n")
+		_, _ = fmt.Fprintf(&sb, "- 名称: %s\n", focus.Workflow.Name)
+		_, _ = fmt.Fprintf(&sb, "- workflow_id: %s\n", focus.Workflow.ID)
+		_, _ = fmt.Fprintf(&sb, "- workflow_type: %s\n", focus.Workflow.Type)
+		_, _ = fmt.Fprintf(&sb, "- harness_path: %s\n", focus.Workflow.HarnessPath)
+		_, _ = fmt.Fprintf(&sb, "- active: %t\n", focus.Workflow.IsActive)
+		if focus.Workflow.SelectedArea != "" {
+			_, _ = fmt.Fprintf(&sb, "- selected_area: %s\n", focus.Workflow.SelectedArea)
+		}
+		_, _ = fmt.Fprintf(&sb, "- has_dirty_draft: %t\n", focus.Workflow.HasDirtyDraft)
+	case ProjectConversationFocusSkill:
+		if focus.Skill == nil {
+			return "- 无\n"
+		}
+		_, _ = fmt.Fprintf(&sb, "- 类型: skill\n")
+		_, _ = fmt.Fprintf(&sb, "- 名称: %s\n", focus.Skill.Name)
+		_, _ = fmt.Fprintf(&sb, "- skill_id: %s\n", focus.Skill.ID)
+		_, _ = fmt.Fprintf(&sb, "- selected_file_path: %s\n", focus.Skill.SelectedFilePath)
+		if len(focus.Skill.BoundWorkflowNames) > 0 {
+			_, _ = fmt.Fprintf(&sb, "- bound_workflows: %s\n", strings.Join(focus.Skill.BoundWorkflowNames, ", "))
+		} else {
+			sb.WriteString("- bound_workflows: 无\n")
+		}
+		_, _ = fmt.Fprintf(&sb, "- has_dirty_draft: %t\n", focus.Skill.HasDirtyDraft)
+	case ProjectConversationFocusTicket:
+		if focus.Ticket == nil {
+			return "- 无\n"
+		}
+		_, _ = fmt.Fprintf(&sb, "- 类型: ticket\n")
+		_, _ = fmt.Fprintf(&sb, "- 标识: %s\n", focus.Ticket.Identifier)
+		_, _ = fmt.Fprintf(&sb, "- ticket_id: %s\n", focus.Ticket.ID)
+		_, _ = fmt.Fprintf(&sb, "- 标题: %s\n", focus.Ticket.Title)
+		_, _ = fmt.Fprintf(&sb, "- 状态: %s\n", focus.Ticket.Status)
+		if focus.Ticket.SelectedArea != "" {
+			_, _ = fmt.Fprintf(&sb, "- selected_area: %s\n", focus.Ticket.SelectedArea)
+		}
+	case ProjectConversationFocusMachine:
+		if focus.Machine == nil {
+			return "- 无\n"
+		}
+		_, _ = fmt.Fprintf(&sb, "- 类型: machine\n")
+		_, _ = fmt.Fprintf(&sb, "- 名称: %s\n", focus.Machine.Name)
+		_, _ = fmt.Fprintf(&sb, "- machine_id: %s\n", focus.Machine.ID)
+		_, _ = fmt.Fprintf(&sb, "- host: %s\n", focus.Machine.Host)
+		if focus.Machine.Status != "" {
+			_, _ = fmt.Fprintf(&sb, "- 状态: %s\n", focus.Machine.Status)
+		}
+		if focus.Machine.SelectedArea != "" {
+			_, _ = fmt.Fprintf(&sb, "- selected_area: %s\n", focus.Machine.SelectedArea)
+		}
+		if focus.Machine.HealthSummary != "" {
+			_, _ = fmt.Fprintf(&sb, "- health_summary: %s\n", focus.Machine.HealthSummary)
+		}
+	}
+	return sb.String()
 }
 
 func (s *Service) writeTicketDetailContext(

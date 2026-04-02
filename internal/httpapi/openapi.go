@@ -294,7 +294,32 @@ type OpenAPIProjectConversationCreateRequest struct {
 }
 
 type OpenAPIProjectConversationTurnRequest struct {
-	Message string `json:"message"`
+	Message string                               `json:"message"`
+	Focus   *OpenAPIProjectConversationTurnFocus `json:"focus,omitempty"`
+}
+
+type OpenAPIProjectConversationTurnFocus struct {
+	Kind               string   `json:"kind"`
+	WorkflowID         *string  `json:"workflow_id,omitempty"`
+	WorkflowName       *string  `json:"workflow_name,omitempty"`
+	WorkflowType       *string  `json:"workflow_type,omitempty"`
+	HarnessPath        *string  `json:"harness_path,omitempty"`
+	IsActive           *bool    `json:"is_active,omitempty"`
+	SelectedArea       *string  `json:"selected_area,omitempty"`
+	HasDirtyDraft      *bool    `json:"has_dirty_draft,omitempty"`
+	SkillID            *string  `json:"skill_id,omitempty"`
+	SkillName          *string  `json:"skill_name,omitempty"`
+	SelectedFilePath   *string  `json:"selected_file_path,omitempty"`
+	BoundWorkflowNames []string `json:"bound_workflow_names,omitempty"`
+	TicketID           *string  `json:"ticket_id,omitempty"`
+	TicketIdentifier   *string  `json:"ticket_identifier,omitempty"`
+	TicketTitle        *string  `json:"ticket_title,omitempty"`
+	TicketStatus       *string  `json:"ticket_status,omitempty"`
+	MachineID          *string  `json:"machine_id,omitempty"`
+	MachineName        *string  `json:"machine_name,omitempty"`
+	MachineHost        *string  `json:"machine_host,omitempty"`
+	MachineStatus      *string  `json:"machine_status,omitempty"`
+	HealthSummary      *string  `json:"health_summary,omitempty"`
 }
 
 type OpenAPIProjectConversationInterruptResponseRequest struct {
@@ -1559,7 +1584,29 @@ var (
 		"context.project_id": "Project ID that owns the conversation workspace and transcript.",
 	}
 	openAPIProjectConversationTurnDescriptions = map[string]string{
-		"message": "User message content appended as the next project conversation turn.",
+		"message":                    "User message content appended as the next project conversation turn.",
+		"focus":                      "Optional per-turn focus context describing the currently selected workflow, skill, ticket, or machine surface.",
+		"focus.kind":                 "Focused surface kind. Supported values are workflow, skill, ticket, and machine.",
+		"focus.workflow_id":          "Workflow ID currently in focus.",
+		"focus.workflow_name":        "Workflow name currently in focus.",
+		"focus.workflow_type":        "Workflow type currently in focus.",
+		"focus.harness_path":         "Harness path for the focused workflow.",
+		"focus.is_active":            "Whether the focused workflow is currently active.",
+		"focus.selected_area":        "UI sub-area currently in focus, such as harness, detail, or health.",
+		"focus.has_dirty_draft":      "Whether the focused workflow or skill surface currently has unsaved draft edits.",
+		"focus.skill_id":             "Skill ID currently in focus.",
+		"focus.skill_name":           "Skill name currently in focus.",
+		"focus.selected_file_path":   "Selected bundle file path for the focused skill surface.",
+		"focus.bound_workflow_names": "Workflow names currently bound to the focused skill.",
+		"focus.ticket_id":            "Ticket ID currently in focus.",
+		"focus.ticket_identifier":    "Human-readable ticket identifier currently in focus.",
+		"focus.ticket_title":         "Ticket title currently in focus.",
+		"focus.ticket_status":        "Ticket status currently in focus.",
+		"focus.machine_id":           "Machine ID currently in focus.",
+		"focus.machine_name":         "Machine name currently in focus.",
+		"focus.machine_host":         "Machine host currently in focus.",
+		"focus.machine_status":       "Machine runtime status currently in focus.",
+		"focus.health_summary":       "Compact health or resource summary for the focused machine.",
 	}
 	openAPIProjectConversationInterruptResponseDescriptions = map[string]string{
 		"decision": "Provider-native interrupt decision identifier such as approve_once.",

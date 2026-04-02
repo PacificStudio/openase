@@ -7,6 +7,7 @@ export { default as ProjectConversationPanel } from './project-conversation-pane
 export { default as ProjectAssistantSheet } from './project-assistant-sheet.svelte'
 export { default as StructuredDiffPreview } from './structured-diff-preview.svelte'
 export * from './ephemeral-chat-session-controller.svelte'
+export * from './project-ai-focus'
 export * from './project-conversation-controller.svelte'
 export * from './provider-options'
 export * from './session-policy'
