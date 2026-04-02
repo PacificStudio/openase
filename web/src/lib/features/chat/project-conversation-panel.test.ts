@@ -171,10 +171,10 @@ describe('ProjectConversationPanel', () => {
     await fireEvent.input(prompt, { target: { value: 'Summarize the repo.' } })
     await fireEvent.click(sendButton)
     await waitFor(() => {
-      expect(startProjectConversationTurn).toHaveBeenCalledWith(
-        'conversation-1',
-        'Summarize the repo.',
-      )
+      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-1', {
+        message: 'Summarize the repo.',
+        focus: undefined,
+      })
     })
 
     streamHandlers.get('conversation-1')?.onEvent({
@@ -206,11 +206,10 @@ describe('ProjectConversationPanel', () => {
     await fireEvent.click(updatedSendButton)
 
     await waitFor(() => {
-      expect(startProjectConversationTurn).toHaveBeenNthCalledWith(
-        2,
-        'conversation-2',
-        'Parallel tab keeps working.',
-      )
+      expect(startProjectConversationTurn).toHaveBeenNthCalledWith(2, 'conversation-2', {
+        message: 'Parallel tab keeps working.',
+        focus: undefined,
+      })
     })
 
     expect(getAllByRole('button', { name: /Close /i }).length).toBeGreaterThanOrEqual(1)
@@ -251,7 +250,10 @@ describe('ProjectConversationPanel', () => {
     await fireEvent.input(prompt, { target: { value: 'First tab' } })
     await fireEvent.click(getByRole('button', { name: 'Send message' }))
     await waitFor(() => {
-      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-1', 'First tab')
+      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-1', {
+        message: 'First tab',
+        focus: undefined,
+      })
     })
 
     await fireEvent.click(getByRole('button', { name: /New Tab/i }))
@@ -261,12 +263,69 @@ describe('ProjectConversationPanel', () => {
     await fireEvent.input(secondPrompt, { target: { value: 'Second tab' } })
     await fireEvent.click(getByRole('button', { name: 'Send message' }))
     await waitFor(() => {
-      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-2', 'Second tab')
+      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-2', {
+        message: 'Second tab',
+        focus: undefined,
+      })
     })
 
     await fireEvent.click(getByRole('button', { name: 'Close First tab' }))
 
     expect(queryByRole('button', { name: /^First tab$/ })).toBeNull()
     expect(getByRole('button', { name: /^Second tab Running$/ })).toBeTruthy()
+  })
+
+  it('shows the current focus card and lets the user remove it for the next send', async () => {
+    listProjectConversations.mockResolvedValue({ conversations: [] })
+    createProjectConversation.mockResolvedValue({
+      conversation: {
+        id: 'conversation-1',
+        providerId: 'provider-1',
+        lastActivityAt: '2026-04-01T10:00:00Z',
+      },
+    })
+    watchProjectConversation.mockResolvedValue(undefined)
+    startProjectConversationTurn.mockResolvedValue({
+      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
+    })
+
+    const { getByLabelText, getByPlaceholderText, getByRole, queryByText } = render(
+      ProjectConversationPanel,
+      {
+        props: {
+          context: { projectId: 'project-1' },
+          providers: providerFixtures,
+          defaultProviderId: 'provider-1',
+          focus: {
+            kind: 'workflow',
+            projectId: 'project-1',
+            workflowId: 'workflow-1',
+            workflowName: 'Backend Engineer',
+            workflowType: 'coding',
+            harnessPath: '.openase/harnesses/backend.md',
+            isActive: true,
+            selectedArea: 'harness',
+            hasDirtyDraft: true,
+          },
+          placeholder: 'Ask anything about this project…',
+        },
+      },
+    )
+
+    expect(queryByText('Workflow: Backend Engineer / harness')).toBeTruthy()
+
+    await fireEvent.click(getByLabelText('Remove focus for this send'))
+    expect(queryByText('Workflow: Backend Engineer / harness')).toBeNull()
+
+    const prompt = getByPlaceholderText('Ask anything about this project…') as HTMLTextAreaElement
+    await fireEvent.input(prompt, { target: { value: '帮我看看这里要怎么改' } })
+    await fireEvent.click(getByRole('button', { name: 'Send message' }))
+
+    await waitFor(() => {
+      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-1', {
+        message: '帮我看看这里要怎么改',
+        focus: undefined,
+      })
+    })
   })
 })

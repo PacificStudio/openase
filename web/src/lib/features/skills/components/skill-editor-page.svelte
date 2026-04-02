@@ -2,6 +2,7 @@
   import { goto, beforeNavigate } from '$app/navigation'
   import { ApiError } from '$lib/api/client'
   import type { SkillFile, Skill, Workflow } from '$lib/api/contracts'
+  import { PROJECT_AI_FOCUS_PRIORITY } from '$lib/features/chat/project-ai-focus'
   import {
     bindSkill,
     deleteSkill,
@@ -43,6 +44,7 @@
   import SkillEditorWorkspace from './skill-editor-workspace.svelte'
 
   let { skillId }: { skillId: string } = $props()
+  const projectAIFocusOwner = 'skill-editor-page'
 
   let skill = $state<Skill | null>(null)
   let files = $state<SkillFile[]>([])
@@ -146,6 +148,32 @@
       }
     }
   }
+
+  $effect(() => {
+    const projectId = appStore.currentProject?.id
+    if (!projectId || loading || !skill) {
+      appStore.clearProjectAssistantFocus(projectAIFocusOwner)
+      return
+    }
+
+    appStore.setProjectAssistantFocus(
+      projectAIFocusOwner,
+      {
+        kind: 'skill',
+        projectId,
+        skillId: skill.id,
+        skillName: skill.name,
+        selectedFilePath: selectedFilePath ?? 'SKILL.md',
+        boundWorkflowNames: skill.bound_workflows.map((workflow) => workflow.name),
+        hasDirtyDraft: hasDirtyChanges,
+      },
+      PROJECT_AI_FOCUS_PRIORITY.workspace,
+    )
+
+    return () => {
+      appStore.clearProjectAssistantFocus(projectAIFocusOwner)
+    }
+  })
 
   // Warn on browser tab close with unsaved changes
   function handleBeforeUnload(event: BeforeUnloadEvent) {

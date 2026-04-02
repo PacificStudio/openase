@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { appStore } from '$lib/stores/app.svelte'
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
   import ProjectConversationPanel from './project-conversation-panel.svelte'
 
@@ -15,6 +16,10 @@
     defaultProviderId?: string | null
     initialPrompt?: string
   } = $props()
+
+  const focus = $derived(
+    appStore.projectAssistantFocus?.projectId === projectId ? appStore.projectAssistantFocus : null,
+  )
 </script>
 
 <Sheet bind:open>
@@ -29,6 +34,7 @@
         {organizationId}
         {defaultProviderId}
         context={{ projectId }}
+        {focus}
         title="Project AI"
         placeholder="Ask anything about this project…"
         {initialPrompt}

@@ -8,7 +8,7 @@ vi.mock('./sse', () => ({
   consumeEventStream,
 }))
 
-import { streamChatTurn } from './chat'
+import { startProjectConversationTurn, streamChatTurn } from './chat'
 
 describe('streamChatTurn', () => {
   beforeEach(() => {
@@ -241,5 +241,55 @@ describe('streamChatTurn', () => {
         },
       },
     ])
+  })
+})
+
+describe('startProjectConversationTurn', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ turn: { id: 'turn-1', turn_index: 1, status: 'started' } }),
+      }),
+    )
+  })
+
+  it('serializes per-turn workflow focus metadata', async () => {
+    await startProjectConversationTurn('conversation-1', {
+      message: '帮我看看这里要怎么改',
+      focus: {
+        kind: 'workflow',
+        projectId: 'project-1',
+        workflowId: 'workflow-1',
+        workflowName: 'Backend Engineer',
+        workflowType: 'coding',
+        harnessPath: '.openase/harnesses/backend.md',
+        isActive: true,
+        selectedArea: 'harness',
+        hasDirtyDraft: true,
+      },
+    })
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/chat/conversations/conversation-1/turns'),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          message: '帮我看看这里要怎么改',
+          focus: {
+            kind: 'workflow',
+            workflow_id: 'workflow-1',
+            workflow_name: 'Backend Engineer',
+            workflow_type: 'coding',
+            harness_path: '.openase/harnesses/backend.md',
+            is_active: true,
+            selected_area: 'harness',
+            has_dirty_draft: true,
+          },
+        }),
+      }),
+    )
   })
 })

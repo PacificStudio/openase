@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { StreamConnectionState } from '$lib/api/sse'
+  import { PROJECT_AI_FOCUS_PRIORITY } from '$lib/features/chat/project-ai-focus'
   import { appStore } from '$lib/stores/app.svelte'
   import { EphemeralChatPanel } from '$lib/features/chat'
   import TicketDrawerMainTabs from './ticket-drawer-main-tabs.svelte'
@@ -123,6 +124,7 @@
 
   let assistantOpen = $state(false)
   let previousTicketId = ''
+  const projectAIFocusOwner = 'ticket-drawer'
 
   $effect(() => {
     if (ticket.id === previousTicketId) {
@@ -131,6 +133,31 @@
 
     previousTicketId = ticket.id
     assistantOpen = false
+  })
+
+  $effect(() => {
+    if (!projectId || !ticket.id) {
+      appStore.clearProjectAssistantFocus(projectAIFocusOwner)
+      return
+    }
+
+    appStore.setProjectAssistantFocus(
+      projectAIFocusOwner,
+      {
+        kind: 'ticket',
+        projectId,
+        ticketId: ticket.id,
+        ticketIdentifier: ticket.identifier,
+        ticketTitle: ticket.title,
+        ticketStatus: ticket.status.name,
+        selectedArea: 'detail',
+      },
+      PROJECT_AI_FOCUS_PRIORITY.overlay,
+    )
+
+    return () => {
+      appStore.clearProjectAssistantFocus(projectAIFocusOwner)
+    }
   })
 </script>
 

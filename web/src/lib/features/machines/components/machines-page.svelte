@@ -1,5 +1,6 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
+  import { PROJECT_AI_FOCUS_PRIORITY } from '$lib/features/chat/project-ai-focus'
   import { toastStore } from '$lib/stores/toast.svelte'
   import MachinesPageBody from './machines-page-body.svelte'
   import { syncMachineListState } from './machines-page-state-sync'
@@ -51,6 +52,7 @@
   let draft = $state<MachineDraft>(createEmptyMachineDraft()),
     snapshot = $state<MachineSnapshot | null>(null),
     probe = $state<MachineProbeResult | null>(null)
+  const projectAIFocusOwner = 'machines-page'
   const selectedMachine = $derived(machines.find((machine) => machine.id === selectedId) ?? null),
     filteredMachines = $derived(filterMachines(machines, searchQuery))
   $effect(() => {
@@ -253,6 +255,47 @@
       deletingMachineId = ''
     }
   }
+
+  function summarizeMachineFocus(machine: MachineItem, nextSnapshot: MachineSnapshot | null) {
+    const parts = [machine.status]
+    if (nextSnapshot?.checkedAt) {
+      parts.push(`checked ${nextSnapshot.checkedAt}`)
+    }
+    if (typeof nextSnapshot?.agentDispatchable === 'boolean') {
+      parts.push(nextSnapshot.agentDispatchable ? 'agent ready' : 'agent blocked')
+    }
+    if ((nextSnapshot?.monitorErrors?.length ?? 0) > 0) {
+      parts.push(`${nextSnapshot?.monitorErrors.length ?? 0} monitor errors`)
+    }
+    return parts.filter(Boolean).join(' · ')
+  }
+
+  $effect(() => {
+    const projectId = appStore.currentProject?.id
+    if (!projectId || !selectedMachine || !editorOpen || mode !== 'edit') {
+      appStore.clearProjectAssistantFocus(projectAIFocusOwner)
+      return
+    }
+
+    appStore.setProjectAssistantFocus(
+      projectAIFocusOwner,
+      {
+        kind: 'machine',
+        projectId,
+        machineId: selectedMachine.id,
+        machineName: selectedMachine.name,
+        machineHost: selectedMachine.host,
+        machineStatus: selectedMachine.status,
+        selectedArea: snapshot ? 'health' : 'editor',
+        healthSummary: summarizeMachineFocus(selectedMachine, snapshot),
+      },
+      PROJECT_AI_FOCUS_PRIORITY.workspace,
+    )
+
+    return () => {
+      appStore.clearProjectAssistantFocus(projectAIFocusOwner)
+    }
+  })
 </script>
 
 <MachinesPageBody

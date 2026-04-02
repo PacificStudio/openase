@@ -1,5 +1,6 @@
 import { ApiError } from './client'
 import { consumeEventStream, type SSEFrame } from './sse'
+import type { ProjectAIFocus } from '$lib/features/chat/project-ai-focus'
 
 const chatUserHeader = 'X-OpenASE-Chat-User'
 const chatUserStorageKey = 'openase.ephemeral-chat-user-id'
@@ -151,6 +152,11 @@ export type ProjectConversationInterruptResolvedPayload = {
   decision?: string
 }
 
+export type ProjectConversationTurnRequest = {
+  message: string
+  focus?: ProjectAIFocus | null
+}
+
 export type ProjectConversationTurnDonePayload = {
   conversationId: string
   turnId: string
@@ -266,14 +272,68 @@ export function listProjectConversationEntries(conversationId: string) {
   )
 }
 
-export function startProjectConversationTurn(conversationId: string, message: string) {
+export function startProjectConversationTurn(
+  conversationId: string,
+  request: ProjectConversationTurnRequest,
+) {
   return fetchJSON<{ turn: { id: string; turn_index: number; status: string } }>(
     `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/turns`,
     {
       method: 'POST',
-      body: { message },
+      body: {
+        message: request.message,
+        focus: serializeProjectConversationFocus(request.focus),
+      },
     },
   )
+}
+
+function serializeProjectConversationFocus(focus: ProjectAIFocus | null | undefined) {
+  if (!focus) {
+    return undefined
+  }
+
+  switch (focus.kind) {
+    case 'workflow':
+      return {
+        kind: focus.kind,
+        workflow_id: focus.workflowId,
+        workflow_name: focus.workflowName,
+        workflow_type: focus.workflowType,
+        harness_path: focus.harnessPath,
+        is_active: focus.isActive,
+        selected_area: focus.selectedArea,
+        has_dirty_draft: focus.hasDirtyDraft,
+      }
+    case 'skill':
+      return {
+        kind: focus.kind,
+        skill_id: focus.skillId,
+        skill_name: focus.skillName,
+        selected_file_path: focus.selectedFilePath,
+        bound_workflow_names: focus.boundWorkflowNames,
+        has_dirty_draft: focus.hasDirtyDraft,
+      }
+    case 'ticket':
+      return {
+        kind: focus.kind,
+        ticket_id: focus.ticketId,
+        ticket_identifier: focus.ticketIdentifier,
+        ticket_title: focus.ticketTitle,
+        ticket_status: focus.ticketStatus,
+        selected_area: focus.selectedArea,
+      }
+    case 'machine':
+      return {
+        kind: focus.kind,
+        machine_id: focus.machineId,
+        machine_name: focus.machineName,
+        machine_host: focus.machineHost,
+        machine_status: focus.machineStatus,
+        selected_area: focus.selectedArea,
+        health_summary: focus.healthSummary,
+      }
+  }
 }
 
 export async function watchProjectConversation(

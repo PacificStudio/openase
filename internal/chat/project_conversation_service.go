@@ -269,6 +269,7 @@ func (s *ProjectConversationService) StartTurn(
 	userID UserID,
 	conversationID uuid.UUID,
 	message string,
+	focus *ProjectConversationFocus,
 ) (domain.Turn, error) {
 	conversation, err := s.GetConversation(ctx, userID, conversationID)
 	if err != nil {
@@ -298,7 +299,7 @@ func (s *ProjectConversationService) StartTurn(
 		includeRecovery = false
 	}
 
-	systemPrompt, err := s.buildProjectConversationPrompt(ctx, conversation, project, includeRecovery)
+	systemPrompt, err := s.buildProjectConversationPrompt(ctx, conversation, project, focus, includeRecovery)
 	if err != nil {
 		return domain.Turn{}, err
 	}
@@ -620,12 +621,16 @@ func (s *ProjectConversationService) buildProjectConversationPrompt(
 	ctx context.Context,
 	conversation domain.Conversation,
 	project catalogdomain.Project,
+	focus *ProjectConversationFocus,
 	includeRecovery bool,
 ) (string, error) {
 	basePrompt, err := s.promptBuilder.buildSystemPrompt(ctx, StartInput{
 		Message: "",
 		Source:  SourceProjectSidebar,
-		Context: Context{ProjectID: project.ID},
+		Context: Context{
+			ProjectID:    project.ID,
+			ProjectFocus: focus,
+		},
 	}, project)
 	if err != nil {
 		return "", err

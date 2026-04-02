@@ -88,7 +88,7 @@ func TestProjectConversationPromptIncludesRecoverySummaryAndTranscript(t *testin
 		Name:           "OpenASE",
 		Slug:           "openase",
 		Description:    "Issue-driven automation",
-	}, true)
+	}, nil, true)
 	if err != nil {
 		t.Fatalf("build recovery prompt: %v", err)
 	}
@@ -102,6 +102,74 @@ func TestProjectConversationPromptIncludesRecoverySummaryAndTranscript(t *testin
 		"Continue from this conversation state",
 	) {
 		t.Fatalf("expected recovery prompt context, got %q", prompt)
+	}
+}
+
+func TestProjectConversationPromptIncludesCurrentFocus(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	service := NewProjectConversationService(
+		nil,
+		nil,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             uuid.MustParse("550e8400-e29b-41d4-a716-446655440000"),
+					OrganizationID: uuid.MustParse("660e8400-e29b-41d4-a716-446655440000"),
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		nil,
+		nil,
+	)
+
+	prompt, err := service.buildProjectConversationPrompt(
+		ctx,
+		chatdomain.Conversation{
+			ID:        uuid.MustParse("770e8400-e29b-41d4-a716-446655440000"),
+			ProjectID: uuid.MustParse("550e8400-e29b-41d4-a716-446655440000"),
+		},
+		catalogdomain.Project{
+			ID:             uuid.MustParse("550e8400-e29b-41d4-a716-446655440000"),
+			OrganizationID: uuid.MustParse("660e8400-e29b-41d4-a716-446655440000"),
+			Name:           "OpenASE",
+			Slug:           "openase",
+			Description:    "Issue-driven automation",
+		},
+		&ProjectConversationFocus{
+			Kind: ProjectConversationFocusWorkflow,
+			Workflow: &ProjectConversationWorkflowFocus{
+				ID:            uuid.MustParse("880e8400-e29b-41d4-a716-446655440000"),
+				Name:          "Backend Engineer",
+				Type:          "coding",
+				HarnessPath:   ".openase/harnesses/backend.md",
+				IsActive:      true,
+				SelectedArea:  "harness",
+				HasDirtyDraft: true,
+			},
+		},
+		false,
+	)
+	if err != nil {
+		t.Fatalf("build project conversation prompt: %v", err)
+	}
+
+	if !containsAll(
+		prompt,
+		"### 当前用户关注区域",
+		"- 类型: workflow",
+		"- 名称: Backend Engineer",
+		"- harness_path: .openase/harnesses/backend.md",
+		"- selected_area: harness",
+		"- has_dirty_draft: true",
+	) {
+		t.Fatalf("expected focus context in prompt, got %q", prompt)
 	}
 }
 
@@ -381,7 +449,7 @@ func TestProjectConversationStartTurnKeepsOtherLiveConversationsRunning(t *testi
 	previousRuntime := &fakeRuntime{closeResult: true}
 	service.live[firstConversation.ID] = &liveProjectConversation{runtime: previousRuntime}
 
-	if _, err := service.StartTurn(ctx, UserID("user:conversation"), secondConversation.ID, "Switch to this conversation"); err != nil {
+	if _, err := service.StartTurn(ctx, UserID("user:conversation"), secondConversation.ID, "Switch to this conversation", nil); err != nil {
 		t.Fatalf("start second conversation turn: %v", err)
 	}
 
@@ -474,6 +542,7 @@ func TestProjectConversationStartTurnRejectsSecondActiveTurnInSameConversation(t
 		UserID("user:conversation"),
 		conversation.ID,
 		"Second turn should be rejected",
+		nil,
 	)
 	if !errors.Is(err, ErrConversationTurnActive) {
 		t.Fatalf("expected ErrConversationTurnActive, got %v", err)
@@ -558,7 +627,7 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 	)
 	service.ConfigurePlatformEnvironment("http://127.0.0.1:19836/api/v1/platform", fakeProjectConversationAgentPlatform{})
 
-	if _, err := service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Inspect the project"); err != nil {
+	if _, err := service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Inspect the project", nil); err != nil {
 		t.Fatalf("start conversation turn: %v", err)
 	}
 

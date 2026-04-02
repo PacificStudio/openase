@@ -4,8 +4,10 @@ import {
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
   type ProjectConversation,
+  type ProjectConversationTurnRequest,
 } from '$lib/api/chat'
 import type { AgentProvider } from '$lib/api/contracts'
+import type { ProjectAIFocus } from './project-ai-focus'
 import {
   confirmProjectConversationActionProposal,
   resetProjectConversationRuntime,
@@ -461,7 +463,7 @@ export function createProjectConversationController(
       ensureTabExists()
       persistTabs()
     },
-    async sendTurn(message: string) {
+    async sendTurn(message: string, focus?: ProjectAIFocus | null) {
       const trimmed = message.trim()
       const projectId = input.getProjectId()
       const activeTab = getActiveTab()
@@ -505,7 +507,11 @@ export function createProjectConversationController(
         activeTab.activeAssistantEntryId = ''
         activeTab.restored = false
         activeTab.phase = 'submitting_turn'
-        await startProjectConversationTurn(activeTab.conversationId, trimmed)
+        const request: ProjectConversationTurnRequest = {
+          message: trimmed,
+          focus: focus ?? undefined,
+        }
+        await startProjectConversationTurn(activeTab.conversationId, request)
         if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) {
           return
         }
