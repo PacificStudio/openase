@@ -13,11 +13,8 @@ import (
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
-	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
-	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
 )
 
@@ -25,7 +22,7 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
 	fixture := seedTicketServiceFixture(ctx, t, client)
-	service := NewService(client)
+	service := newTicketService(client)
 
 	parent, err := service.Create(ctx, CreateInput{
 		ProjectID:       fixture.projectID,
@@ -57,7 +54,7 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create(child) error = %v", err)
 	}
-	if child.Parent == nil || child.Parent.ID != parent.ID || child.CreatedBy != "codex" || len(child.Dependencies) != 1 || child.Dependencies[0].Type != entticketdependency.TypeSubIssue {
+	if child.Parent == nil || child.Parent.ID != parent.ID || child.CreatedBy != "codex" || len(child.Dependencies) != 1 || child.Dependencies[0].Type != DependencyTypeSubIssue {
 		t.Fatalf("Create(child) = %+v", child)
 	}
 
@@ -72,7 +69,7 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	filtered, err := service.List(ctx, ListInput{
 		ProjectID:   fixture.projectID,
 		StatusNames: []string{"Todo"},
-		Priorities:  []entticket.Priority{"low"},
+		Priorities:  []Priority{PriorityLow},
 		Limit:       10,
 	})
 	if err != nil {
@@ -85,12 +82,12 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	blocksDependency, err := service.AddDependency(ctx, AddDependencyInput{
 		TicketID:       parent.ID,
 		TargetTicketID: fixture.legacyTicketID,
-		Type:           entticketdependency.TypeBlocks,
+		Type:           DependencyTypeBlocks,
 	})
 	if err != nil {
 		t.Fatalf("AddDependency(blocks) error = %v", err)
 	}
-	if blocksDependency.Target.ID != fixture.legacyTicketID || blocksDependency.Type != entticketdependency.TypeBlocks {
+	if blocksDependency.Target.ID != fixture.legacyTicketID || blocksDependency.Type != DependencyTypeBlocks {
 		t.Fatalf("AddDependency(blocks) = %+v", blocksDependency)
 	}
 	legacyBlockedByParent, err := service.Get(ctx, fixture.legacyTicketID)
@@ -103,7 +100,7 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	if _, err := service.AddDependency(ctx, AddDependencyInput{
 		TicketID:       parent.ID,
 		TargetTicketID: fixture.legacyTicketID,
-		Type:           entticketdependency.TypeBlocks,
+		Type:           DependencyTypeBlocks,
 	}); err != ErrDependencyConflict {
 		t.Fatalf("AddDependency(duplicate) error = %v, want %v", err, ErrDependencyConflict)
 	}
@@ -119,7 +116,7 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	blocksDependency, err = service.AddDependency(ctx, AddDependencyInput{
 		TicketID:       parent.ID,
 		TargetTicketID: fixture.legacyTicketID,
-		Type:           entticketdependency.TypeBlocks,
+		Type:           DependencyTypeBlocks,
 	})
 	if err != nil {
 		t.Fatalf("AddDependency(blocks re-add) error = %v", err)
@@ -149,34 +146,34 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 
 	linkOne, err := service.AddExternalLink(ctx, AddExternalLinkInput{
 		TicketID:   parent.ID,
-		LinkType:   entticketexternallink.LinkTypeGithubPr,
+		LinkType:   ExternalLinkTypeGithubPR,
 		URL:        "https://github.com/GrandCX/openase/pull/278",
 		ExternalID: "GrandCX/openase#278",
 		Title:      "coverage rollout",
 		Status:     "open",
-		Relation:   entticketexternallink.RelationResolves,
+		Relation:   ExternalLinkRelationResolves,
 	})
 	if err != nil {
 		t.Fatalf("AddExternalLink(linkOne) error = %v", err)
 	}
-	if linkOne.Relation != entticketexternallink.RelationResolves {
+	if linkOne.Relation != ExternalLinkRelationResolves {
 		t.Fatalf("AddExternalLink(linkOne) = %+v", linkOne)
 	}
 	if _, err := service.AddExternalLink(ctx, AddExternalLinkInput{
 		TicketID:   parent.ID,
-		LinkType:   entticketexternallink.LinkTypeGithubPr,
+		LinkType:   ExternalLinkTypeGithubPR,
 		URL:        "https://github.com/GrandCX/openase/pull/278",
 		ExternalID: "GrandCX/openase#278",
-		Relation:   entticketexternallink.RelationRelated,
+		Relation:   ExternalLinkRelationRelated,
 	}); err != ErrExternalLinkConflict {
 		t.Fatalf("AddExternalLink(duplicate) error = %v, want %v", err, ErrExternalLinkConflict)
 	}
 	linkTwo, err := service.AddExternalLink(ctx, AddExternalLinkInput{
 		TicketID:   parent.ID,
-		LinkType:   entticketexternallink.LinkTypeJiraTicket,
+		LinkType:   ExternalLinkTypeJiraTicket,
 		URL:        "https://jira.example.com/browse/ASE-278",
 		ExternalID: "ASE-278-JIRA",
-		Relation:   entticketexternallink.RelationRelated,
+		Relation:   ExternalLinkRelationRelated,
 	})
 	if err != nil {
 		t.Fatalf("AddExternalLink(linkTwo) error = %v", err)
@@ -365,7 +362,7 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	doneTickets, err := service.List(ctx, ListInput{
 		ProjectID:   fixture.projectID,
 		StatusNames: []string{"Done"},
-		Priorities:  []entticket.Priority{"high"},
+		Priorities:  []Priority{PriorityHigh},
 		Limit:       5,
 	})
 	if err != nil {
@@ -380,7 +377,7 @@ func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
 	fixture := seedTicketServiceFixture(ctx, t, client)
-	service := NewService(client)
+	service := newTicketService(client)
 
 	parent, err := service.Create(ctx, CreateInput{
 		ProjectID:  fixture.projectID,
@@ -471,14 +468,14 @@ func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 	if _, err := service.AddDependency(ctx, AddDependencyInput{
 		TicketID:       parent.ID,
 		TargetTicketID: parent.ID,
-		Type:           entticketdependency.TypeBlocks,
+		Type:           DependencyTypeBlocks,
 	}); err != ErrInvalidDependency {
 		t.Fatalf("AddDependency(self) error = %v, want %v", err, ErrInvalidDependency)
 	}
 	if _, err := service.AddDependency(ctx, AddDependencyInput{
 		TicketID:       parent.ID,
 		TargetTicketID: fixture.otherProjectTodoID,
-		Type:           entticketdependency.TypeBlocks,
+		Type:           DependencyTypeBlocks,
 	}); err != ErrTicketNotFound {
 		t.Fatalf("AddDependency(other project) error = %v, want %v", err, ErrTicketNotFound)
 	}
@@ -491,20 +488,20 @@ func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 
 	link, err := service.AddExternalLink(ctx, AddExternalLinkInput{
 		TicketID:   parent.ID,
-		LinkType:   entticketexternallink.LinkTypeGithubIssue,
+		LinkType:   ExternalLinkTypeGithubIssue,
 		URL:        "https://github.com/GrandCX/openase/issues/278",
 		ExternalID: "GrandCX/openase#278",
-		Relation:   entticketexternallink.RelationRelated,
+		Relation:   ExternalLinkRelationRelated,
 	})
 	if err != nil {
 		t.Fatalf("AddExternalLink() error = %v", err)
 	}
 	if _, err := service.AddExternalLink(ctx, AddExternalLinkInput{
 		TicketID:   uuid.New(),
-		LinkType:   entticketexternallink.LinkTypeGithubIssue,
+		LinkType:   ExternalLinkTypeGithubIssue,
 		URL:        "https://github.com/GrandCX/openase/issues/999",
 		ExternalID: "GrandCX/openase#999",
-		Relation:   entticketexternallink.RelationRelated,
+		Relation:   ExternalLinkRelationRelated,
 	}); err != ErrTicketNotFound {
 		t.Fatalf("AddExternalLink(missing ticket) error = %v, want %v", err, ErrTicketNotFound)
 	}
@@ -561,7 +558,7 @@ func TestTicketServiceRunsCancelHookWhenNonFinishStatusChangeReleasesCurrentRun(
 	client := openTestEntClient(t)
 	ctx := context.Background()
 	fixture := seedTicketServiceFixture(ctx, t, client)
-	service := NewService(client)
+	service := newTicketService(client)
 
 	projectItem, err := client.Project.Get(ctx, fixture.projectID)
 	if err != nil {
@@ -661,7 +658,7 @@ func TestTicketServiceRunsDoneHookWhenFinishStatusChangeReleasesCurrentRun(t *te
 	client := openTestEntClient(t)
 	ctx := context.Background()
 	fixture := seedTicketServiceFixture(ctx, t, client)
-	service := NewService(client)
+	service := newTicketService(client)
 
 	projectItem, err := client.Project.Get(ctx, fixture.projectID)
 	if err != nil {
@@ -764,7 +761,7 @@ func TestTicketServiceUpdateClearsFieldsAndResyncsSubIssueDependencies(t *testin
 	client := openTestEntClient(t)
 	ctx := context.Background()
 	fixture := seedTicketServiceFixture(ctx, t, client)
-	service := NewService(client)
+	service := newTicketService(client)
 
 	parentOne, err := service.Create(ctx, CreateInput{
 		ProjectID: fixture.projectID,
@@ -817,7 +814,7 @@ func TestTicketServiceUpdateClearsFieldsAndResyncsSubIssueDependencies(t *testin
 	if updated.WorkflowID != nil || updated.TargetMachineID != nil || updated.Parent == nil || updated.Parent.ID != parentTwo.ID || updated.ExternalRef != "" || updated.CreatedBy != "reviewer" || updated.CurrentRunID != nil {
 		t.Fatalf("Update(reparent and clear fields) = %+v", updated)
 	}
-	if len(updated.Dependencies) != 1 || updated.Dependencies[0].Type != entticketdependency.TypeSubIssue || updated.Dependencies[0].Target.ID != parentTwo.ID {
+	if len(updated.Dependencies) != 1 || updated.Dependencies[0].Type != DependencyTypeSubIssue || updated.Dependencies[0].Target.ID != parentTwo.ID {
 		t.Fatalf("Update(reparent and clear fields) dependencies = %+v", updated.Dependencies)
 	}
 
@@ -850,12 +847,12 @@ func TestTicketServiceUpdateClearsFieldsAndResyncsSubIssueDependencies(t *testin
 	addedSubIssue, err := service.AddDependency(ctx, AddDependencyInput{
 		TicketID:       child.ID,
 		TargetTicketID: parentOne.ID,
-		Type:           entticketdependency.TypeSubIssue,
+		Type:           DependencyTypeSubIssue,
 	})
 	if err != nil {
 		t.Fatalf("AddDependency(sub-issue) error = %v", err)
 	}
-	if addedSubIssue.Type != entticketdependency.TypeSubIssue || addedSubIssue.Target.ID != parentOne.ID {
+	if addedSubIssue.Type != DependencyTypeSubIssue || addedSubIssue.Target.ID != parentOne.ID {
 		t.Fatalf("AddDependency(sub-issue) = %+v", addedSubIssue)
 	}
 
@@ -919,11 +916,11 @@ func seedTicketServiceFixture(ctx context.Context, t *testing.T, client *ent.Cli
 		t.Fatalf("create other project: %v", err)
 	}
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}
-	otherStatuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, otherProject.ID)
+	otherStatuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, otherProject.ID)
 	if err != nil {
 		t.Fatalf("reset other project statuses: %v", err)
 	}

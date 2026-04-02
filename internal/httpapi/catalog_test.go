@@ -746,7 +746,7 @@ func TestMachineResourcesExposeEnvironmentProvisioningPlan(t *testing.T) {
 
 func TestCreateProjectSeedsDefaultTicketStatuses(t *testing.T) {
 	client := openTestEntClient(t)
-	statusService := ticketstatus.NewService(client)
+	statusService := newTicketStatusService(client)
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},

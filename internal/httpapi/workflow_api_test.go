@@ -21,8 +21,8 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
@@ -32,7 +32,7 @@ func TestWorkflowRoutesCRUDHarnessVersionsWithoutRepoSync(t *testing.T) {
 	serviceRepoRoot := createTestGitRepo(t)
 	primaryRepoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), serviceRepoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), serviceRepoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestWorkflowRoutesCRUDHarnessVersionsWithoutRepoSync(t *testing.T) {
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
-		ticketstatus.NewService(client),
+		newTicketStatusService(client),
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		workflowSvc,
@@ -82,7 +82,7 @@ func TestWorkflowRoutesCRUDHarnessVersionsWithoutRepoSync(t *testing.T) {
 	}
 	createPrimaryProjectRepo(ctx, t, client, project.ID, primaryRepoRoot)
 
-	statusSvc := ticketstatus.NewService(client)
+	statusSvc := newTicketStatusService(client)
 	statuses, err := statusSvc.ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
@@ -345,7 +345,7 @@ func TestWorkflowRoutesAllowFinishStatusInStartedStage(t *testing.T) {
 	serviceRepoRoot := createTestGitRepo(t)
 	primaryRepoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), serviceRepoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), serviceRepoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -361,7 +361,7 @@ func TestWorkflowRoutesAllowFinishStatusInStartedStage(t *testing.T) {
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
-		ticketstatus.NewService(client),
+		newTicketStatusService(client),
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		workflowSvc,
@@ -395,7 +395,7 @@ func TestWorkflowRoutesAllowFinishStatusInStartedStage(t *testing.T) {
 	}
 	createPrimaryProjectRepo(ctx, t, client, project.ID, primaryRepoRoot)
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
@@ -452,7 +452,7 @@ func TestWorkflowCreateDoesNotRequireProjectRepo(t *testing.T) {
 	serviceRepoRoot := createTestGitRepo(t)
 	primaryRepoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), serviceRepoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), serviceRepoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -468,7 +468,7 @@ func TestWorkflowCreateDoesNotRequireProjectRepo(t *testing.T) {
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
-		ticketstatus.NewService(client),
+		newTicketStatusService(client),
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		workflowSvc,
@@ -511,14 +511,14 @@ func TestWorkflowCreateDoesNotRequireProjectRepo(t *testing.T) {
 	}
 	createPrimaryProjectRepo(ctx, t, client, projectReady.ID, primaryRepoRoot)
 
-	repoLessStatuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, projectWithoutRepo.ID)
+	repoLessStatuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, projectWithoutRepo.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses for projectWithoutRepo: %v", err)
 	}
 	repoLessTodoID := findStatusIDByName(t, repoLessStatuses, "Todo")
 	repoLessDoneID := findStatusIDByName(t, repoLessStatuses, "Done")
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, projectReady.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, projectReady.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses for projectReady: %v", err)
 	}
@@ -733,7 +733,7 @@ func TestWorkflowRoutesErrorMappingsAndInvalidInputs(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -909,7 +909,7 @@ func TestBuildHarnessTemplateDataAndRenderBody(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -957,7 +957,7 @@ func TestBuildHarnessTemplateDataAndRenderBody(t *testing.T) {
 	}
 	attachProjectRepoCheckout(ctx, t, client, backendRepo.ID, localMachine.ID, repoRoot)
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}
@@ -1255,7 +1255,7 @@ func TestWorkflowCreateAndUpdateRoutesRejectInvalidPayloads(t *testing.T) {
 	repoRoot := createTestGitRepo(t)
 	primaryRepoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -1271,7 +1271,7 @@ func TestWorkflowCreateAndUpdateRoutesRejectInvalidPayloads(t *testing.T) {
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
-		ticketstatus.NewService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		workflowSvc,
@@ -1304,7 +1304,7 @@ func TestWorkflowCreateAndUpdateRoutesRejectInvalidPayloads(t *testing.T) {
 		t.Fatalf("create local machine: %v", err)
 	}
 	createPrimaryProjectRepoForCheckout(ctx, t, client, project.ID, localMachine.ID, primaryRepoRoot)
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
@@ -1379,7 +1379,7 @@ func TestListWorkflowsRouteReturnsEmptyArrayForNewProject(t *testing.T) {
 		t.Fatalf("create git marker: %v", err)
 	}
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -1395,7 +1395,7 @@ func TestListWorkflowsRouteReturnsEmptyArrayForNewProject(t *testing.T) {
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
-		ticketstatus.NewService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		workflowSvc,

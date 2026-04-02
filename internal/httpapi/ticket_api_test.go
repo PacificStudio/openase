@@ -25,6 +25,7 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -39,8 +40,8 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		nil,
@@ -75,7 +76,7 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 		t.Fatalf("create target machine: %v", err)
 	}
 
-	statusSvc := ticketstatus.NewService(client)
+	statusSvc := newTicketStatusService(client)
 	statuses, err := statusSvc.ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
@@ -470,8 +471,8 @@ func TestTicketRoutesExposeStartedAndCompletedTimestamps(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		nil,
@@ -494,7 +495,7 @@ func TestTicketRoutesExposeStartedAndCompletedTimestamps(t *testing.T) {
 		t.Fatalf("create project: %v", err)
 	}
 
-	statusSvc := ticketstatus.NewService(client)
+	statusSvc := newTicketStatusService(client)
 	statuses, err := statusSvc.ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
@@ -543,8 +544,8 @@ func TestTicketListExposesBlockedByRelationships(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		nil,
@@ -567,7 +568,7 @@ func TestTicketListExposesBlockedByRelationships(t *testing.T) {
 		t.Fatalf("create project: %v", err)
 	}
 
-	statusSvc := ticketstatus.NewService(client)
+	statusSvc := newTicketStatusService(client)
 	statuses, err := statusSvc.ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
@@ -638,8 +639,8 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		nil,
@@ -662,7 +663,7 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 		t.Fatalf("create project: %v", err)
 	}
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
@@ -826,8 +827,8 @@ func TestListTicketsRouteReturnsEmptyArrayForNewProject(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		nil,
@@ -917,8 +918,8 @@ func TestTicketRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		nil,
@@ -928,8 +929,8 @@ func TestTicketRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		nil,
@@ -951,7 +952,7 @@ func TestTicketRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
@@ -1053,7 +1054,7 @@ func TestTicketRoutesCreateFirstTicketPerProjectAfterWorkflowCreate(t *testing.T
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -1068,8 +1069,8 @@ func TestTicketRoutesCreateFirstTicketPerProjectAfterWorkflowCreate(t *testing.T
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		workflowSvc,
@@ -1194,8 +1195,8 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		nil,
@@ -1227,7 +1228,7 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create local machine: %v", err)
 	}
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
@@ -1586,8 +1587,8 @@ func TestTicketCommentRoutesCreateUpdateDelete(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		nil,
@@ -1609,7 +1610,7 @@ func TestTicketCommentRoutesCreateUpdateDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
@@ -1752,8 +1753,8 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		nil,
@@ -1797,7 +1798,7 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 		t.Fatalf("create provider: %v", err)
 	}
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
@@ -1977,8 +1978,8 @@ func TestTicketRoutesPublishSSEEvents(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		nil,
@@ -2003,7 +2004,7 @@ func TestTicketRoutesPublishSSEEvents(t *testing.T) {
 		t.Fatalf("create project: %v", err)
 	}
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
@@ -2072,8 +2073,8 @@ func TestTicketBudgetUpdatesSyncBudgetExhaustedPauseState(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		nil,
@@ -2096,7 +2097,7 @@ func TestTicketBudgetUpdatesSyncBudgetExhaustedPauseState(t *testing.T) {
 		t.Fatalf("create project: %v", err)
 	}
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
@@ -2178,8 +2179,8 @@ func TestHandleResumeTicketRetryClearsRepeatedStallPause(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		nil,
@@ -2202,7 +2203,7 @@ func TestHandleResumeTicketRetryClearsRepeatedStallPause(t *testing.T) {
 		t.Fatalf("create project: %v", err)
 	}
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
@@ -2264,8 +2265,8 @@ func TestHandleResumeTicketRetryRejectsNonStalledPause(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		nil,
@@ -2288,7 +2289,7 @@ func TestHandleResumeTicketRetryRejectsNonStalledPause(t *testing.T) {
 		t.Fatalf("create project: %v", err)
 	}
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}

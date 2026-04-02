@@ -20,6 +20,8 @@ import (
 	domaincatalog "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	scheduledjobrepo "github.com/BetterAndBetterII/openase/internal/repo/scheduledjob"
+	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
@@ -66,7 +68,7 @@ func NewScheduler(client *ent.Client, logger *slog.Logger, events provider.Event
 		client:        client,
 		logger:        logger.With("component", "scheduler"),
 		events:        events,
-		scheduledJobs: scheduledjobservice.NewService(client, ticketservice.NewService(client), logger),
+		scheduledJobs: scheduledjobservice.NewService(scheduledjobrepo.NewEntRepository(client), ticketservice.NewService(ticketrepo.NewEntRepository(client)), logger),
 		now:           time.Now,
 	}
 }

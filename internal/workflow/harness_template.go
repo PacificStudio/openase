@@ -1,408 +1,63 @@
 package workflow
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
 	"time"
 
-	"github.com/BetterAndBetterII/openase/ent"
-	entagent "github.com/BetterAndBetterII/openase/ent/agent"
-	entproject "github.com/BetterAndBetterII/openase/ent/project"
-	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
-	entprojectupdatecomment "github.com/BetterAndBetterII/openase/ent/projectupdatecomment"
-	entprojectupdatethread "github.com/BetterAndBetterII/openase/ent/projectupdatethread"
-	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
-	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
-	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
-	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
-	ticketingdomain "github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	domain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
 	"github.com/google/uuid"
 	"github.com/nikolalohinski/gonja/v2"
 	"github.com/nikolalohinski/gonja/v2/exec"
 	"go.yaml.in/yaml/v3"
 )
 
-type BuildHarnessTemplateDataInput struct {
-	WorkflowID         uuid.UUID
-	TicketID           uuid.UUID
-	AgentID            *uuid.UUID
-	Workspace          string
-	Timestamp          time.Time
-	OpenASEVersion     string
-	TicketURL          string
-	Platform           HarnessPlatformData
-	Machine            HarnessMachineData
-	AccessibleMachines []HarnessAccessibleMachineData
-}
+type BuildHarnessTemplateDataInput = domain.BuildHarnessTemplateDataInput
 
-type HarnessTemplateData struct {
-	Ticket             HarnessTicketData
-	Project            HarnessProjectData
-	Repos              []HarnessRepoData
-	AllRepos           []HarnessRepoData
-	Agent              HarnessAgentData
-	Machine            HarnessMachineData
-	AccessibleMachines []HarnessAccessibleMachineData
-	Attempt            int
-	MaxAttempts        int
-	Workspace          string
-	Timestamp          string
-	OpenASEVersion     string
-	Workflow           HarnessWorkflowData
-	Platform           HarnessPlatformData
-}
+type HarnessTemplateData domain.HarnessTemplateData
 
-type HarnessTicketData struct {
-	ID               string
-	Identifier       string
-	Title            string
-	Description      string
-	Status           string
-	Priority         string
-	Type             string
-	CreatedBy        string
-	CreatedAt        string
-	AttemptCount     int
-	MaxAttempts      int
-	BudgetUSD        float64
-	ExternalRef      string
-	ParentIdentifier string
-	URL              string
-	Links            []HarnessTicketLinkData
-	Dependencies     []HarnessTicketDependencyData
-}
+type HarnessTicketData = domain.HarnessTicketData
 
-type HarnessTicketLinkData struct {
-	Type     string
-	URL      string
-	Title    string
-	Status   string
-	Relation string
-}
+type HarnessTicketLinkData = domain.HarnessTicketLinkData
 
-type HarnessTicketDependencyData struct {
-	Identifier string
-	Title      string
-	Type       string
-	Status     string
-}
+type HarnessTicketDependencyData = domain.HarnessTicketDependencyData
 
-type HarnessProjectData struct {
-	ID          string
-	Name        string
-	Slug        string
-	Description string
-	Status      string
-	Workflows   []HarnessProjectWorkflowData
-	Statuses    []HarnessProjectStatusData
-	Machines    []HarnessProjectMachineData
-	Updates     []HarnessProjectUpdateThreadData
-}
+type HarnessProjectData = domain.HarnessProjectData
 
-type HarnessProjectWorkflowData struct {
-	Name            string
-	Type            string
-	RoleName        string
-	RoleDescription string
-	PickupStatus    string
-	FinishStatus    string
-	PickupStatuses  []HarnessProjectStatusData
-	FinishStatuses  []HarnessProjectStatusData
-	HarnessPath     string
-	HarnessContent  string
-	Skills          []string
-	MaxConcurrent   int
-	CurrentActive   int
-	RecentTickets   []HarnessProjectWorkflowTicketData
-}
+type HarnessProjectWorkflowData = domain.HarnessProjectWorkflowData
 
-type HarnessProjectWorkflowTicketData struct {
-	Identifier        string
-	Title             string
-	Status            string
-	Priority          string
-	Type              string
-	AttemptCount      int
-	ConsecutiveErrors int
-	RetryPaused       bool
-	PauseReason       string
-	CreatedAt         string
-	StartedAt         string
-	CompletedAt       string
-}
+type HarnessProjectWorkflowTicketData = domain.HarnessProjectWorkflowTicketData
 
-type HarnessProjectStatusData struct {
-	ID    string
-	Name  string
-	Stage string
-	Color string
-}
+type HarnessProjectStatusData = domain.HarnessProjectStatusData
 
-type HarnessProjectMachineData struct {
-	Name        string
-	Host        string
-	Description string
-	Labels      []string
-	Status      string
-	Resources   map[string]any
-}
+type HarnessProjectMachineData = domain.HarnessProjectMachineData
 
-type HarnessProjectUpdateThreadData struct {
-	ID             string
-	Status         string
-	Title          string
-	BodyMarkdown   string
-	CreatedBy      string
-	CreatedAt      string
-	UpdatedAt      string
-	LastActivityAt string
-	CommentCount   int
-	Comments       []HarnessProjectUpdateCommentData
-}
+type HarnessProjectUpdateThreadData = domain.HarnessProjectUpdateThreadData
 
-type HarnessProjectUpdateCommentData struct {
-	ID           string
-	BodyMarkdown string
-	CreatedBy    string
-	CreatedAt    string
-	UpdatedAt    string
-}
+type HarnessProjectUpdateCommentData = domain.HarnessProjectUpdateCommentData
 
-type HarnessRepoData struct {
-	Name          string
-	URL           string
-	Path          string
-	Branch        string
-	DefaultBranch string
-	Labels        []string
-}
+type HarnessRepoData = domain.HarnessRepoData
 
-type HarnessAgentData struct {
-	ID                    string
-	Name                  string
-	Provider              string
-	AdapterType           string
-	Model                 string
-	TotalTicketsCompleted int
-}
+type HarnessAgentData = domain.HarnessAgentData
 
-type HarnessMachineData struct {
-	Name          string
-	Host          string
-	Description   string
-	Labels        []string
-	Resources     map[string]any
-	WorkspaceRoot string
-}
+type HarnessMachineData = domain.HarnessMachineData
 
-type HarnessAccessibleMachineData struct {
-	Name        string
-	Host        string
-	Description string
-	Labels      []string
-	Resources   map[string]any
-	SSHUser     string
-}
+type HarnessAccessibleMachineData = domain.HarnessAccessibleMachineData
 
-type HarnessWorkflowData struct {
-	Name         string
-	Type         string
-	RoleName     string
-	PickupStatus string
-	FinishStatus string
-}
+type HarnessWorkflowData = domain.HarnessWorkflowData
 
-type HarnessPlatformData struct {
-	APIURL     string
-	AgentToken string
-	ProjectID  string
-	TicketID   string
-}
+type HarnessPlatformData = domain.HarnessPlatformData
 
-type HarnessVariableGroup struct {
-	Name      string                    `json:"name"`
-	Variables []HarnessVariableMetadata `json:"variables"`
-}
+type HarnessVariableGroup = domain.HarnessVariableGroup
 
-type HarnessVariableMetadata struct {
-	Path        string `json:"path"`
-	Type        string `json:"type"`
-	Description string `json:"description"`
-	Example     string `json:"example,omitempty"`
-}
+type HarnessVariableMetadata = domain.HarnessVariableMetadata
 
 func init() {
 	if !gonja.DefaultEnvironment.Filters.Exists("markdown_escape") {
 		_ = gonja.DefaultEnvironment.Filters.Register("markdown_escape", filterMarkdownEscape)
 	}
-}
-
-func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarnessTemplateDataInput) (HarnessTemplateData, error) {
-	if s == nil || s.client == nil {
-		return HarnessTemplateData{}, ErrUnavailable
-	}
-
-	workflowItem, err := s.client.Workflow.Query().
-		Where(entworkflow.IDEQ(input.WorkflowID)).
-		WithProject().
-		WithPickupStatuses(func(query *ent.TicketStatusQuery) {
-			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
-		}).
-		WithFinishStatuses(func(query *ent.TicketStatusQuery) {
-			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
-		}).
-		Only(ctx)
-	if err != nil {
-		return HarnessTemplateData{}, s.mapWorkflowReadError("get workflow for harness render", err)
-	}
-
-	ticketItem, err := s.client.Ticket.Query().
-		Where(entticket.IDEQ(input.TicketID)).
-		WithStatus().
-		WithParent().
-		WithExternalLinks().
-		WithRepoScopes(func(query *ent.TicketRepoScopeQuery) {
-			query.WithRepo()
-		}).
-		WithOutgoingDependencies(func(query *ent.TicketDependencyQuery) {
-			query.WithTargetTicket(func(target *ent.TicketQuery) {
-				target.WithStatus()
-			})
-		}).
-		Only(ctx)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			return HarnessTemplateData{}, ErrWorkflowNotFound
-		}
-		return HarnessTemplateData{}, fmt.Errorf("get ticket for harness render: %w", err)
-	}
-
-	if ticketItem.ProjectID != workflowItem.ProjectID {
-		return HarnessTemplateData{}, fmt.Errorf("%w: workflow and ticket belong to different projects", ErrHarnessInvalid)
-	}
-
-	projectItem, err := s.client.Project.Query().
-		Where(entproject.IDEQ(workflowItem.ProjectID)).
-		WithRepos(func(query *ent.ProjectRepoQuery) {
-			query.Order(ent.Asc(entprojectrepo.FieldName))
-		}).
-		WithWorkflows(func(query *ent.WorkflowQuery) {
-			query.
-				Order(ent.Asc(entworkflow.FieldName)).
-				WithPickupStatuses(func(statusQuery *ent.TicketStatusQuery) {
-					statusQuery.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
-				}).
-				WithFinishStatuses(func(statusQuery *ent.TicketStatusQuery) {
-					statusQuery.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
-				})
-		}).
-		WithStatuses(func(query *ent.TicketStatusQuery) {
-			query.
-				Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
-		}).
-		Only(ctx)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			return HarnessTemplateData{}, ErrProjectNotFound
-		}
-		return HarnessTemplateData{}, fmt.Errorf("get project for harness render: %w", err)
-	}
-	projectUpdates, err := s.listHarnessProjectUpdates(ctx, projectItem.ID)
-	if err != nil {
-		return HarnessTemplateData{}, err
-	}
-	agentData := HarnessAgentData{}
-	if input.AgentID != nil {
-		agentItem, agentErr := s.client.Agent.Query().
-			Where(
-				entagent.IDEQ(*input.AgentID),
-				entagent.ProjectIDEQ(workflowItem.ProjectID),
-			).
-			WithProvider().
-			Only(ctx)
-		if agentErr != nil {
-			if ent.IsNotFound(agentErr) {
-				return HarnessTemplateData{}, fmt.Errorf("%w: agent not found for workflow project", ErrHarnessInvalid)
-			}
-			return HarnessTemplateData{}, fmt.Errorf("get agent for harness render: %w", agentErr)
-		}
-		agentData = mapHarnessAgent(agentItem)
-	}
-
-	harnessContent, err := s.projectedWorkflowHarness(ctx, workflowItem)
-	if err != nil {
-		return HarnessTemplateData{}, err
-	}
-
-	attemptCount := normalizeAttemptCount(ticketItem.AttemptCount)
-	maxAttempts := max(workflowItem.MaxRetryAttempts, 0)
-	workspace := strings.TrimSpace(input.Workspace)
-	renderTime := input.Timestamp.UTC()
-	if renderTime.IsZero() {
-		renderTime = time.Now().UTC()
-	}
-
-	scopedRepos, repoBranchByID := mapHarnessScopedRepos(ticketItem.Identifier, ticketItem.Edges.RepoScopes, workspace)
-	allRepos := mapHarnessAllRepos(ticketItem.Identifier, projectItem.Edges.Repos, repoBranchByID, workspace)
-	projectWorkflows, err := s.mapHarnessProjectWorkflows(ctx, projectItem.Edges.Workflows)
-	if err != nil {
-		return HarnessTemplateData{}, err
-	}
-	data := HarnessTemplateData{
-		Ticket: HarnessTicketData{
-			ID:               ticketItem.ID.String(),
-			Identifier:       ticketItem.Identifier,
-			Title:            ticketItem.Title,
-			Description:      ticketItem.Description,
-			Status:           edgeTicketStatusName(ticketItem.Edges.Status),
-			Priority:         ticketItem.Priority.String(),
-			Type:             ticketItem.Type.String(),
-			CreatedBy:        ticketItem.CreatedBy,
-			CreatedAt:        ticketItem.CreatedAt.UTC().Format(time.RFC3339),
-			AttemptCount:     attemptCount,
-			MaxAttempts:      maxAttempts,
-			BudgetUSD:        ticketItem.BudgetUsd,
-			ExternalRef:      ticketItem.ExternalRef,
-			ParentIdentifier: parentIdentifier(ticketItem),
-			URL:              strings.TrimSpace(input.TicketURL),
-			Links:            mapHarnessTicketLinks(ticketItem.Edges.ExternalLinks),
-			Dependencies:     mapHarnessDependencies(ticketItem.Edges.OutgoingDependencies),
-		},
-		Project: HarnessProjectData{
-			ID:          projectItem.ID.String(),
-			Name:        projectItem.Name,
-			Slug:        projectItem.Slug,
-			Description: projectItem.Description,
-			Status:      projectItem.Status,
-			Workflows:   projectWorkflows,
-			Statuses:    mapHarnessProjectStatuses(projectItem.Edges.Statuses),
-			Machines:    mapHarnessProjectMachines(input.Machine, input.AccessibleMachines),
-			Updates:     projectUpdates,
-		},
-		Repos:              scopedRepos,
-		AllRepos:           allRepos,
-		Agent:              agentData,
-		Machine:            cloneHarnessMachine(input.Machine),
-		AccessibleMachines: cloneAccessibleMachines(input.AccessibleMachines),
-		Attempt:            attemptCount,
-		MaxAttempts:        maxAttempts,
-		Workspace:          workspace,
-		Timestamp:          renderTime.Format(time.RFC3339),
-		OpenASEVersion:     strings.TrimSpace(input.OpenASEVersion),
-		Workflow: HarnessWorkflowData{
-			Name:         workflowItem.Name,
-			Type:         workflowItem.Type.String(),
-			RoleName:     extractWorkflowRoleName(harnessContent, workflowItem.Name),
-			PickupStatus: joinStatusNames(workflowItem.Edges.PickupStatuses),
-			FinishStatus: joinStatusNames(workflowItem.Edges.FinishStatuses),
-		},
-		Platform: normalizePlatformData(input.Platform, workflowItem.ProjectID, ticketItem.ID),
-	}
-
-	return data, nil
 }
 
 func RenderHarnessBody(content string, data HarnessTemplateData) (string, error) {
@@ -681,213 +336,6 @@ func (d HarnessTemplateData) contextMap() map[string]any {
 	}
 }
 
-func mapHarnessScopedRepos(ticketIdentifier string, scopes []*ent.TicketRepoScope, workspace string) ([]HarnessRepoData, map[uuid.UUID]string) {
-	repos := make([]HarnessRepoData, 0, len(scopes))
-	branches := make(map[uuid.UUID]string, len(scopes))
-	for _, scope := range scopes {
-		repo := scope.Edges.Repo
-		if repo == nil {
-			continue
-		}
-		effectiveBranchName := ticketingdomain.ResolveRepoWorkBranch(ticketIdentifier, scope.BranchName)
-		branches[repo.ID] = effectiveBranchName
-		repos = append(repos, HarnessRepoData{
-			Name:          repo.Name,
-			URL:           repo.RepositoryURL,
-			Path:          resolveRepoPath(repo.WorkspaceDirname, workspace, repo.Name),
-			Branch:        effectiveBranchName,
-			DefaultBranch: repo.DefaultBranch,
-			Labels:        append([]string(nil), repo.Labels...),
-		})
-	}
-	return repos, branches
-}
-
-func mapHarnessAllRepos(ticketIdentifier string, repos []*ent.ProjectRepo, repoBranchByID map[uuid.UUID]string, workspace string) []HarnessRepoData {
-	items := make([]HarnessRepoData, 0, len(repos))
-	for _, repo := range repos {
-		branch := repoBranchByID[repo.ID]
-		if branch == "" {
-			branch = ticketingdomain.DefaultRepoWorkBranch(ticketIdentifier)
-		}
-		items = append(items, HarnessRepoData{
-			Name:          repo.Name,
-			URL:           repo.RepositoryURL,
-			Path:          resolveRepoPath(repo.WorkspaceDirname, workspace, repo.Name),
-			Branch:        branch,
-			DefaultBranch: repo.DefaultBranch,
-			Labels:        append([]string(nil), repo.Labels...),
-		})
-	}
-	return items
-}
-
-func (s *Service) mapHarnessProjectWorkflows(
-	ctx context.Context,
-	workflows []*ent.Workflow,
-) ([]HarnessProjectWorkflowData, error) {
-	items := make([]HarnessProjectWorkflowData, 0, len(workflows))
-	workflowIDs := make([]uuid.UUID, 0, len(workflows))
-	for _, workflowItem := range workflows {
-		if workflowItem == nil || !workflowItem.IsActive {
-			continue
-		}
-		workflowIDs = append(workflowIDs, workflowItem.ID)
-	}
-
-	activeCountByWorkflow := make(map[uuid.UUID]int, len(workflowIDs))
-	if len(workflowIDs) > 0 {
-		activeTickets, err := s.client.Ticket.Query().
-			Where(
-				entticket.WorkflowIDIn(workflowIDs...),
-				entticket.CurrentRunIDNotNil(),
-			).
-			All(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("list active workflow tickets for harness render: %w", err)
-		}
-		for _, ticketItem := range activeTickets {
-			if ticketItem.WorkflowID == nil {
-				continue
-			}
-			activeCountByWorkflow[*ticketItem.WorkflowID]++
-		}
-	}
-
-	for _, workflowItem := range workflows {
-		if workflowItem == nil || !workflowItem.IsActive {
-			continue
-		}
-		harnessContent, err := s.projectedWorkflowHarness(ctx, workflowItem)
-		if err != nil {
-			return nil, err
-		}
-		roleName := extractWorkflowRoleName(harnessContent, workflowItem.Name)
-		skills, err := s.listWorkflowBoundSkillNames(ctx, workflowItem.ID, false)
-		if err != nil {
-			return nil, fmt.Errorf("load workflow skills for project context: %w", err)
-		}
-		recentTickets, err := s.listHarnessWorkflowRecentTickets(ctx, workflowItem.ID, 5)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, HarnessProjectWorkflowData{
-			Name:            workflowItem.Name,
-			Type:            workflowItem.Type.String(),
-			RoleName:        roleName,
-			RoleDescription: extractWorkflowRoleDescription(harnessContent),
-			PickupStatus:    joinStatusNames(workflowItem.Edges.PickupStatuses),
-			FinishStatus:    joinStatusNames(workflowItem.Edges.FinishStatuses),
-			PickupStatuses:  mapHarnessProjectStatuses(workflowItem.Edges.PickupStatuses),
-			FinishStatuses:  mapHarnessProjectStatuses(workflowItem.Edges.FinishStatuses),
-			HarnessPath:     workflowItem.HarnessPath,
-			HarnessContent:  harnessContent,
-			Skills:          skills,
-			MaxConcurrent:   workflowItem.MaxConcurrent,
-			CurrentActive:   activeCountByWorkflow[workflowItem.ID],
-			RecentTickets:   recentTickets,
-		})
-	}
-
-	return items, nil
-}
-
-func joinStatusNames(statuses []*ent.TicketStatus) string {
-	names := make([]string, 0, len(statuses))
-	for _, status := range statuses {
-		names = append(names, status.Name)
-	}
-	return strings.Join(names, ", ")
-}
-
-func (s *Service) listHarnessWorkflowRecentTickets(ctx context.Context, workflowID uuid.UUID, limit int) ([]HarnessProjectWorkflowTicketData, error) {
-	query := s.client.Ticket.Query().
-		Where(entticket.WorkflowIDEQ(workflowID)).
-		Order(ent.Desc(entticket.FieldCreatedAt)).
-		WithStatus()
-	if limit > 0 {
-		query = query.Limit(limit)
-	}
-
-	items, err := query.All(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list workflow history for harness render: %w", err)
-	}
-
-	tickets := make([]HarnessProjectWorkflowTicketData, 0, len(items))
-	for _, item := range items {
-		tickets = append(tickets, mapHarnessProjectWorkflowTicket(item))
-	}
-	return tickets, nil
-}
-
-func (s *Service) listHarnessProjectUpdates(
-	ctx context.Context,
-	projectID uuid.UUID,
-) ([]HarnessProjectUpdateThreadData, error) {
-	items, err := s.client.ProjectUpdateThread.Query().
-		Where(
-			entprojectupdatethread.ProjectIDEQ(projectID),
-			entprojectupdatethread.IsDeleted(false),
-		).
-		Order(ent.Desc(entprojectupdatethread.FieldLastActivityAt), ent.Desc(entprojectupdatethread.FieldID)).
-		WithComments(func(query *ent.ProjectUpdateCommentQuery) {
-			query.Where(entprojectupdatecomment.IsDeleted(false))
-			query.Order(ent.Asc(entprojectupdatecomment.FieldCreatedAt), ent.Asc(entprojectupdatecomment.FieldID))
-		}).
-		Limit(10).
-		All(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list project updates for harness render: %w", err)
-	}
-
-	result := make([]HarnessProjectUpdateThreadData, 0, len(items))
-	for _, item := range items {
-		comments := make([]HarnessProjectUpdateCommentData, 0, len(item.Edges.Comments))
-		for _, comment := range item.Edges.Comments {
-			if comment == nil {
-				continue
-			}
-			comments = append(comments, HarnessProjectUpdateCommentData{
-				ID:           comment.ID.String(),
-				BodyMarkdown: comment.BodyMarkdown,
-				CreatedBy:    comment.CreatedBy,
-				CreatedAt:    comment.CreatedAt.UTC().Format(time.RFC3339),
-				UpdatedAt:    comment.UpdatedAt.UTC().Format(time.RFC3339),
-			})
-		}
-		result = append(result, HarnessProjectUpdateThreadData{
-			ID:             item.ID.String(),
-			Status:         item.Status.String(),
-			Title:          item.Title,
-			BodyMarkdown:   item.BodyMarkdown,
-			CreatedBy:      item.CreatedBy,
-			CreatedAt:      item.CreatedAt.UTC().Format(time.RFC3339),
-			UpdatedAt:      item.UpdatedAt.UTC().Format(time.RFC3339),
-			LastActivityAt: item.LastActivityAt.UTC().Format(time.RFC3339),
-			CommentCount:   item.CommentCount,
-			Comments:       comments,
-		})
-	}
-	return result, nil
-}
-
-func mapHarnessProjectStatuses(statuses []*ent.TicketStatus) []HarnessProjectStatusData {
-	items := make([]HarnessProjectStatusData, 0, len(statuses))
-	for _, status := range statuses {
-		if status == nil {
-			continue
-		}
-		items = append(items, HarnessProjectStatusData{
-			ID:    status.ID.String(),
-			Name:  status.Name,
-			Stage: status.Stage.String(),
-			Color: status.Color,
-		})
-	}
-	return items
-}
-
 func mapHarnessProjectMachines(current HarnessMachineData, accessible []HarnessAccessibleMachineData) []HarnessProjectMachineData {
 	items := make([]HarnessProjectMachineData, 0, len(accessible)+1)
 	seen := make(map[string]struct{}, len(accessible)+1)
@@ -922,79 +370,6 @@ func mapHarnessProjectMachines(current HarnessMachineData, accessible []HarnessA
 	})
 
 	return items
-}
-
-func mapHarnessAgent(item *ent.Agent) HarnessAgentData {
-	if item == nil {
-		return HarnessAgentData{}
-	}
-
-	providerName := ""
-	adapterType := ""
-	modelName := ""
-	if item.Edges.Provider != nil {
-		providerName = item.Edges.Provider.Name
-		adapterType = item.Edges.Provider.AdapterType.String()
-		modelName = item.Edges.Provider.ModelName
-	}
-
-	return HarnessAgentData{
-		ID:                    item.ID.String(),
-		Name:                  item.Name,
-		Provider:              providerName,
-		AdapterType:           adapterType,
-		Model:                 modelName,
-		TotalTicketsCompleted: item.TotalTicketsCompleted,
-	}
-}
-
-func mapHarnessTicketLinks(links []*ent.TicketExternalLink) []HarnessTicketLinkData {
-	items := make([]HarnessTicketLinkData, 0, len(links))
-	for _, link := range links {
-		items = append(items, HarnessTicketLinkData{
-			Type:     link.LinkType.String(),
-			URL:      link.URL,
-			Title:    link.Title,
-			Status:   link.Status,
-			Relation: link.Relation.String(),
-		})
-	}
-	return items
-}
-
-func mapHarnessDependencies(dependencies []*ent.TicketDependency) []HarnessTicketDependencyData {
-	items := make([]HarnessTicketDependencyData, 0, len(dependencies))
-	for _, dependency := range dependencies {
-		target := dependency.Edges.TargetTicket
-		if target == nil {
-			continue
-		}
-		items = append(items, HarnessTicketDependencyData{
-			Identifier: target.Identifier,
-			Title:      target.Title,
-			Type:       normalizeDependencyType(dependency.Type),
-			Status:     edgeTicketStatusName(target.Edges.Status),
-		})
-	}
-	return items
-}
-
-func edgeTicketStatusName(status *ent.TicketStatus) string {
-	if status == nil {
-		return ""
-	}
-	return status.Name
-}
-
-func parentIdentifier(ticketItem *ent.Ticket) string {
-	if ticketItem == nil || ticketItem.Edges.Parent == nil {
-		return ""
-	}
-	return ticketItem.Edges.Parent.Identifier
-}
-
-func normalizeDependencyType(value entticketdependency.Type) string {
-	return strings.ReplaceAll(value.String(), "-", "_")
 }
 
 func normalizeAttemptCount(raw int) int {
@@ -1273,23 +648,6 @@ func accessibleMachineMaps(items []HarnessAccessibleMachineData) []map[string]an
 		})
 	}
 	return result
-}
-
-func mapHarnessProjectWorkflowTicket(item *ent.Ticket) HarnessProjectWorkflowTicketData {
-	return HarnessProjectWorkflowTicketData{
-		Identifier:        item.Identifier,
-		Title:             item.Title,
-		Status:            edgeTicketStatusName(item.Edges.Status),
-		Priority:          item.Priority.String(),
-		Type:              item.Type.String(),
-		AttemptCount:      normalizeAttemptCount(item.AttemptCount),
-		ConsecutiveErrors: item.ConsecutiveErrors,
-		RetryPaused:       item.RetryPaused,
-		PauseReason:       item.PauseReason,
-		CreatedAt:         item.CreatedAt.UTC().Format(time.RFC3339),
-		StartedAt:         formatOptionalTime(item.StartedAt),
-		CompletedAt:       formatOptionalTime(item.CompletedAt),
-	}
 }
 
 func cloneResourceMap(resources map[string]any) map[string]any {

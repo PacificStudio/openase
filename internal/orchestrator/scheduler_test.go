@@ -20,8 +20,7 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
-	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
+	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
 	"github.com/google/uuid"
 )
 
@@ -1640,7 +1639,7 @@ func seedProjectFixtureAt(ctx context.Context, t *testing.T, client *ent.Client,
 		t.Fatalf("create agent provider: %v", err)
 	}
 
-	statusSvc := ticketstatus.NewService(client)
+	statusSvc := newTicketStatusService(client)
 	statuses, err := statusSvc.ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset default statuses: %v", err)
@@ -1714,7 +1713,7 @@ func backlogStageActiveRuns(ctx context.Context, t *testing.T, client *ent.Clien
 func statusActiveRuns(ctx context.Context, t *testing.T, client *ent.Client, projectID uuid.UUID, statusName string) int {
 	t.Helper()
 
-	snapshots, err := ticketstatus.ListProjectStatusRuntimeSnapshots(ctx, client, projectID)
+	snapshots, err := listProjectStatusRuntimeSnapshots(ctx, client, projectID)
 	if err != nil {
 		t.Fatalf("list status runtime snapshots: %v", err)
 	}
@@ -1731,6 +1730,6 @@ func openTestEntClient(t *testing.T) *ent.Client {
 	t.Helper()
 
 	client := testPostgres.NewIsolatedEntClient(t)
-	ticketservice.InstallRetryTokenHooks(client)
+	ticketrepo.InstallRetryTokenHooks(client)
 	return client
 }

@@ -21,9 +21,8 @@ import (
 	entskillversion "github.com/BetterAndBetterII/openase/ent/skillversion"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
-	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
+	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	git "github.com/go-git/go-git/v5"
 	gitconfig "github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -54,7 +53,7 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 		ProjectID:           fixture.projectID,
 		AgentID:             fixture.agentID,
 		Name:                "Coding Workflow",
-		Type:                entworkflow.TypeCoding,
+		Type:                TypeCoding,
 		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
 		Hooks:               workflowHooks,
 		MaxConcurrent:       3,
@@ -261,7 +260,7 @@ func TestRuntimeSnapshotMaterializationAndRecordedResolution(t *testing.T) {
 		ProjectID:           fixture.projectID,
 		AgentID:             fixture.agentID,
 		Name:                "Runtime Snapshot Workflow",
-		Type:                entworkflow.TypeCoding,
+		Type:                TypeCoding,
 		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Snapshot v1\n",
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    2,
@@ -374,7 +373,7 @@ func TestSkillBundleStorageRefreshAndRuntimeSnapshots(t *testing.T) {
 		ProjectID:           fixture.projectID,
 		AgentID:             fixture.agentID,
 		Name:                "Bundle Workflow",
-		Type:                entworkflow.TypeCoding,
+		Type:                TypeCoding,
 		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Bundle Workflow\n",
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
@@ -584,7 +583,7 @@ func TestWorkflowServiceSkillLifecycleCommits(t *testing.T) {
 		ProjectID:           fixture.projectID,
 		AgentID:             fixture.agentID,
 		Name:                "Coding Workflow",
-		Type:                entworkflow.TypeCoding,
+		Type:                TypeCoding,
 		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
 		Hooks:               map[string]any{},
 		MaxConcurrent:       1,
@@ -711,7 +710,7 @@ func TestWorkflowServiceUnbindSkillIgnoresUnrelatedProjectRepoState(t *testing.T
 		t.Fatalf("create ready project repo: %v", err)
 	}
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, readyProject.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, readyProject.ID)
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}
@@ -744,7 +743,7 @@ func TestWorkflowServiceUnbindSkillIgnoresUnrelatedProjectRepoState(t *testing.T
 		ProjectID:           readyProject.ID,
 		AgentID:             agentItem.ID,
 		Name:                "Coding Workflow",
-		Type:                entworkflow.TypeCoding,
+		Type:                TypeCoding,
 		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
 		Hooks:               map[string]any{},
 		MaxConcurrent:       1,
@@ -806,7 +805,7 @@ func TestWorkflowServiceSkillAndReloadEdgeCases(t *testing.T) {
 		ProjectID:           fixture.projectID,
 		AgentID:             fixture.agentID,
 		Name:                "Coverage Workflow",
-		Type:                entworkflow.TypeCoding,
+		Type:                TypeCoding,
 		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coverage\n",
 		Hooks:               map[string]any{},
 		MaxConcurrent:       2,
@@ -949,7 +948,7 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		ProjectID:           fixture.projectID,
 		AgentID:             uuid.New(),
 		Name:                "Bad Agent",
-		Type:                entworkflow.TypeCoding,
+		Type:                TypeCoding,
 		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
@@ -966,7 +965,7 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		ProjectID:           fixture.projectID,
 		AgentID:             fixture.agentID,
 		Name:                "Bad Status",
-		Type:                entworkflow.TypeCoding,
+		Type:                TypeCoding,
 		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
@@ -983,7 +982,7 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		ProjectID:           fixture.projectID,
 		AgentID:             fixture.agentID,
 		Name:                "Bad Hooks",
-		Type:                entworkflow.TypeCoding,
+		Type:                TypeCoding,
 		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
 		Hooks:               map[string]any{"workflow_hooks": "bad"},
 		MaxConcurrent:       1,
@@ -1002,7 +1001,7 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		ProjectID:           fixture.projectID,
 		AgentID:             fixture.agentID,
 		Name:                "Bad Harness Path",
-		Type:                entworkflow.TypeCoding,
+		Type:                TypeCoding,
 		HarnessPath:         &badHarnessPath,
 		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
 		MaxConcurrent:       1,
@@ -1020,7 +1019,7 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		ProjectID:           fixture.projectID,
 		AgentID:             fixture.agentID,
 		Name:                "Duplicate Workflow",
-		Type:                entworkflow.TypeCoding,
+		Type:                TypeCoding,
 		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
@@ -1038,7 +1037,7 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		ProjectID:           fixture.projectID,
 		AgentID:             fixture.agentID,
 		Name:                "Duplicate Workflow",
-		Type:                entworkflow.TypeCoding,
+		Type:                TypeCoding,
 		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
@@ -1088,7 +1087,7 @@ func TestWorkflowServiceUpdateHarnessRegistryFailurePaths(t *testing.T) {
 		ProjectID:           fixture.projectID,
 		AgentID:             fixture.agentID,
 		Name:                "Harness Failure Workflow",
-		Type:                entworkflow.TypeCoding,
+		Type:                TypeCoding,
 		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Initial\n",
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
@@ -1211,7 +1210,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		ProjectID:           fixture.projectID,
 		AgentID:             fixture.agentID,
 		Name:                "Coding Workflow",
-		Type:                entworkflow.TypeCoding,
+		Type:                TypeCoding,
 		HarnessContent:      templateContent,
 		Hooks:               map[string]any{},
 		MaxConcurrent:       3,
@@ -1235,7 +1234,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		ProjectID:           fixture.projectID,
 		AgentID:             fixture.agentID,
 		Name:                "Dispatcher Workflow",
-		Type:                entworkflow.TypeCustom,
+		Type:                TypeCustom,
 		HarnessContent:      "---\nworkflow:\n  role: dispatcher\nstatus:\n  pickup: \"Backlog\"\n  finish: \"Backlog\"\n---\n\nEvaluate backlog tickets and route them to the right workflow.\n",
 		Hooks:               map[string]any{},
 		MaxConcurrent:       1,
@@ -1623,7 +1622,7 @@ func seedWorkflowServiceFixture(ctx context.Context, t *testing.T, client *ent.C
 		t.Fatalf("create project repo: %v", err)
 	}
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}
@@ -1664,7 +1663,7 @@ func seedWorkflowServiceFixture(ctx context.Context, t *testing.T, client *ent.C
 func newWorkflowTestService(t *testing.T, client *ent.Client, repoRoot string) *Service {
 	t.Helper()
 
-	service, err := NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	service, err := NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("NewService() error = %v", err)
 	}

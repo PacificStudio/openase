@@ -11,33 +11,24 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/BetterAndBetterII/openase/ent"
-	entagent "github.com/BetterAndBetterII/openase/ent/agent"
-	entproject "github.com/BetterAndBetterII/openase/ent/project"
-	entskill "github.com/BetterAndBetterII/openase/ent/skill"
-	entskillversion "github.com/BetterAndBetterII/openase/ent/skillversion"
-	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
-	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
-	entworkflowskillbinding "github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
-	entworkflowversion "github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/BetterAndBetterII/openase/internal/builtin"
+	domain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	"github.com/google/uuid"
 )
 
 var (
 	ErrUnavailable         = errors.New("workflow service unavailable")
-	ErrProjectNotFound     = errors.New("project not found")
-	ErrWorkflowNotFound    = errors.New("workflow not found")
-	ErrStatusNotFound      = errors.New("workflow status not found in project")
-	ErrAgentNotFound       = errors.New("workflow agent not found in project")
-	ErrWorkflowConflict    = errors.New("workflow conflict")
-	ErrWorkflowInUse       = errors.New("workflow is still referenced by project or tickets")
+	ErrProjectNotFound     = domain.ErrProjectNotFound
+	ErrWorkflowNotFound    = domain.ErrWorkflowNotFound
+	ErrStatusNotFound      = domain.ErrStatusNotFound
+	ErrAgentNotFound       = domain.ErrAgentNotFound
+	ErrWorkflowConflict    = domain.ErrWorkflowConflict
+	ErrWorkflowInUse       = domain.ErrWorkflowInUse
 	ErrHarnessInvalid      = errors.New("workflow harness is invalid")
 	ErrHookConfigInvalid   = errors.New("workflow hook config is invalid")
 	ErrWorkflowHookBlocked = errors.New("workflow hook blocked the lifecycle operation")
@@ -45,10 +36,7 @@ var (
 
 var nonAlphaNumericPattern = regexp.MustCompile(`[^a-z0-9]+`)
 
-type Optional[T any] struct {
-	Set   bool
-	Value T
-}
+type Optional[T any] = domain.Optional[T]
 
 func Some[T any](value T) Optional[T] {
 	return Optional[T]{Set: true, Value: value}
@@ -84,18 +72,14 @@ func projectHarnessContent(content string, skillNames []string) (string, error) 
 	return projected, nil
 }
 
-func (s *Service) currentWorkflowVersion(ctx context.Context, workflowID uuid.UUID) (*ent.WorkflowVersion, error) {
-	item, err := s.client.WorkflowVersion.Query().
-		Where(entworkflowversion.WorkflowIDEQ(workflowID)).
-		Order(ent.Desc(entworkflowversion.FieldVersion)).
-		First(ctx)
-	if err != nil {
-		return nil, s.mapWorkflowReadError("get workflow version", err)
+func (s *Service) currentWorkflowVersion(ctx context.Context, workflowID uuid.UUID) (domain.WorkflowVersionRecord, error) {
+	if s == nil || s.repo == nil {
+		return domain.WorkflowVersionRecord{}, ErrUnavailable
 	}
-	return item, nil
+	return s.repo.CurrentWorkflowVersion(ctx, workflowID)
 }
 
-func (s *Service) projectedWorkflowHarness(ctx context.Context, workflowItem *ent.Workflow) (string, error) {
+func (s *Service) projectedWorkflowHarness(ctx context.Context, workflowItem Workflow) (string, error) {
 	version, err := s.currentWorkflowVersion(ctx, workflowItem.ID)
 	if err != nil {
 		return "", err
@@ -107,90 +91,18 @@ func (s *Service) projectedWorkflowHarness(ctx context.Context, workflowItem *en
 	return projectHarnessContent(version.ContentMarkdown, boundSkills)
 }
 
-func (s *Service) publishWorkflowVersion(
-	ctx context.Context,
-	tx *ent.Tx,
-	workflowItem *ent.Workflow,
-	content string,
-) (*ent.Workflow, error) {
-	if tx == nil || workflowItem == nil {
-		return nil, fmt.Errorf("publish workflow version: transaction and workflow are required")
-	}
-
-	versionItem, err := tx.WorkflowVersion.Create().
-		SetWorkflowID(workflowItem.ID).
-		SetVersion(workflowItem.Version + 1).
-		SetContentMarkdown(content).
-		SetContentHash(contentHash(content)).
-		Save(ctx)
-	if err != nil {
-		return nil, s.mapWorkflowWriteError("create workflow version", err)
-	}
-
-	updated, err := tx.Workflow.UpdateOneID(workflowItem.ID).
-		SetVersion(workflowItem.Version + 1).
-		SetCurrentVersionID(versionItem.ID).
-		Save(ctx)
-	if err != nil {
-		return nil, s.mapWorkflowWriteError("update workflow current version", err)
-	}
-
-	return updated, nil
-}
-
 func (s *Service) ListWorkflowVersions(ctx context.Context, workflowID uuid.UUID) ([]VersionSummary, error) {
-	if s == nil || s.client == nil {
+	if s == nil || s.repo == nil {
 		return nil, ErrUnavailable
 	}
-
-	if _, err := s.currentWorkflowVersion(ctx, workflowID); err != nil {
-		return nil, err
-	}
-
-	items, err := s.client.WorkflowVersion.Query().
-		Where(entworkflowversion.WorkflowIDEQ(workflowID)).
-		Order(ent.Desc(entworkflowversion.FieldVersion)).
-		All(ctx)
-	if err != nil {
-		return nil, s.mapWorkflowReadError("list workflow versions", err)
-	}
-
-	result := make([]VersionSummary, 0, len(items))
-	for _, item := range items {
-		result = append(result, VersionSummary{
-			ID:        item.ID,
-			Version:   item.Version,
-			CreatedBy: item.CreatedBy,
-			CreatedAt: item.CreatedAt.UTC(),
-		})
-	}
-	return result, nil
+	return s.repo.ListWorkflowVersions(ctx, workflowID)
 }
 
 func (s *Service) listWorkflowBoundSkillNames(ctx context.Context, workflowID uuid.UUID, enabledOnly bool) ([]string, error) {
-	query := s.client.WorkflowSkillBinding.Query().
-		Where(entworkflowskillbinding.WorkflowIDEQ(workflowID)).
-		WithSkill()
-	bindings, err := query.All(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list workflow skill bindings: %w", err)
+	if s == nil || s.repo == nil {
+		return nil, ErrUnavailable
 	}
-
-	names := make([]string, 0, len(bindings))
-	for _, binding := range bindings {
-		if binding.Edges.Skill == nil {
-			continue
-		}
-		if binding.Edges.Skill.ArchivedAt != nil {
-			continue
-		}
-		if enabledOnly && !binding.Edges.Skill.IsEnabled {
-			continue
-		}
-		names = append(names, binding.Edges.Skill.Name)
-	}
-	sort.Strings(names)
-	return names, nil
+	return s.repo.ListWorkflowBoundSkillNames(ctx, workflowID, enabledOnly)
 }
 
 func skillDescriptionFromContent(content string) (string, error) {
@@ -209,218 +121,416 @@ func skillDescriptionFromContent(content string) (string, error) {
 	return description, nil
 }
 
+func (s *Service) builtinBundles() ([]domain.SkillBundle, error) {
+	bundles := make([]domain.SkillBundle, 0, len(builtin.Skills()))
+	for _, template := range builtin.Skills() {
+		content, err := ensureSkillContent(template.Name, template.Content, template.Description)
+		if err != nil {
+			return nil, err
+		}
+		bundle, err := parseSkillBundle(template.Name, []SkillBundleFileInput{{
+			Path:      "SKILL.md",
+			Content:   []byte(content),
+			MediaType: "text/markdown; charset=utf-8",
+		}})
+		if err != nil {
+			return nil, err
+		}
+		bundles = append(bundles, bundle)
+	}
+	return bundles, nil
+}
+
 func (s *Service) ensureBuiltinSkills(ctx context.Context, projectID uuid.UUID) error {
-	if s == nil || s.client == nil {
+	if s == nil || s.repo == nil {
 		return ErrUnavailable
 	}
 	s.builtinSkillsMu.Lock()
 	defer s.builtinSkillsMu.Unlock()
 
-	existing, err := s.client.Skill.Query().
-		Where(entskill.ProjectIDEQ(projectID)).
-		All(ctx)
+	bundles, err := s.builtinBundles()
 	if err != nil {
-		return fmt.Errorf("list existing skills: %w", err)
+		return err
 	}
-	byName := make(map[string]*ent.Skill, len(existing))
-	for _, item := range existing {
-		byName[item.Name] = item
+	return s.repo.EnsureBuiltinSkills(ctx, projectID, time.Now().UTC(), bundles)
+}
+
+func (s *Service) skillByName(ctx context.Context, projectID uuid.UUID, name string) (domain.SkillRecord, error) {
+	if s == nil || s.repo == nil {
+		return domain.SkillRecord{}, ErrUnavailable
+	}
+	return s.repo.SkillByName(ctx, projectID, name)
+}
+
+func (s *Service) currentSkillVersion(ctx context.Context, skillID uuid.UUID, requiredVersionID *uuid.UUID) (domain.SkillVersionRecord, error) {
+	if s == nil || s.repo == nil {
+		return domain.SkillVersionRecord{}, ErrUnavailable
+	}
+	return s.repo.CurrentSkillVersion(ctx, skillID, requiredVersionID)
+}
+
+type resolvedSkillRecord struct {
+	skill domain.SkillRecord
+}
+
+func (s *Service) listSkillsPersistent(ctx context.Context, projectID uuid.UUID) ([]Skill, error) {
+	if s == nil || s.repo == nil {
+		return nil, ErrUnavailable
+	}
+	if err := s.ensureProjectExists(ctx, projectID); err != nil {
+		return nil, err
+	}
+	if err := s.ensureBuiltinSkills(ctx, projectID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListSkills(ctx, projectID)
+}
+
+func (s *Service) getSkillPersistent(ctx context.Context, skillID uuid.UUID) (SkillDetail, error) {
+	if s == nil || s.repo == nil {
+		return SkillDetail{}, ErrUnavailable
+	}
+	return s.repo.SkillDetail(ctx, skillID)
+}
+
+func (s *Service) listSkillVersionsPersistent(ctx context.Context, skillID uuid.UUID) ([]VersionSummary, error) {
+	if s == nil || s.repo == nil {
+		return nil, ErrUnavailable
+	}
+	return s.repo.ListSkillVersions(ctx, skillID)
+}
+
+func (s *Service) createSkillBundlePersistent(ctx context.Context, input CreateSkillBundleInput) (SkillDetail, error) {
+	if s == nil || s.repo == nil {
+		return SkillDetail{}, ErrUnavailable
+	}
+	if err := s.ensureProjectExists(ctx, input.ProjectID); err != nil {
+		return SkillDetail{}, err
+	}
+	if err := s.ensureBuiltinSkills(ctx, input.ProjectID); err != nil {
+		return SkillDetail{}, err
+	}
+	bundle, err := parseSkillBundle(input.Name, input.Files)
+	if err != nil {
+		return SkillDetail{}, err
+	}
+	if _, err := s.skillByName(ctx, input.ProjectID, bundle.Name); err == nil {
+		return SkillDetail{}, fmt.Errorf("%w: skill %q already exists", ErrSkillInvalid, bundle.Name)
+	} else if !errors.Is(err, ErrSkillNotFound) {
+		return SkillDetail{}, err
 	}
 
-	for _, template := range builtin.Skills() {
-		if _, ok := byName[template.Name]; ok {
-			continue
-		}
+	enabled := true
+	if input.Enabled != nil {
+		enabled = *input.Enabled
+	}
+	createdBy := strings.TrimSpace(input.CreatedBy)
+	if createdBy == "" {
+		createdBy = "user:manual"
+	}
+	return s.repo.CreateSkillBundle(ctx, input, bundle, enabled, createdBy, time.Now().UTC())
+}
 
-		now := time.Now().UTC()
-		tx, err := s.client.Tx(ctx)
-		if err != nil {
-			return fmt.Errorf("start builtin skill tx: %w", err)
-		}
+func (s *Service) updateSkillBundlePersistent(ctx context.Context, input UpdateSkillBundleInput) (SkillDetail, error) {
+	record, err := s.resolveSkillRecordPersistent(ctx, input.SkillID)
+	if err != nil {
+		return SkillDetail{}, err
+	}
 
-		content, err := ensureSkillContent(template.Name, template.Content, template.Description)
+	files := append([]SkillBundleFileInput(nil), input.Files...)
+	if input.ReplaceEntry {
+		normalizedContent, err := ensureSkillContent(record.skill.Name, input.Content, input.Description)
 		if err != nil {
-			rollback(tx)
-			return err
+			return SkillDetail{}, err
 		}
-		bundle, err := parseSkillBundle(template.Name, []SkillBundleFileInput{
-			{
-				Path:      "SKILL.md",
-				Content:   []byte(content),
-				MediaType: "text/markdown; charset=utf-8",
-			},
-		})
-		if err != nil {
-			rollback(tx)
-			return err
-		}
-
-		skillItem, err := tx.Skill.Create().
-			SetProjectID(projectID).
-			SetName(template.Name).
-			SetDescription(bundle.Description).
-			SetIsBuiltin(true).
-			SetIsEnabled(true).
-			SetCreatedBy("builtin:openase").
-			SetCreatedAt(now).
-			SetUpdatedAt(now).
-			Save(ctx)
-		if err != nil {
-			rollback(tx)
-			if ent.IsConstraintError(err) {
+		replaced := false
+		for index := range files {
+			if strings.TrimSpace(files[index].Path) != "SKILL.md" {
 				continue
 			}
-			return fmt.Errorf("create builtin skill %s: %w", template.Name, err)
+			files[index].Content = []byte(normalizedContent)
+			files[index].MediaType = "text/markdown; charset=utf-8"
+			replaced = true
+			break
 		}
-
-		versionItem, err := s.storeSkillBundleVersion(ctx, tx, skillItem.ID, 1, bundle, "builtin:openase", now)
-		if err != nil {
-			rollback(tx)
-			return fmt.Errorf("create builtin skill version %s: %w", template.Name, err)
-		}
-
-		if _, err := tx.Skill.UpdateOneID(skillItem.ID).
-			SetCurrentVersionID(versionItem.ID).
-			Save(ctx); err != nil {
-			rollback(tx)
-			return fmt.Errorf("update builtin skill current version %s: %w", template.Name, err)
-		}
-
-		if err := tx.Commit(); err != nil {
-			return fmt.Errorf("commit builtin skill %s: %w", template.Name, err)
+		if !replaced {
+			files = append(files, SkillBundleFileInput{
+				Path:      "SKILL.md",
+				Content:   []byte(normalizedContent),
+				MediaType: "text/markdown; charset=utf-8",
+			})
 		}
 	}
 
-	return nil
-}
-
-func (s *Service) skillByName(ctx context.Context, projectID uuid.UUID, name string) (*ent.Skill, error) {
-	item, err := s.client.Skill.Query().
-		Where(
-			entskill.ProjectIDEQ(projectID),
-			entskill.NameEQ(name),
-			entskill.ArchivedAtIsNil(),
-		).
-		Only(ctx)
+	bundle, err := parseSkillBundle(record.skill.Name, files)
 	if err != nil {
-		if ent.IsNotFound(err) {
-			return nil, ErrSkillNotFound
-		}
-		return nil, fmt.Errorf("get skill by name: %w", err)
+		return SkillDetail{}, err
 	}
-	return item, nil
+	return s.repo.UpdateSkillBundle(ctx, record.skill.ID, bundle, time.Now().UTC())
 }
 
-func (s *Service) currentSkillVersion(ctx context.Context, skillID uuid.UUID, requiredVersionID *uuid.UUID) (*ent.SkillVersion, error) {
-	query := s.client.SkillVersion.Query()
-	if requiredVersionID != nil && *requiredVersionID != uuid.Nil {
-		item, err := query.Where(entskillversion.IDEQ(*requiredVersionID)).Only(ctx)
+func (s *Service) deleteSkillPersistent(ctx context.Context, skillID uuid.UUID) error {
+	record, err := s.resolveSkillRecordPersistent(ctx, skillID)
+	if err != nil {
+		return err
+	}
+	return s.repo.DeleteSkill(ctx, record.skill.ID, time.Now().UTC())
+}
+
+func (s *Service) setSkillEnabledPersistent(ctx context.Context, skillID uuid.UUID, enabled bool) (SkillDetail, error) {
+	record, err := s.resolveSkillRecordPersistent(ctx, skillID)
+	if err != nil {
+		return SkillDetail{}, err
+	}
+	return s.repo.SetSkillEnabled(ctx, record.skill.ID, enabled, time.Now().UTC())
+}
+
+func (s *Service) resolveSkillRecordForWorkflowBindingsPersistent(
+	ctx context.Context,
+	input UpdateSkillBindingsInput,
+) (resolvedSkillRecord, []uuid.UUID, error) {
+	workflowIDs, err := normalizeWorkflowIDs(input.WorkflowIDs)
+	if err != nil {
+		return resolvedSkillRecord{}, nil, err
+	}
+	if s == nil || s.repo == nil {
+		return resolvedSkillRecord{}, nil, ErrUnavailable
+	}
+
+	var projectID uuid.UUID
+	for index, workflowID := range workflowIDs {
+		workflowItem, err := s.repo.Get(ctx, workflowID)
 		if err != nil {
-			if ent.IsNotFound(err) {
-				return nil, ErrSkillNotFound
+			return resolvedSkillRecord{}, nil, err
+		}
+		if index == 0 {
+			projectID = workflowItem.ProjectID
+			continue
+		}
+		if workflowItem.ProjectID != projectID {
+			return resolvedSkillRecord{}, nil, fmt.Errorf("%w: workflow ids must belong to the same project", ErrSkillInvalid)
+		}
+	}
+
+	record, err := s.resolveSkillRecordInProjectPersistent(ctx, projectID, input.SkillID)
+	if err != nil {
+		return resolvedSkillRecord{}, nil, err
+	}
+	return record, workflowIDs, nil
+}
+
+func (s *Service) resolveSkillRecordPersistent(
+	ctx context.Context,
+	skillID uuid.UUID,
+) (resolvedSkillRecord, error) {
+	if s == nil || s.repo == nil {
+		return resolvedSkillRecord{}, ErrUnavailable
+	}
+	item, err := s.repo.Skill(ctx, skillID)
+	if err != nil {
+		return resolvedSkillRecord{}, err
+	}
+	return resolvedSkillRecord{skill: item}, nil
+}
+
+func (s *Service) resolveSkillRecordInProjectPersistent(
+	ctx context.Context,
+	projectID uuid.UUID,
+	skillID uuid.UUID,
+) (resolvedSkillRecord, error) {
+	if s == nil || s.repo == nil {
+		return resolvedSkillRecord{}, ErrUnavailable
+	}
+	item, err := s.repo.SkillInProject(ctx, projectID, skillID)
+	if err != nil {
+		return resolvedSkillRecord{}, err
+	}
+	return resolvedSkillRecord{skill: item}, nil
+}
+
+func (s *Service) buildSkillDetailPersistent(ctx context.Context, record resolvedSkillRecord) (SkillDetail, error) {
+	if record.skill.ID == uuid.Nil {
+		return SkillDetail{}, ErrSkillNotFound
+	}
+	return s.repo.SkillDetail(ctx, record.skill.ID)
+}
+
+func (s *Service) skillVersionFilesPersistent(ctx context.Context, versionID uuid.UUID) ([]SkillBundleFile, error) {
+	if s == nil || s.repo == nil {
+		return nil, ErrUnavailable
+	}
+	return s.repo.SkillVersionFiles(ctx, versionID)
+}
+
+func (s *Service) resolveInjectedSkillNamesPersistent(
+	ctx context.Context,
+	projectID uuid.UUID,
+	workflowID *uuid.UUID,
+) ([]string, error) {
+	if s == nil || s.repo == nil {
+		return nil, ErrUnavailable
+	}
+	return s.repo.ResolveInjectedSkillNames(ctx, projectID, workflowID)
+}
+
+func (s *Service) refreshSkillsPersistent(ctx context.Context, input RefreshSkillsInput) (RefreshSkillsResult, error) {
+	if s == nil || s.repo == nil {
+		return RefreshSkillsResult{}, ErrUnavailable
+	}
+	if err := s.ensureProjectExists(ctx, input.ProjectID); err != nil {
+		return RefreshSkillsResult{}, err
+	}
+	if err := s.ensureBuiltinSkills(ctx, input.ProjectID); err != nil {
+		return RefreshSkillsResult{}, err
+	}
+
+	target, err := resolveSkillTarget(input.WorkspaceRoot, input.AdapterType)
+	if err != nil {
+		return RefreshSkillsResult{}, err
+	}
+	if err := os.RemoveAll(target.skillsDir.String()); err != nil {
+		return RefreshSkillsResult{}, fmt.Errorf("reset agent skill directory: %w", err)
+	}
+	if err := os.MkdirAll(target.skillsDir.String(), 0o750); err != nil {
+		return RefreshSkillsResult{}, fmt.Errorf("create agent skill directory: %w", err)
+	}
+
+	skillNames, err := s.resolveInjectedSkillNamesPersistent(ctx, input.ProjectID, input.WorkflowID)
+	if err != nil {
+		return RefreshSkillsResult{}, err
+	}
+
+	for _, name := range skillNames {
+		skillItem, err := s.skillByName(ctx, input.ProjectID, name)
+		if err != nil {
+			return RefreshSkillsResult{}, err
+		}
+		versionItem, err := s.currentSkillVersion(ctx, skillItem.ID, nil)
+		if err != nil {
+			return RefreshSkillsResult{}, err
+		}
+		files, err := s.skillVersionFilesPersistent(ctx, versionItem.ID)
+		if err != nil {
+			return RefreshSkillsResult{}, err
+		}
+		if err := writeProjectedSkillBundle(target.skillsDir.String(), name, files, versionItem.ContentMarkdown); err != nil {
+			return RefreshSkillsResult{}, fmt.Errorf("refresh skill %s: %w", name, err)
+		}
+	}
+	if err := writeWorkspaceOpenASEWrapper(target.workspace.String()); err != nil {
+		return RefreshSkillsResult{}, fmt.Errorf("sync openase wrapper: %w", err)
+	}
+
+	return RefreshSkillsResult{
+		SkillsDir:      target.skillsDir.String(),
+		InjectedSkills: skillNames,
+	}, nil
+}
+
+func (s *Service) updateWorkflowSkillsPersistent(
+	ctx context.Context,
+	input UpdateWorkflowSkillsInput,
+	bind bool,
+) (HarnessDocument, error) {
+	if s == nil || s.repo == nil {
+		return HarnessDocument{}, ErrUnavailable
+	}
+
+	skillNames, err := normalizeSkillNames(input.Skills)
+	if err != nil {
+		return HarnessDocument{}, err
+	}
+	if len(skillNames) == 0 {
+		return HarnessDocument{}, fmt.Errorf("%w: skills must not be empty", ErrSkillInvalid)
+	}
+
+	workflowItem, err := s.repo.Get(ctx, input.WorkflowID)
+	if err != nil {
+		return HarnessDocument{}, err
+	}
+	if err := s.ensureBuiltinSkills(ctx, workflowItem.ProjectID); err != nil {
+		return HarnessDocument{}, err
+	}
+	previousVersion, err := s.currentWorkflowVersion(ctx, workflowItem.ID)
+	if err != nil {
+		return HarnessDocument{}, err
+	}
+
+	existingBindings, err := s.listWorkflowBoundSkillNames(ctx, workflowItem.ID, false)
+	if err != nil {
+		return HarnessDocument{}, err
+	}
+	existingByName := make(map[string]struct{}, len(existingBindings))
+	for _, name := range existingBindings {
+		existingByName[name] = struct{}{}
+	}
+
+	pendingSkillIDs := make([]uuid.UUID, 0, len(skillNames))
+	for _, name := range skillNames {
+		skillItem, err := s.skillByName(ctx, workflowItem.ProjectID, name)
+		if err != nil {
+			if bind {
+				return HarnessDocument{}, err
 			}
-			return nil, fmt.Errorf("get required skill version: %w", err)
+			continue
 		}
-		return item, nil
+		_, alreadyBound := existingByName[skillItem.Name]
+		if bind && alreadyBound {
+			continue
+		}
+		if !bind && !alreadyBound {
+			continue
+		}
+		pendingSkillIDs = append(pendingSkillIDs, skillItem.ID)
 	}
 
-	item, err := query.
-		Where(entskillversion.SkillIDEQ(skillID)).
-		Order(ent.Desc(entskillversion.FieldVersion)).
-		First(ctx)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			return nil, ErrSkillNotFound
-		}
-		return nil, fmt.Errorf("get current skill version: %w", err)
+	if len(pendingSkillIDs) == 0 {
+		return s.GetHarness(ctx, workflowItem.ID)
 	}
-	return item, nil
+
+	if workflowItem.IsActive {
+		parsedHooks, err := validateConfiguredHooks(workflowItem.Hooks)
+		if err != nil {
+			return HarnessDocument{}, err
+		}
+		if err := s.runWorkflowHooks(ctx, workflowItem.ProjectID, parsedHooks, workflowHookOnReload, workflowHookRuntime{
+			ProjectID:       workflowItem.ProjectID,
+			WorkflowID:      workflowItem.ID,
+			WorkflowName:    workflowItem.Name,
+			WorkflowVersion: workflowItem.Version + 1,
+		}); err != nil {
+			return HarnessDocument{}, err
+		}
+	}
+
+	if _, err := s.repo.ApplyWorkflowSkillBindings(ctx, workflowItem.ID, pendingSkillIDs, bind, previousVersion.ContentMarkdown); err != nil {
+		return HarnessDocument{}, err
+	}
+	return s.GetHarness(ctx, workflowItem.ID)
 }
 
-type Workflow struct {
-	ID                  uuid.UUID        `json:"id"`
-	ProjectID           uuid.UUID        `json:"project_id"`
-	AgentID             *uuid.UUID       `json:"agent_id"`
-	Name                string           `json:"name"`
-	Type                entworkflow.Type `json:"type"`
-	HarnessPath         string           `json:"harness_path"`
-	Hooks               map[string]any   `json:"hooks"`
-	MaxConcurrent       int              `json:"max_concurrent"`
-	MaxRetryAttempts    int              `json:"max_retry_attempts"`
-	TimeoutMinutes      int              `json:"timeout_minutes"`
-	StallTimeoutMinutes int              `json:"stall_timeout_minutes"`
-	Version             int              `json:"version"`
-	IsActive            bool             `json:"is_active"`
-	PickupStatusIDs     []uuid.UUID      `json:"pickup_status_ids"`
-	FinishStatusIDs     []uuid.UUID      `json:"finish_status_ids"`
-}
+type Workflow = domain.Workflow
 
-type WorkflowDetail struct {
-	Workflow
-	HarnessContent string `json:"harness_content"`
-}
+type WorkflowDetail = domain.WorkflowDetail
 
-type VersionSummary struct {
-	ID        uuid.UUID `json:"id"`
-	Version   int       `json:"version"`
-	CreatedBy string    `json:"created_by"`
-	CreatedAt time.Time `json:"created_at"`
-}
+type VersionSummary = domain.VersionSummary
 
-type HarnessDocument struct {
-	WorkflowID uuid.UUID `json:"workflow_id"`
-	Path       string    `json:"path"`
-	Content    string    `json:"content"`
-	Version    int       `json:"version"`
-}
+type HarnessDocument = domain.HarnessDocument
 
-type CreateInput struct {
-	ProjectID           uuid.UUID
-	AgentID             uuid.UUID
-	Name                string
-	Type                entworkflow.Type
-	HarnessPath         *string
-	HarnessContent      string
-	Hooks               map[string]any
-	MaxConcurrent       int
-	MaxRetryAttempts    int
-	TimeoutMinutes      int
-	StallTimeoutMinutes int
-	IsActive            bool
-	PickupStatusIDs     StatusBindingSet
-	FinishStatusIDs     StatusBindingSet
-}
+type CreateInput = domain.CreateInput
 
-type UpdateInput struct {
-	WorkflowID          uuid.UUID
-	AgentID             Optional[uuid.UUID]
-	Name                Optional[string]
-	Type                Optional[entworkflow.Type]
-	HarnessPath         Optional[string]
-	Hooks               Optional[map[string]any]
-	MaxConcurrent       Optional[int]
-	MaxRetryAttempts    Optional[int]
-	TimeoutMinutes      Optional[int]
-	StallTimeoutMinutes Optional[int]
-	IsActive            Optional[bool]
-	PickupStatusIDs     Optional[StatusBindingSet]
-	FinishStatusIDs     Optional[StatusBindingSet]
-}
+type UpdateInput = domain.UpdateInput
 
-type UpdateHarnessInput struct {
-	WorkflowID uuid.UUID
-	Content    string
-}
+type UpdateHarnessInput = domain.UpdateHarnessInput
 
 type Service struct {
-	client            *ent.Client
-	logger            *slog.Logger
-	repoRoot          string
-	builtinSkillsMu   sync.Mutex
-	workflowVersionMu sync.Mutex
+	repo            Repository
+	logger          *slog.Logger
+	repoRoot        string
+	builtinSkillsMu sync.Mutex
 }
 
-func NewService(client *ent.Client, logger *slog.Logger, repoRoot string) (*Service, error) {
+func NewService(repo Repository, logger *slog.Logger, repoRoot string) (*Service, error) {
 	if logger == nil {
 		logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
 	}
@@ -437,7 +547,7 @@ func NewService(client *ent.Client, logger *slog.Logger, repoRoot string) (*Serv
 	}
 
 	service := &Service{
-		client:   client,
+		repo:     repo,
 		logger:   logger.With("component", "workflow-service"),
 		repoRoot: repoRoot,
 	}
@@ -500,62 +610,37 @@ func (s *Service) logHookConfigValidationFailure(operation string, projectID uui
 }
 
 func (s *Service) List(ctx context.Context, projectID uuid.UUID) ([]Workflow, error) {
-	if s.client == nil {
+	if s == nil || s.repo == nil {
 		return nil, ErrUnavailable
 	}
 	if err := s.ensureProjectExists(ctx, projectID); err != nil {
 		return nil, err
 	}
-
-	items, err := s.client.Workflow.Query().
-		Where(entworkflow.ProjectIDEQ(projectID)).
-		WithPickupStatuses(func(query *ent.TicketStatusQuery) {
-			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
-		}).
-		WithFinishStatuses(func(query *ent.TicketStatusQuery) {
-			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
-		}).
-		Order(ent.Asc(entworkflow.FieldName)).
-		All(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list workflows: %w", err)
-	}
-
-	workflows := make([]Workflow, 0, len(items))
-	for _, item := range items {
-		workflows = append(workflows, mapWorkflow(item))
-	}
-
-	return workflows, nil
+	return s.repo.List(ctx, projectID)
 }
 
 func (s *Service) Get(ctx context.Context, workflowID uuid.UUID) (WorkflowDetail, error) {
-	if s.client == nil {
+	if s == nil || s.repo == nil {
 		return WorkflowDetail{}, ErrUnavailable
 	}
 
-	item, err := s.client.Workflow.Query().
-		Where(entworkflow.IDEQ(workflowID)).
-		WithPickupStatuses(func(query *ent.TicketStatusQuery) {
-			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
-		}).
-		WithFinishStatuses(func(query *ent.TicketStatusQuery) {
-			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
-		}).
-		Only(ctx)
+	item, err := s.repo.Get(ctx, workflowID)
 	if err != nil {
-		return WorkflowDetail{}, s.mapWorkflowReadError("get workflow", err)
+		return WorkflowDetail{}, err
 	}
 	content, err := s.projectedWorkflowHarness(ctx, item)
 	if err != nil {
 		return WorkflowDetail{}, err
 	}
 
-	return mapWorkflowDetail(item, content), nil
+	return WorkflowDetail{
+		Workflow:       item,
+		HarnessContent: content,
+	}, nil
 }
 
 func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail, error) {
-	if s.client == nil {
+	if s == nil || s.repo == nil {
 		return WorkflowDetail{}, ErrUnavailable
 	}
 
@@ -597,48 +682,6 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 	}
 
 	workflowID := uuid.New()
-	tx, err := s.client.Tx(ctx)
-	if err != nil {
-		return WorkflowDetail{}, fmt.Errorf("start workflow create tx: %w", err)
-	}
-	defer rollback(tx)
-
-	item, err := tx.Workflow.Create().
-		SetID(workflowID).
-		SetProjectID(input.ProjectID).
-		SetAgentID(input.AgentID).
-		SetName(input.Name).
-		SetType(input.Type).
-		SetHarnessPath(harnessPath).
-		SetHooks(copyHooks(input.Hooks)).
-		SetMaxConcurrent(input.MaxConcurrent).
-		SetMaxRetryAttempts(input.MaxRetryAttempts).
-		SetTimeoutMinutes(input.TimeoutMinutes).
-		SetStallTimeoutMinutes(input.StallTimeoutMinutes).
-		SetVersion(1).
-		SetIsActive(input.IsActive).
-		AddPickupStatusIDs(pickupStatusIDs.IDs()...).
-		AddFinishStatusIDs(finishStatusIDs.IDs()...).
-		Save(ctx)
-	if err != nil {
-		return WorkflowDetail{}, s.mapWorkflowWriteError("create workflow", err)
-	}
-
-	versionItem, err := tx.WorkflowVersion.Create().
-		SetWorkflowID(workflowID).
-		SetVersion(1).
-		SetContentMarkdown(sanitizedHarnessContent).
-		SetContentHash(contentHash(sanitizedHarnessContent)).
-		Save(ctx)
-	if err != nil {
-		return WorkflowDetail{}, s.mapWorkflowWriteError("create workflow version", err)
-	}
-
-	if _, err := tx.Workflow.UpdateOneID(workflowID).
-		SetCurrentVersionID(versionItem.ID).
-		Save(ctx); err != nil {
-		return WorkflowDetail{}, s.mapWorkflowWriteError("set workflow current version", err)
-	}
 
 	if input.IsActive {
 		if err := s.runWorkflowHooks(ctx, input.ProjectID, parsedHooks, workflowHookOnActivate, workflowHookRuntime{
@@ -651,13 +694,25 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		return WorkflowDetail{}, fmt.Errorf("commit workflow create tx: %w", err)
-	}
-
-	item, err = s.getWorkflowWithStatusBindings(ctx, item.ID)
+	item, err := s.repo.Create(ctx, Workflow{
+		ID:                  workflowID,
+		ProjectID:           input.ProjectID,
+		AgentID:             &input.AgentID,
+		Name:                input.Name,
+		Type:                input.Type,
+		HarnessPath:         harnessPath,
+		Hooks:               copyHooks(input.Hooks),
+		MaxConcurrent:       input.MaxConcurrent,
+		MaxRetryAttempts:    input.MaxRetryAttempts,
+		TimeoutMinutes:      input.TimeoutMinutes,
+		StallTimeoutMinutes: input.StallTimeoutMinutes,
+		Version:             1,
+		IsActive:            input.IsActive,
+		PickupStatusIDs:     append([]uuid.UUID(nil), pickupStatusIDs.IDs()...),
+		FinishStatusIDs:     append([]uuid.UUID(nil), finishStatusIDs.IDs()...),
+	}, sanitizedHarnessContent)
 	if err != nil {
-		return WorkflowDetail{}, err
+		return WorkflowDetail{}, s.mapWorkflowWriteError("create workflow", err)
 	}
 
 	projectedContent, err := s.projectedWorkflowHarness(ctx, item)
@@ -665,17 +720,20 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 		return WorkflowDetail{}, err
 	}
 
-	return mapWorkflowDetail(item, projectedContent), nil
+	return WorkflowDetail{
+		Workflow:       item,
+		HarnessContent: projectedContent,
+	}, nil
 }
 
 func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail, error) {
-	if s.client == nil {
+	if s == nil || s.repo == nil {
 		return WorkflowDetail{}, ErrUnavailable
 	}
 
-	current, err := s.getWorkflowWithStatusBindings(ctx, input.WorkflowID)
+	current, err := s.repo.Get(ctx, input.WorkflowID)
 	if err != nil {
-		return WorkflowDetail{}, s.mapWorkflowReadError("get workflow for update", err)
+		return WorkflowDetail{}, err
 	}
 	projectID := current.ProjectID
 	nextAgentID := current.AgentID
@@ -709,7 +767,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 		}
 	}
 
-	nextPickupStatusIDs := MustStatusBindingSet(statusIDsFromEdges(current.Edges.PickupStatuses)...)
+	nextPickupStatusIDs := MustStatusBindingSet(current.PickupStatusIDs...)
 	if input.PickupStatusIDs.Set {
 		nextPickupStatusIDs = input.PickupStatusIDs.Value
 	}
@@ -717,7 +775,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 		return WorkflowDetail{}, err
 	}
 
-	nextFinishStatusIDs := MustStatusBindingSet(statusIDsFromEdges(current.Edges.FinishStatuses)...)
+	nextFinishStatusIDs := MustStatusBindingSet(current.FinishStatusIDs...)
 	if input.FinishStatusIDs.Set {
 		nextFinishStatusIDs = input.FinishStatusIDs.Value
 	}
@@ -751,54 +809,33 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 		}
 	}
 
-	builder := s.client.Workflow.UpdateOneID(current.ID)
-	if input.AgentID.Set {
-		builder.SetAgentID(input.AgentID.Value)
-	}
-	if input.Name.Set {
-		builder.SetName(input.Name.Value)
-	}
+	next := current
+	next.AgentID = nextAgentID
+	next.Name = nextName
+	next.HarnessPath = nextHarnessPath
+	next.PickupStatusIDs = append([]uuid.UUID(nil), nextPickupStatusIDs.IDs()...)
+	next.FinishStatusIDs = append([]uuid.UUID(nil), nextFinishStatusIDs.IDs()...)
+	next.Hooks = copyHooks(nextHooksRaw)
+	next.IsActive = nextIsActive
 	if input.Type.Set {
-		builder.SetType(input.Type.Value)
-	}
-	if nextHarnessPath != current.HarnessPath {
-		builder.SetHarnessPath(nextHarnessPath)
-	}
-	if input.Hooks.Set {
-		builder.SetHooks(copyHooks(input.Hooks.Value))
+		next.Type = input.Type.Value
 	}
 	if input.MaxConcurrent.Set {
-		builder.SetMaxConcurrent(input.MaxConcurrent.Value)
+		next.MaxConcurrent = input.MaxConcurrent.Value
 	}
 	if input.MaxRetryAttempts.Set {
-		builder.SetMaxRetryAttempts(input.MaxRetryAttempts.Value)
+		next.MaxRetryAttempts = input.MaxRetryAttempts.Value
 	}
 	if input.TimeoutMinutes.Set {
-		builder.SetTimeoutMinutes(input.TimeoutMinutes.Value)
+		next.TimeoutMinutes = input.TimeoutMinutes.Value
 	}
 	if input.StallTimeoutMinutes.Set {
-		builder.SetStallTimeoutMinutes(input.StallTimeoutMinutes.Value)
-	}
-	if input.IsActive.Set {
-		builder.SetIsActive(input.IsActive.Value)
-	}
-	if input.PickupStatusIDs.Set {
-		builder.ClearPickupStatuses()
-		builder.AddPickupStatusIDs(nextPickupStatusIDs.IDs()...)
-	}
-	if input.FinishStatusIDs.Set {
-		builder.ClearFinishStatuses()
-		builder.AddFinishStatusIDs(nextFinishStatusIDs.IDs()...)
+		next.StallTimeoutMinutes = input.StallTimeoutMinutes.Value
 	}
 
-	item, err := builder.Save(ctx)
+	item, err := s.repo.Update(ctx, next)
 	if err != nil {
 		return WorkflowDetail{}, s.mapWorkflowWriteError("update workflow", err)
-	}
-
-	item, err = s.getWorkflowWithStatusBindings(ctx, item.ID)
-	if err != nil {
-		return WorkflowDetail{}, err
 	}
 
 	content, err := s.projectedWorkflowHarness(ctx, item)
@@ -806,55 +843,27 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 		return WorkflowDetail{}, err
 	}
 
-	return mapWorkflowDetail(item, content), nil
+	return WorkflowDetail{
+		Workflow:       item,
+		HarnessContent: content,
+	}, nil
 }
 
 func (s *Service) Delete(ctx context.Context, workflowID uuid.UUID) (Workflow, error) {
-	if s.client == nil {
+	if s == nil || s.repo == nil {
 		return Workflow{}, ErrUnavailable
 	}
-
-	current, err := s.getWorkflowWithStatusBindings(ctx, workflowID)
-	if err != nil {
-		return Workflow{}, s.mapWorkflowReadError("get workflow for delete", err)
-	}
-	tx, err := s.client.Tx(ctx)
-	if err != nil {
-		return Workflow{}, fmt.Errorf("start workflow delete tx: %w", err)
-	}
-	defer rollback(tx)
-
-	if _, err := tx.WorkflowSkillBinding.Delete().
-		Where(entworkflowskillbinding.WorkflowIDEQ(current.ID)).
-		Exec(ctx); err != nil {
-		return Workflow{}, fmt.Errorf("delete workflow skill bindings: %w", err)
-	}
-
-	if _, err := tx.WorkflowVersion.Delete().
-		Where(entworkflowversion.WorkflowIDEQ(current.ID)).
-		Exec(ctx); err != nil {
-		return Workflow{}, fmt.Errorf("delete workflow versions: %w", err)
-	}
-
-	if err := tx.Workflow.DeleteOneID(current.ID).Exec(ctx); err != nil {
-		return Workflow{}, s.mapWorkflowWriteError("delete workflow", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return Workflow{}, fmt.Errorf("commit workflow delete tx: %w", err)
-	}
-
-	return mapWorkflow(current), nil
+	return s.repo.Delete(ctx, workflowID)
 }
 
 func (s *Service) GetHarness(ctx context.Context, workflowID uuid.UUID) (HarnessDocument, error) {
-	if s.client == nil {
+	if s == nil || s.repo == nil {
 		return HarnessDocument{}, ErrUnavailable
 	}
 
-	item, err := s.client.Workflow.Get(ctx, workflowID)
+	item, err := s.repo.Get(ctx, workflowID)
 	if err != nil {
-		return HarnessDocument{}, s.mapWorkflowReadError("get workflow for harness", err)
+		return HarnessDocument{}, err
 	}
 	content, err := s.projectedWorkflowHarness(ctx, item)
 	if err != nil {
@@ -870,16 +879,16 @@ func (s *Service) GetHarness(ctx context.Context, workflowID uuid.UUID) (Harness
 }
 
 func (s *Service) UpdateHarness(ctx context.Context, input UpdateHarnessInput) (HarnessDocument, error) {
-	if s.client == nil {
+	if s == nil || s.repo == nil {
 		return HarnessDocument{}, ErrUnavailable
 	}
 	if err := validateHarnessForSave(input.Content); err != nil {
 		return HarnessDocument{}, err
 	}
 
-	item, err := s.client.Workflow.Get(ctx, input.WorkflowID)
+	item, err := s.repo.Get(ctx, input.WorkflowID)
 	if err != nil {
-		return HarnessDocument{}, s.mapWorkflowReadError("get workflow for harness update", err)
+		return HarnessDocument{}, err
 	}
 	parsedHooks, err := validateConfiguredHooks(item.Hooks)
 	if err != nil {
@@ -919,18 +928,9 @@ func (s *Service) UpdateHarness(ctx context.Context, input UpdateHarnessInput) (
 		}
 	}
 
-	tx, err := s.client.Tx(ctx)
+	updated, err := s.repo.PublishWorkflowVersion(ctx, item.ID, sanitizedContent)
 	if err != nil {
-		return HarnessDocument{}, fmt.Errorf("start workflow harness update tx: %w", err)
-	}
-	defer rollback(tx)
-
-	updated, err := s.publishWorkflowVersion(ctx, tx, item, sanitizedContent)
-	if err != nil {
-		return HarnessDocument{}, err
-	}
-	if err := tx.Commit(); err != nil {
-		return HarnessDocument{}, fmt.Errorf("commit workflow harness update tx: %w", err)
+		return HarnessDocument{}, s.mapWorkflowWriteError("update workflow harness", err)
 	}
 
 	content, err := s.projectedWorkflowHarness(ctx, updated)
@@ -946,49 +946,24 @@ func (s *Service) UpdateHarness(ctx context.Context, input UpdateHarnessInput) (
 }
 
 func (s *Service) ensureProjectExists(ctx context.Context, projectID uuid.UUID) error {
-	exists, err := s.client.Project.Query().Where(entproject.ID(projectID)).Exist(ctx)
-	if err != nil {
-		return fmt.Errorf("check project existence: %w", err)
+	if s == nil || s.repo == nil {
+		return ErrUnavailable
 	}
-	if !exists {
-		return ErrProjectNotFound
-	}
-
-	return nil
+	return s.repo.EnsureProjectExists(ctx, projectID)
 }
 
 func (s *Service) ensureStatusBindingsBelongToProject(ctx context.Context, projectID uuid.UUID, statusIDs StatusBindingSet) error {
-	count, err := s.client.TicketStatus.Query().
-		Where(
-			entticketstatus.IDIn(statusIDs.IDs()...),
-			entticketstatus.ProjectIDEQ(projectID),
-		).
-		Count(ctx)
-	if err != nil {
-		return fmt.Errorf("check workflow status existence: %w", err)
+	if s == nil || s.repo == nil {
+		return ErrUnavailable
 	}
-	if count != statusIDs.Len() {
-		return ErrStatusNotFound
-	}
-
-	return nil
+	return s.repo.EnsureStatusBindingsBelongToProject(ctx, projectID, statusIDs.IDs())
 }
 
 func (s *Service) ensureAgentBelongsToProject(ctx context.Context, projectID uuid.UUID, agentID uuid.UUID) error {
-	exists, err := s.client.Agent.Query().
-		Where(
-			entagent.ProjectIDEQ(projectID),
-			entagent.IDEQ(agentID),
-		).
-		Exist(ctx)
-	if err != nil {
-		return fmt.Errorf("check workflow agent existence: %w", err)
+	if s == nil || s.repo == nil {
+		return ErrUnavailable
 	}
-	if !exists {
-		return ErrAgentNotFound
-	}
-
-	return nil
+	return s.repo.EnsureAgentBelongsToProject(ctx, projectID, agentID)
 }
 
 func (s *Service) resolveCreateHarnessPath(name string, rawPath *string) (string, error) {
@@ -1005,28 +980,16 @@ func (s *Service) ensureHarnessPathAvailable(
 	harnessPath string,
 	excludeWorkflowID uuid.UUID,
 ) error {
-	query := s.client.Workflow.Query().Where(
-		entworkflow.ProjectIDEQ(projectID),
-		entworkflow.HarnessPathEQ(harnessPath),
-	)
-	if excludeWorkflowID != uuid.Nil {
-		query = query.Where(entworkflow.IDNEQ(excludeWorkflowID))
+	if s == nil || s.repo == nil {
+		return ErrUnavailable
 	}
-	exists, err := query.Exist(ctx)
-	if err != nil {
-		return fmt.Errorf("check workflow harness path uniqueness: %w", err)
-	}
-	if exists {
-		return ErrWorkflowConflict
-	}
-
-	return nil
+	return s.repo.EnsureHarnessPathAvailable(ctx, projectID, harnessPath, excludeWorkflowID)
 }
 
 func (s *Service) resolveHarnessContent(
 	ctx context.Context,
 	name string,
-	workflowType entworkflow.Type,
+	workflowType Type,
 	pickupStatusIDs StatusBindingSet,
 	finishStatusIDs StatusBindingSet,
 	rawContent string,
@@ -1038,26 +1001,20 @@ func (s *Service) resolveHarnessContent(
 		return rawContent, nil
 	}
 
-	pickupStatuses, err := s.client.TicketStatus.Query().
-		Where(entticketstatus.IDIn(pickupStatusIDs.IDs()...)).
-		Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName)).
-		All(ctx)
+	pickupStatuses, err := s.repo.StatusNames(ctx, pickupStatusIDs.IDs())
 	if err != nil {
-		return "", s.mapWorkflowReadError("get pickup statuses for harness template", err)
+		return "", err
 	}
-	finishStatuses, err := s.client.TicketStatus.Query().
-		Where(entticketstatus.IDIn(finishStatusIDs.IDs()...)).
-		Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName)).
-		All(ctx)
+	finishStatuses, err := s.repo.StatusNames(ctx, finishStatusIDs.IDs())
 	if err != nil {
-		return "", s.mapWorkflowReadError("get finish statuses for harness template", err)
+		return "", err
 	}
 
 	content := defaultHarnessContent(
 		name,
 		workflowType,
-		statusNamesFromEdges(pickupStatuses),
-		statusNamesFromEdges(finishStatuses),
+		pickupStatuses,
+		finishStatuses,
 	)
 	if err := validateHarnessForSave(content); err != nil {
 		return "", err
@@ -1105,9 +1062,13 @@ func (s *Service) hookExecutorForProject(_ context.Context, _ uuid.UUID) *workfl
 	}
 	return newWorkflowHookExecutor(repoRoot, logger)
 }
+
 func (s *Service) mapWorkflowReadError(action string, err error) error {
+	if err == nil {
+		return nil
+	}
 	switch {
-	case ent.IsNotFound(err):
+	case errors.Is(err, ErrWorkflowNotFound):
 		return ErrWorkflowNotFound
 	default:
 		return fmt.Errorf("%s: %w", action, err)
@@ -1115,10 +1076,17 @@ func (s *Service) mapWorkflowReadError(action string, err error) error {
 }
 
 func (s *Service) mapWorkflowWriteError(action string, err error) error {
+	if err == nil {
+		return nil
+	}
 	switch {
-	case ent.IsNotFound(err):
+	case errors.Is(err, ErrWorkflowNotFound):
 		return ErrWorkflowNotFound
-	case ent.IsConstraintError(err):
+	case errors.Is(err, ErrWorkflowConflict):
+		return ErrWorkflowConflict
+	case errors.Is(err, ErrWorkflowInUse):
+		return ErrWorkflowInUse
+	case strings.Contains(strings.ToLower(err.Error()), "constraint"):
 		return ErrWorkflowConflict
 	case strings.Contains(strings.ToLower(err.Error()), "tickets"):
 		return ErrWorkflowInUse
@@ -1126,50 +1094,6 @@ func (s *Service) mapWorkflowWriteError(action string, err error) error {
 		return ErrWorkflowInUse
 	default:
 		return fmt.Errorf("%s: %w", action, err)
-	}
-}
-
-func (s *Service) getWorkflowWithStatusBindings(ctx context.Context, workflowID uuid.UUID) (*ent.Workflow, error) {
-	item, err := s.client.Workflow.Query().
-		Where(entworkflow.IDEQ(workflowID)).
-		WithPickupStatuses(func(query *ent.TicketStatusQuery) {
-			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
-		}).
-		WithFinishStatuses(func(query *ent.TicketStatusQuery) {
-			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
-		}).
-		Only(ctx)
-	if err != nil {
-		return nil, s.mapWorkflowReadError("get workflow with status bindings", err)
-	}
-
-	return item, nil
-}
-
-func mapWorkflow(item *ent.Workflow) Workflow {
-	return Workflow{
-		ID:                  item.ID,
-		ProjectID:           item.ProjectID,
-		AgentID:             item.AgentID,
-		Name:                item.Name,
-		Type:                item.Type,
-		HarnessPath:         item.HarnessPath,
-		Hooks:               copyHooks(item.Hooks),
-		MaxConcurrent:       item.MaxConcurrent,
-		MaxRetryAttempts:    item.MaxRetryAttempts,
-		TimeoutMinutes:      item.TimeoutMinutes,
-		StallTimeoutMinutes: item.StallTimeoutMinutes,
-		Version:             item.Version,
-		IsActive:            item.IsActive,
-		PickupStatusIDs:     statusIDsFromEdges(item.Edges.PickupStatuses),
-		FinishStatusIDs:     statusIDsFromEdges(item.Edges.FinishStatuses),
-	}
-}
-
-func mapWorkflowDetail(item *ent.Workflow, harnessContent string) WorkflowDetail {
-	return WorkflowDetail{
-		Workflow:       mapWorkflow(item),
-		HarnessContent: harnessContent,
 	}
 }
 
@@ -1184,22 +1108,6 @@ func copyHooks(source map[string]any) map[string]any {
 	}
 
 	return copied
-}
-
-func statusIDsFromEdges(statuses []*ent.TicketStatus) []uuid.UUID {
-	ids := make([]uuid.UUID, 0, len(statuses))
-	for _, status := range statuses {
-		ids = append(ids, status.ID)
-	}
-	return ids
-}
-
-func statusNamesFromEdges(statuses []*ent.TicketStatus) []string {
-	names := make([]string, 0, len(statuses))
-	for _, status := range statuses {
-		names = append(names, status.Name)
-	}
-	return names
 }
 
 func defaultHarnessPath(workflowName string) string {
@@ -1234,7 +1142,7 @@ func normalizeHarnessPath(raw string) (string, error) {
 	return cleaned, nil
 }
 
-func defaultHarnessContent(name string, workflowType entworkflow.Type, pickupStatusNames []string, finishStatusNames []string) string {
+func defaultHarnessContent(name string, workflowType Type, pickupStatusNames []string, finishStatusNames []string) string {
 	var builder strings.Builder
 	builder.WriteString("---\n")
 	builder.WriteString("workflow:\n")
@@ -1269,345 +1177,33 @@ func slugify(raw string) string {
 }
 
 func (s *Service) ResolveRuntimeSnapshot(ctx context.Context, workflowID uuid.UUID) (RuntimeSnapshot, error) {
-	if s == nil || s.client == nil {
+	if s == nil || s.repo == nil {
 		return RuntimeSnapshot{}, ErrUnavailable
 	}
 
-	workflowItem, err := s.client.Workflow.Query().
-		Where(entworkflow.IDEQ(workflowID)).
-		Only(ctx)
+	workflowItem, err := s.repo.Get(ctx, workflowID)
 	if err != nil {
-		return RuntimeSnapshot{}, s.mapWorkflowReadError("get workflow for runtime snapshot", err)
+		return RuntimeSnapshot{}, err
 	}
 	if err := s.ensureBuiltinSkills(ctx, workflowItem.ProjectID); err != nil {
 		return RuntimeSnapshot{}, err
 	}
-
-	workflowVersion, err := s.runtimeWorkflowVersion(ctx, workflowItem)
-	if err != nil {
-		return RuntimeSnapshot{}, err
-	}
-	skills, err := s.runtimeSkillSnapshots(ctx, workflowItem.ProjectID, workflowItem.ID)
-	if err != nil {
-		return RuntimeSnapshot{}, err
-	}
-
-	projectedContent, err := projectHarnessContent(workflowVersion.ContentMarkdown, runtimeSkillNames(skills))
-	if err != nil {
-		return RuntimeSnapshot{}, err
-	}
-
-	return RuntimeSnapshot{
-		Workflow: RuntimeWorkflowSnapshot{
-			WorkflowID: workflowItem.ID,
-			VersionID:  workflowVersion.ID,
-			Version:    workflowVersion.Version,
-			Path:       workflowItem.HarnessPath,
-			Content:    projectedContent,
-		},
-		Skills: skills,
-	}, nil
+	return s.repo.ResolveRuntimeSnapshot(ctx, workflowID)
 }
 
 func (s *Service) ResolveRecordedRuntimeSnapshot(ctx context.Context, input ResolveRecordedRuntimeSnapshotInput) (RuntimeSnapshot, error) {
-	if s == nil || s.client == nil {
+	if s == nil || s.repo == nil {
 		return RuntimeSnapshot{}, ErrUnavailable
 	}
 
-	workflowItem, err := s.client.Workflow.Query().
-		Where(entworkflow.IDEQ(input.WorkflowID)).
-		Only(ctx)
-	if err != nil {
-		return RuntimeSnapshot{}, s.mapWorkflowReadError("get workflow for recorded runtime snapshot", err)
-	}
-
-	workflowVersion, err := s.recordedWorkflowVersion(ctx, workflowItem, input.WorkflowVersionID)
+	workflowItem, err := s.repo.Get(ctx, input.WorkflowID)
 	if err != nil {
 		return RuntimeSnapshot{}, err
 	}
-
-	var skills []RuntimeSkillSnapshot
-	if len(input.SkillVersionIDs) == 0 {
-		skills, err = s.runtimeSkillSnapshots(ctx, workflowItem.ProjectID, workflowItem.ID)
-	} else {
-		skills, err = s.recordedSkillSnapshots(ctx, workflowItem.ProjectID, input.SkillVersionIDs)
-	}
-	if err != nil {
+	if err := s.ensureBuiltinSkills(ctx, workflowItem.ProjectID); err != nil {
 		return RuntimeSnapshot{}, err
 	}
-
-	projectedContent, err := projectHarnessContent(workflowVersion.ContentMarkdown, runtimeSkillNames(skills))
-	if err != nil {
-		return RuntimeSnapshot{}, err
-	}
-
-	return RuntimeSnapshot{
-		Workflow: RuntimeWorkflowSnapshot{
-			WorkflowID: workflowItem.ID,
-			VersionID:  workflowVersion.ID,
-			Version:    workflowVersion.Version,
-			Path:       workflowItem.HarnessPath,
-			Content:    projectedContent,
-		},
-		Skills: skills,
-	}, nil
-}
-
-func (s *Service) runtimeWorkflowVersion(ctx context.Context, workflowItem *ent.Workflow) (*ent.WorkflowVersion, error) {
-	if workflowItem == nil {
-		return nil, ErrWorkflowNotFound
-	}
-
-	if workflowItem.CurrentVersionID != nil && *workflowItem.CurrentVersionID != uuid.Nil {
-		item, err := s.client.WorkflowVersion.Query().
-			Where(
-				entworkflowversion.IDEQ(*workflowItem.CurrentVersionID),
-				entworkflowversion.WorkflowIDEQ(workflowItem.ID),
-			).
-			Only(ctx)
-		if err == nil {
-			return item, nil
-		}
-		if !ent.IsNotFound(err) {
-			return nil, fmt.Errorf("get workflow current version: %w", err)
-		}
-	}
-
-	item, err := s.client.WorkflowVersion.Query().
-		Where(entworkflowversion.WorkflowIDEQ(workflowItem.ID)).
-		Order(ent.Desc(entworkflowversion.FieldVersion)).
-		First(ctx)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			return nil, fmt.Errorf("%w: workflow %s has no published versions", ErrWorkflowNotFound, workflowItem.ID)
-		}
-		return nil, fmt.Errorf("get workflow runtime version: %w", err)
-	}
-	return item, nil
-}
-
-func (s *Service) recordedWorkflowVersion(
-	ctx context.Context,
-	workflowItem *ent.Workflow,
-	workflowVersionID *uuid.UUID,
-) (*ent.WorkflowVersion, error) {
-	if workflowVersionID == nil || *workflowVersionID == uuid.Nil {
-		return s.runtimeWorkflowVersion(ctx, workflowItem)
-	}
-
-	item, err := s.client.WorkflowVersion.Query().
-		Where(
-			entworkflowversion.IDEQ(*workflowVersionID),
-			entworkflowversion.WorkflowIDEQ(workflowItem.ID),
-		).
-		Only(ctx)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			return nil, fmt.Errorf("%w: recorded workflow version %s not found for workflow %s", ErrWorkflowNotFound, *workflowVersionID, workflowItem.ID)
-		}
-		return nil, fmt.Errorf("get recorded workflow version: %w", err)
-	}
-	return item, nil
-}
-
-func (s *Service) runtimeSkillSnapshots(
-	ctx context.Context,
-	projectID uuid.UUID,
-	workflowID uuid.UUID,
-) ([]RuntimeSkillSnapshot, error) {
-	bindings, err := s.client.WorkflowSkillBinding.Query().
-		Where(entworkflowskillbinding.WorkflowIDEQ(workflowID)).
-		Order(ent.Asc(entworkflowskillbinding.FieldCreatedAt)).
-		All(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list runtime workflow skill bindings: %w", err)
-	}
-
-	snapshots := make([]RuntimeSkillSnapshot, 0, len(bindings)+1)
-	seen := map[uuid.UUID]struct{}{}
-	for _, binding := range bindings {
-		skillItem, err := s.skillByID(ctx, binding.SkillID)
-		if err != nil {
-			if err == ErrSkillNotFound {
-				continue
-			}
-			return nil, err
-		}
-		if skillItem.ProjectID != projectID || !skillItem.IsEnabled || skillItem.ArchivedAt != nil {
-			continue
-		}
-
-		versionItem, err := s.runtimeSkillVersion(ctx, skillItem, binding.RequiredVersionID)
-		if err != nil {
-			return nil, err
-		}
-		files, err := s.runtimeSkillFiles(ctx, versionItem.ID)
-		if err != nil {
-			return nil, err
-		}
-		snapshots = append(snapshots, RuntimeSkillSnapshot{
-			SkillID:    skillItem.ID,
-			Name:       skillItem.Name,
-			VersionID:  versionItem.ID,
-			Version:    versionItem.Version,
-			Content:    versionItem.ContentMarkdown,
-			Files:      files,
-			IsRequired: binding.RequiredVersionID != nil && *binding.RequiredVersionID != uuid.Nil,
-		})
-		seen[skillItem.ID] = struct{}{}
-	}
-
-	platformSkill, err := s.skillByName(ctx, projectID, "openase-platform")
-	if err != nil && err != ErrSkillNotFound {
-		return nil, err
-	}
-	if err == nil && platformSkill.IsEnabled && platformSkill.ArchivedAt == nil {
-		if _, ok := seen[platformSkill.ID]; !ok {
-			versionItem, versionErr := s.runtimeSkillVersion(ctx, platformSkill, nil)
-			if versionErr != nil {
-				return nil, versionErr
-			}
-			files, filesErr := s.runtimeSkillFiles(ctx, versionItem.ID)
-			if filesErr != nil {
-				return nil, filesErr
-			}
-			snapshots = append(snapshots, RuntimeSkillSnapshot{
-				SkillID:   platformSkill.ID,
-				Name:      platformSkill.Name,
-				VersionID: versionItem.ID,
-				Version:   versionItem.Version,
-				Content:   versionItem.ContentMarkdown,
-				Files:     files,
-			})
-		}
-	}
-
-	sort.SliceStable(snapshots, func(i int, j int) bool {
-		return snapshots[i].Name < snapshots[j].Name
-	})
-	return snapshots, nil
-}
-
-func (s *Service) skillByID(ctx context.Context, skillID uuid.UUID) (*ent.Skill, error) {
-	item, err := s.client.Skill.Query().
-		Where(
-			entskill.IDEQ(skillID),
-			entskill.ArchivedAtIsNil(),
-		).
-		Only(ctx)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			return nil, ErrSkillNotFound
-		}
-		return nil, fmt.Errorf("get skill by id: %w", err)
-	}
-	return item, nil
-}
-
-func (s *Service) runtimeSkillVersion(ctx context.Context, skillItem *ent.Skill, requiredVersionID *uuid.UUID) (*ent.SkillVersion, error) {
-	if skillItem == nil {
-		return nil, ErrSkillNotFound
-	}
-
-	if requiredVersionID != nil && *requiredVersionID != uuid.Nil {
-		item, err := s.client.SkillVersion.Query().
-			Where(
-				entskillversion.IDEQ(*requiredVersionID),
-				entskillversion.SkillIDEQ(skillItem.ID),
-			).
-			Only(ctx)
-		if err != nil {
-			if ent.IsNotFound(err) {
-				return nil, fmt.Errorf("%w: required skill version %s not found for skill %s", ErrSkillNotFound, *requiredVersionID, skillItem.Name)
-			}
-			return nil, fmt.Errorf("get required skill version: %w", err)
-		}
-		return item, nil
-	}
-
-	if skillItem.CurrentVersionID != nil && *skillItem.CurrentVersionID != uuid.Nil {
-		item, err := s.client.SkillVersion.Query().
-			Where(
-				entskillversion.IDEQ(*skillItem.CurrentVersionID),
-				entskillversion.SkillIDEQ(skillItem.ID),
-			).
-			Only(ctx)
-		if err == nil {
-			return item, nil
-		}
-		if !ent.IsNotFound(err) {
-			return nil, fmt.Errorf("get current skill version: %w", err)
-		}
-	}
-
-	item, err := s.client.SkillVersion.Query().
-		Where(entskillversion.SkillIDEQ(skillItem.ID)).
-		Order(ent.Desc(entskillversion.FieldVersion)).
-		First(ctx)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			return nil, fmt.Errorf("%w: skill %s has no published versions", ErrSkillNotFound, skillItem.Name)
-		}
-		return nil, fmt.Errorf("get runtime skill version: %w", err)
-	}
-	return item, nil
-}
-
-func (s *Service) recordedSkillSnapshots(
-	ctx context.Context,
-	projectID uuid.UUID,
-	versionIDs []uuid.UUID,
-) ([]RuntimeSkillSnapshot, error) {
-	ordered := make([]uuid.UUID, 0, len(versionIDs))
-	seen := map[uuid.UUID]struct{}{}
-	for _, id := range versionIDs {
-		if id == uuid.Nil {
-			continue
-		}
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		ordered = append(ordered, id)
-	}
-	if len(ordered) == 0 {
-		return nil, nil
-	}
-
-	snapshots := make([]RuntimeSkillSnapshot, 0, len(ordered))
-	for _, versionID := range ordered {
-		versionItem, err := s.client.SkillVersion.Query().
-			Where(entskillversion.IDEQ(versionID)).
-			WithSkill().
-			Only(ctx)
-		if err != nil {
-			if ent.IsNotFound(err) {
-				return nil, fmt.Errorf("%w: recorded skill version %s not found", ErrSkillNotFound, versionID)
-			}
-			return nil, fmt.Errorf("get recorded skill version: %w", err)
-		}
-		if versionItem.Edges.Skill == nil || versionItem.Edges.Skill.ProjectID != projectID {
-			return nil, fmt.Errorf("%w: recorded skill version %s is outside project %s", ErrSkillInvalid, versionID, projectID)
-		}
-		files, err := s.runtimeSkillFiles(ctx, versionItem.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		snapshots = append(snapshots, RuntimeSkillSnapshot{
-			SkillID:   versionItem.Edges.Skill.ID,
-			Name:      versionItem.Edges.Skill.Name,
-			VersionID: versionItem.ID,
-			Version:   versionItem.Version,
-			Content:   versionItem.ContentMarkdown,
-			Files:     files,
-		})
-	}
-
-	sort.SliceStable(snapshots, func(i int, j int) bool {
-		return snapshots[i].Name < snapshots[j].Name
-	})
-	return snapshots, nil
+	return s.repo.ResolveRecordedRuntimeSnapshot(ctx, input)
 }
 
 func (s *Service) runtimeSkillFiles(ctx context.Context, versionID uuid.UUID) ([]RuntimeSkillFileSnapshot, error) {
@@ -1626,6 +1222,24 @@ func (s *Service) runtimeSkillFiles(ctx context.Context, versionID uuid.UUID) ([
 	return snapshots, nil
 }
 
+func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarnessTemplateDataInput) (HarnessTemplateData, error) {
+	if s == nil || s.repo == nil {
+		return HarnessTemplateData{}, ErrUnavailable
+	}
+	workflowItem, err := s.repo.Get(ctx, input.WorkflowID)
+	if err != nil {
+		return HarnessTemplateData{}, err
+	}
+	if err := s.ensureBuiltinSkills(ctx, workflowItem.ProjectID); err != nil {
+		return HarnessTemplateData{}, err
+	}
+	data, err := s.repo.BuildHarnessTemplateData(ctx, input)
+	if err != nil {
+		return HarnessTemplateData{}, err
+	}
+	return HarnessTemplateData(data), nil
+}
+
 func DetectRepoRoot(start string) (string, error) {
 	current := start
 	for {
@@ -1641,12 +1255,4 @@ func DetectRepoRoot(start string) (string, error) {
 		}
 		current = parent
 	}
-}
-
-func rollback(tx *ent.Tx) {
-	if tx == nil {
-		return
-	}
-
-	_ = tx.Rollback()
 }

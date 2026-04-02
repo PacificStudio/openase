@@ -10,7 +10,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entmigrate "github.com/BetterAndBetterII/openase/ent/migrate"
-	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
+	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
 	// Register ent runtime hooks for generated schema metadata.
 	_ "github.com/BetterAndBetterII/openase/ent/runtime"
 	// Register the PostgreSQL SQL driver used by database/sql and ent.
@@ -30,7 +30,7 @@ func Open(ctx context.Context, dsn string) (*ent.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
-	ticketservice.InstallRetryTokenHooks(client)
+	ticketrepo.InstallRetryTokenHooks(client)
 
 	if err := withSchemaBootstrapLock(ctx, trimmedDSN, func() error {
 		if err := applyLegacySchemaCompat(ctx, trimmedDSN); err != nil {

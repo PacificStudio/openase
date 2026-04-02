@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
-	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -246,7 +245,7 @@ func TestProjectConversationPromptIncludesTicketCapsule(t *testing.T) {
 				TargetMachineID:   optionalUUID(targetMachineID),
 				Dependencies: []ticketservice.Dependency{
 					{
-						Type: entticketdependency.TypeBlocks,
+						Type: ticketservice.DependencyTypeBlocks,
 						Target: ticketservice.TicketReference{
 							Identifier: "ASE-100",
 							Title:      "Primary blocker",

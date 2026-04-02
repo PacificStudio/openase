@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"unicode/utf8"
+
+	domain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
 )
 
 const (
@@ -22,36 +24,11 @@ const (
 	skillBundleEncodingBinary = "binary"
 )
 
-type SkillBundleFileInput struct {
-	Path         string
-	Content      []byte
-	IsExecutable bool
-	MediaType    string
-}
+type SkillBundleFileInput = domain.SkillBundleFileInput
 
-type SkillBundleFile struct {
-	Path         string `json:"path"`
-	FileKind     string `json:"file_kind"`
-	MediaType    string `json:"media_type"`
-	Encoding     string `json:"encoding"`
-	IsExecutable bool   `json:"is_executable"`
-	SizeBytes    int64  `json:"size_bytes"`
-	SHA256       string `json:"sha256"`
-	Content      []byte `json:"-"`
-}
+type SkillBundleFile = domain.SkillBundleFile
 
-type SkillBundle struct {
-	Name             string            `json:"name"`
-	Description      string            `json:"description"`
-	Files            []SkillBundleFile `json:"files"`
-	FileCount        int               `json:"file_count"`
-	SizeBytes        int64             `json:"size_bytes"`
-	BundleHash       string            `json:"bundle_hash"`
-	Manifest         map[string]any    `json:"manifest"`
-	EntrypointPath   string            `json:"entrypoint_path"`
-	EntrypointSHA256 string            `json:"entrypoint_sha256"`
-	EntrypointBody   string            `json:"entrypoint_body"`
-}
+type SkillBundle = domain.SkillBundle
 
 func buildSingleFileSkillBundle(name string, content string, fallbackDescription string) (SkillBundle, error) {
 	normalizedContent, err := ensureSkillContent(name, content, fallbackDescription)

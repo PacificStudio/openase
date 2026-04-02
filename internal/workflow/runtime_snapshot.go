@@ -7,59 +7,26 @@ import (
 	"sort"
 	"strings"
 
+	domain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
 	"github.com/google/uuid"
 )
 
-type RuntimeSnapshot struct {
-	Workflow RuntimeWorkflowSnapshot
-	Skills   []RuntimeSkillSnapshot
-}
+type RuntimeSnapshot = domain.RuntimeSnapshot
 
-type RuntimeWorkflowSnapshot struct {
-	WorkflowID uuid.UUID
-	VersionID  uuid.UUID
-	Version    int
-	Path       string
-	Content    string
-}
+type RuntimeWorkflowSnapshot = domain.RuntimeWorkflowSnapshot
 
-type RuntimeSkillSnapshot struct {
-	SkillID    uuid.UUID
-	Name       string
-	VersionID  uuid.UUID
-	Version    int
-	Content    string
-	Files      []RuntimeSkillFileSnapshot
-	IsRequired bool
-}
+type RuntimeSkillSnapshot = domain.RuntimeSkillSnapshot
 
-type RuntimeSkillFileSnapshot struct {
-	Path         string
-	Content      []byte
-	IsExecutable bool
-}
+type RuntimeSkillFileSnapshot = domain.RuntimeSkillFileSnapshot
 
-type MaterializeRuntimeSnapshotInput struct {
-	WorkspaceRoot string
-	AdapterType   string
-	Snapshot      RuntimeSnapshot
-}
+type MaterializeRuntimeSnapshotInput = domain.MaterializeRuntimeSnapshotInput
 
-type ResolveRecordedRuntimeSnapshotInput struct {
-	WorkflowID        uuid.UUID
-	WorkflowVersionID *uuid.UUID
-	SkillVersionIDs   []uuid.UUID
-}
+type ResolveRecordedRuntimeSnapshotInput = domain.ResolveRecordedRuntimeSnapshotInput
 
-type MaterializedRuntimeSnapshot struct {
-	HarnessPath       string
-	SkillsDir         string
-	WorkflowVersionID uuid.UUID
-	SkillVersionIDs   []uuid.UUID
-}
+type MaterializedRuntimeSnapshot = domain.MaterializedRuntimeSnapshot
 
 func (s *Service) MaterializeRuntimeSnapshot(input MaterializeRuntimeSnapshotInput) (MaterializedRuntimeSnapshot, error) {
-	if s == nil || s.client == nil {
+	if s == nil {
 		return MaterializedRuntimeSnapshot{}, ErrUnavailable
 	}
 	if input.Snapshot.Workflow.VersionID == uuid.Nil {

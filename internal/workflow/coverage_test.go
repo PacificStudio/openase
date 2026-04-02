@@ -17,7 +17,6 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
-	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
@@ -858,7 +857,7 @@ func TestWorkflowServiceLifecycleCoverage(t *testing.T) {
 		t.Fatalf("statusNamesFromEdges() = %+v", got)
 	}
 
-	content := defaultHarnessContent("Coverage Workflow", entworkflow.TypeCoding, []string{"Todo"}, []string{"Done"})
+	content := defaultHarnessContent("Coverage Workflow", TypeCoding, []string{"Todo"}, []string{"Done"})
 	if !strings.Contains(content, `name: "Coverage Workflow"`) || !strings.Contains(content, "Pickup statuses: Todo") || !strings.Contains(content, "Finish statuses: Done") {
 		t.Fatalf("defaultHarnessContent() = %q", content)
 	}
@@ -872,7 +871,7 @@ func TestWorkflowServiceLifecycleCoverage(t *testing.T) {
 	generated, err := service.resolveHarnessContent(
 		ctx,
 		"Coverage Workflow",
-		entworkflow.TypeCoding,
+		TypeCoding,
 		MustStatusBindingSet(fixture.statusIDs["Todo"]),
 		MustStatusBindingSet(fixture.statusIDs["Done"]),
 		"",
@@ -886,7 +885,7 @@ func TestWorkflowServiceLifecycleCoverage(t *testing.T) {
 	if _, err := service.resolveHarnessContent(
 		ctx,
 		"Coverage Workflow",
-		entworkflow.TypeCoding,
+		TypeCoding,
 		MustStatusBindingSet(fixture.statusIDs["Todo"]),
 		MustStatusBindingSet(fixture.statusIDs["Done"]),
 		"---\nworkflow:\n  role: coding\n---\n\n{{",

@@ -1,14 +1,11 @@
 package scheduledjob
 
 import (
-	"errors"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/BetterAndBetterII/openase/ent"
-	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
-	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	domain "github.com/BetterAndBetterII/openase/internal/domain/scheduledjob"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
 )
 
@@ -25,7 +22,7 @@ func TestScheduledJobTemplateParsingHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseRawTicketTemplate() error = %v", err)
 	}
-	if template.Title != "Daily Build" || template.Description != "Run the workflow" || template.Status != "Todo" || template.Priority != entticket.PriorityHigh || template.Type != entticket.TypeBugfix || template.CreatedBy != "system:test" || template.BudgetUSD != 4.5 {
+	if template.Title != "Daily Build" || template.Description != "Run the workflow" || template.Status != "Todo" || template.Priority != ticketservice.PriorityHigh || template.Type != ticketservice.TypeBugfix || template.CreatedBy != "system:test" || template.BudgetUSD != 4.5 {
 		t.Fatalf("ParseRawTicketTemplate() = %+v", template)
 	}
 
@@ -37,7 +34,7 @@ func TestScheduledJobTemplateParsingHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseRawTicketTemplate(minimal) error = %v", err)
 	}
-	if minimal.Priority != entticket.DefaultPriority || minimal.Type != entticket.DefaultType || minimal.CreatedBy != defaultCreatedBy {
+	if minimal.Priority != ticketservice.DefaultPriority || minimal.Type != ticketservice.DefaultType || minimal.CreatedBy != defaultCreatedBy {
 		t.Fatalf("ParseRawTicketTemplate(minimal) = %+v", minimal)
 	}
 	if got := minimal.Raw(); got["created_by"] != defaultCreatedBy {
@@ -100,7 +97,7 @@ func TestScheduledJobCronAndTemplateHelpers(t *testing.T) {
 	}
 
 	currentNext := now.Add(10 * time.Minute)
-	current := &ent.ScheduledJob{
+	current := domain.Job{
 		IsEnabled: true,
 		NextRunAt: &currentNext,
 	}
@@ -120,36 +117,37 @@ func TestScheduledJobCronAndTemplateHelpers(t *testing.T) {
 	}
 
 	workflowID := uuid.New()
-	workflowItem := &ent.Workflow{
+	workflowItem := &domain.Workflow{
 		ID:   workflowID,
 		Name: "Daily Coding",
-		Type: entworkflow.TypeCoding,
-		Edges: ent.WorkflowEdges{
-			PickupStatuses: []*ent.TicketStatus{{ID: uuid.New(), Name: "Todo"}},
-		},
+		Type: "coding",
+		PickupStatuses: []domain.WorkflowStatus{{
+			ID:   uuid.New(),
+			Name: "Todo",
+		}},
 	}
-	if statusID, err := resolveScheduledJobPickupStatus("", workflowItem); err != nil || statusID != workflowItem.Edges.PickupStatuses[0].ID {
+	if statusID, err := resolveScheduledJobPickupStatus("", workflowItem); err != nil || statusID != workflowItem.PickupStatuses[0].ID {
 		t.Fatalf("resolveScheduledJobPickupStatus(single) = %s, %v", statusID, err)
 	}
 	if statusID, err := resolveScheduledJobPickupStatus("Explicit", workflowItem); err != nil || statusID != uuid.Nil {
 		t.Fatalf("resolveScheduledJobPickupStatus(explicit) = %s, %v", statusID, err)
 	}
-	workflowItem.Edges.PickupStatuses = []*ent.TicketStatus{{ID: uuid.New()}, {ID: uuid.New()}}
+	workflowItem.PickupStatuses = []domain.WorkflowStatus{{ID: uuid.New()}, {ID: uuid.New()}}
 	if _, err := resolveScheduledJobPickupStatus("", workflowItem); err == nil {
 		t.Fatal("resolveScheduledJobPickupStatus(multi) expected error")
 	}
-	workflowItem.Edges.PickupStatuses = nil
+	workflowItem.PickupStatuses = nil
 	if _, err := resolveScheduledJobPickupStatus("", workflowItem); err == nil {
 		t.Fatal("resolveScheduledJobPickupStatus(no statuses) expected error")
 	}
 
 	jobID := uuid.New()
 	projectID := uuid.New()
-	contextMap := scheduledJobTemplateContext(&ent.ScheduledJob{
+	contextMap := scheduledJobTemplateContext(domain.Job{
 		ID:             jobID,
 		Name:           "Daily",
 		CronExpression: "0 * * * *",
-	}, &ent.Workflow{ID: workflowID, Name: "Daily Coding", Type: entworkflow.TypeCoding}, now)
+	}, &domain.Workflow{ID: workflowID, Name: "Daily Coding", Type: "coding"}, now)
 	if contextMap["date"] != "2026-03-27" || contextMap["job"].(map[string]any)["id"] != jobID.String() || contextMap["workflow"].(map[string]any)["type"] != "coding" {
 		t.Fatalf("scheduledJobTemplateContext() = %+v", contextMap)
 	}
@@ -170,7 +168,7 @@ func TestScheduledJobCronAndTemplateHelpers(t *testing.T) {
 
 	lastRunAt := now.Add(-time.Hour)
 	nextRunAt := now.Add(time.Hour)
-	mapped, err := mapScheduledJob(&ent.ScheduledJob{
+	mapped, err := mapScheduledJob(domain.Job{
 		ID:             jobID,
 		ProjectID:      projectID,
 		Name:           "Daily",
@@ -189,7 +187,7 @@ func TestScheduledJobCronAndTemplateHelpers(t *testing.T) {
 	if mapped.LastRunAt == &lastRunAt || mapped.NextRunAt == &nextRunAt {
 		t.Fatal("mapScheduledJob() did not clone times")
 	}
-	if _, err := mapScheduledJob(&ent.ScheduledJob{TicketTemplate: map[string]any{"title": 1}}); err == nil {
+	if _, err := mapScheduledJob(domain.Job{TicketTemplate: map[string]any{"title": 1}}); err == nil {
 		t.Fatal("mapScheduledJob(invalid template) expected error")
 	}
 
@@ -198,18 +196,5 @@ func TestScheduledJobCronAndTemplateHelpers(t *testing.T) {
 	}
 	if got := cloneTime(&nextRunAt); got == nil || !got.Equal(nextRunAt.UTC()) || got == &nextRunAt {
 		t.Fatalf("cloneTime() = %v", got)
-	}
-}
-
-func TestScheduledJobErrorMappers(t *testing.T) {
-	svc := NewService(nil, nil, nil)
-
-	readErr := svc.mapReadError("get scheduled job", errors.New("boom"))
-	if !strings.Contains(readErr.Error(), "get scheduled job") {
-		t.Fatalf("mapReadError() = %v", readErr)
-	}
-	writeErr := svc.mapWriteError("update scheduled job", errors.New("boom"))
-	if !strings.Contains(writeErr.Error(), "update scheduled job") {
-		t.Fatalf("mapWriteError() = %v", writeErr)
 	}
 }

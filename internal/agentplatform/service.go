@@ -13,23 +13,24 @@ import (
 	"strings"
 	"time"
 
-	entsql "entgo.io/ent/dialect/sql"
-	"github.com/BetterAndBetterII/openase/ent"
-	entagent "github.com/BetterAndBetterII/openase/ent/agent"
-	entagenttoken "github.com/BetterAndBetterII/openase/ent/agenttoken"
-	entprojectconversationprincipal "github.com/BetterAndBetterII/openase/ent/projectconversationprincipal"
+	domain "github.com/BetterAndBetterII/openase/internal/domain/agentplatform"
 	"github.com/google/uuid"
 )
 
-const (
-	TokenPrefix = "ase_agent_"
+const TokenPrefix = domain.TokenPrefix
 
-	ScopeTicketsCreate      Scope = "tickets.create"
-	ScopeTicketsList        Scope = "tickets.list"
-	ScopeTicketsReportUsage Scope = "tickets.report_usage"
-	ScopeTicketsUpdateSelf  Scope = "tickets.update.self"
-	ScopeProjectsUpdate     Scope = "projects.update"
-	ScopeProjectsAddRepo    Scope = "projects.add_repo"
+const (
+	ScopeTicketsCreate      = domain.ScopeTicketsCreate
+	ScopeTicketsList        = domain.ScopeTicketsList
+	ScopeTicketsReportUsage = domain.ScopeTicketsReportUsage
+	ScopeTicketsUpdateSelf  = domain.ScopeTicketsUpdateSelf
+	ScopeProjectsUpdate     = domain.ScopeProjectsUpdate
+	ScopeProjectsAddRepo    = domain.ScopeProjectsAddRepo
+)
+
+const (
+	PrincipalKindTicketAgent         = domain.PrincipalKindTicketAgent
+	PrincipalKindProjectConversation = domain.PrincipalKindProjectConversation
 )
 
 var (
@@ -69,85 +70,31 @@ var (
 	}
 )
 
-type Scope string
-
-type PrincipalKind string
-
-const (
-	PrincipalKindTicketAgent         PrincipalKind = "ticket_agent"
-	PrincipalKindProjectConversation PrincipalKind = "project_conversation"
-)
-
-type ScopeSet []Scope
-
-type ScopeWhitelist struct {
-	Configured bool
-	Scopes     []string
-}
-
-type IssueInput struct {
-	PrincipalKind  PrincipalKind
-	PrincipalID    uuid.UUID
-	PrincipalName  string
-	AgentID        uuid.UUID
-	ProjectID      uuid.UUID
-	TicketID       uuid.UUID
-	ConversationID uuid.UUID
-	Scopes         []string
-	ScopeWhitelist ScopeWhitelist
-	TTL            time.Duration
-}
-
-type IssuedToken struct {
-	Token          string
-	PrincipalKind  PrincipalKind
-	PrincipalID    uuid.UUID
-	PrincipalName  string
-	ProjectID      uuid.UUID
-	TicketID       uuid.UUID
-	ConversationID uuid.UUID
-	Scopes         []string
-	ExpiresAt      time.Time
-}
-
-type Claims struct {
-	TokenID        uuid.UUID
-	PrincipalKind  PrincipalKind
-	PrincipalID    uuid.UUID
-	PrincipalName  string
-	AgentID        uuid.UUID
-	ProjectID      uuid.UUID
-	TicketID       uuid.UUID
-	ConversationID uuid.UUID
-	Scopes         []string
-	ExpiresAt      time.Time
-}
-
-type ProjectTokenInventory struct {
-	ActiveTokenCount  int
-	ExpiredTokenCount int
-	LastIssuedAt      *time.Time
-	LastUsedAt        *time.Time
-	DefaultScopes     []string
-	PrivilegedScopes  []string
-}
+type Scope = domain.Scope
+type PrincipalKind = domain.PrincipalKind
+type ScopeSet = domain.ScopeSet
+type ScopeWhitelist = domain.ScopeWhitelist
+type IssueInput = domain.IssueInput
+type IssuedToken = domain.IssuedToken
+type Claims = domain.Claims
+type ProjectTokenInventory = domain.ProjectTokenInventory
 
 type Service struct {
-	client *ent.Client
-	now    func() time.Time
-	rng    io.Reader
+	repo Repository
+	now  func() time.Time
+	rng  io.Reader
 }
 
-func NewService(client *ent.Client) *Service {
+func NewService(repo Repository) *Service {
 	return &Service{
-		client: client,
-		now:    time.Now,
-		rng:    rand.Reader,
+		repo: repo,
+		now:  time.Now,
+		rng:  rand.Reader,
 	}
 }
 
 func (s *Service) IssueToken(ctx context.Context, input IssueInput) (IssuedToken, error) {
-	if s == nil || s.client == nil {
+	if s == nil || s.repo == nil {
 		return IssuedToken{}, ErrUnavailable
 	}
 
@@ -171,24 +118,25 @@ func (s *Service) IssueToken(ctx context.Context, input IssueInput) (IssuedToken
 		return IssuedToken{}, err
 	}
 
-	builder := s.client.AgentToken.Create().
-		SetProjectID(resolved.ProjectID).
-		SetPrincipalKind(entagenttoken.PrincipalKind(resolved.PrincipalKind)).
-		SetPrincipalID(resolved.PrincipalID).
-		SetPrincipalName(resolved.PrincipalName).
-		SetTokenHash(tokenHash).
-		SetScopes(scopeStrings(scopes)).
-		SetExpiresAt(expiresAt)
+	record := domain.CreateTokenRecord{
+		ProjectID:     resolved.ProjectID,
+		PrincipalKind: resolved.PrincipalKind,
+		PrincipalID:   resolved.PrincipalID,
+		PrincipalName: resolved.PrincipalName,
+		TokenHash:     tokenHash,
+		Scopes:        scopeStrings(scopes),
+		ExpiresAt:     expiresAt,
+	}
 	if resolved.AgentID != uuid.Nil {
-		builder.SetAgentID(resolved.AgentID)
+		record.AgentID = uuidPointer(resolved.AgentID)
 	}
 	if resolved.TicketID != uuid.Nil {
-		builder.SetTicketID(resolved.TicketID)
+		record.TicketID = uuidPointer(resolved.TicketID)
 	}
 	if resolved.ConversationID != uuid.Nil {
-		builder.SetConversationID(resolved.ConversationID)
+		record.ConversationID = uuidPointer(resolved.ConversationID)
 	}
-	if _, err := builder.Save(ctx); err != nil {
+	if err := s.repo.CreateToken(ctx, record); err != nil {
 		return IssuedToken{}, fmt.Errorf("create agent token: %w", err)
 	}
 
@@ -206,7 +154,7 @@ func (s *Service) IssueToken(ctx context.Context, input IssueInput) (IssuedToken
 }
 
 func (s *Service) Authenticate(ctx context.Context, rawToken string) (Claims, error) {
-	if s == nil || s.client == nil {
+	if s == nil || s.repo == nil {
 		return Claims{}, ErrUnavailable
 	}
 
@@ -215,11 +163,9 @@ func (s *Service) Authenticate(ctx context.Context, rawToken string) (Claims, er
 		return Claims{}, err
 	}
 
-	record, err := s.client.AgentToken.Query().
-		Where(entagenttoken.TokenHashEQ(hashToken(tokenText))).
-		Only(ctx)
+	record, err := s.repo.TokenByHash(ctx, hashToken(tokenText))
 	if err != nil {
-		if ent.IsNotFound(err) {
+		if errors.Is(err, domain.ErrNotFound) {
 			return Claims{}, ErrTokenNotFound
 		}
 		return Claims{}, fmt.Errorf("load agent token: %w", err)
@@ -228,46 +174,41 @@ func (s *Service) Authenticate(ctx context.Context, rawToken string) (Claims, er
 		return Claims{}, ErrTokenExpired
 	}
 
-	scopes, err := parseScopes(record.Scopes)
+	scopes, err := parseScopesForPrincipalKind(record.PrincipalKind, record.Scopes)
 	if err != nil {
 		return Claims{}, err
 	}
-	if _, err := s.client.AgentToken.UpdateOneID(record.ID).SetLastUsedAt(s.now().UTC()).Save(ctx); err != nil {
+	if err := s.repo.TouchTokenLastUsed(ctx, record.TokenID, s.now().UTC()); err != nil {
 		return Claims{}, fmt.Errorf("touch agent token last_used_at: %w", err)
 	}
 
-	kind := PrincipalKind(record.PrincipalKind)
-	switch kind {
+	switch record.PrincipalKind {
 	case PrincipalKindTicketAgent:
 		if record.AgentID == nil || *record.AgentID == uuid.Nil {
 			return Claims{}, ErrInvalidPrincipal
 		}
-		agentItem, loadErr := s.client.Agent.Query().
-			Where(entagent.IDEQ(*record.AgentID)).
-			Only(ctx)
-		if loadErr != nil {
-			if ent.IsNotFound(loadErr) {
+		principal, err := s.repo.AgentPrincipal(ctx, *record.AgentID)
+		if err != nil {
+			if errors.Is(err, domain.ErrNotFound) {
 				return Claims{}, ErrAgentNotFound
 			}
-			return Claims{}, fmt.Errorf("get agent for token auth: %w", loadErr)
+			return Claims{}, fmt.Errorf("get agent for token auth: %w", err)
 		}
-		if agentItem.ProjectID != record.ProjectID {
+		if principal.ProjectID != record.ProjectID {
 			return Claims{}, ErrProjectMismatch
 		}
 	case PrincipalKindProjectConversation:
 		if record.ConversationID == nil || *record.ConversationID == uuid.Nil {
 			return Claims{}, ErrInvalidPrincipal
 		}
-		principalItem, loadErr := s.client.ProjectConversationPrincipal.Query().
-			Where(entprojectconversationprincipal.IDEQ(record.PrincipalID)).
-			Only(ctx)
-		if loadErr != nil {
-			if ent.IsNotFound(loadErr) {
+		principal, err := s.repo.ProjectConversationPrincipal(ctx, record.PrincipalID)
+		if err != nil {
+			if errors.Is(err, domain.ErrNotFound) {
 				return Claims{}, ErrPrincipalNotFound
 			}
-			return Claims{}, fmt.Errorf("get project conversation principal for token auth: %w", loadErr)
+			return Claims{}, fmt.Errorf("get project conversation principal for token auth: %w", err)
 		}
-		if principalItem.ProjectID != record.ProjectID || principalItem.ConversationID != *record.ConversationID {
+		if principal.ProjectID != record.ProjectID || principal.ConversationID != *record.ConversationID {
 			return Claims{}, ErrProjectMismatch
 		}
 	default:
@@ -275,8 +216,8 @@ func (s *Service) Authenticate(ctx context.Context, rawToken string) (Claims, er
 	}
 
 	return Claims{
-		TokenID:        record.ID,
-		PrincipalKind:  kind,
+		TokenID:        record.TokenID,
+		PrincipalKind:  record.PrincipalKind,
 		PrincipalID:    record.PrincipalID,
 		PrincipalName:  record.PrincipalName,
 		AgentID:        uuidPointerValue(record.AgentID),
@@ -289,59 +230,20 @@ func (s *Service) Authenticate(ctx context.Context, rawToken string) (Claims, er
 }
 
 func (s *Service) ProjectTokenInventory(ctx context.Context, projectID uuid.UUID) (ProjectTokenInventory, error) {
-	if s == nil || s.client == nil {
+	if s == nil || s.repo == nil {
 		return ProjectTokenInventory{}, ErrUnavailable
 	}
 	if projectID == uuid.Nil {
 		return ProjectTokenInventory{}, fmt.Errorf("project_id must be a valid UUID")
 	}
 
-	now := s.now().UTC()
-	baseQuery := s.client.AgentToken.Query().Where(entagenttoken.ProjectIDEQ(projectID))
-
-	activeTokenCount, err := baseQuery.Clone().Where(entagenttoken.ExpiresAtGTE(now)).Count(ctx)
+	inventory, err := s.repo.ProjectTokenInventory(ctx, projectID, s.now().UTC())
 	if err != nil {
-		return ProjectTokenInventory{}, fmt.Errorf("count active project tokens: %w", err)
+		return ProjectTokenInventory{}, err
 	}
-
-	expiredTokenCount, err := baseQuery.Clone().Where(entagenttoken.ExpiresAtLT(now)).Count(ctx)
-	if err != nil {
-		return ProjectTokenInventory{}, fmt.Errorf("count expired project tokens: %w", err)
-	}
-
-	var lastIssuedAt *time.Time
-	lastIssuedToken, err := baseQuery.Clone().
-		Order(entagenttoken.ByCreatedAt(entsql.OrderDesc())).
-		First(ctx)
-	switch {
-	case ent.IsNotFound(err):
-	case err != nil:
-		return ProjectTokenInventory{}, fmt.Errorf("load latest project token issue: %w", err)
-	default:
-		lastIssuedAt = timePointer(lastIssuedToken.CreatedAt.UTC())
-	}
-
-	var lastUsedAt *time.Time
-	lastUsedToken, err := baseQuery.Clone().
-		Where(entagenttoken.LastUsedAtNotNil()).
-		Order(entagenttoken.ByLastUsedAt(entsql.OrderDesc())).
-		First(ctx)
-	switch {
-	case ent.IsNotFound(err):
-	case err != nil:
-		return ProjectTokenInventory{}, fmt.Errorf("load latest project token use: %w", err)
-	default:
-		lastUsedAt = timePointer(lastUsedToken.LastUsedAt.UTC())
-	}
-
-	return ProjectTokenInventory{
-		ActiveTokenCount:  activeTokenCount,
-		ExpiredTokenCount: expiredTokenCount,
-		LastIssuedAt:      lastIssuedAt,
-		LastUsedAt:        lastUsedAt,
-		DefaultScopes:     DefaultScopes(),
-		PrivilegedScopes:  PrivilegedScopes(),
-	}, nil
+	inventory.DefaultScopes = DefaultScopes()
+	inventory.PrivilegedScopes = PrivilegedScopes()
+	return inventory, nil
 }
 
 func ParseToken(raw string) (string, error) {
@@ -360,47 +262,8 @@ func ParseBearerToken(header string) (string, error) {
 	return ParseToken(value)
 }
 
-func (c Claims) HasScope(scope Scope) bool {
-	for _, item := range c.Scopes {
-		if item == string(scope) {
-			return true
-		}
-	}
-	return false
-}
-
-func (c Claims) CreatedBy() string {
-	switch c.PrincipalKind {
-	case PrincipalKindProjectConversation:
-		if strings.HasPrefix(c.PrincipalName, "project-conversation:") {
-			return c.PrincipalName
-		}
-		return "project-conversation:" + c.PrincipalName
-	default:
-		return "agent:" + c.PrincipalName
-	}
-}
-
-func (c Claims) IsTicketAgent() bool {
-	return c.PrincipalKind == PrincipalKindTicketAgent
-}
-
-func (c Claims) IsProjectConversation() bool {
-	return c.PrincipalKind == PrincipalKindProjectConversation
-}
-
 func BuildEnvironment(apiURL string, token string, projectID uuid.UUID, ticketID uuid.UUID) []string {
-	environment := []string{
-		"OPENASE_PROJECT_ID=" + projectID.String(),
-		"OPENASE_TICKET_ID=" + ticketID.String(),
-	}
-	if strings.TrimSpace(apiURL) != "" {
-		environment = append(environment, "OPENASE_API_URL="+strings.TrimSpace(apiURL))
-	}
-	if strings.TrimSpace(token) != "" {
-		environment = append(environment, "OPENASE_AGENT_TOKEN="+strings.TrimSpace(token))
-	}
-	return environment
+	return domain.BuildEnvironment(apiURL, token, projectID, ticketID)
 }
 
 func DefaultScopes() []string {
@@ -408,12 +271,7 @@ func DefaultScopes() []string {
 }
 
 func DefaultScopesForPrincipalKind(kind PrincipalKind) []string {
-	switch kind {
-	case PrincipalKindProjectConversation:
-		return scopeStrings(defaultProjectConversationScopes)
-	default:
-		return scopeStrings(defaultAgentScopes)
-	}
+	return scopeStrings(defaultScopesForPrincipalKind(kind))
 }
 
 func SupportedScopes() []string {
@@ -421,12 +279,7 @@ func SupportedScopes() []string {
 }
 
 func SupportedScopesForPrincipalKind(kind PrincipalKind) []string {
-	switch kind {
-	case PrincipalKindProjectConversation:
-		return scopeStrings(supportedProjectConversationScopes)
-	default:
-		return scopeStrings(supportedAgentScopes)
-	}
+	return scopeStrings(supportedScopesForPrincipalKind(kind))
 }
 
 func PrivilegedScopes() []string {
@@ -456,9 +309,8 @@ func parseScopes(raw []string) (ScopeSet, error) {
 
 func parseScopesForPrincipalKind(kind PrincipalKind, raw []string) (ScopeSet, error) {
 	if len(raw) == 0 {
-		return append(ScopeSet(nil), defaultScopesForPrincipalKind(kind)...), nil
+		return defaultScopesForPrincipalKind(kind), nil
 	}
-
 	return parseExplicitScopesForPrincipalKind(kind, raw)
 }
 
@@ -580,20 +432,18 @@ func (s *Service) resolvePrincipalIssueInput(ctx context.Context, input IssueInp
 		if resolved.TicketID == uuid.Nil {
 			return IssueInput{}, fmt.Errorf("ticket_id must be a valid UUID")
 		}
-		agentItem, err := s.client.Agent.Query().
-			Where(entagent.IDEQ(resolved.AgentID)).
-			Only(ctx)
+		principal, err := s.repo.AgentPrincipal(ctx, resolved.AgentID)
 		if err != nil {
-			if ent.IsNotFound(err) {
+			if errors.Is(err, domain.ErrNotFound) {
 				return IssueInput{}, ErrAgentNotFound
 			}
 			return IssueInput{}, fmt.Errorf("get agent for token issue: %w", err)
 		}
-		if agentItem.ProjectID != resolved.ProjectID {
+		if principal.ProjectID != resolved.ProjectID {
 			return IssueInput{}, ErrProjectMismatch
 		}
-		resolved.PrincipalID = agentItem.ID
-		resolved.PrincipalName = strings.TrimSpace(agentItem.Name)
+		resolved.PrincipalID = principal.ID
+		resolved.PrincipalName = strings.TrimSpace(principal.Name)
 	case PrincipalKindProjectConversation:
 		if resolved.PrincipalID == uuid.Nil {
 			return IssueInput{}, fmt.Errorf("principal_id must be a valid UUID")
@@ -601,19 +451,17 @@ func (s *Service) resolvePrincipalIssueInput(ctx context.Context, input IssueInp
 		if resolved.ConversationID == uuid.Nil {
 			resolved.ConversationID = resolved.PrincipalID
 		}
-		principalItem, err := s.client.ProjectConversationPrincipal.Query().
-			Where(entprojectconversationprincipal.IDEQ(resolved.PrincipalID)).
-			Only(ctx)
+		principal, err := s.repo.ProjectConversationPrincipal(ctx, resolved.PrincipalID)
 		if err != nil {
-			if ent.IsNotFound(err) {
+			if errors.Is(err, domain.ErrNotFound) {
 				return IssueInput{}, ErrPrincipalNotFound
 			}
 			return IssueInput{}, fmt.Errorf("get project conversation principal for token issue: %w", err)
 		}
-		if principalItem.ProjectID != resolved.ProjectID || principalItem.ConversationID != resolved.ConversationID {
+		if principal.ProjectID != resolved.ProjectID || principal.ConversationID != resolved.ConversationID {
 			return IssueInput{}, ErrProjectMismatch
 		}
-		resolved.PrincipalName = strings.TrimSpace(principalItem.Name)
+		resolved.PrincipalName = strings.TrimSpace(principal.Name)
 		resolved.AgentID = uuid.Nil
 		resolved.TicketID = uuid.Nil
 	default:
@@ -626,13 +474,13 @@ func (s *Service) resolvePrincipalIssueInput(ctx context.Context, input IssueInp
 	return resolved, nil
 }
 
+func uuidPointer(value uuid.UUID) *uuid.UUID {
+	return &value
+}
+
 func uuidPointerValue(value *uuid.UUID) uuid.UUID {
 	if value == nil {
 		return uuid.Nil
 	}
 	return *value
-}
-
-func timePointer(value time.Time) *time.Time {
-	return &value
 }

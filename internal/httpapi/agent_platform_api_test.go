@@ -20,10 +20,11 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
+	agentplatformrepo "github.com/BetterAndBetterII/openase/internal/repo/agentplatform"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -33,8 +34,8 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
 	projectID, agentID, currentTicketID, doneTicketID := seedAgentPlatformHTTPFixture(ctx, t, client)
-	platformService := agentplatform.NewService(client)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), t.TempDir())
+	platformService := agentplatform.NewService(agentplatformrepo.NewEntRepository(client))
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), t.TempDir())
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -44,8 +45,8 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		platformService,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		workflowSvc,
@@ -60,7 +61,7 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 		t.Fatalf("IssueToken returned error: %v", err)
 	}
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, projectID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, projectID)
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}
@@ -329,15 +330,15 @@ func TestAgentPlatformPrivilegedRoutesRequireExplicitScopes(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
 	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
-	platformService := agentplatform.NewService(client)
+	platformService := agentplatform.NewService(agentplatformrepo.NewEntRepository(client))
 
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		platformService,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		nil,
@@ -434,7 +435,7 @@ func TestAgentPlatformProjectConversationTokenRejectsTicketOnlyRoutes(t *testing
 	client := openTestEntClient(t)
 	ctx := context.Background()
 	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
-	platformService := agentplatform.NewService(client)
+	platformService := agentplatform.NewService(agentplatformrepo.NewEntRepository(client))
 
 	conversationID := uuid.New()
 	if _, err := client.ChatConversation.Create().
@@ -462,8 +463,8 @@ func TestAgentPlatformProjectConversationTokenRejectsTicketOnlyRoutes(t *testing
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		platformService,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		nil,
@@ -518,7 +519,7 @@ func TestAgentPlatformProjectUpdateRoutesRespectScopesAndBoundaries(t *testing.T
 	client := openTestEntClient(t)
 	ctx := context.Background()
 	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
-	platformService := agentplatform.NewService(client)
+	platformService := agentplatform.NewService(agentplatformrepo.NewEntRepository(client))
 	bus := eventinfra.NewChannelBus()
 	projectUpdateSvc := projectupdateservice.NewService(
 		client,
@@ -530,8 +531,8 @@ func TestAgentPlatformProjectUpdateRoutesRespectScopesAndBoundaries(t *testing.T
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		bus,
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		platformService,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		nil,
@@ -720,15 +721,15 @@ func TestAgentPlatformHarnessWhitelistConstrainsTokenScopes(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
 	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
-	platformService := agentplatform.NewService(client)
+	platformService := agentplatform.NewService(agentplatformrepo.NewEntRepository(client))
 
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		platformService,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		nil,
@@ -803,15 +804,15 @@ func TestAgentPlatformRejectsMissingOrCrossProjectToken(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
 	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
-	platformService := agentplatform.NewService(client)
+	platformService := agentplatform.NewService(agentplatformrepo.NewEntRepository(client))
 
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		platformService,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		nil,
@@ -848,21 +849,21 @@ func TestAgentPlatformTicketUpdateAllowsProjectStatuses(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
 	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
-	platformService := agentplatform.NewService(client)
+	platformService := agentplatform.NewService(agentplatformrepo.NewEntRepository(client))
 
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		platformService,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		nil,
 	)
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, projectID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, projectID)
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}
@@ -946,7 +947,7 @@ func TestAgentPlatformRouteErrorMappingsAndInvalidPayloads(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
 	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
-	platformService := agentplatform.NewService(client)
+	platformService := agentplatform.NewService(agentplatformrepo.NewEntRepository(client))
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	server := NewServer(
@@ -954,8 +955,8 @@ func TestAgentPlatformRouteErrorMappingsAndInvalidPayloads(t *testing.T) {
 		config.GitHubConfig{},
 		logger,
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		platformService,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		nil,
@@ -1028,14 +1029,14 @@ func TestAgentPlatformForbiddenBoundaryPaths(t *testing.T) {
 		t.Fatalf("create other project: %v", err)
 	}
 
-	platformService := agentplatform.NewService(client)
+	platformService := agentplatform.NewService(agentplatformrepo.NewEntRepository(client))
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		platformService,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		nil,
@@ -1211,7 +1212,7 @@ func seedAgentPlatformHTTPFixture(ctx context.Context, t *testing.T, client *ent
 	if err != nil {
 		t.Fatalf("create provider: %v", err)
 	}
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}

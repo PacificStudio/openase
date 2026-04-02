@@ -11,6 +11,7 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	ticketstatusrepo "github.com/BetterAndBetterII/openase/internal/repo/ticketstatus"
 	"github.com/google/uuid"
 )
 
@@ -20,7 +21,8 @@ func TestTicketStatusServiceStatusCRUDResetAndRebind(t *testing.T) {
 	client := openTicketStatusTestEntClient(t)
 	ctx := context.Background()
 	projectID := seedTicketStatusProject(ctx, t, client)
-	service := NewService(client)
+	repo := ticketstatusrepo.NewEntRepository(client)
+	service := NewService(repo)
 
 	resetStatuses, err := service.ResetToDefaultTemplate(ctx, projectID)
 	if err != nil {
@@ -207,7 +209,8 @@ func TestTicketStatusServiceRuntimeSnapshots(t *testing.T) {
 	client := openTicketStatusTestEntClient(t)
 	ctx := context.Background()
 	projectID := seedTicketStatusProject(ctx, t, client)
-	service := NewService(client)
+	repo := ticketstatusrepo.NewEntRepository(client)
+	service := NewService(repo)
 
 	status, err := service.Create(ctx, CreateInput{
 		ProjectID:     projectID,
@@ -230,7 +233,7 @@ func TestTicketStatusServiceRuntimeSnapshots(t *testing.T) {
 		t.Fatalf("List() statuses = %+v", listResult.Statuses)
 	}
 
-	projectSnapshots, err := ListProjectStatusRuntimeSnapshots(ctx, client, projectID)
+	projectSnapshots, err := ListProjectStatusRuntimeSnapshots(ctx, repo, projectID)
 	if err != nil {
 		t.Fatalf("ListProjectStatusRuntimeSnapshots() error = %v", err)
 	}
@@ -238,7 +241,7 @@ func TestTicketStatusServiceRuntimeSnapshots(t *testing.T) {
 		t.Fatalf("project snapshots = %+v", projectSnapshots)
 	}
 
-	allSnapshots, err := ListStatusRuntimeSnapshots(ctx, client)
+	allSnapshots, err := ListStatusRuntimeSnapshots(ctx, repo)
 	if err != nil {
 		t.Fatalf("ListStatusRuntimeSnapshots() error = %v", err)
 	}
@@ -253,7 +256,7 @@ func TestTicketStatusServiceErrorPaths(t *testing.T) {
 	client := openTicketStatusTestEntClient(t)
 	ctx := context.Background()
 	projectID := seedTicketStatusProject(ctx, t, client)
-	service := NewService(client)
+	service := NewService(ticketstatusrepo.NewEntRepository(client))
 
 	primaryStatus, err := service.Create(ctx, CreateInput{
 		ProjectID: projectID,
@@ -320,7 +323,7 @@ func TestTicketStatusServiceMissingProjectPaths(t *testing.T) {
 
 	client := openTicketStatusTestEntClient(t)
 	ctx := context.Background()
-	service := NewService(client)
+	service := NewService(ticketstatusrepo.NewEntRepository(client))
 	missingProjectID := uuid.New()
 
 	if _, err := service.List(ctx, missingProjectID); !errors.Is(err, ErrProjectNotFound) {

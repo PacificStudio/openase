@@ -11,8 +11,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	scheduledjobrepo "github.com/BetterAndBetterII/openase/internal/repo/scheduledjob"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
 )
 
@@ -20,8 +20,8 @@ func TestScheduledJobServiceLifecycleTriggerAndRunDue(t *testing.T) {
 	ctx := context.Background()
 	client := openScheduledJobTestEntClient(t)
 	fixture := seedScheduledJobFixture(ctx, t, client)
-	ticketSvc := ticketservice.NewService(client)
-	service := NewService(client, ticketSvc, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	ticketSvc := newTicketService(client)
+	service := NewService(scheduledjobrepo.NewEntRepository(client), ticketSvc, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	now := time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC)
 	service.SetNowFunc(func() time.Time { return now })
 
@@ -41,8 +41,8 @@ func TestScheduledJobServiceLifecycleTriggerAndRunDue(t *testing.T) {
 			Title:       "Weekly security scan - {{ date }}",
 			Description: "Audit all repos",
 			Status:      "Backlog",
-			Priority:    entticket.PriorityHigh,
-			Type:        entticket.TypeFeature,
+			Priority:    ticketservice.PriorityHigh,
+			Type:        ticketservice.TypeFeature,
 			CreatedBy:   "system:scheduled-job",
 			BudgetUSD:   12.5,
 		},
@@ -93,8 +93,8 @@ func TestScheduledJobServiceLifecycleTriggerAndRunDue(t *testing.T) {
 			Title:       "Weekly security scan - {{ date }}",
 			Description: "Audit all repos and infra",
 			Status:      "Backlog",
-			Priority:    entticket.PriorityUrgent,
-			Type:        entticket.TypeBugfix,
+			Priority:    ticketservice.PriorityUrgent,
+			Type:        ticketservice.TypeBugfix,
 			CreatedBy:   "system:scheduled-job",
 			BudgetUSD:   21.0,
 		}),
@@ -150,8 +150,8 @@ func TestScheduledJobServiceLifecycleTriggerAndRunDue(t *testing.T) {
 			Title:       "Todo triage - {{ time }}",
 			Description: "Check inbox",
 			Status:      "Todo",
-			Priority:    entticket.PriorityMedium,
-			Type:        entticket.TypeChore,
+			Priority:    ticketservice.PriorityMedium,
+			Type:        ticketservice.TypeChore,
 			CreatedBy:   "system:triage",
 		},
 		IsEnabled: true,
@@ -237,7 +237,7 @@ func TestScheduledJobServiceValidationAndErrorPaths(t *testing.T) {
 
 	client := openScheduledJobTestEntClient(t)
 	fixture := seedScheduledJobFixture(ctx, t, client)
-	service := NewService(client, ticketservice.NewService(client), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	service := NewService(scheduledjobrepo.NewEntRepository(client), newTicketService(client), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	service.SetNowFunc(func() time.Time { return time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC) })
 
 	if _, err := service.List(ctx, uuid.New()); !errors.Is(err, ErrProjectNotFound) {
@@ -275,8 +275,8 @@ func TestScheduledJobServiceValidationAndErrorPaths(t *testing.T) {
 		TicketTemplate: TicketTemplate{
 			Title:     "Status check",
 			Status:    "Missing",
-			Priority:  entticket.PriorityLow,
-			Type:      entticket.TypeFeature,
+			Priority:  ticketservice.PriorityLow,
+			Type:      ticketservice.TypeFeature,
 			CreatedBy: "system:test",
 		},
 		IsEnabled: true,
@@ -336,7 +336,7 @@ func seedScheduledJobFixture(ctx context.Context, t *testing.T, client *ent.Clie
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}
