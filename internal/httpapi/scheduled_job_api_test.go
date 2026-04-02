@@ -14,7 +14,7 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	scheduledjobrepo "github.com/BetterAndBetterII/openase/internal/repo/scheduledjob"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
-		"github.com/google/uuid"
+	"github.com/google/uuid"
 )
 
 func TestScheduledJobRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {

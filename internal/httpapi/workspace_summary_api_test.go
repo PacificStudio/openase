@@ -19,7 +19,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
-		"github.com/google/uuid"
+	"github.com/google/uuid"
 )
 
 func TestWorkspaceSummaryRouteReturnsEmptyWorkspace(t *testing.T) {

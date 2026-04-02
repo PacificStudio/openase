@@ -10,8 +10,8 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
-	domain "github.com/BetterAndBetterII/openase/internal/domain/ticketstatus"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	domain "github.com/BetterAndBetterII/openase/internal/domain/ticketstatus"
 	"github.com/google/uuid"
 )
 

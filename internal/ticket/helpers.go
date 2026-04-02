@@ -1,7 +1,6 @@
 package ticket
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -63,25 +62,6 @@ func optionalUUIDPointerEqual(left *uuid.UUID, right *uuid.UUID) bool {
 	}
 }
 
-func cloneOptionalText(value string) *string {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return nil
-	}
-	return &trimmed
-}
-
-func cloneMap(source map[string]any) map[string]any {
-	if len(source) == 0 {
-		return nil
-	}
-	cloned := make(map[string]any, len(source))
-	for key, value := range source {
-		cloned[key] = value
-	}
-	return cloned
-}
-
 func selectTicketHookDefinitions(hooks infrahook.TicketHooks, hookName infrahook.TicketHookName) []infrahook.Definition {
 	switch hookName {
 	case infrahook.TicketHookOnClaim:
@@ -99,8 +79,4 @@ func selectTicketHookDefinitions(hooks infrahook.TicketHooks, hookName infrahook
 	default:
 		return nil
 	}
-}
-
-func formatTicketIdentifier(sequence int) string {
-	return fmt.Sprintf("%s-%d", defaultIdentifierPrefix, sequence)
 }

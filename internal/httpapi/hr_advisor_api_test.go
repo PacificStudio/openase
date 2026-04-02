@@ -20,7 +20,7 @@ import (
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
-		workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
+	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
 

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	domain "github.com/BetterAndBetterII/openase/internal/domain/ticketstatus"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	domain "github.com/BetterAndBetterII/openase/internal/domain/ticketstatus"
 	"github.com/google/uuid"
 )
 

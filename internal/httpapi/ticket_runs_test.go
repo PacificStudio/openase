@@ -15,7 +15,7 @@ import (
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/provider"
-		"github.com/google/uuid"
+	"github.com/google/uuid"
 )
 
 func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {

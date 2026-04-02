@@ -1,9 +1,6 @@
 package ticket
 
-import (
-	domain "github.com/BetterAndBetterII/openase/internal/domain/ticket"
-	"github.com/google/uuid"
-)
+import domain "github.com/BetterAndBetterII/openase/internal/domain/ticket"
 
 var (
 	ErrProjectNotFound       = domain.ErrProjectNotFound
@@ -73,11 +70,3 @@ type PickupDiagnosisBlockedTicket = domain.PickupDiagnosisBlockedTicket
 
 type LifecycleHookRuntimeData = domain.LifecycleHookRuntimeData
 type HookWorkspace = domain.HookWorkspace
-
-func cloneUUID(value *uuid.UUID) *uuid.UUID {
-	if value == nil {
-		return nil
-	}
-	cloned := *value
-	return &cloned
-}
