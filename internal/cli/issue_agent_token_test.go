@@ -12,6 +12,7 @@ import (
 	entmigrate "github.com/BetterAndBetterII/openase/ent/migrate"
 	_ "github.com/BetterAndBetterII/openase/ent/runtime"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
+	agentplatformrepo "github.com/BetterAndBetterII/openase/internal/repo/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
 )
@@ -68,7 +69,7 @@ func TestIssueAgentTokenCommandOutputsJSON(t *testing.T) {
 		t.Fatalf("expected issued token in environment: %+v", response.Environment)
 	}
 
-	claims, err := agentplatform.NewService(client).Authenticate(ctx, response.Token)
+	claims, err := agentplatform.NewService(agentplatformrepo.NewEntRepository(client)).Authenticate(ctx, response.Token)
 	if err != nil {
 		t.Fatalf("Authenticate returned error: %v", err)
 	}
@@ -195,7 +196,7 @@ func seedCLIPlatformFixture(ctx context.Context, t *testing.T, client *ent.Clien
 	if err != nil {
 		t.Fatalf("create provider: %v", err)
 	}
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}

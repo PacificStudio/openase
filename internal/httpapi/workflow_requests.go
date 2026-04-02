@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
@@ -215,13 +214,8 @@ func parseUpdateHarnessRequest(workflowID uuid.UUID, raw rawUpdateHarnessRequest
 	}, nil
 }
 
-func parseWorkflowType(raw string) (entworkflow.Type, error) {
-	workflowType := entworkflow.Type(strings.ToLower(strings.TrimSpace(raw)))
-	if err := entworkflow.TypeValidator(workflowType); err != nil {
-		return "", fmt.Errorf("type must be one of coding, test, doc, security, deploy, refine-harness, custom")
-	}
-
-	return workflowType, nil
+func parseWorkflowType(raw string) (workflowservice.Type, error) {
+	return workflowservice.ParseType(raw)
 }
 
 func parseUUIDString(fieldName string, raw string) (uuid.UUID, error) {

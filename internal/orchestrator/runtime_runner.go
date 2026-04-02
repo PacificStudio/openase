@@ -24,6 +24,7 @@ import (
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
 )
@@ -1663,7 +1664,7 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, runID uui
 		return err
 	}
 
-	ticketUpdate := ticketservice.ResetRetryBaseline(tx.Ticket.UpdateOneID(ticket.ID), ticket)
+	ticketUpdate := ticketrepo.ResetRetryBaseline(tx.Ticket.UpdateOneID(ticket.ID), ticket)
 	if ticket.CurrentRunID != nil {
 		ticketUpdate.ClearCurrentRunID()
 	}
@@ -1796,7 +1797,7 @@ func (l *RuntimeLauncher) scheduleContinuation(ctx context.Context, runID uuid.U
 	}
 	defer rollback(tx)
 
-	if _, err := ticketservice.ScheduleRetry(
+	if _, err := ticketrepo.ScheduleRetry(
 		tx.Ticket.Update().
 			Where(
 				entticket.IDEQ(ticketID),

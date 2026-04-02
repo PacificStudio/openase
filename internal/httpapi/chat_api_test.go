@@ -25,7 +25,6 @@ import (
 	chatrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -107,7 +106,7 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 		t.Fatalf("create project: %v", err)
 	}
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
@@ -126,7 +125,7 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 		t.Fatalf("create workflow: %v", err)
 	}
 
-	ticketItem, err := ticketservice.NewService(client).Create(ctx, ticketservice.CreateInput{
+	ticketItem, err := newTicketService(client).Create(ctx, ticketservice.CreateInput{
 		ProjectID:   project.ID,
 		Title:       "Implement ephemeral chat",
 		Description: "Explain why the last hook failed and propose smaller follow-up tickets.",
@@ -202,8 +201,8 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		catalogSvc,
 		nil,
@@ -211,7 +210,7 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 			slog.New(slog.NewTextHandler(io.Discard, nil)),
 			chatservice.NewClaudeRuntime(adapter),
 			catalogSvc,
-			ticketservice.NewService(client),
+			newTicketService(client),
 			staticWorkflowReader{},
 			nil,
 			"",

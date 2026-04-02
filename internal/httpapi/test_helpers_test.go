@@ -6,6 +6,9 @@ import (
 	"testing"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
+	ticketstatusrepo "github.com/BetterAndBetterII/openase/internal/repo/ticketstatus"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
 )
@@ -14,6 +17,14 @@ func openTestEntClient(t *testing.T) *ent.Client {
 	t.Helper()
 
 	return testPostgres.NewIsolatedEntClient(t)
+}
+
+func newTicketStatusService(client *ent.Client) *ticketstatus.Service {
+	return ticketstatus.NewService(ticketstatusrepo.NewEntRepository(client))
+}
+
+func newTicketService(client *ent.Client) *ticketservice.Service {
+	return ticketservice.NewService(ticketrepo.NewEntRepository(client))
 }
 
 func findStatusIDByName(t *testing.T, statuses []ticketstatus.Status, name string) uuid.UUID {

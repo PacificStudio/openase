@@ -12,6 +12,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/notification"
+	notificationrepo "github.com/BetterAndBetterII/openase/internal/repo/notification"
 	"github.com/google/uuid"
 )
 
@@ -25,7 +26,7 @@ func TestNotificationServiceChannelRuleCRUDAndDelivery(t *testing.T) {
 	otherProjectID := seedNotificationProject(ctx, t, client, otherOrgID, "Other Project", "other-project")
 
 	adapter := &recordingAdapter{}
-	service := NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
+	service := NewService(notificationrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
 	service.registry = NewAdapterRegistry(adapter)
 
 	if _, err := service.List(ctx, uuid.New()); !errors.Is(err, ErrOrganizationNotFound) {

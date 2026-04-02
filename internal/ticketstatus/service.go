@@ -4,13 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
-	"github.com/BetterAndBetterII/openase/ent"
-	entproject "github.com/BetterAndBetterII/openase/ent/project"
-	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
-	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
-	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	domain "github.com/BetterAndBetterII/openase/internal/domain/ticketstatus"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/google/uuid"
 )
@@ -18,20 +13,17 @@ import (
 var (
 	// Ticket status service errors describe invalid or conflicting status operations.
 	ErrUnavailable             = errors.New("ticket status service unavailable")
-	ErrProjectNotFound         = errors.New("project not found")
-	ErrStatusNotFound          = errors.New("ticket status not found")
-	ErrDuplicateStatusName     = errors.New("ticket status name already exists in project")
-	ErrDefaultStatusRequired   = errors.New("at least one default ticket status is required")
-	ErrDefaultStatusStage      = errors.New("default ticket status must use a non-terminal stage")
-	ErrCannotDeleteLastStatus  = errors.New("cannot delete the last ticket status in a project")
-	ErrReplacementStatusAbsent = errors.New("replacement ticket status not found")
+	ErrProjectNotFound         = domain.ErrProjectNotFound
+	ErrStatusNotFound          = domain.ErrStatusNotFound
+	ErrDuplicateStatusName     = domain.ErrDuplicateStatusName
+	ErrDefaultStatusRequired   = domain.ErrDefaultStatusRequired
+	ErrDefaultStatusStage      = domain.ErrDefaultStatusStage
+	ErrCannotDeleteLastStatus  = domain.ErrCannotDeleteLastStatus
+	ErrReplacementStatusAbsent = domain.ErrReplacementStatusAbsent
 )
 
 // Optional captures whether a value was provided for a partial update.
-type Optional[T any] struct {
-	Set   bool
-	Value T
-}
+type Optional[T any] = domain.Optional[T]
 
 // Some marks an optional value as explicitly set.
 func Some[T any](value T) Optional[T] {
@@ -39,266 +31,105 @@ func Some[T any](value T) Optional[T] {
 }
 
 // Status is the API-facing ticket status model.
-type Status struct {
-	ID            uuid.UUID `json:"id"`
-	ProjectID     uuid.UUID `json:"project_id"`
-	Name          string    `json:"name"`
-	Stage         string    `json:"stage"`
-	Color         string    `json:"color"`
-	Icon          string    `json:"icon"`
-	Position      int       `json:"position"`
-	ActiveRuns    int       `json:"active_runs"`
-	MaxActiveRuns *int      `json:"max_active_runs,omitempty"`
-	IsDefault     bool      `json:"is_default"`
-	Description   string    `json:"description"`
-}
+type Status = domain.Status
 
 // StatusRuntimeSnapshot describes the live active-run occupancy for a ticket status.
-type StatusRuntimeSnapshot struct {
-	StatusID      uuid.UUID `json:"status_id"`
-	ProjectID     uuid.UUID `json:"project_id"`
-	Name          string    `json:"name"`
-	Stage         string    `json:"stage"`
-	Position      int       `json:"position"`
-	MaxActiveRuns *int      `json:"max_active_runs,omitempty"`
-	ActiveRuns    int       `json:"active_runs"`
-}
+type StatusRuntimeSnapshot = domain.StatusRuntimeSnapshot
 
 // ListResult is the ordered ticket status board payload.
-type ListResult struct {
-	Statuses []Status `json:"statuses"`
-}
+type ListResult = domain.ListResult
 
 // CreateInput carries the fields required to create a ticket status.
-type CreateInput struct {
-	ProjectID     uuid.UUID
-	Name          string
-	Stage         ticketing.StatusStage
-	Color         string
-	Icon          string
-	Position      Optional[int]
-	MaxActiveRuns *int
-	IsDefault     bool
-	Description   string
-}
+type CreateInput = domain.CreateInput
 
 // UpdateInput carries a partial ticket status update request.
-type UpdateInput struct {
-	StatusID      uuid.UUID
-	Name          Optional[string]
-	Stage         Optional[ticketing.StatusStage]
-	Color         Optional[string]
-	Icon          Optional[string]
-	Position      Optional[int]
-	MaxActiveRuns Optional[*int]
-	IsDefault     Optional[bool]
-	Description   Optional[string]
-}
+type UpdateInput = domain.UpdateInput
 
 // DeleteResult reports which status was deleted and which status replaced it.
-type DeleteResult struct {
-	DeletedStatusID     uuid.UUID `json:"deleted_status_id"`
-	ReplacementStatusID uuid.UUID `json:"replacement_status_id"`
+type DeleteResult = domain.DeleteResult
+
+type Repository interface {
+	List(ctx context.Context, projectID uuid.UUID) ([]domain.Status, error)
+	ResolveStatusIDByName(ctx context.Context, projectID uuid.UUID, name string) (uuid.UUID, error)
+	Get(ctx context.Context, statusID uuid.UUID) (domain.Status, error)
+	Create(ctx context.Context, input domain.CreateInput) (domain.Status, error)
+	Update(ctx context.Context, input domain.UpdateInput) (domain.Status, error)
+	Delete(ctx context.Context, statusID uuid.UUID) (domain.DeleteResult, error)
+	ResetToDefaultTemplate(ctx context.Context, projectID uuid.UUID, template []domain.TemplateStatus) ([]domain.Status, error)
+	ListProjectStatusRuntimeSnapshots(ctx context.Context, projectID uuid.UUID) ([]domain.StatusRuntimeSnapshot, error)
+	ListStatusRuntimeSnapshots(ctx context.Context) ([]domain.StatusRuntimeSnapshot, error)
 }
 
 // Service provides project ticket status management.
 type Service struct {
-	client *ent.Client
+	repo Repository
 }
 
-// NewService constructs a ticket status service backed by the provided ent client.
-func NewService(client *ent.Client) *Service {
-	return &Service{client: client}
+// NewService constructs a ticket status service backed by the provided repository.
+func NewService(repo Repository) *Service {
+	return &Service{repo: repo}
 }
 
 // List returns the ordered statuses for a project.
 func (s *Service) List(ctx context.Context, projectID uuid.UUID) (ListResult, error) {
-	if s.client == nil {
+	if s == nil || s.repo == nil {
 		return ListResult{}, ErrUnavailable
 	}
-	if err := ensureProjectExists(ctx, s.client.Project, projectID); err != nil {
+
+	statuses, err := s.repo.List(ctx, projectID)
+	if err != nil {
 		return ListResult{}, err
 	}
-
-	statuses, err := s.client.TicketStatus.Query().
-		Where(entticketstatus.ProjectIDEQ(projectID)).
-		Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName)).
-		All(ctx)
-	if err != nil {
-		return ListResult{}, fmt.Errorf("list ticket statuses: %w", err)
-	}
-	activeRunsByStatusID, err := countProjectStatusActiveRuns(ctx, s.client, projectID)
-	if err != nil {
-		return ListResult{}, fmt.Errorf("list ticket status runtime snapshots: %w", err)
-	}
-
-	return buildListResult(statuses, activeRunsByStatusID), nil
+	return ListResult{Statuses: statuses}, nil
 }
 
 // ResolveStatusIDByName finds a project status by display name.
 func (s *Service) ResolveStatusIDByName(ctx context.Context, projectID uuid.UUID, name string) (uuid.UUID, error) {
-	if s.client == nil {
+	if s == nil || s.repo == nil {
 		return uuid.UUID{}, ErrUnavailable
 	}
-	if err := ensureProjectExists(ctx, s.client.Project, projectID); err != nil {
-		return uuid.UUID{}, err
-	}
-
-	trimmed := strings.TrimSpace(name)
-	if trimmed == "" {
-		return uuid.UUID{}, fmt.Errorf("status name must not be empty")
-	}
-
-	statuses, err := s.client.TicketStatus.Query().
-		Where(entticketstatus.ProjectIDEQ(projectID)).
-		All(ctx)
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("list ticket statuses for name resolution: %w", err)
-	}
-	for _, status := range statuses {
-		if strings.EqualFold(strings.TrimSpace(status.Name), trimmed) {
-			return status.ID, nil
-		}
-	}
-
-	return uuid.UUID{}, ErrStatusNotFound
+	return s.repo.ResolveStatusIDByName(ctx, projectID, name)
 }
 
 func (s *Service) Get(ctx context.Context, statusID uuid.UUID) (Status, error) {
-	if s.client == nil {
+	if s == nil || s.repo == nil {
 		return Status{}, ErrUnavailable
 	}
-
-	item, err := s.client.TicketStatus.Get(ctx, statusID)
-	if err != nil {
-		return Status{}, mapNotFoundError(err, ErrStatusNotFound)
-	}
-	activeRuns, err := countStatusActiveRuns(ctx, s.client, item.ProjectID, item.ID)
-	if err != nil {
-		return Status{}, fmt.Errorf("count ticket status active runs: %w", err)
-	}
-	return mapStatus(item, activeRuns), nil
+	return s.repo.Get(ctx, statusID)
 }
 
 // Create persists a new ticket status in a project.
 func (s *Service) Create(ctx context.Context, input CreateInput) (Status, error) {
-	if s.client == nil {
+	if s == nil || s.repo == nil {
 		return Status{}, ErrUnavailable
 	}
 
-	tx, err := s.client.Tx(ctx)
-	if err != nil {
-		return Status{}, fmt.Errorf("start ticket status create tx: %w", err)
-	}
-	defer rollback(tx)
-
-	if err := ensureProjectExists(ctx, tx.Project, input.ProjectID); err != nil {
-		return Status{}, err
-	}
-
-	projectStatuses, err := tx.TicketStatus.Query().
-		Where(entticketstatus.ProjectIDEQ(input.ProjectID)).
-		Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName)).
-		All(ctx)
-	if err != nil {
-		return Status{}, fmt.Errorf("query project ticket statuses: %w", err)
-	}
-
-	position := input.Position.Value
-	if !input.Position.Set {
-		position = nextStatusPosition(projectStatuses)
-	}
 	stage, err := normalizeStatusStage(input.Stage)
 	if err != nil {
 		return Status{}, err
 	}
-
-	isDefault := input.IsDefault || !hasDefault(projectStatuses)
-	if isDefault && stage.IsTerminal() {
+	if input.IsDefault && stage.IsTerminal() {
 		return Status{}, ErrDefaultStatusStage
 	}
-	if isDefault {
-		if err := clearProjectDefault(ctx, tx, input.ProjectID); err != nil {
-			return Status{}, err
-		}
-	}
-
-	builder := tx.TicketStatus.Create().
-		SetProjectID(input.ProjectID).
-		SetName(input.Name).
-		SetStage(toEntStatusStage(stage)).
-		SetColor(input.Color).
-		SetPosition(position).
-		SetIsDefault(isDefault)
-
-	if input.Icon != "" {
-		builder.SetIcon(input.Icon)
-	}
-	if input.MaxActiveRuns != nil {
-		builder.SetMaxActiveRuns(*input.MaxActiveRuns)
-	}
-	if input.Description != "" {
-		builder.SetDescription(input.Description)
-	}
-
-	created, err := builder.Save(ctx)
-	if err != nil {
-		return Status{}, mapPersistenceError("create ticket status", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return Status{}, fmt.Errorf("commit ticket status create tx: %w", err)
-	}
-
-	saved, err := s.client.TicketStatus.Get(ctx, created.ID)
-	if err != nil {
-		return Status{}, fmt.Errorf("load created ticket status: %w", err)
-	}
-	activeRuns, err := countStatusActiveRuns(ctx, s.client, saved.ProjectID, saved.ID)
-	if err != nil {
-		return Status{}, fmt.Errorf("count created ticket status active runs: %w", err)
-	}
-	return mapStatus(saved, activeRuns), nil
+	input.Stage = stage
+	return s.repo.Create(ctx, input)
 }
 
 // Update applies a partial update to an existing ticket status.
 func (s *Service) Update(ctx context.Context, input UpdateInput) (Status, error) {
-	if s.client == nil {
+	if s == nil || s.repo == nil {
 		return Status{}, ErrUnavailable
 	}
 
-	tx, err := s.client.Tx(ctx)
+	current, err := s.repo.Get(ctx, input.StatusID)
 	if err != nil {
-		return Status{}, fmt.Errorf("start ticket status update tx: %w", err)
+		return Status{}, err
 	}
-	defer rollback(tx)
 
-	current, err := tx.TicketStatus.Get(ctx, input.StatusID)
+	nextStage, err := normalizeStatusStage(ticketing.StatusStage(current.Stage))
 	if err != nil {
-		return Status{}, mapNotFoundError(err, ErrStatusNotFound)
+		return Status{}, err
 	}
-
-	if input.IsDefault.Set && !input.IsDefault.Value && current.IsDefault {
-		otherDefault, err := tx.TicketStatus.Query().
-			Where(
-				entticketstatus.ProjectIDEQ(current.ProjectID),
-				entticketstatus.IDNEQ(current.ID),
-				entticketstatus.IsDefault(true),
-			).
-			Exist(ctx)
-		if err != nil {
-			return Status{}, fmt.Errorf("check remaining default ticket status: %w", err)
-		}
-		if !otherDefault {
-			return Status{}, ErrDefaultStatusRequired
-		}
-	}
-
-	if input.IsDefault.Set && input.IsDefault.Value {
-		if err := clearProjectDefault(ctx, tx, current.ProjectID); err != nil {
-			return Status{}, err
-		}
-	}
-	nextStage := ticketing.StatusStage(current.Stage)
 	if input.Stage.Set {
 		nextStage, err = normalizeStatusStage(input.Stage.Value)
 		if err != nil {
@@ -311,585 +142,52 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Status, error)
 	if input.IsDefault.Set && input.IsDefault.Value && nextStage.IsTerminal() {
 		return Status{}, ErrDefaultStatusStage
 	}
-
-	builder := tx.TicketStatus.UpdateOneID(current.ID)
-	if input.Name.Set {
-		builder.SetName(input.Name.Value)
-	}
 	if input.Stage.Set {
-		builder.SetStage(toEntStatusStage(nextStage))
-	}
-	if input.Color.Set {
-		builder.SetColor(input.Color.Value)
-	}
-	if input.Icon.Set {
-		if input.Icon.Value == "" {
-			builder.ClearIcon()
-		} else {
-			builder.SetIcon(input.Icon.Value)
-		}
-	}
-	if input.Position.Set {
-		builder.SetPosition(input.Position.Value)
-	}
-	if input.MaxActiveRuns.Set {
-		if input.MaxActiveRuns.Value == nil {
-			builder.ClearMaxActiveRuns()
-		} else {
-			builder.SetMaxActiveRuns(*input.MaxActiveRuns.Value)
-		}
-	}
-	if input.IsDefault.Set {
-		builder.SetIsDefault(input.IsDefault.Value)
-	}
-	if input.Description.Set {
-		if input.Description.Value == "" {
-			builder.ClearDescription()
-		} else {
-			builder.SetDescription(input.Description.Value)
-		}
+		input.Stage = Some(nextStage)
 	}
 
-	updated, err := builder.Save(ctx)
-	if err != nil {
-		return Status{}, mapPersistenceError("update ticket status", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return Status{}, fmt.Errorf("commit ticket status update tx: %w", err)
-	}
-
-	saved, err := s.client.TicketStatus.Get(ctx, updated.ID)
-	if err != nil {
-		return Status{}, fmt.Errorf("load updated ticket status: %w", err)
-	}
-	activeRuns, err := countStatusActiveRuns(ctx, s.client, saved.ProjectID, saved.ID)
-	if err != nil {
-		return Status{}, fmt.Errorf("count updated ticket status active runs: %w", err)
-	}
-	return mapStatus(saved, activeRuns), nil
+	return s.repo.Update(ctx, input)
 }
 
 // Delete removes a ticket status and reassigns affected tickets when required.
 func (s *Service) Delete(ctx context.Context, statusID uuid.UUID) (DeleteResult, error) {
-	if s.client == nil {
+	if s == nil || s.repo == nil {
 		return DeleteResult{}, ErrUnavailable
 	}
-
-	tx, err := s.client.Tx(ctx)
-	if err != nil {
-		return DeleteResult{}, fmt.Errorf("start ticket status delete tx: %w", err)
-	}
-	defer rollback(tx)
-
-	current, err := tx.TicketStatus.Get(ctx, statusID)
-	if err != nil {
-		return DeleteResult{}, mapNotFoundError(err, ErrStatusNotFound)
-	}
-
-	projectStatuses, err := tx.TicketStatus.Query().
-		Where(entticketstatus.ProjectIDEQ(current.ProjectID)).
-		Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName)).
-		All(ctx)
-	if err != nil {
-		return DeleteResult{}, fmt.Errorf("query project ticket statuses: %w", err)
-	}
-
-	replacement, err := selectReplacementStatus(projectStatuses, current)
-	if err != nil {
-		return DeleteResult{}, err
-	}
-
-	if err := rebindStatusReferences(ctx, tx, current.ID, replacement.ID, replacement.ID); err != nil {
-		return DeleteResult{}, err
-	}
-
-	if current.IsDefault && !replacement.IsDefault {
-		if err := clearProjectDefault(ctx, tx, current.ProjectID); err != nil {
-			return DeleteResult{}, err
-		}
-		if _, err := tx.TicketStatus.UpdateOneID(replacement.ID).SetIsDefault(true).Save(ctx); err != nil {
-			return DeleteResult{}, mapPersistenceError("promote replacement default ticket status", err)
-		}
-	}
-
-	if err := tx.TicketStatus.DeleteOneID(current.ID).Exec(ctx); err != nil {
-		return DeleteResult{}, fmt.Errorf("delete ticket status: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return DeleteResult{}, fmt.Errorf("commit ticket status delete tx: %w", err)
-	}
-
-	return DeleteResult{
-		DeletedStatusID:     current.ID,
-		ReplacementStatusID: replacement.ID,
-	}, nil
+	return s.repo.Delete(ctx, statusID)
 }
 
 // ResetToDefaultTemplate replaces project statuses with the built-in default template.
 func (s *Service) ResetToDefaultTemplate(ctx context.Context, projectID uuid.UUID) ([]Status, error) {
-	if s.client == nil {
+	if s == nil || s.repo == nil {
 		return nil, ErrUnavailable
 	}
-
-	tx, err := s.client.Tx(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("start ticket status reset tx: %w", err)
-	}
-	defer rollback(tx)
-
-	if err := ensureProjectExists(ctx, tx.Project, projectID); err != nil {
-		return nil, err
-	}
-
-	existingStatuses, err := tx.TicketStatus.Query().
-		Where(entticketstatus.ProjectIDEQ(projectID)).
-		Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName)).
-		All(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("query project ticket statuses: %w", err)
-	}
-
-	if err := clearProjectDefault(ctx, tx, projectID); err != nil {
-		return nil, err
-	}
-
-	existingByName := make(map[string]*ent.TicketStatus, len(existingStatuses))
-	for _, status := range existingStatuses {
-		existingByName[status.Name] = status
-	}
-
-	templateStatusIDs := make(map[string]uuid.UUID, len(defaultStatusTemplate))
-	for _, item := range defaultStatusTemplate {
-		if current, ok := existingByName[item.Name]; ok {
-			builder := tx.TicketStatus.UpdateOneID(current.ID).
-				SetStage(toEntStatusStage(item.Stage)).
-				SetColor(item.Color).
-				SetPosition(item.Position).
-				SetIsDefault(item.IsDefault)
-
-			if item.Icon == "" {
-				builder.ClearIcon()
-			} else {
-				builder.SetIcon(item.Icon)
-			}
-			if item.MaxActiveRuns == nil {
-				builder.ClearMaxActiveRuns()
-			} else {
-				builder.SetMaxActiveRuns(*item.MaxActiveRuns)
-			}
-			if item.Description == "" {
-				builder.ClearDescription()
-			} else {
-				builder.SetDescription(item.Description)
-			}
-
-			updated, err := builder.Save(ctx)
-			if err != nil {
-				return nil, mapPersistenceError("reset existing ticket status", err)
-			}
-			templateStatusIDs[item.Name] = updated.ID
-			continue
-		}
-
-		builder := tx.TicketStatus.Create().
-			SetProjectID(projectID).
-			SetName(item.Name).
-			SetStage(toEntStatusStage(item.Stage)).
-			SetColor(item.Color).
-			SetPosition(item.Position).
-			SetIsDefault(item.IsDefault)
-		if item.Icon != "" {
-			builder.SetIcon(item.Icon)
-		}
-		if item.MaxActiveRuns != nil {
-			builder.SetMaxActiveRuns(*item.MaxActiveRuns)
-		}
-		if item.Description != "" {
-			builder.SetDescription(item.Description)
-		}
-
-		created, err := builder.Save(ctx)
-		if err != nil {
-			return nil, mapPersistenceError("create default ticket status", err)
-		}
-		templateStatusIDs[item.Name] = created.ID
-	}
-
-	backlogID, ok := templateStatusIDs["Backlog"]
-	if !ok {
-		return nil, ErrReplacementStatusAbsent
-	}
-	todoID, ok := templateStatusIDs["Todo"]
-	if !ok {
-		return nil, ErrReplacementStatusAbsent
-	}
-	doneID, ok := templateStatusIDs["Done"]
-	if !ok {
-		return nil, ErrReplacementStatusAbsent
-	}
-
-	templateNames := templateNameSet()
-	for _, status := range existingStatuses {
-		if templateNames[status.Name] {
-			continue
-		}
-
-		if err := rebindStatusReferences(ctx, tx, status.ID, backlogID, todoID, doneID); err != nil {
-			return nil, err
-		}
-		if err := tx.TicketStatus.DeleteOneID(status.ID).Exec(ctx); err != nil {
-			return nil, fmt.Errorf("delete non-template ticket status %q: %w", status.Name, err)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("commit ticket status reset tx: %w", err)
-	}
-
-	listResult, err := s.List(ctx, projectID)
-	if err != nil {
-		return nil, fmt.Errorf("list reset ticket statuses: %w", err)
-	}
-	return listResult.Statuses, nil
-}
-
-type projectGetter interface {
-	Query() *ent.ProjectQuery
-}
-
-func ensureProjectExists(ctx context.Context, client projectGetter, projectID uuid.UUID) error {
-	exists, err := client.Query().Where(entproject.ID(projectID)).Exist(ctx)
-	if err != nil {
-		return fmt.Errorf("check project existence: %w", err)
-	}
-	if !exists {
-		return ErrProjectNotFound
-	}
-	return nil
-}
-
-func rollback(tx *ent.Tx) {
-	_ = tx.Rollback()
-}
-
-func clearProjectDefault(ctx context.Context, tx *ent.Tx, projectID uuid.UUID) error {
-	if err := tx.TicketStatus.Update().
-		Where(entticketstatus.ProjectIDEQ(projectID), entticketstatus.IsDefault(true)).
-		SetIsDefault(false).
-		Exec(ctx); err != nil {
-		return fmt.Errorf("clear project default ticket status: %w", err)
-	}
-	return nil
-}
-
-func selectReplacementStatus(statuses []*ent.TicketStatus, deleted *ent.TicketStatus) (*ent.TicketStatus, error) {
-	others := make([]*ent.TicketStatus, 0, len(statuses)-1)
-	for _, status := range statuses {
-		if status.ID == deleted.ID {
-			continue
-		}
-		others = append(others, status)
-	}
-	if len(others) == 0 {
-		return nil, ErrCannotDeleteLastStatus
-	}
-	for _, status := range others {
-		if status.IsDefault {
-			return status, nil
-		}
-	}
-	return others[0], nil
-}
-
-func rebindStatusReferences(ctx context.Context, tx *ent.Tx, currentID uuid.UUID, statusReplacementID uuid.UUID, workflowReplacementIDs ...uuid.UUID) error {
-	workflowPickupReplacement := statusReplacementID
-	workflowFinishReplacement := statusReplacementID
-	if len(workflowReplacementIDs) > 0 {
-		workflowPickupReplacement = workflowReplacementIDs[0]
-	}
-	if len(workflowReplacementIDs) > 1 {
-		workflowFinishReplacement = workflowReplacementIDs[1]
-	} else if len(workflowReplacementIDs) == 1 {
-		workflowFinishReplacement = workflowReplacementIDs[0]
-	}
-
-	if _, err := tx.Ticket.Update().
-		Where(entticket.StatusIDEQ(currentID)).
-		SetStatusID(statusReplacementID).
-		Save(ctx); err != nil {
-		return fmt.Errorf("move tickets off deleted ticket status: %w", err)
-	}
-
-	workflows, err := tx.Workflow.Query().
-		Where(
-			entworkflow.Or(
-				entworkflow.HasPickupStatusesWith(entticketstatus.IDEQ(currentID)),
-				entworkflow.HasFinishStatusesWith(entticketstatus.IDEQ(currentID)),
-			),
-		).
-		WithPickupStatuses().
-		WithFinishStatuses().
-		All(ctx)
-	if err != nil {
-		return fmt.Errorf("load workflow status references: %w", err)
-	}
-	for _, workflow := range workflows {
-		builder := tx.Workflow.UpdateOneID(workflow.ID)
-		pickupIDs, pickupChanged := replaceWorkflowStatusBinding(
-			workflow.Edges.PickupStatuses,
-			currentID,
-			workflowPickupReplacement,
-		)
-		if pickupChanged {
-			builder.ClearPickupStatuses()
-			builder.AddPickupStatusIDs(pickupIDs...)
-		}
-		finishIDs, finishChanged := replaceWorkflowStatusBinding(
-			workflow.Edges.FinishStatuses,
-			currentID,
-			workflowFinishReplacement,
-		)
-		if finishChanged {
-			builder.ClearFinishStatuses()
-			builder.AddFinishStatusIDs(finishIDs...)
-		}
-		if pickupChanged || finishChanged {
-			if _, err := builder.Save(ctx); err != nil {
-				return fmt.Errorf("move workflow status references for workflow %s: %w", workflow.ID, err)
-			}
-		}
-	}
-	return nil
-}
-
-func replaceWorkflowStatusBinding(statuses []*ent.TicketStatus, currentID uuid.UUID, replacementID uuid.UUID) ([]uuid.UUID, bool) {
-	ids := make([]uuid.UUID, 0, len(statuses))
-	changed := false
-	seen := make(map[uuid.UUID]struct{}, len(statuses))
-	for _, status := range statuses {
-		nextID := status.ID
-		if status.ID == currentID {
-			nextID = replacementID
-			changed = true
-		}
-		if _, ok := seen[nextID]; ok {
-			continue
-		}
-		seen[nextID] = struct{}{}
-		ids = append(ids, nextID)
-	}
-	return ids, changed
-}
-
-func mapPersistenceError(action string, err error) error {
-	if ent.IsConstraintError(err) {
-		lower := strings.ToLower(err.Error())
-		if strings.Contains(lower, "ticketstatus_project_id_name") {
-			return ErrDuplicateStatusName
-		}
-	}
-	return fmt.Errorf("%s: %w", action, err)
-}
-
-func mapNotFoundError(err error, replacement error) error {
-	if ent.IsNotFound(err) {
-		return replacement
-	}
-	return err
-}
-
-func nextStatusPosition(statuses []*ent.TicketStatus) int {
-	if len(statuses) == 0 {
-		return 0
-	}
-
-	maxPosition := statuses[0].Position
-	for _, status := range statuses[1:] {
-		if status.Position > maxPosition {
-			maxPosition = status.Position
-		}
-	}
-	return maxPosition + 1
-}
-
-func hasDefault(statuses []*ent.TicketStatus) bool {
-	for _, status := range statuses {
-		if status.IsDefault {
-			return true
-		}
-	}
-	return false
-}
-
-func buildListResult(statuses []*ent.TicketStatus, activeRunsByStatusID map[uuid.UUID]int) ListResult {
-	return ListResult{Statuses: mapStatuses(statuses, activeRunsByStatusID)}
+	return s.repo.ResetToDefaultTemplate(ctx, projectID, defaultStatusTemplate)
 }
 
 // ListProjectStatusRuntimeSnapshots returns ordered runtime occupancy for all statuses in a project.
-func ListProjectStatusRuntimeSnapshots(ctx context.Context, client *ent.Client, projectID uuid.UUID) ([]StatusRuntimeSnapshot, error) {
-	if client == nil {
+func ListProjectStatusRuntimeSnapshots(ctx context.Context, repo Repository, projectID uuid.UUID) ([]StatusRuntimeSnapshot, error) {
+	if repo == nil {
 		return nil, ErrUnavailable
 	}
-
-	statuses, err := client.TicketStatus.Query().
-		Where(entticketstatus.ProjectIDEQ(projectID)).
-		Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName)).
-		All(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list project ticket statuses: %w", err)
-	}
-
-	activeRunsByStatusID, err := countProjectStatusActiveRuns(ctx, client, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	return buildStatusRuntimeSnapshots(statuses, activeRunsByStatusID), nil
+	return repo.ListProjectStatusRuntimeSnapshots(ctx, projectID)
 }
 
 // ListStatusRuntimeSnapshots returns ordered runtime occupancy for all statuses across projects.
-func ListStatusRuntimeSnapshots(ctx context.Context, client *ent.Client) ([]StatusRuntimeSnapshot, error) {
-	if client == nil {
+func ListStatusRuntimeSnapshots(ctx context.Context, repo Repository) ([]StatusRuntimeSnapshot, error) {
+	if repo == nil {
 		return nil, ErrUnavailable
 	}
-
-	statuses, err := client.TicketStatus.Query().
-		Order(ent.Asc(entticketstatus.FieldProjectID), ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName)).
-		All(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list ticket statuses: %w", err)
-	}
-
-	activeRunsByStatusID, err := countStatusActiveRunsAcrossProjects(ctx, client)
-	if err != nil {
-		return nil, err
-	}
-
-	return buildStatusRuntimeSnapshots(statuses, activeRunsByStatusID), nil
+	return repo.ListStatusRuntimeSnapshots(ctx)
 }
 
-func mapStatuses(statuses []*ent.TicketStatus, activeRunsByStatusID map[uuid.UUID]int) []Status {
-	out := make([]Status, 0, len(statuses))
-	for _, status := range statuses {
-		out = append(out, mapStatus(status, activeRunsByStatusID[status.ID]))
-	}
-	return out
-}
-
-func mapStatus(status *ent.TicketStatus, activeRuns int) Status {
-	return Status{
-		ID:            status.ID,
-		ProjectID:     status.ProjectID,
-		Name:          status.Name,
-		Stage:         string(status.Stage),
-		Color:         status.Color,
-		Icon:          status.Icon,
-		Position:      status.Position,
-		ActiveRuns:    activeRuns,
-		MaxActiveRuns: cloneIntPointer(status.MaxActiveRuns),
-		IsDefault:     status.IsDefault,
-		Description:   status.Description,
-	}
-}
-
-func cloneIntPointer(value *int) *int {
-	if value == nil {
-		return nil
-	}
-	cloned := *value
-	return &cloned
-}
-
-func buildStatusRuntimeSnapshots(statuses []*ent.TicketStatus, activeRunsByStatusID map[uuid.UUID]int) []StatusRuntimeSnapshot {
-	snapshots := make([]StatusRuntimeSnapshot, 0, len(statuses))
-	for _, status := range statuses {
-		snapshots = append(snapshots, StatusRuntimeSnapshot{
-			StatusID:      status.ID,
-			ProjectID:     status.ProjectID,
-			Name:          status.Name,
-			Stage:         string(status.Stage),
-			Position:      status.Position,
-			MaxActiveRuns: cloneIntPointer(status.MaxActiveRuns),
-			ActiveRuns:    activeRunsByStatusID[status.ID],
-		})
-	}
-	return snapshots
-}
-
-func countProjectStatusActiveRuns(ctx context.Context, client *ent.Client, projectID uuid.UUID) (map[uuid.UUID]int, error) {
-	var counts []StatusRuntimeSnapshot
-	err := client.Ticket.Query().
-		Where(entticket.ProjectIDEQ(projectID), entticket.CurrentRunIDNotNil()).
-		GroupBy(entticket.FieldStatusID).
-		Aggregate(ent.As(ent.Count(), "active_runs")).
-		Scan(ctx, &counts)
-	if err != nil {
-		return nil, fmt.Errorf("group active project tickets by status occupancy: %w", err)
-	}
-	return runtimeCountMap(counts), nil
-}
-
-func countStatusActiveRunsAcrossProjects(ctx context.Context, client *ent.Client) (map[uuid.UUID]int, error) {
-	var counts []StatusRuntimeSnapshot
-	err := client.Ticket.Query().
-		Where(entticket.CurrentRunIDNotNil()).
-		GroupBy(entticket.FieldStatusID).
-		Aggregate(ent.As(ent.Count(), "active_runs")).
-		Scan(ctx, &counts)
-	if err != nil {
-		return nil, fmt.Errorf("group active tickets by status occupancy: %w", err)
-	}
-	return runtimeCountMap(counts), nil
-}
-
-func countStatusActiveRuns(ctx context.Context, client *ent.Client, projectID uuid.UUID, statusID uuid.UUID) (int, error) {
-	count, err := client.Ticket.Query().
-		Where(
-			entticket.ProjectIDEQ(projectID),
-			entticket.CurrentRunIDNotNil(),
-			entticket.StatusIDEQ(statusID),
-		).
-		Count(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("count active runs in status %s: %w", statusID, err)
-	}
-	return count, nil
-}
-
-func runtimeCountMap(counts []StatusRuntimeSnapshot) map[uuid.UUID]int {
-	result := make(map[uuid.UUID]int, len(counts))
-	for _, item := range counts {
-		result[item.StatusID] = item.ActiveRuns
-	}
-	return result
-}
-
-type templateStatus struct {
-	Name          string
-	Stage         ticketing.StatusStage
-	Color         string
-	Icon          string
-	Position      int
-	MaxActiveRuns *int
-	IsDefault     bool
-	Description   string
-}
-
-var defaultStatusTemplate = []templateStatus{
+var defaultStatusTemplate = []domain.TemplateStatus{
 	{Name: "Backlog", Stage: ticketing.StatusStageBacklog, Color: "#6B7280", Icon: "archive", Position: 0, IsDefault: true, Description: "积压"},
 	{Name: "Todo", Stage: ticketing.StatusStageUnstarted, Color: "#3B82F6", Icon: "list-todo", Position: 1, Description: "就绪等待"},
 	{Name: "In Progress", Stage: ticketing.StatusStageStarted, Color: "#F59E0B", Icon: "play-circle", Position: 2, Description: "进行中"},
 	{Name: "In Review", Stage: ticketing.StatusStageStarted, Color: "#8B5CF6", Icon: "search-check", Position: 3, Description: "审查中"},
 	{Name: "Done", Stage: ticketing.StatusStageCompleted, Color: "#10B981", Icon: "check-circle-2", Position: 4, Description: "已完成"},
 	{Name: "Cancelled", Stage: ticketing.StatusStageCanceled, Color: "#4B5563", Icon: "circle-slash", Position: 5, Description: "已取消"},
-}
-
-func templateNameSet() map[string]bool {
-	names := make(map[string]bool, len(defaultStatusTemplate))
-	for _, item := range defaultStatusTemplate {
-		names[item.Name] = true
-	}
-	return names
 }
 
 // DefaultTemplateNames returns the built-in default status names in display order.
@@ -909,8 +207,4 @@ func normalizeStatusStage(stage ticketing.StatusStage) (ticketing.StatusStage, e
 		return "", fmt.Errorf("status stage %q is invalid", stage)
 	}
 	return stage, nil
-}
-
-func toEntStatusStage(stage ticketing.StatusStage) entticketstatus.Stage {
-	return entticketstatus.Stage(stage.String())
 }

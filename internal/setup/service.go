@@ -17,6 +17,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	ticketstatusrepo "github.com/BetterAndBetterII/openase/internal/repo/ticketstatus"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -393,7 +394,7 @@ func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err
 	}()
 
 	repo := catalogrepo.NewEntRepository(client)
-	statusService := ticketstatus.NewService(client)
+	statusService := ticketstatus.NewService(ticketstatusrepo.NewEntRepository(client))
 	service := catalogservice.New(
 		repo,
 		executable.NewPathResolver(),

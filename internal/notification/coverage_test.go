@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BetterAndBetterII/openase/ent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/notification"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
@@ -342,7 +341,7 @@ func TestNotificationRequestAndContextHelpers(t *testing.T) {
 	}
 }
 
-func TestNotificationEngineAndMappingHelpers(t *testing.T) {
+func TestNotificationEngineLifecycleAndDisabledSendRule(t *testing.T) {
 	t.Parallel()
 
 	buffer := bytes.NewBuffer(nil)
@@ -371,64 +370,7 @@ func TestNotificationEngineAndMappingHelpers(t *testing.T) {
 		t.Fatalf("Start() with nil events error = %v", err)
 	}
 
-	channelID := uuid.New()
-	orgID := uuid.New()
-	channel := &ent.NotificationChannel{
-		ID:             channelID,
-		OrganizationID: orgID,
-		Name:           "Alerts",
-		Type:           " webhook ",
-		Config:         map[string]any{"url": "https://hooks.example.com"},
-		IsEnabled:      true,
-		CreatedAt:      time.Now(),
-	}
-	mappedChannel := mapChannel(channel)
-	if mappedChannel.Type != domain.ChannelType("webhook") {
-		t.Fatalf("mapChannel type = %q, want webhook", mappedChannel.Type)
-	}
-
-	invalidChannel := &ent.NotificationChannel{
-		ID:             uuid.New(),
-		OrganizationID: orgID,
-		Name:           "Legacy",
-		Type:           " legacy ",
-	}
-	mappedInvalidChannel := mapChannel(invalidChannel)
-	if mappedInvalidChannel.Type != domain.ChannelType("legacy") {
-		t.Fatalf("mapChannel fallback type = %q, want legacy", mappedInvalidChannel.Type)
-	}
-
-	rule := &ent.NotificationRule{
-		ID:        uuid.New(),
-		ProjectID: uuid.New(),
-		ChannelID: channelID,
-		Name:      "Status changed",
-		EventType: " ticket.status_changed ",
-		Filter:    map[string]any{"status": "review"},
-		Template:  "{{ ticket.identifier }}",
-		IsEnabled: true,
-		CreatedAt: time.Now(),
-		Edges: ent.NotificationRuleEdges{
-			Channel: channel,
-		},
-	}
-	mappedRule := mapRule(rule)
-	if mappedRule.EventType != domain.RuleEventTypeTicketStatusChanged || mappedRule.Channel.ID != channelID {
-		t.Fatalf("mapRule = %+v", mappedRule)
-	}
-
-	invalidRule := &ent.NotificationRule{
-		ID:        uuid.New(),
-		ProjectID: uuid.New(),
-		ChannelID: channelID,
-		Name:      "Legacy event",
-		EventType: " legacy.event ",
-	}
-	if got := mapRule(invalidRule); got.EventType != domain.RuleEventType("legacy.event") {
-		t.Fatalf("mapRule fallback event type = %q, want legacy.event", got.EventType)
-	}
-
-	guardBypassService := &Service{client: &ent.Client{}}
+	guardBypassService := &Service{repo: fakeNotificationRepository{}}
 	disabledRule := domain.Rule{IsEnabled: false, Channel: domain.Channel{IsEnabled: true}}
 	if err := guardBypassService.SendRule(context.Background(), disabledRule, domain.Message{}); err != nil {
 		t.Fatalf("SendRule disabled error = %v", err)
@@ -436,16 +378,6 @@ func TestNotificationEngineAndMappingHelpers(t *testing.T) {
 	channelDisabledRule := domain.Rule{IsEnabled: true, Channel: domain.Channel{IsEnabled: false}}
 	if err := guardBypassService.SendRule(context.Background(), channelDisabledRule, domain.Message{}); err != nil {
 		t.Fatalf("SendRule channel-disabled error = %v", err)
-	}
-
-	if got := mapChannelNotFound(errors.New("plain")); got.Error() != "plain" {
-		t.Fatalf("mapChannelNotFound = %v, want original error", got)
-	}
-	if got := mapRuleNotFound(errors.New("plain")); got.Error() != "plain" {
-		t.Fatalf("mapRuleNotFound = %v, want original error", got)
-	}
-	if got := mapPersistenceError("create rule", errors.New("plain")); got.Error() != "create rule: plain" {
-		t.Fatalf("mapPersistenceError = %v, want wrapped error", got)
 	}
 }
 
@@ -533,4 +465,58 @@ func TestNotificationWebhookPayloadIsJSON(t *testing.T) {
 	if payload["source"] != "openase" || payload["level"] != "info" {
 		t.Fatalf("webhook payload = %+v", payload)
 	}
+}
+
+type fakeNotificationRepository struct{}
+
+func (fakeNotificationRepository) OrganizationExists(context.Context, uuid.UUID) (bool, error) {
+	return false, nil
+}
+
+func (fakeNotificationRepository) Project(context.Context, uuid.UUID) (domain.ProjectRef, error) {
+	return domain.ProjectRef{}, nil
+}
+
+func (fakeNotificationRepository) Channels(context.Context, uuid.UUID, bool) ([]domain.Channel, error) {
+	return nil, nil
+}
+
+func (fakeNotificationRepository) Channel(context.Context, uuid.UUID) (domain.Channel, error) {
+	return domain.Channel{}, nil
+}
+
+func (fakeNotificationRepository) CreateChannel(context.Context, domain.CreateChannelInput) (domain.Channel, error) {
+	return domain.Channel{}, nil
+}
+
+func (fakeNotificationRepository) UpdateChannel(context.Context, domain.Channel) (domain.Channel, error) {
+	return domain.Channel{}, nil
+}
+
+func (fakeNotificationRepository) DeleteChannel(context.Context, uuid.UUID) error {
+	return nil
+}
+
+func (fakeNotificationRepository) Rules(context.Context, uuid.UUID) ([]domain.Rule, error) {
+	return nil, nil
+}
+
+func (fakeNotificationRepository) Rule(context.Context, uuid.UUID) (domain.Rule, error) {
+	return domain.Rule{}, nil
+}
+
+func (fakeNotificationRepository) CreateRule(context.Context, domain.CreateRuleInput) (domain.Rule, error) {
+	return domain.Rule{}, nil
+}
+
+func (fakeNotificationRepository) UpdateRule(context.Context, domain.Rule) (domain.Rule, error) {
+	return domain.Rule{}, nil
+}
+
+func (fakeNotificationRepository) DeleteRule(context.Context, uuid.UUID) error {
+	return nil
+}
+
+func (fakeNotificationRepository) MatchingRules(context.Context, uuid.UUID, domain.RuleEventType) ([]domain.Rule, error) {
+	return nil, nil
 }

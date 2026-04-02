@@ -197,7 +197,7 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 		t.Fatalf("UpdateProjectRepo() = %+v", updatedRepoOne)
 	}
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("ResetToDefaultTemplate() error = %v", err)
 	}
@@ -363,7 +363,7 @@ func TestEntRepositoryEnsurePrimaryFallbackPromotesExcludedOnlyRecord(t *testing
 		t.Fatalf("GetProjectRepo() error = %v", err)
 	}
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("ResetToDefaultTemplate() error = %v", err)
 	}
@@ -662,7 +662,7 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 		t.Fatalf("DeleteProjectRepo(missing) error = %v, want %v", err, ErrNotFound)
 	}
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("ResetToDefaultTemplate() error = %v", err)
 	}

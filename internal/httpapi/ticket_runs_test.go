@@ -15,9 +15,7 @@ import (
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/provider"
-	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
-	"github.com/google/uuid"
+		"github.com/google/uuid"
 )
 
 func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
@@ -40,7 +38,7 @@ func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
 		t.Fatalf("create project: %v", err)
 	}
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}
@@ -226,8 +224,8 @@ func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		catalog,
 		nil,
@@ -318,7 +316,7 @@ func TestTicketRunStreamFiltersTicketScopedLifecycleTraceAndStepEvents(t *testin
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}
@@ -365,8 +363,8 @@ func TestTicketRunStreamFiltersTicketScopedLifecycleTraceAndStepEvents(t *testin
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		bus,
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		catalog,
 		nil,

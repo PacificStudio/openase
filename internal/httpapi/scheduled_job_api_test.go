@@ -12,17 +12,16 @@ import (
 
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	scheduledjobrepo "github.com/BetterAndBetterII/openase/internal/repo/scheduledjob"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
-	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
-	"github.com/google/uuid"
+		"github.com/google/uuid"
 )
 
 func TestScheduledJobRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 	client := openTestEntClient(t)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	ticketSvc := ticketservice.NewService(client)
-	scheduledJobSvc := scheduledjobservice.NewService(client, ticketSvc, logger)
+	ticketSvc := newTicketService(client)
+	scheduledJobSvc := scheduledjobservice.NewService(scheduledjobrepo.NewEntRepository(client), ticketSvc, logger)
 
 	server := NewServer(
 		config.ServerConfig{Port: 40027},
@@ -30,7 +29,7 @@ func TestScheduledJobRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		logger,
 		eventinfra.NewChannelBus(),
 		ticketSvc,
-		ticketstatus.NewService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		nil,
@@ -42,7 +41,7 @@ func TestScheduledJobRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		logger,
 		eventinfra.NewChannelBus(),
 		ticketSvc,
-		ticketstatus.NewService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		nil,
@@ -64,7 +63,7 @@ func TestScheduledJobRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}
@@ -107,8 +106,8 @@ func TestScheduledJobRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 
 func TestScheduledJobRoutesCRUDAndTrigger(t *testing.T) {
 	client := openTestEntClient(t)
-	ticketSvc := ticketservice.NewService(client)
-	scheduledJobSvc := scheduledjobservice.NewService(client, ticketSvc, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	ticketSvc := newTicketService(client)
+	scheduledJobSvc := scheduledjobservice.NewService(scheduledjobrepo.NewEntRepository(client), ticketSvc, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	now := time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC)
 	scheduledJobSvc.SetNowFunc(func() time.Time { return now })
 
@@ -118,7 +117,7 @@ func TestScheduledJobRoutesCRUDAndTrigger(t *testing.T) {
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		ticketSvc,
-		ticketstatus.NewService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		nil,
@@ -142,7 +141,7 @@ func TestScheduledJobRoutesCRUDAndTrigger(t *testing.T) {
 		t.Fatalf("create project: %v", err)
 	}
 
-	statusSvc := ticketstatus.NewService(client)
+	statusSvc := newTicketStatusService(client)
 	statuses, err := statusSvc.ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)

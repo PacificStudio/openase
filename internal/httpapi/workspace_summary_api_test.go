@@ -19,9 +19,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
-	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
-	"github.com/google/uuid"
+		"github.com/google/uuid"
 )
 
 func TestWorkspaceSummaryRouteReturnsEmptyWorkspace(t *testing.T) {
@@ -158,7 +156,7 @@ func TestWorkspaceSummaryRouteReturnsAggregates(t *testing.T) {
 		t.Fatalf("create project gamma: %v", err)
 	}
 
-	alphaStatuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, projectAlpha.ID)
+	alphaStatuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, projectAlpha.ID)
 	if err != nil {
 		t.Fatalf("reset alpha statuses: %v", err)
 	}
@@ -176,7 +174,7 @@ func TestWorkspaceSummaryRouteReturnsAggregates(t *testing.T) {
 		t.Fatalf("create alpha workflow: %v", err)
 	}
 
-	betaStatuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, projectBeta.ID)
+	betaStatuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, projectBeta.ID)
 	if err != nil {
 		t.Fatalf("reset beta statuses: %v", err)
 	}
@@ -433,7 +431,7 @@ func TestOrganizationTokenUsageRouteMaterializesBackfillsAndAvoidsDoubleCount(t 
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}
@@ -648,8 +646,8 @@ func newWorkspaceSummaryTestServer(client *ent.Client) *Server {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(client),
-		ticketstatus.NewService(client),
+		newTicketService(client),
+		newTicketStatusService(client),
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
 		nil,

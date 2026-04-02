@@ -11,6 +11,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
+	agentplatformrepo "github.com/BetterAndBetterII/openase/internal/repo/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -85,7 +86,7 @@ Do not pass a human-readable ticket identifier such as ASE-2 here.
 				_ = client.Close()
 			}()
 
-			issued, err := agentplatform.NewService(client).IssueToken(cmd.Context(), agentplatform.IssueInput{
+			issued, err := agentplatform.NewService(agentplatformrepo.NewEntRepository(client)).IssueToken(cmd.Context(), agentplatform.IssueInput{
 				AgentID:   parsedAgentID,
 				ProjectID: parsedProjectID,
 				TicketID:  parsedTicketID,

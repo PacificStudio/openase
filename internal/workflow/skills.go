@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -13,117 +12,49 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"time"
 
-	"github.com/BetterAndBetterII/openase/ent"
-	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
-	entskill "github.com/BetterAndBetterII/openase/ent/skill"
-	entskillblob "github.com/BetterAndBetterII/openase/ent/skillblob"
-	entskillversion "github.com/BetterAndBetterII/openase/ent/skillversion"
-	entskillversionfile "github.com/BetterAndBetterII/openase/ent/skillversionfile"
-	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
-	entworkflowskillbinding "github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
+	domain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 	"go.yaml.in/yaml/v3"
 )
 
 var (
-	ErrSkillInvalid  = errors.New("skill is invalid")
-	ErrSkillNotFound = errors.New("skill not found")
+	ErrSkillInvalid  = domain.ErrSkillInvalid
+	ErrSkillNotFound = domain.ErrSkillNotFound
 
 	skillNamePattern = regexp.MustCompile(`^[a-z0-9]+([._-][a-z0-9]+)*$`)
 )
 
-type Skill struct {
-	ID             uuid.UUID              `json:"id"`
-	Name           string                 `json:"name"`
-	Description    string                 `json:"description"`
-	Path           string                 `json:"path"`
-	CurrentVersion int                    `json:"current_version"`
-	IsBuiltin      bool                   `json:"is_builtin"`
-	IsEnabled      bool                   `json:"is_enabled"`
-	CreatedBy      string                 `json:"created_by"`
-	CreatedAt      time.Time              `json:"created_at"`
-	BoundWorkflows []SkillWorkflowBinding `json:"bound_workflows"`
-}
+type Skill = domain.Skill
 
-type SkillWorkflowBinding struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	HarnessPath string    `json:"harness_path"`
-}
+type SkillWorkflowBinding = domain.SkillWorkflowBinding
 
 type skillDocument struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description"`
 }
 
-type SkillDetail struct {
-	Skill      `json:",inline"`
-	Content    string            `json:"content"`
-	BundleHash string            `json:"bundle_hash"`
-	FileCount  int               `json:"file_count"`
-	Files      []SkillBundleFile `json:"files"`
-	History    []VersionSummary  `json:"history"`
-}
+type SkillDetail = domain.SkillDetail
 
-type CreateSkillInput struct {
-	ProjectID   uuid.UUID
-	Name        string
-	Content     string
-	Description string
-	CreatedBy   string
-	Enabled     *bool
-}
+type CreateSkillInput = domain.CreateSkillInput
 
-type UpdateSkillInput struct {
-	SkillID     uuid.UUID
-	Content     string
-	Description string
-}
+type UpdateSkillInput = domain.UpdateSkillInput
 
-type CreateSkillBundleInput struct {
-	ProjectID uuid.UUID
-	Name      string
-	Files     []SkillBundleFileInput
-	CreatedBy string
-	Enabled   *bool
-}
+type CreateSkillBundleInput = domain.CreateSkillBundleInput
 
-type UpdateSkillBundleInput struct {
-	SkillID      uuid.UUID
-	Files        []SkillBundleFileInput
-	Content      string
-	Description  string
-	ReplaceEntry bool
-}
+type UpdateSkillBundleInput = domain.UpdateSkillBundleInput
 
-type UpdateSkillBindingsInput struct {
-	SkillID     uuid.UUID
-	WorkflowIDs []uuid.UUID
-}
+type UpdateSkillBindingsInput = domain.UpdateSkillBindingsInput
 
-type RefreshSkillsInput struct {
-	ProjectID     uuid.UUID
-	WorkspaceRoot string
-	AdapterType   string
-	WorkflowID    *uuid.UUID
-}
+type RefreshSkillsInput = domain.RefreshSkillsInput
 
-type RefreshSkillsResult struct {
-	SkillsDir      string   `json:"skills_dir"`
-	InjectedSkills []string `json:"injected_skills"`
-}
+type RefreshSkillsResult = domain.RefreshSkillsResult
 
-type UpdateWorkflowSkillsInput struct {
-	WorkflowID uuid.UUID
-	Skills     []string
-}
+type UpdateWorkflowSkillsInput = domain.UpdateWorkflowSkillsInput
 
 type resolvedSkillTarget struct {
 	workspace provider.AbsolutePath
-	adapter   entagentprovider.AdapterType
 	skillsDir provider.AbsolutePath
 }
 
@@ -132,96 +63,7 @@ type RuntimeSkillTarget struct {
 }
 
 func (s *Service) ListSkills(ctx context.Context, projectID uuid.UUID) ([]Skill, error) {
-	if s.client == nil {
-		return nil, ErrUnavailable
-	}
-	if err := s.ensureProjectExists(ctx, projectID); err != nil {
-		return nil, err
-	}
-	if err := s.ensureBuiltinSkills(ctx, projectID); err != nil {
-		return nil, err
-	}
-
-	items, err := s.client.Skill.Query().
-		Where(
-			entskill.ProjectIDEQ(projectID),
-			entskill.ArchivedAtIsNil(),
-		).
-		Order(ent.Asc(entskill.FieldName)).
-		All(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list skills: %w", err)
-	}
-
-	bindings, err := s.client.WorkflowSkillBinding.Query().
-		Where(
-			entworkflowskillbinding.HasWorkflowWith(entworkflow.ProjectIDEQ(projectID)),
-			entworkflowskillbinding.HasSkillWith(
-				entskill.ProjectIDEQ(projectID),
-				entskill.ArchivedAtIsNil(),
-			),
-		).
-		WithWorkflow().
-		WithSkill().
-		All(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list workflow skill bindings: %w", err)
-	}
-
-	versionBySkillID := make(map[uuid.UUID]int, len(items))
-	skillIDs := make([]uuid.UUID, 0, len(items))
-	for _, item := range items {
-		skillIDs = append(skillIDs, item.ID)
-	}
-	if len(skillIDs) > 0 {
-		versions, versionErr := s.client.SkillVersion.Query().
-			Where(entskillversion.SkillIDIn(skillIDs...)).
-			Order(ent.Asc(entskillversion.FieldSkillID), ent.Desc(entskillversion.FieldVersion)).
-			All(ctx)
-		if versionErr != nil {
-			return nil, fmt.Errorf("list skill versions: %w", versionErr)
-		}
-		for _, versionItem := range versions {
-			if _, exists := versionBySkillID[versionItem.SkillID]; exists {
-				continue
-			}
-			versionBySkillID[versionItem.SkillID] = versionItem.Version
-		}
-	}
-
-	bindingsBySkillID := make(map[uuid.UUID][]SkillWorkflowBinding, len(items))
-	for _, binding := range bindings {
-		if binding.Edges.Skill == nil || binding.Edges.Workflow == nil {
-			continue
-		}
-		bindingsBySkillID[binding.Edges.Skill.ID] = append(bindingsBySkillID[binding.Edges.Skill.ID], SkillWorkflowBinding{
-			ID:          binding.Edges.Workflow.ID,
-			Name:        binding.Edges.Workflow.Name,
-			HarnessPath: binding.Edges.Workflow.HarnessPath,
-		})
-	}
-
-	result := make([]Skill, 0, len(items))
-	for _, item := range items {
-		workflowBindings := bindingsBySkillID[item.ID]
-		sort.Slice(workflowBindings, func(i int, j int) bool {
-			return workflowBindings[i].Name < workflowBindings[j].Name
-		})
-		result = append(result, Skill{
-			ID:             item.ID,
-			Name:           item.Name,
-			Description:    item.Description,
-			Path:           skillContentRelativePath(item.Name),
-			CurrentVersion: versionBySkillID[item.ID],
-			IsBuiltin:      item.IsBuiltin,
-			IsEnabled:      item.IsEnabled,
-			CreatedBy:      item.CreatedBy,
-			CreatedAt:      item.CreatedAt.UTC(),
-			BoundWorkflows: workflowBindings,
-		})
-	}
-
-	return result, nil
+	return s.listSkillsPersistent(ctx, projectID)
 }
 
 func parseSkillTitle(content string) string {
@@ -236,42 +78,12 @@ func parseSkillTitle(content string) string {
 	return ""
 }
 
-type resolvedSkillRecord struct {
-	skill *ent.Skill
-}
-
 func (s *Service) GetSkill(ctx context.Context, skillID uuid.UUID) (SkillDetail, error) {
-	record, err := s.resolveSkillRecord(ctx, skillID)
-	if err != nil {
-		return SkillDetail{}, err
-	}
-	return s.buildSkillDetail(ctx, record)
+	return s.getSkillPersistent(ctx, skillID)
 }
 
 func (s *Service) ListSkillVersions(ctx context.Context, skillID uuid.UUID) ([]VersionSummary, error) {
-	record, err := s.resolveSkillRecord(ctx, skillID)
-	if err != nil {
-		return nil, err
-	}
-
-	items, err := s.client.SkillVersion.Query().
-		Where(entskillversion.SkillIDEQ(record.skill.ID)).
-		Order(ent.Desc(entskillversion.FieldVersion)).
-		All(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list skill versions: %w", err)
-	}
-
-	result := make([]VersionSummary, 0, len(items))
-	for _, item := range items {
-		result = append(result, VersionSummary{
-			ID:        item.ID,
-			Version:   item.Version,
-			CreatedBy: item.CreatedBy,
-			CreatedAt: item.CreatedAt.UTC(),
-		})
-	}
-	return result, nil
+	return s.listSkillVersionsPersistent(ctx, skillID)
 }
 
 func ensureSkillContent(name string, rawContent string, fallbackDescription string) (string, error) {
@@ -325,73 +137,7 @@ func (s *Service) CreateSkill(ctx context.Context, input CreateSkillInput) (Skil
 }
 
 func (s *Service) CreateSkillBundle(ctx context.Context, input CreateSkillBundleInput) (SkillDetail, error) {
-	if s.client == nil {
-		return SkillDetail{}, ErrUnavailable
-	}
-	if err := s.ensureProjectExists(ctx, input.ProjectID); err != nil {
-		return SkillDetail{}, err
-	}
-	if err := s.ensureBuiltinSkills(ctx, input.ProjectID); err != nil {
-		return SkillDetail{}, err
-	}
-	bundle, err := parseSkillBundle(input.Name, input.Files)
-	if err != nil {
-		return SkillDetail{}, err
-	}
-	name := bundle.Name
-	if _, err := s.skillByName(ctx, input.ProjectID, name); err == nil {
-		return SkillDetail{}, fmt.Errorf("%w: skill %q already exists", ErrSkillInvalid, name)
-	} else if !errors.Is(err, ErrSkillNotFound) {
-		return SkillDetail{}, err
-	}
-
-	enabled := true
-	if input.Enabled != nil {
-		enabled = *input.Enabled
-	}
-	createdBy := strings.TrimSpace(input.CreatedBy)
-	if createdBy == "" {
-		createdBy = "user:manual"
-	}
-	now := time.Now().UTC()
-
-	tx, err := s.client.Tx(ctx)
-	if err != nil {
-		return SkillDetail{}, fmt.Errorf("start skill create tx: %w", err)
-	}
-	defer rollback(tx)
-
-	skillItem, err := tx.Skill.Create().
-		SetProjectID(input.ProjectID).
-		SetName(name).
-		SetDescription(bundle.Description).
-		SetIsBuiltin(false).
-		SetIsEnabled(enabled).
-		SetCreatedBy(createdBy).
-		SetCreatedAt(now).
-		SetUpdatedAt(now).
-		Save(ctx)
-	if err != nil {
-		return SkillDetail{}, fmt.Errorf("create skill: %w", err)
-	}
-
-	versionItem, err := s.storeSkillBundleVersion(ctx, tx, skillItem.ID, 1, bundle, createdBy, now)
-	if err != nil {
-		return SkillDetail{}, err
-	}
-
-	skillItem, err = tx.Skill.UpdateOneID(skillItem.ID).
-		SetCurrentVersionID(versionItem.ID).
-		Save(ctx)
-	if err != nil {
-		return SkillDetail{}, fmt.Errorf("set skill current version: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return SkillDetail{}, fmt.Errorf("commit skill create tx: %w", err)
-	}
-
-	return s.buildSkillDetail(ctx, resolvedSkillRecord{skill: skillItem})
+	return s.createSkillBundlePersistent(ctx, input)
 }
 
 func (s *Service) UpdateSkill(ctx context.Context, input UpdateSkillInput) (SkillDetail, error) {
@@ -423,102 +169,11 @@ func bundleFilesToInput(files []SkillBundleFile) []SkillBundleFileInput {
 }
 
 func (s *Service) UpdateSkillBundle(ctx context.Context, input UpdateSkillBundleInput) (SkillDetail, error) {
-	record, err := s.resolveSkillRecord(ctx, input.SkillID)
-	if err != nil {
-		return SkillDetail{}, err
-	}
-
-	files := make([]SkillBundleFileInput, 0, len(input.Files))
-	files = append(files, input.Files...)
-	if input.ReplaceEntry {
-		normalizedContent, err := ensureSkillContent(record.skill.Name, input.Content, input.Description)
-		if err != nil {
-			return SkillDetail{}, err
-		}
-		entrypointUpdated := false
-		for index := range files {
-			if strings.TrimSpace(files[index].Path) != "SKILL.md" {
-				continue
-			}
-			files[index].Content = []byte(normalizedContent)
-			files[index].MediaType = "text/markdown; charset=utf-8"
-			entrypointUpdated = true
-			break
-		}
-		if !entrypointUpdated {
-			files = append(files, SkillBundleFileInput{
-				Path:      "SKILL.md",
-				Content:   []byte(normalizedContent),
-				MediaType: "text/markdown; charset=utf-8",
-			})
-		}
-	}
-
-	bundle, err := parseSkillBundle(record.skill.Name, files)
-	if err != nil {
-		return SkillDetail{}, err
-	}
-	currentVersion, err := s.currentSkillVersion(ctx, record.skill.ID, nil)
-	if err != nil {
-		return SkillDetail{}, err
-	}
-
-	tx, err := s.client.Tx(ctx)
-	if err != nil {
-		return SkillDetail{}, fmt.Errorf("start skill update tx: %w", err)
-	}
-	defer rollback(tx)
-
-	versionItem, err := s.storeSkillBundleVersion(ctx, tx, record.skill.ID, currentVersion.Version+1, bundle, record.skill.CreatedBy, time.Time{})
-	if err != nil {
-		return SkillDetail{}, err
-	}
-
-	updatedSkill, err := tx.Skill.UpdateOneID(record.skill.ID).
-		SetDescription(bundle.Description).
-		SetCurrentVersionID(versionItem.ID).
-		SetUpdatedAt(time.Now().UTC()).
-		Save(ctx)
-	if err != nil {
-		return SkillDetail{}, fmt.Errorf("update skill metadata: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return SkillDetail{}, fmt.Errorf("commit skill update tx: %w", err)
-	}
-
-	return s.buildSkillDetail(ctx, resolvedSkillRecord{skill: updatedSkill})
+	return s.updateSkillBundlePersistent(ctx, input)
 }
 
 func (s *Service) DeleteSkill(ctx context.Context, skillID uuid.UUID) error {
-	record, err := s.resolveSkillRecord(ctx, skillID)
-	if err != nil {
-		return err
-	}
-	tx, err := s.client.Tx(ctx)
-	if err != nil {
-		return fmt.Errorf("start skill delete tx: %w", err)
-	}
-	defer rollback(tx)
-
-	if _, err := tx.WorkflowSkillBinding.Delete().
-		Where(entworkflowskillbinding.SkillIDEQ(record.skill.ID)).
-		Exec(ctx); err != nil {
-		return fmt.Errorf("delete skill bindings: %w", err)
-	}
-
-	if _, err := tx.Skill.UpdateOneID(record.skill.ID).
-		SetArchivedAt(time.Now().UTC()).
-		SetIsEnabled(false).
-		SetUpdatedAt(time.Now().UTC()).
-		Save(ctx); err != nil {
-		return fmt.Errorf("archive skill: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit skill delete tx: %w", err)
-	}
-	return nil
+	return s.deleteSkillPersistent(ctx, skillID)
 }
 
 func (s *Service) EnableSkill(ctx context.Context, skillID uuid.UUID) (SkillDetail, error) {
@@ -530,19 +185,7 @@ func (s *Service) DisableSkill(ctx context.Context, skillID uuid.UUID) (SkillDet
 }
 
 func (s *Service) setSkillEnabled(ctx context.Context, skillID uuid.UUID, enabled bool) (SkillDetail, error) {
-	record, err := s.resolveSkillRecord(ctx, skillID)
-	if err != nil {
-		return SkillDetail{}, err
-	}
-	updatedSkill, err := s.client.Skill.UpdateOneID(record.skill.ID).
-		SetIsEnabled(enabled).
-		SetUpdatedAt(time.Now().UTC()).
-		Save(ctx)
-	if err != nil {
-		return SkillDetail{}, fmt.Errorf("update skill enabled state: %w", err)
-	}
-	record.skill = updatedSkill
-	return s.buildSkillDetail(ctx, record)
+	return s.setSkillEnabledPersistent(ctx, skillID, enabled)
 }
 
 func (s *Service) BindSkill(ctx context.Context, input UpdateSkillBindingsInput) (SkillDetail, error) {
@@ -600,58 +243,14 @@ func (s *Service) resolveSkillRecordForWorkflowBindings(
 	ctx context.Context,
 	input UpdateSkillBindingsInput,
 ) (resolvedSkillRecord, []uuid.UUID, error) {
-	workflowIDs, err := normalizeWorkflowIDs(input.WorkflowIDs)
-	if err != nil {
-		return resolvedSkillRecord{}, nil, err
-	}
-	if s.client == nil {
-		return resolvedSkillRecord{}, nil, ErrUnavailable
-	}
-
-	workflowItems, err := s.client.Workflow.Query().
-		Where(entworkflow.IDIn(workflowIDs...)).
-		All(ctx)
-	if err != nil {
-		return resolvedSkillRecord{}, nil, fmt.Errorf("list workflows for skill binding: %w", err)
-	}
-	if len(workflowItems) != len(workflowIDs) {
-		return resolvedSkillRecord{}, nil, ErrWorkflowNotFound
-	}
-
-	projectID := workflowItems[0].ProjectID
-	for _, workflowItem := range workflowItems[1:] {
-		if workflowItem.ProjectID != projectID {
-			return resolvedSkillRecord{}, nil, fmt.Errorf("%w: workflow ids must belong to the same project", ErrSkillInvalid)
-		}
-	}
-
-	record, err := s.resolveSkillRecordInProject(ctx, projectID, input.SkillID)
-	if err != nil {
-		return resolvedSkillRecord{}, nil, err
-	}
-	return record, workflowIDs, nil
+	return s.resolveSkillRecordForWorkflowBindingsPersistent(ctx, input)
 }
 
 func (s *Service) resolveSkillRecord(
 	ctx context.Context,
 	skillID uuid.UUID,
 ) (resolvedSkillRecord, error) {
-	if s.client == nil {
-		return resolvedSkillRecord{}, ErrUnavailable
-	}
-	item, err := s.client.Skill.Query().
-		Where(
-			entskill.IDEQ(skillID),
-			entskill.ArchivedAtIsNil(),
-		).
-		Only(ctx)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			return resolvedSkillRecord{}, ErrSkillNotFound
-		}
-		return resolvedSkillRecord{}, fmt.Errorf("get skill: %w", err)
-	}
-	return resolvedSkillRecord{skill: item}, nil
+	return s.resolveSkillRecordPersistent(ctx, skillID)
 }
 
 func (s *Service) resolveSkillRecordInProject(
@@ -659,174 +258,15 @@ func (s *Service) resolveSkillRecordInProject(
 	projectID uuid.UUID,
 	skillID uuid.UUID,
 ) (resolvedSkillRecord, error) {
-	item, err := s.client.Skill.Query().
-		Where(
-			entskill.IDEQ(skillID),
-			entskill.ProjectIDEQ(projectID),
-			entskill.ArchivedAtIsNil(),
-		).
-		Only(ctx)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			return resolvedSkillRecord{}, ErrSkillNotFound
-		}
-		return resolvedSkillRecord{}, fmt.Errorf("get project skill: %w", err)
-	}
-	return resolvedSkillRecord{skill: item}, nil
+	return s.resolveSkillRecordInProjectPersistent(ctx, projectID, skillID)
 }
 
 func (s *Service) buildSkillDetail(ctx context.Context, record resolvedSkillRecord) (SkillDetail, error) {
-	if record.skill == nil {
-		return SkillDetail{}, ErrSkillNotFound
-	}
-	items, err := s.ListSkills(ctx, record.skill.ProjectID)
-	if err != nil {
-		return SkillDetail{}, err
-	}
-	for _, item := range items {
-		if item.ID != record.skill.ID {
-			continue
-		}
-		versionItem, err := s.currentSkillVersion(ctx, record.skill.ID, nil)
-		if err != nil {
-			return SkillDetail{}, err
-		}
-		files, err := s.skillVersionFiles(ctx, versionItem.ID)
-		if err != nil {
-			return SkillDetail{}, err
-		}
-		history, err := s.ListSkillVersions(ctx, record.skill.ID)
-		if err != nil {
-			return SkillDetail{}, err
-		}
-		return SkillDetail{
-			Skill:      item,
-			Content:    versionItem.ContentMarkdown,
-			BundleHash: strings.TrimSpace(versionItem.BundleHash),
-			FileCount:  versionItem.FileCount,
-			Files:      files,
-			History:    history,
-		}, nil
-	}
-	return SkillDetail{}, ErrSkillNotFound
+	return s.buildSkillDetailPersistent(ctx, record)
 }
 
 func (s *Service) skillVersionFiles(ctx context.Context, versionID uuid.UUID) ([]SkillBundleFile, error) {
-	items, err := s.client.SkillVersionFile.Query().
-		Where(entskillversionfile.SkillVersionIDEQ(versionID)).
-		WithContentBlob().
-		Order(ent.Asc(entskillversionfile.FieldPath)).
-		All(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list skill version files: %w", err)
-	}
-
-	files := make([]SkillBundleFile, 0, len(items))
-	for _, item := range items {
-		if item.Edges.ContentBlob == nil {
-			return nil, fmt.Errorf("list skill version files: content blob missing for %s", item.Path)
-		}
-		files = append(files, SkillBundleFile{
-			Path:         item.Path,
-			FileKind:     item.FileKind.String(),
-			MediaType:    item.MediaType,
-			Encoding:     item.Encoding.String(),
-			IsExecutable: item.IsExecutable,
-			SizeBytes:    item.SizeBytes,
-			SHA256:       item.Sha256,
-			Content:      append([]byte(nil), item.Edges.ContentBlob.ContentBytes...),
-		})
-	}
-	return files, nil
-}
-
-func (s *Service) storeSkillBundleVersion(
-	ctx context.Context,
-	tx *ent.Tx,
-	skillID uuid.UUID,
-	version int,
-	bundle SkillBundle,
-	createdBy string,
-	createdAt time.Time,
-) (*ent.SkillVersion, error) {
-	if tx == nil {
-		return nil, fmt.Errorf("store skill bundle version: tx must not be nil")
-	}
-
-	versionCreate := tx.SkillVersion.Create().
-		SetSkillID(skillID).
-		SetVersion(version).
-		SetContentMarkdown(bundle.EntrypointBody).
-		SetContentHash(bundle.EntrypointSHA256).
-		SetBundleHash(bundle.BundleHash).
-		SetManifestJSON(bundle.Manifest).
-		SetSizeBytes(bundle.SizeBytes).
-		SetFileCount(bundle.FileCount).
-		SetCreatedBy(createdBy)
-	if !createdAt.IsZero() {
-		versionCreate.SetCreatedAt(createdAt)
-	}
-	versionItem, err := versionCreate.Save(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("create skill bundle version: %w", err)
-	}
-
-	for _, file := range bundle.Files {
-		blobID, err := s.ensureSkillBlob(ctx, tx, file)
-		if err != nil {
-			return nil, err
-		}
-		fileCreate := tx.SkillVersionFile.Create().
-			SetSkillVersionID(versionItem.ID).
-			SetContentBlobID(blobID).
-			SetPath(file.Path).
-			SetFileKind(entskillversionfile.FileKind(file.FileKind)).
-			SetMediaType(file.MediaType).
-			SetEncoding(entskillversionfile.Encoding(file.Encoding)).
-			SetIsExecutable(file.IsExecutable).
-			SetSizeBytes(file.SizeBytes).
-			SetSha256(file.SHA256)
-		if !createdAt.IsZero() {
-			fileCreate.SetCreatedAt(createdAt)
-		}
-		if _, err := fileCreate.Save(ctx); err != nil {
-			return nil, fmt.Errorf("create skill version file %s: %w", file.Path, err)
-		}
-	}
-
-	return versionItem, nil
-}
-
-func (s *Service) ensureSkillBlob(ctx context.Context, tx *ent.Tx, file SkillBundleFile) (uuid.UUID, error) {
-	existing, err := tx.SkillBlob.Query().
-		Where(entskillblob.Sha256EQ(file.SHA256)).
-		Only(ctx)
-	if err == nil {
-		return existing.ID, nil
-	}
-	if err != nil && !ent.IsNotFound(err) {
-		return uuid.Nil, fmt.Errorf("query skill blob %s: %w", file.Path, err)
-	}
-
-	blobItem, err := tx.SkillBlob.Create().
-		SetSha256(file.SHA256).
-		SetSizeBytes(file.SizeBytes).
-		SetCompression(entskillblob.CompressionNone).
-		SetContentBytes(file.Content).
-		Save(ctx)
-	if err != nil {
-		if ent.IsConstraintError(err) {
-			existing, retryErr := tx.SkillBlob.Query().
-				Where(entskillblob.Sha256EQ(file.SHA256)).
-				Only(ctx)
-			if retryErr != nil {
-				return uuid.Nil, fmt.Errorf("reload conflicted skill blob %s: %w", file.Path, retryErr)
-			}
-			return existing.ID, nil
-		}
-		return uuid.Nil, fmt.Errorf("create skill blob %s: %w", file.Path, err)
-	}
-	return blobItem.ID, nil
+	return s.skillVersionFilesPersistent(ctx, versionID)
 }
 
 func (s *Service) resolveInjectedSkillNames(
@@ -834,93 +274,11 @@ func (s *Service) resolveInjectedSkillNames(
 	projectID uuid.UUID,
 	workflowID *uuid.UUID,
 ) ([]string, error) {
-	if workflowID == nil {
-		items, err := s.client.Skill.Query().
-			Where(
-				entskill.ProjectIDEQ(projectID),
-				entskill.ArchivedAtIsNil(),
-				entskill.IsEnabled(true),
-			).
-			Order(ent.Asc(entskill.FieldName)).
-			All(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("list enabled skills: %w", err)
-		}
-		names := make([]string, 0, len(items))
-		for _, item := range items {
-			names = append(names, item.Name)
-		}
-		sort.Strings(names)
-		return names, nil
-	}
-
-	names, err := s.listWorkflowBoundSkillNames(ctx, *workflowID, true)
-	if err != nil {
-		return nil, err
-	}
-	platformSkill, err := s.skillByName(ctx, projectID, "openase-platform")
-	if err != nil && !errors.Is(err, ErrSkillNotFound) {
-		return nil, err
-	}
-	if err == nil && platformSkill.IsEnabled && !slicesContainsString(names, platformSkill.Name) {
-		names = append(names, platformSkill.Name)
-		sort.Strings(names)
-	}
-	return names, nil
+	return s.resolveInjectedSkillNamesPersistent(ctx, projectID, workflowID)
 }
 
 func (s *Service) RefreshSkills(ctx context.Context, input RefreshSkillsInput) (RefreshSkillsResult, error) {
-	if s.client == nil {
-		return RefreshSkillsResult{}, ErrUnavailable
-	}
-	if err := s.ensureProjectExists(ctx, input.ProjectID); err != nil {
-		return RefreshSkillsResult{}, err
-	}
-	if err := s.ensureBuiltinSkills(ctx, input.ProjectID); err != nil {
-		return RefreshSkillsResult{}, err
-	}
-
-	target, err := resolveSkillTarget(input.WorkspaceRoot, input.AdapterType)
-	if err != nil {
-		return RefreshSkillsResult{}, err
-	}
-	if err := os.RemoveAll(target.skillsDir.String()); err != nil {
-		return RefreshSkillsResult{}, fmt.Errorf("reset agent skill directory: %w", err)
-	}
-	if err := os.MkdirAll(target.skillsDir.String(), 0o750); err != nil {
-		return RefreshSkillsResult{}, fmt.Errorf("create agent skill directory: %w", err)
-	}
-
-	skillNames, err := s.resolveInjectedSkillNames(ctx, input.ProjectID, input.WorkflowID)
-	if err != nil {
-		return RefreshSkillsResult{}, err
-	}
-
-	for _, name := range skillNames {
-		skillItem, err := s.skillByName(ctx, input.ProjectID, name)
-		if err != nil {
-			return RefreshSkillsResult{}, err
-		}
-		versionItem, err := s.currentSkillVersion(ctx, skillItem.ID, nil)
-		if err != nil {
-			return RefreshSkillsResult{}, err
-		}
-		files, err := s.skillVersionFiles(ctx, versionItem.ID)
-		if err != nil {
-			return RefreshSkillsResult{}, err
-		}
-		if err := writeProjectedSkillBundle(target.skillsDir.String(), name, files, versionItem.ContentMarkdown); err != nil {
-			return RefreshSkillsResult{}, fmt.Errorf("refresh skill %s: %w", name, err)
-		}
-	}
-	if err := writeWorkspaceOpenASEWrapper(target.workspace.String()); err != nil {
-		return RefreshSkillsResult{}, fmt.Errorf("sync openase wrapper: %w", err)
-	}
-
-	return RefreshSkillsResult{
-		SkillsDir:      target.skillsDir.String(),
-		InjectedSkills: skillNames,
-	}, nil
+	return s.refreshSkillsPersistent(ctx, input)
 }
 
 func (s *Service) BindSkills(ctx context.Context, input UpdateWorkflowSkillsInput) (HarnessDocument, error) {
@@ -936,120 +294,7 @@ func (s *Service) updateWorkflowSkills(
 	input UpdateWorkflowSkillsInput,
 	bind bool,
 ) (HarnessDocument, error) {
-	if s.client == nil {
-		return HarnessDocument{}, ErrUnavailable
-	}
-
-	skillNames, err := normalizeSkillNames(input.Skills)
-	if err != nil {
-		return HarnessDocument{}, err
-	}
-	if len(skillNames) == 0 {
-		return HarnessDocument{}, fmt.Errorf("%w: skills must not be empty", ErrSkillInvalid)
-	}
-
-	workflowItem, err := s.client.Workflow.Get(ctx, input.WorkflowID)
-	if err != nil {
-		return HarnessDocument{}, s.mapWorkflowReadError("get workflow for skills update", err)
-	}
-	if err := s.ensureBuiltinSkills(ctx, workflowItem.ProjectID); err != nil {
-		return HarnessDocument{}, err
-	}
-	previousVersion, err := s.currentWorkflowVersion(ctx, workflowItem.ID)
-	if err != nil {
-		return HarnessDocument{}, err
-	}
-
-	existingBindings, err := s.client.WorkflowSkillBinding.Query().
-		Where(entworkflowskillbinding.WorkflowIDEQ(workflowItem.ID)).
-		All(ctx)
-	if err != nil {
-		return HarnessDocument{}, fmt.Errorf("list workflow skill bindings for update: %w", err)
-	}
-	existingBySkillID := make(map[uuid.UUID]struct{}, len(existingBindings))
-	for _, bindingItem := range existingBindings {
-		existingBySkillID[bindingItem.SkillID] = struct{}{}
-	}
-
-	pendingSkillIDs := make([]uuid.UUID, 0, len(skillNames))
-	for _, name := range skillNames {
-		skillItem, err := s.skillByName(ctx, workflowItem.ProjectID, name)
-		if err != nil {
-			if bind {
-				return HarnessDocument{}, err
-			}
-			continue
-		}
-
-		_, alreadyBound := existingBySkillID[skillItem.ID]
-		if bind {
-			if alreadyBound {
-				continue
-			}
-			pendingSkillIDs = append(pendingSkillIDs, skillItem.ID)
-			continue
-		}
-		if !alreadyBound {
-			continue
-		}
-		pendingSkillIDs = append(pendingSkillIDs, skillItem.ID)
-	}
-
-	if len(pendingSkillIDs) == 0 {
-		return s.GetHarness(ctx, workflowItem.ID)
-	}
-
-	if workflowItem.IsActive {
-		parsedHooks, err := validateConfiguredHooks(workflowItem.Hooks)
-		if err != nil {
-			return HarnessDocument{}, err
-		}
-		if err := s.runWorkflowHooks(ctx, workflowItem.ProjectID, parsedHooks, workflowHookOnReload, workflowHookRuntime{
-			ProjectID:       workflowItem.ProjectID,
-			WorkflowID:      workflowItem.ID,
-			WorkflowName:    workflowItem.Name,
-			WorkflowVersion: workflowItem.Version + 1,
-		}); err != nil {
-			return HarnessDocument{}, err
-		}
-	}
-
-	tx, err := s.client.Tx(ctx)
-	if err != nil {
-		return HarnessDocument{}, fmt.Errorf("start workflow skill binding tx: %w", err)
-	}
-	defer rollback(tx)
-
-	for _, skillID := range pendingSkillIDs {
-		if bind {
-			if _, err := tx.WorkflowSkillBinding.Create().
-				SetWorkflowID(workflowItem.ID).
-				SetSkillID(skillID).
-				Save(ctx); err != nil {
-				return HarnessDocument{}, fmt.Errorf("create workflow skill binding: %w", err)
-			}
-			continue
-		}
-
-		if _, err := tx.WorkflowSkillBinding.Delete().
-			Where(
-				entworkflowskillbinding.WorkflowIDEQ(workflowItem.ID),
-				entworkflowskillbinding.SkillIDEQ(skillID),
-			).
-			Exec(ctx); err != nil {
-			return HarnessDocument{}, fmt.Errorf("delete workflow skill binding: %w", err)
-		}
-	}
-
-	if _, err := s.publishWorkflowVersion(ctx, tx, workflowItem, previousVersion.ContentMarkdown); err != nil {
-		return HarnessDocument{}, err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return HarnessDocument{}, fmt.Errorf("commit workflow skill binding tx: %w", err)
-	}
-
-	return s.GetHarness(ctx, workflowItem.ID)
+	return s.updateWorkflowSkillsPersistent(ctx, input, bind)
 }
 
 func writeProjectedSkill(skillsDir string, name string, content string) error {
@@ -1243,16 +488,18 @@ func resolveSkillTargetPath(workspaceRoot string, rawAdapterType string) (resolv
 		return resolvedSkillTarget{}, fmt.Errorf("%w: %s", ErrSkillInvalid, err)
 	}
 
-	adapterType := entagentprovider.AdapterType(strings.ToLower(strings.TrimSpace(rawAdapterType)))
-	if err := entagentprovider.AdapterTypeValidator(adapterType); err != nil {
+	adapterType := strings.ToLower(strings.TrimSpace(rawAdapterType))
+	switch adapterType {
+	case "claude-code-cli", "codex-app-server", "gemini-cli", "custom":
+	default:
 		return resolvedSkillTarget{}, fmt.Errorf("%w: adapter_type must be one of claude-code-cli, codex-app-server, gemini-cli, custom", ErrSkillInvalid)
 	}
 
 	var skillsDir string
 	switch adapterType {
-	case entagentprovider.AdapterTypeClaudeCodeCli:
+	case "claude-code-cli":
 		skillsDir = filepath.Join(workspace.String(), ".claude", "skills")
-	case entagentprovider.AdapterTypeCodexAppServer:
+	case "codex-app-server":
 		skillsDir = filepath.Join(workspace.String(), ".codex", "skills")
 	default:
 		skillsDir = filepath.Join(workspace.String(), ".agent", "skills")
@@ -1260,7 +507,6 @@ func resolveSkillTargetPath(workspaceRoot string, rawAdapterType string) (resolv
 
 	return resolvedSkillTarget{
 		workspace: workspace,
-		adapter:   adapterType,
 		skillsDir: provider.MustParseAbsolutePath(filepath.Clean(skillsDir)),
 	}, nil
 }

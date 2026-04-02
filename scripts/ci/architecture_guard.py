@@ -142,17 +142,7 @@ RULES = (
         name="service-usecase-no-ent",
         file_prefixes=SERVICE_USECASE,
         forbidden_import_prefixes=(go_import_prefix("ent"),),
-        exceptions=(
-            ExceptionEntry("internal/ticket/cost_tracker.go", go_import_prefix("ent"), "TODO(openase-228): move ent-backed ticket persistence behind repo boundary"),
-            ExceptionEntry("internal/ticket/service.go", go_import_prefix("ent"), "TODO(openase-228): split ticket persistence and orchestration from service layer"),
-            ExceptionEntry("internal/ticketstatus/service.go", go_import_prefix("ent"), "TODO(openase-228): split ticket status persistence from service layer"),
-            ExceptionEntry("internal/workflow/harness_template.go", go_import_prefix("ent"), "TODO(openase-228): stop reading ent models directly in workflow services"),
-            ExceptionEntry("internal/workflow/service.go", go_import_prefix("ent"), "TODO(openase-228): move ent-backed workflow persistence behind repo boundary"),
-            ExceptionEntry("internal/workflow/skills.go", go_import_prefix("ent"), "TODO(openase-228): move ent-backed skill persistence behind repo boundary"),
-            ExceptionEntry("internal/notification/service.go", go_import_prefix("ent"), "TODO(openase-228): move notification persistence behind repo boundary"),
-            ExceptionEntry("internal/scheduledjob/service.go", go_import_prefix("ent"), "TODO(openase-228): move scheduled job persistence behind repo boundary"),
-            ExceptionEntry("internal/agentplatform/service.go", go_import_prefix("ent"), "TODO(openase-228): move agent platform persistence behind repo boundary"),
-        ),
+        exceptions=(),
     ),
     Rule(
         name="service-usecase-no-delivery-or-wiring",
@@ -169,9 +159,6 @@ RULES = (
         file_prefixes=INTERFACE_ENTRY,
         forbidden_import_prefixes=(go_import_prefix("ent"),),
         exceptions=(
-            ExceptionEntry("internal/httpapi/ticket_api.go", go_import_prefix("ent"), "TODO(openase-228): move ent ticket enums out of HTTP handlers"),
-            ExceptionEntry("internal/httpapi/ticket_requests.go", go_import_prefix("ent"), "TODO(openase-228): replace ent-backed request DTO enums with boundary-owned types"),
-            ExceptionEntry("internal/httpapi/workflow_requests.go", go_import_prefix("ent"), "TODO(openase-228): replace ent-backed request DTO enums with boundary-owned types"),
         ),
     ),
 )

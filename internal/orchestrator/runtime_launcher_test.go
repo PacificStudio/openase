@@ -41,7 +41,9 @@ import (
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	agentplatformrepo "github.com/BetterAndBetterII/openase/internal/repo/agentplatform"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -91,7 +93,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -169,7 +171,7 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 
 	manager := &runtimeFakeProcessManager{}
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, manager, nil, workflowSvc)
-	launcher.ConfigurePlatformEnvironment("http://127.0.0.1:19836/api/v1/platform", agentplatform.NewService(client))
+	launcher.ConfigurePlatformEnvironment("http://127.0.0.1:19836/api/v1/platform", agentplatform.NewService(agentplatformrepo.NewEntRepository(client)))
 	launcher.now = func() time.Time {
 		return now
 	}
@@ -350,7 +352,7 @@ workflow:
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -505,7 +507,7 @@ Blocked lifecycle publish regression test.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -731,7 +733,7 @@ Launch starvation regression test.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -864,7 +866,7 @@ Blocked launch should time out cleanly.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -1395,7 +1397,7 @@ Runtime reconcile test
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -1514,7 +1516,7 @@ Implement the ticket using the current workspace.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -1692,7 +1694,7 @@ Emit visible runtime output.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -2267,7 +2269,7 @@ Handle a failing runtime turn.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -2449,7 +2451,7 @@ Exercise successful ticket hook lifecycle.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -2616,7 +2618,7 @@ func TestRuntimeLauncherFinishResolvedExecutionCleansWorkspaceWithoutProjectRepo
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -2762,7 +2764,7 @@ Exercise failing ticket hook lifecycle.
 		t.Fatalf("write harness file: %v", err)
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -3706,7 +3708,7 @@ func newRuntimeExecutionFixture(
 	}
 	commitRuntimeLauncherRepo(t, repoRoot)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}

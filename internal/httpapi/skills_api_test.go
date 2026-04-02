@@ -19,7 +19,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
-	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
+	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -29,7 +29,7 @@ func TestSkillRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -46,7 +46,7 @@ func TestSkillRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		logger,
 		eventinfra.NewChannelBus(),
 		nil,
-		ticketstatus.NewService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		workflowSvc,
@@ -57,7 +57,7 @@ func TestSkillRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		logger,
 		eventinfra.NewChannelBus(),
 		nil,
-		ticketstatus.NewService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		nil,
@@ -100,7 +100,7 @@ func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
-		ticketstatus.NewService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		workflowSvc,
@@ -151,7 +151,7 @@ func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 	}
 	attachPrimaryProjectRepoCheckout(ctx, t, client, project.ID, localMachine.ID, repoRoot)
 
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
@@ -662,7 +662,7 @@ func TestSkillRoutesImportBundleAndExposeFiles(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -678,7 +678,7 @@ func TestSkillRoutesImportBundleAndExposeFiles(t *testing.T) {
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
-		ticketstatus.NewService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		workflowSvc,
@@ -946,7 +946,7 @@ func TestSkillBindRouteRejectsMissingSkill(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
-	workflowSvc, err := workflowservice.NewService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
@@ -962,7 +962,7 @@ func TestSkillBindRouteRejectsMissingSkill(t *testing.T) {
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
 		nil,
-		ticketstatus.NewService(client),
+		newTicketStatusService(client),
 		nil,
 		nil,
 		workflowSvc,
@@ -996,7 +996,7 @@ func TestSkillBindRouteRejectsMissingSkill(t *testing.T) {
 		t.Fatalf("create local machine: %v", err)
 	}
 	attachPrimaryProjectRepoCheckout(ctx, t, client, project.ID, localMachine.ID, repoRoot)
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}

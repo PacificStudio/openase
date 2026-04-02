@@ -12,6 +12,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	agentplatformrepo "github.com/BetterAndBetterII/openase/internal/repo/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/testutil/pgtest"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
@@ -30,7 +31,7 @@ func TestIssueAndAuthenticateToken(t *testing.T) {
 	ctx := context.Background()
 	projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
 
-	service := NewService(client)
+	service := NewService(agentplatformrepo.NewEntRepository(client))
 	service.now = func() time.Time {
 		return time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
 	}
@@ -67,7 +68,7 @@ func TestIssueTokenUsesDefaultScopes(t *testing.T) {
 	ctx := context.Background()
 	projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
 
-	service := NewService(client)
+	service := NewService(agentplatformrepo.NewEntRepository(client))
 	issued, err := service.IssueToken(ctx, IssueInput{
 		AgentID:   agentID,
 		ProjectID: projectID,
@@ -96,7 +97,7 @@ func TestIssueTokenConstrainsScopesToWhitelist(t *testing.T) {
 	ctx := context.Background()
 	projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
 
-	service := NewService(client)
+	service := NewService(agentplatformrepo.NewEntRepository(client))
 	issued, err := service.IssueToken(ctx, IssueInput{
 		AgentID:   agentID,
 		ProjectID: projectID,
@@ -137,7 +138,7 @@ func TestAuthenticateRejectsExpiredToken(t *testing.T) {
 	ctx := context.Background()
 	projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
 
-	service := NewService(client)
+	service := NewService(agentplatformrepo.NewEntRepository(client))
 	baseTime := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
 	service.now = func() time.Time { return baseTime }
 
@@ -162,7 +163,7 @@ func TestProjectTokenInventorySummarizesProjectExposure(t *testing.T) {
 	ctx := context.Background()
 	projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
 
-	service := NewService(client)
+	service := NewService(agentplatformrepo.NewEntRepository(client))
 	baseTime := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
 	service.now = func() time.Time { return baseTime }
 
@@ -301,7 +302,7 @@ func TestAgentPlatformUtilityAndFailurePaths(t *testing.T) {
 
 		client := openTestEntClient(t)
 		projectID, agentID, ticketID := seedAgentPlatformFixture(ctx, t, client)
-		service := NewService(client)
+		service := NewService(agentplatformrepo.NewEntRepository(client))
 		service.now = func() time.Time { return time.Date(2026, 3, 27, 16, 0, 0, 0, time.UTC) }
 
 		if _, err := service.IssueToken(ctx, IssueInput{ProjectID: projectID, TicketID: ticketID}); err == nil || err.Error() != "agent_id must be a valid UUID" {
@@ -422,7 +423,7 @@ func seedAgentPlatformFixture(ctx context.Context, t *testing.T, client *ent.Cli
 	if err != nil {
 		t.Fatalf("create provider: %v", err)
 	}
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}

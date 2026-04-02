@@ -13,22 +13,19 @@ import (
 	"strings"
 	"time"
 
-	entsql "entgo.io/ent/dialect/sql"
-	"github.com/BetterAndBetterII/openase/ent"
-	entagent "github.com/BetterAndBetterII/openase/ent/agent"
-	entagenttoken "github.com/BetterAndBetterII/openase/ent/agenttoken"
+	domain "github.com/BetterAndBetterII/openase/internal/domain/agentplatform"
 	"github.com/google/uuid"
 )
 
-const (
-	TokenPrefix = "ase_agent_"
+const TokenPrefix = domain.TokenPrefix
 
-	ScopeTicketsCreate      Scope = "tickets.create"
-	ScopeTicketsList        Scope = "tickets.list"
-	ScopeTicketsReportUsage Scope = "tickets.report_usage"
-	ScopeTicketsUpdateSelf  Scope = "tickets.update.self"
-	ScopeProjectsUpdate     Scope = "projects.update"
-	ScopeProjectsAddRepo    Scope = "projects.add_repo"
+const (
+	ScopeTicketsCreate      = domain.ScopeTicketsCreate
+	ScopeTicketsList        = domain.ScopeTicketsList
+	ScopeTicketsReportUsage = domain.ScopeTicketsReportUsage
+	ScopeTicketsUpdateSelf  = domain.ScopeTicketsUpdateSelf
+	ScopeProjectsUpdate     = domain.ScopeProjectsUpdate
+	ScopeProjectsAddRepo    = domain.ScopeProjectsAddRepo
 )
 
 var (
@@ -56,67 +53,30 @@ var (
 	}
 )
 
-type Scope string
-
-type ScopeSet []Scope
-
-type ScopeWhitelist struct {
-	Configured bool
-	Scopes     []string
-}
-
-type IssueInput struct {
-	AgentID        uuid.UUID
-	ProjectID      uuid.UUID
-	TicketID       uuid.UUID
-	Scopes         []string
-	ScopeWhitelist ScopeWhitelist
-	TTL            time.Duration
-}
-
-type IssuedToken struct {
-	Token     string
-	ProjectID uuid.UUID
-	TicketID  uuid.UUID
-	Scopes    []string
-	ExpiresAt time.Time
-}
-
-type Claims struct {
-	TokenID   uuid.UUID
-	AgentID   uuid.UUID
-	AgentName string
-	ProjectID uuid.UUID
-	TicketID  uuid.UUID
-	Scopes    []string
-	ExpiresAt time.Time
-}
-
-type ProjectTokenInventory struct {
-	ActiveTokenCount  int
-	ExpiredTokenCount int
-	LastIssuedAt      *time.Time
-	LastUsedAt        *time.Time
-	DefaultScopes     []string
-	PrivilegedScopes  []string
-}
+type Scope = domain.Scope
+type ScopeSet = domain.ScopeSet
+type ScopeWhitelist = domain.ScopeWhitelist
+type IssueInput = domain.IssueInput
+type IssuedToken = domain.IssuedToken
+type Claims = domain.Claims
+type ProjectTokenInventory = domain.ProjectTokenInventory
 
 type Service struct {
-	client *ent.Client
-	now    func() time.Time
-	rng    io.Reader
+	repo Repository
+	now  func() time.Time
+	rng  io.Reader
 }
 
-func NewService(client *ent.Client) *Service {
+func NewService(repo Repository) *Service {
 	return &Service{
-		client: client,
-		now:    time.Now,
-		rng:    rand.Reader,
+		repo: repo,
+		now:  time.Now,
+		rng:  rand.Reader,
 	}
 }
 
 func (s *Service) IssueToken(ctx context.Context, input IssueInput) (IssuedToken, error) {
-	if s == nil || s.client == nil {
+	if s == nil || s.repo == nil {
 		return IssuedToken{}, ErrUnavailable
 	}
 
@@ -138,16 +98,14 @@ func (s *Service) IssueToken(ctx context.Context, input IssueInput) (IssuedToken
 		return IssuedToken{}, fmt.Errorf("ticket_id must be a valid UUID")
 	}
 
-	agentItem, err := s.client.Agent.Query().
-		Where(entagent.IDEQ(input.AgentID)).
-		Only(ctx)
+	projectID, err := s.repo.AgentProjectID(ctx, input.AgentID)
 	if err != nil {
-		if ent.IsNotFound(err) {
+		if errors.Is(err, domain.ErrNotFound) {
 			return IssuedToken{}, ErrAgentNotFound
 		}
 		return IssuedToken{}, fmt.Errorf("get agent for token issue: %w", err)
 	}
-	if agentItem.ProjectID != input.ProjectID {
+	if projectID != input.ProjectID {
 		return IssuedToken{}, ErrProjectMismatch
 	}
 
@@ -157,14 +115,15 @@ func (s *Service) IssueToken(ctx context.Context, input IssueInput) (IssuedToken
 		return IssuedToken{}, err
 	}
 
-	if _, err := s.client.AgentToken.Create().
-		SetAgentID(input.AgentID).
-		SetProjectID(input.ProjectID).
-		SetTicketID(input.TicketID).
-		SetTokenHash(tokenHash).
-		SetScopes(scopeStrings(scopes)).
-		SetExpiresAt(expiresAt).
-		Save(ctx); err != nil {
+	if err := s.repo.CreateToken(
+		ctx,
+		input.AgentID,
+		input.ProjectID,
+		input.TicketID,
+		tokenHash,
+		scopeStrings(scopes),
+		expiresAt,
+	); err != nil {
 		return IssuedToken{}, fmt.Errorf("create agent token: %w", err)
 	}
 
@@ -178,7 +137,7 @@ func (s *Service) IssueToken(ctx context.Context, input IssueInput) (IssuedToken
 }
 
 func (s *Service) Authenticate(ctx context.Context, rawToken string) (Claims, error) {
-	if s == nil || s.client == nil {
+	if s == nil || s.repo == nil {
 		return Claims{}, ErrUnavailable
 	}
 
@@ -187,12 +146,9 @@ func (s *Service) Authenticate(ctx context.Context, rawToken string) (Claims, er
 		return Claims{}, err
 	}
 
-	record, err := s.client.AgentToken.Query().
-		Where(entagenttoken.TokenHashEQ(hashToken(tokenText))).
-		WithAgent().
-		Only(ctx)
+	record, err := s.repo.TokenByHash(ctx, hashToken(tokenText))
 	if err != nil {
-		if ent.IsNotFound(err) {
+		if errors.Is(err, domain.ErrNotFound) {
 			return Claims{}, ErrTokenNotFound
 		}
 		return Claims{}, fmt.Errorf("load agent token: %w", err)
@@ -205,22 +161,23 @@ func (s *Service) Authenticate(ctx context.Context, rawToken string) (Claims, er
 	if err != nil {
 		return Claims{}, err
 	}
-	if _, err := s.client.AgentToken.UpdateOneID(record.ID).SetLastUsedAt(s.now().UTC()).Save(ctx); err != nil {
+	if err := s.repo.TouchTokenLastUsed(ctx, record.TokenID, s.now().UTC()); err != nil {
 		return Claims{}, fmt.Errorf("touch agent token last_used_at: %w", err)
 	}
-
-	agentItem := record.Edges.Agent
-	if agentItem == nil {
+	if record.AgentID == uuid.Nil || strings.TrimSpace(record.AgentName) == "" {
 		return Claims{}, ErrAgentNotFound
 	}
-	if agentItem.ProjectID != record.ProjectID {
+	if record.ProjectID == uuid.Nil || record.AgentProjectID == uuid.Nil {
+		return Claims{}, ErrProjectMismatch
+	}
+	if record.AgentProjectID != record.ProjectID {
 		return Claims{}, ErrProjectMismatch
 	}
 
 	return Claims{
-		TokenID:   record.ID,
+		TokenID:   record.TokenID,
 		AgentID:   record.AgentID,
-		AgentName: agentItem.Name,
+		AgentName: record.AgentName,
 		ProjectID: record.ProjectID,
 		TicketID:  record.TicketID,
 		Scopes:    scopeStrings(scopes),
@@ -229,59 +186,20 @@ func (s *Service) Authenticate(ctx context.Context, rawToken string) (Claims, er
 }
 
 func (s *Service) ProjectTokenInventory(ctx context.Context, projectID uuid.UUID) (ProjectTokenInventory, error) {
-	if s == nil || s.client == nil {
+	if s == nil || s.repo == nil {
 		return ProjectTokenInventory{}, ErrUnavailable
 	}
 	if projectID == uuid.Nil {
 		return ProjectTokenInventory{}, fmt.Errorf("project_id must be a valid UUID")
 	}
 
-	now := s.now().UTC()
-	baseQuery := s.client.AgentToken.Query().Where(entagenttoken.ProjectIDEQ(projectID))
-
-	activeTokenCount, err := baseQuery.Clone().Where(entagenttoken.ExpiresAtGTE(now)).Count(ctx)
+	inventory, err := s.repo.ProjectTokenInventory(ctx, projectID, s.now().UTC())
 	if err != nil {
-		return ProjectTokenInventory{}, fmt.Errorf("count active project tokens: %w", err)
+		return ProjectTokenInventory{}, err
 	}
-
-	expiredTokenCount, err := baseQuery.Clone().Where(entagenttoken.ExpiresAtLT(now)).Count(ctx)
-	if err != nil {
-		return ProjectTokenInventory{}, fmt.Errorf("count expired project tokens: %w", err)
-	}
-
-	var lastIssuedAt *time.Time
-	lastIssuedToken, err := baseQuery.Clone().
-		Order(entagenttoken.ByCreatedAt(entsql.OrderDesc())).
-		First(ctx)
-	switch {
-	case ent.IsNotFound(err):
-	case err != nil:
-		return ProjectTokenInventory{}, fmt.Errorf("load latest project token issue: %w", err)
-	default:
-		lastIssuedAt = timePointer(lastIssuedToken.CreatedAt.UTC())
-	}
-
-	var lastUsedAt *time.Time
-	lastUsedToken, err := baseQuery.Clone().
-		Where(entagenttoken.LastUsedAtNotNil()).
-		Order(entagenttoken.ByLastUsedAt(entsql.OrderDesc())).
-		First(ctx)
-	switch {
-	case ent.IsNotFound(err):
-	case err != nil:
-		return ProjectTokenInventory{}, fmt.Errorf("load latest project token use: %w", err)
-	default:
-		lastUsedAt = timePointer(lastUsedToken.LastUsedAt.UTC())
-	}
-
-	return ProjectTokenInventory{
-		ActiveTokenCount:  activeTokenCount,
-		ExpiredTokenCount: expiredTokenCount,
-		LastIssuedAt:      lastIssuedAt,
-		LastUsedAt:        lastUsedAt,
-		DefaultScopes:     DefaultScopes(),
-		PrivilegedScopes:  PrivilegedScopes(),
-	}, nil
+	inventory.DefaultScopes = DefaultScopes()
+	inventory.PrivilegedScopes = PrivilegedScopes()
+	return inventory, nil
 }
 
 func ParseToken(raw string) (string, error) {
@@ -300,31 +218,8 @@ func ParseBearerToken(header string) (string, error) {
 	return ParseToken(value)
 }
 
-func (c Claims) HasScope(scope Scope) bool {
-	for _, item := range c.Scopes {
-		if item == string(scope) {
-			return true
-		}
-	}
-	return false
-}
-
-func (c Claims) CreatedBy() string {
-	return "agent:" + c.AgentName
-}
-
 func BuildEnvironment(apiURL string, token string, projectID uuid.UUID, ticketID uuid.UUID) []string {
-	environment := []string{
-		"OPENASE_PROJECT_ID=" + projectID.String(),
-		"OPENASE_TICKET_ID=" + ticketID.String(),
-	}
-	if strings.TrimSpace(apiURL) != "" {
-		environment = append(environment, "OPENASE_API_URL="+strings.TrimSpace(apiURL))
-	}
-	if strings.TrimSpace(token) != "" {
-		environment = append(environment, "OPENASE_AGENT_TOKEN="+strings.TrimSpace(token))
-	}
-	return environment
+	return domain.BuildEnvironment(apiURL, token, projectID, ticketID)
 }
 
 func DefaultScopes() []string {
@@ -418,8 +313,4 @@ func scopeStrings(scopes []Scope) []string {
 		items = append(items, string(scope))
 	}
 	return items
-}
-
-func timePointer(value time.Time) *time.Time {
-	return &value
 }

@@ -7,13 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
-	"strings"
 
-	"github.com/BetterAndBetterII/openase/ent"
-	entnotificationchannel "github.com/BetterAndBetterII/openase/ent/notificationchannel"
-	entnotificationrule "github.com/BetterAndBetterII/openase/ent/notificationrule"
-	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
-	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/notification"
 	"github.com/google/uuid"
 )
@@ -22,17 +16,17 @@ var (
 	// ErrUnavailable reports a missing notification service dependency.
 	ErrUnavailable = errors.New("notification service unavailable")
 	// ErrOrganizationNotFound reports a missing organization.
-	ErrOrganizationNotFound = errors.New("organization not found")
+	ErrOrganizationNotFound = domain.ErrOrganizationNotFound
 	// ErrProjectNotFound reports a missing project.
-	ErrProjectNotFound = errors.New("project not found")
+	ErrProjectNotFound = domain.ErrProjectNotFound
 	// ErrChannelNotFound reports a missing notification channel.
-	ErrChannelNotFound = errors.New("notification channel not found")
+	ErrChannelNotFound = domain.ErrChannelNotFound
 	// ErrDuplicateChannelName reports duplicate channel names within the same organization.
-	ErrDuplicateChannelName = errors.New("notification channel name already exists in organization")
+	ErrDuplicateChannelName = domain.ErrDuplicateChannelName
 	// ErrRuleNotFound reports a missing notification rule.
-	ErrRuleNotFound = errors.New("notification rule not found")
+	ErrRuleNotFound = domain.ErrRuleNotFound
 	// ErrDuplicateRuleName reports duplicate notification rule names within the same project.
-	ErrDuplicateRuleName = errors.New("notification rule name already exists in project")
+	ErrDuplicateRuleName = domain.ErrDuplicateRuleName
 	// ErrChannelProjectMismatch reports that the selected channel belongs to a different organization.
 	ErrChannelProjectMismatch = errors.New("notification channel does not belong to the rule project organization")
 	// ErrInvalidChannelConfig reports invalid persisted or patched channel config.
@@ -41,20 +35,20 @@ var (
 
 // Service provides notification channel CRUD plus adapter-backed delivery.
 type Service struct {
-	client   *ent.Client
+	repo     Repository
 	logger   *slog.Logger
 	registry *AdapterRegistry
 }
 
 // NewService constructs a notification service.
-func NewService(client *ent.Client, logger *slog.Logger, httpClient *http.Client) *Service {
+func NewService(repo Repository, logger *slog.Logger, httpClient *http.Client) *Service {
 	resolvedLogger := logger
 	if resolvedLogger == nil {
 		resolvedLogger = slog.Default()
 	}
 
 	return &Service{
-		client:   client,
+		repo:     repo,
 		logger:   resolvedLogger.With("component", "notification-service"),
 		registry: NewDefaultAdapterRegistry(httpClient),
 	}
@@ -62,95 +56,52 @@ func NewService(client *ent.Client, logger *slog.Logger, httpClient *http.Client
 
 // List returns all channels configured for the organization.
 func (s *Service) List(ctx context.Context, organizationID uuid.UUID) ([]domain.Channel, error) {
-	if s.client == nil {
+	if s.repo == nil {
 		return nil, ErrUnavailable
 	}
 	if err := s.ensureOrganizationExists(ctx, organizationID); err != nil {
 		return nil, err
 	}
 
-	items, err := s.client.NotificationChannel.Query().
-		Where(entnotificationchannel.OrganizationIDEQ(organizationID)).
-		Order(ent.Asc(entnotificationchannel.FieldName), ent.Asc(entnotificationchannel.FieldCreatedAt)).
-		All(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list notification channels: %w", err)
-	}
-
-	response := make([]domain.Channel, 0, len(items))
-	for _, item := range items {
-		response = append(response, mapChannel(item))
-	}
-
-	return response, nil
+	return s.repo.Channels(ctx, organizationID, false)
 }
 
 // Get returns a single configured channel.
 func (s *Service) Get(ctx context.Context, channelID uuid.UUID) (domain.Channel, error) {
-	if s.client == nil {
+	if s.repo == nil {
 		return domain.Channel{}, ErrUnavailable
 	}
 
-	item, err := s.client.NotificationChannel.Get(ctx, channelID)
-	if err != nil {
-		return domain.Channel{}, mapChannelNotFound(err)
-	}
-
-	return mapChannel(item), nil
+	return s.repo.Channel(ctx, channelID)
 }
 
 // ListRules returns all configured notification rules for the project.
 func (s *Service) ListRules(ctx context.Context, projectID uuid.UUID) ([]domain.Rule, error) {
-	if s.client == nil {
+	if s.repo == nil {
 		return nil, ErrUnavailable
 	}
 	if _, err := s.getProject(ctx, projectID); err != nil {
 		return nil, err
 	}
 
-	items, err := s.client.NotificationRule.Query().
-		Where(entnotificationrule.ProjectIDEQ(projectID)).
-		WithChannel().
-		Order(ent.Asc(entnotificationrule.FieldName), ent.Asc(entnotificationrule.FieldCreatedAt)).
-		All(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list notification rules: %w", err)
-	}
-
-	response := make([]domain.Rule, 0, len(items))
-	for _, item := range items {
-		response = append(response, mapRule(item))
-	}
-
-	return response, nil
+	return s.repo.Rules(ctx, projectID)
 }
 
 // Create validates and persists a new notification channel.
 func (s *Service) Create(ctx context.Context, input domain.CreateChannelInput) (domain.Channel, error) {
-	if s.client == nil {
+	if s.repo == nil {
 		return domain.Channel{}, ErrUnavailable
 	}
 	if err := s.ensureOrganizationExists(ctx, input.OrganizationID); err != nil {
 		return domain.Channel{}, err
 	}
 
-	created, err := s.client.NotificationChannel.Create().
-		SetOrganizationID(input.OrganizationID).
-		SetName(input.Name).
-		SetType(input.Type.String()).
-		SetConfig(input.Config).
-		SetIsEnabled(input.IsEnabled).
-		Save(ctx)
-	if err != nil {
-		return domain.Channel{}, mapPersistenceError("create notification channel", err)
-	}
-
-	return mapChannel(created), nil
+	return s.repo.CreateChannel(ctx, input)
 }
 
 // CreateRule validates and persists a new notification rule.
 func (s *Service) CreateRule(ctx context.Context, input domain.CreateRuleInput) (domain.Rule, error) {
-	if s.client == nil {
+	if s.repo == nil {
 		return domain.Rule{}, ErrUnavailable
 	}
 
@@ -162,39 +113,18 @@ func (s *Service) CreateRule(ctx context.Context, input domain.CreateRuleInput) 
 		return domain.Rule{}, err
 	}
 
-	created, err := s.client.NotificationRule.Create().
-		SetProjectID(input.ProjectID).
-		SetChannelID(input.ChannelID).
-		SetName(input.Name).
-		SetEventType(input.EventType.String()).
-		SetFilter(input.Filter).
-		SetTemplate(input.Template).
-		SetIsEnabled(input.IsEnabled).
-		Save(ctx)
-	if err != nil {
-		return domain.Rule{}, mapPersistenceError("create notification rule", err)
-	}
-
-	item, err := s.client.NotificationRule.Query().
-		Where(entnotificationrule.IDEQ(created.ID)).
-		WithChannel().
-		Only(ctx)
-	if err != nil {
-		return domain.Rule{}, fmt.Errorf("reload notification rule: %w", err)
-	}
-
-	return mapRule(item), nil
+	return s.repo.CreateRule(ctx, input)
 }
 
 // Update applies a partial update to a notification channel.
 func (s *Service) Update(ctx context.Context, input domain.UpdateChannelInput) (domain.Channel, error) {
-	if s.client == nil {
+	if s.repo == nil {
 		return domain.Channel{}, ErrUnavailable
 	}
 
-	current, err := s.client.NotificationChannel.Get(ctx, input.ChannelID)
+	current, err := s.repo.Channel(ctx, input.ChannelID)
 	if err != nil {
-		return domain.Channel{}, mapChannelNotFound(err)
+		return domain.Channel{}, err
 	}
 
 	nextName := current.Name
@@ -202,10 +132,7 @@ func (s *Service) Update(ctx context.Context, input domain.UpdateChannelInput) (
 		nextName = input.Name.Value
 	}
 
-	nextType, err := domain.ParseChannelType(current.Type)
-	if err != nil {
-		return domain.Channel{}, fmt.Errorf("load channel type: %w", err)
-	}
+	nextType := current.Type
 	if input.Type.Set {
 		nextType = input.Type.Value
 	}
@@ -224,31 +151,26 @@ func (s *Service) Update(ctx context.Context, input domain.UpdateChannelInput) (
 		isEnabled = input.IsEnabled.Value
 	}
 
-	updated, err := s.client.NotificationChannel.UpdateOneID(input.ChannelID).
-		SetName(nextName).
-		SetType(nextType.String()).
-		SetConfig(normalizedConfig).
-		SetIsEnabled(isEnabled).
-		Save(ctx)
-	if err != nil {
-		return domain.Channel{}, mapPersistenceError("update notification channel", err)
-	}
-
-	return mapChannel(updated), nil
+	return s.repo.UpdateChannel(ctx, domain.Channel{
+		ID:             current.ID,
+		OrganizationID: current.OrganizationID,
+		Name:           nextName,
+		Type:           nextType,
+		Config:         normalizedConfig,
+		IsEnabled:      isEnabled,
+		CreatedAt:      current.CreatedAt,
+	})
 }
 
 // UpdateRule applies a partial update to a notification rule.
 func (s *Service) UpdateRule(ctx context.Context, input domain.UpdateRuleInput) (domain.Rule, error) {
-	if s.client == nil {
+	if s.repo == nil {
 		return domain.Rule{}, ErrUnavailable
 	}
 
-	current, err := s.client.NotificationRule.Query().
-		Where(entnotificationrule.IDEQ(input.RuleID)).
-		WithChannel().
-		Only(ctx)
+	current, err := s.repo.Rule(ctx, input.RuleID)
 	if err != nil {
-		return domain.Rule{}, mapRuleNotFound(err)
+		return domain.Rule{}, err
 	}
 
 	projectItem, err := s.getProject(ctx, current.ProjectID)
@@ -261,10 +183,7 @@ func (s *Service) UpdateRule(ctx context.Context, input domain.UpdateRuleInput) 
 		nextName = input.Name.Value
 	}
 
-	nextEventType, err := domain.ParseRuleEventType(current.EventType)
-	if err != nil {
-		return domain.Rule{}, fmt.Errorf("load rule event type: %w", err)
-	}
+	nextEventType := current.EventType
 	if input.EventType.Set {
 		nextEventType = input.EventType.Value
 	}
@@ -292,56 +211,40 @@ func (s *Service) UpdateRule(ctx context.Context, input domain.UpdateRuleInput) 
 		isEnabled = input.IsEnabled.Value
 	}
 
-	updated, err := s.client.NotificationRule.UpdateOneID(input.RuleID).
-		SetName(nextName).
-		SetEventType(nextEventType.String()).
-		SetFilter(nextFilter).
-		SetChannelID(nextChannelID).
-		SetTemplate(nextTemplate).
-		SetIsEnabled(isEnabled).
-		Save(ctx)
-	if err != nil {
-		return domain.Rule{}, mapPersistenceError("update notification rule", err)
-	}
-
-	item, err := s.client.NotificationRule.Query().
-		Where(entnotificationrule.IDEQ(updated.ID)).
-		WithChannel().
-		Only(ctx)
-	if err != nil {
-		return domain.Rule{}, fmt.Errorf("reload notification rule: %w", err)
-	}
-
-	return mapRule(item), nil
+	return s.repo.UpdateRule(ctx, domain.Rule{
+		ID:        current.ID,
+		ProjectID: current.ProjectID,
+		ChannelID: nextChannelID,
+		Name:      nextName,
+		EventType: nextEventType,
+		Filter:    nextFilter,
+		Template:  nextTemplate,
+		IsEnabled: isEnabled,
+		CreatedAt: current.CreatedAt,
+	})
 }
 
 // Delete removes a persisted notification channel.
 func (s *Service) Delete(ctx context.Context, channelID uuid.UUID) error {
-	if s.client == nil {
+	if s.repo == nil {
 		return ErrUnavailable
 	}
-	if err := s.client.NotificationChannel.DeleteOneID(channelID).Exec(ctx); err != nil {
-		return mapChannelNotFound(err)
-	}
 
-	return nil
+	return s.repo.DeleteChannel(ctx, channelID)
 }
 
 // DeleteRule removes a persisted notification rule.
 func (s *Service) DeleteRule(ctx context.Context, ruleID uuid.UUID) error {
-	if s.client == nil {
+	if s.repo == nil {
 		return ErrUnavailable
 	}
-	if err := s.client.NotificationRule.DeleteOneID(ruleID).Exec(ctx); err != nil {
-		return mapRuleNotFound(err)
-	}
 
-	return nil
+	return s.repo.DeleteRule(ctx, ruleID)
 }
 
 // Test sends a synthetic message through the configured channel adapter.
 func (s *Service) Test(ctx context.Context, channelID uuid.UUID) error {
-	if s.client == nil {
+	if s.repo == nil {
 		return ErrUnavailable
 	}
 
@@ -362,7 +265,7 @@ func (s *Service) Test(ctx context.Context, channelID uuid.UUID) error {
 
 // SendToProjectChannels fans a message out to all enabled channels in the project's organization.
 func (s *Service) SendToProjectChannels(ctx context.Context, projectID uuid.UUID, message domain.Message) error {
-	if s.client == nil {
+	if s.repo == nil {
 		return ErrUnavailable
 	}
 
@@ -371,19 +274,12 @@ func (s *Service) SendToProjectChannels(ctx context.Context, projectID uuid.UUID
 		return err
 	}
 
-	channels, err := s.client.NotificationChannel.Query().
-		Where(
-			entnotificationchannel.OrganizationIDEQ(projectItem.OrganizationID),
-			entnotificationchannel.IsEnabled(true),
-		).
-		Order(ent.Asc(entnotificationchannel.FieldName), ent.Asc(entnotificationchannel.FieldCreatedAt)).
-		All(ctx)
+	channels, err := s.repo.Channels(ctx, projectItem.OrganizationID, true)
 	if err != nil {
-		return fmt.Errorf("list enabled notification channels: %w", err)
+		return err
 	}
 
-	for _, item := range channels {
-		channel := mapChannel(item)
+	for _, channel := range channels {
 		if err := s.sendChannel(ctx, channel, message); err != nil {
 			s.logger.Warn(
 				"notification send failed",
@@ -400,7 +296,7 @@ func (s *Service) SendToProjectChannels(ctx context.Context, projectID uuid.UUID
 
 // SendRule delivers a message through the rule's configured channel.
 func (s *Service) SendRule(ctx context.Context, rule domain.Rule, message domain.Message) error {
-	if s.client == nil {
+	if s.repo == nil {
 		return ErrUnavailable
 	}
 	if !rule.IsEnabled || !rule.Channel.IsEnabled {
@@ -412,33 +308,11 @@ func (s *Service) SendRule(ctx context.Context, rule domain.Rule, message domain
 
 // MatchingRules resolves enabled notification rules for a project and event type.
 func (s *Service) MatchingRules(ctx context.Context, projectID uuid.UUID, eventType domain.RuleEventType) ([]domain.Rule, error) {
-	if s.client == nil {
+	if s.repo == nil {
 		return nil, ErrUnavailable
 	}
 
-	items, err := s.client.NotificationRule.Query().
-		Where(
-			entnotificationrule.ProjectIDEQ(projectID),
-			entnotificationrule.EventTypeEQ(eventType.String()),
-			entnotificationrule.IsEnabled(true),
-		).
-		WithChannel().
-		Order(ent.Asc(entnotificationrule.FieldName), ent.Asc(entnotificationrule.FieldCreatedAt)).
-		All(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list matching notification rules: %w", err)
-	}
-
-	rules := make([]domain.Rule, 0, len(items))
-	for _, item := range items {
-		rule := mapRule(item)
-		if !rule.Channel.IsEnabled {
-			continue
-		}
-		rules = append(rules, rule)
-	}
-
-	return rules, nil
+	return s.repo.MatchingRules(ctx, projectID, eventType)
 }
 
 func (s *Service) sendChannel(ctx context.Context, channel domain.Channel, message domain.Message) error {
@@ -482,11 +356,9 @@ func notificationConfigKeys(config map[string]any) []string {
 }
 
 func (s *Service) ensureOrganizationExists(ctx context.Context, organizationID uuid.UUID) error {
-	exists, err := s.client.Organization.Query().
-		Where(entorganization.IDEQ(organizationID)).
-		Exist(ctx)
+	exists, err := s.repo.OrganizationExists(ctx, organizationID)
 	if err != nil {
-		return fmt.Errorf("check organization exists: %w", err)
+		return err
 	}
 	if !exists {
 		return ErrOrganizationNotFound
@@ -495,18 +367,8 @@ func (s *Service) ensureOrganizationExists(ctx context.Context, organizationID u
 	return nil
 }
 
-func (s *Service) getProject(ctx context.Context, projectID uuid.UUID) (*ent.Project, error) {
-	projectItem, err := s.client.Project.Query().
-		Where(entproject.ID(projectID)).
-		Only(ctx)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			return nil, ErrProjectNotFound
-		}
-		return nil, fmt.Errorf("load project for notifications: %w", err)
-	}
-
-	return projectItem, nil
+func (s *Service) getProject(ctx context.Context, projectID uuid.UUID) (domain.ProjectRef, error) {
+	return s.repo.Project(ctx, projectID)
 }
 
 func (s *Service) ensureChannelMatchesProject(ctx context.Context, organizationID uuid.UUID, channelID uuid.UUID) error {
@@ -519,72 +381,4 @@ func (s *Service) ensureChannelMatchesProject(ctx context.Context, organizationI
 	}
 
 	return nil
-}
-
-func mapChannel(item *ent.NotificationChannel) domain.Channel {
-	channelType, err := domain.ParseChannelType(item.Type)
-	if err != nil {
-		channelType = domain.ChannelType(strings.TrimSpace(item.Type))
-	}
-
-	return domain.Channel{
-		ID:             item.ID,
-		OrganizationID: item.OrganizationID,
-		Name:           item.Name,
-		Type:           channelType,
-		Config:         item.Config,
-		IsEnabled:      item.IsEnabled,
-		CreatedAt:      item.CreatedAt,
-	}
-}
-
-func mapRule(item *ent.NotificationRule) domain.Rule {
-	eventType, err := domain.ParseRuleEventType(item.EventType)
-	if err != nil {
-		eventType = domain.RuleEventType(strings.TrimSpace(item.EventType))
-	}
-
-	rule := domain.Rule{
-		ID:        item.ID,
-		ProjectID: item.ProjectID,
-		ChannelID: item.ChannelID,
-		Name:      item.Name,
-		EventType: eventType,
-		Filter:    item.Filter,
-		Template:  item.Template,
-		IsEnabled: item.IsEnabled,
-		CreatedAt: item.CreatedAt,
-	}
-	if item.Edges.Channel != nil {
-		rule.Channel = mapChannel(item.Edges.Channel)
-	}
-
-	return rule
-}
-
-func mapChannelNotFound(err error) error {
-	if ent.IsNotFound(err) {
-		return ErrChannelNotFound
-	}
-
-	return err
-}
-
-func mapRuleNotFound(err error) error {
-	if ent.IsNotFound(err) {
-		return ErrRuleNotFound
-	}
-
-	return err
-}
-
-func mapPersistenceError(action string, err error) error {
-	if ent.IsConstraintError(err) && strings.Contains(strings.ToLower(err.Error()), "notificationchannel_organization_id_name") {
-		return ErrDuplicateChannelName
-	}
-	if ent.IsConstraintError(err) && strings.Contains(strings.ToLower(err.Error()), "notificationrule_project_id_name") {
-		return ErrDuplicateRuleName
-	}
-
-	return fmt.Errorf("%s: %w", action, err)
 }

@@ -10,6 +10,7 @@ import (
 	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
 )
@@ -56,7 +57,7 @@ func TestServiceRecordUsageAccumulatesTokensCostAndBudgetPause(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create provider: %v", err)
 	}
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}
@@ -104,7 +105,7 @@ func TestServiceRecordUsageAccumulatesTokensCostAndBudgetPause(t *testing.T) {
 		t.Fatalf("create agent run: %v", err)
 	}
 
-	service := NewService(client)
+	service := newTicketService(client)
 	inputTokens := int64(120)
 	outputTokens := int64(45)
 	result, err := service.RecordUsage(ctx, RecordUsageInput{
@@ -223,7 +224,7 @@ func TestServiceRecordUsageEdgeCases(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create provider: %v", err)
 	}
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}
@@ -256,7 +257,7 @@ func TestServiceRecordUsageEdgeCases(t *testing.T) {
 		t.Fatalf("create other project agent: %v", err)
 	}
 
-	service := NewService(client)
+	service := newTicketService(client)
 	if _, err := service.RecordUsage(ctx, RecordUsageInput{
 		AgentID: uuid.Nil,
 	}, nil); err == nil || err.Error() != "agent_id must be a valid UUID" {
@@ -377,7 +378,7 @@ func TestServiceRecordUsagePreservesSmallUsageDeltasUntilBudgetPause(t *testing.
 	if err != nil {
 		t.Fatalf("create provider: %v", err)
 	}
-	statuses, err := ticketstatus.NewService(client).ResetToDefaultTemplate(ctx, project.ID)
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
 	if err != nil {
 		t.Fatalf("reset statuses: %v", err)
 	}
@@ -402,7 +403,7 @@ func TestServiceRecordUsagePreservesSmallUsageDeltasUntilBudgetPause(t *testing.
 		t.Fatalf("create agent: %v", err)
 	}
 
-	service := NewService(client)
+	service := newTicketService(client)
 	inputTokens := int64(1)
 	var last RecordUsageResult
 	for range 3 {
@@ -447,6 +448,6 @@ func openTestEntClient(t *testing.T) *ent.Client {
 	t.Helper()
 
 	client := testPostgres.NewIsolatedEntClient(t)
-	InstallRetryTokenHooks(client)
+	ticketrepo.InstallRetryTokenHooks(client)
 	return client
 }
