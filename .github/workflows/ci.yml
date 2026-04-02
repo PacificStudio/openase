@@ -136,7 +136,7 @@ jobs:
       - name: Check Out Repository
         uses: actions/checkout@v5
         with:
-          clean: false
+          clean: true
 
       - name: Set Up pnpm
         uses: pnpm/action-setup@v4
