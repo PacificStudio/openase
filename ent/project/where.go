@@ -89,6 +89,11 @@ func MaxConcurrentAgents(v int) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldMaxConcurrentAgents, v))
 }
 
+// AgentRunSummaryPrompt applies equality check predicate on the "agent_run_summary_prompt" field. It's identical to AgentRunSummaryPromptEQ.
+func AgentRunSummaryPrompt(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldAgentRunSummaryPrompt, v))
+}
+
 // OrganizationIDEQ applies the EQ predicate on the "organization_id" field.
 func OrganizationIDEQ(v uuid.UUID) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldOrganizationID, v))
@@ -467,6 +472,81 @@ func MaxConcurrentAgentsLT(v int) predicate.Project {
 // MaxConcurrentAgentsLTE applies the LTE predicate on the "max_concurrent_agents" field.
 func MaxConcurrentAgentsLTE(v int) predicate.Project {
 	return predicate.Project(sql.FieldLTE(FieldMaxConcurrentAgents, v))
+}
+
+// AgentRunSummaryPromptEQ applies the EQ predicate on the "agent_run_summary_prompt" field.
+func AgentRunSummaryPromptEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldAgentRunSummaryPrompt, v))
+}
+
+// AgentRunSummaryPromptNEQ applies the NEQ predicate on the "agent_run_summary_prompt" field.
+func AgentRunSummaryPromptNEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldAgentRunSummaryPrompt, v))
+}
+
+// AgentRunSummaryPromptIn applies the In predicate on the "agent_run_summary_prompt" field.
+func AgentRunSummaryPromptIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldAgentRunSummaryPrompt, vs...))
+}
+
+// AgentRunSummaryPromptNotIn applies the NotIn predicate on the "agent_run_summary_prompt" field.
+func AgentRunSummaryPromptNotIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldAgentRunSummaryPrompt, vs...))
+}
+
+// AgentRunSummaryPromptGT applies the GT predicate on the "agent_run_summary_prompt" field.
+func AgentRunSummaryPromptGT(v string) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldAgentRunSummaryPrompt, v))
+}
+
+// AgentRunSummaryPromptGTE applies the GTE predicate on the "agent_run_summary_prompt" field.
+func AgentRunSummaryPromptGTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldAgentRunSummaryPrompt, v))
+}
+
+// AgentRunSummaryPromptLT applies the LT predicate on the "agent_run_summary_prompt" field.
+func AgentRunSummaryPromptLT(v string) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldAgentRunSummaryPrompt, v))
+}
+
+// AgentRunSummaryPromptLTE applies the LTE predicate on the "agent_run_summary_prompt" field.
+func AgentRunSummaryPromptLTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldAgentRunSummaryPrompt, v))
+}
+
+// AgentRunSummaryPromptContains applies the Contains predicate on the "agent_run_summary_prompt" field.
+func AgentRunSummaryPromptContains(v string) predicate.Project {
+	return predicate.Project(sql.FieldContains(FieldAgentRunSummaryPrompt, v))
+}
+
+// AgentRunSummaryPromptHasPrefix applies the HasPrefix predicate on the "agent_run_summary_prompt" field.
+func AgentRunSummaryPromptHasPrefix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasPrefix(FieldAgentRunSummaryPrompt, v))
+}
+
+// AgentRunSummaryPromptHasSuffix applies the HasSuffix predicate on the "agent_run_summary_prompt" field.
+func AgentRunSummaryPromptHasSuffix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasSuffix(FieldAgentRunSummaryPrompt, v))
+}
+
+// AgentRunSummaryPromptIsNil applies the IsNil predicate on the "agent_run_summary_prompt" field.
+func AgentRunSummaryPromptIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldAgentRunSummaryPrompt))
+}
+
+// AgentRunSummaryPromptNotNil applies the NotNil predicate on the "agent_run_summary_prompt" field.
+func AgentRunSummaryPromptNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldAgentRunSummaryPrompt))
+}
+
+// AgentRunSummaryPromptEqualFold applies the EqualFold predicate on the "agent_run_summary_prompt" field.
+func AgentRunSummaryPromptEqualFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldEqualFold(FieldAgentRunSummaryPrompt, v))
+}
+
+// AgentRunSummaryPromptContainsFold applies the ContainsFold predicate on the "agent_run_summary_prompt" field.
+func AgentRunSummaryPromptContainsFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldContainsFold(FieldAgentRunSummaryPrompt, v))
 }
 
 // HasOrganization applies the HasEdge predicate on the "organization" edge.

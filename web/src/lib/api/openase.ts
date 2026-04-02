@@ -331,6 +331,7 @@ export function activateHRRecommendation(
 export function updateProject(
   projectId: string,
   body: {
+    agent_run_summary_prompt?: string | null
     default_agent_provider_id?: string | null
     description?: string | null
     max_concurrent_agents?: number | null

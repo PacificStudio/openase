@@ -39,6 +39,9 @@ const latestRun: TicketRun = {
   createdAt: '2026-04-01T10:05:00Z',
   runtimeStartedAt: '2026-04-01T10:05:30Z',
   lastHeartbeatAt: '2026-04-01T10:07:00Z',
+  completionSummary: {
+    status: 'pending',
+  },
 }
 
 const failedRun: TicketRun = {
@@ -51,6 +54,10 @@ const failedRun: TicketRun = {
   createdAt: '2026-04-01T09:00:00Z',
   completedAt: '2026-04-01T09:10:00Z',
   lastError: 'Unit tests failed.',
+  completionSummary: {
+    status: 'failed',
+    error: 'provider unavailable after run completion',
+  },
 }
 
 const latestBlocks: TicketRunTranscriptBlock[] = [
@@ -122,6 +129,7 @@ describe('TicketRunHistoryPanel', () => {
     expect(buttons[1]?.textContent).toContain('#2')
     // Status badge on attempt row only (no separate header badge)
     expect(getAllStatuses('Running')).toHaveLength(1)
+    expect(getAllStatuses('Summary pending')).toHaveLength(1)
   })
 
   it('requests a run switch and renders historical terminal summaries', async () => {
@@ -150,6 +158,8 @@ describe('TicketRunHistoryPanel', () => {
     // Result block shows failure summary inline (no separate transcript header)
     expect(getByText('Unit tests failed.')).toBeTruthy()
     expect(getAllByText('Failed').length).toBeGreaterThanOrEqual(1)
+    expect(getByText('Summary failed')).toBeTruthy()
+    expect(getByText('provider unavailable after run completion')).toBeTruthy()
   })
 
   it('renders command/tool metadata instead of collapsing them into opaque noise', async () => {
@@ -171,5 +181,33 @@ describe('TicketRunHistoryPanel', () => {
     // Expanding tool call reveals target workdir
     await fireEvent.click(getByText(/Ran .pnpm vitest run/))
     expect(getByText('/repo')).toBeTruthy()
+  })
+
+  it('renders completed summaries without hiding the raw transcript', () => {
+    const completedRun: TicketRun = {
+      ...failedRun,
+      id: 'run-3',
+      attemptNumber: 3,
+      status: 'completed',
+      completionSummary: {
+        status: 'completed',
+        markdown: '## Overview\n\nImplemented the ticket flow.\n\n## Outcome\n\nDone.',
+        generatedAt: '2026-04-01T11:30:00Z',
+      },
+    }
+
+    const { getByText } = render(TicketRunHistoryPanel, {
+      props: {
+        ticket,
+        runs: [completedRun],
+        currentRun: completedRun,
+        blocks: failedBlocks,
+      },
+    })
+
+    expect(getByText('Summary')).toBeTruthy()
+    expect(getByText('Implemented the ticket flow.')).toBeTruthy()
+    expect(getByText('Done.')).toBeTruthy()
+    expect(getByText('Unit tests failed.')).toBeTruthy()
   })
 })

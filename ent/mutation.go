@@ -3921,65 +3921,71 @@ func (m *AgentProviderMutation) ResetEdge(name string) error {
 // AgentRunMutation represents an operation that mutates the AgentRun nodes in the graph.
 type AgentRunMutation struct {
 	config
-	op                             Op
-	typ                            string
-	id                             *uuid.UUID
-	skill_version_ids              *pgarray.StringArray
-	status                         *agentrun.Status
-	session_id                     *string
-	runtime_started_at             *time.Time
-	terminal_at                    *time.Time
-	snapshot_materialized_at       *time.Time
-	last_error                     *string
-	last_heartbeat_at              *time.Time
-	input_tokens                   *int64
-	addinput_tokens                *int64
-	output_tokens                  *int64
-	addoutput_tokens               *int64
-	cached_input_tokens            *int64
-	addcached_input_tokens         *int64
-	cache_creation_input_tokens    *int64
-	addcache_creation_input_tokens *int64
-	reasoning_tokens               *int64
-	addreasoning_tokens            *int64
-	prompt_tokens                  *int64
-	addprompt_tokens               *int64
-	candidate_tokens               *int64
-	addcandidate_tokens            *int64
-	tool_tokens                    *int64
-	addtool_tokens                 *int64
-	total_tokens                   *int64
-	addtotal_tokens                *int64
-	current_step_status            *string
-	current_step_summary           *string
-	current_step_changed_at        *time.Time
-	created_at                     *time.Time
-	clearedFields                  map[string]struct{}
-	agent                          *uuid.UUID
-	clearedagent                   bool
-	workflow                       *uuid.UUID
-	clearedworkflow                bool
-	workflow_version               *uuid.UUID
-	clearedworkflow_version        bool
-	ticket                         *uuid.UUID
-	clearedticket                  bool
-	provider                       *uuid.UUID
-	clearedprovider                bool
-	current_for_ticket             map[uuid.UUID]struct{}
-	removedcurrent_for_ticket      map[uuid.UUID]struct{}
-	clearedcurrent_for_ticket      bool
-	ticket_repo_workspaces         map[uuid.UUID]struct{}
-	removedticket_repo_workspaces  map[uuid.UUID]struct{}
-	clearedticket_repo_workspaces  bool
-	agent_trace_events             map[uuid.UUID]struct{}
-	removedagent_trace_events      map[uuid.UUID]struct{}
-	clearedagent_trace_events      bool
-	agent_step_events              map[uuid.UUID]struct{}
-	removedagent_step_events       map[uuid.UUID]struct{}
-	clearedagent_step_events       bool
-	done                           bool
-	oldValue                       func(context.Context) (*AgentRun, error)
-	predicates                     []predicate.AgentRun
+	op                              Op
+	typ                             string
+	id                              *uuid.UUID
+	skill_version_ids               *pgarray.StringArray
+	status                          *agentrun.Status
+	session_id                      *string
+	runtime_started_at              *time.Time
+	terminal_at                     *time.Time
+	snapshot_materialized_at        *time.Time
+	last_error                      *string
+	last_heartbeat_at               *time.Time
+	input_tokens                    *int64
+	addinput_tokens                 *int64
+	output_tokens                   *int64
+	addoutput_tokens                *int64
+	cached_input_tokens             *int64
+	addcached_input_tokens          *int64
+	cache_creation_input_tokens     *int64
+	addcache_creation_input_tokens  *int64
+	reasoning_tokens                *int64
+	addreasoning_tokens             *int64
+	prompt_tokens                   *int64
+	addprompt_tokens                *int64
+	candidate_tokens                *int64
+	addcandidate_tokens             *int64
+	tool_tokens                     *int64
+	addtool_tokens                  *int64
+	total_tokens                    *int64
+	addtotal_tokens                 *int64
+	current_step_status             *string
+	current_step_summary            *string
+	current_step_changed_at         *time.Time
+	completion_summary_status       *agentrun.CompletionSummaryStatus
+	completion_summary_markdown     *string
+	completion_summary_json         *map[string]interface{}
+	completion_summary_input        *map[string]interface{}
+	completion_summary_generated_at *time.Time
+	completion_summary_error        *string
+	created_at                      *time.Time
+	clearedFields                   map[string]struct{}
+	agent                           *uuid.UUID
+	clearedagent                    bool
+	workflow                        *uuid.UUID
+	clearedworkflow                 bool
+	workflow_version                *uuid.UUID
+	clearedworkflow_version         bool
+	ticket                          *uuid.UUID
+	clearedticket                   bool
+	provider                        *uuid.UUID
+	clearedprovider                 bool
+	current_for_ticket              map[uuid.UUID]struct{}
+	removedcurrent_for_ticket       map[uuid.UUID]struct{}
+	clearedcurrent_for_ticket       bool
+	ticket_repo_workspaces          map[uuid.UUID]struct{}
+	removedticket_repo_workspaces   map[uuid.UUID]struct{}
+	clearedticket_repo_workspaces   bool
+	agent_trace_events              map[uuid.UUID]struct{}
+	removedagent_trace_events       map[uuid.UUID]struct{}
+	clearedagent_trace_events       bool
+	agent_step_events               map[uuid.UUID]struct{}
+	removedagent_step_events        map[uuid.UUID]struct{}
+	clearedagent_step_events        bool
+	done                            bool
+	oldValue                        func(context.Context) (*AgentRun, error)
+	predicates                      []predicate.AgentRun
 }
 
 var _ ent.Mutation = (*AgentRunMutation)(nil)
@@ -5309,6 +5315,300 @@ func (m *AgentRunMutation) ResetCurrentStepChangedAt() {
 	delete(m.clearedFields, agentrun.FieldCurrentStepChangedAt)
 }
 
+// SetCompletionSummaryStatus sets the "completion_summary_status" field.
+func (m *AgentRunMutation) SetCompletionSummaryStatus(ass agentrun.CompletionSummaryStatus) {
+	m.completion_summary_status = &ass
+}
+
+// CompletionSummaryStatus returns the value of the "completion_summary_status" field in the mutation.
+func (m *AgentRunMutation) CompletionSummaryStatus() (r agentrun.CompletionSummaryStatus, exists bool) {
+	v := m.completion_summary_status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompletionSummaryStatus returns the old "completion_summary_status" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldCompletionSummaryStatus(ctx context.Context) (v *agentrun.CompletionSummaryStatus, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompletionSummaryStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompletionSummaryStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompletionSummaryStatus: %w", err)
+	}
+	return oldValue.CompletionSummaryStatus, nil
+}
+
+// ClearCompletionSummaryStatus clears the value of the "completion_summary_status" field.
+func (m *AgentRunMutation) ClearCompletionSummaryStatus() {
+	m.completion_summary_status = nil
+	m.clearedFields[agentrun.FieldCompletionSummaryStatus] = struct{}{}
+}
+
+// CompletionSummaryStatusCleared returns if the "completion_summary_status" field was cleared in this mutation.
+func (m *AgentRunMutation) CompletionSummaryStatusCleared() bool {
+	_, ok := m.clearedFields[agentrun.FieldCompletionSummaryStatus]
+	return ok
+}
+
+// ResetCompletionSummaryStatus resets all changes to the "completion_summary_status" field.
+func (m *AgentRunMutation) ResetCompletionSummaryStatus() {
+	m.completion_summary_status = nil
+	delete(m.clearedFields, agentrun.FieldCompletionSummaryStatus)
+}
+
+// SetCompletionSummaryMarkdown sets the "completion_summary_markdown" field.
+func (m *AgentRunMutation) SetCompletionSummaryMarkdown(s string) {
+	m.completion_summary_markdown = &s
+}
+
+// CompletionSummaryMarkdown returns the value of the "completion_summary_markdown" field in the mutation.
+func (m *AgentRunMutation) CompletionSummaryMarkdown() (r string, exists bool) {
+	v := m.completion_summary_markdown
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompletionSummaryMarkdown returns the old "completion_summary_markdown" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldCompletionSummaryMarkdown(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompletionSummaryMarkdown is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompletionSummaryMarkdown requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompletionSummaryMarkdown: %w", err)
+	}
+	return oldValue.CompletionSummaryMarkdown, nil
+}
+
+// ClearCompletionSummaryMarkdown clears the value of the "completion_summary_markdown" field.
+func (m *AgentRunMutation) ClearCompletionSummaryMarkdown() {
+	m.completion_summary_markdown = nil
+	m.clearedFields[agentrun.FieldCompletionSummaryMarkdown] = struct{}{}
+}
+
+// CompletionSummaryMarkdownCleared returns if the "completion_summary_markdown" field was cleared in this mutation.
+func (m *AgentRunMutation) CompletionSummaryMarkdownCleared() bool {
+	_, ok := m.clearedFields[agentrun.FieldCompletionSummaryMarkdown]
+	return ok
+}
+
+// ResetCompletionSummaryMarkdown resets all changes to the "completion_summary_markdown" field.
+func (m *AgentRunMutation) ResetCompletionSummaryMarkdown() {
+	m.completion_summary_markdown = nil
+	delete(m.clearedFields, agentrun.FieldCompletionSummaryMarkdown)
+}
+
+// SetCompletionSummaryJSON sets the "completion_summary_json" field.
+func (m *AgentRunMutation) SetCompletionSummaryJSON(value map[string]interface{}) {
+	m.completion_summary_json = &value
+}
+
+// CompletionSummaryJSON returns the value of the "completion_summary_json" field in the mutation.
+func (m *AgentRunMutation) CompletionSummaryJSON() (r map[string]interface{}, exists bool) {
+	v := m.completion_summary_json
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompletionSummaryJSON returns the old "completion_summary_json" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldCompletionSummaryJSON(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompletionSummaryJSON is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompletionSummaryJSON requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompletionSummaryJSON: %w", err)
+	}
+	return oldValue.CompletionSummaryJSON, nil
+}
+
+// ClearCompletionSummaryJSON clears the value of the "completion_summary_json" field.
+func (m *AgentRunMutation) ClearCompletionSummaryJSON() {
+	m.completion_summary_json = nil
+	m.clearedFields[agentrun.FieldCompletionSummaryJSON] = struct{}{}
+}
+
+// CompletionSummaryJSONCleared returns if the "completion_summary_json" field was cleared in this mutation.
+func (m *AgentRunMutation) CompletionSummaryJSONCleared() bool {
+	_, ok := m.clearedFields[agentrun.FieldCompletionSummaryJSON]
+	return ok
+}
+
+// ResetCompletionSummaryJSON resets all changes to the "completion_summary_json" field.
+func (m *AgentRunMutation) ResetCompletionSummaryJSON() {
+	m.completion_summary_json = nil
+	delete(m.clearedFields, agentrun.FieldCompletionSummaryJSON)
+}
+
+// SetCompletionSummaryInput sets the "completion_summary_input" field.
+func (m *AgentRunMutation) SetCompletionSummaryInput(value map[string]interface{}) {
+	m.completion_summary_input = &value
+}
+
+// CompletionSummaryInput returns the value of the "completion_summary_input" field in the mutation.
+func (m *AgentRunMutation) CompletionSummaryInput() (r map[string]interface{}, exists bool) {
+	v := m.completion_summary_input
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompletionSummaryInput returns the old "completion_summary_input" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldCompletionSummaryInput(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompletionSummaryInput is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompletionSummaryInput requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompletionSummaryInput: %w", err)
+	}
+	return oldValue.CompletionSummaryInput, nil
+}
+
+// ClearCompletionSummaryInput clears the value of the "completion_summary_input" field.
+func (m *AgentRunMutation) ClearCompletionSummaryInput() {
+	m.completion_summary_input = nil
+	m.clearedFields[agentrun.FieldCompletionSummaryInput] = struct{}{}
+}
+
+// CompletionSummaryInputCleared returns if the "completion_summary_input" field was cleared in this mutation.
+func (m *AgentRunMutation) CompletionSummaryInputCleared() bool {
+	_, ok := m.clearedFields[agentrun.FieldCompletionSummaryInput]
+	return ok
+}
+
+// ResetCompletionSummaryInput resets all changes to the "completion_summary_input" field.
+func (m *AgentRunMutation) ResetCompletionSummaryInput() {
+	m.completion_summary_input = nil
+	delete(m.clearedFields, agentrun.FieldCompletionSummaryInput)
+}
+
+// SetCompletionSummaryGeneratedAt sets the "completion_summary_generated_at" field.
+func (m *AgentRunMutation) SetCompletionSummaryGeneratedAt(t time.Time) {
+	m.completion_summary_generated_at = &t
+}
+
+// CompletionSummaryGeneratedAt returns the value of the "completion_summary_generated_at" field in the mutation.
+func (m *AgentRunMutation) CompletionSummaryGeneratedAt() (r time.Time, exists bool) {
+	v := m.completion_summary_generated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompletionSummaryGeneratedAt returns the old "completion_summary_generated_at" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldCompletionSummaryGeneratedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompletionSummaryGeneratedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompletionSummaryGeneratedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompletionSummaryGeneratedAt: %w", err)
+	}
+	return oldValue.CompletionSummaryGeneratedAt, nil
+}
+
+// ClearCompletionSummaryGeneratedAt clears the value of the "completion_summary_generated_at" field.
+func (m *AgentRunMutation) ClearCompletionSummaryGeneratedAt() {
+	m.completion_summary_generated_at = nil
+	m.clearedFields[agentrun.FieldCompletionSummaryGeneratedAt] = struct{}{}
+}
+
+// CompletionSummaryGeneratedAtCleared returns if the "completion_summary_generated_at" field was cleared in this mutation.
+func (m *AgentRunMutation) CompletionSummaryGeneratedAtCleared() bool {
+	_, ok := m.clearedFields[agentrun.FieldCompletionSummaryGeneratedAt]
+	return ok
+}
+
+// ResetCompletionSummaryGeneratedAt resets all changes to the "completion_summary_generated_at" field.
+func (m *AgentRunMutation) ResetCompletionSummaryGeneratedAt() {
+	m.completion_summary_generated_at = nil
+	delete(m.clearedFields, agentrun.FieldCompletionSummaryGeneratedAt)
+}
+
+// SetCompletionSummaryError sets the "completion_summary_error" field.
+func (m *AgentRunMutation) SetCompletionSummaryError(s string) {
+	m.completion_summary_error = &s
+}
+
+// CompletionSummaryError returns the value of the "completion_summary_error" field in the mutation.
+func (m *AgentRunMutation) CompletionSummaryError() (r string, exists bool) {
+	v := m.completion_summary_error
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompletionSummaryError returns the old "completion_summary_error" field's value of the AgentRun entity.
+// If the AgentRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRunMutation) OldCompletionSummaryError(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompletionSummaryError is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompletionSummaryError requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompletionSummaryError: %w", err)
+	}
+	return oldValue.CompletionSummaryError, nil
+}
+
+// ClearCompletionSummaryError clears the value of the "completion_summary_error" field.
+func (m *AgentRunMutation) ClearCompletionSummaryError() {
+	m.completion_summary_error = nil
+	m.clearedFields[agentrun.FieldCompletionSummaryError] = struct{}{}
+}
+
+// CompletionSummaryErrorCleared returns if the "completion_summary_error" field was cleared in this mutation.
+func (m *AgentRunMutation) CompletionSummaryErrorCleared() bool {
+	_, ok := m.clearedFields[agentrun.FieldCompletionSummaryError]
+	return ok
+}
+
+// ResetCompletionSummaryError resets all changes to the "completion_summary_error" field.
+func (m *AgentRunMutation) ResetCompletionSummaryError() {
+	m.completion_summary_error = nil
+	delete(m.clearedFields, agentrun.FieldCompletionSummaryError)
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *AgentRunMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -5730,7 +6030,7 @@ func (m *AgentRunMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentRunMutation) Fields() []string {
-	fields := make([]string, 0, 26)
+	fields := make([]string, 0, 32)
 	if m.agent != nil {
 		fields = append(fields, agentrun.FieldAgentID)
 	}
@@ -5806,6 +6106,24 @@ func (m *AgentRunMutation) Fields() []string {
 	if m.current_step_changed_at != nil {
 		fields = append(fields, agentrun.FieldCurrentStepChangedAt)
 	}
+	if m.completion_summary_status != nil {
+		fields = append(fields, agentrun.FieldCompletionSummaryStatus)
+	}
+	if m.completion_summary_markdown != nil {
+		fields = append(fields, agentrun.FieldCompletionSummaryMarkdown)
+	}
+	if m.completion_summary_json != nil {
+		fields = append(fields, agentrun.FieldCompletionSummaryJSON)
+	}
+	if m.completion_summary_input != nil {
+		fields = append(fields, agentrun.FieldCompletionSummaryInput)
+	}
+	if m.completion_summary_generated_at != nil {
+		fields = append(fields, agentrun.FieldCompletionSummaryGeneratedAt)
+	}
+	if m.completion_summary_error != nil {
+		fields = append(fields, agentrun.FieldCompletionSummaryError)
+	}
 	if m.created_at != nil {
 		fields = append(fields, agentrun.FieldCreatedAt)
 	}
@@ -5867,6 +6185,18 @@ func (m *AgentRunMutation) Field(name string) (ent.Value, bool) {
 		return m.CurrentStepSummary()
 	case agentrun.FieldCurrentStepChangedAt:
 		return m.CurrentStepChangedAt()
+	case agentrun.FieldCompletionSummaryStatus:
+		return m.CompletionSummaryStatus()
+	case agentrun.FieldCompletionSummaryMarkdown:
+		return m.CompletionSummaryMarkdown()
+	case agentrun.FieldCompletionSummaryJSON:
+		return m.CompletionSummaryJSON()
+	case agentrun.FieldCompletionSummaryInput:
+		return m.CompletionSummaryInput()
+	case agentrun.FieldCompletionSummaryGeneratedAt:
+		return m.CompletionSummaryGeneratedAt()
+	case agentrun.FieldCompletionSummaryError:
+		return m.CompletionSummaryError()
 	case agentrun.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -5928,6 +6258,18 @@ func (m *AgentRunMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldCurrentStepSummary(ctx)
 	case agentrun.FieldCurrentStepChangedAt:
 		return m.OldCurrentStepChangedAt(ctx)
+	case agentrun.FieldCompletionSummaryStatus:
+		return m.OldCompletionSummaryStatus(ctx)
+	case agentrun.FieldCompletionSummaryMarkdown:
+		return m.OldCompletionSummaryMarkdown(ctx)
+	case agentrun.FieldCompletionSummaryJSON:
+		return m.OldCompletionSummaryJSON(ctx)
+	case agentrun.FieldCompletionSummaryInput:
+		return m.OldCompletionSummaryInput(ctx)
+	case agentrun.FieldCompletionSummaryGeneratedAt:
+		return m.OldCompletionSummaryGeneratedAt(ctx)
+	case agentrun.FieldCompletionSummaryError:
+		return m.OldCompletionSummaryError(ctx)
 	case agentrun.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -6114,6 +6456,48 @@ func (m *AgentRunMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetCurrentStepChangedAt(v)
 		return nil
+	case agentrun.FieldCompletionSummaryStatus:
+		v, ok := value.(agentrun.CompletionSummaryStatus)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompletionSummaryStatus(v)
+		return nil
+	case agentrun.FieldCompletionSummaryMarkdown:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompletionSummaryMarkdown(v)
+		return nil
+	case agentrun.FieldCompletionSummaryJSON:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompletionSummaryJSON(v)
+		return nil
+	case agentrun.FieldCompletionSummaryInput:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompletionSummaryInput(v)
+		return nil
+	case agentrun.FieldCompletionSummaryGeneratedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompletionSummaryGeneratedAt(v)
+		return nil
+	case agentrun.FieldCompletionSummaryError:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompletionSummaryError(v)
+		return nil
 	case agentrun.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -6295,6 +6679,24 @@ func (m *AgentRunMutation) ClearedFields() []string {
 	if m.FieldCleared(agentrun.FieldCurrentStepChangedAt) {
 		fields = append(fields, agentrun.FieldCurrentStepChangedAt)
 	}
+	if m.FieldCleared(agentrun.FieldCompletionSummaryStatus) {
+		fields = append(fields, agentrun.FieldCompletionSummaryStatus)
+	}
+	if m.FieldCleared(agentrun.FieldCompletionSummaryMarkdown) {
+		fields = append(fields, agentrun.FieldCompletionSummaryMarkdown)
+	}
+	if m.FieldCleared(agentrun.FieldCompletionSummaryJSON) {
+		fields = append(fields, agentrun.FieldCompletionSummaryJSON)
+	}
+	if m.FieldCleared(agentrun.FieldCompletionSummaryInput) {
+		fields = append(fields, agentrun.FieldCompletionSummaryInput)
+	}
+	if m.FieldCleared(agentrun.FieldCompletionSummaryGeneratedAt) {
+		fields = append(fields, agentrun.FieldCompletionSummaryGeneratedAt)
+	}
+	if m.FieldCleared(agentrun.FieldCompletionSummaryError) {
+		fields = append(fields, agentrun.FieldCompletionSummaryError)
+	}
 	return fields
 }
 
@@ -6341,6 +6743,24 @@ func (m *AgentRunMutation) ClearField(name string) error {
 		return nil
 	case agentrun.FieldCurrentStepChangedAt:
 		m.ClearCurrentStepChangedAt()
+		return nil
+	case agentrun.FieldCompletionSummaryStatus:
+		m.ClearCompletionSummaryStatus()
+		return nil
+	case agentrun.FieldCompletionSummaryMarkdown:
+		m.ClearCompletionSummaryMarkdown()
+		return nil
+	case agentrun.FieldCompletionSummaryJSON:
+		m.ClearCompletionSummaryJSON()
+		return nil
+	case agentrun.FieldCompletionSummaryInput:
+		m.ClearCompletionSummaryInput()
+		return nil
+	case agentrun.FieldCompletionSummaryGeneratedAt:
+		m.ClearCompletionSummaryGeneratedAt()
+		return nil
+	case agentrun.FieldCompletionSummaryError:
+		m.ClearCompletionSummaryError()
 		return nil
 	}
 	return fmt.Errorf("unknown AgentRun nullable field %s", name)
@@ -6424,6 +6844,24 @@ func (m *AgentRunMutation) ResetField(name string) error {
 		return nil
 	case agentrun.FieldCurrentStepChangedAt:
 		m.ResetCurrentStepChangedAt()
+		return nil
+	case agentrun.FieldCompletionSummaryStatus:
+		m.ResetCompletionSummaryStatus()
+		return nil
+	case agentrun.FieldCompletionSummaryMarkdown:
+		m.ResetCompletionSummaryMarkdown()
+		return nil
+	case agentrun.FieldCompletionSummaryJSON:
+		m.ResetCompletionSummaryJSON()
+		return nil
+	case agentrun.FieldCompletionSummaryInput:
+		m.ResetCompletionSummaryInput()
+		return nil
+	case agentrun.FieldCompletionSummaryGeneratedAt:
+		m.ResetCompletionSummaryGeneratedAt()
+		return nil
+	case agentrun.FieldCompletionSummaryError:
+		m.ResetCompletionSummaryError()
 		return nil
 	case agentrun.FieldCreatedAt:
 		m.ResetCreatedAt()
@@ -19619,6 +20057,7 @@ type ProjectMutation struct {
 	appendaccessible_machine_ids  []uuid.UUID
 	max_concurrent_agents         *int
 	addmax_concurrent_agents      *int
+	agent_run_summary_prompt      *string
 	clearedFields                 map[string]struct{}
 	organization                  *uuid.UUID
 	clearedorganization           bool
@@ -20220,6 +20659,55 @@ func (m *ProjectMutation) AddedMaxConcurrentAgents() (r int, exists bool) {
 func (m *ProjectMutation) ResetMaxConcurrentAgents() {
 	m.max_concurrent_agents = nil
 	m.addmax_concurrent_agents = nil
+}
+
+// SetAgentRunSummaryPrompt sets the "agent_run_summary_prompt" field.
+func (m *ProjectMutation) SetAgentRunSummaryPrompt(s string) {
+	m.agent_run_summary_prompt = &s
+}
+
+// AgentRunSummaryPrompt returns the value of the "agent_run_summary_prompt" field in the mutation.
+func (m *ProjectMutation) AgentRunSummaryPrompt() (r string, exists bool) {
+	v := m.agent_run_summary_prompt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAgentRunSummaryPrompt returns the old "agent_run_summary_prompt" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldAgentRunSummaryPrompt(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAgentRunSummaryPrompt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAgentRunSummaryPrompt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAgentRunSummaryPrompt: %w", err)
+	}
+	return oldValue.AgentRunSummaryPrompt, nil
+}
+
+// ClearAgentRunSummaryPrompt clears the value of the "agent_run_summary_prompt" field.
+func (m *ProjectMutation) ClearAgentRunSummaryPrompt() {
+	m.agent_run_summary_prompt = nil
+	m.clearedFields[project.FieldAgentRunSummaryPrompt] = struct{}{}
+}
+
+// AgentRunSummaryPromptCleared returns if the "agent_run_summary_prompt" field was cleared in this mutation.
+func (m *ProjectMutation) AgentRunSummaryPromptCleared() bool {
+	_, ok := m.clearedFields[project.FieldAgentRunSummaryPrompt]
+	return ok
+}
+
+// ResetAgentRunSummaryPrompt resets all changes to the "agent_run_summary_prompt" field.
+func (m *ProjectMutation) ResetAgentRunSummaryPrompt() {
+	m.agent_run_summary_prompt = nil
+	delete(m.clearedFields, project.FieldAgentRunSummaryPrompt)
 }
 
 // ClearOrganization clears the "organization" edge to the Organization entity.
@@ -21066,7 +21554,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 11)
 	if m.organization != nil {
 		fields = append(fields, project.FieldOrganizationID)
 	}
@@ -21097,6 +21585,9 @@ func (m *ProjectMutation) Fields() []string {
 	if m.max_concurrent_agents != nil {
 		fields = append(fields, project.FieldMaxConcurrentAgents)
 	}
+	if m.agent_run_summary_prompt != nil {
+		fields = append(fields, project.FieldAgentRunSummaryPrompt)
+	}
 	return fields
 }
 
@@ -21125,6 +21616,8 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.AccessibleMachineIds()
 	case project.FieldMaxConcurrentAgents:
 		return m.MaxConcurrentAgents()
+	case project.FieldAgentRunSummaryPrompt:
+		return m.AgentRunSummaryPrompt()
 	}
 	return nil, false
 }
@@ -21154,6 +21647,8 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldAccessibleMachineIds(ctx)
 	case project.FieldMaxConcurrentAgents:
 		return m.OldMaxConcurrentAgents(ctx)
+	case project.FieldAgentRunSummaryPrompt:
+		return m.OldAgentRunSummaryPrompt(ctx)
 	}
 	return nil, fmt.Errorf("unknown Project field %s", name)
 }
@@ -21233,6 +21728,13 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetMaxConcurrentAgents(v)
 		return nil
+	case project.FieldAgentRunSummaryPrompt:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAgentRunSummaryPrompt(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
 }
@@ -21290,6 +21792,9 @@ func (m *ProjectMutation) ClearedFields() []string {
 	if m.FieldCleared(project.FieldDefaultAgentProviderID) {
 		fields = append(fields, project.FieldDefaultAgentProviderID)
 	}
+	if m.FieldCleared(project.FieldAgentRunSummaryPrompt) {
+		fields = append(fields, project.FieldAgentRunSummaryPrompt)
+	}
 	return fields
 }
 
@@ -21315,6 +21820,9 @@ func (m *ProjectMutation) ClearField(name string) error {
 		return nil
 	case project.FieldDefaultAgentProviderID:
 		m.ClearDefaultAgentProviderID()
+		return nil
+	case project.FieldAgentRunSummaryPrompt:
+		m.ClearAgentRunSummaryPrompt()
 		return nil
 	}
 	return fmt.Errorf("unknown Project nullable field %s", name)
@@ -21353,6 +21861,9 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldMaxConcurrentAgents:
 		m.ResetMaxConcurrentAgents()
+		return nil
+	case project.FieldAgentRunSummaryPrompt:
+		m.ResetAgentRunSummaryPrompt()
 		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)

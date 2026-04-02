@@ -179,6 +179,15 @@ export type TicketRun = {
   lastHeartbeatAt?: string
   completedAt?: string
   lastError?: string
+  completionSummary?: TicketRunCompletionSummary
+}
+
+export type TicketRunCompletionSummary = {
+  status: 'pending' | 'completed' | 'failed'
+  markdown?: string
+  json?: Record<string, unknown>
+  generatedAt?: string
+  error?: string
 }
 
 export type TicketRunTraceEntry = {

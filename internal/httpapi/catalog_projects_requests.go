@@ -13,6 +13,7 @@ type projectPatchRequest struct {
 	DefaultAgentProviderID *string   `json:"default_agent_provider_id"`
 	AccessibleMachineIDs   *[]string `json:"accessible_machine_ids"`
 	MaxConcurrentAgents    *int      `json:"max_concurrent_agents"`
+	AgentRunSummaryPrompt  *string   `json:"agent_run_summary_prompt"`
 }
 
 func parseProjectPatchRequest(
@@ -28,6 +29,7 @@ func parseProjectPatchRequest(
 		DefaultAgentProviderID: uuidToStringPointer(current.DefaultAgentProviderID),
 		AccessibleMachineIDs:   uuidSliceToStrings(current.AccessibleMachineIDs),
 		MaxConcurrentAgents:    intPointer(current.MaxConcurrentAgents),
+		AgentRunSummaryPrompt:  stringPointerOrNil(current.AgentRunSummaryPrompt),
 	}
 	if patch.Name != nil {
 		request.Name = *patch.Name
@@ -50,6 +52,16 @@ func parseProjectPatchRequest(
 	if patch.MaxConcurrentAgents != nil {
 		request.MaxConcurrentAgents = patch.MaxConcurrentAgents
 	}
+	if patch.AgentRunSummaryPrompt != nil {
+		request.AgentRunSummaryPrompt = patch.AgentRunSummaryPrompt
+	}
 
 	return domain.ParseUpdateProject(projectID, current.OrganizationID, request)
+}
+
+func stringPointerOrNil(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }

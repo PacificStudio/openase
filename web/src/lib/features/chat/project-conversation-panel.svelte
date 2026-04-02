@@ -1,6 +1,9 @@
+<!-- eslint-disable max-lines -->
 <script lang="ts">
   import { untrack } from 'svelte'
+  import { ApiError } from '$lib/api/client'
   import type { AgentProvider } from '$lib/api/contracts'
+  import { listProviders } from '$lib/api/openase'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { createProjectConversationController } from './project-conversation-controller.svelte'
   import ProjectConversationComposer from './project-conversation-composer.svelte'
@@ -11,7 +14,6 @@
     projectAIFocusKey,
     type ProjectAIFocus,
   } from './project-ai-focus'
-  import { loadProjectConversationProviders } from './project-conversation-provider-loader'
   import { getProjectConversationStatusMessage } from './project-conversation-panel-labels'
   import { getEligibleInitialPromptSignature } from './project-conversation-panel-prompt'
 
@@ -105,11 +107,22 @@
 
     const load = async () => {
       loadingProviders = true
-      const result = await loadProjectConversationProviders(organizationId)
-      if (!cancelled) {
-        loadedProviders = result.providers
-        providerError = result.error
-        loadingProviders = false
+      providerError = ''
+
+      try {
+        const payload = await listProviders(organizationId)
+        if (!cancelled) {
+          loadedProviders = payload.providers
+        }
+      } catch (caughtError) {
+        if (!cancelled) {
+          providerError =
+            caughtError instanceof ApiError ? caughtError.detail : 'Failed to load chat providers.'
+        }
+      } finally {
+        if (!cancelled) {
+          loadingProviders = false
+        }
       }
     }
 

@@ -1,5 +1,6 @@
 <!-- eslint-disable max-lines -->
 <script lang="ts">
+  import { ChatMarkdownContent } from '$lib/features/chat'
   import { tick } from 'svelte'
   import { cn, formatRelativeTime } from '$lib/utils'
   import { Badge } from '$ui/badge'
@@ -119,6 +120,32 @@
           ? `Updated ${formatRelativeTime(run.lastHeartbeatAt)}`
           : `Started ${formatRelativeTime(run.createdAt)}`)
     )
+  }
+
+  function completionSummaryLabel(run: TicketRun) {
+    switch (run.completionSummary?.status) {
+      case 'completed':
+        return 'Summary'
+      case 'failed':
+        return 'Summary failed'
+      case 'pending':
+        return 'Summary pending'
+      default:
+        return ''
+    }
+  }
+
+  function completionSummaryClass(run: TicketRun) {
+    switch (run.completionSummary?.status) {
+      case 'completed':
+        return 'border-emerald-500/30 bg-emerald-500/5'
+      case 'failed':
+        return 'border-red-500/30 bg-red-500/5'
+      case 'pending':
+        return 'border-amber-500/30 bg-amber-500/5'
+      default:
+        return 'border-border/60 bg-muted/20'
+    }
   }
 
   function isOutputExpanded(blockId: string) {
@@ -306,103 +333,136 @@
         <div class="px-4 py-3">
           {#if loading}
             <p class="text-muted-foreground text-xs">Loading transcript…</p>
-          {:else if displayItems.length === 0}
-            <p class="text-muted-foreground text-xs">Waiting for transcript events…</p>
           {:else}
-            <div class="space-y-2">
-              {#each displayItems as item (item.type === 'content' ? item.block.id : item.id)}
-                {#if item.type === 'noise_group'}
-                  <!-- Collapsible noise group -->
-                  {@const group = item as NoiseGroup}
-                  {@const isExpanded = expandedNoiseGroups.has(group.id)}
-                  <div class="border-border/50 bg-muted/10 rounded-md border">
-                    <button
-                      type="button"
-                      class="hover:bg-muted/30 flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] transition-colors"
-                      onclick={() => toggleNoiseGroup(group.id)}
-                    >
-                      <ChevronRight
-                        class={cn(
-                          'text-muted-foreground size-3 shrink-0 transition-transform duration-150',
-                          isExpanded && 'rotate-90',
-                        )}
-                      />
-                      <Layers class="text-muted-foreground/70 size-3 shrink-0" />
-                      <span class="text-foreground min-w-0 flex-1 truncate font-medium">
-                        {group.summary}
+            <div class="space-y-3">
+              {#if run.completionSummary}
+                <article class={cn('rounded-md border px-3 py-3', completionSummaryClass(run))}>
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-medium tracking-wider uppercase">
+                      {completionSummaryLabel(run)}
+                    </span>
+                    {#if run.completionSummary.generatedAt}
+                      <span class="text-muted-foreground text-[11px]">
+                        {formatRelativeTime(run.completionSummary.generatedAt)}
                       </span>
-                      {#if group.detail}
-                        <span class="text-muted-foreground/60 shrink-0 text-[10px]"
-                          >{group.detail}</span
-                        >
-                      {/if}
-                    </button>
-                    {#if isExpanded}
-                      <div class="border-border/30 space-y-1 border-t px-2.5 py-1.5 text-xs">
-                        {#each group.blocks as b (b.id)}
-                          <div class="text-muted-foreground flex items-center gap-2">
-                            <span class="text-[10px] font-medium tracking-wider uppercase"
-                              >{blockLabel(b)}</span
-                            >
-                            <span class="truncate"
-                              >{b.kind === 'tool_call'
-                                ? b.toolName
-                                : 'summary' in b
-                                  ? b.summary
-                                  : ''}</span
-                            >
-                          </div>
-                        {/each}
-                      </div>
                     {/if}
                   </div>
-                {:else}
-                  <!-- Content block -->
-                  {@const block = item.block}
-                  {#if block.kind === 'assistant_message'}
-                    <div class="prose prose-sm prose-neutral max-w-none break-words">
-                      <TicketRunTranscriptOutputBlock
-                        {block}
-                        expanded={isOutputExpanded(block.id)}
-                        onToggle={() => toggleOutputExpansion(block.id)}
-                      />
-                    </div>
-                  {:else if block.kind === 'tool_call'}
-                    <TicketRunTranscriptToolCallCard {block} />
-                  {:else if block.kind === 'terminal_output'}
-                    <TicketRunTranscriptOutputBlock
-                      {block}
-                      expanded={isOutputExpanded(block.id)}
-                      onToggle={() => toggleOutputExpansion(block.id)}
+                  {#if run.completionSummary.status === 'completed' && run.completionSummary.markdown}
+                    <ChatMarkdownContent
+                      source={run.completionSummary.markdown}
+                      class="mt-2 text-sm"
                     />
-                  {:else if block.kind === 'task_status'}
-                    <TicketRunTranscriptStatusCard {block} />
-                  {:else if block.kind === 'diff'}
-                    <TicketRunTranscriptDiffCard {block} />
-                  {:else if block.kind === 'interrupt'}
-                    <article class={cn('rounded-md border px-3 py-2', blockCardClass(block))}>
-                      <TicketRunTranscriptInterruptCard {block} />
-                    </article>
-                  {:else if block.kind === 'result'}
-                    <article
-                      class={cn(
-                        'flex items-center gap-2 rounded-md border px-3 py-2 text-xs',
-                        blockCardClass(block),
-                      )}
-                    >
-                      <span class="font-medium">{blockLabel(block)}</span>
-                      <span>{block.summary}</span>
-                    </article>
+                  {:else if run.completionSummary.status === 'failed'}
+                    <p class="text-muted-foreground mt-2 text-xs">
+                      {run.completionSummary.error || 'Post-run summary generation failed.'}
+                    </p>
                   {:else}
-                    <article
-                      class={cn('rounded-md border px-3 py-2 text-xs', blockCardClass(block))}
-                    >
-                      <span class={blockLabelClass(block)}>{blockLabel(block)}</span>
-                      <span class="ml-2">{block.summary}</span>
-                    </article>
+                    <p class="text-muted-foreground mt-2 text-xs">
+                      OpenASE is generating a post-run summary from the final execution facts.
+                    </p>
                   {/if}
-                {/if}
-              {/each}
+                </article>
+              {/if}
+
+              {#if displayItems.length === 0}
+                <p class="text-muted-foreground text-xs">Waiting for transcript events…</p>
+              {:else}
+                <div class="space-y-2">
+                  {#each displayItems as item (item.type === 'content' ? item.block.id : item.id)}
+                    {#if item.type === 'noise_group'}
+                      <!-- Collapsible noise group -->
+                      {@const group = item as NoiseGroup}
+                      {@const isExpanded = expandedNoiseGroups.has(group.id)}
+                      <div class="border-border/50 bg-muted/10 rounded-md border">
+                        <button
+                          type="button"
+                          class="hover:bg-muted/30 flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] transition-colors"
+                          onclick={() => toggleNoiseGroup(group.id)}
+                        >
+                          <ChevronRight
+                            class={cn(
+                              'text-muted-foreground size-3 shrink-0 transition-transform duration-150',
+                              isExpanded && 'rotate-90',
+                            )}
+                          />
+                          <Layers class="text-muted-foreground/70 size-3 shrink-0" />
+                          <span class="text-foreground min-w-0 flex-1 truncate font-medium">
+                            {group.summary}
+                          </span>
+                          {#if group.detail}
+                            <span class="text-muted-foreground/60 shrink-0 text-[10px]"
+                              >{group.detail}</span
+                            >
+                          {/if}
+                        </button>
+                        {#if isExpanded}
+                          <div class="border-border/30 space-y-1 border-t px-2.5 py-1.5 text-xs">
+                            {#each group.blocks as b (b.id)}
+                              <div class="text-muted-foreground flex items-center gap-2">
+                                <span class="text-[10px] font-medium tracking-wider uppercase"
+                                  >{blockLabel(b)}</span
+                                >
+                                <span class="truncate"
+                                  >{b.kind === 'tool_call'
+                                    ? b.toolName
+                                    : 'summary' in b
+                                      ? b.summary
+                                      : ''}</span
+                                >
+                              </div>
+                            {/each}
+                          </div>
+                        {/if}
+                      </div>
+                    {:else}
+                      <!-- Content block -->
+                      {@const block = item.block}
+                      {#if block.kind === 'assistant_message'}
+                        <div class="prose prose-sm prose-neutral max-w-none break-words">
+                          <TicketRunTranscriptOutputBlock
+                            {block}
+                            expanded={isOutputExpanded(block.id)}
+                            onToggle={() => toggleOutputExpansion(block.id)}
+                          />
+                        </div>
+                      {:else if block.kind === 'tool_call'}
+                        <TicketRunTranscriptToolCallCard {block} />
+                      {:else if block.kind === 'terminal_output'}
+                        <TicketRunTranscriptOutputBlock
+                          {block}
+                          expanded={isOutputExpanded(block.id)}
+                          onToggle={() => toggleOutputExpansion(block.id)}
+                        />
+                      {:else if block.kind === 'task_status'}
+                        <TicketRunTranscriptStatusCard {block} />
+                      {:else if block.kind === 'diff'}
+                        <TicketRunTranscriptDiffCard {block} />
+                      {:else if block.kind === 'interrupt'}
+                        <article class={cn('rounded-md border px-3 py-2', blockCardClass(block))}>
+                          <TicketRunTranscriptInterruptCard {block} />
+                        </article>
+                      {:else if block.kind === 'result'}
+                        <article
+                          class={cn(
+                            'flex items-center gap-2 rounded-md border px-3 py-2 text-xs',
+                            blockCardClass(block),
+                          )}
+                        >
+                          <span class="font-medium">{blockLabel(block)}</span>
+                          <span>{block.summary}</span>
+                        </article>
+                      {:else}
+                        <article
+                          class={cn('rounded-md border px-3 py-2 text-xs', blockCardClass(block))}
+                        >
+                          <span class={blockLabelClass(block)}>{blockLabel(block)}</span>
+                          <span class="ml-2">{block.summary}</span>
+                        </article>
+                      {/if}
+                    {/if}
+                  {/each}
+                </div>
+              {/if}
             </div>
           {/if}
 

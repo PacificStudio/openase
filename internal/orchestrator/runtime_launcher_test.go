@@ -2374,8 +2374,11 @@ Handle a failing runtime turn.
 	if runAfter.LastError == "" {
 		t.Fatalf("expected retry release to preserve run error, got %+v", runAfter)
 	}
-	if manager.capturedTurnCount() != 1 {
-		t.Fatalf("expected one failed turn, got %d", manager.capturedTurnCount())
+	if manager.capturedTurnCount() < 1 {
+		t.Fatalf("expected at least one failed execution turn, got %d", manager.capturedTurnCount())
+	}
+	if runAfter.CompletionSummaryStatus == nil {
+		t.Fatalf("expected terminal run to initialize completion summary status, got %+v", runAfter)
 	}
 
 	waitForRuntimeCondition(t, 5*time.Second, func() bool {

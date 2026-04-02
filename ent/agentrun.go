@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -74,6 +75,18 @@ type AgentRun struct {
 	CurrentStepSummary *string `json:"current_step_summary,omitempty"`
 	// CurrentStepChangedAt holds the value of the "current_step_changed_at" field.
 	CurrentStepChangedAt *time.Time `json:"current_step_changed_at,omitempty"`
+	// CompletionSummaryStatus holds the value of the "completion_summary_status" field.
+	CompletionSummaryStatus *agentrun.CompletionSummaryStatus `json:"completion_summary_status,omitempty"`
+	// CompletionSummaryMarkdown holds the value of the "completion_summary_markdown" field.
+	CompletionSummaryMarkdown *string `json:"completion_summary_markdown,omitempty"`
+	// CompletionSummaryJSON holds the value of the "completion_summary_json" field.
+	CompletionSummaryJSON map[string]interface{} `json:"completion_summary_json,omitempty"`
+	// CompletionSummaryInput holds the value of the "completion_summary_input" field.
+	CompletionSummaryInput map[string]interface{} `json:"completion_summary_input,omitempty"`
+	// CompletionSummaryGeneratedAt holds the value of the "completion_summary_generated_at" field.
+	CompletionSummaryGeneratedAt *time.Time `json:"completion_summary_generated_at,omitempty"`
+	// CompletionSummaryError holds the value of the "completion_summary_error" field.
+	CompletionSummaryError *string `json:"completion_summary_error,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -205,13 +218,15 @@ func (*AgentRun) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case agentrun.FieldWorkflowVersionID:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
+		case agentrun.FieldCompletionSummaryJSON, agentrun.FieldCompletionSummaryInput:
+			values[i] = new([]byte)
 		case agentrun.FieldSkillVersionIds:
 			values[i] = new(pgarray.StringArray)
 		case agentrun.FieldInputTokens, agentrun.FieldOutputTokens, agentrun.FieldCachedInputTokens, agentrun.FieldCacheCreationInputTokens, agentrun.FieldReasoningTokens, agentrun.FieldPromptTokens, agentrun.FieldCandidateTokens, agentrun.FieldToolTokens, agentrun.FieldTotalTokens:
 			values[i] = new(sql.NullInt64)
-		case agentrun.FieldStatus, agentrun.FieldSessionID, agentrun.FieldLastError, agentrun.FieldCurrentStepStatus, agentrun.FieldCurrentStepSummary:
+		case agentrun.FieldStatus, agentrun.FieldSessionID, agentrun.FieldLastError, agentrun.FieldCurrentStepStatus, agentrun.FieldCurrentStepSummary, agentrun.FieldCompletionSummaryStatus, agentrun.FieldCompletionSummaryMarkdown, agentrun.FieldCompletionSummaryError:
 			values[i] = new(sql.NullString)
-		case agentrun.FieldRuntimeStartedAt, agentrun.FieldTerminalAt, agentrun.FieldSnapshotMaterializedAt, agentrun.FieldLastHeartbeatAt, agentrun.FieldCurrentStepChangedAt, agentrun.FieldCreatedAt:
+		case agentrun.FieldRuntimeStartedAt, agentrun.FieldTerminalAt, agentrun.FieldSnapshotMaterializedAt, agentrun.FieldLastHeartbeatAt, agentrun.FieldCurrentStepChangedAt, agentrun.FieldCompletionSummaryGeneratedAt, agentrun.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		case agentrun.FieldID, agentrun.FieldAgentID, agentrun.FieldWorkflowID, agentrun.FieldTicketID, agentrun.FieldProviderID:
 			values[i] = new(uuid.UUID)
@@ -394,6 +409,50 @@ func (_m *AgentRun) assignValues(columns []string, values []any) error {
 				_m.CurrentStepChangedAt = new(time.Time)
 				*_m.CurrentStepChangedAt = value.Time
 			}
+		case agentrun.FieldCompletionSummaryStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field completion_summary_status", values[i])
+			} else if value.Valid {
+				_m.CompletionSummaryStatus = new(agentrun.CompletionSummaryStatus)
+				*_m.CompletionSummaryStatus = agentrun.CompletionSummaryStatus(value.String)
+			}
+		case agentrun.FieldCompletionSummaryMarkdown:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field completion_summary_markdown", values[i])
+			} else if value.Valid {
+				_m.CompletionSummaryMarkdown = new(string)
+				*_m.CompletionSummaryMarkdown = value.String
+			}
+		case agentrun.FieldCompletionSummaryJSON:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field completion_summary_json", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.CompletionSummaryJSON); err != nil {
+					return fmt.Errorf("unmarshal field completion_summary_json: %w", err)
+				}
+			}
+		case agentrun.FieldCompletionSummaryInput:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field completion_summary_input", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.CompletionSummaryInput); err != nil {
+					return fmt.Errorf("unmarshal field completion_summary_input: %w", err)
+				}
+			}
+		case agentrun.FieldCompletionSummaryGeneratedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field completion_summary_generated_at", values[i])
+			} else if value.Valid {
+				_m.CompletionSummaryGeneratedAt = new(time.Time)
+				*_m.CompletionSummaryGeneratedAt = value.Time
+			}
+		case agentrun.FieldCompletionSummaryError:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field completion_summary_error", values[i])
+			} else if value.Valid {
+				_m.CompletionSummaryError = new(string)
+				*_m.CompletionSummaryError = value.String
+			}
 		case agentrun.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
@@ -570,6 +629,32 @@ func (_m *AgentRun) String() string {
 	if v := _m.CurrentStepChangedAt; v != nil {
 		builder.WriteString("current_step_changed_at=")
 		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.CompletionSummaryStatus; v != nil {
+		builder.WriteString("completion_summary_status=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.CompletionSummaryMarkdown; v != nil {
+		builder.WriteString("completion_summary_markdown=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	builder.WriteString("completion_summary_json=")
+	builder.WriteString(fmt.Sprintf("%v", _m.CompletionSummaryJSON))
+	builder.WriteString(", ")
+	builder.WriteString("completion_summary_input=")
+	builder.WriteString(fmt.Sprintf("%v", _m.CompletionSummaryInput))
+	builder.WriteString(", ")
+	if v := _m.CompletionSummaryGeneratedAt; v != nil {
+		builder.WriteString("completion_summary_generated_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.CompletionSummaryError; v != nil {
+		builder.WriteString("completion_summary_error=")
+		builder.WriteString(*v)
 	}
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")

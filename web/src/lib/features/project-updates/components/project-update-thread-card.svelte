@@ -1,12 +1,14 @@
+<!-- eslint-disable max-lines -->
 <script lang="ts">
-  import { cn } from '$lib/utils'
+  import { cn, formatRelativeTime } from '$lib/utils'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
   import * as Select from '$ui/select'
-  import { AlertTriangle, CircleCheck, CircleX, Pencil, Trash2, X } from '@lucide/svelte'
+  import { AlertTriangle, CircleCheck, CircleX, Pencil, Send, Trash2, X } from '@lucide/svelte'
+  import { isProjectUpdateEdited, projectUpdateEditedLabel } from '../metadata'
   import { projectUpdateStatusLabel } from '../status'
   import type { ProjectUpdateStatus, ProjectUpdateThread } from '../types'
-  import ProjectUpdateThreadFooter from './project-update-thread-footer.svelte'
+  import ProjectUpdateCommentItem from './project-update-comment-item.svelte'
 
   let {
     thread,
@@ -250,20 +252,28 @@
             </span>
           {/if}
         </div>
-        <ProjectUpdateThreadFooter
-          {thread}
-          {showComments}
-          {commentDraft}
-          {creatingComment}
-          onToggleComments={() => (showComments = !showComments)}
-          onCommentDraftChange={(value) => {
-            commentDraft = value
-          }}
-          onCreateComment={handleCreateComment}
-          onCommentKeydown={handleCommentKeydown}
-          {onUpdateComment}
-          {onDeleteComment}
-        />
+        <div class="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px]">
+          <span>{thread.createdBy}</span>
+          <span>&middot;</span>
+          <span>{formatRelativeTime(thread.createdAt)}</span>
+          {#if isProjectUpdateEdited(thread.createdAt, thread.updatedAt, thread.editedAt)}
+            <span>&middot;</span>
+            <span
+              >{projectUpdateEditedLabel(thread.createdAt, thread.updatedAt, thread.editedAt)}</span
+            >
+          {/if}
+          {#if thread.commentCount > 0}
+            <span>&middot;</span>
+            <button
+              type="button"
+              class="hover:text-foreground transition-colors"
+              onclick={() => (showComments = !showComments)}
+            >
+              {thread.commentCount}
+              {thread.commentCount === 1 ? 'reply' : 'replies'}
+            </button>
+          {/if}
+        </div>
       </div>
 
       <div
@@ -290,5 +300,51 @@
         </button>
       </div>
     </div>
+
+    {#if thread.isDeleted}
+      <p class="text-muted-foreground mt-1.5 ml-6.5 text-xs italic">Deleted</p>
+    {/if}
+
+    {#if showComments || thread.commentCount === 0}
+      {#if thread.comments.length > 0 || !thread.isDeleted}
+        <div class="mt-2 ml-6.5 space-y-2">
+          {#each thread.comments as comment (comment.id)}
+            <ProjectUpdateCommentItem
+              threadId={thread.id}
+              {comment}
+              onUpdate={onUpdateComment}
+              onDelete={onDeleteComment}
+            />
+          {/each}
+
+          {#if !thread.isDeleted}
+            <div class="flex items-center gap-2">
+              <input
+                type="text"
+                bind:value={commentDraft}
+                onkeydown={handleCommentKeydown}
+                placeholder="Reply..."
+                aria-label={`Reply to ${thread.title}`}
+                class="text-foreground placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-xs outline-none"
+              />
+              <button
+                type="button"
+                class={cn(
+                  'shrink-0 rounded p-1 transition-colors',
+                  commentDraft.trim() && !creatingComment
+                    ? 'text-primary hover:bg-primary/10'
+                    : 'text-muted-foreground/30 cursor-not-allowed',
+                )}
+                disabled={!commentDraft.trim() || creatingComment}
+                onclick={handleCreateComment}
+                aria-label="Send reply"
+              >
+                <Send class="size-3" />
+              </button>
+            </div>
+          {/if}
+        </div>
+      {/if}
+    {/if}
   </div>
 {/if}

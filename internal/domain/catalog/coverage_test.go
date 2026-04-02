@@ -632,11 +632,12 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 		DefaultAgentProviderID: stringPtr(defaultProviderID.String()),
 		AccessibleMachineIDs:   []string{accessibleA.String(), accessibleA.String(), accessibleB.String()},
 		MaxConcurrentAgents:    &maxConcurrent,
+		AgentRunSummaryPrompt:  stringPtr(" Summarize the run outcome. "),
 	})
 	if err != nil {
 		t.Fatalf("ParseCreateProject() error = %v", err)
 	}
-	if createProject.Description != "Raise backend coverage" || createProject.Status != ProjectStatusInProgress || len(createProject.AccessibleMachineIDs) != 2 {
+	if createProject.Description != "Raise backend coverage" || createProject.Status != ProjectStatusInProgress || len(createProject.AccessibleMachineIDs) != 2 || createProject.AgentRunSummaryPrompt != "Summarize the run outcome." {
 		t.Fatalf("ParseCreateProject() = %+v", createProject)
 	}
 	updateProject, err := ParseUpdateProject(uuid.New(), orgID, ProjectInput{Name: "P", Slug: "p"})
@@ -760,6 +761,23 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	}
 	if _, err := ParseUpdateProject(uuid.New(), orgID, ProjectInput{Name: " ", Slug: "project"}); err == nil {
 		t.Fatal("ParseUpdateProject() expected validation error")
+	}
+	if got := AgentRunCompletionSummaryStatusPending.String(); got != "pending" {
+		t.Fatalf("AgentRunCompletionSummaryStatusPending.String() = %q, want pending", got)
+	}
+	for _, tc := range []struct {
+		name   string
+		status AgentRunCompletionSummaryStatus
+		want   bool
+	}{
+		{name: "pending", status: AgentRunCompletionSummaryStatusPending, want: true},
+		{name: "completed", status: AgentRunCompletionSummaryStatusCompleted, want: true},
+		{name: "failed", status: AgentRunCompletionSummaryStatusFailed, want: true},
+		{name: "invalid", status: AgentRunCompletionSummaryStatus("unknown"), want: false},
+	} {
+		if got := tc.status.IsValid(); got != tc.want {
+			t.Fatalf("%s status validity = %t, want %t", tc.name, got, tc.want)
+		}
 	}
 
 	createScope, err := ParseCreateTicketRepoScope(projectID, ticketID, TicketRepoScopeInput{

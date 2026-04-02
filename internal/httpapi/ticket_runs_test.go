@@ -78,6 +78,10 @@ func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
 	secondHeartbeatAt := secondRuntimeStartedAt.Add(2 * time.Minute)
 	secondStepStatus := "running_tests"
 	secondStepSummary := "Running backend transcript checks."
+	secondSummaryStatus := domain.AgentRunCompletionSummaryStatusCompleted
+	secondSummaryMarkdown := "## Overview\n\nRun completed with a summary.\n\n## Outcome\n\nDone."
+	secondSummaryGeneratedAt := secondHeartbeatAt.Add(30 * time.Second)
+	secondSummaryError := ""
 
 	catalog.agentRuns[firstRunID] = domain.AgentRun{
 		ID:         firstRunID,
@@ -89,17 +93,24 @@ func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
 		CreatedAt:  firstCreatedAt,
 	}
 	catalog.agentRuns[secondRunID] = domain.AgentRun{
-		ID:                 secondRunID,
-		AgentID:            agentID,
-		TicketID:           ticketItem.ID,
-		ProviderID:         providerID,
-		WorkflowID:         uuid.New(),
-		Status:             domain.AgentRunStatusExecuting,
-		RuntimeStartedAt:   &secondRuntimeStartedAt,
-		LastHeartbeatAt:    &secondHeartbeatAt,
-		CurrentStepStatus:  &secondStepStatus,
-		CurrentStepSummary: &secondStepSummary,
-		CreatedAt:          secondCreatedAt,
+		ID:                           secondRunID,
+		AgentID:                      agentID,
+		TicketID:                     ticketItem.ID,
+		ProviderID:                   providerID,
+		WorkflowID:                   uuid.New(),
+		Status:                       domain.AgentRunStatusExecuting,
+		RuntimeStartedAt:             &secondRuntimeStartedAt,
+		LastHeartbeatAt:              &secondHeartbeatAt,
+		CurrentStepStatus:            &secondStepStatus,
+		CurrentStepSummary:           &secondStepSummary,
+		CompletionSummaryStatus:      &secondSummaryStatus,
+		CompletionSummaryMarkdown:    &secondSummaryMarkdown,
+		CompletionSummaryGeneratedAt: &secondSummaryGeneratedAt,
+		CompletionSummaryError:       &secondSummaryError,
+		CompletionSummaryJSON: map[string]any{
+			"provider": "Codex",
+		},
+		CreatedAt: secondCreatedAt,
 	}
 
 	traceOneAt := secondRuntimeStartedAt.Add(10 * time.Second)
@@ -256,6 +267,11 @@ func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
 	if listPayload.Runs[0].Status != "executing" || listPayload.Runs[0].Provider != "Codex" {
 		t.Fatalf("expected mapped status/provider on latest run, got %+v", listPayload.Runs[0])
 	}
+	if listPayload.Runs[0].CompletionSummary == nil ||
+		listPayload.Runs[0].CompletionSummary.Status != "completed" ||
+		listPayload.Runs[0].CompletionSummary.Markdown == nil {
+		t.Fatalf("expected list payload to expose completion summary, got %+v", listPayload.Runs[0])
+	}
 
 	detailRec := performJSONRequest(
 		t,
@@ -275,6 +291,11 @@ func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
 	decodeResponse(t, detailRec, &detailPayload)
 	if detailPayload.Run.AttemptNumber != 2 || detailPayload.Run.CurrentStepStatus == nil || *detailPayload.Run.CurrentStepStatus != "running_tests" {
 		t.Fatalf("expected latest run detail to expose attempt/current step, got %+v", detailPayload.Run)
+	}
+	if detailPayload.Run.CompletionSummary == nil ||
+		detailPayload.Run.CompletionSummary.GeneratedAt == nil ||
+		detailPayload.Run.CompletionSummary.JSON["provider"] != "Codex" {
+		t.Fatalf("expected run detail to expose completion summary payload, got %+v", detailPayload.Run)
 	}
 	if len(detailPayload.TraceEntries) != 6 || detailPayload.TraceEntries[1].Kind != domain.AgentTraceKindToolCallStarted {
 		t.Fatalf("expected ordered raw trace entries, got %+v", detailPayload.TraceEntries)

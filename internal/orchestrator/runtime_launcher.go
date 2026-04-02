@@ -39,9 +39,10 @@ import (
 )
 
 const (
-	defaultLaunchTimeout           = 30 * time.Second
-	defaultLaunchCleanupTimeout    = 5 * time.Second
-	defaultLifecyclePublishTimeout = 2 * time.Second
+	defaultLaunchTimeout            = 30 * time.Second
+	defaultLaunchCleanupTimeout     = 5 * time.Second
+	defaultLifecyclePublishTimeout  = 2 * time.Second
+	defaultCompletionSummaryTimeout = 45 * time.Second
 )
 
 var errExplicitRepoScopeRequired = errors.New("explicit repo scope required for multi-repo project")
@@ -70,6 +71,10 @@ type RuntimeLauncher struct {
 
 	executionsMu sync.Mutex
 	executions   map[uuid.UUID]struct{}
+
+	summaryJobsMu  sync.Mutex
+	summaryJobs    map[uuid.UUID]struct{}
+	summaryTimeout time.Duration
 
 	tickets *ticketservice.Service
 }
@@ -111,6 +116,8 @@ func NewRuntimeLauncher(
 		runtime:        NewRuntimeStateStore(),
 		launches:       map[uuid.UUID]struct{}{},
 		executions:     map[uuid.UUID]struct{}{},
+		summaryJobs:    map[uuid.UUID]struct{}{},
+		summaryTimeout: defaultCompletionSummaryTimeout,
 		tickets:        ticketservice.NewService(client),
 	}
 	launcher.tickets.ConfigureSSHPool(sshPool)
@@ -162,6 +169,9 @@ func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
 		return err
 	}
 	if err := l.refreshHeartbeats(ctx); err != nil {
+		return err
+	}
+	if err := l.reconcileRunCompletionSummaries(ctx); err != nil {
 		return err
 	}
 	if err := l.startReadyExecutions(ctx); err != nil {
@@ -278,6 +288,10 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 			runtimeEventMetadataForState(agentState),
 			now,
 		)
+		if assignment.run != nil {
+			l.prepareRunCompletionSummaryBestEffort(ctx, assignment.run.ID)
+			l.scheduleRunCompletionSummary(assignment.run.ID)
+		}
 	}
 
 	for _, runID := range executions {
@@ -513,6 +527,8 @@ func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUI
 		runtimeEventMetadataForState(failedAgent),
 		now,
 	)
+	l.prepareRunCompletionSummaryBestEffort(ctx, runID)
+	l.scheduleRunCompletionSummary(runID)
 	l.cleanupRunWorkspacesBestEffort(ctx, runID, "launch failure")
 	return nil
 }

@@ -33,6 +33,8 @@ const (
 	FieldAccessibleMachineIds = "accessible_machine_ids"
 	// FieldMaxConcurrentAgents holds the string denoting the max_concurrent_agents field in the database.
 	FieldMaxConcurrentAgents = "max_concurrent_agents"
+	// FieldAgentRunSummaryPrompt holds the string denoting the agent_run_summary_prompt field in the database.
+	FieldAgentRunSummaryPrompt = "agent_run_summary_prompt"
 	// EdgeOrganization holds the string denoting the organization edge name in mutations.
 	EdgeOrganization = "organization"
 	// EdgeRepos holds the string denoting the repos edge name in mutations.
@@ -194,6 +196,7 @@ var Columns = []string{
 	FieldDefaultAgentProviderID,
 	FieldAccessibleMachineIds,
 	FieldMaxConcurrentAgents,
+	FieldAgentRunSummaryPrompt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -262,6 +265,11 @@ func ByDefaultAgentProviderID(opts ...sql.OrderTermOption) OrderOption {
 // ByMaxConcurrentAgents orders the results by the max_concurrent_agents field.
 func ByMaxConcurrentAgents(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldMaxConcurrentAgents, opts...).ToFunc()
+}
+
+// ByAgentRunSummaryPrompt orders the results by the agent_run_summary_prompt field.
+func ByAgentRunSummaryPrompt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAgentRunSummaryPrompt, opts...).ToFunc()
 }
 
 // ByOrganizationField orders the results by organization field.

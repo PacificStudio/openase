@@ -74,7 +74,7 @@ describe('ProjectConversationPanel session status', () => {
       turn: { id: 'turn-1', turn_index: 1, status: 'started' },
     })
 
-    const { getByPlaceholderText, getByRole } = render(ProjectConversationPanel, {
+    const { findByText, getByPlaceholderText, getByRole } = render(ProjectConversationPanel, {
       props: {
         context: { projectId: 'project-1' },
         providers: providerFixtures,
@@ -108,10 +108,7 @@ describe('ProjectConversationPanel session status', () => {
       },
     })
 
-    expect(watchProjectConversation).toHaveBeenCalledWith(
-      'conversation-claude-1',
-      expect.any(Object),
-    )
+    expect(await findByText('Claude session · requires_action')).toBeTruthy()
   })
 
   it('renders Codex thread status from live session events', async () => {
@@ -138,7 +135,7 @@ describe('ProjectConversationPanel session status', () => {
       turn: { id: 'turn-1', turn_index: 1, status: 'started' },
     })
 
-    const { getByPlaceholderText, getByRole } = render(ProjectConversationPanel, {
+    const { findByText, getByPlaceholderText, getByRole } = render(ProjectConversationPanel, {
       props: {
         context: { projectId: 'project-1' },
         providers: providerFixtures,
@@ -173,9 +170,6 @@ describe('ProjectConversationPanel session status', () => {
       },
     })
 
-    expect(watchProjectConversation).toHaveBeenCalledWith(
-      'conversation-codex-1',
-      expect.any(Object),
-    )
+    expect(await findByText('Codex thread · waitingOnApproval')).toBeTruthy()
   })
 })

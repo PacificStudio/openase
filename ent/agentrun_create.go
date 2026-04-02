@@ -332,6 +332,74 @@ func (_c *AgentRunCreate) SetNillableCurrentStepChangedAt(v *time.Time) *AgentRu
 	return _c
 }
 
+// SetCompletionSummaryStatus sets the "completion_summary_status" field.
+func (_c *AgentRunCreate) SetCompletionSummaryStatus(v agentrun.CompletionSummaryStatus) *AgentRunCreate {
+	_c.mutation.SetCompletionSummaryStatus(v)
+	return _c
+}
+
+// SetNillableCompletionSummaryStatus sets the "completion_summary_status" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableCompletionSummaryStatus(v *agentrun.CompletionSummaryStatus) *AgentRunCreate {
+	if v != nil {
+		_c.SetCompletionSummaryStatus(*v)
+	}
+	return _c
+}
+
+// SetCompletionSummaryMarkdown sets the "completion_summary_markdown" field.
+func (_c *AgentRunCreate) SetCompletionSummaryMarkdown(v string) *AgentRunCreate {
+	_c.mutation.SetCompletionSummaryMarkdown(v)
+	return _c
+}
+
+// SetNillableCompletionSummaryMarkdown sets the "completion_summary_markdown" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableCompletionSummaryMarkdown(v *string) *AgentRunCreate {
+	if v != nil {
+		_c.SetCompletionSummaryMarkdown(*v)
+	}
+	return _c
+}
+
+// SetCompletionSummaryJSON sets the "completion_summary_json" field.
+func (_c *AgentRunCreate) SetCompletionSummaryJSON(v map[string]interface{}) *AgentRunCreate {
+	_c.mutation.SetCompletionSummaryJSON(v)
+	return _c
+}
+
+// SetCompletionSummaryInput sets the "completion_summary_input" field.
+func (_c *AgentRunCreate) SetCompletionSummaryInput(v map[string]interface{}) *AgentRunCreate {
+	_c.mutation.SetCompletionSummaryInput(v)
+	return _c
+}
+
+// SetCompletionSummaryGeneratedAt sets the "completion_summary_generated_at" field.
+func (_c *AgentRunCreate) SetCompletionSummaryGeneratedAt(v time.Time) *AgentRunCreate {
+	_c.mutation.SetCompletionSummaryGeneratedAt(v)
+	return _c
+}
+
+// SetNillableCompletionSummaryGeneratedAt sets the "completion_summary_generated_at" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableCompletionSummaryGeneratedAt(v *time.Time) *AgentRunCreate {
+	if v != nil {
+		_c.SetCompletionSummaryGeneratedAt(*v)
+	}
+	return _c
+}
+
+// SetCompletionSummaryError sets the "completion_summary_error" field.
+func (_c *AgentRunCreate) SetCompletionSummaryError(v string) *AgentRunCreate {
+	_c.mutation.SetCompletionSummaryError(v)
+	return _c
+}
+
+// SetNillableCompletionSummaryError sets the "completion_summary_error" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableCompletionSummaryError(v *string) *AgentRunCreate {
+	if v != nil {
+		_c.SetCompletionSummaryError(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *AgentRunCreate) SetCreatedAt(v time.Time) *AgentRunCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -575,6 +643,11 @@ func (_c *AgentRunCreate) check() error {
 	if _, ok := _c.mutation.TotalTokens(); !ok {
 		return &ValidationError{Name: "total_tokens", err: errors.New(`ent: missing required field "AgentRun.total_tokens"`)}
 	}
+	if v, ok := _c.mutation.CompletionSummaryStatus(); ok {
+		if err := agentrun.CompletionSummaryStatusValidator(v); err != nil {
+			return &ValidationError{Name: "completion_summary_status", err: fmt.Errorf(`ent: validator failed for field "AgentRun.completion_summary_status": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "AgentRun.created_at"`)}
 	}
@@ -704,6 +777,30 @@ func (_c *AgentRunCreate) createSpec() (*AgentRun, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.CurrentStepChangedAt(); ok {
 		_spec.SetField(agentrun.FieldCurrentStepChangedAt, field.TypeTime, value)
 		_node.CurrentStepChangedAt = &value
+	}
+	if value, ok := _c.mutation.CompletionSummaryStatus(); ok {
+		_spec.SetField(agentrun.FieldCompletionSummaryStatus, field.TypeEnum, value)
+		_node.CompletionSummaryStatus = &value
+	}
+	if value, ok := _c.mutation.CompletionSummaryMarkdown(); ok {
+		_spec.SetField(agentrun.FieldCompletionSummaryMarkdown, field.TypeString, value)
+		_node.CompletionSummaryMarkdown = &value
+	}
+	if value, ok := _c.mutation.CompletionSummaryJSON(); ok {
+		_spec.SetField(agentrun.FieldCompletionSummaryJSON, field.TypeJSON, value)
+		_node.CompletionSummaryJSON = value
+	}
+	if value, ok := _c.mutation.CompletionSummaryInput(); ok {
+		_spec.SetField(agentrun.FieldCompletionSummaryInput, field.TypeJSON, value)
+		_node.CompletionSummaryInput = value
+	}
+	if value, ok := _c.mutation.CompletionSummaryGeneratedAt(); ok {
+		_spec.SetField(agentrun.FieldCompletionSummaryGeneratedAt, field.TypeTime, value)
+		_node.CompletionSummaryGeneratedAt = &value
+	}
+	if value, ok := _c.mutation.CompletionSummaryError(); ok {
+		_spec.SetField(agentrun.FieldCompletionSummaryError, field.TypeString, value)
+		_node.CompletionSummaryError = &value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(agentrun.FieldCreatedAt, field.TypeTime, value)

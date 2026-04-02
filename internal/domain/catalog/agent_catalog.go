@@ -69,28 +69,34 @@ type AgentRuntime struct {
 }
 
 type AgentRun struct {
-	ID                   uuid.UUID
-	AgentID              uuid.UUID
-	WorkflowID           uuid.UUID
-	WorkflowVersionID    *uuid.UUID
-	TicketID             uuid.UUID
-	ProviderID           uuid.UUID
-	SkillVersionIDs      []uuid.UUID
-	Status               AgentRunStatus
-	SessionID            string
-	RuntimeStartedAt     *time.Time
-	TerminalAt           *time.Time
-	LastError            string
-	LastHeartbeatAt      *time.Time
-	InputTokens          int64
-	OutputTokens         int64
-	CachedInputTokens    int64
-	ReasoningTokens      int64
-	TotalTokens          int64
-	CurrentStepStatus    *string
-	CurrentStepSummary   *string
-	CurrentStepChangedAt *time.Time
-	CreatedAt            time.Time
+	ID                           uuid.UUID
+	AgentID                      uuid.UUID
+	WorkflowID                   uuid.UUID
+	WorkflowVersionID            *uuid.UUID
+	TicketID                     uuid.UUID
+	ProviderID                   uuid.UUID
+	SkillVersionIDs              []uuid.UUID
+	Status                       AgentRunStatus
+	SessionID                    string
+	RuntimeStartedAt             *time.Time
+	TerminalAt                   *time.Time
+	LastError                    string
+	LastHeartbeatAt              *time.Time
+	InputTokens                  int64
+	OutputTokens                 int64
+	CachedInputTokens            int64
+	ReasoningTokens              int64
+	TotalTokens                  int64
+	CurrentStepStatus            *string
+	CurrentStepSummary           *string
+	CurrentStepChangedAt         *time.Time
+	CompletionSummaryStatus      *AgentRunCompletionSummaryStatus
+	CompletionSummaryMarkdown    *string
+	CompletionSummaryJSON        map[string]any
+	CompletionSummaryInput       map[string]any
+	CompletionSummaryGeneratedAt *time.Time
+	CompletionSummaryError       *string
+	CreatedAt                    time.Time
 }
 
 type AgentProviderInput struct {

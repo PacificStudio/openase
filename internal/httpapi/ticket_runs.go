@@ -30,21 +30,30 @@ var (
 const ticketRunTranscriptLimit = 500
 
 type ticketRunResponse struct {
-	ID                 string  `json:"id"`
-	TicketID           string  `json:"ticket_id"`
-	AttemptNumber      int     `json:"attempt_number"`
-	AgentID            string  `json:"agent_id"`
-	AgentName          string  `json:"agent_name"`
-	Provider           string  `json:"provider"`
-	Status             string  `json:"status"`
-	CurrentStepStatus  *string `json:"current_step_status,omitempty"`
-	CurrentStepSummary *string `json:"current_step_summary,omitempty"`
-	CreatedAt          string  `json:"created_at"`
-	RuntimeStartedAt   *string `json:"runtime_started_at,omitempty"`
-	LastHeartbeatAt    *string `json:"last_heartbeat_at,omitempty"`
-	TerminalAt         *string `json:"terminal_at,omitempty"`
-	CompletedAt        *string `json:"completed_at,omitempty"`
-	LastError          *string `json:"last_error,omitempty"`
+	ID                 string                              `json:"id"`
+	TicketID           string                              `json:"ticket_id"`
+	AttemptNumber      int                                 `json:"attempt_number"`
+	AgentID            string                              `json:"agent_id"`
+	AgentName          string                              `json:"agent_name"`
+	Provider           string                              `json:"provider"`
+	Status             string                              `json:"status"`
+	CurrentStepStatus  *string                             `json:"current_step_status,omitempty"`
+	CurrentStepSummary *string                             `json:"current_step_summary,omitempty"`
+	CreatedAt          string                              `json:"created_at"`
+	RuntimeStartedAt   *string                             `json:"runtime_started_at,omitempty"`
+	LastHeartbeatAt    *string                             `json:"last_heartbeat_at,omitempty"`
+	TerminalAt         *string                             `json:"terminal_at,omitempty"`
+	CompletedAt        *string                             `json:"completed_at,omitempty"`
+	LastError          *string                             `json:"last_error,omitempty"`
+	CompletionSummary  *ticketRunCompletionSummaryResponse `json:"completion_summary,omitempty"`
+}
+
+type ticketRunCompletionSummaryResponse struct {
+	Status      string         `json:"status"`
+	Markdown    *string        `json:"markdown,omitempty"`
+	JSON        map[string]any `json:"json,omitempty"`
+	GeneratedAt *string        `json:"generated_at,omitempty"`
+	Error       *string        `json:"error,omitempty"`
 }
 
 type ticketRunTraceEntryResponse struct {
@@ -432,6 +441,21 @@ func mapTicketRunResponse(item domain.AgentRun, catalog ticketRunCatalog) ticket
 		TerminalAt:         timeToStringPointer(item.TerminalAt),
 		CompletedAt:        timeToStringPointer(item.TerminalAt),
 		LastError:          optionalTrimmedString(item.LastError),
+		CompletionSummary:  mapTicketRunCompletionSummaryResponse(item),
+	}
+}
+
+func mapTicketRunCompletionSummaryResponse(item domain.AgentRun) *ticketRunCompletionSummaryResponse {
+	if item.CompletionSummaryStatus == nil {
+		return nil
+	}
+
+	return &ticketRunCompletionSummaryResponse{
+		Status:      item.CompletionSummaryStatus.String(),
+		Markdown:    copyStringPointer(item.CompletionSummaryMarkdown),
+		JSON:        cloneMap(item.CompletionSummaryJSON),
+		GeneratedAt: timeToStringPointer(item.CompletionSummaryGeneratedAt),
+		Error:       copyStringPointer(item.CompletionSummaryError),
 	}
 }
 
