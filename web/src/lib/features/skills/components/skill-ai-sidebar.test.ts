@@ -49,6 +49,14 @@ const providerFixtures: AgentProvider[] = [
         state: 'available',
         reason: null,
       },
+      harness_ai: {
+        state: 'available',
+        reason: null,
+      },
+      skill_ai: {
+        state: 'available',
+        reason: null,
+      },
     },
     cli_command: 'codex',
     cli_args: [],
@@ -113,6 +121,8 @@ const fileFixtures: SkillFile[] = [
 describe('SkillAiSidebar', () => {
   beforeAll(() => {
     HTMLElement.prototype.scrollIntoView ??= vi.fn()
+    HTMLElement.prototype.hasPointerCapture ??= vi.fn(() => false)
+    HTMLElement.prototype.releasePointerCapture ??= vi.fn()
     globalThis.ResizeObserver ??= class {
       observe() {}
       unobserve() {}

@@ -613,9 +613,10 @@ func writeSkillRefinementError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", err.Error())
 	case errors.Is(err, chatservice.ErrProviderNotFound):
 		return writeAPIError(c, http.StatusConflict, "CHAT_PROVIDER_NOT_CONFIGURED", err.Error())
-	case errors.Is(err, chatservice.ErrProviderUnavailable),
-		errors.Is(err, chatservice.ErrProviderUnsupported):
+	case errors.Is(err, chatservice.ErrProviderUnavailable):
 		return writeAPIError(c, http.StatusConflict, "CHAT_PROVIDER_UNAVAILABLE", err.Error())
+	case errors.Is(err, chatservice.ErrProviderUnsupported):
+		return writeAPIError(c, http.StatusConflict, "CHAT_PROVIDER_UNSUPPORTED", err.Error())
 	case errors.Is(err, workflowservice.ErrSkillNotFound),
 		errors.Is(err, catalogservice.ErrNotFound):
 		return writeAPIError(c, http.StatusNotFound, "CHAT_CONTEXT_NOT_FOUND", err.Error())
