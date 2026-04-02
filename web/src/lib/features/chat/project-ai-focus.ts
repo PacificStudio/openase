@@ -25,7 +25,55 @@ export type ProjectAIFocus =
       ticketId: string
       ticketIdentifier: string
       ticketTitle: string
+      ticketDescription?: string
       ticketStatus: string
+      ticketPriority?: string
+      ticketAttemptCount?: number
+      ticketRetryPaused?: boolean
+      ticketPauseReason?: string
+      ticketDependencies?: Array<{
+        identifier: string
+        title: string
+        relation?: string
+        status?: string
+      }>
+      ticketRepoScopes?: Array<{
+        repoId?: string
+        repoName?: string
+        branchName?: string
+        pullRequestUrl?: string
+      }>
+      ticketRecentActivity?: Array<{
+        eventType?: string
+        message: string
+        createdAt?: string
+      }>
+      ticketHookHistory?: Array<{
+        hookName?: string
+        status?: string
+        output?: string
+        timestamp?: string
+      }>
+      ticketAssignedAgent?: {
+        id?: string
+        name?: string
+        provider?: string
+        runtimeControlState?: string
+        runtimePhase?: string
+      }
+      ticketCurrentRun?: {
+        id?: string
+        attemptNumber?: number
+        status?: string
+        currentStepStatus?: string
+        currentStepSummary?: string
+        lastError?: string
+      }
+      ticketTargetMachine?: {
+        id?: string
+        name?: string
+        host?: string
+      }
       selectedArea?: string
     }
   | {

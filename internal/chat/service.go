@@ -158,6 +158,13 @@ type textPayload struct {
 	Content string `json:"content"`
 }
 
+type ticketPromptContext struct {
+	Ticket        ticketservice.Ticket
+	RepoScopes    []catalogdomain.TicketRepoScope
+	ActivityItems []catalogdomain.ActivityEvent
+	HookHistory   []catalogdomain.ActivityEvent
+}
+
 func NewService(
 	logger *slog.Logger,
 	runtime Runtime,
@@ -1031,37 +1038,58 @@ func (s *Service) writeTicketDetailContext(
 	input StartInput,
 ) error {
 	ticketID := uuidPtrValue(input.Context.TicketID)
-	ticketItem, err := s.tickets.Get(ctx, ticketID)
-	if err != nil {
-		return fmt.Errorf("get ticket for chat context: %w", err)
-	}
-	repoScopes, err := s.catalog.ListTicketRepoScopes(ctx, project.ID, ticketID)
-	if err != nil {
-		return fmt.Errorf("list repo scopes for chat context: %w", err)
-	}
-	activityItems, err := s.listRecentActivity(ctx, project.ID, &ticketID, defaultActivityLimit)
+	contextItem, err := s.loadTicketPromptContext(ctx, project.ID, ticketID)
 	if err != nil {
 		return err
 	}
-
 	sb.WriteString("## 来源: 工单详情页\n")
 	_, _ = fmt.Fprintf(sb, "项目: %s\n", project.Name)
-	_, _ = fmt.Fprintf(sb, "工单: %s - %s\n", ticketItem.Identifier, ticketItem.Title)
-	_, _ = fmt.Fprintf(sb, "状态: %s | 优先级: %s | 尝试次数: %d\n", ticketItem.StatusName, ticketItem.Priority, ticketItem.AttemptCount)
-	if ticketItem.Description != "" {
+	s.writeTicketPromptContext(sb, contextItem)
+	return nil
+}
+
+func (s *Service) loadTicketPromptContext(
+	ctx context.Context,
+	projectID uuid.UUID,
+	ticketID uuid.UUID,
+) (ticketPromptContext, error) {
+	ticketItem, err := s.tickets.Get(ctx, ticketID)
+	if err != nil {
+		return ticketPromptContext{}, fmt.Errorf("get ticket for chat context: %w", err)
+	}
+	repoScopes, err := s.catalog.ListTicketRepoScopes(ctx, projectID, ticketID)
+	if err != nil {
+		return ticketPromptContext{}, fmt.Errorf("list repo scopes for chat context: %w", err)
+	}
+	activityItems, err := s.listRecentActivity(ctx, projectID, &ticketID, defaultActivityLimit)
+	if err != nil {
+		return ticketPromptContext{}, err
+	}
+	return ticketPromptContext{
+		Ticket:        ticketItem,
+		RepoScopes:    repoScopes,
+		ActivityItems: activityItems,
+		HookHistory:   filterHookActivityEvents(activityItems),
+	}, nil
+}
+
+func (s *Service) writeTicketPromptContext(sb *strings.Builder, contextItem ticketPromptContext) {
+	_, _ = fmt.Fprintf(sb, "工单: %s - %s\n", contextItem.Ticket.Identifier, contextItem.Ticket.Title)
+	_, _ = fmt.Fprintf(sb, "状态: %s | 优先级: %s | 尝试次数: %d\n", contextItem.Ticket.StatusName, contextItem.Ticket.Priority, contextItem.Ticket.AttemptCount)
+	if contextItem.Ticket.Description != "" {
 		sb.WriteString("\n### 描述\n")
-		sb.WriteString(ticketItem.Description)
+		sb.WriteString(contextItem.Ticket.Description)
 		sb.WriteString("\n")
 	}
-	if len(ticketItem.Dependencies) > 0 {
+	if len(contextItem.Ticket.Dependencies) > 0 {
 		sb.WriteString("\n### 依赖工单\n")
-		for _, dependency := range ticketItem.Dependencies {
+		for _, dependency := range contextItem.Ticket.Dependencies {
 			_, _ = fmt.Fprintf(sb, "- [%s] %s (%s)\n", dependency.Target.Identifier, dependency.Target.Title, dependency.Type)
 		}
 	}
-	if len(repoScopes) > 0 {
+	if len(contextItem.RepoScopes) > 0 {
 		sb.WriteString("\n### 仓库范围\n")
-		for _, scope := range repoScopes {
+		for _, scope := range contextItem.RepoScopes {
 			_, _ = fmt.Fprintf(sb, "- repo=%s branch=%s", scope.RepoID, scope.BranchName)
 			if scope.PullRequestURL != nil && *scope.PullRequestURL != "" {
 				_, _ = fmt.Fprintf(sb, " pr_url=%s", *scope.PullRequestURL)
@@ -1070,14 +1098,12 @@ func (s *Service) writeTicketDetailContext(
 		}
 	}
 	sb.WriteString("\n### 活动日志\n")
-	sb.WriteString(renderActivityLines(activityItems))
+	sb.WriteString(renderActivityLines(contextItem.ActivityItems))
 
-	hookHistory := filterHookActivityEvents(activityItems)
-	if len(hookHistory) > 0 {
+	if len(contextItem.HookHistory) > 0 {
 		sb.WriteString("\n### Hook 历史\n")
-		sb.WriteString(renderActivityLines(hookHistory))
+		sb.WriteString(renderActivityLines(contextItem.HookHistory))
 	}
-	return nil
 }
 
 func (s *Service) listRecentActivity(

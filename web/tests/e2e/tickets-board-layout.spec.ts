@@ -1,3 +1,4 @@
+import { measureNavigation } from './perf'
 import { expect, test } from './fixtures'
 
 const TODO_STATUS_ID = 'status-todo'
@@ -8,11 +9,8 @@ test('board columns fill the available height and scroll internally', async ({
   page,
   projectPath,
   request,
-}) => {
+}, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 })
-  await page.addInitScript(() => {
-    localStorage.setItem('openase:ticket-view', 'board')
-  })
 
   const response = await request.post('/api/v1/__e2e__/seed-board', {
     data: {
@@ -25,9 +23,26 @@ test('board columns fill the available height and scroll internally', async ({
   })
   expect(response.ok()).toBeTruthy()
 
-  await page.goto(projectPath('tickets'))
+  const boardViewButton = page.getByRole('button', { name: 'Board view' })
+  const hideEmptyButton = page.getByRole('button', { name: 'Hide empty' })
 
-  await page.getByRole('button', { name: 'Hide empty' }).click()
+  await measureNavigation({
+    page,
+    scenario: 'tickets_board_layout_ready',
+    budgetMs: 800,
+    ready: boardViewButton,
+    testInfo,
+    action: async () => {
+      await page.goto(projectPath('tickets'))
+    },
+  })
+
+  if (!(await hideEmptyButton.isVisible())) {
+    await boardViewButton.click()
+  }
+
+  await expect(hideEmptyButton).toBeVisible()
+  await hideEmptyButton.click()
 
   const todoList = page.getByRole('list', { name: 'Todo tickets' })
   const reviewList = page.getByRole('list', { name: 'In Review tickets' })

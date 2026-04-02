@@ -14,6 +14,7 @@ const ticket: TicketDetail = {
   type: 'feature',
   repoScopes: [],
   attemptCount: 3,
+  consecutiveErrors: 0,
   retryPaused: false,
   costTokensInput: 644414,
   costTokensOutput: 18598,
