@@ -68,7 +68,7 @@ test('global search supports agent and command results from the top-bar entrypoi
 
   await expect(page).toHaveURL(/\/agents$/)
   await expect(page.getByRole('heading', { name: 'Agents' })).toBeVisible()
-  await expect(page.getByText('coding-main')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'coding-main' }).first()).toBeVisible()
 
   await openGlobalSearch(page)
   await searchFor(page, 'Ask AI')

@@ -670,7 +670,7 @@ func buildRunCompletionSummaryCommands(
 }
 
 func buildRunCompletionSummaryToolCalls(traceEntries []*ent.AgentTraceEvent) []map[string]any {
-	items := make([]map[string]any, 0)
+	items := make([]map[string]any, 0, len(traceEntries))
 	for _, entry := range traceEntries {
 		if entry.Kind != catalogdomain.AgentTraceKindToolCallStarted {
 			continue
@@ -691,7 +691,7 @@ func buildRunCompletionSummaryToolCalls(traceEntries []*ent.AgentTraceEvent) []m
 }
 
 func buildRunCompletionSummaryApprovals(traceEntries []*ent.AgentTraceEvent) []map[string]any {
-	items := make([]map[string]any, 0)
+	items := make([]map[string]any, 0, len(traceEntries))
 	for _, entry := range traceEntries {
 		switch entry.Kind {
 		case catalogdomain.AgentTraceKindApprovalRequested, catalogdomain.AgentTraceKindUserInputRequested:
