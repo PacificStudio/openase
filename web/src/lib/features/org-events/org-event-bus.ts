@@ -106,23 +106,26 @@ function ensureRuntimeConnection(runtime: Runtime) {
     return
   }
 
-  runtime.disconnect = connectEventStream(buildOrganizationStreamPath(runtime.orgId, runtime.scope), {
-    onEvent: (frame) => {
-      const event = parseOrganizationEventEnvelope(frame)
-      if (!event) {
-        return
-      }
-      for (const listener of [...runtime.eventListeners]) {
-        listener(event)
-      }
+  runtime.disconnect = connectEventStream(
+    buildOrganizationStreamPath(runtime.orgId, runtime.scope),
+    {
+      onEvent: (frame) => {
+        const event = parseOrganizationEventEnvelope(frame)
+        if (!event) {
+          return
+        }
+        for (const listener of [...runtime.eventListeners]) {
+          listener(event)
+        }
+      },
+      onStateChange: (state) => {
+        setRuntimeState(runtime, state)
+      },
+      onError: (error) => {
+        console.error(`Organization ${runtime.scope} event bus error:`, error)
+      },
     },
-    onStateChange: (state) => {
-      setRuntimeState(runtime, state)
-    },
-    onError: (error) => {
-      console.error(`Organization ${runtime.scope} event bus error:`, error)
-    },
-  })
+  )
 }
 
 function cleanupRuntime(runtime: Runtime) {
