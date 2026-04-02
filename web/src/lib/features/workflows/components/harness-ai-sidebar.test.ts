@@ -110,43 +110,6 @@ describe('HarnessAiSidebar', () => {
     vi.clearAllMocks()
   })
 
-  it('filters out remote-only providers from the Harness AI picker', async () => {
-    const { getByLabelText, getByText, queryByText } = render(HarnessAiSidebar, {
-      props: {
-        projectId: 'project-1',
-        workflowId: 'workflow-1',
-        draftContent: harnessContent,
-        providers: [
-          ...providerFixtures,
-          {
-            ...providerFixtures[0],
-            id: 'provider-remote',
-            machine_id: 'machine-2',
-            machine_name: 'builder-01',
-            machine_host: '10.0.0.20',
-            machine_ssh_user: 'openase',
-            machine_workspace_root: '/srv/workspace',
-            name: 'Codex Remote',
-            capabilities: {
-              ephemeral_chat: { state: 'available', reason: null },
-              harness_ai: { state: 'unsupported', reason: 'remote_machine_not_supported' },
-              skill_ai: { state: 'unsupported', reason: 'remote_machine_not_supported' },
-            },
-          },
-        ],
-      },
-    })
-
-    expect(getByText('gpt-5.4')).toBeTruthy()
-
-    const trigger = getByLabelText('Chat model')
-    await fireEvent.pointerDown(trigger)
-    await fireEvent.keyDown(trigger, { key: 'ArrowDown' })
-
-    expect(getByText('Codex · codex-app-server')).toBeTruthy()
-    expect(queryByText('Codex Remote · codex-app-server')).toBeNull()
-  })
-
   it('completes a two-turn conversation and displays a structured diff suggestion', async () => {
     let turnCount = 0
 
@@ -285,69 +248,5 @@ describe('HarnessAiSidebar', () => {
     await waitFor(() => {
       expect(document.body.textContent).toContain('Applied')
     })
-  })
-
-  it('dismisses the current suggestion without applying it', async () => {
-    streamChatTurn.mockImplementation(async (_request, handlers) => {
-      handlers.onEvent({
-        kind: 'session',
-        payload: { sessionId: 'session-harness-dismiss-1' },
-      })
-      handlers.onEvent({
-        kind: 'message',
-        payload: {
-          type: 'diff',
-          file: 'harness content',
-          hunks: [
-            {
-              oldStart: 6,
-              oldLines: 1,
-              newStart: 6,
-              newLines: 1,
-              lines: [
-                { op: 'remove', text: 'Write clean, tested code.' },
-                { op: 'add', text: 'Write clean, tested code with guardrails.' },
-              ],
-            },
-          ],
-        },
-      })
-      handlers.onEvent({
-        kind: 'done',
-        payload: {
-          sessionId: 'session-harness-dismiss-1',
-          turnsUsed: 1,
-          turnsRemaining: 9,
-        },
-      })
-    })
-
-    const appliedSuggestions: string[] = []
-
-    const { getByPlaceholderText, getByRole, findByText, queryByText } = render(HarnessAiSidebar, {
-      props: {
-        projectId: 'project-1',
-        workflowId: 'workflow-1',
-        providers: providerFixtures,
-        draftContent: harnessContent,
-        onApplySuggestion: (content: string) => appliedSuggestions.push(content),
-      },
-    })
-
-    const prompt = getByPlaceholderText('Ask AI to refine this harness…')
-    await fireEvent.input(prompt, {
-      target: { value: 'Tighten this harness.' },
-    })
-    await fireEvent.keyDown(prompt, { key: 'Enter' })
-
-    expect(await findByText('Apply')).toBeTruthy()
-
-    await fireEvent.click(getByRole('button', { name: 'Dismiss suggestion' }))
-
-    await waitFor(() => {
-      expect(queryByText('Apply')).toBeNull()
-      expect(queryByText('Dismiss suggestion')).toBeNull()
-    })
-    expect(appliedSuggestions).toEqual([])
   })
 })

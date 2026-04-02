@@ -391,7 +391,6 @@ func TestSkillRefinementServiceProviderMatrix(t *testing.T) {
 				t.Fatalf("provider id = %s, want %s", resolved.ID, tc.providerID)
 			}
 		})
-		})
 	}
 }
 
@@ -723,8 +722,8 @@ func TestSkillRefinementServiceForwardsRuntimeProtocolEvents(t *testing.T) {
 	}
 	if resultPayload.ProviderThreadID != "thread-rich" || resultPayload.ProviderTurnID != "turn-rich" {
 		t.Fatalf("result anchors = %+v", resultPayload)
-		}
 	}
+}
 
 type fakeSkillRefinementRuntime struct {
 	attempt    int
