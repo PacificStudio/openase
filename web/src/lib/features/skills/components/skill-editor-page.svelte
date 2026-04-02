@@ -2,7 +2,7 @@
   import { goto, beforeNavigate } from '$app/navigation'
   import { ApiError } from '$lib/api/client'
   import type { SkillFile, Skill, Workflow } from '$lib/api/contracts'
-  import { PROJECT_AI_FOCUS_PRIORITY } from '$lib/features/chat/project-ai-focus'
+  import { PROJECT_AI_FOCUS_PRIORITY } from '$lib/features/chat'
   import {
     bindSkill,
     deleteSkill,

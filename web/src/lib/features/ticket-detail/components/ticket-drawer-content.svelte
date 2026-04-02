@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { StreamConnectionState } from '$lib/api/sse'
-  import { PROJECT_AI_FOCUS_PRIORITY } from '$lib/features/chat/project-ai-focus'
+  import { PROJECT_AI_FOCUS_PRIORITY } from '$lib/features/chat'
   import { appStore } from '$lib/stores/app.svelte'
   import { EphemeralChatPanel } from '$lib/features/chat'
   import TicketDrawerMainTabs from './ticket-drawer-main-tabs.svelte'

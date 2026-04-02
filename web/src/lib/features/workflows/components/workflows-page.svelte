@@ -4,7 +4,7 @@
   import { projectPath } from '$lib/stores/app-context'
   import { appStore } from '$lib/stores/app.svelte'
   import { PageScaffold } from '$lib/components/layout'
-  import { PROJECT_AI_FOCUS_PRIORITY } from '$lib/features/chat/project-ai-focus'
+  import { PROJECT_AI_FOCUS_PRIORITY } from '$lib/features/chat'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { ApiError } from '$lib/api/client'
   import {
