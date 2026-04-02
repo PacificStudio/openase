@@ -338,9 +338,10 @@ func (s *ProjectConversationService) runProjectConversationGitCommand(
 		return nil, fmt.Errorf("git command is empty")
 	}
 	if machine.Host == catalogdomain.LocalMachineHost {
+		// #nosec G204 -- git is a fixed executable and the arguments are assembled by the service.
 		command := exec.CommandContext(ctx, args[0], args[1:]...)
 		output, err := command.CombinedOutput()
-		if err != nil && !(allowExitCodeOne && projectConversationCommandExitedWithCode(err, 1)) {
+		if err != nil && (!allowExitCodeOne || !projectConversationCommandExitedWithCode(err, 1)) {
 			return output, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(output)))
 		}
 		return output, nil
@@ -364,7 +365,7 @@ func (s *ProjectConversationService) runProjectConversationGitCommand(
 		quoted = append(quoted, sshinfra.ShellQuote(arg))
 	}
 	output, err := session.CombinedOutput("sh -lc " + sshinfra.ShellQuote(strings.Join(quoted, " ")))
-	if err != nil && !(allowExitCodeOne && strings.Contains(err.Error(), "exit status 1")) {
+	if err != nil && (!allowExitCodeOne || !strings.Contains(err.Error(), "exit status 1")) {
 		return output, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(output)))
 	}
 	return output, nil
