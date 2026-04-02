@@ -58,7 +58,6 @@ jobs:
                 go_changed=true
                 web_changed=true
                 openapi_check_changed=true
-                frontend_api_audit_changed=true
                 ;;
               *.go|go.mod|go.sum|api/*)
                 go_changed=true
@@ -67,7 +66,6 @@ jobs:
               Makefile)
                 go_changed=true
                 openapi_check_changed=true
-                frontend_api_audit_changed=true
                 ;;
               scripts/ci/*)
                 go_changed=true
