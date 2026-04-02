@@ -183,6 +183,12 @@ jobs:
           clean: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      - name: Reset Web Workspace
+        shell: bash
+        run: |
+          find . -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          git restore --source=HEAD --staged --worktree -- .
+
       - name: Set Up pnpm
         uses: pnpm/action-setup@v4
         with:
