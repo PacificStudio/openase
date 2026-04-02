@@ -48,6 +48,21 @@ type RuntimeSessionAnchor struct {
 	ProviderTurnSupported     bool
 }
 
+type RuntimeInterruptResponseInput struct {
+	SessionID              SessionID
+	Provider               catalogdomain.AgentProvider
+	RequestID              string
+	Kind                   string
+	Decision               string
+	Answer                 map[string]any
+	Payload                map[string]any
+	WorkingDirectory       provider.AbsolutePath
+	Environment            []string
+	ResumeProviderThreadID string
+	ResumeProviderTurnID   string
+	PersistentConversation bool
+}
+
 type runtimeSessionStatePayload struct {
 	Status      string         `json:"status"`
 	ActiveFlags []string       `json:"active_flags,omitempty"`

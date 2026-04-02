@@ -337,6 +337,121 @@ func TestRuntimeLauncherConsumeTurnReturnsCleanSessionCloseWithoutExitCause(t *t
 	}
 }
 
+func TestAgentOutputAccumulatorAggregatesAssistantFragmentsUntilSentenceBoundary(t *testing.T) {
+	accumulator := agentOutputAccumulator{}
+
+	first := accumulator.push(&agentOutputEvent{
+		Stream: "assistant",
+		ItemID: "assistant-1",
+		TurnID: "turn-1",
+		Text:   "当前",
+	})
+	if len(first) != 0 {
+		t.Fatalf("first push should stay buffered, got %+v", first)
+	}
+
+	second := accumulator.push(&agentOutputEvent{
+		Stream: "assistant",
+		ItemID: "assistant-1",
+		TurnID: "turn-1",
+		Text:   "ticket 已创建。",
+	})
+	if len(second) != 1 {
+		t.Fatalf("expected sentence boundary flush, got %+v", second)
+	}
+	if second[0].Text != "当前ticket 已创建。" {
+		t.Fatalf("unexpected merged assistant text: %+v", second[0])
+	}
+	if second[0].Snapshot {
+		t.Fatalf("expected merged delta output, got snapshot: %+v", second[0])
+	}
+}
+
+func TestAgentOutputAccumulatorPrefersSnapshotBeforeBufferedDeltaFlush(t *testing.T) {
+	accumulator := agentOutputAccumulator{}
+
+	initial := accumulator.push(&agentOutputEvent{
+		Stream:  "command",
+		ItemID:  "command-1",
+		TurnID:  "turn-1",
+		Command: "pnpm vitest run",
+		Text:    "PASS src/app.test.ts",
+	})
+	if len(initial) != 0 {
+		t.Fatalf("initial delta should stay buffered, got %+v", initial)
+	}
+
+	flushed := accumulator.push(&agentOutputEvent{
+		Stream:   "command",
+		ItemID:   "command-1",
+		TurnID:   "turn-1",
+		Command:  "pnpm vitest run",
+		Text:     "PASS src/app.test.ts\nDone in 1.2s\n",
+		Snapshot: true,
+	})
+	if len(flushed) != 1 {
+		t.Fatalf("expected snapshot flush, got %+v", flushed)
+	}
+	if !flushed[0].Snapshot {
+		t.Fatalf("expected snapshot output, got %+v", flushed[0])
+	}
+	if flushed[0].Text != "PASS src/app.test.ts\nDone in 1.2s\n" {
+		t.Fatalf("unexpected snapshot text: %+v", flushed[0])
+	}
+}
+
+func TestOutputForPersistencePromotesAggregatedOutputsToSnapshots(t *testing.T) {
+	persisted := outputForPersistence(&agentOutputEvent{
+		Stream:  "assistant",
+		ItemID:  "assistant-1",
+		TurnID:  "turn-1",
+		Text:    "完整句子。",
+		Command: "",
+	})
+	if persisted == nil || !persisted.Snapshot {
+		t.Fatalf("expected persisted assistant output snapshot, got %+v", persisted)
+	}
+
+	commandPersisted := outputForPersistence(&agentOutputEvent{
+		Stream:   "command",
+		ItemID:   "command-1",
+		TurnID:   "turn-1",
+		Command:  "pnpm vitest run",
+		Text:     "PASS src/app.test.ts\n",
+		Snapshot: false,
+	})
+	if commandPersisted == nil || !commandPersisted.Snapshot {
+		t.Fatalf("expected persisted command output snapshot, got %+v", commandPersisted)
+	}
+
+	taskPersisted := outputForPersistence(&agentOutputEvent{
+		Stream: "task",
+		Text:   "{\"status\":\"planning\"}",
+	})
+	if taskPersisted != nil {
+		t.Fatalf("expected non-semantic task output to be dropped, got %+v", taskPersisted)
+	}
+}
+
+func TestAgentOutputPersistenceFingerprintSkipsItemlessOutputs(t *testing.T) {
+	if key, value := agentOutputPersistenceFingerprint(&agentOutputEvent{Stream: "assistant", Text: "hello"}); key != "" || value != "" {
+		t.Fatalf("expected empty fingerprint for itemless output, got %q %q", key, value)
+	}
+
+	key, value := agentOutputPersistenceFingerprint(&agentOutputEvent{
+		Stream:   "command",
+		ItemID:   "command-1",
+		TurnID:   "turn-1",
+		Command:  "pnpm vitest run",
+		Phase:    "running_command",
+		Snapshot: true,
+		Text:     "PASS\n",
+	})
+	if key == "" || value == "" {
+		t.Fatalf("expected non-empty fingerprint, got %q %q", key, value)
+	}
+}
+
 type runtimeRunnerFakeProcessManager struct {
 	process *runtimeRunnerFakeProcess
 }

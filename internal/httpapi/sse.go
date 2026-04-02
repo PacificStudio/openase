@@ -23,7 +23,12 @@ var (
 	activityStreamTopic = provider.MustParseTopic("activity.events")
 	machineStreamTopic  = provider.MustParseTopic("machine.events")
 	providerStreamTopic = provider.MustParseTopic("provider.events")
+
+	projectDashboardStreamTopic      = provider.MustParseTopic("project.dashboard.events")
+	projectDashboardRefreshEventType = provider.MustParseEventType("project.dashboard.refresh")
 )
+
+var projectDashboardRefreshDebounceInterval = time.Second
 
 var projectPassiveStreamTopics = []provider.Topic{
 	ticketStreamTopic,
@@ -80,6 +85,14 @@ func (s *Server) handleProjectEventStream(c echo.Context) error {
 
 	heartbeat := time.NewTicker(sseKeepaliveInterval)
 	defer heartbeat.Stop()
+	var dashboardFlushTimer *time.Timer
+	var dashboardFlushC <-chan time.Time
+	dashboardDirty := newProjectDashboardDirtySet()
+	defer func() {
+		if dashboardFlushTimer != nil {
+			dashboardFlushTimer.Stop()
+		}
+	}()
 
 	for {
 		select {
@@ -107,6 +120,43 @@ func (s *Server) handleProjectEventStream(c echo.Context) error {
 				if err := writeSSEEvent(response, streamEvent); err != nil {
 					return err
 				}
+			}
+			if markProjectDashboardDirtySections(dashboardDirty, streamEvents) {
+				switch {
+				case dashboardFlushTimer == nil:
+					dashboardFlushTimer = time.NewTimer(projectDashboardRefreshDebounceInterval)
+					dashboardFlushC = dashboardFlushTimer.C
+				case !dashboardFlushTimer.Stop():
+					select {
+					case <-dashboardFlushTimer.C:
+					default:
+					}
+					dashboardFlushTimer.Reset(projectDashboardRefreshDebounceInterval)
+				default:
+					dashboardFlushTimer.Reset(projectDashboardRefreshDebounceInterval)
+				}
+			}
+		case <-dashboardFlushC:
+			if dashboardDirty.Empty() {
+				dashboardFlushC = nil
+				dashboardFlushTimer = nil
+				continue
+			}
+			refreshEvent, buildErr := buildProjectDashboardRefreshEvent(projectID, dashboardDirty, time.Now().UTC())
+			dashboardDirty.Clear()
+			dashboardFlushC = nil
+			dashboardFlushTimer = nil
+			if buildErr != nil {
+				s.logger.Warn(
+					"skip malformed project dashboard refresh event",
+					"operation", "build_project_dashboard_refresh_event",
+					"project_id", projectID,
+					"error", buildErr,
+				)
+				continue
+			}
+			if err := writeSSEEvent(response, refreshEvent); err != nil {
+				return err
 			}
 		case <-heartbeat.C:
 			if err := writeSSEKeepaliveComment(response); err != nil {
@@ -426,4 +476,94 @@ func writeSSEEvent(response *echo.Response, event provider.Event) error {
 
 	response.Flush()
 	return nil
+}
+
+type projectDashboardDirtySet struct {
+	agents              bool
+	tickets             bool
+	activity            bool
+	hrAdvisor           bool
+	organizationSummary bool
+}
+
+func newProjectDashboardDirtySet() *projectDashboardDirtySet {
+	return &projectDashboardDirtySet{}
+}
+
+func (s *projectDashboardDirtySet) Empty() bool {
+	return !s.agents && !s.tickets && !s.activity && !s.hrAdvisor && !s.organizationSummary
+}
+
+func (s *projectDashboardDirtySet) Clear() {
+	s.agents = false
+	s.tickets = false
+	s.activity = false
+	s.hrAdvisor = false
+	s.organizationSummary = false
+}
+
+func (s *projectDashboardDirtySet) Sections() []string {
+	sections := make([]string, 0, 5)
+	if s.agents {
+		sections = append(sections, "agents")
+	}
+	if s.tickets {
+		sections = append(sections, "tickets")
+	}
+	if s.activity {
+		sections = append(sections, "activity")
+	}
+	if s.hrAdvisor {
+		sections = append(sections, "hr_advisor")
+	}
+	if s.organizationSummary {
+		sections = append(sections, "organization_summary")
+	}
+	return sections
+}
+
+func markProjectDashboardDirtySections(target *projectDashboardDirtySet, events []provider.Event) bool {
+	if target == nil || len(events) == 0 {
+		return false
+	}
+
+	before := target.Sections()
+	for _, event := range events {
+		switch event.Topic {
+		case ticketStreamTopic:
+			target.tickets = true
+			target.hrAdvisor = true
+			target.organizationSummary = true
+		case agentStreamTopic:
+			target.agents = true
+			target.hrAdvisor = true
+		case hookStreamTopic:
+			target.activity = true
+		case activityStreamTopic:
+			target.activity = true
+			target.hrAdvisor = true
+		}
+	}
+
+	return len(before) != len(target.Sections())
+}
+
+func buildProjectDashboardRefreshEvent(
+	projectID uuid.UUID,
+	dirty *projectDashboardDirtySet,
+	publishedAt time.Time,
+) (provider.Event, error) {
+	if dirty == nil || dirty.Empty() {
+		return provider.Event{}, fmt.Errorf("project dashboard refresh event requires dirty sections")
+	}
+
+	return provider.NewJSONEvent(
+		projectDashboardStreamTopic,
+		projectDashboardRefreshEventType,
+		map[string]any{
+			"project_id":     projectID.String(),
+			"dirty_sections": dirty.Sections(),
+		},
+		publishedAt,
+	)
 }

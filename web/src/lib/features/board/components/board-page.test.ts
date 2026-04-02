@@ -8,7 +8,7 @@ import type {
   TicketPayload,
   WorkflowListPayload,
 } from '$lib/api/contracts'
-import { TicketsPage } from '$lib/features/tickets'
+import { TicketsPage, resetTicketBoardToolbarStoreForTests } from '$lib/features/tickets'
 import { orderedStatusPayloadFixture } from '$lib/features/board/test-fixtures'
 import { appStore } from '$lib/stores/app.svelte'
 import { ticketViewStore } from '$lib/stores/ticket-view.svelte'
@@ -181,6 +181,7 @@ describe('TicketsPage', () => {
     appStore.currentProject = null
     appStore.closeRightPanel()
     ticketViewStore.setMode('board')
+    resetTicketBoardToolbarStoreForTests()
     localStorage.clear()
     vi.clearAllMocks()
   })
@@ -227,5 +228,38 @@ describe('TicketsPage', () => {
 
     expect(appStore.newTicketDialogOpen).toBe(true)
     expect(appStore.newTicketDefaultStatusId).toBe('status-1')
+  })
+
+  it('restores persisted toolbar controls after remounting the tickets page', async () => {
+    appStore.currentProject = projectFixture
+
+    listStatuses.mockResolvedValue(statusesFixture)
+    listTickets.mockResolvedValue(ticketsFixture)
+    listWorkflows.mockResolvedValue(workflowsFixture)
+    listAgents.mockResolvedValue(agentsFixture)
+    listActivity.mockResolvedValue(activityFixture)
+    updateTicket.mockResolvedValue({ ticket: ticketsFixture.tickets[0] })
+    connectEventStream.mockReturnValue(() => {})
+
+    const firstRender = render(TicketsPage)
+
+    const searchInput = (await firstRender.findByPlaceholderText(
+      'Search tickets...',
+    )) as HTMLInputElement
+    await fireEvent.input(searchInput, { target: { value: 'runtime data' } })
+    await fireEvent.click(await firstRender.findByRole('button', { name: 'Hide empty' }))
+
+    expect(await firstRender.findByRole('list', { name: 'Doing tickets' })).toBeTruthy()
+
+    firstRender.unmount()
+    resetTicketBoardToolbarStoreForTests()
+
+    const secondRender = render(TicketsPage)
+    const restoredSearchInput = (await secondRender.findByPlaceholderText(
+      'Search tickets...',
+    )) as HTMLInputElement
+
+    expect(restoredSearchInput.value).toBe('runtime data')
+    expect(await secondRender.findByRole('list', { name: 'Doing tickets' })).toBeTruthy()
   })
 })

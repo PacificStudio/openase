@@ -54,6 +54,8 @@
   } = $props()
 
   const drawerState = createTicketDrawerState()
+  let lastStatusSyncProjectId: string | null = null
+  let lastStatusSyncVersion = -1
 
   function buildDrawerMutation(ticket: TicketDetail) {
     return {
@@ -76,14 +78,27 @@
 
   $effect(() => {
     const currentProjectId = projectId
-    const currentTicketId = ticketId
     const statusVersion = statusSync.version
+    if (!currentProjectId) {
+      lastStatusSyncProjectId = null
+      lastStatusSyncVersion = -1
+      return
+    }
+    if (currentProjectId !== lastStatusSyncProjectId || statusVersion !== lastStatusSyncVersion) {
+      lastStatusSyncProjectId = currentProjectId
+      lastStatusSyncVersion = statusVersion
+      drawerState.invalidateReferences(currentProjectId)
+    }
+  })
+
+  $effect(() => {
+    const currentProjectId = projectId
+    const currentTicketId = ticketId
     if (!open || !currentProjectId || !currentTicketId) {
       if (!open) drawerState.reset()
       return
     }
 
-    void statusVersion
     void drawerState.load(currentProjectId, currentTicketId)
   })
 
@@ -97,6 +112,10 @@
     return connectTicketDetailStreams(projectId, ticketId, {
       onRelevantEvent: () => {
         void drawerState.refreshTimeline(projectId, ticketId)
+      },
+      onReferenceEvent: () => {
+        drawerState.invalidateReferences(projectId)
+        void drawerState.refreshReferences(projectId, ticketId)
       },
       onRunFrame: (frame) => {
         drawerState.applyRunStreamFrame(frame)
@@ -254,7 +273,7 @@
 <Sheet bind:open>
   <SheetContent
     side="right"
-    class="flex w-full flex-col p-0 sm:max-w-[80vw]"
+    class="flex w-full flex-col gap-0 p-0 sm:max-w-[80vw]"
     showCloseButton={false}
   >
     <SheetHeader class="sr-only">

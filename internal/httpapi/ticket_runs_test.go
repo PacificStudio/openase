@@ -105,6 +105,9 @@ func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
 	traceOneAt := secondRuntimeStartedAt.Add(10 * time.Second)
 	traceTwoAt := traceOneAt.Add(5 * time.Second)
 	traceThreeAt := traceTwoAt.Add(5 * time.Second)
+	traceFourAt := traceThreeAt.Add(5 * time.Second)
+	traceFiveAt := traceFourAt.Add(5 * time.Second)
+	traceSixAt := traceFiveAt.Add(5 * time.Second)
 	catalog.traceEvents = []domain.AgentTraceEntry{
 		{
 			ID:         uuid.New(),
@@ -130,9 +133,13 @@ func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
 			Provider:   "codex",
 			Kind:       domain.AgentTraceKindToolCallStarted,
 			Stream:     "tool",
-			Output:     "exec_command",
-			Payload:    map[string]any{"tool": "exec_command", "call_id": "call-1"},
-			CreatedAt:  traceTwoAt,
+			Output:     "functions.exec_command",
+			Payload: map[string]any{
+				"tool":      "functions.exec_command",
+				"call_id":   "call-1",
+				"arguments": map[string]any{"cmd": "pnpm vitest run", "workdir": "/repo"},
+			},
+			CreatedAt: traceTwoAt,
 		},
 		{
 			ID:         uuid.New(),
@@ -145,8 +152,50 @@ func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
 			Kind:       domain.AgentTraceKindCommandDelta,
 			Stream:     "command",
 			Output:     "ok   ./internal/httpapi\n",
-			Payload:    map[string]any{"item_id": "command-1"},
+			Payload:    map[string]any{"item_id": "command-1", "command": "pnpm vitest run"},
 			CreatedAt:  traceThreeAt,
+		},
+		{
+			ID:         uuid.New(),
+			ProjectID:  project.ID,
+			TicketID:   &ticketItem.ID,
+			AgentID:    agentID,
+			AgentRunID: secondRunID,
+			Sequence:   4,
+			Provider:   "codex",
+			Kind:       domain.AgentTraceKindThreadStatus,
+			Stream:     "system",
+			Output:     "active · waitingOnUserInput",
+			Payload:    map[string]any{"status": "active", "active_flags": []string{"waitingOnUserInput"}},
+			CreatedAt:  traceFourAt,
+		},
+		{
+			ID:         uuid.New(),
+			ProjectID:  project.ID,
+			TicketID:   &ticketItem.ID,
+			AgentID:    agentID,
+			AgentRunID: secondRunID,
+			Sequence:   5,
+			Provider:   "codex",
+			Kind:       domain.AgentTraceKindReasoningUpdated,
+			Stream:     "reasoning",
+			Output:     "Inspecting ticket detail reducer.",
+			Payload:    map[string]any{"kind": "text_delta", "content_index": 1},
+			CreatedAt:  traceFiveAt,
+		},
+		{
+			ID:         uuid.New(),
+			ProjectID:  project.ID,
+			TicketID:   &ticketItem.ID,
+			AgentID:    agentID,
+			AgentRunID: secondRunID,
+			Sequence:   6,
+			Provider:   "codex",
+			Kind:       domain.AgentTraceKindTurnDiffUpdated,
+			Stream:     "diff",
+			Output:     "diff --git a/app.ts b/app.ts\n@@ -1 +1 @@\n-old\n+new",
+			Payload:    map[string]any{"turn_id": "turn-1"},
+			CreatedAt:  traceSixAt,
 		},
 	}
 	catalog.stepEvents = []domain.AgentStepEntry{
@@ -227,11 +276,22 @@ func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
 	if detailPayload.Run.AttemptNumber != 2 || detailPayload.Run.CurrentStepStatus == nil || *detailPayload.Run.CurrentStepStatus != "running_tests" {
 		t.Fatalf("expected latest run detail to expose attempt/current step, got %+v", detailPayload.Run)
 	}
-	if len(detailPayload.TraceEntries) != 3 || detailPayload.TraceEntries[1].Kind != domain.AgentTraceKindToolCallStarted {
+	if len(detailPayload.TraceEntries) != 6 || detailPayload.TraceEntries[1].Kind != domain.AgentTraceKindToolCallStarted {
 		t.Fatalf("expected ordered raw trace entries, got %+v", detailPayload.TraceEntries)
 	}
-	if tool := detailPayload.TraceEntries[1].Payload["tool"]; tool != "exec_command" {
+	if tool := detailPayload.TraceEntries[1].Payload["tool"]; tool != "functions.exec_command" {
 		t.Fatalf("expected tool_call payload to round-trip, got %+v", detailPayload.TraceEntries[1])
+	}
+	if arguments := detailPayload.TraceEntries[1].Payload["arguments"]; arguments == nil {
+		t.Fatalf("expected tool_call arguments to round-trip, got %+v", detailPayload.TraceEntries[1])
+	}
+	if command := detailPayload.TraceEntries[2].Payload["command"]; command != "pnpm vitest run" {
+		t.Fatalf("expected command payload to round-trip, got %+v", detailPayload.TraceEntries[2])
+	}
+	if detailPayload.TraceEntries[3].Kind != domain.AgentTraceKindThreadStatus ||
+		detailPayload.TraceEntries[4].Kind != domain.AgentTraceKindReasoningUpdated ||
+		detailPayload.TraceEntries[5].Kind != domain.AgentTraceKindTurnDiffUpdated {
+		t.Fatalf("expected thread/reasoning/diff trace entries, got %+v", detailPayload.TraceEntries)
 	}
 	if len(detailPayload.StepEntries) != 2 || detailPayload.StepEntries[1].StepStatus != "running_tests" {
 		t.Fatalf("expected run-scoped step entries, got %+v", detailPayload.StepEntries)

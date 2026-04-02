@@ -1,3 +1,5 @@
+import type { ChatDiffPayload } from '$lib/api/chat'
+
 export type TicketStatusOption = {
   id: string
   name: string
@@ -222,8 +224,34 @@ export type TicketRunTranscriptBlock =
   | { kind: 'phase'; id: string; phase: string; at: string; summary: string }
   | { kind: 'step'; id: string; stepStatus: string; summary: string; at: string }
   | { kind: 'assistant_message'; id: string; itemId?: string; text: string; streaming: boolean }
-  | { kind: 'tool_call'; id: string; toolName: string; summary?: string; at: string }
-  | { kind: 'terminal_output'; id: string; itemId?: string; text: string; streaming: boolean }
+  | {
+      kind: 'tool_call'
+      id: string
+      toolName: string
+      arguments?: unknown
+      summary?: string
+      at: string
+    }
+  | {
+      kind: 'terminal_output'
+      id: string
+      itemId?: string
+      stream: string
+      command?: string
+      phase?: string
+      text: string
+      streaming: boolean
+    }
+  | {
+      kind: 'task_status'
+      id: string
+      statusType: 'thread_status' | 'reasoning_updated'
+      title: string
+      detail?: string
+      raw?: Record<string, unknown>
+      at: string
+    }
+  | { kind: 'diff'; id: string; at: string; diff: ChatDiffPayload }
   | {
       kind: 'interrupt'
       id: string

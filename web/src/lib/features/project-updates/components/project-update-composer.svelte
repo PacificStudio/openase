@@ -1,6 +1,7 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
   import { Send, CircleCheck, AlertTriangle, CircleX } from '@lucide/svelte'
+  import * as Select from '$ui/select'
   import type { ProjectUpdateStatus } from '../types'
 
   let {
@@ -40,53 +41,48 @@
     value: ProjectUpdateStatus
     label: string
     icon: typeof CircleCheck
-    activeClass: string
+    textClass: string
   }> = [
-    {
-      value: 'on_track',
-      label: 'On track',
-      icon: CircleCheck,
-      activeClass:
-        'border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300',
-    },
-    {
-      value: 'at_risk',
-      label: 'At risk',
-      icon: AlertTriangle,
-      activeClass:
-        'border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-300',
-    },
-    {
-      value: 'off_track',
-      label: 'Off track',
-      icon: CircleX,
-      activeClass:
-        'border-rose-400 bg-rose-50 text-rose-700 dark:border-rose-600 dark:bg-rose-950/40 dark:text-rose-300',
-    },
+    { value: 'on_track', label: 'On track', icon: CircleCheck, textClass: 'text-emerald-600' },
+    { value: 'at_risk', label: 'At risk', icon: AlertTriangle, textClass: 'text-amber-600' },
+    { value: 'off_track', label: 'Off track', icon: CircleX, textClass: 'text-rose-600' },
   ]
+
+  const currentStatusOption = $derived(
+    statusOptions.find((o) => o.value === status) ?? statusOptions[0],
+  )
+  const CurrentStatusIcon = $derived(currentStatusOption.icon)
 </script>
 
 <div class="border-border bg-background rounded-xl border">
-  <div class="flex items-center gap-1 px-3 pt-2.5">
-    {#each statusOptions as opt (opt.value)}
-      {@const Icon = opt.icon}
-      <button
-        type="button"
+  <div class="flex items-center gap-2 px-3 py-2.5">
+    <Select.Root
+      type="single"
+      value={status}
+      onValueChange={(value) => {
+        if (value) status = value as ProjectUpdateStatus
+      }}
+    >
+      <Select.Trigger
+        size="sm"
         class={cn(
-          'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors',
-          status === opt.value
-            ? opt.activeClass
-            : 'text-muted-foreground hover:bg-muted border-transparent',
+          'w-auto shrink-0 gap-1 border-none px-2 text-xs font-medium shadow-none',
+          currentStatusOption.textClass,
         )}
-        onclick={() => (status = opt.value)}
-        aria-label={`Set status: ${opt.label}`}
       >
-        <Icon class="size-3" />
-        {opt.label}
-      </button>
-    {/each}
-  </div>
-  <div class="flex items-center gap-2 px-3 pt-1.5 pb-2.5">
+        <CurrentStatusIcon class="size-3" />
+        {currentStatusOption.label}
+      </Select.Trigger>
+      <Select.Content>
+        {#each statusOptions as opt (opt.value)}
+          {@const Icon = opt.icon}
+          <Select.Item value={opt.value}>
+            <Icon class={cn('size-3', opt.textClass)} />
+            {opt.label}
+          </Select.Item>
+        {/each}
+      </Select.Content>
+    </Select.Root>
     <input
       type="text"
       bind:value={title}

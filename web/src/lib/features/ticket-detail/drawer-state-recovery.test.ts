@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { TicketDetailContext } from './context'
+import type { TicketDetailLiveContext, TicketDetailProjectReferenceData } from './context'
 import { createTicketDrawerState } from './drawer-state.svelte'
 
-function buildContext(overrides: Partial<TicketDetailContext> = {}): TicketDetailContext {
+function buildContext(overrides: Partial<TicketDetailLiveContext> = {}): TicketDetailLiveContext {
   return {
     ticket: {
       id: 'ticket-1',
@@ -29,9 +29,6 @@ function buildContext(overrides: Partial<TicketDetailContext> = {}): TicketDetai
     },
     timeline: [],
     hooks: [],
-    statuses: [{ id: 'status-1', name: 'Todo', color: '#2563eb' }],
-    dependencyCandidates: [],
-    repoOptions: [],
     ...overrides,
   }
 }
@@ -115,7 +112,15 @@ describe('createTicketDrawerState recovery', () => {
     }
 
     const state = createTicketDrawerState({
-      fetchContext: vi.fn().mockResolvedValue(buildContext()),
+      fetchLiveContext: vi.fn().mockResolvedValue(buildContext()),
+      fetchReferenceData: vi
+        .fn<() => Promise<TicketDetailProjectReferenceData>>()
+        .mockResolvedValue({
+          statusLookup: [{ id: 'status-1', stage: 'unstarted', color: '#2563eb' }],
+          statuses: [{ id: 'status-1', name: 'Todo', color: '#2563eb' }],
+          dependencyCandidatesByTicketId: [],
+          repoOptions: [],
+        }),
       ...runDeps,
     })
 

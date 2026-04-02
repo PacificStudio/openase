@@ -57,7 +57,7 @@
     ) => Promise<TicketCommentRevision[]> | TicketCommentRevision[]
   } = $props()
 
-  let activeView = $state('runs')
+  let activeView = $state('discussion')
   let previousTicketId = ''
 
   $effect(() => {
@@ -66,19 +66,21 @@
     }
 
     previousTicketId = ticket.id
-    activeView = 'runs'
+    activeView = 'discussion'
   })
 </script>
 
-<Tabs.Root bind:value={activeView} class="flex flex-1 flex-col overflow-hidden">
-  <div class="border-border border-b px-5 pt-2">
-    <Tabs.List>
-      <Tabs.Trigger value="runs">Runs</Tabs.Trigger>
-      <Tabs.Trigger value="discussion">Discussion</Tabs.Trigger>
+<Tabs.Root bind:value={activeView} class="flex flex-col gap-0">
+  <div class="border-border bg-background sticky top-0 z-10 border-b px-4">
+    <Tabs.List variant="line" class="h-7 gap-0">
+      <Tabs.Trigger value="discussion" class="px-2.5 py-1 text-xs">Discussion</Tabs.Trigger>
+      <Tabs.Trigger value="runs" class="px-2.5 py-1 text-xs"
+        >Runs{runs.length > 0 ? ` (${runs.length})` : ''}</Tabs.Trigger
+      >
     </Tabs.List>
   </div>
 
-  <Tabs.Content value="runs" class="flex min-h-0 flex-1 overflow-hidden">
+  <Tabs.Content value="runs">
     <TicketRunHistoryPanel
       {ticket}
       {runs}
@@ -93,7 +95,7 @@
     />
   </Tabs.Content>
 
-  <Tabs.Content value="discussion" class="flex min-h-0 flex-1 overflow-hidden">
+  <Tabs.Content value="discussion">
     <TicketCommentsThread
       {ticket}
       {timeline}

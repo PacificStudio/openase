@@ -1,7 +1,12 @@
 import { ApiError } from '$lib/api/client'
 import type { SSEFrame, StreamConnectionState } from '$lib/api/sse'
 import { toastStore } from '$lib/stores/toast.svelte'
-import { fetchTicketDetailContext } from './context'
+import {
+  fetchTicketDetailLiveContext,
+  fetchTicketDetailProjectReferenceData,
+  selectTicketDetailReferenceData,
+  type TicketDetailProjectReferenceData,
+} from './context'
 import {
   recoverTicketDrawerRunTranscript,
   defaultTicketDrawerRunTranscriptDeps,
@@ -34,11 +39,13 @@ import type {
 type LoadOptions = { background?: boolean; preserveMessages?: boolean }
 
 type TicketDrawerStateDeps = {
-  fetchContext: typeof fetchTicketDetailContext
+  fetchLiveContext: typeof fetchTicketDetailLiveContext
+  fetchReferenceData: typeof fetchTicketDetailProjectReferenceData
 } & TicketDrawerRunTranscriptDeps
 
 const defaultDeps: TicketDrawerStateDeps = {
-  fetchContext: fetchTicketDetailContext,
+  fetchLiveContext: fetchTicketDetailLiveContext,
+  fetchReferenceData: fetchTicketDetailProjectReferenceData,
   ...defaultTicketDrawerRunTranscriptDeps,
 }
 
@@ -81,6 +88,37 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
   let runRecoveryRequestId = 0
   let timelineRefreshQueued = false
   let timelineRefreshLoop: Promise<void> | null = null
+  let referenceData: TicketDetailProjectReferenceData | null = null
+  let referenceProjectId: string | null = null
+  let referenceRefreshQueued = false
+  let referenceRefreshLoop: Promise<void> | null = null
+
+  const hasCachedReferenceData = (projectId: string) =>
+    referenceProjectId === projectId && referenceData !== null
+
+  async function ensureReferenceData(projectId: string) {
+    if (hasCachedReferenceData(projectId)) {
+      return referenceData
+    }
+
+    const nextReferenceData = await resolvedDeps.fetchReferenceData(projectId)
+    referenceProjectId = projectId
+    referenceData = nextReferenceData
+    return nextReferenceData
+  }
+
+  function applyReferenceData(
+    projectId: string,
+    ticketId: string,
+    nextReferenceData: TicketDetailProjectReferenceData,
+  ) {
+    referenceProjectId = projectId
+    referenceData = nextReferenceData
+    const selectedReferenceData = selectTicketDetailReferenceData(nextReferenceData, ticketId)
+    state.statuses = selectedReferenceData.statuses
+    state.dependencyCandidates = selectedReferenceData.dependencyCandidates
+    state.repoOptions = selectedReferenceData.repoOptions
+  }
 
   async function runTimelineRefresh(projectId: string, ticketId: string) {
     if (state.loading || !state.ticket) {
@@ -96,7 +134,15 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
         timelineRefreshQueued = false
         const requestId = loadRequestId
         try {
-          const detailContext = await resolvedDeps.fetchContext(projectId, ticketId)
+          const currentReferenceData = await ensureReferenceData(projectId)
+          if (requestId !== loadRequestId || !state.ticket) {
+            continue
+          }
+          const detailContext = await resolvedDeps.fetchLiveContext(
+            projectId,
+            ticketId,
+            currentReferenceData!,
+          )
           if (requestId !== loadRequestId || !state.ticket) {
             continue
           }
@@ -119,6 +165,45 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
     await timelineRefreshLoop
   }
 
+  async function runReferenceRefresh(projectId: string, ticketId: string) {
+    if (state.loading) {
+      return
+    }
+    if (referenceRefreshLoop) {
+      await referenceRefreshLoop
+      return
+    }
+
+    referenceRefreshLoop = (async () => {
+      while (referenceRefreshQueued && !state.loading) {
+        referenceRefreshQueued = false
+        const requestId = loadRequestId
+        try {
+          const nextReferenceData = await resolvedDeps.fetchReferenceData(projectId)
+          if (requestId !== loadRequestId || activeTicketChanged(ticketId)) {
+            continue
+          }
+          applyReferenceData(projectId, ticketId, nextReferenceData)
+        } catch (caughtError) {
+          if (requestId !== loadRequestId || activeTicketChanged(ticketId)) {
+            continue
+          }
+          const message =
+            caughtError instanceof ApiError
+              ? caughtError.detail
+              : 'Failed to refresh ticket references.'
+          toastStore.error(message)
+        }
+      }
+    })().finally(() => {
+      referenceRefreshLoop = null
+    })
+
+    await referenceRefreshLoop
+  }
+
+  const activeTicketChanged = (ticketId: string) => state.ticket?.id !== ticketId
+
   return Object.assign(state, {
     clearMutationMessages() {
       // no-op: toasts auto-dismiss
@@ -138,9 +223,20 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
         state.error = ''
       }
       try {
-        const detailContext = await resolvedDeps.fetchContext(projectId, ticketId)
+        const referencePromise = ensureReferenceData(projectId)
+        const referenceSnapshot = hasCachedReferenceData(projectId) ? referenceData : null
+        const detailContextPromise = referenceSnapshot
+          ? resolvedDeps.fetchLiveContext(projectId, ticketId, referenceSnapshot)
+          : referencePromise.then((currentReferenceData) =>
+              resolvedDeps.fetchLiveContext(projectId, ticketId, currentReferenceData!),
+            )
+        const [nextReferenceData, detailContext] = await Promise.all([
+          referencePromise,
+          detailContextPromise,
+        ])
         if (requestId !== loadRequestId) return
 
+        applyReferenceData(projectId, ticketId, nextReferenceData!)
         applyTicketDrawerContext(state, detailContext)
         await loadTicketDrawerRunTranscript(
           resolvedDeps,
@@ -176,6 +272,16 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
       await runTimelineRefresh(projectId, ticketId)
       if (timelineRefreshQueued) {
         await runTimelineRefresh(projectId, ticketId)
+      }
+    },
+    async refreshReferences(projectId: string, ticketId: string) {
+      if (state.loading) {
+        return
+      }
+      referenceRefreshQueued = true
+      await runReferenceRefresh(projectId, ticketId)
+      if (referenceRefreshQueued) {
+        await runReferenceRefresh(projectId, ticketId)
       }
     },
     setRunStreamState(nextState: StreamConnectionState) {
@@ -264,6 +370,8 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
       runDetailRequestId += 1
       timelineRefreshQueued = false
       timelineRefreshLoop = null
+      referenceRefreshQueued = false
+      referenceRefreshLoop = null
       state.loading = false
       state.error = ''
       state.ticket = null
@@ -293,6 +401,12 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
       state.updatingCommentId = null
       state.deletingCommentId = null
       state.resumingRetry = false
+    },
+    invalidateReferences(projectId?: string) {
+      if (!projectId || referenceProjectId === projectId) {
+        referenceProjectId = null
+        referenceData = null
+      }
     },
   })
 }

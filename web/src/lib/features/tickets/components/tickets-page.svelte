@@ -13,6 +13,13 @@
   } from '$lib/api/openase'
   import { subscribeProjectEvents } from '$lib/features/project-events'
   import { statusSync } from '$lib/features/statuses/public'
+  import {
+    markProjectBoardCacheDirty,
+    readProjectBoardCache,
+    syncProjectBoardCacheStatusVersion,
+    writeProjectBoardCache,
+  } from '../board-cache'
+  import { ticketBoardToolbarStore } from '../board-toolbar-store.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import {
     BoardListView,
@@ -24,8 +31,8 @@
     patchTicket,
     projectBoardGroups,
     relocateTicket,
+    type BoardData,
     type BoardColumnType,
-    type BoardFilter,
     type BoardGroupType,
     type BoardStatusOption,
     type BoardTicket,
@@ -33,8 +40,6 @@
     type PendingTicketMove,
   } from '$lib/features/board'
 
-  let filter = $state<BoardFilter>({ search: '' })
-  let hideEmpty = $state(true)
   let loading = $state(false)
   let error = $state('')
   let allColumns = $state<BoardColumnType[]>([])
@@ -50,10 +55,14 @@
   let loadRequestVersion = 0
   let queuedReload = false
   let reloadInFlight = false
-  let filteredColumns = $derived(filterBoardColumns(allColumns, filter))
-  let filteredGroups = $derived(projectBoardGroups(allGroups, filteredColumns, { hideEmpty }))
+  let filteredColumns = $derived(filterBoardColumns(allColumns, ticketBoardToolbarStore.filter))
+  let filteredGroups = $derived(
+    projectBoardGroups(allGroups, filteredColumns, {
+      hideEmpty: ticketBoardToolbarStore.hideEmpty,
+    }),
+  )
   let hiddenColumns = $derived.by((): HiddenColumn[] => {
-    if (!hideEmpty) return []
+    if (!ticketBoardToolbarStore.hideEmpty) return []
     const visibleIds = new Set(filteredGroups.flatMap((g) => g.columns.map((c) => c.id)))
     return filteredColumns
       .filter((col) => !visibleIds.has(col.id))
@@ -67,6 +76,24 @@
 
   const isStaleLoad = (projectId: string, requestVersion: number) =>
     activeProjectId !== projectId || requestVersion !== loadRequestVersion
+
+  function applyBoardSnapshot(nextBoard: BoardData) {
+    workflows = nextBoard.workflowTypes
+    agentOptions = nextBoard.agentOptions
+    allStatuses = nextBoard.statusOptions
+    allGroups = nextBoard.groups
+    allColumns = nextBoard.columns
+  }
+
+  function persistBoardSnapshot(projectId: string) {
+    writeProjectBoardCache(projectId, {
+      workflowTypes: workflows,
+      agentOptions,
+      statusOptions: allStatuses,
+      groups: allGroups,
+      columns: allColumns,
+    })
+  }
 
   function beginLoad(mode: 'initial' | 'background') {
     if (mode === 'initial') loading = true
@@ -113,11 +140,8 @@
         activityPayload.events,
       )
 
-      workflows = nextBoard.workflowTypes
-      agentOptions = nextBoard.agentOptions
-      allStatuses = nextBoard.statusOptions
-      allGroups = nextBoard.groups
-      allColumns = nextBoard.columns
+      applyBoardSnapshot(nextBoard)
+      persistBoardSnapshot(projectId)
     } catch (caughtError) {
       if (isStaleLoad(projectId, requestVersion)) return
       error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load tickets.'
@@ -154,8 +178,21 @@
   }
 
   $effect(() => {
+    ticketBoardToolbarStore.activateProject(appStore.currentProject?.id ?? null)
+  })
+
+  $effect(() => {
     const projectId = appStore.currentProject?.id
     const statusVersion = statusSync.version
+    if (!projectId) {
+      return
+    }
+
+    syncProjectBoardCacheStatusVersion(projectId, statusVersion)
+  })
+
+  $effect(() => {
+    const projectId = appStore.currentProject?.id
     activeProjectId = projectId ?? null
     pendingMoveByTicket.clear()
     queuedReload = false
@@ -173,10 +210,20 @@
       return
     }
 
-    void statusVersion
-    void loadBoard(projectId, 'initial')
+    const cachedBoard = readProjectBoardCache(projectId)
+    if (cachedBoard) {
+      applyBoardSnapshot(cachedBoard.snapshot)
+      loading = false
+      error = ''
+      if (cachedBoard.dirty) {
+        void loadBoard(projectId, 'background')
+      }
+    } else {
+      void loadBoard(projectId, 'initial')
+    }
 
     const disconnectProjectEvents = subscribeProjectEvents(projectId, () => {
+      markProjectBoardCacheDirty(projectId)
       requestReload(projectId)
     })
 
@@ -218,6 +265,7 @@
       ...ticket,
       priority: priority as BoardTicket['priority'],
     }))
+    persistBoardSnapshot(projectId)
 
     try {
       await updateTicket(ticketId, { priority })
@@ -247,6 +295,7 @@
       isMoving: true,
       updatedAt: new Date().toISOString(),
     })
+    persistBoardSnapshot(projectId)
 
     try {
       await updateTicket(ticketId, { status_id: targetColumnId })
@@ -255,6 +304,7 @@
         statusId: targetColumnId,
         isMoving: false,
       }))
+      persistBoardSnapshot(projectId)
     } catch (caughtError) {
       const pendingMove = pendingMoveByTicket.get(ticketId)
       if (pendingMove) {
@@ -263,6 +313,7 @@
           isMoving: false,
         })
       }
+      persistBoardSnapshot(projectId)
       toastStore.error(
         caughtError instanceof ApiError
           ? caughtError.detail
@@ -354,7 +405,14 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col gap-2 px-4 py-3">
-  <BoardToolbar bind:filter bind:hideEmpty {workflows} agents={agentOptions} />
+  <BoardToolbar
+    filter={ticketBoardToolbarStore.filter}
+    hideEmpty={ticketBoardToolbarStore.hideEmpty}
+    {workflows}
+    agents={agentOptions}
+    onFilterChange={(next) => ticketBoardToolbarStore.setFilter(next)}
+    onHideEmptyChange={(next) => ticketBoardToolbarStore.setHideEmpty(next)}
+  />
   {#if error}
     <div
       class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"

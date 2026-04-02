@@ -20,7 +20,7 @@
   import { Button } from '$ui/button'
   import { ScrollArea } from '$ui/scroll-area'
   import Textarea from '$ui/textarea/textarea.svelte'
-  import { RefreshCcw, ShieldCheck, ShieldX, Sparkles, Wrench } from '@lucide/svelte'
+  import { LoaderCircle, Plus, ShieldCheck, ShieldX, Sparkles, Wrench } from '@lucide/svelte'
   import SkillSuggestionCard from './skill-suggestion-card.svelte'
   import { encodeUTF8Base64 } from './skill-bundle-editor'
 
@@ -52,6 +52,7 @@
   let result = $state<SkillRefinementResultPayload | null>(null)
   let selectedSuggestionPath = $state('')
   let appliedBundleHash = $state('')
+  let dismissed = $state(false)
   let previousContextKey = ''
   let abortController: AbortController | null = null
 
@@ -126,6 +127,7 @@
     previousContextKey = contextKey
     prompt = ''
     appliedBundleHash = ''
+    dismissed = false
     selectedSuggestionPath = ''
     void closeActiveSession({ clearResult: true, suppressError: true })
   })
@@ -187,6 +189,7 @@
     prompt = ''
     pending = true
     result = null
+    dismissed = false
     phase = 'editing'
     phaseMessage = 'Preparing the draft bundle for Codex.'
     attempt = 0
@@ -265,6 +268,10 @@
     appliedBundleHash = result.candidateBundleHash ?? ''
   }
 
+  function handleDismiss() {
+    dismissed = true
+  }
+
   async function handleProviderChange(nextProviderId: string) {
     if (nextProviderId === providerId) {
       return
@@ -337,7 +344,7 @@
       onclick={() => void closeActiveSession({ clearResult: true })}
       disabled={!sessionId && !result && !pending}
     >
-      <RefreshCcw class="size-3" />
+      <Plus class="size-3" />
     </Button>
   </div>
 
@@ -376,9 +383,18 @@
         {/if}
       </div>
 
+      {#if pending && !result && phase === 'editing'}
+        <div
+          class="flex items-center gap-2 rounded-md bg-sky-500/10 px-2.5 py-1.5 text-[11px] text-sky-300"
+        >
+          <LoaderCircle class="size-3 shrink-0 animate-spin" />
+          Suggesting diff...
+        </div>
+      {/if}
+
       {#if result}
         <div class="space-y-3">
-          {#if result.status === 'verified' && suggestion && preview}
+          {#if result.status === 'verified' && suggestion && preview && !dismissed}
             <SkillSuggestionCard
               {suggestion}
               selectedPath={selectedSuggestionPath}
@@ -386,6 +402,7 @@
               {suggestionAlreadyApplied}
               onSelectPath={(path) => (selectedSuggestionPath = path)}
               onApply={handleApply}
+              onDismiss={handleDismiss}
             />
           {/if}
 

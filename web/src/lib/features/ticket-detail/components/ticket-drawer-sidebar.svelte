@@ -88,8 +88,10 @@
   const costOverBudget = $derived(costPercent > 80)
 </script>
 
-<div class="border-border w-full shrink-0 overflow-y-auto border-t md:w-80 md:border-t-0">
-  <div class="flex flex-col gap-5 px-5 py-5">
+<div
+  class="border-border w-full shrink-0 border-t md:sticky md:top-0 md:w-72 md:self-start md:border-t-0 md:border-l"
+>
+  <div class="flex flex-col gap-4 px-4 py-4">
     <TicketRuntimeStateCard {ticket} {resumingRetry} {onResumeRetry} />
 
     <Separator />

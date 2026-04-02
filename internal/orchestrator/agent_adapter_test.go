@@ -12,6 +12,7 @@ import (
 
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
 
@@ -292,6 +293,92 @@ func TestDefaultAgentAdapterRegistryRegistersGeminiRuntimeContract(t *testing.T)
 	}
 }
 
+func TestMapCodexAgentEventPreservesExtendedTraceFields(t *testing.T) {
+	commandOutput, ok := mapCodexAgentEvent(codex.Event{
+		Type: codex.EventTypeOutputProduced,
+		Output: &codex.OutputEvent{
+			ThreadID: "thread-1",
+			TurnID:   "turn-1",
+			ItemID:   "item-1",
+			Stream:   "command",
+			Command:  "pnpm vitest run",
+			Text:     "PASS src/app.test.ts",
+			Phase:    "running_command",
+			Snapshot: true,
+		},
+	})
+	if !ok || commandOutput.Output == nil {
+		t.Fatalf("mapCodexAgentEvent(output) = %+v, %t", commandOutput, ok)
+	}
+	if commandOutput.Output.Command != "pnpm vitest run" {
+		t.Fatalf("output command = %q, want pnpm vitest run", commandOutput.Output.Command)
+	}
+
+	toolCall, ok := mapCodexAgentEvent(codex.Event{
+		Type: codex.EventTypeToolCallRequested,
+		ToolCall: &codex.ToolCallRequest{
+			ThreadID:  "thread-1",
+			TurnID:    "turn-1",
+			CallID:    "call-1",
+			Tool:      "functions.exec_command",
+			Arguments: json.RawMessage(`{"cmd":"pnpm vitest run","workdir":"/repo"}`),
+		},
+	})
+	if !ok || toolCall.ToolCall == nil {
+		t.Fatalf("mapCodexAgentEvent(tool call) = %+v, %t", toolCall, ok)
+	}
+	if string(toolCall.ToolCall.Arguments) != `{"cmd":"pnpm vitest run","workdir":"/repo"}` {
+		t.Fatalf("tool call arguments = %s", toolCall.ToolCall.Arguments)
+	}
+
+	threadStatus, ok := mapCodexAgentEvent(codex.Event{
+		Type: codex.EventTypeThreadStatus,
+		ThreadStatus: &codex.ThreadStatusEvent{
+			ThreadID:    "thread-1",
+			Status:      "active",
+			ActiveFlags: []string{"waitingOnUserInput"},
+		},
+	})
+	if !ok || threadStatus.Thread == nil {
+		t.Fatalf("mapCodexAgentEvent(thread status) = %+v, %t", threadStatus, ok)
+	}
+	if threadStatus.Thread.Status != "active" || len(threadStatus.Thread.ActiveFlags) != 1 {
+		t.Fatalf("thread status payload = %+v", threadStatus.Thread)
+	}
+
+	diffUpdate, ok := mapCodexAgentEvent(codex.Event{
+		Type: codex.EventTypeTurnDiffUpdated,
+		Diff: &codex.TurnDiffEvent{
+			ThreadID: "thread-1",
+			TurnID:   "turn-1",
+			Diff:     "diff --git a/app.ts b/app.ts\n@@ -1 +1 @@\n-old\n+new",
+		},
+	})
+	if !ok || diffUpdate.Diff == nil || !strings.Contains(diffUpdate.Diff.Diff, "diff --git") {
+		t.Fatalf("mapCodexAgentEvent(diff) = %+v, %t", diffUpdate, ok)
+	}
+
+	reasoningUpdate, ok := mapCodexAgentEvent(codex.Event{
+		Type: codex.EventTypeReasoningUpdated,
+		Reasoning: &codex.ReasoningEvent{
+			ThreadID:     "thread-1",
+			TurnID:       "turn-1",
+			ItemID:       "reasoning-1",
+			Kind:         codex.ReasoningKindText,
+			Delta:        "Inspecting run transcript rendering.",
+			ContentIndex: intPointer(2),
+		},
+	})
+	if !ok || reasoningUpdate.Reasoning == nil {
+		t.Fatalf("mapCodexAgentEvent(reasoning) = %+v, %t", reasoningUpdate, ok)
+	}
+	if reasoningUpdate.Reasoning.Delta != "Inspecting run transcript rendering." ||
+		reasoningUpdate.Reasoning.ContentIndex == nil ||
+		*reasoningUpdate.Reasoning.ContentIndex != 2 {
+		t.Fatalf("reasoning payload = %+v", reasoningUpdate.Reasoning)
+	}
+}
+
 func TestAgentPermissionProfileHelpers(t *testing.T) {
 	if got := codexApprovalPolicy(catalogdomain.AgentProviderPermissionProfileStandard); got != "on-request" {
 		t.Fatalf("codexApprovalPolicy(standard) = %q", got)
@@ -332,6 +419,10 @@ func requireAgentEvent(t *testing.T, events <-chan agentEvent) agentEvent {
 		t.Fatal("timed out waiting for agent event")
 		return agentEvent{}
 	}
+}
+
+func intPointer(value int) *int {
+	return &value
 }
 
 func runClaudeRuntimeProtocol(process *runtimeRunnerFakeProcess) error {

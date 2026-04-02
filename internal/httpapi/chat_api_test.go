@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -21,6 +22,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	chatrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -493,6 +495,156 @@ func TestWriteProjectConversationErrorMappings(t *testing.T) {
 	}
 }
 
+func TestProjectConversationStreamRouteKeepsParallelConnectionsIsolated(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		SetDescription("Issue-driven automation").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	repoStore := chatrepo.NewEntRepository(client)
+	firstConversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create first conversation: %v", err)
+	}
+	secondConversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create second conversation: %v", err)
+	}
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		repoStore,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	server := NewServer(
+		config.ServerConfig{Port: 40023, WriteTimeout: time.Second},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithProjectConversationService(projectConversationService),
+	)
+
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	streamCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	firstReq, err := http.NewRequestWithContext(
+		streamCtx,
+		http.MethodGet,
+		testServer.URL+"/api/v1/chat/conversations/"+firstConversation.ID.String()+"/stream",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("new first stream request: %v", err)
+	}
+	secondReq, err := http.NewRequestWithContext(
+		streamCtx,
+		http.MethodGet,
+		testServer.URL+"/api/v1/chat/conversations/"+secondConversation.ID.String()+"/stream",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("new second stream request: %v", err)
+	}
+
+	firstResp, err := http.DefaultClient.Do(firstReq)
+	if err != nil {
+		t.Fatalf("open first stream: %v", err)
+	}
+	defer func() {
+		_ = firstResp.Body.Close()
+	}()
+	secondResp, err := http.DefaultClient.Do(secondReq)
+	if err != nil {
+		t.Fatalf("open second stream: %v", err)
+	}
+	defer func() {
+		_ = secondResp.Body.Close()
+	}()
+
+	firstReader := bufio.NewReader(firstResp.Body)
+	secondReader := bufio.NewReader(secondResp.Body)
+
+	firstSession := readProjectConversationSSEFrame(t, firstReader)
+	if firstSession.Event != "session" || !strings.Contains(firstSession.Data, firstConversation.ID.String()) {
+		t.Fatalf("first session frame = %+v, want conversation %s", firstSession, firstConversation.ID)
+	}
+	secondSession := readProjectConversationSSEFrame(t, secondReader)
+	if secondSession.Event != "session" || !strings.Contains(secondSession.Data, secondConversation.ID.String()) {
+		t.Fatalf("second session frame = %+v, want conversation %s", secondSession, secondConversation.ID)
+	}
+
+	if _, err := projectConversationService.AppendActionExecutionResult(
+		ctx,
+		chatservice.UserID("user:conversation"),
+		firstConversation.ID,
+		nil,
+		map[string]any{"marker": "conversation-1"},
+	); err != nil {
+		t.Fatalf("append first action result: %v", err)
+	}
+
+	firstMessage := readProjectConversationSSEFrame(t, firstReader)
+	if firstMessage.Event != "message" ||
+		!strings.Contains(firstMessage.Data, "\"type\":\"action_result\"") ||
+		!strings.Contains(firstMessage.Data, "\"marker\":\"conversation-1\"") {
+		t.Fatalf("first message frame = %+v", firstMessage)
+	}
+
+	if _, err := projectConversationService.AppendActionExecutionResult(
+		ctx,
+		chatservice.UserID("user:conversation"),
+		secondConversation.ID,
+		nil,
+		map[string]any{"marker": "conversation-2"},
+	); err != nil {
+		t.Fatalf("append second action result: %v", err)
+	}
+
+	secondMessage := readProjectConversationSSEFrame(t, secondReader)
+	if secondMessage.Event != "message" ||
+		!strings.Contains(secondMessage.Data, "\"type\":\"action_result\"") ||
+		!strings.Contains(secondMessage.Data, "\"marker\":\"conversation-2\"") {
+		t.Fatalf("second message frame = %+v", secondMessage)
+	}
+}
+
 func TestChatRouteStreamsPeriodicKeepalives(t *testing.T) {
 	originalInterval := chatSSEKeepaliveInterval
 	chatSSEKeepaliveInterval = 5 * time.Millisecond
@@ -835,6 +987,46 @@ func mustMarshalJSON(t *testing.T, value any) []byte {
 		t.Fatalf("marshal json: %v", err)
 	}
 	return body
+}
+
+type projectConversationSSEFrame struct {
+	Event string
+	Data  string
+}
+
+func readProjectConversationSSEFrame(t *testing.T, reader *bufio.Reader) projectConversationSSEFrame {
+	t.Helper()
+
+	for {
+		frame := projectConversationSSEFrame{}
+		dataLines := make([]string, 0, 1)
+
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				t.Fatalf("read sse line: %v", err)
+			}
+			line = strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r")
+			if line == "" {
+				break
+			}
+			if strings.HasPrefix(line, ":") {
+				continue
+			}
+			switch {
+			case strings.HasPrefix(line, "event:"):
+				frame.Event = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
+			case strings.HasPrefix(line, "data:"):
+				dataLines = append(dataLines, strings.TrimSpace(strings.TrimPrefix(line, "data:")))
+			}
+		}
+
+		if frame.Event == "" && len(dataLines) == 0 {
+			continue
+		}
+		frame.Data = strings.Join(dataLines, "\n")
+		return frame
+	}
 }
 
 func testFloatPointer(value float64) *float64 {

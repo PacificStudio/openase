@@ -8,23 +8,25 @@
   import type { BoardFilter } from '../types'
 
   let {
-    filter = $bindable({ search: '' }),
-    hideEmpty = $bindable(false),
+    filter = { search: '' },
+    hideEmpty = false,
     workflows = [],
     agents = [],
     class: className = '',
+    onFilterChange,
+    onHideEmptyChange,
   }: {
     filter?: BoardFilter
     hideEmpty?: boolean
     workflows?: string[]
     agents?: string[]
     class?: string
+    onFilterChange?: (next: BoardFilter) => void
+    onHideEmptyChange?: (next: boolean) => void
   } = $props()
 
-  let searchValue = $state(filter.search ?? '')
-
-  function handleSearch() {
-    filter = { ...filter, search: searchValue }
+  function updateFilter(next: BoardFilter) {
+    onFilterChange?.(next)
   }
 </script>
 
@@ -35,15 +37,16 @@
       type="text"
       placeholder="Search tickets..."
       class="h-8 pl-8 text-sm"
-      bind:value={searchValue}
-      oninput={handleSearch}
+      value={filter.search ?? ''}
+      oninput={(event) =>
+        updateFilter({ ...filter, search: (event.currentTarget as HTMLInputElement).value })}
     />
   </div>
 
   <Select.Root
     type="single"
     onValueChange={(v) => {
-      filter = { ...filter, workflow: v || undefined }
+      updateFilter({ ...filter, workflow: v || undefined })
     }}
   >
     <Select.Trigger size="sm" class="h-8 text-xs">
@@ -61,7 +64,7 @@
     <Select.Root
       type="single"
       onValueChange={(v) => {
-        filter = { ...filter, agent: v || undefined }
+        updateFilter({ ...filter, agent: v || undefined })
       }}
     >
       <Select.Trigger size="sm" class="h-8 text-xs">
@@ -79,7 +82,7 @@
   <Select.Root
     type="single"
     onValueChange={(v) => {
-      filter = { ...filter, priority: v || undefined }
+      updateFilter({ ...filter, priority: v || undefined })
     }}
   >
     <Select.Trigger size="sm" class="h-8 text-xs">
@@ -99,7 +102,7 @@
     size="sm"
     class="h-8 gap-1 text-xs"
     onclick={() => {
-      filter = { ...filter, anomalyOnly: !filter.anomalyOnly }
+      updateFilter({ ...filter, anomalyOnly: !filter.anomalyOnly })
     }}
   >
     <AlertTriangle class="size-3" />
@@ -112,7 +115,7 @@
       size="sm"
       class="h-8 gap-1 text-xs"
       onclick={() => {
-        hideEmpty = !hideEmpty
+        onHideEmptyChange?.(!hideEmpty)
       }}
     >
       <EyeOff class="size-3" />

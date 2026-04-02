@@ -12,7 +12,7 @@ import type {
   TicketRunListPayload,
   WorkflowListPayload,
 } from '$lib/api/contracts'
-import { TicketsPage } from '$lib/features/tickets'
+import { TicketsPage, resetTicketBoardToolbarStoreForTests } from '$lib/features/tickets'
 import { orderedStatusPayloadFixture } from '$lib/features/board/test-fixtures'
 import { appStore } from '$lib/stores/app.svelte'
 import { ticketViewStore } from '$lib/stores/ticket-view.svelte'
@@ -253,6 +253,7 @@ describe('TicketsPage runtime and drawer', () => {
     appStore.currentProject = null
     appStore.closeRightPanel()
     ticketViewStore.setMode('board')
+    resetTicketBoardToolbarStoreForTests()
     localStorage.clear()
     vi.clearAllMocks()
   })

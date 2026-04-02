@@ -1,6 +1,7 @@
 import type { SSEFrame, StreamConnectionState } from '$lib/api/sse'
 import {
   isTicketRunProjectEvent,
+  projectEventAffectsTicketDetailReferences,
   projectEventReferencesTicket,
   subscribeProjectEvents,
   subscribeProjectEventBusState,
@@ -12,6 +13,7 @@ export function connectTicketDetailStreams(
   ticketId: string,
   handlers: {
     onRelevantEvent: () => void
+    onReferenceEvent?: () => void
     onRunFrame: (frame: SSEFrame) => void
     onRunStateChange?: (state: StreamConnectionState) => void
   },
@@ -22,6 +24,9 @@ export function connectTicketDetailStreams(
     }
     if (isTicketRunProjectEvent(event) && projectEventReferencesTicket(event, ticketId)) {
       handlers.onRunFrame(toProjectEventFrame(event))
+    }
+    if (projectEventAffectsTicketDetailReferences(event, ticketId)) {
+      handlers.onReferenceEvent?.()
     }
   })
   const disconnectRunState = subscribeProjectEventBusState(projectId, (state) => {

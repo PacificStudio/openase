@@ -19,9 +19,12 @@
   } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
   import {
+    isProjectDashboardRefreshEvent,
     isProjectUpdateEvent,
+    readProjectDashboardRefreshSections,
     subscribeProjectEvents,
     type ProjectEventEnvelope,
+    type ProjectDashboardRefreshSection,
   } from '$lib/features/project-events'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
@@ -52,7 +55,9 @@
   import { loadOrganizationDashboardSummary } from '../organization-summary'
   import type { DashboardStats, ProjectStatus, HRAdvisorSnapshot, MemorySnapshot } from '../types'
 
-  const dashboardPollIntervalMs = 1000
+  const systemDashboardRefreshIntervalMs = 10_000
+
+  type DashboardSection = ProjectDashboardRefreshSection | 'memory'
 
   const projectStatusOptions: ProjectStatus[] = [
     'Backlog',
@@ -289,6 +294,10 @@
     return isProjectUpdateEvent(event)
   }
 
+  function isProjectDashboardFrame(event: ProjectEventEnvelope) {
+    return isProjectDashboardRefreshEvent(event)
+  }
+
   function startEditInfo() {
     editName = projectName
     editDescription = projectDescription
@@ -360,73 +369,138 @@
     let cancelled = false
     let hasLoaded = false
     let inFlight = false
+    let pendingShowLoading = false
+    let queuedSections = new Set<DashboardSection>()
+    let cachedAgents = [] as Awaited<ReturnType<typeof listAgents>>['agents']
+    let cachedTickets = [] as Awaited<ReturnType<typeof listTickets>>['tickets']
 
-    const load = async (showLoading: boolean) => {
-      if (inFlight) return
-
-      inFlight = true
-      if (showLoading) {
-        loading = true
+    const queueLoad = (sections: Iterable<DashboardSection>, showLoading = false) => {
+      for (const section of sections) {
+        queuedSections.add(section)
       }
-
-      try {
-        const [
-          agentPayload,
-          ticketPayload,
-          activityPayload,
-          systemPayload,
-          hrAdvisorPayload,
-          organizationSummary,
-        ] = await Promise.all([
-          listAgents(projectId),
-          listTickets(projectId),
-          listActivity(projectId, { limit: 24 }),
-          getSystemDashboard(),
-          getHRAdvisor(projectId).catch(() => null),
-          orgId ? loadOrganizationDashboardSummary(orgId).catch(() => null) : Promise.resolve(null),
-        ])
-
-        if (cancelled) return
-
-        stats = buildDashboardStats(agentPayload.agents, ticketPayload.tickets, {
-          ticketSpendToday: organizationSummary?.projectMetrics[projectId]?.todayCost ?? 0,
-        })
-        memory = systemPayload.memory
-        hrAdvisor = hrAdvisorPayload
-          ? {
-              summary: hrAdvisorPayload.summary,
-              staffing: hrAdvisorPayload.staffing,
-              recommendations: hrAdvisorPayload.recommendations,
-            }
-          : null
-
-        activities = buildActivityItems(activityPayload.events)
-        exceptions = buildExceptionItems(activityPayload.events)
-
-        error = ''
-        hasLoaded = true
-      } catch (caughtError) {
-        if (cancelled) return
-        if (!hasLoaded) {
-          error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load dashboard.'
-        }
-      } finally {
-        inFlight = false
-        if (showLoading && !cancelled) {
-          loading = false
-        }
+      pendingShowLoading = pendingShowLoading || showLoading
+      if (!inFlight) {
+        void flushLoads()
       }
     }
 
-    void load(true)
+    const flushLoads = async () => {
+      if (inFlight) return
 
-    const interval = window.setInterval(() => {
-      void load(false)
-    }, dashboardPollIntervalMs)
+      inFlight = true
+      while (!cancelled && queuedSections.size > 0) {
+        const sections = new Set(queuedSections)
+        queuedSections = new Set()
+        const showLoading = pendingShowLoading
+        pendingShowLoading = false
+
+        if (showLoading) {
+          loading = true
+        }
+
+        try {
+          const [
+            agentPayload,
+            ticketPayload,
+            activityPayload,
+            systemPayload,
+            hrAdvisorPayload,
+            organizationSummary,
+          ] = await Promise.all([
+            sections.has('agents') ? listAgents(projectId) : Promise.resolve(null),
+            sections.has('tickets') ? listTickets(projectId) : Promise.resolve(null),
+            sections.has('activity')
+              ? listActivity(projectId, { limit: 24 })
+              : Promise.resolve(null),
+            sections.has('memory') ? getSystemDashboard() : Promise.resolve(null),
+            sections.has('hr_advisor')
+              ? getHRAdvisor(projectId).catch(() => null)
+              : Promise.resolve(null),
+            sections.has('organization_summary') && orgId
+              ? loadOrganizationDashboardSummary(orgId).catch(() => null)
+              : Promise.resolve(null),
+          ])
+
+          if (cancelled) return
+
+          if (agentPayload) {
+            cachedAgents = agentPayload.agents
+          }
+          if (ticketPayload) {
+            cachedTickets = ticketPayload.tickets
+          }
+
+          if (
+            sections.has('agents') ||
+            sections.has('tickets') ||
+            sections.has('organization_summary')
+          ) {
+            stats = buildDashboardStats(cachedAgents, cachedTickets, {
+              ticketSpendToday:
+                organizationSummary?.projectMetrics[projectId]?.todayCost ?? stats.ticketSpendToday,
+            })
+          }
+
+          if (systemPayload) {
+            memory = systemPayload.memory
+          }
+          if (sections.has('hr_advisor')) {
+            hrAdvisor = hrAdvisorPayload
+              ? {
+                  summary: hrAdvisorPayload.summary,
+                  staffing: hrAdvisorPayload.staffing,
+                  recommendations: hrAdvisorPayload.recommendations,
+                }
+              : null
+          }
+          if (activityPayload) {
+            activities = buildActivityItems(activityPayload.events)
+            exceptions = buildExceptionItems(activityPayload.events)
+          }
+
+          error = ''
+          hasLoaded = true
+        } catch (caughtError) {
+          if (cancelled) return
+          if (!hasLoaded) {
+            error =
+              caughtError instanceof ApiError ? caughtError.detail : 'Failed to load dashboard.'
+          }
+        } finally {
+          if (showLoading && !cancelled) {
+            loading = false
+          }
+        }
+      }
+
+      inFlight = false
+    }
+
+    queueLoad(
+      ['agents', 'tickets', 'activity', 'memory', 'hr_advisor', 'organization_summary'],
+      true,
+    )
+
+    const unsubscribeDashboard = subscribeProjectEvents(projectId, (event) => {
+      if (!isProjectDashboardFrame(event)) {
+        return
+      }
+
+      const sections = readProjectDashboardRefreshSections(event)
+      if (sections.length === 0) {
+        return
+      }
+      queueLoad(sections)
+    })
+
+    const memoryInterval = window.setInterval(() => {
+      queueLoad(['memory'])
+    }, systemDashboardRefreshIntervalMs)
 
     return () => {
       cancelled = true
-      window.clearInterval(interval)
+      unsubscribeDashboard()
+      window.clearInterval(memoryInterval)
     }
   })
 </script>

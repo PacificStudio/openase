@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { TicketDetailContext } from './context'
+import type { TicketDetailLiveContext, TicketDetailProjectReferenceData } from './context'
 import { createTicketDrawerState } from './drawer-state.svelte'
 
-function buildContext(overrides: Partial<TicketDetailContext> = {}): TicketDetailContext {
+function buildLiveContext(
+  overrides: Partial<TicketDetailLiveContext> = {},
+): TicketDetailLiveContext {
   return {
     ticket: {
       id: 'ticket-1',
@@ -48,6 +50,21 @@ function buildContext(overrides: Partial<TicketDetailContext> = {}): TicketDetai
       },
     ],
     hooks: [],
+    ...overrides,
+  }
+}
+
+function buildReferenceData(
+  overrides: Partial<TicketDetailProjectReferenceData> = {},
+): TicketDetailProjectReferenceData {
+  return {
+    statusLookup: [
+      {
+        id: 'status-1',
+        stage: 'unstarted',
+        color: '#2563eb',
+      },
+    ],
     statuses: [
       {
         id: 'status-1',
@@ -55,7 +72,7 @@ function buildContext(overrides: Partial<TicketDetailContext> = {}): TicketDetai
         color: '#2563eb',
       },
     ],
-    dependencyCandidates: [
+    dependencyCandidatesByTicketId: [
       {
         id: 'ticket-2',
         identifier: 'ASE-337',
@@ -92,8 +109,9 @@ function createRunDeps() {
 
 describe('createTicketDrawerState', () => {
   it('refreshes only the live ticket timeline snapshot', async () => {
-    const initialContext = buildContext()
-    const refreshedContext = buildContext({
+    const initialReferenceData = buildReferenceData()
+    const initialContext = buildLiveContext()
+    const refreshedContext = buildLiveContext({
       ticket: {
         ...initialContext.ticket,
         title: 'Align Ticket Detail SSE refresh wiring',
@@ -127,27 +145,43 @@ describe('createTicketDrawerState', () => {
       ],
     })
 
-    const fetchContext = vi
-      .fn<(projectId: string, ticketId: string) => Promise<TicketDetailContext>>()
+    const fetchLiveContext = vi
+      .fn<
+        (
+          projectId: string,
+          ticketId: string,
+          refs: TicketDetailProjectReferenceData,
+        ) => Promise<TicketDetailLiveContext>
+      >()
       .mockResolvedValueOnce(initialContext)
       .mockResolvedValueOnce(refreshedContext)
+    const fetchReferenceData = vi
+      .fn<(projectId: string) => Promise<TicketDetailProjectReferenceData>>()
+      .mockResolvedValue(initialReferenceData)
 
-    const state = createTicketDrawerState({ fetchContext, ...createRunDeps() })
+    const state = createTicketDrawerState({
+      fetchLiveContext,
+      fetchReferenceData,
+      ...createRunDeps(),
+    })
 
     await state.load('project-1', 'ticket-1')
     await state.refreshTimeline('project-1', 'ticket-1')
 
+    expect(fetchReferenceData).toHaveBeenCalledTimes(1)
+    expect(fetchLiveContext).toHaveBeenCalledTimes(2)
     expect(state.ticket?.title).toBe('Align Ticket Detail SSE refresh wiring')
     expect(state.timeline).toEqual(refreshedContext.timeline)
     expect(state.hooks).toEqual(refreshedContext.hooks)
-    expect(state.statuses).toEqual(initialContext.statuses)
-    expect(state.dependencyCandidates).toEqual(initialContext.dependencyCandidates)
-    expect(state.repoOptions).toEqual(initialContext.repoOptions)
+    expect(state.statuses).toEqual(initialReferenceData.statuses)
+    expect(state.dependencyCandidates).toEqual(initialReferenceData.dependencyCandidatesByTicketId)
+    expect(state.repoOptions).toEqual(initialReferenceData.repoOptions)
   })
 
   it('queues one follow-up refresh when another event arrives mid-refresh', async () => {
-    const initialContext = buildContext()
-    const interimContext = buildContext({
+    const initialReferenceData = buildReferenceData()
+    const initialContext = buildLiveContext()
+    const interimContext = buildLiveContext({
       timeline: [
         ...initialContext.timeline,
         {
@@ -167,7 +201,7 @@ describe('createTicketDrawerState', () => {
         },
       ],
     })
-    const finalContext = buildContext({
+    const finalContext = buildLiveContext({
       timeline: [
         ...interimContext.timeline,
         {
@@ -188,26 +222,120 @@ describe('createTicketDrawerState', () => {
         },
       ],
     })
-    const deferredRefresh = createDeferred<TicketDetailContext>()
+    const deferredRefresh = createDeferred<TicketDetailLiveContext>()
 
-    const fetchContext = vi
-      .fn<(projectId: string, ticketId: string) => Promise<TicketDetailContext>>()
+    const fetchLiveContext = vi
+      .fn<
+        (
+          projectId: string,
+          ticketId: string,
+          refs: TicketDetailProjectReferenceData,
+        ) => Promise<TicketDetailLiveContext>
+      >()
       .mockResolvedValueOnce(initialContext)
       .mockReturnValueOnce(deferredRefresh.promise)
       .mockResolvedValueOnce(finalContext)
+    const fetchReferenceData = vi
+      .fn<(projectId: string) => Promise<TicketDetailProjectReferenceData>>()
+      .mockResolvedValue(initialReferenceData)
 
-    const state = createTicketDrawerState({ fetchContext, ...createRunDeps() })
+    const state = createTicketDrawerState({
+      fetchLiveContext,
+      fetchReferenceData,
+      ...createRunDeps(),
+    })
     await state.load('project-1', 'ticket-1')
 
     const firstRefresh = state.refreshTimeline('project-1', 'ticket-1')
     const secondRefresh = state.refreshTimeline('project-1', 'ticket-1')
 
-    expect(fetchContext).toHaveBeenCalledTimes(2)
+    await Promise.resolve()
+
+    expect(fetchReferenceData).toHaveBeenCalledTimes(1)
+    expect(fetchLiveContext).toHaveBeenCalledTimes(2)
 
     deferredRefresh.resolve(interimContext)
     await Promise.all([firstRefresh, secondRefresh])
 
-    expect(fetchContext).toHaveBeenCalledTimes(3)
+    expect(fetchLiveContext).toHaveBeenCalledTimes(3)
     expect(state.timeline).toEqual(finalContext.timeline)
+  })
+
+  it('reuses cached project references when opening another ticket in the same project', async () => {
+    const referenceData = buildReferenceData({
+      dependencyCandidatesByTicketId: [
+        { id: 'ticket-1', identifier: 'ASE-336', title: 'Align Ticket Detail refresh wiring' },
+        { id: 'ticket-2', identifier: 'ASE-337', title: 'Follow-up' },
+        { id: 'ticket-3', identifier: 'ASE-338', title: 'Another ticket' },
+      ],
+    })
+    const fetchReferenceData = vi
+      .fn<(projectId: string) => Promise<TicketDetailProjectReferenceData>>()
+      .mockResolvedValue(referenceData)
+    const fetchLiveContext = vi
+      .fn<
+        (
+          projectId: string,
+          ticketId: string,
+          refs: TicketDetailProjectReferenceData,
+        ) => Promise<TicketDetailLiveContext>
+      >()
+      .mockResolvedValueOnce(buildLiveContext())
+      .mockResolvedValueOnce(
+        buildLiveContext({
+          ticket: {
+            ...buildLiveContext().ticket,
+            id: 'ticket-2',
+            identifier: 'ASE-337',
+            title: 'Follow-up',
+          },
+        }),
+      )
+
+    const state = createTicketDrawerState({
+      fetchLiveContext,
+      fetchReferenceData,
+      ...createRunDeps(),
+    })
+
+    await state.load('project-1', 'ticket-1')
+    await state.load('project-1', 'ticket-2')
+
+    expect(fetchReferenceData).toHaveBeenCalledTimes(1)
+    expect(fetchLiveContext).toHaveBeenCalledTimes(2)
+    expect(state.ticket?.id).toBe('ticket-2')
+    expect(state.dependencyCandidates).toEqual([
+      { id: 'ticket-1', identifier: 'ASE-336', title: 'Align Ticket Detail refresh wiring' },
+      { id: 'ticket-3', identifier: 'ASE-338', title: 'Another ticket' },
+    ])
+  })
+
+  it('keeps cached project references across drawer reset for the same project', async () => {
+    const referenceData = buildReferenceData()
+    const fetchReferenceData = vi
+      .fn<(projectId: string) => Promise<TicketDetailProjectReferenceData>>()
+      .mockResolvedValue(referenceData)
+    const fetchLiveContext = vi
+      .fn<
+        (
+          projectId: string,
+          ticketId: string,
+          refs: TicketDetailProjectReferenceData,
+        ) => Promise<TicketDetailLiveContext>
+      >()
+      .mockResolvedValue(buildLiveContext())
+
+    const state = createTicketDrawerState({
+      fetchLiveContext,
+      fetchReferenceData,
+      ...createRunDeps(),
+    })
+
+    await state.load('project-1', 'ticket-1')
+    state.reset()
+    await state.load('project-1', 'ticket-1')
+
+    expect(fetchReferenceData).toHaveBeenCalledTimes(1)
+    expect(fetchLiveContext).toHaveBeenCalledTimes(2)
   })
 })

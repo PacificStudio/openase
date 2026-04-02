@@ -1,9 +1,13 @@
 <script lang="ts">
-  import ChevronDown from '@lucide/svelte/icons/chevron-down'
-  import ChevronUp from '@lucide/svelte/icons/chevron-up'
-  import MessageSquare from '@lucide/svelte/icons/message-square'
-  import Pencil from '@lucide/svelte/icons/pencil'
-  import Trash2 from '@lucide/svelte/icons/trash-2'
+  import {
+    ChevronDown,
+    ChevronRight,
+    ChevronUp,
+    Bot,
+    MessageSquare,
+    Pencil,
+    Trash2,
+  } from '@lucide/svelte'
   import { cn, formatRelativeTime } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
@@ -13,8 +17,8 @@
   import TicketMarkdownContent from './ticket-markdown-content.svelte'
   import TicketTimelineActivityItem from './ticket-timeline-activity-item.svelte'
   import TicketTimelineComposer from './ticket-timeline-composer.svelte'
+  import { groupDiscussionTimeline, type ActivityGroup } from '../discussion-grouping'
   import type {
-    TicketActivityTimelineItem,
     TicketCommentRevision,
     TicketCommentTimelineItem,
     TicketDetail,
@@ -52,6 +56,19 @@
   let editingCommentId = $state<string | null>(null)
   let editingBody = $state('')
   let collapsedCommentIds = $state<Record<string, boolean>>({})
+  let expandedActivityGroups = $state(new Set<string>())
+
+  const displayItems = $derived(groupDiscussionTimeline(timeline))
+
+  function toggleActivityGroup(groupId: string) {
+    const next = new Set(expandedActivityGroups)
+    if (next.has(groupId)) {
+      next.delete(groupId)
+    } else {
+      next.add(groupId)
+    }
+    expandedActivityGroups = next
+  }
 
   function beginCommentEdit(comment: TicketCommentTimelineItem) {
     editingCommentId = comment.commentId
@@ -105,144 +122,185 @@
   })
 </script>
 
-<div class="flex flex-1 flex-col overflow-y-auto">
-  <div class="flex flex-col px-6 py-5">
-    {#each timeline as item, index (item.id)}
-      {#if item.kind === 'activity'}
-        <div class="relative flex gap-4 pb-6">
-          {#if index < timeline.length - 1}
-            <div class="bg-border absolute top-10 bottom-0 left-4 w-px"></div>
+<div>
+  <div class="flex flex-col px-4 py-3">
+    {#each displayItems as displayItem, index (displayItem.type === 'standalone' ? displayItem.item.id : displayItem.id)}
+      {#if displayItem.type === 'activity_group'}
+        <!-- Collapsed activity group -->
+        {@const group = displayItem as ActivityGroup}
+        {@const isExpanded = expandedActivityGroups.has(group.id)}
+        <div class="relative pb-3">
+          {#if index < displayItems.length - 1}
+            <div class="bg-border absolute top-7 bottom-0 left-3 w-px"></div>
           {/if}
-          <TicketTimelineActivityItem item={item as TicketActivityTimelineItem} />
-        </div>
-      {:else if item.kind === 'description'}
-        <TicketDescriptionTimelineItem
-          {ticket}
-          {item}
-          showConnector={index < timeline.length - 1}
-          {savingFields}
-          {onSaveFields}
-        />
-      {:else}
-        <div class="relative flex gap-4 pb-6">
-          {#if index < timeline.length - 1}
-            <div class="bg-border absolute top-10 bottom-0 left-4 w-px"></div>
-          {/if}
-
-          <div
-            class="bg-background border-border relative z-10 mt-1 flex size-8 shrink-0 items-center justify-center rounded-full border"
-          >
-            <MessageSquare class={cn('size-4', 'text-foreground')} />
+          <div class="border-border/50 bg-muted/10 rounded-md border">
+            <button
+              type="button"
+              class="hover:bg-muted/30 flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] transition-colors"
+              onclick={() => toggleActivityGroup(group.id)}
+            >
+              <ChevronRight
+                class={cn(
+                  'text-muted-foreground size-3 shrink-0 transition-transform duration-150',
+                  isExpanded && 'rotate-90',
+                )}
+              />
+              <Bot
+                class={cn('size-3 shrink-0', group.hasFailed ? 'text-red-500' : 'text-blue-500')}
+              />
+              <span class="text-foreground min-w-0 flex-1 truncate font-medium">
+                {group.summary}
+              </span>
+              {#if group.detail}
+                <span class="text-muted-foreground/60 hidden shrink-0 text-[10px] sm:inline"
+                  >{group.detail}</span
+                >
+              {/if}
+              <span class="text-muted-foreground shrink-0 text-[10px]">{group.timeRange}</span>
+            </button>
+            {#if isExpanded}
+              <div class="border-border/30 border-t px-1 py-1">
+                {#each group.items as actItem (actItem.id)}
+                  <div class="flex gap-3 px-2 py-1.5">
+                    <TicketTimelineActivityItem item={actItem} />
+                  </div>
+                {/each}
+              </div>
+            {/if}
           </div>
-          <div class="min-w-0 flex-1">
-            <article class="border-border bg-background rounded-xl border shadow-sm">
-              <div class="border-border flex items-center justify-between gap-3 border-b px-4 py-3">
-                <div class="min-w-0">
-                  <div class="flex flex-wrap items-center gap-2 text-sm">
-                    <span class="font-medium">{item.actor.name}</span>
-                    <span class="text-muted-foreground">commented</span>
-                  </div>
-                  <div
-                    class="text-muted-foreground mt-1 flex flex-wrap items-center gap-2 text-[11px]"
-                  >
-                    <span>{formatRelativeTime(item.createdAt)}</span>
-                    {#if isEdited(item)}
-                      <span class="italic">{editedLabel(item)}</span>
-                    {/if}
-                    <span>rev {item.revisionCount}</span>
-                    {#if item.isDeleted}
-                      <Badge variant="outline" class="h-5 px-2 text-[10px]">Deleted</Badge>
-                    {/if}
-                  </div>
-                </div>
+        </div>
+      {:else}
+        {@const item = displayItem.item}
+        {#if item.kind === 'description'}
+          <TicketDescriptionTimelineItem
+            {ticket}
+            {item}
+            showConnector={index < displayItems.length - 1}
+            {savingFields}
+            {onSaveFields}
+          />
+        {:else if item.kind === 'comment'}
+          <div class="relative flex gap-3 pb-3">
+            {#if index < displayItems.length - 1}
+              <div class="bg-border absolute top-7 bottom-0 left-3 w-px"></div>
+            {/if}
 
-                <div class="flex items-center gap-1">
-                  {#if editingCommentId !== item.commentId}
+            <div
+              class="bg-background border-border relative z-10 mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border"
+            >
+              <MessageSquare class={cn('size-3', 'text-foreground')} />
+            </div>
+            <div class="min-w-0 flex-1">
+              <article class="border-border rounded-lg border">
+                <div class="flex items-center justify-between gap-2 px-3 py-1.5">
+                  <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                    <span class="font-medium">{item.actor.name}</span>
+                    <span class="text-muted-foreground text-[11px]"
+                      >{formatRelativeTime(item.createdAt)}</span
+                    >
+                    {#if isEdited(item)}
+                      <span class="text-muted-foreground text-[10px] italic"
+                        >{editedLabel(item)}</span
+                      >
+                    {/if}
+                    {#if item.isDeleted}
+                      <Badge variant="outline" class="h-4 px-1.5 py-0 text-[9px]">Deleted</Badge>
+                    {/if}
+                  </div>
+
+                  <div class="flex shrink-0 items-center">
+                    {#if editingCommentId !== item.commentId}
+                      <Button
+                        size="icon-xs"
+                        variant="ghost"
+                        class="size-5"
+                        aria-label="Edit comment"
+                        onclick={() => beginCommentEdit(item)}
+                        disabled={Boolean(updatingCommentId || deletingCommentId || item.isDeleted)}
+                      >
+                        <Pencil class="size-3" />
+                      </Button>
+                    {/if}
+                    <TicketCommentHistoryControl comment={item} onLoad={onLoadCommentHistory} />
                     <Button
                       size="icon-xs"
                       variant="ghost"
-                      aria-label="Edit comment"
-                      onclick={() => beginCommentEdit(item)}
-                      disabled={Boolean(updatingCommentId || deletingCommentId || item.isDeleted)}
+                      class="size-5"
+                      aria-label="Delete comment"
+                      onclick={() => handleDeleteComment(item.commentId)}
+                      disabled={deletingCommentId === item.commentId ||
+                        updatingCommentId === item.commentId ||
+                        item.isDeleted}
                     >
-                      <Pencil class="size-3.5" />
+                      <Trash2 class="size-3" />
                     </Button>
-                  {/if}
-                  <TicketCommentHistoryControl comment={item} onLoad={onLoadCommentHistory} />
-                  <Button
-                    size="icon-xs"
-                    variant="ghost"
-                    aria-label="Delete comment"
-                    onclick={() => handleDeleteComment(item.commentId)}
-                    disabled={deletingCommentId === item.commentId ||
-                      updatingCommentId === item.commentId ||
-                      item.isDeleted}
-                  >
-                    <Trash2 class="size-3.5" />
-                  </Button>
-                  <Button
-                    size="icon-xs"
-                    variant="ghost"
-                    aria-label={isCommentCollapsed(item.commentId)
-                      ? `Expand comment by ${item.actor.name}`
-                      : `Collapse comment by ${item.actor.name}`}
-                    onclick={() => toggleCommentCollapsed(item.commentId)}
-                    disabled={editingCommentId === item.commentId}
-                  >
-                    {#if isCommentCollapsed(item.commentId)}
-                      <ChevronDown class="size-3.5" />
-                    {:else}
-                      <ChevronUp class="size-3.5" />
-                    {/if}
-                  </Button>
+                    <Button
+                      size="icon-xs"
+                      variant="ghost"
+                      class="size-5"
+                      aria-label={isCommentCollapsed(item.commentId)
+                        ? `Expand comment by ${item.actor.name}`
+                        : `Collapse comment by ${item.actor.name}`}
+                      onclick={() => toggleCommentCollapsed(item.commentId)}
+                      disabled={editingCommentId === item.commentId}
+                    >
+                      {#if isCommentCollapsed(item.commentId)}
+                        <ChevronDown class="size-3" />
+                      {:else}
+                        <ChevronUp class="size-3" />
+                      {/if}
+                    </Button>
+                  </div>
                 </div>
-              </div>
 
-              <div class="px-4 py-4">
-                {#if editingCommentId === item.commentId}
-                  <div class="space-y-3">
-                    <Textarea
-                      rows={6}
-                      bind:value={editingBody}
-                      disabled={updatingCommentId === item.commentId}
-                    />
-                    <div class="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onclick={cancelCommentEdit}
+                <div class="px-3 py-2">
+                  {#if editingCommentId === item.commentId}
+                    <div class="space-y-2">
+                      <Textarea
+                        rows={4}
+                        bind:value={editingBody}
                         disabled={updatingCommentId === item.commentId}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        onclick={() => handleSaveCommentEdit(item.commentId)}
-                        disabled={!editingBody.trim() || updatingCommentId === item.commentId}
-                      >
-                        {updatingCommentId === item.commentId ? 'Saving…' : 'Save'}
-                      </Button>
+                      />
+                      <div class="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          class="h-6 px-2 text-[11px]"
+                          onclick={cancelCommentEdit}
+                          disabled={updatingCommentId === item.commentId}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          class="h-6 px-2 text-[11px]"
+                          onclick={() => handleSaveCommentEdit(item.commentId)}
+                          disabled={!editingBody.trim() || updatingCommentId === item.commentId}
+                        >
+                          {updatingCommentId === item.commentId ? 'Saving…' : 'Save'}
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                {:else if isCommentCollapsed(item.commentId)}
-                  <p class="text-muted-foreground text-sm italic">
-                    {item.isDeleted ? 'Deleted comment collapsed.' : 'Comment collapsed.'}
-                  </p>
-                {:else if item.bodyMarkdown.trim()}
-                  <div class={cn(item.isDeleted && 'text-muted-foreground')}>
-                    <TicketMarkdownContent source={item.bodyMarkdown} />
-                  </div>
-                {:else}
-                  <p class="text-muted-foreground text-sm italic">No comment body.</p>
-                {/if}
-              </div>
-            </article>
+                  {:else if isCommentCollapsed(item.commentId)}
+                    <p class="text-muted-foreground text-xs italic">
+                      {item.isDeleted ? 'Deleted comment collapsed.' : 'Collapsed.'}
+                    </p>
+                  {:else if item.bodyMarkdown.trim()}
+                    <div class={cn('text-sm', item.isDeleted && 'text-muted-foreground')}>
+                      <TicketMarkdownContent source={item.bodyMarkdown} />
+                    </div>
+                  {:else}
+                    <p class="text-muted-foreground text-xs italic">No content.</p>
+                  {/if}
+                </div>
+              </article>
+            </div>
           </div>
-        </div>
+        {/if}
       {/if}
     {/each}
 
-    <div class="relative flex gap-4 pt-1">
+    <div class="relative flex gap-3 pt-1">
       <TicketTimelineComposer creating={creatingComment} onCreate={onCreateComment} />
     </div>
   </div>

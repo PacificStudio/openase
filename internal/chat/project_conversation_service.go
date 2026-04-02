@@ -76,20 +76,20 @@ type liveProjectConversation struct {
 	machine   catalogdomain.Machine
 	runtime   Runtime
 	codex     projectConversationCodexRuntime
+	interrupt projectConversationInterruptRuntime
 	workspace provider.AbsolutePath
 }
 
 type projectConversationCodexRuntime interface {
 	Runtime
 	EnsureSession(ctx context.Context, input RuntimeTurnInput) error
-	RespondInterrupt(
-		ctx context.Context,
-		sessionID SessionID,
-		requestID string,
-		kind string,
-		decision string,
-		answer map[string]any,
-	) error
+	RespondInterrupt(ctx context.Context, input RuntimeInterruptResponseInput) (TurnStream, error)
+	SessionAnchor(sessionID SessionID) RuntimeSessionAnchor
+}
+
+type projectConversationInterruptRuntime interface {
+	Runtime
+	RespondInterrupt(ctx context.Context, input RuntimeInterruptResponseInput) (TurnStream, error)
 	SessionAnchor(sessionID SessionID) RuntimeSessionAnchor
 }
 
@@ -435,58 +435,83 @@ func (s *ProjectConversationService) RespondInterrupt(
 	if interrupt.ConversationID != conversation.ID {
 		return domain.PendingInterrupt{}, ErrPendingInterruptNotFound
 	}
-
 	s.liveMu.Lock()
 	live := s.live[conversationID]
 	s.liveMu.Unlock()
-	if live == nil || live.codex == nil {
-		project, projectErr := s.catalog.GetProject(ctx, conversation.ProjectID)
+	if live != nil && live.interrupt == nil && live.codex != nil {
+		live.interrupt = live.codex
+	}
+	var project catalogdomain.Project
+	var providerItem catalogdomain.AgentProvider
+	if live != nil {
+		providerItem = live.provider
+	}
+	if s.catalog != nil {
+		var projectErr error
+		project, projectErr = s.catalog.GetProject(ctx, conversation.ProjectID)
 		if projectErr != nil {
 			return domain.PendingInterrupt{}, fmt.Errorf("get project for interrupt response: %w", projectErr)
 		}
-		providerItem, providerErr := s.catalog.GetAgentProvider(ctx, conversation.ProviderID)
-		if providerErr != nil {
-			return domain.PendingInterrupt{}, fmt.Errorf("get provider for interrupt response: %w", providerErr)
+		if providerItem.ID == uuid.Nil {
+			var providerErr error
+			providerItem, providerErr = s.catalog.GetAgentProvider(ctx, conversation.ProviderID)
+			if providerErr != nil {
+				return domain.PendingInterrupt{}, fmt.Errorf("get provider for interrupt response: %w", providerErr)
+			}
+		}
+	}
+	if live == nil || live.interrupt == nil {
+		if s.catalog == nil || providerItem.ID == uuid.Nil {
+			return domain.PendingInterrupt{}, ErrConversationRuntimeAbsent
 		}
 		var ensureErr error
 		live, _, ensureErr = s.ensureLiveRuntime(ctx, conversation, project, providerItem)
 		if ensureErr != nil {
 			return domain.PendingInterrupt{}, ensureErr
 		}
-		if live.codex == nil {
+		if live.interrupt == nil {
 			return domain.PendingInterrupt{}, ErrConversationRuntimeAbsent
 		}
-		systemPrompt, promptErr := s.buildProjectConversationPrompt(ctx, conversation, project, nil, false)
-		if promptErr != nil {
-			return domain.PendingInterrupt{}, promptErr
-		}
-		ensureErr = live.codex.EnsureSession(ctx, s.buildConversationRuntimeInput(
-			ctx,
-			conversation,
-			project,
-			providerItem,
-			live.workspace,
-			systemPrompt,
-			strings.TrimSpace(stringPointerValue(conversation.ProviderThreadID)),
-			strings.TrimSpace(stringPointerValue(conversation.LastTurnID)),
-		))
-		if ensureErr != nil {
-			if codexadapter.IsThreadNotFoundError(ensureErr) {
-				return domain.PendingInterrupt{}, ErrConversationRuntimeAbsent
+		if live.codex != nil {
+			systemPrompt, promptErr := s.buildProjectConversationPrompt(ctx, conversation, project, nil, false)
+			if promptErr != nil {
+				return domain.PendingInterrupt{}, promptErr
 			}
-			return domain.PendingInterrupt{}, ensureErr
+			ensureErr = live.codex.EnsureSession(ctx, s.buildConversationRuntimeInput(
+				ctx,
+				conversation,
+				project,
+				providerItem,
+				live.workspace,
+				systemPrompt,
+				strings.TrimSpace(stringPointerValue(conversation.ProviderThreadID)),
+				strings.TrimSpace(stringPointerValue(conversation.LastTurnID)),
+			))
+			if ensureErr != nil {
+				if codexadapter.IsThreadNotFoundError(ensureErr) {
+					return domain.PendingInterrupt{}, ErrConversationRuntimeAbsent
+				}
+				return domain.PendingInterrupt{}, ensureErr
+			}
 		}
 	}
 
 	runtimeKind := runtimeInterruptKind(interrupt.Kind)
-	if err := live.codex.RespondInterrupt(
-		ctx,
-		SessionID(conversationID.String()),
-		interrupt.ProviderRequestID,
-		runtimeKind,
-		stringPointerValue(response.Decision),
-		response.Answer,
-	); err != nil {
+	stream, err := live.interrupt.RespondInterrupt(ctx, RuntimeInterruptResponseInput{
+		SessionID:              SessionID(conversationID.String()),
+		Provider:               live.provider,
+		RequestID:              interrupt.ProviderRequestID,
+		Kind:                   runtimeKind,
+		Decision:               stringPointerValue(response.Decision),
+		Answer:                 cloneMapAny(response.Answer),
+		Payload:                cloneMapAny(interrupt.Payload),
+		WorkingDirectory:       live.workspace,
+		Environment:            s.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem),
+		ResumeProviderThreadID: strings.TrimSpace(stringPointerValue(conversation.ProviderThreadID)),
+		ResumeProviderTurnID:   strings.TrimSpace(stringPointerValue(conversation.LastTurnID)),
+		PersistentConversation: true,
+	})
+	if err != nil {
 		return domain.PendingInterrupt{}, err
 	}
 
@@ -495,8 +520,8 @@ func (s *ProjectConversationService) RespondInterrupt(
 		return domain.PendingInterrupt{}, err
 	}
 	anchor := RuntimeSessionAnchor{}
-	if live.codex != nil {
-		anchor = live.codex.SessionAnchor(SessionID(conversationID.String()))
+	if live.interrupt != nil {
+		anchor = live.interrupt.SessionAnchor(SessionID(conversationID.String()))
 	}
 	_, _ = s.repo.UpdateConversationAnchors(
 		ctx,
@@ -511,6 +536,12 @@ func (s *ProjectConversationService) RespondInterrupt(
 			"decision":     stringPointerValue(resolved.Decision),
 		},
 	})
+	if stream.Events != nil {
+		go s.consumeTurn(context.WithoutCancel(ctx), conversationID, domain.Turn{
+			ID:             interrupt.TurnID,
+			ConversationID: conversationID,
+		}, live, stream)
+	}
 	return resolved, nil
 }
 
@@ -590,8 +621,9 @@ func (s *ProjectConversationService) consumeTurn(
 				continue
 			}
 			interruptKind := mapDomainInterruptKind(payload.Kind)
+			interruptProvider := providerInterruptProviderName(live.provider)
 			interruptPayload := map[string]any{
-				"provider": "codex",
+				"provider": interruptProvider,
 				"kind":     string(interruptKind),
 				"payload":  cloneMapAny(payload.Payload),
 			}
@@ -624,7 +656,7 @@ func (s *ProjectConversationService) consumeTurn(
 				Event: "interrupt_requested",
 				Payload: map[string]any{
 					"interrupt_id": pending.ID.String(),
-					"provider":     "codex",
+					"provider":     interruptProvider,
 					"kind":         string(interruptKind),
 					"options":      interruptPayload["options"],
 					"payload":      interruptPayload["payload"],
@@ -1067,6 +1099,7 @@ func (s *ProjectConversationService) ensureLiveRuntime(
 
 	var runtime Runtime
 	var codexRuntime projectConversationCodexRuntime
+	var interruptRuntime projectConversationInterruptRuntime
 	switch providerItem.AdapterType {
 	case catalogdomain.AgentProviderAdapterTypeCodexAppServer:
 		codexRuntime, err = s.newCodexRuntime(manager)
@@ -1074,8 +1107,11 @@ func (s *ProjectConversationService) ensureLiveRuntime(
 			return nil, false, err
 		}
 		runtime = codexRuntime
+		interruptRuntime = codexRuntime
 	case catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI:
-		runtime = NewClaudeRuntime(newClaudeAdapterForManager(manager))
+		claudeRuntime := NewClaudeRuntime(newClaudeAdapterForManager(manager))
+		runtime = claudeRuntime
+		interruptRuntime = claudeRuntime
 	case catalogdomain.AgentProviderAdapterTypeGeminiCLI:
 		runtime = NewGeminiRuntime(manager)
 	default:
@@ -1087,6 +1123,7 @@ func (s *ProjectConversationService) ensureLiveRuntime(
 		machine:   machine,
 		runtime:   runtime,
 		codex:     codexRuntime,
+		interrupt: interruptRuntime,
 		workspace: workspacePath,
 	}
 	s.liveMu.Lock()
@@ -1256,6 +1293,17 @@ func mapDomainInterruptKind(kind string) domain.InterruptKind {
 
 func codexadapterApprovalKindCommandExecution() string { return "command_execution" }
 func codexadapterApprovalKindFileChange() string       { return "file_change" }
+
+func providerInterruptProviderName(providerItem catalogdomain.AgentProvider) string {
+	switch providerItem.AdapterType {
+	case catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI:
+		return "claude"
+	case catalogdomain.AgentProviderAdapterTypeCodexAppServer:
+		return "codex"
+	default:
+		return strings.TrimSpace(providerItem.Name)
+	}
+}
 
 func renderRecoveryLines(entries []domain.Entry, limit int) []string {
 	if len(entries) == 0 {

@@ -39,6 +39,10 @@ const budgetRules = [
         'Project conversation panel still coordinates header, transcript shell, and composer while controller extraction continues.',
       'src/lib/features/project-updates/components/project-update-thread-card.svelte':
         'Project update thread card still keeps inline edit and reply flows together until card sections are extracted.',
+      'src/lib/features/project-updates/components/project-updates-page.svelte':
+        'Project updates page still coordinates cache-aware loading, event-driven refresh, and thread mutations until a page controller is extracted.',
+      'src/lib/features/machines/components/machines-page.svelte':
+        'Machines page still coordinates event-driven cache refresh, editor state, and health probes until page controller extraction lands.',
       'src/lib/features/settings/components/workflow-scheduled-job-cron-picker.svelte':
         'Cron picker keeps presets and field editor together until scheduled job form extraction lands.',
       'src/lib/features/settings/components/workflow-scheduled-jobs-panel.svelte':
@@ -51,6 +55,10 @@ const budgetRules = [
         'Skills page still coordinates browser, selection, and editor loading until page controller extraction lands.',
       'src/lib/features/ticket-detail/components/ticket-drawer.svelte':
         'Ticket drawer still coordinates detail shell, panes, and runtime state until drawer extraction lands.',
+      'src/lib/features/ticket-detail/components/ticket-comments-thread.svelte':
+        'Ticket discussion thread still keeps grouped activity rendering, comment editing, and composer flow together until discussion sections are extracted.',
+      'src/lib/features/ticket-detail/components/ticket-run-history-panel.svelte':
+        'Ticket run history panel still combines run rail selection, live transcript rendering, and follow-live behavior until run panel extraction lands.',
       'src/lib/features/tickets/components/new-ticket-dialog.svelte':
         'Ticket creation dialog still hosts staged form orchestration until dialog sections are extracted.',
       'src/lib/features/tickets/components/tickets-page.svelte':
@@ -75,8 +83,18 @@ const budgetRules = [
         'Project conversation controller remains centralized while multi-tab restore and per-tab runtime flows continue to settle.',
       'src/lib/features/chat/project-conversation-controller.test.ts':
         'Project conversation controller regression coverage remains bundled while multi-tab conversation scenarios are still expanding.',
+      'src/lib/features/dashboard/components/org-dashboard.test.ts':
+        'Dashboard refresh regression coverage stays consolidated while the event-driven dashboard invalidation model is still settling.',
       'src/lib/features/skills/components/skill-bundle-editor.ts':
         'Skill bundle draft helpers remain centralized until tree and path utilities are split out.',
+      'src/lib/features/ticket-detail/drawer-state.svelte.test.ts':
+        'Ticket drawer state regression coverage remains bundled while reference caching and run transcript recovery continue to evolve.',
+      'src/lib/features/ticket-detail/drawer-state.svelte.ts':
+        'Ticket drawer state still coordinates cached references, live refresh, and run transcript selection until a controller split lands.',
+      'src/lib/features/ticket-detail/run-transcript.test.ts':
+        'Ticket run transcript reducer coverage remains bundled while lifecycle, step, and trace event scenarios continue to expand.',
+      'src/lib/features/ticket-detail/run-transcript.ts':
+        'Ticket run transcript reducer still centralizes lifecycle, step, and trace folding until transcript reducers are split by event family.',
       'src/lib/features/workflows/components/harness-ai-sidebar-streaming.test.ts':
         'Harness AI long-stream regression coverage stays in one integration-style test while SSE helpers remain inline.',
       'src/lib/features/workflows/components/workflows-page.test.ts':

@@ -1,4 +1,4 @@
-import type { TicketDetailContext } from './context'
+import type { TicketDetailLiveContext } from './context'
 import { createEmptyTicketRunTranscriptState } from './run-transcript'
 import type {
   HookExecution,
@@ -30,19 +30,16 @@ type TicketDrawerMutableState = {
 
 export function applyTicketDrawerContext(
   state: TicketDrawerMutableState,
-  detailContext: TicketDetailContext,
+  detailContext: TicketDetailLiveContext,
 ) {
   state.ticket = detailContext.ticket
   state.timeline = detailContext.timeline
   state.hooks = detailContext.hooks
-  state.statuses = detailContext.statuses
-  state.dependencyCandidates = detailContext.dependencyCandidates
-  state.repoOptions = detailContext.repoOptions
 }
 
 export function applyTicketDrawerTimelineRefresh(
   state: TicketDrawerMutableState,
-  detailContext: TicketDetailContext,
+  detailContext: TicketDetailLiveContext,
 ) {
   state.ticket = detailContext.ticket
   state.timeline = detailContext.timeline

@@ -19,4 +19,4 @@ export {
   projectBoardGroups,
   relocateTicket,
 } from './model'
-export type { PendingTicketMove } from './model'
+export type { BoardData, PendingTicketMove } from './model'

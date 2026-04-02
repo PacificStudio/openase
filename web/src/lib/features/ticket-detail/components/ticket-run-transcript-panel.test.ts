@@ -45,12 +45,14 @@ describe('TicketRunTranscriptPanel', () => {
       {
         kind: 'terminal_output',
         id: 'terminal_output:command-1',
+        stream: 'command',
+        command: 'make check',
         text: longOutput,
         streaming: true,
       },
     ]
 
-    const { getByText, queryByText } = render(TicketRunTranscriptPanel, {
+    const { container, getAllByText, getByRole } = render(TicketRunTranscriptPanel, {
       props: {
         run: liveRun,
         blocks,
@@ -59,13 +61,12 @@ describe('TicketRunTranscriptPanel', () => {
       },
     })
 
-    expect(getByText('Command approval required')).toBeTruthy()
-    expect(getByText('make check')).toBeTruthy()
-    expect(getByText('Approve once')).toBeTruthy()
-    expect(getByText('Expand output')).toBeTruthy()
+    expect(getAllByText('Command approval required').length).toBeGreaterThan(0)
+    expect(getAllByText('make check').length).toBeGreaterThanOrEqual(2)
+    expect(getAllByText('Approve once').length).toBeGreaterThan(0)
 
-    await fireEvent.click(getByText('Expand output'))
-    expect(queryByText('Collapse output')).toBeTruthy()
+    await fireEvent.click(getByRole('button', { name: /make check/ }))
+    expect(container.textContent).toContain('line 18')
   })
 
   it('shows jump-to-live when the user scrolls away from the live bottom', async () => {

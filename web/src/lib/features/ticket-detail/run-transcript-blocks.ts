@@ -83,13 +83,24 @@ export function mergeRunTextBlock(
       ...state,
       blocks: [
         ...state.blocks,
-        {
-          kind: blockKind,
-          id: blockID,
-          itemId,
-          text: entry.output,
-          streaming: !isTerminalRunStatus(state.currentRun?.status),
-        },
+        blockKind === 'assistant_message'
+          ? {
+              kind: blockKind,
+              id: blockID,
+              itemId,
+              text: entry.output,
+              streaming: !isTerminalRunStatus(state.currentRun?.status),
+            }
+          : {
+              kind: blockKind,
+              id: blockID,
+              itemId,
+              stream: entry.stream,
+              command: readPayloadString(entry.payload, 'command') || undefined,
+              phase: readPayloadString(entry.payload, 'phase') || undefined,
+              text: entry.output,
+              streaming: !isTerminalRunStatus(state.currentRun?.status),
+            },
       ],
     }
   }
@@ -103,6 +114,13 @@ export function mergeRunTextBlock(
   const nextBlocks = state.blocks.slice()
   nextBlocks[existingIndex] = {
     ...existing,
+    ...(existing.kind === 'terminal_output'
+      ? {
+          stream: entry.stream,
+          command: readPayloadString(entry.payload, 'command') || existing.command,
+          phase: readPayloadString(entry.payload, 'phase') || existing.phase,
+        }
+      : {}),
     text: nextText,
     streaming: !isTerminalRunStatus(state.currentRun?.status),
   }

@@ -61,6 +61,21 @@ const latestBlocks: TicketRunTranscriptBlock[] = [
     at: '2026-04-01T10:05:00Z',
     summary: 'Run created.',
   },
+  {
+    kind: 'tool_call',
+    id: 'tool:1',
+    toolName: 'functions.exec_command',
+    arguments: { cmd: 'pnpm vitest run', workdir: '/repo' },
+    at: '2026-04-01T10:05:31Z',
+  },
+  {
+    kind: 'terminal_output',
+    id: 'terminal_output:1',
+    stream: 'command',
+    command: 'pnpm vitest run',
+    text: 'PASS src/app.test.ts',
+    streaming: true,
+  },
 ]
 
 const failedBlocks: TicketRunTranscriptBlock[] = [
@@ -91,7 +106,7 @@ describe('TicketRunHistoryPanel', () => {
   })
 
   it('lists attempts in order and marks the latest run as live', () => {
-    const { getAllByRole, getAllByText } = render(TicketRunHistoryPanel, {
+    const { getAllByRole, getAllByText: getAllStatuses } = render(TicketRunHistoryPanel, {
       props: {
         ticket,
         runs: [latestRun, failedRun],
@@ -101,10 +116,12 @@ describe('TicketRunHistoryPanel', () => {
       },
     })
 
+    // Chronological order: oldest first
     const buttons = getAllByRole('button', { name: /View Attempt / })
-    expect(buttons[0]?.textContent).toContain('Attempt 2')
-    expect(buttons[1]?.textContent).toContain('Attempt 1')
-    expect(getAllByText('Live')).toHaveLength(2)
+    expect(buttons[0]?.textContent).toContain('#1')
+    expect(buttons[1]?.textContent).toContain('#2')
+    // Status badge on attempt row only (no separate header badge)
+    expect(getAllStatuses('Running')).toHaveLength(1)
   })
 
   it('requests a run switch and renders historical terminal summaries', async () => {
@@ -130,8 +147,29 @@ describe('TicketRunHistoryPanel', () => {
       onSelectRun,
     })
 
-    expect(getByText('Attempt 1 transcript')).toBeTruthy()
-    expect(getAllByText('Failed').length).toBeGreaterThanOrEqual(2)
+    // Result block shows failure summary inline (no separate transcript header)
     expect(getByText('Unit tests failed.')).toBeTruthy()
+    expect(getAllByText('Failed').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('renders command/tool metadata instead of collapsing them into opaque noise', async () => {
+    const { getByText, queryByText } = render(TicketRunHistoryPanel, {
+      props: {
+        ticket,
+        runs: [latestRun, failedRun],
+        currentRun: latestRun,
+        blocks: latestBlocks,
+        runStreamState: 'live',
+      },
+    })
+
+    // Tool call shows summarized command; terminal output shows raw command
+    expect(getByText(/Ran .pnpm vitest run/)).toBeTruthy()
+    expect(getByText('pnpm vitest run')).toBeTruthy()
+    expect(queryByText(/operations/)).toBeNull()
+
+    // Expanding tool call reveals target workdir
+    await fireEvent.click(getByText(/Ran .pnpm vitest run/))
+    expect(getByText('/repo')).toBeTruthy()
   })
 })

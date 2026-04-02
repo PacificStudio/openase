@@ -1,9 +1,17 @@
 import type { SSEFrame } from '$lib/api/sse'
+import {
+  asRecord,
+  buildProviderStateDetail,
+  buildReasoningDetail,
+  parseUnifiedDiffPayloads,
+  readString,
+} from '$lib/features/chat'
 import type {
   TicketRun,
   TicketRunDetail,
   TicketRunLifecycleEvent,
   TicketRunStepEntry,
+  TicketRunTranscriptBlock,
   TicketRunTraceEntry,
   TicketRunTranscriptState,
 } from './types'
@@ -238,22 +246,48 @@ export function applyTicketRunTraceEntry(
     case 'command_output_snapshot':
       return cacheSelectedState(mergeRunTextBlock(state, entry, 'terminal_output'))
     case 'tool_call_started':
-      if (hasBlock(state.blocks, `tool:${entry.id}`)) {
-        return state
-      }
-      return cacheSelectedState({
-        ...state,
-        blocks: [
-          ...state.blocks,
-          {
-            kind: 'tool_call',
-            id: `tool:${entry.id}`,
-            toolName: readPayloadString(entry.payload, 'tool') || entry.output || entry.stream,
-            summary: readPayloadString(entry.payload, 'phase') || undefined,
-            at: entry.createdAt,
-          },
-        ],
-      })
+      return appendTraceBlocks(state, [
+        {
+          kind: 'tool_call',
+          id: `tool:${entry.id}`,
+          toolName: readPayloadString(entry.payload, 'tool') || entry.output || entry.stream,
+          arguments: entry.payload.arguments,
+          summary: readPayloadString(entry.payload, 'phase') || undefined,
+          at: entry.createdAt,
+        },
+      ])
+    case 'thread_status':
+      return appendTraceBlocks(state, [
+        {
+          kind: 'task_status',
+          id: `status:${entry.id}`,
+          statusType: 'thread_status',
+          title: 'Codex thread status',
+          detail: buildProviderStateDetail(asRecord(entry.payload)) || entry.output || undefined,
+          raw: Object.keys(entry.payload).length > 0 ? entry.payload : undefined,
+          at: entry.createdAt,
+        },
+      ])
+    case 'reasoning_updated':
+      return appendTraceBlocks(state, [
+        {
+          kind: 'task_status',
+          id: `reasoning:${entry.id}`,
+          statusType: 'reasoning_updated',
+          title: 'Reasoning update',
+          detail: entry.output || buildReasoningDetail(asRecord(entry.payload)) || undefined,
+          raw: Object.keys(entry.payload).length > 0 ? entry.payload : undefined,
+          at: entry.createdAt,
+        },
+      ])
+    case 'turn_diff_updated':
+      return appendTraceBlocks(
+        state,
+        createDiffBlocksFromTraceEntry(entry).map((block, index) => ({
+          ...block,
+          id: index === 0 ? `diff:${entry.id}` : `diff:${entry.id}:${index + 1}`,
+        })),
+      )
     case 'approval_requested':
     case 'user_input_requested': {
       const interruptBlock = buildInterruptBlock(entry)
@@ -268,4 +302,38 @@ export function applyTicketRunTraceEntry(
     default:
       return state
   }
+}
+
+function appendTraceBlocks(
+  state: TicketRunTranscriptState,
+  blocks: TicketRunTranscriptBlock[],
+): TicketRunTranscriptState {
+  const nextBlocks = blocks.filter((block) => !hasBlock(state.blocks, block.id))
+  if (nextBlocks.length === 0) {
+    return state
+  }
+
+  return cacheSelectedState({
+    ...state,
+    blocks: [...state.blocks, ...nextBlocks],
+  })
+}
+
+function createDiffBlocksFromTraceEntry(
+  entry: TicketRunTraceEntry,
+): Array<Extract<TicketRunTranscriptBlock, { kind: 'diff' }>> {
+  const diffText = readString(asRecord(entry.payload), 'diff') || entry.output
+  if (!diffText) {
+    return []
+  }
+
+  return parseUnifiedDiffPayloads(diffText).map((diff) => ({
+    kind: 'diff',
+    id: '',
+    at: entry.createdAt,
+    diff: {
+      ...diff,
+      entryId: entry.id,
+    },
+  }))
 }

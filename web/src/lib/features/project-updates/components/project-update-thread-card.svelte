@@ -1,7 +1,9 @@
+<!-- eslint-disable max-lines -->
 <script lang="ts">
   import { cn, formatRelativeTime } from '$lib/utils'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
+  import * as Select from '$ui/select'
   import { AlertTriangle, CircleCheck, CircleX, Pencil, Send, Trash2, X } from '@lucide/svelte'
   import { isProjectUpdateEdited, projectUpdateEditedLabel } from '../metadata'
   import { projectUpdateStatusLabel } from '../status'
@@ -68,30 +70,17 @@
     value: ProjectUpdateStatus
     label: string
     icon: typeof CircleCheck
-    activeClass: string
+    textClass: string
   }> = [
-    {
-      value: 'on_track',
-      label: 'On track',
-      icon: CircleCheck,
-      activeClass:
-        'border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300',
-    },
-    {
-      value: 'at_risk',
-      label: 'At risk',
-      icon: AlertTriangle,
-      activeClass:
-        'border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-300',
-    },
-    {
-      value: 'off_track',
-      label: 'Off track',
-      icon: CircleX,
-      activeClass:
-        'border-rose-400 bg-rose-50 text-rose-700 dark:border-rose-600 dark:bg-rose-950/40 dark:text-rose-300',
-    },
+    { value: 'on_track', label: 'On track', icon: CircleCheck, textClass: 'text-emerald-600' },
+    { value: 'at_risk', label: 'At risk', icon: AlertTriangle, textClass: 'text-amber-600' },
+    { value: 'off_track', label: 'Off track', icon: CircleX, textClass: 'text-rose-600' },
   ]
+
+  const currentEditStatusOption = $derived(
+    editStatusOptions.find((o) => o.value === editingStatus) ?? editStatusOptions[0],
+  )
+  const CurrentEditStatusIcon = $derived(currentEditStatusOption.icon)
 
   $effect(() => {
     editingStatus = thread.status
@@ -160,25 +149,34 @@
 
 {#if editingThread}
   <div class="border-border rounded-xl border px-3 py-2.5">
-    <div class="flex items-center gap-1 pb-1.5">
-      {#each editStatusOptions as opt (opt.value)}
-        {@const Icon = opt.icon}
-        <button
-          type="button"
-          class={cn(
-            'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors',
-            editingStatus === opt.value
-              ? opt.activeClass
-              : 'text-muted-foreground hover:bg-muted border-transparent',
-          )}
-          onclick={() => (editingStatus = opt.value)}
-        >
-          <Icon class="size-3" />
-          {opt.label}
-        </button>
-      {/each}
-    </div>
     <div class="flex items-center gap-2">
+      <Select.Root
+        type="single"
+        value={editingStatus}
+        onValueChange={(value) => {
+          if (value) editingStatus = value as ProjectUpdateStatus
+        }}
+      >
+        <Select.Trigger
+          size="sm"
+          class={cn(
+            'w-auto shrink-0 gap-1 border-none px-2 text-xs font-medium shadow-none',
+            currentEditStatusOption.textClass,
+          )}
+        >
+          <CurrentEditStatusIcon class="size-3" />
+          {currentEditStatusOption.label}
+        </Select.Trigger>
+        <Select.Content>
+          {#each editStatusOptions as opt (opt.value)}
+            {@const Icon = opt.icon}
+            <Select.Item value={opt.value}>
+              <Icon class={cn('size-3', opt.textClass)} />
+              {opt.label}
+            </Select.Item>
+          {/each}
+        </Select.Content>
+      </Select.Root>
       <Input
         bind:value={editingTitle}
         class="h-8 flex-1 border-none bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
@@ -209,15 +207,50 @@
     )}
   >
     <div class="flex items-start gap-2.5">
-      <ThreadStatusIcon class={cn('mt-0.5 size-4 shrink-0', threadStatusCfg.dotClass)} />
       <div class="min-w-0 flex-1">
-        <div class="flex items-baseline gap-2">
+        <div class="flex items-center gap-2">
           <span class={cn('text-sm font-medium', thread.isDeleted && 'line-through')}>
             {thread.title}
           </span>
-          <span class={cn('shrink-0 text-[10px] font-medium', threadStatusCfg.textClass)}>
-            {projectUpdateStatusLabel(thread.status)}
-          </span>
+          {#if !thread.isDeleted}
+            <Select.Root
+              type="single"
+              value={thread.status}
+              onValueChange={(value) => {
+                if (value && value !== thread.status) {
+                  void onUpdateThread?.(thread.id, {
+                    status: value as ProjectUpdateStatus,
+                    title: thread.title,
+                    body: thread.title,
+                  })
+                }
+              }}
+            >
+              <Select.Trigger
+                size="sm"
+                class={cn(
+                  'h-5 w-auto shrink-0 gap-0.5 border-none px-1.5 text-[10px] font-medium shadow-none',
+                  threadStatusCfg.textClass,
+                )}
+              >
+                <ThreadStatusIcon class={cn('size-3', threadStatusCfg.dotClass)} />
+                {projectUpdateStatusLabel(thread.status)}
+              </Select.Trigger>
+              <Select.Content>
+                {#each editStatusOptions as opt (opt.value)}
+                  {@const Icon = opt.icon}
+                  <Select.Item value={opt.value}>
+                    <Icon class={cn('size-3', opt.textClass)} />
+                    {opt.label}
+                  </Select.Item>
+                {/each}
+              </Select.Content>
+            </Select.Root>
+          {:else}
+            <span class={cn('shrink-0 text-[10px] font-medium', threadStatusCfg.textClass)}>
+              {projectUpdateStatusLabel(thread.status)}
+            </span>
+          {/if}
         </div>
         <div class="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px]">
           <span>{thread.createdBy}</span>

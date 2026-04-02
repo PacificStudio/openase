@@ -723,8 +723,8 @@ func TestRuntimeRunnerHelperCoverage(t *testing.T) {
 	if stepStatus, _, ok := agentStepFromOutput(&agentOutputEvent{Stream: "command"}, "run tests"); !ok || stepStatus != "running_command" {
 		t.Fatalf("agentStepFromOutput(command) = %q, %t", stepStatus, ok)
 	}
-	if stepStatus, _, ok := agentStepFromOutput(&agentOutputEvent{Stream: "assistant"}, "reply"); !ok || stepStatus != "responding" {
-		t.Fatalf("agentStepFromOutput(assistant) = %q, %t", stepStatus, ok)
+	if _, _, ok := agentStepFromOutput(&agentOutputEvent{Stream: "assistant"}, "reply"); ok {
+		t.Fatal("agentStepFromOutput(assistant) expected false")
 	}
 	if _, _, ok := agentStepFromOutput(&agentOutputEvent{Stream: "unknown"}, "noop"); ok {
 		t.Fatal("agentStepFromOutput(unknown) expected false")

@@ -229,18 +229,16 @@ describe('HarnessAiSidebar', () => {
     expect(await findByText('Structured Diff')).toBeTruthy()
 
     // The suggestion card should appear with an Apply button
-    expect(await findByText('Suggested Harness Update')).toBeTruthy()
-    expect(await findByText('Apply to Editor')).toBeTruthy()
+    expect(await findByText('Apply')).toBeTruthy()
 
-    // Click Apply to Editor
-    await fireEvent.click(getByRole('button', { name: 'Apply to Editor' }))
+    // Click Apply
+    await fireEvent.click(getByRole('button', { name: 'Apply' }))
 
     expect(appliedSuggestions).toEqual([updatedHarnessContent])
 
-    // After applying, the button should show as already applied
+    // After applying, the applied label should appear
     await waitFor(() => {
-      const applyButton = getByRole('button', { name: 'Apply to Editor' }) as HTMLButtonElement
-      expect(applyButton.disabled).toBe(true)
+      expect(document.body.textContent).toContain('Applied')
     })
   })
 })

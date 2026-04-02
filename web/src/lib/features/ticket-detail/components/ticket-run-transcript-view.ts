@@ -35,6 +35,10 @@ export function blockLabel(block: TicketRunTranscriptBlock) {
       return 'Terminal'
     case 'tool_call':
       return 'Tool'
+    case 'task_status':
+      return 'Status'
+    case 'diff':
+      return 'Diff'
     case 'step':
       return 'Step'
     case 'phase':
@@ -53,6 +57,12 @@ export function blockCardClass(block: TicketRunTranscriptBlock) {
     case 'terminal_output':
       return 'border-slate-400/20 bg-slate-950 text-slate-50'
     case 'tool_call':
+      return 'border-sky-500/20 bg-sky-500/5'
+    case 'task_status':
+      return block.statusType === 'reasoning_updated'
+        ? 'border-amber-500/20 bg-amber-500/5'
+        : 'border-sky-500/20 bg-sky-500/5'
+    case 'diff':
       return 'border-sky-500/20 bg-sky-500/5'
     case 'interrupt':
       return 'border-amber-400/30 bg-amber-50/80'
@@ -78,6 +88,10 @@ export function blockMeta(block: TicketRunTranscriptBlock) {
       return block.stepStatus
     case 'tool_call':
       return block.toolName
+    case 'task_status':
+      return block.statusType.replace(/_/g, ' ')
+    case 'diff':
+      return block.diff.file
     case 'interrupt':
       return block.interruptKind.replace(/_/g, ' ')
     case 'result':
@@ -92,6 +106,8 @@ export function blockTimestamp(block: TicketRunTranscriptBlock) {
     block.kind === 'phase' ||
     block.kind === 'step' ||
     block.kind === 'tool_call' ||
+    block.kind === 'task_status' ||
+    block.kind === 'diff' ||
     block.kind === 'interrupt'
   ) {
     return formatRelativeTime(block.at)

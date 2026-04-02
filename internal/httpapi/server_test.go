@@ -448,6 +448,94 @@ func TestProjectEventBusFiltersAndMultiplexesTopics(t *testing.T) {
 	}
 }
 
+func TestProjectEventBusEmitsCoalescedDashboardRefreshEvents(t *testing.T) {
+	projectID := uuid.New()
+
+	bus := eventinfra.NewChannelBus()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		bus,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	previousDebounce := projectDashboardRefreshDebounceInterval
+	projectDashboardRefreshDebounceInterval = 10 * time.Millisecond
+	defer func() {
+		projectDashboardRefreshDebounceInterval = previousDebounce
+	}()
+
+	response, cancel := openSSERequest(
+		t,
+		testServer.URL+"/api/v1/projects/"+projectID.String()+"/events/stream",
+	)
+	t.Cleanup(func() {
+		if err := response.Body.Close(); err != nil {
+			t.Errorf("close project event bus response body: %v", err)
+		}
+	})
+
+	publishTestEvent(
+		t,
+		bus,
+		ticketStreamTopic,
+		provider.MustParseEventType("ticket.updated"),
+		map[string]any{
+			"project_id": projectID.String(),
+			"ticket":     map[string]any{"id": uuid.NewString()},
+		},
+	)
+	publishTestEvent(
+		t,
+		bus,
+		agentStreamTopic,
+		provider.MustParseEventType("agent.ready"),
+		map[string]any{
+			"agent": map[string]any{
+				"id":         uuid.NewString(),
+				"project_id": projectID.String(),
+			},
+		},
+	)
+	publishTestEvent(
+		t,
+		bus,
+		activityStreamTopic,
+		provider.MustParseEventType("ticket.updated"),
+		map[string]any{
+			"event": map[string]any{
+				"id":         uuid.NewString(),
+				"project_id": projectID.String(),
+				"event_type": "ticket.updated",
+				"message":    "refresh dashboard",
+				"metadata":   map[string]any{},
+				"created_at": time.Now().UTC().Format(time.RFC3339),
+			},
+		},
+	)
+
+	body := readSSEBody(t, response, cancel)
+
+	if got := strings.Count(body, "event: project.dashboard.refresh\n"); got != 1 {
+		t.Fatalf("expected one coalesced dashboard refresh frame, got %d in %q", got, body)
+	}
+	for _, expected := range []string{
+		`"topic":"project.dashboard.events"`,
+		`"dirty_sections":["agents","tickets","activity","hr_advisor","organization_summary"]`,
+	} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("expected dashboard refresh body to contain %q, got %q", expected, body)
+		}
+	}
+}
+
 func TestProjectPassiveStreamRoutesStayOnCanonicalBus(t *testing.T) {
 	server := NewServer(
 		config.ServerConfig{Port: 40023},

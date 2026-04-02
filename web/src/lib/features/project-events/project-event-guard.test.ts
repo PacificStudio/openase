@@ -6,9 +6,9 @@ const libRoot = path.resolve(import.meta.dirname, '../..')
 
 const allowedConnectEventStreamImports = new Set([
   path.join(libRoot, 'api/sse.ts'),
+  path.join(libRoot, 'features/org-events/org-event-bus.ts'),
   path.join(libRoot, 'features/project-events/project-event-bus.ts'),
   path.join(libRoot, 'features/agents/components/agents-page-streams.ts'),
-  path.join(libRoot, 'features/machines/components/machines-page-streams.ts'),
 ])
 
 const allowedProjectStreamSources = new Set([

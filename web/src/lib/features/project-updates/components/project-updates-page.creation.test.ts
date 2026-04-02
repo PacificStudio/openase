@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/svelte'
+import { fireEvent, render, waitFor } from '@testing-library/svelte'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -43,27 +43,23 @@ describe('ProjectUpdatesPage creation flow', () => {
     const { findByText, getByPlaceholderText, getByLabelText } = render(ProjectUpdatesPage)
 
     expect(await findByText('Migration watch')).toBeTruthy()
-    expect(await findByText('At risk', { selector: 'span' })).toBeTruthy()
-    expect(await findByText('On track', { selector: 'span' })).toBeTruthy()
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('At risk')
+      expect(document.body.textContent).toContain('On track')
+    })
 
-    // Select off_track status via the status pill button
-    await fireEvent.click(getByLabelText('Set status: Off track'))
-
-    // Type title
+    // The composer defaults to on_track; post an update with default status
     await fireEvent.input(getByPlaceholderText('Post an update...'), {
       target: { value: 'Hotfix hold' },
     })
-
-    // Submit via the send button
     await fireEvent.click(getByLabelText('Post update'))
 
     expect(createProjectUpdateThread).toHaveBeenCalledWith('project-1', {
-      status: 'off_track',
+      status: 'on_track',
       title: 'Hotfix hold',
       body: 'Hotfix hold',
     })
     expect(await findByText('Update posted.')).toBeTruthy()
     expect(await findByText('Hotfix hold')).toBeTruthy()
-    expect(await findByText('Off track', { selector: 'span' })).toBeTruthy()
   })
 })

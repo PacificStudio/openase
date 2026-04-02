@@ -7,6 +7,16 @@ export type ProjectEventEnvelope = {
   publishedAt: string
 }
 
+export const projectDashboardRefreshTopic = 'project.dashboard.events'
+export const projectDashboardRefreshType = 'project.dashboard.refresh'
+
+export type ProjectDashboardRefreshSection =
+  | 'agents'
+  | 'tickets'
+  | 'activity'
+  | 'hr_advisor'
+  | 'organization_summary'
+
 type ProjectEventListener = (event: ProjectEventEnvelope) => void
 type ProjectEventStateListener = (state: StreamConnectionState) => void
 
@@ -79,6 +89,56 @@ export function isProjectUpdateEvent(event: Pick<ProjectEventEnvelope, 'type' | 
 
 export function isTicketRunProjectEvent(event: Pick<ProjectEventEnvelope, 'topic'>) {
   return event.topic === 'ticket.run.events'
+}
+
+export function isProjectDashboardRefreshEvent(
+  event: Pick<ProjectEventEnvelope, 'topic' | 'type'>,
+) {
+  return event.topic === projectDashboardRefreshTopic && event.type === projectDashboardRefreshType
+}
+
+export function readProjectDashboardRefreshSections(
+  event: Pick<ProjectEventEnvelope, 'payload'>,
+): ProjectDashboardRefreshSection[] {
+  const sections = readNestedArray(event.payload, ['dirty_sections'])
+  if (!sections) {
+    return []
+  }
+
+  const allowed = new Set<ProjectDashboardRefreshSection>([
+    'agents',
+    'tickets',
+    'activity',
+    'hr_advisor',
+    'organization_summary',
+  ])
+  const deduped = new Set<ProjectDashboardRefreshSection>()
+  for (const section of sections) {
+    if (allowed.has(section as ProjectDashboardRefreshSection)) {
+      deduped.add(section as ProjectDashboardRefreshSection)
+    }
+  }
+  return [...deduped]
+}
+
+export function projectEventAffectsTicketDetailReferences(
+  event: Pick<ProjectEventEnvelope, 'topic' | 'type' | 'payload'>,
+  ticketId: string,
+) {
+  if (event.topic === 'ticket.events') {
+    return readNestedString(event.payload, ['ticket', 'id']) !== ticketId
+  }
+
+  if (event.topic !== 'activity.events') {
+    return false
+  }
+
+  const eventType = readNestedString(event.payload, ['event', 'event_type']) ?? event.type
+  return (
+    eventType.startsWith('ticket_status_') ||
+    eventType.startsWith('project_repo_') ||
+    eventType === 'ticket.created'
+  )
 }
 
 export function projectEventReferencesTicket(
@@ -201,4 +261,18 @@ function readNestedString(value: unknown, path: string[]) {
   }
 
   return typeof current === 'string' ? current : null
+}
+
+function readNestedArray(value: unknown, path: string[]) {
+  let current: unknown = value
+  for (const key of path) {
+    if (!current || typeof current !== 'object' || !(key in current)) {
+      return null
+    }
+    current = (current as Record<string, unknown>)[key]
+  }
+
+  return Array.isArray(current)
+    ? current.filter((item): item is string => typeof item === 'string')
+    : null
 }

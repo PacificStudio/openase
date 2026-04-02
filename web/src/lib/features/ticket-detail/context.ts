@@ -24,29 +24,69 @@ export type TicketDetailContext = {
   repoOptions: TicketRepoOption[]
 }
 
+export type TicketDetailLiveContext = Pick<TicketDetailContext, 'ticket' | 'timeline' | 'hooks'>
+
+export type TicketDetailProjectReferenceData = {
+  statusLookup: Array<{
+    id: string
+    stage: string
+    color: string
+  }>
+  statuses: TicketStatusOption[]
+  dependencyCandidatesByTicketId: TicketReferenceOption[]
+  repoOptions: TicketRepoOption[]
+}
+
 export async function fetchTicketDetailContext(projectId: string, ticketId: string) {
-  const payloads = await Promise.all([
+  const [detailPayload, referenceData] = await Promise.all([
     getTicketDetail(projectId, ticketId),
+    fetchTicketDetailProjectReferenceData(projectId),
+  ])
+
+  return buildTicketDetailContext(detailPayload, referenceData, ticketId)
+}
+
+export function buildTicketDetailContext(
+  detailPayload: TicketDetailPayload,
+  referenceData: TicketDetailProjectReferenceData,
+  currentTicketId: string,
+): TicketDetailContext {
+  return {
+    ...buildTicketDetailLiveContext(detailPayload, referenceData.statusLookup),
+    ...selectTicketDetailReferenceData(referenceData, currentTicketId),
+  }
+}
+
+export async function fetchTicketDetailProjectReferenceData(projectId: string) {
+  const payloads = await Promise.all([
     listStatuses(projectId),
     listProjectRepos(projectId),
     listTickets(projectId),
   ])
 
-  return buildTicketDetailContext(...payloads, ticketId)
+  return buildTicketDetailProjectReferenceData(...payloads)
 }
 
-export function buildTicketDetailContext(
-  detailPayload: TicketDetailPayload,
+export async function fetchTicketDetailLiveContext(
+  projectId: string,
+  ticketId: string,
+  referenceData: TicketDetailProjectReferenceData,
+) {
+  const detailPayload = await getTicketDetail(projectId, ticketId)
+  return buildTicketDetailLiveContext(detailPayload, referenceData.statusLookup)
+}
+
+export function buildTicketDetailProjectReferenceData(
   statusPayload: StatusPayload,
   repoPayload: ProjectRepoPayload,
   ticketPayload: TicketPayload,
-  currentTicketId: string,
-): TicketDetailContext {
-  const statusMap = new Map(statusPayload.statuses.map((status) => [status.id, status]))
-  const detailTicket = detailPayload.ticket
-  const status = statusMap.get(detailTicket.status_id)
-
+): TicketDetailProjectReferenceData {
   return {
+    statusLookup: statusPayload.statuses.map((item) => ({
+      id: item.id,
+      stage: item.stage,
+      color: item.color || '#94a3b8',
+    })),
     statuses: statusPayload.statuses
       .slice()
       .sort((left, right) => left.position - right.position)
@@ -55,8 +95,7 @@ export function buildTicketDetailContext(
         name: item.name,
         color: item.color || '#94a3b8',
       })),
-    dependencyCandidates: ticketPayload.tickets
-      .filter((item) => item.id !== currentTicketId)
+    dependencyCandidatesByTicketId: ticketPayload.tickets
       .map((item) => ({
         id: item.id,
         identifier: item.identifier,
@@ -70,6 +109,31 @@ export function buildTicketDetailContext(
         defaultBranch: item.default_branch,
       }))
       .sort((left, right) => left.name.localeCompare(right.name)),
+  }
+}
+
+export function selectTicketDetailReferenceData(
+  referenceData: TicketDetailProjectReferenceData,
+  currentTicketId: string,
+) {
+  return {
+    statuses: referenceData.statuses,
+    dependencyCandidates: referenceData.dependencyCandidatesByTicketId.filter(
+      (item) => item.id !== currentTicketId,
+    ),
+    repoOptions: referenceData.repoOptions,
+  }
+}
+
+export function buildTicketDetailLiveContext(
+  detailPayload: TicketDetailPayload,
+  referenceStatuses: TicketDetailProjectReferenceData['statusLookup'],
+): TicketDetailLiveContext {
+  const statusMap = new Map(referenceStatuses.map((status) => [status.id, status]))
+  const detailTicket = detailPayload.ticket
+  const status = statusMap.get(detailTicket.status_id)
+
+  return {
     ticket: {
       id: detailTicket.id,
       identifier: detailTicket.identifier,

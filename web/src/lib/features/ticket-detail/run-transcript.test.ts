@@ -73,8 +73,8 @@ describe('ticket run transcript reducer', () => {
           provider: 'codex',
           kind: 'tool_call_started',
           stream: 'tool',
-          output: 'exec_command',
-          payload: { tool: 'exec_command' },
+          output: 'functions.exec_command',
+          payload: { tool: 'functions.exec_command', arguments: { cmd: 'pnpm vitest run' } },
           createdAt: '2026-04-01T10:05:37Z',
         },
         {
@@ -85,8 +85,41 @@ describe('ticket run transcript reducer', () => {
           kind: 'command_output_delta',
           stream: 'command',
           output: 'ok   ./internal/httpapi\n',
-          payload: { item_id: 'command-1' },
+          payload: { item_id: 'command-1', command: 'pnpm vitest run' },
           createdAt: '2026-04-01T10:05:38Z',
+        },
+        {
+          id: 'trace-4',
+          agentRunId: latestRun.id,
+          sequence: 4,
+          provider: 'codex',
+          kind: 'thread_status',
+          stream: 'system',
+          output: 'active · waitingOnUserInput',
+          payload: { status: 'active', active_flags: ['waitingOnUserInput'] },
+          createdAt: '2026-04-01T10:05:39Z',
+        },
+        {
+          id: 'trace-5',
+          agentRunId: latestRun.id,
+          sequence: 5,
+          provider: 'codex',
+          kind: 'reasoning_updated',
+          stream: 'reasoning',
+          output: 'Inspecting the reducer.',
+          payload: { kind: 'text_delta', content_index: 0 },
+          createdAt: '2026-04-01T10:05:40Z',
+        },
+        {
+          id: 'trace-6',
+          agentRunId: latestRun.id,
+          sequence: 6,
+          provider: 'codex',
+          kind: 'turn_diff_updated',
+          stream: 'diff',
+          output: ['diff --git a/app.ts b/app.ts', '@@ -1 +1 @@', '-old', '+new'].join('\n'),
+          payload: {},
+          createdAt: '2026-04-01T10:05:41Z',
         },
       ],
     }
@@ -116,7 +149,8 @@ describe('ticket run transcript reducer', () => {
     expect(hydrated.blocks).toContainEqual({
       kind: 'tool_call',
       id: 'tool:trace-2',
-      toolName: 'exec_command',
+      toolName: 'functions.exec_command',
+      arguments: { cmd: 'pnpm vitest run' },
       summary: undefined,
       at: '2026-04-01T10:05:37Z',
     })
@@ -127,8 +161,51 @@ describe('ticket run transcript reducer', () => {
       ),
     ).toMatchObject({
       id: 'terminal_output:command-1',
+      command: 'pnpm vitest run',
+      stream: 'command',
       text: 'ok   ./internal/httpapi\n',
       streaming: true,
+    })
+    expect(hydrated.blocks).toContainEqual({
+      kind: 'task_status',
+      id: 'status:trace-4',
+      statusType: 'thread_status',
+      title: 'Codex thread status',
+      detail: 'active · waitingOnUserInput',
+      raw: { status: 'active', active_flags: ['waitingOnUserInput'] },
+      at: '2026-04-01T10:05:39Z',
+    })
+    expect(hydrated.blocks).toContainEqual({
+      kind: 'task_status',
+      id: 'reasoning:trace-5',
+      statusType: 'reasoning_updated',
+      title: 'Reasoning update',
+      detail: 'Inspecting the reducer.',
+      raw: { kind: 'text_delta', content_index: 0 },
+      at: '2026-04-01T10:05:40Z',
+    })
+    expect(
+      hydrated.blocks.find(
+        (block): block is Extract<TicketRunTranscriptBlock, { kind: 'diff' }> =>
+          block.kind === 'diff',
+      ),
+    ).toMatchObject({
+      id: 'diff:trace-6',
+      diff: {
+        file: 'app.ts',
+        hunks: [
+          {
+            oldStart: 1,
+            oldLines: 1,
+            newStart: 1,
+            newLines: 1,
+            lines: [
+              { op: 'remove', text: 'old' },
+              { op: 'add', text: 'new' },
+            ],
+          },
+        ],
+      },
     })
   })
 

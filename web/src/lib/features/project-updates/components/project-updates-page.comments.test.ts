@@ -126,7 +126,7 @@ describe('ProjectUpdatesPage comments and streaming', () => {
     expect(await findByText('Comment deleted.')).toBeTruthy()
     expect(await findByText('This comment was deleted.')).toBeTruthy()
 
-    const onEvent = subscribeProjectEvents.mock.calls[0]?.[1] as StreamEventHandler | undefined
+    const onEvent = subscribeProjectEvents.mock.calls.at(-1)?.[1] as StreamEventHandler | undefined
     onEvent?.({
       topic: 'activity.events',
       type: 'project_update_thread.status_changed',
@@ -139,6 +139,6 @@ describe('ProjectUpdatesPage comments and streaming', () => {
     })
     // The title changed to reflect the SSE-triggered refresh
     expect(await findByText('Sprint 2 rollout (updated)')).toBeTruthy()
-    expect(await findByText('Off track', { selector: 'span' })).toBeTruthy()
+    expect(await findByText('Off track')).toBeTruthy()
   })
 })

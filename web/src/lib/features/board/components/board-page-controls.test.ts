@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/svelte'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type {
   ActivityPayload,
@@ -10,8 +10,13 @@ import type {
   TicketPayload,
   WorkflowListPayload,
 } from '$lib/api/contracts'
-import { TicketsPage } from '$lib/features/tickets'
+import {
+  TicketsPage,
+  markProjectBoardCacheDirty,
+  resetTicketBoardToolbarStoreForTests,
+} from '$lib/features/tickets'
 import { orderedStatusPayloadFixture } from '$lib/features/board/test-fixtures'
+import { resetProjectBoardCacheForTests } from '$lib/features/tickets'
 import { appStore } from '$lib/stores/app.svelte'
 import { ticketViewStore } from '$lib/stores/ticket-view.svelte'
 
@@ -126,13 +131,106 @@ const workflowsFixture: WorkflowListPayload = {
 const agentsFixture: AgentPayload = { agents: [] }
 const activityFixture: ActivityPayload = { events: [] }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+  return { promise, resolve, reject }
+}
+
 describe('TicketsPage board controls', () => {
+  beforeEach(() => {
+    ticketViewStore.setMode('board')
+  })
+
   afterEach(() => {
     cleanup()
+    resetProjectBoardCacheForTests()
+    resetTicketBoardToolbarStoreForTests()
     appStore.currentProject = null
     ticketViewStore.setMode('board')
     localStorage.clear()
     vi.clearAllMocks()
+  })
+
+  it('reuses the cached board snapshot when remounting the tickets page in the same project', async () => {
+    appStore.currentProject = projectFixture
+
+    listStatuses.mockResolvedValue(statusesFixture)
+    listTickets.mockResolvedValue(cloneValue(ticketsFixture))
+    listWorkflows.mockResolvedValue(workflowsFixture)
+    listAgents.mockResolvedValue(agentsFixture)
+    listActivity.mockResolvedValue(activityFixture)
+
+    const firstRender = render(TicketsPage)
+    expect(await firstRender.findByText('ASE-202')).toBeTruthy()
+
+    expect(listStatuses).toHaveBeenCalledTimes(1)
+    expect(listTickets).toHaveBeenCalledTimes(1)
+    expect(listWorkflows).toHaveBeenCalledTimes(1)
+    expect(listAgents).toHaveBeenCalledTimes(1)
+    expect(listActivity).toHaveBeenCalledTimes(1)
+
+    firstRender.unmount()
+
+    const secondRender = render(TicketsPage)
+    expect(await secondRender.findByText('ASE-202')).toBeTruthy()
+
+    expect(listStatuses).toHaveBeenCalledTimes(1)
+    expect(listTickets).toHaveBeenCalledTimes(1)
+    expect(listWorkflows).toHaveBeenCalledTimes(1)
+    expect(listAgents).toHaveBeenCalledTimes(1)
+    expect(listActivity).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the cached board immediately and refreshes in the background once cache is dirty', async () => {
+    appStore.currentProject = projectFixture
+
+    listStatuses.mockResolvedValue(statusesFixture)
+    listTickets.mockResolvedValue(cloneValue(ticketsFixture))
+    listWorkflows.mockResolvedValue(workflowsFixture)
+    listAgents.mockResolvedValue(agentsFixture)
+    listActivity.mockResolvedValue(activityFixture)
+
+    const firstRender = render(TicketsPage)
+    expect(await firstRender.findByText('ASE-202')).toBeTruthy()
+    firstRender.unmount()
+
+    markProjectBoardCacheDirty(projectFixture.id)
+
+    const deferredStatuses = createDeferred<StatusPayload>()
+    const deferredTickets = createDeferred<TicketPayload>()
+    const deferredWorkflows = createDeferred<WorkflowListPayload>()
+    const deferredAgents = createDeferred<AgentPayload>()
+    const deferredActivity = createDeferred<ActivityPayload>()
+
+    listStatuses.mockImplementationOnce(() => deferredStatuses.promise)
+    listTickets.mockImplementationOnce(() => deferredTickets.promise)
+    listWorkflows.mockImplementationOnce(() => deferredWorkflows.promise)
+    listAgents.mockImplementationOnce(() => deferredAgents.promise)
+    listActivity.mockImplementationOnce(() => deferredActivity.promise)
+
+    const secondRender = render(TicketsPage)
+    expect(await secondRender.findByText('ASE-202')).toBeTruthy()
+
+    expect(listStatuses).toHaveBeenCalledTimes(2)
+    expect(listTickets).toHaveBeenCalledTimes(2)
+    expect(listWorkflows).toHaveBeenCalledTimes(2)
+    expect(listAgents).toHaveBeenCalledTimes(2)
+    expect(listActivity).toHaveBeenCalledTimes(2)
+
+    deferredStatuses.resolve(statusesFixture)
+    deferredTickets.resolve(cloneValue(ticketsFixture))
+    deferredWorkflows.resolve(workflowsFixture)
+    deferredAgents.resolve(agentsFixture)
+    deferredActivity.resolve(activityFixture)
+
+    await waitFor(() => {
+      expect(secondRender.getByText('ASE-202')).toBeTruthy()
+    })
   })
 
   it('shows tickets in their status columns and updates status and priority from the board card controls', async () => {
@@ -182,6 +280,7 @@ describe('TicketsPage board controls', () => {
     connectEventStream.mockReturnValue(() => {})
 
     const { findByRole, findByText, getByRole } = render(TicketsPage)
+    await showEmptyColumns(findByRole)
 
     expect(await findByText('ASE-201')).toBeTruthy()
     expect(
@@ -320,6 +419,7 @@ describe('TicketsPage board controls', () => {
     connectEventStream.mockReturnValue(() => {})
 
     const { findByRole } = render(TicketsPage)
+    await showEmptyColumns(findByRole)
 
     await assertColumnMoveState(findByRole, 'Inbox', {
       leftDisabled: true,
@@ -391,6 +491,7 @@ describe('TicketsPage board controls', () => {
     connectEventStream.mockReturnValue(() => {})
 
     const { findByRole } = render(TicketsPage)
+    await showEmptyColumns(findByRole)
 
     await openColumnActionMenu(findByRole, 'Todo')
     expect(await findByRole('menuitem', { name: 'Set concurrency' })).toBeTruthy()
@@ -445,6 +546,7 @@ describe('TicketsPage board controls', () => {
     const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('3')
 
     const { findByRole } = render(TicketsPage)
+    await showEmptyColumns(findByRole)
 
     await openColumnActionMenu(findByRole, 'Todo')
     await fireEvent.click(await findByRole('menuitem', { name: 'Set concurrency' }))
@@ -496,6 +598,7 @@ describe('TicketsPage board controls', () => {
     connectEventStream.mockReturnValue(() => {})
 
     const { findByRole } = render(TicketsPage)
+    await showEmptyColumns(findByRole)
 
     const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('0')
     await openColumnActionMenu(findByRole, 'Todo')
@@ -592,6 +695,7 @@ describe('TicketsPage board controls', () => {
     connectEventStream.mockReturnValue(() => {})
 
     const { findByRole } = render(TicketsPage)
+    await showEmptyColumns(findByRole)
 
     await openColumnActionMenu(findByRole, 'Todo')
     await fireEvent.click(await findByRole('menuitem', { name: 'Move right' }))
@@ -680,6 +784,7 @@ describe('TicketsPage board controls', () => {
     connectEventStream.mockReturnValue(() => {})
 
     const { findByRole } = render(TicketsPage)
+    await showEmptyColumns(findByRole)
 
     await openColumnActionMenu(findByRole, 'Doing')
     await fireEvent.click(await findByRole('menuitem', { name: 'Move left' }))
@@ -723,6 +828,12 @@ async function assertColumnMoveState(
   expect(moveLeft.hasAttribute('data-disabled')).toBe(expected.leftDisabled)
   expect(moveRight.hasAttribute('data-disabled')).toBe(expected.rightDisabled)
   await fireEvent.keyDown(document.body, { key: 'Escape' })
+}
+
+async function showEmptyColumns(
+  findByRole: (role: string, options?: Record<string, unknown>) => Promise<HTMLElement>,
+) {
+  await fireEvent.click(await findByRole('button', { name: 'Hide empty' }))
 }
 
 function listColumnNames() {

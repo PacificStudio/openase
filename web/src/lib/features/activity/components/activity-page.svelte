@@ -4,6 +4,11 @@
   import { listActivity, listTickets } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
   import { subscribeProjectEvents } from '$lib/features/project-events'
+  import {
+    markProjectActivityCacheDirty,
+    readProjectActivityCache,
+    writeProjectActivityCache,
+  } from '../activity-cache'
   import { Input } from '$ui/input'
   import { Skeleton } from '$ui/skeleton'
   import * as Select from '$ui/select'
@@ -18,6 +23,10 @@
   let searchQuery = $state('')
   let selectedType = $state<string>('all')
   let initialLoaded = $state(false)
+  let activeProjectId: string | null = null
+  let requestVersion = 0
+  let queuedReload = false
+  let reloadInFlight = false
 
   const filtered = $derived(
     entries.filter((e) => {
@@ -34,60 +43,111 @@
     }),
   )
 
-  $effect(() => {
-    const projectId = appStore.currentProject?.id
-    if (!projectId) {
-      entries = []
+  const isStaleLoad = (projectId: string, version: number) =>
+    activeProjectId !== projectId || version !== requestVersion
+
+  async function loadActivityEntries(projectId: string, showLoading: boolean) {
+    const version = ++requestVersion
+    if (showLoading) {
+      loading = true
+    }
+    error = ''
+
+    try {
+      const [activityPayload, ticketPayload] = await Promise.all([
+        listActivity(projectId, { limit: 100 }),
+        listTickets(projectId),
+      ])
+      if (isStaleLoad(projectId, version)) {
+        return
+      }
+
+      const ticketIdentifiers = new Map(
+        ticketPayload.tickets.map((ticket) => [ticket.id, ticket.identifier]),
+      )
+
+      const nextEntries = activityPayload.events.map((event) => ({
+        id: event.id,
+        eventType: event.event_type,
+        message: event.message,
+        timestamp: event.created_at,
+        ticketIdentifier: event.ticket_id
+          ? (ticketIdentifiers.get(event.ticket_id) ?? event.ticket_id)
+          : undefined,
+        agentName: agentNameFromMetadata(event.metadata),
+      }))
+
+      entries = nextEntries
+      initialLoaded = true
+      writeProjectActivityCache(projectId, nextEntries)
+    } catch (caughtError) {
+      if (isStaleLoad(projectId, version)) return
+      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load activity.'
+    } finally {
+      if (!isStaleLoad(projectId, version)) {
+        loading = false
+      }
+    }
+  }
+
+  const requestReload = (projectId: string) => {
+    queuedReload = true
+    void drainReloadQueue(projectId)
+  }
+
+  async function drainReloadQueue(projectId: string) {
+    if (!queuedReload || reloadInFlight || activeProjectId !== projectId) {
       return
     }
 
-    let cancelled = false
-    initialLoaded = false
-
-    const load = async (showLoading: boolean) => {
-      if (showLoading) loading = true
-      error = ''
-
-      try {
-        const [activityPayload, ticketPayload] = await Promise.all([
-          listActivity(projectId, { limit: 100 }),
-          listTickets(projectId),
-        ])
-        if (cancelled) return
-
-        const ticketIdentifiers = new Map(
-          ticketPayload.tickets.map((ticket) => [ticket.id, ticket.identifier]),
-        )
-
-        entries = activityPayload.events.map((event) => ({
-          id: event.id,
-          eventType: event.event_type,
-          message: event.message,
-          timestamp: event.created_at,
-          ticketIdentifier: event.ticket_id
-            ? (ticketIdentifiers.get(event.ticket_id) ?? event.ticket_id)
-            : undefined,
-          agentName: agentNameFromMetadata(event.metadata),
-        }))
-        initialLoaded = true
-      } catch (caughtError) {
-        if (cancelled) return
-        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load activity.'
-      } finally {
-        if (!cancelled) {
-          loading = false
-        }
+    reloadInFlight = true
+    queuedReload = false
+    try {
+      await loadActivityEntries(projectId, false)
+    } finally {
+      reloadInFlight = false
+      if (queuedReload && activeProjectId === projectId) {
+        void drainReloadQueue(projectId)
       }
     }
+  }
 
-    void load(true)
+  $effect(() => {
+    const projectId = appStore.currentProject?.id
+    activeProjectId = projectId ?? null
+    queuedReload = false
+    reloadInFlight = false
+    if (!projectId) {
+      entries = []
+      initialLoaded = false
+      loading = false
+      error = ''
+      return
+    }
+
+    const cachedActivity = readProjectActivityCache(projectId)
+    if (cachedActivity) {
+      entries = cachedActivity.snapshot.entries
+      initialLoaded = true
+      loading = false
+      error = ''
+      if (cachedActivity.dirty) {
+        void loadActivityEntries(projectId, false)
+      }
+    } else {
+      initialLoaded = false
+      void loadActivityEntries(projectId, true)
+    }
 
     const disconnect = subscribeProjectEvents(projectId, () => {
-      void load(false)
+      markProjectActivityCacheDirty(projectId)
+      requestReload(projectId)
     })
 
     return () => {
-      cancelled = true
+      if (activeProjectId === projectId) {
+        activeProjectId = null
+      }
       disconnect()
     }
   })

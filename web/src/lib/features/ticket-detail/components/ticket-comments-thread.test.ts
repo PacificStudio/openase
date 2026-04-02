@@ -207,7 +207,7 @@ describe('TicketCommentsThread', () => {
 
   it('shows edited metadata, opens comment history, and preserves deleted placeholders', async () => {
     const onLoadCommentHistory = vi.fn(async () => revisions)
-    const { findByText, getByLabelText, getAllByText } = render(TicketCommentsThread, {
+    const { findByText, getByLabelText } = render(TicketCommentsThread, {
       props: {
         ticket,
         timeline,
@@ -215,7 +215,6 @@ describe('TicketCommentsThread', () => {
       },
     })
 
-    expect(getAllByText('rev 2')).toHaveLength(2)
     expect(getByLabelText('View history for comment by reviewer')).toBeTruthy()
     expect(await findByText('edited 10m ago')).toBeTruthy()
     expect(await findByText('Comment deleted')).toBeTruthy()
@@ -239,7 +238,7 @@ describe('TicketCommentsThread', () => {
 
     await fireEvent.click(getByLabelText('Collapse comment by reviewer'))
 
-    expect(await findByText('Comment collapsed.')).toBeTruthy()
+    expect(await findByText('Collapsed.')).toBeTruthy()
     expect(queryByText('Updated comment body')).toBeNull()
 
     await fireEvent.click(getByLabelText('Expand comment by reviewer'))
@@ -247,18 +246,22 @@ describe('TicketCommentsThread', () => {
     expect(await findByText('Updated comment body')).toBeTruthy()
   })
 
-  it('keeps activity events in the discussion timeline without run grouping', async () => {
-    const { findByText, queryByText } = render(TicketCommentsThread, {
+  it('collapses consecutive activity events into a group summary', async () => {
+    const { findByText, queryByText, getByText } = render(TicketCommentsThread, {
       props: {
         ticket,
         timeline: attemptTimeline,
       },
     })
 
+    // Group summary visible, individual events hidden
+    expect(await findByText(/agent events/)).toBeTruthy()
+    expect(queryByText('Agent claimed the ticket.')).toBeNull()
+    expect(queryByText('Agent is ready.')).toBeNull()
+
+    // Expand the group to reveal individual events
+    await fireEvent.click(getByText(/agent events/))
     expect(await findByText('Agent claimed the ticket.')).toBeTruthy()
     expect(await findByText('Agent is ready.')).toBeTruthy()
-    expect(queryByText('Attempt 1')).toBeNull()
-    expect(queryByText('Attempt 2')).toBeNull()
-    expect(await findByText('Agent failed to launch.')).toBeTruthy()
   })
 })

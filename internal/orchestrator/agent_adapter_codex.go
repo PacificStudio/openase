@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -192,6 +193,7 @@ func mapCodexAgentEvent(event codex.Event) (agentEvent, bool) {
 				TurnID:    event.ToolCall.TurnID,
 				CallID:    event.ToolCall.CallID,
 				Tool:      event.ToolCall.Tool,
+				Arguments: append(json.RawMessage(nil), event.ToolCall.Arguments...),
 			},
 		}, true
 	case codex.EventTypeApprovalRequested:
@@ -259,9 +261,50 @@ func mapCodexAgentEvent(event codex.Event) (agentEvent, bool) {
 				TurnID:   event.Output.TurnID,
 				ItemID:   event.Output.ItemID,
 				Stream:   event.Output.Stream,
+				Command:  event.Output.Command,
 				Text:     event.Output.Text,
 				Phase:    event.Output.Phase,
 				Snapshot: event.Output.Snapshot,
+			},
+		}, true
+	case codex.EventTypeThreadStatus:
+		if event.ThreadStatus == nil {
+			return agentEvent{}, false
+		}
+		return agentEvent{
+			Type: agentEventTypeThreadStatus,
+			Thread: &agentThreadStatusEvent{
+				ThreadID:    event.ThreadStatus.ThreadID,
+				Status:      event.ThreadStatus.Status,
+				ActiveFlags: append([]string(nil), event.ThreadStatus.ActiveFlags...),
+			},
+		}, true
+	case codex.EventTypeTurnDiffUpdated:
+		if event.Diff == nil {
+			return agentEvent{}, false
+		}
+		return agentEvent{
+			Type: agentEventTypeTurnDiffUpdated,
+			Diff: &agentTurnDiffEvent{
+				ThreadID: event.Diff.ThreadID,
+				TurnID:   event.Diff.TurnID,
+				Diff:     event.Diff.Diff,
+			},
+		}, true
+	case codex.EventTypeReasoningUpdated:
+		if event.Reasoning == nil {
+			return agentEvent{}, false
+		}
+		return agentEvent{
+			Type: agentEventTypeReasoningUpdated,
+			Reasoning: &agentReasoningEvent{
+				ThreadID:     event.Reasoning.ThreadID,
+				TurnID:       event.Reasoning.TurnID,
+				ItemID:       event.Reasoning.ItemID,
+				Kind:         string(event.Reasoning.Kind),
+				Delta:        event.Reasoning.Delta,
+				SummaryIndex: cloneIntPointer(event.Reasoning.SummaryIndex),
+				ContentIndex: cloneIntPointer(event.Reasoning.ContentIndex),
 			},
 		}, true
 	case codex.EventTypeTurnStarted, codex.EventTypeTurnCompleted, codex.EventTypeTurnFailed:
@@ -325,4 +368,12 @@ func cloneCodexPayload(payload map[string]any) map[string]any {
 		cloned[key] = value
 	}
 	return cloned
+}
+
+func cloneIntPointer(value *int) *int {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
 }

@@ -593,37 +593,65 @@ func codexTurnTitle(persistent bool) string {
 
 func (r *CodexRuntime) RespondInterrupt(
 	ctx context.Context,
-	sessionID SessionID,
-	requestID string,
-	kind string,
-	decision string,
-	answer map[string]any,
-) error {
+	input RuntimeInterruptResponseInput,
+) (TurnStream, error) {
 	r.mu.Lock()
-	state := r.sessions[sessionID]
+	state := r.sessions[input.SessionID]
+	startBridge := false
+	turnID := ""
+	if state != nil && !state.running {
+		turnID = strings.TrimSpace(state.lastTurnID)
+		if turnID != "" {
+			state.running = true
+			startBridge = true
+		}
+	}
 	r.mu.Unlock()
 	if state == nil || state.session == nil {
-		return fmt.Errorf("codex chat session %s not found", sessionID)
+		return TurnStream{}, fmt.Errorf("codex chat session %s not found", input.SessionID)
+	}
+	if startBridge && turnID == "" {
+		return TurnStream{}, fmt.Errorf("codex chat session %s is missing the interrupted turn id", input.SessionID)
 	}
 
-	parsedRequestID, err := codexadapter.ParseRequestIDString(requestID)
+	parsedRequestID, err := codexadapter.ParseRequestIDString(input.RequestID)
 	if err != nil {
-		return err
+		if startBridge {
+			r.mu.Lock()
+			state.running = false
+			r.mu.Unlock()
+		}
+		return TurnStream{}, err
 	}
 
-	switch kind {
+	switch input.Kind {
 	case "command_execution", "file_change":
-		return state.session.RespondApproval(ctx, codexadapter.ApprovalRequest{
+		err = state.session.RespondApproval(ctx, codexadapter.ApprovalRequest{
 			RequestID: parsedRequestID,
-			Kind:      codexadapter.ApprovalRequestKind(kind),
-		}, decision)
+			Kind:      codexadapter.ApprovalRequestKind(input.Kind),
+		}, input.Decision)
 	case "user_input":
-		return state.session.RespondUserInput(ctx, codexadapter.UserInputRequest{
+		err = state.session.RespondUserInput(ctx, codexadapter.UserInputRequest{
 			RequestID: parsedRequestID,
-		}, answer)
+		}, input.Answer)
 	default:
-		return fmt.Errorf("unsupported interrupt kind %q", kind)
+		err = fmt.Errorf("unsupported interrupt kind %q", input.Kind)
 	}
+	if err != nil {
+		if startBridge {
+			r.mu.Lock()
+			state.running = false
+			r.mu.Unlock()
+		}
+		return TurnStream{}, err
+	}
+	if !startBridge {
+		return TurnStream{}, nil
+	}
+
+	events := make(chan StreamEvent, 64)
+	go r.bridgeTurn(input.SessionID, input.Provider, 0, turnID, state, events)
+	return TurnStream{Events: events}, nil
 }
 
 func (r *CodexRuntime) SessionAnchor(sessionID SessionID) RuntimeSessionAnchor {

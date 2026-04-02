@@ -11,7 +11,7 @@
   import { Button } from '$ui/button'
   import { ScrollArea } from '$ui/scroll-area'
   import Textarea from '$ui/textarea/textarea.svelte'
-  import { RefreshCcw, Send } from '@lucide/svelte'
+  import { LoaderCircle, Plus, Send } from '@lucide/svelte'
   import {
     buildDiffPreview,
     findLatestHarnessSuggestion,
@@ -36,6 +36,7 @@
 
   let prompt = $state('')
   let appliedFingerprint = $state('')
+  let dismissed = $state(false)
   let previousContextKey = ''
   const chatController = createEphemeralChatSessionController({
     getSource: () => 'harness_editor',
@@ -49,6 +50,13 @@
   const suggestion = $derived(findLatestHarnessSuggestion(entries, draftContent))
   const preview = $derived(suggestion ? buildDiffPreview(draftContent, suggestion.content) : null)
   const currentFingerprint = $derived(suggestion ? fingerprintSuggestion(suggestion.content) : '')
+  const streamingDiff = $derived(
+    pending &&
+      !suggestion &&
+      entries.some(
+        (entry) => entry.kind === 'text' && entry.role === 'assistant' && entry.streaming,
+      ),
+  )
   const suggestionAlreadyApplied = $derived(
     Boolean(preview && !preview.hasChanges) || appliedFingerprint === currentFingerprint,
   )
@@ -61,6 +69,7 @@
     previousContextKey = contextKey
     prompt = ''
     appliedFingerprint = ''
+    dismissed = false
     void chatController.resetConversation()
   })
 
@@ -89,6 +98,7 @@
 
     sending = true
     prompt = ''
+    dismissed = false
 
     try {
       await chatController.sendTurn({
@@ -118,9 +128,14 @@
     void handleSend()
   }
 
+  function handleDismiss() {
+    dismissed = true
+  }
+
   async function resetConversation() {
     prompt = ''
     appliedFingerprint = ''
+    dismissed = false
     await chatController.resetConversation()
   }
 
@@ -158,7 +173,7 @@
       onclick={() => void resetConversation()}
       disabled={entries.length === 0 && !pending}
     >
-      <RefreshCcw class="size-3" />
+      <Plus class="size-3" />
     </Button>
   </div>
 
@@ -174,12 +189,22 @@
         onCancelActionProposal={handleCancelActionProposal}
       />
 
-      {#if suggestion && preview}
+      {#if streamingDiff}
+        <div
+          class="flex items-center gap-2 rounded-md bg-sky-500/10 px-2.5 py-1.5 text-[11px] text-sky-300"
+        >
+          <LoaderCircle class="size-3 shrink-0 animate-spin" />
+          Suggesting diff...
+        </div>
+      {/if}
+
+      {#if suggestion && preview && !dismissed}
         <HarnessSuggestionCard
           {suggestion}
           {preview}
           {suggestionAlreadyApplied}
           onApply={handleApply}
+          onDismiss={handleDismiss}
         />
       {/if}
     </div>

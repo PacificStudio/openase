@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -61,6 +62,9 @@ const (
 	agentEventTypeTokenUsageUpdated agentEventType = "token_usage_updated"
 	agentEventTypeRateLimitUpdated  agentEventType = "rate_limit_updated"
 	agentEventTypeOutputProduced    agentEventType = "output_produced"
+	agentEventTypeThreadStatus      agentEventType = "thread_status"
+	agentEventTypeTurnDiffUpdated   agentEventType = "turn_diff_updated"
+	agentEventTypeReasoningUpdated  agentEventType = "reasoning_updated"
 	agentEventTypeTurnStarted       agentEventType = "turn_started"
 	agentEventTypeTurnCompleted     agentEventType = "turn_completed"
 	agentEventTypeTurnFailed        agentEventType = "turn_failed"
@@ -75,6 +79,9 @@ type agentEvent struct {
 	RateLimit  *provider.CLIRateLimit
 	ObservedAt *time.Time
 	Output     *agentOutputEvent
+	Thread     *agentThreadStatusEvent
+	Diff       *agentTurnDiffEvent
+	Reasoning  *agentReasoningEvent
 	Turn       *agentTurnEvent
 }
 
@@ -84,6 +91,7 @@ type agentToolCallRequest struct {
 	TurnID    string
 	CallID    string
 	Tool      string
+	Arguments json.RawMessage
 }
 
 type agentApprovalRequest struct {
@@ -184,9 +192,32 @@ type agentOutputEvent struct {
 	TurnID   string
 	ItemID   string
 	Stream   string
+	Command  string
 	Text     string
 	Phase    string
 	Snapshot bool
+}
+
+type agentThreadStatusEvent struct {
+	ThreadID    string
+	Status      string
+	ActiveFlags []string
+}
+
+type agentTurnDiffEvent struct {
+	ThreadID string
+	TurnID   string
+	Diff     string
+}
+
+type agentReasoningEvent struct {
+	ThreadID     string
+	TurnID       string
+	ItemID       string
+	Kind         string
+	Delta        string
+	SummaryIndex *int
+	ContentIndex *int
 }
 
 type agentTurnEvent struct {

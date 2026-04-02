@@ -313,11 +313,47 @@ func (l *RuntimeLauncher) consumeTurn(
 	turnID string,
 	highWater *tokenUsageHighWater,
 ) error {
-	outputItemsWithDelta := map[string]struct{}{}
+	outputAccumulator := agentOutputAccumulator{}
+	recordedOutputFingerprints := map[string]string{}
+
+	recordBufferedOutput := func(output *agentOutputEvent) error {
+		if output == nil {
+			return nil
+		}
+		persisted := outputForPersistence(output)
+		if persisted == nil {
+			return nil
+		}
+		fingerprintKey, fingerprintValue := agentOutputPersistenceFingerprint(persisted)
+		if fingerprintKey != "" {
+			if previous, ok := recordedOutputFingerprints[fingerprintKey]; ok && previous == fingerprintValue {
+				return nil
+			}
+		}
+		if err := l.recordAgentOutput(ctx, projectID, agentID, ticketID, runID, adapterType, persisted); err != nil {
+			return err
+		}
+		if fingerprintKey != "" {
+			recordedOutputFingerprints[fingerprintKey] = fingerprintValue
+		}
+		return nil
+	}
+
+	flushBufferedOutputs := func() error {
+		for _, output := range outputAccumulator.flush() {
+			if err := recordBufferedOutput(output); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 
 	for {
 		event, ok := <-session.Events()
 		if !ok {
+			if err := flushBufferedOutputs(); err != nil {
+				return err
+			}
 			logAgentSessionClosed(l.logger, runID, turnID, adapterType, session)
 			if sessionErr := session.Err(); sessionErr != nil {
 				return &turnSessionClosedError{turnID: turnID, cause: sessionErr}
@@ -340,6 +376,9 @@ func (l *RuntimeLauncher) consumeTurn(
 
 		switch event.Type {
 		case agentEventTypeToolCallRequested:
+			if err := flushBufferedOutputs(); err != nil {
+				return err
+			}
 			if event.ToolCall == nil {
 				continue
 			}
@@ -347,6 +386,9 @@ func (l *RuntimeLauncher) consumeTurn(
 				return err
 			}
 		case agentEventTypeApprovalRequested:
+			if err := flushBufferedOutputs(); err != nil {
+				return err
+			}
 			if event.Approval == nil {
 				continue
 			}
@@ -357,6 +399,9 @@ func (l *RuntimeLauncher) consumeTurn(
 				return err
 			}
 		case agentEventTypeUserInputRequested:
+			if err := flushBufferedOutputs(); err != nil {
+				return err
+			}
 			if event.UserInput == nil {
 				continue
 			}
@@ -367,6 +412,9 @@ func (l *RuntimeLauncher) consumeTurn(
 				return err
 			}
 		case agentEventTypeTokenUsageUpdated:
+			if err := flushBufferedOutputs(); err != nil {
+				return err
+			}
 			if event.TokenUsage == nil {
 				continue
 			}
@@ -377,10 +425,49 @@ func (l *RuntimeLauncher) consumeTurn(
 				return err
 			}
 		case agentEventTypeRateLimitUpdated:
+			if err := flushBufferedOutputs(); err != nil {
+				return err
+			}
 			if event.RateLimit == nil {
 				continue
 			}
 			if err := l.recordProviderRateLimit(ctx, providerID, event.RateLimit, observedAt); err != nil {
+				return err
+			}
+		case agentEventTypeThreadStatus:
+			if err := flushBufferedOutputs(); err != nil {
+				return err
+			}
+			if event.Thread == nil {
+				continue
+			}
+			if err := l.recordAgentThreadStatus(ctx, projectID, agentID, ticketID, runID, adapterType, event.Thread); err != nil {
+				return err
+			}
+		case agentEventTypeTurnDiffUpdated:
+			if err := flushBufferedOutputs(); err != nil {
+				return err
+			}
+			if event.Diff == nil {
+				continue
+			}
+			if !turnMatches(turnID, event.Diff.TurnID) {
+				continue
+			}
+			if err := l.recordAgentTurnDiff(ctx, projectID, agentID, ticketID, runID, adapterType, event.Diff); err != nil {
+				return err
+			}
+		case agentEventTypeReasoningUpdated:
+			if err := flushBufferedOutputs(); err != nil {
+				return err
+			}
+			if event.Reasoning == nil {
+				continue
+			}
+			if !turnMatches(turnID, event.Reasoning.TurnID) {
+				continue
+			}
+			if err := l.recordAgentReasoning(ctx, projectID, agentID, ticketID, runID, adapterType, event.Reasoning); err != nil {
 				return err
 			}
 		case agentEventTypeOutputProduced:
@@ -390,19 +477,15 @@ func (l *RuntimeLauncher) consumeTurn(
 			if !turnMatches(turnID, event.Output.TurnID) {
 				continue
 			}
-			itemID := strings.TrimSpace(event.Output.ItemID)
-			if itemID != "" && !event.Output.Snapshot {
-				outputItemsWithDelta[itemID] = struct{}{}
-			}
-			if itemID != "" && event.Output.Snapshot {
-				if _, ok := outputItemsWithDelta[itemID]; ok {
-					continue
+			for _, output := range outputAccumulator.push(event.Output) {
+				if err := recordBufferedOutput(output); err != nil {
+					return err
 				}
 			}
-			if err := l.recordAgentOutput(ctx, projectID, agentID, ticketID, runID, adapterType, event.Output); err != nil {
+		case agentEventTypeTurnFailed:
+			if err := flushBufferedOutputs(); err != nil {
 				return err
 			}
-		case agentEventTypeTurnFailed:
 			if event.Turn == nil || !turnMatches(turnID, event.Turn.TurnID) {
 				continue
 			}
@@ -411,6 +494,9 @@ func (l *RuntimeLauncher) consumeTurn(
 			}
 			return fmt.Errorf("%s turn %s failed: %s", runtimeProviderName(adapterType), turnID, strings.TrimSpace(event.Turn.Error.Message))
 		case agentEventTypeTurnCompleted:
+			if err := flushBufferedOutputs(); err != nil {
+				return err
+			}
 			if event.Turn == nil || !turnMatches(turnID, event.Turn.TurnID) {
 				continue
 			}
@@ -474,6 +560,9 @@ func (l *RuntimeLauncher) recordAgentOutput(
 	if turnID := strings.TrimSpace(output.TurnID); turnID != "" {
 		metadata["turn_id"] = turnID
 	}
+	if command := strings.TrimSpace(output.Command); command != "" {
+		metadata["command"] = command
+	}
 	if phase := strings.TrimSpace(output.Phase); phase != "" {
 		metadata["phase"] = phase
 	}
@@ -526,6 +615,9 @@ func (l *RuntimeLauncher) recordAgentToolCall(
 		"run_id":   runID.String(),
 		"tool":     toolName,
 	}
+	if decodedArguments := decodeRawJSON(request.Arguments); decodedArguments != nil {
+		metadata["arguments"] = decodedArguments
+	}
 	if callID := strings.TrimSpace(request.CallID); callID != "" {
 		metadata["call_id"] = callID
 	}
@@ -554,6 +646,151 @@ func (l *RuntimeLauncher) recordAgentToolCall(
 	traceID := traceItem.ID
 	if err := l.recordAgentStep(ctx, projectID, agentID, ticketID, runID, "running_tool", toolCallStepSummary(toolName), &traceID); err != nil {
 		return fmt.Errorf("record tool call step for run %s: %w", runID, err)
+	}
+
+	return nil
+}
+
+func (l *RuntimeLauncher) recordAgentThreadStatus(
+	ctx context.Context,
+	projectID uuid.UUID,
+	agentID uuid.UUID,
+	ticketID uuid.UUID,
+	runID uuid.UUID,
+	adapterType entagentprovider.AdapterType,
+	status *agentThreadStatusEvent,
+) error {
+	if l == nil || status == nil {
+		return nil
+	}
+
+	metadata := map[string]any{
+		"provider": runtimeProviderName(adapterType),
+		"run_id":   runID.String(),
+		"status":   strings.TrimSpace(status.Status),
+	}
+	if threadID := strings.TrimSpace(status.ThreadID); threadID != "" {
+		metadata["thread_id"] = threadID
+	}
+	if len(status.ActiveFlags) > 0 {
+		metadata["active_flags"] = append([]string(nil), status.ActiveFlags...)
+	}
+
+	_, err := publishAgentTraceEvent(ctx, l.client, l.events, agentTraceEventInput{
+		ProjectID:   projectID,
+		AgentID:     agentID,
+		TicketID:    ticketID,
+		AgentRunID:  runID,
+		Provider:    runtimeProviderName(adapterType),
+		Kind:        catalogdomain.AgentTraceKindThreadStatus,
+		Stream:      "system",
+		Text:        threadStatusTraceSummary(status),
+		Payload:     metadata,
+		PublishedAt: l.now().UTC(),
+	})
+	if err != nil {
+		return fmt.Errorf("record thread status trace for run %s: %w", runID, err)
+	}
+
+	return nil
+}
+
+func (l *RuntimeLauncher) recordAgentTurnDiff(
+	ctx context.Context,
+	projectID uuid.UUID,
+	agentID uuid.UUID,
+	ticketID uuid.UUID,
+	runID uuid.UUID,
+	adapterType entagentprovider.AdapterType,
+	diff *agentTurnDiffEvent,
+) error {
+	if l == nil || diff == nil {
+		return nil
+	}
+
+	diffText := strings.TrimSpace(diff.Diff)
+	if diffText == "" {
+		return nil
+	}
+
+	metadata := map[string]any{
+		"provider": runtimeProviderName(adapterType),
+		"run_id":   runID.String(),
+	}
+	if threadID := strings.TrimSpace(diff.ThreadID); threadID != "" {
+		metadata["thread_id"] = threadID
+	}
+	if turnID := strings.TrimSpace(diff.TurnID); turnID != "" {
+		metadata["turn_id"] = turnID
+	}
+
+	_, err := publishAgentTraceEvent(ctx, l.client, l.events, agentTraceEventInput{
+		ProjectID:   projectID,
+		AgentID:     agentID,
+		TicketID:    ticketID,
+		AgentRunID:  runID,
+		Provider:    runtimeProviderName(adapterType),
+		Kind:        catalogdomain.AgentTraceKindTurnDiffUpdated,
+		Stream:      "diff",
+		Text:        diffText,
+		Payload:     metadata,
+		PublishedAt: l.now().UTC(),
+	})
+	if err != nil {
+		return fmt.Errorf("record diff trace for run %s: %w", runID, err)
+	}
+
+	return nil
+}
+
+func (l *RuntimeLauncher) recordAgentReasoning(
+	ctx context.Context,
+	projectID uuid.UUID,
+	agentID uuid.UUID,
+	ticketID uuid.UUID,
+	runID uuid.UUID,
+	adapterType entagentprovider.AdapterType,
+	reasoning *agentReasoningEvent,
+) error {
+	if l == nil || reasoning == nil {
+		return nil
+	}
+
+	metadata := map[string]any{
+		"provider": runtimeProviderName(adapterType),
+		"run_id":   runID.String(),
+		"kind":     strings.TrimSpace(reasoning.Kind),
+	}
+	if threadID := strings.TrimSpace(reasoning.ThreadID); threadID != "" {
+		metadata["thread_id"] = threadID
+	}
+	if turnID := strings.TrimSpace(reasoning.TurnID); turnID != "" {
+		metadata["turn_id"] = turnID
+	}
+	if itemID := strings.TrimSpace(reasoning.ItemID); itemID != "" {
+		metadata["item_id"] = itemID
+	}
+	if reasoning.SummaryIndex != nil {
+		metadata["summary_index"] = *reasoning.SummaryIndex
+	}
+	if reasoning.ContentIndex != nil {
+		metadata["content_index"] = *reasoning.ContentIndex
+	}
+
+	_, err := publishAgentTraceEvent(ctx, l.client, l.events, agentTraceEventInput{
+		ProjectID:   projectID,
+		AgentID:     agentID,
+		TicketID:    ticketID,
+		AgentRunID:  runID,
+		Provider:    runtimeProviderName(adapterType),
+		Kind:        catalogdomain.AgentTraceKindReasoningUpdated,
+		Stream:      "reasoning",
+		Text:        reasoningTraceSummary(reasoning),
+		Payload:     metadata,
+		PublishedAt: l.now().UTC(),
+	})
+	if err != nil {
+		return fmt.Errorf("record reasoning trace for run %s: %w", runID, err)
 	}
 
 	return nil
@@ -836,6 +1073,189 @@ func cloneAgentTracePayload(payload map[string]any) map[string]any {
 	return cloned
 }
 
+type agentOutputAccumulator struct {
+	pending *agentOutputEvent
+}
+
+func (a *agentOutputAccumulator) push(output *agentOutputEvent) []*agentOutputEvent {
+	if output == nil {
+		return nil
+	}
+
+	current := cloneAgentOutputEvent(output)
+	if current == nil {
+		return nil
+	}
+	if !shouldAggregateAgentOutput(current) {
+		return a.replacePending(current)
+	}
+	if a.pending == nil {
+		a.pending = current
+		if shouldFlushAggregatedOutput(a.pending) {
+			return a.flush()
+		}
+		return nil
+	}
+	if !sameAggregatedOutputKey(a.pending, current) {
+		return a.replacePending(current)
+	}
+
+	a.pending.Text = mergeAggregatedOutputText(a.pending.Text, current.Text, current.Snapshot)
+	a.pending.Snapshot = a.pending.Snapshot || current.Snapshot
+	if strings.TrimSpace(current.Command) != "" {
+		a.pending.Command = current.Command
+	}
+	if strings.TrimSpace(current.Phase) != "" {
+		a.pending.Phase = current.Phase
+	}
+
+	if shouldFlushAggregatedOutput(a.pending) {
+		return a.flush()
+	}
+	return nil
+}
+
+func (a *agentOutputAccumulator) replacePending(current *agentOutputEvent) []*agentOutputEvent {
+	flushed := a.flush()
+	if shouldAggregateAgentOutput(current) {
+		a.pending = current
+		if shouldFlushAggregatedOutput(a.pending) {
+			return append(flushed, a.flush()...)
+		}
+		return flushed
+	}
+	return append(flushed, current)
+}
+
+func (a *agentOutputAccumulator) flush() []*agentOutputEvent {
+	if a == nil || a.pending == nil {
+		return nil
+	}
+	flushed := []*agentOutputEvent{a.pending}
+	a.pending = nil
+	return flushed
+}
+
+func cloneAgentOutputEvent(output *agentOutputEvent) *agentOutputEvent {
+	if output == nil {
+		return nil
+	}
+	cloned := *output
+	return &cloned
+}
+
+func outputForPersistence(output *agentOutputEvent) *agentOutputEvent {
+	if !shouldPersistAgentOutput(output) {
+		return nil
+	}
+	cloned := cloneAgentOutputEvent(output)
+	if cloned == nil {
+		return nil
+	}
+	if shouldAggregateAgentOutput(cloned) {
+		cloned.Snapshot = true
+	}
+	return cloned
+}
+
+func shouldPersistAgentOutput(output *agentOutputEvent) bool {
+	if output == nil {
+		return false
+	}
+	switch strings.TrimSpace(output.Stream) {
+	case "assistant", "command":
+		return strings.TrimSpace(output.Text) != ""
+	default:
+		return false
+	}
+}
+
+func shouldAggregateAgentOutput(output *agentOutputEvent) bool {
+	if output == nil {
+		return false
+	}
+	if strings.TrimSpace(output.ItemID) == "" {
+		return false
+	}
+	switch strings.TrimSpace(output.Stream) {
+	case "assistant", "command":
+		return true
+	default:
+		return false
+	}
+}
+
+func agentOutputPersistenceFingerprint(output *agentOutputEvent) (string, string) {
+	if output == nil {
+		return "", ""
+	}
+	itemID := strings.TrimSpace(output.ItemID)
+	if itemID == "" {
+		return "", ""
+	}
+	key := strings.Join([]string{
+		strings.TrimSpace(output.Stream),
+		itemID,
+		strings.TrimSpace(output.TurnID),
+		strings.TrimSpace(output.Command),
+	}, "\x00")
+	value := strings.Join([]string{
+		strconv.FormatBool(output.Snapshot),
+		strings.TrimSpace(output.Phase),
+		output.Text,
+	}, "\x00")
+	return key, value
+}
+
+func sameAggregatedOutputKey(left *agentOutputEvent, right *agentOutputEvent) bool {
+	if left == nil || right == nil {
+		return false
+	}
+	return strings.TrimSpace(left.Stream) == strings.TrimSpace(right.Stream) &&
+		strings.TrimSpace(left.ItemID) == strings.TrimSpace(right.ItemID) &&
+		strings.TrimSpace(left.TurnID) == strings.TrimSpace(right.TurnID) &&
+		strings.TrimSpace(left.Command) == strings.TrimSpace(right.Command) &&
+		strings.TrimSpace(left.Phase) == strings.TrimSpace(right.Phase)
+}
+
+func mergeAggregatedOutputText(existing string, next string, snapshot bool) string {
+	if !snapshot {
+		return existing + next
+	}
+	switch {
+	case existing == "":
+		return next
+	case strings.HasPrefix(next, existing):
+		return next
+	default:
+		return existing + next
+	}
+}
+
+func shouldFlushAggregatedOutput(output *agentOutputEvent) bool {
+	if output == nil {
+		return false
+	}
+	if output.Snapshot {
+		return true
+	}
+	text := output.Text
+	if strings.TrimSpace(text) == "" {
+		return false
+	}
+	if strings.Contains(text, "\n") {
+		return true
+	}
+	switch strings.TrimSpace(output.Stream) {
+	case "assistant":
+		return len(text) >= 192 || strings.ContainsAny(text, "。！？!?")
+	case "command":
+		return len(text) >= 256
+	default:
+		return false
+	}
+}
+
 func agentStepFromOutput(output *agentOutputEvent, text string) (string, string, bool) {
 	if output == nil {
 		return "", "", false
@@ -845,9 +1265,10 @@ func agentStepFromOutput(output *agentOutputEvent, text string) (string, string,
 	}
 	switch strings.TrimSpace(output.Stream) {
 	case "command":
+		if command := strings.TrimSpace(output.Command); command != "" {
+			return "running_command", command, true
+		}
 		return "running_command", summarizeAgentStepText(text), true
-	case "assistant":
-		return "responding", summarizeAgentStepText(text), true
 	default:
 		return "", "", false
 	}
@@ -863,6 +1284,48 @@ func summarizeAgentStepText(text string) string {
 		return line
 	}
 	return strings.TrimSpace(line[:140]) + "..."
+}
+
+func decodeRawJSON(raw json.RawMessage) any {
+	if len(raw) == 0 {
+		return nil
+	}
+
+	var decoded any
+	if err := json.Unmarshal(raw, &decoded); err == nil {
+		return decoded
+	}
+
+	text := strings.TrimSpace(string(raw))
+	if text == "" {
+		return nil
+	}
+	return text
+}
+
+func threadStatusTraceSummary(status *agentThreadStatusEvent) string {
+	if status == nil {
+		return ""
+	}
+
+	parts := []string{}
+	if trimmed := strings.TrimSpace(status.Status); trimmed != "" {
+		parts = append(parts, trimmed)
+	}
+	if len(status.ActiveFlags) > 0 {
+		parts = append(parts, strings.Join(status.ActiveFlags, ", "))
+	}
+	return strings.Join(parts, " · ")
+}
+
+func reasoningTraceSummary(reasoning *agentReasoningEvent) string {
+	if reasoning == nil {
+		return ""
+	}
+	if delta := strings.TrimSpace(reasoning.Delta); delta != "" {
+		return delta
+	}
+	return strings.TrimSpace(reasoning.Kind)
 }
 
 func toolCallStepSummary(toolName string) string {

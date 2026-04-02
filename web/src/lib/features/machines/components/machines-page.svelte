@@ -1,10 +1,12 @@
+<!-- eslint-disable max-lines -->
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
+  import { subscribeOrganizationMachineEvents } from '$lib/features/org-events'
   import { syncMachinesPageProjectAIFocus } from './machines-page-focus'
   import MachinesPageBody from './machines-page-body.svelte'
   import { syncMachineListState } from './machines-page-state-sync'
-  import { connectMachinesPageStream } from './machines-page-streams'
   import {
     loadMachineSnapshot,
     loadMachines,
@@ -33,6 +35,13 @@
     MachineSnapshot,
     MachineWorkspaceState,
   } from '../types'
+  import {
+    markMachinesPageCacheDirty,
+    readMachineSnapshotCache,
+    readMachinesPageCache,
+    writeMachineSnapshotCache,
+    writeMachinesPageCache,
+  } from '../machines-page-cache'
   let loading = $state(false),
     refreshing = $state(false),
     loadingHealth = $state(false),
@@ -51,26 +60,69 @@
   let draft = $state<MachineDraft>(createEmptyMachineDraft()),
     snapshot = $state<MachineSnapshot | null>(null),
     probe = $state<MachineProbeResult | null>(null)
+  let activeOrgId = $state(''),
+    listRequestVersion = $state(0),
+    snapshotRequestVersion = $state(0),
+    queuedReload = $state(false),
+    reloadInFlight = $state(false)
   const projectAIFocusOwner = 'machines-page'
+  const currentOrgId = $derived(appStore.currentOrg?.id ?? '')
+  const currentProjectId = $derived(appStore.currentProject?.id ?? '')
   const selectedMachine = $derived(machines.find((machine) => machine.id === selectedId) ?? null),
     filteredMachines = $derived(filterMachines(machines, searchQuery))
   $effect(() => {
-    const currentOrg = appStore.currentOrg
-    if (!currentOrg) {
+    if (!currentOrgId) {
       editorOpen = false
       loading = false
       refreshing = false
       applyViewState(createNoOrgState())
       return
     }
-    const orgId = currentOrg.id
+    const orgId = currentOrgId
+    activeOrgId = orgId
+    queuedReload = false
+    reloadInFlight = false
     let cancelled = false
-    void loadMachineList(orgId, { background: false, cancelled: () => cancelled })
-    const disconnect = connectMachinesPageStream(orgId, () => {
-      void loadMachineList(orgId, { background: true, cancelled: () => cancelled })
+    const cachedPage = readMachinesPageCache(orgId)
+    if (cachedPage) {
+      const nextState = syncMachineListState({
+        orgId,
+        nextMachines: cachedPage.snapshot.machines,
+        nextListError: null,
+        selectedId: cachedPage.snapshot.selectedId,
+        searchQuery: cachedPage.snapshot.searchQuery,
+      })
+      editorOpen = nextState.selectedMachineId !== null
+      applyViewState(nextState.viewState)
+      if (nextState.selectedMachineId) {
+        const cachedSnapshot = readMachineSnapshotCache(orgId, nextState.selectedMachineId)
+        if (cachedSnapshot) {
+          snapshot = cachedSnapshot.snapshot
+        }
+        if (cachedPage.dirty || cachedSnapshot?.dirty) {
+          untrack(() => {
+            void loadMachineList(orgId, { background: true, cancelled: () => cancelled })
+          })
+        }
+      } else if (cachedPage.dirty) {
+        untrack(() => {
+          void loadMachineList(orgId, { background: true, cancelled: () => cancelled })
+        })
+      }
+    } else {
+      untrack(() => {
+        void loadMachineList(orgId, { background: false, cancelled: () => cancelled })
+      })
+    }
+    const disconnect = subscribeOrganizationMachineEvents(orgId, () => {
+      markMachinesPageCacheDirty(orgId)
+      requestReload(orgId, () => cancelled)
     })
     return () => {
       cancelled = true
+      if (activeOrgId === orgId) {
+        activeOrgId = ''
+      }
       disconnect()
     }
   })
@@ -81,11 +133,13 @@
       cancelled?: () => boolean
     },
   ) {
+    const requestVersion = ++listRequestVersion
     loading = !options.background
     refreshing = options.background
     try {
       const nextMachines = await loadMachines(orgId)
-      if (options.cancelled?.()) return
+      if (options.cancelled?.() || activeOrgId !== orgId || requestVersion !== listRequestVersion)
+        return
       const nextState = syncMachineListState({
         orgId,
         nextMachines,
@@ -95,9 +149,11 @@
       })
       editorOpen = nextState.selectedMachineId !== null
       applyViewState(nextState.viewState)
+      persistMachinesPageCache(orgId)
       if (nextState.selectedMachineId) await loadMachineResources(nextState.selectedMachineId)
     } catch (caughtError) {
-      if (options.cancelled?.()) return
+      if (options.cancelled?.() || activeOrgId !== orgId || requestVersion !== listRequestVersion)
+        return
       if (options.background && machines.length > 0) {
         toastStore.error(machineErrorMessage(caughtError, 'Failed to refresh machines.'))
       } else {
@@ -112,8 +168,10 @@
         applyViewState(nextState.viewState)
       }
     } finally {
-      if (!options.cancelled?.()) loading = false
-      if (!options.cancelled?.()) refreshing = false
+      if (!options.cancelled?.() && activeOrgId === orgId && requestVersion === listRequestVersion)
+        loading = false
+      if (!options.cancelled?.() && activeOrgId === orgId && requestVersion === listRequestVersion)
+        refreshing = false
     }
   }
   function applyViewState(nextState: MachinesPageViewState) {
@@ -133,16 +191,43 @@
   async function openMachine(machine: MachineItem, openEditor = true) {
     applyViewState({ ...createEditorSelectionState(routeOrgId, machines, machine), searchQuery })
     editorOpen = openEditor
+    persistMachinesPageCache(routeOrgId)
     await loadMachineResources(machine.id)
   }
   async function loadMachineResources(machineId: string) {
+    const orgId = routeOrgId
+    if (!orgId) return
+    const cachedSnapshot = readMachineSnapshotCache(orgId, machineId)
+    if (cachedSnapshot) {
+      snapshot = cachedSnapshot.snapshot
+      if (!cachedSnapshot.dirty) {
+        loadingHealth = false
+        return
+      }
+    }
+
+    const requestVersion = ++snapshotRequestVersion
     loadingHealth = true
     try {
-      snapshot = await loadMachineSnapshot(machineId)
+      const nextSnapshot = await loadMachineSnapshot(machineId)
+      if (
+        activeOrgId !== orgId ||
+        requestVersion !== snapshotRequestVersion ||
+        selectedId !== machineId
+      ) {
+        return
+      }
+      snapshot = nextSnapshot
+      writeMachineSnapshotCache(orgId, machineId, nextSnapshot)
     } catch (caughtError) {
       toastStore.error(machineErrorMessage(caughtError, 'Failed to load machine resources.'))
     } finally {
-      loadingHealth = false
+      if (
+        activeOrgId === orgId &&
+        requestVersion === snapshotRequestVersion &&
+        selectedId === machineId
+      )
+        loadingHealth = false
     }
   }
   function startCreate() {
@@ -173,6 +258,7 @@
           ? [result.machine, ...machines]
           : machines.map((machine) => (machine.id === result.machine.id ? result.machine : machine))
       await openMachine(result.machine, true)
+      persistMachinesPageCache(routeOrgId)
       toastStore.success(result.feedback)
     } catch (caughtError) {
       toastStore.error(machineErrorMessage(caughtError, 'Failed to save machine.'))
@@ -192,7 +278,9 @@
       if (selectedId === machineId) {
         snapshot = payload.snapshot
         probe = payload.probe
+        writeMachineSnapshotCache(routeOrgId, machineId, payload.snapshot)
       }
+      persistMachinesPageCache(routeOrgId)
       toastStore.success('Connection test completed.')
     } catch (caughtError) {
       toastStore.error(machineErrorMessage(caughtError, 'Failed to run connection test.'))
@@ -209,7 +297,9 @@
       machines = machines.map((item) => (item.id === payload.machine.id ? payload.machine : item))
       if (selectedId === machineId) {
         snapshot = payload.snapshot
+        writeMachineSnapshotCache(routeOrgId, machineId, payload.snapshot)
       }
+      persistMachinesPageCache(routeOrgId)
       toastStore.success('Machine health checks refreshed.')
     } catch (caughtError) {
       toastStore.error(machineErrorMessage(caughtError, 'Failed to refresh machine health.'))
@@ -241,6 +331,7 @@
           }).viewState,
         )
       }
+      persistMachinesPageCache(routeOrgId)
     } catch (caughtError) {
       toastStore.error(machineErrorMessage(caughtError, 'Failed to delete machine.'))
     } finally {
@@ -248,18 +339,54 @@
     }
   }
   $effect(() => {
+    if (routeOrgId) {
+      persistMachinesPageCache(routeOrgId)
+    }
+  })
+  $effect(() => {
     return syncMachinesPageProjectAIFocus({
       clearFocus: (owner) => appStore.clearProjectAssistantFocus(owner),
       setFocus: (owner, focus, priority) =>
         appStore.setProjectAssistantFocus(owner, focus, priority),
       owner: projectAIFocusOwner,
-      projectId: appStore.currentProject?.id ?? '',
+      projectId: currentProjectId,
       editorOpen,
       mode,
       selectedMachine,
       snapshot,
     })
   })
+
+  function persistMachinesPageCache(orgId: string) {
+    if (!orgId) return
+    writeMachinesPageCache(orgId, {
+      machines,
+      selectedId,
+      searchQuery,
+    })
+  }
+
+  const requestReload = (orgId: string, cancelled?: () => boolean) => {
+    queuedReload = true
+    void drainReloadQueue(orgId, cancelled)
+  }
+
+  async function drainReloadQueue(orgId: string, cancelled?: () => boolean) {
+    if (!queuedReload || reloadInFlight || activeOrgId !== orgId || cancelled?.()) {
+      return
+    }
+
+    reloadInFlight = true
+    queuedReload = false
+    try {
+      await loadMachineList(orgId, { background: true, cancelled })
+    } finally {
+      reloadInFlight = false
+      if (queuedReload && activeOrgId === orgId && !cancelled?.()) {
+        void drainReloadQueue(orgId, cancelled)
+      }
+    }
+  }
 </script>
 
 <MachinesPageBody

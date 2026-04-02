@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { DiffPreview, HarnessSuggestion } from '../assistant'
-  import { Badge } from '$ui/badge'
-  import { Button } from '$ui/button'
+  import { cn } from '$lib/utils'
+  import { Check, X } from '@lucide/svelte'
   import HarnessDiffPreview from './harness-diff-preview.svelte'
 
   let {
@@ -9,23 +9,43 @@
     preview,
     suggestionAlreadyApplied,
     onApply,
+    onDismiss,
   }: {
     suggestion: HarnessSuggestion
     preview: DiffPreview
     suggestionAlreadyApplied: boolean
     onApply?: () => void
+    onDismiss?: () => void
   } = $props()
 </script>
 
-<div class="space-y-2 rounded-lg border border-sky-500/30 bg-sky-500/8 p-2">
+<div class="space-y-1.5">
   <div class="flex items-center justify-between gap-2">
-    <p class="text-muted-foreground truncate text-[11px] leading-4">{suggestion.summary}</p>
+    <p class="text-muted-foreground min-w-0 truncate text-[11px]">{suggestion.summary}</p>
     {#if suggestionAlreadyApplied}
-      <Badge variant="outline" class="shrink-0 text-[10px]">Applied</Badge>
+      <span class="text-muted-foreground shrink-0 text-[10px] italic">Applied</span>
     {:else}
-      <Button size="sm" class="h-6 shrink-0 px-2.5 text-[11px]" onclick={() => onApply?.()}>
-        Apply
-      </Button>
+      <div class="flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          class={cn(
+            'flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors',
+            'bg-emerald-600 text-white hover:bg-emerald-500',
+          )}
+          onclick={() => onApply?.()}
+        >
+          <Check class="size-3" />
+          Apply
+        </button>
+        <button
+          type="button"
+          class="text-muted-foreground hover:text-foreground rounded-md p-0.5 transition-colors"
+          onclick={() => onDismiss?.()}
+          aria-label="Dismiss suggestion"
+        >
+          <X class="size-3.5" />
+        </button>
+      </div>
     {/if}
   </div>
 

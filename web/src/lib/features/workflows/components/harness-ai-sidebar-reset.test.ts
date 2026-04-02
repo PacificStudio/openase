@@ -203,7 +203,7 @@ describe('HarnessAiSidebar reset and diff metadata', () => {
     await fireEvent.input(prompt, { target: { value: 'Tighten this harness.' } })
     await fireEvent.keyDown(prompt, { key: 'Enter' })
 
-    expect(await findByText('Suggested Harness Update')).toBeTruthy()
+    expect(await findByText('Apply')).toBeTruthy()
 
     await fireEvent.click(getByRole('button', { name: 'Reset conversation' }))
 
@@ -211,7 +211,7 @@ describe('HarnessAiSidebar reset and diff metadata', () => {
       expect(closeChatSession).toHaveBeenCalledWith('session-harness-reset')
     })
     await waitFor(() => {
-      expect(queryByText('Suggested Harness Update')).toBeNull()
+      expect(queryByText('Apply')).toBeNull()
       expect(queryByText('Structured Diff')).toBeNull()
     })
   })

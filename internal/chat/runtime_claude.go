@@ -2,6 +2,9 @@ package chat
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -38,6 +41,35 @@ func (r *ClaudeRuntime) StartTurn(ctx context.Context, input RuntimeTurnInput) (
 		return TurnStream{}, fmt.Errorf("%w: %s", ErrProviderUnsupported, input.Provider.AdapterType)
 	}
 
+	return r.startSessionTurn(ctx, input)
+}
+
+func (r *ClaudeRuntime) RespondInterrupt(
+	ctx context.Context,
+	input RuntimeInterruptResponseInput,
+) (TurnStream, error) {
+	if !r.Supports(input.Provider) {
+		return TurnStream{}, fmt.Errorf("%w: %s", ErrProviderUnsupported, input.Provider.AdapterType)
+	}
+
+	message, err := buildClaudeInterruptResponsePrompt(input)
+	if err != nil {
+		return TurnStream{}, err
+	}
+
+	return r.startSessionTurn(ctx, RuntimeTurnInput{
+		SessionID:              input.SessionID,
+		Provider:               input.Provider,
+		Message:                message,
+		WorkingDirectory:       input.WorkingDirectory,
+		Environment:            append([]string(nil), input.Environment...),
+		ResumeProviderThreadID: input.ResumeProviderThreadID,
+		ResumeProviderTurnID:   input.ResumeProviderTurnID,
+		PersistentConversation: input.PersistentConversation,
+	})
+}
+
+func (r *ClaudeRuntime) startSessionTurn(ctx context.Context, input RuntimeTurnInput) (TurnStream, error) {
 	sessionSpec, err := r.buildSessionSpec(input)
 	if err != nil {
 		return TurnStream{}, err
@@ -139,6 +171,7 @@ func (r *ClaudeRuntime) bridgeSession(
 
 	eventCh := session.Events()
 	errorCh := session.Errors()
+	emittedInterrupts := map[string]struct{}{}
 
 	for eventCh != nil || errorCh != nil {
 		select {
@@ -169,6 +202,16 @@ func (r *ClaudeRuntime) bridgeSession(
 			}
 
 			for _, item := range mapClaudeEvent(sessionID, maxTurns, event) {
+				if item.Event == "interrupt_requested" {
+					payload, ok := item.Payload.(RuntimeInterruptEvent)
+					if !ok || strings.TrimSpace(payload.RequestID) == "" {
+						continue
+					}
+					if _, duplicate := emittedInterrupts[payload.RequestID]; duplicate {
+						continue
+					}
+					emittedInterrupts[payload.RequestID] = struct{}{}
+				}
 				if item.Event == "session_state" {
 					if payload, ok := item.Payload.(runtimeSessionStatePayload); ok {
 						r.nativeSessions.UpdateState(sessionID, payload.Status, payload.ActiveFlags)
@@ -246,7 +289,11 @@ func mapClaudeEvent(sessionID SessionID, maxTurns int, event provider.ClaudeCode
 	switch event.Kind {
 	case provider.ClaudeCodeEventKindSystem, provider.ClaudeCodeEventKindStream:
 		if payload, ok := parseClaudeSessionStatePayload(event); ok {
-			return []StreamEvent{{Event: "session_state", Payload: payload}}
+			events := []StreamEvent{{Event: "session_state", Payload: payload}}
+			if interrupt, ok := parseClaudeInterruptEvent(event, payload); ok {
+				events = append(events, StreamEvent{Event: "interrupt_requested", Payload: interrupt})
+			}
+			return events
 		}
 		return nil
 	case provider.ClaudeCodeEventKindAssistant:
@@ -285,6 +332,151 @@ func mapClaudeEvent(sessionID SessionID, maxTurns int, event provider.ClaudeCode
 	default:
 		return nil
 	}
+}
+
+func parseClaudeInterruptEvent(
+	event provider.ClaudeCodeEvent,
+	state runtimeSessionStatePayload,
+) (RuntimeInterruptEvent, bool) {
+	if strings.TrimSpace(state.Status) != "requires_action" {
+		return RuntimeInterruptEvent{}, false
+	}
+
+	stateObject := decodeClaudeSessionStateObject(event)
+	request := asMap(stateObject["requires_action"])
+	if request == nil {
+		request = stateObject
+	}
+
+	requestID := firstNonEmptyString(
+		readStringMapKey(request, "request_id"),
+		readStringMapKey(request, "requestId"),
+		readStringMapKey(request, "id"),
+		readStringMapKey(stateObject, "request_id"),
+		readStringMapKey(stateObject, "requestId"),
+		readStringMapKey(stateObject, "id"),
+	)
+	if requestID == "" {
+		requestID = "claude-requires-action-" + hashClaudeInterruptPayload(request)
+	}
+
+	kind := mapClaudeInterruptKind(firstNonEmptyString(
+		readStringMapKey(request, "kind"),
+		readStringMapKey(request, "type"),
+		readStringMapKey(stateObject, "kind"),
+		readStringMapKey(stateObject, "type"),
+	))
+
+	payload := cloneAnyMap(request)
+	if len(payload) == 0 {
+		payload = cloneAnyMap(state.Raw)
+	}
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	if strings.TrimSpace(state.Detail) != "" {
+		payload["detail"] = state.Detail
+	}
+	payload["session_state"] = strings.TrimSpace(state.Status)
+
+	return RuntimeInterruptEvent{
+		RequestID: requestID,
+		Kind:      kind,
+		Options:   parseClaudeInterruptOptions(request),
+		Payload:   payload,
+	}, true
+}
+
+func mapClaudeInterruptKind(raw string) string {
+	switch strings.TrimSpace(raw) {
+	case "command_execution", "command_execution_approval", "command_approval", "approval":
+		return "command_execution"
+	case "file_change", "file_change_approval":
+		return "file_change"
+	default:
+		return "user_input"
+	}
+}
+
+func parseClaudeInterruptOptions(record map[string]any) []RuntimeInterruptDecision {
+	if record == nil {
+		return nil
+	}
+	raw, ok := record["options"]
+	if !ok {
+		return nil
+	}
+	items, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	decisions := make([]RuntimeInterruptDecision, 0, len(items))
+	for _, item := range items {
+		switch typed := item.(type) {
+		case map[string]any:
+			id := firstNonEmptyString(
+				readStringMapKey(typed, "id"),
+				readStringMapKey(typed, "value"),
+				readStringMapKey(typed, "key"),
+			)
+			label := firstNonEmptyString(
+				readStringMapKey(typed, "label"),
+				readStringMapKey(typed, "title"),
+				id,
+			)
+			if id != "" {
+				decisions = append(decisions, RuntimeInterruptDecision{ID: id, Label: label})
+			}
+		case string:
+			trimmed := strings.TrimSpace(typed)
+			if trimmed != "" {
+				decisions = append(decisions, RuntimeInterruptDecision{ID: trimmed, Label: trimmed})
+			}
+		}
+	}
+	return decisions
+}
+
+func hashClaudeInterruptPayload(payload map[string]any) string {
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return "unknown"
+	}
+	sum := sha256.Sum256(encoded)
+	return hex.EncodeToString(sum[:8])
+}
+
+func buildClaudeInterruptResponsePrompt(input RuntimeInterruptResponseInput) (string, error) {
+	decision := strings.TrimSpace(input.Decision)
+	if decision == "" && len(input.Answer) == 0 {
+		return "", fmt.Errorf("claude interrupt response must include a decision or answer")
+	}
+
+	responsePayload := map[string]any{
+		"request_id": input.RequestID,
+		"kind":       input.Kind,
+	}
+	if decision != "" {
+		responsePayload["decision"] = decision
+	}
+	if len(input.Answer) > 0 {
+		responsePayload["answer"] = cloneAnyMap(input.Answer)
+	}
+	if nested := cloneAnyMap(input.Payload); len(nested) > 0 {
+		responsePayload["pending_action"] = nested
+	}
+
+	encoded, err := json.MarshalIndent(responsePayload, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("encode claude interrupt response: %w", err)
+	}
+
+	return strings.TrimSpace(strings.Join([]string{
+		"OpenASE interrupt response.",
+		"Treat this as the user's response to the currently pending Claude requires_action state.",
+		"Resume the interrupted session, apply the response below, and continue without restating prior conversation history.",
+		string(encoded),
+	}, "\n\n")), nil
 }
 
 func parseClaudeSessionStatePayload(event provider.ClaudeCodeEvent) (runtimeSessionStatePayload, bool) {

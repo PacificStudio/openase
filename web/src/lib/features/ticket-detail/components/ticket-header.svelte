@@ -2,7 +2,6 @@
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
-  import { Separator } from '$ui/separator'
   import * as Select from '$ui/select'
   import Bot from '@lucide/svelte/icons/bot'
   import Copy from '@lucide/svelte/icons/copy'
@@ -118,75 +117,49 @@
   }
 </script>
 
-<div class="flex flex-col gap-4 px-6 pt-6 pb-4">
-  <div class="flex items-center justify-between">
-    <div class="flex flex-wrap items-center gap-2">
-      <button
-        onclick={copyIdentifier}
-        class="text-muted-foreground hover:bg-muted flex items-center gap-1.5 rounded px-1.5 py-0.5 font-mono text-xs transition-colors"
-      >
-        {ticket.identifier}
-        {#if copied}
-          <Check class="size-3 text-green-400" />
-        {:else}
-          <Copy class="size-3" />
-        {/if}
-      </button>
-      <Badge class={cn('text-[10px] uppercase', priorityColors[ticket.priority])}>
-        {ticket.priority}
-      </Badge>
-      <Badge variant="outline" class="text-[10px]">
-        {typeLabels[ticket.type] ?? ticket.type}
-      </Badge>
-    </div>
-    <div class="flex items-center gap-2">
-      <Button
-        variant={assistantOpen ? 'secondary' : 'outline'}
-        size="sm"
-        onclick={onToggleAssistant}
-      >
-        <Bot class="size-4" />
-        AI 分析
-      </Button>
-      <Button variant="ghost" size="icon-sm" onclick={onClose}>
-        <X class="size-3.5" />
-      </Button>
-    </div>
+{#if titleEditOpen}
+  <div class="border-border flex items-center gap-2 border-b px-4 py-1.5">
+    <Input
+      bind:value={titleDraft}
+      class="h-7 flex-1 text-xs font-medium"
+      disabled={savingFields}
+      onkeydown={handleTitleKeydown}
+    />
+    <Button
+      variant="outline"
+      size="sm"
+      class="h-6 px-2 text-[11px]"
+      onclick={cancelTitleEdit}
+      disabled={savingFields}
+    >
+      Cancel
+    </Button>
+    <Button
+      size="sm"
+      class="h-6 px-2 text-[11px]"
+      onclick={handleTitleSave}
+      disabled={savingFields || !titleDirty}
+    >
+      <Save class="size-3" />
+      {savingFields ? 'Saving…' : 'Save'}
+    </Button>
   </div>
-
-  <div class="flex items-start justify-between gap-3">
-    <div class="min-w-0 flex-1">
-      {#if titleEditOpen}
-        <div class="flex items-center gap-2">
-          <Input
-            bind:value={titleDraft}
-            class="h-10 text-sm font-medium"
-            disabled={savingFields}
-            onkeydown={handleTitleKeydown}
-          />
-          <Button variant="outline" size="sm" onclick={cancelTitleEdit} disabled={savingFields}>
-            Cancel
-          </Button>
-          <Button size="sm" onclick={handleTitleSave} disabled={savingFields || !titleDirty}>
-            <Save class="size-3.5" />
-            {savingFields ? 'Saving…' : 'Save'}
-          </Button>
-        </div>
+{:else}
+  <div class="border-border flex items-center gap-2 border-b px-4 py-1.5">
+    <button
+      onclick={copyIdentifier}
+      class="text-muted-foreground hover:bg-muted flex shrink-0 items-center gap-1 rounded px-1 py-0.5 font-mono text-[11px] transition-colors"
+    >
+      {ticket.identifier}
+      {#if copied}
+        <Check class="size-3 text-green-400" />
       {:else}
-        <div class="flex items-center gap-2">
-          <h2 class="min-w-0 flex-1 text-sm leading-snug font-medium">{ticket.title}</h2>
-          <Button variant="ghost" size="icon-sm" onclick={toggleTitleEdit} aria-label="Edit title">
-            <Pencil class="size-3.5" />
-          </Button>
-        </div>
+        <Copy class="size-2.5" />
       {/if}
-    </div>
-  </div>
-
-  <div class="flex flex-wrap items-center gap-2">
+    </button>
     <Select.Root type="single" value={ticket.status.id} onValueChange={handleStatusChange}>
       <Select.Trigger
-        class="h-7 rounded-full border px-3 py-0 text-xs font-medium shadow-none"
+        class="h-4.5 shrink-0 gap-1 rounded-full border px-1.5 py-0 text-[10px] leading-none font-medium shadow-none [&_svg]:size-3"
         disabled={savingFields}
         style="background-color: {ticket.status.color}20; color: {ticket.status
           .color}; border-color: {ticket.status.color}30"
@@ -199,6 +172,37 @@
         {/each}
       </Select.Content>
     </Select.Root>
+    <Badge
+      class={cn('shrink-0 px-1.5 py-0 text-[10px] uppercase', priorityColors[ticket.priority])}
+    >
+      {ticket.priority}
+    </Badge>
+    <Badge variant="outline" class="shrink-0 px-1.5 py-0 text-[10px]">
+      {typeLabels[ticket.type] ?? ticket.type}
+    </Badge>
+    <h2 class="min-w-0 flex-1 truncate text-xs leading-snug font-medium">{ticket.title}</h2>
+    <div class="ml-auto flex shrink-0 items-center">
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        class="size-6"
+        onclick={toggleTitleEdit}
+        aria-label="Edit title"
+      >
+        <Pencil class="size-3" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        class={cn('size-6', assistantOpen && 'bg-secondary')}
+        onclick={onToggleAssistant}
+        aria-label="AI 分析"
+      >
+        <Bot class="size-3" />
+      </Button>
+      <Button variant="ghost" size="icon-sm" class="size-6" onclick={onClose}>
+        <X class="size-3" />
+      </Button>
+    </div>
   </div>
-</div>
-<Separator />
+{/if}

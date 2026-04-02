@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildTicketDetailContext } from './context'
+import {
+  buildTicketDetailContext,
+  buildTicketDetailLiveContext,
+  buildTicketDetailProjectReferenceData,
+  selectTicketDetailReferenceData,
+} from './context'
 import {
   detailPayloadFixture,
   repoPayloadFixture,
@@ -9,14 +14,14 @@ import {
 } from './context.test-fixtures'
 
 describe('buildTicketDetailContext', () => {
+  const referenceData = buildTicketDetailProjectReferenceData(
+    statusPayloadFixture,
+    repoPayloadFixture,
+    ticketPayloadFixture,
+  )
+
   it('maps assigned agent details from the explicit ticket detail payload', () => {
-    const detail = buildTicketDetailContext(
-      detailPayloadFixture,
-      statusPayloadFixture,
-      repoPayloadFixture,
-      ticketPayloadFixture,
-      'ticket-1',
-    )
+    const detail = buildTicketDetailContext(detailPayloadFixture, referenceData, 'ticket-1')
 
     expect(detail.ticket.assignedAgent).toEqual({
       id: 'agent-1',
@@ -30,13 +35,7 @@ describe('buildTicketDetailContext', () => {
   })
 
   it('parses the unified timeline payload into description, comment, and activity items', () => {
-    const detail = buildTicketDetailContext(
-      detailPayloadFixture,
-      statusPayloadFixture,
-      repoPayloadFixture,
-      ticketPayloadFixture,
-      'ticket-1',
-    )
+    const detail = buildTicketDetailContext(detailPayloadFixture, referenceData, 'ticket-1')
 
     expect(detail.timeline).toEqual([
       {
@@ -91,15 +90,58 @@ describe('buildTicketDetailContext', () => {
   })
 
   it('maps dependency relationships from the current ticket perspective', () => {
-    const detail = buildTicketDetailContext(
-      detailPayloadFixture,
-      statusPayloadFixture,
-      repoPayloadFixture,
-      ticketPayloadFixture,
-      'ticket-1',
-    )
+    const detail = buildTicketDetailContext(detailPayloadFixture, referenceData, 'ticket-1')
 
     expect(detail.ticket.dependencies).toEqual([
+      {
+        id: 'dep-1',
+        targetId: 'ticket-2',
+        identifier: 'ASE-2',
+        title: 'Backend migration',
+        relation: 'blocked_by',
+        stage: 'started',
+      },
+      {
+        id: 'dep-2',
+        targetId: 'ticket-3',
+        identifier: 'ASE-3',
+        title: 'Frontend polish',
+        relation: 'blocks',
+        stage: 'completed',
+      },
+    ])
+  })
+
+  it('builds project reference data once and filters dependency candidates per ticket', () => {
+    const selected = selectTicketDetailReferenceData(referenceData, 'ticket-1')
+
+    expect(referenceData.statusLookup).toEqual([
+      { id: 'status-1', stage: 'unstarted', color: '#2563eb' },
+      { id: 'status-2', stage: 'started', color: '#f59e0b' },
+      { id: 'status-3', stage: 'completed', color: '#10b981' },
+    ])
+    expect(selected.statuses).toEqual([
+      { id: 'status-1', name: 'Todo', color: '#2563eb' },
+      { id: 'status-2', name: 'In Progress', color: '#f59e0b' },
+      { id: 'status-3', name: 'Done', color: '#10b981' },
+    ])
+    expect(selected.dependencyCandidates).toEqual([
+      { id: 'ticket-2', identifier: 'ASE-2', title: 'Backend migration' },
+    ])
+  })
+
+  it('builds live ticket context from cached status lookup without reloading project references', () => {
+    const liveContext = buildTicketDetailLiveContext(
+      detailPayloadFixture,
+      referenceData.statusLookup,
+    )
+
+    expect(liveContext.ticket.status).toEqual({
+      id: 'status-1',
+      name: 'Todo',
+      color: '#2563eb',
+    })
+    expect(liveContext.ticket.dependencies).toEqual([
       {
         id: 'dep-1',
         targetId: 'ticket-2',

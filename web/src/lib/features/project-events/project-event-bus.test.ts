@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { SSEFrame } from '$lib/api/sse'
 import {
+  isProjectDashboardRefreshEvent,
+  projectEventAffectsTicketDetailReferences,
   projectEventReferencesTicket,
+  readProjectDashboardRefreshSections,
   retainProjectEventBus,
   subscribeProjectEventBusState,
   subscribeProjectEvents,
@@ -125,6 +128,51 @@ describe('projectEventBus', () => {
       event: 'ticket.run.trace',
       data: JSON.stringify({ entry: { ticket_id: 'ticket-1', output: 'Planning' } }),
     })
+
+    expect(
+      isProjectDashboardRefreshEvent({
+        topic: 'project.dashboard.events',
+        type: 'project.dashboard.refresh',
+      }),
+    ).toBe(true)
+
+    expect(
+      readProjectDashboardRefreshSections({
+        payload: {
+          dirty_sections: ['agents', 'tickets', 'agents', 'bogus'],
+        },
+      }),
+    ).toEqual(['agents', 'tickets'])
+
+    expect(
+      projectEventAffectsTicketDetailReferences(
+        {
+          topic: 'ticket.events',
+          type: 'ticket.updated',
+          payload: {
+            ticket: {
+              id: 'ticket-2',
+            },
+          },
+        },
+        'ticket-1',
+      ),
+    ).toBe(true)
+
+    expect(
+      projectEventAffectsTicketDetailReferences(
+        {
+          topic: 'activity.events',
+          type: 'project_repo_updated',
+          payload: {
+            event: {
+              event_type: 'project_repo_updated',
+            },
+          },
+        },
+        'ticket-1',
+      ),
+    ).toBe(true)
   })
 
   it('lets non-owning listeners observe connection state without opening another transport', () => {

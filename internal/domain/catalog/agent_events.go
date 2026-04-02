@@ -16,6 +16,9 @@ const (
 	AgentTraceKindToolCallStarted    = "tool_call_started"
 	AgentTraceKindApprovalRequested  = "approval_requested"
 	AgentTraceKindUserInputRequested = "user_input_requested"
+	AgentTraceKindThreadStatus       = "thread_status"
+	AgentTraceKindTurnDiffUpdated    = "turn_diff_updated"
+	AgentTraceKindReasoningUpdated   = "reasoning_updated"
 )
 
 type AgentTraceEntry struct {

@@ -267,8 +267,8 @@ func TestMapClaudeEventPromotesSessionStateChanges(t *testing.T) {
 			"detail":       "approval required",
 		}),
 	})
-	if len(events) != 1 {
-		t.Fatalf("mapClaudeEvent() len = %d, want 1", len(events))
+	if len(events) != 2 {
+		t.Fatalf("mapClaudeEvent() len = %d, want 2", len(events))
 	}
 	if events[0].Event != "session_state" {
 		t.Fatalf("event kind = %q, want session_state", events[0].Event)
@@ -282,6 +282,41 @@ func TestMapClaudeEventPromotesSessionStateChanges(t *testing.T) {
 	}
 	if len(payload.ActiveFlags) != 1 || payload.ActiveFlags[0] != "requires_action" {
 		t.Fatalf("unexpected session state flags: %#v", payload.ActiveFlags)
+	}
+}
+
+func TestMapClaudeEventPromotesRequiresActionInterrupts(t *testing.T) {
+	events := mapClaudeEvent(SessionID("session-claude-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
+		Kind:    provider.ClaudeCodeEventKindStream,
+		Subtype: "session_state_changed",
+		Event: mustMarshalJSON(t, map[string]any{
+			"state": "requires_action",
+			"requires_action": map[string]any{
+				"request_id": "claude-req-1",
+				"type":       "approval",
+				"detail":     "command approval required",
+				"options": []map[string]any{
+					{"id": "approve_once", "label": "Approve once"},
+					{"id": "deny", "label": "Deny"},
+				},
+			},
+		}),
+	})
+	if len(events) != 2 {
+		t.Fatalf("mapClaudeEvent() len = %d, want 2", len(events))
+	}
+	interrupt, ok := events[1].Payload.(RuntimeInterruptEvent)
+	if events[1].Event != "interrupt_requested" || !ok {
+		t.Fatalf("second event = %+v, want interrupt_requested payload", events[1])
+	}
+	if interrupt.RequestID != "claude-req-1" || interrupt.Kind != "command_execution" {
+		t.Fatalf("unexpected interrupt payload: %#v", interrupt)
+	}
+	if len(interrupt.Options) != 2 || interrupt.Options[0].ID != "approve_once" {
+		t.Fatalf("unexpected interrupt options: %#v", interrupt.Options)
+	}
+	if interrupt.Payload["session_state"] != "requires_action" {
+		t.Fatalf("unexpected interrupt payload map: %#v", interrupt.Payload)
 	}
 }
 
@@ -345,6 +380,60 @@ func TestClaudeRuntimeStartTurnUsesPersistentResumeSessionIDAndEmitsSessionAncho
 	resolved := runtime.SessionAnchor(SessionID("session-claude-runtime"))
 	if resolved.ProviderThreadID != "claude-session-42" {
 		t.Fatalf("resolved session anchor = %+v, want provider thread claude-session-42", resolved)
+	}
+}
+
+func TestClaudeRuntimeRespondInterruptResumesSessionAndStreamsContinuation(t *testing.T) {
+	stdin := &trackingWriteCloser{}
+	manager := &fakeAgentCLIProcessManager{
+		process: &fakeAgentCLIProcess{
+			stdin: stdin,
+			stdout: strings.Join([]string{
+				`{"type":"system","subtype":"init","data":{"session_id":"claude-session-55"}}`,
+				`{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Continuing after approval"}]}}`,
+				`{"type":"result","subtype":"success","session_id":"claude-session-55","num_turns":3}`,
+			}, "\n"),
+		},
+	}
+	runtime := NewClaudeRuntime(newClaudeAdapterForManager(manager))
+
+	stream, err := runtime.RespondInterrupt(context.Background(), RuntimeInterruptResponseInput{
+		SessionID:              SessionID("session-claude-runtime"),
+		Provider:               catalogdomain.AgentProvider{AdapterType: catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI, CliCommand: "claude"},
+		RequestID:              "claude-req-55",
+		Kind:                   "command_execution",
+		Decision:               "approve_once",
+		Payload:                map[string]any{"provider": "claude", "payload": map[string]any{"detail": "approval required"}},
+		ResumeProviderThreadID: "claude-session-55",
+		PersistentConversation: true,
+	})
+	if err != nil {
+		t.Fatalf("RespondInterrupt() error = %v", err)
+	}
+
+	if joined := strings.Join(manager.startSpec.Args, " "); !strings.Contains(joined, "--resume claude-session-55") {
+		t.Fatalf("process args = %v, want durable --resume anchor", manager.startSpec.Args)
+	}
+	if !strings.Contains(strings.Join(manager.startSpec.Environment, "\n"), claudeCodeResumeInterruptedTurnEnv+"=1") {
+		t.Fatalf("process environment = %v, want %s=1", manager.startSpec.Environment, claudeCodeResumeInterruptedTurnEnv)
+	}
+	if !strings.Contains(stdin.String(), "approve_once") || !strings.Contains(stdin.String(), "claude-req-55") {
+		t.Fatalf("stdin payload = %q, want interrupt response prompt", stdin.String())
+	}
+
+	events := collectStreamEvents(stream.Events)
+	if len(events) != 3 {
+		t.Fatalf("stream event count = %d, want 3: %+v", len(events), events)
+	}
+	if events[1].Event != "message" {
+		t.Fatalf("second event = %+v, want assistant message", events[1])
+	}
+	done, ok := events[2].Payload.(donePayload)
+	if events[2].Event != "done" || !ok {
+		t.Fatalf("last event = %+v, want done payload", events[2])
+	}
+	if done.SessionID != "session-claude-runtime" || done.TurnsUsed != 3 {
+		t.Fatalf("unexpected done payload: %#v", done)
 	}
 }
 
@@ -511,13 +600,21 @@ func (p *fakeAgentCLIProcess) Stop(context.Context) error {
 
 type trackingWriteCloser struct {
 	closed bool
+	writes strings.Builder
 }
 
-func (w *trackingWriteCloser) Write(data []byte) (int, error) { return len(data), nil }
+func (w *trackingWriteCloser) Write(data []byte) (int, error) {
+	_, _ = w.writes.Write(data)
+	return len(data), nil
+}
 
 func (w *trackingWriteCloser) Close() error {
 	w.closed = true
 	return nil
+}
+
+func (w *trackingWriteCloser) String() string {
+	return w.writes.String()
 }
 
 type nopWriteCloser struct{}

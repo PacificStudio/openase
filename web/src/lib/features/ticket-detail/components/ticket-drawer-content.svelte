@@ -184,8 +184,8 @@
   </div>
 {/if}
 
-<div class="flex flex-1 flex-col overflow-hidden md:flex-row">
-  <div class="flex flex-1 flex-col overflow-hidden border-r">
+<div class="flex flex-1 overflow-y-auto md:flex-row">
+  <div class="min-w-0 flex-1">
     <TicketDrawerMainTabs
       {ticket}
       {timeline}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	codexadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
+	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	chatrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
@@ -542,6 +544,539 @@ func TestProjectConversationRespondInterruptRestoresCodexSessionWhenRuntimeMissi
 	}
 }
 
+func TestProjectConversationRespondInterruptContinuesCodexTurnWhenRuntimeMissing(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	conversation, err = repoStore.UpdateConversationAnchors(ctx, conversation.ID, chatdomain.ConversationStatusInterrupted, chatdomain.ConversationAnchors{
+		ProviderThreadID:          optionalString("thread-live"),
+		LastTurnID:                optionalString("turn-live"),
+		RollingSummary:            "Thread paused for approval",
+		ProviderThreadStatus:      optionalString("waitingOnApproval"),
+		ProviderThreadActiveFlags: &[]string{"waitingOnApproval"},
+	})
+	if err != nil {
+		t.Fatalf("update conversation anchors: %v", err)
+	}
+	turn, _, err := repoStore.CreateTurnWithUserEntry(ctx, conversation.ID, "Need approval")
+	if err != nil {
+		t.Fatalf("create turn: %v", err)
+	}
+	interrupt, _, err := repoStore.CreatePendingInterrupt(ctx, conversation.ID, turn.ID, "req-2", chatdomain.InterruptKindCommandExecutionApproval, map[string]any{
+		"provider": "codex",
+	})
+	if err != nil {
+		t.Fatalf("create pending interrupt: %v", err)
+	}
+
+	fakeCodex := &fakeProjectConversationCodexRuntime{
+		respondStream: TurnStream{Events: streamWithEvents(
+			StreamEvent{Event: "done", Payload: donePayload{SessionID: conversation.ID.String()}},
+		)},
+		anchor: RuntimeSessionAnchor{
+			ProviderThreadID:          "thread-live",
+			LastTurnID:                "provider-turn-2",
+			ProviderThreadStatus:      "idle",
+			ProviderThreadActiveFlags: []string{},
+		},
+	}
+	service := NewProjectConversationService(
+		nil,
+		repoStore,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             project.ID,
+					OrganizationID: org.ID,
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+				providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+					providerID: {
+						ID:             providerID,
+						OrganizationID: org.ID,
+						MachineID:      machineID,
+						AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+						CliCommand:     "codex",
+					},
+				},
+			},
+			machine: catalogdomain.Machine{
+				ID:            machineID,
+				Name:          catalogdomain.LocalMachineName,
+				Host:          catalogdomain.LocalMachineHost,
+				WorkspaceRoot: stringPointer(t.TempDir()),
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		&fakeAgentCLIProcessManager{process: &fakeAgentCLIProcess{stdin: &trackingWriteCloser{}, stdout: `{"response":"OK"}`}},
+		nil,
+	)
+	service.newCodexRuntime = func(provider.AgentCLIProcessManager) (projectConversationCodexRuntime, error) {
+		return fakeCodex, nil
+	}
+
+	resolved, err := service.RespondInterrupt(ctx, UserID("user:conversation"), conversation.ID, interrupt.ID, chatdomain.InterruptResponse{
+		Decision: optionalString("approve_once"),
+	})
+	if err != nil {
+		t.Fatalf("RespondInterrupt() error = %v", err)
+	}
+	if resolved.Status != chatdomain.InterruptStatusResolved {
+		t.Fatalf("expected resolved interrupt, got %+v", resolved)
+	}
+
+	var completedTurn *ent.ChatTurn
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		item, getErr := client.ChatTurn.Get(ctx, turn.ID)
+		if getErr == nil && item.Status == string(chatdomain.TurnStatusCompleted) && item.ProviderTurnID != nil && *item.ProviderTurnID == "provider-turn-2" {
+			completedTurn = item
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if completedTurn == nil {
+		t.Fatal("expected codex continuation stream to complete interrupted turn")
+	}
+
+	reloadedConversation, err := repoStore.GetConversation(ctx, conversation.ID)
+	if err != nil {
+		t.Fatalf("reload conversation: %v", err)
+	}
+	if reloadedConversation.LastTurnID == nil || *reloadedConversation.LastTurnID != "provider-turn-2" {
+		t.Fatalf("expected conversation anchor to advance, got %+v", reloadedConversation)
+	}
+}
+
+func TestProjectConversationStartTurnResumesClaudeSessionOverSSHWithoutRecoveryPrompt(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	const persistentSessionID = "claude-session-remote-42"
+	const rollingSummary = "Remote Claude should resume via durable session, not replay recovery context."
+	conversation, err = repoStore.UpdateConversationAnchors(ctx, conversation.ID, chatdomain.ConversationStatusActive, chatdomain.ConversationAnchors{
+		ProviderThreadID:     optionalString(persistentSessionID),
+		RollingSummary:       rollingSummary,
+		ProviderThreadStatus: optionalString("idle"),
+	})
+	if err != nil {
+		t.Fatalf("update conversation anchors: %v", err)
+	}
+
+	prepareSession := &projectConversationSSHPrepareSession{}
+	processSession := &projectConversationSSHProcessSession{
+		stdin: &trackingWriteCloser{},
+		stdout: strings.Join([]string{
+			fmt.Sprintf(`{"type":"system","subtype":"init","data":{"session_id":"%s"}}`, persistentSessionID),
+			`{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Remote done"}]}}`,
+			fmt.Sprintf(`{"type":"result","subtype":"success","session_id":"%s","num_turns":1}`, persistentSessionID),
+		}, "\n"),
+	}
+	sshPool := newProjectConversationTestSSHPool(t, &projectConversationSSHClient{
+		sessions: []sshinfra.Session{prepareSession, processSession},
+	})
+	workspaceRoot := "/srv/openase/workspaces"
+	sshUser := "openase"
+	sshKeyPath := "keys/remote-builder.pem"
+	service := NewProjectConversationService(
+		nil,
+		repoStore,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             project.ID,
+					OrganizationID: org.ID,
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+				providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+					providerID: {
+						ID:             providerID,
+						OrganizationID: org.ID,
+						MachineID:      machineID,
+						AdapterType:    catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
+						CliCommand:     "claude",
+					},
+				},
+			},
+			machine: catalogdomain.Machine{
+				ID:            machineID,
+				Name:          "builder-01",
+				Host:          "10.0.1.15",
+				Port:          22,
+				SSHUser:       &sshUser,
+				SSHKeyPath:    &sshKeyPath,
+				WorkspaceRoot: stringPointer(workspaceRoot),
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		nil,
+		sshPool,
+	)
+
+	turn, err := service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Continue after remote restart", nil)
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+	if turn.ID == uuid.Nil {
+		t.Fatal("expected persisted turn id")
+	}
+
+	remoteWorkspace := filepath.Join(
+		workspaceRoot,
+		org.ID.String(),
+		"openase",
+		projectConversationWorkspaceName(conversation.ID),
+	)
+	if !strings.Contains(prepareSession.command, remoteWorkspace) {
+		t.Fatalf("prepare command = %q, want workspace %q", prepareSession.command, remoteWorkspace)
+	}
+	if !strings.Contains(processSession.startedCommand, "cd '"+remoteWorkspace+"' &&") {
+		t.Fatalf("remote process command = %q, want workspace cd", processSession.startedCommand)
+	}
+	if !strings.Contains(processSession.startedCommand, "'--resume' '"+persistentSessionID+"'") {
+		t.Fatalf("remote process command = %q, want durable --resume", processSession.startedCommand)
+	}
+	if !strings.Contains(processSession.startedCommand, "'"+claudeCodeResumeInterruptedTurnEnv+"=1'") {
+		t.Fatalf("remote process command = %q, want %s=1", processSession.startedCommand, claudeCodeResumeInterruptedTurnEnv)
+	}
+	if strings.Contains(processSession.startedCommand, rollingSummary) {
+		t.Fatalf("expected remote claude resume to avoid recovery replay, got %q", processSession.startedCommand)
+	}
+
+	var completedTurn *ent.ChatTurn
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		item, getErr := client.ChatTurn.Get(ctx, turn.ID)
+		if getErr == nil && item.Status == string(chatdomain.TurnStatusCompleted) {
+			completedTurn = item
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if completedTurn == nil {
+		t.Fatal("expected remote claude turn to complete")
+	}
+
+	reloadedConversation, err := repoStore.GetConversation(ctx, conversation.ID)
+	if err != nil {
+		t.Fatalf("reload conversation: %v", err)
+	}
+	if reloadedConversation.ProviderThreadID == nil || *reloadedConversation.ProviderThreadID != persistentSessionID {
+		t.Fatalf("expected remote claude provider session anchor to persist, got %+v", reloadedConversation)
+	}
+}
+
+func TestProjectConversationRespondInterruptRestoresCodexSessionOverSSHWhenRuntimeMissing(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	conversation, err = repoStore.UpdateConversationAnchors(ctx, conversation.ID, chatdomain.ConversationStatusInterrupted, chatdomain.ConversationAnchors{
+		ProviderThreadID:     optionalString("thread-remote"),
+		LastTurnID:           optionalString("turn-remote"),
+		RollingSummary:       "Remote Codex thread paused for approval",
+		ProviderThreadStatus: optionalString("waitingOnApproval"),
+	})
+	if err != nil {
+		t.Fatalf("update conversation anchors: %v", err)
+	}
+	turn, _, err := repoStore.CreateTurnWithUserEntry(ctx, conversation.ID, "Need remote approval")
+	if err != nil {
+		t.Fatalf("create turn: %v", err)
+	}
+	interrupt, _, err := repoStore.CreatePendingInterrupt(ctx, conversation.ID, turn.ID, "req-remote", chatdomain.InterruptKindCommandExecutionApproval, map[string]any{
+		"provider": "codex",
+	})
+	if err != nil {
+		t.Fatalf("create pending interrupt: %v", err)
+	}
+
+	prepareSession := &projectConversationSSHPrepareSession{}
+	sshPool := newProjectConversationTestSSHPool(t, &projectConversationSSHClient{
+		sessions: []sshinfra.Session{prepareSession},
+	})
+	workspaceRoot := "/srv/openase/workspaces"
+	sshUser := "openase"
+	sshKeyPath := "keys/remote-builder.pem"
+	fakeCodex := &fakeProjectConversationCodexRuntime{}
+	var capturedManager provider.AgentCLIProcessManager
+	service := NewProjectConversationService(
+		nil,
+		repoStore,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             project.ID,
+					OrganizationID: org.ID,
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+				providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+					providerID: {
+						ID:             providerID,
+						OrganizationID: org.ID,
+						MachineID:      machineID,
+						AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+						CliCommand:     "codex",
+					},
+				},
+			},
+			machine: catalogdomain.Machine{
+				ID:            machineID,
+				Name:          "builder-01",
+				Host:          "10.0.1.15",
+				Port:          22,
+				SSHUser:       &sshUser,
+				SSHKeyPath:    &sshKeyPath,
+				WorkspaceRoot: stringPointer(workspaceRoot),
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		nil,
+		sshPool,
+	)
+	service.newCodexRuntime = func(manager provider.AgentCLIProcessManager) (projectConversationCodexRuntime, error) {
+		capturedManager = manager
+		return fakeCodex, nil
+	}
+
+	resolved, err := service.RespondInterrupt(ctx, UserID("user:conversation"), conversation.ID, interrupt.ID, chatdomain.InterruptResponse{
+		Decision: optionalString("approve_once"),
+	})
+	if err != nil {
+		t.Fatalf("RespondInterrupt() error = %v", err)
+	}
+	if resolved.Status != chatdomain.InterruptStatusResolved {
+		t.Fatalf("expected resolved interrupt, got %+v", resolved)
+	}
+	if _, ok := capturedManager.(*sshinfra.ProcessManager); !ok {
+		t.Fatalf("expected ssh process manager, got %T", capturedManager)
+	}
+	if fakeCodex.ensureInput.ResumeProviderThreadID != "thread-remote" || fakeCodex.ensureInput.ResumeProviderTurnID != "turn-remote" {
+		t.Fatalf("expected remote codex interrupt recovery to resume thread, got %+v", fakeCodex.ensureInput)
+	}
+	if fakeCodex.requestID != "req-remote" || fakeCodex.kind != "command_execution" || fakeCodex.decision != "approve_once" {
+		t.Fatalf("unexpected remote interrupt response routed to codex runtime: %+v", fakeCodex)
+	}
+	remoteWorkspace := filepath.Join(
+		workspaceRoot,
+		org.ID.String(),
+		"openase",
+		projectConversationWorkspaceName(conversation.ID),
+	)
+	if fakeCodex.ensureInput.WorkingDirectory.String() != remoteWorkspace {
+		t.Fatalf("ensure working directory = %q, want %q", fakeCodex.ensureInput.WorkingDirectory, remoteWorkspace)
+	}
+	if !strings.Contains(prepareSession.command, remoteWorkspace) {
+		t.Fatalf("prepare command = %q, want workspace %q", prepareSession.command, remoteWorkspace)
+	}
+}
+
+func TestProjectConversationRespondInterruptResumesClaudeSessionOverSSHAndContinuesInterruptedTurn(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	conversation, err = repoStore.UpdateConversationAnchors(ctx, conversation.ID, chatdomain.ConversationStatusInterrupted, chatdomain.ConversationAnchors{
+		ProviderThreadID:     optionalString("claude-session-remote"),
+		RollingSummary:       "Claude remote session paused",
+		ProviderThreadStatus: optionalString("requires_action"),
+	})
+	if err != nil {
+		t.Fatalf("update conversation anchors: %v", err)
+	}
+	turn, _, err := repoStore.CreateTurnWithUserEntry(ctx, conversation.ID, "Need remote answer")
+	if err != nil {
+		t.Fatalf("create turn: %v", err)
+	}
+	interrupt, _, err := repoStore.CreatePendingInterrupt(ctx, conversation.ID, turn.ID, "req-claude", chatdomain.InterruptKindUserInput, map[string]any{
+		"provider": "claude",
+	})
+	if err != nil {
+		t.Fatalf("create pending interrupt: %v", err)
+	}
+
+	prepareSession := &projectConversationSSHPrepareSession{}
+	stdin := &trackingWriteCloser{}
+	processSession := &projectConversationSSHProcessSession{
+		stdin: stdin,
+		stdout: strings.Join([]string{
+			`{"type":"system","subtype":"init","data":{"session_id":"claude-session-remote"}}`,
+			`{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Continuing on the remote Claude session"}]}}`,
+			`{"type":"result","subtype":"success","session_id":"claude-session-remote","num_turns":2}`,
+		}, "\n"),
+	}
+	sshPool := newProjectConversationTestSSHPool(t, &projectConversationSSHClient{
+		sessions: []sshinfra.Session{prepareSession, processSession},
+	})
+	workspaceRoot := "/srv/openase/workspaces"
+	sshUser := "openase"
+	sshKeyPath := "keys/remote-builder.pem"
+	service := NewProjectConversationService(
+		nil,
+		repoStore,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             project.ID,
+					OrganizationID: org.ID,
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+				providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+					providerID: {
+						ID:             providerID,
+						OrganizationID: org.ID,
+						MachineID:      machineID,
+						AdapterType:    catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
+						CliCommand:     "claude",
+					},
+				},
+			},
+			machine: catalogdomain.Machine{
+				ID:            machineID,
+				Name:          "builder-01",
+				Host:          "10.0.1.15",
+				Port:          22,
+				SSHUser:       &sshUser,
+				SSHKeyPath:    &sshKeyPath,
+				WorkspaceRoot: stringPointer(workspaceRoot),
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		nil,
+		sshPool,
+	)
+
+	resolved, err := service.RespondInterrupt(ctx, UserID("user:conversation"), conversation.ID, interrupt.ID, chatdomain.InterruptResponse{
+		Answer: map[string]any{"text": "continue"},
+	})
+	if err != nil {
+		t.Fatalf("RespondInterrupt() error = %v", err)
+	}
+	if resolved.Status != chatdomain.InterruptStatusResolved {
+		t.Fatalf("expected resolved interrupt, got %+v", resolved)
+	}
+	remoteWorkspace := filepath.Join(
+		workspaceRoot,
+		org.ID.String(),
+		"openase",
+		projectConversationWorkspaceName(conversation.ID),
+	)
+	if !strings.Contains(prepareSession.command, remoteWorkspace) {
+		t.Fatalf("prepare command = %q, want workspace %q", prepareSession.command, remoteWorkspace)
+	}
+	if !strings.Contains(processSession.startedCommand, "cd '"+remoteWorkspace+"' &&") {
+		t.Fatalf("remote process command = %q, want workspace cd", processSession.startedCommand)
+	}
+	if !strings.Contains(processSession.startedCommand, "'--resume' 'claude-session-remote'") {
+		t.Fatalf("remote process command = %q, want durable --resume", processSession.startedCommand)
+	}
+	if !strings.Contains(processSession.startedCommand, "'"+claudeCodeResumeInterruptedTurnEnv+"=1'") {
+		t.Fatalf("remote process command = %q, want %s=1", processSession.startedCommand, claudeCodeResumeInterruptedTurnEnv)
+	}
+	if !strings.Contains(stdin.String(), `\"text\": \"continue\"`) || !strings.Contains(stdin.String(), `\"request_id\": \"req-claude\"`) {
+		t.Fatalf("stdin payload = %q, want encoded claude interrupt response", stdin.String())
+	}
+
+	var completedTurn *ent.ChatTurn
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		item, getErr := client.ChatTurn.Get(ctx, turn.ID)
+		if getErr == nil && item.Status == string(chatdomain.TurnStatusCompleted) {
+			completedTurn = item
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if completedTurn == nil {
+		t.Fatal("expected interrupted Claude turn to complete after remote response")
+	}
+
+	entries, err := repoStore.ListEntries(ctx, conversation.ID)
+	if err != nil {
+		t.Fatalf("list entries: %v", err)
+	}
+	if !containsAll(strings.Join(renderRecoveryLines(entries, len(entries)), "\n"), "assistant: Continuing on the remote Claude session") {
+		t.Fatalf("expected assistant continuation entry after response, got %+v", entries)
+	}
+
+	reloadedConversation, err := repoStore.GetConversation(ctx, conversation.ID)
+	if err != nil {
+		t.Fatalf("reload conversation: %v", err)
+	}
+	if reloadedConversation.Status != chatdomain.ConversationStatusActive {
+		t.Fatalf("expected active conversation after response, got %+v", reloadedConversation)
+	}
+	if reloadedConversation.ProviderThreadID == nil || *reloadedConversation.ProviderThreadID != "claude-session-remote" {
+		t.Fatalf("expected claude session anchor to persist, got %+v", reloadedConversation)
+	}
+}
+
 func TestProjectConversationConsumeTurnPersistsProviderTurnIDOnCompletion(t *testing.T) {
 	t.Parallel()
 
@@ -961,6 +1496,265 @@ func TestProjectConversationWatchConversationSessionDistinguishesClaudeSessionAn
 	if !ok || len(flags) != 1 || flags[0] != "requires_action" {
 		t.Fatalf("expected provider_active_flags in session payload, got %#v", payload["provider_active_flags"])
 	}
+}
+
+func TestProjectConversationWatchConversationIsolatesEventsPerConversation(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	_, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+
+	firstConversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create first conversation: %v", err)
+	}
+	secondConversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create second conversation: %v", err)
+	}
+
+	service := NewProjectConversationService(nil, repoStore, nil, nil, nil, nil, nil)
+	firstEvents, cleanupFirst := service.WatchConversation(ctx, firstConversation.ID)
+	defer cleanupFirst()
+	secondEvents, cleanupSecond := service.WatchConversation(ctx, secondConversation.ID)
+	defer cleanupSecond()
+
+	if event := requireProjectConversationStreamEvent(t, firstEvents); event.Event != "session" {
+		t.Fatalf("first watcher initial event = %q, want session", event.Event)
+	}
+	if event := requireProjectConversationStreamEvent(t, secondEvents); event.Event != "session" {
+		t.Fatalf("second watcher initial event = %q, want session", event.Event)
+	}
+
+	_, err = service.AppendActionExecutionResult(
+		ctx,
+		UserID("user:conversation"),
+		firstConversation.ID,
+		nil,
+		map[string]any{"marker": "conversation-1"},
+	)
+	if err != nil {
+		t.Fatalf("append action result: %v", err)
+	}
+
+	delivered := requireProjectConversationStreamEvent(t, firstEvents)
+	if delivered.Event != "message" {
+		t.Fatalf("first watcher event = %q, want message", delivered.Event)
+	}
+	payload, ok := delivered.Payload.(map[string]any)
+	if !ok {
+		t.Fatalf("expected message payload map, got %#v", delivered.Payload)
+	}
+	if payload["type"] != "action_result" {
+		t.Fatalf("first watcher payload type = %#v, want action_result", payload["type"])
+	}
+	nested, ok := payload["payload"].(map[string]any)
+	if !ok || nested["marker"] != "conversation-1" {
+		t.Fatalf("first watcher payload = %#v, want marker conversation-1", payload["payload"])
+	}
+
+	requireNoProjectConversationStreamEvent(t, secondEvents)
+}
+
+func TestProjectConversationWatchConversationFansOutToAllWatchers(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	_, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	service := NewProjectConversationService(nil, repoStore, nil, nil, nil, nil, nil)
+	firstWatcher, cleanupFirst := service.WatchConversation(ctx, conversation.ID)
+	secondWatcher, cleanupSecond := service.WatchConversation(ctx, conversation.ID)
+	defer cleanupSecond()
+	defer func() {
+		if cleanupFirst != nil {
+			cleanupFirst()
+		}
+	}()
+
+	if event := requireProjectConversationStreamEvent(t, firstWatcher); event.Event != "session" {
+		t.Fatalf("first watcher initial event = %q, want session", event.Event)
+	}
+	if event := requireProjectConversationStreamEvent(t, secondWatcher); event.Event != "session" {
+		t.Fatalf("second watcher initial event = %q, want session", event.Event)
+	}
+
+	_, err = service.AppendActionExecutionResult(
+		ctx,
+		UserID("user:conversation"),
+		conversation.ID,
+		nil,
+		map[string]any{"marker": "fanout-1"},
+	)
+	if err != nil {
+		t.Fatalf("append first action result: %v", err)
+	}
+
+	for name, watcher := range map[string]<-chan StreamEvent{
+		"first":  firstWatcher,
+		"second": secondWatcher,
+	} {
+		delivered := requireProjectConversationStreamEvent(t, watcher)
+		if delivered.Event != "message" {
+			t.Fatalf("%s watcher event = %q, want message", name, delivered.Event)
+		}
+		payload, ok := delivered.Payload.(map[string]any)
+		if !ok {
+			t.Fatalf("%s watcher payload = %#v, want map", name, delivered.Payload)
+		}
+		nested, ok := payload["payload"].(map[string]any)
+		if !ok || nested["marker"] != "fanout-1" {
+			t.Fatalf("%s watcher payload = %#v, want marker fanout-1", name, payload["payload"])
+		}
+	}
+
+	cleanupFirst()
+	cleanupFirst = nil
+	_, err = service.AppendActionExecutionResult(
+		ctx,
+		UserID("user:conversation"),
+		conversation.ID,
+		nil,
+		map[string]any{"marker": "fanout-2"},
+	)
+	if err != nil {
+		t.Fatalf("append second action result: %v", err)
+	}
+
+	delivered := requireProjectConversationStreamEvent(t, secondWatcher)
+	payload, ok := delivered.Payload.(map[string]any)
+	if delivered.Event != "message" || !ok {
+		t.Fatalf("remaining watcher event = %+v, want message payload", delivered)
+	}
+	nested, ok := payload["payload"].(map[string]any)
+	if !ok || nested["marker"] != "fanout-2" {
+		t.Fatalf("remaining watcher payload = %#v, want marker fanout-2", payload["payload"])
+	}
+}
+
+func TestProjectConversationWatchConversationBlockedWatcherDoesNotBlockOthers(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	_, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+
+	firstConversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create first conversation: %v", err)
+	}
+	secondConversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create second conversation: %v", err)
+	}
+
+	service := NewProjectConversationService(nil, repoStore, nil, nil, nil, nil, nil)
+	blockedWatcher, cleanupBlocked := service.WatchConversation(ctx, firstConversation.ID)
+	defer cleanupBlocked()
+	activeWatcher, cleanupActive := service.WatchConversation(ctx, firstConversation.ID)
+	defer cleanupActive()
+	otherConversationWatcher, cleanupOther := service.WatchConversation(ctx, secondConversation.ID)
+	defer cleanupOther()
+
+	requireProjectConversationStreamEvent(t, blockedWatcher)
+	requireProjectConversationStreamEvent(t, activeWatcher)
+	requireProjectConversationStreamEvent(t, otherConversationWatcher)
+
+	for index := range 32 {
+		service.broadcast(firstConversation.ID, StreamEvent{
+			Event: "message",
+			Payload: map[string]any{
+				"type":    "action_result",
+				"payload": map[string]any{"marker": fmt.Sprintf("buffer-%d", index)},
+			},
+		})
+
+		delivered := requireProjectConversationStreamEvent(t, activeWatcher)
+		payload, ok := delivered.Payload.(map[string]any)
+		if delivered.Event != "message" || !ok {
+			t.Fatalf("active watcher event = %+v, want message payload", delivered)
+		}
+		nested, ok := payload["payload"].(map[string]any)
+		if !ok || nested["marker"] != fmt.Sprintf("buffer-%d", index) {
+			t.Fatalf("active watcher payload = %#v, want marker buffer-%d", payload["payload"], index)
+		}
+	}
+
+	service.broadcast(firstConversation.ID, StreamEvent{
+		Event: "message",
+		Payload: map[string]any{
+			"type":    "action_result",
+			"payload": map[string]any{"marker": "after-blocked"},
+		},
+	})
+
+	delivered := requireProjectConversationStreamEvent(t, activeWatcher)
+	payload, ok := delivered.Payload.(map[string]any)
+	if delivered.Event != "message" || !ok {
+		t.Fatalf("active watcher event after blocked = %+v, want message payload", delivered)
+	}
+	nested, ok := payload["payload"].(map[string]any)
+	if !ok || nested["marker"] != "after-blocked" {
+		t.Fatalf("active watcher payload after blocked = %#v, want marker after-blocked", payload["payload"])
+	}
+
+	service.broadcast(secondConversation.ID, StreamEvent{
+		Event: "message",
+		Payload: map[string]any{
+			"type":    "action_result",
+			"payload": map[string]any{"marker": "other-conversation"},
+		},
+	})
+
+	otherDelivered := requireProjectConversationStreamEvent(t, otherConversationWatcher)
+	otherPayload, ok := otherDelivered.Payload.(map[string]any)
+	if otherDelivered.Event != "message" || !ok {
+		t.Fatalf("other conversation watcher event = %+v, want message payload", otherDelivered)
+	}
+	otherNested, ok := otherPayload["payload"].(map[string]any)
+	if !ok || otherNested["marker"] != "other-conversation" {
+		t.Fatalf("other conversation watcher payload = %#v, want marker other-conversation", otherPayload["payload"])
+	}
+
+	for range 32 {
+		requireProjectConversationStreamEvent(t, blockedWatcher)
+	}
+	requireNoProjectConversationStreamEvent(t, blockedWatcher)
 }
 
 func TestProjectConversationConsumeTurnPersistsThreadStatusAndProtocolEvents(t *testing.T) {
@@ -1829,16 +2623,19 @@ func (c fakeProjectConversationCatalog) GetMachine(context.Context, uuid.UUID) (
 }
 
 type fakeProjectConversationCodexRuntime struct {
-	sessionID   SessionID
-	requestID   string
-	kind        string
-	decision    string
-	answer      map[string]any
-	ensureInput RuntimeTurnInput
-	ensureErr   error
-	startInput  RuntimeTurnInput
-	startStream TurnStream
-	anchor      RuntimeSessionAnchor
+	sessionID     SessionID
+	requestID     string
+	kind          string
+	decision      string
+	answer        map[string]any
+	ensureInput   RuntimeTurnInput
+	ensureErr     error
+	startInput    RuntimeTurnInput
+	startStream   TurnStream
+	respondInput  RuntimeInterruptResponseInput
+	respondStream TurnStream
+	respondErr    error
+	anchor        RuntimeSessionAnchor
 }
 
 func (r *fakeProjectConversationCodexRuntime) Supports(catalogdomain.AgentProvider) bool {
@@ -1864,18 +2661,21 @@ func (r *fakeProjectConversationCodexRuntime) CloseSession(SessionID) bool {
 
 func (r *fakeProjectConversationCodexRuntime) RespondInterrupt(
 	_ context.Context,
-	sessionID SessionID,
-	requestID string,
-	kind string,
-	decision string,
-	answer map[string]any,
-) error {
-	r.sessionID = sessionID
-	r.requestID = requestID
-	r.kind = kind
-	r.decision = decision
-	r.answer = answer
-	return nil
+	input RuntimeInterruptResponseInput,
+) (TurnStream, error) {
+	r.sessionID = input.SessionID
+	r.requestID = input.RequestID
+	r.kind = input.Kind
+	r.decision = input.Decision
+	r.answer = input.Answer
+	r.respondInput = input
+	if r.respondErr != nil {
+		return TurnStream{}, r.respondErr
+	}
+	if r.respondStream.Events == nil {
+		return TurnStream{}, nil
+	}
+	return r.respondStream, nil
 }
 
 func (r *fakeProjectConversationCodexRuntime) SessionAnchor(SessionID) RuntimeSessionAnchor {
@@ -1898,6 +2698,34 @@ func streamWithEvents(items ...StreamEvent) <-chan StreamEvent {
 	}
 	close(events)
 	return events
+}
+
+func requireProjectConversationStreamEvent(t *testing.T, events <-chan StreamEvent) StreamEvent {
+	t.Helper()
+
+	select {
+	case event, ok := <-events:
+		if !ok {
+			t.Fatal("expected stream event, got closed channel")
+		}
+		return event
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("timed out waiting for stream event")
+		return StreamEvent{}
+	}
+}
+
+func requireNoProjectConversationStreamEvent(t *testing.T, events <-chan StreamEvent) {
+	t.Helper()
+
+	select {
+	case event, ok := <-events:
+		if !ok {
+			return
+		}
+		t.Fatalf("expected no stream event, got %+v", event)
+	case <-time.After(100 * time.Millisecond):
+	}
 }
 
 type fakeProjectConversationWorkflowSync struct {
@@ -1940,6 +2768,114 @@ func (fakeProjectConversationAgentPlatform) IssueToken(
 ) (agentplatform.IssuedToken, error) {
 	return agentplatform.IssuedToken{Token: "project-conversation-placeholder"}, nil
 }
+
+func newProjectConversationTestSSHPool(t *testing.T, client sshinfra.Client) *sshinfra.Pool {
+	t.Helper()
+	return sshinfra.NewPool(t.TempDir(), sshinfra.WithDialer(&projectConversationSSHDialer{client: client}), sshinfra.WithReadFile(func(string) ([]byte, error) {
+		return []byte("key"), nil
+	}))
+}
+
+type projectConversationSSHDialer struct {
+	client sshinfra.Client
+}
+
+func (d *projectConversationSSHDialer) DialContext(context.Context, sshinfra.DialConfig) (sshinfra.Client, error) {
+	return d.client, nil
+}
+
+type projectConversationSSHClient struct {
+	sessions   []sshinfra.Session
+	sessionIdx int
+}
+
+func (c *projectConversationSSHClient) NewSession() (sshinfra.Session, error) {
+	if c.sessionIdx >= len(c.sessions) {
+		return nil, fmt.Errorf("unexpected ssh session request %d", c.sessionIdx)
+	}
+	session := c.sessions[c.sessionIdx]
+	c.sessionIdx++
+	return session, nil
+}
+
+func (c *projectConversationSSHClient) SendRequest(string, bool, []byte) (bool, []byte, error) {
+	return true, nil, nil
+}
+
+func (c *projectConversationSSHClient) Close() error {
+	return nil
+}
+
+type projectConversationSSHPrepareSession struct {
+	command string
+	output  []byte
+	err     error
+}
+
+func (s *projectConversationSSHPrepareSession) CombinedOutput(cmd string) ([]byte, error) {
+	s.command = cmd
+	return s.output, s.err
+}
+
+func (s *projectConversationSSHPrepareSession) StdinPipe() (io.WriteCloser, error) {
+	return nil, fmt.Errorf("not supported")
+}
+
+func (s *projectConversationSSHPrepareSession) StdoutPipe() (io.Reader, error) {
+	return strings.NewReader(""), nil
+}
+
+func (s *projectConversationSSHPrepareSession) StderrPipe() (io.Reader, error) {
+	return strings.NewReader(""), nil
+}
+
+func (s *projectConversationSSHPrepareSession) Start(string) error {
+	return fmt.Errorf("not supported")
+}
+
+func (s *projectConversationSSHPrepareSession) Signal(string) error { return nil }
+
+func (s *projectConversationSSHPrepareSession) Wait() error { return nil }
+
+func (s *projectConversationSSHPrepareSession) Close() error { return nil }
+
+type projectConversationSSHProcessSession struct {
+	stdin          io.WriteCloser
+	stdout         string
+	stderr         string
+	waitErr        error
+	startedCommand string
+}
+
+func (s *projectConversationSSHProcessSession) CombinedOutput(string) ([]byte, error) {
+	return nil, fmt.Errorf("not supported")
+}
+
+func (s *projectConversationSSHProcessSession) StdinPipe() (io.WriteCloser, error) {
+	if s.stdin != nil {
+		return s.stdin, nil
+	}
+	return nopWriteCloser{}, nil
+}
+
+func (s *projectConversationSSHProcessSession) StdoutPipe() (io.Reader, error) {
+	return strings.NewReader(s.stdout), nil
+}
+
+func (s *projectConversationSSHProcessSession) StderrPipe() (io.Reader, error) {
+	return strings.NewReader(s.stderr), nil
+}
+
+func (s *projectConversationSSHProcessSession) Start(cmd string) error {
+	s.startedCommand = cmd
+	return nil
+}
+
+func (s *projectConversationSSHProcessSession) Signal(string) error { return nil }
+
+func (s *projectConversationSSHProcessSession) Wait() error { return s.waitErr }
+
+func (s *projectConversationSSHProcessSession) Close() error { return nil }
 
 func createConversationRemoteRepo(
 	t *testing.T,

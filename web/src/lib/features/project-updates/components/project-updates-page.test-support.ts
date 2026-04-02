@@ -6,6 +6,7 @@ import type {
   ProjectUpdateCommentRecord,
   ProjectUpdateThreadRecord,
 } from '$lib/api/contracts'
+import { resetProjectUpdatesCacheForTests } from '../project-updates-cache'
 import { appStore } from '$lib/stores/app.svelte'
 
 const projectUpdatesPageMocks = vi.hoisted(() => ({
@@ -38,13 +39,19 @@ vi.mock('$lib/api/openase', () => ({
   updateProjectUpdateThread,
 }))
 
-vi.mock('$lib/features/project-events/project-event-bus', () => ({
-  isProjectUpdateEvent: (event: { topic?: string; type?: string }) =>
-    event.topic === 'activity.events' &&
-    typeof event.type === 'string' &&
-    event.type.startsWith('project_update_'),
-  subscribeProjectEvents,
-}))
+vi.mock('$lib/features/project-events', async () => {
+  const actual = await vi.importActual<typeof import('$lib/features/project-events')>(
+    '$lib/features/project-events',
+  )
+  return {
+    ...actual,
+    isProjectUpdateEvent: (event: { topic?: string; type?: string }) =>
+      event.topic === 'activity.events' &&
+      typeof event.type === 'string' &&
+      event.type.startsWith('project_update_'),
+    subscribeProjectEvents: projectUpdatesPageMocks.subscribeProjectEvents,
+  }
+})
 
 export const projectFixture: Project = {
   id: 'project-1',
@@ -78,6 +85,7 @@ export function setupProjectUpdatesPageTest() {
 
   afterEach(() => {
     cleanup()
+    resetProjectUpdatesCacheForTests()
     appStore.currentProject = null
     vi.unstubAllGlobals()
   })

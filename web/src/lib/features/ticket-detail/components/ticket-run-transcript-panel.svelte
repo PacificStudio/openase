@@ -2,8 +2,11 @@
   import { tick } from 'svelte'
   import type { StreamConnectionState } from '$lib/api/sse'
   import TicketRunTranscriptHeader from './ticket-run-transcript-header.svelte'
+  import TicketRunTranscriptDiffCard from './ticket-run-transcript-diff-card.svelte'
   import TicketRunTranscriptInterruptCard from './ticket-run-transcript-interrupt-card.svelte'
   import TicketRunTranscriptOutputBlock from './ticket-run-transcript-output-block.svelte'
+  import TicketRunTranscriptStatusCard from './ticket-run-transcript-status-card.svelte'
+  import TicketRunTranscriptToolCallCard from './ticket-run-transcript-tool-call-card.svelte'
   import {
     blockCardClass,
     blockLabel,
@@ -119,7 +122,11 @@
       case 'terminal_output':
         return `${tail.id}:${tail.text.length}:${tail.streaming}`
       case 'tool_call':
-        return `${tail.id}:${tail.toolName}:${tail.summary ?? ''}`
+        return `${tail.id}:${tail.toolName}:${JSON.stringify(tail.arguments ?? null)}`
+      case 'task_status':
+        return `${tail.id}:${tail.statusType}:${tail.detail ?? ''}`
+      case 'diff':
+        return `${tail.id}:${tail.diff.file}:${tail.diff.hunks.length}`
       case 'interrupt':
         return `${tail.id}:${tail.summary}:${tail.options.length}`
       case 'phase':
@@ -209,12 +216,11 @@
                 onToggle={() => toggleOutputExpansion(block.id)}
               />
             {:else if block.kind === 'tool_call'}
-              <div class="space-y-2">
-                <p class="text-foreground text-sm font-medium">{block.toolName}</p>
-                {#if block.summary}
-                  <p class="text-muted-foreground text-sm">{block.summary}</p>
-                {/if}
-              </div>
+              <TicketRunTranscriptToolCallCard {block} />
+            {:else if block.kind === 'task_status'}
+              <TicketRunTranscriptStatusCard {block} />
+            {:else if block.kind === 'diff'}
+              <TicketRunTranscriptDiffCard {block} />
             {:else if block.kind === 'interrupt'}
               <TicketRunTranscriptInterruptCard {block} />
             {:else}
