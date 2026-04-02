@@ -22,7 +22,7 @@
     isProjectUpdateEvent,
     subscribeProjectEvents,
     type ProjectEventEnvelope,
-  } from '$lib/features/project-events/project-event-bus'
+  } from '$lib/features/project-events'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
   import { Skeleton } from '$ui/skeleton'

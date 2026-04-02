@@ -16,7 +16,7 @@ import {
   type ParsedStatusDraft,
   type TicketStatusStage,
 } from '$lib/features/statuses/public'
-import { subscribeProjectEvents } from '$lib/features/project-events/project-event-bus'
+import { subscribeProjectEvents } from '$lib/features/project-events'
 import { appStore } from '$lib/stores/app.svelte'
 import { toastStore } from '$lib/stores/toast.svelte'
 import { startStatusRuntimeSync } from './status-runtime-sync'

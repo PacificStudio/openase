@@ -11,7 +11,7 @@
     updateStatus,
     updateTicket,
   } from '$lib/api/openase'
-  import { subscribeProjectEvents } from '$lib/features/project-events/project-event-bus'
+  import { subscribeProjectEvents } from '$lib/features/project-events'
   import { statusSync } from '$lib/features/statuses/public'
   import { toastStore } from '$lib/stores/toast.svelte'
   import {

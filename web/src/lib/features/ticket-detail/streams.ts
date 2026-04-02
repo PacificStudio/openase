@@ -5,7 +5,7 @@ import {
   subscribeProjectEvents,
   subscribeProjectEventBusState,
   toProjectEventFrame,
-} from '$lib/features/project-events/project-event-bus'
+} from '$lib/features/project-events'
 
 export function connectTicketDetailStreams(
   projectId: string,

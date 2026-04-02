@@ -3,7 +3,7 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { listActivity, listTickets } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
-  import { subscribeProjectEvents } from '$lib/features/project-events/project-event-bus'
+  import { subscribeProjectEvents } from '$lib/features/project-events'
   import { Input } from '$ui/input'
   import { Skeleton } from '$ui/skeleton'
   import * as Select from '$ui/select'

@@ -14,7 +14,7 @@
     isProjectUpdateEvent,
     subscribeProjectEvents,
     type ProjectEventEnvelope,
-  } from '$lib/features/project-events/project-event-bus'
+  } from '$lib/features/project-events'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn } from '$lib/utils'
   import { Skeleton } from '$ui/skeleton'

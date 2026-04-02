@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { StatusPayload } from '$lib/api/contracts'
   import { listStatuses } from '$lib/api/openase'
-  import { subscribeProjectEvents } from '$lib/features/project-events/project-event-bus'
+  import { subscribeProjectEvents } from '$lib/features/project-events'
   import {
     WorkflowLifecycleSidebar,
     WorkflowList,

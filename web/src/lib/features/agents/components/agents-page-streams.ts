@@ -1,5 +1,5 @@
 import { connectEventStream } from '$lib/api/sse'
-import { subscribeProjectEvents } from '$lib/features/project-events/project-event-bus'
+import { subscribeProjectEvents } from '$lib/features/project-events'
 
 export function connectAgentsPageStreams(
   projectId: string,

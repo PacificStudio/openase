@@ -1,5 +1,5 @@
 import { ApiError } from '$lib/api/client'
-import type { subscribeProjectEvents } from '$lib/features/project-events/project-event-bus'
+import type { subscribeProjectEvents } from '$lib/features/project-events'
 type LoadMode = 'initial' | 'background'
 
 type StatusRuntimeSyncOptions<TSnapshot> = {

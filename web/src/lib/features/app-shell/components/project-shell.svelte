@@ -5,7 +5,7 @@
   import TopBar from '$lib/components/layout/top-bar.svelte'
   import { ProjectAssistantSheet } from '$lib/features/chat'
   import { OrganizationCreationDialog } from '$lib/features/catalog-creation'
-  import { retainProjectEventBus } from '$lib/features/project-events/project-event-bus'
+  import { retainProjectEventBus } from '$lib/features/project-events'
   import { ProjectCreationDialog } from '$lib/features/catalog-creation'
   import { GlobalSearchDialog } from '$lib/features/search'
   import { NewTicketDialog } from '$lib/features/tickets'
