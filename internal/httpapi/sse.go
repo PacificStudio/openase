@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,6 +25,15 @@ var (
 	providerStreamTopic = provider.MustParseTopic("provider.events")
 )
 
+var projectPassiveStreamTopics = []provider.Topic{
+	ticketStreamTopic,
+	agentStreamTopic,
+	hookStreamTopic,
+	activityStreamTopic,
+	agentTraceStreamTopic,
+	agentStepStreamTopic,
+}
+
 type sseEnvelope struct {
 	Topic       string          `json:"topic"`
 	Type        string          `json:"type"`
@@ -40,20 +50,70 @@ func (s *Server) handleEventStream(c echo.Context) error {
 	return s.handleEventStreamForTopics(c, topics...)
 }
 
-func (s *Server) handleTicketStream(c echo.Context) error {
-	return s.handleEventStreamForTopics(c, ticketStreamTopic)
-}
+func (s *Server) handleProjectEventStream(c echo.Context) error {
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
 
-func (s *Server) handleAgentStream(c echo.Context) error {
-	return s.handleEventStreamForTopics(c, agentStreamTopic)
-}
+	if err := http.NewResponseController(c.Response().Writer).SetWriteDeadline(time.Time{}); err != nil &&
+		!errors.Is(err, http.ErrNotSupported) {
+		return fmt.Errorf("disable project event stream write deadline: %w", err)
+	}
 
-func (s *Server) handleHookStream(c echo.Context) error {
-	return s.handleEventStreamForTopics(c, hookStreamTopic)
-}
+	stream, err := s.sseHub.Register(c.Request().Context(), projectPassiveStreamTopics...)
+	if err != nil {
+		return fmt.Errorf("register project event stream: %w", err)
+	}
 
-func (s *Server) handleActivityStream(c echo.Context) error {
-	return s.handleEventStreamForTopics(c, activityStreamTopic)
+	response := c.Response()
+	header := response.Header()
+	header.Set(echo.HeaderContentType, "text/event-stream")
+	header.Set(echo.HeaderCacheControl, "no-cache")
+	header.Set("Connection", "keep-alive")
+	header.Set("X-Accel-Buffering", "no")
+	response.WriteHeader(http.StatusOK)
+
+	if err := writeSSEKeepaliveComment(response); err != nil {
+		return err
+	}
+
+	heartbeat := time.NewTicker(sseKeepaliveInterval)
+	defer heartbeat.Stop()
+
+	for {
+		select {
+		case <-c.Request().Context().Done():
+			return nil
+		case event, ok := <-stream:
+			if !ok {
+				return nil
+			}
+
+			streamEvents, buildErr := s.buildProjectStreamEvents(c.Request().Context(), projectID, event)
+			if buildErr != nil {
+				s.logger.Warn(
+					"skip malformed project event bus payload",
+					"operation", "build_project_stream_events",
+					"project_id", projectID,
+					"topic", event.Topic.String(),
+					"type", event.Type.String(),
+					"payload_bytes", len(event.Payload),
+					"error", buildErr,
+				)
+				continue
+			}
+			for _, streamEvent := range streamEvents {
+				if err := writeSSEEvent(response, streamEvent); err != nil {
+					return err
+				}
+			}
+		case <-heartbeat.C:
+			if err := writeSSEKeepaliveComment(response); err != nil {
+				return err
+			}
+		}
+	}
 }
 
 func (s *Server) handleMachineStream(c echo.Context) error {
@@ -218,6 +278,118 @@ func buildOrganizationScopedStreamEvent(
 	}
 
 	return event, true, nil
+}
+
+func (s *Server) buildProjectStreamEvents(
+	ctx context.Context,
+	projectID uuid.UUID,
+	event provider.Event,
+) ([]provider.Event, error) {
+	switch event.Topic {
+	case ticketStreamTopic:
+		return buildProjectScopedPassthroughEvents(projectID, event, parseTicketStreamProjectID)
+	case agentStreamTopic:
+		return buildProjectScopedPassthroughEvents(projectID, event, parseAgentStreamProjectID)
+	case hookStreamTopic:
+		return buildProjectScopedPassthroughEvents(projectID, event, parseHookStreamProjectID)
+	case activityStreamTopic:
+		events, err := buildProjectScopedPassthroughEvents(projectID, event, parseActivityStreamProjectID)
+		if err != nil || len(events) == 0 {
+			return events, err
+		}
+
+		ticketRunEvent, matched, buildErr := s.buildProjectTicketRunLifecycleStreamEvent(ctx, projectID, event)
+		if buildErr != nil {
+			return nil, buildErr
+		}
+		if matched {
+			events = append(events, ticketRunEvent)
+		}
+		return events, nil
+	case agentTraceStreamTopic:
+		ticketRunEvent, matched, err := buildProjectTicketRunTraceStreamEvent(projectID, event)
+		if err != nil || !matched {
+			return nil, err
+		}
+		return []provider.Event{ticketRunEvent}, nil
+	case agentStepStreamTopic:
+		ticketRunEvent, matched, err := buildProjectTicketRunStepStreamEvent(projectID, event)
+		if err != nil || !matched {
+			return nil, err
+		}
+		return []provider.Event{ticketRunEvent}, nil
+	default:
+		return nil, nil
+	}
+}
+
+func buildProjectScopedPassthroughEvents(
+	projectID uuid.UUID,
+	event provider.Event,
+	parseProjectID func(json.RawMessage) (string, error),
+) ([]provider.Event, error) {
+	rawProjectID, err := parseProjectID(event.Payload)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(rawProjectID) != projectID.String() {
+		return nil, nil
+	}
+	return []provider.Event{event}, nil
+}
+
+func parseTicketStreamProjectID(payload json.RawMessage) (string, error) {
+	var envelope struct {
+		ProjectID string `json:"project_id"`
+	}
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		return "", fmt.Errorf("decode ticket stream payload: %w", err)
+	}
+	return envelope.ProjectID, nil
+}
+
+func parseAgentStreamProjectID(payload json.RawMessage) (string, error) {
+	var envelope struct {
+		Agent struct {
+			ProjectID string `json:"project_id"`
+		} `json:"agent"`
+	}
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		return "", fmt.Errorf("decode agent stream payload: %w", err)
+	}
+	return envelope.Agent.ProjectID, nil
+}
+
+func parseHookStreamProjectID(payload json.RawMessage) (string, error) {
+	var envelope struct {
+		ProjectID string `json:"project_id"`
+		Hook      struct {
+			ProjectID string `json:"project_id"`
+		} `json:"hook"`
+		Event struct {
+			ProjectID string `json:"project_id"`
+		} `json:"event"`
+	}
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		return "", fmt.Errorf("decode hook stream payload: %w", err)
+	}
+
+	switch {
+	case strings.TrimSpace(envelope.ProjectID) != "":
+		return envelope.ProjectID, nil
+	case strings.TrimSpace(envelope.Hook.ProjectID) != "":
+		return envelope.Hook.ProjectID, nil
+	default:
+		return envelope.Event.ProjectID, nil
+	}
+}
+
+func parseActivityStreamProjectID(payload json.RawMessage) (string, error) {
+	var envelope ticketRunActivityEnvelope
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		return "", fmt.Errorf("decode activity stream payload: %w", err)
+	}
+	return envelope.Event.ProjectID, nil
 }
 
 func writeSSEKeepaliveComment(response *echo.Response) error {

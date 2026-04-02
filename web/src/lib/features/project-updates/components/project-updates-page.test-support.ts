@@ -9,7 +9,7 @@ import type {
 import { appStore } from '$lib/stores/app.svelte'
 
 const projectUpdatesPageMocks = vi.hoisted(() => ({
-  connectEventStream: vi.fn(),
+  subscribeProjectEvents: vi.fn(),
   createProjectUpdateComment: vi.fn(),
   createProjectUpdateThread: vi.fn(),
   deleteProjectUpdateComment: vi.fn(),
@@ -19,7 +19,7 @@ const projectUpdatesPageMocks = vi.hoisted(() => ({
   updateProjectUpdateThread: vi.fn(),
 }))
 
-export const connectEventStream = projectUpdatesPageMocks.connectEventStream
+export const subscribeProjectEvents = projectUpdatesPageMocks.subscribeProjectEvents
 export const createProjectUpdateComment = projectUpdatesPageMocks.createProjectUpdateComment
 export const createProjectUpdateThread = projectUpdatesPageMocks.createProjectUpdateThread
 export const deleteProjectUpdateComment = projectUpdatesPageMocks.deleteProjectUpdateComment
@@ -38,8 +38,12 @@ vi.mock('$lib/api/openase', () => ({
   updateProjectUpdateThread,
 }))
 
-vi.mock('$lib/api/sse', () => ({
-  connectEventStream,
+vi.mock('$lib/features/project-events/project-event-bus', () => ({
+  isProjectUpdateEvent: (event: { topic?: string; type?: string }) =>
+    event.topic === 'activity.events' &&
+    typeof event.type === 'string' &&
+    event.type.startsWith('project_update_'),
+  subscribeProjectEvents,
 }))
 
 export const projectFixture: Project = {
@@ -54,7 +58,12 @@ export const projectFixture: Project = {
   max_concurrent_agents: 4,
 }
 
-export type StreamEventHandler = (frame: { event: string; data: string }) => void
+export type StreamEventHandler = (event: {
+  topic: string
+  type: string
+  payload: unknown
+  publishedAt: string
+}) => void
 
 export function setupProjectUpdatesPageTest() {
   beforeEach(() => {
@@ -64,7 +73,7 @@ export function setupProjectUpdatesPageTest() {
       vi.fn(() => true),
     )
     appStore.currentProject = projectFixture
-    connectEventStream.mockReturnValue(() => {})
+    subscribeProjectEvents.mockReturnValue(() => {})
   })
 
   afterEach(() => {

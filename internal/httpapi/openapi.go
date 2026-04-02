@@ -4443,24 +4443,18 @@ func (b openAPISpecBuilder) addStreamOperations() error {
 	}
 	b.doc.AddOperation("/api/v1/events/stream", http.MethodGet, globalStream)
 
-	projectStreams := []struct {
-		path        string
-		operationID string
-		summary     string
-	}{
-		{path: "/api/v1/projects/{projectId}/tickets/stream", operationID: "streamProjectTickets", summary: "Stream project ticket events"},
-		{path: "/api/v1/projects/{projectId}/agents/stream", operationID: "streamProjectAgents", summary: "Stream project agent events"},
-		{path: "/api/v1/projects/{projectId}/activity/stream", operationID: "streamProjectActivity", summary: "Stream project activity events"},
-		{path: "/api/v1/projects/{projectId}/hooks/stream", operationID: "streamProjectHooks", summary: "Stream project hook events"},
+	projectEventStream, err := b.streamOperation(
+		"streamProjectEvents",
+		"Stream the canonical passive project event bus",
+		[]string{"streams"},
+		http.StatusBadRequest,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
 	}
-	for _, item := range projectStreams {
-		op, err := b.streamOperation(item.operationID, item.summary, []string{"streams"}, http.StatusBadRequest, http.StatusInternalServerError)
-		if err != nil {
-			return err
-		}
-		op.AddParameter(uuidPathParameter("projectId", "Project ID."))
-		b.doc.AddOperation(item.path, http.MethodGet, op)
-	}
+	projectEventStream.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/events/stream", http.MethodGet, projectEventStream)
 
 	orgStreams := []struct {
 		path        string
@@ -4510,21 +4504,6 @@ func (b openAPISpecBuilder) addStreamOperations() error {
 	agentStepStream.AddParameter(uuidPathParameter("agentId", "Agent ID."))
 	agentStepStream.AddParameter(uuidQueryParameter("ticket_id", "Filter streamed steps by ticket ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/agents/{agentId}/steps/stream", http.MethodGet, agentStepStream)
-
-	ticketRunStream, err := b.streamOperation(
-		"streamTicketRuns",
-		"Stream ticket run transcript events",
-		[]string{"streams"},
-		http.StatusBadRequest,
-		http.StatusNotFound,
-		http.StatusInternalServerError,
-	)
-	if err != nil {
-		return err
-	}
-	ticketRunStream.AddParameter(uuidPathParameter("projectId", "Project ID."))
-	ticketRunStream.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
-	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets/{ticketId}/runs/stream", http.MethodGet, ticketRunStream)
 
 	return nil
 }

@@ -17,8 +17,12 @@
     updateProjectUpdateComment,
     updateProjectUpdateThread,
   } from '$lib/api/openase'
-  import { connectEventStream, type SSEFrame } from '$lib/api/sse'
   import { ApiError } from '$lib/api/client'
+  import {
+    isProjectUpdateEvent,
+    subscribeProjectEvents,
+    type ProjectEventEnvelope,
+  } from '$lib/features/project-events/project-event-bus'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
   import { Skeleton } from '$ui/skeleton'
@@ -131,15 +135,10 @@
     updatesInitialLoaded = false
     void loadProjectUpdates(projectId, { showLoading: true })
 
-    return connectEventStream(`/api/v1/projects/${projectId}/activity/stream`, {
-      onEvent: (frame) => {
-        if (isProjectUpdateFrame(frame)) {
-          void loadProjectUpdates(projectId, { preserveMessages: true })
-        }
-      },
-      onError: (streamError) => {
-        console.error('Project updates stream error:', streamError)
-      },
+    return subscribeProjectEvents(projectId, (event) => {
+      if (isProjectUpdateFrame(event)) {
+        void loadProjectUpdates(projectId, { preserveMessages: true })
+      }
     })
   })
 
@@ -277,14 +276,8 @@
     }
   }
 
-  function isProjectUpdateFrame(frame: SSEFrame) {
-    if (frame.event !== 'message') return false
-    try {
-      const payload = JSON.parse(frame.data) as { type?: string }
-      return typeof payload.type === 'string' && payload.type.startsWith('project_update_')
-    } catch {
-      return false
-    }
+  function isProjectUpdateFrame(event: ProjectEventEnvelope) {
+    return isProjectUpdateEvent(event)
   }
 
   function startEditInfo() {

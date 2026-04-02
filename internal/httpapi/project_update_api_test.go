@@ -270,11 +270,11 @@ func TestProjectUpdateCreateEmitsActivityStreamEvent(t *testing.T) {
 	testServer := httptest.NewServer(server.Handler())
 	defer testServer.Close()
 
-	response, cancel := openSSERequest(t, testServer.URL+fmt.Sprintf("/api/v1/projects/%s/activity/stream", projectID))
+	response, cancel := openSSERequest(t, testServer.URL+fmt.Sprintf("/api/v1/projects/%s/events/stream", projectID))
 	defer func() {
 		cancel()
 		if err := response.Body.Close(); err != nil {
-			t.Errorf("close activity stream response body: %v", err)
+			t.Errorf("close project event bus response body: %v", err)
 		}
 	}()
 
@@ -291,7 +291,7 @@ func TestProjectUpdateCreateEmitsActivityStreamEvent(t *testing.T) {
 
 	body := readSSEBody(t, response, cancel)
 	if !strings.Contains(body, `"topic":"activity.events"`) {
-		t.Fatalf("expected activity stream topic, got %q", body)
+		t.Fatalf("expected activity topic on project event bus, got %q", body)
 	}
 	if !strings.Contains(body, `"type":"project_update_thread.created"`) {
 		t.Fatalf("expected project update create event, got %q", body)

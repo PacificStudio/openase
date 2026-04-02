@@ -1,9 +1,9 @@
 <script lang="ts">
   import { PageScaffold } from '$lib/components/layout'
   import { appStore } from '$lib/stores/app.svelte'
-  import { connectEventStream } from '$lib/api/sse'
   import { listActivity, listTickets } from '$lib/api/openase'
   import { ApiError } from '$lib/api/client'
+  import { subscribeProjectEvents } from '$lib/features/project-events/project-event-bus'
   import { Input } from '$ui/input'
   import { Skeleton } from '$ui/skeleton'
   import * as Select from '$ui/select'
@@ -82,13 +82,8 @@
 
     void load(true)
 
-    const disconnect = connectEventStream(`/api/v1/projects/${projectId}/activity/stream`, {
-      onEvent: () => {
-        void load(false)
-      },
-      onError: (streamError) => {
-        console.error('Activity stream error:', streamError)
-      },
+    const disconnect = subscribeProjectEvents(projectId, () => {
+      void load(false)
     })
 
     return () => {

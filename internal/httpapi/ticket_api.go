@@ -141,7 +141,6 @@ func (s *Server) registerTicketRoutes(api *echo.Group) {
 	api.POST("/projects/:projectId/tickets", s.handleCreateTicket)
 	api.GET("/projects/:projectId/tickets/:ticketId/detail", s.handleGetTicketDetail)
 	api.GET("/projects/:projectId/tickets/:ticketId/runs", s.handleListTicketRuns)
-	api.GET("/projects/:projectId/tickets/:ticketId/runs/stream", s.handleStreamTicketRuns)
 	api.GET("/projects/:projectId/tickets/:ticketId/runs/:runId", s.handleGetTicketRun)
 	api.GET("/tickets/:ticketId", s.handleGetTicket)
 	api.PATCH("/tickets/:ticketId", s.handleUpdateTicket)

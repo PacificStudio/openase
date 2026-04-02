@@ -327,87 +327,162 @@ func TestEventStreamRoute(t *testing.T) {
 	}
 }
 
-func TestProjectEventStreamRoutesUseFixedTopics(t *testing.T) {
-	testCases := []struct {
-		name          string
-		path          string
-		topic         provider.Topic
-		eventType     provider.EventType
-		unrelated     provider.Topic
-		unrelatedType provider.EventType
-	}{
-		{
-			name:          "tickets",
-			path:          "/api/v1/projects/project-123/tickets/stream",
-			topic:         provider.MustParseTopic("ticket.events"),
-			eventType:     provider.MustParseEventType("ticket.created"),
-			unrelated:     provider.MustParseTopic("agent.events"),
-			unrelatedType: provider.MustParseEventType("agent.progress"),
+func TestProjectEventBusFiltersAndMultiplexesTopics(t *testing.T) {
+	projectID := uuid.New()
+	otherProjectID := uuid.New()
+
+	bus := eventinfra.NewChannelBus()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		bus,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	response, cancel := openSSERequest(
+		t,
+		testServer.URL+"/api/v1/projects/"+projectID.String()+"/events/stream",
+	)
+	t.Cleanup(func() {
+		if err := response.Body.Close(); err != nil {
+			t.Errorf("close project event bus response body: %v", err)
+		}
+	})
+
+	publishTestEvent(
+		t,
+		bus,
+		ticketStreamTopic,
+		provider.MustParseEventType("ticket.created"),
+		map[string]any{
+			"project_id": otherProjectID.String(),
+			"ticket":     map[string]any{"id": uuid.NewString()},
 		},
-		{
-			name:          "agents",
-			path:          "/api/v1/projects/project-123/agents/stream",
-			topic:         provider.MustParseTopic("agent.events"),
-			eventType:     provider.MustParseEventType("agent.progress"),
-			unrelated:     provider.MustParseTopic("ticket.events"),
-			unrelatedType: provider.MustParseEventType("ticket.created"),
+	)
+	publishTestEvent(
+		t,
+		bus,
+		ticketStreamTopic,
+		provider.MustParseEventType("ticket.created"),
+		map[string]any{
+			"project_id": projectID.String(),
+			"ticket":     map[string]any{"id": uuid.NewString()},
 		},
-		{
-			name:          "hooks",
-			path:          "/api/v1/projects/project-123/hooks/stream",
-			topic:         provider.MustParseTopic("hook.events"),
-			eventType:     provider.MustParseEventType("hook.failed"),
-			unrelated:     provider.MustParseTopic("ticket.events"),
-			unrelatedType: provider.MustParseEventType("ticket.updated"),
+	)
+	publishTestEvent(
+		t,
+		bus,
+		agentStreamTopic,
+		provider.MustParseEventType("agent.ready"),
+		map[string]any{
+			"agent": map[string]any{
+				"id":         uuid.NewString(),
+				"project_id": projectID.String(),
+			},
 		},
-		{
-			name:          "activity",
-			path:          "/api/v1/projects/project-123/activity/stream",
-			topic:         provider.MustParseTopic("activity.events"),
-			eventType:     provider.MustParseEventType("activity.new"),
-			unrelated:     provider.MustParseTopic("hook.events"),
-			unrelatedType: provider.MustParseEventType("hook.failed"),
+	)
+	publishTestEvent(
+		t,
+		bus,
+		hookStreamTopic,
+		provider.MustParseEventType("hook.failed"),
+		map[string]any{
+			"project_id": projectID.String(),
+			"hook": map[string]any{
+				"id":         uuid.NewString(),
+				"project_id": projectID.String(),
+			},
 		},
+	)
+	publishTestEvent(
+		t,
+		bus,
+		activityStreamTopic,
+		provider.MustParseEventType("ticket.updated"),
+		map[string]any{
+			"event": map[string]any{
+				"id":         uuid.NewString(),
+				"project_id": projectID.String(),
+				"event_type": "ticket.updated",
+				"message":    "reload board",
+				"metadata":   map[string]any{},
+				"created_at": time.Now().UTC().Format(time.RFC3339),
+			},
+		},
+	)
+
+	body := readSSEBody(t, response, cancel)
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", response.StatusCode)
+	}
+	if contentType := response.Header.Get(echo.HeaderContentType); contentType != "text/event-stream" {
+		t.Fatalf("expected event-stream content type, got %q", contentType)
+	}
+	if !strings.Contains(body, ": keepalive\n\n") {
+		t.Fatalf("expected keepalive comment, got %q", body)
+	}
+	for _, expected := range []string{
+		"event: ticket.created\n",
+		"event: agent.ready\n",
+		"event: hook.failed\n",
+		"event: ticket.updated\n",
+		"\"topic\":\"ticket.events\"",
+		"\"topic\":\"agent.events\"",
+		"\"topic\":\"hook.events\"",
+		"\"topic\":\"activity.events\"",
+	} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("expected project event bus body to contain %q, got %q", expected, body)
+		}
+	}
+	if strings.Contains(body, otherProjectID.String()) {
+		t.Fatalf("did not expect unrelated project payload, got %q", body)
+	}
+}
+
+func TestProjectPassiveStreamRoutesStayOnCanonicalBus(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	allowed := map[string]bool{
+		"/api/v1/projects/:projectId/events/stream":                 true,
+		"/api/v1/projects/:projectId/agents/:agentId/output/stream": true,
+		"/api/v1/projects/:projectId/agents/:agentId/steps/stream":  true,
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			bus := eventinfra.NewChannelBus()
-			server := NewServer(config.ServerConfig{Port: 40023}, config.GitHubConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, nil, nil, nil, nil, nil)
-			testServer := httptest.NewServer(server.Handler())
-			defer testServer.Close()
+	projectStreamRoutes := make([]string, 0)
+	for _, route := range server.echo.Routes() {
+		if route.Method != http.MethodGet {
+			continue
+		}
+		if !strings.HasPrefix(route.Path, "/api/v1/projects/:projectId/") || !strings.HasSuffix(route.Path, "/stream") {
+			continue
+		}
+		projectStreamRoutes = append(projectStreamRoutes, route.Path)
+		if !allowed[route.Path] {
+			t.Fatalf("unexpected project stream route registered: %s", route.Path)
+		}
+	}
 
-			response, cancel := openSSERequest(t, testServer.URL+testCase.path)
-			t.Cleanup(func() {
-				if err := response.Body.Close(); err != nil {
-					t.Errorf("close project event stream response body: %v", err)
-				}
-			})
-
-			publishTestEvent(t, bus, testCase.unrelated, testCase.unrelatedType, map[string]string{"scope": "other"})
-			publishTestEvent(t, bus, testCase.topic, testCase.eventType, map[string]string{"scope": "expected"})
-
-			body := readSSEBody(t, response, cancel)
-
-			if response.StatusCode != http.StatusOK {
-				t.Fatalf("expected 200, got %d", response.StatusCode)
-			}
-			if contentType := response.Header.Get(echo.HeaderContentType); contentType != "text/event-stream" {
-				t.Fatalf("expected event-stream content type, got %q", contentType)
-			}
-			if !strings.Contains(body, ": keepalive\n\n") {
-				t.Fatalf("expected keepalive comment, got %q", body)
-			}
-			if !strings.Contains(body, "event: "+testCase.eventType.String()+"\n") {
-				t.Fatalf("expected %s frame, got %q", testCase.eventType, body)
-			}
-			if !strings.Contains(body, "\"topic\":\""+testCase.topic.String()+"\"") {
-				t.Fatalf("expected %s topic payload, got %q", testCase.topic, body)
-			}
-			if strings.Contains(body, testCase.unrelatedType.String()) {
-				t.Fatalf("did not expect unrelated %s frame, got %q", testCase.unrelatedType, body)
-			}
-		})
+	if len(projectStreamRoutes) != len(allowed) {
+		t.Fatalf("expected %d canonical project stream routes, got %v", len(allowed), projectStreamRoutes)
 	}
 }
 

@@ -31,6 +31,7 @@ const ticketRunTranscriptLimit = 500
 
 type ticketRunResponse struct {
 	ID                 string  `json:"id"`
+	TicketID           string  `json:"ticket_id"`
 	AttemptNumber      int     `json:"attempt_number"`
 	AgentID            string  `json:"agent_id"`
 	AgentName          string  `json:"agent_name"`
@@ -48,6 +49,7 @@ type ticketRunResponse struct {
 
 type ticketRunTraceEntryResponse struct {
 	ID         string         `json:"id"`
+	TicketID   string         `json:"ticket_id"`
 	AgentRunID string         `json:"agent_run_id"`
 	Sequence   int64          `json:"sequence"`
 	Provider   string         `json:"provider"`
@@ -60,6 +62,7 @@ type ticketRunTraceEntryResponse struct {
 
 type ticketRunStepEntryResponse struct {
 	ID                 string  `json:"id"`
+	TicketID           string  `json:"ticket_id"`
 	AgentRunID         string  `json:"agent_run_id"`
 	StepStatus         string  `json:"step_status"`
 	Summary            string  `json:"summary"`
@@ -415,6 +418,7 @@ func mapTicketRunResponse(item domain.AgentRun, catalog ticketRunCatalog) ticket
 
 	return ticketRunResponse{
 		ID:                 item.ID.String(),
+		TicketID:           item.TicketID.String(),
 		AttemptNumber:      catalog.attempts[item.ID],
 		AgentID:            item.AgentID.String(),
 		AgentName:          agentName,
@@ -447,6 +451,7 @@ func mapTicketRunTraceEntryResponses(items []domain.AgentTraceEntry) []ticketRun
 	for _, item := range items {
 		response = append(response, ticketRunTraceEntryResponse{
 			ID:         item.ID.String(),
+			TicketID:   item.TicketID.String(),
 			AgentRunID: item.AgentRunID.String(),
 			Sequence:   item.Sequence,
 			Provider:   item.Provider,
@@ -465,6 +470,7 @@ func mapTicketRunStepEntryResponses(items []domain.AgentStepEntry) []ticketRunSt
 	for _, item := range items {
 		response = append(response, ticketRunStepEntryResponse{
 			ID:                 item.ID.String(),
+			TicketID:           item.TicketID.String(),
 			AgentRunID:         item.AgentRunID.String(),
 			StepStatus:         item.StepStatus,
 			Summary:            item.Summary,
@@ -550,6 +556,27 @@ func (s *Server) buildTicketRunLifecycleStreamEvent(
 	return streamEvent, true, nil
 }
 
+func (s *Server) buildProjectTicketRunLifecycleStreamEvent(
+	ctx context.Context,
+	projectID uuid.UUID,
+	event provider.Event,
+) (provider.Event, bool, error) {
+	var payload ticketRunActivityEnvelope
+	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		return provider.Event{}, false, fmt.Errorf("decode project ticket run lifecycle payload: %w", err)
+	}
+	if payload.Event.ProjectID != projectID.String() || payload.Event.TicketID == nil {
+		return provider.Event{}, false, nil
+	}
+
+	ticketID, err := uuid.Parse(strings.TrimSpace(*payload.Event.TicketID))
+	if err != nil {
+		return provider.Event{}, false, nil
+	}
+
+	return s.buildTicketRunLifecycleStreamEvent(ctx, projectID, ticketID, event)
+}
+
 func buildTicketRunTraceStreamEvent(projectID uuid.UUID, ticketID uuid.UUID, event provider.Event) (provider.Event, bool, error) {
 	if event.Type.String() != domain.AgentOutputEventType && event.Type.String() != "agent.trace" {
 		return provider.Event{}, false, nil
@@ -569,6 +596,7 @@ func buildTicketRunTraceStreamEvent(projectID uuid.UUID, ticketID uuid.UUID, eve
 		map[string]any{
 			"entry": ticketRunTraceEntryResponse{
 				ID:         payload.Entry.ID,
+				TicketID:   payload.Entry.TicketID,
 				AgentRunID: payload.Entry.AgentRunID,
 				Sequence:   payload.Entry.Sequence,
 				Provider:   payload.Entry.Provider,
@@ -585,6 +613,23 @@ func buildTicketRunTraceStreamEvent(projectID uuid.UUID, ticketID uuid.UUID, eve
 		return provider.Event{}, false, fmt.Errorf("construct ticket run trace stream event: %w", err)
 	}
 	return streamEvent, true, nil
+}
+
+func buildProjectTicketRunTraceStreamEvent(projectID uuid.UUID, event provider.Event) (provider.Event, bool, error) {
+	var payload ticketRunTraceEnvelope
+	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		return provider.Event{}, false, fmt.Errorf("decode project ticket run trace payload: %w", err)
+	}
+	if payload.Entry.ProjectID != projectID.String() {
+		return provider.Event{}, false, nil
+	}
+
+	ticketID, err := uuid.Parse(strings.TrimSpace(payload.Entry.TicketID))
+	if err != nil {
+		return provider.Event{}, false, nil
+	}
+
+	return buildTicketRunTraceStreamEvent(projectID, ticketID, event)
 }
 
 func buildTicketRunStepStreamEvent(projectID uuid.UUID, ticketID uuid.UUID, event provider.Event) (provider.Event, bool, error) {
@@ -606,6 +651,7 @@ func buildTicketRunStepStreamEvent(projectID uuid.UUID, ticketID uuid.UUID, even
 		map[string]any{
 			"entry": ticketRunStepEntryResponse{
 				ID:                 payload.Entry.ID,
+				TicketID:           payload.Entry.TicketID,
 				AgentRunID:         payload.Entry.AgentRunID,
 				StepStatus:         payload.Entry.StepStatus,
 				Summary:            payload.Entry.Summary,
@@ -619,6 +665,23 @@ func buildTicketRunStepStreamEvent(projectID uuid.UUID, ticketID uuid.UUID, even
 		return provider.Event{}, false, fmt.Errorf("construct ticket run step stream event: %w", err)
 	}
 	return streamEvent, true, nil
+}
+
+func buildProjectTicketRunStepStreamEvent(projectID uuid.UUID, event provider.Event) (provider.Event, bool, error) {
+	var payload ticketRunStepEnvelope
+	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		return provider.Event{}, false, fmt.Errorf("decode project ticket run step payload: %w", err)
+	}
+	if payload.Entry.ProjectID != projectID.String() {
+		return provider.Event{}, false, nil
+	}
+
+	ticketID, err := uuid.Parse(strings.TrimSpace(payload.Entry.TicketID))
+	if err != nil {
+		return provider.Event{}, false, nil
+	}
+
+	return buildTicketRunStepStreamEvent(projectID, ticketID, event)
 }
 
 func isTicketRunLifecycleEventType(raw string) bool {

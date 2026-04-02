@@ -438,12 +438,12 @@ export function createProjectConversationController(
         )
         const fallbackConversationID =
           restoredConversationIDs.length === 0 ? (listPayload.conversations[0]?.id ?? '') : ''
-        const initialConversationIDs =
-          restoredConversationIDs.length > 0
-            ? restoredConversationIDs
-            : fallbackConversationID
-              ? [fallbackConversationID]
-              : []
+        const preferredConversationID =
+          (persisted.activeConversationId &&
+          availableConversationIDs.has(persisted.activeConversationId)
+            ? persisted.activeConversationId
+            : restoredConversationIDs[0]) || fallbackConversationID
+        const initialConversationIDs = preferredConversationID ? [preferredConversationID] : []
 
         tabs = initialConversationIDs.map(() => newTabState(true))
         if (tabs.length === 0) {
@@ -472,10 +472,7 @@ export function createProjectConversationController(
           return
         }
 
-        const preferredConversationId = persisted.activeConversationId
-        const preferredTabId =
-          tabs.find((tab) => tab.conversationId === preferredConversationId)?.id ?? tabs[0].id
-        ensureTabSelection(preferredTabId)
+        ensureTabSelection(tabs[0].id)
         persistTabs()
       } catch (caughtError) {
         ensureTabExists()

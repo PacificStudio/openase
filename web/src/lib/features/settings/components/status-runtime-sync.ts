@@ -1,11 +1,11 @@
 import { ApiError } from '$lib/api/client'
-import type { connectEventStream } from '$lib/api/sse'
+import type { subscribeProjectEvents } from '$lib/features/project-events/project-event-bus'
 type LoadMode = 'initial' | 'background'
 
 type StatusRuntimeSyncOptions<TSnapshot> = {
   projectId: string
   loadSnapshot: (projectId: string) => Promise<TSnapshot>
-  connectEventStream: typeof connectEventStream
+  subscribeProjectEvents: typeof subscribeProjectEvents
   applySnapshot: (payload: TSnapshot) => void
   skipInitialLoad?: boolean
   setLoading?: (loading: boolean) => void
@@ -75,18 +75,10 @@ export function startStatusRuntimeSync<TSnapshot>(options: StatusRuntimeSyncOpti
     void load('initial')
   }
 
-  const disconnect = options.connectEventStream(
-    `/api/v1/projects/${options.projectId}/tickets/stream`,
-    {
-      onEvent: () => {
-        queuedReload = true
-        void drainReloadQueue()
-      },
-      onError: (error) => {
-        console.error('Status runtime ticket stream error:', error)
-      },
-    },
-  )
+  const disconnect = options.subscribeProjectEvents(options.projectId, () => {
+    queuedReload = true
+    void drainReloadQueue()
+  })
 
   return () => {
     active = false

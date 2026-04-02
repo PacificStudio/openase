@@ -63,14 +63,14 @@ func TestRawAPIHelpMentionsPassthroughInputs(t *testing.T) {
 	}
 }
 
-func TestWatchTicketsHelpMentionsStreamingSemantics(t *testing.T) {
+func TestWatchProjectHelpMentionsStreamingSemantics(t *testing.T) {
 	root := NewRootCommand("dev")
-	command, _, err := root.Find([]string{"watch", "tickets"})
+	command, _, err := root.Find([]string{"watch", "project"})
 	if err != nil {
-		t.Fatalf("Find(watch tickets) returned error: %v", err)
+		t.Fatalf("Find(watch project) returned error: %v", err)
 	}
 	if command == nil {
-		t.Fatal("expected watch tickets command")
+		t.Fatal("expected watch project command")
 	}
 
 	var stdout bytes.Buffer
@@ -85,6 +85,7 @@ func TestWatchTicketsHelpMentionsStreamingSemantics(t *testing.T) {
 		"keeps the connection open",
 		"Use Ctrl-C to stop the stream",
 		"projectId must be UUID values",
+		"single stream entrypoint",
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("expected help output to contain %q, got %q", want, output)

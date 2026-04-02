@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -28,7 +29,6 @@ const {
   listTickets,
   listWorkflows,
   updateTicket,
-  connectEventStream,
 } = vi.hoisted(() => ({
   getTicketDetail: vi.fn(),
   getTicketRun: vi.fn(),
@@ -40,7 +40,29 @@ const {
   listTickets: vi.fn(),
   listWorkflows: vi.fn(),
   updateTicket: vi.fn(),
-  connectEventStream: vi.fn(),
+}))
+
+const {
+  subscribeProjectEvents,
+  subscribeProjectEventBusState,
+  isTicketRunProjectEvent,
+  projectEventReferencesTicket,
+  toProjectEventFrame,
+} = vi.hoisted(() => ({
+  subscribeProjectEvents: vi.fn(),
+  subscribeProjectEventBusState: vi.fn((_: string, listener: (state: string) => void) => {
+    listener('live')
+    return () => {}
+  }),
+  isTicketRunProjectEvent: (event: { topic?: string }) => event.topic === 'ticket.run.events',
+  projectEventReferencesTicket: (
+    event: { payload?: { entry?: { ticket_id?: string } } },
+    ticketId: string,
+  ) => event.payload?.entry?.ticket_id === ticketId,
+  toProjectEventFrame: (event: { type: string; payload: unknown }) => ({
+    event: event.type,
+    data: JSON.stringify(event.payload),
+  }),
 }))
 
 vi.mock('$lib/api/openase', () => ({
@@ -56,8 +78,12 @@ vi.mock('$lib/api/openase', () => ({
   updateTicket,
 }))
 
-vi.mock('$lib/api/sse', () => ({
-  connectEventStream,
+vi.mock('$lib/features/project-events/project-event-bus', () => ({
+  subscribeProjectEvents,
+  subscribeProjectEventBusState,
+  isTicketRunProjectEvent,
+  projectEventReferencesTicket,
+  toProjectEventFrame,
 }))
 
 const projectFixture: Project = {
@@ -243,15 +269,15 @@ describe('TicketsPage runtime and drawer', () => {
       ],
     }
 
-    let agentStreamOnEvent: (() => void) | undefined
+    let projectEventOnEvent: ((event?: unknown) => void) | undefined
     listStatuses.mockResolvedValue(statusesFixture)
     listTickets.mockResolvedValue(ticketsFixture)
     listWorkflows.mockResolvedValue(workflowsFixture)
     listAgents.mockResolvedValueOnce(initialAgents).mockResolvedValue(executingAgents)
     listActivity.mockResolvedValue(activityFixture)
     updateTicket.mockResolvedValue({ ticket: ticketsFixture.tickets[0] })
-    connectEventStream.mockImplementation((url: string, handlers: { onEvent?: () => void }) => {
-      if (url.endsWith('/agents/stream')) agentStreamOnEvent = handlers.onEvent
+    subscribeProjectEvents.mockImplementation((_: string, onEvent: () => void) => {
+      projectEventOnEvent = onEvent
       return () => {}
     })
 
@@ -260,7 +286,7 @@ describe('TicketsPage runtime and drawer', () => {
     if (!initialCard) throw new Error('ticket card not found')
     expect(within(initialCard).queryByTitle('Executing')).toBeNull()
 
-    agentStreamOnEvent?.()
+    projectEventOnEvent?.({ topic: 'agent.events', type: 'agent.ready', payload: null })
 
     await waitFor(() => {
       expect(listAgents).toHaveBeenCalledTimes(2)
@@ -283,7 +309,7 @@ describe('TicketsPage runtime and drawer', () => {
     listTicketRuns.mockResolvedValue(ticketRunsFixture)
     getTicketRun.mockResolvedValue(undefined)
     updateTicket.mockResolvedValue({ ticket: ticketsFixture.tickets[0] })
-    connectEventStream.mockReturnValue(() => {})
+    subscribeProjectEvents.mockReturnValue(() => {})
 
     const { findAllByText, findByRole, findByText } = render(BoardPageTicketDrawerHost)
     const ticketCard = (await findByText('ASE-202')).closest('button')

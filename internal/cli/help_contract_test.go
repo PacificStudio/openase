@@ -108,7 +108,7 @@ func TestCriticalCLICommandsProvideExamples(t *testing.T) {
 	root := NewRootCommand("dev")
 	for _, path := range [][]string{
 		{"api"},
-		{"watch", "tickets"},
+		{"watch", "project"},
 		{"stream", "events"},
 		{"ticket", "comment", "workpad"},
 		{"machine", "refresh-health"},

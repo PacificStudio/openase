@@ -227,7 +227,10 @@ describe('createProjectConversationController', () => {
 
     expect(startProjectConversationTurn).toHaveBeenCalledWith(
       'conversation-1',
-      'Still works without activity timestamp',
+      {
+        message: 'Still works without activity timestamp',
+        focus: undefined,
+      },
     )
     expect(controller.tabs[0]?.conversationId).toBe('conversation-1')
     expect(controller.phase).toBe('awaiting_reply')
@@ -336,7 +339,7 @@ describe('createProjectConversationController', () => {
     )
   })
 
-  it('restores multiple tabs from storage, preserves the selected tab, and drops missing conversations', async () => {
+  it('restores only the selected persisted tab and drops background live tabs', async () => {
     window.localStorage.setItem(
       'openase.project-conversation.project-1.provider-1',
       JSON.stringify({
@@ -361,24 +364,11 @@ describe('createProjectConversationController', () => {
         },
       ],
     })
-    getProjectConversationWorkspaceDiff
-      .mockResolvedValueOnce(createWorkspaceDiff('conversation-2'))
-      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
+    getProjectConversationWorkspaceDiff.mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
     listProjectConversationEntries.mockImplementation(async (conversationId: string) => ({
       entries:
-        conversationId === 'conversation-2'
+        conversationId === 'conversation-1'
           ? [
-              {
-                id: 'entry-2',
-                conversationId: 'conversation-2',
-                turnId: 'turn-2',
-                seq: 1,
-                kind: 'user_message',
-                payload: { content: 'Continue the older plan' },
-                createdAt: '2026-03-31T09:00:00Z',
-              },
-            ]
-          : [
               {
                 id: 'entry-1',
                 conversationId: 'conversation-1',
@@ -388,7 +378,8 @@ describe('createProjectConversationController', () => {
                 payload: { content: 'Current conversation' },
                 createdAt: '2026-04-01T10:00:00Z',
               },
-            ],
+            ]
+          : [],
     }))
     watchProjectConversation.mockResolvedValue(undefined)
 
@@ -399,23 +390,13 @@ describe('createProjectConversationController', () => {
 
     await controller.restore()
 
-    expect(controller.tabs).toHaveLength(2)
-    expect(controller.tabs.map((tab) => tab.conversationId)).toEqual([
-      'conversation-2',
-      'conversation-1',
-    ])
+    expect(controller.tabs).toHaveLength(1)
+    expect(controller.tabs.map((tab) => tab.conversationId)).toEqual(['conversation-1'])
     expect(controller.tabs.every((tab) => tab.restored)).toBe(true)
     expect(controller.conversationId).toBe('conversation-1')
     expect(controller.entries).toMatchObject([{ kind: 'text', content: 'Current conversation' }])
-
-    const secondTabId =
-      controller.tabs.find((tab) => tab.conversationId === 'conversation-2')?.id ?? ''
-    controller.selectTab(secondTabId)
-
-    expect(controller.conversationId).toBe('conversation-2')
-    expect(controller.entries).toMatchObject([{ kind: 'text', content: 'Continue the older plan' }])
-    expect(listProjectConversationEntries).toHaveBeenCalledTimes(2)
-    expect(getProjectConversationWorkspaceDiff).toHaveBeenCalledTimes(2)
+    expect(listProjectConversationEntries).toHaveBeenCalledTimes(1)
+    expect(getProjectConversationWorkspaceDiff).toHaveBeenCalledTimes(1)
   })
 
   it('closes only the selected tab and keeps the remaining tab active', async () => {

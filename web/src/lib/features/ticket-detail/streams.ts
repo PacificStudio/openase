@@ -1,5 +1,11 @@
-import { connectEventStream, type SSEFrame, type StreamConnectionState } from '$lib/api/sse'
-import { frameReferencesTicket } from './context'
+import type { SSEFrame, StreamConnectionState } from '$lib/api/sse'
+import {
+  isTicketRunProjectEvent,
+  projectEventReferencesTicket,
+  subscribeProjectEvents,
+  subscribeProjectEventBusState,
+  toProjectEventFrame,
+} from '$lib/features/project-events/project-event-bus'
 
 export function connectTicketDetailStreams(
   projectId: string,
@@ -10,41 +16,20 @@ export function connectTicketDetailStreams(
     onRunStateChange?: (state: StreamConnectionState) => void
   },
 ) {
-  const connect = (path: string, label: string) =>
-    connectEventStream(path, {
-      onEvent: (frame) => {
-        if (frameReferencesTicket(frame.data, ticketId)) {
-          handlers.onRelevantEvent()
-        }
-      },
-      onError: (streamError) => {
-        console.error(`Ticket detail ${label} stream error:`, streamError)
-      },
-    })
-
-  const disconnectTicketStream = connect(`/api/v1/projects/${projectId}/tickets/stream`, 'tickets')
-  const disconnectActivityStream = connect(
-    `/api/v1/projects/${projectId}/activity/stream`,
-    'activity',
-  )
-  const disconnectRunStream = connectEventStream(
-    `/api/v1/projects/${projectId}/tickets/${ticketId}/runs/stream`,
-    {
-      onEvent: (frame) => {
-        handlers.onRunFrame(frame)
-      },
-      onStateChange: (state) => {
-        handlers.onRunStateChange?.(state)
-      },
-      onError: (streamError) => {
-        console.error('Ticket detail runs stream error:', streamError)
-      },
-    },
-  )
+  const disconnectProjectEvents = subscribeProjectEvents(projectId, (event) => {
+    if (projectEventReferencesTicket(event, ticketId)) {
+      handlers.onRelevantEvent()
+    }
+    if (isTicketRunProjectEvent(event) && projectEventReferencesTicket(event, ticketId)) {
+      handlers.onRunFrame(toProjectEventFrame(event))
+    }
+  })
+  const disconnectRunState = subscribeProjectEventBusState(projectId, (state) => {
+    handlers.onRunStateChange?.(state)
+  })
 
   return () => {
-    disconnectTicketStream()
-    disconnectActivityStream()
-    disconnectRunStream()
+    disconnectProjectEvents()
+    disconnectRunState()
   }
 }

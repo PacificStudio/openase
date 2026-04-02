@@ -648,23 +648,6 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/api/v1/projects/{projectId}/activity/stream': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** Stream project activity events */
-    get: operations['streamProjectActivity']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
   '/api/v1/projects/{projectId}/agent-runs': {
     parameters: {
       query?: never
@@ -694,23 +677,6 @@ export interface paths {
     put?: never
     /** Create an agent definition */
     post: operations['createAgent']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/v1/projects/{projectId}/agents/stream': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** Stream project agent events */
-    get: operations['streamProjectAgents']
-    put?: never
-    post?: never
     delete?: never
     options?: never
     head?: never
@@ -785,6 +751,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/projects/{projectId}/events/stream': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Stream the canonical passive project event bus */
+    get: operations['streamProjectEvents']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}/github/namespaces': {
     parameters: {
       query?: never
@@ -814,23 +797,6 @@ export interface paths {
     put?: never
     /** Create a GitHub repository using the project's effective credential */
     post: operations['createGitHubRepository']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/v1/projects/{projectId}/hooks/stream': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** Stream project hook events */
-    get: operations['streamProjectHooks']
-    put?: never
-    post?: never
     delete?: never
     options?: never
     head?: never
@@ -1100,23 +1066,6 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/api/v1/projects/{projectId}/tickets/stream': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** Stream project ticket events */
-    get: operations['streamProjectTickets']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
   '/api/v1/projects/{projectId}/tickets/{ticketId}/detail': {
     parameters: {
       query?: never
@@ -1179,23 +1128,6 @@ export interface paths {
     }
     /** List ticket runs */
     get: operations['listTicketRuns']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/v1/projects/{projectId}/tickets/{ticketId}/runs/stream': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** Stream ticket run transcript events */
-    get: operations['streamTicketRuns']
     put?: never
     post?: never
     delete?: never
@@ -6473,53 +6405,6 @@ export interface operations {
       }
     }
   }
-  streamProjectActivity: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Project ID. */
-        projectId: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Server-sent events stream. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'text/event-stream': string
-        }
-      }
-      /** @description Bad Request response. */
-      400: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Internal Server Error response. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-    }
-  }
   listAgentRuns: {
     parameters: {
       query?: never
@@ -6762,53 +6647,6 @@ export interface operations {
       }
       /** @description Conflict response. */
       409: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Internal Server Error response. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-    }
-  }
-  streamProjectAgents: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Project ID. */
-        projectId: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Server-sent events stream. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'text/event-stream': string
-        }
-      }
-      /** @description Bad Request response. */
-      400: {
         headers: {
           [name: string]: unknown
         }
@@ -7092,6 +6930,53 @@ export interface operations {
       }
       /** @description Not Found response. */
       404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  streamProjectEvents: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Server-sent events stream. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'text/event-stream': string
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
         headers: {
           [name: string]: unknown
         }
@@ -7454,53 +7339,6 @@ export interface operations {
       }
       /** @description Service Unavailable response. */
       503: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-    }
-  }
-  streamProjectHooks: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Project ID. */
-        projectId: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Server-sent events stream. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'text/event-stream': string
-        }
-      }
-      /** @description Bad Request response. */
-      400: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Internal Server Error response. */
-      500: {
         headers: {
           [name: string]: unknown
         }
@@ -10138,53 +9976,6 @@ export interface operations {
       }
     }
   }
-  streamProjectTickets: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Project ID. */
-        projectId: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Server-sent events stream. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'text/event-stream': string
-        }
-      }
-      /** @description Bad Request response. */
-      400: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Internal Server Error response. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-    }
-  }
   getTicketDetail: {
     parameters: {
       query?: never
@@ -10770,67 +10561,6 @@ export interface operations {
               terminal_at?: string | null
             }[]
           }
-        }
-      }
-      /** @description Bad Request response. */
-      400: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Not Found response. */
-      404: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Internal Server Error response. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-    }
-  }
-  streamTicketRuns: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Project ID. */
-        projectId: string
-        /** @description Ticket ID. */
-        ticketId: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Server-sent events stream. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'text/event-stream': string
         }
       }
       /** @description Bad Request response. */

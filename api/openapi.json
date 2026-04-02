@@ -8263,75 +8263,6 @@
         ]
       }
     },
-    "/api/v1/projects/{projectId}/activity/stream": {
-      "get": {
-        "operationId": "streamProjectActivity",
-        "parameters": [
-          {
-            "description": "Project ID.",
-            "in": "path",
-            "name": "projectId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "text/event-stream": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Server-sent events stream."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Request response."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Internal Server Error response."
-          }
-        },
-        "summary": "Stream project activity events",
-        "tags": [
-          "streams"
-        ]
-      }
-    },
     "/api/v1/projects/{projectId}/agent-runs": {
       "get": {
         "operationId": "listAgentRuns",
@@ -8848,75 +8779,6 @@
         ]
       }
     },
-    "/api/v1/projects/{projectId}/agents/stream": {
-      "get": {
-        "operationId": "streamProjectAgents",
-        "parameters": [
-          {
-            "description": "Project ID.",
-            "in": "path",
-            "name": "projectId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "text/event-stream": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Server-sent events stream."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Request response."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Internal Server Error response."
-          }
-        },
-        "summary": "Stream project agent events",
-        "tags": [
-          "streams"
-        ]
-      }
-    },
     "/api/v1/projects/{projectId}/agents/{agentId}/output": {
       "get": {
         "operationId": "listAgentOutput",
@@ -9426,6 +9288,75 @@
           }
         },
         "summary": "Stream agent step entries",
+        "tags": [
+          "streams"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/events/stream": {
+      "get": {
+        "operationId": "streamProjectEvents",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Server-sent events stream."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Stream the canonical passive project event bus",
         "tags": [
           "streams"
         ]
@@ -10009,75 +9940,6 @@
         "summary": "Create a GitHub repository using the project's effective credential",
         "tags": [
           "catalog"
-        ]
-      }
-    },
-    "/api/v1/projects/{projectId}/hooks/stream": {
-      "get": {
-        "operationId": "streamProjectHooks",
-        "parameters": [
-          {
-            "description": "Project ID.",
-            "in": "path",
-            "name": "projectId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "text/event-stream": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Server-sent events stream."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Request response."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Internal Server Error response."
-          }
-        },
-        "summary": "Stream project hook events",
-        "tags": [
-          "streams"
         ]
       }
     },
@@ -15463,75 +15325,6 @@
         ]
       }
     },
-    "/api/v1/projects/{projectId}/tickets/stream": {
-      "get": {
-        "operationId": "streamProjectTickets",
-        "parameters": [
-          {
-            "description": "Project ID.",
-            "in": "path",
-            "name": "projectId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "text/event-stream": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Server-sent events stream."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Request response."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Internal Server Error response."
-          }
-        },
-        "summary": "Stream project ticket events",
-        "tags": [
-          "streams"
-        ]
-      }
-    },
     "/api/v1/projects/{projectId}/tickets/{ticketId}/detail": {
       "get": {
         "operationId": "getTicketDetail",
@@ -16843,103 +16636,6 @@
         "summary": "List ticket runs",
         "tags": [
           "tickets"
-        ]
-      }
-    },
-    "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/stream": {
-      "get": {
-        "operationId": "streamTicketRuns",
-        "parameters": [
-          {
-            "description": "Project ID.",
-            "in": "path",
-            "name": "projectId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Ticket ID.",
-            "in": "path",
-            "name": "ticketId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "text/event-stream": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Server-sent events stream."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Request response."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Not Found response."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Internal Server Error response."
-          }
-        },
-        "summary": "Stream ticket run transcript events",
-        "tags": [
-          "streams"
         ]
       }
     },

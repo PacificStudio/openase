@@ -1,11 +1,11 @@
 <script lang="ts">
   import { page } from '$app/state'
   import { loadAppContext } from '$lib/api/app-context'
-  import { connectEventStream } from '$lib/api/sse'
   import Sidebar from '$lib/components/layout/sidebar.svelte'
   import TopBar from '$lib/components/layout/top-bar.svelte'
   import { ProjectAssistantSheet } from '$lib/features/chat'
   import { OrganizationCreationDialog } from '$lib/features/catalog-creation'
+  import { retainProjectEventBus } from '$lib/features/project-events/project-event-bus'
   import { ProjectCreationDialog } from '$lib/features/catalog-creation'
   import { GlobalSearchDialog } from '$lib/features/search'
   import { NewTicketDialog } from '$lib/features/tickets'
@@ -132,13 +132,9 @@
       return
     }
 
-    return connectEventStream(`/api/v1/projects/${projectId}/activity/stream`, {
-      onEvent: () => {},
+    return retainProjectEventBus(projectId, {
       onStateChange: (state) => {
         appStore.sseStatus = state
-      },
-      onError: () => {
-        appStore.sseStatus = 'retrying'
       },
     })
   })

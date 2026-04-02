@@ -4102,7 +4102,8 @@ web/src/
 │   ├── api/
 │   │   ├── types.ts           # openapi-typescript 生成
 │   │   ├── client.ts          # fetch wrapper
-│   │   └── sse.ts             # SSE 连接 + Svelte store
+│   │   └── sse.ts             # 低层 SSE 连接器（重连 / 解析），不承载项目级状态聚合
+│   ├── features/project-events/ # 项目级被动事件总线 runtime / store
 │   ├── stores/                # 全局 Svelte store
 │   └── utils/
 └── app.css                    # Tailwind 入口
@@ -4117,7 +4118,8 @@ web/src/
 | UI Primitive 层 | `lib/components/ui/` | Button、Card、Dialog、Tabs、Badge 等基础组件 | 不能包含业务语义和接口请求 |
 | App Shell 层 | `lib/components/layout/` | Sidebar、TopBar、PageHeader、RightDrawer、EmptyState | 不直接知道 Ticket/Workflow 业务细节 |
 | Feature 组件层 | `lib/features/<feature>/components/` | BoardColumn、TicketCard、AgentList、ProjectHealthPanel | 不跨 feature 随意依赖彼此内部实现 |
-| Feature 状态层 | `lib/features/<feature>/stores.ts` | feature 局部状态、筛选、视图模式、SSE 合并逻辑 | 不做 DOM 渲染 |
+| Feature 状态层 | `lib/features/<feature>/stores.ts` | feature 局部状态、筛选、视图模式、派生 selector | 不做 DOM 渲染 |
+| Runtime 边界层 | `lib/features/project-events/` | project passive event bus、项目级内存态与订阅边界 | 不直接渲染页面 |
 | Feature 数据层 | `lib/features/<feature>/api.ts` | 调用 API、解析返回、封装 feature query | 不做页面布局 |
 | Route 组装层 | `routes/**/+page.svelte` | 拼装 page sections、绑定路由参数、组织 feature | 不承载大量业务实现细节 |
 
@@ -4170,7 +4172,8 @@ web/src/lib/features/
 | `+page.ts` / `+layout.ts` | 读取路由参数、做首屏 load、处理 URL search params |
 | `+page.svelte` | 组装页面 section，连接 feature store，传递少量 props |
 | `lib/features/*/api.ts` | 请求和解析远端数据 |
-| `lib/features/*/stores.ts` | 本地状态、筛选器、SSE 合并逻辑 |
+| `lib/features/*/stores.ts` | 本地状态、筛选器、派生视图 |
+| `lib/features/project-events/*` | project passive bus transport、事件解析、共享内存订阅 |
 | `lib/features/*/components/*.svelte` | 单一视觉区块或交互块 |
 
 **Route 文件禁止出现以下气味：**
@@ -4235,13 +4238,14 @@ web/src/lib/features/
 
 - 跨页面共享状态才进入 `lib/stores/`
 - 单页面但复杂的状态进入 feature store，不要堆在 route 文件
-- SSE 合并逻辑进入 `feature/stores.ts` 或 `lib/api/sse.ts` 边界，不写在卡片组件里
+- 项目级被动 SSE transport 只能进入 project event runtime；feature / page 只能订阅其内存态或事件派生
 - API 响应在边界解析为领域友好的前端类型，再进入组件
 - 展示组件尽量做“纯渲染”，即输入 props，输出 UI，不直接 fetch
 
 **推荐做法：**
 
-- `createBoardStore(projectId)` 统一管理列、卡片、筛选器、拖拽更新、SSE 合并
+- `retainProjectEventBus(projectId)` 在 project shell 上维护唯一被动连接
+- `createBoardStore(projectId)` 统一管理列、卡片、筛选器、拖拽更新，并消费 project event bus 派生状态
 - `TicketCard.svelte` 只关心如何展示一张卡，不关心数据来自 HTTP 还是 SSE
 
 #### 15.2.7 前端依赖方向
@@ -5026,6 +5030,14 @@ func (s *Service) UpdateTicketRepoScope(ctx context.Context, input UpdateRepoSco
 
 这条路径展示事件如何从后端流到前端，支持多个浏览器同时在线。
 
+对 project 作用域的被动状态同步，OpenASE 必须坚持单一语义：
+
+- 每个 mounted project shell 最多只允许一个被动 SSE 连接
+- 该连接必须是 `GET /api/v1/projects/:projectId/events/stream`
+- page / drawer / sidebar 不能各自打开 project-scoped stream；它们只能订阅 project event bus 的内存态
+- project-scoped filtering 必须在服务端完成，事件到浏览器前就按 `project_id` 收敛
+- `GET /api/v1/chat/conversations/:conversationId/stream` 这类 request-owned interactive stream 不属于 project passive bus，也不能承载共享项目状态
+
 ```
 Domain Event  ──→  EventProvider  ──→  SSE Hub (fan-out)  ──→  Browser A
                    (Go channel)       (每个连接独立 chan)   ──→  Browser B
@@ -5073,24 +5085,24 @@ func (h *Hub) Broadcast(event Event) {
 }
 ```
 
-**SSE Hub 监听 EventProvider，广播到所有 SSE 连接：**
+**SSE Hub 监听 EventProvider，广播到 project passive bus 连接：**
 
 ```go
 // 启动时：Hub 订阅 EventProvider，fan-out 到所有 SSE 连接
 func (h *Hub) Run(ctx context.Context, eventBus provider.EventProvider) {
     events, _ := eventBus.Subscribe(ctx, "ticket.events", "agent.events",
-        "hook.events", "machine.events")
+        "hook.events", "activity.events", "agent.trace.events", "agent.step.events")
     for event := range events {
         h.Broadcast(event)
     }
 }
 ```
 
-**SSE 端点：每个浏览器连接注册到 Hub，收到属于自己 project 的事件：**
+**SSE 端点：project bus 端点注册一次，服务端先过滤 `project_id`，再写给浏览器：**
 
 ```go
 // internal/httpapi/sse.go
-func (h *SSEHandler) TicketStream(c echo.Context) error {
+func (h *SSEHandler) ProjectEventStream(c echo.Context) error {
     projectID := c.Param("projectId")
     ctx := c.Request().Context()
 
@@ -5098,7 +5110,7 @@ func (h *SSEHandler) TicketStream(c echo.Context) error {
     c.Response().Header().Set("Cache-Control", "no-cache")
     c.Response().Header().Set("Connection", "keep-alive")
 
-    // 注册到 Hub，获得独立的事件 channel
+    // 订阅多 topic，再按 project_id 收敛成一个 canonical project bus
     ch := h.hub.Register(projectID)
     defer h.hub.Unregister(projectID, ch)
 
@@ -5111,6 +5123,9 @@ func (h *SSEHandler) TicketStream(c echo.Context) error {
             return nil
 
         case event := <-ch:
+            if event.ProjectID != projectID {
+                continue
+            }
             data, _ := json.Marshal(event)
             fmt.Fprintf(c.Response(), "event: %s\ndata: %s\n\n", event.Type, data)
             c.Response().Flush()
@@ -5123,57 +5138,23 @@ func (h *SSEHandler) TicketStream(c echo.Context) error {
 }
 ```
 
-**前端 Svelte store：**
+**前端 project event runtime：**
 
 ```typescript
-// web/src/lib/api/sse.ts
-import { writable } from 'svelte/store'
-
-export function createTicketStream(projectId: string) {
-  const tickets = writable<Map<string, Ticket>>(new Map())
-  let retryDelay = 1000
-
-  function connect() {
-    const source = new EventSource(`/api/projects/${projectId}/tickets/stream`)
-
-    source.addEventListener('ticket.created', (e) => {
-      const event = JSON.parse(e.data)
-      tickets.update(map => map.set(event.ticketId, event.ticket))
-    })
-
-    source.addEventListener('ticket.status_changed', (e) => {
-      const event = JSON.parse(e.data)
-      tickets.update(map => {
-        const t = map.get(event.ticketId)
-        if (t) t.status = event.newStatus
-        return map
-      })
-    })
-
-    source.addEventListener('hook.failed', (e) => {
-      const event = JSON.parse(e.data)
-      // 更新工单的 Hook 状态，前端显示红色警告
-      tickets.update(map => {
-        const t = map.get(event.ticketId)
-        if (t) t.lastHookError = event.error
-        return map
-      })
-    })
-
-    source.onerror = () => {
-      source.close()
-      // 指数退避重连：1s → 2s → 4s → ... → 最大 5 分钟
-      setTimeout(connect, retryDelay)
-      retryDelay = Math.min(retryDelay * 2, 5 * 60 * 1000)
-    }
-
-    source.onopen = () => { retryDelay = 1000 }  // 重连成功，重置退避
-  }
-
-  connect()
-  return { tickets }
+// web/src/lib/features/project-events/project-event-bus.ts
+export function retainProjectEventBus(projectId: string) {
+  return retainBus(projectId, () =>
+    connectEventStream(`/api/v1/projects/${projectId}/events/stream`, {
+      onMessage(frame) {
+        const event = parseProjectEventFrame(frame)
+        projectEventStore.publish(projectId, event)
+      },
+    }),
+  )
 }
 ```
+
+Project bus 必须覆盖 `ticket`、`agent`、`hook`、`activity` 以及 ticket run lifecycle / trace / step 的被动更新；页面和抽屉只能消费共享内存态，而不是重新建立 transport。
 
 ```svelte
 <!-- web/src/routes/(app)/tickets/+page.svelte -->
@@ -5572,13 +5553,9 @@ openase reconcile --dry-run    # 只报告不一致，不修复
 
 | 方法 | 路径 | 事件类型 |
 |------|------|---------|
-| GET | `/api/v1/projects/:projectId/tickets/stream` | `ticket.created`, `ticket.status_changed`, `ticket.updated` |
-| GET | `/api/v1/projects/:projectId/agents/stream` | `agent.claimed`, `agent.launching`, `agent.ready`, `agent.heartbeat`, `agent.failed`, `agent.terminated` |
-| GET | `/api/v1/projects/:projectId/activity/stream` | 业务活动流；只推 coarse-grained `ActivityEvent`，不推 token 级 output |
+| GET | `/api/v1/projects/:projectId/events/stream` | canonical project passive bus；聚合 `ticket.*`、`agent.*`、`hook.*`、`activity.*`、`ticket.run.lifecycle`、`ticket.run.trace`、`ticket.run.step` |
 | GET | `/api/v1/projects/:projectId/agents/:agentId/output/stream` | Agent 细粒度输出流；只推 `AgentTraceEvent` |
 | GET | `/api/v1/projects/:projectId/agents/:agentId/steps/stream` | Agent 动作阶段流；只推 `AgentStepEvent` |
-| GET | `/api/v1/projects/:projectId/tickets/:ticketId/runs/stream` | Ticket-native 运行 transcript 流；底层复用 activity / trace / step 主题并按 ticket 聚合 |
-| GET | `/api/v1/projects/:projectId/hooks/stream` | `hook.started`, `hook.passed`, `hook.failed` |
 
 **Coding Agent Launch Verification**
 
@@ -9283,7 +9260,7 @@ Project Conversation 中 turn 的中断流程：
 补充交互约束：
 
 - `project_sidebar` 采用常规聊天体验，不再使用固定 turn cap 作为 transcript UX
-- `project_sidebar` 支持同一 `(project, provider)` 下的多 conversation tabs；每个 tab 对应一个独立 `conversation_id`
+- `project_sidebar` 可在当前 UI 会话中打开多个 conversation tabs；但这些 stream 属于 request-owned interactive stream，不属于 project passive bus
 - `project_sidebar` 必须把 Project AI workspace 的隔离语义说清楚：隔离单位是 `conversation_id`，不是浏览器 tab；同一 `conversation_id` 在多个浏览器 tab 中看到的是同一个 conversation workspace / branch
 - `project_sidebar` 中一个 assistant turn 只对应一个可变 transcript block；流式增量必须合并到当前 assistant 回复中，不能把 chunk 边界暴露成多个气泡
 - 当 turn 因 Codex interrupt 暂停时，前端应在 transcript 中插入 interrupt card，而不是让用户误以为 turn 已完成
@@ -9322,7 +9299,7 @@ Harness 编辑器仍然是最高频场景，但它继续保持 Ephemeral Chat，
 | 生命周期 | 用户关闭侧栏 / 切换页面后结束 | conversation 持久化；live runtime 可因空闲或预算被回收 |
 | transcript | 默认不持久化 | 持久化 |
 | 恢复入口 | 同一 live session 内续接 | 通过 `conversation_id` 恢复 |
-| 并发 | 每个用户同时最多 1 个 ephemeral 会话 | 可并行持有多个 project conversation live runtime；约束是每个 `conversation_id` 同时最多 1 个 active turn |
+| 并发 | 每个用户同时最多 1 个 ephemeral 会话 | conversation stream 属于 request-owned interactive stream；自动恢复时最多只拉起 1 个活跃 conversation，且每个 `conversation_id` 同时最多 1 个 active turn |
 | 成本控制 | 默认 10 轮 / $2.00 等轻量预算 | transcript 与 runtime 解耦；预算命中时只关闭 live runtime，不删除 conversation |
 
 #### 31.7.2 Project Conversation 持久化模型
@@ -9341,7 +9318,7 @@ Project Conversation 需要最小持久化模型：
 - `conversation_id` 是 OpenASE 稳定 ID，对前端公开
 - `provider_thread_id` 是 provider-native 恢复锚点，只在服务端保存
 - `last_turn_id` 只用于 provider 级诊断与恢复，不作为前端主键
-- 前端 localStorage 只允许缓存当前 `(project_id, provider_id)` 下的已打开 tab 集合与当前激活 tab，对应的权威数据仍以后端 conversation/list API 为准
+- 前端 localStorage 只允许缓存当前 `(project_id, provider_id)` 下的最近 tab 集合与当前激活 tab；权威数据仍以后端 conversation/list API 为准，恢复时只自动拉起 1 个活跃 tab
 
 #### 31.7.3 恢复策略
 
@@ -9358,7 +9335,7 @@ Project Conversation 需要最小持久化模型：
 
 前端恢复约束：
 
-- `project_sidebar` 按 `(project_id, provider_id)` 维度恢复已打开的 conversation tabs 和当前选中的 tab
+- `project_sidebar` 按 `(project_id, provider_id)` 维度只自动恢复当前选中的 1 个 conversation tab，禁止在后台批量拉起多个 live conversation stream
 - 若 localStorage 中某个 `conversation_id` 已不存在、无权限或 provider 不匹配，只移除该失效 tab，不影响其余 tabs 的恢复
 - workspace diff summary 在 restore、turn 完成以及 live runtime reset / reconnect 后都必须重新读取；其 truth source 是 conversation workspace 中各 repo 的实际 git 状态，而不是流式 tool-call 推断
 
@@ -11054,7 +11031,7 @@ Layer 2 (编排引擎，依赖 Layer 1)
 Layer 3 (实时 + 前端，依赖 Layer 1-2)
   F21 EventProvider (ChannelBus + PGNotifyBus) → F01
   F22 SSE Hub (fan-out 广播) → F21
-  F23 SSE 端点 (tickets/agents/hooks/activity) → F22
+  F23 Canonical project event bus 端点 (`/projects/:projectId/events/stream`) → F22
   F24 Web UI 看板页 (自定义状态列 + 拖拽) → F03, F05, F06, F23
   F25 Web UI 工单详情页 → F24
   F26 Web UI Agent 控制台 → F03, F10, F23
@@ -11165,7 +11142,7 @@ Layer 11 (企业级 + 开放生态)
 |----|------|--------|------|---------|
 | F21 | EventProvider 接口 + ChannelBus + PGNotifyBus 实现 | 3d | F01 | 5 |
 | F22 | SSE Hub（fan-out 广播 + 连接注册/注销） | 3d | F21 | 16 |
-| F23 | SSE HTTP 端点（tickets / agents / hooks / activity） | 2d | F22 | 18 |
+| F23 | Canonical project event bus HTTP 端点（tickets / agents / hooks / activity / ticket runs） | 2d | F22 | 18 |
 | F24 | **Web UI 看板页**（自定义状态列 + 拖拽 + SSE 实时更新） | 8d | F03, F05, F06, F23 | 13, 29 |
 | F25 | Web UI 工单详情页（多 Repo PR 链接列表 + 活动日志 + Hook 历史） | 5d | F24 | 13 |
 | F26 | Web UI Agent 控制台（状态 + 实时输出流 + 心跳） | 3d | F03, F10, F23 | 13 |

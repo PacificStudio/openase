@@ -1998,7 +1998,7 @@ func TestTicketRoutesPublishSSEEvents(t *testing.T) {
 	}
 	doneID := findStatusIDByName(t, statuses, "Done")
 
-	createResponse, cancelCreate := openSSERequest(t, testServer.URL+fmt.Sprintf("/api/v1/projects/%s/tickets/stream", project.ID))
+	createResponse, cancelCreate := openSSERequest(t, testServer.URL+fmt.Sprintf("/api/v1/projects/%s/events/stream", project.ID))
 	t.Cleanup(func() {
 		if err := createResponse.Body.Close(); err != nil {
 			t.Errorf("close create response body: %v", err)
@@ -2027,7 +2027,7 @@ func TestTicketRoutesPublishSSEEvents(t *testing.T) {
 		t.Fatalf("expected created ticket identifier in SSE payload, got %q", createBody)
 	}
 
-	updateResponse, cancelUpdate := openSSERequest(t, testServer.URL+fmt.Sprintf("/api/v1/projects/%s/tickets/stream", project.ID))
+	updateResponse, cancelUpdate := openSSERequest(t, testServer.URL+fmt.Sprintf("/api/v1/projects/%s/events/stream", project.ID))
 	t.Cleanup(func() {
 		if err := updateResponse.Body.Close(); err != nil {
 			t.Errorf("close update response body: %v", err)
