@@ -49,6 +49,8 @@ type agentProviderResponse struct {
 
 type agentProviderCapabilitiesResponse struct {
 	EphemeralChat agentProviderCapabilityResponse `json:"ephemeral_chat"`
+	HarnessAI     agentProviderCapabilityResponse `json:"harness_ai"`
+	SkillAI       agentProviderCapabilityResponse `json:"skill_ai"`
 }
 
 type agentProviderCapabilityResponse struct {
@@ -626,9 +628,17 @@ func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 		permissionProfile = domain.DefaultAgentProviderPermissionProfile
 	}
 	capabilities := domain.DeriveAgentProviderCapabilities(item).Capabilities
-	capabilityState := capabilities.EphemeralChat.State
-	if !capabilityState.IsValid() {
-		capabilityState = domain.AgentProviderCapabilityStateUnsupported
+	ephemeralChatState := capabilities.EphemeralChat.State
+	if !ephemeralChatState.IsValid() {
+		ephemeralChatState = domain.AgentProviderCapabilityStateUnsupported
+	}
+	harnessAIState := capabilities.HarnessAI.State
+	if !harnessAIState.IsValid() {
+		harnessAIState = domain.AgentProviderCapabilityStateUnsupported
+	}
+	skillAIState := capabilities.SkillAI.State
+	if !skillAIState.IsValid() {
+		skillAIState = domain.AgentProviderCapabilityStateUnsupported
 	}
 
 	return agentProviderResponse{
@@ -649,8 +659,16 @@ func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 		AvailabilityReason:    stringPointerValue(item.AvailabilityReason),
 		Capabilities: agentProviderCapabilitiesResponse{
 			EphemeralChat: agentProviderCapabilityResponse{
-				State:  capabilityState.String(),
+				State:  ephemeralChatState.String(),
 				Reason: stringPointerValue(capabilities.EphemeralChat.Reason),
+			},
+			HarnessAI: agentProviderCapabilityResponse{
+				State:  harnessAIState.String(),
+				Reason: stringPointerValue(capabilities.HarnessAI.Reason),
+			},
+			SkillAI: agentProviderCapabilityResponse{
+				State:  skillAIState.String(),
+				Reason: stringPointerValue(capabilities.SkillAI.Reason),
 			},
 		},
 		CliCommand:            item.CliCommand,

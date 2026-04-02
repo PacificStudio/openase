@@ -271,9 +271,10 @@ func writeChatError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusConflict, "CHAT_SESSION_LIMIT_REACHED", err.Error())
 	case errors.Is(err, chatservice.ErrProviderNotFound):
 		return writeAPIError(c, http.StatusConflict, "CHAT_PROVIDER_NOT_CONFIGURED", err.Error())
-	case errors.Is(err, chatservice.ErrProviderUnavailable),
-		errors.Is(err, chatservice.ErrProviderUnsupported):
+	case errors.Is(err, chatservice.ErrProviderUnavailable):
 		return writeAPIError(c, http.StatusConflict, "CHAT_PROVIDER_UNAVAILABLE", err.Error())
+	case errors.Is(err, chatservice.ErrProviderUnsupported):
+		return writeAPIError(c, http.StatusConflict, "CHAT_PROVIDER_UNSUPPORTED", err.Error())
 	case errors.Is(err, chatservice.ErrSessionNotFound):
 		return writeAPIError(c, http.StatusNotFound, "CHAT_SESSION_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrTicketNotFound),
