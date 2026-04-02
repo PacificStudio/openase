@@ -173,17 +173,22 @@ func startSharedServerProcess(prefix string) (sharedServerStartResult, error) {
 			return sharedServerStartResult{}, fmt.Errorf("allocate free port: %w", err)
 		}
 
-		pg, err := newPostgresController(rootDir, port)
-		if err != nil {
-			_ = os.RemoveAll(rootDir)
-			return sharedServerStartResult{}, fmt.Errorf("create embedded postgres controller: %w", err)
-		}
-
 		releaseAssetsLock, err := lockSharedServerAssets()
 		if err != nil {
 			_ = os.RemoveAll(rootDir)
 			return sharedServerStartResult{}, fmt.Errorf("lock shared embedded postgres assets: %w", err)
 		}
+
+		pg, err := newPostgresController(rootDir, port)
+		if err != nil {
+			releaseErr := releaseAssetsLock()
+			_ = os.RemoveAll(rootDir)
+			if releaseErr != nil {
+				return sharedServerStartResult{}, fmt.Errorf("create embedded postgres controller: %w; release shared embedded postgres assets lock: %v", err, releaseErr)
+			}
+			return sharedServerStartResult{}, fmt.Errorf("create embedded postgres controller: %w", err)
+		}
+
 		startErr := pg.Start()
 		releaseErr := releaseAssetsLock()
 		if startErr == nil && releaseErr != nil {
