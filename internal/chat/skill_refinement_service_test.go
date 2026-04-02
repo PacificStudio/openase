@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -58,8 +59,12 @@ func TestSkillRefinementServiceRetriesThenReturnsVerifiedResultAndCleansUp(t *te
 				if err := os.WriteFile(
 					filepath.Join(skillDir, "scripts", "check.sh"),
 					[]byte("#!/usr/bin/env bash\necho verified\n"),
-					0o700,
+					0o600,
 				); err != nil {
+					panic(err)
+				}
+				// #nosec G302 -- test fixture intentionally models an executable skill script.
+				if err := os.Chmod(filepath.Join(skillDir, "scripts", "check.sh"), 0o700); err != nil {
 					panic(err)
 				}
 				return []StreamEvent{
@@ -287,8 +292,8 @@ func (r *fakeSkillRefinementRuntime) CloseSession(sessionID SessionID) bool {
 
 func (r *fakeSkillRefinementRuntime) SessionAnchor(_ SessionID) RuntimeSessionAnchor {
 	return RuntimeSessionAnchor{
-		ProviderThreadID: "thread-" + string(rune('0'+r.attempt)),
-		LastTurnID:       "turn-" + string(rune('0'+r.attempt)),
+		ProviderThreadID: fmt.Sprintf("thread-%d", r.attempt),
+		LastTurnID:       fmt.Sprintf("turn-%d", r.attempt),
 	}
 }
 

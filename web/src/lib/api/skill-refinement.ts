@@ -73,8 +73,9 @@ export async function streamSkillRefinement(
     onEvent: (event: SkillRefinementStreamEvent) => void
   },
 ) {
+  const skillId = encodeURIComponent(request.skillId)
   const response = await fetch(
-    `/api/v1/skills/${encodeURIComponent(request.skillId)}/refinement-runs`,
+    `/api/v1/skills/${skillId}/refinement-runs`,
     {
       method: 'POST',
       headers: {

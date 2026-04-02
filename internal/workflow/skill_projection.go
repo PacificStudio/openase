@@ -58,6 +58,13 @@ func LoadSkillBundleFromDirectory(name string, root string) (SkillBundle, error)
 	if err != nil {
 		return SkillBundle{}, fmt.Errorf("resolve skill bundle root: %w", err)
 	}
+	rootFS, err := os.OpenRoot(absoluteRoot)
+	if err != nil {
+		return SkillBundle{}, fmt.Errorf("open skill bundle root: %w", err)
+	}
+	defer func() {
+		_ = rootFS.Close()
+	}()
 	files := make([]SkillBundleFileInput, 0)
 	if err := filepath.WalkDir(absoluteRoot, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -73,11 +80,11 @@ func LoadSkillBundleFromDirectory(name string, root string) (SkillBundle, error)
 		if err != nil {
 			return fmt.Errorf("resolve skill bundle file path: %w", err)
 		}
-		content, err := os.ReadFile(path)
+		content, err := rootFS.ReadFile(relativePath)
 		if err != nil {
 			return fmt.Errorf("read skill bundle file %s: %w", relativePath, err)
 		}
-		info, err := entry.Info()
+		info, err := rootFS.Stat(relativePath)
 		if err != nil {
 			return fmt.Errorf("stat skill bundle file %s: %w", relativePath, err)
 		}

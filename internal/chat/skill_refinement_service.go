@@ -434,7 +434,7 @@ func (s *SkillRefinementService) runAttempt(
 		SessionID:        sessionID,
 		Provider:         providerItem,
 		Message:          buildSkillRefinementPrompt(skillName, userMessage, projection.SkillDir, attempt, lastFailure),
-		SystemPrompt:     buildSkillRefinementSystemPrompt(skillName, projection.SkillDir),
+		SystemPrompt:     buildSkillRefinementSystemPrompt(projection.SkillDir),
 		WorkingDirectory: workingDirectory,
 	})
 	if err != nil {
@@ -488,7 +488,7 @@ func (s *SkillRefinementService) runAttempt(
 	transcriptSummary := summarizeAttemptOutput(assistantTexts, report)
 	commandSummary := summarizeCommandOutput(commandOutputs)
 
-	status := "unverified"
+	var status string
 	summary := transcriptSummary
 	failureReason := ""
 	switch {
@@ -631,7 +631,7 @@ func sanitizeSkillRefinementPathComponent(value string) string {
 	return trimmed
 }
 
-func buildSkillRefinementSystemPrompt(skillName string, skillDir string) string {
+func buildSkillRefinementSystemPrompt(skillDir string) string {
 	return strings.TrimSpace(fmt.Sprintf(`
 你正在执行 OpenASE Skill 的 fix-and-verify refinement。
 
