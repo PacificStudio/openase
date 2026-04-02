@@ -105,6 +105,19 @@ func (s *Service) Get(ctx context.Context, ticketID uuid.UUID) (Ticket, error) {
 	return s.repo.Get(ctx, ticketID)
 }
 
+func (s *Service) GetPickupDiagnosis(ctx context.Context, ticketID uuid.UUID) (PickupDiagnosis, error) {
+	if s == nil || s.repo == nil {
+		return PickupDiagnosis{
+			State:                PickupDiagnosisStateUnavailable,
+			PrimaryReasonCode:    PickupDiagnosisReasonSchedulerUnavailable,
+			PrimaryReasonMessage: "Scheduler state is unavailable.",
+			NextActionHint:       "Retry once the ticket service is available again.",
+			BlockedBy:            []PickupDiagnosisBlockedTicket{},
+		}, ErrUnavailable
+	}
+	return s.repo.GetPickupDiagnosis(ctx, ticketID)
+}
+
 func (s *Service) Create(ctx context.Context, input CreateInput) (Ticket, error) {
 	if s == nil || s.repo == nil {
 		return Ticket{}, ErrUnavailable

@@ -6,10 +6,11 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
+	ticketingdomain "github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/google/uuid"
 )
 
-func mapHarnessScopedRepos(scopes []*ent.TicketRepoScope, workspace string) ([]HarnessRepoData, map[uuid.UUID]string) {
+func mapHarnessScopedRepos(ticketIdentifier string, scopes []*ent.TicketRepoScope, workspace string) ([]HarnessRepoData, map[uuid.UUID]string) {
 	repos := make([]HarnessRepoData, 0, len(scopes))
 	branches := make(map[uuid.UUID]string, len(scopes))
 	for _, scope := range scopes {
@@ -17,12 +18,13 @@ func mapHarnessScopedRepos(scopes []*ent.TicketRepoScope, workspace string) ([]H
 		if repo == nil {
 			continue
 		}
-		branches[repo.ID] = scope.BranchName
+		effectiveBranchName := ticketingdomain.ResolveRepoWorkBranch(ticketIdentifier, scope.BranchName)
+		branches[repo.ID] = effectiveBranchName
 		repos = append(repos, HarnessRepoData{
 			Name:          repo.Name,
 			URL:           repo.RepositoryURL,
 			Path:          resolveRepoPath(repo.WorkspaceDirname, workspace, repo.Name),
-			Branch:        scope.BranchName,
+			Branch:        effectiveBranchName,
 			DefaultBranch: repo.DefaultBranch,
 			Labels:        append([]string(nil), repo.Labels...),
 		})
@@ -30,12 +32,12 @@ func mapHarnessScopedRepos(scopes []*ent.TicketRepoScope, workspace string) ([]H
 	return repos, branches
 }
 
-func mapHarnessAllRepos(repos []*ent.ProjectRepo, repoBranchByID map[uuid.UUID]string, workspace string) []HarnessRepoData {
+func mapHarnessAllRepos(ticketIdentifier string, repos []*ent.ProjectRepo, repoBranchByID map[uuid.UUID]string, workspace string) []HarnessRepoData {
 	items := make([]HarnessRepoData, 0, len(repos))
 	for _, repo := range repos {
 		branch := repoBranchByID[repo.ID]
 		if branch == "" {
-			branch = repo.DefaultBranch
+			branch = ticketingdomain.DefaultRepoWorkBranch(ticketIdentifier)
 		}
 		items = append(items, HarnessRepoData{
 			Name:          repo.Name,

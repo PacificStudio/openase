@@ -120,6 +120,7 @@ export default defineConfig(
       'src/lib/features/skills/components/skill-bundle-editor.ts',
       'src/lib/features/skills/components/skill-ai-sidebar.test.ts',
       'src/lib/features/skills/components/skill-editor-page.svelte',
+      'src/lib/features/skills/components/skill-editor-page.test.ts',
       'src/lib/features/skills/components/skill-refinement-transcript.ts',
       'src/lib/features/ticket-detail/components/ticket-run-history-panel.svelte',
       'src/lib/features/tickets/components/new-ticket-dialog.svelte',

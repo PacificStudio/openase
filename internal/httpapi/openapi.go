@@ -40,6 +40,7 @@ type OpenAPIProject struct {
 	DefaultAgentProviderID *string  `json:"default_agent_provider_id,omitempty"`
 	AccessibleMachineIDs   []string `json:"accessible_machine_ids,omitempty"`
 	MaxConcurrentAgents    int      `json:"max_concurrent_agents"`
+	AgentRunSummaryPrompt  *string  `json:"agent_run_summary_prompt,omitempty"`
 }
 
 type OpenAPIWorkspaceDashboardMetrics struct {
@@ -155,6 +156,8 @@ type OpenAPIAgentProvider struct {
 
 type OpenAPIAgentProviderCapabilities struct {
 	EphemeralChat OpenAPIAgentProviderCapability `json:"ephemeral_chat"`
+	HarnessAI     OpenAPIAgentProviderCapability `json:"harness_ai"`
+	SkillAI       OpenAPIAgentProviderCapability `json:"skill_ai"`
 }
 
 type OpenAPIAgentProviderCapability struct {
@@ -299,27 +302,89 @@ type OpenAPIProjectConversationTurnRequest struct {
 }
 
 type OpenAPIProjectConversationTurnFocus struct {
-	Kind               string   `json:"kind"`
-	WorkflowID         *string  `json:"workflow_id,omitempty"`
-	WorkflowName       *string  `json:"workflow_name,omitempty"`
-	WorkflowType       *string  `json:"workflow_type,omitempty"`
-	HarnessPath        *string  `json:"harness_path,omitempty"`
-	IsActive           *bool    `json:"is_active,omitempty"`
-	SelectedArea       *string  `json:"selected_area,omitempty"`
-	HasDirtyDraft      *bool    `json:"has_dirty_draft,omitempty"`
-	SkillID            *string  `json:"skill_id,omitempty"`
-	SkillName          *string  `json:"skill_name,omitempty"`
-	SelectedFilePath   *string  `json:"selected_file_path,omitempty"`
-	BoundWorkflowNames []string `json:"bound_workflow_names,omitempty"`
-	TicketID           *string  `json:"ticket_id,omitempty"`
-	TicketIdentifier   *string  `json:"ticket_identifier,omitempty"`
-	TicketTitle        *string  `json:"ticket_title,omitempty"`
-	TicketStatus       *string  `json:"ticket_status,omitempty"`
-	MachineID          *string  `json:"machine_id,omitempty"`
-	MachineName        *string  `json:"machine_name,omitempty"`
-	MachineHost        *string  `json:"machine_host,omitempty"`
-	MachineStatus      *string  `json:"machine_status,omitempty"`
-	HealthSummary      *string  `json:"health_summary,omitempty"`
+	Kind                 string                                         `json:"kind"`
+	WorkflowID           *string                                        `json:"workflow_id,omitempty"`
+	WorkflowName         *string                                        `json:"workflow_name,omitempty"`
+	WorkflowType         *string                                        `json:"workflow_type,omitempty"`
+	HarnessPath          *string                                        `json:"harness_path,omitempty"`
+	IsActive             *bool                                          `json:"is_active,omitempty"`
+	SelectedArea         *string                                        `json:"selected_area,omitempty"`
+	HasDirtyDraft        *bool                                          `json:"has_dirty_draft,omitempty"`
+	SkillID              *string                                        `json:"skill_id,omitempty"`
+	SkillName            *string                                        `json:"skill_name,omitempty"`
+	SelectedFilePath     *string                                        `json:"selected_file_path,omitempty"`
+	BoundWorkflowNames   []string                                       `json:"bound_workflow_names,omitempty"`
+	TicketID             *string                                        `json:"ticket_id,omitempty"`
+	TicketIdentifier     *string                                        `json:"ticket_identifier,omitempty"`
+	TicketTitle          *string                                        `json:"ticket_title,omitempty"`
+	TicketDescription    *string                                        `json:"ticket_description,omitempty"`
+	TicketStatus         *string                                        `json:"ticket_status,omitempty"`
+	TicketPriority       *string                                        `json:"ticket_priority,omitempty"`
+	TicketAttemptCount   *int                                           `json:"ticket_attempt_count,omitempty"`
+	TicketRetryPaused    *bool                                          `json:"ticket_retry_paused,omitempty"`
+	TicketPauseReason    *string                                        `json:"ticket_pause_reason,omitempty"`
+	TicketDependencies   []OpenAPIProjectConversationTicketDependency   `json:"ticket_dependencies,omitempty"`
+	TicketRepoScopes     []OpenAPIProjectConversationTicketRepoScope    `json:"ticket_repo_scopes,omitempty"`
+	TicketRecentActivity []OpenAPIProjectConversationTicketActivity     `json:"ticket_recent_activity,omitempty"`
+	TicketHookHistory    []OpenAPIProjectConversationTicketHook         `json:"ticket_hook_history,omitempty"`
+	TicketAssignedAgent  *OpenAPIProjectConversationTicketAssignedAgent `json:"ticket_assigned_agent,omitempty"`
+	TicketCurrentRun     *OpenAPIProjectConversationTicketRun           `json:"ticket_current_run,omitempty"`
+	TicketTargetMachine  *OpenAPIProjectConversationTicketTargetMachine `json:"ticket_target_machine,omitempty"`
+	MachineID            *string                                        `json:"machine_id,omitempty"`
+	MachineName          *string                                        `json:"machine_name,omitempty"`
+	MachineHost          *string                                        `json:"machine_host,omitempty"`
+	MachineStatus        *string                                        `json:"machine_status,omitempty"`
+	HealthSummary        *string                                        `json:"health_summary,omitempty"`
+}
+
+type OpenAPIProjectConversationTicketDependency struct {
+	Identifier *string `json:"identifier,omitempty"`
+	Title      *string `json:"title,omitempty"`
+	Relation   *string `json:"relation,omitempty"`
+	Status     *string `json:"status,omitempty"`
+}
+
+type OpenAPIProjectConversationTicketRepoScope struct {
+	RepoID         *string `json:"repo_id,omitempty"`
+	RepoName       *string `json:"repo_name,omitempty"`
+	BranchName     *string `json:"branch_name,omitempty"`
+	PullRequestURL *string `json:"pull_request_url,omitempty"`
+}
+
+type OpenAPIProjectConversationTicketActivity struct {
+	EventType *string `json:"event_type,omitempty"`
+	Message   *string `json:"message,omitempty"`
+	CreatedAt *string `json:"created_at,omitempty"`
+}
+
+type OpenAPIProjectConversationTicketHook struct {
+	HookName  *string `json:"hook_name,omitempty"`
+	Status    *string `json:"status,omitempty"`
+	Output    *string `json:"output,omitempty"`
+	Timestamp *string `json:"timestamp,omitempty"`
+}
+
+type OpenAPIProjectConversationTicketAssignedAgent struct {
+	ID                  *string `json:"id,omitempty"`
+	Name                *string `json:"name,omitempty"`
+	Provider            *string `json:"provider,omitempty"`
+	RuntimeControlState *string `json:"runtime_control_state,omitempty"`
+	RuntimePhase        *string `json:"runtime_phase,omitempty"`
+}
+
+type OpenAPIProjectConversationTicketRun struct {
+	ID                 *string `json:"id,omitempty"`
+	AttemptNumber      *int    `json:"attempt_number,omitempty"`
+	Status             *string `json:"status,omitempty"`
+	CurrentStepStatus  *string `json:"current_step_status,omitempty"`
+	CurrentStepSummary *string `json:"current_step_summary,omitempty"`
+	LastError          *string `json:"last_error,omitempty"`
+}
+
+type OpenAPIProjectConversationTicketTargetMachine struct {
+	ID   *string `json:"id,omitempty"`
+	Name *string `json:"name,omitempty"`
+	Host *string `json:"host,omitempty"`
 }
 
 type OpenAPIProjectConversationInterruptResponseRequest struct {
@@ -450,20 +515,29 @@ type OpenAPIAgentStepEntry struct {
 }
 
 type OpenAPITicketRun struct {
-	ID                 string  `json:"id"`
-	AttemptNumber      int     `json:"attempt_number"`
-	AgentID            string  `json:"agent_id"`
-	AgentName          string  `json:"agent_name"`
-	Provider           string  `json:"provider"`
-	Status             string  `json:"status"`
-	CurrentStepStatus  *string `json:"current_step_status,omitempty"`
-	CurrentStepSummary *string `json:"current_step_summary,omitempty"`
-	CreatedAt          string  `json:"created_at"`
-	RuntimeStartedAt   *string `json:"runtime_started_at,omitempty"`
-	LastHeartbeatAt    *string `json:"last_heartbeat_at,omitempty"`
-	TerminalAt         *string `json:"terminal_at,omitempty"`
-	CompletedAt        *string `json:"completed_at,omitempty"`
-	LastError          *string `json:"last_error,omitempty"`
+	ID                 string                             `json:"id"`
+	AttemptNumber      int                                `json:"attempt_number"`
+	AgentID            string                             `json:"agent_id"`
+	AgentName          string                             `json:"agent_name"`
+	Provider           string                             `json:"provider"`
+	Status             string                             `json:"status"`
+	CurrentStepStatus  *string                            `json:"current_step_status,omitempty"`
+	CurrentStepSummary *string                            `json:"current_step_summary,omitempty"`
+	CreatedAt          string                             `json:"created_at"`
+	RuntimeStartedAt   *string                            `json:"runtime_started_at,omitempty"`
+	LastHeartbeatAt    *string                            `json:"last_heartbeat_at,omitempty"`
+	TerminalAt         *string                            `json:"terminal_at,omitempty"`
+	CompletedAt        *string                            `json:"completed_at,omitempty"`
+	LastError          *string                            `json:"last_error,omitempty"`
+	CompletionSummary  *OpenAPITicketRunCompletionSummary `json:"completion_summary,omitempty"`
+}
+
+type OpenAPITicketRunCompletionSummary struct {
+	Status      string         `json:"status"`
+	Markdown    *string        `json:"markdown,omitempty"`
+	JSON        map[string]any `json:"json,omitempty"`
+	GeneratedAt *string        `json:"generated_at,omitempty"`
+	Error       *string        `json:"error,omitempty"`
 }
 
 type OpenAPITicketRunTraceEntry struct {
@@ -646,12 +720,15 @@ type OpenAPITicket struct {
 }
 
 type OpenAPITicketRepoScopeDetail struct {
-	ID             string              `json:"id"`
-	TicketID       string              `json:"ticket_id"`
-	RepoID         string              `json:"repo_id"`
-	Repo           *OpenAPIProjectRepo `json:"repo,omitempty"`
-	BranchName     string              `json:"branch_name"`
-	PullRequestURL *string             `json:"pull_request_url,omitempty"`
+	ID                  string              `json:"id"`
+	TicketID            string              `json:"ticket_id"`
+	RepoID              string              `json:"repo_id"`
+	Repo                *OpenAPIProjectRepo `json:"repo,omitempty"`
+	BranchName          string              `json:"branch_name"`
+	DefaultBranch       string              `json:"default_branch"`
+	EffectiveBranchName string              `json:"effective_branch_name"`
+	BranchSource        string              `json:"branch_source"`
+	PullRequestURL      *string             `json:"pull_request_url,omitempty"`
 }
 
 type OpenAPITicketRepoScope struct {
@@ -668,6 +745,83 @@ type OpenAPITicketAssignedAgent struct {
 	Provider            string  `json:"provider"`
 	RuntimeControlState string  `json:"runtime_control_state,omitempty"`
 	RuntimePhase        *string `json:"runtime_phase,omitempty"`
+}
+
+type OpenAPITicketPickupDiagnosisReason struct {
+	Code     string `json:"code"`
+	Message  string `json:"message"`
+	Severity string `json:"severity"`
+}
+
+type OpenAPITicketPickupDiagnosisWorkflow struct {
+	ID                string `json:"id"`
+	Name              string `json:"name"`
+	IsActive          bool   `json:"is_active"`
+	PickupStatusMatch bool   `json:"pickup_status_match"`
+}
+
+type OpenAPITicketPickupDiagnosisAgent struct {
+	ID                  string `json:"id"`
+	Name                string `json:"name"`
+	RuntimeControlState string `json:"runtime_control_state"`
+}
+
+type OpenAPITicketPickupDiagnosisProvider struct {
+	ID                 string  `json:"id"`
+	Name               string  `json:"name"`
+	MachineID          string  `json:"machine_id"`
+	MachineName        string  `json:"machine_name"`
+	MachineStatus      string  `json:"machine_status"`
+	AvailabilityState  string  `json:"availability_state"`
+	AvailabilityReason *string `json:"availability_reason,omitempty"`
+}
+
+type OpenAPITicketPickupDiagnosisRetry struct {
+	AttemptCount int     `json:"attempt_count"`
+	RetryPaused  bool    `json:"retry_paused"`
+	PauseReason  string  `json:"pause_reason,omitempty"`
+	NextRetryAt  *string `json:"next_retry_at,omitempty"`
+}
+
+type OpenAPITicketPickupDiagnosisCapacityBucket struct {
+	Limited    bool `json:"limited"`
+	ActiveRuns int  `json:"active_runs"`
+	Capacity   int  `json:"capacity"`
+}
+
+type OpenAPITicketPickupDiagnosisStatusCapacity struct {
+	Limited    bool `json:"limited"`
+	ActiveRuns int  `json:"active_runs"`
+	Capacity   *int `json:"capacity"`
+}
+
+type OpenAPITicketPickupDiagnosisBlockedTicket struct {
+	ID         string `json:"id"`
+	Identifier string `json:"identifier"`
+	Title      string `json:"title"`
+	StatusID   string `json:"status_id"`
+	StatusName string `json:"status_name"`
+}
+
+type OpenAPITicketPickupDiagnosisCapacity struct {
+	Workflow OpenAPITicketPickupDiagnosisCapacityBucket `json:"workflow"`
+	Project  OpenAPITicketPickupDiagnosisCapacityBucket `json:"project"`
+	Provider OpenAPITicketPickupDiagnosisCapacityBucket `json:"provider"`
+	Status   OpenAPITicketPickupDiagnosisStatusCapacity `json:"status"`
+}
+
+type OpenAPITicketPickupDiagnosis struct {
+	State                string                                      `json:"state"`
+	PrimaryReasonCode    string                                      `json:"primary_reason_code"`
+	PrimaryReasonMessage string                                      `json:"primary_reason_message"`
+	NextActionHint       string                                      `json:"next_action_hint,omitempty"`
+	Reasons              []OpenAPITicketPickupDiagnosisReason        `json:"reasons"`
+	Workflow             *OpenAPITicketPickupDiagnosisWorkflow       `json:"workflow,omitempty"`
+	Agent                *OpenAPITicketPickupDiagnosisAgent          `json:"agent,omitempty"`
+	Provider             *OpenAPITicketPickupDiagnosisProvider       `json:"provider,omitempty"`
+	Retry                OpenAPITicketPickupDiagnosisRetry           `json:"retry"`
+	Capacity             OpenAPITicketPickupDiagnosisCapacity        `json:"capacity"`
+	BlockedBy            []OpenAPITicketPickupDiagnosisBlockedTicket `json:"blocked_by"`
 }
 
 type OpenAPIChatContext struct {
@@ -1339,13 +1493,14 @@ type OpenAPISecuritySettingsResponse struct {
 }
 
 type OpenAPITicketDetailResponse struct {
-	AssignedAgent *OpenAPITicketAssignedAgent    `json:"assigned_agent,omitempty"`
-	Ticket        OpenAPITicket                  `json:"ticket"`
-	RepoScopes    []OpenAPITicketRepoScopeDetail `json:"repo_scopes"`
-	Comments      []OpenAPITicketComment         `json:"comments"`
-	Timeline      []OpenAPITicketTimelineItem    `json:"timeline"`
-	Activity      []OpenAPIActivityEvent         `json:"activity"`
-	HookHistory   []OpenAPIActivityEvent         `json:"hook_history"`
+	AssignedAgent   *OpenAPITicketAssignedAgent    `json:"assigned_agent,omitempty"`
+	PickupDiagnosis OpenAPITicketPickupDiagnosis   `json:"pickup_diagnosis"`
+	Ticket          OpenAPITicket                  `json:"ticket"`
+	RepoScopes      []OpenAPITicketRepoScopeDetail `json:"repo_scopes"`
+	Comments        []OpenAPITicketComment         `json:"comments"`
+	Timeline        []OpenAPITicketTimelineItem    `json:"timeline"`
+	Activity        []OpenAPIActivityEvent         `json:"activity"`
+	HookHistory     []OpenAPIActivityEvent         `json:"hook_history"`
 }
 
 type OpenAPICreateOrganizationRequest catalogdomain.OrganizationInput
@@ -1446,6 +1601,7 @@ var (
 		"default_agent_provider_id": "Optional default agent provider ID for the project.",
 		"accessible_machine_ids":    "Machine IDs that the project is allowed to use.",
 		"max_concurrent_agents":     "Maximum number of agents that may run concurrently in the project.",
+		"agent_run_summary_prompt":  "Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt.",
 	}
 	openAPIProviderRequestDescriptions = map[string]string{
 		"name":                  "Human-readable provider name.",
@@ -1466,7 +1622,7 @@ var (
 	openAPIRepoRequestDescriptions = map[string]string{
 		"name":              "Human-readable repository name within the project.",
 		"repository_url":    "Remote Git repository URL.",
-		"default_branch":    "Default branch name used when a repo scope does not provide an explicit branch override.",
+		"default_branch":    "Repository base branch used when OpenASE creates a new ticket work branch.",
 		"workspace_dirname": "Directory name used for this repository inside a ticket workspace.",
 		"labels":            "Labels attached to the repository for workflow selection and filtering.",
 	}
@@ -1519,7 +1675,7 @@ var (
 		"workflow_id":               "Optional workflow ID that should handle the ticket.",
 		"repo_scopes":               "Optional repository scopes attached at ticket creation time. Multi-repo projects must supply explicit repo scopes; single-repo projects auto-select the only repo when omitted.",
 		"repo_scopes[].repo_id":     "Repository ID attached to the ticket scope.",
-		"repo_scopes[].branch_name": "Optional branch name for the scoped repository checkout. When omitted, the repository default branch is used.",
+		"repo_scopes[].branch_name": "Optional work-branch override for the scoped repository. When omitted or blank, OpenASE uses the generated ticket branch.",
 		"parent_ticket_id":          "Optional parent ticket ID for hierarchical ticket relationships.",
 		"external_ref":              "Optional external reference string associated with the ticket.",
 		"created_by":                "Actor identifier recorded as the creator of the ticket.",
@@ -1588,11 +1744,11 @@ var (
 	}
 	openAPIRepoScopeCreateDescriptions = map[string]string{
 		"repo_id":          "Repository ID attached to the ticket scope.",
-		"branch_name":      "Branch name associated with the scoped repository checkout.",
+		"branch_name":      "Optional work-branch override for the scoped repository. Leave blank to use the generated ticket branch.",
 		"pull_request_url": "Pull request URL associated with the repository scope.",
 	}
 	openAPIRepoScopePatchDescriptions = map[string]string{
-		"branch_name":      "Branch name associated with the scoped repository checkout.",
+		"branch_name":      "Optional work-branch override for the scoped repository. Send an empty string to clear the override and use the generated ticket branch.",
 		"pull_request_url": "Pull request URL associated with the repository scope.",
 	}
 	openAPIHRAdvisorActivateDescriptions = map[string]string{
@@ -1617,29 +1773,70 @@ var (
 		"context.project_id": "Project ID that owns the conversation workspace and transcript.",
 	}
 	openAPIProjectConversationTurnDescriptions = map[string]string{
-		"message":                    "User message content appended as the next project conversation turn.",
-		"focus":                      "Optional per-turn focus context describing the currently selected workflow, skill, ticket, or machine surface.",
-		"focus.kind":                 "Focused surface kind. Supported values are workflow, skill, ticket, and machine.",
-		"focus.workflow_id":          "Workflow ID currently in focus.",
-		"focus.workflow_name":        "Workflow name currently in focus.",
-		"focus.workflow_type":        "Workflow type currently in focus.",
-		"focus.harness_path":         "Harness path for the focused workflow.",
-		"focus.is_active":            "Whether the focused workflow is currently active.",
-		"focus.selected_area":        "UI sub-area currently in focus, such as harness, detail, or health.",
-		"focus.has_dirty_draft":      "Whether the focused workflow or skill surface currently has unsaved draft edits.",
-		"focus.skill_id":             "Skill ID currently in focus.",
-		"focus.skill_name":           "Skill name currently in focus.",
-		"focus.selected_file_path":   "Selected bundle file path for the focused skill surface.",
-		"focus.bound_workflow_names": "Workflow names currently bound to the focused skill.",
-		"focus.ticket_id":            "Ticket ID currently in focus.",
-		"focus.ticket_identifier":    "Human-readable ticket identifier currently in focus.",
-		"focus.ticket_title":         "Ticket title currently in focus.",
-		"focus.ticket_status":        "Ticket status currently in focus.",
-		"focus.machine_id":           "Machine ID currently in focus.",
-		"focus.machine_name":         "Machine name currently in focus.",
-		"focus.machine_host":         "Machine host currently in focus.",
-		"focus.machine_status":       "Machine runtime status currently in focus.",
-		"focus.health_summary":       "Compact health or resource summary for the focused machine.",
+		"message":                                           "User message content appended as the next project conversation turn.",
+		"focus":                                             "Optional per-turn focus context describing the currently selected workflow, skill, ticket, or machine surface.",
+		"focus.kind":                                        "Focused surface kind. Supported values are workflow, skill, ticket, and machine.",
+		"focus.workflow_id":                                 "Workflow ID currently in focus.",
+		"focus.workflow_name":                               "Workflow name currently in focus.",
+		"focus.workflow_type":                               "Workflow type currently in focus.",
+		"focus.harness_path":                                "Harness path for the focused workflow.",
+		"focus.is_active":                                   "Whether the focused workflow is currently active.",
+		"focus.selected_area":                               "UI sub-area currently in focus, such as harness, detail, or health.",
+		"focus.has_dirty_draft":                             "Whether the focused workflow or skill surface currently has unsaved draft edits.",
+		"focus.skill_id":                                    "Skill ID currently in focus.",
+		"focus.skill_name":                                  "Skill name currently in focus.",
+		"focus.selected_file_path":                          "Selected bundle file path for the focused skill surface.",
+		"focus.bound_workflow_names":                        "Workflow names currently bound to the focused skill.",
+		"focus.ticket_id":                                   "Ticket ID currently in focus.",
+		"focus.ticket_identifier":                           "Human-readable ticket identifier currently in focus.",
+		"focus.ticket_title":                                "Ticket title currently in focus.",
+		"focus.ticket_description":                          "Ticket description currently in focus.",
+		"focus.ticket_status":                               "Ticket status currently in focus.",
+		"focus.ticket_priority":                             "Ticket priority currently in focus.",
+		"focus.ticket_attempt_count":                        "Current attempt count for the focused ticket.",
+		"focus.ticket_retry_paused":                         "Whether retries are currently paused for the focused ticket.",
+		"focus.ticket_pause_reason":                         "Reason retries are paused for the focused ticket.",
+		"focus.ticket_dependencies":                         "Dependency summary for the focused ticket.",
+		"focus.ticket_dependencies[].identifier":            "Human-readable identifier for a related dependency ticket.",
+		"focus.ticket_dependencies[].title":                 "Title of a related dependency ticket.",
+		"focus.ticket_dependencies[].relation":              "Dependency relation such as blocks or blocked_by.",
+		"focus.ticket_dependencies[].status":                "Current status of the related dependency ticket.",
+		"focus.ticket_repo_scopes":                          "Repo scopes and PR references for the focused ticket.",
+		"focus.ticket_repo_scopes[].repo_id":                "Repository ID included in the focused ticket scope.",
+		"focus.ticket_repo_scopes[].repo_name":              "Repository name included in the focused ticket scope.",
+		"focus.ticket_repo_scopes[].branch_name":            "Branch name associated with the focused ticket scope.",
+		"focus.ticket_repo_scopes[].pull_request_url":       "Pull request URL associated with the focused ticket scope.",
+		"focus.ticket_recent_activity":                      "Recent ticket-scoped activity for the focused ticket.",
+		"focus.ticket_recent_activity[].event_type":         "Activity event type for a recent focused ticket event.",
+		"focus.ticket_recent_activity[].message":            "Human-readable summary for a recent focused ticket event.",
+		"focus.ticket_recent_activity[].created_at":         "Creation timestamp for a recent focused ticket event.",
+		"focus.ticket_hook_history":                         "Recent hook execution history for the focused ticket.",
+		"focus.ticket_hook_history[].hook_name":             "Hook name for a recent focused ticket hook execution.",
+		"focus.ticket_hook_history[].status":                "Execution status for a recent focused ticket hook.",
+		"focus.ticket_hook_history[].output":                "Captured output summary for a recent focused ticket hook.",
+		"focus.ticket_hook_history[].timestamp":             "Execution timestamp for a recent focused ticket hook.",
+		"focus.ticket_assigned_agent":                       "Assigned agent summary for the focused ticket.",
+		"focus.ticket_assigned_agent.id":                    "Assigned agent ID for the focused ticket.",
+		"focus.ticket_assigned_agent.name":                  "Assigned agent name for the focused ticket.",
+		"focus.ticket_assigned_agent.provider":              "Assigned agent provider name for the focused ticket.",
+		"focus.ticket_assigned_agent.runtime_control_state": "Assigned agent runtime control state for the focused ticket.",
+		"focus.ticket_assigned_agent.runtime_phase":         "Assigned agent runtime phase for the focused ticket.",
+		"focus.ticket_current_run":                          "Current run summary for the focused ticket.",
+		"focus.ticket_current_run.id":                       "Current run ID for the focused ticket.",
+		"focus.ticket_current_run.attempt_number":           "Attempt number for the current focused ticket run.",
+		"focus.ticket_current_run.status":                   "Current run status for the focused ticket.",
+		"focus.ticket_current_run.current_step_status":      "Current step status for the focused ticket run.",
+		"focus.ticket_current_run.current_step_summary":     "Current step summary for the focused ticket run.",
+		"focus.ticket_current_run.last_error":               "Last error observed on the focused ticket run.",
+		"focus.ticket_target_machine":                       "Target machine summary for the focused ticket.",
+		"focus.ticket_target_machine.id":                    "Target machine ID for the focused ticket.",
+		"focus.ticket_target_machine.name":                  "Target machine name for the focused ticket.",
+		"focus.ticket_target_machine.host":                  "Target machine host for the focused ticket.",
+		"focus.machine_id":                                  "Machine ID currently in focus.",
+		"focus.machine_name":                                "Machine name currently in focus.",
+		"focus.machine_host":                                "Machine host currently in focus.",
+		"focus.machine_status":                              "Machine runtime status currently in focus.",
+		"focus.health_summary":                              "Compact health or resource summary for the focused machine.",
 	}
 	openAPIProjectConversationInterruptResponseDescriptions = map[string]string{
 		"decision": "Provider-native interrupt decision identifier such as approve_once.",

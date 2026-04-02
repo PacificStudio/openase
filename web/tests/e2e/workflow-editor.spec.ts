@@ -133,17 +133,19 @@ test.describe('workflow editor layout', () => {
     await expect(skillsButton).toBeVisible()
     await skillsButton.click()
 
-    const commitRow = page
-      .getByRole('button', { name: /^commit\b/i })
-      .filter({ has: page.getByTitle('Unbind skill') })
-      .first()
-    const deployRow = page
-      .getByRole('button', { name: /^deploy-openase\b/i })
-      .filter({ has: page.getByTitle('Bind skill') })
-      .first()
+    const commitRow = () =>
+      page
+        .getByRole('button', { name: /^commit\b/i })
+        .filter({ has: page.getByTitle('Unbind skill') })
+        .first()
+    const deployRow = () =>
+      page
+        .getByRole('button', { name: /^deploy-openase\b/i })
+        .filter({ has: page.getByTitle('Bind skill') })
+        .first()
 
-    await expect(commitRow).toBeVisible()
-    await expect(deployRow).toBeVisible()
+    await expect(commitRow()).toBeVisible()
+    await expect(deployRow()).toBeVisible()
 
     // Bind the unbound skill
     await measureFeedback({
@@ -152,11 +154,21 @@ test.describe('workflow editor layout', () => {
       ready: page.getByText('Bound deploy-openase.'),
       testInfo,
       action: async () => {
-        await deployRow.getByTitle('Bind skill').click()
+        await deployRow().getByTitle('Bind skill').click()
       },
     })
 
-    await skillsButton.click()
+    const commitToggle = page
+      .getByRole('button', { name: /^commit\b/i })
+      .filter({ has: page.getByTitle('Unbind skill') })
+      .first()
+      .getByTitle('Unbind skill')
+
+    if (!(await commitToggle.isVisible())) {
+      await skillsButton.click()
+    }
+
+    await expect(commitToggle).toBeVisible()
 
     // Unbind the bound skill
     await measureFeedback({
@@ -165,7 +177,7 @@ test.describe('workflow editor layout', () => {
       ready: page.getByText('Unbound commit.'),
       testInfo,
       action: async () => {
-        await commitRow.getByTitle('Unbind skill').click()
+        await commitToggle.click()
       },
     })
   })

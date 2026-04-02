@@ -441,7 +441,61 @@ function serializeProjectConversationFocus(focus: ProjectAIFocus | null | undefi
         ticket_id: focus.ticketId,
         ticket_identifier: focus.ticketIdentifier,
         ticket_title: focus.ticketTitle,
+        ticket_description: focus.ticketDescription,
         ticket_status: focus.ticketStatus,
+        ticket_priority: focus.ticketPriority,
+        ticket_attempt_count: focus.ticketAttemptCount,
+        ticket_retry_paused: focus.ticketRetryPaused,
+        ticket_pause_reason: focus.ticketPauseReason,
+        ticket_dependencies: focus.ticketDependencies?.map((dependency) => ({
+          identifier: dependency.identifier,
+          title: dependency.title,
+          relation: dependency.relation,
+          status: dependency.status,
+        })),
+        ticket_repo_scopes: focus.ticketRepoScopes?.map((scope) => ({
+          repo_id: scope.repoId,
+          repo_name: scope.repoName,
+          branch_name: scope.branchName,
+          pull_request_url: scope.pullRequestUrl,
+        })),
+        ticket_recent_activity: focus.ticketRecentActivity?.map((activity) => ({
+          event_type: activity.eventType,
+          message: activity.message,
+          created_at: activity.createdAt,
+        })),
+        ticket_hook_history: focus.ticketHookHistory?.map((hook) => ({
+          hook_name: hook.hookName,
+          status: hook.status,
+          output: hook.output,
+          timestamp: hook.timestamp,
+        })),
+        ticket_assigned_agent: focus.ticketAssignedAgent
+          ? {
+              id: focus.ticketAssignedAgent.id,
+              name: focus.ticketAssignedAgent.name,
+              provider: focus.ticketAssignedAgent.provider,
+              runtime_control_state: focus.ticketAssignedAgent.runtimeControlState,
+              runtime_phase: focus.ticketAssignedAgent.runtimePhase,
+            }
+          : undefined,
+        ticket_current_run: focus.ticketCurrentRun
+          ? {
+              id: focus.ticketCurrentRun.id,
+              attempt_number: focus.ticketCurrentRun.attemptNumber,
+              status: focus.ticketCurrentRun.status,
+              current_step_status: focus.ticketCurrentRun.currentStepStatus,
+              current_step_summary: focus.ticketCurrentRun.currentStepSummary,
+              last_error: focus.ticketCurrentRun.lastError,
+            }
+          : undefined,
+        ticket_target_machine: focus.ticketTargetMachine
+          ? {
+              id: focus.ticketTargetMachine.id,
+              name: focus.ticketTargetMachine.name,
+              host: focus.ticketTargetMachine.host,
+            }
+          : undefined,
         selected_area: focus.selectedArea,
       }
     case 'machine':

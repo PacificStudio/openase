@@ -9,6 +9,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagenttoken "github.com/BetterAndBetterII/openase/ent/agenttoken"
+	entprojectconversationprincipal "github.com/BetterAndBetterII/openase/ent/projectconversationprincipal"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/agentplatform"
 	"github.com/google/uuid"
 )
@@ -21,43 +22,66 @@ func NewEntRepository(client *ent.Client) *EntRepository {
 	return &EntRepository{client: client}
 }
 
-func (r *EntRepository) AgentProjectID(ctx context.Context, agentID uuid.UUID) (uuid.UUID, error) {
+func (r *EntRepository) AgentPrincipal(ctx context.Context, agentID uuid.UUID) (domain.AgentPrincipal, error) {
 	item, err := r.client.Agent.Query().
 		Where(entagent.IDEQ(agentID)).
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
-			return uuid.UUID{}, fmt.Errorf("%w: agent", domain.ErrNotFound)
+			return domain.AgentPrincipal{}, fmt.Errorf("%w: agent", domain.ErrNotFound)
 		}
-		return uuid.UUID{}, err
+		return domain.AgentPrincipal{}, err
 	}
-	return item.ProjectID, nil
+	return domain.AgentPrincipal{
+		ID:        item.ID,
+		Name:      item.Name,
+		ProjectID: item.ProjectID,
+	}, nil
 }
 
-func (r *EntRepository) CreateToken(
-	ctx context.Context,
-	agentID uuid.UUID,
-	projectID uuid.UUID,
-	ticketID uuid.UUID,
-	tokenHash string,
-	scopes []string,
-	expiresAt time.Time,
-) error {
-	_, err := r.client.AgentToken.Create().
-		SetAgentID(agentID).
-		SetProjectID(projectID).
-		SetTicketID(ticketID).
-		SetTokenHash(tokenHash).
-		SetScopes(scopes).
-		SetExpiresAt(expiresAt).
-		Save(ctx)
+func (r *EntRepository) ProjectConversationPrincipal(ctx context.Context, principalID uuid.UUID) (domain.ProjectConversationPrincipal, error) {
+	item, err := r.client.ProjectConversationPrincipal.Query().
+		Where(entprojectconversationprincipal.IDEQ(principalID)).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return domain.ProjectConversationPrincipal{}, fmt.Errorf("%w: principal", domain.ErrNotFound)
+		}
+		return domain.ProjectConversationPrincipal{}, err
+	}
+	return domain.ProjectConversationPrincipal{
+		ID:             item.ID,
+		Name:           item.Name,
+		ProjectID:      item.ProjectID,
+		ConversationID: item.ConversationID,
+	}, nil
+}
+
+func (r *EntRepository) CreateToken(ctx context.Context, record domain.CreateTokenRecord) error {
+	builder := r.client.AgentToken.Create().
+		SetProjectID(record.ProjectID).
+		SetPrincipalKind(entagenttoken.PrincipalKind(record.PrincipalKind)).
+		SetPrincipalID(record.PrincipalID).
+		SetPrincipalName(record.PrincipalName).
+		SetTokenHash(record.TokenHash).
+		SetScopes(copyStrings(record.Scopes)).
+		SetExpiresAt(record.ExpiresAt)
+	if record.AgentID != nil {
+		builder.SetAgentID(*record.AgentID)
+	}
+	if record.TicketID != nil {
+		builder.SetTicketID(*record.TicketID)
+	}
+	if record.ConversationID != nil {
+		builder.SetConversationID(*record.ConversationID)
+	}
+	_, err := builder.Save(ctx)
 	return err
 }
 
 func (r *EntRepository) TokenByHash(ctx context.Context, tokenHash string) (domain.StoredTokenRecord, error) {
 	record, err := r.client.AgentToken.Query().
 		Where(entagenttoken.TokenHashEQ(tokenHash)).
-		WithAgent().
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
@@ -65,18 +89,17 @@ func (r *EntRepository) TokenByHash(ctx context.Context, tokenHash string) (doma
 		}
 		return domain.StoredTokenRecord{}, err
 	}
-	if record.Edges.Agent == nil {
-		return domain.StoredTokenRecord{}, fmt.Errorf("agent token %s is missing agent edge", record.ID)
-	}
 
 	return domain.StoredTokenRecord{
 		TokenID:        record.ID,
-		AgentID:        record.AgentID,
-		AgentName:      record.Edges.Agent.Name,
-		AgentProjectID: record.Edges.Agent.ProjectID,
+		AgentID:        cloneUUIDPointer(record.AgentID),
 		ProjectID:      record.ProjectID,
-		TicketID:       record.TicketID,
-		Scopes:         append([]string(nil), record.Scopes...),
+		TicketID:       cloneUUIDPointer(record.TicketID),
+		ConversationID: cloneUUIDPointer(record.ConversationID),
+		PrincipalKind:  domain.PrincipalKind(record.PrincipalKind),
+		PrincipalID:    record.PrincipalID,
+		PrincipalName:  record.PrincipalName,
+		Scopes:         copyStrings(record.Scopes),
 		ExpiresAt:      record.ExpiresAt.UTC(),
 		LastUsedAt:     cloneTimePointer(record.LastUsedAt),
 	}, nil
@@ -145,4 +168,19 @@ func cloneTimePointer(value *time.Time) *time.Time {
 
 func timePointer(value time.Time) *time.Time {
 	return &value
+}
+
+func cloneUUIDPointer(value *uuid.UUID) *uuid.UUID {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
+}
+
+func copyStrings(items []string) []string {
+	if len(items) == 0 {
+		return nil
+	}
+	return append([]string(nil), items...)
 }

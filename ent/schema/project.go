@@ -33,6 +33,7 @@ func (Project) Fields() []ent.Field {
 		field.JSON("accessible_machine_ids", []uuid.UUID{}).
 			Default(emptyUUIDs),
 		field.Int("max_concurrent_agents").Default(0),
+		field.Text("agent_run_summary_prompt").Optional(),
 	}
 }
 

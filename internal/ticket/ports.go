@@ -26,5 +26,6 @@ type Repository interface {
 	UpdateComment(ctx context.Context, input domain.UpdateCommentInput) (domain.Comment, error)
 	RemoveComment(ctx context.Context, ticketID uuid.UUID, commentID uuid.UUID) (domain.DeleteCommentResult, error)
 	RecordUsage(ctx context.Context, input domain.RecordUsageInput, usageDelta ticketing.UsageDelta) (domain.PersistedUsageResult, error)
+	GetPickupDiagnosis(ctx context.Context, ticketID uuid.UUID) (domain.PickupDiagnosis, error)
 	LoadLifecycleHookRuntimeData(ctx context.Context, ticketID uuid.UUID, runID uuid.UUID, workflowID *uuid.UUID) (domain.LifecycleHookRuntimeData, error)
 }

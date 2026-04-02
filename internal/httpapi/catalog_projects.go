@@ -119,7 +119,8 @@ func (s *Server) patchProject(c echo.Context) error {
 	}
 	changedFields := make([]string, 0, 4)
 	if current.Name != item.Name || current.Slug != item.Slug || current.Description != item.Description ||
-		!slices.Equal(current.AccessibleMachineIDs, item.AccessibleMachineIDs) {
+		!slices.Equal(current.AccessibleMachineIDs, item.AccessibleMachineIDs) ||
+		current.AgentRunSummaryPrompt != item.AgentRunSummaryPrompt {
 		changedFields = append(changedFields, "project")
 	}
 	activityInputs := make([]activitysvc.RecordInput, 0, 4)

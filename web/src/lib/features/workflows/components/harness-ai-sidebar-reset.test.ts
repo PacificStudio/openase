@@ -49,6 +49,14 @@ const providerFixtures: AgentProvider[] = [
         state: 'available',
         reason: null,
       },
+      harness_ai: {
+        state: 'available',
+        reason: null,
+      },
+      skill_ai: {
+        state: 'available',
+        reason: null,
+      },
     },
     cli_command: 'codex',
     cli_args: [],

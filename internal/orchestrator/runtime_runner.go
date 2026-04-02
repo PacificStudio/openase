@@ -1635,6 +1635,8 @@ func (l *RuntimeLauncher) releaseExecutionOwnership(ctx context.Context, runID u
 		runtimeEventMetadataForState(reloaded),
 		l.now().UTC(),
 	)
+	l.prepareRunCompletionSummaryBestEffort(ctx, runID)
+	l.scheduleRunCompletionSummary(runID)
 	l.cleanupRunWorkspacesBestEffort(ctx, runID, "execution release")
 	return nil
 }
@@ -1718,6 +1720,8 @@ func (l *RuntimeLauncher) finishResolvedExecution(ctx context.Context, runID uui
 		runtimeEventMetadataForState(agentItem),
 		now,
 	)
+	l.prepareRunCompletionSummaryBestEffort(ctx, runID)
+	l.scheduleRunCompletionSummary(runID)
 	l.cleanupRunWorkspacesBestEffort(ctx, runID, "execution finished")
 	return nil
 }
@@ -1776,6 +1780,8 @@ func (l *RuntimeLauncher) handleExecutionFailure(ctx context.Context, runID uuid
 			)
 		}
 	}
+	l.prepareRunCompletionSummaryBestEffort(ctx, runID)
+	l.scheduleRunCompletionSummary(runID)
 
 	retrySvc := NewRetryService(l.client, l.logger)
 	retrySvc.now = l.now

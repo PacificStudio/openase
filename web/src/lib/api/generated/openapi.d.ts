@@ -3391,12 +3391,101 @@ export interface operations {
             skill_id?: string | null
             /** @description Skill name currently in focus. */
             skill_name?: string | null
+            /** @description Assigned agent summary for the focused ticket. */
+            ticket_assigned_agent?: {
+              /** @description Assigned agent ID for the focused ticket. */
+              id?: string | null
+              /** @description Assigned agent name for the focused ticket. */
+              name?: string | null
+              /** @description Assigned agent provider name for the focused ticket. */
+              provider?: string | null
+              /** @description Assigned agent runtime control state for the focused ticket. */
+              runtime_control_state?: string | null
+              /** @description Assigned agent runtime phase for the focused ticket. */
+              runtime_phase?: string | null
+            } | null
+            /** @description Current attempt count for the focused ticket. */
+            ticket_attempt_count?: number | null
+            /** @description Current run summary for the focused ticket. */
+            ticket_current_run?: {
+              /** @description Attempt number for the current focused ticket run. */
+              attempt_number?: number | null
+              /** @description Current step status for the focused ticket run. */
+              current_step_status?: string | null
+              /** @description Current step summary for the focused ticket run. */
+              current_step_summary?: string | null
+              /** @description Current run ID for the focused ticket. */
+              id?: string | null
+              /** @description Last error observed on the focused ticket run. */
+              last_error?: string | null
+              /** @description Current run status for the focused ticket. */
+              status?: string | null
+            } | null
+            /** @description Dependency summary for the focused ticket. */
+            ticket_dependencies?: {
+              /** @description Human-readable identifier for a related dependency ticket. */
+              identifier?: string | null
+              /** @description Dependency relation such as blocks or blocked_by. */
+              relation?: string | null
+              /** @description Current status of the related dependency ticket. */
+              status?: string | null
+              /** @description Title of a related dependency ticket. */
+              title?: string | null
+            }[]
+            /** @description Ticket description currently in focus. */
+            ticket_description?: string | null
+            /** @description Recent hook execution history for the focused ticket. */
+            ticket_hook_history?: {
+              /** @description Hook name for a recent focused ticket hook execution. */
+              hook_name?: string | null
+              /** @description Captured output summary for a recent focused ticket hook. */
+              output?: string | null
+              /** @description Execution status for a recent focused ticket hook. */
+              status?: string | null
+              /** @description Execution timestamp for a recent focused ticket hook. */
+              timestamp?: string | null
+            }[]
             /** @description Ticket ID currently in focus. */
             ticket_id?: string | null
             /** @description Human-readable ticket identifier currently in focus. */
             ticket_identifier?: string | null
+            /** @description Reason retries are paused for the focused ticket. */
+            ticket_pause_reason?: string | null
+            /** @description Ticket priority currently in focus. */
+            ticket_priority?: string | null
+            /** @description Recent ticket-scoped activity for the focused ticket. */
+            ticket_recent_activity?: {
+              /** @description Creation timestamp for a recent focused ticket event. */
+              created_at?: string | null
+              /** @description Activity event type for a recent focused ticket event. */
+              event_type?: string | null
+              /** @description Human-readable summary for a recent focused ticket event. */
+              message?: string | null
+            }[]
+            /** @description Repo scopes and PR references for the focused ticket. */
+            ticket_repo_scopes?: {
+              /** @description Branch name associated with the focused ticket scope. */
+              branch_name?: string | null
+              /** @description Pull request URL associated with the focused ticket scope. */
+              pull_request_url?: string | null
+              /** @description Repository ID included in the focused ticket scope. */
+              repo_id?: string | null
+              /** @description Repository name included in the focused ticket scope. */
+              repo_name?: string | null
+            }[]
+            /** @description Whether retries are currently paused for the focused ticket. */
+            ticket_retry_paused?: boolean | null
             /** @description Ticket status currently in focus. */
             ticket_status?: string | null
+            /** @description Target machine summary for the focused ticket. */
+            ticket_target_machine?: {
+              /** @description Target machine host for the focused ticket. */
+              host?: string | null
+              /** @description Target machine ID for the focused ticket. */
+              id?: string | null
+              /** @description Target machine name for the focused ticket. */
+              name?: string | null
+            } | null
             /** @description Ticket title currently in focus. */
             ticket_title?: string | null
             /** @description Workflow ID currently in focus. */
@@ -5277,6 +5366,7 @@ export interface operations {
           'application/json': {
             projects?: {
               accessible_machine_ids?: string[]
+              agent_run_summary_prompt?: string | null
               default_agent_provider_id?: string | null
               description?: string
               id?: string
@@ -5343,6 +5433,8 @@ export interface operations {
         'application/json': {
           /** @description Machine IDs that the project is allowed to use. */
           accessible_machine_ids?: string[]
+          /** @description Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt. */
+          agent_run_summary_prompt?: string | null
           /** @description Optional default agent provider ID for the project. */
           default_agent_provider_id?: string | null
           /** @description Human-readable project description. */
@@ -5368,6 +5460,7 @@ export interface operations {
           'application/json': {
             project?: {
               accessible_machine_ids?: string[]
+              agent_run_summary_prompt?: string | null
               default_agent_provider_id?: string | null
               description?: string
               id?: string
@@ -5448,6 +5541,14 @@ export interface operations {
               available?: boolean
               capabilities?: {
                 ephemeral_chat?: {
+                  reason?: string | null
+                  state?: string
+                }
+                harness_ai?: {
+                  reason?: string | null
+                  state?: string
+                }
+                skill_ai?: {
                   reason?: string | null
                   state?: string
                 }
@@ -5686,6 +5787,14 @@ export interface operations {
               available?: boolean
               capabilities?: {
                 ephemeral_chat?: {
+                  reason?: string | null
+                  state?: string
+                }
+                harness_ai?: {
+                  reason?: string | null
+                  state?: string
+                }
+                skill_ai?: {
                   reason?: string | null
                   state?: string
                 }
@@ -6090,6 +6199,7 @@ export interface operations {
           'application/json': {
             project?: {
               accessible_machine_ids?: string[]
+              agent_run_summary_prompt?: string | null
               default_agent_provider_id?: string | null
               description?: string
               id?: string
@@ -6161,6 +6271,7 @@ export interface operations {
           'application/json': {
             project?: {
               accessible_machine_ids?: string[]
+              agent_run_summary_prompt?: string | null
               default_agent_provider_id?: string | null
               description?: string
               id?: string
@@ -6239,6 +6350,8 @@ export interface operations {
         'application/json': {
           /** @description Machine IDs that the project is allowed to use. */
           accessible_machine_ids?: string[] | null
+          /** @description Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt. */
+          agent_run_summary_prompt?: string | null
           /** @description Optional default agent provider ID for the project. */
           default_agent_provider_id?: string | null
           /** @description Human-readable project description. */
@@ -6264,6 +6377,7 @@ export interface operations {
           'application/json': {
             project?: {
               accessible_machine_ids?: string[]
+              agent_run_summary_prompt?: string | null
               default_agent_provider_id?: string | null
               description?: string
               id?: string
@@ -7927,7 +8041,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Default branch name used when a repo scope does not provide an explicit branch override. */
+          /** @description Repository base branch used when OpenASE creates a new ticket work branch. */
           default_branch?: string
           /** @description Labels attached to the repository for workflow selection and filtering. */
           labels?: string[]
@@ -8109,7 +8223,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Default branch name used when a repo scope does not provide an explicit branch override. */
+          /** @description Repository base branch used when OpenASE creates a new ticket work branch. */
           default_branch?: string | null
           /** @description Labels attached to the repository for workflow selection and filtering. */
           labels?: string[] | null
@@ -9832,7 +9946,7 @@ export interface operations {
           priority?: string | null
           /** @description Optional repository scopes attached at ticket creation time. Multi-repo projects must supply explicit repo scopes; single-repo projects auto-select the only repo when omitted. */
           repo_scopes?: {
-            /** @description Optional branch name for the scoped repository checkout. When omitted, the repository default branch is used. */
+            /** @description Optional work-branch override for the scoped repository. When omitted or blank, OpenASE uses the generated ticket branch. */
             branch_name?: string | null
             /** @description Repository ID attached to the ticket scope. */
             repo_id?: string
@@ -10043,8 +10157,77 @@ export interface operations {
               project_id?: string
               ticket_id?: string | null
             }[]
+            pickup_diagnosis?: {
+              agent?: {
+                id?: string
+                name?: string
+                runtime_control_state?: string
+              } | null
+              blocked_by?: {
+                id?: string
+                identifier?: string
+                status_id?: string
+                status_name?: string
+                title?: string
+              }[]
+              capacity?: {
+                project?: {
+                  active_runs?: number
+                  capacity?: number
+                  limited?: boolean
+                }
+                provider?: {
+                  active_runs?: number
+                  capacity?: number
+                  limited?: boolean
+                }
+                status?: {
+                  active_runs?: number
+                  capacity?: number | null
+                  limited?: boolean
+                }
+                workflow?: {
+                  active_runs?: number
+                  capacity?: number
+                  limited?: boolean
+                }
+              }
+              next_action_hint?: string
+              primary_reason_code?: string
+              primary_reason_message?: string
+              provider?: {
+                availability_reason?: string | null
+                availability_state?: string
+                id?: string
+                machine_id?: string
+                machine_name?: string
+                machine_status?: string
+                name?: string
+              } | null
+              reasons?: {
+                code?: string
+                message?: string
+                severity?: string
+              }[]
+              retry?: {
+                attempt_count?: number
+                next_retry_at?: string | null
+                pause_reason?: string
+                retry_paused?: boolean
+              }
+              state?: string
+              workflow?: {
+                id?: string
+                is_active?: boolean
+                name?: string
+                pickup_status_match?: boolean
+              } | null
+            }
             repo_scopes?: {
               branch_name?: string
+              branch_source?: string
+              default_branch?: string
+              effective_branch_name?: string
               id?: string
               pull_request_url?: string | null
               repo?: {
@@ -10270,7 +10453,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Branch name associated with the scoped repository checkout. */
+          /** @description Optional work-branch override for the scoped repository. Leave blank to use the generated ticket branch. */
           branch_name?: string | null
           /** @description Pull request URL associated with the repository scope. */
           pull_request_url?: string | null
@@ -10448,7 +10631,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Branch name associated with the scoped repository checkout. */
+          /** @description Optional work-branch override for the scoped repository. Send an empty string to clear the override and use the generated ticket branch. */
           branch_name?: string | null
           /** @description Pull request URL associated with the repository scope. */
           pull_request_url?: string | null
@@ -10549,6 +10732,15 @@ export interface operations {
               agent_name?: string
               attempt_number?: number
               completed_at?: string | null
+              completion_summary?: {
+                error?: string | null
+                generated_at?: string | null
+                json?: {
+                  [key: string]: unknown
+                }
+                markdown?: string | null
+                status?: string
+              } | null
               created_at?: string
               current_step_status?: string | null
               current_step_summary?: string | null
@@ -10629,6 +10821,15 @@ export interface operations {
               agent_name?: string
               attempt_number?: number
               completed_at?: string | null
+              completion_summary?: {
+                error?: string | null
+                generated_at?: string | null
+                json?: {
+                  [key: string]: unknown
+                }
+                markdown?: string | null
+                status?: string
+              } | null
               created_at?: string
               current_step_status?: string | null
               current_step_summary?: string | null
@@ -11895,6 +12096,14 @@ export interface operations {
                   reason?: string | null
                   state?: string
                 }
+                harness_ai?: {
+                  reason?: string | null
+                  state?: string
+                }
+                skill_ai?: {
+                  reason?: string | null
+                  state?: string
+                }
               }
               cli_args?: string[]
               cli_command?: string
@@ -12130,6 +12339,14 @@ export interface operations {
               available?: boolean
               capabilities?: {
                 ephemeral_chat?: {
+                  reason?: string | null
+                  state?: string
+                }
+                harness_ai?: {
+                  reason?: string | null
+                  state?: string
+                }
+                skill_ai?: {
                   reason?: string | null
                   state?: string
                 }

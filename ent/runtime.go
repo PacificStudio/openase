@@ -22,6 +22,10 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/organizationdailytokenusage"
 	"github.com/BetterAndBetterII/openase/ent/project"
+	"github.com/BetterAndBetterII/openase/ent/projectconversationprincipal"
+	"github.com/BetterAndBetterII/openase/ent/projectconversationrun"
+	"github.com/BetterAndBetterII/openase/ent/projectconversationstepevent"
+	"github.com/BetterAndBetterII/openase/ent/projectconversationtraceevent"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatecomment"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatecommentrevision"
@@ -176,7 +180,7 @@ func init() {
 	// agentrun.DefaultTotalTokens holds the default value on creation for the total_tokens field.
 	agentrun.DefaultTotalTokens = agentrunDescTotalTokens.Default.(int64)
 	// agentrunDescCreatedAt is the schema descriptor for created_at field.
-	agentrunDescCreatedAt := agentrunFields[26].Descriptor()
+	agentrunDescCreatedAt := agentrunFields[32].Descriptor()
 	// agentrun.DefaultCreatedAt holds the default value on creation for the created_at field.
 	agentrun.DefaultCreatedAt = agentrunDescCreatedAt.Default.(func() time.Time)
 	// agentrunDescID is the schema descriptor for id field.
@@ -199,16 +203,20 @@ func init() {
 	agentstepevent.DefaultID = agentstepeventDescID.Default.(func() uuid.UUID)
 	agenttokenFields := schema.AgentToken{}.Fields()
 	_ = agenttokenFields
+	// agenttokenDescPrincipalName is the schema descriptor for principal_name field.
+	agenttokenDescPrincipalName := agenttokenFields[7].Descriptor()
+	// agenttoken.PrincipalNameValidator is a validator for the "principal_name" field. It is called by the builders before save.
+	agenttoken.PrincipalNameValidator = agenttokenDescPrincipalName.Validators[0].(func(string) error)
 	// agenttokenDescTokenHash is the schema descriptor for token_hash field.
-	agenttokenDescTokenHash := agenttokenFields[4].Descriptor()
+	agenttokenDescTokenHash := agenttokenFields[8].Descriptor()
 	// agenttoken.TokenHashValidator is a validator for the "token_hash" field. It is called by the builders before save.
 	agenttoken.TokenHashValidator = agenttokenDescTokenHash.Validators[0].(func(string) error)
 	// agenttokenDescScopes is the schema descriptor for scopes field.
-	agenttokenDescScopes := agenttokenFields[5].Descriptor()
+	agenttokenDescScopes := agenttokenFields[9].Descriptor()
 	// agenttoken.DefaultScopes holds the default value on creation for the scopes field.
 	agenttoken.DefaultScopes = agenttokenDescScopes.Default.([]string)
 	// agenttokenDescCreatedAt is the schema descriptor for created_at field.
-	agenttokenDescCreatedAt := agenttokenFields[7].Descriptor()
+	agenttokenDescCreatedAt := agenttokenFields[11].Descriptor()
 	// agenttoken.DefaultCreatedAt holds the default value on creation for the created_at field.
 	agenttoken.DefaultCreatedAt = agenttokenDescCreatedAt.Default.(func() time.Time)
 	// agenttokenDescID is the schema descriptor for id field.
@@ -501,6 +509,116 @@ func init() {
 	projectDescID := projectFields[0].Descriptor()
 	// project.DefaultID holds the default value on creation for the id field.
 	project.DefaultID = projectDescID.Default.(func() uuid.UUID)
+	projectconversationprincipalFields := schema.ProjectConversationPrincipal{}.Fields()
+	_ = projectconversationprincipalFields
+	// projectconversationprincipalDescName is the schema descriptor for name field.
+	projectconversationprincipalDescName := projectconversationprincipalFields[4].Descriptor()
+	// projectconversationprincipal.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	projectconversationprincipal.NameValidator = projectconversationprincipalDescName.Validators[0].(func(string) error)
+	// projectconversationprincipalDescCreatedAt is the schema descriptor for created_at field.
+	projectconversationprincipalDescCreatedAt := projectconversationprincipalFields[14].Descriptor()
+	// projectconversationprincipal.DefaultCreatedAt holds the default value on creation for the created_at field.
+	projectconversationprincipal.DefaultCreatedAt = projectconversationprincipalDescCreatedAt.Default.(func() time.Time)
+	// projectconversationprincipalDescUpdatedAt is the schema descriptor for updated_at field.
+	projectconversationprincipalDescUpdatedAt := projectconversationprincipalFields[15].Descriptor()
+	// projectconversationprincipal.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	projectconversationprincipal.DefaultUpdatedAt = projectconversationprincipalDescUpdatedAt.Default.(func() time.Time)
+	// projectconversationprincipal.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	projectconversationprincipal.UpdateDefaultUpdatedAt = projectconversationprincipalDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// projectconversationprincipalDescID is the schema descriptor for id field.
+	projectconversationprincipalDescID := projectconversationprincipalFields[0].Descriptor()
+	// projectconversationprincipal.DefaultID holds the default value on creation for the id field.
+	projectconversationprincipal.DefaultID = projectconversationprincipalDescID.Default.(func() uuid.UUID)
+	projectconversationrunFields := schema.ProjectConversationRun{}.Fields()
+	_ = projectconversationrunFields
+	// projectconversationrunDescCostAmount is the schema descriptor for cost_amount field.
+	projectconversationrunDescCostAmount := projectconversationrunFields[15].Descriptor()
+	// projectconversationrun.DefaultCostAmount holds the default value on creation for the cost_amount field.
+	projectconversationrun.DefaultCostAmount = projectconversationrunDescCostAmount.Default.(float64)
+	// projectconversationrunDescInputTokens is the schema descriptor for input_tokens field.
+	projectconversationrunDescInputTokens := projectconversationrunFields[16].Descriptor()
+	// projectconversationrun.DefaultInputTokens holds the default value on creation for the input_tokens field.
+	projectconversationrun.DefaultInputTokens = projectconversationrunDescInputTokens.Default.(int64)
+	// projectconversationrunDescOutputTokens is the schema descriptor for output_tokens field.
+	projectconversationrunDescOutputTokens := projectconversationrunFields[17].Descriptor()
+	// projectconversationrun.DefaultOutputTokens holds the default value on creation for the output_tokens field.
+	projectconversationrun.DefaultOutputTokens = projectconversationrunDescOutputTokens.Default.(int64)
+	// projectconversationrunDescCachedInputTokens is the schema descriptor for cached_input_tokens field.
+	projectconversationrunDescCachedInputTokens := projectconversationrunFields[18].Descriptor()
+	// projectconversationrun.DefaultCachedInputTokens holds the default value on creation for the cached_input_tokens field.
+	projectconversationrun.DefaultCachedInputTokens = projectconversationrunDescCachedInputTokens.Default.(int64)
+	// projectconversationrunDescCacheCreationTokens is the schema descriptor for cache_creation_tokens field.
+	projectconversationrunDescCacheCreationTokens := projectconversationrunFields[19].Descriptor()
+	// projectconversationrun.DefaultCacheCreationTokens holds the default value on creation for the cache_creation_tokens field.
+	projectconversationrun.DefaultCacheCreationTokens = projectconversationrunDescCacheCreationTokens.Default.(int64)
+	// projectconversationrunDescReasoningTokens is the schema descriptor for reasoning_tokens field.
+	projectconversationrunDescReasoningTokens := projectconversationrunFields[20].Descriptor()
+	// projectconversationrun.DefaultReasoningTokens holds the default value on creation for the reasoning_tokens field.
+	projectconversationrun.DefaultReasoningTokens = projectconversationrunDescReasoningTokens.Default.(int64)
+	// projectconversationrunDescPromptTokens is the schema descriptor for prompt_tokens field.
+	projectconversationrunDescPromptTokens := projectconversationrunFields[21].Descriptor()
+	// projectconversationrun.DefaultPromptTokens holds the default value on creation for the prompt_tokens field.
+	projectconversationrun.DefaultPromptTokens = projectconversationrunDescPromptTokens.Default.(int64)
+	// projectconversationrunDescCandidateTokens is the schema descriptor for candidate_tokens field.
+	projectconversationrunDescCandidateTokens := projectconversationrunFields[22].Descriptor()
+	// projectconversationrun.DefaultCandidateTokens holds the default value on creation for the candidate_tokens field.
+	projectconversationrun.DefaultCandidateTokens = projectconversationrunDescCandidateTokens.Default.(int64)
+	// projectconversationrunDescToolTokens is the schema descriptor for tool_tokens field.
+	projectconversationrunDescToolTokens := projectconversationrunFields[23].Descriptor()
+	// projectconversationrun.DefaultToolTokens holds the default value on creation for the tool_tokens field.
+	projectconversationrun.DefaultToolTokens = projectconversationrunDescToolTokens.Default.(int64)
+	// projectconversationrunDescTotalTokens is the schema descriptor for total_tokens field.
+	projectconversationrunDescTotalTokens := projectconversationrunFields[24].Descriptor()
+	// projectconversationrun.DefaultTotalTokens holds the default value on creation for the total_tokens field.
+	projectconversationrun.DefaultTotalTokens = projectconversationrunDescTotalTokens.Default.(int64)
+	// projectconversationrunDescCreatedAt is the schema descriptor for created_at field.
+	projectconversationrunDescCreatedAt := projectconversationrunFields[28].Descriptor()
+	// projectconversationrun.DefaultCreatedAt holds the default value on creation for the created_at field.
+	projectconversationrun.DefaultCreatedAt = projectconversationrunDescCreatedAt.Default.(func() time.Time)
+	// projectconversationrunDescID is the schema descriptor for id field.
+	projectconversationrunDescID := projectconversationrunFields[0].Descriptor()
+	// projectconversationrun.DefaultID holds the default value on creation for the id field.
+	projectconversationrun.DefaultID = projectconversationrunDescID.Default.(func() uuid.UUID)
+	projectconversationstepeventFields := schema.ProjectConversationStepEvent{}.Fields()
+	_ = projectconversationstepeventFields
+	// projectconversationstepeventDescStepStatus is the schema descriptor for step_status field.
+	projectconversationstepeventDescStepStatus := projectconversationstepeventFields[5].Descriptor()
+	// projectconversationstepevent.StepStatusValidator is a validator for the "step_status" field. It is called by the builders before save.
+	projectconversationstepevent.StepStatusValidator = projectconversationstepeventDescStepStatus.Validators[0].(func(string) error)
+	// projectconversationstepeventDescCreatedAt is the schema descriptor for created_at field.
+	projectconversationstepeventDescCreatedAt := projectconversationstepeventFields[8].Descriptor()
+	// projectconversationstepevent.DefaultCreatedAt holds the default value on creation for the created_at field.
+	projectconversationstepevent.DefaultCreatedAt = projectconversationstepeventDescCreatedAt.Default.(func() time.Time)
+	// projectconversationstepeventDescID is the schema descriptor for id field.
+	projectconversationstepeventDescID := projectconversationstepeventFields[0].Descriptor()
+	// projectconversationstepevent.DefaultID holds the default value on creation for the id field.
+	projectconversationstepevent.DefaultID = projectconversationstepeventDescID.Default.(func() uuid.UUID)
+	projectconversationtraceeventFields := schema.ProjectConversationTraceEvent{}.Fields()
+	_ = projectconversationtraceeventFields
+	// projectconversationtraceeventDescProvider is the schema descriptor for provider field.
+	projectconversationtraceeventDescProvider := projectconversationtraceeventFields[6].Descriptor()
+	// projectconversationtraceevent.ProviderValidator is a validator for the "provider" field. It is called by the builders before save.
+	projectconversationtraceevent.ProviderValidator = projectconversationtraceeventDescProvider.Validators[0].(func(string) error)
+	// projectconversationtraceeventDescKind is the schema descriptor for kind field.
+	projectconversationtraceeventDescKind := projectconversationtraceeventFields[7].Descriptor()
+	// projectconversationtraceevent.KindValidator is a validator for the "kind" field. It is called by the builders before save.
+	projectconversationtraceevent.KindValidator = projectconversationtraceeventDescKind.Validators[0].(func(string) error)
+	// projectconversationtraceeventDescStream is the schema descriptor for stream field.
+	projectconversationtraceeventDescStream := projectconversationtraceeventFields[8].Descriptor()
+	// projectconversationtraceevent.StreamValidator is a validator for the "stream" field. It is called by the builders before save.
+	projectconversationtraceevent.StreamValidator = projectconversationtraceeventDescStream.Validators[0].(func(string) error)
+	// projectconversationtraceeventDescPayload is the schema descriptor for payload field.
+	projectconversationtraceeventDescPayload := projectconversationtraceeventFields[10].Descriptor()
+	// projectconversationtraceevent.DefaultPayload holds the default value on creation for the payload field.
+	projectconversationtraceevent.DefaultPayload = projectconversationtraceeventDescPayload.Default.(func() map[string]interface{})
+	// projectconversationtraceeventDescCreatedAt is the schema descriptor for created_at field.
+	projectconversationtraceeventDescCreatedAt := projectconversationtraceeventFields[11].Descriptor()
+	// projectconversationtraceevent.DefaultCreatedAt holds the default value on creation for the created_at field.
+	projectconversationtraceevent.DefaultCreatedAt = projectconversationtraceeventDescCreatedAt.Default.(func() time.Time)
+	// projectconversationtraceeventDescID is the schema descriptor for id field.
+	projectconversationtraceeventDescID := projectconversationtraceeventFields[0].Descriptor()
+	// projectconversationtraceevent.DefaultID holds the default value on creation for the id field.
+	projectconversationtraceevent.DefaultID = projectconversationtraceeventDescID.Default.(func() uuid.UUID)
 	projectrepoFields := schema.ProjectRepo{}.Fields()
 	_ = projectrepoFields
 	// projectrepoDescName is the schema descriptor for name field.
@@ -925,10 +1043,6 @@ func init() {
 	ticketexternallink.DefaultID = ticketexternallinkDescID.Default.(func() uuid.UUID)
 	ticketreposcopeFields := schema.TicketRepoScope{}.Fields()
 	_ = ticketreposcopeFields
-	// ticketreposcopeDescBranchName is the schema descriptor for branch_name field.
-	ticketreposcopeDescBranchName := ticketreposcopeFields[3].Descriptor()
-	// ticketreposcope.BranchNameValidator is a validator for the "branch_name" field. It is called by the builders before save.
-	ticketreposcope.BranchNameValidator = ticketreposcopeDescBranchName.Validators[0].(func(string) error)
 	// ticketreposcopeDescID is the schema descriptor for id field.
 	ticketreposcopeDescID := ticketreposcopeFields[0].Descriptor()
 	// ticketreposcope.DefaultID holds the default value on creation for the id field.

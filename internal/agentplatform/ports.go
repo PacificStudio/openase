@@ -9,16 +9,9 @@ import (
 )
 
 type Repository interface {
-	AgentProjectID(ctx context.Context, agentID uuid.UUID) (uuid.UUID, error)
-	CreateToken(
-		ctx context.Context,
-		agentID uuid.UUID,
-		projectID uuid.UUID,
-		ticketID uuid.UUID,
-		tokenHash string,
-		scopes []string,
-		expiresAt time.Time,
-	) error
+	AgentPrincipal(ctx context.Context, agentID uuid.UUID) (domain.AgentPrincipal, error)
+	ProjectConversationPrincipal(ctx context.Context, principalID uuid.UUID) (domain.ProjectConversationPrincipal, error)
+	CreateToken(ctx context.Context, record domain.CreateTokenRecord) error
 	TokenByHash(ctx context.Context, tokenHash string) (domain.StoredTokenRecord, error)
 	TouchTokenLastUsed(ctx context.Context, tokenID uuid.UUID, usedAt time.Time) error
 	ProjectTokenInventory(ctx context.Context, projectID uuid.UUID, now time.Time) (domain.ProjectTokenInventory, error)

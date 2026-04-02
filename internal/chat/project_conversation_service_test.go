@@ -13,6 +13,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
@@ -22,6 +23,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	chatrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -176,6 +178,251 @@ func TestProjectConversationPromptIncludesCurrentFocus(t *testing.T) {
 		"- has_dirty_draft: true",
 	) {
 		t.Fatalf("expected focus context in prompt, got %q", prompt)
+	}
+}
+
+func TestProjectConversationPromptIncludesTicketCapsule(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	projectID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
+	orgID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440000")
+	ticketID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440000")
+	targetMachineID := uuid.MustParse("880e8400-e29b-41d4-a716-446655440000")
+	service := NewProjectConversationService(
+		nil,
+		nil,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             projectID,
+					OrganizationID: orgID,
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+				repoScopes: []catalogdomain.TicketRepoScope{
+					{
+						RepoID:     uuid.MustParse("990e8400-e29b-41d4-a716-446655440000"),
+						BranchName: "feat/openase-470-project-ai",
+						PullRequestURL: optionalString(
+							"https://github.com/GrandCX/openase/pull/999",
+						),
+					},
+				},
+				activityEvents: []catalogdomain.ActivityEvent{
+					{
+						CreatedAt: time.Date(2026, 4, 2, 8, 10, 0, 0, time.UTC),
+						EventType: activityevent.TypeTicketRetryPaused,
+						Message:   "Paused retries after repeated failures.",
+					},
+					{
+						CreatedAt: time.Date(2026, 4, 2, 8, 15, 0, 0, time.UTC),
+						EventType: activityevent.TypeHookFailed,
+						Message:   "go test ./... failed in internal/chat",
+					},
+				},
+			},
+			machine: catalogdomain.Machine{
+				ID:   targetMachineID,
+				Name: "worker-a",
+				Host: "10.0.0.15",
+			},
+		},
+		fakeTicketReader{
+			ticket: ticketservice.Ticket{
+				ID:                ticketID,
+				Identifier:        "ASE-470",
+				Title:             "Replace Ticket AI",
+				Description:       "Route the drawer entry through Project AI.",
+				StatusName:        "In Review",
+				Priority:          "high",
+				AttemptCount:      3,
+				ConsecutiveErrors: 2,
+				RetryPaused:       true,
+				PauseReason:       "Repeated hook failures",
+				CurrentRunID:      optionalUUID(uuid.MustParse("aa0e8400-e29b-41d4-a716-446655440000")),
+				TargetMachineID:   optionalUUID(targetMachineID),
+				Dependencies: []ticketservice.Dependency{
+					{
+						Type: ticketservice.DependencyTypeBlocks,
+						Target: ticketservice.TicketReference{
+							Identifier: "ASE-100",
+							Title:      "Primary blocker",
+						},
+					},
+				},
+			},
+		},
+		harnessWorkflowReader{},
+		nil,
+		nil,
+	)
+
+	prompt, err := service.buildProjectConversationPrompt(
+		ctx,
+		chatdomain.Conversation{
+			ID:        uuid.MustParse("bb0e8400-e29b-41d4-a716-446655440000"),
+			ProjectID: projectID,
+		},
+		catalogdomain.Project{
+			ID:             projectID,
+			OrganizationID: orgID,
+			Name:           "OpenASE",
+			Slug:           "openase",
+			Description:    "Issue-driven automation",
+		},
+		&ProjectConversationFocus{
+			Kind: ProjectConversationFocusTicket,
+			Ticket: &ProjectConversationTicketFocus{
+				ID:           ticketID,
+				Identifier:   "ASE-470",
+				Title:        "Replace Ticket AI",
+				Status:       "In Review",
+				SelectedArea: "hooks",
+				AssignedAgent: &ProjectConversationTicketAssignedAgent{
+					Name:                "todo-app-coding-01",
+					Provider:            "codex-cloud",
+					RuntimeControlState: "active",
+					RuntimePhase:        "executing",
+				},
+				CurrentRun: &ProjectConversationTicketRun{
+					ID:                 "run-1",
+					AttemptNumber:      3,
+					Status:             "failed",
+					CurrentStepStatus:  "failed",
+					CurrentStepSummary: "openase test ./internal/chat",
+					LastError:          "ticket.on_complete hook failed",
+				},
+			},
+		},
+		false,
+	)
+	if err != nil {
+		t.Fatalf("build project conversation prompt: %v", err)
+	}
+
+	if !containsAll(
+		prompt,
+		"## Ticket Capsule",
+		"工单: ASE-470 - Replace Ticket AI",
+		"Route the drawer entry through Project AI.",
+		"### 依赖工单",
+		"ASE-100",
+		"### 仓库范围",
+		"https://github.com/GrandCX/openase/pull/999",
+		"### 活动日志",
+		"Paused retries after repeated failures.",
+		"### Hook 历史",
+		"go test ./... failed in internal/chat",
+		"### 当前 ticket 子区域",
+		"- selected_area: hooks",
+		"### 运行时摘要",
+		"- assigned_agent: todo-app-coding-01",
+		"- retry_paused: true",
+		"- consecutive_errors: 2",
+		"- current_run_status: failed",
+		"- current_run_last_error: ticket.on_complete hook failed",
+		"- target_machine_name: worker-a",
+	) {
+		t.Fatalf("expected ticket capsule prompt, got %q", prompt)
+	}
+}
+
+func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	repo := chatrepo.NewEntRepository(client)
+	projectID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
+	conversationID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440000")
+	providerID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440000")
+	ticketID := uuid.MustParse("880e8400-e29b-41d4-a716-446655440000")
+	platform := &capturingProjectConversationAgentPlatform{}
+
+	service := NewProjectConversationService(
+		nil,
+		repo,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             projectID,
+					OrganizationID: uuid.MustParse("990e8400-e29b-41d4-a716-446655440000"),
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+				agents: []catalogdomain.Agent{},
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		nil,
+		nil,
+	)
+	service.ConfigurePlatformEnvironment("http://127.0.0.1:19836/api/v1/platform", platform)
+
+	conversation := chatdomain.Conversation{
+		ID:         conversationID,
+		ProjectID:  projectID,
+		ProviderID: providerID,
+	}
+	project := catalogdomain.Project{
+		ID:             projectID,
+		OrganizationID: uuid.MustParse("990e8400-e29b-41d4-a716-446655440000"),
+		Name:           "OpenASE",
+		Slug:           "openase",
+		Description:    "Issue-driven automation",
+	}
+	providerItem := catalogdomain.AgentProvider{
+		ID:             providerID,
+		OrganizationID: project.OrganizationID,
+		AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+		MachineHost:    catalogdomain.LocalMachineHost,
+	}
+
+	environment := service.buildConversationRuntimeEnvironment(
+		ctx,
+		conversation,
+		project,
+		providerItem,
+		&ProjectConversationFocus{
+			Kind: ProjectConversationFocusTicket,
+			Ticket: &ProjectConversationTicketFocus{
+				ID:         ticketID,
+				Identifier: "ASE-470",
+				Title:      "Replace Ticket AI",
+				Status:     "In Review",
+			},
+		},
+	)
+	if !containsEnvironmentPrefix(environment, "OPENASE_TICKET_ID="+ticketID.String()) {
+		t.Fatalf("expected OPENASE_TICKET_ID in environment, got %+v", environment)
+	}
+	if platform.lastInput.PrincipalKind != agentplatform.PrincipalKindProjectConversation {
+		t.Fatalf("expected project conversation principal token, got %+v", platform.lastInput)
+	}
+	if platform.lastInput.PrincipalID != conversationID || platform.lastInput.ConversationID != conversationID {
+		t.Fatalf("unexpected principal ids: %+v", platform.lastInput)
+	}
+	if platform.lastInput.AgentID != uuid.Nil || platform.lastInput.TicketID != uuid.Nil {
+		t.Fatalf("project conversation token should not carry agent/ticket ids: %+v", platform.lastInput)
+	}
+
+	platform.lastInput = agentplatform.IssueInput{}
+	environment = service.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, nil)
+	if containsEnvironmentPrefix(environment, "OPENASE_TICKET_ID=") {
+		t.Fatalf("did not expect OPENASE_TICKET_ID without ticket focus, got %+v", environment)
+	}
+	if platform.lastInput.PrincipalKind != agentplatform.PrincipalKindProjectConversation {
+		t.Fatalf("expected project conversation principal token without ticket focus, got %+v", platform.lastInput)
+	}
+	if platform.lastInput.PrincipalID != conversationID || platform.lastInput.ConversationID != conversationID {
+		t.Fatalf("unexpected non-ticket principal ids: %+v", platform.lastInput)
+	}
+	if platform.lastInput.AgentID != uuid.Nil || platform.lastInput.TicketID != uuid.Nil {
+		t.Fatalf("non-ticket project conversation token should not carry agent/ticket ids: %+v", platform.lastInput)
 	}
 }
 
@@ -553,6 +800,7 @@ func TestProjectConversationRespondInterruptContinuesCodexTurnWhenRuntimeMissing
 	repoStore := chatrepo.NewEntRepository(client)
 	providerID := uuid.New()
 	machineID := uuid.New()
+	ticketID := uuid.New()
 	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
 		ProjectID:  project.ID,
 		UserID:     "user:conversation",
@@ -575,6 +823,24 @@ func TestProjectConversationRespondInterruptContinuesCodexTurnWhenRuntimeMissing
 	turn, _, err := repoStore.CreateTurnWithUserEntry(ctx, conversation.ID, "Need approval")
 	if err != nil {
 		t.Fatalf("create turn: %v", err)
+	}
+	if _, err := repoStore.AppendEntry(ctx, conversation.ID, &turn.ID, chatdomain.EntryKindSystem, serializeProjectConversationFocus(&ProjectConversationFocus{
+		Kind: ProjectConversationFocusTicket,
+		Ticket: &ProjectConversationTicketFocus{
+			ID:           ticketID,
+			Identifier:   "ASE-470",
+			Title:        "Replace Ticket AI",
+			Status:       "In Review",
+			SelectedArea: "runs",
+			CurrentRun: &ProjectConversationTicketRun{
+				ID:                 "run-1",
+				AttemptNumber:      3,
+				Status:             "failed",
+				CurrentStepSummary: "openase test ./internal/chat",
+			},
+		},
+	})); err != nil {
+		t.Fatalf("append focus snapshot: %v", err)
 	}
 	interrupt, _, err := repoStore.CreatePendingInterrupt(ctx, conversation.ID, turn.ID, "req-2", chatdomain.InterruptKindCommandExecutionApproval, map[string]any{
 		"provider": "codex",
@@ -606,6 +872,19 @@ func TestProjectConversationRespondInterruptContinuesCodexTurnWhenRuntimeMissing
 					Slug:           "openase",
 					Description:    "Issue-driven automation",
 				},
+				repoScopes: []catalogdomain.TicketRepoScope{
+					{
+						RepoID:     uuid.New(),
+						BranchName: "feat/openase-470-project-ai",
+					},
+				},
+				activityEvents: []catalogdomain.ActivityEvent{
+					{
+						CreatedAt: time.Date(2026, 4, 2, 8, 10, 0, 0, time.UTC),
+						EventType: activityevent.TypeHookFailed,
+						Message:   "go test ./... failed in internal/chat",
+					},
+				},
 				providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
 					providerID: {
 						ID:             providerID,
@@ -623,7 +902,17 @@ func TestProjectConversationRespondInterruptContinuesCodexTurnWhenRuntimeMissing
 				WorkspaceRoot: stringPointer(t.TempDir()),
 			},
 		},
-		fakeTicketReader{},
+		fakeTicketReader{
+			ticket: ticketservice.Ticket{
+				ID:           ticketID,
+				Identifier:   "ASE-470",
+				Title:        "Replace Ticket AI",
+				Description:  "Route the drawer entry through Project AI.",
+				StatusName:   "In Review",
+				Priority:     "high",
+				AttemptCount: 3,
+			},
+		},
 		harnessWorkflowReader{},
 		&fakeAgentCLIProcessManager{process: &fakeAgentCLIProcess{stdin: &trackingWriteCloser{}, stdout: `{"response":"OK"}`}},
 		nil,
@@ -631,6 +920,10 @@ func TestProjectConversationRespondInterruptContinuesCodexTurnWhenRuntimeMissing
 	service.newCodexRuntime = func(provider.AgentCLIProcessManager) (projectConversationCodexRuntime, error) {
 		return fakeCodex, nil
 	}
+	service.ConfigurePlatformEnvironment(
+		"http://127.0.0.1:19836/api/v1/platform",
+		&capturingProjectConversationAgentPlatform{},
+	)
 
 	resolved, err := service.RespondInterrupt(ctx, UserID("user:conversation"), conversation.ID, interrupt.ID, chatdomain.InterruptResponse{
 		Decision: optionalString("approve_once"),
@@ -640,6 +933,12 @@ func TestProjectConversationRespondInterruptContinuesCodexTurnWhenRuntimeMissing
 	}
 	if resolved.Status != chatdomain.InterruptStatusResolved {
 		t.Fatalf("expected resolved interrupt, got %+v", resolved)
+	}
+	if !strings.Contains(fakeCodex.ensureInput.SystemPrompt, "## Ticket Capsule") {
+		t.Fatalf("expected interrupt recovery to restore ticket focus capsule, got %q", fakeCodex.ensureInput.SystemPrompt)
+	}
+	if !containsEnvironmentPrefix(fakeCodex.respondInput.Environment, "OPENASE_TICKET_ID="+ticketID.String()) {
+		t.Fatalf("expected interrupt runtime env to retain OPENASE_TICKET_ID, got %+v", fakeCodex.respondInput.Environment)
 	}
 
 	var completedTurn *ent.ChatTurn
@@ -1124,7 +1423,7 @@ func TestProjectConversationConsumeTurnPersistsProviderTurnIDOnCompletion(t *tes
 		},
 	}
 
-	service.consumeTurn(ctx, conversation.ID, turn, live, TurnStream{Events: events})
+	service.consumeTurn(ctx, conversation.ID, turn, live, chatdomain.ProjectConversationRun{}, TurnStream{Events: events})
 
 	reloadedTurn, err := client.ChatTurn.Get(ctx, turn.ID)
 	if err != nil {
@@ -1189,7 +1488,7 @@ func TestProjectConversationConsumeTurnMarksInterruptedStatus(t *testing.T) {
 		},
 	}
 
-	service.consumeTurn(ctx, conversation.ID, turn, live, TurnStream{Events: events})
+	service.consumeTurn(ctx, conversation.ID, turn, live, chatdomain.ProjectConversationRun{}, TurnStream{Events: events})
 
 	reloadedTurn, err := repoStore.GetConversation(ctx, conversation.ID)
 	if err != nil {
@@ -1844,7 +2143,7 @@ func TestProjectConversationConsumeTurnPersistsThreadStatusAndProtocolEvents(t *
 		},
 	}
 
-	service.consumeTurn(ctx, conversation.ID, turn, live, TurnStream{Events: streamEvents})
+	service.consumeTurn(ctx, conversation.ID, turn, live, chatdomain.ProjectConversationRun{}, TurnStream{Events: streamEvents})
 	cleanup()
 
 	reloadedConversation, err := repoStore.GetConversation(ctx, conversation.ID)
@@ -1939,7 +2238,7 @@ func TestProjectConversationConsumeTurnPersistsInterruptAndSummary(t *testing.T)
 	}
 	close(streamEvents)
 
-	service.consumeTurn(ctx, conversation.ID, turn, &liveProjectConversation{}, TurnStream{Events: streamEvents})
+	service.consumeTurn(ctx, conversation.ID, turn, &liveProjectConversation{}, chatdomain.ProjectConversationRun{}, TurnStream{Events: streamEvents})
 	cleanup()
 
 	pending, err := repo.ListPendingInterrupts(ctx, conversation.ID)
@@ -2344,7 +2643,8 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 		processManager,
 		nil,
 	)
-	service.ConfigurePlatformEnvironment("http://127.0.0.1:19836/api/v1/platform", fakeProjectConversationAgentPlatform{})
+	platform := &fakeProjectConversationAgentPlatform{}
+	service.ConfigurePlatformEnvironment("http://127.0.0.1:19836/api/v1/platform", platform)
 
 	if _, err := service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Inspect the project", nil); err != nil {
 		t.Fatalf("start conversation turn: %v", err)
@@ -2384,6 +2684,69 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 	}
 	if !containsEnvironmentPrefix(environment, "OPENASE_PROJECT_ID="+project.ID.String()) {
 		t.Fatalf("expected OPENASE_PROJECT_ID in environment, got %+v", environment)
+	}
+	if !containsEnvironmentPrefix(environment, "OPENASE_CONVERSATION_ID="+conversation.ID.String()) {
+		t.Fatalf("expected OPENASE_CONVERSATION_ID in environment, got %+v", environment)
+	}
+	if platform.lastInput.PrincipalKind != agentplatform.PrincipalKindProjectConversation {
+		t.Fatalf("expected project conversation principal token, got %+v", platform.lastInput)
+	}
+	if platform.lastInput.PrincipalID != conversation.ID || platform.lastInput.ConversationID != conversation.ID {
+		t.Fatalf("unexpected principal ids: %+v", platform.lastInput)
+	}
+	if platform.lastInput.AgentID != uuid.Nil || platform.lastInput.TicketID != uuid.Nil {
+		t.Fatalf("project conversation token should not carry agent/ticket ids: %+v", platform.lastInput)
+	}
+}
+
+func TestProjectConversationCreateConversationPersistsPrincipalWithoutSyntheticAgent(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	catalog := fakeProjectConversationCatalog{
+		fakeCatalogReader: fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             project.ID,
+				OrganizationID: org.ID,
+				Name:           "OpenASE",
+				Slug:           "openase",
+			},
+			providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+				providerID: {
+					ID:             providerID,
+					OrganizationID: org.ID,
+					MachineID:      machineID,
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+					CliCommand:     "gemini",
+				},
+			},
+		},
+	}
+	service := NewProjectConversationService(nil, chatrepo.NewEntRepository(client), catalog, fakeTicketReader{}, nil, nil, nil)
+
+	conversation, err := service.CreateConversation(ctx, UserID("user:conversation"), project.ID, providerID)
+	if err != nil {
+		t.Fatalf("CreateConversation() error = %v", err)
+	}
+
+	principal, err := client.ProjectConversationPrincipal.Get(ctx, conversation.ID)
+	if err != nil {
+		t.Fatalf("load project conversation principal: %v", err)
+	}
+	if principal.ConversationID != conversation.ID || principal.ProjectID != project.ID || principal.Name != projectConversationPrincipalName(conversation.ID) {
+		t.Fatalf("unexpected principal row: %+v", principal)
+	}
+	agentCount, err := client.Agent.Query().Count(ctx)
+	if err != nil {
+		t.Fatalf("count agents: %v", err)
+	}
+	if agentCount != 0 {
+		t.Fatalf("expected no synthetic agents, found %d", agentCount)
 	}
 }
 
@@ -2760,12 +3123,27 @@ func (fakeProjectConversationWorkflowSync) RefreshSkills(
 	}, nil
 }
 
-type fakeProjectConversationAgentPlatform struct{}
+type fakeProjectConversationAgentPlatform struct {
+	lastInput agentplatform.IssueInput
+}
 
-func (fakeProjectConversationAgentPlatform) IssueToken(
-	context.Context,
-	agentplatform.IssueInput,
+func (p *fakeProjectConversationAgentPlatform) IssueToken(
+	_ context.Context,
+	input agentplatform.IssueInput,
 ) (agentplatform.IssuedToken, error) {
+	p.lastInput = input
+	return agentplatform.IssuedToken{Token: "project-conversation-placeholder"}, nil
+}
+
+type capturingProjectConversationAgentPlatform struct {
+	lastInput agentplatform.IssueInput
+}
+
+func (p *capturingProjectConversationAgentPlatform) IssueToken(
+	_ context.Context,
+	input agentplatform.IssueInput,
+) (agentplatform.IssuedToken, error) {
+	p.lastInput = input
 	return agentplatform.IssuedToken{Token: "project-conversation-placeholder"}, nil
 }
 
@@ -3105,5 +3483,9 @@ func writeConversationWorkspaceFile(t *testing.T, path string, content string) {
 }
 
 func intPointer(value int) *int {
+	return &value
+}
+
+func optionalUUID(value uuid.UUID) *uuid.UUID {
 	return &value
 }

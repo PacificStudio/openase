@@ -1,8 +1,13 @@
 <script lang="ts">
   import { Button } from '$ui/button'
-  import { Badge } from '$ui/badge'
-  import { formatRelativeTime } from '$lib/utils'
+  import { cn, formatRelativeTime } from '$lib/utils'
   import type { TicketDetail } from '../types'
+  import { LoaderCircle } from '@lucide/svelte'
+  import {
+    runtimeDotClass,
+    runtimeLabelClass,
+    summarizeRuntime,
+  } from './ticket-runtime-state-card-view'
 
   let {
     ticket,
@@ -14,163 +19,116 @@
     onResumeRetry?: () => Promise<void> | void
   } = $props()
 
-  type RuntimeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
+  let nowMs = $state(Date.now())
 
-  const runtimeSummary = $derived.by(() => summarizeRuntime(ticket))
-  const phaseLabel = $derived(humanizeStatusValue(ticket.assignedAgent?.runtimePhase))
-  const controlLabel = $derived(humanizeStatusValue(ticket.assignedAgent?.runtimeControlState))
+  const retryTarget = $derived(ticket.pickupDiagnosis?.retry.nextRetryAt ?? ticket.nextRetryAt)
+  const runtimeSummary = $derived.by(() => summarizeRuntime(ticket, nowMs))
+  const isAnimating = $derived(runtimeSummary.tone === 'info' || runtimeSummary.tone === 'success')
+  const shouldShowResumeRetry = $derived.by(() => {
+    if (!onResumeRetry) return false
+    if (ticket.pickupDiagnosis) {
+      return (
+        ticket.pickupDiagnosis.primaryReasonCode === 'retry_paused_repeated_stalls' ||
+        ticket.pickupDiagnosis.reasons.some(
+          (reason) => reason.code === 'retry_paused_repeated_stalls',
+        )
+      )
+    }
+    return ticket.retryPaused && ticket.pauseReason === 'repeated_stalls'
+  })
 
-  function summarizeRuntime(ticket: TicketDetail) {
-    if (ticket.completedAt) {
-      return {
-        label: 'Completed',
-        tone: 'success' as RuntimeTone,
-        description: 'This ticket has completed execution.',
-      }
+  $effect(() => {
+    const target = retryTarget
+    if (typeof window === 'undefined' || !target) {
+      return
     }
 
-    if (ticket.retryPaused && ticket.pauseReason === 'repeated_stalls') {
-      return {
-        label: 'Stalled',
-        tone: 'warning' as RuntimeTone,
-        description:
-          'Execution paused after repeated orchestrator stalls and is waiting for manual retry.',
-      }
+    const deadline = new Date(target).getTime()
+    if (!Number.isFinite(deadline) || deadline <= Date.now()) {
+      nowMs = Date.now()
+      return
     }
 
-    if (ticket.retryPaused) {
-      return {
-        label: 'Paused',
-        tone: 'warning' as RuntimeTone,
-        description: 'Execution is paused and waiting for retry conditions to change.',
-      }
-    }
+    nowMs = Date.now()
+    const interval = window.setInterval(() => {
+      nowMs = Date.now()
+    }, 1000)
 
-    if (ticket.assignedAgent?.runtimeControlState === 'paused') {
-      return {
-        label: 'Paused',
-        tone: 'warning' as RuntimeTone,
-        description: 'Execution is paused and waiting to be resumed.',
-      }
-    }
-
-    switch (ticket.assignedAgent?.runtimePhase) {
-      case 'failed':
-        return {
-          label: 'Failed',
-          tone: 'danger' as RuntimeTone,
-          description: 'The latest runtime attempt failed and needs attention.',
-        }
-      case 'launching':
-        return {
-          label: 'Running',
-          tone: 'info' as RuntimeTone,
-          description: 'The agent has the ticket and is still launching the runtime.',
-        }
-      case 'ready':
-      case 'executing':
-        return {
-          label: 'Running',
-          tone: 'success' as RuntimeTone,
-          description: 'The agent runtime is live and can execute work for this ticket.',
-        }
-      default:
-        if (ticket.assignedAgent) {
-          return {
-            label: 'Assigned',
-            tone: 'neutral' as RuntimeTone,
-            description: 'An agent is bound to this ticket, but no active runtime is reported.',
-          }
-        }
-        return {
-          label: 'Waiting',
-          tone: 'neutral' as RuntimeTone,
-          description: 'No active agent runtime is attached to this ticket yet.',
-        }
-    }
-  }
-
-  function badgeClass(tone: RuntimeTone) {
-    switch (tone) {
-      case 'info':
-        return 'border-sky-500/30 bg-sky-500/10 text-sky-600'
-      case 'success':
-        return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600'
-      case 'warning':
-        return 'border-amber-500/30 bg-amber-500/10 text-amber-600'
-      case 'danger':
-        return 'border-red-500/30 bg-red-500/10 text-red-600'
-      default:
-        return ''
-    }
-  }
-
-  function humanizeStatusValue(value?: string | null) {
-    if (!value) return ''
-    return value
-      .trim()
-      .replace(/[_-]+/g, ' ')
-      .replace(/\b\w/g, (char) => char.toUpperCase())
-  }
+    return () => window.clearInterval(interval)
+  })
 </script>
 
 <section class="space-y-3">
   <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
-    Current State
+    Runtime
   </span>
 
-  <div class="border-border bg-muted/20 space-y-3 rounded-xl border px-3 py-3">
-    <div class="flex flex-wrap items-center gap-2">
-      <Badge
-        variant="outline"
-        class={`h-5 px-2 text-[10px] font-medium ${badgeClass(runtimeSummary.tone)}`}
-      >
-        State {runtimeSummary.label}
-      </Badge>
-      {#if phaseLabel}
-        <Badge variant="outline" class="h-5 px-2 text-[10px]">Phase {phaseLabel}</Badge>
+  <div class="flex items-start gap-3">
+    <div class="relative mt-0.5 flex size-5 shrink-0 items-center justify-center">
+      {#if isAnimating}
+        <span
+          class={cn(
+            'absolute inset-0 animate-ping rounded-full opacity-30',
+            runtimeDotClass(runtimeSummary.tone),
+          )}
+        ></span>
       {/if}
-      {#if controlLabel && ticket.assignedAgent?.runtimeControlState !== 'active'}
-        <Badge variant="outline" class="h-5 px-2 text-[10px]">Control {controlLabel}</Badge>
+      {#if runtimeSummary.tone === 'info'}
+        <LoaderCircle class="size-4 animate-spin text-sky-400" />
+      {:else}
+        <span class={cn('relative size-2 rounded-full', runtimeDotClass(runtimeSummary.tone))}
+        ></span>
       {/if}
     </div>
 
-    <p class="text-muted-foreground text-xs leading-relaxed">{runtimeSummary.description}</p>
-
-    {#if ticket.retryPaused && ticket.pauseReason === 'repeated_stalls' && onResumeRetry}
-      <div class="flex justify-start">
-        <Button
-          size="sm"
-          variant="outline"
-          class="h-8 text-xs"
-          disabled={resumingRetry}
-          onclick={() => void onResumeRetry()}
-        >
-          {resumingRetry ? 'Continuing...' : 'Continue Retry'}
-        </Button>
+    <div class="min-w-0 flex-1 space-y-1">
+      <div class="flex items-baseline gap-2">
+        <span class={cn('text-xs font-semibold', runtimeLabelClass(runtimeSummary.tone))}>
+          {runtimeSummary.label}
+        </span>
+        {#if runtimeSummary.timestamp}
+          <span class="text-muted-foreground text-[10px]">
+            {formatRelativeTime(runtimeSummary.timestamp)}
+          </span>
+        {/if}
       </div>
-    {/if}
 
-    <div class="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 text-xs">
-      <span class="text-muted-foreground">Agent</span>
-      <span class="text-foreground break-words">
-        {ticket.assignedAgent ? ticket.assignedAgent.name : 'Unassigned'}
-      </span>
+      <p class="text-foreground text-[11px] leading-normal">{runtimeSummary.message}</p>
 
-      {#if ticket.assignedAgent}
-        <span class="text-muted-foreground">Provider</span>
-        <span class="text-foreground break-words">{ticket.assignedAgent.provider}</span>
+      {#if runtimeSummary.countdownLine}
+        <p class="text-muted-foreground text-[11px] leading-normal">
+          {runtimeSummary.countdownLine}
+        </p>
       {/if}
 
-      {#if ticket.startedAt}
-        <span class="text-muted-foreground">Started</span>
-        <span class="text-foreground">{formatRelativeTime(ticket.startedAt)}</span>
-      {/if}
-
-      {#if ticket.completedAt}
-        <span class="text-muted-foreground">Completed</span>
-        <span class="text-foreground">{formatRelativeTime(ticket.completedAt)}</span>
+      {#if runtimeSummary.nextActionHint}
+        <p class="text-muted-foreground text-[11px] leading-normal">
+          {runtimeSummary.nextActionHint}
+        </p>
       {/if}
     </div>
   </div>
+
+  {#if runtimeSummary.detailItems.length > 0}
+    <div class="border-border/60 space-y-2 rounded-md border p-2.5">
+      {#each runtimeSummary.detailItems as item}
+        <div class="grid grid-cols-[70px_1fr] gap-2 text-[11px]">
+          <span class="text-muted-foreground">{item.label}</span>
+          <span class="text-foreground break-words">{item.value}</span>
+        </div>
+      {/each}
+    </div>
+  {/if}
+
+  {#if shouldShowResumeRetry}
+    <Button
+      size="sm"
+      variant="outline"
+      class="h-7 w-full text-[11px]"
+      disabled={resumingRetry}
+      onclick={() => void onResumeRetry?.()}
+    >
+      {resumingRetry ? 'Continuing...' : 'Continue Retry'}
+    </Button>
+  {/if}
 </section>

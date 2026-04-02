@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -20,6 +21,7 @@ import (
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
+	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -91,6 +93,37 @@ func TestSkillRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 			rec := performJSONRequest(t, testCase.server, testCase.method, testCase.target, testCase.body)
 			if rec.Code != testCase.wantStatus || !strings.Contains(rec.Body.String(), testCase.wantBody) {
 				t.Fatalf("%s %s = %d %s, want %d containing %q", testCase.method, testCase.target, rec.Code, rec.Body.String(), testCase.wantStatus, testCase.wantBody)
+			}
+		})
+	}
+}
+
+func TestWriteSkillRefinementError(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		err        error
+		wantStatus int
+		wantCode   string
+	}{
+		{name: "unavailable", err: chatservice.ErrSkillRefinementUnavailable, wantStatus: http.StatusServiceUnavailable, wantCode: "SERVICE_UNAVAILABLE"},
+		{name: "provider", err: chatservice.ErrProviderNotFound, wantStatus: http.StatusConflict, wantCode: "CHAT_PROVIDER_NOT_CONFIGURED"},
+		{name: "provider unavailable", err: chatservice.ErrProviderUnavailable, wantStatus: http.StatusConflict, wantCode: "CHAT_PROVIDER_UNAVAILABLE"},
+		{name: "provider unsupported", err: chatservice.ErrProviderUnsupported, wantStatus: http.StatusConflict, wantCode: "CHAT_PROVIDER_UNSUPPORTED"},
+		{name: "skill", err: workflowservice.ErrSkillNotFound, wantStatus: http.StatusNotFound, wantCode: "CHAT_CONTEXT_NOT_FOUND"},
+		{name: "catalog", err: catalogservice.ErrNotFound, wantStatus: http.StatusNotFound, wantCode: "CHAT_CONTEXT_NOT_FOUND"},
+		{name: "internal", err: errors.New("boom"), wantStatus: http.StatusInternalServerError, wantCode: "INTERNAL_ERROR"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec := httptest.NewRecorder()
+			ctx := e.NewContext(req, rec)
+
+			if err := writeSkillRefinementError(ctx, tc.err); err != nil {
+				t.Fatalf("writeSkillRefinementError() error = %v", err)
+			}
+			if rec.Code != tc.wantStatus || !strings.Contains(rec.Body.String(), tc.wantCode) {
+				t.Fatalf("writeSkillRefinementError(%s) = %d %s", tc.name, rec.Code, rec.Body.String())
 			}
 		})
 	}

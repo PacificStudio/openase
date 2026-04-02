@@ -75,7 +75,7 @@ Dependencies:
 {% if repos %}
 Scoped repos:
 {% for repo in repos %}
-- {{ repo.name }} path={{ repo.path }} branch={{ repo.branch | default(repo.default_branch) }} default_branch={{ repo.default_branch }} labels={{ repo.labels | join(", ") | default("none") }}
+- {{ repo.name }} path={{ repo.path }} branch={{ repo.branch }} default_branch={{ repo.default_branch }} labels={{ repo.labels | join(", ") | default("none") }}
 {% endfor %}
 {% else %}
 No explicit repo scope is attached to this ticket. Use all_repos and the ticket context to determine the minimum safe repository surface before changing code.
@@ -221,7 +221,7 @@ Ticket description:
 {% if repos %}
 Scoped repos:
 {% for repo in repos %}
-- {{ repo.name }} path={{ repo.path }} branch={{ repo.branch | default(repo.default_branch) }} labels={{ repo.labels | join(", ") | default("none") }}
+- {{ repo.name }} path={{ repo.path }} branch={{ repo.branch }} labels={{ repo.labels | join(", ") | default("none") }}
 {% endfor %}
 {% endif %}
 

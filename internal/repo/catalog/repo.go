@@ -185,7 +185,8 @@ func (r *EntRepository) CreateProject(ctx context.Context, input domain.CreatePr
 		SetDescription(input.Description).
 		SetStatus(toEntProjectStatus(input.Status)).
 		SetAccessibleMachineIds(input.AccessibleMachineIDs).
-		SetMaxConcurrentAgents(input.MaxConcurrentAgents)
+		SetMaxConcurrentAgents(input.MaxConcurrentAgents).
+		SetAgentRunSummaryPrompt(input.AgentRunSummaryPrompt)
 	if input.DefaultAgentProviderID != nil {
 		builder.SetDefaultAgentProviderID(*input.DefaultAgentProviderID)
 	}
@@ -215,7 +216,8 @@ func (r *EntRepository) UpdateProject(ctx context.Context, input domain.UpdatePr
 		SetDescription(input.Description).
 		SetStatus(toEntProjectStatus(input.Status)).
 		SetAccessibleMachineIds(input.AccessibleMachineIDs).
-		SetMaxConcurrentAgents(input.MaxConcurrentAgents)
+		SetMaxConcurrentAgents(input.MaxConcurrentAgents).
+		SetAgentRunSummaryPrompt(input.AgentRunSummaryPrompt)
 	if input.DefaultAgentProviderID != nil {
 		builder.SetDefaultAgentProviderID(*input.DefaultAgentProviderID)
 	} else {
@@ -412,14 +414,14 @@ func (r *EntRepository) CreateTicketRepoScope(ctx context.Context, input domain.
 		return domain.TicketRepoScope{}, mapReadError("get ticket for repo scope create", err)
 	}
 
-	repoItem, err := tx.ProjectRepo.Query().
+	_, err = tx.ProjectRepo.Query().
 		Where(entprojectrepo.ID(input.RepoID), entprojectrepo.ProjectID(input.ProjectID)).
 		Only(ctx)
 	if err != nil {
 		return domain.TicketRepoScope{}, mapReadError("get project repo for repo scope create", err)
 	}
 
-	branchName := repoItem.DefaultBranch
+	branchName := ""
 	if input.BranchName != nil {
 		branchName = *input.BranchName
 	}
@@ -466,7 +468,7 @@ func (r *EntRepository) UpdateTicketRepoScope(ctx context.Context, input domain.
 	}
 	defer rollbackOnError(ctx, tx, &err)
 
-	current, err := tx.TicketRepoScope.Query().
+	_, err = tx.TicketRepoScope.Query().
 		Where(
 			entticketreposcope.ID(input.ID),
 			entticketreposcope.TicketID(input.TicketID),
@@ -477,17 +479,16 @@ func (r *EntRepository) UpdateTicketRepoScope(ctx context.Context, input domain.
 		return domain.TicketRepoScope{}, mapReadError("get ticket repo scope for update", err)
 	}
 
-	branchName := current.BranchName
-	if input.BranchName != nil {
-		branchName = *input.BranchName
+	builder := tx.TicketRepoScope.UpdateOneID(input.ID)
+	if input.BranchNameSet {
+		builder.SetBranchName(strings.TrimSpace(derefString(input.BranchName)))
 	}
-
-	builder := tx.TicketRepoScope.UpdateOneID(input.ID).
-		SetBranchName(branchName)
-	if input.PullRequestURL != nil {
-		builder.SetPullRequestURL(*input.PullRequestURL)
-	} else {
-		builder.ClearPullRequestURL()
+	if input.PullRequestSet {
+		if input.PullRequestURL != nil {
+			builder.SetPullRequestURL(*input.PullRequestURL)
+		} else {
+			builder.ClearPullRequestURL()
+		}
 	}
 
 	item, err := builder.Save(ctx)
@@ -539,6 +540,13 @@ func mapReadError(action string, err error) error {
 	default:
 		return fmt.Errorf("%s: %w", action, err)
 	}
+}
+
+func derefString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func mapWriteError(action string, err error) error {
@@ -640,6 +648,7 @@ func mapProject(item *ent.Project) domain.Project {
 		DefaultAgentProviderID: item.DefaultAgentProviderID,
 		AccessibleMachineIDs:   append([]uuid.UUID(nil), item.AccessibleMachineIds...),
 		MaxConcurrentAgents:    item.MaxConcurrentAgents,
+		AgentRunSummaryPrompt:  item.AgentRunSummaryPrompt,
 	}
 }
 

@@ -183,7 +183,7 @@
     const ticket = drawerState.ticket
     if (!ticket || !projectId || !ticketId) return false
 
-    const mutation = buildCreateRepoScopeMutation(drawerState.repoOptions, draft)
+    const mutation = buildCreateRepoScopeMutation(ticket, drawerState.repoOptions, draft)
     if (!mutation.ok) {
       drawerState.setMutationError(mutation.error)
       return false

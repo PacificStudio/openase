@@ -2376,8 +2376,11 @@ Handle a failing runtime turn.
 	if runAfter.LastError == "" {
 		t.Fatalf("expected retry release to preserve run error, got %+v", runAfter)
 	}
-	if manager.capturedTurnCount() != 1 {
-		t.Fatalf("expected one failed turn, got %d", manager.capturedTurnCount())
+	if manager.capturedTurnCount() < 1 {
+		t.Fatalf("expected at least one failed execution turn, got %d", manager.capturedTurnCount())
+	}
+	if runAfter.CompletionSummaryStatus == nil {
+		t.Fatalf("expected terminal run to initialize completion summary status, got %+v", runAfter)
 	}
 
 	waitForRuntimeCondition(t, 5*time.Second, func() bool {
@@ -3112,6 +3115,36 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 	}
 	if !strings.Contains(prepareSession.command, "'git' '-C' '/srv/openase/workspaces/better-and-better/openase/ASE-401A/backend' 'fetch' 'origin'") {
 		t.Fatalf("expected remote workspace fetch command, got %q", prepareSession.command)
+	}
+}
+
+func TestBuildWorkspaceRepoPlansUsesGeneratedTicketBranchWhenScopeOverrideBlank(t *testing.T) {
+	repoID := uuid.New()
+	plans, err := buildWorkspaceRepoPlans(
+		"ASE-475",
+		[]*ent.ProjectRepo{
+			{
+				ID:            repoID,
+				Name:          "backend",
+				RepositoryURL: "https://github.com/acme/backend.git",
+				DefaultBranch: "main",
+			},
+		},
+		[]*ent.TicketRepoScope{
+			{
+				RepoID:     repoID,
+				BranchName: "   ",
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("build workspace repo plans: %v", err)
+	}
+	if len(plans) != 1 {
+		t.Fatalf("expected one plan, got %+v", plans)
+	}
+	if plans[0].BranchName != "agent/ASE-475" || plans[0].Input.BranchName != nil {
+		t.Fatalf("expected generated ticket branch plan, got %+v", plans[0])
 	}
 }
 

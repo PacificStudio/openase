@@ -390,3 +390,129 @@ type LifecycleHookRuntimeData struct {
 	Machine          catalogdomain.Machine
 	Workspaces       []HookWorkspace
 }
+
+type PickupDiagnosisState string
+
+const (
+	PickupDiagnosisStateRunnable    PickupDiagnosisState = "runnable"
+	PickupDiagnosisStateWaiting     PickupDiagnosisState = "waiting"
+	PickupDiagnosisStateBlocked     PickupDiagnosisState = "blocked"
+	PickupDiagnosisStateRunning     PickupDiagnosisState = "running"
+	PickupDiagnosisStateCompleted   PickupDiagnosisState = "completed"
+	PickupDiagnosisStateUnavailable PickupDiagnosisState = "unavailable"
+)
+
+type PickupDiagnosisReasonCode string
+
+const (
+	PickupDiagnosisReasonReadyForPickup            PickupDiagnosisReasonCode = "ready_for_pickup"
+	PickupDiagnosisReasonCompleted                 PickupDiagnosisReasonCode = "completed"
+	PickupDiagnosisReasonRunningCurrentRun         PickupDiagnosisReasonCode = "running_current_run"
+	PickupDiagnosisReasonRetryBackoff              PickupDiagnosisReasonCode = "retry_backoff"
+	PickupDiagnosisReasonRetryPausedRepeatedStalls PickupDiagnosisReasonCode = "retry_paused_repeated_stalls"
+	PickupDiagnosisReasonRetryPausedBudget         PickupDiagnosisReasonCode = "retry_paused_budget"
+	PickupDiagnosisReasonRetryPausedUser           PickupDiagnosisReasonCode = "retry_paused_user"
+	PickupDiagnosisReasonBlockedDependency         PickupDiagnosisReasonCode = "blocked_dependency"
+	PickupDiagnosisReasonNoMatchingActiveWorkflow  PickupDiagnosisReasonCode = "no_matching_active_workflow"
+	PickupDiagnosisReasonWorkflowInactive          PickupDiagnosisReasonCode = "workflow_inactive"
+	PickupDiagnosisReasonWorkflowMissingAgent      PickupDiagnosisReasonCode = "workflow_missing_agent"
+	PickupDiagnosisReasonAgentMissing              PickupDiagnosisReasonCode = "agent_missing"
+	PickupDiagnosisReasonAgentPaused               PickupDiagnosisReasonCode = "agent_paused"
+	PickupDiagnosisReasonAgentPauseRequested       PickupDiagnosisReasonCode = "agent_pause_requested"
+	PickupDiagnosisReasonProviderMissing           PickupDiagnosisReasonCode = "provider_missing"
+	PickupDiagnosisReasonMachineMissing            PickupDiagnosisReasonCode = "machine_missing"
+	PickupDiagnosisReasonMachineOffline            PickupDiagnosisReasonCode = "machine_offline"
+	PickupDiagnosisReasonProviderUnknown           PickupDiagnosisReasonCode = "provider_unknown"
+	PickupDiagnosisReasonProviderStale             PickupDiagnosisReasonCode = "provider_stale"
+	PickupDiagnosisReasonProviderUnavailable       PickupDiagnosisReasonCode = "provider_unavailable"
+	PickupDiagnosisReasonWorkflowConcurrencyFull   PickupDiagnosisReasonCode = "workflow_concurrency_full"
+	PickupDiagnosisReasonProjectConcurrencyFull    PickupDiagnosisReasonCode = "project_concurrency_full"
+	PickupDiagnosisReasonProviderConcurrencyFull   PickupDiagnosisReasonCode = "provider_concurrency_full"
+	PickupDiagnosisReasonStatusCapacityFull        PickupDiagnosisReasonCode = "status_capacity_full"
+	PickupDiagnosisReasonSchedulerUnavailable      PickupDiagnosisReasonCode = "scheduler_unavailable"
+)
+
+type PickupDiagnosisReasonSeverity string
+
+const (
+	PickupDiagnosisReasonSeverityInfo    PickupDiagnosisReasonSeverity = "info"
+	PickupDiagnosisReasonSeverityWarning PickupDiagnosisReasonSeverity = "warning"
+	PickupDiagnosisReasonSeverityError   PickupDiagnosisReasonSeverity = "error"
+)
+
+type PickupDiagnosis struct {
+	State                PickupDiagnosisState           `json:"state"`
+	PrimaryReasonCode    PickupDiagnosisReasonCode      `json:"primary_reason_code"`
+	PrimaryReasonMessage string                         `json:"primary_reason_message"`
+	NextActionHint       string                         `json:"next_action_hint,omitempty"`
+	Reasons              []PickupDiagnosisReason        `json:"reasons"`
+	Workflow             *PickupDiagnosisWorkflow       `json:"workflow,omitempty"`
+	Agent                *PickupDiagnosisAgent          `json:"agent,omitempty"`
+	Provider             *PickupDiagnosisProvider       `json:"provider,omitempty"`
+	Retry                PickupDiagnosisRetry           `json:"retry"`
+	Capacity             PickupDiagnosisCapacity        `json:"capacity"`
+	BlockedBy            []PickupDiagnosisBlockedTicket `json:"blocked_by"`
+}
+
+type PickupDiagnosisReason struct {
+	Code     PickupDiagnosisReasonCode     `json:"code"`
+	Message  string                        `json:"message"`
+	Severity PickupDiagnosisReasonSeverity `json:"severity"`
+}
+
+type PickupDiagnosisWorkflow struct {
+	ID                uuid.UUID `json:"id"`
+	Name              string    `json:"name"`
+	IsActive          bool      `json:"is_active"`
+	PickupStatusMatch bool      `json:"pickup_status_match"`
+}
+
+type PickupDiagnosisAgent struct {
+	ID                  uuid.UUID                              `json:"id"`
+	Name                string                                 `json:"name"`
+	RuntimeControlState catalogdomain.AgentRuntimeControlState `json:"runtime_control_state"`
+}
+
+type PickupDiagnosisProvider struct {
+	ID                 uuid.UUID                                    `json:"id"`
+	Name               string                                       `json:"name"`
+	MachineID          uuid.UUID                                    `json:"machine_id"`
+	MachineName        string                                       `json:"machine_name"`
+	MachineStatus      catalogdomain.MachineStatus                  `json:"machine_status"`
+	AvailabilityState  catalogdomain.AgentProviderAvailabilityState `json:"availability_state"`
+	AvailabilityReason *string                                      `json:"availability_reason,omitempty"`
+}
+
+type PickupDiagnosisRetry struct {
+	AttemptCount int        `json:"attempt_count"`
+	RetryPaused  bool       `json:"retry_paused"`
+	PauseReason  string     `json:"pause_reason,omitempty"`
+	NextRetryAt  *time.Time `json:"next_retry_at,omitempty"`
+}
+
+type PickupDiagnosisCapacity struct {
+	Workflow PickupDiagnosisCapacityBucket `json:"workflow"`
+	Project  PickupDiagnosisCapacityBucket `json:"project"`
+	Provider PickupDiagnosisCapacityBucket `json:"provider"`
+	Status   PickupDiagnosisStatusCapacity `json:"status"`
+}
+
+type PickupDiagnosisCapacityBucket struct {
+	Limited    bool `json:"limited"`
+	ActiveRuns int  `json:"active_runs"`
+	Capacity   int  `json:"capacity"`
+}
+
+type PickupDiagnosisStatusCapacity struct {
+	Limited    bool `json:"limited"`
+	ActiveRuns int  `json:"active_runs"`
+	Capacity   *int `json:"capacity"`
+}
+
+type PickupDiagnosisBlockedTicket struct {
+	ID         uuid.UUID `json:"id"`
+	Identifier string    `json:"identifier"`
+	Title      string    `json:"title"`
+	StatusID   uuid.UUID `json:"status_id"`
+	StatusName string    `json:"status_name"`
+}

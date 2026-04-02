@@ -271,9 +271,10 @@ func writeChatError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusConflict, "CHAT_SESSION_LIMIT_REACHED", err.Error())
 	case errors.Is(err, chatservice.ErrProviderNotFound):
 		return writeAPIError(c, http.StatusConflict, "CHAT_PROVIDER_NOT_CONFIGURED", err.Error())
-	case errors.Is(err, chatservice.ErrProviderUnavailable),
-		errors.Is(err, chatservice.ErrProviderUnsupported):
+	case errors.Is(err, chatservice.ErrProviderUnavailable):
 		return writeAPIError(c, http.StatusConflict, "CHAT_PROVIDER_UNAVAILABLE", err.Error())
+	case errors.Is(err, chatservice.ErrProviderUnsupported):
+		return writeAPIError(c, http.StatusConflict, "CHAT_PROVIDER_UNSUPPORTED", err.Error())
 	case errors.Is(err, chatservice.ErrSessionNotFound):
 		return writeAPIError(c, http.StatusNotFound, "CHAT_SESSION_NOT_FOUND", err.Error())
 	case errors.Is(err, ticketservice.ErrTicketNotFound),
@@ -576,13 +577,19 @@ func (s *Server) handleExecuteProjectConversationActionProposal(c echo.Context) 
 		return writeAPIError(c, http.StatusNotFound, "CHAT_ACTION_PROPOSAL_NOT_FOUND", "chat action proposal entry not found")
 	}
 
-	results, err := s.executeActionProposalActions(c.Request().Context(), proposalEntry.Payload)
+	executedBy := projectConversationConfirmedActionActor(userID, conversationID)
+	results, err := s.executeActionProposalActions(c.Request().Context(), proposalEntry.Payload, executedBy)
 	if err != nil {
 		return writeProjectConversationError(c, err)
 	}
 	resultPayload := map[string]any{
-		"entry_id": entryID.String(),
-		"results":  results,
+		"entry_id":    entryID.String(),
+		"results":     results,
+		"executed_by": executedBy,
+		"origin": map[string]any{
+			"type":            "human_confirmed_project_conversation_action",
+			"conversation_id": conversationID.String(),
+		},
 	}
 	entry, err := s.projectConversationService.AppendActionExecutionResult(c.Request().Context(), userID, conversationID, proposalEntry.TurnID, resultPayload)
 	if err != nil {
@@ -678,6 +685,23 @@ func (s *Server) mapProjectConversationResponse(ctx context.Context, item chatdo
 		response["provider_thread_active_flags"] = append([]string(nil), item.ProviderThreadActiveFlags...)
 		response["provider_active_flags"] = append([]string(nil), item.ProviderThreadActiveFlags...)
 	}
+	if s != nil && s.projectConversationService != nil {
+		if principal, err := s.projectConversationService.GetPrincipal(ctx, chatservice.UserID(item.UserID), item.ID); err == nil {
+			response["runtime_principal"] = map[string]any{
+				"id":                      principal.ID.String(),
+				"name":                    principal.Name,
+				"status":                  string(principal.Status),
+				"runtime_state":           string(principal.RuntimeState),
+				"current_session_id":      optionalConversationString(principal.CurrentSessionID),
+				"current_workspace_path":  optionalConversationString(principal.CurrentWorkspacePath),
+				"current_run_id":          optionalConversationUUID(principal.CurrentRunID),
+				"last_heartbeat_at":       optionalConversationTime(principal.LastHeartbeatAt),
+				"current_step_status":     optionalConversationString(principal.CurrentStepStatus),
+				"current_step_summary":    optionalConversationString(principal.CurrentStepSummary),
+				"current_step_changed_at": optionalConversationTime(principal.CurrentStepChangedAt),
+			}
+		}
+	}
 	return response
 }
 
@@ -761,7 +785,28 @@ func mapPendingInterruptResponse(item chatdomain.PendingInterrupt) map[string]an
 	return payload
 }
 
-func (s *Server) executeActionProposalActions(_ context.Context, payload map[string]any) ([]map[string]any, error) {
+func optionalConversationString(value *string) any {
+	if value == nil {
+		return nil
+	}
+	return *value
+}
+
+func optionalConversationUUID(value *uuid.UUID) any {
+	if value == nil {
+		return nil
+	}
+	return value.String()
+}
+
+func optionalConversationTime(value *time.Time) any {
+	if value == nil {
+		return nil
+	}
+	return value.UTC().Format(time.RFC3339)
+}
+
+func (s *Server) executeActionProposalActions(_ context.Context, payload map[string]any, executedBy string) ([]map[string]any, error) {
 	rawActions, ok := payload["actions"].([]any)
 	if !ok {
 		return nil, fmt.Errorf("action proposal actions must be an array")
@@ -784,7 +829,14 @@ func (s *Server) executeActionProposalActions(_ context.Context, payload map[str
 			"action_index": index,
 			"action":       action,
 		}
-		status, responseBody, err := s.executeInternalAPIAction(method, path, body)
+		preparedBody, err := prepareProjectConversationActionBody(method, path, body, executedBy)
+		if err != nil {
+			result["ok"] = false
+			result["summary"] = err.Error()
+			results = append(results, result)
+			continue
+		}
+		status, responseBody, err := s.executeInternalAPIAction(method, path, preparedBody)
 		result["status_code"] = status
 		if responseBody != "" {
 			result["detail"] = responseBody
@@ -822,4 +874,83 @@ func (s *Server) executeInternalAPIAction(method string, path string, body map[s
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
 	return rec.Code, strings.TrimSpace(rec.Body.String()), nil
+}
+
+func projectConversationConfirmedActionActor(userID chatservice.UserID, conversationID uuid.UUID) string {
+	return fmt.Sprintf("user:%s via project-conversation:%s", strings.TrimSpace(string(userID)), conversationID.String())
+}
+
+func prepareProjectConversationActionBody(method string, path string, body map[string]any, executedBy string) (map[string]any, error) {
+	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
+	normalizedPath := strings.TrimSpace(path)
+	if normalizedMethod == "" || normalizedPath == "" {
+		return nil, fmt.Errorf("action proposal requires method and path")
+	}
+	prepared := cloneHTTPActionBody(body)
+	switch {
+	case normalizedMethod == http.MethodPost && projectConversationTicketCreatePath(normalizedPath):
+		prepared["created_by"] = executedBy
+	case normalizedMethod == http.MethodPatch && projectConversationTicketPatchPath(normalizedPath):
+		prepared["created_by"] = executedBy
+	case normalizedMethod == http.MethodPost && projectConversationTicketCommentCreatePath(normalizedPath):
+		prepared["created_by"] = executedBy
+	case normalizedMethod == http.MethodPatch && projectConversationTicketCommentPatchPath(normalizedPath):
+		prepared["edited_by"] = executedBy
+	case normalizedMethod == http.MethodPost && projectConversationUpdateThreadCreatePath(normalizedPath):
+		prepared["created_by"] = executedBy
+	case normalizedMethod == http.MethodPatch && projectConversationUpdateThreadPatchPath(normalizedPath):
+		prepared["edited_by"] = executedBy
+	case normalizedMethod == http.MethodPost && projectConversationUpdateCommentCreatePath(normalizedPath):
+		prepared["created_by"] = executedBy
+	case normalizedMethod == http.MethodPatch && projectConversationUpdateCommentPatchPath(normalizedPath):
+		prepared["edited_by"] = executedBy
+	case normalizedMethod == http.MethodGet:
+		return prepared, nil
+	default:
+		return nil, fmt.Errorf("%s %s is not allowed because its audit actor is not explicit for project conversation confirmation", normalizedMethod, normalizedPath)
+	}
+	return prepared, nil
+}
+
+func cloneHTTPActionBody(body map[string]any) map[string]any {
+	if len(body) == 0 {
+		return map[string]any{}
+	}
+	cloned := make(map[string]any, len(body))
+	for key, value := range body {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func projectConversationTicketCreatePath(path string) bool {
+	return strings.HasPrefix(path, "/api/v1/projects/") && strings.HasSuffix(path, "/tickets")
+}
+
+func projectConversationTicketPatchPath(path string) bool {
+	return strings.HasPrefix(path, "/api/v1/tickets/") && !strings.Contains(path, "/comments")
+}
+
+func projectConversationTicketCommentCreatePath(path string) bool {
+	return strings.HasPrefix(path, "/api/v1/tickets/") && strings.HasSuffix(path, "/comments")
+}
+
+func projectConversationTicketCommentPatchPath(path string) bool {
+	return strings.HasPrefix(path, "/api/v1/tickets/") && strings.Contains(path, "/comments/")
+}
+
+func projectConversationUpdateThreadCreatePath(path string) bool {
+	return strings.HasPrefix(path, "/api/v1/projects/") && strings.HasSuffix(path, "/updates")
+}
+
+func projectConversationUpdateThreadPatchPath(path string) bool {
+	return strings.HasPrefix(path, "/api/v1/projects/") && strings.Contains(path, "/updates/") && !strings.Contains(path, "/comments/")
+}
+
+func projectConversationUpdateCommentCreatePath(path string) bool {
+	return strings.HasPrefix(path, "/api/v1/projects/") && strings.Contains(path, "/updates/") && strings.HasSuffix(path, "/comments")
+}
+
+func projectConversationUpdateCommentPatchPath(path string) bool {
+	return strings.HasPrefix(path, "/api/v1/projects/") && strings.Contains(path, "/updates/") && strings.Contains(path, "/comments/")
 }

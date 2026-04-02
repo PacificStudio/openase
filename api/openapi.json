@@ -2693,6 +2693,143 @@
                         "nullable": true,
                         "type": "string"
                       },
+                      "ticket_assigned_agent": {
+                        "description": "Assigned agent summary for the focused ticket.",
+                        "nullable": true,
+                        "properties": {
+                          "id": {
+                            "description": "Assigned agent ID for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "name": {
+                            "description": "Assigned agent name for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "provider": {
+                            "description": "Assigned agent provider name for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "runtime_control_state": {
+                            "description": "Assigned agent runtime control state for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "runtime_phase": {
+                            "description": "Assigned agent runtime phase for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "ticket_attempt_count": {
+                        "description": "Current attempt count for the focused ticket.",
+                        "nullable": true,
+                        "type": "integer"
+                      },
+                      "ticket_current_run": {
+                        "description": "Current run summary for the focused ticket.",
+                        "nullable": true,
+                        "properties": {
+                          "attempt_number": {
+                            "description": "Attempt number for the current focused ticket run.",
+                            "nullable": true,
+                            "type": "integer"
+                          },
+                          "current_step_status": {
+                            "description": "Current step status for the focused ticket run.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "current_step_summary": {
+                            "description": "Current step summary for the focused ticket run.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "Current run ID for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "last_error": {
+                            "description": "Last error observed on the focused ticket run.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "status": {
+                            "description": "Current run status for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "ticket_dependencies": {
+                        "description": "Dependency summary for the focused ticket.",
+                        "items": {
+                          "properties": {
+                            "identifier": {
+                              "description": "Human-readable identifier for a related dependency ticket.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "relation": {
+                              "description": "Dependency relation such as blocks or blocked_by.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "status": {
+                              "description": "Current status of the related dependency ticket.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "title": {
+                              "description": "Title of a related dependency ticket.",
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "ticket_description": {
+                        "description": "Ticket description currently in focus.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "ticket_hook_history": {
+                        "description": "Recent hook execution history for the focused ticket.",
+                        "items": {
+                          "properties": {
+                            "hook_name": {
+                              "description": "Hook name for a recent focused ticket hook execution.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "output": {
+                              "description": "Captured output summary for a recent focused ticket hook.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "status": {
+                              "description": "Execution status for a recent focused ticket hook.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "timestamp": {
+                              "description": "Execution timestamp for a recent focused ticket hook.",
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
                       "ticket_id": {
                         "description": "Ticket ID currently in focus.",
                         "nullable": true,
@@ -2703,10 +2840,100 @@
                         "nullable": true,
                         "type": "string"
                       },
+                      "ticket_pause_reason": {
+                        "description": "Reason retries are paused for the focused ticket.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "ticket_priority": {
+                        "description": "Ticket priority currently in focus.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "ticket_recent_activity": {
+                        "description": "Recent ticket-scoped activity for the focused ticket.",
+                        "items": {
+                          "properties": {
+                            "created_at": {
+                              "description": "Creation timestamp for a recent focused ticket event.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "event_type": {
+                              "description": "Activity event type for a recent focused ticket event.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "message": {
+                              "description": "Human-readable summary for a recent focused ticket event.",
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "ticket_repo_scopes": {
+                        "description": "Repo scopes and PR references for the focused ticket.",
+                        "items": {
+                          "properties": {
+                            "branch_name": {
+                              "description": "Branch name associated with the focused ticket scope.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "pull_request_url": {
+                              "description": "Pull request URL associated with the focused ticket scope.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "repo_id": {
+                              "description": "Repository ID included in the focused ticket scope.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "repo_name": {
+                              "description": "Repository name included in the focused ticket scope.",
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "ticket_retry_paused": {
+                        "description": "Whether retries are currently paused for the focused ticket.",
+                        "nullable": true,
+                        "type": "boolean"
+                      },
                       "ticket_status": {
                         "description": "Ticket status currently in focus.",
                         "nullable": true,
                         "type": "string"
+                      },
+                      "ticket_target_machine": {
+                        "description": "Target machine summary for the focused ticket.",
+                        "nullable": true,
+                        "properties": {
+                          "host": {
+                            "description": "Target machine host for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "Target machine ID for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "name": {
+                            "description": "Target machine name for the focused ticket.",
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
                       },
                       "ticket_title": {
                         "description": "Ticket title currently in focus.",
@@ -6019,6 +6246,10 @@
                             },
                             "type": "array"
                           },
+                          "agent_run_summary_prompt": {
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "default_agent_provider_id": {
                             "nullable": true,
                             "type": "string"
@@ -6142,6 +6373,11 @@
                     },
                     "type": "array"
                   },
+                  "agent_run_summary_prompt": {
+                    "description": "Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt.",
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "default_agent_provider_id": {
                     "description": "Optional default agent provider ID for the project.",
                     "nullable": true,
@@ -6189,6 +6425,10 @@
                             "type": "string"
                           },
                           "type": "array"
+                        },
+                        "agent_run_summary_prompt": {
+                          "nullable": true,
+                          "type": "string"
                         },
                         "default_agent_provider_id": {
                           "nullable": true,
@@ -6334,6 +6574,30 @@
                           "capabilities": {
                             "properties": {
                               "ephemeral_chat": {
+                                "properties": {
+                                  "reason": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "state": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "harness_ai": {
+                                "properties": {
+                                  "reason": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "state": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "skill_ai": {
                                 "properties": {
                                   "reason": {
                                     "nullable": true,
@@ -6863,6 +7127,30 @@
                         "capabilities": {
                           "properties": {
                             "ephemeral_chat": {
+                              "properties": {
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "harness_ai": {
+                              "properties": {
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "skill_ai": {
                               "properties": {
                                 "reason": {
                                   "nullable": true,
@@ -7684,6 +7972,10 @@
                           },
                           "type": "array"
                         },
+                        "agent_run_summary_prompt": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
@@ -7825,6 +8117,10 @@
                           },
                           "type": "array"
                         },
+                        "agent_run_summary_prompt": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
@@ -7947,6 +8243,11 @@
                     "nullable": true,
                     "type": "array"
                   },
+                  "agent_run_summary_prompt": {
+                    "description": "Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt.",
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "default_agent_provider_id": {
                     "description": "Optional default agent provider ID for the project.",
                     "nullable": true,
@@ -7998,6 +8299,10 @@
                             "type": "string"
                           },
                           "type": "array"
+                        },
+                        "agent_run_summary_prompt": {
+                          "nullable": true,
+                          "type": "string"
                         },
                         "default_agent_provider_id": {
                           "nullable": true,
@@ -11125,7 +11430,7 @@
               "schema": {
                 "properties": {
                   "default_branch": {
-                    "description": "Default branch name used when a repo scope does not provide an explicit branch override.",
+                    "description": "Repository base branch used when OpenASE creates a new ticket work branch.",
                     "type": "string"
                   },
                   "labels": {
@@ -11452,7 +11757,7 @@
               "schema": {
                 "properties": {
                   "default_branch": {
-                    "description": "Default branch name used when a repo scope does not provide an explicit branch override.",
+                    "description": "Repository base branch used when OpenASE creates a new ticket work branch.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -14990,7 +15295,7 @@
                     "items": {
                       "properties": {
                         "branch_name": {
-                          "description": "Optional branch name for the scoped repository checkout. When omitted, the repository default branch is used.",
+                          "description": "Optional work-branch override for the scoped repository. When omitted or blank, OpenASE uses the generated ticket branch.",
                           "nullable": true,
                           "type": "string"
                         },
@@ -15500,10 +15805,217 @@
                       },
                       "type": "array"
                     },
+                    "pickup_diagnosis": {
+                      "properties": {
+                        "agent": {
+                          "nullable": true,
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "runtime_control_state": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "blocked_by": {
+                          "items": {
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "identifier": {
+                                "type": "string"
+                              },
+                              "status_id": {
+                                "type": "string"
+                              },
+                              "status_name": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "capacity": {
+                          "properties": {
+                            "project": {
+                              "properties": {
+                                "active_runs": {
+                                  "type": "integer"
+                                },
+                                "capacity": {
+                                  "type": "integer"
+                                },
+                                "limited": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "provider": {
+                              "properties": {
+                                "active_runs": {
+                                  "type": "integer"
+                                },
+                                "capacity": {
+                                  "type": "integer"
+                                },
+                                "limited": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "status": {
+                              "properties": {
+                                "active_runs": {
+                                  "type": "integer"
+                                },
+                                "capacity": {
+                                  "nullable": true,
+                                  "type": "integer"
+                                },
+                                "limited": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "workflow": {
+                              "properties": {
+                                "active_runs": {
+                                  "type": "integer"
+                                },
+                                "capacity": {
+                                  "type": "integer"
+                                },
+                                "limited": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "next_action_hint": {
+                          "type": "string"
+                        },
+                        "primary_reason_code": {
+                          "type": "string"
+                        },
+                        "primary_reason_message": {
+                          "type": "string"
+                        },
+                        "provider": {
+                          "nullable": true,
+                          "properties": {
+                            "availability_reason": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "availability_state": {
+                              "type": "string"
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "machine_id": {
+                              "type": "string"
+                            },
+                            "machine_name": {
+                              "type": "string"
+                            },
+                            "machine_status": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "reasons": {
+                          "items": {
+                            "properties": {
+                              "code": {
+                                "type": "string"
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "retry": {
+                          "properties": {
+                            "attempt_count": {
+                              "type": "integer"
+                            },
+                            "next_retry_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "pause_reason": {
+                              "type": "string"
+                            },
+                            "retry_paused": {
+                              "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "state": {
+                          "type": "string"
+                        },
+                        "workflow": {
+                          "nullable": true,
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "is_active": {
+                              "type": "boolean"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "pickup_status_match": {
+                              "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    },
                     "repo_scopes": {
                       "items": {
                         "properties": {
                           "branch_name": {
+                            "type": "string"
+                          },
+                          "branch_source": {
+                            "type": "string"
+                          },
+                          "default_branch": {
+                            "type": "string"
+                          },
+                          "effective_branch_name": {
                             "type": "string"
                           },
                           "id": {
@@ -16032,7 +16544,7 @@
               "schema": {
                 "properties": {
                   "branch_name": {
-                    "description": "Branch name associated with the scoped repository checkout.",
+                    "description": "Optional work-branch override for the scoped repository. Leave blank to use the generated ticket branch.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -16353,7 +16865,7 @@
               "schema": {
                 "properties": {
                   "branch_name": {
-                    "description": "Branch name associated with the scoped repository checkout.",
+                    "description": "Optional work-branch override for the scoped repository. Send an empty string to clear the override and use the generated ticket branch.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -16530,6 +17042,31 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "completion_summary": {
+                            "nullable": true,
+                            "properties": {
+                              "error": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "generated_at": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "json": {
+                                "additionalProperties": {},
+                                "type": "object"
+                              },
+                              "markdown": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
                           "created_at": {
                             "type": "string"
                           },
@@ -16694,6 +17231,31 @@
                         "completed_at": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "completion_summary": {
+                          "nullable": true,
+                          "properties": {
+                            "error": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "generated_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "json": {
+                              "additionalProperties": {},
+                              "type": "object"
+                            },
+                            "markdown": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
                         },
                         "created_at": {
                           "type": "string"
@@ -19157,6 +19719,30 @@
                                 }
                               },
                               "type": "object"
+                            },
+                            "harness_ai": {
+                              "properties": {
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "skill_ai": {
+                              "properties": {
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
                             }
                           },
                           "type": "object"
@@ -19683,6 +20269,30 @@
                         "capabilities": {
                           "properties": {
                             "ephemeral_chat": {
+                              "properties": {
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "harness_ai": {
+                              "properties": {
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "skill_ai": {
                               "properties": {
                                 "reason": {
                                   "nullable": true,

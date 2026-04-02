@@ -71,6 +71,21 @@ func TicketID(v uuid.UUID) predicate.AgentToken {
 	return predicate.AgentToken(sql.FieldEQ(FieldTicketID, v))
 }
 
+// ConversationID applies equality check predicate on the "conversation_id" field. It's identical to ConversationIDEQ.
+func ConversationID(v uuid.UUID) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldEQ(FieldConversationID, v))
+}
+
+// PrincipalID applies equality check predicate on the "principal_id" field. It's identical to PrincipalIDEQ.
+func PrincipalID(v uuid.UUID) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldEQ(FieldPrincipalID, v))
+}
+
+// PrincipalName applies equality check predicate on the "principal_name" field. It's identical to PrincipalNameEQ.
+func PrincipalName(v string) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldEQ(FieldPrincipalName, v))
+}
+
 // TokenHash applies equality check predicate on the "token_hash" field. It's identical to TokenHashEQ.
 func TokenHash(v string) predicate.AgentToken {
 	return predicate.AgentToken(sql.FieldEQ(FieldTokenHash, v))
@@ -111,6 +126,16 @@ func AgentIDNotIn(vs ...uuid.UUID) predicate.AgentToken {
 	return predicate.AgentToken(sql.FieldNotIn(FieldAgentID, vs...))
 }
 
+// AgentIDIsNil applies the IsNil predicate on the "agent_id" field.
+func AgentIDIsNil() predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldIsNull(FieldAgentID))
+}
+
+// AgentIDNotNil applies the NotNil predicate on the "agent_id" field.
+func AgentIDNotNil() predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldNotNull(FieldAgentID))
+}
+
 // ProjectIDEQ applies the EQ predicate on the "project_id" field.
 func ProjectIDEQ(v uuid.UUID) predicate.AgentToken {
 	return predicate.AgentToken(sql.FieldEQ(FieldProjectID, v))
@@ -149,6 +174,171 @@ func TicketIDIn(vs ...uuid.UUID) predicate.AgentToken {
 // TicketIDNotIn applies the NotIn predicate on the "ticket_id" field.
 func TicketIDNotIn(vs ...uuid.UUID) predicate.AgentToken {
 	return predicate.AgentToken(sql.FieldNotIn(FieldTicketID, vs...))
+}
+
+// TicketIDIsNil applies the IsNil predicate on the "ticket_id" field.
+func TicketIDIsNil() predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldIsNull(FieldTicketID))
+}
+
+// TicketIDNotNil applies the NotNil predicate on the "ticket_id" field.
+func TicketIDNotNil() predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldNotNull(FieldTicketID))
+}
+
+// ConversationIDEQ applies the EQ predicate on the "conversation_id" field.
+func ConversationIDEQ(v uuid.UUID) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldEQ(FieldConversationID, v))
+}
+
+// ConversationIDNEQ applies the NEQ predicate on the "conversation_id" field.
+func ConversationIDNEQ(v uuid.UUID) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldNEQ(FieldConversationID, v))
+}
+
+// ConversationIDIn applies the In predicate on the "conversation_id" field.
+func ConversationIDIn(vs ...uuid.UUID) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldIn(FieldConversationID, vs...))
+}
+
+// ConversationIDNotIn applies the NotIn predicate on the "conversation_id" field.
+func ConversationIDNotIn(vs ...uuid.UUID) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldNotIn(FieldConversationID, vs...))
+}
+
+// ConversationIDIsNil applies the IsNil predicate on the "conversation_id" field.
+func ConversationIDIsNil() predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldIsNull(FieldConversationID))
+}
+
+// ConversationIDNotNil applies the NotNil predicate on the "conversation_id" field.
+func ConversationIDNotNil() predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldNotNull(FieldConversationID))
+}
+
+// PrincipalKindEQ applies the EQ predicate on the "principal_kind" field.
+func PrincipalKindEQ(v PrincipalKind) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldEQ(FieldPrincipalKind, v))
+}
+
+// PrincipalKindNEQ applies the NEQ predicate on the "principal_kind" field.
+func PrincipalKindNEQ(v PrincipalKind) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldNEQ(FieldPrincipalKind, v))
+}
+
+// PrincipalKindIn applies the In predicate on the "principal_kind" field.
+func PrincipalKindIn(vs ...PrincipalKind) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldIn(FieldPrincipalKind, vs...))
+}
+
+// PrincipalKindNotIn applies the NotIn predicate on the "principal_kind" field.
+func PrincipalKindNotIn(vs ...PrincipalKind) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldNotIn(FieldPrincipalKind, vs...))
+}
+
+// PrincipalIDEQ applies the EQ predicate on the "principal_id" field.
+func PrincipalIDEQ(v uuid.UUID) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldEQ(FieldPrincipalID, v))
+}
+
+// PrincipalIDNEQ applies the NEQ predicate on the "principal_id" field.
+func PrincipalIDNEQ(v uuid.UUID) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldNEQ(FieldPrincipalID, v))
+}
+
+// PrincipalIDIn applies the In predicate on the "principal_id" field.
+func PrincipalIDIn(vs ...uuid.UUID) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldIn(FieldPrincipalID, vs...))
+}
+
+// PrincipalIDNotIn applies the NotIn predicate on the "principal_id" field.
+func PrincipalIDNotIn(vs ...uuid.UUID) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldNotIn(FieldPrincipalID, vs...))
+}
+
+// PrincipalIDGT applies the GT predicate on the "principal_id" field.
+func PrincipalIDGT(v uuid.UUID) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldGT(FieldPrincipalID, v))
+}
+
+// PrincipalIDGTE applies the GTE predicate on the "principal_id" field.
+func PrincipalIDGTE(v uuid.UUID) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldGTE(FieldPrincipalID, v))
+}
+
+// PrincipalIDLT applies the LT predicate on the "principal_id" field.
+func PrincipalIDLT(v uuid.UUID) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldLT(FieldPrincipalID, v))
+}
+
+// PrincipalIDLTE applies the LTE predicate on the "principal_id" field.
+func PrincipalIDLTE(v uuid.UUID) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldLTE(FieldPrincipalID, v))
+}
+
+// PrincipalNameEQ applies the EQ predicate on the "principal_name" field.
+func PrincipalNameEQ(v string) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldEQ(FieldPrincipalName, v))
+}
+
+// PrincipalNameNEQ applies the NEQ predicate on the "principal_name" field.
+func PrincipalNameNEQ(v string) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldNEQ(FieldPrincipalName, v))
+}
+
+// PrincipalNameIn applies the In predicate on the "principal_name" field.
+func PrincipalNameIn(vs ...string) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldIn(FieldPrincipalName, vs...))
+}
+
+// PrincipalNameNotIn applies the NotIn predicate on the "principal_name" field.
+func PrincipalNameNotIn(vs ...string) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldNotIn(FieldPrincipalName, vs...))
+}
+
+// PrincipalNameGT applies the GT predicate on the "principal_name" field.
+func PrincipalNameGT(v string) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldGT(FieldPrincipalName, v))
+}
+
+// PrincipalNameGTE applies the GTE predicate on the "principal_name" field.
+func PrincipalNameGTE(v string) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldGTE(FieldPrincipalName, v))
+}
+
+// PrincipalNameLT applies the LT predicate on the "principal_name" field.
+func PrincipalNameLT(v string) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldLT(FieldPrincipalName, v))
+}
+
+// PrincipalNameLTE applies the LTE predicate on the "principal_name" field.
+func PrincipalNameLTE(v string) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldLTE(FieldPrincipalName, v))
+}
+
+// PrincipalNameContains applies the Contains predicate on the "principal_name" field.
+func PrincipalNameContains(v string) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldContains(FieldPrincipalName, v))
+}
+
+// PrincipalNameHasPrefix applies the HasPrefix predicate on the "principal_name" field.
+func PrincipalNameHasPrefix(v string) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldHasPrefix(FieldPrincipalName, v))
+}
+
+// PrincipalNameHasSuffix applies the HasSuffix predicate on the "principal_name" field.
+func PrincipalNameHasSuffix(v string) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldHasSuffix(FieldPrincipalName, v))
+}
+
+// PrincipalNameEqualFold applies the EqualFold predicate on the "principal_name" field.
+func PrincipalNameEqualFold(v string) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldEqualFold(FieldPrincipalName, v))
+}
+
+// PrincipalNameContainsFold applies the ContainsFold predicate on the "principal_name" field.
+func PrincipalNameContainsFold(v string) predicate.AgentToken {
+	return predicate.AgentToken(sql.FieldContainsFold(FieldPrincipalName, v))
 }
 
 // TokenHashEQ applies the EQ predicate on the "token_hash" field.
@@ -407,6 +597,29 @@ func HasTicket() predicate.AgentToken {
 func HasTicketWith(preds ...predicate.Ticket) predicate.AgentToken {
 	return predicate.AgentToken(func(s *sql.Selector) {
 		step := newTicketStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasConversation applies the HasEdge predicate on the "conversation" edge.
+func HasConversation() predicate.AgentToken {
+	return predicate.AgentToken(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, ConversationTable, ConversationColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasConversationWith applies the HasEdge predicate on the "conversation" edge with a given conditions (other predicates).
+func HasConversationWith(preds ...predicate.ChatConversation) predicate.AgentToken {
+	return predicate.AgentToken(func(s *sql.Selector) {
+		step := newConversationStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

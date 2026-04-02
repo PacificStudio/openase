@@ -29,6 +29,7 @@ type Project struct {
 	DefaultAgentProviderID *uuid.UUID
 	AccessibleMachineIDs   []uuid.UUID
 	MaxConcurrentAgents    int
+	AgentRunSummaryPrompt  string
 }
 
 type ProjectRepo struct {
@@ -63,6 +64,7 @@ type ProjectInput struct {
 	DefaultAgentProviderID *string  `json:"default_agent_provider_id"`
 	AccessibleMachineIDs   []string `json:"accessible_machine_ids"`
 	MaxConcurrentAgents    *int     `json:"max_concurrent_agents"`
+	AgentRunSummaryPrompt  *string  `json:"agent_run_summary_prompt"`
 }
 
 type ProjectRepoInput struct {
@@ -101,6 +103,7 @@ type CreateProject struct {
 	DefaultAgentProviderID *uuid.UUID
 	AccessibleMachineIDs   []uuid.UUID
 	MaxConcurrentAgents    int
+	AgentRunSummaryPrompt  string
 }
 
 type UpdateProject struct {
@@ -113,6 +116,7 @@ type UpdateProject struct {
 	DefaultAgentProviderID *uuid.UUID
 	AccessibleMachineIDs   []uuid.UUID
 	MaxConcurrentAgents    int
+	AgentRunSummaryPrompt  string
 }
 
 type CreateProjectRepo struct {
@@ -148,7 +152,9 @@ type UpdateTicketRepoScope struct {
 	TicketID       uuid.UUID
 	RepoID         uuid.UUID
 	BranchName     *string
+	BranchNameSet  bool
 	PullRequestURL *string
+	PullRequestSet bool
 }
 
 func ParseCreateOrganization(raw OrganizationInput) (CreateOrganization, error) {
@@ -227,6 +233,7 @@ func ParseCreateProject(organizationID uuid.UUID, raw ProjectInput) (CreateProje
 		DefaultAgentProviderID: defaultAgentProviderID,
 		AccessibleMachineIDs:   accessibleMachineIDs,
 		MaxConcurrentAgents:    maxConcurrentAgents,
+		AgentRunSummaryPrompt:  strings.TrimSpace(derefString(raw.AgentRunSummaryPrompt)),
 	}, nil
 }
 
@@ -246,7 +253,15 @@ func ParseUpdateProject(id uuid.UUID, organizationID uuid.UUID, raw ProjectInput
 		DefaultAgentProviderID: input.DefaultAgentProviderID,
 		AccessibleMachineIDs:   input.AccessibleMachineIDs,
 		MaxConcurrentAgents:    input.MaxConcurrentAgents,
+		AgentRunSummaryPrompt:  input.AgentRunSummaryPrompt,
 	}, nil
+}
+
+func derefString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func ParseCreateProjectRepo(projectID uuid.UUID, raw ProjectRepoInput) (CreateProjectRepo, error) {
@@ -345,7 +360,9 @@ func ParseUpdateTicketRepoScope(id uuid.UUID, projectID uuid.UUID, ticketID uuid
 		TicketID:       input.TicketID,
 		RepoID:         input.RepoID,
 		BranchName:     input.BranchName,
+		BranchNameSet:  raw.BranchName != nil,
 		PullRequestURL: input.PullRequestURL,
+		PullRequestSet: raw.PullRequestURL != nil,
 	}, nil
 }
 

@@ -25,6 +25,7 @@
     updatingCommentId = null,
     deletingCommentId = null,
     resumingRetry = false,
+    onViewChange,
     onSaveFields,
     onSelectRun,
     onResumeRetry,
@@ -46,6 +47,7 @@
     updatingCommentId?: string | null
     deletingCommentId?: string | null
     resumingRetry?: boolean
+    onViewChange?: (view: 'comments' | 'runs') => void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
     onSelectRun?: (runId: string) => Promise<void> | void
     onResumeRetry?: () => Promise<void> | void
@@ -67,6 +69,10 @@
 
     previousTicketId = ticket.id
     activeView = 'discussion'
+  })
+
+  $effect(() => {
+    onViewChange?.(activeView === 'runs' ? 'runs' : 'comments')
   })
 </script>
 

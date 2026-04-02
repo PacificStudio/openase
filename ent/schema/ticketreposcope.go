@@ -18,7 +18,7 @@ func (TicketRepoScope) Fields() []ent.Field {
 		uuidField(),
 		field.UUID("ticket_id", uuidZero()),
 		field.UUID("repo_id", uuidZero()),
-		field.String("branch_name").NotEmpty(),
+		field.String("branch_name"),
 		field.String("pull_request_url").Optional(),
 		field.Enum("pr_status").
 			Values("none", "open", "changes_requested", "approved", "merged", "closed").

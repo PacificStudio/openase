@@ -10,7 +10,7 @@ OPENASE_BIN := ./bin/openase
 
 .DEFAULT_GOAL := help
 
-.PHONY: help format fmt-check test test-backend-coverage check hooks-install hooks-run openapi-generate openapi-check frontend-api-audit-check web-install web-lint web-format-check web-check web-validate web-build build build-web run doctor lint lint-all lint-depguard lint-architecture
+.PHONY: help format fmt-check test test-backend-coverage check hooks-install hooks-run openapi-generate openapi-check openapi-check-ci frontend-api-audit-check web-install web-lint web-format-check web-check web-validate web-build build build-web run doctor lint lint-all lint-depguard lint-architecture
 
 help:
 	@printf '%s\n' \
@@ -24,6 +24,7 @@ help:
 		'  make hooks-run     Run the pre-commit hook against all files' \
 		'  make openapi-generate Regenerate api/openapi.json and frontend generated API types' \
 		'  make openapi-check Regenerate OpenAPI artifacts and fail if git diff is non-empty' \
+		'  make openapi-check-ci Regenerate OpenAPI artifacts without a full web install and fail if git diff is non-empty' \
 		'  make frontend-api-audit-check Fail when backend APIs are unbound, contract-only, or wrapped-but-unused in the frontend' \
 		'  make web-install   Install frontend dependencies with pnpm install --frozen-lockfile' \
 		'  make web-lint      Run frontend ESLint checks' \
@@ -96,6 +97,24 @@ openapi-generate: web-install
 	$(PNPM) --dir $(WEB_DIR) run api:generate
 
 openapi-check: openapi-generate
+	git diff --exit-code -- api/openapi.json web/src/lib/api/generated/openapi.d.ts
+
+openapi-check-ci:
+	$(GO) run $(OPENASE_MAIN) openapi generate --output api/openapi.json
+	@tmp_dir="$$(mktemp -d)"; \
+	trap 'rm -rf "$$tmp_dir"' EXIT; \
+	printf '{ "private": true }\n' > "$$tmp_dir/package.json"; \
+	$(PNPM) --dir "$$tmp_dir" add --save-dev --ignore-scripts openapi-typescript@7.13.0 prettier@3.8.1; \
+	"$$tmp_dir/node_modules/.bin/openapi-typescript" "$(CURDIR)/api/openapi.json" -o "$(CURDIR)/web/src/lib/api/generated/openapi.d.ts"; \
+	node "$$tmp_dir/node_modules/prettier/bin/prettier.cjs" \
+		--no-config \
+		--semi false \
+		--single-quote true \
+		--trailing-comma all \
+		--print-width 100 \
+		--tab-width 2 \
+		--use-tabs false \
+		--write "$(CURDIR)/web/src/lib/api/generated/openapi.d.ts"
 	git diff --exit-code -- api/openapi.json web/src/lib/api/generated/openapi.d.ts
 
 frontend-api-audit-check:

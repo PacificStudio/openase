@@ -632,11 +632,12 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 		DefaultAgentProviderID: stringPtr(defaultProviderID.String()),
 		AccessibleMachineIDs:   []string{accessibleA.String(), accessibleA.String(), accessibleB.String()},
 		MaxConcurrentAgents:    &maxConcurrent,
+		AgentRunSummaryPrompt:  stringPtr(" Summarize the run outcome. "),
 	})
 	if err != nil {
 		t.Fatalf("ParseCreateProject() error = %v", err)
 	}
-	if createProject.Description != "Raise backend coverage" || createProject.Status != ProjectStatusInProgress || len(createProject.AccessibleMachineIDs) != 2 {
+	if createProject.Description != "Raise backend coverage" || createProject.Status != ProjectStatusInProgress || len(createProject.AccessibleMachineIDs) != 2 || createProject.AgentRunSummaryPrompt != "Summarize the run outcome." {
 		t.Fatalf("ParseCreateProject() = %+v", createProject)
 	}
 	updateProject, err := ParseUpdateProject(uuid.New(), orgID, ProjectInput{Name: "P", Slug: "p"})
@@ -761,6 +762,23 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if _, err := ParseUpdateProject(uuid.New(), orgID, ProjectInput{Name: " ", Slug: "project"}); err == nil {
 		t.Fatal("ParseUpdateProject() expected validation error")
 	}
+	if got := AgentRunCompletionSummaryStatusPending.String(); got != "pending" {
+		t.Fatalf("AgentRunCompletionSummaryStatusPending.String() = %q, want pending", got)
+	}
+	for _, tc := range []struct {
+		name   string
+		status AgentRunCompletionSummaryStatus
+		want   bool
+	}{
+		{name: "pending", status: AgentRunCompletionSummaryStatusPending, want: true},
+		{name: "completed", status: AgentRunCompletionSummaryStatusCompleted, want: true},
+		{name: "failed", status: AgentRunCompletionSummaryStatusFailed, want: true},
+		{name: "invalid", status: AgentRunCompletionSummaryStatus("unknown"), want: false},
+	} {
+		if got := tc.status.IsValid(); got != tc.want {
+			t.Fatalf("%s status validity = %t, want %t", tc.name, got, tc.want)
+		}
+	}
 
 	createScope, err := ParseCreateTicketRepoScope(projectID, ticketID, TicketRepoScopeInput{
 		RepoID:         repoID.String(),
@@ -777,14 +795,14 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseUpdateTicketRepoScope() error = %v", err)
 	}
-	if updateScope.BranchName != nil || updateScope.PullRequestURL != nil {
+	if updateScope.BranchName != nil || updateScope.PullRequestURL != nil || updateScope.BranchNameSet || updateScope.PullRequestSet {
 		t.Fatalf("ParseUpdateTicketRepoScope() defaults = %+v", updateScope)
 	}
 	updateScope, err = ParseUpdateTicketRepoScope(uuid.New(), projectID, ticketID, TicketRepoScopeInput{RepoID: repoID.String(), BranchName: stringPtr("feature/demo")})
 	if err != nil {
 		t.Fatalf("ParseUpdateTicketRepoScope(success) error = %v", err)
 	}
-	if updateScope.BranchName == nil || *updateScope.BranchName != "feature/demo" {
+	if updateScope.BranchName == nil || *updateScope.BranchName != "feature/demo" || !updateScope.BranchNameSet {
 		t.Fatalf("ParseUpdateTicketRepoScope(success) = %+v", updateScope)
 	}
 	if _, err := ParseCreateTicketRepoScope(projectID, ticketID, TicketRepoScopeInput{RepoID: "bad"}); err == nil {

@@ -51,6 +51,7 @@ type MockState = {
     repo: number
     workflow: number
     agent: number
+    skill: number
     scheduledJob: number
     projectConversation: number
     projectConversationEntry: number
@@ -238,10 +239,46 @@ async function handleProjectRoutes(request: Request, segments: string[], _url: U
     })
   }
 
-  if (segments[2] === 'tickets' && request.method === 'GET') {
-    return jsonResponse({
-      tickets: clone(mockState.tickets.filter((ticket) => ticket.project_id === projectId)),
-    })
+  if (segments[2] === 'tickets') {
+    if (segments.length === 3 && request.method === 'GET') {
+      return jsonResponse({
+        tickets: clone(mockState.tickets.filter((ticket) => ticket.project_id === projectId)),
+      })
+    }
+    if (segments.length === 3 && request.method === 'POST') {
+      const body = await readBody<Record<string, unknown>>(request)
+      const statusId = asString(body.status_id) ?? DEFAULT_STATUS_IDS.todo
+      const statusName =
+        asString(mockState.statuses.find((status) => status.id === statusId)?.name) ?? 'Todo'
+      const ticket = createMockTicketRecord({
+        id: `ticket-${mockState.tickets.length + 1}`,
+        identifier: `ASE-${200 + mockState.tickets.length + 1}`,
+        title: asString(body.title) ?? `Ticket ${mockState.tickets.length + 1}`,
+        description: asString(body.description) ?? '',
+        statusId,
+        statusName,
+        workflowId: DEFAULT_WORKFLOW_ID,
+      })
+      mockState.tickets.unshift(ticket)
+      return jsonResponse({ ticket: clone(ticket) }, 201)
+    }
+    if (segments.length === 5 && segments[4] === 'detail' && request.method === 'GET') {
+      const payload = buildTicketDetailPayload(segments[3])
+      if (!payload) {
+        return notFound('Ticket detail not found.')
+      }
+      return jsonResponse(payload)
+    }
+    if (segments.length === 5 && segments[4] === 'runs' && request.method === 'GET') {
+      return jsonResponse(buildTicketRunsPayload(segments[3]))
+    }
+    if (segments.length === 6 && segments[4] === 'runs' && request.method === 'GET') {
+      const payload = buildTicketRunDetailPayload(segments[3], segments[5])
+      if (!payload) {
+        return notFound('Ticket run not found.')
+      }
+      return jsonResponse(payload)
+    }
   }
 
   if (segments[2] === 'workflows') {
@@ -326,6 +363,45 @@ async function handleProjectRoutes(request: Request, segments: string[], _url: U
     return jsonResponse({
       skills: clone(mockState.skills.filter((skill) => skill.project_id === projectId)),
     })
+  }
+
+  if (segments[2] === 'skills' && request.method === 'POST') {
+    const body = await readBody<Record<string, unknown>>(request)
+    const name = asString(body.name)?.trim() || `skill-${++mockState.counters.skill}`
+    const description = asString(body.description) ?? ''
+    const content = asString(body.content) ?? ''
+    const created = {
+      id: `skill-${name}`,
+      project_id: projectId,
+      name,
+      description,
+      path: `/skills/${name}`,
+      current_version: 1,
+      is_builtin: false,
+      is_enabled: asBoolean(body.is_enabled) ?? true,
+      created_by: 'user:manual',
+      created_at: nowIso,
+      bound_workflows: [],
+      content,
+      files: [
+        {
+          path: 'SKILL.md',
+          file_kind: 'entrypoint',
+          media_type: 'text/markdown; charset=utf-8',
+          encoding: 'utf8',
+          is_executable: false,
+          size_bytes: content.length,
+          sha256: `sha-skill-${name}-1`,
+          content,
+          content_base64: 'ignored',
+        },
+      ],
+      history: [
+        { id: `skill-${name}-v1`, version: 1, created_by: 'user:manual', created_at: nowIso },
+      ],
+    }
+    mockState.skills.unshift(created)
+    return jsonResponse({ skill: clone(created), content }, 201)
   }
 
   if (segments[2] === 'scheduled-jobs') {
@@ -631,6 +707,16 @@ async function handleChatRoutes(request: Request, segments: string[]) {
     return jsonResponse({ conversation: clone(conversation) })
   }
 
+  if (segments[3] === 'workspace-diff' && request.method === 'GET') {
+    const conversation = findById(mockState.projectConversations, segments[2])
+    if (!conversation) {
+      return notFound('Project conversation not found.')
+    }
+    return jsonResponse({
+      workspace_diff: buildMockProjectConversationWorkspaceDiff(segments[2]),
+    })
+  }
+
   if (segments[3] === 'entries' && request.method === 'GET') {
     return jsonResponse({
       entries: clone(
@@ -645,6 +731,49 @@ async function handleChatRoutes(request: Request, segments: string[]) {
     return projectConversationStreamResponse(segments[2])
   }
 
+  if (
+    segments[3] === 'action-proposals' &&
+    segments[5] === 'execute' &&
+    request.method === 'POST'
+  ) {
+    const conversation = findById(mockState.projectConversations, segments[2])
+    if (!conversation) {
+      return notFound('Project conversation not found.')
+    }
+    const proposalEntry =
+      mockState.projectConversationEntries.find(
+        (entry) => entry.conversation_id === segments[2] && entry.id === segments[4],
+      ) ??
+      [...mockState.projectConversationEntries]
+        .reverse()
+        .find((entry) => entry.conversation_id === segments[2] && entry.kind === 'action_proposal')
+    if (!proposalEntry || proposalEntry.kind !== 'action_proposal') {
+      return notFound('Project conversation action proposal not found.')
+    }
+
+    const results = executeMockProjectConversationActionProposal(proposalEntry)
+    const resultEntry = {
+      id: `entry-e2e-${++mockState.counters.projectConversationEntry}`,
+      conversation_id: segments[2],
+      turn_id: proposalEntry.turn_id,
+      seq: nextProjectConversationSeq(segments[2]),
+      kind: 'action_result',
+      payload: {
+        entry_id: proposalEntry.id,
+        results,
+      },
+      created_at: shiftedIso(mockState.counters.projectConversationEntry),
+    }
+    mockState.projectConversationEntries.push(resultEntry)
+    conversation.last_activity_at = resultEntry.created_at
+    conversation.updated_at = resultEntry.created_at
+
+    return jsonResponse({
+      result_entry: clone(resultEntry),
+      results: clone(results),
+    })
+  }
+
   if (segments[3] === 'turns' && request.method === 'POST') {
     const conversation = findById(mockState.projectConversations, segments[2])
     if (!conversation) {
@@ -653,6 +782,19 @@ async function handleChatRoutes(request: Request, segments: string[]) {
 
     const body = await readBody<Record<string, unknown>>(request)
     const message = asString(body.message) ?? ''
+    const focus = asObject(body.focus)
+    const ticketFocus =
+      asString(focus?.kind) === 'ticket'
+        ? {
+            identifier: asString(focus?.ticket_identifier) ?? 'ASE-unknown',
+            status: asString(focus?.ticket_status) ?? '',
+            retryPaused: asBoolean(focus?.ticket_retry_paused) ?? false,
+            pauseReason: asString(focus?.ticket_pause_reason) ?? '',
+            repoScopes: Array.isArray(focus?.ticket_repo_scopes) ? focus.ticket_repo_scopes : [],
+            hookHistory: Array.isArray(focus?.ticket_hook_history) ? focus.ticket_hook_history : [],
+            currentRun: asObject(focus?.ticket_current_run),
+          }
+        : null
     const turnIndex = ++mockState.counters.projectConversationTurn
     const turnId = `turn-e2e-${turnIndex}`
     const userEntry = {
@@ -664,14 +806,40 @@ async function handleChatRoutes(request: Request, segments: string[]) {
       payload: { content: message },
       created_at: shiftedIso(turnIndex),
     }
-    const assistantReply = `Mock assistant reply for: ${message}`
+    const shouldProposeAction =
+      message.toLowerCase().includes('child ticket') ||
+      message.toLowerCase().includes('sub-ticket') ||
+      message.toLowerCase().includes('sub ticket')
+    const assistantPayload = shouldProposeAction
+      ? {
+          kind: 'action_proposal',
+          payload: {
+            summary: 'Create a retry investigation child ticket',
+            actions: [
+              {
+                method: 'POST',
+                path: `/api/v1/projects/${PROJECT_ID}/tickets`,
+                body: {
+                  title: 'Investigate repeated retry pause',
+                  description: 'Created from ticket-focused Project AI.',
+                },
+              },
+            ],
+          },
+        }
+      : {
+          kind: 'assistant_message',
+          payload: {
+            content: buildMockProjectConversationReply(message, ticketFocus),
+          },
+        }
     const assistantEntry = {
       id: `entry-e2e-${++mockState.counters.projectConversationEntry}`,
       conversation_id: segments[2],
       turn_id: turnId,
       seq: userEntry.seq + 1,
-      kind: 'assistant_message',
-      payload: { content: assistantReply },
+      kind: assistantPayload.kind,
+      payload: assistantPayload.payload,
       created_at: shiftedIso(turnIndex + 1),
     }
     mockState.projectConversationEntries.push(userEntry, assistantEntry)
@@ -690,8 +858,17 @@ async function handleChatRoutes(request: Request, segments: string[]) {
       queueOrBroadcastProjectConversationFrame(
         segments[2],
         encodeSSEFrame('message', {
-          type: 'text',
-          content: assistantReply,
+          ...(shouldProposeAction
+            ? {
+                type: 'action_proposal',
+                entryId: assistantEntry.id,
+                summary: String(assistantEntry.payload.summary ?? ''),
+                actions: assistantEntry.payload.actions,
+              }
+            : {
+                type: 'text',
+                content: String(assistantEntry.payload.content ?? ''),
+              }),
         }),
       )
     }, 25)
@@ -728,17 +905,134 @@ async function handleSkillRoutes(request: Request, segments: string[]) {
     return notFound('Skill not found.')
   }
 
+  const boundWorkflowRefs = (entries: Record<string, unknown>[] | undefined) =>
+    (entries ?? []).map((entry) => {
+      const workflowId = asString(entry.id)
+      const workflow = workflowId ? findById(mockState.workflows, workflowId) : null
+      return workflow ? { id: workflow.id, name: workflow.name } : { id: workflowId }
+    })
+
+  const currentFiles = () =>
+    clone(
+      ((skill.files as Record<string, unknown>[] | undefined) ?? [
+        {
+          path: 'SKILL.md',
+          file_kind: 'entrypoint',
+          media_type: 'text/markdown; charset=utf-8',
+          encoding: 'utf8',
+          is_executable: false,
+          size_bytes: asString(skill.content)?.length ?? 0,
+          sha256: `sha-${skillId}-${skill.current_version ?? 1}`,
+          content: skill.content,
+          content_base64: 'ignored',
+        },
+      ]) as Record<string, unknown>[],
+    )
+
   if (segments[2] === 'history' && request.method === 'GET') {
     return jsonResponse({
       history: clone((skill.history as Record<string, unknown>[]) ?? []),
     })
   }
 
+  if (segments[2] === 'files' && request.method === 'GET') {
+    return jsonResponse({
+      files: currentFiles(),
+    })
+  }
+
   if (segments.length === 2 && request.method === 'GET') {
     return jsonResponse({
-      skill: clone(skill),
+      skill: clone({
+        ...skill,
+        bound_workflows: boundWorkflowRefs(skill.bound_workflows as Record<string, unknown>[]),
+      }),
       content: skill.content,
       history: clone((skill.history as Record<string, unknown>[]) ?? []),
+    })
+  }
+
+  if (segments.length === 2 && request.method === 'PUT') {
+    const body = await readBody<Record<string, unknown>>(request)
+    const nextVersion = (asNumber(skill.current_version) ?? 0) + 1
+    const nextContent = asString(body.content) ?? asString(skill.content) ?? ''
+    const nextDescription = asString(body.description) ?? asString(skill.description) ?? ''
+    const requestFiles = (asObjectArray(body.files) ?? []).map((file, index) => ({
+      path: asString(file.path) ?? `file-${index}`,
+      file_kind: asString(file.file_kind) ?? (index === 0 ? 'entrypoint' : 'reference'),
+      media_type: asString(file.media_type) ?? 'text/markdown; charset=utf-8',
+      encoding: 'utf8',
+      is_executable: asBoolean(file.is_executable) ?? false,
+      size_bytes: (asString(file.content) ?? asString(file.content_base64) ?? '').length,
+      sha256: `sha-${skillId}-${nextVersion}-${index}`,
+      content: asString(file.content) ?? decodeBase64UTF8(asString(file.content_base64) ?? ''),
+      content_base64: asString(file.content_base64) ?? 'ignored',
+    }))
+    skill.description = nextDescription
+    skill.content = nextContent
+    skill.current_version = nextVersion
+    skill.files =
+      requestFiles.length > 0
+        ? requestFiles
+        : [
+            {
+              path: 'SKILL.md',
+              file_kind: 'entrypoint',
+              media_type: 'text/markdown; charset=utf-8',
+              encoding: 'utf8',
+              is_executable: false,
+              size_bytes: nextContent.length,
+              sha256: `sha-${skillId}-${nextVersion}`,
+              content: nextContent,
+              content_base64: 'ignored',
+            },
+          ]
+    skill.history = [
+      {
+        id: `${skillId}-v${nextVersion}`,
+        version: nextVersion,
+        created_by: 'user:manual',
+        created_at: nowIso,
+      },
+      ...((skill.history as Record<string, unknown>[]) ?? []),
+    ]
+    return jsonResponse({
+      skill: clone({
+        ...skill,
+        bound_workflows: boundWorkflowRefs(skill.bound_workflows as Record<string, unknown>[]),
+      }),
+    })
+  }
+
+  if (segments.length === 2 && request.method === 'DELETE') {
+    mockState.skills = mockState.skills.filter((item) => item.id !== skillId)
+    return jsonResponse({ skill: clone(skill) })
+  }
+
+  if (segments[2] === 'enable' && request.method === 'POST') {
+    skill.is_enabled = true
+    return jsonResponse({ skill: clone(skill) })
+  }
+
+  if (segments[2] === 'disable' && request.method === 'POST') {
+    skill.is_enabled = false
+    return jsonResponse({ skill: clone(skill) })
+  }
+
+  if ((segments[2] === 'bind' || segments[2] === 'unbind') && request.method === 'POST') {
+    const body = await readBody<Record<string, unknown>>(request)
+    const workflowIds = asStringArray(body.workflow_ids)
+    const existing = (skill.bound_workflows as Record<string, unknown>[] | undefined) ?? []
+    const nextBound =
+      segments[2] === 'bind'
+        ? dedupeById([...existing, ...workflowIds.map((workflowId) => ({ id: workflowId }))])
+        : existing.filter((item) => !workflowIds.includes(asString(item.id) ?? ''))
+    skill.bound_workflows = nextBound
+    return jsonResponse({
+      skill: clone({
+        ...skill,
+        bound_workflows: boundWorkflowRefs(nextBound),
+      }),
     })
   }
 
@@ -894,6 +1188,14 @@ function createInitialState(): MockState {
           state: 'available',
           reason: null,
         },
+        harness_ai: {
+          state: 'available',
+          reason: null,
+        },
+        skill_ai: {
+          state: 'available',
+          reason: null,
+        },
       },
       cli_command: 'python3',
       cli_args: ['/home/yuzhong/workspace/openase/scripts/dev/fake_codex_app_server.py'],
@@ -925,6 +1227,14 @@ function createInitialState(): MockState {
         ephemeral_chat: {
           state: 'available',
           reason: null,
+        },
+        harness_ai: {
+          state: 'available',
+          reason: null,
+        },
+        skill_ai: {
+          state: 'unsupported',
+          reason: 'skill_ai_requires_codex',
         },
       },
       cli_command: 'claude',
@@ -958,6 +1268,14 @@ function createInitialState(): MockState {
           state: 'available',
           reason: null,
         },
+        harness_ai: {
+          state: 'available',
+          reason: null,
+        },
+        skill_ai: {
+          state: 'unsupported',
+          reason: 'skill_ai_requires_codex',
+        },
       },
       cli_command: 'gemini',
       cli_args: [],
@@ -987,6 +1305,14 @@ function createInitialState(): MockState {
       availability_reason: null,
       capabilities: {
         ephemeral_chat: {
+          state: 'available',
+          reason: null,
+        },
+        harness_ai: {
+          state: 'available',
+          reason: null,
+        },
+        skill_ai: {
           state: 'available',
           reason: null,
         },
@@ -1276,6 +1602,7 @@ function createInitialState(): MockState {
       repo: 1,
       workflow: 1,
       agent: 1,
+      skill: 2,
       scheduledJob: 1,
       projectConversation: 0,
       projectConversationEntry: 0,
@@ -1324,6 +1651,7 @@ function createMockTicketRecord(input: {
   id: string
   identifier: string
   title: string
+  description?: string
   statusId: string
   statusName: string
   workflowId: string
@@ -1334,7 +1662,7 @@ function createMockTicketRecord(input: {
     project_id: PROJECT_ID,
     identifier: input.identifier,
     title: input.title,
-    description: '',
+    description: input.description ?? '',
     status_id: input.statusId,
     status_name: input.statusName,
     priority: 'medium',
@@ -1361,6 +1689,439 @@ function createMockTicketRecord(input: {
     pause_reason: '',
     created_at: input.createdAt ?? nowIso,
   }
+}
+
+function buildTicketDetailPayload(ticketId: string) {
+  const ticket = findById(mockState.tickets, ticketId)
+  if (!ticket) {
+    return null
+  }
+
+  const repo = mockState.repos.find((item) => item.id === DEFAULT_REPO_ID)
+  const detailDescription =
+    ticketId === DEFAULT_TICKET_ID
+      ? 'Project AI needs the full ticket capsule so the drawer no longer depends on a separate ticket-detail assistant.'
+      : (asString(ticket.description) ?? '')
+
+  const ticketRecord = {
+    ...clone(ticket),
+    description: detailDescription,
+    priority: ticketId === DEFAULT_TICKET_ID ? 'high' : (asString(ticket.priority) ?? 'medium'),
+    current_run_id: ticketId === DEFAULT_TICKET_ID ? 'run-1' : null,
+    attempt_count: ticketId === DEFAULT_TICKET_ID ? 3 : (asNumber(ticket.attempt_count) ?? 0),
+    consecutive_errors:
+      ticketId === DEFAULT_TICKET_ID ? 2 : (asNumber(ticket.consecutive_errors) ?? 0),
+    retry_paused: ticketId === DEFAULT_TICKET_ID ? true : (asBoolean(ticket.retry_paused) ?? false),
+    pause_reason:
+      ticketId === DEFAULT_TICKET_ID
+        ? 'Repeated hook failures'
+        : (asString(ticket.pause_reason) ?? ''),
+    next_retry_at: ticketId === DEFAULT_TICKET_ID ? null : (asString(ticket.next_retry_at) ?? null),
+    dependencies:
+      ticketId === DEFAULT_TICKET_ID
+        ? [
+            {
+              id: 'dependency-1',
+              type: 'blocked_by',
+              target: {
+                id: 'ticket-blocker',
+                identifier: 'ASE-77',
+                title: 'Stabilize project conversation restore',
+                status_id: DEFAULT_STATUS_IDS.review,
+                status_name: 'In Review',
+              },
+            },
+          ]
+        : [],
+    children: [],
+  }
+
+  const pickupDiagnosis = ticketRecord.retry_paused
+    ? {
+        state: 'blocked',
+        primary_reason_code: 'retry_paused_repeated_stalls',
+        primary_reason_message: 'Retries are paused after repeated stalls.',
+        next_action_hint: 'Review the last failed attempt, then continue retry when ready.',
+        reasons: [
+          {
+            code: 'retry_paused_repeated_stalls',
+            message: 'Manual retry is required after repeated stalls.',
+            severity: 'warning',
+          },
+        ],
+        workflow: {
+          id: DEFAULT_WORKFLOW_ID,
+          name: 'Coding Workflow',
+          is_active: true,
+          pickup_status_match: true,
+        },
+        agent: {
+          id: DEFAULT_AGENT_ID,
+          name: 'coding-main',
+          runtime_control_state: 'active',
+        },
+        provider: {
+          id: DEFAULT_PROVIDER_ID,
+          name: 'codex-app-server',
+          machine_id: LOCAL_MACHINE_ID,
+          machine_name: 'local-dev',
+          machine_status: 'online',
+          availability_state: 'available',
+          availability_reason: null,
+        },
+        retry: {
+          attempt_count: ticketRecord.attempt_count,
+          retry_paused: ticketRecord.retry_paused,
+          pause_reason: 'repeated_stalls',
+          next_retry_at: null,
+        },
+        capacity: {
+          workflow: { limited: false, active_runs: 0, capacity: 0 },
+          project: { limited: false, active_runs: 0, capacity: 0 },
+          provider: { limited: false, active_runs: 0, capacity: 0 },
+          status: { limited: false, active_runs: 0, capacity: null },
+        },
+        blocked_by: ticketRecord.dependencies
+          .filter((item) => item.type === 'blocked_by')
+          .map((item) => ({
+            id: item.target.id,
+            identifier: item.target.identifier,
+            title: item.target.title,
+            status_id: item.target.status_id,
+            status_name: item.target.status_name,
+          })),
+      }
+    : ticketRecord.current_run_id
+      ? {
+          state: 'running',
+          primary_reason_code: 'running_current_run',
+          primary_reason_message: 'Ticket already has an active run.',
+          next_action_hint: 'Wait for the current run to finish or inspect the active runtime.',
+          reasons: [
+            {
+              code: 'running_current_run',
+              message: 'Current run is still attached to the ticket.',
+              severity: 'info',
+            },
+          ],
+          workflow: {
+            id: DEFAULT_WORKFLOW_ID,
+            name: 'Coding Workflow',
+            is_active: true,
+            pickup_status_match: true,
+          },
+          agent: {
+            id: DEFAULT_AGENT_ID,
+            name: 'coding-main',
+            runtime_control_state: 'active',
+          },
+          provider: {
+            id: DEFAULT_PROVIDER_ID,
+            name: 'codex-app-server',
+            machine_id: LOCAL_MACHINE_ID,
+            machine_name: 'local-dev',
+            machine_status: 'online',
+            availability_state: 'available',
+            availability_reason: null,
+          },
+          retry: {
+            attempt_count: ticketRecord.attempt_count,
+            retry_paused: false,
+            pause_reason: '',
+            next_retry_at: ticketRecord.next_retry_at,
+          },
+          capacity: {
+            workflow: { limited: false, active_runs: 1, capacity: 0 },
+            project: { limited: false, active_runs: 1, capacity: 0 },
+            provider: { limited: false, active_runs: 1, capacity: 0 },
+            status: { limited: false, active_runs: 1, capacity: null },
+          },
+          blocked_by: [],
+        }
+      : {
+          state: 'runnable',
+          primary_reason_code: 'ready_for_pickup',
+          primary_reason_message: 'Ticket is ready for pickup.',
+          next_action_hint: 'Wait for the scheduler to claim the ticket.',
+          reasons: [
+            {
+              code: 'ready_for_pickup',
+              message: 'The scheduler can claim this ticket on the next tick.',
+              severity: 'info',
+            },
+          ],
+          workflow: {
+            id: DEFAULT_WORKFLOW_ID,
+            name: 'Coding Workflow',
+            is_active: true,
+            pickup_status_match: true,
+          },
+          agent: {
+            id: DEFAULT_AGENT_ID,
+            name: 'coding-main',
+            runtime_control_state: 'active',
+          },
+          provider: {
+            id: DEFAULT_PROVIDER_ID,
+            name: 'codex-app-server',
+            machine_id: LOCAL_MACHINE_ID,
+            machine_name: 'local-dev',
+            machine_status: 'online',
+            availability_state: 'available',
+            availability_reason: null,
+          },
+          retry: {
+            attempt_count: ticketRecord.attempt_count,
+            retry_paused: false,
+            pause_reason: '',
+            next_retry_at: ticketRecord.next_retry_at,
+          },
+          capacity: {
+            workflow: { limited: false, active_runs: 0, capacity: 0 },
+            project: { limited: false, active_runs: 0, capacity: 0 },
+            provider: { limited: false, active_runs: 0, capacity: 0 },
+            status: { limited: false, active_runs: 0, capacity: null },
+          },
+          blocked_by: [],
+        }
+
+  const repoScopes =
+    ticketId === DEFAULT_TICKET_ID && repo
+      ? [
+          {
+            id: 'repo-scope-1',
+            ticket_id: ticketId,
+            repo_id: DEFAULT_REPO_ID,
+            repo,
+            branch_name: 'feat/openase-470-project-ai',
+            pull_request_url: 'https://github.com/GrandCX/openase/pull/999',
+            created_at: nowIso,
+          },
+        ]
+      : []
+
+  const timeline = [
+    {
+      id: `description:${ticketId}`,
+      ticket_id: ticketId,
+      item_type: 'description',
+      actor_name: 'playwright',
+      actor_type: 'user',
+      title: asString(ticket.title),
+      body_markdown: detailDescription,
+      body_text: null,
+      created_at: asString(ticket.created_at) ?? nowIso,
+      updated_at: asString(ticket.created_at) ?? nowIso,
+      edited_at: null,
+      is_collapsible: false,
+      is_deleted: false,
+      metadata: {
+        identifier: asString(ticket.identifier),
+      },
+    },
+    {
+      id: `activity:${ticketId}:retry-paused`,
+      ticket_id: ticketId,
+      item_type: 'activity',
+      actor_name: 'orchestrator',
+      actor_type: 'system',
+      title: 'ticket.retry_paused',
+      body_markdown: null,
+      body_text: 'Paused retries after repeated hook failures.',
+      created_at: '2026-04-02T08:10:00.000Z',
+      updated_at: '2026-04-02T08:10:00.000Z',
+      edited_at: null,
+      is_collapsible: true,
+      is_deleted: false,
+      metadata: {
+        event_type: 'ticket.retry_paused',
+      },
+    },
+  ]
+
+  return {
+    assigned_agent:
+      ticketId === DEFAULT_TICKET_ID
+        ? {
+            id: DEFAULT_AGENT_ID,
+            name: 'coding-main',
+            provider: 'codex-app-server',
+            runtime_control_state: 'active',
+            runtime_phase: 'executing',
+          }
+        : null,
+    pickup_diagnosis: pickupDiagnosis,
+    ticket: ticketRecord,
+    repo_scopes: repoScopes,
+    comments: [],
+    timeline,
+    activity: [],
+    hook_history:
+      ticketId === DEFAULT_TICKET_ID
+        ? [
+            {
+              id: 'hook-history-1',
+              ticket_id: ticketId,
+              event_type: 'ticket.on_complete',
+              message: 'go test ./... failed in internal/chat',
+              metadata: {},
+              created_at: '2026-04-02T08:15:00.000Z',
+            },
+          ]
+        : [],
+  }
+}
+
+function buildTicketRunsPayload(ticketId: string) {
+  if (ticketId !== DEFAULT_TICKET_ID) {
+    return { runs: [] }
+  }
+  return {
+    runs: [
+      {
+        id: 'run-1',
+        ticket_id: ticketId,
+        attempt_number: 3,
+        agent_id: DEFAULT_AGENT_ID,
+        agent_name: 'coding-main',
+        provider: 'codex-app-server',
+        status: 'failed',
+        current_step_status: 'failed',
+        current_step_summary: 'openase test ./internal/chat',
+        created_at: '2026-04-02T08:00:00.000Z',
+        runtime_started_at: '2026-04-02T08:01:00.000Z',
+        last_heartbeat_at: '2026-04-02T08:14:00.000Z',
+        completed_at: '2026-04-02T08:15:00.000Z',
+        last_error: 'ticket.on_complete hook failed',
+      },
+    ],
+  }
+}
+
+function buildTicketRunDetailPayload(ticketId: string, runId: string) {
+  if (ticketId !== DEFAULT_TICKET_ID || runId !== 'run-1') {
+    return null
+  }
+  return {
+    run: buildTicketRunsPayload(ticketId).runs[0],
+    trace_entries: [],
+    step_entries: [
+      {
+        id: 'step-1',
+        agent_run_id: 'run-1',
+        step_status: 'failed',
+        summary: 'openase test ./internal/chat',
+        source_trace_event_id: null,
+        created_at: '2026-04-02T08:15:00.000Z',
+      },
+    ],
+  }
+}
+
+function buildMockProjectConversationReply(
+  message: string,
+  ticketFocus: {
+    identifier: string
+    status: string
+    retryPaused: boolean
+    pauseReason: string
+    repoScopes: unknown[]
+    hookHistory: unknown[]
+    currentRun: Record<string, unknown> | null
+  } | null,
+) {
+  if (!ticketFocus) {
+    return `Mock assistant reply for: ${message}`
+  }
+
+  const normalized = message.toLowerCase()
+  if (normalized.includes('why is this ticket not running')) {
+    const currentRunStatus = asString(ticketFocus.currentRun?.status) ?? 'unknown'
+    const lastError = asString(ticketFocus.currentRun?.last_error) ?? 'unknown'
+    return `${ticketFocus.identifier} is currently ${ticketFocus.status}. Retries are paused=${ticketFocus.retryPaused} because "${ticketFocus.pauseReason}". The latest run status was ${currentRunStatus} and the latest failure was "${lastError}".`
+  }
+
+  if (normalized.includes('which repos does this ticket currently affect')) {
+    const scopes = ticketFocus.repoScopes
+      .map((scope) => asObject(scope))
+      .filter((scope): scope is Record<string, unknown> => scope !== null)
+      .map((scope) =>
+        [
+          asString(scope.repo_name) ?? asString(scope.repo_id) ?? 'unknown-repo',
+          asString(scope.branch_name),
+        ]
+          .filter(Boolean)
+          .join(' @ '),
+      )
+      .filter(Boolean)
+    return `${ticketFocus.identifier} currently affects ${scopes.join(', ')}.`
+  }
+
+  if (normalized.includes('what hook failed most recently')) {
+    const latestHook = ticketFocus.hookHistory
+      .map((hook) => asObject(hook))
+      .filter((hook): hook is Record<string, unknown> => hook !== null)
+      .at(-1)
+    return latestHook
+      ? `The latest hook was ${asString(latestHook.hook_name) ?? 'unknown'} and it reported "${asString(latestHook.output) ?? ''}".`
+      : `No hook history is available for ${ticketFocus.identifier}.`
+  }
+
+  return `Mock assistant reply for ${ticketFocus.identifier}: ${message}`
+}
+
+function buildMockProjectConversationWorkspaceDiff(conversationId: string) {
+  return {
+    conversation_id: conversationId,
+    workspace_path: `/tmp/${conversationId}`,
+    dirty: false,
+    repos_changed: 0,
+    files_changed: 0,
+    added: 0,
+    removed: 0,
+    repos: [],
+  }
+}
+
+function executeMockProjectConversationActionProposal(proposalEntry: Record<string, unknown>) {
+  const payload = asObject(proposalEntry.payload)
+  const actions = Array.isArray(payload?.actions) ? payload.actions : []
+
+  return actions.map((action, index) => {
+    const actionObject = asObject(action)
+    const method = asString(actionObject?.method) ?? 'POST'
+    const path = asString(actionObject?.path) ?? ''
+    const body = asObject(actionObject?.body)
+
+    if (method === 'POST' && path === `/api/v1/projects/${PROJECT_ID}/tickets`) {
+      const statusId = DEFAULT_STATUS_IDS.todo
+      const statusName =
+        asString(mockState.statuses.find((status) => status.id === statusId)?.name) ?? 'Todo'
+      const ticket = createMockTicketRecord({
+        id: `ticket-${mockState.tickets.length + 1}`,
+        identifier: `ASE-${200 + mockState.tickets.length + 1}`,
+        title: asString(body?.title) ?? `Ticket ${mockState.tickets.length + 1}`,
+        description: asString(body?.description) ?? '',
+        statusId,
+        statusName,
+        workflowId: DEFAULT_WORKFLOW_ID,
+      })
+      mockState.tickets.unshift(ticket)
+      return {
+        actionIndex: index,
+        action: clone(actionObject),
+        ok: true,
+        summary: `${method} ${path} succeeded.`,
+      }
+    }
+
+    return {
+      actionIndex: index,
+      action: clone(actionObject),
+      ok: false,
+      summary: `${method} ${path} is not supported by the chat executor yet.`,
+    }
+  })
 }
 
 function createMachineRecord(body: Record<string, unknown>) {
@@ -1566,6 +2327,23 @@ function asStringArray(value: JsonValue | undefined): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string')
     : []
+}
+
+function asObjectArray(value: JsonValue | undefined): Record<string, unknown>[] | null {
+  return Array.isArray(value)
+    ? value.filter(
+        (item): item is Record<string, unknown> =>
+          !!item && typeof item === 'object' && !Array.isArray(item),
+      )
+    : null
+}
+
+function decodeBase64UTF8(value: string): string {
+  try {
+    return Buffer.from(value, 'base64').toString('utf8')
+  } catch {
+    return ''
+  }
 }
 
 async function readBody<T>(request: Request): Promise<T> {

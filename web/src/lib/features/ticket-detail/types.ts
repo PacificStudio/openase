@@ -1,4 +1,7 @@
 import type { ChatDiffPayload } from '$lib/api/chat'
+import type { TicketPickupDiagnosis } from './pickup-diagnosis'
+
+export type { TicketPickupDiagnosis } from './pickup-diagnosis'
 
 export type TicketStatusOption = {
   id: string
@@ -58,15 +61,23 @@ export type TicketDetail = {
     repoId: string
     repoName: string
     branchName: string
+    defaultBranch: string
+    effectiveBranchName: string
+    branchSource: 'generated' | 'override'
     prUrl?: string
   }>
   attemptCount: number
+  consecutiveErrors: number
   retryPaused: boolean
   pauseReason?: string
+  currentRunId?: string
+  targetMachineId?: string
+  nextRetryAt?: string
   costTokensInput: number
   costTokensOutput: number
   costAmount: number
   budgetUsd: number
+  pickupDiagnosis?: TicketPickupDiagnosis
   dependencies: Array<{
     id: string
     targetId: string
@@ -179,6 +190,15 @@ export type TicketRun = {
   lastHeartbeatAt?: string
   completedAt?: string
   lastError?: string
+  completionSummary?: TicketRunCompletionSummary
+}
+
+export type TicketRunCompletionSummary = {
+  status: 'pending' | 'completed' | 'failed'
+  markdown?: string
+  json?: Record<string, unknown>
+  generatedAt?: string
+  error?: string
 }
 
 export type TicketRunTraceEntry = {
