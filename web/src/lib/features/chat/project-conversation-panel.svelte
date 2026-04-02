@@ -26,6 +26,7 @@
     title = 'Project AI',
     placeholder = 'Ask anything about this project…',
     initialPrompt = '',
+    onClose,
   }: {
     context: { projectId: string }
     organizationId?: string
@@ -35,6 +36,7 @@
     title?: string
     placeholder?: string
     initialPrompt?: string
+    onClose?: () => void
   } = $props()
 
   let suppressedFocusKey = $state('')
@@ -57,10 +59,6 @@
   const tabs = $derived(controller.tabs)
   const activeTabId = $derived(controller.activeTabId)
   const activeTab = $derived(tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null)
-  const activeConversation = $derived(
-    conversations.find((conversation) => conversation.id === (activeTab?.conversationId ?? '')) ??
-      null,
-  )
   const draft = $derived(controller.draft)
   const queuedTurns = $derived(controller.queuedTurns)
   const nextQueuedTurn = $derived(queuedTurns[0] ?? null)
@@ -83,16 +81,6 @@
     effectiveFocus && suppressedFocusKey !== effectiveFocusKey ? effectiveFocus : null,
   )
   const focusCard = $derived(focusForSend ? describeProjectAIFocus(focusForSend) : null)
-  const providerAnchorSummary = $derived.by(() => {
-    if (!activeConversation?.providerAnchorId || !activeConversation.providerAnchorKind) {
-      return ''
-    }
-
-    const kindLabel =
-      activeConversation.providerAnchorKind === 'session' ? 'Claude session' : 'Codex thread'
-    const statusLabel = activeConversation.providerStatus?.trim()
-    return statusLabel ? `${kindLabel} · ${statusLabel}` : kindLabel
-  })
 
   function applyInitialPromptIfEligible(restoreKey: string, nextInitialPrompt: string) {
     const result = getEligibleInitialPromptSignature({
@@ -268,10 +256,12 @@
     providers={chatProviders}
     {providerId}
     {providerSelectionDisabled}
+    activeTabHasContent={entries.length > 0 || Boolean(activeTab?.conversationId)}
     resetDisabled={entries.length === 0 && !pending}
     onProviderChange={(nextProviderId) => void controller.selectProvider(nextProviderId)}
     onCreateTab={() => controller.createTab()}
     onResetConversation={() => void controller.resetConversation()}
+    {onClose}
   />
 
   <ProjectConversationContent
@@ -296,8 +286,6 @@
     {providerError}
     providerCount={chatProviders.length}
     statusMessage={statusMessage ?? undefined}
-    restored={activeTab?.restored ?? false}
-    {providerAnchorSummary}
     {focusCard}
     {queuedTurns}
     hasPendingInterrupt={controller.hasPendingInterrupt}

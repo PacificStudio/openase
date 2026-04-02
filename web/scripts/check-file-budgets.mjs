@@ -27,6 +27,8 @@ const budgetRules = [
     allowlist: {
       'src/lib/features/agents/components/agent-drawer.svelte':
         'Agent drawer is temporarily oversized while provider and runtime controls remain in one panel.',
+      'src/lib/features/app-shell/components/project-shell.svelte':
+        'Project shell still coordinates top bar, sidebar, app-context refresh, and overlays while shell controller extraction continues.',
       'src/lib/features/dashboard/components/org-dashboard.svelte':
         'Dashboard summary and advisor layout remain colocated pending dashboard panel extraction.',
       'src/lib/features/onboarding/components/onboarding-panel.svelte':

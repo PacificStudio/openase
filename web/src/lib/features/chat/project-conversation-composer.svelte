@@ -19,8 +19,6 @@
     providerError = '',
     providerCount = 0,
     statusMessage = '',
-    restored = false,
-    providerAnchorSummary = '',
     focusCard = null,
     queuedTurns = [],
     hasPendingInterrupt = false,
@@ -38,8 +36,6 @@
     providerError?: string
     providerCount?: number
     statusMessage?: string
-    restored?: boolean
-    providerAnchorSummary?: string
     focusCard?: FocusCard | null
     queuedTurns?: QueuedTurn[]
     hasPendingInterrupt?: boolean
@@ -68,12 +64,6 @@
     <div class="text-muted-foreground mb-1.5 text-[11px]">No chat provider available.</div>
   {:else if statusMessage}
     <div class="text-muted-foreground mb-1.5 text-[11px]">{statusMessage}</div>
-  {:else if restored}
-    <div class="text-muted-foreground mb-1.5 text-[11px]">Restored from last session.</div>
-  {/if}
-
-  {#if providerAnchorSummary}
-    <div class="text-muted-foreground mb-1.5 text-[11px]">{providerAnchorSummary}</div>
   {/if}
 
   {#if focusCard}
@@ -110,9 +100,7 @@
     </div>
   {/if}
 
-  <div
-    class="border-input focus-within:ring-ring flex items-center gap-1.5 rounded-lg border px-2.5 py-1 focus-within:ring-1"
-  >
+  <div class="flex items-center gap-1.5 px-0.5">
     <textarea
       value={draft}
       rows={1}

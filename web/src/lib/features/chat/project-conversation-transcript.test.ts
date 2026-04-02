@@ -180,4 +180,26 @@ describe('ProjectConversationTranscript', () => {
     expect(getByText('waitingOnApproval · waitingOnApproval')).toBeTruthy()
     expect(getByText('requires_action · approval required · requires_action')).toBeTruthy()
   })
+
+  it('uses the command as the visible label for command output cards', async () => {
+    const { getByRole, getByText } = render(ProjectConversationTranscript, {
+      props: {
+        entries: [
+          {
+            id: 'entry-command',
+            kind: 'command_output',
+            role: 'system',
+            stream: 'command',
+            command: 'pnpm vitest run',
+            snapshot: false,
+            content: 'PASS\n',
+          },
+        ],
+      },
+    })
+
+    await fireEvent.click(getByRole('button', { name: /pnpm vitest run/i }))
+
+    expect(getByText('pnpm vitest run')).toBeTruthy()
+  })
 })

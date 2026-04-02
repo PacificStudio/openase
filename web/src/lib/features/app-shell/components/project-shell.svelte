@@ -4,6 +4,7 @@
   import { connectEventStream } from '$lib/api/sse'
   import Sidebar from '$lib/components/layout/sidebar.svelte'
   import TopBar from '$lib/components/layout/top-bar.svelte'
+  import { ProjectConversationPanel } from '$lib/features/chat'
   import { appStore } from '$lib/stores/app.svelte'
   import type { AppRouteContext, ProjectSection } from '$lib/stores/app-context'
   import { cn } from '$lib/utils'
@@ -198,6 +199,14 @@
     }
   })
 
+  const assistantFocus = $derived(
+    appStore.currentProject?.id
+      ? appStore.projectAssistantFocus?.projectId === appStore.currentProject.id
+        ? appStore.projectAssistantFocus
+        : null
+      : null,
+  )
+
   function handleNewTicket() {
     appStore.openNewTicketDialog()
   }
@@ -254,6 +263,25 @@
     <main class="flex min-w-0 flex-1 flex-col overflow-auto">
       {@render children()}
     </main>
+
+    {#if projectAssistantOpen && appStore.currentOrg?.id && appStore.currentProject?.id}
+      <aside
+        class="border-border bg-background flex h-full w-[20%] max-w-[480px] min-w-[280px] shrink-0 flex-col border-l"
+      >
+        <ProjectConversationPanel
+          organizationId={appStore.currentOrg.id}
+          defaultProviderId={appStore.currentProject.default_agent_provider_id ?? null}
+          context={{ projectId: appStore.currentProject.id }}
+          focus={assistantFocus}
+          title="Project AI"
+          placeholder="Ask anything about this project…"
+          initialPrompt={projectAssistantPrompt}
+          onClose={() => {
+            projectAssistantOpen = false
+          }}
+        />
+      </aside>
+    {/if}
   </div>
 
   <ProjectShellOverlays
@@ -264,8 +292,6 @@
     bind:searchOpen
     bind:createOrgOpen
     bind:createProjectOpen
-    bind:projectAssistantOpen
-    {projectAssistantPrompt}
     newTicketEnabled={isNewTicketEnabled}
     onToggleTheme={handleToggleTheme}
     onNewTicket={handleNewTicket}

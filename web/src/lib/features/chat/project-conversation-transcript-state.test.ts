@@ -41,6 +41,7 @@ describe('mapPersistedEntries', () => {
           type: 'task_progress',
           raw: {
             stream: 'command',
+            command: 'git status',
             phase: 'stdout',
             snapshot: false,
             text: 'first line\n',
@@ -66,10 +67,36 @@ describe('mapPersistedEntries', () => {
         createdAt: '2026-04-01T12:00:03Z',
       },
       {
-        id: 'entry-diff',
+        id: 'entry-reasoning',
         conversationId: 'conversation-1',
         turnId: 'turn-1',
         seq: 5,
+        kind: 'system',
+        payload: {
+          type: 'turn_reasoning_updated',
+          item_id: 'reasoning-1',
+          kind: 'summary_text_delta',
+          delta: 'Inspect the repository before patching.',
+        },
+        createdAt: '2026-04-01T12:00:04Z',
+      },
+      {
+        id: 'entry-turn-diff',
+        conversationId: 'conversation-1',
+        turnId: 'turn-1',
+        seq: 6,
+        kind: 'system',
+        payload: {
+          type: 'turn_diff_updated',
+          diff: ['diff --git a/app.ts b/app.ts', '@@ -1,1 +1,1 @@', '-old', '+new'].join('\n'),
+        },
+        createdAt: '2026-04-01T12:00:05Z',
+      },
+      {
+        id: 'entry-diff',
+        conversationId: 'conversation-1',
+        turnId: 'turn-1',
+        seq: 7,
         kind: 'diff',
         payload: {
           type: 'diff',
@@ -105,8 +132,33 @@ describe('mapPersistedEntries', () => {
       {
         kind: 'command_output',
         stream: 'command',
+        command: 'git status',
         phase: 'stdout',
         content: 'first line\nsecond line\n',
+      },
+      {
+        kind: 'task_status',
+        statusType: 'reasoning_updated',
+        title: 'Reasoning update',
+        detail: 'Inspect the repository before patching.',
+      },
+      {
+        kind: 'diff',
+        diff: {
+          file: 'app.ts',
+          hunks: [
+            {
+              oldStart: 1,
+              oldLines: 1,
+              newStart: 1,
+              newLines: 1,
+              lines: [
+                { op: 'remove', text: 'old' },
+                { op: 'add', text: 'new' },
+              ],
+            },
+          ],
+        },
       },
       {
         kind: 'diff',

@@ -103,16 +103,14 @@ describe('ProjectConversationPanel workspace summary', () => {
     await findByText('1 repo changed · +4 -1')
 
     // Details are hidden by default
-    expect(queryByText('Uncommitted changes in this Project AI workspace')).toBeNull()
+    expect(queryByText('web/src/app.ts')).toBeNull()
 
     // Click to expand
     const bar = await findByText('Workspace changes')
     await fireEvent.click(bar.closest('button')!)
 
-    // Now details are visible
-    await findByText('Uncommitted changes in this Project AI workspace')
-    await findByText('services/openase · agent/conv-123')
+    // Now file list is visible (single repo omits repo header)
     await findByText('web/src/app.ts')
-    await findByText('modified')
+    await findByText('M')
   })
 })

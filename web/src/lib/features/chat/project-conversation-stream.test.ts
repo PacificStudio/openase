@@ -73,6 +73,7 @@ describe('handleProjectConversationStreamEvent', () => {
     })
     expect(handlers.appendCommandOutput).toHaveBeenCalledWith({
       stream: 'command',
+      command: undefined,
       phase: 'stdout',
       snapshot: false,
       content: 'M web/src/app.ts\n',
@@ -198,6 +199,85 @@ describe('handleProjectConversationStreamEvent', () => {
         detail: 'approval required',
         active_flags: ['requires_action'],
       },
+    })
+  })
+
+  it('maps reasoning updates from the stream into task status entries', () => {
+    const handlers = createHandlers()
+
+    handleProjectConversationStreamEvent(
+      {
+        kind: 'reasoning_updated',
+        payload: {
+          threadId: 'thread-1',
+          turnId: 'turn-1',
+          itemId: 'item-1',
+          kind: 'summary_text_delta',
+          delta: 'Check the failing tests first.',
+          summaryIndex: 0,
+        },
+      },
+      handlers,
+    )
+
+    expect(handlers.finalizeAssistantEntry).toHaveBeenCalledOnce()
+    expect(handlers.appendTaskStatus).toHaveBeenCalledWith({
+      statusType: 'reasoning_updated',
+      title: 'Reasoning update',
+      detail: 'Check the failing tests first.',
+      raw: {
+        thread_id: 'thread-1',
+        turn_id: 'turn-1',
+        item_id: 'item-1',
+        kind: 'summary_text_delta',
+        delta: 'Check the failing tests first.',
+        summary_index: 0,
+        content_index: undefined,
+        entry_id: undefined,
+      },
+    })
+  })
+
+  it('maps diff updates from the stream into structured diff entries', () => {
+    const handlers = createHandlers()
+
+    handleProjectConversationStreamEvent(
+      {
+        kind: 'diff_updated',
+        payload: {
+          threadId: 'thread-1',
+          turnId: 'turn-1',
+          diff: [
+            'diff --git a/app.ts b/app.ts',
+            '@@ -1,1 +1,2 @@',
+            '-old line',
+            '+new line',
+            '+second line',
+          ].join('\n'),
+          entryId: 'entry-diff',
+        },
+      },
+      handlers,
+    )
+
+    expect(handlers.finalizeAssistantEntry).toHaveBeenCalledOnce()
+    expect(handlers.appendDiff).toHaveBeenCalledWith('entry-diff', {
+      type: 'diff',
+      entryId: 'entry-diff',
+      file: 'app.ts',
+      hunks: [
+        {
+          oldStart: 1,
+          oldLines: 1,
+          newStart: 1,
+          newLines: 2,
+          lines: [
+            { op: 'remove', text: 'old line' },
+            { op: 'add', text: 'new line' },
+            { op: 'add', text: 'second line' },
+          ],
+        },
+      ],
     })
   })
 })

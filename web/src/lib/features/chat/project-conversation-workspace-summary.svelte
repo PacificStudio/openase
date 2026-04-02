@@ -29,11 +29,22 @@
     return `${diff.reposChanged} ${repoLabel} · ${formatTotals(diff.added, diff.removed)}`
   }
 
-  function formatFileCount(count: number) {
-    return `${count} ${count === 1 ? 'file' : 'files'}`
+  function statusLabel(status: ProjectConversationWorkspaceFileStatus) {
+    switch (status) {
+      case 'added':
+        return 'A'
+      case 'deleted':
+        return 'D'
+      case 'renamed':
+        return 'R'
+      case 'untracked':
+        return 'U'
+      default:
+        return 'M'
+    }
   }
 
-  function statusBadgeClass(status: ProjectConversationWorkspaceFileStatus) {
+  function statusClass(status: ProjectConversationWorkspaceFileStatus) {
     switch (status) {
       case 'added':
       case 'untracked':
@@ -88,70 +99,43 @@
     </button>
 
     {#if expanded && workspaceDiff}
-      <div class="border-border border-t px-3 py-2 text-xs">
-        <div class="flex items-center gap-2">
-          <p class={cn('text-[11px] font-medium', isDirty ? 'text-amber-600' : 'text-emerald-600')}>
-            {#if isDirty}
-              Uncommitted changes in this Project AI workspace
-            {:else}
-              No uncommitted changes in this Project AI workspace
-            {/if}
-          </p>
-        </div>
-        <p class="text-muted-foreground/60 mt-0.5 font-mono text-[10px] break-all">
-          {workspaceDiff.workspacePath}
-        </p>
-
+      <div class="border-border border-t text-[11px]">
         {#if workspaceDiff.repos.length === 0}
-          <p class="text-muted-foreground mt-2 text-[11px]">
-            No repo changes are currently detected in this conversation workspace.
-          </p>
+          <p class="text-muted-foreground px-3 py-1.5">No repo changes detected.</p>
         {:else}
-          <div class="mt-2 space-y-1.5">
-            {#each workspaceDiff.repos as repo}
-              <details
-                class="rounded-md border px-2 py-1.5"
-                open={workspaceDiff.repos.length === 1}
+          {#each workspaceDiff.repos as repo, repoIndex}
+            {#if workspaceDiff.repos.length > 1}
+              <div
+                class={cn(
+                  'text-muted-foreground flex items-center gap-1.5 px-3 py-1',
+                  repoIndex > 0 && 'border-border border-t',
+                )}
               >
-                <summary class="flex cursor-pointer list-none items-center gap-2">
-                  <GitBranch class="text-muted-foreground size-3 shrink-0" />
-                  <span class="min-w-0 flex-1 truncate font-medium">{repo.name}</span>
-                  <span class="text-muted-foreground/60 font-mono text-[10px]">
-                    {repo.path} · {repo.branch}
-                  </span>
-                  <span class="shrink-0 font-medium">
-                    {formatTotals(repo.added, repo.removed)}
-                  </span>
-                  <span class="text-muted-foreground/60 shrink-0">
-                    {formatFileCount(repo.filesChanged)}
-                  </span>
-                </summary>
-
-                <div class="mt-1.5 space-y-0.5">
-                  {#each repo.files as file}
-                    <div class="hover:bg-muted/30 flex items-center gap-2 rounded px-1.5 py-0.5">
-                      <span
-                        class={cn(
-                          'w-12 shrink-0 text-[10px] font-medium',
-                          statusBadgeClass(file.status),
-                        )}
-                      >
-                        {file.status}
-                      </span>
-                      <span
-                        class="text-foreground/80 min-w-0 flex-1 truncate font-mono text-[11px]"
-                      >
-                        {file.path}
-                      </span>
-                      <span class="text-muted-foreground shrink-0 font-mono text-[10px]">
-                        {formatTotals(file.added, file.removed)}
-                      </span>
-                    </div>
-                  {/each}
-                </div>
-              </details>
+                <GitBranch class="size-3 shrink-0" />
+                <span class="font-medium">{repo.name}</span>
+                <span class="text-muted-foreground/60 font-mono text-[10px]">
+                  {repo.path} · {repo.branch}
+                </span>
+                <span class="ml-auto shrink-0 font-mono text-[10px]">
+                  {formatTotals(repo.added, repo.removed)}
+                </span>
+              </div>
+            {/if}
+            {#each repo.files as file}
+              <div class="flex items-center gap-1.5 px-3 py-0.5">
+                <span class={cn('w-3 shrink-0 font-mono font-bold', statusClass(file.status))}>
+                  {statusLabel(file.status)}
+                </span>
+                <span class="text-foreground/80 min-w-0 flex-1 truncate font-mono text-[10px]">
+                  {file.path}
+                </span>
+                <span class="text-muted-foreground/60 shrink-0 font-mono text-[10px]">
+                  {formatTotals(file.added, file.removed)}
+                </span>
+              </div>
             {/each}
-          </div>
+          {/each}
+          <div class="h-1"></div>
         {/if}
       </div>
     {/if}

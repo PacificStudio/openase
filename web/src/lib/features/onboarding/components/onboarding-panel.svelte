@@ -2,6 +2,7 @@
   import { cn } from '$lib/utils'
   import { ApiError } from '$lib/api/client'
   import { appStore } from '$lib/stores/app.svelte'
+  import { Button } from '$ui/button'
   import {
     Github,
     FolderGit2,
@@ -115,6 +116,10 @@
       }
     }
     void load()
+  }
+
+  function handleSkipOnboarding() {
+    onOnboardingComplete()
   }
 </script>
 
@@ -298,6 +303,17 @@
                       onOnboardingComplete()
                     }}
                   />
+                {/if}
+
+                {#if !isCompleted}
+                  <div class="mt-4 flex items-center justify-between gap-3 border-t pt-4">
+                    <p class="text-muted-foreground text-xs">
+                      不想继续配置的话，可以直接跳过导览并结束。
+                    </p>
+                    <Button variant="ghost" size="sm" class="text-xs" onclick={handleSkipOnboarding}
+                      >跳过导览</Button
+                    >
+                  </div>
                 {/if}
               </div>
             {/if}

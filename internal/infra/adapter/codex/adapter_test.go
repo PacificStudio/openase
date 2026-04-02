@@ -1092,6 +1092,7 @@ func TestAdapterEmitsOutputEventsFromRuntimeNotifications(t *testing.T) {
 						ThreadID: "thread-1",
 						TurnID:   "turn-output",
 						ItemID:   "cmd-1",
+						Command:  "go test ./...",
 						Delta:    "go test ./...\n",
 					}),
 				},
@@ -1118,6 +1119,7 @@ func TestAdapterEmitsOutputEventsFromRuntimeNotifications(t *testing.T) {
 						Item: wireThreadItem{
 							ID:               "cmd-2",
 							Type:             "commandExecution",
+							Command:          stringPointer("go test ./..."),
 							AggregatedOutput: stringPointer("PASS\n"),
 						},
 					}),
@@ -1184,7 +1186,7 @@ func TestAdapterEmitsOutputEventsFromRuntimeNotifications(t *testing.T) {
 	if commandDelta.Type != EventTypeOutputProduced || commandDelta.Output == nil {
 		t.Fatalf("expected command output event, got %+v", commandDelta)
 	}
-	if commandDelta.Output.Stream != "command" || commandDelta.Output.Text != "go test ./...\n" || commandDelta.Output.Snapshot {
+	if commandDelta.Output.Stream != "command" || commandDelta.Output.Command != "go test ./..." || commandDelta.Output.Text != "go test ./...\n" || commandDelta.Output.Snapshot {
 		t.Fatalf("unexpected command delta event: %+v", commandDelta.Output)
 	}
 
@@ -1200,7 +1202,7 @@ func TestAdapterEmitsOutputEventsFromRuntimeNotifications(t *testing.T) {
 	if commandSnapshot.Type != EventTypeOutputProduced || commandSnapshot.Output == nil {
 		t.Fatalf("expected command snapshot event, got %+v", commandSnapshot)
 	}
-	if !commandSnapshot.Output.Snapshot || commandSnapshot.Output.Text != "PASS\n" {
+	if !commandSnapshot.Output.Snapshot || commandSnapshot.Output.Command != "go test ./..." || commandSnapshot.Output.Text != "PASS\n" {
 		t.Fatalf("unexpected command snapshot event: %+v", commandSnapshot.Output)
 	}
 

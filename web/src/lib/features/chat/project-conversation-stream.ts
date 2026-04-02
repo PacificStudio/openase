@@ -1,6 +1,7 @@
 import type { ProjectConversationStreamEvent } from '$lib/api/chat'
 import type { ChatActionExecutionResult } from './action-proposal-executor'
 import {
+  createProjectConversationDiffEntriesFromUnifiedDiff,
   isActionProposalPayload,
   isDiffPayload,
   isTextPayload,
@@ -136,6 +137,18 @@ export function handleProjectConversationStreamEvent(
   if (event.kind === 'interrupt_resolved') {
     handlers.resolveInterrupt(event.payload.interruptId, event.payload.decision)
     handlers.setPending(true)
+    return
+  }
+
+  if (event.kind === 'diff_updated') {
+    handlers.finalizeAssistantEntry()
+    const diffEntries = createProjectConversationDiffEntriesFromUnifiedDiff({
+      idBase: event.payload.entryId ?? '',
+      diff: event.payload.diff,
+    })
+    for (const diffEntry of diffEntries) {
+      handlers.appendDiff(diffEntry.id || undefined, diffEntry.diff)
+    }
     return
   }
 

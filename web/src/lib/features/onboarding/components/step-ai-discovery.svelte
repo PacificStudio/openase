@@ -2,7 +2,7 @@
   import { goto } from '$app/navigation'
   import { projectPath } from '$lib/stores/app-context'
   import { Button } from '$ui/button'
-  import { Bot, Sparkles, CheckCircle2, ArrowRight } from '@lucide/svelte'
+  import { Bot, Sparkles, ArrowRight } from '@lucide/svelte'
 
   let {
     orgId,
@@ -18,29 +18,33 @@
     onComplete: () => void
   } = $props()
 
-  let projectAIOpened = $state(false)
-  let harnessAIOpened = $state(false)
+  let completed = $state(false)
 
-  const allDone = $derived(projectAIOpened && harnessAIOpened)
-
-  $effect(() => {
-    if (allDone) {
-      onComplete()
-    }
-  })
+  function finishOnboarding() {
+    if (completed) return
+    completed = true
+    onComplete()
+  }
 
   function handleOpenProjectAI(prompt: string) {
-    projectAIOpened = true
     onOpenProjectAI(prompt)
+    finishOnboarding()
   }
 
   function handleOpenHarnessAI() {
-    harnessAIOpened = true
     void goto(projectPath(orgId, projectId, 'workflows'))
+    finishOnboarding()
   }
 </script>
 
 <div class="space-y-4">
+  <div class="bg-muted/50 rounded-lg p-3">
+    <p class="text-foreground text-sm font-medium">最后一步里，点击任意一个按钮都可以结束导览。</p>
+    <p class="text-muted-foreground mt-1 text-xs">
+      你可以直接体验 Project AI、前往 Workflow 编辑器，或者点“我知道了”先结束导览。
+    </p>
+  </div>
+
   <!-- Project AI -->
   <div class="border-border rounded-lg border p-4">
     <div class="flex items-center gap-3">
@@ -50,9 +54,6 @@
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-2">
           <p class="text-foreground text-sm font-medium">Project AI</p>
-          {#if projectAIOpened}
-            <CheckCircle2 class="size-3.5 text-emerald-600 dark:text-emerald-400" />
-          {/if}
         </div>
         <p class="text-muted-foreground text-xs">让 AI 帮你拆解需求、规划后续工单</p>
       </div>
@@ -88,9 +89,6 @@
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-2">
           <p class="text-foreground text-sm font-medium">Harness AI</p>
-          {#if harnessAIOpened}
-            <CheckCircle2 class="size-3.5 text-emerald-600 dark:text-emerald-400" />
-          {/if}
         </div>
         <p class="text-muted-foreground text-xs">用 AI 调整 Workflow 的工作规范和角色设定</p>
       </div>
@@ -105,12 +103,7 @@
     {/if}
   </div>
 
-  {#if allDone}
-    <div
-      class="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900/50 dark:bg-emerald-950/30"
-    >
-      <CheckCircle2 class="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-      <p class="text-foreground text-sm font-medium">导览已完成！</p>
-    </div>
-  {/if}
+  <div class="flex justify-end">
+    <Button variant="ghost" size="sm" class="text-xs" onclick={finishOnboarding}>我知道了</Button>
+  </div>
 </div>

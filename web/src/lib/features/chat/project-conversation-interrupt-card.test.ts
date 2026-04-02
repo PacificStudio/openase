@@ -52,10 +52,7 @@ describe('ProjectConversationInterruptCard', () => {
               {
                 id: 'approval',
                 question: 'Approve the next step?',
-                options: [
-                  { label: 'Yes' },
-                  { label: 'No' },
-                ],
+                options: [{ label: 'Yes' }, { label: 'No' }],
               },
             ],
           },

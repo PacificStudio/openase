@@ -6,6 +6,7 @@ import type {
 } from '$lib/api/chat'
 import type { ChatActionExecutionResult } from './action-proposal-executor'
 import {
+  createProjectConversationDiffEntriesFromUnifiedDiff,
   createProjectConversationDiffEntry,
   mapProjectConversationTaskEntry,
 } from './project-conversation-transcript-parsers'
@@ -24,6 +25,7 @@ export {
   createProjectConversationInterruptEntry,
 } from './project-conversation-transcript-types'
 export {
+  createProjectConversationDiffEntriesFromUnifiedDiff,
   createProjectConversationDiffEntry,
   mapProjectConversationTaskEntry,
 } from './project-conversation-transcript-parsers'
@@ -165,6 +167,21 @@ export function mapPersistedEntries(
     }
 
     if (entry.kind === 'system') {
+      if (String(entry.payload.type ?? '') === 'turn_diff_updated') {
+        const diffEntries = createProjectConversationDiffEntriesFromUnifiedDiff({
+          idBase: entry.id,
+          diff: String(entry.payload.diff ?? ''),
+        })
+        if (diffEntries.length > 0) {
+          let nextTranscript = transcript
+          for (const diffEntry of diffEntries) {
+            nextTranscript = appendProjectConversationTranscriptEntry(nextTranscript, diffEntry)
+          }
+          transcript.splice(0, transcript.length, ...nextTranscript)
+          continue
+        }
+      }
+
       const derived = mapProjectConversationTaskEntry({
         id: entry.id,
         turnId: entry.turnId,
