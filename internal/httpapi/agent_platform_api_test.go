@@ -430,6 +430,90 @@ func TestAgentPlatformPrivilegedRoutesRequireExplicitScopes(t *testing.T) {
 	}
 }
 
+func TestAgentPlatformProjectConversationTokenRejectsTicketOnlyRoutes(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
+	platformService := agentplatform.NewService(client)
+
+	conversationID := uuid.New()
+	if _, err := client.ChatConversation.Create().
+		SetID(conversationID).
+		SetProjectID(projectID).
+		SetUserID("browser-user").
+		SetSource("project_sidebar").
+		SetProviderID(uuid.New()).
+		SetStatus("active").
+		Save(ctx); err != nil {
+		t.Fatalf("create chat conversation: %v", err)
+	}
+	if _, err := client.ProjectConversationPrincipal.Create().
+		SetID(conversationID).
+		SetConversationID(conversationID).
+		SetProjectID(projectID).
+		SetProviderID(uuid.New()).
+		SetName("project-conversation:" + conversationID.String()).
+		Save(ctx); err != nil {
+		t.Fatalf("create project conversation principal: %v", err)
+	}
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		platformService,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		nil,
+	)
+
+	issued, err := platformService.IssueToken(ctx, agentplatform.IssueInput{
+		PrincipalKind:  agentplatform.PrincipalKindProjectConversation,
+		PrincipalID:    conversationID,
+		ProjectID:      projectID,
+		ConversationID: conversationID,
+	})
+	if err != nil {
+		t.Fatalf("IssueToken(project conversation) returned error: %v", err)
+	}
+
+	createResp := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets", projectID),
+		map[string]any{
+			"title":       "Conversation-created follow-up",
+			"description": "Created from project conversation token",
+		},
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
+		http.StatusCreated,
+		&createResp,
+	)
+	if createResp.Ticket.CreatedBy != "project-conversation:"+conversationID.String() {
+		t.Fatalf("unexpected created_by for project conversation token: %+v", createResp.Ticket)
+	}
+
+	forbiddenRec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/tickets/%s", currentTicketID),
+		"",
+		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
+	)
+	if forbiddenRec.Code != http.StatusForbidden || !strings.Contains(forbiddenRec.Body.String(), "AGENT_PRINCIPAL_KIND_FORBIDDEN") {
+		t.Fatalf("expected ticket-only route to reject project conversation principal, got %d: %s", forbiddenRec.Code, forbiddenRec.Body.String())
+	}
+
+	_ = agentID
+}
+
 func TestAgentPlatformProjectUpdateRoutesRespectScopesAndBoundaries(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()

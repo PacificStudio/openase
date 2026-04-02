@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
+	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
@@ -264,6 +265,21 @@ func (_u *ChatConversationUpdate) AddPendingInterrupts(v ...*ChatPendingInterrup
 	return _u.AddPendingInterruptIDs(ids...)
 }
 
+// AddAgentTokenIDs adds the "agent_tokens" edge to the AgentToken entity by IDs.
+func (_u *ChatConversationUpdate) AddAgentTokenIDs(ids ...uuid.UUID) *ChatConversationUpdate {
+	_u.mutation.AddAgentTokenIDs(ids...)
+	return _u
+}
+
+// AddAgentTokens adds the "agent_tokens" edges to the AgentToken entity.
+func (_u *ChatConversationUpdate) AddAgentTokens(v ...*AgentToken) *ChatConversationUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentTokenIDs(ids...)
+}
+
 // Mutation returns the ChatConversationMutation object of the builder.
 func (_u *ChatConversationUpdate) Mutation() *ChatConversationMutation {
 	return _u.mutation
@@ -336,6 +352,27 @@ func (_u *ChatConversationUpdate) RemovePendingInterrupts(v ...*ChatPendingInter
 		ids[i] = v[i].ID
 	}
 	return _u.RemovePendingInterruptIDs(ids...)
+}
+
+// ClearAgentTokens clears all "agent_tokens" edges to the AgentToken entity.
+func (_u *ChatConversationUpdate) ClearAgentTokens() *ChatConversationUpdate {
+	_u.mutation.ClearAgentTokens()
+	return _u
+}
+
+// RemoveAgentTokenIDs removes the "agent_tokens" edge to AgentToken entities by IDs.
+func (_u *ChatConversationUpdate) RemoveAgentTokenIDs(ids ...uuid.UUID) *ChatConversationUpdate {
+	_u.mutation.RemoveAgentTokenIDs(ids...)
+	return _u
+}
+
+// RemoveAgentTokens removes "agent_tokens" edges to AgentToken entities.
+func (_u *ChatConversationUpdate) RemoveAgentTokens(v ...*AgentToken) *ChatConversationUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentTokenIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -625,6 +662,51 @@ func (_u *ChatConversationUpdate) sqlSave(ctx context.Context) (_node int, err e
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.AgentTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   chatconversation.AgentTokensTable,
+			Columns: []string{chatconversation.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentTokensIDs(); len(nodes) > 0 && !_u.mutation.AgentTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   chatconversation.AgentTokensTable,
+			Columns: []string{chatconversation.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   chatconversation.AgentTokensTable,
+			Columns: []string{chatconversation.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{chatconversation.Label}
@@ -875,6 +957,21 @@ func (_u *ChatConversationUpdateOne) AddPendingInterrupts(v ...*ChatPendingInter
 	return _u.AddPendingInterruptIDs(ids...)
 }
 
+// AddAgentTokenIDs adds the "agent_tokens" edge to the AgentToken entity by IDs.
+func (_u *ChatConversationUpdateOne) AddAgentTokenIDs(ids ...uuid.UUID) *ChatConversationUpdateOne {
+	_u.mutation.AddAgentTokenIDs(ids...)
+	return _u
+}
+
+// AddAgentTokens adds the "agent_tokens" edges to the AgentToken entity.
+func (_u *ChatConversationUpdateOne) AddAgentTokens(v ...*AgentToken) *ChatConversationUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentTokenIDs(ids...)
+}
+
 // Mutation returns the ChatConversationMutation object of the builder.
 func (_u *ChatConversationUpdateOne) Mutation() *ChatConversationMutation {
 	return _u.mutation
@@ -947,6 +1044,27 @@ func (_u *ChatConversationUpdateOne) RemovePendingInterrupts(v ...*ChatPendingIn
 		ids[i] = v[i].ID
 	}
 	return _u.RemovePendingInterruptIDs(ids...)
+}
+
+// ClearAgentTokens clears all "agent_tokens" edges to the AgentToken entity.
+func (_u *ChatConversationUpdateOne) ClearAgentTokens() *ChatConversationUpdateOne {
+	_u.mutation.ClearAgentTokens()
+	return _u
+}
+
+// RemoveAgentTokenIDs removes the "agent_tokens" edge to AgentToken entities by IDs.
+func (_u *ChatConversationUpdateOne) RemoveAgentTokenIDs(ids ...uuid.UUID) *ChatConversationUpdateOne {
+	_u.mutation.RemoveAgentTokenIDs(ids...)
+	return _u
+}
+
+// RemoveAgentTokens removes "agent_tokens" edges to AgentToken entities.
+func (_u *ChatConversationUpdateOne) RemoveAgentTokens(v ...*AgentToken) *ChatConversationUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentTokenIDs(ids...)
 }
 
 // Where appends a list predicates to the ChatConversationUpdate builder.
@@ -1259,6 +1377,51 @@ func (_u *ChatConversationUpdateOne) sqlSave(ctx context.Context) (_node *ChatCo
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(chatpendinginterrupt.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   chatconversation.AgentTokensTable,
+			Columns: []string{chatconversation.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentTokensIDs(); len(nodes) > 0 && !_u.mutation.AgentTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   chatconversation.AgentTokensTable,
+			Columns: []string{chatconversation.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   chatconversation.AgentTokensTable,
+			Columns: []string{chatconversation.AgentTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttoken.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

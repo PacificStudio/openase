@@ -45,6 +45,7 @@ func (ChatConversation) Edges() []ent.Edge {
 		edge.To("turns", ChatTurn.Type),
 		edge.To("entries", ChatEntry.Type),
 		edge.To("pending_interrupts", ChatPendingInterrupt.Type),
+		edge.To("agent_tokens", AgentToken.Type),
 	}
 }
 

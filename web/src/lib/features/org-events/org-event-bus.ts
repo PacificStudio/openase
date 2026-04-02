@@ -173,8 +173,10 @@ function buildRuntimeKey(orgId: string, scope: OrganizationEventScope) {
 }
 
 function organizationEventStreamPath(orgId: string, scope: OrganizationEventScope) {
-  if (scope === 'machines') {
-    return `/api/v1/orgs/${orgId}/machines/stream`
+  switch (scope) {
+    case 'machines':
+      return `/api/v1/orgs/${orgId}/machines/stream`
+    case 'providers':
+      return `/api/v1/orgs/${orgId}/providers/stream`
   }
-  return `/api/v1/orgs/${orgId}/providers/stream`
 }

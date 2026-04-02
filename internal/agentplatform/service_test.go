@@ -12,6 +12,8 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
+	chatrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
 	"github.com/BetterAndBetterII/openase/internal/testutil/pgtest"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
@@ -59,6 +61,76 @@ func TestIssueAndAuthenticateToken(t *testing.T) {
 	}
 	if claims.CreatedBy() != "agent:coding-01" {
 		t.Fatalf("CreatedBy=%q, want agent:coding-01", claims.CreatedBy())
+	}
+}
+
+func TestIssueAndAuthenticateProjectConversationToken(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	projectID, _, _ := seedAgentPlatformFixture(ctx, t, client)
+	providerID, err := client.AgentProvider.Query().OnlyID(ctx)
+	if err != nil {
+		t.Fatalf("query provider: %v", err)
+	}
+	repoStore := chatrepo.NewEntRepository(client)
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  projectID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	conversationID := conversation.ID
+
+	service := NewService(client)
+	issued, err := service.IssueToken(ctx, IssueInput{
+		PrincipalKind:  PrincipalKindProjectConversation,
+		PrincipalID:    conversationID,
+		ProjectID:      projectID,
+		ConversationID: conversationID,
+	})
+	if err != nil {
+		t.Fatalf("IssueToken(project conversation) returned error: %v", err)
+	}
+
+	claims, err := service.Authenticate(ctx, issued.Token)
+	if err != nil {
+		t.Fatalf("Authenticate(project conversation) returned error: %v", err)
+	}
+	if claims.PrincipalKind != PrincipalKindProjectConversation || claims.PrincipalID != conversationID || claims.ConversationID != conversationID {
+		t.Fatalf("unexpected project conversation claims: %+v", claims)
+	}
+	if claims.TicketID != uuid.Nil || claims.AgentID != uuid.Nil {
+		t.Fatalf("project conversation claims should not carry ticket/agent ids: %+v", claims)
+	}
+	wantScopes := DefaultScopesForPrincipalKind(PrincipalKindProjectConversation)
+	slices.Sort(wantScopes)
+	gotScopes := append([]string(nil), claims.Scopes...)
+	slices.Sort(gotScopes)
+	if !slices.Equal(gotScopes, wantScopes) {
+		t.Fatalf("Scopes=%v, want %v", gotScopes, wantScopes)
+	}
+	if claims.CreatedBy() != "project-conversation:"+conversationID.String() {
+		t.Fatalf("CreatedBy() = %q", claims.CreatedBy())
+	}
+}
+
+func TestIssueTokenRejectsMissingProjectConversationPrincipal(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	projectID, _, _ := seedAgentPlatformFixture(ctx, t, client)
+
+	service := NewService(client)
+	_, err := service.IssueToken(ctx, IssueInput{
+		PrincipalKind:  PrincipalKindProjectConversation,
+		PrincipalID:    uuid.New(),
+		ProjectID:      projectID,
+		ConversationID: uuid.New(),
+	})
+	if !errors.Is(err, ErrPrincipalNotFound) {
+		t.Fatalf("IssueToken(missing project conversation principal) error = %v, want %v", err, ErrPrincipalNotFound)
 	}
 }
 
