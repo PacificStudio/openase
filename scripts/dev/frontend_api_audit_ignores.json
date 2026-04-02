@@ -74,6 +74,12 @@
     },
     {
       "method": "get",
+      "path": "/api/v1/orgs/{orgId}/machines/stream",
+      "categories": ["backend_only"],
+      "reason": "The machines UI currently refreshes through snapshot polling and targeted mutations rather than maintaining an organization-wide machine event stream subscription."
+    },
+    {
+      "method": "get",
       "path": "/api/v1/providers/{providerId}",
       "categories": ["backend_only"],
       "reason": "Provider detail fetch was added for CLI/operator flows and is intentionally not wired into the current frontend screens."
