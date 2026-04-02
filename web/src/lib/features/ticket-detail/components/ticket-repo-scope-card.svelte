@@ -118,7 +118,9 @@
       <dd class="text-foreground flex min-w-0 items-center gap-1.5 text-xs">
         <GitBranch class="text-muted-foreground size-3.5 shrink-0" />
         <span class="break-all">{scope.effectiveBranchName}</span>
-        <span class="border-border bg-background rounded-full border px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
+        <span
+          class="border-border bg-background rounded-full border px-1.5 py-0.5 text-[10px] tracking-wide uppercase"
+        >
           {branchSourceLabel(scope.branchSource)}
         </span>
       </dd>

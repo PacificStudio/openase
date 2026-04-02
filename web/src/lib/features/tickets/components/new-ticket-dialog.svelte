@@ -355,7 +355,7 @@
 
           {#if branchConfigOpen}
             <div class="space-y-3">
-              {#each repoOptions.filter((option) => draft.repoIds.includes(option.id)) as option (option.id)}
+              {#each repoOptions.filter( (option) => draft.repoIds.includes(option.id), ) as option (option.id)}
                 <div class="space-y-2 rounded-md border p-3">
                   <div>
                     <p class="text-sm font-medium">{option.label}</p>
