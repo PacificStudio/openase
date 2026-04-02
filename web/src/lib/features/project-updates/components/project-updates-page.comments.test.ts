@@ -68,6 +68,7 @@ describe('ProjectUpdatesPage comments and streaming', () => {
         threads: [
           makeThreadRecord({
             status: 'off_track',
+            title: 'Sprint 2 rollout (updated)',
             body_markdown: 'A new project update event arrived.',
             updated_at: '2026-04-01T10:35:00Z',
             edited_at: '2026-04-01T10:35:00Z',
@@ -95,10 +96,11 @@ describe('ProjectUpdatesPage comments and streaming', () => {
 
     const { findByText, findByRole, getByLabelText, getByText } = render(ProjectUpdatesPage)
 
+    // Thread with 0 comments shows the reply input directly
     await fireEvent.input(await findByRole('textbox', { name: 'Reply to Sprint 2 rollout' }), {
       target: { value: 'Need one more canary.' },
     })
-    await fireEvent.click(await findByRole('button', { name: 'Add comment' }))
+    await fireEvent.click(await findByRole('button', { name: 'Send reply' }))
 
     expect(createProjectUpdateComment).toHaveBeenCalledWith('project-1', 'thread-1', {
       body: 'Need one more canary.',
@@ -135,7 +137,8 @@ describe('ProjectUpdatesPage comments and streaming', () => {
     await waitFor(() => {
       expect(listProjectUpdates).toHaveBeenCalledTimes(5)
     })
-    expect(await findByText('A new project update event arrived.')).toBeTruthy()
+    // The title changed to reflect the SSE-triggered refresh
+    expect(await findByText('Sprint 2 rollout (updated)')).toBeTruthy()
     expect(await findByText('Off track', { selector: 'span' })).toBeTruthy()
   })
 })

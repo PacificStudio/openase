@@ -1,44 +1,48 @@
 <script lang="ts">
-  import { cn, formatBytes, formatCount } from '$lib/utils'
+  import { cn, formatBytes, formatCount, formatCurrency } from '$lib/utils'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import {
+    createProjectUpdateComment,
+    createProjectUpdateThread,
+    deleteProjectUpdateComment,
+    deleteProjectUpdateThread,
     getHRAdvisor,
     getSystemDashboard,
     listActivity,
     listAgents,
+    listProjectUpdates,
     listTickets,
     updateProject,
+    updateProjectUpdateComment,
+    updateProjectUpdateThread,
   } from '$lib/api/openase'
+  import { connectEventStream, type SSEFrame } from '$lib/api/sse'
   import { ApiError } from '$lib/api/client'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
   import { Skeleton } from '$ui/skeleton'
   import { Textarea } from '$ui/textarea'
   import * as Select from '$ui/select'
-  import StatCard from './stat-card.svelte'
-  import ExceptionPanel from './exception-panel.svelte'
   import ActivityFeedPanel from './activity-feed-panel.svelte'
-  import CostSnapshotPanel from './cost-snapshot-panel.svelte'
   import HRAdvisorPanel from './hr-advisor-panel.svelte'
-  import MemorySnapshotPanel from './memory-snapshot-panel.svelte'
   import { OnboardingPanel } from '$lib/features/onboarding'
-  import { Bot, Coins, Pencil, Ticket, X, Check } from '@lucide/svelte'
+  import {
+    parseProjectUpdateThreads,
+    ProjectUpdateComposer,
+    ProjectUpdateThreadCard,
+    type ProjectUpdateStatus,
+    type ProjectUpdateThread,
+  } from '$lib/features/project-updates'
+  import { Bot, Coins, MessageSquare, Pencil, Ticket, X, Check } from '@lucide/svelte'
   import {
     buildActivityItems,
     buildDashboardStats,
     buildExceptionItems,
-    findTopCostTicket,
-    findTopTokenAgent,
+    shouldShowProjectOnboarding,
   } from '../model'
   import { loadOrganizationDashboardSummary } from '../organization-summary'
-  import type {
-    DashboardStats,
-    ProjectStatus,
-    DashboardUsageLeader,
-    HRAdvisorSnapshot,
-    MemorySnapshot,
-  } from '../types'
+  import type { DashboardStats, ProjectStatus, HRAdvisorSnapshot, MemorySnapshot } from '../types'
 
   const dashboardPollIntervalMs = 1000
 
@@ -86,8 +90,6 @@
   let activities = $state<ReturnType<typeof buildActivityItems>>([])
   let hrAdvisor = $state<HRAdvisorSnapshot | null>(null)
   let memory = $state<MemorySnapshot | null>(null)
-  let topCostTicket = $state<DashboardUsageLeader | null>(null)
-  let topTokenAgent = $state<DashboardUsageLeader | null>(null)
   let savingStatus = $state(false)
   let editingInfo = $state(false)
   let editName = $state('')
@@ -96,19 +98,194 @@
   let onboardingDismissed = $state(false)
   const totalTicketTokens = $derived(stats.ticketInputTokens + stats.ticketOutputTokens)
 
-  // Show onboarding when project has no tickets and no agents (empty project)
   const showOnboarding = $derived(
-    !onboardingDismissed &&
-      !loading &&
-      stats.activeTickets === 0 &&
-      stats.runningAgents === 0 &&
-      activities.length === 0 &&
-      Boolean(appStore.currentProject?.id) &&
-      Boolean(appStore.currentOrg?.id),
+    shouldShowProjectOnboarding({
+      dismissed: onboardingDismissed,
+      loading,
+      stats,
+      projectId: appStore.currentProject?.id,
+      orgId: appStore.currentOrg?.id,
+    }),
   )
   const currentStatus = $derived((appStore.currentProject?.status ?? 'Planned') as ProjectStatus)
   const projectName = $derived(appStore.currentProject?.name ?? 'Untitled Project')
   const projectDescription = $derived(appStore.currentProject?.description ?? '')
+
+  // --- Project Updates state ---
+  let updateThreads = $state<ProjectUpdateThread[]>([])
+  let updatesLoading = $state(false)
+  let updatesError = $state('')
+  let updatesNotice = $state('')
+  let updatesInitialLoaded = $state(false)
+  let updatesRequestVersion = 0
+  let creatingThread = $state(false)
+
+  $effect(() => {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) {
+      updateThreads = []
+      updatesInitialLoaded = false
+      return
+    }
+
+    updatesInitialLoaded = false
+    void loadProjectUpdates(projectId, { showLoading: true })
+
+    return connectEventStream(`/api/v1/projects/${projectId}/activity/stream`, {
+      onEvent: (frame) => {
+        if (isProjectUpdateFrame(frame)) {
+          void loadProjectUpdates(projectId, { preserveMessages: true })
+        }
+      },
+      onError: (streamError) => {
+        console.error('Project updates stream error:', streamError)
+      },
+    })
+  })
+
+  async function loadProjectUpdates(
+    projectId: string,
+    options: { showLoading?: boolean; preserveMessages?: boolean } = {},
+  ) {
+    const version = ++updatesRequestVersion
+    if (options.showLoading) updatesLoading = true
+    updatesError = ''
+    if (!options.preserveMessages) updatesNotice = ''
+
+    try {
+      const payload = await listProjectUpdates(projectId)
+      if (version !== updatesRequestVersion) return
+      updateThreads = parseProjectUpdateThreads(payload.threads)
+      updatesInitialLoaded = true
+    } catch (caughtError) {
+      if (version !== updatesRequestVersion) return
+      updatesError =
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to load updates.'
+    } finally {
+      if (version === updatesRequestVersion) updatesLoading = false
+    }
+  }
+
+  async function handleCreateThread(draft: {
+    status: ProjectUpdateStatus
+    title: string
+    body: string
+  }) {
+    const projectId = appStore.currentProject?.id
+    if (!projectId || creatingThread) return false
+    creatingThread = true
+    updatesError = ''
+    updatesNotice = ''
+    try {
+      await createProjectUpdateThread(projectId, draft)
+      updatesNotice = 'Update posted.'
+      await loadProjectUpdates(projectId, { preserveMessages: true })
+      return true
+    } catch (caughtError) {
+      updatesError = caughtError instanceof ApiError ? caughtError.detail : 'Failed to post update.'
+      return false
+    } finally {
+      creatingThread = false
+    }
+  }
+
+  async function handleSaveThread(
+    threadId: string,
+    draft: { status: ProjectUpdateStatus; title: string; body: string },
+  ) {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return false
+    updatesError = ''
+    updatesNotice = ''
+    try {
+      await updateProjectUpdateThread(projectId, threadId, draft)
+      updatesNotice = 'Update edited.'
+      await loadProjectUpdates(projectId, { preserveMessages: true })
+      return true
+    } catch (caughtError) {
+      updatesError = caughtError instanceof ApiError ? caughtError.detail : 'Failed to edit update.'
+      return false
+    }
+  }
+
+  async function handleDeleteThread(threadId: string) {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return false
+    updatesError = ''
+    updatesNotice = ''
+    try {
+      await deleteProjectUpdateThread(projectId, threadId)
+      updatesNotice = 'Update deleted.'
+      await loadProjectUpdates(projectId, { preserveMessages: true })
+      return true
+    } catch (caughtError) {
+      updatesError =
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete update.'
+      await loadProjectUpdates(projectId, { preserveMessages: true })
+      return false
+    }
+  }
+
+  async function handleCreateComment(threadId: string, body: string) {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return false
+    updatesError = ''
+    updatesNotice = ''
+    try {
+      await createProjectUpdateComment(projectId, threadId, { body })
+      updatesNotice = 'Comment added.'
+      await loadProjectUpdates(projectId, { preserveMessages: true })
+      return true
+    } catch (caughtError) {
+      updatesError = caughtError instanceof ApiError ? caughtError.detail : 'Failed to add comment.'
+      return false
+    }
+  }
+
+  async function handleSaveComment(threadId: string, commentId: string, body: string) {
+    const projectId = appStore.currentProject?.id
+    if (!projectId || !body) return false
+    updatesError = ''
+    updatesNotice = ''
+    try {
+      await updateProjectUpdateComment(projectId, threadId, commentId, { body })
+      updatesNotice = 'Comment edited.'
+      await loadProjectUpdates(projectId, { preserveMessages: true })
+      return true
+    } catch (caughtError) {
+      updatesError =
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to edit comment.'
+      return false
+    }
+  }
+
+  async function handleDeleteComment(threadId: string, commentId: string) {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return false
+    updatesError = ''
+    updatesNotice = ''
+    try {
+      await deleteProjectUpdateComment(projectId, threadId, commentId)
+      updatesNotice = 'Comment deleted.'
+      await loadProjectUpdates(projectId, { preserveMessages: true })
+      return true
+    } catch (caughtError) {
+      updatesError =
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete comment.'
+      await loadProjectUpdates(projectId, { preserveMessages: true })
+      return false
+    }
+  }
+
+  function isProjectUpdateFrame(frame: SSEFrame) {
+    if (frame.event !== 'message') return false
+    try {
+      const payload = JSON.parse(frame.data) as { type?: string }
+      return typeof payload.type === 'string' && payload.type.startsWith('project_update_')
+    } catch {
+      return false
+    }
+  }
 
   function startEditInfo() {
     editName = projectName
@@ -175,8 +352,6 @@
       exceptions = []
       hrAdvisor = null
       memory = null
-      topCostTicket = null
-      topTokenAgent = null
       return
     }
 
@@ -214,8 +389,6 @@
         stats = buildDashboardStats(agentPayload.agents, ticketPayload.tickets, {
           ticketSpendToday: organizationSummary?.projectMetrics[projectId]?.todayCost ?? 0,
         })
-        topCostTicket = findTopCostTicket(ticketPayload.tickets)
-        topTokenAgent = findTopTokenAgent(agentPayload.agents)
         memory = systemPayload.memory
         hrAdvisor = hrAdvisorPayload
           ? {
@@ -348,136 +521,171 @@
         }}
       />
     {:else}
-      <div class="space-y-6">
+      <div class="space-y-3">
         {#if error && !loading}
           <div
-            class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
+            class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-3 py-2 text-sm"
           >
             {error}
           </div>
         {/if}
 
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Running Agents" value={stats.runningAgents} icon={Bot} {loading} />
-          <StatCard label="Active Tickets" value={stats.activeTickets} icon={Ticket} {loading} />
-          <StatCard
-            label="Ticket Tokens"
-            value={formatCount(totalTicketTokens)}
-            icon={Coins}
-            {loading}
-          />
-          <StatCard
-            label="Heap In Use"
-            value={memory ? formatBytes(memory.heap_inuse_bytes) : '—'}
-            {loading}
-          />
+        <!-- Compact stats strip: agents, tickets, usage, memory, exceptions -->
+        <div
+          class="border-border bg-card flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-md border px-3 py-2"
+        >
+          {#if loading}
+            {#each { length: 6 } as _}
+              <div class="flex items-center gap-1.5">
+                <Skeleton class="h-3 w-12" />
+                <Skeleton class="h-3.5 w-8" />
+              </div>
+            {/each}
+          {:else}
+            <div class="flex items-center gap-1">
+              <Bot class="text-muted-foreground size-3" />
+              <span class="text-muted-foreground text-[11px]">Agents</span>
+              <span class="text-foreground text-xs font-semibold">{stats.runningAgents}</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <Ticket class="text-muted-foreground size-3" />
+              <span class="text-muted-foreground text-[11px]">Tickets</span>
+              <span class="text-foreground text-xs font-semibold">{stats.activeTickets}</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <Coins class="text-muted-foreground size-3" />
+              <span class="text-muted-foreground text-[11px]">Spend</span>
+              <span class="text-foreground text-xs font-semibold"
+                >{formatCurrency(stats.ticketSpendToday)}</span
+              >
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="text-muted-foreground text-[11px]">Tokens</span>
+              <span class="text-foreground text-xs font-semibold"
+                >{formatCount(totalTicketTokens)}</span
+              >
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="text-muted-foreground text-[11px]">Heap</span>
+              <span class="text-foreground text-xs font-semibold"
+                >{memory ? formatBytes(memory.heap_inuse_bytes) : '—'}</span
+              >
+            </div>
+            {#if exceptions.length > 0}
+              <div class="flex items-center gap-1">
+                <span
+                  class="bg-destructive/10 text-destructive inline-flex size-4 items-center justify-center rounded-full text-[9px] font-semibold"
+                  >{exceptions.length}</span
+                >
+                <span class="text-destructive text-[11px]">
+                  {exceptions.length === 1 ? 'exception' : 'exceptions'}
+                </span>
+              </div>
+            {/if}
+          {/if}
         </div>
 
         {#if loading}
-          <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div class="border-border bg-card rounded-md border">
-              <div class="border-border flex items-center justify-between border-b px-4 py-3">
-                <Skeleton class="h-4 w-28" />
-                <Skeleton class="size-4" />
-              </div>
-              <div class="space-y-3 p-4">
-                <div class="grid grid-cols-2 gap-3">
-                  {#each { length: 4 } as _}
-                    <div class="bg-muted/40 rounded-md px-3 py-2">
-                      <Skeleton class="h-3 w-20" />
-                      <Skeleton class="mt-2 h-5 w-14" />
-                    </div>
-                  {/each}
+          <!-- Skeleton for two-column feeds -->
+          <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {#each { length: 2 } as _}
+              <div class="border-border bg-card rounded-md border">
+                <div class="border-border flex items-center justify-between border-b px-3 py-2">
+                  <Skeleton class="h-3.5 w-20" />
+                  <Skeleton class="h-3 w-10" />
                 </div>
-                <Skeleton class="h-px w-full" />
-                <div class="flex justify-between">
-                  <Skeleton class="h-5 w-24" />
-                  <Skeleton class="h-5 w-24" />
-                </div>
-              </div>
-            </div>
-            <div class="border-border bg-card rounded-md border">
-              <div class="border-border flex items-center justify-between border-b px-4 py-3">
-                <Skeleton class="h-4 w-20" />
-                <Skeleton class="size-4" />
-              </div>
-              <div class="space-y-3 p-4">
-                {#each { length: 3 } as _}
-                  <div class="flex items-start gap-3">
-                    <Skeleton class="mt-0.5 size-4 shrink-0 rounded-full" />
-                    <div class="flex-1 space-y-1">
-                      <Skeleton class="h-3.5 w-3/4" />
-                      <Skeleton class="h-3 w-1/3" />
-                    </div>
-                  </div>
-                {/each}
-              </div>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div class="border-border bg-card rounded-md border lg:col-span-2">
-              <div class="border-border flex items-center justify-between border-b px-4 py-3">
-                <Skeleton class="h-4 w-24" />
-                <Skeleton class="size-4" />
-              </div>
-              <div class="space-y-3 p-4">
-                {#each { length: 4 } as _}
-                  <div class="flex items-center gap-3">
-                    <Skeleton class="size-6 shrink-0 rounded-full" />
-                    <div class="flex-1 space-y-1">
-                      <Skeleton class="h-3.5 w-2/3" />
-                      <Skeleton class="h-3 w-1/4" />
-                    </div>
-                    <Skeleton class="h-3 w-16" />
-                  </div>
-                {/each}
-              </div>
-            </div>
-            <div class="border-border bg-card rounded-md border">
-              <div class="border-border flex items-center justify-between border-b px-4 py-3">
-                <Skeleton class="h-4 w-20" />
-                <Skeleton class="size-4" />
-              </div>
-              <div class="space-y-3 p-4">
-                <Skeleton class="h-4 w-full rounded-full" />
-                <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-2.5 p-3">
                   {#each { length: 4 } as _}
-                    <div class="space-y-1">
-                      <Skeleton class="h-3 w-16" />
-                      <Skeleton class="h-4 w-12" />
+                    <div class="flex items-start gap-2">
+                      <Skeleton class="mt-0.5 size-3.5 shrink-0 rounded-full" />
+                      <div class="flex-1 space-y-1">
+                        <Skeleton class="h-3 w-3/4" />
+                        <Skeleton class="h-2.5 w-1/3" />
+                      </div>
                     </div>
                   {/each}
                 </div>
               </div>
-            </div>
+            {/each}
           </div>
         {:else if !error}
-          <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <CostSnapshotPanel
-              ticketSpendToday={stats.ticketSpendToday}
-              ticketSpendTotal={stats.ticketSpendTotal}
-              ticketInputTokens={stats.ticketInputTokens}
-              ticketOutputTokens={stats.ticketOutputTokens}
-              agentLifetimeTokens={stats.agentLifetimeTokens}
-              ticketsCreatedToday={stats.ticketsCreatedToday}
-              ticketsCompletedToday={stats.ticketsCompletedToday}
-              {topCostTicket}
-              {topTokenAgent}
-            />
-            <ExceptionPanel {exceptions} />
-          </div>
+          <!-- Two-column feeds: Activity + Updates -->
+          <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <!-- Left: Activity feed -->
+            <div class="flex min-h-0 flex-col">
+              <ActivityFeedPanel {activities} />
 
-          <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <ActivityFeedPanel {activities} class="lg:col-span-2" />
-            <MemorySnapshotPanel {memory} />
-          </div>
+              {#if hrAdvisor && appStore.currentProject}
+                <div class="mt-3">
+                  {#key appStore.currentProject.id}
+                    <HRAdvisorPanel projectId={appStore.currentProject.id} advisor={hrAdvisor} />
+                  {/key}
+                </div>
+              {/if}
+            </div>
 
-          {#if hrAdvisor && appStore.currentProject}
-            {#key appStore.currentProject.id}
-              <HRAdvisorPanel projectId={appStore.currentProject.id} advisor={hrAdvisor} />
-            {/key}
-          {/if}
+            <!-- Right: Project Updates feed -->
+            <div class="flex min-h-0 flex-col">
+              <div class="mb-2 flex items-center gap-1.5">
+                <MessageSquare class="text-muted-foreground size-3.5" />
+                <span class="text-foreground text-xs font-medium">Updates</span>
+                {#if updateThreads.length > 0}
+                  <span class="text-muted-foreground text-[11px]">
+                    {updateThreads.length}
+                  </span>
+                {/if}
+              </div>
+
+              <ProjectUpdateComposer creating={creatingThread} onSubmit={handleCreateThread} />
+
+              {#if updatesError}
+                <div
+                  class="border-destructive/40 bg-destructive/10 text-destructive mt-2 rounded-md border px-3 py-2 text-xs"
+                >
+                  {updatesError}
+                </div>
+              {/if}
+
+              {#if updatesNotice}
+                <div
+                  class="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700"
+                >
+                  {updatesNotice}
+                </div>
+              {/if}
+
+              {#if updatesLoading && !updatesInitialLoaded}
+                <div class="mt-2 space-y-2">
+                  {#each { length: 3 } as _}
+                    <div class="flex items-center gap-2">
+                      <Skeleton class="size-3.5 shrink-0 rounded-full" />
+                      <Skeleton class="h-3.5 w-3/4" />
+                    </div>
+                  {/each}
+                </div>
+              {:else if updateThreads.length === 0}
+                <div
+                  class="text-muted-foreground mt-2 flex flex-col items-center rounded-xl border border-dashed py-8 text-center text-xs"
+                >
+                  <MessageSquare class="mb-2 size-4 opacity-40" />
+                  No updates yet
+                </div>
+              {:else}
+                <div class="mt-2 space-y-1.5">
+                  {#each updateThreads as thread (thread.id)}
+                    <ProjectUpdateThreadCard
+                      {thread}
+                      onUpdateThread={handleSaveThread}
+                      onDeleteThread={handleDeleteThread}
+                      onCreateComment={handleCreateComment}
+                      onUpdateComment={handleSaveComment}
+                      onDeleteComment={handleDeleteComment}
+                    />
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          </div>
         {/if}
       </div>
     {/if}

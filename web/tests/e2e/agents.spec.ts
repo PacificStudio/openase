@@ -7,16 +7,16 @@ test('agents providers and registration remain responsive', async ({
 }, testInfo) => {
   await measureNavigation({
     page,
-    scenario: 'agents_page_ready',
+    scenario: 'agent_settings_page_ready',
     budgetMs: 800,
     ready: page.getByRole('button', { name: 'Configure' }).first(),
     testInfo,
     action: async () => {
-      await page.goto(`${projectPath('agents')}#providers`)
+      await page.goto(`${projectPath('settings')}#agents`)
     },
   })
 
-  await expect(page).toHaveURL(/\/agents#providers$/)
+  await expect(page).toHaveURL(/\/settings#agents$/)
   await expect(page.getByRole('button', { name: 'Configure' }).first()).toBeVisible()
 
   await measureFeedback({
@@ -44,6 +44,8 @@ test('agents providers and registration remain responsive', async ({
   await page.getByRole('button', { name: 'Cancel' }).click()
   await expect(page.getByTestId('provider-config-sheet')).not.toBeVisible()
 
+  await page.goto(projectPath('agents'))
+
   await measureFeedback({
     scenario: 'agent_register_drawer_open',
     budgetMs: 150,
@@ -66,7 +68,5 @@ test('agents providers and registration remain responsive', async ({
     },
   })
 
-  await page.getByRole('tab', { name: 'Definitions' }).click()
-  await expect(page).toHaveURL(/\/agents#definitions$/)
   await expect(page.getByText('e2e-agent', { exact: true })).toBeVisible()
 })

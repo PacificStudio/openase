@@ -14,10 +14,12 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -425,6 +427,208 @@ func TestAgentPlatformPrivilegedRoutesRequireExplicitScopes(t *testing.T) {
 	)
 	if repoResp.Repo.Name != "worker-tools" {
 		t.Fatalf("unexpected repo create payload: %+v", repoResp.Repo)
+	}
+}
+
+func TestAgentPlatformProjectUpdateRoutesRespectScopesAndBoundaries(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
+	platformService := agentplatform.NewService(client)
+	bus := eventinfra.NewChannelBus()
+	projectUpdateSvc := projectupdateservice.NewService(
+		client,
+		activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, bus),
+	)
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		bus,
+		ticketservice.NewService(client),
+		ticketstatus.NewService(client),
+		platformService,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		nil,
+		WithProjectUpdateService(projectUpdateSvc),
+	)
+
+	defaultToken, err := platformService.IssueToken(ctx, agentplatform.IssueInput{
+		AgentID:   agentID,
+		ProjectID: projectID,
+		TicketID:  currentTicketID,
+	})
+	if err != nil {
+		t.Fatalf("IssueToken returned error: %v", err)
+	}
+	privilegedToken, err := platformService.IssueToken(ctx, agentplatform.IssueInput{
+		AgentID:   agentID,
+		ProjectID: projectID,
+		TicketID:  currentTicketID,
+		Scopes: []string{
+			string(agentplatform.ScopeProjectsUpdate),
+			string(agentplatform.ScopeTicketsList),
+			string(agentplatform.ScopeTicketsUpdateSelf),
+		},
+	})
+	if err != nil {
+		t.Fatalf("IssueToken returned error: %v", err)
+	}
+
+	createThreadResp := struct {
+		Thread projectUpdateThreadResponse `json:"thread"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/projects/%s/updates", projectID),
+		map[string]any{
+			"status": "on_track",
+			"title":  "Cluster utilization",
+			"body":   "Agent is monitoring cross-ticket GPU utilization.",
+		},
+		map[string]string{echo.HeaderAuthorization: "Bearer " + privilegedToken.Token},
+		http.StatusCreated,
+		&createThreadResp,
+	)
+	if createThreadResp.Thread.CreatedBy != "agent:coding-01" || createThreadResp.Thread.Status != "on_track" {
+		t.Fatalf("unexpected created thread payload: %+v", createThreadResp.Thread)
+	}
+
+	listResp := struct {
+		Threads []projectUpdateThreadResponse `json:"threads"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s/updates", projectID),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + defaultToken.Token},
+		http.StatusOK,
+		&listResp,
+	)
+	if len(listResp.Threads) != 1 || listResp.Threads[0].ID != createThreadResp.Thread.ID {
+		t.Fatalf("unexpected list threads payload: %+v", listResp.Threads)
+	}
+
+	updateThreadResp := struct {
+		Thread projectUpdateThreadResponse `json:"thread"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/platform/projects/%s/updates/%s", projectID, createThreadResp.Thread.ID),
+		map[string]any{
+			"status":      "at_risk",
+			"title":       "Cluster utilization",
+			"body":        "One queue is backing up on the A100 pool.",
+			"edit_reason": "refined after another measurement window",
+		},
+		map[string]string{echo.HeaderAuthorization: "Bearer " + privilegedToken.Token},
+		http.StatusOK,
+		&updateThreadResp,
+	)
+	if updateThreadResp.Thread.LastEditedBy == nil || *updateThreadResp.Thread.LastEditedBy != "agent:coding-01" || updateThreadResp.Thread.Status != "at_risk" {
+		t.Fatalf("unexpected updated thread payload: %+v", updateThreadResp.Thread)
+	}
+
+	createCommentResp := struct {
+		Comment projectUpdateCommentResponse `json:"comment"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/projects/%s/updates/%s/comments", projectID, createThreadResp.Thread.ID),
+		map[string]any{
+			"body": "Watching another 30 minutes before escalating.",
+		},
+		map[string]string{echo.HeaderAuthorization: "Bearer " + privilegedToken.Token},
+		http.StatusCreated,
+		&createCommentResp,
+	)
+	if createCommentResp.Comment.CreatedBy != "agent:coding-01" {
+		t.Fatalf("unexpected created comment payload: %+v", createCommentResp.Comment)
+	}
+
+	updateCommentResp := struct {
+		Comment projectUpdateCommentResponse `json:"comment"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf(
+			"/api/v1/platform/projects/%s/updates/%s/comments/%s",
+			projectID,
+			createThreadResp.Thread.ID,
+			createCommentResp.Comment.ID,
+		),
+		map[string]any{
+			"body":        "Watching another 30 minutes before escalating to the infra owner.",
+			"edit_reason": "added escalation target",
+		},
+		map[string]string{echo.HeaderAuthorization: "Bearer " + privilegedToken.Token},
+		http.StatusOK,
+		&updateCommentResp,
+	)
+	if updateCommentResp.Comment.LastEditedBy == nil || *updateCommentResp.Comment.LastEditedBy != "agent:coding-01" {
+		t.Fatalf("unexpected updated comment payload: %+v", updateCommentResp.Comment)
+	}
+
+	deleteCommentResp := struct {
+		DeletedCommentID string `json:"deleted_comment_id"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodDelete,
+		fmt.Sprintf(
+			"/api/v1/platform/projects/%s/updates/%s/comments/%s",
+			projectID,
+			createThreadResp.Thread.ID,
+			createCommentResp.Comment.ID,
+		),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + privilegedToken.Token},
+		http.StatusOK,
+		&deleteCommentResp,
+	)
+	if deleteCommentResp.DeletedCommentID != createCommentResp.Comment.ID {
+		t.Fatalf("unexpected delete comment payload: %+v", deleteCommentResp)
+	}
+
+	deleteThreadResp := struct {
+		DeletedThreadID string `json:"deleted_thread_id"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodDelete,
+		fmt.Sprintf("/api/v1/platform/projects/%s/updates/%s", projectID, createThreadResp.Thread.ID),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + privilegedToken.Token},
+		http.StatusOK,
+		&deleteThreadResp,
+	)
+	if deleteThreadResp.DeletedThreadID != createThreadResp.Thread.ID {
+		t.Fatalf("unexpected delete thread payload: %+v", deleteThreadResp)
+	}
+
+	forbiddenCreateRec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/projects/%s/updates", projectID),
+		`{"status":"on_track","title":"should fail","body":"no scope"}`,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + defaultToken.Token, echo.HeaderContentType: echo.MIMEApplicationJSON},
+	)
+	if forbiddenCreateRec.Code != http.StatusForbidden {
+		t.Fatalf("expected update create without scope to return 403, got %d: %s", forbiddenCreateRec.Code, forbiddenCreateRec.Body.String())
 	}
 }
 

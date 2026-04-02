@@ -6,6 +6,7 @@ import (
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
 )
@@ -42,6 +43,28 @@ type rawAgentTicketCommentRequest struct {
 
 type rawAgentProjectPatchRequest struct {
 	Description *string `json:"description"`
+}
+
+type rawAgentCreateProjectUpdateThreadRequest struct {
+	Status string `json:"status"`
+	Title  string `json:"title"`
+	Body   string `json:"body"`
+}
+
+type rawAgentUpdateProjectUpdateThreadRequest struct {
+	Status     string  `json:"status"`
+	Title      string  `json:"title"`
+	Body       string  `json:"body"`
+	EditReason *string `json:"edit_reason"`
+}
+
+type rawAgentCreateProjectUpdateCommentRequest struct {
+	Body string `json:"body"`
+}
+
+type rawAgentUpdateProjectUpdateCommentRequest struct {
+	Body       string  `json:"body"`
+	EditReason *string `json:"edit_reason"`
 }
 
 type agentStatusNameResolutionError struct {
@@ -150,5 +173,59 @@ func parseAgentProjectPatchRequest(
 		DefaultAgentProviderID: uuidToStringPointer(current.DefaultAgentProviderID),
 		AccessibleMachineIDs:   uuidSliceToStrings(current.AccessibleMachineIDs),
 		MaxConcurrentAgents:    intPointer(current.MaxConcurrentAgents),
+	})
+}
+
+func parseAgentCreateProjectUpdateThreadRequest(
+	projectID uuid.UUID,
+	createdBy string,
+	raw rawAgentCreateProjectUpdateThreadRequest,
+) (projectupdateservice.AddThreadInput, error) {
+	return parseCreateProjectUpdateThreadRequest(projectID, rawCreateProjectUpdateThreadRequest{
+		Status:    raw.Status,
+		Title:     raw.Title,
+		Body:      raw.Body,
+		CreatedBy: stringPointer(createdBy),
+	})
+}
+
+func parseAgentUpdateProjectUpdateThreadRequest(
+	projectID uuid.UUID,
+	threadID uuid.UUID,
+	editedBy string,
+	raw rawAgentUpdateProjectUpdateThreadRequest,
+) (projectupdateservice.UpdateThreadInput, error) {
+	return parseUpdateProjectUpdateThreadRequest(projectID, threadID, rawUpdateProjectUpdateThreadRequest{
+		Status:     raw.Status,
+		Title:      raw.Title,
+		Body:       raw.Body,
+		EditedBy:   stringPointer(editedBy),
+		EditReason: raw.EditReason,
+	})
+}
+
+func parseAgentCreateProjectUpdateCommentRequest(
+	projectID uuid.UUID,
+	threadID uuid.UUID,
+	createdBy string,
+	raw rawAgentCreateProjectUpdateCommentRequest,
+) (projectupdateservice.AddCommentInput, error) {
+	return parseCreateProjectUpdateCommentRequest(projectID, threadID, rawCreateProjectUpdateCommentRequest{
+		Body:      raw.Body,
+		CreatedBy: stringPointer(createdBy),
+	})
+}
+
+func parseAgentUpdateProjectUpdateCommentRequest(
+	projectID uuid.UUID,
+	threadID uuid.UUID,
+	commentID uuid.UUID,
+	editedBy string,
+	raw rawAgentUpdateProjectUpdateCommentRequest,
+) (projectupdateservice.UpdateCommentInput, error) {
+	return parseUpdateProjectUpdateCommentRequest(projectID, threadID, commentID, rawUpdateProjectUpdateCommentRequest{
+		Body:       raw.Body,
+		EditedBy:   stringPointer(editedBy),
+		EditReason: raw.EditReason,
 	})
 }

@@ -34,7 +34,7 @@
   } from '$lib/features/board'
 
   let filter = $state<BoardFilter>({ search: '' })
-  let hideEmpty = $state(false)
+  let hideEmpty = $state(true)
   let loading = $state(false)
   let error = $state('')
   let allColumns = $state<BoardColumnType[]>([])

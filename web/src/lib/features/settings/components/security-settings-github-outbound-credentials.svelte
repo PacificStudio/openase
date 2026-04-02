@@ -58,6 +58,12 @@
     return ''
   }
 
+  function displayLogin(slot: GitHubSlot): string {
+    const login = (slot.probe as typeof slot.probe & { login?: string }).login?.trim()
+    if (!login) return ''
+    return login.startsWith('@') ? login : `@${login}`
+  }
+
   function formatCheckedAt(value: string | null | undefined): string {
     if (!value) return ''
     const parsed = new Date(value)
@@ -92,6 +98,11 @@
           · {security.github.effective.source.replaceAll('_', ' ')}
         {/if}
       </span>
+      {#if displayLogin(security.github.effective)}
+        <span class="text-muted-foreground text-xs">
+          User {displayLogin(security.github.effective)}
+        </span>
+      {/if}
       <code class="text-muted-foreground text-xs">{security.github.effective.token_preview}</code>
       {#if security.github.effective.probe.permissions.length}
         <span class="text-muted-foreground text-xs">

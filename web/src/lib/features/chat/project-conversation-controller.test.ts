@@ -140,6 +140,37 @@ describe('createProjectConversationController', () => {
     ])
   })
 
+  it('does not crash when a conversation arrives without lastActivityAt', async () => {
+    createProjectConversation.mockResolvedValue({
+      conversation: {
+        id: 'conversation-1',
+        providerId: 'provider-1',
+        updatedAt: '2026-04-01T10:00:00Z',
+        createdAt: '2026-04-01T09:00:00Z',
+      },
+    })
+    watchProjectConversation.mockResolvedValue(undefined)
+    startProjectConversationTurn.mockResolvedValue({
+      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
+    })
+
+    const controller = createProjectConversationController({
+      getProjectId: () => 'project-1',
+    })
+    controller.syncProviders(providerFixtures, 'provider-1')
+
+    await expect(
+      controller.sendTurn('Still works without activity timestamp'),
+    ).resolves.toBeUndefined()
+
+    expect(startProjectConversationTurn).toHaveBeenCalledWith(
+      'conversation-1',
+      'Still works without activity timestamp',
+    )
+    expect(controller.tabs[0]?.conversationId).toBe('conversation-1')
+    expect(controller.phase).toBe('awaiting_reply')
+  })
+
   it('blocks follow-up sends only for the same tab while an interrupt is pending', async () => {
     const streamHandlers = new Map<
       string,

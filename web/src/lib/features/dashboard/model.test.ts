@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Project } from '$lib/api/contracts'
-import { buildProjectSummary } from './model'
+import { buildProjectSummary, shouldShowProjectOnboarding } from './model'
 
 const projectFixture: Project = {
   id: 'project-1',
@@ -42,5 +42,39 @@ describe('dashboard model', () => {
     )
 
     expect(summary.lastActivity).toBeNull()
+  })
+
+  it('shows onboarding for a newly created empty project even if activity exists elsewhere', () => {
+    expect(
+      shouldShowProjectOnboarding({
+        dismissed: false,
+        loading: false,
+        stats: { runningAgents: 0, activeTickets: 0 },
+        projectId: 'project-1',
+        orgId: 'org-1',
+      }),
+    ).toBe(true)
+  })
+
+  it('hides onboarding once tickets or running agents exist', () => {
+    expect(
+      shouldShowProjectOnboarding({
+        dismissed: false,
+        loading: false,
+        stats: { runningAgents: 1, activeTickets: 0 },
+        projectId: 'project-1',
+        orgId: 'org-1',
+      }),
+    ).toBe(false)
+
+    expect(
+      shouldShowProjectOnboarding({
+        dismissed: false,
+        loading: false,
+        stats: { runningAgents: 0, activeTickets: 1 },
+        projectId: 'project-1',
+        orgId: 'org-1',
+      }),
+    ).toBe(false)
   })
 })

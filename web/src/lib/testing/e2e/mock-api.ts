@@ -41,6 +41,8 @@ type MockState = {
     }
   >
   scheduledJobs: Record<string, unknown>[]
+  projectConversations: Record<string, unknown>[]
+  projectConversationEntries: Record<string, unknown>[]
   skills: Record<string, unknown>[]
   builtinRoles: Record<string, unknown>[]
   harnessVariables: { groups: Record<string, unknown>[] }
@@ -50,6 +52,9 @@ type MockState = {
     workflow: number
     agent: number
     scheduledJob: number
+    projectConversation: number
+    projectConversationEntry: number
+    projectConversationTurn: number
   }
 }
 
@@ -57,9 +62,16 @@ const nowIso = '2026-03-27T10:00:00.000Z'
 const encoder = new TextEncoder()
 
 let mockState = createInitialState()
+const projectConversationStreamControllers = new Map<
+  string,
+  Set<ReadableStreamDefaultController<Uint8Array>>
+>()
+const queuedProjectConversationFrames = new Map<string, string[]>()
 
 export function resetMockState() {
   mockState = createInitialState()
+  projectConversationStreamControllers.clear()
+  queuedProjectConversationFrames.clear()
   return clone(mockState)
 }
 
@@ -81,7 +93,7 @@ export async function handleMockApi(request: Request, url: URL): Promise<Respons
     return jsonResponse({ ok: true })
   }
 
-  if (url.pathname.endsWith('/stream')) {
+  if (url.pathname.endsWith('/stream') && !url.pathname.startsWith('/api/v1/chat/conversations/')) {
     return streamResponse()
   }
 
@@ -569,35 +581,141 @@ async function handleChatRoutes(request: Request, segments: string[]) {
   }
 
   if (segments.length === 2 && request.method === 'GET') {
-    return jsonResponse({ conversations: [] })
+    const search = new URL(request.url).searchParams
+    const projectId = search.get('project_id') ?? PROJECT_ID
+    const providerId = search.get('provider_id')
+    return jsonResponse({
+      conversations: clone(
+        mockState.projectConversations.filter((conversation) => {
+          if (conversation.project_id !== projectId) {
+            return false
+          }
+          if (providerId && conversation.provider_id !== providerId) {
+            return false
+          }
+          return true
+        }),
+      ),
+    })
   }
 
   if (segments.length === 2 && request.method === 'POST') {
+    const body = await readBody<Record<string, unknown>>(request)
+    const providerId = asString(body.provider_id) ?? DEFAULT_PROVIDER_ID
+    const conversation = {
+      id: `conversation-e2e-${++mockState.counters.projectConversation}`,
+      project_id: PROJECT_ID,
+      user_id: 'chat-user-e2e',
+      source: 'project_sidebar',
+      provider_id: providerId,
+      status: 'active',
+      rolling_summary: '',
+      last_activity_at: nowIso,
+      created_at: nowIso,
+      updated_at: nowIso,
+    }
+    mockState.projectConversations.unshift(conversation)
     return jsonResponse(
       {
-        conversation: {
-          id: 'conversation-e2e',
-          project_id: PROJECT_ID,
-          user_id: 'chat-user-e2e',
-          source: 'project_sidebar',
-          provider_id: DEFAULT_PROVIDER_ID,
-          status: 'active',
-          rolling_summary: '',
-          last_activity_at: nowIso,
-          created_at: nowIso,
-          updated_at: nowIso,
-        },
+        conversation: clone(conversation),
       },
       201,
     )
   }
 
   if (segments.length === 3 && request.method === 'GET') {
-    return notFound('Project conversation not found.')
+    const conversation = findById(mockState.projectConversations, segments[2])
+    if (!conversation) {
+      return notFound('Project conversation not found.')
+    }
+    return jsonResponse({ conversation: clone(conversation) })
   }
 
   if (segments[3] === 'entries' && request.method === 'GET') {
-    return jsonResponse({ entries: [] })
+    return jsonResponse({
+      entries: clone(
+        mockState.projectConversationEntries.filter(
+          (entry) => entry.conversation_id === segments[2],
+        ),
+      ),
+    })
+  }
+
+  if (segments[3] === 'stream' && request.method === 'GET') {
+    return projectConversationStreamResponse(segments[2])
+  }
+
+  if (segments[3] === 'turns' && request.method === 'POST') {
+    const conversation = findById(mockState.projectConversations, segments[2])
+    if (!conversation) {
+      return notFound('Project conversation not found.')
+    }
+
+    const body = await readBody<Record<string, unknown>>(request)
+    const message = asString(body.message) ?? ''
+    const turnIndex = ++mockState.counters.projectConversationTurn
+    const turnId = `turn-e2e-${turnIndex}`
+    const userEntry = {
+      id: `entry-e2e-${++mockState.counters.projectConversationEntry}`,
+      conversation_id: segments[2],
+      turn_id: turnId,
+      seq: nextProjectConversationSeq(segments[2]),
+      kind: 'user_message',
+      payload: { content: message },
+      created_at: shiftedIso(turnIndex),
+    }
+    const assistantReply = `Mock assistant reply for: ${message}`
+    const assistantEntry = {
+      id: `entry-e2e-${++mockState.counters.projectConversationEntry}`,
+      conversation_id: segments[2],
+      turn_id: turnId,
+      seq: userEntry.seq + 1,
+      kind: 'assistant_message',
+      payload: { content: assistantReply },
+      created_at: shiftedIso(turnIndex + 1),
+    }
+    mockState.projectConversationEntries.push(userEntry, assistantEntry)
+    conversation.last_activity_at = assistantEntry.created_at
+    conversation.updated_at = assistantEntry.created_at
+    conversation.rolling_summary = message
+
+    queueOrBroadcastProjectConversationFrame(
+      segments[2],
+      encodeSSEFrame('session', {
+        conversation_id: segments[2],
+        runtime_state: 'active',
+      }),
+    )
+    setTimeout(() => {
+      queueOrBroadcastProjectConversationFrame(
+        segments[2],
+        encodeSSEFrame('message', {
+          type: 'text',
+          content: assistantReply,
+        }),
+      )
+    }, 25)
+    setTimeout(() => {
+      queueOrBroadcastProjectConversationFrame(
+        segments[2],
+        encodeSSEFrame('turn_done', {
+          conversation_id: segments[2],
+          turn_id: turnId,
+          cost_usd: 0.01,
+        }),
+      )
+    }, 50)
+
+    return jsonResponse(
+      {
+        turn: {
+          id: turnId,
+          turn_index: turnIndex,
+          status: 'started',
+        },
+      },
+      202,
+    )
   }
 
   return notFound('Mock chat route not found.')
@@ -1148,6 +1266,8 @@ function createInitialState(): MockState {
     workflows,
     harnessByWorkflowId,
     scheduledJobs,
+    projectConversations: [],
+    projectConversationEntries: [],
     skills,
     builtinRoles,
     harnessVariables,
@@ -1157,6 +1277,9 @@ function createInitialState(): MockState {
       workflow: 1,
       agent: 1,
       scheduledJob: 1,
+      projectConversation: 0,
+      projectConversationEntry: 0,
+      projectConversationTurn: 0,
     },
   }
 }
@@ -1482,4 +1605,84 @@ function streamResponse() {
       connection: 'keep-alive',
     },
   })
+}
+
+function projectConversationStreamResponse(conversationId: string) {
+  let sink: ReadableStreamDefaultController<Uint8Array> | null = null
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      sink = controller
+      controller.enqueue(encoder.encode(': openase-e2e\n\n'))
+      let sinks = projectConversationStreamControllers.get(conversationId)
+      if (!sinks) {
+        sinks = new Set()
+        projectConversationStreamControllers.set(conversationId, sinks)
+      }
+      sinks.add(controller)
+
+      const queuedFrames = queuedProjectConversationFrames.get(conversationId) ?? []
+      for (const frame of queuedFrames) {
+        controller.enqueue(encoder.encode(frame))
+      }
+      queuedProjectConversationFrames.delete(conversationId)
+    },
+    cancel() {
+      if (!sink) {
+        return
+      }
+      const sinks = projectConversationStreamControllers.get(conversationId)
+      if (!sinks) {
+        return
+      }
+      sinks.delete(sink)
+      if (sinks.size === 0) {
+        projectConversationStreamControllers.delete(conversationId)
+      }
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-store',
+      connection: 'keep-alive',
+    },
+  })
+}
+
+function queueOrBroadcastProjectConversationFrame(conversationId: string, frame: string) {
+  const sinks = projectConversationStreamControllers.get(conversationId)
+  if (!sinks || sinks.size === 0) {
+    const queued = queuedProjectConversationFrames.get(conversationId) ?? []
+    queued.push(frame)
+    queuedProjectConversationFrames.set(conversationId, queued)
+    return
+  }
+
+  for (const sink of sinks) {
+    try {
+      sink.enqueue(encoder.encode(frame))
+    } catch {
+      sinks.delete(sink)
+    }
+  }
+
+  if (sinks.size === 0) {
+    projectConversationStreamControllers.delete(conversationId)
+  }
+}
+
+function encodeSSEFrame(event: string, payload: Record<string, unknown>) {
+  return `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`
+}
+
+function shiftedIso(offsetMinutes: number) {
+  return new Date(Date.parse(nowIso) + offsetMinutes * 60_000).toISOString()
+}
+
+function nextProjectConversationSeq(conversationId: string) {
+  return (
+    mockState.projectConversationEntries.filter((entry) => entry.conversation_id === conversationId)
+      .length + 1
+  )
 }

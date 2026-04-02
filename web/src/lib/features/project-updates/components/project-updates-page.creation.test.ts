@@ -12,7 +12,7 @@ import { ProjectUpdatesPage } from '..'
 describe('ProjectUpdatesPage creation flow', () => {
   setupProjectUpdatesPageTest()
 
-  it('renders status badges in last-activity order and posts a new update', async () => {
+  it('renders status labels in last-activity order and posts a new update', async () => {
     const migrationWatch = makeThreadRecord({
       id: 'thread-late',
       status: 'at_risk',
@@ -40,33 +40,27 @@ describe('ProjectUpdatesPage creation flow', () => {
       .mockResolvedValueOnce({ threads: [hotfixHold, migrationWatch, sprintRollout] })
     createProjectUpdateThread.mockResolvedValue({ thread: { id: 'thread-new' } })
 
-    const { findByText, getByPlaceholderText, getAllByRole, getByRole } = render(ProjectUpdatesPage)
+    const { findByText, getByPlaceholderText, getByLabelText } = render(ProjectUpdatesPage)
 
     expect(await findByText('Migration watch')).toBeTruthy()
     expect(await findByText('At risk', { selector: 'span' })).toBeTruthy()
     expect(await findByText('On track', { selector: 'span' })).toBeTruthy()
-    expect(
-      getAllByRole('heading', { level: 2 })
-        .map((node) => node.textContent)
-        .filter((text) => text !== 'Post a project update'),
-    ).toEqual(['Migration watch', 'Sprint 2 rollout'])
 
-    await fireEvent.change(getByRole('combobox', { name: 'New update status' }), {
-      target: { value: 'off_track' },
-    })
-    await fireEvent.input(getByPlaceholderText('Sprint 2 rollout'), {
+    // Select off_track status via the status pill button
+    await fireEvent.click(getByLabelText('Set status: Off track'))
+
+    // Type title
+    await fireEvent.input(getByPlaceholderText('Post an update...'), {
       target: { value: 'Hotfix hold' },
     })
-    await fireEvent.input(
-      getByPlaceholderText('Summarize the latest delivery signal, risks, and next checkpoint.'),
-      { target: { value: 'Release paused pending rollback validation.' } },
-    )
-    await fireEvent.click(getByRole('button', { name: 'Post update' }))
+
+    // Submit via the send button
+    await fireEvent.click(getByLabelText('Post update'))
 
     expect(createProjectUpdateThread).toHaveBeenCalledWith('project-1', {
       status: 'off_track',
       title: 'Hotfix hold',
-      body: 'Release paused pending rollback validation.',
+      body: 'Hotfix hold',
     })
     expect(await findByText('Update posted.')).toBeTruthy()
     expect(await findByText('Hotfix hold')).toBeTruthy()

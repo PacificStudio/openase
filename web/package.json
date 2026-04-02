@@ -21,7 +21,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "ci": "prettier --check . && eslint . && node scripts/check-file-budgets.mjs && node scripts/check-dependency-boundaries.mjs && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && vite build"
+    "ci": "prettier --check . && eslint . && node scripts/check-file-budgets.mjs && node scripts/check-dependency-boundaries.mjs && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && vite build && playwright test"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

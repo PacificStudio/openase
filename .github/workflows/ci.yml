@@ -158,6 +158,9 @@ jobs:
       - name: Install Web Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install Playwright Browser
+        run: pnpm exec playwright install chromium
+
       - name: Run Web CI
         shell: bash
         run: |

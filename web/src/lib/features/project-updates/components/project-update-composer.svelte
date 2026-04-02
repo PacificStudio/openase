@@ -1,8 +1,6 @@
 <script lang="ts">
-  import { Button } from '$ui/button'
-  import { Input } from '$ui/input'
-  import { Textarea } from '$ui/textarea'
-  import { projectUpdateStatusOptions } from '../status'
+  import { cn } from '$lib/utils'
+  import { Send, CircleCheck, AlertTriangle, CircleX } from '@lucide/svelte'
   import type { ProjectUpdateStatus } from '../types'
 
   let {
@@ -19,65 +17,97 @@
 
   let status = $state<ProjectUpdateStatus>('on_track')
   let title = $state('')
-  let body = $state('')
 
   async function handleSubmit() {
     const nextTitle = title.trim()
-    const nextBody = body.trim()
-    if (!nextTitle || !nextBody || creating) return
+    if (!nextTitle || creating) return
 
-    const success = (await onSubmit?.({ status, title: nextTitle, body: nextBody })) ?? false
+    const success = (await onSubmit?.({ status, title: nextTitle, body: nextTitle })) ?? false
     if (!success) return
 
     status = 'on_track'
     title = ''
-    body = ''
   }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter' && !e.shiftKey && title.trim() && !creating) {
+      e.preventDefault()
+      void handleSubmit()
+    }
+  }
+
+  const statusOptions: Array<{
+    value: ProjectUpdateStatus
+    label: string
+    icon: typeof CircleCheck
+    activeClass: string
+  }> = [
+    {
+      value: 'on_track',
+      label: 'On track',
+      icon: CircleCheck,
+      activeClass:
+        'border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300',
+    },
+    {
+      value: 'at_risk',
+      label: 'At risk',
+      icon: AlertTriangle,
+      activeClass:
+        'border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-300',
+    },
+    {
+      value: 'off_track',
+      label: 'Off track',
+      icon: CircleX,
+      activeClass:
+        'border-rose-400 bg-rose-50 text-rose-700 dark:border-rose-600 dark:bg-rose-950/40 dark:text-rose-300',
+    },
+  ]
 </script>
 
-<section class="border-border bg-background rounded-2xl border shadow-sm">
-  <div class="border-border border-b px-5 py-4">
-    <h2 class="text-base font-semibold">Post a project update</h2>
-    <p class="text-muted-foreground mt-1 text-sm">
-      Use Updates for the latest human-authored project status. Runtime event logs remain in
-      Activity.
-    </p>
+<div class="border-border bg-background rounded-xl border">
+  <div class="flex items-center gap-1 px-3 pt-2.5">
+    {#each statusOptions as opt (opt.value)}
+      {@const Icon = opt.icon}
+      <button
+        type="button"
+        class={cn(
+          'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors',
+          status === opt.value
+            ? opt.activeClass
+            : 'text-muted-foreground hover:bg-muted border-transparent',
+        )}
+        onclick={() => (status = opt.value)}
+        aria-label={`Set status: ${opt.label}`}
+      >
+        <Icon class="size-3" />
+        {opt.label}
+      </button>
+    {/each}
   </div>
-  <div class="space-y-4 px-5 py-4">
-    <div class="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)]">
-      <label class="space-y-1.5 text-sm">
-        <span class="text-muted-foreground">Delivery status</span>
-        <select
-          bind:value={status}
-          aria-label="New update status"
-          class="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {#each projectUpdateStatusOptions as option (option.value)}
-            <option value={option.value}>{option.label}</option>
-          {/each}
-        </select>
-      </label>
-      <label class="space-y-1.5 text-sm">
-        <span class="text-muted-foreground">Title</span>
-        <Input bind:value={title} aria-label="New update title" placeholder="Sprint 2 rollout" />
-      </label>
-    </div>
-    <label class="space-y-1.5 text-sm">
-      <span class="text-muted-foreground">Body</span>
-      <Textarea
-        bind:value={body}
-        aria-label="New update body"
-        rows={5}
-        placeholder="Summarize the latest delivery signal, risks, and next checkpoint."
-      />
-    </label>
-    <div class="flex items-center justify-between gap-3">
-      <p class="text-muted-foreground text-xs">
-        This timeline is separate from system Activity and is ordered by the latest discussion.
-      </p>
-      <Button onclick={handleSubmit} disabled={!title.trim() || !body.trim() || creating}>
-        {creating ? 'Posting…' : 'Post update'}
-      </Button>
-    </div>
+  <div class="flex items-center gap-2 px-3 pt-1.5 pb-2.5">
+    <input
+      type="text"
+      bind:value={title}
+      onkeydown={handleKeydown}
+      placeholder="Post an update..."
+      aria-label="New update title"
+      class="text-foreground placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm outline-none"
+    />
+    <button
+      type="button"
+      class={cn(
+        'shrink-0 rounded-md p-1.5 transition-colors',
+        title.trim() && !creating
+          ? 'text-primary hover:bg-primary/10'
+          : 'text-muted-foreground/40 cursor-not-allowed',
+      )}
+      disabled={!title.trim() || creating}
+      onclick={handleSubmit}
+      aria-label={creating ? 'Posting...' : 'Post update'}
+    >
+      <Send class="size-4" />
+    </button>
   </div>
-</section>
+</div>

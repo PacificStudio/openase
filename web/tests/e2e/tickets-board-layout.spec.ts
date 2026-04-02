@@ -27,6 +27,8 @@ test('board columns fill the available height and scroll internally', async ({
 
   await page.goto(projectPath('tickets'))
 
+  await page.getByRole('button', { name: 'Hide empty' }).click()
+
   const todoList = page.getByRole('list', { name: 'Todo tickets' })
   const reviewList = page.getByRole('list', { name: 'In Review tickets' })
 

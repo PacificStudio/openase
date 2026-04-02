@@ -7,6 +7,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -19,7 +20,9 @@ const agentClaimsContextKey = "agent_platform_claims"
 func (s *Server) registerAgentPlatformRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/tickets", s.handleAgentListTickets)
 	api.GET("/projects/:projectId/workflows", s.handleAgentListProjectWorkflows)
+	api.GET("/projects/:projectId/updates", s.handleAgentListProjectUpdates)
 	api.POST("/projects/:projectId/tickets", s.handleAgentCreateTicket)
+	api.POST("/projects/:projectId/updates", s.handleAgentCreateProjectUpdateThread)
 	api.GET("/tickets/:ticketId", s.handleAgentGetOwnTicket)
 	api.PATCH("/tickets/:ticketId", s.handleAgentUpdateOwnTicket)
 	api.GET("/tickets/:ticketId/comments", s.handleAgentListOwnTicketComments)
@@ -27,6 +30,11 @@ func (s *Server) registerAgentPlatformRoutes(api *echo.Group) {
 	api.PATCH("/tickets/:ticketId/comments/:commentId", s.handleAgentUpdateOwnTicketComment)
 	api.POST("/tickets/:ticketId/usage", s.handleAgentReportUsage)
 	api.PATCH("/projects/:projectId", s.handleAgentUpdateProject)
+	api.PATCH("/projects/:projectId/updates/:threadId", s.handleAgentUpdateProjectUpdateThread)
+	api.DELETE("/projects/:projectId/updates/:threadId", s.handleAgentDeleteProjectUpdateThread)
+	api.POST("/projects/:projectId/updates/:threadId/comments", s.handleAgentCreateProjectUpdateComment)
+	api.PATCH("/projects/:projectId/updates/:threadId/comments/:commentId", s.handleAgentUpdateProjectUpdateComment)
+	api.DELETE("/projects/:projectId/updates/:threadId/comments/:commentId", s.handleAgentDeleteProjectUpdateComment)
 	api.POST("/projects/:projectId/repos", s.handleAgentCreateProjectRepo)
 }
 
@@ -139,6 +147,34 @@ func (s *Server) handleAgentListProjectWorkflows(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"workflows": mapWorkflowResponses(items),
+	})
+}
+
+func (s *Server) handleAgentListProjectUpdates(c echo.Context) error {
+	if s.projectUpdateService == nil {
+		return writeProjectUpdateError(c, projectupdateservice.ErrUnavailable)
+	}
+
+	claims, ok := requireAgentScope(c, agentplatform.ScopeTicketsList)
+	if !ok {
+		return nil
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+	if claims.ProjectID != projectID {
+		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+	}
+
+	items, err := s.projectUpdateService.ListThreads(c.Request().Context(), projectID)
+	if err != nil {
+		return writeProjectUpdateError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"threads": mapProjectUpdateThreadResponses(items),
 	})
 }
 
@@ -375,6 +411,247 @@ func (s *Server) handleAgentUpdateProject(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"project": mapProjectResponse(item),
+	})
+}
+
+func (s *Server) handleAgentCreateProjectUpdateThread(c echo.Context) error {
+	if s.projectUpdateService == nil {
+		return writeProjectUpdateError(c, projectupdateservice.ErrUnavailable)
+	}
+
+	claims, ok := requireAgentScope(c, agentplatform.ScopeProjectsUpdate)
+	if !ok {
+		return nil
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+	if claims.ProjectID != projectID {
+		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+	}
+
+	var raw rawAgentCreateProjectUpdateThreadRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+
+	input, err := parseAgentCreateProjectUpdateThreadRequest(projectID, claims.CreatedBy(), raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	item, err := s.projectUpdateService.AddThread(c.Request().Context(), input)
+	if err != nil {
+		return writeProjectUpdateError(c, err)
+	}
+
+	return c.JSON(http.StatusCreated, map[string]any{
+		"thread": mapProjectUpdateThreadResponse(item),
+	})
+}
+
+func (s *Server) handleAgentUpdateProjectUpdateThread(c echo.Context) error {
+	if s.projectUpdateService == nil {
+		return writeProjectUpdateError(c, projectupdateservice.ErrUnavailable)
+	}
+
+	claims, ok := requireAgentScope(c, agentplatform.ScopeProjectsUpdate)
+	if !ok {
+		return nil
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+	if claims.ProjectID != projectID {
+		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+	}
+
+	threadID, err := parseUUIDPathParam(c, "threadId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_THREAD_ID", err.Error())
+	}
+
+	var raw rawAgentUpdateProjectUpdateThreadRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+
+	input, err := parseAgentUpdateProjectUpdateThreadRequest(projectID, threadID, claims.CreatedBy(), raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	item, err := s.projectUpdateService.UpdateThread(c.Request().Context(), input)
+	if err != nil {
+		return writeProjectUpdateError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"thread": mapProjectUpdateThreadResponse(item),
+	})
+}
+
+func (s *Server) handleAgentDeleteProjectUpdateThread(c echo.Context) error {
+	if s.projectUpdateService == nil {
+		return writeProjectUpdateError(c, projectupdateservice.ErrUnavailable)
+	}
+
+	claims, ok := requireAgentScope(c, agentplatform.ScopeProjectsUpdate)
+	if !ok {
+		return nil
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+	if claims.ProjectID != projectID {
+		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+	}
+
+	threadID, err := parseUUIDPathParam(c, "threadId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_THREAD_ID", err.Error())
+	}
+
+	result, err := s.projectUpdateService.RemoveThread(c.Request().Context(), projectID, threadID)
+	if err != nil {
+		return writeProjectUpdateError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"deleted_thread_id": result.DeletedThreadID.String(),
+	})
+}
+
+func (s *Server) handleAgentCreateProjectUpdateComment(c echo.Context) error {
+	if s.projectUpdateService == nil {
+		return writeProjectUpdateError(c, projectupdateservice.ErrUnavailable)
+	}
+
+	claims, ok := requireAgentScope(c, agentplatform.ScopeProjectsUpdate)
+	if !ok {
+		return nil
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+	if claims.ProjectID != projectID {
+		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+	}
+
+	threadID, err := parseUUIDPathParam(c, "threadId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_THREAD_ID", err.Error())
+	}
+
+	var raw rawAgentCreateProjectUpdateCommentRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+
+	input, err := parseAgentCreateProjectUpdateCommentRequest(projectID, threadID, claims.CreatedBy(), raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	item, err := s.projectUpdateService.AddComment(c.Request().Context(), input)
+	if err != nil {
+		return writeProjectUpdateError(c, err)
+	}
+
+	return c.JSON(http.StatusCreated, map[string]any{
+		"comment": mapProjectUpdateCommentResponse(item),
+	})
+}
+
+func (s *Server) handleAgentUpdateProjectUpdateComment(c echo.Context) error {
+	if s.projectUpdateService == nil {
+		return writeProjectUpdateError(c, projectupdateservice.ErrUnavailable)
+	}
+
+	claims, ok := requireAgentScope(c, agentplatform.ScopeProjectsUpdate)
+	if !ok {
+		return nil
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+	if claims.ProjectID != projectID {
+		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+	}
+
+	threadID, err := parseUUIDPathParam(c, "threadId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_THREAD_ID", err.Error())
+	}
+	commentID, err := parseUUIDPathParam(c, "commentId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_COMMENT_ID", err.Error())
+	}
+
+	var raw rawAgentUpdateProjectUpdateCommentRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+
+	input, err := parseAgentUpdateProjectUpdateCommentRequest(projectID, threadID, commentID, claims.CreatedBy(), raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	item, err := s.projectUpdateService.UpdateComment(c.Request().Context(), input)
+	if err != nil {
+		return writeProjectUpdateError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"comment": mapProjectUpdateCommentResponse(item),
+	})
+}
+
+func (s *Server) handleAgentDeleteProjectUpdateComment(c echo.Context) error {
+	if s.projectUpdateService == nil {
+		return writeProjectUpdateError(c, projectupdateservice.ErrUnavailable)
+	}
+
+	claims, ok := requireAgentScope(c, agentplatform.ScopeProjectsUpdate)
+	if !ok {
+		return nil
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+	if claims.ProjectID != projectID {
+		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+	}
+
+	threadID, err := parseUUIDPathParam(c, "threadId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_THREAD_ID", err.Error())
+	}
+	commentID, err := parseUUIDPathParam(c, "commentId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_COMMENT_ID", err.Error())
+	}
+
+	result, err := s.projectUpdateService.RemoveComment(c.Request().Context(), projectID, threadID, commentID)
+	if err != nil {
+		return writeProjectUpdateError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"deleted_comment_id": result.DeletedCommentID.String(),
 	})
 }
 

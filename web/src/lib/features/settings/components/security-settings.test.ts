@@ -43,6 +43,7 @@ describe('Security settings', () => {
     expect(await findByText('Effective credential')).toBeTruthy()
     expect(await findByText('Organization default')).toBeTruthy()
     expect(await findByText('Project override')).toBeTruthy()
+    expect(await findByText('User @octocat')).toBeTruthy()
     expect(await findByText('Device Flow')).toBeTruthy()
     expect(await findByText('OPENASE_AGENT_TOKEN')).toBeTruthy()
   })
@@ -151,6 +152,7 @@ function configuredSecurity() {
           state: 'valid',
           configured: true,
           valid: true,
+          login: 'octocat',
           permissions: ['repo', 'read:org'],
           repo_access: 'granted',
           checked_at: '2026-03-28T12:00:00Z',
@@ -166,6 +168,7 @@ function configuredSecurity() {
           state: 'valid',
           configured: true,
           valid: true,
+          login: 'octocat',
           permissions: ['repo', 'read:org'],
           repo_access: 'granted',
           checked_at: '2026-03-28T12:00:00Z',

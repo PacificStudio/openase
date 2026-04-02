@@ -1,19 +1,22 @@
+import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 
-const expectedProjectAIProviders = [
-  {
-    detail: 'Claude Code · claude-code-cli',
-  },
-  {
-    detail: 'Fake Codex Validation Provider · codex-app-server',
-  },
-  {
-    detail: 'Gemini CLI · gemini-cli',
-  },
-  {
-    detail: 'OpenAI Codex · codex-app-server',
-  },
-]
+async function expectProviderCatalog(page: Page) {
+  const options = page.getByRole('option')
+  await expect(options).toHaveCount(4)
+
+  const optionTexts = await options.allTextContents()
+  expect(
+    optionTexts.some(
+      (text) => text.includes('claude-opus-4-6') && text.includes('claude-code-cli'),
+    ),
+  ).toBeTruthy()
+  expect(
+    optionTexts.some((text) => text.includes('gemini-2.5-pro') && text.includes('gemini-cli')),
+  ).toBeTruthy()
+  expect(optionTexts.filter((text) => text.includes('codex-app-server')).length).toBe(2)
+  expect(optionTexts.every((text) => text.includes('Ready'))).toBeTruthy()
+}
 
 test('project ai provider picker matches the available provider catalog', async ({
   page,
@@ -24,7 +27,9 @@ test('project ai provider picker matches the available provider catalog', async 
   await expect(page.getByRole('heading', { name: 'Workflows' })).toBeVisible({ timeout: 10_000 })
 
   await page.getByRole('button', { name: 'Ask AI' }).click()
-  await expect(page.getByLabel('Chat model')).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByPlaceholder('Ask anything about this project…')).toBeVisible({
+    timeout: 10_000,
+  })
 
   await expect(page.getByText('No chat provider available.')).not.toBeVisible()
 
@@ -32,10 +37,32 @@ test('project ai provider picker matches the available provider catalog', async 
   await expect(chatModelTrigger).toBeVisible()
 
   await chatModelTrigger.click()
+  await expectProviderCatalog(page)
+})
 
-  for (const provider of expectedProjectAIProviders) {
-    await expect(page.getByText(provider.detail, { exact: true })).toBeVisible()
-  }
+test('project ai creates a new conversation and streams the first reply', async ({
+  page,
+  projectPath,
+}) => {
+  await page.goto(projectPath('workflows'))
+  await expect(page.getByRole('heading', { name: 'Workflows' })).toBeVisible({ timeout: 10_000 })
+
+  await page.getByRole('button', { name: 'Ask AI' }).click()
+  await expect(page.getByPlaceholder('Ask anything about this project…')).toBeVisible({
+    timeout: 10_000,
+  })
+
+  const prompt = page.getByPlaceholder('Ask anything about this project…')
+  await prompt.fill('What repo is connected?')
+  await page.getByRole('button', { name: 'Send message' }).click()
+
+  await expect(
+    page.locator('.break-words.whitespace-pre-wrap').filter({ hasText: 'What repo is connected?' }),
+  ).toBeVisible()
+  await expect(page.getByText('Mock assistant reply for: What repo is connected?')).toBeVisible({
+    timeout: 10_000,
+  })
+  await expect(page.getByText('Thinking...')).not.toBeVisible({ timeout: 10_000 })
 })
 
 test('harness ai provider picker matches the available provider catalog', async ({
@@ -47,7 +74,9 @@ test('harness ai provider picker matches the available provider catalog', async 
   await expect(page.getByRole('heading', { name: 'Workflows' })).toBeVisible({ timeout: 10_000 })
 
   await page.getByRole('button', { name: 'AI', exact: true }).click()
-  await expect(page.getByText('Harness AI')).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByPlaceholder('Ask AI to refine this harness…')).toBeVisible({
+    timeout: 10_000,
+  })
 
   await expect(page.getByText('No chat provider available.')).not.toBeVisible()
 
@@ -55,8 +84,5 @@ test('harness ai provider picker matches the available provider catalog', async 
   await expect(chatModelTrigger).toBeVisible()
 
   await chatModelTrigger.click()
-
-  for (const provider of expectedProjectAIProviders) {
-    await expect(page.getByText(provider.detail, { exact: true })).toBeVisible()
-  }
+  await expectProviderCatalog(page)
 })

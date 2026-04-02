@@ -120,8 +120,8 @@ describe('ProjectConversationPanel', () => {
 
     await findByText('Current conversation')
     expect((await findAllByText('Restored')).length).toBeGreaterThanOrEqual(1)
-    expect(getByRole('button', { name: /^Older discussion Restored$/ })).toBeTruthy()
-    expect(getByRole('button', { name: /^Current conversation Restored$/ })).toBeTruthy()
+    expect(getByRole('tab', { name: /^Older discussion Restored$/ })).toBeTruthy()
+    expect(getByRole('tab', { name: /^Current conversation Restored$/ })).toBeTruthy()
   })
 
   it('keeps the composer enabled on an idle tab while another tab is waiting on input', async () => {
@@ -266,7 +266,7 @@ describe('ProjectConversationPanel', () => {
 
     await fireEvent.click(getByRole('button', { name: 'Close First tab' }))
 
-    expect(queryByRole('button', { name: /^First tab$/ })).toBeNull()
-    expect(getByRole('button', { name: /^Second tab Running$/ })).toBeTruthy()
+    expect(queryByRole('tab', { name: /^First tab$/ })).toBeNull()
+    expect(getByRole('tab', { name: /^Second tab Running$/ })).toBeTruthy()
   })
 })

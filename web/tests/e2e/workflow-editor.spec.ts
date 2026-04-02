@@ -95,7 +95,7 @@ test.describe('workflow editor layout', () => {
     })
 
     // The drag handle (horizontal separator with cursor-row-resize) should not be visible initially
-    const dragHandle = page.locator('.cursor-row-resize')
+    const dragHandle = page.locator('[role="separator"].cursor-col-resize')
     await expect(dragHandle).not.toBeVisible()
 
     // Open the AI drawer
@@ -129,12 +129,21 @@ test.describe('workflow editor layout', () => {
       },
     })
 
-    // Skill pills should be in the toolbar
-    const commitPill = page.getByTitle(/commit/)
-    const deployPill = page.getByTitle(/deploy-openase/)
+    const skillsButton = page.locator('button').filter({ hasText: 'Skills' }).last()
+    await expect(skillsButton).toBeVisible()
+    await skillsButton.click()
 
-    await expect(commitPill).toBeVisible()
-    await expect(deployPill).toBeVisible()
+    const commitRow = page
+      .getByRole('button', { name: /^commit\b/i })
+      .filter({ has: page.getByTitle('Unbind skill') })
+      .first()
+    const deployRow = page
+      .getByRole('button', { name: /^deploy-openase\b/i })
+      .filter({ has: page.getByTitle('Bind skill') })
+      .first()
+
+    await expect(commitRow).toBeVisible()
+    await expect(deployRow).toBeVisible()
 
     // Bind the unbound skill
     await measureFeedback({
@@ -143,9 +152,11 @@ test.describe('workflow editor layout', () => {
       ready: page.getByText('Bound deploy-openase.'),
       testInfo,
       action: async () => {
-        await deployPill.click()
+        await deployRow.getByTitle('Bind skill').click()
       },
     })
+
+    await skillsButton.click()
 
     // Unbind the bound skill
     await measureFeedback({
@@ -154,7 +165,7 @@ test.describe('workflow editor layout', () => {
       ready: page.getByText('Unbound commit.'),
       testInfo,
       action: async () => {
-        await commitPill.click()
+        await commitRow.getByTitle('Unbind skill').click()
       },
     })
   })

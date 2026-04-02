@@ -12,6 +12,8 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
+	entprojectupdatecomment "github.com/BetterAndBetterII/openase/ent/projectupdatecomment"
+	entprojectupdatethread "github.com/BetterAndBetterII/openase/ent/projectupdatethread"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
@@ -96,6 +98,7 @@ type HarnessProjectData struct {
 	Workflows   []HarnessProjectWorkflowData
 	Statuses    []HarnessProjectStatusData
 	Machines    []HarnessProjectMachineData
+	Updates     []HarnessProjectUpdateThreadData
 }
 
 type HarnessProjectWorkflowData struct {
@@ -144,6 +147,27 @@ type HarnessProjectMachineData struct {
 	Labels      []string
 	Status      string
 	Resources   map[string]any
+}
+
+type HarnessProjectUpdateThreadData struct {
+	ID             string
+	Status         string
+	Title          string
+	BodyMarkdown   string
+	CreatedBy      string
+	CreatedAt      string
+	UpdatedAt      string
+	LastActivityAt string
+	CommentCount   int
+	Comments       []HarnessProjectUpdateCommentData
+}
+
+type HarnessProjectUpdateCommentData struct {
+	ID           string
+	BodyMarkdown string
+	CreatedBy    string
+	CreatedAt    string
+	UpdatedAt    string
 }
 
 type HarnessRepoData struct {
@@ -285,6 +309,10 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 		}
 		return HarnessTemplateData{}, fmt.Errorf("get project for harness render: %w", err)
 	}
+	projectUpdates, err := s.listHarnessProjectUpdates(ctx, projectItem.ID)
+	if err != nil {
+		return HarnessTemplateData{}, err
+	}
 	agentData := HarnessAgentData{}
 	if input.AgentID != nil {
 		agentItem, agentErr := s.client.Agent.Query().
@@ -351,6 +379,7 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 			Workflows:   projectWorkflows,
 			Statuses:    mapHarnessProjectStatuses(projectItem.Edges.Statuses),
 			Machines:    mapHarnessProjectMachines(input.Machine, input.AccessibleMachines),
+			Updates:     projectUpdates,
 		},
 		Repos:              scopedRepos,
 		AllRepos:           allRepos,
@@ -485,6 +514,22 @@ func HarnessVariableDictionary() []HarnessVariableGroup {
 				{Path: "project.machines[].labels", Type: "list", Description: "机器标签", Example: "[\"gpu\", \"a100\"]"},
 				{Path: "project.machines[].status", Type: "string", Description: "机器可用状态", Example: "current"},
 				{Path: "project.machines[].resources", Type: "object", Description: "最近一次持久化的机器资源快照；若尚未探测则为空对象"},
+				{Path: "project.updates", Type: "list", Description: "项目级 curated updates 时间线，按最近活动倒序"},
+				{Path: "project.updates[].id", Type: "string", Description: "更新 thread UUID"},
+				{Path: "project.updates[].status", Type: "string", Description: "进展状态", Example: "at_risk"},
+				{Path: "project.updates[].title", Type: "string", Description: "更新标题", Example: "Release train checkpoint"},
+				{Path: "project.updates[].body_markdown", Type: "string", Description: "更新正文 Markdown"},
+				{Path: "project.updates[].created_by", Type: "string", Description: "更新作者", Example: "agent:dispatcher-01"},
+				{Path: "project.updates[].created_at", Type: "string", Description: "创建时间 ISO 8601"},
+				{Path: "project.updates[].updated_at", Type: "string", Description: "更新时间 ISO 8601"},
+				{Path: "project.updates[].last_activity_at", Type: "string", Description: "最后讨论时间 ISO 8601"},
+				{Path: "project.updates[].comment_count", Type: "int", Description: "未删除评论数", Example: "2"},
+				{Path: "project.updates[].comments", Type: "list", Description: "该更新下的评论"},
+				{Path: "project.updates[].comments[].id", Type: "string", Description: "评论 UUID"},
+				{Path: "project.updates[].comments[].body_markdown", Type: "string", Description: "评论正文 Markdown"},
+				{Path: "project.updates[].comments[].created_by", Type: "string", Description: "评论作者"},
+				{Path: "project.updates[].comments[].created_at", Type: "string", Description: "评论创建时间 ISO 8601"},
+				{Path: "project.updates[].comments[].updated_at", Type: "string", Description: "评论更新时间 ISO 8601"},
 			},
 		},
 		{
@@ -607,6 +652,7 @@ func (d HarnessTemplateData) contextMap() map[string]any {
 			"workflows":   projectWorkflowMaps(d.Project.Workflows),
 			"statuses":    projectStatusMaps(d.Project.Statuses),
 			"machines":    projectMachineMaps(d.Project.Machines),
+			"updates":     projectUpdateThreadMaps(d.Project.Updates),
 		},
 		"repos":               repoMaps(d.Repos),
 		"all_repos":           repoMaps(d.AllRepos),
@@ -771,6 +817,57 @@ func (s *Service) listHarnessWorkflowRecentTickets(ctx context.Context, workflow
 		tickets = append(tickets, mapHarnessProjectWorkflowTicket(item))
 	}
 	return tickets, nil
+}
+
+func (s *Service) listHarnessProjectUpdates(
+	ctx context.Context,
+	projectID uuid.UUID,
+) ([]HarnessProjectUpdateThreadData, error) {
+	items, err := s.client.ProjectUpdateThread.Query().
+		Where(
+			entprojectupdatethread.ProjectIDEQ(projectID),
+			entprojectupdatethread.IsDeleted(false),
+		).
+		Order(ent.Desc(entprojectupdatethread.FieldLastActivityAt), ent.Desc(entprojectupdatethread.FieldID)).
+		WithComments(func(query *ent.ProjectUpdateCommentQuery) {
+			query.Where(entprojectupdatecomment.IsDeleted(false))
+			query.Order(ent.Asc(entprojectupdatecomment.FieldCreatedAt), ent.Asc(entprojectupdatecomment.FieldID))
+		}).
+		Limit(10).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list project updates for harness render: %w", err)
+	}
+
+	result := make([]HarnessProjectUpdateThreadData, 0, len(items))
+	for _, item := range items {
+		comments := make([]HarnessProjectUpdateCommentData, 0, len(item.Edges.Comments))
+		for _, comment := range item.Edges.Comments {
+			if comment == nil {
+				continue
+			}
+			comments = append(comments, HarnessProjectUpdateCommentData{
+				ID:           comment.ID.String(),
+				BodyMarkdown: comment.BodyMarkdown,
+				CreatedBy:    comment.CreatedBy,
+				CreatedAt:    comment.CreatedAt.UTC().Format(time.RFC3339),
+				UpdatedAt:    comment.UpdatedAt.UTC().Format(time.RFC3339),
+			})
+		}
+		result = append(result, HarnessProjectUpdateThreadData{
+			ID:             item.ID.String(),
+			Status:         item.Status.String(),
+			Title:          item.Title,
+			BodyMarkdown:   item.BodyMarkdown,
+			CreatedBy:      item.CreatedBy,
+			CreatedAt:      item.CreatedAt.UTC().Format(time.RFC3339),
+			UpdatedAt:      item.UpdatedAt.UTC().Format(time.RFC3339),
+			LastActivityAt: item.LastActivityAt.UTC().Format(time.RFC3339),
+			CommentCount:   item.CommentCount,
+			Comments:       comments,
+		})
+	}
+	return result, nil
 }
 
 func mapHarnessProjectStatuses(statuses []*ent.TicketStatus) []HarnessProjectStatusData {
@@ -1086,6 +1183,39 @@ func projectStatusMaps(items []HarnessProjectStatusData) []map[string]any {
 			"name":  item.Name,
 			"stage": item.Stage,
 			"color": item.Color,
+		})
+	}
+	return result
+}
+
+func projectUpdateThreadMaps(items []HarnessProjectUpdateThreadData) []map[string]any {
+	result := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		result = append(result, map[string]any{
+			"id":               item.ID,
+			"status":           item.Status,
+			"title":            item.Title,
+			"body_markdown":    item.BodyMarkdown,
+			"created_by":       item.CreatedBy,
+			"created_at":       item.CreatedAt,
+			"updated_at":       item.UpdatedAt,
+			"last_activity_at": item.LastActivityAt,
+			"comment_count":    item.CommentCount,
+			"comments":         projectUpdateCommentMaps(item.Comments),
+		})
+	}
+	return result
+}
+
+func projectUpdateCommentMaps(items []HarnessProjectUpdateCommentData) []map[string]any {
+	result := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		result = append(result, map[string]any{
+			"id":            item.ID,
+			"body_markdown": item.BodyMarkdown,
+			"created_by":    item.CreatedBy,
+			"created_at":    item.CreatedAt,
+			"updated_at":    item.UpdatedAt,
 		})
 	}
 	return result

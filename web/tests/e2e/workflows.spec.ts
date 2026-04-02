@@ -52,7 +52,9 @@ test('scheduled jobs creation remains responsive', async ({ page, projectPath },
 
   await page.getByRole('button', { name: 'New job' }).click()
   await page.getByLabel('Job name').fill('Morning sync')
-  await page.getByLabel('Cron expression').fill('0 9 * * 1-5')
+  await page.getByRole('button', { name: 'Manual input' }).click()
+  await page.getByPlaceholder('0 2 * * *').fill('0 9 * * 1-5')
+  await page.getByRole('button', { name: 'Ticket template' }).click()
   await page.getByLabel('Title').fill('Run morning sync')
   await page.getByLabel('Created by').fill('playwright')
 
@@ -62,7 +64,7 @@ test('scheduled jobs creation remains responsive', async ({ page, projectPath },
     ready: page.getByText('Scheduled job created.'),
     testInfo,
     action: async () => {
-      await page.getByRole('button', { name: 'Create job' }).click()
+      await page.getByRole('button', { name: 'Create' }).click()
     },
   })
 

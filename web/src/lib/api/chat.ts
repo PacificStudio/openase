@@ -170,6 +170,29 @@ export type ProjectConversationStreamEvent =
   | { kind: 'turn_done'; payload: ProjectConversationTurnDonePayload }
   | { kind: 'error'; payload: ChatErrorPayload }
 
+type RawProjectConversation = {
+  id?: string
+  project_id?: string
+  user_id?: string
+  source?: string
+  provider_id?: string
+  status?: string
+  rolling_summary?: string
+  last_activity_at?: string
+  created_at?: string
+  updated_at?: string
+}
+
+type RawProjectConversationEntry = {
+  id?: string
+  conversation_id?: string
+  turn_id?: string
+  seq?: number
+  kind?: string
+  payload?: Record<string, unknown>
+  created_at?: string
+}
+
 export async function streamChatTurn(
   request: ChatTurnRequest,
   handlers: {
@@ -235,35 +258,47 @@ export async function closeChatSession(sessionId: string) {
 }
 
 export function createProjectConversation(request: { providerId: string; projectId: string }) {
-  return fetchJSON<{ conversation: ProjectConversation }>('/api/v1/chat/conversations', {
+  return fetchJSON<{ conversation?: RawProjectConversation }>('/api/v1/chat/conversations', {
     method: 'POST',
     body: {
       source: 'project_sidebar',
       provider_id: request.providerId,
       context: { project_id: request.projectId },
     },
-  })
+  }).then((payload) => ({
+    conversation: parseProjectConversation(payload.conversation),
+  }))
 }
 
 export function listProjectConversations(request: { projectId: string; providerId?: string }) {
-  return fetchJSON<{ conversations: ProjectConversation[] }>('/api/v1/chat/conversations', {
+  return fetchJSON<{ conversations?: RawProjectConversation[] }>('/api/v1/chat/conversations', {
     params: {
       project_id: request.projectId,
       provider_id: request.providerId,
     },
-  })
+  }).then((payload) => ({
+    conversations: Array.isArray(payload.conversations)
+      ? payload.conversations.map((conversation) => parseProjectConversation(conversation))
+      : [],
+  }))
 }
 
 export function getProjectConversation(conversationId: string) {
-  return fetchJSON<{ conversation: ProjectConversation }>(
+  return fetchJSON<{ conversation?: RawProjectConversation }>(
     `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}`,
-  )
+  ).then((payload) => ({
+    conversation: parseProjectConversation(payload.conversation),
+  }))
 }
 
 export function listProjectConversationEntries(conversationId: string) {
-  return fetchJSON<{ entries: ProjectConversationEntry[] }>(
+  return fetchJSON<{ entries?: RawProjectConversationEntry[] }>(
     `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/entries`,
-  )
+  ).then((payload) => ({
+    entries: Array.isArray(payload.entries)
+      ? payload.entries.map((entry) => parseProjectConversationEntry(entry))
+      : [],
+  }))
 }
 
 export function startProjectConversationTurn(conversationId: string, message: string) {
@@ -333,10 +368,16 @@ export function respondProjectConversationInterrupt(
 }
 
 export function executeProjectConversationActionProposal(conversationId: string, entryId: string) {
-  return fetchJSON<{ result_entry: ProjectConversationEntry; results: Record<string, unknown>[] }>(
+  return fetchJSON<{
+    result_entry?: RawProjectConversationEntry
+    results?: Record<string, unknown>[]
+  }>(
     `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/action-proposals/${encodeURIComponent(entryId)}/execute`,
     { method: 'POST' },
-  )
+  ).then((payload) => ({
+    result_entry: parseProjectConversationEntry(payload.result_entry),
+    results: Array.isArray(payload.results) ? payload.results : [],
+  }))
 }
 
 export async function closeProjectConversationRuntime(conversationId: string) {
@@ -538,6 +579,38 @@ function parseErrorPayload(payload: unknown): ChatErrorPayload {
   const object = parseRequiredObject(payload)
   return {
     message: readRequiredString(object, 'message'),
+  }
+}
+
+function parseProjectConversation(value: unknown): ProjectConversation {
+  const object = parseRequiredObject(value)
+  const createdAt = readOptionalString(object, 'created_at') ?? ''
+  const updatedAt = readOptionalString(object, 'updated_at') ?? createdAt
+
+  return {
+    id: readRequiredString(object, 'id'),
+    projectId: readOptionalString(object, 'project_id') ?? '',
+    userId: readOptionalString(object, 'user_id') ?? '',
+    source: 'project_sidebar',
+    providerId: readOptionalString(object, 'provider_id') ?? '',
+    status: readOptionalString(object, 'status') ?? '',
+    rollingSummary: readOptionalString(object, 'rolling_summary') ?? '',
+    lastActivityAt: readOptionalString(object, 'last_activity_at') ?? updatedAt ?? createdAt,
+    createdAt,
+    updatedAt,
+  }
+}
+
+function parseProjectConversationEntry(value: unknown): ProjectConversationEntry {
+  const object = parseRequiredObject(value)
+  return {
+    id: readRequiredString(object, 'id'),
+    conversationId: readRequiredString(object, 'conversation_id'),
+    turnId: readOptionalString(object, 'turn_id'),
+    seq: readRequiredNumber(object, 'seq'),
+    kind: readRequiredString(object, 'kind'),
+    payload: readOptionalObject(object, 'payload') ?? {},
+    createdAt: readOptionalString(object, 'created_at') ?? '',
   }
 }
 

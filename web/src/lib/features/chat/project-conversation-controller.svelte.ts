@@ -150,22 +150,36 @@ export function createProjectConversationController(
       return
     }
     const now = new Date().toISOString()
-    conversations = [
-      ...conversations
-        .map((conversation) =>
-          conversation.id === conversationId
-            ? { ...conversation, lastActivityAt: now }
-            : conversation,
-        )
-        .sort((left, right) => right.lastActivityAt.localeCompare(left.lastActivityAt)),
-    ]
+    conversations = sortProjectConversations(
+      conversations.map((conversation) =>
+        conversation.id === conversationId
+          ? { ...conversation, lastActivityAt: now }
+          : conversation,
+      ),
+    )
   }
 
   function upsertConversation(conversation: ProjectConversation) {
-    conversations = [
+    conversations = sortProjectConversations([
       conversation,
       ...conversations.filter((current) => current.id !== conversation.id),
-    ]
+    ])
+  }
+
+  function sortProjectConversations(items: ProjectConversation[]) {
+    return [...items].sort((left, right) => {
+      const comparison = conversationActivitySortKey(right).localeCompare(
+        conversationActivitySortKey(left),
+      )
+      if (comparison !== 0) {
+        return comparison
+      }
+      return right.id.localeCompare(left.id)
+    })
+  }
+
+  function conversationActivitySortKey(conversation: ProjectConversation) {
+    return conversation.lastActivityAt || conversation.updatedAt || conversation.createdAt || ''
   }
 
   async function loadTabConversation(
@@ -342,7 +356,7 @@ export function createProjectConversationController(
           return
         }
 
-        conversations = listPayload.conversations
+        conversations = sortProjectConversations(listPayload.conversations)
         const availableConversationIDs = new Set(
           listPayload.conversations.map((conversation) => conversation.id),
         )

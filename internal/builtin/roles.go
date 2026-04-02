@@ -87,6 +87,17 @@ Active workflows in this project:
 - {{ item.role_name }} name={{ item.name }} pickup={{ item.pickup_status }} finish={{ item.finish_status }} active={{ item.current_active }}/{{ item.max_concurrent }} skills={{ item.skills | join(", ") | default("none") }}
 {% endfor %}
 {% endif %}
+
+{% if project.updates %}
+Recent project updates:
+{% for update in project.updates %}
+- {{ update.status }} | {{ update.title }} | {{ update.created_by }}
+  {{ update.body_markdown }}
+  {% for comment in update.comments %}
+  - {{ comment.created_by }}: {{ comment.body_markdown }}
+  {% endfor %}
+{% endfor %}
+{% endif %}
 `)
 }
 
@@ -224,6 +235,17 @@ Project statuses:
 - {{ item.name }} stage={{ item.stage }} color={{ item.color }}
 {% endfor %}
 
+{% if project.updates %}
+Recent project updates:
+{% for update in project.updates %}
+- {{ update.status }} | {{ update.title }} | {{ update.created_by }}
+  {{ update.body_markdown }}
+  {% for comment in update.comments %}
+  - {{ comment.created_by }}: {{ comment.body_markdown }}
+  {% endfor %}
+{% endfor %}
+{% endif %}
+
 Available machines:
 {% for item in project.machines %}
 - {{ item.name }} host={{ item.host }} status={{ item.status }} labels={{ item.labels | join(", ") | default("none") }} resources={{ item.resources | tojson }}
@@ -297,6 +319,17 @@ Improve an existing workflow harness using recent execution history, current har
 - Workflow: {{ workflow.name }} (type={{ workflow.type }}, role={{ workflow.role_name }}, pickup={{ workflow.pickup_status }}, finish={{ workflow.finish_status }})
 - Ticket: {{ ticket.identifier }} {{ ticket.title | markdown_escape }} status={{ ticket.status }} priority={{ ticket.priority }} type={{ ticket.type }}
 - Project: {{ project.name }} status={{ project.status }} statuses={{ project.statuses | map(attribute="name") | join(", ") | default("none") }}
+
+{% if project.updates %}
+Recent project updates:
+{% for update in project.updates %}
+- {{ update.status }} | {{ update.title }} | {{ update.created_by }}
+  {{ update.body_markdown }}
+  {% for comment in update.comments %}
+  - {{ comment.created_by }}: {{ comment.body_markdown }}
+  {% endfor %}
+{% endfor %}
+{% endif %}
 
 Target workflow inventory:
 {% for item in project.workflows %}
@@ -372,6 +405,17 @@ Project machine inventory:
 {% for item in project.machines %}
 - {{ item.name }} host={{ item.host }} status={{ item.status }} labels={{ item.labels | join(", ") | default("none") }}
 {% endfor %}
+
+{% if project.updates %}
+Recent project updates:
+{% for update in project.updates %}
+- {{ update.status }} | {{ update.title }} | {{ update.created_by }}
+  {{ update.body_markdown }}
+  {% for comment in update.comments %}
+  - {{ comment.created_by }}: {{ comment.body_markdown }}
+  {% endfor %}
+{% endfor %}
+{% endif %}
 
 ## Workpad
 

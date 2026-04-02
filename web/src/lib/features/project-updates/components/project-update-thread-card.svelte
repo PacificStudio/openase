@@ -1,19 +1,12 @@
 <script lang="ts">
   import { cn, formatRelativeTime } from '$lib/utils'
-  import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
-  import { Textarea } from '$ui/textarea'
-  import { Pencil, Trash2 } from '@lucide/svelte'
+  import { AlertTriangle, CircleCheck, CircleX, Pencil, Send, Trash2, X } from '@lucide/svelte'
   import { isProjectUpdateEdited, projectUpdateEditedLabel } from '../metadata'
-  import {
-    projectUpdateStatusBadgeClass,
-    projectUpdateStatusLabel,
-    projectUpdateStatusOptions,
-  } from '../status'
+  import { projectUpdateStatusLabel } from '../status'
   import type { ProjectUpdateStatus, ProjectUpdateThread } from '../types'
   import ProjectUpdateCommentItem from './project-update-comment-item.svelte'
-  import ProjectUpdateMarkdownContent from './project-update-markdown-content.svelte'
 
   let {
     thread,
@@ -41,16 +34,68 @@
   let editingThread = $state(false)
   let editingStatus = $state<ProjectUpdateStatus>('on_track')
   let editingTitle = $state('')
-  let editingBody = $state('')
   let commentDraft = $state('')
   let savingThread = $state(false)
   let deletingThread = $state(false)
   let creatingComment = $state(false)
+  let showComments = $state(false)
+
+  const statusConfig: Record<
+    ProjectUpdateStatus,
+    { icon: typeof CircleCheck; dotClass: string; textClass: string }
+  > = {
+    on_track: {
+      icon: CircleCheck,
+      dotClass: 'text-emerald-500',
+      textClass: 'text-emerald-700 dark:text-emerald-400',
+    },
+    at_risk: {
+      icon: AlertTriangle,
+      dotClass: 'text-amber-500',
+      textClass: 'text-amber-700 dark:text-amber-400',
+    },
+    off_track: {
+      icon: CircleX,
+      dotClass: 'text-rose-500',
+      textClass: 'text-rose-700 dark:text-rose-400',
+    },
+  }
+
+  const threadStatusCfg = $derived(statusConfig[thread.status])
+  const ThreadStatusIcon = $derived(threadStatusCfg.icon)
+
+  const editStatusOptions: Array<{
+    value: ProjectUpdateStatus
+    label: string
+    icon: typeof CircleCheck
+    activeClass: string
+  }> = [
+    {
+      value: 'on_track',
+      label: 'On track',
+      icon: CircleCheck,
+      activeClass:
+        'border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300',
+    },
+    {
+      value: 'at_risk',
+      label: 'At risk',
+      icon: AlertTriangle,
+      activeClass:
+        'border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-300',
+    },
+    {
+      value: 'off_track',
+      label: 'Off track',
+      icon: CircleX,
+      activeClass:
+        'border-rose-400 bg-rose-50 text-rose-700 dark:border-rose-600 dark:bg-rose-950/40 dark:text-rose-300',
+    },
+  ]
 
   $effect(() => {
     editingStatus = thread.status
     editingTitle = thread.title
-    editingBody = thread.bodyMarkdown
     if (thread.isDeleted) {
       editingThread = false
       commentDraft = ''
@@ -61,35 +106,29 @@
     editingThread = false
     editingStatus = thread.status
     editingTitle = thread.title
-    editingBody = thread.bodyMarkdown
   }
 
   async function handleSaveThread() {
     const title = editingTitle.trim()
-    const body = editingBody.trim()
-    if (!title || !body || savingThread) return
+    if (!title || savingThread) return
 
     savingThread = true
     try {
       const success =
-        (await onUpdateThread?.(thread.id, { status: editingStatus, title, body })) ?? false
-      if (success) {
-        editingThread = false
-      }
+        (await onUpdateThread?.(thread.id, { status: editingStatus, title, body: title })) ?? false
+      if (success) editingThread = false
     } finally {
       savingThread = false
     }
   }
 
   async function handleDeleteThread() {
-    if (deletingThread || !window.confirm('Delete this update thread?')) return
+    if (deletingThread || !window.confirm('Delete this update?')) return
 
     deletingThread = true
     try {
       const success = (await onDeleteThread?.(thread.id)) ?? false
-      if (success) {
-        editingThread = false
-      }
+      if (success) editingThread = false
     } finally {
       deletingThread = false
     }
@@ -104,153 +143,175 @@
       const success = (await onCreateComment?.(thread.id, body)) ?? false
       if (success) {
         commentDraft = ''
+        showComments = true
       }
     } finally {
       creatingComment = false
     }
   }
+
+  function handleCommentKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter' && !e.shiftKey && commentDraft.trim() && !creatingComment) {
+      e.preventDefault()
+      void handleCreateComment()
+    }
+  }
 </script>
 
-<article class="border-border bg-background rounded-2xl border shadow-sm">
-  <div class="border-border flex items-start justify-between gap-3 border-b px-5 py-4">
-    <div class="min-w-0 flex-1">
-      <div class="mb-2 flex flex-wrap items-center gap-2">
-        <Badge
-          variant="outline"
-          class={cn('font-medium', projectUpdateStatusBadgeClass(thread.status))}
+{#if editingThread}
+  <div class="border-border rounded-xl border px-3 py-2.5">
+    <div class="flex items-center gap-1 pb-1.5">
+      {#each editStatusOptions as opt (opt.value)}
+        {@const Icon = opt.icon}
+        <button
+          type="button"
+          class={cn(
+            'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors',
+            editingStatus === opt.value
+              ? opt.activeClass
+              : 'text-muted-foreground hover:bg-muted border-transparent',
+          )}
+          onclick={() => (editingStatus = opt.value)}
         >
-          {projectUpdateStatusLabel(thread.status)}
-        </Badge>
-        {#if thread.isDeleted}
-          <Badge variant="outline">Deleted</Badge>
-        {/if}
-        <span class="text-muted-foreground text-xs">
-          {thread.commentCount}
-          {thread.commentCount === 1 ? 'comment' : 'comments'}
-        </span>
-      </div>
-      <h2 class={cn('text-lg font-semibold', thread.isDeleted && 'text-muted-foreground')}>
-        {thread.title}
-      </h2>
-      <div class="text-muted-foreground mt-1 flex flex-wrap items-center gap-2 text-xs">
-        <span>{thread.createdBy}</span>
-        <span>{formatRelativeTime(thread.createdAt)}</span>
-        {#if isProjectUpdateEdited(thread.createdAt, thread.updatedAt, thread.editedAt)}
-          <span
-            >{projectUpdateEditedLabel(thread.createdAt, thread.updatedAt, thread.editedAt)}</span
-          >
-        {/if}
-        <span>last activity {formatRelativeTime(thread.lastActivityAt)}</span>
-      </div>
+          <Icon class="size-3" />
+          {opt.label}
+        </button>
+      {/each}
     </div>
     <div class="flex items-center gap-2">
-      {#if !editingThread}
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label={`Edit update ${thread.title}`}
-          onclick={() => (editingThread = true)}
-          disabled={thread.isDeleted || deletingThread}
-        >
-          <Pencil class="size-4" />
-        </Button>
-      {/if}
+      <Input
+        bind:value={editingTitle}
+        class="h-8 flex-1 border-none bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
+        aria-label={`Edit title for ${thread.title}`}
+      />
       <Button
-        size="icon-sm"
-        variant="ghost"
-        aria-label={`Delete update ${thread.title}`}
-        onclick={handleDeleteThread}
-        disabled={thread.isDeleted || deletingThread}
+        size="sm"
+        class="h-7 px-2.5 text-xs"
+        onclick={handleSaveThread}
+        disabled={!editingTitle.trim() || savingThread}
       >
-        <Trash2 class="size-4" />
+        {savingThread ? 'Saving...' : 'Save'}
       </Button>
+      <button
+        type="button"
+        class="text-muted-foreground hover:text-foreground transition-colors"
+        onclick={cancelThreadEdit}
+      >
+        <X class="size-3.5" />
+      </button>
     </div>
   </div>
-
-  <div class="space-y-4 px-5 py-4">
-    {#if editingThread}
-      <div class="space-y-3">
-        <div class="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)]">
-          <label class="space-y-1.5 text-sm">
-            <span class="text-muted-foreground">Delivery status</span>
-            <select
-              bind:value={editingStatus}
-              aria-label={`Edit status for ${thread.title}`}
-              class="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {#each projectUpdateStatusOptions as option (option.value)}
-                <option value={option.value}>{option.label}</option>
-              {/each}
-            </select>
-          </label>
-          <label class="space-y-1.5 text-sm">
-            <span class="text-muted-foreground">Title</span>
-            <Input bind:value={editingTitle} aria-label={`Edit title for ${thread.title}`} />
-          </label>
+{:else}
+  <div
+    class={cn(
+      'group border-border hover:bg-muted/30 rounded-xl border px-3 py-2.5 transition-colors',
+      thread.isDeleted && 'opacity-60',
+    )}
+  >
+    <div class="flex items-start gap-2.5">
+      <ThreadStatusIcon class={cn('mt-0.5 size-4 shrink-0', threadStatusCfg.dotClass)} />
+      <div class="min-w-0 flex-1">
+        <div class="flex items-baseline gap-2">
+          <span class={cn('text-sm font-medium', thread.isDeleted && 'line-through')}>
+            {thread.title}
+          </span>
+          <span class={cn('shrink-0 text-[10px] font-medium', threadStatusCfg.textClass)}>
+            {projectUpdateStatusLabel(thread.status)}
+          </span>
         </div>
-        <label class="space-y-1.5 text-sm">
-          <span class="text-muted-foreground">Body</span>
-          <Textarea
-            bind:value={editingBody}
-            aria-label={`Edit body for ${thread.title}`}
-            rows={6}
-          />
-        </label>
-        <div class="flex justify-end gap-2">
-          <Button size="sm" variant="outline" onclick={cancelThreadEdit} disabled={savingThread}>
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            onclick={handleSaveThread}
-            disabled={!editingTitle.trim() || !editingBody.trim() || savingThread}
-          >
-            {savingThread ? 'Saving…' : 'Save'}
-          </Button>
+        <div class="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px]">
+          <span>{thread.createdBy}</span>
+          <span>&middot;</span>
+          <span>{formatRelativeTime(thread.createdAt)}</span>
+          {#if isProjectUpdateEdited(thread.createdAt, thread.updatedAt, thread.editedAt)}
+            <span>&middot;</span>
+            <span
+              >{projectUpdateEditedLabel(thread.createdAt, thread.updatedAt, thread.editedAt)}</span
+            >
+          {/if}
+          {#if thread.commentCount > 0}
+            <span>&middot;</span>
+            <button
+              type="button"
+              class="hover:text-foreground transition-colors"
+              onclick={() => (showComments = !showComments)}
+            >
+              {thread.commentCount}
+              {thread.commentCount === 1 ? 'reply' : 'replies'}
+            </button>
+          {/if}
         </div>
       </div>
-    {:else if thread.isDeleted}
-      <p class="text-muted-foreground text-sm italic">
-        This update was deleted. Existing discussion remains visible for timeline continuity.
-      </p>
-    {:else}
-      <ProjectUpdateMarkdownContent source={thread.bodyMarkdown} />
+
+      <div
+        class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100"
+      >
+        {#if !thread.isDeleted}
+          <button
+            type="button"
+            class="text-muted-foreground hover:text-foreground rounded p-1 transition-colors"
+            aria-label={`Edit update ${thread.title}`}
+            onclick={() => (editingThread = true)}
+          >
+            <Pencil class="size-3" />
+          </button>
+        {/if}
+        <button
+          type="button"
+          class="text-muted-foreground hover:text-destructive rounded p-1 transition-colors"
+          aria-label={`Delete update ${thread.title}`}
+          onclick={handleDeleteThread}
+          disabled={thread.isDeleted || deletingThread}
+        >
+          <Trash2 class="size-3" />
+        </button>
+      </div>
+    </div>
+
+    {#if thread.isDeleted}
+      <p class="text-muted-foreground mt-1.5 ml-6.5 text-xs italic">Deleted</p>
     {/if}
-  </div>
 
-  <div class="border-border border-t px-5 py-4">
-    <div class="space-y-3">
-      {#each thread.comments as comment (comment.id)}
-        <ProjectUpdateCommentItem
-          threadId={thread.id}
-          {comment}
-          onUpdate={onUpdateComment}
-          onDelete={onDeleteComment}
-        />
-      {/each}
-
-      {#if !thread.isDeleted}
-        <div class="rounded-xl border border-dashed px-4 py-4">
-          <label class="space-y-1.5 text-sm">
-            <span class="text-muted-foreground">Reply</span>
-            <Textarea
-              bind:value={commentDraft}
-              aria-label={`Reply to ${thread.title}`}
-              rows={3}
-              placeholder="Add a progress note, question, or follow-up."
+    {#if showComments || thread.commentCount === 0}
+      {#if thread.comments.length > 0 || !thread.isDeleted}
+        <div class="mt-2 ml-6.5 space-y-2">
+          {#each thread.comments as comment (comment.id)}
+            <ProjectUpdateCommentItem
+              threadId={thread.id}
+              {comment}
+              onUpdate={onUpdateComment}
+              onDelete={onDeleteComment}
             />
-          </label>
-          <div class="mt-3 flex justify-end">
-            <Button
-              size="sm"
-              onclick={handleCreateComment}
-              disabled={!commentDraft.trim() || creatingComment}
-            >
-              {creatingComment ? 'Posting…' : 'Add comment'}
-            </Button>
-          </div>
+          {/each}
+
+          {#if !thread.isDeleted}
+            <div class="flex items-center gap-2">
+              <input
+                type="text"
+                bind:value={commentDraft}
+                onkeydown={handleCommentKeydown}
+                placeholder="Reply..."
+                aria-label={`Reply to ${thread.title}`}
+                class="text-foreground placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-xs outline-none"
+              />
+              <button
+                type="button"
+                class={cn(
+                  'shrink-0 rounded p-1 transition-colors',
+                  commentDraft.trim() && !creatingComment
+                    ? 'text-primary hover:bg-primary/10'
+                    : 'text-muted-foreground/30 cursor-not-allowed',
+                )}
+                disabled={!commentDraft.trim() || creatingComment}
+                onclick={handleCreateComment}
+                aria-label="Send reply"
+              >
+                <Send class="size-3" />
+              </button>
+            </div>
+          {/if}
         </div>
       {/if}
-    </div>
+    {/if}
   </div>
-</article>
+{/if}

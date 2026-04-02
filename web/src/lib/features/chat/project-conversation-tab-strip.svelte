@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ProjectConversation } from '$lib/api/chat'
+  import { cn } from '$lib/utils'
   import { X } from '@lucide/svelte'
   import {
     formatProjectConversationLabel,
@@ -11,95 +12,65 @@
     tabs,
     activeTabId,
     conversations,
-    historicalConversations,
-    providerId = '',
     onSelectTab,
     onCloseTab,
-    onOpenConversation,
   }: {
     tabs: ProjectConversationTabView[]
     activeTabId: string
     conversations: ProjectConversation[]
-    historicalConversations: ProjectConversation[]
-    providerId?: string
     onSelectTab: (tabId: string) => void
     onCloseTab: (tabId: string) => void
-    onOpenConversation: (conversationId: string) => Promise<void> | void
   } = $props()
 
-  let openConversationId = $state('')
-
-  async function handleOpenConversation(nextConversationId: string) {
-    if (!nextConversationId) {
-      return
-    }
-    openConversationId = ''
-    await onOpenConversation(nextConversationId)
-  }
+  const canClose = $derived.by(() => {
+    return (tab: ProjectConversationTabView) =>
+      tabs.length > 1 || tab.conversationId || tab.entries.length > 0
+  })
 </script>
 
-<div class="border-border border-b px-4 py-2">
-  <div class="flex flex-wrap gap-2">
+{#if tabs.length > 0}
+  <div class="border-border flex items-center gap-px overflow-x-auto border-b px-2">
     {#each tabs as tab (tab.id)}
       {@const label = formatProjectConversationLabel(tab, conversations)}
       {@const status = formatProjectConversationTabStatus(tab)}
+      {@const isActive = tab.id === activeTabId}
+
       <div
-        class:bg-accent={tab.id === activeTabId}
-        class="border-input flex max-w-full items-center gap-1 rounded-md border px-2 py-1"
+        role="tab"
+        tabindex="0"
+        class={cn(
+          'group relative flex max-w-[180px] shrink-0 cursor-pointer items-center gap-1 px-2.5 py-1.5 text-xs transition-colors',
+          isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+        )}
+        onclick={() => onSelectTab(tab.id)}
+        onkeydown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onSelectTab(tab.id)
+          }
+        }}
       >
-        <button type="button" class="min-w-0 text-left" onclick={() => onSelectTab(tab.id)}>
-          <div class="truncate text-sm font-medium">{label}</div>
-          {#if status}
-            <div class="text-muted-foreground text-[10px] uppercase">{status}</div>
-          {/if}
-        </button>
-        {#if tabs.length > 1 || tab.conversationId || tab.entries.length > 0}
+        {#if isActive}
+          <span class="bg-foreground absolute inset-x-2.5 bottom-0 h-[1.5px] rounded-full"></span>
+        {/if}
+        <span class="max-w-[140px] truncate">{label}</span>
+        {#if status}
+          <span class="shrink-0 text-[9px] uppercase opacity-50">{status}</span>
+        {/if}
+        {#if canClose(tab)}
           <button
             type="button"
-            class="text-muted-foreground hover:text-foreground rounded p-0.5"
+            class="text-muted-foreground/40 hover:text-foreground -mr-1 ml-0.5 shrink-0 rounded-sm p-0.5 opacity-0 transition-opacity group-hover:opacity-100"
             aria-label={`Close ${label}`}
             onclick={(event) => {
               event.stopPropagation()
               onCloseTab(tab.id)
             }}
           >
-            <X class="size-3" />
+            <X class="size-2.5" />
           </button>
         {/if}
       </div>
     {/each}
   </div>
-
-  {#if historicalConversations.length > 0}
-    <div class="mt-2">
-      <label
-        class="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-[0.16em] uppercase"
-        for="project-conversation-open"
-      >
-        Open Existing Conversation
-      </label>
-      <select
-        id="project-conversation-open"
-        class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
-        bind:value={openConversationId}
-        disabled={!providerId}
-        onchange={(event) =>
-          void handleOpenConversation((event.currentTarget as HTMLSelectElement).value)}
-      >
-        <option value="">Select a conversation</option>
-        {#each historicalConversations as conversation (conversation.id)}
-          <option value={conversation.id}>
-            {conversation.rollingSummary?.trim() ||
-              formatProjectConversationLabel(
-                {
-                  conversationId: conversation.id,
-                  entries: [],
-                },
-                conversations,
-              )}
-          </option>
-        {/each}
-      </select>
-    </div>
-  {/if}
-</div>
+{/if}

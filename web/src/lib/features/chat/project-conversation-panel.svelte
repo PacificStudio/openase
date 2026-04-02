@@ -58,12 +58,6 @@
   const statusMessage = $derived(
     getProjectConversationStatusMessage(phase, controller.hasPendingInterrupt),
   )
-  const openConversationIds = $derived(
-    new Set(tabs.map((tab) => tab.conversationId).filter((conversationId) => conversationId)),
-  )
-  const historicalConversations = $derived(
-    conversations.filter((conversation) => !openConversationIds.has(conversation.id)),
-  )
 
   $effect(() => {
     if (providers.length > 0 || !organizationId) {
@@ -135,47 +129,37 @@
     prompt = ''
     await controller.sendTurn(message)
   }
-
-  async function handleOpenConversation(nextConversationId: string) {
-    if (!nextConversationId) {
-      return
-    }
-    await controller.openConversation(nextConversationId)
-  }
 </script>
 
 <div class="bg-background flex h-full min-h-0 flex-col">
-  <div class="border-border flex items-center justify-between gap-2 border-b px-4 py-2">
-    <div class="flex items-center gap-2">
-      <h2 class="text-sm font-semibold">{title}</h2>
-      <EphemeralChatProviderSelect
-        providers={chatProviders}
-        {providerId}
-        disabled={providerSelectionDisabled}
-        onProviderChange={(nextProviderId) => void controller.selectProvider(nextProviderId)}
-      />
-    </div>
-
-    <div class="flex items-center gap-1">
+  <div class="border-border flex items-center gap-2 border-b px-3 py-1.5 pr-12">
+    <h2 class="text-xs font-medium">{title}</h2>
+    <EphemeralChatProviderSelect
+      providers={chatProviders}
+      {providerId}
+      disabled={providerSelectionDisabled}
+      onProviderChange={(nextProviderId) => void controller.selectProvider(nextProviderId)}
+    />
+    <div class="ml-auto flex items-center">
       <Button
         variant="ghost"
         size="sm"
-        class="h-7 gap-1 px-2 text-xs"
+        class="text-muted-foreground h-6 gap-1 px-1.5 text-[11px]"
+        aria-label="New Tab"
         onclick={() => controller.createTab()}
         disabled={!providerId}
       >
-        <Plus class="size-3.5" />
-        New Tab
+        <Plus class="size-3" />
       </Button>
       <Button
         variant="ghost"
         size="sm"
-        class="size-7 p-0"
+        class="text-muted-foreground size-6 p-0"
         aria-label="Reset conversation"
         onclick={() => void controller.resetConversation()}
         disabled={entries.length === 0 && !pending}
       >
-        <RefreshCcw class="size-3.5" />
+        <RefreshCcw class="size-3" />
       </Button>
     </div>
   </div>
@@ -184,14 +168,11 @@
     {tabs}
     {activeTabId}
     {conversations}
-    {historicalConversations}
-    {providerId}
     onSelectTab={(tabId) => controller.selectTab(tabId)}
     onCloseTab={(tabId) => controller.closeTab(tabId)}
-    onOpenConversation={(conversationId) => void handleOpenConversation(conversationId)}
   />
 
-  <ScrollArea class="min-h-0 flex-1 px-4 py-4">
+  <ScrollArea class="min-h-0 flex-1 px-3 py-3">
     <ProjectConversationTranscript
       {entries}
       {pending}
@@ -200,28 +181,26 @@
     />
   </ScrollArea>
 
-  <div class="border-border border-t px-4 py-3">
+  <div class="border-border border-t px-3 py-2">
     {#if loadingProviders}
-      <div class="text-muted-foreground mb-2 text-xs">Loading providers…</div>
+      <div class="text-muted-foreground mb-1.5 text-[11px]">Loading providers...</div>
     {:else if providerError}
-      <div class="text-destructive mb-2 text-xs">{providerError}</div>
+      <div class="text-destructive mb-1.5 text-[11px]">{providerError}</div>
     {:else if chatProviders.length === 0}
-      <div class="text-muted-foreground mb-2 text-xs">No chat provider available.</div>
+      <div class="text-muted-foreground mb-1.5 text-[11px]">No chat provider available.</div>
     {:else if statusMessage}
-      <div class="text-muted-foreground mb-2 text-xs">{statusMessage}</div>
+      <div class="text-muted-foreground mb-1.5 text-[11px]">{statusMessage}</div>
     {:else if activeTab?.restored}
-      <div class="text-muted-foreground mb-2 text-xs">
-        This tab was restored from your last session.
-      </div>
+      <div class="text-muted-foreground mb-1.5 text-[11px]">Restored from last session.</div>
     {/if}
 
     <div
-      class="border-input focus-within:ring-ring flex items-center gap-2 rounded-lg border px-3 py-1.5 focus-within:ring-1"
+      class="border-input focus-within:ring-ring flex items-center gap-1.5 rounded-lg border px-2.5 py-1 focus-within:ring-1"
     >
       <Textarea
         bind:value={prompt}
         rows={1}
-        class="min-h-0 flex-1 resize-none border-0 px-0 py-1.5 text-sm shadow-none focus-visible:ring-0"
+        class="min-h-0 flex-1 resize-none border-0 px-0 py-1 text-sm shadow-none focus-visible:ring-0"
         {placeholder}
         disabled={inputDisabled}
         onkeydown={(event) => {
@@ -234,12 +213,12 @@
       <Button
         variant="ghost"
         size="sm"
-        class="size-7 shrink-0 p-0"
+        class="text-muted-foreground size-6 shrink-0 p-0"
         aria-label="Send message"
         onclick={() => void handleSend()}
         disabled={!prompt.trim() || inputDisabled}
       >
-        <Send class="size-4" />
+        <Send class="size-3.5" />
       </Button>
     </div>
   </div>

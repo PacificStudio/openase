@@ -22,6 +22,7 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	git "github.com/go-git/go-git/v5"
 	gitconfig "github.com/go-git/go-git/v5/config"
@@ -1200,6 +1201,7 @@ WorkflowBindings {% for wf in project.workflows %}{{ wf.role_name }}=pickup[{% f
 WorkflowHistory {% for wf in project.workflows %}{{ wf.role_name }}={% for recent in wf.recent_tickets %}{{ recent.identifier }}:{{ recent.status }}:{{ recent.retry_paused }}:{{ recent.consecutive_errors }}|{% endfor %};{% endfor %}
 ProjectStatuses {% for status in project.statuses %}{{ status.name }}:{{ status.stage }}:{{ status.color }}|{% endfor %}
 ProjectMachines {% for machine in project.machines %}{{ machine.name }}:{{ machine.status }}:{{ machine.resources.transport | default("none") }}:{{ machine.labels | join(",") }}|{% endfor %}
+ProjectUpdates {% for update in project.updates %}{{ update.status }}:{{ update.title }}:{{ update.created_by }}:{% for comment in update.comments %}{{ comment.created_by }}={{ comment.body_markdown }}|{% endfor %};{% endfor %}
 Platform {{ platform.api_url }} {{ platform.project_id }} {{ platform.ticket_id }}
 Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 {% if attempt > 1 %}retry{% endif %}
@@ -1393,6 +1395,25 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		Save(ctx); err != nil {
 		t.Fatalf("create dependency: %v", err)
 	}
+	projectUpdateService := projectupdateservice.NewService(client, nil)
+	thread, err := projectUpdateService.AddThread(ctx, projectupdateservice.AddThreadInput{
+		ProjectID: fixture.projectID,
+		Status:    projectupdateservice.StatusAtRisk,
+		Title:     "GPU queue saturation",
+		Body:      "The A100 queue is drifting upward.",
+		CreatedBy: "agent:dispatcher-01",
+	})
+	if err != nil {
+		t.Fatalf("create project update thread: %v", err)
+	}
+	if _, err := projectUpdateService.AddComment(ctx, projectupdateservice.AddCommentInput{
+		ProjectID: fixture.projectID,
+		ThreadID:  thread.ID,
+		Body:      "Routing lower-priority runs away from the saturated pool.",
+		CreatedBy: "agent:dispatcher-01",
+	}); err != nil {
+		t.Fatalf("create project update comment: %v", err)
+	}
 
 	data, err := service.BuildHarnessTemplateData(ctx, BuildHarnessTemplateDataInput{
 		WorkflowID:     codingWorkflow.ID,
@@ -1512,6 +1533,9 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 	if len(data.Project.Machines) != 2 || data.Project.Machines[0].Name != "gpu-01" || data.Project.Machines[0].Status != "current" || data.Project.Machines[1].Name != "storage" {
 		t.Fatalf("project machines = %+v", data.Project.Machines)
 	}
+	if len(data.Project.Updates) != 1 || data.Project.Updates[0].Title != "GPU queue saturation" || len(data.Project.Updates[0].Comments) != 1 {
+		t.Fatalf("project updates = %+v", data.Project.Updates)
+	}
 	if data.Project.Machines[0].Resources["transport"] != "ssh" || data.Project.Machines[1].Resources["transport"] != "ssh" {
 		t.Fatalf("project machine resources = %+v", data.Project.Machines)
 	}
@@ -1533,6 +1557,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		"WorkflowHistory fullstack-developer=ASE-42:Todo:False:0|ASE-41:In Review:True:2|ASE-40:Todo:False:0|;dispatcher=;",
 		"ProjectStatuses Backlog:backlog:#6B7280|Todo:unstarted:#3B82F6|In Progress:started:#F59E0B|In Review:started:#8B5CF6|Done:completed:#10B981|Cancelled:canceled:#4B5563|",
 		"ProjectMachines gpu-01:current:ssh:gpu,a100|storage:accessible:ssh:storage,nfs|",
+		"ProjectUpdates at_risk:GPU queue saturation:agent:dispatcher-01:agent:dispatcher-01=Routing lower-priority runs away from the saturated pool.|;",
 		fmt.Sprintf("Platform http://localhost:19836/api/v1 %s %s", fixture.projectID, ticketItem.ID),
 		"retry",
 	} {

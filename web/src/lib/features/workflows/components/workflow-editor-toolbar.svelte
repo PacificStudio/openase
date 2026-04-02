@@ -2,10 +2,10 @@
   import { cn } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import Button from '$ui/button/button.svelte'
-  import { Bot, PanelLeftClose, PanelLeftOpen, Settings, Settings2 } from '@lucide/svelte'
+  import { Bot, PanelLeftClose, PanelLeftOpen, Settings2 } from '@lucide/svelte'
   import type { SkillState } from '../model'
   import type { WorkflowSummary } from '../types'
-  import WorkflowSkillPopover from './workflow-skill-popover.svelte'
+  import WorkflowSkillsDropdown from './workflow-skills-dropdown.svelte'
 
   let {
     selectedWorkflow,
@@ -67,21 +67,7 @@
   </div>
 
   {#if skillStates.length > 0}
-    <div class="border-border mx-1 h-4 w-px shrink-0 border-l"></div>
-    <div class="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
-      {#each skillStates as skill (skill.path)}
-        <WorkflowSkillPopover {skill} onToggle={onToggleSkill} />
-      {/each}
-    </div>
-    {#if skillsSettingsHref}
-      <a
-        href={skillsSettingsHref}
-        class="text-muted-foreground hover:text-foreground shrink-0 transition-colors"
-        title="Manage skills library"
-      >
-        <Settings class="size-3.5" />
-      </a>
-    {/if}
+    <WorkflowSkillsDropdown {skillStates} {skillsSettingsHref} {onToggleSkill} />
   {/if}
 
   <div class="ml-auto flex shrink-0 items-center gap-1.5">

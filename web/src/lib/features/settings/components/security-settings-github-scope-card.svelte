@@ -57,6 +57,12 @@
     return parsed.toLocaleString()
   }
 
+  function displayLogin(): string {
+    const login = (slot.probe as typeof slot.probe & { login?: string }).login?.trim()
+    if (!login) return ''
+    return login.startsWith('@') ? login : `@${login}`
+  }
+
   function isBusy(action: 'save' | 'import' | 'retest' | 'delete') {
     return actionKey === `${scope}:${action}`
   }
@@ -110,6 +116,12 @@
   {#if slot.configured}
     <div class="border-border border-t px-4 py-3">
       <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+        {#if displayLogin()}
+          <div>
+            <span class="text-muted-foreground">User</span>
+            <div>{displayLogin()}</div>
+          </div>
+        {/if}
         <div>
           <span class="text-muted-foreground">Token</span>
           <div class="font-mono">{slot.token_preview}</div>

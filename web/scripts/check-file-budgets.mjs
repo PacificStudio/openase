@@ -33,6 +33,8 @@ const budgetRules = [
         'Onboarding panel still coordinates the full multi-step flow until onboarding controller extraction lands.',
       'src/lib/features/onboarding/components/step-repo.svelte':
         'Onboarding repo step keeps create and link flows together until onboarding step extraction lands.',
+      'src/lib/features/project-updates/components/project-update-thread-card.svelte':
+        'Project update thread card still keeps inline edit and reply flows together until card sections are extracted.',
       'src/lib/features/settings/components/workflow-scheduled-job-cron-picker.svelte':
         'Cron picker keeps presets and field editor together until scheduled job form extraction lands.',
       'src/lib/features/settings/components/workflow-scheduled-jobs-panel.svelte':
@@ -61,6 +63,8 @@ const budgetRules = [
         'Agent provider normalization coverage remains in one test module until scenario helpers are extracted.',
       'src/lib/features/board/components/board-page-controls.test.ts':
         'Board controls regression coverage remains consolidated while the control matrix is still evolving.',
+      'src/lib/features/board/components/board-page-runtime-and-drawer.test.ts':
+        'Board runtime stream and drawer regression coverage remain bundled while ticket board helpers are still being split out.',
       'src/lib/features/chat/project-conversation-controller.svelte.ts':
         'Project conversation controller remains centralized while multi-tab restore and per-tab runtime flows continue to settle.',
       'src/lib/features/chat/project-conversation-controller.test.ts':

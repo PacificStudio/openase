@@ -8,7 +8,14 @@ vi.mock('./sse', () => ({
   consumeEventStream,
 }))
 
-import { streamChatTurn, watchProjectConversation } from './chat'
+import {
+  createProjectConversation,
+  getProjectConversation,
+  listProjectConversationEntries,
+  listProjectConversations,
+  streamChatTurn,
+  watchProjectConversation,
+} from './chat'
 
 describe('streamChatTurn', () => {
   beforeEach(() => {
@@ -289,5 +296,162 @@ describe('watchProjectConversation', () => {
         },
       },
     ])
+  })
+})
+
+describe('project conversation REST mapping', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('maps snake_case project conversation payloads to camelCase fields', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            conversations: [
+              {
+                id: 'conversation-1',
+                project_id: 'project-1',
+                user_id: 'user-1',
+                source: 'project_sidebar',
+                provider_id: 'provider-1',
+                status: 'active',
+                rolling_summary: 'Latest thread',
+                last_activity_at: '2026-04-02T05:00:00Z',
+                created_at: '2026-04-02T04:00:00Z',
+                updated_at: '2026-04-02T05:00:00Z',
+              },
+            ],
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          json: async () => ({
+            conversation: {
+              id: 'conversation-2',
+              project_id: 'project-1',
+              user_id: 'user-1',
+              source: 'project_sidebar',
+              provider_id: 'provider-2',
+              status: 'active',
+              rolling_summary: '',
+              last_activity_at: '2026-04-02T06:00:00Z',
+              created_at: '2026-04-02T06:00:00Z',
+              updated_at: '2026-04-02T06:00:00Z',
+            },
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            conversation: {
+              id: 'conversation-3',
+              project_id: 'project-1',
+              user_id: 'user-1',
+              source: 'project_sidebar',
+              provider_id: 'provider-3',
+              status: 'active',
+              rolling_summary: 'Recovered thread',
+              created_at: '2026-04-02T07:00:00Z',
+              updated_at: '2026-04-02T07:05:00Z',
+            },
+          }),
+        }),
+    )
+
+    await expect(
+      listProjectConversations({ projectId: 'project-1', providerId: 'provider-1' }),
+    ).resolves.toEqual({
+      conversations: [
+        {
+          id: 'conversation-1',
+          projectId: 'project-1',
+          userId: 'user-1',
+          source: 'project_sidebar',
+          providerId: 'provider-1',
+          status: 'active',
+          rollingSummary: 'Latest thread',
+          lastActivityAt: '2026-04-02T05:00:00Z',
+          createdAt: '2026-04-02T04:00:00Z',
+          updatedAt: '2026-04-02T05:00:00Z',
+        },
+      ],
+    })
+
+    await expect(
+      createProjectConversation({ projectId: 'project-1', providerId: 'provider-2' }),
+    ).resolves.toEqual({
+      conversation: {
+        id: 'conversation-2',
+        projectId: 'project-1',
+        userId: 'user-1',
+        source: 'project_sidebar',
+        providerId: 'provider-2',
+        status: 'active',
+        rollingSummary: '',
+        lastActivityAt: '2026-04-02T06:00:00Z',
+        createdAt: '2026-04-02T06:00:00Z',
+        updatedAt: '2026-04-02T06:00:00Z',
+      },
+    })
+
+    await expect(getProjectConversation('conversation-3')).resolves.toEqual({
+      conversation: {
+        id: 'conversation-3',
+        projectId: 'project-1',
+        userId: 'user-1',
+        source: 'project_sidebar',
+        providerId: 'provider-3',
+        status: 'active',
+        rollingSummary: 'Recovered thread',
+        lastActivityAt: '2026-04-02T07:05:00Z',
+        createdAt: '2026-04-02T07:00:00Z',
+        updatedAt: '2026-04-02T07:05:00Z',
+      },
+    })
+  })
+
+  it('maps snake_case project conversation entries to camelCase fields', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          entries: [
+            {
+              id: 'entry-1',
+              conversation_id: 'conversation-1',
+              turn_id: 'turn-1',
+              seq: 1,
+              kind: 'user_message',
+              payload: { content: 'hello' },
+              created_at: '2026-04-02T08:00:00Z',
+            },
+          ],
+        }),
+      }),
+    )
+
+    await expect(listProjectConversationEntries('conversation-1')).resolves.toEqual({
+      entries: [
+        {
+          id: 'entry-1',
+          conversationId: 'conversation-1',
+          turnId: 'turn-1',
+          seq: 1,
+          kind: 'user_message',
+          payload: { content: 'hello' },
+          createdAt: '2026-04-02T08:00:00Z',
+        },
+      ],
+    })
   })
 })

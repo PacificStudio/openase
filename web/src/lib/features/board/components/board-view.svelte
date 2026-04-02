@@ -1,6 +1,6 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
-  import { EyeOff } from '@lucide/svelte'
+  import { EyeOff, Plus } from '@lucide/svelte'
   import type { BoardGroup, BoardStatusOption, BoardTicket, HiddenColumn } from '../types'
   import BoardColumnComponent from './board-column.svelte'
 
@@ -100,7 +100,14 @@
                 <span class="size-2 shrink-0 rounded-full" style="background-color: {col.color}"
                 ></span>
                 <span class="min-w-0 flex-1 truncate text-xs">{col.name}</span>
-                <span class="text-muted-foreground/60 shrink-0 text-[10px]">{col.ticketCount}</span>
+                <button
+                  type="button"
+                  class="text-muted-foreground/50 hover:text-foreground hover:bg-muted shrink-0 rounded p-0.5 transition-colors"
+                  aria-label="Create ticket in {col.name}"
+                  onclick={() => onCreateTicket?.(col.id)}
+                >
+                  <Plus class="size-3" />
+                </button>
               </div>
             {/each}
           </div>

@@ -21,7 +21,7 @@ test('machines drawer edit remains fast', async ({ page, projectPath }, testInfo
     action: async () => {
       await page
         .getByTestId('machine-card-machine-gpu')
-        .getByRole('button', { name: 'Edit' })
+        .getByRole('button', { name: 'View details' })
         .click()
     },
   })
@@ -58,7 +58,8 @@ test('machines test connection keeps resource snapshot intact', async ({
     ready: page.getByText('Connection test completed.'),
     testInfo,
     action: async () => {
-      await gpuCard.getByRole('button', { name: 'Test' }).click()
+      await gpuCard.getByRole('button', { name: 'More actions' }).click()
+      await page.getByRole('menuitem', { name: 'Connection test' }).click()
     },
   })
 

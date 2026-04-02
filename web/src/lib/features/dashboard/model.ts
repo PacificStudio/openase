@@ -57,6 +57,23 @@ export function buildProjectSummary(
   }
 }
 
+export function shouldShowProjectOnboarding(params: {
+  dismissed: boolean
+  loading: boolean
+  stats: Pick<DashboardStats, 'activeTickets' | 'runningAgents'>
+  projectId?: string | null
+  orgId?: string | null
+}) {
+  return (
+    !params.dismissed &&
+    !params.loading &&
+    params.stats.activeTickets === 0 &&
+    params.stats.runningAgents === 0 &&
+    Boolean(params.projectId) &&
+    Boolean(params.orgId)
+  )
+}
+
 export function buildActivityItems(events: ActivityEvent[]): ActivityItem[] {
   return events.slice(0, 6).map((event) => ({
     id: event.id,

@@ -1,89 +1,118 @@
 <script lang="ts">
-  import type { ProjectConversationToolCallEntry } from './project-conversation-transcript-state'
+  import { cn } from '$lib/utils'
+  import { ChevronRight, Terminal, FileText, FilePenLine, Search, Keyboard } from '@lucide/svelte'
+  import type { ProjectConversationToolCallEntry } from './project-conversation-transcript-types'
+  import {
+    summarizeToolCall,
+    isExploringToolCall,
+  } from './project-conversation-transcript-grouping'
 
-  let { entry }: { entry: ProjectConversationToolCallEntry } = $props()
+  let {
+    entry,
+    standalone = false,
+  }: { entry: ProjectConversationToolCallEntry; standalone?: boolean } = $props()
 
-  function asRecord(value: unknown) {
-    return value && typeof value === 'object' && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : null
+  let expanded = $state(false)
+
+  const summary = $derived(summarizeToolCall(entry))
+  const isExploring = $derived(isExploringToolCall(entry))
+
+  function toolIcon(tool: string) {
+    if (tool === 'functions.exec_command') return Terminal
+    if (tool === 'functions.apply_patch') return FilePenLine
+    if (tool === 'functions.write_stdin') return Keyboard
+    if (tool.includes('search') || tool.includes('grep')) return Search
+    return FileText
   }
 
   function readString(...keys: string[]) {
-    const record = asRecord(entry.arguments)
+    const record =
+      entry.arguments && typeof entry.arguments === 'object' && !Array.isArray(entry.arguments)
+        ? (entry.arguments as Record<string, unknown>)
+        : null
     for (const key of keys) {
       const value = record?.[key]
-      if (typeof value === 'string' && value.trim()) {
-        return value
-      }
+      if (typeof value === 'string' && value.trim()) return value
     }
     return ''
-  }
-
-  function toolTitle() {
-    switch (entry.tool) {
-      case 'functions.exec_command':
-        return 'Run command'
-      case 'functions.apply_patch':
-        return 'Apply patch'
-      case 'functions.write_stdin':
-        return 'Write stdin'
-      default:
-        return 'Tool call'
-    }
   }
 
   const command = $derived(readString('cmd', 'command'))
   const target = $derived(readString('path', 'file', 'target', 'workdir'))
   const patch = $derived(readString('patch'))
 
-  function formatJSON(value: unknown) {
-    const formatted = JSON.stringify(value ?? {}, null, 2)
-    return formatted ?? '{}'
-  }
+  const Icon = $derived(toolIcon(entry.tool))
 </script>
 
-<div class="space-y-2 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-3 text-sm">
-  <div class="text-[10px] font-semibold tracking-[0.16em] text-violet-700 uppercase">runtime</div>
-  <div class="font-medium text-violet-950">{toolTitle()}</div>
-  <div class="text-xs text-violet-900">
-    <span class="font-mono">{entry.tool}</span>
-  </div>
+<div class={cn('group', standalone && 'border-border/60 bg-muted/20 rounded-lg border')}>
+  <button
+    type="button"
+    class="hover:bg-muted/40 flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors"
+    onclick={() => (expanded = !expanded)}
+  >
+    <ChevronRight
+      class={cn(
+        'text-muted-foreground size-3 shrink-0 transition-transform duration-150',
+        expanded && 'rotate-90',
+      )}
+    />
+    <Icon class={cn('size-3.5 shrink-0', isExploring ? 'text-sky-500' : 'text-violet-500')} />
+    <span class="text-foreground min-w-0 flex-1 truncate">
+      {summary}
+    </span>
+    <span class="text-muted-foreground/60 shrink-0 font-mono text-[10px]">
+      {entry.tool.replace('functions.', '')}
+    </span>
+  </button>
 
-  {#if command}
-    <div class="rounded-xl border border-violet-500/20 bg-white/80 px-3 py-2">
-      <div class="mb-1 text-[10px] font-semibold tracking-[0.14em] text-violet-700 uppercase">
-        command
-      </div>
-      <pre class="font-mono text-xs leading-5 whitespace-pre-wrap text-violet-950">{command}</pre>
+  {#if expanded}
+    <div class="border-border/40 ml-5 space-y-2 border-l pt-1 pb-2 pl-3">
+      {#if command}
+        <div>
+          <div
+            class="text-muted-foreground mb-0.5 text-[10px] font-medium tracking-wider uppercase"
+          >
+            command
+          </div>
+          <pre
+            class="bg-muted/60 overflow-x-auto rounded-md px-2.5 py-1.5 font-mono text-xs leading-5 whitespace-pre-wrap">{command}</pre>
+        </div>
+      {/if}
+
+      {#if target}
+        <div>
+          <div
+            class="text-muted-foreground mb-0.5 text-[10px] font-medium tracking-wider uppercase"
+          >
+            target
+          </div>
+          <div class="text-foreground/80 font-mono text-xs">{target}</div>
+        </div>
+      {/if}
+
+      {#if patch}
+        <div>
+          <div
+            class="text-muted-foreground mb-0.5 text-[10px] font-medium tracking-wider uppercase"
+          >
+            patch
+          </div>
+          <pre
+            class="bg-muted/60 max-h-60 overflow-auto rounded-md px-2.5 py-1.5 font-mono text-xs leading-5 whitespace-pre-wrap">{patch}</pre>
+        </div>
+      {/if}
+
+      <details class="text-xs">
+        <summary class="text-muted-foreground hover:text-foreground cursor-pointer">
+          Raw arguments
+        </summary>
+        <pre
+          class="bg-muted/60 mt-1 max-h-48 overflow-auto rounded-md px-2.5 py-1.5 font-mono text-[11px] leading-5 whitespace-pre-wrap">{JSON.stringify(
+            entry.arguments,
+            null,
+            2,
+          )}</pre>
+      </details>
     </div>
   {/if}
-
-  {#if target}
-    <div class="rounded-xl border border-violet-500/20 bg-white/80 px-3 py-2">
-      <div class="mb-1 text-[10px] font-semibold tracking-[0.14em] text-violet-700 uppercase">
-        target
-      </div>
-      <div class="font-mono text-xs leading-5 text-violet-950">{target}</div>
-    </div>
-  {/if}
-
-  {#if patch}
-    <details class="rounded-xl border border-violet-500/20 bg-white/80">
-      <summary class="cursor-pointer px-3 py-2 text-xs font-medium text-violet-900">
-        Patch preview
-      </summary>
-      <pre
-        class="overflow-x-auto border-t border-violet-500/20 px-3 py-2 text-xs leading-5 whitespace-pre-wrap text-violet-950">{patch}</pre>
-    </details>
-  {/if}
-
-  <details class="rounded-xl border border-violet-500/20 bg-white/80">
-    <summary class="cursor-pointer px-3 py-2 text-xs font-medium text-violet-900">Arguments</summary
-    >
-    <pre
-      class="overflow-x-auto border-t border-violet-500/20 px-3 py-2 text-xs leading-5 whitespace-pre-wrap text-violet-950">{formatJSON(
-        entry.arguments,
-      )}</pre>
-  </details>
 </div>

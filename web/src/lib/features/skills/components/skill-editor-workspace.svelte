@@ -106,7 +106,7 @@
   <div class="flex min-w-0 flex-1 flex-col">
     <SkillFileTabs {openFiles} activeFile={selectedPath} {dirtyPaths} {onSelectTab} {onCloseTab} />
 
-    <div class="min-h-0 flex-1 overflow-auto">
+    <div class="flex min-h-0 flex-1 overflow-auto" data-testid="skill-editor-textarea-container">
       <SkillFileEditor file={selectedFile} content={activeContent} {onContentChange} />
     </div>
   </div>

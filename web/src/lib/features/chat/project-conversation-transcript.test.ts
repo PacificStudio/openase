@@ -7,8 +7,8 @@ describe('ProjectConversationTranscript', () => {
     cleanup()
   })
 
-  it('renders structured runtime cards, interrupt details, and diff hunks', () => {
-    const { getAllByText, getByText } = render(ProjectConversationTranscript, {
+  it('groups system entries into a collapsed operation block and renders standalone entries', () => {
+    const { getByText, getAllByText, queryByText } = render(ProjectConversationTranscript, {
       props: {
         entries: [
           {
@@ -81,19 +81,57 @@ describe('ProjectConversationTranscript', () => {
       },
     })
 
-    expect(getByText('Run command')).toBeTruthy()
-    expect(getByText('functions.exec_command')).toBeTruthy()
-    expect(getAllByText('command').length).toBeGreaterThan(0)
-    expect(getByText('Arguments')).toBeTruthy()
-    expect(getByText('pnpm test')).toBeTruthy()
+    // The 3 system entries (tool_call, task_status, command_output) are grouped
+    // into a single collapsed operation block with a summary header
+    expect(getByText('3 items')).toBeTruthy()
+
+    // Collapsed by default — individual card content is NOT visible
+    expect(queryByText('Task progress')).toBeNull()
+
+    // Standalone entries are still rendered directly
+    // Diff card
     expect(getAllByText('README.md').length).toBeGreaterThan(0)
-    expect(getAllByText('Patch preview').length).toBeGreaterThan(0)
-    expect(getByText('Command output')).toBeTruthy()
-    expect(getByText((content) => content.includes('stdout'))).toBeTruthy()
-    expect(getByText('@@ -1,1 +1,2 @@')).toBeTruthy()
     expect(getByText('+new line')).toBeTruthy()
+
+    // Interrupt card
     expect(getByText('Command approval required')).toBeTruthy()
-    expect(getAllByText('git status').length).toBeGreaterThan(0)
-    expect(getByText('Payload details')).toBeTruthy()
+    expect(getByText('Approve once')).toBeTruthy()
+  })
+
+  it('renders text messages with correct styling', () => {
+    const { getByText } = render(ProjectConversationTranscript, {
+      props: {
+        entries: [
+          {
+            id: 'entry-user',
+            kind: 'text',
+            role: 'user',
+            content: 'Hello, AI!',
+            streaming: false,
+          },
+          {
+            id: 'entry-assistant',
+            kind: 'text',
+            role: 'assistant',
+            content: 'Hello! How can I help?',
+            streaming: false,
+          },
+        ],
+      },
+    })
+
+    expect(getByText('Hello, AI!')).toBeTruthy()
+    expect(getByText('Hello! How can I help?')).toBeTruthy()
+  })
+
+  it('shows pending indicator when pending is true', () => {
+    const { getByText } = render(ProjectConversationTranscript, {
+      props: {
+        entries: [],
+        pending: true,
+      },
+    })
+
+    expect(getByText('Thinking...')).toBeTruthy()
   })
 })

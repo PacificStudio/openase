@@ -1,108 +1,97 @@
 <script lang="ts">
-  import type { ProjectConversationTaskStatusEntry } from './project-conversation-transcript-state'
+  import { cn } from '$lib/utils'
+  import { ChevronRight, Play, CheckCircle, AlertCircle, Info, Loader } from '@lucide/svelte'
+  import type { ProjectConversationTaskStatusEntry } from './project-conversation-transcript-types'
 
-  let { entry }: { entry: ProjectConversationTaskStatusEntry } = $props()
+  let {
+    entry,
+    standalone = false,
+  }: { entry: ProjectConversationTaskStatusEntry; standalone?: boolean } = $props()
 
-  function readString(...keys: string[]) {
-    const raw = entry.raw ?? {}
-    for (const key of keys) {
-      const value = raw[key]
-      if (typeof value === 'string' && value.trim()) {
-        return value
-      }
+  let expanded = $state(false)
+
+  function statusIcon(statusType: ProjectConversationTaskStatusEntry['statusType']) {
+    switch (statusType) {
+      case 'task_started':
+        return Play
+      case 'task_progress':
+        return Loader
+      case 'task_notification':
+        return Info
+      case 'turn_done':
+        return CheckCircle
+      case 'error':
+        return AlertCircle
     }
-    return ''
   }
 
-  function otherPayload() {
-    const raw = entry.raw ?? {}
-    const hidden = new Set([
-      'status',
-      'stream',
-      'phase',
-      'command',
-      'file',
-      'path',
-      'target',
-      'patch',
-      'text',
-      'message',
-    ])
-    const remaining = Object.fromEntries(
-      Object.entries(raw).filter(([key, value]) => !hidden.has(key) && value != null),
-    )
-    return Object.keys(remaining).length > 0 ? remaining : null
+  function statusColor(statusType: ProjectConversationTaskStatusEntry['statusType']) {
+    switch (statusType) {
+      case 'task_started':
+        return 'text-sky-500'
+      case 'task_progress':
+        return 'text-sky-400'
+      case 'task_notification':
+        return 'text-muted-foreground'
+      case 'turn_done':
+        return 'text-emerald-500'
+      case 'error':
+        return 'text-red-500'
+    }
   }
 
-  function formatJSON(value: unknown) {
-    const formatted = JSON.stringify(value ?? {}, null, 2)
-    return formatted ?? '{}'
-  }
+  const Icon = $derived(statusIcon(entry.statusType))
+  const iconColor = $derived(statusColor(entry.statusType))
 
-  const status = $derived(readString('status'))
-  const stream = $derived(readString('stream'))
-  const phase = $derived(readString('phase'))
-  const command = $derived(readString('command'))
-  const target = $derived(readString('file', 'path', 'target'))
-  const patch = $derived(readString('patch'))
-  const payloadDetails = $derived(otherPayload())
+  function hasDetails() {
+    return entry.detail || (entry.raw && Object.keys(entry.raw).length > 0)
+  }
 </script>
 
-<div class="border-border/70 bg-muted/20 space-y-2 rounded-2xl border px-3 py-2.5 text-sm">
-  <div class="mb-1 text-[10px] font-semibold tracking-[0.16em] uppercase opacity-70">status</div>
-  <div class="font-medium">{entry.title}</div>
+<div class={cn('group', standalone && 'border-border/60 bg-muted/20 rounded-lg border')}>
+  <button
+    type="button"
+    class="hover:bg-muted/40 flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors"
+    onclick={() => {
+      if (hasDetails()) expanded = !expanded
+    }}
+    disabled={!hasDetails()}
+  >
+    {#if hasDetails()}
+      <ChevronRight
+        class={cn(
+          'text-muted-foreground size-3 shrink-0 transition-transform duration-150',
+          expanded && 'rotate-90',
+        )}
+      />
+    {:else}
+      <span class="size-3 shrink-0"></span>
+    {/if}
+    <Icon class={cn('size-3.5 shrink-0', iconColor)} />
+    <span class="text-foreground min-w-0 flex-1 truncate">{entry.title}</span>
+    <span class="text-muted-foreground/60 shrink-0 text-[10px]"
+      >{entry.statusType.replace(/_/g, ' ')}</span
+    >
+  </button>
 
-  {#if entry.detail}
-    <div class="text-muted-foreground text-xs leading-5 whitespace-pre-wrap">{entry.detail}</div>
-  {/if}
-
-  {#if status || stream || phase}
-    <div class="flex flex-wrap gap-1.5 text-[11px]">
-      {#if status}
-        <span class="bg-background rounded-full border px-2 py-0.5 font-medium">{status}</span>
+  {#if expanded}
+    <div class="border-border/40 ml-5 border-l pt-1 pb-2 pl-3 text-xs">
+      {#if entry.detail}
+        <p class="text-muted-foreground whitespace-pre-wrap">{entry.detail}</p>
       {/if}
-      {#if stream}
-        <span class="bg-background rounded-full border px-2 py-0.5 font-medium">{stream}</span>
-      {/if}
-      {#if phase}
-        <span class="bg-background rounded-full border px-2 py-0.5 font-medium">{phase}</span>
+      {#if entry.raw && Object.keys(entry.raw).length > 0}
+        <details class="mt-1">
+          <summary class="text-muted-foreground hover:text-foreground cursor-pointer">
+            Raw payload
+          </summary>
+          <pre
+            class="bg-muted/60 mt-1 max-h-48 overflow-auto rounded-md px-2.5 py-1.5 font-mono text-[11px] leading-5 whitespace-pre-wrap">{JSON.stringify(
+              entry.raw,
+              null,
+              2,
+            )}</pre>
+        </details>
       {/if}
     </div>
-  {/if}
-
-  {#if command}
-    <div class="bg-background/80 rounded-xl border px-3 py-2">
-      <div class="mb-1 text-[10px] font-semibold tracking-[0.14em] uppercase opacity-70">
-        command
-      </div>
-      <pre class="font-mono text-xs leading-5 whitespace-pre-wrap">{command}</pre>
-    </div>
-  {/if}
-
-  {#if target}
-    <div class="bg-background/80 rounded-xl border px-3 py-2">
-      <div class="mb-1 text-[10px] font-semibold tracking-[0.14em] uppercase opacity-70">
-        target
-      </div>
-      <div class="font-mono text-xs leading-5">{target}</div>
-    </div>
-  {/if}
-
-  {#if patch}
-    <details class="bg-background/80 rounded-xl border">
-      <summary class="cursor-pointer px-3 py-2 text-xs font-medium">Patch preview</summary>
-      <pre
-        class="overflow-x-auto border-t px-3 py-2 font-mono text-xs leading-5 whitespace-pre-wrap">{patch}</pre>
-    </details>
-  {/if}
-
-  {#if payloadDetails}
-    <details class="bg-background/80 rounded-xl border">
-      <summary class="cursor-pointer px-3 py-2 text-xs font-medium">Payload details</summary>
-      <pre
-        class="overflow-x-auto border-t px-3 py-2 font-mono text-xs leading-5 whitespace-pre-wrap">{formatJSON(
-          payloadDetails,
-        )}</pre>
-    </details>
   {/if}
 </div>

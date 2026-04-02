@@ -24,6 +24,7 @@ func TestDispatcherRoleTemplate(t *testing.T) {
 		`- "tickets.update.self"`,
 		`- "machines.list"`,
 		"project.workflows",
+		"project.updates",
 		"project.statuses",
 		"project.machines",
 		"pickup_statuses | map(attribute=\"name\")",
@@ -61,6 +62,7 @@ func TestHarnessOptimizerRoleTemplate(t *testing.T) {
 		`- "tickets.list"`,
 		`- "tickets.update.self"`,
 		"project.workflows",
+		"project.updates",
 		"recent_tickets",
 		"Only move the ticket to {{ workflow.finish_status }}",
 	} {
@@ -93,6 +95,7 @@ func TestEnvProvisionerRoleTemplate(t *testing.T) {
 		"target machine environment over SSH",
 		"makes the machine dispatchable again",
 		"Current machine: {{ machine.name }}",
+		"project.updates",
 		"Only move the ticket to {{ workflow.finish_status }}",
 	} {
 		if !strings.Contains(role.Content, want) {
@@ -129,6 +132,7 @@ func TestRolesHelpers(t *testing.T) {
 		`- write-test`,
 		`- review-code`,
 		"## Runtime Context",
+		"project.updates",
 		"{{ workflow.pickup_status }}",
 		"{{ workflow.finish_status }}",
 		"## Workpad",
