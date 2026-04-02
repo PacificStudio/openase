@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { ProjectAssistantSheet } from '$lib/features/chat'
   import { OrganizationCreationDialog, ProjectCreationDialog } from '$lib/features/catalog-creation'
   import { GlobalSearchDialog } from '$lib/features/search'
   import { NewTicketDialog } from '$lib/features/tickets'
@@ -16,8 +15,6 @@
     searchOpen = $bindable(false),
     createOrgOpen = $bindable(false),
     createProjectOpen = $bindable(false),
-    projectAssistantOpen = $bindable(false),
-    projectAssistantPrompt = '',
     newTicketEnabled = false,
     onToggleTheme,
     onNewTicket,
@@ -30,8 +27,6 @@
     searchOpen?: boolean
     createOrgOpen?: boolean
     createProjectOpen?: boolean
-    projectAssistantOpen?: boolean
-    projectAssistantPrompt?: string
     newTicketEnabled?: boolean
     onToggleTheme?: () => void
     onNewTicket?: () => void
@@ -56,14 +51,6 @@
   providers={appStore.providers ?? []}
   defaultProviderId={currentProject?.default_agent_provider_id ?? null}
   bind:open={createProjectOpen}
-/>
-
-<ProjectAssistantSheet
-  bind:open={projectAssistantOpen}
-  organizationId={currentOrg?.id ?? ''}
-  projectId={currentProject?.id ?? ''}
-  defaultProviderId={currentProject?.default_agent_provider_id ?? null}
-  initialPrompt={projectAssistantPrompt}
 />
 
 <GlobalSearchDialog

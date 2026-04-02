@@ -1,9 +1,19 @@
-import type { ChatDiffHunk, ChatDiffPayload } from '$lib/api/chat'
+import type { ChatDiffPayload } from '$lib/api/chat'
 import {
   createProjectConversationTaskStatusEntry,
   type ProjectConversationDiffEntry,
   type ProjectConversationTranscriptEntry,
 } from './project-conversation-transcript-types'
+import {
+  asRecord,
+  buildProviderStateDetail,
+  buildReasoningDetail,
+  buildTaskDetail,
+  normalizeDiffPayload,
+  parseUnifiedDiffPayloads,
+  readBoolean,
+  readString,
+} from './project-conversation-transcript-parser-helpers'
 
 export function createProjectConversationDiffEntry(params: {
   id: string
@@ -15,6 +25,18 @@ export function createProjectConversationDiffEntry(params: {
     role: 'assistant',
     diff: normalizeDiffPayload(params.payload, params.id),
   } satisfies ProjectConversationDiffEntry
+}
+
+export function createProjectConversationDiffEntriesFromUnifiedDiff(params: {
+  idBase: string
+  diff: string
+}) {
+  return parseUnifiedDiffPayloads(params.diff).map((payload, index) =>
+    createProjectConversationDiffEntry({
+      id: index === 0 ? params.idBase : `${params.idBase}-${index + 1}`,
+      payload,
+    }),
+  )
 }
 
 export function mapProjectConversationTaskEntry(params: {
@@ -118,15 +140,6 @@ export function mapProjectConversationTaskEntry(params: {
   }
 }
 
-function buildProviderStateDetail(raw: Record<string, unknown> | null) {
-  const status = readString(raw, 'status')
-  const detail = readString(raw, 'detail')
-  const flags = readStringList(raw, 'active_flags')
-
-  const parts = [status, detail, flags.length > 0 ? flags.join(', ') : undefined].filter(Boolean)
-  return parts.length > 0 ? parts.join(' · ') : undefined
-}
-
 export function createProjectConversationTurnDoneEntry(params: {
   id: string
   turnId?: string
@@ -156,129 +169,4 @@ export function createProjectConversationErrorEntry(params: {
     title: 'Turn failed',
     detail: params.message.trim() || undefined,
   })
-}
-
-function normalizeDiffPayload(
-  payload: Record<string, unknown> | ChatDiffPayload,
-  entryId: string,
-): ChatDiffPayload {
-  const object = asRecord(payload) ?? {}
-
-  return {
-    type: 'diff',
-    entryId,
-    file: readString(object, 'file') || '',
-    hunks: readDiffHunks(object.hunks),
-  }
-}
-
-function readDiffHunks(value: unknown): ChatDiffHunk[] {
-  if (!Array.isArray(value)) {
-    return []
-  }
-
-  return value
-    .map((item) => {
-      const hunk = asRecord(item)
-      if (!hunk) {
-        return null
-      }
-
-      const lines = Array.isArray(hunk.lines)
-        ? hunk.lines
-            .map((line) => {
-              const record = asRecord(line)
-              const op = readString(record, 'op')
-              const text = readString(record, 'text')
-              if (!record || !op || text == null) {
-                return null
-              }
-              if (op !== 'context' && op !== 'add' && op !== 'remove') {
-                return null
-              }
-
-              return { op, text } as ChatDiffHunk['lines'][number]
-            })
-            .filter((line): line is ChatDiffHunk['lines'][number] => line != null)
-        : []
-
-      return {
-        oldStart: readNumber(hunk, 'oldStart', 'old_start') ?? 0,
-        oldLines: readNumber(hunk, 'oldLines', 'old_lines') ?? 0,
-        newStart: readNumber(hunk, 'newStart', 'new_start') ?? 0,
-        newLines: readNumber(hunk, 'newLines', 'new_lines') ?? 0,
-        lines,
-      } satisfies ChatDiffHunk
-    })
-    .filter((hunk): hunk is ChatDiffHunk => hunk != null)
-}
-
-function buildTaskDetail(raw: Record<string, unknown> | null) {
-  return (
-    readString(raw, 'message') ||
-    readString(raw, 'text') ||
-    describeStream(raw) ||
-    describeStatus(raw)
-  )
-}
-
-function describeStream(raw: Record<string, unknown> | null) {
-  const stream = readString(raw, 'stream')
-  const phase = readString(raw, 'phase')
-  if (!stream && !phase) {
-    return undefined
-  }
-  return [stream, phase].filter(Boolean).join(' / ')
-}
-
-function describeStatus(raw: Record<string, unknown> | null) {
-  const status = readString(raw, 'status')
-  return status ? `Status: ${status}` : undefined
-}
-
-function buildReasoningDetail(raw: Record<string, unknown> | null) {
-  const delta = readString(raw, 'delta')
-  if (delta) {
-    return delta
-  }
-
-  const kind = readString(raw, 'kind')
-  if (!kind) {
-    return undefined
-  }
-  return `Kind: ${kind.replace(/_/g, ' ')}`
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null
-  }
-  return value as Record<string, unknown>
-}
-
-function readString(record: Record<string, unknown> | null, key: string) {
-  const value = record?.[key]
-  return typeof value === 'string' ? value : undefined
-}
-
-function readBoolean(record: Record<string, unknown> | null, key: string) {
-  return record?.[key] === true
-}
-
-function readNumber(record: Record<string, unknown>, ...keys: string[]) {
-  for (const key of keys) {
-    const value = record[key]
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return value
-    }
-  }
-  return undefined
-}
-
-function readStringList(record: Record<string, unknown> | null, key: string) {
-  const value = record?.[key]
-  if (!Array.isArray(value)) {
-    return []
-  }
-  return value.filter((item): item is string => typeof item === 'string' && item.trim() !== '')
 }

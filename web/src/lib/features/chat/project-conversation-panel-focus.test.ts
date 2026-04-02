@@ -93,10 +93,12 @@ describe('ProjectConversationPanel focus', () => {
       },
     )
 
-    expect(queryByText('Workflow: Backend Engineer / harness')).toBeTruthy()
+    expect(queryByText('Workflow')).toBeTruthy()
+    expect(queryByText('Backend Engineer / harness')).toBeTruthy()
 
     await fireEvent.click(getByLabelText('Remove focus for this send'))
-    expect(queryByText('Workflow: Backend Engineer / harness')).toBeNull()
+    expect(queryByText('Workflow')).toBeNull()
+    expect(queryByText('Backend Engineer / harness')).toBeNull()
 
     const prompt = getByPlaceholderText('Ask anything about this project…') as HTMLTextAreaElement
     await fireEvent.input(prompt, { target: { value: '帮我看看这里要怎么改' } })

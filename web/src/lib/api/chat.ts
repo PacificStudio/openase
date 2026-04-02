@@ -216,6 +216,13 @@ export type ProjectConversationReasoningUpdatedPayload = {
   entryId?: string
 }
 
+export type ProjectConversationDiffUpdatedPayload = {
+  threadId: string
+  turnId: string
+  diff: string
+  entryId?: string
+}
+
 export type ProjectConversationSessionPayload = {
   conversationId: string
   runtimeState: string
@@ -232,6 +239,7 @@ export type ProjectConversationStreamEvent =
   | { kind: 'message'; payload: ChatMessagePayload }
   | { kind: 'interrupt_requested'; payload: ProjectConversationInterruptRequestedPayload }
   | { kind: 'interrupt_resolved'; payload: ProjectConversationInterruptResolvedPayload }
+  | { kind: 'diff_updated'; payload: ProjectConversationDiffUpdatedPayload }
   | { kind: 'reasoning_updated'; payload: ProjectConversationReasoningUpdatedPayload }
   | { kind: 'turn_done'; payload: ProjectConversationTurnDonePayload }
   | { kind: 'error'; payload: ChatErrorPayload }
@@ -647,6 +655,18 @@ function parseProjectConversationStreamEvent(
         payload: {
           interruptId: readRequiredString(object, 'interrupt_id'),
           decision: readOptionalString(object, 'decision'),
+        },
+      }
+    }
+    case 'diff_updated': {
+      const object = parseRequiredObject(payload)
+      return {
+        kind: 'diff_updated',
+        payload: {
+          threadId: readRequiredString(object, 'thread_id'),
+          turnId: readRequiredString(object, 'turn_id'),
+          diff: readRequiredString(object, 'diff'),
+          entryId: readOptionalString(object, 'entry_id'),
         },
       }
     }

@@ -2,6 +2,7 @@
   import type { AgentProvider } from '$lib/api/contracts'
   import { providerAvailabilityHeadline } from '$lib/features/providers'
   import * as Select from '$ui/select'
+  import * as Tooltip from '$ui/tooltip'
   import {
     ephemeralChatCapabilityState,
     ephemeralChatCapabilityLabel,
@@ -13,11 +14,13 @@
     providers,
     providerId,
     disabled = false,
+    switchHint = '',
     onProviderChange,
   }: {
     providers: AgentProvider[]
     providerId: string
     disabled?: boolean
+    switchHint?: string
     onProviderChange?: (providerId: string) => void
   } = $props()
 
@@ -46,12 +49,30 @@
   disabled={disabled || providers.length === 0}
   onValueChange={(value) => onProviderChange?.(value || '')}
 >
-  <Select.Trigger
-    aria-label="Chat model"
-    class="text-muted-foreground hover:bg-muted hover:text-foreground h-7 w-auto gap-1 rounded-md border-none bg-transparent px-2 text-[11px] shadow-none"
-  >
-    {selectedModelLabel()}
-  </Select.Trigger>
+  {#if switchHint}
+    <Tooltip.Root>
+      <Tooltip.Trigger>
+        {#snippet child({ props })}
+          <span {...props} class="inline-flex">
+            <Select.Trigger
+              aria-label="Chat model"
+              class="text-muted-foreground hover:bg-muted hover:text-foreground h-7 w-auto gap-1 rounded-md border-none bg-transparent px-2 text-[11px] shadow-none"
+            >
+              {selectedModelLabel()}
+            </Select.Trigger>
+          </span>
+        {/snippet}
+      </Tooltip.Trigger>
+      <Tooltip.Content side="bottom" class="max-w-52 text-xs">{switchHint}</Tooltip.Content>
+    </Tooltip.Root>
+  {:else}
+    <Select.Trigger
+      aria-label="Chat model"
+      class="text-muted-foreground hover:bg-muted hover:text-foreground h-7 w-auto gap-1 rounded-md border-none bg-transparent px-2 text-[11px] shadow-none"
+    >
+      {selectedModelLabel()}
+    </Select.Trigger>
+  {/if}
   <Select.Content align="start" class="min-w-48">
     {#each providers as provider (provider.id)}
       <Select.Item

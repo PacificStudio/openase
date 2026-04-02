@@ -30,7 +30,11 @@
   import * as Select from '$ui/select'
   import ActivityFeedPanel from './activity-feed-panel.svelte'
   import HRAdvisorPanel from './hr-advisor-panel.svelte'
-  import { OnboardingPanel } from '$lib/features/onboarding'
+  import {
+    markProjectOnboardingCompleted,
+    OnboardingPanel,
+    readProjectOnboardingCompletion,
+  } from '$lib/features/onboarding'
   import {
     parseProjectUpdateThreads,
     ProjectUpdateComposer,
@@ -123,6 +127,11 @@
   let updatesInitialLoaded = $state(false)
   let updatesRequestVersion = 0
   let creatingThread = $state(false)
+
+  $effect(() => {
+    const projectId = appStore.currentProject?.id ?? ''
+    onboardingDismissed = projectId ? readProjectOnboardingCompletion(projectId) : false
+  })
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
@@ -510,6 +519,7 @@
         {projectName}
         projectStatus={currentStatus}
         onOnboardingComplete={() => {
+          markProjectOnboardingCompleted(appStore.currentProject!.id)
           onboardingDismissed = true
         }}
       />
