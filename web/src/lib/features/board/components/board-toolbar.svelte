@@ -3,17 +3,19 @@
   import { Input } from '$ui/input'
   import { Button } from '$ui/button'
   import * as Select from '$ui/select'
-  import { Search, Columns3, List, AlertTriangle } from '@lucide/svelte'
+  import { Search, Columns3, List, AlertTriangle, EyeOff } from '@lucide/svelte'
   import { ticketViewStore } from '$lib/stores/ticket-view.svelte'
   import type { BoardFilter } from '../types'
 
   let {
     filter = $bindable({ search: '' }),
+    hideEmpty = $bindable(false),
     workflows = [],
     agents = [],
     class: className = '',
   }: {
     filter?: BoardFilter
+    hideEmpty?: boolean
     workflows?: string[]
     agents?: string[]
     class?: string
@@ -103,6 +105,20 @@
     <AlertTriangle class="size-3" />
     Anomalies
   </Button>
+
+  {#if ticketViewStore.mode === 'board'}
+    <Button
+      variant={hideEmpty ? 'secondary' : 'ghost'}
+      size="sm"
+      class="h-8 gap-1 text-xs"
+      onclick={() => {
+        hideEmpty = !hideEmpty
+      }}
+    >
+      <EyeOff class="size-3" />
+      Hide empty
+    </Button>
+  {/if}
 
   <div class="border-border ml-auto flex items-center rounded-md border">
     <Button

@@ -19,6 +19,20 @@ describe('ProjectConversationTranscript', () => {
             arguments: { cmd: 'git status' },
           },
           {
+            id: 'entry-status',
+            kind: 'task_status',
+            role: 'system',
+            statusType: 'task_progress',
+            title: 'Task progress',
+            detail: 'Status: running',
+            raw: {
+              status: 'running',
+              command: 'pnpm test',
+              file: 'README.md',
+              patch: '@@ -1 +1 @@\n-old line\n+new line',
+            },
+          },
+          {
             id: 'entry-command',
             kind: 'command_output',
             role: 'system',
@@ -67,16 +81,19 @@ describe('ProjectConversationTranscript', () => {
       },
     })
 
-    expect(getByText('Tool call')).toBeTruthy()
+    expect(getByText('Run command')).toBeTruthy()
     expect(getByText('functions.exec_command')).toBeTruthy()
+    expect(getAllByText('command').length).toBeGreaterThan(0)
     expect(getByText('Arguments')).toBeTruthy()
+    expect(getByText('pnpm test')).toBeTruthy()
+    expect(getAllByText('README.md').length).toBeGreaterThan(0)
+    expect(getAllByText('Patch preview').length).toBeGreaterThan(0)
     expect(getByText('Command output')).toBeTruthy()
     expect(getByText((content) => content.includes('stdout'))).toBeTruthy()
     expect(getByText('@@ -1,1 +1,2 @@')).toBeTruthy()
     expect(getByText('+new line')).toBeTruthy()
     expect(getByText('Command approval required')).toBeTruthy()
-    expect(getAllByText('command').length).toBeGreaterThan(0)
-    expect(getByText('git status')).toBeTruthy()
+    expect(getAllByText('git status').length).toBeGreaterThan(0)
     expect(getByText('Payload details')).toBeTruthy()
   })
 })

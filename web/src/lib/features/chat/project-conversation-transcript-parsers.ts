@@ -65,6 +65,7 @@ export function mapProjectConversationTaskEntry(params: {
         statusType: 'task_started',
         title: 'Task started',
         detail: statusDetail,
+        raw: raw ?? undefined,
       })
     case 'task_progress':
       return createProjectConversationTaskStatusEntry({
@@ -73,6 +74,7 @@ export function mapProjectConversationTaskEntry(params: {
         statusType: 'task_progress',
         title: 'Task progress',
         detail: statusDetail,
+        raw: raw ?? undefined,
       })
     case 'task_notification':
       return createProjectConversationTaskStatusEntry({
@@ -81,6 +83,7 @@ export function mapProjectConversationTaskEntry(params: {
         statusType: 'task_notification',
         title: 'Task notification',
         detail: statusDetail,
+        raw: raw ?? undefined,
       })
     default:
       return null

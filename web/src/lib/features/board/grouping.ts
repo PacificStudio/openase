@@ -30,12 +30,19 @@ export function buildBoardGroups(
   ]
 }
 
-export function projectBoardGroups(groups: BoardGroup[], columns: BoardColumn[]): BoardGroup[] {
+export function projectBoardGroups(
+  groups: BoardGroup[],
+  columns: BoardColumn[],
+  options?: { hideEmpty?: boolean },
+): BoardGroup[] {
   const columnsById = new Map(columns.map((column) => [column.id, column]))
 
   return groups.map((group) => ({
     ...group,
-    columns: group.columns.map((column) => columnsById.get(column.id)).filter(isDefined),
+    columns: group.columns
+      .map((column) => columnsById.get(column.id))
+      .filter(isDefined)
+      .filter((column) => !options?.hideEmpty || column.tickets.length > 0),
   }))
 }
 

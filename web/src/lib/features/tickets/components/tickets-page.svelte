@@ -29,10 +29,12 @@
     type BoardGroupType,
     type BoardStatusOption,
     type BoardTicket,
+    type HiddenColumn,
     type PendingTicketMove,
   } from '$lib/features/board'
 
   let filter = $state<BoardFilter>({ search: '' })
+  let hideEmpty = $state(false)
   let loading = $state(false)
   let error = $state('')
   let allColumns = $state<BoardColumnType[]>([])
@@ -49,7 +51,19 @@
   let queuedReload = false
   let reloadInFlight = false
   let filteredColumns = $derived(filterBoardColumns(allColumns, filter))
-  let filteredGroups = $derived(projectBoardGroups(allGroups, filteredColumns))
+  let filteredGroups = $derived(projectBoardGroups(allGroups, filteredColumns, { hideEmpty }))
+  let hiddenColumns = $derived.by((): HiddenColumn[] => {
+    if (!hideEmpty) return []
+    const visibleIds = new Set(filteredGroups.flatMap((g) => g.columns.map((c) => c.id)))
+    return filteredColumns
+      .filter((col) => !visibleIds.has(col.id))
+      .map((col) => ({
+        id: col.id,
+        name: col.name,
+        color: col.color,
+        ticketCount: col.tickets.length,
+      }))
+  })
 
   const isStaleLoad = (projectId: string, requestVersion: number) =>
     activeProjectId !== projectId || requestVersion !== loadRequestVersion
@@ -354,7 +368,7 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col gap-2 px-4 py-3">
-  <BoardToolbar bind:filter {workflows} agents={agentOptions} />
+  <BoardToolbar bind:filter bind:hideEmpty {workflows} agents={agentOptions} />
   {#if error}
     <div
       class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
@@ -432,6 +446,7 @@
     <BoardView
       groups={filteredGroups}
       statuses={allStatuses}
+      {hiddenColumns}
       onticketclick={handleTicketClick}
       ondragstartticket={handleTicketDragStart}
       ondragendticket={handleTicketDragEnd}

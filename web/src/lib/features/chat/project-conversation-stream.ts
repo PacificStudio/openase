@@ -23,6 +23,7 @@ type ProjectConversationStreamHandlers = {
     statusType: 'task_started' | 'task_progress' | 'task_notification' | 'turn_done' | 'error'
     title: string
     detail?: string
+    raw?: Record<string, unknown>
   }) => void
   confirmActionResult: (entryId: string, results: ChatActionExecutionResult[]) => void
   appendInterrupt: (payload: {
@@ -97,6 +98,7 @@ export function handleProjectConversationStreamEvent(
         statusType: taskEntry.statusType,
         title: taskEntry.title,
         detail: taskEntry.detail,
+        raw: taskEntry.raw,
       })
       return
     }

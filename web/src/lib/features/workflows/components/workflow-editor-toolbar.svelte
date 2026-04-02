@@ -5,6 +5,7 @@
   import { Bot, PanelLeftClose, PanelLeftOpen, Settings, Settings2 } from '@lucide/svelte'
   import type { SkillState } from '../model'
   import type { WorkflowSummary } from '../types'
+  import WorkflowSkillPopover from './workflow-skill-popover.svelte'
 
   let {
     selectedWorkflow,
@@ -69,25 +70,7 @@
     <div class="border-border mx-1 h-4 w-px shrink-0 border-l"></div>
     <div class="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
       {#each skillStates as skill (skill.path)}
-        <button
-          type="button"
-          class={cn(
-            'flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors',
-            skill.bound
-              ? 'border-primary/40 bg-primary/10 text-foreground'
-              : 'border-border text-muted-foreground hover:bg-muted',
-          )}
-          onclick={() => onToggleSkill?.(skill)}
-          title={`${skill.bound ? 'Unbind' : 'Bind'} ${skill.name}: ${skill.description}`}
-        >
-          <span
-            class={cn(
-              'size-1.5 rounded-full',
-              skill.bound ? 'bg-primary' : 'bg-muted-foreground/40',
-            )}
-          ></span>
-          {skill.name}
-        </button>
+        <WorkflowSkillPopover {skill} onToggle={onToggleSkill} />
       {/each}
     </div>
     {#if skillsSettingsHref}

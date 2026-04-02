@@ -513,7 +513,7 @@ function parseMessagePayload(payload: unknown): ChatMessagePayload {
 
   return {
     type,
-    raw: object,
+    raw: readOptionalObject(object, 'raw') ?? object,
   }
 }
 
