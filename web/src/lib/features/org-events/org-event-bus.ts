@@ -106,7 +106,7 @@ function ensureRuntimeConnection(runtime: Runtime) {
     return
   }
 
-  runtime.disconnect = connectEventStream(`/api/v1/orgs/${runtime.orgId}/${runtime.scope}/stream`, {
+  runtime.disconnect = connectEventStream(buildOrganizationStreamPath(runtime.orgId, runtime.scope), {
     onEvent: (frame) => {
       const event = parseOrganizationEventEnvelope(frame)
       if (!event) {
@@ -167,4 +167,13 @@ function parseOrganizationEventEnvelope(
 
 function buildRuntimeKey(orgId: string, scope: OrganizationEventScope) {
   return `${orgId}:${scope}`
+}
+
+function buildOrganizationStreamPath(orgId: string, scope: OrganizationEventScope) {
+  switch (scope) {
+    case 'machines':
+      return `/api/v1/orgs/${orgId}/machines/stream`
+    case 'providers':
+      return `/api/v1/orgs/${orgId}/providers/stream`
+  }
 }
