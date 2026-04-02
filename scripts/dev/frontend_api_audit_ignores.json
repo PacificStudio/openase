@@ -80,6 +80,12 @@
     },
     {
       "method": "get",
+      "path": "/api/v1/orgs/{orgId}/machines/stream",
+      "categories": ["backend_only"],
+      "reason": "Machine management currently refreshes the organization machine list on demand and does not keep a dedicated live machine event stream subscription."
+    },
+    {
+      "method": "get",
       "path": "/api/v1/providers/{providerId}",
       "categories": ["backend_only"],
       "reason": "Provider detail fetch was added for CLI/operator flows and is intentionally not wired into the current frontend screens."

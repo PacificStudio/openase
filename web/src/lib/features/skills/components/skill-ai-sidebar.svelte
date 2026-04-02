@@ -9,9 +9,9 @@
   import type { AgentProvider, SkillFile } from '$lib/api/contracts'
   import { EphemeralChatProviderSelect, ProjectConversationTranscript } from '$lib/features/chat'
   import {
-    listEphemeralChatProviders,
-    pickDefaultEphemeralChatProvider,
-    shouldKeepEphemeralChatProvider,
+    listProviderCapabilityProviders,
+    pickDefaultProviderCapability,
+    shouldKeepProviderCapability,
   } from '$lib/features/chat'
   import { buildDiffPreview } from '$lib/features/skills/assistant'
   import { appStore } from '$lib/stores/app.svelte'
@@ -119,13 +119,14 @@
     const nextProviders = providers
     const nextDefaultProviderId = appStore.currentProject?.default_agent_provider_id ?? ''
     untrack(() => {
-      refinementProviders = listEphemeralChatProviders(nextProviders)
-      if (shouldKeepEphemeralChatProvider(refinementProviders, providerId)) {
+      refinementProviders = listProviderCapabilityProviders(nextProviders, 'skill_ai')
+      if (shouldKeepProviderCapability(refinementProviders, providerId, 'skill_ai')) {
         return
       }
-      const nextProviderId = pickDefaultEphemeralChatProvider(
+      const nextProviderId = pickDefaultProviderCapability(
         refinementProviders,
         nextDefaultProviderId,
+        'skill_ai',
       )
       if (providerId && providerId !== nextProviderId) {
         void closeActiveSession({ clearResult: true, suppressError: true })
@@ -366,6 +367,7 @@
       <span class="text-muted-foreground text-[11px] font-medium">Fix & verify</span>
       <EphemeralChatProviderSelect
         providers={refinementProviders}
+        capability="skill_ai"
         {providerId}
         onProviderChange={(nextProviderId) => void handleProviderChange(nextProviderId)}
       />

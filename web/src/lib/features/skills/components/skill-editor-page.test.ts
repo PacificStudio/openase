@@ -1,14 +1,5 @@
-/* eslint-disable max-lines */
-
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
+import { cleanup, fireEvent, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import {
-  buildSkillEditorData,
-  initialContent,
-  resetSkillEditorAppStore,
-  runbookContent,
-  seedSkillEditorAppStore,
-} from './skill-editor-page.test-support'
 
 const { loadSkillEditorData } = vi.hoisted(() => ({
   loadSkillEditorData: vi.fn(),
@@ -24,11 +15,6 @@ const { bindSkill, deleteSkill, disableSkill, enableSkill, unbindSkill, updateSk
     updateSkill: vi.fn(),
   }),
 )
-
-const { closeSkillRefinementSession, streamSkillRefinement } = vi.hoisted(() => ({
-  closeSkillRefinementSession: vi.fn(),
-  streamSkillRefinement: vi.fn(),
-}))
 
 const { goto } = vi.hoisted(() => ({
   goto: vi.fn(),
@@ -66,22 +52,15 @@ vi.mock('$lib/api/openase', () => ({
   updateSkill,
 }))
 
-vi.mock('$lib/api/skill-refinement', () => ({
-  closeSkillRefinementSession,
-  streamSkillRefinement,
-}))
-
 vi.mock('$lib/stores/toast.svelte', () => ({ toastStore }))
 
-import SkillEditorPage from './skill-editor-page.svelte'
-
-async function renderPage(overrides: Record<string, unknown> = {}) {
-  seedSkillEditorAppStore()
-  loadSkillEditorData.mockResolvedValue(buildSkillEditorData(overrides))
-  return render(SkillEditorPage, {
-    props: { skillId: 'skill-1' },
-  })
-}
+import {
+  buildSkillEditorData,
+  initialContent,
+  renderSkillEditorPage,
+  resetSkillEditorAppStore,
+  runbookContent,
+} from './skill-editor-page.test-helpers'
 
 describe('SkillEditorPage', () => {
   beforeAll(() => {
@@ -134,9 +113,12 @@ describe('SkillEditorPage', () => {
       )
     updateSkill.mockResolvedValue({ skill: { id: 'skill-1' } })
 
-    const { container, findByRole, findByPlaceholderText } = await renderPage({
-      workflows: [{ id: 'workflow-1', name: 'Coding Workflow' }],
-    })
+    const { container, findByRole, findByPlaceholderText } = await renderSkillEditorPage(
+      loadSkillEditorData,
+      {
+        workflows: [{ id: 'workflow-1', name: 'Coding Workflow' }],
+      },
+    )
 
     const descriptionInput = (await findByPlaceholderText('Description...')) as HTMLInputElement
     await fireEvent.input(descriptionInput, {
@@ -162,104 +144,6 @@ describe('SkillEditorPage', () => {
       expect(toastStore.success).toHaveBeenCalledWith('Saved deploy.')
       expect(descriptionInput.value).toBe('Deploy safely with rollback checks')
       expect(editor.value).toBe(savedContent)
-    })
-  })
-
-  it('toggles the enabled state and updates the header action', async () => {
-    loadSkillEditorData.mockResolvedValue(
-      buildSkillEditorData({
-        skill: {
-          is_enabled: true,
-        },
-      }),
-    )
-    disableSkill.mockResolvedValue({
-      skill: {
-        ...buildSkillEditorData().skill,
-        is_enabled: false,
-      },
-    })
-    enableSkill.mockResolvedValue({
-      skill: {
-        ...buildSkillEditorData().skill,
-        is_enabled: true,
-      },
-    })
-
-    const { findByTitle } = await renderPage({
-      skill: {
-        is_enabled: true,
-      },
-    })
-
-    const disableButton = await findByTitle('Disable')
-    await fireEvent.click(disableButton)
-
-    await waitFor(() => {
-      expect(disableSkill).toHaveBeenCalledWith('skill-1')
-      expect(toastStore.success).toHaveBeenCalledWith('Disabled deploy.')
-    })
-
-    const enableButton = await findByTitle('Enable')
-    await fireEvent.click(enableButton)
-
-    await waitFor(() => {
-      expect(enableSkill).toHaveBeenCalledWith('skill-1')
-      expect(toastStore.success).toHaveBeenCalledWith('Enabled deploy.')
-    })
-  })
-
-  it('binds and unbinds workflows from the metadata bar', async () => {
-    loadSkillEditorData.mockResolvedValue(
-      buildSkillEditorData({
-        workflows: [{ id: 'workflow-1', name: 'Coding Workflow' }],
-      }),
-    )
-    bindSkill.mockResolvedValue({
-      skill: {
-        ...buildSkillEditorData().skill,
-        bound_workflows: [{ id: 'workflow-1' }],
-      },
-    })
-    unbindSkill.mockResolvedValue({
-      skill: {
-        ...buildSkillEditorData().skill,
-        bound_workflows: [],
-      },
-    })
-
-    const { findByTitle } = await renderPage({
-      workflows: [{ id: 'workflow-1', name: 'Coding Workflow' }],
-    })
-
-    await fireEvent.click(await findByTitle('Bind to Coding Workflow'))
-
-    await waitFor(() => {
-      expect(bindSkill).toHaveBeenCalledWith('skill-1', ['workflow-1'])
-      expect(toastStore.success).toHaveBeenCalledWith('Bound deploy to Coding Workflow.')
-    })
-
-    await fireEvent.click(await findByTitle('Unbind from Coding Workflow'))
-
-    await waitFor(() => {
-      expect(unbindSkill).toHaveBeenCalledWith('skill-1', ['workflow-1'])
-      expect(toastStore.success).toHaveBeenCalledWith('Unbound deploy from Coding Workflow.')
-    })
-  })
-
-  it('deletes the skill after confirmation and navigates back to the skills page', async () => {
-    loadSkillEditorData.mockResolvedValue(buildSkillEditorData())
-    deleteSkill.mockResolvedValue({ skill: { id: 'skill-1' } })
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
-
-    const { findByTitle } = await renderPage()
-
-    await fireEvent.click(await findByTitle('Delete skill'))
-
-    await waitFor(() => {
-      expect(deleteSkill).toHaveBeenCalledWith('skill-1')
-      expect(toastStore.success).toHaveBeenCalledWith('Deleted deploy.')
-      expect(goto).toHaveBeenCalledWith('/orgs/org-1/projects/project-1/skills')
     })
   })
 })
