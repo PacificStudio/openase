@@ -48,6 +48,17 @@ const emptyDashboardStats: DashboardStats = {
 
 type DashboardSection = ProjectDashboardRefreshSection | 'memory'
 
+function mergeDashboardSections(
+  current: DashboardSection[],
+  incoming: Iterable<DashboardSection>,
+): DashboardSection[] {
+  const merged = [...current]
+  for (const section of incoming) {
+    if (!merged.includes(section)) merged.push(section)
+  }
+  return merged
+}
+
 const toAdvisorSnapshot = (
   payload: Awaited<ReturnType<typeof getHRAdvisor>> | null,
 ): HRAdvisorSnapshot | null =>
@@ -168,12 +179,12 @@ export function createOrgDashboardController() {
     let hasLoaded = false
     let inFlight = false
     let pendingShowLoading = false
-    let queuedSections = new Set<DashboardSection>()
+    let queuedSections: DashboardSection[] = []
     let cachedAgents = [] as Awaited<ReturnType<typeof listAgents>>['agents']
     let cachedTickets = [] as Awaited<ReturnType<typeof listTickets>>['tickets']
 
     const queueLoad = (sections: Iterable<DashboardSection>, showLoading = false) => {
-      for (const section of sections) queuedSections.add(section)
+      queuedSections = mergeDashboardSections(queuedSections, sections)
       pendingShowLoading = pendingShowLoading || showLoading
       if (!inFlight) void flushLoads()
     }
@@ -182,9 +193,9 @@ export function createOrgDashboardController() {
       if (inFlight) return
 
       inFlight = true
-      while (!cancelled && queuedSections.size > 0) {
-        const sections = new Set(queuedSections)
-        queuedSections = new Set()
+      while (!cancelled && queuedSections.length > 0) {
+        const sections = queuedSections
+        queuedSections = []
         const showLoading = pendingShowLoading
         pendingShowLoading = false
         if (showLoading) loading = true
@@ -198,16 +209,16 @@ export function createOrgDashboardController() {
             hrAdvisorPayload,
             organizationSummary,
           ] = await Promise.all([
-            sections.has('agents') ? listAgents(projectId) : Promise.resolve(null),
-            sections.has('tickets') ? listTickets(projectId) : Promise.resolve(null),
-            sections.has('activity')
+            sections.includes('agents') ? listAgents(projectId) : Promise.resolve(null),
+            sections.includes('tickets') ? listTickets(projectId) : Promise.resolve(null),
+            sections.includes('activity')
               ? listActivity(projectId, { limit: 24 })
               : Promise.resolve(null),
-            sections.has('memory') ? getSystemDashboard() : Promise.resolve(null),
-            sections.has('hr_advisor')
+            sections.includes('memory') ? getSystemDashboard() : Promise.resolve(null),
+            sections.includes('hr_advisor')
               ? getHRAdvisor(projectId).catch(() => null)
               : Promise.resolve(null),
-            sections.has('organization_summary') && orgId
+            sections.includes('organization_summary') && orgId
               ? loadOrganizationDashboardSummary(orgId).catch(() => null)
               : Promise.resolve(null),
           ])
@@ -217,9 +228,9 @@ export function createOrgDashboardController() {
           if (ticketPayload) cachedTickets = ticketPayload.tickets
 
           if (
-            sections.has('agents') ||
-            sections.has('tickets') ||
-            sections.has('organization_summary')
+            sections.includes('agents') ||
+            sections.includes('tickets') ||
+            sections.includes('organization_summary')
           ) {
             stats = buildDashboardStats(cachedAgents, cachedTickets, {
               ticketSpendToday:
@@ -227,7 +238,7 @@ export function createOrgDashboardController() {
             })
           }
           if (systemPayload) memory = systemPayload.memory
-          if (sections.has('hr_advisor')) hrAdvisor = toAdvisorSnapshot(hrAdvisorPayload)
+          if (sections.includes('hr_advisor')) hrAdvisor = toAdvisorSnapshot(hrAdvisorPayload)
           if (activityPayload) {
             activities = buildActivityItems(activityPayload.events)
             exceptions = buildExceptionItems(activityPayload.events)

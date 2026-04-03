@@ -474,8 +474,33 @@ func TestTicketRunStreamFiltersTicketScopedLifecycleTraceAndStepEvents(t *testin
 			},
 		},
 	)
+	publishTestEvent(
+		t,
+		bus,
+		ticketRunStreamTopic,
+		ticketRunSummaryStreamType,
+		map[string]any{
+			"project_id": project.ID.String(),
+			"ticket_id":  ticketItem.ID.String(),
+			"run_id":     runID.String(),
+			"completion_summary": map[string]any{
+				"status":       "completed",
+				"markdown":     "## Overview\n\nSummary ready.",
+				"generated_at": time.Now().UTC().Format(time.RFC3339),
+			},
+		},
+	)
 
-	body := readSSEBody(t, response, cancel)
+	body := readSSEBodyUntilContainsAll(t, response, cancel, []string{
+		"event: ticket.run.lifecycle",
+		"\"message\":\"Runtime ready\"",
+		"event: ticket.run.trace",
+		"\"output\":\"Planning the fix\"",
+		"event: ticket.run.step",
+		"\"step_status\":\"planning\"",
+		"event: ticket.run.summary",
+		"Summary ready.",
+	})
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("expected project event bus 200, got %d", response.StatusCode)
 	}
@@ -491,7 +516,125 @@ func TestTicketRunStreamFiltersTicketScopedLifecycleTraceAndStepEvents(t *testin
 	if !strings.Contains(body, "event: ticket.run.step") || !strings.Contains(body, "\"step_status\":\"planning\"") {
 		t.Fatalf("expected step frame, got %q", body)
 	}
+	if !strings.Contains(body, "event: ticket.run.summary") || !strings.Contains(body, "Summary ready.") {
+		t.Fatalf("expected summary frame, got %q", body)
+	}
 	if strings.Contains(body, "\"topic\":\"ticket.run.events\",\"type\":\"ticket.run.lifecycle\",\"payload\":{\"lifecycle\":{\"event_type\":\"agent.ready\",\"message\":\"ignore me\"") {
 		t.Fatalf("did not expect other-ticket lifecycle event to be promoted onto the ticket run bus, got %q", body)
+	}
+}
+
+func TestMapTicketRunResponseMapsTerminatedRunsToEndedWithoutCompletedAt(t *testing.T) {
+	providerID := uuid.New()
+	agentID := uuid.New()
+	runID := uuid.New()
+	terminalAt := time.Date(2026, 4, 3, 12, 30, 0, 0, time.UTC)
+	completedRunID := uuid.New()
+
+	catalog := ticketRunCatalog{
+		attempts: map[uuid.UUID]int{
+			runID:          1,
+			completedRunID: 2,
+		},
+		agents: map[uuid.UUID]domain.Agent{
+			agentID: {ID: agentID, Name: "Runner"},
+		},
+		providers: map[uuid.UUID]domain.AgentProvider{
+			providerID: {ID: providerID, Name: "Codex"},
+		},
+	}
+
+	ended := mapTicketRunResponse(domain.AgentRun{
+		ID:         runID,
+		AgentID:    agentID,
+		TicketID:   uuid.New(),
+		ProviderID: providerID,
+		WorkflowID: uuid.New(),
+		Status:     domain.AgentRunStatusTerminated,
+		TerminalAt: &terminalAt,
+		CreatedAt:  terminalAt.Add(-10 * time.Minute),
+	}, catalog)
+	if ended.Status != "ended" {
+		t.Fatalf("terminated run status = %q, want ended", ended.Status)
+	}
+	if ended.TerminalAt == nil || *ended.TerminalAt != terminalAt.Format(time.RFC3339) {
+		t.Fatalf("terminated run terminal_at = %+v, want %s", ended.TerminalAt, terminalAt.Format(time.RFC3339))
+	}
+	if ended.CompletedAt != nil {
+		t.Fatalf("terminated run completed_at = %+v, want nil", ended.CompletedAt)
+	}
+
+	completed := mapTicketRunResponse(domain.AgentRun{
+		ID:         completedRunID,
+		AgentID:    agentID,
+		TicketID:   uuid.New(),
+		ProviderID: providerID,
+		WorkflowID: uuid.New(),
+		Status:     domain.AgentRunStatusCompleted,
+		TerminalAt: &terminalAt,
+		CreatedAt:  terminalAt.Add(-20 * time.Minute),
+	}, catalog)
+	if completed.Status != "completed" {
+		t.Fatalf("completed run status = %q, want completed", completed.Status)
+	}
+	if completed.CompletedAt == nil || *completed.CompletedAt != terminalAt.Format(time.RFC3339) {
+		t.Fatalf("completed run completed_at = %+v, want %s", completed.CompletedAt, terminalAt.Format(time.RFC3339))
+	}
+}
+
+func TestBuildTicketRunSummaryStreamEventFiltersTicketScope(t *testing.T) {
+	projectID := uuid.New()
+	ticketID := uuid.New()
+	runID := uuid.New()
+
+	event, err := provider.NewJSONEvent(
+		ticketRunStreamTopic,
+		ticketRunSummaryStreamType,
+		map[string]any{
+			"project_id": projectID.String(),
+			"ticket_id":  ticketID.String(),
+			"run_id":     runID.String(),
+			"completion_summary": map[string]any{
+				"status":   "completed",
+				"markdown": "Summary ready.",
+			},
+		},
+		time.Now(),
+	)
+	if err != nil {
+		t.Fatalf("NewJSONEvent returned error: %v", err)
+	}
+
+	streamEvent, matched, err := buildTicketRunSummaryStreamEvent(projectID, ticketID, event)
+	if err != nil {
+		t.Fatalf("buildTicketRunSummaryStreamEvent returned error: %v", err)
+	}
+	if !matched {
+		t.Fatal("expected summary event to match ticket scope")
+	}
+	if streamEvent.Topic != ticketRunStreamTopic || streamEvent.Type != ticketRunSummaryStreamType {
+		t.Fatalf("unexpected summary stream event routing: topic=%s type=%s", streamEvent.Topic.String(), streamEvent.Type.String())
+	}
+
+	otherTicketEvent, err := provider.NewJSONEvent(
+		ticketRunStreamTopic,
+		ticketRunSummaryStreamType,
+		map[string]any{
+			"project_id": projectID.String(),
+			"ticket_id":  uuid.NewString(),
+			"run_id":     runID.String(),
+		},
+		time.Now(),
+	)
+	if err != nil {
+		t.Fatalf("NewJSONEvent returned error: %v", err)
+	}
+
+	_, matched, err = buildTicketRunSummaryStreamEvent(projectID, ticketID, otherTicketEvent)
+	if err != nil {
+		t.Fatalf("buildTicketRunSummaryStreamEvent returned error for mismatched ticket: %v", err)
+	}
+	if matched {
+		t.Fatal("did not expect summary event for another ticket to match")
 	}
 }

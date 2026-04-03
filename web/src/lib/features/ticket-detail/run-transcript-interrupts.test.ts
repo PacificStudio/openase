@@ -72,10 +72,11 @@ describe('ticket run interrupt blocks', () => {
       data: JSON.stringify({
         entry: {
           id: 'step-1',
-          agentRunId: liveRun.id,
-          stepStatus: 'running_command',
+          agent_run_id: liveRun.id,
+          ticket_id: 'ticket-1',
+          step_status: 'running_command',
           summary: 'Running backend checks.',
-          createdAt: '2026-04-01T10:06:02Z',
+          created_at: '2026-04-01T10:06:02Z',
         },
       }),
     })
@@ -84,10 +85,11 @@ describe('ticket run interrupt blocks', () => {
       data: JSON.stringify({
         entry: {
           id: 'step-2',
-          agentRunId: liveRun.id,
-          stepStatus: 'running_command',
+          agent_run_id: liveRun.id,
+          ticket_id: 'ticket-1',
+          step_status: 'running_command',
           summary: 'Running frontend checks.',
-          createdAt: '2026-04-01T10:06:05Z',
+          created_at: '2026-04-01T10:06:05Z',
         },
       }),
     })

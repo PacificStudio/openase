@@ -155,7 +155,8 @@ export function projectEventReferencesTicket(
     case 'ticket.run.events':
       return (
         readNestedString(event.payload, ['run', 'ticket_id']) === ticketId ||
-        readNestedString(event.payload, ['entry', 'ticket_id']) === ticketId
+        readNestedString(event.payload, ['entry', 'ticket_id']) === ticketId ||
+        readNestedString(event.payload, ['ticket_id']) === ticketId
       )
     default:
       return false

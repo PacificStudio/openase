@@ -94,12 +94,6 @@ const failedBlocks: TicketRunTranscriptBlock[] = [
     at: '2026-04-01T09:00:00Z',
     summary: 'Run created.',
   },
-  {
-    kind: 'result',
-    id: 'result:failed:run-1',
-    outcome: 'failed',
-    summary: 'Unit tests failed.',
-  },
 ]
 
 describe('TicketRunHistoryPanel', () => {
@@ -156,8 +150,6 @@ describe('TicketRunHistoryPanel', () => {
       onSelectRun,
     })
 
-    // Result block shows failure summary inline (no separate transcript header)
-    expect(getByText('Unit tests failed.')).toBeTruthy()
     expect(getAllByText('Failed').length).toBeGreaterThanOrEqual(1)
     expect(getByText('Summary failed')).toBeTruthy()
     expect(getByText('provider unavailable after run completion')).toBeTruthy()
@@ -209,6 +201,6 @@ describe('TicketRunHistoryPanel', () => {
     expect(getByText('Summary')).toBeTruthy()
     expect(getByText('Implemented the ticket flow.')).toBeTruthy()
     expect(getByText('Done.')).toBeTruthy()
-    expect(getByText('Unit tests failed.')).toBeTruthy()
+    expect(getByText('Run created.')).toBeTruthy()
   })
 })

@@ -1280,11 +1280,15 @@ func summarizeAgentStepText(text string) string {
 	if trimmed == "" {
 		return ""
 	}
-	line := strings.Split(trimmed, "\n")[0]
+	line := strings.ToValidUTF8(strings.Split(trimmed, "\n")[0], "")
 	if len(line) <= 140 {
 		return line
 	}
-	return strings.TrimSpace(line[:140]) + "..."
+	truncated := truncateUTF8Bytes(line, 140)
+	if truncated == "" {
+		return "..."
+	}
+	return strings.TrimSpace(truncated) + "..."
 }
 
 func decodeRawJSON(raw json.RawMessage) any {

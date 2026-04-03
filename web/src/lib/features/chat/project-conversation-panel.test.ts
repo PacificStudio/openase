@@ -123,6 +123,56 @@ describe('ProjectConversationPanel', () => {
     expect(getAllByRole('tab', { name: /Restored$/ }).length).toBe(1)
   })
 
+  it('clears the restoring status message once the conversation is loaded', async () => {
+    window.localStorage.setItem(
+      'openase.project-conversation.project-1.provider-1',
+      JSON.stringify({
+        conversationIds: ['conversation-1'],
+        activeConversationId: 'conversation-1',
+      }),
+    )
+
+    listProjectConversations.mockResolvedValue({
+      conversations: [
+        {
+          id: 'conversation-1',
+          rollingSummary: 'Current conversation',
+          lastActivityAt: '2026-04-01T10:00:00Z',
+          providerId: 'provider-1',
+        },
+      ],
+    })
+    getProjectConversationWorkspaceDiff.mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
+    listProjectConversationEntries.mockResolvedValue({
+      entries: [
+        {
+          id: 'entry-1',
+          conversationId: 'conversation-1',
+          turnId: 'turn-1',
+          seq: 1,
+          kind: 'user_message',
+          payload: { content: 'Current conversation' },
+          createdAt: '2026-04-01T10:00:00Z',
+        },
+      ],
+    })
+    watchProjectConversation.mockResolvedValue(undefined)
+
+    const { findAllByText, queryByText } = render(ProjectConversationPanel, {
+      props: {
+        context: { projectId: 'project-1' },
+        providers: providerFixtures,
+        defaultProviderId: 'provider-1',
+        placeholder: 'Ask anything about this project…',
+      },
+    })
+
+    await findAllByText('Current conversation')
+    await waitFor(() => {
+      expect(queryByText('Restoring this project conversation…')).toBeNull()
+    })
+  })
+
   it('isolates unsent drafts per tab', async () => {
     listProjectConversations.mockResolvedValue({ conversations: [] })
 
@@ -224,14 +274,17 @@ describe('ProjectConversationPanel', () => {
       turn: { id: 'turn-4', turn_index: 1, status: 'started' },
     })
 
-    const { getByPlaceholderText, getByRole, queryByRole } = render(ProjectConversationPanel, {
-      props: {
-        context: { projectId: 'project-1' },
-        providers: providerFixtures,
-        defaultProviderId: 'provider-1',
-        placeholder: 'Ask anything about this project…',
+    const { getByPlaceholderText, getByRole, queryByRole, findByRole } = render(
+      ProjectConversationPanel,
+      {
+        props: {
+          context: { projectId: 'project-1' },
+          providers: providerFixtures,
+          defaultProviderId: 'provider-1',
+          placeholder: 'Ask anything about this project…',
+        },
       },
-    })
+    )
 
     const prompt = getByPlaceholderText('Ask anything about this project…') as HTMLTextAreaElement
     await fireEvent.input(prompt, { target: { value: 'First tab' } })
@@ -257,6 +310,7 @@ describe('ProjectConversationPanel', () => {
     })
 
     await fireEvent.click(getByRole('button', { name: 'Close First tab' }))
+    await fireEvent.click(await findByRole('button', { name: 'Close anyway' }))
 
     expect(queryByRole('tab', { name: /^First tab$/ })).toBeNull()
     expect(getByRole('tab', { name: /^Second tab$/ })).toBeTruthy()

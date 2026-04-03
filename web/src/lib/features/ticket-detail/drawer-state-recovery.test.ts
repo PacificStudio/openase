@@ -131,14 +131,15 @@ describe('createTicketDrawerState recovery', () => {
       data: JSON.stringify({
         entry: {
           id: 'trace-live',
-          agentRunId: 'run-1',
+          agent_run_id: 'run-1',
+          ticket_id: 'ticket-1',
           sequence: 2,
           provider: 'codex',
           kind: 'assistant_delta',
           stream: 'assistant',
           output: ' Missing chunk.',
           payload: { item_id: 'assistant-1' },
-          createdAt: '2026-04-01T10:00:07Z',
+          created_at: '2026-04-01T10:00:07Z',
         },
       }),
     })

@@ -117,6 +117,7 @@ func NewRuntimeLauncher(
 	launcher.completionSummaries = newRuntimeCompletionSummaryCoordinator(
 		client,
 		launcher.logger,
+		events,
 		launcher.adapters,
 		processManager,
 		sshPool,

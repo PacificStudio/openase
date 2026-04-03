@@ -1,12 +1,12 @@
 import { formatRelativeTime } from '$lib/utils'
 import type { TicketRun, TicketRunTranscriptBlock } from '../types'
 
-export const FINISHED_RUN_STATUSES = new Set(['completed', 'failed', 'stalled'])
+export const FINISHED_RUN_STATUSES = new Set(['completed', 'failed', 'ended'])
 
 export function ticketRunStatusLabel(run: TicketRun) {
   if (run.status === 'completed') return 'Completed'
   if (run.status === 'failed') return 'Failed'
-  if (run.status === 'stalled') return 'Stalled'
+  if (run.status === 'ended') return 'Ended'
   if ((run.currentStepStatus ?? '').toLowerCase().includes('approval')) return 'Awaiting Approval'
   if ((run.currentStepStatus ?? '').toLowerCase().includes('input')) return 'Waiting Input'
   if (run.status === 'launching') return 'Launching'
@@ -18,8 +18,9 @@ export function ticketRunStatusClass(run: TicketRun) {
     case 'completed':
       return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600'
     case 'failed':
-    case 'stalled':
       return 'border-red-500/30 bg-red-500/10 text-red-600'
+    case 'ended':
+      return 'border-slate-500/30 bg-slate-500/10 text-slate-600'
     case 'ready':
     case 'executing':
       return 'border-sky-500/30 bg-sky-500/10 text-sky-600'
@@ -32,11 +33,13 @@ export function ticketRunSummaryLine(run: TicketRun) {
   return (
     run.currentStepSummary ||
     run.currentStepStatus ||
-    (run.completedAt
+    (run.status === 'completed' && run.completedAt
       ? `Completed ${formatRelativeTime(run.completedAt)}`
-      : run.lastHeartbeatAt
-        ? `Updated ${formatRelativeTime(run.lastHeartbeatAt)}`
-        : `Started ${formatRelativeTime(run.createdAt)}`)
+      : run.status === 'ended' && run.terminalAt
+        ? `Ended ${formatRelativeTime(run.terminalAt)}`
+        : run.lastHeartbeatAt
+          ? `Updated ${formatRelativeTime(run.lastHeartbeatAt)}`
+          : `Started ${formatRelativeTime(run.createdAt)}`)
   )
 }
 

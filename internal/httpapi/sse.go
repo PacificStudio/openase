@@ -37,6 +37,7 @@ var projectPassiveStreamTopics = []provider.Topic{
 	activityStreamTopic,
 	agentTraceStreamTopic,
 	agentStepStreamTopic,
+	ticketRunStreamTopic,
 }
 
 type sseEnvelope struct {
@@ -364,6 +365,12 @@ func (s *Server) buildProjectStreamEvents(
 		return []provider.Event{ticketRunEvent}, nil
 	case agentStepStreamTopic:
 		ticketRunEvent, matched, err := buildProjectTicketRunStepStreamEvent(projectID, event)
+		if err != nil || !matched {
+			return nil, err
+		}
+		return []provider.Event{ticketRunEvent}, nil
+	case ticketRunStreamTopic:
+		ticketRunEvent, matched, err := buildProjectTicketRunSummaryStreamEvent(projectID, event)
 		if err != nil || !matched {
 			return nil, err
 		}
