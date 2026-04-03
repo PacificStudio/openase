@@ -10,6 +10,14 @@
   import { cn } from '$lib/utils'
   import type { Snippet } from 'svelte'
   import ProjectShellOverlays from './project-shell-overlays.svelte'
+  import {
+    getProjectHealth,
+    getProjectHealthLabel,
+    isAppContextFresh,
+    replaceSelectionIfChanged,
+    selectCurrentOrg,
+    selectCurrentProject,
+  } from './project-shell-state'
 
   type ShellData = {
     routeContext: AppRouteContext
@@ -30,59 +38,97 @@
   let createProjectOpen = $state(false)
   let projectAssistantOpen = $state(false)
   let projectAssistantPrompt = $state('')
-  const projectHealth = $derived.by((): 'healthy' | 'degraded' | 'critical' => {
-    const status = appStore.currentProject?.status?.toLowerCase()
-    if (status === 'healthy' || status === 'active') return 'healthy'
-    if (status === 'blocked' || status === 'archived') return 'critical'
-    return 'degraded'
-  })
 
-  const projectHealthLabel = $derived.by(() => {
-    const status = appStore.currentProject?.status ?? ''
-    switch (projectHealth) {
-      case 'healthy':
-        return `All systems healthy${status ? ` (${status})` : ''}`
-      case 'degraded':
-        return `Project status: ${status || 'degraded'}`
-      case 'critical':
-        return `Project status: ${status || 'critical'} — may need attention`
+  const DEFAULT_ASSISTANT_WIDTH = 380
+  const MIN_ASSISTANT_WIDTH = 280
+  const MAX_ASSISTANT_WIDTH = 640
+  let assistantWidth = $state(DEFAULT_ASSISTANT_WIDTH)
+  let resizing = $state(false)
+
+  function handleResizeStart(event: PointerEvent) {
+    event.preventDefault()
+    resizing = true
+    const startX = event.clientX
+    const startWidth = assistantWidth
+
+    function onMove(moveEvent: PointerEvent) {
+      const delta = startX - moveEvent.clientX
+      assistantWidth = Math.min(
+        MAX_ASSISTANT_WIDTH,
+        Math.max(MIN_ASSISTANT_WIDTH, startWidth + delta),
+      )
     }
-  })
+
+    function onUp() {
+      resizing = false
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+  const projectHealth = $derived.by(() => getProjectHealth(appStore.currentProject))
+
+  const projectHealthLabel = $derived.by(() =>
+    getProjectHealthLabel(appStore.currentProject, projectHealth),
+  )
 
   const isNewTicketEnabled = $derived(Boolean(appStore.currentProject?.id))
   const routeKey = $derived(
     `${routeContext.scope}:${routeContext.orgId ?? ''}:${routeContext.scope === 'project' ? routeContext.projectId : ''}`,
   )
 
+  function syncResolvedRouteContext(nextRouteContext: AppRouteContext) {
+    const nextOrgId = nextRouteContext.orgId
+    const nextProjectId = nextRouteContext.scope === 'project' ? nextRouteContext.projectId : null
+    const nextOrg = appStore.resolveOrganization(nextOrgId)
+    const nextProject = appStore.resolveProject(nextOrgId, nextProjectId)
+
+    replaceSelectionIfChanged(appStore.currentOrg, nextOrg, (value) => {
+      appStore.currentOrg = value
+    })
+    replaceSelectionIfChanged(appStore.currentProject, nextProject, (value) => {
+      appStore.currentProject = value
+    })
+  }
+
+  function applyLoadedAppContext(
+    payload: Awaited<ReturnType<typeof loadAppContext>>,
+    nextRouteKey: string,
+  ) {
+    appStore.applyAppContext({
+      organizations: payload.organizations,
+      projects: payload.projects,
+      providers: payload.providers,
+      agentCount: payload.agentCount,
+    })
+    lastAppContextKey = nextRouteKey
+    lastAppContextFetchedAt = Date.now()
+    appStore.appContextFetchedAt = lastAppContextFetchedAt
+    appStore.currentOrg = selectCurrentOrg(payload, routeContext)
+    appStore.currentProject = selectCurrentProject(payload, routeContext)
+  }
+
   $effect(() => {
     appStore.currentSection = data.currentSection
   })
 
   $effect(() => {
-    const nextOrgId = routeContext.orgId
-    const nextProjectId = routeContext.scope === 'project' ? routeContext.projectId : null
-
-    const nextOrg = appStore.resolveOrganization(nextOrgId)
-    const nextProject = appStore.resolveProject(nextOrgId, nextProjectId)
-
-    if ((appStore.currentOrg?.id ?? null) !== (nextOrg?.id ?? null)) {
-      appStore.currentOrg = nextOrg
-    }
-
-    if ((appStore.currentProject?.id ?? null) !== (nextProject?.id ?? null)) {
-      appStore.currentProject = nextProject
-    }
+    syncResolvedRouteContext(routeContext)
   })
 
   $effect(() => {
     let cancelled = false
 
-    const isFresh =
-      lastAppContextKey === routeKey &&
-      Date.now() - lastAppContextFetchedAt < 30_000 &&
-      appStore.organizations.length > 0
-
-    if (isFresh) {
+    if (
+      isAppContextFresh(
+        lastAppContextKey,
+        routeKey,
+        lastAppContextFetchedAt,
+        appStore.organizations.length,
+      )
+    ) {
       return
     }
 
@@ -98,23 +144,7 @@
         })
         if (cancelled) return
 
-        appStore.applyAppContext({
-          organizations: payload.organizations,
-          projects: payload.projects,
-          providers: payload.providers,
-          agentCount: payload.agentCount,
-        })
-        lastAppContextKey = routeKey
-        lastAppContextFetchedAt = Date.now()
-        appStore.appContextFetchedAt = lastAppContextFetchedAt
-        appStore.currentOrg = routeContext.orgId
-          ? (payload.organizations.find((organization) => organization.id === routeContext.orgId) ??
-            null)
-          : null
-        appStore.currentProject =
-          routeContext.scope === 'project'
-            ? (payload.projects.find((project) => project.id === routeContext.projectId) ?? null)
-            : null
+        applyLoadedAppContext(payload, routeKey)
       } catch (caughtError) {
         if (cancelled) return
         appStore.appContextError =
@@ -256,26 +286,39 @@
       />
     </aside>
 
-    <main class="flex min-w-0 flex-1 flex-col overflow-auto">
+    <main class={cn('flex min-w-0 flex-1 flex-col overflow-auto', resizing && 'select-none')}>
       {@render children()}
     </main>
 
     {#if projectAssistantOpen && appStore.currentOrg?.id && appStore.currentProject?.id}
       <aside
-        class="border-border bg-background flex h-full w-[20%] max-w-[480px] min-w-[280px] shrink-0 flex-col border-l"
+        class="bg-background relative flex h-full shrink-0 flex-col"
+        style="width: {assistantWidth}px"
       >
-        <ProjectConversationPanel
-          organizationId={appStore.currentOrg.id}
-          defaultProviderId={appStore.currentProject.default_agent_provider_id ?? null}
-          context={{ projectId: appStore.currentProject.id }}
-          focus={assistantFocus}
-          title="Project AI"
-          placeholder="Ask anything about this project…"
-          initialPrompt={projectAssistantPrompt}
-          onClose={() => {
-            projectAssistantOpen = false
-          }}
-        />
+        <!-- resize handle -->
+        <div
+          class={cn(
+            'absolute inset-y-0 left-0 z-20 w-1 cursor-col-resize transition-colors',
+            resizing ? 'bg-primary' : 'bg-border hover:bg-primary/50',
+          )}
+          role="separator"
+          aria-orientation="vertical"
+          onpointerdown={handleResizeStart}
+        ></div>
+        <div class="flex h-full min-w-0 flex-col pl-1">
+          <ProjectConversationPanel
+            organizationId={appStore.currentOrg.id}
+            defaultProviderId={appStore.currentProject.default_agent_provider_id ?? null}
+            context={{ projectId: appStore.currentProject.id }}
+            focus={assistantFocus}
+            title="Project AI"
+            placeholder="Ask anything about this project…"
+            initialPrompt={projectAssistantPrompt}
+            onClose={() => {
+              projectAssistantOpen = false
+            }}
+          />
+        </div>
       </aside>
     {/if}
   </div>

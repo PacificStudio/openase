@@ -1,8 +1,7 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
-  import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import { LoaderCircle } from '@lucide/svelte'
+  import { ChevronRight, LoaderCircle, Check, X, ShieldAlert } from '@lucide/svelte'
   import type { EphemeralChatActionProposalEntry } from './transcript'
 
   let {
@@ -15,103 +14,149 @@
     onCancel?: (entryId: string) => void
   } = $props()
 
-  const statusLabel = $derived(getStatusLabel(entry.status))
-  const statusClassName = $derived(getStatusClassName(entry.status))
+  let expandedActions = $state(new Set<number>())
 
-  function getStatusLabel(status: EphemeralChatActionProposalEntry['status']) {
+  function toggleAction(index: number) {
+    const next = new Set(expandedActions)
+    if (next.has(index)) {
+      next.delete(index)
+    } else {
+      next.add(index)
+    }
+    expandedActions = next
+  }
+
+  const statusConfig = $derived(getStatusConfig(entry.status))
+
+  function getStatusConfig(status: EphemeralChatActionProposalEntry['status']) {
     switch (status) {
       case 'pending':
-        return 'Pending confirmation'
+        return { label: 'Pending', dot: 'bg-sky-400', text: 'text-sky-400' }
       case 'executing':
-        return 'Executing'
+        return { label: 'Executing', dot: 'bg-amber-400', text: 'text-amber-400' }
       case 'confirmed':
-        return 'Executed'
+        return { label: 'Executed', dot: 'bg-emerald-400', text: 'text-emerald-400' }
       case 'cancelled':
-        return 'Cancelled'
+        return { label: 'Cancelled', dot: 'bg-muted-foreground/40', text: 'text-muted-foreground' }
     }
   }
 
-  function getStatusClassName(status: EphemeralChatActionProposalEntry['status']) {
-    switch (status) {
-      case 'pending':
-        return 'border-sky-500/30 text-sky-700'
-      case 'executing':
-        return 'border-amber-500/30 text-amber-700'
-      case 'confirmed':
-        return 'border-emerald-500/30 text-emerald-700'
-      case 'cancelled':
-        return 'border-slate-500/30 text-slate-700'
+  function methodColor(method: string) {
+    switch (method.toUpperCase()) {
+      case 'GET':
+        return 'text-emerald-500'
+      case 'POST':
+        return 'text-sky-500'
+      case 'PUT':
+      case 'PATCH':
+        return 'text-amber-500'
+      case 'DELETE':
+        return 'text-red-500'
+      default:
+        return 'text-muted-foreground'
     }
   }
 </script>
 
-<div class="rounded-2xl border border-sky-500/30 bg-sky-500/5 px-3 py-3 text-sm leading-6">
-  <div class="mb-1 text-[10px] font-semibold tracking-[0.16em] uppercase opacity-70">assistant</div>
-
-  <div class="flex items-start justify-between gap-3">
-    <div class="min-w-0">
-      <div class="font-medium">
-        {entry.proposal.summary ?? 'Proposed platform action'}
-      </div>
-      <p class="text-muted-foreground mt-1 text-xs leading-5">
-        {entry.proposal.actions.length} action{entry.proposal.actions.length === 1 ? '' : 's'}
-        require explicit confirmation before any platform write.
-      </p>
+<div class="border-border/50 bg-muted/10 overflow-hidden rounded-lg border">
+  <!-- Header -->
+  <div class="flex items-center gap-2 px-3 py-2">
+    <ShieldAlert class="text-muted-foreground/70 size-3.5 shrink-0" />
+    <span class="text-foreground min-w-0 flex-1 truncate text-xs font-medium">
+      {entry.proposal.summary ?? 'Platform action'}
+    </span>
+    <div class="flex items-center gap-1.5">
+      {#if entry.status === 'executing'}
+        <LoaderCircle class="size-3 animate-spin text-amber-400" />
+      {:else}
+        <span class={cn('size-1.5 rounded-full', statusConfig.dot)}></span>
+      {/if}
+      <span class={cn('text-[10px]', statusConfig.text)}>{statusConfig.label}</span>
     </div>
-    <Badge variant="outline" class={statusClassName}>{statusLabel}</Badge>
   </div>
 
-  <div class="mt-3 space-y-2">
+  <!-- Actions -->
+  <div class="border-border/30 border-t">
     {#each entry.proposal.actions as action, index}
-      <div class="bg-background/70 rounded-xl border border-sky-500/20 px-3 py-2">
-        <div class="flex flex-wrap items-center gap-2 text-xs">
-          <span class="text-muted-foreground">{index + 1}.</span>
-          <span class="font-semibold">{action.method}</span>
-          <code class="rounded bg-slate-950/5 px-1.5 py-0.5 text-[11px]">{action.path}</code>
-        </div>
-        {#if action.body}
-          <pre
-            class="mt-2 overflow-x-auto rounded-lg bg-slate-950 px-3 py-2 text-[11px] leading-5 text-slate-100">{JSON.stringify(
-              action.body,
-              null,
-              2,
-            )}</pre>
+      <div class={cn(index > 0 && 'border-border/20 border-t')}>
+        <button
+          type="button"
+          class="hover:bg-muted/30 flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors"
+          onclick={() => toggleAction(index)}
+        >
+          <ChevronRight
+            class={cn(
+              'text-muted-foreground size-3 shrink-0 transition-transform duration-150',
+              expandedActions.has(index) && 'rotate-90',
+            )}
+          />
+          <span
+            class={cn('shrink-0 font-mono text-[11px] font-semibold', methodColor(action.method))}
+          >
+            {action.method}
+          </span>
+          <code class="text-foreground/70 min-w-0 flex-1 truncate font-mono text-[11px]">
+            {action.path}
+          </code>
+        </button>
+
+        {#if expandedActions.has(index) && action.body}
+          <div class="border-border/20 border-t px-3 py-2">
+            <pre
+              class="bg-muted/40 max-h-48 overflow-auto rounded-md px-2.5 py-2 font-mono text-[11px] leading-5 whitespace-pre-wrap">{JSON.stringify(
+                action.body,
+                null,
+                2,
+              )}</pre>
+          </div>
         {/if}
       </div>
     {/each}
   </div>
 
+  <!-- Actions / Status footer -->
   {#if entry.status === 'pending'}
-    <div class="mt-3 flex flex-wrap gap-2">
-      <Button size="sm" onclick={() => void onConfirm?.(entry.id)}>Confirm</Button>
-      <Button variant="outline" size="sm" onclick={() => onCancel?.(entry.id)}>Cancel</Button>
-    </div>
-  {:else if entry.status === 'executing'}
-    <div
-      class="mt-3 inline-flex items-center gap-2 rounded-lg border border-sky-500/20 px-3 py-2 text-xs"
-    >
-      <LoaderCircle class="size-4 animate-spin" />
-      Executing the proposed platform actions...
+    <div class="border-border/30 flex gap-2 border-t px-3 py-2">
+      <Button
+        size="sm"
+        class="h-7 gap-1.5 px-3 text-[11px]"
+        onclick={() => void onConfirm?.(entry.id)}
+      >
+        <Check class="size-3" />
+        Confirm
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        class="h-7 gap-1.5 px-3 text-[11px]"
+        onclick={() => onCancel?.(entry.id)}
+      >
+        <X class="size-3" />
+        Cancel
+      </Button>
     </div>
   {:else if entry.status === 'cancelled'}
-    <div class="text-muted-foreground mt-3 text-xs">No platform API calls were executed.</div>
+    <div class="border-border/30 text-muted-foreground border-t px-3 py-2 text-[11px]">
+      No API calls were executed.
+    </div>
   {/if}
 
+  <!-- Results -->
   {#if entry.results.length > 0}
-    <div class="mt-3 space-y-2">
+    <div class="border-border/30 space-y-1 border-t px-3 py-2">
       {#each entry.results as result}
-        <div
-          class={cn(
-            'rounded-xl border px-3 py-2 text-xs leading-5',
-            result.ok
-              ? 'border-emerald-500/30 bg-emerald-500/10'
-              : 'border-red-500/30 bg-red-500/10',
-          )}
-        >
-          <div class="font-medium">{result.summary}</div>
-          {#if result.detail}
-            <div class="mt-1 opacity-80">{result.detail}</div>
+        <div class="flex items-start gap-2 text-[11px] leading-relaxed">
+          {#if result.ok}
+            <Check class="mt-0.5 size-3 shrink-0 text-emerald-500" />
+          {:else}
+            <X class="mt-0.5 size-3 shrink-0 text-red-500" />
           {/if}
+          <div class="min-w-0">
+            <span class="text-foreground">{result.summary}</span>
+            {#if result.detail}
+              <span class="text-muted-foreground"> — {result.detail}</span>
+            {/if}
+          </div>
         </div>
       {/each}
     </div>

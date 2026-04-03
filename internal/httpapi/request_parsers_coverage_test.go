@@ -46,11 +46,21 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseCreateTicketRequest() error = %v", err)
 	}
-	if createInput.Title != "Ticket title" || createInput.Priority != ticketservice.PriorityHigh || createInput.Type != ticketservice.TypeBugfix {
+	if createInput.Title != "Ticket title" || createInput.Priority == nil || *createInput.Priority != ticketservice.PriorityHigh || createInput.Type != ticketservice.TypeBugfix {
 		t.Fatalf("parseCreateTicketRequest() = %+v", createInput)
 	}
 	if createInput.CreatedBy != "codex" || createInput.ExternalRef != "GH-42" || createInput.BudgetUSD != 12.5 {
 		t.Fatalf("parseCreateTicketRequest() = %+v", createInput)
+	}
+	createInput, err = parseCreateTicketRequest(projectID, rawCreateTicketRequest{
+		Title:    "  Ticket title  ",
+		Priority: strPtr(" "),
+	})
+	if err != nil {
+		t.Fatalf("parseCreateTicketRequest(blank priority) error = %v", err)
+	}
+	if createInput.Priority != nil {
+		t.Fatalf("parseCreateTicketRequest(blank priority) = %+v", createInput)
 	}
 	if _, err := parseCreateTicketRequest(projectID, rawCreateTicketRequest{}); err == nil || !strings.Contains(err.Error(), "title must not be empty") {
 		t.Fatalf("parseCreateTicketRequest(empty title) error = %v", err)
@@ -82,6 +92,13 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	}
 	if !updateInput.WorkflowID.Set || updateInput.WorkflowID.Value != nil {
 		t.Fatalf("parseUpdateTicketRequest().WorkflowID = %+v", updateInput.WorkflowID)
+	}
+	updateInput, err = parseUpdateTicketRequest(ticketID, rawUpdateTicketRequest{Priority: strPtr(" ")})
+	if err != nil {
+		t.Fatalf("parseUpdateTicketRequest(blank priority) error = %v", err)
+	}
+	if !updateInput.Priority.Set || updateInput.Priority.Value != nil {
+		t.Fatalf("parseUpdateTicketRequest(blank priority) = %+v", updateInput)
 	}
 	if _, err := parseUpdateTicketRequest(ticketID, rawUpdateTicketRequest{Title: strPtr("  ")}); err == nil || !strings.Contains(err.Error(), "title must not be empty") {
 		t.Fatalf("parseUpdateTicketRequest(blank title) error = %v", err)
@@ -275,6 +292,7 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 		AgentID:             agentID.String(),
 		Name:                " CI ",
 		Type:                " coding ",
+		CreatedBy:           strPtr(" user:creator "),
 		HarnessPath:         strPtr(" ./harness.md "),
 		HarnessContent:      "content",
 		Hooks:               map[string]any{"pre": true},
@@ -292,6 +310,9 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 	if createWorkflowInput.Name != "CI" || createWorkflowInput.Type != workflowservice.TypeCoding || createWorkflowInput.IsActive {
 		t.Fatalf("parseCreateWorkflowRequest() = %+v", createWorkflowInput)
 	}
+	if createWorkflowInput.CreatedBy != "user:creator" {
+		t.Fatalf("parseCreateWorkflowRequest().CreatedBy = %q", createWorkflowInput.CreatedBy)
+	}
 	if _, err := parseCreateWorkflowRequest(projectID, rawCreateWorkflowRequest{Name: "ok", Type: "coding", AgentID: "bad"}); err == nil || !strings.Contains(err.Error(), "agent_id must be a valid UUID") {
 		t.Fatalf("parseCreateWorkflowRequest(bad agent) error = %v", err)
 	}
@@ -300,6 +321,7 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 		AgentID:             strPtr(agentID.String()),
 		Name:                strPtr(" Updated "),
 		Type:                strPtr("test"),
+		EditedBy:            strPtr(" user:editor "),
 		HarnessPath:         strPtr(" ./new.md "),
 		Hooks:               &map[string]any{"post": true},
 		MaxConcurrent:       &maxConcurrent,
@@ -316,13 +338,22 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 	if !updateWorkflowInput.Name.Set || updateWorkflowInput.Name.Value != "Updated" {
 		t.Fatalf("parseUpdateWorkflowRequest() = %+v", updateWorkflowInput)
 	}
+	if updateWorkflowInput.EditedBy != "user:editor" {
+		t.Fatalf("parseUpdateWorkflowRequest().EditedBy = %q", updateWorkflowInput.EditedBy)
+	}
 	if _, err := parseUpdateWorkflowRequest(workflowID, rawUpdateWorkflowRequest{MaxRetryAttempts: intPtr(-1)}); err == nil || !strings.Contains(err.Error(), "greater than or equal to zero") {
 		t.Fatalf("parseUpdateWorkflowRequest(negative retry) error = %v", err)
 	}
 
-	harnessInput, err := parseUpdateHarnessRequest(workflowID, rawUpdateHarnessRequest{Content: "body"})
+	harnessInput, err := parseUpdateHarnessRequest(workflowID, rawUpdateHarnessRequest{
+		Content:  "body",
+		EditedBy: strPtr(" user:harness "),
+	})
 	if err != nil || harnessInput.Content != "body" {
 		t.Fatalf("parseUpdateHarnessRequest() = (%+v, %v)", harnessInput, err)
+	}
+	if harnessInput.EditedBy != "user:harness" {
+		t.Fatalf("parseUpdateHarnessRequest().EditedBy = %q", harnessInput.EditedBy)
 	}
 	if _, err := parseUpdateHarnessRequest(workflowID, rawUpdateHarnessRequest{}); err == nil || !strings.Contains(err.Error(), "content must not be empty") {
 		t.Fatalf("parseUpdateHarnessRequest(blank) error = %v", err)

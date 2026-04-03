@@ -1,15 +1,17 @@
 <script lang="ts">
   import * as Popover from '$ui/popover'
+  import { formatBoardPriorityLabel, type BoardPriority } from '../priority'
   import type { BoardTicket } from '../types'
   import PriorityIcon from './priority-icon.svelte'
 
-  type Priority = BoardTicket['priority']
+  type Priority = BoardPriority
 
   const options: Array<{ value: Priority; label: string }> = [
-    { value: 'urgent', label: 'Urgent' },
-    { value: 'high', label: 'High' },
-    { value: 'medium', label: 'Medium' },
-    { value: 'low', label: 'Low' },
+    { value: '', label: formatBoardPriorityLabel('') },
+    { value: 'urgent', label: formatBoardPriorityLabel('urgent') },
+    { value: 'high', label: formatBoardPriorityLabel('high') },
+    { value: 'medium', label: formatBoardPriorityLabel('medium') },
+    { value: 'low', label: formatBoardPriorityLabel('low') },
   ]
 
   let {
@@ -32,16 +34,22 @@
     onPriorityChange?.(ticket.id, priority)
     open = false
   }
+
+  const currentLabel = $derived(
+    options.find((option) => option.value === ticket.priority)?.label ??
+      formatBoardPriorityLabel(''),
+  )
 </script>
 
 <Popover.Root bind:open>
   <Popover.Trigger
-    class="hover:bg-muted inline-flex shrink-0 items-center justify-center rounded p-0.5 transition-colors"
+    class="hover:bg-muted inline-flex shrink-0 items-center gap-1.5 rounded px-1.5 py-0.5 transition-colors"
     {disabled}
     onclick={(e: MouseEvent) => e.stopPropagation()}
     aria-label="Change priority"
   >
     <PriorityIcon priority={ticket.priority} />
+    <span class="text-muted-foreground text-xs">{currentLabel}</span>
   </Popover.Trigger>
   <Popover.Content
     align="start"

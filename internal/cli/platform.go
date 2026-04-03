@@ -430,7 +430,7 @@ func newTicketCreateCommand(options *ticketCommandOptions, client platformClient
 	command.Flags().StringVar(&description, "description", "", "Ticket description.")
 	command.Flags().StringVar(&priority, "priority", "", "Ticket priority override.")
 	command.Flags().StringVar(&typeName, "type", "", "Ticket type override.")
-	command.Flags().StringVar(&externalRef, "external-ref", "", "External reference, for example BetterAndBetterII/openase#39.")
+	command.Flags().StringVar(&externalRef, "external-ref", "", "External reference, for example PacificStudio/openase#39.")
 	_ = command.MarkFlagRequired("title")
 
 	return command

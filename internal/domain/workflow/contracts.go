@@ -46,6 +46,7 @@ type CreateInput struct {
 	AgentID             uuid.UUID
 	Name                string
 	Type                Type
+	CreatedBy           string
 	HarnessPath         *string
 	HarnessContent      string
 	Hooks               map[string]any
@@ -63,6 +64,7 @@ type UpdateInput struct {
 	AgentID             Optional[uuid.UUID]
 	Name                Optional[string]
 	Type                Optional[Type]
+	EditedBy            string
 	HarnessPath         Optional[string]
 	Hooks               Optional[map[string]any]
 	MaxConcurrent       Optional[int]
@@ -77,6 +79,7 @@ type UpdateInput struct {
 type UpdateHarnessInput struct {
 	WorkflowID uuid.UUID
 	Content    string
+	EditedBy   string
 }
 
 type VersionSummary struct {

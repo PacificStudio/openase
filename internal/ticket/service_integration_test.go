@@ -15,8 +15,13 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
 )
+
+func priorityPtr(priority Priority) *Priority {
+	return &priority
+}
 
 func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	client := openTestEntClient(t)
@@ -28,7 +33,7 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 		ProjectID:       fixture.projectID,
 		Title:           "Parent ticket",
 		Description:     "raise backend coverage",
-		Priority:        "high",
+		Priority:        priorityPtr(PriorityHigh),
 		Type:            "feature",
 		WorkflowID:      &fixture.workflowID,
 		TargetMachineID: &fixture.workerOneID,
@@ -46,7 +51,7 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 		Title:          "Child ticket",
 		Description:    "split follow-up work",
 		StatusID:       &fixture.todoID,
-		Priority:       "low",
+		Priority:       priorityPtr(PriorityLow),
 		Type:           "chore",
 		CreatedBy:      " codex ",
 		ParentTicketID: &parent.ID,
@@ -147,8 +152,8 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	linkOne, err := service.AddExternalLink(ctx, AddExternalLinkInput{
 		TicketID:   parent.ID,
 		LinkType:   ExternalLinkTypeGithubPR,
-		URL:        "https://github.com/GrandCX/openase/pull/278",
-		ExternalID: "GrandCX/openase#278",
+		URL:        "https://github.com/PacificStudio/openase/pull/278",
+		ExternalID: "PacificStudio/openase#278",
 		Title:      "coverage rollout",
 		Status:     "open",
 		Relation:   ExternalLinkRelationResolves,
@@ -162,8 +167,8 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	if _, err := service.AddExternalLink(ctx, AddExternalLinkInput{
 		TicketID:   parent.ID,
 		LinkType:   ExternalLinkTypeGithubPR,
-		URL:        "https://github.com/GrandCX/openase/pull/278",
-		ExternalID: "GrandCX/openase#278",
+		URL:        "https://github.com/PacificStudio/openase/pull/278",
+		ExternalID: "PacificStudio/openase#278",
 		Relation:   ExternalLinkRelationRelated,
 	}); err != ErrExternalLinkConflict {
 		t.Fatalf("AddExternalLink(duplicate) error = %v, want %v", err, ErrExternalLinkConflict)
@@ -182,7 +187,7 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get(parent with links) error = %v", err)
 	}
-	if parentWithLinks.ExternalRef != "GrandCX/openase#278" || len(parentWithLinks.ExternalLinks) != 2 {
+	if parentWithLinks.ExternalRef != "PacificStudio/openase#278" || len(parentWithLinks.ExternalLinks) != 2 {
 		t.Fatalf("Get(parent with links) = %+v", parentWithLinks)
 	}
 
@@ -383,7 +388,7 @@ func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 		ProjectID:  fixture.projectID,
 		Title:      "Parent ticket",
 		StatusID:   &fixture.todoID,
-		Priority:   "medium",
+		Priority:   priorityPtr(PriorityMedium),
 		Type:       "feature",
 		WorkflowID: &fixture.workflowID,
 	})
@@ -394,7 +399,7 @@ func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 		ProjectID:      fixture.projectID,
 		Title:          "Child ticket",
 		StatusID:       &fixture.todoID,
-		Priority:       "low",
+		Priority:       priorityPtr(PriorityLow),
 		Type:           "chore",
 		ParentTicketID: &parent.ID,
 	})
@@ -413,7 +418,7 @@ func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 		ProjectID: fixture.projectID,
 		Title:     "Bad status",
 		StatusID:  &fixture.otherProjectTodoID,
-		Priority:  "medium",
+		Priority:  priorityPtr(PriorityMedium),
 		Type:      "feature",
 	}); err != ErrStatusNotFound {
 		t.Fatalf("Create(status mismatch) error = %v, want %v", err, ErrStatusNotFound)
@@ -422,7 +427,7 @@ func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 		ProjectID:  fixture.projectID,
 		Title:      "Bad workflow",
 		StatusID:   &fixture.todoID,
-		Priority:   "medium",
+		Priority:   priorityPtr(PriorityMedium),
 		Type:       "feature",
 		WorkflowID: &fixture.otherWorkflowID,
 	}); err != ErrWorkflowNotFound {
@@ -432,7 +437,7 @@ func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 		ProjectID:       fixture.projectID,
 		Title:           "Bad machine",
 		StatusID:        &fixture.todoID,
-		Priority:        "medium",
+		Priority:        priorityPtr(PriorityMedium),
 		Type:            "feature",
 		TargetMachineID: &fixture.foreignMachineID,
 	}); err != ErrTargetMachineNotFound {
@@ -489,8 +494,8 @@ func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 	link, err := service.AddExternalLink(ctx, AddExternalLinkInput{
 		TicketID:   parent.ID,
 		LinkType:   ExternalLinkTypeGithubIssue,
-		URL:        "https://github.com/GrandCX/openase/issues/278",
-		ExternalID: "GrandCX/openase#278",
+		URL:        "https://github.com/PacificStudio/openase/issues/278",
+		ExternalID: "PacificStudio/openase#278",
 		Relation:   ExternalLinkRelationRelated,
 	})
 	if err != nil {
@@ -499,8 +504,8 @@ func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 	if _, err := service.AddExternalLink(ctx, AddExternalLinkInput{
 		TicketID:   uuid.New(),
 		LinkType:   ExternalLinkTypeGithubIssue,
-		URL:        "https://github.com/GrandCX/openase/issues/999",
-		ExternalID: "GrandCX/openase#999",
+		URL:        "https://github.com/PacificStudio/openase/issues/999",
+		ExternalID: "PacificStudio/openase#999",
 		Relation:   ExternalLinkRelationRelated,
 	}); err != ErrTicketNotFound {
 		t.Fatalf("AddExternalLink(missing ticket) error = %v, want %v", err, ErrTicketNotFound)
@@ -595,7 +600,7 @@ func TestTicketServiceRunsCancelHookWhenNonFinishStatusChangeReleasesCurrentRun(
 		ProjectID:  fixture.projectID,
 		Title:      "Cancel current run",
 		StatusID:   &fixture.todoID,
-		Priority:   "high",
+		Priority:   priorityPtr(PriorityHigh),
 		Type:       "feature",
 		WorkflowID: &fixture.workflowID,
 	})
@@ -698,7 +703,7 @@ func TestTicketServiceRunsDoneHookWhenFinishStatusChangeReleasesCurrentRun(t *te
 		ProjectID:  fixture.projectID,
 		Title:      "Finish current run",
 		StatusID:   &fixture.todoID,
-		Priority:   "high",
+		Priority:   priorityPtr(PriorityHigh),
 		Type:       "feature",
 		WorkflowID: &fixture.workflowID,
 	})
@@ -757,6 +762,183 @@ func TestTicketServiceRunsDoneHookWhenFinishStatusChangeReleasesCurrentRun(t *te
 	}
 }
 
+func TestTicketServiceRunsCancelHookWhenArchivedStatusReleasesCurrentRun(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	fixture := seedTicketServiceFixture(ctx, t, client)
+	service := newTicketService(client)
+
+	projectItem, err := client.Project.Get(ctx, fixture.projectID)
+	if err != nil {
+		t.Fatalf("load project: %v", err)
+	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(projectItem.OrganizationID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus(entmachine.StatusOnline).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(localMachine.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind provider to local machine: %v", err)
+	}
+	if _, err := client.Workflow.UpdateOneID(fixture.workflowID).
+		SetHooks(map[string]any{
+			"ticket_hooks": map[string]any{
+				"on_done": []any{
+					map[string]any{"cmd": `printf 'done\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+				},
+				"on_cancel": []any{
+					map[string]any{"cmd": `printf 'cancel\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+				},
+			},
+		}).
+		Save(ctx); err != nil {
+		t.Fatalf("set workflow hooks: %v", err)
+	}
+
+	archivedStatus, err := newTicketStatusService(client).Create(ctx, ticketstatus.CreateInput{
+		ProjectID: fixture.projectID,
+		Name:      "Archived",
+		Stage:     ticketing.StatusStageCanceled,
+		Color:     "#4B5563",
+	})
+	if err != nil {
+		t.Fatalf("create archived status: %v", err)
+	}
+
+	ticketItem, err := service.Create(ctx, CreateInput{
+		ProjectID:  fixture.projectID,
+		Title:      "Archive current run",
+		StatusID:   &fixture.todoID,
+		Priority:   priorityPtr(PriorityHigh),
+		Type:       "feature",
+		WorkflowID: &fixture.workflowID,
+	})
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runID := seedTicketCurrentRun(ctx, t, client, fixture, ticketItem.ID)
+	workspaceRoot := seedTicketHookWorkspace(ctx, t, client, fixture.projectID, ticketItem.ID, runID, "agent/planner/ASE-archived-cancel")
+
+	updated, err := service.Update(ctx, UpdateInput{
+		TicketID:                          ticketItem.ID,
+		StatusID:                          Some(archivedStatus.ID),
+		RestrictStatusToWorkflowFinishSet: false,
+	})
+	if err != nil {
+		t.Fatalf("update ticket status: %v", err)
+	}
+	if updated.CurrentRunID != nil || updated.StatusID != archivedStatus.ID || updated.StatusName != "Archived" {
+		t.Fatalf("unexpected archived update result: %+v", updated)
+	}
+
+	//nolint:gosec // Test controls the temporary workspace path under t.TempDir-backed fixtures.
+	raw, err := os.ReadFile(filepath.Join(workspaceRoot, "hook.log"))
+	if err != nil {
+		t.Fatalf("read cancel hook log: %v", err)
+	}
+	if string(raw) != "cancel\n" {
+		t.Fatalf("unexpected archived cancel hook log %q", string(raw))
+	}
+}
+
+func TestTicketServiceRunsDoneHookWhenArchivedFinishStatusReleasesCurrentRun(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	fixture := seedTicketServiceFixture(ctx, t, client)
+	service := newTicketService(client)
+
+	projectItem, err := client.Project.Get(ctx, fixture.projectID)
+	if err != nil {
+		t.Fatalf("load project: %v", err)
+	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(projectItem.OrganizationID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus(entmachine.StatusOnline).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(localMachine.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind provider to local machine: %v", err)
+	}
+	if _, err := client.Workflow.UpdateOneID(fixture.workflowID).
+		SetHooks(map[string]any{
+			"ticket_hooks": map[string]any{
+				"on_done": []any{
+					map[string]any{"cmd": `printf 'done\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+				},
+				"on_cancel": []any{
+					map[string]any{"cmd": `printf 'cancel\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+				},
+			},
+		}).
+		Save(ctx); err != nil {
+		t.Fatalf("set workflow hooks: %v", err)
+	}
+
+	archivedStatus, err := newTicketStatusService(client).Create(ctx, ticketstatus.CreateInput{
+		ProjectID: fixture.projectID,
+		Name:      "Archived",
+		Stage:     ticketing.StatusStageCanceled,
+		Color:     "#4B5563",
+	})
+	if err != nil {
+		t.Fatalf("create archived status: %v", err)
+	}
+	if _, err := client.Workflow.UpdateOneID(fixture.workflowID).
+		AddFinishStatusIDs(archivedStatus.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("add archived status to workflow finish set: %v", err)
+	}
+
+	ticketItem, err := service.Create(ctx, CreateInput{
+		ProjectID:  fixture.projectID,
+		Title:      "Archive finished run",
+		StatusID:   &fixture.todoID,
+		Priority:   priorityPtr(PriorityHigh),
+		Type:       "feature",
+		WorkflowID: &fixture.workflowID,
+	})
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runID := seedTicketCurrentRun(ctx, t, client, fixture, ticketItem.ID)
+	workspaceRoot := seedTicketHookWorkspace(ctx, t, client, fixture.projectID, ticketItem.ID, runID, "agent/planner/ASE-archived-done")
+
+	updated, err := service.Update(ctx, UpdateInput{
+		TicketID:                          ticketItem.ID,
+		StatusID:                          Some(archivedStatus.ID),
+		RestrictStatusToWorkflowFinishSet: true,
+	})
+	if err != nil {
+		t.Fatalf("update ticket status: %v", err)
+	}
+	if updated.CurrentRunID != nil || updated.StatusID != archivedStatus.ID || updated.StatusName != "Archived" {
+		t.Fatalf("unexpected archived update result: %+v", updated)
+	}
+
+	//nolint:gosec // Test controls the temporary workspace path under t.TempDir-backed fixtures.
+	raw, err := os.ReadFile(filepath.Join(workspaceRoot, "hook.log"))
+	if err != nil {
+		t.Fatalf("read done hook log: %v", err)
+	}
+	if string(raw) != "done\n" {
+		t.Fatalf("unexpected archived done hook log %q", string(raw))
+	}
+}
+
 func TestTicketServiceUpdateClearsFieldsAndResyncsSubIssueDependencies(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
@@ -767,7 +949,7 @@ func TestTicketServiceUpdateClearsFieldsAndResyncsSubIssueDependencies(t *testin
 		ProjectID: fixture.projectID,
 		Title:     "Parent one",
 		StatusID:  &fixture.todoID,
-		Priority:  "high",
+		Priority:  priorityPtr(PriorityHigh),
 		Type:      "feature",
 	})
 	if err != nil {
@@ -777,7 +959,7 @@ func TestTicketServiceUpdateClearsFieldsAndResyncsSubIssueDependencies(t *testin
 		ProjectID: fixture.projectID,
 		Title:     "Parent two",
 		StatusID:  &fixture.todoID,
-		Priority:  "high",
+		Priority:  priorityPtr(PriorityHigh),
 		Type:      "feature",
 	})
 	if err != nil {
@@ -787,7 +969,7 @@ func TestTicketServiceUpdateClearsFieldsAndResyncsSubIssueDependencies(t *testin
 		ProjectID:       fixture.projectID,
 		Title:           "Child ticket",
 		StatusID:        &fixture.todoID,
-		Priority:        "medium",
+		Priority:        priorityPtr(PriorityMedium),
 		Type:            "chore",
 		WorkflowID:      &fixture.workflowID,
 		TargetMachineID: &fixture.workerOneID,
@@ -802,6 +984,7 @@ func TestTicketServiceUpdateClearsFieldsAndResyncsSubIssueDependencies(t *testin
 	runID := seedTicketCurrentRun(ctx, t, client, fixture, child.ID)
 	updated, err := service.Update(ctx, UpdateInput{
 		TicketID:        child.ID,
+		Priority:        Some((*Priority)(nil)),
 		WorkflowID:      Some((*uuid.UUID)(nil)),
 		TargetMachineID: Some((*uuid.UUID)(nil)),
 		CreatedBy:       Some(" reviewer "),
@@ -811,7 +994,7 @@ func TestTicketServiceUpdateClearsFieldsAndResyncsSubIssueDependencies(t *testin
 	if err != nil {
 		t.Fatalf("Update(reparent and clear fields) error = %v", err)
 	}
-	if updated.WorkflowID != nil || updated.TargetMachineID != nil || updated.Parent == nil || updated.Parent.ID != parentTwo.ID || updated.ExternalRef != "" || updated.CreatedBy != "reviewer" || updated.CurrentRunID != nil {
+	if updated.WorkflowID != nil || updated.TargetMachineID != nil || updated.Parent == nil || updated.Parent.ID != parentTwo.ID || updated.ExternalRef != "" || updated.CreatedBy != "reviewer" || updated.CurrentRunID != nil || updated.Priority != "" {
 		t.Fatalf("Update(reparent and clear fields) = %+v", updated)
 	}
 	if len(updated.Dependencies) != 1 || updated.Dependencies[0].Type != DependencyTypeSubIssue || updated.Dependencies[0].Target.ID != parentTwo.ID {
@@ -1067,4 +1250,47 @@ func seedTicketCurrentRun(ctx context.Context, t *testing.T, client *ent.Client,
 	}
 
 	return runItem.ID
+}
+
+func seedTicketHookWorkspace(
+	ctx context.Context,
+	t *testing.T,
+	client *ent.Client,
+	projectID uuid.UUID,
+	ticketID uuid.UUID,
+	runID uuid.UUID,
+	branchName string,
+) string {
+	t.Helper()
+
+	repoItem, err := client.ProjectRepo.Create().
+		SetProjectID(projectID).
+		SetName("backend").
+		SetRepositoryURL("https://github.com/acme/backend.git").
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("backend").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project repo: %v", err)
+	}
+
+	workspaceRoot := t.TempDir()
+	repoPath := filepath.Join(workspaceRoot, "backend")
+	if err := os.MkdirAll(repoPath, 0o750); err != nil {
+		t.Fatalf("create repo path: %v", err)
+	}
+	if _, err := client.TicketRepoWorkspace.Create().
+		SetTicketID(ticketID).
+		SetAgentRunID(runID).
+		SetRepoID(repoItem.ID).
+		SetWorkspaceRoot(workspaceRoot).
+		SetRepoPath(repoPath).
+		SetBranchName(branchName).
+		SetState(entticketrepoworkspace.StateReady).
+		SetPreparedAt(time.Now().UTC()).
+		Save(ctx); err != nil {
+		t.Fatalf("create ticket repo workspace: %v", err)
+	}
+
+	return workspaceRoot
 }

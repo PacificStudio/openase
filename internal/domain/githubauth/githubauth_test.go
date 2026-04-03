@@ -106,10 +106,10 @@ func TestParseGitHubRepositoryURL(t *testing.T) {
 		raw  string
 		want RepositoryRef
 	}{
-		{raw: "https://github.com/GrandCX/openase.git", want: RepositoryRef{Owner: "grandcx", Name: "openase"}},
-		{raw: " https://github.com/GrandCX/OpenASE ", want: RepositoryRef{Owner: "grandcx", Name: "openase"}},
-		{raw: "git@github.com:GrandCX/openase.git", want: RepositoryRef{Owner: "grandcx", Name: "openase"}},
-		{raw: "ssh://git@github.com/GrandCX/openase.git", want: RepositoryRef{Owner: "grandcx", Name: "openase"}},
+		{raw: "https://github.com/PacificStudio/openase.git", want: RepositoryRef{Owner: "pacificstudio", Name: "openase"}},
+		{raw: " https://github.com/PacificStudio/OpenASE ", want: RepositoryRef{Owner: "pacificstudio", Name: "openase"}},
+		{raw: "git@github.com:PacificStudio/openase.git", want: RepositoryRef{Owner: "pacificstudio", Name: "openase"}},
+		{raw: "ssh://git@github.com/PacificStudio/openase.git", want: RepositoryRef{Owner: "pacificstudio", Name: "openase"}},
 	}
 	for _, tc := range validCases {
 		got, ok := ParseGitHubRepositoryURL(tc.raw)
@@ -120,11 +120,11 @@ func TestParseGitHubRepositoryURL(t *testing.T) {
 
 	for _, raw := range []string{
 		"",
-		"https://gitlab.com/GrandCX/openase.git",
-		"http://github.com/GrandCX/openase.git",
-		"https://github.com/GrandCX",
-		"https://github.com/GrandCX/.git",
-		"https://github.com/GrandCX/openase/extra",
+		"https://gitlab.com/PacificStudio/openase.git",
+		"http://github.com/PacificStudio/openase.git",
+		"https://github.com/PacificStudio",
+		"https://github.com/PacificStudio/.git",
+		"https://github.com/PacificStudio/openase/extra",
 		"https://github.com//openase.git",
 		"://bad",
 	} {
@@ -142,10 +142,10 @@ func TestNormalizeGitHubRepositoryURL(t *testing.T) {
 		want string
 		ok   bool
 	}{
-		{raw: "https://github.com/GrandCX/openase.git", want: "https://github.com/grandcx/openase.git", ok: true},
-		{raw: "git@github.com:GrandCX/openase.git", want: "https://github.com/grandcx/openase.git", ok: true},
-		{raw: "ssh://git@github.com/GrandCX/openase.git", want: "https://github.com/grandcx/openase.git", ok: true},
-		{raw: "https://gitlab.com/GrandCX/openase.git", ok: false},
+		{raw: "https://github.com/PacificStudio/openase.git", want: "https://github.com/pacificstudio/openase.git", ok: true},
+		{raw: "git@github.com:PacificStudio/openase.git", want: "https://github.com/pacificstudio/openase.git", ok: true},
+		{raw: "ssh://git@github.com/PacificStudio/openase.git", want: "https://github.com/pacificstudio/openase.git", ok: true},
+		{raw: "https://gitlab.com/PacificStudio/openase.git", ok: false},
 	}
 
 	for _, tc := range tests {

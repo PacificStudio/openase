@@ -78,6 +78,7 @@ func TestStatusStageBehavior(t *testing.T) {
 			"ready for work": StatusStageUnstarted,
 			"testing":        StatusStageStarted,
 			"merged":         StatusStageCompleted,
+			"archived":       StatusStageCanceled,
 			"won't fix":      StatusStageCanceled,
 		}
 		for raw, want := range testCases {

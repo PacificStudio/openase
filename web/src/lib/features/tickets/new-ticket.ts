@@ -1,8 +1,9 @@
 import type { TicketStatus } from '$lib/api/contracts'
+import { boardPriorityValues, type BoardPriority } from '$lib/features/board/public'
 
-export const ticketPriorityOptions = ['urgent', 'high', 'medium', 'low'] as const
+export const ticketPriorityOptions = boardPriorityValues
 
-export type TicketPriorityOption = (typeof ticketPriorityOptions)[number]
+export type TicketPriorityOption = BoardPriority
 
 export type TicketStatusOption = {
   id: string
@@ -30,7 +31,7 @@ export type NewTicketPayload = {
   title: string
   description?: string
   status_id?: string | null
-  priority: TicketPriorityOption
+  priority?: Exclude<TicketPriorityOption, ''> | null
   repo_scopes?: Array<{
     repo_id: string
     branch_name?: string | null
@@ -76,7 +77,7 @@ export function createNewTicketDraft(
     title: '',
     description: '',
     statusId: statusOptions[0]?.id ?? '',
-    priority: 'medium',
+    priority: '',
     repoIds: repoOptions.length === 1 ? [repoOptions[0].id] : [],
     repoBranchOverrides: {},
   }
@@ -109,7 +110,7 @@ export function parseNewTicketDraft(
       title,
       description: description || undefined,
       status_id: draft.statusId || null,
-      priority: draft.priority,
+      priority: draft.priority || null,
       repo_scopes: repoScopes.value,
     },
   }

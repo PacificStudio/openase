@@ -33,7 +33,7 @@ func TestParseProjectConversationTurnRequestPreservesFocus(t *testing.T) {
 					RepoID:         testStringPointer("repo-1"),
 					RepoName:       testStringPointer("openase"),
 					BranchName:     testStringPointer("feat/openase-470-project-ai"),
-					PullRequestURL: testStringPointer("https://github.com/GrandCX/openase/pull/999"),
+					PullRequestURL: testStringPointer("https://github.com/PacificStudio/openase/pull/999"),
 				},
 			},
 			TicketRecentActivity: []chat.RawProjectConversationTicketActivity{

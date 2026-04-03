@@ -314,9 +314,6 @@ var (
 // Priority defines the type for the "priority" enum field.
 type Priority string
 
-// PriorityMedium is the default value of the Priority enum.
-const DefaultPriority = PriorityMedium
-
 // Priority values.
 const (
 	PriorityUrgent Priority = "urgent"

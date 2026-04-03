@@ -35,7 +35,7 @@ export function normalizePriority(priority: string): BoardTicket['priority'] {
   if (priority === 'urgent' || priority === 'high' || priority === 'medium' || priority === 'low') {
     return priority
   }
-  return 'medium'
+  return ''
 }
 
 export function inferAnomaly(

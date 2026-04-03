@@ -1646,6 +1646,8 @@ var (
 		"name":                  "Human-readable workflow name.",
 		"type":                  "Workflow type, such as coding, test, doc, security, deploy, refine-harness, or custom.",
 		"agent_id":              "Agent ID assigned to execute this workflow.",
+		"created_by":            "Optional creator descriptor recorded on the initial workflow harness version.",
+		"edited_by":             "Optional editor descriptor recorded on subsequent workflow harness versions.",
 		"pickup_status_ids":     "Ticket status IDs that allow the workflow to pick up tickets.",
 		"finish_status_ids":     "Ticket status IDs that mark workflow completion.",
 		"is_active":             "Whether the workflow is active and eligible to pick up work.",
@@ -1658,7 +1660,8 @@ var (
 		"hooks":                 "Workflow hook configuration keyed by lifecycle phase.",
 	}
 	openAPIHarnessContentDescriptions = map[string]string{
-		"content": "Harness content to write or validate.",
+		"content":   "Harness content to write or validate.",
+		"edited_by": "Optional editor descriptor recorded on the published workflow harness version.",
 	}
 	openAPIScheduledJobDescriptions = map[string]string{
 		"name":            "Human-readable scheduled job name.",

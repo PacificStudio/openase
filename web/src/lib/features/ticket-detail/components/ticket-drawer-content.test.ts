@@ -137,7 +137,7 @@ describe('TicketDrawerContent project AI integration', () => {
             ticketRepoScopes: [
               expect.objectContaining({
                 repoId: 'repo-1',
-                pullRequestUrl: 'https://github.com/GrandCX/openase/pull/999',
+                pullRequestUrl: 'https://github.com/PacificStudio/openase/pull/999',
               }),
             ],
             ticketHookHistory: [

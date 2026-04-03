@@ -1442,7 +1442,7 @@ var (
 		{Name: "identifier", Type: field.TypeString},
 		{Name: "title", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString, Nullable: true, Size: 2147483647},
-		{Name: "priority", Type: field.TypeEnum, Enums: []string{"urgent", "high", "medium", "low"}, Default: "medium"},
+		{Name: "priority", Type: field.TypeEnum, Nullable: true, Enums: []string{"urgent", "high", "medium", "low"}},
 		{Name: "type", Type: field.TypeEnum, Enums: []string{"feature", "bugfix", "refactor", "chore", "epic"}, Default: "feature"},
 		{Name: "created_by", Type: field.TypeString},
 		{Name: "external_ref", Type: field.TypeString, Nullable: true},

@@ -90,9 +90,9 @@ func parseCreateTicketRequest(projectID uuid.UUID, raw rawCreateTicketRequest) (
 		return ticketservice.CreateInput{}, err
 	}
 
-	priority := ticketservice.DefaultPriority
+	var priority *ticketservice.Priority
 	if raw.Priority != nil {
-		priority, err = parseTicketPriority(*raw.Priority)
+		priority, err = parseOptionalTicketPriority(*raw.Priority)
 		if err != nil {
 			return ticketservice.CreateInput{}, err
 		}
@@ -173,7 +173,7 @@ func parseUpdateTicketRequest(ticketID uuid.UUID, raw rawUpdateTicketRequest) (t
 		input.StatusID = ticketservice.Some(statusID)
 	}
 	if raw.Priority != nil {
-		priority, err := parseTicketPriority(*raw.Priority)
+		priority, err := parseOptionalTicketPriority(*raw.Priority)
 		if err != nil {
 			return ticketservice.UpdateInput{}, err
 		}
@@ -350,6 +350,18 @@ func parseExternalLinkID(c echo.Context) (uuid.UUID, error) {
 
 func parseTicketPriority(raw string) (ticketservice.Priority, error) {
 	return ticketservice.ParsePriority(raw)
+}
+
+func parseOptionalTicketPriority(raw string) (*ticketservice.Priority, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, nil
+	}
+	priority, err := parseTicketPriority(trimmed)
+	if err != nil {
+		return nil, err
+	}
+	return &priority, nil
 }
 
 func parseTicketType(raw string) (ticketservice.Type, error) {

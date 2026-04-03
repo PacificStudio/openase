@@ -19255,6 +19255,11 @@
                     "description": "Agent ID assigned to execute this workflow.",
                     "type": "string"
                   },
+                  "created_by": {
+                    "description": "Optional creator descriptor recorded on the initial workflow harness version.",
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "finish_status_ids": {
                     "description": "Ticket status IDs that mark workflow completion.",
                     "items": {
@@ -26338,6 +26343,11 @@
                     "nullable": true,
                     "type": "string"
                   },
+                  "edited_by": {
+                    "description": "Optional editor descriptor recorded on subsequent workflow harness versions.",
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "finish_status_ids": {
                     "description": "Ticket status IDs that mark workflow completion.",
                     "items": {
@@ -26688,6 +26698,11 @@
                 "properties": {
                   "content": {
                     "description": "Harness content to write or validate.",
+                    "type": "string"
+                  },
+                  "edited_by": {
+                    "description": "Optional editor descriptor recorded on the published workflow harness version.",
+                    "nullable": true,
                     "type": "string"
                   }
                 },

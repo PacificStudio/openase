@@ -451,6 +451,16 @@ func PriorityNotIn(vs ...Priority) predicate.Ticket {
 	return predicate.Ticket(sql.FieldNotIn(FieldPriority, vs...))
 }
 
+// PriorityIsNil applies the IsNil predicate on the "priority" field.
+func PriorityIsNil() predicate.Ticket {
+	return predicate.Ticket(sql.FieldIsNull(FieldPriority))
+}
+
+// PriorityNotNil applies the NotNil predicate on the "priority" field.
+func PriorityNotNil() predicate.Ticket {
+	return predicate.Ticket(sql.FieldNotNull(FieldPriority))
+}
+
 // TypeEQ applies the EQ predicate on the "type" field.
 func TypeEQ(v Type) predicate.Ticket {
 	return predicate.Ticket(sql.FieldEQ(FieldType, v))

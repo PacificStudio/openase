@@ -76,4 +76,31 @@ describe('TicketDependencies', () => {
     expect(getByRole('button', { name: 'Remove ASE-2 relationship' })).toBeTruthy()
     expect(getByRole('button', { name: 'Remove ASE-3 relationship' })).toBeTruthy()
   })
+
+  it('renders archived dependencies as terminal items', () => {
+    const archivedTicket: TicketDetail = {
+      ...ticket,
+      dependencies: [
+        {
+          id: 'dep-archived',
+          targetId: 'ticket-4',
+          identifier: 'ASE-4',
+          title: 'Retire legacy flow',
+          relation: 'blocked_by',
+          stage: 'canceled',
+        },
+      ],
+    }
+
+    const { getByText, queryByText } = render(TicketDependencies, {
+      props: {
+        ticket: archivedTicket,
+        availableTickets,
+      },
+    })
+
+    const identifier = getByText('ASE-4')
+    expect(identifier.className).toContain('line-through')
+    expect(queryByText('Blocked')).toBeNull()
+  })
 })

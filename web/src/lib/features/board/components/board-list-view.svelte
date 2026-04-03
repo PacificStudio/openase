@@ -3,6 +3,7 @@
   import { cn, formatRelativeTime } from '$lib/utils'
   import { Ban, Cog, Loader, CircleX } from '@lucide/svelte'
   import * as Tooltip from '$ui/tooltip'
+  import { formatBoardPriorityLabel } from '../priority'
   import type { BoardColumn, BoardTicket } from '../types'
   import StageIcon from './stage-icon.svelte'
   import PriorityIcon from './priority-icon.svelte'
@@ -81,8 +82,9 @@
               <td class="px-4 py-3">
                 <div class="flex items-center gap-1.5">
                   <PriorityIcon priority={row.ticket.priority} />
-                  <span class="text-muted-foreground text-xs capitalize">{row.ticket.priority}</span
-                  >
+                  <span class="text-muted-foreground text-xs">
+                    {formatBoardPriorityLabel(row.ticket.priority)}
+                  </span>
                 </div>
               </td>
               <td class="px-4 py-3">

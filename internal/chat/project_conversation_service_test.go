@@ -206,7 +206,7 @@ func TestProjectConversationPromptIncludesTicketCapsule(t *testing.T) {
 						RepoID:     uuid.MustParse("990e8400-e29b-41d4-a716-446655440000"),
 						BranchName: "feat/openase-470-project-ai",
 						PullRequestURL: optionalString(
-							"https://github.com/GrandCX/openase/pull/999",
+							"https://github.com/PacificStudio/openase/pull/999",
 						),
 					},
 				},
@@ -310,7 +310,7 @@ func TestProjectConversationPromptIncludesTicketCapsule(t *testing.T) {
 		"### 依赖工单",
 		"ASE-100",
 		"### 仓库范围",
-		"https://github.com/GrandCX/openase/pull/999",
+		"https://github.com/PacificStudio/openase/pull/999",
 		"### 活动日志",
 		"Paused retries after repeated failures.",
 		"### Hook 历史",

@@ -246,11 +246,13 @@ func (r *EntRepository) Create(ctx context.Context, input CreateInput) (Ticket, 
 		SetTitle(input.Title).
 		SetDescription(input.Description).
 		SetStatusID(statusID).
-		SetPriority(toEntTicketPriority(input.Priority)).
 		SetType(toEntTicketType(input.Type)).
 		SetCreatedBy(resolveCreatedBy(input.CreatedBy)).
 		SetBudgetUsd(input.BudgetUSD).
 		SetRetryToken(NewRetryToken())
+	if input.Priority != nil {
+		builder.SetPriority(toEntTicketPriority(*input.Priority))
+	}
 
 	if input.WorkflowID != nil {
 		builder.SetWorkflowID(*input.WorkflowID)
@@ -400,7 +402,11 @@ func (r *EntRepository) Update(ctx context.Context, input UpdateInput) (UpdateRe
 		builder.SetStatusID(input.StatusID.Value)
 	}
 	if input.Priority.Set {
-		builder.SetPriority(toEntTicketPriority(input.Priority.Value))
+		if input.Priority.Value == nil {
+			builder.ClearPriority()
+		} else {
+			builder.SetPriority(toEntTicketPriority(*input.Priority.Value))
+		}
 	}
 	if input.Type.Set {
 		builder.SetType(toEntTicketType(input.Type.Value))

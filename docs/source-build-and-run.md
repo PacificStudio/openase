@@ -20,7 +20,7 @@ export PATH=$PWD/.tooling/go/bin:/home/yuzhong/.local/go1.26.1/bin:$PATH
 ## 1. Clone The Repository
 
 ```bash
-git clone git@github.com:GrandCX/openase.git
+git clone git@github.com:PacificStudio/openase.git
 cd openase
 ```
 

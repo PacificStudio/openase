@@ -127,7 +127,7 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 	repoOne, err := repo.CreateProjectRepo(ctx, domain.CreateProjectRepo{
 		ProjectID:        project.ID,
 		Name:             "openase-main",
-		RepositoryURL:    "https://github.com/GrandCX/openase.git",
+		RepositoryURL:    "https://github.com/PacificStudio/openase.git",
 		DefaultBranch:    "main",
 		WorkspaceDirname: "openase-main",
 		Labels:           []string{"backend", "automation"},
@@ -230,7 +230,7 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 		TicketID:       ticketItem.ID,
 		RepoID:         repoTwo.ID,
 		BranchName:     strPtr("fix/openase-278-coverage"),
-		PullRequestURL: strPtr("https://github.com/GrandCX/openase/pull/278"),
+		PullRequestURL: strPtr("https://github.com/PacificStudio/openase/pull/278"),
 	})
 	if err != nil {
 		t.Fatalf("CreateTicketRepoScope() scopeTwo error = %v", err)
@@ -262,7 +262,7 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 		RepoID:         repoOne.ID,
 		BranchName:     strPtr("fix/openase-278-core"),
 		BranchNameSet:  true,
-		PullRequestURL: strPtr("https://github.com/GrandCX/openase/pull/279"),
+		PullRequestURL: strPtr("https://github.com/PacificStudio/openase/pull/279"),
 		PullRequestSet: true,
 	})
 	if err != nil {
@@ -356,7 +356,7 @@ func TestEntRepositoryEnsurePrimaryFallbackPromotesExcludedOnlyRecord(t *testing
 	projectRepo, err := repo.CreateProjectRepo(ctx, domain.CreateProjectRepo{
 		ProjectID:     project.ID,
 		Name:          "openase-main",
-		RepositoryURL: "https://github.com/GrandCX/openase.git",
+		RepositoryURL: "https://github.com/PacificStudio/openase.git",
 		DefaultBranch: "main",
 	})
 	if err != nil {
@@ -606,7 +606,7 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 	projectRepo, err := repo.CreateProjectRepo(ctx, domain.CreateProjectRepo{
 		ProjectID:     project.ID,
 		Name:          "openase-main",
-		RepositoryURL: "https://github.com/GrandCX/openase.git",
+		RepositoryURL: "https://github.com/PacificStudio/openase.git",
 		DefaultBranch: "main",
 	})
 	if err != nil {
@@ -615,7 +615,7 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 	if _, err := repo.CreateProjectRepo(ctx, domain.CreateProjectRepo{
 		ProjectID:     project.ID,
 		Name:          "openase-main",
-		RepositoryURL: "https://github.com/GrandCX/openase-other.git",
+		RepositoryURL: "https://github.com/PacificStudio/openase-other.git",
 		DefaultBranch: "main",
 	}); !errors.Is(err, domain.ErrProjectRepoNameConflict) {
 		t.Fatalf("CreateProjectRepo(duplicate name) error = %v, want %v", err, domain.ErrProjectRepoNameConflict)

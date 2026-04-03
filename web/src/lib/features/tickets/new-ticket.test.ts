@@ -23,7 +23,7 @@ describe('new ticket repo scope parsing', () => {
       ok: true,
       payload: {
         title: 'Ship login validation',
-        priority: 'medium',
+        priority: null,
         status_id: 'todo',
         repo_scopes: [{ repo_id: 'repo-1' }],
       },
@@ -70,7 +70,7 @@ describe('new ticket repo scope parsing', () => {
       ok: true,
       payload: {
         title: 'Ship login validation',
-        priority: 'medium',
+        priority: null,
         status_id: 'todo',
         repo_scopes: [{ repo_id: 'repo-1' }, { repo_id: 'repo-2' }],
       },
@@ -99,12 +99,37 @@ describe('new ticket repo scope parsing', () => {
       ok: true,
       payload: {
         title: 'Ship login validation',
-        priority: 'medium',
+        priority: null,
         status_id: 'todo',
         repo_scopes: [
           { repo_id: 'repo-1' },
           { repo_id: 'repo-2', branch_name: 'release/candidate' },
         ],
+      },
+    })
+  })
+
+  it('preserves an explicit priority selection when provided', () => {
+    const repoOptions: TicketRepoOption[] = [
+      { id: 'repo-1', label: 'backend', defaultBranch: 'main' },
+    ]
+
+    const parsed = parseNewTicketDraft(
+      {
+        ...createNewTicketDraft(statusOptions, repoOptions),
+        title: 'Ship login validation',
+        priority: 'high',
+      },
+      repoOptions,
+    )
+
+    expect(parsed).toEqual({
+      ok: true,
+      payload: {
+        title: 'Ship login validation',
+        priority: 'high',
+        status_id: 'todo',
+        repo_scopes: [{ repo_id: 'repo-1' }],
       },
     })
   })

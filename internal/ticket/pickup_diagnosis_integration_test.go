@@ -14,6 +14,10 @@ import (
 	"github.com/google/uuid"
 )
 
+func diagnosisPriorityPtr(priority Priority) *Priority {
+	return &priority
+}
+
 func TestGetPickupDiagnosisRetryBackoff(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
@@ -109,7 +113,7 @@ func TestGetPickupDiagnosisNoMatchingActiveWorkflow(t *testing.T) {
 		ProjectID: fixture.projectID,
 		Title:     "Needs dispatcher",
 		StatusID:  &fixture.backlogID,
-		Priority:  PriorityMedium,
+		Priority:  diagnosisPriorityPtr(PriorityMedium),
 		Type:      TypeFeature,
 	})
 	if err != nil {
@@ -325,7 +329,7 @@ func TestGetPickupDiagnosisRunningAndCompleted(t *testing.T) {
 			ProjectID: fixture.projectID,
 			Title:     "Completed ticket",
 			StatusID:  &fixture.doneID,
-			Priority:  PriorityMedium,
+			Priority:  diagnosisPriorityPtr(PriorityMedium),
 			Type:      TypeFeature,
 		})
 		if err != nil {
@@ -359,7 +363,7 @@ func createDiagnosisTicket(
 		Title:      "Diagnosis target",
 		StatusID:   &fixture.todoID,
 		WorkflowID: &fixture.workflowID,
-		Priority:   PriorityMedium,
+		Priority:   diagnosisPriorityPtr(PriorityMedium),
 		Type:       TypeFeature,
 	})
 	if err != nil {

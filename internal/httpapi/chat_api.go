@@ -904,6 +904,12 @@ func prepareProjectConversationActionBody(method string, path string, body map[s
 		prepared["created_by"] = executedBy
 	case normalizedMethod == http.MethodPatch && projectConversationUpdateCommentPatchPath(normalizedPath):
 		prepared["edited_by"] = executedBy
+	case normalizedMethod == http.MethodPost && projectConversationWorkflowCreatePath(normalizedPath):
+		prepared["created_by"] = executedBy
+	case normalizedMethod == http.MethodPatch && projectConversationWorkflowPatchPath(normalizedPath):
+		prepared["edited_by"] = executedBy
+	case normalizedMethod == http.MethodPut && projectConversationWorkflowHarnessUpdatePath(normalizedPath):
+		prepared["edited_by"] = executedBy
 	case normalizedMethod == http.MethodGet:
 		return prepared, nil
 	default:
@@ -937,6 +943,18 @@ func projectConversationTicketCommentCreatePath(path string) bool {
 
 func projectConversationTicketCommentPatchPath(path string) bool {
 	return strings.HasPrefix(path, "/api/v1/tickets/") && strings.Contains(path, "/comments/")
+}
+
+func projectConversationWorkflowCreatePath(path string) bool {
+	return strings.HasPrefix(path, "/api/v1/projects/") && strings.HasSuffix(path, "/workflows")
+}
+
+func projectConversationWorkflowPatchPath(path string) bool {
+	return strings.HasPrefix(path, "/api/v1/workflows/") && !strings.HasSuffix(path, "/harness")
+}
+
+func projectConversationWorkflowHarnessUpdatePath(path string) bool {
+	return strings.HasPrefix(path, "/api/v1/workflows/") && strings.HasSuffix(path, "/harness")
 }
 
 func projectConversationUpdateThreadCreatePath(path string) bool {

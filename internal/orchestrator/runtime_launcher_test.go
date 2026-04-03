@@ -3296,7 +3296,7 @@ func TestRuntimeLauncherRunTickMarksTicketRepoWorkspaceFailedWhenRemoteSSHPoolIs
 	if _, err := client.ProjectRepo.Create().
 		SetProjectID(fixture.projectID).
 		SetName("openase").
-		SetRepositoryURL("https://github.com/GrandCX/openase.git").
+		SetRepositoryURL("https://github.com/PacificStudio/openase.git").
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("openase").
 		Save(ctx); err != nil {

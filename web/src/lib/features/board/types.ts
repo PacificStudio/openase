@@ -1,3 +1,5 @@
+import type { BoardFilterPriority, BoardPriority } from './priority'
+
 export type BoardColumn = {
   id: string
   name: string
@@ -22,7 +24,7 @@ export type BoardTicket = {
   stage: 'backlog' | 'unstarted' | 'started' | 'completed' | 'canceled'
   identifier: string
   title: string
-  priority: 'urgent' | 'high' | 'medium' | 'low'
+  priority: BoardPriority
   workflowType?: string
   agentName?: string
   anomaly?: 'retry' | 'awaiting_approval' | 'budget_exhausted'
@@ -53,7 +55,7 @@ export type HiddenColumn = {
 export type BoardFilter = {
   workflow?: string
   agent?: string
-  priority?: string
+  priority?: BoardFilterPriority
   anomalyOnly?: boolean
   search?: string
 }

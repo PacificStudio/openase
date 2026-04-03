@@ -1,11 +1,12 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
+  import { formatBoardPriorityLabel, type BoardPriority } from '../priority'
 
   let {
     priority,
     class: className = '',
   }: {
-    priority: 'urgent' | 'high' | 'medium' | 'low'
+    priority: BoardPriority
     class?: string
   } = $props()
 
@@ -18,9 +19,11 @@
   fill="none"
   xmlns="http://www.w3.org/2000/svg"
   class={cn('size-4 shrink-0', className)}
-  aria-label={`Priority: ${priority}`}
+  aria-label={`Priority: ${formatBoardPriorityLabel(priority).toLowerCase()}`}
 >
-  {#if priority === 'urgent'}
+  {#if priority === ''}
+    <rect x="2.5" y="7" width="11" height="2" rx="1" fill={active} />
+  {:else if priority === 'urgent'}
     <!-- Exclamation mark -->
     <rect x="6.75" y="3" width="2.5" height="6.5" rx="1.25" fill={active} />
     <circle cx="8" cy="12.25" r="1.25" fill={active} />

@@ -51,7 +51,10 @@
           Run transcript
         {/if}
       </h3>
-      <p class="text-muted-foreground text-xs">
+      <p
+        class="text-muted-foreground group/summary max-w-full truncate text-xs transition-all hover:break-words hover:whitespace-normal"
+        title={run?.currentStepSummary || ''}
+      >
         {#if run}
           {run.currentStepSummary ||
             run.currentStepStatus ||

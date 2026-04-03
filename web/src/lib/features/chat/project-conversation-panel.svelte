@@ -251,10 +251,11 @@
     {providerId}
     {providerSelectionDisabled}
     activeTabHasContent={entries.length > 0 || Boolean(activeTab?.conversationId)}
-    resetDisabled={entries.length === 0 && !pending}
+    {conversations}
+    openConversationIds={tabs.map((tab) => tab.conversationId).filter(Boolean)}
     onProviderChange={(nextProviderId) => void controller.selectProvider(nextProviderId)}
     onCreateTab={() => controller.createTab()}
-    onResetConversation={() => void controller.resetConversation()}
+    onOpenConversation={(conversationId) => void controller.openConversation(conversationId)}
     {onClose}
   />
 

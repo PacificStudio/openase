@@ -12,6 +12,7 @@ type rawCreateWorkflowRequest struct {
 	AgentID             string         `json:"agent_id"`
 	Name                string         `json:"name"`
 	Type                string         `json:"type"`
+	CreatedBy           *string        `json:"created_by"`
 	HarnessPath         *string        `json:"harness_path"`
 	HarnessContent      string         `json:"harness_content"`
 	Hooks               map[string]any `json:"hooks"`
@@ -28,6 +29,7 @@ type rawUpdateWorkflowRequest struct {
 	AgentID             *string         `json:"agent_id"`
 	Name                *string         `json:"name"`
 	Type                *string         `json:"type"`
+	EditedBy            *string         `json:"edited_by"`
 	HarnessPath         *string         `json:"harness_path"`
 	Hooks               *map[string]any `json:"hooks"`
 	MaxConcurrent       *int            `json:"max_concurrent"`
@@ -40,7 +42,8 @@ type rawUpdateWorkflowRequest struct {
 }
 
 type rawUpdateHarnessRequest struct {
-	Content string `json:"content"`
+	Content  string  `json:"content"`
+	EditedBy *string `json:"edited_by"`
 }
 
 type rawValidateHarnessRequest struct {
@@ -104,6 +107,9 @@ func parseCreateWorkflowRequest(projectID uuid.UUID, raw rawCreateWorkflowReques
 		PickupStatusIDs:     pickupStatusIDs,
 		FinishStatusIDs:     finishStatusIDs,
 	}
+	if raw.CreatedBy != nil {
+		input.CreatedBy = strings.TrimSpace(*raw.CreatedBy)
+	}
 	if raw.HarnessPath != nil {
 		path := strings.TrimSpace(*raw.HarnessPath)
 		input.HarnessPath = &path
@@ -117,6 +123,9 @@ func parseCreateWorkflowRequest(projectID uuid.UUID, raw rawCreateWorkflowReques
 
 func parseUpdateWorkflowRequest(workflowID uuid.UUID, raw rawUpdateWorkflowRequest) (workflowservice.UpdateInput, error) {
 	input := workflowservice.UpdateInput{WorkflowID: workflowID}
+	if raw.EditedBy != nil {
+		input.EditedBy = strings.TrimSpace(*raw.EditedBy)
+	}
 
 	if raw.AgentID != nil {
 		agentID, err := parseUUIDString("agent_id", *raw.AgentID)
@@ -208,10 +217,14 @@ func parseUpdateHarnessRequest(workflowID uuid.UUID, raw rawUpdateHarnessRequest
 		return workflowservice.UpdateHarnessInput{}, fmt.Errorf("content must not be empty")
 	}
 
-	return workflowservice.UpdateHarnessInput{
+	input := workflowservice.UpdateHarnessInput{
 		WorkflowID: workflowID,
 		Content:    raw.Content,
-	}, nil
+	}
+	if raw.EditedBy != nil {
+		input.EditedBy = strings.TrimSpace(*raw.EditedBy)
+	}
+	return input, nil
 }
 
 func parseWorkflowType(raw string) (workflowservice.Type, error) {

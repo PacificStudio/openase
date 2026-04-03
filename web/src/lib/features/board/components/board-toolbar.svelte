@@ -4,7 +4,9 @@
   import { Button } from '$ui/button'
   import * as Select from '$ui/select'
   import { Search, Columns3, List, AlertTriangle, EyeOff } from '@lucide/svelte'
+  import { parseBoardFilterPriority } from '../priority'
   import { ticketViewStore } from '$lib/stores/ticket-view.svelte'
+  import PriorityIcon from './priority-icon.svelte'
   import type { BoardFilter } from '../types'
 
   let {
@@ -28,6 +30,8 @@
   function updateFilter(next: BoardFilter) {
     onFilterChange?.(next)
   }
+
+  const parsePriorityFilter = parseBoardFilterPriority
 </script>
 
 <div class={cn('flex items-center gap-2', className)}>
@@ -82,18 +86,41 @@
   <Select.Root
     type="single"
     onValueChange={(v) => {
-      updateFilter({ ...filter, priority: v || undefined })
+      updateFilter({ ...filter, priority: parsePriorityFilter(v) })
     }}
   >
     <Select.Trigger size="sm" class="h-8 text-xs">
-      {filter.priority ?? 'Priority'}
+      {#if filter.priority}
+        <span class="flex items-center gap-1.5">
+          <PriorityIcon priority={filter.priority} />
+          <span class="capitalize">{filter.priority}</span>
+        </span>
+      {:else}
+        Priority
+      {/if}
     </Select.Trigger>
     <Select.Content>
       <Select.Item value="">All</Select.Item>
-      <Select.Item value="urgent">Urgent</Select.Item>
-      <Select.Item value="high">High</Select.Item>
-      <Select.Item value="medium">Medium</Select.Item>
-      <Select.Item value="low">Low</Select.Item>
+      <Select.Item value="urgent"
+        ><span class="flex items-center gap-1.5"
+          ><PriorityIcon priority="urgent" /><span>Urgent</span></span
+        ></Select.Item
+      >
+      <Select.Item value="high"
+        ><span class="flex items-center gap-1.5"
+          ><PriorityIcon priority="high" /><span>High</span></span
+        ></Select.Item
+      >
+      <Select.Item value="medium"
+        ><span class="flex items-center gap-1.5"
+          ><PriorityIcon priority="medium" /><span>Medium</span></span
+        ></Select.Item
+      >
+      <Select.Item value="low"
+        ><span class="flex items-center gap-1.5"
+          ><PriorityIcon priority="low" /><span>Low</span></span
+        ></Select.Item
+      >
     </Select.Content>
   </Select.Root>
 

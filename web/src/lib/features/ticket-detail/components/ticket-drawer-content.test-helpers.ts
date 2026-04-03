@@ -113,7 +113,7 @@ export const ticketFixture: TicketDetail = {
       defaultBranch: 'main',
       effectiveBranchName: 'feat/openase-470-project-ai',
       branchSource: 'override',
-      prUrl: 'https://github.com/GrandCX/openase/pull/999',
+      prUrl: 'https://github.com/PacificStudio/openase/pull/999',
     },
   ],
   attemptCount: 3,

@@ -183,7 +183,7 @@ func TestBuildSystemPromptGuidesHarnessEditorReplies(t *testing.T) {
 				Name:             "openase-web",
 				DefaultBranch:    "main",
 				WorkspaceDirname: "web",
-				RepositoryURL:    "https://github.com/BetterAndBetterII/openase",
+				RepositoryURL:    "https://github.com/PacificStudio/openase",
 				Labels:           []string{"frontend"},
 			},
 		},

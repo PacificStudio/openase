@@ -242,7 +242,7 @@ type CreateInput struct {
 	Title           string
 	Description     string
 	StatusID        *uuid.UUID
-	Priority        Priority
+	Priority        *Priority
 	Type            Type
 	WorkflowID      *uuid.UUID
 	TargetMachineID *uuid.UUID
@@ -263,7 +263,7 @@ type UpdateInput struct {
 	Title                             Optional[string]
 	Description                       Optional[string]
 	StatusID                          Optional[uuid.UUID]
-	Priority                          Optional[Priority]
+	Priority                          Optional[*Priority]
 	Type                              Optional[Type]
 	WorkflowID                        Optional[*uuid.UUID]
 	TargetMachineID                   Optional[*uuid.UUID]

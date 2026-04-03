@@ -126,6 +126,7 @@ func (s *Server) handleCreateWorkflow(c echo.Context) error {
 			"is_active":         item.IsActive,
 			"pickup_status_ids": item.PickupStatusIDs,
 			"finish_status_ids": item.FinishStatusIDs,
+			"audit_actor":       input.CreatedBy,
 			"changed_fields":    []string{"workflow"},
 		},
 	}); err != nil {
@@ -202,6 +203,7 @@ func (s *Server) handleUpdateWorkflow(c echo.Context) error {
 				"workflow_id":    item.ID.String(),
 				"workflow_name":  item.Name,
 				"is_active":      item.IsActive,
+				"audit_actor":    input.EditedBy,
 				"changed_fields": []string{"is_active"},
 			},
 		})
@@ -215,6 +217,7 @@ func (s *Server) handleUpdateWorkflow(c echo.Context) error {
 			Metadata: map[string]any{
 				"workflow_id":    item.ID.String(),
 				"workflow_name":  item.Name,
+				"audit_actor":    input.EditedBy,
 				"changed_fields": []string{"hooks"},
 			},
 		})
@@ -230,6 +233,7 @@ func (s *Server) handleUpdateWorkflow(c echo.Context) error {
 				"workflow_name":  item.Name,
 				"from_agent_id":  current.AgentID,
 				"to_agent_id":    item.AgentID,
+				"audit_actor":    input.EditedBy,
 				"changed_fields": []string{"agent_id"},
 			},
 		})
@@ -244,6 +248,7 @@ func (s *Server) handleUpdateWorkflow(c echo.Context) error {
 				"workflow_id":       item.ID.String(),
 				"workflow_name":     item.Name,
 				"pickup_status_ids": item.PickupStatusIDs,
+				"audit_actor":       input.EditedBy,
 				"changed_fields":    []string{"pickup_status_ids"},
 			},
 		})
@@ -258,6 +263,7 @@ func (s *Server) handleUpdateWorkflow(c echo.Context) error {
 				"workflow_id":       item.ID.String(),
 				"workflow_name":     item.Name,
 				"finish_status_ids": item.FinishStatusIDs,
+				"audit_actor":       input.EditedBy,
 				"changed_fields":    []string{"finish_status_ids"},
 			},
 		})
@@ -272,6 +278,7 @@ func (s *Server) handleUpdateWorkflow(c echo.Context) error {
 				"workflow_id":    item.ID.String(),
 				"workflow_name":  item.Name,
 				"max_concurrent": item.MaxConcurrent,
+				"audit_actor":    input.EditedBy,
 				"changed_fields": []string{"max_concurrent"},
 			},
 		})
@@ -286,17 +293,20 @@ func (s *Server) handleUpdateWorkflow(c echo.Context) error {
 				"workflow_id":        item.ID.String(),
 				"workflow_name":      item.Name,
 				"max_retry_attempts": item.MaxRetryAttempts,
+				"audit_actor":        input.EditedBy,
 				"changed_fields":     []string{"max_retry_attempts"},
 			},
 		})
 	}
 	if raw.TimeoutMinutes != nil || raw.StallTimeoutMinutes != nil {
+		metadata := workflowTimeoutMetadata(raw, mapWorkflowDetailResponse(item))
+		metadata["audit_actor"] = input.EditedBy
 		activityInputs = append(activityInputs, activitysvc.RecordInput{
 			ProjectID: item.ProjectID,
 			AgentID:   item.AgentID,
 			EventType: activityevent.TypeWorkflowTimeoutChanged,
 			Message:   "Changed workflow timeouts for " + item.Name,
-			Metadata:  workflowTimeoutMetadata(raw, mapWorkflowDetailResponse(item)),
+			Metadata:  metadata,
 		})
 	}
 	if raw.Name != nil || raw.Type != nil || raw.HarnessPath != nil {
@@ -310,6 +320,7 @@ func (s *Server) handleUpdateWorkflow(c echo.Context) error {
 				"workflow_name":  item.Name,
 				"workflow_type":  item.Type.String(),
 				"harness_path":   item.HarnessPath,
+				"audit_actor":    input.EditedBy,
 				"changed_fields": workflowChangedFields(raw),
 			},
 		})
@@ -434,6 +445,7 @@ func (s *Server) handleUpdateWorkflowHarness(c echo.Context) error {
 			"workflow_name":  workflowItem.Name,
 			"harness_path":   document.Path,
 			"version":        document.Version,
+			"audit_actor":    input.EditedBy,
 			"changed_fields": []string{"harness"},
 		},
 	}); err != nil {

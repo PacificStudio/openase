@@ -1,7 +1,7 @@
 import type { BoardFilter } from '$lib/features/board'
+import { parseBoardFilterPriority } from '$lib/features/board/public'
 
 const storagePrefix = 'openase.ticket-board.toolbar'
-const allowedPriorities = new Set(['urgent', 'high', 'medium', 'low'])
 
 export type TicketBoardToolbarState = {
   filter: BoardFilter
@@ -39,7 +39,7 @@ function normalizePriority(value: unknown): BoardFilter['priority'] {
   if (typeof value !== 'string') {
     return undefined
   }
-  return allowedPriorities.has(value) ? value : undefined
+  return parseBoardFilterPriority(value)
 }
 
 function normalizeFilter(filter: BoardFilter | null | undefined): BoardFilter {

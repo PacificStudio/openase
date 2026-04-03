@@ -593,7 +593,7 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	accessibleB := uuid.New()
 	maxConcurrent := 7
 	clonePath := " services/repo "
-	prURL := " https://github.com/GrandCX/openase/pull/1 "
+	prURL := " https://github.com/PacificStudio/openase/pull/1 "
 	branchName := " feat/openase-278-coverage "
 
 	createOrg, err := ParseCreateOrganization(OrganizationInput{
@@ -684,7 +684,7 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 
 	createRepo, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{
 		Name:             " OpenASE ",
-		RepositoryURL:    " https://github.com/GrandCX/openase ",
+		RepositoryURL:    " https://github.com/PacificStudio/openase ",
 		DefaultBranch:    " trunk ",
 		WorkspaceDirname: &clonePath,
 		Labels:           []string{" backend ", "backend", " coverage "},
@@ -692,18 +692,18 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseCreateProjectRepo() error = %v", err)
 	}
-	if createRepo.RepositoryURL != "https://github.com/grandcx/openase.git" || createRepo.DefaultBranch != "trunk" || createRepo.WorkspaceDirname != "services/repo" || len(createRepo.Labels) != 2 {
+	if createRepo.RepositoryURL != "https://github.com/pacificstudio/openase.git" || createRepo.DefaultBranch != "trunk" || createRepo.WorkspaceDirname != "services/repo" || len(createRepo.Labels) != 2 {
 		t.Fatalf("ParseCreateProjectRepo() = %+v", createRepo)
 	}
 	createRepo, err = ParseCreateProjectRepo(projectID, ProjectRepoInput{
 		Name:             "Backend",
-		RepositoryURL:    "https://github.com/GrandCX/openase",
+		RepositoryURL:    "https://github.com/PacificStudio/openase",
 		WorkspaceDirname: stringPtr("   "),
 	})
 	if err != nil {
 		t.Fatalf("ParseCreateProjectRepo(blank workspace dirname) error = %v", err)
 	}
-	if createRepo.RepositoryURL != "https://github.com/grandcx/openase.git" || createRepo.WorkspaceDirname != "Backend" {
+	if createRepo.RepositoryURL != "https://github.com/pacificstudio/openase.git" || createRepo.WorkspaceDirname != "Backend" {
 		t.Fatalf("ParseCreateProjectRepo(blank workspace dirname) = %+v", createRepo)
 	}
 	updateRepo, err := ParseUpdateProjectRepo(uuid.New(), projectID, ProjectRepoInput{
@@ -716,14 +716,14 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if updateRepo.DefaultBranch != "main" {
 		t.Fatalf("ParseUpdateProjectRepo() defaults = %+v", updateRepo)
 	}
-	updateRepo, err = ParseUpdateProjectRepo(uuid.New(), projectID, ProjectRepoInput{Name: "Repo", RepositoryURL: "https://github.com/GrandCX/openase", Labels: []string{"alpha"}})
+	updateRepo, err = ParseUpdateProjectRepo(uuid.New(), projectID, ProjectRepoInput{Name: "Repo", RepositoryURL: "https://github.com/PacificStudio/openase", Labels: []string{"alpha"}})
 	if err != nil {
 		t.Fatalf("ParseUpdateProjectRepo(success) error = %v", err)
 	}
 	if len(updateRepo.Labels) != 1 || updateRepo.Labels[0] != "alpha" {
 		t.Fatalf("ParseUpdateProjectRepo(success) = %+v", updateRepo)
 	}
-	if updateRepo.RepositoryURL != "https://github.com/grandcx/openase.git" {
+	if updateRepo.RepositoryURL != "https://github.com/pacificstudio/openase.git" {
 		t.Fatalf("ParseUpdateProjectRepo(success) repository_url = %q", updateRepo.RepositoryURL)
 	}
 	if _, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{Name: " ", RepositoryURL: "https://github.com"}); err == nil {
@@ -750,10 +750,10 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if _, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{Name: "repo", RepositoryURL: "https://github.com", Labels: []string{""}}); err == nil {
 		t.Fatal("ParseCreateProjectRepo() expected labels validation error")
 	}
-	if _, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{Name: "repo", RepositoryURL: "git@github.com:GrandCX/openase.git"}); err == nil {
+	if _, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{Name: "repo", RepositoryURL: "git@github.com:PacificStudio/openase.git"}); err == nil {
 		t.Fatal("ParseCreateProjectRepo() expected SSH GitHub URL validation error")
 	}
-	if _, err := ParseUpdateProjectRepo(uuid.New(), projectID, ProjectRepoInput{Name: "Repo", RepositoryURL: "ssh://git@github.com/GrandCX/openase.git"}); err == nil {
+	if _, err := ParseUpdateProjectRepo(uuid.New(), projectID, ProjectRepoInput{Name: "Repo", RepositoryURL: "ssh://git@github.com/PacificStudio/openase.git"}); err == nil {
 		t.Fatal("ParseUpdateProjectRepo() expected SSH GitHub URL validation error")
 	}
 	if _, err := ParseUpdateProjectRepo(uuid.New(), projectID, ProjectRepoInput{Name: " "}); err == nil {
@@ -788,7 +788,7 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseCreateTicketRepoScope() error = %v", err)
 	}
-	if createScope.BranchName == nil || *createScope.BranchName != "feat/openase-278-coverage" || createScope.PullRequestURL == nil || *createScope.PullRequestURL != "https://github.com/GrandCX/openase/pull/1" {
+	if createScope.BranchName == nil || *createScope.BranchName != "feat/openase-278-coverage" || createScope.PullRequestURL == nil || *createScope.PullRequestURL != "https://github.com/PacificStudio/openase/pull/1" {
 		t.Fatalf("ParseCreateTicketRepoScope() = %+v", createScope)
 	}
 	updateScope, err := ParseUpdateTicketRepoScope(uuid.New(), projectID, ticketID, TicketRepoScopeInput{RepoID: repoID.String()})

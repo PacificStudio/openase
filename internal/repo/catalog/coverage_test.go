@@ -69,7 +69,7 @@ func TestCatalogMappingHelpers(t *testing.T) {
 	defaultAgentProviderID := uuid.New()
 	workflowID := uuid.New()
 	stageWorkspaceDirname := "openase"
-	pullRequestURL := "https://github.com/GrandCX/openase/pull/278"
+	pullRequestURL := "https://github.com/PacificStudio/openase/pull/278"
 	sshUser := "codex"
 	workspaceRoot := "/workspace/openase"
 	agentCLIPath := "/usr/bin/codex"
@@ -98,7 +98,7 @@ func TestCatalogMappingHelpers(t *testing.T) {
 		ID:               repoID,
 		ProjectID:        projectID,
 		Name:             "openase",
-		RepositoryURL:    "https://github.com/GrandCX/openase.git",
+		RepositoryURL:    "https://github.com/PacificStudio/openase.git",
 		DefaultBranch:    "main",
 		WorkspaceDirname: stageWorkspaceDirname,
 		Labels:           []string{"backend", "automation"},

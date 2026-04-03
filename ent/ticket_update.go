@@ -133,6 +133,12 @@ func (_u *TicketUpdate) SetNillablePriority(v *ticket.Priority) *TicketUpdate {
 	return _u
 }
 
+// ClearPriority clears the value of the "priority" field.
+func (_u *TicketUpdate) ClearPriority() *TicketUpdate {
+	_u.mutation.ClearPriority()
+	return _u
+}
+
 // SetType sets the "type" field.
 func (_u *TicketUpdate) SetType(v ticket.Type) *TicketUpdate {
 	_u.mutation.SetType(v)
@@ -1156,6 +1162,9 @@ func (_u *TicketUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.Priority(); ok {
 		_spec.SetField(ticket.FieldPriority, field.TypeEnum, value)
 	}
+	if _u.mutation.PriorityCleared() {
+		_spec.ClearField(ticket.FieldPriority, field.TypeEnum)
+	}
 	if value, ok := _u.mutation.GetType(); ok {
 		_spec.SetField(ticket.FieldType, field.TypeEnum, value)
 	}
@@ -2073,6 +2082,12 @@ func (_u *TicketUpdateOne) SetNillablePriority(v *ticket.Priority) *TicketUpdate
 	if v != nil {
 		_u.SetPriority(*v)
 	}
+	return _u
+}
+
+// ClearPriority clears the value of the "priority" field.
+func (_u *TicketUpdateOne) ClearPriority() *TicketUpdateOne {
+	_u.mutation.ClearPriority()
 	return _u
 }
 
@@ -3128,6 +3143,9 @@ func (_u *TicketUpdateOne) sqlSave(ctx context.Context) (_node *Ticket, err erro
 	}
 	if value, ok := _u.mutation.Priority(); ok {
 		_spec.SetField(ticket.FieldPriority, field.TypeEnum, value)
+	}
+	if _u.mutation.PriorityCleared() {
+		_spec.ClearField(ticket.FieldPriority, field.TypeEnum)
 	}
 	if value, ok := _u.mutation.GetType(); ok {
 		_spec.SetField(ticket.FieldType, field.TypeEnum, value)

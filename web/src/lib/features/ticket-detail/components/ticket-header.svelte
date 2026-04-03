@@ -10,6 +10,7 @@
   import Save from '@lucide/svelte/icons/save'
   import X from '@lucide/svelte/icons/x'
   import { cn } from '$lib/utils'
+  import { formatBoardPriorityLabel, PriorityIcon } from '$lib/features/board/public'
   import type { TicketDetail, TicketStatusOption } from '../types'
 
   let {
@@ -35,6 +36,7 @@
   let titleDraft = $state('')
 
   const priorityColors: Record<string, string> = {
+    '': 'bg-muted text-muted-foreground border-border',
     urgent: 'bg-red-500/15 text-red-400 border-red-500/20',
     high: 'bg-orange-500/15 text-orange-400 border-orange-500/20',
     medium: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/20',
@@ -172,10 +174,9 @@
         {/each}
       </Select.Content>
     </Select.Root>
-    <Badge
-      class={cn('shrink-0 px-1.5 py-0 text-[10px] uppercase', priorityColors[ticket.priority])}
-    >
-      {ticket.priority}
+    <Badge class={cn('shrink-0 gap-1 px-1.5 py-0 text-[10px]', priorityColors[ticket.priority])}>
+      <PriorityIcon priority={ticket.priority} class="size-3" />
+      {formatBoardPriorityLabel(ticket.priority)}
     </Badge>
     <Badge variant="outline" class="shrink-0 px-1.5 py-0 text-[10px]">
       {typeLabels[ticket.type] ?? ticket.type}

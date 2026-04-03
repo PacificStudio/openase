@@ -98,7 +98,10 @@
   {#if live}
     <span class="size-1.5 shrink-0 rounded-full bg-green-400"></span>
   {/if}
-  <span class="text-muted-foreground min-w-0 flex-1 truncate">{ticketRunSummaryLine(run)}</span>
+  <span
+    class="text-muted-foreground min-w-0 flex-1 truncate hover:break-words hover:whitespace-normal"
+    title={ticketRunSummaryLine(run)}>{ticketRunSummaryLine(run)}</span
+  >
   <span class="text-muted-foreground shrink-0 text-[10px]">{run.provider}</span>
   {#if selected && connectionLabel(runStreamState, recoveringRunTranscript, liveSelected)}
     <Badge

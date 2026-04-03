@@ -297,12 +297,12 @@ func TestCLIPlatformParserAndHTTPErrorCoverage(t *testing.T) {
 		description: " finish CI gate ",
 		priority:    " high ",
 		typeName:    " bug ",
-		externalRef: " GrandCX/openase#278 ",
+		externalRef: " PacificStudio/openase#278 ",
 	})
 	if err != nil {
 		t.Fatalf("parseTicketCreateInput() error = %v", err)
 	}
-	if createInput.title != "Raise backend coverage" || createInput.typeName != "bug" || createInput.externalRef != "GrandCX/openase#278" {
+	if createInput.title != "Raise backend coverage" || createInput.typeName != "bug" || createInput.externalRef != "PacificStudio/openase#278" {
 		t.Fatalf("parseTicketCreateInput() = %+v", createInput)
 	}
 	if _, err := platform.parseTicketCreateInput(ticketCreateInput{projectID: "project-123", title: " "}); err == nil || !strings.Contains(err.Error(), "title must not be empty") {
@@ -312,7 +312,7 @@ func TestCLIPlatformParserAndHTTPErrorCoverage(t *testing.T) {
 	updateInput, err := platform.parseTicketUpdateInput(ticketUpdateInput{
 		title:          " tighten gate ",
 		description:    " ship coverage ",
-		externalRef:    " GrandCX/openase#278 ",
+		externalRef:    " PacificStudio/openase#278 ",
 		titleSet:       true,
 		descriptionSet: true,
 		externalRefSet: true,
@@ -320,7 +320,7 @@ func TestCLIPlatformParserAndHTTPErrorCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseTicketUpdateInput() error = %v", err)
 	}
-	if updateInput.ticketID != "ticket-123" || updateInput.title != "tighten gate" || updateInput.externalRef != "GrandCX/openase#278" {
+	if updateInput.ticketID != "ticket-123" || updateInput.title != "tighten gate" || updateInput.externalRef != "PacificStudio/openase#278" {
 		t.Fatalf("parseTicketUpdateInput() = %+v", updateInput)
 	}
 	if _, err := platform.parseTicketUpdateInput(ticketUpdateInput{ticketID: "ticket-123"}); err == nil || !strings.Contains(err.Error(), "at least one of --title, --description, --external-ref, --status, --status-name, or --status-id must be set") {

@@ -36,6 +36,8 @@ var (
 
 var nonAlphaNumericPattern = regexp.MustCompile(`[^a-z0-9]+`)
 
+const defaultWorkflowVersionActor = "system:workflow-service"
+
 type Optional[T any] = domain.Optional[T]
 
 func Some[T any](value T) Optional[T] {
@@ -45,6 +47,14 @@ func Some[T any](value T) Optional[T] {
 func contentHash(content string) string {
 	sum := sha256.Sum256([]byte(content))
 	return hex.EncodeToString(sum[:])
+}
+
+func resolveWorkflowVersionCreatedBy(raw string) string {
+	createdBy := strings.TrimSpace(raw)
+	if createdBy == "" {
+		return defaultWorkflowVersionActor
+	}
+	return createdBy
 }
 
 func sanitizeHarnessContent(content string) (string, error) {
@@ -503,7 +513,14 @@ func (s *Service) updateWorkflowSkillsPersistent(
 		}
 	}
 
-	if _, err := s.repo.ApplyWorkflowSkillBindings(ctx, workflowItem.ID, pendingSkillIDs, bind, previousVersion.ContentMarkdown); err != nil {
+	if _, err := s.repo.ApplyWorkflowSkillBindings(
+		ctx,
+		workflowItem.ID,
+		pendingSkillIDs,
+		bind,
+		previousVersion.ContentMarkdown,
+		defaultWorkflowVersionActor,
+	); err != nil {
 		return HarnessDocument{}, err
 	}
 	return s.GetHarness(ctx, workflowItem.ID)
@@ -710,7 +727,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 		IsActive:            input.IsActive,
 		PickupStatusIDs:     append([]uuid.UUID(nil), pickupStatusIDs.IDs()...),
 		FinishStatusIDs:     append([]uuid.UUID(nil), finishStatusIDs.IDs()...),
-	}, sanitizedHarnessContent)
+	}, sanitizedHarnessContent, resolveWorkflowVersionCreatedBy(input.CreatedBy))
 	if err != nil {
 		return WorkflowDetail{}, s.mapWorkflowWriteError("create workflow", err)
 	}
@@ -928,7 +945,12 @@ func (s *Service) UpdateHarness(ctx context.Context, input UpdateHarnessInput) (
 		}
 	}
 
-	updated, err := s.repo.PublishWorkflowVersion(ctx, item.ID, sanitizedContent)
+	updated, err := s.repo.PublishWorkflowVersion(
+		ctx,
+		item.ID,
+		sanitizedContent,
+		resolveWorkflowVersionCreatedBy(input.EditedBy),
+	)
 	if err != nil {
 		return HarnessDocument{}, s.mapWorkflowWriteError("update workflow harness", err)
 	}

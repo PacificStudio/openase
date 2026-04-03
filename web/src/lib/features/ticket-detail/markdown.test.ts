@@ -16,13 +16,13 @@ describe('renderMarkdown', () => {
 go test ./...
 \`\`\`
 
-[OpenASE](https://github.com/BetterAndBetterII/openase)`)
+[OpenASE](https://github.com/PacificStudio/openase)`)
 
     expect(html).toContain('<p>Review notes:</p>')
     expect(html).toContain('<ul>')
     expect(html).toContain('<li>keep comments separate</li>')
     expect(html).toContain('<pre><code>go test ./...')
-    expect(html).toContain('href="https://github.com/BetterAndBetterII/openase"')
+    expect(html).toContain('href="https://github.com/PacificStudio/openase"')
   })
 
   it('escapes unsafe html and strips unsafe links', () => {

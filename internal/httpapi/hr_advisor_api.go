@@ -539,7 +539,7 @@ func (a hrAdvisorTicketAdapter) Create(
 		Title:       input.Title,
 		Description: input.Description,
 		StatusID:    input.StatusID,
-		Priority:    priority,
+		Priority:    &priority,
 		Type:        ticketType,
 		WorkflowID:  input.WorkflowID,
 		CreatedBy:   input.CreatedBy,

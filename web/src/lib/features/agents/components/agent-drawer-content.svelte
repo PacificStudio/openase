@@ -54,7 +54,12 @@
         {#if agent.currentStepStatus}
           <Badge variant="secondary" class="mb-1.5 text-[10px]">{agent.currentStepStatus}</Badge>
         {/if}
-        <p class="text-foreground text-sm leading-relaxed">{agent.currentStepSummary}</p>
+        <p
+          class="text-foreground truncate text-sm leading-relaxed transition-all hover:break-words hover:whitespace-normal"
+          title={agent.currentStepSummary}
+        >
+          {agent.currentStepSummary}
+        </p>
         {#if agent.currentStepChangedAt}
           <p class="text-muted-foreground mt-1.5 text-[11px]">
             {formatRelativeTime(agent.currentStepChangedAt)}

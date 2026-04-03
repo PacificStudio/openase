@@ -1,8 +1,10 @@
 package builtin
 
 import (
+	"io/fs"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -54,6 +56,59 @@ func TestSkillHelpers(t *testing.T) {
 	}
 	if _, ok := SkillByName("missing-skill"); ok {
 		t.Fatal("SkillByName(missing-skill) expected false")
+	}
+	if skills[0].Title == "" {
+		t.Fatal("Skills() expected parsed titles")
+	}
+}
+
+func TestLoadBuiltinSkillsFromBundles(t *testing.T) {
+	entries, err := fs.ReadDir(builtinSkillFS, "skills")
+	if err != nil {
+		t.Fatalf("ReadDir(skills): %v", err)
+	}
+	directoryCount := 0
+	for _, entry := range entries {
+		if entry.IsDir() {
+			directoryCount++
+		}
+	}
+	if directoryCount != len(Skills()) {
+		t.Fatalf("embedded skill directories=%d, Skills()=%d", directoryCount, len(Skills()))
+	}
+}
+
+func TestLoadBuiltinSkillsParsesBundledMarkdown(t *testing.T) {
+	templates, err := loadBuiltinSkills(fstest.MapFS{
+		"skills/sample/SKILL.md": {
+			Data: []byte("---\nname: \"sample\"\ndescription: \"Sample description\"\n---\n\n# Sample Title\n\nBody\n"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("loadBuiltinSkills() error = %v", err)
+	}
+	if len(templates) != 1 {
+		t.Fatalf("loadBuiltinSkills() len = %d, want 1", len(templates))
+	}
+	if templates[0].Name != "sample" {
+		t.Fatalf("template name = %q", templates[0].Name)
+	}
+	if templates[0].Title != "Sample Title" {
+		t.Fatalf("template title = %q", templates[0].Title)
+	}
+	if templates[0].Description != "Sample description" {
+		t.Fatalf("template description = %q", templates[0].Description)
+	}
+}
+
+func TestLoadBuiltinSkillsRejectsDirectoryFrontmatterMismatch(t *testing.T) {
+	_, err := loadBuiltinSkills(fstest.MapFS{
+		"skills/sample/SKILL.md": {
+			Data: []byte("---\nname: \"other\"\ndescription: \"Sample description\"\n---\n\n# Sample Title\n"),
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "does not match directory") {
+		t.Fatalf("loadBuiltinSkills() error = %v, want directory mismatch", err)
 	}
 }
 

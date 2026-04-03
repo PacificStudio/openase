@@ -139,6 +139,18 @@ describe('board model', () => {
     expect('prStatus' in (board.columns[1]?.tickets[0] ?? {})).toBe(false)
   })
 
+  it('preserves tickets with no explicit priority instead of defaulting them to medium', () => {
+    const board = buildBoardData(
+      statusesFixture,
+      [{ ...ticketsFixture[0], id: 'ticket-2', priority: '' }],
+      workflowsFixture,
+      agentsFixture,
+      activityFixture,
+    )
+
+    expect(board.columns[1]?.tickets[0]?.priority).toBe('')
+  })
+
   it('orders board statuses by stage first and position within the stage', () => {
     const board = buildBoardData(
       {

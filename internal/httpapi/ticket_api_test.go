@@ -25,6 +25,8 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
+	ticketstatusrepo "github.com/BetterAndBetterII/openase/internal/repo/ticketstatus"
 	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -210,7 +212,7 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 			"title":            "Implement dependency HTTP routes",
 			"priority":         "low",
 			"status_id":        doneID.String(),
-			"external_ref":     "BetterAndBetterII/openase#6",
+			"external_ref":     "PacificStudio/openase#6",
 			"budget_usd":       1.25,
 			"parent_ticket_id": "",
 		},
@@ -220,7 +222,7 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 	if childUpdateResp.Ticket.Parent != nil || len(childUpdateResp.Ticket.Dependencies) != 0 {
 		t.Fatalf("expected patch to clear sub_issue link, got %+v", childUpdateResp.Ticket)
 	}
-	if childUpdateResp.Ticket.StatusID != doneID.String() || childUpdateResp.Ticket.ExternalRef != "BetterAndBetterII/openase#6" {
+	if childUpdateResp.Ticket.StatusID != doneID.String() || childUpdateResp.Ticket.ExternalRef != "PacificStudio/openase#6" {
 		t.Fatalf("unexpected child patch response: %+v", childUpdateResp.Ticket)
 	}
 	if childUpdateResp.Ticket.TargetMachineID != nil {
@@ -690,8 +692,8 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 		fmt.Sprintf("/api/v1/tickets/%s/external-links", ticketItem.ID),
 		map[string]any{
 			"type":        "github_issue",
-			"url":         "https://github.com/BetterAndBetterII/openase/issues/99",
-			"external_id": "BetterAndBetterII/openase#99",
+			"url":         "https://github.com/PacificStudio/openase/issues/99",
+			"external_id": "PacificStudio/openase#99",
 			"title":       "F57: TicketExternalLink",
 			"status":      "open",
 			"relation":    "related",
@@ -699,7 +701,7 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 		http.StatusCreated,
 		&firstLinkResp,
 	)
-	if firstLinkResp.ExternalLink.Type != "github_issue" || firstLinkResp.ExternalLink.ExternalID != "BetterAndBetterII/openase#99" {
+	if firstLinkResp.ExternalLink.Type != "github_issue" || firstLinkResp.ExternalLink.ExternalID != "PacificStudio/openase#99" {
 		t.Fatalf("unexpected first external link response: %+v", firstLinkResp.ExternalLink)
 	}
 
@@ -713,8 +715,8 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 		fmt.Sprintf("/api/v1/tickets/%s/external-links", ticketItem.ID),
 		map[string]any{
 			"type":        "github_issue",
-			"url":         "https://github.com/BetterAndBetterII/openase/issues/6",
-			"external_id": "BetterAndBetterII/openase#6",
+			"url":         "https://github.com/PacificStudio/openase/issues/6",
+			"external_id": "PacificStudio/openase#6",
 			"title":       "F06: Ticket CRUD + 依赖关系",
 			"status":      "open",
 			"relation":    "caused_by",
@@ -731,7 +733,7 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 		server,
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/tickets/%s/external-links", ticketItem.ID),
-		`{"type":"github_issue","url":"https://github.com/BetterAndBetterII/openase/issues/99","external_id":"BetterAndBetterII/openase#99"}`,
+		`{"type":"github_issue","url":"https://github.com/PacificStudio/openase/issues/99","external_id":"PacificStudio/openase#99"}`,
 	)
 	if duplicateRec.Code != http.StatusConflict || !strings.Contains(duplicateRec.Body.String(), "EXTERNAL_LINK_CONFLICT") {
 		t.Fatalf("expected duplicate external link conflict, got %d: %s", duplicateRec.Code, duplicateRec.Body.String())
@@ -749,7 +751,7 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 		http.StatusOK,
 		&getResp,
 	)
-	if getResp.Ticket.ExternalRef != "BetterAndBetterII/openase#99" {
+	if getResp.Ticket.ExternalRef != "PacificStudio/openase#99" {
 		t.Fatalf("expected first external link to seed external_ref, got %+v", getResp.Ticket)
 	}
 	if len(getResp.Ticket.ExternalLinks) != 2 {
@@ -782,7 +784,7 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 		http.StatusOK,
 		&afterFirstDeleteResp,
 	)
-	if afterFirstDeleteResp.Ticket.ExternalRef != "BetterAndBetterII/openase#6" {
+	if afterFirstDeleteResp.Ticket.ExternalRef != "PacificStudio/openase#6" {
 		t.Fatalf("expected external_ref to fall back to remaining link, got %+v", afterFirstDeleteResp.Ticket)
 	}
 	if len(afterFirstDeleteResp.Ticket.ExternalLinks) != 1 || afterFirstDeleteResp.Ticket.ExternalLinks[0].ID != secondLinkResp.ExternalLink.ID {
@@ -996,8 +998,8 @@ func TestTicketRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 	externalLink, err := client.TicketExternalLink.Create().
 		SetTicketID(ticketItem.ID).
 		SetLinkType(entticketexternallink.LinkTypeGithubIssue).
-		SetURL("https://github.com/BetterAndBetterII/openase/issues/1").
-		SetExternalID("BetterAndBetterII/openase#1").
+		SetURL("https://github.com/PacificStudio/openase/issues/1").
+		SetExternalID("PacificStudio/openase#1").
 		SetRelation(entticketexternallink.RelationRelated).
 		Save(ctx)
 	if err != nil {
@@ -1968,6 +1970,169 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 	}
 	if todoStatusAfter.ID == uuid.Nil || todoStatusAfter.ActiveRuns != 0 {
 		t.Fatalf("expected Todo status active_runs=0 after status transition, got %+v", todoStatusAfter)
+	}
+}
+
+func TestTicketRouteArchivedStatusClearsAssignmentAndReleasesAgent(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40024},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketservice.NewService(ticketrepo.NewEntRepository(client)),
+		ticketstatus.NewService(ticketstatusrepo.NewEntRepository(client)),
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-archived").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase-archived").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	provider, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(localMachine.ID).
+		SetName("Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	statusSvc := ticketstatus.NewService(ticketstatusrepo.NewEntRepository(client))
+	statuses, err := statusSvc.ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	archivedStatus, err := statusSvc.Create(ctx, ticketstatus.CreateInput{
+		ProjectID: project.ID,
+		Name:      "Archived",
+		Stage:     ticketing.StatusStageCanceled,
+		Color:     "#4B5563",
+	})
+	if err != nil {
+		t.Fatalf("create archived status: %v", err)
+	}
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(project.ID).
+		SetName("coding-workflow").
+		SetType("coding").
+		SetHarnessPath("roles/coding.md").
+		AddPickupStatusIDs(todoID).
+		AddFinishStatusIDs(archivedStatus.ID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	assignedAgent, err := client.Agent.Create().
+		SetProjectID(project.ID).
+		SetProviderID(provider.ID).
+		SetName("coding-archiver").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-1").
+		SetTitle("Archive ticket from board").
+		SetStatusID(todoID).
+		SetWorkflowID(workflowItem.ID).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runStartedAt := time.Now().UTC().Truncate(time.Second)
+	runItem, err := client.AgentRun.Create().
+		SetAgentID(assignedAgent.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(ticketItem.ID).
+		SetProviderID(provider.ID).
+		SetStatus(entagentrun.StatusReady).
+		SetSessionID("session-archived").
+		SetRuntimeStartedAt(runStartedAt).
+		SetLastHeartbeatAt(runStartedAt).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent run: %v", err)
+	}
+	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
+		SetCurrentRunID(runItem.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind current run: %v", err)
+	}
+
+	statusResp := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/tickets/%s", ticketItem.ID),
+		map[string]any{"status_id": archivedStatus.ID.String()},
+		http.StatusOK,
+		&statusResp,
+	)
+
+	ticketAfterStatusChange, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket after status update: %v", err)
+	}
+	if ticketAfterStatusChange.StatusID != archivedStatus.ID {
+		t.Fatalf("expected ticket status %s, got %s", archivedStatus.ID, ticketAfterStatusChange.StatusID)
+	}
+	if ticketAfterStatusChange.CurrentRunID != nil {
+		t.Fatalf("expected archived status update to clear current run, got %+v", ticketAfterStatusChange.CurrentRunID)
+	}
+	if statusResp.Ticket.CurrentRunID != nil || statusResp.Ticket.StatusName != "Archived" {
+		t.Fatalf("unexpected archived patch response: %+v", statusResp.Ticket)
+	}
+	runAfterStatusChange, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run after status update: %v", err)
+	}
+	if runAfterStatusChange.Status != entagentrun.StatusTerminated ||
+		runAfterStatusChange.SessionID != "" ||
+		runAfterStatusChange.RuntimeStartedAt != nil ||
+		runAfterStatusChange.LastHeartbeatAt != nil {
+		t.Fatalf("expected archived status update to finalize agent run, got %+v", runAfterStatusChange)
+	}
+	agentAfterStatusChange, err := client.Agent.Get(ctx, assignedAgent.ID)
+	if err != nil {
+		t.Fatalf("reload agent after status update: %v", err)
+	}
+	if agentAfterStatusChange.RuntimeControlState != entagent.RuntimeControlStateActive {
+		t.Fatalf("expected archived status update to reset agent control state, got %+v", agentAfterStatusChange)
 	}
 }
 

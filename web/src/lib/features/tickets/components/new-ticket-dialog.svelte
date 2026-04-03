@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation'
   import type { TicketStatus } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
+  import { formatBoardPriorityLabel } from '$lib/features/board/public'
   import { createTicket, listProjectRepos, listStatuses } from '$lib/api/openase'
   import { projectPath } from '$lib/stores/app-context'
   import { appStore } from '$lib/stores/app.svelte'
@@ -21,10 +22,11 @@
   import NewTicketDialogMetadata from './new-ticket-dialog-metadata.svelte'
 
   const priorityLabels: Record<string, string> = {
-    urgent: 'Urgent',
-    high: 'High',
-    medium: 'Medium',
-    low: 'Low',
+    '': formatBoardPriorityLabel(''),
+    urgent: formatBoardPriorityLabel('urgent'),
+    high: formatBoardPriorityLabel('high'),
+    medium: formatBoardPriorityLabel('medium'),
+    low: formatBoardPriorityLabel('low'),
   }
 
   let statuses = $state<TicketStatus[]>([])

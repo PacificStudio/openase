@@ -11866,6 +11866,8 @@ export interface operations {
         'application/json': {
           /** @description Agent ID assigned to execute this workflow. */
           agent_id?: string
+          /** @description Optional creator descriptor recorded on the initial workflow harness version. */
+          created_by?: string | null
           /** @description Ticket status IDs that mark workflow completion. */
           finish_status_ids?: string[]
           /** @description Initial harness content written into the versioned control-plane workflow record. */
@@ -15466,6 +15468,8 @@ export interface operations {
         'application/json': {
           /** @description Agent ID assigned to execute this workflow. */
           agent_id?: string | null
+          /** @description Optional editor descriptor recorded on subsequent workflow harness versions. */
+          edited_by?: string | null
           /** @description Ticket status IDs that mark workflow completion. */
           finish_status_ids?: string[] | null
           /** @description Logical harness path tracked by the control plane for this workflow. */
@@ -15656,6 +15660,8 @@ export interface operations {
         'application/json': {
           /** @description Harness content to write or validate. */
           content?: string
+          /** @description Optional editor descriptor recorded on the published workflow harness version. */
+          edited_by?: string | null
         }
       }
     }

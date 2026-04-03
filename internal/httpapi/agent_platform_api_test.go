@@ -179,7 +179,7 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 		fmt.Sprintf("/api/v1/platform/tickets/%s", currentTicketID),
 		map[string]any{
 			"description":  "captured follow-up implementation notes",
-			"external_ref": "BetterAndBetterII/openase#37",
+			"external_ref": "PacificStudio/openase#37",
 		},
 		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
 		http.StatusOK,

@@ -37836,9 +37836,22 @@ func (m *TicketMutation) OldPriority(ctx context.Context) (v ticket.Priority, er
 	return oldValue.Priority, nil
 }
 
+// ClearPriority clears the value of the "priority" field.
+func (m *TicketMutation) ClearPriority() {
+	m.priority = nil
+	m.clearedFields[ticket.FieldPriority] = struct{}{}
+}
+
+// PriorityCleared returns if the "priority" field was cleared in this mutation.
+func (m *TicketMutation) PriorityCleared() bool {
+	_, ok := m.clearedFields[ticket.FieldPriority]
+	return ok
+}
+
 // ResetPriority resets all changes to the "priority" field.
 func (m *TicketMutation) ResetPriority() {
 	m.priority = nil
+	delete(m.clearedFields, ticket.FieldPriority)
 }
 
 // SetType sets the "type" field.
@@ -40381,6 +40394,9 @@ func (m *TicketMutation) ClearedFields() []string {
 	if m.FieldCleared(ticket.FieldDescription) {
 		fields = append(fields, ticket.FieldDescription)
 	}
+	if m.FieldCleared(ticket.FieldPriority) {
+		fields = append(fields, ticket.FieldPriority)
+	}
 	if m.FieldCleared(ticket.FieldWorkflowID) {
 		fields = append(fields, ticket.FieldWorkflowID)
 	}
@@ -40427,6 +40443,9 @@ func (m *TicketMutation) ClearField(name string) error {
 	switch name {
 	case ticket.FieldDescription:
 		m.ClearDescription()
+		return nil
+	case ticket.FieldPriority:
+		m.ClearPriority()
 		return nil
 	case ticket.FieldWorkflowID:
 		m.ClearWorkflowID()

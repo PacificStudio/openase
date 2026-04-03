@@ -21,7 +21,7 @@ func (Ticket) Fields() []ent.Field {
 		field.UUID("status_id", uuidZero()),
 		field.Enum("priority").
 			Values("urgent", "high", "medium", "low").
-			Default("medium"),
+			Optional(),
 		field.Enum("type").
 			Values("feature", "bugfix", "refactor", "chore", "epic").
 			Default("feature"),

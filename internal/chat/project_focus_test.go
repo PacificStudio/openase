@@ -67,7 +67,7 @@ func TestParseProjectConversationFocusTicketPreservesExpandedPayload(t *testing.
 				RepoID:         stringPointer("repo-1"),
 				RepoName:       stringPointer("openase"),
 				BranchName:     stringPointer("feat/openase-470-project-ai"),
-				PullRequestURL: stringPointer("https://github.com/GrandCX/openase/pull/999"),
+				PullRequestURL: stringPointer("https://github.com/PacificStudio/openase/pull/999"),
 			},
 		},
 		TicketRecentActivity: []RawProjectConversationTicketActivity{

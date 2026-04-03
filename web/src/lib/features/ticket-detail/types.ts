@@ -46,7 +46,7 @@ export type TicketDetail = {
   title: string
   description: string
   status: TicketStatusOption
-  priority: 'urgent' | 'high' | 'medium' | 'low'
+  priority: '' | 'urgent' | 'high' | 'medium' | 'low'
   type: 'feature' | 'bugfix' | 'refactor' | 'chore'
   workflow?: { id: string; name: string; type: string }
   assignedAgent?: {

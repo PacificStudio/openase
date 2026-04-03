@@ -21,8 +21,10 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	ticketstatusrepo "github.com/BetterAndBetterII/openase/internal/repo/ticketstatus"
 	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
+	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
@@ -338,6 +340,164 @@ func TestWorkflowRoutesCRUDHarnessVersionsWithoutRepoSync(t *testing.T) {
 		http.StatusOK,
 		&deleteResp,
 	)
+}
+
+func TestWorkflowRoutesPersistExplicitAuditActor(t *testing.T) {
+	client := openTestEntClient(t)
+	serviceRepoRoot := createTestGitRepo(t)
+
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), serviceRepoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			t.Errorf("close workflow service: %v", closeErr)
+		}
+	})
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		ticketstatus.NewService(ticketstatusrepo.NewEntRepository(client)),
+		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		workflowSvc,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	statuses, err := ticketstatus.NewService(ticketstatusrepo.NewEntRepository(client)).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	doneID := findStatusIDByName(t, statuses, "Done")
+	provider, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(localMachine.ID).
+		SetName("Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	agent, err := client.Agent.Create().
+		SetProviderID(provider.ID).
+		SetProjectID(project.ID).
+		SetName("codex-coding").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+
+	auditActor := "user:browser-user via project-conversation:" + uuid.NewString()
+	createResp := struct {
+		Workflow workflowResponse `json:"workflow"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
+		map[string]any{
+			"agent_id":          agent.ID.String(),
+			"name":              "Coding Workflow",
+			"type":              "coding",
+			"pickup_status_ids": []string{todoID.String()},
+			"finish_status_ids": []string{doneID.String()},
+			"harness_content":   "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+			"created_by":        auditActor,
+		},
+		http.StatusCreated,
+		&createResp,
+	)
+
+	historyResp := workflowHistoryResponse{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/workflows/%s/harness/history", createResp.Workflow.ID),
+		nil,
+		http.StatusOK,
+		&historyResp,
+	)
+	if len(historyResp.History) != 1 || historyResp.History[0].CreatedBy != auditActor {
+		t.Fatalf("unexpected workflow history after create: %+v", historyResp.History)
+	}
+
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/workflows/%s", createResp.Workflow.ID),
+		map[string]any{
+			"name":      "Renamed Workflow",
+			"edited_by": auditActor,
+		},
+		http.StatusOK,
+		&struct {
+			Workflow workflowResponse `json:"workflow"`
+		}{},
+	)
+
+	executeJSON(
+		t,
+		server,
+		http.MethodPut,
+		fmt.Sprintf("/api/v1/workflows/%s/harness", createResp.Workflow.ID),
+		map[string]any{
+			"content":   "---\nworkflow:\n  role: coding\n---\n\n# Updated\n",
+			"edited_by": auditActor,
+		},
+		http.StatusOK,
+		&struct {
+			Harness harnessResponse `json:"harness"`
+		}{},
+	)
+	historyResp = workflowHistoryResponse{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/workflows/%s/harness/history", createResp.Workflow.ID),
+		nil,
+		http.StatusOK,
+		&historyResp,
+	)
+	if len(historyResp.History) != 2 || historyResp.History[0].CreatedBy != auditActor {
+		t.Fatalf("unexpected workflow history after harness update: %+v", historyResp.History)
+	}
 }
 
 func TestWorkflowRoutesAllowFinishStatusInStartedStage(t *testing.T) {
@@ -1150,7 +1310,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		SetParentTicketID(parentTicket.ID).
 		SetAttemptCount(2).
 		SetBudgetUsd(5.0).
-		SetExternalRef("BetterAndBetterII/openase#20").
+		SetExternalRef("PacificStudio/openase#20").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)

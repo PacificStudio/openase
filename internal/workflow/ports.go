@@ -17,13 +17,13 @@ type Repository interface {
 
 	List(ctx context.Context, projectID uuid.UUID) ([]domain.Workflow, error)
 	Get(ctx context.Context, workflowID uuid.UUID) (domain.Workflow, error)
-	Create(ctx context.Context, workflow domain.Workflow, harnessContent string) (domain.Workflow, error)
+	Create(ctx context.Context, workflow domain.Workflow, harnessContent string, createdBy string) (domain.Workflow, error)
 	Update(ctx context.Context, workflow domain.Workflow) (domain.Workflow, error)
 	Delete(ctx context.Context, workflowID uuid.UUID) (domain.Workflow, error)
 	CurrentWorkflowVersion(ctx context.Context, workflowID uuid.UUID) (domain.WorkflowVersionRecord, error)
 	RecordedWorkflowVersion(ctx context.Context, workflowID uuid.UUID, workflowVersionID *uuid.UUID) (domain.WorkflowVersionRecord, error)
 	ListWorkflowVersions(ctx context.Context, workflowID uuid.UUID) ([]domain.VersionSummary, error)
-	PublishWorkflowVersion(ctx context.Context, workflowID uuid.UUID, content string) (domain.Workflow, error)
+	PublishWorkflowVersion(ctx context.Context, workflowID uuid.UUID, content string, createdBy string) (domain.Workflow, error)
 	ListWorkflowBoundSkillNames(ctx context.Context, workflowID uuid.UUID, enabledOnly bool) ([]string, error)
 
 	EnsureBuiltinSkills(ctx context.Context, projectID uuid.UUID, now time.Time, bundles []domain.SkillBundle) error
@@ -47,7 +47,7 @@ type Repository interface {
 	DeleteSkill(ctx context.Context, skillID uuid.UUID, deletedAt time.Time) error
 	SetSkillEnabled(ctx context.Context, skillID uuid.UUID, enabled bool, updatedAt time.Time) (domain.SkillDetail, error)
 	ResolveInjectedSkillNames(ctx context.Context, projectID uuid.UUID, workflowID *uuid.UUID) ([]string, error)
-	ApplyWorkflowSkillBindings(ctx context.Context, workflowID uuid.UUID, skillIDs []uuid.UUID, bind bool, content string) (domain.Workflow, error)
+	ApplyWorkflowSkillBindings(ctx context.Context, workflowID uuid.UUID, skillIDs []uuid.UUID, bind bool, content string, createdBy string) (domain.Workflow, error)
 
 	ResolveRuntimeSnapshot(ctx context.Context, workflowID uuid.UUID) (domain.RuntimeSnapshot, error)
 	ResolveRecordedRuntimeSnapshot(ctx context.Context, input domain.ResolveRecordedRuntimeSnapshotInput) (domain.RuntimeSnapshot, error)

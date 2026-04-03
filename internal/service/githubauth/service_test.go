@@ -19,7 +19,7 @@ func TestResolveProjectCredentialPrefersProjectOverride(t *testing.T) {
 		context: domain.ProjectContext{
 			ProjectID:            projectID,
 			OrganizationID:       orgID,
-			ProjectRepositoryURL: "https://github.com/GrandCX/openase.git",
+			ProjectRepositoryURL: "https://github.com/PacificStudio/openase.git",
 		},
 	}
 	service, err := New(repository, nil, "postgres://openase:test@localhost/openase")
@@ -73,7 +73,7 @@ func TestReadProjectSecurityReturnsMissingSlotsWithoutCredential(t *testing.T) {
 		context: domain.ProjectContext{
 			ProjectID:            projectID,
 			OrganizationID:       uuid.New(),
-			ProjectRepositoryURL: "https://github.com/GrandCX/openase.git",
+			ProjectRepositoryURL: "https://github.com/PacificStudio/openase.git",
 		},
 	}, nil, "postgres://openase:test@localhost/openase")
 	if err != nil {
@@ -105,7 +105,7 @@ func TestSaveManualCredentialPersistsOrganizationProbeLifecycle(t *testing.T) {
 		context: domain.ProjectContext{
 			ProjectID:            projectID,
 			OrganizationID:       orgID,
-			ProjectRepositoryURL: "https://github.com/GrandCX/openase.git",
+			ProjectRepositoryURL: "https://github.com/PacificStudio/openase.git",
 		},
 	}
 	service, err := New(repository, http.DefaultClient, "postgres://openase:test@localhost/openase")
@@ -119,7 +119,7 @@ func TestSaveManualCredentialPersistsOrganizationProbeLifecycle(t *testing.T) {
 			w.Header().Set("X-OAuth-Scopes", "repo,read:org")
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"login":"octocat"}`))
-		case "/repos/grandcx/openase":
+		case "/repos/pacificstudio/openase":
 			w.WriteHeader(http.StatusOK)
 		default:
 			t.Fatalf("unexpected path %s", r.URL.Path)
@@ -168,7 +168,7 @@ func TestImportGHCLICredentialPersistsProjectOverride(t *testing.T) {
 		context: domain.ProjectContext{
 			ProjectID:            projectID,
 			OrganizationID:       uuid.New(),
-			ProjectRepositoryURL: "https://github.com/GrandCX/openase.git",
+			ProjectRepositoryURL: "https://github.com/PacificStudio/openase.git",
 		},
 	}
 	service, err := New(repository, http.DefaultClient, "postgres://openase:test@localhost/openase")
@@ -183,7 +183,7 @@ func TestImportGHCLICredentialPersistsProjectOverride(t *testing.T) {
 			w.Header().Set("X-OAuth-Scopes", "repo")
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"login":"octocat"}`))
-		case "/repos/grandcx/openase":
+		case "/repos/pacificstudio/openase":
 			w.WriteHeader(http.StatusOK)
 		default:
 			t.Fatalf("unexpected path %s", r.URL.Path)
@@ -217,7 +217,7 @@ func TestRetestCredentialRejectsMissingScope(t *testing.T) {
 		context: domain.ProjectContext{
 			ProjectID:            projectID,
 			OrganizationID:       uuid.New(),
-			ProjectRepositoryURL: "https://github.com/GrandCX/openase.git",
+			ProjectRepositoryURL: "https://github.com/PacificStudio/openase.git",
 		},
 	}, http.DefaultClient, "postgres://openase:test@localhost/openase")
 	if err != nil {
@@ -240,7 +240,7 @@ func TestDeleteCredentialFallsBackToOrganizationDefault(t *testing.T) {
 		context: domain.ProjectContext{
 			ProjectID:            projectID,
 			OrganizationID:       orgID,
-			ProjectRepositoryURL: "https://github.com/GrandCX/openase.git",
+			ProjectRepositoryURL: "https://github.com/PacificStudio/openase.git",
 		},
 	}
 	service, err := New(repository, nil, "postgres://openase:test@localhost/openase")
@@ -293,7 +293,7 @@ func TestProbeResolvedCredentialPersistsValidProbe(t *testing.T) {
 		context: domain.ProjectContext{
 			ProjectID:            projectID,
 			OrganizationID:       orgID,
-			ProjectRepositoryURL: "https://github.com/GrandCX/openase.git",
+			ProjectRepositoryURL: "https://github.com/PacificStudio/openase.git",
 		},
 	}
 	service, err := New(repository, http.DefaultClient, "postgres://openase:test@localhost/openase")
@@ -312,7 +312,7 @@ func TestProbeResolvedCredentialPersistsValidProbe(t *testing.T) {
 			w.Header().Set("X-OAuth-Scopes", "repo,read:org")
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"login":"octocat"}`))
-		case "/repos/grandcx/openase":
+		case "/repos/pacificstudio/openase":
 			w.WriteHeader(http.StatusOK)
 		default:
 			t.Fatalf("unexpected path %s", r.URL.Path)

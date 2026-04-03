@@ -163,7 +163,7 @@ func (r *EntRepository) Get(ctx context.Context, workflowID uuid.UUID) (domain.W
 	return mapWorkflow(item), nil
 }
 
-func (r *EntRepository) Create(ctx context.Context, workflow domain.Workflow, harnessContent string) (domain.Workflow, error) {
+func (r *EntRepository) Create(ctx context.Context, workflow domain.Workflow, harnessContent string, createdBy string) (domain.Workflow, error) {
 	workflowID := workflow.ID
 	if workflowID == uuid.Nil {
 		workflowID = uuid.New()
@@ -206,6 +206,7 @@ func (r *EntRepository) Create(ctx context.Context, workflow domain.Workflow, ha
 		SetVersion(1).
 		SetContentMarkdown(harnessContent).
 		SetContentHash(contentHash(harnessContent)).
+		SetCreatedBy(resolveCreatedBy(createdBy)).
 		Save(ctx)
 	if err != nil {
 		return domain.Workflow{}, mapWorkflowWriteError("create workflow version", err)
@@ -341,7 +342,7 @@ func (r *EntRepository) ListWorkflowVersions(ctx context.Context, workflowID uui
 	return result, nil
 }
 
-func (r *EntRepository) PublishWorkflowVersion(ctx context.Context, workflowID uuid.UUID, content string) (domain.Workflow, error) {
+func (r *EntRepository) PublishWorkflowVersion(ctx context.Context, workflowID uuid.UUID, content string, createdBy string) (domain.Workflow, error) {
 	current, err := r.Get(ctx, workflowID)
 	if err != nil {
 		return domain.Workflow{}, err
@@ -358,6 +359,7 @@ func (r *EntRepository) PublishWorkflowVersion(ctx context.Context, workflowID u
 		SetVersion(current.Version + 1).
 		SetContentMarkdown(content).
 		SetContentHash(contentHash(content)).
+		SetCreatedBy(resolveCreatedBy(createdBy)).
 		Save(ctx)
 	if err != nil {
 		return domain.Workflow{}, mapWorkflowWriteError("create workflow version", err)
@@ -877,6 +879,7 @@ func (r *EntRepository) ApplyWorkflowSkillBindings(
 	skillIDs []uuid.UUID,
 	bind bool,
 	content string,
+	createdBy string,
 ) (domain.Workflow, error) {
 	current, err := r.Get(ctx, workflowID)
 	if err != nil {
@@ -914,6 +917,7 @@ func (r *EntRepository) ApplyWorkflowSkillBindings(
 		SetVersion(current.Version + 1).
 		SetContentMarkdown(content).
 		SetContentHash(contentHash(content)).
+		SetCreatedBy(resolveCreatedBy(createdBy)).
 		Save(ctx)
 	if err != nil {
 		return domain.Workflow{}, mapWorkflowWriteError("create workflow version", err)
@@ -2136,4 +2140,12 @@ func formatOptionalTime(value *time.Time) string {
 		return ""
 	}
 	return value.UTC().Format(time.RFC3339)
+}
+
+func resolveCreatedBy(raw string) string {
+	createdBy := strings.TrimSpace(raw)
+	if createdBy == "" {
+		return "system:workflow-service"
+	}
+	return createdBy
 }

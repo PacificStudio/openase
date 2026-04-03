@@ -666,10 +666,6 @@ func (_c *TicketCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *TicketCreate) defaults() {
-	if _, ok := _c.mutation.Priority(); !ok {
-		v := ticket.DefaultPriority
-		_c.mutation.SetPriority(v)
-	}
 	if _, ok := _c.mutation.GetType(); !ok {
 		v := ticket.DefaultType
 		_c.mutation.SetType(v)
@@ -747,9 +743,6 @@ func (_c *TicketCreate) check() error {
 	}
 	if _, ok := _c.mutation.StatusID(); !ok {
 		return &ValidationError{Name: "status_id", err: errors.New(`ent: missing required field "Ticket.status_id"`)}
-	}
-	if _, ok := _c.mutation.Priority(); !ok {
-		return &ValidationError{Name: "priority", err: errors.New(`ent: missing required field "Ticket.priority"`)}
 	}
 	if v, ok := _c.mutation.Priority(); ok {
 		if err := ticket.PriorityValidator(v); err != nil {

@@ -124,12 +124,13 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
 	}
+	priority := ticketservice.PriorityMedium
 
 	ticketItem, err := newTicketService(client).Create(ctx, ticketservice.CreateInput{
 		ProjectID:   project.ID,
 		Title:       "Implement ephemeral chat",
 		Description: "Explain why the last hook failed and propose smaller follow-up tickets.",
-		Priority:    "medium",
+		Priority:    &priority,
 		Type:        "feature",
 		WorkflowID:  &workflowItem.ID,
 		CreatedBy:   "user:codex",

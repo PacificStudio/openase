@@ -1,3 +1,5 @@
+/* eslint-disable max-lines-per-function, complexity, sonarjs/cognitive-complexity */
+
 const ORG_ID = 'org-e2e'
 const PROJECT_ID = 'project-e2e'
 const LOCAL_MACHINE_ID = 'machine-local'
@@ -1894,7 +1896,7 @@ function buildTicketDetailPayload(ticketId: string) {
             repo_id: DEFAULT_REPO_ID,
             repo,
             branch_name: 'feat/openase-470-project-ai',
-            pull_request_url: 'https://github.com/GrandCX/openase/pull/999',
+            pull_request_url: 'https://github.com/PacificStudio/openase/pull/999',
             created_at: nowIso,
           },
         ]

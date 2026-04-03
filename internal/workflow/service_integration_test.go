@@ -1356,7 +1356,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		SetWorkflowID(codingWorkflow.ID).
 		SetAttemptCount(2).
 		SetBudgetUsd(5.0).
-		SetExternalRef("BetterAndBetterII/openase#20").
+		SetExternalRef("PacificStudio/openase#20").
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create ticket: %v", err)

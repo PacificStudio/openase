@@ -47,7 +47,7 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 	}
 	if _, err := repository.CreateRemote(&gitconfig.RemoteConfig{
 		Name: "origin",
-		URLs: []string{"https://github.com/GrandCX/openase.git"},
+		URLs: []string{"https://github.com/PacificStudio/openase.git"},
 	}); err != nil {
 		t.Fatalf("CreateRemote(origin) error = %v", err)
 	}
@@ -92,7 +92,7 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 		Project: ProjectConfig{
 			Name:          "Setup Coverage Repo",
 			RepoPath:      repoRoot,
-			RepoURL:       "https://github.com/GrandCX/openase.git",
+			RepoURL:       "https://github.com/PacificStudio/openase.git",
 			DefaultBranch: "main",
 		},
 	}
@@ -143,7 +143,7 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 	if len(repos) != 1 {
 		t.Fatalf("project repo count = %d, want 1", len(repos))
 	}
-	if !strings.EqualFold(repos[0].RepositoryURL, "https://github.com/GrandCX/openase.git") {
+	if !strings.EqualFold(repos[0].RepositoryURL, "https://github.com/PacificStudio/openase.git") {
 		t.Fatalf("repository URL = %q", repos[0].RepositoryURL)
 	}
 

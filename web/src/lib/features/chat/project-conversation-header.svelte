@@ -1,8 +1,11 @@
 <script lang="ts">
   import { Button } from '$ui/button'
-  import { Plus, RefreshCcw, X } from '@lucide/svelte'
+  import * as Popover from '$ui/popover'
+  import { Plus, History, X } from '@lucide/svelte'
   import type { AgentProvider } from '$lib/api/contracts'
+  import type { ProjectConversation } from '$lib/api/chat'
   import EphemeralChatProviderSelect from './ephemeral-chat-provider-select.svelte'
+  import ProjectConversationHistoryPopover from './project-conversation-history-popover.svelte'
 
   let {
     title = 'Project AI',
@@ -10,10 +13,11 @@
     providerId = '',
     providerSelectionDisabled = false,
     activeTabHasContent = false,
-    resetDisabled = true,
+    conversations = [],
+    openConversationIds = [],
     onProviderChange,
     onCreateTab,
-    onResetConversation,
+    onOpenConversation,
     onClose,
   }: {
     title?: string
@@ -21,12 +25,20 @@
     providerId?: string
     providerSelectionDisabled?: boolean
     activeTabHasContent?: boolean
-    resetDisabled?: boolean
+    conversations?: ProjectConversation[]
+    openConversationIds?: string[]
     onProviderChange?: (providerId: string) => void
     onCreateTab?: () => void
-    onResetConversation?: () => void
+    onOpenConversation?: (conversationId: string) => void
     onClose?: () => void
   } = $props()
+
+  let historyOpen = $state(false)
+
+  function handleSelectConversation(conversationId: string) {
+    historyOpen = false
+    onOpenConversation?.(conversationId)
+  }
 </script>
 
 <div class="border-border flex items-center gap-2 border-b px-3 py-1.5">
@@ -39,6 +51,34 @@
     {onProviderChange}
   />
   <div class="ml-auto flex items-center">
+    <Popover.Root bind:open={historyOpen}>
+      <Popover.Trigger>
+        {#snippet child({ props })}
+          <Button
+            {...props}
+            variant="ghost"
+            size="sm"
+            class="text-muted-foreground size-6 p-0"
+            aria-label="Conversation history"
+            disabled={conversations.length === 0}
+          >
+            <History class="size-3" />
+          </Button>
+        {/snippet}
+      </Popover.Trigger>
+      <Popover.Content align="end" sideOffset={6} class="w-72 p-1.5">
+        <div
+          class="text-muted-foreground mb-1 px-2 pt-1 text-[10px] font-medium tracking-wider uppercase"
+        >
+          History
+        </div>
+        <ProjectConversationHistoryPopover
+          {conversations}
+          {openConversationIds}
+          onSelect={handleSelectConversation}
+        />
+      </Popover.Content>
+    </Popover.Root>
     <Button
       variant="ghost"
       size="sm"
@@ -48,16 +88,6 @@
       disabled={!providerId}
     >
       <Plus class="size-3" />
-    </Button>
-    <Button
-      variant="ghost"
-      size="sm"
-      class="text-muted-foreground size-6 p-0"
-      aria-label="Reset conversation"
-      onclick={onResetConversation}
-      disabled={resetDisabled}
-    >
-      <RefreshCcw class="size-3" />
     </Button>
     {#if onClose}
       <Button

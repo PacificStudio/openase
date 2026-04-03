@@ -249,7 +249,7 @@ function normalizePriority(priority: string): TicketDetail['priority'] {
     return priority
   }
 
-  return 'medium'
+  return ''
 }
 
 function normalizeType(type: string): TicketDetail['type'] {
