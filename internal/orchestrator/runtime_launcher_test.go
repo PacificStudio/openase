@@ -273,6 +273,14 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if !strings.HasPrefix(string(workspaceSkillContent), "---\nname: ") {
 		t.Fatalf("expected codex workspace platform skill to include frontmatter, got %q", string(workspaceSkillContent))
 	}
+	workspaceScriptPath := filepath.Join(repoWorkspacePath, ".codex", "skills", "openase-platform", "scripts", "upsert_workpad.sh")
+	workspaceScriptInfo, err := os.Stat(workspaceScriptPath)
+	if err != nil {
+		t.Fatalf("expected codex workspace platform workpad helper: %v", err)
+	}
+	if workspaceScriptInfo.Mode()&0o111 == 0 {
+		t.Fatalf("expected codex workspace workpad helper to be executable, mode=%v", workspaceScriptInfo.Mode())
+	}
 	workspaceHarnessPath := filepath.Join(repoWorkspacePath, ".openase", "harnesses", "coding.md")
 	// #nosec G304 -- test reads a fixture from the temp workspace path created above.
 	workspaceHarnessContent, err := os.ReadFile(workspaceHarnessPath)

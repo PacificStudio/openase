@@ -349,6 +349,55 @@ describe('watchProjectConversation', () => {
     ])
   })
 
+  it('parses platform command proposals from project conversation streams', async () => {
+    consumeEventStream.mockImplementation(async (_body, onFrame) => {
+      onFrame({
+        event: 'message',
+        data: JSON.stringify({
+          type: 'platform_command_proposal',
+          entry_id: 'entry-1',
+          summary: 'Update ASE-1',
+          commands: [
+            {
+              command: 'ticket.update',
+              args: {
+                ticket: 'ASE-1',
+                status: 'Todo',
+              },
+            },
+          ],
+        }),
+      })
+    })
+
+    const events: unknown[] = []
+    await watchProjectConversation('conversation-1', {
+      onEvent: (event) => {
+        events.push(event)
+      },
+    })
+
+    expect(events).toEqual([
+      {
+        kind: 'message',
+        payload: {
+          type: 'platform_command_proposal',
+          entryId: 'entry-1',
+          summary: 'Update ASE-1',
+          commands: [
+            {
+              command: 'ticket.update',
+              args: {
+                ticket: 'ASE-1',
+                status: 'Todo',
+              },
+            },
+          ],
+        },
+      },
+    ])
+  })
+
   it('parses provider anchor metadata from session events', async () => {
     consumeEventStream.mockImplementation(async (_body, onFrame) => {
       onFrame({

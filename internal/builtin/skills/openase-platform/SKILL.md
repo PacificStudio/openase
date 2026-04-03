@@ -116,10 +116,17 @@ description: "Platform operations for tickets, projects, and runtime coordinatio
 ./.openase/bin/openase ticket comment create --body-file /tmp/comment.md
 ```
 
+更新已有评论：
+
+```bash
+./.openase/bin/openase ticket comment update $OPENASE_TICKET_ID $COMMENT_ID --body-file /tmp/comment.md
+```
+
 能力：
 
 - `ticket comment list` 调 `GET /tickets/{ticketId}/comments`
 - `ticket comment create` 调 `POST /tickets/{ticketId}/comments`
+- `ticket comment update` 调 `PATCH /tickets/{ticketId}/comments/{commentId}`
 - `--body` 和 `--body-file` 二选一
 
 ### 6. Upsert `## Codex Workpad`
@@ -145,15 +152,17 @@ Notes
 - assumptions or blockers
 EOF
 
-./.openase/bin/openase ticket comment workpad --body-file /tmp/workpad.md
+./.agent/skills/openase-platform/scripts/upsert_workpad.sh --body-file /tmp/workpad.md
 ```
 
 能力：
 
-- 幂等 upsert，不是盲目新建
-- 会先列评论，再找到现有 `## Codex Workpad` 评论；有则更新，无则创建
-- 如果正文没带 heading，CLI 会自动补上
-- 这是当前 workflow 最推荐的持久化进度记录接口
+- `workpad` 不再是 first-class CLI 子命令；平台 CLI 现在只保留 primitive comment 操作：`list` / `create` / `update`
+- 幂等 upsert 由注入的 `openase-platform` helper script 提供，不是盲目新建
+- helper script 会先列评论，再找到现有 `## Codex Workpad` 评论；有则更新，无则创建
+- 如果正文没带 heading，helper script 会自动补上
+- 默认路径通常是 `./.agent/skills/openase-platform/scripts/upsert_workpad.sh`
+- 其他 runtime 会把同一 bundle 投影到各自目录，例如 `./.codex/skills/openase-platform/...` 或 `./.claude/skills/openase-platform/...`
 
 ### 7. 更新项目描述
 
@@ -251,7 +260,7 @@ EOF
 ## Practical Guidance For Agents
 
 - 先用 `ticket list / get / detail` 读上下文，再决定是否写。
-- 写进度优先用 `ticket comment workpad`，不要不断创建普通评论。
+- 写进度优先用当前 runtime 注入的 `openase-platform/scripts/upsert_workpad.sh`，不要不断创建普通评论。
 - 要改 ticket 状态时优先传 `--status-name`，除非你已经拿到了准确 status UUID。
 - 需要 probe 机器最新资源时，先 `machine refresh-health`，再看 `machine resources`。
 - 需要更广能力时，先找 typed command；只有 typed command 不覆盖时才退到 `openase api`。

@@ -187,10 +187,16 @@ func newTypedTicketCommentCommand() *cobra.Command {
 	}
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "list [ticketId]", Short: "List ticket comments.", Method: http.MethodGet, Path: "/api/v1/tickets/{ticketId}/comments", PositionalParams: []string{"ticketId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [ticketId]", Short: "Create a ticket comment.", Method: http.MethodPost, Path: "/api/v1/tickets/{ticketId}/comments", PositionalParams: []string{"ticketId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [ticketId] [commentId]", Short: "Update a ticket comment.", Method: http.MethodPatch, Path: "/api/v1/tickets/{ticketId}/comments/{commentId}", PositionalParams: []string{"ticketId", "commentId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "update [ticketId] [commentId]",
+		Short:            "Update a ticket comment.",
+		Method:           http.MethodPatch,
+		Path:             "/api/v1/tickets/{ticketId}/comments/{commentId}",
+		PositionalParams: []string{"ticketId", "commentId"},
+		Example:          "openase ticket comment update $OPENASE_TICKET_ID $OPENASE_COMMENT_ID --body-file /tmp/comment.md",
+	}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [ticketId] [commentId]", Short: "Delete a ticket comment.", Method: http.MethodDelete, Path: "/api/v1/tickets/{ticketId}/comments/{commentId}", PositionalParams: []string{"ticketId", "commentId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "revisions [ticketId] [commentId]", Short: "List ticket comment revisions.", Method: http.MethodGet, Path: "/api/v1/tickets/{ticketId}/comments/{commentId}/revisions", PositionalParams: []string{"ticketId", "commentId"}}))
-	command.AddCommand(newTypedTicketCommentWorkpadCommand())
 	return command
 }
 
@@ -522,121 +528,6 @@ func buildOpenAPIStreamHelp(spec openAPICommandSpec, summary string) string {
 	lines = append(lines, spec.HelpNotes...)
 	lines = append(lines, "Use Ctrl-C to stop the stream when running interactively.")
 	return strings.Join(lines, "\n\n")
-}
-
-func newTypedTicketCommentWorkpadCommand() *cobra.Command {
-	var apiOptions apiCommandOptions
-	var output apiOutputOptions
-	var body string
-	var bodyFile string
-	var createdBy string
-	var editedBy string
-	var editReason string
-
-	command := &cobra.Command{
-		Use:   "workpad [ticketId]",
-		Short: "Upsert the `## Codex Workpad` comment for a ticket.",
-		Long: strings.TrimSpace(`
-Upsert the ` + "`## Codex Workpad`" + ` comment for a ticket.
-
-This command lists comments on the target ticket, finds the existing workpad
-comment if present, and then creates or updates that single comment.
-
-ticketId must be a UUID value. Human-readable identifiers such as ASE-2 are not
-accepted. Exactly one of --body or --body-file must be provided.
-`),
-		Example: strings.TrimSpace(`
-  openase ticket comment workpad $OPENASE_TICKET_ID --body "Validation\n- pnpm test"
-  openase ticket comment workpad 550e8400-e29b-41d4-a716-446655440000 --body-file /tmp/workpad.md
-`),
-		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if strings.TrimSpace(body) == "" && strings.TrimSpace(bodyFile) == "" {
-				return fmt.Errorf("one of --body or --body-file is required")
-			}
-			if strings.TrimSpace(body) != "" && strings.TrimSpace(bodyFile) != "" {
-				return fmt.Errorf("only one of --body or --body-file can be set")
-			}
-
-			apiContext, err := apiOptions.resolve()
-			if err != nil {
-				return err
-			}
-			ticketID, err := resolveCommandPathValue(cmd, "ticketId", args, 0)
-			if err != nil {
-				return err
-			}
-
-			content, err := resolveWorkpadBody(body, bodyFile)
-			if err != nil {
-				return err
-			}
-			content = normalizeTypedWorkpadBody(content)
-
-			deps := apiCommandDeps{httpClient: http.DefaultClient}
-			listResponse, err := apiContext.do(cmd.Context(), deps, apiRequest{
-				Method: http.MethodGet,
-				Path:   "tickets/" + urlPathEscape(ticketID) + "/comments",
-			})
-			if err != nil {
-				return err
-			}
-
-			commentID, err := findCodexWorkpadCommentID(listResponse.Body)
-			if err != nil {
-				return err
-			}
-
-			var response apiResponse
-			if commentID == "" {
-				payload := map[string]any{"body": content}
-				if strings.TrimSpace(createdBy) != "" {
-					payload["created_by"] = strings.TrimSpace(createdBy)
-				}
-				bodyBytes, marshalErr := json.Marshal(payload)
-				if marshalErr != nil {
-					return fmt.Errorf("marshal workpad create payload: %w", marshalErr)
-				}
-				response, err = apiContext.do(cmd.Context(), deps, apiRequest{
-					Method: http.MethodPost,
-					Path:   "tickets/" + urlPathEscape(ticketID) + "/comments",
-					Body:   bodyBytes,
-				})
-			} else {
-				payload := map[string]any{"body": content}
-				if strings.TrimSpace(editedBy) != "" {
-					payload["edited_by"] = strings.TrimSpace(editedBy)
-				}
-				if strings.TrimSpace(editReason) != "" {
-					payload["edit_reason"] = strings.TrimSpace(editReason)
-				}
-				bodyBytes, marshalErr := json.Marshal(payload)
-				if marshalErr != nil {
-					return fmt.Errorf("marshal workpad update payload: %w", marshalErr)
-				}
-				response, err = apiContext.do(cmd.Context(), deps, apiRequest{
-					Method: http.MethodPatch,
-					Path:   "tickets/" + urlPathEscape(ticketID) + "/comments/" + urlPathEscape(commentID),
-					Body:   bodyBytes,
-				})
-			}
-			if err != nil {
-				return err
-			}
-			return writeAPIOutput(cmd.OutOrStdout(), response.Body, output)
-		},
-	}
-
-	command.SetFlagErrorFunc(flagErrorWithNormalize)
-	applyCLIFlagNormalization(command.Flags())
-	bindAPICommandFlags(command.Flags(), &apiOptions)
-	bindAPIOutputFlags(command.Flags(), &output)
-	command.Flags().StringVar(&body, "body", "", "Workpad markdown body.")
-	command.Flags().StringVar(&bodyFile, "body-file", "", "Read the workpad markdown body from a file. Use - for stdin.")
-	command.Flags().StringVar(&createdBy, "created_by", "", "Override the comment creator when the workpad is created.")
-	command.Flags().StringVar(&editedBy, "edited_by", "", "Override the workpad editor when the workpad is updated.")
-	command.Flags().StringVar(&editReason, "edit_reason", "", "Optional reason for a workpad update.")
-	return command
 }
 
 func runOpenAPIOperationCommand(cmd *cobra.Command, deps apiCommandDeps, contract openAPICommandContract, args []string) error {
@@ -1013,50 +904,6 @@ func readInputFile(path string) ([]byte, error) {
 		return nil, fmt.Errorf("read input file %s: %w", path, err)
 	}
 	return body, nil
-}
-
-func resolveWorkpadBody(body string, bodyFile string) (string, error) {
-	if strings.TrimSpace(bodyFile) == "" {
-		return strings.TrimSpace(body), nil
-	}
-	payload, err := readInputFile(strings.TrimSpace(bodyFile))
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(payload)), nil
-}
-
-func normalizeTypedWorkpadBody(body string) string {
-	trimmed := strings.TrimSpace(body)
-	if strings.HasPrefix(trimmed, "## Codex Workpad") {
-		return trimmed
-	}
-	if trimmed == "" {
-		return "## Codex Workpad"
-	}
-	return "## Codex Workpad\n\n" + trimmed
-}
-
-func findCodexWorkpadCommentID(body []byte) (string, error) {
-	var payload struct {
-		Comments []struct {
-			ID           string `json:"id"`
-			BodyMarkdown string `json:"body_markdown"`
-			IsDeleted    bool   `json:"is_deleted"`
-		} `json:"comments"`
-	}
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return "", fmt.Errorf("decode ticket comments response: %w", err)
-	}
-	for _, comment := range payload.Comments {
-		if comment.IsDeleted {
-			continue
-		}
-		if strings.HasPrefix(strings.TrimSpace(comment.BodyMarkdown), "## Codex Workpad") {
-			return comment.ID, nil
-		}
-	}
-	return "", nil
 }
 
 func mustOpenAPICommandContract(spec openAPICommandSpec) openAPICommandContract {

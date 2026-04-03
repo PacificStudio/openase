@@ -147,15 +147,15 @@ func skillDescriptionFromContent(content string) (string, error) {
 func (s *Service) builtinBundles() ([]domain.SkillBundle, error) {
 	bundles := make([]domain.SkillBundle, 0, len(builtin.Skills()))
 	for _, template := range builtin.Skills() {
-		content, err := ensureSkillContent(template.Name, template.Content, template.Description)
-		if err != nil {
-			return nil, err
+		files := make([]SkillBundleFileInput, 0, len(template.Files))
+		for _, file := range template.Files {
+			files = append(files, SkillBundleFileInput{
+				Path:         file.Path,
+				Content:      append([]byte(nil), file.Content...),
+				IsExecutable: file.IsExecutable,
+			})
 		}
-		bundle, err := parseSkillBundle(template.Name, []SkillBundleFileInput{{
-			Path:      "SKILL.md",
-			Content:   []byte(content),
-			MediaType: "text/markdown; charset=utf-8",
-		}})
+		bundle, err := parseSkillBundle(template.Name, files)
 		if err != nil {
 			return nil, err
 		}

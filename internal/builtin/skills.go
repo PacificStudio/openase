@@ -19,6 +19,14 @@ type SkillTemplate struct {
 	Title       string
 	Description string
 	Content     string
+	Files       []SkillTemplateFile
+}
+
+// SkillTemplateFile describes a projected file that belongs to a built-in skill.
+type SkillTemplateFile struct {
+	Path         string
+	Content      []byte
+	IsExecutable bool
 }
 
 type skillFrontmatter struct {
@@ -50,7 +58,22 @@ func IsBuiltinSkill(name string) bool {
 
 func cloneSkills(items []SkillTemplate) []SkillTemplate {
 	cloned := make([]SkillTemplate, len(items))
-	copy(cloned, items)
+	for index, item := range items {
+		cloned[index] = SkillTemplate{
+			Name:        item.Name,
+			Title:       item.Title,
+			Description: item.Description,
+			Content:     item.Content,
+			Files:       make([]SkillTemplateFile, len(item.Files)),
+		}
+		for fileIndex, file := range item.Files {
+			cloned[index].Files[fileIndex] = SkillTemplateFile{
+				Path:         file.Path,
+				Content:      append([]byte(nil), file.Content...),
+				IsExecutable: file.IsExecutable,
+			}
+		}
+	}
 	return cloned
 }
 
@@ -109,13 +132,54 @@ func loadBuiltinSkill(root fs.FS, skillDir string) (SkillTemplate, error) {
 	if strings.TrimSpace(document.Description) == "" {
 		return SkillTemplate{}, fmt.Errorf("parse builtin skill %s: missing frontmatter description", skillDir)
 	}
+	files, err := loadBuiltinSkillFiles(root, skillDir)
+	if err != nil {
+		return SkillTemplate{}, err
+	}
 
 	return SkillTemplate{
 		Name:        document.Name,
 		Title:       parseBuiltinSkillTitle(body),
 		Description: document.Description,
 		Content:     content,
+		Files:       files,
 	}, nil
+}
+
+func loadBuiltinSkillFiles(root fs.FS, skillDir string) ([]SkillTemplateFile, error) {
+	baseDir := "skills/" + skillDir
+	files := make([]SkillTemplateFile, 0)
+	if err := fs.WalkDir(root, baseDir, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return fmt.Errorf("walk builtin skill %s: %w", skillDir, walkErr)
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		relativePath := strings.TrimPrefix(path, baseDir+"/")
+		content, err := fs.ReadFile(root, path)
+		if err != nil {
+			return fmt.Errorf("read builtin skill file %s/%s: %w", skillDir, relativePath, err)
+		}
+		info, err := fs.Stat(root, path)
+		if err != nil {
+			return fmt.Errorf("stat builtin skill file %s/%s: %w", skillDir, relativePath, err)
+		}
+		files = append(files, SkillTemplateFile{
+			Path:         relativePath,
+			Content:      content,
+			IsExecutable: strings.HasPrefix(relativePath, "scripts/") || info.Mode().Perm()&0o111 != 0,
+		})
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	sort.Slice(files, func(i int, j int) bool {
+		return files[i].Path < files[j].Path
+	})
+	return files, nil
 }
 
 func parseBuiltinSkillContent(content string) (skillFrontmatter, string, error) {

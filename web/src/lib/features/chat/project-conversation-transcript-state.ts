@@ -2,6 +2,7 @@ import type {
   ChatActionProposalPayload,
   ChatDiffPayload,
   ChatMessagePayload,
+  ChatPlatformCommandProposalPayload,
   ProjectConversationEntry,
 } from '$lib/api/chat'
 import type { ChatActionExecutionResult } from './action-proposal-executor'
@@ -147,15 +148,16 @@ export function mapPersistedEntries(
       continue
     }
 
-    if (entry.kind === 'action_proposal') {
+    if (entry.kind === 'action_proposal' || entry.kind === 'platform_command_proposal') {
       transcript.push(
         createProjectConversationActionProposalEntry({
           id: entry.id,
           proposal: {
-            ...(entry.payload as unknown as ChatActionProposalPayload),
-            type: 'action_proposal',
+            ...(entry.payload as unknown as
+              | ChatActionProposalPayload
+              | ChatPlatformCommandProposalPayload),
             entryId: entry.id,
-          },
+          } as ChatActionProposalPayload | ChatPlatformCommandProposalPayload,
         }),
       )
       continue
@@ -264,6 +266,12 @@ export function isActionProposalPayload(
   payload: ChatMessagePayload,
 ): payload is ChatActionProposalPayload {
   return payload.type === 'action_proposal'
+}
+
+export function isPlatformCommandProposalPayload(
+  payload: ChatMessagePayload,
+): payload is ChatPlatformCommandProposalPayload {
+  return payload.type === 'platform_command_proposal'
 }
 
 export function isDiffPayload(payload: ChatMessagePayload): payload is ChatDiffPayload {

@@ -16,8 +16,6 @@ import (
 	"github.com/spf13/pflag"
 )
 
-const codexWorkpadHeading = "## Codex Workpad"
-
 type platformHTTPDoer interface {
 	Do(*http.Request) (*http.Response, error)
 }
@@ -102,11 +100,6 @@ type ticketCommentUpdateInput struct {
 	body      string
 }
 
-type ticketCommentWorkpadInput struct {
-	ticketID string
-	body     string
-}
-
 type projectUpdateInput struct {
 	projectID   string
 	description string
@@ -175,12 +168,12 @@ func newTicketCommentCommand(options *ticketCommandOptions, client platformClien
 		Use:     "comment",
 		Short:   "Operate on comments for the current ticket.",
 		Long:    buildPlatformCommandHelp("Operate on comments for the current ticket.", platformHelpSpec{ticketScope: true}),
-		Example: "openase ticket comment list\nopenase ticket comment workpad --body \"Progress\\n- reproduced issue\"",
+		Example: "openase ticket comment list\nopenase ticket comment create --body \"Progress\\n- reproduced issue\"",
 	}
 
 	command.AddCommand(newTicketCommentListCommand(options, client))
 	command.AddCommand(newTicketCommentCreateCommand(options, client))
-	command.AddCommand(newTicketCommentWorkpadCommand(options, client))
+	command.AddCommand(newTicketCommentUpdateCommand(options, client))
 
 	return command
 }
@@ -331,25 +324,25 @@ func newTicketCommentCreateCommand(options *ticketCommandOptions, client platfor
 	return command
 }
 
-func newTicketCommentWorkpadCommand(options *ticketCommandOptions, client platformClient) *cobra.Command {
+func newTicketCommentUpdateCommand(options *ticketCommandOptions, client platformClient) *cobra.Command {
 	var body string
 	var bodyFile string
 
 	command := &cobra.Command{
-		Use:   "workpad [ticket-id]",
-		Short: "Create or update the persistent ## Codex Workpad comment on the current ticket.",
-		Long: buildPlatformCommandHelp("Create or update the persistent ## Codex Workpad comment on the current ticket.", platformHelpSpec{
+		Use:   "update [comment-id]",
+		Short: "Update a comment on the current ticket.",
+		Long: buildPlatformCommandHelp("Update a comment on the current ticket.", platformHelpSpec{
 			ticketScope: true,
 			examples: []string{
-				"openase ticket comment workpad --body \"Progress\\n- reproduced issue\"",
-				"openase ticket comment workpad $OPENASE_TICKET_ID --body-file /tmp/workpad.md",
+				"openase ticket comment update comment-7 --body \"Updated progress\"",
+				"openase ticket comment update --ticket-id $OPENASE_TICKET_ID comment-7 --body-file /tmp/comment.md",
 			},
 			notes: []string{
-				"This command is an idempotent upsert. It reuses the existing ## Codex Workpad comment when present and creates it when missing.",
+				"comment-id is required as the positional argument.",
 				"Exactly one of --body or --body-file should be used to supply markdown content.",
 			},
 		}),
-		Example: "openase ticket comment workpad --body \"Progress\\n- reproduced issue\"\nopenase ticket comment workpad $OPENASE_TICKET_ID --body-file /tmp/workpad.md",
+		Example: "openase ticket comment update comment-7 --body \"Updated progress\"\nopenase ticket comment update --ticket-id $OPENASE_TICKET_ID comment-7 --body-file /tmp/comment.md",
 		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			platform, err := options.resolve()
@@ -361,15 +354,16 @@ func newTicketCommentWorkpadCommand(options *ticketCommandOptions, client platfo
 			if err != nil {
 				return err
 			}
-			input, err := platform.parseTicketCommentWorkpadInput(ticketCommentWorkpadInput{
-				ticketID: firstNonEmpty(firstArg(args), options.ticketID),
-				body:     commentBody,
+			input, err := platform.parseTicketCommentUpdateInput(ticketCommentUpdateInput{
+				ticketID:  firstNonEmpty(options.ticketID, platform.ticketID),
+				commentID: firstArg(args),
+				body:      commentBody,
 			})
 			if err != nil {
 				return err
 			}
 
-			responseBody, err := client.upsertTicketWorkpad(cmd.Context(), platform, input)
+			responseBody, err := client.updateTicketComment(cmd.Context(), platform, input)
 			if err != nil {
 				return err
 			}
@@ -377,8 +371,8 @@ func newTicketCommentWorkpadCommand(options *ticketCommandOptions, client platfo
 		},
 	}
 
-	command.Flags().StringVar(&body, "body", "", "Workpad markdown body. The command will add the heading if missing.")
-	command.Flags().StringVar(&bodyFile, "body-file", "", "Read workpad markdown from a file. Use '-' for stdin.")
+	command.Flags().StringVar(&body, "body", "", "Comment markdown body.")
+	command.Flags().StringVar(&bodyFile, "body-file", "", "Read comment markdown from a file. Use '-' for stdin.")
 
 	return command
 }
@@ -859,19 +853,6 @@ func (platform platformContext) parseTicketCommentUpdateInput(raw ticketCommentU
 	}, nil
 }
 
-func (platform platformContext) parseTicketCommentWorkpadInput(raw ticketCommentWorkpadInput) (ticketCommentWorkpadInput, error) {
-	ticketID := strings.TrimSpace(firstNonEmpty(raw.ticketID, platform.ticketID))
-	if ticketID == "" {
-		return ticketCommentWorkpadInput{}, fmt.Errorf("ticket id is required via positional argument, --ticket-id, or OPENASE_TICKET_ID")
-	}
-	body := normalizeWorkpadBody(raw.body)
-	if body == "" {
-		return ticketCommentWorkpadInput{}, fmt.Errorf("workpad body must not be empty")
-	}
-
-	return ticketCommentWorkpadInput{ticketID: ticketID, body: body}, nil
-}
-
 func (platform platformContext) parseProjectUpdateInput(raw projectUpdateInput) (projectUpdateInput, error) {
 	projectID := strings.TrimSpace(firstNonEmpty(raw.projectID, platform.projectID))
 	if projectID == "" {
@@ -979,46 +960,6 @@ func (client platformClient) updateTicketComment(ctx context.Context, platform p
 		"/tickets/"+url.PathEscape(input.ticketID)+"/comments/"+url.PathEscape(input.commentID),
 		map[string]any{"body": input.body},
 	)
-}
-
-func (client platformClient) upsertTicketWorkpad(ctx context.Context, platform platformContext, input ticketCommentWorkpadInput) ([]byte, error) {
-	listPayload, err := client.listTicketComments(ctx, platform, ticketCommentListInput{ticketID: input.ticketID})
-	if err != nil {
-		return nil, err
-	}
-
-	type ticketCommentSummary struct {
-		ID   string `json:"id"`
-		Body string `json:"body"`
-	}
-	type ticketCommentListResponse struct {
-		Comments []ticketCommentSummary `json:"comments"`
-	}
-
-	var existing ticketCommentListResponse
-	if err := json.Unmarshal(listPayload, &existing); err != nil {
-		return nil, fmt.Errorf("parse ticket comment list response: %w", err)
-	}
-
-	for _, comment := range existing.Comments {
-		if isCodexWorkpadComment(comment.Body) {
-			updated, updateErr := platform.parseTicketCommentUpdateInput(ticketCommentUpdateInput{
-				ticketID:  input.ticketID,
-				commentID: comment.ID,
-				body:      input.body,
-			})
-			if updateErr != nil {
-				return nil, updateErr
-			}
-			return client.updateTicketComment(ctx, platform, updated)
-		}
-	}
-
-	created, err := platform.parseTicketCommentCreateInput(ticketCommentCreateInput(input))
-	if err != nil {
-		return nil, err
-	}
-	return client.createTicketComment(ctx, platform, created)
 }
 
 func (client platformClient) updateTicket(ctx context.Context, platform platformContext, input ticketUpdateInput) ([]byte, error) {
@@ -1208,26 +1149,4 @@ func resolveCommentBody(body string, bodyFile string) (string, error) {
 		return "", fmt.Errorf("read comment body from %s: %w", file, err)
 	}
 	return strings.TrimSpace(string(data)), nil
-}
-
-func normalizeWorkpadBody(body string) string {
-	trimmed := strings.TrimSpace(body)
-	if trimmed == "" {
-		return ""
-	}
-	if isCodexWorkpadComment(trimmed) {
-		return trimmed
-	}
-	return codexWorkpadHeading + "\n\n" + trimmed
-}
-
-func isCodexWorkpadComment(body string) bool {
-	for _, line := range strings.Split(body, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			continue
-		}
-		return trimmed == codexWorkpadHeading
-	}
-	return false
 }
