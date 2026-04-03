@@ -168,7 +168,7 @@ Representative examples:
 openase api GET /api/v1/projects/$OPENASE_PROJECT_ID/tickets --query status_name=Todo
 openase api PATCH /api/v1/tickets/$OPENASE_TICKET_ID --field status_name=In\ Review
 openase ticket list $OPENASE_PROJECT_ID --status-name Todo --json tickets
-openase ticket comment workpad $OPENASE_TICKET_ID --body-file /tmp/workpad.md
+openase ticket comment update $OPENASE_TICKET_ID $OPENASE_COMMENT_ID --body-file /tmp/comment.md
 openase workflow create $OPENASE_PROJECT_ID --name "Codex Worker" --description "Default coding workflow"
 openase scheduled-job trigger $OPENASE_JOB_ID
 openase watch tickets $OPENASE_PROJECT_ID
@@ -191,7 +191,7 @@ openase ticket list --status-name Todo
 openase ticket create --title "Add integration coverage" --description "Follow-up from coding ticket"
 openase ticket update --description "Recorded execution notes"
 openase ticket comment create --body "Logged a blocking dependency"
-openase ticket comment workpad --body-file /tmp/workpad.md
+./.agent/skills/openase-platform/scripts/upsert_workpad.sh --body-file /tmp/workpad.md
 openase project update --description "Latest project context"
 ```
 
