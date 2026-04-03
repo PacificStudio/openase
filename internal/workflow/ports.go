@@ -12,6 +12,7 @@ type ProjectValidationRepository interface {
 	EnsureProjectExists(ctx context.Context, projectID uuid.UUID) error
 	EnsureAgentBelongsToProject(ctx context.Context, projectID uuid.UUID, agentID uuid.UUID) error
 	EnsureStatusBindingsBelongToProject(ctx context.Context, projectID uuid.UUID, statusIDs []uuid.UUID) error
+	EnsurePickupStatusBindingsAvailable(ctx context.Context, projectID uuid.UUID, statusIDs []uuid.UUID, excludeWorkflowID uuid.UUID) error
 	EnsureHarnessPathAvailable(ctx context.Context, projectID uuid.UUID, harnessPath string, excludeWorkflowID uuid.UUID) error
 	StatusNames(ctx context.Context, statusIDs []uuid.UUID) ([]string, error)
 }

@@ -72,25 +72,142 @@ func applyLegacySchemaCompat(ctx context.Context, dsn string) error {
 	).Scan(&hasAgentProviders); err != nil {
 		return fmt.Errorf("detect legacy agent provider schema: %w", err)
 	}
-	if !hasAgentProviders {
+
+	if hasAgentProviders {
+		statements := []string{
+			`ALTER TABLE agent_providers ADD COLUMN IF NOT EXISTS cli_rate_limit jsonb`,
+			`ALTER TABLE agent_providers ADD COLUMN IF NOT EXISTS cli_rate_limit_updated_at timestamptz`,
+			`ALTER TABLE agent_providers ADD COLUMN IF NOT EXISTS pricing_config jsonb`,
+			`UPDATE agent_providers SET cli_rate_limit = '{}'::jsonb WHERE cli_rate_limit IS NULL`,
+			`UPDATE agent_providers SET pricing_config = '{}'::jsonb WHERE pricing_config IS NULL`,
+			`ALTER TABLE agent_providers ALTER COLUMN cli_rate_limit SET DEFAULT '{}'::jsonb`,
+			`ALTER TABLE agent_providers ALTER COLUMN cli_rate_limit SET NOT NULL`,
+			`ALTER TABLE agent_providers ALTER COLUMN pricing_config SET DEFAULT '{}'::jsonb`,
+			`ALTER TABLE agent_providers ALTER COLUMN pricing_config SET NOT NULL`,
+			`DROP TABLE IF EXISTS issue_connectors`,
+		}
+		for _, statement := range statements {
+			if _, err := db.ExecContext(ctx, statement); err != nil {
+				return fmt.Errorf("apply legacy agent provider schema compat: %w", err)
+			}
+		}
+	}
+
+	if err := applyLegacyWorkflowVersionSchemaCompat(ctx, db); err != nil {
+		return err
+	}
+	if err := applyLegacyProjectSchemaCompat(ctx, db); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func applyLegacyWorkflowVersionSchemaCompat(ctx context.Context, db *sql.DB) error {
+	var hasWorkflowVersions bool
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.tables
+			WHERE table_schema = 'public' AND table_name = 'workflow_versions'
+		)`,
+	).Scan(&hasWorkflowVersions); err != nil {
+		return fmt.Errorf("detect legacy workflow version schema: %w", err)
+	}
+	if !hasWorkflowVersions {
 		return nil
 	}
 
 	statements := []string{
-		`ALTER TABLE agent_providers ADD COLUMN IF NOT EXISTS cli_rate_limit jsonb`,
-		`ALTER TABLE agent_providers ADD COLUMN IF NOT EXISTS cli_rate_limit_updated_at timestamptz`,
-		`ALTER TABLE agent_providers ADD COLUMN IF NOT EXISTS pricing_config jsonb`,
-		`UPDATE agent_providers SET cli_rate_limit = '{}'::jsonb WHERE cli_rate_limit IS NULL`,
-		`UPDATE agent_providers SET pricing_config = '{}'::jsonb WHERE pricing_config IS NULL`,
-		`ALTER TABLE agent_providers ALTER COLUMN cli_rate_limit SET DEFAULT '{}'::jsonb`,
-		`ALTER TABLE agent_providers ALTER COLUMN cli_rate_limit SET NOT NULL`,
-		`ALTER TABLE agent_providers ALTER COLUMN pricing_config SET DEFAULT '{}'::jsonb`,
-		`ALTER TABLE agent_providers ALTER COLUMN pricing_config SET NOT NULL`,
-		`DROP TABLE IF EXISTS issue_connectors`,
+		`ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS name character varying`,
+		`ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS type character varying`,
+		`ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS role_slug character varying`,
+		`ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS role_name character varying`,
+		`ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS role_description text`,
+		`ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS pickup_status_ids text[]`,
+		`ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS finish_status_ids text[]`,
+		`ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS harness_path character varying`,
+		`ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS hooks jsonb`,
+		`ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS platform_access_allowed text[]`,
+		`ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS max_concurrent bigint`,
+		`ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS max_retry_attempts bigint`,
+		`ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS timeout_minutes bigint`,
+		`ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS stall_timeout_minutes bigint`,
+		`ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS is_active boolean`,
+		`UPDATE workflow_versions AS versions
+			SET
+				name = COALESCE(NULLIF(BTRIM(versions.name), ''), workflows.name),
+				type = COALESCE(NULLIF(BTRIM(versions.type), ''), workflows.type),
+				harness_path = COALESCE(NULLIF(BTRIM(versions.harness_path), ''), workflows.harness_path),
+				hooks = COALESCE(versions.hooks, workflows.hooks, '{}'::jsonb),
+				max_concurrent = COALESCE(versions.max_concurrent, workflows.max_concurrent, 0),
+				max_retry_attempts = COALESCE(versions.max_retry_attempts, workflows.max_retry_attempts, 3),
+				timeout_minutes = COALESCE(versions.timeout_minutes, workflows.timeout_minutes, 60),
+				stall_timeout_minutes = COALESCE(versions.stall_timeout_minutes, workflows.stall_timeout_minutes, 5),
+				is_active = COALESCE(versions.is_active, workflows.is_active, true)
+			FROM workflows
+			WHERE versions.workflow_id = workflows.id`,
+		`ALTER TABLE workflow_versions ALTER COLUMN hooks SET DEFAULT '{}'::jsonb`,
+		`ALTER TABLE workflow_versions ALTER COLUMN max_concurrent SET DEFAULT 0`,
+		`ALTER TABLE workflow_versions ALTER COLUMN max_retry_attempts SET DEFAULT 3`,
+		`ALTER TABLE workflow_versions ALTER COLUMN timeout_minutes SET DEFAULT 60`,
+		`ALTER TABLE workflow_versions ALTER COLUMN stall_timeout_minutes SET DEFAULT 5`,
+		`ALTER TABLE workflow_versions ALTER COLUMN is_active SET DEFAULT true`,
+		`ALTER TABLE workflow_versions ALTER COLUMN name SET NOT NULL`,
+		`ALTER TABLE workflow_versions ALTER COLUMN type SET NOT NULL`,
+		`ALTER TABLE workflow_versions ALTER COLUMN harness_path SET NOT NULL`,
+		`ALTER TABLE workflow_versions ALTER COLUMN hooks SET NOT NULL`,
+		`ALTER TABLE workflow_versions ALTER COLUMN max_concurrent SET NOT NULL`,
+		`ALTER TABLE workflow_versions ALTER COLUMN max_retry_attempts SET NOT NULL`,
+		`ALTER TABLE workflow_versions ALTER COLUMN timeout_minutes SET NOT NULL`,
+		`ALTER TABLE workflow_versions ALTER COLUMN stall_timeout_minutes SET NOT NULL`,
+		`ALTER TABLE workflow_versions ALTER COLUMN is_active SET NOT NULL`,
 	}
 	for _, statement := range statements {
 		if _, err := db.ExecContext(ctx, statement); err != nil {
-			return fmt.Errorf("apply legacy agent provider schema compat: %w", err)
+			return fmt.Errorf("apply legacy workflow version schema compat: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func applyLegacyProjectSchemaCompat(ctx context.Context, db *sql.DB) error {
+	var hasProjects bool
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.tables
+			WHERE table_schema = 'public' AND table_name = 'projects'
+		)`,
+	).Scan(&hasProjects); err != nil {
+		return fmt.Errorf("detect legacy project schema: %w", err)
+	}
+	if !hasProjects {
+		return nil
+	}
+
+	statements := []string{
+		`ALTER TABLE projects ADD COLUMN IF NOT EXISTS github_outbound_credential jsonb`,
+		`ALTER TABLE projects ADD COLUMN IF NOT EXISTS github_token_probe jsonb`,
+		`ALTER TABLE projects ADD COLUMN IF NOT EXISTS default_agent_provider_id uuid`,
+		`ALTER TABLE projects ADD COLUMN IF NOT EXISTS accessible_machine_ids jsonb`,
+		`ALTER TABLE projects ADD COLUMN IF NOT EXISTS max_concurrent_agents bigint`,
+		`ALTER TABLE projects ADD COLUMN IF NOT EXISTS agent_run_summary_prompt text`,
+		`UPDATE projects
+			SET
+				accessible_machine_ids = COALESCE(accessible_machine_ids, '[]'::jsonb),
+				max_concurrent_agents = COALESCE(max_concurrent_agents, 0)`,
+		`ALTER TABLE projects ALTER COLUMN accessible_machine_ids SET DEFAULT '[]'::jsonb`,
+		`ALTER TABLE projects ALTER COLUMN accessible_machine_ids SET NOT NULL`,
+		`ALTER TABLE projects ALTER COLUMN max_concurrent_agents SET DEFAULT 0`,
+		`ALTER TABLE projects ALTER COLUMN max_concurrent_agents SET NOT NULL`,
+	}
+	for _, statement := range statements {
+		if _, err := db.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("apply legacy project schema compat: %w", err)
 		}
 	}
 

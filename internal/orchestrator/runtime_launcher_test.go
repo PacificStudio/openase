@@ -1317,6 +1317,74 @@ func TestRuntimeLauncherFinishResolvedExecutionAutoAppliesSingleFinishStatus(t *
 	}
 }
 
+func TestRuntimeLauncherHandleExecutionFailureIgnoresTerminalRun(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 22, 10, 15, 0, 0, time.UTC)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	agentItem := fixture.createAgent(ctx, t, "coding-terminal-01", 0)
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-91B").
+		SetTitle("Ignore failure for terminal run").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
+	if _, err := client.AgentRun.UpdateOneID(runItem.ID).
+		SetStatus(entagentrun.StatusTerminated).
+		SetTerminalAt(now).
+		Save(ctx); err != nil {
+		t.Fatalf("mark run terminated: %v", err)
+	}
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, nil, nil)
+	launcher.now = func() time.Time { return now }
+	launcher.handleExecutionFailure(ctx, runItem.ID, agentItem.ID, ticketItem.ID, fmt.Errorf("late session close"))
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusTerminated {
+		t.Fatalf("expected terminal run to remain terminated, got %+v", runAfter)
+	}
+	if strings.TrimSpace(runAfter.LastError) != "" {
+		t.Fatalf("expected terminal run last_error to stay empty, got %q", runAfter.LastError)
+	}
+	failedCount, err := client.ActivityEvent.Query().
+		Where(
+			entactivityevent.ProjectIDEQ(fixture.projectID),
+			entactivityevent.TicketIDEQ(ticketItem.ID),
+			entactivityevent.AgentIDEQ(agentItem.ID),
+			entactivityevent.EventTypeEQ("agent.failed"),
+		).
+		Count(ctx)
+	if err != nil {
+		t.Fatalf("count failed activity events: %v", err)
+	}
+	if failedCount != 0 {
+		t.Fatalf("expected no failed activity for terminal run, got %d", failedCount)
+	}
+}
+
 func TestRuntimeLauncherFinishResolvedExecutionRequiresExplicitFinishChoiceWhenMultipleAllowed(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
@@ -2252,6 +2320,97 @@ func TestRuntimeLauncherRunTickStallsByLastCodexTimestamp(t *testing.T) {
 	}
 	if ticketAfter.StallCount != 1 {
 		t.Fatalf("expected stall count 1 after runtime reconciliation, got %+v", ticketAfter)
+	}
+}
+
+func TestRuntimeLauncherReconcileRuntimeFactsIgnoresFinishedTicketFailure(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 24, 15, 20, 0, 0, time.UTC)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Runtime fact reconciliation").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-415B").
+		SetTitle("Ignore failure after ticket completion").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-runtime-fact-02").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
+	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
+		SetStatusID(fixture.statusIDs["Done"]).
+		SetCompletedAt(now).
+		Save(ctx); err != nil {
+		t.Fatalf("mark ticket done: %v", err)
+	}
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, nil, nil)
+	launcher.now = func() time.Time {
+		return now
+	}
+	runtimeState := NewRuntimeStateStore()
+	launcher.ConfigureRuntimeState(runtimeState)
+	runtimeState.markReady(runItem.ID, agentItem.ID, ticketItem.ID, workflowItem.ID, "thread-runtime-2", now)
+	runtimeState.recordTurnStart(runItem.ID, 1, now)
+	runtimeState.recordRuntimeFact(runItem.ID, runtimeFactSessionExited, now, "provider closed after completion")
+
+	if err := launcher.reconcileRuntimeFacts(ctx); err != nil {
+		t.Fatalf("reconcile runtime fact: %v", err)
+	}
+
+	if _, ok := runtimeState.load(runItem.ID); ok {
+		t.Fatalf("expected finished ticket runtime snapshot to be dropped after reconciliation")
+	}
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusExecuting {
+		t.Fatalf("expected reconcile suppression to avoid rewriting run status, got %+v", runAfter)
+	}
+	if strings.TrimSpace(runAfter.LastError) != "" {
+		t.Fatalf("expected reconcile suppression to keep run last_error empty, got %q", runAfter.LastError)
+	}
+	failedCount, err := client.ActivityEvent.Query().
+		Where(
+			entactivityevent.ProjectIDEQ(fixture.projectID),
+			entactivityevent.TicketIDEQ(ticketItem.ID),
+			entactivityevent.AgentIDEQ(agentItem.ID),
+			entactivityevent.EventTypeEQ("agent.failed"),
+		).
+		Count(ctx)
+	if err != nil {
+		t.Fatalf("count failed activity events: %v", err)
+	}
+	if failedCount != 0 {
+		t.Fatalf("expected no failed activity after finished ticket session exit, got %d", failedCount)
 	}
 }
 

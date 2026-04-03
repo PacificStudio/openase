@@ -1,11 +1,14 @@
 package httpapi
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +18,7 @@ import (
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/google/uuid"
 )
 
@@ -524,6 +528,328 @@ func TestTicketRunStreamFiltersTicketScopedLifecycleTraceAndStepEvents(t *testin
 	}
 }
 
+func TestTicketRunStreamPayloadsMirrorDetailPayloadsForTheSameRun(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	bus := eventinfra.NewChannelBus()
+
+	org, err := client.Organization.Create().
+		SetName("Acme").
+		SetSlug("acme").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset statuses: %v", err)
+	}
+	backlogID := findStatusIDByName(t, statuses, "Backlog")
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetStatusID(backlogID).
+		SetIdentifier("ASE-434").
+		SetTitle("Mirror ticket run payloads").
+		SetDescription("Verify stream and detail payload parity").
+		SetPriority("high").
+		SetType("feature").
+		SetCreatedBy("user:api").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	catalog := newFakeCatalogService()
+	catalog.organizations[org.ID] = domain.Organization{ID: org.ID, Name: org.Name, Slug: org.Slug}
+	catalog.projects[project.ID] = domain.Project{ID: project.ID, OrganizationID: org.ID, Name: project.Name, Slug: project.Slug}
+	catalog.tickets[ticketItem.ID] = fakeCatalogTicket{ID: ticketItem.ID, ProjectID: project.ID}
+
+	providerID := uuid.New()
+	agentID := uuid.New()
+	runID := uuid.New()
+	runCreatedAt := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
+	runStartedAt := runCreatedAt.Add(30 * time.Second)
+	runHeartbeatAt := runStartedAt.Add(2 * time.Minute)
+	stepStatus := "running_tests"
+	stepSummary := "Running contract parity checks."
+	summaryStatus := domain.AgentRunCompletionSummaryStatusCompleted
+	summaryMarkdown := "## Overview\n\nParity verified."
+	summaryGeneratedAt := runHeartbeatAt.Add(30 * time.Second)
+	summaryError := ""
+
+	catalog.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: org.ID, Name: "Codex"}
+	catalog.agents[agentID] = domain.Agent{ID: agentID, ProjectID: project.ID, ProviderID: providerID, Name: "Ticket Runner"}
+	catalog.agentRuns[runID] = domain.AgentRun{
+		ID:                           runID,
+		AgentID:                      agentID,
+		TicketID:                     ticketItem.ID,
+		ProviderID:                   providerID,
+		WorkflowID:                   uuid.New(),
+		Status:                       domain.AgentRunStatusExecuting,
+		RuntimeStartedAt:             &runStartedAt,
+		LastHeartbeatAt:              &runHeartbeatAt,
+		CurrentStepStatus:            &stepStatus,
+		CurrentStepSummary:           &stepSummary,
+		CompletionSummaryStatus:      &summaryStatus,
+		CompletionSummaryMarkdown:    &summaryMarkdown,
+		CompletionSummaryGeneratedAt: &summaryGeneratedAt,
+		CompletionSummaryError:       &summaryError,
+		CompletionSummaryJSON: map[string]any{
+			"provider": "Codex",
+		},
+		CreatedAt: runCreatedAt,
+	}
+
+	traceAt := runStartedAt.Add(15 * time.Second)
+	traceEntry := domain.AgentTraceEntry{
+		ID:         uuid.New(),
+		ProjectID:  project.ID,
+		TicketID:   &ticketItem.ID,
+		AgentID:    agentID,
+		AgentRunID: runID,
+		Sequence:   1,
+		Provider:   "codex",
+		Kind:       domain.AgentTraceKindAssistantDelta,
+		Stream:     "assistant",
+		Output:     "Planning the fix",
+		Payload:    map[string]any{"item_id": "assistant-1"},
+		CreatedAt:  traceAt,
+	}
+	stepEntry := domain.AgentStepEntry{
+		ID:         uuid.New(),
+		ProjectID:  project.ID,
+		TicketID:   &ticketItem.ID,
+		AgentID:    agentID,
+		AgentRunID: runID,
+		StepStatus: "planning",
+		Summary:    "Inspecting transcript reducer behavior.",
+		CreatedAt:  traceAt.Add(5 * time.Second),
+	}
+	catalog.traceEvents = []domain.AgentTraceEntry{traceEntry}
+	catalog.stepEvents = []domain.AgentStepEntry{stepEntry}
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		bus,
+		newTicketService(client),
+		newTicketStatusService(client),
+		nil,
+		catalog,
+		nil,
+	)
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	detailRec := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticketItem.ID.String()+"/runs/"+runID.String(),
+		"",
+	)
+	if detailRec.Code != http.StatusOK {
+		t.Fatalf("expected ticket run detail 200, got %d: %s", detailRec.Code, detailRec.Body.String())
+	}
+	var detailPayload struct {
+		Run          ticketRunResponse             `json:"run"`
+		TraceEntries []ticketRunTraceEntryResponse `json:"trace_entries"`
+		StepEntries  []ticketRunStepEntryResponse  `json:"step_entries"`
+	}
+	decodeResponse(t, detailRec, &detailPayload)
+
+	response, cancel := openSSERequest(
+		t,
+		testServer.URL+"/api/v1/projects/"+project.ID.String()+"/events/stream",
+	)
+	defer cancel()
+	t.Cleanup(func() {
+		if err := response.Body.Close(); err != nil {
+			t.Errorf("close ticket run stream response body: %v", err)
+		}
+	})
+	reader := bufio.NewReader(response.Body)
+
+	publishTestEvent(
+		t,
+		bus,
+		ticketRunActivityStreamTopic,
+		provider.MustParseEventType(activityevent.TypeAgentReady.String()),
+		map[string]any{
+			"event": map[string]any{
+				"project_id": project.ID.String(),
+				"ticket_id":  ticketItem.ID.String(),
+				"event_type": activityevent.TypeAgentReady.String(),
+				"message":    "Runtime ready",
+				"metadata":   map[string]any{"run_id": runID.String()},
+				"created_at": runStartedAt.Format(time.RFC3339),
+			},
+		},
+	)
+	lifecycleFrame := readTicketRunSSEFrameByEvent(t, reader, "ticket.run.lifecycle")
+	lifecycleData := decodeTicketRunSSEPayload(t, lifecycleFrame.Data)
+	var lifecyclePayload struct {
+		Run       ticketRunResponse               `json:"run"`
+		Lifecycle ticketRunLifecycleEventResponse `json:"lifecycle"`
+	}
+	if err := json.Unmarshal(lifecycleData, &lifecyclePayload); err != nil {
+		t.Fatalf("decode lifecycle frame: %v", err)
+	}
+	if !reflect.DeepEqual(lifecyclePayload.Run, detailPayload.Run) {
+		t.Fatalf("lifecycle run snapshot = %+v, want %+v", lifecyclePayload.Run, detailPayload.Run)
+	}
+
+	publishTestEvent(
+		t,
+		bus,
+		agentTraceStreamTopic,
+		provider.MustParseEventType(domain.AgentOutputEventType),
+		map[string]any{
+			"entry": map[string]any{
+				"id":           traceEntry.ID.String(),
+				"project_id":   project.ID.String(),
+				"ticket_id":    ticketItem.ID.String(),
+				"agent_run_id": runID.String(),
+				"sequence":     traceEntry.Sequence,
+				"provider":     traceEntry.Provider,
+				"kind":         traceEntry.Kind,
+				"stream":       traceEntry.Stream,
+				"output":       traceEntry.Output,
+				"payload":      traceEntry.Payload,
+				"created_at":   traceEntry.CreatedAt.UTC().Format(time.RFC3339),
+			},
+		},
+	)
+	traceFrame := readTicketRunSSEFrameByEvent(t, reader, "ticket.run.trace")
+	traceData := decodeTicketRunSSEPayload(t, traceFrame.Data)
+	var tracePayload struct {
+		Entry ticketRunTraceEntryResponse `json:"entry"`
+	}
+	if err := json.Unmarshal(traceData, &tracePayload); err != nil {
+		t.Fatalf("decode trace frame: %v", err)
+	}
+	if len(detailPayload.TraceEntries) != 1 {
+		t.Fatalf("detail trace entry count = %d, want 1", len(detailPayload.TraceEntries))
+	}
+	if !reflect.DeepEqual(tracePayload.Entry, detailPayload.TraceEntries[0]) {
+		t.Fatalf("trace stream entry = %+v, want %+v", tracePayload.Entry, detailPayload.TraceEntries[0])
+	}
+
+	publishTestEvent(
+		t,
+		bus,
+		agentStepStreamTopic,
+		provider.MustParseEventType(domain.AgentStepEventType),
+		map[string]any{
+			"entry": map[string]any{
+				"id":                    stepEntry.ID.String(),
+				"project_id":            project.ID.String(),
+				"ticket_id":             ticketItem.ID.String(),
+				"agent_run_id":          runID.String(),
+				"step_status":           stepEntry.StepStatus,
+				"summary":               stepEntry.Summary,
+				"source_trace_event_id": nil,
+				"created_at":            stepEntry.CreatedAt.UTC().Format(time.RFC3339),
+			},
+		},
+	)
+	stepFrame := readTicketRunSSEFrameByEvent(t, reader, "ticket.run.step")
+	stepData := decodeTicketRunSSEPayload(t, stepFrame.Data)
+	var stepPayload struct {
+		Entry ticketRunStepEntryResponse `json:"entry"`
+	}
+	if err := json.Unmarshal(stepData, &stepPayload); err != nil {
+		t.Fatalf("decode step frame: %v", err)
+	}
+	if len(detailPayload.StepEntries) != 1 {
+		t.Fatalf("detail step entry count = %d, want 1", len(detailPayload.StepEntries))
+	}
+	if !reflect.DeepEqual(stepPayload.Entry, detailPayload.StepEntries[0]) {
+		t.Fatalf("step stream entry = %+v, want %+v", stepPayload.Entry, detailPayload.StepEntries[0])
+	}
+
+	publishTestEvent(
+		t,
+		bus,
+		ticketRunStreamTopic,
+		ticketRunSummaryStreamType,
+		map[string]any{
+			"project_id": project.ID.String(),
+			"ticket_id":  ticketItem.ID.String(),
+			"run_id":     runID.String(),
+			"completion_summary": map[string]any{
+				"status":       detailPayload.Run.CompletionSummary.Status,
+				"markdown":     detailPayload.Run.CompletionSummary.Markdown,
+				"json":         detailPayload.Run.CompletionSummary.JSON,
+				"generated_at": detailPayload.Run.CompletionSummary.GeneratedAt,
+				"error":        detailPayload.Run.CompletionSummary.Error,
+			},
+		},
+	)
+	summaryFrame := readTicketRunSSEFrameByEvent(t, reader, "ticket.run.summary")
+	summaryData := decodeTicketRunSSEPayload(t, summaryFrame.Data)
+	var summaryPayload struct {
+		ticketRunSummaryEnvelope
+		Run *ticketRunResponse `json:"run"`
+	}
+	if err := json.Unmarshal(summaryData, &summaryPayload); err != nil {
+		t.Fatalf("decode summary frame: %v", err)
+	}
+	if summaryPayload.RunID != detailPayload.Run.ID {
+		t.Fatalf("summary run_id = %q, want %q", summaryPayload.RunID, detailPayload.Run.ID)
+	}
+	if summaryPayload.CompletionSummary == nil || detailPayload.Run.CompletionSummary == nil {
+		t.Fatalf("expected non-nil completion summaries, got %+v %+v", summaryPayload.CompletionSummary, detailPayload.Run.CompletionSummary)
+	}
+	if !reflect.DeepEqual(summaryPayload.CompletionSummary, detailPayload.Run.CompletionSummary) {
+		t.Fatalf("summary payload = %+v, want %+v", summaryPayload.CompletionSummary, detailPayload.Run.CompletionSummary)
+	}
+	if summaryPayload.Run == nil || !reflect.DeepEqual(*summaryPayload.Run, detailPayload.Run) {
+		t.Fatalf("summary run payload = %+v, want %+v", summaryPayload.Run, detailPayload.Run)
+	}
+}
+
+func readTicketRunSSEFrameByEvent(t *testing.T, reader *bufio.Reader, wantEvent string) projectConversationSSEFrame {
+	t.Helper()
+
+	timeout := time.After(2 * time.Second)
+	for {
+		select {
+		case <-timeout:
+			t.Fatalf("timed out waiting for SSE event %q", wantEvent)
+		default:
+		}
+		frame := readProjectConversationSSEFrame(t, reader)
+		if frame.Event == wantEvent {
+			return frame
+		}
+	}
+}
+
+func decodeTicketRunSSEPayload(t *testing.T, raw string) json.RawMessage {
+	t.Helper()
+
+	var envelope struct {
+		Topic   string          `json:"topic"`
+		Type    string          `json:"type"`
+		Payload json.RawMessage `json:"payload"`
+	}
+	if err := json.Unmarshal([]byte(raw), &envelope); err != nil {
+		t.Fatalf("decode ticket run SSE envelope: %v", err)
+	}
+	return envelope.Payload
+}
+
 func TestMapTicketRunResponseMapsTerminatedRunsToEndedWithoutCompletedAt(t *testing.T) {
 	providerID := uuid.New()
 	agentID := uuid.New()
@@ -583,9 +909,29 @@ func TestMapTicketRunResponseMapsTerminatedRunsToEndedWithoutCompletedAt(t *test
 }
 
 func TestBuildTicketRunSummaryStreamEventFiltersTicketScope(t *testing.T) {
+	ctx := context.Background()
 	projectID := uuid.New()
 	ticketID := uuid.New()
 	runID := uuid.New()
+	providerID := uuid.New()
+	agentID := uuid.New()
+
+	catalog := newFakeCatalogService()
+	catalog.projects[projectID] = domain.Project{ID: projectID}
+	catalog.tickets[ticketID] = fakeCatalogTicket{ID: ticketID, ProjectID: projectID}
+	catalog.providers[providerID] = domain.AgentProvider{ID: providerID, Name: "Codex"}
+	catalog.agents[agentID] = domain.Agent{ID: agentID, ProjectID: projectID, ProviderID: providerID, Name: "Ticket Runner"}
+	catalog.agentRuns[runID] = domain.AgentRun{
+		ID:         runID,
+		AgentID:    agentID,
+		TicketID:   ticketID,
+		ProviderID: providerID,
+		WorkflowID: uuid.New(),
+		Status:     domain.AgentRunStatusCompleted,
+		CreatedAt:  time.Now().UTC(),
+	}
+
+	server := &Server{catalog: catalogservice.SplitServices(catalog)}
 
 	event, err := provider.NewJSONEvent(
 		ticketRunStreamTopic,
@@ -605,7 +951,7 @@ func TestBuildTicketRunSummaryStreamEventFiltersTicketScope(t *testing.T) {
 		t.Fatalf("NewJSONEvent returned error: %v", err)
 	}
 
-	streamEvent, matched, err := buildTicketRunSummaryStreamEvent(projectID, ticketID, event)
+	streamEvent, matched, err := server.buildTicketRunSummaryStreamEvent(ctx, projectID, ticketID, event)
 	if err != nil {
 		t.Fatalf("buildTicketRunSummaryStreamEvent returned error: %v", err)
 	}
@@ -614,6 +960,19 @@ func TestBuildTicketRunSummaryStreamEventFiltersTicketScope(t *testing.T) {
 	}
 	if streamEvent.Topic != ticketRunStreamTopic || streamEvent.Type != ticketRunSummaryStreamType {
 		t.Fatalf("unexpected summary stream event routing: topic=%s type=%s", streamEvent.Topic.String(), streamEvent.Type.String())
+	}
+	var streamPayload struct {
+		Run               *ticketRunResponse                  `json:"run"`
+		CompletionSummary *ticketRunCompletionSummaryResponse `json:"completion_summary"`
+	}
+	if err := json.Unmarshal(streamEvent.Payload, &streamPayload); err != nil {
+		t.Fatalf("decode stream payload: %v", err)
+	}
+	if streamPayload.Run == nil || streamPayload.Run.ID != runID.String() {
+		t.Fatalf("summary payload run = %+v, want run %s", streamPayload.Run, runID)
+	}
+	if streamPayload.CompletionSummary == nil || streamPayload.CompletionSummary.Status != "completed" {
+		t.Fatalf("summary payload completion summary = %+v", streamPayload.CompletionSummary)
 	}
 
 	otherTicketEvent, err := provider.NewJSONEvent(
@@ -630,7 +989,7 @@ func TestBuildTicketRunSummaryStreamEventFiltersTicketScope(t *testing.T) {
 		t.Fatalf("NewJSONEvent returned error: %v", err)
 	}
 
-	_, matched, err = buildTicketRunSummaryStreamEvent(projectID, ticketID, otherTicketEvent)
+	_, matched, err = server.buildTicketRunSummaryStreamEvent(ctx, projectID, ticketID, otherTicketEvent)
 	if err != nil {
 		t.Fatalf("buildTicketRunSummaryStreamEvent returned error for mismatched ticket: %v", err)
 	}

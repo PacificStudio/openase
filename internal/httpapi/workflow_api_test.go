@@ -1465,6 +1465,7 @@ func TestWorkflowCreateAndUpdateRoutesRejectInvalidPayloads(t *testing.T) {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
 	todoID := findStatusIDByName(t, statuses, "Todo")
+	backlogID := findStatusIDByName(t, statuses, "Backlog")
 	doneID := findStatusIDByName(t, statuses, "Done")
 	provider, err := client.AgentProvider.Create().
 		SetOrganizationID(org.ID).
@@ -1516,6 +1517,7 @@ func TestWorkflowCreateAndUpdateRoutesRejectInvalidPayloads(t *testing.T) {
 		{name: "create invalid request", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID), body: `{"agent_id":"` + agent.ID.String() + `","name":" ","type":"coding","pickup_status_ids":["` + todoID.String() + `"],"finish_status_ids":["` + doneID.String() + `"]}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
 		{name: "create missing agent", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID), body: `{"agent_id":"` + uuid.New().String() + `","name":"Missing Agent","type":"coding","pickup_status_ids":["` + todoID.String() + `"],"finish_status_ids":["` + doneID.String() + `"]}`, wantStatus: http.StatusBadRequest, wantBody: "AGENT_NOT_FOUND"},
 		{name: "create missing status", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID), body: `{"agent_id":"` + agent.ID.String() + `","name":"Missing Status","type":"coding","pickup_status_ids":["` + uuid.New().String() + `"],"finish_status_ids":["` + doneID.String() + `"]}`, wantStatus: http.StatusBadRequest, wantBody: "STATUS_NOT_FOUND"},
+		{name: "create duplicate pickup status", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID), body: `{"agent_id":"` + agent.ID.String() + `","name":"Parallel Coding","type":"coding","pickup_status_ids":["` + todoID.String() + `"],"finish_status_ids":["` + doneID.String() + `"]}`, wantStatus: http.StatusConflict, wantBody: "PICKUP_STATUS_CONFLICT"},
 		{name: "update invalid request", method: http.MethodPatch, target: fmt.Sprintf("/api/v1/workflows/%s", created.Workflow.ID), body: `{"max_concurrent":-1}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
 		{name: "update missing workflow", method: http.MethodPatch, target: fmt.Sprintf("/api/v1/workflows/%s", uuid.New()), body: `{"name":"missing"}`, wantStatus: http.StatusNotFound, wantBody: "WORKFLOW_NOT_FOUND"},
 	} {
@@ -1525,6 +1527,37 @@ func TestWorkflowCreateAndUpdateRoutesRejectInvalidPayloads(t *testing.T) {
 				t.Fatalf("%s %s = %d %s, want %d containing %q", testCase.method, testCase.target, rec.Code, rec.Body.String(), testCase.wantStatus, testCase.wantBody)
 			}
 		})
+	}
+
+	secondCreated := struct {
+		Workflow workflowResponse `json:"workflow"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
+		map[string]any{
+			"agent_id":          agent.ID.String(),
+			"name":              "Dispatcher Workflow",
+			"type":              "coding",
+			"pickup_status_ids": []string{backlogID.String()},
+			"finish_status_ids": []string{doneID.String()},
+			"harness_content":   "# Dispatcher\n",
+		},
+		http.StatusCreated,
+		&secondCreated,
+	)
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/workflows/%s", secondCreated.Workflow.ID),
+		`{"pickup_status_ids":["`+todoID.String()+`"]}`,
+	)
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "PICKUP_STATUS_CONFLICT") {
+		t.Fatalf("PATCH duplicate pickup status = %d %s, want %d containing %q", rec.Code, rec.Body.String(), http.StatusConflict, "PICKUP_STATUS_CONFLICT")
 	}
 }
 

@@ -374,7 +374,7 @@ func TestMapClaudeEventDoneIncludesProviderReportedCost(t *testing.T) {
 		Kind:         provider.ClaudeCodeEventKindResult,
 		NumTurns:     2,
 		TotalCostUSD: &costUSD,
-	})
+	}, nil)
 	if len(events) != 1 {
 		t.Fatalf("mapClaudeEvent() len = %d, want 1", len(events))
 	}
@@ -397,7 +397,7 @@ func TestMapClaudeEventPromotesSessionStateChanges(t *testing.T) {
 			"active_flags": []string{"requires_action"},
 			"detail":       "approval required",
 		}),
-	})
+	}, nil)
 	if len(events) != 2 {
 		t.Fatalf("mapClaudeEvent() len = %d, want 2", len(events))
 	}
@@ -432,7 +432,7 @@ func TestMapClaudeEventPromotesRequiresActionInterrupts(t *testing.T) {
 				},
 			},
 		}),
-	})
+	}, nil)
 	if len(events) != 2 {
 		t.Fatalf("mapClaudeEvent() len = %d, want 2", len(events))
 	}
@@ -448,6 +448,154 @@ func TestMapClaudeEventPromotesRequiresActionInterrupts(t *testing.T) {
 	}
 	if interrupt.Payload["session_state"] != "requires_action" {
 		t.Fatalf("unexpected interrupt payload map: %#v", interrupt.Payload)
+	}
+}
+
+func TestMapClaudeEventPromotesToolUseAndToolResultIntoProjectAIRuntimeShapes(t *testing.T) {
+	state := &claudeRuntimeStreamState{}
+
+	assistantEvents := mapClaudeEvent(SessionID("session-claude-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
+		Kind:      provider.ClaudeCodeEventKindAssistant,
+		SessionID: "claude-session-1",
+		UUID:      "assistant-evt-1",
+		Raw: mustMarshalJSON(t, map[string]any{
+			"session_id": "claude-session-1",
+			"turn_id":    "turn-1",
+			"uuid":       "assistant-evt-1",
+		}),
+		Message: mustMarshalJSON(t, map[string]any{
+			"role": "assistant",
+			"content": []map[string]any{
+				{"type": "text", "text": "Inspecting the repository."},
+				{
+					"type":  "tool_use",
+					"id":    "toolu_01",
+					"name":  "functions.exec_command",
+					"input": map[string]any{"cmd": "git status --short"},
+				},
+			},
+		}),
+	}, state)
+	if len(assistantEvents) != 2 {
+		t.Fatalf("assistant event count = %d, want 2: %+v", len(assistantEvents), assistantEvents)
+	}
+	textPayload, ok := assistantEvents[0].Payload.(textPayload)
+	if assistantEvents[0].Event != "message" || !ok || textPayload.Content != "Inspecting the repository." {
+		t.Fatalf("first assistant event = %+v, want assistant text payload", assistantEvents[0])
+	}
+	toolPayload, ok := assistantEvents[1].Payload.(map[string]any)
+	if assistantEvents[1].Event != "message" || !ok || toolPayload["type"] != chatMessageTypeTaskNotification {
+		t.Fatalf("second assistant event = %+v, want task notification payload", assistantEvents[1])
+	}
+	toolRaw, _ := toolPayload["raw"].(map[string]any)
+	if toolRaw["tool"] != "functions.exec_command" {
+		t.Fatalf("tool raw payload = %#v, want functions.exec_command", toolRaw)
+	}
+
+	userEvents := mapClaudeEvent(SessionID("session-claude-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
+		Kind:      provider.ClaudeCodeEventKindUser,
+		SessionID: "claude-session-1",
+		UUID:      "user-evt-1",
+		Raw: mustMarshalJSON(t, map[string]any{
+			"session_id": "claude-session-1",
+			"turn_id":    "turn-1",
+			"uuid":       "user-evt-1",
+		}),
+		Message: mustMarshalJSON(t, map[string]any{
+			"role": "user",
+			"content": []map[string]any{
+				{
+					"type":        "tool_result",
+					"tool_use_id": "toolu_01",
+					"content":     "M internal/chat/runtime_claude.go\n",
+				},
+			},
+		}),
+	}, state)
+	if len(userEvents) != 1 {
+		t.Fatalf("user event count = %d, want 1: %+v", len(userEvents), userEvents)
+	}
+	commandPayload, ok := userEvents[0].Payload.(map[string]any)
+	if userEvents[0].Event != "message" || !ok || commandPayload["type"] != chatMessageTypeTaskProgress {
+		t.Fatalf("user event = %+v, want task progress payload", userEvents[0])
+	}
+	commandRaw, _ := commandPayload["raw"].(map[string]any)
+	if commandRaw["stream"] != "command" || commandRaw["command"] != "git status --short" {
+		t.Fatalf("command raw payload = %#v, want command output payload", commandRaw)
+	}
+	if commandRaw["text"] != "M internal/chat/runtime_claude.go" {
+		t.Fatalf("command raw text = %#v", commandRaw["text"])
+	}
+}
+
+func TestMapClaudeEventPromotesUnifiedDiffToolResultIntoDiffUpdated(t *testing.T) {
+	state := &claudeRuntimeStreamState{}
+	mapClaudeEvent(SessionID("session-claude-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
+		Kind:      provider.ClaudeCodeEventKindAssistant,
+		SessionID: "claude-session-1",
+		Raw: mustMarshalJSON(t, map[string]any{
+			"session_id": "claude-session-1",
+			"turn_id":    "turn-1",
+		}),
+		Message: mustMarshalJSON(t, map[string]any{
+			"role": "assistant",
+			"content": []map[string]any{
+				{
+					"type":  "tool_use",
+					"id":    "toolu_diff",
+					"name":  "functions.exec_command",
+					"input": map[string]any{"cmd": "git diff --cached"},
+				},
+			},
+		}),
+	}, state)
+
+	events := mapClaudeEvent(SessionID("session-claude-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
+		Kind:      provider.ClaudeCodeEventKindUser,
+		SessionID: "claude-session-1",
+		Raw: mustMarshalJSON(t, map[string]any{
+			"session_id": "claude-session-1",
+			"turn_id":    "turn-1",
+		}),
+		Message: mustMarshalJSON(t, map[string]any{
+			"role": "user",
+			"content": []map[string]any{
+				{
+					"type":        "tool_result",
+					"tool_use_id": "toolu_diff",
+					"content":     "diff --git a/a.txt b/a.txt\n@@ -1 +1 @@\n-old\n+new\n",
+				},
+			},
+		}),
+	}, state)
+	if len(events) != 2 {
+		t.Fatalf("event count = %d, want 2: %+v", len(events), events)
+	}
+	if events[1].Event != "diff_updated" {
+		t.Fatalf("second event = %+v, want diff_updated", events[1])
+	}
+	payload, ok := events[1].Payload.(runtimeDiffUpdatedPayload)
+	if !ok || payload.ThreadID != "claude-session-1" || payload.TurnID != "turn-1" {
+		t.Fatalf("diff payload = %#v, want thread/turn ids", events[1].Payload)
+	}
+}
+
+func TestMapClaudeEventPromotesClaudeResultErrorsIntoErrorEvents(t *testing.T) {
+	events := mapClaudeEvent(SessionID("session-claude-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
+		Kind:    provider.ClaudeCodeEventKindResult,
+		Subtype: "error_during_execution",
+		IsError: true,
+		Raw:     mustMarshalJSON(t, map[string]any{"type": "result", "subtype": "error_during_execution"}),
+	}, nil)
+	if len(events) != 1 {
+		t.Fatalf("event count = %d, want 1: %+v", len(events), events)
+	}
+	payload, ok := events[0].Payload.(errorPayload)
+	if events[0].Event != "error" || !ok {
+		t.Fatalf("event = %+v, want error payload", events[0])
+	}
+	if !strings.Contains(payload.Message, "error_during_execution") {
+		t.Fatalf("error payload = %#v, want subtype summary", payload)
 	}
 }
 

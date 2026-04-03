@@ -14,10 +14,22 @@ import {
   hasBlock,
   mergeRun,
   seedRunBlocks,
-  sortTicketRuns,
 } from './run-transcript-blocks'
 import { applyTicketRunTraceEntry as reduceTicketRunTraceEntry } from './run-transcript-trace'
 import { syncSelectedBlocks, syncSelectedRun } from './run-transcript-selection'
+export {
+  createEmptyTicketRunTranscriptState,
+  selectTicketRun,
+  setTicketRunList,
+} from './run-transcript-state'
+import {
+  insertBlockChronologically,
+  mergeDefinedRunFields,
+  mergeHydratedRunBlocks,
+  mergeHydratedRunSnapshot,
+  mergeRunStepSnapshot,
+  mergeStreamingRunSnapshot,
+} from './run-transcript-run-helpers'
 import {
   mapTicketRun,
   mapTicketRunCompletionSummary,
@@ -27,42 +39,21 @@ import {
 } from './run-transcript-data'
 import type { TicketRunRecord, TicketRunStepRecord, TicketRunTraceRecord } from '$lib/api/contracts'
 
-export function createEmptyTicketRunTranscriptState(): TicketRunTranscriptState {
-  return {
-    runs: [],
-    selectedRunId: null,
-    followLatest: true,
-    currentRun: null,
-    blocks: [],
-    blockCache: {},
-  }
-}
-
-export function setTicketRunList(
-  state: TicketRunTranscriptState,
-  runs: TicketRun[],
-): TicketRunTranscriptState {
-  const nextRuns = sortTicketRuns(runs)
-  const blockCache = syncSelectedBlocks(state)
-
-  return syncSelectedRun({
-    ...state,
-    runs: nextRuns,
-    blockCache,
-  })
-}
-
 export function hydrateTicketRunDetail(
   state: TicketRunTranscriptState,
   detail: TicketRunDetail,
   options: { select?: boolean } = {},
 ): TicketRunTranscriptState {
-  const runs = mergeRun(state.runs, detail.run)
+  const existingRun = state.runs.find((item) => item.id === detail.run.id)
+  const hydratedRun = mergeHydratedRunSnapshot(existingRun, detail.run)
+  const runs = mergeRun(state.runs, hydratedRun)
+  const cachedBlocks =
+    state.currentRun?.id === detail.run.id ? state.blocks : (state.blockCache[detail.run.id] ?? [])
   let nextState: TicketRunTranscriptState = {
     ...state,
     runs,
-    currentRun: detail.run,
-    blocks: seedRunBlocks(detail.run),
+    currentRun: hydratedRun,
+    blocks: mergeHydratedRunBlocks(cachedBlocks, hydratedRun),
   }
 
   const timeline = buildRunTimeline(detail.stepEntries, detail.traceEntries)
@@ -74,6 +65,17 @@ export function hydrateTicketRunDetail(
   }
 
   const finalized = finalizeTerminalRunBlocks(nextState)
+  const finalizedCurrentRun =
+    finalized.currentRun?.id === hydratedRun.id
+      ? mergeDefinedRunFields(finalized.currentRun, hydratedRun)
+      : finalized.currentRun
+  const finalizedRuns = mergeRun(
+    finalized.runs,
+    mergeDefinedRunFields(
+      finalized.runs.find((run) => run.id === hydratedRun.id) ?? hydratedRun,
+      hydratedRun,
+    ),
+  )
   const nextSelection =
     options.select === false
       ? {
@@ -81,33 +83,19 @@ export function hydrateTicketRunDetail(
           followLatest: state.followLatest,
         }
       : {
-          selectedRunId: detail.run.id,
-          followLatest: runs[0]?.id === detail.run.id,
+          selectedRunId: hydratedRun.id,
+          followLatest: runs[0]?.id === hydratedRun.id,
         }
 
   return syncSelectedRun({
     ...finalized,
+    runs: finalizedRuns,
+    currentRun: finalizedCurrentRun,
     ...nextSelection,
     blockCache: {
       ...state.blockCache,
       [detail.run.id]: finalized.blocks,
     },
-  })
-}
-
-export function selectTicketRun(
-  state: TicketRunTranscriptState,
-  runId: string,
-): TicketRunTranscriptState {
-  if (!state.runs.some((run) => run.id === runId)) {
-    return state
-  }
-
-  return syncSelectedRun({
-    ...state,
-    selectedRunId: runId,
-    followLatest: state.runs[0]?.id === runId,
-    blockCache: syncSelectedBlocks(state),
   })
 }
 
@@ -146,6 +134,7 @@ export function applyTicketRunStreamFrame(
         const payload = JSON.parse(frame.data) as {
           run_id?: string
           runId?: string
+          run?: TicketRunRecord
           completion_summary?: {
             status?: string
             markdown?: string | null
@@ -157,6 +146,7 @@ export function applyTicketRunStreamFrame(
         return applyTicketRunSummaryEvent(
           state,
           payload.run_id ?? payload.runId ?? '',
+          payload.run ? mapTicketRun(payload.run) : undefined,
           mapTicketRunCompletionSummary(payload.completion_summary),
         )
       }
@@ -173,22 +163,26 @@ export function applyTicketRunLifecycleEvent(
   run: TicketRun,
   lifecycle: TicketRunLifecycleEvent,
 ): TicketRunTranscriptState {
-  const runs = mergeRun(state.runs, run)
+  const currentRunForUpdate = state.runs.find((item) => item.id === run.id)
+  const nextRun = mergeStreamingRunSnapshot(currentRunForUpdate, run)
+  const runs = mergeRun(state.runs, nextRun)
   const baseBlocks =
-    state.selectedRunId === run.id ? state.blocks : (state.blockCache[run.id] ?? seedRunBlocks(run))
+    state.selectedRunId === run.id
+      ? state.blocks
+      : (state.blockCache[run.id] ?? seedRunBlocks(nextRun))
 
   const nextBlock = buildLifecycleBlock(lifecycle)
   const runBlocks =
     !nextBlock || hasBlock(baseBlocks, nextBlock.id)
       ? finalizeTerminalRunBlocks({
           ...state,
-          currentRun: run,
+          currentRun: nextRun,
           blocks: baseBlocks,
         }).blocks
       : finalizeTerminalRunBlocks({
           ...state,
-          currentRun: run,
-          blocks: [...baseBlocks, nextBlock],
+          currentRun: nextRun,
+          blocks: insertBlockChronologically(baseBlocks, nextBlock),
         }).blocks
 
   return syncSelectedRun({
@@ -206,13 +200,7 @@ export function applyTicketRunStepEntry(
   entry: TicketRunStepEntry,
 ): TicketRunTranscriptState {
   const runs = state.runs.map((run) =>
-    run.id === entry.agentRunId
-      ? {
-          ...run,
-          currentStepStatus: entry.stepStatus,
-          currentStepSummary: entry.summary || run.currentStepSummary,
-        }
-      : run,
+    run.id === entry.agentRunId ? mergeRunStepSnapshot(run, entry) : run,
   )
 
   const currentRun = state.currentRun
@@ -244,11 +232,7 @@ export function applyTicketRunStepEntry(
   return syncSelectedRun({
     ...state,
     runs,
-    currentRun: {
-      ...currentRun,
-      currentStepStatus: entry.stepStatus,
-      currentStepSummary: entry.summary || currentRun.currentStepSummary,
-    },
+    currentRun: mergeRunStepSnapshot(currentRun, entry),
     blocks,
     blockCache: {
       ...syncSelectedBlocks(state),
@@ -267,27 +251,29 @@ export function applyTicketRunTraceEntry(
 export function applyTicketRunSummaryEvent(
   state: TicketRunTranscriptState,
   runID: string,
+  run: TicketRun | undefined,
   completionSummary: TicketRun['completionSummary'],
 ): TicketRunTranscriptState {
-  if (!runID || !completionSummary) {
+  if (!runID || (!completionSummary && !run)) {
     return state
   }
 
-  const targetRun = state.runs.find((run) => run.id === runID) ?? state.currentRun
-  if (!targetRun || targetRun.id !== runID) {
+  const existingRun = state.runs.find((item) => item.id === runID) ?? state.currentRun
+  if (!existingRun || existingRun.id !== runID) {
     return state
   }
 
-  const nextRun: TicketRun = {
-    ...targetRun,
-    completionSummary,
-  }
+  const nextRun = mergeDefinedRunFields(existingRun, run)
+  nextRun.completionSummary =
+    completionSummary ?? run?.completionSummary ?? existingRun.completionSummary
   const runs = mergeRun(state.runs, nextRun)
 
-  return syncSelectedRun({
-    ...state,
-    runs,
-    currentRun: state.currentRun?.id === runID ? nextRun : state.currentRun,
-    blockCache: syncSelectedBlocks(state),
-  })
+  return syncSelectedRun(
+    finalizeTerminalRunBlocks({
+      ...state,
+      runs,
+      currentRun: state.currentRun?.id === runID ? nextRun : state.currentRun,
+      blockCache: syncSelectedBlocks(state),
+    }),
+  )
 }

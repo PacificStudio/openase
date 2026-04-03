@@ -500,6 +500,8 @@ func writeWorkflowError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusBadRequest, "STATUS_NOT_FOUND", err.Error())
 	case errors.Is(err, workflowservice.ErrAgentNotFound):
 		return writeAPIError(c, http.StatusBadRequest, "AGENT_NOT_FOUND", err.Error())
+	case errors.Is(err, workflowservice.ErrPickupStatusConflict):
+		return writeAPIError(c, http.StatusConflict, "PICKUP_STATUS_CONFLICT", err.Error())
 	case errors.Is(err, workflowservice.ErrWorkflowConflict):
 		return writeAPIError(c, http.StatusConflict, "WORKFLOW_CONFLICT", err.Error())
 	case errors.Is(err, workflowservice.ErrWorkflowInUse):

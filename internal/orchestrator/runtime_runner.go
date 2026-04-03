@@ -1833,6 +1833,13 @@ func (l *RuntimeLauncher) handleExecutionFailure(ctx context.Context, runID uuid
 	l.deleteSession(runID)
 	l.runtime.delete(runID)
 
+	suppressFailure, err := l.shouldSuppressExecutionFailure(ctx, runID, ticketID)
+	if err != nil {
+		l.logger.Warn("check execution failure suppression", "run_id", runID, "ticket_id", ticketID, "error", err)
+	} else if suppressFailure {
+		return
+	}
+
 	now := l.now().UTC()
 	if _, err := l.client.AgentRun.Update().
 		Where(entagentrun.IDEQ(runID)).
@@ -1866,6 +1873,41 @@ func (l *RuntimeLauncher) handleExecutionFailure(ctx context.Context, runID uuid
 		l.logger.Error("mark execution failed retry", "ticket_id", ticketID, "agent_id", agentID, "error", err)
 	}
 	l.cleanupRunWorkspacesBestEffort(ctx, runID, "execution failed")
+}
+
+func (l *RuntimeLauncher) shouldSuppressExecutionFailure(ctx context.Context, runID uuid.UUID, ticketID uuid.UUID) (bool, error) {
+	if l == nil || l.client == nil {
+		return false, fmt.Errorf("runtime launcher unavailable")
+	}
+
+	runItem, err := l.client.AgentRun.Get(ctx, runID)
+	if err != nil {
+		return false, fmt.Errorf("load run %s for failure suppression: %w", runID, err)
+	}
+	if runItem.Status == entagentrun.StatusCompleted ||
+		runItem.Status == entagentrun.StatusErrored ||
+		runItem.Status == entagentrun.StatusTerminated {
+		return true, nil
+	}
+
+	ticketItem, err := l.reloadExecutionTicket(ctx, ticketID)
+	if err != nil {
+		return false, fmt.Errorf("reload ticket %s for failure suppression: %w", ticketID, err)
+	}
+	return ticketReachedWorkflowFinish(ticketItem), nil
+}
+
+func ticketReachedWorkflowFinish(ticket *ent.Ticket) bool {
+	if ticket == nil {
+		return false
+	}
+	if ticket.CompletedAt != nil {
+		return true
+	}
+	if ticket.Edges.Workflow == nil {
+		return false
+	}
+	return slices.Contains(ticketStatusIDs(ticket.Edges.Workflow.Edges.FinishStatuses), ticket.StatusID)
 }
 
 func (l *RuntimeLauncher) scheduleContinuation(ctx context.Context, runID uuid.UUID, agentID uuid.UUID, ticketID uuid.UUID) error {

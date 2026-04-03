@@ -267,6 +267,60 @@ func (s *Server) handleStreamTicketRuns(c echo.Context) error {
 		select {
 		case <-c.Request().Context().Done():
 			return nil
+		case event, ok := <-summaryStream:
+			if !ok {
+				return nil
+			}
+			streamEvent, matched, buildErr := s.buildTicketRunSummaryStreamEvent(
+				c.Request().Context(),
+				projectID,
+				ticketID,
+				event,
+			)
+			if buildErr != nil {
+				s.logger.Warn("skip malformed ticket run summary stream event", "error", buildErr)
+				continue
+			}
+			if !matched {
+				continue
+			}
+			if err := writeSSEEvent(response, streamEvent); err != nil {
+				return err
+			}
+			continue
+		default:
+		}
+
+		select {
+		case <-c.Request().Context().Done():
+			return nil
+		case event, ok := <-activityStream:
+			if !ok {
+				return nil
+			}
+			streamEvent, matched, buildErr := s.buildTicketRunLifecycleStreamEvent(
+				c.Request().Context(),
+				projectID,
+				ticketID,
+				event,
+			)
+			if buildErr != nil {
+				s.logger.Warn("skip malformed ticket run lifecycle stream event", "error", buildErr)
+				continue
+			}
+			if !matched {
+				continue
+			}
+			if err := writeSSEEvent(response, streamEvent); err != nil {
+				return err
+			}
+			continue
+		default:
+		}
+
+		select {
+		case <-c.Request().Context().Done():
+			return nil
 		case event, ok := <-activityStream:
 			if !ok {
 				return nil
@@ -321,7 +375,12 @@ func (s *Server) handleStreamTicketRuns(c echo.Context) error {
 			if !ok {
 				return nil
 			}
-			streamEvent, matched, buildErr := buildTicketRunSummaryStreamEvent(projectID, ticketID, event)
+			streamEvent, matched, buildErr := s.buildTicketRunSummaryStreamEvent(
+				c.Request().Context(),
+				projectID,
+				ticketID,
+				event,
+			)
 			if buildErr != nil {
 				s.logger.Warn("skip malformed ticket run summary stream event", "error", buildErr)
 				continue
@@ -633,7 +692,12 @@ func (s *Server) buildProjectTicketRunLifecycleStreamEvent(
 	return s.buildTicketRunLifecycleStreamEvent(ctx, projectID, ticketID, event)
 }
 
-func buildTicketRunSummaryStreamEvent(projectID uuid.UUID, ticketID uuid.UUID, event provider.Event) (provider.Event, bool, error) {
+func (s *Server) buildTicketRunSummaryStreamEvent(
+	ctx context.Context,
+	projectID uuid.UUID,
+	ticketID uuid.UUID,
+	event provider.Event,
+) (provider.Event, bool, error) {
 	if event.Topic != ticketRunStreamTopic || event.Type != ticketRunSummaryStreamType {
 		return provider.Event{}, false, nil
 	}
@@ -645,10 +709,43 @@ func buildTicketRunSummaryStreamEvent(projectID uuid.UUID, ticketID uuid.UUID, e
 	if payload.ProjectID != projectID.String() || payload.TicketID != ticketID.String() {
 		return provider.Event{}, false, nil
 	}
-	return event, true, nil
+	runID, err := uuid.Parse(strings.TrimSpace(payload.RunID))
+	if err != nil {
+		return provider.Event{}, false, nil
+	}
+
+	catalog, err := s.loadTicketRunCatalog(ctx, projectID, ticketID)
+	if err != nil {
+		return provider.Event{}, false, err
+	}
+	runItem, ok := findTicketRun(catalog.runs, runID)
+	if !ok {
+		return provider.Event{}, false, nil
+	}
+
+	streamEvent, err := provider.NewJSONEvent(
+		ticketRunStreamTopic,
+		ticketRunSummaryStreamType,
+		map[string]any{
+			"project_id":         payload.ProjectID,
+			"ticket_id":          payload.TicketID,
+			"run_id":             payload.RunID,
+			"run":                mapTicketRunResponse(runItem, catalog),
+			"completion_summary": payload.CompletionSummary,
+		},
+		event.PublishedAt,
+	)
+	if err != nil {
+		return provider.Event{}, false, fmt.Errorf("construct ticket run summary stream event: %w", err)
+	}
+	return streamEvent, true, nil
 }
 
-func buildProjectTicketRunSummaryStreamEvent(projectID uuid.UUID, event provider.Event) (provider.Event, bool, error) {
+func (s *Server) buildProjectTicketRunSummaryStreamEvent(
+	ctx context.Context,
+	projectID uuid.UUID,
+	event provider.Event,
+) (provider.Event, bool, error) {
 	if event.Topic != ticketRunStreamTopic || event.Type != ticketRunSummaryStreamType {
 		return provider.Event{}, false, nil
 	}
@@ -660,7 +757,13 @@ func buildProjectTicketRunSummaryStreamEvent(projectID uuid.UUID, event provider
 	if payload.ProjectID != projectID.String() {
 		return provider.Event{}, false, nil
 	}
-	return event, true, nil
+
+	ticketID, err := uuid.Parse(strings.TrimSpace(payload.TicketID))
+	if err != nil {
+		return provider.Event{}, false, nil
+	}
+
+	return s.buildTicketRunSummaryStreamEvent(ctx, projectID, ticketID, event)
 }
 
 func buildTicketRunTraceStreamEvent(projectID uuid.UUID, ticketID uuid.UUID, event provider.Event) (provider.Event, bool, error) {

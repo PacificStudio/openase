@@ -203,6 +203,207 @@ func TestOpenMigratesLegacyAgentProviderCLIRateLimitSchema(t *testing.T) {
 	}
 }
 
+func TestOpenMigratesLegacyWorkflowVersionSchema(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := startEmbeddedPostgres(t)
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open sql db: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("close sql db: %v", err)
+		}
+	})
+
+	orgID := uuid.New()
+	projectID := uuid.New()
+	workflowID := uuid.New()
+	versionID := uuid.New()
+
+	statements := []string{
+		`CREATE TABLE organizations (
+			id uuid NOT NULL PRIMARY KEY,
+			name character varying NOT NULL,
+			slug character varying NOT NULL,
+			status character varying NOT NULL DEFAULT 'active',
+			github_outbound_credential jsonb NULL,
+			github_token_probe jsonb NULL,
+			default_agent_provider_id uuid NULL
+		)`,
+		`CREATE UNIQUE INDEX organization_slug ON organizations (slug)`,
+		`CREATE TABLE projects (
+			id uuid NOT NULL PRIMARY KEY,
+			name character varying NOT NULL,
+			slug character varying NOT NULL,
+			description text NOT NULL DEFAULT '',
+			status character varying NOT NULL DEFAULT 'Backlog',
+			organization_id uuid NOT NULL,
+			agent_id uuid NULL,
+			github_installation_id bigint NULL,
+			created_at timestamptz NOT NULL DEFAULT now(),
+			completed_at timestamptz NULL
+		)`,
+		`CREATE UNIQUE INDEX project_organization_id_slug ON projects (organization_id, slug)`,
+		`CREATE TABLE workflows (
+			id uuid NOT NULL PRIMARY KEY,
+			name character varying NOT NULL,
+			type character varying NOT NULL,
+			harness_path character varying NOT NULL,
+			hooks jsonb NOT NULL,
+			max_concurrent bigint NOT NULL DEFAULT 0,
+			max_retry_attempts bigint NOT NULL DEFAULT 3,
+			timeout_minutes bigint NOT NULL DEFAULT 60,
+			stall_timeout_minutes bigint NOT NULL DEFAULT 5,
+			version bigint NOT NULL DEFAULT 1,
+			is_active boolean NOT NULL DEFAULT true,
+			agent_id uuid NULL,
+			project_id uuid NOT NULL,
+			current_version_id uuid NULL
+		)`,
+		`CREATE UNIQUE INDEX workflow_project_id_name ON workflows (project_id, name)`,
+		`CREATE TABLE workflow_versions (
+			id uuid NOT NULL PRIMARY KEY,
+			version bigint NOT NULL,
+			content_markdown text NOT NULL,
+			content_hash character varying NOT NULL,
+			created_by character varying NOT NULL DEFAULT 'system:workflow-service',
+			created_at timestamptz NOT NULL,
+			workflow_id uuid NOT NULL
+		)`,
+		`CREATE UNIQUE INDEX workflowversion_workflow_id_version ON workflow_versions (workflow_id, version)`,
+		`ALTER TABLE projects
+			ADD CONSTRAINT projects_organizations_projects
+				FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE NO ACTION`,
+		`ALTER TABLE workflows
+			ADD CONSTRAINT workflows_projects_workflows
+				FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE NO ACTION`,
+		`ALTER TABLE workflow_versions
+			ADD CONSTRAINT workflow_versions_workflows_versions
+				FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE NO ACTION`,
+		`ALTER TABLE workflows
+			ADD CONSTRAINT workflows_workflow_versions_current_version
+				FOREIGN KEY (current_version_id) REFERENCES workflow_versions(id) ON DELETE SET NULL`,
+	}
+	for _, statement := range statements {
+		if _, err := db.ExecContext(ctx, statement); err != nil {
+			t.Fatalf("seed legacy workflow version schema with %q: %v", statement, err)
+		}
+	}
+
+	if _, err := db.ExecContext(
+		ctx,
+		`INSERT INTO organizations (id, name, slug) VALUES ($1, 'Acme', 'acme')`,
+		orgID,
+	); err != nil {
+		t.Fatalf("insert organization: %v", err)
+	}
+	if _, err := db.ExecContext(
+		ctx,
+		`INSERT INTO projects (id, name, slug, organization_id) VALUES ($1, 'Platform', 'platform', $2)`,
+		projectID,
+		orgID,
+	); err != nil {
+		t.Fatalf("insert project: %v", err)
+	}
+	if _, err := db.ExecContext(
+		ctx,
+		`INSERT INTO workflows (
+			id, name, type, harness_path, hooks, max_concurrent, max_retry_attempts, timeout_minutes, stall_timeout_minutes, version, is_active, project_id
+		) VALUES ($1, 'Legacy Coding', 'Fullstack Developer', '.openase/harnesses/coding.md', '{"ticket":{"hooks":[]}}'::jsonb, 2, 4, 90, 11, 1, true, $2)`,
+		workflowID,
+		projectID,
+	); err != nil {
+		t.Fatalf("insert workflow: %v", err)
+	}
+	if _, err := db.ExecContext(
+		ctx,
+		`INSERT INTO workflow_versions (
+			id, version, content_markdown, content_hash, created_by, created_at, workflow_id
+		) VALUES ($1, 1, '# Legacy workflow', 'hash-1', 'tester', now(), $2)`,
+		versionID,
+		workflowID,
+	); err != nil {
+		t.Fatalf("insert workflow version: %v", err)
+	}
+	if _, err := db.ExecContext(
+		ctx,
+		`UPDATE workflows SET current_version_id = $1 WHERE id = $2`,
+		versionID,
+		workflowID,
+	); err != nil {
+		t.Fatalf("set current_version_id: %v", err)
+	}
+
+	client, err := Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("Open() migrating legacy workflow version schema error = %v", err)
+	}
+	t.Cleanup(func() {
+		if err := client.Close(); err != nil {
+			t.Errorf("close runtime ent client: %v", err)
+		}
+	})
+
+	var (
+		name                string
+		typeLabel           string
+		harnessPath         string
+		hooks               string
+		maxConcurrent       int
+		maxRetryAttempts    int
+		timeoutMinutes      int
+		stallTimeoutMinutes int
+		isActive            bool
+	)
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT
+			name,
+			type,
+			harness_path,
+			hooks::text,
+			max_concurrent,
+			max_retry_attempts,
+			timeout_minutes,
+			stall_timeout_minutes,
+			is_active
+		FROM workflow_versions
+		WHERE id = $1`,
+		versionID,
+	).Scan(
+		&name,
+		&typeLabel,
+		&harnessPath,
+		&hooks,
+		&maxConcurrent,
+		&maxRetryAttempts,
+		&timeoutMinutes,
+		&stallTimeoutMinutes,
+		&isActive,
+	); err != nil {
+		t.Fatalf("query migrated workflow version: %v", err)
+	}
+
+	if name != "Legacy Coding" {
+		t.Fatalf("name = %q, want Legacy Coding", name)
+	}
+	if typeLabel != "Fullstack Developer" {
+		t.Fatalf("type = %q, want Fullstack Developer", typeLabel)
+	}
+	if harnessPath != ".openase/harnesses/coding.md" {
+		t.Fatalf("harness_path = %q, want .openase/harnesses/coding.md", harnessPath)
+	}
+	if hooks != `{"ticket": {"hooks": []}}` {
+		t.Fatalf("hooks = %q, want migrated workflow hooks", hooks)
+	}
+	if maxConcurrent != 2 || maxRetryAttempts != 4 || timeoutMinutes != 90 || stallTimeoutMinutes != 11 || !isActive {
+		t.Fatalf("unexpected migrated execution settings: max=%d retry=%d timeout=%d stall=%d active=%t", maxConcurrent, maxRetryAttempts, timeoutMinutes, stallTimeoutMinutes, isActive)
+	}
+}
+
 func TestWithSchemaBootstrapLockReturnsFunctionError(t *testing.T) {
 	t.Helper()
 

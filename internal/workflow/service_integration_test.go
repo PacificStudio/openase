@@ -1112,10 +1112,59 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		TimeoutMinutes:      30,
 		StallTimeoutMinutes: 5,
 		IsActive:            false,
-		PickupStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Todo"]),
+		PickupStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Backlog"]),
 		FinishStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Done"]),
 	}); !errors.Is(err, ErrWorkflowConflict) {
 		t.Fatalf("Create() duplicate name error = %v, want %v", err, ErrWorkflowConflict)
+	}
+
+	parallelCreated, err := service.Create(ctx, CreateInput{
+		ProjectID:           fixture.projectID,
+		AgentID:             fixture.agentID,
+		Name:                "Parallel Workflow",
+		Type:                TypeCoding,
+		HarnessContent:      "# Parallel\n",
+		MaxConcurrent:       1,
+		MaxRetryAttempts:    1,
+		TimeoutMinutes:      30,
+		StallTimeoutMinutes: 5,
+		IsActive:            false,
+		PickupStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Backlog"]),
+		FinishStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Done"]),
+	})
+	if err != nil {
+		t.Fatalf("Create() parallel baseline error = %v", err)
+	}
+
+	if _, err := service.Create(ctx, CreateInput{
+		ProjectID:           fixture.projectID,
+		AgentID:             fixture.agentID,
+		Name:                "Conflicting Pickup Workflow",
+		Type:                TypeCoding,
+		HarnessContent:      "# Conflicting\n",
+		MaxConcurrent:       1,
+		MaxRetryAttempts:    1,
+		TimeoutMinutes:      30,
+		StallTimeoutMinutes: 5,
+		IsActive:            false,
+		PickupStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Todo"]),
+		FinishStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Done"]),
+	}); !errors.Is(err, ErrPickupStatusConflict) {
+		t.Fatalf("Create() duplicate pickup status error = %v, want %v", err, ErrPickupStatusConflict)
+	}
+
+	if _, err := service.Update(ctx, UpdateInput{
+		WorkflowID:      parallelCreated.ID,
+		PickupStatusIDs: Some(MustStatusBindingSet(fixture.statusIDs["Todo"])),
+	}); !errors.Is(err, ErrPickupStatusConflict) {
+		t.Fatalf("Update() duplicate pickup status error = %v, want %v", err, ErrPickupStatusConflict)
+	}
+
+	if _, err := service.Update(ctx, UpdateInput{
+		WorkflowID:      created.ID,
+		PickupStatusIDs: Some(MustStatusBindingSet(fixture.statusIDs["Todo"])),
+	}); err != nil {
+		t.Fatalf("Update() self pickup status reuse error = %v", err)
 	}
 
 	if _, err := service.Update(ctx, UpdateInput{

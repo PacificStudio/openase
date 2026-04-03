@@ -636,6 +636,17 @@ func (l *RuntimeLauncher) reconcileRuntimeFacts(ctx context.Context) error {
 			continue
 		}
 
+		suppressFailure, err := l.shouldSuppressExecutionFailure(ctx, snapshot.RunID, snapshot.TicketID)
+		if err != nil {
+			return fmt.Errorf("check runtime fact failure suppression for run %s: %w", snapshot.RunID, err)
+		}
+		if suppressFailure {
+			stopSession(context.Background(), l.loadSession(snapshot.RunID))
+			l.deleteSession(snapshot.RunID)
+			l.runtime.delete(snapshot.RunID)
+			continue
+		}
+
 		disposition := classifyRuntimeTicket(ticket, snapshot.RunID, snapshot.WorkflowID)
 		if disposition == runtimeTicketActive {
 			if trimmed := strings.TrimSpace(snapshot.PendingRuntimeFact.Message); trimmed != "" {

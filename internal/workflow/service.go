@@ -23,16 +23,17 @@ import (
 )
 
 var (
-	ErrUnavailable         = errors.New("workflow service unavailable")
-	ErrProjectNotFound     = domain.ErrProjectNotFound
-	ErrWorkflowNotFound    = domain.ErrWorkflowNotFound
-	ErrStatusNotFound      = domain.ErrStatusNotFound
-	ErrAgentNotFound       = domain.ErrAgentNotFound
-	ErrWorkflowConflict    = domain.ErrWorkflowConflict
-	ErrWorkflowInUse       = domain.ErrWorkflowInUse
-	ErrHarnessInvalid      = errors.New("workflow harness is invalid")
-	ErrHookConfigInvalid   = errors.New("workflow hook config is invalid")
-	ErrWorkflowHookBlocked = errors.New("workflow hook blocked the lifecycle operation")
+	ErrUnavailable          = errors.New("workflow service unavailable")
+	ErrProjectNotFound      = domain.ErrProjectNotFound
+	ErrWorkflowNotFound     = domain.ErrWorkflowNotFound
+	ErrStatusNotFound       = domain.ErrStatusNotFound
+	ErrAgentNotFound        = domain.ErrAgentNotFound
+	ErrWorkflowConflict     = domain.ErrWorkflowConflict
+	ErrPickupStatusConflict = domain.ErrPickupStatusConflict
+	ErrWorkflowInUse        = domain.ErrWorkflowInUse
+	ErrHarnessInvalid       = errors.New("workflow harness is invalid")
+	ErrHookConfigInvalid    = errors.New("workflow hook config is invalid")
+	ErrWorkflowHookBlocked  = errors.New("workflow hook blocked the lifecycle operation")
 )
 
 var nonAlphaNumericPattern = regexp.MustCompile(`[^a-z0-9]+`)
@@ -742,6 +743,9 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 	if err := s.ensureStatusBindingsBelongToProject(ctx, input.ProjectID, pickupStatusIDs); err != nil {
 		return WorkflowDetail{}, err
 	}
+	if err := s.ensurePickupStatusBindingsAvailable(ctx, input.ProjectID, pickupStatusIDs, uuid.Nil); err != nil {
+		return WorkflowDetail{}, err
+	}
 	if err := s.ensureStatusBindingsBelongToProject(ctx, input.ProjectID, finishStatusIDs); err != nil {
 		return WorkflowDetail{}, err
 	}
@@ -905,6 +909,9 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 		nextPickupStatusIDs = input.PickupStatusIDs.Value
 	}
 	if err := s.ensureStatusBindingsBelongToProject(ctx, projectID, nextPickupStatusIDs); err != nil {
+		return WorkflowDetail{}, err
+	}
+	if err := s.ensurePickupStatusBindingsAvailable(ctx, projectID, nextPickupStatusIDs, current.ID); err != nil {
 		return WorkflowDetail{}, err
 	}
 
@@ -1116,6 +1123,18 @@ func (s *Service) ensureStatusBindingsBelongToProject(ctx context.Context, proje
 	return s.validators.EnsureStatusBindingsBelongToProject(ctx, projectID, statusIDs.IDs())
 }
 
+func (s *Service) ensurePickupStatusBindingsAvailable(
+	ctx context.Context,
+	projectID uuid.UUID,
+	statusIDs StatusBindingSet,
+	excludeWorkflowID uuid.UUID,
+) error {
+	if s == nil || s.validators == nil {
+		return ErrUnavailable
+	}
+	return s.validators.EnsurePickupStatusBindingsAvailable(ctx, projectID, statusIDs.IDs(), excludeWorkflowID)
+}
+
 func (s *Service) ensureAgentBelongsToProject(ctx context.Context, projectID uuid.UUID, agentID uuid.UUID) error {
 	if s == nil || s.validators == nil {
 		return ErrUnavailable
@@ -1245,6 +1264,8 @@ func (s *Service) mapWorkflowWriteError(action string, err error) error {
 		return ErrWorkflowNotFound
 	case errors.Is(err, ErrWorkflowConflict):
 		return ErrWorkflowConflict
+	case errors.Is(err, ErrPickupStatusConflict):
+		return ErrPickupStatusConflict
 	case errors.Is(err, ErrWorkflowInUse):
 		return ErrWorkflowInUse
 	case strings.Contains(strings.ToLower(err.Error()), "constraint"):

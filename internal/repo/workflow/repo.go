@@ -87,6 +87,51 @@ func (r *EntRepository) EnsureStatusBindingsBelongToProject(ctx context.Context,
 	return nil
 }
 
+func (r *EntRepository) EnsurePickupStatusBindingsAvailable(
+	ctx context.Context,
+	projectID uuid.UUID,
+	statusIDs []uuid.UUID,
+	excludeWorkflowID uuid.UUID,
+) error {
+	query := r.client.Workflow.Query().
+		Where(
+			entworkflow.ProjectIDEQ(projectID),
+			entworkflow.HasPickupStatusesWith(entticketstatus.IDIn(statusIDs...)),
+		).
+		WithPickupStatuses(func(statusQuery *ent.TicketStatusQuery) {
+			statusQuery.Where(entticketstatus.IDIn(statusIDs...)).
+				Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
+		}).
+		Order(ent.Asc(entworkflow.FieldName))
+	if excludeWorkflowID != uuid.Nil {
+		query = query.Where(entworkflow.IDNEQ(excludeWorkflowID))
+	}
+
+	items, err := query.All(ctx)
+	if err != nil {
+		return fmt.Errorf("check workflow pickup status uniqueness: %w", err)
+	}
+	if len(items) == 0 {
+		return nil
+	}
+
+	conflicts := make([]string, 0)
+	seen := make(map[uuid.UUID]struct{}, len(statusIDs))
+	for _, item := range items {
+		for _, status := range item.Edges.PickupStatuses {
+			if _, ok := seen[status.ID]; ok {
+				continue
+			}
+			seen[status.ID] = struct{}{}
+			conflicts = append(conflicts, fmt.Sprintf("%q is already used by workflow %q", status.Name, item.Name))
+		}
+	}
+	if len(conflicts) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%w: pickup status %s", domain.ErrPickupStatusConflict, strings.Join(conflicts, ", "))
+}
+
 func (r *EntRepository) EnsureHarnessPathAvailable(
 	ctx context.Context,
 	projectID uuid.UUID,

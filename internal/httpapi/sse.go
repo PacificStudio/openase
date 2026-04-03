@@ -370,7 +370,7 @@ func (s *Server) buildProjectStreamEvents(
 		}
 		return []provider.Event{ticketRunEvent}, nil
 	case ticketRunStreamTopic:
-		ticketRunEvent, matched, err := buildProjectTicketRunSummaryStreamEvent(projectID, event)
+		ticketRunEvent, matched, err := s.buildProjectTicketRunSummaryStreamEvent(ctx, projectID, event)
 		if err != nil || !matched {
 			return nil, err
 		}

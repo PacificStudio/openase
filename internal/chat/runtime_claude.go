@@ -20,6 +20,15 @@ type ClaudeRuntime struct {
 	nativeSessions claudeSessionRegistry
 }
 
+type claudeRuntimeToolCallState struct {
+	Tool    string
+	Command string
+}
+
+type claudeRuntimeStreamState struct {
+	toolCalls map[string]claudeRuntimeToolCallState
+}
+
 const claudeCodeResumeInterruptedTurnEnv = "CLAUDE_CODE_RESUME_INTERRUPTED_TURN"
 
 func NewClaudeRuntime(adapter provider.ClaudeCodeAdapter) *ClaudeRuntime {
@@ -172,6 +181,7 @@ func (r *ClaudeRuntime) bridgeSession(
 	eventCh := session.Events()
 	errorCh := session.Errors()
 	emittedInterrupts := map[string]struct{}{}
+	streamState := &claudeRuntimeStreamState{}
 
 	for eventCh != nil || errorCh != nil {
 		select {
@@ -201,7 +211,7 @@ func (r *ClaudeRuntime) bridgeSession(
 				}
 			}
 
-			for _, item := range mapClaudeEvent(sessionID, maxTurns, event) {
+			for _, item := range mapClaudeEvent(sessionID, maxTurns, event, streamState) {
 				if item.Event == "interrupt_requested" {
 					payload, ok := item.Payload.(RuntimeInterruptEvent)
 					if !ok || strings.TrimSpace(payload.RequestID) == "" {
@@ -285,7 +295,12 @@ func newClaudeSessionAnchorEvent(sessionID provider.ClaudeCodeSessionID) StreamE
 	}
 }
 
-func mapClaudeEvent(sessionID SessionID, maxTurns int, event provider.ClaudeCodeEvent) []StreamEvent {
+func mapClaudeEvent(
+	sessionID SessionID,
+	maxTurns int,
+	event provider.ClaudeCodeEvent,
+	state *claudeRuntimeStreamState,
+) []StreamEvent {
 	switch event.Kind {
 	case provider.ClaudeCodeEventKindSystem, provider.ClaudeCodeEventKindStream:
 		if payload, ok := parseClaudeSessionStatePayload(event); ok {
@@ -297,12 +312,9 @@ func mapClaudeEvent(sessionID SessionID, maxTurns int, event provider.ClaudeCode
 		}
 		return nil
 	case provider.ClaudeCodeEventKindAssistant:
-		texts := extractAssistantTextBlocks(event.Message)
-		if len(texts) == 0 {
-			return nil
-		}
-
-		return normalizeAssistantText(strings.Join(texts, "\n\n"))
+		return mapClaudeAssistantEvent(event, state)
+	case provider.ClaudeCodeEventKindUser:
+		return mapClaudeUserEvent(event, state)
 	case provider.ClaudeCodeEventKindTaskStart:
 		return []StreamEvent{newTaskMessageEvent(chatMessageTypeTaskStarted, decodeRawJSON(event.Raw))}
 	case provider.ClaudeCodeEventKindTaskProgress:
@@ -316,6 +328,10 @@ func mapClaudeEvent(sessionID SessionID, maxTurns int, event provider.ClaudeCode
 		}
 		return []StreamEvent{{Event: "message", Payload: payload}}
 	case provider.ClaudeCodeEventKindResult:
+		if isClaudeResultError(event) {
+			message, _ := provider.ClaudeCodeTurnFailure(event)
+			return []StreamEvent{{Event: "error", Payload: errorPayload{Message: message}}}
+		}
 		costUSD := cloneCostUSD(event.TotalCostUSD)
 		if event.UsageInfo != nil {
 			costUSD = cloneCostUSD(event.UsageInfo.CostUSD)
@@ -332,6 +348,165 @@ func mapClaudeEvent(sessionID SessionID, maxTurns int, event provider.ClaudeCode
 	default:
 		return nil
 	}
+}
+
+func mapClaudeAssistantEvent(
+	event provider.ClaudeCodeEvent,
+	state *claudeRuntimeStreamState,
+) []StreamEvent {
+	blocks, ok := provider.ParseClaudeCodeMessageBlocks(event.Message)
+	if !ok || len(blocks) == 0 {
+		return nil
+	}
+
+	threadID := provider.ClaudeCodeEventSessionID(event)
+	turnID := provider.ClaudeCodeEventTurnID(event)
+	texts := make([]string, 0, len(blocks))
+	events := make([]StreamEvent, 0, len(blocks)+1)
+	for _, block := range blocks {
+		switch block.Kind {
+		case provider.ClaudeCodeContentBlockKindText:
+			text := strings.TrimSpace(block.Text)
+			if text != "" {
+				texts = append(texts, text)
+			}
+		case provider.ClaudeCodeContentBlockKindToolUse,
+			provider.ClaudeCodeContentBlockKindServerToolUse,
+			provider.ClaudeCodeContentBlockKindMCPToolUse:
+			callID := strings.TrimSpace(block.ID)
+			if callID == "" {
+				callID = provider.ClaudeCodeEventUUID(event)
+			}
+			if state != nil {
+				state.rememberToolCall(callID, block.Name, block.Input)
+			}
+			events = append(events, newTaskMessageEvent(chatMessageTypeTaskNotification, map[string]any{
+				"tool":       firstNonEmptyString(strings.TrimSpace(block.Name), string(block.Kind)),
+				"arguments":  cloneAnyMap(block.Input),
+				"call_id":    callID,
+				"provider":   "claude",
+				"thread_id":  threadID,
+				"turn_id":    turnID,
+				"item_id":    provider.ClaudeCodeEventUUID(event),
+				"session_id": provider.ClaudeCodeEventSessionID(event),
+			}))
+		}
+	}
+
+	text := strings.TrimSpace(strings.Join(texts, "\n\n"))
+	if text != "" {
+		return append(normalizeAssistantText(text), events...)
+	}
+	return events
+}
+
+func mapClaudeUserEvent(
+	event provider.ClaudeCodeEvent,
+	state *claudeRuntimeStreamState,
+) []StreamEvent {
+	blocks, ok := provider.ParseClaudeCodeMessageBlocks(event.Message)
+	if !ok || len(blocks) == 0 {
+		return []StreamEvent{newTaskMessageEvent(chatMessageTypeTaskProgress, provider.ClaudeCodeRawPayload(event))}
+	}
+
+	threadID := provider.ClaudeCodeEventSessionID(event)
+	turnID := provider.ClaudeCodeEventTurnID(event)
+	events := make([]StreamEvent, 0, len(blocks)+1)
+	for _, block := range blocks {
+		if block.Kind != provider.ClaudeCodeContentBlockKindToolResult {
+			continue
+		}
+
+		toolUseID := strings.TrimSpace(block.ToolUseID)
+		text := strings.TrimSpace(provider.ExtractClaudeCodeToolResultText(block.Content))
+		callState, hasCallState := claudeRuntimeToolCallState{}, false
+		if state != nil {
+			callState, hasCallState = state.toolCall(toolUseID)
+		}
+		if hasCallState && strings.TrimSpace(callState.Command) != "" && text != "" {
+			events = append(events, newTaskMessageEvent(chatMessageTypeTaskProgress, map[string]any{
+				"stream":      "command",
+				"command":     callState.Command,
+				"text":        text,
+				"snapshot":    true,
+				"tool_use_id": toolUseID,
+				"tool":        callState.Tool,
+				"provider":    "claude",
+				"thread_id":   threadID,
+				"turn_id":     turnID,
+				"is_error":    block.IsError,
+			}))
+			if looksLikeUnifiedDiff(text) && strings.TrimSpace(turnID) != "" {
+				events = append(events, StreamEvent{
+					Event: "diff_updated",
+					Payload: runtimeDiffUpdatedPayload{
+						ThreadID: threadID,
+						TurnID:   turnID,
+						Diff:     strings.TrimSpace(text),
+					},
+				})
+			}
+			continue
+		}
+
+		raw := provider.ClaudeCodeRawPayload(event)
+		if toolUseID != "" {
+			raw["tool_use_id"] = toolUseID
+		}
+		if hasCallState {
+			raw["tool"] = callState.Tool
+			if callState.Command != "" {
+				raw["command"] = callState.Command
+			}
+		}
+		if text != "" {
+			raw["text"] = text
+		}
+		if block.IsError {
+			raw["is_error"] = true
+		}
+		events = append(events, newTaskMessageEvent(chatMessageTypeTaskProgress, raw))
+	}
+
+	if len(events) == 0 {
+		return []StreamEvent{newTaskMessageEvent(chatMessageTypeTaskProgress, provider.ClaudeCodeRawPayload(event))}
+	}
+	return events
+}
+
+func isClaudeResultError(event provider.ClaudeCodeEvent) bool {
+	if event.IsError {
+		return true
+	}
+	subtype := strings.TrimSpace(event.Subtype)
+	return subtype == "error" || strings.HasPrefix(subtype, "error_")
+}
+
+func (s *claudeRuntimeStreamState) rememberToolCall(callID string, toolName string, input map[string]any) {
+	if strings.TrimSpace(callID) == "" {
+		return
+	}
+	if s.toolCalls == nil {
+		s.toolCalls = map[string]claudeRuntimeToolCallState{}
+	}
+	semantics := provider.DeriveClaudeCodeToolUseSemantics(toolName, input)
+	s.toolCalls[callID] = claudeRuntimeToolCallState{
+		Tool:    strings.TrimSpace(toolName),
+		Command: strings.TrimSpace(semantics.Command),
+	}
+}
+
+func (s *claudeRuntimeStreamState) toolCall(callID string) (claudeRuntimeToolCallState, bool) {
+	if s == nil || strings.TrimSpace(callID) == "" || len(s.toolCalls) == 0 {
+		return claudeRuntimeToolCallState{}, false
+	}
+	state, ok := s.toolCalls[callID]
+	return state, ok
+}
+
+func looksLikeUnifiedDiff(text string) bool {
+	trimmed := strings.TrimSpace(text)
+	return strings.Contains(trimmed, "diff --git ") && strings.Contains(trimmed, "\n@@ ")
 }
 
 func parseClaudeInterruptEvent(

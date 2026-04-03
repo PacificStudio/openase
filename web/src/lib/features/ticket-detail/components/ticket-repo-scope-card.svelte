@@ -8,6 +8,8 @@
   import ExternalLink from '@lucide/svelte/icons/external-link'
   import GitBranch from '@lucide/svelte/icons/git-branch'
   import GitPullRequest from '@lucide/svelte/icons/git-pull-request'
+  import Copy from '@lucide/svelte/icons/copy'
+  import Check from '@lucide/svelte/icons/check'
   import { cn } from '$lib/utils'
   import type { TicketDetail } from '../types'
 
@@ -16,7 +18,6 @@
     pullRequestUrl: string
   }
 
-  const summaryLabelClass = 'text-muted-foreground text-[10px] font-medium uppercase tracking-wide'
   let {
     scope,
     saving = false,
@@ -42,6 +43,7 @@
     pullRequestUrl: '',
   })
   let editOpen = $state(false)
+  let copiedBranch = $state(false)
 
   $effect(() => {
     draft.branchName = scope.branchName
@@ -72,18 +74,23 @@
     editOpen = false
   }
 
-  function branchSourceLabel(source: TicketDetail['repoScopes'][number]['branchSource']) {
-    return source === 'override' ? 'Override' : 'Generated'
+  function copyBranch() {
+    navigator.clipboard.writeText(scope.effectiveBranchName)
+    copiedBranch = true
+    setTimeout(() => (copiedBranch = false), 1500)
+  }
+
+  function extractPrLabel(url: string) {
+    const match = url.match(/\/pull\/(\d+)/)
+    return match ? `#${match[1]}` : 'Pull Request'
   }
 </script>
 
-<div class="border-border bg-muted/20 rounded-lg border p-4">
-  <div class="flex items-start justify-between gap-3">
-    <div class="min-w-0">
-      <div class="text-foreground flex items-center gap-2 text-sm font-medium">
-        <GitBranch class="text-muted-foreground size-3.5" />
-        <span class="break-words">{scope.repoName}</span>
-      </div>
+<div class="border-border bg-muted/20 rounded-lg border px-3 py-2.5">
+  <div class="flex items-center justify-between gap-2">
+    <div class="text-foreground flex items-center gap-1.5 text-xs font-medium">
+      <GitBranch class="text-muted-foreground size-3.5 shrink-0" />
+      <span class="break-words">{scope.repoName}</span>
     </div>
 
     <DropdownMenu.Root>
@@ -112,49 +119,55 @@
     </DropdownMenu.Root>
   </div>
 
-  <dl class="mt-3 space-y-2.5">
-    <div class="flex items-start gap-2">
-      <dt class={cn(summaryLabelClass, 'w-16 shrink-0 pt-0.5')}>Work branch</dt>
-      <dd class="text-foreground flex min-w-0 items-center gap-1.5 text-xs">
-        <GitBranch class="text-muted-foreground size-3.5 shrink-0" />
-        <span class="break-all">{scope.effectiveBranchName}</span>
-        <span
-          class="border-border bg-background rounded-full border px-1.5 py-0.5 text-[10px] tracking-wide uppercase"
+  <div class="mt-2 space-y-1.5">
+    <!-- Branch -->
+    <div class="flex items-center gap-1.5">
+      <button
+        type="button"
+        class="bg-muted hover:bg-muted/80 group inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[11px] transition-colors"
+        title="Copy branch name"
+        onclick={copyBranch}
+      >
+        <span class="text-foreground">{scope.effectiveBranchName}</span>
+        {#if copiedBranch}
+          <Check class="size-2.5 text-emerald-500" />
+        {:else}
+          <Copy
+            class="text-muted-foreground/50 size-2.5 opacity-0 transition-opacity group-hover:opacity-100"
+          />
+        {/if}
+      </button>
+      {#if scope.branchSource === 'override'}
+        <span class="text-muted-foreground text-[9px] tracking-wide uppercase">override</span>
+      {/if}
+    </div>
+
+    <!-- Base branch -->
+    <div class="text-muted-foreground flex items-center gap-1 text-[11px]">
+      <span>base:</span>
+      <code class="text-foreground/70 font-mono">{scope.defaultBranch}</code>
+    </div>
+
+    <!-- PR -->
+    <div class="flex items-center gap-1.5 text-[11px]">
+      <GitPullRequest
+        class={cn('size-3 shrink-0', scope.prUrl ? 'text-emerald-500' : 'text-muted-foreground/40')}
+      />
+      {#if scope.prUrl}
+        <a
+          href={scope.prUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-foreground inline-flex items-center gap-1 font-medium transition-colors hover:text-blue-400 hover:underline"
         >
-          {branchSourceLabel(scope.branchSource)}
-        </span>
-      </dd>
+          {extractPrLabel(scope.prUrl)}
+          <ExternalLink class="size-2.5" />
+        </a>
+      {:else}
+        <span class="text-muted-foreground/50">No PR</span>
+      {/if}
     </div>
-
-    <div class="flex items-start gap-2">
-      <dt class={cn(summaryLabelClass, 'w-16 shrink-0 pt-0.5')}>Base</dt>
-      <dd class="text-muted-foreground min-w-0 text-xs">
-        <span class="break-all">{scope.defaultBranch}</span>
-      </dd>
-    </div>
-
-    <div class="flex items-start gap-2">
-      <dt class={cn(summaryLabelClass, 'w-16 shrink-0 pt-0.5')}>PR</dt>
-      <dd class="min-w-0 text-xs">
-        <div class="flex items-center gap-1.5">
-          <GitPullRequest class="text-muted-foreground size-3.5 shrink-0" />
-          {#if scope.prUrl}
-            <a
-              href={scope.prUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="text-blue-400 hover:underline"
-            >
-              Pull Request
-            </a>
-            <ExternalLink class="text-muted-foreground size-2.5 shrink-0" />
-          {:else}
-            <span class="text-muted-foreground">No PR linked</span>
-          {/if}
-        </div>
-      </dd>
-    </div>
-  </dl>
+  </div>
 </div>
 
 <Dialog.Root bind:open={editOpen}>

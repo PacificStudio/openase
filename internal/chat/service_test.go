@@ -88,7 +88,7 @@ func TestMapClaudeEventPromotesActionProposalJSON(t *testing.T) {
 			"    }\n" +
 			"  ]\n" +
 			"}"),
-	})
+	}, nil)
 	if len(events) != 1 {
 		t.Fatalf("expected one mapped event, got %d", len(events))
 	}
@@ -412,7 +412,7 @@ func TestMapClaudeEventPromotesDiffJSON(t *testing.T) {
 			"    }\n" +
 			"  ]\n" +
 			"}"),
-	})
+	}, nil)
 	if len(events) != 1 {
 		t.Fatalf("expected one mapped event, got %d", len(events))
 	}

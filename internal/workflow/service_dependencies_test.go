@@ -15,6 +15,7 @@ type stubProjectValidationRepository struct {
 	ensureProjectExists                 func(context.Context, uuid.UUID) error
 	ensureAgentBelongsToProject         func(context.Context, uuid.UUID, uuid.UUID) error
 	ensureStatusBindingsBelongToProject func(context.Context, uuid.UUID, []uuid.UUID) error
+	ensurePickupStatusBindingsAvailable func(context.Context, uuid.UUID, []uuid.UUID, uuid.UUID) error
 	ensureHarnessPathAvailable          func(context.Context, uuid.UUID, string, uuid.UUID) error
 	statusNames                         func(context.Context, []uuid.UUID) ([]string, error)
 }
@@ -36,6 +37,18 @@ func (s stubProjectValidationRepository) EnsureAgentBelongsToProject(ctx context
 func (s stubProjectValidationRepository) EnsureStatusBindingsBelongToProject(ctx context.Context, projectID uuid.UUID, statusIDs []uuid.UUID) error {
 	if s.ensureStatusBindingsBelongToProject != nil {
 		return s.ensureStatusBindingsBelongToProject(ctx, projectID, statusIDs)
+	}
+	return nil
+}
+
+func (s stubProjectValidationRepository) EnsurePickupStatusBindingsAvailable(
+	ctx context.Context,
+	projectID uuid.UUID,
+	statusIDs []uuid.UUID,
+	excludeWorkflowID uuid.UUID,
+) error {
+	if s.ensurePickupStatusBindingsAvailable != nil {
+		return s.ensurePickupStatusBindingsAvailable(ctx, projectID, statusIDs, excludeWorkflowID)
 	}
 	return nil
 }

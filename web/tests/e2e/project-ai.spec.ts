@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
+import { measureNavigation } from './perf'
 
 async function expectProviderCatalog(page: Page) {
   const options = page.getByRole('option')
@@ -21,10 +22,17 @@ async function expectProviderCatalog(page: Page) {
 test('project ai provider picker matches the available provider catalog', async ({
   page,
   projectPath,
-}) => {
-  await page.goto(projectPath('workflows'))
-  await page.waitForTimeout(2000)
-  await expect(page.getByRole('heading', { name: 'Workflows' })).toBeVisible({ timeout: 10_000 })
+}, testInfo) => {
+  await measureNavigation({
+    page,
+    scenario: 'project_ai_workflows_ready',
+    budgetMs: 800,
+    ready: page.getByRole('button', { name: 'Validate' }),
+    testInfo,
+    action: async () => {
+      await page.goto(projectPath('workflows'))
+    },
+  })
 
   await page.getByRole('button', { name: 'Ask AI' }).click()
   await expect(page.getByPlaceholder('Ask anything about this project…')).toBeVisible({
@@ -43,9 +51,17 @@ test('project ai provider picker matches the available provider catalog', async 
 test('project ai creates a new conversation and streams the first reply', async ({
   page,
   projectPath,
-}) => {
-  await page.goto(projectPath('workflows'))
-  await expect(page.getByRole('heading', { name: 'Workflows' })).toBeVisible({ timeout: 10_000 })
+}, testInfo) => {
+  await measureNavigation({
+    page,
+    scenario: 'project_ai_first_turn_ready',
+    budgetMs: 800,
+    ready: page.getByRole('button', { name: 'Validate' }),
+    testInfo,
+    action: async () => {
+      await page.goto(projectPath('workflows'))
+    },
+  })
 
   await page.getByRole('button', { name: 'Ask AI' }).click()
   await expect(page.getByPlaceholder('Ask anything about this project…')).toBeVisible({
@@ -111,10 +127,17 @@ test('ticket drawer routes AI through ticket-focused Project AI with a complete 
 test('harness ai provider picker matches the available provider catalog', async ({
   page,
   projectPath,
-}) => {
-  await page.goto(projectPath('workflows'))
-  await page.waitForTimeout(2000)
-  await expect(page.getByRole('heading', { name: 'Workflows' })).toBeVisible({ timeout: 10_000 })
+}, testInfo) => {
+  await measureNavigation({
+    page,
+    scenario: 'harness_ai_workflows_ready',
+    budgetMs: 800,
+    ready: page.getByRole('button', { name: 'Validate' }),
+    testInfo,
+    action: async () => {
+      await page.goto(projectPath('workflows'))
+    },
+  })
 
   await page.getByRole('button', { name: 'AI', exact: true }).click()
   await expect(page.getByPlaceholder('Ask AI to refine this harness…')).toBeVisible({
