@@ -70,7 +70,7 @@ func (_c *WorkflowCreate) SetName(v string) *WorkflowCreate {
 }
 
 // SetType sets the "type" field.
-func (_c *WorkflowCreate) SetType(v workflow.Type) *WorkflowCreate {
+func (_c *WorkflowCreate) SetType(v string) *WorkflowCreate {
 	_c.mutation.SetType(v)
 	return _c
 }
@@ -521,7 +521,7 @@ func (_c *WorkflowCreate) createSpec() (*Workflow, *sqlgraph.CreateSpec) {
 		_node.Name = value
 	}
 	if value, ok := _c.mutation.GetType(); ok {
-		_spec.SetField(workflow.FieldType, field.TypeEnum, value)
+		_spec.SetField(workflow.FieldType, field.TypeString, value)
 		_node.Type = value
 	}
 	if value, ok := _c.mutation.RoleSlug(); ok {

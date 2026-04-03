@@ -384,6 +384,7 @@ type LifecycleHookRuntimeData struct {
 	TicketIdentifier      string
 	AgentName             string
 	WorkflowType          string
+	WorkflowFamily        string
 	PlatformAccessAllowed []string
 	Attempt               int
 	WorkspaceRoot         string

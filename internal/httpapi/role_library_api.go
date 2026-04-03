@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/BetterAndBetterII/openase/internal/builtin"
+	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/labstack/echo/v4"
 )
 
@@ -12,6 +13,7 @@ type builtinRoleResponse struct {
 	Slug                  string   `json:"slug"`
 	Name                  string   `json:"name"`
 	WorkflowType          string   `json:"workflow_type"`
+	WorkflowFamily        string   `json:"workflow_family"`
 	Summary               string   `json:"summary"`
 	HarnessPath           string   `json:"harness_path"`
 	Content               string   `json:"content"`
@@ -52,10 +54,18 @@ func (s *Server) handleGetBuiltinRole(c echo.Context) error {
 }
 
 func mapBuiltinRoleResponse(item builtin.RoleTemplate) builtinRoleResponse {
+	classification := workflowservice.ClassifyWorkflow(workflowservice.WorkflowClassificationInput{
+		RoleSlug:       item.Slug,
+		TypeLabel:      workflowservice.MustParseTypeLabel(item.WorkflowType),
+		WorkflowName:   item.Name,
+		HarnessPath:    item.HarnessPath,
+		HarnessContent: item.Content,
+	})
 	return builtinRoleResponse{
 		Slug:                  item.Slug,
 		Name:                  item.Name,
 		WorkflowType:          item.WorkflowType,
+		WorkflowFamily:        string(classification.Family),
 		Summary:               item.Summary,
 		HarnessPath:           item.HarnessPath,
 		Content:               item.Content,

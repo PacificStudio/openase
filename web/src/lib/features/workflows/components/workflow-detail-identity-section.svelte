@@ -26,17 +26,34 @@
 </script>
 
 <div class="space-y-6">
-  <div class="space-y-1.5">
-    <Label
-      for="workflow-name"
-      class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Workflow Name</Label
-    >
-    <Input
-      id="workflow-name"
-      value={draft.name}
-      disabled={saving || deleting}
-      oninput={(event) => onFieldChange('name', (event.currentTarget as HTMLInputElement).value)}
-    />
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="space-y-1.5">
+      <Label
+        for="workflow-name"
+        class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
+        >Workflow Name</Label
+      >
+      <Input
+        id="workflow-name"
+        value={draft.name}
+        disabled={saving || deleting}
+        oninput={(event) => onFieldChange('name', (event.currentTarget as HTMLInputElement).value)}
+      />
+    </div>
+
+    <div class="space-y-1.5">
+      <Label
+        for="workflow-type-label"
+        class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Type Label</Label
+      >
+      <Input
+        id="workflow-type-label"
+        value={draft.typeLabel}
+        disabled={saving || deleting}
+        oninput={(event) =>
+          onFieldChange('typeLabel', (event.currentTarget as HTMLInputElement).value)}
+      />
+    </div>
   </div>
 
   <div class="grid gap-4 sm:grid-cols-2">

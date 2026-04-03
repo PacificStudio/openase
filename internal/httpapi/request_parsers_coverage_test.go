@@ -291,7 +291,7 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 	createWorkflowInput, err := parseCreateWorkflowRequest(projectID, rawCreateWorkflowRequest{
 		AgentID:             agentID.String(),
 		Name:                " CI ",
-		Type:                " coding ",
+		Type:                " Fullstack Developer ",
 		CreatedBy:           strPtr(" user:creator "),
 		HarnessPath:         strPtr(" ./harness.md "),
 		HarnessContent:      "content",
@@ -307,20 +307,20 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseCreateWorkflowRequest() error = %v", err)
 	}
-	if createWorkflowInput.Name != "CI" || createWorkflowInput.Type != workflowservice.TypeCoding || createWorkflowInput.IsActive {
+	if createWorkflowInput.Name != "CI" || createWorkflowInput.Type != workflowservice.MustParseTypeLabel("Fullstack Developer") || createWorkflowInput.IsActive {
 		t.Fatalf("parseCreateWorkflowRequest() = %+v", createWorkflowInput)
 	}
 	if createWorkflowInput.CreatedBy != "user:creator" {
 		t.Fatalf("parseCreateWorkflowRequest().CreatedBy = %q", createWorkflowInput.CreatedBy)
 	}
-	if _, err := parseCreateWorkflowRequest(projectID, rawCreateWorkflowRequest{Name: "ok", Type: "coding", AgentID: "bad"}); err == nil || !strings.Contains(err.Error(), "agent_id must be a valid UUID") {
+	if _, err := parseCreateWorkflowRequest(projectID, rawCreateWorkflowRequest{Name: "ok", Type: "Fullstack Developer", AgentID: "bad"}); err == nil || !strings.Contains(err.Error(), "agent_id must be a valid UUID") {
 		t.Fatalf("parseCreateWorkflowRequest(bad agent) error = %v", err)
 	}
 
 	updateWorkflowInput, err := parseUpdateWorkflowRequest(workflowID, rawUpdateWorkflowRequest{
 		AgentID:             strPtr(agentID.String()),
 		Name:                strPtr(" Updated "),
-		Type:                strPtr("test"),
+		Type:                strPtr("QA Engineer"),
 		EditedBy:            strPtr(" user:editor "),
 		HarnessPath:         strPtr(" ./new.md "),
 		Hooks:               &map[string]any{"post": true},
@@ -359,11 +359,11 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 		t.Fatalf("parseUpdateHarnessRequest(blank) error = %v", err)
 	}
 
-	if got, err := parseWorkflowType("deploy"); err != nil || got != workflowservice.TypeDeploy {
-		t.Fatalf("parseWorkflowType() = (%q, %v)", got, err)
+	if got, err := parseWorkflowTypeLabel("Release Captain"); err != nil || got != workflowservice.MustParseTypeLabel("Release Captain") {
+		t.Fatalf("parseWorkflowTypeLabel() = (%q, %v)", got, err)
 	}
-	if _, err := parseWorkflowType("invalid"); err == nil || !strings.Contains(err.Error(), "coding, test, doc") {
-		t.Fatalf("parseWorkflowType(invalid) error = %v", err)
+	if _, err := parseWorkflowTypeLabel(" \n "); err == nil || !strings.Contains(err.Error(), "must not be empty") {
+		t.Fatalf("parseWorkflowTypeLabel(empty) error = %v", err)
 	}
 	if got, err := parseUUIDString("agent_id", agentID.String()); err != nil || got != agentID {
 		t.Fatalf("parseUUIDString() = (%v, %v)", got, err)

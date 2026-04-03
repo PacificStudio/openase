@@ -1834,7 +1834,7 @@ var (
 	WorkflowsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "name", Type: field.TypeString},
-		{Name: "type", Type: field.TypeEnum, Enums: []string{"coding", "test", "doc", "security", "deploy", "refine-harness", "custom"}},
+		{Name: "type", Type: field.TypeString},
 		{Name: "role_slug", Type: field.TypeString, Nullable: true},
 		{Name: "role_name", Type: field.TypeString, Nullable: true},
 		{Name: "role_description", Type: field.TypeString, Nullable: true, Size: 2147483647},
@@ -1941,7 +1941,7 @@ var (
 		{Name: "version", Type: field.TypeInt},
 		{Name: "content_markdown", Type: field.TypeString, Size: 2147483647},
 		{Name: "name", Type: field.TypeString},
-		{Name: "type", Type: field.TypeEnum, Enums: []string{"coding", "test", "doc", "security", "deploy", "refine-harness", "custom"}},
+		{Name: "type", Type: field.TypeString},
 		{Name: "role_slug", Type: field.TypeString, Nullable: true},
 		{Name: "role_name", Type: field.TypeString, Nullable: true},
 		{Name: "role_description", Type: field.TypeString, Nullable: true, Size: 2147483647},

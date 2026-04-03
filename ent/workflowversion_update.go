@@ -95,13 +95,13 @@ func (_u *WorkflowVersionUpdate) SetNillableName(v *string) *WorkflowVersionUpda
 }
 
 // SetType sets the "type" field.
-func (_u *WorkflowVersionUpdate) SetType(v workflowversion.Type) *WorkflowVersionUpdate {
+func (_u *WorkflowVersionUpdate) SetType(v string) *WorkflowVersionUpdate {
 	_u.mutation.SetType(v)
 	return _u
 }
 
 // SetNillableType sets the "type" field if the given value is not nil.
-func (_u *WorkflowVersionUpdate) SetNillableType(v *workflowversion.Type) *WorkflowVersionUpdate {
+func (_u *WorkflowVersionUpdate) SetNillableType(v *string) *WorkflowVersionUpdate {
 	if v != nil {
 		_u.SetType(*v)
 	}
@@ -482,7 +482,7 @@ func (_u *WorkflowVersionUpdate) sqlSave(ctx context.Context) (_node int, err er
 		_spec.SetField(workflowversion.FieldName, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.GetType(); ok {
-		_spec.SetField(workflowversion.FieldType, field.TypeEnum, value)
+		_spec.SetField(workflowversion.FieldType, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.RoleSlug(); ok {
 		_spec.SetField(workflowversion.FieldRoleSlug, field.TypeString, value)
@@ -717,13 +717,13 @@ func (_u *WorkflowVersionUpdateOne) SetNillableName(v *string) *WorkflowVersionU
 }
 
 // SetType sets the "type" field.
-func (_u *WorkflowVersionUpdateOne) SetType(v workflowversion.Type) *WorkflowVersionUpdateOne {
+func (_u *WorkflowVersionUpdateOne) SetType(v string) *WorkflowVersionUpdateOne {
 	_u.mutation.SetType(v)
 	return _u
 }
 
 // SetNillableType sets the "type" field if the given value is not nil.
-func (_u *WorkflowVersionUpdateOne) SetNillableType(v *workflowversion.Type) *WorkflowVersionUpdateOne {
+func (_u *WorkflowVersionUpdateOne) SetNillableType(v *string) *WorkflowVersionUpdateOne {
 	if v != nil {
 		_u.SetType(*v)
 	}
@@ -1134,7 +1134,7 @@ func (_u *WorkflowVersionUpdateOne) sqlSave(ctx context.Context) (_node *Workflo
 		_spec.SetField(workflowversion.FieldName, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.GetType(); ok {
-		_spec.SetField(workflowversion.FieldType, field.TypeEnum, value)
+		_spec.SetField(workflowversion.FieldType, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.RoleSlug(); ok {
 		_spec.SetField(workflowversion.FieldRoleSlug, field.TypeString, value)

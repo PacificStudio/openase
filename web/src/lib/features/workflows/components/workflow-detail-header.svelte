@@ -1,5 +1,6 @@
 <script lang="ts">
   import { cn, formatRelativeTime } from '$lib/utils'
+  import { workflowFamilyDescriptions } from '../model'
   import { Button } from '$ui/button'
   import { Power } from '@lucide/svelte'
   import type { WorkflowSummary } from '../types'
@@ -22,7 +23,8 @@
     <div>
       <h3 class="text-foreground text-sm font-medium">{workflow.name}</h3>
       <div class="text-muted-foreground mt-1 flex items-center gap-2 text-xs">
-        <span class="capitalize">{workflow.type}</span>
+        <span>{workflow.type}</span>
+        <span>{workflowFamilyDescriptions[workflow.workflowFamily]}</span>
         {#if workflow.roleName}
           <span>{workflow.roleName}</span>
         {/if}

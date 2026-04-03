@@ -117,7 +117,7 @@ export async function loadWorkflowIndex(projectId: string, orgId: string, select
     agentOptions: catalog.agentOptions,
     workflows: catalog.workflows,
     builtinRoleContent:
-      builtinRolePayload.roles.find((role) => role.workflow_type === 'coding')?.content ??
+      builtinRolePayload.roles.find((role) => role.slug === 'fullstack-developer')?.content ??
       defaultHarnessTemplate(),
     providers: catalog.providers,
     statuses: catalog.statuses,

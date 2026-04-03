@@ -11,7 +11,7 @@ import (
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	entworkflowversion "github.com/BetterAndBetterII/openase/ent/workflowversion"
-	"github.com/BetterAndBetterII/openase/internal/agentplatform"
+	agentplatformdomain "github.com/BetterAndBetterII/openase/internal/domain/agentplatform"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
@@ -72,7 +72,7 @@ func formatWorkflowVersionStatusIDs(ids []uuid.UUID) pgarray.StringArray {
 }
 
 func normalizePlatformAccessAllowed(raw []string) []string {
-	supported := agentplatform.SupportedScopes()
+	supported := agentplatformdomain.SupportedAgentScopes()
 	allowed := make([]string, 0, len(raw))
 	for _, item := range raw {
 		trimmed := strings.TrimSpace(item)
@@ -89,7 +89,7 @@ func defaultPlatformAccessAllowed(raw []string) []string {
 	if len(normalized) > 0 {
 		return normalized
 	}
-	return agentplatform.DefaultScopes()
+	return agentplatformdomain.DefaultAgentScopes()
 }
 
 func parseLegacyWorkflowHarnessMetadata(content string) (legacyWorkflowHarnessMetadata, error) {
@@ -288,7 +288,7 @@ func (r *EntRepository) ensureWorkflowMigrated(ctx context.Context, workflowID u
 		if _, err := tx.WorkflowVersion.UpdateOneID(versionItem.ID).
 			SetContentMarkdown(normalizeHarnessNewlines(legacyVersion.Body)).
 			SetName(nextWorkflow.Name).
-			SetType(entworkflowversion.Type(nextWorkflow.Type.String())).
+			SetType(nextWorkflow.Type.String()).
 			SetRoleSlug(strings.TrimSpace(nextWorkflow.RoleSlug)).
 			SetRoleName(strings.TrimSpace(nextWorkflow.RoleName)).
 			SetRoleDescription(strings.TrimSpace(nextWorkflow.RoleDescription)).
@@ -361,7 +361,7 @@ func (r *EntRepository) createWorkflowVersionSnapshot(
 		SetVersion(version).
 		SetContentMarkdown(normalizedContent).
 		SetName(workflow.Name).
-		SetType(entworkflowversion.Type(workflow.Type.String())).
+		SetType(workflow.Type.String()).
 		SetRoleSlug(strings.TrimSpace(workflow.RoleSlug)).
 		SetRoleName(strings.TrimSpace(workflowRoleName(workflow))).
 		SetRoleDescription(strings.TrimSpace(workflow.RoleDescription)).

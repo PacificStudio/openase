@@ -5,6 +5,8 @@ import (
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
+
+	workflowdomain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
 )
 
 type Workflow struct {
@@ -22,8 +24,11 @@ func (Workflow) Fields() []ent.Field {
 			Optional().
 			Nillable(),
 		field.String("name").NotEmpty(),
-		field.Enum("type").
-			Values("coding", "test", "doc", "security", "deploy", "refine-harness", "custom"),
+		field.String("type").
+			Validate(func(value string) error {
+				_, err := workflowdomain.ParseTypeLabel(value)
+				return err
+			}),
 		field.String("role_slug").Optional(),
 		field.String("role_name").Optional(),
 		field.Text("role_description").Optional(),

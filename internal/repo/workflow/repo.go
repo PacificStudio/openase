@@ -187,7 +187,7 @@ func (r *EntRepository) Create(ctx context.Context, workflow domain.Workflow, ha
 		SetID(workflowID).
 		SetProjectID(workflow.ProjectID).
 		SetName(workflow.Name).
-		SetType(entworkflow.Type(workflow.Type.String())).
+		SetType(workflow.Type.String()).
 		SetRoleSlug(strings.TrimSpace(workflow.RoleSlug)).
 		SetRoleName(strings.TrimSpace(workflow.RoleName)).
 		SetRoleDescription(strings.TrimSpace(workflow.RoleDescription)).
@@ -240,7 +240,7 @@ func (r *EntRepository) Create(ctx context.Context, workflow domain.Workflow, ha
 func (r *EntRepository) Update(ctx context.Context, workflow domain.Workflow) (domain.Workflow, error) {
 	builder := r.client.Workflow.UpdateOneID(workflow.ID).
 		SetName(workflow.Name).
-		SetType(entworkflow.Type(workflow.Type.String())).
+		SetType(workflow.Type.String()).
 		SetRoleSlug(strings.TrimSpace(workflow.RoleSlug)).
 		SetRoleName(strings.TrimSpace(workflow.RoleName)).
 		SetRoleDescription(strings.TrimSpace(workflow.RoleDescription)).
@@ -1214,7 +1214,7 @@ func (r *EntRepository) BuildHarnessTemplateData(
 		OpenASEVersion:     strings.TrimSpace(input.OpenASEVersion),
 		Workflow: domain.HarnessWorkflowData{
 			Name:         workflowItem.Name,
-			Type:         workflowItem.Type.String(),
+			Type:         workflowItem.Type,
 			RoleName:     workflowRoleName(mapWorkflow(workflowItem)),
 			PickupStatus: joinStatusNames(workflowItem.Edges.PickupStatuses),
 			FinishStatus: joinStatusNames(workflowItem.Edges.FinishStatuses),
@@ -1733,7 +1733,7 @@ func (r *EntRepository) mapHarnessProjectWorkflows(
 		}
 		items = append(items, domain.HarnessProjectWorkflowData{
 			Name:            workflowItem.Name,
-			Type:            workflowItem.Type.String(),
+			Type:            workflowItem.Type,
 			RoleName:        workflowRoleName(mapWorkflow(workflowItem)),
 			RoleDescription: strings.TrimSpace(workflowItem.RoleDescription),
 			PickupStatus:    joinStatusNames(workflowItem.Edges.PickupStatuses),

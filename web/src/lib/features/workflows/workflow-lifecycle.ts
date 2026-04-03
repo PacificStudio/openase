@@ -3,6 +3,7 @@ import type { WorkflowSummary } from './types'
 export type WorkflowLifecycleDraft = {
   agentId: string
   name: string
+  typeLabel: string
   roleSlug?: string
   roleName?: string
   roleDescription?: string
@@ -24,6 +25,7 @@ export type WorkflowLifecyclePayload = {
   max_concurrent: number
   max_retry_attempts: number
   name: string
+  type: string
   role_description?: string
   role_name?: string
   role_slug?: string
@@ -39,6 +41,7 @@ export function createWorkflowLifecycleDraft(workflow: WorkflowSummary): Workflo
   return {
     agentId: workflow.agentId ?? '',
     name: workflow.name,
+    typeLabel: workflow.type,
     roleSlug: workflow.roleSlug ?? '',
     roleName: workflow.roleName ?? workflow.name,
     roleDescription: workflow.roleDescription ?? '',
@@ -62,6 +65,9 @@ export function parseWorkflowLifecycleDraft(
   }
   if (!draft.agentId) {
     return { ok: false, error: 'Bound agent is required.' }
+  }
+  if (!draft.typeLabel.trim()) {
+    return { ok: false, error: 'Workflow type label must not be empty.' }
   }
   const roleName = draft.roleName?.trim() || name
   const roleSlug = draft.roleSlug?.trim() || slugify(roleName)
@@ -93,6 +99,7 @@ export function parseWorkflowLifecycleDraft(
       max_concurrent: maxConcurrent.value,
       max_retry_attempts: maxRetryAttempts.value,
       name,
+      type: draft.typeLabel.trim(),
       role_description: draft.roleDescription?.trim() || '',
       role_name: roleName,
       role_slug: roleSlug,

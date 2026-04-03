@@ -31,7 +31,7 @@ type Workflow struct {
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// Type holds the value of the "type" field.
-	Type workflow.Type `json:"type,omitempty"`
+	Type string `json:"type,omitempty"`
 	// RoleSlug holds the value of the "role_slug" field.
 	RoleSlug string `json:"role_slug,omitempty"`
 	// RoleName holds the value of the "role_name" field.
@@ -255,7 +255,7 @@ func (_m *Workflow) assignValues(columns []string, values []any) error {
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field type", values[i])
 			} else if value.Valid {
-				_m.Type = workflow.Type(value.String)
+				_m.Type = value.String
 			}
 		case workflow.FieldRoleSlug:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -434,7 +434,7 @@ func (_m *Workflow) String() string {
 	builder.WriteString(_m.Name)
 	builder.WriteString(", ")
 	builder.WriteString("type=")
-	builder.WriteString(fmt.Sprintf("%v", _m.Type))
+	builder.WriteString(_m.Type)
 	builder.WriteString(", ")
 	builder.WriteString("role_slug=")
 	builder.WriteString(_m.RoleSlug)

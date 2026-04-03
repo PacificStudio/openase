@@ -1,4 +1,11 @@
-import type { HarnessContent, WorkflowStatusOption, WorkflowSummary } from './types'
+import type { HarnessContent, WorkflowStatusOption } from './types'
+export {
+  normalizeWorkflowClassification,
+  normalizeWorkflowFamily,
+  workflowFamilyColors,
+  workflowFamilyDescriptions,
+  workflowFamilyIcons,
+} from './workflow-family'
 
 export type SkillState = {
   id: string
@@ -8,20 +15,8 @@ export type SkillState = {
   bound: boolean
 }
 
-export function normalizeWorkflowType(type: string): WorkflowSummary['type'] {
-  if (
-    type === 'coding' ||
-    type === 'test' ||
-    type === 'doc' ||
-    type === 'security' ||
-    type === 'deploy' ||
-    type === 'refine-harness' ||
-    type === 'custom'
-  ) {
-    return type
-  }
-
-  return 'custom'
+export function normalizeWorkflowType(type: string): string {
+  return type.trim()
 }
 
 export function toHarnessContent(content: string): HarnessContent {

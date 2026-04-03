@@ -30,7 +30,6 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
-	entworkflowversion "github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -3948,12 +3947,12 @@ func publishRuntimeLauncherWorkflowVersionContent(
 		SetVersion(workflowItem.Version).
 		SetContentMarkdown(content).
 		SetName(workflowItem.Name).
-		SetType(entworkflowversion.Type(workflowItem.Type)).
+		SetType(workflowItem.Type).
 		SetPickupStatusIds(ticketStatusIDStrings(pickupStatuses)).
 		SetFinishStatusIds(ticketStatusIDStrings(finishStatuses)).
 		SetHarnessPath(workflowItem.HarnessPath).
 		SetHooks(workflowItem.Hooks).
-		SetPlatformAccessAllowed(pgarray.StringArray(workflowItem.PlatformAccessAllowed)).
+		SetPlatformAccessAllowed(workflowItem.PlatformAccessAllowed).
 		SetMaxConcurrent(workflowItem.MaxConcurrent).
 		SetMaxRetryAttempts(workflowItem.MaxRetryAttempts).
 		SetTimeoutMinutes(workflowItem.TimeoutMinutes).

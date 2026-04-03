@@ -77,6 +77,11 @@ func Name(v string) predicate.WorkflowVersion {
 	return predicate.WorkflowVersion(sql.FieldEQ(FieldName, v))
 }
 
+// Type applies equality check predicate on the "type" field. It's identical to TypeEQ.
+func Type(v string) predicate.WorkflowVersion {
+	return predicate.WorkflowVersion(sql.FieldEQ(FieldType, v))
+}
+
 // RoleSlug applies equality check predicate on the "role_slug" field. It's identical to RoleSlugEQ.
 func RoleSlug(v string) predicate.WorkflowVersion {
 	return predicate.WorkflowVersion(sql.FieldEQ(FieldRoleSlug, v))
@@ -343,23 +348,68 @@ func NameContainsFold(v string) predicate.WorkflowVersion {
 }
 
 // TypeEQ applies the EQ predicate on the "type" field.
-func TypeEQ(v Type) predicate.WorkflowVersion {
+func TypeEQ(v string) predicate.WorkflowVersion {
 	return predicate.WorkflowVersion(sql.FieldEQ(FieldType, v))
 }
 
 // TypeNEQ applies the NEQ predicate on the "type" field.
-func TypeNEQ(v Type) predicate.WorkflowVersion {
+func TypeNEQ(v string) predicate.WorkflowVersion {
 	return predicate.WorkflowVersion(sql.FieldNEQ(FieldType, v))
 }
 
 // TypeIn applies the In predicate on the "type" field.
-func TypeIn(vs ...Type) predicate.WorkflowVersion {
+func TypeIn(vs ...string) predicate.WorkflowVersion {
 	return predicate.WorkflowVersion(sql.FieldIn(FieldType, vs...))
 }
 
 // TypeNotIn applies the NotIn predicate on the "type" field.
-func TypeNotIn(vs ...Type) predicate.WorkflowVersion {
+func TypeNotIn(vs ...string) predicate.WorkflowVersion {
 	return predicate.WorkflowVersion(sql.FieldNotIn(FieldType, vs...))
+}
+
+// TypeGT applies the GT predicate on the "type" field.
+func TypeGT(v string) predicate.WorkflowVersion {
+	return predicate.WorkflowVersion(sql.FieldGT(FieldType, v))
+}
+
+// TypeGTE applies the GTE predicate on the "type" field.
+func TypeGTE(v string) predicate.WorkflowVersion {
+	return predicate.WorkflowVersion(sql.FieldGTE(FieldType, v))
+}
+
+// TypeLT applies the LT predicate on the "type" field.
+func TypeLT(v string) predicate.WorkflowVersion {
+	return predicate.WorkflowVersion(sql.FieldLT(FieldType, v))
+}
+
+// TypeLTE applies the LTE predicate on the "type" field.
+func TypeLTE(v string) predicate.WorkflowVersion {
+	return predicate.WorkflowVersion(sql.FieldLTE(FieldType, v))
+}
+
+// TypeContains applies the Contains predicate on the "type" field.
+func TypeContains(v string) predicate.WorkflowVersion {
+	return predicate.WorkflowVersion(sql.FieldContains(FieldType, v))
+}
+
+// TypeHasPrefix applies the HasPrefix predicate on the "type" field.
+func TypeHasPrefix(v string) predicate.WorkflowVersion {
+	return predicate.WorkflowVersion(sql.FieldHasPrefix(FieldType, v))
+}
+
+// TypeHasSuffix applies the HasSuffix predicate on the "type" field.
+func TypeHasSuffix(v string) predicate.WorkflowVersion {
+	return predicate.WorkflowVersion(sql.FieldHasSuffix(FieldType, v))
+}
+
+// TypeEqualFold applies the EqualFold predicate on the "type" field.
+func TypeEqualFold(v string) predicate.WorkflowVersion {
+	return predicate.WorkflowVersion(sql.FieldEqualFold(FieldType, v))
+}
+
+// TypeContainsFold applies the ContainsFold predicate on the "type" field.
+func TypeContainsFold(v string) predicate.WorkflowVersion {
+	return predicate.WorkflowVersion(sql.FieldContainsFold(FieldType, v))
 }
 
 // RoleSlugEQ applies the EQ predicate on the "role_slug" field.

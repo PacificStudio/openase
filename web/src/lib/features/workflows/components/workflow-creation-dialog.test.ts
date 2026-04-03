@@ -63,6 +63,12 @@ describe('WorkflowCreationDialog', () => {
         id: 'wf-1',
         name: 'Workflow 1',
         type: 'coding',
+        workflowFamily: 'coding',
+        classification: {
+          family: 'coding',
+          confidence: 1,
+          reasons: ['fixture'],
+        },
         agentId: 'agent-1',
         harnessPath: '',
         pickupStatusIds: ['backlog', 'done'],
@@ -102,21 +108,21 @@ describe('WorkflowCreationDialog', () => {
     await fireEvent.click(getAllByRole('button', { name: 'Doing' })[1])
     await fireEvent.click(getByRole('button', { name: 'Create workflow' }))
 
-    await waitFor(() => {
-      expect(createWorkflowWithBinding).toHaveBeenCalledWith(
-        'project-1',
-        expect.objectContaining({
-          agentId: 'agent-1',
-          name: 'Workflow 1',
-          workflowType: 'coding',
-          harnessPath: null,
-          pickupStatusIds: ['backlog', 'done'],
-          finishStatusIds: ['backlog', 'doing'],
-        }),
-        statuses,
-        'role',
-      )
-    })
+    await vi.runAllTimersAsync()
+
+    expect(createWorkflowWithBinding).toHaveBeenCalledWith(
+      'project-1',
+      expect.objectContaining({
+        agentId: 'agent-1',
+        name: 'Workflow 1',
+        workflowType: 'Workflow',
+        harnessPath: null,
+        pickupStatusIds: ['backlog', 'done'],
+        finishStatusIds: ['backlog', 'doing'],
+      }),
+      statuses,
+      'role',
+    )
     expect(onCreated).toHaveBeenCalledTimes(1)
   })
 
@@ -126,6 +132,12 @@ describe('WorkflowCreationDialog', () => {
         id: 'wf-2',
         name: 'Dispatcher',
         type: 'custom',
+        workflowFamily: 'dispatcher',
+        classification: {
+          family: 'dispatcher',
+          confidence: 1,
+          reasons: ['fixture'],
+        },
         agentId: 'agent-1',
         harnessPath: '.openase/harnesses/roles/dispatcher.md',
         pickupStatusIds: ['backlog'],
@@ -156,7 +168,8 @@ describe('WorkflowCreationDialog', () => {
         templateDraft: {
           name: 'Dispatcher',
           content: '# Dispatcher\n\nRoute backlog tickets.\n',
-          workflowType: 'custom',
+          workflowType: 'Dispatcher',
+          workflowFamily: 'dispatcher',
           pickupStatusNames: ['Backlog'],
           finishStatusNames: ['Backlog'],
           harnessPath: '.openase/harnesses/roles/dispatcher.md',
@@ -171,7 +184,7 @@ describe('WorkflowCreationDialog', () => {
         'project-1',
         expect.objectContaining({
           name: 'Dispatcher',
-          workflowType: 'custom',
+          workflowType: 'Dispatcher',
           harnessPath: '.openase/harnesses/roles/dispatcher.md',
           pickupStatusIds: ['backlog'],
           finishStatusIds: ['backlog'],
@@ -194,7 +207,8 @@ describe('WorkflowCreationDialog', () => {
         templateDraft: {
           name: 'Dispatcher',
           content: '# Dispatcher\n\nRoute backlog tickets.\n',
-          workflowType: 'custom',
+          workflowType: 'Dispatcher',
+          workflowFamily: 'dispatcher',
           pickupStatusNames: ['Inbox'],
           finishStatusNames: ['Inbox'],
           harnessPath: '.openase/harnesses/roles/dispatcher.md',

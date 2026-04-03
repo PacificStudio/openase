@@ -8,45 +8,47 @@ import (
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/hradvisor"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	workflowdomain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
 )
 
 type snapshotStats struct {
-	openTickets           int
-	codingTickets         int
-	failingTickets        int
-	blockedTickets        int
-	activeAgents          int
-	workflowCount         int
-	testWorkflowCount     int
-	docWorkflowCount      int
-	securityWorkflowCount int
-	backlogTickets        int
-	hasDispatcherWorkflow bool
-	documentationDrift    int
-	failureBurstCount     int
-	trendEvidenceByKind   map[string][]string
-	statusPressure        []statusPressure
-	activeWorkflowTypes   []string
+	openTickets            int
+	codingTickets          int
+	failingTickets         int
+	blockedTickets         int
+	activeAgents           int
+	workflowCount          int
+	testWorkflowCount      int
+	docWorkflowCount       int
+	securityWorkflowCount  int
+	backlogTickets         int
+	hasDispatcherWorkflow  bool
+	documentationDrift     int
+	failureBurstCount      int
+	trendEvidenceByKind    map[string][]string
+	statusPressure         []statusPressure
+	activeWorkflowFamilies []string
 }
 
 type statusPressure struct {
-	StatusName          string
-	StatusStage         string
-	QueuedTickets       int
-	PickupWorkflowNames []string
-	PickupWorkflowTypes []string
-	PickupRoleSlugs     []string
-	FinishWorkflowNames []string
-	FinishWorkflowTypes []string
-	FinishRoleSlugs     []string
+	StatusName             string
+	StatusStage            string
+	QueuedTickets          int
+	PickupWorkflowNames    []string
+	PickupWorkflowFamilies []string
+	PickupRoleSlugs        []string
+	FinishWorkflowNames    []string
+	FinishWorkflowFamilies []string
+	FinishRoleSlugs        []string
 }
 
 type laneProfile struct {
-	RoleSlug         string
-	WorkflowName     string
-	WorkflowType     string
-	MinQueuedTickets int
-	HeadcountDivisor int
+	RoleSlug          string
+	WorkflowName      string
+	WorkflowTypeLabel string
+	WorkflowFamily    workflowdomain.WorkflowFamily
+	MinQueuedTickets  int
+	HeadcountDivisor  int
 }
 
 type projectStatus string
@@ -107,34 +109,40 @@ func Analyze(snapshot domain.Snapshot) domain.Analysis {
 
 	if status == projectStatusPlanned && stats.openTickets == 0 && stats.workflowCount == 0 {
 		add(capabilityRecommendationKey("product-manager"), domain.Recommendation{
-			RoleSlug:              "product-manager",
-			Priority:              "high",
-			Reason:                "Planned projects with no active ticket lane need a role to turn scope into executable work.",
-			Evidence:              []string{"Project status is Planned.", "No workflows are configured yet.", "No open tickets are currently staged."},
-			SuggestedHeadcount:    1,
-			SuggestedWorkflowName: "Product Manager",
+			RoleSlug:                   "product-manager",
+			Priority:                   "high",
+			Reason:                     "Planned projects with no active ticket lane need a role to turn scope into executable work.",
+			Evidence:                   []string{"Project status is Planned.", "No workflows are configured yet.", "No open tickets are currently staged."},
+			SuggestedHeadcount:         1,
+			SuggestedWorkflowName:      "Product Manager",
+			SuggestedWorkflowTypeLabel: "Product Manager",
+			SuggestedWorkflowFamily:    string(workflowdomain.WorkflowFamilyPlanning),
 		}, false)
 	}
 
 	if status == projectStatusInProgress && stats.activeAgents == 0 {
 		add(capabilityRecommendationKey("fullstack-developer"), domain.Recommendation{
-			RoleSlug:              "fullstack-developer",
-			Priority:              "high",
-			Reason:                "The project is In Progress but there is no agent currently able to pick up implementation work.",
-			Evidence:              []string{"Project status is In Progress.", fmt.Sprintf("Open tickets: %d.", stats.openTickets), "No active agents are attached."},
-			SuggestedHeadcount:    max(1, scaleHeadcount(stats.codingTickets, 4)),
-			SuggestedWorkflowName: "Fullstack Developer",
+			RoleSlug:                   "fullstack-developer",
+			Priority:                   "high",
+			Reason:                     "The project is In Progress but there is no agent currently able to pick up implementation work.",
+			Evidence:                   []string{"Project status is In Progress.", fmt.Sprintf("Open tickets: %d.", stats.openTickets), "No active agents are attached."},
+			SuggestedHeadcount:         max(1, scaleHeadcount(stats.codingTickets, 4)),
+			SuggestedWorkflowName:      "Fullstack Developer",
+			SuggestedWorkflowTypeLabel: "Fullstack Developer",
+			SuggestedWorkflowFamily:    string(workflowdomain.WorkflowFamilyCoding),
 		}, false)
 	}
 
 	if stats.codingTickets >= 3 && stats.testWorkflowCount == 0 {
 		add(capabilityRecommendationKey("qa-engineer"), domain.Recommendation{
-			RoleSlug:              "qa-engineer",
-			Priority:              "high",
-			Reason:                "Coding demand is visible, but no test workflow is in place to absorb regression and release checks.",
-			Evidence:              []string{fmt.Sprintf("Open coding tickets: %d.", stats.codingTickets), fmt.Sprintf("Active test workflows: %d.", stats.testWorkflowCount)},
-			SuggestedHeadcount:    max(1, scaleHeadcount(stats.codingTickets, 6)),
-			SuggestedWorkflowName: "QA Engineer",
+			RoleSlug:                   "qa-engineer",
+			Priority:                   "high",
+			Reason:                     "Coding demand is visible, but no test workflow is in place to absorb regression and release checks.",
+			Evidence:                   []string{fmt.Sprintf("Open coding tickets: %d.", stats.codingTickets), fmt.Sprintf("Active test workflows: %d.", stats.testWorkflowCount)},
+			SuggestedHeadcount:         max(1, scaleHeadcount(stats.codingTickets, 6)),
+			SuggestedWorkflowName:      "QA Engineer",
+			SuggestedWorkflowTypeLabel: "QA Engineer",
+			SuggestedWorkflowFamily:    string(workflowdomain.WorkflowFamilyTest),
 		}, false)
 	}
 
@@ -156,12 +164,14 @@ func Analyze(snapshot domain.Snapshot) domain.Analysis {
 
 	if researchProject && stats.workflowCount == 0 {
 		add(capabilityRecommendationKey("research-ideation"), domain.Recommendation{
-			RoleSlug:              "research-ideation",
-			Priority:              "medium",
-			Reason:                "The project reads like research work, but there is no dedicated role framing questions and experiments yet.",
-			Evidence:              []string{"Project title or description contains research-oriented keywords.", "No workflows are configured yet."},
-			SuggestedHeadcount:    1,
-			SuggestedWorkflowName: "Research Ideation",
+			RoleSlug:                   "research-ideation",
+			Priority:                   "medium",
+			Reason:                     "The project reads like research work, but there is no dedicated role framing questions and experiments yet.",
+			Evidence:                   []string{"Project title or description contains research-oriented keywords.", "No workflows are configured yet."},
+			SuggestedHeadcount:         1,
+			SuggestedWorkflowName:      "Research Ideation",
+			SuggestedWorkflowTypeLabel: "Research Ideation",
+			SuggestedWorkflowFamily:    string(workflowdomain.WorkflowFamilyResearch),
 		}, false)
 	}
 
@@ -169,14 +179,14 @@ func Analyze(snapshot domain.Snapshot) domain.Analysis {
 
 	return domain.Analysis{
 		Summary: domain.Summary{
-			OpenTickets:         stats.openTickets,
-			CodingTickets:       stats.codingTickets,
-			FailingTickets:      stats.failingTickets,
-			BlockedTickets:      stats.blockedTickets,
-			ActiveAgents:        stats.activeAgents,
-			WorkflowCount:       stats.workflowCount,
-			RecentActivityCount: snapshot.RecentActivityCount,
-			ActiveWorkflowTypes: stats.activeWorkflowTypes,
+			OpenTickets:            stats.openTickets,
+			CodingTickets:          stats.codingTickets,
+			FailingTickets:         stats.failingTickets,
+			BlockedTickets:         stats.blockedTickets,
+			ActiveAgents:           stats.activeAgents,
+			WorkflowCount:          stats.workflowCount,
+			RecentActivityCount:    snapshot.RecentActivityCount,
+			ActiveWorkflowFamilies: stats.activeWorkflowFamilies,
 		},
 		Recommendations: recommendations,
 		Staffing:        buildStaffingPlan(status, stats),
@@ -185,15 +195,15 @@ func Analyze(snapshot domain.Snapshot) domain.Analysis {
 
 func collectStats(snapshot domain.Snapshot) snapshotStats {
 	stats := snapshotStats{trendEvidenceByKind: make(map[string][]string)}
-	activeWorkflowTypes := make(map[string]struct{})
+	activeWorkflowFamilies := make(map[string]struct{})
 	queuedTicketsByStatus := make(map[string]int)
 	statusDisplayNames := make(map[string]string)
 	statusStagesByStatus := make(map[string]string)
 	pickupWorkflowsByStatus := make(map[string]map[string]struct{})
-	pickupWorkflowTypesByStatus := make(map[string]map[string]struct{})
+	pickupWorkflowFamiliesByStatus := make(map[string]map[string]struct{})
 	pickupRoleSlugsByStatus := make(map[string]map[string]struct{})
 	finishWorkflowsByStatus := make(map[string]map[string]struct{})
-	finishWorkflowTypesByStatus := make(map[string]map[string]struct{})
+	finishWorkflowFamiliesByStatus := make(map[string]map[string]struct{})
 	finishRoleSlugsByStatus := make(map[string]map[string]struct{})
 
 	for _, workflow := range snapshot.Workflows {
@@ -202,43 +212,43 @@ func collectStats(snapshot domain.Snapshot) snapshotStats {
 			continue
 		}
 
-		workflowType := strings.TrimSpace(workflow.Type)
-		if workflowType != "" {
-			activeWorkflowTypes[workflowType] = struct{}{}
+		classification := classifyWorkflow(workflow)
+		if classification.Family != workflowdomain.WorkflowFamilyUnknown {
+			activeWorkflowFamilies[string(classification.Family)] = struct{}{}
 		}
 
-		switch workflowType {
-		case "test":
+		switch classification.Family {
+		case workflowdomain.WorkflowFamilyTest:
 			stats.testWorkflowCount++
-		case "doc":
+		case workflowdomain.WorkflowFamilyDocs:
 			stats.docWorkflowCount++
-		case "security":
+		case workflowdomain.WorkflowFamilySecurity:
 			stats.securityWorkflowCount++
 		}
 
-		if isDispatcherWorkflow(workflow) {
+		if classification.Family == workflowdomain.WorkflowFamilyDispatcher || isDispatcherWorkflow(workflow) {
 			stats.hasDispatcherWorkflow = true
 		}
 		registerWorkflowCoverage(
 			pickupWorkflowsByStatus,
-			pickupWorkflowTypesByStatus,
+			pickupWorkflowFamiliesByStatus,
 			pickupRoleSlugsByStatus,
 			statusDisplayNames,
 			statusStagesByStatus,
 			workflow.PickupStatuses,
 			workflow.Name,
-			workflow.Type,
+			classification.Family,
 			workflow.RoleSlug,
 		)
 		registerWorkflowCoverage(
 			finishWorkflowsByStatus,
-			finishWorkflowTypesByStatus,
+			finishWorkflowFamiliesByStatus,
 			finishRoleSlugsByStatus,
 			statusDisplayNames,
 			statusStagesByStatus,
 			workflow.FinishStatuses,
 			workflow.Name,
-			workflow.Type,
+			classification.Family,
 			workflow.RoleSlug,
 		)
 	}
@@ -279,10 +289,16 @@ func collectStats(snapshot domain.Snapshot) snapshotStats {
 			}
 		}
 
-		switch strings.TrimSpace(ticket.WorkflowType) {
-		case "coding":
+		workflowTypeLabel := ticket.WorkflowTypeLabel
+		if strings.TrimSpace(workflowTypeLabel) == "" {
+			workflowTypeLabel = ticket.WorkflowType
+		}
+		switch classifyWorkflowTypeLabel(workflowTypeLabel) {
+		case workflowdomain.WorkflowFamilyCoding:
 			stats.codingTickets++
-		case "test", "doc", "security":
+		case workflowdomain.WorkflowFamilyTest,
+			workflowdomain.WorkflowFamilyDocs,
+			workflowdomain.WorkflowFamilySecurity:
 			continue
 		default:
 			if isCodingTicketType(ticket.Type) {
@@ -303,16 +319,16 @@ func collectStats(snapshot domain.Snapshot) snapshotStats {
 		}
 	}
 
-	stats.activeWorkflowTypes = mapKeys(activeWorkflowTypes)
+	stats.activeWorkflowFamilies = mapKeys(activeWorkflowFamilies)
 	stats.statusPressure = buildStatusPressure(
 		queuedTicketsByStatus,
 		statusDisplayNames,
 		statusStagesByStatus,
 		pickupWorkflowsByStatus,
-		pickupWorkflowTypesByStatus,
+		pickupWorkflowFamiliesByStatus,
 		pickupRoleSlugsByStatus,
 		finishWorkflowsByStatus,
-		finishWorkflowTypesByStatus,
+		finishWorkflowFamiliesByStatus,
 		finishRoleSlugsByStatus,
 	)
 	return stats
@@ -353,12 +369,14 @@ func documentationRecommendation(stats snapshotStats) (domain.Recommendation, bo
 	}
 
 	return domain.Recommendation{
-		RoleSlug:              "technical-writer",
-		Priority:              priority,
-		Reason:                reason,
-		Evidence:              evidence,
-		SuggestedHeadcount:    1,
-		SuggestedWorkflowName: "Technical Writer",
+		RoleSlug:                   "technical-writer",
+		Priority:                   priority,
+		Reason:                     reason,
+		Evidence:                   evidence,
+		SuggestedHeadcount:         1,
+		SuggestedWorkflowName:      "Technical Writer",
+		SuggestedWorkflowTypeLabel: "Technical Writer",
+		SuggestedWorkflowFamily:    string(workflowdomain.WorkflowFamilyDocs),
 	}, true
 }
 
@@ -380,12 +398,14 @@ func securityRecommendation(stats snapshotStats) (domain.Recommendation, bool) {
 	}
 
 	return domain.Recommendation{
-		RoleSlug:              "security-engineer",
-		Priority:              "medium",
-		Reason:                "Load and failure signals are high enough that a dedicated security pass should be added before the project scales further.",
-		Evidence:              evidence,
-		SuggestedHeadcount:    1,
-		SuggestedWorkflowName: "Security Engineer",
+		RoleSlug:                   "security-engineer",
+		Priority:                   "medium",
+		Reason:                     "Load and failure signals are high enough that a dedicated security pass should be added before the project scales further.",
+		Evidence:                   evidence,
+		SuggestedHeadcount:         1,
+		SuggestedWorkflowName:      "Security Engineer",
+		SuggestedWorkflowTypeLabel: "Security Engineer",
+		SuggestedWorkflowFamily:    string(workflowdomain.WorkflowFamilySecurity),
 	}, true
 }
 
@@ -412,12 +432,14 @@ func envProvisionerRecommendation(stats snapshotStats) (domain.Recommendation, b
 	}
 
 	return domain.Recommendation{
-		RoleSlug:              "env-provisioner",
-		Priority:              priority,
-		Reason:                "Repeated stalled retries suggest the project needs an explicit environment-repair lane before more execution work can progress safely.",
-		Evidence:              evidence,
-		SuggestedHeadcount:    1,
-		SuggestedWorkflowName: "Environment Provisioner",
+		RoleSlug:                   "env-provisioner",
+		Priority:                   priority,
+		Reason:                     "Repeated stalled retries suggest the project needs an explicit environment-repair lane before more execution work can progress safely.",
+		Evidence:                   evidence,
+		SuggestedHeadcount:         1,
+		SuggestedWorkflowName:      "Environment Provisioner",
+		SuggestedWorkflowTypeLabel: "Environment Provisioner",
+		SuggestedWorkflowFamily:    string(workflowdomain.WorkflowFamilyEnvironment),
 	}, true
 }
 
@@ -445,12 +467,14 @@ func harnessOptimizerRecommendation(stats snapshotStats) (domain.Recommendation,
 	}
 
 	return domain.Recommendation{
-		RoleSlug:              "harness-optimizer",
-		Priority:              priority,
-		Reason:                "Workflow retries and stalled execution suggest harness quality drift that should be corrected before scaling the current workflow set further.",
-		Evidence:              evidence,
-		SuggestedHeadcount:    1,
-		SuggestedWorkflowName: "Harness Optimizer",
+		RoleSlug:                   "harness-optimizer",
+		Priority:                   priority,
+		Reason:                     "Workflow retries and stalled execution suggest harness quality drift that should be corrected before scaling the current workflow set further.",
+		Evidence:                   evidence,
+		SuggestedHeadcount:         1,
+		SuggestedWorkflowName:      "Harness Optimizer",
+		SuggestedWorkflowTypeLabel: "Harness Optimizer",
+		SuggestedWorkflowFamily:    string(workflowdomain.WorkflowFamilyHarness),
 	}, true
 }
 
@@ -492,16 +516,17 @@ func recommendationForPressure(pressure statusPressure, stats snapshotStats, res
 			fmt.Sprintf("Active workflows finishing into %q: %s.", pressure.StatusName, strings.Join(pressure.FinishWorkflowNames, ", ")),
 		)
 	}
-	if len(pressure.FinishWorkflowTypes) > 0 {
+	if len(pressure.FinishWorkflowFamilies) > 0 {
 		evidence = append(
 			evidence,
-			fmt.Sprintf("Upstream workflow types finishing into %q: %s.", pressure.StatusName, strings.Join(pressure.FinishWorkflowTypes, ", ")),
+			fmt.Sprintf("Upstream workflow families finishing into %q: %s.", pressure.StatusName, strings.Join(pressure.FinishWorkflowFamilies, ", ")),
 		)
 	}
-	if profile.WorkflowType != "" {
+	if profile.WorkflowTypeLabel != "" {
 		evidence = append(
 			evidence,
-			fmt.Sprintf("Suggested workflow type for %q: %s.", pressure.StatusName, profile.WorkflowType),
+			fmt.Sprintf("Suggested workflow type label for %q: %s.", pressure.StatusName, profile.WorkflowTypeLabel),
+			fmt.Sprintf("Suggested workflow family for %q: %s.", pressure.StatusName, profile.WorkflowFamily),
 		)
 	}
 	if profile.RoleSlug == "dispatcher" {
@@ -509,12 +534,14 @@ func recommendationForPressure(pressure statusPressure, stats snapshotStats, res
 	}
 
 	return domain.Recommendation{
-		RoleSlug:              profile.RoleSlug,
-		Priority:              pressurePriority(profile, pressure.QueuedTickets),
-		Reason:                reason,
-		Evidence:              evidence,
-		SuggestedHeadcount:    max(1, scaleHeadcount(pressure.QueuedTickets, profile.HeadcountDivisor)),
-		SuggestedWorkflowName: suggestedWorkflowName(profile, pressure.StatusName),
+		RoleSlug:                   profile.RoleSlug,
+		Priority:                   pressurePriority(profile, pressure.QueuedTickets),
+		Reason:                     reason,
+		Evidence:                   evidence,
+		SuggestedHeadcount:         max(1, scaleHeadcount(pressure.QueuedTickets, profile.HeadcountDivisor)),
+		SuggestedWorkflowName:      suggestedWorkflowName(profile, pressure.StatusName),
+		SuggestedWorkflowTypeLabel: profile.WorkflowTypeLabel,
+		SuggestedWorkflowFamily:    string(profile.WorkflowFamily),
 	}, laneRecommendationKey(profile.RoleSlug, pressure.StatusName), true
 }
 
@@ -578,10 +605,10 @@ func buildStatusPressure(
 	statusDisplayNames map[string]string,
 	statusStagesByStatus map[string]string,
 	pickupWorkflowsByStatus map[string]map[string]struct{},
-	pickupWorkflowTypesByStatus map[string]map[string]struct{},
+	pickupWorkflowFamiliesByStatus map[string]map[string]struct{},
 	pickupRoleSlugsByStatus map[string]map[string]struct{},
 	finishWorkflowsByStatus map[string]map[string]struct{},
-	finishWorkflowTypesByStatus map[string]map[string]struct{},
+	finishWorkflowFamiliesByStatus map[string]map[string]struct{},
 	finishRoleSlugsByStatus map[string]map[string]struct{},
 ) []statusPressure {
 	pressures := make([]statusPressure, 0, len(queuedTicketsByStatus))
@@ -595,15 +622,15 @@ func buildStatusPressure(
 			statusName = statusKey
 		}
 		pressures = append(pressures, statusPressure{
-			StatusName:          statusName,
-			StatusStage:         statusStagesByStatus[statusKey],
-			QueuedTickets:       queuedTickets,
-			PickupWorkflowNames: workflowNamesForStatus(pickupWorkflowsByStatus, statusKey),
-			PickupWorkflowTypes: workflowNamesForStatus(pickupWorkflowTypesByStatus, statusKey),
-			PickupRoleSlugs:     workflowNamesForStatus(pickupRoleSlugsByStatus, statusKey),
-			FinishWorkflowNames: workflowNamesForStatus(finishWorkflowsByStatus, statusKey),
-			FinishWorkflowTypes: workflowNamesForStatus(finishWorkflowTypesByStatus, statusKey),
-			FinishRoleSlugs:     workflowNamesForStatus(finishRoleSlugsByStatus, statusKey),
+			StatusName:             statusName,
+			StatusStage:            statusStagesByStatus[statusKey],
+			QueuedTickets:          queuedTickets,
+			PickupWorkflowNames:    workflowNamesForStatus(pickupWorkflowsByStatus, statusKey),
+			PickupWorkflowFamilies: workflowNamesForStatus(pickupWorkflowFamiliesByStatus, statusKey),
+			PickupRoleSlugs:        workflowNamesForStatus(pickupRoleSlugsByStatus, statusKey),
+			FinishWorkflowNames:    workflowNamesForStatus(finishWorkflowsByStatus, statusKey),
+			FinishWorkflowFamilies: workflowNamesForStatus(finishWorkflowFamiliesByStatus, statusKey),
+			FinishRoleSlugs:        workflowNamesForStatus(finishRoleSlugsByStatus, statusKey),
 		})
 	}
 
@@ -614,6 +641,44 @@ func buildStatusPressure(
 		return pressures[i].StatusName < pressures[j].StatusName
 	})
 	return pressures
+}
+
+func classifyWorkflow(workflow domain.WorkflowContext) workflowdomain.WorkflowClassification {
+	rawTypeLabel := workflow.TypeLabel
+	if strings.TrimSpace(rawTypeLabel) == "" {
+		rawTypeLabel = workflow.Type
+	}
+	typeLabel, err := workflowdomain.ParseTypeLabel(rawTypeLabel)
+	if err != nil {
+		typeLabel = workflowdomain.MustParseTypeLabel("unknown")
+	}
+	pickupStatusNames := make([]string, 0, len(workflow.PickupStatuses))
+	for _, status := range workflow.PickupStatuses {
+		pickupStatusNames = append(pickupStatusNames, status.Name)
+	}
+	finishStatusNames := make([]string, 0, len(workflow.FinishStatuses))
+	for _, status := range workflow.FinishStatuses {
+		finishStatusNames = append(finishStatusNames, status.Name)
+	}
+	return workflowdomain.ClassifyWorkflow(workflowdomain.WorkflowClassificationInput{
+		RoleSlug:          workflow.RoleSlug,
+		TypeLabel:         typeLabel,
+		WorkflowName:      workflow.Name,
+		PickupStatusNames: pickupStatusNames,
+		FinishStatusNames: finishStatusNames,
+		HarnessPath:       workflow.HarnessPath,
+		HarnessContent:    workflow.HarnessContent,
+	})
+}
+
+func classifyWorkflowTypeLabel(raw string) workflowdomain.WorkflowFamily {
+	typeLabel, err := workflowdomain.ParseTypeLabel(raw)
+	if err != nil {
+		return workflowdomain.WorkflowFamilyUnknown
+	}
+	return workflowdomain.ClassifyWorkflow(workflowdomain.WorkflowClassificationInput{
+		TypeLabel: typeLabel,
+	}).Family
 }
 
 func mapKeys(items map[string]struct{}) []string {
@@ -641,13 +706,13 @@ func workflowNamesForStatus(items map[string]map[string]struct{}, statusKey stri
 
 func registerWorkflowCoverage(
 	names map[string]map[string]struct{},
-	types map[string]map[string]struct{},
+	families map[string]map[string]struct{},
 	roles map[string]map[string]struct{},
 	statusDisplayNames map[string]string,
 	statusStages map[string]string,
 	statusBindings []domain.StatusBindingContext,
 	workflowName string,
-	workflowType string,
+	workflowFamily workflowdomain.WorkflowFamily,
 	roleSlug string,
 ) {
 	trimmedWorkflowName := strings.TrimSpace(workflowName)
@@ -671,7 +736,7 @@ func registerWorkflowCoverage(
 			names[statusKey] = make(map[string]struct{})
 		}
 		names[statusKey][trimmedWorkflowName] = struct{}{}
-		addStatusValue(types, statusKey, strings.TrimSpace(workflowType))
+		addStatusValue(families, statusKey, strings.TrimSpace(string(workflowFamily)))
 		addStatusValue(roles, statusKey, strings.TrimSpace(roleSlug))
 	}
 }
@@ -693,115 +758,129 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 	switch {
 	case stage == ticketing.StatusStageBacklog || normalized == normalizeStatusName(string(projectStatusBacklog)):
 		return laneProfile{
-			RoleSlug:         "dispatcher",
-			WorkflowName:     "Dispatcher",
-			WorkflowType:     "custom",
-			MinQueuedTickets: 11,
-			HeadcountDivisor: 10,
+			RoleSlug:          "dispatcher",
+			WorkflowName:      "Dispatcher",
+			WorkflowTypeLabel: "Dispatcher",
+			WorkflowFamily:    workflowdomain.WorkflowFamilyDispatcher,
+			MinQueuedTickets:  11,
+			HeadcountDivisor:  10,
 		}, true
 	case containsStatusKeyword(normalized, "review", "reviewer", "approve", "approval", "pr", "审查", "评审", "审核"):
 		return laneProfile{
-			RoleSlug:         "code-reviewer",
-			WorkflowName:     "Code Reviewer",
-			WorkflowType:     "custom",
-			MinQueuedTickets: 1,
-			HeadcountDivisor: 4,
+			RoleSlug:          "code-reviewer",
+			WorkflowName:      "Code Reviewer",
+			WorkflowTypeLabel: "Code Reviewer",
+			WorkflowFamily:    workflowdomain.WorkflowFamilyReview,
+			MinQueuedTickets:  1,
+			HeadcountDivisor:  4,
 		}, true
 	case containsStatusKeyword(normalized, "test", "qa", "测试", "验证"):
 		return laneProfile{
-			RoleSlug:         "qa-engineer",
-			WorkflowName:     "QA Engineer",
-			WorkflowType:     "test",
-			MinQueuedTickets: 2,
-			HeadcountDivisor: 6,
+			RoleSlug:          "qa-engineer",
+			WorkflowName:      "QA Engineer",
+			WorkflowTypeLabel: "QA Engineer",
+			WorkflowFamily:    workflowdomain.WorkflowFamilyTest,
+			MinQueuedTickets:  2,
+			HeadcountDivisor:  6,
 		}, true
 	case researchProject && containsStatusKeyword(normalized, "report", "paper", "writing", "writeup", "写作", "报告", "论文"):
 		return laneProfile{
-			RoleSlug:         "report-writer",
-			WorkflowName:     "Report Writer",
-			WorkflowType:     "custom",
-			MinQueuedTickets: 1,
-			HeadcountDivisor: 4,
+			RoleSlug:          "report-writer",
+			WorkflowName:      "Report Writer",
+			WorkflowTypeLabel: "Report Writer",
+			WorkflowFamily:    workflowdomain.WorkflowFamilyReporting,
+			MinQueuedTickets:  1,
+			HeadcountDivisor:  4,
 		}, true
 	case containsStatusKeyword(normalized, "doc", "docs", "write", "writer", "文档", "撰写"):
 		return laneProfile{
-			RoleSlug:         "technical-writer",
-			WorkflowName:     "Technical Writer",
-			WorkflowType:     "doc",
-			MinQueuedTickets: 2,
-			HeadcountDivisor: 8,
+			RoleSlug:          "technical-writer",
+			WorkflowName:      "Technical Writer",
+			WorkflowTypeLabel: "Technical Writer",
+			WorkflowFamily:    workflowdomain.WorkflowFamilyDocs,
+			MinQueuedTickets:  2,
+			HeadcountDivisor:  8,
 		}, true
 	case containsStatusKeyword(normalized, "deploy", "release", "rollout", "ship", "上线", "部署", "发布"):
 		return laneProfile{
-			RoleSlug:         "devops-engineer",
-			WorkflowName:     "DevOps Engineer",
-			WorkflowType:     "deploy",
-			MinQueuedTickets: 1,
-			HeadcountDivisor: 4,
+			RoleSlug:          "devops-engineer",
+			WorkflowName:      "DevOps Engineer",
+			WorkflowTypeLabel: "Release Captain",
+			WorkflowFamily:    workflowdomain.WorkflowFamilyDeploy,
+			MinQueuedTickets:  1,
+			HeadcountDivisor:  4,
 		}, true
 	case containsStatusKeyword(normalized, "environment", "env", "bootstrap", "machine", "setup", "provision", "repair", "环境", "修复", "配置"):
 		return laneProfile{
-			RoleSlug:         "env-provisioner",
-			WorkflowName:     "Environment Provisioner",
-			WorkflowType:     "custom",
-			MinQueuedTickets: 1,
-			HeadcountDivisor: 4,
+			RoleSlug:          "env-provisioner",
+			WorkflowName:      "Environment Provisioner",
+			WorkflowTypeLabel: "Environment Provisioner",
+			WorkflowFamily:    workflowdomain.WorkflowFamilyEnvironment,
+			MinQueuedTickets:  1,
+			HeadcountDivisor:  4,
 		}, true
 	case containsStatusKeyword(normalized, "harness", "prompt", "workflow tune", "workflow-tune", "优化", "调优"):
 		return laneProfile{
-			RoleSlug:         "harness-optimizer",
-			WorkflowName:     "Harness Optimizer",
-			WorkflowType:     "refine-harness",
-			MinQueuedTickets: 1,
-			HeadcountDivisor: 4,
+			RoleSlug:          "harness-optimizer",
+			WorkflowName:      "Harness Optimizer",
+			WorkflowTypeLabel: "Harness Optimizer",
+			WorkflowFamily:    workflowdomain.WorkflowFamilyHarness,
+			MinQueuedTickets:  1,
+			HeadcountDivisor:  4,
 		}, true
 	case containsStatusKeyword(normalized, "security", "scan", "audit", "安全", "扫描", "审计"):
 		return laneProfile{
-			RoleSlug:         "security-engineer",
-			WorkflowName:     "Security Engineer",
-			WorkflowType:     "security",
-			MinQueuedTickets: 2,
-			HeadcountDivisor: 8,
+			RoleSlug:          "security-engineer",
+			WorkflowName:      "Security Engineer",
+			WorkflowTypeLabel: "Security Engineer",
+			WorkflowFamily:    workflowdomain.WorkflowFamilySecurity,
+			MinQueuedTickets:  2,
+			HeadcountDivisor:  8,
 		}, true
 	case containsStatusKeyword(normalized, "frontend", "front-end", "ui", "ux", "web", "页面", "前端", "界面"):
 		return laneProfile{
-			RoleSlug:         "frontend-engineer",
-			WorkflowName:     "Frontend Engineer",
-			WorkflowType:     "coding",
-			MinQueuedTickets: 1,
-			HeadcountDivisor: 4,
+			RoleSlug:          "frontend-engineer",
+			WorkflowName:      "Frontend Engineer",
+			WorkflowTypeLabel: "Frontend Engineer",
+			WorkflowFamily:    workflowdomain.WorkflowFamilyCoding,
+			MinQueuedTickets:  1,
+			HeadcountDivisor:  4,
 		}, true
 	case containsStatusKeyword(normalized, "backend", "back-end", "api", "service", "server", "后端", "接口", "服务"):
 		return laneProfile{
-			RoleSlug:         "backend-engineer",
-			WorkflowName:     "Backend Engineer",
-			WorkflowType:     "coding",
-			MinQueuedTickets: 1,
-			HeadcountDivisor: 4,
+			RoleSlug:          "backend-engineer",
+			WorkflowName:      "Backend Engineer",
+			WorkflowTypeLabel: "Backend Engineer",
+			WorkflowFamily:    workflowdomain.WorkflowFamilyCoding,
+			MinQueuedTickets:  1,
+			HeadcountDivisor:  4,
 		}, true
 	case researchProject && containsStatusKeyword(normalized, "experiment", "trial", "benchmark", "实验", "试验"):
 		return laneProfile{
-			RoleSlug:         "experiment-runner",
-			WorkflowName:     "Experiment Runner",
-			WorkflowType:     "custom",
-			MinQueuedTickets: 1,
-			HeadcountDivisor: 4,
+			RoleSlug:          "experiment-runner",
+			WorkflowName:      "Experiment Runner",
+			WorkflowTypeLabel: "Experiment Runner",
+			WorkflowFamily:    workflowdomain.WorkflowFamilyResearch,
+			MinQueuedTickets:  1,
+			HeadcountDivisor:  4,
 		}, true
 	case researchProject && containsStatusKeyword(normalized, "research", "ideation", "investigate", "literature", "study", "调研", "研究"):
 		return laneProfile{
-			RoleSlug:         "research-ideation",
-			WorkflowName:     "Research Ideation",
-			WorkflowType:     "custom",
-			MinQueuedTickets: 1,
-			HeadcountDivisor: 4,
+			RoleSlug:          "research-ideation",
+			WorkflowName:      "Research Ideation",
+			WorkflowTypeLabel: "Research Ideation",
+			WorkflowFamily:    workflowdomain.WorkflowFamilyResearch,
+			MinQueuedTickets:  1,
+			HeadcountDivisor:  4,
 		}, true
 	case containsStatusKeyword(normalized, "todo", "develop", "development", "coding", "implement", "待开发", "开发", "编码", "实现"):
 		return laneProfile{
-			RoleSlug:         "fullstack-developer",
-			WorkflowName:     "Fullstack Developer",
-			WorkflowType:     "coding",
-			MinQueuedTickets: 2,
-			HeadcountDivisor: 4,
+			RoleSlug:          "fullstack-developer",
+			WorkflowName:      "Fullstack Developer",
+			WorkflowTypeLabel: "Fullstack Developer",
+			WorkflowFamily:    workflowdomain.WorkflowFamilyCoding,
+			MinQueuedTickets:  2,
+			HeadcountDivisor:  4,
 		}, true
 	default:
 		return laneProfile{}, false

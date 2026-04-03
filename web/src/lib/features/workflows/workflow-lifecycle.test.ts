@@ -8,6 +8,12 @@ describe('workflow lifecycle draft', () => {
       id: 'wf-1',
       name: 'Coding Workflow',
       type: 'coding',
+      workflowFamily: 'coding',
+      classification: {
+        family: 'coding',
+        confidence: 1,
+        reasons: ['fixture'],
+      },
       agentId: 'agent-1',
       harnessPath: '.openase/harnesses/coding.md',
       pickupStatusIds: ['todo'],
@@ -38,6 +44,7 @@ describe('workflow lifecycle draft', () => {
         max_concurrent: 0,
         max_retry_attempts: 0,
         name: 'Coding Workflow',
+        type: 'coding',
         pickup_status_ids: ['todo'],
         stall_timeout_minutes: 5,
         timeout_minutes: 30,
@@ -49,6 +56,7 @@ describe('workflow lifecycle draft', () => {
     const parsed = parseWorkflowLifecycleDraft({
       agentId: 'agent-1',
       name: 'Coding Workflow',
+      typeLabel: 'coding',
       pickupStatusIds: ['todo'],
       finishStatusIds: ['done'],
       maxConcurrent: '0',

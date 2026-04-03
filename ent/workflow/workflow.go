@@ -3,8 +3,6 @@
 package workflow
 
 import (
-	"fmt"
-
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/google/uuid"
@@ -183,6 +181,8 @@ func ValidColumn(column string) bool {
 var (
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// TypeValidator is a validator for the "type" field. It is called by the builders before save.
+	TypeValidator func(string) error
 	// HarnessPathValidator is a validator for the "harness_path" field. It is called by the builders before save.
 	HarnessPathValidator func(string) error
 	// DefaultHooks holds the default value on creation for the "hooks" field.
@@ -202,34 +202,6 @@ var (
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
-
-// Type defines the type for the "type" enum field.
-type Type string
-
-// Type values.
-const (
-	TypeCoding        Type = "coding"
-	TypeTest          Type = "test"
-	TypeDoc           Type = "doc"
-	TypeSecurity      Type = "security"
-	TypeDeploy        Type = "deploy"
-	TypeRefineHarness Type = "refine-harness"
-	TypeCustom        Type = "custom"
-)
-
-func (_type Type) String() string {
-	return string(_type)
-}
-
-// TypeValidator is a validator for the "type" field enum values. It is called by the builders before save.
-func TypeValidator(_type Type) error {
-	switch _type {
-	case TypeCoding, TypeTest, TypeDoc, TypeSecurity, TypeDeploy, TypeRefineHarness, TypeCustom:
-		return nil
-	default:
-		return fmt.Errorf("workflow: invalid enum value for type field: %q", _type)
-	}
-}
 
 // OrderOption defines the ordering options for the Workflow queries.
 type OrderOption func(*sql.Selector)

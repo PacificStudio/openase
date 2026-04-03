@@ -16,6 +16,10 @@ export function buildWorkflowTemplateDraft(role: BuiltinRole): WorkflowTemplateD
     name: role.name,
     content: role.workflow_content || role.content,
     workflowType: normalizeWorkflowType(role.workflow_type),
+    workflowFamily:
+      typeof role.workflow_family === 'string'
+        ? (role.workflow_family as WorkflowTemplateDraft['workflowFamily'])
+        : undefined,
     roleSlug: role.slug,
     roleName: role.name,
     roleDescription: role.summary,

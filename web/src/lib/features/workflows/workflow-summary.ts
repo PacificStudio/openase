@@ -1,4 +1,8 @@
-import { normalizeWorkflowType } from './model'
+import {
+  normalizeWorkflowClassification,
+  normalizeWorkflowFamily,
+  normalizeWorkflowType,
+} from './model'
 import type { WorkflowSummary } from './types'
 import { readWorkflowHooksPayload } from './workflow-hooks'
 
@@ -13,6 +17,12 @@ type WorkflowRecord = {
   id: string
   name: string
   type: string
+  workflow_family?: string
+  workflow_classification?: {
+    family?: string
+    confidence?: number
+    reasons?: unknown[]
+  } | null
   agent_id?: string | null
   harness_path?: string | null
   pickup_status_ids?: string[] | null
@@ -59,6 +69,11 @@ export function buildWorkflowSummary(
     id: workflow.id,
     name: workflow.name,
     type: normalizeWorkflowType(workflow.type),
+    workflowFamily: normalizeWorkflowFamily(workflow.workflow_family ?? ''),
+    classification: normalizeWorkflowClassification(
+      workflow.workflow_classification,
+      workflow.workflow_family ?? '',
+    ),
     agentId: workflow.agent_id ?? null,
     roleSlug: workflowMeta.role_slug ?? options.fallbackMetadata?.roleSlug ?? '',
     roleName: workflowMeta.role_name ?? options.fallbackMetadata?.roleName ?? workflow.name,

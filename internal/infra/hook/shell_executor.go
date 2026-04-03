@@ -132,13 +132,14 @@ func buildEnvironmentVariables(hookName TicketHookName, env Env) []string {
 	}
 
 	agentEnvironment := agentplatform.BuildEnvironment(env.APIURL, env.AgentToken, env.ProjectID, env.TicketID)
-	environment := make([]string, 0, 7+len(agentEnvironment))
+	environment := make([]string, 0, 8+len(agentEnvironment))
 	environment = append(environment,
 		"OPENASE_TICKET_IDENTIFIER="+env.TicketIdentifier,
 		"OPENASE_WORKSPACE="+env.Workspace,
 		"OPENASE_REPOS="+reposJSON,
 		"OPENASE_AGENT_NAME="+env.AgentName,
 		"OPENASE_WORKFLOW_TYPE="+env.WorkflowType,
+		"OPENASE_WORKFLOW_FAMILY="+env.WorkflowFamily,
 		"OPENASE_ATTEMPT="+fmt.Sprintf("%d", env.Attempt),
 		"OPENASE_HOOK_NAME="+string(hookName),
 	)

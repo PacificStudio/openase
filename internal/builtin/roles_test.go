@@ -14,8 +14,8 @@ func TestDispatcherRoleTemplate(t *testing.T) {
 	if role.Name != "Dispatcher" {
 		t.Fatalf("Name=%q, want Dispatcher", role.Name)
 	}
-	if role.WorkflowType != "custom" {
-		t.Fatalf("WorkflowType=%q, want custom", role.WorkflowType)
+	if role.WorkflowType != "Dispatcher" {
+		t.Fatalf("WorkflowType=%q, want Dispatcher", role.WorkflowType)
 	}
 	if got := strings.Join(role.PickupStatusNames, ","); got != "Backlog" {
 		t.Fatalf("PickupStatusNames=%q, want Backlog", got)
@@ -53,8 +53,8 @@ func TestHarnessOptimizerRoleTemplate(t *testing.T) {
 	if role.Name != "Harness Optimizer" {
 		t.Fatalf("Name=%q, want Harness Optimizer", role.Name)
 	}
-	if role.WorkflowType != "refine-harness" {
-		t.Fatalf("WorkflowType=%q, want refine-harness", role.WorkflowType)
+	if role.WorkflowType != "Harness Optimizer" {
+		t.Fatalf("WorkflowType=%q, want Harness Optimizer", role.WorkflowType)
 	}
 	if got := strings.Join(role.SkillNames, ","); got != "openase-platform,pull,commit,push" {
 		t.Fatalf("SkillNames=%q", got)
@@ -84,8 +84,8 @@ func TestEnvProvisionerRoleTemplate(t *testing.T) {
 	if role.Name != "Environment Provisioner" {
 		t.Fatalf("Name=%q, want Environment Provisioner", role.Name)
 	}
-	if role.WorkflowType != "custom" {
-		t.Fatalf("WorkflowType=%q, want custom", role.WorkflowType)
+	if role.WorkflowType != "Environment Provisioner" {
+		t.Fatalf("WorkflowType=%q, want Environment Provisioner", role.WorkflowType)
 	}
 	if got := strings.Join(role.PickupStatusNames, ","); got != "环境修复" {
 		t.Fatalf("PickupStatusNames=%q", got)

@@ -300,6 +300,7 @@ func (s *Service) loadHookRuntime(ctx context.Context, input RunLifecycleHookInp
 		Repos:            repos,
 		AgentName:        data.AgentName,
 		WorkflowType:     data.WorkflowType,
+		WorkflowFamily:   data.WorkflowFamily,
 		Attempt:          data.Attempt,
 		APIURL:           s.platformAPIURL,
 	}

@@ -14,7 +14,6 @@
     createWorkflowHooksDraft,
     parseWorkflowHooksDraft,
     validateWorkflowHooksDraft,
-    workflowHooksDraftSignature,
     type WorkflowHooksDraft,
   } from '../workflow-hooks'
   import WorkflowDetailActions from './workflow-detail-actions.svelte'
@@ -23,6 +22,10 @@
   import WorkflowDetailIdentitySection from './workflow-detail-identity-section.svelte'
   import WorkflowDetailHooksSection from './workflow-detail-hooks-section.svelte'
   import WorkflowNumberField from './workflow-number-field.svelte'
+  import {
+    isWorkflowLifecycleDraftDirty,
+    workflowLifecycleDraftKey,
+  } from './workflow-detail-panel-state'
   import WorkflowStatusChipSelector from './workflow-status-chip-selector.svelte'
   let {
     workflow,
@@ -47,6 +50,7 @@
   let draft = $state<WorkflowLifecycleDraft>({
     agentId: '',
     name: '',
+    typeLabel: '',
     roleSlug: '',
     roleName: '',
     roleDescription: '',
@@ -67,43 +71,13 @@
   const baseHookDraft = $derived(createWorkflowHooksDraft(workflow.rawHooks ?? workflow.hooks))
   const hookValidation = $derived(validateWorkflowHooksDraft(hookDraft))
   const isDirty = $derived(
-    draft.agentId !== baseDraft.agentId ||
-      draft.name !== baseDraft.name ||
-      draft.roleSlug !== baseDraft.roleSlug ||
-      draft.roleName !== baseDraft.roleName ||
-      draft.roleDescription !== baseDraft.roleDescription ||
-      draft.platformAccessAllowed !== baseDraft.platformAccessAllowed ||
-      draft.pickupStatusIds.join(':') !== baseDraft.pickupStatusIds.join(':') ||
-      draft.finishStatusIds.join(':') !== baseDraft.finishStatusIds.join(':') ||
-      draft.maxConcurrent !== baseDraft.maxConcurrent ||
-      draft.maxRetryAttempts !== baseDraft.maxRetryAttempts ||
-      draft.timeoutMinutes !== baseDraft.timeoutMinutes ||
-      draft.stallTimeoutMinutes !== baseDraft.stallTimeoutMinutes ||
-      draft.isActive !== baseDraft.isActive ||
-      workflowHooksDraftSignature(hookDraft) !== workflowHooksDraftSignature(baseHookDraft),
+    isWorkflowLifecycleDraftDirty(draft, baseDraft, hookDraft, baseHookDraft),
   )
   const selectedAgent = $derived(agentOptions.find((option) => option.id === draft.agentId) ?? null)
   const selectableStatuses = $derived(statuses)
 
   $effect(() => {
-    const nextKey = [
-      workflow.id,
-      workflow.version,
-      workflow.agentId ?? '',
-      workflow.name,
-      workflow.roleSlug,
-      workflow.roleName,
-      workflow.roleDescription,
-      (workflow.platformAccessAllowed ?? []).join(','),
-      workflow.isActive,
-      workflow.pickupStatusIds.join(','),
-      workflow.finishStatusIds.join(','),
-      workflow.maxConcurrent,
-      workflow.maxRetry,
-      workflow.timeoutMinutes,
-      workflow.stallTimeoutMinutes,
-      JSON.stringify(workflow.rawHooks ?? workflow.hooks ?? {}),
-    ].join(':')
+    const nextKey = workflowLifecycleDraftKey(workflow)
 
     if (nextKey === draftKey) return
 

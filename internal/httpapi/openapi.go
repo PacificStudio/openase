@@ -854,22 +854,30 @@ type OpenAPITicketStatus struct {
 }
 
 type OpenAPIWorkflow struct {
-	ID                  string         `json:"id"`
-	ProjectID           string         `json:"project_id"`
-	AgentID             *string        `json:"agent_id,omitempty"`
-	Name                string         `json:"name"`
-	Type                string         `json:"type"`
-	HarnessPath         string         `json:"harness_path"`
-	HarnessContent      *string        `json:"harness_content,omitempty"`
-	Hooks               map[string]any `json:"hooks"`
-	MaxConcurrent       int            `json:"max_concurrent"`
-	MaxRetryAttempts    int            `json:"max_retry_attempts"`
-	TimeoutMinutes      int            `json:"timeout_minutes"`
-	StallTimeoutMinutes int            `json:"stall_timeout_minutes"`
-	Version             int            `json:"version"`
-	IsActive            bool           `json:"is_active"`
-	PickupStatusIDs     []string       `json:"pickup_status_ids"`
-	FinishStatusIDs     []string       `json:"finish_status_ids"`
+	ID                  string                        `json:"id"`
+	ProjectID           string                        `json:"project_id"`
+	AgentID             *string                       `json:"agent_id,omitempty"`
+	Name                string                        `json:"name"`
+	Type                string                        `json:"type"`
+	WorkflowFamily      string                        `json:"workflow_family"`
+	Classification      OpenAPIWorkflowClassification `json:"workflow_classification"`
+	HarnessPath         string                        `json:"harness_path"`
+	HarnessContent      *string                       `json:"harness_content,omitempty"`
+	Hooks               map[string]any                `json:"hooks"`
+	MaxConcurrent       int                           `json:"max_concurrent"`
+	MaxRetryAttempts    int                           `json:"max_retry_attempts"`
+	TimeoutMinutes      int                           `json:"timeout_minutes"`
+	StallTimeoutMinutes int                           `json:"stall_timeout_minutes"`
+	Version             int                           `json:"version"`
+	IsActive            bool                          `json:"is_active"`
+	PickupStatusIDs     []string                      `json:"pickup_status_ids"`
+	FinishStatusIDs     []string                      `json:"finish_status_ids"`
+}
+
+type OpenAPIWorkflowClassification struct {
+	Family     string   `json:"family"`
+	Confidence float64  `json:"confidence"`
+	Reasons    []string `json:"reasons"`
 }
 
 type OpenAPIHarnessDocument struct {
@@ -958,6 +966,7 @@ type OpenAPIBuiltinRole struct {
 	Slug            string `json:"slug"`
 	Name            string `json:"name"`
 	WorkflowType    string `json:"workflow_type"`
+	WorkflowFamily  string `json:"workflow_family"`
 	Summary         string `json:"summary"`
 	HarnessPath     string `json:"harness_path"`
 	Content         string `json:"content"`
@@ -965,14 +974,14 @@ type OpenAPIBuiltinRole struct {
 }
 
 type OpenAPIHRAdvisorSummary struct {
-	OpenTickets         int      `json:"open_tickets"`
-	CodingTickets       int      `json:"coding_tickets"`
-	FailingTickets      int      `json:"failing_tickets"`
-	BlockedTickets      int      `json:"blocked_tickets"`
-	ActiveAgents        int      `json:"active_agents"`
-	WorkflowCount       int      `json:"workflow_count"`
-	RecentActivityCount int      `json:"recent_activity_count"`
-	ActiveWorkflowTypes []string `json:"active_workflow_types"`
+	OpenTickets            int      `json:"open_tickets"`
+	CodingTickets          int      `json:"coding_tickets"`
+	FailingTickets         int      `json:"failing_tickets"`
+	BlockedTickets         int      `json:"blocked_tickets"`
+	ActiveAgents           int      `json:"active_agents"`
+	WorkflowCount          int      `json:"workflow_count"`
+	RecentActivityCount    int      `json:"recent_activity_count"`
+	ActiveWorkflowFamilies []string `json:"active_workflow_families"`
 }
 
 type OpenAPIHRAdvisorStaffing struct {
@@ -985,18 +994,21 @@ type OpenAPIHRAdvisorStaffing struct {
 }
 
 type OpenAPIHRAdvisorRecommendation struct {
-	RoleSlug              string   `json:"role_slug"`
-	RoleName              string   `json:"role_name"`
-	WorkflowType          string   `json:"workflow_type"`
-	Summary               string   `json:"summary"`
-	HarnessPath           string   `json:"harness_path"`
-	Priority              string   `json:"priority"`
-	Reason                string   `json:"reason"`
-	Evidence              []string `json:"evidence"`
-	SuggestedHeadcount    int      `json:"suggested_headcount"`
-	SuggestedWorkflowName string   `json:"suggested_workflow_name"`
-	ActivationReady       bool     `json:"activation_ready"`
-	ActiveWorkflowName    *string  `json:"active_workflow_name,omitempty"`
+	RoleSlug                string   `json:"role_slug"`
+	RoleName                string   `json:"role_name"`
+	WorkflowType            string   `json:"workflow_type"`
+	WorkflowFamily          string   `json:"workflow_family"`
+	Summary                 string   `json:"summary"`
+	HarnessPath             string   `json:"harness_path"`
+	Priority                string   `json:"priority"`
+	Reason                  string   `json:"reason"`
+	Evidence                []string `json:"evidence"`
+	SuggestedHeadcount      int      `json:"suggested_headcount"`
+	SuggestedWorkflowName   string   `json:"suggested_workflow_name"`
+	SuggestedWorkflowType   string   `json:"suggested_workflow_type"`
+	SuggestedWorkflowFamily string   `json:"suggested_workflow_family"`
+	ActivationReady         bool     `json:"activation_ready"`
+	ActiveWorkflowName      *string  `json:"active_workflow_name,omitempty"`
 }
 
 type OpenAPINotificationChannel struct {

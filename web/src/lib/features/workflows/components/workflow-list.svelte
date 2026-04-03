@@ -1,7 +1,8 @@
 <script lang="ts">
   import { cn, formatRelativeTime } from '$lib/utils'
   import { ArrowRight, Circle } from '@lucide/svelte'
-  import type { WorkflowSummary, WorkflowType } from '../types'
+  import { workflowFamilyColors } from '../model'
+  import type { WorkflowSummary } from '../types'
 
   let {
     workflows,
@@ -14,16 +15,6 @@
     onselect?: (id: string) => void
     class?: string
   } = $props()
-
-  const typeColors: Record<WorkflowType, string> = {
-    coding: 'bg-blue-500/15 text-blue-400',
-    test: 'bg-emerald-500/15 text-emerald-400',
-    doc: 'bg-violet-500/15 text-violet-400',
-    security: 'bg-red-500/15 text-red-400',
-    deploy: 'bg-amber-500/15 text-amber-400',
-    'refine-harness': 'bg-cyan-500/15 text-cyan-400',
-    custom: 'bg-neutral-500/15 text-neutral-400',
-  }
 </script>
 
 <div class={cn('border-border flex h-full flex-col overflow-hidden border-r', className)}>
@@ -51,7 +42,12 @@
           <span class="text-foreground flex-1 truncate text-sm font-medium">
             {wf.name}
           </span>
-          <span class={cn('rounded-md px-1.5 py-0.5 text-[10px] font-medium', typeColors[wf.type])}>
+          <span
+            class={cn(
+              'rounded-md border px-1.5 py-0.5 text-[10px] font-medium',
+              workflowFamilyColors[wf.workflowFamily],
+            )}
+          >
             {wf.type}
           </span>
         </div>

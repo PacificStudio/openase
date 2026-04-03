@@ -258,7 +258,7 @@ func TestWorkflowRequestParsersCoverTrimmedAndInvalidInputs(t *testing.T) {
 	}{
 		{name: "invalid agent id", raw: rawUpdateWorkflowRequest{AgentID: stringPointer("bad")}, want: "agent_id must be a valid UUID"},
 		{name: "empty name", raw: rawUpdateWorkflowRequest{Name: stringPointer("   ")}, want: "name must not be empty"},
-		{name: "invalid type", raw: rawUpdateWorkflowRequest{Type: stringPointer("bad")}, want: "type must be one of"},
+		{name: "invalid type", raw: rawUpdateWorkflowRequest{Type: stringPointer(" \n ")}, want: "type must not be empty"},
 		{name: "invalid max concurrent", raw: rawUpdateWorkflowRequest{MaxConcurrent: intPointer(-1)}, want: "max_concurrent must be greater than or equal to zero"},
 		{name: "invalid max retry", raw: rawUpdateWorkflowRequest{MaxRetryAttempts: intPointer(-1)}, want: "max_retry_attempts must be greater than or equal to zero"},
 		{name: "invalid timeout", raw: rawUpdateWorkflowRequest{TimeoutMinutes: intPointer(0)}, want: "timeout_minutes must be greater than zero"},

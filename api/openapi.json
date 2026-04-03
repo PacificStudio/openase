@@ -10306,10 +10306,19 @@
                           "suggested_headcount": {
                             "type": "integer"
                           },
+                          "suggested_workflow_family": {
+                            "type": "string"
+                          },
                           "suggested_workflow_name": {
                             "type": "string"
                           },
+                          "suggested_workflow_type": {
+                            "type": "string"
+                          },
                           "summary": {
+                            "type": "string"
+                          },
+                          "workflow_family": {
                             "type": "string"
                           },
                           "workflow_type": {
@@ -10348,7 +10357,7 @@
                         "active_agents": {
                           "type": "integer"
                         },
-                        "active_workflow_types": {
+                        "active_workflow_families": {
                           "items": {
                             "type": "string"
                           },
@@ -10844,6 +10853,27 @@
                         },
                         "version": {
                           "type": "integer"
+                        },
+                        "workflow_classification": {
+                          "properties": {
+                            "confidence": {
+                              "format": "double",
+                              "type": "number"
+                            },
+                            "family": {
+                              "type": "string"
+                            },
+                            "reasons": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "workflow_family": {
+                          "type": "string"
                         }
                       },
                       "type": "object"
@@ -19159,6 +19189,27 @@
                           },
                           "version": {
                             "type": "integer"
+                          },
+                          "workflow_classification": {
+                            "properties": {
+                              "confidence": {
+                                "format": "double",
+                                "type": "number"
+                              },
+                              "family": {
+                                "type": "string"
+                              },
+                              "reasons": {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "workflow_family": {
+                            "type": "string"
                           }
                         },
                         "type": "object"
@@ -19422,6 +19473,27 @@
                         },
                         "version": {
                           "type": "integer"
+                        },
+                        "workflow_classification": {
+                          "properties": {
+                            "confidence": {
+                              "format": "double",
+                              "type": "number"
+                            },
+                            "family": {
+                              "type": "string"
+                            },
+                            "reasons": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "workflow_family": {
+                          "type": "string"
                         }
                       },
                       "type": "object"
@@ -20775,6 +20847,9 @@
                           "workflow_content": {
                             "type": "string"
                           },
+                          "workflow_family": {
+                            "type": "string"
+                          },
                           "workflow_type": {
                             "type": "string"
                           }
@@ -20853,6 +20928,9 @@
                           "type": "string"
                         },
                         "workflow_content": {
+                          "type": "string"
+                        },
+                        "workflow_family": {
                           "type": "string"
                         },
                         "workflow_type": {
@@ -26110,6 +26188,27 @@
                         },
                         "version": {
                           "type": "integer"
+                        },
+                        "workflow_classification": {
+                          "properties": {
+                            "confidence": {
+                              "format": "double",
+                              "type": "number"
+                            },
+                            "family": {
+                              "type": "string"
+                            },
+                            "reasons": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "workflow_family": {
+                          "type": "string"
                         }
                       },
                       "type": "object"
@@ -26277,6 +26376,27 @@
                         },
                         "version": {
                           "type": "integer"
+                        },
+                        "workflow_classification": {
+                          "properties": {
+                            "confidence": {
+                              "format": "double",
+                              "type": "number"
+                            },
+                            "family": {
+                              "type": "string"
+                            },
+                            "reasons": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "workflow_family": {
+                          "type": "string"
                         }
                       },
                       "type": "object"
@@ -26534,6 +26654,27 @@
                         },
                         "version": {
                           "type": "integer"
+                        },
+                        "workflow_classification": {
+                          "properties": {
+                            "confidence": {
+                              "format": "double",
+                              "type": "number"
+                            },
+                            "family": {
+                              "type": "string"
+                            },
+                            "reasons": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "workflow_family": {
+                          "type": "string"
                         }
                       },
                       "type": "object"

@@ -35,7 +35,7 @@ func TestActivateCreatesWorkflowAgentAndBootstrapTicket(t *testing.T) {
 			ProjectID:       projectID,
 			AgentID:         &agentID,
 			Name:            "QA Engineer",
-			Type:            "test",
+			Type:            "QA Engineer",
 			HarnessPath:     ".openase/harnesses/roles/qa-engineer.md",
 			HarnessContent:  "content",
 			Version:         1,
@@ -77,7 +77,7 @@ func TestActivateCreatesWorkflowAgentAndBootstrapTicket(t *testing.T) {
 	if workflowStub.createInput == nil {
 		t.Fatal("expected workflow create input")
 	}
-	if workflowStub.createInput.Name != "QA Engineer" || workflowStub.createInput.Type != "test" {
+	if workflowStub.createInput.Name != "QA Engineer" || workflowStub.createInput.Type != "QA Engineer" {
 		t.Fatalf("unexpected workflow create input: %+v", workflowStub.createInput)
 	}
 	if workflowStub.createInput.HarnessPath != ".openase/harnesses/roles/qa-engineer.md" {
@@ -169,7 +169,7 @@ func TestActivateDispatcherFallsBackToBacklogStageForRenamedStatuses(t *testing.
 			ProjectID:       projectID,
 			AgentID:         &agentID,
 			Name:            "Dispatcher",
-			Type:            "custom",
+			Type:            "Dispatcher",
 			HarnessPath:     ".openase/harnesses/roles/dispatcher.md",
 			HarnessContent:  "content",
 			Version:         1,

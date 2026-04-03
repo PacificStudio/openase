@@ -1,5 +1,10 @@
 <script lang="ts">
   import type { HRAdvisorRecommendation } from '$lib/api/contracts'
+  import {
+    normalizeWorkflowFamily,
+    workflowFamilyColors,
+    workflowFamilyIcons,
+  } from '$lib/features/workflows'
   import { cn } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
@@ -31,6 +36,7 @@
   } = $props()
 
   let expanded = $state(false)
+  const workflowFamily = $derived(normalizeWorkflowFamily(recommendation.workflow_family ?? ''))
 </script>
 
 <article
@@ -126,8 +132,18 @@
       <p class="text-muted-foreground text-xs">{recommendation.summary}</p>
 
       <div class="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
-        <span>{recommendation.workflow_type}</span>
+        <span
+          class={cn(
+            'inline-flex items-center gap-1 rounded-full border px-2 py-0.5',
+            workflowFamilyColors[workflowFamily],
+          )}
+        >
+          <span>{workflowFamilyIcons[workflowFamily]}</span>
+          <span>{recommendation.workflow_type}</span>
+          <span class="opacity-80">/{recommendation.workflow_family}</span>
+        </span>
         <span>{recommendation.suggested_workflow_name}</span>
+        <span>{recommendation.suggested_workflow_type}</span>
         <span class="truncate">{recommendation.harness_path}</span>
       </div>
 
