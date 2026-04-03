@@ -13,6 +13,7 @@ func TestOpenASEPlatformWorkpadScriptCreatesCommentWhenMissing(t *testing.T) {
 	scriptPath := builtinWorkpadScriptPath(t)
 	workspace := newFakeOpenASEWorkspace(t, `{"comments":[]}`)
 
+	// #nosec G204 -- test executes a repo-local script under a controlled temp workspace.
 	command := exec.Command("bash", scriptPath, "--body", "Progress\n- started")
 	command.Dir = workspace.root
 	command.Env = append(os.Environ(),
@@ -46,6 +47,7 @@ func TestOpenASEPlatformWorkpadScriptUpdatesExistingCommentOnly(t *testing.T) {
 	scriptPath := builtinWorkpadScriptPath(t)
 	workspace := newFakeOpenASEWorkspace(t, `{"comments":[{"id":"comment-7","body_markdown":"## Codex Workpad\n\nOld"}]}`)
 
+	// #nosec G204 -- test executes a repo-local script under a controlled temp workspace.
 	command := exec.Command("bash", scriptPath, "--body", "Validation\n- go test ./...")
 	command.Dir = workspace.root
 	command.Env = append(os.Environ(),
@@ -86,6 +88,7 @@ func TestOpenASEPlatformWorkpadScriptPrependsHeadingWhenMissing(t *testing.T) {
 		t.Fatalf("write body file: %v", err)
 	}
 
+	// #nosec G204 -- test executes a repo-local script under a controlled temp workspace.
 	command := exec.Command("bash", scriptPath, "--body-file", bodyFile)
 	command.Dir = workspace.root
 	command.Env = append(os.Environ(),
@@ -233,10 +236,13 @@ case "$1 $2 $3" in
 		exit 1
 		;;
 esac
-`) + "\n"
+	`) + "\n"
 	fakeOpenASEPath := filepath.Join(root, ".openase", "bin", "openase")
-	if err := os.WriteFile(fakeOpenASEPath, []byte(fakeOpenASE), 0o700); err != nil {
+	if err := os.WriteFile(fakeOpenASEPath, []byte(fakeOpenASE), 0o600); err != nil {
 		t.Fatalf("write fake openase wrapper: %v", err)
+	}
+	if err := os.Chmod(fakeOpenASEPath, 0o700); err != nil {
+		t.Fatalf("chmod fake openase wrapper: %v", err)
 	}
 	return workspace
 }
@@ -244,6 +250,7 @@ esac
 func mustReadBuiltinTestFile(t *testing.T, path string) string {
 	t.Helper()
 
+	// #nosec G304 -- tests only read files created inside isolated temp directories.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
