@@ -115,7 +115,7 @@ describe('ProjectConversationPanel action proposals', () => {
       ],
     })
 
-    const { findByText, getByRole, queryByText } = render(ProjectConversationPanel, {
+    const { findByText, getByRole, getByText, queryByText } = render(ProjectConversationPanel, {
       props: {
         context: { projectId: 'project-1' },
         providers: providerFixtures,
@@ -201,8 +201,101 @@ describe('ProjectConversationPanel action proposals', () => {
 
     expect(executeProjectConversationActionProposal).not.toHaveBeenCalled()
     expect(await findByText('Cancelled')).toBeTruthy()
-    expect(await findByText('No platform API calls were executed.')).toBeTruthy()
+    expect(await findByText('No API calls were executed.')).toBeTruthy()
     expect(queryByRole('button', { name: 'Confirm' })).toBeNull()
     expect(queryByRole('button', { name: 'Cancel' })).toBeNull()
+  })
+
+  it('renders platform command proposals as readable command cards and confirms them', async () => {
+    window.localStorage.setItem(
+      'openase.project-conversation.project-1.provider-1',
+      JSON.stringify({
+        conversationIds: ['conversation-1'],
+        activeConversationId: 'conversation-1',
+      }),
+    )
+
+    listProjectConversations.mockResolvedValue({
+      conversations: [
+        {
+          id: 'conversation-1',
+          rollingSummary: 'Command proposal thread',
+          lastActivityAt: '2026-04-01T10:00:00Z',
+          providerId: 'provider-1',
+        },
+      ],
+    })
+    listProjectConversationEntries.mockResolvedValue({
+      entries: [
+        {
+          id: 'entry-proposal',
+          conversationId: 'conversation-1',
+          turnId: 'turn-1',
+          seq: 1,
+          kind: 'action_proposal',
+          payload: {
+            type: 'platform_command_proposal',
+            summary: 'Update project and ticket',
+            commands: [
+              {
+                command: 'project_update.create',
+                args: {
+                  project: 'CDN',
+                  content: 'Shift the project to a backend-only control plane.',
+                },
+              },
+              {
+                command: 'ticket.update',
+                args: {
+                  ticket: 'ASE-1',
+                  status: 'Todo',
+                },
+              },
+            ],
+          },
+          createdAt: '2026-04-01T10:00:00Z',
+        },
+      ],
+    })
+    getProjectConversationWorkspaceDiff.mockResolvedValue(createWorkspaceDiff('conversation-1'))
+    watchProjectConversation.mockResolvedValue(undefined)
+    executeProjectConversationActionProposal.mockResolvedValue({
+      results: [
+        {
+          ok: true,
+          summary: 'Created project update in CDN.',
+        },
+        {
+          ok: true,
+          summary: 'Updated ticket ASE-1.',
+        },
+      ],
+    })
+
+    const { findByText, getByRole, getByText, queryByText } = render(ProjectConversationPanel, {
+      props: {
+        context: { projectId: 'project-1' },
+        providers: providerFixtures,
+        defaultProviderId: 'provider-1',
+        placeholder: 'Ask anything about this project…',
+      },
+    })
+
+    await findByText('Update project and ticket')
+    expect(queryByText('/api/v1/projects/project-1/tickets')).toBeNull()
+
+    await fireEvent.click(getByText('project_update.create'))
+    expect(await findByText(/"project": "CDN"/)).toBeTruthy()
+
+    await fireEvent.click(getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => {
+      expect(executeProjectConversationActionProposal).toHaveBeenCalledWith(
+        'conversation-1',
+        'entry-proposal',
+      )
+    })
+    expect(await findByText('Created project update in CDN.')).toBeTruthy()
+    expect(await findByText('Updated ticket ASE-1.')).toBeTruthy()
   })
 })

@@ -1,4 +1,8 @@
 <script lang="ts">
+  import type {
+    ChatActionProposalPayload,
+    ChatPlatformCommandProposalPayload,
+  } from '$lib/api/chat'
   import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
   import { ChevronRight, LoaderCircle, Check, X, ShieldAlert } from '@lucide/svelte'
@@ -56,6 +60,21 @@
         return 'text-muted-foreground'
     }
   }
+
+  function isPlatformCommandProposal(
+    proposal: ChatActionProposalPayload | ChatPlatformCommandProposalPayload,
+  ): proposal is ChatPlatformCommandProposalPayload {
+    return proposal.type === 'platform_command_proposal'
+  }
+
+  function summarizeCommandArgs(args: Record<string, unknown>) {
+    const preferredKeys = ['project', 'ticket', 'title', 'status', 'parent_ticket']
+    const parts = preferredKeys
+      .filter((key) => key in args)
+      .slice(0, 3)
+      .map((key) => `${key}=${String(args[key])}`)
+    return parts.join(' · ')
+  }
 </script>
 
 <div class="border-border/50 bg-muted/10 overflow-hidden rounded-lg border">
@@ -77,41 +96,82 @@
 
   <!-- Actions -->
   <div class="border-border/30 border-t">
-    {#each entry.proposal.actions as action, index}
-      <div class={cn(index > 0 && 'border-border/20 border-t')}>
-        <button
-          type="button"
-          class="hover:bg-muted/30 flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors"
-          onclick={() => toggleAction(index)}
-        >
-          <ChevronRight
-            class={cn(
-              'text-muted-foreground size-3 shrink-0 transition-transform duration-150',
-              expandedActions.has(index) && 'rotate-90',
-            )}
-          />
-          <span
-            class={cn('shrink-0 font-mono text-[11px] font-semibold', methodColor(action.method))}
-          >
-            {action.method}
-          </span>
-          <code class="text-foreground/70 min-w-0 flex-1 truncate font-mono text-[11px]">
-            {action.path}
-          </code>
-        </button>
+      {#if isPlatformCommandProposal(entry.proposal)}
+        {#each entry.proposal.commands as command, index}
+          <div class={cn(index > 0 && 'border-border/20 border-t')}>
+            <button
+              type="button"
+              class="hover:bg-muted/30 flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors"
+              onclick={() => toggleAction(index)}
+            >
+              <ChevronRight
+                class={cn(
+                  'text-muted-foreground size-3 shrink-0 transition-transform duration-150',
+                  expandedActions.has(index) && 'rotate-90',
+                )}
+              />
+              <span class="text-sky-500 shrink-0 font-mono text-[11px] font-semibold">
+                CMD
+              </span>
+              <code class="text-foreground min-w-0 flex-1 truncate font-mono text-[11px]">
+                {command.command}
+              </code>
+              {#if !expandedActions.has(index)}
+                <span class="text-muted-foreground truncate text-[10px]">
+                  {summarizeCommandArgs(command.args)}
+                </span>
+              {/if}
+            </button>
 
-        {#if expandedActions.has(index) && action.body}
-          <div class="border-border/20 border-t px-3 py-2">
-            <pre
-              class="bg-muted/40 max-h-48 overflow-auto rounded-md px-2.5 py-2 font-mono text-[11px] leading-5 whitespace-pre-wrap">{JSON.stringify(
-                action.body,
-                null,
-                2,
-              )}</pre>
+            {#if expandedActions.has(index)}
+              <div class="border-border/20 border-t px-3 py-2">
+                <pre
+                  class="bg-muted/40 max-h-48 overflow-auto rounded-md px-2.5 py-2 font-mono text-[11px] leading-5 whitespace-pre-wrap">{JSON.stringify(
+                    command.args,
+                    null,
+                    2,
+                  )}</pre>
+              </div>
+            {/if}
           </div>
-        {/if}
-      </div>
-    {/each}
+        {/each}
+      {:else}
+        {#each entry.proposal.actions as action, index}
+          <div class={cn(index > 0 && 'border-border/20 border-t')}>
+            <button
+              type="button"
+              class="hover:bg-muted/30 flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors"
+              onclick={() => toggleAction(index)}
+            >
+              <ChevronRight
+                class={cn(
+                  'text-muted-foreground size-3 shrink-0 transition-transform duration-150',
+                  expandedActions.has(index) && 'rotate-90',
+                )}
+              />
+              <span
+                class={cn('shrink-0 font-mono text-[11px] font-semibold', methodColor(action.method))}
+              >
+                {action.method}
+              </span>
+              <code class="text-foreground/70 min-w-0 flex-1 truncate font-mono text-[11px]">
+                {action.path}
+              </code>
+            </button>
+
+            {#if expandedActions.has(index) && action.body}
+              <div class="border-border/20 border-t px-3 py-2">
+                <pre
+                  class="bg-muted/40 max-h-48 overflow-auto rounded-md px-2.5 py-2 font-mono text-[11px] leading-5 whitespace-pre-wrap">{JSON.stringify(
+                    action.body,
+                    null,
+                    2,
+                  )}</pre>
+              </div>
+            {/if}
+          </div>
+        {/each}
+      {/if}
   </div>
 
   <!-- Actions / Status footer -->

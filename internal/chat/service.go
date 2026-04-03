@@ -644,7 +644,11 @@ func (s *Service) buildSystemPrompt(
 	var sb strings.Builder
 	sb.WriteString("你是 OpenASE 平台的内嵌 AI 助手。你正在帮助用户理解或操作 OpenASE，而不是替代编排引擎执行工单。\n\n")
 	sb.WriteString("请基于下面的上下文回答。不要声称已经执行了任何平台写操作。")
-	sb.WriteString("如果用户请求创建/修改工单等平台操作，请输出一个 action_proposal JSON 对象，等待前端确认后再执行。\n\n")
+	if input.Source == SourceProjectSidebar {
+		sb.WriteString("如果用户请求创建/修改工单等平台操作，请优先输出一个 platform_command_proposal JSON 对象，使用人类可读引用，不要输出原始 REST 路径，也不要猜测 UUID。\n\n")
+	} else {
+		sb.WriteString("如果用户请求创建/修改工单等平台操作，请输出一个 action_proposal JSON 对象，等待前端确认后再执行。\n\n")
+	}
 
 	switch input.Source {
 	case SourceHarnessEditor:
@@ -667,10 +671,18 @@ func (s *Service) buildSystemPrompt(
 		return "", ErrSourceUnsupported
 	}
 
-	sb.WriteString("\n## action_proposal 协议\n")
-	sb.WriteString("当且仅当用户明确要求平台写操作时，请只输出一个 JSON 对象，不要添加解释文本。格式如下：\n")
-	sb.WriteString("{\"type\":\"action_proposal\",\"summary\":\"一句话总结\",\"actions\":[{\"method\":\"POST|PATCH|DELETE\",\"path\":\"/api/v1/...\",\"body\":{}}]}\n")
-	sb.WriteString("适合使用 action_proposal 的请求包括：拆分子工单、创建 ticket、修改 ticket 状态、绑定 workflow。\n")
+	if input.Source == SourceProjectSidebar {
+		sb.WriteString("\n## platform_command_proposal 协议\n")
+		sb.WriteString("当且仅当用户明确要求平台写操作时，请只输出一个 JSON 对象，不要添加解释文本。格式如下：\n")
+		sb.WriteString("{\"type\":\"platform_command_proposal\",\"summary\":\"一句话总结\",\"commands\":[{\"command\":\"project_update.create|ticket.update|ticket.create\",\"args\":{}}]}\n")
+		sb.WriteString("参数中优先使用 project slug/name、ticket identifier、status name 这类人类可读引用，不要写 `/api/v1/...` 路径。\n")
+		sb.WriteString("如果 project / ticket / status 无法唯一确定，先提一个定向澄清问题，不要猜。\n")
+	} else {
+		sb.WriteString("\n## action_proposal 协议\n")
+		sb.WriteString("当且仅当用户明确要求平台写操作时，请只输出一个 JSON 对象，不要添加解释文本。格式如下：\n")
+		sb.WriteString("{\"type\":\"action_proposal\",\"summary\":\"一句话总结\",\"actions\":[{\"method\":\"POST|PATCH|DELETE\",\"path\":\"/api/v1/...\",\"body\":{}}]}\n")
+		sb.WriteString("适合使用 action_proposal 的请求包括：拆分子工单、创建 ticket、修改 ticket 状态、绑定 workflow。\n")
+	}
 
 	return sb.String(), nil
 }
@@ -945,6 +957,8 @@ func (s *Service) writeProjectSidebarContext(
 
 	sb.WriteString("## 来源: 项目侧栏\n")
 	_, _ = fmt.Fprintf(sb, "项目: %s\n", project.Name)
+	_, _ = fmt.Fprintf(sb, "project_id: %s\n", project.ID)
+	_, _ = fmt.Fprintf(sb, "project_slug: %s\n", project.Slug)
 	if project.Description != "" {
 		sb.WriteString(project.Description)
 		sb.WriteString("\n")
@@ -958,9 +972,50 @@ func (s *Service) writeProjectSidebarContext(
 		sb.WriteString("\n### 当前用户关注区域\n")
 		sb.WriteString(renderProjectConversationFocus(focus))
 	}
+	sb.WriteString("\n### 平台命令引用\n")
+	_, _ = fmt.Fprintf(sb, "- current_project_id: %s\n", project.ID)
+	_, _ = fmt.Fprintf(sb, "- current_project_name: %s\n", project.Name)
+	_, _ = fmt.Fprintf(sb, "- current_project_slug: %s\n", project.Slug)
+	statusLines, err := s.renderProjectSidebarStatusReferences(ctx, project.ID)
+	if err != nil {
+		return err
+	}
+	sb.WriteString(statusLines)
+	sb.WriteString(renderProjectSidebarTicketReferences(tickets))
 	sb.WriteString("\n### 最近活动\n")
 	sb.WriteString(renderActivityLines(activityItems))
 	return nil
+}
+
+func (s *Service) renderProjectSidebarStatusReferences(ctx context.Context, projectID uuid.UUID) (string, error) {
+	if s.statuses == nil {
+		return "", nil
+	}
+	result, err := s.statuses.List(ctx, projectID)
+	if err != nil {
+		return "", fmt.Errorf("list ticket statuses for project sidebar context: %w", err)
+	}
+	if len(result.Statuses) == 0 {
+		return "- statuses: 无\n", nil
+	}
+	var sb strings.Builder
+	sb.WriteString("- statuses:\n")
+	for _, item := range result.Statuses {
+		_, _ = fmt.Fprintf(&sb, "  - %s => %s\n", item.Name, item.ID)
+	}
+	return sb.String(), nil
+}
+
+func renderProjectSidebarTicketReferences(tickets []ticketservice.Ticket) string {
+	if len(tickets) == 0 {
+		return "- tickets: 无\n"
+	}
+	var sb strings.Builder
+	sb.WriteString("- tickets:\n")
+	for _, item := range tickets {
+		_, _ = fmt.Fprintf(&sb, "  - %s => %s [%s]\n", item.Identifier, item.ID, item.StatusName)
+	}
+	return sb.String()
 }
 
 func renderProjectConversationFocus(focus *ProjectConversationFocus) string {

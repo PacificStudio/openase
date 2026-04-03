@@ -1,4 +1,8 @@
-import type { ChatActionProposalPayload, ChatDiffPayload } from '$lib/api/chat'
+import type {
+  ChatActionProposalPayload,
+  ChatDiffPayload,
+  ChatPlatformCommandProposalPayload,
+} from '$lib/api/chat'
 import type { ChatActionExecutionResult } from './action-proposal-executor'
 
 export type ProjectConversationRole = 'user' | 'assistant' | 'system'
@@ -16,7 +20,7 @@ export type ProjectConversationActionProposalEntry = {
   id: string
   kind: 'action_proposal'
   role: 'assistant'
-  proposal: ChatActionProposalPayload
+  proposal: ChatActionProposalPayload | ChatPlatformCommandProposalPayload
   status: 'pending' | 'executing' | 'confirmed' | 'cancelled'
   results: ChatActionExecutionResult[]
 }
@@ -119,7 +123,7 @@ export function appendProjectConversationTranscriptEntry(
 
 export function createProjectConversationActionProposalEntry(params: {
   id: string
-  proposal: ChatActionProposalPayload
+  proposal: ChatActionProposalPayload | ChatPlatformCommandProposalPayload
 }) {
   return {
     id: params.id,

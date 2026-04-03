@@ -44,6 +44,37 @@ func TestMapCodexAssistantOutputPromotesActionProposalFromSnapshot(t *testing.T)
 	}
 }
 
+func TestMapCodexAssistantOutputPromotesPlatformCommandProposalFromSnapshot(t *testing.T) {
+	items := make(map[string]*codexAssistantItemState)
+
+	events := mapCodexAssistantOutput(&codexadapter.OutputEvent{
+		ItemID: "item-1",
+		Stream: "assistant",
+		Text:   "```json\n{\"type\":\"platform_command_proposal\",",
+	}, items)
+	if len(events) != 0 {
+		t.Fatalf("first assistant delta should be buffered, got %+v", events)
+	}
+
+	events = mapCodexAssistantOutput(&codexadapter.OutputEvent{
+		ItemID:   "item-1",
+		Stream:   "assistant",
+		Text:     "\"summary\":\"Update ticket\",\"commands\":[{\"command\":\"ticket.update\",\"args\":{\"ticket\":\"ASE-1\",\"status\":\"Todo\"}}]}\n```",
+		Snapshot: true,
+	}, items)
+	if len(events) != 1 {
+		t.Fatalf("snapshot should emit one normalized event, got %d", len(events))
+	}
+
+	payload, ok := events[0].Payload.(map[string]any)
+	if !ok {
+		t.Fatalf("payload = %#v, want platform command payload map", events[0].Payload)
+	}
+	if payload["type"] != chatMessageTypePlatformCommand || payload["summary"] != "Update ticket" {
+		t.Fatalf("unexpected platform command payload: %#v", payload)
+	}
+}
+
 func TestMapCodexAssistantOutputPrefersSnapshotTextForJSONResponses(t *testing.T) {
 	items := make(map[string]*codexAssistantItemState)
 

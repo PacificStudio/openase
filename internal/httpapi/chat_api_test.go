@@ -20,6 +20,7 @@ import (
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	chatrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
@@ -834,6 +835,146 @@ func TestProjectConversationActionProposalExecutionUsesHumanConfirmedAuditActor(
 	}
 	if len(tickets) != 1 || tickets[0].CreatedBy != wantActor {
 		t.Fatalf("unexpected created tickets: %+v", tickets)
+	}
+}
+
+func TestProjectConversationPlatformCommandProposalExecutionResolvesHumanReadableReferences(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("CDN").
+		SetSlug("cdn").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	repoStore := chatrepo.NewEntRepository(client)
+	catalogSvc := catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil)
+	ticketSvc := newTicketService(client)
+	projectUpdateSvc := projectupdateservice.NewService(client, nil)
+
+	ticketItem, err := ticketSvc.Create(ctx, ticketservice.CreateInput{
+		ProjectID:   project.ID,
+		Title:       "Legacy CDN ticket",
+		Description: "Rewrite the CDN design.",
+		Type:        ticketservice.TypeFeature,
+		CreatedBy:   "user:seed",
+	})
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "browser-user",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	proposalEntry, err := repoStore.AppendEntry(ctx, conversation.ID, nil, chatdomain.EntryKindActionProposal, map[string]any{
+		"type":    "platform_command_proposal",
+		"summary": "Update project and ticket",
+		"commands": []any{
+			map[string]any{
+				"command": "project_update.create",
+				"args": map[string]any{
+					"project": "CDN",
+					"content": "Shift the CDN roadmap to a backend-only control plane.",
+				},
+			},
+			map[string]any{
+				"command": "ticket.update",
+				"args": map[string]any{
+					"ticket":      ticketItem.Identifier,
+					"title":       "Rebuild CDN backend",
+					"description": "Route version switching through the backend control plane.",
+					"status":      "Todo",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("append proposal entry: %v", err)
+	}
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		repoStore,
+		catalogSvc,
+		ticketSvc,
+		nil,
+		nil,
+		nil,
+	)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketSvc,
+		newTicketStatusService(client),
+		nil,
+		catalogSvc,
+		nil,
+		WithProjectUpdateService(projectUpdateSvc),
+		WithProjectConversationService(projectConversationService),
+	)
+
+	payload := map[string]any{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/chat/conversations/"+conversation.ID.String()+"/action-proposals/"+proposalEntry.ID.String()+"/execute",
+		nil,
+		map[string]string{chatUserHeader: "browser-user"},
+		http.StatusOK,
+		&payload,
+	)
+
+	results, ok := payload["results"].([]any)
+	if !ok || len(results) != 2 {
+		t.Fatalf("results = %+v", payload["results"])
+	}
+	for index, raw := range results {
+		item, ok := raw.(map[string]any)
+		if !ok || item["ok"] != true {
+			t.Fatalf("result %d = %+v", index, raw)
+		}
+	}
+
+	threads, err := projectUpdateSvc.ListThreads(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("list project updates: %v", err)
+	}
+	if len(threads) != 1 || threads[0].CreatedBy != "user:browser-user via project-conversation:"+conversation.ID.String() {
+		t.Fatalf("threads = %+v", threads)
+	}
+
+	updatedTicket, err := ticketSvc.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("get updated ticket: %v", err)
+	}
+	if updatedTicket.Title != "Rebuild CDN backend" || updatedTicket.StatusID != todoID || updatedTicket.CreatedBy != "user:browser-user via project-conversation:"+conversation.ID.String() {
+		t.Fatalf("updated ticket = %+v", updatedTicket)
 	}
 }
 
