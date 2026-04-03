@@ -344,6 +344,14 @@ func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 	if !strings.HasPrefix(string(refreshedSkill), "---\nname: ") {
 		t.Fatalf("expected refreshed skill to include frontmatter, got %q", string(refreshedSkill))
 	}
+	refreshedScriptPath := filepath.Join(workspaceRoot, ".claude", "skills", "openase-platform", "scripts", "upsert_workpad.sh")
+	refreshedScriptInfo, err := os.Stat(refreshedScriptPath)
+	if err != nil {
+		t.Fatalf("expected refreshed openase-platform script: %v", err)
+	}
+	if refreshedScriptInfo.Mode()&0o111 == 0 {
+		t.Fatalf("expected refreshed openase-platform script to be executable, mode=%v", refreshedScriptInfo.Mode())
+	}
 	if _, err := os.Stat(filepath.Join(workspaceRoot, ".openase", "bin", "openase")); err != nil {
 		t.Fatalf("expected openase wrapper in refreshed workspace: %v", err)
 	}
