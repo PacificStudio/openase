@@ -116,6 +116,7 @@ func TestOpenASEPlatformWorkpadScriptRejectsInvalidArgumentCombinations(t *testi
 		t.Fatalf("write body file: %v", err)
 	}
 
+	// #nosec G204 -- test executes a repo-local script under a controlled temp workspace.
 	command := exec.Command("bash", scriptPath, "--body", "Progress", "--body-file", bodyFile)
 	command.Dir = workspace.root
 	command.Env = append(os.Environ(),
@@ -141,6 +142,7 @@ func TestOpenASEPlatformWorkpadScriptFailsWithoutTicketContext(t *testing.T) {
 	scriptPath := builtinWorkpadScriptPath(t)
 	workspace := newFakeOpenASEWorkspace(t, `{"comments":[]}`)
 
+	// #nosec G204 -- test executes a repo-local script under a controlled temp workspace.
 	command := exec.Command("bash", scriptPath, "--body", "Progress")
 	command.Dir = workspace.root
 	command.Env = append(os.Environ(),
@@ -241,6 +243,7 @@ esac
 	if err := os.WriteFile(fakeOpenASEPath, []byte(fakeOpenASE), 0o600); err != nil {
 		t.Fatalf("write fake openase wrapper: %v", err)
 	}
+	// #nosec G302 -- tests require an executable wrapper inside an isolated temp workspace.
 	if err := os.Chmod(fakeOpenASEPath, 0o700); err != nil {
 		t.Fatalf("chmod fake openase wrapper: %v", err)
 	}
