@@ -8,7 +8,7 @@ import (
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/hradvisor"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
-	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
+	workflowdomain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
 )
 
 type snapshotStats struct {
@@ -46,7 +46,7 @@ type laneProfile struct {
 	RoleSlug          string
 	WorkflowName      string
 	WorkflowTypeLabel string
-	WorkflowFamily    workflowservice.WorkflowFamily
+	WorkflowFamily    workflowdomain.WorkflowFamily
 	MinQueuedTickets  int
 	HeadcountDivisor  int
 }
@@ -116,7 +116,7 @@ func Analyze(snapshot domain.Snapshot) domain.Analysis {
 			SuggestedHeadcount:         1,
 			SuggestedWorkflowName:      "Product Manager",
 			SuggestedWorkflowTypeLabel: "Product Manager",
-			SuggestedWorkflowFamily:    string(workflowservice.WorkflowFamilyPlanning),
+			SuggestedWorkflowFamily:    string(workflowdomain.WorkflowFamilyPlanning),
 		}, false)
 	}
 
@@ -129,7 +129,7 @@ func Analyze(snapshot domain.Snapshot) domain.Analysis {
 			SuggestedHeadcount:         max(1, scaleHeadcount(stats.codingTickets, 4)),
 			SuggestedWorkflowName:      "Fullstack Developer",
 			SuggestedWorkflowTypeLabel: "Fullstack Developer",
-			SuggestedWorkflowFamily:    string(workflowservice.WorkflowFamilyCoding),
+			SuggestedWorkflowFamily:    string(workflowdomain.WorkflowFamilyCoding),
 		}, false)
 	}
 
@@ -142,7 +142,7 @@ func Analyze(snapshot domain.Snapshot) domain.Analysis {
 			SuggestedHeadcount:         max(1, scaleHeadcount(stats.codingTickets, 6)),
 			SuggestedWorkflowName:      "QA Engineer",
 			SuggestedWorkflowTypeLabel: "QA Engineer",
-			SuggestedWorkflowFamily:    string(workflowservice.WorkflowFamilyTest),
+			SuggestedWorkflowFamily:    string(workflowdomain.WorkflowFamilyTest),
 		}, false)
 	}
 
@@ -171,7 +171,7 @@ func Analyze(snapshot domain.Snapshot) domain.Analysis {
 			SuggestedHeadcount:         1,
 			SuggestedWorkflowName:      "Research Ideation",
 			SuggestedWorkflowTypeLabel: "Research Ideation",
-			SuggestedWorkflowFamily:    string(workflowservice.WorkflowFamilyResearch),
+			SuggestedWorkflowFamily:    string(workflowdomain.WorkflowFamilyResearch),
 		}, false)
 	}
 
@@ -213,20 +213,20 @@ func collectStats(snapshot domain.Snapshot) snapshotStats {
 		}
 
 		classification := classifyWorkflow(workflow)
-		if classification.Family != workflowservice.WorkflowFamilyUnknown {
+		if classification.Family != workflowdomain.WorkflowFamilyUnknown {
 			activeWorkflowFamilies[string(classification.Family)] = struct{}{}
 		}
 
 		switch classification.Family {
-		case workflowservice.WorkflowFamilyTest:
+		case workflowdomain.WorkflowFamilyTest:
 			stats.testWorkflowCount++
-		case workflowservice.WorkflowFamilyDocs:
+		case workflowdomain.WorkflowFamilyDocs:
 			stats.docWorkflowCount++
-		case workflowservice.WorkflowFamilySecurity:
+		case workflowdomain.WorkflowFamilySecurity:
 			stats.securityWorkflowCount++
 		}
 
-		if classification.Family == workflowservice.WorkflowFamilyDispatcher || isDispatcherWorkflow(workflow) {
+		if classification.Family == workflowdomain.WorkflowFamilyDispatcher || isDispatcherWorkflow(workflow) {
 			stats.hasDispatcherWorkflow = true
 		}
 		registerWorkflowCoverage(
@@ -294,11 +294,11 @@ func collectStats(snapshot domain.Snapshot) snapshotStats {
 			workflowTypeLabel = ticket.WorkflowType
 		}
 		switch classifyWorkflowTypeLabel(workflowTypeLabel) {
-		case workflowservice.WorkflowFamilyCoding:
+		case workflowdomain.WorkflowFamilyCoding:
 			stats.codingTickets++
-		case workflowservice.WorkflowFamilyTest,
-			workflowservice.WorkflowFamilyDocs,
-			workflowservice.WorkflowFamilySecurity:
+		case workflowdomain.WorkflowFamilyTest,
+			workflowdomain.WorkflowFamilyDocs,
+			workflowdomain.WorkflowFamilySecurity:
 			continue
 		default:
 			if isCodingTicketType(ticket.Type) {
@@ -376,7 +376,7 @@ func documentationRecommendation(stats snapshotStats) (domain.Recommendation, bo
 		SuggestedHeadcount:         1,
 		SuggestedWorkflowName:      "Technical Writer",
 		SuggestedWorkflowTypeLabel: "Technical Writer",
-		SuggestedWorkflowFamily:    string(workflowservice.WorkflowFamilyDocs),
+		SuggestedWorkflowFamily:    string(workflowdomain.WorkflowFamilyDocs),
 	}, true
 }
 
@@ -405,7 +405,7 @@ func securityRecommendation(stats snapshotStats) (domain.Recommendation, bool) {
 		SuggestedHeadcount:         1,
 		SuggestedWorkflowName:      "Security Engineer",
 		SuggestedWorkflowTypeLabel: "Security Engineer",
-		SuggestedWorkflowFamily:    string(workflowservice.WorkflowFamilySecurity),
+		SuggestedWorkflowFamily:    string(workflowdomain.WorkflowFamilySecurity),
 	}, true
 }
 
@@ -439,7 +439,7 @@ func envProvisionerRecommendation(stats snapshotStats) (domain.Recommendation, b
 		SuggestedHeadcount:         1,
 		SuggestedWorkflowName:      "Environment Provisioner",
 		SuggestedWorkflowTypeLabel: "Environment Provisioner",
-		SuggestedWorkflowFamily:    string(workflowservice.WorkflowFamilyEnvironment),
+		SuggestedWorkflowFamily:    string(workflowdomain.WorkflowFamilyEnvironment),
 	}, true
 }
 
@@ -474,7 +474,7 @@ func harnessOptimizerRecommendation(stats snapshotStats) (domain.Recommendation,
 		SuggestedHeadcount:         1,
 		SuggestedWorkflowName:      "Harness Optimizer",
 		SuggestedWorkflowTypeLabel: "Harness Optimizer",
-		SuggestedWorkflowFamily:    string(workflowservice.WorkflowFamilyHarness),
+		SuggestedWorkflowFamily:    string(workflowdomain.WorkflowFamilyHarness),
 	}, true
 }
 
@@ -643,14 +643,14 @@ func buildStatusPressure(
 	return pressures
 }
 
-func classifyWorkflow(workflow domain.WorkflowContext) workflowservice.WorkflowClassification {
+func classifyWorkflow(workflow domain.WorkflowContext) workflowdomain.WorkflowClassification {
 	rawTypeLabel := workflow.TypeLabel
 	if strings.TrimSpace(rawTypeLabel) == "" {
 		rawTypeLabel = workflow.Type
 	}
-	typeLabel, err := workflowservice.ParseTypeLabel(rawTypeLabel)
+	typeLabel, err := workflowdomain.ParseTypeLabel(rawTypeLabel)
 	if err != nil {
-		typeLabel = workflowservice.MustParseTypeLabel("unknown")
+		typeLabel = workflowdomain.MustParseTypeLabel("unknown")
 	}
 	pickupStatusNames := make([]string, 0, len(workflow.PickupStatuses))
 	for _, status := range workflow.PickupStatuses {
@@ -660,7 +660,7 @@ func classifyWorkflow(workflow domain.WorkflowContext) workflowservice.WorkflowC
 	for _, status := range workflow.FinishStatuses {
 		finishStatusNames = append(finishStatusNames, status.Name)
 	}
-	return workflowservice.ClassifyWorkflow(workflowservice.WorkflowClassificationInput{
+	return workflowdomain.ClassifyWorkflow(workflowdomain.WorkflowClassificationInput{
 		RoleSlug:          workflow.RoleSlug,
 		TypeLabel:         typeLabel,
 		WorkflowName:      workflow.Name,
@@ -671,12 +671,12 @@ func classifyWorkflow(workflow domain.WorkflowContext) workflowservice.WorkflowC
 	})
 }
 
-func classifyWorkflowTypeLabel(raw string) workflowservice.WorkflowFamily {
-	typeLabel, err := workflowservice.ParseTypeLabel(raw)
+func classifyWorkflowTypeLabel(raw string) workflowdomain.WorkflowFamily {
+	typeLabel, err := workflowdomain.ParseTypeLabel(raw)
 	if err != nil {
-		return workflowservice.WorkflowFamilyUnknown
+		return workflowdomain.WorkflowFamilyUnknown
 	}
-	return workflowservice.ClassifyWorkflow(workflowservice.WorkflowClassificationInput{
+	return workflowdomain.ClassifyWorkflow(workflowdomain.WorkflowClassificationInput{
 		TypeLabel: typeLabel,
 	}).Family
 }
@@ -712,7 +712,7 @@ func registerWorkflowCoverage(
 	statusStages map[string]string,
 	statusBindings []domain.StatusBindingContext,
 	workflowName string,
-	workflowFamily workflowservice.WorkflowFamily,
+	workflowFamily workflowdomain.WorkflowFamily,
 	roleSlug string,
 ) {
 	trimmedWorkflowName := strings.TrimSpace(workflowName)
@@ -761,7 +761,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			RoleSlug:          "dispatcher",
 			WorkflowName:      "Dispatcher",
 			WorkflowTypeLabel: "Dispatcher",
-			WorkflowFamily:    workflowservice.WorkflowFamilyDispatcher,
+			WorkflowFamily:    workflowdomain.WorkflowFamilyDispatcher,
 			MinQueuedTickets:  11,
 			HeadcountDivisor:  10,
 		}, true
@@ -770,7 +770,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			RoleSlug:          "code-reviewer",
 			WorkflowName:      "Code Reviewer",
 			WorkflowTypeLabel: "Code Reviewer",
-			WorkflowFamily:    workflowservice.WorkflowFamilyReview,
+			WorkflowFamily:    workflowdomain.WorkflowFamilyReview,
 			MinQueuedTickets:  1,
 			HeadcountDivisor:  4,
 		}, true
@@ -779,7 +779,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			RoleSlug:          "qa-engineer",
 			WorkflowName:      "QA Engineer",
 			WorkflowTypeLabel: "QA Engineer",
-			WorkflowFamily:    workflowservice.WorkflowFamilyTest,
+			WorkflowFamily:    workflowdomain.WorkflowFamilyTest,
 			MinQueuedTickets:  2,
 			HeadcountDivisor:  6,
 		}, true
@@ -788,7 +788,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			RoleSlug:          "report-writer",
 			WorkflowName:      "Report Writer",
 			WorkflowTypeLabel: "Report Writer",
-			WorkflowFamily:    workflowservice.WorkflowFamilyReporting,
+			WorkflowFamily:    workflowdomain.WorkflowFamilyReporting,
 			MinQueuedTickets:  1,
 			HeadcountDivisor:  4,
 		}, true
@@ -797,7 +797,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			RoleSlug:          "technical-writer",
 			WorkflowName:      "Technical Writer",
 			WorkflowTypeLabel: "Technical Writer",
-			WorkflowFamily:    workflowservice.WorkflowFamilyDocs,
+			WorkflowFamily:    workflowdomain.WorkflowFamilyDocs,
 			MinQueuedTickets:  2,
 			HeadcountDivisor:  8,
 		}, true
@@ -806,7 +806,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			RoleSlug:          "devops-engineer",
 			WorkflowName:      "DevOps Engineer",
 			WorkflowTypeLabel: "Release Captain",
-			WorkflowFamily:    workflowservice.WorkflowFamilyDeploy,
+			WorkflowFamily:    workflowdomain.WorkflowFamilyDeploy,
 			MinQueuedTickets:  1,
 			HeadcountDivisor:  4,
 		}, true
@@ -815,7 +815,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			RoleSlug:          "env-provisioner",
 			WorkflowName:      "Environment Provisioner",
 			WorkflowTypeLabel: "Environment Provisioner",
-			WorkflowFamily:    workflowservice.WorkflowFamilyEnvironment,
+			WorkflowFamily:    workflowdomain.WorkflowFamilyEnvironment,
 			MinQueuedTickets:  1,
 			HeadcountDivisor:  4,
 		}, true
@@ -824,7 +824,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			RoleSlug:          "harness-optimizer",
 			WorkflowName:      "Harness Optimizer",
 			WorkflowTypeLabel: "Harness Optimizer",
-			WorkflowFamily:    workflowservice.WorkflowFamilyHarness,
+			WorkflowFamily:    workflowdomain.WorkflowFamilyHarness,
 			MinQueuedTickets:  1,
 			HeadcountDivisor:  4,
 		}, true
@@ -833,7 +833,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			RoleSlug:          "security-engineer",
 			WorkflowName:      "Security Engineer",
 			WorkflowTypeLabel: "Security Engineer",
-			WorkflowFamily:    workflowservice.WorkflowFamilySecurity,
+			WorkflowFamily:    workflowdomain.WorkflowFamilySecurity,
 			MinQueuedTickets:  2,
 			HeadcountDivisor:  8,
 		}, true
@@ -842,7 +842,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			RoleSlug:          "frontend-engineer",
 			WorkflowName:      "Frontend Engineer",
 			WorkflowTypeLabel: "Frontend Engineer",
-			WorkflowFamily:    workflowservice.WorkflowFamilyCoding,
+			WorkflowFamily:    workflowdomain.WorkflowFamilyCoding,
 			MinQueuedTickets:  1,
 			HeadcountDivisor:  4,
 		}, true
@@ -851,7 +851,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			RoleSlug:          "backend-engineer",
 			WorkflowName:      "Backend Engineer",
 			WorkflowTypeLabel: "Backend Engineer",
-			WorkflowFamily:    workflowservice.WorkflowFamilyCoding,
+			WorkflowFamily:    workflowdomain.WorkflowFamilyCoding,
 			MinQueuedTickets:  1,
 			HeadcountDivisor:  4,
 		}, true
@@ -860,7 +860,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			RoleSlug:          "experiment-runner",
 			WorkflowName:      "Experiment Runner",
 			WorkflowTypeLabel: "Experiment Runner",
-			WorkflowFamily:    workflowservice.WorkflowFamilyResearch,
+			WorkflowFamily:    workflowdomain.WorkflowFamilyResearch,
 			MinQueuedTickets:  1,
 			HeadcountDivisor:  4,
 		}, true
@@ -869,7 +869,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			RoleSlug:          "research-ideation",
 			WorkflowName:      "Research Ideation",
 			WorkflowTypeLabel: "Research Ideation",
-			WorkflowFamily:    workflowservice.WorkflowFamilyResearch,
+			WorkflowFamily:    workflowdomain.WorkflowFamilyResearch,
 			MinQueuedTickets:  1,
 			HeadcountDivisor:  4,
 		}, true
@@ -878,7 +878,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			RoleSlug:          "fullstack-developer",
 			WorkflowName:      "Fullstack Developer",
 			WorkflowTypeLabel: "Fullstack Developer",
-			WorkflowFamily:    workflowservice.WorkflowFamilyCoding,
+			WorkflowFamily:    workflowdomain.WorkflowFamilyCoding,
 			MinQueuedTickets:  2,
 			HeadcountDivisor:  4,
 		}, true

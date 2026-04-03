@@ -28,7 +28,7 @@ import (
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/ticket"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
-	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
+	workflowdomain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
 	"github.com/google/uuid"
 )
 
@@ -1788,15 +1788,15 @@ func (r *EntRepository) LoadLifecycleHookRuntimeData(
 		workspaceRoot = strings.TrimSpace(workspaces[0].WorkspaceRoot)
 	}
 
-	typeLabel, parseErr := workflowservice.ParseTypeLabel(string(workflowItem.Type))
+	typeLabel, parseErr := workflowdomain.ParseTypeLabel(workflowItem.Type)
 	if parseErr != nil {
-		typeLabel = workflowservice.MustParseTypeLabel("unknown")
+		typeLabel = workflowdomain.MustParseTypeLabel("unknown")
 	}
 	harnessContent := ""
 	if workflowItem.Edges.CurrentVersion != nil {
 		harnessContent = workflowItem.Edges.CurrentVersion.ContentMarkdown
 	}
-	workflowFamily := workflowservice.ClassifyWorkflow(workflowservice.WorkflowClassificationInput{
+	workflowFamily := workflowdomain.ClassifyWorkflow(workflowdomain.WorkflowClassificationInput{
 		TypeLabel:      typeLabel,
 		WorkflowName:   workflowItem.Name,
 		HarnessPath:    workflowItem.HarnessPath,

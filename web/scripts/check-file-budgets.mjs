@@ -27,6 +27,8 @@ const budgetRules = [
     allowlist: {
       'src/lib/features/app-shell/components/project-shell.svelte':
         'Project shell still coordinates top bar, sidebar, app-context refresh, and overlays while shell controller extraction continues.',
+      'src/lib/features/workflows/components/workflow-creation-dialog.svelte':
+        'Workflow creation still combines label, status binding, agent binding, and hook editing while the creation form controller is being extracted.',
       'src/lib/features/settings/components/general-settings.svelte':
         'General settings currently combines run summary prompt builder and archive controls while those panels remain in a single form surface.',
     },

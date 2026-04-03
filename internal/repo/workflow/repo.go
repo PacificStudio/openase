@@ -1160,7 +1160,7 @@ func (r *EntRepository) BuildHarnessTemplateData(
 		OpenASEVersion:     strings.TrimSpace(input.OpenASEVersion),
 		Workflow: domain.HarnessWorkflowData{
 			Name:         workflowItem.Name,
-			Type:         string(workflowItem.Type),
+			Type:         workflowItem.Type,
 			RoleName:     extractWorkflowRoleName(harnessContent, workflowItem.Name),
 			PickupStatus: joinStatusNames(workflowItem.Edges.PickupStatuses),
 			FinishStatus: joinStatusNames(workflowItem.Edges.FinishStatuses),
@@ -1785,7 +1785,7 @@ func (r *EntRepository) mapHarnessProjectWorkflows(
 		}
 		items = append(items, domain.HarnessProjectWorkflowData{
 			Name:            workflowItem.Name,
-			Type:            string(workflowItem.Type),
+			Type:            workflowItem.Type,
 			RoleName:        roleName,
 			RoleDescription: extractWorkflowRoleDescription(harnessContent),
 			PickupStatus:    joinStatusNames(workflowItem.Edges.PickupStatuses),

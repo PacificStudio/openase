@@ -4,7 +4,7 @@
     normalizeWorkflowFamily,
     workflowFamilyColors,
     workflowFamilyIcons,
-  } from '$lib/features/workflows/model'
+  } from '$lib/features/workflows'
   import { cn } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'

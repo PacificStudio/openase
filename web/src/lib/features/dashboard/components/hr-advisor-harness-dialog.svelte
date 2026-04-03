@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { BuiltinRole } from '$lib/api/contracts'
-  import { normalizeWorkflowFamily, workflowFamilyColors } from '$lib/features/workflows/model'
+  import { normalizeWorkflowFamily, workflowFamilyColors } from '$lib/features/workflows'
   import { Badge } from '$ui/badge'
   import * as Dialog from '$ui/dialog'
 

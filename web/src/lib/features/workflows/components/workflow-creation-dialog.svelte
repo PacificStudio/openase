@@ -63,6 +63,16 @@
   )
   const selectableStatuses = $derived(statuses)
   const hookValidation = $derived(validateWorkflowHooksDraft(hookDraft))
+
+  function statusChipClass(selected: boolean) {
+    return cn(
+      'rounded-full border px-3 py-1.5 text-xs transition-colors',
+      selected
+        ? 'border-primary/40 bg-primary/10 text-foreground'
+        : 'border-border text-muted-foreground hover:bg-muted',
+    )
+  }
+
   $effect(() => {
     if (open && !wasOpen) {
       name = templateDraft?.name ?? `Workflow ${existingCount + 1}`
@@ -212,12 +222,7 @@
             {#each selectableStatuses as status (status.id)}
               <button
                 type="button"
-                class={cn(
-                  'rounded-full border px-3 py-1.5 text-xs transition-colors',
-                  pickupStatusIds.includes(status.id)
-                    ? 'border-primary/40 bg-primary/10 text-foreground'
-                    : 'border-border text-muted-foreground hover:bg-muted',
-                )}
+                class={statusChipClass(pickupStatusIds.includes(status.id))}
                 disabled={saving}
                 onclick={() =>
                   (pickupStatusIds = toggleWorkflowStatusSelection(pickupStatusIds, status.id))}
@@ -234,12 +239,7 @@
             {#each selectableStatuses as status (status.id)}
               <button
                 type="button"
-                class={cn(
-                  'rounded-full border px-3 py-1.5 text-xs transition-colors',
-                  finishStatusIds.includes(status.id)
-                    ? 'border-primary/40 bg-primary/10 text-foreground'
-                    : 'border-border text-muted-foreground hover:bg-muted',
-                )}
+                class={statusChipClass(finishStatusIds.includes(status.id))}
                 disabled={saving}
                 onclick={() =>
                   (finishStatusIds = toggleWorkflowStatusSelection(finishStatusIds, status.id))}

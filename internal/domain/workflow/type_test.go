@@ -1,6 +1,9 @@
 package workflow
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseType(t *testing.T) {
 	got, err := ParseType(" Refine-Harness ")
@@ -22,5 +25,25 @@ func TestParseType(t *testing.T) {
 	}
 	if _, err := ParseType("line1\nline2"); err == nil {
 		t.Fatal("expected control characters to fail")
+	}
+	if _, err := ParseTypeLabel(strings.Repeat("a", maxTypeLabelRunes+1)); err == nil {
+		t.Fatal("expected too-long workflow type to fail")
+	}
+}
+
+func TestMustParseTypeLabelPanicsOnInvalidInput(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("expected MustParseTypeLabel to panic")
+		}
+	}()
+
+	_ = MustParseTypeLabel("")
+}
+
+func TestNormalizeSemanticKeyKeepsNonControlMarks(t *testing.T) {
+	label := MustParseTypeLabel(" A\u0301 + B ")
+	if got := label.NormalizedKey(); got != "a\u0301b" {
+		t.Fatalf("NormalizedKey() = %q", got)
 	}
 }
