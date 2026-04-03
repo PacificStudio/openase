@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"io"
@@ -727,6 +728,79 @@ func readSSEBody(t *testing.T, response *http.Response, cancel context.CancelFun
 		t.Fatal("timed out waiting for SSE response body")
 		return ""
 	}
+}
+
+func readSSEBodyUntilContainsAll(
+	t *testing.T,
+	response *http.Response,
+	cancel context.CancelFunc,
+	wants []string,
+) string {
+	t.Helper()
+
+	bodyCh := make(chan string, 1)
+	errCh := make(chan error, 1)
+	latestBody := make(chan string, 1)
+	go func() {
+		reader := bufio.NewReader(response.Body)
+		var builder strings.Builder
+		for {
+			chunk, err := reader.ReadString('\n')
+			if chunk != "" {
+				builder.WriteString(chunk)
+				body := builder.String()
+				select {
+				case latestBody <- body:
+				default:
+					select {
+					case <-latestBody:
+					default:
+					}
+					latestBody <- body
+				}
+				if containsAll(body, wants) {
+					bodyCh <- body
+					return
+				}
+			}
+			if err != nil {
+				if err == io.EOF {
+					bodyCh <- builder.String()
+					return
+				}
+				errCh <- err
+				return
+			}
+		}
+	}()
+
+	select {
+	case body := <-bodyCh:
+		cancel()
+		return body
+	case err := <-errCh:
+		cancel()
+		t.Fatalf("failed reading SSE response body: %v", err)
+		return ""
+	case <-time.After(2 * time.Second):
+		cancel()
+		var body string
+		select {
+		case body = <-latestBody:
+		default:
+		}
+		t.Fatalf("timed out waiting for SSE response body to contain %q; got %q", wants, body)
+		return ""
+	}
+}
+
+func containsAll(body string, wants []string) bool {
+	for _, want := range wants {
+		if !strings.Contains(body, want) {
+			return false
+		}
+	}
+	return true
 }
 
 type recordingTraceProvider struct {

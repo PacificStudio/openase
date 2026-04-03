@@ -108,6 +108,18 @@ describe('projectEventBus', () => {
         {
           topic: 'ticket.run.events',
           payload: {
+            ticket_id: 'ticket-1',
+          },
+        },
+        'ticket-1',
+      ),
+    ).toBe(true)
+
+    expect(
+      projectEventReferencesTicket(
+        {
+          topic: 'ticket.run.events',
+          payload: {
             entry: {
               ticket_id: 'ticket-1',
             },

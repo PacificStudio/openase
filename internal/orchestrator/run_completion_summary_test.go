@@ -1,6 +1,8 @@
 package orchestrator
 
 import (
+	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -9,6 +11,7 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/google/uuid"
 )
 
@@ -223,6 +226,68 @@ func TestBuildRunCompletionSummaryDeveloperInstructionsUsesProjectOverride(t *te
 	}
 	if strings.Contains(overrideInstructions, "## Overview") {
 		t.Fatalf("expected override instructions to replace the default prompt body, got %q", overrideInstructions)
+	}
+}
+
+func TestPublishRunCompletionSummaryEventEmitsTicketRunSummaryPayload(t *testing.T) {
+	bus := eventinfra.NewChannelBus()
+	coordinator := newRuntimeCompletionSummaryCoordinator(
+		nil,
+		nil,
+		bus,
+		nil,
+		nil,
+		nil,
+		nil,
+		func() time.Time { return time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC) },
+		0,
+	)
+	projectID := uuid.New()
+	ticketID := uuid.New()
+	runID := uuid.New()
+	status := entagentrun.CompletionSummaryStatusCompleted
+	markdown := "## Overview\n\nDone."
+	generatedAt := time.Date(2026, 4, 3, 12, 1, 0, 0, time.UTC)
+	run := &ent.AgentRun{
+		ID:                           runID,
+		TicketID:                     ticketID,
+		CompletionSummaryStatus:      &status,
+		CompletionSummaryMarkdown:    &markdown,
+		CompletionSummaryGeneratedAt: &generatedAt,
+		CompletionSummaryJSON:        map[string]any{"provider": "Codex"},
+	}
+
+	stream, err := bus.Subscribe(context.Background(), ticketRunSummaryStreamTopic)
+	if err != nil {
+		t.Fatalf("subscribe summary stream: %v", err)
+	}
+	if err := coordinator.publishRunCompletionSummaryEvent(context.Background(), projectID, run); err != nil {
+		t.Fatalf("publish run completion summary event: %v", err)
+	}
+
+	select {
+	case event := <-stream:
+		if event.Topic != ticketRunSummaryStreamTopic {
+			t.Fatalf("event topic = %s, want %s", event.Topic, ticketRunSummaryStreamTopic)
+		}
+		if event.Type != ticketRunSummaryStreamType {
+			t.Fatalf("event type = %s, want %s", event.Type, ticketRunSummaryStreamType)
+		}
+		var payload ticketRunCompletionSummaryStreamPayload
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			t.Fatalf("decode summary payload: %v", err)
+		}
+		if payload.ProjectID != projectID.String() || payload.TicketID != ticketID.String() || payload.RunID != runID.String() {
+			t.Fatalf("unexpected ids in payload: %+v", payload)
+		}
+		if payload.CompletionSummary.Status != "completed" || payload.CompletionSummary.Markdown == nil || *payload.CompletionSummary.Markdown != markdown {
+			t.Fatalf("unexpected completion summary payload: %+v", payload.CompletionSummary)
+		}
+		if payload.CompletionSummary.GeneratedAt == nil || *payload.CompletionSummary.GeneratedAt != generatedAt.Format(time.RFC3339) {
+			t.Fatalf("generated_at = %+v, want %s", payload.CompletionSummary.GeneratedAt, generatedAt.Format(time.RFC3339))
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for summary event")
 	}
 }
 

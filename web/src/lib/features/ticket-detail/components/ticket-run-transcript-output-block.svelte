@@ -1,7 +1,12 @@
 <script lang="ts">
   import { ChevronRight } from '@lucide/svelte'
   import { cn } from '$lib/utils'
-  import { ChatMarkdownContent } from '$lib/features/chat'
+  import {
+    ChatMarkdownContent,
+    countOutputLines,
+    truncateInline,
+    truncateOutput,
+  } from '$lib/features/chat'
   import type { TicketRunTranscriptBlock } from '../types'
 
   let {
@@ -14,25 +19,13 @@
     onToggle?: () => Promise<void> | void
   } = $props()
 
-  function truncateInline(text: string, max: number) {
-    if (text.length <= max) return text
-    return `${text.slice(0, max - 3)}...`
-  }
+  let showFullOutput = $state(false)
 
-  function lineCount(text: string) {
-    return text.split('\n').length
-  }
-
-  function truncateOutput(text: string, headLines = 5, tailLines = 5) {
-    const lines = text.split('\n')
-    if (lines.length <= headLines + tailLines) return null
-    const omitted = lines.length - headLines - tailLines
-    return {
-      head: lines.slice(0, headLines).join('\n'),
-      omitted,
-      tail: lines.slice(lines.length - tailLines).join('\n'),
+  $effect(() => {
+    if (!expanded) {
+      showFullOutput = false
     }
-  }
+  })
 </script>
 
 {#if block.kind === 'assistant_message'}
@@ -42,8 +35,14 @@
 {:else}
   {@const isStderr = block.stream === 'stderr'}
   {@const title = block.command ? truncateInline(block.command, 72) : 'Output'}
-  {@const lines = lineCount(block.text)}
+  {@const lines = countOutputLines(block.text)}
   {@const truncated = truncateOutput(block.text, 5, 5)}
+  {@const metaParts = [
+    ...(block.stream ? [block.stream] : []),
+    ...(block.phase ? [block.phase] : []),
+    `${lines} line${lines === 1 ? '' : 's'}`,
+    ...(block.streaming ? ['streaming'] : []),
+  ]}
 
   <div class="group">
     <button
@@ -63,15 +62,10 @@
         {title}
       </span>
       <span class="text-muted-foreground/60 flex shrink-0 items-center gap-1.5 text-[10px]">
-        {#if block.stream}
-          <span>{block.stream}</span>
-          <span class="opacity-40">&middot;</span>
-        {/if}
-        <span>{lines} line{lines === 1 ? '' : 's'}</span>
-        {#if block.streaming}
-          <span class="opacity-40">&middot;</span>
-          <span>streaming</span>
-        {/if}
+        {#each metaParts as part, i}
+          {#if i > 0}<span class="opacity-40">&middot;</span>{/if}
+          <span>{part}</span>
+        {/each}
       </span>
     </button>
 
@@ -91,12 +85,32 @@
         <div
           class="overflow-x-auto rounded-md bg-slate-950 px-3 py-2 font-mono text-xs leading-5 whitespace-pre-wrap text-slate-200"
         >
-          {#if truncated && !expanded}
+          {#if truncated && !showFullOutput}
             {truncated.head}
+            <button
+              type="button"
+              class="my-1 block w-full rounded bg-slate-800 px-2 py-0.5 text-center text-[11px] text-slate-400 transition-colors hover:bg-slate-700 hover:text-slate-200"
+              onclick={(e) => {
+                e.stopPropagation()
+                showFullOutput = true
+              }}
+            >
+              ... +{truncated.omitted} lines hidden — click to expand
+            </button>
+            {truncated.tail}
           {:else}
             {block.text}
           {/if}
         </div>
+        {#if showFullOutput && truncated}
+          <button
+            type="button"
+            class="text-muted-foreground hover:text-foreground mt-1 text-[11px]"
+            onclick={() => (showFullOutput = false)}
+          >
+            Collapse output
+          </button>
+        {/if}
       </div>
     {/if}
   </div>

@@ -5,7 +5,7 @@ import type { TicketRun, TicketRunTranscriptBlock } from '../types'
 export function statusLabel(run: TicketRun) {
   if (run.status === 'completed') return 'Completed'
   if (run.status === 'failed') return 'Failed'
-  if (run.status === 'stalled') return 'Stalled'
+  if (run.status === 'ended') return 'Ended'
   if ((run.currentStepStatus ?? '').toLowerCase().includes('approval')) return 'Awaiting Approval'
   if ((run.currentStepStatus ?? '').toLowerCase().includes('input')) return 'Waiting Input'
   if (run.status === 'launching') return 'Launching'
@@ -17,8 +17,9 @@ export function statusTone(run: TicketRun) {
     case 'completed':
       return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700'
     case 'failed':
-    case 'stalled':
       return 'border-red-500/20 bg-red-500/10 text-red-700'
+    case 'ended':
+      return 'border-slate-500/20 bg-slate-500/10 text-slate-700'
     case 'ready':
     case 'executing':
       return 'border-sky-500/20 bg-sky-500/10 text-sky-700'

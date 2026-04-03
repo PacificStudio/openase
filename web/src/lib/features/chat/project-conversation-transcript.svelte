@@ -8,7 +8,10 @@
   import ProjectConversationInterruptCard from './project-conversation-interrupt-card.svelte'
   import ProjectConversationTaskStatusCard from './project-conversation-task-status-card.svelte'
   import ProjectConversationToolCallCard from './project-conversation-tool-call-card.svelte'
-  import type { ProjectConversationTranscriptEntry } from './project-conversation-transcript-types'
+  import type {
+    ProjectConversationTaskStatusEntry,
+    ProjectConversationTranscriptEntry,
+  } from './project-conversation-transcript-types'
   import {
     groupTranscriptEntries,
     type OperationGroup,
@@ -32,7 +35,20 @@
     }) => Promise<void> | void
   } = $props()
 
-  const displayItems = $derived(groupTranscriptEntries(entries))
+  function shouldHideTaskStatus(entry: ProjectConversationTaskStatusEntry) {
+    return (
+      entry.statusType === 'thread_status' ||
+      entry.statusType === 'task_started' ||
+      entry.statusType === 'task_progress' ||
+      entry.statusType === 'task_notification'
+    )
+  }
+
+  const visibleEntries = $derived(
+    entries.filter((entry) => !(entry.kind === 'task_status' && shouldHideTaskStatus(entry))),
+  )
+
+  const displayItems = $derived(groupTranscriptEntries(visibleEntries))
 
   let expandedGroups = $state(new Set<string>())
 
@@ -62,6 +78,12 @@
         <EphemeralChatDiffCard {entry} />
       {:else if entry.kind === 'interrupt'}
         <ProjectConversationInterruptCard {entry} {onRespondInterrupt} />
+      {:else if entry.kind === 'command_output'}
+        <ProjectConversationCommandOutputCard {entry} standalone />
+      {:else if entry.kind === 'tool_call'}
+        <ProjectConversationToolCallCard {entry} standalone />
+      {:else if entry.kind === 'task_status'}
+        <ProjectConversationTaskStatusCard {entry} standalone />
       {:else if entry.kind === 'text'}
         {#if entry.role === 'user'}
           <div class="flex justify-end">

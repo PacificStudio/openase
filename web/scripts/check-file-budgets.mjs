@@ -27,6 +27,8 @@ const budgetRules = [
     allowlist: {
       'src/lib/features/app-shell/components/project-shell.svelte':
         'Project shell still coordinates top bar, sidebar, app-context refresh, and overlays while shell controller extraction continues.',
+      'src/lib/features/settings/components/general-settings.svelte':
+        'General settings currently combines run summary prompt builder and archive controls while those panels remain in a single form surface.',
     },
   },
   {
@@ -41,10 +43,18 @@ const budgetRules = [
         'Board runtime stream and drawer regression coverage remain bundled while ticket board helpers are still being split out.',
       'src/lib/features/chat/project-conversation-controller.test.ts':
         'Project conversation controller regression coverage remains bundled while multi-tab conversation scenarios are still expanding.',
+      'src/lib/features/chat/project-conversation-controller-restore.test.ts':
+        'Project conversation restore regression coverage remains bundled while session restore and workspace diff helpers are still being extracted.',
+      'src/lib/features/chat/project-conversation-panel.test.ts':
+        'Project conversation panel regression coverage remains bundled while transcript, restore, and action-surface scenarios continue to share setup.',
+      'src/lib/features/dashboard/components/org-dashboard-controller.svelte.ts':
+        'Organization dashboard controller still owns event-driven refresh orchestration while dashboard loading helpers continue to move out.',
       'src/lib/features/skills/components/skill-ai-sidebar.test.ts':
         'Skill refinement sidebar regression coverage remains bundled while transcript, result, and retry scenarios continue to expand.',
       'src/lib/features/skills/components/skill-editor-page.test.ts':
         'Skill editor page interaction coverage remains bundled while keyboard, draft, and binding scenarios continue to expand alongside the editor controller.',
+      'src/lib/features/ticket-detail/run-transcript.test.ts':
+        'Run transcript reducer regression coverage remains consolidated while lifecycle, summary, and trace fixtures continue to share setup.',
       'src/lib/features/workflows/components/harness-ai-sidebar-streaming.test.ts':
         'Harness AI long-stream regression coverage stays in one integration-style test while SSE helpers remain inline.',
       'src/lib/features/workflows/components/harness-ai-sidebar.test.ts':

@@ -182,12 +182,13 @@ export type TicketRun = {
   agentId: string
   agentName: string
   provider: string
-  status: 'launching' | 'ready' | 'executing' | 'stalled' | 'failed' | 'completed'
+  status: 'launching' | 'ready' | 'executing' | 'ended' | 'failed' | 'completed'
   currentStepStatus?: string
   currentStepSummary?: string
   createdAt: string
   runtimeStartedAt?: string
   lastHeartbeatAt?: string
+  terminalAt?: string
   completedAt?: string
   lastError?: string
   completionSummary?: TicketRunCompletionSummary
@@ -282,7 +283,7 @@ export type TicketRunTranscriptBlock =
       payload: Record<string, unknown>
       options: TicketRunTranscriptInterruptOption[]
     }
-  | { kind: 'result'; id: string; outcome: 'completed' | 'failed' | 'stalled'; summary: string }
+  | { kind: 'result'; id: string; outcome: 'completed' | 'failed' | 'ended'; summary: string }
 
 export type TicketRunTranscriptState = {
   runs: TicketRun[]

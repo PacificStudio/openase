@@ -1,5 +1,4 @@
 import type {
-  ProjectConversationCommandOutputEntry,
   ProjectConversationToolCallEntry,
   ProjectConversationTranscriptEntry,
 } from './project-conversation-transcript-types'
@@ -13,7 +12,7 @@ export type StandaloneItem = {
 }
 
 /**
- * A group of consecutive system entries (tool_call, command_output, task_status)
+ * A group of consecutive system entries (tool_call)
  * rendered as a single collapsible operation block.
  */
 export type OperationGroup = {
@@ -26,7 +25,7 @@ export type OperationGroup = {
 
 export type TranscriptDisplayItem = StandaloneItem | OperationGroup
 
-const SYSTEM_ENTRY_KINDS = new Set(['tool_call', 'command_output', 'task_status'])
+const SYSTEM_ENTRY_KINDS = new Set(['tool_call'])
 
 function isSystemEntry(entry: ProjectConversationTranscriptEntry): boolean {
   return SYSTEM_ENTRY_KINDS.has(entry.kind)
@@ -71,14 +70,6 @@ export function summarizeToolCall(entry: ProjectConversationToolCallEntry): stri
   }
 }
 
-function summarizeCommandOutput(entry: ProjectConversationCommandOutputEntry): string {
-  const command = entry.command?.trim()
-  if (!command) {
-    return 'Command output'
-  }
-  return `Ran \`${truncateInline(command, 60)}\``
-}
-
 /**
  * Determine if a tool call is an "exploring" operation (read, search, list).
  */
@@ -104,19 +95,8 @@ function buildGroupSummary(entries: ProjectConversationTranscriptEntry[]): {
   const toolCalls = entries.filter(
     (e): e is ProjectConversationToolCallEntry => e.kind === 'tool_call',
   )
-  const outputs = entries.filter(
-    (e): e is ProjectConversationCommandOutputEntry => e.kind === 'command_output',
-  )
 
-  if (toolCalls.length === 0) {
-    if (outputs.length > 0) {
-      return {
-        summary: summarizeCommandOutput(outputs[0]),
-        detail: `${outputs.length} output block(s)`,
-      }
-    }
-    return { summary: 'System activity', detail: `${entries.length} event(s)` }
-  }
+  if (toolCalls.length === 0) return { summary: 'Operation', detail: '' }
 
   // Check if all tool calls are exploring operations
   const allExploring = toolCalls.every(isExploringToolCall)
@@ -130,7 +110,7 @@ function buildGroupSummary(entries: ProjectConversationTranscriptEntry[]): {
   if (toolCalls.length === 1) {
     return {
       summary: summarizeToolCall(toolCalls[0]),
-      detail: outputs.length > 0 ? `${outputs.length} output block(s)` : '',
+      detail: '',
     }
   }
 
@@ -205,25 +185,4 @@ function shortenPath(path: string): string {
 function capitalize(text: string): string {
   if (!text) return ''
   return text.charAt(0).toUpperCase() + text.slice(1).replace(/_/g, ' ')
-}
-
-/**
- * Truncate command output text using head + tail with middle ellipsis.
- * Returns { head, omitted, tail } or null if no truncation needed.
- */
-export function truncateOutput(
-  text: string,
-  headLines = 5,
-  tailLines = 5,
-): { head: string; omitted: number; tail: string } | null {
-  const lines = text.split('\n')
-  const total = lines.length
-  if (total <= headLines + tailLines) return null
-
-  const omitted = total - headLines - tailLines
-  return {
-    head: lines.slice(0, headLines).join('\n'),
-    omitted,
-    tail: lines.slice(total - tailLines).join('\n'),
-  }
 }
