@@ -2,6 +2,8 @@ import { measureCompletion, measureFeedback, measureNavigation } from './perf'
 import { expect, test } from './fixtures'
 
 test('workflow creation dialog stays responsive', async ({ page, projectPath }, testInfo) => {
+  const workflowName = `Workflow E2E ${testInfo.parallelIndex}-${testInfo.retry}`
+
   await measureNavigation({
     page,
     scenario: 'workflows_page_ready',
@@ -23,19 +25,20 @@ test('workflow creation dialog stays responsive', async ({ page, projectPath }, 
     },
   })
 
-  await page.locator('#workflow-create-name').fill('Workflow E2E')
+  await page.locator('#workflow-create-name').fill(workflowName)
+  await page.getByRole('dialog').getByRole('button', { name: 'In Review' }).first().click()
 
   await measureCompletion({
     scenario: 'workflow_create_complete',
     budgetMs: 1500,
-    ready: page.getByText('Workflow created.'),
+    ready: page.getByText(workflowName).first(),
     testInfo,
     action: async () => {
       await page.getByRole('button', { name: 'Create workflow' }).click()
     },
   })
 
-  await expect(page.getByText('Workflow E2E').first()).toBeVisible()
+  await expect(page.getByText(workflowName).first()).toBeVisible()
 })
 
 test('scheduled jobs creation remains responsive', async ({ page, projectPath }, testInfo) => {

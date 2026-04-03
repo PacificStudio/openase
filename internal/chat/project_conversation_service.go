@@ -1515,8 +1515,19 @@ func providerInterruptProviderName(providerItem catalogdomain.AgentProvider) str
 		return "claude"
 	case catalogdomain.AgentProviderAdapterTypeCodexAppServer:
 		return "codex"
+	case catalogdomain.AgentProviderAdapterTypeGeminiCLI:
+		return "gemini"
 	default:
-		return strings.TrimSpace(providerItem.Name)
+		if name := strings.TrimSpace(providerItem.Name); name != "" {
+			return name
+		}
+		if command := strings.TrimSpace(providerItem.CliCommand); command != "" {
+			return command
+		}
+		if adapterType := strings.TrimSpace(string(providerItem.AdapterType)); adapterType != "" {
+			return adapterType
+		}
+		return "provider"
 	}
 }
 

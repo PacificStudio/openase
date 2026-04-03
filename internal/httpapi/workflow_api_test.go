@@ -216,6 +216,21 @@ func TestWorkflowRoutesCRUDHarnessVersionsWithoutRepoSync(t *testing.T) {
 	if patchResp.Workflow.Name != "Core Coding Workflow" || patchResp.Workflow.MaxConcurrent != 7 || !patchResp.Workflow.IsActive {
 		t.Fatalf("unexpected patched workflow payload: %+v", patchResp.Workflow)
 	}
+	rejectRoleSlugUpdate := performJSONRequest(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/workflows/%s", createResp.Workflow.ID),
+		map[string]any{
+			"role_slug": "dispatcher",
+		},
+	)
+	if rejectRoleSlugUpdate.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected role_slug patch to fail with 400, got %d body=%s", rejectRoleSlugUpdate.StatusCode, rejectRoleSlugUpdate.Body)
+	}
+	if !strings.Contains(rejectRoleSlugUpdate.Body, "role_slug cannot be updated") {
+		t.Fatalf("expected role_slug patch error message, got %s", rejectRoleSlugUpdate.Body)
+	}
 
 	legacyCreateRec := performJSONRequest(
 		t,

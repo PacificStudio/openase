@@ -79,12 +79,16 @@ func (r *ClaudeRuntime) RespondInterrupt(
 }
 
 func (r *ClaudeRuntime) startSessionTurn(ctx context.Context, input RuntimeTurnInput) (TurnStream, error) {
+	if err := ctx.Err(); err != nil {
+		return TurnStream{}, err
+	}
+
 	sessionSpec, err := r.buildSessionSpec(input)
 	if err != nil {
 		return TurnStream{}, err
 	}
 
-	runCtx, cancel := context.WithCancel(ctx)
+	runCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	session, err := r.adapter.Start(runCtx, sessionSpec)
 	if err != nil {
 		cancel()

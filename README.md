@@ -191,7 +191,18 @@ openase ticket list --status-name Todo
 openase ticket create --title "Add integration coverage" --description "Follow-up from coding ticket"
 openase ticket update --description "Recorded execution notes"
 openase ticket comment create --body "Logged a blocking dependency"
-./.agent/skills/openase-platform/scripts/upsert_workpad.sh --body-file /tmp/workpad.md
+for helper in \
+  ./.codex/skills/openase-platform/scripts/upsert_workpad.sh \
+  ./.claude/skills/openase-platform/scripts/upsert_workpad.sh \
+  ./.gemini/skills/openase-platform/scripts/upsert_workpad.sh \
+  ./.agents/skills/openase-platform/scripts/upsert_workpad.sh \
+  ./.agent/skills/openase-platform/scripts/upsert_workpad.sh
+do
+  if [ -x "$helper" ]; then
+    "$helper" --body-file /tmp/workpad.md
+    break
+  fi
+done
 openase project update --description "Latest project context"
 ```
 

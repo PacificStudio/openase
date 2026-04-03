@@ -8081,10 +8081,10 @@ openase ticket comment revisions
 
 该 helper 必须实现幂等 upsert：
 
-- 查找当前工单下标题为 `## Codex Workpad` 的评论
+- 查找当前工单下标题为 `## Workpad` 的评论
 - 如果存在，则更新同一条评论
 - 如果不存在，则创建该评论
-- 如果正文缺少 heading，则自动补上 `## Codex Workpad`
+- 如果正文缺少 heading，则自动补上 `## Workpad`
 
 CLI 只保留底层 `comment list/create/update/...` 的 HTTP 同构能力；workpad 语义属于 skill 层 helper，而不是 CLI surface。
 
@@ -8109,7 +8109,7 @@ CLI 只保留底层 `comment list/create/update/...` 的 HTTP 同构能力；wor
 | **创建子工单** | `POST /tickets` | 开发过程中发现 Bug → 创建 bugfix 工单；安全扫描发现漏洞 → 创建修复工单 | 默认允许 |
 | **关联外部链接** | `POST /tickets/:id/links` | 自动关联创建的 PR、发现的相关 Issue | 默认允许 |
 | **更新当前工单描述** | `PATCH /tickets/:id` | 补充执行过程中发现的上下文信息 | 默认允许 |
-| **维护当前工单评论 / Workpad** | `GET/POST/PATCH /tickets/:id/comments...` | 维护 `## Codex Workpad`、记录进度、阻塞与验证结果 | 默认允许（仅限当前工单） |
+| **维护当前工单评论 / Workpad** | `GET/POST/PATCH /tickets/:id/comments...` | 维护 `## Workpad`、记录进度、阻塞与验证结果 | 默认允许（仅限当前工单） |
 | **更新项目描述** | `PATCH /projects/:id` | 产品经理角色完成调研后更新项目 README / 描述 | 需授权 |
 | **更新项目状态** | `POST /projects/:id/transition` | 例如将项目从 `Planned` 推进到 `In Progress`，或从 `In Progress` 标记为 `Completed` | 需授权 |
 | **注册新仓库** | `POST /projects/:id/repos` | 按照架构设计创建了新的微服务仓库后注册到平台 | 需授权 |

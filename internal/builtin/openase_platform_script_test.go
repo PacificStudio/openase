@@ -38,14 +38,14 @@ func TestOpenASEPlatformWorkpadScriptCreatesCommentWhenMissing(t *testing.T) {
 	if !strings.HasPrefix(logLines[1], "ticket comment create ticket-9 --body-file ") {
 		t.Fatalf("unexpected create invocation: %q", logLines[1])
 	}
-	if got := mustReadBuiltinTestFile(t, workspace.createdBodyPath); got != "## Codex Workpad\n\nProgress\n- started" {
+	if got := mustReadBuiltinTestFile(t, workspace.createdBodyPath); got != "## Workpad\n\nProgress\n- started" {
 		t.Fatalf("created workpad body = %q", got)
 	}
 }
 
 func TestOpenASEPlatformWorkpadScriptUpdatesExistingCommentOnly(t *testing.T) {
 	scriptPath := builtinWorkpadScriptPath(t)
-	workspace := newFakeOpenASEWorkspace(t, `{"comments":[{"id":"comment-7","body_markdown":"## Codex Workpad\n\nOld"}]}`)
+	workspace := newFakeOpenASEWorkspace(t, `{"comments":[{"id":"comment-7","body_markdown":"## Workpad\n\nOld"}]}`)
 
 	// #nosec G204 -- test executes a repo-local script under a controlled temp workspace.
 	command := exec.Command("bash", scriptPath, "--body", "Validation\n- go test ./...")
@@ -72,7 +72,7 @@ func TestOpenASEPlatformWorkpadScriptUpdatesExistingCommentOnly(t *testing.T) {
 	if !strings.HasPrefix(logLines[1], "ticket comment update ticket-9 comment-7 --body-file ") {
 		t.Fatalf("unexpected update invocation: %q", logLines[1])
 	}
-	if got := mustReadBuiltinTestFile(t, workspace.updatedBodyPath); got != "## Codex Workpad\n\nValidation\n- go test ./..." {
+	if got := mustReadBuiltinTestFile(t, workspace.updatedBodyPath); got != "## Workpad\n\nValidation\n- go test ./..." {
 		t.Fatalf("updated workpad body = %q", got)
 	}
 	if _, err := os.Stat(workspace.createdBodyPath); !os.IsNotExist(err) {
@@ -103,7 +103,7 @@ func TestOpenASEPlatformWorkpadScriptPrependsHeadingWhenMissing(t *testing.T) {
 		t.Fatalf("script returned error: %v\n%s", err, output)
 	}
 
-	if got := mustReadBuiltinTestFile(t, workspace.createdBodyPath); got != "## Codex Workpad\n\nNotes\n- captured" {
+	if got := mustReadBuiltinTestFile(t, workspace.createdBodyPath); got != "## Workpad\n\nNotes\n- captured" {
 		t.Fatalf("normalized workpad body = %q", got)
 	}
 }

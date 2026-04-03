@@ -1,7 +1,6 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
   import * as Collapsible from '$ui/collapsible'
   import * as Dialog from '$ui/dialog'
@@ -17,7 +16,10 @@
     validateWorkflowHooksDraft,
     type WorkflowHooksDraft,
   } from '../workflow-hooks'
-  import { toggleWorkflowStatusSelection } from '../workflow-lifecycle'
+  import {
+    buildPickupStatusOccupiedMap,
+    toggleWorkflowStatusSelection,
+  } from '../workflow-lifecycle'
   import type {
     WorkflowAgentOption,
     WorkflowStatusOption,
@@ -25,12 +27,14 @@
     WorkflowTemplateDraft,
   } from '../types'
   import WorkflowHooksEditor from './workflow-hooks-editor.svelte'
+  import WorkflowStatusChipGroup from './workflow-status-chip-group.svelte'
 
   let {
     open = $bindable(false),
     projectId,
     statuses,
     agentOptions,
+    workflows = [],
     existingCount,
     builtinRoleContent,
     templateDraft = null,
@@ -40,6 +44,7 @@
     projectId: string
     statuses: WorkflowStatusOption[]
     agentOptions: WorkflowAgentOption[]
+    workflows?: WorkflowSummary[]
     existingCount: number
     builtinRoleContent: string
     templateDraft?: WorkflowTemplateDraft | null
@@ -62,16 +67,8 @@
     agentOptions.find((option) => option.id === agentId)?.label ?? 'Select bound agent',
   )
   const selectableStatuses = $derived(statuses)
+  const pickupOccupiedMap = $derived(buildPickupStatusOccupiedMap(workflows))
   const hookValidation = $derived(validateWorkflowHooksDraft(hookDraft))
-
-  function statusChipClass(selected: boolean) {
-    return cn(
-      'rounded-full border px-3 py-1.5 text-xs transition-colors',
-      selected
-        ? 'border-primary/40 bg-primary/10 text-foreground'
-        : 'border-border text-muted-foreground hover:bg-muted',
-    )
-  }
 
   $effect(() => {
     if (open && !wasOpen) {
@@ -83,8 +80,9 @@
       hookDraft = createWorkflowHooksDraft()
       hookError = ''
 
+      const occupiedNow = buildPickupStatusOccupiedMap(workflows)
       const defaultStatusIds = selectableStatuses[0] ? [selectableStatuses[0].id] : []
-      pickupStatusIds = defaultStatusIds
+      pickupStatusIds = defaultStatusIds.filter((id) => !occupiedNow[id])
       finishStatusIds = defaultStatusIds
 
       if (templateDraft) {
@@ -95,7 +93,7 @@
         )
         templateStatusError = templateSelection.error
         if (templateSelection.pickupStatusIds.length > 0 || templateSelection.error) {
-          pickupStatusIds = templateSelection.pickupStatusIds
+          pickupStatusIds = templateSelection.pickupStatusIds.filter((id) => !occupiedNow[id])
         }
         if (templateSelection.finishStatusIds.length > 0 || templateSelection.error) {
           finishStatusIds = templateSelection.finishStatusIds
@@ -222,39 +220,28 @@
       </div>
 
       <div class="grid gap-4 sm:grid-cols-2">
-        <div class="space-y-2">
-          <Label>Pickup Statuses</Label>
-          <div class="flex flex-wrap gap-2">
-            {#each selectableStatuses as status (status.id)}
-              <button
-                type="button"
-                class={statusChipClass(pickupStatusIds.includes(status.id))}
-                disabled={saving}
-                onclick={() =>
-                  (pickupStatusIds = toggleWorkflowStatusSelection(pickupStatusIds, status.id))}
-              >
-                {status.name}
-              </button>
-            {/each}
-          </div>
-        </div>
+        <WorkflowStatusChipGroup
+          label="Pickup Statuses"
+          statuses={selectableStatuses}
+          selectedIds={pickupStatusIds}
+          disabled={saving}
+          occupiedMap={pickupOccupiedMap}
+          onToggle={(statusId) =>
+            (pickupStatusIds = toggleWorkflowStatusSelection(
+              pickupStatusIds,
+              statusId,
+              pickupOccupiedMap,
+            ))}
+        />
 
-        <div class="space-y-2">
-          <Label>Finish Statuses</Label>
-          <div class="flex flex-wrap gap-2">
-            {#each selectableStatuses as status (status.id)}
-              <button
-                type="button"
-                class={statusChipClass(finishStatusIds.includes(status.id))}
-                disabled={saving}
-                onclick={() =>
-                  (finishStatusIds = toggleWorkflowStatusSelection(finishStatusIds, status.id))}
-              >
-                {status.name}
-              </button>
-            {/each}
-          </div>
-        </div>
+        <WorkflowStatusChipGroup
+          label="Finish Statuses"
+          statuses={selectableStatuses}
+          selectedIds={finishStatusIds}
+          disabled={saving}
+          onToggle={(statusId) =>
+            (finishStatusIds = toggleWorkflowStatusSelection(finishStatusIds, statusId))}
+        />
       </div>
 
       {#if templateStatusError}

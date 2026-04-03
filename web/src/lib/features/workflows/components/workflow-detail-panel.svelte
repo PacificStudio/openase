@@ -4,6 +4,7 @@
   import { Clock3, Layers3, RotateCcw } from '@lucide/svelte'
   import type { WorkflowAgentOption, WorkflowStatusOption, WorkflowSummary } from '../types'
   import {
+    buildPickupStatusOccupiedMap,
     createWorkflowLifecycleDraft,
     parseWorkflowLifecycleDraft,
     toggleWorkflowStatusSelection,
@@ -29,6 +30,7 @@
   import WorkflowStatusChipSelector from './workflow-status-chip-selector.svelte'
   let {
     workflow,
+    workflows = [],
     statuses = [],
     agentOptions = [],
     saving = false,
@@ -38,6 +40,7 @@
     class: className = '',
   }: {
     workflow: WorkflowSummary
+    workflows?: WorkflowSummary[]
     statuses?: WorkflowStatusOption[]
     agentOptions?: WorkflowAgentOption[]
     saving?: boolean
@@ -51,7 +54,6 @@
     agentId: '',
     name: '',
     typeLabel: '',
-    roleSlug: '',
     roleName: '',
     roleDescription: '',
     platformAccessAllowed: '',
@@ -75,6 +77,7 @@
   )
   const selectedAgent = $derived(agentOptions.find((option) => option.id === draft.agentId) ?? null)
   const selectableStatuses = $derived(statuses)
+  const pickupOccupiedMap = $derived(buildPickupStatusOccupiedMap(workflows, workflow.id))
 
   $effect(() => {
     const nextKey = workflowLifecycleDraftKey(workflow)
@@ -203,11 +206,12 @@
           label="Pickup Statuses"
           statuses={selectableStatuses}
           selectedStatusIds={draft.pickupStatusIds}
+          occupiedByMap={pickupOccupiedMap}
           disabled={saving || deleting}
           onToggle={(statusId) =>
             updateDraftField(
               'pickupStatusIds',
-              toggleWorkflowStatusSelection(draft.pickupStatusIds, statusId),
+              toggleWorkflowStatusSelection(draft.pickupStatusIds, statusId, pickupOccupiedMap),
             )}
         />
         <WorkflowStatusChipSelector

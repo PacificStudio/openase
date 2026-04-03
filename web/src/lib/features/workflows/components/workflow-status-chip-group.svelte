@@ -1,32 +1,41 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
+  import { Label } from '$ui/label'
   import * as Tooltip from '$ui/tooltip'
   import type { WorkflowStatusOption } from '../types'
 
   let {
     label,
-    statuses = [],
-    selectedStatusIds = [],
-    occupiedByMap = {},
+    statuses,
+    selectedIds,
     disabled = false,
+    occupiedMap = {},
     onToggle,
   }: {
     label: string
-    statuses?: WorkflowStatusOption[]
-    selectedStatusIds?: string[]
-    occupiedByMap?: Record<string, string>
+    statuses: WorkflowStatusOption[]
+    selectedIds: string[]
     disabled?: boolean
-    onToggle?: (statusId: string) => void
+    occupiedMap?: Record<string, string>
+    onToggle: (statusId: string) => void
   } = $props()
+
+  function chipClass(selected: boolean) {
+    return cn(
+      'rounded-full border px-3 py-1.5 text-xs transition-colors',
+      selected
+        ? 'border-primary/40 bg-primary/10 text-foreground'
+        : 'border-border text-muted-foreground hover:bg-muted',
+    )
+  }
 </script>
 
-<div class="space-y-1.5">
-  <div class="text-muted-foreground text-xs font-medium tracking-wide uppercase">{label}</div>
+<div class="space-y-2">
+  <Label>{label}</Label>
   <div class="flex flex-wrap gap-2">
     {#each statuses as status (status.id)}
-      {@const isSelected = selectedStatusIds.includes(status.id)}
-      {@const occupiedBy = occupiedByMap[status.id]}
-      {@const isOccupied = Boolean(occupiedBy) && !isSelected}
+      {@const occupiedBy = occupiedMap[status.id]}
+      {@const isOccupied = Boolean(occupiedBy) && !selectedIds.includes(status.id)}
       {#if isOccupied}
         <Tooltip.Root delayDuration={200}>
           <Tooltip.Trigger>
@@ -48,14 +57,9 @@
       {:else}
         <button
           type="button"
-          class={cn(
-            'rounded-full border px-3 py-1.5 text-xs transition-colors',
-            isSelected
-              ? 'border-primary/40 bg-primary/10 text-foreground font-medium'
-              : 'border-border text-muted-foreground hover:bg-muted',
-          )}
+          class={chipClass(selectedIds.includes(status.id))}
           {disabled}
-          onclick={() => onToggle?.(status.id)}
+          onclick={() => onToggle(status.id)}
         >
           {status.name}
         </button>

@@ -73,7 +73,6 @@ type UpdateInput struct {
 	AgentID               Optional[uuid.UUID]
 	Name                  Optional[string]
 	Type                  Optional[Type]
-	RoleSlug              Optional[string]
 	RoleName              Optional[string]
 	RoleDescription       Optional[string]
 	PlatformAccessAllowed Optional[[]string]

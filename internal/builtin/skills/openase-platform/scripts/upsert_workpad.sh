@@ -6,7 +6,7 @@ usage() {
 Usage:
   upsert_workpad.sh [ticket-id] (--body <markdown> | --body-file <path|->)
 
-Upsert the persistent `## Codex Workpad` comment for the current ticket by
+Upsert the persistent `## Workpad` comment for the current ticket by
 combining primitive `openase ticket comment list/create/update` commands.
 EOF
 }
@@ -90,7 +90,7 @@ from pathlib import Path
 import sys
 
 body_path = Path(sys.argv[1])
-heading = "## Codex Workpad"
+heading = "## Workpad"
 raw = body_path.read_text(encoding="utf-8")
 trimmed = raw.strip()
 if trimmed.startswith(heading):
@@ -123,7 +123,7 @@ for comment in comments:
     body = comment.get("body_markdown")
     if body is None:
         body = comment.get("body", "")
-    if isinstance(body, str) and body.lstrip().startswith("## Codex Workpad"):
+    if isinstance(body, str) and body.lstrip().startswith("## Workpad"):
         comment_id = str(comment.get("id", "")).strip()
         if comment_id:
             print(comment_id)

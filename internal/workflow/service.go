@@ -960,9 +960,6 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 	if input.Type.Set {
 		next.Type = input.Type.Value
 	}
-	if input.RoleSlug.Set {
-		next.RoleSlug = strings.TrimSpace(input.RoleSlug.Value)
-	}
 	if input.RoleName.Set {
 		next.RoleName = strings.TrimSpace(input.RoleName.Value)
 	}

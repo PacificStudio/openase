@@ -1,6 +1,6 @@
 ---
 name: "ticket-workpad"
-description: "Maintain the persistent Workpad comment on the current ticket and use it as the execution log."
+description: "Maintain the persistent ticket work log comment on the current ticket and use it as the execution log."
 ---
 
 # Ticket Workpad
@@ -36,7 +36,26 @@ Notes
 - assumptions or blockers
 EOF
 
-./.agent/skills/openase-platform/scripts/upsert_workpad.sh --body-file /tmp/workpad.md
+OPENASE_PLATFORM_HELPER=""
+for candidate in \
+  ./.codex/skills/openase-platform/scripts/upsert_workpad.sh \
+  ./.claude/skills/openase-platform/scripts/upsert_workpad.sh \
+  ./.gemini/skills/openase-platform/scripts/upsert_workpad.sh \
+  ./.agents/skills/openase-platform/scripts/upsert_workpad.sh \
+  ./.agent/skills/openase-platform/scripts/upsert_workpad.sh
+do
+  if [ -x "$candidate" ]; then
+    OPENASE_PLATFORM_HELPER="$candidate"
+    break
+  fi
+done
+
+if [ -z "$OPENASE_PLATFORM_HELPER" ]; then
+  echo "openase-platform helper script not found" >&2
+  exit 1
+fi
+
+"$OPENASE_PLATFORM_HELPER" --body-file /tmp/workpad.md
 ```
 
 执行时遵循：

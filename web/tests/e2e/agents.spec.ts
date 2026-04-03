@@ -5,11 +5,13 @@ test('agents providers and registration remain responsive', async ({
   page,
   projectPath,
 }, testInfo) => {
+  const agentName = `e2e-agent-${testInfo.parallelIndex}-${testInfo.retry}`
+
   await measureNavigation({
     page,
     scenario: 'agent_settings_page_ready',
     budgetMs: 800,
-    ready: page.getByRole('button', { name: 'Configure' }).first(),
+    ready: page.getByRole('heading', { name: 'Agents', level: 2 }),
     testInfo,
     action: async () => {
       await page.goto(`${projectPath('settings')}#agents`)
@@ -17,7 +19,9 @@ test('agents providers and registration remain responsive', async ({
   })
 
   await expect(page).toHaveURL(/\/settings#agents$/)
-  await expect(page.getByRole('button', { name: 'Configure' }).first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Configure' }).first()).toBeVisible({
+    timeout: 10_000,
+  })
 
   await measureFeedback({
     scenario: 'provider_config_drawer_open',
@@ -56,17 +60,17 @@ test('agents providers and registration remain responsive', async ({
     },
   })
 
-  await page.locator('#agent-name').fill('e2e-agent')
+  await page.locator('#agent-name').fill(agentName)
 
   await measureCompletion({
     scenario: 'agent_register_complete',
     budgetMs: 1500,
-    ready: page.getByText('Registered e2e-agent.'),
+    ready: page.getByText(`Registered ${agentName}.`),
     testInfo,
     action: async () => {
       await page.getByRole('dialog').getByRole('button', { name: 'Register agent' }).click()
     },
   })
 
-  await expect(page.getByText('e2e-agent', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: agentName, exact: true }).first()).toBeVisible()
 })

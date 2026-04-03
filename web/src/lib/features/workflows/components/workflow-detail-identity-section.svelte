@@ -59,20 +59,6 @@
   <div class="grid gap-4 sm:grid-cols-2">
     <div class="space-y-1.5">
       <Label
-        for="workflow-role-slug"
-        class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Role Slug</Label
-      >
-      <Input
-        id="workflow-role-slug"
-        value={draft.roleSlug}
-        disabled={saving || deleting}
-        oninput={(event) =>
-          onFieldChange('roleSlug', (event.currentTarget as HTMLInputElement).value)}
-      />
-    </div>
-
-    <div class="space-y-1.5">
-      <Label
         for="workflow-role-name"
         class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Role Name</Label
       >

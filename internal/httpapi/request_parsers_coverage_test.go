@@ -341,6 +341,9 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 	if updateWorkflowInput.EditedBy != "user:editor" {
 		t.Fatalf("parseUpdateWorkflowRequest().EditedBy = %q", updateWorkflowInput.EditedBy)
 	}
+	if _, err := parseUpdateWorkflowRequest(workflowID, rawUpdateWorkflowRequest{RoleSlug: strPtr("qa-engineer")}); err == nil || !strings.Contains(err.Error(), "role_slug cannot be updated") {
+		t.Fatalf("parseUpdateWorkflowRequest(role slug) error = %v", err)
+	}
 	if _, err := parseUpdateWorkflowRequest(workflowID, rawUpdateWorkflowRequest{MaxRetryAttempts: intPtr(-1)}); err == nil || !strings.Contains(err.Error(), "greater than or equal to zero") {
 		t.Fatalf("parseUpdateWorkflowRequest(negative retry) error = %v", err)
 	}

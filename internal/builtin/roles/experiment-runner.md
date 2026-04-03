@@ -64,7 +64,7 @@ Recent project updates:
 
 ## Workpad
 
-- Maintain a single ## Codex Workpad comment on the current ticket as the durable execution log.
+- Maintain a single ## Workpad comment on the current ticket as the durable execution log.
 - Create or refresh it before major work starts, then keep Plan, Progress, Validation, and Notes current as you move.
 - Record blockers, assumptions, follow-up splits, and validation outcomes in the same workpad instead of scattering comments.
 

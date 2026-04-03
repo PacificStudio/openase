@@ -2676,9 +2676,16 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 		"openase",
 		projectConversationWorkspaceName(conversation.ID),
 	)
+	skillTarget, err := workflowservice.ResolveSkillTargetForRuntime(
+		workspacePath,
+		string(catalog.providerByID[providerID].AdapterType),
+	)
+	if err != nil {
+		t.Fatalf("resolve skill target: %v", err)
+	}
 	assertConversationFileExists(t, filepath.Join(workspacePath, "backend", "README.md"))
 	assertConversationFileExists(t, filepath.Join(workspacePath, ".openase", "bin", "openase"))
-	assertConversationFileExists(t, filepath.Join(workspacePath, ".agent", "skills", "openase-platform", "SKILL.md"))
+	assertConversationFileExists(t, filepath.Join(skillTarget.SkillsDir, "openase-platform", "SKILL.md"))
 
 	repository, err := git.PlainOpen(filepath.Join(workspacePath, "backend"))
 	if err != nil {

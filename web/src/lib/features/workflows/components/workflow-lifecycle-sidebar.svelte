@@ -68,6 +68,7 @@
 
 <WorkflowDetailPanel
   {workflow}
+  {workflows}
   {statuses}
   {agentOptions}
   {saving}

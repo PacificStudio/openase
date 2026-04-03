@@ -601,6 +601,11 @@ func TestBuiltinOpenASEPlatformSkillProjectsWorkpadScriptAcrossRuntimes(t *testi
 		scriptPath  string
 	}{
 		{
+			name:        "gemini",
+			adapterType: "gemini-cli",
+			scriptPath:  ".gemini/skills/openase-platform/scripts/upsert_workpad.sh",
+		},
+		{
 			name:        "agent",
 			adapterType: "custom",
 			scriptPath:  ".agent/skills/openase-platform/scripts/upsert_workpad.sh",

@@ -421,6 +421,8 @@ func resolveSkillTargetPath(workspaceRoot string, rawAdapterType string) (resolv
 		skillsDir = filepath.Join(workspace.String(), ".claude", "skills")
 	case "codex-app-server":
 		skillsDir = filepath.Join(workspace.String(), ".codex", "skills")
+	case "gemini-cli":
+		skillsDir = filepath.Join(workspace.String(), ".gemini", "skills")
 	default:
 		skillsDir = filepath.Join(workspace.String(), ".agent", "skills")
 	}

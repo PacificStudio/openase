@@ -171,7 +171,7 @@ func parseUpdateWorkflowRequest(workflowID uuid.UUID, raw rawUpdateWorkflowReque
 		input.Type = workflowservice.Some(workflowType)
 	}
 	if raw.RoleSlug != nil {
-		input.RoleSlug = workflowservice.Some(strings.TrimSpace(*raw.RoleSlug))
+		return workflowservice.UpdateInput{}, fmt.Errorf("role_slug cannot be updated")
 	}
 	if raw.RoleName != nil {
 		input.RoleName = workflowservice.Some(strings.TrimSpace(*raw.RoleName))

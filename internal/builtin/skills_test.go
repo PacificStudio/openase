@@ -188,10 +188,10 @@ func TestTicketWorkpadSkillUsesGenericWorkpadTerminology(t *testing.T) {
 	if !ok {
 		t.Fatal("expected ticket-workpad skill to exist")
 	}
-	if strings.Contains(skill.Description, "Codex Workpad") {
+	if strings.Contains(skill.Description, "Workpad") {
 		t.Fatalf("ticket-workpad description should avoid Codex-specific naming: %q", skill.Description)
 	}
-	if strings.Contains(skill.Content, "## Codex Workpad") {
+	if strings.Contains(skill.Content, "## Workpad") {
 		t.Fatalf("ticket-workpad content should avoid Codex-specific heading: %s", skill.Content)
 	}
 	for _, snippet := range []string{

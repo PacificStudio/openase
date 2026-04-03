@@ -198,7 +198,7 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/platform/tickets/%s/comments", currentTicketID),
 		map[string]any{
-			"body": "## Codex Workpad\n\nProgress\n- inspected current code",
+			"body": "## Workpad\n\nProgress\n- inspected current code",
 		},
 		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
 		http.StatusCreated,
@@ -246,13 +246,13 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 		http.MethodPatch,
 		fmt.Sprintf("/api/v1/platform/tickets/%s/comments/%s", currentTicketID, createCommentResp.Comment.ID),
 		map[string]any{
-			"body": "## Codex Workpad\n\nValidation\n- npm test",
+			"body": "## Workpad\n\nValidation\n- npm test",
 		},
 		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token},
 		http.StatusOK,
 		&updateCommentResp,
 	)
-	if updateCommentResp.Comment.Body != "## Codex Workpad\n\nValidation\n- npm test" || updateCommentResp.Comment.LastEditedBy == nil || *updateCommentResp.Comment.LastEditedBy != "agent:coding-01" {
+	if updateCommentResp.Comment.Body != "## Workpad\n\nValidation\n- npm test" || updateCommentResp.Comment.LastEditedBy == nil || *updateCommentResp.Comment.LastEditedBy != "agent:coding-01" {
 		t.Fatalf("unexpected updated comment payload: %+v", updateCommentResp.Comment)
 	}
 

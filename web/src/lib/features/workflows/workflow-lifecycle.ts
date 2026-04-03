@@ -4,7 +4,6 @@ export type WorkflowLifecycleDraft = {
   agentId: string
   name: string
   typeLabel: string
-  roleSlug?: string
   roleName?: string
   roleDescription?: string
   platformAccessAllowed?: string
@@ -28,7 +27,6 @@ export type WorkflowLifecyclePayload = {
   type: string
   role_description?: string
   role_name?: string
-  role_slug?: string
   platform_access_allowed?: string[]
   pickup_status_ids: string[]
   stall_timeout_minutes: number
@@ -42,7 +40,6 @@ export function createWorkflowLifecycleDraft(workflow: WorkflowSummary): Workflo
     agentId: workflow.agentId ?? '',
     name: workflow.name,
     typeLabel: workflow.type,
-    roleSlug: workflow.roleSlug ?? '',
     roleName: workflow.roleName ?? workflow.name,
     roleDescription: workflow.roleDescription ?? '',
     platformAccessAllowed: (workflow.platformAccessAllowed ?? []).join('\n'),
@@ -70,7 +67,6 @@ export function parseWorkflowLifecycleDraft(
     return { ok: false, error: 'Workflow type label must not be empty.' }
   }
   const roleName = draft.roleName?.trim() || name
-  const roleSlug = draft.roleSlug?.trim() || slugify(roleName)
   if (draft.pickupStatusIds.length === 0) {
     return { ok: false, error: 'At least one pickup status is required.' }
   }
@@ -102,7 +98,6 @@ export function parseWorkflowLifecycleDraft(
       type: draft.typeLabel.trim(),
       role_description: draft.roleDescription?.trim() || '',
       role_name: roleName,
-      role_slug: roleSlug,
       platform_access_allowed: parseStringList(draft.platformAccessAllowed ?? ''),
       pickup_status_ids: [...draft.pickupStatusIds],
       stall_timeout_minutes: stallTimeoutMinutes.value,
@@ -111,10 +106,38 @@ export function parseWorkflowLifecycleDraft(
   }
 }
 
-export function toggleWorkflowStatusSelection(selected: string[], statusId: string) {
+export function toggleWorkflowStatusSelection(
+  selected: string[],
+  statusId: string,
+  occupiedMap?: Record<string, string>,
+) {
+  if (!selected.includes(statusId) && occupiedMap?.[statusId]) {
+    return selected
+  }
   return selected.includes(statusId)
     ? selected.filter((value) => value !== statusId)
     : [...selected, statusId]
+}
+
+/**
+ * Build a map of pickup status IDs occupied by other workflows.
+ * Returns `{ [statusId]: workflowName }` for statuses that are bound
+ * as pickup statuses by a workflow other than `excludeWorkflowId`.
+ */
+export function buildPickupStatusOccupiedMap(
+  workflows: ReadonlyArray<{ id: string; name: string; pickupStatusIds: string[] }>,
+  excludeWorkflowId?: string,
+): Record<string, string> {
+  const map: Record<string, string> = {}
+  for (const workflow of workflows) {
+    if (workflow.id === excludeWorkflowId) continue
+    for (const statusId of workflow.pickupStatusIds) {
+      if (!map[statusId]) {
+        map[statusId] = workflow.name
+      }
+    }
+  }
+  return map
 }
 
 function parseStringList(value: string) {
@@ -124,14 +147,6 @@ function parseStringList(value: string) {
     .map((item) => item.trim())
     .filter(Boolean)
   return [...new Set(items)]
-}
-
-function slugify(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
 }
 
 function parseIntegerField(value: string, label: string, minimum: number): ParseResult<number> {

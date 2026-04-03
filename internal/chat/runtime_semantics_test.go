@@ -662,6 +662,72 @@ func TestClaudeRuntimeStartTurnUsesPersistentResumeSessionIDAndEmitsSessionAncho
 	}
 }
 
+func TestClaudeRuntimeStartTurnIgnoresParentContextCancellationAfterLaunch(t *testing.T) {
+	process := &fakeAgentCLIProcess{
+		stdin:         &trackingWriteCloser{},
+		waitUntilStop: true,
+		waitStarted:   make(chan struct{}),
+		stopped:       make(chan struct{}),
+		stopCalled:    make(chan struct{}),
+	}
+	manager := &fakeAgentCLIProcessManager{process: process}
+	runtime := NewClaudeRuntime(newClaudeAdapterForManager(manager))
+
+	parentCtx, cancelParent := context.WithCancel(context.Background())
+	stream, err := runtime.StartTurn(parentCtx, RuntimeTurnInput{
+		SessionID: SessionID("session-claude-cancel"),
+		Message:   "Keep running after the HTTP request finishes",
+		Provider: catalogdomain.AgentProvider{
+			AdapterType: catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
+			CliCommand:  "claude",
+		},
+	})
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+
+	select {
+	case <-process.waitStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected Claude runtime to enter process.Wait before canceling the parent context")
+	}
+
+	cancelParent()
+
+	select {
+	case <-process.stopCalled:
+		t.Fatal("parent context cancellation unexpectedly stopped the Claude process")
+	case <-time.After(150 * time.Millisecond):
+	}
+
+	select {
+	case _, ok := <-stream.Events:
+		if !ok {
+			t.Fatal("stream closed after parent context cancellation; want runtime to keep the turn alive")
+		}
+	default:
+	}
+
+	if closed := runtime.CloseSession(SessionID("session-claude-cancel")); !closed {
+		t.Fatal("CloseSession() = false, want true")
+	}
+
+	select {
+	case <-process.stopCalled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected CloseSession to stop the running Claude process")
+	}
+
+	select {
+	case _, ok := <-stream.Events:
+		if ok {
+			t.Fatal("expected Claude stream to close after CloseSession")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for Claude stream to close after CloseSession")
+	}
+}
+
 func TestClaudeRuntimeRespondInterruptResumesSessionAndStreamsContinuation(t *testing.T) {
 	stdin := &trackingWriteCloser{}
 	manager := &fakeAgentCLIProcessManager{

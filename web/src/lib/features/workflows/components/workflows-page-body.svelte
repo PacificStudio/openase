@@ -149,6 +149,7 @@
   {projectId}
   {statuses}
   {agentOptions}
+  {workflows}
   existingCount={workflows.length}
   {builtinRoleContent}
   {templateDraft}

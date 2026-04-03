@@ -199,6 +199,10 @@ func TestSkillHelpersAndFilesystem(t *testing.T) {
 	if err != nil || !strings.HasSuffix(claudeTarget.skillsDir.String(), filepath.Join(".claude", "skills")) {
 		t.Fatalf("resolveSkillTarget(claude) = %+v, %v", claudeTarget, err)
 	}
+	geminiTarget, err := resolveSkillTarget(workspaceRoot, "gemini-cli")
+	if err != nil || !strings.HasSuffix(geminiTarget.skillsDir.String(), filepath.Join(".gemini", "skills")) {
+		t.Fatalf("resolveSkillTarget(gemini) = %+v, %v", geminiTarget, err)
+	}
 	customTarget, err := resolveSkillTarget(workspaceRoot, "custom")
 	if err != nil || !strings.HasSuffix(customTarget.skillsDir.String(), filepath.Join(".agent", "skills")) {
 		t.Fatalf("resolveSkillTarget(custom) = %+v, %v", customTarget, err)

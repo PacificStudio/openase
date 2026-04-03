@@ -49,7 +49,7 @@ Available machines:
 
 ## Workpad
 
-- Maintain a single ## Codex Workpad comment on the current ticket.
+- Maintain a single ## Workpad comment on the current ticket.
 - Record routing intent, confidence, missing context, and any child-ticket split plan before changing the ticket status.
 
 ## Responsibilities

@@ -222,6 +222,11 @@ func TestWorkflowRequestParsersCoverTrimmedAndInvalidInputs(t *testing.T) {
 	if !input.Type.Set || input.Type.Value.String() != "custom" {
 		t.Fatalf("Type = %+v", input.Type)
 	}
+	if _, err := parseUpdateWorkflowRequest(workflowID, rawUpdateWorkflowRequest{
+		RoleSlug: stringPointer("new-role-slug"),
+	}); err == nil || !strings.Contains(err.Error(), "role_slug cannot be updated") {
+		t.Fatalf("parseUpdateWorkflowRequest(role slug) error = %v", err)
+	}
 	if !input.HarnessPath.Set || input.HarnessPath.Value != ".openase/harnesses/custom.md" {
 		t.Fatalf("HarnessPath = %+v", input.HarnessPath)
 	}

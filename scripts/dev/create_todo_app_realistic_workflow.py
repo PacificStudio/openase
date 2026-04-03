@@ -90,7 +90,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--require-platform-skill",
         action="store_true",
         help=(
-            "Fail unless the claimed ticket receives an agent-owned Codex Workpad comment update. "
+            "Fail unless the claimed ticket receives an agent-owned Workpad comment update. "
             "This is enabled implicitly for real-codex mode."
         ),
     )
@@ -484,7 +484,7 @@ def wait_for_ticket_workpad_comment_by_agent(
             body_markdown = comment.get("body_markdown")
             if not isinstance(body_markdown, str):
                 continue
-            if not body_markdown.lstrip().startswith("## Codex Workpad"):
+            if not body_markdown.lstrip().startswith("## Workpad"):
                 continue
             if comment.get("created_by") != expected_actor and comment.get("last_edited_by") != expected_actor:
                 continue
@@ -598,8 +598,8 @@ def build_validation_workflow_harness(project_name: str) -> str:
 
         工作台要求：
 
-        - 当前 harness 已绑定 `ticket-workpad` 和 `openase-platform` skill；开始执行前，先用 skill 在当前工单下创建或更新一条标题为 `## Codex Workpad` 的评论。
-        - `## Codex Workpad` 是当前工单唯一的持久化进度板；计划、当前进展、验证结果、剩余风险和阻塞都持续更新到这一条评论，不要每次新建评论。
+        - 当前 harness 已绑定 `ticket-workpad` 和 `openase-platform` skill；开始执行前，先用 skill 在当前工单下创建或更新一条标题为 `## Workpad` 的评论。
+        - `## Workpad` 是当前工单唯一的持久化进度板；计划、当前进展、验证结果、剩余风险和阻塞都持续更新到这一条评论，不要每次新建评论。
         - 第一版 workpad 至少包含：
           - `Environment`：`<host>:<abs-workdir>@<short-sha>`
           - `Plan`
@@ -642,7 +642,7 @@ def build_validation_workflow_harness(project_name: str) -> str:
 
         建议执行顺序：
 
-        1. 先创建或更新 `## Codex Workpad`，记录环境戳、计划和初始判断。
+        1. 先创建或更新 `## Workpad`，记录环境戳、计划和初始判断。
         2. 再读取工单描述、README、当前源码和现有测试，确认当前切片的真实边界。
         3. 找到最小实现路径，再动手改代码。
         4. 实现后立即补齐或更新测试，并刷新 workpad。
@@ -980,7 +980,7 @@ def main() -> int:
                     if not platform_skill_result["detected"]:
                         ticket = platform_skill_result.get("ticket", {})
                         platform_skill_result["reason"] = (
-                            "claimed ticket did not receive an agent-owned Codex Workpad comment update"
+                            "claimed ticket did not receive an agent-owned Workpad comment update"
                         )
                         platform_skill_result["observed_status_id"] = ticket.get("status_id")
                         platform_skill_result["observed_status_name"] = ticket.get("status_name")
@@ -996,7 +996,7 @@ def main() -> int:
 
         if require_platform_skill and not platform_skill_result.get("detected", False):
             raise RuntimeError(
-                "expected the agent to post or update a Codex Workpad comment via openase-platform skill, "
+                "expected the agent to post or update a Workpad comment via openase-platform skill, "
                 f"but no qualifying ticket comment activity was observed: {json.dumps(platform_skill_result, ensure_ascii=False)}"
             )
 
@@ -1041,7 +1041,7 @@ def main() -> int:
                 "The script creates a fresh empty baseline checkpoint on main before opening ticket PRs.",
                 "Each ticket gets a GitHub draft PR, a repo scope branch binding, and a github_pr external link.",
                 f"Provider mode: {args.provider_mode}",
-                "Platform skill detection is based on the claimed ticket receiving a Codex Workpad comment created or edited by agent:<agent-name>.",
+                "Platform skill detection is based on the claimed ticket receiving a Workpad comment created or edited by agent:<agent-name>.",
             ],
         }
         print(json.dumps(summary, indent=2))

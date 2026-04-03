@@ -32,7 +32,7 @@ Recent project updates:
 
 ## Workpad
 
-- Maintain a single ## Codex Workpad comment on the current ticket and record the failing prerequisite, commands run, repair result, and any remaining blocker.
+- Maintain a single ## Workpad comment on the current ticket and record the failing prerequisite, commands run, repair result, and any remaining blocker.
 
 ## Responsibilities
 

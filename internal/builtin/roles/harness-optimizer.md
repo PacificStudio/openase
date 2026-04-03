@@ -27,7 +27,7 @@ Target workflow inventory:
 
 ## Workpad
 
-- Maintain a single ## Codex Workpad comment on the current ticket and record which workflow harness you are modifying, why, and how you validated the change.
+- Maintain a single ## Workpad comment on the current ticket and record which workflow harness you are modifying, why, and how you validated the change.
 
 ## Responsibilities
 

@@ -1,38 +1,48 @@
 <script lang="ts">
   import { formatRelativeTime } from '$lib/utils'
-  import { Separator } from '$ui/separator'
+  import * as Select from '$ui/select'
   import type { WorkflowSummary } from '../types'
 
   let { workflow }: { workflow: WorkflowSummary } = $props()
+
+  let selectedVersion = $derived(String(workflow.version))
+
+  const selectedItem = $derived(
+    workflow.history.find((item) => String(item.version) === selectedVersion),
+  )
 </script>
 
 {#if workflow.history.length > 0}
-  <div class="bg-muted/20 space-y-2 px-4 py-3">
-    <div class="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
-      Control Plane
-    </div>
-    <div class="flex flex-wrap items-center gap-2 text-xs">
-      <span class="text-foreground rounded-full border px-2 py-0.5 font-medium">
-        Published v{workflow.version}
-      </span>
-      <span class="text-muted-foreground">{workflow.history.length} recorded version(s)</span>
-    </div>
-    <div class="flex flex-wrap gap-2">
-      {#each workflow.history.slice(0, 4) as item (item.id)}
-        <div class="bg-background rounded-lg border px-2.5 py-1.5 text-xs">
-          <div class="text-foreground font-medium">
-            v{item.version}
-            {#if item.version === workflow.version}
-              <span class="text-muted-foreground">· current</span>
-            {/if}
-          </div>
-          <div class="text-muted-foreground mt-0.5">
-            {formatRelativeTime(item.createdAt)} by {item.createdBy}
-          </div>
-        </div>
-      {/each}
-    </div>
+  <div class="flex items-center gap-2 px-4 py-2">
+    <span class="text-muted-foreground text-[10px] font-medium tracking-wide uppercase"
+      >v{workflow.version}</span
+    >
+    <Select.Root type="single" value={selectedVersion} onValueChange={(v) => (selectedVersion = v)}>
+      <Select.Trigger
+        class="h-6 w-auto gap-1 border-none bg-transparent px-1.5 text-[11px] shadow-none"
+      >
+        {#if selectedItem}
+          v{selectedItem.version}{selectedItem.version === workflow.version ? ' · current' : ''}
+          <span class="text-muted-foreground">{formatRelativeTime(selectedItem.createdAt)}</span>
+        {:else}
+          Select version
+        {/if}
+      </Select.Trigger>
+      <Select.Content class="max-h-48 w-56">
+        {#each workflow.history as item (item.id)}
+          <Select.Item value={String(item.version)}>
+            <div class="flex w-full items-center gap-2">
+              <span class="text-foreground font-medium">v{item.version}</span>
+              {#if item.version === workflow.version}
+                <span class="bg-primary/10 text-primary rounded px-1 text-[9px]">current</span>
+              {/if}
+              <span class="text-muted-foreground ml-auto text-[10px]"
+                >{formatRelativeTime(item.createdAt)}</span
+              >
+            </div>
+          </Select.Item>
+        {/each}
+      </Select.Content>
+    </Select.Root>
   </div>
-
-  <Separator />
 {/if}
