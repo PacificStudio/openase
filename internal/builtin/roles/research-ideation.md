@@ -1,7 +1,7 @@
 ---
 workflow:
   name: "Research Ideation"
-  type: "custom"
+  type: "Research Ideation"
   role: "research-ideation"
 status:
   pickup: "Todo"

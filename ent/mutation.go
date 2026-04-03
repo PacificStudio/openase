@@ -47374,7 +47374,7 @@ type WorkflowMutation struct {
 	typ                      string
 	id                       *uuid.UUID
 	name                     *string
-	_type                    *workflow.Type
+	_type                    *string
 	harness_path             *string
 	_hooks                   *map[string]interface{}
 	max_concurrent           *int
@@ -47696,12 +47696,12 @@ func (m *WorkflowMutation) ResetName() {
 }
 
 // SetType sets the "type" field.
-func (m *WorkflowMutation) SetType(w workflow.Type) {
-	m._type = &w
+func (m *WorkflowMutation) SetType(s string) {
+	m._type = &s
 }
 
 // GetType returns the value of the "type" field in the mutation.
-func (m *WorkflowMutation) GetType() (r workflow.Type, exists bool) {
+func (m *WorkflowMutation) GetType() (r string, exists bool) {
 	v := m._type
 	if v == nil {
 		return
@@ -47712,7 +47712,7 @@ func (m *WorkflowMutation) GetType() (r workflow.Type, exists bool) {
 // OldType returns the old "type" field's value of the Workflow entity.
 // If the Workflow object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *WorkflowMutation) OldType(ctx context.Context) (v workflow.Type, err error) {
+func (m *WorkflowMutation) OldType(ctx context.Context) (v string, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldType is only allowed on UpdateOne operations")
 	}
@@ -48759,7 +48759,7 @@ func (m *WorkflowMutation) SetField(name string, value ent.Value) error {
 		m.SetName(v)
 		return nil
 	case workflow.FieldType:
-		v, ok := value.(workflow.Type)
+		v, ok := value.(string)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}

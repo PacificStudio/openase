@@ -105,13 +105,13 @@ func (_u *WorkflowUpdate) SetNillableName(v *string) *WorkflowUpdate {
 }
 
 // SetType sets the "type" field.
-func (_u *WorkflowUpdate) SetType(v workflow.Type) *WorkflowUpdate {
+func (_u *WorkflowUpdate) SetType(v string) *WorkflowUpdate {
 	_u.mutation.SetType(v)
 	return _u
 }
 
 // SetNillableType sets the "type" field if the given value is not nil.
-func (_u *WorkflowUpdate) SetNillableType(v *workflow.Type) *WorkflowUpdate {
+func (_u *WorkflowUpdate) SetNillableType(v *string) *WorkflowUpdate {
 	if v != nil {
 		_u.SetType(*v)
 	}
@@ -613,7 +613,7 @@ func (_u *WorkflowUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		_spec.SetField(workflow.FieldName, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.GetType(); ok {
-		_spec.SetField(workflow.FieldType, field.TypeEnum, value)
+		_spec.SetField(workflow.FieldType, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.HarnessPath(); ok {
 		_spec.SetField(workflow.FieldHarnessPath, field.TypeString, value)
@@ -1145,13 +1145,13 @@ func (_u *WorkflowUpdateOne) SetNillableName(v *string) *WorkflowUpdateOne {
 }
 
 // SetType sets the "type" field.
-func (_u *WorkflowUpdateOne) SetType(v workflow.Type) *WorkflowUpdateOne {
+func (_u *WorkflowUpdateOne) SetType(v string) *WorkflowUpdateOne {
 	_u.mutation.SetType(v)
 	return _u
 }
 
 // SetNillableType sets the "type" field if the given value is not nil.
-func (_u *WorkflowUpdateOne) SetNillableType(v *workflow.Type) *WorkflowUpdateOne {
+func (_u *WorkflowUpdateOne) SetNillableType(v *string) *WorkflowUpdateOne {
 	if v != nil {
 		_u.SetType(*v)
 	}
@@ -1683,7 +1683,7 @@ func (_u *WorkflowUpdateOne) sqlSave(ctx context.Context) (_node *Workflow, err 
 		_spec.SetField(workflow.FieldName, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.GetType(); ok {
-		_spec.SetField(workflow.FieldType, field.TypeEnum, value)
+		_spec.SetField(workflow.FieldType, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.HarnessPath(); ok {
 		_spec.SetField(workflow.FieldHarnessPath, field.TypeString, value)

@@ -1,7 +1,7 @@
 ---
 workflow:
   name: "Security Engineer"
-  type: "security"
+  type: "Security Engineer"
   role: "security-engineer"
 status:
   pickup: "Todo"

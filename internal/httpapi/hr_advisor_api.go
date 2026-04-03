@@ -20,14 +20,14 @@ import (
 )
 
 type hrAdvisorSummaryResponse struct {
-	OpenTickets         int      `json:"open_tickets"`
-	CodingTickets       int      `json:"coding_tickets"`
-	FailingTickets      int      `json:"failing_tickets"`
-	BlockedTickets      int      `json:"blocked_tickets"`
-	ActiveAgents        int      `json:"active_agents"`
-	WorkflowCount       int      `json:"workflow_count"`
-	RecentActivityCount int      `json:"recent_activity_count"`
-	ActiveWorkflowTypes []string `json:"active_workflow_types"`
+	OpenTickets            int      `json:"open_tickets"`
+	CodingTickets          int      `json:"coding_tickets"`
+	FailingTickets         int      `json:"failing_tickets"`
+	BlockedTickets         int      `json:"blocked_tickets"`
+	ActiveAgents           int      `json:"active_agents"`
+	WorkflowCount          int      `json:"workflow_count"`
+	RecentActivityCount    int      `json:"recent_activity_count"`
+	ActiveWorkflowFamilies []string `json:"active_workflow_families"`
 }
 
 type hrAdvisorStaffingResponse struct {
@@ -40,18 +40,21 @@ type hrAdvisorStaffingResponse struct {
 }
 
 type hrAdvisorRecommendationResponse struct {
-	RoleSlug              string   `json:"role_slug"`
-	RoleName              string   `json:"role_name"`
-	WorkflowType          string   `json:"workflow_type"`
-	Summary               string   `json:"summary"`
-	HarnessPath           string   `json:"harness_path"`
-	Priority              string   `json:"priority"`
-	Reason                string   `json:"reason"`
-	Evidence              []string `json:"evidence"`
-	SuggestedHeadcount    int      `json:"suggested_headcount"`
-	SuggestedWorkflowName string   `json:"suggested_workflow_name"`
-	ActivationReady       bool     `json:"activation_ready"`
-	ActiveWorkflowName    *string  `json:"active_workflow_name,omitempty"`
+	RoleSlug                string   `json:"role_slug"`
+	RoleName                string   `json:"role_name"`
+	WorkflowType            string   `json:"workflow_type"`
+	WorkflowFamily          string   `json:"workflow_family"`
+	Summary                 string   `json:"summary"`
+	HarnessPath             string   `json:"harness_path"`
+	Priority                string   `json:"priority"`
+	Reason                  string   `json:"reason"`
+	Evidence                []string `json:"evidence"`
+	SuggestedHeadcount      int      `json:"suggested_headcount"`
+	SuggestedWorkflowName   string   `json:"suggested_workflow_name"`
+	SuggestedWorkflowType   string   `json:"suggested_workflow_type"`
+	SuggestedWorkflowFamily string   `json:"suggested_workflow_family"`
+	ActivationReady         bool     `json:"activation_ready"`
+	ActiveWorkflowName      *string  `json:"active_workflow_name,omitempty"`
 }
 
 type hrAdvisorActivationResponse struct {
@@ -123,7 +126,7 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 		return writeCatalogError(c, err)
 	}
 
-	workflowTypes := make(map[uuid.UUID]string, len(workflows))
+	workflowLabels := make(map[uuid.UUID]string, len(workflows))
 	statusNamesByID := make(map[uuid.UUID]string)
 	statusStagesByID := make(map[uuid.UUID]string)
 	if s.ticketStatusService != nil {
@@ -137,20 +140,19 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 		}
 	}
 	activeRoleWorkflows := make(map[string]string)
-	workflowRoleSlugs := make(map[uuid.UUID]string)
+	workflowDetails := make(map[uuid.UUID]workflowservice.WorkflowDetail, len(workflows))
 	for _, workflowItem := range workflows {
-		workflowTypes[workflowItem.ID] = string(workflowItem.Type)
-		if !workflowItem.IsActive {
-			continue
-		}
-
+		workflowLabels[workflowItem.ID] = workflowItem.Type.String()
 		detail, err := s.workflowService.Get(ctx, workflowItem.ID)
 		if err != nil {
 			return writeWorkflowError(c, err)
 		}
+		workflowDetails[workflowItem.ID] = detail
+		if !workflowItem.IsActive {
+			continue
+		}
 		if roleSlug := parseHarnessRoleSlug(detail.HarnessContent); roleSlug != "" {
 			activeRoleWorkflows[roleSlug] = workflowItem.Name
-			workflowRoleSlugs[workflowItem.ID] = roleSlug
 		}
 	}
 
@@ -174,9 +176,9 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 	}
 
 	for _, ticketItem := range tickets {
-		workflowType := ""
+		workflowLabel := ""
 		if ticketItem.WorkflowID != nil {
-			workflowType = workflowTypes[*ticketItem.WorkflowID]
+			workflowLabel = workflowLabels[*ticketItem.WorkflowID]
 		}
 
 		snapshot.Tickets = append(snapshot.Tickets, hrdomain.TicketContext{
@@ -184,7 +186,7 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 			Type:              string(ticketItem.Type),
 			StatusName:        ticketItem.StatusName,
 			StatusStage:       statusStagesByID[ticketItem.StatusID],
-			WorkflowType:      workflowType,
+			WorkflowTypeLabel: workflowLabel,
 			HasActiveRun:      ticketItem.CurrentRunID != nil,
 			ConsecutiveErrors: ticketItem.ConsecutiveErrors,
 			RetryPaused:       ticketItem.RetryPaused,
@@ -192,11 +194,14 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 	}
 
 	for _, workflowItem := range workflows {
+		detail := workflowDetails[workflowItem.ID]
 		snapshot.Workflows = append(snapshot.Workflows, hrdomain.WorkflowContext{
 			Name:           workflowItem.Name,
-			Type:           string(workflowItem.Type),
-			RoleSlug:       workflowRoleSlugs[workflowItem.ID],
+			TypeLabel:      workflowItem.Type.String(),
+			RoleSlug:       parseHarnessRoleSlug(detail.HarnessContent),
 			IsActive:       workflowItem.IsActive,
+			HarnessPath:    workflowItem.HarnessPath,
+			HarnessContent: detail.HarnessContent,
 			PickupStatuses: statusBindingsFromIDs(workflowItem.PickupStatusIDs, statusNamesByID, statusStagesByID),
 			FinishStatuses: statusBindingsFromIDs(workflowItem.FinishStatusIDs, statusNamesByID, statusStagesByID),
 		})
@@ -217,7 +222,8 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 	for _, recommendation := range analysis.Recommendations {
 		roleTemplate, ok := builtin.RoleBySlug(recommendation.RoleSlug)
 		roleName := recommendation.RoleSlug
-		workflowType := "custom"
+		workflowType := recommendation.SuggestedWorkflowTypeLabel
+		workflowFamily := recommendation.SuggestedWorkflowFamily
 		summary := ""
 		harnessPath := ""
 		if ok {
@@ -225,6 +231,13 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 			workflowType = roleTemplate.WorkflowType
 			summary = roleTemplate.Summary
 			harnessPath = roleTemplate.HarnessPath
+			workflowFamily = string(workflowservice.ClassifyWorkflow(workflowservice.WorkflowClassificationInput{
+				RoleSlug:       roleTemplate.Slug,
+				TypeLabel:      workflowservice.MustParseTypeLabel(roleTemplate.WorkflowType),
+				WorkflowName:   roleTemplate.Name,
+				HarnessPath:    roleTemplate.HarnessPath,
+				HarnessContent: roleTemplate.Content,
+			}).Family)
 		}
 
 		activeWorkflowName, isActive := activeRoleWorkflows[recommendation.RoleSlug]
@@ -234,32 +247,35 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 		}
 
 		recommendations = append(recommendations, hrAdvisorRecommendationResponse{
-			RoleSlug:              recommendation.RoleSlug,
-			RoleName:              roleName,
-			WorkflowType:          workflowType,
-			Summary:               summary,
-			HarnessPath:           harnessPath,
-			Priority:              recommendation.Priority,
-			Reason:                recommendation.Reason,
-			Evidence:              cloneStringSlice(recommendation.Evidence),
-			SuggestedHeadcount:    recommendation.SuggestedHeadcount,
-			SuggestedWorkflowName: recommendation.SuggestedWorkflowName,
-			ActivationReady:       !isActive,
-			ActiveWorkflowName:    activeWorkflowNamePtr,
+			RoleSlug:                recommendation.RoleSlug,
+			RoleName:                roleName,
+			WorkflowType:            workflowType,
+			WorkflowFamily:          workflowFamily,
+			Summary:                 summary,
+			HarnessPath:             harnessPath,
+			Priority:                recommendation.Priority,
+			Reason:                  recommendation.Reason,
+			Evidence:                cloneStringSlice(recommendation.Evidence),
+			SuggestedHeadcount:      recommendation.SuggestedHeadcount,
+			SuggestedWorkflowName:   recommendation.SuggestedWorkflowName,
+			SuggestedWorkflowType:   recommendation.SuggestedWorkflowTypeLabel,
+			SuggestedWorkflowFamily: recommendation.SuggestedWorkflowFamily,
+			ActivationReady:         !isActive,
+			ActiveWorkflowName:      activeWorkflowNamePtr,
 		})
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"project_id": projectID.String(),
 		"summary": hrAdvisorSummaryResponse{
-			OpenTickets:         analysis.Summary.OpenTickets,
-			CodingTickets:       analysis.Summary.CodingTickets,
-			FailingTickets:      analysis.Summary.FailingTickets,
-			BlockedTickets:      analysis.Summary.BlockedTickets,
-			ActiveAgents:        analysis.Summary.ActiveAgents,
-			WorkflowCount:       analysis.Summary.WorkflowCount,
-			RecentActivityCount: analysis.Summary.RecentActivityCount,
-			ActiveWorkflowTypes: cloneStringSlice(analysis.Summary.ActiveWorkflowTypes),
+			OpenTickets:            analysis.Summary.OpenTickets,
+			CodingTickets:          analysis.Summary.CodingTickets,
+			FailingTickets:         analysis.Summary.FailingTickets,
+			BlockedTickets:         analysis.Summary.BlockedTickets,
+			ActiveAgents:           analysis.Summary.ActiveAgents,
+			WorkflowCount:          analysis.Summary.WorkflowCount,
+			RecentActivityCount:    analysis.Summary.RecentActivityCount,
+			ActiveWorkflowFamilies: cloneStringSlice(analysis.Summary.ActiveWorkflowFamilies),
 		},
 		"staffing": hrAdvisorStaffingResponse{
 			Developers: analysis.Staffing.Developers,
@@ -453,7 +469,7 @@ func (a hrAdvisorWorkflowAdapter) Create(
 	}
 
 	harnessPath := input.HarnessPath
-	workflowType, err := parseWorkflowType(input.Type)
+	workflowType, err := parseWorkflowTypeLabel(input.Type)
 	if err != nil {
 		return hrservice.ActivationWorkflow{}, err
 	}
@@ -588,12 +604,24 @@ func mapHRAdvisorActivationWorkflowResponse(item hrservice.ActivationWorkflow) w
 	}
 
 	harnessContent := item.HarnessContent
+	typeLabel, err := workflowservice.ParseTypeLabel(item.Type)
+	if err != nil {
+		typeLabel = workflowservice.MustParseTypeLabel("unknown")
+	}
+	classification := workflowservice.ClassifyWorkflow(workflowservice.WorkflowClassificationInput{
+		TypeLabel:      typeLabel,
+		WorkflowName:   item.Name,
+		HarnessPath:    item.HarnessPath,
+		HarnessContent: item.HarnessContent,
+	})
 	return workflowResponse{
 		ID:                  item.ID.String(),
 		ProjectID:           item.ProjectID.String(),
 		AgentID:             agentID,
 		Name:                item.Name,
 		Type:                item.Type,
+		WorkflowFamily:      string(classification.Family),
+		Classification:      mapClassificationResponse(classification),
 		HarnessPath:         item.HarnessPath,
 		HarnessContent:      &harnessContent,
 		Hooks:               map[string]any{},

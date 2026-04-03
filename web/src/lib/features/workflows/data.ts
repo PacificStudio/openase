@@ -11,7 +11,13 @@ import {
   listWorkflows,
 } from '$lib/api/openase'
 import type { TicketStatusStage } from '$lib/features/statuses/public'
-import { defaultHarnessTemplate, normalizeWorkflowType, toHarnessContent } from './model'
+import {
+  defaultHarnessTemplate,
+  normalizeWorkflowClassification,
+  normalizeWorkflowFamily,
+  normalizeWorkflowType,
+  toHarnessContent,
+} from './model'
 import type { SkillState } from './model'
 import type {
   HarnessVariableGroup,
@@ -37,6 +43,11 @@ export function mapWorkflowSummary(
     id: workflow.id,
     name: workflow.name,
     type: normalizeWorkflowType(workflow.type),
+    workflowFamily: normalizeWorkflowFamily(workflow.workflow_family ?? ''),
+    classification: normalizeWorkflowClassification(
+      workflow.workflow_classification,
+      workflow.workflow_family ?? '',
+    ),
     agentId: workflow.agent_id ?? null,
     harnessPath: workflow.harness_path ?? '',
     pickupStatusIds,
@@ -146,7 +157,7 @@ export async function loadWorkflowIndex(projectId: string, orgId: string, select
     agentOptions: catalog.agentOptions,
     workflows: catalog.workflows,
     builtinRoleContent:
-      builtinRolePayload.roles.find((role) => role.workflow_type === 'coding')?.content ??
+      builtinRolePayload.roles.find((role) => role.slug === 'fullstack-developer')?.content ??
       defaultHarnessTemplate(),
     providers: catalog.providers,
     statuses: catalog.statuses,
@@ -232,6 +243,11 @@ export async function createWorkflowWithBinding(
     id: createdWorkflow.id,
     name: createdWorkflow.name,
     type: normalizeWorkflowType(createdWorkflow.type),
+    workflowFamily: normalizeWorkflowFamily(createdWorkflow.workflow_family ?? ''),
+    classification: normalizeWorkflowClassification(
+      createdWorkflow.workflow_classification,
+      createdWorkflow.workflow_family ?? '',
+    ),
     agentId: createdWorkflow.agent_id ?? null,
     harnessPath: createdWorkflow.harness_path ?? '',
     pickupStatusIds: createdWorkflow.pickup_status_ids,

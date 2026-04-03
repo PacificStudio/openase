@@ -1,7 +1,7 @@
 ---
 workflow:
   name: "Environment Provisioner"
-  type: "custom"
+  type: "Environment Provisioner"
   role: "env-provisioner"
 status:
   pickup: "环境修复"

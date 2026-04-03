@@ -1103,6 +1103,10 @@ func init() {
 	workflowDescName := workflowFields[4].Descriptor()
 	// workflow.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	workflow.NameValidator = workflowDescName.Validators[0].(func(string) error)
+	// workflowDescType is the schema descriptor for type field.
+	workflowDescType := workflowFields[5].Descriptor()
+	// workflow.TypeValidator is a validator for the "type" field. It is called by the builders before save.
+	workflow.TypeValidator = workflowDescType.Validators[0].(func(string) error)
 	// workflowDescHarnessPath is the schema descriptor for harness_path field.
 	workflowDescHarnessPath := workflowFields[6].Descriptor()
 	// workflow.HarnessPathValidator is a validator for the "harness_path" field. It is called by the builders before save.

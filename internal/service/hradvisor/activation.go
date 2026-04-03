@@ -215,7 +215,7 @@ func (s *ActivationService) Activate(
 		ProjectID:           input.ProjectID,
 		AgentID:             createdAgent.ID,
 		Name:                template.WorkflowName,
-		Type:                strings.TrimSpace(strings.ToLower(template.WorkflowType)),
+		Type:                strings.TrimSpace(template.WorkflowType),
 		HarnessPath:         template.HarnessPath,
 		HarnessContent:      template.HarnessContent,
 		MaxConcurrent:       1,

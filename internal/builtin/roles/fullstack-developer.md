@@ -1,7 +1,7 @@
 ---
 workflow:
   name: "Fullstack Developer"
-  type: "coding"
+  type: "Fullstack Developer"
   role: "fullstack-developer"
 status:
   pickup: "Todo"

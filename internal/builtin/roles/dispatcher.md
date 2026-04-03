@@ -1,7 +1,7 @@
 ---
 workflow:
   name: "Dispatcher"
-  type: "custom"
+  type: "Dispatcher"
   role: "dispatcher"
 status:
   pickup: "Backlog"

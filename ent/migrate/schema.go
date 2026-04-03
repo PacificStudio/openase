@@ -1834,7 +1834,7 @@ var (
 	WorkflowsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "name", Type: field.TypeString},
-		{Name: "type", Type: field.TypeEnum, Enums: []string{"coding", "test", "doc", "security", "deploy", "refine-harness", "custom"}},
+		{Name: "type", Type: field.TypeString},
 		{Name: "harness_path", Type: field.TypeString},
 		{Name: "hooks", Type: field.TypeJSON},
 		{Name: "max_concurrent", Type: field.TypeInt, Default: 0},

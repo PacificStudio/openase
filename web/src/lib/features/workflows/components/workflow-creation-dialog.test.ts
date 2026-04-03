@@ -63,6 +63,12 @@ describe('WorkflowCreationDialog', () => {
         id: 'wf-1',
         name: 'Workflow 1',
         type: 'coding',
+        workflowFamily: 'coding',
+        classification: {
+          family: 'coding',
+          confidence: 1,
+          reasons: ['fixture'],
+        },
         agentId: 'agent-1',
         harnessPath: '',
         pickupStatusIds: ['backlog', 'done'],
@@ -102,21 +108,21 @@ describe('WorkflowCreationDialog', () => {
     await fireEvent.click(getAllByRole('button', { name: 'Doing' })[1])
     await fireEvent.click(getByRole('button', { name: 'Create workflow' }))
 
-    await waitFor(() => {
-      expect(createWorkflowWithBinding).toHaveBeenCalledWith(
-        'project-1',
-        expect.objectContaining({
-          agentId: 'agent-1',
-          name: 'Workflow 1',
-          workflowType: 'coding',
-          harnessPath: null,
-          pickupStatusIds: ['backlog', 'done'],
-          finishStatusIds: ['backlog', 'doing'],
-        }),
-        statuses,
-        'role',
-      )
-    })
+    await vi.runAllTimersAsync()
+
+    expect(createWorkflowWithBinding).toHaveBeenCalledWith(
+      'project-1',
+      expect.objectContaining({
+        agentId: 'agent-1',
+        name: 'Workflow 1',
+        workflowType: 'Workflow',
+        harnessPath: null,
+        pickupStatusIds: ['backlog', 'done'],
+        finishStatusIds: ['backlog', 'doing'],
+      }),
+      statuses,
+      'role',
+    )
     expect(onCreated).toHaveBeenCalledTimes(1)
   })
 
@@ -126,6 +132,12 @@ describe('WorkflowCreationDialog', () => {
         id: 'wf-2',
         name: 'Dispatcher',
         type: 'custom',
+        workflowFamily: 'dispatcher',
+        classification: {
+          family: 'dispatcher',
+          confidence: 1,
+          reasons: ['fixture'],
+        },
         agentId: 'agent-1',
         harnessPath: '.openase/harnesses/roles/dispatcher.md',
         pickupStatusIds: ['backlog'],
@@ -158,6 +170,7 @@ describe('WorkflowCreationDialog', () => {
           content:
             '---\nworkflow:\n  role: "dispatcher"\nstatus:\n  pickup: "Backlog"\n  finish: ["Backlog"]\n---\n',
           workflowType: 'custom',
+          workflowFamily: 'dispatcher',
           harnessPath: '.openase/harnesses/roles/dispatcher.md',
         },
       },
@@ -195,6 +208,7 @@ describe('WorkflowCreationDialog', () => {
           content:
             '---\nworkflow:\n  role: "dispatcher"\nstatus:\n  pickup: "Inbox"\n  finish: "Inbox"\n---\n',
           workflowType: 'custom',
+          workflowFamily: 'dispatcher',
           harnessPath: '.openase/harnesses/roles/dispatcher.md',
         },
       },

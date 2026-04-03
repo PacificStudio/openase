@@ -74,6 +74,7 @@ type Env struct {
 	Repos            []Repo
 	AgentName        string
 	WorkflowType     string
+	WorkflowFamily   string
 	Attempt          int
 	APIURL           string
 	AgentToken       string

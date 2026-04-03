@@ -7495,8 +7495,11 @@ export interface operations {
               role_name?: string
               role_slug?: string
               suggested_headcount?: number
+              suggested_workflow_family?: string
               suggested_workflow_name?: string
+              suggested_workflow_type?: string
               summary?: string
+              workflow_family?: string
               workflow_type?: string
             }[]
             staffing?: {
@@ -7509,7 +7512,7 @@ export interface operations {
             }
             summary?: {
               active_agents?: number
-              active_workflow_types?: string[]
+              active_workflow_families?: string[]
               blocked_tickets?: number
               coding_tickets?: number
               failing_tickets?: number
@@ -7704,6 +7707,13 @@ export interface operations {
               timeout_minutes?: number
               type?: string
               version?: number
+              workflow_classification?: {
+                /** Format: double */
+                confidence?: number
+                family?: string
+                reasons?: string[]
+              }
+              workflow_family?: string
             }
           }
         }
@@ -11808,6 +11818,13 @@ export interface operations {
               timeout_minutes?: number
               type?: string
               version?: number
+              workflow_classification?: {
+                /** Format: double */
+                confidence?: number
+                family?: string
+                reasons?: string[]
+              }
+              workflow_family?: string
             }[]
           }
         }
@@ -11924,6 +11941,13 @@ export interface operations {
               timeout_minutes?: number
               type?: string
               version?: number
+              workflow_classification?: {
+                /** Format: double */
+                confidence?: number
+                family?: string
+                reasons?: string[]
+              }
+              workflow_family?: string
             }
           }
         }
@@ -12545,6 +12569,7 @@ export interface operations {
               slug?: string
               summary?: string
               workflow_content?: string
+              workflow_family?: string
               workflow_type?: string
             }[]
           }
@@ -12590,6 +12615,7 @@ export interface operations {
               slug?: string
               summary?: string
               workflow_content?: string
+              workflow_family?: string
               workflow_type?: string
             }
           }
@@ -15318,6 +15344,13 @@ export interface operations {
               timeout_minutes?: number
               type?: string
               version?: number
+              workflow_classification?: {
+                /** Format: double */
+                confidence?: number
+                family?: string
+                reasons?: string[]
+              }
+              workflow_family?: string
             }
           }
         }
@@ -15398,6 +15431,13 @@ export interface operations {
               timeout_minutes?: number
               type?: string
               version?: number
+              workflow_classification?: {
+                /** Format: double */
+                confidence?: number
+                family?: string
+                reasons?: string[]
+              }
+              workflow_family?: string
             }
           }
         }
@@ -15524,6 +15564,13 @@ export interface operations {
               timeout_minutes?: number
               type?: string
               version?: number
+              workflow_classification?: {
+                /** Format: double */
+                confidence?: number
+                family?: string
+                reasons?: string[]
+              }
+              workflow_family?: string
             }
           }
         }

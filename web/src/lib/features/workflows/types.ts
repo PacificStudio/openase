@@ -1,14 +1,28 @@
 import type { TicketStatusStage } from '$lib/features/statuses/public'
 import type { WorkflowHooksPayload } from './workflow-hooks'
 
-export type WorkflowType =
+export type WorkflowType = string
+
+export type WorkflowFamily =
+  | 'planning'
+  | 'dispatcher'
   | 'coding'
+  | 'review'
   | 'test'
-  | 'doc'
-  | 'security'
+  | 'docs'
   | 'deploy'
-  | 'refine-harness'
-  | 'custom'
+  | 'security'
+  | 'harness'
+  | 'environment'
+  | 'research'
+  | 'reporting'
+  | 'unknown'
+
+export type WorkflowClassification = {
+  family: WorkflowFamily
+  confidence: number
+  reasons: string[]
+}
 
 export type WorkflowVersionSummary = {
   id: string
@@ -21,6 +35,8 @@ export type WorkflowSummary = {
   id: string
   name: string
   type: WorkflowType
+  workflowFamily: WorkflowFamily
+  classification: WorkflowClassification
   agentId: string | null
   harnessPath: string
   pickupStatusIds: string[]
@@ -50,6 +66,7 @@ export type WorkflowTemplateDraft = {
   name: string
   content: string
   workflowType: WorkflowSummary['type']
+  workflowFamily: WorkflowFamily
   harnessPath?: string | null
 }
 

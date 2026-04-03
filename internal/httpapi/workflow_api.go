@@ -12,22 +12,30 @@ import (
 )
 
 type workflowResponse struct {
-	ID                  string         `json:"id"`
-	ProjectID           string         `json:"project_id"`
-	AgentID             *string        `json:"agent_id,omitempty"`
-	Name                string         `json:"name"`
-	Type                string         `json:"type"`
-	HarnessPath         string         `json:"harness_path"`
-	HarnessContent      *string        `json:"harness_content,omitempty"`
-	Hooks               map[string]any `json:"hooks"`
-	MaxConcurrent       int            `json:"max_concurrent"`
-	MaxRetryAttempts    int            `json:"max_retry_attempts"`
-	TimeoutMinutes      int            `json:"timeout_minutes"`
-	StallTimeoutMinutes int            `json:"stall_timeout_minutes"`
-	Version             int            `json:"version"`
-	IsActive            bool           `json:"is_active"`
-	PickupStatusIDs     []string       `json:"pickup_status_ids"`
-	FinishStatusIDs     []string       `json:"finish_status_ids"`
+	ID                  string                 `json:"id"`
+	ProjectID           string                 `json:"project_id"`
+	AgentID             *string                `json:"agent_id,omitempty"`
+	Name                string                 `json:"name"`
+	Type                string                 `json:"type"`
+	WorkflowFamily      string                 `json:"workflow_family"`
+	Classification      classificationResponse `json:"workflow_classification"`
+	HarnessPath         string                 `json:"harness_path"`
+	HarnessContent      *string                `json:"harness_content,omitempty"`
+	Hooks               map[string]any         `json:"hooks"`
+	MaxConcurrent       int                    `json:"max_concurrent"`
+	MaxRetryAttempts    int                    `json:"max_retry_attempts"`
+	TimeoutMinutes      int                    `json:"timeout_minutes"`
+	StallTimeoutMinutes int                    `json:"stall_timeout_minutes"`
+	Version             int                    `json:"version"`
+	IsActive            bool                   `json:"is_active"`
+	PickupStatusIDs     []string               `json:"pickup_status_ids"`
+	FinishStatusIDs     []string               `json:"finish_status_ids"`
+}
+
+type classificationResponse struct {
+	Family     string   `json:"family"`
+	Confidence float64  `json:"confidence"`
+	Reasons    []string `json:"reasons"`
 }
 
 type harnessResponse struct {
@@ -522,6 +530,11 @@ func mapWorkflowResponse(item workflowservice.Workflow) workflowResponse {
 		value := item.AgentID.String()
 		agentID = &value
 	}
+	classification := workflowservice.ClassifyWorkflow(workflowservice.WorkflowClassificationInput{
+		TypeLabel:    item.Type,
+		WorkflowName: item.Name,
+		HarnessPath:  item.HarnessPath,
+	})
 
 	return workflowResponse{
 		ID:                  item.ID.String(),
@@ -529,6 +542,8 @@ func mapWorkflowResponse(item workflowservice.Workflow) workflowResponse {
 		AgentID:             agentID,
 		Name:                item.Name,
 		Type:                item.Type.String(),
+		WorkflowFamily:      string(classification.Family),
+		Classification:      mapClassificationResponse(classification),
 		HarnessPath:         item.HarnessPath,
 		Hooks:               item.Hooks,
 		MaxConcurrent:       item.MaxConcurrent,
@@ -544,8 +559,24 @@ func mapWorkflowResponse(item workflowservice.Workflow) workflowResponse {
 
 func mapWorkflowDetailResponse(item workflowservice.WorkflowDetail) workflowResponse {
 	response := mapWorkflowResponse(item.Workflow)
+	response.Classification = mapClassificationResponse(workflowservice.ClassifyWorkflow(workflowservice.WorkflowClassificationInput{
+		RoleSlug:       parseHarnessRoleSlug(item.HarnessContent),
+		TypeLabel:      item.Type,
+		WorkflowName:   item.Name,
+		HarnessPath:    item.HarnessPath,
+		HarnessContent: item.HarnessContent,
+	}))
+	response.WorkflowFamily = response.Classification.Family
 	response.HarnessContent = stringPointer(item.HarnessContent)
 	return response
+}
+
+func mapClassificationResponse(classification workflowservice.WorkflowClassification) classificationResponse {
+	return classificationResponse{
+		Family:     string(classification.Family),
+		Confidence: classification.Confidence,
+		Reasons:    cloneStringSlice(classification.Reasons),
+	}
 }
 
 func mapHarnessResponse(item workflowservice.HarnessDocument) harnessResponse {

@@ -1,7 +1,7 @@
 ---
 workflow:
   name: "Harness Optimizer"
-  type: "refine-harness"
+  type: "Harness Optimizer"
   role: "harness-optimizer"
 status:
   pickup: "Todo"

@@ -1,7 +1,7 @@
 ---
 workflow:
   name: "Code Reviewer"
-  type: "custom"
+  type: "Code Reviewer"
   role: "code-reviewer"
 status:
   pickup: "Todo"

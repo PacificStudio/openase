@@ -1,7 +1,7 @@
 ---
 workflow:
   name: "QA Engineer"
-  type: "test"
+  type: "QA Engineer"
   role: "qa-engineer"
 status:
   pickup: "Todo"

@@ -1,7 +1,7 @@
 ---
 workflow:
   name: "Product Manager"
-  type: "custom"
+  type: "Product Manager"
   role: "product-manager"
 status:
   pickup: "Todo"

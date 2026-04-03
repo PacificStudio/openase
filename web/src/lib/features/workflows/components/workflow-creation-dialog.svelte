@@ -48,6 +48,7 @@
 
   let saving = $state(false)
   let name = $state('')
+  let typeLabel = $state('')
   let agentId = $state('')
   let pickupStatusIds = $state<string[]>([])
   let finishStatusIds = $state<string[]>([])
@@ -62,9 +63,20 @@
   )
   const selectableStatuses = $derived(statuses)
   const hookValidation = $derived(validateWorkflowHooksDraft(hookDraft))
+
+  function statusChipClass(selected: boolean) {
+    return cn(
+      'rounded-full border px-3 py-1.5 text-xs transition-colors',
+      selected
+        ? 'border-primary/40 bg-primary/10 text-foreground'
+        : 'border-border text-muted-foreground hover:bg-muted',
+    )
+  }
+
   $effect(() => {
     if (open && !wasOpen) {
       name = templateDraft?.name ?? `Workflow ${existingCount + 1}`
+      typeLabel = templateDraft?.workflowType ?? 'Workflow'
       agentId = agentOptions[0]?.id ?? ''
       templateStatusError = ''
       advancedOpen = false
@@ -107,6 +119,10 @@
       toastStore.error('Bound agent is required.')
       return
     }
+    if (!typeLabel.trim()) {
+      toastStore.error('Workflow type label is required.')
+      return
+    }
     if (templateStatusError) {
       toastStore.error(templateStatusError)
       return
@@ -131,7 +147,7 @@
         {
           agentId,
           name: name.trim(),
-          workflowType: templateDraft?.workflowType ?? 'coding',
+          workflowType: typeLabel.trim(),
           harnessPath: templateDraft?.harnessPath ?? null,
           pickupStatusIds,
           finishStatusIds,
@@ -173,6 +189,16 @@
       </div>
 
       <div class="space-y-2">
+        <Label for="workflow-create-type">Type Label</Label>
+        <Input
+          id="workflow-create-type"
+          bind:value={typeLabel}
+          disabled={saving}
+          placeholder="Fullstack Developer"
+        />
+      </div>
+
+      <div class="space-y-2">
         <Label>Bound Agent</Label>
         <Select.Root
           type="single"
@@ -196,12 +222,7 @@
             {#each selectableStatuses as status (status.id)}
               <button
                 type="button"
-                class={cn(
-                  'rounded-full border px-3 py-1.5 text-xs transition-colors',
-                  pickupStatusIds.includes(status.id)
-                    ? 'border-primary/40 bg-primary/10 text-foreground'
-                    : 'border-border text-muted-foreground hover:bg-muted',
-                )}
+                class={statusChipClass(pickupStatusIds.includes(status.id))}
                 disabled={saving}
                 onclick={() =>
                   (pickupStatusIds = toggleWorkflowStatusSelection(pickupStatusIds, status.id))}
@@ -218,12 +239,7 @@
             {#each selectableStatuses as status (status.id)}
               <button
                 type="button"
-                class={cn(
-                  'rounded-full border px-3 py-1.5 text-xs transition-colors',
-                  finishStatusIds.includes(status.id)
-                    ? 'border-primary/40 bg-primary/10 text-foreground'
-                    : 'border-border text-muted-foreground hover:bg-muted',
-                )}
+                class={statusChipClass(finishStatusIds.includes(status.id))}
                 disabled={saving}
                 onclick={() =>
                   (finishStatusIds = toggleWorkflowStatusSelection(finishStatusIds, status.id))}

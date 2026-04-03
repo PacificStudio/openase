@@ -1,7 +1,7 @@
 ---
 workflow:
   name: "Technical Writer"
-  type: "doc"
+  type: "Technical Writer"
   role: "technical-writer"
 status:
   pickup: "Todo"

@@ -403,8 +403,8 @@ func TestAnalyzeRecommendsDevopsForMissingDeployLane(t *testing.T) {
 	if recommendation == nil {
 		t.Fatalf("expected devops recommendation, got %+v", analysis.Recommendations)
 	}
-	if !strings.Contains(strings.Join(recommendation.Evidence, " "), "Upstream workflow types") {
-		t.Fatalf("expected deploy recommendation evidence to mention upstream workflow types, got %+v", recommendation.Evidence)
+	if !strings.Contains(strings.Join(recommendation.Evidence, " "), "Upstream workflow families") {
+		t.Fatalf("expected deploy recommendation evidence to mention upstream workflow families, got %+v", recommendation.Evidence)
 	}
 }
 

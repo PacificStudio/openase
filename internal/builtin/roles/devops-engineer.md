@@ -1,7 +1,7 @@
 ---
 workflow:
   name: "DevOps Engineer"
-  type: "deploy"
+  type: "Release Captain"
   role: "devops-engineer"
 status:
   pickup: "Todo"

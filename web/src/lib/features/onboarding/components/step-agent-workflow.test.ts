@@ -92,7 +92,7 @@ describe('StepAgentWorkflow', () => {
       expect(createWorkflow).toHaveBeenCalledWith('project-1', {
         agent_id: 'agent-1',
         name: '产品经理 Workflow',
-        type: 'custom',
+        type: 'Product Manager',
         pickup_status_ids: ['status-backlog'],
         finish_status_ids: ['status-done'],
         harness_content: '# Product Manager',
@@ -145,7 +145,13 @@ function makeWorkflow(overrides: Partial<Workflow> = {}): Workflow {
     project_id: 'project-1',
     agent_id: 'agent-1',
     name: '产品经理 Workflow',
-    type: 'custom',
+    type: 'Product Manager',
+    workflow_family: 'planning',
+    workflow_classification: {
+      family: 'planning',
+      confidence: 1,
+      reasons: ['fixture'],
+    },
     pickup_status_ids: ['status-backlog'],
     finish_status_ids: ['status-done'],
     max_concurrent: 0,

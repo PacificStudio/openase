@@ -17,7 +17,6 @@
     createWorkflowHooksDraft,
     parseWorkflowHooksDraft,
     validateWorkflowHooksDraft,
-    workflowHooksDraftSignature,
     type WorkflowHooksDraft,
   } from '../workflow-hooks'
   import WorkflowAgentBindingCard from './workflow-agent-binding-card.svelte'
@@ -28,6 +27,10 @@
   import WorkflowDetailHistorySection from './workflow-detail-history-section.svelte'
   import WorkflowDetailHooksSection from './workflow-detail-hooks-section.svelte'
   import WorkflowNumberField from './workflow-number-field.svelte'
+  import {
+    isWorkflowLifecycleDraftDirty,
+    workflowLifecycleDraftKey,
+  } from './workflow-detail-panel-state'
   import WorkflowStatusChipSelector from './workflow-status-chip-selector.svelte'
   let {
     workflow,
@@ -52,6 +55,7 @@
   let draft = $state<WorkflowLifecycleDraft>({
     agentId: '',
     name: '',
+    typeLabel: '',
     pickupStatusIds: [],
     finishStatusIds: [],
     maxConcurrent: '',
@@ -68,35 +72,13 @@
   const baseHookDraft = $derived(createWorkflowHooksDraft(workflow.rawHooks ?? workflow.hooks))
   const hookValidation = $derived(validateWorkflowHooksDraft(hookDraft))
   const isDirty = $derived(
-    draft.agentId !== baseDraft.agentId ||
-      draft.name !== baseDraft.name ||
-      draft.pickupStatusIds.join(':') !== baseDraft.pickupStatusIds.join(':') ||
-      draft.finishStatusIds.join(':') !== baseDraft.finishStatusIds.join(':') ||
-      draft.maxConcurrent !== baseDraft.maxConcurrent ||
-      draft.maxRetryAttempts !== baseDraft.maxRetryAttempts ||
-      draft.timeoutMinutes !== baseDraft.timeoutMinutes ||
-      draft.stallTimeoutMinutes !== baseDraft.stallTimeoutMinutes ||
-      draft.isActive !== baseDraft.isActive ||
-      workflowHooksDraftSignature(hookDraft) !== workflowHooksDraftSignature(baseHookDraft),
+    isWorkflowLifecycleDraftDirty(draft, baseDraft, hookDraft, baseHookDraft),
   )
   const selectedAgent = $derived(agentOptions.find((option) => option.id === draft.agentId) ?? null)
   const selectableStatuses = $derived(statuses)
 
   $effect(() => {
-    const nextKey = [
-      workflow.id,
-      workflow.version,
-      workflow.agentId ?? '',
-      workflow.name,
-      workflow.isActive,
-      workflow.pickupStatusIds.join(','),
-      workflow.finishStatusIds.join(','),
-      workflow.maxConcurrent,
-      workflow.maxRetry,
-      workflow.timeoutMinutes,
-      workflow.stallTimeoutMinutes,
-      JSON.stringify(workflow.rawHooks ?? workflow.hooks ?? {}),
-    ].join(':')
+    const nextKey = workflowLifecycleDraftKey(workflow)
 
     if (nextKey === draftKey) return
 
@@ -171,6 +153,21 @@
           disabled={saving || deleting}
           oninput={(event) =>
             updateDraftField('name', (event.currentTarget as HTMLInputElement).value)}
+        />
+      </div>
+
+      <div class="space-y-1.5">
+        <Label
+          for="workflow-type-label"
+          class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
+          >Type Label</Label
+        >
+        <Input
+          id="workflow-type-label"
+          value={draft.typeLabel}
+          disabled={saving || deleting}
+          oninput={(event) =>
+            updateDraftField('typeLabel', (event.currentTarget as HTMLInputElement).value)}
         />
       </div>
 

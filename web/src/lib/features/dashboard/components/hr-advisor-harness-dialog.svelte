@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { BuiltinRole } from '$lib/api/contracts'
+  import { normalizeWorkflowFamily, workflowFamilyColors } from '$lib/features/workflows'
   import { Badge } from '$ui/badge'
   import * as Dialog from '$ui/dialog'
 
@@ -16,6 +17,8 @@
     loading?: boolean
     error?: string
   } = $props()
+
+  const workflowFamily = $derived(normalizeWorkflowFamily(harness?.workflow_family ?? ''))
 </script>
 
 <Dialog.Root bind:open>
@@ -32,6 +35,9 @@
         <div class="flex flex-wrap gap-2 text-xs">
           <Badge variant="outline">{harness.slug}</Badge>
           <Badge variant="outline">{harness.workflow_type}</Badge>
+          <Badge variant="outline" class={workflowFamilyColors[workflowFamily]}>
+            {harness.workflow_family}
+          </Badge>
           <Badge variant="outline">{harness.harness_path}</Badge>
         </div>
       {/if}

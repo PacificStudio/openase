@@ -28,6 +28,7 @@ import (
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/ticket"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	workflowdomain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
 	"github.com/google/uuid"
 )
 
@@ -1745,6 +1746,7 @@ func (r *EntRepository) LoadLifecycleHookRuntimeData(
 
 	workflowItem, err := r.client.Workflow.Query().
 		Where(entworkflow.IDEQ(*resolvedWorkflowID)).
+		WithCurrentVersion().
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
@@ -1786,6 +1788,21 @@ func (r *EntRepository) LoadLifecycleHookRuntimeData(
 		workspaceRoot = strings.TrimSpace(workspaces[0].WorkspaceRoot)
 	}
 
+	typeLabel, parseErr := workflowdomain.ParseTypeLabel(workflowItem.Type)
+	if parseErr != nil {
+		typeLabel = workflowdomain.MustParseTypeLabel("unknown")
+	}
+	harnessContent := ""
+	if workflowItem.Edges.CurrentVersion != nil {
+		harnessContent = workflowItem.Edges.CurrentVersion.ContentMarkdown
+	}
+	workflowFamily := workflowdomain.ClassifyWorkflow(workflowdomain.WorkflowClassificationInput{
+		TypeLabel:      typeLabel,
+		WorkflowName:   workflowItem.Name,
+		HarnessPath:    workflowItem.HarnessPath,
+		HarnessContent: harnessContent,
+	}).Family
+
 	return LifecycleHookRuntimeData{
 		TicketID:         ticketItem.ID,
 		ProjectID:        ticketItem.ProjectID,
@@ -1793,6 +1810,7 @@ func (r *EntRepository) LoadLifecycleHookRuntimeData(
 		TicketIdentifier: ticketItem.Identifier,
 		AgentName:        runItem.Edges.Agent.Name,
 		WorkflowType:     string(workflowItem.Type),
+		WorkflowFamily:   string(workflowFamily),
 		Attempt:          ticketItem.AttemptCount + 1,
 		WorkspaceRoot:    workspaceRoot,
 		Hooks:            cloneAnyMap(workflowItem.Hooks),

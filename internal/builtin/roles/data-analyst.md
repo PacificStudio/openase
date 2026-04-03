@@ -1,7 +1,7 @@
 ---
 workflow:
   name: "Data Analyst"
-  type: "custom"
+  type: "Data Analyst"
   role: "data-analyst"
 status:
   pickup: "Todo"

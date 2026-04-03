@@ -1,7 +1,7 @@
 ---
 workflow:
   name: "Report Writer"
-  type: "custom"
+  type: "Report Writer"
   role: "report-writer"
 status:
   pickup: "Todo"

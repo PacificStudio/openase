@@ -1,7 +1,7 @@
 ---
 workflow:
   name: "Frontend Engineer"
-  type: "coding"
+  type: "Frontend Engineer"
   role: "frontend-engineer"
 status:
   pickup: "Todo"

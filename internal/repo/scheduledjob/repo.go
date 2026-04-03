@@ -176,7 +176,7 @@ func (r *EntRepository) LoadWorkflow(ctx context.Context, projectID uuid.UUID, w
 		ID:             item.ID,
 		ProjectID:      item.ProjectID,
 		Name:           item.Name,
-		Type:           item.Type.String(),
+		Type:           item.Type,
 		PickupStatuses: pickupStatuses,
 	}, nil
 }

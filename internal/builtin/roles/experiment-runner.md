@@ -1,7 +1,7 @@
 ---
 workflow:
   name: "Experiment Runner"
-  type: "custom"
+  type: "Experiment Runner"
   role: "experiment-runner"
 status:
   pickup: "Todo"
