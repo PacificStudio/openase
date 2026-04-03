@@ -8,14 +8,13 @@ import {
 import type { BuiltinRole, HarnessValidationIssue } from '$lib/api/contracts'
 import { appStore } from '$lib/stores/app.svelte'
 import { toastStore } from '$lib/stores/toast.svelte'
-import {
-  normalizeWorkflowFamily,
-  normalizeWorkflowType,
-  type SkillState,
-  toHarnessContent,
-} from '../model'
+import { type SkillState, toHarnessContent } from '../model'
 import type { WorkflowAgentOption, WorkflowSummary, WorkflowTemplateDraft } from '../types'
 import { loadWorkflowHarness } from '../data'
+import {
+  applyWorkflowVersionRefresh,
+  buildWorkflowTemplateDraft,
+} from '../workflow-page-actions-support'
 
 type HarnessContent = ReturnType<typeof toHarnessContent>
 
@@ -163,16 +162,11 @@ export async function handleSaveWorkflow(
     const payload = await saveWorkflowHarness(state.selectedId, state.draftHarness)
     const refreshed = await refreshSelectedWorkflowHarness(state)
     if (!refreshed) return
-    state.workflows = state.workflows.map((workflow) =>
-      workflow.id === state.selectedId
-        ? {
-            ...workflow,
-            harnessPath: payload.harness.path ?? workflow.harnessPath,
-            version: payload.harness.version ?? workflow.version,
-            history: refreshed.history,
-          }
-        : workflow,
-    )
+    state.workflows = applyWorkflowVersionRefresh(state.workflows, state.selectedId, {
+      harnessPath: payload.harness.path,
+      version: payload.harness.version,
+      history: refreshed.history,
+    })
     toastStore.success(
       payload.harness.version ? `Harness saved as v${payload.harness.version}.` : 'Harness saved.',
     )
@@ -215,13 +209,7 @@ export function handleUseWorkflowTemplate(
     toastStore.error('Configure statuses and agents before creating a workflow.')
     return false
   }
-  state.templateDraft = {
-    name: role.name,
-    content: role.workflow_content || role.content,
-    workflowType: normalizeWorkflowType(role.workflow_type),
-    workflowFamily: normalizeWorkflowFamily(role.workflow_family ?? ''),
-    harnessPath: role.harness_path,
-  }
+  state.templateDraft = buildWorkflowTemplateDraft(role)
   return true
 }
 
@@ -249,16 +237,11 @@ export async function handleToggleWorkflowSkill(
       : await bindWorkflowSkills(state.selectedId, [skill.name])
     const refreshed = await refreshSelectedWorkflowHarness(state)
     if (!refreshed) return
-    state.workflows = state.workflows.map((workflow) =>
-      workflow.id === state.selectedId
-        ? {
-            ...workflow,
-            harnessPath: result.harness.path ?? workflow.harnessPath,
-            version: result.harness.version ?? workflow.version,
-            history: refreshed.history,
-          }
-        : workflow,
-    )
+    state.workflows = applyWorkflowVersionRefresh(state.workflows, state.selectedId, {
+      harnessPath: result.harness.path,
+      version: result.harness.version,
+      history: refreshed.history,
+    })
     toastStore.success(skill.bound ? `Unbound ${skill.name}.` : `Bound ${skill.name}.`)
   } catch (caughtError) {
     toastStore.error(

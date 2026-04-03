@@ -9,6 +9,10 @@ export function workflowLifecycleDraftKey(workflow: WorkflowSummary): string {
     workflow.agentId ?? '',
     workflow.name,
     workflow.type,
+    workflow.roleSlug ?? '',
+    workflow.roleName ?? '',
+    workflow.roleDescription ?? '',
+    (workflow.platformAccessAllowed ?? []).join(','),
     workflow.isActive,
     workflow.pickupStatusIds.join(','),
     workflow.finishStatusIds.join(','),
@@ -30,6 +34,10 @@ export function isWorkflowLifecycleDraftDirty(
     draft.agentId !== baseDraft.agentId ||
     draft.name !== baseDraft.name ||
     draft.typeLabel !== baseDraft.typeLabel ||
+    draft.roleSlug !== baseDraft.roleSlug ||
+    draft.roleName !== baseDraft.roleName ||
+    draft.roleDescription !== baseDraft.roleDescription ||
+    draft.platformAccessAllowed !== baseDraft.platformAccessAllowed ||
     draft.pickupStatusIds.join(':') !== baseDraft.pickupStatusIds.join(':') ||
     draft.finishStatusIds.join(':') !== baseDraft.finishStatusIds.join(':') ||
     draft.maxConcurrent !== baseDraft.maxConcurrent ||

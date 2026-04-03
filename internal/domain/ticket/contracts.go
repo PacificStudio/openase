@@ -378,18 +378,19 @@ type HookWorkspace struct {
 }
 
 type LifecycleHookRuntimeData struct {
-	TicketID         uuid.UUID
-	ProjectID        uuid.UUID
-	AgentID          uuid.UUID
-	TicketIdentifier string
-	AgentName        string
-	WorkflowType     string
-	WorkflowFamily   string
-	Attempt          int
-	WorkspaceRoot    string
-	Hooks            map[string]any
-	Machine          catalogdomain.Machine
-	Workspaces       []HookWorkspace
+	TicketID              uuid.UUID
+	ProjectID             uuid.UUID
+	AgentID               uuid.UUID
+	TicketIdentifier      string
+	AgentName             string
+	WorkflowType          string
+	WorkflowFamily        string
+	PlatformAccessAllowed []string
+	Attempt               int
+	WorkspaceRoot         string
+	Hooks                 map[string]any
+	Machine               catalogdomain.Machine
+	Workspaces            []HookWorkspace
 }
 
 type PickupDiagnosisState string

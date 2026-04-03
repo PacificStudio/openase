@@ -127,7 +127,7 @@ func TestWorkflowRoutesCRUDHarnessVersionsWithoutRepoSync(t *testing.T) {
 			"type":              "coding",
 			"pickup_status_ids": []string{todoID.String()},
 			"finish_status_ids": []string{doneID.String()},
-			"harness_content":   "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+			"harness_content":   "# Coding\n",
 			"hooks": map[string]any{
 				"workflow_hooks": map[string]any{
 					"on_activate": []map[string]any{{
@@ -252,7 +252,7 @@ func TestWorkflowRoutesCRUDHarnessVersionsWithoutRepoSync(t *testing.T) {
 		http.MethodPut,
 		fmt.Sprintf("/api/v1/workflows/%s/harness", createResp.Workflow.ID),
 		map[string]any{
-			"content": "---\nworkflow:\n  role: coding\n---\n\n# Updated by API\n",
+			"content": "# Updated by API\n",
 		},
 		http.StatusOK,
 		&harnessResp,
@@ -274,7 +274,7 @@ func TestWorkflowRoutesCRUDHarnessVersionsWithoutRepoSync(t *testing.T) {
 		server,
 		http.MethodPut,
 		fmt.Sprintf("/api/v1/workflows/%s/harness", createResp.Workflow.ID),
-		`{"content":"---\nworkflow:\n  name: broken\nstatus:\n  pickup: [Todo\n---\n"}`,
+		`{"content":"{{"}`,
 	)
 	if invalidHarnessRec.Code != http.StatusBadRequest {
 		t.Fatalf("expected invalid harness update to fail with 400, got %d body=%s", invalidHarnessRec.Code, invalidHarnessRec.Body.String())
@@ -435,7 +435,7 @@ func TestWorkflowRoutesPersistExplicitAuditActor(t *testing.T) {
 			"type":              "coding",
 			"pickup_status_ids": []string{todoID.String()},
 			"finish_status_ids": []string{doneID.String()},
-			"harness_content":   "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+			"harness_content":   "# Coding\n",
 			"created_by":        auditActor,
 		},
 		http.StatusCreated,
@@ -477,7 +477,7 @@ func TestWorkflowRoutesPersistExplicitAuditActor(t *testing.T) {
 		http.MethodPut,
 		fmt.Sprintf("/api/v1/workflows/%s/harness", createResp.Workflow.ID),
 		map[string]any{
-			"content":   "---\nworkflow:\n  role: coding\n---\n\n# Updated\n",
+			"content":   "# Updated\n",
 			"edited_by": auditActor,
 		},
 		http.StatusOK,
@@ -596,7 +596,7 @@ func TestWorkflowRoutesAllowFinishStatusInStartedStage(t *testing.T) {
 			"type":              "coding",
 			"pickup_status_ids": []string{todoID.String()},
 			"finish_status_ids": []string{inReviewID.String()},
-			"harness_content":   "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+			"harness_content":   "# Coding\n",
 		},
 		http.StatusCreated,
 		&createResp,
@@ -717,7 +717,7 @@ func TestWorkflowCreateDoesNotRequireProjectRepo(t *testing.T) {
 		server,
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/projects/%s/workflows", projectWithoutRepo.ID),
-		fmt.Sprintf(`{"agent_id":"%s","name":"Coding Workflow","type":"coding","pickup_status_ids":["%s"],"finish_status_ids":["%s"],"harness_content":"---\nworkflow:\n  role: coding\n---\n\n# Coding\n"}`, repoLessAgent.ID, repoLessTodoID, repoLessDoneID),
+		fmt.Sprintf(`{"agent_id":"%s","name":"Coding Workflow","type":"coding","pickup_status_ids":["%s"],"finish_status_ids":["%s"],"harness_content":"# Coding\n"}`, repoLessAgent.ID, repoLessTodoID, repoLessDoneID),
 	)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create workflow without bound repo status = %d, body=%s", rec.Code, rec.Body.String())
@@ -749,7 +749,7 @@ func TestWorkflowCreateDoesNotRequireProjectRepo(t *testing.T) {
 			"type":              "coding",
 			"pickup_status_ids": []string{todoID.String()},
 			"finish_status_ids": []string{doneID.String()},
-			"harness_content":   "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+			"harness_content":   "# Coding\n",
 		},
 		http.StatusCreated,
 		&workflowCreate,
@@ -777,7 +777,7 @@ func TestValidateHarnessRoute(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/harness/validate",
-		`{"content":"---\nworkflow:\n  name: coding\nstatus:\n  pickup: Todo\n---\n\n# Coding\n"}`,
+		`{"content":"# Coding\n"}`,
 	)
 	if validRec.Code != http.StatusOK {
 		t.Fatalf("expected validate success, got %d body=%s", validRec.Code, validRec.Body.String())
@@ -795,7 +795,7 @@ func TestValidateHarnessRoute(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/harness/validate",
-		`{"content":"---\nworkflow:\n  name: broken\nstatus:\n  pickup: [Todo\n---\n"}`,
+		`{"content":"---\nworkflow:\n  role: coding\n---\n"}`,
 	)
 	if invalidRec.Code != http.StatusOK {
 		t.Fatalf("expected validate response, got %d body=%s", invalidRec.Code, invalidRec.Body.String())
@@ -816,7 +816,7 @@ func TestValidateHarnessRoute(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/harness/validate",
-		`{"content":"---\nworkflow:\n  name: coding\nstatus:\n  pickup: Todo\n---\n\n{% if ticket.title %}\nmissing endif\n"}`,
+		`{"content":"{% if ticket.title %}\nmissing endif\n"}`,
 	)
 	if templateInvalidRec.Code != http.StatusOK {
 		t.Fatalf("expected template validate response, got %d body=%s", templateInvalidRec.Code, templateInvalidRec.Body.String())
@@ -1029,7 +1029,7 @@ func TestWorkflowRoutesErrorMappingsAndInvalidInputs(t *testing.T) {
 			server:     serverWithService,
 			method:     http.MethodPut,
 			target:     "/api/v1/workflows/not-a-uuid/harness",
-			body:       `{"content":"---\nworkflow:\n  role: coding\n---\n\n# Coding\n"}`,
+			body:       `{"content":"# Coding\n"}`,
 			wantStatus: http.StatusBadRequest,
 			wantBody:   "INVALID_WORKFLOW_ID",
 		},
@@ -1146,17 +1146,7 @@ func TestBuildHarnessTemplateDataAndRenderBody(t *testing.T) {
 		t.Fatalf("create agent: %v", err)
 	}
 
-	templateContent := `---
-workflow:
-  role_name: "fullstack-developer"
-status:
-  pickup: "Todo"
-  finish: "Done"
-skills:
-  - openase-platform
-  - commit
----
-Implement product changes end to end.
+	templateContent := `Implement product changes end to end.
 
 Ticket {{ ticket.identifier }} {{ ticket.title | markdown_escape }}
 Status {{ ticket.status }} parent={{ ticket.parent_identifier }} attempts={{ attempt }}/{{ max_attempts }}
@@ -1183,6 +1173,9 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		AgentID:             agent.ID,
 		Name:                "Coding Workflow",
 		Type:                "coding",
+		RoleSlug:            "fullstack-developer",
+		RoleName:            "fullstack-developer",
+		RoleDescription:     "Implement product changes end to end.",
 		HarnessContent:      templateContent,
 		Hooks:               map[string]any{},
 		MaxConcurrent:       3,
@@ -1207,7 +1200,10 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		AgentID:             agent.ID,
 		Name:                "Dispatcher Workflow",
 		Type:                "custom",
-		HarnessContent:      "---\nworkflow:\n  role: dispatcher\nstatus:\n  pickup: \"Backlog\"\n  finish: \"Backlog\"\n---\n\nEvaluate backlog tickets and route them to the right workflow.\n",
+		RoleSlug:            "dispatcher",
+		RoleName:            "dispatcher",
+		RoleDescription:     "Evaluate backlog tickets and route them to the right workflow.",
+		HarnessContent:      "Evaluate backlog tickets and route them to the right workflow.\n",
 		Hooks:               map[string]any{},
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
@@ -1503,7 +1499,7 @@ func TestWorkflowCreateAndUpdateRoutesRejectInvalidPayloads(t *testing.T) {
 			"type":              "coding",
 			"pickup_status_ids": []string{todoID.String()},
 			"finish_status_ids": []string{doneID.String()},
-			"harness_content":   "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+			"harness_content":   "# Coding\n",
 		},
 		http.StatusCreated,
 		&created,

@@ -1,15 +1,3 @@
----
-workflow:
-  name: "Code Reviewer"
-  type: "Code Reviewer"
-  role: "code-reviewer"
-status:
-  pickup: "Todo"
-  finish: "Done"
-skills:
-  - openase-platform
-  - review-code
----
 
 # Code Reviewer
 

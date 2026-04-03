@@ -1,14 +1,3 @@
----
-workflow:
-  name: "Research Ideation"
-  type: "Research Ideation"
-  role: "research-ideation"
-status:
-  pickup: "Todo"
-  finish: "Done"
-skills:
-  - openase-platform
----
 
 # Research Ideation
 

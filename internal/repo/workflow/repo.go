@@ -30,8 +30,8 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/builtin"
 	ticketingdomain "github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
-	"go.yaml.in/yaml/v3"
 )
 
 type EntRepository struct {
@@ -126,6 +126,10 @@ func (r *EntRepository) StatusNames(ctx context.Context, statusIDs []uuid.UUID) 
 }
 
 func (r *EntRepository) List(ctx context.Context, projectID uuid.UUID) ([]domain.Workflow, error) {
+	if err := r.ensureProjectWorkflowsMigrated(ctx, projectID); err != nil {
+		return nil, err
+	}
+
 	items, err := r.client.Workflow.Query().
 		Where(entworkflow.ProjectIDEQ(projectID)).
 		WithPickupStatuses(func(query *ent.TicketStatusQuery) {
@@ -148,6 +152,10 @@ func (r *EntRepository) List(ctx context.Context, projectID uuid.UUID) ([]domain
 }
 
 func (r *EntRepository) Get(ctx context.Context, workflowID uuid.UUID) (domain.Workflow, error) {
+	if err := r.ensureWorkflowMigrated(ctx, workflowID); err != nil {
+		return domain.Workflow{}, err
+	}
+
 	item, err := r.client.Workflow.Query().
 		Where(entworkflow.IDEQ(workflowID)).
 		WithPickupStatuses(func(query *ent.TicketStatusQuery) {
@@ -180,6 +188,10 @@ func (r *EntRepository) Create(ctx context.Context, workflow domain.Workflow, ha
 		SetProjectID(workflow.ProjectID).
 		SetName(workflow.Name).
 		SetType(workflow.Type.String()).
+		SetRoleSlug(strings.TrimSpace(workflow.RoleSlug)).
+		SetRoleName(strings.TrimSpace(workflow.RoleName)).
+		SetRoleDescription(strings.TrimSpace(workflow.RoleDescription)).
+		SetPlatformAccessAllowed(pgarray.StringArray(copyStrings(workflow.PlatformAccessAllowed))).
 		SetHarnessPath(workflow.HarnessPath).
 		SetHooks(copyHooks(workflow.Hooks)).
 		SetMaxConcurrent(workflow.MaxConcurrent).
@@ -201,13 +213,14 @@ func (r *EntRepository) Create(ctx context.Context, workflow domain.Workflow, ha
 		}
 	}
 
-	versionItem, err := tx.WorkflowVersion.Create().
-		SetWorkflowID(workflowID).
-		SetVersion(1).
-		SetContentMarkdown(harnessContent).
-		SetContentHash(contentHash(harnessContent)).
-		SetCreatedBy(resolveCreatedBy(createdBy)).
-		Save(ctx)
+	versionItem, err := r.createWorkflowVersionSnapshot(
+		ctx,
+		tx,
+		workflow,
+		1,
+		harnessContent,
+		resolveCreatedBy(createdBy),
+	)
 	if err != nil {
 		return domain.Workflow{}, mapWorkflowWriteError("create workflow version", err)
 	}
@@ -228,6 +241,10 @@ func (r *EntRepository) Update(ctx context.Context, workflow domain.Workflow) (d
 	builder := r.client.Workflow.UpdateOneID(workflow.ID).
 		SetName(workflow.Name).
 		SetType(workflow.Type.String()).
+		SetRoleSlug(strings.TrimSpace(workflow.RoleSlug)).
+		SetRoleName(strings.TrimSpace(workflow.RoleName)).
+		SetRoleDescription(strings.TrimSpace(workflow.RoleDescription)).
+		SetPlatformAccessAllowed(pgarray.StringArray(copyStrings(workflow.PlatformAccessAllowed))).
 		SetHarnessPath(workflow.HarnessPath).
 		SetHooks(copyHooks(workflow.Hooks)).
 		SetMaxConcurrent(workflow.MaxConcurrent).
@@ -284,6 +301,10 @@ func (r *EntRepository) Delete(ctx context.Context, workflowID uuid.UUID) (domai
 }
 
 func (r *EntRepository) CurrentWorkflowVersion(ctx context.Context, workflowID uuid.UUID) (domain.WorkflowVersionRecord, error) {
+	if err := r.ensureWorkflowMigrated(ctx, workflowID); err != nil {
+		return domain.WorkflowVersionRecord{}, err
+	}
+
 	item, err := r.client.WorkflowVersion.Query().
 		Where(entworkflowversion.WorkflowIDEQ(workflowID)).
 		Order(ent.Desc(entworkflowversion.FieldVersion)).
@@ -299,6 +320,10 @@ func (r *EntRepository) RecordedWorkflowVersion(
 	workflowID uuid.UUID,
 	workflowVersionID *uuid.UUID,
 ) (domain.WorkflowVersionRecord, error) {
+	if err := r.ensureWorkflowMigrated(ctx, workflowID); err != nil {
+		return domain.WorkflowVersionRecord{}, err
+	}
+
 	if workflowVersionID == nil || *workflowVersionID == uuid.Nil {
 		return r.CurrentWorkflowVersion(ctx, workflowID)
 	}
@@ -318,6 +343,10 @@ func (r *EntRepository) RecordedWorkflowVersion(
 }
 
 func (r *EntRepository) ListWorkflowVersions(ctx context.Context, workflowID uuid.UUID) ([]domain.VersionSummary, error) {
+	if err := r.ensureWorkflowMigrated(ctx, workflowID); err != nil {
+		return nil, err
+	}
+
 	if _, err := r.CurrentWorkflowVersion(ctx, workflowID); err != nil {
 		return nil, err
 	}
@@ -354,13 +383,14 @@ func (r *EntRepository) PublishWorkflowVersion(ctx context.Context, workflowID u
 	}
 	defer rollback(tx)
 
-	versionItem, err := tx.WorkflowVersion.Create().
-		SetWorkflowID(workflowID).
-		SetVersion(current.Version + 1).
-		SetContentMarkdown(content).
-		SetContentHash(contentHash(content)).
-		SetCreatedBy(resolveCreatedBy(createdBy)).
-		Save(ctx)
+	versionItem, err := r.createWorkflowVersionSnapshot(
+		ctx,
+		tx,
+		current,
+		current.Version+1,
+		content,
+		resolveCreatedBy(createdBy),
+	)
 	if err != nil {
 		return domain.Workflow{}, mapWorkflowWriteError("create workflow version", err)
 	}
@@ -912,13 +942,14 @@ func (r *EntRepository) ApplyWorkflowSkillBindings(
 		}
 	}
 
-	versionItem, err := tx.WorkflowVersion.Create().
-		SetWorkflowID(workflowID).
-		SetVersion(current.Version + 1).
-		SetContentMarkdown(content).
-		SetContentHash(contentHash(content)).
-		SetCreatedBy(resolveCreatedBy(createdBy)).
-		Save(ctx)
+	versionItem, err := r.createWorkflowVersionSnapshot(
+		ctx,
+		tx,
+		current,
+		current.Version+1,
+		content,
+		resolveCreatedBy(createdBy),
+	)
 	if err != nil {
 		return domain.Workflow{}, mapWorkflowWriteError("create workflow version", err)
 	}
@@ -936,6 +967,10 @@ func (r *EntRepository) ApplyWorkflowSkillBindings(
 }
 
 func (r *EntRepository) ResolveRuntimeSnapshot(ctx context.Context, workflowID uuid.UUID) (domain.RuntimeSnapshot, error) {
+	if err := r.ensureWorkflowMigrated(ctx, workflowID); err != nil {
+		return domain.RuntimeSnapshot{}, err
+	}
+
 	workflowItem, err := r.Get(ctx, workflowID)
 	if err != nil {
 		return domain.RuntimeSnapshot{}, err
@@ -949,18 +984,26 @@ func (r *EntRepository) ResolveRuntimeSnapshot(ctx context.Context, workflowID u
 		return domain.RuntimeSnapshot{}, err
 	}
 
-	projectedContent, err := projectHarnessContent(workflowVersion.ContentMarkdown, runtimeSkillNames(skills))
+	projectedContent, err := projectHarnessContent(workflowVersion.ContentMarkdown)
 	if err != nil {
 		return domain.RuntimeSnapshot{}, err
 	}
 
 	return domain.RuntimeSnapshot{
 		Workflow: domain.RuntimeWorkflowSnapshot{
-			WorkflowID: workflowItem.ID,
-			VersionID:  workflowVersion.ID,
-			Version:    workflowVersion.Version,
-			Path:       workflowItem.HarnessPath,
-			Content:    projectedContent,
+			WorkflowID:            workflowItem.ID,
+			VersionID:             workflowVersion.ID,
+			Version:               workflowVersion.Version,
+			Path:                  workflowVersion.HarnessPath,
+			Content:               projectedContent,
+			Name:                  workflowVersion.Name,
+			Type:                  workflowVersion.Type,
+			RoleSlug:              workflowVersion.RoleSlug,
+			RoleName:              workflowVersion.RoleName,
+			RoleDescription:       workflowVersion.RoleDescription,
+			PickupStatusIDs:       append([]uuid.UUID(nil), workflowVersion.PickupStatusIDs...),
+			FinishStatusIDs:       append([]uuid.UUID(nil), workflowVersion.FinishStatusIDs...),
+			PlatformAccessAllowed: copyStrings(workflowVersion.PlatformAccessAllowed),
 		},
 		Skills: skills,
 	}, nil
@@ -970,6 +1013,10 @@ func (r *EntRepository) ResolveRecordedRuntimeSnapshot(
 	ctx context.Context,
 	input domain.ResolveRecordedRuntimeSnapshotInput,
 ) (domain.RuntimeSnapshot, error) {
+	if err := r.ensureWorkflowMigrated(ctx, input.WorkflowID); err != nil {
+		return domain.RuntimeSnapshot{}, err
+	}
+
 	workflowItem, err := r.Get(ctx, input.WorkflowID)
 	if err != nil {
 		return domain.RuntimeSnapshot{}, err
@@ -989,18 +1036,26 @@ func (r *EntRepository) ResolveRecordedRuntimeSnapshot(
 		return domain.RuntimeSnapshot{}, err
 	}
 
-	projectedContent, err := projectHarnessContent(workflowVersion.ContentMarkdown, runtimeSkillNames(skills))
+	projectedContent, err := projectHarnessContent(workflowVersion.ContentMarkdown)
 	if err != nil {
 		return domain.RuntimeSnapshot{}, err
 	}
 
 	return domain.RuntimeSnapshot{
 		Workflow: domain.RuntimeWorkflowSnapshot{
-			WorkflowID: workflowItem.ID,
-			VersionID:  workflowVersion.ID,
-			Version:    workflowVersion.Version,
-			Path:       workflowItem.HarnessPath,
-			Content:    projectedContent,
+			WorkflowID:            workflowItem.ID,
+			VersionID:             workflowVersion.ID,
+			Version:               workflowVersion.Version,
+			Path:                  workflowVersion.HarnessPath,
+			Content:               projectedContent,
+			Name:                  workflowVersion.Name,
+			Type:                  workflowVersion.Type,
+			RoleSlug:              workflowVersion.RoleSlug,
+			RoleName:              workflowVersion.RoleName,
+			RoleDescription:       workflowVersion.RoleDescription,
+			PickupStatusIDs:       append([]uuid.UUID(nil), workflowVersion.PickupStatusIDs...),
+			FinishStatusIDs:       append([]uuid.UUID(nil), workflowVersion.FinishStatusIDs...),
+			PlatformAccessAllowed: copyStrings(workflowVersion.PlatformAccessAllowed),
 		},
 		Skills: skills,
 	}, nil
@@ -1010,6 +1065,10 @@ func (r *EntRepository) BuildHarnessTemplateData(
 	ctx context.Context,
 	input domain.BuildHarnessTemplateDataInput,
 ) (domain.HarnessTemplateData, error) {
+	if err := r.ensureWorkflowMigrated(ctx, input.WorkflowID); err != nil {
+		return domain.HarnessTemplateData{}, err
+	}
+
 	workflowItem, err := r.client.Workflow.Query().
 		Where(entworkflow.IDEQ(input.WorkflowID)).
 		WithProject().
@@ -1097,11 +1156,6 @@ func (r *EntRepository) BuildHarnessTemplateData(
 		agentData = mapHarnessAgent(agentItem)
 	}
 
-	harnessContent, err := r.projectedWorkflowHarness(ctx, mapWorkflow(workflowItem))
-	if err != nil {
-		return domain.HarnessTemplateData{}, err
-	}
-
 	attemptCount := normalizeAttemptCount(ticketItem.AttemptCount)
 	maxAttempts := max(workflowItem.MaxRetryAttempts, 0)
 	workspace := strings.TrimSpace(input.Workspace)
@@ -1161,7 +1215,7 @@ func (r *EntRepository) BuildHarnessTemplateData(
 		Workflow: domain.HarnessWorkflowData{
 			Name:         workflowItem.Name,
 			Type:         workflowItem.Type,
-			RoleName:     extractWorkflowRoleName(harnessContent, workflowItem.Name),
+			RoleName:     workflowRoleName(mapWorkflow(workflowItem)),
 			PickupStatus: joinStatusNames(workflowItem.Edges.PickupStatuses),
 			FinishStatus: joinStatusNames(workflowItem.Edges.FinishStatuses),
 		},
@@ -1405,33 +1459,52 @@ func (r *EntRepository) runtimeSkillFiles(ctx context.Context, versionID uuid.UU
 
 func mapWorkflow(item *ent.Workflow) domain.Workflow {
 	return domain.Workflow{
-		ID:                  item.ID,
-		ProjectID:           item.ProjectID,
-		AgentID:             item.AgentID,
-		Name:                item.Name,
-		Type:                domain.Type(item.Type),
-		HarnessPath:         item.HarnessPath,
-		Hooks:               copyHooks(item.Hooks),
-		MaxConcurrent:       item.MaxConcurrent,
-		MaxRetryAttempts:    item.MaxRetryAttempts,
-		TimeoutMinutes:      item.TimeoutMinutes,
-		StallTimeoutMinutes: item.StallTimeoutMinutes,
-		Version:             item.Version,
-		IsActive:            item.IsActive,
-		PickupStatusIDs:     statusIDsFromEdges(item.Edges.PickupStatuses),
-		FinishStatusIDs:     statusIDsFromEdges(item.Edges.FinishStatuses),
+		ID:                    item.ID,
+		ProjectID:             item.ProjectID,
+		AgentID:               item.AgentID,
+		Name:                  item.Name,
+		Type:                  domain.Type(item.Type),
+		RoleSlug:              strings.TrimSpace(item.RoleSlug),
+		RoleName:              strings.TrimSpace(item.RoleName),
+		RoleDescription:       strings.TrimSpace(item.RoleDescription),
+		PlatformAccessAllowed: copyStrings(item.PlatformAccessAllowed),
+		HarnessPath:           item.HarnessPath,
+		Hooks:                 copyHooks(item.Hooks),
+		MaxConcurrent:         item.MaxConcurrent,
+		MaxRetryAttempts:      item.MaxRetryAttempts,
+		TimeoutMinutes:        item.TimeoutMinutes,
+		StallTimeoutMinutes:   item.StallTimeoutMinutes,
+		Version:               item.Version,
+		IsActive:              item.IsActive,
+		PickupStatusIDs:       statusIDsFromEdges(item.Edges.PickupStatuses),
+		FinishStatusIDs:       statusIDsFromEdges(item.Edges.FinishStatuses),
 	}
 }
 
 func mapWorkflowVersion(item *ent.WorkflowVersion) domain.WorkflowVersionRecord {
 	return domain.WorkflowVersionRecord{
-		ID:              item.ID,
-		WorkflowID:      item.WorkflowID,
-		Version:         item.Version,
-		ContentMarkdown: item.ContentMarkdown,
-		ContentHash:     item.ContentHash,
-		CreatedBy:       item.CreatedBy,
-		CreatedAt:       item.CreatedAt.UTC(),
+		ID:                    item.ID,
+		WorkflowID:            item.WorkflowID,
+		Version:               item.Version,
+		ContentMarkdown:       item.ContentMarkdown,
+		Name:                  item.Name,
+		Type:                  domain.Type(item.Type),
+		RoleSlug:              strings.TrimSpace(item.RoleSlug),
+		RoleName:              strings.TrimSpace(item.RoleName),
+		RoleDescription:       strings.TrimSpace(item.RoleDescription),
+		PickupStatusIDs:       parseWorkflowVersionStatusIDs(item.PickupStatusIds),
+		FinishStatusIDs:       parseWorkflowVersionStatusIDs(item.FinishStatusIds),
+		HarnessPath:           item.HarnessPath,
+		Hooks:                 copyHooks(item.Hooks),
+		PlatformAccessAllowed: copyStrings(item.PlatformAccessAllowed),
+		MaxConcurrent:         item.MaxConcurrent,
+		MaxRetryAttempts:      item.MaxRetryAttempts,
+		TimeoutMinutes:        item.TimeoutMinutes,
+		StallTimeoutMinutes:   item.StallTimeoutMinutes,
+		IsActive:              item.IsActive,
+		ContentHash:           item.ContentHash,
+		CreatedBy:             item.CreatedBy,
+		CreatedAt:             item.CreatedAt.UTC(),
 	}
 }
 
@@ -1544,124 +1617,8 @@ func cloneTime(value *time.Time) *time.Time {
 	return &cloned
 }
 
-func runtimeSkillNames(skills []domain.RuntimeSkillSnapshot) []string {
-	names := make([]string, 0, len(skills))
-	for _, skill := range skills {
-		names = append(names, skill.Name)
-	}
-	sort.Strings(names)
-	return names
-}
-
-func projectHarnessContent(content string, skillNames []string) (string, error) {
-	projected, err := setHarnessSkills(content, skillNames)
-	if err != nil {
-		return "", err
-	}
-	return projected, nil
-}
-
-func setHarnessSkills(content string, skills []string) (string, error) {
-	frontmatter, body, err := extractHarnessFrontmatter(content)
-	if err != nil {
-		return "", err
-	}
-
-	normalizedSkills, err := normalizeSkillNames(skills)
-	if err != nil {
-		return "", err
-	}
-
-	var document yaml.Node
-	if err := yaml.Unmarshal([]byte(frontmatter), &document); err != nil {
-		return "", err
-	}
-
-	root := &document
-	if document.Kind == yaml.DocumentNode {
-		if len(document.Content) != 1 {
-			return "", fmt.Errorf("harness frontmatter must contain a single YAML document")
-		}
-		root = document.Content[0]
-	}
-	if root.Kind != yaml.MappingNode {
-		return "", fmt.Errorf("harness frontmatter must be a YAML mapping")
-	}
-
-	skillsNode := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
-	for _, name := range normalizedSkills {
-		skillsNode.Content = append(skillsNode.Content, &yaml.Node{
-			Kind:  yaml.ScalarNode,
-			Tag:   "!!str",
-			Value: name,
-		})
-	}
-
-	index := findYAMLMappingValueIndex(root, "skills")
-	switch {
-	case len(normalizedSkills) == 0 && index >= 0:
-		root.Content = append(root.Content[:index-1], root.Content[index+1:]...)
-	case len(normalizedSkills) > 0 && index >= 0:
-		root.Content[index] = skillsNode
-	case len(normalizedSkills) > 0:
-		root.Content = append(root.Content, &yaml.Node{
-			Kind:  yaml.ScalarNode,
-			Tag:   "!!str",
-			Value: "skills",
-		}, skillsNode)
-	}
-
-	marshaled, err := yaml.Marshal(root)
-	if err != nil {
-		return "", fmt.Errorf("marshal harness skills: %w", err)
-	}
-	return buildHarnessContent(string(marshaled), body), nil
-}
-
-func findYAMLMappingValueIndex(root *yaml.Node, key string) int {
-	for index := 0; index+1 < len(root.Content); index += 2 {
-		if root.Content[index].Value == key {
-			return index + 1
-		}
-	}
-	return -1
-}
-
-func buildHarnessContent(frontmatter string, body string) string {
-	var builder strings.Builder
-	builder.WriteString("---\n")
-	builder.WriteString(strings.TrimSpace(normalizeHarnessNewlines(frontmatter)))
-	builder.WriteString("\n---\n")
-	if body != "" {
-		builder.WriteString(normalizeHarnessNewlines(body))
-	}
-	return builder.String()
-}
-
-func extractHarnessFrontmatter(content string) (string, string, error) {
-	normalized := normalizeHarnessNewlines(content)
-	lines := strings.Split(normalized, "\n")
-	if len(lines) == 0 || lines[0] != "---" {
-		return "", "", fmt.Errorf("harness must begin with YAML frontmatter delimited by ---")
-	}
-
-	for index := 1; index < len(lines); index++ {
-		if lines[index] != "---" {
-			continue
-		}
-		frontmatter := strings.Join(lines[1:index], "\n")
-		body := strings.Join(lines[index+1:], "\n")
-		if strings.TrimSpace(frontmatter) == "" {
-			return "", "", fmt.Errorf("harness YAML frontmatter must not be empty")
-		}
-		return frontmatter, body, nil
-	}
-	return "", "", fmt.Errorf("harness YAML frontmatter is missing the closing --- delimiter")
-}
-
-func normalizeHarnessNewlines(content string) string {
-	normalized := strings.ReplaceAll(content, "\r\n", "\n")
-	return strings.ReplaceAll(normalized, "\r", "\n")
+func projectHarnessContent(content string) (string, error) {
+	return normalizeHarnessNewlines(content), nil
 }
 
 func normalizeSkillNames(raw []string) ([]string, error) {
@@ -1686,11 +1643,7 @@ func (r *EntRepository) projectedWorkflowHarness(ctx context.Context, workflowIt
 	if err != nil {
 		return "", err
 	}
-	boundSkills, err := r.ListWorkflowBoundSkillNames(ctx, workflowItem.ID, false)
-	if err != nil {
-		return "", err
-	}
-	return projectHarnessContent(version.ContentMarkdown, boundSkills)
+	return projectHarnessContent(version.ContentMarkdown)
 }
 
 func mapHarnessScopedRepos(ticketIdentifier string, scopes []*ent.TicketRepoScope, workspace string) ([]domain.HarnessRepoData, map[uuid.UUID]string) {
@@ -1770,11 +1723,6 @@ func (r *EntRepository) mapHarnessProjectWorkflows(
 		if workflowItem == nil || !workflowItem.IsActive {
 			continue
 		}
-		harnessContent, err := r.projectedWorkflowHarness(ctx, mapWorkflow(workflowItem))
-		if err != nil {
-			return nil, err
-		}
-		roleName := extractWorkflowRoleName(harnessContent, workflowItem.Name)
 		skills, err := r.ListWorkflowBoundSkillNames(ctx, workflowItem.ID, false)
 		if err != nil {
 			return nil, fmt.Errorf("load workflow skills for project context: %w", err)
@@ -1786,14 +1734,14 @@ func (r *EntRepository) mapHarnessProjectWorkflows(
 		items = append(items, domain.HarnessProjectWorkflowData{
 			Name:            workflowItem.Name,
 			Type:            workflowItem.Type,
-			RoleName:        roleName,
-			RoleDescription: extractWorkflowRoleDescription(harnessContent),
+			RoleName:        workflowRoleName(mapWorkflow(workflowItem)),
+			RoleDescription: strings.TrimSpace(workflowItem.RoleDescription),
 			PickupStatus:    joinStatusNames(workflowItem.Edges.PickupStatuses),
 			FinishStatus:    joinStatusNames(workflowItem.Edges.FinishStatuses),
 			PickupStatuses:  mapHarnessProjectStatuses(workflowItem.Edges.PickupStatuses),
 			FinishStatuses:  mapHarnessProjectStatuses(workflowItem.Edges.FinishStatuses),
 			HarnessPath:     workflowItem.HarnessPath,
-			HarnessContent:  harnessContent,
+			HarnessContent:  "",
 			Skills:          skills,
 			MaxConcurrent:   workflowItem.MaxConcurrent,
 			CurrentActive:   activeCountByWorkflow[workflowItem.ID],
@@ -2019,55 +1967,11 @@ func resolveRepoPath(workspaceDirname string, workspace string, repoName string)
 	return filepath.ToSlash(filepath.Join(workspace, repoName))
 }
 
-func extractWorkflowRoleName(content string, fallback string) string {
-	frontmatter, _, err := extractHarnessFrontmatter(content)
-	if err != nil {
-		return fallback
+func workflowRoleName(item domain.Workflow) string {
+	if trimmed := strings.TrimSpace(item.RoleName); trimmed != "" {
+		return trimmed
 	}
-
-	var document struct {
-		Workflow map[string]any `yaml:"workflow"`
-	}
-	if err := yaml.Unmarshal([]byte(frontmatter), &document); err != nil {
-		return fallback
-	}
-
-	for _, key := range []string{"role_name", "role", "name"} {
-		value, ok := document.Workflow[key]
-		if !ok {
-			continue
-		}
-		text, ok := value.(string)
-		if ok && strings.TrimSpace(text) != "" {
-			return strings.TrimSpace(text)
-		}
-	}
-
-	return fallback
-}
-
-func extractWorkflowRoleDescription(content string) string {
-	_, body, err := extractHarnessFrontmatter(content)
-	if err != nil {
-		return ""
-	}
-
-	var paragraph []string
-	for _, line := range strings.Split(body, "\n") {
-		trimmed := strings.TrimSpace(line)
-		switch {
-		case trimmed == "":
-			if len(paragraph) > 0 {
-				return strings.Join(paragraph, " ")
-			}
-		case strings.HasPrefix(trimmed, "#"):
-			continue
-		default:
-			paragraph = append(paragraph, trimmed)
-		}
-	}
-
-	return strings.Join(paragraph, " ")
+	return strings.TrimSpace(item.Name)
 }
 
 func cloneHarnessMachine(machine domain.HarnessMachineData) domain.HarnessMachineData {

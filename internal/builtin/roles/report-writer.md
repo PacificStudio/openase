@@ -1,15 +1,3 @@
----
-workflow:
-  name: "Report Writer"
-  type: "Report Writer"
-  role: "report-writer"
-status:
-  pickup: "Todo"
-  finish: "Done"
-skills:
-  - openase-platform
-  - commit
----
 
 # Report Writer
 

@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"go.yaml.in/yaml/v3"
 )
 
 //go:embed all:roles
@@ -16,20 +14,25 @@ var builtinRoleFS embed.FS
 
 // RoleTemplate describes a built-in workflow role scaffold.
 type RoleTemplate struct {
-	Slug         string
-	Name         string
-	WorkflowType string
-	Summary      string
-	HarnessPath  string
-	Content      string
+	Slug                  string
+	Name                  string
+	WorkflowType          string
+	Summary               string
+	HarnessPath           string
+	Content               string
+	PickupStatusNames     []string
+	FinishStatusNames     []string
+	SkillNames            []string
+	PlatformAccessAllowed []string
 }
 
-type roleFrontmatter struct {
-	Workflow struct {
-		Name string `yaml:"name"`
-		Type string `yaml:"type"`
-		Role string `yaml:"role"`
-	} `yaml:"workflow"`
+type roleMetadata struct {
+	Name                  string
+	WorkflowType          string
+	PickupStatusNames     []string
+	FinishStatusNames     []string
+	SkillNames            []string
+	PlatformAccessAllowed []string
 }
 
 var builtinRoleOrder = []string{
@@ -52,6 +55,129 @@ var builtinRoleOrder = []string{
 	"data-analyst",
 }
 
+var builtinRoleMetadata = map[string]roleMetadata{
+	"backend-engineer": {
+		Name:              "Backend Engineer",
+		WorkflowType:      "Backend Engineer",
+		PickupStatusNames: []string{"Todo"},
+		FinishStatusNames: []string{"Done"},
+		SkillNames:        []string{"openase-platform", "pull", "commit", "push"},
+	},
+	"code-reviewer": {
+		Name:              "Code Reviewer",
+		WorkflowType:      "Code Reviewer",
+		PickupStatusNames: []string{"Todo"},
+		FinishStatusNames: []string{"Done"},
+		SkillNames:        []string{"openase-platform", "review-code"},
+	},
+	"data-analyst": {
+		Name:              "Data Analyst",
+		WorkflowType:      "Data Analyst",
+		PickupStatusNames: []string{"Todo"},
+		FinishStatusNames: []string{"Done"},
+		SkillNames:        []string{"openase-platform"},
+	},
+	"devops-engineer": {
+		Name:              "DevOps Engineer",
+		WorkflowType:      "DevOps Engineer",
+		PickupStatusNames: []string{"Todo"},
+		FinishStatusNames: []string{"Done"},
+		SkillNames:        []string{"openase-platform", "pull", "push"},
+	},
+	"dispatcher": {
+		Name:                  "Dispatcher",
+		WorkflowType:          "Dispatcher",
+		PickupStatusNames:     []string{"Backlog"},
+		FinishStatusNames:     []string{"Backlog"},
+		PlatformAccessAllowed: []string{"tickets.update.self", "tickets.create", "tickets.list", "tickets.link", "machines.list"},
+	},
+	"env-provisioner": {
+		Name:              "Environment Provisioner",
+		WorkflowType:      "Environment Provisioner",
+		PickupStatusNames: []string{"环境修复"},
+		FinishStatusNames: []string{"环境就绪"},
+		SkillNames:        []string{"openase-platform", "install-claude-code", "install-codex", "setup-git", "setup-gh-cli"},
+	},
+	"experiment-runner": {
+		Name:              "Experiment Runner",
+		WorkflowType:      "Experiment Runner",
+		PickupStatusNames: []string{"Todo"},
+		FinishStatusNames: []string{"Done"},
+		SkillNames:        []string{"openase-platform", "write-test"},
+	},
+	"frontend-engineer": {
+		Name:              "Frontend Engineer",
+		WorkflowType:      "Frontend Engineer",
+		PickupStatusNames: []string{"Todo"},
+		FinishStatusNames: []string{"Done"},
+		SkillNames:        []string{"openase-platform", "pull", "commit", "push"},
+	},
+	"fullstack-developer": {
+		Name:              "Fullstack Developer",
+		WorkflowType:      "Fullstack Developer",
+		PickupStatusNames: []string{"Todo"},
+		FinishStatusNames: []string{"Done"},
+		SkillNames:        []string{"openase-platform", "pull", "commit", "push"},
+	},
+	"harness-optimizer": {
+		Name:                  "Harness Optimizer",
+		WorkflowType:          "Harness Optimizer",
+		PickupStatusNames:     []string{"Todo"},
+		FinishStatusNames:     []string{"Done"},
+		SkillNames:            []string{"openase-platform", "pull", "commit", "push"},
+		PlatformAccessAllowed: []string{"tickets.create", "tickets.list", "tickets.update.self"},
+	},
+	"market-analyst": {
+		Name:              "Market Analyst",
+		WorkflowType:      "Market Analyst",
+		PickupStatusNames: []string{"Todo"},
+		FinishStatusNames: []string{"Done"},
+		SkillNames:        []string{"openase-platform"},
+	},
+	"product-manager": {
+		Name:              "Product Manager",
+		WorkflowType:      "Product Manager",
+		PickupStatusNames: []string{"Todo"},
+		FinishStatusNames: []string{"Done"},
+		SkillNames:        []string{"openase-platform"},
+	},
+	"qa-engineer": {
+		Name:              "QA Engineer",
+		WorkflowType:      "QA Engineer",
+		PickupStatusNames: []string{"Todo"},
+		FinishStatusNames: []string{"Done"},
+		SkillNames:        []string{"openase-platform", "write-test"},
+	},
+	"report-writer": {
+		Name:              "Report Writer",
+		WorkflowType:      "Report Writer",
+		PickupStatusNames: []string{"Todo"},
+		FinishStatusNames: []string{"Done"},
+		SkillNames:        []string{"openase-platform", "commit"},
+	},
+	"research-ideation": {
+		Name:              "Research Ideation",
+		WorkflowType:      "Research Ideation",
+		PickupStatusNames: []string{"Todo"},
+		FinishStatusNames: []string{"Done"},
+		SkillNames:        []string{"openase-platform"},
+	},
+	"security-engineer": {
+		Name:              "Security Engineer",
+		WorkflowType:      "Security Engineer",
+		PickupStatusNames: []string{"Todo"},
+		FinishStatusNames: []string{"Done"},
+		SkillNames:        []string{"openase-platform", "security-scan"},
+	},
+	"technical-writer": {
+		Name:              "Technical Writer",
+		WorkflowType:      "Technical Writer",
+		PickupStatusNames: []string{"Todo"},
+		FinishStatusNames: []string{"Done"},
+		SkillNames:        []string{"openase-platform", "commit"},
+	},
+}
+
 // Roles returns the built-in role templates.
 func Roles() []RoleTemplate {
 	return cloneRoles(builtinRoles)
@@ -70,7 +196,13 @@ func RoleBySlug(slug string) (RoleTemplate, bool) {
 
 func cloneRoles(items []RoleTemplate) []RoleTemplate {
 	cloned := make([]RoleTemplate, len(items))
-	copy(cloned, items)
+	for index, item := range items {
+		cloned[index] = item
+		cloned[index].PickupStatusNames = append([]string(nil), item.PickupStatusNames...)
+		cloned[index].FinishStatusNames = append([]string(nil), item.FinishStatusNames...)
+		cloned[index].SkillNames = append([]string(nil), item.SkillNames...)
+		cloned[index].PlatformAccessAllowed = append([]string(nil), item.PlatformAccessAllowed...)
+	}
 	return cloned
 }
 
@@ -145,71 +277,40 @@ func validateBuiltinRoleFiles(root fs.FS) error {
 }
 
 func loadBuiltinRole(root fs.FS, slug string) (RoleTemplate, error) {
+	metadata, ok := builtinRoleMetadata[slug]
+	if !ok {
+		return RoleTemplate{}, fmt.Errorf("builtin role metadata missing for %s", slug)
+	}
+
 	contentBytes, err := fs.ReadFile(root, "roles/"+slug+".md")
 	if err != nil {
 		return RoleTemplate{}, fmt.Errorf("read builtin role %s: %w", slug, err)
 	}
-	content := string(contentBytes)
-	document, body, err := parseBuiltinRoleContent(content)
-	if err != nil {
-		return RoleTemplate{}, fmt.Errorf("parse builtin role %s: %w", slug, err)
+	content := strings.TrimSpace(strings.ReplaceAll(string(contentBytes), "\r\n", "\n"))
+	if content == "" {
+		return RoleTemplate{}, fmt.Errorf("builtin role %s content must not be empty", slug)
+	}
+	if strings.HasPrefix(content, "---\n") || content == "---" {
+		return RoleTemplate{}, fmt.Errorf("builtin role %s content must not contain YAML frontmatter", slug)
 	}
 
-	name := strings.TrimSpace(document.Workflow.Name)
-	if name == "" {
-		return RoleTemplate{}, fmt.Errorf("parse builtin role %s: missing workflow.name", slug)
-	}
-	workflowType := strings.TrimSpace(document.Workflow.Type)
-	if workflowType == "" {
-		return RoleTemplate{}, fmt.Errorf("parse builtin role %s: missing workflow.type", slug)
-	}
-	roleSlug := strings.TrimSpace(document.Workflow.Role)
-	if roleSlug == "" {
-		return RoleTemplate{}, fmt.Errorf("parse builtin role %s: missing workflow.role", slug)
-	}
-	if roleSlug != slug {
-		return RoleTemplate{}, fmt.Errorf("parse builtin role %s: workflow.role %q does not match file slug", slug, roleSlug)
-	}
-	summary := parseBuiltinRoleSummary(body)
+	summary := parseBuiltinRoleSummary(content)
 	if summary == "" {
 		return RoleTemplate{}, fmt.Errorf("parse builtin role %s: missing summary paragraph after heading", slug)
 	}
 
 	return RoleTemplate{
-		Slug:         slug,
-		Name:         name,
-		WorkflowType: workflowType,
-		Summary:      summary,
-		HarnessPath:  filepath.ToSlash(filepath.Join(".openase", "harnesses", "roles", slug+".md")),
-		Content:      content,
+		Slug:                  slug,
+		Name:                  metadata.Name,
+		WorkflowType:          metadata.WorkflowType,
+		Summary:               summary,
+		HarnessPath:           filepath.ToSlash(filepath.Join(".openase", "harnesses", "roles", slug+".md")),
+		Content:               content + "\n",
+		PickupStatusNames:     append([]string(nil), metadata.PickupStatusNames...),
+		FinishStatusNames:     append([]string(nil), metadata.FinishStatusNames...),
+		SkillNames:            append([]string(nil), metadata.SkillNames...),
+		PlatformAccessAllowed: append([]string(nil), metadata.PlatformAccessAllowed...),
 	}, nil
-}
-
-func parseBuiltinRoleContent(content string) (roleFrontmatter, string, error) {
-	normalized := strings.ReplaceAll(content, "\r\n", "\n")
-	if !strings.HasPrefix(normalized, "---\n") {
-		return roleFrontmatter{}, "", fmt.Errorf("missing YAML frontmatter prefix")
-	}
-
-	lines := strings.Split(normalized, "\n")
-	end := -1
-	for index := 1; index < len(lines); index++ {
-		if strings.TrimSpace(lines[index]) == "---" {
-			end = index
-			break
-		}
-	}
-	if end == -1 {
-		return roleFrontmatter{}, "", fmt.Errorf("missing YAML frontmatter closing delimiter")
-	}
-
-	var document roleFrontmatter
-	if err := yaml.Unmarshal([]byte(strings.Join(lines[1:end], "\n")), &document); err != nil {
-		return roleFrontmatter{}, "", fmt.Errorf("unmarshal frontmatter: %w", err)
-	}
-
-	body := strings.Join(lines[end+1:], "\n")
-	return document, body, nil
 }
 
 func parseBuiltinRoleSummary(body string) string {

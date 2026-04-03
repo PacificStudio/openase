@@ -1,17 +1,3 @@
----
-workflow:
-  name: "Frontend Engineer"
-  type: "Frontend Engineer"
-  role: "frontend-engineer"
-status:
-  pickup: "Todo"
-  finish: "Done"
-skills:
-  - openase-platform
-  - pull
-  - commit
-  - push
----
 
 # Frontend Engineer
 

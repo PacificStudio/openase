@@ -215,7 +215,7 @@ func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 		AgentID:             agent.ID,
 		Name:                "Coding Workflow",
 		Type:                "coding",
-		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+		HarnessContent:      "# Coding\n",
 		Hooks:               map[string]any{},
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
@@ -241,15 +241,11 @@ func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 		http.StatusOK,
 		&bindResp,
 	)
-	boundSkills, err := workflowservice.ParseHarnessSkills(bindResp.Harness.Content)
-	if err != nil {
-		t.Fatalf("parse bound harness skills: %v", err)
-	}
 	if bindResp.Harness.Version != 2 {
 		t.Fatalf("expected bind response to advance workflow version, got %+v", bindResp.Harness)
 	}
-	if len(boundSkills) != 2 || boundSkills[0] != "commit" || boundSkills[1] != "review-code" {
-		t.Fatalf("unexpected bound skills: %#v", boundSkills)
+	if bindResp.Harness.Content != "# Coding\n" {
+		t.Fatalf("expected bind to preserve pure harness body, got %q", bindResp.Harness.Content)
 	}
 
 	listResp := struct {
@@ -368,15 +364,11 @@ func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 		http.StatusOK,
 		&unbindResp,
 	)
-	unboundSkills, err := workflowservice.ParseHarnessSkills(unbindResp.Harness.Content)
-	if err != nil {
-		t.Fatalf("parse unbound harness skills: %v", err)
-	}
 	if unbindResp.Harness.Version != 3 {
 		t.Fatalf("expected unbind response to advance workflow version, got %+v", unbindResp.Harness)
 	}
-	if len(unboundSkills) != 0 {
-		t.Fatalf("expected all skills to be unbound, got %#v", unboundSkills)
+	if unbindResp.Harness.Content != "# Coding\n" {
+		t.Fatalf("expected unbind to preserve pure harness body, got %q", unbindResp.Harness.Content)
 	}
 
 	listAfterResp := struct {
@@ -1068,7 +1060,7 @@ func TestSkillBindRouteRejectsMissingSkill(t *testing.T) {
 		AgentID:             agent.ID,
 		Name:                "Coding Workflow",
 		Type:                "coding",
-		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+		HarnessContent:      "# Coding\n",
 		Hooks:               map[string]any{},
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,

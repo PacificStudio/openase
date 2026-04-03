@@ -38,6 +38,10 @@ export type WorkflowSummary = {
   workflowFamily: WorkflowFamily
   classification: WorkflowClassification
   agentId: string | null
+  roleSlug?: string
+  roleName?: string
+  roleDescription?: string
+  platformAccessAllowed?: string[]
   harnessPath: string
   pickupStatusIds: string[]
   pickupStatusLabel: string
@@ -66,7 +70,14 @@ export type WorkflowTemplateDraft = {
   name: string
   content: string
   workflowType: WorkflowSummary['type']
-  workflowFamily: WorkflowFamily
+  workflowFamily?: WorkflowFamily
+  roleSlug?: string
+  roleName?: string
+  roleDescription?: string
+  platformAccessAllowed?: string[]
+  skillNames?: string[]
+  pickupStatusNames?: string[]
+  finishStatusNames?: string[]
   harnessPath?: string | null
 }
 

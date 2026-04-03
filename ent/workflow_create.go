@@ -18,6 +18,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -71,6 +72,54 @@ func (_c *WorkflowCreate) SetName(v string) *WorkflowCreate {
 // SetType sets the "type" field.
 func (_c *WorkflowCreate) SetType(v string) *WorkflowCreate {
 	_c.mutation.SetType(v)
+	return _c
+}
+
+// SetRoleSlug sets the "role_slug" field.
+func (_c *WorkflowCreate) SetRoleSlug(v string) *WorkflowCreate {
+	_c.mutation.SetRoleSlug(v)
+	return _c
+}
+
+// SetNillableRoleSlug sets the "role_slug" field if the given value is not nil.
+func (_c *WorkflowCreate) SetNillableRoleSlug(v *string) *WorkflowCreate {
+	if v != nil {
+		_c.SetRoleSlug(*v)
+	}
+	return _c
+}
+
+// SetRoleName sets the "role_name" field.
+func (_c *WorkflowCreate) SetRoleName(v string) *WorkflowCreate {
+	_c.mutation.SetRoleName(v)
+	return _c
+}
+
+// SetNillableRoleName sets the "role_name" field if the given value is not nil.
+func (_c *WorkflowCreate) SetNillableRoleName(v *string) *WorkflowCreate {
+	if v != nil {
+		_c.SetRoleName(*v)
+	}
+	return _c
+}
+
+// SetRoleDescription sets the "role_description" field.
+func (_c *WorkflowCreate) SetRoleDescription(v string) *WorkflowCreate {
+	_c.mutation.SetRoleDescription(v)
+	return _c
+}
+
+// SetNillableRoleDescription sets the "role_description" field if the given value is not nil.
+func (_c *WorkflowCreate) SetNillableRoleDescription(v *string) *WorkflowCreate {
+	if v != nil {
+		_c.SetRoleDescription(*v)
+	}
+	return _c
+}
+
+// SetPlatformAccessAllowed sets the "platform_access_allowed" field.
+func (_c *WorkflowCreate) SetPlatformAccessAllowed(v pgarray.StringArray) *WorkflowCreate {
+	_c.mutation.SetPlatformAccessAllowed(v)
 	return _c
 }
 
@@ -474,6 +523,22 @@ func (_c *WorkflowCreate) createSpec() (*Workflow, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.GetType(); ok {
 		_spec.SetField(workflow.FieldType, field.TypeString, value)
 		_node.Type = value
+	}
+	if value, ok := _c.mutation.RoleSlug(); ok {
+		_spec.SetField(workflow.FieldRoleSlug, field.TypeString, value)
+		_node.RoleSlug = value
+	}
+	if value, ok := _c.mutation.RoleName(); ok {
+		_spec.SetField(workflow.FieldRoleName, field.TypeString, value)
+		_node.RoleName = value
+	}
+	if value, ok := _c.mutation.RoleDescription(); ok {
+		_spec.SetField(workflow.FieldRoleDescription, field.TypeString, value)
+		_node.RoleDescription = value
+	}
+	if value, ok := _c.mutation.PlatformAccessAllowed(); ok {
+		_spec.SetField(workflow.FieldPlatformAccessAllowed, field.TypeOther, value)
+		_node.PlatformAccessAllowed = value
 	}
 	if value, ok := _c.mutation.HarnessPath(); ok {
 		_spec.SetField(workflow.FieldHarnessPath, field.TypeString, value)

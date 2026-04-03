@@ -3,8 +3,6 @@ package workflow
 import (
 	"fmt"
 	"strings"
-
-	"go.yaml.in/yaml/v3"
 )
 
 type PlatformAccess struct {
@@ -13,28 +11,15 @@ type PlatformAccess struct {
 }
 
 func ParsePlatformAccess(content string) (PlatformAccess, error) {
-	frontmatter, _, err := extractHarnessFrontmatter(content)
-	if err != nil {
-		return PlatformAccess{}, fmt.Errorf("%w: %s", ErrHarnessInvalid, err)
-	}
-
-	var document struct {
-		PlatformAccess *struct {
-			Allowed []string `yaml:"allowed"`
-		} `yaml:"platform_access"`
-	}
-	if err := yaml.Unmarshal([]byte(frontmatter), &document); err != nil {
-		return PlatformAccess{}, fmt.Errorf("%w: %s", ErrHarnessInvalid, err)
-	}
-	if document.PlatformAccess == nil {
-		return PlatformAccess{}, nil
-	}
-
-	allowed, err := parseNonEmptyStringList(document.PlatformAccess.Allowed, "platform_access.allowed")
+	allowed, err := parseNonEmptyStringList(strings.FieldsFunc(content, func(r rune) bool {
+		return r == '\n' || r == ','
+	}), "platform_access_allowed")
 	if err != nil {
 		return PlatformAccess{}, err
 	}
-
+	if len(allowed) == 0 {
+		return PlatformAccess{}, nil
+	}
 	return PlatformAccess{
 		Configured: true,
 		Allowed:    allowed,

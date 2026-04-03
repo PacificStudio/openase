@@ -29,6 +29,10 @@ func (Workflow) Fields() []ent.Field {
 				_, err := workflowdomain.ParseTypeLabel(value)
 				return err
 			}),
+		field.String("role_slug").Optional(),
+		field.String("role_name").Optional(),
+		field.Text("role_description").Optional(),
+		textArrayField("platform_access_allowed"),
 		field.String("harness_path").NotEmpty(),
 		field.JSON("hooks", map[string]any{}).
 			Default(emptyMap),

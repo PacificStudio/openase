@@ -21,18 +21,10 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 	"github.com/nikolalohinski/gonja/v2/exec"
-	"go.yaml.in/yaml/v3"
 )
 
 func TestValidateHarnessContentAndSave(t *testing.T) {
-	valid := `---
-workflow:
-  role_name: backend-engineer
-skills:
-  - skill-one
----
-Implement {{ ticket.title|markdown_escape }}
-`
+	valid := "Implement {{ ticket.title|markdown_escape }}\n"
 	result := ValidateHarnessContent(valid)
 	if !result.Valid || len(result.Issues) != 0 {
 		t.Fatalf("ValidateHarnessContent(valid) = %+v", result)
@@ -49,37 +41,21 @@ Implement {{ ticket.title|markdown_escape }}
 		t.Fatalf("validateHarnessForSave(empty) error = %v", err)
 	}
 
-	missingClosing := ValidateHarnessContent("---\nworkflow:\n  role: x\n")
-	if missingClosing.Valid || !strings.Contains(missingClosing.Issues[0].Message, "closing --- delimiter") {
-		t.Fatalf("ValidateHarnessContent(missing closing) = %+v", missingClosing)
+	legacyFrontmatter := ValidateHarnessContent("---\nworkflow:\n  role: x\n---\nBody")
+	if legacyFrontmatter.Valid || !strings.Contains(legacyFrontmatter.Issues[0].Message, "no longer supported") {
+		t.Fatalf("ValidateHarnessContent(legacy frontmatter) = %+v", legacyFrontmatter)
 	}
 
-	invalidYAML := ValidateHarnessContent("---\nworkflow: [\n---\nBody")
-	if invalidYAML.Valid || len(invalidYAML.Issues) == 0 || invalidYAML.Issues[0].Level != "error" {
-		t.Fatalf("ValidateHarnessContent(invalid yaml) = %+v", invalidYAML)
-	}
-
-	invalidTemplate := ValidateHarnessContent("---\nworkflow:\n  role: x\n---\n{{")
+	invalidTemplate := ValidateHarnessContent("{{")
 	if invalidTemplate.Valid || len(invalidTemplate.Issues) == 0 || invalidTemplate.Issues[0].Level != "error" {
 		t.Fatalf("ValidateHarnessContent(invalid template) = %+v", invalidTemplate)
 	}
-	if err := validateHarnessForSave("---\nworkflow:\n  role: x\n---\n{{"); err == nil || !strings.Contains(err.Error(), "line") {
+	if err := validateHarnessForSave("{{"); err == nil || !strings.Contains(err.Error(), "line") {
 		t.Fatalf("validateHarnessForSave(invalid template) error = %v", err)
-	}
-
-	emptyBody := ValidateHarnessContent("---\nworkflow:\n  role: x\n---\n")
-	if !emptyBody.Valid || len(emptyBody.Issues) != 1 || emptyBody.Issues[0].Level != "warning" {
-		t.Fatalf("ValidateHarnessContent(empty body) = %+v", emptyBody)
 	}
 
 	if got := normalizeHarnessNewlines("a\r\nb\rc"); got != "a\nb\nc" {
 		t.Fatalf("normalizeHarnessNewlines() = %q", got)
-	}
-	if line, col, ok := extractYAMLPosition("yaml: line 3: bad"); !ok || line != 3 || col != 1 {
-		t.Fatalf("extractYAMLPosition() = %d, %d, %t", line, col, ok)
-	}
-	if _, _, ok := extractYAMLPosition("bad"); ok {
-		t.Fatal("extractYAMLPosition() expected false for bad input")
 	}
 	if line, col, ok := extractGonjaPosition("boom Line: 4 Col: 7"); !ok || line != 4 || col != 7 {
 		t.Fatalf("extractGonjaPosition() = %d, %d, %t", line, col, ok)
@@ -190,16 +166,9 @@ func TestSkillHelpersAndFilesystem(t *testing.T) {
 		t.Fatal("normalizeSkillNames(pattern) expected error")
 	}
 
-	content := `---
-workflow:
-  role: coding
-skills:
-  - old-skill
----
-Body
-`
+	content := "Body\n"
 	skills, err := ParseHarnessSkills(content)
-	if err != nil || len(skills) != 1 || skills[0] != "old-skill" {
+	if err != nil || len(skills) != 0 {
 		t.Fatalf("ParseHarnessSkills() = %+v, %v", skills, err)
 	}
 	updated, err := setHarnessSkills(content, []string{"new-skill", "old-skill", "new-skill"})
@@ -207,32 +176,18 @@ Body
 		t.Fatalf("setHarnessSkills() error = %v", err)
 	}
 	parsedUpdated, err := ParseHarnessSkills(updated)
-	if err != nil || len(parsedUpdated) != 2 || parsedUpdated[0] != "new-skill" || parsedUpdated[1] != "old-skill" {
+	if err != nil || len(parsedUpdated) != 0 {
 		t.Fatalf("ParseHarnessSkills(updated) = %+v, %v", parsedUpdated, err)
 	}
 	removed, err := setHarnessSkills(content, nil)
 	if err != nil {
 		t.Fatalf("setHarnessSkills(remove) error = %v", err)
 	}
-	if strings.Contains(removed, "skills:") {
+	if removed != content {
 		t.Fatalf("setHarnessSkills(remove) = %q", removed)
 	}
-	if _, err := ParseHarnessSkills("---\nworkflow:\n  role: coding\n---\n"); err != nil {
-		t.Fatalf("ParseHarnessSkills(no skills) error = %v", err)
-	}
-	if _, err := ParseHarnessSkills("bad"); err == nil {
-		t.Fatal("ParseHarnessSkills(invalid harness) expected error")
-	}
-
-	rebuilt := buildHarnessContent("workflow:\n  role: coding", "line1\r\nline2")
-	if !strings.Contains(rebuilt, "---\nworkflow:\n  role: coding\n---\nline1\nline2") {
-		t.Fatalf("buildHarnessContent() = %q", rebuilt)
-	}
-	if index := findYAMLMappingValueIndex(mustYAMLMappingNode(t, "workflow:\n  role: coding\nskills:\n  - one\n"), "skills"); index != 3 {
-		t.Fatalf("findYAMLMappingValueIndex(skills) = %d", index)
-	}
-	if index := findYAMLMappingValueIndex(mustYAMLMappingNode(t, "workflow:\n  role: coding\n"), "missing"); index != -1 {
-		t.Fatalf("findYAMLMappingValueIndex(missing) = %d", index)
+	if parsed, err := ParseHarnessSkills("bad"); err != nil || len(parsed) != 0 {
+		t.Fatalf("ParseHarnessSkills(plain body) = %+v, %v", parsed, err)
 	}
 
 	workspaceRoot := t.TempDir()
@@ -497,29 +452,6 @@ func TestHarnessTemplateHelpers(t *testing.T) {
 		t.Fatalf("resolveRepoPath(no workspace) = %q", got)
 	}
 
-	harnessContent := `---
-workflow:
-  role_name: Backend Engineer
-  name: ignored
----
-# Heading
-Build APIs safely.
-
-More detail.
-`
-	if got := extractWorkflowRoleName(harnessContent, "fallback"); got != "Backend Engineer" {
-		t.Fatalf("extractWorkflowRoleName() = %q", got)
-	}
-	if got := extractWorkflowRoleName("bad", "fallback"); got != "fallback" {
-		t.Fatalf("extractWorkflowRoleName(fallback) = %q", got)
-	}
-	if got := extractWorkflowRoleDescription(harnessContent); got != "Build APIs safely." {
-		t.Fatalf("extractWorkflowRoleDescription() = %q", got)
-	}
-	if got := extractWorkflowRoleDescription("bad"); got != "" {
-		t.Fatalf("extractWorkflowRoleDescription(invalid) = %q", got)
-	}
-
 	machines := mapHarnessProjectMachines(
 		HarnessMachineData{Name: "local", Host: "127.0.0.1", Description: "Current", Labels: []string{"local"}},
 		[]HarnessAccessibleMachineData{
@@ -605,6 +537,7 @@ More detail.
 	if platform.ProjectID != projectID.String() || platform.TicketID != ticketID.String() {
 		t.Fatalf("normalizePlatformData() = %+v", platform)
 	}
+	harnessContent := "# Backend Engineer\n\nBuild APIs safely.\n"
 
 	machine := cloneHarnessMachine(HarnessMachineData{Name: "local", Labels: []string{"a"}})
 	machine.Labels[0] = "changed"
@@ -710,11 +643,7 @@ More detail.
 		t.Fatal("contextMap() returned mutable repo labels")
 	}
 
-	rendered, err := RenderHarnessBody(`---
-workflow:
-  role_name: Backend Engineer
----
-Title={{ ticket.title|markdown_escape }}
+	rendered, err := RenderHarnessBody(`Title={{ ticket.title|markdown_escape }}
 Role={{ workflow.role_name }}
 MachineCount={{ project.machines|length }}
 `, data)
@@ -724,13 +653,10 @@ MachineCount={{ project.machines|length }}
 	if !strings.Contains(rendered, `Title=Escape \*this\*`) || !strings.Contains(rendered, "Role=Backend Engineer") || !strings.Contains(rendered, "MachineCount=2") {
 		t.Fatalf("RenderHarnessBody() = %q", rendered)
 	}
-	if got, err := RenderHarnessBody("---\nworkflow:\n  role: coding\n---\n", data); err != nil || got != "" {
+	if got, err := RenderHarnessBody("", data); err != nil || got != "" {
 		t.Fatalf("RenderHarnessBody(empty body) = %q, %v", got, err)
 	}
-	if _, err := RenderHarnessBody("bad", data); err == nil {
-		t.Fatal("RenderHarnessBody(invalid harness) expected error")
-	}
-	if _, err := RenderHarnessBody("---\nworkflow:\n  role: coding\n---\n{{", data); err == nil {
+	if _, err := RenderHarnessBody("{{", data); err == nil {
 		t.Fatal("RenderHarnessBody(invalid template) expected error")
 	}
 
@@ -858,7 +784,7 @@ func TestWorkflowServiceLifecycleCoverage(t *testing.T) {
 	}
 
 	content := defaultHarnessContent("Coverage Workflow", TypeCoding, []string{"Todo"}, []string{"Done"})
-	if !strings.Contains(content, `name: "Coverage Workflow"`) || !strings.Contains(content, "Pickup statuses: Todo") || !strings.Contains(content, "Finish statuses: Done") {
+	if !strings.Contains(content, "# Coverage Workflow") || !strings.Contains(content, "Pickup statuses: Todo") || !strings.Contains(content, "Finish statuses: Done") {
 		t.Fatalf("defaultHarnessContent() = %q", content)
 	}
 
@@ -888,7 +814,7 @@ func TestWorkflowServiceLifecycleCoverage(t *testing.T) {
 		TypeCoding,
 		MustStatusBindingSet(fixture.statusIDs["Todo"]),
 		MustStatusBindingSet(fixture.statusIDs["Done"]),
-		"---\nworkflow:\n  role: coding\n---\n\n{{",
+		"{{",
 	); err == nil {
 		t.Fatal("resolveHarnessContent(invalid raw content) expected error")
 	}
@@ -1018,21 +944,4 @@ func mustWriteSkill(t *testing.T, dir string, content string) {
 	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0o600); err != nil {
 		t.Fatalf("write SKILL.md in %s: %v", dir, err)
 	}
-}
-
-func mustYAMLMappingNode(t *testing.T, frontmatter string) *yaml.Node {
-	t.Helper()
-
-	var document yaml.Node
-	if err := yaml.Unmarshal([]byte(frontmatter), &document); err != nil {
-		t.Fatalf("unmarshal yaml node: %v", err)
-	}
-	root := &document
-	if document.Kind == yaml.DocumentNode {
-		if len(document.Content) != 1 {
-			t.Fatalf("unexpected YAML document content length: %d", len(document.Content))
-		}
-		root = document.Content[0]
-	}
-	return root
 }

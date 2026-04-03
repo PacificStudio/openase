@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -31,6 +32,14 @@ type Workflow struct {
 	Name string `json:"name,omitempty"`
 	// Type holds the value of the "type" field.
 	Type string `json:"type,omitempty"`
+	// RoleSlug holds the value of the "role_slug" field.
+	RoleSlug string `json:"role_slug,omitempty"`
+	// RoleName holds the value of the "role_name" field.
+	RoleName string `json:"role_name,omitempty"`
+	// RoleDescription holds the value of the "role_description" field.
+	RoleDescription string `json:"role_description,omitempty"`
+	// PlatformAccessAllowed holds the value of the "platform_access_allowed" field.
+	PlatformAccessAllowed pgarray.StringArray `json:"platform_access_allowed,omitempty"`
 	// HarnessPath holds the value of the "harness_path" field.
 	HarnessPath string `json:"harness_path,omitempty"`
 	// Hooks holds the value of the "hooks" field.
@@ -185,11 +194,13 @@ func (*Workflow) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case workflow.FieldHooks:
 			values[i] = new([]byte)
+		case workflow.FieldPlatformAccessAllowed:
+			values[i] = new(pgarray.StringArray)
 		case workflow.FieldIsActive:
 			values[i] = new(sql.NullBool)
 		case workflow.FieldMaxConcurrent, workflow.FieldMaxRetryAttempts, workflow.FieldTimeoutMinutes, workflow.FieldStallTimeoutMinutes, workflow.FieldVersion:
 			values[i] = new(sql.NullInt64)
-		case workflow.FieldName, workflow.FieldType, workflow.FieldHarnessPath:
+		case workflow.FieldName, workflow.FieldType, workflow.FieldRoleSlug, workflow.FieldRoleName, workflow.FieldRoleDescription, workflow.FieldHarnessPath:
 			values[i] = new(sql.NullString)
 		case workflow.FieldID, workflow.FieldProjectID:
 			values[i] = new(uuid.UUID)
@@ -245,6 +256,30 @@ func (_m *Workflow) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field type", values[i])
 			} else if value.Valid {
 				_m.Type = value.String
+			}
+		case workflow.FieldRoleSlug:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field role_slug", values[i])
+			} else if value.Valid {
+				_m.RoleSlug = value.String
+			}
+		case workflow.FieldRoleName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field role_name", values[i])
+			} else if value.Valid {
+				_m.RoleName = value.String
+			}
+		case workflow.FieldRoleDescription:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field role_description", values[i])
+			} else if value.Valid {
+				_m.RoleDescription = value.String
+			}
+		case workflow.FieldPlatformAccessAllowed:
+			if value, ok := values[i].(*pgarray.StringArray); !ok {
+				return fmt.Errorf("unexpected type %T for field platform_access_allowed", values[i])
+			} else if value != nil {
+				_m.PlatformAccessAllowed = *value
 			}
 		case workflow.FieldHarnessPath:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -400,6 +435,18 @@ func (_m *Workflow) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("type=")
 	builder.WriteString(_m.Type)
+	builder.WriteString(", ")
+	builder.WriteString("role_slug=")
+	builder.WriteString(_m.RoleSlug)
+	builder.WriteString(", ")
+	builder.WriteString("role_name=")
+	builder.WriteString(_m.RoleName)
+	builder.WriteString(", ")
+	builder.WriteString("role_description=")
+	builder.WriteString(_m.RoleDescription)
+	builder.WriteString(", ")
+	builder.WriteString("platform_access_allowed=")
+	builder.WriteString(fmt.Sprintf("%v", _m.PlatformAccessAllowed))
 	builder.WriteString(", ")
 	builder.WriteString("harness_path=")
 	builder.WriteString(_m.HarnessPath)

@@ -73,11 +73,19 @@
 
       // Get builtin role harness content
       let harnessContent = ''
+      let roleSkillNames: string[] = []
+      let rolePlatformAccessAllowed: string[] = []
       try {
         const rolesPayload = await listBuiltinRoles()
         const role = rolesPayload.roles.find((r) => r.slug === preset.roleSlug)
         if (role) {
           harnessContent = role.content
+          const roleMeta = role as typeof role & {
+            skill_names?: string[]
+            platform_access_allowed?: string[]
+          }
+          roleSkillNames = roleMeta.skill_names ?? []
+          rolePlatformAccessAllowed = roleMeta.platform_access_allowed ?? []
         }
       } catch {
         // Use empty harness if roles unavailable
@@ -94,6 +102,11 @@
         agent_id: agentPayload.agent.id,
         name: `${preset.roleName} Workflow`,
         type: preset.workflowType,
+        role_slug: preset.roleSlug,
+        role_name: preset.roleName,
+        role_description: preset.roleName,
+        skill_names: roleSkillNames,
+        platform_access_allowed: rolePlatformAccessAllowed,
         pickup_status_ids: [pickupStatus.id],
         finish_status_ids: [finishStatus.id],
         harness_content: harnessContent || undefined,

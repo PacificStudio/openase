@@ -19319,7 +19319,7 @@
                     "type": "array"
                   },
                   "harness_content": {
-                    "description": "Initial harness content written into the versioned control-plane workflow record.",
+                    "description": "Initial pure Markdown or Gonja harness body written into the versioned control-plane workflow record.",
                     "type": "string"
                   },
                   "harness_path": {
@@ -19353,6 +19353,35 @@
                   },
                   "pickup_status_ids": {
                     "description": "Ticket status IDs that allow the workflow to pick up tickets.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "platform_access_allowed": {
+                    "description": "Allowed OpenASE platform API scopes for agents running this workflow.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "role_description": {
+                    "description": "Structured workflow role summary shown in runtime and editor context.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "role_name": {
+                    "description": "Human-readable workflow role name stored in structured workflow metadata.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "role_slug": {
+                    "description": "Stable workflow role slug stored in structured workflow metadata.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "skill_names": {
+                    "description": "Skill names to bind to the workflow when it is created.",
                     "items": {
                       "type": "string"
                     },
@@ -26514,6 +26543,29 @@
                     },
                     "nullable": true,
                     "type": "array"
+                  },
+                  "platform_access_allowed": {
+                    "description": "Allowed OpenASE platform API scopes for agents running this workflow.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "nullable": true,
+                    "type": "array"
+                  },
+                  "role_description": {
+                    "description": "Structured workflow role summary shown in runtime and editor context.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "role_name": {
+                    "description": "Human-readable workflow role name stored in structured workflow metadata.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "role_slug": {
+                    "description": "Stable workflow role slug stored in structured workflow metadata.",
+                    "nullable": true,
+                    "type": "string"
                   },
                   "stall_timeout_minutes": {
                     "description": "Timeout for detecting stalled workflow runs, in minutes.",

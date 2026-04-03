@@ -1,15 +1,3 @@
----
-workflow:
-  name: "Technical Writer"
-  type: "Technical Writer"
-  role: "technical-writer"
-status:
-  pickup: "Todo"
-  finish: "Done"
-skills:
-  - openase-platform
-  - commit
----
 
 # Technical Writer
 

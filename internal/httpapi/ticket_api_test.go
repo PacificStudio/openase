@@ -1157,7 +1157,7 @@ func TestTicketRoutesCreateFirstTicketPerProjectAfterWorkflowCreate(t *testing.T
 				"type":              "coding",
 				"pickup_status_ids": []string{todoID.String()},
 				"finish_status_ids": []string{doneID.String()},
-				"harness_content":   "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+				"harness_content":   "# Coding\n",
 			},
 			http.StatusCreated,
 			&workflowResp,

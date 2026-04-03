@@ -37,6 +37,26 @@ type ScopeWhitelist struct {
 	Scopes     []string
 }
 
+func DefaultAgentScopes() []string {
+	return []string{
+		string(ScopeTicketsCreate),
+		string(ScopeTicketsList),
+		string(ScopeTicketsReportUsage),
+		string(ScopeTicketsUpdateSelf),
+	}
+}
+
+func SupportedAgentScopes() []string {
+	return []string{
+		string(ScopeProjectsAddRepo),
+		string(ScopeProjectsUpdate),
+		string(ScopeTicketsCreate),
+		string(ScopeTicketsList),
+		string(ScopeTicketsReportUsage),
+		string(ScopeTicketsUpdateSelf),
+	}
+}
+
 type IssueInput struct {
 	PrincipalKind  PrincipalKind
 	PrincipalID    uuid.UUID
