@@ -27,6 +27,8 @@ type ClaudeCodeRateLimit struct {
 	Status                string     `json:"status,omitempty"`
 	RateLimitType         string     `json:"rate_limit_type,omitempty"`
 	ResetsAt              *time.Time `json:"resets_at,omitempty"`
+	Utilization           *float64   `json:"utilization,omitempty"`
+	SurpassedThreshold    *float64   `json:"surpassed_threshold,omitempty"`
 	OverageStatus         string     `json:"overage_status,omitempty"`
 	OverageDisabledReason string     `json:"overage_disabled_reason,omitempty"`
 	IsUsingOverage        *bool      `json:"is_using_overage,omitempty"`
@@ -68,12 +70,14 @@ func ParseClaudeCodeRateLimit(raw json.RawMessage) (*CLIRateLimit, error) {
 	}
 
 	var payload struct {
-		Status                string `json:"status"`
-		ResetsAt              *int64 `json:"resetsAt"`
-		RateLimitType         string `json:"rateLimitType"`
-		OverageStatus         string `json:"overageStatus"`
-		OverageDisabledReason string `json:"overageDisabledReason"`
-		IsUsingOverage        *bool  `json:"isUsingOverage"`
+		Status                string   `json:"status"`
+		ResetsAt              *int64   `json:"resetsAt"`
+		RateLimitType         string   `json:"rateLimitType"`
+		Utilization           *float64 `json:"utilization"`
+		SurpassedThreshold    *float64 `json:"surpassedThreshold"`
+		OverageStatus         string   `json:"overageStatus"`
+		OverageDisabledReason string   `json:"overageDisabledReason"`
+		IsUsingOverage        *bool    `json:"isUsingOverage"`
 	}
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		return nil, fmt.Errorf("parse claude code rate limit: %w", err)
@@ -90,6 +94,8 @@ func ParseClaudeCodeRateLimit(raw json.RawMessage) (*CLIRateLimit, error) {
 			Status:                strings.TrimSpace(payload.Status),
 			RateLimitType:         strings.TrimSpace(payload.RateLimitType),
 			ResetsAt:              unixSecondsPointerToTime(payload.ResetsAt),
+			Utilization:           cloneRateLimitFloatPointer(payload.Utilization),
+			SurpassedThreshold:    cloneRateLimitFloatPointer(payload.SurpassedThreshold),
 			OverageStatus:         strings.TrimSpace(payload.OverageStatus),
 			OverageDisabledReason: strings.TrimSpace(payload.OverageDisabledReason),
 			IsUsingOverage:        cloneRateLimitBoolPointer(payload.IsUsingOverage),
@@ -99,6 +105,8 @@ func ParseClaudeCodeRateLimit(raw json.RawMessage) (*CLIRateLimit, error) {
 	if rateLimit.ClaudeCode.Status == "" &&
 		rateLimit.ClaudeCode.RateLimitType == "" &&
 		rateLimit.ClaudeCode.ResetsAt == nil &&
+		rateLimit.ClaudeCode.Utilization == nil &&
+		rateLimit.ClaudeCode.SurpassedThreshold == nil &&
 		rateLimit.ClaudeCode.OverageStatus == "" &&
 		rateLimit.ClaudeCode.OverageDisabledReason == "" &&
 		rateLimit.ClaudeCode.IsUsingOverage == nil &&

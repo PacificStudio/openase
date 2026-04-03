@@ -5367,8 +5367,10 @@ export interface operations {
             projects?: {
               accessible_machine_ids?: string[]
               agent_run_summary_prompt?: string | null
+              agent_run_summary_prompt_source?: string
               default_agent_provider_id?: string | null
               description?: string
+              effective_agent_run_summary_prompt?: string
               id?: string
               max_concurrent_agents?: number
               name?: string
@@ -5461,8 +5463,10 @@ export interface operations {
             project?: {
               accessible_machine_ids?: string[]
               agent_run_summary_prompt?: string | null
+              agent_run_summary_prompt_source?: string
               default_agent_provider_id?: string | null
               description?: string
+              effective_agent_run_summary_prompt?: string
               id?: string
               max_concurrent_agents?: number
               name?: string
@@ -5563,6 +5567,10 @@ export interface operations {
                   rate_limit_type?: string
                   resets_at?: string | null
                   status?: string
+                  /** Format: double */
+                  surpassed_threshold?: number | null
+                  /** Format: double */
+                  utilization?: number | null
                 } | null
                 codex?: {
                   limit_id?: string
@@ -5809,6 +5817,10 @@ export interface operations {
                   rate_limit_type?: string
                   resets_at?: string | null
                   status?: string
+                  /** Format: double */
+                  surpassed_threshold?: number | null
+                  /** Format: double */
+                  utilization?: number | null
                 } | null
                 codex?: {
                   limit_id?: string
@@ -6200,8 +6212,10 @@ export interface operations {
             project?: {
               accessible_machine_ids?: string[]
               agent_run_summary_prompt?: string | null
+              agent_run_summary_prompt_source?: string
               default_agent_provider_id?: string | null
               description?: string
+              effective_agent_run_summary_prompt?: string
               id?: string
               max_concurrent_agents?: number
               name?: string
@@ -6272,8 +6286,10 @@ export interface operations {
             project?: {
               accessible_machine_ids?: string[]
               agent_run_summary_prompt?: string | null
+              agent_run_summary_prompt_source?: string
               default_agent_provider_id?: string | null
               description?: string
+              effective_agent_run_summary_prompt?: string
               id?: string
               max_concurrent_agents?: number
               name?: string
@@ -6378,8 +6394,10 @@ export interface operations {
             project?: {
               accessible_machine_ids?: string[]
               agent_run_summary_prompt?: string | null
+              agent_run_summary_prompt_source?: string
               default_agent_provider_id?: string | null
               description?: string
+              effective_agent_run_summary_prompt?: string
               id?: string
               max_concurrent_agents?: number
               name?: string
@@ -12141,6 +12159,10 @@ export interface operations {
                   rate_limit_type?: string
                   resets_at?: string | null
                   status?: string
+                  /** Format: double */
+                  surpassed_threshold?: number | null
+                  /** Format: double */
+                  utilization?: number | null
                 } | null
                 codex?: {
                   limit_id?: string
@@ -12387,6 +12409,10 @@ export interface operations {
                   rate_limit_type?: string
                   resets_at?: string | null
                   status?: string
+                  /** Format: double */
+                  surpassed_threshold?: number | null
+                  /** Format: double */
+                  utilization?: number | null
                 } | null
                 codex?: {
                   limit_id?: string

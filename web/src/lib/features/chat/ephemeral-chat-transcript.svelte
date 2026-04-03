@@ -10,11 +10,13 @@
   let {
     entries,
     pending = false,
+    variant = 'default',
     onConfirmActionProposal,
     onCancelActionProposal,
   }: {
     entries: EphemeralChatTranscriptEntry[]
     pending?: boolean
+    variant?: 'default' | 'minimal'
     onConfirmActionProposal?: (entryId: string) => Promise<void> | void
     onCancelActionProposal?: (entryId: string) => void
   } = $props()
@@ -26,9 +28,11 @@
   const hasStreamingAssistantEntry = $derived(
     entries.some((entry) => entry.kind === 'text' && entry.role === 'assistant' && entry.streaming),
   )
+
+  const minimal = $derived(variant === 'minimal')
 </script>
 
-<div class="space-y-1.5">
+<div class={cn(minimal ? 'space-y-2' : 'space-y-1.5')}>
   {#each visibleEntries as entry (entry.id)}
     {#if entry.kind === 'action_proposal'}
       <EphemeralChatActionProposalCard
@@ -40,6 +44,20 @@
       <EphemeralChatBundleDiffCard {entry} />
     {:else if entry.kind === 'diff'}
       <EphemeralChatDiffCard {entry} />
+    {:else if minimal}
+      {#if entry.role === 'user'}
+        <div class="flex justify-end">
+          <div
+            class="bg-foreground/5 text-foreground max-w-[85%] rounded-2xl rounded-br-md px-3 py-1.5 text-sm"
+          >
+            <div class="break-words whitespace-pre-wrap">{entry.content}</div>
+          </div>
+        </div>
+      {:else}
+        <div class="mx-auto max-w-full">
+          <ChatMarkdownContent source={entry.content} />
+        </div>
+      {/if}
     {:else}
       <div
         class={cn(
@@ -59,10 +77,14 @@
 
   {#if pending && !hasStreamingAssistantEntry}
     <div
-      class="border-border bg-muted/30 flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs"
+      class={cn(
+        minimal
+          ? 'text-muted-foreground flex items-center gap-1.5 py-1 text-xs'
+          : 'border-border bg-muted/30 flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs',
+      )}
     >
       <LoaderCircle class="size-3 animate-spin" />
-      Thinking…
+      Thinking...
     </div>
   {/if}
 </div>

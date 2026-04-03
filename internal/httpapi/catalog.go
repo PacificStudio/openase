@@ -25,16 +25,18 @@ type organizationResponse struct {
 }
 
 type projectResponse struct {
-	ID                     string   `json:"id"`
-	OrganizationID         string   `json:"organization_id"`
-	Name                   string   `json:"name"`
-	Slug                   string   `json:"slug"`
-	Description            string   `json:"description"`
-	Status                 string   `json:"status"`
-	DefaultAgentProviderID *string  `json:"default_agent_provider_id,omitempty"`
-	AccessibleMachineIDs   []string `json:"accessible_machine_ids,omitempty"`
-	MaxConcurrentAgents    int      `json:"max_concurrent_agents"`
-	AgentRunSummaryPrompt  *string  `json:"agent_run_summary_prompt,omitempty"`
+	ID                             string   `json:"id"`
+	OrganizationID                 string   `json:"organization_id"`
+	Name                           string   `json:"name"`
+	Slug                           string   `json:"slug"`
+	Description                    string   `json:"description"`
+	Status                         string   `json:"status"`
+	DefaultAgentProviderID         *string  `json:"default_agent_provider_id,omitempty"`
+	AccessibleMachineIDs           []string `json:"accessible_machine_ids,omitempty"`
+	MaxConcurrentAgents            int      `json:"max_concurrent_agents"`
+	AgentRunSummaryPrompt          *string  `json:"agent_run_summary_prompt,omitempty"`
+	EffectiveAgentRunSummaryPrompt string   `json:"effective_agent_run_summary_prompt"`
+	AgentRunSummaryPromptSource    string   `json:"agent_run_summary_prompt_source"`
 }
 
 type machineResponse struct {
@@ -245,17 +247,20 @@ func mapMachineResponses(items []domain.Machine) []machineResponse {
 }
 
 func mapProjectResponse(item domain.Project) projectResponse {
+	effectivePrompt, promptSource := domain.EffectiveAgentRunSummaryPrompt(item.AgentRunSummaryPrompt)
 	return projectResponse{
-		ID:                     item.ID.String(),
-		OrganizationID:         item.OrganizationID.String(),
-		Name:                   item.Name,
-		Slug:                   item.Slug,
-		Description:            item.Description,
-		Status:                 item.Status.String(),
-		DefaultAgentProviderID: uuidToStringPointer(item.DefaultAgentProviderID),
-		AccessibleMachineIDs:   uuidSliceToStrings(item.AccessibleMachineIDs),
-		MaxConcurrentAgents:    item.MaxConcurrentAgents,
-		AgentRunSummaryPrompt:  stringPointerOrNil(item.AgentRunSummaryPrompt),
+		ID:                             item.ID.String(),
+		OrganizationID:                 item.OrganizationID.String(),
+		Name:                           item.Name,
+		Slug:                           item.Slug,
+		Description:                    item.Description,
+		Status:                         item.Status.String(),
+		DefaultAgentProviderID:         uuidToStringPointer(item.DefaultAgentProviderID),
+		AccessibleMachineIDs:           uuidSliceToStrings(item.AccessibleMachineIDs),
+		MaxConcurrentAgents:            item.MaxConcurrentAgents,
+		AgentRunSummaryPrompt:          stringPointerOrNil(item.AgentRunSummaryPrompt),
+		EffectiveAgentRunSummaryPrompt: effectivePrompt,
+		AgentRunSummaryPromptSource:    promptSource.String(),
 	}
 }
 

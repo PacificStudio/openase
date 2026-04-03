@@ -164,6 +164,9 @@ func TestClaudeCodeAgentAdapterSatisfiesRuntimeContract(t *testing.T) {
 	if first.Type != agentEventTypeOutputProduced || first.Output == nil || first.Output.Text != "Implemented the shared contract." {
 		t.Fatalf("unexpected first event: %+v", first)
 	}
+	if first.Output.ItemID != "assistant-1" {
+		t.Fatalf("unexpected first output item id: %+v", first.Output)
+	}
 	second := requireAgentEvent(t, session.Events())
 	if second.Type != agentEventTypeRateLimitUpdated || second.RateLimit == nil || second.RateLimit.ClaudeCode == nil {
 		t.Fatalf("unexpected second event: %+v", second)
@@ -177,6 +180,335 @@ func TestClaudeCodeAgentAdapterSatisfiesRuntimeContract(t *testing.T) {
 	if !ok || sessionID != "claude-session-1" {
 		t.Fatalf("SessionID() = %q, %t", sessionID, ok)
 	}
+	if err := <-serverDone; err != nil {
+		t.Fatalf("fake server returned error: %v", err)
+	}
+}
+
+func TestClaudeCodeAgentAdapterPreservesTaskAndSessionEventsAndFallbackFailureDetails(t *testing.T) {
+	process := newRuntimeRunnerFakeProcess()
+	manager := &runtimeRunnerFakeProcessManager{process: process}
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- runClaudeTaskRuntimeProtocol(process)
+	}()
+
+	processSpec, err := provider.NewAgentCLIProcessSpec(
+		provider.MustParseAgentCLICommand("claude"),
+		[]string{"--verbose"},
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewAgentCLIProcessSpec returned error: %v", err)
+	}
+
+	session, err := claudeCodeAgentAdapter{}.Start(context.Background(), agentSessionStartSpec{
+		Process:        processSpec,
+		ProcessManager: manager,
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	if _, err := session.SendPrompt(context.Background(), "Implement the fix."); err != nil {
+		t.Fatalf("SendPrompt returned error: %v", err)
+	}
+
+	first := requireAgentEvent(t, session.Events())
+	if first.Type != agentEventTypeTaskStatus || first.TaskStatus == nil || first.TaskStatus.StatusType != "task_started" {
+		t.Fatalf("unexpected first event: %+v", first)
+	}
+	if first.TaskStatus.TurnID != "turn-claude-1" || first.TaskStatus.Payload["turn_id"] != "turn-claude-1" {
+		t.Fatalf("unexpected task_started payload: %+v", first.TaskStatus)
+	}
+
+	second := requireAgentEvent(t, session.Events())
+	if second.Type != agentEventTypeTurnStarted || second.Turn == nil || second.Turn.TurnID != "turn-claude-1" {
+		t.Fatalf("unexpected second event: %+v", second)
+	}
+
+	third := requireAgentEvent(t, session.Events())
+	if third.Type != agentEventTypeTaskStatus || third.TaskStatus == nil || third.TaskStatus.StatusType != "task_progress" {
+		t.Fatalf("unexpected third event: %+v", third)
+	}
+	if third.TaskStatus.ItemID != "tool-use-1" {
+		t.Fatalf("unexpected task_progress item id: %+v", third.TaskStatus)
+	}
+	if third.TaskStatus.Payload["stream"] != "command" || third.TaskStatus.Payload["command"] != "pwd" {
+		t.Fatalf("unexpected task_progress payload: %+v", third.TaskStatus.Payload)
+	}
+
+	fourth := requireAgentEvent(t, session.Events())
+	if fourth.Type != agentEventTypeTaskStatus || fourth.TaskStatus == nil || fourth.TaskStatus.StatusType != "session_state" {
+		t.Fatalf("unexpected fourth event: %+v", fourth)
+	}
+	if fourth.TaskStatus.Payload["status"] != "active" {
+		t.Fatalf("unexpected session_state payload: %+v", fourth.TaskStatus.Payload)
+	}
+
+	fifth := requireAgentEvent(t, session.Events())
+	if fifth.Type != agentEventTypeTaskStatus || fifth.TaskStatus == nil || fifth.TaskStatus.StatusType != "error" {
+		t.Fatalf("unexpected fifth event: %+v", fifth)
+	}
+
+	sixth := requireAgentEvent(t, session.Events())
+	if sixth.Type != agentEventTypeTurnFailed || sixth.Turn == nil || sixth.Turn.Error == nil {
+		t.Fatalf("unexpected sixth event: %+v", sixth)
+	}
+	if !strings.Contains(sixth.Turn.Error.Message, "empty error result") {
+		t.Fatalf("unexpected turn failure message: %+v", sixth.Turn.Error)
+	}
+	if !strings.Contains(sixth.Turn.Error.AdditionalDetails, `"subtype":"error"`) {
+		t.Fatalf("unexpected turn failure details: %+v", sixth.Turn.Error)
+	}
+
+	if err := <-serverDone; err != nil {
+		t.Fatalf("fake server returned error: %v", err)
+	}
+}
+
+func TestClaudeCodeAgentAdapterSynthesizesStableAssistantItemIDsWithoutProviderUUIDs(t *testing.T) {
+	process := newRuntimeRunnerFakeProcess()
+	manager := &runtimeRunnerFakeProcessManager{process: process}
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- runClaudeAssistantSnapshotProtocol(process)
+	}()
+
+	processSpec, err := provider.NewAgentCLIProcessSpec(
+		provider.MustParseAgentCLICommand("claude"),
+		[]string{"--verbose"},
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewAgentCLIProcessSpec returned error: %v", err)
+	}
+
+	session, err := claudeCodeAgentAdapter{}.Start(context.Background(), agentSessionStartSpec{
+		Process:        processSpec,
+		ProcessManager: manager,
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+	if _, err := session.SendPrompt(context.Background(), "Implement the fix."); err != nil {
+		t.Fatalf("SendPrompt returned error: %v", err)
+	}
+
+	first := requireAgentEvent(t, session.Events())
+	second := requireAgentEvent(t, session.Events())
+	third := requireAgentEvent(t, session.Events())
+
+	if first.Output == nil || second.Output == nil || third.Output == nil {
+		t.Fatalf("expected assistant outputs, got %+v %+v %+v", first, second, third)
+	}
+	if first.Output.ItemID == "" || second.Output.ItemID == "" || third.Output.ItemID == "" {
+		t.Fatalf("expected synthesized assistant item ids, got %+v %+v %+v", first.Output, second.Output, third.Output)
+	}
+	if first.Output.ItemID != second.Output.ItemID {
+		t.Fatalf("expected extending snapshots to keep the same item id, got %+v %+v", first.Output, second.Output)
+	}
+	if third.Output.ItemID == second.Output.ItemID {
+		t.Fatalf("expected a new assistant item id for a non-extending snapshot, got %+v %+v", second.Output, third.Output)
+	}
+
+	completed := requireAgentEvent(t, session.Events())
+	if completed.Type != agentEventTypeTurnCompleted {
+		t.Fatalf("unexpected completion event: %+v", completed)
+	}
+
+	if err := <-serverDone; err != nil {
+		t.Fatalf("fake server returned error: %v", err)
+	}
+}
+
+func TestClaudeCodeAgentAdapterSynthesizesStableTaskProgressItemIDsWithoutProviderIDs(t *testing.T) {
+	process := newRuntimeRunnerFakeProcess()
+	manager := &runtimeRunnerFakeProcessManager{process: process}
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- runClaudeTaskProgressSnapshotProtocol(process)
+	}()
+
+	processSpec, err := provider.NewAgentCLIProcessSpec(
+		provider.MustParseAgentCLICommand("claude"),
+		[]string{"--verbose"},
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewAgentCLIProcessSpec returned error: %v", err)
+	}
+
+	session, err := claudeCodeAgentAdapter{}.Start(context.Background(), agentSessionStartSpec{
+		Process:        processSpec,
+		ProcessManager: manager,
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+	if _, err := session.SendPrompt(context.Background(), "Implement the fix."); err != nil {
+		t.Fatalf("SendPrompt returned error: %v", err)
+	}
+
+	first := requireAgentEvent(t, session.Events())
+	second := requireAgentEvent(t, session.Events())
+	third := requireAgentEvent(t, session.Events())
+
+	if first.TaskStatus == nil || second.TaskStatus == nil || third.TaskStatus == nil {
+		t.Fatalf("expected task status events, got %+v %+v %+v", first, second, third)
+	}
+	if first.TaskStatus.ItemID == "" || second.TaskStatus.ItemID == "" || third.TaskStatus.ItemID == "" {
+		t.Fatalf("expected synthesized task item ids, got %+v %+v %+v", first.TaskStatus, second.TaskStatus, third.TaskStatus)
+	}
+	if first.TaskStatus.ItemID != second.TaskStatus.ItemID {
+		t.Fatalf("expected extending command snapshots to keep the same item id, got %+v %+v", first.TaskStatus, second.TaskStatus)
+	}
+	if third.TaskStatus.ItemID == second.TaskStatus.ItemID {
+		t.Fatalf("expected a new task item id for a new command snapshot, got %+v %+v", second.TaskStatus, third.TaskStatus)
+	}
+
+	completed := requireAgentEvent(t, session.Events())
+	if completed.Type != agentEventTypeTurnCompleted {
+		t.Fatalf("unexpected completion event: %+v", completed)
+	}
+
+	if err := <-serverDone; err != nil {
+		t.Fatalf("fake server returned error: %v", err)
+	}
+}
+
+func TestClaudeCodeAgentAdapterMapsAssistantToolUseAndToolResults(t *testing.T) {
+	process := newRuntimeRunnerFakeProcess()
+	manager := &runtimeRunnerFakeProcessManager{process: process}
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- runClaudeToolUseRuntimeProtocol(process)
+	}()
+
+	processSpec, err := provider.NewAgentCLIProcessSpec(
+		provider.MustParseAgentCLICommand("claude"),
+		[]string{"--verbose"},
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewAgentCLIProcessSpec returned error: %v", err)
+	}
+
+	session, err := claudeCodeAgentAdapter{}.Start(context.Background(), agentSessionStartSpec{
+		Process:        processSpec,
+		ProcessManager: manager,
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+	if _, err := session.SendPrompt(context.Background(), "Implement the fix."); err != nil {
+		t.Fatalf("SendPrompt returned error: %v", err)
+	}
+
+	first := requireAgentEvent(t, session.Events())
+	if first.Type != agentEventTypeOutputProduced || first.Output == nil || first.Output.Stream != "assistant" {
+		t.Fatalf("unexpected first event: %+v", first)
+	}
+	if first.Output.Text != "Let me inspect the repository first." {
+		t.Fatalf("unexpected first assistant output: %+v", first.Output)
+	}
+
+	second := requireAgentEvent(t, session.Events())
+	if second.Type != agentEventTypeToolCallRequested || second.ToolCall == nil {
+		t.Fatalf("unexpected second event: %+v", second)
+	}
+	if second.ToolCall.CallID != "toolu_01" || second.ToolCall.Tool != "functions.exec_command" {
+		t.Fatalf("unexpected tool call payload: %+v", second.ToolCall)
+	}
+	if string(second.ToolCall.Arguments) != `{"cmd":"git status --short"}` {
+		t.Fatalf("unexpected tool call arguments: %s", second.ToolCall.Arguments)
+	}
+
+	third := requireAgentEvent(t, session.Events())
+	if third.Type != agentEventTypeOutputProduced || third.Output == nil {
+		t.Fatalf("unexpected third event: %+v", third)
+	}
+	if third.Output.Stream != "command" || third.Output.Command != "git status --short" {
+		t.Fatalf("unexpected command output metadata: %+v", third.Output)
+	}
+	if third.Output.ItemID != "toolu_01" || third.Output.Text != "M README.md" {
+		t.Fatalf("unexpected command output payload: %+v", third.Output)
+	}
+
+	completed := requireAgentEvent(t, session.Events())
+	if completed.Type != agentEventTypeTurnCompleted {
+		t.Fatalf("unexpected completion event: %+v", completed)
+	}
+
+	if err := <-serverDone; err != nil {
+		t.Fatalf("fake server returned error: %v", err)
+	}
+}
+
+func TestClaudeCodeAgentAdapterExtractsUnifiedDiffFromToolResults(t *testing.T) {
+	process := newRuntimeRunnerFakeProcess()
+	manager := &runtimeRunnerFakeProcessManager{process: process}
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- runClaudeToolResultDiffRuntimeProtocol(process)
+	}()
+
+	processSpec, err := provider.NewAgentCLIProcessSpec(
+		provider.MustParseAgentCLICommand("claude"),
+		[]string{"--verbose"},
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewAgentCLIProcessSpec returned error: %v", err)
+	}
+
+	session, err := claudeCodeAgentAdapter{}.Start(context.Background(), agentSessionStartSpec{
+		Process:        processSpec,
+		ProcessManager: manager,
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+	if _, err := session.SendPrompt(context.Background(), "Implement the fix."); err != nil {
+		t.Fatalf("SendPrompt returned error: %v", err)
+	}
+
+	toolCall := requireAgentEvent(t, session.Events())
+	if toolCall.Type != agentEventTypeToolCallRequested || toolCall.ToolCall == nil {
+		t.Fatalf("unexpected tool call event: %+v", toolCall)
+	}
+
+	output := requireAgentEvent(t, session.Events())
+	if output.Type != agentEventTypeOutputProduced || output.Output == nil {
+		t.Fatalf("unexpected output event: %+v", output)
+	}
+	if output.Output.Stream != "command" || output.Output.Command != "git diff -- README.md" {
+		t.Fatalf("unexpected command output metadata: %+v", output.Output)
+	}
+
+	diff := requireAgentEvent(t, session.Events())
+	if diff.Type != agentEventTypeTurnDiffUpdated || diff.Diff == nil {
+		t.Fatalf("unexpected diff event: %+v", diff)
+	}
+	if !strings.Contains(diff.Diff.Diff, "diff --git a/README.md b/README.md") {
+		t.Fatalf("unexpected diff payload: %+v", diff.Diff)
+	}
+
+	completed := requireAgentEvent(t, session.Events())
+	if completed.Type != agentEventTypeTurnCompleted {
+		t.Fatalf("unexpected completion event: %+v", completed)
+	}
+
 	if err := <-serverDone; err != nil {
 		t.Fatalf("fake server returned error: %v", err)
 	}
@@ -434,7 +766,7 @@ func runClaudeRuntimeProtocol(process *runtimeRunnerFakeProcess) error {
 	if !strings.Contains(line, `"type":"user"`) {
 		return errors.New("expected Claude user input frame")
 	}
-	if _, err := io.WriteString(process.stdoutWrite, `{"type":"assistant","session_id":"claude-session-1","message":{"content":[{"type":"text","text":"Implemented the shared contract."}]}}`+"\n"); err != nil {
+	if _, err := io.WriteString(process.stdoutWrite, `{"type":"assistant","session_id":"claude-session-1","uuid":"assistant-1","message":{"content":[{"type":"text","text":"Implemented the shared contract."}]}}`+"\n"); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(process.stdoutWrite, `{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1775037600,"rateLimitType":"five_hour","isUsingOverage":false}}`+"\n"); err != nil {
@@ -442,6 +774,124 @@ func runClaudeRuntimeProtocol(process *runtimeRunnerFakeProcess) error {
 	}
 	if _, err := io.WriteString(process.stdoutWrite, `{"type":"result","subtype":"success","session_id":"claude-session-1","result":"done","num_turns":1}`+"\n"); err != nil {
 		return err
+	}
+	process.finish(nil)
+	return nil
+}
+
+func runClaudeTaskRuntimeProtocol(process *runtimeRunnerFakeProcess) error {
+	reader := bufio.NewReader(process.stdinRead)
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(line, `"type":"user"`) {
+		return errors.New("expected Claude user input frame")
+	}
+	frames := []string{
+		`{"type":"task_started","session_id":"claude-session-2","turn_id":"turn-claude-1","status":"in_progress","message":"Planning work"}`,
+		`{"type":"task_progress","session_id":"claude-session-2","parent_tool_use_id":"tool-use-1","stream":"command","command":"pwd","text":"/repo\n","snapshot":true}`,
+		`{"type":"system","subtype":"session_state_changed","session_id":"claude-session-2","event":{"state":"active","detail":"Running","active_flags":["running"]}}`,
+		`{"type":"result","subtype":"error","session_id":"claude-session-2","is_error":true,"num_turns":1}`,
+	}
+	for _, frame := range frames {
+		if _, err := io.WriteString(process.stdoutWrite, frame+"\n"); err != nil {
+			return err
+		}
+	}
+	process.finish(nil)
+	return nil
+}
+
+func runClaudeAssistantSnapshotProtocol(process *runtimeRunnerFakeProcess) error {
+	reader := bufio.NewReader(process.stdinRead)
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(line, `"type":"user"`) {
+		return errors.New("expected Claude user input frame")
+	}
+	frames := []string{
+		`{"type":"assistant","session_id":"claude-session-3","message":{"content":[{"type":"text","text":"Draft PRD"}]}}`,
+		`{"type":"assistant","session_id":"claude-session-3","message":{"content":[{"type":"text","text":"Draft PRD with more detail"}]}}`,
+		`{"type":"assistant","session_id":"claude-session-3","message":{"content":[{"type":"text","text":"Now updating the ticket"}]}}`,
+		`{"type":"result","subtype":"success","session_id":"claude-session-3","num_turns":1}`,
+	}
+	for _, frame := range frames {
+		if _, err := io.WriteString(process.stdoutWrite, frame+"\n"); err != nil {
+			return err
+		}
+	}
+	process.finish(nil)
+	return nil
+}
+
+func runClaudeTaskProgressSnapshotProtocol(process *runtimeRunnerFakeProcess) error {
+	reader := bufio.NewReader(process.stdinRead)
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(line, `"type":"user"`) {
+		return errors.New("expected Claude user input frame")
+	}
+	frames := []string{
+		`{"type":"task_progress","session_id":"claude-session-4","stream":"command","command":"pwd","text":"/repo","snapshot":true}`,
+		`{"type":"task_progress","session_id":"claude-session-4","stream":"command","command":"pwd","text":"/repo\n/home","snapshot":true}`,
+		`{"type":"task_progress","session_id":"claude-session-4","stream":"command","command":"git status","text":"On branch main","snapshot":true}`,
+		`{"type":"result","subtype":"success","session_id":"claude-session-4","num_turns":1}`,
+	}
+	for _, frame := range frames {
+		if _, err := io.WriteString(process.stdoutWrite, frame+"\n"); err != nil {
+			return err
+		}
+	}
+	process.finish(nil)
+	return nil
+}
+
+func runClaudeToolUseRuntimeProtocol(process *runtimeRunnerFakeProcess) error {
+	reader := bufio.NewReader(process.stdinRead)
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(line, `"type":"user"`) {
+		return errors.New("expected Claude user input frame")
+	}
+	frames := []string{
+		`{"type":"assistant","session_id":"claude-session-5","message":{"content":[{"type":"text","text":"Let me inspect the repository first."},{"type":"tool_use","id":"toolu_01","name":"functions.exec_command","input":{"cmd":"git status --short"}}]}}`,
+		`{"type":"user","session_id":"claude-session-5","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_01","content":"M README.md"}]}}`,
+		`{"type":"result","subtype":"success","session_id":"claude-session-5","num_turns":1}`,
+	}
+	for _, frame := range frames {
+		if _, err := io.WriteString(process.stdoutWrite, frame+"\n"); err != nil {
+			return err
+		}
+	}
+	process.finish(nil)
+	return nil
+}
+
+func runClaudeToolResultDiffRuntimeProtocol(process *runtimeRunnerFakeProcess) error {
+	reader := bufio.NewReader(process.stdinRead)
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(line, `"type":"user"`) {
+		return errors.New("expected Claude user input frame")
+	}
+	frames := []string{
+		`{"type":"assistant","session_id":"claude-session-6","message":{"content":[{"type":"tool_use","id":"toolu_diff","name":"functions.exec_command","input":{"cmd":"git diff -- README.md"}}]}}`,
+		"{\"type\":\"user\",\"session_id\":\"claude-session-6\",\"message\":{\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":\"toolu_diff\",\"content\":\"diff --git a/README.md b/README.md\\n@@ -1 +1 @@\\n-old\\n+new\"}]}}",
+		`{"type":"result","subtype":"success","session_id":"claude-session-6","num_turns":1}`,
+	}
+	for _, frame := range frames {
+		if _, err := io.WriteString(process.stdoutWrite, frame+"\n"); err != nil {
+			return err
+		}
 	}
 	process.finish(nil)
 	return nil

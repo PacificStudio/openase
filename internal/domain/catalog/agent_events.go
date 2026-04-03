@@ -17,6 +17,11 @@ const (
 	AgentTraceKindApprovalRequested  = "approval_requested"
 	AgentTraceKindUserInputRequested = "user_input_requested"
 	AgentTraceKindThreadStatus       = "thread_status"
+	AgentTraceKindTaskStarted        = "task_started"
+	AgentTraceKindTaskProgress       = "task_progress"
+	AgentTraceKindTaskNotification   = "task_notification"
+	AgentTraceKindSessionState       = "session_state"
+	AgentTraceKindError              = "error"
 	AgentTraceKindTurnDiffUpdated    = "turn_diff_updated"
 	AgentTraceKindReasoningUpdated   = "reasoning_updated"
 )

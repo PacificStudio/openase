@@ -8,7 +8,8 @@
   import OrgDashboardUpdatesPanel from './org-dashboard-updates-panel.svelte'
   import { createOrgDashboardController } from './org-dashboard-controller.svelte'
   import { OnboardingPanel } from '$lib/features/onboarding'
-  import { Bot, Coins, Ticket } from '@lucide/svelte'
+  import * as Popover from '$ui/popover'
+  import { Bot, Coins, Cpu, MessageSquare, Ticket } from '@lucide/svelte'
 
   const controller = createOrgDashboardController()
 </script>
@@ -84,18 +85,127 @@
                 >{formatCurrency(controller.stats.ticketSpendToday)}</span
               >
             </div>
-            <div class="flex items-center gap-1">
-              <span class="text-muted-foreground text-[11px]">Tokens</span>
-              <span class="text-foreground text-xs font-semibold"
-                >{formatCount(controller.totalTicketTokens)}</span
+            <Popover.Root>
+              <Popover.Trigger class="flex cursor-default items-center gap-1">
+                <MessageSquare class="text-muted-foreground size-3" />
+                <span class="text-muted-foreground text-[11px]">Tokens</span>
+                <span class="text-foreground text-xs font-semibold"
+                  >{formatCount(controller.totalTicketTokens)}</span
+                >
+              </Popover.Trigger>
+              <Popover.Content
+                align="start"
+                sideOffset={8}
+                class="w-56 gap-0 p-0"
+                onOpenAutoFocus={(e) => e.preventDefault()}
               >
-            </div>
-            <div class="flex items-center gap-1">
-              <span class="text-muted-foreground text-[11px]">Heap</span>
-              <span class="text-foreground text-xs font-semibold"
-                >{controller.memory ? formatBytes(controller.memory.heap_inuse_bytes) : '—'}</span
+                <div class="border-border border-b px-3 py-2">
+                  <div class="text-foreground text-xs font-medium">Token Breakdown</div>
+                </div>
+                <div class="space-y-1.5 px-3 py-2.5">
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-muted-foreground">Input tokens</span>
+                    <span class="text-foreground font-medium"
+                      >{formatCount(controller.stats.ticketInputTokens)}</span
+                    >
+                  </div>
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-muted-foreground">Output tokens</span>
+                    <span class="text-foreground font-medium"
+                      >{formatCount(controller.stats.ticketOutputTokens)}</span
+                    >
+                  </div>
+                  <div class="border-border border-t pt-1.5">
+                    <div class="flex items-center justify-between text-[11px]">
+                      <span class="text-muted-foreground">Total (tickets)</span>
+                      <span class="text-foreground font-medium"
+                        >{formatCount(controller.totalTicketTokens)}</span
+                      >
+                    </div>
+                  </div>
+                  {#if controller.stats.agentLifetimeTokens > 0}
+                    <div class="flex items-center justify-between text-[11px]">
+                      <span class="text-muted-foreground">Agent lifetime</span>
+                      <span class="text-foreground font-medium"
+                        >{formatCount(controller.stats.agentLifetimeTokens)}</span
+                      >
+                    </div>
+                  {/if}
+                </div>
+              </Popover.Content>
+            </Popover.Root>
+            <Popover.Root>
+              <Popover.Trigger class="flex cursor-default items-center gap-1">
+                <Cpu class="text-muted-foreground size-3" />
+                <span class="text-muted-foreground text-[11px]">Heap</span>
+                <span class="text-foreground text-xs font-semibold"
+                  >{controller.memory ? formatBytes(controller.memory.heap_inuse_bytes) : '—'}</span
+                >
+              </Popover.Trigger>
+              <Popover.Content
+                align="start"
+                sideOffset={8}
+                class="w-56 gap-0 p-0"
+                onOpenAutoFocus={(e) => e.preventDefault()}
               >
-            </div>
+                <div class="border-border border-b px-3 py-2">
+                  <div class="text-foreground text-xs font-medium">Memory</div>
+                </div>
+                {#if controller.memory}
+                  {@const mem = controller.memory}
+                  {@const heapPercent =
+                    mem.sys_bytes > 0
+                      ? ((mem.heap_inuse_bytes / mem.sys_bytes) * 100).toFixed(1)
+                      : '0'}
+                  <div class="space-y-1.5 px-3 py-2.5">
+                    <div class="flex items-center justify-between text-[11px]">
+                      <span class="text-muted-foreground">Heap in use</span>
+                      <span class="text-foreground font-medium"
+                        >{formatBytes(mem.heap_inuse_bytes)}</span
+                      >
+                    </div>
+                    <div class="flex items-center justify-between text-[11px]">
+                      <span class="text-muted-foreground">Reserved from OS</span>
+                      <span class="text-foreground font-medium">{formatBytes(mem.sys_bytes)}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-[11px]">
+                      <span class="text-muted-foreground">Heap pressure</span>
+                      <span class="text-foreground font-medium">{heapPercent}%</span>
+                    </div>
+                    <div class="border-border border-t pt-1.5">
+                      <div class="flex items-center justify-between text-[11px]">
+                        <span class="text-muted-foreground">Heap idle</span>
+                        <span class="text-foreground font-medium"
+                          >{formatBytes(mem.heap_idle_bytes)}</span
+                        >
+                      </div>
+                    </div>
+                    <div class="flex items-center justify-between text-[11px]">
+                      <span class="text-muted-foreground">Stack in use</span>
+                      <span class="text-foreground font-medium"
+                        >{formatBytes(mem.stack_inuse_bytes)}</span
+                      >
+                    </div>
+                    <div class="flex items-center justify-between text-[11px]">
+                      <span class="text-muted-foreground">GC cycles</span>
+                      <span class="text-foreground font-medium"
+                        >{mem.gc_cycles.toLocaleString()}</span
+                      >
+                    </div>
+                    <div class="flex items-center justify-between text-[11px]">
+                      <span class="text-muted-foreground">Goroutines</span>
+                      <span class="text-foreground font-medium"
+                        >{mem.goroutines.toLocaleString()}</span
+                      >
+                    </div>
+                  </div>
+                {:else}
+                  <div class="text-muted-foreground px-3 py-3 text-center text-[11px]">
+                    No memory sample available.
+                  </div>
+                {/if}
+              </Popover.Content>
+            </Popover.Root>
             {#if controller.exceptions.length > 0}
               <div class="flex items-center gap-1">
                 <span

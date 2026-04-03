@@ -35,6 +35,8 @@ function createProvisionalProject(orgId: string, id: string, previous: Project |
     default_agent_provider_id: previous?.default_agent_provider_id ?? '',
     max_concurrent_agents: previous?.max_concurrent_agents ?? 0,
     agent_run_summary_prompt: previous?.agent_run_summary_prompt ?? '',
+    effective_agent_run_summary_prompt: previous?.effective_agent_run_summary_prompt ?? '',
+    agent_run_summary_prompt_source: previous?.agent_run_summary_prompt_source ?? 'builtin',
     accessible_machine_ids: previous?.accessible_machine_ids ?? [],
   }
 }

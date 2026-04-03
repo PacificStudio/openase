@@ -115,6 +115,56 @@ func TestParseGeminiCLIUsage(t *testing.T) {
 	}
 }
 
+func TestParseGeminiCLIStreamUsage(t *testing.T) {
+	usage, err := ParseGeminiCLIStreamUsage(json.RawMessage(`{
+		"type":"result",
+		"status":"success",
+		"stats":{
+			"total_tokens":155,
+			"input_tokens":120,
+			"output_tokens":35,
+			"cached":5,
+			"input":115,
+			"duration_ms":900,
+			"tool_calls":2,
+			"models":{
+				"gemini-2.5-pro":{
+					"total_tokens":155,
+					"input_tokens":120,
+					"output_tokens":35,
+					"cached":5,
+					"input":115
+				}
+			}
+		}
+	}`))
+	if err != nil {
+		t.Fatalf("ParseGeminiCLIStreamUsage() error = %v", err)
+	}
+	if usage == nil {
+		t.Fatal("ParseGeminiCLIStreamUsage() = nil, want usage")
+	}
+	if usage.Provider != CLIUsageProviderGemini || usage.Source != CLIUsageSourceGeminiStreamJSONResult {
+		t.Fatalf("unexpected usage routing: %+v", usage)
+	}
+	if usage.Model != "gemini-2.5-pro" {
+		t.Fatalf("usage.Model = %q, want gemini-2.5-pro", usage.Model)
+	}
+	if usage.Total.InputTokens != 120 || usage.Total.OutputTokens != 35 || usage.Total.TotalTokens != 155 {
+		t.Fatalf("unexpected stream token summary: %+v", usage.Total)
+	}
+	if usage.Total.CachedInputTokens != 5 || usage.Total.PromptTokens != 115 {
+		t.Fatalf("unexpected cached/prompt token summary: %+v", usage.Total)
+	}
+	if usage.Gemini == nil || usage.Gemini.DurationMS != 900 || usage.Gemini.ToolCalls != 2 {
+		t.Fatalf("unexpected Gemini stream usage details: %+v", usage.Gemini)
+	}
+	modelUsage, ok := usage.Gemini.Models["gemini-2.5-pro"]
+	if !ok || modelUsage.Tokens.OutputTokens != 35 {
+		t.Fatalf("unexpected Gemini stream model usage: %+v", usage.Gemini.Models)
+	}
+}
+
 func TestNewCodexCLIUsage(t *testing.T) {
 	contextWindow := int64(200000)
 	usage := NewCodexCLIUsage(

@@ -180,22 +180,21 @@
     </Button>
   </div>
 
-  <ScrollArea class="min-h-0 flex-1 px-3 py-2">
-    <div class="space-y-2">
+  <ScrollArea class="min-h-0 flex-1 px-4 py-4">
+    <div class="space-y-3">
       {#if entries.length === 0}
         <HarnessChatEmptyState />
       {/if}
       <EphemeralChatTranscript
         {entries}
         {pending}
+        variant="minimal"
         onConfirmActionProposal={handleConfirmActionProposal}
         onCancelActionProposal={handleCancelActionProposal}
       />
 
       {#if streamingDiff}
-        <div
-          class="flex items-center gap-2 rounded-md bg-sky-500/10 px-2.5 py-1.5 text-[11px] text-sky-300"
-        >
+        <div class="text-muted-foreground flex items-center gap-1.5 py-1 text-xs">
           <LoaderCircle class="size-3 shrink-0 animate-spin" />
           Suggesting diff...
         </div>

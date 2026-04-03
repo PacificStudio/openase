@@ -1,10 +1,6 @@
 <script lang="ts">
   import type { StreamConnectionState } from '$lib/api/sse'
-  import {
-    PROJECT_AI_FOCUS_PRIORITY,
-    ProjectConversationPanel,
-    type ProjectAIFocus,
-  } from '$lib/features/chat'
+  import { PROJECT_AI_FOCUS_PRIORITY, ProjectConversationPanel } from '$lib/features/chat'
   import { appStore } from '$lib/stores/app.svelte'
   import TicketDrawerMainTabs from './ticket-drawer-main-tabs.svelte'
   import TicketHeader from './ticket-header.svelte'
@@ -21,6 +17,7 @@
     TicketStatusOption,
     TicketTimelineItem,
   } from '../types'
+  import { buildTicketProjectAIFocus } from '../ticket-project-ai-focus'
   let {
     ticket,
     projectId,
@@ -49,6 +46,7 @@
     resumingRetry = false,
     onClose,
     onSaveFields,
+    onPriorityChange,
     onSelectRun,
     onResumeRetry,
     onAddDependency,
@@ -90,6 +88,7 @@
     resumingRetry?: boolean
     onClose?: () => void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
+    onPriorityChange?: (priority: TicketDetail['priority']) => void
     onSelectRun?: (runId: string) => Promise<void> | void
     onResumeRetry?: () => Promise<void> | void
     onAddDependency?: (draft: DependencyDraft) => Promise<boolean> | boolean
@@ -129,77 +128,6 @@
   let previousTicketId = ''
   const projectAIFocusOwner = 'ticket-drawer'
 
-  function buildTicketProjectAIFocus(): ProjectAIFocus | null {
-    if (!projectId || !ticket.id) {
-      return null
-    }
-
-    return {
-      kind: 'ticket',
-      projectId,
-      ticketId: ticket.id,
-      ticketIdentifier: ticket.identifier,
-      ticketTitle: ticket.title,
-      ticketDescription: ticket.description,
-      ticketStatus: ticket.status.name,
-      ticketPriority: ticket.priority,
-      ticketAttemptCount: ticket.attemptCount,
-      ticketRetryPaused: ticket.retryPaused,
-      ticketPauseReason: ticket.pauseReason,
-      ticketDependencies: ticket.dependencies.map((dependency) => ({
-        identifier: dependency.identifier,
-        title: dependency.title,
-        relation: dependency.relation,
-        status: dependency.stage,
-      })),
-      ticketRepoScopes: ticket.repoScopes.map((scope) => ({
-        repoId: scope.repoId,
-        repoName: scope.repoName,
-        branchName: scope.branchName,
-        pullRequestUrl: scope.prUrl,
-      })),
-      ticketRecentActivity: timeline
-        .filter((item) => item.kind === 'activity')
-        .slice(-12)
-        .map((item) => ({
-          eventType: item.eventType,
-          message: item.bodyText || item.title,
-          createdAt: item.createdAt,
-        })),
-      ticketHookHistory: hooks.slice(-12).map((hook) => ({
-        hookName: hook.hookName,
-        status: hook.status,
-        output: hook.output,
-        timestamp: hook.timestamp,
-      })),
-      ticketAssignedAgent: ticket.assignedAgent
-        ? {
-            id: ticket.assignedAgent.id,
-            name: ticket.assignedAgent.name,
-            provider: ticket.assignedAgent.provider,
-            runtimeControlState: ticket.assignedAgent.runtimeControlState,
-            runtimePhase: ticket.assignedAgent.runtimePhase,
-          }
-        : undefined,
-      ticketCurrentRun: currentRun
-        ? {
-            id: currentRun.id,
-            attemptNumber: currentRun.attemptNumber,
-            status: currentRun.status,
-            currentStepStatus: currentRun.currentStepStatus,
-            currentStepSummary: currentRun.currentStepSummary,
-            lastError: currentRun.lastError,
-          }
-        : undefined,
-      ticketTargetMachine: ticket.targetMachineId
-        ? {
-            id: ticket.targetMachineId,
-          }
-        : undefined,
-      selectedArea,
-    }
-  }
-
   $effect(() => {
     if (ticket.id === previousTicketId) {
       return
@@ -211,7 +139,14 @@
   })
 
   $effect(() => {
-    const focus = buildTicketProjectAIFocus()
+    const focus = buildTicketProjectAIFocus({
+      ticket,
+      projectId,
+      timeline,
+      hooks,
+      currentRun,
+      selectedArea,
+    })
     if (!focus) {
       appStore.clearProjectAssistantFocus(projectAIFocusOwner)
       return
@@ -231,6 +166,7 @@
   {savingFields}
   {onClose}
   {onSaveFields}
+  {onPriorityChange}
   {assistantOpen}
   onToggleAssistant={() => (assistantOpen = !assistantOpen)}
 />
@@ -241,7 +177,14 @@
       organizationId={appStore.currentOrg?.id ?? ''}
       defaultProviderId={appStore.currentProject?.default_agent_provider_id ?? null}
       context={{ projectId }}
-      focus={buildTicketProjectAIFocus()}
+      focus={buildTicketProjectAIFocus({
+        ticket,
+        projectId,
+        timeline,
+        hooks,
+        currentRun,
+        selectedArea,
+      })}
       title="Project AI"
       placeholder="Ask about this ticket without restating the basics…"
     />

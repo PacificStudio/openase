@@ -83,6 +83,11 @@ type runtimeAssignment struct {
 	run    *ent.AgentRun
 }
 
+type runtimePlatformAccess struct {
+	environment []string
+	contract    string
+}
+
 func NewRuntimeLauncher(
 	client *ent.Client,
 	logger *slog.Logger,
@@ -778,11 +783,11 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 		return nil, fmt.Errorf("parse agent cli command: %w", err)
 	}
 	environment := buildAgentCLIEnvironment(machine.EnvVars, launchContext.agent.Edges.Provider.AuthConfig)
-	platformEnvironment, err := l.buildAgentPlatformEnvironment(ctx, launchContext)
+	platformAccess, err := l.buildAgentPlatformAccess(ctx, launchContext)
 	if err != nil {
 		return nil, err
 	}
-	environment = append(environment, platformEnvironment...)
+	environment = append(environment, platformAccess.environment...)
 	githubEnvironment, err := l.buildGitHubOutboundEnvironment(ctx, launchContext.project.ID, environment)
 	if err != nil {
 		return nil, err
@@ -842,6 +847,7 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 		machine,
 		workingDirectory.String(),
 		runtimeSnapshot,
+		platformAccess.contract,
 	)
 	if err != nil {
 		return nil, err
@@ -890,12 +896,12 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 	return session, nil
 }
 
-func (l *RuntimeLauncher) buildAgentPlatformEnvironment(ctx context.Context, launchContext runtimeLaunchContext) ([]string, error) {
+func (l *RuntimeLauncher) buildAgentPlatformAccess(ctx context.Context, launchContext runtimeLaunchContext) (runtimePlatformAccess, error) {
 	if l == nil || l.agentPlatform == nil {
-		return nil, nil
+		return runtimePlatformAccess{}, nil
 	}
 	if launchContext.agent == nil || launchContext.project == nil || launchContext.ticket == nil {
-		return nil, fmt.Errorf("runtime launch context is incomplete for platform environment")
+		return runtimePlatformAccess{}, fmt.Errorf("runtime launch context is incomplete for platform environment")
 	}
 
 	issued, err := l.agentPlatform.IssueToken(ctx, agentplatform.IssueInput{
@@ -904,15 +910,42 @@ func (l *RuntimeLauncher) buildAgentPlatformEnvironment(ctx context.Context, lau
 		TicketID:  launchContext.ticket.ID,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("issue agent platform token: %w", err)
+		return runtimePlatformAccess{}, fmt.Errorf("issue agent platform token: %w", err)
+	}
+	contractScopes := issued.Scopes
+	if len(contractScopes) == 0 {
+		contractScopes = agentplatform.DefaultScopesForPrincipalKind(agentplatform.PrincipalKindTicketAgent)
 	}
 
-	return agentplatform.BuildEnvironment(
-		l.platformAPIURL,
-		issued.Token,
-		launchContext.project.ID,
-		launchContext.ticket.ID,
-	), nil
+	contractInput := agentplatform.RuntimeContractInput{
+		PrincipalKind: agentplatform.PrincipalKindTicketAgent,
+		ProjectID:     launchContext.project.ID,
+		TicketID:      launchContext.ticket.ID,
+		APIURL:        l.platformAPIURL,
+		Token:         issued.Token,
+		Scopes:        contractScopes,
+	}
+	return runtimePlatformAccess{
+		environment: agentplatform.BuildRuntimeEnvironment(contractInput),
+		contract:    agentplatform.BuildCapabilityContract(contractInput),
+	}, nil
+}
+
+func (l *RuntimeLauncher) ticketRuntimePlatformContract(
+	launchContext runtimeLaunchContext,
+	scopes []string,
+) string {
+	if launchContext.project == nil || launchContext.ticket == nil {
+		return ""
+	}
+	return agentplatform.BuildCapabilityContract(agentplatform.RuntimeContractInput{
+		PrincipalKind: agentplatform.PrincipalKindTicketAgent,
+		ProjectID:     launchContext.project.ID,
+		TicketID:      launchContext.ticket.ID,
+		APIURL:        l.platformAPIURL,
+		Token:         "<runtime-injected>",
+		Scopes:        scopes,
+	})
 }
 
 func buildLocalOpenASEEnvironment() ([]string, error) {
@@ -1082,6 +1115,7 @@ func (l *RuntimeLauncher) buildDeveloperInstructions(
 	machine catalogdomain.Machine,
 	workspace string,
 	runtimeSnapshot workflowservice.RuntimeSnapshot,
+	platformContract string,
 ) (string, error) {
 	if l == nil || l.workflow == nil || launchContext.ticket == nil || launchContext.ticket.WorkflowID == nil {
 		return "", nil
@@ -1113,7 +1147,15 @@ func (l *RuntimeLauncher) buildDeveloperInstructions(
 		return "", fmt.Errorf("render workflow harness for agent launch: %w", err)
 	}
 
-	return strings.TrimSpace(rendered), nil
+	rendered = strings.TrimSpace(rendered)
+	platformContract = strings.TrimSpace(platformContract)
+	if platformContract == "" {
+		return rendered, nil
+	}
+	if rendered == "" {
+		return platformContract, nil
+	}
+	return rendered + "\n\n" + platformContract, nil
 }
 
 type runtimeLaunchContext struct {

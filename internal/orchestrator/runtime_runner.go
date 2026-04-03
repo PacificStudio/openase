@@ -18,6 +18,7 @@ import (
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
+	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
@@ -270,7 +271,14 @@ func (l *RuntimeLauncher) loadExecutionState(ctx context.Context, runID uuid.UUI
 		if snapshotErr != nil {
 			return runtimeExecutionState{}, "", snapshotErr
 		}
-		prompt, err = l.buildDeveloperInstructions(ctx, launchContext, machine, workspace, runtimeSnapshot)
+		prompt, err = l.buildDeveloperInstructions(
+			ctx,
+			launchContext,
+			machine,
+			workspace,
+			runtimeSnapshot,
+			l.ticketRuntimePlatformContract(launchContext, agentplatform.DefaultScopesForPrincipalKind(agentplatform.PrincipalKindTicketAgent)),
+		)
 		if err != nil {
 			return runtimeExecutionState{}, "", err
 		}
@@ -483,6 +491,19 @@ func (l *RuntimeLauncher) consumeTurn(
 					return err
 				}
 			}
+		case agentEventTypeTaskStatus:
+			if err := flushBufferedOutputs(); err != nil {
+				return err
+			}
+			if event.TaskStatus == nil {
+				continue
+			}
+			if !turnMatches(turnID, event.TaskStatus.TurnID) {
+				continue
+			}
+			if err := l.recordAgentTaskStatus(ctx, projectID, agentID, ticketID, runID, adapterType, event.TaskStatus); err != nil {
+				return err
+			}
 		case agentEventTypeTurnFailed:
 			if err := flushBufferedOutputs(); err != nil {
 				return err
@@ -592,6 +613,58 @@ func (l *RuntimeLauncher) recordAgentOutput(
 		if err := l.recordAgentStep(ctx, projectID, agentID, ticketID, runID, stepStatus, stepSummary, &traceID); err != nil {
 			return fmt.Errorf("record agent step for run %s: %w", runID, err)
 		}
+	}
+
+	return nil
+}
+
+func (l *RuntimeLauncher) recordAgentTaskStatus(
+	ctx context.Context,
+	projectID uuid.UUID,
+	agentID uuid.UUID,
+	ticketID uuid.UUID,
+	runID uuid.UUID,
+	adapterType entagentprovider.AdapterType,
+	status *agentTaskStatusEvent,
+) error {
+	if l == nil || status == nil {
+		return nil
+	}
+
+	traceKind := strings.TrimSpace(status.StatusType)
+	if traceKind == "" {
+		return nil
+	}
+
+	payload := cloneAgentTracePayload(status.Payload)
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	payload["provider"] = runtimeProviderName(adapterType)
+	payload["run_id"] = runID.String()
+	if threadID := strings.TrimSpace(status.ThreadID); threadID != "" {
+		payload["thread_id"] = threadID
+	}
+	if turnID := strings.TrimSpace(status.TurnID); turnID != "" {
+		payload["turn_id"] = turnID
+	}
+	if itemID := strings.TrimSpace(status.ItemID); itemID != "" {
+		payload["item_id"] = itemID
+	}
+
+	if _, err := publishAgentTraceEvent(ctx, l.client, l.events, agentTraceEventInput{
+		ProjectID:   projectID,
+		AgentID:     agentID,
+		TicketID:    ticketID,
+		AgentRunID:  runID,
+		Provider:    runtimeProviderName(adapterType),
+		Kind:        traceKind,
+		Stream:      "task",
+		Text:        strings.TrimSpace(status.Text),
+		Payload:     payload,
+		PublishedAt: l.now().UTC(),
+	}); err != nil {
+		return fmt.Errorf("record task status trace for run %s: %w", runID, err)
 	}
 
 	return nil

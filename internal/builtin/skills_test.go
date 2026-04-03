@@ -158,11 +158,11 @@ func TestOpenASEPlatformSkillDocumentsCoreCLIFlows(t *testing.T) {
 		"OPENASE_PROJECT_ID",
 		"OPENASE_TICKET_ID",
 		"./.openase/bin/openase ticket report-usage",
-		"./.agent/skills/openase-platform/scripts/upsert_workpad.sh --body-file /tmp/workpad.md",
 		"./.openase/bin/openase project add-repo",
 		"./.openase/bin/openase workflow harness get $WORKFLOW_ID",
 		"./.openase/bin/openase machine refresh-health $MACHINE_ID",
 		"./.openase/bin/openase api GET /api/v1/tickets/$OPENASE_TICKET_ID",
+		"`ticket-workpad` skill",
 	} {
 		if !strings.Contains(skill.Content, snippet) {
 			t.Fatalf("expected openase-platform skill to contain %q, got:\n%s", snippet, skill.Content)
@@ -199,6 +199,8 @@ func TestTicketWorkpadSkillUsesGenericWorkpadTerminology(t *testing.T) {
 		"openase-platform",
 		"upsert_workpad.sh",
 		"复用或更新那条持久化评论",
+		"跨 runtime",
+		"绑定到需要持续执行和续跑的 ticket workflow",
 	} {
 		if !strings.Contains(skill.Content, snippet) {
 			t.Fatalf("expected ticket-workpad skill to contain %q, got:\n%s", snippet, skill.Content)

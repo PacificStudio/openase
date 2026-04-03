@@ -31,16 +31,18 @@ type OpenAPIOrganization struct {
 }
 
 type OpenAPIProject struct {
-	ID                     string   `json:"id"`
-	OrganizationID         string   `json:"organization_id"`
-	Name                   string   `json:"name"`
-	Slug                   string   `json:"slug"`
-	Description            string   `json:"description"`
-	Status                 string   `json:"status"`
-	DefaultAgentProviderID *string  `json:"default_agent_provider_id,omitempty"`
-	AccessibleMachineIDs   []string `json:"accessible_machine_ids,omitempty"`
-	MaxConcurrentAgents    int      `json:"max_concurrent_agents"`
-	AgentRunSummaryPrompt  *string  `json:"agent_run_summary_prompt,omitempty"`
+	ID                             string   `json:"id"`
+	OrganizationID                 string   `json:"organization_id"`
+	Name                           string   `json:"name"`
+	Slug                           string   `json:"slug"`
+	Description                    string   `json:"description"`
+	Status                         string   `json:"status"`
+	DefaultAgentProviderID         *string  `json:"default_agent_provider_id,omitempty"`
+	AccessibleMachineIDs           []string `json:"accessible_machine_ids,omitempty"`
+	MaxConcurrentAgents            int      `json:"max_concurrent_agents"`
+	AgentRunSummaryPrompt          *string  `json:"agent_run_summary_prompt,omitempty"`
+	EffectiveAgentRunSummaryPrompt string   `json:"effective_agent_run_summary_prompt"`
+	AgentRunSummaryPromptSource    string   `json:"agent_run_summary_prompt_source"`
 }
 
 type OpenAPIWorkspaceDashboardMetrics struct {
@@ -174,12 +176,14 @@ type OpenAPIAgentProviderCLIRateLimit struct {
 }
 
 type OpenAPIAgentProviderClaudeCodeRateLimit struct {
-	Status                string  `json:"status,omitempty"`
-	RateLimitType         string  `json:"rate_limit_type,omitempty"`
-	ResetsAt              *string `json:"resets_at,omitempty"`
-	OverageStatus         string  `json:"overage_status,omitempty"`
-	OverageDisabledReason string  `json:"overage_disabled_reason,omitempty"`
-	IsUsingOverage        *bool   `json:"is_using_overage,omitempty"`
+	Status                string   `json:"status,omitempty"`
+	RateLimitType         string   `json:"rate_limit_type,omitempty"`
+	ResetsAt              *string  `json:"resets_at,omitempty"`
+	Utilization           *float64 `json:"utilization,omitempty"`
+	SurpassedThreshold    *float64 `json:"surpassed_threshold,omitempty"`
+	OverageStatus         string   `json:"overage_status,omitempty"`
+	OverageDisabledReason string   `json:"overage_disabled_reason,omitempty"`
+	IsUsingOverage        *bool    `json:"is_using_overage,omitempty"`
 }
 
 type OpenAPIAgentProviderCodexRateLimit struct {

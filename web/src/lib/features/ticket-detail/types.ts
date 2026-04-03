@@ -1,5 +1,9 @@
-import type { ChatDiffPayload } from '$lib/api/chat'
 import type { TicketPickupDiagnosis } from './pickup-diagnosis'
+export type {
+  TicketRunTranscriptBlock,
+  TicketRunTranscriptInterruptOption,
+  TicketRunTranscriptState,
+} from './run-transcript-types'
 
 export type { TicketPickupDiagnosis } from './pickup-diagnosis'
 
@@ -233,63 +237,4 @@ export type TicketRunLifecycleEvent = {
   eventType: string
   message: string
   createdAt: string
-}
-
-export type TicketRunTranscriptInterruptOption = {
-  id: string
-  label: string
-  rawDecision?: string
-}
-
-export type TicketRunTranscriptBlock =
-  | { kind: 'phase'; id: string; phase: string; at: string; summary: string }
-  | { kind: 'step'; id: string; stepStatus: string; summary: string; at: string }
-  | { kind: 'assistant_message'; id: string; itemId?: string; text: string; streaming: boolean }
-  | {
-      kind: 'tool_call'
-      id: string
-      toolName: string
-      arguments?: unknown
-      summary?: string
-      at: string
-    }
-  | {
-      kind: 'terminal_output'
-      id: string
-      itemId?: string
-      stream: string
-      command?: string
-      phase?: string
-      text: string
-      streaming: boolean
-    }
-  | {
-      kind: 'task_status'
-      id: string
-      statusType: 'thread_status' | 'reasoning_updated'
-      title: string
-      detail?: string
-      raw?: Record<string, unknown>
-      at: string
-    }
-  | { kind: 'diff'; id: string; at: string; diff: ChatDiffPayload }
-  | {
-      kind: 'interrupt'
-      id: string
-      interruptKind: string
-      title: string
-      summary: string
-      at: string
-      payload: Record<string, unknown>
-      options: TicketRunTranscriptInterruptOption[]
-    }
-  | { kind: 'result'; id: string; outcome: 'completed' | 'failed' | 'ended'; summary: string }
-
-export type TicketRunTranscriptState = {
-  runs: TicketRun[]
-  selectedRunId: string | null
-  followLatest: boolean
-  currentRun: TicketRun | null
-  blocks: TicketRunTranscriptBlock[]
-  blockCache: Record<string, TicketRunTranscriptBlock[]>
 }

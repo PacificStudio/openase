@@ -29,24 +29,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const defaultRunCompletionSummaryPrompt = `
-Summarize the overall work performed by the agent.
-List the major steps in execution order.
-Call out operations that took unusually long.
-Call out repeated trial-and-error, retries, or churn.
-Call out commands or file changes with elevated security or safety risk.
-Mention the main outcome and any important unresolved items.
-Use concise Markdown with exactly these top-level sections:
-## Overview
-## Major Steps
-## Long-Running Operations
-## Repeated Trial-and-Error
-## Security / Safety Risks
-## Files Touched
-## Outcome
-If a section has no substantive content, write "None."
-`
-
 var (
 	runCompletionSummaryLongRunningThreshold = 2 * time.Minute
 	runCompletionSummaryRiskyCommandHints    = []string{
@@ -605,10 +587,11 @@ func (c *runtimeCompletionSummaryCoordinator) resolveRunCompletionSummaryProcess
 }
 
 func buildRunCompletionSummaryDeveloperInstructions(project *ent.Project) string {
-	prompt := strings.TrimSpace(defaultRunCompletionSummaryPrompt)
-	if project != nil && strings.TrimSpace(project.AgentRunSummaryPrompt) != "" {
-		prompt = strings.TrimSpace(project.AgentRunSummaryPrompt)
+	rawOverride := ""
+	if project != nil {
+		rawOverride = project.AgentRunSummaryPrompt
 	}
+	prompt, _ := catalogdomain.EffectiveAgentRunSummaryPrompt(rawOverride)
 
 	return strings.TrimSpace(`
 You are OpenASE's post-run summarizer.

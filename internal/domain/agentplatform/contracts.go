@@ -2,6 +2,8 @@ package agentplatform
 
 import (
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -9,6 +11,16 @@ import (
 )
 
 const TokenPrefix = "ase_agent_"
+
+const (
+	EnvAPIURL         = "OPENASE_API_URL"
+	EnvAgentToken     = "OPENASE_AGENT_TOKEN" // #nosec G101 -- environment variable key name, not a credential
+	EnvProjectID      = "OPENASE_PROJECT_ID"
+	EnvTicketID       = "OPENASE_TICKET_ID"
+	EnvConversationID = "OPENASE_CONVERSATION_ID"
+	EnvPrincipalKind  = "OPENASE_PRINCIPAL_KIND"
+	EnvAgentScopes    = "OPENASE_AGENT_SCOPES"
+)
 
 var ErrNotFound = errors.New("agent platform record not found")
 
@@ -97,6 +109,16 @@ type ProjectConversationPrincipal struct {
 	ConversationID uuid.UUID
 }
 
+type RuntimeContractInput struct {
+	PrincipalKind  PrincipalKind
+	ProjectID      uuid.UUID
+	TicketID       uuid.UUID
+	ConversationID uuid.UUID
+	APIURL         string
+	Token          string
+	Scopes         []string
+}
+
 type CreateTokenRecord struct {
 	AgentID        *uuid.UUID
 	ProjectID      uuid.UUID
@@ -155,14 +177,122 @@ func (c Claims) IsProjectConversation() bool {
 
 func BuildEnvironment(apiURL string, token string, projectID uuid.UUID, ticketID uuid.UUID) []string {
 	environment := []string{
-		"OPENASE_PROJECT_ID=" + projectID.String(),
-		"OPENASE_TICKET_ID=" + ticketID.String(),
+		EnvProjectID + "=" + projectID.String(),
+		EnvTicketID + "=" + ticketID.String(),
 	}
 	if strings.TrimSpace(apiURL) != "" {
-		environment = append(environment, "OPENASE_API_URL="+strings.TrimSpace(apiURL))
+		environment = append(environment, EnvAPIURL+"="+strings.TrimSpace(apiURL))
 	}
 	if strings.TrimSpace(token) != "" {
-		environment = append(environment, "OPENASE_AGENT_TOKEN="+strings.TrimSpace(token))
+		environment = append(environment, EnvAgentToken+"="+strings.TrimSpace(token))
 	}
 	return environment
+}
+
+func BuildRuntimeEnvironment(input RuntimeContractInput) []string {
+	environment := []string{
+		EnvProjectID + "=" + input.ProjectID.String(),
+	}
+	if input.TicketID != uuid.Nil {
+		environment = append(environment, EnvTicketID+"="+input.TicketID.String())
+	}
+	if input.ConversationID != uuid.Nil {
+		environment = append(environment, EnvConversationID+"="+input.ConversationID.String())
+	}
+	if strings.TrimSpace(input.APIURL) != "" {
+		environment = append(environment, EnvAPIURL+"="+strings.TrimSpace(input.APIURL))
+	}
+	if strings.TrimSpace(input.Token) != "" {
+		environment = append(environment, EnvAgentToken+"="+strings.TrimSpace(input.Token))
+	}
+	if strings.TrimSpace(string(input.PrincipalKind)) != "" {
+		environment = append(environment, EnvPrincipalKind+"="+strings.TrimSpace(string(input.PrincipalKind)))
+	}
+	scopes := normalizedScopeStrings(input.Scopes)
+	if len(scopes) > 0 {
+		environment = append(environment, EnvAgentScopes+"="+strings.Join(scopes, ","))
+	}
+	return environment
+}
+
+func BuildCapabilityContract(input RuntimeContractInput) string {
+	var builder strings.Builder
+	builder.WriteString("## OpenASE Platform Capability Contract\n")
+	builder.WriteString("\n")
+	builder.WriteString("Current principal: `")
+	builder.WriteString(strings.TrimSpace(string(input.PrincipalKind)))
+	builder.WriteString("`\n")
+	builder.WriteString("\n")
+	builder.WriteString("Guaranteed environment:\n")
+	builder.WriteString("- `OPENASE_PROJECT_ID`\n")
+	if input.TicketID != uuid.Nil {
+		builder.WriteString("- `OPENASE_TICKET_ID`\n")
+	}
+	if input.ConversationID != uuid.Nil {
+		builder.WriteString("- `OPENASE_CONVERSATION_ID`\n")
+	}
+	if strings.TrimSpace(input.APIURL) != "" {
+		builder.WriteString("- `OPENASE_API_URL`\n")
+	}
+	if strings.TrimSpace(input.Token) != "" {
+		builder.WriteString("- `OPENASE_AGENT_TOKEN`\n")
+	}
+	builder.WriteString("- `OPENASE_PRINCIPAL_KIND`\n")
+	if len(normalizedScopeStrings(input.Scopes)) > 0 {
+		builder.WriteString("- `OPENASE_AGENT_SCOPES`\n")
+	}
+
+	if input.PrincipalKind == PrincipalKindProjectConversation && input.TicketID == uuid.Nil {
+		builder.WriteString("\n")
+		builder.WriteString("Optional environment:\n")
+		builder.WriteString("- `OPENASE_TICKET_ID` only when this Project AI session is ticket-focused\n")
+	}
+
+	scopes := normalizedScopeStrings(input.Scopes)
+	builder.WriteString("\n")
+	builder.WriteString("Available scopes:\n")
+	if len(scopes) == 0 {
+		builder.WriteString("- none declared\n")
+	} else {
+		for _, scope := range scopes {
+			builder.WriteString("- `")
+			builder.WriteString(scope)
+			builder.WriteString("`\n")
+		}
+	}
+
+	builder.WriteString("\n")
+	builder.WriteString("Constraints:\n")
+	switch input.PrincipalKind {
+	case PrincipalKindProjectConversation:
+		builder.WriteString("- Treat this as a project-scoped conversation runtime, not a ticket runtime.\n")
+		builder.WriteString("- Do not assume current-ticket comment/update/report-usage endpoints are available.\n")
+		builder.WriteString("- Ticket-runtime-only routes can reject this principal kind even when `OPENASE_TICKET_ID` is present.\n")
+	default:
+		builder.WriteString("- Treat this as the current ticket runtime.\n")
+		builder.WriteString("- Current-ticket routes are limited to the ticket identified by `OPENASE_TICKET_ID`.\n")
+		builder.WriteString("- Project-level writes still depend on the scopes listed above.\n")
+	}
+
+	return strings.TrimSpace(builder.String())
+}
+
+func normalizedScopeStrings(raw []string) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	scopes := make([]string, 0, len(raw))
+	for _, item := range raw {
+		scope := strings.TrimSpace(item)
+		if scope == "" || slices.Contains(scopes, scope) {
+			continue
+		}
+		scopes = append(scopes, scope)
+	}
+	slices.Sort(scopes)
+	return scopes
+}
+
+func (i RuntimeContractInput) String() string {
+	return fmt.Sprintf("principal=%s project=%s ticket=%s conversation=%s scopes=%s", i.PrincipalKind, i.ProjectID, i.TicketID, i.ConversationID, strings.Join(normalizedScopeStrings(i.Scopes), ","))
 }

@@ -157,6 +157,7 @@
         resumingRetry={drawerState.resumingRetry}
         onClose={appStore.closeRightPanel}
         onSaveFields={drawerActions.handleSaveFields}
+        onPriorityChange={drawerActions.handlePriorityChange}
         onSelectRun={(runId) =>
           projectId && ticketId ? drawerState.selectRun(projectId, ticketId, runId) : undefined}
         onResumeRetry={drawerActions.handleResumeRetry}

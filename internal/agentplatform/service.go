@@ -78,6 +78,7 @@ type IssueInput = domain.IssueInput
 type IssuedToken = domain.IssuedToken
 type Claims = domain.Claims
 type ProjectTokenInventory = domain.ProjectTokenInventory
+type RuntimeContractInput = domain.RuntimeContractInput
 
 type Service struct {
 	repo Repository
@@ -264,6 +265,14 @@ func ParseBearerToken(header string) (string, error) {
 
 func BuildEnvironment(apiURL string, token string, projectID uuid.UUID, ticketID uuid.UUID) []string {
 	return domain.BuildEnvironment(apiURL, token, projectID, ticketID)
+}
+
+func BuildRuntimeEnvironment(input RuntimeContractInput) []string {
+	return domain.BuildRuntimeEnvironment(input)
+}
+
+func BuildCapabilityContract(input RuntimeContractInput) string {
+	return domain.BuildCapabilityContract(input)
 }
 
 func DefaultScopes() []string {

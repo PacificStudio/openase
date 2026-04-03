@@ -103,6 +103,10 @@ func TestProjectConversationPromptIncludesRecoverySummaryAndTranscript(t *testin
 
 	if !containsAll(
 		prompt,
+		"## OpenASE Platform Capability Contract",
+		"Current principal: `project_conversation`",
+		"`OPENASE_AGENT_TOKEN`",
+		"`OPENASE_TICKET_ID` only when this Project AI session is ticket-focused",
 		"## Previous conversation",
 		"Rolling summary:\nPrior discussion summary",
 		"user: Continue the ticket split",
@@ -170,6 +174,10 @@ func TestProjectConversationPromptIncludesCurrentFocus(t *testing.T) {
 
 	if !containsAll(
 		prompt,
+		"## OpenASE Platform Capability Contract",
+		"Current principal: `project_conversation`",
+		"`OPENASE_AGENT_TOKEN`",
+		"`OPENASE_TICKET_ID` only when this Project AI session is ticket-focused",
 		"### 当前用户关注区域",
 		"- 类型: workflow",
 		"- 名称: Backend Engineer",
@@ -304,6 +312,9 @@ func TestProjectConversationPromptIncludesTicketCapsule(t *testing.T) {
 
 	if !containsAll(
 		prompt,
+		"## OpenASE Platform Capability Contract",
+		"Current principal: `project_conversation`",
+		"`OPENASE_TICKET_ID`",
 		"## Ticket Capsule",
 		"工单: ASE-470 - Replace Ticket AI",
 		"Route the drawer entry through Project AI.",
@@ -400,6 +411,12 @@ func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *t
 	if !containsEnvironmentPrefix(environment, "OPENASE_TICKET_ID="+ticketID.String()) {
 		t.Fatalf("expected OPENASE_TICKET_ID in environment, got %+v", environment)
 	}
+	if !containsEnvironmentPrefix(environment, "OPENASE_PRINCIPAL_KIND=project_conversation") {
+		t.Fatalf("expected OPENASE_PRINCIPAL_KIND in environment, got %+v", environment)
+	}
+	if !containsEnvironmentPrefix(environment, "OPENASE_AGENT_SCOPES=projects.update,tickets.create,tickets.list") {
+		t.Fatalf("expected OPENASE_AGENT_SCOPES in environment, got %+v", environment)
+	}
 	if platform.lastInput.PrincipalKind != agentplatform.PrincipalKindProjectConversation {
 		t.Fatalf("expected project conversation principal token, got %+v", platform.lastInput)
 	}
@@ -414,6 +431,9 @@ func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *t
 	environment = service.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, nil)
 	if containsEnvironmentPrefix(environment, "OPENASE_TICKET_ID=") {
 		t.Fatalf("did not expect OPENASE_TICKET_ID without ticket focus, got %+v", environment)
+	}
+	if !containsEnvironmentPrefix(environment, "OPENASE_PRINCIPAL_KIND=project_conversation") {
+		t.Fatalf("expected OPENASE_PRINCIPAL_KIND without ticket focus, got %+v", environment)
 	}
 	if platform.lastInput.PrincipalKind != agentplatform.PrincipalKindProjectConversation {
 		t.Fatalf("expected project conversation principal token without ticket focus, got %+v", platform.lastInput)
@@ -2687,6 +2707,12 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 	}
 	if !containsEnvironmentPrefix(environment, "OPENASE_CONVERSATION_ID="+conversation.ID.String()) {
 		t.Fatalf("expected OPENASE_CONVERSATION_ID in environment, got %+v", environment)
+	}
+	if !containsEnvironmentPrefix(environment, "OPENASE_PRINCIPAL_KIND=project_conversation") {
+		t.Fatalf("expected OPENASE_PRINCIPAL_KIND in environment, got %+v", environment)
+	}
+	if !containsEnvironmentPrefix(environment, "OPENASE_AGENT_SCOPES=projects.update,tickets.create,tickets.list") {
+		t.Fatalf("expected OPENASE_AGENT_SCOPES in environment, got %+v", environment)
 	}
 	if platform.lastInput.PrincipalKind != agentplatform.PrincipalKindProjectConversation {
 		t.Fatalf("expected project conversation principal token, got %+v", platform.lastInput)

@@ -1,10 +1,7 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  buildRunSummaryPrompt,
-  defaultRunSummarySectionKeys,
-} from '$lib/features/settings/run-summary-prompt-template'
+import type { Project } from '$lib/api/contracts'
 import { appStore } from '$lib/stores/app.svelte'
 import GeneralSettings from './general-settings.svelte'
 
@@ -35,49 +32,24 @@ describe('General settings', () => {
     vi.clearAllMocks()
   })
 
-  it('saves the generated agent run summary prompt with other project settings', async () => {
-    appStore.currentProject = currentProject()
-    const expectedPrompt = buildRunSummaryPrompt(
-      [...defaultRunSummarySectionKeys, 'files_touched'],
-      'Focus on verification gaps.',
-    )
+  it('displays the effective built-in prompt and preserves default-fallback semantics when unchanged', async () => {
+    const effectivePrompt = 'Built-in run summary prompt currently in effect.'
+    appStore.currentProject = currentProject({
+      effective_agent_run_summary_prompt: effectivePrompt,
+      agent_run_summary_prompt_source: 'builtin',
+    })
     updateProject.mockResolvedValue({
-      project: {
-        ...currentProject(),
-        name: 'OpenASE Runtime',
-        agent_run_summary_prompt: expectedPrompt,
-      },
+      project: currentProject({
+        effective_agent_run_summary_prompt: effectivePrompt,
+        agent_run_summary_prompt_source: 'builtin',
+      }),
     })
 
     const { getByLabelText, getByRole } = render(GeneralSettings)
 
-    await fireEvent.input(getByLabelText('Project name'), {
-      target: { value: 'OpenASE Runtime' },
-    })
-    await fireEvent.click(getByRole('checkbox', { name: 'Customize run summary prompt' }))
-    await fireEvent.click(getByRole('checkbox', { name: /^Files Touched/ }))
-    await fireEvent.input(getByLabelText('Additional instructions'), {
-      target: { value: 'Focus on verification gaps.' },
-    })
-    await fireEvent.click(getByRole('button', { name: 'Apply selected sections' }))
-    await fireEvent.click(getByRole('button', { name: 'Save changes' }))
-
-    await waitFor(() =>
-      expect(updateProject).toHaveBeenCalledWith(currentProject().id, {
-        name: 'OpenASE Runtime',
-        description: '',
-        max_concurrent_agents: 4,
-        agent_run_summary_prompt: expectedPrompt,
-      }),
+    expect((getByLabelText('Run summary prompt') as HTMLTextAreaElement).value).toBe(
+      effectivePrompt,
     )
-    expect(toastStore.success).toHaveBeenCalledWith('Project settings saved.')
-  })
-
-  it('sends blank summary prompts as default-fallback semantics when customization is disabled', async () => {
-    appStore.currentProject = currentProject()
-    updateProject.mockResolvedValue({ project: currentProject() })
-
-    const { getByRole } = render(GeneralSettings)
     await fireEvent.click(getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() =>
@@ -90,20 +62,63 @@ describe('General settings', () => {
     )
   })
 
-  it('saves manually edited custom prompts verbatim', async () => {
+  it('turns the built-in effective prompt into a project override once edited', async () => {
+    const effectivePrompt = 'Built-in run summary prompt currently in effect.'
+    const expectedPrompt =
+      `${effectivePrompt}\n\n## Files Touched\n` +
+      'Summarize the most important files or directories that were changed.'
     appStore.currentProject = currentProject({
-      agent_run_summary_prompt: 'Existing custom summary prompt',
+      effective_agent_run_summary_prompt: effectivePrompt,
+      agent_run_summary_prompt_source: 'builtin',
     })
     updateProject.mockResolvedValue({
       project: currentProject({
-        agent_run_summary_prompt: 'Edited custom summary prompt',
+        agent_run_summary_prompt: expectedPrompt,
+        effective_agent_run_summary_prompt: expectedPrompt,
+        agent_run_summary_prompt_source: 'project_override',
       }),
     })
 
     const { getByLabelText, getByRole } = render(GeneralSettings)
 
-    await fireEvent.input(getByLabelText('Final run summary prompt'), {
-      target: { value: 'Edited custom summary prompt' },
+    expect((getByLabelText('Run summary prompt') as HTMLTextAreaElement).value).toBe(
+      effectivePrompt,
+    )
+    await fireEvent.click(getByRole('button', { name: 'Files Touched' }))
+    await fireEvent.click(getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() =>
+      expect(updateProject).toHaveBeenCalledWith(currentProject().id, {
+        name: 'OpenASE',
+        description: '',
+        max_concurrent_agents: 4,
+        agent_run_summary_prompt: expectedPrompt,
+      }),
+    )
+  })
+
+  it('saves blank summary prompts to reset an existing project override', async () => {
+    const builtinPrompt = 'Built-in run summary prompt currently in effect.'
+    appStore.currentProject = currentProject({
+      agent_run_summary_prompt: 'Existing custom summary prompt',
+      effective_agent_run_summary_prompt: 'Existing custom summary prompt',
+      agent_run_summary_prompt_source: 'project_override',
+    })
+    updateProject.mockResolvedValue({
+      project: currentProject({
+        agent_run_summary_prompt: '',
+        effective_agent_run_summary_prompt: builtinPrompt,
+        agent_run_summary_prompt_source: 'builtin',
+      }),
+    })
+
+    const { getByLabelText, getByRole } = render(GeneralSettings)
+
+    expect((getByLabelText('Run summary prompt') as HTMLTextAreaElement).value).toBe(
+      'Existing custom summary prompt',
+    )
+    await fireEvent.input(getByLabelText('Run summary prompt'), {
+      target: { value: '' },
     })
     await fireEvent.click(getByRole('button', { name: 'Save changes' }))
 
@@ -112,20 +127,20 @@ describe('General settings', () => {
         name: 'OpenASE',
         description: '',
         max_concurrent_agents: 4,
-        agent_run_summary_prompt: 'Edited custom summary prompt',
+        agent_run_summary_prompt: '',
       }),
     )
   })
 })
 
-function currentProject(overrides: Partial<ReturnType<typeof currentProjectBase>> = {}) {
+function currentProject(overrides: Partial<Project> = {}): Project {
   return {
     ...currentProjectBase(),
     ...overrides,
   }
 }
 
-function currentProjectBase() {
+function currentProjectBase(): Project {
   return {
     id: 'project-1',
     organization_id: 'org-1',
@@ -137,5 +152,7 @@ function currentProjectBase() {
     accessible_machine_ids: [],
     max_concurrent_agents: 4,
     agent_run_summary_prompt: '',
+    effective_agent_run_summary_prompt: 'Built-in run summary prompt currently in effect.',
+    agent_run_summary_prompt_source: 'builtin' as const,
   }
 }

@@ -9,8 +9,10 @@
   import Pencil from '@lucide/svelte/icons/pencil'
   import Save from '@lucide/svelte/icons/save'
   import X from '@lucide/svelte/icons/x'
+  import * as Popover from '$ui/popover'
   import { cn } from '$lib/utils'
   import { formatBoardPriorityLabel, PriorityIcon } from '$lib/features/board/public'
+  import type { BoardPriority } from '$lib/features/board/public'
   import type { TicketDetail, TicketStatusOption } from '../types'
 
   let {
@@ -21,6 +23,7 @@
     onClose,
     onToggleAssistant,
     onSaveFields,
+    onPriorityChange,
   }: {
     ticket: TicketDetail
     statuses: TicketStatusOption[]
@@ -29,11 +32,27 @@
     onClose?: () => void
     onToggleAssistant?: () => void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
+    onPriorityChange?: (priority: TicketDetail['priority']) => void
   } = $props()
 
   let copied = $state(false)
   let titleEditOpen = $state(false)
   let titleDraft = $state('')
+  let priorityOpen = $state(false)
+
+  const priorityOptions: Array<{ value: BoardPriority; label: string }> = [
+    { value: 'urgent', label: formatBoardPriorityLabel('urgent') },
+    { value: 'high', label: formatBoardPriorityLabel('high') },
+    { value: 'medium', label: formatBoardPriorityLabel('medium') },
+    { value: 'low', label: formatBoardPriorityLabel('low') },
+  ]
+
+  function handlePrioritySelect(value: TicketDetail['priority']) {
+    priorityOpen = false
+    if (value !== ticket.priority) {
+      onPriorityChange?.(value)
+    }
+  }
 
   const priorityColors: Record<string, string> = {
     '': 'bg-muted text-muted-foreground border-border',
@@ -174,10 +193,33 @@
         {/each}
       </Select.Content>
     </Select.Root>
-    <Badge class={cn('shrink-0 gap-1 px-1.5 py-0 text-[10px]', priorityColors[ticket.priority])}>
-      <PriorityIcon priority={ticket.priority} class="size-3" />
-      {formatBoardPriorityLabel(ticket.priority)}
-    </Badge>
+    <Popover.Root bind:open={priorityOpen}>
+      <Popover.Trigger
+        class={cn(
+          'inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-full border px-1.5 py-0 text-[10px] font-medium transition-opacity hover:opacity-80',
+          priorityColors[ticket.priority],
+        )}
+        disabled={savingFields}
+      >
+        <PriorityIcon priority={ticket.priority} class="size-3" />
+        {formatBoardPriorityLabel(ticket.priority)}
+      </Popover.Trigger>
+      <Popover.Content align="start" class="w-36 gap-0 p-0.5">
+        {#each priorityOptions as option (option.value)}
+          <button
+            type="button"
+            class={cn(
+              'hover:bg-muted flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+              option.value === ticket.priority && 'bg-muted',
+            )}
+            onclick={() => handlePrioritySelect(option.value)}
+          >
+            <PriorityIcon priority={option.value} />
+            <span class="text-foreground">{option.label}</span>
+          </button>
+        {/each}
+      </Popover.Content>
+    </Popover.Root>
     <Badge variant="outline" class="shrink-0 px-1.5 py-0 text-[10px]">
       {typeLabels[ticket.type] ?? ticket.type}
     </Badge>

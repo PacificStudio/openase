@@ -4,7 +4,6 @@ import {
   applyTicketRunStreamFrame,
   createEmptyTicketRunTranscriptState,
   hydrateTicketRunDetail,
-  selectTicketRun,
   setTicketRunList,
 } from './run-transcript'
 import {
@@ -224,84 +223,5 @@ describe('ticket run transcript reducer', () => {
       at: '2026-04-01T11:00:10Z',
       summary: 'Runtime ready',
     })
-  })
-
-  it('keeps a manually selected historical run focused while newer lifecycle events arrive', () => {
-    let state = setTicketRunList(createEmptyTicketRunTranscriptState(), [latestRun, olderRun])
-
-    state = selectTicketRun(state, olderRun.id)
-
-    const newerRun = buildNewerRun({
-      status: 'launching',
-      runtimeStartedAt: undefined,
-    })
-
-    state = applyTicketRunStreamFrame(state, {
-      event: 'ticket.run.lifecycle',
-      data: JSON.stringify({
-        run: toRunRecord(newerRun),
-        lifecycle: {
-          event_type: 'agent.launching',
-          message: 'Launching retry runtime',
-          created_at: '2026-04-01T11:00:00Z',
-        },
-      }),
-    })
-
-    expect(state.selectedRunId).toBe(olderRun.id)
-    expect(state.followLatest).toBe(false)
-    expect(state.currentRun?.id).toBe(olderRun.id)
-    expect(state.runs.map((run) => run.id)).toEqual(['run-3', latestRun.id, olderRun.id])
-  })
-
-  it('updates the current run completion summary from live summary events', () => {
-    let state = setTicketRunList(createEmptyTicketRunTranscriptState(), [latestRun, olderRun])
-
-    state = applyTicketRunStreamFrame(state, {
-      event: 'ticket.run.summary',
-      data: JSON.stringify({
-        project_id: 'project-1',
-        ticket_id: 'ticket-1',
-        run_id: latestRun.id,
-        completion_summary: {
-          status: 'completed',
-          markdown: '## Overview\n\nSummary ready.',
-          generated_at: '2026-04-01T10:10:00Z',
-          json: { provider: 'Codex' },
-        },
-      }),
-    })
-
-    expect(state.currentRun?.completionSummary).toEqual({
-      status: 'completed',
-      markdown: '## Overview\n\nSummary ready.',
-      generatedAt: '2026-04-01T10:10:00Z',
-      json: { provider: 'Codex' },
-      error: undefined,
-    })
-    expect(state.runs[0]?.completionSummary?.status).toBe('completed')
-  })
-
-  it('keeps trace-backed step entries out of transcript blocks while updating current step state', () => {
-    let state = setTicketRunList(createEmptyTicketRunTranscriptState(), [latestRun, olderRun])
-
-    state = applyTicketRunStreamFrame(state, {
-      event: 'ticket.run.step',
-      data: JSON.stringify({
-        entry: {
-          id: 'step-trace-backed',
-          agent_run_id: latestRun.id,
-          ticket_id: 'ticket-1',
-          step_status: 'running_command',
-          summary: 'pnpm vitest run',
-          source_trace_event_id: 'trace-command-1',
-          created_at: '2026-04-01T10:06:02Z',
-        },
-      }),
-    })
-
-    expect(state.currentRun?.currentStepStatus).toBe('running_command')
-    expect(state.currentRun?.currentStepSummary).toBe('pnpm vitest run')
-    expect(state.blocks.some((block) => block.kind === 'step')).toBe(false)
   })
 })

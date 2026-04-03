@@ -6250,11 +6250,17 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "agent_run_summary_prompt_source": {
+                            "type": "string"
+                          },
                           "default_agent_provider_id": {
                             "nullable": true,
                             "type": "string"
                           },
                           "description": {
+                            "type": "string"
+                          },
+                          "effective_agent_run_summary_prompt": {
                             "type": "string"
                           },
                           "id": {
@@ -6430,11 +6436,17 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "agent_run_summary_prompt_source": {
+                          "type": "string"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
                         },
                         "description": {
+                          "type": "string"
+                        },
+                        "effective_agent_run_summary_prompt": {
                           "type": "string"
                         },
                         "id": {
@@ -6646,6 +6658,16 @@
                                   },
                                   "status": {
                                     "type": "string"
+                                  },
+                                  "surpassed_threshold": {
+                                    "format": "double",
+                                    "nullable": true,
+                                    "type": "number"
+                                  },
+                                  "utilization": {
+                                    "format": "double",
+                                    "nullable": true,
+                                    "type": "number"
                                   }
                                 },
                                 "type": "object"
@@ -7199,6 +7221,16 @@
                                 },
                                 "status": {
                                   "type": "string"
+                                },
+                                "surpassed_threshold": {
+                                  "format": "double",
+                                  "nullable": true,
+                                  "type": "number"
+                                },
+                                "utilization": {
+                                  "format": "double",
+                                  "nullable": true,
+                                  "type": "number"
                                 }
                               },
                               "type": "object"
@@ -7976,11 +8008,17 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "agent_run_summary_prompt_source": {
+                          "type": "string"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
                         },
                         "description": {
+                          "type": "string"
+                        },
+                        "effective_agent_run_summary_prompt": {
                           "type": "string"
                         },
                         "id": {
@@ -8121,11 +8159,17 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "agent_run_summary_prompt_source": {
+                          "type": "string"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
                         },
                         "description": {
+                          "type": "string"
+                        },
+                        "effective_agent_run_summary_prompt": {
                           "type": "string"
                         },
                         "id": {
@@ -8304,11 +8348,17 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "agent_run_summary_prompt_source": {
+                          "type": "string"
+                        },
                         "default_agent_provider_id": {
                           "nullable": true,
                           "type": "string"
                         },
                         "description": {
+                          "type": "string"
+                        },
+                        "effective_agent_run_summary_prompt": {
                           "type": "string"
                         },
                         "id": {
@@ -19858,6 +19908,16 @@
                                 },
                                 "status": {
                                   "type": "string"
+                                },
+                                "surpassed_threshold": {
+                                  "format": "double",
+                                  "nullable": true,
+                                  "type": "number"
+                                },
+                                "utilization": {
+                                  "format": "double",
+                                  "nullable": true,
+                                  "type": "number"
                                 }
                               },
                               "type": "object"
@@ -20418,6 +20478,16 @@
                                 },
                                 "status": {
                                   "type": "string"
+                                },
+                                "surpassed_threshold": {
+                                  "format": "double",
+                                  "nullable": true,
+                                  "type": "number"
+                                },
+                                "utilization": {
+                                  "format": "double",
+                                  "nullable": true,
+                                  "type": "number"
                                 }
                               },
                               "type": "object"

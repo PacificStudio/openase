@@ -1,8 +1,8 @@
 package chat
 
 import (
+	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -28,6 +28,10 @@ type geminiRuntimeSession struct {
 type geminiTranscriptEntry struct {
 	role    string
 	content string
+}
+
+type geminiPendingToolCall struct {
+	useEvent geminiCLIToolUseEvent
 }
 
 func NewGeminiRuntime(processManager provider.AgentCLIProcessManager) *GeminiRuntime {
@@ -197,28 +201,145 @@ func (r *GeminiRuntime) collectTurn(
 	stdout := process.Stdout()
 	stderr := process.Stderr()
 
-	var stdoutBytes []byte
 	var stderrBytes []byte
-	var stdoutErr error
 	var stderrErr error
-	var wg sync.WaitGroup
-	wg.Add(2)
+	var stderrWG sync.WaitGroup
+	stderrWG.Add(1)
 	go func() {
-		defer wg.Done()
-		stdoutBytes, stdoutErr = io.ReadAll(stdout)
-	}()
-	go func() {
-		defer wg.Done()
+		defer stderrWG.Done()
 		stderrBytes, stderrErr = io.ReadAll(stderr)
 	}()
 
-	waitErr := process.Wait()
-	wg.Wait()
+	scanner := bufio.NewScanner(stdout)
+	scanner.Buffer(make([]byte, 0, 64*1024), 8*1024*1024)
 
-	if stdoutErr != nil {
-		events <- StreamEvent{Event: "error", Payload: errorPayload{Message: stdoutErr.Error()}}
+	pendingTools := make(map[string]geminiPendingToolCall)
+	var assistantText strings.Builder
+	var providerSessionID string
+	var usageInfo *provider.CLIUsage
+	var resultEvent *geminiCLIResultEvent
+	var resultRaw []byte
+
+	for scanner.Scan() {
+		if ctx.Err() != nil {
+			return
+		}
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		rawLine := []byte(line)
+		protocolEvent, err := parseGeminiCLIStreamEvent(rawLine)
+		if err != nil {
+			events <- StreamEvent{Event: "error", Payload: errorPayload{Message: err.Error()}}
+			return
+		}
+
+		switch typed := protocolEvent.(type) {
+		case geminiCLIInitEvent:
+			providerSessionID = strings.TrimSpace(typed.SessionID)
+			if providerSessionID == "" {
+				continue
+			}
+			events <- StreamEvent{
+				Event: "session_anchor",
+				Payload: RuntimeSessionAnchor{
+					ProviderThreadID:      providerSessionID,
+					ProviderAnchorID:      providerSessionID,
+					ProviderAnchorKind:    "session",
+					ProviderTurnSupported: false,
+				},
+			}
+		case geminiCLIMessageEvent:
+			if strings.TrimSpace(typed.Role) != "assistant" {
+				continue
+			}
+			content := typed.Content
+			if strings.TrimSpace(content) == "" {
+				continue
+			}
+			assistantText.WriteString(content)
+			for _, item := range normalizeAssistantText(content) {
+				events <- item
+			}
+		case geminiCLIToolUseEvent:
+			if strings.TrimSpace(typed.ToolID) != "" {
+				pendingTools[typed.ToolID] = geminiPendingToolCall{useEvent: typed}
+			}
+			events <- newTaskMessageEvent(chatMessageTypeTaskNotification, map[string]any{
+				"provider":  "gemini_cli",
+				"tool":      geminiCLIToolDisplayName(typed.ToolName),
+				"tool_id":   strings.TrimSpace(typed.ToolID),
+				"semantic":  string(deriveGeminiCLIToolSemantic(typed.ToolName)),
+				"arguments": cloneAnyMap(typed.Parameters),
+			})
+		case geminiCLIToolResultEvent:
+			toolUse, ok := pendingTools[strings.TrimSpace(typed.ToolID)]
+			if ok {
+				delete(pendingTools, strings.TrimSpace(typed.ToolID))
+			}
+			messageText := geminiCLIToolResultMessage(typed)
+			semantic := deriveGeminiCLIToolSemantic(toolUse.useEvent.ToolName)
+			if semantic == geminiCLIToolSemanticCommand && strings.TrimSpace(messageText) != "" {
+				events <- newTaskMessageEvent(chatMessageTypeTaskProgress, map[string]any{
+					"provider": "gemini_cli",
+					"stream":   "command",
+					"command":  geminiCLIToolCommand(toolUse.useEvent),
+					"text":     messageText,
+					"snapshot": true,
+					"tool":     geminiCLIToolDisplayName(toolUse.useEvent.ToolName),
+					"tool_id":  strings.TrimSpace(typed.ToolID),
+					"status":   strings.TrimSpace(typed.Status),
+				})
+				continue
+			}
+
+			raw := map[string]any{
+				"provider": "gemini_cli",
+				"tool_id":  strings.TrimSpace(typed.ToolID),
+				"status":   strings.TrimSpace(typed.Status),
+				"message":  messageText,
+			}
+			if ok {
+				raw["tool"] = geminiCLIToolDisplayName(toolUse.useEvent.ToolName)
+				raw["semantic"] = string(semantic)
+				raw["arguments"] = cloneAnyMap(toolUse.useEvent.Parameters)
+			}
+			if typed.Error != nil {
+				raw["error"] = map[string]any{
+					"type":    strings.TrimSpace(typed.Error.Type),
+					"message": strings.TrimSpace(typed.Error.Message),
+				}
+			}
+			events <- newTaskMessageEvent(chatMessageTypeTaskProgress, raw)
+		case geminiCLIErrorEvent:
+			events <- newTaskMessageEvent(chatMessageTypeTaskNotification, map[string]any{
+				"provider": "gemini_cli",
+				"event":    "error",
+				"severity": strings.TrimSpace(typed.Severity),
+				"status":   strings.TrimSpace(typed.Severity),
+				"message":  strings.TrimSpace(typed.Message),
+			})
+		case geminiCLIResultEvent:
+			copied := typed
+			resultEvent = &copied
+			resultRaw = append(resultRaw[:0], rawLine...)
+			parsedUsage, err := provider.ParseGeminiCLIStreamUsage(resultRaw)
+			if err != nil {
+				events <- StreamEvent{Event: "error", Payload: errorPayload{Message: fmt.Sprintf("parse gemini stream usage: %v", err)}}
+				return
+			}
+			usageInfo = parsedUsage
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		events <- StreamEvent{Event: "error", Payload: errorPayload{Message: fmt.Sprintf("read gemini stream-json stdout: %v", err)}}
 		return
 	}
+
+	waitErr := process.Wait()
+	stderrWG.Wait()
+
 	if stderrErr != nil {
 		events <- StreamEvent{Event: "error", Payload: errorPayload{Message: stderrErr.Error()}}
 		return
@@ -234,42 +355,37 @@ func (r *GeminiRuntime) collectTurn(
 		events <- StreamEvent{Event: "error", Payload: errorPayload{Message: messageText}}
 		return
 	}
-
-	var payload struct {
-		Response string         `json:"response"`
-		Error    map[string]any `json:"error"`
-	}
-	if err := json.Unmarshal(stdoutBytes, &payload); err != nil {
-		events <- StreamEvent{Event: "error", Payload: errorPayload{Message: fmt.Sprintf("parse gemini response: %v", err)}}
+	if resultEvent == nil {
+		events <- StreamEvent{Event: "error", Payload: errorPayload{Message: "gemini stream-json ended without a result event"}}
 		return
 	}
-	if len(payload.Error) > 0 {
-		events <- StreamEvent{
-			Event:   "error",
-			Payload: errorPayload{Message: strings.TrimSpace(string(stdoutBytes))},
+	if strings.TrimSpace(resultEvent.Status) != "success" {
+		messageText := ""
+		if resultEvent.Error != nil {
+			messageText = strings.TrimSpace(resultEvent.Error.Message)
+			if messageText == "" {
+				messageText = strings.TrimSpace(resultEvent.Error.Type)
+			}
 		}
-		return
-	}
-
-	usageInfo, err := provider.ParseGeminiCLIUsage(stdoutBytes)
-	if err != nil {
-		events <- StreamEvent{Event: "error", Payload: errorPayload{Message: fmt.Sprintf("parse gemini usage: %v", err)}}
-		return
-	}
-
-	responseText := strings.TrimSpace(payload.Response)
-	if responseText != "" {
-		for _, item := range normalizeAssistantText(responseText) {
-			events <- item
+		if messageText == "" {
+			messageText = strings.TrimSpace(string(stderrBytes))
 		}
+		if messageText == "" {
+			messageText = "gemini chat turn failed"
+		}
+		events <- StreamEvent{Event: "error", Payload: errorPayload{Message: messageText}}
+		return
 	}
 
 	r.mu.Lock()
 	if current := r.sessions[sessionID]; current != nil {
+		responseText := strings.TrimSpace(assistantText.String())
 		current.history = append(current.history,
 			geminiTranscriptEntry{role: "User", content: strings.TrimSpace(message)},
-			geminiTranscriptEntry{role: "Assistant", content: responseText},
 		)
+		if responseText != "" {
+			current.history = append(current.history, geminiTranscriptEntry{role: "Assistant", content: responseText})
+		}
 		current.turnsUsed++
 		state = current
 	}
@@ -296,7 +412,7 @@ func buildGeminiArgs(cliArgs []string, modelName string, prompt string) []string
 	if strings.TrimSpace(modelName) != "" && !hasGeminiModelFlag(args) {
 		args = append(args, "-m", modelName)
 	}
-	args = append(args, "-p", prompt, "--output-format", "json")
+	args = append(args, "-p", prompt, "--output-format", "stream-json")
 	return args
 }
 

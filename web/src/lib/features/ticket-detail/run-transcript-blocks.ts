@@ -71,12 +71,13 @@ export function mergeRunTextBlock(
   blockKind: 'assistant_message' | 'terminal_output',
 ): TicketRunTranscriptState {
   const itemId = readPayloadString(entry.payload, 'item_id') || undefined
-  const blockID = `${blockKind}:${itemId ?? entry.stream}`
+  const isSnapshot = entry.kind.endsWith('_snapshot')
+  const fallbackIdentity = itemId ?? (isSnapshot ? entry.id : entry.stream)
+  const blockID = `${blockKind}:${fallbackIdentity}`
   const existingIndex = state.blocks.findIndex(
     (block) =>
       block.kind === blockKind && block.id === blockID && (itemId ? block.itemId === itemId : true),
   )
-  const isSnapshot = entry.kind.endsWith('_snapshot')
 
   if (existingIndex === -1) {
     return {

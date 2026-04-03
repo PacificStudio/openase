@@ -1,6 +1,7 @@
 import {
   createTicketRepoScope,
   deleteTicketRepoScope,
+  updateTicket,
   updateTicketRepoScope,
 } from '$lib/api/openase'
 import {
@@ -64,6 +65,27 @@ export function createTicketDrawerActions(input: DrawerActionInput) {
         drawerState: input.drawerState,
         draft,
         buildDrawerMutation: input.buildDrawerMutation,
+      })
+    },
+    async handlePriorityChange(priority: TicketDetail['priority']) {
+      const ticket = input.drawerState.ticket
+      const ticketId = getTicketId()
+      if (!ticket || !ticketId || priority === ticket.priority) return
+
+      await runTicketDrawerMutation({
+        ...input.buildDrawerMutation(ticket),
+        start: () => {
+          input.drawerState.savingFields = true
+        },
+        finish: () => {
+          input.drawerState.savingFields = false
+        },
+        optimisticUpdate: (currentTicket) => ({
+          ...currentTicket,
+          priority,
+        }),
+        mutate: () => updateTicket(ticketId, { priority }),
+        successMessage: 'Priority updated.',
       })
     },
     handleAddDependency(draft: DependencyDraft) {

@@ -1172,6 +1172,45 @@ func TestRuntimeLifecycleEventAndStateCoverage(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("recordAgentOutput() error = %v", err)
 	}
+	if err := launcher.recordAgentTaskStatus(ctx, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, entagentprovider.AdapterTypeClaudeCodeCli, &agentTaskStatusEvent{
+		ThreadID:   "claude-session-1",
+		TurnID:     "turn-claude-1",
+		ItemID:     "tool-use-1",
+		StatusType: catalogdomain.AgentTraceKindTaskProgress,
+		Text:       "command",
+		Payload: map[string]any{
+			"stream":   "command",
+			"command":  "pwd",
+			"text":     "/repo\n",
+			"snapshot": true,
+		},
+	}); err != nil {
+		t.Fatalf("recordAgentTaskStatus(task_progress) error = %v", err)
+	}
+	if err := launcher.recordAgentTaskStatus(ctx, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, entagentprovider.AdapterTypeClaudeCodeCli, &agentTaskStatusEvent{
+		ThreadID:   "claude-session-1",
+		StatusType: catalogdomain.AgentTraceKindSessionState,
+		Text:       "Status: active",
+		Payload: map[string]any{
+			"status":       "active",
+			"detail":       "Running",
+			"active_flags": []string{"running"},
+		},
+	}); err != nil {
+		t.Fatalf("recordAgentTaskStatus(session_state) error = %v", err)
+	}
+	if err := launcher.recordAgentTaskStatus(ctx, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, entagentprovider.AdapterTypeClaudeCodeCli, &agentTaskStatusEvent{
+		ThreadID:   "claude-session-1",
+		StatusType: catalogdomain.AgentTraceKindError,
+		Text:       "Claude Code reported an empty error result.",
+		Payload: map[string]any{
+			"type":     "result",
+			"subtype":  "error",
+			"is_error": true,
+		},
+	}); err != nil {
+		t.Fatalf("recordAgentTaskStatus(error) error = %v", err)
+	}
 	if err := launcher.recordAgentApprovalRequest(ctx, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, entagentprovider.AdapterTypeCodexAppServer, &agentApprovalRequest{
 		RequestID: "approval-1",
 		ThreadID:  "thread-1",
@@ -1232,6 +1271,42 @@ func TestRuntimeLifecycleEventAndStateCoverage(t *testing.T) {
 	}
 	if userInputTrace.Stream != "interrupt" || userInputTrace.Payload["request_id"] != "input-1" {
 		t.Fatalf("user input trace = %+v", userInputTrace)
+	}
+	taskProgressTrace, err := client.AgentTraceEvent.Query().
+		Where(
+			entagenttraceevent.AgentRunIDEQ(currentRun.ID),
+			entagenttraceevent.KindEQ(catalogdomain.AgentTraceKindTaskProgress),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("query task progress trace event: %v", err)
+	}
+	if taskProgressTrace.Stream != "task" || taskProgressTrace.Payload["item_id"] != "tool-use-1" || taskProgressTrace.Payload["command"] != "pwd" {
+		t.Fatalf("task progress trace = %+v", taskProgressTrace)
+	}
+	sessionStateTrace, err := client.AgentTraceEvent.Query().
+		Where(
+			entagenttraceevent.AgentRunIDEQ(currentRun.ID),
+			entagenttraceevent.KindEQ(catalogdomain.AgentTraceKindSessionState),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("query session state trace event: %v", err)
+	}
+	if sessionStateTrace.Payload["status"] != "active" || sessionStateTrace.Payload["detail"] != "Running" {
+		t.Fatalf("session state trace = %+v", sessionStateTrace)
+	}
+	errorTrace, err := client.AgentTraceEvent.Query().
+		Where(
+			entagenttraceevent.AgentRunIDEQ(currentRun.ID),
+			entagenttraceevent.KindEQ(catalogdomain.AgentTraceKindError),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("query error trace event: %v", err)
+	}
+	if errorTrace.Payload["subtype"] != "error" || errorTrace.Text != "Claude Code reported an empty error result." {
+		t.Fatalf("error trace = %+v", errorTrace)
 	}
 
 	stepItems, err := client.AgentStepEvent.Query().

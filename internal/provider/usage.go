@@ -20,6 +20,7 @@ const (
 	CLIUsageSourceCodexAppServerThreadUpdate CLIUsageSource = "codex_app_server_thread_update"
 	CLIUsageSourceClaudeCodeResult           CLIUsageSource = "claude_code_result"
 	CLIUsageSourceGeminiJSONStats            CLIUsageSource = "gemini_json_stats"
+	CLIUsageSourceGeminiStreamJSONResult     CLIUsageSource = "gemini_stream_json_result"
 )
 
 type CLIUsage struct {
@@ -83,7 +84,9 @@ type ClaudeCodeUsage struct {
 }
 
 type GeminiCLIUsage struct {
-	Models map[string]GeminiCLIModelUsage `json:"models,omitempty"`
+	DurationMS int64                          `json:"duration_ms,omitempty"`
+	ToolCalls  int64                          `json:"tool_calls,omitempty"`
+	Models     map[string]GeminiCLIModelUsage `json:"models,omitempty"`
 }
 
 type GeminiCLIModelUsage struct {
@@ -128,6 +131,25 @@ type rawGeminiModelUsage struct {
 	API    rawGeminiAPIUsage             `json:"api"`
 	Tokens rawGeminiTokens               `json:"tokens"`
 	Roles  map[string]rawGeminiRoleUsage `json:"roles"`
+}
+
+type rawGeminiStreamModelUsage struct {
+	TotalTokens  int64 `json:"total_tokens"`
+	InputTokens  int64 `json:"input_tokens"`
+	OutputTokens int64 `json:"output_tokens"`
+	Cached       int64 `json:"cached"`
+	Input        int64 `json:"input"`
+}
+
+type rawGeminiStreamStats struct {
+	TotalTokens  int64                                `json:"total_tokens"`
+	InputTokens  int64                                `json:"input_tokens"`
+	OutputTokens int64                                `json:"output_tokens"`
+	Cached       int64                                `json:"cached"`
+	Input        int64                                `json:"input"`
+	DurationMS   int64                                `json:"duration_ms"`
+	ToolCalls    int64                                `json:"tool_calls"`
+	Models       map[string]rawGeminiStreamModelUsage `json:"models"`
 }
 
 func NewCodexCLIUsage(total CLIUsageTokens, delta CLIUsageTokens, modelContextWindow *int64) *CLIUsage {
@@ -260,6 +282,65 @@ func ParseGeminiCLIUsage(raw json.RawMessage) (*CLIUsage, error) {
 			}
 		}
 		usage.Gemini.Models[strings.TrimSpace(modelName)] = detail
+	}
+
+	return usage, nil
+}
+
+func ParseGeminiCLIStreamUsage(raw json.RawMessage) (*CLIUsage, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+
+	var payload struct {
+		Stats rawGeminiStreamStats `json:"stats"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return nil, fmt.Errorf("parse gemini stream usage: %w", err)
+	}
+	if len(payload.Stats.Models) == 0 && payload.Stats.TotalTokens == 0 && payload.Stats.InputTokens == 0 && payload.Stats.OutputTokens == 0 {
+		return nil, nil
+	}
+
+	usage := &CLIUsage{
+		Provider: CLIUsageProviderGemini,
+		Source:   CLIUsageSourceGeminiStreamJSONResult,
+		Raw:      cloneUsageRawJSON(raw),
+		Total: CLIUsageTokens{
+			InputTokens:       payload.Stats.InputTokens,
+			OutputTokens:      payload.Stats.OutputTokens,
+			TotalTokens:       payload.Stats.TotalTokens,
+			CachedInputTokens: payload.Stats.Cached,
+			PromptTokens:      payload.Stats.Input,
+		},
+		Gemini: &GeminiCLIUsage{
+			DurationMS: payload.Stats.DurationMS,
+			ToolCalls:  payload.Stats.ToolCalls,
+			Models:     make(map[string]GeminiCLIModelUsage, len(payload.Stats.Models)),
+		},
+	}
+	if usage.Total.TotalTokens == 0 && (usage.Total.InputTokens > 0 || usage.Total.OutputTokens > 0) {
+		usage.Total.TotalTokens = usage.Total.InputTokens + usage.Total.OutputTokens
+	}
+	if len(payload.Stats.Models) == 1 {
+		for modelName := range payload.Stats.Models {
+			usage.Model = strings.TrimSpace(modelName)
+		}
+	}
+	for modelName, modelUsage := range payload.Stats.Models {
+		tokens := CLIUsageTokens{
+			InputTokens:       modelUsage.InputTokens,
+			OutputTokens:      modelUsage.OutputTokens,
+			TotalTokens:       modelUsage.TotalTokens,
+			CachedInputTokens: modelUsage.Cached,
+			PromptTokens:      modelUsage.Input,
+		}
+		if tokens.TotalTokens == 0 && (tokens.InputTokens > 0 || tokens.OutputTokens > 0) {
+			tokens.TotalTokens = tokens.InputTokens + tokens.OutputTokens
+		}
+		usage.Gemini.Models[strings.TrimSpace(modelName)] = GeminiCLIModelUsage{
+			Tokens: tokens,
+		}
 	}
 
 	return usage, nil

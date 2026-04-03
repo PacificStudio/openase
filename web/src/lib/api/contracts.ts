@@ -91,8 +91,15 @@ export type AgentProviderModelCatalogPayload = Omit<
 type RawProjectPayload = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}/projects', 'get'>>
 type RawProjectCreateResponse = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}/projects', 'post'>>
 type RawProjectResponse = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}', 'get'>>
-export type Project = Omit<ItemOf<RawProjectPayload['projects']>, 'agent_run_summary_prompt'> & {
+export type Project = Omit<
+  ItemOf<RawProjectPayload['projects']>,
+  | 'agent_run_summary_prompt'
+  | 'effective_agent_run_summary_prompt'
+  | 'agent_run_summary_prompt_source'
+> & {
   agent_run_summary_prompt?: string
+  effective_agent_run_summary_prompt?: string
+  agent_run_summary_prompt_source?: 'builtin' | 'project_override'
 }
 export type ProjectPayload = Omit<RawProjectPayload, 'projects'> & {
   projects: Project[]

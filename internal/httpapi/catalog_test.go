@@ -144,6 +144,12 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	if createProjectPayload.Project.AgentRunSummaryPrompt == nil || *createProjectPayload.Project.AgentRunSummaryPrompt != "Summarize ticket runs." {
 		t.Fatalf("expected project summary prompt to round-trip on create, got %+v", createProjectPayload.Project)
 	}
+	if createProjectPayload.Project.EffectiveAgentRunSummaryPrompt != "Summarize ticket runs." {
+		t.Fatalf("expected effective project summary prompt to match override, got %+v", createProjectPayload.Project)
+	}
+	if createProjectPayload.Project.AgentRunSummaryPromptSource != domain.AgentRunSummaryPromptSourceProjectOverride.String() {
+		t.Fatalf("expected project summary prompt source to be project override, got %+v", createProjectPayload.Project)
+	}
 	if len(createProjectPayload.Project.AccessibleMachineIDs) != 1 || createProjectPayload.Project.AccessibleMachineIDs[0] != accessibleMachineID {
 		t.Fatalf("expected project accessible machines to round-trip, got %+v", createProjectPayload.Project)
 	}
@@ -207,6 +213,12 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	}
 	if patchProjectPayload.Project.AgentRunSummaryPrompt != nil {
 		t.Fatalf("expected blank prompt patch to fall back to unset, got %+v", patchProjectPayload.Project)
+	}
+	if patchProjectPayload.Project.EffectiveAgentRunSummaryPrompt != strings.TrimSpace(domain.DefaultAgentRunSummaryPrompt) {
+		t.Fatalf("expected blank prompt patch to surface built-in effective prompt, got %+v", patchProjectPayload.Project)
+	}
+	if patchProjectPayload.Project.AgentRunSummaryPromptSource != domain.AgentRunSummaryPromptSourceBuiltin.String() {
+		t.Fatalf("expected blank prompt patch to use built-in prompt source, got %+v", patchProjectPayload.Project)
 	}
 	if len(patchProjectPayload.Project.AccessibleMachineIDs) != 1 || patchProjectPayload.Project.AccessibleMachineIDs[0] != updatedAccessibleMachineID {
 		t.Fatalf("expected patched project accessible machines to round-trip, got %+v", patchProjectPayload.Project)

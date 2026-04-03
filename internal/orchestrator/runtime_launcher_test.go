@@ -243,6 +243,15 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if strings.Contains(manager.capturedThreadStart().DeveloperInstructions, "dev-01=") {
 		t.Fatalf("expected non-whitelisted machine to stay out of developer instructions, got %q", manager.capturedThreadStart().DeveloperInstructions)
 	}
+	if !strings.Contains(manager.capturedThreadStart().DeveloperInstructions, "## OpenASE Platform Capability Contract") {
+		t.Fatalf("expected platform capability contract in developer instructions, got %q", manager.capturedThreadStart().DeveloperInstructions)
+	}
+	if !strings.Contains(manager.capturedThreadStart().DeveloperInstructions, "Current principal: `ticket_agent`") {
+		t.Fatalf("expected ticket principal contract in developer instructions, got %q", manager.capturedThreadStart().DeveloperInstructions)
+	}
+	if !strings.Contains(manager.capturedThreadStart().DeveloperInstructions, "`OPENASE_AGENT_TOKEN`") {
+		t.Fatalf("expected OPENASE_AGENT_TOKEN in developer contract, got %q", manager.capturedThreadStart().DeveloperInstructions)
+	}
 	if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md")); !os.IsNotExist(err) {
 		t.Fatalf("expected built-in platform skill to stay out of repo authority paths, stat err=%v", err)
 	}
@@ -305,6 +314,12 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	}
 	if !containsEnvironmentPrefix(processEnvironment, "OPENASE_AGENT_TOKEN=ase_agent_") {
 		t.Fatalf("expected OPENASE_AGENT_TOKEN in process environment, got %+v", processEnvironment)
+	}
+	if !containsEnvironmentPrefix(processEnvironment, "OPENASE_PRINCIPAL_KIND=ticket_agent") {
+		t.Fatalf("expected OPENASE_PRINCIPAL_KIND in process environment, got %+v", processEnvironment)
+	}
+	if !containsEnvironmentPrefix(processEnvironment, "OPENASE_AGENT_SCOPES=tickets.create,tickets.list,tickets.report_usage,tickets.update.self") {
+		t.Fatalf("expected OPENASE_AGENT_SCOPES in process environment, got %+v", processEnvironment)
 	}
 	if !containsEnvironmentPrefix(processEnvironment, "OPENASE_REAL_BIN="+currentExecutable) {
 		t.Fatalf("expected OPENASE_REAL_BIN in process environment, got %+v", processEnvironment)

@@ -67,12 +67,14 @@ type agentProviderCLIRateLimitResponse struct {
 }
 
 type agentProviderClaudeCodeRateLimitResponse struct {
-	Status                string  `json:"status,omitempty"`
-	RateLimitType         string  `json:"rate_limit_type,omitempty"`
-	ResetsAt              *string `json:"resets_at,omitempty"`
-	OverageStatus         string  `json:"overage_status,omitempty"`
-	OverageDisabledReason string  `json:"overage_disabled_reason,omitempty"`
-	IsUsingOverage        *bool   `json:"is_using_overage,omitempty"`
+	Status                string   `json:"status,omitempty"`
+	RateLimitType         string   `json:"rate_limit_type,omitempty"`
+	ResetsAt              *string  `json:"resets_at,omitempty"`
+	Utilization           *float64 `json:"utilization,omitempty"`
+	SurpassedThreshold    *float64 `json:"surpassed_threshold,omitempty"`
+	OverageStatus         string   `json:"overage_status,omitempty"`
+	OverageDisabledReason string   `json:"overage_disabled_reason,omitempty"`
+	IsUsingOverage        *bool    `json:"is_using_overage,omitempty"`
 }
 
 type agentProviderCodexRateLimitResponse struct {

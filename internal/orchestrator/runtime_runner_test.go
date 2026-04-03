@@ -590,14 +590,6 @@ func runtimeRunnerReadMessage(decoder *json.Decoder) (runtimeRunnerJSONRPCMessag
 	return message, nil
 }
 
-func mustMarshalJSON(value any) json.RawMessage {
-	data, err := json.Marshal(value)
-	if err != nil {
-		panic(err)
-	}
-	return data
-}
-
 func TestRuntimeRunnerFakeProcessDoesNotHang(t *testing.T) {
 	process := newRuntimeRunnerFakeProcess()
 	process.finish(nil)

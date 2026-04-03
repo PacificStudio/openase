@@ -62,6 +62,7 @@ const (
 	agentEventTypeTokenUsageUpdated agentEventType = "token_usage_updated"
 	agentEventTypeRateLimitUpdated  agentEventType = "rate_limit_updated"
 	agentEventTypeOutputProduced    agentEventType = "output_produced"
+	agentEventTypeTaskStatus        agentEventType = "task_status"
 	agentEventTypeThreadStatus      agentEventType = "thread_status"
 	agentEventTypeTurnDiffUpdated   agentEventType = "turn_diff_updated"
 	agentEventTypeReasoningUpdated  agentEventType = "reasoning_updated"
@@ -79,10 +80,20 @@ type agentEvent struct {
 	RateLimit  *provider.CLIRateLimit
 	ObservedAt *time.Time
 	Output     *agentOutputEvent
+	TaskStatus *agentTaskStatusEvent
 	Thread     *agentThreadStatusEvent
 	Diff       *agentTurnDiffEvent
 	Reasoning  *agentReasoningEvent
 	Turn       *agentTurnEvent
+}
+
+type agentTaskStatusEvent struct {
+	ThreadID   string
+	TurnID     string
+	ItemID     string
+	StatusType string
+	Text       string
+	Payload    map[string]any
 }
 
 type agentToolCallRequest struct {
@@ -185,6 +196,19 @@ func cloneCostUSD(costUSD *float64) *float64 {
 
 	cloned := *costUSD
 	return &cloned
+}
+
+func mustMarshalJSON(value any) json.RawMessage {
+	if value == nil {
+		return nil
+	}
+
+	payload, err := json.Marshal(value)
+	if err != nil {
+		panic(err)
+	}
+
+	return payload
 }
 
 type agentOutputEvent struct {

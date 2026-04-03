@@ -173,12 +173,64 @@ func TestMapCodexAssistantOutputPromotesTrailingDiffAfterStreamingProse(t *testi
 	}
 }
 
+func TestMapCodexAssistantOutputLeavesMalformedDuplicatedTrailingDiffAfterProseAsText(t *testing.T) {
+	items := make(map[string]*codexAssistantItemState)
+
+	prose := "我先按当前 Harness 和项目状态拓扑定位需要改的约束，只改和分支/交付方式直接相关的部分，避免把现有职责边界一起改乱。"
+	malformedTrailingDiff := "{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\": }]}{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\": }]}"
+
+	events := mapCodexAssistantOutput(&codexadapter.OutputEvent{
+		ItemID: "item-1",
+		Stream: "assistant",
+		Text:   prose,
+	}, items)
+	if len(events) != 1 {
+		t.Fatalf("first assistant delta should emit prose text, got %+v", events)
+	}
+
+	firstText, ok := events[0].Payload.(textPayload)
+	if !ok || firstText.Content != prose {
+		t.Fatalf("first payload = %#v, want prose text payload", events[0].Payload)
+	}
+
+	events = mapCodexAssistantOutput(&codexadapter.OutputEvent{
+		ItemID: "item-1",
+		Stream: "assistant",
+		Text:   malformedTrailingDiff,
+	}, items)
+	if len(events) != 1 {
+		t.Fatalf("malformed trailing diff delta should fall back to text, got %+v", events)
+	}
+
+	secondText, ok := events[0].Payload.(textPayload)
+	if !ok {
+		t.Fatalf("second payload = %#v, want text payload", events[0].Payload)
+	}
+	if !strings.Contains(secondText.Content, "\"type\":\"diff\"") || !strings.Contains(secondText.Content, "\"hunks\": }]}") {
+		t.Fatalf("second payload content = %q, want malformed diff text to pass through", secondText.Content)
+	}
+
+	events = mapCodexAssistantOutput(&codexadapter.OutputEvent{
+		ItemID:   "item-1",
+		Stream:   "assistant",
+		Text:     prose + malformedTrailingDiff,
+		Snapshot: true,
+	}, items)
+	if len(events) != 0 {
+		t.Fatalf("malformed duplicated trailing diff snapshot should not promote a structured payload, got %+v", events)
+	}
+}
+
 func TestGeminiRuntimeStartTurnPromotesActionProposalJSON(t *testing.T) {
 	stdin := &trackingWriteCloser{}
 	manager := &fakeAgentCLIProcessManager{
 		process: &fakeAgentCLIProcess{
-			stdin:  stdin,
-			stdout: "{\"response\":\"```json\\n{\\\"type\\\":\\\"action_proposal\\\",\\\"summary\\\":\\\"Create 2 tickets\\\",\\\"actions\\\":[{\\\"method\\\":\\\"POST\\\",\\\"path\\\":\\\"/api/v1/projects/p/tickets\\\"}]}\\n```\"}",
+			stdin: stdin,
+			stdout: strings.Join([]string{
+				`{"type":"init","timestamp":"2026-04-03T06:00:00Z","session_id":"gemini-session-1","model":"gemini-2.5-pro"}`,
+				"{\"type\":\"message\",\"timestamp\":\"2026-04-03T06:00:01Z\",\"role\":\"assistant\",\"content\":\"```json\\n{\\\"type\\\":\\\"action_proposal\\\",\\\"summary\\\":\\\"Create 2 tickets\\\",\\\"actions\\\":[{\\\"method\\\":\\\"POST\\\",\\\"path\\\":\\\"/api/v1/projects/p/tickets\\\"}]}\\n```\",\"delta\":true}",
+				`{"type":"result","timestamp":"2026-04-03T06:00:02Z","status":"success","stats":{"total_tokens":10,"input_tokens":7,"output_tokens":3,"cached":0,"input":7,"duration_ms":120,"tool_calls":0,"models":{"gemini-2.5-pro":{"total_tokens":10,"input_tokens":7,"output_tokens":3,"cached":0,"input":7}}}}`,
+			}, "\n"),
 		},
 	}
 	runtime := NewGeminiRuntime(manager)
@@ -199,21 +251,29 @@ func TestGeminiRuntimeStartTurnPromotesActionProposalJSON(t *testing.T) {
 	}
 
 	events := collectStreamEvents(stream.Events)
-	if len(events) != 2 {
-		t.Fatalf("stream event count = %d, want 2: %+v", len(events), events)
+	if len(events) != 3 {
+		t.Fatalf("stream event count = %d, want 3: %+v", len(events), events)
 	}
 
-	payload, ok := events[0].Payload.(map[string]any)
-	if events[0].Event != "message" || !ok {
-		t.Fatalf("first event = %+v, want normalized message", events[0])
+	anchor, ok := events[0].Payload.(RuntimeSessionAnchor)
+	if events[0].Event != "session_anchor" || !ok {
+		t.Fatalf("first event = %+v, want session anchor", events[0])
+	}
+	if anchor.ProviderThreadID != "gemini-session-1" || anchor.ProviderAnchorKind != "session" {
+		t.Fatalf("unexpected session anchor: %#v", anchor)
+	}
+
+	payload, ok := events[1].Payload.(map[string]any)
+	if events[1].Event != "message" || !ok {
+		t.Fatalf("second event = %+v, want normalized message", events[1])
 	}
 	if payload["type"] != chatMessageTypeActionProposal || payload["summary"] != "Create 2 tickets" {
 		t.Fatalf("unexpected action proposal payload: %#v", payload)
 	}
 
-	done, ok := events[1].Payload.(donePayload)
-	if events[1].Event != "done" || !ok {
-		t.Fatalf("second event = %+v, want done payload", events[1])
+	done, ok := events[2].Payload.(donePayload)
+	if events[2].Event != "done" || !ok {
+		t.Fatalf("third event = %+v, want done payload", events[2])
 	}
 	if done.SessionID != "session-gemini-1" || done.TurnsUsed != 1 || done.TurnsRemaining == nil || *done.TurnsRemaining != DefaultMaxTurns-1 {
 		t.Fatalf("unexpected done payload: %#v", done)
@@ -225,8 +285,8 @@ func TestGeminiRuntimeStartTurnPromotesActionProposalJSON(t *testing.T) {
 	if manager.startSpec.Command != provider.MustParseAgentCLICommand("gemini") {
 		t.Fatalf("process command = %q, want gemini", manager.startSpec.Command)
 	}
-	if joined := strings.Join(manager.startSpec.Args, " "); !strings.Contains(joined, "--output-format json") {
-		t.Fatalf("process args = %v, want json output mode", manager.startSpec.Args)
+	if joined := strings.Join(manager.startSpec.Args, " "); !strings.Contains(joined, "--output-format stream-json") {
+		t.Fatalf("process args = %v, want stream-json output mode", manager.startSpec.Args)
 	}
 	if !stdin.closed {
 		t.Fatal("expected gemini stdin to be closed after start")
@@ -237,8 +297,12 @@ func TestGeminiRuntimeStartTurnPromotesDiffJSON(t *testing.T) {
 	stdin := &trackingWriteCloser{}
 	manager := &fakeAgentCLIProcessManager{
 		process: &fakeAgentCLIProcess{
-			stdin:  stdin,
-			stdout: "{\"response\":\"```json\\n{\\\"type\\\":\\\"diff\\\",\\\"file\\\":\\\"harness content\\\",\\\"hunks\\\":[{\\\"old_start\\\":1,\\\"old_lines\\\":1,\\\"new_start\\\":1,\\\"new_lines\\\":2,\\\"lines\\\":[{\\\"op\\\":\\\"context\\\",\\\"text\\\":\\\"---\\\"},{\\\"op\\\":\\\"add\\\",\\\"text\\\":\\\"new line\\\"}]}]}\\n```\"}",
+			stdin: stdin,
+			stdout: strings.Join([]string{
+				`{"type":"init","timestamp":"2026-04-03T06:00:00Z","session_id":"gemini-session-diff","model":"gemini-2.5-pro"}`,
+				"{\"type\":\"message\",\"timestamp\":\"2026-04-03T06:00:01Z\",\"role\":\"assistant\",\"content\":\"```json\\n{\\\"type\\\":\\\"diff\\\",\\\"file\\\":\\\"harness content\\\",\\\"hunks\\\":[{\\\"old_start\\\":1,\\\"old_lines\\\":1,\\\"new_start\\\":1,\\\"new_lines\\\":2,\\\"lines\\\":[{\\\"op\\\":\\\"context\\\",\\\"text\\\":\\\"---\\\"},{\\\"op\\\":\\\"add\\\",\\\"text\\\":\\\"new line\\\"}]}]}\\n```\",\"delta\":true}",
+				`{"type":"result","timestamp":"2026-04-03T06:00:02Z","status":"success","stats":{"total_tokens":12,"input_tokens":8,"output_tokens":4,"cached":0,"input":8,"duration_ms":120,"tool_calls":0,"models":{"gemini-2.5-pro":{"total_tokens":12,"input_tokens":8,"output_tokens":4,"cached":0,"input":8}}}}`,
+			}, "\n"),
 		},
 	}
 	runtime := NewGeminiRuntime(manager)
@@ -259,13 +323,13 @@ func TestGeminiRuntimeStartTurnPromotesDiffJSON(t *testing.T) {
 	}
 
 	events := collectStreamEvents(stream.Events)
-	if len(events) != 2 {
-		t.Fatalf("stream event count = %d, want 2: %+v", len(events), events)
+	if len(events) != 3 {
+		t.Fatalf("stream event count = %d, want 3: %+v", len(events), events)
 	}
 
-	payload, ok := events[0].Payload.(diffPayload)
-	if events[0].Event != "message" || !ok {
-		t.Fatalf("first event = %+v, want normalized diff message", events[0])
+	payload, ok := events[1].Payload.(diffPayload)
+	if events[1].Event != "message" || !ok {
+		t.Fatalf("second event = %+v, want normalized diff message", events[1])
 	}
 	if payload.Type != chatMessageTypeDiff || payload.File != "harness content" {
 		t.Fatalf("unexpected diff payload: %#v", payload)
@@ -507,8 +571,9 @@ func TestClaudeRuntimeRespondInterruptResumesSessionAndStreamsContinuation(t *te
 func TestGeminiRuntimeCloseSessionStopsProcess(t *testing.T) {
 	process := &fakeAgentCLIProcess{
 		stdin:         &trackingWriteCloser{},
-		stdout:        "{\"response\":\"\"}",
+		stdout:        `{"type":"init","timestamp":"2026-04-03T06:00:00Z","session_id":"gemini-session-stop","model":"gemini-2.5-pro"}`,
 		waitUntilStop: true,
+		waitStarted:   make(chan struct{}),
 		stopped:       make(chan struct{}),
 		stopCalled:    make(chan struct{}),
 	}
@@ -526,6 +591,11 @@ func TestGeminiRuntimeCloseSessionStopsProcess(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("StartTurn() error = %v", err)
+	}
+	select {
+	case <-process.waitStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected Gemini runtime to enter process.Wait before CloseSession")
 	}
 
 	if closed := runtime.CloseSession(SessionID("session-gemini-stop")); !closed {
@@ -554,17 +624,11 @@ func TestGeminiRuntimeDoneIncludesProviderPricedUsageCost(t *testing.T) {
 	manager := &fakeAgentCLIProcessManager{
 		process: &fakeAgentCLIProcess{
 			stdin: stdin,
-			stdout: `{
-				"response":"OK",
-				"stats":{
-					"models":{
-						"gemini-2.5-pro":{
-							"api":{"totalRequests":1,"totalErrors":0,"totalLatencyMs":900},
-							"tokens":{"input":120,"prompt":120,"candidates":35,"total":155,"cached":0,"thoughts":0,"tool":0}
-						}
-					}
-				}
-			}`,
+			stdout: strings.Join([]string{
+				`{"type":"init","timestamp":"2026-04-03T06:00:00Z","session_id":"gemini-session-cost","model":"gemini-2.5-pro"}`,
+				`{"type":"message","timestamp":"2026-04-03T06:00:01Z","role":"assistant","content":"OK","delta":true}`,
+				`{"type":"result","timestamp":"2026-04-03T06:00:02Z","status":"success","stats":{"total_tokens":155,"input_tokens":120,"output_tokens":35,"cached":0,"input":120,"duration_ms":900,"tool_calls":0,"models":{"gemini-2.5-pro":{"total_tokens":155,"input_tokens":120,"output_tokens":35,"cached":0,"input":120}}}}`,
+			}, "\n"),
 		},
 	}
 	runtime := NewGeminiRuntime(manager)
@@ -587,16 +651,125 @@ func TestGeminiRuntimeDoneIncludesProviderPricedUsageCost(t *testing.T) {
 	}
 
 	events := collectStreamEvents(stream.Events)
-	if len(events) != 2 {
-		t.Fatalf("stream event count = %d, want 2: %+v", len(events), events)
+	if len(events) != 3 {
+		t.Fatalf("stream event count = %d, want 3: %+v", len(events), events)
 	}
 
-	done, ok := events[1].Payload.(donePayload)
-	if events[1].Event != "done" || !ok {
-		t.Fatalf("last event = %+v, want done payload", events[1])
+	done, ok := events[2].Payload.(donePayload)
+	if events[2].Event != "done" || !ok {
+		t.Fatalf("last event = %+v, want done payload", events[2])
 	}
 	if done.CostUSD == nil || *done.CostUSD != 0.19 {
 		t.Fatalf("done cost = %#v, want 0.19", done.CostUSD)
+	}
+}
+
+func TestGeminiRuntimeStartTurnStreamsToolUseAndCommandOutput(t *testing.T) {
+	stdin := &trackingWriteCloser{}
+	manager := &fakeAgentCLIProcessManager{
+		process: &fakeAgentCLIProcess{
+			stdin: stdin,
+			stdout: strings.Join([]string{
+				`{"type":"init","timestamp":"2026-04-03T06:00:00Z","session_id":"gemini-session-tool","model":"gemini-2.5-pro"}`,
+				`{"type":"tool_use","timestamp":"2026-04-03T06:00:01Z","tool_name":"run_shell_command","tool_id":"tool-1","parameters":{"command":"pwd","dir_path":"/tmp/openase"}}`,
+				`{"type":"tool_result","timestamp":"2026-04-03T06:00:02Z","tool_id":"tool-1","status":"success","output":"pwd\n/tmp/openase"}`,
+				`{"type":"error","timestamp":"2026-04-03T06:00:03Z","severity":"warning","message":"Near turn budget"}`,
+				`{"type":"message","timestamp":"2026-04-03T06:00:04Z","role":"assistant","content":"Done.","delta":true}`,
+				`{"type":"result","timestamp":"2026-04-03T06:00:05Z","status":"success","stats":{"total_tokens":10,"input_tokens":7,"output_tokens":3,"cached":0,"input":7,"duration_ms":120,"tool_calls":1,"models":{"gemini-2.5-pro":{"total_tokens":10,"input_tokens":7,"output_tokens":3,"cached":0,"input":7}}}}`,
+			}, "\n"),
+		},
+	}
+	runtime := NewGeminiRuntime(manager)
+
+	stream, err := runtime.StartTurn(context.Background(), RuntimeTurnInput{
+		SessionID:        SessionID("session-gemini-tool"),
+		Message:          "Tell me the working directory",
+		SystemPrompt:     "You are OpenASE.",
+		MaxTurns:         DefaultMaxTurns,
+		WorkingDirectory: provider.MustParseAbsolutePath("/tmp/openase"),
+		Provider: catalogdomain.AgentProvider{
+			AdapterType: catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+			CliCommand:  "gemini",
+		},
+	})
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+
+	events := collectStreamEvents(stream.Events)
+	if len(events) != 6 {
+		t.Fatalf("stream event count = %d, want 6: %+v", len(events), events)
+	}
+
+	toolCall, ok := events[1].Payload.(map[string]any)
+	if events[1].Event != "message" || !ok || toolCall["type"] != chatMessageTypeTaskNotification {
+		t.Fatalf("second event = %+v, want task notification tool call", events[1])
+	}
+	toolCallRaw, _ := toolCall["raw"].(map[string]any)
+	if toolCallRaw["tool"] != "run_shell_command" || toolCallRaw["tool_id"] != "tool-1" {
+		t.Fatalf("unexpected tool call raw payload: %#v", toolCallRaw)
+	}
+
+	commandOutput, ok := events[2].Payload.(map[string]any)
+	if events[2].Event != "message" || !ok || commandOutput["type"] != chatMessageTypeTaskProgress {
+		t.Fatalf("third event = %+v, want command task progress", events[2])
+	}
+	commandOutputRaw, _ := commandOutput["raw"].(map[string]any)
+	if commandOutputRaw["stream"] != "command" || commandOutputRaw["command"] != "pwd" {
+		t.Fatalf("unexpected command output raw payload: %#v", commandOutputRaw)
+	}
+	if commandOutputRaw["text"] != "pwd\n/tmp/openase" {
+		t.Fatalf("unexpected command output text: %#v", commandOutputRaw)
+	}
+
+	warningEvent, ok := events[3].Payload.(map[string]any)
+	if events[3].Event != "message" || !ok || warningEvent["type"] != chatMessageTypeTaskNotification {
+		t.Fatalf("fourth event = %+v, want warning task notification", events[3])
+	}
+	warningRaw, _ := warningEvent["raw"].(map[string]any)
+	if warningRaw["message"] != "Near turn budget" || warningRaw["severity"] != "warning" {
+		t.Fatalf("unexpected warning payload: %#v", warningRaw)
+	}
+}
+
+func TestGeminiRuntimeStartTurnEmitsResultError(t *testing.T) {
+	manager := &fakeAgentCLIProcessManager{
+		process: &fakeAgentCLIProcess{
+			stdin: &trackingWriteCloser{},
+			stdout: strings.Join([]string{
+				`{"type":"init","timestamp":"2026-04-03T06:00:00Z","session_id":"gemini-session-error","model":"gemini-2.5-pro"}`,
+				`{"type":"result","timestamp":"2026-04-03T06:00:01Z","status":"error","error":{"type":"TURN_LIMIT","message":"Maximum session turns exceeded"}}`,
+			}, "\n"),
+		},
+	}
+	runtime := NewGeminiRuntime(manager)
+
+	stream, err := runtime.StartTurn(context.Background(), RuntimeTurnInput{
+		SessionID:    SessionID("session-gemini-error"),
+		Message:      "Fail this turn",
+		SystemPrompt: "You are OpenASE.",
+		Provider: catalogdomain.AgentProvider{
+			AdapterType: catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+			CliCommand:  "gemini",
+		},
+	})
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+
+	events := collectStreamEvents(stream.Events)
+	if len(events) != 2 {
+		t.Fatalf("stream event count = %d, want 2: %+v", len(events), events)
+	}
+	if events[1].Event != "error" {
+		t.Fatalf("second event = %+v, want error", events[1])
+	}
+	payload, ok := events[1].Payload.(errorPayload)
+	if !ok {
+		t.Fatalf("error payload = %#v, want errorPayload", events[1].Payload)
+	}
+	if payload.Message != "Maximum session turns exceeded" {
+		t.Fatalf("error message = %q, want Maximum session turns exceeded", payload.Message)
 	}
 }
 
@@ -616,6 +789,7 @@ type fakeAgentCLIProcess struct {
 	stderr        string
 	waitErr       error
 	waitUntilStop bool
+	waitStarted   chan struct{}
 	stopped       chan struct{}
 	stopCalled    chan struct{}
 }
@@ -639,6 +813,13 @@ func (p *fakeAgentCLIProcess) Stderr() io.ReadCloser {
 
 func (p *fakeAgentCLIProcess) Wait() error {
 	if p.waitUntilStop {
+		if p.waitStarted != nil {
+			select {
+			case <-p.waitStarted:
+			default:
+				close(p.waitStarted)
+			}
+		}
 		if p.stopped == nil {
 			p.stopped = make(chan struct{})
 		}

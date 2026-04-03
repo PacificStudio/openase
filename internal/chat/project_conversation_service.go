@@ -1407,6 +1407,13 @@ func (s *ProjectConversationService) buildProjectConversationPrompt(
 
 	var builder strings.Builder
 	builder.WriteString(basePrompt)
+	platformContract := agentplatform.BuildCapabilityContract(
+		s.projectConversationPlatformContractInput(conversation, project, focus, "<runtime-injected>", projectConversationPromptScopes()),
+	)
+	if strings.TrimSpace(platformContract) != "" {
+		builder.WriteString("\n\n")
+		builder.WriteString(platformContract)
+	}
 	if ticketFocus := focusTicket(focus); ticketFocus != nil {
 		ticketCapsule, capsuleErr := s.renderProjectConversationTicketCapsule(ctx, project, ticketFocus)
 		if capsuleErr != nil {
@@ -1442,6 +1449,35 @@ func (s *ProjectConversationService) buildProjectConversationPrompt(
 	}
 	builder.WriteString("\nContinue from this conversation state without restating the entire history.")
 	return builder.String(), nil
+}
+
+func (s *ProjectConversationService) projectConversationPlatformContractInput(
+	conversation domain.Conversation,
+	project catalogdomain.Project,
+	focus *ProjectConversationFocus,
+	token string,
+	scopes []string,
+) agentplatform.RuntimeContractInput {
+	input := agentplatform.RuntimeContractInput{
+		PrincipalKind:  agentplatform.PrincipalKindProjectConversation,
+		ProjectID:      project.ID,
+		ConversationID: conversation.ID,
+		APIURL:         s.platformAPIURL,
+		Token:          token,
+		Scopes:         scopes,
+	}
+	if ticketFocus := focusTicket(focus); ticketFocus != nil {
+		input.TicketID = ticketFocus.ID
+	}
+	return input
+}
+
+func projectConversationPromptScopes() []string {
+	scopes := append(
+		agentplatform.DefaultScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation),
+		agentplatform.PrivilegedScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation)...,
+	)
+	return slices.Compact(scopes)
 }
 
 func (s *ProjectConversationService) broadcast(conversationID uuid.UUID, event StreamEvent) {
@@ -1592,16 +1628,14 @@ func (s *ProjectConversationService) buildConversationRuntimeEnvironment(
 		s.logger.Warn("issue project conversation platform token failed", "conversation_id", conversation.ID, "error", err)
 		return environment
 	}
-
-	environment = append(environment,
-		"OPENASE_API_URL="+s.platformAPIURL,
-		"OPENASE_AGENT_TOKEN="+issued.Token,
-		"OPENASE_PROJECT_ID="+project.ID.String(),
-		"OPENASE_CONVERSATION_ID="+conversation.ID.String(),
-	)
-	if ticketFocus := focusTicket(focus); ticketFocus != nil {
-		environment = append(environment, "OPENASE_TICKET_ID="+ticketFocus.ID.String())
+	contractScopes := issued.Scopes
+	if len(contractScopes) == 0 {
+		contractScopes = scopes
 	}
+
+	environment = append(environment, agentplatform.BuildRuntimeEnvironment(
+		s.projectConversationPlatformContractInput(conversation, project, focus, issued.Token, contractScopes),
+	)...)
 	return environment
 }
 

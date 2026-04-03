@@ -17,6 +17,8 @@ func TestParseClaudeCodeRateLimit(t *testing.T) {
 		"status":"allowed",
 		"resetsAt":1775037600,
 		"rateLimitType":"five_hour",
+		"utilization":0.93,
+		"surpassedThreshold":0.75,
 		"overageStatus":"rejected",
 		"overageDisabledReason":"org_level_disabled",
 		"isUsingOverage":false
@@ -38,6 +40,12 @@ func TestParseClaudeCodeRateLimit(t *testing.T) {
 	}
 	if rateLimit.ClaudeCode.ResetsAt == nil || !rateLimit.ClaudeCode.ResetsAt.Equal(time.Unix(1775037600, 0).UTC()) {
 		t.Fatalf("resets_at = %+v", rateLimit.ClaudeCode.ResetsAt)
+	}
+	if rateLimit.ClaudeCode.Utilization == nil || *rateLimit.ClaudeCode.Utilization != 0.93 {
+		t.Fatalf("utilization = %+v", rateLimit.ClaudeCode.Utilization)
+	}
+	if rateLimit.ClaudeCode.SurpassedThreshold == nil || *rateLimit.ClaudeCode.SurpassedThreshold != 0.75 {
+		t.Fatalf("surpassed_threshold = %+v", rateLimit.ClaudeCode.SurpassedThreshold)
 	}
 	if rateLimit.ClaudeCode.IsUsingOverage == nil || *rateLimit.ClaudeCode.IsUsingOverage {
 		t.Fatalf("is_using_overage = %+v", rateLimit.ClaudeCode.IsUsingOverage)

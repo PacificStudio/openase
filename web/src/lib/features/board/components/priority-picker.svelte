@@ -34,22 +34,16 @@
     onPriorityChange?.(ticket.id, priority)
     open = false
   }
-
-  const currentLabel = $derived(
-    options.find((option) => option.value === ticket.priority)?.label ??
-      formatBoardPriorityLabel(''),
-  )
 </script>
 
 <Popover.Root bind:open>
   <Popover.Trigger
-    class="hover:bg-muted inline-flex shrink-0 items-center gap-1.5 rounded px-1.5 py-0.5 transition-colors"
+    class="hover:bg-muted inline-flex shrink-0 items-center justify-center rounded p-0.5 transition-colors"
     {disabled}
     onclick={(e: MouseEvent) => e.stopPropagation()}
     aria-label="Change priority"
   >
     <PriorityIcon priority={ticket.priority} />
-    <span class="text-muted-foreground text-xs">{currentLabel}</span>
   </Popover.Trigger>
   <Popover.Content
     align="start"
