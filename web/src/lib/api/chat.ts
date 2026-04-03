@@ -52,6 +52,18 @@ export type ChatActionProposalPayload = {
   actions: ChatActionProposalAction[]
 }
 
+export type ChatPlatformCommandProposalCommand = {
+  command: string
+  args: Record<string, unknown>
+}
+
+export type ChatPlatformCommandProposalPayload = {
+  type: 'platform_command_proposal'
+  entryId?: string
+  summary?: string
+  commands: ChatPlatformCommandProposalCommand[]
+}
+
 export type ChatDiffLineOp = 'context' | 'add' | 'remove'
 
 export type ChatDiffLine = {
@@ -95,6 +107,7 @@ export type ChatMessagePayload =
   | ChatDiffPayload
   | ChatBundleDiffPayload
   | ChatActionProposalPayload
+  | ChatPlatformCommandProposalPayload
   | ChatTaskPayload
 
 export type ChatActionMethod = 'POST' | 'PATCH' | 'PUT' | 'DELETE'
@@ -850,6 +863,15 @@ function parseMessagePayload(payload: unknown): ChatMessagePayload {
     }
   }
 
+  if (type === 'platform_command_proposal') {
+    return {
+      type,
+      entryId: readOptionalString(object, 'entry_id'),
+      summary: readOptionalString(object, 'summary'),
+      commands: readPlatformCommandProposalCommands(object),
+    }
+  }
+
   if (type === 'diff') {
     return {
       type,
@@ -1047,6 +1069,33 @@ function readActionProposalActions(object: Record<string, unknown>): ChatActionP
   }
 
   return actions.map((action, index) => parseActionProposalAction(action, index))
+}
+
+function readPlatformCommandProposalCommands(
+  object: Record<string, unknown>,
+): ChatPlatformCommandProposalCommand[] {
+  const commands = object.commands
+  if (!Array.isArray(commands)) {
+    throw new Error('chat stream platform_command_proposal commands must be an array')
+  }
+
+  return commands.map((command, index) => parsePlatformCommandProposalCommand(command, index))
+}
+
+function parsePlatformCommandProposalCommand(
+  value: unknown,
+  index: number,
+): ChatPlatformCommandProposalCommand {
+  const object = parseRequiredObject(value)
+  const args = object.args
+  if (args == null || typeof args !== 'object' || Array.isArray(args)) {
+    throw new Error(`chat stream platform_command_proposal command ${index} args must be an object`)
+  }
+
+  return {
+    command: readRequiredString(object, 'command'),
+    args: args as Record<string, unknown>,
+  }
 }
 
 function parseActionProposalAction(value: unknown, index: number): ChatActionProposalAction {

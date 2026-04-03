@@ -4,6 +4,7 @@ import {
   createProjectConversationDiffEntriesFromUnifiedDiff,
   isActionProposalPayload,
   isDiffPayload,
+  isPlatformCommandProposalPayload,
   isTextPayload,
   mapProjectConversationTaskEntry,
 } from './project-conversation-transcript-state'
@@ -67,7 +68,7 @@ export function handleProjectConversationStreamEvent(
     }
 
     handlers.finalizeAssistantEntry()
-    if (isActionProposalPayload(payload)) {
+    if (isActionProposalPayload(payload) || isPlatformCommandProposalPayload(payload)) {
       handlers.appendActionProposal(payload.entryId, payload)
       return
     }

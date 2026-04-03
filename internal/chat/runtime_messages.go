@@ -12,6 +12,7 @@ const (
 	chatMessageTypeDiff             = "diff"
 	chatMessageTypeBundleDiff       = "bundle_diff"
 	chatMessageTypeActionProposal   = "action_proposal"
+	chatMessageTypePlatformCommand  = "platform_command_proposal"
 	chatMessageTypeTaskStarted      = "task_started"
 	chatMessageTypeTaskProgress     = "task_progress"
 	chatMessageTypeTaskNotification = "task_notification"
@@ -126,6 +127,25 @@ func parseActionProposalText(text string) (map[string]any, bool) {
 	return payload, true
 }
 
+func parsePlatformCommandProposalText(text string) (map[string]any, bool) {
+	trimmed := extractJSONObjectCandidate(text)
+	if trimmed == "" {
+		return nil, false
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(trimmed), &payload); err != nil {
+		return nil, false
+	}
+	if strings.TrimSpace(stringValue(payload["type"])) != chatMessageTypePlatformCommand {
+		return nil, false
+	}
+	if _, ok := payload["commands"]; !ok {
+		return nil, false
+	}
+	return payload, true
+}
+
 func parseDiffPayloadText(text string) (diffPayload, bool) {
 	trimmed := extractJSONObjectCandidate(text)
 	if trimmed == "" {
@@ -216,6 +236,9 @@ func extractStructuredAssistantPayload(text string) (string, any, bool) {
 }
 
 func parseStructuredPayloadCandidate(text string) (any, bool) {
+	if proposal, ok := parsePlatformCommandProposalText(text); ok {
+		return proposal, true
+	}
 	if proposal, ok := parseActionProposalText(text); ok {
 		return proposal, true
 	}

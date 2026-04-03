@@ -1345,7 +1345,7 @@ func (s *ProjectConversationService) handleConversationMessage(
 	case map[string]any:
 		kind := domain.EntryKindSystem
 		switch typed["type"] {
-		case chatMessageTypeActionProposal:
+		case chatMessageTypeActionProposal, chatMessageTypePlatformCommand:
 			kind = domain.EntryKindActionProposal
 		case chatMessageTypeDiff:
 			kind = domain.EntryKindDiff
