@@ -171,14 +171,6 @@ func (l *RuntimeLauncher) prepareRunCompletionSummaryBestEffort(ctx context.Cont
 	}
 }
 
-func (l *RuntimeLauncher) prepareRunCompletionSummary(ctx context.Context, runID uuid.UUID) error {
-	coordinator := l.ensureCompletionSummaryCoordinator()
-	if coordinator == nil {
-		return nil
-	}
-	return coordinator.prepareRunCompletionSummary(ctx, runID)
-}
-
 func (l *RuntimeLauncher) scheduleRunCompletionSummary(runID uuid.UUID) {
 	if coordinator := l.ensureCompletionSummaryCoordinator(); coordinator != nil {
 		coordinator.scheduleRunCompletionSummary(runID)
@@ -215,12 +207,4 @@ func (l *RuntimeLauncher) cleanupRunWorkspacesBestEffort(ctx context.Context, ru
 	if provisioner := l.ensureWorkspaceProvisioner(); provisioner != nil {
 		provisioner.cleanupRunWorkspacesBestEffort(ctx, runID, reason)
 	}
-}
-
-func (l *RuntimeLauncher) cleanupRunWorkspaces(ctx context.Context, runID uuid.UUID) error {
-	provisioner := l.ensureWorkspaceProvisioner()
-	if provisioner == nil {
-		return nil
-	}
-	return provisioner.cleanupRunWorkspaces(ctx, runID)
 }
