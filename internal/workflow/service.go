@@ -83,10 +83,10 @@ func projectHarnessContent(content string, skillNames []string) (string, error) 
 }
 
 func (s *Service) currentWorkflowVersion(ctx context.Context, workflowID uuid.UUID) (domain.WorkflowVersionRecord, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.workflowVersions == nil {
 		return domain.WorkflowVersionRecord{}, ErrUnavailable
 	}
-	return s.repo.CurrentWorkflowVersion(ctx, workflowID)
+	return s.workflowVersions.CurrentWorkflowVersion(ctx, workflowID)
 }
 
 func (s *Service) projectedWorkflowHarness(ctx context.Context, workflowItem Workflow) (string, error) {
@@ -102,17 +102,17 @@ func (s *Service) projectedWorkflowHarness(ctx context.Context, workflowItem Wor
 }
 
 func (s *Service) ListWorkflowVersions(ctx context.Context, workflowID uuid.UUID) ([]VersionSummary, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.workflowVersions == nil {
 		return nil, ErrUnavailable
 	}
-	return s.repo.ListWorkflowVersions(ctx, workflowID)
+	return s.workflowVersions.ListWorkflowVersions(ctx, workflowID)
 }
 
 func (s *Service) listWorkflowBoundSkillNames(ctx context.Context, workflowID uuid.UUID, enabledOnly bool) ([]string, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.workflowSkills == nil {
 		return nil, ErrUnavailable
 	}
-	return s.repo.ListWorkflowBoundSkillNames(ctx, workflowID, enabledOnly)
+	return s.workflowSkills.ListWorkflowBoundSkillNames(ctx, workflowID, enabledOnly)
 }
 
 func skillDescriptionFromContent(content string) (string, error) {
@@ -152,7 +152,7 @@ func (s *Service) builtinBundles() ([]domain.SkillBundle, error) {
 }
 
 func (s *Service) ensureBuiltinSkills(ctx context.Context, projectID uuid.UUID) error {
-	if s == nil || s.repo == nil {
+	if s == nil || s.skills == nil {
 		return ErrUnavailable
 	}
 	s.builtinSkillsMu.Lock()
@@ -162,21 +162,21 @@ func (s *Service) ensureBuiltinSkills(ctx context.Context, projectID uuid.UUID) 
 	if err != nil {
 		return err
 	}
-	return s.repo.EnsureBuiltinSkills(ctx, projectID, time.Now().UTC(), bundles)
+	return s.skills.EnsureBuiltinSkills(ctx, projectID, time.Now().UTC(), bundles)
 }
 
 func (s *Service) skillByName(ctx context.Context, projectID uuid.UUID, name string) (domain.SkillRecord, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.skills == nil {
 		return domain.SkillRecord{}, ErrUnavailable
 	}
-	return s.repo.SkillByName(ctx, projectID, name)
+	return s.skills.SkillByName(ctx, projectID, name)
 }
 
 func (s *Service) currentSkillVersion(ctx context.Context, skillID uuid.UUID, requiredVersionID *uuid.UUID) (domain.SkillVersionRecord, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.skillVersions == nil {
 		return domain.SkillVersionRecord{}, ErrUnavailable
 	}
-	return s.repo.CurrentSkillVersion(ctx, skillID, requiredVersionID)
+	return s.skillVersions.CurrentSkillVersion(ctx, skillID, requiredVersionID)
 }
 
 type resolvedSkillRecord struct {
@@ -184,7 +184,7 @@ type resolvedSkillRecord struct {
 }
 
 func (s *Service) listSkillsPersistent(ctx context.Context, projectID uuid.UUID) ([]Skill, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.skills == nil {
 		return nil, ErrUnavailable
 	}
 	if err := s.ensureProjectExists(ctx, projectID); err != nil {
@@ -193,25 +193,25 @@ func (s *Service) listSkillsPersistent(ctx context.Context, projectID uuid.UUID)
 	if err := s.ensureBuiltinSkills(ctx, projectID); err != nil {
 		return nil, err
 	}
-	return s.repo.ListSkills(ctx, projectID)
+	return s.skills.ListSkills(ctx, projectID)
 }
 
 func (s *Service) getSkillPersistent(ctx context.Context, skillID uuid.UUID) (SkillDetail, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.skills == nil {
 		return SkillDetail{}, ErrUnavailable
 	}
-	return s.repo.SkillDetail(ctx, skillID)
+	return s.skills.SkillDetail(ctx, skillID)
 }
 
 func (s *Service) listSkillVersionsPersistent(ctx context.Context, skillID uuid.UUID) ([]VersionSummary, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.skillVersions == nil {
 		return nil, ErrUnavailable
 	}
-	return s.repo.ListSkillVersions(ctx, skillID)
+	return s.skillVersions.ListSkillVersions(ctx, skillID)
 }
 
 func (s *Service) createSkillBundlePersistent(ctx context.Context, input CreateSkillBundleInput) (SkillDetail, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.skills == nil {
 		return SkillDetail{}, ErrUnavailable
 	}
 	if err := s.ensureProjectExists(ctx, input.ProjectID); err != nil {
@@ -238,7 +238,7 @@ func (s *Service) createSkillBundlePersistent(ctx context.Context, input CreateS
 	if createdBy == "" {
 		createdBy = "user:manual"
 	}
-	return s.repo.CreateSkillBundle(ctx, input, bundle, enabled, createdBy, time.Now().UTC())
+	return s.skills.CreateSkillBundle(ctx, input, bundle, enabled, createdBy, time.Now().UTC())
 }
 
 func (s *Service) updateSkillBundlePersistent(ctx context.Context, input UpdateSkillBundleInput) (SkillDetail, error) {
@@ -276,7 +276,7 @@ func (s *Service) updateSkillBundlePersistent(ctx context.Context, input UpdateS
 	if err != nil {
 		return SkillDetail{}, err
 	}
-	return s.repo.UpdateSkillBundle(ctx, record.skill.ID, bundle, time.Now().UTC())
+	return s.skills.UpdateSkillBundle(ctx, record.skill.ID, bundle, time.Now().UTC())
 }
 
 func (s *Service) deleteSkillPersistent(ctx context.Context, skillID uuid.UUID) error {
@@ -284,7 +284,7 @@ func (s *Service) deleteSkillPersistent(ctx context.Context, skillID uuid.UUID) 
 	if err != nil {
 		return err
 	}
-	return s.repo.DeleteSkill(ctx, record.skill.ID, time.Now().UTC())
+	return s.skills.DeleteSkill(ctx, record.skill.ID, time.Now().UTC())
 }
 
 func (s *Service) setSkillEnabledPersistent(ctx context.Context, skillID uuid.UUID, enabled bool) (SkillDetail, error) {
@@ -292,7 +292,7 @@ func (s *Service) setSkillEnabledPersistent(ctx context.Context, skillID uuid.UU
 	if err != nil {
 		return SkillDetail{}, err
 	}
-	return s.repo.SetSkillEnabled(ctx, record.skill.ID, enabled, time.Now().UTC())
+	return s.skills.SetSkillEnabled(ctx, record.skill.ID, enabled, time.Now().UTC())
 }
 
 func (s *Service) resolveSkillRecordForWorkflowBindingsPersistent(
@@ -303,13 +303,13 @@ func (s *Service) resolveSkillRecordForWorkflowBindingsPersistent(
 	if err != nil {
 		return resolvedSkillRecord{}, nil, err
 	}
-	if s == nil || s.repo == nil {
+	if s == nil || s.workflows == nil {
 		return resolvedSkillRecord{}, nil, ErrUnavailable
 	}
 
 	var projectID uuid.UUID
 	for index, workflowID := range workflowIDs {
-		workflowItem, err := s.repo.Get(ctx, workflowID)
+		workflowItem, err := s.workflows.Get(ctx, workflowID)
 		if err != nil {
 			return resolvedSkillRecord{}, nil, err
 		}
@@ -333,10 +333,10 @@ func (s *Service) resolveSkillRecordPersistent(
 	ctx context.Context,
 	skillID uuid.UUID,
 ) (resolvedSkillRecord, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.skills == nil {
 		return resolvedSkillRecord{}, ErrUnavailable
 	}
-	item, err := s.repo.Skill(ctx, skillID)
+	item, err := s.skills.Skill(ctx, skillID)
 	if err != nil {
 		return resolvedSkillRecord{}, err
 	}
@@ -348,10 +348,10 @@ func (s *Service) resolveSkillRecordInProjectPersistent(
 	projectID uuid.UUID,
 	skillID uuid.UUID,
 ) (resolvedSkillRecord, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.skills == nil {
 		return resolvedSkillRecord{}, ErrUnavailable
 	}
-	item, err := s.repo.SkillInProject(ctx, projectID, skillID)
+	item, err := s.skills.SkillInProject(ctx, projectID, skillID)
 	if err != nil {
 		return resolvedSkillRecord{}, err
 	}
@@ -362,14 +362,14 @@ func (s *Service) buildSkillDetailPersistent(ctx context.Context, record resolve
 	if record.skill.ID == uuid.Nil {
 		return SkillDetail{}, ErrSkillNotFound
 	}
-	return s.repo.SkillDetail(ctx, record.skill.ID)
+	return s.skills.SkillDetail(ctx, record.skill.ID)
 }
 
 func (s *Service) skillVersionFilesPersistent(ctx context.Context, versionID uuid.UUID) ([]SkillBundleFile, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.skillVersions == nil {
 		return nil, ErrUnavailable
 	}
-	return s.repo.SkillVersionFiles(ctx, versionID)
+	return s.skillVersions.SkillVersionFiles(ctx, versionID)
 }
 
 func (s *Service) resolveInjectedSkillNamesPersistent(
@@ -377,14 +377,14 @@ func (s *Service) resolveInjectedSkillNamesPersistent(
 	projectID uuid.UUID,
 	workflowID *uuid.UUID,
 ) ([]string, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.workflowSkills == nil {
 		return nil, ErrUnavailable
 	}
-	return s.repo.ResolveInjectedSkillNames(ctx, projectID, workflowID)
+	return s.workflowSkills.ResolveInjectedSkillNames(ctx, projectID, workflowID)
 }
 
 func (s *Service) refreshSkillsPersistent(ctx context.Context, input RefreshSkillsInput) (RefreshSkillsResult, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.workflowSkills == nil {
 		return RefreshSkillsResult{}, ErrUnavailable
 	}
 	if err := s.ensureProjectExists(ctx, input.ProjectID); err != nil {
@@ -442,7 +442,7 @@ func (s *Service) updateWorkflowSkillsPersistent(
 	input UpdateWorkflowSkillsInput,
 	bind bool,
 ) (HarnessDocument, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.workflows == nil || s.workflowSkills == nil {
 		return HarnessDocument{}, ErrUnavailable
 	}
 
@@ -454,7 +454,7 @@ func (s *Service) updateWorkflowSkillsPersistent(
 		return HarnessDocument{}, fmt.Errorf("%w: skills must not be empty", ErrSkillInvalid)
 	}
 
-	workflowItem, err := s.repo.Get(ctx, input.WorkflowID)
+	workflowItem, err := s.workflows.Get(ctx, input.WorkflowID)
 	if err != nil {
 		return HarnessDocument{}, err
 	}
@@ -513,7 +513,7 @@ func (s *Service) updateWorkflowSkillsPersistent(
 		}
 	}
 
-	if _, err := s.repo.ApplyWorkflowSkillBindings(
+	if _, err := s.workflowSkills.ApplyWorkflowSkillBindings(
 		ctx,
 		workflowItem.ID,
 		pendingSkillIDs,
@@ -540,14 +540,47 @@ type UpdateInput = domain.UpdateInput
 
 type UpdateHarnessInput = domain.UpdateHarnessInput
 
-type Service struct {
-	repo            Repository
-	logger          *slog.Logger
-	repoRoot        string
-	builtinSkillsMu sync.Mutex
+type ServiceDependencies struct {
+	Validators       ProjectValidationRepository
+	Workflows        WorkflowRepository
+	WorkflowVersions WorkflowVersionRepository
+	Skills           SkillRepository
+	SkillVersions    SkillVersionRepository
+	WorkflowSkills   WorkflowSkillBindingRepository
+	RuntimeSnapshots WorkflowRuntimeSnapshotReader
+	HarnessTemplates HarnessTemplateDataBuilder
 }
 
-func NewService(repo Repository, logger *slog.Logger, repoRoot string) (*Service, error) {
+type serviceDependencySource interface {
+	ProjectValidationRepository
+	WorkflowRepository
+	WorkflowVersionRepository
+	SkillRepository
+	SkillVersionRepository
+	WorkflowSkillBindingRepository
+	WorkflowRuntimeSnapshotReader
+	HarnessTemplateDataBuilder
+}
+
+type Service struct {
+	validators       ProjectValidationRepository
+	workflows        WorkflowRepository
+	workflowVersions WorkflowVersionRepository
+	skills           SkillRepository
+	skillVersions    SkillVersionRepository
+	workflowSkills   WorkflowSkillBindingRepository
+	runtimeSnapshots WorkflowRuntimeSnapshotReader
+	harnessTemplates HarnessTemplateDataBuilder
+	logger           *slog.Logger
+	repoRoot         string
+	builtinSkillsMu  sync.Mutex
+}
+
+func NewService(source serviceDependencySource, logger *slog.Logger, repoRoot string) (*Service, error) {
+	return NewServiceWithDependencies(serviceDependenciesFromSource(source), logger, repoRoot)
+}
+
+func NewServiceWithDependencies(deps ServiceDependencies, logger *slog.Logger, repoRoot string) (*Service, error) {
 	if logger == nil {
 		logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
 	}
@@ -564,12 +597,35 @@ func NewService(repo Repository, logger *slog.Logger, repoRoot string) (*Service
 	}
 
 	service := &Service{
-		repo:     repo,
-		logger:   logger.With("component", "workflow-service"),
-		repoRoot: repoRoot,
+		validators:       deps.Validators,
+		workflows:        deps.Workflows,
+		workflowVersions: deps.WorkflowVersions,
+		skills:           deps.Skills,
+		skillVersions:    deps.SkillVersions,
+		workflowSkills:   deps.WorkflowSkills,
+		runtimeSnapshots: deps.RuntimeSnapshots,
+		harnessTemplates: deps.HarnessTemplates,
+		logger:           logger.With("component", "workflow-service"),
+		repoRoot:         repoRoot,
 	}
 
 	return service, nil
+}
+
+func serviceDependenciesFromSource(source serviceDependencySource) ServiceDependencies {
+	if source == nil {
+		return ServiceDependencies{}
+	}
+	return ServiceDependencies{
+		Validators:       source,
+		Workflows:        source,
+		WorkflowVersions: source,
+		Skills:           source,
+		SkillVersions:    source,
+		WorkflowSkills:   source,
+		RuntimeSnapshots: source,
+		HarnessTemplates: source,
+	}
 }
 
 func (s *Service) Close() error {
@@ -627,21 +683,21 @@ func (s *Service) logHookConfigValidationFailure(operation string, projectID uui
 }
 
 func (s *Service) List(ctx context.Context, projectID uuid.UUID) ([]Workflow, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.workflows == nil {
 		return nil, ErrUnavailable
 	}
 	if err := s.ensureProjectExists(ctx, projectID); err != nil {
 		return nil, err
 	}
-	return s.repo.List(ctx, projectID)
+	return s.workflows.List(ctx, projectID)
 }
 
 func (s *Service) Get(ctx context.Context, workflowID uuid.UUID) (WorkflowDetail, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.workflows == nil {
 		return WorkflowDetail{}, ErrUnavailable
 	}
 
-	item, err := s.repo.Get(ctx, workflowID)
+	item, err := s.workflows.Get(ctx, workflowID)
 	if err != nil {
 		return WorkflowDetail{}, err
 	}
@@ -657,7 +713,7 @@ func (s *Service) Get(ctx context.Context, workflowID uuid.UUID) (WorkflowDetail
 }
 
 func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.workflows == nil {
 		return WorkflowDetail{}, ErrUnavailable
 	}
 
@@ -711,7 +767,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 		}
 	}
 
-	item, err := s.repo.Create(ctx, Workflow{
+	item, err := s.workflows.Create(ctx, Workflow{
 		ID:                  workflowID,
 		ProjectID:           input.ProjectID,
 		AgentID:             &input.AgentID,
@@ -744,11 +800,11 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 }
 
 func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.workflows == nil {
 		return WorkflowDetail{}, ErrUnavailable
 	}
 
-	current, err := s.repo.Get(ctx, input.WorkflowID)
+	current, err := s.workflows.Get(ctx, input.WorkflowID)
 	if err != nil {
 		return WorkflowDetail{}, err
 	}
@@ -850,7 +906,7 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 		next.StallTimeoutMinutes = input.StallTimeoutMinutes.Value
 	}
 
-	item, err := s.repo.Update(ctx, next)
+	item, err := s.workflows.Update(ctx, next)
 	if err != nil {
 		return WorkflowDetail{}, s.mapWorkflowWriteError("update workflow", err)
 	}
@@ -867,18 +923,18 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 }
 
 func (s *Service) Delete(ctx context.Context, workflowID uuid.UUID) (Workflow, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.workflows == nil {
 		return Workflow{}, ErrUnavailable
 	}
-	return s.repo.Delete(ctx, workflowID)
+	return s.workflows.Delete(ctx, workflowID)
 }
 
 func (s *Service) GetHarness(ctx context.Context, workflowID uuid.UUID) (HarnessDocument, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.workflows == nil {
 		return HarnessDocument{}, ErrUnavailable
 	}
 
-	item, err := s.repo.Get(ctx, workflowID)
+	item, err := s.workflows.Get(ctx, workflowID)
 	if err != nil {
 		return HarnessDocument{}, err
 	}
@@ -896,14 +952,14 @@ func (s *Service) GetHarness(ctx context.Context, workflowID uuid.UUID) (Harness
 }
 
 func (s *Service) UpdateHarness(ctx context.Context, input UpdateHarnessInput) (HarnessDocument, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.workflows == nil || s.workflowVersions == nil {
 		return HarnessDocument{}, ErrUnavailable
 	}
 	if err := validateHarnessForSave(input.Content); err != nil {
 		return HarnessDocument{}, err
 	}
 
-	item, err := s.repo.Get(ctx, input.WorkflowID)
+	item, err := s.workflows.Get(ctx, input.WorkflowID)
 	if err != nil {
 		return HarnessDocument{}, err
 	}
@@ -945,7 +1001,7 @@ func (s *Service) UpdateHarness(ctx context.Context, input UpdateHarnessInput) (
 		}
 	}
 
-	updated, err := s.repo.PublishWorkflowVersion(
+	updated, err := s.workflowVersions.PublishWorkflowVersion(
 		ctx,
 		item.ID,
 		sanitizedContent,
@@ -968,24 +1024,24 @@ func (s *Service) UpdateHarness(ctx context.Context, input UpdateHarnessInput) (
 }
 
 func (s *Service) ensureProjectExists(ctx context.Context, projectID uuid.UUID) error {
-	if s == nil || s.repo == nil {
+	if s == nil || s.validators == nil {
 		return ErrUnavailable
 	}
-	return s.repo.EnsureProjectExists(ctx, projectID)
+	return s.validators.EnsureProjectExists(ctx, projectID)
 }
 
 func (s *Service) ensureStatusBindingsBelongToProject(ctx context.Context, projectID uuid.UUID, statusIDs StatusBindingSet) error {
-	if s == nil || s.repo == nil {
+	if s == nil || s.validators == nil {
 		return ErrUnavailable
 	}
-	return s.repo.EnsureStatusBindingsBelongToProject(ctx, projectID, statusIDs.IDs())
+	return s.validators.EnsureStatusBindingsBelongToProject(ctx, projectID, statusIDs.IDs())
 }
 
 func (s *Service) ensureAgentBelongsToProject(ctx context.Context, projectID uuid.UUID, agentID uuid.UUID) error {
-	if s == nil || s.repo == nil {
+	if s == nil || s.validators == nil {
 		return ErrUnavailable
 	}
-	return s.repo.EnsureAgentBelongsToProject(ctx, projectID, agentID)
+	return s.validators.EnsureAgentBelongsToProject(ctx, projectID, agentID)
 }
 
 func (s *Service) resolveCreateHarnessPath(name string, rawPath *string) (string, error) {
@@ -1002,10 +1058,10 @@ func (s *Service) ensureHarnessPathAvailable(
 	harnessPath string,
 	excludeWorkflowID uuid.UUID,
 ) error {
-	if s == nil || s.repo == nil {
+	if s == nil || s.validators == nil {
 		return ErrUnavailable
 	}
-	return s.repo.EnsureHarnessPathAvailable(ctx, projectID, harnessPath, excludeWorkflowID)
+	return s.validators.EnsureHarnessPathAvailable(ctx, projectID, harnessPath, excludeWorkflowID)
 }
 
 func (s *Service) resolveHarnessContent(
@@ -1023,11 +1079,15 @@ func (s *Service) resolveHarnessContent(
 		return rawContent, nil
 	}
 
-	pickupStatuses, err := s.repo.StatusNames(ctx, pickupStatusIDs.IDs())
+	if s == nil || s.validators == nil {
+		return "", ErrUnavailable
+	}
+
+	pickupStatuses, err := s.validators.StatusNames(ctx, pickupStatusIDs.IDs())
 	if err != nil {
 		return "", err
 	}
-	finishStatuses, err := s.repo.StatusNames(ctx, finishStatusIDs.IDs())
+	finishStatuses, err := s.validators.StatusNames(ctx, finishStatusIDs.IDs())
 	if err != nil {
 		return "", err
 	}
@@ -1199,33 +1259,33 @@ func slugify(raw string) string {
 }
 
 func (s *Service) ResolveRuntimeSnapshot(ctx context.Context, workflowID uuid.UUID) (RuntimeSnapshot, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.workflows == nil || s.runtimeSnapshots == nil {
 		return RuntimeSnapshot{}, ErrUnavailable
 	}
 
-	workflowItem, err := s.repo.Get(ctx, workflowID)
+	workflowItem, err := s.workflows.Get(ctx, workflowID)
 	if err != nil {
 		return RuntimeSnapshot{}, err
 	}
 	if err := s.ensureBuiltinSkills(ctx, workflowItem.ProjectID); err != nil {
 		return RuntimeSnapshot{}, err
 	}
-	return s.repo.ResolveRuntimeSnapshot(ctx, workflowID)
+	return s.runtimeSnapshots.ResolveRuntimeSnapshot(ctx, workflowID)
 }
 
 func (s *Service) ResolveRecordedRuntimeSnapshot(ctx context.Context, input ResolveRecordedRuntimeSnapshotInput) (RuntimeSnapshot, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.workflows == nil || s.runtimeSnapshots == nil {
 		return RuntimeSnapshot{}, ErrUnavailable
 	}
 
-	workflowItem, err := s.repo.Get(ctx, input.WorkflowID)
+	workflowItem, err := s.workflows.Get(ctx, input.WorkflowID)
 	if err != nil {
 		return RuntimeSnapshot{}, err
 	}
 	if err := s.ensureBuiltinSkills(ctx, workflowItem.ProjectID); err != nil {
 		return RuntimeSnapshot{}, err
 	}
-	return s.repo.ResolveRecordedRuntimeSnapshot(ctx, input)
+	return s.runtimeSnapshots.ResolveRecordedRuntimeSnapshot(ctx, input)
 }
 
 func (s *Service) runtimeSkillFiles(ctx context.Context, versionID uuid.UUID) ([]RuntimeSkillFileSnapshot, error) {
@@ -1245,17 +1305,17 @@ func (s *Service) runtimeSkillFiles(ctx context.Context, versionID uuid.UUID) ([
 }
 
 func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarnessTemplateDataInput) (HarnessTemplateData, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.workflows == nil || s.harnessTemplates == nil {
 		return HarnessTemplateData{}, ErrUnavailable
 	}
-	workflowItem, err := s.repo.Get(ctx, input.WorkflowID)
+	workflowItem, err := s.workflows.Get(ctx, input.WorkflowID)
 	if err != nil {
 		return HarnessTemplateData{}, err
 	}
 	if err := s.ensureBuiltinSkills(ctx, workflowItem.ProjectID); err != nil {
 		return HarnessTemplateData{}, err
 	}
-	data, err := s.repo.BuildHarnessTemplateData(ctx, input)
+	data, err := s.harnessTemplates.BuildHarnessTemplateData(ctx, input)
 	if err != nil {
 		return HarnessTemplateData{}, err
 	}
