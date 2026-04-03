@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -84,5 +85,31 @@ func TestRuntimeCompletionSummaryCoordinatorDeduplicatesRunScheduling(t *testing
 	coordinator.endRunCompletionSummary(runID)
 	if !coordinator.beginRunCompletionSummary(runID) {
 		t.Fatal("expected summary run to be claimable again after end")
+	}
+}
+
+func TestRuntimeLauncherComponentsTrackUpdatedClock(t *testing.T) {
+	launcher := NewRuntimeLauncher(nil, nil, nil, nil, nil, nil)
+	initial := time.Date(2026, 4, 3, 4, 45, 0, 0, time.UTC)
+	updated := initial.Add(5 * time.Minute)
+
+	launcher.now = func() time.Time { return initial }
+	workspaceProvisioner := launcher.ensureWorkspaceProvisioner()
+	summaryCoordinator := launcher.ensureCompletionSummaryCoordinator()
+	if got := workspaceProvisioner.now(); !got.Equal(initial) {
+		t.Fatalf("expected initial workspace provisioner clock %s, got %s", initial, got)
+	}
+	if got := summaryCoordinator.now(); !got.Equal(initial) {
+		t.Fatalf("expected initial summary coordinator clock %s, got %s", initial, got)
+	}
+
+	launcher.now = func() time.Time { return updated }
+	workspaceProvisioner = launcher.ensureWorkspaceProvisioner()
+	summaryCoordinator = launcher.ensureCompletionSummaryCoordinator()
+	if got := workspaceProvisioner.now(); !got.Equal(updated) {
+		t.Fatalf("expected updated workspace provisioner clock %s, got %s", updated, got)
+	}
+	if got := summaryCoordinator.now(); !got.Equal(updated) {
+		t.Fatalf("expected updated summary coordinator clock %s, got %s", updated, got)
 	}
 }

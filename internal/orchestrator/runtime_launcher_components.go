@@ -43,14 +43,18 @@ func (l *RuntimeLauncher) ensureWorkspaceProvisioner() *runtimeWorkspaceProvisio
 	if l == nil {
 		return nil
 	}
-	if l.workspaces == nil {
-		now := l.now
-		if now == nil {
-			now = time.Now
-		}
-		l.workspaces = newRuntimeWorkspaceProvisioner(l.client, l.logger, l.sshPool, now)
-		l.workspaces.githubAuth = l.githubAuth
+	now := l.now
+	if now == nil {
+		now = time.Now
 	}
+	if l.workspaces == nil {
+		l.workspaces = newRuntimeWorkspaceProvisioner(l.client, l.logger, l.sshPool, now)
+	}
+	l.workspaces.client = l.client
+	l.workspaces.logger = l.logger.With("component", "runtime-workspace-provisioner")
+	l.workspaces.sshPool = l.sshPool
+	l.workspaces.githubAuth = l.githubAuth
+	l.workspaces.now = now
 	return l.workspaces
 }
 
@@ -58,11 +62,11 @@ func (l *RuntimeLauncher) ensureCompletionSummaryCoordinator() *runtimeCompletio
 	if l == nil {
 		return nil
 	}
+	now := l.now
+	if now == nil {
+		now = time.Now
+	}
 	if l.completionSummaries == nil {
-		now := l.now
-		if now == nil {
-			now = time.Now
-		}
 		l.completionSummaries = newRuntimeCompletionSummaryCoordinator(
 			l.client,
 			l.logger,
@@ -74,6 +78,13 @@ func (l *RuntimeLauncher) ensureCompletionSummaryCoordinator() *runtimeCompletio
 			defaultCompletionSummaryTimeout,
 		)
 	}
+	l.completionSummaries.client = l.client
+	l.completionSummaries.logger = l.logger.With("component", "runtime-completion-summary")
+	l.completionSummaries.adapters = l.adapters
+	l.completionSummaries.processManager = l.processManager
+	l.completionSummaries.sshPool = l.sshPool
+	l.completionSummaries.workflow = l.workflow
+	l.completionSummaries.now = now
 	return l.completionSummaries
 }
 
