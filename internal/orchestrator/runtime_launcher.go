@@ -24,7 +24,6 @@ import (
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
-	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	ticketingdomain "github.com/BetterAndBetterII/openase/internal/domain/ticketing"
@@ -63,20 +62,13 @@ type RuntimeLauncher struct {
 	launchTimeout  time.Duration
 	eventTimeout   time.Duration
 
-	sessionsMu sync.Mutex
-	sessions   map[uuid.UUID]agentSession
-	adapters   *agentAdapterRegistry
-	runtime    *RuntimeStateStore
-
-	launchesMu sync.Mutex
-	launches   map[uuid.UUID]struct{}
-
-	executionsMu sync.Mutex
-	executions   map[uuid.UUID]struct{}
-
-	summaryJobsMu  sync.Mutex
-	summaryJobs    map[uuid.UUID]struct{}
-	summaryTimeout time.Duration
+	sessions            *runtimeSessionRegistry
+	launches            *runtimeRunTracker
+	executions          *runtimeRunTracker
+	adapters            *agentAdapterRegistry
+	runtime             *RuntimeStateStore
+	workspaces          *runtimeWorkspaceProvisioner
+	completionSummaries *runtimeCompletionSummaryCoordinator
 
 	tickets *ticketservice.Service
 }
@@ -113,16 +105,25 @@ func NewRuntimeLauncher(
 		now:            time.Now,
 		launchTimeout:  defaultLaunchTimeout,
 		eventTimeout:   defaultLifecyclePublishTimeout,
-		sessions:       map[uuid.UUID]agentSession{},
+		sessions:       newRuntimeSessionRegistry(),
+		launches:       newRuntimeRunTracker(),
+		executions:     newRuntimeRunTracker(),
 		adapters:       newDefaultAgentAdapterRegistry(),
 		runtime:        NewRuntimeStateStore(),
-		launches:       map[uuid.UUID]struct{}{},
-		executions:     map[uuid.UUID]struct{}{},
-		summaryJobs:    map[uuid.UUID]struct{}{},
-		summaryTimeout: defaultCompletionSummaryTimeout,
 		tickets:        ticketservice.NewService(ticketrepo.NewEntRepository(client)),
 	}
 	launcher.tickets.ConfigureSSHPool(sshPool)
+	launcher.workspaces = newRuntimeWorkspaceProvisioner(client, launcher.logger, sshPool, launcher.now)
+	launcher.completionSummaries = newRuntimeCompletionSummaryCoordinator(
+		client,
+		launcher.logger,
+		launcher.adapters,
+		processManager,
+		sshPool,
+		workflow,
+		launcher.now,
+		defaultCompletionSummaryTimeout,
+	)
 	return launcher
 }
 
@@ -148,6 +149,9 @@ func (l *RuntimeLauncher) ConfigureGitHubCredentials(resolver githubauthservice.
 		return
 	}
 	l.githubAuth = resolver
+	if l.workspaces != nil {
+		l.workspaces.githubAuth = resolver
+	}
 }
 
 func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
@@ -558,12 +562,7 @@ func (l *RuntimeLauncher) reconcilePauseRequests(ctx context.Context) error {
 }
 
 func (l *RuntimeLauncher) refreshHeartbeats(ctx context.Context) error {
-	l.sessionsMu.Lock()
-	runIDs := make([]uuid.UUID, 0, len(l.sessions))
-	for runID := range l.sessions {
-		runIDs = append(runIDs, runID)
-	}
-	l.sessionsMu.Unlock()
+	runIDs := l.sessionRunIDs()
 
 	if len(runIDs) == 0 {
 		return nil
@@ -1431,377 +1430,6 @@ func resolvedWorkspaceDirname(repo *ent.ProjectRepo) string {
 	return strings.TrimSpace(repo.Name)
 }
 
-func (l *RuntimeLauncher) prepareTicketWorkspace(
-	ctx context.Context,
-	runID uuid.UUID,
-	launchContext runtimeLaunchContext,
-	machine catalogdomain.Machine,
-	remote bool,
-) (workspaceinfra.Workspace, error) {
-	request, repoPlans, err := buildWorkspaceRequest(launchContext, machine, remote)
-	if err != nil {
-		return workspaceinfra.Workspace{}, err
-	}
-	request, err = l.applyGitHubWorkspaceAuth(ctx, launchContext.project.ID, request)
-	if err != nil {
-		return workspaceinfra.Workspace{}, err
-	}
-	if err := l.ensureTicketRepoWorkspaceRecords(ctx, runID, launchContext.ticket.ID, request, repoPlans); err != nil {
-		return workspaceinfra.Workspace{}, err
-	}
-	if err := l.setTicketRepoWorkspaceState(ctx, runID, repoPlans, entticketrepoworkspace.StateMaterializing, ""); err != nil {
-		return workspaceinfra.Workspace{}, err
-	}
-
-	var workspaceItem workspaceinfra.Workspace
-	if remote {
-		if l.sshPool == nil {
-			err = fmt.Errorf("ssh pool unavailable for remote machine %s", machine.Name)
-		} else {
-			workspaceItem, err = workspaceinfra.NewRemoteManager(l.sshPool).Prepare(ctx, machine, request)
-		}
-	} else {
-		workspaceItem, err = workspaceinfra.NewManager().Prepare(ctx, request)
-	}
-	if err != nil {
-		if updateErr := l.setTicketRepoWorkspaceState(ctx, runID, repoPlans, entticketrepoworkspace.StateFailed, err.Error()); updateErr != nil {
-			return workspaceinfra.Workspace{}, fmt.Errorf("prepare workspace failed: %w (ticket repo workspace state update failed: %v)", err, updateErr)
-		}
-		return workspaceinfra.Workspace{}, err
-	}
-	repoPlans = repoPlansWithPreparedHeads(repoPlans, workspaceItem.Repos)
-	if err := l.markTicketRepoWorkspacesReady(ctx, runID, repoPlans); err != nil {
-		return workspaceinfra.Workspace{}, err
-	}
-
-	return workspaceItem, nil
-}
-
-func (l *RuntimeLauncher) applyGitHubWorkspaceAuth(
-	ctx context.Context,
-	projectID uuid.UUID,
-	request workspaceinfra.SetupRequest,
-) (workspaceinfra.SetupRequest, error) {
-	if l == nil {
-		return request, nil
-	}
-	return githubauthservice.ApplyWorkspaceAuth(ctx, l.githubAuth, projectID, request)
-}
-
-func (l *RuntimeLauncher) ensureTicketRepoWorkspaceRecords(
-	ctx context.Context,
-	runID uuid.UUID,
-	ticketID uuid.UUID,
-	request workspaceinfra.SetupRequest,
-	repoPlans []repoWorkspacePlan,
-) error {
-	if l == nil || len(repoPlans) == 0 {
-		return nil
-	}
-
-	workspaceRoot, err := workspaceinfra.TicketWorkspacePath(
-		request.WorkspaceRoot,
-		request.OrganizationSlug,
-		request.ProjectSlug,
-		request.TicketIdentifier,
-	)
-	if err != nil {
-		return fmt.Errorf("derive ticket workspace root for runtime state: %w", err)
-	}
-
-	for _, plan := range repoPlans {
-		repoPath := workspaceinfra.RepoPath(workspaceRoot, plan.WorkspaceDir, plan.RepoName)
-		existing, err := l.client.TicketRepoWorkspace.Query().
-			Where(
-				entticketrepoworkspace.AgentRunIDEQ(runID),
-				entticketrepoworkspace.RepoIDEQ(plan.RepoID),
-			).
-			Only(ctx)
-		switch {
-		case ent.IsNotFound(err):
-			create := l.client.TicketRepoWorkspace.Create().
-				SetTicketID(ticketID).
-				SetAgentRunID(runID).
-				SetRepoID(plan.RepoID).
-				SetWorkspaceRoot(workspaceRoot).
-				SetRepoPath(repoPath).
-				SetBranchName(plan.BranchName).
-				SetState(entticketrepoworkspace.StatePlanned)
-			if plan.HeadCommit != "" {
-				create.SetHeadCommit(plan.HeadCommit)
-			}
-			if _, err := create.Save(ctx); err != nil {
-				return fmt.Errorf("create ticket repo workspace for repo %s: %w", plan.RepoName, err)
-			}
-		case err != nil:
-			return fmt.Errorf("load ticket repo workspace for repo %s: %w", plan.RepoName, err)
-		default:
-			update := l.client.TicketRepoWorkspace.UpdateOneID(existing.ID).
-				SetWorkspaceRoot(workspaceRoot).
-				SetRepoPath(repoPath).
-				SetBranchName(plan.BranchName).
-				SetState(entticketrepoworkspace.StatePlanned).
-				ClearLastError().
-				ClearPreparedAt().
-				ClearCleanedAt()
-			if plan.HeadCommit != "" {
-				update.SetHeadCommit(plan.HeadCommit)
-			} else {
-				update.ClearHeadCommit()
-			}
-			if _, err := update.Save(ctx); err != nil {
-				return fmt.Errorf("reset ticket repo workspace for repo %s: %w", plan.RepoName, err)
-			}
-		}
-	}
-
-	return nil
-}
-
-func (l *RuntimeLauncher) setTicketRepoWorkspaceState(
-	ctx context.Context,
-	runID uuid.UUID,
-	repoPlans []repoWorkspacePlan,
-	state entticketrepoworkspace.State,
-	lastError string,
-) error {
-	if l == nil || len(repoPlans) == 0 {
-		return nil
-	}
-
-	trimmedError := strings.TrimSpace(lastError)
-	for _, plan := range repoPlans {
-		update := l.client.TicketRepoWorkspace.Update().
-			Where(
-				entticketrepoworkspace.AgentRunIDEQ(runID),
-				entticketrepoworkspace.RepoIDEQ(plan.RepoID),
-			).
-			SetState(state)
-		if trimmedError != "" {
-			update.SetLastError(trimmedError)
-		} else {
-			update.ClearLastError()
-		}
-		if _, err := update.Save(ctx); err != nil {
-			return fmt.Errorf("update ticket repo workspace %s state to %s: %w", plan.RepoName, state, err)
-		}
-	}
-
-	return nil
-}
-
-func (l *RuntimeLauncher) markTicketRepoWorkspacesReady(
-	ctx context.Context,
-	runID uuid.UUID,
-	repoPlans []repoWorkspacePlan,
-) error {
-	if l == nil || len(repoPlans) == 0 {
-		return nil
-	}
-
-	preparedAt := time.Now().UTC()
-	for _, plan := range repoPlans {
-		update := l.client.TicketRepoWorkspace.Update().
-			Where(
-				entticketrepoworkspace.AgentRunIDEQ(runID),
-				entticketrepoworkspace.RepoIDEQ(plan.RepoID),
-			).
-			SetState(entticketrepoworkspace.StateReady).
-			SetPreparedAt(preparedAt).
-			ClearLastError()
-		if plan.HeadCommit != "" {
-			update.SetHeadCommit(plan.HeadCommit)
-		}
-		if _, err := update.Save(ctx); err != nil {
-			return fmt.Errorf("mark ticket repo workspace %s ready: %w", plan.RepoName, err)
-		}
-	}
-
-	return nil
-}
-
-func (l *RuntimeLauncher) cleanupRunWorkspacesBestEffort(ctx context.Context, runID uuid.UUID, reason string) {
-	if l == nil || runID == uuid.Nil {
-		return
-	}
-	if err := l.cleanupRunWorkspaces(ctx, runID); err != nil {
-		l.logger.Warn("cleanup ticket workspaces", "run_id", runID, "reason", strings.TrimSpace(reason), "error", err)
-	}
-}
-
-func (l *RuntimeLauncher) cleanupRunWorkspaces(ctx context.Context, runID uuid.UUID) error {
-	if l == nil || l.client == nil || runID == uuid.Nil {
-		return nil
-	}
-
-	machine, remote, workspaceRoot, err := l.resolveRunWorkspaceCleanupTarget(ctx, runID)
-	if err != nil {
-		return err
-	}
-
-	workspaces, err := l.client.TicketRepoWorkspace.Query().
-		Where(entticketrepoworkspace.AgentRunIDEQ(runID)).
-		Order(ent.Asc(entticketrepoworkspace.FieldRepoPath)).
-		All(ctx)
-	if err != nil {
-		return fmt.Errorf("load ticket repo workspaces for cleanup: %w", err)
-	}
-	trackCleanupState := false
-	if len(workspaces) > 0 {
-		for _, item := range workspaces {
-			if trimmed := strings.TrimSpace(item.WorkspaceRoot); trimmed != workspaceRoot {
-				_ = l.markRunWorkspaceCleanupFailed(ctx, runID, fmt.Errorf("run %s spans multiple workspace roots (%s, %s)", runID, workspaceRoot, trimmed))
-				return fmt.Errorf("run %s spans multiple workspace roots (%s, %s)", runID, workspaceRoot, trimmed)
-			}
-			if item.PreparedAt != nil || item.State == entticketrepoworkspace.StateReady {
-				trackCleanupState = true
-			}
-		}
-		if trackCleanupState {
-			if _, err := l.client.TicketRepoWorkspace.Update().
-				Where(entticketrepoworkspace.AgentRunIDEQ(runID)).
-				SetState(entticketrepoworkspace.StateCleaning).
-				ClearLastError().
-				Save(ctx); err != nil {
-				return fmt.Errorf("mark ticket repo workspaces cleaning: %w", err)
-			}
-		}
-	}
-
-	if err := l.removeWorkspaceRoot(ctx, machine, remote, workspaceRoot); err != nil {
-		_ = l.markRunWorkspaceCleanupFailed(ctx, runID, err)
-		return err
-	}
-
-	if len(workspaces) == 0 || !trackCleanupState {
-		return nil
-	}
-
-	cleanedAt := l.now().UTC()
-	if _, err := l.client.TicketRepoWorkspace.Update().
-		Where(entticketrepoworkspace.AgentRunIDEQ(runID)).
-		SetState(entticketrepoworkspace.StateCleaned).
-		SetCleanedAt(cleanedAt).
-		ClearLastError().
-		Save(ctx); err != nil {
-		return fmt.Errorf("mark ticket repo workspaces cleaned: %w", err)
-	}
-	return nil
-}
-
-func (l *RuntimeLauncher) resolveRunWorkspaceCleanupTarget(ctx context.Context, runID uuid.UUID) (catalogdomain.Machine, bool, string, error) {
-	if l == nil || l.client == nil {
-		return catalogdomain.Machine{}, false, "", fmt.Errorf("runtime launcher unavailable")
-	}
-	runItem, err := l.client.AgentRun.Query().
-		Where(entagentrun.IDEQ(runID)).
-		WithAgent(func(query *ent.AgentQuery) {
-			query.WithProject(func(projectQuery *ent.ProjectQuery) {
-				projectQuery.WithOrganization()
-			})
-		}).
-		WithProvider().
-		WithTicket().
-		Only(ctx)
-	if err != nil {
-		return catalogdomain.Machine{}, false, "", fmt.Errorf("load run %s for workspace cleanup: %w", runID, err)
-	}
-	if runItem.Edges.Agent == nil || runItem.Edges.Agent.Edges.Project == nil || runItem.Edges.Agent.Edges.Project.Edges.Organization == nil {
-		return catalogdomain.Machine{}, false, "", fmt.Errorf("run %s missing project context for workspace cleanup", runID)
-	}
-	if runItem.Edges.Provider == nil {
-		return catalogdomain.Machine{}, false, "", fmt.Errorf("run %s missing provider for workspace cleanup", runID)
-	}
-	if runItem.Edges.Ticket == nil {
-		return catalogdomain.Machine{}, false, "", fmt.Errorf("run %s missing ticket for workspace cleanup", runID)
-	}
-
-	machineItem, err := l.client.Machine.Get(ctx, runItem.Edges.Provider.MachineID)
-	if err != nil {
-		return catalogdomain.Machine{}, false, "", fmt.Errorf("load machine %s for workspace cleanup: %w", runItem.Edges.Provider.MachineID, err)
-	}
-	machine := mapRuntimeMachine(machineItem)
-	remote := machine.Host != catalogdomain.LocalMachineHost
-
-	workspaceRootBase, err := resolveWorkspaceRoot(machine, remote)
-	if err != nil {
-		return catalogdomain.Machine{}, false, "", err
-	}
-	workspaceRoot, err := workspaceinfra.TicketWorkspacePath(
-		workspaceRootBase,
-		runItem.Edges.Agent.Edges.Project.Edges.Organization.Slug,
-		runItem.Edges.Agent.Edges.Project.Slug,
-		runItem.Edges.Ticket.Identifier,
-	)
-	if err != nil {
-		return catalogdomain.Machine{}, false, "", fmt.Errorf("derive workspace path for cleanup: %w", err)
-	}
-	return machine, remote, workspaceRoot, nil
-}
-
-func (l *RuntimeLauncher) markRunWorkspaceCleanupFailed(ctx context.Context, runID uuid.UUID, cleanupErr error) error {
-	if l == nil || l.client == nil || runID == uuid.Nil || cleanupErr == nil {
-		return nil
-	}
-	update := l.client.TicketRepoWorkspace.Update().
-		Where(entticketrepoworkspace.AgentRunIDEQ(runID)).
-		SetState(entticketrepoworkspace.StateFailed)
-
-	existingError, err := l.client.TicketRepoWorkspace.Query().
-		Where(
-			entticketrepoworkspace.AgentRunIDEQ(runID),
-			entticketrepoworkspace.LastErrorNEQ(""),
-		).
-		Exist(ctx)
-	if err != nil {
-		return fmt.Errorf("inspect ticket repo workspace cleanup failure state: %w", err)
-	}
-	if !existingError {
-		update.SetLastError(strings.TrimSpace(cleanupErr.Error()))
-	}
-
-	_, err = update.Save(ctx)
-	if err != nil {
-		return fmt.Errorf("record ticket repo workspace cleanup failure: %w", err)
-	}
-	return nil
-}
-
-func (l *RuntimeLauncher) removeWorkspaceRoot(ctx context.Context, machine catalogdomain.Machine, remote bool, workspaceRoot string) error {
-	trimmedRoot := strings.TrimSpace(workspaceRoot)
-	if trimmedRoot == "" {
-		return fmt.Errorf("workspace root must not be empty")
-	}
-
-	if !remote {
-		if err := os.RemoveAll(trimmedRoot); err != nil {
-			return fmt.Errorf("remove local workspace %s: %w", trimmedRoot, err)
-		}
-		return nil
-	}
-	if l == nil || l.sshPool == nil {
-		return fmt.Errorf("ssh pool unavailable for remote machine %s during workspace cleanup", machine.Name)
-	}
-
-	client, err := l.sshPool.Get(ctx, machine)
-	if err != nil {
-		return fmt.Errorf("get ssh client for machine %s: %w", machine.Name, err)
-	}
-	session, err := client.NewSession()
-	if err != nil {
-		return fmt.Errorf("open ssh session for machine %s: %w", machine.Name, err)
-	}
-	defer func() {
-		_ = session.Close()
-	}()
-
-	command := "set -eu\nrm -rf " + sshinfra.ShellQuote(trimmedRoot)
-	if output, err := session.CombinedOutput(command); err != nil {
-		return fmt.Errorf("remove remote workspace %s: %w: %s", trimmedRoot, err, strings.TrimSpace(string(output)))
-	}
-	return nil
-}
-
 func resolveAgentWorkingDirectory(_ runtimeLaunchContext, workspaceItem workspaceinfra.Workspace) string {
 	if len(workspaceItem.Repos) == 0 {
 		return workspaceItem.Path
@@ -2060,74 +1688,6 @@ func workspaceRoot(machine catalogdomain.Machine, workspace string) string {
 	return filepath.Clean(filepath.Dir(filepath.Dir(parent)))
 }
 
-func (l *RuntimeLauncher) storeSession(runID uuid.UUID, session agentSession) {
-	l.sessionsMu.Lock()
-	defer l.sessionsMu.Unlock()
-	l.sessions[runID] = session
-}
-
-func (l *RuntimeLauncher) loadSession(runID uuid.UUID) agentSession {
-	l.sessionsMu.Lock()
-	defer l.sessionsMu.Unlock()
-	return l.sessions[runID]
-}
-
-func (l *RuntimeLauncher) deleteSession(runID uuid.UUID) {
-	l.sessionsMu.Lock()
-	defer l.sessionsMu.Unlock()
-	delete(l.sessions, runID)
-}
-
-func (l *RuntimeLauncher) drainSessions() map[uuid.UUID]agentSession {
-	l.sessionsMu.Lock()
-	defer l.sessionsMu.Unlock()
-
-	drained := make(map[uuid.UUID]agentSession, len(l.sessions))
-	for runID, session := range l.sessions {
-		drained[runID] = session
-	}
-	l.sessions = map[uuid.UUID]agentSession{}
-	return drained
-}
-
-func (l *RuntimeLauncher) beginExecution(runID uuid.UUID) bool {
-	l.executionsMu.Lock()
-	defer l.executionsMu.Unlock()
-	if _, exists := l.executions[runID]; exists {
-		return false
-	}
-	l.executions[runID] = struct{}{}
-	return true
-}
-
-func (l *RuntimeLauncher) finishExecution(runID uuid.UUID) {
-	l.executionsMu.Lock()
-	defer l.executionsMu.Unlock()
-	delete(l.executions, runID)
-}
-
-func (l *RuntimeLauncher) executionActive(runID uuid.UUID) bool {
-	l.executionsMu.Lock()
-	defer l.executionsMu.Unlock()
-	_, active := l.executions[runID]
-	return active
-}
-
-func (l *RuntimeLauncher) executionRunIDs() []uuid.UUID {
-	if l == nil {
-		return nil
-	}
-
-	l.executionsMu.Lock()
-	defer l.executionsMu.Unlock()
-
-	runIDs := make([]uuid.UUID, 0, len(l.executions))
-	for runID := range l.executions {
-		runIDs = append(runIDs, runID)
-	}
-	return runIDs
-}
-
 func (l *RuntimeLauncher) waitForExecutionStop(ctx context.Context, runID uuid.UUID) error {
 	if l == nil {
 		return nil
@@ -2148,22 +1708,6 @@ func (l *RuntimeLauncher) waitForExecutionStop(ctx context.Context, runID uuid.U
 	}
 
 	return nil
-}
-
-func (l *RuntimeLauncher) beginLaunch(runID uuid.UUID) bool {
-	l.launchesMu.Lock()
-	defer l.launchesMu.Unlock()
-	if _, exists := l.launches[runID]; exists {
-		return false
-	}
-	l.launches[runID] = struct{}{}
-	return true
-}
-
-func (l *RuntimeLauncher) finishLaunch(runID uuid.UUID) {
-	l.launchesMu.Lock()
-	defer l.launchesMu.Unlock()
-	delete(l.launches, runID)
 }
 
 func (l *RuntimeLauncher) launchContext(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {

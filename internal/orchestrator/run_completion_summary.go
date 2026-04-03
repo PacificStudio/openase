@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,6 +25,7 @@ import (
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
 
@@ -56,6 +58,47 @@ var (
 		".github/workflows", ".env", ".env.", "secrets", "auth", "credential", "token", "ssh", "deploy", "script",
 	}
 )
+
+type runtimeCompletionSummaryCoordinator struct {
+	client         *ent.Client
+	logger         *slog.Logger
+	adapters       *agentAdapterRegistry
+	processManager provider.AgentCLIProcessManager
+	sshPool        *sshinfra.Pool
+	workflow       *workflowservice.Service
+	now            func() time.Time
+	timeout        time.Duration
+	runs           *runtimeRunTracker
+}
+
+func newRuntimeCompletionSummaryCoordinator(
+	client *ent.Client,
+	logger *slog.Logger,
+	adapters *agentAdapterRegistry,
+	processManager provider.AgentCLIProcessManager,
+	sshPool *sshinfra.Pool,
+	workflow *workflowservice.Service,
+	now func() time.Time,
+	timeout time.Duration,
+) *runtimeCompletionSummaryCoordinator {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	if now == nil {
+		now = time.Now
+	}
+	return &runtimeCompletionSummaryCoordinator{
+		client:         client,
+		logger:         logger.With("component", "runtime-completion-summary"),
+		adapters:       adapters,
+		processManager: processManager,
+		sshPool:        sshPool,
+		workflow:       workflow,
+		now:            now,
+		timeout:        timeout,
+		runs:           newRuntimeRunTracker(),
+	}
+}
 
 type runCompletionSummaryContext struct {
 	run          *ent.AgentRun
@@ -109,12 +152,12 @@ type runCompletionGitNumstat struct {
 	removed int
 }
 
-func (l *RuntimeLauncher) reconcileRunCompletionSummaries(ctx context.Context) error {
-	if l == nil || l.client == nil {
+func (c *runtimeCompletionSummaryCoordinator) reconcileRunCompletionSummaries(ctx context.Context) error {
+	if c == nil || c.client == nil {
 		return nil
 	}
 
-	runs, err := l.client.AgentRun.Query().
+	runs, err := c.client.AgentRun.Query().
 		Where(
 			entagentrun.StatusIn(
 				entagentrun.StatusCompleted,
@@ -134,39 +177,39 @@ func (l *RuntimeLauncher) reconcileRunCompletionSummaries(ctx context.Context) e
 		}
 		switch {
 		case run.CompletionSummaryStatus == nil:
-			l.prepareRunCompletionSummaryBestEffort(ctx, run.ID)
-			l.scheduleRunCompletionSummary(run.ID)
+			c.prepareRunCompletionSummaryBestEffort(ctx, run.ID)
+			c.scheduleRunCompletionSummary(run.ID)
 		case *run.CompletionSummaryStatus == entagentrun.CompletionSummaryStatusPending:
-			l.scheduleRunCompletionSummary(run.ID)
+			c.scheduleRunCompletionSummary(run.ID)
 		}
 	}
 	return nil
 }
 
-func (l *RuntimeLauncher) prepareRunCompletionSummaryBestEffort(ctx context.Context, runID uuid.UUID) {
-	if l == nil || runID == uuid.Nil {
+func (c *runtimeCompletionSummaryCoordinator) prepareRunCompletionSummaryBestEffort(ctx context.Context, runID uuid.UUID) {
+	if c == nil || runID == uuid.Nil {
 		return
 	}
 
-	if err := l.prepareRunCompletionSummary(ctx, runID); err != nil {
-		l.logger.Warn("prepare run completion summary", "run_id", runID, "error", err)
-		l.markRunCompletionSummaryFailed(context.Background(), runID, err)
+	if err := c.prepareRunCompletionSummary(ctx, runID); err != nil {
+		c.logger.Warn("prepare run completion summary", "run_id", runID, "error", err)
+		c.markRunCompletionSummaryFailed(context.Background(), runID, err)
 	}
 }
 
-func (l *RuntimeLauncher) prepareRunCompletionSummary(ctx context.Context, runID uuid.UUID) error {
-	summaryCtx, err := l.loadRunCompletionSummaryContext(ctx, runID)
+func (c *runtimeCompletionSummaryCoordinator) prepareRunCompletionSummary(ctx context.Context, runID uuid.UUID) error {
+	summaryCtx, err := c.loadRunCompletionSummaryContext(ctx, runID)
 	if err != nil {
 		return err
 	}
 
-	snapshot, err := l.captureRunCompletionWorkspaceSnapshot(ctx, summaryCtx.machine, summaryCtx.workspaces)
+	snapshot, err := c.captureRunCompletionWorkspaceSnapshot(ctx, summaryCtx.machine, summaryCtx.workspaces)
 	if err != nil {
 		return err
 	}
 
 	input := buildRunCompletionSummaryInput(summaryCtx, snapshot)
-	if _, err := l.client.AgentRun.UpdateOneID(runID).
+	if _, err := c.client.AgentRun.UpdateOneID(runID).
 		SetCompletionSummaryStatus(entagentrun.CompletionSummaryStatusPending).
 		SetCompletionSummaryInput(input).
 		SetCompletionSummaryJSON(map[string]any{}).
@@ -180,49 +223,47 @@ func (l *RuntimeLauncher) prepareRunCompletionSummary(ctx context.Context, runID
 	return nil
 }
 
-func (l *RuntimeLauncher) scheduleRunCompletionSummary(runID uuid.UUID) {
-	if l == nil || runID == uuid.Nil {
+func (c *runtimeCompletionSummaryCoordinator) scheduleRunCompletionSummary(runID uuid.UUID) {
+	if c == nil || runID == uuid.Nil {
 		return
 	}
-	if !l.beginRunCompletionSummary(runID) {
+	if !c.beginRunCompletionSummary(runID) {
 		return
 	}
 
 	go func() {
-		defer l.endRunCompletionSummary(runID)
+		defer c.endRunCompletionSummary(runID)
 
-		timeout := l.summaryTimeout
+		timeout := c.timeout
 		if timeout <= 0 {
 			timeout = defaultCompletionSummaryTimeout
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 
-		if err := l.generateRunCompletionSummary(ctx, runID); err != nil {
-			l.logger.Warn("generate run completion summary", "run_id", runID, "error", err)
-			l.markRunCompletionSummaryFailed(context.Background(), runID, err)
+		if err := c.generateRunCompletionSummary(ctx, runID); err != nil {
+			c.logger.Warn("generate run completion summary", "run_id", runID, "error", err)
+			c.markRunCompletionSummaryFailed(context.Background(), runID, err)
 		}
 	}()
 }
 
-func (l *RuntimeLauncher) beginRunCompletionSummary(runID uuid.UUID) bool {
-	l.summaryJobsMu.Lock()
-	defer l.summaryJobsMu.Unlock()
-	if _, exists := l.summaryJobs[runID]; exists {
+func (c *runtimeCompletionSummaryCoordinator) beginRunCompletionSummary(runID uuid.UUID) bool {
+	if c == nil {
 		return false
 	}
-	l.summaryJobs[runID] = struct{}{}
-	return true
+	return c.runs.begin(runID)
 }
 
-func (l *RuntimeLauncher) endRunCompletionSummary(runID uuid.UUID) {
-	l.summaryJobsMu.Lock()
-	delete(l.summaryJobs, runID)
-	l.summaryJobsMu.Unlock()
+func (c *runtimeCompletionSummaryCoordinator) endRunCompletionSummary(runID uuid.UUID) {
+	if c == nil {
+		return
+	}
+	c.runs.finish(runID)
 }
 
-func (l *RuntimeLauncher) generateRunCompletionSummary(ctx context.Context, runID uuid.UUID) error {
-	summaryCtx, err := l.loadRunCompletionSummaryContext(ctx, runID)
+func (c *runtimeCompletionSummaryCoordinator) generateRunCompletionSummary(ctx context.Context, runID uuid.UUID) error {
+	summaryCtx, err := c.loadRunCompletionSummaryContext(ctx, runID)
 	if err != nil {
 		return err
 	}
@@ -234,11 +275,11 @@ func (l *RuntimeLauncher) generateRunCompletionSummary(ctx context.Context, runI
 		return fmt.Errorf("run %s is missing completion summary input", runID)
 	}
 
-	workingDirectory, err := l.resolveRunCompletionSummaryWorkingDirectory(summaryCtx.machine)
+	workingDirectory, err := c.resolveRunCompletionSummaryWorkingDirectory(summaryCtx.machine)
 	if err != nil {
 		return err
 	}
-	processManager, err := l.resolveRunCompletionSummaryProcessManager(summaryCtx.machine)
+	processManager, err := c.resolveRunCompletionSummaryProcessManager(summaryCtx.machine)
 	if err != nil {
 		return err
 	}
@@ -263,7 +304,7 @@ func (l *RuntimeLauncher) generateRunCompletionSummary(ctx context.Context, runI
 		return fmt.Errorf("build summary provider process spec: %w", err)
 	}
 
-	adapter, err := l.adapters.adapterFor(summaryCtx.provider.AdapterType)
+	adapter, err := c.adapters.adapterFor(summaryCtx.provider.AdapterType)
 	if err != nil {
 		return err
 	}
@@ -309,8 +350,8 @@ func (l *RuntimeLauncher) generateRunCompletionSummary(ctx context.Context, runI
 		"adapter_type": string(summaryCtx.provider.AdapterType),
 		"model":        summaryCtx.provider.ModelName,
 	}
-	generatedAt := l.now().UTC()
-	if _, err := l.client.AgentRun.UpdateOneID(runID).
+	generatedAt := c.now().UTC()
+	if _, err := c.client.AgentRun.UpdateOneID(runID).
 		SetCompletionSummaryStatus(entagentrun.CompletionSummaryStatusCompleted).
 		SetCompletionSummaryMarkdown(markdown).
 		SetCompletionSummaryJSON(result).
@@ -323,26 +364,26 @@ func (l *RuntimeLauncher) generateRunCompletionSummary(ctx context.Context, runI
 	return nil
 }
 
-func (l *RuntimeLauncher) markRunCompletionSummaryFailed(ctx context.Context, runID uuid.UUID, cause error) {
-	if l == nil || l.client == nil || runID == uuid.Nil || cause == nil {
+func (c *runtimeCompletionSummaryCoordinator) markRunCompletionSummaryFailed(ctx context.Context, runID uuid.UUID, cause error) {
+	if c == nil || c.client == nil || runID == uuid.Nil || cause == nil {
 		return
 	}
 	message := strings.TrimSpace(cause.Error())
 	if message == "" {
 		message = "completion summary failed"
 	}
-	update := l.client.AgentRun.UpdateOneID(runID).
+	update := c.client.AgentRun.UpdateOneID(runID).
 		SetCompletionSummaryStatus(entagentrun.CompletionSummaryStatusFailed).
 		SetCompletionSummaryError(message).
 		ClearCompletionSummaryMarkdown().
 		ClearCompletionSummaryGeneratedAt()
 	if _, err := update.Save(ctx); err != nil {
-		l.logger.Warn("persist completion summary failure", "run_id", runID, "error", err)
+		c.logger.Warn("persist completion summary failure", "run_id", runID, "error", err)
 	}
 }
 
-func (l *RuntimeLauncher) loadRunCompletionSummaryContext(ctx context.Context, runID uuid.UUID) (runCompletionSummaryContext, error) {
-	runItem, err := l.client.AgentRun.Query().
+func (c *runtimeCompletionSummaryCoordinator) loadRunCompletionSummaryContext(ctx context.Context, runID uuid.UUID) (runCompletionSummaryContext, error) {
+	runItem, err := c.client.AgentRun.Query().
 		Where(entagentrun.IDEQ(runID)).
 		WithAgent(func(query *ent.AgentQuery) {
 			query.WithProject(func(projectQuery *ent.ProjectQuery) {
@@ -365,28 +406,28 @@ func (l *RuntimeLauncher) loadRunCompletionSummaryContext(ctx context.Context, r
 		return runCompletionSummaryContext{}, fmt.Errorf("run %s is missing ticket context", runID)
 	}
 
-	machineItem, err := l.client.Machine.Query().
+	machineItem, err := c.client.Machine.Query().
 		Where(entmachine.IDEQ(runItem.Edges.Provider.MachineID)).
 		Only(ctx)
 	if err != nil {
 		return runCompletionSummaryContext{}, fmt.Errorf("load machine for run %s summary: %w", runID, err)
 	}
 
-	traceEntries, err := l.client.AgentTraceEvent.Query().
+	traceEntries, err := c.client.AgentTraceEvent.Query().
 		Where(entagenttraceevent.AgentRunIDEQ(runID)).
 		Order(entagenttraceevent.BySequence(sql.OrderAsc()), entagenttraceevent.ByID(sql.OrderAsc())).
 		All(ctx)
 	if err != nil {
 		return runCompletionSummaryContext{}, fmt.Errorf("list trace entries for run %s summary: %w", runID, err)
 	}
-	stepEntries, err := l.client.AgentStepEvent.Query().
+	stepEntries, err := c.client.AgentStepEvent.Query().
 		Where(entagentstepevent.AgentRunIDEQ(runID)).
 		Order(entagentstepevent.ByCreatedAt(sql.OrderAsc()), entagentstepevent.ByID(sql.OrderAsc())).
 		All(ctx)
 	if err != nil {
 		return runCompletionSummaryContext{}, fmt.Errorf("list step entries for run %s summary: %w", runID, err)
 	}
-	workspaces, err := l.client.TicketRepoWorkspace.Query().
+	workspaces, err := c.client.TicketRepoWorkspace.Query().
 		Where(entticketrepoworkspace.AgentRunIDEQ(runID)).
 		Order(entticketrepoworkspace.ByRepoPath(sql.OrderAsc()), entticketrepoworkspace.ByID(sql.OrderAsc())).
 		All(ctx)
@@ -407,12 +448,12 @@ func (l *RuntimeLauncher) loadRunCompletionSummaryContext(ctx context.Context, r
 	}, nil
 }
 
-func (l *RuntimeLauncher) resolveRunCompletionSummaryWorkingDirectory(machine catalogdomain.Machine) (provider.AbsolutePath, error) {
+func (c *runtimeCompletionSummaryCoordinator) resolveRunCompletionSummaryWorkingDirectory(machine catalogdomain.Machine) (provider.AbsolutePath, error) {
 	if machine.WorkspaceRoot != nil && strings.TrimSpace(*machine.WorkspaceRoot) != "" {
 		return provider.ParseAbsolutePath(strings.TrimSpace(*machine.WorkspaceRoot))
 	}
-	if machine.Host == catalogdomain.LocalMachineHost && l != nil && l.workflow != nil {
-		if root := strings.TrimSpace(l.workflow.RepoRoot()); root != "" {
+	if machine.Host == catalogdomain.LocalMachineHost && c != nil && c.workflow != nil {
+		if root := strings.TrimSpace(c.workflow.RepoRoot()); root != "" {
 			return provider.ParseAbsolutePath(root)
 		}
 	}
@@ -426,17 +467,17 @@ func (l *RuntimeLauncher) resolveRunCompletionSummaryWorkingDirectory(machine ca
 	return "", fmt.Errorf("machine %s is missing workspace_root for completion summary", machine.Name)
 }
 
-func (l *RuntimeLauncher) resolveRunCompletionSummaryProcessManager(machine catalogdomain.Machine) (provider.AgentCLIProcessManager, error) {
+func (c *runtimeCompletionSummaryCoordinator) resolveRunCompletionSummaryProcessManager(machine catalogdomain.Machine) (provider.AgentCLIProcessManager, error) {
 	if machine.Host == catalogdomain.LocalMachineHost {
-		if l == nil || l.processManager == nil {
+		if c == nil || c.processManager == nil {
 			return nil, fmt.Errorf("local process manager unavailable for completion summary")
 		}
-		return l.processManager, nil
+		return c.processManager, nil
 	}
-	if l == nil || l.sshPool == nil {
+	if c == nil || c.sshPool == nil {
 		return nil, fmt.Errorf("ssh pool unavailable for completion summary on machine %s", machine.Name)
 	}
-	return sshinfra.NewProcessManager(l.sshPool, machine), nil
+	return sshinfra.NewProcessManager(c.sshPool, machine), nil
 }
 
 func buildRunCompletionSummaryDeveloperInstructions(project *ent.Project) string {
@@ -786,7 +827,7 @@ func buildRunCompletionSummaryRiskyFiles(snapshot runCompletionWorkspaceSnapshot
 	return items
 }
 
-func (l *RuntimeLauncher) captureRunCompletionWorkspaceSnapshot(
+func (c *runtimeCompletionSummaryCoordinator) captureRunCompletionWorkspaceSnapshot(
 	ctx context.Context,
 	machine catalogdomain.Machine,
 	workspaces []*ent.TicketRepoWorkspace,
@@ -802,7 +843,7 @@ func (l *RuntimeLauncher) captureRunCompletionWorkspaceSnapshot(
 	}
 
 	for _, workspace := range workspaces {
-		repoSummary, err := l.captureRunCompletionWorkspaceRepo(ctx, machine, workspaceRoot, workspace)
+		repoSummary, err := c.captureRunCompletionWorkspaceRepo(ctx, machine, workspaceRoot, workspace)
 		if err != nil {
 			return runCompletionWorkspaceSnapshot{}, err
 		}
@@ -823,13 +864,13 @@ func (l *RuntimeLauncher) captureRunCompletionWorkspaceSnapshot(
 	return snapshot, nil
 }
 
-func (l *RuntimeLauncher) captureRunCompletionWorkspaceRepo(
+func (c *runtimeCompletionSummaryCoordinator) captureRunCompletionWorkspaceRepo(
 	ctx context.Context,
 	machine catalogdomain.Machine,
 	workspaceRoot string,
 	workspace *ent.TicketRepoWorkspace,
 ) (runCompletionRepoDiff, error) {
-	branchOutput, err := l.runCompletionSummaryGitCommand(
+	branchOutput, err := c.runCompletionSummaryGitCommand(
 		ctx,
 		machine,
 		[]string{"git", "-C", workspace.RepoPath, "rev-parse", "--abbrev-ref", "HEAD"},
@@ -841,7 +882,7 @@ func (l *RuntimeLauncher) captureRunCompletionWorkspaceRepo(
 		}
 		return runCompletionRepoDiff{}, fmt.Errorf("read workspace branch for %s: %w", workspace.RepoPath, err)
 	}
-	statusOutput, err := l.runCompletionSummaryGitCommand(
+	statusOutput, err := c.runCompletionSummaryGitCommand(
 		ctx,
 		machine,
 		[]string{"git", "-C", workspace.RepoPath, "status", "--porcelain=v1", "-z", "--untracked-files=all"},
@@ -858,7 +899,7 @@ func (l *RuntimeLauncher) captureRunCompletionWorkspaceRepo(
 		return runCompletionRepoDiff{}, nil
 	}
 
-	numstatOutput, err := l.runCompletionSummaryGitCommand(
+	numstatOutput, err := c.runCompletionSummaryGitCommand(
 		ctx,
 		machine,
 		[]string{"git", "-C", workspace.RepoPath, "diff", "--numstat", "-z", "-M", "HEAD", "--"},
@@ -893,7 +934,7 @@ func (l *RuntimeLauncher) captureRunCompletionWorkspaceRepo(
 	for _, status := range statuses {
 		stat := fileStats[status.path]
 		if status.code == "??" {
-			stat, err = l.readRunCompletionUntrackedNumstat(ctx, machine, workspace.RepoPath, status.path)
+			stat, err = c.readRunCompletionUntrackedNumstat(ctx, machine, workspace.RepoPath, status.path)
 			if err != nil {
 				return runCompletionRepoDiff{}, fmt.Errorf("read untracked numstat for %s: %w", status.path, err)
 			}
@@ -916,13 +957,13 @@ func (l *RuntimeLauncher) captureRunCompletionWorkspaceRepo(
 	return repoSummary, nil
 }
 
-func (l *RuntimeLauncher) readRunCompletionUntrackedNumstat(
+func (c *runtimeCompletionSummaryCoordinator) readRunCompletionUntrackedNumstat(
 	ctx context.Context,
 	machine catalogdomain.Machine,
 	repoPath string,
 	filePath string,
 ) (runCompletionGitNumstat, error) {
-	output, err := l.runCompletionSummaryGitCommand(
+	output, err := c.runCompletionSummaryGitCommand(
 		ctx,
 		machine,
 		[]string{"git", "-C", repoPath, "diff", "--no-index", "--numstat", "-z", "/dev/null", filePath},
@@ -945,7 +986,7 @@ func (l *RuntimeLauncher) readRunCompletionUntrackedNumstat(
 	}, nil
 }
 
-func (l *RuntimeLauncher) runCompletionSummaryGitCommand(
+func (c *runtimeCompletionSummaryCoordinator) runCompletionSummaryGitCommand(
 	ctx context.Context,
 	machine catalogdomain.Machine,
 	args []string,
@@ -962,11 +1003,11 @@ func (l *RuntimeLauncher) runCompletionSummaryGitCommand(
 		}
 		return output, nil
 	}
-	if l == nil || l.sshPool == nil {
+	if c == nil || c.sshPool == nil {
 		return nil, fmt.Errorf("ssh pool unavailable for machine %s", machine.Name)
 	}
 
-	client, err := l.sshPool.Get(ctx, machine)
+	client, err := c.sshPool.Get(ctx, machine)
 	if err != nil {
 		return nil, err
 	}
