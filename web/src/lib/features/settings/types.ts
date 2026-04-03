@@ -5,6 +5,7 @@ export const settingsSections = [
   'agents',
   'notifications',
   'security',
+  'archived',
 ] as const
 
 export type SettingsSection = (typeof settingsSections)[number]

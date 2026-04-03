@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { Component } from 'svelte'
   import { Input } from '$ui/input'
-  import { Label } from '$ui/label'
 
   let {
     id,
@@ -28,23 +27,19 @@
   const Icon = $derived(icon)
 </script>
 
-<div class="space-y-2">
-  <Label for={id}>{label}</Label>
-  <div class="relative">
-    <Icon
-      class="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
-    />
-    <Input
-      {id}
-      class="pl-9"
-      type="number"
-      {min}
-      {step}
-      inputmode="numeric"
-      {value}
-      {placeholder}
-      {disabled}
-      oninput={(event) => oninput?.((event.currentTarget as HTMLInputElement).value)}
-    />
-  </div>
+<div class="flex items-center gap-2 py-2">
+  <Icon class="text-muted-foreground size-3.5 shrink-0" />
+  <label for={id} class="text-muted-foreground min-w-0 shrink-0 text-xs">{label}</label>
+  <Input
+    {id}
+    class="ml-auto h-7 w-20 text-xs"
+    type="number"
+    {min}
+    {step}
+    inputmode="numeric"
+    {value}
+    {placeholder}
+    {disabled}
+    oninput={(event) => oninput?.((event.currentTarget as HTMLInputElement).value)}
+  />
 </div>

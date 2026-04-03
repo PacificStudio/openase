@@ -204,8 +204,45 @@ async function handleColumnConcurrency(
   }
 }
 
+async function handleColumnArchiveAll(
+  state: Pick<TicketsPageControllerActionsState, 'allColumns' | 'allStatuses' | 'requestReload'>,
+  statusId: string,
+) {
+  const projectId = appStore.currentProject?.id
+  if (!projectId) return
+
+  const archivedStatus = state.allStatuses.find((status) => status.stage === 'canceled')
+  if (!archivedStatus) {
+    toastStore.error('No cancelled status is configured for this project.')
+    return
+  }
+
+  const sourceColumn = state.allColumns.find((column) => column.id === statusId)
+  if (!sourceColumn) return
+
+  const ticketIDs = sourceColumn.tickets
+    .filter((ticket) => ticket.statusId !== archivedStatus.id)
+    .map((ticket) => ticket.id)
+  if (ticketIDs.length === 0) return
+
+  try {
+    await Promise.all(
+      ticketIDs.map((ticketID) => updateTicket(ticketID, { status_id: archivedStatus.id })),
+    )
+    toastStore.success(
+      `${ticketIDs.length} ticket${ticketIDs.length > 1 ? 's' : ''} archived to "${archivedStatus.name}".`,
+    )
+  } catch (caughtError) {
+    toastStore.error(
+      caughtError instanceof ApiError ? caughtError.detail : 'Failed to archive tickets.',
+    )
+  } finally {
+    state.requestReload(projectId)
+  }
+}
+
 export async function handleColumnAction(
-  state: Pick<TicketsPageControllerActionsState, 'allStatuses' | 'requestReload'>,
+  state: Pick<TicketsPageControllerActionsState, 'allColumns' | 'allStatuses' | 'requestReload'>,
   columnId: string,
   action: string,
 ) {
@@ -213,4 +250,5 @@ export async function handleColumnAction(
   if (action === 'move_right') return handleColumnMove(state, columnId, 'right')
   if (action === 'set_concurrency') return handleColumnConcurrency(state, columnId)
   if (action === 'clear_concurrency') return handleColumnConcurrency(state, columnId, null)
+  if (action === 'archive_all') return handleColumnArchiveAll(state, columnId)
 }

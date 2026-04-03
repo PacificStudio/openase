@@ -42,6 +42,14 @@ import ProjectConversationPanel from './project-conversation-panel.svelte'
 import { providerFixtures } from './ephemeral-chat-session-controller.test-helpers'
 import { createWorkspaceDiff } from './project-conversation-panel.test-helpers'
 
+async function waitForComposerReady(getByPlaceholderText: (text: string) => HTMLElement) {
+  await waitFor(() => {
+    expect(
+      (getByPlaceholderText('Ask anything about this project…') as HTMLTextAreaElement).disabled,
+    ).toBe(false)
+  })
+}
+
 describe('ProjectConversationPanel tab behavior', () => {
   beforeAll(() => {
     HTMLElement.prototype.scrollIntoView ??= vi.fn()
@@ -103,6 +111,8 @@ describe('ProjectConversationPanel tab behavior', () => {
         },
       },
     )
+
+    await waitForComposerReady(getByPlaceholderText)
 
     const prompt = getByPlaceholderText('Ask anything about this project…') as HTMLTextAreaElement
     const sendButton = getByRole('button', { name: 'Send message' }) as HTMLButtonElement
@@ -185,6 +195,8 @@ describe('ProjectConversationPanel tab behavior', () => {
       },
     })
 
+    await waitForComposerReady(getByPlaceholderText)
+
     const prompt = getByPlaceholderText('Ask anything about this project…') as HTMLTextAreaElement
     const sendButton = getByRole('button', { name: 'Send message' }) as HTMLButtonElement
 
@@ -255,6 +267,8 @@ describe('ProjectConversationPanel tab behavior', () => {
         },
       },
     )
+
+    await waitForComposerReady(getByPlaceholderText)
 
     const prompt = getByPlaceholderText('Ask anything about this project…') as HTMLTextAreaElement
     const sendButton = getByRole('button', { name: 'Send message' }) as HTMLButtonElement

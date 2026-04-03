@@ -88,6 +88,38 @@ export function createTicketDrawerActions(input: DrawerActionInput) {
         successMessage: 'Priority updated.',
       })
     },
+    async handleArchive() {
+      const ticket = input.drawerState.ticket
+      const ticketId = getTicketId()
+      if (!ticket || !ticketId) return
+
+      const canceledStatus = input.drawerState.statuses.find((s) => s.stage === 'canceled')
+      if (!canceledStatus) {
+        input.drawerState.setMutationError('No cancelled status is configured for this project.')
+        return
+      }
+
+      await runTicketDrawerMutation({
+        ...input.buildDrawerMutation(ticket),
+        start: () => {
+          input.drawerState.archiving = true
+        },
+        finish: () => {
+          input.drawerState.archiving = false
+        },
+        optimisticUpdate: (currentTicket) => ({
+          ...currentTicket,
+          status: {
+            ...currentTicket.status,
+            id: canceledStatus.id,
+            name: canceledStatus.name,
+            stage: 'canceled' as const,
+          },
+        }),
+        mutate: () => updateTicket(ticketId, { status_id: canceledStatus.id }),
+        successMessage: 'Ticket archived.',
+      })
+    },
     handleAddDependency(draft: DependencyDraft) {
       return handleAddDependencyAction({
         ticketId: getTicketId(),

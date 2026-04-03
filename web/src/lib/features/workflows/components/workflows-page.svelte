@@ -47,6 +47,7 @@
     bind:showList={controller.showList}
     statuses={controller.statuses}
     agentOptions={controller.agentOptions}
+    scopeGroups={controller.scopeGroups}
     builtinRoleContent={controller.builtinRoleContent}
     templateDraft={controller.templateDraft}
     onSelectedIdChange={controller.handleSelectWorkflow}

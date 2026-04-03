@@ -1,6 +1,10 @@
 package ticket
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/google/uuid"
+)
 
 func TestParsePriority(t *testing.T) {
 	got, err := ParsePriority(" High ")
@@ -84,5 +88,92 @@ func TestParseExternalLinkRelation(t *testing.T) {
 
 	if _, err := ParseExternalLinkRelation("duplicates"); err == nil {
 		t.Fatal("expected invalid relation to fail")
+	}
+}
+
+func TestParseArchivedListInput(t *testing.T) {
+	projectID := uuid.New()
+
+	got, err := ParseArchivedListInput(projectID, ArchivedListRawInput{})
+	if err != nil {
+		t.Fatalf("ParseArchivedListInput() defaults error = %v", err)
+	}
+	if got.ProjectID != projectID {
+		t.Fatalf("project id = %s", got.ProjectID)
+	}
+	if got.Page != DefaultArchivedTicketPage {
+		t.Fatalf("default page = %d", got.Page)
+	}
+	if got.PerPage != DefaultArchivedTicketPerPage {
+		t.Fatalf("default per_page = %d", got.PerPage)
+	}
+
+	got, err = ParseArchivedListInput(projectID, ArchivedListRawInput{
+		Page:    " 3 ",
+		PerPage: " 40 ",
+	})
+	if err != nil {
+		t.Fatalf("ParseArchivedListInput() parsed error = %v", err)
+	}
+	if got.Page != 3 || got.PerPage != 40 {
+		t.Fatalf("parsed input = %+v", got)
+	}
+}
+
+func TestParseArchivedListInputRejectsInvalidValues(t *testing.T) {
+	projectID := uuid.New()
+
+	tests := []struct {
+		name string
+		raw  ArchivedListRawInput
+		want string
+	}{
+		{
+			name: "page not integer",
+			raw: ArchivedListRawInput{
+				Page: "abc",
+			},
+			want: "page must be a valid integer",
+		},
+		{
+			name: "page non positive",
+			raw: ArchivedListRawInput{
+				Page: "0",
+			},
+			want: "page must be greater than zero",
+		},
+		{
+			name: "per page not integer",
+			raw: ArchivedListRawInput{
+				PerPage: "abc",
+			},
+			want: "per_page must be a valid integer",
+		},
+		{
+			name: "per page non positive",
+			raw: ArchivedListRawInput{
+				PerPage: "-1",
+			},
+			want: "per_page must be greater than zero",
+		},
+		{
+			name: "per page above max",
+			raw: ArchivedListRawInput{
+				PerPage: "101",
+			},
+			want: "per_page must be less than or equal to 100",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseArchivedListInput(projectID, tt.raw)
+			if err == nil {
+				t.Fatal("expected ParseArchivedListInput() to fail")
+			}
+			if err.Error() != tt.want {
+				t.Fatalf("error = %q, want %q", err.Error(), tt.want)
+			}
+		})
 	}
 }

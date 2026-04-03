@@ -65,6 +65,27 @@ function deferredPromise<T>() {
   return { promise, resolve, reject }
 }
 
+function seedProjectConversationTabsStorage(
+  tabs: Array<{
+    conversationId: string
+    providerId: string
+    draft?: string
+  }>,
+  activeTabIndex: number,
+) {
+  window.localStorage.setItem(
+    'openase.project-conversation.project-1',
+    JSON.stringify({
+      tabs: tabs.map((tab) => ({
+        conversationId: tab.conversationId,
+        providerId: tab.providerId,
+        draft: tab.draft ?? '',
+      })),
+      activeTabIndex,
+    }),
+  )
+}
+
 describe('createProjectConversationController', () => {
   afterEach(() => {
     vi.clearAllMocks()
@@ -390,13 +411,14 @@ describe('createProjectConversationController', () => {
     )
   })
 
-  it('restores only the selected persisted tab and drops background live tabs', async () => {
-    window.localStorage.setItem(
-      'openase.project-conversation.project-1.provider-1',
-      JSON.stringify({
-        conversationIds: ['conversation-2', 'missing-conversation', 'conversation-1'],
-        activeConversationId: 'conversation-1',
-      }),
+  it('restores persisted tabs, drops missing ones, and keeps the selected tab active', async () => {
+    seedProjectConversationTabsStorage(
+      [
+        { conversationId: 'conversation-2', providerId: 'provider-1' },
+        { conversationId: 'missing-conversation', providerId: 'provider-1' },
+        { conversationId: 'conversation-1', providerId: 'provider-1' },
+      ],
+      2,
     )
 
     listProjectConversations.mockResolvedValue({
@@ -441,13 +463,16 @@ describe('createProjectConversationController', () => {
 
     await controller.restore()
 
-    expect(controller.tabs).toHaveLength(1)
-    expect(controller.tabs.map((tab) => tab.conversationId)).toEqual(['conversation-1'])
+    expect(controller.tabs).toHaveLength(2)
+    expect(controller.tabs.map((tab) => tab.conversationId)).toEqual([
+      'conversation-2',
+      'conversation-1',
+    ])
     expect(controller.tabs.every((tab) => tab.restored)).toBe(true)
     expect(controller.conversationId).toBe('conversation-1')
     expect(controller.entries).toMatchObject([{ kind: 'text', content: 'Current conversation' }])
-    expect(listProjectConversationEntries).toHaveBeenCalledTimes(1)
-    expect(getProjectConversationWorkspaceDiff).toHaveBeenCalledTimes(1)
+    expect(listProjectConversationEntries).toHaveBeenCalledTimes(2)
+    expect(getProjectConversationWorkspaceDiff).toHaveBeenCalledTimes(2)
   })
 
   it('closes only the selected tab and keeps the remaining tab active', async () => {
@@ -492,5 +517,98 @@ describe('createProjectConversationController', () => {
     expect(controller.tabs).toHaveLength(1)
     expect(controller.conversationId).toBe('conversation-2')
     expect(controller.entries).toMatchObject([{ kind: 'text', content: 'Second tab' }])
+  })
+
+  it('retargets a blank tab when switching provider before the conversation starts', async () => {
+    createProjectConversation.mockResolvedValue({
+      conversation: {
+        id: 'conversation-1',
+        providerId: 'provider-2',
+        lastActivityAt: '2026-04-01T10:00:00Z',
+      },
+    })
+    getProjectConversationWorkspaceDiff.mockResolvedValue(createWorkspaceDiff('conversation-1'))
+    watchProjectConversation.mockResolvedValue(undefined)
+    startProjectConversationTurn.mockResolvedValue({
+      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
+    })
+
+    const controller = createProjectConversationController({
+      getProjectId: () => 'project-1',
+    })
+    controller.syncProviders(providerFixtures, 'provider-1')
+
+    expect(controller.tabs).toHaveLength(1)
+    expect(controller.providerId).toBe('provider-1')
+
+    await controller.selectProvider('provider-2')
+
+    expect(controller.tabs).toHaveLength(1)
+    expect(controller.providerId).toBe('provider-2')
+    expect(controller.tabs[0]?.providerId).toBe('provider-2')
+
+    await controller.sendTurn('Use Claude instead')
+
+    expect(createProjectConversation).toHaveBeenCalledWith({
+      providerId: 'provider-2',
+      projectId: 'project-1',
+    })
+  })
+
+  it('opens a new blank tab when switching provider after a conversation has started', async () => {
+    createProjectConversation
+      .mockResolvedValueOnce({
+        conversation: {
+          id: 'conversation-1',
+          providerId: 'provider-1',
+          lastActivityAt: '2026-04-01T10:00:00Z',
+        },
+      })
+      .mockResolvedValueOnce({
+        conversation: {
+          id: 'conversation-2',
+          providerId: 'provider-2',
+          lastActivityAt: '2026-04-01T10:05:00Z',
+        },
+      })
+    getProjectConversationWorkspaceDiff
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-2'))
+    watchProjectConversation.mockResolvedValue(undefined)
+    startProjectConversationTurn.mockResolvedValue({
+      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
+    })
+
+    const controller = createProjectConversationController({
+      getProjectId: () => 'project-1',
+    })
+    controller.syncProviders(providerFixtures, 'provider-1')
+
+    await controller.sendTurn('First provider')
+    expect(controller.phase).toBe('awaiting_reply')
+
+    const streamHandler = watchProjectConversation.mock.calls[0]?.[1]?.onEvent as
+      | ((event: { kind: string; payload: Record<string, unknown> }) => void)
+      | undefined
+    streamHandler?.({
+      kind: 'turn_done',
+      payload: {},
+    })
+
+    expect(controller.phase).toBe('idle')
+    await controller.selectProvider('provider-2')
+
+    expect(controller.tabs).toHaveLength(2)
+    expect(controller.providerId).toBe('provider-2')
+    expect(controller.tabs.map((tab) => tab.providerId)).toEqual(['provider-1', 'provider-2'])
+    expect(controller.conversationId).toBe('')
+
+    await controller.sendTurn('Second provider')
+
+    expect(createProjectConversation).toHaveBeenNthCalledWith(2, {
+      providerId: 'provider-2',
+      projectId: 'project-1',
+    })
+    expect(controller.conversationId).toBe('conversation-2')
   })
 })

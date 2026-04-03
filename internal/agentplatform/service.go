@@ -20,12 +20,52 @@ import (
 const TokenPrefix = domain.TokenPrefix
 
 const (
-	ScopeTicketsCreate      = domain.ScopeTicketsCreate
-	ScopeTicketsList        = domain.ScopeTicketsList
-	ScopeTicketsReportUsage = domain.ScopeTicketsReportUsage
-	ScopeTicketsUpdateSelf  = domain.ScopeTicketsUpdateSelf
-	ScopeProjectsUpdate     = domain.ScopeProjectsUpdate
-	ScopeProjectsAddRepo    = domain.ScopeProjectsAddRepo
+	ScopeTicketsCreate                 = domain.ScopeTicketsCreate
+	ScopeTicketsList                   = domain.ScopeTicketsList
+	ScopeTicketsReportUsage            = domain.ScopeTicketsReportUsage
+	ScopeTicketsUpdateSelf             = domain.ScopeTicketsUpdateSelf
+	ScopeProjectsUpdate                = domain.ScopeProjectsUpdate
+	ScopeProjectsAddRepo               = domain.ScopeProjectsAddRepo
+	ScopeActivityRead                  = domain.ScopeActivityRead
+	ScopeReposCreate                   = domain.ScopeReposCreate
+	ScopeReposRead                     = domain.ScopeReposRead
+	ScopeReposUpdate                   = domain.ScopeReposUpdate
+	ScopeReposDelete                   = domain.ScopeReposDelete
+	ScopeScheduledJobsList             = domain.ScopeScheduledJobsList
+	ScopeScheduledJobsCreate           = domain.ScopeScheduledJobsCreate
+	ScopeScheduledJobsUpdate           = domain.ScopeScheduledJobsUpdate
+	ScopeScheduledJobsDelete           = domain.ScopeScheduledJobsDelete
+	ScopeScheduledJobsTrigger          = domain.ScopeScheduledJobsTrigger
+	ScopeSkillsList                    = domain.ScopeSkillsList
+	ScopeSkillsRead                    = domain.ScopeSkillsRead
+	ScopeSkillsCreate                  = domain.ScopeSkillsCreate
+	ScopeSkillsImport                  = domain.ScopeSkillsImport
+	ScopeSkillsRefresh                 = domain.ScopeSkillsRefresh
+	ScopeSkillsUpdate                  = domain.ScopeSkillsUpdate
+	ScopeSkillsDelete                  = domain.ScopeSkillsDelete
+	ScopeSkillsEnable                  = domain.ScopeSkillsEnable
+	ScopeSkillsDisable                 = domain.ScopeSkillsDisable
+	ScopeSkillsBind                    = domain.ScopeSkillsBind
+	ScopeSkillsRefine                  = domain.ScopeSkillsRefine
+	ScopeStatusesList                  = domain.ScopeStatusesList
+	ScopeStatusesCreate                = domain.ScopeStatusesCreate
+	ScopeStatusesUpdate                = domain.ScopeStatusesUpdate
+	ScopeStatusesDelete                = domain.ScopeStatusesDelete
+	ScopeStatusesReset                 = domain.ScopeStatusesReset
+	ScopeTicketRepoScopesList          = domain.ScopeTicketRepoScopesList
+	ScopeTicketRepoScopesCreate        = domain.ScopeTicketRepoScopesCreate
+	ScopeTicketRepoScopesUpdate        = domain.ScopeTicketRepoScopesUpdate
+	ScopeTicketRepoScopesDelete        = domain.ScopeTicketRepoScopesDelete
+	ScopeWorkflowsList                 = domain.ScopeWorkflowsList
+	ScopeWorkflowsRead                 = domain.ScopeWorkflowsRead
+	ScopeWorkflowsCreate               = domain.ScopeWorkflowsCreate
+	ScopeWorkflowsUpdate               = domain.ScopeWorkflowsUpdate
+	ScopeWorkflowsDelete               = domain.ScopeWorkflowsDelete
+	ScopeWorkflowsHarnessRead          = domain.ScopeWorkflowsHarnessRead
+	ScopeWorkflowsHarnessHistoryRead   = domain.ScopeWorkflowsHarnessHistoryRead
+	ScopeWorkflowsHarnessUpdate        = domain.ScopeWorkflowsHarnessUpdate
+	ScopeWorkflowsHarnessValidate      = domain.ScopeWorkflowsHarnessValidate
+	ScopeWorkflowsHarnessVariablesRead = domain.ScopeWorkflowsHarnessVariablesRead
 )
 
 const (
@@ -56,17 +96,94 @@ var (
 		ScopeTicketsList,
 	}
 	supportedAgentScopes = []Scope{
+		ScopeActivityRead,
 		ScopeProjectsAddRepo,
 		ScopeProjectsUpdate,
+		ScopeReposCreate,
+		ScopeReposDelete,
+		ScopeReposRead,
+		ScopeReposUpdate,
+		ScopeScheduledJobsCreate,
+		ScopeScheduledJobsDelete,
+		ScopeScheduledJobsList,
+		ScopeScheduledJobsTrigger,
+		ScopeScheduledJobsUpdate,
+		ScopeSkillsBind,
+		ScopeSkillsCreate,
+		ScopeSkillsDelete,
+		ScopeSkillsDisable,
+		ScopeSkillsEnable,
+		ScopeSkillsImport,
+		ScopeSkillsList,
+		ScopeSkillsRead,
+		ScopeSkillsRefine,
+		ScopeSkillsRefresh,
+		ScopeSkillsUpdate,
+		ScopeStatusesCreate,
+		ScopeStatusesDelete,
+		ScopeStatusesList,
+		ScopeStatusesReset,
+		ScopeStatusesUpdate,
+		ScopeTicketRepoScopesCreate,
+		ScopeTicketRepoScopesDelete,
+		ScopeTicketRepoScopesList,
+		ScopeTicketRepoScopesUpdate,
 		ScopeTicketsCreate,
 		ScopeTicketsList,
 		ScopeTicketsReportUsage,
 		ScopeTicketsUpdateSelf,
+		ScopeWorkflowsCreate,
+		ScopeWorkflowsDelete,
+		ScopeWorkflowsHarnessHistoryRead,
+		ScopeWorkflowsHarnessRead,
+		ScopeWorkflowsHarnessUpdate,
+		ScopeWorkflowsHarnessValidate,
+		ScopeWorkflowsHarnessVariablesRead,
+		ScopeWorkflowsList,
+		ScopeWorkflowsRead,
+		ScopeWorkflowsUpdate,
 	}
 	supportedProjectConversationScopes = []Scope{
+		ScopeActivityRead,
 		ScopeProjectsUpdate,
+		ScopeProjectsAddRepo,
+		ScopeReposCreate,
+		ScopeReposDelete,
+		ScopeReposRead,
+		ScopeReposUpdate,
+		ScopeScheduledJobsCreate,
+		ScopeScheduledJobsDelete,
+		ScopeScheduledJobsList,
+		ScopeScheduledJobsTrigger,
+		ScopeScheduledJobsUpdate,
+		ScopeSkillsBind,
+		ScopeSkillsCreate,
+		ScopeSkillsDelete,
+		ScopeSkillsDisable,
+		ScopeSkillsEnable,
+		ScopeSkillsImport,
+		ScopeSkillsList,
+		ScopeSkillsRead,
+		ScopeSkillsRefine,
+		ScopeSkillsRefresh,
+		ScopeSkillsUpdate,
+		ScopeStatusesCreate,
+		ScopeStatusesDelete,
+		ScopeStatusesList,
+		ScopeStatusesReset,
+		ScopeStatusesUpdate,
 		ScopeTicketsCreate,
 		ScopeTicketsList,
+		ScopeWorkflowsCreate,
+		ScopeWorkflowsDelete,
+		ScopeWorkflowsHarnessHistoryRead,
+		ScopeWorkflowsHarnessRead,
+		ScopeWorkflowsHarnessUpdate,
+		ScopeWorkflowsHarnessValidate,
+		ScopeWorkflowsHarnessVariablesRead,
+		ScopeWorkflowsList,
+		ScopeWorkflowsRead,
+		ScopeWorkflowsUpdate,
 	}
 )
 
@@ -74,6 +191,7 @@ type Scope = domain.Scope
 type PrincipalKind = domain.PrincipalKind
 type ScopeSet = domain.ScopeSet
 type ScopeWhitelist = domain.ScopeWhitelist
+type ScopeGroup = domain.ScopeGroup
 type IssueInput = domain.IssueInput
 type IssuedToken = domain.IssuedToken
 type Claims = domain.Claims
@@ -284,7 +402,7 @@ func DefaultScopesForPrincipalKind(kind PrincipalKind) []string {
 }
 
 func SupportedScopes() []string {
-	return domain.SupportedAgentScopes()
+	return scopeStrings(supportedAgentScopes)
 }
 
 func SupportedScopesForPrincipalKind(kind PrincipalKind) []string {
@@ -292,24 +410,19 @@ func SupportedScopesForPrincipalKind(kind PrincipalKind) []string {
 }
 
 func PrivilegedScopes() []string {
-	privileged := make([]string, 0, len(supportedAgentScopes))
-	for _, scope := range supportedAgentScopes {
-		if strings.HasPrefix(string(scope), "projects.") {
-			privileged = append(privileged, string(scope))
-		}
-	}
-	return privileged
+	return privilegedScopesForPrincipalKind(PrincipalKindTicketAgent)
 }
 
 func PrivilegedScopesForPrincipalKind(kind PrincipalKind) []string {
-	supported := supportedScopesForPrincipalKind(kind)
-	privileged := make([]string, 0, len(supported))
-	for _, scope := range supported {
-		if strings.HasPrefix(string(scope), "projects.") {
-			privileged = append(privileged, string(scope))
-		}
-	}
-	return privileged
+	return privilegedScopesForPrincipalKind(kind)
+}
+
+func SupportedScopeGroups() []ScopeGroup {
+	return scopeGroupsFor(supportedAgentScopes)
+}
+
+func SupportedScopeGroupsForPrincipalKind(kind PrincipalKind) []ScopeGroup {
+	return scopeGroupsFor(supportedScopesForPrincipalKind(kind))
 }
 
 func parseScopes(raw []string) (ScopeSet, error) {
@@ -397,6 +510,47 @@ func scopeStrings(scopes []Scope) []string {
 		items = append(items, string(scope))
 	}
 	return items
+}
+
+func scopeGroupsFor(scopes []Scope) []ScopeGroup {
+	grouped := make(map[string][]string)
+	for _, scope := range scopes {
+		category, _, found := strings.Cut(string(scope), ".")
+		if !found {
+			category = string(scope)
+		}
+		grouped[category] = append(grouped[category], string(scope))
+	}
+
+	categories := make([]string, 0, len(grouped))
+	for category := range grouped {
+		categories = append(categories, category)
+	}
+	slices.Sort(categories)
+
+	result := make([]ScopeGroup, 0, len(categories))
+	for _, category := range categories {
+		items := grouped[category]
+		slices.Sort(items)
+		result = append(result, ScopeGroup{
+			Category: category,
+			Scopes:   items,
+		})
+	}
+	return result
+}
+
+func privilegedScopesForPrincipalKind(kind PrincipalKind) []string {
+	supported := supportedScopesForPrincipalKind(kind)
+	defaults := defaultScopesForPrincipalKind(kind)
+	privileged := make([]string, 0, len(supported))
+	for _, scope := range supported {
+		if !slices.Contains(defaults, scope) {
+			privileged = append(privileged, string(scope))
+		}
+	}
+	slices.Sort(privileged)
+	return privileged
 }
 
 func defaultScopesForPrincipalKind(kind PrincipalKind) ScopeSet {

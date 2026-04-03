@@ -1,7 +1,12 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import type { WorkflowAgentOption, WorkflowStatusOption, WorkflowSummary } from '../types'
+  import type {
+    ScopeGroup,
+    WorkflowAgentOption,
+    WorkflowStatusOption,
+    WorkflowSummary,
+  } from '../types'
   import type { WorkflowLifecyclePayload } from '../workflow-lifecycle'
   import {
     destroyWorkflow,
@@ -15,6 +20,7 @@
     workflows,
     statuses,
     agentOptions = [],
+    scopeGroups = [],
     class: className = '',
     onWorkflowsChange,
     onSelectedIdChange,
@@ -23,6 +29,7 @@
     workflows: WorkflowSummary[]
     statuses: WorkflowStatusOption[]
     agentOptions?: WorkflowAgentOption[]
+    scopeGroups?: ScopeGroup[]
     class?: string
     onWorkflowsChange?: (workflows: WorkflowSummary[]) => void
     onSelectedIdChange?: (selectedId: string) => void
@@ -71,6 +78,7 @@
   {workflows}
   {statuses}
   {agentOptions}
+  {scopeGroups}
   {saving}
   {deleting}
   class={className}

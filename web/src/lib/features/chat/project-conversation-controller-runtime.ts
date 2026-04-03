@@ -36,7 +36,7 @@ type ProjectConversationControllerRuntimeInput = {
   getTabs: () => ProjectConversationTabState[]
   setTabs: (value: ProjectConversationTabState[]) => void
   setActiveTabId: (value: string) => void
-  newTabState: (restored?: boolean) => ProjectConversationTabState
+  newTabState: (providerId?: string, restored?: boolean) => ProjectConversationTabState
   getActiveTab: () => ProjectConversationTabState | null
   ensureTabExists: () => void
   persistTabs: () => void
@@ -156,6 +156,8 @@ export function createProjectConversationControllerRuntime(
     }
 
     const activeTab = input.getActiveTab()
+    const conversation =
+      input.getConversations().find((item) => item.id === nextConversationId) ?? null
     const target =
       activeTab &&
       !activeTab.conversationId &&
@@ -163,7 +165,10 @@ export function createProjectConversationControllerRuntime(
       activeTab.phase === 'idle' &&
       activeTab.draft.trim().length === 0
         ? activeTab
-        : input.newTabState(false)
+        : input.newTabState(conversation?.providerId ?? input.getProviderId(), false)
+    if (conversation?.providerId) {
+      target.providerId = conversation.providerId
+    }
     if (target !== activeTab) input.setTabs([...input.getTabs(), target])
     input.setActiveTabId(target.id)
 
@@ -185,7 +190,7 @@ export function createProjectConversationControllerRuntime(
   ) {
     const trimmed = message.trim()
     const projectId = input.controllerInput.getProjectId()
-    const providerId = input.getProviderId()
+    const providerId = activeTab?.providerId?.trim() ?? ''
     if (
       !trimmed ||
       !projectId ||

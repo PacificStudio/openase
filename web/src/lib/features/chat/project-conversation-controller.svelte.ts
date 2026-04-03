@@ -24,20 +24,24 @@ export function createProjectConversationController(
   input: CreateProjectConversationControllerInput,
 ) {
   let providers = $state<AgentProvider[]>([])
-  let providerId = $state('')
+  let preferredProviderId = $state('')
   let conversations = $state<ProjectConversation[]>([])
   let tabs = $state<ProjectConversationTabState[]>([])
   let activeTabId = $state('')
   let nextTabID = 0
   let nextQueuedTurnID = 0
 
-  function newTabState(restored = false): ProjectConversationTabState {
+  function newTabState(providerId = '', restored = false): ProjectConversationTabState {
     nextTabID += 1
-    return createProjectConversationTabState(nextTabID, restored)
+    return createProjectConversationTabState(nextTabID, providerId, restored)
   }
 
   function getActiveTab() {
     return getActiveProjectConversationTab(tabs, activeTabId)
+  }
+
+  function getActiveProviderId() {
+    return getActiveTab()?.providerId ?? preferredProviderId
   }
 
   function ensureTabSelection(preferredTabId = '') {
@@ -47,7 +51,6 @@ export function createProjectConversationController(
   function canQueueOnTab(tab: ProjectConversationTabState | null) {
     return canQueueProjectConversationTurn({
       projectId: input.getProjectId(),
-      providerId,
       tab,
     })
   }
@@ -64,9 +67,8 @@ export function createProjectConversationController(
   function persistTabs() {
     persistProjectConversationTabs({
       projectId: input.getProjectId(),
-      providerId,
       tabs,
-      activeConversationId: getActiveTab()?.conversationId ?? '',
+      activeTabId,
     })
   }
 
@@ -75,15 +77,15 @@ export function createProjectConversationController(
       ensureTabSelection()
       return
     }
-    const tab = newTabState(false)
+    const tab = newTabState(preferredProviderId, false)
     tabs = [tab]
     activeTabId = tab.id
   }
 
   const operations = createProjectConversationControllerOperations({
     controllerInput: input,
-    getProviderId: () => providerId,
-    setProviderId: (value) => (providerId = value),
+    getProviderId: getActiveProviderId,
+    getPreferredProviderId: () => preferredProviderId,
     getConversations: () => conversations,
     setConversations: (value) => (conversations = value),
     getTabs: () => tabs,
@@ -113,13 +115,13 @@ export function createProjectConversationController(
       return activeTabId
     },
     get providerId() {
-      return providerId
+      return getActiveProviderId()
     },
     get phase() {
       return getActiveTab()?.phase ?? 'idle'
     },
     get selectedProvider() {
-      return providers.find((provider) => provider.id === providerId) ?? null
+      return providers.find((provider) => provider.id === getActiveProviderId()) ?? null
     },
     get busy() {
       return (getActiveTab()?.phase ?? 'idle') !== 'idle'
@@ -157,7 +159,7 @@ export function createProjectConversationController(
       const activeTab = getActiveTab()
       return (
         !input.getProjectId() ||
-        !providerId ||
+        !activeTab?.providerId ||
         activeTab == null ||
         projectConversationHasPendingInterrupt(activeTab.entries)
       )
@@ -166,7 +168,7 @@ export function createProjectConversationController(
       const activeTab = getActiveTab()
       return (
         !input.getProjectId() ||
-        !providerId ||
+        !activeTab?.providerId ||
         activeTab == null ||
         activeTab.phase !== 'idle' ||
         projectConversationHasPendingInterrupt(activeTab.entries)
@@ -176,7 +178,8 @@ export function createProjectConversationController(
       return canQueueOnTab(getActiveTab())
     },
     get providerSelectionDisabled() {
-      return tabs.some((tab) => tab.phase !== 'idle')
+      const activeTab = getActiveTab()
+      return activeTab ? isProjectConversationTabPending(activeTab) : false
     },
     setDraft(value: string) {
       const activeTab = getActiveTab()
@@ -187,10 +190,24 @@ export function createProjectConversationController(
     },
     syncProviders(nextProviders: AgentProvider[], defaultProviderId: string | null | undefined) {
       providers = listEphemeralChatProviders(nextProviders)
-      if (shouldKeepEphemeralChatProvider(providers, providerId)) {
-        return
+      preferredProviderId = pickDefaultEphemeralChatProvider(providers, defaultProviderId)
+
+      for (const tab of tabs) {
+        if (tab.conversationId) {
+          if (!tab.providerId) {
+            tab.providerId =
+              conversations.find((conversation) => conversation.id === tab.conversationId)
+                ?.providerId ?? preferredProviderId
+          }
+          continue
+        }
+
+        if (!shouldKeepEphemeralChatProvider(providers, tab.providerId)) {
+          tab.providerId = preferredProviderId
+        }
       }
-      providerId = pickDefaultEphemeralChatProvider(providers, defaultProviderId)
+
+      ensureTabExists()
     },
     async restore() {
       await operations.restore()

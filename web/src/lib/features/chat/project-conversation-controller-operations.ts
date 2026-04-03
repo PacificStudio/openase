@@ -17,14 +17,14 @@ import {
 type ProjectConversationControllerOperationsInput = {
   controllerInput: CreateProjectConversationControllerInput
   getProviderId: () => string
-  setProviderId: (value: string) => void
+  getPreferredProviderId: () => string
   getConversations: () => ProjectConversation[]
   setConversations: (value: ProjectConversation[]) => void
   getTabs: () => ProjectConversationTabState[]
   setTabs: (value: ProjectConversationTabState[]) => void
   getActiveTabId: () => string
   setActiveTabId: (value: string) => void
-  newTabState: (restored?: boolean) => ProjectConversationTabState
+  newTabState: (providerId?: string, restored?: boolean) => ProjectConversationTabState
   getActiveTab: () => ProjectConversationTabState | null
   ensureTabExists: () => void
   ensureTabSelection: (preferredTabId?: string) => void
@@ -39,8 +39,7 @@ export function createProjectConversationControllerOperations(
 
   async function restore() {
     const projectId = input.controllerInput.getProjectId()
-    const providerId = input.getProviderId()
-    if (!projectId || !providerId) {
+    if (!projectId) {
       input.ensureTabExists()
       return
     }
@@ -50,67 +49,87 @@ export function createProjectConversationControllerOperations(
     disposeProjectConversationTabs(input.getTabs())
 
     try {
-      const listPayload = await listProjectConversations({ projectId, providerId })
+      const listPayload = await listProjectConversations({ projectId })
       if (currentRestoreID !== restoreOperationID) return
 
       input.setConversations(runtime.sortProjectConversations(listPayload.conversations))
-      const availableConversationIDs = new Set(
-        listPayload.conversations.map((conversation) => conversation.id),
+      const conversationsByID = new Map(
+        listPayload.conversations.map((conversation) => [conversation.id, conversation]),
       )
-      const persisted = readProjectConversationTabs(projectId, providerId)
-      const restoredConversationIDs = persisted.conversationIds.filter((conversationId) =>
-        availableConversationIDs.has(conversationId),
-      )
-      const fallbackConversationID =
-        restoredConversationIDs.length === 0 ? (listPayload.conversations[0]?.id ?? '') : ''
-      const preferredConversationID =
-        (persisted.activeConversationId &&
-        availableConversationIDs.has(persisted.activeConversationId)
-          ? persisted.activeConversationId
-          : restoredConversationIDs[0]) || fallbackConversationID
-      const initialConversationIDs = preferredConversationID ? [preferredConversationID] : []
+      const persisted = readProjectConversationTabs(projectId)
+      const restoredTabs = persisted.tabs
+        .map((persistedTab) => {
+          const conversation = persistedTab.conversationId
+            ? conversationsByID.get(persistedTab.conversationId)
+            : null
+          if (conversation != null) {
+            const tab = input.newTabState(conversation.providerId, true)
+            tab.draft = persistedTab.draft
+            return { tab, conversationId: conversation.id, restored: true }
+          }
+          if (persistedTab.conversationId.trim()) {
+            return null
+          }
+          const tab = input.newTabState(
+            persistedTab.providerId || input.getPreferredProviderId(),
+            false,
+          )
+          tab.draft = persistedTab.draft
+          return { tab, conversationId: '', restored: false }
+        })
+        .filter(
+          (
+            item,
+          ): item is {
+            tab: ProjectConversationTabState
+            conversationId: string
+            restored: boolean
+          } => item != null,
+        )
 
-      if (initialConversationIDs.length === 0) {
-        const activeTab = input.getActiveTab()
-        const reusableBlank =
-          activeTab && !activeTab.conversationId && activeTab.entries.length === 0
-            ? activeTab
-            : (input.getTabs().find((tab) => !tab.conversationId && tab.entries.length === 0) ??
-              null)
-        const blankTab = reusableBlank ?? input.newTabState(false)
-        blankTab.restored = false
-        blankTab.phase = 'idle'
+      if (restoredTabs.length === 0) {
+        const blankTab = input.newTabState(input.getPreferredProviderId(), false)
         input.setTabs([blankTab])
         input.setActiveTabId(blankTab.id)
         input.persistTabs()
         return
       }
 
-      input.setTabs(initialConversationIDs.map(() => input.newTabState(true)))
-      const loadedTabIDs = new Set<string>()
-      for (let index = 0; index < initialConversationIDs.length; index += 1) {
+      const nextTabs = restoredTabs.map((item) => item.tab)
+      input.setTabs(nextTabs)
+      const preferredTab =
+        nextTabs[Math.min(persisted.activeTabIndex, nextTabs.length - 1)] ?? nextTabs[0] ?? null
+      const preferredActiveTabId = preferredTab?.id ?? ''
+      input.setActiveTabId(preferredActiveTabId)
+
+      const loadedTabIDs = new Set(
+        restoredTabs.filter((item) => item.conversationId === '').map((item) => item.tab.id),
+      )
+      for (let index = 0; index < restoredTabs.length; index += 1) {
         if (currentRestoreID !== restoreOperationID) return
-        const tab = input.getTabs()[index]
-        const conversationId = initialConversationIDs[index]
-        if (
-          tab &&
-          (await runtime.loadTabConversation(
-            tab,
-            conversationId,
-            restoredConversationIDs.includes(conversationId),
-          ))
-        ) {
+        const restored = restoredTabs[index]
+        if (restored == null || restored.conversationId === '') {
+          continue
+        }
+        const tab = nextTabs[index]
+        const conversationId = restored.conversationId
+        if (tab && (await runtime.loadTabConversation(tab, conversationId, restored.restored))) {
           loadedTabIDs.add(tab.id)
         }
       }
 
-      input.setTabs(input.getTabs().filter((tab) => loadedTabIDs.has(tab.id)))
-      if (input.getTabs().length === 0) {
+      const filteredTabs = nextTabs.filter((tab) => loadedTabIDs.has(tab.id))
+      input.setTabs(filteredTabs)
+      if (filteredTabs.length === 0) {
         input.ensureTabExists()
         input.persistTabs()
         return
       }
-      input.ensureTabSelection(input.getTabs()[0]?.id ?? '')
+      input.setActiveTabId(
+        preferredActiveTabId && filteredTabs.some((tab) => tab.id === preferredActiveTabId)
+          ? preferredActiveTabId
+          : (filteredTabs[0]?.id ?? ''),
+      )
       input.persistTabs()
     } catch (caughtError) {
       input.ensureTabExists()
@@ -123,18 +142,30 @@ export function createProjectConversationControllerOperations(
   }
 
   async function selectProvider(nextProviderId: string) {
-    if (
-      !nextProviderId ||
-      input.getProviderId() === nextProviderId ||
-      input.getTabs().some((tab) => tab.phase !== 'idle')
-    ) {
+    if (!nextProviderId) {
       return
     }
-    disposeProjectConversationTabs(input.getTabs())
-    input.setProviderId(nextProviderId)
-    input.setConversations([])
-    input.setTabs([input.newTabState(false)])
-    input.setActiveTabId(input.getTabs()[0]?.id ?? '')
+    const activeTab = input.getActiveTab()
+    if (!activeTab || activeTab.phase !== 'idle') {
+      return
+    }
+    if (activeTab.providerId === nextProviderId) {
+      return
+    }
+    if (
+      !activeTab.conversationId &&
+      activeTab.entries.length === 0 &&
+      activeTab.queuedTurns.length === 0
+    ) {
+      activeTab.providerId = nextProviderId
+      activeTab.restored = false
+      input.persistTabs()
+      return
+    }
+
+    const nextTab = input.newTabState(nextProviderId, false)
+    input.setTabs([...input.getTabs(), nextTab])
+    input.setActiveTabId(nextTab.id)
     input.persistTabs()
   }
 
@@ -153,7 +184,7 @@ export function createProjectConversationControllerOperations(
       input.persistTabs()
       return
     }
-    const tab = input.newTabState(false)
+    const tab = input.newTabState(input.getProviderId() || input.getPreferredProviderId(), false)
     input.setTabs([...input.getTabs(), tab])
     input.setActiveTabId(tab.id)
     input.persistTabs()

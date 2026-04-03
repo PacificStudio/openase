@@ -95,6 +95,7 @@ export function buildTicketDetailProjectReferenceData(
         id: item.id,
         name: item.name,
         color: item.color || '#94a3b8',
+        stage: item.stage,
       })),
     dependencyCandidatesByTicketId: ticketPayload.tickets
       .map((item) => ({

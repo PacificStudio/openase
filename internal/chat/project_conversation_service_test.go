@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -414,7 +415,7 @@ func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *t
 	if !containsEnvironmentPrefix(environment, "OPENASE_PRINCIPAL_KIND=project_conversation") {
 		t.Fatalf("expected OPENASE_PRINCIPAL_KIND in environment, got %+v", environment)
 	}
-	if !containsEnvironmentPrefix(environment, "OPENASE_AGENT_SCOPES=projects.update,tickets.create,tickets.list") {
+	if !containsEnvironmentPrefix(environment, expectedProjectConversationScopesEnvPrefix()) {
 		t.Fatalf("expected OPENASE_AGENT_SCOPES in environment, got %+v", environment)
 	}
 	if platform.lastInput.PrincipalKind != agentplatform.PrincipalKindProjectConversation {
@@ -2574,6 +2575,7 @@ func TestProjectConversationStartTurnRejectsSecondActiveTurnInSameConversation(t
 		},
 		nil,
 	)
+	service.runtimeManager.live[conversation.ID] = &liveProjectConversation{runtime: &fakeRuntime{}}
 
 	_, err = service.StartTurn(
 		ctx,
@@ -2584,6 +2586,353 @@ func TestProjectConversationStartTurnRejectsSecondActiveTurnInSameConversation(t
 	)
 	if !errors.Is(err, ErrConversationTurnActive) {
 		t.Fatalf("expected ErrConversationTurnActive, got %v", err)
+	}
+}
+
+func TestProjectConversationStartTurnRecoversStaleRunningTurnAfterRestart(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repo := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repo.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	staleTurn, _, err := repo.CreateTurnWithUserEntry(ctx, conversation.ID, "The runtime was interrupted by restart")
+	if err != nil {
+		t.Fatalf("seed stale turn: %v", err)
+	}
+	principal, err := repo.EnsurePrincipal(ctx, chatdomain.EnsurePrincipalInput{
+		ConversationID: conversation.ID,
+		ProjectID:      project.ID,
+		ProviderID:     providerID,
+		Name:           projectConversationPrincipalName(conversation.ID),
+	})
+	if err != nil {
+		t.Fatalf("ensure principal: %v", err)
+	}
+	now := time.Now().UTC()
+	run, err := repo.CreateRun(ctx, chatdomain.CreateRunInput{
+		RunID:                uuid.New(),
+		PrincipalID:          principal.ID,
+		ConversationID:       conversation.ID,
+		ProjectID:            project.ID,
+		ProviderID:           providerID,
+		TurnID:               &staleTurn.ID,
+		Status:               chatdomain.RunStatusExecuting,
+		SessionID:            optionalString(conversation.ID.String()),
+		WorkspacePath:        optionalString(t.TempDir()),
+		RuntimeStartedAt:     &now,
+		LastHeartbeatAt:      &now,
+		CurrentStepStatus:    optionalString("turn_executing"),
+		CurrentStepSummary:   optionalString("Project conversation turn executing."),
+		CurrentStepChangedAt: &now,
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+	if _, err := repo.UpdatePrincipalRuntime(ctx, chatdomain.UpdatePrincipalRuntimeInput{
+		PrincipalID:          principal.ID,
+		RuntimeState:         chatdomain.RuntimeStateExecuting,
+		CurrentSessionID:     optionalString(conversation.ID.String()),
+		CurrentRunID:         &run.ID,
+		LastHeartbeatAt:      &now,
+		CurrentStepStatus:    optionalString("turn_executing"),
+		CurrentStepSummary:   optionalString("Project conversation turn executing."),
+		CurrentStepChangedAt: &now,
+	}); err != nil {
+		t.Fatalf("update principal runtime: %v", err)
+	}
+
+	fakeCodex := &fakeProjectConversationCodexRuntime{
+		startStream: TurnStream{Events: streamWithEvents(
+			StreamEvent{Event: "done", Payload: donePayload{SessionID: conversation.ID.String()}},
+		)},
+		anchor: RuntimeSessionAnchor{
+			ProviderThreadID:          "thread-recovered",
+			LastTurnID:                "provider-turn-recovered",
+			ProviderThreadStatus:      "idle",
+			ProviderThreadActiveFlags: []string{},
+		},
+	}
+	service := NewProjectConversationService(
+		nil,
+		repo,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             project.ID,
+					OrganizationID: org.ID,
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+				providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+					providerID: {
+						ID:             providerID,
+						OrganizationID: org.ID,
+						MachineID:      machineID,
+						AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+						CliCommand:     "codex",
+					},
+				},
+			},
+			machine: catalogdomain.Machine{
+				ID:            machineID,
+				Name:          catalogdomain.LocalMachineName,
+				Host:          catalogdomain.LocalMachineHost,
+				WorkspaceRoot: stringPointer(t.TempDir()),
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		&fakeAgentCLIProcessManager{
+			process: &fakeAgentCLIProcess{
+				stdin:  &trackingWriteCloser{},
+				stdout: `{"response":"OK"}`,
+			},
+		},
+		nil,
+	)
+	service.newCodexRuntime = func(provider.AgentCLIProcessManager) (projectConversationCodexRuntime, error) {
+		return fakeCodex, nil
+	}
+
+	newTurn, err := service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Continue after restart", nil)
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+	if newTurn.ID == staleTurn.ID {
+		t.Fatalf("expected a new turn, got stale turn id %s", newTurn.ID)
+	}
+
+	reloadedStaleTurn, err := client.ChatTurn.Get(ctx, staleTurn.ID)
+	if err != nil {
+		t.Fatalf("reload stale turn: %v", err)
+	}
+	if reloadedStaleTurn.Status != string(chatdomain.TurnStatusTerminated) {
+		t.Fatalf("stale turn status = %q, want %q", reloadedStaleTurn.Status, chatdomain.TurnStatusTerminated)
+	}
+	reloadedRun, err := client.ProjectConversationRun.Get(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("reload stale run: %v", err)
+	}
+	if string(reloadedRun.Status) != string(chatdomain.RunStatusTerminated) {
+		t.Fatalf("stale run status = %q, want %q", reloadedRun.Status, chatdomain.RunStatusTerminated)
+	}
+	var completedNewTurn *ent.ChatTurn
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		item, getErr := client.ChatTurn.Get(ctx, newTurn.ID)
+		if getErr == nil && item.Status == string(chatdomain.TurnStatusCompleted) {
+			completedNewTurn = item
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if completedNewTurn == nil {
+		t.Fatal("expected recovered new turn to complete")
+	}
+}
+
+func TestProjectConversationStartTurnRejectsPendingInterruptAfterRestart(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repo := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repo.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	staleTurn, _, err := repo.CreateTurnWithUserEntry(ctx, conversation.ID, "Need approval before continuing")
+	if err != nil {
+		t.Fatalf("seed stale turn: %v", err)
+	}
+	if _, _, err := repo.CreatePendingInterrupt(ctx, conversation.ID, staleTurn.ID, "req-restart", chatdomain.InterruptKindCommandExecutionApproval, map[string]any{
+		"provider": "codex",
+	}); err != nil {
+		t.Fatalf("create pending interrupt: %v", err)
+	}
+
+	service := NewProjectConversationService(
+		nil,
+		repo,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             project.ID,
+					OrganizationID: org.ID,
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+				providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+					providerID: {
+						ID:             providerID,
+						OrganizationID: org.ID,
+						MachineID:      machineID,
+						AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+						CliCommand:     "codex",
+					},
+				},
+			},
+			machine: catalogdomain.Machine{
+				ID:            machineID,
+				Name:          catalogdomain.LocalMachineName,
+				Host:          catalogdomain.LocalMachineHost,
+				WorkspaceRoot: stringPointer(t.TempDir()),
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		&fakeAgentCLIProcessManager{
+			process: &fakeAgentCLIProcess{
+				stdin:  &trackingWriteCloser{},
+				stdout: `{"response":"OK"}`,
+			},
+		},
+		nil,
+	)
+
+	_, err = service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Try to continue without resolving approval", nil)
+	if !errors.Is(err, ErrConversationInterruptPending) {
+		t.Fatalf("expected ErrConversationInterruptPending, got %v", err)
+	}
+	reloadedTurn, err := client.ChatTurn.Get(ctx, staleTurn.ID)
+	if err != nil {
+		t.Fatalf("reload stale turn: %v", err)
+	}
+	if reloadedTurn.Status != string(chatdomain.TurnStatusInterrupted) {
+		t.Fatalf("stale turn status = %q, want %q", reloadedTurn.Status, chatdomain.TurnStatusInterrupted)
+	}
+}
+
+func TestProjectConversationStartTurnRecoversInterruptedTurnWithoutPendingInterruptAfterRestart(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repo := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repo.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	staleTurn, _, err := repo.CreateTurnWithUserEntry(ctx, conversation.ID, "The interrupted turn lost its runtime")
+	if err != nil {
+		t.Fatalf("seed stale turn: %v", err)
+	}
+	if err := client.ChatTurn.UpdateOneID(staleTurn.ID).
+		SetStatus(string(chatdomain.TurnStatusInterrupted)).
+		ClearCompletedAt().
+		Exec(ctx); err != nil {
+		t.Fatalf("mark turn interrupted: %v", err)
+	}
+	conversation, err = repo.UpdateConversationAnchors(ctx, conversation.ID, chatdomain.ConversationStatusInterrupted, chatdomain.ConversationAnchors{
+		ProviderThreadID:     optionalString("thread-interrupted"),
+		LastTurnID:           optionalString("provider-turn-old"),
+		ProviderThreadStatus: optionalString("active"),
+		RollingSummary:       "The previous turn was interrupted unexpectedly.",
+	})
+	if err != nil {
+		t.Fatalf("mark conversation interrupted: %v", err)
+	}
+
+	fakeCodex := &fakeProjectConversationCodexRuntime{
+		startStream: TurnStream{Events: streamWithEvents(
+			StreamEvent{Event: "done", Payload: donePayload{SessionID: conversation.ID.String()}},
+		)},
+		anchor: RuntimeSessionAnchor{
+			ProviderThreadID:          "thread-interrupted",
+			LastTurnID:                "provider-turn-new",
+			ProviderThreadStatus:      "idle",
+			ProviderThreadActiveFlags: []string{},
+		},
+	}
+	service := NewProjectConversationService(
+		nil,
+		repo,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             project.ID,
+					OrganizationID: org.ID,
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+				providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+					providerID: {
+						ID:             providerID,
+						OrganizationID: org.ID,
+						MachineID:      machineID,
+						AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+						CliCommand:     "codex",
+					},
+				},
+			},
+			machine: catalogdomain.Machine{
+				ID:            machineID,
+				Name:          catalogdomain.LocalMachineName,
+				Host:          catalogdomain.LocalMachineHost,
+				WorkspaceRoot: stringPointer(t.TempDir()),
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		&fakeAgentCLIProcessManager{
+			process: &fakeAgentCLIProcess{
+				stdin:  &trackingWriteCloser{},
+				stdout: `{"response":"OK"}`,
+			},
+		},
+		nil,
+	)
+	service.newCodexRuntime = func(provider.AgentCLIProcessManager) (projectConversationCodexRuntime, error) {
+		return fakeCodex, nil
+	}
+
+	newTurn, err := service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Resume after interrupted restart", nil)
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+	if newTurn.ID == staleTurn.ID {
+		t.Fatalf("expected a new turn, got stale turn id %s", newTurn.ID)
+	}
+	reloadedStaleTurn, err := client.ChatTurn.Get(ctx, staleTurn.ID)
+	if err != nil {
+		t.Fatalf("reload stale turn: %v", err)
+	}
+	if reloadedStaleTurn.Status != string(chatdomain.TurnStatusTerminated) {
+		t.Fatalf("stale turn status = %q, want %q", reloadedStaleTurn.Status, chatdomain.TurnStatusTerminated)
 	}
 }
 
@@ -2718,7 +3067,7 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 	if !containsEnvironmentPrefix(environment, "OPENASE_PRINCIPAL_KIND=project_conversation") {
 		t.Fatalf("expected OPENASE_PRINCIPAL_KIND in environment, got %+v", environment)
 	}
-	if !containsEnvironmentPrefix(environment, "OPENASE_AGENT_SCOPES=projects.update,tickets.create,tickets.list") {
+	if !containsEnvironmentPrefix(environment, expectedProjectConversationScopesEnvPrefix()) {
 		t.Fatalf("expected OPENASE_AGENT_SCOPES in environment, got %+v", environment)
 	}
 	if platform.lastInput.PrincipalKind != agentplatform.PrincipalKindProjectConversation {
@@ -2730,6 +3079,16 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 	if platform.lastInput.AgentID != uuid.Nil || platform.lastInput.TicketID != uuid.Nil {
 		t.Fatalf("project conversation token should not carry agent/ticket ids: %+v", platform.lastInput)
 	}
+}
+
+func expectedProjectConversationScopesEnvPrefix() string {
+	scopes := append(
+		agentplatform.DefaultScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation),
+		agentplatform.PrivilegedScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation)...,
+	)
+	scopes = slices.Compact(scopes)
+	slices.Sort(scopes)
+	return "OPENASE_AGENT_SCOPES=" + strings.Join(scopes, ",")
 }
 
 func TestProjectConversationCreateConversationPersistsPrincipalWithoutSyntheticAgent(t *testing.T) {

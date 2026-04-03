@@ -1,6 +1,7 @@
 import type { AgentProvider, BuiltinRole, HarnessValidationIssue } from '$lib/api/contracts'
 import type {
   HarnessVariableGroup,
+  ScopeGroup,
   WorkflowAgentOption,
   WorkflowStatusOption,
   WorkflowSummary,
@@ -35,6 +36,7 @@ type WorkflowsPageControllerApiInput = {
   getAgentOptions: () => WorkflowAgentOption[]
   getProviders: () => AgentProvider[]
   getVariableGroups: () => HarnessVariableGroup[]
+  getScopeGroups: () => ScopeGroup[]
   getSelectedWorkflow: () => WorkflowSummary | null
   getIsDirty: () => boolean
   getSettingsHref: () => string | null
@@ -128,6 +130,9 @@ export function createWorkflowsPageControllerApi(input: WorkflowsPageControllerA
     },
     get variableGroups() {
       return input.getVariableGroups()
+    },
+    get scopeGroups() {
+      return input.getScopeGroups()
     },
     get selectedWorkflow() {
       return input.getSelectedWorkflow()

@@ -17,6 +17,7 @@ import (
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
+	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
@@ -28,6 +29,137 @@ import (
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
+
+func TestWorkflowRoutesRoundTripExpandedPlatformAccessAllowed(t *testing.T) {
+	client := openTestEntClient(t)
+	serviceRepoRoot := createTestGitRepo(t)
+	primaryRepoRoot := createTestGitRepo(t)
+
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), serviceRepoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			t.Errorf("close workflow service: %v", closeErr)
+		}
+	})
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		newTicketStatusService(client),
+		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		workflowSvc,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-platform-access").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase-platform-access").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	createPrimaryProjectRepo(ctx, t, client, project.ID, primaryRepoRoot)
+	attachPrimaryProjectRepoCheckout(ctx, t, client, project.ID, localMachine.ID, primaryRepoRoot)
+
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	doneID := findStatusIDByName(t, statuses, "Done")
+	provider, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(localMachine.ID).
+		SetName("Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	agent, err := client.Agent.Create().
+		SetProviderID(provider.ID).
+		SetProjectID(project.ID).
+		SetName("codex-coding").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+
+	allScopes := agentplatform.SupportedScopes()
+	createResp := struct {
+		Workflow workflowResponse `json:"workflow"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
+		map[string]any{
+			"agent_id":                agent.ID.String(),
+			"name":                    "Platform Access Workflow",
+			"type":                    "coding",
+			"pickup_status_ids":       []string{todoID.String()},
+			"finish_status_ids":       []string{doneID.String()},
+			"harness_content":         "# Platform Access\n",
+			"platform_access_allowed": allScopes,
+		},
+		http.StatusCreated,
+		&createResp,
+	)
+	if strings.Join(createResp.Workflow.PlatformAccessAllowed, ",") != strings.Join(allScopes, ",") {
+		t.Fatalf("create platform_access_allowed = %v, want %v", createResp.Workflow.PlatformAccessAllowed, allScopes)
+	}
+
+	updatedScopes := []string{
+		string(agentplatform.ScopeSkillsList),
+		string(agentplatform.ScopeStatusesList),
+		string(agentplatform.ScopeWorkflowsRead),
+	}
+	updateResp := struct {
+		Workflow workflowResponse `json:"workflow"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/workflows/%s", createResp.Workflow.ID),
+		map[string]any{
+			"platform_access_allowed": updatedScopes,
+		},
+		http.StatusOK,
+		&updateResp,
+	)
+	if strings.Join(updateResp.Workflow.PlatformAccessAllowed, ",") != strings.Join(updatedScopes, ",") {
+		t.Fatalf("update platform_access_allowed = %v, want %v", updateResp.Workflow.PlatformAccessAllowed, updatedScopes)
+	}
+}
 
 func TestWorkflowRoutesCRUDHarnessVersionsWithoutRepoSync(t *testing.T) {
 	client := openTestEntClient(t)
@@ -221,15 +353,13 @@ func TestWorkflowRoutesCRUDHarnessVersionsWithoutRepoSync(t *testing.T) {
 		server,
 		http.MethodPatch,
 		fmt.Sprintf("/api/v1/workflows/%s", createResp.Workflow.ID),
-		map[string]any{
-			"role_slug": "dispatcher",
-		},
+		`{"role_slug":"dispatcher"}`,
 	)
-	if rejectRoleSlugUpdate.StatusCode != http.StatusBadRequest {
-		t.Fatalf("expected role_slug patch to fail with 400, got %d body=%s", rejectRoleSlugUpdate.StatusCode, rejectRoleSlugUpdate.Body)
+	if rejectRoleSlugUpdate.Code != http.StatusBadRequest {
+		t.Fatalf("expected role_slug patch to fail with 400, got %d body=%s", rejectRoleSlugUpdate.Code, rejectRoleSlugUpdate.Body.String())
 	}
-	if !strings.Contains(rejectRoleSlugUpdate.Body, "role_slug cannot be updated") {
-		t.Fatalf("expected role_slug patch error message, got %s", rejectRoleSlugUpdate.Body)
+	if !strings.Contains(rejectRoleSlugUpdate.Body.String(), "role_slug cannot be updated") {
+		t.Fatalf("expected role_slug patch error message, got %s", rejectRoleSlugUpdate.Body.String())
 	}
 
 	legacyCreateRec := performJSONRequest(

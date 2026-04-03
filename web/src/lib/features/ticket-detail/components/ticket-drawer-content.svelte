@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { StreamConnectionState } from '$lib/api/sse'
-  import { PROJECT_AI_FOCUS_PRIORITY, ProjectConversationPanel } from '$lib/features/chat'
+  import { PROJECT_AI_FOCUS_PRIORITY } from '$lib/features/chat'
   import { appStore } from '$lib/stores/app.svelte'
   import TicketDrawerMainTabs from './ticket-drawer-main-tabs.svelte'
   import TicketHeader from './ticket-header.svelte'
@@ -44,9 +44,11 @@
     updatingCommentId = null,
     deletingCommentId = null,
     resumingRetry = false,
+    archiving = false,
     onClose,
     onSaveFields,
     onPriorityChange,
+    onArchive,
     onSelectRun,
     onResumeRetry,
     onAddDependency,
@@ -86,9 +88,11 @@
     updatingCommentId?: string | null
     deletingCommentId?: string | null
     resumingRetry?: boolean
+    archiving?: boolean
     onClose?: () => void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
     onPriorityChange?: (priority: TicketDetail['priority']) => void
+    onArchive?: () => void
     onSelectRun?: (runId: string) => Promise<void> | void
     onResumeRetry?: () => Promise<void> | void
     onAddDependency?: (draft: DependencyDraft) => Promise<boolean> | boolean
@@ -123,7 +127,6 @@
     ) => Promise<TicketCommentRevision[]> | TicketCommentRevision[]
   } = $props()
 
-  let assistantOpen = $state(false)
   let selectedArea = $state<'detail' | 'comments' | 'runs'>('comments')
   let previousTicketId = ''
   const projectAIFocusOwner = 'ticket-drawer'
@@ -134,7 +137,6 @@
     }
 
     previousTicketId = ticket.id
-    assistantOpen = false
     selectedArea = 'comments'
   })
 
@@ -164,32 +166,12 @@
   {ticket}
   {statuses}
   {savingFields}
+  {archiving}
   {onClose}
   {onSaveFields}
   {onPriorityChange}
-  {assistantOpen}
-  onToggleAssistant={() => (assistantOpen = !assistantOpen)}
+  {onArchive}
 />
-
-{#if assistantOpen}
-  <div class="border-border h-[26rem] border-b">
-    <ProjectConversationPanel
-      organizationId={appStore.currentOrg?.id ?? ''}
-      defaultProviderId={appStore.currentProject?.default_agent_provider_id ?? null}
-      context={{ projectId }}
-      focus={buildTicketProjectAIFocus({
-        ticket,
-        projectId,
-        timeline,
-        hooks,
-        currentRun,
-        selectedArea,
-      })}
-      title="Project AI"
-      placeholder="Ask about this ticket without restating the basics…"
-    />
-  </div>
-{/if}
 
 <div class="flex flex-1 overflow-y-auto md:flex-row">
   <div class="min-w-0 flex-1">

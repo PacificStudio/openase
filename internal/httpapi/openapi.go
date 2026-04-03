@@ -1206,6 +1206,13 @@ type OpenAPITicketsResponse struct {
 	Tickets []OpenAPITicket `json:"tickets"`
 }
 
+type OpenAPIArchivedTicketsResponse struct {
+	Tickets []OpenAPITicket `json:"tickets"`
+	Total   int             `json:"total"`
+	Page    int             `json:"page"`
+	PerPage int             `json:"per_page"`
+}
+
 type OpenAPITicketResponse struct {
 	Ticket OpenAPITicket `json:"ticket"`
 }
@@ -3841,6 +3848,25 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 	ticketsGet.AddParameter(csvQueryParameter("status_name", "Filter tickets by status names."))
 	ticketsGet.AddParameter(csvQueryParameter("priority", "Filter tickets by priorities."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets", http.MethodGet, ticketsGet)
+
+	archivedTicketsGet, err := b.jsonOperation(
+		"listArchivedTickets",
+		"List archived tickets",
+		[]string{"tickets"},
+		http.StatusOK,
+		OpenAPIArchivedTicketsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	archivedTicketsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	archivedTicketsGet.AddParameter(intQueryParameter("page", "Archived tickets page number."))
+	archivedTicketsGet.AddParameter(intQueryParameter("per_page", "Archived tickets page size."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets/archived", http.MethodGet, archivedTicketsGet)
 
 	ticketsPost, err := b.jsonOperation(
 		"createTicket",

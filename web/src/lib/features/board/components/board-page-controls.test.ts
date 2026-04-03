@@ -26,6 +26,7 @@ const {
   listStatuses,
   listTickets,
   listWorkflows,
+  toastStore,
   updateStatus,
   updateTicket,
   connectEventStream,
@@ -35,6 +36,13 @@ const {
   listStatuses: vi.fn(),
   listTickets: vi.fn(),
   listWorkflows: vi.fn(),
+  toastStore: {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+    clear: vi.fn(),
+  },
   updateStatus: vi.fn(),
   updateTicket: vi.fn(),
   connectEventStream: vi.fn(),
@@ -52,6 +60,10 @@ vi.mock('$lib/api/openase', () => ({
 
 vi.mock('$lib/api/sse', () => ({
   connectEventStream,
+}))
+
+vi.mock('$lib/stores/toast.svelte', () => ({
+  toastStore,
 }))
 
 const projectFixture: Project = {
@@ -803,6 +815,179 @@ describe('TicketsPage board controls', () => {
       expect(updateStatus).toHaveBeenNthCalledWith(2, 'status-review', { position: 4 })
       expect(listColumnNames()).toEqual(['Todo', 'Triage', 'Doing', 'Review'])
     })
+  })
+
+  it('archives all tickets in a column into the canceled status', async () => {
+    appStore.currentProject = projectFixture
+
+    const currentStatuses: StatusPayload = cloneValue({
+      statuses: [
+        {
+          id: 'status-todo',
+          project_id: 'project-1',
+          name: 'Todo',
+          stage: 'unstarted' as const,
+          color: '#2563eb',
+          icon: '',
+          is_default: true,
+          description: '',
+          position: 1,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+        {
+          id: 'status-doing',
+          project_id: 'project-1',
+          name: 'Doing',
+          stage: 'started' as const,
+          color: '#f59e0b',
+          icon: '',
+          is_default: false,
+          description: '',
+          position: 2,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+        {
+          id: 'status-archived',
+          project_id: 'project-1',
+          name: 'Archived',
+          stage: 'canceled' as const,
+          color: '#6b7280',
+          icon: '',
+          is_default: false,
+          description: '',
+          position: 3,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+      ],
+    })
+
+    const currentTickets: Ticket[] = cloneValue([
+      {
+        ...ticketsFixture.tickets[0],
+        id: 'ticket-1',
+        identifier: 'ASE-202',
+        title: 'Wire board page to runtime data',
+        status_id: 'status-todo',
+        status_name: 'Todo',
+      },
+      {
+        ...ticketsFixture.tickets[0],
+        id: 'ticket-2',
+        identifier: 'ASE-203',
+        title: 'Ship workflow runner polish',
+        status_id: 'status-todo',
+        status_name: 'Todo',
+      },
+      {
+        ...ticketsFixture.tickets[0],
+        id: 'ticket-3',
+        identifier: 'ASE-204',
+        title: 'Keep existing archived ticket',
+        status_id: 'status-archived',
+        status_name: 'Archived',
+      },
+    ])
+
+    listStatuses.mockImplementation(async () => cloneValue(currentStatuses))
+    listTickets.mockImplementation(async () => ({ tickets: cloneValue(currentTickets) }))
+    listWorkflows.mockResolvedValue(workflowsFixture)
+    listAgents.mockResolvedValue(agentsFixture)
+    listActivity.mockResolvedValue(activityFixture)
+    updateStatus.mockResolvedValue({ status: currentStatuses.statuses[0] })
+    updateTicket.mockImplementation(async (ticketId: string, patch: { status_id?: string }) => {
+      const ticket = currentTickets.find((item) => item.id === ticketId)
+      if (!ticket || !patch.status_id) {
+        throw new Error(`unknown ticket update ${ticketId}`)
+      }
+      const status = currentStatuses.statuses.find((item) => item.id === patch.status_id)
+      if (!status) {
+        throw new Error(`unknown status ${patch.status_id}`)
+      }
+      ticket.status_id = status.id
+      ticket.status_name = status.name
+      return { ticket: cloneValue(ticket) }
+    })
+    connectEventStream.mockReturnValue(() => {})
+
+    const { findByRole } = render(TicketsPage)
+    await showEmptyColumns(findByRole)
+
+    await openColumnActionMenu(findByRole, 'Todo')
+    await fireEvent.click(await findByRole('menuitem', { name: 'Archive all' }))
+
+    await waitFor(() => {
+      expect(updateTicket).toHaveBeenNthCalledWith(1, 'ticket-1', { status_id: 'status-archived' })
+      expect(updateTicket).toHaveBeenNthCalledWith(2, 'ticket-2', { status_id: 'status-archived' })
+      expect(toastStore.success).toHaveBeenCalledWith('2 tickets archived to "Archived".')
+    })
+
+    expect(
+      within(await findByRole('list', { name: 'Archived tickets' })).getByText('ASE-202'),
+    ).toBeTruthy()
+    expect(
+      within(await findByRole('list', { name: 'Archived tickets' })).getByText('ASE-203'),
+    ).toBeTruthy()
+    expect(
+      within(await findByRole('list', { name: 'Todo tickets' })).queryByText('ASE-202'),
+    ).toBeNull()
+    expect(
+      within(await findByRole('list', { name: 'Todo tickets' })).queryByText('ASE-203'),
+    ).toBeNull()
+  })
+
+  it('does not archive a column when the project has no canceled status', async () => {
+    appStore.currentProject = projectFixture
+
+    const currentStatuses: StatusPayload = cloneValue({
+      statuses: [
+        {
+          id: 'status-todo',
+          project_id: 'project-1',
+          name: 'Todo',
+          stage: 'unstarted' as const,
+          color: '#2563eb',
+          icon: '',
+          is_default: true,
+          description: '',
+          position: 1,
+          active_runs: 0,
+          max_active_runs: null,
+        },
+      ],
+    })
+
+    listStatuses.mockImplementation(async () => cloneValue(currentStatuses))
+    listTickets.mockResolvedValue({
+      tickets: [
+        {
+          ...ticketsFixture.tickets[0],
+          id: 'ticket-1',
+          identifier: 'ASE-202',
+          status_id: 'status-todo',
+          status_name: 'Todo',
+        },
+      ],
+    })
+    listWorkflows.mockResolvedValue(workflowsFixture)
+    listAgents.mockResolvedValue(agentsFixture)
+    listActivity.mockResolvedValue(activityFixture)
+    updateStatus.mockResolvedValue({ status: currentStatuses.statuses[0] })
+    updateTicket.mockResolvedValue({ ticket: ticketsFixture.tickets[0] })
+    connectEventStream.mockReturnValue(() => {})
+
+    const { findByRole } = render(TicketsPage)
+    await showEmptyColumns(findByRole)
+
+    await openColumnActionMenu(findByRole, 'Todo')
+    await fireEvent.click(await findByRole('menuitem', { name: 'Archive all' }))
+
+    expect(updateTicket).not.toHaveBeenCalled()
+    expect(toastStore.error).toHaveBeenCalledWith(
+      'No cancelled status is configured for this project.',
+    )
   })
 })
 

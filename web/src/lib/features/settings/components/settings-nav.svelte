@@ -1,6 +1,6 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
-  import { Settings, GitBranch, Columns3, Bot, Bell, Shield } from '@lucide/svelte'
+  import { Settings, GitBranch, Columns3, Bot, Bell, Shield, Archive } from '@lucide/svelte'
   import type { Component } from 'svelte'
   import type { SettingsSection } from '../types'
 
@@ -25,6 +25,7 @@
     { key: 'agents', label: 'Agents', icon: Bot },
     { key: 'notifications', label: 'Notifications', icon: Bell },
     { key: 'security', label: 'Security', icon: Shield },
+    { key: 'archived', label: 'Archived Tickets', icon: Archive },
   ]
 </script>
 

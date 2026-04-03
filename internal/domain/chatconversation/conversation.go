@@ -30,6 +30,7 @@ const (
 	TurnStatusInterrupted TurnStatus = "interrupted"
 	TurnStatusCompleted   TurnStatus = "completed"
 	TurnStatusFailed      TurnStatus = "failed"
+	TurnStatusTerminated  TurnStatus = "terminated"
 )
 
 type InterruptStatus string

@@ -3,6 +3,7 @@ package chat
 import (
 	"archive/tar"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -27,11 +28,12 @@ import (
 )
 
 var (
-	ErrConversationNotFound      = chatrepo.ErrNotFound
-	ErrConversationConflict      = chatrepo.ErrConflict
-	ErrConversationTurnActive    = chatrepo.ErrTurnAlreadyActive
-	ErrPendingInterruptNotFound  = chatrepo.ErrNotFound
-	ErrConversationRuntimeAbsent = fmt.Errorf("chat conversation runtime is unavailable")
+	ErrConversationNotFound         = chatrepo.ErrNotFound
+	ErrConversationConflict         = chatrepo.ErrConflict
+	ErrConversationTurnActive       = chatrepo.ErrTurnAlreadyActive
+	ErrConversationInterruptPending = domain.ErrInterruptPending
+	ErrPendingInterruptNotFound     = chatrepo.ErrNotFound
+	ErrConversationRuntimeAbsent    = fmt.Errorf("chat conversation runtime is unavailable")
 )
 
 type projectConversationCatalog interface {
@@ -315,6 +317,11 @@ func (s *ProjectConversationService) StartTurn(
 	providerItem, err := s.catalog.GetAgentProvider(ctx, conversation.ProviderID)
 	if err != nil {
 		return domain.Turn{}, fmt.Errorf("get provider for chat turn: %w", err)
+	}
+
+	_, hadLive := s.runtimeManager.Get(conversation.ID)
+	if err := s.recoverStaleActiveTurnBeforeStart(ctx, conversation, hadLive); err != nil {
+		return domain.Turn{}, err
 	}
 
 	live, hadLive, err := s.ensureLiveRuntime(ctx, conversation, project, providerItem)
@@ -710,6 +717,125 @@ func (s *ProjectConversationService) CloseRuntime(ctx context.Context, userID Us
 		})
 	}
 	return err
+}
+
+func (s *ProjectConversationService) recoverStaleActiveTurnBeforeStart(
+	ctx context.Context,
+	conversation domain.Conversation,
+	hadLive bool,
+) error {
+	activeTurn, err := s.entries.GetActiveTurn(ctx, conversation.ID)
+	switch {
+	case err == nil:
+	case errors.Is(err, ErrConversationNotFound):
+		return nil
+	default:
+		return err
+	}
+
+	pendingInterrupts, err := s.interrupts.ListPendingInterrupts(ctx, conversation.ID)
+	if err != nil {
+		return err
+	}
+	hasPendingInterrupt := false
+	for _, interrupt := range pendingInterrupts {
+		if interrupt.TurnID == activeTurn.ID && interrupt.Status == domain.InterruptStatusPending {
+			hasPendingInterrupt = true
+			break
+		}
+	}
+
+	if activeTurn.Status == domain.TurnStatusInterrupted && hasPendingInterrupt {
+		return ErrConversationInterruptPending
+	}
+	if hadLive {
+		return ErrConversationTurnActive
+	}
+	return s.terminateStaleActiveTurn(ctx, conversation, activeTurn)
+}
+
+func (s *ProjectConversationService) terminateStaleActiveTurn(
+	ctx context.Context,
+	conversation domain.Conversation,
+	activeTurn domain.Turn,
+) error {
+	now := time.Now().UTC()
+	statusSummary := fmt.Sprintf(
+		"Recovered stale %s turn after runtime became unavailable.",
+		strings.TrimSpace(string(activeTurn.Status)),
+	)
+	if _, err := s.entries.CompleteTurn(ctx, activeTurn.ID, domain.TurnStatusTerminated, activeTurn.ProviderTurnID); err != nil {
+		return err
+	}
+	if _, err := s.entries.AppendEntry(ctx, conversation.ID, &activeTurn.ID, domain.EntryKindSystem, map[string]any{
+		"type":                 "turn_recovered_after_runtime_unavailable",
+		"previous_turn_id":     activeTurn.ID.String(),
+		"previous_turn_status": string(activeTurn.Status),
+		"recovery_reason":      "runtime_unavailable",
+	}); err != nil {
+		return err
+	}
+
+	if run, err := s.runtimeStore.GetRunByTurnID(ctx, activeTurn.ID); err == nil {
+		terminatedStatus := domain.RunStatusTerminated
+		_, _ = s.runtimeStore.UpdateRun(ctx, domain.UpdateRunInput{
+			RunID:                run.ID,
+			Status:               &terminatedStatus,
+			TerminalAt:           &now,
+			LastError:            optionalString("project conversation runtime became unavailable before the turn completed"),
+			LastHeartbeatAt:      &now,
+			CurrentStepStatus:    optionalString("turn_recovered"),
+			CurrentStepSummary:   optionalString(statusSummary),
+			CurrentStepChangedAt: &now,
+		})
+	}
+	if principal, err := s.runtimeStore.GetPrincipal(ctx, conversation.ID); err == nil {
+		clearRunID := uuid.Nil
+		_, _ = s.runtimeStore.UpdatePrincipalRuntime(ctx, domain.UpdatePrincipalRuntimeInput{
+			PrincipalID:          principal.ID,
+			RuntimeState:         domain.RuntimeStateInactive,
+			CurrentSessionID:     optionalString(""),
+			CurrentRunID:         &clearRunID,
+			LastHeartbeatAt:      &now,
+			CurrentStepStatus:    optionalString("turn_recovered"),
+			CurrentStepSummary:   optionalString(statusSummary),
+			CurrentStepChangedAt: &now,
+		})
+	}
+
+	emptyFlags := []string{}
+	updatedConversation, err := s.conversations.UpdateConversationAnchors(
+		ctx,
+		conversation.ID,
+		domain.ConversationStatusActive,
+		domain.ConversationAnchors{
+			ProviderThreadID:          conversation.ProviderThreadID,
+			LastTurnID:                conversation.LastTurnID,
+			ProviderThreadStatus:      optionalString("notLoaded"),
+			ProviderThreadActiveFlags: &emptyFlags,
+			RollingSummary:            conversation.RollingSummary,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	if s.catalog != nil {
+		if providerItem, providerErr := s.catalog.GetAgentProvider(ctx, conversation.ProviderID); providerErr == nil {
+			s.broadcast(conversation.ID, StreamEvent{
+				Event:   "session",
+				Payload: conversationSessionPayload(conversation.ID, "inactive", updatedConversation, &providerItem),
+			})
+		}
+	}
+	s.broadcast(conversation.ID, StreamEvent{
+		Event: "turn_recovered",
+		Payload: map[string]any{
+			"turn_id":         activeTurn.ID.String(),
+			"previous_status": string(activeTurn.Status),
+			"recovery_reason": "runtime_unavailable",
+		},
+	})
+	return nil
 }
 
 func (s *ProjectConversationService) consumeTurn(

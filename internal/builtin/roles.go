@@ -85,11 +85,18 @@ var builtinRoleMetadata = map[string]roleMetadata{
 		SkillNames:        []string{"openase-platform", "pull", "push"},
 	},
 	"dispatcher": {
-		Name:                  "Dispatcher",
-		WorkflowType:          "Dispatcher",
-		PickupStatusNames:     []string{"Backlog"},
-		FinishStatusNames:     []string{"Backlog"},
-		PlatformAccessAllowed: []string{"tickets.update.self", "tickets.create", "tickets.list", "tickets.link", "machines.list"},
+		Name:              "Dispatcher",
+		WorkflowType:      "Dispatcher",
+		PickupStatusNames: []string{"Backlog"},
+		FinishStatusNames: []string{"Backlog"},
+		PlatformAccessAllowed: []string{
+			"activity.read",
+			"statuses.list",
+			"tickets.create",
+			"tickets.list",
+			"tickets.update.self",
+			"workflows.list",
+		},
 	},
 	"env-provisioner": {
 		Name:              "Environment Provisioner",

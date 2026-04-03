@@ -44,8 +44,11 @@ import { createWorkspaceDiff } from './project-conversation-panel.test-helpers'
 
 const seedConversationStorage = () =>
   window.localStorage.setItem(
-    'openase.project-conversation.project-1.provider-1',
-    JSON.stringify({ conversationIds: ['conversation-1'], activeConversationId: 'conversation-1' }),
+    'openase.project-conversation.project-1',
+    JSON.stringify({
+      tabs: [{ conversationId: 'conversation-1', providerId: 'provider-1', draft: '' }],
+      activeTabIndex: 0,
+    }),
   )
 
 describe('ProjectConversationPanel action proposals', () => {

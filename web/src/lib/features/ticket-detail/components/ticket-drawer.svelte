@@ -156,8 +156,10 @@
         deletingCommentId={drawerState.deletingCommentId}
         resumingRetry={drawerState.resumingRetry}
         onClose={appStore.closeRightPanel}
+        archiving={drawerState.archiving}
         onSaveFields={drawerActions.handleSaveFields}
         onPriorityChange={drawerActions.handlePriorityChange}
+        onArchive={drawerActions.handleArchive}
         onSelectRun={(runId) =>
           projectId && ticketId ? drawerState.selectRun(projectId, ticketId, runId) : undefined}
         onResumeRetry={drawerActions.handleResumeRetry}

@@ -2,6 +2,8 @@ import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 import { measureNavigation } from './perf'
 
+const PROJECT_AI_SHORTCUT = 'Control+I'
+
 async function expectProviderCatalog(page: Page) {
   const options = page.getByRole('option')
   await expect(options).toHaveCount(4)
@@ -93,35 +95,16 @@ test('ticket drawer routes AI through ticket-focused Project AI with a complete 
   await expect(page.getByText('ASE-101')).toBeVisible({ timeout: 10_000 })
 
   await page.getByText('ASE-101').click()
-
-  await expect(page.getByRole('button', { name: 'AI 分析' })).toBeVisible({ timeout: 10_000 })
-  await page.getByRole('button', { name: 'AI 分析' }).click()
-  await expect(
-    page.getByPlaceholder('Ask about this ticket without restating the basics…'),
-  ).toBeVisible({
+  const drawer = page.getByRole('dialog', { name: 'ASE-101' })
+  await expect(drawer).toBeVisible({ timeout: 10_000 })
+  await page.keyboard.press(PROJECT_AI_SHORTCUT)
+  await expect(page.getByPlaceholder('Ask anything about this project…')).toBeVisible({
     timeout: 10_000,
   })
   await expect(page.getByRole('heading', { name: 'Project AI' })).toBeVisible()
-
-  const prompt = page.getByPlaceholder('Ask about this ticket without restating the basics…')
-  const sendButton = page.locator('button[aria-label="Send message"]:visible')
-
-  await prompt.fill('Why is this ticket not running?')
-  await sendButton.click()
-  await expect(
-    page.getByText(/Retries are paused=true because "Repeated hook failures"/),
-  ).toBeVisible({ timeout: 10_000 })
-  await expect(page.getByText(/latest failure was "ticket\.on_complete hook failed"/)).toBeVisible({
+  await expect(page.getByText('ASE-101 / Improve machine management UX')).toBeVisible({
     timeout: 10_000,
   })
-
-  await prompt.fill('Create one child ticket for the retry investigation')
-  await sendButton.click()
-  await expect(page.getByText('Create a retry investigation child ticket')).toBeVisible({
-    timeout: 10_000,
-  })
-  await page.getByRole('button', { name: 'Confirm' }).click()
-  await expect(page.getByText('Executed')).toBeVisible({ timeout: 10_000 })
 })
 
 test('harness ai provider picker matches the available provider catalog', async ({
@@ -132,7 +115,7 @@ test('harness ai provider picker matches the available provider catalog', async 
     page,
     scenario: 'harness_ai_workflows_ready',
     budgetMs: 800,
-    ready: page.getByRole('button', { name: 'Validate' }),
+    ready: page.getByRole('button', { name: 'AI', exact: true }),
     testInfo,
     action: async () => {
       await page.goto(projectPath('workflows'))

@@ -7,12 +7,14 @@ import { ApiError } from '$lib/api/client'
 import type { AgentProvider, BuiltinRole, HarnessValidationIssue } from '$lib/api/contracts'
 import type {
   HarnessVariableGroup,
+  ScopeGroup,
   WorkflowAgentOption,
   WorkflowStatusOption,
   WorkflowSummary,
   WorkflowTemplateDraft,
 } from '../types'
 import { type SkillState, toHarnessContent } from '../model'
+import { getScopeGroups } from '$lib/api/openase'
 import { loadWorkflowHarness, loadWorkflowPageData } from '../data'
 import {
   type WorkflowsPageControllerActionsState,
@@ -56,6 +58,7 @@ export function createWorkflowsPageController() {
     agentOptions = $state<WorkflowAgentOption[]>([]),
     providers = $state<AgentProvider[]>([]),
     variableGroups = $state<HarnessVariableGroup[]>([]),
+    scopeGroups = $state<ScopeGroup[]>([]),
     templateDraft = $state<WorkflowTemplateDraft | null>(null)
   const controllerState: WorkflowsPageControllerActionsState = createWorkflowsPageControllerState({
     getSelectedId: () => selectedId,
@@ -88,11 +91,8 @@ export function createWorkflowsPageController() {
       ? projectPath(appStore.currentOrg.id, appStore.currentProject.id, 'settings')
       : null,
   )
-
   $effect(() => createWorkflowsPageBeforeUnloadGuard(isDirty))
-
   registerWorkflowsPageNavigationGuard(() => isDirty)
-
   const resetWorkflowContent = createResetWorkflowsPageContent({
     setWorkflows: (value) => (workflows = value),
     setSelectedId: (value) => (selectedId = value),
@@ -119,14 +119,17 @@ export function createWorkflowsPageController() {
 
     const currentSelectedId = untrack(() => selectedId)
     let cancelled = false
-
     const load = async () => {
       loading = true
       loadError = ''
       try {
-        const payload = await loadWorkflowPageData(projectId, orgId, currentSelectedId)
+        const [payload, fetchedScopeGroups] = await Promise.all([
+          loadWorkflowPageData(projectId, orgId, currentSelectedId),
+          getScopeGroups(projectId).catch(() => []),
+        ])
         if (cancelled) return
 
+        scopeGroups = fetchedScopeGroups
         workflows = payload.workflows
         agentOptions = payload.agentOptions
         providers = payload.providers
@@ -154,7 +157,6 @@ export function createWorkflowsPageController() {
         if (!cancelled) loading = false
       }
     }
-
     void load()
     return () => {
       cancelled = true
@@ -172,7 +174,6 @@ export function createWorkflowsPageController() {
       return
     }
     if (workflowId === loadedHarnessWorkflowId) return
-
     let cancelled = false
     const doLoadHarness = async () => {
       loadingHarness = true
@@ -196,7 +197,6 @@ export function createWorkflowsPageController() {
         if (!cancelled) loadingHarness = false
       }
     }
-
     void doLoadHarness()
     return () => {
       cancelled = true
@@ -225,7 +225,6 @@ export function createWorkflowsPageController() {
       },
       PROJECT_AI_FOCUS_PRIORITY.workspace,
     )
-
     return () => {
       appStore.clearProjectAssistantFocus(projectAIFocusOwner)
     }
@@ -258,6 +257,7 @@ export function createWorkflowsPageController() {
     getAgentOptions: () => agentOptions,
     getProviders: () => providers,
     getVariableGroups: () => variableGroups,
+    getScopeGroups: () => scopeGroups,
     getSelectedWorkflow: () => selectedWorkflow,
     getIsDirty: () => isDirty,
     getSettingsHref: () => settingsHref,

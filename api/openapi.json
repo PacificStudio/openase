@@ -15710,6 +15710,326 @@
         ]
       }
     },
+    "/api/v1/projects/{projectId}/tickets/archived": {
+      "get": {
+        "operationId": "listArchivedTickets",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Archived tickets page number.",
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Archived tickets page size.",
+            "in": "query",
+            "name": "per_page",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "page": {
+                      "type": "integer"
+                    },
+                    "per_page": {
+                      "type": "integer"
+                    },
+                    "tickets": {
+                      "items": {
+                        "properties": {
+                          "attempt_count": {
+                            "type": "integer"
+                          },
+                          "budget_usd": {
+                            "format": "double",
+                            "type": "number"
+                          },
+                          "children": {
+                            "items": {
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "identifier": {
+                                  "type": "string"
+                                },
+                                "status_id": {
+                                  "type": "string"
+                                },
+                                "status_name": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "completed_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "consecutive_errors": {
+                            "type": "integer"
+                          },
+                          "cost_amount": {
+                            "format": "double",
+                            "type": "number"
+                          },
+                          "cost_tokens_input": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
+                          "cost_tokens_output": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "created_by": {
+                            "type": "string"
+                          },
+                          "current_run_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "dependencies": {
+                            "items": {
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "target": {
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "identifier": {
+                                      "type": "string"
+                                    },
+                                    "status_id": {
+                                      "type": "string"
+                                    },
+                                    "status_name": {
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "type": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "external_links": {
+                            "items": {
+                              "properties": {
+                                "created_at": {
+                                  "type": "string"
+                                },
+                                "external_id": {
+                                  "type": "string"
+                                },
+                                "id": {
+                                  "type": "string"
+                                },
+                                "relation": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "type": {
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "external_ref": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "identifier": {
+                            "type": "string"
+                          },
+                          "next_retry_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "parent": {
+                            "nullable": true,
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "identifier": {
+                                "type": "string"
+                              },
+                              "status_id": {
+                                "type": "string"
+                              },
+                              "status_name": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "pause_reason": {
+                            "type": "string"
+                          },
+                          "priority": {
+                            "type": "string"
+                          },
+                          "project_id": {
+                            "type": "string"
+                          },
+                          "retry_paused": {
+                            "type": "boolean"
+                          },
+                          "started_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "status_id": {
+                            "type": "string"
+                          },
+                          "status_name": {
+                            "type": "string"
+                          },
+                          "target_machine_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "workflow_id": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List archived tickets response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List archived tickets",
+        "tags": [
+          "tickets"
+        ]
+      }
+    },
     "/api/v1/projects/{projectId}/tickets/{ticketId}/detail": {
       "get": {
         "operationId": "getTicketDetail",

@@ -109,3 +109,8 @@ export type HarnessVariableGroup = {
   name: string
   variables: HarnessVariableMetadata[]
 }
+
+export type ScopeGroup = {
+  category: string
+  scopes: string[]
+}

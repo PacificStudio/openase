@@ -1,17 +1,22 @@
 const projectConversationStoragePrefix = 'openase.project-conversation'
 
-export type PersistedProjectConversationTabs = {
-  conversationIds: string[]
-  activeConversationId: string
+export type PersistedProjectConversationTab = {
+  conversationId: string
+  providerId: string
+  draft: string
 }
 
-function storageKey(projectId: string, currentProviderId: string) {
-  return `${projectConversationStoragePrefix}.${projectId}.${currentProviderId}`
+export type PersistedProjectConversationTabs = {
+  tabs: PersistedProjectConversationTab[]
+  activeTabIndex: number
+}
+
+function storageKey(projectId: string) {
+  return `${projectConversationStoragePrefix}.${projectId}`
 }
 
 export function storeProjectConversationTabs(
   projectId: string,
-  currentProviderId: string,
   value: PersistedProjectConversationTabs,
 ) {
   if (typeof window === 'undefined') {
@@ -19,39 +24,54 @@ export function storeProjectConversationTabs(
   }
 
   try {
-    window.localStorage.setItem(storageKey(projectId, currentProviderId), JSON.stringify(value))
+    window.localStorage.setItem(storageKey(projectId), JSON.stringify(value))
   } catch {
     // Ignore localStorage failures.
   }
 }
 
-export function readProjectConversationTabs(
-  projectId: string,
-  currentProviderId: string,
-): PersistedProjectConversationTabs {
+export function readProjectConversationTabs(projectId: string): PersistedProjectConversationTabs {
   if (typeof window === 'undefined') {
-    return { conversationIds: [], activeConversationId: '' }
+    return { tabs: [], activeTabIndex: 0 }
   }
 
   try {
-    const raw = window.localStorage.getItem(storageKey(projectId, currentProviderId))?.trim() ?? ''
+    const raw = window.localStorage.getItem(storageKey(projectId))?.trim() ?? ''
     if (!raw) {
-      return { conversationIds: [], activeConversationId: '' }
+      return { tabs: [], activeTabIndex: 0 }
     }
     const parsed = JSON.parse(raw) as {
-      conversationIds?: unknown
-      activeConversationId?: unknown
+      tabs?: unknown
+      activeTabIndex?: unknown
     }
-    const conversationIds = Array.isArray(parsed.conversationIds)
-      ? parsed.conversationIds
-          .map((value) => (typeof value === 'string' ? value.trim() : ''))
-          .filter((value) => value.length > 0)
+    const tabs = Array.isArray(parsed.tabs)
+      ? parsed.tabs
+          .map((value) => {
+            if (typeof value !== 'object' || value == null) {
+              return null
+            }
+            const candidate = value as {
+              conversationId?: unknown
+              providerId?: unknown
+              draft?: unknown
+            }
+            return {
+              conversationId:
+                typeof candidate.conversationId === 'string' ? candidate.conversationId.trim() : '',
+              providerId:
+                typeof candidate.providerId === 'string' ? candidate.providerId.trim() : '',
+              draft: typeof candidate.draft === 'string' ? candidate.draft : '',
+            } satisfies PersistedProjectConversationTab
+          })
+          .filter((value): value is PersistedProjectConversationTab => value != null)
       : []
-    const activeConversationId =
-      typeof parsed.activeConversationId === 'string' ? parsed.activeConversationId.trim() : ''
-    return { conversationIds, activeConversationId }
+    const activeTabIndex =
+      typeof parsed.activeTabIndex === 'number' && Number.isInteger(parsed.activeTabIndex)
+        ? Math.max(0, parsed.activeTabIndex)
+        : 0
+    return { tabs, activeTabIndex }
   } catch {
-    return { conversationIds: [], activeConversationId: '' }
+    return { tabs: [], activeTabIndex: 0 }
   }
 }
 

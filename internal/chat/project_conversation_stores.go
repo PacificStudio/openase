@@ -19,6 +19,7 @@ type projectConversationEntryStore interface {
 	CreateTurnWithUserEntry(ctx context.Context, conversationID uuid.UUID, message string) (domain.Turn, domain.Entry, error)
 	AppendEntry(ctx context.Context, conversationID uuid.UUID, turnID *uuid.UUID, kind domain.EntryKind, payload map[string]any) (domain.Entry, error)
 	ListEntries(ctx context.Context, conversationID uuid.UUID) ([]domain.Entry, error)
+	GetActiveTurn(ctx context.Context, conversationID uuid.UUID) (domain.Turn, error)
 	CompleteTurn(ctx context.Context, turnID uuid.UUID, status domain.TurnStatus, providerTurnID *string) (domain.Turn, error)
 }
 

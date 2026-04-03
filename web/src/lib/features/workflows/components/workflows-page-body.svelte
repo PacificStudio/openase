@@ -2,6 +2,7 @@
   import { toHarnessContent } from '../model'
   import type {
     HarnessVariableGroup,
+    ScopeGroup,
     WorkflowAgentOption,
     WorkflowStatusOption,
     WorkflowSummary,
@@ -39,6 +40,7 @@
     showList = $bindable(true),
     statuses,
     agentOptions,
+    scopeGroups = [],
     builtinRoleContent = '',
     templateDraft = null as WorkflowTemplateDraft | null,
     onSelectedIdChange,
@@ -72,6 +74,7 @@
     showList?: boolean
     statuses: WorkflowStatusOption[]
     agentOptions: WorkflowAgentOption[]
+    scopeGroups?: ScopeGroup[]
     builtinRoleContent?: string
     templateDraft?: WorkflowTemplateDraft | null
     onSelectedIdChange?: (id: string) => void
@@ -136,6 +139,7 @@
           {workflows}
           {statuses}
           {agentOptions}
+          {scopeGroups}
           onWorkflowsChange={(nextWorkflows) => onWorkflowsChange?.(nextWorkflows)}
           onSelectedIdChange={(nextSelectedId) => onSelectedIdChange?.(nextSelectedId)}
         />

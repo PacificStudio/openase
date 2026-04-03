@@ -2,11 +2,12 @@
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
-  import type { WorkflowAgentOption } from '../types'
+  import type { ScopeGroup, WorkflowAgentOption } from '../types'
   import type { WorkflowLifecycleDraft } from '../workflow-lifecycle'
   import WorkflowAgentBindingCard from './workflow-agent-binding-card.svelte'
   import WorkflowAgentSelectOption from './workflow-agent-select-option.svelte'
   import WorkflowAgentSelectTrigger from './workflow-agent-select-trigger.svelte'
+  import ScopeGroupPicker from './scope-group-picker.svelte'
 
   let {
     draft,
@@ -14,6 +15,7 @@
     deleting = false,
     agentOptions = [],
     selectedAgent = null,
+    scopeGroups = [],
     onFieldChange,
   }: {
     draft: WorkflowLifecycleDraft
@@ -21,8 +23,20 @@
     deleting?: boolean
     agentOptions?: WorkflowAgentOption[]
     selectedAgent?: WorkflowAgentOption | null
+    scopeGroups?: ScopeGroup[]
     onFieldChange: (field: keyof WorkflowLifecycleDraft, value: string) => void
   } = $props()
+
+  const selectedScopes = $derived(
+    (draft.platformAccessAllowed ?? '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  )
+
+  function handleScopeChange(scopes: string[]) {
+    onFieldChange('platformAccessAllowed', scopes.join('\n'))
+  }
 </script>
 
 <div class="space-y-6">
@@ -89,20 +103,30 @@
   </div>
 
   <div class="space-y-1.5">
-    <Label
-      for="workflow-platform-access"
-      class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
+    <Label class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
       >Platform Access Allowed</Label
     >
-    <textarea
-      id="workflow-platform-access"
-      class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring min-h-24 w-full rounded-md border px-3 py-2 font-mono text-sm focus-visible:ring-2 focus-visible:outline-none"
-      value={draft.platformAccessAllowed}
-      disabled={saving || deleting}
-      placeholder="One scope per line, e.g. tickets.list"
-      oninput={(event) =>
-        onFieldChange('platformAccessAllowed', (event.currentTarget as HTMLTextAreaElement).value)}
-    ></textarea>
+    {#if scopeGroups.length > 0}
+      <ScopeGroupPicker
+        groups={scopeGroups}
+        selected={selectedScopes}
+        disabled={saving || deleting}
+        onchange={handleScopeChange}
+      />
+    {:else}
+      <textarea
+        id="workflow-platform-access"
+        class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring min-h-24 w-full rounded-md border px-3 py-2 font-mono text-sm focus-visible:ring-2 focus-visible:outline-none"
+        value={draft.platformAccessAllowed}
+        disabled={saving || deleting}
+        placeholder="One scope per line, e.g. tickets.list"
+        oninput={(event) =>
+          onFieldChange(
+            'platformAccessAllowed',
+            (event.currentTarget as HTMLTextAreaElement).value,
+          )}
+      ></textarea>
+    {/if}
   </div>
 
   <div class="space-y-1.5">

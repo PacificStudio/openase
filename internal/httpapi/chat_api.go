@@ -684,6 +684,8 @@ func writeProjectConversationError(c echo.Context, err error) error {
 	switch {
 	case errors.Is(err, chatservice.ErrConversationTurnActive):
 		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_TURN_ALREADY_ACTIVE", err.Error())
+	case errors.Is(err, chatservice.ErrConversationInterruptPending):
+		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_INTERRUPT_PENDING", err.Error())
 	case errors.Is(err, chatservice.ErrConversationConflict):
 		return writeAPIError(c, http.StatusConflict, "CHAT_CONVERSATION_CONFLICT", err.Error())
 	case errors.Is(err, chatservice.ErrConversationNotFound), errors.Is(err, chatservice.ErrPendingInterruptNotFound):

@@ -472,6 +472,24 @@ func (r *Repository) ListEntries(ctx context.Context, conversationID uuid.UUID) 
 	return mapEntries(items), nil
 }
 
+func (r *Repository) GetActiveTurn(ctx context.Context, conversationID uuid.UUID) (domain.Turn, error) {
+	item, err := r.client.ChatTurn.Query().
+		Where(
+			entchatturn.ConversationIDEQ(conversationID),
+			entchatturn.StatusIn(
+				string(domain.TurnStatusPending),
+				string(domain.TurnStatusRunning),
+				string(domain.TurnStatusInterrupted),
+			),
+		).
+		Order(ent.Desc(entchatturn.FieldTurnIndex)).
+		First(ctx)
+	if err != nil {
+		return domain.Turn{}, mapReadError("get active chat turn", err)
+	}
+	return mapTurn(item), nil
+}
+
 func (r *Repository) CreatePendingInterrupt(
 	ctx context.Context,
 	conversationID uuid.UUID,

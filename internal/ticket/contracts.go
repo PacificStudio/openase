@@ -1,6 +1,7 @@
 package ticket
 
 import domain "github.com/BetterAndBetterII/openase/internal/domain/ticket"
+import "github.com/google/uuid"
 
 var (
 	ErrProjectNotFound       = domain.ErrProjectNotFound
@@ -35,6 +36,9 @@ type Comment = domain.Comment
 type CommentRevision = domain.CommentRevision
 type Ticket = domain.Ticket
 type ListInput = domain.ListInput
+type ArchivedListRawInput = domain.ArchivedListRawInput
+type ArchivedListInput = domain.ArchivedListInput
+type ArchivedListResult = domain.ArchivedListResult
 type CreateInput = domain.CreateInput
 type CreateRepoScopeInput = domain.CreateRepoScopeInput
 type UpdateInput = domain.UpdateInput
@@ -70,3 +74,7 @@ type PickupDiagnosisBlockedTicket = domain.PickupDiagnosisBlockedTicket
 
 type LifecycleHookRuntimeData = domain.LifecycleHookRuntimeData
 type HookWorkspace = domain.HookWorkspace
+
+func ParseArchivedListInput(projectID uuid.UUID, raw ArchivedListRawInput) (ArchivedListInput, error) {
+	return domain.ParseArchivedListInput(projectID, raw)
+}

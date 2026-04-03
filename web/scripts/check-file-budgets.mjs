@@ -47,10 +47,16 @@ const budgetRules = [
         'Project conversation controller regression coverage remains bundled while multi-tab conversation scenarios are still expanding.',
       'src/lib/features/chat/project-conversation-controller-restore.test.ts':
         'Project conversation restore regression coverage remains bundled while session restore and workspace diff helpers are still being extracted.',
+      'src/lib/features/chat/project-conversation-controller.svelte.ts':
+        'Project conversation controller still coordinates tab selection, provider sync, and delegated operations while the remaining controller slices continue to move out.',
       'src/lib/features/chat/project-conversation-panel.test.ts':
         'Project conversation panel regression coverage remains bundled while transcript, restore, and action-surface scenarios continue to share setup.',
+      'src/lib/features/chat/project-conversation-panel-tabs.test.ts':
+        'Project conversation tab behavior coverage remains bundled while queued-turn and interrupt scenarios still share the same panel harness.',
       'src/lib/features/dashboard/components/org-dashboard-controller.svelte.ts':
         'Organization dashboard controller still owns event-driven refresh orchestration while dashboard loading helpers continue to move out.',
+      'src/lib/features/providers/rate-limit.ts':
+        'Provider rate-limit summarization still centralizes Claude, Codex, and Gemini snapshot shaping while adapter-specific presenters remain in one module.',
       'src/lib/features/skills/components/skill-ai-sidebar.test.ts':
         'Skill refinement sidebar regression coverage remains bundled while transcript, result, and retry scenarios continue to expand.',
       'src/lib/features/skills/components/skill-editor-page.test.ts':

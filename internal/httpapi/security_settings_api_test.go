@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
@@ -72,6 +73,22 @@ func TestSecuritySettingsRouteReturnsCurrentBoundary(t *testing.T) {
 	}
 	if payload.Security.Webhooks.ConnectorEndpoint != "Not supported in current version" {
 		t.Fatalf("expected webhook sync to be disabled, got %+v", payload.Security.Webhooks)
+	}
+	if len(payload.Security.AgentTokens.SupportedScopeGroups) == 0 {
+		t.Fatal("expected supported scope groups to be returned")
+	}
+	wantGroups := agentplatform.SupportedScopeGroups()
+	if len(payload.Security.AgentTokens.SupportedScopeGroups) != len(wantGroups) {
+		t.Fatalf("expected %d scope groups, got %+v", len(wantGroups), payload.Security.AgentTokens.SupportedScopeGroups)
+	}
+	for index, want := range wantGroups {
+		got := payload.Security.AgentTokens.SupportedScopeGroups[index]
+		if got.Category != want.Category {
+			t.Fatalf("scope group %d category = %q, want %q", index, got.Category, want.Category)
+		}
+		if strings.Join(got.Scopes, ",") != strings.Join(want.Scopes, ",") {
+			t.Fatalf("scope group %s scopes = %v, want %v", got.Category, got.Scopes, want.Scopes)
+		}
 	}
 	if len(payload.Security.Deferred) == 0 {
 		t.Fatal("expected deferred security scope to be described")

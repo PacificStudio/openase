@@ -11,7 +11,7 @@ test('agents providers and registration remain responsive', async ({
     page,
     scenario: 'agent_settings_page_ready',
     budgetMs: 800,
-    ready: page.getByRole('heading', { name: 'Agents', level: 2 }),
+    ready: page.getByRole('button', { name: 'Configure provider' }).first(),
     testInfo,
     action: async () => {
       await page.goto(`${projectPath('settings')}#agents`)
@@ -19,7 +19,7 @@ test('agents providers and registration remain responsive', async ({
   })
 
   await expect(page).toHaveURL(/\/settings#agents$/)
-  await expect(page.getByRole('button', { name: 'Configure' }).first()).toBeVisible({
+  await expect(page.getByRole('button', { name: 'Configure provider' }).first()).toBeVisible({
     timeout: 10_000,
   })
 
@@ -29,7 +29,7 @@ test('agents providers and registration remain responsive', async ({
     ready: page.getByTestId('provider-config-sheet'),
     testInfo,
     action: async () => {
-      await page.getByRole('button', { name: 'Configure' }).first().click()
+      await page.getByRole('button', { name: 'Configure provider' }).first().click()
     },
   })
 

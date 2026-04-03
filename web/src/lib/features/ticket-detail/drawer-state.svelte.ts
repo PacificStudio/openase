@@ -78,6 +78,7 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
     updatingCommentId: null as string | null,
     deletingCommentId: null as string | null,
     resumingRetry: false,
+    archiving: false,
   })
   let loadRequestId = 0
   let runDetailRequestId = 0
@@ -279,6 +280,7 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
       state.updatingCommentId = null
       state.deletingCommentId = null
       state.resumingRetry = false
+      state.archiving = false
     },
     invalidateReferences(projectId?: string) {
       referenceController.invalidateReferences(projectId)

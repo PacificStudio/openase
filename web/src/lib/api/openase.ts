@@ -10,6 +10,7 @@ import type {
   AgentProvider,
   AgentProviderListPayload,
   AgentProviderModelCatalogPayload,
+  ArchivedTicketPayload,
   BuiltinRolePayload,
   BuiltinRoleDetailResponse,
   DeleteGitHubOutboundCredentialResponse,
@@ -260,6 +261,23 @@ export function getProject(projectId: string) {
 
 export function getSecuritySettings(projectId: string) {
   return api.get<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security-settings`)
+}
+
+export type ScopeGroupsResponse = {
+  security: {
+    agent_tokens: {
+      supported_scope_groups: Array<{ category: string; scopes: string[] }>
+    }
+  }
+}
+
+export async function getScopeGroups(
+  projectId: string,
+): Promise<Array<{ category: string; scopes: string[] }>> {
+  const response = await api.get<ScopeGroupsResponse>(
+    `/api/v1/projects/${projectId}/security-settings`,
+  )
+  return response.security?.agent_tokens?.supported_scope_groups ?? []
 }
 
 export function saveGitHubOutboundCredential(
@@ -551,6 +569,18 @@ export function listTickets(
   },
 ) {
   return api.get<TicketPayload>(`/api/v1/projects/${projectId}/tickets`, { params })
+}
+
+export function listArchivedTickets(
+  projectId: string,
+  params?: {
+    page?: number
+    per_page?: number
+  },
+) {
+  return api.get<ArchivedTicketPayload>(`/api/v1/projects/${projectId}/tickets/archived`, {
+    params,
+  })
 }
 
 export function createTicket(

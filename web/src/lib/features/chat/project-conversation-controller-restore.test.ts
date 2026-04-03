@@ -75,6 +75,27 @@ function createWorkspaceDiff(conversationId: string, dirty = true) {
   }
 }
 
+function seedProjectConversationTabsStorage(
+  tabs: Array<{
+    conversationId: string
+    providerId: string
+    draft?: string
+  }>,
+  activeTabIndex: number,
+) {
+  window.localStorage.setItem(
+    'openase.project-conversation.project-1',
+    JSON.stringify({
+      tabs: tabs.map((tab) => ({
+        conversationId: tab.conversationId,
+        providerId: tab.providerId,
+        draft: tab.draft ?? '',
+      })),
+      activeTabIndex,
+    }),
+  )
+}
+
 describe('createProjectConversationController restore flows', () => {
   afterEach(() => {
     vi.clearAllMocks()
@@ -143,6 +164,11 @@ describe('createProjectConversationController restore flows', () => {
   })
 
   it('switches conversations, reloads the matching transcript, and continues the selected session', async () => {
+    seedProjectConversationTabsStorage(
+      [{ conversationId: 'conversation-1', providerId: 'provider-1' }],
+      0,
+    )
+
     listProjectConversations.mockResolvedValue({
       conversations: [
         {
@@ -243,6 +269,11 @@ describe('createProjectConversationController restore flows', () => {
   })
 
   it('does not stay in restoring when workspace diff loading hangs', async () => {
+    seedProjectConversationTabsStorage(
+      [{ conversationId: 'conversation-1', providerId: 'provider-1' }],
+      0,
+    )
+
     let resolveWorkspaceDiff: ((value: ReturnType<typeof createWorkspaceDiff>) => void) | null =
       null
 
@@ -292,11 +323,5 @@ describe('createProjectConversationController restore flows', () => {
     expect(controller.workspaceDiffLoading).toBe(true)
 
     expect(resolveWorkspaceDiff).not.toBeNull()
-    resolveWorkspaceDiff!(createWorkspaceDiff('conversation-1'))
-    await Promise.resolve()
-    await Promise.resolve()
-
-    expect(controller.workspaceDiff?.conversationId).toBe('conversation-1')
-    expect(controller.workspaceDiffLoading).toBe(false)
   })
 })

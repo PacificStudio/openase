@@ -98,6 +98,13 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]Ticket, error) {
 	return s.repo.List(ctx, input)
 }
 
+func (s *Service) ListArchived(ctx context.Context, input ArchivedListInput) (ArchivedListResult, error) {
+	if s == nil || s.repo == nil {
+		return ArchivedListResult{}, ErrUnavailable
+	}
+	return s.repo.ListArchived(ctx, input)
+}
+
 func (s *Service) Get(ctx context.Context, ticketID uuid.UUID) (Ticket, error) {
 	if s == nil || s.repo == nil {
 		return Ticket{}, ErrUnavailable

@@ -236,6 +236,8 @@ function normalizeProviderCLIRateLimit(
           status: value.claude_code.status ?? '',
           rateLimitType: value.claude_code.rate_limit_type ?? null,
           resetsAt: value.claude_code.resets_at ?? null,
+          utilization: value.claude_code.utilization ?? null,
+          surpassedThreshold: value.claude_code.surpassed_threshold ?? null,
           overageStatus: value.claude_code.overage_status ?? null,
           overageDisabledReason: value.claude_code.overage_disabled_reason ?? null,
           isUsingOverage: value.claude_code.is_using_overage ?? null,

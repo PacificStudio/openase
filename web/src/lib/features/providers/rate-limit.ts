@@ -8,6 +8,8 @@ export type ProviderRateLimitSnapshot = {
     status: string
     rateLimitType?: string | null
     resetsAt?: string | null
+    utilization?: number | null
+    surpassedThreshold?: number | null
     overageStatus?: string | null
     overageDisabledReason?: string | null
     isUsingOverage?: boolean | null
@@ -104,17 +106,29 @@ export function summarizeProviderRateLimit(
     if (snapshot.resetsAt) {
       detailParts.push(`Resets ${new Date(snapshot.resetsAt).toLocaleString()}`)
     }
+    if (snapshot.surpassedThreshold != null) {
+      detailParts.push(`${(snapshot.surpassedThreshold * 100).toFixed(0)}% warning threshold`)
+    }
     if (snapshot.isUsingOverage) {
       detailParts.push('Using overage')
     } else if (snapshot.overageStatus) {
       detailParts.push(`Overage ${snapshot.overageStatus}`)
     }
 
+    const windows: RateLimitWindow[] = []
+    if (snapshot.utilization != null) {
+      windows.push({
+        label: snapshot.rateLimitType || 'Window',
+        usedPercent: snapshot.utilization * 100,
+        resetsAt: snapshot.resetsAt,
+      })
+    }
+
     return {
       headline,
       detail: detailParts.join(' · ') || 'Claude rate limit snapshot captured.',
       updatedLabel,
-      windows: [],
+      windows,
     }
   }
 
@@ -249,6 +263,8 @@ export function summarizeAgentProviderRateLimit(
             status: provider.cli_rate_limit.claude_code.status ?? '',
             rateLimitType: provider.cli_rate_limit.claude_code.rate_limit_type ?? null,
             resetsAt: provider.cli_rate_limit.claude_code.resets_at ?? null,
+            utilization: provider.cli_rate_limit.claude_code.utilization ?? null,
+            surpassedThreshold: provider.cli_rate_limit.claude_code.surpassed_threshold ?? null,
             overageStatus: provider.cli_rate_limit.claude_code.overage_status ?? null,
             overageDisabledReason:
               provider.cli_rate_limit.claude_code.overage_disabled_reason ?? null,

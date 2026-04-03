@@ -18,6 +18,8 @@ export type ProviderOption = {
       status: string
       rateLimitType?: string | null
       resetsAt?: string | null
+      utilization?: number | null
+      surpassedThreshold?: number | null
       overageStatus?: string | null
       overageDisabledReason?: string | null
       isUsingOverage?: boolean | null
@@ -80,6 +82,8 @@ export function buildProviderOptions(
                 status: provider.cli_rate_limit.claude_code.status ?? '',
                 rateLimitType: provider.cli_rate_limit.claude_code.rate_limit_type ?? null,
                 resetsAt: provider.cli_rate_limit.claude_code.resets_at ?? null,
+                utilization: provider.cli_rate_limit.claude_code.utilization ?? null,
+                surpassedThreshold: provider.cli_rate_limit.claude_code.surpassed_threshold ?? null,
                 overageStatus: provider.cli_rate_limit.claude_code.overage_status ?? null,
                 overageDisabledReason:
                   provider.cli_rate_limit.claude_code.overage_disabled_reason ?? null,

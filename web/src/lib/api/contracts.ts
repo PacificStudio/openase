@@ -205,11 +205,15 @@ export type StatusDeleteResponse = DeepRequired<
 export type TicketStatus = ItemOf<StatusPayload['statuses']>
 
 export type TicketPayload = DeepRequired<ResponseFor<'/api/v1/projects/{projectId}/tickets', 'get'>>
+export type ArchivedTicketPayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/tickets/archived', 'get'>
+>
 export type TicketCreateResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/tickets', 'post'>
 >
 export type TicketResponse = DeepRequired<ResponseFor<'/api/v1/tickets/{ticketId}', 'patch'>>
 export type Ticket = ItemOf<TicketPayload['tickets']>
+export type ArchivedTicket = ItemOf<ArchivedTicketPayload['tickets']>
 export type TicketPriority = Ticket['priority']
 export type TicketReference = ItemOf<Ticket['children']>
 export type TicketDependency = ItemOf<Ticket['dependencies']>

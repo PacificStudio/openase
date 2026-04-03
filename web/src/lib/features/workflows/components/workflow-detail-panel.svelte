@@ -2,7 +2,12 @@
   import { cn } from '$lib/utils'
   import { Separator } from '$ui/separator'
   import { Clock3, Layers3, RotateCcw } from '@lucide/svelte'
-  import type { WorkflowAgentOption, WorkflowStatusOption, WorkflowSummary } from '../types'
+  import type {
+    ScopeGroup,
+    WorkflowAgentOption,
+    WorkflowStatusOption,
+    WorkflowSummary,
+  } from '../types'
   import {
     buildPickupStatusOccupiedMap,
     createWorkflowLifecycleDraft,
@@ -33,6 +38,7 @@
     workflows = [],
     statuses = [],
     agentOptions = [],
+    scopeGroups = [],
     saving = false,
     deleting = false,
     onSave,
@@ -43,6 +49,7 @@
     workflows?: WorkflowSummary[]
     statuses?: WorkflowStatusOption[]
     agentOptions?: WorkflowAgentOption[]
+    scopeGroups?: ScopeGroup[]
     saving?: boolean
     deleting?: boolean
     onSave?: (payload: WorkflowLifecyclePayload) => void | Promise<void>
@@ -150,15 +157,16 @@
         {deleting}
         {agentOptions}
         {selectedAgent}
+        {scopeGroups}
         onFieldChange={(field, value) => updateDraftField(field, value)}
       />
 
       <Separator />
 
-      <div class="space-y-1.5">
+      <div class="space-y-2">
         <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Limits</span
         >
-        <div class="grid gap-3 sm:grid-cols-2">
+        <div class="bg-muted/40 divide-border space-y-0 divide-y rounded-md border px-3 py-0.5">
           <WorkflowNumberField
             id="workflow-max-concurrent"
             label="Max Concurrent"

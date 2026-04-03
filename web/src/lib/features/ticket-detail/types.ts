@@ -11,6 +11,7 @@ export type TicketStatusOption = {
   id: string
   name: string
   color: string
+  stage?: string
 }
 
 export type TicketReferenceOption = {

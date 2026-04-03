@@ -314,15 +314,66 @@ func TestAgentPlatformUtilityAndFailurePaths(t *testing.T) {
 	t.Run("scope helpers and parser failures", func(t *testing.T) {
 		gotSupported := SupportedScopes()
 		wantSupported := []string{
+			string(ScopeActivityRead),
 			string(ScopeProjectsAddRepo),
 			string(ScopeProjectsUpdate),
+			string(ScopeReposCreate),
+			string(ScopeReposDelete),
+			string(ScopeReposRead),
+			string(ScopeReposUpdate),
+			string(ScopeScheduledJobsCreate),
+			string(ScopeScheduledJobsDelete),
+			string(ScopeScheduledJobsList),
+			string(ScopeScheduledJobsTrigger),
+			string(ScopeScheduledJobsUpdate),
+			string(ScopeSkillsBind),
+			string(ScopeSkillsCreate),
+			string(ScopeSkillsDelete),
+			string(ScopeSkillsDisable),
+			string(ScopeSkillsEnable),
+			string(ScopeSkillsImport),
+			string(ScopeSkillsList),
+			string(ScopeSkillsRead),
+			string(ScopeSkillsRefine),
+			string(ScopeSkillsRefresh),
+			string(ScopeSkillsUpdate),
+			string(ScopeStatusesCreate),
+			string(ScopeStatusesDelete),
+			string(ScopeStatusesList),
+			string(ScopeStatusesReset),
+			string(ScopeStatusesUpdate),
+			string(ScopeTicketRepoScopesCreate),
+			string(ScopeTicketRepoScopesDelete),
+			string(ScopeTicketRepoScopesList),
+			string(ScopeTicketRepoScopesUpdate),
 			string(ScopeTicketsCreate),
 			string(ScopeTicketsList),
 			string(ScopeTicketsReportUsage),
 			string(ScopeTicketsUpdateSelf),
+			string(ScopeWorkflowsCreate),
+			string(ScopeWorkflowsDelete),
+			string(ScopeWorkflowsHarnessHistoryRead),
+			string(ScopeWorkflowsHarnessRead),
+			string(ScopeWorkflowsHarnessUpdate),
+			string(ScopeWorkflowsHarnessValidate),
+			string(ScopeWorkflowsHarnessVariablesRead),
+			string(ScopeWorkflowsList),
+			string(ScopeWorkflowsRead),
+			string(ScopeWorkflowsUpdate),
 		}
 		if !slices.Equal(gotSupported, wantSupported) {
 			t.Fatalf("SupportedScopes() = %v, want %v", gotSupported, wantSupported)
+		}
+		gotGroups := SupportedScopeGroups()
+		if len(gotGroups) == 0 {
+			t.Fatal("SupportedScopeGroups() expected non-empty groups")
+		}
+		if gotGroups[0].Category != "activity" || !slices.Equal(gotGroups[0].Scopes, []string{string(ScopeActivityRead)}) {
+			t.Fatalf("SupportedScopeGroups()[0] = %+v", gotGroups[0])
+		}
+		lastGroup := gotGroups[len(gotGroups)-1]
+		if lastGroup.Category != "workflows" || !slices.Contains(lastGroup.Scopes, string(ScopeWorkflowsHarnessVariablesRead)) {
+			t.Fatalf("SupportedScopeGroups()[last] = %+v", lastGroup)
 		}
 
 		if _, err := parseExplicitScopes([]string{" "}); !errors.Is(err, ErrInvalidScope) {

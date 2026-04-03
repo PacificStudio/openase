@@ -12,6 +12,7 @@ import (
 type Repository interface {
 	RecordActivityEvent(ctx context.Context, input domain.RecordActivityEventInput) (catalogdomain.ActivityEvent, error)
 	List(ctx context.Context, input domain.ListInput) ([]domain.Ticket, error)
+	ListArchived(ctx context.Context, input domain.ArchivedListInput) (domain.ArchivedListResult, error)
 	Get(ctx context.Context, ticketID uuid.UUID) (domain.Ticket, error)
 	Create(ctx context.Context, input domain.CreateInput) (domain.Ticket, error)
 	Update(ctx context.Context, input domain.UpdateInput) (domain.UpdateResult, error)

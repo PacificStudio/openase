@@ -82,6 +82,14 @@ func (s *Service) GetSkill(ctx context.Context, skillID uuid.UUID) (SkillDetail,
 	return s.getSkillPersistent(ctx, skillID)
 }
 
+func (s *Service) GetSkillInProject(ctx context.Context, projectID uuid.UUID, skillID uuid.UUID) (SkillDetail, error) {
+	record, err := s.resolveSkillRecordInProject(ctx, projectID, skillID)
+	if err != nil {
+		return SkillDetail{}, err
+	}
+	return s.buildSkillDetail(ctx, record)
+}
+
 func (s *Service) ListSkillVersions(ctx context.Context, skillID uuid.UUID) ([]VersionSummary, error) {
 	return s.listSkillVersionsPersistent(ctx, skillID)
 }

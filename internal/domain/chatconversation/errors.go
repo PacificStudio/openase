@@ -13,4 +13,8 @@ var (
 		"%w: project conversation already has an active turn",
 		ErrConflict,
 	)
+	ErrInterruptPending = fmt.Errorf(
+		"%w: project conversation has a pending interrupt",
+		ErrConflict,
+	)
 )

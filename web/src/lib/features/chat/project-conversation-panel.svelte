@@ -127,8 +127,8 @@
   })
 
   $effect(() => {
-    const restoreKey = `${context.projectId}:${providerId}`
-    if (!context.projectId || !providerId || restoreKey === previousRestoreKey) {
+    const restoreKey = context.projectId
+    if (!restoreKey || restoreKey === previousRestoreKey) {
       return
     }
     previousRestoreKey = restoreKey
@@ -164,8 +164,8 @@
     }
   })
   $effect(() => {
-    const restoreKey = `${context.projectId}:${providerId}`
-    if (!context.projectId || !providerId || !activeTabId) {
+    const restoreKey = context.projectId
+    if (!restoreKey || !activeTabId) {
       return
     }
 

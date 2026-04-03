@@ -23,7 +23,7 @@ func TestDispatcherRoleTemplate(t *testing.T) {
 	if got := strings.Join(role.FinishStatusNames, ","); got != "Backlog" {
 		t.Fatalf("FinishStatusNames=%q, want Backlog", got)
 	}
-	if got := strings.Join(role.PlatformAccessAllowed, ","); got != "tickets.update.self,tickets.create,tickets.list,tickets.link,machines.list" {
+	if got := strings.Join(role.PlatformAccessAllowed, ","); got != "activity.read,statuses.list,tickets.create,tickets.list,tickets.update.self,workflows.list" {
 		t.Fatalf("PlatformAccessAllowed=%q", got)
 	}
 

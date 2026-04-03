@@ -634,6 +634,146 @@ func TestTicketListExposesBlockedByRelationships(t *testing.T) {
 	}
 }
 
+func TestListArchivedTicketsSupportsPagination(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40032},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		newTicketService(client),
+		newTicketStatusService(client),
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-archived-pagination").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE Archived").
+		SetSlug("openase-archived-pagination").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	statusSvc := newTicketStatusService(client)
+	statuses, err := statusSvc.ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	backlogID := findStatusIDByName(t, statuses, "Backlog")
+	cancelledID := findStatusIDByName(t, statuses, "Cancelled")
+
+	for index := range 5 {
+		builder := client.Ticket.Create().
+			SetProjectID(project.ID).
+			SetIdentifier(fmt.Sprintf("ASE-%d", index+1)).
+			SetTitle(fmt.Sprintf("Archived ticket %d", index+1)).
+			SetStatusID(cancelledID).
+			SetCreatedBy("user:test").
+			SetCreatedAt(time.Date(2026, 4, 1, 10, index, 0, 0, time.UTC))
+		completedAt := time.Date(2026, 4, 2, 10, index, 0, 0, time.UTC)
+		builder.SetCompletedAt(completedAt)
+		if _, err := builder.Save(ctx); err != nil {
+			t.Fatalf("create archived ticket %d: %v", index+1, err)
+		}
+	}
+	if _, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-6").
+		SetTitle("Active ticket").
+		SetStatusID(backlogID).
+		SetCreatedBy("user:test").
+		SetCreatedAt(time.Date(2026, 4, 1, 10, 6, 0, 0, time.UTC)).
+		Save(ctx); err != nil {
+		t.Fatalf("create active ticket: %v", err)
+	}
+
+	responseBody := archivedTicketsResponse{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/tickets/archived?page=2&per_page=2", project.ID),
+		nil,
+		http.StatusOK,
+		&responseBody,
+	)
+
+	if responseBody.Total != 5 {
+		t.Fatalf("expected total 5 archived tickets, got %+v", responseBody)
+	}
+	if responseBody.Page != 2 || responseBody.PerPage != 2 {
+		t.Fatalf("expected pagination metadata page=2 per_page=2, got %+v", responseBody)
+	}
+	if len(responseBody.Tickets) != 2 {
+		t.Fatalf("expected 2 archived tickets on page 2, got %+v", responseBody.Tickets)
+	}
+	if responseBody.Tickets[0].Identifier != "ASE-3" || responseBody.Tickets[1].Identifier != "ASE-4" {
+		t.Fatalf("expected second page tickets ASE-3 and ASE-4, got %+v", responseBody.Tickets)
+	}
+	for _, ticket := range responseBody.Tickets {
+		if ticket.StatusName != "Cancelled" {
+			t.Fatalf("expected only cancelled tickets, got %+v", responseBody.Tickets)
+		}
+	}
+}
+
+func TestListArchivedTicketsRejectsInvalidPagination(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40033},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		newTicketService(client),
+		newTicketStatusService(client),
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-archived-invalid").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE Archived Invalid").
+		SetSlug("openase-archived-invalid").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	recorder := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/tickets/archived?page=0&per_page=2", project.ID),
+		"",
+	)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid archived pagination, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "page must be greater than zero") {
+		t.Fatalf("expected page validation error, got %s", recorder.Body.String())
+	}
+}
+
 func TestTicketRoutesExternalLinks(t *testing.T) {
 	client := openTestEntClient(t)
 	server := NewServer(

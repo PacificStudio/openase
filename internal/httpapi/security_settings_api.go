@@ -27,11 +27,17 @@ type securityDeferredCapabilityResponse struct {
 }
 
 type securityAgentTokensResponse struct {
-	Transport              string   `json:"transport"`
-	EnvironmentVariable    string   `json:"environment_variable"`
-	TokenPrefix            string   `json:"token_prefix"`
-	DefaultScopes          []string `json:"default_scopes"`
-	SupportedProjectScopes []string `json:"supported_project_scopes"`
+	Transport              string                       `json:"transport"`
+	EnvironmentVariable    string                       `json:"environment_variable"`
+	TokenPrefix            string                       `json:"token_prefix"`
+	DefaultScopes          []string                     `json:"default_scopes"`
+	SupportedProjectScopes []string                     `json:"supported_project_scopes"`
+	SupportedScopeGroups   []securityScopeGroupResponse `json:"supported_scope_groups"`
+}
+
+type securityScopeGroupResponse struct {
+	Category string   `json:"category"`
+	Scopes   []string `json:"scopes"`
 }
 
 type securityWebhookBoundaryResponse struct {
@@ -235,6 +241,7 @@ func buildSecuritySettingsResponse(
 			TokenPrefix:            agentplatform.TokenPrefix,
 			DefaultScopes:          slices.Clone(agentplatform.DefaultScopes()),
 			SupportedProjectScopes: slices.Clone(agentplatform.SupportedScopes()),
+			SupportedScopeGroups:   mapSecurityScopeGroups(agentplatform.SupportedScopeGroups()),
 		},
 		GitHub: github,
 		Webhooks: securityWebhookBoundaryResponse{
@@ -266,6 +273,17 @@ func buildSecuritySettingsResponse(
 			},
 		},
 	}
+}
+
+func mapSecurityScopeGroups(items []agentplatform.ScopeGroup) []securityScopeGroupResponse {
+	response := make([]securityScopeGroupResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, securityScopeGroupResponse{
+			Category: item.Category,
+			Scopes:   append([]string(nil), item.Scopes...),
+		})
+	}
+	return response
 }
 
 func buildMissingGitHubSecurityResponse() securityGitHubOutboundCredentialResponse {

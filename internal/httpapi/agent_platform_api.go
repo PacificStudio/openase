@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -36,6 +37,7 @@ func (s *Server) registerAgentPlatformRoutes(api *echo.Group) {
 	api.PATCH("/projects/:projectId/updates/:threadId/comments/:commentId", s.handleAgentUpdateProjectUpdateComment)
 	api.DELETE("/projects/:projectId/updates/:threadId/comments/:commentId", s.handleAgentDeleteProjectUpdateComment)
 	api.POST("/projects/:projectId/repos", s.handleAgentCreateProjectRepo)
+	s.registerExpandedAgentPlatformRoutes(api)
 }
 
 func (s *Server) authenticateAgentToken(next echo.HandlerFunc) echo.HandlerFunc {
@@ -64,7 +66,7 @@ func (s *Server) handleAgentListTickets(c echo.Context) error {
 		return writeTicketError(c, ticketservice.ErrUnavailable)
 	}
 
-	claims, ok := requireAgentScope(c, agentplatform.ScopeTicketsList)
+	claims, ok := requireAgentAnyScope(c, agentplatform.ScopeTicketsList, agentplatform.ScopeWorkflowsList)
 	if !ok {
 		return nil
 	}
@@ -127,7 +129,7 @@ func (s *Server) handleAgentListProjectWorkflows(c echo.Context) error {
 		return writeWorkflowError(c, workflowservice.ErrUnavailable)
 	}
 
-	claims, ok := requireAgentScope(c, agentplatform.ScopeTicketsList)
+	claims, ok := requireAgentAnyScope(c, agentplatform.ScopeTicketsList, agentplatform.ScopeWorkflowsList)
 	if !ok {
 		return nil
 	}
@@ -660,7 +662,7 @@ func (s *Server) handleAgentCreateProjectRepo(c echo.Context) error {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
 	}
 
-	claims, ok := requireAgentScope(c, agentplatform.ScopeProjectsAddRepo)
+	claims, ok := requireAgentAnyScope(c, agentplatform.ScopeProjectsAddRepo, agentplatform.ScopeReposCreate)
 	if !ok {
 		return nil
 	}
@@ -723,16 +725,34 @@ func (s *Server) requireAgentOwnTicket(c echo.Context, scope agentplatform.Scope
 }
 
 func requireAgentScope(c echo.Context, scope agentplatform.Scope) (agentplatform.Claims, bool) {
+	return requireAgentAnyScope(c, scope)
+}
+
+func requireAgentAnyScope(c echo.Context, scopes ...agentplatform.Scope) (agentplatform.Claims, bool) {
 	claims, ok := c.Get(agentClaimsContextKey).(agentplatform.Claims)
 	if !ok {
 		_ = writeAPIError(c, http.StatusUnauthorized, "INVALID_AGENT_TOKEN", "agent claims missing from request context")
 		return agentplatform.Claims{}, false
 	}
-	if !claims.HasScope(scope) {
-		_ = writeAPIError(c, http.StatusForbidden, "AGENT_SCOPE_FORBIDDEN", "agent token is missing required scope "+string(scope))
+	for _, scope := range scopes {
+		if claims.HasScope(scope) {
+			return claims, true
+		}
+	}
+	if len(scopes) == 0 {
+		_ = writeAPIError(c, http.StatusForbidden, "AGENT_SCOPE_FORBIDDEN", "agent token is missing required scope")
 		return agentplatform.Claims{}, false
 	}
-	return claims, true
+	required := make([]string, 0, len(scopes))
+	for _, scope := range scopes {
+		required = append(required, string(scope))
+	}
+	if len(required) == 1 {
+		_ = writeAPIError(c, http.StatusForbidden, "AGENT_SCOPE_FORBIDDEN", "agent token is missing required scope "+required[0])
+		return agentplatform.Claims{}, false
+	}
+	_ = writeAPIError(c, http.StatusForbidden, "AGENT_SCOPE_FORBIDDEN", "agent token is missing required scope one of "+strings.Join(required, ", "))
+	return agentplatform.Claims{}, false
 }
 
 func writeAgentPlatformError(c echo.Context, err error) error {

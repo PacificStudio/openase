@@ -22,6 +22,7 @@ export type QueuedProjectTurn = {
 
 export type ProjectConversationTabState = ProjectConversationControllerState & {
   id: string
+  providerId: string
   restored: boolean
   draft: string
   queuedTurns: QueuedProjectTurn[]
@@ -29,6 +30,7 @@ export type ProjectConversationTabState = ProjectConversationControllerState & {
 
 export type ProjectConversationTabSummary = {
   id: string
+  providerId: string
   conversationId: string
   phase: ProjectConversationPhase
   pending: boolean
@@ -41,10 +43,12 @@ export type ProjectConversationTabSummary = {
 
 export function createProjectConversationTabState(
   tabNumber: number,
+  providerId = '',
   restored = false,
 ): ProjectConversationTabState {
   return {
     id: `tab-${tabNumber}`,
+    providerId,
     restored,
     draft: '',
     queuedTurns: [],
@@ -88,6 +92,7 @@ export function summarizeProjectConversationTab(
 ): ProjectConversationTabSummary {
   return {
     id: tab.id,
+    providerId: tab.providerId,
     conversationId: tab.conversationId,
     phase: tab.phase,
     pending: isProjectConversationTabPending(tab),
@@ -115,13 +120,12 @@ export function ensureProjectConversationTabSelection(
 
 export function canQueueProjectConversationTurn(input: {
   projectId: string
-  providerId: string
   tab: ProjectConversationTabState | null
 }) {
   return (
     !!input.projectId &&
-    !!input.providerId &&
     input.tab != null &&
+    !!input.tab.providerId &&
     (isProjectConversationTabPending(input.tab) ||
       (input.tab.phase === 'idle' && input.tab.queuedTurns.length > 0)) &&
     !projectConversationHasPendingInterrupt(input.tab.entries)
@@ -130,16 +134,20 @@ export function canQueueProjectConversationTurn(input: {
 
 export function persistProjectConversationTabs(input: {
   projectId: string
-  providerId: string
   tabs: ProjectConversationTabState[]
-  activeConversationId: string
+  activeTabId: string
 }) {
-  if (!input.projectId || !input.providerId) return
-  storeProjectConversationTabs(input.projectId, input.providerId, {
-    conversationIds: input.tabs
-      .map((tab) => tab.conversationId.trim())
-      .filter((conversationId) => conversationId.length > 0),
-    activeConversationId: input.activeConversationId,
+  if (!input.projectId) return
+  storeProjectConversationTabs(input.projectId, {
+    tabs: input.tabs.map((tab) => ({
+      conversationId: tab.conversationId.trim(),
+      providerId: tab.providerId.trim(),
+      draft: tab.draft,
+    })),
+    activeTabIndex: Math.max(
+      0,
+      input.tabs.findIndex((tab) => tab.id === input.activeTabId),
+    ),
   })
 }
 

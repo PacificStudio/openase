@@ -67,8 +67,11 @@ func sanitizeHarnessContent(content string) (string, error) {
 	return normalized, nil
 }
 
-func normalizeWorkflowPlatformAccessAllowed(raw []string) []string {
+func resolveWorkflowPlatformAccessAllowed(raw []string) ([]string, error) {
 	supported := agentplatform.SupportedScopes()
+	if len(raw) == 0 {
+		return agentplatform.DefaultScopes(), nil
+	}
 	normalized := make([]string, 0, len(raw))
 	for _, item := range raw {
 		trimmed := strings.TrimSpace(item)
@@ -84,11 +87,14 @@ func normalizeWorkflowPlatformAccessAllowed(raw []string) []string {
 			}
 			break
 		}
+		if !slicesContainsString(supported, trimmed) {
+			return nil, fmt.Errorf("%w: unsupported platform_access_allowed scope %q", ErrHarnessInvalid, trimmed)
+		}
 	}
-	if len(normalized) > 0 {
-		return normalized
+	if len(normalized) == 0 {
+		return agentplatform.DefaultScopes(), nil
 	}
-	return agentplatform.DefaultScopes()
+	return normalized, nil
 }
 
 func projectHarnessContent(content string, skillNames []string) (string, error) {
@@ -779,7 +785,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 		roleSlug = slugify(roleName)
 	}
 	roleDescription := strings.TrimSpace(input.RoleDescription)
-	platformAccessAllowed := normalizeWorkflowPlatformAccessAllowed(input.PlatformAccessAllowed)
+	platformAccessAllowed, err := resolveWorkflowPlatformAccessAllowed(input.PlatformAccessAllowed)
+	if err != nil {
+		return WorkflowDetail{}, err
+	}
 
 	workflowID := uuid.New()
 
@@ -975,7 +984,10 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 	if strings.TrimSpace(next.RoleSlug) == "" {
 		next.RoleSlug = slugify(next.RoleName)
 	}
-	next.PlatformAccessAllowed = normalizeWorkflowPlatformAccessAllowed(next.PlatformAccessAllowed)
+	next.PlatformAccessAllowed, err = resolveWorkflowPlatformAccessAllowed(next.PlatformAccessAllowed)
+	if err != nil {
+		return WorkflowDetail{}, err
+	}
 	if input.MaxConcurrent.Set {
 		next.MaxConcurrent = input.MaxConcurrent.Value
 	}

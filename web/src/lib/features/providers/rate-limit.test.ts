@@ -117,6 +117,8 @@ describe('summarizeProviderRateLimit', () => {
           status: 'allowed',
           rate_limit_type: 'five_hour',
           resets_at: '2026-04-01T15:30:32Z',
+          utilization: 0.95,
+          surpassed_threshold: 0.75,
           overage_status: 'rejected',
           overage_disabled_reason: '',
           is_using_overage: false,
@@ -128,7 +130,13 @@ describe('summarizeProviderRateLimit', () => {
 
     expect(summary?.headline).toBe('allowed · five_hour')
     expect(summary?.detail).toContain('Resets')
+    expect(summary?.detail).toContain('75% warning threshold')
     expect(summary?.updatedLabel).toContain('Updated 15m ago')
-    expect(summary?.windows).toHaveLength(0)
+    expect(summary?.windows).toHaveLength(1)
+    expect(summary?.windows[0]).toMatchObject({
+      label: 'five_hour',
+      usedPercent: 95,
+      resetsAt: '2026-04-01T15:30:32Z',
+    })
   })
 })

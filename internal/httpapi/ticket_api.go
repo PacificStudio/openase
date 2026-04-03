@@ -119,6 +119,13 @@ type ticketResponse struct {
 	CreatedAt         string                       `json:"created_at"`
 }
 
+type archivedTicketsResponse struct {
+	Tickets []ticketResponse `json:"tickets"`
+	Total   int              `json:"total"`
+	Page    int              `json:"page"`
+	PerPage int              `json:"per_page"`
+}
+
 type ticketRepoScopeDetailResponse struct {
 	ID                  string               `json:"id"`
 	TicketID            string               `json:"ticket_id"`
@@ -218,6 +225,7 @@ type ticketPickupDiagnosisResponse struct {
 
 func (s *Server) registerTicketRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/tickets", s.handleListTickets)
+	api.GET("/projects/:projectId/tickets/archived", s.handleListArchivedTickets)
 	api.POST("/projects/:projectId/tickets", s.handleCreateTicket)
 	api.GET("/projects/:projectId/tickets/:ticketId/detail", s.handleGetTicketDetail)
 	api.GET("/projects/:projectId/tickets/:ticketId/runs", s.handleListTicketRuns)
@@ -270,6 +278,37 @@ func (s *Server) handleListTickets(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"tickets": mapTicketResponses(items),
+	})
+}
+
+func (s *Server) handleListArchivedTickets(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+
+	input, err := ticketservice.ParseArchivedListInput(projectID, ticketservice.ArchivedListRawInput{
+		Page:    c.QueryParam("page"),
+		PerPage: c.QueryParam("per_page"),
+	})
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	result, err := s.ticketService.ListArchived(c.Request().Context(), input)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, archivedTicketsResponse{
+		Tickets: mapTicketResponses(result.Tickets),
+		Total:   result.Total,
+		Page:    result.Page,
+		PerPage: result.PerPage,
 	})
 }
 

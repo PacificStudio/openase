@@ -2,8 +2,7 @@
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
-  import * as Select from '$ui/select'
-  import Bot from '@lucide/svelte/icons/bot'
+  import Archive from '@lucide/svelte/icons/archive'
   import Copy from '@lucide/svelte/icons/copy'
   import Check from '@lucide/svelte/icons/check'
   import Pencil from '@lucide/svelte/icons/pencil'
@@ -19,18 +18,18 @@
     ticket,
     statuses,
     savingFields = false,
-    assistantOpen = false,
+    archiving = false,
     onClose,
-    onToggleAssistant,
+    onArchive,
     onSaveFields,
     onPriorityChange,
   }: {
     ticket: TicketDetail
     statuses: TicketStatusOption[]
     savingFields?: boolean
-    assistantOpen?: boolean
+    archiving?: boolean
     onClose?: () => void
-    onToggleAssistant?: () => void
+    onArchive?: () => void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
     onPriorityChange?: (priority: TicketDetail['priority']) => void
   } = $props()
@@ -38,6 +37,7 @@
   let copied = $state(false)
   let titleEditOpen = $state(false)
   let titleDraft = $state('')
+  let statusOpen = $state(false)
   let priorityOpen = $state(false)
 
   const priorityOptions: Array<{ value: BoardPriority; label: string }> = [
@@ -111,7 +111,8 @@
     titleEditOpen = false
   }
 
-  function handleStatusChange(nextStatusId: string) {
+  function handleStatusSelect(nextStatusId: string) {
+    statusOpen = false
     if (!nextStatusId || nextStatusId === ticket.status.id) {
       return
     }
@@ -178,21 +179,32 @@
         <Copy class="size-2.5" />
       {/if}
     </button>
-    <Select.Root type="single" value={ticket.status.id} onValueChange={handleStatusChange}>
-      <Select.Trigger
-        class="h-4 shrink-0 gap-0.5 rounded-full border px-1.5 py-0 pr-1 text-[10px] leading-none font-medium shadow-none [&_svg]:!size-2.5"
+    <Popover.Root bind:open={statusOpen}>
+      <Popover.Trigger
+        class="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-full border px-1.5 py-0 text-[10px] font-medium transition-opacity hover:opacity-80"
         disabled={savingFields}
         style="background-color: {ticket.status.color}20; color: {ticket.status
           .color}; border-color: {ticket.status.color}30"
       >
         {savingFields ? 'Saving…' : ticket.status.name}
-      </Select.Trigger>
-      <Select.Content>
+      </Popover.Trigger>
+      <Popover.Content align="start" class="w-40 gap-0 p-0.5">
         {#each statuses as status (status.id)}
-          <Select.Item value={status.id}>{status.name}</Select.Item>
+          <button
+            type="button"
+            class={cn(
+              'hover:bg-muted flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+              status.id === ticket.status.id && 'bg-muted',
+            )}
+            onclick={() => handleStatusSelect(status.id)}
+          >
+            <span class="size-2 shrink-0 rounded-full" style="background-color: {status.color}"
+            ></span>
+            <span class="text-foreground">{status.name}</span>
+          </button>
         {/each}
-      </Select.Content>
-    </Select.Root>
+      </Popover.Content>
+    </Popover.Root>
     <Popover.Root bind:open={priorityOpen}>
       <Popover.Trigger
         class={cn(
@@ -237,11 +249,17 @@
       <Button
         variant="ghost"
         size="icon-sm"
-        class={cn('size-6', assistantOpen && 'bg-secondary')}
-        onclick={onToggleAssistant}
-        aria-label="AI 分析"
+        class="text-muted-foreground hover:text-destructive size-6"
+        disabled={archiving || ticket.status.stage === 'canceled'}
+        onclick={() => {
+          if (confirm('Archive this ticket? It will be moved to cancelled status.')) {
+            onArchive?.()
+          }
+        }}
+        aria-label="Archive ticket"
+        title="Archive ticket"
       >
-        <Bot class="size-3" />
+        <Archive class="size-3" />
       </Button>
       <Button variant="ghost" size="icon-sm" class="size-6" onclick={onClose}>
         <X class="size-3" />

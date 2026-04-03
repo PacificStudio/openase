@@ -5,6 +5,7 @@
   import type { SettingsSection } from '../types'
   import { settingsSections } from '../types'
   import AgentSettings from './agent-settings.svelte'
+  import ArchivedTicketsSettings from './archived-tickets-settings.svelte'
   import SettingsNav from './settings-nav.svelte'
   import GeneralSettings from './general-settings.svelte'
   import NotificationSettings from './notification-settings.svelte'
@@ -64,6 +65,8 @@
         <NotificationSettings />
       {:else if activeSection === 'security'}
         <SecuritySettings />
+      {:else if activeSection === 'archived'}
+        <ArchivedTicketsSettings />
       {/if}
     </div>
   </div>

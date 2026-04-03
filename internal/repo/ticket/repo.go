@@ -161,6 +161,52 @@ func (r *EntRepository) List(ctx context.Context, input ListInput) ([]Ticket, er
 	return tickets, nil
 }
 
+func (r *EntRepository) ListArchived(ctx context.Context, input ArchivedListInput) (ArchivedListResult, error) {
+	if r.client == nil {
+		return ArchivedListResult{}, errUnavailable
+	}
+	if err := r.ensureProjectExists(ctx, input.ProjectID); err != nil {
+		return ArchivedListResult{}, err
+	}
+
+	total, err := r.client.Ticket.Query().
+		Where(
+			entticket.ProjectIDEQ(input.ProjectID),
+			entticket.HasStatusWith(entticketstatus.StageEQ(entticketstatus.StageCanceled)),
+		).
+		Count(ctx)
+	if err != nil {
+		return ArchivedListResult{}, fmt.Errorf("count archived tickets: %w", err)
+	}
+
+	offset := (input.Page - 1) * input.PerPage
+	items, err := r.client.Ticket.Query().
+		Where(
+			entticket.ProjectIDEQ(input.ProjectID),
+			entticket.HasStatusWith(entticketstatus.StageEQ(entticketstatus.StageCanceled)),
+		).
+		Order(ent.Asc(entticket.FieldCreatedAt), ent.Asc(entticket.FieldIdentifier)).
+		Limit(input.PerPage).
+		Offset(offset).
+		WithStatus().
+		All(ctx)
+	if err != nil {
+		return ArchivedListResult{}, fmt.Errorf("list archived tickets: %w", err)
+	}
+
+	tickets := make([]Ticket, 0, len(items))
+	for _, item := range items {
+		tickets = append(tickets, mapTicket(item))
+	}
+
+	return ArchivedListResult{
+		Tickets: tickets,
+		Total:   total,
+		Page:    input.Page,
+		PerPage: input.PerPage,
+	}, nil
+}
+
 // Get loads a single ticket with its related status, parent, children, and dependencies.
 func (r *EntRepository) Get(ctx context.Context, ticketID uuid.UUID) (Ticket, error) {
 	if r.client == nil {

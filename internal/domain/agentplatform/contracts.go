@@ -27,13 +27,58 @@ var ErrNotFound = errors.New("agent platform record not found")
 type Scope string
 
 const (
-	ScopeTicketsCreate      Scope = "tickets.create"
-	ScopeTicketsList        Scope = "tickets.list"
-	ScopeTicketsReportUsage Scope = "tickets.report_usage"
-	ScopeTicketsUpdateSelf  Scope = "tickets.update.self"
-	ScopeProjectsUpdate     Scope = "projects.update"
-	ScopeProjectsAddRepo    Scope = "projects.add_repo"
+	ScopeTicketsCreate                 Scope = "tickets.create"
+	ScopeTicketsList                   Scope = "tickets.list"
+	ScopeTicketsReportUsage            Scope = "tickets.report_usage"
+	ScopeTicketsUpdateSelf             Scope = "tickets.update.self"
+	ScopeProjectsUpdate                Scope = "projects.update"
+	ScopeProjectsAddRepo               Scope = "projects.add_repo"
+	ScopeActivityRead                  Scope = "activity.read"
+	ScopeReposCreate                   Scope = "repos.create"
+	ScopeReposRead                     Scope = "repos.read"
+	ScopeReposUpdate                   Scope = "repos.update"
+	ScopeReposDelete                   Scope = "repos.delete"
+	ScopeScheduledJobsList             Scope = "scheduled_jobs.list"
+	ScopeScheduledJobsCreate           Scope = "scheduled_jobs.create"
+	ScopeScheduledJobsUpdate           Scope = "scheduled_jobs.update"
+	ScopeScheduledJobsDelete           Scope = "scheduled_jobs.delete"
+	ScopeScheduledJobsTrigger          Scope = "scheduled_jobs.trigger"
+	ScopeSkillsList                    Scope = "skills.list"
+	ScopeSkillsRead                    Scope = "skills.read"
+	ScopeSkillsCreate                  Scope = "skills.create"
+	ScopeSkillsImport                  Scope = "skills.import"
+	ScopeSkillsRefresh                 Scope = "skills.refresh"
+	ScopeSkillsUpdate                  Scope = "skills.update"
+	ScopeSkillsDelete                  Scope = "skills.delete"
+	ScopeSkillsEnable                  Scope = "skills.enable"
+	ScopeSkillsDisable                 Scope = "skills.disable"
+	ScopeSkillsBind                    Scope = "skills.bind"
+	ScopeSkillsRefine                  Scope = "skills.refine"
+	ScopeStatusesList                  Scope = "statuses.list"
+	ScopeStatusesCreate                Scope = "statuses.create"
+	ScopeStatusesUpdate                Scope = "statuses.update"
+	ScopeStatusesDelete                Scope = "statuses.delete"
+	ScopeStatusesReset                 Scope = "statuses.reset"
+	ScopeTicketRepoScopesList          Scope = "ticket_repo_scopes.list"
+	ScopeTicketRepoScopesCreate        Scope = "ticket_repo_scopes.create"
+	ScopeTicketRepoScopesUpdate        Scope = "ticket_repo_scopes.update"
+	ScopeTicketRepoScopesDelete        Scope = "ticket_repo_scopes.delete"
+	ScopeWorkflowsList                 Scope = "workflows.list"
+	ScopeWorkflowsRead                 Scope = "workflows.read"
+	ScopeWorkflowsCreate               Scope = "workflows.create"
+	ScopeWorkflowsUpdate               Scope = "workflows.update"
+	ScopeWorkflowsDelete               Scope = "workflows.delete"
+	ScopeWorkflowsHarnessRead          Scope = "workflows.harness.read"
+	ScopeWorkflowsHarnessHistoryRead   Scope = "workflows.harness.history.read"
+	ScopeWorkflowsHarnessUpdate        Scope = "workflows.harness.update"
+	ScopeWorkflowsHarnessValidate      Scope = "workflows.harness.validate"
+	ScopeWorkflowsHarnessVariablesRead Scope = "workflows.harness.variables.read"
 )
+
+type ScopeGroup struct {
+	Category string   `json:"category"`
+	Scopes   []string `json:"scopes"`
+}
 
 type PrincipalKind string
 
@@ -60,12 +105,52 @@ func DefaultAgentScopes() []string {
 
 func SupportedAgentScopes() []string {
 	return []string{
+		string(ScopeActivityRead),
 		string(ScopeProjectsAddRepo),
 		string(ScopeProjectsUpdate),
+		string(ScopeReposCreate),
+		string(ScopeReposDelete),
+		string(ScopeReposRead),
+		string(ScopeReposUpdate),
+		string(ScopeScheduledJobsCreate),
+		string(ScopeScheduledJobsDelete),
+		string(ScopeScheduledJobsList),
+		string(ScopeScheduledJobsTrigger),
+		string(ScopeScheduledJobsUpdate),
+		string(ScopeSkillsBind),
+		string(ScopeSkillsCreate),
+		string(ScopeSkillsDelete),
+		string(ScopeSkillsDisable),
+		string(ScopeSkillsEnable),
+		string(ScopeSkillsImport),
+		string(ScopeSkillsList),
+		string(ScopeSkillsRead),
+		string(ScopeSkillsRefine),
+		string(ScopeSkillsRefresh),
+		string(ScopeSkillsUpdate),
+		string(ScopeStatusesCreate),
+		string(ScopeStatusesDelete),
+		string(ScopeStatusesList),
+		string(ScopeStatusesReset),
+		string(ScopeStatusesUpdate),
+		string(ScopeTicketRepoScopesCreate),
+		string(ScopeTicketRepoScopesDelete),
+		string(ScopeTicketRepoScopesList),
+		string(ScopeTicketRepoScopesUpdate),
 		string(ScopeTicketsCreate),
 		string(ScopeTicketsList),
 		string(ScopeTicketsReportUsage),
 		string(ScopeTicketsUpdateSelf),
+		string(ScopeWorkflowsCreate),
+		string(ScopeWorkflowsDelete),
+		string(ScopeWorkflowsHarnessHistoryRead),
+		string(ScopeWorkflowsHarnessRead),
+		string(ScopeWorkflowsHarnessUpdate),
+		string(ScopeWorkflowsHarnessValidate),
+		string(ScopeWorkflowsHarnessVariablesRead),
+		string(ScopeWorkflowsList),
+		string(ScopeWorkflowsRead),
+		string(ScopeWorkflowsUpdate),
 	}
 }
 

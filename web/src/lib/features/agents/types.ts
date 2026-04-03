@@ -106,6 +106,8 @@ export type ProviderCLIRateLimit = {
     status: string
     rateLimitType?: string | null
     resetsAt?: string | null
+    utilization?: number | null
+    surpassedThreshold?: number | null
     overageStatus?: string | null
     overageDisabledReason?: string | null
     isUsingOverage?: boolean | null

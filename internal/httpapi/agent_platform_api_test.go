@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,18 +12,23 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
+	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	agentplatformrepo "github.com/BetterAndBetterII/openase/internal/repo/agentplatform"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	scheduledjobrepo "github.com/BetterAndBetterII/openase/internal/repo/scheduledjob"
 	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
+	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -1166,6 +1172,469 @@ func TestAgentPlatformForbiddenBoundaryPaths(t *testing.T) {
 			}
 		})
 	}
+}
+
+type agentPlatformExpandedFixture struct {
+	server               *Server
+	platformService      *agentplatform.Service
+	projectID            uuid.UUID
+	agentID              uuid.UUID
+	ticketID             uuid.UUID
+	providerID           uuid.UUID
+	mainWorkflowID       uuid.UUID
+	deleteWorkflowID     uuid.UUID
+	repoReadID           uuid.UUID
+	repoScopeCreateID    uuid.UUID
+	repoDeleteID         uuid.UUID
+	ticketRepoScopeID    uuid.UUID
+	ticketRepoDeleteID   uuid.UUID
+	scheduledJobID       uuid.UUID
+	scheduledJobDeleteID uuid.UUID
+	skillMainID          uuid.UUID
+	skillDeleteID        uuid.UUID
+	statusUpdateID       uuid.UUID
+	statusDeleteID       uuid.UUID
+}
+
+func TestAgentPlatformExpandedProjectRoutesRequireExplicitScopes(t *testing.T) {
+	fixture := newAgentPlatformExpandedFixture(t)
+
+	for _, tc := range []struct {
+		name       string
+		scope      agentplatform.Scope
+		method     string
+		path       string
+		body       any
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "activity.read", scope: agentplatform.ScopeActivityRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/activity", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"events":[`},
+		{name: "statuses.list", scope: agentplatform.ScopeStatusesList, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/statuses", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"statuses":[`},
+		{name: "statuses.create", scope: agentplatform.ScopeStatusesCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/statuses", fixture.projectID), body: map[string]any{"name": "Platform QA", "stage": "started", "color": "#22AA66"}, wantStatus: http.StatusCreated, wantBody: `"name":"Platform QA"`},
+		{name: "statuses.update", scope: agentplatform.ScopeStatusesUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/statuses/%s", fixture.statusUpdateID), body: map[string]any{"name": "Platform Updated", "color": "#3366FF"}, wantStatus: http.StatusOK, wantBody: `"name":"Platform Updated"`},
+		{name: "workflows.list", scope: agentplatform.ScopeWorkflowsList, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/workflows", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"workflows":[`},
+		{name: "workflows.read", scope: agentplatform.ScopeWorkflowsRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/workflows/%s", fixture.mainWorkflowID), wantStatus: http.StatusOK, wantBody: fixture.mainWorkflowID.String()},
+		{name: "workflows.create", scope: agentplatform.ScopeWorkflowsCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/workflows", fixture.projectID), body: map[string]any{"agent_id": fixture.agentID.String(), "name": "Platform Workflow Create", "type": "coding", "pickup_status_ids": []string{fixture.statusUpdateID.String()}, "finish_status_ids": []string{fixture.statusUpdateID.String()}, "harness_content": "# Platform Create\n", "is_active": false}, wantStatus: http.StatusCreated, wantBody: `"name":"Platform Workflow Create"`},
+		{name: "workflows.update", scope: agentplatform.ScopeWorkflowsUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/workflows/%s", fixture.mainWorkflowID), body: map[string]any{"name": "Platform Workflow Updated"}, wantStatus: http.StatusOK, wantBody: `"name":"Platform Workflow Updated"`},
+		{name: "workflows.delete", scope: agentplatform.ScopeWorkflowsDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/workflows/%s", fixture.deleteWorkflowID), wantStatus: http.StatusOK, wantBody: fixture.deleteWorkflowID.String()},
+		{name: "workflows.harness.read", scope: agentplatform.ScopeWorkflowsHarnessRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/workflows/%s/harness", fixture.mainWorkflowID), wantStatus: http.StatusOK, wantBody: `"workflow_id":"` + fixture.mainWorkflowID.String() + `"`},
+		{name: "workflows.harness.history.read", scope: agentplatform.ScopeWorkflowsHarnessHistoryRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/workflows/%s/harness/history", fixture.mainWorkflowID), wantStatus: http.StatusOK, wantBody: `"history":[`},
+		{name: "workflows.harness.update", scope: agentplatform.ScopeWorkflowsHarnessUpdate, method: http.MethodPut, path: fmt.Sprintf("/api/v1/platform/workflows/%s/harness", fixture.mainWorkflowID), body: map[string]any{"content": "# Platform Harness Update\n"}, wantStatus: http.StatusOK, wantBody: `"version":`},
+		{name: "workflows.harness.validate", scope: agentplatform.ScopeWorkflowsHarnessValidate, method: http.MethodPost, path: "/api/v1/platform/harness/validate", body: map[string]any{"content": "# Validate\n"}, wantStatus: http.StatusOK, wantBody: `"valid":true`},
+		{name: "workflows.harness.variables.read", scope: agentplatform.ScopeWorkflowsHarnessVariablesRead, method: http.MethodGet, path: "/api/v1/platform/harness/variables", wantStatus: http.StatusOK, wantBody: `"groups":[`},
+		{name: "statuses.delete", scope: agentplatform.ScopeStatusesDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/statuses/%s", fixture.statusDeleteID), wantStatus: http.StatusOK, wantBody: fixture.statusDeleteID.String()},
+		{name: "statuses.reset", scope: agentplatform.ScopeStatusesReset, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/statuses/reset", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"statuses":[`},
+		{name: "repos.read", scope: agentplatform.ScopeReposRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/repos", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"repos":[`},
+		{name: "repos.update", scope: agentplatform.ScopeReposUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/projects/%s/repos/%s", fixture.projectID, fixture.repoReadID), body: map[string]any{"name": "platform-primary-updated", "repository_url": "https://github.com/acme/platform-primary-updated.git", "default_branch": "main"}, wantStatus: http.StatusOK, wantBody: `"name":"platform-primary-updated"`},
+		{name: "repos.delete", scope: agentplatform.ScopeReposDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/projects/%s/repos/%s", fixture.projectID, fixture.repoDeleteID), wantStatus: http.StatusOK, wantBody: fixture.repoDeleteID.String()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assertPlatformScopeRoute(t, fixture, tc.scope, tc.method, tc.path, tc.body, tc.wantStatus, tc.wantBody)
+		})
+	}
+}
+
+func TestAgentPlatformExpandedTicketRepoScopeRoutesRequireExplicitScopes(t *testing.T) {
+	fixture := newAgentPlatformExpandedFixture(t)
+
+	for _, tc := range []struct {
+		name       string
+		scope      agentplatform.Scope
+		method     string
+		path       string
+		body       any
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "ticket_repo_scopes.list", scope: agentplatform.ScopeTicketRepoScopesList, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/repo-scopes", fixture.projectID, fixture.ticketID), wantStatus: http.StatusOK, wantBody: `"repo_scopes":[`},
+		{name: "ticket_repo_scopes.create", scope: agentplatform.ScopeTicketRepoScopesCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/repo-scopes", fixture.projectID, fixture.ticketID), body: map[string]any{"repo_id": fixture.repoScopeCreateID.String(), "branch_name": "feature/platform-create"}, wantStatus: http.StatusCreated, wantBody: `"branch_name":"feature/platform-create"`},
+		{name: "ticket_repo_scopes.update", scope: agentplatform.ScopeTicketRepoScopesUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/repo-scopes/%s", fixture.projectID, fixture.ticketID, fixture.ticketRepoScopeID), body: map[string]any{"branch_name": "feature/platform-update"}, wantStatus: http.StatusOK, wantBody: `"branch_name":"feature/platform-update"`},
+		{name: "ticket_repo_scopes.delete", scope: agentplatform.ScopeTicketRepoScopesDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/repo-scopes/%s", fixture.projectID, fixture.ticketID, fixture.ticketRepoDeleteID), wantStatus: http.StatusOK, wantBody: fixture.ticketRepoDeleteID.String()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assertPlatformScopeRoute(t, fixture, tc.scope, tc.method, tc.path, tc.body, tc.wantStatus, tc.wantBody)
+		})
+	}
+}
+
+func TestAgentPlatformExpandedScheduledJobRoutesRequireExplicitScopes(t *testing.T) {
+	fixture := newAgentPlatformExpandedFixture(t)
+	if _, err := fixture.server.catalog.DeleteTicketRepoScope(context.Background(), fixture.projectID, fixture.ticketID, fixture.ticketRepoScopeID); err != nil {
+		t.Fatalf("delete ticket repo scope %s: %v", fixture.ticketRepoScopeID, err)
+	}
+	if _, err := fixture.server.catalog.DeleteTicketRepoScope(context.Background(), fixture.projectID, fixture.ticketID, fixture.ticketRepoDeleteID); err != nil {
+		t.Fatalf("delete ticket repo delete scope %s: %v", fixture.ticketRepoDeleteID, err)
+	}
+	repos, err := fixture.server.catalog.ListProjectRepos(context.Background(), fixture.projectID)
+	if err != nil {
+		t.Fatalf("list project repos: %v", err)
+	}
+	for index, repo := range repos {
+		if index == 0 {
+			continue
+		}
+		if _, err := fixture.server.catalog.DeleteProjectRepo(context.Background(), fixture.projectID, repo.ID); err != nil {
+			t.Fatalf("delete extra repo %s: %v", repo.ID, err)
+		}
+	}
+
+	for _, tc := range []struct {
+		name       string
+		scope      agentplatform.Scope
+		method     string
+		path       string
+		body       any
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "scheduled_jobs.list", scope: agentplatform.ScopeScheduledJobsList, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/scheduled-jobs", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"scheduled_jobs":[`},
+		{name: "scheduled_jobs.create", scope: agentplatform.ScopeScheduledJobsCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/scheduled-jobs", fixture.projectID), body: map[string]any{"name": "platform-create-job", "cron_expression": "0 7 * * 2", "ticket_template": map[string]any{"title": "Platform create job", "description": "create via platform scope", "status": "Backlog", "priority": "medium", "type": "feature"}}, wantStatus: http.StatusCreated, wantBody: `"name":"platform-create-job"`},
+		{name: "scheduled_jobs.update", scope: agentplatform.ScopeScheduledJobsUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/scheduled-jobs/%s", fixture.scheduledJobID), body: map[string]any{"name": "platform-main-job-updated"}, wantStatus: http.StatusOK, wantBody: `"name":"platform-main-job-updated"`},
+		{name: "scheduled_jobs.trigger", scope: agentplatform.ScopeScheduledJobsTrigger, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/scheduled-jobs/%s/trigger", fixture.scheduledJobID), wantStatus: http.StatusOK, wantBody: `"ticket":{`},
+		{name: "scheduled_jobs.delete", scope: agentplatform.ScopeScheduledJobsDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/scheduled-jobs/%s", fixture.scheduledJobDeleteID), wantStatus: http.StatusOK, wantBody: fixture.scheduledJobDeleteID.String()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assertPlatformScopeRoute(t, fixture, tc.scope, tc.method, tc.path, tc.body, tc.wantStatus, tc.wantBody)
+		})
+	}
+}
+
+func TestAgentPlatformExpandedSkillRoutesRequireExplicitScopes(t *testing.T) {
+	fixture := newAgentPlatformExpandedFixture(t)
+	importedEntry := base64.StdEncoding.EncodeToString([]byte("---\nname: platform-imported\ndescription: platform imported bundle\n---\n\n# Imported\n"))
+	refinementSkillEntry := base64.StdEncoding.EncodeToString([]byte("---\nname: platform-main-skill\ndescription: platform refined bundle\n---\n\n# Refined\n"))
+	refinementEntry := base64.StdEncoding.EncodeToString([]byte("#!/usr/bin/env bash\necho refined\n"))
+
+	for _, tc := range []struct {
+		name       string
+		scope      agentplatform.Scope
+		method     string
+		path       string
+		body       any
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "skills.list", scope: agentplatform.ScopeSkillsList, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/skills", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"skills":[`},
+		{name: "skills.read", scope: agentplatform.ScopeSkillsRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/skills/%s", fixture.skillMainID), wantStatus: http.StatusOK, wantBody: fixture.skillMainID.String()},
+		{name: "skills.create", scope: agentplatform.ScopeSkillsCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/skills", fixture.projectID), body: map[string]any{"name": "platform-created", "content": "# Platform Created\n", "description": "created via platform"}, wantStatus: http.StatusCreated, wantBody: `"name":"platform-created"`},
+		{name: "skills.import", scope: agentplatform.ScopeSkillsImport, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/skills/import", fixture.projectID), body: map[string]any{"name": "platform-imported", "files": []map[string]any{{"path": "SKILL.md", "content_base64": importedEntry, "media_type": "text/markdown; charset=utf-8", "is_executable": false}}}, wantStatus: http.StatusCreated, wantBody: `"name":"platform-imported"`},
+		{name: "skills.refresh", scope: agentplatform.ScopeSkillsRefresh, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/skills/refresh", fixture.projectID), body: map[string]any{"workspace_root": t.TempDir(), "adapter_type": "claude-code-cli"}, wantStatus: http.StatusOK, wantBody: `"injected_skills":[`},
+		{name: "skills.update", scope: agentplatform.ScopeSkillsUpdate, method: http.MethodPut, path: fmt.Sprintf("/api/v1/platform/skills/%s", fixture.skillMainID), body: map[string]any{"content": "# Platform Updated Skill\n", "description": "updated via platform"}, wantStatus: http.StatusOK, wantBody: `updated via platform`},
+		{name: "skills.disable", scope: agentplatform.ScopeSkillsDisable, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/skills/%s/disable", fixture.skillMainID), wantStatus: http.StatusOK, wantBody: `"is_enabled":false`},
+		{name: "skills.enable", scope: agentplatform.ScopeSkillsEnable, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/skills/%s/enable", fixture.skillMainID), wantStatus: http.StatusOK, wantBody: `"is_enabled":true`},
+		{name: "skills.bind", scope: agentplatform.ScopeSkillsBind, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/skills/%s/bind", fixture.skillMainID), body: map[string]any{"workflow_ids": []string{fixture.mainWorkflowID.String()}}, wantStatus: http.StatusOK, wantBody: `"bound_workflows":[`},
+		{name: "skills.refine", scope: agentplatform.ScopeSkillsRefine, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/skills/%s/refinement-runs", fixture.skillMainID), body: map[string]any{"project_id": fixture.projectID.String(), "message": "Refine the skill and verify it.", "provider_id": fixture.providerID.String(), "files": []map[string]any{{"path": "SKILL.md", "content_base64": refinementSkillEntry, "media_type": "text/markdown; charset=utf-8", "is_executable": false}, {"path": "scripts/check.sh", "content_base64": refinementEntry, "media_type": "text/x-shellscript; charset=utf-8", "is_executable": true}}}, wantStatus: http.StatusOK, wantBody: "event: session"},
+		{name: "skills.delete", scope: agentplatform.ScopeSkillsDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/skills/%s", fixture.skillDeleteID), wantStatus: http.StatusOK, wantBody: fixture.skillDeleteID.String()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assertPlatformScopeRoute(t, fixture, tc.scope, tc.method, tc.path, tc.body, tc.wantStatus, tc.wantBody)
+		})
+	}
+}
+
+func newAgentPlatformExpandedFixture(t *testing.T) *agentPlatformExpandedFixture {
+	t.Helper()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	projectID, agentID, ticketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
+
+	agentItem, err := client.Agent.Get(ctx, agentID)
+	if err != nil {
+		t.Fatalf("load agent: %v", err)
+	}
+	providerItem, err := client.AgentProvider.Get(ctx, agentItem.ProviderID)
+	if err != nil {
+		t.Fatalf("load provider: %v", err)
+	}
+	projectItem, err := client.Project.Get(ctx, projectID)
+	if err != nil {
+		t.Fatalf("load project: %v", err)
+	}
+
+	repoRoot := createTestGitRepo(t)
+	createPrimaryProjectRepo(ctx, t, client, projectID, repoRoot)
+	attachPrimaryProjectRepoCheckout(ctx, t, client, projectID, providerItem.MachineID, repoRoot)
+
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			t.Errorf("close workflow service: %v", closeErr)
+		}
+	})
+
+	statusList, err := newTicketStatusService(client).List(ctx, projectID)
+	if err != nil {
+		t.Fatalf("list statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statusList.Statuses, "Todo")
+	doneID := findStatusIDByName(t, statusList.Statuses, "Done")
+	inProgressID := findStatusIDByName(t, statusList.Statuses, "In Progress")
+
+	mainWorkflow, err := workflowSvc.Create(ctx, workflowservice.CreateInput{
+		ProjectID:           projectID,
+		AgentID:             agentID,
+		Name:                "Platform Main Workflow",
+		Type:                "coding",
+		HarnessContent:      "# Main Workflow\n",
+		Hooks:               map[string]any{},
+		MaxConcurrent:       1,
+		MaxRetryAttempts:    1,
+		TimeoutMinutes:      60,
+		StallTimeoutMinutes: 5,
+		IsActive:            true,
+		PickupStatusIDs:     workflowservice.MustStatusBindingSet(todoID),
+		FinishStatusIDs:     workflowservice.MustStatusBindingSet(doneID),
+	})
+	if err != nil {
+		t.Fatalf("create main workflow: %v", err)
+	}
+	deleteWorkflow, err := workflowSvc.Create(ctx, workflowservice.CreateInput{
+		ProjectID:           projectID,
+		AgentID:             agentID,
+		Name:                "Platform Delete Workflow",
+		Type:                "coding",
+		HarnessContent:      "# Delete Workflow\n",
+		Hooks:               map[string]any{},
+		MaxConcurrent:       1,
+		MaxRetryAttempts:    1,
+		TimeoutMinutes:      60,
+		StallTimeoutMinutes: 5,
+		IsActive:            true,
+		PickupStatusIDs:     workflowservice.MustStatusBindingSet(inProgressID),
+		FinishStatusIDs:     workflowservice.MustStatusBindingSet(doneID),
+	})
+	if err != nil {
+		t.Fatalf("create delete workflow: %v", err)
+	}
+
+	catalogSvc := catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil)
+	projectRepos, err := catalogSvc.ListProjectRepos(ctx, projectID)
+	if err != nil || len(projectRepos) == 0 {
+		t.Fatalf("list initial repos: %v repos=%d", err, len(projectRepos))
+	}
+	repoReadID := projectRepos[0].ID
+	repoScopeCreate, err := catalogSvc.CreateProjectRepo(ctx, catalogdomain.CreateProjectRepo{ProjectID: projectID, Name: "platform-scope-create", RepositoryURL: "https://github.com/acme/platform-scope-create.git", DefaultBranch: "main", WorkspaceDirname: "platform-scope-create"})
+	if err != nil {
+		t.Fatalf("create repo scope create repo: %v", err)
+	}
+	repoScopeUpdate, err := catalogSvc.CreateProjectRepo(ctx, catalogdomain.CreateProjectRepo{ProjectID: projectID, Name: "platform-scope-update", RepositoryURL: "https://github.com/acme/platform-scope-update.git", DefaultBranch: "main", WorkspaceDirname: "platform-scope-update"})
+	if err != nil {
+		t.Fatalf("create repo scope update repo: %v", err)
+	}
+	repoScopeDelete, err := catalogSvc.CreateProjectRepo(ctx, catalogdomain.CreateProjectRepo{ProjectID: projectID, Name: "platform-scope-delete", RepositoryURL: "https://github.com/acme/platform-scope-delete.git", DefaultBranch: "main", WorkspaceDirname: "platform-scope-delete"})
+	if err != nil {
+		t.Fatalf("create repo scope delete repo: %v", err)
+	}
+	repoDelete, err := catalogSvc.CreateProjectRepo(ctx, catalogdomain.CreateProjectRepo{ProjectID: projectID, Name: "platform-delete-repo", RepositoryURL: "https://github.com/acme/platform-delete-repo.git", DefaultBranch: "main", WorkspaceDirname: "platform-delete-repo"})
+	if err != nil {
+		t.Fatalf("create repo delete repo: %v", err)
+	}
+
+	ticketRepoScope, err := catalogSvc.CreateTicketRepoScope(ctx, catalogdomain.CreateTicketRepoScope{ProjectID: projectID, TicketID: ticketID, RepoID: repoScopeUpdate.ID, BranchName: stringPtr("feature/existing-scope")})
+	if err != nil {
+		t.Fatalf("create ticket repo scope: %v", err)
+	}
+	ticketRepoDelete, err := catalogSvc.CreateTicketRepoScope(ctx, catalogdomain.CreateTicketRepoScope{ProjectID: projectID, TicketID: ticketID, RepoID: repoScopeDelete.ID, BranchName: stringPtr("feature/delete-scope")})
+	if err != nil {
+		t.Fatalf("create ticket repo delete scope: %v", err)
+	}
+
+	statusUpdate, err := client.TicketStatus.Create().SetProjectID(projectID).SetName("Platform Scope Update").SetStage("started").SetColor("#1144AA").SetPosition(20).Save(ctx)
+	if err != nil {
+		t.Fatalf("create status update seed: %v", err)
+	}
+	statusDelete, err := client.TicketStatus.Create().SetProjectID(projectID).SetName("Platform Scope Delete").SetStage("started").SetColor("#AA4411").SetPosition(21).Save(ctx)
+	if err != nil {
+		t.Fatalf("create status delete seed: %v", err)
+	}
+
+	skillMain, err := workflowSvc.CreateSkill(ctx, workflowservice.CreateSkillInput{ProjectID: projectID, Name: "platform-main-skill", Content: "# Main Skill\n", Description: "main skill", CreatedBy: "user:platform"})
+	if err != nil {
+		t.Fatalf("create main skill: %v", err)
+	}
+	skillDelete, err := workflowSvc.CreateSkill(ctx, workflowservice.CreateSkillInput{ProjectID: projectID, Name: "platform-delete-skill", Content: "# Delete Skill\n", Description: "delete skill", CreatedBy: "user:platform"})
+	if err != nil {
+		t.Fatalf("create delete skill: %v", err)
+	}
+
+	ticketSvc := newTicketService(client)
+	if _, err := ticketSvc.RecordActivityEvent(ctx, ticketservice.RecordActivityEventInput{ProjectID: projectID, TicketID: &ticketID, AgentID: &agentID, EventType: "agent.ready", Message: "platform scope fixture ready"}); err != nil {
+		t.Fatalf("record activity event: %v", err)
+	}
+
+	scheduledJobSvc := scheduledjobservice.NewService(scheduledjobrepo.NewEntRepository(client), ticketSvc, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	scheduledJobSvc.SetNowFunc(func() time.Time {
+		return time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC)
+	})
+	scheduledJobMain, err := scheduledJobSvc.Create(ctx, scheduledjobservice.CreateInput{ProjectID: projectID, Name: "platform-main-job", CronExpression: "0 9 * * 1", TicketTemplate: scheduledjobservice.TicketTemplate{Title: "Platform main job", Description: "main scheduled job", Status: "Backlog", Priority: ticketservice.PriorityMedium, Type: ticketservice.TypeFeature, CreatedBy: "system:platform"}, IsEnabled: true})
+	if err != nil {
+		t.Fatalf("create main scheduled job: %v", err)
+	}
+	scheduledJobDelete, err := scheduledJobSvc.Create(ctx, scheduledjobservice.CreateInput{ProjectID: projectID, Name: "platform-delete-job", CronExpression: "0 10 * * 2", TicketTemplate: scheduledjobservice.TicketTemplate{Title: "Platform delete job", Description: "delete scheduled job", Status: "Backlog", Priority: ticketservice.PriorityMedium, Type: ticketservice.TypeFeature, CreatedBy: "system:platform"}, IsEnabled: true})
+	if err != nil {
+		t.Fatalf("create delete scheduled job: %v", err)
+	}
+
+	refinementService := chatservice.NewSkillRefinementService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		&httpSkillRefinementRuntime{
+			events: []chatservice.StreamEvent{{
+				Event: "message",
+				Payload: map[string]any{
+					"type":    "text",
+					"content": `{"type":"skill_refinement_result","status":"verified","summary":"Platform agent refinement verified","verification_notes":"bash -n passed"}`,
+				},
+			}},
+			anchor: chatservice.RuntimeSessionAnchor{
+				ProviderThreadID:      "thread-platform",
+				LastTurnID:            "turn-platform",
+				ProviderAnchorID:      "thread-platform",
+				ProviderAnchorKind:    "thread",
+				ProviderTurnSupported: true,
+			},
+		},
+		httpSkillRefinementCatalog{
+			project: catalogdomain.Project{
+				ID:                     projectID,
+				OrganizationID:         projectItem.OrganizationID,
+				Name:                   projectItem.Name,
+				DefaultAgentProviderID: &providerItem.ID,
+			},
+			providers: []catalogdomain.AgentProvider{{
+				ID:                providerItem.ID,
+				OrganizationID:    projectItem.OrganizationID,
+				Name:              providerItem.Name,
+				AdapterType:       catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+				AvailabilityState: catalogdomain.AgentProviderAvailabilityStateAvailable,
+				Available:         true,
+				ModelName:         "gpt-5.4",
+			}},
+		},
+		httpSkillRefinementWorkflow{skill: skillMain},
+	)
+
+	platformService := agentplatform.NewService(agentplatformrepo.NewEntRepository(client))
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		ticketSvc,
+		newTicketStatusService(client),
+		platformService,
+		catalogSvc,
+		workflowSvc,
+		WithScheduledJobService(scheduledJobSvc),
+		WithSkillRefinementService(refinementService),
+	)
+
+	return &agentPlatformExpandedFixture{
+		server:               server,
+		platformService:      platformService,
+		projectID:            projectID,
+		agentID:              agentID,
+		ticketID:             ticketID,
+		providerID:           providerItem.ID,
+		mainWorkflowID:       mainWorkflow.ID,
+		deleteWorkflowID:     deleteWorkflow.ID,
+		repoReadID:           repoReadID,
+		repoScopeCreateID:    repoScopeCreate.ID,
+		repoDeleteID:         repoDelete.ID,
+		ticketRepoScopeID:    ticketRepoScope.ID,
+		ticketRepoDeleteID:   ticketRepoDelete.ID,
+		scheduledJobID:       scheduledJobMain.ID,
+		scheduledJobDeleteID: scheduledJobDelete.ID,
+		skillMainID:          skillMain.ID,
+		skillDeleteID:        skillDelete.ID,
+		statusUpdateID:       statusUpdate.ID,
+		statusDeleteID:       statusDelete.ID,
+	}
+}
+
+func assertPlatformScopeRoute(
+	t *testing.T,
+	fixture *agentPlatformExpandedFixture,
+	scope agentplatform.Scope,
+	method string,
+	path string,
+	body any,
+	wantStatus int,
+	wantBody string,
+) {
+	t.Helper()
+
+	forbiddenToken := fixture.issueToken(t, agentplatform.ScopeTicketsCreate)
+	forbiddenRec := performPlatformRequest(t, fixture.server, method, path, body, forbiddenToken)
+	if forbiddenRec.Code != http.StatusForbidden {
+		t.Fatalf("expected %s %s without %s to return 403, got %d: %s", method, path, scope, forbiddenRec.Code, forbiddenRec.Body.String())
+	}
+
+	scopedToken := fixture.issueToken(t, scope)
+	rec := performPlatformRequest(t, fixture.server, method, path, body, scopedToken)
+	if rec.Code != wantStatus {
+		t.Fatalf("expected %s %s with %s to return %d, got %d: %s", method, path, scope, wantStatus, rec.Code, rec.Body.String())
+	}
+	if wantBody != "" && !strings.Contains(rec.Body.String(), wantBody) {
+		t.Fatalf("expected %s %s response to contain %q, got %s", method, path, wantBody, rec.Body.String())
+	}
+}
+
+func performPlatformRequest(
+	t *testing.T,
+	server *Server,
+	method string,
+	target string,
+	body any,
+	token string,
+) *httptest.ResponseRecorder {
+	t.Helper()
+
+	var payload string
+	switch value := body.(type) {
+	case nil:
+		payload = ""
+	case string:
+		payload = value
+	default:
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			t.Fatalf("marshal request body: %v", err)
+		}
+		payload = string(encoded)
+	}
+
+	headers := map[string]string{echo.HeaderAuthorization: "Bearer " + token}
+	if payload != "" {
+		headers[echo.HeaderContentType] = echo.MIMEApplicationJSON
+	}
+	return performJSONRequestWithHeaders(t, server, method, target, payload, headers)
+}
+
+func (f *agentPlatformExpandedFixture) issueToken(t *testing.T, scopes ...agentplatform.Scope) string {
+	t.Helper()
+
+	scopeStrings := make([]string, 0, len(scopes))
+	for _, scope := range scopes {
+		scopeStrings = append(scopeStrings, string(scope))
+	}
+	issued, err := f.platformService.IssueToken(context.Background(), agentplatform.IssueInput{
+		AgentID:   f.agentID,
+		ProjectID: f.projectID,
+		TicketID:  f.ticketID,
+		Scopes:    scopeStrings,
+	})
+	if err != nil {
+		t.Fatalf("IssueToken returned error: %v", err)
+	}
+	return issued.Token
+}
+
+func stringPtr(value string) *string {
+	return &value
 }
 
 func seedAgentPlatformHTTPFixture(ctx context.Context, t *testing.T, client *ent.Client) (uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) {
