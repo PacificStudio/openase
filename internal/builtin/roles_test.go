@@ -14,8 +14,8 @@ func TestDispatcherRoleTemplate(t *testing.T) {
 	if role.Name != "Dispatcher" {
 		t.Fatalf("Name=%q, want Dispatcher", role.Name)
 	}
-	if role.WorkflowType != "custom" {
-		t.Fatalf("WorkflowType=%q, want custom", role.WorkflowType)
+	if role.WorkflowType != "Dispatcher" {
+		t.Fatalf("WorkflowType=%q, want Dispatcher", role.WorkflowType)
 	}
 
 	for _, want := range []string{
@@ -48,12 +48,12 @@ func TestHarnessOptimizerRoleTemplate(t *testing.T) {
 	if role.Name != "Harness Optimizer" {
 		t.Fatalf("Name=%q, want Harness Optimizer", role.Name)
 	}
-	if role.WorkflowType != "refine-harness" {
-		t.Fatalf("WorkflowType=%q, want refine-harness", role.WorkflowType)
+	if role.WorkflowType != "Harness Optimizer" {
+		t.Fatalf("WorkflowType=%q, want Harness Optimizer", role.WorkflowType)
 	}
 
 	for _, want := range []string{
-		`type: "refine-harness"`,
+		`type: "Harness Optimizer"`,
 		`- openase-platform`,
 		`- pull`,
 		`- commit`,
@@ -81,8 +81,8 @@ func TestEnvProvisionerRoleTemplate(t *testing.T) {
 	if role.Name != "Environment Provisioner" {
 		t.Fatalf("Name=%q, want Environment Provisioner", role.Name)
 	}
-	if role.WorkflowType != "custom" {
-		t.Fatalf("WorkflowType=%q, want custom", role.WorkflowType)
+	if role.WorkflowType != "Environment Provisioner" {
+		t.Fatalf("WorkflowType=%q, want Environment Provisioner", role.WorkflowType)
 	}
 
 	for _, want := range []string{

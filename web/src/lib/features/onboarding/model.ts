@@ -103,12 +103,12 @@ export function getBootstrapPreset(projectStatus: string): ProjectBootstrapPrese
   switch (projectStatus) {
     case 'In Progress':
       return {
-        roleName: 'Coder',
+        roleName: 'Fullstack Developer',
         roleSlug: 'fullstack-developer',
-        workflowType: 'coding',
+        workflowType: 'Fullstack Developer',
         pickupStatusName: 'Backlog',
         finishStatusName: 'Done',
-        agentNameSuggestion: 'coder-01',
+        agentNameSuggestion: 'fullstack-developer-01',
         exampleTicketTitle: '实现项目的第一个核心功能',
       }
     case 'Planned':
@@ -117,7 +117,7 @@ export function getBootstrapPreset(projectStatus: string): ProjectBootstrapPrese
       return {
         roleName: '产品经理',
         roleSlug: 'product-manager',
-        workflowType: 'custom',
+        workflowType: 'Product Manager',
         pickupStatusName: 'Backlog',
         finishStatusName: 'Done',
         agentNameSuggestion: 'product-manager-01',

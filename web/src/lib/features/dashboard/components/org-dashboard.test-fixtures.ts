@@ -96,7 +96,7 @@ export const hrAdvisorPayload = {
     active_agents: 1,
     workflow_count: 1,
     recent_activity_count: 1,
-    active_workflow_types: ['coding'],
+    active_workflow_families: ['coding'],
   },
   staffing: {
     developers: 1,

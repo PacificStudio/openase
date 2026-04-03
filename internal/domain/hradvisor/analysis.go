@@ -28,6 +28,7 @@ type TicketContext struct {
 	StatusName        string
 	StatusStage       string
 	WorkflowType      string
+	WorkflowTypeLabel string
 	HasActiveRun      bool
 	ConsecutiveErrors int
 	RetryPaused       bool
@@ -43,8 +44,11 @@ type StatusBindingContext struct {
 type WorkflowContext struct {
 	Name           string
 	Type           string
+	TypeLabel      string
 	RoleSlug       string
 	IsActive       bool
+	HarnessPath    string
+	HarnessContent string
 	PickupStatuses []StatusBindingContext
 	FinishStatuses []StatusBindingContext
 }
@@ -76,24 +80,26 @@ type Analysis struct {
 
 // Summary captures aggregate staffing signals from a snapshot.
 type Summary struct {
-	OpenTickets         int
-	CodingTickets       int
-	FailingTickets      int
-	BlockedTickets      int
-	ActiveAgents        int
-	WorkflowCount       int
-	RecentActivityCount int
-	ActiveWorkflowTypes []string
+	OpenTickets            int
+	CodingTickets          int
+	FailingTickets         int
+	BlockedTickets         int
+	ActiveAgents           int
+	WorkflowCount          int
+	RecentActivityCount    int
+	ActiveWorkflowFamilies []string
 }
 
 // Recommendation suggests adding or adjusting one role workflow.
 type Recommendation struct {
-	RoleSlug              string
-	Priority              string
-	Reason                string
-	Evidence              []string
-	SuggestedHeadcount    int
-	SuggestedWorkflowName string
+	RoleSlug                   string
+	Priority                   string
+	Reason                     string
+	Evidence                   []string
+	SuggestedHeadcount         int
+	SuggestedWorkflowName      string
+	SuggestedWorkflowTypeLabel string
+	SuggestedWorkflowFamily    string
 }
 
 // StaffingPlan estimates headcount split by role family.

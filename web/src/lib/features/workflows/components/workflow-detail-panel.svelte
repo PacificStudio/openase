@@ -52,6 +52,7 @@
   let draft = $state<WorkflowLifecycleDraft>({
     agentId: '',
     name: '',
+    typeLabel: '',
     pickupStatusIds: [],
     finishStatusIds: [],
     maxConcurrent: '',
@@ -70,6 +71,7 @@
   const isDirty = $derived(
     draft.agentId !== baseDraft.agentId ||
       draft.name !== baseDraft.name ||
+      draft.typeLabel !== baseDraft.typeLabel ||
       draft.pickupStatusIds.join(':') !== baseDraft.pickupStatusIds.join(':') ||
       draft.finishStatusIds.join(':') !== baseDraft.finishStatusIds.join(':') ||
       draft.maxConcurrent !== baseDraft.maxConcurrent ||
@@ -88,6 +90,7 @@
       workflow.version,
       workflow.agentId ?? '',
       workflow.name,
+      workflow.type,
       workflow.isActive,
       workflow.pickupStatusIds.join(','),
       workflow.finishStatusIds.join(','),
@@ -171,6 +174,21 @@
           disabled={saving || deleting}
           oninput={(event) =>
             updateDraftField('name', (event.currentTarget as HTMLInputElement).value)}
+        />
+      </div>
+
+      <div class="space-y-1.5">
+        <Label
+          for="workflow-type-label"
+          class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
+          >Type Label</Label
+        >
+        <Input
+          id="workflow-type-label"
+          value={draft.typeLabel}
+          disabled={saving || deleting}
+          oninput={(event) =>
+            updateDraftField('typeLabel', (event.currentTarget as HTMLInputElement).value)}
         />
       </div>
 

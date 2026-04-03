@@ -30,7 +30,7 @@ type Workflow struct {
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// Type holds the value of the "type" field.
-	Type workflow.Type `json:"type,omitempty"`
+	Type string `json:"type,omitempty"`
 	// HarnessPath holds the value of the "harness_path" field.
 	HarnessPath string `json:"harness_path,omitempty"`
 	// Hooks holds the value of the "hooks" field.
@@ -244,7 +244,7 @@ func (_m *Workflow) assignValues(columns []string, values []any) error {
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field type", values[i])
 			} else if value.Valid {
-				_m.Type = workflow.Type(value.String)
+				_m.Type = value.String
 			}
 		case workflow.FieldHarnessPath:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -399,7 +399,7 @@ func (_m *Workflow) String() string {
 	builder.WriteString(_m.Name)
 	builder.WriteString(", ")
 	builder.WriteString("type=")
-	builder.WriteString(fmt.Sprintf("%v", _m.Type))
+	builder.WriteString(_m.Type)
 	builder.WriteString(", ")
 	builder.WriteString("harness_path=")
 	builder.WriteString(_m.HarnessPath)

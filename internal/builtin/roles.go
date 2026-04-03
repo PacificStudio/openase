@@ -185,7 +185,7 @@ func buildDispatcherRoleTemplate() RoleTemplate {
 ---
 workflow:
   name: "Dispatcher"
-  type: "custom"
+  type: "Dispatcher"
   role: "dispatcher"
 status:
   pickup: "Backlog"
@@ -281,7 +281,7 @@ Available machines:
 	return RoleTemplate{
 		Slug:         "dispatcher",
 		Name:         "Dispatcher",
-		WorkflowType: "custom",
+		WorkflowType: "Dispatcher",
 		Summary:      "Evaluate Backlog tickets, choose the best role workflow, and move each ticket into the correct pickup column.",
 		HarnessPath:  filepath.ToSlash(filepath.Join(".openase", "harnesses", "roles", "dispatcher.md")),
 		Content:      content,
@@ -293,7 +293,7 @@ func buildHarnessOptimizerRoleTemplate() RoleTemplate {
 ---
 workflow:
   name: "Harness Optimizer"
-  type: "refine-harness"
+  type: "Harness Optimizer"
   role: "harness-optimizer"
 status:
   pickup: "Todo"
@@ -361,7 +361,7 @@ Target workflow inventory:
 	return RoleTemplate{
 		Slug:         "harness-optimizer",
 		Name:         "Harness Optimizer",
-		WorkflowType: "refine-harness",
+		WorkflowType: "Harness Optimizer",
 		Summary:      "Improve an existing workflow harness using recent execution history, current harness content, and bound skills from the target workflow.",
 		HarnessPath:  filepath.ToSlash(filepath.Join(".openase", "harnesses", "roles", "harness-optimizer.md")),
 		Content:      content,
@@ -373,7 +373,7 @@ func buildEnvProvisionerRoleTemplate() RoleTemplate {
 ---
 workflow:
   name: "Environment Provisioner"
-  type: "custom"
+  type: "Environment Provisioner"
   role: "env-provisioner"
 status:
   pickup: "环境修复"
@@ -442,7 +442,7 @@ Recent project updates:
 	return RoleTemplate{
 		Slug:         "env-provisioner",
 		Name:         "Environment Provisioner",
-		WorkflowType: "custom",
+		WorkflowType: "Environment Provisioner",
 		Summary:      "Repair remote machine agent prerequisites over SSH using built-in environment setup skills.",
 		HarnessPath:  filepath.ToSlash(filepath.Join(".openase", "harnesses", "roles", "env-provisioner.md")),
 		Content:      content,
@@ -456,7 +456,7 @@ var builtinRoles = []RoleTemplate{
 	buildRoleTemplate(
 		"fullstack-developer",
 		"Fullstack Developer",
-		"coding",
+		"Fullstack Developer",
 		"Implement product changes end to end, covering backend, frontend, and verification.",
 		[]string{"openase-platform", "pull", "commit", "push"},
 		`
@@ -475,7 +475,7 @@ var builtinRoles = []RoleTemplate{
 	buildRoleTemplate(
 		"frontend-engineer",
 		"Frontend Engineer",
-		"coding",
+		"Frontend Engineer",
 		"Own UI and interaction work with strong emphasis on accessibility and responsive behavior.",
 		[]string{"openase-platform", "pull", "commit", "push"},
 		`
@@ -494,7 +494,7 @@ var builtinRoles = []RoleTemplate{
 	buildRoleTemplate(
 		"backend-engineer",
 		"Backend Engineer",
-		"coding",
+		"Backend Engineer",
 		"Own APIs, data flow, and runtime correctness with attention to consistency and failure handling.",
 		[]string{"openase-platform", "pull", "commit", "push"},
 		`
@@ -513,7 +513,7 @@ var builtinRoles = []RoleTemplate{
 	buildRoleTemplate(
 		"qa-engineer",
 		"QA Engineer",
-		"test",
+		"QA Engineer",
 		"Design and execute focused tests for regressions, edge cases, and release confidence.",
 		[]string{"openase-platform", "write-test"},
 		`
@@ -532,7 +532,7 @@ var builtinRoles = []RoleTemplate{
 	buildRoleTemplate(
 		"devops-engineer",
 		"DevOps Engineer",
-		"deploy",
+		"Release Captain",
 		"Own CI, delivery, and runtime operations with minimal surprise in production paths.",
 		[]string{"openase-platform", "pull", "push"},
 		`
@@ -551,7 +551,7 @@ var builtinRoles = []RoleTemplate{
 	buildRoleTemplate(
 		"security-engineer",
 		"Security Engineer",
-		"security",
+		"Security Engineer",
 		"Review changes for auth, secret handling, and abuse paths before they ship.",
 		[]string{"openase-platform", "security-scan"},
 		`
@@ -570,7 +570,7 @@ var builtinRoles = []RoleTemplate{
 	buildRoleTemplate(
 		"technical-writer",
 		"Technical Writer",
-		"doc",
+		"Technical Writer",
 		"Turn implementation details into accurate docs, guides, and operator-facing instructions.",
 		[]string{"openase-platform", "commit"},
 		`
@@ -589,7 +589,7 @@ var builtinRoles = []RoleTemplate{
 	buildRoleTemplate(
 		"code-reviewer",
 		"Code Reviewer",
-		"custom",
+		"Code Reviewer",
 		"Review implementation risk, correctness, and missing validation before stylistic polish.",
 		[]string{"openase-platform", "review-code"},
 		`
@@ -608,7 +608,7 @@ var builtinRoles = []RoleTemplate{
 	buildRoleTemplate(
 		"product-manager",
 		"Product Manager",
-		"custom",
+		"Product Manager",
 		"Shape problem statements, scope, and acceptance criteria into executable ticket slices.",
 		[]string{"openase-platform"},
 		`
@@ -627,7 +627,7 @@ var builtinRoles = []RoleTemplate{
 	buildRoleTemplate(
 		"market-analyst",
 		"Market Analyst",
-		"custom",
+		"Market Analyst",
 		"Research competitors, category signals, and positioning implications for the product team.",
 		[]string{"openase-platform"},
 		`
@@ -646,7 +646,7 @@ var builtinRoles = []RoleTemplate{
 	buildRoleTemplate(
 		"research-ideation",
 		"Research Ideation",
-		"custom",
+		"Research Ideation",
 		"Explore research directions, identify gaps, and propose concrete experiment ideas.",
 		[]string{"openase-platform"},
 		`
@@ -665,7 +665,7 @@ var builtinRoles = []RoleTemplate{
 	buildRoleTemplate(
 		"experiment-runner",
 		"Experiment Runner",
-		"custom",
+		"Experiment Runner",
 		"Turn hypotheses into runnable experiments with reproducible methodology and result capture.",
 		[]string{"openase-platform", "write-test"},
 		`
@@ -684,7 +684,7 @@ var builtinRoles = []RoleTemplate{
 	buildRoleTemplate(
 		"report-writer",
 		"Report Writer",
-		"custom",
+		"Report Writer",
 		"Convert findings and experiment results into a clear narrative for stakeholders.",
 		[]string{"openase-platform", "commit"},
 		`
@@ -703,7 +703,7 @@ var builtinRoles = []RoleTemplate{
 	buildRoleTemplate(
 		"data-analyst",
 		"Data Analyst",
-		"custom",
+		"Data Analyst",
 		"Clean, inspect, and summarize datasets so downstream decisions are grounded in trustworthy numbers.",
 		[]string{"openase-platform"},
 		`

@@ -8,7 +8,12 @@ import {
 import type { BuiltinRole, HarnessValidationIssue } from '$lib/api/contracts'
 import { appStore } from '$lib/stores/app.svelte'
 import { toastStore } from '$lib/stores/toast.svelte'
-import { normalizeWorkflowType, type SkillState, toHarnessContent } from '../model'
+import {
+  normalizeWorkflowFamily,
+  normalizeWorkflowType,
+  type SkillState,
+  toHarnessContent,
+} from '../model'
 import type { WorkflowAgentOption, WorkflowSummary, WorkflowTemplateDraft } from '../types'
 import { loadWorkflowHarness } from '../data'
 
@@ -214,6 +219,7 @@ export function handleUseWorkflowTemplate(
     name: role.name,
     content: role.workflow_content || role.content,
     workflowType: normalizeWorkflowType(role.workflow_type),
+    workflowFamily: normalizeWorkflowFamily(role.workflow_family ?? ''),
     harnessPath: role.harness_path,
   }
   return true

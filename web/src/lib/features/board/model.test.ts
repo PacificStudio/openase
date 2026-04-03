@@ -13,6 +13,12 @@ const workflowsFixture: Workflow[] = [
     agent_id: 'agent-1',
     name: 'Coding',
     type: 'coding',
+    workflow_family: 'coding',
+    workflow_classification: {
+      family: 'coding',
+      confidence: 1,
+      reasons: ['fixture'],
+    },
     harness_path: '.openase/harnesses/coding.md',
     harness_content: null,
     hooks: {},

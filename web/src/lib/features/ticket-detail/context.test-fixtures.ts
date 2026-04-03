@@ -188,6 +188,12 @@ export const workflowPayloadFixture: WorkflowListPayload = {
       agent_id: 'agent-1',
       name: 'Todo App Coding Workflow',
       type: 'coding',
+      workflow_family: 'coding',
+      workflow_classification: {
+        family: 'coding',
+        confidence: 1,
+        reasons: ['fixture'],
+      },
       harness_path: '.openase/harnesses/todo.md',
       harness_content: null,
       hooks: {},

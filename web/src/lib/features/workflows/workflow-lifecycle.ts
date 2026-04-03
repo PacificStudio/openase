@@ -3,6 +3,7 @@ import type { WorkflowSummary } from './types'
 export type WorkflowLifecycleDraft = {
   agentId: string
   name: string
+  typeLabel: string
   pickupStatusIds: string[]
   finishStatusIds: string[]
   maxConcurrent: string
@@ -20,6 +21,7 @@ export type WorkflowLifecyclePayload = {
   max_concurrent: number
   max_retry_attempts: number
   name: string
+  type: string
   pickup_status_ids: string[]
   stall_timeout_minutes: number
   timeout_minutes: number
@@ -31,6 +33,7 @@ export function createWorkflowLifecycleDraft(workflow: WorkflowSummary): Workflo
   return {
     agentId: workflow.agentId ?? '',
     name: workflow.name,
+    typeLabel: workflow.type,
     pickupStatusIds: [...workflow.pickupStatusIds],
     finishStatusIds: [...workflow.finishStatusIds],
     maxConcurrent: workflow.maxConcurrent > 0 ? String(workflow.maxConcurrent) : '',
@@ -50,6 +53,9 @@ export function parseWorkflowLifecycleDraft(
   }
   if (!draft.agentId) {
     return { ok: false, error: 'Bound agent is required.' }
+  }
+  if (!draft.typeLabel.trim()) {
+    return { ok: false, error: 'Workflow type label must not be empty.' }
   }
   if (draft.pickupStatusIds.length === 0) {
     return { ok: false, error: 'At least one pickup status is required.' }
@@ -79,6 +85,7 @@ export function parseWorkflowLifecycleDraft(
       max_concurrent: maxConcurrent.value,
       max_retry_attempts: maxRetryAttempts.value,
       name,
+      type: draft.typeLabel.trim(),
       pickup_status_ids: [...draft.pickupStatusIds],
       stall_timeout_minutes: stallTimeoutMinutes.value,
       timeout_minutes: timeoutMinutes.value,

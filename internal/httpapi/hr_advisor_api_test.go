@@ -268,19 +268,19 @@ func TestHRAdvisorRouteReturnsDefaultRecommendationsForFreshProject(t *testing.T
 	if !strings.Contains(rec.Body.String(), `"recommendations":[`) {
 		t.Fatalf("expected recommendations array in payload, got %s", rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), `"active_workflow_types":[]`) {
-		t.Fatalf("expected empty active_workflow_types array in payload, got %s", rec.Body.String())
+	if !strings.Contains(rec.Body.String(), `"active_workflow_families":[]`) {
+		t.Fatalf("expected empty active_workflow_families array in payload, got %s", rec.Body.String())
 	}
 
 	resp := struct {
 		Summary struct {
-			ActiveWorkflowTypes []string `json:"active_workflow_types"`
+			ActiveWorkflowFamilies []string `json:"active_workflow_families"`
 		} `json:"summary"`
 		Recommendations []hrAdvisorRecommendationResponse `json:"recommendations"`
 	}{}
 	decodeResponse(t, rec, &resp)
-	if len(resp.Summary.ActiveWorkflowTypes) != 0 {
-		t.Fatalf("expected non-nil empty active workflow types, got %+v", resp.Summary.ActiveWorkflowTypes)
+	if len(resp.Summary.ActiveWorkflowFamilies) != 0 {
+		t.Fatalf("expected non-nil empty active workflow families, got %+v", resp.Summary.ActiveWorkflowFamilies)
 	}
 	if len(resp.Recommendations) == 0 {
 		t.Fatalf("expected non-nil recommendations slice, got %+v", resp.Recommendations)

@@ -48,6 +48,7 @@
 
   let saving = $state(false)
   let name = $state('')
+  let typeLabel = $state('')
   let agentId = $state('')
   let pickupStatusIds = $state<string[]>([])
   let finishStatusIds = $state<string[]>([])
@@ -65,6 +66,7 @@
   $effect(() => {
     if (open && !wasOpen) {
       name = templateDraft?.name ?? `Workflow ${existingCount + 1}`
+      typeLabel = templateDraft?.workflowType ?? 'Workflow'
       agentId = agentOptions[0]?.id ?? ''
       templateStatusError = ''
       advancedOpen = false
@@ -107,6 +109,10 @@
       toastStore.error('Bound agent is required.')
       return
     }
+    if (!typeLabel.trim()) {
+      toastStore.error('Workflow type label is required.')
+      return
+    }
     if (templateStatusError) {
       toastStore.error(templateStatusError)
       return
@@ -131,7 +137,7 @@
         {
           agentId,
           name: name.trim(),
-          workflowType: templateDraft?.workflowType ?? 'coding',
+          workflowType: typeLabel.trim(),
           harnessPath: templateDraft?.harnessPath ?? null,
           pickupStatusIds,
           finishStatusIds,
@@ -169,6 +175,16 @@
           bind:value={name}
           disabled={saving}
           placeholder="Workflow name"
+        />
+      </div>
+
+      <div class="space-y-2">
+        <Label for="workflow-create-type">Type Label</Label>
+        <Input
+          id="workflow-create-type"
+          bind:value={typeLabel}
+          disabled={saving}
+          placeholder="Fullstack Developer"
         />
       </div>
 

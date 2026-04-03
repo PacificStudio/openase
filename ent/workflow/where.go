@@ -74,6 +74,11 @@ func Name(v string) predicate.Workflow {
 	return predicate.Workflow(sql.FieldEQ(FieldName, v))
 }
 
+// Type applies equality check predicate on the "type" field. It's identical to TypeEQ.
+func Type(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldEQ(FieldType, v))
+}
+
 // HarnessPath applies equality check predicate on the "harness_path" field. It's identical to HarnessPathEQ.
 func HarnessPath(v string) predicate.Workflow {
 	return predicate.Workflow(sql.FieldEQ(FieldHarnessPath, v))
@@ -255,23 +260,68 @@ func NameContainsFold(v string) predicate.Workflow {
 }
 
 // TypeEQ applies the EQ predicate on the "type" field.
-func TypeEQ(v Type) predicate.Workflow {
+func TypeEQ(v string) predicate.Workflow {
 	return predicate.Workflow(sql.FieldEQ(FieldType, v))
 }
 
 // TypeNEQ applies the NEQ predicate on the "type" field.
-func TypeNEQ(v Type) predicate.Workflow {
+func TypeNEQ(v string) predicate.Workflow {
 	return predicate.Workflow(sql.FieldNEQ(FieldType, v))
 }
 
 // TypeIn applies the In predicate on the "type" field.
-func TypeIn(vs ...Type) predicate.Workflow {
+func TypeIn(vs ...string) predicate.Workflow {
 	return predicate.Workflow(sql.FieldIn(FieldType, vs...))
 }
 
 // TypeNotIn applies the NotIn predicate on the "type" field.
-func TypeNotIn(vs ...Type) predicate.Workflow {
+func TypeNotIn(vs ...string) predicate.Workflow {
 	return predicate.Workflow(sql.FieldNotIn(FieldType, vs...))
+}
+
+// TypeGT applies the GT predicate on the "type" field.
+func TypeGT(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldGT(FieldType, v))
+}
+
+// TypeGTE applies the GTE predicate on the "type" field.
+func TypeGTE(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldGTE(FieldType, v))
+}
+
+// TypeLT applies the LT predicate on the "type" field.
+func TypeLT(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldLT(FieldType, v))
+}
+
+// TypeLTE applies the LTE predicate on the "type" field.
+func TypeLTE(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldLTE(FieldType, v))
+}
+
+// TypeContains applies the Contains predicate on the "type" field.
+func TypeContains(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldContains(FieldType, v))
+}
+
+// TypeHasPrefix applies the HasPrefix predicate on the "type" field.
+func TypeHasPrefix(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldHasPrefix(FieldType, v))
+}
+
+// TypeHasSuffix applies the HasSuffix predicate on the "type" field.
+func TypeHasSuffix(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldHasSuffix(FieldType, v))
+}
+
+// TypeEqualFold applies the EqualFold predicate on the "type" field.
+func TypeEqualFold(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldEqualFold(FieldType, v))
+}
+
+// TypeContainsFold applies the ContainsFold predicate on the "type" field.
+func TypeContainsFold(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldContainsFold(FieldType, v))
 }
 
 // HarnessPathEQ applies the EQ predicate on the "harness_path" field.

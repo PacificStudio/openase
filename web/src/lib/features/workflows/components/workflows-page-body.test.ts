@@ -17,6 +17,12 @@ const workflowFixture = {
   id: 'wf-1',
   name: 'Coding Workflow',
   type: 'coding' as const,
+  workflowFamily: 'coding' as const,
+  classification: {
+    family: 'coding' as const,
+    confidence: 1,
+    reasons: ['fixture'],
+  },
   agentId: 'agent-1',
   harnessPath: '.openase/harnesses/coding.md',
   pickupStatusIds: ['todo'],

@@ -56,7 +56,7 @@ func parseCreateWorkflowRequest(projectID uuid.UUID, raw rawCreateWorkflowReques
 		return workflowservice.CreateInput{}, fmt.Errorf("name must not be empty")
 	}
 
-	workflowType, err := parseWorkflowType(raw.Type)
+	workflowType, err := parseWorkflowTypeLabel(raw.Type)
 	if err != nil {
 		return workflowservice.CreateInput{}, err
 	}
@@ -144,7 +144,7 @@ func parseUpdateWorkflowRequest(workflowID uuid.UUID, raw rawUpdateWorkflowReque
 	}
 
 	if raw.Type != nil {
-		workflowType, err := parseWorkflowType(*raw.Type)
+		workflowType, err := parseWorkflowTypeLabel(*raw.Type)
 		if err != nil {
 			return workflowservice.UpdateInput{}, err
 		}
@@ -227,8 +227,8 @@ func parseUpdateHarnessRequest(workflowID uuid.UUID, raw rawUpdateHarnessRequest
 	return input, nil
 }
 
-func parseWorkflowType(raw string) (workflowservice.Type, error) {
-	return workflowservice.ParseType(raw)
+func parseWorkflowTypeLabel(raw string) (workflowservice.TypeLabel, error) {
+	return workflowservice.ParseTypeLabel(raw)
 }
 
 func parseUUIDString(fieldName string, raw string) (uuid.UUID, error) {
