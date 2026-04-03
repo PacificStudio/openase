@@ -42,6 +42,12 @@ import ProjectConversationPanel from './project-conversation-panel.svelte'
 import { providerFixtures } from './ephemeral-chat-session-controller.test-helpers'
 import { createWorkspaceDiff } from './project-conversation-panel.test-helpers'
 
+const seedConversationStorage = () =>
+  window.localStorage.setItem(
+    'openase.project-conversation.project-1.provider-1',
+    JSON.stringify({ conversationIds: ['conversation-1'], activeConversationId: 'conversation-1' }),
+  )
+
 describe('ProjectConversationPanel action proposals', () => {
   beforeAll(() => {
     HTMLElement.prototype.scrollIntoView ??= vi.fn()
@@ -61,13 +67,7 @@ describe('ProjectConversationPanel action proposals', () => {
   })
 
   it('renders action proposals as interactive cards instead of raw JSON and confirms them', async () => {
-    window.localStorage.setItem(
-      'openase.project-conversation.project-1.provider-1',
-      JSON.stringify({
-        conversationIds: ['conversation-1'],
-        activeConversationId: 'conversation-1',
-      }),
-    )
+    seedConversationStorage()
 
     listProjectConversations.mockResolvedValue({
       conversations: [
@@ -115,7 +115,7 @@ describe('ProjectConversationPanel action proposals', () => {
       ],
     })
 
-    const { findByText, getByRole, getByText, queryByText } = render(ProjectConversationPanel, {
+    const { findByText, getByRole, queryByText } = render(ProjectConversationPanel, {
       props: {
         context: { projectId: 'project-1' },
         providers: providerFixtures,
@@ -142,13 +142,7 @@ describe('ProjectConversationPanel action proposals', () => {
   })
 
   it('lets users cancel a pending action proposal without executing it', async () => {
-    window.localStorage.setItem(
-      'openase.project-conversation.project-1.provider-1',
-      JSON.stringify({
-        conversationIds: ['conversation-1'],
-        activeConversationId: 'conversation-1',
-      }),
-    )
+    seedConversationStorage()
 
     listProjectConversations.mockResolvedValue({
       conversations: [
@@ -207,13 +201,7 @@ describe('ProjectConversationPanel action proposals', () => {
   })
 
   it('renders platform command proposals as readable command cards and confirms them', async () => {
-    window.localStorage.setItem(
-      'openase.project-conversation.project-1.provider-1',
-      JSON.stringify({
-        conversationIds: ['conversation-1'],
-        activeConversationId: 'conversation-1',
-      }),
-    )
+    seedConversationStorage()
 
     listProjectConversations.mockResolvedValue({
       conversations: [

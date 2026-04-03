@@ -67,9 +67,9 @@ func parseCommand(value any) (Command, error) {
 		if err != nil {
 			return Command{}, err
 		}
-		title, _ := optionalStringPointer(args, "title")
-		description, _ := optionalStringPointer(args, "description")
-		status, _ := optionalStringPointer(args, "status")
+		title := optionalStringPointer(args, "title")
+		description := optionalStringPointer(args, "description")
+		status := optionalStringPointer(args, "status")
 		if title == nil && description == nil && status == nil {
 			return Command{}, fmt.Errorf("ticket.update requires at least one mutable field")
 		}
@@ -89,8 +89,8 @@ func parseCommand(value any) (Command, error) {
 		}
 		project, _ := optionalString(args, "project")
 		description, _ := optionalString(args, "description")
-		status, _ := optionalStringPointer(args, "status")
-		parentTicket, _ := optionalStringPointer(args, "parent_ticket")
+		status := optionalStringPointer(args, "status")
+		parentTicket := optionalStringPointer(args, "parent_ticket")
 		return Command{
 			Name: name,
 			Args: TicketCreateArgs{
@@ -122,12 +122,12 @@ func optionalString(object map[string]any, key string) (string, bool) {
 	return value, true
 }
 
-func optionalStringPointer(object map[string]any, key string) (*string, bool) {
+func optionalStringPointer(object map[string]any, key string) *string {
 	value, ok := optionalString(object, key)
 	if !ok {
-		return nil, false
+		return nil
 	}
-	return &value, true
+	return &value
 }
 
 func stringValue(value any) string {

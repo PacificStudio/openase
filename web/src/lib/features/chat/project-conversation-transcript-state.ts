@@ -153,7 +153,9 @@ export function mapPersistedEntries(
         createProjectConversationActionProposalEntry({
           id: entry.id,
           proposal: {
-            ...(entry.payload as unknown as ChatActionProposalPayload | ChatPlatformCommandProposalPayload),
+            ...(entry.payload as unknown as
+              | ChatActionProposalPayload
+              | ChatPlatformCommandProposalPayload),
             entryId: entry.id,
           } as ChatActionProposalPayload | ChatPlatformCommandProposalPayload,
         }),

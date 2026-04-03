@@ -10,9 +10,8 @@ const { loadWorkspaceDashboardSummary } = vi.hoisted(() => ({
 }))
 
 vi.mock('$lib/features/dashboard', async () => {
-  const actual = await vi.importActual<typeof import('$lib/features/dashboard')>(
-    '$lib/features/dashboard',
-  )
+  const actual =
+    await vi.importActual<typeof import('$lib/features/dashboard')>('$lib/features/dashboard')
   return {
     ...actual,
     loadWorkspaceDashboardSummary,

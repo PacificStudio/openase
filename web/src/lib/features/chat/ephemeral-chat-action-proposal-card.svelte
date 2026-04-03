@@ -1,19 +1,22 @@
 <script lang="ts">
-  import type {
-    ChatActionProposalPayload,
-    ChatPlatformCommandProposalPayload,
-  } from '$lib/api/chat'
+  import type { ChatActionProposalPayload, ChatPlatformCommandProposalPayload } from '$lib/api/chat'
   import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
   import { ChevronRight, LoaderCircle, Check, X, ShieldAlert } from '@lucide/svelte'
-  import type { EphemeralChatActionProposalEntry } from './transcript'
+
+  type ActionProposalCardEntry = {
+    id: string
+    proposal: ChatActionProposalPayload | ChatPlatformCommandProposalPayload
+    status: 'pending' | 'executing' | 'confirmed' | 'cancelled'
+    results: { ok: boolean; summary: string; detail?: string }[]
+  }
 
   let {
     entry,
     onConfirm,
     onCancel,
   }: {
-    entry: EphemeralChatActionProposalEntry
+    entry: ActionProposalCardEntry
     onConfirm?: (entryId: string) => Promise<void> | void
     onCancel?: (entryId: string) => void
   } = $props()
@@ -31,8 +34,12 @@
   }
 
   const statusConfig = $derived(getStatusConfig(entry.status))
+  const platformProposal = $derived(
+    isPlatformCommandProposal(entry.proposal) ? entry.proposal : null,
+  )
+  const actionProposal = $derived(isPlatformCommandProposal(entry.proposal) ? null : entry.proposal)
 
-  function getStatusConfig(status: EphemeralChatActionProposalEntry['status']) {
+  function getStatusConfig(status: ActionProposalCardEntry['status']) {
     switch (status) {
       case 'pending':
         return { label: 'Pending', dot: 'bg-sky-400', text: 'text-sky-400' }
@@ -96,82 +103,80 @@
 
   <!-- Actions -->
   <div class="border-border/30 border-t">
-      {#if isPlatformCommandProposal(entry.proposal)}
-        {#each entry.proposal.commands as command, index}
-          <div class={cn(index > 0 && 'border-border/20 border-t')}>
-            <button
-              type="button"
-              class="hover:bg-muted/30 flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors"
-              onclick={() => toggleAction(index)}
-            >
-              <ChevronRight
-                class={cn(
-                  'text-muted-foreground size-3 shrink-0 transition-transform duration-150',
-                  expandedActions.has(index) && 'rotate-90',
-                )}
-              />
-              <span class="text-sky-500 shrink-0 font-mono text-[11px] font-semibold">
-                CMD
+    {#if platformProposal}
+      {#each platformProposal.commands as command, index}
+        <div class={cn(index > 0 && 'border-border/20 border-t')}>
+          <button
+            type="button"
+            class="hover:bg-muted/30 flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors"
+            onclick={() => toggleAction(index)}
+          >
+            <ChevronRight
+              class={cn(
+                'text-muted-foreground size-3 shrink-0 transition-transform duration-150',
+                expandedActions.has(index) && 'rotate-90',
+              )}
+            />
+            <span class="shrink-0 font-mono text-[11px] font-semibold text-sky-500"> CMD </span>
+            <code class="text-foreground min-w-0 flex-1 truncate font-mono text-[11px]">
+              {command.command}
+            </code>
+            {#if !expandedActions.has(index)}
+              <span class="text-muted-foreground truncate text-[10px]">
+                {summarizeCommandArgs(command.args)}
               </span>
-              <code class="text-foreground min-w-0 flex-1 truncate font-mono text-[11px]">
-                {command.command}
-              </code>
-              {#if !expandedActions.has(index)}
-                <span class="text-muted-foreground truncate text-[10px]">
-                  {summarizeCommandArgs(command.args)}
-                </span>
-              {/if}
-            </button>
-
-            {#if expandedActions.has(index)}
-              <div class="border-border/20 border-t px-3 py-2">
-                <pre
-                  class="bg-muted/40 max-h-48 overflow-auto rounded-md px-2.5 py-2 font-mono text-[11px] leading-5 whitespace-pre-wrap">{JSON.stringify(
-                    command.args,
-                    null,
-                    2,
-                  )}</pre>
-              </div>
             {/if}
-          </div>
-        {/each}
-      {:else}
-        {#each entry.proposal.actions as action, index}
-          <div class={cn(index > 0 && 'border-border/20 border-t')}>
-            <button
-              type="button"
-              class="hover:bg-muted/30 flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors"
-              onclick={() => toggleAction(index)}
+          </button>
+
+          {#if expandedActions.has(index)}
+            <div class="border-border/20 border-t px-3 py-2">
+              <pre
+                class="bg-muted/40 max-h-48 overflow-auto rounded-md px-2.5 py-2 font-mono text-[11px] leading-5 whitespace-pre-wrap">{JSON.stringify(
+                  command.args,
+                  null,
+                  2,
+                )}</pre>
+            </div>
+          {/if}
+        </div>
+      {/each}
+    {:else if actionProposal}
+      {#each actionProposal.actions as action, index}
+        <div class={cn(index > 0 && 'border-border/20 border-t')}>
+          <button
+            type="button"
+            class="hover:bg-muted/30 flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors"
+            onclick={() => toggleAction(index)}
+          >
+            <ChevronRight
+              class={cn(
+                'text-muted-foreground size-3 shrink-0 transition-transform duration-150',
+                expandedActions.has(index) && 'rotate-90',
+              )}
+            />
+            <span
+              class={cn('shrink-0 font-mono text-[11px] font-semibold', methodColor(action.method))}
             >
-              <ChevronRight
-                class={cn(
-                  'text-muted-foreground size-3 shrink-0 transition-transform duration-150',
-                  expandedActions.has(index) && 'rotate-90',
-                )}
-              />
-              <span
-                class={cn('shrink-0 font-mono text-[11px] font-semibold', methodColor(action.method))}
-              >
-                {action.method}
-              </span>
-              <code class="text-foreground/70 min-w-0 flex-1 truncate font-mono text-[11px]">
-                {action.path}
-              </code>
-            </button>
+              {action.method}
+            </span>
+            <code class="text-foreground/70 min-w-0 flex-1 truncate font-mono text-[11px]">
+              {action.path}
+            </code>
+          </button>
 
-            {#if expandedActions.has(index) && action.body}
-              <div class="border-border/20 border-t px-3 py-2">
-                <pre
-                  class="bg-muted/40 max-h-48 overflow-auto rounded-md px-2.5 py-2 font-mono text-[11px] leading-5 whitespace-pre-wrap">{JSON.stringify(
-                    action.body,
-                    null,
-                    2,
-                  )}</pre>
-              </div>
-            {/if}
-          </div>
-        {/each}
-      {/if}
+          {#if expandedActions.has(index) && action.body}
+            <div class="border-border/20 border-t px-3 py-2">
+              <pre
+                class="bg-muted/40 max-h-48 overflow-auto rounded-md px-2.5 py-2 font-mono text-[11px] leading-5 whitespace-pre-wrap">{JSON.stringify(
+                  action.body,
+                  null,
+                  2,
+                )}</pre>
+            </div>
+          {/if}
+        </div>
+      {/each}
+    {/if}
   </div>
 
   <!-- Actions / Status footer -->
