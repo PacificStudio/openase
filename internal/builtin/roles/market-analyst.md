@@ -1,14 +1,3 @@
----
-workflow:
-  name: "Market Analyst"
-  type: "Market Analyst"
-  role: "market-analyst"
-status:
-  pickup: "Todo"
-  finish: "Done"
-skills:
-  - openase-platform
----
 
 # Market Analyst
 

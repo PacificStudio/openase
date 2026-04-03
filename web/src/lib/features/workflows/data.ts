@@ -11,13 +11,7 @@ import {
   listWorkflows,
 } from '$lib/api/openase'
 import type { TicketStatusStage } from '$lib/features/statuses/public'
-import {
-  defaultHarnessTemplate,
-  normalizeWorkflowClassification,
-  normalizeWorkflowFamily,
-  normalizeWorkflowType,
-  toHarnessContent,
-} from './model'
+import { defaultHarnessTemplate, toHarnessContent } from './model'
 import type { SkillState } from './model'
 import type {
   HarnessVariableGroup,
@@ -26,50 +20,16 @@ import type {
   WorkflowSummary,
   WorkflowVersionSummary,
 } from './types'
-import {
-  mergeWorkflowHooksPayload,
-  readWorkflowHooksPayload,
-  type WorkflowHooksPayload,
-} from './workflow-hooks'
+import { mergeWorkflowHooksPayload, type WorkflowHooksPayload } from './workflow-hooks'
+import { buildWorkflowSummary } from './workflow-summary'
 
 export function mapWorkflowSummary(
   workflow: Awaited<ReturnType<typeof listWorkflows>>['workflows'][number],
   statusNamesById: Map<string, string>,
 ): WorkflowSummary {
-  const pickupStatusIds = workflow.pickup_status_ids ?? []
-  const finishStatusIds = workflow.finish_status_ids ?? []
-
-  return {
-    id: workflow.id,
-    name: workflow.name,
-    type: normalizeWorkflowType(workflow.type),
-    workflowFamily: normalizeWorkflowFamily(workflow.workflow_family ?? ''),
-    classification: normalizeWorkflowClassification(
-      workflow.workflow_classification,
-      workflow.workflow_family ?? '',
-    ),
-    agentId: workflow.agent_id ?? null,
-    harnessPath: workflow.harness_path ?? '',
-    pickupStatusIds,
-    pickupStatusLabel: pickupStatusIds
-      .map((statusId) => statusNamesById.get(statusId) ?? statusId)
-      .join(', '),
-    finishStatusIds,
-    finishStatusLabel: finishStatusIds
-      .map((statusId) => statusNamesById.get(statusId) ?? statusId)
-      .join(', '),
-    maxConcurrent: workflow.max_concurrent,
-    maxRetry: workflow.max_retry_attempts,
-    timeoutMinutes: workflow.timeout_minutes,
-    stallTimeoutMinutes: workflow.stall_timeout_minutes ?? 0,
-    isActive: workflow.is_active,
-    lastModified: new Date().toISOString(),
-    recentSuccessRate: 0,
-    version: workflow.version,
-    history: [],
-    hooks: readWorkflowHooksPayload(workflow.hooks),
-    rawHooks: workflow.hooks,
-  }
+  return buildWorkflowSummary(workflow, {
+    resolveStatusName: (statusId) => statusNamesById.get(statusId) ?? statusId,
+  })
 }
 
 function mapWorkflowVersionHistory(
@@ -210,6 +170,11 @@ export async function createWorkflowWithBinding(
     agentId: string
     name: string
     workflowType: string
+    roleSlug?: string
+    roleName?: string
+    roleDescription?: string
+    platformAccessAllowed?: string[]
+    skillNames?: string[]
     harnessPath?: string | null
     pickupStatusIds: string[]
     finishStatusIds: string[]
@@ -222,6 +187,11 @@ export async function createWorkflowWithBinding(
     agent_id: input.agentId,
     name: input.name,
     type: input.workflowType,
+    role_slug: input.roleSlug,
+    role_name: input.roleName,
+    role_description: input.roleDescription,
+    platform_access_allowed: input.platformAccessAllowed ?? [],
+    skill_names: input.skillNames ?? [],
     harness_path: input.harnessPath ?? null,
     pickup_status_ids: input.pickupStatusIds,
     finish_status_ids: input.finishStatusIds,
@@ -238,38 +208,16 @@ export async function createWorkflowWithBinding(
   }
 
   const createdWorkflow = response.workflow
-
-  const workflow: WorkflowSummary = {
-    id: createdWorkflow.id,
-    name: createdWorkflow.name,
-    type: normalizeWorkflowType(createdWorkflow.type),
-    workflowFamily: normalizeWorkflowFamily(createdWorkflow.workflow_family ?? ''),
-    classification: normalizeWorkflowClassification(
-      createdWorkflow.workflow_classification,
-      createdWorkflow.workflow_family ?? '',
-    ),
-    agentId: createdWorkflow.agent_id ?? null,
-    harnessPath: createdWorkflow.harness_path ?? '',
-    pickupStatusIds: createdWorkflow.pickup_status_ids,
-    pickupStatusLabel: createdWorkflow.pickup_status_ids
-      .map((statusId) => statuses.find((status) => status.id === statusId)?.name ?? statusId)
-      .join(', '),
-    finishStatusIds: createdWorkflow.finish_status_ids,
-    finishStatusLabel: createdWorkflow.finish_status_ids
-      .map((statusId) => statuses.find((status) => status.id === statusId)?.name ?? statusId)
-      .join(', '),
-    maxConcurrent: createdWorkflow.max_concurrent,
-    maxRetry: createdWorkflow.max_retry_attempts,
-    timeoutMinutes: createdWorkflow.timeout_minutes,
-    stallTimeoutMinutes: createdWorkflow.stall_timeout_minutes ?? 0,
-    isActive: createdWorkflow.is_active,
-    lastModified: new Date().toISOString(),
-    recentSuccessRate: 0,
-    version: createdWorkflow.version,
-    history: [],
-    hooks: readWorkflowHooksPayload(createdWorkflow.hooks),
-    rawHooks: createdWorkflow.hooks,
-  }
+  const workflow = buildWorkflowSummary(createdWorkflow, {
+    resolveStatusName: (statusId) =>
+      statuses.find((status) => status.id === statusId)?.name ?? statusId,
+    fallbackMetadata: {
+      roleSlug: input.roleSlug,
+      roleName: input.roleName,
+      roleDescription: input.roleDescription,
+      platformAccessAllowed: input.platformAccessAllowed,
+    },
+  })
 
   return {
     workflow,

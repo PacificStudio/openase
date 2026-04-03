@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -38,6 +39,160 @@ func (_c *WorkflowVersionCreate) SetVersion(v int) *WorkflowVersionCreate {
 // SetContentMarkdown sets the "content_markdown" field.
 func (_c *WorkflowVersionCreate) SetContentMarkdown(v string) *WorkflowVersionCreate {
 	_c.mutation.SetContentMarkdown(v)
+	return _c
+}
+
+// SetName sets the "name" field.
+func (_c *WorkflowVersionCreate) SetName(v string) *WorkflowVersionCreate {
+	_c.mutation.SetName(v)
+	return _c
+}
+
+// SetType sets the "type" field.
+func (_c *WorkflowVersionCreate) SetType(v string) *WorkflowVersionCreate {
+	_c.mutation.SetType(v)
+	return _c
+}
+
+// SetRoleSlug sets the "role_slug" field.
+func (_c *WorkflowVersionCreate) SetRoleSlug(v string) *WorkflowVersionCreate {
+	_c.mutation.SetRoleSlug(v)
+	return _c
+}
+
+// SetNillableRoleSlug sets the "role_slug" field if the given value is not nil.
+func (_c *WorkflowVersionCreate) SetNillableRoleSlug(v *string) *WorkflowVersionCreate {
+	if v != nil {
+		_c.SetRoleSlug(*v)
+	}
+	return _c
+}
+
+// SetRoleName sets the "role_name" field.
+func (_c *WorkflowVersionCreate) SetRoleName(v string) *WorkflowVersionCreate {
+	_c.mutation.SetRoleName(v)
+	return _c
+}
+
+// SetNillableRoleName sets the "role_name" field if the given value is not nil.
+func (_c *WorkflowVersionCreate) SetNillableRoleName(v *string) *WorkflowVersionCreate {
+	if v != nil {
+		_c.SetRoleName(*v)
+	}
+	return _c
+}
+
+// SetRoleDescription sets the "role_description" field.
+func (_c *WorkflowVersionCreate) SetRoleDescription(v string) *WorkflowVersionCreate {
+	_c.mutation.SetRoleDescription(v)
+	return _c
+}
+
+// SetNillableRoleDescription sets the "role_description" field if the given value is not nil.
+func (_c *WorkflowVersionCreate) SetNillableRoleDescription(v *string) *WorkflowVersionCreate {
+	if v != nil {
+		_c.SetRoleDescription(*v)
+	}
+	return _c
+}
+
+// SetPickupStatusIds sets the "pickup_status_ids" field.
+func (_c *WorkflowVersionCreate) SetPickupStatusIds(v pgarray.StringArray) *WorkflowVersionCreate {
+	_c.mutation.SetPickupStatusIds(v)
+	return _c
+}
+
+// SetFinishStatusIds sets the "finish_status_ids" field.
+func (_c *WorkflowVersionCreate) SetFinishStatusIds(v pgarray.StringArray) *WorkflowVersionCreate {
+	_c.mutation.SetFinishStatusIds(v)
+	return _c
+}
+
+// SetHarnessPath sets the "harness_path" field.
+func (_c *WorkflowVersionCreate) SetHarnessPath(v string) *WorkflowVersionCreate {
+	_c.mutation.SetHarnessPath(v)
+	return _c
+}
+
+// SetHooks sets the "hooks" field.
+func (_c *WorkflowVersionCreate) SetHooks(v map[string]interface{}) *WorkflowVersionCreate {
+	_c.mutation.SetHooks(v)
+	return _c
+}
+
+// SetPlatformAccessAllowed sets the "platform_access_allowed" field.
+func (_c *WorkflowVersionCreate) SetPlatformAccessAllowed(v pgarray.StringArray) *WorkflowVersionCreate {
+	_c.mutation.SetPlatformAccessAllowed(v)
+	return _c
+}
+
+// SetMaxConcurrent sets the "max_concurrent" field.
+func (_c *WorkflowVersionCreate) SetMaxConcurrent(v int) *WorkflowVersionCreate {
+	_c.mutation.SetMaxConcurrent(v)
+	return _c
+}
+
+// SetNillableMaxConcurrent sets the "max_concurrent" field if the given value is not nil.
+func (_c *WorkflowVersionCreate) SetNillableMaxConcurrent(v *int) *WorkflowVersionCreate {
+	if v != nil {
+		_c.SetMaxConcurrent(*v)
+	}
+	return _c
+}
+
+// SetMaxRetryAttempts sets the "max_retry_attempts" field.
+func (_c *WorkflowVersionCreate) SetMaxRetryAttempts(v int) *WorkflowVersionCreate {
+	_c.mutation.SetMaxRetryAttempts(v)
+	return _c
+}
+
+// SetNillableMaxRetryAttempts sets the "max_retry_attempts" field if the given value is not nil.
+func (_c *WorkflowVersionCreate) SetNillableMaxRetryAttempts(v *int) *WorkflowVersionCreate {
+	if v != nil {
+		_c.SetMaxRetryAttempts(*v)
+	}
+	return _c
+}
+
+// SetTimeoutMinutes sets the "timeout_minutes" field.
+func (_c *WorkflowVersionCreate) SetTimeoutMinutes(v int) *WorkflowVersionCreate {
+	_c.mutation.SetTimeoutMinutes(v)
+	return _c
+}
+
+// SetNillableTimeoutMinutes sets the "timeout_minutes" field if the given value is not nil.
+func (_c *WorkflowVersionCreate) SetNillableTimeoutMinutes(v *int) *WorkflowVersionCreate {
+	if v != nil {
+		_c.SetTimeoutMinutes(*v)
+	}
+	return _c
+}
+
+// SetStallTimeoutMinutes sets the "stall_timeout_minutes" field.
+func (_c *WorkflowVersionCreate) SetStallTimeoutMinutes(v int) *WorkflowVersionCreate {
+	_c.mutation.SetStallTimeoutMinutes(v)
+	return _c
+}
+
+// SetNillableStallTimeoutMinutes sets the "stall_timeout_minutes" field if the given value is not nil.
+func (_c *WorkflowVersionCreate) SetNillableStallTimeoutMinutes(v *int) *WorkflowVersionCreate {
+	if v != nil {
+		_c.SetStallTimeoutMinutes(*v)
+	}
+	return _c
+}
+
+// SetIsActive sets the "is_active" field.
+func (_c *WorkflowVersionCreate) SetIsActive(v bool) *WorkflowVersionCreate {
+	_c.mutation.SetIsActive(v)
+	return _c
+}
+
+// SetNillableIsActive sets the "is_active" field if the given value is not nil.
+func (_c *WorkflowVersionCreate) SetNillableIsActive(v *bool) *WorkflowVersionCreate {
+	if v != nil {
+		_c.SetIsActive(*v)
+	}
 	return _c
 }
 
@@ -144,6 +299,30 @@ func (_c *WorkflowVersionCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *WorkflowVersionCreate) defaults() {
+	if _, ok := _c.mutation.Hooks(); !ok {
+		v := workflowversion.DefaultHooks()
+		_c.mutation.SetHooks(v)
+	}
+	if _, ok := _c.mutation.MaxConcurrent(); !ok {
+		v := workflowversion.DefaultMaxConcurrent
+		_c.mutation.SetMaxConcurrent(v)
+	}
+	if _, ok := _c.mutation.MaxRetryAttempts(); !ok {
+		v := workflowversion.DefaultMaxRetryAttempts
+		_c.mutation.SetMaxRetryAttempts(v)
+	}
+	if _, ok := _c.mutation.TimeoutMinutes(); !ok {
+		v := workflowversion.DefaultTimeoutMinutes
+		_c.mutation.SetTimeoutMinutes(v)
+	}
+	if _, ok := _c.mutation.StallTimeoutMinutes(); !ok {
+		v := workflowversion.DefaultStallTimeoutMinutes
+		_c.mutation.SetStallTimeoutMinutes(v)
+	}
+	if _, ok := _c.mutation.IsActive(); !ok {
+		v := workflowversion.DefaultIsActive
+		_c.mutation.SetIsActive(v)
+	}
 	if _, ok := _c.mutation.CreatedBy(); !ok {
 		v := workflowversion.DefaultCreatedBy
 		_c.mutation.SetCreatedBy(v)
@@ -168,6 +347,48 @@ func (_c *WorkflowVersionCreate) check() error {
 	}
 	if _, ok := _c.mutation.ContentMarkdown(); !ok {
 		return &ValidationError{Name: "content_markdown", err: errors.New(`ent: missing required field "WorkflowVersion.content_markdown"`)}
+	}
+	if _, ok := _c.mutation.Name(); !ok {
+		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "WorkflowVersion.name"`)}
+	}
+	if v, ok := _c.mutation.Name(); ok {
+		if err := workflowversion.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "WorkflowVersion.name": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.GetType(); !ok {
+		return &ValidationError{Name: "type", err: errors.New(`ent: missing required field "WorkflowVersion.type"`)}
+	}
+	if v, ok := _c.mutation.GetType(); ok {
+		if err := workflowversion.TypeValidator(v); err != nil {
+			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "WorkflowVersion.type": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.HarnessPath(); !ok {
+		return &ValidationError{Name: "harness_path", err: errors.New(`ent: missing required field "WorkflowVersion.harness_path"`)}
+	}
+	if v, ok := _c.mutation.HarnessPath(); ok {
+		if err := workflowversion.HarnessPathValidator(v); err != nil {
+			return &ValidationError{Name: "harness_path", err: fmt.Errorf(`ent: validator failed for field "WorkflowVersion.harness_path": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.Hooks(); !ok {
+		return &ValidationError{Name: "hooks", err: errors.New(`ent: missing required field "WorkflowVersion.hooks"`)}
+	}
+	if _, ok := _c.mutation.MaxConcurrent(); !ok {
+		return &ValidationError{Name: "max_concurrent", err: errors.New(`ent: missing required field "WorkflowVersion.max_concurrent"`)}
+	}
+	if _, ok := _c.mutation.MaxRetryAttempts(); !ok {
+		return &ValidationError{Name: "max_retry_attempts", err: errors.New(`ent: missing required field "WorkflowVersion.max_retry_attempts"`)}
+	}
+	if _, ok := _c.mutation.TimeoutMinutes(); !ok {
+		return &ValidationError{Name: "timeout_minutes", err: errors.New(`ent: missing required field "WorkflowVersion.timeout_minutes"`)}
+	}
+	if _, ok := _c.mutation.StallTimeoutMinutes(); !ok {
+		return &ValidationError{Name: "stall_timeout_minutes", err: errors.New(`ent: missing required field "WorkflowVersion.stall_timeout_minutes"`)}
+	}
+	if _, ok := _c.mutation.IsActive(); !ok {
+		return &ValidationError{Name: "is_active", err: errors.New(`ent: missing required field "WorkflowVersion.is_active"`)}
 	}
 	if _, ok := _c.mutation.ContentHash(); !ok {
 		return &ValidationError{Name: "content_hash", err: errors.New(`ent: missing required field "WorkflowVersion.content_hash"`)}
@@ -228,6 +449,66 @@ func (_c *WorkflowVersionCreate) createSpec() (*WorkflowVersion, *sqlgraph.Creat
 	if value, ok := _c.mutation.ContentMarkdown(); ok {
 		_spec.SetField(workflowversion.FieldContentMarkdown, field.TypeString, value)
 		_node.ContentMarkdown = value
+	}
+	if value, ok := _c.mutation.Name(); ok {
+		_spec.SetField(workflowversion.FieldName, field.TypeString, value)
+		_node.Name = value
+	}
+	if value, ok := _c.mutation.GetType(); ok {
+		_spec.SetField(workflowversion.FieldType, field.TypeString, value)
+		_node.Type = value
+	}
+	if value, ok := _c.mutation.RoleSlug(); ok {
+		_spec.SetField(workflowversion.FieldRoleSlug, field.TypeString, value)
+		_node.RoleSlug = value
+	}
+	if value, ok := _c.mutation.RoleName(); ok {
+		_spec.SetField(workflowversion.FieldRoleName, field.TypeString, value)
+		_node.RoleName = value
+	}
+	if value, ok := _c.mutation.RoleDescription(); ok {
+		_spec.SetField(workflowversion.FieldRoleDescription, field.TypeString, value)
+		_node.RoleDescription = value
+	}
+	if value, ok := _c.mutation.PickupStatusIds(); ok {
+		_spec.SetField(workflowversion.FieldPickupStatusIds, field.TypeOther, value)
+		_node.PickupStatusIds = value
+	}
+	if value, ok := _c.mutation.FinishStatusIds(); ok {
+		_spec.SetField(workflowversion.FieldFinishStatusIds, field.TypeOther, value)
+		_node.FinishStatusIds = value
+	}
+	if value, ok := _c.mutation.HarnessPath(); ok {
+		_spec.SetField(workflowversion.FieldHarnessPath, field.TypeString, value)
+		_node.HarnessPath = value
+	}
+	if value, ok := _c.mutation.Hooks(); ok {
+		_spec.SetField(workflowversion.FieldHooks, field.TypeJSON, value)
+		_node.Hooks = value
+	}
+	if value, ok := _c.mutation.PlatformAccessAllowed(); ok {
+		_spec.SetField(workflowversion.FieldPlatformAccessAllowed, field.TypeOther, value)
+		_node.PlatformAccessAllowed = value
+	}
+	if value, ok := _c.mutation.MaxConcurrent(); ok {
+		_spec.SetField(workflowversion.FieldMaxConcurrent, field.TypeInt, value)
+		_node.MaxConcurrent = value
+	}
+	if value, ok := _c.mutation.MaxRetryAttempts(); ok {
+		_spec.SetField(workflowversion.FieldMaxRetryAttempts, field.TypeInt, value)
+		_node.MaxRetryAttempts = value
+	}
+	if value, ok := _c.mutation.TimeoutMinutes(); ok {
+		_spec.SetField(workflowversion.FieldTimeoutMinutes, field.TypeInt, value)
+		_node.TimeoutMinutes = value
+	}
+	if value, ok := _c.mutation.StallTimeoutMinutes(); ok {
+		_spec.SetField(workflowversion.FieldStallTimeoutMinutes, field.TypeInt, value)
+		_node.StallTimeoutMinutes = value
+	}
+	if value, ok := _c.mutation.IsActive(); ok {
+		_spec.SetField(workflowversion.FieldIsActive, field.TypeBool, value)
+		_node.IsActive = value
 	}
 	if value, ok := _c.mutation.ContentHash(); ok {
 		_spec.SetField(workflowversion.FieldContentHash, field.TypeString, value)

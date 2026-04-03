@@ -1,11 +1,9 @@
 <script lang="ts">
-  import { Button } from '$ui/button'
   import { cn } from '$lib/utils'
   import { Checkbox } from '$ui/checkbox'
   import * as Popover from '$ui/popover'
   import { Input } from '$ui/input'
-  import { Label } from '$ui/label'
-  import { ChevronDown, GitBranch } from '@lucide/svelte'
+  import { ChevronDown, ChevronRight, GitBranch, Settings2 } from '@lucide/svelte'
   import { PriorityIcon, StageIcon } from '$lib/features/board/public'
   import {
     ticketPriorityOptions,
@@ -50,6 +48,7 @@
     statusOptions.find((status) => status.id === draft.statusId) ?? null,
   )
   const selectedRepoCount = $derived(draft.repoIds.length)
+  const selectedRepos = $derived(repoOptions.filter((option) => draft.repoIds.includes(option.id)))
 </script>
 
 <div class="flex flex-wrap items-center gap-2">
@@ -155,53 +154,42 @@
         {/each}
       </Popover.Content>
     </Popover.Root>
+
+    {#if selectedRepoCount > 0}
+      <button
+        type="button"
+        class={cn(
+          'text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-[11px] transition-colors',
+          (loading || saving) && 'pointer-events-none opacity-50',
+        )}
+        disabled={loading || saving}
+        onclick={() => (branchConfigOpen = !branchConfigOpen)}
+      >
+        <Settings2 class="size-3" />
+        <span>Advanced</span>
+        <ChevronRight
+          class={cn('size-3 transition-transform duration-150', branchConfigOpen && 'rotate-90')}
+        />
+      </button>
+    {/if}
   {/if}
 </div>
 
-{#if selectedRepoCount > 0}
-  <div class="space-y-3 rounded-lg border p-3">
-    <div class="flex items-center justify-between gap-3">
-      <div>
-        <p class="text-sm font-medium">Branch configuration</p>
-        <p class="text-muted-foreground text-xs">
-          By default OpenASE will use the generated ticket branch for each selected repo.
-        </p>
+{#if branchConfigOpen && selectedRepos.length > 0}
+  <div class="space-y-2 pl-1">
+    {#each selectedRepos as option (option.id)}
+      <div class="flex items-center gap-2 text-[11px]">
+        <span class="text-muted-foreground w-24 shrink-0 truncate" title={option.label}>
+          {option.label}
+        </span>
+        <Input
+          class="h-7 flex-1 text-[11px]"
+          value={draft.repoBranchOverrides[option.id] ?? ''}
+          placeholder={`default: ticket branch (base: ${option.defaultBranch})`}
+          disabled={loading || saving}
+          oninput={(event) => onUpdateRepoBranchOverride?.(option.id, event.currentTarget.value)}
+        />
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={loading || saving}
-        onclick={() => {
-          branchConfigOpen = !branchConfigOpen
-        }}
-      >
-        {branchConfigOpen ? 'Hide advanced' : 'Advanced'}
-      </Button>
-    </div>
-
-    {#if branchConfigOpen}
-      <div class="space-y-3">
-        {#each repoOptions.filter( (option) => draft.repoIds.includes(option.id), ) as option (option.id)}
-          <div class="space-y-2 rounded-md border p-3">
-            <div>
-              <p class="text-sm font-medium">{option.label}</p>
-              <p class="text-muted-foreground text-xs">Base branch: {option.defaultBranch}</p>
-            </div>
-            <div class="space-y-1">
-              <Label for={`repo-override-${option.id}`}>Work branch override</Label>
-              <Input
-                id={`repo-override-${option.id}`}
-                value={draft.repoBranchOverrides[option.id] ?? ''}
-                placeholder="Leave blank to use the generated ticket branch"
-                disabled={loading || saving}
-                oninput={(event) =>
-                  onUpdateRepoBranchOverride?.(option.id, event.currentTarget.value)}
-              />
-            </div>
-          </div>
-        {/each}
-      </div>
-    {/if}
+    {/each}
   </div>
 {/if}

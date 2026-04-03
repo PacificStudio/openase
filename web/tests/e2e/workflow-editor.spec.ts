@@ -64,7 +64,7 @@ test.describe('workflow editor layout', () => {
     await measureFeedback({
       scenario: 'workflow_settings_sheet_open',
       budgetMs: 300,
-      ready: page.getByLabel('Name'),
+      ready: page.getByLabel('Workflow Name'),
       testInfo,
       action: async () => {
         await page.getByTitle('Workflow settings').click()
@@ -72,14 +72,14 @@ test.describe('workflow editor layout', () => {
     })
 
     // Sheet should show form fields
-    await expect(page.getByLabel('Name')).toBeVisible()
+    await expect(page.getByLabel('Workflow Name')).toBeVisible()
     await expect(page.getByText('Bound Agent')).toBeVisible()
     await expect(page.getByText('Pickup Statuses')).toBeVisible()
     await expect(page.getByText('Finish Statuses')).toBeVisible()
 
     // Close the sheet
     await page.getByRole('button', { name: 'Close' }).click()
-    await expect(page.getByLabel('Name')).not.toBeVisible()
+    await expect(page.getByLabel('Workflow Name')).not.toBeVisible()
   })
 
   test('AI drawer opens and has a drag handle', async ({ page, projectPath }, testInfo) => {

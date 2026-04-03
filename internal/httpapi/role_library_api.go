@@ -10,14 +10,18 @@ import (
 )
 
 type builtinRoleResponse struct {
-	Slug            string `json:"slug"`
-	Name            string `json:"name"`
-	WorkflowType    string `json:"workflow_type"`
-	WorkflowFamily  string `json:"workflow_family"`
-	Summary         string `json:"summary"`
-	HarnessPath     string `json:"harness_path"`
-	Content         string `json:"content"`
-	WorkflowContent string `json:"workflow_content"`
+	Slug                  string   `json:"slug"`
+	Name                  string   `json:"name"`
+	WorkflowType          string   `json:"workflow_type"`
+	WorkflowFamily        string   `json:"workflow_family"`
+	Summary               string   `json:"summary"`
+	HarnessPath           string   `json:"harness_path"`
+	Content               string   `json:"content"`
+	WorkflowContent       string   `json:"workflow_content"`
+	PickupStatusNames     []string `json:"pickup_status_names"`
+	FinishStatusNames     []string `json:"finish_status_names"`
+	SkillNames            []string `json:"skill_names"`
+	PlatformAccessAllowed []string `json:"platform_access_allowed"`
 }
 
 type builtinRoleDetailResponse struct {
@@ -58,14 +62,18 @@ func mapBuiltinRoleResponse(item builtin.RoleTemplate) builtinRoleResponse {
 		HarnessContent: item.Content,
 	})
 	return builtinRoleResponse{
-		Slug:            item.Slug,
-		Name:            item.Name,
-		WorkflowType:    item.WorkflowType,
-		WorkflowFamily:  string(classification.Family),
-		Summary:         item.Summary,
-		HarnessPath:     item.HarnessPath,
-		Content:         item.Content,
-		WorkflowContent: item.Content,
+		Slug:                  item.Slug,
+		Name:                  item.Name,
+		WorkflowType:          item.WorkflowType,
+		WorkflowFamily:        string(classification.Family),
+		Summary:               item.Summary,
+		HarnessPath:           item.HarnessPath,
+		Content:               item.Content,
+		WorkflowContent:       item.Content,
+		PickupStatusNames:     append([]string(nil), item.PickupStatusNames...),
+		FinishStatusNames:     append([]string(nil), item.FinishStatusNames...),
+		SkillNames:            append([]string(nil), item.SkillNames...),
+		PlatformAccessAllowed: append([]string(nil), item.PlatformAccessAllowed...),
 	}
 }
 

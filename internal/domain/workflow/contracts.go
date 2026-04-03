@@ -12,21 +12,25 @@ type Optional[T any] struct {
 }
 
 type Workflow struct {
-	ID                  uuid.UUID      `json:"id"`
-	ProjectID           uuid.UUID      `json:"project_id"`
-	AgentID             *uuid.UUID     `json:"agent_id"`
-	Name                string         `json:"name"`
-	Type                Type           `json:"type"`
-	HarnessPath         string         `json:"harness_path"`
-	Hooks               map[string]any `json:"hooks"`
-	MaxConcurrent       int            `json:"max_concurrent"`
-	MaxRetryAttempts    int            `json:"max_retry_attempts"`
-	TimeoutMinutes      int            `json:"timeout_minutes"`
-	StallTimeoutMinutes int            `json:"stall_timeout_minutes"`
-	Version             int            `json:"version"`
-	IsActive            bool           `json:"is_active"`
-	PickupStatusIDs     []uuid.UUID    `json:"pickup_status_ids"`
-	FinishStatusIDs     []uuid.UUID    `json:"finish_status_ids"`
+	ID                    uuid.UUID      `json:"id"`
+	ProjectID             uuid.UUID      `json:"project_id"`
+	AgentID               *uuid.UUID     `json:"agent_id"`
+	Name                  string         `json:"name"`
+	Type                  Type           `json:"type"`
+	RoleSlug              string         `json:"role_slug"`
+	RoleName              string         `json:"role_name"`
+	RoleDescription       string         `json:"role_description"`
+	PlatformAccessAllowed []string       `json:"platform_access_allowed"`
+	HarnessPath           string         `json:"harness_path"`
+	Hooks                 map[string]any `json:"hooks"`
+	MaxConcurrent         int            `json:"max_concurrent"`
+	MaxRetryAttempts      int            `json:"max_retry_attempts"`
+	TimeoutMinutes        int            `json:"timeout_minutes"`
+	StallTimeoutMinutes   int            `json:"stall_timeout_minutes"`
+	Version               int            `json:"version"`
+	IsActive              bool           `json:"is_active"`
+	PickupStatusIDs       []uuid.UUID    `json:"pickup_status_ids"`
+	FinishStatusIDs       []uuid.UUID    `json:"finish_status_ids"`
 }
 
 type WorkflowDetail struct {
@@ -42,38 +46,47 @@ type HarnessDocument struct {
 }
 
 type CreateInput struct {
-	ProjectID           uuid.UUID
-	AgentID             uuid.UUID
-	Name                string
-	Type                Type
-	CreatedBy           string
-	HarnessPath         *string
-	HarnessContent      string
-	Hooks               map[string]any
-	MaxConcurrent       int
-	MaxRetryAttempts    int
-	TimeoutMinutes      int
-	StallTimeoutMinutes int
-	IsActive            bool
-	PickupStatusIDs     StatusBindingSet
-	FinishStatusIDs     StatusBindingSet
+	ProjectID             uuid.UUID
+	AgentID               uuid.UUID
+	Name                  string
+	Type                  Type
+	RoleSlug              string
+	RoleName              string
+	RoleDescription       string
+	PlatformAccessAllowed []string
+	SkillNames            []string
+	CreatedBy             string
+	HarnessPath           *string
+	HarnessContent        string
+	Hooks                 map[string]any
+	MaxConcurrent         int
+	MaxRetryAttempts      int
+	TimeoutMinutes        int
+	StallTimeoutMinutes   int
+	IsActive              bool
+	PickupStatusIDs       StatusBindingSet
+	FinishStatusIDs       StatusBindingSet
 }
 
 type UpdateInput struct {
-	WorkflowID          uuid.UUID
-	AgentID             Optional[uuid.UUID]
-	Name                Optional[string]
-	Type                Optional[Type]
-	EditedBy            string
-	HarnessPath         Optional[string]
-	Hooks               Optional[map[string]any]
-	MaxConcurrent       Optional[int]
-	MaxRetryAttempts    Optional[int]
-	TimeoutMinutes      Optional[int]
-	StallTimeoutMinutes Optional[int]
-	IsActive            Optional[bool]
-	PickupStatusIDs     Optional[StatusBindingSet]
-	FinishStatusIDs     Optional[StatusBindingSet]
+	WorkflowID            uuid.UUID
+	AgentID               Optional[uuid.UUID]
+	Name                  Optional[string]
+	Type                  Optional[Type]
+	RoleSlug              Optional[string]
+	RoleName              Optional[string]
+	RoleDescription       Optional[string]
+	PlatformAccessAllowed Optional[[]string]
+	EditedBy              string
+	HarnessPath           Optional[string]
+	Hooks                 Optional[map[string]any]
+	MaxConcurrent         Optional[int]
+	MaxRetryAttempts      Optional[int]
+	TimeoutMinutes        Optional[int]
+	StallTimeoutMinutes   Optional[int]
+	IsActive              Optional[bool]
+	PickupStatusIDs       Optional[StatusBindingSet]
+	FinishStatusIDs       Optional[StatusBindingSet]
 }
 
 type UpdateHarnessInput struct {
@@ -90,13 +103,28 @@ type VersionSummary struct {
 }
 
 type WorkflowVersionRecord struct {
-	ID              uuid.UUID
-	WorkflowID      uuid.UUID
-	Version         int
-	ContentMarkdown string
-	ContentHash     string
-	CreatedBy       string
-	CreatedAt       time.Time
+	ID                    uuid.UUID
+	WorkflowID            uuid.UUID
+	Version               int
+	ContentMarkdown       string
+	Name                  string
+	Type                  Type
+	RoleSlug              string
+	RoleName              string
+	RoleDescription       string
+	PickupStatusIDs       []uuid.UUID
+	FinishStatusIDs       []uuid.UUID
+	HarnessPath           string
+	Hooks                 map[string]any
+	PlatformAccessAllowed []string
+	MaxConcurrent         int
+	MaxRetryAttempts      int
+	TimeoutMinutes        int
+	StallTimeoutMinutes   int
+	IsActive              bool
+	ContentHash           string
+	CreatedBy             string
+	CreatedAt             time.Time
 }
 
 type SkillRecord struct {
@@ -242,11 +270,19 @@ type RuntimeSnapshot struct {
 }
 
 type RuntimeWorkflowSnapshot struct {
-	WorkflowID uuid.UUID
-	VersionID  uuid.UUID
-	Version    int
-	Path       string
-	Content    string
+	WorkflowID            uuid.UUID
+	VersionID             uuid.UUID
+	Version               int
+	Path                  string
+	Content               string
+	Name                  string
+	Type                  Type
+	RoleSlug              string
+	RoleName              string
+	RoleDescription       string
+	PickupStatusIDs       []uuid.UUID
+	FinishStatusIDs       []uuid.UUID
+	PlatformAccessAllowed []string
 }
 
 type RuntimeSkillSnapshot struct {

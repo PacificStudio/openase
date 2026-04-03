@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/builtin"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
@@ -58,24 +59,40 @@ func resolveWorkflowVersionCreatedBy(raw string) string {
 }
 
 func sanitizeHarnessContent(content string) (string, error) {
-	if err := validateHarnessForSave(content); err != nil {
+	normalized := normalizeHarnessNewlines(content)
+	if err := validateHarnessForSave(normalized); err != nil {
 		return "", err
 	}
-	sanitized, err := setHarnessSkills(content, nil)
-	if err != nil {
-		return "", err
+	return normalized, nil
+}
+
+func normalizeWorkflowPlatformAccessAllowed(raw []string) []string {
+	supported := agentplatform.SupportedScopes()
+	normalized := make([]string, 0, len(raw))
+	for _, item := range raw {
+		trimmed := strings.TrimSpace(item)
+		if trimmed == "" {
+			continue
+		}
+		for _, supportedScope := range supported {
+			if supportedScope != trimmed {
+				continue
+			}
+			if !slicesContainsString(normalized, trimmed) {
+				normalized = append(normalized, trimmed)
+			}
+			break
+		}
 	}
-	if err := validateHarnessForSave(sanitized); err != nil {
-		return "", err
+	if len(normalized) > 0 {
+		return normalized
 	}
-	return sanitized, nil
+	return agentplatform.DefaultScopes()
 }
 
 func projectHarnessContent(content string, skillNames []string) (string, error) {
-	projected, err := setHarnessSkills(content, skillNames)
-	if err != nil {
-		return "", err
-	}
+	_ = skillNames
+	projected := normalizeHarnessNewlines(content)
 	if err := validateHarnessForSave(projected); err != nil {
 		return "", err
 	}
@@ -94,11 +111,7 @@ func (s *Service) projectedWorkflowHarness(ctx context.Context, workflowItem Wor
 	if err != nil {
 		return "", err
 	}
-	boundSkills, err := s.listWorkflowBoundSkillNames(ctx, workflowItem.ID, false)
-	if err != nil {
-		return "", err
-	}
-	return projectHarnessContent(version.ContentMarkdown, boundSkills)
+	return projectHarnessContent(version.ContentMarkdown, nil)
 }
 
 func (s *Service) ListWorkflowVersions(ctx context.Context, workflowID uuid.UUID) ([]VersionSummary, error) {
@@ -753,6 +766,16 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 	if err != nil {
 		return WorkflowDetail{}, err
 	}
+	roleName := strings.TrimSpace(input.RoleName)
+	if roleName == "" {
+		roleName = input.Name
+	}
+	roleSlug := strings.TrimSpace(input.RoleSlug)
+	if roleSlug == "" {
+		roleSlug = slugify(roleName)
+	}
+	roleDescription := strings.TrimSpace(input.RoleDescription)
+	platformAccessAllowed := normalizeWorkflowPlatformAccessAllowed(input.PlatformAccessAllowed)
 
 	workflowID := uuid.New()
 
@@ -768,24 +791,61 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 	}
 
 	item, err := s.workflows.Create(ctx, Workflow{
-		ID:                  workflowID,
-		ProjectID:           input.ProjectID,
-		AgentID:             &input.AgentID,
-		Name:                input.Name,
-		Type:                input.Type,
-		HarnessPath:         harnessPath,
-		Hooks:               copyHooks(input.Hooks),
-		MaxConcurrent:       input.MaxConcurrent,
-		MaxRetryAttempts:    input.MaxRetryAttempts,
-		TimeoutMinutes:      input.TimeoutMinutes,
-		StallTimeoutMinutes: input.StallTimeoutMinutes,
-		Version:             1,
-		IsActive:            input.IsActive,
-		PickupStatusIDs:     append([]uuid.UUID(nil), pickupStatusIDs.IDs()...),
-		FinishStatusIDs:     append([]uuid.UUID(nil), finishStatusIDs.IDs()...),
+		ID:                    workflowID,
+		ProjectID:             input.ProjectID,
+		AgentID:               &input.AgentID,
+		Name:                  input.Name,
+		Type:                  input.Type,
+		RoleSlug:              roleSlug,
+		RoleName:              roleName,
+		RoleDescription:       roleDescription,
+		PlatformAccessAllowed: platformAccessAllowed,
+		HarnessPath:           harnessPath,
+		Hooks:                 copyHooks(input.Hooks),
+		MaxConcurrent:         input.MaxConcurrent,
+		MaxRetryAttempts:      input.MaxRetryAttempts,
+		TimeoutMinutes:        input.TimeoutMinutes,
+		StallTimeoutMinutes:   input.StallTimeoutMinutes,
+		Version:               1,
+		IsActive:              input.IsActive,
+		PickupStatusIDs:       append([]uuid.UUID(nil), pickupStatusIDs.IDs()...),
+		FinishStatusIDs:       append([]uuid.UUID(nil), finishStatusIDs.IDs()...),
 	}, sanitizedHarnessContent, resolveWorkflowVersionCreatedBy(input.CreatedBy))
 	if err != nil {
 		return WorkflowDetail{}, s.mapWorkflowWriteError("create workflow", err)
+	}
+	if len(input.SkillNames) > 0 {
+		if err := s.ensureBuiltinSkills(ctx, input.ProjectID); err != nil {
+			return WorkflowDetail{}, err
+		}
+		skillNames, err := normalizeSkillNames(input.SkillNames)
+		if err != nil {
+			return WorkflowDetail{}, err
+		}
+		skillIDs := make([]uuid.UUID, 0, len(skillNames))
+		for _, name := range skillNames {
+			skillItem, err := s.skillByName(ctx, input.ProjectID, name)
+			if err != nil {
+				return WorkflowDetail{}, err
+			}
+			skillIDs = append(skillIDs, skillItem.ID)
+		}
+		if len(skillIDs) > 0 {
+			if _, err := s.workflowSkills.ApplyWorkflowSkillBindings(
+				ctx,
+				item.ID,
+				skillIDs,
+				true,
+				sanitizedHarnessContent,
+				resolveWorkflowVersionCreatedBy(input.CreatedBy),
+			); err != nil {
+				return WorkflowDetail{}, err
+			}
+			item, err = s.workflows.Get(ctx, item.ID)
+			if err != nil {
+				return WorkflowDetail{}, err
+			}
+		}
 	}
 
 	projectedContent, err := s.projectedWorkflowHarness(ctx, item)
@@ -893,6 +953,25 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 	if input.Type.Set {
 		next.Type = input.Type.Value
 	}
+	if input.RoleSlug.Set {
+		next.RoleSlug = strings.TrimSpace(input.RoleSlug.Value)
+	}
+	if input.RoleName.Set {
+		next.RoleName = strings.TrimSpace(input.RoleName.Value)
+	}
+	if input.RoleDescription.Set {
+		next.RoleDescription = strings.TrimSpace(input.RoleDescription.Value)
+	}
+	if input.PlatformAccessAllowed.Set {
+		next.PlatformAccessAllowed = append([]string(nil), input.PlatformAccessAllowed.Value...)
+	}
+	if strings.TrimSpace(next.RoleName) == "" {
+		next.RoleName = next.Name
+	}
+	if strings.TrimSpace(next.RoleSlug) == "" {
+		next.RoleSlug = slugify(next.RoleName)
+	}
+	next.PlatformAccessAllowed = normalizeWorkflowPlatformAccessAllowed(next.PlatformAccessAllowed)
 	if input.MaxConcurrent.Set {
 		next.MaxConcurrent = input.MaxConcurrent.Value
 	}
@@ -1226,14 +1305,10 @@ func normalizeHarnessPath(raw string) (string, error) {
 
 func defaultHarnessContent(name string, workflowType Type, pickupStatusNames []string, finishStatusNames []string) string {
 	var builder strings.Builder
-	builder.WriteString("---\n")
-	builder.WriteString("workflow:\n")
-	_, _ = fmt.Fprintf(&builder, "  name: %q\n", name)
-	_, _ = fmt.Fprintf(&builder, "  type: %q\n", workflowType.String())
-	builder.WriteString("---\n\n")
 	builder.WriteString("# ")
 	builder.WriteString(name)
 	builder.WriteString("\n\n")
+	_, _ = fmt.Fprintf(&builder, "Workflow type: %s\n", workflowType.String())
 	if len(pickupStatusNames) > 0 {
 		builder.WriteString("Pickup statuses: ")
 		builder.WriteString(strings.Join(pickupStatusNames, ", "))

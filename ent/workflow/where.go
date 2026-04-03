@@ -6,6 +6,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -77,6 +78,26 @@ func Name(v string) predicate.Workflow {
 // Type applies equality check predicate on the "type" field. It's identical to TypeEQ.
 func Type(v string) predicate.Workflow {
 	return predicate.Workflow(sql.FieldEQ(FieldType, v))
+}
+
+// RoleSlug applies equality check predicate on the "role_slug" field. It's identical to RoleSlugEQ.
+func RoleSlug(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldEQ(FieldRoleSlug, v))
+}
+
+// RoleName applies equality check predicate on the "role_name" field. It's identical to RoleNameEQ.
+func RoleName(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldEQ(FieldRoleName, v))
+}
+
+// RoleDescription applies equality check predicate on the "role_description" field. It's identical to RoleDescriptionEQ.
+func RoleDescription(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldEQ(FieldRoleDescription, v))
+}
+
+// PlatformAccessAllowed applies equality check predicate on the "platform_access_allowed" field. It's identical to PlatformAccessAllowedEQ.
+func PlatformAccessAllowed(v pgarray.StringArray) predicate.Workflow {
+	return predicate.Workflow(sql.FieldEQ(FieldPlatformAccessAllowed, v))
 }
 
 // HarnessPath applies equality check predicate on the "harness_path" field. It's identical to HarnessPathEQ.
@@ -322,6 +343,281 @@ func TypeEqualFold(v string) predicate.Workflow {
 // TypeContainsFold applies the ContainsFold predicate on the "type" field.
 func TypeContainsFold(v string) predicate.Workflow {
 	return predicate.Workflow(sql.FieldContainsFold(FieldType, v))
+}
+
+// RoleSlugEQ applies the EQ predicate on the "role_slug" field.
+func RoleSlugEQ(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldEQ(FieldRoleSlug, v))
+}
+
+// RoleSlugNEQ applies the NEQ predicate on the "role_slug" field.
+func RoleSlugNEQ(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldNEQ(FieldRoleSlug, v))
+}
+
+// RoleSlugIn applies the In predicate on the "role_slug" field.
+func RoleSlugIn(vs ...string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldIn(FieldRoleSlug, vs...))
+}
+
+// RoleSlugNotIn applies the NotIn predicate on the "role_slug" field.
+func RoleSlugNotIn(vs ...string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldNotIn(FieldRoleSlug, vs...))
+}
+
+// RoleSlugGT applies the GT predicate on the "role_slug" field.
+func RoleSlugGT(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldGT(FieldRoleSlug, v))
+}
+
+// RoleSlugGTE applies the GTE predicate on the "role_slug" field.
+func RoleSlugGTE(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldGTE(FieldRoleSlug, v))
+}
+
+// RoleSlugLT applies the LT predicate on the "role_slug" field.
+func RoleSlugLT(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldLT(FieldRoleSlug, v))
+}
+
+// RoleSlugLTE applies the LTE predicate on the "role_slug" field.
+func RoleSlugLTE(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldLTE(FieldRoleSlug, v))
+}
+
+// RoleSlugContains applies the Contains predicate on the "role_slug" field.
+func RoleSlugContains(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldContains(FieldRoleSlug, v))
+}
+
+// RoleSlugHasPrefix applies the HasPrefix predicate on the "role_slug" field.
+func RoleSlugHasPrefix(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldHasPrefix(FieldRoleSlug, v))
+}
+
+// RoleSlugHasSuffix applies the HasSuffix predicate on the "role_slug" field.
+func RoleSlugHasSuffix(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldHasSuffix(FieldRoleSlug, v))
+}
+
+// RoleSlugIsNil applies the IsNil predicate on the "role_slug" field.
+func RoleSlugIsNil() predicate.Workflow {
+	return predicate.Workflow(sql.FieldIsNull(FieldRoleSlug))
+}
+
+// RoleSlugNotNil applies the NotNil predicate on the "role_slug" field.
+func RoleSlugNotNil() predicate.Workflow {
+	return predicate.Workflow(sql.FieldNotNull(FieldRoleSlug))
+}
+
+// RoleSlugEqualFold applies the EqualFold predicate on the "role_slug" field.
+func RoleSlugEqualFold(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldEqualFold(FieldRoleSlug, v))
+}
+
+// RoleSlugContainsFold applies the ContainsFold predicate on the "role_slug" field.
+func RoleSlugContainsFold(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldContainsFold(FieldRoleSlug, v))
+}
+
+// RoleNameEQ applies the EQ predicate on the "role_name" field.
+func RoleNameEQ(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldEQ(FieldRoleName, v))
+}
+
+// RoleNameNEQ applies the NEQ predicate on the "role_name" field.
+func RoleNameNEQ(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldNEQ(FieldRoleName, v))
+}
+
+// RoleNameIn applies the In predicate on the "role_name" field.
+func RoleNameIn(vs ...string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldIn(FieldRoleName, vs...))
+}
+
+// RoleNameNotIn applies the NotIn predicate on the "role_name" field.
+func RoleNameNotIn(vs ...string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldNotIn(FieldRoleName, vs...))
+}
+
+// RoleNameGT applies the GT predicate on the "role_name" field.
+func RoleNameGT(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldGT(FieldRoleName, v))
+}
+
+// RoleNameGTE applies the GTE predicate on the "role_name" field.
+func RoleNameGTE(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldGTE(FieldRoleName, v))
+}
+
+// RoleNameLT applies the LT predicate on the "role_name" field.
+func RoleNameLT(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldLT(FieldRoleName, v))
+}
+
+// RoleNameLTE applies the LTE predicate on the "role_name" field.
+func RoleNameLTE(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldLTE(FieldRoleName, v))
+}
+
+// RoleNameContains applies the Contains predicate on the "role_name" field.
+func RoleNameContains(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldContains(FieldRoleName, v))
+}
+
+// RoleNameHasPrefix applies the HasPrefix predicate on the "role_name" field.
+func RoleNameHasPrefix(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldHasPrefix(FieldRoleName, v))
+}
+
+// RoleNameHasSuffix applies the HasSuffix predicate on the "role_name" field.
+func RoleNameHasSuffix(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldHasSuffix(FieldRoleName, v))
+}
+
+// RoleNameIsNil applies the IsNil predicate on the "role_name" field.
+func RoleNameIsNil() predicate.Workflow {
+	return predicate.Workflow(sql.FieldIsNull(FieldRoleName))
+}
+
+// RoleNameNotNil applies the NotNil predicate on the "role_name" field.
+func RoleNameNotNil() predicate.Workflow {
+	return predicate.Workflow(sql.FieldNotNull(FieldRoleName))
+}
+
+// RoleNameEqualFold applies the EqualFold predicate on the "role_name" field.
+func RoleNameEqualFold(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldEqualFold(FieldRoleName, v))
+}
+
+// RoleNameContainsFold applies the ContainsFold predicate on the "role_name" field.
+func RoleNameContainsFold(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldContainsFold(FieldRoleName, v))
+}
+
+// RoleDescriptionEQ applies the EQ predicate on the "role_description" field.
+func RoleDescriptionEQ(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldEQ(FieldRoleDescription, v))
+}
+
+// RoleDescriptionNEQ applies the NEQ predicate on the "role_description" field.
+func RoleDescriptionNEQ(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldNEQ(FieldRoleDescription, v))
+}
+
+// RoleDescriptionIn applies the In predicate on the "role_description" field.
+func RoleDescriptionIn(vs ...string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldIn(FieldRoleDescription, vs...))
+}
+
+// RoleDescriptionNotIn applies the NotIn predicate on the "role_description" field.
+func RoleDescriptionNotIn(vs ...string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldNotIn(FieldRoleDescription, vs...))
+}
+
+// RoleDescriptionGT applies the GT predicate on the "role_description" field.
+func RoleDescriptionGT(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldGT(FieldRoleDescription, v))
+}
+
+// RoleDescriptionGTE applies the GTE predicate on the "role_description" field.
+func RoleDescriptionGTE(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldGTE(FieldRoleDescription, v))
+}
+
+// RoleDescriptionLT applies the LT predicate on the "role_description" field.
+func RoleDescriptionLT(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldLT(FieldRoleDescription, v))
+}
+
+// RoleDescriptionLTE applies the LTE predicate on the "role_description" field.
+func RoleDescriptionLTE(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldLTE(FieldRoleDescription, v))
+}
+
+// RoleDescriptionContains applies the Contains predicate on the "role_description" field.
+func RoleDescriptionContains(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldContains(FieldRoleDescription, v))
+}
+
+// RoleDescriptionHasPrefix applies the HasPrefix predicate on the "role_description" field.
+func RoleDescriptionHasPrefix(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldHasPrefix(FieldRoleDescription, v))
+}
+
+// RoleDescriptionHasSuffix applies the HasSuffix predicate on the "role_description" field.
+func RoleDescriptionHasSuffix(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldHasSuffix(FieldRoleDescription, v))
+}
+
+// RoleDescriptionIsNil applies the IsNil predicate on the "role_description" field.
+func RoleDescriptionIsNil() predicate.Workflow {
+	return predicate.Workflow(sql.FieldIsNull(FieldRoleDescription))
+}
+
+// RoleDescriptionNotNil applies the NotNil predicate on the "role_description" field.
+func RoleDescriptionNotNil() predicate.Workflow {
+	return predicate.Workflow(sql.FieldNotNull(FieldRoleDescription))
+}
+
+// RoleDescriptionEqualFold applies the EqualFold predicate on the "role_description" field.
+func RoleDescriptionEqualFold(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldEqualFold(FieldRoleDescription, v))
+}
+
+// RoleDescriptionContainsFold applies the ContainsFold predicate on the "role_description" field.
+func RoleDescriptionContainsFold(v string) predicate.Workflow {
+	return predicate.Workflow(sql.FieldContainsFold(FieldRoleDescription, v))
+}
+
+// PlatformAccessAllowedEQ applies the EQ predicate on the "platform_access_allowed" field.
+func PlatformAccessAllowedEQ(v pgarray.StringArray) predicate.Workflow {
+	return predicate.Workflow(sql.FieldEQ(FieldPlatformAccessAllowed, v))
+}
+
+// PlatformAccessAllowedNEQ applies the NEQ predicate on the "platform_access_allowed" field.
+func PlatformAccessAllowedNEQ(v pgarray.StringArray) predicate.Workflow {
+	return predicate.Workflow(sql.FieldNEQ(FieldPlatformAccessAllowed, v))
+}
+
+// PlatformAccessAllowedIn applies the In predicate on the "platform_access_allowed" field.
+func PlatformAccessAllowedIn(vs ...pgarray.StringArray) predicate.Workflow {
+	return predicate.Workflow(sql.FieldIn(FieldPlatformAccessAllowed, vs...))
+}
+
+// PlatformAccessAllowedNotIn applies the NotIn predicate on the "platform_access_allowed" field.
+func PlatformAccessAllowedNotIn(vs ...pgarray.StringArray) predicate.Workflow {
+	return predicate.Workflow(sql.FieldNotIn(FieldPlatformAccessAllowed, vs...))
+}
+
+// PlatformAccessAllowedGT applies the GT predicate on the "platform_access_allowed" field.
+func PlatformAccessAllowedGT(v pgarray.StringArray) predicate.Workflow {
+	return predicate.Workflow(sql.FieldGT(FieldPlatformAccessAllowed, v))
+}
+
+// PlatformAccessAllowedGTE applies the GTE predicate on the "platform_access_allowed" field.
+func PlatformAccessAllowedGTE(v pgarray.StringArray) predicate.Workflow {
+	return predicate.Workflow(sql.FieldGTE(FieldPlatformAccessAllowed, v))
+}
+
+// PlatformAccessAllowedLT applies the LT predicate on the "platform_access_allowed" field.
+func PlatformAccessAllowedLT(v pgarray.StringArray) predicate.Workflow {
+	return predicate.Workflow(sql.FieldLT(FieldPlatformAccessAllowed, v))
+}
+
+// PlatformAccessAllowedLTE applies the LTE predicate on the "platform_access_allowed" field.
+func PlatformAccessAllowedLTE(v pgarray.StringArray) predicate.Workflow {
+	return predicate.Workflow(sql.FieldLTE(FieldPlatformAccessAllowed, v))
+}
+
+// PlatformAccessAllowedIsNil applies the IsNil predicate on the "platform_access_allowed" field.
+func PlatformAccessAllowedIsNil() predicate.Workflow {
+	return predicate.Workflow(sql.FieldIsNull(FieldPlatformAccessAllowed))
+}
+
+// PlatformAccessAllowedNotNil applies the NotNil predicate on the "platform_access_allowed" field.
+func PlatformAccessAllowedNotNil() predicate.Workflow {
+	return predicate.Workflow(sql.FieldNotNull(FieldPlatformAccessAllowed))
 }
 
 // HarnessPathEQ applies the EQ predicate on the "harness_path" field.

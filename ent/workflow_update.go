@@ -20,6 +20,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -115,6 +116,78 @@ func (_u *WorkflowUpdate) SetNillableType(v *string) *WorkflowUpdate {
 	if v != nil {
 		_u.SetType(*v)
 	}
+	return _u
+}
+
+// SetRoleSlug sets the "role_slug" field.
+func (_u *WorkflowUpdate) SetRoleSlug(v string) *WorkflowUpdate {
+	_u.mutation.SetRoleSlug(v)
+	return _u
+}
+
+// SetNillableRoleSlug sets the "role_slug" field if the given value is not nil.
+func (_u *WorkflowUpdate) SetNillableRoleSlug(v *string) *WorkflowUpdate {
+	if v != nil {
+		_u.SetRoleSlug(*v)
+	}
+	return _u
+}
+
+// ClearRoleSlug clears the value of the "role_slug" field.
+func (_u *WorkflowUpdate) ClearRoleSlug() *WorkflowUpdate {
+	_u.mutation.ClearRoleSlug()
+	return _u
+}
+
+// SetRoleName sets the "role_name" field.
+func (_u *WorkflowUpdate) SetRoleName(v string) *WorkflowUpdate {
+	_u.mutation.SetRoleName(v)
+	return _u
+}
+
+// SetNillableRoleName sets the "role_name" field if the given value is not nil.
+func (_u *WorkflowUpdate) SetNillableRoleName(v *string) *WorkflowUpdate {
+	if v != nil {
+		_u.SetRoleName(*v)
+	}
+	return _u
+}
+
+// ClearRoleName clears the value of the "role_name" field.
+func (_u *WorkflowUpdate) ClearRoleName() *WorkflowUpdate {
+	_u.mutation.ClearRoleName()
+	return _u
+}
+
+// SetRoleDescription sets the "role_description" field.
+func (_u *WorkflowUpdate) SetRoleDescription(v string) *WorkflowUpdate {
+	_u.mutation.SetRoleDescription(v)
+	return _u
+}
+
+// SetNillableRoleDescription sets the "role_description" field if the given value is not nil.
+func (_u *WorkflowUpdate) SetNillableRoleDescription(v *string) *WorkflowUpdate {
+	if v != nil {
+		_u.SetRoleDescription(*v)
+	}
+	return _u
+}
+
+// ClearRoleDescription clears the value of the "role_description" field.
+func (_u *WorkflowUpdate) ClearRoleDescription() *WorkflowUpdate {
+	_u.mutation.ClearRoleDescription()
+	return _u
+}
+
+// SetPlatformAccessAllowed sets the "platform_access_allowed" field.
+func (_u *WorkflowUpdate) SetPlatformAccessAllowed(v pgarray.StringArray) *WorkflowUpdate {
+	_u.mutation.SetPlatformAccessAllowed(v)
+	return _u
+}
+
+// ClearPlatformAccessAllowed clears the value of the "platform_access_allowed" field.
+func (_u *WorkflowUpdate) ClearPlatformAccessAllowed() *WorkflowUpdate {
+	_u.mutation.ClearPlatformAccessAllowed()
 	return _u
 }
 
@@ -614,6 +687,30 @@ func (_u *WorkflowUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.GetType(); ok {
 		_spec.SetField(workflow.FieldType, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.RoleSlug(); ok {
+		_spec.SetField(workflow.FieldRoleSlug, field.TypeString, value)
+	}
+	if _u.mutation.RoleSlugCleared() {
+		_spec.ClearField(workflow.FieldRoleSlug, field.TypeString)
+	}
+	if value, ok := _u.mutation.RoleName(); ok {
+		_spec.SetField(workflow.FieldRoleName, field.TypeString, value)
+	}
+	if _u.mutation.RoleNameCleared() {
+		_spec.ClearField(workflow.FieldRoleName, field.TypeString)
+	}
+	if value, ok := _u.mutation.RoleDescription(); ok {
+		_spec.SetField(workflow.FieldRoleDescription, field.TypeString, value)
+	}
+	if _u.mutation.RoleDescriptionCleared() {
+		_spec.ClearField(workflow.FieldRoleDescription, field.TypeString)
+	}
+	if value, ok := _u.mutation.PlatformAccessAllowed(); ok {
+		_spec.SetField(workflow.FieldPlatformAccessAllowed, field.TypeOther, value)
+	}
+	if _u.mutation.PlatformAccessAllowedCleared() {
+		_spec.ClearField(workflow.FieldPlatformAccessAllowed, field.TypeOther)
 	}
 	if value, ok := _u.mutation.HarnessPath(); ok {
 		_spec.SetField(workflow.FieldHarnessPath, field.TypeString, value)
@@ -1158,6 +1255,78 @@ func (_u *WorkflowUpdateOne) SetNillableType(v *string) *WorkflowUpdateOne {
 	return _u
 }
 
+// SetRoleSlug sets the "role_slug" field.
+func (_u *WorkflowUpdateOne) SetRoleSlug(v string) *WorkflowUpdateOne {
+	_u.mutation.SetRoleSlug(v)
+	return _u
+}
+
+// SetNillableRoleSlug sets the "role_slug" field if the given value is not nil.
+func (_u *WorkflowUpdateOne) SetNillableRoleSlug(v *string) *WorkflowUpdateOne {
+	if v != nil {
+		_u.SetRoleSlug(*v)
+	}
+	return _u
+}
+
+// ClearRoleSlug clears the value of the "role_slug" field.
+func (_u *WorkflowUpdateOne) ClearRoleSlug() *WorkflowUpdateOne {
+	_u.mutation.ClearRoleSlug()
+	return _u
+}
+
+// SetRoleName sets the "role_name" field.
+func (_u *WorkflowUpdateOne) SetRoleName(v string) *WorkflowUpdateOne {
+	_u.mutation.SetRoleName(v)
+	return _u
+}
+
+// SetNillableRoleName sets the "role_name" field if the given value is not nil.
+func (_u *WorkflowUpdateOne) SetNillableRoleName(v *string) *WorkflowUpdateOne {
+	if v != nil {
+		_u.SetRoleName(*v)
+	}
+	return _u
+}
+
+// ClearRoleName clears the value of the "role_name" field.
+func (_u *WorkflowUpdateOne) ClearRoleName() *WorkflowUpdateOne {
+	_u.mutation.ClearRoleName()
+	return _u
+}
+
+// SetRoleDescription sets the "role_description" field.
+func (_u *WorkflowUpdateOne) SetRoleDescription(v string) *WorkflowUpdateOne {
+	_u.mutation.SetRoleDescription(v)
+	return _u
+}
+
+// SetNillableRoleDescription sets the "role_description" field if the given value is not nil.
+func (_u *WorkflowUpdateOne) SetNillableRoleDescription(v *string) *WorkflowUpdateOne {
+	if v != nil {
+		_u.SetRoleDescription(*v)
+	}
+	return _u
+}
+
+// ClearRoleDescription clears the value of the "role_description" field.
+func (_u *WorkflowUpdateOne) ClearRoleDescription() *WorkflowUpdateOne {
+	_u.mutation.ClearRoleDescription()
+	return _u
+}
+
+// SetPlatformAccessAllowed sets the "platform_access_allowed" field.
+func (_u *WorkflowUpdateOne) SetPlatformAccessAllowed(v pgarray.StringArray) *WorkflowUpdateOne {
+	_u.mutation.SetPlatformAccessAllowed(v)
+	return _u
+}
+
+// ClearPlatformAccessAllowed clears the value of the "platform_access_allowed" field.
+func (_u *WorkflowUpdateOne) ClearPlatformAccessAllowed() *WorkflowUpdateOne {
+	_u.mutation.ClearPlatformAccessAllowed()
+	return _u
+}
+
 // SetHarnessPath sets the "harness_path" field.
 func (_u *WorkflowUpdateOne) SetHarnessPath(v string) *WorkflowUpdateOne {
 	_u.mutation.SetHarnessPath(v)
@@ -1684,6 +1853,30 @@ func (_u *WorkflowUpdateOne) sqlSave(ctx context.Context) (_node *Workflow, err 
 	}
 	if value, ok := _u.mutation.GetType(); ok {
 		_spec.SetField(workflow.FieldType, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.RoleSlug(); ok {
+		_spec.SetField(workflow.FieldRoleSlug, field.TypeString, value)
+	}
+	if _u.mutation.RoleSlugCleared() {
+		_spec.ClearField(workflow.FieldRoleSlug, field.TypeString)
+	}
+	if value, ok := _u.mutation.RoleName(); ok {
+		_spec.SetField(workflow.FieldRoleName, field.TypeString, value)
+	}
+	if _u.mutation.RoleNameCleared() {
+		_spec.ClearField(workflow.FieldRoleName, field.TypeString)
+	}
+	if value, ok := _u.mutation.RoleDescription(); ok {
+		_spec.SetField(workflow.FieldRoleDescription, field.TypeString, value)
+	}
+	if _u.mutation.RoleDescriptionCleared() {
+		_spec.ClearField(workflow.FieldRoleDescription, field.TypeString)
+	}
+	if value, ok := _u.mutation.PlatformAccessAllowed(); ok {
+		_spec.SetField(workflow.FieldPlatformAccessAllowed, field.TypeOther, value)
+	}
+	if _u.mutation.PlatformAccessAllowedCleared() {
+		_spec.ClearField(workflow.FieldPlatformAccessAllowed, field.TypeOther)
 	}
 	if value, ok := _u.mutation.HarnessPath(); ok {
 		_spec.SetField(workflow.FieldHarnessPath, field.TypeString, value)

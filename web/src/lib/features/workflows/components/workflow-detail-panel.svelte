@@ -1,9 +1,6 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
-  import { Input } from '$ui/input'
-  import { Label } from '$ui/label'
   import { Separator } from '$ui/separator'
-  import * as Select from '$ui/select'
   import { Clock3, Layers3, RotateCcw } from '@lucide/svelte'
   import type { WorkflowAgentOption, WorkflowStatusOption, WorkflowSummary } from '../types'
   import {
@@ -19,12 +16,10 @@
     validateWorkflowHooksDraft,
     type WorkflowHooksDraft,
   } from '../workflow-hooks'
-  import WorkflowAgentBindingCard from './workflow-agent-binding-card.svelte'
-  import WorkflowAgentSelectOption from './workflow-agent-select-option.svelte'
-  import WorkflowAgentSelectTrigger from './workflow-agent-select-trigger.svelte'
   import WorkflowDetailActions from './workflow-detail-actions.svelte'
   import WorkflowDetailHeader from './workflow-detail-header.svelte'
   import WorkflowDetailHistorySection from './workflow-detail-history-section.svelte'
+  import WorkflowDetailIdentitySection from './workflow-detail-identity-section.svelte'
   import WorkflowDetailHooksSection from './workflow-detail-hooks-section.svelte'
   import WorkflowNumberField from './workflow-number-field.svelte'
   import {
@@ -56,6 +51,10 @@
     agentId: '',
     name: '',
     typeLabel: '',
+    roleSlug: '',
+    roleName: '',
+    roleDescription: '',
+    platformAccessAllowed: '',
     pickupStatusIds: [],
     finishStatusIds: [],
     maxConcurrent: '',
@@ -142,59 +141,14 @@
 
   <form class="flex flex-1 flex-col" onsubmit={handleSubmit}>
     <div class="flex-1 space-y-6 px-4 py-4">
-      <div class="space-y-1.5">
-        <Label
-          for="workflow-name"
-          class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Name</Label
-        >
-        <Input
-          id="workflow-name"
-          value={draft.name}
-          disabled={saving || deleting}
-          oninput={(event) =>
-            updateDraftField('name', (event.currentTarget as HTMLInputElement).value)}
-        />
-      </div>
-
-      <div class="space-y-1.5">
-        <Label
-          for="workflow-type-label"
-          class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
-          >Type Label</Label
-        >
-        <Input
-          id="workflow-type-label"
-          value={draft.typeLabel}
-          disabled={saving || deleting}
-          oninput={(event) =>
-            updateDraftField('typeLabel', (event.currentTarget as HTMLInputElement).value)}
-        />
-      </div>
-
-      <div class="space-y-1.5">
-        <Label class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
-          >Bound Agent</Label
-        >
-        <Select.Root
-          type="single"
-          value={draft.agentId}
-          disabled={saving || deleting || agentOptions.length === 0}
-          onValueChange={(value) => updateDraftField('agentId', value || '')}
-        >
-          <Select.Trigger class="h-auto w-full py-2">
-            <WorkflowAgentSelectTrigger {selectedAgent} />
-          </Select.Trigger>
-          <Select.Content>
-            {#each agentOptions as option (option.id)}
-              <Select.Item value={option.id}>
-                <WorkflowAgentSelectOption {option} />
-              </Select.Item>
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      </div>
-
-      <WorkflowAgentBindingCard {selectedAgent} />
+      <WorkflowDetailIdentitySection
+        {draft}
+        {saving}
+        {deleting}
+        {agentOptions}
+        {selectedAgent}
+        onFieldChange={(field, value) => updateDraftField(field, value)}
+      />
 
       <Separator />
 

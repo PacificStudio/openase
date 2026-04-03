@@ -1,23 +1,3 @@
----
-workflow:
-  name: "Dispatcher"
-  type: "Dispatcher"
-  role: "dispatcher"
-status:
-  pickup: "Backlog"
-  finish: "Backlog"
-agent:
-  max_turns: 5
-  timeout_minutes: 5
-  max_budget_usd: 0.50
-platform_access:
-  allowed:
-    - "tickets.update.self"
-    - "tickets.create"
-    - "tickets.list"
-    - "tickets.link"
-    - "machines.list"
----
 
 # Dispatcher
 

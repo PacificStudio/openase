@@ -1,15 +1,3 @@
----
-workflow:
-  name: "Experiment Runner"
-  type: "Experiment Runner"
-  role: "experiment-runner"
-status:
-  pickup: "Todo"
-  finish: "Done"
-skills:
-  - openase-platform
-  - write-test
----
 
 # Experiment Runner
 

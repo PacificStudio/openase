@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/nikolalohinski/gonja/v2"
 	"github.com/nikolalohinski/gonja/v2/exec"
-	"go.yaml.in/yaml/v3"
 )
 
 type BuildHarnessTemplateDataInput = domain.BuildHarnessTemplateDataInput
@@ -61,15 +60,15 @@ func init() {
 }
 
 func RenderHarnessBody(content string, data HarnessTemplateData) (string, error) {
-	_, body, err := extractHarnessFrontmatter(content)
-	if err != nil {
-		return "", fmt.Errorf("%w: %s", ErrHarnessInvalid, err)
-	}
-	if strings.TrimSpace(body) == "" {
+	normalized := normalizeHarnessNewlines(content)
+	if strings.TrimSpace(normalized) == "" {
 		return "", nil
 	}
+	if err := validateHarnessForSave(normalized); err != nil {
+		return "", err
+	}
 
-	template, err := gonja.FromString(body)
+	template, err := gonja.FromString(normalized)
 	if err != nil {
 		return "", fmt.Errorf("%w: %s", ErrHarnessInvalid, err)
 	}
@@ -398,57 +397,6 @@ func resolveRepoPath(workspaceDirname string, workspace string, repoName string)
 		return ""
 	}
 	return filepath.ToSlash(filepath.Join(workspace, repoName))
-}
-
-func extractWorkflowRoleName(content string, fallback string) string {
-	frontmatter, _, err := extractHarnessFrontmatter(content)
-	if err != nil {
-		return fallback
-	}
-
-	var document struct {
-		Workflow map[string]any `yaml:"workflow"`
-	}
-	if err := yaml.Unmarshal([]byte(frontmatter), &document); err != nil {
-		return fallback
-	}
-
-	for _, key := range []string{"role_name", "role", "name"} {
-		value, ok := document.Workflow[key]
-		if !ok {
-			continue
-		}
-		text, ok := value.(string)
-		if ok && strings.TrimSpace(text) != "" {
-			return strings.TrimSpace(text)
-		}
-	}
-
-	return fallback
-}
-
-func extractWorkflowRoleDescription(content string) string {
-	_, body, err := extractHarnessFrontmatter(content)
-	if err != nil {
-		return ""
-	}
-
-	var paragraph []string
-	for _, line := range strings.Split(body, "\n") {
-		trimmed := strings.TrimSpace(line)
-		switch {
-		case trimmed == "":
-			if len(paragraph) > 0 {
-				return strings.Join(paragraph, " ")
-			}
-		case strings.HasPrefix(trimmed, "#"):
-			continue
-		default:
-			paragraph = append(paragraph, trimmed)
-		}
-	}
-
-	return strings.Join(paragraph, " ")
 }
 
 func cloneHarnessMachine(machine HarnessMachineData) HarnessMachineData {

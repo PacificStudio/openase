@@ -1,17 +1,3 @@
----
-workflow:
-  name: "Fullstack Developer"
-  type: "Fullstack Developer"
-  role: "fullstack-developer"
-status:
-  pickup: "Todo"
-  finish: "Done"
-skills:
-  - openase-platform
-  - pull
-  - commit
-  - push
----
 
 # Fullstack Developer
 

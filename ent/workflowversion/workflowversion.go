@@ -21,6 +21,36 @@ const (
 	FieldVersion = "version"
 	// FieldContentMarkdown holds the string denoting the content_markdown field in the database.
 	FieldContentMarkdown = "content_markdown"
+	// FieldName holds the string denoting the name field in the database.
+	FieldName = "name"
+	// FieldType holds the string denoting the type field in the database.
+	FieldType = "type"
+	// FieldRoleSlug holds the string denoting the role_slug field in the database.
+	FieldRoleSlug = "role_slug"
+	// FieldRoleName holds the string denoting the role_name field in the database.
+	FieldRoleName = "role_name"
+	// FieldRoleDescription holds the string denoting the role_description field in the database.
+	FieldRoleDescription = "role_description"
+	// FieldPickupStatusIds holds the string denoting the pickup_status_ids field in the database.
+	FieldPickupStatusIds = "pickup_status_ids"
+	// FieldFinishStatusIds holds the string denoting the finish_status_ids field in the database.
+	FieldFinishStatusIds = "finish_status_ids"
+	// FieldHarnessPath holds the string denoting the harness_path field in the database.
+	FieldHarnessPath = "harness_path"
+	// FieldHooks holds the string denoting the hooks field in the database.
+	FieldHooks = "hooks"
+	// FieldPlatformAccessAllowed holds the string denoting the platform_access_allowed field in the database.
+	FieldPlatformAccessAllowed = "platform_access_allowed"
+	// FieldMaxConcurrent holds the string denoting the max_concurrent field in the database.
+	FieldMaxConcurrent = "max_concurrent"
+	// FieldMaxRetryAttempts holds the string denoting the max_retry_attempts field in the database.
+	FieldMaxRetryAttempts = "max_retry_attempts"
+	// FieldTimeoutMinutes holds the string denoting the timeout_minutes field in the database.
+	FieldTimeoutMinutes = "timeout_minutes"
+	// FieldStallTimeoutMinutes holds the string denoting the stall_timeout_minutes field in the database.
+	FieldStallTimeoutMinutes = "stall_timeout_minutes"
+	// FieldIsActive holds the string denoting the is_active field in the database.
+	FieldIsActive = "is_active"
 	// FieldContentHash holds the string denoting the content_hash field in the database.
 	FieldContentHash = "content_hash"
 	// FieldCreatedBy holds the string denoting the created_by field in the database.
@@ -55,6 +85,21 @@ var Columns = []string{
 	FieldWorkflowID,
 	FieldVersion,
 	FieldContentMarkdown,
+	FieldName,
+	FieldType,
+	FieldRoleSlug,
+	FieldRoleName,
+	FieldRoleDescription,
+	FieldPickupStatusIds,
+	FieldFinishStatusIds,
+	FieldHarnessPath,
+	FieldHooks,
+	FieldPlatformAccessAllowed,
+	FieldMaxConcurrent,
+	FieldMaxRetryAttempts,
+	FieldTimeoutMinutes,
+	FieldStallTimeoutMinutes,
+	FieldIsActive,
 	FieldContentHash,
 	FieldCreatedBy,
 	FieldCreatedAt,
@@ -71,6 +116,24 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// NameValidator is a validator for the "name" field. It is called by the builders before save.
+	NameValidator func(string) error
+	// TypeValidator is a validator for the "type" field. It is called by the builders before save.
+	TypeValidator func(string) error
+	// HarnessPathValidator is a validator for the "harness_path" field. It is called by the builders before save.
+	HarnessPathValidator func(string) error
+	// DefaultHooks holds the default value on creation for the "hooks" field.
+	DefaultHooks func() map[string]interface{}
+	// DefaultMaxConcurrent holds the default value on creation for the "max_concurrent" field.
+	DefaultMaxConcurrent int
+	// DefaultMaxRetryAttempts holds the default value on creation for the "max_retry_attempts" field.
+	DefaultMaxRetryAttempts int
+	// DefaultTimeoutMinutes holds the default value on creation for the "timeout_minutes" field.
+	DefaultTimeoutMinutes int
+	// DefaultStallTimeoutMinutes holds the default value on creation for the "stall_timeout_minutes" field.
+	DefaultStallTimeoutMinutes int
+	// DefaultIsActive holds the default value on creation for the "is_active" field.
+	DefaultIsActive bool
 	// ContentHashValidator is a validator for the "content_hash" field. It is called by the builders before save.
 	ContentHashValidator func(string) error
 	// DefaultCreatedBy holds the default value on creation for the "created_by" field.
@@ -102,6 +165,76 @@ func ByVersion(opts ...sql.OrderTermOption) OrderOption {
 // ByContentMarkdown orders the results by the content_markdown field.
 func ByContentMarkdown(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldContentMarkdown, opts...).ToFunc()
+}
+
+// ByName orders the results by the name field.
+func ByName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldName, opts...).ToFunc()
+}
+
+// ByType orders the results by the type field.
+func ByType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldType, opts...).ToFunc()
+}
+
+// ByRoleSlug orders the results by the role_slug field.
+func ByRoleSlug(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRoleSlug, opts...).ToFunc()
+}
+
+// ByRoleName orders the results by the role_name field.
+func ByRoleName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRoleName, opts...).ToFunc()
+}
+
+// ByRoleDescription orders the results by the role_description field.
+func ByRoleDescription(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRoleDescription, opts...).ToFunc()
+}
+
+// ByPickupStatusIds orders the results by the pickup_status_ids field.
+func ByPickupStatusIds(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPickupStatusIds, opts...).ToFunc()
+}
+
+// ByFinishStatusIds orders the results by the finish_status_ids field.
+func ByFinishStatusIds(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFinishStatusIds, opts...).ToFunc()
+}
+
+// ByHarnessPath orders the results by the harness_path field.
+func ByHarnessPath(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldHarnessPath, opts...).ToFunc()
+}
+
+// ByPlatformAccessAllowed orders the results by the platform_access_allowed field.
+func ByPlatformAccessAllowed(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPlatformAccessAllowed, opts...).ToFunc()
+}
+
+// ByMaxConcurrent orders the results by the max_concurrent field.
+func ByMaxConcurrent(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMaxConcurrent, opts...).ToFunc()
+}
+
+// ByMaxRetryAttempts orders the results by the max_retry_attempts field.
+func ByMaxRetryAttempts(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMaxRetryAttempts, opts...).ToFunc()
+}
+
+// ByTimeoutMinutes orders the results by the timeout_minutes field.
+func ByTimeoutMinutes(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTimeoutMinutes, opts...).ToFunc()
+}
+
+// ByStallTimeoutMinutes orders the results by the stall_timeout_minutes field.
+func ByStallTimeoutMinutes(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStallTimeoutMinutes, opts...).ToFunc()
+}
+
+// ByIsActive orders the results by the is_active field.
+func ByIsActive(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIsActive, opts...).ToFunc()
 }
 
 // ByContentHash orders the results by the content_hash field.

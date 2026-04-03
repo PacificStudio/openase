@@ -14,6 +14,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -75,6 +76,248 @@ func (_u *WorkflowVersionUpdate) SetContentMarkdown(v string) *WorkflowVersionUp
 func (_u *WorkflowVersionUpdate) SetNillableContentMarkdown(v *string) *WorkflowVersionUpdate {
 	if v != nil {
 		_u.SetContentMarkdown(*v)
+	}
+	return _u
+}
+
+// SetName sets the "name" field.
+func (_u *WorkflowVersionUpdate) SetName(v string) *WorkflowVersionUpdate {
+	_u.mutation.SetName(v)
+	return _u
+}
+
+// SetNillableName sets the "name" field if the given value is not nil.
+func (_u *WorkflowVersionUpdate) SetNillableName(v *string) *WorkflowVersionUpdate {
+	if v != nil {
+		_u.SetName(*v)
+	}
+	return _u
+}
+
+// SetType sets the "type" field.
+func (_u *WorkflowVersionUpdate) SetType(v string) *WorkflowVersionUpdate {
+	_u.mutation.SetType(v)
+	return _u
+}
+
+// SetNillableType sets the "type" field if the given value is not nil.
+func (_u *WorkflowVersionUpdate) SetNillableType(v *string) *WorkflowVersionUpdate {
+	if v != nil {
+		_u.SetType(*v)
+	}
+	return _u
+}
+
+// SetRoleSlug sets the "role_slug" field.
+func (_u *WorkflowVersionUpdate) SetRoleSlug(v string) *WorkflowVersionUpdate {
+	_u.mutation.SetRoleSlug(v)
+	return _u
+}
+
+// SetNillableRoleSlug sets the "role_slug" field if the given value is not nil.
+func (_u *WorkflowVersionUpdate) SetNillableRoleSlug(v *string) *WorkflowVersionUpdate {
+	if v != nil {
+		_u.SetRoleSlug(*v)
+	}
+	return _u
+}
+
+// ClearRoleSlug clears the value of the "role_slug" field.
+func (_u *WorkflowVersionUpdate) ClearRoleSlug() *WorkflowVersionUpdate {
+	_u.mutation.ClearRoleSlug()
+	return _u
+}
+
+// SetRoleName sets the "role_name" field.
+func (_u *WorkflowVersionUpdate) SetRoleName(v string) *WorkflowVersionUpdate {
+	_u.mutation.SetRoleName(v)
+	return _u
+}
+
+// SetNillableRoleName sets the "role_name" field if the given value is not nil.
+func (_u *WorkflowVersionUpdate) SetNillableRoleName(v *string) *WorkflowVersionUpdate {
+	if v != nil {
+		_u.SetRoleName(*v)
+	}
+	return _u
+}
+
+// ClearRoleName clears the value of the "role_name" field.
+func (_u *WorkflowVersionUpdate) ClearRoleName() *WorkflowVersionUpdate {
+	_u.mutation.ClearRoleName()
+	return _u
+}
+
+// SetRoleDescription sets the "role_description" field.
+func (_u *WorkflowVersionUpdate) SetRoleDescription(v string) *WorkflowVersionUpdate {
+	_u.mutation.SetRoleDescription(v)
+	return _u
+}
+
+// SetNillableRoleDescription sets the "role_description" field if the given value is not nil.
+func (_u *WorkflowVersionUpdate) SetNillableRoleDescription(v *string) *WorkflowVersionUpdate {
+	if v != nil {
+		_u.SetRoleDescription(*v)
+	}
+	return _u
+}
+
+// ClearRoleDescription clears the value of the "role_description" field.
+func (_u *WorkflowVersionUpdate) ClearRoleDescription() *WorkflowVersionUpdate {
+	_u.mutation.ClearRoleDescription()
+	return _u
+}
+
+// SetPickupStatusIds sets the "pickup_status_ids" field.
+func (_u *WorkflowVersionUpdate) SetPickupStatusIds(v pgarray.StringArray) *WorkflowVersionUpdate {
+	_u.mutation.SetPickupStatusIds(v)
+	return _u
+}
+
+// ClearPickupStatusIds clears the value of the "pickup_status_ids" field.
+func (_u *WorkflowVersionUpdate) ClearPickupStatusIds() *WorkflowVersionUpdate {
+	_u.mutation.ClearPickupStatusIds()
+	return _u
+}
+
+// SetFinishStatusIds sets the "finish_status_ids" field.
+func (_u *WorkflowVersionUpdate) SetFinishStatusIds(v pgarray.StringArray) *WorkflowVersionUpdate {
+	_u.mutation.SetFinishStatusIds(v)
+	return _u
+}
+
+// ClearFinishStatusIds clears the value of the "finish_status_ids" field.
+func (_u *WorkflowVersionUpdate) ClearFinishStatusIds() *WorkflowVersionUpdate {
+	_u.mutation.ClearFinishStatusIds()
+	return _u
+}
+
+// SetHarnessPath sets the "harness_path" field.
+func (_u *WorkflowVersionUpdate) SetHarnessPath(v string) *WorkflowVersionUpdate {
+	_u.mutation.SetHarnessPath(v)
+	return _u
+}
+
+// SetNillableHarnessPath sets the "harness_path" field if the given value is not nil.
+func (_u *WorkflowVersionUpdate) SetNillableHarnessPath(v *string) *WorkflowVersionUpdate {
+	if v != nil {
+		_u.SetHarnessPath(*v)
+	}
+	return _u
+}
+
+// SetHooks sets the "hooks" field.
+func (_u *WorkflowVersionUpdate) SetHooks(v map[string]interface{}) *WorkflowVersionUpdate {
+	_u.mutation.SetHooks(v)
+	return _u
+}
+
+// SetPlatformAccessAllowed sets the "platform_access_allowed" field.
+func (_u *WorkflowVersionUpdate) SetPlatformAccessAllowed(v pgarray.StringArray) *WorkflowVersionUpdate {
+	_u.mutation.SetPlatformAccessAllowed(v)
+	return _u
+}
+
+// ClearPlatformAccessAllowed clears the value of the "platform_access_allowed" field.
+func (_u *WorkflowVersionUpdate) ClearPlatformAccessAllowed() *WorkflowVersionUpdate {
+	_u.mutation.ClearPlatformAccessAllowed()
+	return _u
+}
+
+// SetMaxConcurrent sets the "max_concurrent" field.
+func (_u *WorkflowVersionUpdate) SetMaxConcurrent(v int) *WorkflowVersionUpdate {
+	_u.mutation.ResetMaxConcurrent()
+	_u.mutation.SetMaxConcurrent(v)
+	return _u
+}
+
+// SetNillableMaxConcurrent sets the "max_concurrent" field if the given value is not nil.
+func (_u *WorkflowVersionUpdate) SetNillableMaxConcurrent(v *int) *WorkflowVersionUpdate {
+	if v != nil {
+		_u.SetMaxConcurrent(*v)
+	}
+	return _u
+}
+
+// AddMaxConcurrent adds value to the "max_concurrent" field.
+func (_u *WorkflowVersionUpdate) AddMaxConcurrent(v int) *WorkflowVersionUpdate {
+	_u.mutation.AddMaxConcurrent(v)
+	return _u
+}
+
+// SetMaxRetryAttempts sets the "max_retry_attempts" field.
+func (_u *WorkflowVersionUpdate) SetMaxRetryAttempts(v int) *WorkflowVersionUpdate {
+	_u.mutation.ResetMaxRetryAttempts()
+	_u.mutation.SetMaxRetryAttempts(v)
+	return _u
+}
+
+// SetNillableMaxRetryAttempts sets the "max_retry_attempts" field if the given value is not nil.
+func (_u *WorkflowVersionUpdate) SetNillableMaxRetryAttempts(v *int) *WorkflowVersionUpdate {
+	if v != nil {
+		_u.SetMaxRetryAttempts(*v)
+	}
+	return _u
+}
+
+// AddMaxRetryAttempts adds value to the "max_retry_attempts" field.
+func (_u *WorkflowVersionUpdate) AddMaxRetryAttempts(v int) *WorkflowVersionUpdate {
+	_u.mutation.AddMaxRetryAttempts(v)
+	return _u
+}
+
+// SetTimeoutMinutes sets the "timeout_minutes" field.
+func (_u *WorkflowVersionUpdate) SetTimeoutMinutes(v int) *WorkflowVersionUpdate {
+	_u.mutation.ResetTimeoutMinutes()
+	_u.mutation.SetTimeoutMinutes(v)
+	return _u
+}
+
+// SetNillableTimeoutMinutes sets the "timeout_minutes" field if the given value is not nil.
+func (_u *WorkflowVersionUpdate) SetNillableTimeoutMinutes(v *int) *WorkflowVersionUpdate {
+	if v != nil {
+		_u.SetTimeoutMinutes(*v)
+	}
+	return _u
+}
+
+// AddTimeoutMinutes adds value to the "timeout_minutes" field.
+func (_u *WorkflowVersionUpdate) AddTimeoutMinutes(v int) *WorkflowVersionUpdate {
+	_u.mutation.AddTimeoutMinutes(v)
+	return _u
+}
+
+// SetStallTimeoutMinutes sets the "stall_timeout_minutes" field.
+func (_u *WorkflowVersionUpdate) SetStallTimeoutMinutes(v int) *WorkflowVersionUpdate {
+	_u.mutation.ResetStallTimeoutMinutes()
+	_u.mutation.SetStallTimeoutMinutes(v)
+	return _u
+}
+
+// SetNillableStallTimeoutMinutes sets the "stall_timeout_minutes" field if the given value is not nil.
+func (_u *WorkflowVersionUpdate) SetNillableStallTimeoutMinutes(v *int) *WorkflowVersionUpdate {
+	if v != nil {
+		_u.SetStallTimeoutMinutes(*v)
+	}
+	return _u
+}
+
+// AddStallTimeoutMinutes adds value to the "stall_timeout_minutes" field.
+func (_u *WorkflowVersionUpdate) AddStallTimeoutMinutes(v int) *WorkflowVersionUpdate {
+	_u.mutation.AddStallTimeoutMinutes(v)
+	return _u
+}
+
+// SetIsActive sets the "is_active" field.
+func (_u *WorkflowVersionUpdate) SetIsActive(v bool) *WorkflowVersionUpdate {
+	_u.mutation.SetIsActive(v)
+	return _u
+}
+
+// SetNillableIsActive sets the "is_active" field if the given value is not nil.
+func (_u *WorkflowVersionUpdate) SetNillableIsActive(v *bool) *WorkflowVersionUpdate {
+	if v != nil {
+		_u.SetIsActive(*v)
 	}
 	return _u
 }
@@ -188,6 +431,21 @@ func (_u *WorkflowVersionUpdate) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *WorkflowVersionUpdate) check() error {
+	if v, ok := _u.mutation.Name(); ok {
+		if err := workflowversion.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "WorkflowVersion.name": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.GetType(); ok {
+		if err := workflowversion.TypeValidator(v); err != nil {
+			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "WorkflowVersion.type": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.HarnessPath(); ok {
+		if err := workflowversion.HarnessPathValidator(v); err != nil {
+			return &ValidationError{Name: "harness_path", err: fmt.Errorf(`ent: validator failed for field "WorkflowVersion.harness_path": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.ContentHash(); ok {
 		if err := workflowversion.ContentHashValidator(v); err != nil {
 			return &ValidationError{Name: "content_hash", err: fmt.Errorf(`ent: validator failed for field "WorkflowVersion.content_hash": %w`, err)}
@@ -219,6 +477,81 @@ func (_u *WorkflowVersionUpdate) sqlSave(ctx context.Context) (_node int, err er
 	}
 	if value, ok := _u.mutation.ContentMarkdown(); ok {
 		_spec.SetField(workflowversion.FieldContentMarkdown, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Name(); ok {
+		_spec.SetField(workflowversion.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.GetType(); ok {
+		_spec.SetField(workflowversion.FieldType, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.RoleSlug(); ok {
+		_spec.SetField(workflowversion.FieldRoleSlug, field.TypeString, value)
+	}
+	if _u.mutation.RoleSlugCleared() {
+		_spec.ClearField(workflowversion.FieldRoleSlug, field.TypeString)
+	}
+	if value, ok := _u.mutation.RoleName(); ok {
+		_spec.SetField(workflowversion.FieldRoleName, field.TypeString, value)
+	}
+	if _u.mutation.RoleNameCleared() {
+		_spec.ClearField(workflowversion.FieldRoleName, field.TypeString)
+	}
+	if value, ok := _u.mutation.RoleDescription(); ok {
+		_spec.SetField(workflowversion.FieldRoleDescription, field.TypeString, value)
+	}
+	if _u.mutation.RoleDescriptionCleared() {
+		_spec.ClearField(workflowversion.FieldRoleDescription, field.TypeString)
+	}
+	if value, ok := _u.mutation.PickupStatusIds(); ok {
+		_spec.SetField(workflowversion.FieldPickupStatusIds, field.TypeOther, value)
+	}
+	if _u.mutation.PickupStatusIdsCleared() {
+		_spec.ClearField(workflowversion.FieldPickupStatusIds, field.TypeOther)
+	}
+	if value, ok := _u.mutation.FinishStatusIds(); ok {
+		_spec.SetField(workflowversion.FieldFinishStatusIds, field.TypeOther, value)
+	}
+	if _u.mutation.FinishStatusIdsCleared() {
+		_spec.ClearField(workflowversion.FieldFinishStatusIds, field.TypeOther)
+	}
+	if value, ok := _u.mutation.HarnessPath(); ok {
+		_spec.SetField(workflowversion.FieldHarnessPath, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Hooks(); ok {
+		_spec.SetField(workflowversion.FieldHooks, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.PlatformAccessAllowed(); ok {
+		_spec.SetField(workflowversion.FieldPlatformAccessAllowed, field.TypeOther, value)
+	}
+	if _u.mutation.PlatformAccessAllowedCleared() {
+		_spec.ClearField(workflowversion.FieldPlatformAccessAllowed, field.TypeOther)
+	}
+	if value, ok := _u.mutation.MaxConcurrent(); ok {
+		_spec.SetField(workflowversion.FieldMaxConcurrent, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedMaxConcurrent(); ok {
+		_spec.AddField(workflowversion.FieldMaxConcurrent, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.MaxRetryAttempts(); ok {
+		_spec.SetField(workflowversion.FieldMaxRetryAttempts, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedMaxRetryAttempts(); ok {
+		_spec.AddField(workflowversion.FieldMaxRetryAttempts, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.TimeoutMinutes(); ok {
+		_spec.SetField(workflowversion.FieldTimeoutMinutes, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedTimeoutMinutes(); ok {
+		_spec.AddField(workflowversion.FieldTimeoutMinutes, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.StallTimeoutMinutes(); ok {
+		_spec.SetField(workflowversion.FieldStallTimeoutMinutes, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedStallTimeoutMinutes(); ok {
+		_spec.AddField(workflowversion.FieldStallTimeoutMinutes, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.IsActive(); ok {
+		_spec.SetField(workflowversion.FieldIsActive, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.ContentHash(); ok {
 		_spec.SetField(workflowversion.FieldContentHash, field.TypeString, value)
@@ -369,6 +702,248 @@ func (_u *WorkflowVersionUpdateOne) SetNillableContentMarkdown(v *string) *Workf
 	return _u
 }
 
+// SetName sets the "name" field.
+func (_u *WorkflowVersionUpdateOne) SetName(v string) *WorkflowVersionUpdateOne {
+	_u.mutation.SetName(v)
+	return _u
+}
+
+// SetNillableName sets the "name" field if the given value is not nil.
+func (_u *WorkflowVersionUpdateOne) SetNillableName(v *string) *WorkflowVersionUpdateOne {
+	if v != nil {
+		_u.SetName(*v)
+	}
+	return _u
+}
+
+// SetType sets the "type" field.
+func (_u *WorkflowVersionUpdateOne) SetType(v string) *WorkflowVersionUpdateOne {
+	_u.mutation.SetType(v)
+	return _u
+}
+
+// SetNillableType sets the "type" field if the given value is not nil.
+func (_u *WorkflowVersionUpdateOne) SetNillableType(v *string) *WorkflowVersionUpdateOne {
+	if v != nil {
+		_u.SetType(*v)
+	}
+	return _u
+}
+
+// SetRoleSlug sets the "role_slug" field.
+func (_u *WorkflowVersionUpdateOne) SetRoleSlug(v string) *WorkflowVersionUpdateOne {
+	_u.mutation.SetRoleSlug(v)
+	return _u
+}
+
+// SetNillableRoleSlug sets the "role_slug" field if the given value is not nil.
+func (_u *WorkflowVersionUpdateOne) SetNillableRoleSlug(v *string) *WorkflowVersionUpdateOne {
+	if v != nil {
+		_u.SetRoleSlug(*v)
+	}
+	return _u
+}
+
+// ClearRoleSlug clears the value of the "role_slug" field.
+func (_u *WorkflowVersionUpdateOne) ClearRoleSlug() *WorkflowVersionUpdateOne {
+	_u.mutation.ClearRoleSlug()
+	return _u
+}
+
+// SetRoleName sets the "role_name" field.
+func (_u *WorkflowVersionUpdateOne) SetRoleName(v string) *WorkflowVersionUpdateOne {
+	_u.mutation.SetRoleName(v)
+	return _u
+}
+
+// SetNillableRoleName sets the "role_name" field if the given value is not nil.
+func (_u *WorkflowVersionUpdateOne) SetNillableRoleName(v *string) *WorkflowVersionUpdateOne {
+	if v != nil {
+		_u.SetRoleName(*v)
+	}
+	return _u
+}
+
+// ClearRoleName clears the value of the "role_name" field.
+func (_u *WorkflowVersionUpdateOne) ClearRoleName() *WorkflowVersionUpdateOne {
+	_u.mutation.ClearRoleName()
+	return _u
+}
+
+// SetRoleDescription sets the "role_description" field.
+func (_u *WorkflowVersionUpdateOne) SetRoleDescription(v string) *WorkflowVersionUpdateOne {
+	_u.mutation.SetRoleDescription(v)
+	return _u
+}
+
+// SetNillableRoleDescription sets the "role_description" field if the given value is not nil.
+func (_u *WorkflowVersionUpdateOne) SetNillableRoleDescription(v *string) *WorkflowVersionUpdateOne {
+	if v != nil {
+		_u.SetRoleDescription(*v)
+	}
+	return _u
+}
+
+// ClearRoleDescription clears the value of the "role_description" field.
+func (_u *WorkflowVersionUpdateOne) ClearRoleDescription() *WorkflowVersionUpdateOne {
+	_u.mutation.ClearRoleDescription()
+	return _u
+}
+
+// SetPickupStatusIds sets the "pickup_status_ids" field.
+func (_u *WorkflowVersionUpdateOne) SetPickupStatusIds(v pgarray.StringArray) *WorkflowVersionUpdateOne {
+	_u.mutation.SetPickupStatusIds(v)
+	return _u
+}
+
+// ClearPickupStatusIds clears the value of the "pickup_status_ids" field.
+func (_u *WorkflowVersionUpdateOne) ClearPickupStatusIds() *WorkflowVersionUpdateOne {
+	_u.mutation.ClearPickupStatusIds()
+	return _u
+}
+
+// SetFinishStatusIds sets the "finish_status_ids" field.
+func (_u *WorkflowVersionUpdateOne) SetFinishStatusIds(v pgarray.StringArray) *WorkflowVersionUpdateOne {
+	_u.mutation.SetFinishStatusIds(v)
+	return _u
+}
+
+// ClearFinishStatusIds clears the value of the "finish_status_ids" field.
+func (_u *WorkflowVersionUpdateOne) ClearFinishStatusIds() *WorkflowVersionUpdateOne {
+	_u.mutation.ClearFinishStatusIds()
+	return _u
+}
+
+// SetHarnessPath sets the "harness_path" field.
+func (_u *WorkflowVersionUpdateOne) SetHarnessPath(v string) *WorkflowVersionUpdateOne {
+	_u.mutation.SetHarnessPath(v)
+	return _u
+}
+
+// SetNillableHarnessPath sets the "harness_path" field if the given value is not nil.
+func (_u *WorkflowVersionUpdateOne) SetNillableHarnessPath(v *string) *WorkflowVersionUpdateOne {
+	if v != nil {
+		_u.SetHarnessPath(*v)
+	}
+	return _u
+}
+
+// SetHooks sets the "hooks" field.
+func (_u *WorkflowVersionUpdateOne) SetHooks(v map[string]interface{}) *WorkflowVersionUpdateOne {
+	_u.mutation.SetHooks(v)
+	return _u
+}
+
+// SetPlatformAccessAllowed sets the "platform_access_allowed" field.
+func (_u *WorkflowVersionUpdateOne) SetPlatformAccessAllowed(v pgarray.StringArray) *WorkflowVersionUpdateOne {
+	_u.mutation.SetPlatformAccessAllowed(v)
+	return _u
+}
+
+// ClearPlatformAccessAllowed clears the value of the "platform_access_allowed" field.
+func (_u *WorkflowVersionUpdateOne) ClearPlatformAccessAllowed() *WorkflowVersionUpdateOne {
+	_u.mutation.ClearPlatformAccessAllowed()
+	return _u
+}
+
+// SetMaxConcurrent sets the "max_concurrent" field.
+func (_u *WorkflowVersionUpdateOne) SetMaxConcurrent(v int) *WorkflowVersionUpdateOne {
+	_u.mutation.ResetMaxConcurrent()
+	_u.mutation.SetMaxConcurrent(v)
+	return _u
+}
+
+// SetNillableMaxConcurrent sets the "max_concurrent" field if the given value is not nil.
+func (_u *WorkflowVersionUpdateOne) SetNillableMaxConcurrent(v *int) *WorkflowVersionUpdateOne {
+	if v != nil {
+		_u.SetMaxConcurrent(*v)
+	}
+	return _u
+}
+
+// AddMaxConcurrent adds value to the "max_concurrent" field.
+func (_u *WorkflowVersionUpdateOne) AddMaxConcurrent(v int) *WorkflowVersionUpdateOne {
+	_u.mutation.AddMaxConcurrent(v)
+	return _u
+}
+
+// SetMaxRetryAttempts sets the "max_retry_attempts" field.
+func (_u *WorkflowVersionUpdateOne) SetMaxRetryAttempts(v int) *WorkflowVersionUpdateOne {
+	_u.mutation.ResetMaxRetryAttempts()
+	_u.mutation.SetMaxRetryAttempts(v)
+	return _u
+}
+
+// SetNillableMaxRetryAttempts sets the "max_retry_attempts" field if the given value is not nil.
+func (_u *WorkflowVersionUpdateOne) SetNillableMaxRetryAttempts(v *int) *WorkflowVersionUpdateOne {
+	if v != nil {
+		_u.SetMaxRetryAttempts(*v)
+	}
+	return _u
+}
+
+// AddMaxRetryAttempts adds value to the "max_retry_attempts" field.
+func (_u *WorkflowVersionUpdateOne) AddMaxRetryAttempts(v int) *WorkflowVersionUpdateOne {
+	_u.mutation.AddMaxRetryAttempts(v)
+	return _u
+}
+
+// SetTimeoutMinutes sets the "timeout_minutes" field.
+func (_u *WorkflowVersionUpdateOne) SetTimeoutMinutes(v int) *WorkflowVersionUpdateOne {
+	_u.mutation.ResetTimeoutMinutes()
+	_u.mutation.SetTimeoutMinutes(v)
+	return _u
+}
+
+// SetNillableTimeoutMinutes sets the "timeout_minutes" field if the given value is not nil.
+func (_u *WorkflowVersionUpdateOne) SetNillableTimeoutMinutes(v *int) *WorkflowVersionUpdateOne {
+	if v != nil {
+		_u.SetTimeoutMinutes(*v)
+	}
+	return _u
+}
+
+// AddTimeoutMinutes adds value to the "timeout_minutes" field.
+func (_u *WorkflowVersionUpdateOne) AddTimeoutMinutes(v int) *WorkflowVersionUpdateOne {
+	_u.mutation.AddTimeoutMinutes(v)
+	return _u
+}
+
+// SetStallTimeoutMinutes sets the "stall_timeout_minutes" field.
+func (_u *WorkflowVersionUpdateOne) SetStallTimeoutMinutes(v int) *WorkflowVersionUpdateOne {
+	_u.mutation.ResetStallTimeoutMinutes()
+	_u.mutation.SetStallTimeoutMinutes(v)
+	return _u
+}
+
+// SetNillableStallTimeoutMinutes sets the "stall_timeout_minutes" field if the given value is not nil.
+func (_u *WorkflowVersionUpdateOne) SetNillableStallTimeoutMinutes(v *int) *WorkflowVersionUpdateOne {
+	if v != nil {
+		_u.SetStallTimeoutMinutes(*v)
+	}
+	return _u
+}
+
+// AddStallTimeoutMinutes adds value to the "stall_timeout_minutes" field.
+func (_u *WorkflowVersionUpdateOne) AddStallTimeoutMinutes(v int) *WorkflowVersionUpdateOne {
+	_u.mutation.AddStallTimeoutMinutes(v)
+	return _u
+}
+
+// SetIsActive sets the "is_active" field.
+func (_u *WorkflowVersionUpdateOne) SetIsActive(v bool) *WorkflowVersionUpdateOne {
+	_u.mutation.SetIsActive(v)
+	return _u
+}
+
+// SetNillableIsActive sets the "is_active" field if the given value is not nil.
+func (_u *WorkflowVersionUpdateOne) SetNillableIsActive(v *bool) *WorkflowVersionUpdateOne {
+	if v != nil {
+		_u.SetIsActive(*v)
+	}
+	return _u
+}
+
 // SetContentHash sets the "content_hash" field.
 func (_u *WorkflowVersionUpdateOne) SetContentHash(v string) *WorkflowVersionUpdateOne {
 	_u.mutation.SetContentHash(v)
@@ -491,6 +1066,21 @@ func (_u *WorkflowVersionUpdateOne) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *WorkflowVersionUpdateOne) check() error {
+	if v, ok := _u.mutation.Name(); ok {
+		if err := workflowversion.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "WorkflowVersion.name": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.GetType(); ok {
+		if err := workflowversion.TypeValidator(v); err != nil {
+			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "WorkflowVersion.type": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.HarnessPath(); ok {
+		if err := workflowversion.HarnessPathValidator(v); err != nil {
+			return &ValidationError{Name: "harness_path", err: fmt.Errorf(`ent: validator failed for field "WorkflowVersion.harness_path": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.ContentHash(); ok {
 		if err := workflowversion.ContentHashValidator(v); err != nil {
 			return &ValidationError{Name: "content_hash", err: fmt.Errorf(`ent: validator failed for field "WorkflowVersion.content_hash": %w`, err)}
@@ -539,6 +1129,81 @@ func (_u *WorkflowVersionUpdateOne) sqlSave(ctx context.Context) (_node *Workflo
 	}
 	if value, ok := _u.mutation.ContentMarkdown(); ok {
 		_spec.SetField(workflowversion.FieldContentMarkdown, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Name(); ok {
+		_spec.SetField(workflowversion.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.GetType(); ok {
+		_spec.SetField(workflowversion.FieldType, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.RoleSlug(); ok {
+		_spec.SetField(workflowversion.FieldRoleSlug, field.TypeString, value)
+	}
+	if _u.mutation.RoleSlugCleared() {
+		_spec.ClearField(workflowversion.FieldRoleSlug, field.TypeString)
+	}
+	if value, ok := _u.mutation.RoleName(); ok {
+		_spec.SetField(workflowversion.FieldRoleName, field.TypeString, value)
+	}
+	if _u.mutation.RoleNameCleared() {
+		_spec.ClearField(workflowversion.FieldRoleName, field.TypeString)
+	}
+	if value, ok := _u.mutation.RoleDescription(); ok {
+		_spec.SetField(workflowversion.FieldRoleDescription, field.TypeString, value)
+	}
+	if _u.mutation.RoleDescriptionCleared() {
+		_spec.ClearField(workflowversion.FieldRoleDescription, field.TypeString)
+	}
+	if value, ok := _u.mutation.PickupStatusIds(); ok {
+		_spec.SetField(workflowversion.FieldPickupStatusIds, field.TypeOther, value)
+	}
+	if _u.mutation.PickupStatusIdsCleared() {
+		_spec.ClearField(workflowversion.FieldPickupStatusIds, field.TypeOther)
+	}
+	if value, ok := _u.mutation.FinishStatusIds(); ok {
+		_spec.SetField(workflowversion.FieldFinishStatusIds, field.TypeOther, value)
+	}
+	if _u.mutation.FinishStatusIdsCleared() {
+		_spec.ClearField(workflowversion.FieldFinishStatusIds, field.TypeOther)
+	}
+	if value, ok := _u.mutation.HarnessPath(); ok {
+		_spec.SetField(workflowversion.FieldHarnessPath, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Hooks(); ok {
+		_spec.SetField(workflowversion.FieldHooks, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.PlatformAccessAllowed(); ok {
+		_spec.SetField(workflowversion.FieldPlatformAccessAllowed, field.TypeOther, value)
+	}
+	if _u.mutation.PlatformAccessAllowedCleared() {
+		_spec.ClearField(workflowversion.FieldPlatformAccessAllowed, field.TypeOther)
+	}
+	if value, ok := _u.mutation.MaxConcurrent(); ok {
+		_spec.SetField(workflowversion.FieldMaxConcurrent, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedMaxConcurrent(); ok {
+		_spec.AddField(workflowversion.FieldMaxConcurrent, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.MaxRetryAttempts(); ok {
+		_spec.SetField(workflowversion.FieldMaxRetryAttempts, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedMaxRetryAttempts(); ok {
+		_spec.AddField(workflowversion.FieldMaxRetryAttempts, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.TimeoutMinutes(); ok {
+		_spec.SetField(workflowversion.FieldTimeoutMinutes, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedTimeoutMinutes(); ok {
+		_spec.AddField(workflowversion.FieldTimeoutMinutes, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.StallTimeoutMinutes(); ok {
+		_spec.SetField(workflowversion.FieldStallTimeoutMinutes, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedStallTimeoutMinutes(); ok {
+		_spec.AddField(workflowversion.FieldStallTimeoutMinutes, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.IsActive(); ok {
+		_spec.SetField(workflowversion.FieldIsActive, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.ContentHash(); ok {
 		_spec.SetField(workflowversion.FieldContentHash, field.TypeString, value)

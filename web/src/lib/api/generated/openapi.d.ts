@@ -11905,7 +11905,7 @@ export interface operations {
           created_by?: string | null
           /** @description Ticket status IDs that mark workflow completion. */
           finish_status_ids?: string[]
-          /** @description Initial harness content written into the versioned control-plane workflow record. */
+          /** @description Initial pure Markdown or Gonja harness body written into the versioned control-plane workflow record. */
           harness_content?: string
           /** @description Logical harness path tracked by the control plane for this workflow. */
           harness_path?: string | null
@@ -11923,6 +11923,16 @@ export interface operations {
           name?: string
           /** @description Ticket status IDs that allow the workflow to pick up tickets. */
           pickup_status_ids?: string[]
+          /** @description Allowed OpenASE platform API scopes for agents running this workflow. */
+          platform_access_allowed?: string[]
+          /** @description Structured workflow role summary shown in runtime and editor context. */
+          role_description?: string | null
+          /** @description Human-readable workflow role name stored in structured workflow metadata. */
+          role_name?: string | null
+          /** @description Stable workflow role slug stored in structured workflow metadata. */
+          role_slug?: string | null
+          /** @description Skill names to bind to the workflow when it is created. */
+          skill_names?: string[]
           /** @description Timeout for detecting stalled workflow runs, in minutes. */
           stall_timeout_minutes?: number | null
           /** @description Hard execution timeout for workflow runs, in minutes. */
@@ -15554,6 +15564,14 @@ export interface operations {
           name?: string | null
           /** @description Ticket status IDs that allow the workflow to pick up tickets. */
           pickup_status_ids?: string[] | null
+          /** @description Allowed OpenASE platform API scopes for agents running this workflow. */
+          platform_access_allowed?: string[] | null
+          /** @description Structured workflow role summary shown in runtime and editor context. */
+          role_description?: string | null
+          /** @description Human-readable workflow role name stored in structured workflow metadata. */
+          role_name?: string | null
+          /** @description Stable workflow role slug stored in structured workflow metadata. */
+          role_slug?: string | null
           /** @description Timeout for detecting stalled workflow runs, in minutes. */
           stall_timeout_minutes?: number | null
           /** @description Hard execution timeout for workflow runs, in minutes. */

@@ -276,7 +276,7 @@ func BuildCapabilityContract(input RuntimeContractInput) string {
 }
 
 func DefaultScopes() []string {
-	return scopeStrings(defaultAgentScopes)
+	return domain.DefaultAgentScopes()
 }
 
 func DefaultScopesForPrincipalKind(kind PrincipalKind) []string {
@@ -284,7 +284,7 @@ func DefaultScopesForPrincipalKind(kind PrincipalKind) []string {
 }
 
 func SupportedScopes() []string {
-	return scopeStrings(supportedAgentScopes)
+	return domain.SupportedAgentScopes()
 }
 
 func SupportedScopesForPrincipalKind(kind PrincipalKind) []string {

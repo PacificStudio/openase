@@ -735,12 +735,7 @@ func TestAgentPlatformHarnessWhitelistConstrainsTokenScopes(t *testing.T) {
 		nil,
 	)
 
-	access, err := workflowservice.ParsePlatformAccess(`---
-platform_access:
-  allowed:
-    - "tickets.list"
----
-# Dispatcher`)
+	access, err := workflowservice.ParsePlatformAccess("tickets.list")
 	if err != nil {
 		t.Fatalf("ParsePlatformAccess returned error: %v", err)
 	}

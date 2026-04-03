@@ -36,37 +36,46 @@ type ActivationStatus struct {
 }
 
 type ActivationWorkflow struct {
-	ID                  uuid.UUID
-	ProjectID           uuid.UUID
-	AgentID             *uuid.UUID
-	Name                string
-	Type                string
-	HarnessPath         string
-	HarnessContent      string
-	MaxConcurrent       int
-	MaxRetryAttempts    int
-	TimeoutMinutes      int
-	StallTimeoutMinutes int
-	Version             int
-	IsActive            bool
-	PickupStatusIDs     []uuid.UUID
-	FinishStatusIDs     []uuid.UUID
+	ID                    uuid.UUID
+	ProjectID             uuid.UUID
+	AgentID               *uuid.UUID
+	Name                  string
+	Type                  string
+	RoleSlug              string
+	RoleName              string
+	RoleDescription       string
+	PlatformAccessAllowed []string
+	HarnessPath           string
+	HarnessContent        string
+	MaxConcurrent         int
+	MaxRetryAttempts      int
+	TimeoutMinutes        int
+	StallTimeoutMinutes   int
+	Version               int
+	IsActive              bool
+	PickupStatusIDs       []uuid.UUID
+	FinishStatusIDs       []uuid.UUID
 }
 
 type ActivateWorkflowInput struct {
-	ProjectID           uuid.UUID
-	AgentID             uuid.UUID
-	Name                string
-	Type                string
-	HarnessPath         string
-	HarnessContent      string
-	MaxConcurrent       int
-	MaxRetryAttempts    int
-	TimeoutMinutes      int
-	StallTimeoutMinutes int
-	IsActive            bool
-	PickupStatusIDs     []uuid.UUID
-	FinishStatusIDs     []uuid.UUID
+	ProjectID             uuid.UUID
+	AgentID               uuid.UUID
+	Name                  string
+	Type                  string
+	RoleSlug              string
+	RoleName              string
+	RoleDescription       string
+	PlatformAccessAllowed []string
+	SkillNames            []string
+	HarnessPath           string
+	HarnessContent        string
+	MaxConcurrent         int
+	MaxRetryAttempts      int
+	TimeoutMinutes        int
+	StallTimeoutMinutes   int
+	IsActive              bool
+	PickupStatusIDs       []uuid.UUID
+	FinishStatusIDs       []uuid.UUID
 }
 
 type ActivationTicket struct {
@@ -161,11 +170,19 @@ func (s *ActivationService) Activate(
 		return ActivationResult{}, fmt.Errorf("%w: %s", ErrActivationRoleNotFound, input.RoleSlug)
 	}
 
-	template, err := hrdomain.ParseActivationTemplate(
-		roleTemplate.Slug,
-		roleTemplate.HarnessPath,
-		roleTemplate.Content,
-		roleTemplate.Summary,
+	template, err := hrdomain.NormalizeActivationTemplate(
+		hrdomain.ActivationTemplate{
+			RoleSlug:              roleTemplate.Slug,
+			WorkflowName:          roleTemplate.Name,
+			WorkflowType:          roleTemplate.WorkflowType,
+			HarnessPath:           roleTemplate.HarnessPath,
+			HarnessContent:        roleTemplate.Content,
+			PickupStatusNames:     roleTemplate.PickupStatusNames,
+			FinishStatusNames:     roleTemplate.FinishStatusNames,
+			Summary:               roleTemplate.Summary,
+			PlatformAccessAllowed: roleTemplate.PlatformAccessAllowed,
+			SkillNames:            roleTemplate.SkillNames,
+		},
 	)
 	if err != nil {
 		return ActivationResult{}, err
@@ -212,19 +229,24 @@ func (s *ActivationService) Activate(
 	}
 
 	createdWorkflow, err := s.workflows.Create(ctx, ActivateWorkflowInput{
-		ProjectID:           input.ProjectID,
-		AgentID:             createdAgent.ID,
-		Name:                template.WorkflowName,
-		Type:                strings.TrimSpace(template.WorkflowType),
-		HarnessPath:         template.HarnessPath,
-		HarnessContent:      template.HarnessContent,
-		MaxConcurrent:       1,
-		MaxRetryAttempts:    1,
-		TimeoutMinutes:      30,
-		StallTimeoutMinutes: 5,
-		IsActive:            true,
-		PickupStatusIDs:     pickupStatusIDs,
-		FinishStatusIDs:     finishStatusIDs,
+		ProjectID:             input.ProjectID,
+		AgentID:               createdAgent.ID,
+		Name:                  template.WorkflowName,
+		Type:                  strings.TrimSpace(template.WorkflowType),
+		RoleSlug:              template.RoleSlug,
+		RoleName:              template.WorkflowName,
+		RoleDescription:       template.Summary,
+		PlatformAccessAllowed: append([]string(nil), template.PlatformAccessAllowed...),
+		SkillNames:            append([]string(nil), template.SkillNames...),
+		HarnessPath:           template.HarnessPath,
+		HarnessContent:        template.HarnessContent,
+		MaxConcurrent:         1,
+		MaxRetryAttempts:      1,
+		TimeoutMinutes:        30,
+		StallTimeoutMinutes:   5,
+		IsActive:              true,
+		PickupStatusIDs:       pickupStatusIDs,
+		FinishStatusIDs:       finishStatusIDs,
 	})
 	if err != nil {
 		if _, rollbackErr := s.catalog.DeleteAgent(ctx, createdAgent.ID); rollbackErr != nil {

@@ -904,10 +904,23 @@ func (l *RuntimeLauncher) buildAgentPlatformAccess(ctx context.Context, launchCo
 		return runtimePlatformAccess{}, fmt.Errorf("runtime launch context is incomplete for platform environment")
 	}
 
+	scopeWhitelist := agentplatform.ScopeWhitelist{}
+	if launchContext.ticket.WorkflowID != nil {
+		workflowItem, err := l.client.Workflow.Get(ctx, *launchContext.ticket.WorkflowID)
+		if err != nil {
+			return runtimePlatformAccess{}, fmt.Errorf("load workflow %s for agent platform token: %w", *launchContext.ticket.WorkflowID, err)
+		}
+		scopeWhitelist = agentplatform.ScopeWhitelist{
+			Configured: len(workflowItem.PlatformAccessAllowed) > 0,
+			Scopes:     append([]string(nil), workflowItem.PlatformAccessAllowed...),
+		}
+	}
+
 	issued, err := l.agentPlatform.IssueToken(ctx, agentplatform.IssueInput{
-		AgentID:   launchContext.agent.ID,
-		ProjectID: launchContext.project.ID,
-		TicketID:  launchContext.ticket.ID,
+		AgentID:        launchContext.agent.ID,
+		ProjectID:      launchContext.project.ID,
+		TicketID:       launchContext.ticket.ID,
+		ScopeWhitelist: scopeWhitelist,
 	})
 	if err != nil {
 		return runtimePlatformAccess{}, fmt.Errorf("issue agent platform token: %w", err)

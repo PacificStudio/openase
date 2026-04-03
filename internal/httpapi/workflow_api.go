@@ -12,24 +12,28 @@ import (
 )
 
 type workflowResponse struct {
-	ID                  string                 `json:"id"`
-	ProjectID           string                 `json:"project_id"`
-	AgentID             *string                `json:"agent_id,omitempty"`
-	Name                string                 `json:"name"`
-	Type                string                 `json:"type"`
-	WorkflowFamily      string                 `json:"workflow_family"`
-	Classification      classificationResponse `json:"workflow_classification"`
-	HarnessPath         string                 `json:"harness_path"`
-	HarnessContent      *string                `json:"harness_content,omitempty"`
-	Hooks               map[string]any         `json:"hooks"`
-	MaxConcurrent       int                    `json:"max_concurrent"`
-	MaxRetryAttempts    int                    `json:"max_retry_attempts"`
-	TimeoutMinutes      int                    `json:"timeout_minutes"`
-	StallTimeoutMinutes int                    `json:"stall_timeout_minutes"`
-	Version             int                    `json:"version"`
-	IsActive            bool                   `json:"is_active"`
-	PickupStatusIDs     []string               `json:"pickup_status_ids"`
-	FinishStatusIDs     []string               `json:"finish_status_ids"`
+	ID                    string                 `json:"id"`
+	ProjectID             string                 `json:"project_id"`
+	AgentID               *string                `json:"agent_id,omitempty"`
+	Name                  string                 `json:"name"`
+	Type                  string                 `json:"type"`
+	RoleSlug              string                 `json:"role_slug"`
+	RoleName              string                 `json:"role_name"`
+	RoleDescription       string                 `json:"role_description"`
+	PlatformAccessAllowed []string               `json:"platform_access_allowed"`
+	WorkflowFamily        string                 `json:"workflow_family"`
+	Classification        classificationResponse `json:"workflow_classification"`
+	HarnessPath           string                 `json:"harness_path"`
+	HarnessContent        *string                `json:"harness_content,omitempty"`
+	Hooks                 map[string]any         `json:"hooks"`
+	MaxConcurrent         int                    `json:"max_concurrent"`
+	MaxRetryAttempts      int                    `json:"max_retry_attempts"`
+	TimeoutMinutes        int                    `json:"timeout_minutes"`
+	StallTimeoutMinutes   int                    `json:"stall_timeout_minutes"`
+	Version               int                    `json:"version"`
+	IsActive              bool                   `json:"is_active"`
+	PickupStatusIDs       []string               `json:"pickup_status_ids"`
+	FinishStatusIDs       []string               `json:"finish_status_ids"`
 }
 
 type classificationResponse struct {
@@ -537,30 +541,34 @@ func mapWorkflowResponse(item workflowservice.Workflow) workflowResponse {
 	})
 
 	return workflowResponse{
-		ID:                  item.ID.String(),
-		ProjectID:           item.ProjectID.String(),
-		AgentID:             agentID,
-		Name:                item.Name,
-		Type:                item.Type.String(),
-		WorkflowFamily:      string(classification.Family),
-		Classification:      mapClassificationResponse(classification),
-		HarnessPath:         item.HarnessPath,
-		Hooks:               item.Hooks,
-		MaxConcurrent:       item.MaxConcurrent,
-		MaxRetryAttempts:    item.MaxRetryAttempts,
-		TimeoutMinutes:      item.TimeoutMinutes,
-		StallTimeoutMinutes: item.StallTimeoutMinutes,
-		Version:             item.Version,
-		IsActive:            item.IsActive,
-		PickupStatusIDs:     uuidSliceToStrings(item.PickupStatusIDs),
-		FinishStatusIDs:     uuidSliceToStrings(item.FinishStatusIDs),
+		ID:                    item.ID.String(),
+		ProjectID:             item.ProjectID.String(),
+		AgentID:               agentID,
+		Name:                  item.Name,
+		Type:                  item.Type.String(),
+		RoleSlug:              item.RoleSlug,
+		RoleName:              item.RoleName,
+		RoleDescription:       item.RoleDescription,
+		PlatformAccessAllowed: append([]string(nil), item.PlatformAccessAllowed...),
+		WorkflowFamily:        string(classification.Family),
+		Classification:        mapClassificationResponse(classification),
+		HarnessPath:           item.HarnessPath,
+		Hooks:                 item.Hooks,
+		MaxConcurrent:         item.MaxConcurrent,
+		MaxRetryAttempts:      item.MaxRetryAttempts,
+		TimeoutMinutes:        item.TimeoutMinutes,
+		StallTimeoutMinutes:   item.StallTimeoutMinutes,
+		Version:               item.Version,
+		IsActive:              item.IsActive,
+		PickupStatusIDs:       uuidSliceToStrings(item.PickupStatusIDs),
+		FinishStatusIDs:       uuidSliceToStrings(item.FinishStatusIDs),
 	}
 }
 
 func mapWorkflowDetailResponse(item workflowservice.WorkflowDetail) workflowResponse {
 	response := mapWorkflowResponse(item.Workflow)
 	response.Classification = mapClassificationResponse(workflowservice.ClassifyWorkflow(workflowservice.WorkflowClassificationInput{
-		RoleSlug:       parseHarnessRoleSlug(item.HarnessContent),
+		RoleSlug:       item.RoleSlug,
 		TypeLabel:      item.Type,
 		WorkflowName:   item.Name,
 		HarnessPath:    item.HarnessPath,
