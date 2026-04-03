@@ -18,6 +18,7 @@ import (
 )
 
 func TestListAgentStepsRoute(t *testing.T) {
+	service := newFakeCatalogService()
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -26,11 +27,9 @@ func TestListAgentStepsRoute(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		newFakeCatalogService(),
+		service,
 		nil,
 	)
-
-	service := server.catalog.(*fakeCatalogService)
 	orgID := uuid.New()
 	projectID := uuid.New()
 	agentID := uuid.New()
@@ -137,6 +136,7 @@ func TestAgentStepStreamFiltersStepEvents(t *testing.T) {
 }
 
 func TestAgentStepRouteErrorsAndStreamHelpers(t *testing.T) {
+	service := newFakeCatalogService()
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -145,11 +145,9 @@ func TestAgentStepRouteErrorsAndStreamHelpers(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		newFakeCatalogService(),
+		service,
 		nil,
 	)
-
-	service := server.catalog.(*fakeCatalogService)
 	orgID := uuid.New()
 	projectID := uuid.New()
 	otherProjectID := uuid.New()

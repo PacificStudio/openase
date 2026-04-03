@@ -19,6 +19,7 @@ import (
 )
 
 func TestListAgentOutputRoute(t *testing.T) {
+	service := newFakeCatalogService()
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -27,11 +28,9 @@ func TestListAgentOutputRoute(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		newFakeCatalogService(),
+		service,
 		nil,
 	)
-
-	service := server.catalog.(*fakeCatalogService)
 	orgID := uuid.New()
 	projectID := uuid.New()
 	agentOneID := uuid.New()
@@ -103,6 +102,7 @@ func TestListAgentOutputRoute(t *testing.T) {
 }
 
 func TestListAgentOutputRouteRejectsInvalidQuery(t *testing.T) {
+	service := newFakeCatalogService()
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -111,7 +111,7 @@ func TestListAgentOutputRouteRejectsInvalidQuery(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		newFakeCatalogService(),
+		service,
 		nil,
 	)
 

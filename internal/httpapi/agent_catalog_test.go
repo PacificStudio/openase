@@ -24,6 +24,7 @@ import (
 )
 
 func TestAgentProviderAndAgentRoutes(t *testing.T) {
+	service := newFakeCatalogService()
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -32,7 +33,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		newFakeCatalogService(),
+		service,
 		nil,
 	)
 
@@ -51,7 +52,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/orgs/"+orgPayload.Organization.ID+"/providers",
-		`{"machine_id":"`+findLocalMachineID(t, server.catalog.(*fakeCatalogService), orgPayload.Organization.ID)+`","name":"Codex","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{"token":"secret"},"model_name":"gpt-5.3-codex","model_temperature":0.1,"model_max_tokens":32000,"cost_per_input_token":0.001,"cost_per_output_token":0.002}`,
+		`{"machine_id":"`+findLocalMachineID(t, service, orgPayload.Organization.ID)+`","name":"Codex","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{"token":"secret"},"model_name":"gpt-5.3-codex","model_temperature":0.1,"model_max_tokens":32000,"cost_per_input_token":0.001,"cost_per_output_token":0.002}`,
 	)
 	if providerRec.Code != http.StatusCreated {
 		t.Fatalf("expected provider create 201, got %d: %s", providerRec.Code, providerRec.Body.String())
@@ -82,7 +83,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/orgs/"+orgPayload.Organization.ID+"/providers",
-		`{"machine_id":"`+findLocalMachineID(t, server.catalog.(*fakeCatalogService), orgPayload.Organization.ID)+`","name":"Codex Backup","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{"token":"secret"},"model_name":"gpt-5.4","model_temperature":0.1,"model_max_tokens":32000,"cost_per_input_token":0.001,"cost_per_output_token":0.002}`,
+		`{"machine_id":"`+findLocalMachineID(t, service, orgPayload.Organization.ID)+`","name":"Codex Backup","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{"token":"secret"},"model_name":"gpt-5.4","model_temperature":0.1,"model_max_tokens":32000,"cost_per_input_token":0.001,"cost_per_output_token":0.002}`,
 	)
 	if secondaryProviderRec.Code != http.StatusCreated {
 		t.Fatalf("expected secondary provider create 201, got %d: %s", secondaryProviderRec.Code, secondaryProviderRec.Body.String())
@@ -318,6 +319,7 @@ func TestAgentProviderAndAgentRoutesWithEntRepository(t *testing.T) {
 }
 
 func TestAgentProviderRoutesRejectInvalidInput(t *testing.T) {
+	service := newFakeCatalogService()
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -326,7 +328,7 @@ func TestAgentProviderRoutesRejectInvalidInput(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		newFakeCatalogService(),
+		service,
 		nil,
 	)
 
@@ -345,7 +347,7 @@ func TestAgentProviderRoutesRejectInvalidInput(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/orgs/"+orgPayload.Organization.ID+"/providers",
-		`{"machine_id":"`+findLocalMachineID(t, server.catalog.(*fakeCatalogService), orgPayload.Organization.ID)+`","name":"Custom","adapter_type":"custom","model_name":"manual"}`,
+		`{"machine_id":"`+findLocalMachineID(t, service, orgPayload.Organization.ID)+`","name":"Custom","adapter_type":"custom","model_name":"manual"}`,
 	)
 	if providerRec.Code != http.StatusBadRequest {
 		t.Fatalf("expected provider create 400, got %d: %s", providerRec.Code, providerRec.Body.String())
@@ -356,6 +358,7 @@ func TestAgentProviderRoutesRejectInvalidInput(t *testing.T) {
 }
 
 func TestListAgentProvidersIncludesBuiltinCatalogAvailability(t *testing.T) {
+	service := newFakeCatalogService()
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -364,7 +367,7 @@ func TestListAgentProvidersIncludesBuiltinCatalogAvailability(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		newFakeCatalogService(),
+		service,
 		nil,
 	)
 
@@ -399,6 +402,7 @@ func TestListAgentProvidersIncludesBuiltinCatalogAvailability(t *testing.T) {
 }
 
 func TestListAgentsRouteOmitsCapabilitiesField(t *testing.T) {
+	service := newFakeCatalogService()
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -407,11 +411,9 @@ func TestListAgentsRouteOmitsCapabilitiesField(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		newFakeCatalogService(),
+		service,
 		nil,
 	)
-
-	service := server.catalog.(*fakeCatalogService)
 	orgID := uuid.New()
 	projectID := uuid.New()
 	providerID := uuid.New()
@@ -456,6 +458,7 @@ func TestListAgentsRouteOmitsCapabilitiesField(t *testing.T) {
 }
 
 func TestListAgentRunsRouteExposesConcurrentRuns(t *testing.T) {
+	service := newFakeCatalogService()
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -464,11 +467,9 @@ func TestListAgentRunsRouteExposesConcurrentRuns(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		newFakeCatalogService(),
+		service,
 		nil,
 	)
-
-	service := server.catalog.(*fakeCatalogService)
 	orgID := uuid.New()
 	projectID := uuid.New()
 	providerID := uuid.New()
@@ -544,6 +545,7 @@ func TestListAgentRunsRouteExposesConcurrentRuns(t *testing.T) {
 }
 
 func TestPauseAndResumeAgentRoutes(t *testing.T) {
+	service := newFakeCatalogService()
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -552,11 +554,9 @@ func TestPauseAndResumeAgentRoutes(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		newFakeCatalogService(),
+		service,
 		nil,
 	)
-
-	service := server.catalog.(*fakeCatalogService)
 	orgID := uuid.New()
 	projectID := uuid.New()
 	providerID := uuid.New()
@@ -622,6 +622,7 @@ func TestPauseAndResumeAgentRoutes(t *testing.T) {
 }
 
 func TestPauseAndResumeAgentRouteErrors(t *testing.T) {
+	service := newFakeCatalogService()
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -630,11 +631,9 @@ func TestPauseAndResumeAgentRouteErrors(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		newFakeCatalogService(),
+		service,
 		nil,
 	)
-
-	service := server.catalog.(*fakeCatalogService)
 	orgID := uuid.New()
 	projectID := uuid.New()
 	providerID := uuid.New()
@@ -699,6 +698,7 @@ func TestPauseAndResumeAgentRouteErrors(t *testing.T) {
 }
 
 func TestAgentCatalogRouteErrorMappingsAndHelpers(t *testing.T) {
+	service := newFakeCatalogService()
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -707,11 +707,9 @@ func TestAgentCatalogRouteErrorMappingsAndHelpers(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		newFakeCatalogService(),
+		service,
 		nil,
 	)
-
-	service := server.catalog.(*fakeCatalogService)
 	orgOneID := uuid.New()
 	orgTwoID := uuid.New()
 	projectOneID := uuid.New()

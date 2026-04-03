@@ -657,7 +657,7 @@ func (s *Server) mapProjectConversationResponse(ctx context.Context, item chatdo
 		"created_at":       item.CreatedAt.UTC().Format(time.RFC3339),
 		"updated_at":       item.UpdatedAt.UTC().Format(time.RFC3339),
 	}
-	if s != nil && s.catalog != nil {
+	if s != nil && !s.catalog.Empty() {
 		if providerItem, err := s.catalog.GetAgentProvider(ctx, item.ProviderID); err == nil {
 			switch providerItem.AdapterType {
 			case catalogdomain.AgentProviderAdapterTypeCodexAppServer:

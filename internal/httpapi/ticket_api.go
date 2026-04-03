@@ -327,7 +327,7 @@ func (s *Server) handleGetTicket(c echo.Context) error {
 }
 
 func (s *Server) handleGetTicketDetail(c echo.Context) error {
-	if s.ticketService == nil || s.catalog == nil {
+	if s.ticketService == nil || s.catalog.Empty() {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "ticket detail service unavailable")
 	}
 

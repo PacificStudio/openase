@@ -373,7 +373,7 @@ func (s *Server) handleAgentUpdateOwnTicketComment(c echo.Context) error {
 }
 
 func (s *Server) handleAgentUpdateProject(c echo.Context) error {
-	if s.catalog == nil {
+	if s.catalog.Empty() {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
 	}
 
@@ -656,7 +656,7 @@ func (s *Server) handleAgentDeleteProjectUpdateComment(c echo.Context) error {
 }
 
 func (s *Server) handleAgentCreateProjectRepo(c echo.Context) error {
-	if s.catalog == nil {
+	if s.catalog.Empty() {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
 	}
 

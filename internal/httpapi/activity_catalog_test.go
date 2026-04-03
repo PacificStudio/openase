@@ -16,6 +16,7 @@ import (
 )
 
 func TestListActivityEventsRoute(t *testing.T) {
+	service := newFakeCatalogService()
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -24,11 +25,9 @@ func TestListActivityEventsRoute(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		newFakeCatalogService(),
+		service,
 		nil,
 	)
-
-	service := server.catalog.(*fakeCatalogService)
 	orgID := uuid.New()
 	projectID := uuid.New()
 	agentOneID := uuid.New()
@@ -94,6 +93,7 @@ func TestListActivityEventsRoute(t *testing.T) {
 }
 
 func TestListActivityEventsRouteRejectsInvalidQuery(t *testing.T) {
+	service := newFakeCatalogService()
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -102,7 +102,7 @@ func TestListActivityEventsRouteRejectsInvalidQuery(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		newFakeCatalogService(),
+		service,
 		nil,
 	)
 
@@ -113,6 +113,7 @@ func TestListActivityEventsRouteRejectsInvalidQuery(t *testing.T) {
 }
 
 func TestListActivityEventsRouteReturnsEmptyArrayWhenNoEventsExist(t *testing.T) {
+	service := newFakeCatalogService()
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -121,11 +122,9 @@ func TestListActivityEventsRouteReturnsEmptyArrayWhenNoEventsExist(t *testing.T)
 		nil,
 		nil,
 		nil,
-		newFakeCatalogService(),
+		service,
 		nil,
 	)
-
-	service := server.catalog.(*fakeCatalogService)
 	orgID := uuid.New()
 	projectID := uuid.New()
 	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
