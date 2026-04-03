@@ -30,6 +30,7 @@ import (
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	entworkflowversion "github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -46,6 +47,7 @@ import (
 	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
@@ -3932,13 +3934,43 @@ func publishRuntimeLauncherWorkflowVersionContent(
 	if err != nil {
 		t.Fatalf("load workflow for harness version: %v", err)
 	}
+	pickupStatuses, err := workflowItem.QueryPickupStatuses().All(ctx)
+	if err != nil {
+		t.Fatalf("load workflow pickup statuses: %v", err)
+	}
+	finishStatuses, err := workflowItem.QueryFinishStatuses().All(ctx)
+	if err != nil {
+		t.Fatalf("load workflow finish statuses: %v", err)
+	}
 	sum := sha256.Sum256([]byte(content))
-	versionItem, err := client.WorkflowVersion.Create().
+	versionCreate := client.WorkflowVersion.Create().
 		SetWorkflowID(workflowID).
 		SetVersion(workflowItem.Version).
 		SetContentMarkdown(content).
+		SetName(workflowItem.Name).
+		SetType(entworkflowversion.Type(workflowItem.Type)).
+		SetPickupStatusIds(ticketStatusIDStrings(pickupStatuses)).
+		SetFinishStatusIds(ticketStatusIDStrings(finishStatuses)).
+		SetHarnessPath(workflowItem.HarnessPath).
+		SetHooks(workflowItem.Hooks).
+		SetPlatformAccessAllowed(pgarray.StringArray(workflowItem.PlatformAccessAllowed)).
+		SetMaxConcurrent(workflowItem.MaxConcurrent).
+		SetMaxRetryAttempts(workflowItem.MaxRetryAttempts).
+		SetTimeoutMinutes(workflowItem.TimeoutMinutes).
+		SetStallTimeoutMinutes(workflowItem.StallTimeoutMinutes).
+		SetIsActive(workflowItem.IsActive).
 		SetContentHash(hex.EncodeToString(sum[:])).
-		Save(ctx)
+		SetCreatedBy("system:runtime-launcher-test")
+	if workflowItem.RoleSlug != "" {
+		versionCreate.SetRoleSlug(workflowItem.RoleSlug)
+	}
+	if workflowItem.RoleName != "" {
+		versionCreate.SetRoleName(workflowItem.RoleName)
+	}
+	if workflowItem.RoleDescription != "" {
+		versionCreate.SetRoleDescription(workflowItem.RoleDescription)
+	}
+	versionItem, err := versionCreate.Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow version: %v", err)
 	}
@@ -3947,6 +3979,14 @@ func publishRuntimeLauncherWorkflowVersionContent(
 		Save(ctx); err != nil {
 		t.Fatalf("set current workflow version: %v", err)
 	}
+}
+
+func ticketStatusIDStrings(statuses []*ent.TicketStatus) pgarray.StringArray {
+	ids := make(pgarray.StringArray, 0, len(statuses))
+	for _, status := range statuses {
+		ids = append(ids, status.ID.String())
+	}
+	return ids
 }
 
 func runRuntimeLauncherGit(t *testing.T, repoRoot string, args ...string) {

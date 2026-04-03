@@ -54,10 +54,10 @@ func TestNormalizeActivationTemplate(t *testing.T) {
 		WorkflowType:          " test ",
 		HarnessPath:           " .openase/harnesses/roles/qa-engineer.md ",
 		HarnessContent:        "\r\n# QA Engineer\r\n\r\nWrite automated regression coverage.\r\n",
-		PickupStatusNames:     []string{" Todo ", "todo", "Todo"},
-		FinishStatusNames:     []string{"Done", " done "},
-		PlatformAccessAllowed: []string{" tickets.list ", "tickets.update.self", "tickets.list"},
-		SkillNames:            []string{" openase-platform ", "write-test", "openase-platform"},
+		PickupStatusNames:     []string{" Todo ", "", "todo", "Todo"},
+		FinishStatusNames:     []string{"Done", " ", " done "},
+		PlatformAccessAllowed: []string{" tickets.list ", " ", "tickets.update.self", "tickets.list"},
+		SkillNames:            []string{" openase-platform ", "", "write-test", "openase-platform"},
 		Summary:               " Write automated regression coverage. ",
 	})
 	if err != nil {

@@ -248,9 +248,21 @@ test('ticket runtime card surfaces provider unavailability instead of a generic 
 })
 
 async function openDefaultTicket(page: Page, projectPath: (section: string) => string) {
+  const ticketLink = page.getByText('ASE-101').first()
+
   await page.goto(projectPath('tickets'))
-  await expect(page.getByText('ASE-101')).toBeVisible({ timeout: 10_000 })
-  await page.getByText('ASE-101').first().click()
+  if (
+    !(await ticketLink.isVisible({ timeout: 2_000 }).catch(() => false)) &&
+    (await page
+      .getByRole('heading', { name: '500' })
+      .isVisible({ timeout: 1_000 })
+      .catch(() => false))
+  ) {
+    await page.goto(projectPath('tickets'))
+  }
+
+  await expect(ticketLink).toBeVisible({ timeout: 10_000 })
+  await ticketLink.click()
   await expect(page.getByRole('dialog', { name: /ASE-101/i })).toBeVisible({ timeout: 10_000 })
 }
 

@@ -1,9 +1,6 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
-  import { Input } from '$ui/input'
-  import { Label } from '$ui/label'
   import { Separator } from '$ui/separator'
-  import * as Select from '$ui/select'
   import { Clock3, Layers3, RotateCcw } from '@lucide/svelte'
   import type { WorkflowAgentOption, WorkflowStatusOption, WorkflowSummary } from '../types'
   import {
@@ -20,12 +17,10 @@
     workflowHooksDraftSignature,
     type WorkflowHooksDraft,
   } from '../workflow-hooks'
-  import WorkflowAgentBindingCard from './workflow-agent-binding-card.svelte'
-  import WorkflowAgentSelectOption from './workflow-agent-select-option.svelte'
-  import WorkflowAgentSelectTrigger from './workflow-agent-select-trigger.svelte'
   import WorkflowDetailActions from './workflow-detail-actions.svelte'
   import WorkflowDetailHeader from './workflow-detail-header.svelte'
   import WorkflowDetailHistorySection from './workflow-detail-history-section.svelte'
+  import WorkflowDetailIdentitySection from './workflow-detail-identity-section.svelte'
   import WorkflowDetailHooksSection from './workflow-detail-hooks-section.svelte'
   import WorkflowNumberField from './workflow-number-field.svelte'
   import WorkflowStatusChipSelector from './workflow-status-chip-selector.svelte'
@@ -172,109 +167,14 @@
 
   <form class="flex flex-1 flex-col" onsubmit={handleSubmit}>
     <div class="flex-1 space-y-6 px-4 py-4">
-      <div class="space-y-1.5">
-        <Label
-          for="workflow-name"
-          class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Name</Label
-        >
-        <Input
-          id="workflow-name"
-          value={draft.name}
-          disabled={saving || deleting}
-          oninput={(event) =>
-            updateDraftField('name', (event.currentTarget as HTMLInputElement).value)}
-        />
-      </div>
-
-      <div class="grid gap-4 sm:grid-cols-2">
-        <div class="space-y-1.5">
-          <Label
-            for="workflow-role-slug"
-            class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
-            >Role Slug</Label
-          >
-          <Input
-            id="workflow-role-slug"
-            value={draft.roleSlug}
-            disabled={saving || deleting}
-            oninput={(event) =>
-              updateDraftField('roleSlug', (event.currentTarget as HTMLInputElement).value)}
-          />
-        </div>
-
-        <div class="space-y-1.5">
-          <Label
-            for="workflow-role-name"
-            class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
-            >Role Name</Label
-          >
-          <Input
-            id="workflow-role-name"
-            value={draft.roleName}
-            disabled={saving || deleting}
-            oninput={(event) =>
-              updateDraftField('roleName', (event.currentTarget as HTMLInputElement).value)}
-          />
-        </div>
-      </div>
-
-      <div class="space-y-1.5">
-        <Label
-          for="workflow-role-description"
-          class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
-          >Role Description</Label
-        >
-        <textarea
-          id="workflow-role-description"
-          class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring min-h-24 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
-          value={draft.roleDescription}
-          disabled={saving || deleting}
-          oninput={(event) =>
-            updateDraftField('roleDescription', (event.currentTarget as HTMLTextAreaElement).value)}
-        ></textarea>
-      </div>
-
-      <div class="space-y-1.5">
-        <Label
-          for="workflow-platform-access"
-          class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
-          >Platform Access Allowed</Label
-        >
-        <textarea
-          id="workflow-platform-access"
-          class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring min-h-24 w-full rounded-md border px-3 py-2 font-mono text-sm focus-visible:ring-2 focus-visible:outline-none"
-          value={draft.platformAccessAllowed}
-          disabled={saving || deleting}
-          placeholder="One scope per line, e.g. tickets.list"
-          oninput={(event) =>
-            updateDraftField('platformAccessAllowed', (event.currentTarget as HTMLTextAreaElement).value)}
-        ></textarea>
-      </div>
-
-      <div class="space-y-1.5">
-        <Label class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
-          >Bound Agent</Label
-        >
-        <Select.Root
-          type="single"
-          value={draft.agentId}
-          disabled={saving || deleting || agentOptions.length === 0}
-          onValueChange={(value) => updateDraftField('agentId', value || '')}
-        >
-          <Select.Trigger class="h-auto w-full py-2">
-            <WorkflowAgentSelectTrigger {selectedAgent} />
-          </Select.Trigger>
-          <Select.Content>
-            {#each agentOptions as option (option.id)}
-              <Select.Item value={option.id}>
-                <WorkflowAgentSelectOption {option} />
-              </Select.Item>
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      </div>
-
-      <WorkflowAgentBindingCard {selectedAgent} />
+      <WorkflowDetailIdentitySection
+        {draft}
+        {saving}
+        {deleting}
+        {agentOptions}
+        {selectedAgent}
+        onFieldChange={(field, value) => updateDraftField(field, value)}
+      />
 
       <Separator />
 

@@ -56,20 +56,6 @@ export function resolveTemplateStatusSelection(
   }
 }
 
-function dedupeStrings(items: string[]): string[] {
-  const seen = new Set<string>()
-  const deduped: string[] = []
-  for (const item of items) {
-    const trimmed = item.trim()
-    if (!trimmed) continue
-    const key = trimmed.toLowerCase()
-    if (seen.has(key)) continue
-    seen.add(key)
-    deduped.push(trimmed)
-  }
-  return deduped
-}
-
 function resolveTemplateStatusIds(
   names: readonly string[] | null | undefined,
   statuses: WorkflowStatusOption[],
