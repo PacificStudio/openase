@@ -79,3 +79,31 @@ func TestBuildEnvironment(t *testing.T) {
 		t.Fatalf("expected only required environment entries, got %#v", withoutOptional)
 	}
 }
+
+func TestDefaultAgentScopes(t *testing.T) {
+	got := DefaultAgentScopes()
+	want := []string{
+		string(ScopeTicketsCreate),
+		string(ScopeTicketsList),
+		string(ScopeTicketsReportUsage),
+		string(ScopeTicketsUpdateSelf),
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("DefaultAgentScopes() = %#v, want %#v", got, want)
+	}
+}
+
+func TestSupportedAgentScopes(t *testing.T) {
+	got := SupportedAgentScopes()
+	want := []string{
+		string(ScopeProjectsAddRepo),
+		string(ScopeProjectsUpdate),
+		string(ScopeTicketsCreate),
+		string(ScopeTicketsList),
+		string(ScopeTicketsReportUsage),
+		string(ScopeTicketsUpdateSelf),
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("SupportedAgentScopes() = %#v, want %#v", got, want)
+	}
+}
