@@ -110,7 +110,7 @@ func TestCriticalCLICommandsProvideExamples(t *testing.T) {
 		{"api"},
 		{"watch", "project"},
 		{"stream", "events"},
-		{"ticket", "comment", "workpad"},
+		{"ticket", "comment", "update"},
 		{"machine", "refresh-health"},
 		{"provider", "get"},
 	} {
@@ -214,7 +214,6 @@ func isHighRiskPlatformCommand(path []string) bool {
 	for _, item := range []string{
 		"ticket update",
 		"ticket report-usage",
-		"ticket comment workpad",
 		"project add-repo",
 	} {
 		if strings.Contains(joined, item) {

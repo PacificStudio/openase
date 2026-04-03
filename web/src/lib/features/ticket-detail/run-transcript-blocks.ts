@@ -162,10 +162,6 @@ export function seedRunBlocks(run: TicketRun): TicketRunTranscriptBlock[] {
     })
   }
 
-  if (run.status === 'completed' || run.status === 'failed' || run.status === 'stalled') {
-    blocks.push(buildResultBlock(run))
-  }
-
   return dedupeBlocks(blocks)
 }
 
@@ -199,26 +195,9 @@ export function buildLifecycleBlock(
         summary: lifecycle.message,
       }
     case 'agent.failed':
-      return {
-        kind: 'result',
-        id: `result:${lifecycle.eventType}:${lifecycle.createdAt}`,
-        outcome: 'failed',
-        summary: lifecycle.message,
-      }
     case 'agent.completed':
-      return {
-        kind: 'result',
-        id: `result:${lifecycle.eventType}:${lifecycle.createdAt}`,
-        outcome: 'completed',
-        summary: lifecycle.message,
-      }
     case 'agent.terminated':
-      return {
-        kind: 'result',
-        id: `result:${lifecycle.eventType}:${lifecycle.createdAt}`,
-        outcome: 'stalled',
-        summary: lifecycle.message,
-      }
+      return null
     default:
       return null
   }
@@ -242,7 +221,7 @@ export function finalizeTerminalRunBlocks(
 }
 
 export function isTerminalRunStatus(status: TicketRun['status'] | undefined): boolean {
-  return status === 'completed' || status === 'failed' || status === 'stalled'
+  return status === 'completed' || status === 'failed' || status === 'ended'
 }
 
 export function readPayloadString(payload: Record<string, unknown>, key: string): string {
@@ -252,23 +231,6 @@ export function readPayloadString(payload: Record<string, unknown>, key: string)
 
 export function hasBlock(blocks: TicketRunTranscriptBlock[], id: string): boolean {
   return blocks.some((block) => block.id === id)
-}
-
-function buildResultBlock(run: TicketRun): TicketRunTranscriptBlock {
-  return {
-    kind: 'result',
-    id: `result:${run.status}:${run.id}`,
-    outcome:
-      run.status === 'completed' ? 'completed' : run.status === 'failed' ? 'failed' : 'stalled',
-    summary:
-      run.lastError ||
-      run.currentStepSummary ||
-      (run.status === 'completed'
-        ? 'Run completed.'
-        : run.status === 'failed'
-          ? 'Run failed.'
-          : 'Run stalled.'),
-  }
 }
 
 function dedupeBlocks(blocks: TicketRunTranscriptBlock[]): TicketRunTranscriptBlock[] {

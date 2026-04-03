@@ -479,7 +479,7 @@ func normalizeAgentStepSummary(raw string) string {
 	const maxSummaryBytes = 240
 	const ellipsis = "..."
 
-	trimmed := strings.TrimSpace(raw)
+	trimmed := strings.TrimSpace(strings.ToValidUTF8(raw, ""))
 	if trimmed == "" {
 		return ""
 	}

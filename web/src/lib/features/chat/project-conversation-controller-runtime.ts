@@ -135,9 +135,9 @@ export function createProjectConversationControllerRuntime(
         },
         connectStream: (nextConversationId) => connectTabStream(tab, nextConversationId),
       })
-      await refreshTabWorkspaceDiff(tab, conversationId)
       if (isCurrentProjectConversationOperation(tab, currentOperationId)) tab.restored = restored
       setProjectConversationIdleIfCurrent(tab, currentOperationId)
+      void refreshTabWorkspaceDiff(tab, conversationId)
       input.persistTabs()
       return true
     } catch {

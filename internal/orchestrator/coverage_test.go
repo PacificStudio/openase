@@ -220,20 +220,34 @@ func TestNormalizeAgentStepSummaryPreservesUTF8Boundaries(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name  string
-		input string
+		name         string
+		input        string
+		wantExact    bool
+		wantEllipsis bool
 	}{
 		{
-			name:  "short ascii untouched",
-			input: "reviewing coverage report",
+			name:         "short ascii untouched",
+			input:        "reviewing coverage report",
+			wantExact:    true,
+			wantEllipsis: false,
 		},
 		{
-			name:  "long chinese stays valid",
-			input: strings.Repeat("上下文已经足够，准备进入产出阶段。", 16),
+			name:         "long chinese stays valid",
+			input:        strings.Repeat("上下文已经足够，准备进入产出阶段。", 16),
+			wantExact:    false,
+			wantEllipsis: true,
 		},
 		{
-			name:  "mixed utf8 stays valid",
-			input: strings.Repeat("Plan 已确认，继续写 PRD。", 18),
+			name:         "mixed utf8 stays valid",
+			input:        strings.Repeat("Plan 已确认，继续写 PRD。", 18),
+			wantExact:    false,
+			wantEllipsis: true,
+		},
+		{
+			name:         "invalid utf8 input is repaired",
+			input:        "上下文" + string([]byte{0xe7, 0x8c}) + "继续推进",
+			wantExact:    false,
+			wantEllipsis: false,
 		},
 	}
 
@@ -252,14 +266,17 @@ func TestNormalizeAgentStepSummaryPreservesUTF8Boundaries(t *testing.T) {
 			if len(got) > 240 {
 				t.Fatalf("normalizeAgentStepSummary() length = %d, want <= 240", len(got))
 			}
-			if len(strings.TrimSpace(tc.input)) <= 240 {
+			if len(strings.TrimSpace(tc.input)) <= 240 && tc.wantExact {
 				if got != strings.TrimSpace(tc.input) {
 					t.Fatalf("normalizeAgentStepSummary() = %q, want %q", got, strings.TrimSpace(tc.input))
 				}
 				return
 			}
-			if !strings.HasSuffix(got, "...") {
+			if tc.wantEllipsis && !strings.HasSuffix(got, "...") {
 				t.Fatalf("normalizeAgentStepSummary() = %q, want ellipsis suffix", got)
+			}
+			if !tc.wantEllipsis && strings.HasSuffix(got, "...") {
+				t.Fatalf("normalizeAgentStepSummary() = %q, want no ellipsis suffix", got)
 			}
 		})
 	}
@@ -786,6 +803,31 @@ func TestRuntimeRunnerHelperCoverage(t *testing.T) {
 	longLine := strings.Repeat("x", 141)
 	if got := summarizeAgentStepText(longLine + "\nsecond"); got != strings.Repeat("x", 140)+"..." {
 		t.Fatalf("summarizeAgentStepText(long) = %q", got)
+	}
+	longChineseLine := "仓库内容很少，当前只有 README.md；接下来我会从 OpenASE 读取工单详情、评论和工作流，再基于这些信息先落一版 workpad。"
+	gotChinese := summarizeAgentStepText(longChineseLine)
+	if gotChinese == "" {
+		t.Fatal("summarizeAgentStepText(long Chinese) returned empty string")
+	}
+	if !utf8.ValidString(gotChinese) {
+		t.Fatalf("summarizeAgentStepText(long Chinese) returned invalid UTF-8: %q", gotChinese)
+	}
+	if !strings.HasSuffix(gotChinese, "...") {
+		t.Fatalf("summarizeAgentStepText(long Chinese) = %q, want ellipsis suffix", gotChinese)
+	}
+	if len(gotChinese) > 143 {
+		t.Fatalf("summarizeAgentStepText(long Chinese) length = %d, want <= 143", len(gotChinese))
+	}
+	invalidLine := "进度更新" + string([]byte{0xe7, 0x8c}) + "继续"
+	gotInvalid := summarizeAgentStepText(invalidLine)
+	if gotInvalid == "" {
+		t.Fatal("summarizeAgentStepText(invalid UTF-8) returned empty string")
+	}
+	if !utf8.ValidString(gotInvalid) {
+		t.Fatalf("summarizeAgentStepText(invalid UTF-8) returned invalid UTF-8: %q", gotInvalid)
+	}
+	if strings.ContainsRune(gotInvalid, utf8.RuneError) {
+		t.Fatalf("summarizeAgentStepText(invalid UTF-8) = %q, want invalid bytes removed", gotInvalid)
 	}
 	if got := toolCallStepSummary(" "); got != "Running provider tool call." {
 		t.Fatalf("toolCallStepSummary(blank) = %q", got)
@@ -1356,6 +1398,109 @@ func TestPublishAgentStepEventAcceptsLongChineseSummary(t *testing.T) {
 	}
 	if stepItem.Summary != *runAfter.CurrentStepSummary {
 		t.Fatalf("persisted step summary = %q, want %q", stepItem.Summary, *runAfter.CurrentStepSummary)
+	}
+}
+
+func TestRecordAgentOutputPersistsValidUTF8StepSummaryFromChinesePhaseText(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	agentItem := fixture.createAgent(ctx, t, "codex-output-utf8", 2)
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetAgentID(agentItem.ID).
+		SetName("Output UTF-8 Workflow").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/output-utf8.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-OUTPUT-UTF8").
+		SetTitle("Persist UTF-8 output summary").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityMedium).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	runStartedAt := time.Date(2026, time.April, 3, 10, 0, 0, 0, time.UTC)
+	runItem := mustCreateCurrentRun(
+		ctx,
+		t,
+		client,
+		agentItem,
+		workflowItem.ID,
+		ticketItem.ID,
+		entagentrun.StatusExecuting,
+		runStartedAt,
+	)
+
+	launcher := &RuntimeLauncher{
+		client: client,
+		now:    func() time.Time { return runStartedAt.Add(30 * time.Second) },
+	}
+	longChineseText := "仓库内容很少，当前只有 README.md；接下来我会从 OpenASE 读取工单详情、评论和工作流，再基于这些信息先落一版 workpad。"
+	expectedSummary := summarizeAgentStepText(longChineseText)
+	if expectedSummary == "" {
+		t.Fatal("expectedSummary = empty, want value")
+	}
+	if !utf8.ValidString(expectedSummary) {
+		t.Fatalf("expectedSummary is invalid UTF-8: %q", expectedSummary)
+	}
+
+	if err := launcher.recordAgentOutput(ctx, fixture.projectID, agentItem.ID, ticketItem.ID, runItem.ID, entagentprovider.AdapterTypeCodexAppServer, &agentOutputEvent{
+		Stream: "assistant",
+		Text:   longChineseText,
+		Phase:  "commentary",
+		ItemID: "item-utf8",
+		TurnID: "turn-utf8",
+	}); err != nil {
+		t.Fatalf("recordAgentOutput(long Chinese phase text) error = %v", err)
+	}
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run after long Chinese output: %v", err)
+	}
+	if runAfter.CurrentStepStatus == nil || *runAfter.CurrentStepStatus != "commentary" {
+		t.Fatalf("run current_step_status = %+v, want commentary", runAfter.CurrentStepStatus)
+	}
+	if runAfter.CurrentStepSummary == nil {
+		t.Fatal("run current_step_summary = nil, want value")
+	}
+	if *runAfter.CurrentStepSummary != expectedSummary {
+		t.Fatalf("run current_step_summary = %q, want %q", *runAfter.CurrentStepSummary, expectedSummary)
+	}
+	if !utf8.ValidString(*runAfter.CurrentStepSummary) {
+		t.Fatalf("run current_step_summary is invalid UTF-8: %q", *runAfter.CurrentStepSummary)
+	}
+
+	stepItems, err := client.AgentStepEvent.Query().
+		Where(entagentstepevent.AgentRunIDEQ(runItem.ID)).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("load persisted step events: %v", err)
+	}
+	if len(stepItems) != 1 {
+		t.Fatalf("persisted step events = %d, want 1", len(stepItems))
+	}
+	if stepItems[0].StepStatus != "commentary" {
+		t.Fatalf("persisted step status = %q, want commentary", stepItems[0].StepStatus)
+	}
+	if stepItems[0].Summary != expectedSummary {
+		t.Fatalf("persisted step summary = %q, want %q", stepItems[0].Summary, expectedSummary)
+	}
+	if !utf8.ValidString(stepItems[0].Summary) {
+		t.Fatalf("persisted step summary is invalid UTF-8: %q", stepItems[0].Summary)
 	}
 }
 

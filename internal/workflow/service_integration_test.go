@@ -572,6 +572,78 @@ Version 2.
 	}
 }
 
+func TestBuiltinOpenASEPlatformSkillProjectsWorkpadScriptAcrossRuntimes(t *testing.T) {
+	ctx := context.Background()
+	client := openWorkflowTestEntClient(t)
+	repoRoot := createWorkflowTestGitRepo(t)
+	service := newWorkflowTestService(t, client, repoRoot)
+	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
+
+	skills, err := service.ListSkills(ctx, fixture.projectID)
+	if err != nil {
+		t.Fatalf("ListSkills() error = %v", err)
+	}
+	platformSkill := findSkillByName(skills, "openase-platform")
+	if platformSkill == nil {
+		t.Fatalf("expected openase-platform in %+v", skills)
+	}
+	platformDetail, err := service.GetSkill(ctx, platformSkill.ID)
+	if err != nil {
+		t.Fatalf("GetSkill(openase-platform) error = %v", err)
+	}
+	if got := findSkillBundleFile(t, platformDetail.Files, "scripts/upsert_workpad.sh"); !got.IsExecutable {
+		t.Fatalf("expected builtin workpad helper to be executable, got %+v", got)
+	}
+
+	tests := []struct {
+		name        string
+		adapterType string
+		scriptPath  string
+	}{
+		{
+			name:        "agent",
+			adapterType: "custom",
+			scriptPath:  ".agent/skills/openase-platform/scripts/upsert_workpad.sh",
+		},
+		{
+			name:        "codex",
+			adapterType: "codex-app-server",
+			scriptPath:  ".codex/skills/openase-platform/scripts/upsert_workpad.sh",
+		},
+		{
+			name:        "claude",
+			adapterType: "claude-code-cli",
+			scriptPath:  ".claude/skills/openase-platform/scripts/upsert_workpad.sh",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			workspaceRoot := t.TempDir()
+			refreshResult, err := service.RefreshSkills(ctx, RefreshSkillsInput{
+				ProjectID:     fixture.projectID,
+				WorkspaceRoot: workspaceRoot,
+				AdapterType:   tt.adapterType,
+			})
+			if err != nil {
+				t.Fatalf("RefreshSkills(%s) error = %v", tt.adapterType, err)
+			}
+			if !slices.Contains(refreshResult.InjectedSkills, "openase-platform") {
+				t.Fatalf("RefreshSkills(%s) = %+v", tt.adapterType, refreshResult)
+			}
+
+			scriptPath := filepath.Join(workspaceRoot, filepath.FromSlash(tt.scriptPath))
+			info, err := os.Stat(scriptPath)
+			if err != nil {
+				t.Fatalf("stat projected workpad script: %v", err)
+			}
+			if info.Mode()&0o111 == 0 {
+				t.Fatalf("expected projected script to be executable, mode=%v", info.Mode())
+			}
+		})
+	}
+}
+
 func TestWorkflowServiceSkillLifecycleCommits(t *testing.T) {
 	ctx := context.Background()
 	client := openWorkflowTestEntClient(t)

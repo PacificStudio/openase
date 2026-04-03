@@ -109,6 +109,9 @@ func TestRolesHelpers(t *testing.T) {
 	if len(roles) == 0 {
 		t.Fatal("Roles() expected built-in roles")
 	}
+	if roles[0].Slug != "dispatcher" {
+		t.Fatalf("Roles()[0].Slug=%q, want dispatcher", roles[0].Slug)
+	}
 
 	originalName := roles[0].Name
 	roles[0].Name = "mutated"
@@ -120,28 +123,15 @@ func TestRolesHelpers(t *testing.T) {
 	if _, ok := RoleBySlug("missing"); ok {
 		t.Fatal("RoleBySlug(missing) expected false")
 	}
-
-	custom := buildRoleTemplate("coding", "Coding", "coding", "Ship code", []string{"write-test", "review-code"}, "Do the work.")
-	if custom.HarnessPath != ".openase/harnesses/roles/coding.md" {
-		t.Fatalf("HarnessPath=%q, want %q", custom.HarnessPath, ".openase/harnesses/roles/coding.md")
-	}
-	for _, want := range []string{
-		`name: "Coding"`,
-		`type: "coding"`,
-		`role: "coding"`,
-		`- write-test`,
-		`- review-code`,
-		"## Runtime Context",
-		"project.updates",
-		"{{ workflow.pickup_status }}",
-		"{{ workflow.finish_status }}",
-		"## Workpad",
-		"## Status Control",
-		"## Execution Rules",
-		"Do the work.",
-	} {
-		if !strings.Contains(custom.Content, want) {
-			t.Fatalf("expected generated content to contain %q, got:\n%s", want, custom.Content)
+	for _, role := range refreshed {
+		if role.HarnessPath != ".openase/harnesses/roles/"+role.Slug+".md" {
+			t.Fatalf("role %s HarnessPath=%q", role.Slug, role.HarnessPath)
+		}
+		if strings.TrimSpace(role.Summary) == "" {
+			t.Fatalf("role %s expected non-empty summary", role.Slug)
+		}
+		if !strings.Contains(role.Content, "# "+role.Name) {
+			t.Fatalf("role %s content missing heading %q", role.Slug, role.Name)
 		}
 	}
 }

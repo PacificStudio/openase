@@ -100,8 +100,10 @@
       <Badge variant="outline" class="h-5 px-2 text-[10px]">{run.agentName}</Badge>
       <Badge variant="outline" class="h-5 px-2 text-[10px]">{run.provider}</Badge>
       <span class="text-muted-foreground">Started {formatRelativeTime(run.createdAt)}</span>
-      {#if run.completedAt}
+      {#if run.status === 'completed' && run.completedAt}
         <span class="text-muted-foreground">Completed {formatRelativeTime(run.completedAt)}</span>
+      {:else if run.status === 'ended' && run.terminalAt}
+        <span class="text-muted-foreground">Ended {formatRelativeTime(run.terminalAt)}</span>
       {:else if run.lastHeartbeatAt}
         <span class="text-muted-foreground">Updated {formatRelativeTime(run.lastHeartbeatAt)}</span>
       {/if}

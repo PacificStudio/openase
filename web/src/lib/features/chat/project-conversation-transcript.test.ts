@@ -7,93 +7,97 @@ describe('ProjectConversationTranscript', () => {
     cleanup()
   })
 
-  it('groups system entries into a collapsed operation block and renders standalone entries', () => {
-    const { getByText, getAllByText, queryByText } = render(ProjectConversationTranscript, {
-      props: {
-        entries: [
-          {
-            id: 'entry-tool',
-            kind: 'tool_call',
-            role: 'system',
-            tool: 'functions.exec_command',
-            arguments: { cmd: 'git status' },
-          },
-          {
-            id: 'entry-status',
-            kind: 'task_status',
-            role: 'system',
-            statusType: 'task_progress',
-            title: 'Task progress',
-            detail: 'Status: running',
-            raw: {
-              status: 'running',
-              command: 'pnpm test',
-              file: 'README.md',
-              patch: '@@ -1 +1 @@\n-old line\n+new line',
+  it('renders command output directly while hiding noisy task status entries', () => {
+    const { getAllByRole, getByText, getAllByText, queryByText } = render(
+      ProjectConversationTranscript,
+      {
+        props: {
+          entries: [
+            {
+              id: 'entry-tool',
+              kind: 'tool_call',
+              role: 'system',
+              tool: 'functions.exec_command',
+              arguments: { cmd: 'git status' },
             },
-          },
-          {
-            id: 'entry-command',
-            kind: 'command_output',
-            role: 'system',
-            stream: 'command',
-            phase: 'stdout',
-            snapshot: false,
-            content: 'M web/src/app.ts\n',
-          },
-          {
-            id: 'entry-diff',
-            kind: 'diff',
-            role: 'assistant',
-            diff: {
-              type: 'diff',
-              file: 'README.md',
-              hunks: [
-                {
-                  oldStart: 1,
-                  oldLines: 1,
-                  newStart: 1,
-                  newLines: 2,
-                  lines: [
-                    { op: 'context', text: 'old line' },
-                    { op: 'add', text: 'new line' },
-                  ],
-                },
-              ],
+            {
+              id: 'entry-status',
+              kind: 'task_status',
+              role: 'system',
+              statusType: 'task_progress',
+              title: 'Task progress',
+              detail: 'Status: running',
+              raw: {
+                status: 'running',
+                command: 'pnpm test',
+                file: 'README.md',
+                patch: '@@ -1 +1 @@\n-old line\n+new line',
+              },
             },
-          },
-          {
-            id: 'entry-interrupt',
-            kind: 'interrupt',
-            role: 'system',
-            interruptId: 'interrupt-1',
-            provider: 'codex',
-            interruptKind: 'command_execution_approval',
-            payload: {
+            {
+              id: 'entry-command',
+              kind: 'command_output',
+              role: 'system',
+              stream: 'stdout',
               command: 'git status',
-              file: 'README.md',
-              patch: '@@ -1,1 +1,2 @@\n-old line\n+new line',
+              phase: 'executing',
+              snapshot: false,
+              content: 'M web/src/app.ts\n',
             },
-            options: [{ id: 'approve_once', label: 'Approve once' }],
-            status: 'pending',
-          },
-        ],
+            {
+              id: 'entry-diff',
+              kind: 'diff',
+              role: 'assistant',
+              diff: {
+                type: 'diff',
+                file: 'README.md',
+                hunks: [
+                  {
+                    oldStart: 1,
+                    oldLines: 1,
+                    newStart: 1,
+                    newLines: 2,
+                    lines: [
+                      { op: 'context', text: 'old line' },
+                      { op: 'add', text: 'new line' },
+                    ],
+                  },
+                ],
+              },
+            },
+            {
+              id: 'entry-interrupt',
+              kind: 'interrupt',
+              role: 'system',
+              interruptId: 'interrupt-1',
+              provider: 'codex',
+              interruptKind: 'command_execution_approval',
+              payload: {
+                command: 'git status',
+                file: 'README.md',
+                patch: '@@ -1,1 +1,2 @@\n-old line\n+new line',
+              },
+              options: [{ id: 'approve_once', label: 'Approve once' }],
+              status: 'pending',
+            },
+          ],
+        },
       },
-    })
+    )
 
-    // The 3 system entries (tool_call, task_status, command_output) are grouped
-    // into a single collapsed operation block with a summary header
-    expect(getByText('3 items')).toBeTruthy()
+    // only tool calls remain grouped
+    expect(getByText('1 item')).toBeTruthy()
 
-    // Collapsed by default — individual card content is NOT visible
+    // command_output is rendered directly with the runtime-style command card
+    expect(getAllByRole('button', { name: /git status/i })).toHaveLength(2)
+    expect(getByText('executing')).toBeTruthy()
+
+    // noisy task status entries are hidden entirely
     expect(queryByText('Task progress')).toBeNull()
 
     // Standalone entries are still rendered directly
-    // Diff card
     expect(getAllByText('README.md').length).toBeGreaterThan(0)
     expect(getByText('+new line')).toBeTruthy()
-
-    // Interrupt card
     expect(getByText('Command approval required')).toBeTruthy()
     expect(getByText('Approve once')).toBeTruthy()
   })
@@ -135,8 +139,8 @@ describe('ProjectConversationTranscript', () => {
     expect(getByText('Thinking...')).toBeTruthy()
   })
 
-  it('renders codex thread and claude session status entries inside the operation group', async () => {
-    const { getByRole, getByText } = render(ProjectConversationTranscript, {
+  it('hides codex thread and task status noise while keeping higher-signal statuses', async () => {
+    const { getByRole, getByText, queryByText } = render(ProjectConversationTranscript, {
       props: {
         entries: [
           {
@@ -151,6 +155,17 @@ describe('ProjectConversationTranscript', () => {
               thread_id: 'thread-1',
               status: 'waitingOnApproval',
               active_flags: ['waitingOnApproval'],
+            },
+          },
+          {
+            id: 'entry-task-started',
+            kind: 'task_status',
+            role: 'system',
+            statusType: 'task_started',
+            title: 'Task started',
+            detail: 'Status: inProgress',
+            raw: {
+              status: 'inProgress',
             },
           },
           {
@@ -171,18 +186,16 @@ describe('ProjectConversationTranscript', () => {
       },
     })
 
-    await fireEvent.click(getByRole('button', { name: /System activity/i }))
-    await fireEvent.click(getByRole('button', { name: /Codex thread status/i }))
     await fireEvent.click(getByRole('button', { name: /Claude session status/i }))
 
-    expect(getByText('Codex thread status')).toBeTruthy()
+    expect(queryByText('Codex thread status')).toBeNull()
+    expect(queryByText('Task started')).toBeNull()
     expect(getByText('Claude session status')).toBeTruthy()
-    expect(getByText('waitingOnApproval · waitingOnApproval')).toBeTruthy()
     expect(getByText('requires_action · approval required · requires_action')).toBeTruthy()
   })
 
   it('uses the command as the visible label for command output cards', async () => {
-    const { getByRole, getByText } = render(ProjectConversationTranscript, {
+    const { getByRole, getAllByText } = render(ProjectConversationTranscript, {
       props: {
         entries: [
           {
@@ -200,6 +213,35 @@ describe('ProjectConversationTranscript', () => {
 
     await fireEvent.click(getByRole('button', { name: /pnpm vitest run/i }))
 
-    expect(getByText('pnpm vitest run')).toBeTruthy()
+    expect(getAllByText('pnpm vitest run').length).toBeGreaterThan(0)
+  })
+
+  it('folds long command output through the shared runtime-style truncation flow', async () => {
+    const content = Array.from({ length: 18 }, (_, index) => `line ${index + 1}`).join('\n')
+    const { getByRole, queryByText, getByText } = render(ProjectConversationTranscript, {
+      props: {
+        entries: [
+          {
+            id: 'entry-command',
+            kind: 'command_output',
+            role: 'system',
+            stream: 'stdout',
+            command: 'pnpm test',
+            snapshot: false,
+            content,
+          },
+        ],
+      },
+    })
+
+    await fireEvent.click(getByRole('button', { name: /pnpm test/i }))
+
+    expect(getByRole('button', { name: /\+8 lines hidden/i })).toBeTruthy()
+    expect(queryByText('line 10')).toBeNull()
+
+    await fireEvent.click(getByRole('button', { name: /\+8 lines hidden/i }))
+
+    expect(getByText(/line 10/)).toBeTruthy()
+    expect(getByRole('button', { name: /collapse output/i })).toBeTruthy()
   })
 })

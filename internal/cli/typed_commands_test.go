@@ -182,32 +182,23 @@ func TestProviderGetHelpMentionsAvailabilitySemantics(t *testing.T) {
 	}
 }
 
-func TestTypedTicketWorkpadHelpMentionsUpsertSemantics(t *testing.T) {
+func TestTypedTicketCommentCommandExposesPrimitiveSubcommandsOnly(t *testing.T) {
 	root := NewRootCommand("dev")
-	command, _, err := root.Find([]string{"ticket", "comment", "workpad"})
+	command, _, err := root.Find([]string{"ticket", "comment"})
 	if err != nil {
-		t.Fatalf("Find(ticket comment workpad) returned error: %v", err)
+		t.Fatalf("Find(ticket comment) returned error: %v", err)
 	}
 	if command == nil {
-		t.Fatal("expected ticket comment workpad command")
+		t.Fatal("expected ticket comment command")
 	}
-
-	var stdout bytes.Buffer
-	command.SetOut(&stdout)
-	command.SetErr(&stdout)
-	if err := command.Help(); err != nil {
-		t.Fatalf("Help() returned error: %v", err)
-	}
-
-	output := stdout.String()
-	for _, want := range []string{
-		"lists comments on the target ticket",
-		"creates or updates that single comment",
-		"Exactly one of --body or --body-file must be provided",
-		"Human-readable identifiers such as ASE-2 are not",
-	} {
-		if !strings.Contains(output, want) {
-			t.Fatalf("expected help output to contain %q, got %q", want, output)
+	names := make([]string, 0, len(command.Commands()))
+	for _, child := range command.Commands() {
+		if child.Hidden || child.Name() == "help" {
+			continue
 		}
+		names = append(names, child.Name())
+	}
+	if strings.Join(names, ",") != "create,delete,list,revisions,update" {
+		t.Fatalf("comment subcommands = %v, want [create delete list revisions update]", names)
 	}
 }

@@ -5,7 +5,13 @@ import type {
   TicketRunStepRecord,
   TicketRunTraceRecord,
 } from '$lib/api/contracts'
-import type { TicketRun, TicketRunDetail, TicketRunStepEntry, TicketRunTraceEntry } from './types'
+import type {
+  TicketRun,
+  TicketRunCompletionSummary,
+  TicketRunDetail,
+  TicketRunStepEntry,
+  TicketRunTraceEntry,
+} from './types'
 
 export function mapTicketRuns(payload: TicketRunListPayload): TicketRun[] {
   return payload.runs.map(mapTicketRun)
@@ -19,7 +25,21 @@ export function mapTicketRunDetail(payload: TicketRunDetailPayload): TicketRunDe
   }
 }
 
-function mapTicketRun(item: TicketRunRecord): TicketRun {
+type TicketRunLifecycleEvent = {
+  eventType: string
+  message: string
+  createdAt: string
+}
+
+type TicketRunLifecycleEventRecord = {
+  event_type?: string
+  eventType?: string
+  message?: string
+  created_at?: string
+  createdAt?: string
+}
+
+export function mapTicketRun(item: TicketRunRecord): TicketRun {
   return {
     id: item.id,
     attemptNumber: item.attempt_number,
@@ -32,21 +52,53 @@ function mapTicketRun(item: TicketRunRecord): TicketRun {
     createdAt: item.created_at,
     runtimeStartedAt: item.runtime_started_at ?? undefined,
     lastHeartbeatAt: item.last_heartbeat_at ?? undefined,
+    terminalAt: item.terminal_at ?? undefined,
     completedAt: item.completed_at ?? undefined,
     lastError: item.last_error ?? undefined,
-    completionSummary: item.completion_summary
-      ? {
-          status: item.completion_summary.status,
-          markdown: item.completion_summary.markdown ?? undefined,
-          json: item.completion_summary.json ?? undefined,
-          generatedAt: item.completion_summary.generated_at ?? undefined,
-          error: item.completion_summary.error ?? undefined,
-        }
-      : undefined,
+    completionSummary: mapTicketRunCompletionSummary(item.completion_summary),
   }
 }
 
-function mapTicketRunTraceEntry(item: TicketRunTraceRecord): TicketRunTraceEntry {
+type TicketRunCompletionSummaryRecord =
+  | {
+      status?: string
+      markdown?: string | null
+      json?: Record<string, unknown> | null
+      generated_at?: string | null
+      error?: string | null
+    }
+  | null
+  | undefined
+
+export function mapTicketRunCompletionSummary(
+  item: TicketRunCompletionSummaryRecord,
+): TicketRunCompletionSummary | undefined {
+  if (!item?.status) {
+    return undefined
+  }
+  if (item.status !== 'pending' && item.status !== 'completed' && item.status !== 'failed') {
+    return undefined
+  }
+  return {
+    status: item.status,
+    markdown: item.markdown ?? undefined,
+    json: item.json ?? undefined,
+    generatedAt: item.generated_at ?? undefined,
+    error: item.error ?? undefined,
+  }
+}
+
+export function mapTicketRunStreamLifecycleEvent(
+  item: TicketRunLifecycleEventRecord,
+): TicketRunLifecycleEvent {
+  return {
+    eventType: item.event_type ?? item.eventType ?? '',
+    message: item.message ?? '',
+    createdAt: item.created_at ?? item.createdAt ?? '',
+  }
+}
+
+export function mapTicketRunTraceEntry(item: TicketRunTraceRecord): TicketRunTraceEntry {
   return {
     id: item.id,
     agentRunId: item.agent_run_id,
@@ -60,7 +112,7 @@ function mapTicketRunTraceEntry(item: TicketRunTraceRecord): TicketRunTraceEntry
   }
 }
 
-function mapTicketRunStepEntry(item: TicketRunStepRecord): TicketRunStepEntry {
+export function mapTicketRunStepEntry(item: TicketRunStepRecord): TicketRunStepEntry {
   return {
     id: item.id,
     agentRunId: item.agent_run_id,
@@ -76,11 +128,15 @@ function normalizeRunStatus(status: string): TicketRun['status'] {
     status === 'launching' ||
     status === 'ready' ||
     status === 'executing' ||
-    status === 'stalled' ||
+    status === 'ended' ||
     status === 'failed' ||
     status === 'completed'
   ) {
     return status
+  }
+
+  if (status === 'stalled') {
+    return 'ended'
   }
 
   return 'launching'

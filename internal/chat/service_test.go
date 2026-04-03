@@ -435,6 +435,7 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 			ID:             projectID,
 			OrganizationID: orgID,
 			Name:           "OpenASE",
+			Slug:           "openase",
 			Description:    "Issue-driven automation",
 		},
 		activityEvents: []catalogdomain.ActivityEvent{
@@ -465,7 +466,15 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 			{StatusName: "Todo", RetryPaused: true},
 		},
 	}
-	service := NewService(nil, runtime, catalog, tickets, harnessWorkflowReader{}, nil, "")
+	service := NewService(nil, runtime, catalog, tickets, harnessWorkflowReader{}, fakeStatusReader{
+		result: ticketstatusservice.ListResult{
+			Statuses: []ticketstatusservice.Status{
+				{ID: uuid.MustParse("990e8400-e29b-41d4-a716-446655440000"), Name: "Todo"},
+				{ID: uuid.MustParse("aa0e8400-e29b-41d4-a716-446655440000"), Name: "In Progress"},
+				{ID: uuid.MustParse("bb0e8400-e29b-41d4-a716-446655440000"), Name: "Done"},
+			},
+		},
+	}, "")
 
 	stream, err := service.StartTurn(context.Background(), UserID("user:test"), StartInput{
 		Message: "Summarize project",
@@ -512,10 +521,17 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 	}
 	if !containsAll(runtime.lastInput.SystemPrompt,
 		"## 来源: 项目侧栏",
+		"project_id: 660e8400-e29b-41d4-a716-446655440000",
+		"project_slug: openase",
 		"- 总数: 3",
 		"- 进行中: 1",
 		"- 已完成: 1",
 		"- 失败/暂停: 1",
+		"### 平台命令引用",
+		"- current_project_name: OpenASE",
+		"- statuses:",
+		"Todo => 990e8400-e29b-41d4-a716-446655440000",
+		"\"type\":\"platform_command_proposal\"",
 		"Updated issue status",
 	) {
 		t.Fatalf("project sidebar prompt = %q", runtime.lastInput.SystemPrompt)

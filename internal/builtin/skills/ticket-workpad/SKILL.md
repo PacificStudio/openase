@@ -7,7 +7,7 @@ description: "Maintain the persistent Workpad comment on the current ticket and 
 
 Workpad 是当前工单唯一的持久化进度板。开始执行前先创建或更新它，之后在关键节点持续刷新。
 
-调用 `ticket comment workpad` 时，不需要自己手动维护标题；只需要提供正文内容，让平台命令去复用或更新那条持久化 workpad 评论。
+Workpad upsert 不再是独立 CLI 子命令。现在应调用注入的 `openase-platform` helper script；它会自动补标准 workpad 标题，并复用或更新那条持久化评论。
 
 推荐写法：
 
@@ -30,7 +30,7 @@ Notes
 - assumptions or blockers
 EOF
 
-./.openase/bin/openase ticket comment workpad --body-file /tmp/workpad.md
+./.agent/skills/openase-platform/scripts/upsert_workpad.sh --body-file /tmp/workpad.md
 ```
 
 执行时遵循：
