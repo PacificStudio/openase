@@ -9,36 +9,45 @@ import (
 )
 
 type rawCreateWorkflowRequest struct {
-	AgentID             string         `json:"agent_id"`
-	Name                string         `json:"name"`
-	Type                string         `json:"type"`
-	CreatedBy           *string        `json:"created_by"`
-	HarnessPath         *string        `json:"harness_path"`
-	HarnessContent      string         `json:"harness_content"`
-	Hooks               map[string]any `json:"hooks"`
-	MaxConcurrent       *int           `json:"max_concurrent"`
-	MaxRetryAttempts    *int           `json:"max_retry_attempts"`
-	TimeoutMinutes      *int           `json:"timeout_minutes"`
-	StallTimeoutMinutes *int           `json:"stall_timeout_minutes"`
-	IsActive            *bool          `json:"is_active"`
-	PickupStatusIDs     []string       `json:"pickup_status_ids"`
-	FinishStatusIDs     []string       `json:"finish_status_ids"`
+	AgentID               string         `json:"agent_id"`
+	Name                  string         `json:"name"`
+	Type                  string         `json:"type"`
+	RoleSlug              *string        `json:"role_slug"`
+	RoleName              *string        `json:"role_name"`
+	RoleDescription       *string        `json:"role_description"`
+	PlatformAccessAllowed []string       `json:"platform_access_allowed"`
+	SkillNames            []string       `json:"skill_names"`
+	CreatedBy             *string        `json:"created_by"`
+	HarnessPath           *string        `json:"harness_path"`
+	HarnessContent        string         `json:"harness_content"`
+	Hooks                 map[string]any `json:"hooks"`
+	MaxConcurrent         *int           `json:"max_concurrent"`
+	MaxRetryAttempts      *int           `json:"max_retry_attempts"`
+	TimeoutMinutes        *int           `json:"timeout_minutes"`
+	StallTimeoutMinutes   *int           `json:"stall_timeout_minutes"`
+	IsActive              *bool          `json:"is_active"`
+	PickupStatusIDs       []string       `json:"pickup_status_ids"`
+	FinishStatusIDs       []string       `json:"finish_status_ids"`
 }
 
 type rawUpdateWorkflowRequest struct {
-	AgentID             *string         `json:"agent_id"`
-	Name                *string         `json:"name"`
-	Type                *string         `json:"type"`
-	EditedBy            *string         `json:"edited_by"`
-	HarnessPath         *string         `json:"harness_path"`
-	Hooks               *map[string]any `json:"hooks"`
-	MaxConcurrent       *int            `json:"max_concurrent"`
-	MaxRetryAttempts    *int            `json:"max_retry_attempts"`
-	TimeoutMinutes      *int            `json:"timeout_minutes"`
-	StallTimeoutMinutes *int            `json:"stall_timeout_minutes"`
-	IsActive            *bool           `json:"is_active"`
-	PickupStatusIDs     *[]string       `json:"pickup_status_ids"`
-	FinishStatusIDs     *[]string       `json:"finish_status_ids"`
+	AgentID               *string         `json:"agent_id"`
+	Name                  *string         `json:"name"`
+	Type                  *string         `json:"type"`
+	RoleSlug              *string         `json:"role_slug"`
+	RoleName              *string         `json:"role_name"`
+	RoleDescription       *string         `json:"role_description"`
+	PlatformAccessAllowed *[]string       `json:"platform_access_allowed"`
+	EditedBy              *string         `json:"edited_by"`
+	HarnessPath           *string         `json:"harness_path"`
+	Hooks                 *map[string]any `json:"hooks"`
+	MaxConcurrent         *int            `json:"max_concurrent"`
+	MaxRetryAttempts      *int            `json:"max_retry_attempts"`
+	TimeoutMinutes        *int            `json:"timeout_minutes"`
+	StallTimeoutMinutes   *int            `json:"stall_timeout_minutes"`
+	IsActive              *bool           `json:"is_active"`
+	PickupStatusIDs       *[]string       `json:"pickup_status_ids"`
+	FinishStatusIDs       *[]string       `json:"finish_status_ids"`
 }
 
 type rawUpdateHarnessRequest struct {
@@ -93,19 +102,30 @@ func parseCreateWorkflowRequest(projectID uuid.UUID, raw rawCreateWorkflowReques
 	}
 
 	input := workflowservice.CreateInput{
-		ProjectID:           projectID,
-		AgentID:             agentID,
-		Name:                name,
-		Type:                workflowType,
-		HarnessContent:      raw.HarnessContent,
-		Hooks:               raw.Hooks,
-		MaxConcurrent:       maxConcurrent,
-		MaxRetryAttempts:    maxRetryAttempts,
-		TimeoutMinutes:      timeoutMinutes,
-		StallTimeoutMinutes: stallTimeoutMinutes,
-		IsActive:            true,
-		PickupStatusIDs:     pickupStatusIDs,
-		FinishStatusIDs:     finishStatusIDs,
+		ProjectID:             projectID,
+		AgentID:               agentID,
+		Name:                  name,
+		Type:                  workflowType,
+		PlatformAccessAllowed: parseNormalizedStringList(raw.PlatformAccessAllowed),
+		SkillNames:            parseNormalizedStringList(raw.SkillNames),
+		HarnessContent:        raw.HarnessContent,
+		Hooks:                 raw.Hooks,
+		MaxConcurrent:         maxConcurrent,
+		MaxRetryAttempts:      maxRetryAttempts,
+		TimeoutMinutes:        timeoutMinutes,
+		StallTimeoutMinutes:   stallTimeoutMinutes,
+		IsActive:              true,
+		PickupStatusIDs:       pickupStatusIDs,
+		FinishStatusIDs:       finishStatusIDs,
+	}
+	if raw.RoleSlug != nil {
+		input.RoleSlug = strings.TrimSpace(*raw.RoleSlug)
+	}
+	if raw.RoleName != nil {
+		input.RoleName = strings.TrimSpace(*raw.RoleName)
+	}
+	if raw.RoleDescription != nil {
+		input.RoleDescription = strings.TrimSpace(*raw.RoleDescription)
 	}
 	if raw.CreatedBy != nil {
 		input.CreatedBy = strings.TrimSpace(*raw.CreatedBy)
@@ -149,6 +169,18 @@ func parseUpdateWorkflowRequest(workflowID uuid.UUID, raw rawUpdateWorkflowReque
 			return workflowservice.UpdateInput{}, err
 		}
 		input.Type = workflowservice.Some(workflowType)
+	}
+	if raw.RoleSlug != nil {
+		input.RoleSlug = workflowservice.Some(strings.TrimSpace(*raw.RoleSlug))
+	}
+	if raw.RoleName != nil {
+		input.RoleName = workflowservice.Some(strings.TrimSpace(*raw.RoleName))
+	}
+	if raw.RoleDescription != nil {
+		input.RoleDescription = workflowservice.Some(strings.TrimSpace(*raw.RoleDescription))
+	}
+	if raw.PlatformAccessAllowed != nil {
+		input.PlatformAccessAllowed = workflowservice.Some(parseNormalizedStringList(*raw.PlatformAccessAllowed))
 	}
 
 	if raw.HarnessPath != nil {
@@ -210,6 +242,24 @@ func parseUpdateWorkflowRequest(workflowID uuid.UUID, raw rawUpdateWorkflowReque
 	}
 
 	return input, nil
+}
+
+func parseNormalizedStringList(raw []string) []string {
+	normalized := make([]string, 0, len(raw))
+	seen := make(map[string]struct{}, len(raw))
+	for _, item := range raw {
+		trimmed := strings.TrimSpace(item)
+		if trimmed == "" {
+			continue
+		}
+		key := strings.ToLower(trimmed)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		normalized = append(normalized, trimmed)
+	}
+	return normalized
 }
 
 func parseUpdateHarnessRequest(workflowID uuid.UUID, raw rawUpdateHarnessRequest) (workflowservice.UpdateHarnessInput, error) {

@@ -3,6 +3,10 @@ import type { WorkflowSummary } from './types'
 export type WorkflowLifecycleDraft = {
   agentId: string
   name: string
+  roleSlug?: string
+  roleName?: string
+  roleDescription?: string
+  platformAccessAllowed?: string
   pickupStatusIds: string[]
   finishStatusIds: string[]
   maxConcurrent: string
@@ -20,6 +24,10 @@ export type WorkflowLifecyclePayload = {
   max_concurrent: number
   max_retry_attempts: number
   name: string
+  role_description?: string
+  role_name?: string
+  role_slug?: string
+  platform_access_allowed?: string[]
   pickup_status_ids: string[]
   stall_timeout_minutes: number
   timeout_minutes: number
@@ -31,6 +39,10 @@ export function createWorkflowLifecycleDraft(workflow: WorkflowSummary): Workflo
   return {
     agentId: workflow.agentId ?? '',
     name: workflow.name,
+    roleSlug: workflow.roleSlug ?? '',
+    roleName: workflow.roleName ?? workflow.name,
+    roleDescription: workflow.roleDescription ?? '',
+    platformAccessAllowed: (workflow.platformAccessAllowed ?? []).join('\n'),
     pickupStatusIds: [...workflow.pickupStatusIds],
     finishStatusIds: [...workflow.finishStatusIds],
     maxConcurrent: workflow.maxConcurrent > 0 ? String(workflow.maxConcurrent) : '',
@@ -51,6 +63,8 @@ export function parseWorkflowLifecycleDraft(
   if (!draft.agentId) {
     return { ok: false, error: 'Bound agent is required.' }
   }
+  const roleName = draft.roleName?.trim() || name
+  const roleSlug = draft.roleSlug?.trim() || slugify(roleName)
   if (draft.pickupStatusIds.length === 0) {
     return { ok: false, error: 'At least one pickup status is required.' }
   }
@@ -79,6 +93,10 @@ export function parseWorkflowLifecycleDraft(
       max_concurrent: maxConcurrent.value,
       max_retry_attempts: maxRetryAttempts.value,
       name,
+      role_description: draft.roleDescription?.trim() || '',
+      role_name: roleName,
+      role_slug: roleSlug,
+      platform_access_allowed: parseStringList(draft.platformAccessAllowed ?? ''),
       pickup_status_ids: [...draft.pickupStatusIds],
       stall_timeout_minutes: stallTimeoutMinutes.value,
       timeout_minutes: timeoutMinutes.value,
@@ -90,6 +108,23 @@ export function toggleWorkflowStatusSelection(selected: string[], statusId: stri
   return selected.includes(statusId)
     ? selected.filter((value) => value !== statusId)
     : [...selected, statusId]
+}
+
+function parseStringList(value: string) {
+  const normalized = value.replaceAll(',', '\n')
+  const items = normalized
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean)
+  return [...new Set(items)]
+}
+
+function slugify(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 }
 
 function parseIntegerField(value: string, label: string, minimum: number): ParseResult<number> {

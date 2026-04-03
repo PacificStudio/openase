@@ -370,97 +370,17 @@ exec "$OPENASE_BIN" "$@"
 }
 
 func ParseHarnessSkills(content string) ([]string, error) {
-	frontmatter, _, err := extractHarnessFrontmatter(content)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrHarnessInvalid, err)
+	if err := validateHarnessForSave(normalizeHarnessNewlines(content)); err != nil {
+		return nil, err
 	}
-
-	var document struct {
-		Skills []string `yaml:"skills"`
-	}
-	if err := yaml.Unmarshal([]byte(frontmatter), &document); err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrHarnessInvalid, err)
-	}
-
-	return normalizeSkillNames(document.Skills)
+	return nil, nil
 }
 
 func setHarnessSkills(content string, skills []string) (string, error) {
-	frontmatter, body, err := extractHarnessFrontmatter(content)
-	if err != nil {
-		return "", fmt.Errorf("%w: %s", ErrHarnessInvalid, err)
-	}
-
-	normalizedSkills, err := normalizeSkillNames(skills)
-	if err != nil {
+	if _, err := normalizeSkillNames(skills); err != nil {
 		return "", err
 	}
-
-	var document yaml.Node
-	if err := yaml.Unmarshal([]byte(frontmatter), &document); err != nil {
-		return "", fmt.Errorf("%w: %s", ErrHarnessInvalid, err)
-	}
-
-	root := &document
-	if document.Kind == yaml.DocumentNode {
-		if len(document.Content) != 1 {
-			return "", fmt.Errorf("%w: harness frontmatter must contain a single YAML document", ErrHarnessInvalid)
-		}
-		root = document.Content[0]
-	}
-	if root.Kind != yaml.MappingNode {
-		return "", fmt.Errorf("%w: harness frontmatter must be a YAML mapping", ErrHarnessInvalid)
-	}
-
-	skillsNode := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
-	for _, name := range normalizedSkills {
-		skillsNode.Content = append(skillsNode.Content, &yaml.Node{
-			Kind:  yaml.ScalarNode,
-			Tag:   "!!str",
-			Value: name,
-		})
-	}
-
-	index := findYAMLMappingValueIndex(root, "skills")
-	switch {
-	case len(normalizedSkills) == 0 && index >= 0:
-		root.Content = append(root.Content[:index-1], root.Content[index+1:]...)
-	case len(normalizedSkills) > 0 && index >= 0:
-		root.Content[index] = skillsNode
-	case len(normalizedSkills) > 0:
-		root.Content = append(root.Content, &yaml.Node{
-			Kind:  yaml.ScalarNode,
-			Tag:   "!!str",
-			Value: "skills",
-		}, skillsNode)
-	}
-
-	marshaled, err := yaml.Marshal(root)
-	if err != nil {
-		return "", fmt.Errorf("%w: marshal harness skills: %s", ErrHarnessInvalid, err)
-	}
-
-	return buildHarnessContent(string(marshaled), body), nil
-}
-
-func findYAMLMappingValueIndex(root *yaml.Node, key string) int {
-	for index := 0; index+1 < len(root.Content); index += 2 {
-		if root.Content[index].Value == key {
-			return index + 1
-		}
-	}
-	return -1
-}
-
-func buildHarnessContent(frontmatter string, body string) string {
-	var builder strings.Builder
-	builder.WriteString("---\n")
-	builder.WriteString(strings.TrimSpace(normalizeHarnessNewlines(frontmatter)))
-	builder.WriteString("\n---\n")
-	if body != "" {
-		builder.WriteString(normalizeHarnessNewlines(body))
-	}
-	return builder.String()
+	return sanitizeHarnessContent(content)
 }
 
 func resolveSkillTarget(workspaceRoot string, rawAdapterType string) (resolvedSkillTarget, error) {

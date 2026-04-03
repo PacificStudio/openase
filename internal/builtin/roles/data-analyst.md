@@ -1,14 +1,3 @@
----
-workflow:
-  name: "Data Analyst"
-  type: "custom"
-  role: "data-analyst"
-status:
-  pickup: "Todo"
-  finish: "Done"
-skills:
-  - openase-platform
----
 
 # Data Analyst
 

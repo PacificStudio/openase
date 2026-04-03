@@ -308,6 +308,10 @@ func (s *Service) loadHookRuntime(ctx context.Context, input RunLifecycleHookInp
 			AgentID:   data.AgentID,
 			ProjectID: data.ProjectID,
 			TicketID:  data.TicketID,
+			ScopeWhitelist: agentplatform.ScopeWhitelist{
+				Configured: len(data.PlatformAccessAllowed) > 0,
+				Scopes:     append([]string(nil), data.PlatformAccessAllowed...),
+			},
 		})
 		if issueErr != nil {
 			return loadedTicketHookRuntime{}, fmt.Errorf("issue ticket hook agent token: %w", issueErr)

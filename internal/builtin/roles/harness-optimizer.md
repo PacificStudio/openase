@@ -1,22 +1,3 @@
----
-workflow:
-  name: "Harness Optimizer"
-  type: "refine-harness"
-  role: "harness-optimizer"
-status:
-  pickup: "Todo"
-  finish: "Done"
-skills:
-  - openase-platform
-  - pull
-  - commit
-  - push
-platform_access:
-  allowed:
-    - "tickets.create"
-    - "tickets.list"
-    - "tickets.update.self"
----
 
 # Harness Optimizer
 

@@ -52,6 +52,10 @@
   let draft = $state<WorkflowLifecycleDraft>({
     agentId: '',
     name: '',
+    roleSlug: '',
+    roleName: '',
+    roleDescription: '',
+    platformAccessAllowed: '',
     pickupStatusIds: [],
     finishStatusIds: [],
     maxConcurrent: '',
@@ -70,6 +74,10 @@
   const isDirty = $derived(
     draft.agentId !== baseDraft.agentId ||
       draft.name !== baseDraft.name ||
+      draft.roleSlug !== baseDraft.roleSlug ||
+      draft.roleName !== baseDraft.roleName ||
+      draft.roleDescription !== baseDraft.roleDescription ||
+      draft.platformAccessAllowed !== baseDraft.platformAccessAllowed ||
       draft.pickupStatusIds.join(':') !== baseDraft.pickupStatusIds.join(':') ||
       draft.finishStatusIds.join(':') !== baseDraft.finishStatusIds.join(':') ||
       draft.maxConcurrent !== baseDraft.maxConcurrent ||
@@ -88,6 +96,10 @@
       workflow.version,
       workflow.agentId ?? '',
       workflow.name,
+      workflow.roleSlug,
+      workflow.roleName,
+      workflow.roleDescription,
+      (workflow.platformAccessAllowed ?? []).join(','),
       workflow.isActive,
       workflow.pickupStatusIds.join(','),
       workflow.finishStatusIds.join(','),
@@ -172,6 +184,71 @@
           oninput={(event) =>
             updateDraftField('name', (event.currentTarget as HTMLInputElement).value)}
         />
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div class="space-y-1.5">
+          <Label
+            for="workflow-role-slug"
+            class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
+            >Role Slug</Label
+          >
+          <Input
+            id="workflow-role-slug"
+            value={draft.roleSlug}
+            disabled={saving || deleting}
+            oninput={(event) =>
+              updateDraftField('roleSlug', (event.currentTarget as HTMLInputElement).value)}
+          />
+        </div>
+
+        <div class="space-y-1.5">
+          <Label
+            for="workflow-role-name"
+            class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
+            >Role Name</Label
+          >
+          <Input
+            id="workflow-role-name"
+            value={draft.roleName}
+            disabled={saving || deleting}
+            oninput={(event) =>
+              updateDraftField('roleName', (event.currentTarget as HTMLInputElement).value)}
+          />
+        </div>
+      </div>
+
+      <div class="space-y-1.5">
+        <Label
+          for="workflow-role-description"
+          class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
+          >Role Description</Label
+        >
+        <textarea
+          id="workflow-role-description"
+          class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring min-h-24 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+          value={draft.roleDescription}
+          disabled={saving || deleting}
+          oninput={(event) =>
+            updateDraftField('roleDescription', (event.currentTarget as HTMLTextAreaElement).value)}
+        ></textarea>
+      </div>
+
+      <div class="space-y-1.5">
+        <Label
+          for="workflow-platform-access"
+          class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
+          >Platform Access Allowed</Label
+        >
+        <textarea
+          id="workflow-platform-access"
+          class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring min-h-24 w-full rounded-md border px-3 py-2 font-mono text-sm focus-visible:ring-2 focus-visible:outline-none"
+          value={draft.platformAccessAllowed}
+          disabled={saving || deleting}
+          placeholder="One scope per line, e.g. tickets.list"
+          oninput={(event) =>
+            updateDraftField('platformAccessAllowed', (event.currentTarget as HTMLTextAreaElement).value)}
+        ></textarea>
       </div>
 
       <div class="space-y-1.5">

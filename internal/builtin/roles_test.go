@@ -17,12 +17,17 @@ func TestDispatcherRoleTemplate(t *testing.T) {
 	if role.WorkflowType != "custom" {
 		t.Fatalf("WorkflowType=%q, want custom", role.WorkflowType)
 	}
+	if got := strings.Join(role.PickupStatusNames, ","); got != "Backlog" {
+		t.Fatalf("PickupStatusNames=%q, want Backlog", got)
+	}
+	if got := strings.Join(role.FinishStatusNames, ","); got != "Backlog" {
+		t.Fatalf("FinishStatusNames=%q, want Backlog", got)
+	}
+	if got := strings.Join(role.PlatformAccessAllowed, ","); got != "tickets.update.self,tickets.create,tickets.list,tickets.link,machines.list" {
+		t.Fatalf("PlatformAccessAllowed=%q", got)
+	}
 
 	for _, want := range []string{
-		`pickup: "Backlog"`,
-		`finish: "Backlog"`,
-		`- "tickets.update.self"`,
-		`- "machines.list"`,
 		"project.workflows",
 		"project.updates",
 		"project.statuses",
@@ -51,16 +56,14 @@ func TestHarnessOptimizerRoleTemplate(t *testing.T) {
 	if role.WorkflowType != "refine-harness" {
 		t.Fatalf("WorkflowType=%q, want refine-harness", role.WorkflowType)
 	}
+	if got := strings.Join(role.SkillNames, ","); got != "openase-platform,pull,commit,push" {
+		t.Fatalf("SkillNames=%q", got)
+	}
+	if got := strings.Join(role.PlatformAccessAllowed, ","); got != "tickets.create,tickets.list,tickets.update.self" {
+		t.Fatalf("PlatformAccessAllowed=%q", got)
+	}
 
 	for _, want := range []string{
-		`type: "refine-harness"`,
-		`- openase-platform`,
-		`- pull`,
-		`- commit`,
-		`- push`,
-		`- "tickets.create"`,
-		`- "tickets.list"`,
-		`- "tickets.update.self"`,
 		"project.workflows",
 		"project.updates",
 		"recent_tickets",
@@ -84,14 +87,17 @@ func TestEnvProvisionerRoleTemplate(t *testing.T) {
 	if role.WorkflowType != "custom" {
 		t.Fatalf("WorkflowType=%q, want custom", role.WorkflowType)
 	}
+	if got := strings.Join(role.PickupStatusNames, ","); got != "环境修复" {
+		t.Fatalf("PickupStatusNames=%q", got)
+	}
+	if got := strings.Join(role.FinishStatusNames, ","); got != "环境就绪" {
+		t.Fatalf("FinishStatusNames=%q", got)
+	}
+	if got := strings.Join(role.SkillNames, ","); got != "openase-platform,install-claude-code,install-codex,setup-git,setup-gh-cli" {
+		t.Fatalf("SkillNames=%q", got)
+	}
 
 	for _, want := range []string{
-		`pickup: "环境修复"`,
-		`finish: "环境就绪"`,
-		`- install-claude-code`,
-		`- install-codex`,
-		`- setup-git`,
-		`- setup-gh-cli`,
 		"target machine environment over SSH",
 		"makes the machine dispatchable again",
 		"Current machine: {{ machine.name }}",
@@ -129,6 +135,9 @@ func TestRolesHelpers(t *testing.T) {
 		}
 		if strings.TrimSpace(role.Summary) == "" {
 			t.Fatalf("role %s expected non-empty summary", role.Slug)
+		}
+		if strings.HasPrefix(strings.TrimSpace(role.Content), "---") {
+			t.Fatalf("role %s content unexpectedly contains frontmatter", role.Slug)
 		}
 		if !strings.Contains(role.Content, "# "+role.Name) {
 			t.Fatalf("role %s content missing heading %q", role.Slug, role.Name)

@@ -23,6 +23,9 @@
       <h3 class="text-foreground text-sm font-medium">{workflow.name}</h3>
       <div class="text-muted-foreground mt-1 flex items-center gap-2 text-xs">
         <span class="capitalize">{workflow.type}</span>
+        {#if workflow.roleName}
+          <span>{workflow.roleName}</span>
+        {/if}
         <span>v{workflow.version}</span>
         <span class={cn('size-1.5 rounded-full', isActive ? 'bg-emerald-500' : 'bg-neutral-500')}
         ></span>

@@ -1787,17 +1787,18 @@ func (r *EntRepository) LoadLifecycleHookRuntimeData(
 	}
 
 	return LifecycleHookRuntimeData{
-		TicketID:         ticketItem.ID,
-		ProjectID:        ticketItem.ProjectID,
-		AgentID:          runItem.AgentID,
-		TicketIdentifier: ticketItem.Identifier,
-		AgentName:        runItem.Edges.Agent.Name,
-		WorkflowType:     string(workflowItem.Type),
-		Attempt:          ticketItem.AttemptCount + 1,
-		WorkspaceRoot:    workspaceRoot,
-		Hooks:            cloneAnyMap(workflowItem.Hooks),
-		Machine:          mapTicketHookMachine(machineItem),
-		Workspaces:       repos,
+		TicketID:              ticketItem.ID,
+		ProjectID:             ticketItem.ProjectID,
+		AgentID:               runItem.AgentID,
+		TicketIdentifier:      ticketItem.Identifier,
+		AgentName:             runItem.Edges.Agent.Name,
+		WorkflowType:          string(workflowItem.Type),
+		PlatformAccessAllowed: append([]string(nil), workflowItem.PlatformAccessAllowed...),
+		Attempt:               ticketItem.AttemptCount + 1,
+		WorkspaceRoot:         workspaceRoot,
+		Hooks:                 cloneAnyMap(workflowItem.Hooks),
+		Machine:               mapTicketHookMachine(machineItem),
+		Workspaces:            repos,
 	}, nil
 }
 

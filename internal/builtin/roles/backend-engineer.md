@@ -1,17 +1,3 @@
----
-workflow:
-  name: "Backend Engineer"
-  type: "coding"
-  role: "backend-engineer"
-status:
-  pickup: "Todo"
-  finish: "Done"
-skills:
-  - openase-platform
-  - pull
-  - commit
-  - push
----
 
 # Backend Engineer
 

@@ -1,15 +1,3 @@
----
-workflow:
-  name: "Security Engineer"
-  type: "security"
-  role: "security-engineer"
-status:
-  pickup: "Todo"
-  finish: "Done"
-skills:
-  - openase-platform
-  - security-scan
----
 
 # Security Engineer
 

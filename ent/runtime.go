@@ -1104,35 +1104,35 @@ func init() {
 	// workflow.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	workflow.NameValidator = workflowDescName.Validators[0].(func(string) error)
 	// workflowDescHarnessPath is the schema descriptor for harness_path field.
-	workflowDescHarnessPath := workflowFields[6].Descriptor()
+	workflowDescHarnessPath := workflowFields[10].Descriptor()
 	// workflow.HarnessPathValidator is a validator for the "harness_path" field. It is called by the builders before save.
 	workflow.HarnessPathValidator = workflowDescHarnessPath.Validators[0].(func(string) error)
 	// workflowDescHooks is the schema descriptor for hooks field.
-	workflowDescHooks := workflowFields[7].Descriptor()
+	workflowDescHooks := workflowFields[11].Descriptor()
 	// workflow.DefaultHooks holds the default value on creation for the hooks field.
 	workflow.DefaultHooks = workflowDescHooks.Default.(func() map[string]interface{})
 	// workflowDescMaxConcurrent is the schema descriptor for max_concurrent field.
-	workflowDescMaxConcurrent := workflowFields[8].Descriptor()
+	workflowDescMaxConcurrent := workflowFields[12].Descriptor()
 	// workflow.DefaultMaxConcurrent holds the default value on creation for the max_concurrent field.
 	workflow.DefaultMaxConcurrent = workflowDescMaxConcurrent.Default.(int)
 	// workflowDescMaxRetryAttempts is the schema descriptor for max_retry_attempts field.
-	workflowDescMaxRetryAttempts := workflowFields[9].Descriptor()
+	workflowDescMaxRetryAttempts := workflowFields[13].Descriptor()
 	// workflow.DefaultMaxRetryAttempts holds the default value on creation for the max_retry_attempts field.
 	workflow.DefaultMaxRetryAttempts = workflowDescMaxRetryAttempts.Default.(int)
 	// workflowDescTimeoutMinutes is the schema descriptor for timeout_minutes field.
-	workflowDescTimeoutMinutes := workflowFields[10].Descriptor()
+	workflowDescTimeoutMinutes := workflowFields[14].Descriptor()
 	// workflow.DefaultTimeoutMinutes holds the default value on creation for the timeout_minutes field.
 	workflow.DefaultTimeoutMinutes = workflowDescTimeoutMinutes.Default.(int)
 	// workflowDescStallTimeoutMinutes is the schema descriptor for stall_timeout_minutes field.
-	workflowDescStallTimeoutMinutes := workflowFields[11].Descriptor()
+	workflowDescStallTimeoutMinutes := workflowFields[15].Descriptor()
 	// workflow.DefaultStallTimeoutMinutes holds the default value on creation for the stall_timeout_minutes field.
 	workflow.DefaultStallTimeoutMinutes = workflowDescStallTimeoutMinutes.Default.(int)
 	// workflowDescVersion is the schema descriptor for version field.
-	workflowDescVersion := workflowFields[12].Descriptor()
+	workflowDescVersion := workflowFields[16].Descriptor()
 	// workflow.DefaultVersion holds the default value on creation for the version field.
 	workflow.DefaultVersion = workflowDescVersion.Default.(int)
 	// workflowDescIsActive is the schema descriptor for is_active field.
-	workflowDescIsActive := workflowFields[13].Descriptor()
+	workflowDescIsActive := workflowFields[17].Descriptor()
 	// workflow.DefaultIsActive holds the default value on creation for the is_active field.
 	workflow.DefaultIsActive = workflowDescIsActive.Default.(bool)
 	// workflowDescID is the schema descriptor for id field.
@@ -1151,16 +1151,48 @@ func init() {
 	workflowskillbinding.DefaultID = workflowskillbindingDescID.Default.(func() uuid.UUID)
 	workflowversionFields := schema.WorkflowVersion{}.Fields()
 	_ = workflowversionFields
+	// workflowversionDescName is the schema descriptor for name field.
+	workflowversionDescName := workflowversionFields[4].Descriptor()
+	// workflowversion.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	workflowversion.NameValidator = workflowversionDescName.Validators[0].(func(string) error)
+	// workflowversionDescHarnessPath is the schema descriptor for harness_path field.
+	workflowversionDescHarnessPath := workflowversionFields[11].Descriptor()
+	// workflowversion.HarnessPathValidator is a validator for the "harness_path" field. It is called by the builders before save.
+	workflowversion.HarnessPathValidator = workflowversionDescHarnessPath.Validators[0].(func(string) error)
+	// workflowversionDescHooks is the schema descriptor for hooks field.
+	workflowversionDescHooks := workflowversionFields[12].Descriptor()
+	// workflowversion.DefaultHooks holds the default value on creation for the hooks field.
+	workflowversion.DefaultHooks = workflowversionDescHooks.Default.(func() map[string]interface{})
+	// workflowversionDescMaxConcurrent is the schema descriptor for max_concurrent field.
+	workflowversionDescMaxConcurrent := workflowversionFields[14].Descriptor()
+	// workflowversion.DefaultMaxConcurrent holds the default value on creation for the max_concurrent field.
+	workflowversion.DefaultMaxConcurrent = workflowversionDescMaxConcurrent.Default.(int)
+	// workflowversionDescMaxRetryAttempts is the schema descriptor for max_retry_attempts field.
+	workflowversionDescMaxRetryAttempts := workflowversionFields[15].Descriptor()
+	// workflowversion.DefaultMaxRetryAttempts holds the default value on creation for the max_retry_attempts field.
+	workflowversion.DefaultMaxRetryAttempts = workflowversionDescMaxRetryAttempts.Default.(int)
+	// workflowversionDescTimeoutMinutes is the schema descriptor for timeout_minutes field.
+	workflowversionDescTimeoutMinutes := workflowversionFields[16].Descriptor()
+	// workflowversion.DefaultTimeoutMinutes holds the default value on creation for the timeout_minutes field.
+	workflowversion.DefaultTimeoutMinutes = workflowversionDescTimeoutMinutes.Default.(int)
+	// workflowversionDescStallTimeoutMinutes is the schema descriptor for stall_timeout_minutes field.
+	workflowversionDescStallTimeoutMinutes := workflowversionFields[17].Descriptor()
+	// workflowversion.DefaultStallTimeoutMinutes holds the default value on creation for the stall_timeout_minutes field.
+	workflowversion.DefaultStallTimeoutMinutes = workflowversionDescStallTimeoutMinutes.Default.(int)
+	// workflowversionDescIsActive is the schema descriptor for is_active field.
+	workflowversionDescIsActive := workflowversionFields[18].Descriptor()
+	// workflowversion.DefaultIsActive holds the default value on creation for the is_active field.
+	workflowversion.DefaultIsActive = workflowversionDescIsActive.Default.(bool)
 	// workflowversionDescContentHash is the schema descriptor for content_hash field.
-	workflowversionDescContentHash := workflowversionFields[4].Descriptor()
+	workflowversionDescContentHash := workflowversionFields[19].Descriptor()
 	// workflowversion.ContentHashValidator is a validator for the "content_hash" field. It is called by the builders before save.
 	workflowversion.ContentHashValidator = workflowversionDescContentHash.Validators[0].(func(string) error)
 	// workflowversionDescCreatedBy is the schema descriptor for created_by field.
-	workflowversionDescCreatedBy := workflowversionFields[5].Descriptor()
+	workflowversionDescCreatedBy := workflowversionFields[20].Descriptor()
 	// workflowversion.DefaultCreatedBy holds the default value on creation for the created_by field.
 	workflowversion.DefaultCreatedBy = workflowversionDescCreatedBy.Default.(string)
 	// workflowversionDescCreatedAt is the schema descriptor for created_at field.
-	workflowversionDescCreatedAt := workflowversionFields[6].Descriptor()
+	workflowversionDescCreatedAt := workflowversionFields[21].Descriptor()
 	// workflowversion.DefaultCreatedAt holds the default value on creation for the created_at field.
 	workflowversion.DefaultCreatedAt = workflowversionDescCreatedAt.Default.(func() time.Time)
 	// workflowversionDescID is the schema descriptor for id field.

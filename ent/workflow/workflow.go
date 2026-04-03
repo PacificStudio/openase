@@ -25,6 +25,14 @@ const (
 	FieldName = "name"
 	// FieldType holds the string denoting the type field in the database.
 	FieldType = "type"
+	// FieldRoleSlug holds the string denoting the role_slug field in the database.
+	FieldRoleSlug = "role_slug"
+	// FieldRoleName holds the string denoting the role_name field in the database.
+	FieldRoleName = "role_name"
+	// FieldRoleDescription holds the string denoting the role_description field in the database.
+	FieldRoleDescription = "role_description"
+	// FieldPlatformAccessAllowed holds the string denoting the platform_access_allowed field in the database.
+	FieldPlatformAccessAllowed = "platform_access_allowed"
 	// FieldHarnessPath holds the string denoting the harness_path field in the database.
 	FieldHarnessPath = "harness_path"
 	// FieldHooks holds the string denoting the hooks field in the database.
@@ -139,6 +147,10 @@ var Columns = []string{
 	FieldCurrentVersionID,
 	FieldName,
 	FieldType,
+	FieldRoleSlug,
+	FieldRoleName,
+	FieldRoleDescription,
+	FieldPlatformAccessAllowed,
 	FieldHarnessPath,
 	FieldHooks,
 	FieldMaxConcurrent,
@@ -250,6 +262,26 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // ByType orders the results by the type field.
 func ByType(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldType, opts...).ToFunc()
+}
+
+// ByRoleSlug orders the results by the role_slug field.
+func ByRoleSlug(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRoleSlug, opts...).ToFunc()
+}
+
+// ByRoleName orders the results by the role_name field.
+func ByRoleName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRoleName, opts...).ToFunc()
+}
+
+// ByRoleDescription orders the results by the role_description field.
+func ByRoleDescription(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRoleDescription, opts...).ToFunc()
+}
+
+// ByPlatformAccessAllowed orders the results by the platform_access_allowed field.
+func ByPlatformAccessAllowed(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPlatformAccessAllowed, opts...).ToFunc()
 }
 
 // ByHarnessPath orders the results by the harness_path field.

@@ -1,16 +1,3 @@
----
-workflow:
-  name: "DevOps Engineer"
-  type: "deploy"
-  role: "devops-engineer"
-status:
-  pickup: "Todo"
-  finish: "Done"
-skills:
-  - openase-platform
-  - pull
-  - push
----
 
 # DevOps Engineer
 

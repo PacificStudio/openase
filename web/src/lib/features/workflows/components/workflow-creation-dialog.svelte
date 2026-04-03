@@ -10,7 +10,7 @@
   import * as Select from '$ui/select'
   import { ChevronRight } from '@lucide/svelte'
   import { createWorkflowWithBinding } from '../data'
-  import { resolveHarnessTemplateStatusSelection } from '../model'
+  import { resolveTemplateStatusSelection } from '../model'
   import {
     createWorkflowHooksDraft,
     parseWorkflowHooksDraft,
@@ -76,8 +76,9 @@
       finishStatusIds = defaultStatusIds
 
       if (templateDraft) {
-        const templateSelection = resolveHarnessTemplateStatusSelection(
-          templateDraft.content,
+        const templateSelection = resolveTemplateStatusSelection(
+          templateDraft.pickupStatusNames ?? [],
+          templateDraft.finishStatusNames ?? [],
           selectableStatuses,
         )
         templateStatusError = templateSelection.error
@@ -132,6 +133,11 @@
           agentId,
           name: name.trim(),
           workflowType: templateDraft?.workflowType ?? 'coding',
+          roleSlug: templateDraft?.roleSlug ?? '',
+          roleName: templateDraft?.roleName ?? name.trim(),
+          roleDescription: templateDraft?.roleDescription ?? '',
+          platformAccessAllowed: templateDraft?.platformAccessAllowed ?? [],
+          skillNames: templateDraft?.skillNames ?? [],
           harnessPath: templateDraft?.harnessPath ?? null,
           pickupStatusIds,
           finishStatusIds,

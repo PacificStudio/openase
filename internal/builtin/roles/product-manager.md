@@ -1,14 +1,3 @@
----
-workflow:
-  name: "Product Manager"
-  type: "custom"
-  role: "product-manager"
-status:
-  pickup: "Todo"
-  finish: "Done"
-skills:
-  - openase-platform
----
 
 # Product Manager
 

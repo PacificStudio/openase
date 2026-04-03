@@ -1,18 +1,3 @@
----
-workflow:
-  name: "Environment Provisioner"
-  type: "custom"
-  role: "env-provisioner"
-status:
-  pickup: "环境修复"
-  finish: "环境就绪"
-skills:
-  - openase-platform
-  - install-claude-code
-  - install-codex
-  - setup-git
-  - setup-gh-cli
----
 
 # Environment Provisioner
 

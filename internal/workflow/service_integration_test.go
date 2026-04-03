@@ -54,7 +54,7 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 		AgentID:             fixture.agentID,
 		Name:                "Coding Workflow",
 		Type:                TypeCoding,
-		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+		HarnessContent:      "# Coding\n",
 		Hooks:               workflowHooks,
 		MaxConcurrent:       3,
 		MaxRetryAttempts:    2,
@@ -126,8 +126,8 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if got := mustReadWorkflowFile(t, reloadMarkerPath); got != "on_reload:2" {
 		t.Fatalf("reload marker after BindSkills() = %q", got)
 	}
-	if skillNames, err := ParseHarnessSkills(boundDoc.Content); err != nil || !slices.Equal(skillNames, []string{"skill-one", "skill-two"}) {
-		t.Fatalf("ParseHarnessSkills(boundDoc) = %+v, %v", skillNames, err)
+	if boundDoc.Content != created.HarnessContent || strings.Contains(boundDoc.Content, "skills:") {
+		t.Fatalf("BindSkills() should not rewrite harness content, got %q", boundDoc.Content)
 	}
 
 	skills, err := service.ListSkills(ctx, fixture.projectID)
@@ -186,8 +186,8 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if got := mustReadWorkflowFile(t, reloadMarkerPath); got != "on_reload:3" {
 		t.Fatalf("reload marker after UnbindSkills() = %q", got)
 	}
-	if skillNames, err := ParseHarnessSkills(unboundDoc.Content); err != nil || !slices.Equal(skillNames, []string{"skill-one"}) {
-		t.Fatalf("ParseHarnessSkills(unboundDoc) = %+v, %v", skillNames, err)
+	if unboundDoc.Content != created.HarnessContent || strings.Contains(unboundDoc.Content, "skills:") {
+		t.Fatalf("UnbindSkills() should not rewrite harness content, got %q", unboundDoc.Content)
 	}
 
 	updated, err := service.Update(ctx, UpdateInput{
@@ -208,7 +208,7 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 		t.Fatalf("Update() = %+v", updated)
 	}
 
-	updatedHarnessContent := "---\nworkflow:\n  role: coding\nskills:\n  - skill-two\n---\n\n# Updated by API\n"
+	updatedHarnessContent := "# Updated by API\n"
 	updatedHarnessDoc, err := service.UpdateHarness(ctx, UpdateHarnessInput{
 		WorkflowID: created.ID,
 		Content:    updatedHarnessContent,
@@ -222,8 +222,8 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if got := mustReadWorkflowFile(t, reloadMarkerPath); got != "on_reload:4" {
 		t.Fatalf("reload marker after UpdateHarness() = %q", got)
 	}
-	if skillNames, err := ParseHarnessSkills(updatedHarnessDoc.Content); err != nil || !slices.Equal(skillNames, []string{"skill-one"}) {
-		t.Fatalf("projected harness skills after UpdateHarness() = %+v, %v", skillNames, err)
+	if updatedHarnessDoc.Content != updatedHarnessContent {
+		t.Fatalf("UpdateHarness() content = %q, want %q", updatedHarnessDoc.Content, updatedHarnessContent)
 	}
 	currentVersion, err := service.currentWorkflowVersion(ctx, created.ID)
 	if err != nil {
@@ -261,7 +261,7 @@ func TestRuntimeSnapshotMaterializationAndRecordedResolution(t *testing.T) {
 		AgentID:             fixture.agentID,
 		Name:                "Runtime Snapshot Workflow",
 		Type:                TypeCoding,
-		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Snapshot v1\n",
+		HarnessContent:      "# Snapshot v1\n",
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    2,
 		TimeoutMinutes:      30,
@@ -320,7 +320,7 @@ func TestRuntimeSnapshotMaterializationAndRecordedResolution(t *testing.T) {
 	}
 	if _, err := service.UpdateHarness(ctx, UpdateHarnessInput{
 		WorkflowID: created.ID,
-		Content:    "---\nworkflow:\n  role: coding\n---\n\n# Snapshot v2\n",
+		Content:    "# Snapshot v2\n",
 	}); err != nil {
 		t.Fatalf("UpdateHarness() error = %v", err)
 	}
@@ -374,7 +374,7 @@ func TestSkillBundleStorageRefreshAndRuntimeSnapshots(t *testing.T) {
 		AgentID:             fixture.agentID,
 		Name:                "Bundle Workflow",
 		Type:                TypeCoding,
-		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Bundle Workflow\n",
+		HarnessContent:      "# Bundle Workflow\n",
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
 		TimeoutMinutes:      30,
@@ -584,7 +584,7 @@ func TestWorkflowServiceSkillLifecycleCommits(t *testing.T) {
 		AgentID:             fixture.agentID,
 		Name:                "Coding Workflow",
 		Type:                TypeCoding,
-		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+		HarnessContent:      "# Coding\n",
 		Hooks:               map[string]any{},
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
@@ -744,7 +744,7 @@ func TestWorkflowServiceUnbindSkillIgnoresUnrelatedProjectRepoState(t *testing.T
 		AgentID:             agentItem.ID,
 		Name:                "Coding Workflow",
 		Type:                TypeCoding,
-		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+		HarnessContent:      "# Coding\n",
 		Hooks:               map[string]any{},
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
@@ -785,12 +785,8 @@ func TestWorkflowServiceUnbindSkillIgnoresUnrelatedProjectRepoState(t *testing.T
 	if err != nil {
 		t.Fatalf("GetHarness() error = %v", err)
 	}
-	skillNames, err := ParseHarnessSkills(harnessDoc.Content)
-	if err != nil {
-		t.Fatalf("ParseHarnessSkills() error = %v", err)
-	}
-	if len(skillNames) != 0 {
-		t.Fatalf("ParseHarnessSkills() after unbind = %v, want empty", skillNames)
+	if strings.Contains(harnessDoc.Content, "skills:") {
+		t.Fatalf("harness content unexpectedly contains skill frontmatter: %q", harnessDoc.Content)
 	}
 }
 
@@ -806,7 +802,7 @@ func TestWorkflowServiceSkillAndReloadEdgeCases(t *testing.T) {
 		AgentID:             fixture.agentID,
 		Name:                "Coverage Workflow",
 		Type:                TypeCoding,
-		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coverage\n",
+		HarnessContent:      "# Coverage\n",
 		Hooks:               map[string]any{},
 		MaxConcurrent:       2,
 		MaxRetryAttempts:    1,
@@ -933,13 +929,13 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 	}
 	if _, err := service.UpdateHarness(ctx, UpdateHarnessInput{
 		WorkflowID: uuid.New(),
-		Content:    "---\nworkflow:\n  role: coding\n---\n\n# ok\n",
+		Content:    "# ok\n",
 	}); !errors.Is(err, ErrWorkflowNotFound) {
 		t.Fatalf("UpdateHarness() missing workflow error = %v, want %v", err, ErrWorkflowNotFound)
 	}
 	if _, err := service.UpdateHarness(ctx, UpdateHarnessInput{
 		WorkflowID: uuid.New(),
-		Content:    "---\nworkflow:\n  role: coding\n---\n\n{{",
+		Content:    "{{",
 	}); !errors.Is(err, ErrHarnessInvalid) {
 		t.Fatalf("UpdateHarness() invalid content error = %v, want %v", err, ErrHarnessInvalid)
 	}
@@ -949,7 +945,7 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		AgentID:             uuid.New(),
 		Name:                "Bad Agent",
 		Type:                TypeCoding,
-		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+		HarnessContent:      "# Coding\n",
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
 		TimeoutMinutes:      30,
@@ -966,7 +962,7 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		AgentID:             fixture.agentID,
 		Name:                "Bad Status",
 		Type:                TypeCoding,
-		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+		HarnessContent:      "# Coding\n",
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
 		TimeoutMinutes:      30,
@@ -983,7 +979,7 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		AgentID:             fixture.agentID,
 		Name:                "Bad Hooks",
 		Type:                TypeCoding,
-		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+		HarnessContent:      "# Coding\n",
 		Hooks:               map[string]any{"workflow_hooks": "bad"},
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
@@ -1003,7 +999,7 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		Name:                "Bad Harness Path",
 		Type:                TypeCoding,
 		HarnessPath:         &badHarnessPath,
-		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+		HarnessContent:      "# Coding\n",
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
 		TimeoutMinutes:      30,
@@ -1020,7 +1016,7 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		AgentID:             fixture.agentID,
 		Name:                "Duplicate Workflow",
 		Type:                TypeCoding,
-		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+		HarnessContent:      "# Coding\n",
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
 		TimeoutMinutes:      30,
@@ -1038,7 +1034,7 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		AgentID:             fixture.agentID,
 		Name:                "Duplicate Workflow",
 		Type:                TypeCoding,
-		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Coding\n",
+		HarnessContent:      "# Coding\n",
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
 		TimeoutMinutes:      30,
@@ -1088,7 +1084,7 @@ func TestWorkflowServiceUpdateHarnessRegistryFailurePaths(t *testing.T) {
 		AgentID:             fixture.agentID,
 		Name:                "Harness Failure Workflow",
 		Type:                TypeCoding,
-		HarnessContent:      "---\nworkflow:\n  role: coding\n---\n\n# Initial\n",
+		HarnessContent:      "# Initial\n",
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,
 		TimeoutMinutes:      30,
@@ -1102,7 +1098,7 @@ func TestWorkflowServiceUpdateHarnessRegistryFailurePaths(t *testing.T) {
 	}
 	if _, err := service.UpdateHarness(ctx, UpdateHarnessInput{
 		WorkflowID: created.ID,
-		Content:    "invalid harness",
+		Content:    "{{",
 	}); !errors.Is(err, ErrHarnessInvalid) {
 		t.Fatalf("UpdateHarness(invalid) error = %v, want %v", err, ErrHarnessInvalid)
 	}
@@ -1124,7 +1120,7 @@ func TestWorkflowServiceUpdateHarnessRegistryFailurePaths(t *testing.T) {
 
 	if _, err := service.UpdateHarness(ctx, UpdateHarnessInput{
 		WorkflowID: created.ID,
-		Content:    "---\nworkflow:\n  role: coding\n---\n\n# Write failure\n",
+		Content:    "# Write failure\n",
 	}); !errors.Is(err, ErrWorkflowHookBlocked) {
 		t.Fatalf("UpdateHarness(blocked) error = %v, want %v", err, ErrWorkflowHookBlocked)
 	}
@@ -1173,17 +1169,7 @@ func TestWorkflowServiceBuildHarnessTemplateDataProjectContext(t *testing.T) {
 		t.Fatalf("seed completed ticket count: %v", err)
 	}
 
-	templateContent := `---
-workflow:
-  role_name: "fullstack-developer"
-status:
-  pickup: "Todo"
-  finish: "Done"
-skills:
-  - openase-platform
-  - commit
----
-Implement product changes end to end.
+	templateContent := `Implement product changes end to end.
 
 Ticket {{ ticket.identifier }} {{ ticket.title | markdown_escape }}
 Status {{ ticket.status }} parent={{ ticket.parent_identifier }} attempts={{ attempt }}/{{ max_attempts }}
@@ -1211,6 +1197,9 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		AgentID:             fixture.agentID,
 		Name:                "Coding Workflow",
 		Type:                TypeCoding,
+		RoleSlug:            "fullstack-developer",
+		RoleName:            "fullstack-developer",
+		RoleDescription:     "Implement product changes end to end.",
 		HarnessContent:      templateContent,
 		Hooks:               map[string]any{},
 		MaxConcurrent:       3,
@@ -1235,7 +1224,10 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		AgentID:             fixture.agentID,
 		Name:                "Dispatcher Workflow",
 		Type:                TypeCustom,
-		HarnessContent:      "---\nworkflow:\n  role: dispatcher\nstatus:\n  pickup: \"Backlog\"\n  finish: \"Backlog\"\n---\n\nEvaluate backlog tickets and route them to the right workflow.\n",
+		RoleSlug:            "dispatcher",
+		RoleName:            "dispatcher",
+		RoleDescription:     "Evaluate backlog tickets and route them to the right workflow.",
+		HarnessContent:      "Evaluate backlog tickets and route them to the right workflow.\n",
 		Hooks:               map[string]any{},
 		MaxConcurrent:       1,
 		MaxRetryAttempts:    1,

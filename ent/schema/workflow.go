@@ -24,6 +24,10 @@ func (Workflow) Fields() []ent.Field {
 		field.String("name").NotEmpty(),
 		field.Enum("type").
 			Values("coding", "test", "doc", "security", "deploy", "refine-harness", "custom"),
+		field.String("role_slug").Optional(),
+		field.String("role_name").Optional(),
+		field.Text("role_description").Optional(),
+		textArrayField("platform_access_allowed"),
 		field.String("harness_path").NotEmpty(),
 		field.JSON("hooks", map[string]any{}).
 			Default(emptyMap),

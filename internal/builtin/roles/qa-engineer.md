@@ -1,15 +1,3 @@
----
-workflow:
-  name: "QA Engineer"
-  type: "test"
-  role: "qa-engineer"
-status:
-  pickup: "Todo"
-  finish: "Done"
-skills:
-  - openase-platform
-  - write-test
----
 
 # QA Engineer
 

@@ -47375,6 +47375,10 @@ type WorkflowMutation struct {
 	id                       *uuid.UUID
 	name                     *string
 	_type                    *workflow.Type
+	role_slug                *string
+	role_name                *string
+	role_description         *string
+	platform_access_allowed  *pgarray.StringArray
 	harness_path             *string
 	_hooks                   *map[string]interface{}
 	max_concurrent           *int
@@ -47729,6 +47733,202 @@ func (m *WorkflowMutation) OldType(ctx context.Context) (v workflow.Type, err er
 // ResetType resets all changes to the "type" field.
 func (m *WorkflowMutation) ResetType() {
 	m._type = nil
+}
+
+// SetRoleSlug sets the "role_slug" field.
+func (m *WorkflowMutation) SetRoleSlug(s string) {
+	m.role_slug = &s
+}
+
+// RoleSlug returns the value of the "role_slug" field in the mutation.
+func (m *WorkflowMutation) RoleSlug() (r string, exists bool) {
+	v := m.role_slug
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoleSlug returns the old "role_slug" field's value of the Workflow entity.
+// If the Workflow object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowMutation) OldRoleSlug(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoleSlug is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoleSlug requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoleSlug: %w", err)
+	}
+	return oldValue.RoleSlug, nil
+}
+
+// ClearRoleSlug clears the value of the "role_slug" field.
+func (m *WorkflowMutation) ClearRoleSlug() {
+	m.role_slug = nil
+	m.clearedFields[workflow.FieldRoleSlug] = struct{}{}
+}
+
+// RoleSlugCleared returns if the "role_slug" field was cleared in this mutation.
+func (m *WorkflowMutation) RoleSlugCleared() bool {
+	_, ok := m.clearedFields[workflow.FieldRoleSlug]
+	return ok
+}
+
+// ResetRoleSlug resets all changes to the "role_slug" field.
+func (m *WorkflowMutation) ResetRoleSlug() {
+	m.role_slug = nil
+	delete(m.clearedFields, workflow.FieldRoleSlug)
+}
+
+// SetRoleName sets the "role_name" field.
+func (m *WorkflowMutation) SetRoleName(s string) {
+	m.role_name = &s
+}
+
+// RoleName returns the value of the "role_name" field in the mutation.
+func (m *WorkflowMutation) RoleName() (r string, exists bool) {
+	v := m.role_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoleName returns the old "role_name" field's value of the Workflow entity.
+// If the Workflow object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowMutation) OldRoleName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoleName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoleName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoleName: %w", err)
+	}
+	return oldValue.RoleName, nil
+}
+
+// ClearRoleName clears the value of the "role_name" field.
+func (m *WorkflowMutation) ClearRoleName() {
+	m.role_name = nil
+	m.clearedFields[workflow.FieldRoleName] = struct{}{}
+}
+
+// RoleNameCleared returns if the "role_name" field was cleared in this mutation.
+func (m *WorkflowMutation) RoleNameCleared() bool {
+	_, ok := m.clearedFields[workflow.FieldRoleName]
+	return ok
+}
+
+// ResetRoleName resets all changes to the "role_name" field.
+func (m *WorkflowMutation) ResetRoleName() {
+	m.role_name = nil
+	delete(m.clearedFields, workflow.FieldRoleName)
+}
+
+// SetRoleDescription sets the "role_description" field.
+func (m *WorkflowMutation) SetRoleDescription(s string) {
+	m.role_description = &s
+}
+
+// RoleDescription returns the value of the "role_description" field in the mutation.
+func (m *WorkflowMutation) RoleDescription() (r string, exists bool) {
+	v := m.role_description
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoleDescription returns the old "role_description" field's value of the Workflow entity.
+// If the Workflow object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowMutation) OldRoleDescription(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoleDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoleDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoleDescription: %w", err)
+	}
+	return oldValue.RoleDescription, nil
+}
+
+// ClearRoleDescription clears the value of the "role_description" field.
+func (m *WorkflowMutation) ClearRoleDescription() {
+	m.role_description = nil
+	m.clearedFields[workflow.FieldRoleDescription] = struct{}{}
+}
+
+// RoleDescriptionCleared returns if the "role_description" field was cleared in this mutation.
+func (m *WorkflowMutation) RoleDescriptionCleared() bool {
+	_, ok := m.clearedFields[workflow.FieldRoleDescription]
+	return ok
+}
+
+// ResetRoleDescription resets all changes to the "role_description" field.
+func (m *WorkflowMutation) ResetRoleDescription() {
+	m.role_description = nil
+	delete(m.clearedFields, workflow.FieldRoleDescription)
+}
+
+// SetPlatformAccessAllowed sets the "platform_access_allowed" field.
+func (m *WorkflowMutation) SetPlatformAccessAllowed(pa pgarray.StringArray) {
+	m.platform_access_allowed = &pa
+}
+
+// PlatformAccessAllowed returns the value of the "platform_access_allowed" field in the mutation.
+func (m *WorkflowMutation) PlatformAccessAllowed() (r pgarray.StringArray, exists bool) {
+	v := m.platform_access_allowed
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPlatformAccessAllowed returns the old "platform_access_allowed" field's value of the Workflow entity.
+// If the Workflow object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowMutation) OldPlatformAccessAllowed(ctx context.Context) (v pgarray.StringArray, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPlatformAccessAllowed is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPlatformAccessAllowed requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPlatformAccessAllowed: %w", err)
+	}
+	return oldValue.PlatformAccessAllowed, nil
+}
+
+// ClearPlatformAccessAllowed clears the value of the "platform_access_allowed" field.
+func (m *WorkflowMutation) ClearPlatformAccessAllowed() {
+	m.platform_access_allowed = nil
+	m.clearedFields[workflow.FieldPlatformAccessAllowed] = struct{}{}
+}
+
+// PlatformAccessAllowedCleared returns if the "platform_access_allowed" field was cleared in this mutation.
+func (m *WorkflowMutation) PlatformAccessAllowedCleared() bool {
+	_, ok := m.clearedFields[workflow.FieldPlatformAccessAllowed]
+	return ok
+}
+
+// ResetPlatformAccessAllowed resets all changes to the "platform_access_allowed" field.
+func (m *WorkflowMutation) ResetPlatformAccessAllowed() {
+	m.platform_access_allowed = nil
+	delete(m.clearedFields, workflow.FieldPlatformAccessAllowed)
 }
 
 // SetHarnessPath sets the "harness_path" field.
@@ -48612,7 +48812,7 @@ func (m *WorkflowMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *WorkflowMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 17)
 	if m.project != nil {
 		fields = append(fields, workflow.FieldProjectID)
 	}
@@ -48627,6 +48827,18 @@ func (m *WorkflowMutation) Fields() []string {
 	}
 	if m._type != nil {
 		fields = append(fields, workflow.FieldType)
+	}
+	if m.role_slug != nil {
+		fields = append(fields, workflow.FieldRoleSlug)
+	}
+	if m.role_name != nil {
+		fields = append(fields, workflow.FieldRoleName)
+	}
+	if m.role_description != nil {
+		fields = append(fields, workflow.FieldRoleDescription)
+	}
+	if m.platform_access_allowed != nil {
+		fields = append(fields, workflow.FieldPlatformAccessAllowed)
 	}
 	if m.harness_path != nil {
 		fields = append(fields, workflow.FieldHarnessPath)
@@ -48670,6 +48882,14 @@ func (m *WorkflowMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case workflow.FieldType:
 		return m.GetType()
+	case workflow.FieldRoleSlug:
+		return m.RoleSlug()
+	case workflow.FieldRoleName:
+		return m.RoleName()
+	case workflow.FieldRoleDescription:
+		return m.RoleDescription()
+	case workflow.FieldPlatformAccessAllowed:
+		return m.PlatformAccessAllowed()
 	case workflow.FieldHarnessPath:
 		return m.HarnessPath()
 	case workflow.FieldHooks:
@@ -48705,6 +48925,14 @@ func (m *WorkflowMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldName(ctx)
 	case workflow.FieldType:
 		return m.OldType(ctx)
+	case workflow.FieldRoleSlug:
+		return m.OldRoleSlug(ctx)
+	case workflow.FieldRoleName:
+		return m.OldRoleName(ctx)
+	case workflow.FieldRoleDescription:
+		return m.OldRoleDescription(ctx)
+	case workflow.FieldPlatformAccessAllowed:
+		return m.OldPlatformAccessAllowed(ctx)
 	case workflow.FieldHarnessPath:
 		return m.OldHarnessPath(ctx)
 	case workflow.FieldHooks:
@@ -48764,6 +48992,34 @@ func (m *WorkflowMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetType(v)
+		return nil
+	case workflow.FieldRoleSlug:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoleSlug(v)
+		return nil
+	case workflow.FieldRoleName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoleName(v)
+		return nil
+	case workflow.FieldRoleDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoleDescription(v)
+		return nil
+	case workflow.FieldPlatformAccessAllowed:
+		v, ok := value.(pgarray.StringArray)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPlatformAccessAllowed(v)
 		return nil
 	case workflow.FieldHarnessPath:
 		v, ok := value.(string)
@@ -48920,6 +49176,18 @@ func (m *WorkflowMutation) ClearedFields() []string {
 	if m.FieldCleared(workflow.FieldCurrentVersionID) {
 		fields = append(fields, workflow.FieldCurrentVersionID)
 	}
+	if m.FieldCleared(workflow.FieldRoleSlug) {
+		fields = append(fields, workflow.FieldRoleSlug)
+	}
+	if m.FieldCleared(workflow.FieldRoleName) {
+		fields = append(fields, workflow.FieldRoleName)
+	}
+	if m.FieldCleared(workflow.FieldRoleDescription) {
+		fields = append(fields, workflow.FieldRoleDescription)
+	}
+	if m.FieldCleared(workflow.FieldPlatformAccessAllowed) {
+		fields = append(fields, workflow.FieldPlatformAccessAllowed)
+	}
 	return fields
 }
 
@@ -48939,6 +49207,18 @@ func (m *WorkflowMutation) ClearField(name string) error {
 		return nil
 	case workflow.FieldCurrentVersionID:
 		m.ClearCurrentVersionID()
+		return nil
+	case workflow.FieldRoleSlug:
+		m.ClearRoleSlug()
+		return nil
+	case workflow.FieldRoleName:
+		m.ClearRoleName()
+		return nil
+	case workflow.FieldRoleDescription:
+		m.ClearRoleDescription()
+		return nil
+	case workflow.FieldPlatformAccessAllowed:
+		m.ClearPlatformAccessAllowed()
 		return nil
 	}
 	return fmt.Errorf("unknown Workflow nullable field %s", name)
@@ -48962,6 +49242,18 @@ func (m *WorkflowMutation) ResetField(name string) error {
 		return nil
 	case workflow.FieldType:
 		m.ResetType()
+		return nil
+	case workflow.FieldRoleSlug:
+		m.ResetRoleSlug()
+		return nil
+	case workflow.FieldRoleName:
+		m.ResetRoleName()
+		return nil
+	case workflow.FieldRoleDescription:
+		m.ResetRoleDescription()
+		return nil
+	case workflow.FieldPlatformAccessAllowed:
+		m.ResetPlatformAccessAllowed()
 		return nil
 	case workflow.FieldHarnessPath:
 		m.ResetHarnessPath()
@@ -49950,24 +50242,43 @@ func (m *WorkflowSkillBindingMutation) ResetEdge(name string) error {
 // WorkflowVersionMutation represents an operation that mutates the WorkflowVersion nodes in the graph.
 type WorkflowVersionMutation struct {
 	config
-	op                Op
-	typ               string
-	id                *uuid.UUID
-	version           *int
-	addversion        *int
-	content_markdown  *string
-	content_hash      *string
-	created_by        *string
-	created_at        *time.Time
-	clearedFields     map[string]struct{}
-	workflow          *uuid.UUID
-	clearedworkflow   bool
-	agent_runs        map[uuid.UUID]struct{}
-	removedagent_runs map[uuid.UUID]struct{}
-	clearedagent_runs bool
-	done              bool
-	oldValue          func(context.Context) (*WorkflowVersion, error)
-	predicates        []predicate.WorkflowVersion
+	op                       Op
+	typ                      string
+	id                       *uuid.UUID
+	version                  *int
+	addversion               *int
+	content_markdown         *string
+	name                     *string
+	_type                    *workflowversion.Type
+	role_slug                *string
+	role_name                *string
+	role_description         *string
+	pickup_status_ids        *pgarray.StringArray
+	finish_status_ids        *pgarray.StringArray
+	harness_path             *string
+	_hooks                   *map[string]interface{}
+	platform_access_allowed  *pgarray.StringArray
+	max_concurrent           *int
+	addmax_concurrent        *int
+	max_retry_attempts       *int
+	addmax_retry_attempts    *int
+	timeout_minutes          *int
+	addtimeout_minutes       *int
+	stall_timeout_minutes    *int
+	addstall_timeout_minutes *int
+	is_active                *bool
+	content_hash             *string
+	created_by               *string
+	created_at               *time.Time
+	clearedFields            map[string]struct{}
+	workflow                 *uuid.UUID
+	clearedworkflow          bool
+	agent_runs               map[uuid.UUID]struct{}
+	removedagent_runs        map[uuid.UUID]struct{}
+	clearedagent_runs        bool
+	done                     bool
+	oldValue                 func(context.Context) (*WorkflowVersion, error)
+	predicates               []predicate.WorkflowVersion
 }
 
 var _ ent.Mutation = (*WorkflowVersionMutation)(nil)
@@ -50202,6 +50513,704 @@ func (m *WorkflowVersionMutation) ResetContentMarkdown() {
 	m.content_markdown = nil
 }
 
+// SetName sets the "name" field.
+func (m *WorkflowVersionMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *WorkflowVersionMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the WorkflowVersion entity.
+// If the WorkflowVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowVersionMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *WorkflowVersionMutation) ResetName() {
+	m.name = nil
+}
+
+// SetType sets the "type" field.
+func (m *WorkflowVersionMutation) SetType(w workflowversion.Type) {
+	m._type = &w
+}
+
+// GetType returns the value of the "type" field in the mutation.
+func (m *WorkflowVersionMutation) GetType() (r workflowversion.Type, exists bool) {
+	v := m._type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldType returns the old "type" field's value of the WorkflowVersion entity.
+// If the WorkflowVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowVersionMutation) OldType(ctx context.Context) (v workflowversion.Type, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldType: %w", err)
+	}
+	return oldValue.Type, nil
+}
+
+// ResetType resets all changes to the "type" field.
+func (m *WorkflowVersionMutation) ResetType() {
+	m._type = nil
+}
+
+// SetRoleSlug sets the "role_slug" field.
+func (m *WorkflowVersionMutation) SetRoleSlug(s string) {
+	m.role_slug = &s
+}
+
+// RoleSlug returns the value of the "role_slug" field in the mutation.
+func (m *WorkflowVersionMutation) RoleSlug() (r string, exists bool) {
+	v := m.role_slug
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoleSlug returns the old "role_slug" field's value of the WorkflowVersion entity.
+// If the WorkflowVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowVersionMutation) OldRoleSlug(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoleSlug is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoleSlug requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoleSlug: %w", err)
+	}
+	return oldValue.RoleSlug, nil
+}
+
+// ClearRoleSlug clears the value of the "role_slug" field.
+func (m *WorkflowVersionMutation) ClearRoleSlug() {
+	m.role_slug = nil
+	m.clearedFields[workflowversion.FieldRoleSlug] = struct{}{}
+}
+
+// RoleSlugCleared returns if the "role_slug" field was cleared in this mutation.
+func (m *WorkflowVersionMutation) RoleSlugCleared() bool {
+	_, ok := m.clearedFields[workflowversion.FieldRoleSlug]
+	return ok
+}
+
+// ResetRoleSlug resets all changes to the "role_slug" field.
+func (m *WorkflowVersionMutation) ResetRoleSlug() {
+	m.role_slug = nil
+	delete(m.clearedFields, workflowversion.FieldRoleSlug)
+}
+
+// SetRoleName sets the "role_name" field.
+func (m *WorkflowVersionMutation) SetRoleName(s string) {
+	m.role_name = &s
+}
+
+// RoleName returns the value of the "role_name" field in the mutation.
+func (m *WorkflowVersionMutation) RoleName() (r string, exists bool) {
+	v := m.role_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoleName returns the old "role_name" field's value of the WorkflowVersion entity.
+// If the WorkflowVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowVersionMutation) OldRoleName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoleName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoleName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoleName: %w", err)
+	}
+	return oldValue.RoleName, nil
+}
+
+// ClearRoleName clears the value of the "role_name" field.
+func (m *WorkflowVersionMutation) ClearRoleName() {
+	m.role_name = nil
+	m.clearedFields[workflowversion.FieldRoleName] = struct{}{}
+}
+
+// RoleNameCleared returns if the "role_name" field was cleared in this mutation.
+func (m *WorkflowVersionMutation) RoleNameCleared() bool {
+	_, ok := m.clearedFields[workflowversion.FieldRoleName]
+	return ok
+}
+
+// ResetRoleName resets all changes to the "role_name" field.
+func (m *WorkflowVersionMutation) ResetRoleName() {
+	m.role_name = nil
+	delete(m.clearedFields, workflowversion.FieldRoleName)
+}
+
+// SetRoleDescription sets the "role_description" field.
+func (m *WorkflowVersionMutation) SetRoleDescription(s string) {
+	m.role_description = &s
+}
+
+// RoleDescription returns the value of the "role_description" field in the mutation.
+func (m *WorkflowVersionMutation) RoleDescription() (r string, exists bool) {
+	v := m.role_description
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoleDescription returns the old "role_description" field's value of the WorkflowVersion entity.
+// If the WorkflowVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowVersionMutation) OldRoleDescription(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoleDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoleDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoleDescription: %w", err)
+	}
+	return oldValue.RoleDescription, nil
+}
+
+// ClearRoleDescription clears the value of the "role_description" field.
+func (m *WorkflowVersionMutation) ClearRoleDescription() {
+	m.role_description = nil
+	m.clearedFields[workflowversion.FieldRoleDescription] = struct{}{}
+}
+
+// RoleDescriptionCleared returns if the "role_description" field was cleared in this mutation.
+func (m *WorkflowVersionMutation) RoleDescriptionCleared() bool {
+	_, ok := m.clearedFields[workflowversion.FieldRoleDescription]
+	return ok
+}
+
+// ResetRoleDescription resets all changes to the "role_description" field.
+func (m *WorkflowVersionMutation) ResetRoleDescription() {
+	m.role_description = nil
+	delete(m.clearedFields, workflowversion.FieldRoleDescription)
+}
+
+// SetPickupStatusIds sets the "pickup_status_ids" field.
+func (m *WorkflowVersionMutation) SetPickupStatusIds(pa pgarray.StringArray) {
+	m.pickup_status_ids = &pa
+}
+
+// PickupStatusIds returns the value of the "pickup_status_ids" field in the mutation.
+func (m *WorkflowVersionMutation) PickupStatusIds() (r pgarray.StringArray, exists bool) {
+	v := m.pickup_status_ids
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPickupStatusIds returns the old "pickup_status_ids" field's value of the WorkflowVersion entity.
+// If the WorkflowVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowVersionMutation) OldPickupStatusIds(ctx context.Context) (v pgarray.StringArray, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPickupStatusIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPickupStatusIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPickupStatusIds: %w", err)
+	}
+	return oldValue.PickupStatusIds, nil
+}
+
+// ClearPickupStatusIds clears the value of the "pickup_status_ids" field.
+func (m *WorkflowVersionMutation) ClearPickupStatusIds() {
+	m.pickup_status_ids = nil
+	m.clearedFields[workflowversion.FieldPickupStatusIds] = struct{}{}
+}
+
+// PickupStatusIdsCleared returns if the "pickup_status_ids" field was cleared in this mutation.
+func (m *WorkflowVersionMutation) PickupStatusIdsCleared() bool {
+	_, ok := m.clearedFields[workflowversion.FieldPickupStatusIds]
+	return ok
+}
+
+// ResetPickupStatusIds resets all changes to the "pickup_status_ids" field.
+func (m *WorkflowVersionMutation) ResetPickupStatusIds() {
+	m.pickup_status_ids = nil
+	delete(m.clearedFields, workflowversion.FieldPickupStatusIds)
+}
+
+// SetFinishStatusIds sets the "finish_status_ids" field.
+func (m *WorkflowVersionMutation) SetFinishStatusIds(pa pgarray.StringArray) {
+	m.finish_status_ids = &pa
+}
+
+// FinishStatusIds returns the value of the "finish_status_ids" field in the mutation.
+func (m *WorkflowVersionMutation) FinishStatusIds() (r pgarray.StringArray, exists bool) {
+	v := m.finish_status_ids
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFinishStatusIds returns the old "finish_status_ids" field's value of the WorkflowVersion entity.
+// If the WorkflowVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowVersionMutation) OldFinishStatusIds(ctx context.Context) (v pgarray.StringArray, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFinishStatusIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFinishStatusIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFinishStatusIds: %w", err)
+	}
+	return oldValue.FinishStatusIds, nil
+}
+
+// ClearFinishStatusIds clears the value of the "finish_status_ids" field.
+func (m *WorkflowVersionMutation) ClearFinishStatusIds() {
+	m.finish_status_ids = nil
+	m.clearedFields[workflowversion.FieldFinishStatusIds] = struct{}{}
+}
+
+// FinishStatusIdsCleared returns if the "finish_status_ids" field was cleared in this mutation.
+func (m *WorkflowVersionMutation) FinishStatusIdsCleared() bool {
+	_, ok := m.clearedFields[workflowversion.FieldFinishStatusIds]
+	return ok
+}
+
+// ResetFinishStatusIds resets all changes to the "finish_status_ids" field.
+func (m *WorkflowVersionMutation) ResetFinishStatusIds() {
+	m.finish_status_ids = nil
+	delete(m.clearedFields, workflowversion.FieldFinishStatusIds)
+}
+
+// SetHarnessPath sets the "harness_path" field.
+func (m *WorkflowVersionMutation) SetHarnessPath(s string) {
+	m.harness_path = &s
+}
+
+// HarnessPath returns the value of the "harness_path" field in the mutation.
+func (m *WorkflowVersionMutation) HarnessPath() (r string, exists bool) {
+	v := m.harness_path
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHarnessPath returns the old "harness_path" field's value of the WorkflowVersion entity.
+// If the WorkflowVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowVersionMutation) OldHarnessPath(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHarnessPath is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHarnessPath requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHarnessPath: %w", err)
+	}
+	return oldValue.HarnessPath, nil
+}
+
+// ResetHarnessPath resets all changes to the "harness_path" field.
+func (m *WorkflowVersionMutation) ResetHarnessPath() {
+	m.harness_path = nil
+}
+
+// SetHooks sets the "hooks" field.
+func (m *WorkflowVersionMutation) SetHooks(value map[string]interface{}) {
+	m._hooks = &value
+}
+
+// Hooks returns the value of the "hooks" field in the mutation.
+func (m *WorkflowVersionMutation) Hooks() (r map[string]interface{}, exists bool) {
+	v := m._hooks
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHooks returns the old "hooks" field's value of the WorkflowVersion entity.
+// If the WorkflowVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowVersionMutation) OldHooks(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHooks is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHooks requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHooks: %w", err)
+	}
+	return oldValue.Hooks, nil
+}
+
+// ResetHooks resets all changes to the "hooks" field.
+func (m *WorkflowVersionMutation) ResetHooks() {
+	m._hooks = nil
+}
+
+// SetPlatformAccessAllowed sets the "platform_access_allowed" field.
+func (m *WorkflowVersionMutation) SetPlatformAccessAllowed(pa pgarray.StringArray) {
+	m.platform_access_allowed = &pa
+}
+
+// PlatformAccessAllowed returns the value of the "platform_access_allowed" field in the mutation.
+func (m *WorkflowVersionMutation) PlatformAccessAllowed() (r pgarray.StringArray, exists bool) {
+	v := m.platform_access_allowed
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPlatformAccessAllowed returns the old "platform_access_allowed" field's value of the WorkflowVersion entity.
+// If the WorkflowVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowVersionMutation) OldPlatformAccessAllowed(ctx context.Context) (v pgarray.StringArray, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPlatformAccessAllowed is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPlatformAccessAllowed requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPlatformAccessAllowed: %w", err)
+	}
+	return oldValue.PlatformAccessAllowed, nil
+}
+
+// ClearPlatformAccessAllowed clears the value of the "platform_access_allowed" field.
+func (m *WorkflowVersionMutation) ClearPlatformAccessAllowed() {
+	m.platform_access_allowed = nil
+	m.clearedFields[workflowversion.FieldPlatformAccessAllowed] = struct{}{}
+}
+
+// PlatformAccessAllowedCleared returns if the "platform_access_allowed" field was cleared in this mutation.
+func (m *WorkflowVersionMutation) PlatformAccessAllowedCleared() bool {
+	_, ok := m.clearedFields[workflowversion.FieldPlatformAccessAllowed]
+	return ok
+}
+
+// ResetPlatformAccessAllowed resets all changes to the "platform_access_allowed" field.
+func (m *WorkflowVersionMutation) ResetPlatformAccessAllowed() {
+	m.platform_access_allowed = nil
+	delete(m.clearedFields, workflowversion.FieldPlatformAccessAllowed)
+}
+
+// SetMaxConcurrent sets the "max_concurrent" field.
+func (m *WorkflowVersionMutation) SetMaxConcurrent(i int) {
+	m.max_concurrent = &i
+	m.addmax_concurrent = nil
+}
+
+// MaxConcurrent returns the value of the "max_concurrent" field in the mutation.
+func (m *WorkflowVersionMutation) MaxConcurrent() (r int, exists bool) {
+	v := m.max_concurrent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMaxConcurrent returns the old "max_concurrent" field's value of the WorkflowVersion entity.
+// If the WorkflowVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowVersionMutation) OldMaxConcurrent(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMaxConcurrent is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMaxConcurrent requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMaxConcurrent: %w", err)
+	}
+	return oldValue.MaxConcurrent, nil
+}
+
+// AddMaxConcurrent adds i to the "max_concurrent" field.
+func (m *WorkflowVersionMutation) AddMaxConcurrent(i int) {
+	if m.addmax_concurrent != nil {
+		*m.addmax_concurrent += i
+	} else {
+		m.addmax_concurrent = &i
+	}
+}
+
+// AddedMaxConcurrent returns the value that was added to the "max_concurrent" field in this mutation.
+func (m *WorkflowVersionMutation) AddedMaxConcurrent() (r int, exists bool) {
+	v := m.addmax_concurrent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetMaxConcurrent resets all changes to the "max_concurrent" field.
+func (m *WorkflowVersionMutation) ResetMaxConcurrent() {
+	m.max_concurrent = nil
+	m.addmax_concurrent = nil
+}
+
+// SetMaxRetryAttempts sets the "max_retry_attempts" field.
+func (m *WorkflowVersionMutation) SetMaxRetryAttempts(i int) {
+	m.max_retry_attempts = &i
+	m.addmax_retry_attempts = nil
+}
+
+// MaxRetryAttempts returns the value of the "max_retry_attempts" field in the mutation.
+func (m *WorkflowVersionMutation) MaxRetryAttempts() (r int, exists bool) {
+	v := m.max_retry_attempts
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMaxRetryAttempts returns the old "max_retry_attempts" field's value of the WorkflowVersion entity.
+// If the WorkflowVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowVersionMutation) OldMaxRetryAttempts(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMaxRetryAttempts is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMaxRetryAttempts requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMaxRetryAttempts: %w", err)
+	}
+	return oldValue.MaxRetryAttempts, nil
+}
+
+// AddMaxRetryAttempts adds i to the "max_retry_attempts" field.
+func (m *WorkflowVersionMutation) AddMaxRetryAttempts(i int) {
+	if m.addmax_retry_attempts != nil {
+		*m.addmax_retry_attempts += i
+	} else {
+		m.addmax_retry_attempts = &i
+	}
+}
+
+// AddedMaxRetryAttempts returns the value that was added to the "max_retry_attempts" field in this mutation.
+func (m *WorkflowVersionMutation) AddedMaxRetryAttempts() (r int, exists bool) {
+	v := m.addmax_retry_attempts
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetMaxRetryAttempts resets all changes to the "max_retry_attempts" field.
+func (m *WorkflowVersionMutation) ResetMaxRetryAttempts() {
+	m.max_retry_attempts = nil
+	m.addmax_retry_attempts = nil
+}
+
+// SetTimeoutMinutes sets the "timeout_minutes" field.
+func (m *WorkflowVersionMutation) SetTimeoutMinutes(i int) {
+	m.timeout_minutes = &i
+	m.addtimeout_minutes = nil
+}
+
+// TimeoutMinutes returns the value of the "timeout_minutes" field in the mutation.
+func (m *WorkflowVersionMutation) TimeoutMinutes() (r int, exists bool) {
+	v := m.timeout_minutes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTimeoutMinutes returns the old "timeout_minutes" field's value of the WorkflowVersion entity.
+// If the WorkflowVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowVersionMutation) OldTimeoutMinutes(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTimeoutMinutes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTimeoutMinutes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTimeoutMinutes: %w", err)
+	}
+	return oldValue.TimeoutMinutes, nil
+}
+
+// AddTimeoutMinutes adds i to the "timeout_minutes" field.
+func (m *WorkflowVersionMutation) AddTimeoutMinutes(i int) {
+	if m.addtimeout_minutes != nil {
+		*m.addtimeout_minutes += i
+	} else {
+		m.addtimeout_minutes = &i
+	}
+}
+
+// AddedTimeoutMinutes returns the value that was added to the "timeout_minutes" field in this mutation.
+func (m *WorkflowVersionMutation) AddedTimeoutMinutes() (r int, exists bool) {
+	v := m.addtimeout_minutes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTimeoutMinutes resets all changes to the "timeout_minutes" field.
+func (m *WorkflowVersionMutation) ResetTimeoutMinutes() {
+	m.timeout_minutes = nil
+	m.addtimeout_minutes = nil
+}
+
+// SetStallTimeoutMinutes sets the "stall_timeout_minutes" field.
+func (m *WorkflowVersionMutation) SetStallTimeoutMinutes(i int) {
+	m.stall_timeout_minutes = &i
+	m.addstall_timeout_minutes = nil
+}
+
+// StallTimeoutMinutes returns the value of the "stall_timeout_minutes" field in the mutation.
+func (m *WorkflowVersionMutation) StallTimeoutMinutes() (r int, exists bool) {
+	v := m.stall_timeout_minutes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStallTimeoutMinutes returns the old "stall_timeout_minutes" field's value of the WorkflowVersion entity.
+// If the WorkflowVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowVersionMutation) OldStallTimeoutMinutes(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStallTimeoutMinutes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStallTimeoutMinutes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStallTimeoutMinutes: %w", err)
+	}
+	return oldValue.StallTimeoutMinutes, nil
+}
+
+// AddStallTimeoutMinutes adds i to the "stall_timeout_minutes" field.
+func (m *WorkflowVersionMutation) AddStallTimeoutMinutes(i int) {
+	if m.addstall_timeout_minutes != nil {
+		*m.addstall_timeout_minutes += i
+	} else {
+		m.addstall_timeout_minutes = &i
+	}
+}
+
+// AddedStallTimeoutMinutes returns the value that was added to the "stall_timeout_minutes" field in this mutation.
+func (m *WorkflowVersionMutation) AddedStallTimeoutMinutes() (r int, exists bool) {
+	v := m.addstall_timeout_minutes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetStallTimeoutMinutes resets all changes to the "stall_timeout_minutes" field.
+func (m *WorkflowVersionMutation) ResetStallTimeoutMinutes() {
+	m.stall_timeout_minutes = nil
+	m.addstall_timeout_minutes = nil
+}
+
+// SetIsActive sets the "is_active" field.
+func (m *WorkflowVersionMutation) SetIsActive(b bool) {
+	m.is_active = &b
+}
+
+// IsActive returns the value of the "is_active" field in the mutation.
+func (m *WorkflowVersionMutation) IsActive() (r bool, exists bool) {
+	v := m.is_active
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsActive returns the old "is_active" field's value of the WorkflowVersion entity.
+// If the WorkflowVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowVersionMutation) OldIsActive(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsActive is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsActive requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsActive: %w", err)
+	}
+	return oldValue.IsActive, nil
+}
+
+// ResetIsActive resets all changes to the "is_active" field.
+func (m *WorkflowVersionMutation) ResetIsActive() {
+	m.is_active = nil
+}
+
 // SetContentHash sets the "content_hash" field.
 func (m *WorkflowVersionMutation) SetContentHash(s string) {
 	m.content_hash = &s
@@ -50425,7 +51434,7 @@ func (m *WorkflowVersionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *WorkflowVersionMutation) Fields() []string {
-	fields := make([]string, 0, 6)
+	fields := make([]string, 0, 21)
 	if m.workflow != nil {
 		fields = append(fields, workflowversion.FieldWorkflowID)
 	}
@@ -50434,6 +51443,51 @@ func (m *WorkflowVersionMutation) Fields() []string {
 	}
 	if m.content_markdown != nil {
 		fields = append(fields, workflowversion.FieldContentMarkdown)
+	}
+	if m.name != nil {
+		fields = append(fields, workflowversion.FieldName)
+	}
+	if m._type != nil {
+		fields = append(fields, workflowversion.FieldType)
+	}
+	if m.role_slug != nil {
+		fields = append(fields, workflowversion.FieldRoleSlug)
+	}
+	if m.role_name != nil {
+		fields = append(fields, workflowversion.FieldRoleName)
+	}
+	if m.role_description != nil {
+		fields = append(fields, workflowversion.FieldRoleDescription)
+	}
+	if m.pickup_status_ids != nil {
+		fields = append(fields, workflowversion.FieldPickupStatusIds)
+	}
+	if m.finish_status_ids != nil {
+		fields = append(fields, workflowversion.FieldFinishStatusIds)
+	}
+	if m.harness_path != nil {
+		fields = append(fields, workflowversion.FieldHarnessPath)
+	}
+	if m._hooks != nil {
+		fields = append(fields, workflowversion.FieldHooks)
+	}
+	if m.platform_access_allowed != nil {
+		fields = append(fields, workflowversion.FieldPlatformAccessAllowed)
+	}
+	if m.max_concurrent != nil {
+		fields = append(fields, workflowversion.FieldMaxConcurrent)
+	}
+	if m.max_retry_attempts != nil {
+		fields = append(fields, workflowversion.FieldMaxRetryAttempts)
+	}
+	if m.timeout_minutes != nil {
+		fields = append(fields, workflowversion.FieldTimeoutMinutes)
+	}
+	if m.stall_timeout_minutes != nil {
+		fields = append(fields, workflowversion.FieldStallTimeoutMinutes)
+	}
+	if m.is_active != nil {
+		fields = append(fields, workflowversion.FieldIsActive)
 	}
 	if m.content_hash != nil {
 		fields = append(fields, workflowversion.FieldContentHash)
@@ -50458,6 +51512,36 @@ func (m *WorkflowVersionMutation) Field(name string) (ent.Value, bool) {
 		return m.Version()
 	case workflowversion.FieldContentMarkdown:
 		return m.ContentMarkdown()
+	case workflowversion.FieldName:
+		return m.Name()
+	case workflowversion.FieldType:
+		return m.GetType()
+	case workflowversion.FieldRoleSlug:
+		return m.RoleSlug()
+	case workflowversion.FieldRoleName:
+		return m.RoleName()
+	case workflowversion.FieldRoleDescription:
+		return m.RoleDescription()
+	case workflowversion.FieldPickupStatusIds:
+		return m.PickupStatusIds()
+	case workflowversion.FieldFinishStatusIds:
+		return m.FinishStatusIds()
+	case workflowversion.FieldHarnessPath:
+		return m.HarnessPath()
+	case workflowversion.FieldHooks:
+		return m.Hooks()
+	case workflowversion.FieldPlatformAccessAllowed:
+		return m.PlatformAccessAllowed()
+	case workflowversion.FieldMaxConcurrent:
+		return m.MaxConcurrent()
+	case workflowversion.FieldMaxRetryAttempts:
+		return m.MaxRetryAttempts()
+	case workflowversion.FieldTimeoutMinutes:
+		return m.TimeoutMinutes()
+	case workflowversion.FieldStallTimeoutMinutes:
+		return m.StallTimeoutMinutes()
+	case workflowversion.FieldIsActive:
+		return m.IsActive()
 	case workflowversion.FieldContentHash:
 		return m.ContentHash()
 	case workflowversion.FieldCreatedBy:
@@ -50479,6 +51563,36 @@ func (m *WorkflowVersionMutation) OldField(ctx context.Context, name string) (en
 		return m.OldVersion(ctx)
 	case workflowversion.FieldContentMarkdown:
 		return m.OldContentMarkdown(ctx)
+	case workflowversion.FieldName:
+		return m.OldName(ctx)
+	case workflowversion.FieldType:
+		return m.OldType(ctx)
+	case workflowversion.FieldRoleSlug:
+		return m.OldRoleSlug(ctx)
+	case workflowversion.FieldRoleName:
+		return m.OldRoleName(ctx)
+	case workflowversion.FieldRoleDescription:
+		return m.OldRoleDescription(ctx)
+	case workflowversion.FieldPickupStatusIds:
+		return m.OldPickupStatusIds(ctx)
+	case workflowversion.FieldFinishStatusIds:
+		return m.OldFinishStatusIds(ctx)
+	case workflowversion.FieldHarnessPath:
+		return m.OldHarnessPath(ctx)
+	case workflowversion.FieldHooks:
+		return m.OldHooks(ctx)
+	case workflowversion.FieldPlatformAccessAllowed:
+		return m.OldPlatformAccessAllowed(ctx)
+	case workflowversion.FieldMaxConcurrent:
+		return m.OldMaxConcurrent(ctx)
+	case workflowversion.FieldMaxRetryAttempts:
+		return m.OldMaxRetryAttempts(ctx)
+	case workflowversion.FieldTimeoutMinutes:
+		return m.OldTimeoutMinutes(ctx)
+	case workflowversion.FieldStallTimeoutMinutes:
+		return m.OldStallTimeoutMinutes(ctx)
+	case workflowversion.FieldIsActive:
+		return m.OldIsActive(ctx)
 	case workflowversion.FieldContentHash:
 		return m.OldContentHash(ctx)
 	case workflowversion.FieldCreatedBy:
@@ -50515,6 +51629,111 @@ func (m *WorkflowVersionMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetContentMarkdown(v)
 		return nil
+	case workflowversion.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case workflowversion.FieldType:
+		v, ok := value.(workflowversion.Type)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetType(v)
+		return nil
+	case workflowversion.FieldRoleSlug:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoleSlug(v)
+		return nil
+	case workflowversion.FieldRoleName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoleName(v)
+		return nil
+	case workflowversion.FieldRoleDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoleDescription(v)
+		return nil
+	case workflowversion.FieldPickupStatusIds:
+		v, ok := value.(pgarray.StringArray)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPickupStatusIds(v)
+		return nil
+	case workflowversion.FieldFinishStatusIds:
+		v, ok := value.(pgarray.StringArray)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFinishStatusIds(v)
+		return nil
+	case workflowversion.FieldHarnessPath:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHarnessPath(v)
+		return nil
+	case workflowversion.FieldHooks:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHooks(v)
+		return nil
+	case workflowversion.FieldPlatformAccessAllowed:
+		v, ok := value.(pgarray.StringArray)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPlatformAccessAllowed(v)
+		return nil
+	case workflowversion.FieldMaxConcurrent:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMaxConcurrent(v)
+		return nil
+	case workflowversion.FieldMaxRetryAttempts:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMaxRetryAttempts(v)
+		return nil
+	case workflowversion.FieldTimeoutMinutes:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTimeoutMinutes(v)
+		return nil
+	case workflowversion.FieldStallTimeoutMinutes:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStallTimeoutMinutes(v)
+		return nil
+	case workflowversion.FieldIsActive:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsActive(v)
+		return nil
 	case workflowversion.FieldContentHash:
 		v, ok := value.(string)
 		if !ok {
@@ -50547,6 +51766,18 @@ func (m *WorkflowVersionMutation) AddedFields() []string {
 	if m.addversion != nil {
 		fields = append(fields, workflowversion.FieldVersion)
 	}
+	if m.addmax_concurrent != nil {
+		fields = append(fields, workflowversion.FieldMaxConcurrent)
+	}
+	if m.addmax_retry_attempts != nil {
+		fields = append(fields, workflowversion.FieldMaxRetryAttempts)
+	}
+	if m.addtimeout_minutes != nil {
+		fields = append(fields, workflowversion.FieldTimeoutMinutes)
+	}
+	if m.addstall_timeout_minutes != nil {
+		fields = append(fields, workflowversion.FieldStallTimeoutMinutes)
+	}
 	return fields
 }
 
@@ -50557,6 +51788,14 @@ func (m *WorkflowVersionMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case workflowversion.FieldVersion:
 		return m.AddedVersion()
+	case workflowversion.FieldMaxConcurrent:
+		return m.AddedMaxConcurrent()
+	case workflowversion.FieldMaxRetryAttempts:
+		return m.AddedMaxRetryAttempts()
+	case workflowversion.FieldTimeoutMinutes:
+		return m.AddedTimeoutMinutes()
+	case workflowversion.FieldStallTimeoutMinutes:
+		return m.AddedStallTimeoutMinutes()
 	}
 	return nil, false
 }
@@ -50573,6 +51812,34 @@ func (m *WorkflowVersionMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddVersion(v)
 		return nil
+	case workflowversion.FieldMaxConcurrent:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddMaxConcurrent(v)
+		return nil
+	case workflowversion.FieldMaxRetryAttempts:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddMaxRetryAttempts(v)
+		return nil
+	case workflowversion.FieldTimeoutMinutes:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTimeoutMinutes(v)
+		return nil
+	case workflowversion.FieldStallTimeoutMinutes:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddStallTimeoutMinutes(v)
+		return nil
 	}
 	return fmt.Errorf("unknown WorkflowVersion numeric field %s", name)
 }
@@ -50580,7 +51847,26 @@ func (m *WorkflowVersionMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *WorkflowVersionMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(workflowversion.FieldRoleSlug) {
+		fields = append(fields, workflowversion.FieldRoleSlug)
+	}
+	if m.FieldCleared(workflowversion.FieldRoleName) {
+		fields = append(fields, workflowversion.FieldRoleName)
+	}
+	if m.FieldCleared(workflowversion.FieldRoleDescription) {
+		fields = append(fields, workflowversion.FieldRoleDescription)
+	}
+	if m.FieldCleared(workflowversion.FieldPickupStatusIds) {
+		fields = append(fields, workflowversion.FieldPickupStatusIds)
+	}
+	if m.FieldCleared(workflowversion.FieldFinishStatusIds) {
+		fields = append(fields, workflowversion.FieldFinishStatusIds)
+	}
+	if m.FieldCleared(workflowversion.FieldPlatformAccessAllowed) {
+		fields = append(fields, workflowversion.FieldPlatformAccessAllowed)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -50593,6 +51879,26 @@ func (m *WorkflowVersionMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *WorkflowVersionMutation) ClearField(name string) error {
+	switch name {
+	case workflowversion.FieldRoleSlug:
+		m.ClearRoleSlug()
+		return nil
+	case workflowversion.FieldRoleName:
+		m.ClearRoleName()
+		return nil
+	case workflowversion.FieldRoleDescription:
+		m.ClearRoleDescription()
+		return nil
+	case workflowversion.FieldPickupStatusIds:
+		m.ClearPickupStatusIds()
+		return nil
+	case workflowversion.FieldFinishStatusIds:
+		m.ClearFinishStatusIds()
+		return nil
+	case workflowversion.FieldPlatformAccessAllowed:
+		m.ClearPlatformAccessAllowed()
+		return nil
+	}
 	return fmt.Errorf("unknown WorkflowVersion nullable field %s", name)
 }
 
@@ -50608,6 +51914,51 @@ func (m *WorkflowVersionMutation) ResetField(name string) error {
 		return nil
 	case workflowversion.FieldContentMarkdown:
 		m.ResetContentMarkdown()
+		return nil
+	case workflowversion.FieldName:
+		m.ResetName()
+		return nil
+	case workflowversion.FieldType:
+		m.ResetType()
+		return nil
+	case workflowversion.FieldRoleSlug:
+		m.ResetRoleSlug()
+		return nil
+	case workflowversion.FieldRoleName:
+		m.ResetRoleName()
+		return nil
+	case workflowversion.FieldRoleDescription:
+		m.ResetRoleDescription()
+		return nil
+	case workflowversion.FieldPickupStatusIds:
+		m.ResetPickupStatusIds()
+		return nil
+	case workflowversion.FieldFinishStatusIds:
+		m.ResetFinishStatusIds()
+		return nil
+	case workflowversion.FieldHarnessPath:
+		m.ResetHarnessPath()
+		return nil
+	case workflowversion.FieldHooks:
+		m.ResetHooks()
+		return nil
+	case workflowversion.FieldPlatformAccessAllowed:
+		m.ResetPlatformAccessAllowed()
+		return nil
+	case workflowversion.FieldMaxConcurrent:
+		m.ResetMaxConcurrent()
+		return nil
+	case workflowversion.FieldMaxRetryAttempts:
+		m.ResetMaxRetryAttempts()
+		return nil
+	case workflowversion.FieldTimeoutMinutes:
+		m.ResetTimeoutMinutes()
+		return nil
+	case workflowversion.FieldStallTimeoutMinutes:
+		m.ResetStallTimeoutMinutes()
+		return nil
+	case workflowversion.FieldIsActive:
+		m.ResetIsActive()
 		return nil
 	case workflowversion.FieldContentHash:
 		m.ResetContentHash()

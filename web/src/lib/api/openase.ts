@@ -815,7 +815,12 @@ export function createWorkflow(
     max_concurrent?: number | null
     max_retry_attempts?: number | null
     name?: string
+    platform_access_allowed?: string[]
     pickup_status_ids: string[]
+    role_description?: string
+    role_name?: string
+    role_slug?: string
+    skill_names?: string[]
     stall_timeout_minutes?: number | null
     timeout_minutes?: number | null
     type?: string
@@ -842,7 +847,11 @@ export function updateWorkflow(
     max_concurrent?: number | null
     max_retry_attempts?: number | null
     name?: string | null
+    platform_access_allowed?: string[]
     pickup_status_ids?: string[]
+    role_description?: string | null
+    role_name?: string | null
+    role_slug?: string | null
     stall_timeout_minutes?: number | null
     timeout_minutes?: number | null
     type?: string | null

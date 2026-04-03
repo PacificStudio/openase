@@ -1835,6 +1835,10 @@ var (
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "name", Type: field.TypeString},
 		{Name: "type", Type: field.TypeEnum, Enums: []string{"coding", "test", "doc", "security", "deploy", "refine-harness", "custom"}},
+		{Name: "role_slug", Type: field.TypeString, Nullable: true},
+		{Name: "role_name", Type: field.TypeString, Nullable: true},
+		{Name: "role_description", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "platform_access_allowed", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "harness_path", Type: field.TypeString},
 		{Name: "hooks", Type: field.TypeJSON},
 		{Name: "max_concurrent", Type: field.TypeInt, Default: 0},
@@ -1855,19 +1859,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "workflows_agents_workflows",
-				Columns:    []*schema.Column{WorkflowsColumns[11]},
+				Columns:    []*schema.Column{WorkflowsColumns[15]},
 				RefColumns: []*schema.Column{AgentsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "workflows_projects_workflows",
-				Columns:    []*schema.Column{WorkflowsColumns[12]},
+				Columns:    []*schema.Column{WorkflowsColumns[16]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "workflows_workflow_versions_current_version",
-				Columns:    []*schema.Column{WorkflowsColumns[13]},
+				Columns:    []*schema.Column{WorkflowsColumns[17]},
 				RefColumns: []*schema.Column{WorkflowVersionsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -1876,12 +1880,12 @@ var (
 			{
 				Name:    "workflow_project_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{WorkflowsColumns[12], WorkflowsColumns[1]},
+				Columns: []*schema.Column{WorkflowsColumns[16], WorkflowsColumns[1]},
 			},
 			{
 				Name:    "workflow_project_id_is_active",
 				Unique:  false,
-				Columns: []*schema.Column{WorkflowsColumns[12], WorkflowsColumns[10]},
+				Columns: []*schema.Column{WorkflowsColumns[16], WorkflowsColumns[14]},
 			},
 		},
 	}
@@ -1936,6 +1940,21 @@ var (
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "version", Type: field.TypeInt},
 		{Name: "content_markdown", Type: field.TypeString, Size: 2147483647},
+		{Name: "name", Type: field.TypeString},
+		{Name: "type", Type: field.TypeEnum, Enums: []string{"coding", "test", "doc", "security", "deploy", "refine-harness", "custom"}},
+		{Name: "role_slug", Type: field.TypeString, Nullable: true},
+		{Name: "role_name", Type: field.TypeString, Nullable: true},
+		{Name: "role_description", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "pickup_status_ids", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "finish_status_ids", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "harness_path", Type: field.TypeString},
+		{Name: "hooks", Type: field.TypeJSON},
+		{Name: "platform_access_allowed", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "max_concurrent", Type: field.TypeInt, Default: 0},
+		{Name: "max_retry_attempts", Type: field.TypeInt, Default: 3},
+		{Name: "timeout_minutes", Type: field.TypeInt, Default: 60},
+		{Name: "stall_timeout_minutes", Type: field.TypeInt, Default: 5},
+		{Name: "is_active", Type: field.TypeBool, Default: true},
 		{Name: "content_hash", Type: field.TypeString},
 		{Name: "created_by", Type: field.TypeString, Default: "system:workflow-service"},
 		{Name: "created_at", Type: field.TypeTime},
@@ -1949,7 +1968,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "workflow_versions_workflows_versions",
-				Columns:    []*schema.Column{WorkflowVersionsColumns[6]},
+				Columns:    []*schema.Column{WorkflowVersionsColumns[21]},
 				RefColumns: []*schema.Column{WorkflowsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1958,7 +1977,7 @@ var (
 			{
 				Name:    "workflowversion_workflow_id_version",
 				Unique:  true,
-				Columns: []*schema.Column{WorkflowVersionsColumns[6], WorkflowVersionsColumns[1]},
+				Columns: []*schema.Column{WorkflowVersionsColumns[21], WorkflowVersionsColumns[1]},
 			},
 		},
 	}

@@ -206,6 +206,12 @@ export function handleUseWorkflowTemplate(
   state: Pick<WorkflowsPageControllerActionsState, 'statuses' | 'agentOptions' | 'templateDraft'>,
   role: BuiltinRole,
 ) {
+  const roleMeta = role as BuiltinRole & {
+    pickup_status_names?: string[]
+    finish_status_names?: string[]
+    skill_names?: string[]
+    platform_access_allowed?: string[]
+  }
   if (state.statuses.length === 0 || state.agentOptions.length === 0) {
     toastStore.error('Configure statuses and agents before creating a workflow.')
     return false
@@ -214,6 +220,13 @@ export function handleUseWorkflowTemplate(
     name: role.name,
     content: role.workflow_content || role.content,
     workflowType: normalizeWorkflowType(role.workflow_type),
+    roleSlug: role.slug,
+    roleName: role.name,
+    roleDescription: role.summary,
+    platformAccessAllowed: roleMeta.platform_access_allowed ?? [],
+    skillNames: roleMeta.skill_names ?? [],
+    pickupStatusNames: roleMeta.pickup_status_names ?? [],
+    finishStatusNames: roleMeta.finish_status_names ?? [],
     harnessPath: role.harness_path,
   }
   return true

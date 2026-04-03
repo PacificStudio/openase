@@ -3,14 +3,7 @@ package workflow
 import "testing"
 
 func TestParsePlatformAccess(t *testing.T) {
-	content := `---
-platform_access:
-  allowed:
-    - " tickets.list "
-    - "projects.update"
-    - "tickets.list"
----
-# Coding`
+	content := " tickets.list \nprojects.update\ntickets.list"
 
 	access, err := ParsePlatformAccess(content)
 	if err != nil {
@@ -32,11 +25,7 @@ platform_access:
 }
 
 func TestParsePlatformAccessAbsent(t *testing.T) {
-	content := `---
-status:
-  pickup: "Todo"
----
-# Coding`
+	content := ""
 
 	access, err := ParsePlatformAccess(content)
 	if err != nil {

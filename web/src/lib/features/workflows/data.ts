@@ -30,6 +30,12 @@ export function mapWorkflowSummary(
   workflow: Awaited<ReturnType<typeof listWorkflows>>['workflows'][number],
   statusNamesById: Map<string, string>,
 ): WorkflowSummary {
+  const workflowMeta = workflow as typeof workflow & {
+    role_slug?: string
+    role_name?: string
+    role_description?: string
+    platform_access_allowed?: string[]
+  }
   const pickupStatusIds = workflow.pickup_status_ids ?? []
   const finishStatusIds = workflow.finish_status_ids ?? []
 
@@ -38,6 +44,10 @@ export function mapWorkflowSummary(
     name: workflow.name,
     type: normalizeWorkflowType(workflow.type),
     agentId: workflow.agent_id ?? null,
+    roleSlug: workflowMeta.role_slug ?? '',
+    roleName: workflowMeta.role_name ?? workflow.name,
+    roleDescription: workflowMeta.role_description ?? '',
+    platformAccessAllowed: workflowMeta.platform_access_allowed ?? [],
     harnessPath: workflow.harness_path ?? '',
     pickupStatusIds,
     pickupStatusLabel: pickupStatusIds
@@ -199,6 +209,11 @@ export async function createWorkflowWithBinding(
     agentId: string
     name: string
     workflowType: string
+    roleSlug?: string
+    roleName?: string
+    roleDescription?: string
+    platformAccessAllowed?: string[]
+    skillNames?: string[]
     harnessPath?: string | null
     pickupStatusIds: string[]
     finishStatusIds: string[]
@@ -211,6 +226,11 @@ export async function createWorkflowWithBinding(
     agent_id: input.agentId,
     name: input.name,
     type: input.workflowType,
+    role_slug: input.roleSlug,
+    role_name: input.roleName,
+    role_description: input.roleDescription,
+    platform_access_allowed: input.platformAccessAllowed ?? [],
+    skill_names: input.skillNames ?? [],
     harness_path: input.harnessPath ?? null,
     pickup_status_ids: input.pickupStatusIds,
     finish_status_ids: input.finishStatusIds,
@@ -227,12 +247,22 @@ export async function createWorkflowWithBinding(
   }
 
   const createdWorkflow = response.workflow
+  const createdWorkflowMeta = createdWorkflow as typeof createdWorkflow & {
+    role_slug?: string
+    role_name?: string
+    role_description?: string
+    platform_access_allowed?: string[]
+  }
 
   const workflow: WorkflowSummary = {
     id: createdWorkflow.id,
     name: createdWorkflow.name,
     type: normalizeWorkflowType(createdWorkflow.type),
     agentId: createdWorkflow.agent_id ?? null,
+    roleSlug: createdWorkflowMeta.role_slug ?? input.roleSlug ?? '',
+    roleName: createdWorkflowMeta.role_name ?? input.roleName ?? createdWorkflow.name,
+    roleDescription: createdWorkflowMeta.role_description ?? input.roleDescription ?? '',
+    platformAccessAllowed: createdWorkflowMeta.platform_access_allowed ?? input.platformAccessAllowed ?? [],
     harnessPath: createdWorkflow.harness_path ?? '',
     pickupStatusIds: createdWorkflow.pickup_status_ids,
     pickupStatusLabel: createdWorkflow.pickup_status_ids

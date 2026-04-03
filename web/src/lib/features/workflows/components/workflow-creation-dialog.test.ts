@@ -120,7 +120,7 @@ describe('WorkflowCreationDialog', () => {
     expect(onCreated).toHaveBeenCalledTimes(1)
   })
 
-  it('preselects pickup and finish statuses from the template frontmatter', async () => {
+  it('preselects pickup and finish statuses from structured template metadata', async () => {
     createWorkflowWithBinding.mockResolvedValue({
       workflow: {
         id: 'wf-2',
@@ -155,9 +155,10 @@ describe('WorkflowCreationDialog', () => {
         builtinRoleContent: 'role',
         templateDraft: {
           name: 'Dispatcher',
-          content:
-            '---\nworkflow:\n  role: "dispatcher"\nstatus:\n  pickup: "Backlog"\n  finish: ["Backlog"]\n---\n',
+          content: '# Dispatcher\n\nRoute backlog tickets.\n',
           workflowType: 'custom',
+          pickupStatusNames: ['Backlog'],
+          finishStatusNames: ['Backlog'],
           harnessPath: '.openase/harnesses/roles/dispatcher.md',
         },
       },
@@ -176,7 +177,7 @@ describe('WorkflowCreationDialog', () => {
           finishStatusIds: ['backlog'],
         }),
         statuses,
-        '---\nworkflow:\n  role: "dispatcher"\nstatus:\n  pickup: "Backlog"\n  finish: ["Backlog"]\n---\n',
+        '# Dispatcher\n\nRoute backlog tickets.\n',
       )
     })
   })
@@ -192,9 +193,10 @@ describe('WorkflowCreationDialog', () => {
         builtinRoleContent: 'role',
         templateDraft: {
           name: 'Dispatcher',
-          content:
-            '---\nworkflow:\n  role: "dispatcher"\nstatus:\n  pickup: "Inbox"\n  finish: "Inbox"\n---\n',
+          content: '# Dispatcher\n\nRoute backlog tickets.\n',
           workflowType: 'custom',
+          pickupStatusNames: ['Inbox'],
+          finishStatusNames: ['Inbox'],
           harnessPath: '.openase/harnesses/roles/dispatcher.md',
         },
       },

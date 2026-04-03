@@ -132,7 +132,7 @@ AI Agent 编码领域正在经历从"单 Agent 使用"到"Agent 舰队管理"的
 
 ### 4.3 Auto Harness 机制
 
-每个 Workflow 的核心是一个 Harness 文档，由 OpenASE 控制面持久化和版本化管理。Harness 仍使用 YAML Frontmatter + Markdown 格式定义 Agent 的工作规范，但它不再以项目仓库 `.openase/harnesses/` 中的文件作为权威源；运行时会在启动时把当前版本 materialize 到工作区供 Agent 使用。
+每个 Workflow 的核心是一个 Harness 文档，由 OpenASE 控制面持久化和版本化管理。Harness 使用纯 Markdown / Gonja body 定义 Agent 的工作规范；Workflow 名称、类型、角色、状态绑定、技能绑定、平台权限等控制面元数据全部存储在数据库中，不再写入 Harness frontmatter。运行时会在启动时把当前版本 materialize 到工作区供 Agent 使用。
 
 **Harness 的核心特性：**
 
@@ -852,12 +852,16 @@ Agent 的 Harness Prompt 中会注入所有 Repo 的路径和说明：
 | project_id | FK | 所属项目 |
 | name | String | Workflow 名称 |
 | type | Enum | coding / test / doc / security / deploy / refine-harness / custom |
+| role_slug | String | Workflow 角色的稳定 slug，由控制面结构化存储 |
+| role_name | String | Workflow 角色显示名，由控制面结构化存储 |
+| role_description | Text | Workflow 角色摘要 / 说明，由控制面结构化存储 |
 | agent_id | FK | 绑定的 Agent 定义；该 Workflow 每次执行固定采用此 Agent 驱动 |
 | harness_key | String | Workflow Harness 的稳定逻辑标识（如 `coding-default`），项目内唯一 |
 | current_version_id | FK | 当前发布中的 Harness 版本 |
 | hooks | JSONB | 生命周期 Hook 配置（嵌套结构：hook_name → [{cmd, timeout, on_failure}]，详见第八章） |
 | pickup_status_ids | NonEmptySet<FK → TicketStatus.id> | Workflow 可从这些状态领取工单；至少 1 个，必须全部属于同一项目 |
 | finish_status_ids | NonEmptySet<FK → TicketStatus.id> | Workflow 完成后允许落到这些状态；至少 1 个，必须全部属于同一项目 |
+| platform_access_allowed | String[] | Agent 在该 Workflow 下可申请的 OpenASE Platform API scope 白名单 |
 | max_concurrent | Integer | 该 Workflow 的最大并发数（默认 3） |
 | max_retry_attempts | Integer | 最大重试次数（默认 3） |
 | timeout_minutes | Integer | 单工单超时分钟数（默认 60） |
@@ -868,6 +872,7 @@ Agent 的 Harness Prompt 中会注入所有 Repo 的路径和说明：
 说明：
 
 - Harness 正文、版本历史、审计记录由平台控制面持久化；不再以 Git 仓库中的 `.openase/harnesses/*` 文件作为权威源。
+- Workflow 元数据与版本快照由数据库结构化保存；Harness body 不再承担 metadata 容器角色，也不依赖 YAML frontmatter。
 - Workflow 编辑、发布、技能绑定变更一律通过 Platform API 完成；Agent 不允许直接修改 repo 工作区中的文件来改变平台控制面行为。
 - 任何读取 / 编辑 Workflow 与 Skill 的控制面操作，都不依赖 repo 工作区是否已存在。代码仓库 checkout 只影响代码执行路径，不影响 Workflow / Skill 的查看、编辑、版本化与绑定。
 - `pickup_status_ids / finish_status_ids` 属于结构化 Workflow 元数据，存储在数据库中，由前端配置并受数据库引用约束维护。
@@ -8904,34 +8909,29 @@ func (h *HarnessEditor) PreviewData(ctx context.Context, workflowID string) Temp
 func validateHarness(content string) []ValidationError {
     var errors []ValidationError
 
-    // 1. YAML Frontmatter 语法校验
-    frontmatter, body, err := parseHarness(content)
-    if err != nil {
-        errors = append(errors, ValidationError{Line: 1, Message: "YAML 语法错误: " + err.Error()})
+    normalized := normalizeHarnessNewlines(content)
+
+    // 1. 禁止遗留 frontmatter
+    if strings.HasPrefix(strings.TrimSpace(normalized), "---") {
+        errors = append(errors, ValidationError{
+            Line:    1,
+            Message: "Harness content must be pure Markdown/Gonja body text. YAML frontmatter is no longer supported.",
+        })
     }
 
     // 2. Jinja2 模板语法校验（不执行渲染，只检查语法）
-    _, err = gonja.FromString(body)
+    _, err := gonja.FromString(normalized)
     if err != nil {
         errors = append(errors, ValidationError{Message: "模板语法错误: " + err.Error()})
     }
 
     // 3. 变量引用检查：模板中使用的变量是否都在字典中
-    usedVars := extractVariables(body)  // 解析出所有 {{ xxx }} 中的变量名
+    usedVars := extractVariables(normalized)  // 解析出所有 {{ xxx }} 中的变量名
     for _, v := range usedVars {
         if !isKnownVariable(v) {
             errors = append(errors, ValidationError{
                 Message: fmt.Sprintf("未知变量 '%s'，请检查变量字典", v),
                 Level:   "warning",  // 警告而非错误（允许保存，但提醒用户）
-            })
-        }
-    }
-
-    // 4. pickup/finish 状态引用检查
-    if frontmatter.Status.Pickup != "" {
-        if !statusExists(frontmatter.Status.Pickup) {
-            errors = append(errors, ValidationError{
-                Message: fmt.Sprintf("pickup 状态 '%s' 在项目中不存在", frontmatter.Status.Pickup),
             })
         }
     }

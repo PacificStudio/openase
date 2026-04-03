@@ -16,7 +16,6 @@ import (
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
-	"go.yaml.in/yaml/v3"
 )
 
 type hrAdvisorSummaryResponse struct {
@@ -137,21 +136,13 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 		}
 	}
 	activeRoleWorkflows := make(map[string]string)
-	workflowRoleSlugs := make(map[uuid.UUID]string)
 	for _, workflowItem := range workflows {
 		workflowTypes[workflowItem.ID] = string(workflowItem.Type)
-		if !workflowItem.IsActive {
+		roleSlug := strings.TrimSpace(workflowItem.RoleSlug)
+		if roleSlug == "" || !workflowItem.IsActive {
 			continue
 		}
-
-		detail, err := s.workflowService.Get(ctx, workflowItem.ID)
-		if err != nil {
-			return writeWorkflowError(c, err)
-		}
-		if roleSlug := parseHarnessRoleSlug(detail.HarnessContent); roleSlug != "" {
-			activeRoleWorkflows[roleSlug] = workflowItem.Name
-			workflowRoleSlugs[workflowItem.ID] = roleSlug
-		}
+		activeRoleWorkflows[roleSlug] = workflowItem.Name
 	}
 
 	snapshot := hrdomain.Snapshot{
@@ -195,7 +186,7 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 		snapshot.Workflows = append(snapshot.Workflows, hrdomain.WorkflowContext{
 			Name:           workflowItem.Name,
 			Type:           string(workflowItem.Type),
-			RoleSlug:       workflowRoleSlugs[workflowItem.ID],
+			RoleSlug:       strings.TrimSpace(workflowItem.RoleSlug),
 			IsActive:       workflowItem.IsActive,
 			PickupStatuses: statusBindingsFromIDs(workflowItem.PickupStatusIDs, statusNamesByID, statusStagesByID),
 			FinishStatuses: statusBindingsFromIDs(workflowItem.FinishStatusIDs, statusNamesByID, statusStagesByID),
@@ -323,45 +314,6 @@ func (s *Server) handleActivateHRRecommendation(c echo.Context) error {
 	return c.JSON(http.StatusCreated, response)
 }
 
-func parseHarnessRoleSlug(content string) string {
-	frontmatter, err := extractHarnessFrontmatter(content)
-	if err != nil {
-		return ""
-	}
-
-	var document struct {
-		Workflow struct {
-			Role string `yaml:"role"`
-		} `yaml:"workflow"`
-	}
-	if err := yaml.Unmarshal([]byte(frontmatter), &document); err != nil {
-		return ""
-	}
-
-	return strings.TrimSpace(document.Workflow.Role)
-}
-
-func extractHarnessFrontmatter(content string) (string, error) {
-	normalized := strings.ReplaceAll(content, "\r\n", "\n")
-	lines := strings.Split(normalized, "\n")
-	if len(lines) < 3 || strings.TrimSpace(lines[0]) != "---" {
-		return "", workflowservice.ErrHarnessInvalid
-	}
-
-	for index := 1; index < len(lines); index++ {
-		if strings.TrimSpace(lines[index]) != "---" {
-			continue
-		}
-		frontmatter := strings.Join(lines[1:index], "\n")
-		if strings.TrimSpace(frontmatter) == "" {
-			return "", workflowservice.ErrHarnessInvalid
-		}
-		return frontmatter, nil
-	}
-
-	return "", workflowservice.ErrHarnessInvalid
-}
-
 func writeHRAdvisorActivationError(c echo.Context, err error) error {
 	switch {
 	case errors.Is(err, hrservice.ErrActivationUnavailable):
@@ -419,20 +371,24 @@ func (a hrAdvisorWorkflowAdapter) List(ctx context.Context, projectID uuid.UUID)
 	response := make([]hrservice.ActivationWorkflow, 0, len(items))
 	for _, item := range items {
 		response = append(response, hrservice.ActivationWorkflow{
-			ID:                  item.ID,
-			ProjectID:           item.ProjectID,
-			AgentID:             item.AgentID,
-			Name:                item.Name,
-			Type:                item.Type.String(),
-			HarnessPath:         item.HarnessPath,
-			MaxConcurrent:       item.MaxConcurrent,
-			MaxRetryAttempts:    item.MaxRetryAttempts,
-			TimeoutMinutes:      item.TimeoutMinutes,
-			StallTimeoutMinutes: item.StallTimeoutMinutes,
-			Version:             item.Version,
-			IsActive:            item.IsActive,
-			PickupStatusIDs:     append([]uuid.UUID(nil), item.PickupStatusIDs...),
-			FinishStatusIDs:     append([]uuid.UUID(nil), item.FinishStatusIDs...),
+			ID:                    item.ID,
+			ProjectID:             item.ProjectID,
+			AgentID:               item.AgentID,
+			Name:                  item.Name,
+			Type:                  item.Type.String(),
+			RoleSlug:              item.RoleSlug,
+			RoleName:              item.RoleName,
+			RoleDescription:       item.RoleDescription,
+			PlatformAccessAllowed: append([]string(nil), item.PlatformAccessAllowed...),
+			HarnessPath:           item.HarnessPath,
+			MaxConcurrent:         item.MaxConcurrent,
+			MaxRetryAttempts:      item.MaxRetryAttempts,
+			TimeoutMinutes:        item.TimeoutMinutes,
+			StallTimeoutMinutes:   item.StallTimeoutMinutes,
+			Version:               item.Version,
+			IsActive:              item.IsActive,
+			PickupStatusIDs:       append([]uuid.UUID(nil), item.PickupStatusIDs...),
+			FinishStatusIDs:       append([]uuid.UUID(nil), item.FinishStatusIDs...),
 		})
 	}
 
@@ -458,40 +414,49 @@ func (a hrAdvisorWorkflowAdapter) Create(
 		return hrservice.ActivationWorkflow{}, err
 	}
 	item, err := a.service.Create(ctx, workflowservice.CreateInput{
-		ProjectID:           input.ProjectID,
-		AgentID:             input.AgentID,
-		Name:                input.Name,
-		Type:                workflowType,
-		HarnessPath:         &harnessPath,
-		HarnessContent:      input.HarnessContent,
-		MaxConcurrent:       input.MaxConcurrent,
-		MaxRetryAttempts:    input.MaxRetryAttempts,
-		TimeoutMinutes:      input.TimeoutMinutes,
-		StallTimeoutMinutes: input.StallTimeoutMinutes,
-		IsActive:            input.IsActive,
-		PickupStatusIDs:     pickupStatusIDs,
-		FinishStatusIDs:     finishStatusIDs,
+		ProjectID:             input.ProjectID,
+		AgentID:               input.AgentID,
+		Name:                  input.Name,
+		Type:                  workflowType,
+		RoleSlug:              input.RoleSlug,
+		RoleName:              input.RoleName,
+		RoleDescription:       input.RoleDescription,
+		PlatformAccessAllowed: append([]string(nil), input.PlatformAccessAllowed...),
+		SkillNames:            append([]string(nil), input.SkillNames...),
+		HarnessPath:           &harnessPath,
+		HarnessContent:        input.HarnessContent,
+		MaxConcurrent:         input.MaxConcurrent,
+		MaxRetryAttempts:      input.MaxRetryAttempts,
+		TimeoutMinutes:        input.TimeoutMinutes,
+		StallTimeoutMinutes:   input.StallTimeoutMinutes,
+		IsActive:              input.IsActive,
+		PickupStatusIDs:       pickupStatusIDs,
+		FinishStatusIDs:       finishStatusIDs,
 	})
 	if err != nil {
 		return hrservice.ActivationWorkflow{}, err
 	}
 
 	return hrservice.ActivationWorkflow{
-		ID:                  item.ID,
-		ProjectID:           item.ProjectID,
-		AgentID:             item.AgentID,
-		Name:                item.Name,
-		Type:                item.Type.String(),
-		HarnessPath:         item.HarnessPath,
-		HarnessContent:      item.HarnessContent,
-		MaxConcurrent:       item.MaxConcurrent,
-		MaxRetryAttempts:    item.MaxRetryAttempts,
-		TimeoutMinutes:      item.TimeoutMinutes,
-		StallTimeoutMinutes: item.StallTimeoutMinutes,
-		Version:             item.Version,
-		IsActive:            item.IsActive,
-		PickupStatusIDs:     append([]uuid.UUID(nil), item.PickupStatusIDs...),
-		FinishStatusIDs:     append([]uuid.UUID(nil), item.FinishStatusIDs...),
+		ID:                    item.ID,
+		ProjectID:             item.ProjectID,
+		AgentID:               item.AgentID,
+		Name:                  item.Name,
+		Type:                  item.Type.String(),
+		RoleSlug:              item.RoleSlug,
+		RoleName:              item.RoleName,
+		RoleDescription:       item.RoleDescription,
+		PlatformAccessAllowed: append([]string(nil), item.PlatformAccessAllowed...),
+		HarnessPath:           item.HarnessPath,
+		HarnessContent:        item.HarnessContent,
+		MaxConcurrent:         item.MaxConcurrent,
+		MaxRetryAttempts:      item.MaxRetryAttempts,
+		TimeoutMinutes:        item.TimeoutMinutes,
+		StallTimeoutMinutes:   item.StallTimeoutMinutes,
+		Version:               item.Version,
+		IsActive:              item.IsActive,
+		PickupStatusIDs:       append([]uuid.UUID(nil), item.PickupStatusIDs...),
+		FinishStatusIDs:       append([]uuid.UUID(nil), item.FinishStatusIDs...),
 	}, nil
 }
 
@@ -589,22 +554,26 @@ func mapHRAdvisorActivationWorkflowResponse(item hrservice.ActivationWorkflow) w
 
 	harnessContent := item.HarnessContent
 	return workflowResponse{
-		ID:                  item.ID.String(),
-		ProjectID:           item.ProjectID.String(),
-		AgentID:             agentID,
-		Name:                item.Name,
-		Type:                item.Type,
-		HarnessPath:         item.HarnessPath,
-		HarnessContent:      &harnessContent,
-		Hooks:               map[string]any{},
-		MaxConcurrent:       item.MaxConcurrent,
-		MaxRetryAttempts:    item.MaxRetryAttempts,
-		TimeoutMinutes:      item.TimeoutMinutes,
-		StallTimeoutMinutes: item.StallTimeoutMinutes,
-		Version:             item.Version,
-		IsActive:            item.IsActive,
-		PickupStatusIDs:     uuidSliceToStrings(item.PickupStatusIDs),
-		FinishStatusIDs:     uuidSliceToStrings(item.FinishStatusIDs),
+		ID:                    item.ID.String(),
+		ProjectID:             item.ProjectID.String(),
+		AgentID:               agentID,
+		Name:                  item.Name,
+		Type:                  item.Type,
+		RoleSlug:              item.RoleSlug,
+		RoleName:              item.RoleName,
+		RoleDescription:       item.RoleDescription,
+		PlatformAccessAllowed: append([]string(nil), item.PlatformAccessAllowed...),
+		HarnessPath:           item.HarnessPath,
+		HarnessContent:        &harnessContent,
+		Hooks:                 map[string]any{},
+		MaxConcurrent:         item.MaxConcurrent,
+		MaxRetryAttempts:      item.MaxRetryAttempts,
+		TimeoutMinutes:        item.TimeoutMinutes,
+		StallTimeoutMinutes:   item.StallTimeoutMinutes,
+		Version:               item.Version,
+		IsActive:              item.IsActive,
+		PickupStatusIDs:       uuidSliceToStrings(item.PickupStatusIDs),
+		FinishStatusIDs:       uuidSliceToStrings(item.FinishStatusIDs),
 	}
 }
 
