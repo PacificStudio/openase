@@ -133,7 +133,7 @@ type ticketRunStepEnvelope struct {
 }
 
 func (s *Server) handleListTicketRuns(c echo.Context) error {
-	if s.ticketService == nil || s.catalog == nil {
+	if s.ticketService == nil || s.catalog.Empty() {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "ticket run service unavailable")
 	}
 
@@ -156,7 +156,7 @@ func (s *Server) handleListTicketRuns(c echo.Context) error {
 }
 
 func (s *Server) handleGetTicketRun(c echo.Context) error {
-	if s.ticketService == nil || s.catalog == nil {
+	if s.ticketService == nil || s.catalog.Empty() {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "ticket run service unavailable")
 	}
 
@@ -206,7 +206,7 @@ func (s *Server) handleGetTicketRun(c echo.Context) error {
 }
 
 func (s *Server) handleStreamTicketRuns(c echo.Context) error {
-	if s.ticketService == nil || s.catalog == nil {
+	if s.ticketService == nil || s.catalog.Empty() {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "ticket run service unavailable")
 	}
 

@@ -53,7 +53,7 @@ func (r routeRegistrar) registerAPIRoutes() {
 	if r.server.agentPlatform != nil {
 		r.server.registerAgentPlatformRoutes(r.api.Group("/platform", r.server.authenticateAgentToken))
 	}
-	if r.server.catalog != nil {
+	if !r.server.catalog.Empty() {
 		r.server.registerOrganizationRoutes(r.api)
 		r.server.registerProjectRoutes(r.api)
 		r.server.registerProjectUpdateRoutes(r.api)

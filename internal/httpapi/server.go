@@ -46,7 +46,7 @@ type Server struct {
 	ticketService              *ticketservice.Service
 	ticketStatusService        *ticketstatus.Service
 	agentPlatform              *agentplatform.Service
-	catalog                    catalogservice.Service
+	catalog                    catalogservice.Services
 	workflowService            *workflowservice.Service
 	scheduledJobService        *scheduledjobservice.Service
 	notificationService        *notificationservice.Service
@@ -162,7 +162,7 @@ func NewServer(
 		ticketService:       ticketService,
 		ticketStatusService: ticketStatusService,
 		agentPlatform:       agentPlatform,
-		catalog:             catalog,
+		catalog:             catalogservice.SplitServices(catalog),
 		workflowService:     workflowService,
 		memoryCollector:     runtimeobservability.RuntimeProcessMemoryCollector{},
 	}

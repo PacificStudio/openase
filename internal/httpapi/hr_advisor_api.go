@@ -84,7 +84,7 @@ func (s *Server) registerHRAdvisorRoutes(api *echo.Group) {
 }
 
 func (s *Server) handleGetHRAdvisor(c echo.Context) error {
-	if s.catalog == nil || s.ticketService == nil || s.workflowService == nil {
+	if s.catalog.Empty() || s.ticketService == nil || s.workflowService == nil {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "hr advisor is unavailable")
 	}
 
@@ -274,7 +274,7 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 }
 
 func (s *Server) handleActivateHRRecommendation(c echo.Context) error {
-	if s.catalog == nil || s.workflowService == nil || s.ticketStatusService == nil {
+	if s.catalog.Empty() || s.workflowService == nil || s.ticketStatusService == nil {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "hr advisor activation is unavailable")
 	}
 

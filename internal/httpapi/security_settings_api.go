@@ -199,7 +199,7 @@ func (s *Server) handleDeleteGitHubOutboundCredential(c echo.Context) error {
 }
 
 func (s *Server) requireProjectSecurityContext(c echo.Context) (uuid.UUID, error) {
-	if s.catalog == nil {
+	if s.catalog.Empty() {
 		return uuid.UUID{}, writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
 	}
 

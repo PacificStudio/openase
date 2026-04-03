@@ -55,7 +55,7 @@ func (s *Server) affectedProviderProjectIDs(
 	organizationID uuid.UUID,
 	providerID uuid.UUID,
 ) ([]uuid.UUID, error) {
-	if s == nil || s.catalog == nil {
+	if s == nil || s.catalog.Empty() {
 		return nil, nil
 	}
 
