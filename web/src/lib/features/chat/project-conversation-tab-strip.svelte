@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { ProjectConversation } from '$lib/api/chat'
   import { cn } from '$lib/utils'
+  import { Button } from '$ui/button'
+  import * as Dialog from '$ui/dialog'
   import { LoaderCircle, X } from '@lucide/svelte'
   import {
     formatProjectConversationLabel,
@@ -22,10 +24,34 @@
     onCloseTab: (tabId: string) => void
   } = $props()
 
+  let confirmCloseTabId = $state('')
+  let confirmOpen = $state(false)
+
   const canClose = $derived.by(() => {
     return (tab: ProjectConversationTabView) =>
       tabs.length > 1 || tab.conversationId || tab.entries.length > 0 || tab.draft.trim().length > 0
   })
+
+  function handleCloseClick(tab: ProjectConversationTabView) {
+    if (tab.pending) {
+      confirmCloseTabId = tab.id
+      confirmOpen = true
+    } else {
+      onCloseTab(tab.id)
+    }
+  }
+
+  function handleConfirmClose() {
+    const tabId = confirmCloseTabId
+    confirmOpen = false
+    confirmCloseTabId = ''
+    onCloseTab(tabId)
+  }
+
+  function handleCancelClose() {
+    confirmOpen = false
+    confirmCloseTabId = ''
+  }
 </script>
 
 {#if tabs.length > 0}
@@ -67,7 +93,7 @@
             aria-label={`Close ${label}`}
             onclick={(event) => {
               event.stopPropagation()
-              onCloseTab(tab.id)
+              handleCloseClick(tab)
             }}
           >
             <X class="size-2.5" />
@@ -77,3 +103,20 @@
     {/each}
   </div>
 {/if}
+
+<Dialog.Root bind:open={confirmOpen}>
+  <Dialog.Content class="max-w-sm">
+    <Dialog.Header>
+      <Dialog.Title class="text-sm">Close active conversation?</Dialog.Title>
+      <Dialog.Description class="text-muted-foreground text-xs">
+        This conversation is still running. Closing the tab may interrupt the current operation.
+      </Dialog.Description>
+    </Dialog.Header>
+    <Dialog.Footer class="gap-2">
+      <Button variant="ghost" size="sm" class="text-xs" onclick={handleCancelClose}>Cancel</Button>
+      <Button variant="destructive" size="sm" class="text-xs" onclick={handleConfirmClose}>
+        Close anyway
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>

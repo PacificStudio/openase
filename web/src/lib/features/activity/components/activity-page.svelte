@@ -174,7 +174,7 @@
         <Select.Trigger class="w-44">
           {activityEventFilterOptions.find((t) => t.value === selectedType)?.label ?? 'All events'}
         </Select.Trigger>
-        <Select.Content>
+        <Select.Content class="max-h-72">
           {#each activityEventFilterOptions as t (t.value)}
             <Select.Item value={t.value}>{t.label}</Select.Item>
           {/each}

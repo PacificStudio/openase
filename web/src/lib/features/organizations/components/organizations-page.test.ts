@@ -18,11 +18,6 @@ vi.mock('$lib/features/dashboard', async () => {
   }
 })
 
-vi.mock('$lib/features/catalog-creation', () => ({
-  OrganizationCreationDialog: class {},
-  OrganizationDeleteDialog: class {},
-}))
-
 const organizationFixtures: Organization[] = [
   {
     id: 'org-1',
@@ -135,5 +130,30 @@ describe('OrganizationsPage', () => {
     expect(view.getByText('2 organizations · 3 projects · 1 provider')).toBeTruthy()
     expect(view.getByText('2 projects')).toBeTruthy()
     expect(view.getByText('1 project')).toBeTruthy()
+  })
+
+  it('shows the empty workspace state once app context finishes loading with no organizations', async () => {
+    appStore.organizations = []
+    appStore.providers = []
+    appStore.appContextLoading = false
+    loadWorkspaceDashboardSummary.mockResolvedValue({
+      orgMetrics: {},
+      workspaceStats: {
+        runningAgents: 0,
+        activeTickets: 0,
+        todayCost: 0,
+        totalTokens: 0,
+      },
+      totalProjects: 0,
+    })
+
+    const view = render(OrganizationsPage)
+
+    expect(view.getByText('No organizations yet.')).toBeTruthy()
+    expect(view.getByText('Create your first organization to get started')).toBeTruthy()
+
+    await waitFor(() => {
+      expect(loadWorkspaceDashboardSummary).toHaveBeenCalledTimes(1)
+    })
   })
 })

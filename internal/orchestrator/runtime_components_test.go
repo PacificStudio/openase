@@ -72,7 +72,7 @@ func TestRuntimeRunTrackerDeduplicatesActiveRuns(t *testing.T) {
 }
 
 func TestRuntimeCompletionSummaryCoordinatorDeduplicatesRunScheduling(t *testing.T) {
-	coordinator := newRuntimeCompletionSummaryCoordinator(nil, nil, nil, nil, nil, nil, nil, 0)
+	coordinator := newRuntimeCompletionSummaryCoordinator(nil, nil, nil, nil, nil, nil, nil, nil, 0)
 	runID := uuid.New()
 
 	if !coordinator.beginRunCompletionSummary(runID) {

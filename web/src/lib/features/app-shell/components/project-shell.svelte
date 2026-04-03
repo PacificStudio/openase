@@ -121,14 +121,7 @@
   $effect(() => {
     let cancelled = false
 
-    if (
-      isAppContextFresh(
-        lastAppContextKey,
-        routeKey,
-        lastAppContextFetchedAt,
-        appStore.organizations.length,
-      )
-    ) {
+    if (isAppContextFresh(lastAppContextKey, routeKey, lastAppContextFetchedAt)) {
       return
     }
 

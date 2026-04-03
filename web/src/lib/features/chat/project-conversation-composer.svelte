@@ -50,6 +50,19 @@
     onSend?: () => void
   } = $props()
 
+  let textareaEl = $state<HTMLTextAreaElement | null>(null)
+
+  function autoResize(el: HTMLTextAreaElement) {
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }
+
+  $effect(() => {
+    // re-run whenever draft changes
+    void draft
+    if (textareaEl) autoResize(textareaEl)
+  })
+
   function truncateQueuedMessage(value: string) {
     return value.length > 80 ? `${value.slice(0, 80)}…` : value
   }
@@ -100,15 +113,18 @@
     </div>
   {/if}
 
-  <div class="flex items-center gap-1.5 px-0.5">
+  <div class="flex items-end gap-1.5 px-0.5">
     <textarea
+      bind:this={textareaEl}
       value={draft}
       rows={1}
-      class="placeholder:text-muted-foreground min-h-0 flex-1 resize-none border-0 bg-transparent px-0 py-1 text-sm shadow-none outline-none focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
+      class="placeholder:text-muted-foreground max-h-[calc(4*1.5em+0.5rem)] min-h-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-0 py-1 text-sm leading-[1.5] shadow-none outline-none focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
       {placeholder}
       disabled={inputDisabled}
       oninput={(event) => {
-        onDraftChange?.((event.currentTarget as HTMLTextAreaElement).value)
+        const el = event.currentTarget as HTMLTextAreaElement
+        onDraftChange?.(el.value)
+        autoResize(el)
       }}
       onkeydown={(event) => {
         if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {

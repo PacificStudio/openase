@@ -8,13 +8,8 @@ export function isAppContextFresh(
   lastAppContextKey: string,
   nextRouteKey: string,
   lastAppContextFetchedAt: number,
-  organizationCount: number,
 ) {
-  return (
-    lastAppContextKey === nextRouteKey &&
-    Date.now() - lastAppContextFetchedAt < 30_000 &&
-    organizationCount > 0
-  )
+  return lastAppContextKey === nextRouteKey && Date.now() - lastAppContextFetchedAt < 30_000
 }
 
 export function selectCurrentOrg(payload: LoadedAppContext, routeContext: AppRouteContext) {

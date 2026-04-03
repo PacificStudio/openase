@@ -13,7 +13,36 @@ import {
   latestRun,
   olderRun,
 } from './run-transcript.test-fixtures'
-import type { TicketRunTranscriptBlock } from './types'
+import type { TicketRun, TicketRunTranscriptBlock } from './types'
+
+function toRunRecord(run: TicketRun) {
+  return {
+    id: run.id,
+    ticket_id: 'ticket-1',
+    attempt_number: run.attemptNumber,
+    agent_id: run.agentId,
+    agent_name: run.agentName,
+    provider: run.provider,
+    status: run.status,
+    current_step_status: run.currentStepStatus ?? null,
+    current_step_summary: run.currentStepSummary ?? null,
+    created_at: run.createdAt,
+    runtime_started_at: run.runtimeStartedAt ?? null,
+    last_heartbeat_at: run.lastHeartbeatAt ?? null,
+    completed_at: run.completedAt ?? null,
+    terminal_at: run.terminalAt ?? run.completedAt ?? null,
+    last_error: run.lastError ?? null,
+    completion_summary: run.completionSummary
+      ? {
+          status: run.completionSummary.status,
+          markdown: run.completionSummary.markdown ?? null,
+          json: run.completionSummary.json ?? null,
+          generated_at: run.completionSummary.generatedAt ?? null,
+          error: run.completionSummary.error ?? null,
+        }
+      : null,
+  }
+}
 
 describe('ticket run transcript reducer', () => {
   it('auto-selects the latest run from true attempt ordering', () => {
@@ -119,14 +148,15 @@ describe('ticket run transcript reducer', () => {
       data: JSON.stringify({
         entry: {
           id: 'trace-a',
-          agentRunId: latestRun.id,
+          agent_run_id: latestRun.id,
+          ticket_id: 'ticket-1',
           sequence: 1,
           provider: 'codex',
           kind: 'assistant_delta',
           stream: 'assistant',
           output: 'First chunk. ',
           payload: { item_id: 'assistant-1' },
-          createdAt: '2026-04-01T10:06:00Z',
+          created_at: '2026-04-01T10:06:00Z',
         },
       }),
     })
@@ -135,14 +165,15 @@ describe('ticket run transcript reducer', () => {
       data: JSON.stringify({
         entry: {
           id: 'trace-b',
-          agentRunId: latestRun.id,
+          agent_run_id: latestRun.id,
+          ticket_id: 'ticket-1',
           sequence: 2,
           provider: 'codex',
           kind: 'assistant_delta',
           stream: 'assistant',
           output: 'Second chunk.',
           payload: { item_id: 'assistant-1' },
-          createdAt: '2026-04-01T10:06:01Z',
+          created_at: '2026-04-01T10:06:01Z',
         },
       }),
     })
@@ -151,10 +182,11 @@ describe('ticket run transcript reducer', () => {
       data: JSON.stringify({
         entry: {
           id: 'step-2',
-          agentRunId: latestRun.id,
-          stepStatus: 'running_tests',
+          agent_run_id: latestRun.id,
+          ticket_id: 'ticket-1',
+          step_status: 'running_tests',
           summary: 'Running backend checks.',
-          createdAt: '2026-04-01T10:06:02Z',
+          created_at: '2026-04-01T10:06:02Z',
         },
       }),
     })
@@ -172,16 +204,18 @@ describe('ticket run transcript reducer', () => {
     state = applyTicketRunStreamFrame(state, {
       event: 'ticket.run.lifecycle',
       data: JSON.stringify({
-        run: newerRun,
+        run: toRunRecord(newerRun),
         lifecycle: {
-          eventType: 'agent.ready',
+          event_type: 'agent.ready',
           message: 'Runtime ready',
-          createdAt: '2026-04-01T11:00:10Z',
+          created_at: '2026-04-01T11:00:10Z',
         },
       }),
     })
 
     expect(state.currentRun?.id).toBe('run-3')
+    expect(state.currentRun?.attemptNumber).toBe(3)
+    expect(state.currentRun?.createdAt).toBe('2026-04-01T11:00:00Z')
     expect(state.blocks.some((block) => block.kind === 'assistant_message')).toBe(false)
     expect(state.blocks).toContainEqual({
       kind: 'phase',
@@ -205,11 +239,11 @@ describe('ticket run transcript reducer', () => {
     state = applyTicketRunStreamFrame(state, {
       event: 'ticket.run.lifecycle',
       data: JSON.stringify({
-        run: newerRun,
+        run: toRunRecord(newerRun),
         lifecycle: {
-          eventType: 'agent.launching',
+          event_type: 'agent.launching',
           message: 'Launching retry runtime',
-          createdAt: '2026-04-01T11:00:00Z',
+          created_at: '2026-04-01T11:00:00Z',
         },
       }),
     })
@@ -218,5 +252,56 @@ describe('ticket run transcript reducer', () => {
     expect(state.followLatest).toBe(false)
     expect(state.currentRun?.id).toBe(olderRun.id)
     expect(state.runs.map((run) => run.id)).toEqual(['run-3', latestRun.id, olderRun.id])
+  })
+
+  it('updates the current run completion summary from live summary events', () => {
+    let state = setTicketRunList(createEmptyTicketRunTranscriptState(), [latestRun, olderRun])
+
+    state = applyTicketRunStreamFrame(state, {
+      event: 'ticket.run.summary',
+      data: JSON.stringify({
+        project_id: 'project-1',
+        ticket_id: 'ticket-1',
+        run_id: latestRun.id,
+        completion_summary: {
+          status: 'completed',
+          markdown: '## Overview\n\nSummary ready.',
+          generated_at: '2026-04-01T10:10:00Z',
+          json: { provider: 'Codex' },
+        },
+      }),
+    })
+
+    expect(state.currentRun?.completionSummary).toEqual({
+      status: 'completed',
+      markdown: '## Overview\n\nSummary ready.',
+      generatedAt: '2026-04-01T10:10:00Z',
+      json: { provider: 'Codex' },
+      error: undefined,
+    })
+    expect(state.runs[0]?.completionSummary?.status).toBe('completed')
+  })
+
+  it('keeps trace-backed step entries out of transcript blocks while updating current step state', () => {
+    let state = setTicketRunList(createEmptyTicketRunTranscriptState(), [latestRun, olderRun])
+
+    state = applyTicketRunStreamFrame(state, {
+      event: 'ticket.run.step',
+      data: JSON.stringify({
+        entry: {
+          id: 'step-trace-backed',
+          agent_run_id: latestRun.id,
+          ticket_id: 'ticket-1',
+          step_status: 'running_command',
+          summary: 'pnpm vitest run',
+          source_trace_event_id: 'trace-command-1',
+          created_at: '2026-04-01T10:06:02Z',
+        },
+      }),
+    })
+
+    expect(state.currentRun?.currentStepStatus).toBe('running_command')
+    expect(state.currentRun?.currentStepSummary).toBe('pnpm vitest run')
+    expect(state.blocks.some((block) => block.kind === 'step')).toBe(false)
   })
 })

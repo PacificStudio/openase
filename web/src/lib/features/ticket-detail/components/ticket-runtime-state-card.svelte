@@ -23,7 +23,9 @@
 
   const retryTarget = $derived(ticket.pickupDiagnosis?.retry.nextRetryAt ?? ticket.nextRetryAt)
   const runtimeSummary = $derived.by(() => summarizeRuntime(ticket, nowMs))
-  const isAnimating = $derived(runtimeSummary.tone === 'info' || runtimeSummary.tone === 'success')
+  const isAnimating = $derived(
+    runtimeSummary.label === 'Running' || runtimeSummary.label === 'Launching',
+  )
   const shouldShowResumeRetry = $derived.by(() => {
     if (!onResumeRetry) return false
     if (ticket.pickupDiagnosis) {

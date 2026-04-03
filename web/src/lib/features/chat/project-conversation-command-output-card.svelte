@@ -2,7 +2,7 @@
   import { cn } from '$lib/utils'
   import { ChevronRight } from '@lucide/svelte'
   import type { ProjectConversationCommandOutputEntry } from './project-conversation-transcript-types'
-  import { truncateOutput } from './project-conversation-transcript-grouping'
+  import { countOutputLines, truncateInline, truncateOutput } from './command-output-truncation'
 
   let {
     entry,
@@ -12,14 +12,9 @@
   let expanded = $state(false)
   let showFullOutput = $state(false)
 
-  function truncateInline(text: string, maxLength: number) {
-    if (text.length <= maxLength) return text
-    return `${text.slice(0, maxLength - 3)}...`
-  }
-
   const title = $derived(entry.command ? truncateInline(entry.command, 72) : 'Output')
   const truncated = $derived(truncateOutput(entry.content, 5, 5))
-  const lineCount = $derived(entry.content.split('\n').length)
+  const lineCount = $derived(countOutputLines(entry.content))
   const isStderr = $derived(entry.stream === 'stderr')
 
   const metaParts = $derived.by(() => {

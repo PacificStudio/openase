@@ -7956,7 +7956,7 @@ openase api PATCH /api/v1/tickets/$OPENASE_TICKET_ID/comments/$COMMENT_ID \
 openase ticket list
 openase ticket get 550e8400-e29b-41d4-a716-446655440000
 openase ticket comment list 550e8400-e29b-41d4-a716-446655440000
-openase ticket comment workpad 550e8400-e29b-41d4-a716-446655440000 --body-file /tmp/workpad.md
+openase ticket comment update 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440001 --body-file /tmp/comment.md
 openase workflow create ...
 openase scheduled-job update ...
 ```
@@ -7989,16 +7989,15 @@ CLI 的 `--help` 不是装饰，而是接口契约的可发现投影。要求如
    - `openase watch ...`
    - `ticket update`
    - `ticket report-usage`
-   - `ticket comment workpad`
+   - `ticket comment update`
    - `project add-repo`
 5. **help 文本必须讲清 ID 语义**：
    - 除非某个命令明确声明支持 human-readable identifier，否则 `*Id` 位置参数和 `OPENASE_*_ID` 环境变量都按 UUID 解释；
    - `ASE-2` 这种项目内 identifier 不允许混入 `ticketId` 一类 UUID 参数位。
 6. **help 文本必须反映真实执行语义**：
-   - `workpad` 要明确是幂等 upsert；
    - `watch/stream` 要明确会保持连接直到用户中断；
    - `report-usage` 要明确是增量上报，不是覆盖总量；
-   - `api --input` 与 field 组合、`workpad --body` 与 `--body-file` 互斥等规则，必须在 help 中可见，而不是只在运行时报错。
+   - `api --input` 与 field 组合等规则，必须在 help 中可见，而不是只在运行时报错。
 
 #### 27.2.3 `cmd/openase` 顶层命名空间约束
 
@@ -8046,7 +8045,7 @@ openase chat ...
 - 错误输出必须保留 HTTP status、error code、message，便于脚本判断。
 - CLI help 必须同时面向人类与脚本作者：人类需要通过 `Long/Example` 快速理解命令语义，脚本作者需要通过 help 明确参数来源、环境变量回退和字段约束。
 
-#### 27.2.5 Workpad / Comment 的 CLI 一等公民约束
+#### 27.2.5 Workpad / Comment 的 CLI + Skill 分层约束
 
 工单评论不是边缘能力，而是 Workflow 闭环的一部分。CLI 必须原生支持：
 
@@ -8056,16 +8055,22 @@ openase ticket comment create
 openase ticket comment update
 openase ticket comment delete
 openase ticket comment revisions
-openase ticket comment workpad
 ```
 
-其中 `openase ticket comment workpad` 是一个**幂等 upsert 命令**：
+其中 Workpad upsert 不再作为单独 CLI 子命令暴露，而是由运行时注入的 `openase-platform` skill helper 提供，例如：
+
+```bash
+./.agent/skills/openase-platform/scripts/upsert_workpad.sh --body-file /tmp/workpad.md
+```
+
+该 helper 必须实现幂等 upsert：
 
 - 查找当前工单下标题为 `## Codex Workpad` 的评论
 - 如果存在，则更新同一条评论
 - 如果不存在，则创建该评论
+- 如果正文缺少 heading，则自动补上 `## Codex Workpad`
 
-`workpad` 是 typed sugar，不替代底层 `comment create/update/list` 的 HTTP 同构能力。
+CLI 只保留底层 `comment list/create/update/...` 的 HTTP 同构能力；workpad 语义属于 skill 层 helper，而不是 CLI surface。
 
 #### 27.2.6 OpenAPI 驱动的实现约束
 

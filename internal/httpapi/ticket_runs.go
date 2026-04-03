@@ -25,6 +25,7 @@ var (
 	ticketRunLifecycleStreamType = provider.MustParseEventType("ticket.run.lifecycle")
 	ticketRunTraceStreamType     = provider.MustParseEventType("ticket.run.trace")
 	ticketRunStepStreamType      = provider.MustParseEventType("ticket.run.step")
+	ticketRunSummaryStreamType   = provider.MustParseEventType("ticket.run.summary")
 )
 
 const ticketRunTranscriptLimit = 500
@@ -132,6 +133,13 @@ type ticketRunStepEnvelope struct {
 	} `json:"entry"`
 }
 
+type ticketRunSummaryEnvelope struct {
+	ProjectID         string                              `json:"project_id"`
+	TicketID          string                              `json:"ticket_id"`
+	RunID             string                              `json:"run_id"`
+	CompletionSummary *ticketRunCompletionSummaryResponse `json:"completion_summary,omitempty"`
+}
+
 func (s *Server) handleListTicketRuns(c echo.Context) error {
 	if s.ticketService == nil || s.catalog.Empty() {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "ticket run service unavailable")
@@ -235,6 +243,10 @@ func (s *Server) handleStreamTicketRuns(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("register ticket run step stream: %w", err)
 	}
+	summaryStream, err := s.sseHub.Register(c.Request().Context(), ticketRunStreamTopic)
+	if err != nil {
+		return fmt.Errorf("register ticket run summary stream: %w", err)
+	}
 
 	response := c.Response()
 	header := response.Header()
@@ -297,6 +309,21 @@ func (s *Server) handleStreamTicketRuns(c echo.Context) error {
 			streamEvent, matched, buildErr := buildTicketRunStepStreamEvent(projectID, ticketID, event)
 			if buildErr != nil {
 				s.logger.Warn("skip malformed ticket run step stream event", "error", buildErr)
+				continue
+			}
+			if !matched {
+				continue
+			}
+			if err := writeSSEEvent(response, streamEvent); err != nil {
+				return err
+			}
+		case event, ok := <-summaryStream:
+			if !ok {
+				return nil
+			}
+			streamEvent, matched, buildErr := buildTicketRunSummaryStreamEvent(projectID, ticketID, event)
+			if buildErr != nil {
+				s.logger.Warn("skip malformed ticket run summary stream event", "error", buildErr)
 				continue
 			}
 			if !matched {
@@ -425,6 +452,11 @@ func mapTicketRunResponse(item domain.AgentRun, catalog ticketRunCatalog) ticket
 		providerName = providerItem.Name
 	}
 
+	var completedAt *string
+	if item.Status == domain.AgentRunStatusCompleted {
+		completedAt = timeToStringPointer(item.TerminalAt)
+	}
+
 	return ticketRunResponse{
 		ID:                 item.ID.String(),
 		TicketID:           item.TicketID.String(),
@@ -439,7 +471,7 @@ func mapTicketRunResponse(item domain.AgentRun, catalog ticketRunCatalog) ticket
 		RuntimeStartedAt:   timeToStringPointer(item.RuntimeStartedAt),
 		LastHeartbeatAt:    timeToStringPointer(item.LastHeartbeatAt),
 		TerminalAt:         timeToStringPointer(item.TerminalAt),
-		CompletedAt:        timeToStringPointer(item.TerminalAt),
+		CompletedAt:        completedAt,
 		LastError:          optionalTrimmedString(item.LastError),
 		CompletionSummary:  mapTicketRunCompletionSummaryResponse(item),
 	}
@@ -464,7 +496,7 @@ func mapTicketRunStatus(status domain.AgentRunStatus) string {
 	case domain.AgentRunStatusErrored:
 		return "failed"
 	case domain.AgentRunStatusTerminated:
-		return "stalled"
+		return "ended"
 	default:
 		return status.String()
 	}
@@ -599,6 +631,36 @@ func (s *Server) buildProjectTicketRunLifecycleStreamEvent(
 	}
 
 	return s.buildTicketRunLifecycleStreamEvent(ctx, projectID, ticketID, event)
+}
+
+func buildTicketRunSummaryStreamEvent(projectID uuid.UUID, ticketID uuid.UUID, event provider.Event) (provider.Event, bool, error) {
+	if event.Topic != ticketRunStreamTopic || event.Type != ticketRunSummaryStreamType {
+		return provider.Event{}, false, nil
+	}
+
+	var payload ticketRunSummaryEnvelope
+	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		return provider.Event{}, false, fmt.Errorf("decode ticket run summary payload: %w", err)
+	}
+	if payload.ProjectID != projectID.String() || payload.TicketID != ticketID.String() {
+		return provider.Event{}, false, nil
+	}
+	return event, true, nil
+}
+
+func buildProjectTicketRunSummaryStreamEvent(projectID uuid.UUID, event provider.Event) (provider.Event, bool, error) {
+	if event.Topic != ticketRunStreamTopic || event.Type != ticketRunSummaryStreamType {
+		return provider.Event{}, false, nil
+	}
+
+	var payload ticketRunSummaryEnvelope
+	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		return provider.Event{}, false, fmt.Errorf("decode project ticket run summary payload: %w", err)
+	}
+	if payload.ProjectID != projectID.String() {
+		return provider.Event{}, false, nil
+	}
+	return event, true, nil
 }
 
 func buildTicketRunTraceStreamEvent(projectID uuid.UUID, ticketID uuid.UUID, event provider.Event) (provider.Event, bool, error) {

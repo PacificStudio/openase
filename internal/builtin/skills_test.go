@@ -158,7 +158,7 @@ func TestOpenASEPlatformSkillDocumentsCoreCLIFlows(t *testing.T) {
 		"OPENASE_PROJECT_ID",
 		"OPENASE_TICKET_ID",
 		"./.openase/bin/openase ticket report-usage",
-		"./.openase/bin/openase ticket comment workpad --body-file /tmp/workpad.md",
+		"./.agent/skills/openase-platform/scripts/upsert_workpad.sh --body-file /tmp/workpad.md",
 		"./.openase/bin/openase project add-repo",
 		"./.openase/bin/openase workflow harness get $WORKFLOW_ID",
 		"./.openase/bin/openase machine refresh-health $MACHINE_ID",
@@ -167,6 +167,19 @@ func TestOpenASEPlatformSkillDocumentsCoreCLIFlows(t *testing.T) {
 		if !strings.Contains(skill.Content, snippet) {
 			t.Fatalf("expected openase-platform skill to contain %q, got:\n%s", snippet, skill.Content)
 		}
+	}
+	foundScript := false
+	for _, file := range skill.Files {
+		if file.Path != "scripts/upsert_workpad.sh" {
+			continue
+		}
+		foundScript = true
+		if !file.IsExecutable {
+			t.Fatalf("expected openase-platform script to be executable, got %+v", file)
+		}
+	}
+	if !foundScript {
+		t.Fatal("expected openase-platform to include scripts/upsert_workpad.sh")
 	}
 }
 
@@ -183,8 +196,9 @@ func TestTicketWorkpadSkillUsesGenericWorkpadTerminology(t *testing.T) {
 	}
 	for _, snippet := range []string{
 		"Workpad 是当前工单唯一的持久化进度板",
-		"ticket comment workpad",
-		"让平台命令去复用或更新那条持久化 workpad 评论",
+		"openase-platform",
+		"upsert_workpad.sh",
+		"复用或更新那条持久化评论",
 	} {
 		if !strings.Contains(skill.Content, snippet) {
 			t.Fatalf("expected ticket-workpad skill to contain %q, got:\n%s", snippet, skill.Content)

@@ -57,11 +57,14 @@ var (
 	runCompletionSummaryRiskyPathHints = []string{
 		".github/workflows", ".env", ".env.", "secrets", "auth", "credential", "token", "ssh", "deploy", "script",
 	}
+	ticketRunSummaryStreamTopic = provider.MustParseTopic("ticket.run.events")
+	ticketRunSummaryStreamType  = provider.MustParseEventType("ticket.run.summary")
 )
 
 type runtimeCompletionSummaryCoordinator struct {
 	client         *ent.Client
 	logger         *slog.Logger
+	events         provider.EventProvider
 	adapters       *agentAdapterRegistry
 	processManager provider.AgentCLIProcessManager
 	sshPool        *sshinfra.Pool
@@ -74,6 +77,7 @@ type runtimeCompletionSummaryCoordinator struct {
 func newRuntimeCompletionSummaryCoordinator(
 	client *ent.Client,
 	logger *slog.Logger,
+	events provider.EventProvider,
 	adapters *agentAdapterRegistry,
 	processManager provider.AgentCLIProcessManager,
 	sshPool *sshinfra.Pool,
@@ -90,6 +94,7 @@ func newRuntimeCompletionSummaryCoordinator(
 	return &runtimeCompletionSummaryCoordinator{
 		client:         client,
 		logger:         logger.With("component", "runtime-completion-summary"),
+		events:         events,
 		adapters:       adapters,
 		processManager: processManager,
 		sshPool:        sshPool,
@@ -150,6 +155,21 @@ type runCompletionGitNumstat struct {
 	path    string
 	added   int
 	removed int
+}
+
+type ticketRunCompletionSummaryStreamPayload struct {
+	ProjectID         string                                 `json:"project_id"`
+	TicketID          string                                 `json:"ticket_id"`
+	RunID             string                                 `json:"run_id"`
+	CompletionSummary ticketRunCompletionSummaryStreamRecord `json:"completion_summary"`
+}
+
+type ticketRunCompletionSummaryStreamRecord struct {
+	Status      string         `json:"status"`
+	Markdown    *string        `json:"markdown,omitempty"`
+	JSON        map[string]any `json:"json,omitempty"`
+	GeneratedAt *string        `json:"generated_at,omitempty"`
+	Error       *string        `json:"error,omitempty"`
 }
 
 func (c *runtimeCompletionSummaryCoordinator) reconcileRunCompletionSummaries(ctx context.Context) error {
@@ -218,6 +238,16 @@ func (c *runtimeCompletionSummaryCoordinator) prepareRunCompletionSummary(ctx co
 		ClearCompletionSummaryError().
 		Save(ctx); err != nil {
 		return fmt.Errorf("persist run completion summary input: %w", err)
+	}
+
+	pendingStatus := entagentrun.CompletionSummaryStatusPending
+	summaryCtx.run.CompletionSummaryStatus = &pendingStatus
+	summaryCtx.run.CompletionSummaryMarkdown = nil
+	summaryCtx.run.CompletionSummaryGeneratedAt = nil
+	summaryCtx.run.CompletionSummaryError = nil
+	summaryCtx.run.CompletionSummaryJSON = map[string]any{}
+	if err := c.publishRunCompletionSummaryEvent(ctx, summaryCtx.project.ID, summaryCtx.run); err != nil {
+		c.logger.Warn("publish run completion summary pending", "run_id", runID, "error", err)
 	}
 
 	return nil
@@ -361,6 +391,16 @@ func (c *runtimeCompletionSummaryCoordinator) generateRunCompletionSummary(ctx c
 		return fmt.Errorf("persist completion summary result: %w", err)
 	}
 
+	completedStatus := entagentrun.CompletionSummaryStatusCompleted
+	summaryCtx.run.CompletionSummaryStatus = &completedStatus
+	summaryCtx.run.CompletionSummaryMarkdown = &markdown
+	summaryCtx.run.CompletionSummaryJSON = result
+	summaryCtx.run.CompletionSummaryGeneratedAt = &generatedAt
+	summaryCtx.run.CompletionSummaryError = nil
+	if err := c.publishRunCompletionSummaryEvent(ctx, summaryCtx.project.ID, summaryCtx.run); err != nil {
+		c.logger.Warn("publish run completion summary completed", "run_id", runID, "error", err)
+	}
+
 	return nil
 }
 
@@ -379,7 +419,91 @@ func (c *runtimeCompletionSummaryCoordinator) markRunCompletionSummaryFailed(ctx
 		ClearCompletionSummaryGeneratedAt()
 	if _, err := update.Save(ctx); err != nil {
 		c.logger.Warn("persist completion summary failure", "run_id", runID, "error", err)
+		return
 	}
+	summaryCtx, err := c.loadRunCompletionSummaryContext(ctx, runID)
+	if err != nil {
+		c.logger.Warn("reload completion summary failure state", "run_id", runID, "error", err)
+		return
+	}
+	if err := c.publishRunCompletionSummaryEvent(ctx, summaryCtx.project.ID, summaryCtx.run); err != nil {
+		c.logger.Warn("publish run completion summary failed", "run_id", runID, "error", err)
+	}
+}
+
+func (c *runtimeCompletionSummaryCoordinator) publishRunCompletionSummaryEvent(
+	ctx context.Context,
+	projectID uuid.UUID,
+	run *ent.AgentRun,
+) error {
+	if c == nil || c.events == nil || projectID == uuid.Nil || run == nil {
+		return nil
+	}
+	payload, ok := buildRunCompletionSummaryStreamPayload(projectID, run)
+	if !ok {
+		return nil
+	}
+	event, err := provider.NewJSONEvent(
+		ticketRunSummaryStreamTopic,
+		ticketRunSummaryStreamType,
+		payload,
+		c.now().UTC(),
+	)
+	if err != nil {
+		return fmt.Errorf("construct run completion summary event: %w", err)
+	}
+	if err := c.events.Publish(ctx, event); err != nil {
+		return fmt.Errorf("publish run completion summary event: %w", err)
+	}
+	return nil
+}
+
+func buildRunCompletionSummaryStreamPayload(
+	projectID uuid.UUID,
+	run *ent.AgentRun,
+) (ticketRunCompletionSummaryStreamPayload, bool) {
+	if projectID == uuid.Nil || run == nil || run.TicketID == uuid.Nil || run.ID == uuid.Nil || run.CompletionSummaryStatus == nil {
+		return ticketRunCompletionSummaryStreamPayload{}, false
+	}
+	return ticketRunCompletionSummaryStreamPayload{
+		ProjectID: projectID.String(),
+		TicketID:  run.TicketID.String(),
+		RunID:     run.ID.String(),
+		CompletionSummary: ticketRunCompletionSummaryStreamRecord{
+			Status:      run.CompletionSummaryStatus.String(),
+			Markdown:    cloneSummaryStringPointer(run.CompletionSummaryMarkdown),
+			JSON:        cloneSummaryAnyMap(run.CompletionSummaryJSON),
+			GeneratedAt: cloneSummaryTimePointer(run.CompletionSummaryGeneratedAt),
+			Error:       cloneSummaryStringPointer(run.CompletionSummaryError),
+		},
+	}, true
+}
+
+func cloneSummaryStringPointer(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	copied := *value
+	return &copied
+}
+
+func cloneSummaryTimePointer(value *time.Time) *string {
+	if value == nil {
+		return nil
+	}
+	formatted := value.UTC().Format(time.RFC3339)
+	return &formatted
+}
+
+func cloneSummaryAnyMap(value map[string]any) map[string]any {
+	if value == nil {
+		return nil
+	}
+	cloned := make(map[string]any, len(value))
+	for key, item := range value {
+		cloned[key] = item
+	}
+	return cloned
 }
 
 func (c *runtimeCompletionSummaryCoordinator) loadRunCompletionSummaryContext(ctx context.Context, runID uuid.UUID) (runCompletionSummaryContext, error) {

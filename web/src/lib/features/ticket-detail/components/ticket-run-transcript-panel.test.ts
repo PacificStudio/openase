@@ -66,7 +66,12 @@ describe('TicketRunTranscriptPanel', () => {
     expect(getAllByText('Approve once').length).toBeGreaterThan(0)
 
     await fireEvent.click(getByRole('button', { name: /make check/ }))
+    expect(container.textContent).toContain('... +8 lines hidden — click to expand')
+    expect(container.textContent).not.toContain('line 10')
+
+    await fireEvent.click(getByRole('button', { name: /\+8 lines hidden/ }))
     expect(container.textContent).toContain('line 18')
+    expect(getByRole('button', { name: 'Collapse output' })).toBeTruthy()
   })
 
   it('shows jump-to-live when the user scrolls away from the live bottom', async () => {

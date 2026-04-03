@@ -7,6 +7,11 @@
   import { createAgentRegistrationDraft } from '../registration'
   import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
   import type { AgentInstance, AgentRunInstance } from '../types'
+  import {
+    markAgentsPageCacheDirty,
+    readAgentsPageCache,
+    writeAgentsPageCache,
+  } from '../agents-page-cache'
   import AgentDrawer from './agent-drawer.svelte'
   import AgentsPageContent from './agents-page-content.svelte'
   import { registerAgentPageAction, runAgentRuntimePageAction } from './agents-page-actions'
@@ -24,6 +29,9 @@
     createAgentRegistrationDraft([], appStore.currentOrg?.default_agent_provider_id),
   )
   let loadVersion = 0
+  let activeLoadKey = ''
+  let reloadQueued = false
+  let reloadInFlight = false
   let runtimeActionAgentId = $state<string | null>(null)
   let agentDrawerOpen = $state(false)
   let selectedAgentId = $state<string | null>(null)
@@ -37,47 +45,95 @@
       agents = []
       agentRuns = []
       providerItems = []
+      loading = false
+      error = ''
       resetRegistrationDraft()
       return
     }
 
-    void loadData({ projectId, orgId, showLoading: true })
+    const loadKey = `${projectId}:${orgId}`
+    activeLoadKey = loadKey
+    reloadQueued = false
+    reloadInFlight = false
+    const cached = readAgentsPageCache(projectId, orgId)
+    if (cached) {
+      applyPageStateSnapshot(cached.snapshot, { persist: false })
+      loading = false
+      error = ''
+      if (cached.dirty) {
+        void requestReload({ projectId, orgId, loadKey })
+      }
+    } else {
+      void loadData({ projectId, orgId, loadKey, showLoading: true })
+    }
+
     const disconnect = connectAgentsPageStreams(projectId, orgId, () => {
+      markAgentsPageCacheDirty(projectId, orgId)
       if (registerSheetOpen) return
-      void loadData({ projectId, orgId, showLoading: false })
+      void requestReload({ projectId, orgId, loadKey })
     })
 
     return () => {
       loadVersion += 1
+      if (activeLoadKey === loadKey) {
+        activeLoadKey = ''
+      }
+      reloadQueued = false
+      reloadInFlight = false
       disconnect()
     }
   })
 
-  async function loadData(input: { projectId: string; orgId: string; showLoading: boolean }) {
+  async function loadData(input: {
+    projectId: string
+    orgId: string
+    loadKey: string
+    showLoading: boolean
+  }) {
     const requestVersion = ++loadVersion
     if (input.showLoading) loading = true
-    error = ''
+    if (input.showLoading) error = ''
 
     const result = await loadAgentsPageResult({
       projectId: input.projectId,
       orgId: input.orgId,
       defaultProviderId: appStore.currentOrg?.default_agent_provider_id ?? null,
     })
-    if (requestVersion !== loadVersion) return
+    if (requestVersion !== loadVersion || activeLoadKey !== input.loadKey) return
 
     if (result.ok) {
       applyPageData(result.data)
+      error = ''
     } else {
-      error = result.error
+      if (input.showLoading || agents.length === 0) {
+        error = result.error
+      } else {
+        toastStore.error(result.error)
+      }
     }
     if (input.showLoading) loading = false
   }
 
   function applyPageData(data: AgentsPageData) {
-    const mapped = mapAgentsPageData(data)
-    providerItems = mapped.providerItems
-    agents = mapped.agents
-    agentRuns = mapped.agentRuns
+    applyPageStateSnapshot(mapAgentsPageData(data))
+  }
+
+  function applyPageStateSnapshot(
+    snapshot: {
+      providerItems: AgentProvider[]
+      agents: AgentInstance[]
+      agentRuns: AgentRunInstance[]
+    },
+    options: { persist?: boolean } = {},
+  ) {
+    providerItems = snapshot.providerItems
+    agents = snapshot.agents
+    agentRuns = snapshot.agentRuns
+    const projectId = appStore.currentProject?.id
+    const orgId = appStore.currentOrg?.id
+    if (options.persist !== false && projectId && orgId) {
+      writeAgentsPageCache(projectId, orgId, snapshot)
+    }
   }
 
   function updateRegistrationDraft(field: AgentRegistrationDraftField, value: string) {
@@ -154,6 +210,23 @@
     applyPageData(result.data)
     toastStore.success(result.feedback)
   }
+
+  async function requestReload(input: { projectId: string; orgId: string; loadKey: string }) {
+    reloadQueued = true
+    if (reloadInFlight) {
+      return
+    }
+
+    while (reloadQueued && activeLoadKey === input.loadKey) {
+      reloadQueued = false
+      reloadInFlight = true
+      try {
+        await loadData({ ...input, showLoading: false })
+      } finally {
+        reloadInFlight = false
+      }
+    }
+  }
 </script>
 
 <AgentsPageContent
@@ -199,14 +272,24 @@
     const projectId = appStore.currentProject?.id
     const orgId = appStore.currentOrg?.id
     if (projectId && orgId) {
-      void loadData({ projectId, orgId, showLoading: false })
+      void loadData({
+        projectId,
+        orgId,
+        loadKey: activeLoadKey || `${projectId}:${orgId}`,
+        showLoading: false,
+      })
     }
   }}
   onUpdated={() => {
     const projectId = appStore.currentProject?.id
     const orgId = appStore.currentOrg?.id
     if (projectId && orgId) {
-      void loadData({ projectId, orgId, showLoading: false })
+      void loadData({
+        projectId,
+        orgId,
+        loadKey: activeLoadKey || `${projectId}:${orgId}`,
+        showLoading: false,
+      })
     }
   }}
 />

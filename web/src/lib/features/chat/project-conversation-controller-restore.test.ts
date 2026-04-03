@@ -241,4 +241,62 @@ describe('createProjectConversationController restore flows', () => {
       { kind: 'text', role: 'user', content: 'Follow up on the older plan' },
     ])
   })
+
+  it('does not stay in restoring when workspace diff loading hangs', async () => {
+    let resolveWorkspaceDiff: ((value: ReturnType<typeof createWorkspaceDiff>) => void) | null =
+      null
+
+    listProjectConversations.mockResolvedValue({
+      conversations: [
+        {
+          id: 'conversation-1',
+          rollingSummary: 'Current conversation',
+          providerId: 'provider-1',
+          lastActivityAt: '2026-04-01T10:00:00Z',
+        },
+      ],
+    })
+    listProjectConversationEntries.mockResolvedValue({
+      entries: [
+        {
+          id: 'entry-1',
+          conversationId: 'conversation-1',
+          turnId: 'turn-1',
+          seq: 1,
+          kind: 'user_message',
+          payload: { content: 'Current conversation' },
+          createdAt: '2026-04-01T10:00:00Z',
+        },
+      ],
+    })
+    getProjectConversationWorkspaceDiff.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveWorkspaceDiff = resolve
+        }),
+    )
+    watchProjectConversation.mockResolvedValue(undefined)
+
+    const controller = createProjectConversationController({
+      getProjectId: () => 'project-1',
+    })
+    controller.syncProviders(providerFixtures, 'provider-1')
+
+    await controller.restore()
+
+    expect(controller.phase).toBe('idle')
+    expect(controller.conversationId).toBe('conversation-1')
+    expect(controller.entries).toMatchObject([
+      { kind: 'text', role: 'user', content: 'Current conversation' },
+    ])
+    expect(controller.workspaceDiffLoading).toBe(true)
+
+    expect(resolveWorkspaceDiff).not.toBeNull()
+    resolveWorkspaceDiff!(createWorkspaceDiff('conversation-1'))
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(controller.workspaceDiff?.conversationId).toBe('conversation-1')
+    expect(controller.workspaceDiffLoading).toBe(false)
+  })
 })

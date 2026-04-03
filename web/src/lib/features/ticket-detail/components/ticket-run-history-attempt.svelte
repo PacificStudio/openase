@@ -1,10 +1,11 @@
 <script lang="ts">
   import { ChatMarkdownContent } from '$lib/features/chat'
   import type { StreamConnectionState } from '$lib/api/sse'
-  import { cn, formatRelativeTime } from '$lib/utils'
+  import { cn } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { ChevronRight, Layers } from '@lucide/svelte'
+  import TicketRunHistorySummaryCard from './ticket-run-history-summary-card.svelte'
   import TicketRunTranscriptDiffCard from './ticket-run-transcript-diff-card.svelte'
   import TicketRunTranscriptInterruptCard from './ticket-run-transcript-interrupt-card.svelte'
   import TicketRunTranscriptOutputBlock from './ticket-run-transcript-output-block.svelte'
@@ -14,12 +15,11 @@
     blockCardClass,
     blockLabel,
     blockLabelClass,
+    blockTimestamp,
     connectionLabel,
     connectionTone,
   } from './ticket-run-transcript-view'
   import {
-    completionSummaryClass,
-    completionSummaryLabel,
     ticketRunStatusClass,
     ticketRunStatusLabel,
     ticketRunSummaryLine,
@@ -123,29 +123,7 @@
     {:else}
       <div class="space-y-3">
         {#if run.completionSummary}
-          <article class={cn('rounded-md border px-3 py-3', completionSummaryClass(run))}>
-            <div class="flex items-center gap-2">
-              <span class="text-[10px] font-medium tracking-wider uppercase">
-                {completionSummaryLabel(run)}
-              </span>
-              {#if run.completionSummary.generatedAt}
-                <span class="text-muted-foreground text-[11px]">
-                  {formatRelativeTime(run.completionSummary.generatedAt)}
-                </span>
-              {/if}
-            </div>
-            {#if run.completionSummary.status === 'completed' && run.completionSummary.markdown}
-              <ChatMarkdownContent source={run.completionSummary.markdown} class="mt-2 text-sm" />
-            {:else if run.completionSummary.status === 'failed'}
-              <p class="text-muted-foreground mt-2 text-xs">
-                {run.completionSummary.error || 'Post-run summary generation failed.'}
-              </p>
-            {:else}
-              <p class="text-muted-foreground mt-2 text-xs">
-                OpenASE is generating a post-run summary from the final execution facts.
-              </p>
-            {/if}
-          </article>
+          <TicketRunHistorySummaryCard {run} />
         {/if}
 
         {#if displayItems.length === 0}
@@ -223,6 +201,24 @@
                   <article class={cn('rounded-md border px-3 py-2', blockCardClass(block))}>
                     <TicketRunTranscriptInterruptCard {block} />
                   </article>
+                {:else if block.kind === 'step'}
+                  {#if block.stepStatus === 'commentary'}
+                    <div class="prose prose-sm prose-neutral max-w-none break-words">
+                      <ChatMarkdownContent source={block.summary} class="text-xs" />
+                    </div>
+                  {:else}
+                    <div class="text-muted-foreground flex items-center gap-2 py-0.5 text-[11px]">
+                      <span class="bg-muted rounded px-1.5 py-0.5 text-[10px] font-medium"
+                        >{block.stepStatus}</span
+                      >
+                      {#if block.summary}
+                        <span class="min-w-0 truncate">{block.summary}</span>
+                      {/if}
+                      <span class="text-muted-foreground/50 shrink-0 text-[10px]"
+                        >{blockTimestamp(block)}</span
+                      >
+                    </div>
+                  {/if}
                 {:else if block.kind === 'result'}
                   <article
                     class={cn(

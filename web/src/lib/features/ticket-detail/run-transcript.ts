@@ -1,10 +1,10 @@
 import type { SSEFrame } from '$lib/api/sse'
-import type { TicketRunTraceEntry } from './types'
 import type {
   TicketRun,
   TicketRunDetail,
   TicketRunLifecycleEvent,
   TicketRunStepEntry,
+  TicketRunTraceEntry,
   TicketRunTranscriptState,
 } from './types'
 import {
@@ -18,6 +18,14 @@ import {
 } from './run-transcript-blocks'
 import { applyTicketRunTraceEntry as reduceTicketRunTraceEntry } from './run-transcript-trace'
 import { syncSelectedBlocks, syncSelectedRun } from './run-transcript-selection'
+import {
+  mapTicketRun,
+  mapTicketRunCompletionSummary,
+  mapTicketRunStepEntry,
+  mapTicketRunStreamLifecycleEvent,
+  mapTicketRunTraceEntry,
+} from './run-transcript-data'
+import type { TicketRunRecord, TicketRunStepRecord, TicketRunTraceRecord } from '$lib/api/contracts'
 
 export function createEmptyTicketRunTranscriptState(): TicketRunTranscriptState {
   return {
@@ -111,18 +119,46 @@ export function applyTicketRunStreamFrame(
     switch (frame.event) {
       case 'ticket.run.lifecycle': {
         const payload = JSON.parse(frame.data) as {
-          run: TicketRun
-          lifecycle: TicketRunLifecycleEvent
+          run: TicketRunRecord
+          lifecycle: {
+            event_type?: string
+            eventType?: string
+            message?: string
+            created_at?: string
+            createdAt?: string
+          }
         }
-        return applyTicketRunLifecycleEvent(state, payload.run, payload.lifecycle)
+        return applyTicketRunLifecycleEvent(
+          state,
+          mapTicketRun(payload.run),
+          mapTicketRunStreamLifecycleEvent(payload.lifecycle),
+        )
       }
       case 'ticket.run.trace': {
-        const payload = JSON.parse(frame.data) as { entry: TicketRunTraceEntry }
-        return applyTicketRunTraceEntry(state, payload.entry)
+        const payload = JSON.parse(frame.data) as { entry: TicketRunTraceRecord }
+        return applyTicketRunTraceEntry(state, mapTicketRunTraceEntry(payload.entry))
       }
       case 'ticket.run.step': {
-        const payload = JSON.parse(frame.data) as { entry: TicketRunStepEntry }
-        return applyTicketRunStepEntry(state, payload.entry)
+        const payload = JSON.parse(frame.data) as { entry: TicketRunStepRecord }
+        return applyTicketRunStepEntry(state, mapTicketRunStepEntry(payload.entry))
+      }
+      case 'ticket.run.summary': {
+        const payload = JSON.parse(frame.data) as {
+          run_id?: string
+          runId?: string
+          completion_summary?: {
+            status?: string
+            markdown?: string | null
+            json?: Record<string, unknown> | null
+            generated_at?: string | null
+            error?: string | null
+          } | null
+        }
+        return applyTicketRunSummaryEvent(
+          state,
+          payload.run_id ?? payload.runId ?? '',
+          mapTicketRunCompletionSummary(payload.completion_summary),
+        )
       }
       default:
         return state
@@ -179,13 +215,14 @@ export function applyTicketRunStepEntry(
       : run,
   )
 
-  if (state.currentRun?.id !== entry.agentRunId) {
+  const currentRun = state.currentRun
+  if (!currentRun || currentRun.id !== entry.agentRunId) {
     return {
       ...state,
       runs,
     }
   }
-  if (hasBlock(state.blocks, `step:${entry.id}`)) {
+  if (entry.sourceTraceEventId || hasBlock(state.blocks, `step:${entry.id}`)) {
     return syncSelectedRun({
       ...state,
       runs,
@@ -208,9 +245,9 @@ export function applyTicketRunStepEntry(
     ...state,
     runs,
     currentRun: {
-      ...state.currentRun,
+      ...currentRun,
       currentStepStatus: entry.stepStatus,
-      currentStepSummary: entry.summary || state.currentRun.currentStepSummary,
+      currentStepSummary: entry.summary || currentRun.currentStepSummary,
     },
     blocks,
     blockCache: {
@@ -225,4 +262,32 @@ export function applyTicketRunTraceEntry(
   entry: TicketRunTraceEntry,
 ): TicketRunTranscriptState {
   return reduceTicketRunTraceEntry(state, entry)
+}
+
+export function applyTicketRunSummaryEvent(
+  state: TicketRunTranscriptState,
+  runID: string,
+  completionSummary: TicketRun['completionSummary'],
+): TicketRunTranscriptState {
+  if (!runID || !completionSummary) {
+    return state
+  }
+
+  const targetRun = state.runs.find((run) => run.id === runID) ?? state.currentRun
+  if (!targetRun || targetRun.id !== runID) {
+    return state
+  }
+
+  const nextRun: TicketRun = {
+    ...targetRun,
+    completionSummary,
+  }
+  const runs = mergeRun(state.runs, nextRun)
+
+  return syncSelectedRun({
+    ...state,
+    runs,
+    currentRun: state.currentRun?.id === runID ? nextRun : state.currentRun,
+    blockCache: syncSelectedBlocks(state),
+  })
 }

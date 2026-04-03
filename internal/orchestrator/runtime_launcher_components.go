@@ -70,6 +70,7 @@ func (l *RuntimeLauncher) ensureCompletionSummaryCoordinator() *runtimeCompletio
 		l.completionSummaries = newRuntimeCompletionSummaryCoordinator(
 			l.client,
 			l.logger,
+			l.events,
 			l.adapters,
 			l.processManager,
 			l.sshPool,

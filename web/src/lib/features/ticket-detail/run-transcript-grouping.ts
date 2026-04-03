@@ -24,10 +24,9 @@ export type NoiseGroup = {
 
 export type TranscriptDisplayItem = ContentItem | NoiseGroup
 
-const NOISE_KINDS = new Set(['phase', 'step'])
-
 function isNoiseBlock(block: TicketRunTranscriptBlock): boolean {
-  return NOISE_KINDS.has(block.kind)
+  if (block.kind === 'phase') return true
+  return false
 }
 
 function buildNoiseSummary(blocks: TicketRunTranscriptBlock[]): {
