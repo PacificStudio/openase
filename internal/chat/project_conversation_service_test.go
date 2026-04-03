@@ -1626,9 +1626,9 @@ func TestProjectConversationCodexResumeInterruptLifecycleAcrossRuntimeRestart(t 
 		t.Fatalf("complete resumed first turn: %v", err)
 	}
 
-	service.liveMu.Lock()
-	delete(service.live, conversation.ID)
-	service.liveMu.Unlock()
+	service.runtimeManager.mu.Lock()
+	delete(service.runtimeManager.live, conversation.ID)
+	service.runtimeManager.mu.Unlock()
 
 	secondTurn, err := service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Continue after approval", nil)
 	if err != nil {
@@ -2332,7 +2332,7 @@ func TestProjectConversationRespondInterruptRoutesExactRequestID(t *testing.T) {
 
 	service := NewProjectConversationService(nil, repo, nil, nil, nil, nil, nil)
 	codexRuntime := &fakeProjectConversationCodexRuntime{}
-	service.live[conversation.ID] = &liveProjectConversation{codex: codexRuntime}
+	service.runtimeManager.live[conversation.ID] = &liveProjectConversation{codex: codexRuntime}
 	events, cleanup := service.WatchConversation(ctx, conversation.ID)
 
 	resolved, err := service.RespondInterrupt(
@@ -2465,7 +2465,7 @@ func TestProjectConversationStartTurnKeepsOtherLiveConversationsRunning(t *testi
 	)
 
 	previousRuntime := &fakeRuntime{closeResult: true}
-	service.live[firstConversation.ID] = &liveProjectConversation{runtime: previousRuntime}
+	service.runtimeManager.live[firstConversation.ID] = &liveProjectConversation{runtime: previousRuntime}
 
 	if _, err := service.StartTurn(ctx, UserID("user:conversation"), secondConversation.ID, "Switch to this conversation", nil); err != nil {
 		t.Fatalf("start second conversation turn: %v", err)
@@ -2483,10 +2483,10 @@ func TestProjectConversationStartTurnKeepsOtherLiveConversationsRunning(t *testi
 		t.Fatalf("first conversation status = %q, want active", updatedFirst.Status)
 	}
 
-	if service.live[firstConversation.ID] == nil {
+	if service.runtimeManager.live[firstConversation.ID] == nil {
 		t.Fatal("expected first conversation live runtime to remain registered")
 	}
-	if service.live[secondConversation.ID] == nil {
+	if service.runtimeManager.live[secondConversation.ID] == nil {
 		t.Fatal("expected second conversation live runtime to be registered")
 	}
 }
@@ -2919,7 +2919,7 @@ func TestProjectConversationWorkspaceDiffSummary(t *testing.T) {
 		if err != nil {
 			t.Fatalf("parse workspace path: %v", err)
 		}
-		fixture.service.live[fixture.conversation.ID] = &liveProjectConversation{
+		fixture.service.runtimeManager.live[fixture.conversation.ID] = &liveProjectConversation{
 			runtime:   &fakeRuntime{closeResult: true},
 			workspace: workspacePath,
 		}

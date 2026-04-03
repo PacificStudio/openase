@@ -15,11 +15,11 @@ func (s *ProjectConversationService) loadLatestConversationFocus(
 	ctx context.Context,
 	conversationID uuid.UUID,
 ) (*ProjectConversationFocus, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.entries == nil {
 		return nil, nil
 	}
 
-	entries, err := s.repo.ListEntries(ctx, conversationID)
+	entries, err := s.entries.ListEntries(ctx, conversationID)
 	if err != nil {
 		return nil, err
 	}

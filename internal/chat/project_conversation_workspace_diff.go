@@ -179,11 +179,8 @@ func (s *ProjectConversationService) resolveConversationWorkspacePath(
 	project catalogdomain.Project,
 	conversationID uuid.UUID,
 ) (string, error) {
-	s.liveMu.Lock()
-	live := s.live[conversationID]
-	s.liveMu.Unlock()
-	if live != nil && strings.TrimSpace(live.workspace.String()) != "" {
-		return filepath.Clean(live.workspace.String()), nil
+	if workspacePath, ok := s.runtimeManager.WorkspacePath(conversationID); ok {
+		return filepath.Clean(workspacePath.String()), nil
 	}
 
 	root := ""

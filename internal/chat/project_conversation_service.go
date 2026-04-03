@@ -2,7 +2,6 @@ package chat
 
 import (
 	"archive/tar"
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -11,7 +10,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
@@ -54,31 +52,6 @@ type projectConversationAgentPlatform interface {
 	IssueToken(ctx context.Context, input agentplatform.IssueInput) (agentplatform.IssuedToken, error)
 }
 
-type projectConversationRepository interface {
-	CreateConversation(ctx context.Context, input domain.CreateConversation) (domain.Conversation, error)
-	ListConversations(ctx context.Context, filter domain.ListConversationsFilter) ([]domain.Conversation, error)
-	GetConversation(ctx context.Context, id uuid.UUID) (domain.Conversation, error)
-	EnsurePrincipal(ctx context.Context, input domain.EnsurePrincipalInput) (domain.ProjectConversationPrincipal, error)
-	GetPrincipal(ctx context.Context, conversationID uuid.UUID) (domain.ProjectConversationPrincipal, error)
-	UpdatePrincipalRuntime(ctx context.Context, input domain.UpdatePrincipalRuntimeInput) (domain.ProjectConversationPrincipal, error)
-	ClosePrincipal(ctx context.Context, input domain.ClosePrincipalInput) (domain.ProjectConversationPrincipal, error)
-	CreateRun(ctx context.Context, input domain.CreateRunInput) (domain.ProjectConversationRun, error)
-	GetRunByTurnID(ctx context.Context, turnID uuid.UUID) (domain.ProjectConversationRun, error)
-	UpdateRun(ctx context.Context, input domain.UpdateRunInput) (domain.ProjectConversationRun, error)
-	AppendTraceEvent(ctx context.Context, input domain.AppendTraceEventInput) (domain.ProjectConversationTraceEvent, error)
-	AppendStepEvent(ctx context.Context, input domain.AppendStepEventInput) (domain.ProjectConversationStepEvent, error)
-	CreateTurnWithUserEntry(ctx context.Context, conversationID uuid.UUID, message string) (domain.Turn, domain.Entry, error)
-	AppendEntry(ctx context.Context, conversationID uuid.UUID, turnID *uuid.UUID, kind domain.EntryKind, payload map[string]any) (domain.Entry, error)
-	ListEntries(ctx context.Context, conversationID uuid.UUID) ([]domain.Entry, error)
-	CreatePendingInterrupt(ctx context.Context, conversationID uuid.UUID, turnID uuid.UUID, providerRequestID string, kind domain.InterruptKind, payload map[string]any) (domain.PendingInterrupt, domain.Entry, error)
-	GetPendingInterrupt(ctx context.Context, interruptID uuid.UUID) (domain.PendingInterrupt, error)
-	ListPendingInterrupts(ctx context.Context, conversationID uuid.UUID) ([]domain.PendingInterrupt, error)
-	ResolvePendingInterrupt(ctx context.Context, interruptID uuid.UUID, response domain.InterruptResponse) (domain.PendingInterrupt, domain.Entry, error)
-	CompleteTurn(ctx context.Context, turnID uuid.UUID, status domain.TurnStatus, providerTurnID *string) (domain.Turn, error)
-	UpdateConversationAnchors(ctx context.Context, conversationID uuid.UUID, status domain.ConversationStatus, anchors domain.ConversationAnchors) (domain.Conversation, error)
-	CloseConversationRuntime(ctx context.Context, conversationID uuid.UUID) (domain.Conversation, error)
-}
-
 type liveProjectConversation struct {
 	principal domain.ProjectConversationPrincipal
 	provider  catalogdomain.AgentProvider
@@ -109,11 +82,14 @@ type projectConversationSessionAnchorer interface {
 type ProjectConversationService struct {
 	logger *slog.Logger
 
-	repo      projectConversationRepository
-	catalog   projectConversationCatalog
-	tickets   ticketReader
-	workflows workflowReader
-	skillSync projectConversationSkillSync
+	conversations projectConversationConversationStore
+	entries       projectConversationEntryStore
+	interrupts    projectConversationInterruptStore
+	runtimeStore  projectConversationRuntimeStore
+	catalog       projectConversationCatalog
+	tickets       ticketReader
+	workflows     workflowReader
+	skillSync     projectConversationSkillSync
 
 	localProcessManager provider.AgentCLIProcessManager
 	sshPool             *sshinfra.Pool
@@ -121,10 +97,8 @@ type ProjectConversationService struct {
 	agentPlatform       projectConversationAgentPlatform
 	githubAuth          githubauthservice.TokenResolver
 
-	liveMu          sync.Mutex
-	live            map[uuid.UUID]*liveProjectConversation
-	watchers        map[uuid.UUID]map[int]chan StreamEvent
-	nextWatcher     int
+	streamBroker    *projectConversationStreamBroker
+	runtimeManager  *projectConversationRuntimeManager
 	turnLocks       userLockRegistry
 	promptBuilder   *Service
 	newCodexRuntime func(manager provider.AgentCLIProcessManager) (projectConversationCodexRuntime, error)
@@ -132,7 +106,7 @@ type ProjectConversationService struct {
 
 func NewProjectConversationService(
 	logger *slog.Logger,
-	repo projectConversationRepository,
+	stores projectConversationStoreSource,
 	catalog projectConversationCatalog,
 	tickets ticketReader,
 	workflows workflowReader,
@@ -144,14 +118,16 @@ func NewProjectConversationService(
 	}
 	service := &ProjectConversationService{
 		logger:              logger.With("component", "project-conversation-service"),
-		repo:                repo,
+		conversations:       stores,
+		entries:             stores,
+		interrupts:          stores,
+		runtimeStore:        stores,
 		catalog:             catalog,
 		tickets:             tickets,
 		workflows:           workflows,
 		localProcessManager: localProcessManager,
 		sshPool:             sshPool,
-		live:                map[uuid.UUID]*liveProjectConversation{},
-		watchers:            map[uuid.UUID]map[int]chan StreamEvent{},
+		streamBroker:        newProjectConversationStreamBroker(),
 	}
 	if syncer, ok := workflows.(projectConversationSkillSync); ok {
 		service.skillSync = syncer
@@ -169,6 +145,15 @@ func NewProjectConversationService(
 		}
 		return NewCodexRuntime(adapter), nil
 	}
+	service.runtimeManager = newProjectConversationRuntimeManager(
+		service.logger,
+		catalog,
+		service.runtimeStore,
+		localProcessManager,
+		sshPool,
+		service.newCodexRuntime,
+	)
+	service.runtimeManager.ConfigureSkillSync(service.skillSync)
 	return service
 }
 
@@ -188,6 +173,9 @@ func (s *ProjectConversationService) ConfigureGitHubCredentials(resolver githuba
 		return
 	}
 	s.githubAuth = resolver
+	if s.runtimeManager != nil {
+		s.runtimeManager.ConfigureGitHubCredentials(resolver)
+	}
 }
 
 func projectConversationTurnLockKey(conversation domain.Conversation) UserID {
@@ -212,7 +200,7 @@ func (s *ProjectConversationService) CreateConversation(
 		return domain.Conversation{}, fmt.Errorf("%w: provider is outside the project organization", ErrConversationConflict)
 	}
 
-	return s.repo.CreateConversation(ctx, domain.CreateConversation{
+	return s.conversations.CreateConversation(ctx, domain.CreateConversation{
 		ProjectID:  projectID,
 		UserID:     userID.String(),
 		Source:     domain.SourceProjectSidebar,
@@ -227,7 +215,7 @@ func (s *ProjectConversationService) ListConversations(
 	providerID *uuid.UUID,
 ) ([]domain.Conversation, error) {
 	source := domain.SourceProjectSidebar
-	return s.repo.ListConversations(ctx, domain.ListConversationsFilter{
+	return s.conversations.ListConversations(ctx, domain.ListConversationsFilter{
 		ProjectID:  projectID,
 		UserID:     userID.String(),
 		Source:     &source,
@@ -236,7 +224,7 @@ func (s *ProjectConversationService) ListConversations(
 }
 
 func (s *ProjectConversationService) GetConversation(ctx context.Context, userID UserID, conversationID uuid.UUID) (domain.Conversation, error) {
-	conversation, err := s.repo.GetConversation(ctx, conversationID)
+	conversation, err := s.conversations.GetConversation(ctx, conversationID)
 	if err != nil {
 		return domain.Conversation{}, err
 	}
@@ -251,7 +239,7 @@ func (s *ProjectConversationService) GetPrincipal(ctx context.Context, userID Us
 	if err != nil {
 		return domain.ProjectConversationPrincipal{}, err
 	}
-	return s.repo.EnsurePrincipal(ctx, domain.EnsurePrincipalInput{
+	return s.runtimeStore.EnsurePrincipal(ctx, domain.EnsurePrincipalInput{
 		ConversationID: conversation.ID,
 		ProjectID:      conversation.ProjectID,
 		ProviderID:     conversation.ProviderID,
@@ -263,24 +251,14 @@ func (s *ProjectConversationService) ListEntries(ctx context.Context, userID Use
 	if _, err := s.GetConversation(ctx, userID, conversationID); err != nil {
 		return nil, err
 	}
-	return s.repo.ListEntries(ctx, conversationID)
+	return s.entries.ListEntries(ctx, conversationID)
 }
 
 func (s *ProjectConversationService) WatchConversation(
 	ctx context.Context,
 	conversationID uuid.UUID,
 ) (<-chan StreamEvent, func()) {
-	events := make(chan StreamEvent, 32)
-
-	s.liveMu.Lock()
-	if s.watchers[conversationID] == nil {
-		s.watchers[conversationID] = map[int]chan StreamEvent{}
-	}
-	watcherID := s.nextWatcher
-	s.nextWatcher++
-	s.watchers[conversationID][watcherID] = events
-	hasLive := s.live[conversationID] != nil
-	s.liveMu.Unlock()
+	live, hasLive := s.runtimeManager.Get(conversationID)
 
 	state := "inactive"
 	if hasLive {
@@ -291,13 +269,10 @@ func (s *ProjectConversationService) WatchConversation(
 		"runtime_state":   state,
 	}
 	var sessionProvider *catalogdomain.AgentProvider
-	s.liveMu.Lock()
-	live := s.live[conversationID]
-	s.liveMu.Unlock()
 	if live != nil {
 		sessionProvider = &live.provider
 	}
-	if conversation, err := s.repo.GetConversation(ctx, conversationID); err == nil {
+	if conversation, err := s.conversations.GetConversation(ctx, conversationID); err == nil {
 		if sessionProvider == nil && s.catalog != nil {
 			if providerItem, providerErr := s.catalog.GetAgentProvider(ctx, conversation.ProviderID); providerErr == nil {
 				sessionProvider = &providerItem
@@ -315,20 +290,7 @@ func (s *ProjectConversationService) WatchConversation(
 			ProviderThreadActiveFlags: append([]string(nil), anchor.ProviderThreadActiveFlags...),
 		}, sessionProvider)
 	}
-	events <- StreamEvent{Event: "session", Payload: sessionPayload}
-
-	return events, func() {
-		s.liveMu.Lock()
-		defer s.liveMu.Unlock()
-
-		if watchers := s.watchers[conversationID]; watchers != nil {
-			delete(watchers, watcherID)
-			if len(watchers) == 0 {
-				delete(s.watchers, conversationID)
-			}
-		}
-		close(events)
-	}
+	return s.streamBroker.Watch(conversationID, StreamEvent{Event: "session", Payload: sessionPayload})
 }
 
 func (s *ProjectConversationService) StartTurn(
@@ -393,7 +355,7 @@ func (s *ProjectConversationService) StartTurn(
 				resumeThreadID = ""
 				resumeTurnID = ""
 				emptyFlags := []string{}
-				_, _ = s.repo.UpdateConversationAnchors(ctx, conversationID, conversation.Status, domain.ConversationAnchors{
+				_, _ = s.conversations.UpdateConversationAnchors(ctx, conversationID, conversation.Status, domain.ConversationAnchors{
 					ProviderThreadID:          optionalString(""),
 					LastTurnID:                optionalString(""),
 					ProviderThreadStatus:      optionalString("notLoaded"),
@@ -416,11 +378,11 @@ func (s *ProjectConversationService) StartTurn(
 		return domain.Turn{}, err
 	}
 
-	turn, _, err := s.repo.CreateTurnWithUserEntry(ctx, conversationID, strings.TrimSpace(message))
+	turn, _, err := s.entries.CreateTurnWithUserEntry(ctx, conversationID, strings.TrimSpace(message))
 	if err != nil {
 		return domain.Turn{}, err
 	}
-	if _, err := s.repo.AppendEntry(
+	if _, err := s.entries.AppendEntry(
 		ctx,
 		conversationID,
 		&turn.ID,
@@ -431,7 +393,7 @@ func (s *ProjectConversationService) StartTurn(
 	}
 
 	runNow := time.Now().UTC()
-	run, err := s.repo.CreateRun(ctx, domain.CreateRunInput{
+	run, err := s.runtimeStore.CreateRun(ctx, domain.CreateRunInput{
 		RunID:                uuid.New(),
 		PrincipalID:          live.principal.ID,
 		ConversationID:       conversation.ID,
@@ -450,7 +412,7 @@ func (s *ProjectConversationService) StartTurn(
 	if err != nil {
 		return domain.Turn{}, err
 	}
-	if principal, runtimeErr := s.repo.UpdatePrincipalRuntime(ctx, domain.UpdatePrincipalRuntimeInput{
+	if principal, runtimeErr := s.runtimeStore.UpdatePrincipalRuntime(ctx, domain.UpdatePrincipalRuntimeInput{
 		PrincipalID:          live.principal.ID,
 		RuntimeState:         domain.RuntimeStateExecuting,
 		CurrentSessionID:     optionalString(conversation.ID.String()),
@@ -479,7 +441,7 @@ func (s *ProjectConversationService) StartTurn(
 	})
 	if err != nil {
 		failedStatus := domain.RunStatusFailed
-		_, _ = s.repo.UpdateRun(ctx, domain.UpdateRunInput{
+		_, _ = s.runtimeStore.UpdateRun(ctx, domain.UpdateRunInput{
 			RunID:                run.ID,
 			Status:               &failedStatus,
 			TerminalAt:           &runNow,
@@ -489,7 +451,7 @@ func (s *ProjectConversationService) StartTurn(
 			CurrentStepSummary:   optionalString("Project conversation turn failed to start."),
 			CurrentStepChangedAt: &runNow,
 		})
-		if principal, runtimeErr := s.repo.UpdatePrincipalRuntime(ctx, domain.UpdatePrincipalRuntimeInput{
+		if principal, runtimeErr := s.runtimeStore.UpdatePrincipalRuntime(ctx, domain.UpdatePrincipalRuntimeInput{
 			PrincipalID:          live.principal.ID,
 			RuntimeState:         domain.RuntimeStateReady,
 			CurrentSessionID:     optionalString(conversation.ID.String()),
@@ -505,7 +467,7 @@ func (s *ProjectConversationService) StartTurn(
 		return domain.Turn{}, err
 	}
 	executingStatus := domain.RunStatusExecuting
-	_, _ = s.repo.UpdateRun(ctx, domain.UpdateRunInput{
+	_, _ = s.runtimeStore.UpdateRun(ctx, domain.UpdateRunInput{
 		RunID:                run.ID,
 		Status:               &executingStatus,
 		LastHeartbeatAt:      &runNow,
@@ -529,16 +491,14 @@ func (s *ProjectConversationService) RespondInterrupt(
 	if err != nil {
 		return domain.PendingInterrupt{}, err
 	}
-	interrupt, err := s.repo.GetPendingInterrupt(ctx, interruptID)
+	interrupt, err := s.interrupts.GetPendingInterrupt(ctx, interruptID)
 	if err != nil {
 		return domain.PendingInterrupt{}, err
 	}
 	if interrupt.ConversationID != conversation.ID {
 		return domain.PendingInterrupt{}, ErrPendingInterruptNotFound
 	}
-	s.liveMu.Lock()
-	live := s.live[conversationID]
-	s.liveMu.Unlock()
+	live, _ := s.runtimeManager.Get(conversationID)
 	if live != nil && live.interrupt == nil && live.codex != nil {
 		live.interrupt = live.codex
 	}
@@ -625,7 +585,7 @@ func (s *ProjectConversationService) RespondInterrupt(
 		return domain.PendingInterrupt{}, err
 	}
 
-	resolved, _ /* entry */, err := s.repo.ResolvePendingInterrupt(ctx, interruptID, response)
+	resolved, _ /* entry */, err := s.interrupts.ResolvePendingInterrupt(ctx, interruptID, response)
 	if err != nil {
 		return domain.PendingInterrupt{}, err
 	}
@@ -633,7 +593,7 @@ func (s *ProjectConversationService) RespondInterrupt(
 	if live.interrupt != nil {
 		anchor = live.interrupt.SessionAnchor(SessionID(conversationID.String()))
 	}
-	_, _ = s.repo.UpdateConversationAnchors(
+	_, _ = s.conversations.UpdateConversationAnchors(
 		ctx,
 		conversationID,
 		domain.ConversationStatusActive,
@@ -647,11 +607,11 @@ func (s *ProjectConversationService) RespondInterrupt(
 		},
 	})
 	if stream.Events != nil {
-		run, runErr := s.repo.GetRunByTurnID(ctx, interrupt.TurnID)
+		run, runErr := s.runtimeStore.GetRunByTurnID(ctx, interrupt.TurnID)
 		if runErr == nil {
 			now := time.Now().UTC()
 			executingStatus := domain.RunStatusExecuting
-			_, _ = s.repo.UpdateRun(ctx, domain.UpdateRunInput{
+			_, _ = s.runtimeStore.UpdateRun(ctx, domain.UpdateRunInput{
 				RunID:                run.ID,
 				Status:               &executingStatus,
 				LastHeartbeatAt:      &now,
@@ -659,7 +619,7 @@ func (s *ProjectConversationService) RespondInterrupt(
 				CurrentStepSummary:   optionalString("Project conversation interrupt resolved."),
 				CurrentStepChangedAt: &now,
 			})
-			if principal, runtimeErr := s.repo.UpdatePrincipalRuntime(ctx, domain.UpdatePrincipalRuntimeInput{
+			if principal, runtimeErr := s.runtimeStore.UpdatePrincipalRuntime(ctx, domain.UpdatePrincipalRuntimeInput{
 				PrincipalID:          live.principal.ID,
 				RuntimeState:         domain.RuntimeStateExecuting,
 				CurrentSessionID:     optionalString(conversation.ID.String()),
@@ -696,7 +656,7 @@ func (s *ProjectConversationService) AppendActionExecutionResult(
 	if _, err := s.GetConversation(ctx, userID, conversationID); err != nil {
 		return domain.Entry{}, err
 	}
-	entry, err := s.repo.AppendEntry(ctx, conversationID, turnID, domain.EntryKindActionResult, payload)
+	entry, err := s.entries.AppendEntry(ctx, conversationID, turnID, domain.EntryKindActionResult, payload)
 	if err != nil {
 		return domain.Entry{}, err
 	}
@@ -715,19 +675,12 @@ func (s *ProjectConversationService) CloseRuntime(ctx context.Context, userID Us
 		return err
 	}
 
-	s.liveMu.Lock()
-	live := s.live[conversationID]
-	delete(s.live, conversationID)
-	s.liveMu.Unlock()
-
-	if live != nil && live.runtime != nil {
-		live.runtime.CloseSession(SessionID(conversationID.String()))
-	}
+	live, _ := s.runtimeManager.Close(conversationID)
 	if live != nil && live.principal.ID != uuid.Nil {
 		if live.principal.CurrentRunID != nil && *live.principal.CurrentRunID != uuid.Nil {
 			now := time.Now().UTC()
 			terminatedStatus := domain.RunStatusTerminated
-			_, _ = s.repo.UpdateRun(ctx, domain.UpdateRunInput{
+			_, _ = s.runtimeStore.UpdateRun(ctx, domain.UpdateRunInput{
 				RunID:                *live.principal.CurrentRunID,
 				Status:               &terminatedStatus,
 				TerminalAt:           &now,
@@ -737,11 +690,11 @@ func (s *ProjectConversationService) CloseRuntime(ctx context.Context, userID Us
 				CurrentStepChangedAt: &now,
 			})
 		}
-		if principal, principalErr := s.repo.ClosePrincipal(ctx, domain.ClosePrincipalInput{PrincipalID: live.principal.ID}); principalErr == nil {
+		if principal, principalErr := s.runtimeStore.ClosePrincipal(ctx, domain.ClosePrincipalInput{PrincipalID: live.principal.ID}); principalErr == nil {
 			live.principal = principal
 		}
 	}
-	conversation, err := s.repo.CloseConversationRuntime(ctx, conversationID)
+	conversation, err := s.conversations.CloseConversationRuntime(ctx, conversationID)
 	if err == nil {
 		var providerItem *catalogdomain.AgentProvider
 		if live != nil {
@@ -799,7 +752,7 @@ func (s *ProjectConversationService) consumeTurn(
 				}
 				interruptPayload["options"] = options
 			}
-			pending, _, err := s.repo.CreatePendingInterrupt(ctx, conversationID, turn.ID, payload.RequestID, interruptKind, interruptPayload)
+			pending, _, err := s.interrupts.CreatePendingInterrupt(ctx, conversationID, turn.ID, payload.RequestID, interruptKind, interruptPayload)
 			if err != nil {
 				s.logger.Error("persist chat interrupt", "conversation_id", conversationID, "error", err)
 				continue
@@ -809,7 +762,7 @@ func (s *ProjectConversationService) consumeTurn(
 			if live.codex != nil {
 				anchor = live.codex.SessionAnchor(SessionID(conversationID.String()))
 			}
-			_, _ = s.repo.UpdateConversationAnchors(
+			_, _ = s.conversations.UpdateConversationAnchors(
 				ctx,
 				conversationID,
 				domain.ConversationStatusInterrupted,
@@ -835,10 +788,10 @@ func (s *ProjectConversationService) consumeTurn(
 				"cost_usd": done.CostUSD,
 			}, "runtime")
 			anchor := liveRuntimeSessionAnchor(live, SessionID(conversationID.String()))
-			_, _ = s.repo.CompleteTurn(ctx, turn.ID, domain.TurnStatusCompleted, optionalNonEmptyString(anchor.LastTurnID))
-			entries, _ := s.repo.ListEntries(ctx, conversationID)
+			_, _ = s.entries.CompleteTurn(ctx, turn.ID, domain.TurnStatusCompleted, optionalNonEmptyString(anchor.LastTurnID))
+			entries, _ := s.entries.ListEntries(ctx, conversationID)
 			summary := buildRollingSummary(entries)
-			_, _ = s.repo.UpdateConversationAnchors(
+			_, _ = s.conversations.UpdateConversationAnchors(
 				ctx,
 				conversationID,
 				domain.ConversationStatusActive,
@@ -864,7 +817,7 @@ func (s *ProjectConversationService) consumeTurn(
 				"status":       payload.Status,
 				"active_flags": activeFlags,
 			}, "runtime")
-			updated, _ := s.repo.UpdateConversationAnchors(
+			updated, _ := s.conversations.UpdateConversationAnchors(
 				ctx,
 				conversationID,
 				domain.ConversationStatusActive,
@@ -874,7 +827,7 @@ func (s *ProjectConversationService) consumeTurn(
 				},
 			)
 			s.recordConversationStep(ctx, live, run, domain.RuntimeStateExecuting, domain.RunStatusExecuting, payload.Status, "Conversation provider thread status updated.", optionalNonEmptyString(payload.ThreadID), nil, "")
-			entry, _ := s.repo.AppendEntry(ctx, conversationID, &turn.ID, domain.EntryKindSystem, map[string]any{
+			entry, _ := s.entries.AppendEntry(ctx, conversationID, &turn.ID, domain.EntryKindSystem, map[string]any{
 				"type":         "thread_status",
 				"anchor_kind":  "thread",
 				"thread_id":    payload.ThreadID,
@@ -918,7 +871,7 @@ func (s *ProjectConversationService) consumeTurn(
 				"provider_thread_status": anchor.ProviderThreadStatus,
 				"active_flags":           append([]string(nil), anchor.ProviderThreadActiveFlags...),
 			}, "runtime")
-			updated, _ := s.repo.UpdateConversationAnchors(
+			updated, _ := s.conversations.UpdateConversationAnchors(
 				ctx,
 				conversationID,
 				domain.ConversationStatusActive,
@@ -940,7 +893,7 @@ func (s *ProjectConversationService) consumeTurn(
 				"detail":       payload.Detail,
 				"raw":          cloneAnyMap(payload.Raw),
 			}, "runtime")
-			updated, _ := s.repo.UpdateConversationAnchors(
+			updated, _ := s.conversations.UpdateConversationAnchors(
 				ctx,
 				conversationID,
 				domain.ConversationStatusActive,
@@ -950,7 +903,7 @@ func (s *ProjectConversationService) consumeTurn(
 				},
 			)
 			s.recordConversationStep(ctx, live, run, domain.RuntimeStateExecuting, domain.RunStatusExecuting, payload.Status, payload.Detail, nil, nil, "")
-			entry, _ := s.repo.AppendEntry(ctx, conversationID, &turn.ID, domain.EntryKindSystem, map[string]any{
+			entry, _ := s.entries.AppendEntry(ctx, conversationID, &turn.ID, domain.EntryKindSystem, map[string]any{
 				"type":         "session_state",
 				"anchor_kind":  "session",
 				"status":       payload.Status,
@@ -984,7 +937,7 @@ func (s *ProjectConversationService) consumeTurn(
 				"thread_id": payload.ThreadID,
 				"turn_id":   payload.TurnID,
 			}, "runtime")
-			entry, _ := s.repo.AppendEntry(ctx, conversationID, &turn.ID, domain.EntryKindSystem, map[string]any{
+			entry, _ := s.entries.AppendEntry(ctx, conversationID, &turn.ID, domain.EntryKindSystem, map[string]any{
 				"type":      "thread_compacted",
 				"thread_id": payload.ThreadID,
 				"turn_id":   payload.TurnID,
@@ -1016,7 +969,7 @@ func (s *ProjectConversationService) consumeTurn(
 				"plan":        rawPlan,
 			}, "runtime")
 			s.recordConversationStep(ctx, live, run, domain.RuntimeStateExecuting, domain.RunStatusExecuting, "plan_updated", stringPointerValue(payload.Explanation), nil, nil, "")
-			entry, _ := s.repo.AppendEntry(ctx, conversationID, &turn.ID, domain.EntryKindSystem, map[string]any{
+			entry, _ := s.entries.AppendEntry(ctx, conversationID, &turn.ID, domain.EntryKindSystem, map[string]any{
 				"type":        "turn_plan_updated",
 				"thread_id":   payload.ThreadID,
 				"turn_id":     payload.TurnID,
@@ -1043,7 +996,7 @@ func (s *ProjectConversationService) consumeTurn(
 				"turn_id":   payload.TurnID,
 				"diff":      payload.Diff,
 			}, "runtime")
-			entry, _ := s.repo.AppendEntry(ctx, conversationID, &turn.ID, domain.EntryKindSystem, map[string]any{
+			entry, _ := s.entries.AppendEntry(ctx, conversationID, &turn.ID, domain.EntryKindSystem, map[string]any{
 				"type":      "turn_diff_updated",
 				"thread_id": payload.ThreadID,
 				"turn_id":   payload.TurnID,
@@ -1072,7 +1025,7 @@ func (s *ProjectConversationService) consumeTurn(
 				"summary_index": payload.SummaryIndex,
 				"content_index": payload.ContentIndex,
 			}, "runtime")
-			entry, _ := s.repo.AppendEntry(ctx, conversationID, &turn.ID, domain.EntryKindSystem, map[string]any{
+			entry, _ := s.entries.AppendEntry(ctx, conversationID, &turn.ID, domain.EntryKindSystem, map[string]any{
 				"type":          "turn_reasoning_updated",
 				"thread_id":     payload.ThreadID,
 				"turn_id":       payload.TurnID,
@@ -1100,8 +1053,8 @@ func (s *ProjectConversationService) consumeTurn(
 			if ok {
 				s.recordConversationTrace(ctx, live, run, "error", map[string]any{"message": payload.Message}, "runtime")
 				anchor := liveRuntimeSessionAnchor(live, SessionID(conversationID.String()))
-				_, _ = s.repo.CompleteTurn(ctx, turn.ID, domain.TurnStatusFailed, optionalNonEmptyString(anchor.LastTurnID))
-				_, _ = s.repo.UpdateConversationAnchors(
+				_, _ = s.entries.CompleteTurn(ctx, turn.ID, domain.TurnStatusFailed, optionalNonEmptyString(anchor.LastTurnID))
+				_, _ = s.conversations.UpdateConversationAnchors(
 					ctx,
 					conversationID,
 					domain.ConversationStatusActive,
@@ -1120,8 +1073,8 @@ func (s *ProjectConversationService) consumeTurn(
 			if ok {
 				s.recordConversationTrace(ctx, live, run, "interrupted", map[string]any{"message": payload.Message}, "runtime")
 				anchor := liveRuntimeSessionAnchor(live, SessionID(conversationID.String()))
-				_, _ = s.repo.CompleteTurn(ctx, turn.ID, domain.TurnStatusInterrupted, optionalNonEmptyString(anchor.LastTurnID))
-				_, _ = s.repo.UpdateConversationAnchors(
+				_, _ = s.entries.CompleteTurn(ctx, turn.ID, domain.TurnStatusInterrupted, optionalNonEmptyString(anchor.LastTurnID))
+				_, _ = s.conversations.UpdateConversationAnchors(
 					ctx,
 					conversationID,
 					domain.ConversationStatusInterrupted,
@@ -1147,12 +1100,12 @@ func (s *ProjectConversationService) recordConversationTrace(
 	payload any,
 	stream string,
 ) {
-	if s == nil || s.repo == nil || live == nil || live.principal.ID == uuid.Nil || run.ID == uuid.Nil {
+	if s == nil || s.runtimeStore == nil || live == nil || live.principal.ID == uuid.Nil || run.ID == uuid.Nil {
 		return
 	}
 	now := time.Now().UTC()
 	tracePayload := mapConversationTracePayload(payload)
-	trace, err := s.repo.AppendTraceEvent(ctx, domain.AppendTraceEventInput{
+	trace, err := s.runtimeStore.AppendTraceEvent(ctx, domain.AppendTraceEventInput{
 		RunID:          run.ID,
 		PrincipalID:    live.principal.ID,
 		ConversationID: live.principal.ConversationID,
@@ -1168,7 +1121,7 @@ func (s *ProjectConversationService) recordConversationTrace(
 		return
 	}
 	_ = trace
-	_, _ = s.repo.UpdateRun(ctx, domain.UpdateRunInput{
+	_, _ = s.runtimeStore.UpdateRun(ctx, domain.UpdateRunInput{
 		RunID:                run.ID,
 		LastHeartbeatAt:      &now,
 		CurrentStepChangedAt: &now,
@@ -1187,12 +1140,12 @@ func (s *ProjectConversationService) recordConversationStep(
 	costUSD *float64,
 	lastError string,
 ) {
-	if s == nil || s.repo == nil || live == nil || live.principal.ID == uuid.Nil || run.ID == uuid.Nil {
+	if s == nil || s.runtimeStore == nil || live == nil || live.principal.ID == uuid.Nil || run.ID == uuid.Nil {
 		return
 	}
 	now := time.Now().UTC()
 	summaryPtr := optionalNonEmptyString(summary)
-	step, err := s.repo.AppendStepEvent(ctx, domain.AppendStepEventInput{
+	step, err := s.runtimeStore.AppendStepEvent(ctx, domain.AppendStepEventInput{
 		RunID:          run.ID,
 		PrincipalID:    live.principal.ID,
 		ConversationID: live.principal.ConversationID,
@@ -1223,12 +1176,12 @@ func (s *ProjectConversationService) recordConversationStep(
 	if runStatus == domain.RunStatusCompleted || runStatus == domain.RunStatusFailed || runStatus == domain.RunStatusTerminated {
 		updateInput.TerminalAt = &now
 	}
-	updatedRun, err := s.repo.UpdateRun(ctx, updateInput)
+	updatedRun, err := s.runtimeStore.UpdateRun(ctx, updateInput)
 	if err == nil {
 		run = updatedRun
 	}
 	currentRunID := run.ID
-	updatedPrincipal, err := s.repo.UpdatePrincipalRuntime(ctx, domain.UpdatePrincipalRuntimeInput{
+	updatedPrincipal, err := s.runtimeStore.UpdatePrincipalRuntime(ctx, domain.UpdatePrincipalRuntimeInput{
 		PrincipalID:          live.principal.ID,
 		RuntimeState:         runtimeState,
 		CurrentSessionID:     optionalString(live.principal.ConversationID.String()),
@@ -1378,7 +1331,7 @@ func (s *ProjectConversationService) handleConversationMessage(
 ) (StreamEvent, bool) {
 	switch typed := payload.(type) {
 	case textPayload:
-		_, _ = s.repo.AppendEntry(ctx, conversationID, &turnID, domain.EntryKindAssistantTextDelta, map[string]any{
+		_, _ = s.entries.AppendEntry(ctx, conversationID, &turnID, domain.EntryKindAssistantTextDelta, map[string]any{
 			"role":    "assistant",
 			"content": typed.Content,
 		})
@@ -1399,7 +1352,7 @@ func (s *ProjectConversationService) handleConversationMessage(
 		case chatMessageTypeTaskStarted, chatMessageTypeTaskNotification, chatMessageTypeTaskProgress:
 			kind = domain.EntryKindSystem
 		}
-		entry, _ := s.repo.AppendEntry(ctx, conversationID, &turnID, kind, cloneMapAny(typed))
+		entry, _ := s.entries.AppendEntry(ctx, conversationID, &turnID, kind, cloneMapAny(typed))
 		normalized := cloneMapAny(typed)
 		if kind == domain.EntryKindActionProposal || kind == domain.EntryKindDiff {
 			normalized["entry_id"] = entry.ID.String()
@@ -1415,89 +1368,22 @@ func (s *ProjectConversationService) ensureLiveRuntime(
 	project catalogdomain.Project,
 	providerItem catalogdomain.AgentProvider,
 ) (*liveProjectConversation, bool, error) {
-	conversationID := conversation.ID
+	s.runtimeManager.newCodexRuntime = s.newCodexRuntime
+	s.runtimeManager.ConfigureGitHubCredentials(s.githubAuth)
+	s.runtimeManager.ConfigureSkillSync(s.skillSync)
+	return s.runtimeManager.ensureLiveRuntime(ctx, conversation, project, providerItem)
+}
 
-	principal, err := s.repo.EnsurePrincipal(ctx, domain.EnsurePrincipalInput{
-		ConversationID: conversation.ID,
-		ProjectID:      conversation.ProjectID,
-		ProviderID:     conversation.ProviderID,
-		Name:           projectConversationPrincipalName(conversation.ID),
-	})
-	if err != nil {
-		return nil, false, fmt.Errorf("ensure project conversation principal: %w", err)
-	}
-
-	s.liveMu.Lock()
-	if existing := s.live[conversationID]; existing != nil {
-		existing.principal = principal
-		s.liveMu.Unlock()
-		return existing, true, nil
-	}
-	s.liveMu.Unlock()
-
-	machine, err := s.catalog.GetMachine(ctx, providerItem.MachineID)
-	if err != nil {
-		return nil, false, fmt.Errorf("get chat provider machine: %w", err)
-	}
-
-	workspacePath, err := s.ensureConversationWorkspace(ctx, machine, project, providerItem, conversationID)
-	if err != nil {
-		return nil, false, err
-	}
-
-	manager, err := s.resolveProcessManager(machine)
-	if err != nil {
-		return nil, false, err
-	}
-
-	var runtime Runtime
-	var codexRuntime projectConversationCodexRuntime
-	var interruptRuntime projectConversationInterruptRuntime
-	switch providerItem.AdapterType {
-	case catalogdomain.AgentProviderAdapterTypeCodexAppServer:
-		codexRuntime, err = s.newCodexRuntime(manager)
-		if err != nil {
-			return nil, false, err
-		}
-		runtime = codexRuntime
-		interruptRuntime = codexRuntime
-	case catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI:
-		claudeRuntime := NewClaudeRuntime(newClaudeAdapterForManager(manager))
-		runtime = claudeRuntime
-		interruptRuntime = claudeRuntime
-	case catalogdomain.AgentProviderAdapterTypeGeminiCLI:
-		runtime = NewGeminiRuntime(manager)
-	default:
-		return nil, false, fmt.Errorf("%w: provider=%s", ErrProviderUnsupported, providerItem.AdapterType)
-	}
-
-	live := &liveProjectConversation{
-		principal: principal,
-		provider:  providerItem,
-		machine:   machine,
-		runtime:   runtime,
-		codex:     codexRuntime,
-		interrupt: interruptRuntime,
-		workspace: workspacePath,
-	}
-	s.liveMu.Lock()
-	s.live[conversationID] = live
-	s.liveMu.Unlock()
-	now := time.Now().UTC()
-	updatedPrincipal, updateErr := s.repo.UpdatePrincipalRuntime(ctx, domain.UpdatePrincipalRuntimeInput{
-		PrincipalID:          principal.ID,
-		RuntimeState:         domain.RuntimeStateReady,
-		CurrentSessionID:     optionalString(conversation.ID.String()),
-		CurrentWorkspacePath: optionalString(workspacePath.String()),
-		LastHeartbeatAt:      &now,
-		CurrentStepStatus:    optionalString("runtime_ready"),
-		CurrentStepSummary:   optionalString("Project conversation runtime ready."),
-		CurrentStepChangedAt: &now,
-	})
-	if updateErr == nil {
-		live.principal = updatedPrincipal
-	}
-	return live, false, nil
+func (s *ProjectConversationService) ensureConversationWorkspace(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	project catalogdomain.Project,
+	providerItem catalogdomain.AgentProvider,
+	conversationID uuid.UUID,
+) (provider.AbsolutePath, error) {
+	s.runtimeManager.ConfigureGitHubCredentials(s.githubAuth)
+	s.runtimeManager.ConfigureSkillSync(s.skillSync)
+	return s.runtimeManager.ensureConversationWorkspace(ctx, machine, project, providerItem, conversationID)
 }
 
 func (s *ProjectConversationService) buildProjectConversationPrompt(
@@ -1535,7 +1421,7 @@ func (s *ProjectConversationService) buildProjectConversationPrompt(
 		return builder.String(), nil
 	}
 
-	entries, err := s.repo.ListEntries(ctx, conversation.ID)
+	entries, err := s.entries.ListEntries(ctx, conversation.ID)
 	if err != nil {
 		return "", err
 	}
@@ -1558,94 +1444,8 @@ func (s *ProjectConversationService) buildProjectConversationPrompt(
 	return builder.String(), nil
 }
 
-func (s *ProjectConversationService) ensureConversationWorkspace(
-	ctx context.Context,
-	machine catalogdomain.Machine,
-	project catalogdomain.Project,
-	providerItem catalogdomain.AgentProvider,
-	conversationID uuid.UUID,
-) (provider.AbsolutePath, error) {
-	root := ""
-	if machine.WorkspaceRoot != nil && strings.TrimSpace(*machine.WorkspaceRoot) != "" {
-		root = strings.TrimSpace(*machine.WorkspaceRoot)
-	} else if machine.Host == catalogdomain.LocalMachineHost {
-		localRoot, err := workspaceinfra.LocalWorkspaceRoot()
-		if err != nil {
-			return "", err
-		}
-		root = localRoot
-	}
-	if root == "" {
-		return "", fmt.Errorf("chat provider machine %s is missing workspace_root", machine.Name)
-	}
-
-	projectRepos, err := s.catalog.ListProjectRepos(ctx, project.ID)
-	if err != nil {
-		return "", fmt.Errorf("list project repos for conversation workspace: %w", err)
-	}
-	request, err := workspaceinfra.ParseSetupRequest(workspaceinfra.SetupInput{
-		WorkspaceRoot:    root,
-		OrganizationSlug: project.OrganizationID.String(),
-		ProjectSlug:      project.Slug,
-		AgentName:        projectConversationPrincipalName(conversationID),
-		TicketIdentifier: projectConversationWorkspaceName(conversationID),
-		Repos:            mapConversationWorkspaceRepos(projectRepos),
-	})
-	if err != nil {
-		return "", fmt.Errorf("build project conversation workspace request: %w", err)
-	}
-	request, err = s.applyGitHubWorkspaceAuth(ctx, project.ID, request)
-	if err != nil {
-		return "", fmt.Errorf("prepare chat workspace auth: %w", err)
-	}
-	var workspaceItem workspaceinfra.Workspace
-	if machine.Host == catalogdomain.LocalMachineHost {
-		workspaceItem, err = workspaceinfra.NewManager().Prepare(ctx, request)
-		if err != nil {
-			return "", fmt.Errorf("prepare local chat workspace: %w", err)
-		}
-	} else {
-		if s.sshPool == nil {
-			return "", fmt.Errorf("ssh pool unavailable for machine %s", machine.Name)
-		}
-		workspaceItem, err = workspaceinfra.NewRemoteManager(s.sshPool).Prepare(ctx, machine, request)
-		if err != nil {
-			return "", fmt.Errorf("prepare remote chat workspace: %w", err)
-		}
-	}
-
-	if err := s.syncConversationWorkspaceSkills(ctx, machine, project.ID, workspaceItem.Path, string(providerItem.AdapterType)); err != nil {
-		return "", err
-	}
-
-	return provider.ParseAbsolutePath(filepath.Clean(workspaceItem.Path))
-}
-
-func (s *ProjectConversationService) resolveProcessManager(
-	machine catalogdomain.Machine,
-) (provider.AgentCLIProcessManager, error) {
-	if machine.Host == catalogdomain.LocalMachineHost {
-		if s.localProcessManager == nil {
-			return nil, fmt.Errorf("local chat process manager unavailable")
-		}
-		return s.localProcessManager, nil
-	}
-	if s.sshPool == nil {
-		return nil, fmt.Errorf("ssh process manager unavailable")
-	}
-	return sshinfra.NewProcessManager(s.sshPool, machine), nil
-}
-
 func (s *ProjectConversationService) broadcast(conversationID uuid.UUID, event StreamEvent) {
-	s.liveMu.Lock()
-	defer s.liveMu.Unlock()
-
-	for _, watcher := range s.watchers[conversationID] {
-		select {
-		case watcher <- event:
-		default:
-		}
-	}
+	s.streamBroker.Broadcast(conversationID, event)
 }
 
 func runtimeInterruptKind(kind domain.InterruptKind) string {
@@ -1768,7 +1568,7 @@ func (s *ProjectConversationService) buildConversationRuntimeEnvironment(
 		return environment
 	}
 
-	principal, err := s.repo.EnsurePrincipal(ctx, domain.EnsurePrincipalInput{
+	principal, err := s.runtimeStore.EnsurePrincipal(ctx, domain.EnsurePrincipalInput{
 		ConversationID: conversation.ID,
 		ProjectID:      conversation.ProjectID,
 		ProviderID:     conversation.ProviderID,
@@ -1803,126 +1603,6 @@ func (s *ProjectConversationService) buildConversationRuntimeEnvironment(
 		environment = append(environment, "OPENASE_TICKET_ID="+ticketFocus.ID.String())
 	}
 	return environment
-}
-
-func (s *ProjectConversationService) syncConversationWorkspaceSkills(
-	ctx context.Context,
-	machine catalogdomain.Machine,
-	projectID uuid.UUID,
-	workspaceRoot string,
-	adapterType string,
-) error {
-	if s == nil || s.skillSync == nil {
-		return nil
-	}
-
-	if machine.Host == catalogdomain.LocalMachineHost {
-		_, err := s.skillSync.RefreshSkills(ctx, workflowservice.RefreshSkillsInput{
-			ProjectID:     projectID,
-			WorkspaceRoot: workspaceRoot,
-			AdapterType:   adapterType,
-		})
-		if err != nil {
-			return fmt.Errorf("refresh local project conversation skills: %w", err)
-		}
-		return nil
-	}
-
-	tempRoot, err := os.MkdirTemp("", "openase-project-conversation-skills-*")
-	if err != nil {
-		return fmt.Errorf("create temp skills workspace: %w", err)
-	}
-	defer func() { _ = os.RemoveAll(tempRoot) }()
-
-	_, err = s.skillSync.RefreshSkills(ctx, workflowservice.RefreshSkillsInput{
-		ProjectID:     projectID,
-		WorkspaceRoot: tempRoot,
-		AdapterType:   adapterType,
-	})
-	if err != nil {
-		return fmt.Errorf("refresh remote project conversation skills snapshot: %w", err)
-	}
-	if err := s.copyConversationWorkspaceArtifactsRemote(ctx, machine, tempRoot, workspaceRoot, adapterType); err != nil {
-		return fmt.Errorf("sync remote project conversation skills: %w", err)
-	}
-	return nil
-}
-
-func (s *ProjectConversationService) copyConversationWorkspaceArtifactsRemote(
-	ctx context.Context,
-	machine catalogdomain.Machine,
-	localRoot string,
-	remoteWorkspaceRoot string,
-	adapterType string,
-) error {
-	if s == nil || s.sshPool == nil {
-		return fmt.Errorf("ssh pool unavailable for remote machine %s", machine.Name)
-	}
-
-	target, err := workflowservice.ResolveSkillTargetForRuntime(remoteWorkspaceRoot, adapterType)
-	if err != nil {
-		return err
-	}
-	relativePaths := conversationWorkspaceArtifactPaths(localRoot, adapterType)
-
-	client, err := s.sshPool.Get(ctx, machine)
-	if err != nil {
-		return err
-	}
-	session, err := client.NewSession()
-	if err != nil {
-		return fmt.Errorf("open ssh session for project conversation skill sync: %w", err)
-	}
-	defer func() { _ = session.Close() }()
-
-	stdin, err := session.StdinPipe()
-	if err != nil {
-		return fmt.Errorf("open ssh stdin for project conversation skill sync: %w", err)
-	}
-	stderr, err := session.StderrPipe()
-	if err != nil {
-		_ = stdin.Close()
-		return fmt.Errorf("open ssh stderr for project conversation skill sync: %w", err)
-	}
-	var stderrBuffer bytes.Buffer
-	stderrDone := make(chan struct{})
-	go func() {
-		_, _ = io.Copy(&stderrBuffer, stderr)
-		close(stderrDone)
-	}()
-
-	command := strings.Join([]string{
-		"set -eu",
-		"rm -rf " + sshinfra.ShellQuote(target.SkillsDir),
-		"rm -rf " + sshinfra.ShellQuote(filepath.Join(remoteWorkspaceRoot, ".openase", "bin")),
-		"mkdir -p " + sshinfra.ShellQuote(remoteWorkspaceRoot),
-		"tar -C " + sshinfra.ShellQuote(remoteWorkspaceRoot) + " -xf -",
-	}, " && ")
-	if err := session.Start(command); err != nil {
-		_ = stdin.Close()
-		<-stderrDone
-		return fmt.Errorf("start ssh skill sync command: %w", err)
-	}
-
-	tarWriter := tar.NewWriter(stdin)
-	writeErr := writeConversationWorkspaceArchive(tarWriter, localRoot, relativePaths)
-	closeErr := tarWriter.Close()
-	stdinCloseErr := stdin.Close()
-	waitErr := session.Wait()
-	<-stderrDone
-	if writeErr != nil {
-		return writeErr
-	}
-	if closeErr != nil {
-		return closeErr
-	}
-	if stdinCloseErr != nil {
-		return stdinCloseErr
-	}
-	if waitErr != nil {
-		return fmt.Errorf("%w: %s", waitErr, strings.TrimSpace(stderrBuffer.String()))
-	}
-	return nil
 }
 
 func conversationWorkspaceArtifactPaths(workspaceRoot string, adapterType string) []string {
