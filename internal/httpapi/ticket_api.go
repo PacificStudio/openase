@@ -339,6 +339,11 @@ func (s *Server) handleCreateTicket(c echo.Context) error {
 	if err := s.publishTicketEvent(c.Request().Context(), ticketCreatedEventType, item); err != nil {
 		return writeTicketError(c, err)
 	}
+	if item.Parent != nil {
+		if err := s.publishTicketUpdatesByID(c.Request().Context(), item.Parent.ID); err != nil {
+			return writeTicketError(c, err)
+		}
+	}
 
 	return c.JSON(http.StatusCreated, map[string]any{
 		"ticket": mapTicketResponse(item),
@@ -453,6 +458,13 @@ func (s *Server) handleUpdateTicket(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
+	var previous ticketservice.Ticket
+	if input.ParentTicketID.Set {
+		previous, err = s.ticketService.Get(c.Request().Context(), ticketID)
+		if err != nil {
+			return writeTicketError(c, err)
+		}
+	}
 
 	item, err := s.ticketService.Update(c.Request().Context(), input)
 	if err != nil {
@@ -464,6 +476,11 @@ func (s *Server) handleUpdateTicket(c echo.Context) error {
 	}
 	if err := s.publishTicketEvent(c.Request().Context(), eventType, item); err != nil {
 		return writeTicketError(c, err)
+	}
+	if input.ParentTicketID.Set {
+		if err := s.publishParentRelationshipUpdates(c.Request().Context(), previous, item); err != nil {
+			return writeTicketError(c, err)
+		}
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{
@@ -716,6 +733,9 @@ func (s *Server) handleAddTicketDependency(c echo.Context) error {
 			"created dependency missing from current ticket relationship view",
 		)
 	}
+	if err := s.publishTicketUpdatesByID(c.Request().Context(), ticketID, parsed.Input.TargetTicketID); err != nil {
+		return writeTicketError(c, err)
+	}
 
 	return c.JSON(http.StatusCreated, map[string]any{
 		"dependency": relationship,
@@ -735,9 +755,17 @@ func (s *Server) handleDeleteTicketDependency(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_DEPENDENCY_ID", err.Error())
 	}
+	current, err := s.ticketService.Get(c.Request().Context(), ticketID)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+	counterpartyID, _ := findRelatedDependencyTicketID(current, dependencyID)
 
 	result, err := s.ticketService.RemoveDependency(c.Request().Context(), ticketID, dependencyID)
 	if err != nil {
+		return writeTicketError(c, err)
+	}
+	if err := s.publishTicketUpdatesByID(c.Request().Context(), ticketID, counterpartyID); err != nil {
 		return writeTicketError(c, err)
 	}
 
@@ -768,6 +796,9 @@ func (s *Server) handleAddTicketExternalLink(c echo.Context) error {
 	if err != nil {
 		return writeTicketError(c, err)
 	}
+	if err := s.publishTicketUpdatedByID(c.Request().Context(), ticketID); err != nil {
+		return writeTicketError(c, err)
+	}
 
 	return c.JSON(http.StatusCreated, map[string]any{
 		"external_link": mapTicketExternalLinkResponse(externalLink),
@@ -790,6 +821,9 @@ func (s *Server) handleDeleteTicketExternalLink(c echo.Context) error {
 
 	result, err := s.ticketService.RemoveExternalLink(c.Request().Context(), ticketID, externalLinkID)
 	if err != nil {
+		return writeTicketError(c, err)
+	}
+	if err := s.publishTicketUpdatedByID(c.Request().Context(), ticketID); err != nil {
 		return writeTicketError(c, err)
 	}
 
@@ -1432,10 +1466,68 @@ func mapDependencyType(value string) string {
 }
 
 func (s *Server) publishTicketUpdatedByID(ctx context.Context, ticketID uuid.UUID) error {
+	if s.ticketService == nil || ticketID == uuid.Nil {
+		return nil
+	}
+
 	item, err := s.ticketService.Get(ctx, ticketID)
 	if err != nil {
 		return err
 	}
 
 	return s.publishTicketEvent(ctx, ticketUpdatedEventType, item)
+}
+
+func (s *Server) publishTicketUpdatesByID(ctx context.Context, ticketIDs ...uuid.UUID) error {
+	seen := make(map[uuid.UUID]struct{}, len(ticketIDs))
+	for _, ticketID := range ticketIDs {
+		if ticketID == uuid.Nil {
+			continue
+		}
+		if _, exists := seen[ticketID]; exists {
+			continue
+		}
+		seen[ticketID] = struct{}{}
+		if err := s.publishTicketUpdatedByID(ctx, ticketID); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *Server) publishParentRelationshipUpdates(
+	ctx context.Context,
+	previous ticketservice.Ticket,
+	current ticketservice.Ticket,
+) error {
+	oldParentID := optionalTicketReferenceID(previous.Parent)
+	newParentID := optionalTicketReferenceID(current.Parent)
+	if oldParentID == newParentID {
+		return nil
+	}
+
+	return s.publishTicketUpdatesByID(ctx, oldParentID, newParentID)
+}
+
+func optionalTicketReferenceID(reference *ticketservice.TicketReference) uuid.UUID {
+	if reference == nil {
+		return uuid.Nil
+	}
+	return reference.ID
+}
+
+func findRelatedDependencyTicketID(item ticketservice.Ticket, dependencyID uuid.UUID) (uuid.UUID, bool) {
+	for _, dependency := range item.Dependencies {
+		if dependency.ID == dependencyID {
+			return dependency.Target.ID, true
+		}
+	}
+	for _, dependency := range item.IncomingDependencies {
+		if dependency.ID == dependencyID {
+			return dependency.Target.ID, true
+		}
+	}
+
+	return uuid.Nil, false
 }

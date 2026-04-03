@@ -25,6 +25,7 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
+	"github.com/BetterAndBetterII/openase/internal/provider"
 	agentplatformrepo "github.com/BetterAndBetterII/openase/internal/repo/agentplatform"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	scheduledjobrepo "github.com/BetterAndBetterII/openase/internal/repo/scheduledjob"
@@ -330,6 +331,140 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 	)
 	if forbiddenCommentRec.Code != http.StatusForbidden {
 		t.Fatalf("expected commenting on another ticket to return 403, got %d: %s", forbiddenCommentRec.Code, forbiddenCommentRec.Body.String())
+	}
+}
+
+func TestAgentPlatformTicketMutationsPublishRefreshEvents(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
+	entStatuses, err := client.TicketStatus.Query().All(ctx)
+	if err != nil {
+		t.Fatalf("list ticket statuses: %v", err)
+	}
+	var todoID uuid.UUID
+	var inProgressID uuid.UUID
+	for _, status := range entStatuses {
+		switch status.Name {
+		case "Todo":
+			todoID = status.ID
+		case "In Progress":
+			inProgressID = status.ID
+		}
+	}
+	if todoID == uuid.Nil || inProgressID == uuid.Nil {
+		t.Fatalf("expected Todo and In Progress statuses, got %+v", entStatuses)
+	}
+	parentTicket, err := client.Ticket.Create().
+		SetProjectID(projectID).
+		SetIdentifier("ASE-99").
+		SetTitle("Parent via agent create").
+		SetStatusID(todoID).
+		SetCreatedBy("user:codex").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create parent ticket: %v", err)
+	}
+
+	platformService := agentplatform.NewService(agentplatformrepo.NewEntRepository(client))
+	bus := eventinfra.NewChannelBus()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		bus,
+		newTicketService(client),
+		newTicketStatusService(client),
+		platformService,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		nil,
+	)
+	issued, err := platformService.IssueToken(ctx, agentplatform.IssueInput{
+		AgentID:   agentID,
+		ProjectID: projectID,
+		TicketID:  currentTicketID,
+	})
+	if err != nil {
+		t.Fatalf("IssueToken returned error: %v", err)
+	}
+	headers := map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token}
+	ticketStream := subscribeTopicEvents(t, bus, ticketEventsTopic)
+
+	createResp := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets", projectID),
+		map[string]any{
+			"title":            "Agent child ticket",
+			"parent_ticket_id": parentTicket.ID.String(),
+		},
+		headers,
+		http.StatusCreated,
+		&createResp,
+	)
+	assertStringSet(
+		t,
+		readTicketEventTicketIDs(t, ticketStream, 2),
+		createResp.Ticket.ID,
+		parentTicket.ID.String(),
+	)
+
+	activityStream := subscribeTopicEvents(t, bus, activityStreamTopic)
+
+	createCommentResp := struct {
+		Comment ticketCommentResponse `json:"comment"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/comments", currentTicketID),
+		map[string]any{"body": "agent comment"},
+		headers,
+		http.StatusCreated,
+		&createCommentResp,
+	)
+	commentCreateActivity := readEvents(t, activityStream, 2)
+	if commentCreateActivity[0].Type != provider.MustParseEventType(activityevent.TypeTicketCommentCreated.String()) ||
+		commentCreateActivity[1].Type != provider.MustParseEventType(activityevent.TypeTicketUpdated.String()) {
+		t.Fatalf("unexpected agent comment create activity types: %+v", commentCreateActivity)
+	}
+	assertStringSet(t, readTicketEventTicketIDs(t, ticketStream, 1), currentTicketID.String())
+
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/comments/%s", currentTicketID, createCommentResp.Comment.ID),
+		map[string]any{"body": "agent comment updated"},
+		headers,
+		http.StatusOK,
+		nil,
+	)
+	commentUpdateActivity := readEvents(t, activityStream, 2)
+	if commentUpdateActivity[0].Type != provider.MustParseEventType(activityevent.TypeTicketCommentEdited.String()) ||
+		commentUpdateActivity[1].Type != provider.MustParseEventType(activityevent.TypeTicketUpdated.String()) {
+		t.Fatalf("unexpected agent comment update activity types: %+v", commentUpdateActivity)
+	}
+	assertStringSet(t, readTicketEventTicketIDs(t, ticketStream, 1), currentTicketID.String())
+
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/platform/tickets/%s", currentTicketID),
+		map[string]any{"status_id": inProgressID.String()},
+		headers,
+		http.StatusOK,
+		nil,
+	)
+	statusEvent := readEvents(t, ticketStream, 1)[0]
+	if statusEvent.Type != provider.MustParseEventType(activityevent.TypeTicketStatusChanged.String()) {
+		t.Fatalf("unexpected agent status change event type: %+v", statusEvent)
 	}
 }
 

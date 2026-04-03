@@ -4,19 +4,9 @@
   import ProjectConversationWorkspaceSummary from './project-conversation-workspace-summary.svelte'
   import ProjectConversationTranscript from './project-conversation-transcript.svelte'
   import type { ProjectConversation } from '$lib/api/chat'
+  import type { ProjectConversationTabView } from './project-conversation-panel-labels'
   import type { ProjectConversationTranscriptEntry } from './project-conversation-transcript-state'
   import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
-
-  type ProjectConversationTabSummary = {
-    id: string
-    conversationId: string
-    phase: string
-    pending: boolean
-    hasPendingInterrupt: boolean
-    restored: boolean
-    draft: string
-    entries: ProjectConversationTranscriptEntry[]
-  }
 
   let {
     tabs = [],
@@ -32,7 +22,7 @@
     onCloseTab,
     onRespondInterrupt,
   }: {
-    tabs?: ProjectConversationTabSummary[]
+    tabs?: ProjectConversationTabView[]
     activeTabId?: string
     conversations?: ProjectConversation[]
     conversationId?: string

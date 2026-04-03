@@ -80,6 +80,7 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 - `machine`: 机器注册、探测、资源查看
 - `provider`: provider 查看与配置
 - `agent`: agent 查看、暂停/恢复、输出与步骤读取
+- `activity`: project activity timeline 读取
 - `channel`: notification channel 管理与 test
 - `notification-rule`: notification rule 管理
 - `skill`: skill 查看、更新、绑定、refresh
@@ -112,6 +113,7 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 - `project`
 - `repo`
 - `workflow`
+- `activity`
 - `scheduled-job`
 - `machine`
 - `provider`
@@ -316,6 +318,68 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 - 在 Project AI / project conversation principal 下检查和续跑会话
 - 需要把 conversation transcript 或 workspace diff 当作控制面状态读取
 
+### 10. 读项目 activity timeline
+
+```bash
+./.openase/bin/openase activity list $OPENASE_PROJECT_ID
+./.openase/bin/openase activity list $OPENASE_PROJECT_ID --json events
+```
+
+能力：
+
+- 调 `GET /projects/{projectId}/activity`
+- 读取项目级业务时间线，包括 ticket 变更、workflow 变更、runtime lifecycle 和其他审计事件
+
+适用场景：
+
+- 想快速确认最近是谁修改了 workflow、status、project description
+- 需要补全当前 ticket 之外的项目上下文
+- 想确认 runtime 或 orchestration 的最近业务事件是否已经落盘
+
+### 11. 查 ticket runs / retry / external links
+
+```bash
+./.openase/bin/openase ticket run list $OPENASE_PROJECT_ID $OPENASE_TICKET_ID
+./.openase/bin/openase ticket run get $OPENASE_PROJECT_ID $OPENASE_TICKET_ID $RUN_ID
+./.openase/bin/openase ticket retry-resume $OPENASE_TICKET_ID
+./.openase/bin/openase ticket external-link add $OPENASE_TICKET_ID \
+  --title "PR 482" \
+  --url "https://github.com/acme/repo/pull/482"
+```
+
+能力：
+
+- `ticket run list` 调 `GET /projects/{projectId}/tickets/{ticketId}/runs`
+- `ticket run get` 调 `GET /projects/{projectId}/tickets/{ticketId}/runs/{runId}`
+- `ticket retry-resume` 调 `POST /tickets/{ticketId}/retry/resume`
+- `ticket external-link add/delete` 管理 ticket 的外部关联
+
+适用场景：
+
+- 想确认某个 ticket 的最近执行历史、失败原因、重试链路
+- 需要在 retryable failure 之后显式恢复执行
+- 需要把 PR、issue、文档、事故单等外部系统对象挂回 ticket
+
+### 12. 查 workflow harness history / variables / validate
+
+```bash
+./.openase/bin/openase workflow harness history $WORKFLOW_ID
+./.openase/bin/openase workflow harness variables
+./.openase/bin/openase workflow harness validate --input /tmp/harness.json
+```
+
+能力：
+
+- `workflow harness history` 调 `GET /workflows/{workflowId}/harness/history`
+- `workflow harness variables` 调 `GET /harness/variables`
+- `workflow harness validate` 调 `POST /harness/validate`
+
+适用场景：
+
+- 想先看 harness 最近几次修改，再决定是否继续改
+- 想确认模板里可以引用哪些变量
+- 想在真正提交 harness 更新前先做语义校验
+
 ## Full CLI Surface Beyond The Safe Subset
 
 如果上面这些高频命令不够，`openase` 其实还有更广的 typed CLI，可直接走 OpenAPI 合约，不需要自己查源码再拼 HTTP。
@@ -332,6 +396,7 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 - `openase machine ...`
 - `openase provider ...`
 - `openase agent ...`
+- `openase activity ...`
 - `openase channel ...`
 - `openase notification-rule ...`
 - `openase skill ...`
@@ -348,6 +413,11 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 ./.openase/bin/openase repo list $OPENASE_PROJECT_ID
 ./.openase/bin/openase workflow list $OPENASE_PROJECT_ID
 ./.openase/bin/openase workflow harness get $WORKFLOW_ID
+./.openase/bin/openase workflow harness history $WORKFLOW_ID
+./.openase/bin/openase workflow harness variables
+./.openase/bin/openase activity list $OPENASE_PROJECT_ID
+./.openase/bin/openase ticket run list $OPENASE_PROJECT_ID $OPENASE_TICKET_ID
+./.openase/bin/openase ticket retry-resume $OPENASE_TICKET_ID
 ./.openase/bin/openase scheduled-job list $OPENASE_PROJECT_ID
 ./.openase/bin/openase machine refresh-health $MACHINE_ID
 ./.openase/bin/openase machine resources $MACHINE_ID

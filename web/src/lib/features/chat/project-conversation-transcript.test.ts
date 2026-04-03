@@ -128,6 +128,45 @@ describe('ProjectConversationTranscript', () => {
     expect(getByText('Hello! How can I help?')).toBeTruthy()
   })
 
+  it('rerenders when assistant text entries arrive after the initial render', async () => {
+    const { findByText, rerender } = render(ProjectConversationTranscript, {
+      props: {
+        entries: [
+          {
+            id: 'entry-user',
+            kind: 'text',
+            role: 'user',
+            content: 'Hello, AI!',
+            streaming: false,
+          },
+        ],
+      },
+    })
+
+    expect(await findByText('Hello, AI!')).toBeTruthy()
+
+    await rerender({
+      entries: [
+        {
+          id: 'entry-user',
+          kind: 'text',
+          role: 'user',
+          content: 'Hello, AI!',
+          streaming: false,
+        },
+        {
+          id: 'entry-assistant',
+          kind: 'text',
+          role: 'assistant',
+          content: 'First streamed reply chunk.',
+          streaming: true,
+        },
+      ],
+    })
+
+    expect(await findByText('First streamed reply chunk.')).toBeTruthy()
+  })
+
   it('shows pending indicator when pending is true', () => {
     const { getByText } = render(ProjectConversationTranscript, {
       props: {

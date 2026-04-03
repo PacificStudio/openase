@@ -133,51 +133,59 @@ export function appendProjectConversationChunk(
 export function connectProjectConversationStream(params: {
   state: ProjectConversationControllerState
   conversationId: string
+  resolveState?: () => ProjectConversationControllerState | null
+  onStateChanged?: () => void
   onError?: (message: string) => void
   onEvent?: (event: ProjectConversationStreamEvent) => void
   onClosed?: (streamId: number) => void
 }) {
-  const currentStreamId = params.state.streamId + 1
+  const initialState = params.resolveState?.() ?? params.state
+  const currentStreamId = initialState.streamId + 1
   let streamFailed = false
   let receivedNonSessionEvent = false
   const started = startProjectConversationStream({
     conversationId: params.conversationId,
-    abortController: params.state.abortController,
+    abortController: initialState.abortController,
     onEvent: (event) => {
-      if (currentStreamId !== params.state.streamId) {
+      const liveState = params.resolveState?.() ?? params.state
+      if (currentStreamId !== liveState.streamId) {
         return
       }
       if (event.kind !== 'session') {
         receivedNonSessionEvent = true
       }
       applyProjectConversationStreamEvent({
-        state: params.state,
+        state: liveState,
         event,
         onError: params.onError,
       })
+      params.onStateChanged?.()
       params.onEvent?.(event)
     },
     onError: (message) => {
-      if (currentStreamId !== params.state.streamId) {
+      const liveState = params.resolveState?.() ?? params.state
+      if (currentStreamId !== liveState.streamId) {
         return
       }
       streamFailed = true
-      finalizeProjectConversationEntry(params.state)
-      if (params.state.phase !== 'awaiting_interrupt') {
-        params.state.phase = 'idle'
+      finalizeProjectConversationEntry(liveState)
+      if (liveState.phase !== 'awaiting_interrupt') {
+        liveState.phase = 'idle'
       }
+      params.onStateChanged?.()
       params.onError?.(message)
     },
   })
 
-  params.state.streamId = currentStreamId
-  params.state.abortController = started.controller
+  const connectedState = params.resolveState?.() ?? params.state
+  connectedState.streamId = currentStreamId
+  connectedState.abortController = started.controller
   void started.stream.finally(() => {
+    const liveState = params.resolveState?.() ?? params.state
     const isCurrentStream =
-      currentStreamId === params.state.streamId &&
-      params.state.abortController === started.controller
+      currentStreamId === liveState.streamId && liveState.abortController === started.controller
     if (isCurrentStream) {
-      params.state.abortController = null
+      liveState.abortController = null
     }
     if (
       isCurrentStream &&
@@ -185,6 +193,7 @@ export function connectProjectConversationStream(params: {
       !streamFailed &&
       receivedNonSessionEvent
     ) {
+      params.onStateChanged?.()
       params.onClosed?.(currentStreamId)
     }
   })

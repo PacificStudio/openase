@@ -203,6 +203,212 @@ func TestTypedTicketCommentCommandExposesPrimitiveSubcommandsOnly(t *testing.T) 
 	}
 }
 
+func TestTypedTicketDependencyCommandExposesPrimitiveSubcommandsOnly(t *testing.T) {
+	root := NewRootCommand("dev")
+	command, _, err := root.Find([]string{"ticket", "dependency"})
+	if err != nil {
+		t.Fatalf("Find(ticket dependency) returned error: %v", err)
+	}
+	if command == nil {
+		t.Fatal("expected ticket dependency command")
+	}
+	names := make([]string, 0, len(command.Commands()))
+	for _, child := range command.Commands() {
+		if child.Hidden || child.Name() == "help" {
+			continue
+		}
+		names = append(names, child.Name())
+	}
+	if strings.Join(names, ",") != "add,delete" {
+		t.Fatalf("dependency subcommands = %v, want [add delete]", names)
+	}
+}
+
+func TestTypedTicketDependencyAddHelpMentionsBlockerSemantics(t *testing.T) {
+	root := NewRootCommand("dev")
+	command, _, err := root.Find([]string{"ticket", "dependency", "add"})
+	if err != nil {
+		t.Fatalf("Find(ticket dependency add) returned error: %v", err)
+	}
+	if command == nil {
+		t.Fatal("expected ticket dependency add command")
+	}
+
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	if err := command.Help(); err != nil {
+		t.Fatalf("Help() returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{
+		"--type blocks or --type blocked_by",
+		"API does not expose a patch operation",
+		"--target-ticket-id",
+		"ticketId must be UUID values",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help output to contain %q, got %q", want, output)
+		}
+	}
+}
+
+func TestActivityListHelpMentionsTimelineSemantics(t *testing.T) {
+	root := NewRootCommand("dev")
+	command, _, err := root.Find([]string{"activity", "list"})
+	if err != nil {
+		t.Fatalf("Find(activity list) returned error: %v", err)
+	}
+	if command == nil {
+		t.Fatal("expected activity list command")
+	}
+
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	if err := command.Help(); err != nil {
+		t.Fatalf("Help() returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{
+		"project event timeline",
+		"runtime activity",
+		"projectId must be UUID values",
+		"openase activity list",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help output to contain %q, got %q", want, output)
+		}
+	}
+}
+
+func TestTicketCommandExposesRunRetryAndExternalLinkSubcommands(t *testing.T) {
+	root := NewRootCommand("dev")
+	command, _, err := root.Find([]string{"ticket"})
+	if err != nil {
+		t.Fatalf("Find(ticket) returned error: %v", err)
+	}
+	if command == nil {
+		t.Fatal("expected ticket command")
+	}
+
+	names := make([]string, 0, len(command.Commands()))
+	for _, child := range command.Commands() {
+		if child.Hidden || child.Name() == "help" {
+			continue
+		}
+		names = append(names, child.Name())
+	}
+	if strings.Join(names, ",") != "archived,comment,create,dependency,detail,external-link,get,list,retry-resume,run,update" {
+		t.Fatalf("ticket subcommands = %v", names)
+	}
+}
+
+func TestTicketRunCommandExposesListAndGetSubcommands(t *testing.T) {
+	root := NewRootCommand("dev")
+	command, _, err := root.Find([]string{"ticket", "run"})
+	if err != nil {
+		t.Fatalf("Find(ticket run) returned error: %v", err)
+	}
+	if command == nil {
+		t.Fatal("expected ticket run command")
+	}
+
+	names := make([]string, 0, len(command.Commands()))
+	for _, child := range command.Commands() {
+		if child.Hidden || child.Name() == "help" {
+			continue
+		}
+		names = append(names, child.Name())
+	}
+	if strings.Join(names, ",") != "get,list" {
+		t.Fatalf("ticket run subcommands = %v", names)
+	}
+}
+
+func TestTicketRetryResumeHelpMentionsRetryableFailureSemantics(t *testing.T) {
+	root := NewRootCommand("dev")
+	command, _, err := root.Find([]string{"ticket", "retry-resume"})
+	if err != nil {
+		t.Fatalf("Find(ticket retry-resume) returned error: %v", err)
+	}
+	if command == nil {
+		t.Fatal("expected ticket retry-resume command")
+	}
+
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	if err := command.Help(); err != nil {
+		t.Fatalf("Help() returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{
+		"fresh retry attempt",
+		"resumable retry state",
+		"ticketId must be UUID values",
+		"openase ticket retry-resume",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help output to contain %q, got %q", want, output)
+		}
+	}
+}
+
+func TestWorkflowHarnessCommandExposesHistoryVariablesAndValidateSubcommands(t *testing.T) {
+	root := NewRootCommand("dev")
+	command, _, err := root.Find([]string{"workflow", "harness"})
+	if err != nil {
+		t.Fatalf("Find(workflow harness) returned error: %v", err)
+	}
+	if command == nil {
+		t.Fatal("expected workflow harness command")
+	}
+
+	names := make([]string, 0, len(command.Commands()))
+	for _, child := range command.Commands() {
+		if child.Hidden || child.Name() == "help" {
+			continue
+		}
+		names = append(names, child.Name())
+	}
+	if strings.Join(names, ",") != "get,history,update,validate,variables" {
+		t.Fatalf("workflow harness subcommands = %v", names)
+	}
+}
+
+func TestWorkflowHarnessVariablesHelpMentionsVariableCatalog(t *testing.T) {
+	root := NewRootCommand("dev")
+	command, _, err := root.Find([]string{"workflow", "harness", "variables"})
+	if err != nil {
+		t.Fatalf("Find(workflow harness variables) returned error: %v", err)
+	}
+	if command == nil {
+		t.Fatal("expected workflow harness variables command")
+	}
+
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	if err := command.Help(); err != nil {
+		t.Fatalf("Help() returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{
+		"variable catalog",
+		"before editing or validating",
+		"openase workflow harness variables",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help output to contain %q, got %q", want, output)
+		}
+	}
+}
+
 func TestStatusListHelpMentionsStatusBoardSemantics(t *testing.T) {
 	root := NewRootCommand("dev")
 	command, _, err := root.Find([]string{"status", "list"})

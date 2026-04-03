@@ -1129,6 +1129,106 @@ func TestTicketRepoScopeRoutesWithEntRepository(t *testing.T) {
 	}
 }
 
+func TestTicketRepoScopeRoutesPublishTicketRefreshEvents(t *testing.T) {
+	client := openTestEntClient(t)
+	bus := eventinfra.NewChannelBus()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		bus,
+		newTicketService(client),
+		nil,
+		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Acme Repo Scope Events").
+		SetSlug("acme-repo-scope-events").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create org: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE Repo Scope Events").
+		SetSlug("openase-repo-scope-events").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	status, err := client.TicketStatus.Create().
+		SetProjectID(project.ID).
+		SetName("Todo").
+		SetColor("#111111").
+		SetPosition(1).
+		SetIsDefault(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create status: %v", err)
+	}
+	ticket, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-31").
+		SetTitle("repo scope refresh").
+		SetStatusID(status.ID).
+		SetCreatedBy("codex").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	repo, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName("backend").
+		SetRepositoryURL("https://github.com/acme/backend.git").
+		SetDefaultBranch("main").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create repo: %v", err)
+	}
+
+	stream := subscribeTopicEvents(t, bus, ticketEventsTopic)
+
+	var createResp struct {
+		RepoScope ticketRepoScopeResponse `json:"repo_scope"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes",
+		map[string]any{"repo_id": repo.ID.String()},
+		http.StatusCreated,
+		&createResp,
+	)
+	assertStringSet(t, readTicketEventTicketIDs(t, stream, 1), ticket.ID.String())
+
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes/"+createResp.RepoScope.ID,
+		map[string]any{"branch_name": "feature/repo-scope-events"},
+		http.StatusOK,
+		nil,
+	)
+	assertStringSet(t, readTicketEventTicketIDs(t, stream, 1), ticket.ID.String())
+
+	executeJSON(
+		t,
+		server,
+		http.MethodDelete,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes/"+createResp.RepoScope.ID,
+		nil,
+		http.StatusOK,
+		nil,
+	)
+	assertStringSet(t, readTicketEventTicketIDs(t, stream, 1), ticket.ID.String())
+}
+
 func performJSONRequest(t *testing.T, server *Server, method string, target string, body string) *httptest.ResponseRecorder {
 	t.Helper()
 

@@ -1,3 +1,5 @@
+import type { ProjectConversation, ProjectConversationWorkspaceDiff } from '$lib/api/chat'
+import type { AgentProvider } from '$lib/api/contracts'
 import { storeProjectConversationTabs } from './project-conversation-storage'
 import {
   projectConversationHasPendingInterrupt,
@@ -11,6 +13,7 @@ import type { ProjectAIFocus } from './project-ai-focus'
 export type CreateProjectConversationControllerInput = {
   getProjectId: () => string
   onError?: (message: string) => void
+  onStateChange?: (snapshot: ProjectConversationControllerSnapshot) => void
 }
 
 export type QueuedProjectTurn = {
@@ -26,19 +29,30 @@ export type ProjectConversationTabState = ProjectConversationControllerState & {
   restored: boolean
   draft: string
   queuedTurns: QueuedProjectTurn[]
+  readonly pending: boolean
+  readonly hasPendingInterrupt: boolean
 }
 
-export type ProjectConversationTabSummary = {
-  id: string
+export type ProjectConversationControllerSnapshot = {
+  providers: AgentProvider[]
+  conversations: ProjectConversation[]
+  tabs: ProjectConversationTabState[]
+  activeTabId: string
   providerId: string
-  conversationId: string
-  phase: ProjectConversationPhase
-  pending: boolean
-  hasPendingInterrupt: boolean
-  restored: boolean
-  draft: string
-  queuedTurns: QueuedProjectTurn[]
+  providerSelectionDisabled: boolean
   entries: ProjectConversationTranscriptEntry[]
+  conversationId: string
+  workspaceDiff: ProjectConversationWorkspaceDiff | null
+  workspaceDiffLoading: boolean
+  workspaceDiffError: string
+  pending: boolean
+  queuedTurns: QueuedProjectTurn[]
+  hasPendingInterrupt: boolean
+  draft: string
+  inputDisabled: boolean
+  sendDisabled: boolean
+  canQueueTurn: boolean
+  phase: ProjectConversationPhase
 }
 
 export function createProjectConversationTabState(
@@ -64,6 +78,12 @@ export function createProjectConversationTabState(
     entryCounter: 0,
     operationId: 0,
     streamId: 0,
+    get pending() {
+      return isProjectConversationTabPending(this as ProjectConversationTabState)
+    },
+    get hasPendingInterrupt() {
+      return projectConversationHasPendingInterrupt(this.entries)
+    },
   }
 }
 
@@ -85,23 +105,6 @@ export function isProjectConversationTabPending(tab: ProjectConversationTabState
     tab.phase === 'submitting_turn' ||
     tab.phase === 'awaiting_reply'
   )
-}
-
-export function summarizeProjectConversationTab(
-  tab: ProjectConversationTabState,
-): ProjectConversationTabSummary {
-  return {
-    id: tab.id,
-    providerId: tab.providerId,
-    conversationId: tab.conversationId,
-    phase: tab.phase,
-    pending: isProjectConversationTabPending(tab),
-    hasPendingInterrupt: projectConversationHasPendingInterrupt(tab.entries),
-    restored: tab.restored,
-    draft: tab.draft,
-    queuedTurns: tab.queuedTurns,
-    entries: tab.entries,
-  }
 }
 
 export function ensureProjectConversationTabSelection(

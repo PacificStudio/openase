@@ -51,6 +51,7 @@ func NewRootCommand(version string) *cobra.Command {
 	rootCmd.AddCommand(newMachineCommand())
 	rootCmd.AddCommand(newProviderCommand())
 	rootCmd.AddCommand(newAgentCommand())
+	rootCmd.AddCommand(newActivityCommand())
 	rootCmd.AddCommand(newChannelCommand())
 	rootCmd.AddCommand(newNotificationRuleCommand())
 	rootCmd.AddCommand(newSkillCommand())

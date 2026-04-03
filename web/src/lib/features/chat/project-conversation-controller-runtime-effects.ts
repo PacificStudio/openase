@@ -13,25 +13,33 @@ type RuntimeEffectsInput = {
   conversations: ProjectConversationControllerConversations
   onError?: (message: string) => void
   persistTabs: () => void
+  touchTabs: () => void
   connectTabStream: (tab: ProjectConversationTabState, conversationId: string) => void
 }
 
-export async function hydrateTabEntries(tab: ProjectConversationTabState, conversationId: string) {
+export async function hydrateTabEntries(
+  tab: ProjectConversationTabState,
+  conversationId: string,
+  onChanged?: () => void,
+) {
   const payload = await listProjectConversationEntries(conversationId)
   const mappedEntries = mapPersistedEntries(payload.entries)
   tab.entries = mappedEntries
   tab.entryCounter = mappedEntries.length
   tab.activeAssistantEntryId = ''
+  onChanged?.()
 }
 
 export async function refreshTabWorkspaceDiff(
   tab: ProjectConversationTabState,
   conversationId: string,
+  onChanged?: () => void,
 ) {
   if (!conversationId) {
     tab.workspaceDiff = null
     tab.workspaceDiffLoading = false
     tab.workspaceDiffError = ''
+    onChanged?.()
     return
   }
 
@@ -44,6 +52,7 @@ export async function refreshTabWorkspaceDiff(
     if (currentRequestId !== tab.workspaceDiffRequestId || tab.conversationId !== conversationId)
       return
     tab.workspaceDiff = payload.workspaceDiff
+    onChanged?.()
   } catch (caughtError) {
     if (currentRequestId !== tab.workspaceDiffRequestId || tab.conversationId !== conversationId)
       return
@@ -52,9 +61,11 @@ export async function refreshTabWorkspaceDiff(
       caughtError instanceof Error
         ? caughtError.message
         : 'Failed to load Project AI workspace changes.'
+    onChanged?.()
   } finally {
     if (currentRequestId === tab.workspaceDiffRequestId && tab.conversationId === conversationId) {
       tab.workspaceDiffLoading = false
+      onChanged?.()
     }
   }
 }
@@ -68,7 +79,7 @@ export function handleTabStreamEvent(
     tab.conversationId = input.conversations.applySessionPayload(tab.conversationId, event.payload)
   }
   if ((event.kind === 'session' || event.kind === 'turn_done') && tab.conversationId) {
-    void refreshTabWorkspaceDiff(tab, tab.conversationId)
+    void refreshTabWorkspaceDiff(tab, tab.conversationId, input.touchTabs)
   }
 }
 
@@ -100,7 +111,7 @@ export async function reconcileTabAfterStreamClose(
       return
     }
 
-    await hydrateTabEntries(tab, conversationId)
+    await hydrateTabEntries(tab, conversationId, input.touchTabs)
     if (tab.streamId !== streamId || tab.conversationId !== conversationId) {
       return
     }
@@ -112,7 +123,7 @@ export async function reconcileTabAfterStreamClose(
       tab.phase = 'idle'
     }
 
-    void refreshTabWorkspaceDiff(tab, conversationId)
+    void refreshTabWorkspaceDiff(tab, conversationId, input.touchTabs)
     input.persistTabs()
   } catch (caughtError) {
     if (tab.streamId !== streamId || tab.conversationId !== conversationId) {

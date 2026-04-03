@@ -50,7 +50,6 @@
     getProjectId: () => context.projectId,
     onError: (message) => toastStore.error(message),
   })
-
   const activeProviders = $derived(providers.length > 0 ? providers : loadedProviders),
     chatProviders = $derived(controller.providers),
     providerId = $derived(controller.providerId),
@@ -142,9 +141,9 @@
         appliedInitialPromptSignature = applyEligibleInitialPrompt({
           restoreKey,
           nextInitialPrompt: initialPrompt,
-          activeTabId,
+          activeTabId: controller.activeTabId,
           appliedInitialPromptSignature,
-          activeDraft: draft,
+          activeDraft: controller.draft,
           setDraft: controller.setDraft,
         })
       }
@@ -165,7 +164,7 @@
   })
   $effect(() => {
     const restoreKey = context.projectId
-    if (!restoreKey || !activeTabId) {
+    if (!restoreKey || !controller.activeTabId) {
       return
     }
 
@@ -176,9 +175,9 @@
     appliedInitialPromptSignature = applyEligibleInitialPrompt({
       restoreKey,
       nextInitialPrompt: initialPrompt,
-      activeTabId,
+      activeTabId: controller.activeTabId,
       appliedInitialPromptSignature,
-      activeDraft: draft,
+      activeDraft: controller.draft,
       setDraft: controller.setDraft,
     })
   })
@@ -216,14 +215,14 @@
   })
 
   async function handleSend() {
-    const message = draft.trim()
+    const message = controller.draft.trim()
     if (!message) {
       return
     }
 
     const nextFocus = suppressedFocusKey === effectiveFocusKey ? null : effectiveFocus
-    if (queuedTurns.length > 0 || sendDisabled) {
-      if (!canQueueTurn || !controller.enqueueTurn(message, nextFocus)) {
+    if (controller.queuedTurns.length > 0 || controller.sendDisabled) {
+      if (!controller.canQueueTurn || !controller.enqueueTurn(message, nextFocus)) {
         return
       }
       controller.setDraft('')

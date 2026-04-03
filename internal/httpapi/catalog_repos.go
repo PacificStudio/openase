@@ -228,6 +228,9 @@ func (s *Server) createTicketRepoScope(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
+	if err := s.publishTicketUpdatedByID(c.Request().Context(), ticketID); err != nil {
+		return writeCatalogError(c, err)
+	}
 
 	return c.JSON(http.StatusCreated, map[string]any{
 		"repo_scope": mapTicketRepoScopeResponse(item),
@@ -267,6 +270,9 @@ func (s *Server) patchTicketRepoScope(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
+	if err := s.publishTicketUpdatedByID(c.Request().Context(), ticketID); err != nil {
+		return writeCatalogError(c, err)
+	}
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"repo_scope": mapTicketRepoScopeResponse(item),
@@ -289,6 +295,9 @@ func (s *Server) deleteTicketRepoScope(c echo.Context) error {
 
 	item, err := s.catalog.DeleteTicketRepoScope(c.Request().Context(), projectID, ticketID, scopeID)
 	if err != nil {
+		return writeCatalogError(c, err)
+	}
+	if err := s.publishTicketUpdatedByID(c.Request().Context(), ticketID); err != nil {
 		return writeCatalogError(c, err)
 	}
 

@@ -28,6 +28,7 @@ type ProjectConversationControllerOperationsInput = {
   ensureTabExists: () => void
   ensureTabSelection: (preferredTabId?: string) => void
   persistTabs: () => void
+  touch: () => void
 }
 
 export function createProjectConversationControllerOperations(
@@ -35,6 +36,17 @@ export function createProjectConversationControllerOperations(
 ) {
   let restoreOperationID = 0
   const runtime = createProjectConversationControllerRuntime(input)
+
+  function hasLocalTabActivity(tabs: ProjectConversationTabState[]) {
+    return tabs.some(
+      (tab) =>
+        tab.draft.trim().length > 0 ||
+        tab.entries.length > 0 ||
+        tab.queuedTurns.length > 0 ||
+        tab.phase !== 'idle' ||
+        tab.conversationId.trim().length > 0,
+    )
+  }
 
   async function restore() {
     const projectId = input.controllerInput.getProjectId()
@@ -52,6 +64,10 @@ export function createProjectConversationControllerOperations(
       if (currentRestoreID !== restoreOperationID) return
 
       input.setConversations(runtime.sortProjectConversations(listPayload.conversations))
+      if (hasLocalTabActivity(input.getTabs())) {
+        input.persistTabs()
+        return
+      }
       const conversationsByID = new Map(
         listPayload.conversations.map((conversation) => [conversation.id, conversation]),
       )
@@ -87,6 +103,22 @@ export function createProjectConversationControllerOperations(
         )
 
       if (restoredTabs.length === 0) {
+        const latestConversation = input.getConversations()[0] ?? null
+        if (latestConversation) {
+          const restoredTab = input.newTabState(latestConversation.providerId, true)
+          input.setTabs([restoredTab])
+          input.setActiveTabId(restoredTab.id)
+
+          const liveRestoredTab = findProjectConversationTab(input.getTabs(), restoredTab.id)
+          if (
+            liveRestoredTab &&
+            (await runtime.loadTabConversation(liveRestoredTab, latestConversation.id, true))
+          ) {
+            input.persistTabs()
+            return
+          }
+        }
+
         const blankTab = input.newTabState(input.getPreferredProviderId(), false)
         input.setTabs([blankTab])
         input.setActiveTabId(blankTab.id)
@@ -110,14 +142,14 @@ export function createProjectConversationControllerOperations(
         if (restored == null || restored.conversationId === '') {
           continue
         }
-        const tab = nextTabs[index]
+        const tab = findProjectConversationTab(input.getTabs(), restored.tab.id)
         const conversationId = restored.conversationId
         if (tab && (await runtime.loadTabConversation(tab, conversationId, restored.restored))) {
           loadedTabIDs.add(tab.id)
         }
       }
 
-      const filteredTabs = nextTabs.filter((tab) => loadedTabIDs.has(tab.id))
+      const filteredTabs = input.getTabs().filter((tab) => loadedTabIDs.has(tab.id))
       input.setTabs(filteredTabs)
       if (filteredTabs.length === 0) {
         input.ensureTabExists()

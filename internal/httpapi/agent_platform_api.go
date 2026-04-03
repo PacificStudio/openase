@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"strings"
 
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -117,6 +119,11 @@ func (s *Server) handleAgentCreateTicket(c echo.Context) error {
 	}
 	if err := s.publishTicketEvent(c.Request().Context(), ticketCreatedEventType, item); err != nil {
 		return writeTicketError(c, err)
+	}
+	if item.Parent != nil {
+		if err := s.publishTicketUpdatesByID(c.Request().Context(), item.Parent.ID); err != nil {
+			return writeTicketError(c, err)
+		}
 	}
 
 	return c.JSON(http.StatusCreated, map[string]any{
@@ -234,7 +241,11 @@ func (s *Server) handleAgentUpdateOwnTicket(c echo.Context) error {
 	if err != nil {
 		return writeTicketError(c, err)
 	}
-	if err := s.publishTicketEvent(c.Request().Context(), ticketUpdatedEventType, item); err != nil {
+	eventType := ticketUpdatedEventType
+	if input.StatusID.Set {
+		eventType = ticketStatusEventType
+	}
+	if err := s.publishTicketEvent(c.Request().Context(), eventType, item); err != nil {
 		return writeTicketError(c, err)
 	}
 
@@ -330,9 +341,22 @@ func (s *Server) handleAgentCreateOwnTicketComment(c echo.Context) error {
 	if err != nil {
 		return writeTicketError(c, err)
 	}
+	commentResponse := mapTicketCommentResponse(comment)
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: current.ProjectID,
+		TicketID:  &current.ID,
+		EventType: activityevent.TypeTicketCommentCreated,
+		Message:   "Added comment to " + current.Identifier,
+		Metadata:  ticketCommentMetadata(commentResponse),
+	}); err != nil {
+		return writeTicketError(c, err)
+	}
+	if err := s.publishTicketUpdatedByID(c.Request().Context(), current.ID); err != nil {
+		return writeTicketError(c, err)
+	}
 
 	return c.JSON(http.StatusCreated, map[string]any{
-		"comment": mapTicketCommentResponse(comment),
+		"comment": commentResponse,
 	})
 }
 
@@ -368,9 +392,22 @@ func (s *Server) handleAgentUpdateOwnTicketComment(c echo.Context) error {
 	if err != nil {
 		return writeTicketError(c, err)
 	}
+	commentResponse := mapTicketCommentResponse(comment)
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: current.ProjectID,
+		TicketID:  &current.ID,
+		EventType: activityevent.TypeTicketCommentEdited,
+		Message:   "Edited comment on " + current.Identifier,
+		Metadata:  ticketCommentMetadata(commentResponse),
+	}); err != nil {
+		return writeTicketError(c, err)
+	}
+	if err := s.publishTicketUpdatedByID(c.Request().Context(), current.ID); err != nil {
+		return writeTicketError(c, err)
+	}
 
 	return c.JSON(http.StatusOK, map[string]any{
-		"comment": mapTicketCommentResponse(comment),
+		"comment": commentResponse,
 	})
 }
 

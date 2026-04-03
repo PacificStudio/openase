@@ -21,6 +21,7 @@ func TestTypedAPILeafCommandsProvideLongHelp(t *testing.T) {
 		{"machine"},
 		{"provider"},
 		{"agent"},
+		{"activity"},
 		{"channel"},
 		{"notification-rule"},
 		{"skill"},

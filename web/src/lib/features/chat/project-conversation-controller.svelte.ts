@@ -3,22 +3,23 @@ import type { AgentProvider } from '$lib/api/contracts'
 import type { ProjectAIFocus } from './project-ai-focus'
 import { projectConversationHasPendingInterrupt } from './project-conversation-controller-helpers'
 import { createProjectConversationControllerOperations } from './project-conversation-controller-operations'
+import { createProjectConversationControllerActions } from './project-conversation-controller-actions'
 import {
   canQueueProjectConversationTurn,
   createProjectConversationTabState,
   ensureProjectConversationTabSelection,
   getActiveProjectConversationTab,
   persistProjectConversationTabs,
-  summarizeProjectConversationTab,
   isProjectConversationTabPending,
   type CreateProjectConversationControllerInput,
   type ProjectConversationTabState,
 } from './project-conversation-controller-state'
 import {
-  listEphemeralChatProviders,
-  pickDefaultEphemeralChatProvider,
-  shouldKeepEphemeralChatProvider,
-} from './provider-options'
+  buildProjectConversationControllerSnapshot,
+  createQueuedProjectConversationTurn,
+  ensureProjectConversationTabExists,
+  queueProjectConversationControllerSnapshotNotification,
+} from './project-conversation-controller-view'
 
 export function createProjectConversationController(
   input: CreateProjectConversationControllerInput,
@@ -28,8 +29,30 @@ export function createProjectConversationController(
   let conversations = $state<ProjectConversation[]>([])
   let tabs = $state<ProjectConversationTabState[]>([])
   let activeTabId = $state('')
+  let revision = $state(0)
   let nextTabID = 0
   let nextQueuedTurnID = 0
+  let snapshotNotificationQueued = false
+
+  function touch() {
+    revision += 1
+    queueProjectConversationControllerSnapshotNotification({
+      queued: snapshotNotificationQueued,
+      setQueued: (value) => (snapshotNotificationQueued = value),
+      onStateChange: input.onStateChange,
+      snapshot: () =>
+        buildProjectConversationControllerSnapshot({
+          controllerInput: input,
+          providers,
+          conversations,
+          tabs,
+          activeTabId,
+          activeTab: getActiveTab(),
+          providerId: getActiveProviderId(),
+          canQueueOnTab,
+        }),
+    })
+  }
 
   function newTabState(providerId = '', restored = false): ProjectConversationTabState {
     nextTabID += 1
@@ -55,31 +78,33 @@ export function createProjectConversationController(
     })
   }
 
-  function nextQueuedTurn(turn: { message: string; focus: ProjectAIFocus | null }) {
-    nextQueuedTurnID += 1
-    return {
-      id: `queued-turn-${nextQueuedTurnID}`,
-      createdAt: new Date().toISOString(),
-      ...turn,
-    }
-  }
-
-  function persistTabs() {
-    persistProjectConversationTabs({
-      projectId: input.getProjectId(),
+  function snapshot() {
+    return buildProjectConversationControllerSnapshot({
+      controllerInput: input,
+      providers,
+      conversations,
       tabs,
       activeTabId,
+      activeTab: getActiveTab(),
+      providerId: getActiveProviderId(),
+      canQueueOnTab,
     })
   }
 
+  function nextQueuedTurn(turn: { message: string; focus: ProjectAIFocus | null }) {
+    nextQueuedTurnID += 1
+    return createQueuedProjectConversationTurn(nextQueuedTurnID, turn)
+  }
+
   function ensureTabExists() {
-    if (tabs.length > 0) {
-      ensureTabSelection()
-      return
-    }
-    const tab = newTabState(preferredProviderId, false)
-    tabs = [tab]
-    activeTabId = tab.id
+    ensureProjectConversationTabExists({
+      tabs,
+      preferredProviderId,
+      newTabState,
+      ensureTabSelection,
+      setTabs: (value) => (tabs = value),
+      setActiveTabId: (value) => (activeTabId = value),
+    })
   }
 
   const operations = createProjectConversationControllerOperations({
@@ -87,21 +112,46 @@ export function createProjectConversationController(
     getProviderId: getActiveProviderId,
     getPreferredProviderId: () => preferredProviderId,
     getConversations: () => conversations,
-    setConversations: (value) => (conversations = value),
+    setConversations: (value) => {
+      conversations = value
+      touch()
+    },
     getTabs: () => tabs,
-    setTabs: (value) => (tabs = value),
+    setTabs: (value) => {
+      tabs = value
+      touch()
+    },
     getActiveTabId: () => activeTabId,
     setActiveTabId: (value) => (activeTabId = value),
     newTabState,
     getActiveTab,
     ensureTabExists,
     ensureTabSelection,
-    persistTabs,
+    persistTabs: () =>
+      persistProjectConversationTabs({
+        projectId: input.getProjectId(),
+        tabs,
+        activeTabId,
+      }),
+    touch,
+  })
+  const actions = createProjectConversationControllerActions({
+    getConversations: () => conversations,
+    getTabs: () => tabs,
+    getActiveTab,
+    setProviders: (value) => (providers = value),
+    setPreferredProviderId: (value) => (preferredProviderId = value),
+    canQueueOnTab,
+    nextQueuedTurn,
+    ensureTabExists,
+    touch,
+    operations,
   })
 
   ensureTabExists()
 
   return {
+    snapshot,
     get providers() {
       return providers
     },
@@ -109,15 +159,21 @@ export function createProjectConversationController(
       return conversations
     },
     get tabs() {
-      return tabs.map((tab) => summarizeProjectConversationTab(tab))
+      void revision
+      return tabs
     },
     get activeTabId() {
       return activeTabId
+    },
+    get activeTab() {
+      void revision
+      return getActiveTab()
     },
     get providerId() {
       return getActiveProviderId()
     },
     get phase() {
+      void revision
       return getActiveTab()?.phase ?? 'idle'
     },
     get selectedProvider() {
@@ -127,35 +183,45 @@ export function createProjectConversationController(
       return (getActiveTab()?.phase ?? 'idle') !== 'idle'
     },
     get pending() {
+      void revision
       const activeTab = getActiveTab()
       return activeTab ? isProjectConversationTabPending(activeTab) : false
     },
     get conversationId() {
+      void revision
       return getActiveTab()?.conversationId ?? ''
     },
     get entries() {
+      void revision
       return getActiveTab()?.entries ?? []
     },
     get draft() {
+      void revision
       return getActiveTab()?.draft ?? ''
     },
     get queuedTurns() {
+      void revision
       return getActiveTab()?.queuedTurns ?? []
     },
     get workspaceDiff() {
+      void revision
       return getActiveTab()?.workspaceDiff ?? null
     },
     get workspaceDiffLoading() {
+      void revision
       return getActiveTab()?.workspaceDiffLoading ?? false
     },
     get workspaceDiffError() {
+      void revision
       return getActiveTab()?.workspaceDiffError ?? ''
     },
     get hasPendingInterrupt() {
+      void revision
       const activeTab = getActiveTab()
       return activeTab ? projectConversationHasPendingInterrupt(activeTab.entries) : false
     },
     get inputDisabled() {
+      void revision
       const activeTab = getActiveTab()
       return (
         !input.getProjectId() ||
@@ -165,6 +231,7 @@ export function createProjectConversationController(
       )
     },
     get sendDisabled() {
+      void revision
       const activeTab = getActiveTab()
       return (
         !input.getProjectId() ||
@@ -175,124 +242,14 @@ export function createProjectConversationController(
       )
     },
     get canQueueTurn() {
+      void revision
       return canQueueOnTab(getActiveTab())
     },
     get providerSelectionDisabled() {
+      void revision
       const activeTab = getActiveTab()
       return activeTab ? isProjectConversationTabPending(activeTab) : false
     },
-    setDraft(value: string) {
-      const activeTab = getActiveTab()
-      if (!activeTab) {
-        return
-      }
-      activeTab.draft = value
-    },
-    syncProviders(nextProviders: AgentProvider[], defaultProviderId: string | null | undefined) {
-      providers = listEphemeralChatProviders(nextProviders)
-      preferredProviderId = pickDefaultEphemeralChatProvider(providers, defaultProviderId)
-
-      for (const tab of tabs) {
-        if (tab.conversationId) {
-          if (!tab.providerId) {
-            tab.providerId =
-              conversations.find((conversation) => conversation.id === tab.conversationId)
-                ?.providerId ?? preferredProviderId
-          }
-          continue
-        }
-
-        if (!shouldKeepEphemeralChatProvider(providers, tab.providerId)) {
-          tab.providerId = preferredProviderId
-        }
-      }
-
-      ensureTabExists()
-    },
-    async restore() {
-      await operations.restore()
-    },
-    async selectProvider(nextProviderId: string) {
-      await operations.selectProvider(nextProviderId)
-    },
-    createTab() {
-      operations.createTab()
-    },
-    async openConversation(nextConversationId: string) {
-      await operations.openConversationInTab(nextConversationId)
-    },
-    async selectConversation(nextConversationId: string) {
-      if (!nextConversationId) {
-        return
-      }
-      await operations.openConversationInTab(nextConversationId)
-    },
-    selectTab(nextTabId: string) {
-      operations.selectTab(nextTabId)
-    },
-    closeTab(tabId: string) {
-      operations.closeTab(tabId)
-    },
-    enqueueTurn(message: string, focus?: ProjectAIFocus | null) {
-      const activeTab = getActiveTab()
-      const trimmed = message.trim()
-      if (!trimmed || !canQueueOnTab(activeTab)) {
-        return false
-      }
-
-      activeTab.queuedTurns = [
-        ...activeTab.queuedTurns,
-        nextQueuedTurn({
-          message: trimmed,
-          focus: focus ?? null,
-        }),
-      ]
-      return true
-    },
-    cancelQueuedTurn(queueTurnId: string) {
-      const activeTab = getActiveTab()
-      if (!activeTab) {
-        return false
-      }
-
-      const nextQueuedTurns = activeTab.queuedTurns.filter((turn) => turn.id !== queueTurnId)
-      if (nextQueuedTurns.length === activeTab.queuedTurns.length) {
-        return false
-      }
-
-      activeTab.queuedTurns = nextQueuedTurns
-      return true
-    },
-    async sendNextQueuedTurn() {
-      const activeTab = getActiveTab()
-      const nextQueued = activeTab?.queuedTurns[0]
-      if (!activeTab || !nextQueued) {
-        return false
-      }
-
-      const sent = await operations.sendTurnInTab(activeTab, nextQueued.message, nextQueued.focus)
-      if (!sent) {
-        return false
-      }
-
-      activeTab.queuedTurns = activeTab.queuedTurns.filter((turn) => turn.id !== nextQueued.id)
-      return true
-    },
-    async sendTurn(message: string, focus?: ProjectAIFocus | null) {
-      await operations.sendTurnInTab(getActiveTab(), message, focus)
-    },
-    async resetConversation() {
-      await operations.resetConversation()
-    },
-    async respondInterrupt(inputValue: {
-      interruptId: string
-      decision?: string
-      answer?: Record<string, unknown>
-    }) {
-      await operations.respondInterrupt(inputValue)
-    },
-    dispose() {
-      operations.dispose()
-    },
+    ...actions,
   }
 }

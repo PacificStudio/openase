@@ -172,11 +172,55 @@ func newTicketCommand() *cobra.Command {
 		Short: "Operate on tickets through the OpenASE API.",
 	}
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "list [projectId]", Short: "List tickets.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets", PositionalParams: []string{"projectId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "archived [projectId]",
+		Short:            "List archived tickets.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/tickets/archived",
+		PositionalParams: []string{"projectId"},
+		HelpNotes: []string{
+			"Use this to audit tickets that left the active board without falling back to raw API calls.",
+		},
+		Example: "openase ticket archived $OPENASE_PROJECT_ID",
+	}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "get [ticketId]", Short: "Get a ticket.", Method: http.MethodGet, Path: "/api/v1/tickets/{ticketId}", PositionalParams: []string{"ticketId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [projectId]", Short: "Create a ticket.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/tickets", PositionalParams: []string{"projectId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [ticketId]", Short: "Update a ticket.", Method: http.MethodPatch, Path: "/api/v1/tickets/{ticketId}", PositionalParams: []string{"ticketId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "detail [projectId] [ticketId]", Short: "Get ticket detail.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/{ticketId}/detail", PositionalParams: []string{"projectId", "ticketId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "retry-resume [ticketId]",
+		Short:            "Resume a ticket after a retryable failure.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/tickets/{ticketId}/retry/resume",
+		PositionalParams: []string{"ticketId"},
+		HelpNotes: []string{
+			"This requests a fresh retry attempt for a ticket whose last run stopped in a resumable retry state.",
+		},
+		Example: "openase ticket retry-resume $OPENASE_TICKET_ID",
+	}))
 	command.AddCommand(newTypedTicketCommentCommand())
+	command.AddCommand(newTypedTicketDependencyCommand())
+	command.AddCommand(newTypedTicketExternalLinkCommand())
+	command.AddCommand(newTypedTicketRunCommand())
+	return command
+}
+
+func newActivityCommand() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "activity",
+		Short: "Read project activity events through the OpenASE API.",
+	}
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "list [projectId]",
+		Short:            "List project activity events.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/activity",
+		PositionalParams: []string{"projectId"},
+		HelpNotes: []string{
+			"Use this to inspect the project event timeline, including workflow edits, ticket transitions, and runtime activity.",
+		},
+		Example: "openase activity list $OPENASE_PROJECT_ID --json events",
+	}))
 	return command
 }
 
@@ -361,6 +405,91 @@ func newTypedTicketCommentCommand() *cobra.Command {
 	return command
 }
 
+func newTypedTicketDependencyCommand() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "dependency",
+		Short: "Operate on ticket dependency relationships.",
+	}
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "add [ticketId]",
+		Short:            "Add a ticket dependency.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/tickets/{ticketId}/dependencies",
+		PositionalParams: []string{"ticketId"},
+		HelpNotes: []string{
+			"Use --type blocks or --type blocked_by to express blocker relationships. Existing dependencies are edited by deleting and recreating them because the API does not expose a patch operation.",
+		},
+		Example: strings.TrimSpace(`
+  openase ticket dependency add $OPENASE_TICKET_ID --type blocked_by --target-ticket-id $BLOCKER_TICKET_ID
+  openase ticket dependency add $OPENASE_TICKET_ID --type blocks --target-ticket-id $BLOCKED_TICKET_ID
+`),
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "delete [ticketId] [dependencyId]",
+		Short:            "Delete a ticket dependency.",
+		Method:           http.MethodDelete,
+		Path:             "/api/v1/tickets/{ticketId}/dependencies/{dependencyId}",
+		PositionalParams: []string{"ticketId", "dependencyId"},
+	}))
+	return command
+}
+
+func newTypedTicketExternalLinkCommand() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "external-link",
+		Short: "Operate on ticket external links.",
+	}
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "add [ticketId]",
+		Short:            "Add a ticket external link.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/tickets/{ticketId}/external-links",
+		PositionalParams: []string{"ticketId"},
+		HelpNotes: []string{
+			"Use this to attach upstream issue, incident, document, or pull request references to a ticket.",
+		},
+		Example: `openase ticket external-link add $OPENASE_TICKET_ID --title "PR 482" --url https://github.com/acme/repo/pull/482`,
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "delete [ticketId] [externalLinkId]",
+		Short:            "Delete a ticket external link.",
+		Method:           http.MethodDelete,
+		Path:             "/api/v1/tickets/{ticketId}/external-links/{externalLinkId}",
+		PositionalParams: []string{"ticketId", "externalLinkId"},
+	}))
+	return command
+}
+
+func newTypedTicketRunCommand() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "run",
+		Short: "Inspect ticket run history.",
+	}
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "list [projectId] [ticketId]",
+		Short:            "List ticket runs.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/tickets/{ticketId}/runs",
+		PositionalParams: []string{"projectId", "ticketId"},
+		HelpNotes: []string{
+			"Use this to inspect execution history, retry chains, and current runtime state for one ticket.",
+		},
+		Example: "openase ticket run list $OPENASE_PROJECT_ID $OPENASE_TICKET_ID",
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "get [projectId] [ticketId] [runId]",
+		Short:            "Get a ticket run.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}",
+		PositionalParams: []string{"projectId", "ticketId", "runId"},
+		HelpNotes: []string{
+			"This returns the stored runtime snapshot for one run, including status, lifecycle timestamps, and retry metadata.",
+		},
+		Example: "openase ticket run get $OPENASE_PROJECT_ID $OPENASE_TICKET_ID $OPENASE_RUN_ID",
+	}))
+	return command
+}
+
 func newProjectCommand() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "project",
@@ -491,7 +620,38 @@ func newWorkflowCommand() *cobra.Command {
 		Short: "Operate on workflow harness content.",
 	}
 	harness.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "get [workflowId]", Short: "Get workflow harness content.", Method: http.MethodGet, Path: "/api/v1/workflows/{workflowId}/harness", PositionalParams: []string{"workflowId"}}))
+	harness.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "history [workflowId]",
+		Short:            "List workflow harness revisions.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/workflows/{workflowId}/harness/history",
+		PositionalParams: []string{"workflowId"},
+		HelpNotes: []string{
+			"Use this to audit harness edits and recover the exact stored revision sequence for one workflow.",
+		},
+		Example: "openase workflow harness history $OPENASE_WORKFLOW_ID",
+	}))
 	harness.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [workflowId]", Short: "Update workflow harness content.", Method: http.MethodPut, Path: "/api/v1/workflows/{workflowId}/harness", PositionalParams: []string{"workflowId"}}))
+	harness.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:    "variables",
+		Short:  "List harness variables.",
+		Method: http.MethodGet,
+		Path:   "/api/v1/harness/variables",
+		HelpNotes: []string{
+			"Use this to inspect the variable catalog available to workflow harness templates before editing or validating one.",
+		},
+		Example: "openase workflow harness variables",
+	}))
+	harness.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:    "validate",
+		Short:  "Validate harness content.",
+		Method: http.MethodPost,
+		Path:   "/api/v1/harness/validate",
+		HelpNotes: []string{
+			"This validates harness markdown and structured references without mutating any stored workflow harness.",
+		},
+		Example: "openase workflow harness validate --input /tmp/harness.json",
+	}))
 	command.AddCommand(harness)
 	return command
 }
@@ -1430,16 +1590,25 @@ func schemaKind(schema *openapi3.SchemaRef) (flagValueKind, error) {
 func allOpenAPICommandSpecs() []openAPICommandSpec {
 	return []openAPICommandSpec{
 		{Use: "list [projectId]", Short: "List tickets.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets", PositionalParams: []string{"projectId"}},
+		{Use: "archived [projectId]", Short: "List archived tickets.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/archived", PositionalParams: []string{"projectId"}},
 		{Use: "get [ticketId]", Short: "Get a ticket.", Method: http.MethodGet, Path: "/api/v1/tickets/{ticketId}", PositionalParams: []string{"ticketId"}},
 		{Use: "create [projectId]", Short: "Create a ticket.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/tickets", PositionalParams: []string{"projectId"}},
 		{Use: "update [ticketId]", Short: "Update a ticket.", Method: http.MethodPatch, Path: "/api/v1/tickets/{ticketId}", PositionalParams: []string{"ticketId"}},
 		{Use: "detail [projectId] [ticketId]", Short: "Get ticket detail.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/{ticketId}/detail", PositionalParams: []string{"projectId", "ticketId"}},
+		{Use: "retry-resume [ticketId]", Short: "Resume a ticket after a retryable failure.", Method: http.MethodPost, Path: "/api/v1/tickets/{ticketId}/retry/resume", PositionalParams: []string{"ticketId"}},
 		{Use: "list [ticketId]", Short: "List ticket comments.", Method: http.MethodGet, Path: "/api/v1/tickets/{ticketId}/comments", PositionalParams: []string{"ticketId"}},
 		{Use: "create [ticketId]", Short: "Create a ticket comment.", Method: http.MethodPost, Path: "/api/v1/tickets/{ticketId}/comments", PositionalParams: []string{"ticketId"}},
 		{Use: "update [ticketId] [commentId]", Short: "Update a ticket comment.", Method: http.MethodPatch, Path: "/api/v1/tickets/{ticketId}/comments/{commentId}", PositionalParams: []string{"ticketId", "commentId"}},
 		{Use: "delete [ticketId] [commentId]", Short: "Delete a ticket comment.", Method: http.MethodDelete, Path: "/api/v1/tickets/{ticketId}/comments/{commentId}", PositionalParams: []string{"ticketId", "commentId"}},
 		{Use: "revisions [ticketId] [commentId]", Short: "List ticket comment revisions.", Method: http.MethodGet, Path: "/api/v1/tickets/{ticketId}/comments/{commentId}/revisions", PositionalParams: []string{"ticketId", "commentId"}},
+		{Use: "add [ticketId]", Short: "Add a ticket dependency.", Method: http.MethodPost, Path: "/api/v1/tickets/{ticketId}/dependencies", PositionalParams: []string{"ticketId"}},
+		{Use: "delete [ticketId] [dependencyId]", Short: "Delete a ticket dependency.", Method: http.MethodDelete, Path: "/api/v1/tickets/{ticketId}/dependencies/{dependencyId}", PositionalParams: []string{"ticketId", "dependencyId"}},
+		{Use: "add [ticketId]", Short: "Add a ticket external link.", Method: http.MethodPost, Path: "/api/v1/tickets/{ticketId}/external-links", PositionalParams: []string{"ticketId"}},
+		{Use: "delete [ticketId] [externalLinkId]", Short: "Delete a ticket external link.", Method: http.MethodDelete, Path: "/api/v1/tickets/{ticketId}/external-links/{externalLinkId}", PositionalParams: []string{"ticketId", "externalLinkId"}},
+		{Use: "list [projectId] [ticketId]", Short: "List ticket runs.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/{ticketId}/runs", PositionalParams: []string{"projectId", "ticketId"}},
+		{Use: "get [projectId] [ticketId] [runId]", Short: "Get a ticket run.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}", PositionalParams: []string{"projectId", "ticketId", "runId"}},
 		{Use: "list [projectId]", Short: "List ticket statuses.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/statuses", PositionalParams: []string{"projectId"}},
+		{Use: "list [projectId]", Short: "List project activity events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/activity", PositionalParams: []string{"projectId"}},
 		{Use: "create [projectId]", Short: "Create a ticket status.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/statuses", PositionalParams: []string{"projectId"}},
 		{Use: "update [statusId]", Short: "Update a ticket status.", Method: http.MethodPatch, Path: "/api/v1/statuses/{statusId}", PositionalParams: []string{"statusId"}},
 		{Use: "delete [statusId]", Short: "Delete a ticket status.", Method: http.MethodDelete, Path: "/api/v1/statuses/{statusId}", PositionalParams: []string{"statusId"}},
@@ -1477,7 +1646,10 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "update [workflowId]", Short: "Update a workflow.", Method: http.MethodPatch, Path: "/api/v1/workflows/{workflowId}", PositionalParams: []string{"workflowId"}},
 		{Use: "delete [workflowId]", Short: "Delete a workflow.", Method: http.MethodDelete, Path: "/api/v1/workflows/{workflowId}", PositionalParams: []string{"workflowId"}},
 		{Use: "get [workflowId]", Short: "Get workflow harness content.", Method: http.MethodGet, Path: "/api/v1/workflows/{workflowId}/harness", PositionalParams: []string{"workflowId"}},
+		{Use: "history [workflowId]", Short: "List workflow harness revisions.", Method: http.MethodGet, Path: "/api/v1/workflows/{workflowId}/harness/history", PositionalParams: []string{"workflowId"}},
 		{Use: "update [workflowId]", Short: "Update workflow harness content.", Method: http.MethodPut, Path: "/api/v1/workflows/{workflowId}/harness", PositionalParams: []string{"workflowId"}},
+		{Use: "variables", Short: "List harness variables.", Method: http.MethodGet, Path: "/api/v1/harness/variables"},
+		{Use: "validate", Short: "Validate harness content.", Method: http.MethodPost, Path: "/api/v1/harness/validate"},
 		{Use: "list [projectId]", Short: "List scheduled jobs.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/scheduled-jobs", PositionalParams: []string{"projectId"}},
 		{Use: "create [projectId]", Short: "Create a scheduled job.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/scheduled-jobs", PositionalParams: []string{"projectId"}},
 		{Use: "update [jobId]", Short: "Update a scheduled job.", Method: http.MethodPatch, Path: "/api/v1/scheduled-jobs/{jobId}", PositionalParams: []string{"jobId"}},

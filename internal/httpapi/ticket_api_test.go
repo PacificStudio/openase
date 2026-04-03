@@ -962,6 +962,187 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 	}
 }
 
+func TestTicketMutationRoutesPublishAffectedTicketRefreshEvents(t *testing.T) {
+	client := openTestEntClient(t)
+	bus := eventinfra.NewChannelBus()
+	server := NewServer(
+		config.ServerConfig{Port: 40027},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		bus,
+		newTicketService(client),
+		newTicketStatusService(client),
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better Ticket Events").
+		SetSlug("better-and-better-ticket-events").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE Ticket Events").
+		SetSlug("openase-ticket-events").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	if _, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID); err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+
+	stream := subscribeTopicEvents(t, bus, ticketEventsTopic)
+
+	parentResp := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/tickets", project.ID),
+		map[string]any{"title": "Parent ticket"},
+		http.StatusCreated,
+		&parentResp,
+	)
+	assertStringSet(t, readTicketEventTicketIDs(t, stream, 1), parentResp.Ticket.ID)
+
+	childResp := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/tickets", project.ID),
+		map[string]any{
+			"title":            "Child ticket",
+			"parent_ticket_id": parentResp.Ticket.ID,
+		},
+		http.StatusCreated,
+		&childResp,
+	)
+	assertStringSet(t, readTicketEventTicketIDs(t, stream, 2), childResp.Ticket.ID, parentResp.Ticket.ID)
+
+	secondParentResp := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/tickets", project.ID),
+		map[string]any{"title": "Second parent"},
+		http.StatusCreated,
+		&secondParentResp,
+	)
+	assertStringSet(t, readTicketEventTicketIDs(t, stream, 1), secondParentResp.Ticket.ID)
+
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/tickets/%s", childResp.Ticket.ID),
+		map[string]any{"parent_ticket_id": secondParentResp.Ticket.ID},
+		http.StatusOK,
+		nil,
+	)
+	assertStringSet(
+		t,
+		readTicketEventTicketIDs(t, stream, 3),
+		childResp.Ticket.ID,
+		parentResp.Ticket.ID,
+		secondParentResp.Ticket.ID,
+	)
+
+	peerResp := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/tickets", project.ID),
+		map[string]any{"title": "Peer ticket"},
+		http.StatusCreated,
+		&peerResp,
+	)
+	assertStringSet(t, readTicketEventTicketIDs(t, stream, 1), peerResp.Ticket.ID)
+
+	dependencyResp := struct {
+		Dependency ticketDependencyResponse `json:"dependency"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/tickets/%s/dependencies", secondParentResp.Ticket.ID),
+		map[string]any{
+			"target_ticket_id": peerResp.Ticket.ID,
+			"type":             "blocks",
+		},
+		http.StatusCreated,
+		&dependencyResp,
+	)
+	assertStringSet(
+		t,
+		readTicketEventTicketIDs(t, stream, 2),
+		secondParentResp.Ticket.ID,
+		peerResp.Ticket.ID,
+	)
+
+	executeJSON(
+		t,
+		server,
+		http.MethodDelete,
+		fmt.Sprintf("/api/v1/tickets/%s/dependencies/%s", peerResp.Ticket.ID, dependencyResp.Dependency.ID),
+		nil,
+		http.StatusOK,
+		nil,
+	)
+	assertStringSet(
+		t,
+		readTicketEventTicketIDs(t, stream, 2),
+		secondParentResp.Ticket.ID,
+		peerResp.Ticket.ID,
+	)
+
+	linkResp := struct {
+		ExternalLink ticketExternalLinkResponse `json:"external_link"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/tickets/%s/external-links", secondParentResp.Ticket.ID),
+		map[string]any{
+			"type":        "github_issue",
+			"url":         "https://github.com/acme/openase/issues/7",
+			"external_id": "acme/openase#7",
+		},
+		http.StatusCreated,
+		&linkResp,
+	)
+	assertStringSet(t, readTicketEventTicketIDs(t, stream, 1), secondParentResp.Ticket.ID)
+
+	executeJSON(
+		t,
+		server,
+		http.MethodDelete,
+		fmt.Sprintf("/api/v1/tickets/%s/external-links/%s", secondParentResp.Ticket.ID, linkResp.ExternalLink.ID),
+		nil,
+		http.StatusOK,
+		nil,
+	)
+	assertStringSet(t, readTicketEventTicketIDs(t, stream, 1), secondParentResp.Ticket.ID)
+}
+
 func TestListTicketsRouteReturnsEmptyArrayForNewProject(t *testing.T) {
 	client := openTestEntClient(t)
 	server := NewServer(

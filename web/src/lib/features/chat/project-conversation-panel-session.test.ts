@@ -32,6 +32,15 @@ import ProjectConversationPanel from './project-conversation-panel.svelte'
 import { providerFixtures } from './ephemeral-chat-session-controller.test-helpers'
 import { createWorkspaceDiff } from './project-conversation-panel.test-helpers'
 
+const seedConversationStorage = () =>
+  window.localStorage.setItem(
+    'openase.project-conversation.project-1',
+    JSON.stringify({
+      tabs: [{ conversationId: 'conversation-live-1', providerId: 'provider-1', draft: '' }],
+      activeTabIndex: 0,
+    }),
+  )
+
 describe('ProjectConversationPanel session status', () => {
   beforeAll(() => {
     HTMLElement.prototype.scrollIntoView ??= vi.fn()
@@ -177,5 +186,68 @@ describe('ProjectConversationPanel session status', () => {
       'conversation-codex-1',
       expect.any(Object),
     )
+  })
+
+  it('renders live assistant text chunks from the project conversation stream', async () => {
+    const streamHandlers = new Map<
+      string,
+      { onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void }
+    >()
+
+    seedConversationStorage()
+    listProjectConversations.mockResolvedValue({
+      conversations: [
+        {
+          id: 'conversation-live-1',
+          rollingSummary: 'Live conversation',
+          lastActivityAt: '2026-04-01T10:00:00Z',
+          providerId: 'provider-1',
+        },
+      ],
+    })
+    getProjectConversationWorkspaceDiff.mockResolvedValue(
+      createWorkspaceDiff('conversation-live-1'),
+    )
+    const { listProjectConversationEntries } = await import('$lib/api/chat')
+    vi.mocked(listProjectConversationEntries).mockResolvedValue({
+      entries: [
+        {
+          id: 'entry-user-1',
+          conversationId: 'conversation-live-1',
+          turnId: 'turn-1',
+          seq: 1,
+          kind: 'user_message',
+          payload: { content: 'Existing prompt' },
+          createdAt: '2026-04-01T10:00:00Z',
+        },
+      ],
+    })
+    watchProjectConversation.mockImplementation(async (conversationId, handlers) => {
+      streamHandlers.set(conversationId, handlers)
+    })
+
+    const { findByText } = render(ProjectConversationPanel, {
+      props: {
+        context: { projectId: 'project-1' },
+        providers: providerFixtures,
+        defaultProviderId: 'provider-1',
+        placeholder: 'Ask anything about this project…',
+      },
+    })
+
+    await findByText('Existing prompt')
+    await waitFor(() => {
+      expect(streamHandlers.has('conversation-live-1')).toBe(true)
+    })
+
+    streamHandlers.get('conversation-live-1')?.onEvent({
+      kind: 'message',
+      payload: {
+        type: 'text',
+        content: 'First streamed reply chunk.',
+      },
+    })
+
+    expect(await findByText('First streamed reply chunk.')).toBeTruthy()
   })
 })
