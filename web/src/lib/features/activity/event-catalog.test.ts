@@ -43,6 +43,7 @@ const canonicalCases = [
   ['agent.created', 'Agent created', 'info'],
   ['agent.updated', 'Agent updated', 'info'],
   ['agent.resumed', 'Agent resumed', 'success'],
+  ['agent.executing', 'Agent executing', 'success'],
   ['agent.deleted', 'Agent deleted', 'warning'],
   ['scheduled_job.created', 'Scheduled job created', 'info'],
   ['scheduled_job.updated', 'Scheduled job updated', 'info'],

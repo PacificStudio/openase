@@ -643,12 +643,7 @@ func (s *Service) buildSystemPrompt(
 ) (string, error) {
 	var sb strings.Builder
 	sb.WriteString("你是 OpenASE 平台的内嵌 AI 助手。你正在帮助用户理解或操作 OpenASE，而不是替代编排引擎执行工单。\n\n")
-	sb.WriteString("请基于下面的上下文回答。不要声称已经执行了任何平台写操作。")
-	if input.Source == SourceProjectSidebar {
-		sb.WriteString("如果用户请求创建/修改工单等平台操作，请优先输出一个 platform_command_proposal JSON 对象，使用人类可读引用，不要输出原始 REST 路径，也不要猜测 UUID。\n\n")
-	} else {
-		sb.WriteString("如果用户请求创建/修改工单等平台操作，请输出一个 action_proposal JSON 对象，等待前端确认后再执行。\n\n")
-	}
+	sb.WriteString("请基于下面的上下文回答。不要声称已经执行了任何平台写操作。需要实际执行平台或仓库操作时，直接使用运行时里可用的 skill、CLI 和工具完成，不要输出 `action_proposal` 或 `platform_command_proposal` 之类的结构化提案 JSON。\n\n")
 
 	switch input.Source {
 	case SourceHarnessEditor:
@@ -672,16 +667,9 @@ func (s *Service) buildSystemPrompt(
 	}
 
 	if input.Source == SourceProjectSidebar {
-		sb.WriteString("\n## platform_command_proposal 协议\n")
-		sb.WriteString("当且仅当用户明确要求平台写操作时，请只输出一个 JSON 对象，不要添加解释文本。格式如下：\n")
-		sb.WriteString("{\"type\":\"platform_command_proposal\",\"summary\":\"一句话总结\",\"commands\":[{\"command\":\"project_update.create|ticket.update|ticket.create\",\"args\":{}}]}\n")
-		sb.WriteString("参数中优先使用 project slug/name、ticket identifier、status name 这类人类可读引用，不要写 `/api/v1/...` 路径。\n")
-		sb.WriteString("如果 project / ticket / status 无法唯一确定，先提一个定向澄清问题，不要猜。\n")
-	} else {
-		sb.WriteString("\n## action_proposal 协议\n")
-		sb.WriteString("当且仅当用户明确要求平台写操作时，请只输出一个 JSON 对象，不要添加解释文本。格式如下：\n")
-		sb.WriteString("{\"type\":\"action_proposal\",\"summary\":\"一句话总结\",\"actions\":[{\"method\":\"POST|PATCH|DELETE\",\"path\":\"/api/v1/...\",\"body\":{}}]}\n")
-		sb.WriteString("适合使用 action_proposal 的请求包括：拆分子工单、创建 ticket、修改 ticket 状态、绑定 workflow。\n")
+		sb.WriteString("\n## 项目侧栏执行约束\n")
+		sb.WriteString("- 需要改平台数据时，直接使用运行时可用的 skill / CLI / tool 完成，不要先生成 proposal 再等待确认。\n")
+		sb.WriteString("- 优先使用 project slug/name、ticket identifier、status name 这类人类可读引用；如果对象无法唯一确定，先提一个定向澄清问题，不要猜。\n")
 	}
 
 	return sb.String(), nil
@@ -781,7 +769,7 @@ func (s *Service) writeHarnessEditorContext(
 	sb.WriteString("- 产物应明确职责边界、接单状态、交付状态、完成定义、repo 作用域、验证要求、失败/阻塞处理和 handoff 规则。\n")
 	sb.WriteString("- 优先复用当前项目已有 workflows 的分工，避免写出和现有 lane 冲突或重复负责的 workflow。\n")
 	sb.WriteString("- 如果用户要的是“专业 workflow”，默认要写成可执行 SOP，而不是泛泛而谈的角色描述。\n")
-	sb.WriteString("- 不要虚构平台能力；需要平台写操作时只能通过 action_proposal 提议。\n")
+	sb.WriteString("- 不要虚构平台能力；需要平台写操作时，直接使用运行时可用工具完成，无法安全确定目标时先澄清。\n")
 	sb.WriteString("\n### 先推断，缺失再澄清\n")
 	sb.WriteString("在给出 harness diff 前，先基于上下文判断下面 7 项是否已经明确；缺任何关键项时，先问定向澄清问题，不要直接产出 workflow 文本：\n")
 	sb.WriteString("- 1. 这个 workflow 的职责边界是什么。\n")
@@ -844,7 +832,7 @@ func (s *Service) writeHarnessEditorContext(
 	sb.WriteString("- 合法示例：{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"# Title\"},{\"op\":\"add\",\"text\":\"新增内容\"}]}]}\n")
 	sb.WriteString("- 如果上下文已足够，就直接给出贴合当前项目状态与拓扑的 diff；如果上下文不足，就先提最少但足够的澄清问题。\n")
 	sb.WriteString("- 如果无法可靠地产出结构化 diff，才回退为简要说明加完整 Harness markdown 代码块。\n")
-	sb.WriteString("- 只有在用户明确要求平台写操作时才输出 action_proposal；普通 Harness 建议不要输出 action_proposal。\n")
+	sb.WriteString("- 如果用户要求平台写操作，优先基于上下文给出可执行的实现或先澄清缺失信息，不要输出 proposal JSON。\n")
 	return nil
 }
 
@@ -966,7 +954,7 @@ func (s *Service) writeSkillEditorContext(
 	sb.WriteString("- 单文件 `diff.file` 必须精确等于目标文件路径；多文件 `bundle_diff.files[].file` 必须是 bundle 内相对文件路径，允许创建新的 UTF-8 文本文件。\n")
 	sb.WriteString("- 所有 `hunks` 使用 1-based 行号，`lines[].op` 只能是 `context` / `add` / `remove`。\n")
 	sb.WriteString("- 如果无法可靠地产出结构化 diff，才回退为简要说明加完整文件代码块。\n")
-	sb.WriteString("- 普通 skill 编辑建议不要输出 action_proposal；只有在用户明确要求平台写操作时才输出 action_proposal。\n")
+	sb.WriteString("- 普通 skill 编辑优先给可应用 diff 或说明；不要输出 proposal JSON。\n")
 	return nil
 }
 

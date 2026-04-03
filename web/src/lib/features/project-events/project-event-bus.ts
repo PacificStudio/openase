@@ -11,6 +11,7 @@ export const projectDashboardRefreshTopic = 'project.dashboard.events'
 export const projectDashboardRefreshType = 'project.dashboard.refresh'
 
 export type ProjectDashboardRefreshSection =
+  | 'project'
   | 'agents'
   | 'tickets'
   | 'activity'
@@ -106,6 +107,7 @@ export function readProjectDashboardRefreshSections(
   }
 
   const allowed = new Set<ProjectDashboardRefreshSection>([
+    'project',
     'agents',
     'tickets',
     'activity',

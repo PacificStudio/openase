@@ -13,7 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
 
-func TestMapCodexAssistantOutputPromotesActionProposalFromSnapshot(t *testing.T) {
+func TestMapCodexAssistantOutputLeavesActionProposalAsTextFromSnapshot(t *testing.T) {
 	items := make(map[string]*codexAssistantItemState)
 
 	events := mapCodexAssistantOutput(&codexadapter.OutputEvent{
@@ -35,16 +35,16 @@ func TestMapCodexAssistantOutputPromotesActionProposalFromSnapshot(t *testing.T)
 		t.Fatalf("snapshot should emit one normalized event, got %d", len(events))
 	}
 
-	payload, ok := events[0].Payload.(map[string]any)
+	payload, ok := events[0].Payload.(textPayload)
 	if !ok {
-		t.Fatalf("payload = %#v, want action proposal payload map", events[0].Payload)
+		t.Fatalf("payload = %#v, want text payload", events[0].Payload)
 	}
-	if payload["type"] != chatMessageTypeActionProposal || payload["summary"] != "Create child ticket" {
-		t.Fatalf("unexpected action proposal payload: %#v", payload)
+	if !strings.Contains(payload.Content, "\"type\":\"action_proposal\"") || !strings.Contains(payload.Content, "Create child ticket") {
+		t.Fatalf("unexpected action proposal text payload: %#v", payload)
 	}
 }
 
-func TestMapCodexAssistantOutputPromotesPlatformCommandProposalFromSnapshot(t *testing.T) {
+func TestMapCodexAssistantOutputLeavesPlatformCommandProposalAsTextFromSnapshot(t *testing.T) {
 	items := make(map[string]*codexAssistantItemState)
 
 	events := mapCodexAssistantOutput(&codexadapter.OutputEvent{
@@ -66,16 +66,16 @@ func TestMapCodexAssistantOutputPromotesPlatformCommandProposalFromSnapshot(t *t
 		t.Fatalf("snapshot should emit one normalized event, got %d", len(events))
 	}
 
-	payload, ok := events[0].Payload.(map[string]any)
+	payload, ok := events[0].Payload.(textPayload)
 	if !ok {
-		t.Fatalf("payload = %#v, want platform command payload map", events[0].Payload)
+		t.Fatalf("payload = %#v, want text payload", events[0].Payload)
 	}
-	if payload["type"] != chatMessageTypePlatformCommand || payload["summary"] != "Update ticket" {
-		t.Fatalf("unexpected platform command payload: %#v", payload)
+	if !strings.Contains(payload.Content, "\"type\":\"platform_command_proposal\"") || !strings.Contains(payload.Content, "Update ticket") {
+		t.Fatalf("unexpected platform command text payload: %#v", payload)
 	}
 }
 
-func TestMapCodexAssistantOutputPrefersSnapshotTextForJSONResponses(t *testing.T) {
+func TestMapCodexAssistantOutputKeepsProposalJSONAsTextForSnapshots(t *testing.T) {
 	items := make(map[string]*codexAssistantItemState)
 
 	events := mapCodexAssistantOutput(&codexadapter.OutputEvent{
@@ -97,12 +97,12 @@ func TestMapCodexAssistantOutputPrefersSnapshotTextForJSONResponses(t *testing.T
 		t.Fatalf("snapshot should emit one normalized event, got %d", len(events))
 	}
 
-	payload, ok := events[0].Payload.(map[string]any)
+	payload, ok := events[0].Payload.(textPayload)
 	if !ok {
-		t.Fatalf("payload = %#v, want action proposal payload map", events[0].Payload)
+		t.Fatalf("payload = %#v, want text payload", events[0].Payload)
 	}
-	if payload["type"] != chatMessageTypeActionProposal || payload["summary"] != "Create child ticket" {
-		t.Fatalf("unexpected action proposal payload: %#v", payload)
+	if !strings.Contains(payload.Content, "\"type\":\"action_proposal\"") || !strings.Contains(payload.Content, "Create child ticket") {
+		t.Fatalf("unexpected proposal text payload: %#v", payload)
 	}
 }
 
@@ -221,7 +221,7 @@ func TestMapCodexAssistantOutputLeavesMalformedDuplicatedTrailingDiffAfterProseA
 	}
 }
 
-func TestGeminiRuntimeStartTurnPromotesActionProposalJSON(t *testing.T) {
+func TestGeminiRuntimeStartTurnLeavesActionProposalJSONAsText(t *testing.T) {
 	stdin := &trackingWriteCloser{}
 	manager := &fakeAgentCLIProcessManager{
 		process: &fakeAgentCLIProcess{
@@ -263,12 +263,12 @@ func TestGeminiRuntimeStartTurnPromotesActionProposalJSON(t *testing.T) {
 		t.Fatalf("unexpected session anchor: %#v", anchor)
 	}
 
-	payload, ok := events[1].Payload.(map[string]any)
+	payload, ok := events[1].Payload.(textPayload)
 	if events[1].Event != "message" || !ok {
-		t.Fatalf("second event = %+v, want normalized message", events[1])
+		t.Fatalf("second event = %+v, want text message", events[1])
 	}
-	if payload["type"] != chatMessageTypeActionProposal || payload["summary"] != "Create 2 tickets" {
-		t.Fatalf("unexpected action proposal payload: %#v", payload)
+	if !strings.Contains(payload.Content, "\"type\":\"action_proposal\"") || !strings.Contains(payload.Content, "Create 2 tickets") {
+		t.Fatalf("unexpected action proposal text payload: %#v", payload)
 	}
 
 	done, ok := events[2].Payload.(donePayload)

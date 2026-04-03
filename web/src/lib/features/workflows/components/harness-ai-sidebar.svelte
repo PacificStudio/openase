@@ -146,14 +146,6 @@
     appliedFingerprint = ''
     await chatController.selectProvider(nextProviderId)
   }
-
-  async function handleConfirmActionProposal(entryId: string) {
-    await chatController.confirmActionProposal(entryId)
-  }
-
-  function handleCancelActionProposal(entryId: string) {
-    chatController.cancelActionProposal(entryId)
-  }
 </script>
 
 <div class="bg-background flex h-full min-h-0 flex-col">
@@ -185,13 +177,7 @@
       {#if entries.length === 0}
         <HarnessChatEmptyState />
       {/if}
-      <EphemeralChatTranscript
-        {entries}
-        {pending}
-        variant="minimal"
-        onConfirmActionProposal={handleConfirmActionProposal}
-        onCancelActionProposal={handleCancelActionProposal}
-      />
+      <EphemeralChatTranscript {entries} {pending} variant="minimal" />
 
       {#if streamingDiff}
         <div class="text-muted-foreground flex items-center gap-1.5 py-1 text-xs">

@@ -1,13 +1,11 @@
 import { ApiError } from '$lib/api/client'
 import { closeChatSession, streamChatTurn, type ChatSource } from '$lib/api/chat'
 import type { AgentProvider } from '$lib/api/contracts'
-import { executeActionProposal, summarizeExecutionResults } from './action-proposal-executor'
 import {
   appendEphemeralChatEntry,
   clearEphemeralChatSessionState,
   finalizeEphemeralAssistantText,
   handleEphemeralChatStreamEvent,
-  updateEphemeralActionProposalEntry,
   type EphemeralChatSessionState,
 } from './ephemeral-chat-session-state'
 import { describeTurnFailure } from './ephemeral-chat-turn-failure'
@@ -17,7 +15,7 @@ import {
   shouldKeepProviderCapability,
   type ProviderCapabilityName,
 } from './provider-options'
-import { isAbortError, isActionProposalEntry } from './transcript'
+import { isAbortError } from './transcript'
 
 type EphemeralChatContext = {
   projectId: string
@@ -92,11 +90,6 @@ export function createEphemeralChatSessionController(
     },
     get entries() {
       return state.entries
-    },
-    get hasPendingActionProposal() {
-      return state.entries.some(
-        (entry) => isActionProposalEntry(entry) && entry.status === 'pending',
-      )
     },
     syncProviders(nextProviders: AgentProvider[], defaultProviderId: string | null | undefined) {
       providers = listProviderCapabilityProviders(nextProviders, capability)
@@ -179,33 +172,6 @@ export function createEphemeralChatSessionController(
     },
     async resetConversation() {
       await closeActiveSession({ clearEntries: true })
-    },
-    async confirmActionProposal(entryId: string) {
-      const entry = state.entries.find((item) => item.id === entryId)
-      if (!entry || !isActionProposalEntry(entry) || entry.status !== 'pending') {
-        return
-      }
-      updateEphemeralActionProposalEntry(state, entryId, {
-        status: 'executing',
-        results: [],
-      })
-      const results = await executeActionProposal(entry.proposal)
-      updateEphemeralActionProposalEntry(state, entryId, {
-        status: 'confirmed',
-        results,
-      })
-      appendEphemeralChatEntry(state, 'system', summarizeExecutionResults(results))
-    },
-    cancelActionProposal(entryId: string) {
-      const entry = state.entries.find((item) => item.id === entryId)
-      if (!entry || !isActionProposalEntry(entry) || entry.status !== 'pending') {
-        return
-      }
-      updateEphemeralActionProposalEntry(state, entryId, {
-        status: 'cancelled',
-        results: [],
-      })
-      appendEphemeralChatEntry(state, 'system', 'Cancelled the proposed platform actions.')
     },
     async selectProvider(nextProviderId: string) {
       if (nextProviderId === providerId) {

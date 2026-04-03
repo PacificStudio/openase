@@ -997,3 +997,25 @@ func TestBuildTicketRunSummaryStreamEventFiltersTicketScope(t *testing.T) {
 		t.Fatal("did not expect summary event for another ticket to match")
 	}
 }
+
+func TestIsTicketRunLifecycleEventType(t *testing.T) {
+	testCases := []struct {
+		name string
+		raw  string
+		want bool
+	}{
+		{name: "agent ready", raw: activityevent.TypeAgentReady.String(), want: true},
+		{name: "agent executing", raw: activityevent.TypeAgentExecuting.String(), want: true},
+		{name: "agent completed", raw: activityevent.TypeAgentCompleted.String(), want: true},
+		{name: "agent heartbeat", raw: "agent.heartbeat", want: false},
+		{name: "provider rate limit", raw: activityevent.TypeProviderRateLimitUpdated.String(), want: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isTicketRunLifecycleEventType(tc.raw); got != tc.want {
+				t.Fatalf("isTicketRunLifecycleEventType(%q) = %t, want %t", tc.raw, got, tc.want)
+			}
+		})
+	}
+}

@@ -14,7 +14,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-const sseKeepaliveInterval = 25 * time.Second
+const sseKeepaliveInterval = 5 * time.Second
 
 var (
 	ticketStreamTopic   = provider.MustParseTopic("ticket.events")
@@ -486,6 +486,7 @@ func writeSSEEvent(response *echo.Response, event provider.Event) error {
 }
 
 type projectDashboardDirtySet struct {
+	project             bool
 	agents              bool
 	tickets             bool
 	activity            bool
@@ -498,10 +499,11 @@ func newProjectDashboardDirtySet() *projectDashboardDirtySet {
 }
 
 func (s *projectDashboardDirtySet) Empty() bool {
-	return !s.agents && !s.tickets && !s.activity && !s.hrAdvisor && !s.organizationSummary
+	return !s.project && !s.agents && !s.tickets && !s.activity && !s.hrAdvisor && !s.organizationSummary
 }
 
 func (s *projectDashboardDirtySet) Clear() {
+	s.project = false
 	s.agents = false
 	s.tickets = false
 	s.activity = false
@@ -510,7 +512,10 @@ func (s *projectDashboardDirtySet) Clear() {
 }
 
 func (s *projectDashboardDirtySet) Sections() []string {
-	sections := make([]string, 0, 5)
+	sections := make([]string, 0, 6)
+	if s.project {
+		sections = append(sections, "project")
+	}
 	if s.agents {
 		sections = append(sections, "agents")
 	}
@@ -549,10 +554,22 @@ func markProjectDashboardDirtySections(target *projectDashboardDirtySet, events 
 		case activityStreamTopic:
 			target.activity = true
 			target.hrAdvisor = true
+			eventType, err := parseActivityStreamEventType(event.Payload)
+			if err == nil && strings.HasPrefix(eventType, "project.") {
+				target.project = true
+			}
 		}
 	}
 
 	return len(before) != len(target.Sections())
+}
+
+func parseActivityStreamEventType(payload json.RawMessage) (string, error) {
+	var envelope ticketRunActivityEnvelope
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		return "", fmt.Errorf("decode activity stream payload for event type: %w", err)
+	}
+	return envelope.Event.EventType, nil
 }
 
 func buildProjectDashboardRefreshEvent(

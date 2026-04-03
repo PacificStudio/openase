@@ -1611,6 +1611,7 @@ func TestWorkflowCreateAndUpdateRoutesRejectInvalidPayloads(t *testing.T) {
 	}
 	todoID := findStatusIDByName(t, statuses, "Todo")
 	backlogID := findStatusIDByName(t, statuses, "Backlog")
+	inProgressID := findStatusIDByName(t, statuses, "In Progress")
 	doneID := findStatusIDByName(t, statuses, "Done")
 	provider, err := client.AgentProvider.Create().
 		SetOrganizationID(org.ID).
@@ -1704,6 +1705,36 @@ func TestWorkflowCreateAndUpdateRoutesRejectInvalidPayloads(t *testing.T) {
 	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "PICKUP_STATUS_CONFLICT") {
 		t.Fatalf("PATCH duplicate pickup status = %d %s, want %d containing %q", rec.Code, rec.Body.String(), http.StatusConflict, "PICKUP_STATUS_CONFLICT")
 	}
+
+	duplicateNameRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
+		`{"agent_id":"`+agent.ID.String()+`","name":"Coding Workflow","type":"coding","pickup_status_ids":["`+backlogID.String()+`"],"finish_status_ids":["`+doneID.String()+`"]}`,
+	)
+	assertAPIErrorResponse(
+		t,
+		duplicateNameRec,
+		http.StatusConflict,
+		"WORKFLOW_NAME_CONFLICT",
+		`workflow name "Coding Workflow" is already used in this project`,
+	)
+
+	duplicateHarnessPathRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID),
+		`{"agent_id":"`+agent.ID.String()+`","name":"Conflicting Harness Workflow","type":"coding","harness_path":"`+created.Workflow.HarnessPath+`","pickup_status_ids":["`+inProgressID.String()+`"],"finish_status_ids":["`+doneID.String()+`"]}`,
+	)
+	assertAPIErrorResponse(
+		t,
+		duplicateHarnessPathRec,
+		http.StatusConflict,
+		"WORKFLOW_HARNESS_PATH_CONFLICT",
+		`harness_path "`+created.Workflow.HarnessPath+`" is already used by another workflow`,
+	)
 }
 
 func TestListWorkflowsRouteReturnsEmptyArrayForNewProject(t *testing.T) {

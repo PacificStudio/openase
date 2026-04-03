@@ -6,7 +6,6 @@ import {
   appendProjectConversationAssistantChunk,
   appendProjectConversationTranscriptEntry,
   appendProjectConversationTextEntry,
-  createProjectConversationActionProposalEntry,
   createProjectConversationDiffEntry,
   createProjectConversationInterruptEntry,
   finalizeProjectConversationAssistantEntry,
@@ -136,14 +135,20 @@ export function connectProjectConversationStream(params: {
   conversationId: string
   onError?: (message: string) => void
   onEvent?: (event: ProjectConversationStreamEvent) => void
+  onClosed?: (streamId: number) => void
 }) {
   const currentStreamId = params.state.streamId + 1
+  let streamFailed = false
+  let receivedNonSessionEvent = false
   const started = startProjectConversationStream({
     conversationId: params.conversationId,
     abortController: params.state.abortController,
     onEvent: (event) => {
       if (currentStreamId !== params.state.streamId) {
         return
+      }
+      if (event.kind !== 'session') {
+        receivedNonSessionEvent = true
       }
       applyProjectConversationStreamEvent({
         state: params.state,
@@ -156,6 +161,7 @@ export function connectProjectConversationStream(params: {
       if (currentStreamId !== params.state.streamId) {
         return
       }
+      streamFailed = true
       finalizeProjectConversationEntry(params.state)
       if (params.state.phase !== 'awaiting_interrupt') {
         params.state.phase = 'idle'
@@ -167,11 +173,19 @@ export function connectProjectConversationStream(params: {
   params.state.streamId = currentStreamId
   params.state.abortController = started.controller
   void started.stream.finally(() => {
-    if (
+    const isCurrentStream =
       currentStreamId === params.state.streamId &&
       params.state.abortController === started.controller
-    ) {
+    if (isCurrentStream) {
       params.state.abortController = null
+    }
+    if (
+      isCurrentStream &&
+      !started.controller.signal.aborted &&
+      !streamFailed &&
+      receivedNonSessionEvent
+    ) {
+      params.onClosed?.(currentStreamId)
     }
   })
 }
@@ -185,15 +199,6 @@ export function applyProjectConversationStreamEvent(params: {
     appendAssistantChunk: (content: string) =>
       appendProjectConversationChunk(params.state, content),
     finalizeAssistantEntry: () => finalizeProjectConversationEntry(params.state),
-    appendActionProposal: (entryId, payload) => {
-      appendProjectConversationStructuredEntry(
-        params.state,
-        createProjectConversationActionProposalEntry({
-          id: entryId ?? `entry-${++params.state.entryCounter}`,
-          proposal: payload as never,
-        }),
-      )
-    },
     appendDiff: (entryId, payload) => {
       appendProjectConversationStructuredEntry(
         params.state,
@@ -237,13 +242,6 @@ export function applyProjectConversationStreamEvent(params: {
         detail: payload.detail,
         raw: payload.raw,
       })
-    },
-    confirmActionResult: (entryId, results) => {
-      params.state.entries = params.state.entries.map((entry) =>
-        entry.kind === 'action_proposal' && entry.id === entryId
-          ? { ...entry, status: 'confirmed', results }
-          : entry,
-      )
     },
     appendInterrupt: (payload) => {
       params.state.entryCounter += 1

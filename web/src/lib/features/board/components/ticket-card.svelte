@@ -169,6 +169,10 @@
       <span class="inline-flex items-center text-emerald-500" title="Executing">
         <Cog class="size-3 animate-spin" />
       </span>
+    {:else if ticket.runtimePhase === 'ready'}
+      <span class="inline-flex items-center text-emerald-500" title="Ready">
+        <Cog class="size-3" />
+      </span>
     {:else if ticket.runtimePhase === 'launching'}
       <span class="inline-flex items-center text-amber-500" title="Launching">
         <Loader class="size-3 animate-spin [animation-duration:2s]" />

@@ -144,23 +144,6 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/api/v1/chat/conversations/{conversationId}/action-proposals/{entryId}/execute': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** Execute a project conversation action proposal */
-    post: operations['executeProjectConversationActionProposal']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
   '/api/v1/chat/conversations/{conversationId}/entries': {
     parameters: {
       query?: never
@@ -2877,94 +2860,6 @@ export interface operations {
               updated_at?: string
               user_id?: string
             }
-          }
-        }
-      }
-      /** @description Bad Request response. */
-      400: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Not Found response. */
-      404: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Internal Server Error response. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Service Unavailable response. */
-      503: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-    }
-  }
-  executeProjectConversationActionProposal: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Stable OpenASE conversation ID. */
-        conversationId: string
-        /** @description Transcript entry ID for the action proposal. */
-        entryId: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Execute a project conversation action proposal response. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            result_entry?: {
-              conversation_id?: string
-              created_at?: string
-              id?: string
-              kind?: string
-              payload?: {
-                [key: string]: unknown
-              }
-              seq?: number
-              turn_id?: string | null
-            }
-            results?: {
-              [key: string]: unknown
-            }[]
           }
         }
       }

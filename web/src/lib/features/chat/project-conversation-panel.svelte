@@ -271,8 +271,6 @@
     {pending}
     onSelectTab={controller.selectTab}
     onCloseTab={controller.closeTab}
-    onConfirmActionProposal={controller.confirmActionProposal}
-    onCancelActionProposal={controller.cancelActionProposal}
     onRespondInterrupt={controller.respondInterrupt}
   />
 

@@ -878,6 +878,7 @@ func isTicketRunLifecycleEventType(raw string) bool {
 	case activityevent.TypeAgentClaimed,
 		activityevent.TypeAgentLaunching,
 		activityevent.TypeAgentReady,
+		activityevent.TypeAgentExecuting,
 		activityevent.TypeAgentPaused,
 		activityevent.TypeAgentFailed,
 		activityevent.TypeAgentCompleted,

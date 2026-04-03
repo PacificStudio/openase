@@ -180,14 +180,6 @@
     await chatController.resetConversation()
   }
 
-  async function handleConfirmActionProposal(entryId: string) {
-    await chatController.confirmActionProposal(entryId)
-  }
-
-  function handleCancelActionProposal(entryId: string) {
-    chatController.cancelActionProposal(entryId)
-  }
-
   function handlePromptKeydown(event: KeyboardEvent) {
     if (event.key !== 'Enter' || event.shiftKey || event.isComposing) {
       return
@@ -222,12 +214,7 @@
   </div>
 
   <ScrollArea class="min-h-0 flex-1 px-4 py-4">
-    <EphemeralChatTranscript
-      {entries}
-      {pending}
-      onConfirmActionProposal={handleConfirmActionProposal}
-      onCancelActionProposal={handleCancelActionProposal}
-    />
+    <EphemeralChatTranscript {entries} {pending} />
   </ScrollArea>
 
   <div class="border-border border-t px-4 py-3">

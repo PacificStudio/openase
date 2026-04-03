@@ -410,6 +410,9 @@ func (s *Server) handleAgentUpdateProject(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
+	if err := s.emitActivities(c.Request().Context(), buildProjectPatchActivityInputs(current, item)...); err != nil {
+		return writeCatalogError(c, err)
+	}
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"project": mapProjectResponse(item),

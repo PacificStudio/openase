@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
@@ -502,6 +503,14 @@ func writeWorkflowError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusBadRequest, "AGENT_NOT_FOUND", err.Error())
 	case errors.Is(err, workflowservice.ErrPickupStatusConflict):
 		return writeAPIError(c, http.StatusConflict, "PICKUP_STATUS_CONFLICT", err.Error())
+	case errors.Is(err, workflowservice.ErrWorkflowNameConflict):
+		return writeAPIError(c, http.StatusConflict, "WORKFLOW_NAME_CONFLICT", normalizeWorkflowErrorMessage(err, workflowservice.ErrWorkflowNameConflict))
+	case errors.Is(err, workflowservice.ErrWorkflowHarnessPathConflict):
+		return writeAPIError(c, http.StatusConflict, "WORKFLOW_HARNESS_PATH_CONFLICT", normalizeWorkflowErrorMessage(err, workflowservice.ErrWorkflowHarnessPathConflict))
+	case errors.Is(err, workflowservice.ErrWorkflowReferencedByTickets):
+		return writeAPIError(c, http.StatusConflict, "WORKFLOW_REFERENCED_BY_TICKETS", normalizeWorkflowErrorMessage(err, workflowservice.ErrWorkflowReferencedByTickets))
+	case errors.Is(err, workflowservice.ErrWorkflowReferencedByScheduledJobs):
+		return writeAPIError(c, http.StatusConflict, "WORKFLOW_REFERENCED_BY_SCHEDULED_JOBS", normalizeWorkflowErrorMessage(err, workflowservice.ErrWorkflowReferencedByScheduledJobs))
 	case errors.Is(err, workflowservice.ErrWorkflowConflict):
 		return writeAPIError(c, http.StatusConflict, "WORKFLOW_CONFLICT", err.Error())
 	case errors.Is(err, workflowservice.ErrWorkflowInUse):
@@ -519,6 +528,17 @@ func writeWorkflowError(c echo.Context, err error) error {
 	default:
 		return writeAPIError(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 	}
+}
+
+func normalizeWorkflowErrorMessage(err error, sentinel error) string {
+	if err == nil {
+		return ""
+	}
+	prefix := sentinel.Error() + ": "
+	if strings.HasPrefix(err.Error(), prefix) {
+		return strings.TrimPrefix(err.Error(), prefix)
+	}
+	return err.Error()
 }
 
 func mapWorkflowResponses(items []workflowservice.Workflow) []workflowResponse {

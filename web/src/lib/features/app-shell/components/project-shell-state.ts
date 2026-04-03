@@ -63,3 +63,20 @@ export function replaceSelectionIfChanged<T extends { id?: string } | null>(
 
   assign(next)
 }
+
+export function mergeProjectIntoAppContext(
+  projects: Project[],
+  currentProject: Project | null,
+  nextProject: Project,
+) {
+  const existingIndex = projects.findIndex((project) => project.id === nextProject.id)
+  const nextProjects =
+    existingIndex >= 0
+      ? projects.map((project, index) => (index === existingIndex ? nextProject : project))
+      : [...projects, nextProject]
+
+  return {
+    projects: nextProjects,
+    currentProject: currentProject?.id === nextProject.id ? nextProject : currentProject,
+  }
+}

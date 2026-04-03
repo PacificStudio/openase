@@ -10,14 +10,24 @@ type StreamOptions = {
   onStateChange?: (state: StreamConnectionState) => void
   onError?: (error: unknown) => void
   retryDelayMs?: number
+  activityTimeoutMs?: number
 }
 
 const defaultRetryDelayMs = 2000
+const defaultActivityTimeoutMs = 10000
+
+class StreamInactivityError extends Error {
+  constructor(timeoutMs: number) {
+    super(`stream went idle for ${timeoutMs}ms`)
+    this.name = 'StreamInactivityError'
+  }
+}
 
 export function connectEventStream(url: string, options: StreamOptions): () => void {
   let active = true
   let controller: AbortController | null = null
   const retryDelayMs = options.retryDelayMs ?? defaultRetryDelayMs
+  const activityTimeoutMs = options.activityTimeoutMs ?? defaultActivityTimeoutMs
 
   async function run() {
     let firstAttempt = true
@@ -26,7 +36,7 @@ export function connectEventStream(url: string, options: StreamOptions): () => v
       options.onStateChange?.(firstAttempt ? 'connecting' : 'retrying')
       controller = new AbortController()
 
-      const failure = await openStream(url, controller.signal, options)
+      const failure = await openStream(url, controller.signal, options, activityTimeoutMs)
       if (failure === 'aborted') {
         return
       }
@@ -56,6 +66,7 @@ async function openStream(
   url: string,
   signal: AbortSignal,
   options: StreamOptions,
+  activityTimeoutMs: number,
 ): Promise<unknown | 'aborted'> {
   try {
     const response = await fetch(url, {
@@ -70,7 +81,7 @@ async function openStream(
     }
 
     options.onStateChange?.('live')
-    await consumeEventStream(response.body, options.onEvent)
+    await consumeEventStream(response.body, options.onEvent, { activityTimeoutMs })
     return null
   } catch (error) {
     if (isAbortError(error)) {
@@ -83,14 +94,16 @@ async function openStream(
 export async function consumeEventStream(
   stream: ReadableStream<Uint8Array>,
   onEvent: (frame: SSEFrame) => void,
+  options: { activityTimeoutMs?: number } = {},
 ) {
   const reader = stream.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  const activityTimeoutMs = options.activityTimeoutMs ?? 0
 
   try {
     for (;;) {
-      const { value, done } = await reader.read()
+      const { value, done } = await readWithActivityTimeout(reader, activityTimeoutMs)
       if (done) {
         buffer += decoder.decode()
         break
@@ -159,6 +172,31 @@ function parseFrame(chunk: string): SSEFrame | null {
 
 function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === 'AbortError'
+}
+
+async function readWithActivityTimeout(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  timeoutMs: number,
+) {
+  if (timeoutMs <= 0) {
+    return reader.read()
+  }
+
+  let timeoutId = 0
+  try {
+    return await Promise.race([
+      reader.read(),
+      new Promise<ReadableStreamReadResult<Uint8Array>>((_, reject) => {
+        timeoutId = window.setTimeout(() => {
+          reject(new StreamInactivityError(timeoutMs))
+        }, timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timeoutId !== 0) {
+      window.clearTimeout(timeoutId)
+    }
+  }
 }
 
 function wait(durationMs: number) {

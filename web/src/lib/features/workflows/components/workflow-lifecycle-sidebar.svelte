@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { ApiError } from '$lib/api/client'
   import { toastStore } from '$lib/stores/toast.svelte'
   import type {
     ScopeGroup,
@@ -13,6 +12,7 @@
     removeWorkflowFromList,
     saveWorkflowLifecycle,
   } from '../workflow-management'
+  import { describeWorkflowApiError } from '../workflow-api-errors'
   import WorkflowDetailPanel from './workflow-detail-panel.svelte'
 
   let {
@@ -46,9 +46,7 @@
       onWorkflowsChange?.(workflows.map((item) => (item.id === updated.id ? updated : item)))
       toastStore.success('Workflow updated.')
     } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to update workflow.',
-      )
+      toastStore.error(describeWorkflowApiError(caughtError, 'Failed to update workflow.'))
     } finally {
       saving = false
     }
@@ -64,9 +62,7 @@
       onSelectedIdChange?.(nextState.nextSelectedId)
       toastStore.success('Workflow deleted.')
     } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete workflow.',
-      )
+      toastStore.error(describeWorkflowApiError(caughtError, 'Failed to delete workflow.'))
     } finally {
       deleting = false
     }

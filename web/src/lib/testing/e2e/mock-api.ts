@@ -733,49 +733,6 @@ async function handleChatRoutes(request: Request, segments: string[]) {
     return projectConversationStreamResponse(segments[2])
   }
 
-  if (
-    segments[3] === 'action-proposals' &&
-    segments[5] === 'execute' &&
-    request.method === 'POST'
-  ) {
-    const conversation = findById(mockState.projectConversations, segments[2])
-    if (!conversation) {
-      return notFound('Project conversation not found.')
-    }
-    const proposalEntry =
-      mockState.projectConversationEntries.find(
-        (entry) => entry.conversation_id === segments[2] && entry.id === segments[4],
-      ) ??
-      [...mockState.projectConversationEntries]
-        .reverse()
-        .find((entry) => entry.conversation_id === segments[2] && entry.kind === 'action_proposal')
-    if (!proposalEntry || proposalEntry.kind !== 'action_proposal') {
-      return notFound('Project conversation action proposal not found.')
-    }
-
-    const results = executeMockProjectConversationActionProposal(proposalEntry)
-    const resultEntry = {
-      id: `entry-e2e-${++mockState.counters.projectConversationEntry}`,
-      conversation_id: segments[2],
-      turn_id: proposalEntry.turn_id,
-      seq: nextProjectConversationSeq(segments[2]),
-      kind: 'action_result',
-      payload: {
-        entry_id: proposalEntry.id,
-        results,
-      },
-      created_at: shiftedIso(mockState.counters.projectConversationEntry),
-    }
-    mockState.projectConversationEntries.push(resultEntry)
-    conversation.last_activity_at = resultEntry.created_at
-    conversation.updated_at = resultEntry.created_at
-
-    return jsonResponse({
-      result_entry: clone(resultEntry),
-      results: clone(results),
-    })
-  }
-
   if (segments[3] === 'turns' && request.method === 'POST') {
     const conversation = findById(mockState.projectConversations, segments[2])
     if (!conversation) {
@@ -808,33 +765,12 @@ async function handleChatRoutes(request: Request, segments: string[]) {
       payload: { content: message },
       created_at: shiftedIso(turnIndex),
     }
-    const shouldProposeAction =
-      message.toLowerCase().includes('child ticket') ||
-      message.toLowerCase().includes('sub-ticket') ||
-      message.toLowerCase().includes('sub ticket')
-    const assistantPayload = shouldProposeAction
-      ? {
-          kind: 'action_proposal',
-          payload: {
-            summary: 'Create a retry investigation child ticket',
-            actions: [
-              {
-                method: 'POST',
-                path: `/api/v1/projects/${PROJECT_ID}/tickets`,
-                body: {
-                  title: 'Investigate repeated retry pause',
-                  description: 'Created from ticket-focused Project AI.',
-                },
-              },
-            ],
-          },
-        }
-      : {
-          kind: 'assistant_message',
-          payload: {
-            content: buildMockProjectConversationReply(message, ticketFocus),
-          },
-        }
+    const assistantPayload = {
+      kind: 'assistant_message',
+      payload: {
+        content: buildMockProjectConversationReply(message, ticketFocus),
+      },
+    }
     const assistantEntry = {
       id: `entry-e2e-${++mockState.counters.projectConversationEntry}`,
       conversation_id: segments[2],
@@ -860,17 +796,8 @@ async function handleChatRoutes(request: Request, segments: string[]) {
       queueOrBroadcastProjectConversationFrame(
         segments[2],
         encodeSSEFrame('message', {
-          ...(shouldProposeAction
-            ? {
-                type: 'action_proposal',
-                entryId: assistantEntry.id,
-                summary: String(assistantEntry.payload.summary ?? ''),
-                actions: assistantEntry.payload.actions,
-              }
-            : {
-                type: 'text',
-                content: String(assistantEntry.payload.content ?? ''),
-              }),
+          type: 'text',
+          content: String(assistantEntry.payload.content ?? ''),
         }),
       )
     }, 25)
@@ -2083,47 +2010,6 @@ function buildMockProjectConversationWorkspaceDiff(conversationId: string) {
     removed: 0,
     repos: [],
   }
-}
-
-function executeMockProjectConversationActionProposal(proposalEntry: Record<string, unknown>) {
-  const payload = asObject(proposalEntry.payload)
-  const actions = Array.isArray(payload?.actions) ? payload.actions : []
-
-  return actions.map((action, index) => {
-    const actionObject = asObject(action)
-    const method = asString(actionObject?.method) ?? 'POST'
-    const path = asString(actionObject?.path) ?? ''
-    const body = asObject(actionObject?.body)
-
-    if (method === 'POST' && path === `/api/v1/projects/${PROJECT_ID}/tickets`) {
-      const statusId = DEFAULT_STATUS_IDS.todo
-      const statusName =
-        asString(mockState.statuses.find((status) => status.id === statusId)?.name) ?? 'Todo'
-      const ticket = createMockTicketRecord({
-        id: `ticket-${mockState.tickets.length + 1}`,
-        identifier: `ASE-${200 + mockState.tickets.length + 1}`,
-        title: asString(body?.title) ?? `Ticket ${mockState.tickets.length + 1}`,
-        description: asString(body?.description) ?? '',
-        statusId,
-        statusName,
-        workflowId: DEFAULT_WORKFLOW_ID,
-      })
-      mockState.tickets.unshift(ticket)
-      return {
-        actionIndex: index,
-        action: clone(actionObject),
-        ok: true,
-        summary: `${method} ${path} succeeded.`,
-      }
-    }
-
-    return {
-      actionIndex: index,
-      action: clone(actionObject),
-      ok: false,
-      summary: `${method} ${path} is not supported by the chat executor yet.`,
-    }
-  })
 }
 
 function createMachineRecord(body: Record<string, unknown>) {

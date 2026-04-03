@@ -20,6 +20,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
@@ -401,6 +402,13 @@ func TestAgentPlatformPrivilegedRoutesRequireExplicitScopes(t *testing.T) {
 	)
 	if projectResp.Project.Description != "Updated by agent platform API" {
 		t.Fatalf("unexpected project patch payload: %+v", projectResp.Project)
+	}
+	activityItems, err := client.ActivityEvent.Query().All(ctx)
+	if err != nil {
+		t.Fatalf("query activity after agent project patch: %v", err)
+	}
+	if len(activityItems) != 1 || activityItems[0].EventType != activityevent.TypeProjectUpdated.String() {
+		t.Fatalf("expected agent project patch to emit project.updated activity, got %+v", activityItems)
 	}
 
 	forbiddenRepoRec := performJSONRequestWithHeaders(

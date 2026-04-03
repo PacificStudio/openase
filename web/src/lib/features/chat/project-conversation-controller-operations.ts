@@ -3,7 +3,6 @@ import {
   respondProjectConversationInterrupt,
   type ProjectConversation,
 } from '$lib/api/chat'
-import { confirmProjectConversationActionProposal } from './project-conversation-actions'
 import { invalidateProjectConversationStream } from './project-conversation-controller-helpers'
 import { readProjectConversationTabs } from './project-conversation-storage'
 import { createProjectConversationControllerRuntime } from './project-conversation-controller-runtime'
@@ -211,30 +210,6 @@ export function createProjectConversationControllerOperations(
     await runtime.resetConversation()
   }
 
-  async function confirmActionProposal(entryId: string) {
-    const activeTab = input.getActiveTab()
-    if (!activeTab?.conversationId) return
-    await confirmProjectConversationActionProposal({
-      conversationId: activeTab.conversationId,
-      entryId,
-      entries: activeTab.entries,
-      setEntries: (nextEntries) => {
-        activeTab.entries = nextEntries
-      },
-      onError: input.controllerInput.onError,
-    })
-  }
-
-  function cancelActionProposal(entryId: string) {
-    const activeTab = input.getActiveTab()
-    if (!activeTab) return
-    activeTab.entries = activeTab.entries.map((entry) =>
-      entry.kind === 'action_proposal' && entry.id === entryId && entry.status === 'pending'
-        ? { ...entry, status: 'cancelled' }
-        : entry,
-    )
-  }
-
   async function respondInterrupt(inputValue: {
     interruptId: string
     decision?: string
@@ -269,8 +244,6 @@ export function createProjectConversationControllerOperations(
     selectTab,
     closeTab,
     resetConversation,
-    confirmActionProposal,
-    cancelActionProposal,
     respondInterrupt,
     dispose,
   }

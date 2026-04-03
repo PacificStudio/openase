@@ -72,4 +72,44 @@ describe('connectAgentsPageStreams', () => {
 
     expect(onEvent).not.toHaveBeenCalled()
   })
+
+  it('reloads immediately on non-heartbeat agent lifecycle events', () => {
+    let projectListener: ((event: unknown) => void) | null = null
+    const onEvent = vi.fn()
+
+    subscribeProjectEvents.mockImplementation((_projectId, listener) => {
+      projectListener = listener
+      return () => {}
+    })
+    connectEventStream.mockReturnValue(() => {})
+
+    connectAgentsPageStreams('project-1', 'org-1', onEvent)
+
+    expect(projectListener).not.toBeNull()
+
+    projectListener!({ topic: 'agent.events', type: 'agent.executing' })
+    projectListener!({ topic: 'agent.events', type: 'agent.heartbeat' })
+
+    expect(onEvent).toHaveBeenCalledTimes(1)
+  })
+
+  it('reloads immediately on ticket run lifecycle events', () => {
+    let projectListener: ((event: unknown) => void) | null = null
+    const onEvent = vi.fn()
+
+    subscribeProjectEvents.mockImplementation((_projectId, listener) => {
+      projectListener = listener
+      return () => {}
+    })
+    connectEventStream.mockReturnValue(() => {})
+
+    connectAgentsPageStreams('project-1', 'org-1', onEvent)
+
+    expect(projectListener).not.toBeNull()
+
+    projectListener!({ topic: 'ticket.run.events', type: 'ticket.run.lifecycle' })
+    projectListener!({ topic: 'ticket.run.events', type: 'ticket.run.trace' })
+
+    expect(onEvent).toHaveBeenCalledTimes(1)
+  })
 })

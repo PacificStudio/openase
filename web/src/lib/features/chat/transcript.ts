@@ -1,10 +1,4 @@
-import type {
-  ChatActionProposalPayload,
-  ChatBundleDiffPayload,
-  ChatDiffPayload,
-  ChatMessagePayload,
-} from '$lib/api/chat'
-import type { ChatActionExecutionResult } from './action-proposal-executor'
+import type { ChatBundleDiffPayload, ChatDiffPayload, ChatMessagePayload } from '$lib/api/chat'
 
 export type EphemeralChatRole = 'user' | 'assistant' | 'system'
 
@@ -14,15 +8,6 @@ export type EphemeralChatTextEntry = {
   kind: 'text'
   content: string
   streaming: boolean
-}
-
-export type EphemeralChatActionProposalEntry = {
-  id: string
-  role: 'assistant'
-  kind: 'action_proposal'
-  proposal: ChatActionProposalPayload
-  status: 'pending' | 'executing' | 'confirmed' | 'cancelled'
-  results: ChatActionExecutionResult[]
 }
 
 export type EphemeralChatDiffEntry = {
@@ -41,7 +26,6 @@ export type EphemeralChatBundleDiffEntry = {
 
 export type EphemeralChatTranscriptEntry =
   | EphemeralChatTextEntry
-  | EphemeralChatActionProposalEntry
   | EphemeralChatDiffEntry
   | EphemeralChatBundleDiffEntry
 
@@ -62,17 +46,6 @@ export function mapChatPayloadToTranscriptEntry(
       kind: 'text',
       content: payload.content,
       streaming: false,
-    }
-  }
-
-  if (isActionProposalPayload(payload)) {
-    return {
-      id,
-      role: 'assistant',
-      kind: 'action_proposal',
-      proposal: payload,
-      status: 'pending',
-      results: [],
     }
   }
 
@@ -118,12 +91,6 @@ export function createTextTranscriptEntry(
     content,
     streaming: options?.streaming ?? false,
   }
-}
-
-export function isActionProposalEntry(
-  entry: EphemeralChatTranscriptEntry,
-): entry is EphemeralChatActionProposalEntry {
-  return entry.kind === 'action_proposal'
 }
 
 export function isDiffEntry(entry: EphemeralChatTranscriptEntry): entry is EphemeralChatDiffEntry {
@@ -226,12 +193,6 @@ export function isTextPayload(
   payload: ChatMessagePayload,
 ): payload is Extract<ChatMessagePayload, { type: 'text' }> {
   return payload.type === 'text'
-}
-
-function isActionProposalPayload(
-  payload: ChatMessagePayload,
-): payload is Extract<ChatMessagePayload, { type: 'action_proposal' }> {
-  return payload.type === 'action_proposal'
 }
 
 function isDiffPayload(

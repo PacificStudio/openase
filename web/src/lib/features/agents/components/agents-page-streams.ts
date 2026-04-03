@@ -3,6 +3,7 @@ import {
   isProjectDashboardRefreshEvent,
   readProjectDashboardRefreshSections,
   subscribeProjectEvents,
+  type ProjectEventEnvelope,
 } from '$lib/features/project-events'
 
 export function connectAgentsPageStreams(
@@ -11,6 +12,11 @@ export function connectAgentsPageStreams(
   onEvent: () => void,
 ): () => void {
   const disconnectAgents = subscribeProjectEvents(projectId, (event) => {
+    if (isImmediateRuntimeRefreshEvent(event)) {
+      onEvent()
+      return
+    }
+
     if (!isProjectDashboardRefreshEvent(event)) {
       return
     }
@@ -31,4 +37,12 @@ export function connectAgentsPageStreams(
     disconnectAgents()
     disconnectProviders()
   }
+}
+
+function isImmediateRuntimeRefreshEvent(event: Pick<ProjectEventEnvelope, 'topic' | 'type'>) {
+  if (event.topic === 'agent.events') {
+    return event.type !== 'agent.heartbeat'
+  }
+
+  return event.topic === 'ticket.run.events' && event.type === 'ticket.run.lifecycle'
 }

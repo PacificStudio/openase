@@ -180,6 +180,167 @@ func newTicketCommand() *cobra.Command {
 	return command
 }
 
+func newStatusCommand() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "status",
+		Short: "Operate on ticket statuses through the OpenASE API.",
+	}
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "list [projectId]",
+		Short:            "List ticket statuses.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/statuses",
+		PositionalParams: []string{"projectId"},
+		HelpNotes: []string{
+			"Use this to inspect the ordered status board for a project, including default status selection, status stage, and concurrency limits.",
+		},
+		Example: strings.TrimSpace(`
+  openase status list $OPENASE_PROJECT_ID
+  openase status list 550e8400-e29b-41d4-a716-446655440000 --json statuses
+`),
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "create [projectId]",
+		Short:            "Create a ticket status.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/projects/{projectId}/statuses",
+		PositionalParams: []string{"projectId"},
+		Example:          `openase status create $OPENASE_PROJECT_ID --name "QA" --stage started --color "#FF00AA" --description "Quality gate"`,
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "update [statusId]",
+		Short:            "Update a ticket status.",
+		Method:           http.MethodPatch,
+		Path:             "/api/v1/statuses/{statusId}",
+		PositionalParams: []string{"statusId"},
+		Example:          `openase status update $OPENASE_STATUS_ID --name "Ready for QA" --stage completed --position 5`,
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "delete [statusId]",
+		Short:            "Delete a ticket status.",
+		Method:           http.MethodDelete,
+		Path:             "/api/v1/statuses/{statusId}",
+		PositionalParams: []string{"statusId"},
+		Example:          "openase status delete $OPENASE_STATUS_ID",
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "reset [projectId]",
+		Short:            "Reset project statuses to the default template.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/projects/{projectId}/statuses/reset",
+		PositionalParams: []string{"projectId"},
+		HelpNotes: []string{
+			"This replaces the project's status board with the built-in default template and should be treated as an administrative operation.",
+		},
+		Example: "openase status reset $OPENASE_PROJECT_ID",
+	}))
+	return command
+}
+
+func newChatCommand() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "chat",
+		Short: "Operate on chat sessions and project conversations through the OpenASE API.",
+	}
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:    "send",
+		Short:  "Start an ephemeral chat request.",
+		Method: http.MethodPost,
+		Path:   "/api/v1/chat",
+		HelpNotes: []string{
+			"This is the raw ephemeral chat entrypoint. Use the conversation subcommands when you need persistent project conversation state instead of a one-shot session.",
+		},
+		Example: `openase chat send --message "Summarize the latest ticket activity"`,
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "close [sessionId]",
+		Short:            "Close an ephemeral chat session.",
+		Method:           http.MethodDelete,
+		Path:             "/api/v1/chat/{sessionId}",
+		PositionalParams: []string{"sessionId"},
+		Example:          "openase chat close $OPENASE_CHAT_SESSION_ID",
+	}))
+
+	conversation := &cobra.Command{
+		Use:   "conversation",
+		Short: "Operate on persistent project chat conversations.",
+	}
+	conversation.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:    "create",
+		Short:  "Create a project conversation.",
+		Method: http.MethodPost,
+		Path:   "/api/v1/chat/conversations",
+		HelpNotes: []string{
+			"Create a persistent project-scoped conversation before sending turns when you need resumable AI collaboration state.",
+		},
+		Example: `openase chat conversation create --source project --provider-id $OPENASE_PROVIDER_ID --context.project-id $OPENASE_PROJECT_ID`,
+	}))
+	conversation.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:    "list",
+		Short:  "List project conversations.",
+		Method: http.MethodGet,
+		Path:   "/api/v1/chat/conversations",
+		HelpNotes: []string{
+			"Filter by --project-id to scope the list to one project, and optionally add --provider-id when you are auditing provider-specific conversations.",
+		},
+		Example: "openase chat conversation list --project-id $OPENASE_PROJECT_ID",
+	}))
+	conversation.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "get [conversationId]",
+		Short:            "Get a project conversation.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/chat/conversations/{conversationId}",
+		PositionalParams: []string{"conversationId"},
+	}))
+	conversation.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "entries [conversationId]",
+		Short:            "List project conversation transcript entries.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/chat/conversations/{conversationId}/entries",
+		PositionalParams: []string{"conversationId"},
+	}))
+	conversation.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "workspace-diff [conversationId]",
+		Short:            "Get project conversation workspace diff summary.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/chat/conversations/{conversationId}/workspace-diff",
+		PositionalParams: []string{"conversationId"},
+	}))
+	conversation.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "turn [conversationId]",
+		Short:            "Start a project conversation turn.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/chat/conversations/{conversationId}/turns",
+		PositionalParams: []string{"conversationId"},
+		Example:          `openase chat conversation turn $OPENASE_CONVERSATION_ID --message "Continue from the last interrupted step"`,
+	}))
+	conversation.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{
+		Use:              "watch [conversationId]",
+		Short:            "Watch project conversation events.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/chat/conversations/{conversationId}/stream",
+		PositionalParams: []string{"conversationId"},
+		Example:          "openase chat conversation watch $OPENASE_CONVERSATION_ID",
+	}))
+	conversation.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "respond-interrupt [conversationId] [interruptId]",
+		Short:            "Respond to a project conversation interrupt.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond",
+		PositionalParams: []string{"conversationId", "interruptId"},
+	}))
+	conversation.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "close-runtime [conversationId]",
+		Short:            "Close a project conversation live runtime.",
+		Method:           http.MethodDelete,
+		Path:             "/api/v1/chat/conversations/{conversationId}/runtime",
+		PositionalParams: []string{"conversationId"},
+	}))
+	command.AddCommand(conversation)
+
+	return command
+}
+
 func newTypedTicketCommentCommand() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "comment",
@@ -210,6 +371,107 @@ func newProjectCommand() *cobra.Command {
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [orgId]", Short: "Create a project.", Method: http.MethodPost, Path: "/api/v1/orgs/{orgId}/projects", PositionalParams: []string{"orgId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [projectId]", Short: "Update a project.", Method: http.MethodPatch, Path: "/api/v1/projects/{projectId}", PositionalParams: []string{"projectId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [projectId]", Short: "Archive a project.", Method: http.MethodDelete, Path: "/api/v1/projects/{projectId}", PositionalParams: []string{"projectId"}}))
+	return command
+}
+
+func newRepoCommand() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "repo",
+		Short: "Operate on project repositories through the OpenASE API.",
+	}
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "list [projectId]",
+		Short:            "List project repositories.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/repos",
+		PositionalParams: []string{"projectId"},
+		HelpNotes: []string{
+			"Use this to inspect repositories currently bound to a project before wiring workflows, repo scopes, or GitHub imports.",
+		},
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "create [projectId]",
+		Short:            "Create a project repository.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/projects/{projectId}/repos",
+		PositionalParams: []string{"projectId"},
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "update [projectId] [repoId]",
+		Short:            "Update a project repository.",
+		Method:           http.MethodPatch,
+		Path:             "/api/v1/projects/{projectId}/repos/{repoId}",
+		PositionalParams: []string{"projectId", "repoId"},
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "delete [projectId] [repoId]",
+		Short:            "Delete a project repository.",
+		Method:           http.MethodDelete,
+		Path:             "/api/v1/projects/{projectId}/repos/{repoId}",
+		PositionalParams: []string{"projectId", "repoId"},
+	}))
+
+	github := &cobra.Command{
+		Use:   "github",
+		Short: "Operate on GitHub-backed repository discovery for a project.",
+	}
+	github.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "namespaces [projectId]",
+		Short:            "List GitHub namespaces available to the project's effective credential.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/github/namespaces",
+		PositionalParams: []string{"projectId"},
+	}))
+	github.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "list [projectId]",
+		Short:            "List GitHub repositories visible to the project's effective credential.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/github/repos",
+		PositionalParams: []string{"projectId"},
+	}))
+	github.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "create [projectId]",
+		Short:            "Create a GitHub repository using the project's effective credential.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/projects/{projectId}/github/repos",
+		PositionalParams: []string{"projectId"},
+	}))
+	command.AddCommand(github)
+
+	scope := &cobra.Command{
+		Use:   "scope",
+		Short: "Operate on ticket repository scopes.",
+	}
+	scope.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "list [projectId] [ticketId]",
+		Short:            "List ticket repository scopes.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes",
+		PositionalParams: []string{"projectId", "ticketId"},
+	}))
+	scope.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "create [projectId] [ticketId]",
+		Short:            "Create a ticket repository scope.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes",
+		PositionalParams: []string{"projectId", "ticketId"},
+	}))
+	scope.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "update [projectId] [ticketId] [scopeId]",
+		Short:            "Update a ticket repository scope.",
+		Method:           http.MethodPatch,
+		Path:             "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}",
+		PositionalParams: []string{"projectId", "ticketId", "scopeId"},
+	}))
+	scope.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "delete [projectId] [ticketId] [scopeId]",
+		Short:            "Delete a ticket repository scope.",
+		Method:           http.MethodDelete,
+		Path:             "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}",
+		PositionalParams: []string{"projectId", "ticketId", "scopeId"},
+	}))
+	command.AddCommand(scope)
+
 	return command
 }
 
@@ -383,6 +645,58 @@ func newAgentCommand() *cobra.Command {
 	return command
 }
 
+func newChannelCommand() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "channel",
+		Short: "Operate on notification channels through the OpenASE API.",
+	}
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "list [orgId]", Short: "List notification channels.", Method: http.MethodGet, Path: "/api/v1/orgs/{orgId}/channels", PositionalParams: []string{"orgId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [orgId]", Short: "Create a notification channel.", Method: http.MethodPost, Path: "/api/v1/orgs/{orgId}/channels", PositionalParams: []string{"orgId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [channelId]", Short: "Update a notification channel.", Method: http.MethodPatch, Path: "/api/v1/channels/{channelId}", PositionalParams: []string{"channelId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [channelId]", Short: "Delete a notification channel.", Method: http.MethodDelete, Path: "/api/v1/channels/{channelId}", PositionalParams: []string{"channelId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "test [channelId]",
+		Short:            "Test a notification channel.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/channels/{channelId}/test",
+		PositionalParams: []string{"channelId"},
+		HelpNotes: []string{
+			"Use this after create or update to verify the destination accepts deliveries before you bind project notification rules to it.",
+		},
+	}))
+	return command
+}
+
+func newNotificationRuleCommand() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "notification-rule",
+		Short: "Operate on notification rules through the OpenASE API.",
+	}
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "list [projectId]", Short: "List project notification rules.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/notification-rules", PositionalParams: []string{"projectId"}}))
+	command.AddCommand(newRawBodyOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "create [projectId]",
+		Short:            "Create a notification rule.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/projects/{projectId}/notification-rules",
+		PositionalParams: []string{"projectId"},
+		HelpNotes: []string{
+			"Use repeated -f/--field entries or --input because this request body includes a field named template, which would otherwise collide with the CLI output templating flag.",
+		},
+	}))
+	command.AddCommand(newRawBodyOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "update [ruleId]",
+		Short:            "Update a notification rule.",
+		Method:           http.MethodPatch,
+		Path:             "/api/v1/notification-rules/{ruleId}",
+		PositionalParams: []string{"ruleId"},
+		HelpNotes: []string{
+			"Use repeated -f/--field entries or --input because this request body includes a field named template, which would otherwise collide with the CLI output templating flag.",
+		},
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [ruleId]", Short: "Delete a notification rule.", Method: http.MethodDelete, Path: "/api/v1/notification-rules/{ruleId}", PositionalParams: []string{"ruleId"}}))
+	return command
+}
+
 func newSkillCommand() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "skill",
@@ -459,6 +773,50 @@ func newOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 	command.SetFlagErrorFunc(flagErrorWithNormalize)
 	applyCLIFlagNormalization(command.Flags())
 	registerOpenAPICommandFlags(command.Flags(), contract)
+	return command
+}
+
+func newRawBodyOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
+	contract := mustOpenAPICommandContract(spec)
+	deps := apiCommandDeps{httpClient: http.DefaultClient}
+	var fields []string
+	var inputPath string
+	command := &cobra.Command{
+		Use:     spec.Use,
+		Short:   contract.summary,
+		Long:    buildOpenAPIOperationHelp(spec, contract.summary),
+		Example: strings.TrimSpace(spec.Example),
+		Args:    cobra.MaximumNArgs(len(spec.PositionalParams)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolve()
+			if err != nil {
+				return err
+			}
+			requestPath, err := resolveOpenAPIRequestPath(cmd, contract, args)
+			if err != nil {
+				return err
+			}
+			body, err := buildRequestBody(fields, inputPath)
+			if err != nil {
+				return err
+			}
+			response, err := apiContext.do(cmd.Context(), deps, apiRequest{
+				Method: contract.spec.Method,
+				Path:   requestPath,
+				Body:   body,
+			})
+			if err != nil {
+				return err
+			}
+			return writeAPIOutput(cmd.OutOrStdout(), response.Body, outputOptionsFromFlags(cmd.Flags()))
+		},
+	}
+	command.SetFlagErrorFunc(flagErrorWithNormalize)
+	applyCLIFlagNormalization(command.Flags())
+	bindAPICommandFlags(command.Flags(), &apiCommandOptions{})
+	bindAPIOutputFlags(command.Flags(), &apiOutputOptions{})
+	command.Flags().StringSliceVarP(&fields, "field", "f", nil, "Add a JSON body field as key=value. Repeat for multiple fields.")
+	command.Flags().StringVar(&inputPath, "input", "", "Read the raw request body from a file. Use - for stdin.")
 	return command
 }
 
@@ -1081,11 +1439,38 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "update [ticketId] [commentId]", Short: "Update a ticket comment.", Method: http.MethodPatch, Path: "/api/v1/tickets/{ticketId}/comments/{commentId}", PositionalParams: []string{"ticketId", "commentId"}},
 		{Use: "delete [ticketId] [commentId]", Short: "Delete a ticket comment.", Method: http.MethodDelete, Path: "/api/v1/tickets/{ticketId}/comments/{commentId}", PositionalParams: []string{"ticketId", "commentId"}},
 		{Use: "revisions [ticketId] [commentId]", Short: "List ticket comment revisions.", Method: http.MethodGet, Path: "/api/v1/tickets/{ticketId}/comments/{commentId}/revisions", PositionalParams: []string{"ticketId", "commentId"}},
+		{Use: "list [projectId]", Short: "List ticket statuses.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/statuses", PositionalParams: []string{"projectId"}},
+		{Use: "create [projectId]", Short: "Create a ticket status.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/statuses", PositionalParams: []string{"projectId"}},
+		{Use: "update [statusId]", Short: "Update a ticket status.", Method: http.MethodPatch, Path: "/api/v1/statuses/{statusId}", PositionalParams: []string{"statusId"}},
+		{Use: "delete [statusId]", Short: "Delete a ticket status.", Method: http.MethodDelete, Path: "/api/v1/statuses/{statusId}", PositionalParams: []string{"statusId"}},
+		{Use: "reset [projectId]", Short: "Reset project statuses to the default template.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/statuses/reset", PositionalParams: []string{"projectId"}},
+		{Use: "send", Short: "Start an ephemeral chat request.", Method: http.MethodPost, Path: "/api/v1/chat"},
+		{Use: "close [sessionId]", Short: "Close an ephemeral chat session.", Method: http.MethodDelete, Path: "/api/v1/chat/{sessionId}", PositionalParams: []string{"sessionId"}},
+		{Use: "create", Short: "Create a project conversation.", Method: http.MethodPost, Path: "/api/v1/chat/conversations"},
+		{Use: "list", Short: "List project conversations.", Method: http.MethodGet, Path: "/api/v1/chat/conversations"},
+		{Use: "get [conversationId]", Short: "Get a project conversation.", Method: http.MethodGet, Path: "/api/v1/chat/conversations/{conversationId}", PositionalParams: []string{"conversationId"}},
+		{Use: "entries [conversationId]", Short: "List project conversation transcript entries.", Method: http.MethodGet, Path: "/api/v1/chat/conversations/{conversationId}/entries", PositionalParams: []string{"conversationId"}},
+		{Use: "workspace-diff [conversationId]", Short: "Get project conversation workspace diff summary.", Method: http.MethodGet, Path: "/api/v1/chat/conversations/{conversationId}/workspace-diff", PositionalParams: []string{"conversationId"}},
+		{Use: "turn [conversationId]", Short: "Start a project conversation turn.", Method: http.MethodPost, Path: "/api/v1/chat/conversations/{conversationId}/turns", PositionalParams: []string{"conversationId"}},
+		{Use: "watch [conversationId]", Short: "Watch project conversation events.", Method: http.MethodGet, Path: "/api/v1/chat/conversations/{conversationId}/stream", PositionalParams: []string{"conversationId"}},
+		{Use: "respond-interrupt [conversationId] [interruptId]", Short: "Respond to a project conversation interrupt.", Method: http.MethodPost, Path: "/api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond", PositionalParams: []string{"conversationId", "interruptId"}},
+		{Use: "close-runtime [conversationId]", Short: "Close a project conversation live runtime.", Method: http.MethodDelete, Path: "/api/v1/chat/conversations/{conversationId}/runtime", PositionalParams: []string{"conversationId"}},
 		{Use: "list [orgId]", Short: "List projects.", Method: http.MethodGet, Path: "/api/v1/orgs/{orgId}/projects", PositionalParams: []string{"orgId"}},
 		{Use: "get [projectId]", Short: "Get a project.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}", PositionalParams: []string{"projectId"}},
 		{Use: "create [orgId]", Short: "Create a project.", Method: http.MethodPost, Path: "/api/v1/orgs/{orgId}/projects", PositionalParams: []string{"orgId"}},
 		{Use: "update [projectId]", Short: "Update a project.", Method: http.MethodPatch, Path: "/api/v1/projects/{projectId}", PositionalParams: []string{"projectId"}},
 		{Use: "delete [projectId]", Short: "Archive a project.", Method: http.MethodDelete, Path: "/api/v1/projects/{projectId}", PositionalParams: []string{"projectId"}},
+		{Use: "list [projectId]", Short: "List project repositories.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/repos", PositionalParams: []string{"projectId"}},
+		{Use: "create [projectId]", Short: "Create a project repository.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/repos", PositionalParams: []string{"projectId"}},
+		{Use: "update [projectId] [repoId]", Short: "Update a project repository.", Method: http.MethodPatch, Path: "/api/v1/projects/{projectId}/repos/{repoId}", PositionalParams: []string{"projectId", "repoId"}},
+		{Use: "delete [projectId] [repoId]", Short: "Delete a project repository.", Method: http.MethodDelete, Path: "/api/v1/projects/{projectId}/repos/{repoId}", PositionalParams: []string{"projectId", "repoId"}},
+		{Use: "namespaces [projectId]", Short: "List GitHub namespaces available to the project's effective credential.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/github/namespaces", PositionalParams: []string{"projectId"}},
+		{Use: "list [projectId]", Short: "List GitHub repositories visible to the project's effective credential.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/github/repos", PositionalParams: []string{"projectId"}},
+		{Use: "create [projectId]", Short: "Create a GitHub repository using the project's effective credential.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/github/repos", PositionalParams: []string{"projectId"}},
+		{Use: "list [projectId] [ticketId]", Short: "List ticket repository scopes.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes", PositionalParams: []string{"projectId", "ticketId"}},
+		{Use: "create [projectId] [ticketId]", Short: "Create a ticket repository scope.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes", PositionalParams: []string{"projectId", "ticketId"}},
+		{Use: "update [projectId] [ticketId] [scopeId]", Short: "Update a ticket repository scope.", Method: http.MethodPatch, Path: "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}", PositionalParams: []string{"projectId", "ticketId", "scopeId"}},
+		{Use: "delete [projectId] [ticketId] [scopeId]", Short: "Delete a ticket repository scope.", Method: http.MethodDelete, Path: "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}", PositionalParams: []string{"projectId", "ticketId", "scopeId"}},
 		{Use: "list [projectId]", Short: "List workflows.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/workflows", PositionalParams: []string{"projectId"}},
 		{Use: "get [workflowId]", Short: "Get a workflow.", Method: http.MethodGet, Path: "/api/v1/workflows/{workflowId}", PositionalParams: []string{"workflowId"}},
 		{Use: "create [projectId]", Short: "Create a workflow.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/workflows", PositionalParams: []string{"projectId"}},
@@ -1119,6 +1504,15 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "resume [agentId]", Short: "Resume an agent.", Method: http.MethodPost, Path: "/api/v1/agents/{agentId}/resume", PositionalParams: []string{"agentId"}},
 		{Use: "output [projectId] [agentId]", Short: "List agent output entries.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/{agentId}/output", PositionalParams: []string{"projectId", "agentId"}},
 		{Use: "steps [projectId] [agentId]", Short: "List agent step entries.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/{agentId}/steps", PositionalParams: []string{"projectId", "agentId"}},
+		{Use: "list [orgId]", Short: "List notification channels.", Method: http.MethodGet, Path: "/api/v1/orgs/{orgId}/channels", PositionalParams: []string{"orgId"}},
+		{Use: "create [orgId]", Short: "Create a notification channel.", Method: http.MethodPost, Path: "/api/v1/orgs/{orgId}/channels", PositionalParams: []string{"orgId"}},
+		{Use: "update [channelId]", Short: "Update a notification channel.", Method: http.MethodPatch, Path: "/api/v1/channels/{channelId}", PositionalParams: []string{"channelId"}},
+		{Use: "delete [channelId]", Short: "Delete a notification channel.", Method: http.MethodDelete, Path: "/api/v1/channels/{channelId}", PositionalParams: []string{"channelId"}},
+		{Use: "test [channelId]", Short: "Test a notification channel.", Method: http.MethodPost, Path: "/api/v1/channels/{channelId}/test", PositionalParams: []string{"channelId"}},
+		{Use: "list [projectId]", Short: "List project notification rules.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/notification-rules", PositionalParams: []string{"projectId"}},
+		{Use: "create [projectId]", Short: "Create a notification rule.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/notification-rules", PositionalParams: []string{"projectId"}},
+		{Use: "update [ruleId]", Short: "Update a notification rule.", Method: http.MethodPatch, Path: "/api/v1/notification-rules/{ruleId}", PositionalParams: []string{"ruleId"}},
+		{Use: "delete [ruleId]", Short: "Delete a notification rule.", Method: http.MethodDelete, Path: "/api/v1/notification-rules/{ruleId}", PositionalParams: []string{"ruleId"}},
 		{Use: "list [projectId]", Short: "List project skills.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}},
 		{Use: "create [projectId]", Short: "Create a skill.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}},
 		{Use: "refresh [projectId]", Short: "Refresh workspace skills.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills/refresh", PositionalParams: []string{"projectId"}},

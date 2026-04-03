@@ -83,6 +83,11 @@ export function createProjectConversationControllerConversations(
   return {
     sortProjectConversations,
     touchConversation,
+    upsertConversation,
     applySessionPayload,
   }
 }
+
+export type ProjectConversationControllerConversations = ReturnType<
+  typeof createProjectConversationControllerConversations
+>

@@ -920,8 +920,11 @@ func TestWorkflowServiceHelperCoverage(t *testing.T) {
 		t.Fatalf("auto-detected RepoRoot() = %q, want %q", autoService.RepoRoot(), repoRoot)
 	}
 
-	if got := service.mapWorkflowWriteError("write workflow", &ent.ConstraintError{}); !errors.Is(got, ErrWorkflowConflict) {
+	if got := service.mapWorkflowWriteError("write workflow", &ent.ConstraintError{}); !errors.Is(got, ErrWorkflowNameConflict) {
 		t.Fatalf("mapWorkflowWriteError(unique) = %v", got)
+	}
+	if got := service.mapWorkflowWriteError("write workflow", ErrWorkflowHarnessPathConflict); !errors.Is(got, ErrWorkflowHarnessPathConflict) {
+		t.Fatalf("mapWorkflowWriteError(harness path conflict) = %v", got)
 	}
 	if got := service.mapWorkflowWriteError("write workflow", errors.New("boom")); got == nil || got.Error() != "write workflow: boom" {
 		t.Fatalf("mapWorkflowWriteError(default) = %v", got)

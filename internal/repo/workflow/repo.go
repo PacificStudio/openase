@@ -132,6 +132,29 @@ func (r *EntRepository) EnsurePickupStatusBindingsAvailable(
 	return fmt.Errorf("%w: pickup status %s", domain.ErrPickupStatusConflict, strings.Join(conflicts, ", "))
 }
 
+func (r *EntRepository) EnsureWorkflowNameAvailable(
+	ctx context.Context,
+	projectID uuid.UUID,
+	name string,
+	excludeWorkflowID uuid.UUID,
+) error {
+	query := r.client.Workflow.Query().Where(
+		entworkflow.ProjectIDEQ(projectID),
+		entworkflow.NameEQ(strings.TrimSpace(name)),
+	)
+	if excludeWorkflowID != uuid.Nil {
+		query = query.Where(entworkflow.IDNEQ(excludeWorkflowID))
+	}
+	exists, err := query.Exist(ctx)
+	if err != nil {
+		return fmt.Errorf("check workflow name uniqueness: %w", err)
+	}
+	if exists {
+		return fmt.Errorf("%w: workflow name %q is already used in this project", domain.ErrWorkflowNameConflict, strings.TrimSpace(name))
+	}
+	return nil
+}
+
 func (r *EntRepository) EnsureHarnessPathAvailable(
 	ctx context.Context,
 	projectID uuid.UUID,
@@ -150,7 +173,7 @@ func (r *EntRepository) EnsureHarnessPathAvailable(
 		return fmt.Errorf("check workflow harness path uniqueness: %w", err)
 	}
 	if exists {
-		return domain.ErrWorkflowConflict
+		return fmt.Errorf("%w: harness_path %q is already used by another workflow", domain.ErrWorkflowHarnessPathConflict, harnessPath)
 	}
 	return nil
 }
@@ -1601,11 +1624,11 @@ func mapWorkflowWriteError(action string, err error) error {
 	case ent.IsNotFound(err):
 		return domain.ErrWorkflowNotFound
 	case ent.IsConstraintError(err):
-		return domain.ErrWorkflowConflict
+		return fmt.Errorf("%w: workflow name already exists in this project", domain.ErrWorkflowNameConflict)
 	case strings.Contains(strings.ToLower(err.Error()), "tickets"):
-		return domain.ErrWorkflowInUse
+		return fmt.Errorf("%w: tickets still reference this workflow", domain.ErrWorkflowReferencedByTickets)
 	case strings.Contains(strings.ToLower(err.Error()), "scheduled_jobs"):
-		return domain.ErrWorkflowInUse
+		return fmt.Errorf("%w: scheduled jobs still reference this workflow", domain.ErrWorkflowReferencedByScheduledJobs)
 	default:
 		return fmt.Errorf("%s: %w", action, err)
 	}

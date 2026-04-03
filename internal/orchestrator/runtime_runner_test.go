@@ -13,12 +13,27 @@ import (
 
 	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
+	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	"github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 )
+
+type runtimeRunnerFailingSession struct{}
+
+func (runtimeRunnerFailingSession) SessionID() (string, bool) { return "session-executing", true }
+func (runtimeRunnerFailingSession) Events() <-chan agentEvent { return nil }
+func (runtimeRunnerFailingSession) SendPrompt(context.Context, string) (agentTurnStartResult, error) {
+	return agentTurnStartResult{}, errors.New("session unavailable")
+}
+func (runtimeRunnerFailingSession) Stop(context.Context) error { return nil }
+func (runtimeRunnerFailingSession) Err() error                 { return nil }
+func (runtimeRunnerFailingSession) Diagnostic() agentSessionDiagnostic {
+	return agentSessionDiagnostic{}
+}
 
 func TestRuntimeLauncherConsumeTurnIncludesSessionExitCause(t *testing.T) {
 	process := newRuntimeRunnerFakeProcess()
@@ -240,6 +255,106 @@ func TestRuntimeLauncherRecordProviderRateLimitEmitsCanonicalActivity(t *testing
 	case event := <-stream:
 		t.Fatalf("unexpected duplicate activity stream event: %+v", event)
 	case <-time.After(200 * time.Millisecond):
+	}
+}
+
+func TestRuntimeLauncherStartReadyExecutionsPublishesExecutingLifecycle(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	executingAt := time.Date(2026, time.April, 3, 15, 4, 5, 0, time.UTC)
+
+	bus := eventinfra.NewChannelBus()
+	defer func() {
+		if err := bus.Close(); err != nil {
+			t.Fatalf("bus.Close() error = %v", err)
+		}
+	}()
+	stream, err := bus.Subscribe(ctx, agentLifecycleTopic)
+	if err != nil {
+		t.Fatalf("Subscribe(agent lifecycle) error = %v", err)
+	}
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-902").
+		SetTitle("Publish executing lifecycle").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority("high").
+		SetType("feature").
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	agentItem := fixture.createAgent(ctx, t, "executing-01", 0)
+	runItem := mustCreateCurrentRun(
+		ctx,
+		t,
+		client,
+		agentItem,
+		workflowItem.ID,
+		ticketItem.ID,
+		entagentrun.StatusReady,
+		executingAt.Add(-15*time.Second),
+	)
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, nil, nil, nil)
+	launcher.now = func() time.Time { return executingAt }
+	launcher.storeSession(runItem.ID, runtimeRunnerFailingSession{})
+
+	if err := launcher.startReadyExecutions(ctx); err != nil {
+		t.Fatalf("startReadyExecutions() error = %v", err)
+	}
+
+	executingEvent := waitForAgentLifecycleEvent(t, stream, agentExecutingType)
+	payload := decodeLifecycleEnvelope(t, executingEvent.Payload)
+	if payload.Agent.ID != agentItem.ID.String() {
+		t.Fatalf("executing payload agent id = %q, want %q", payload.Agent.ID, agentItem.ID.String())
+	}
+	if payload.Agent.RuntimePhase != "executing" {
+		t.Fatalf("executing payload runtime phase = %q, want executing", payload.Agent.RuntimePhase)
+	}
+	if payload.Agent.CurrentTicketID == nil || *payload.Agent.CurrentTicketID != ticketItem.ID.String() {
+		t.Fatalf("executing payload current ticket = %+v, want %s", payload.Agent.CurrentTicketID, ticketItem.ID)
+	}
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusExecuting {
+		t.Fatalf("run status = %s, want executing", runAfter.Status)
+	}
+
+	activities, err := client.ActivityEvent.Query().
+		Where(
+			entactivityevent.AgentIDEQ(agentItem.ID),
+			entactivityevent.EventTypeEQ(activityevent.TypeAgentExecuting.String()),
+		).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("query executing activities: %v", err)
+	}
+	if len(activities) != 1 {
+		t.Fatalf("expected one executing activity, got %+v", activities)
+	}
+	if activities[0].TicketID == nil || *activities[0].TicketID != ticketItem.ID {
+		t.Fatalf("executing activity ticket_id = %+v, want %s", activities[0].TicketID, ticketItem.ID)
 	}
 }
 

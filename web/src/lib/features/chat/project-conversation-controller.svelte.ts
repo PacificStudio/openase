@@ -284,12 +284,6 @@ export function createProjectConversationController(
     async resetConversation() {
       await operations.resetConversation()
     },
-    async confirmActionProposal(entryId: string) {
-      await operations.confirmActionProposal(entryId)
-    },
-    cancelActionProposal(entryId: string) {
-      operations.cancelActionProposal(entryId)
-    },
     async respondInterrupt(inputValue: {
       interruptId: string
       decision?: string

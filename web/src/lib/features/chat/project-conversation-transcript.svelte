@@ -1,7 +1,6 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
   import { ChevronRight, LoaderCircle, Layers } from '@lucide/svelte'
-  import EphemeralChatActionProposalCard from './ephemeral-chat-action-proposal-card.svelte'
   import EphemeralChatDiffCard from './ephemeral-chat-diff-card.svelte'
   import ChatMarkdownContent from './chat-markdown-content.svelte'
   import ProjectConversationCommandOutputCard from './project-conversation-command-output-card.svelte'
@@ -20,14 +19,10 @@
   let {
     entries,
     pending = false,
-    onConfirmActionProposal,
-    onCancelActionProposal,
     onRespondInterrupt,
   }: {
     entries: ProjectConversationTranscriptEntry[]
     pending?: boolean
-    onConfirmActionProposal?: (entryId: string) => Promise<void> | void
-    onCancelActionProposal?: (entryId: string) => void
     onRespondInterrupt?: (input: {
       interruptId: string
       decision?: string
@@ -68,13 +63,7 @@
     {#if item.type === 'standalone'}
       {@const entry = item.entry}
 
-      {#if entry.kind === 'action_proposal'}
-        <EphemeralChatActionProposalCard
-          {entry}
-          onConfirm={onConfirmActionProposal}
-          onCancel={onCancelActionProposal}
-        />
-      {:else if entry.kind === 'diff'}
+      {#if entry.kind === 'diff'}
         <EphemeralChatDiffCard {entry} />
       {:else if entry.kind === 'interrupt'}
         <ProjectConversationInterruptCard {entry} {onRespondInterrupt} />

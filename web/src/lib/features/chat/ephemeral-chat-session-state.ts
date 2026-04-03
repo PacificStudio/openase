@@ -1,11 +1,9 @@
 import type { ChatSource, ChatStreamEvent } from '$lib/api/chat'
-import type { ChatActionExecutionResult } from './action-proposal-executor'
 import { formatEphemeralChatUsageSummary } from './session-policy'
 import {
   appendAssistantTextChunk,
   createTextTranscriptEntry,
   finalizeAssistantTextChunk,
-  isActionProposalEntry,
   mapChatPayloadToTranscriptEntry,
   type EphemeralChatRole,
   type EphemeralChatTranscriptEntry,
@@ -94,26 +92,6 @@ export function handleEphemeralChatStreamEvent(
     ...state.entries,
     mapChatPayloadToTranscriptEntry(`entry-${state.entryCounter}`, payload),
   ]
-}
-
-export function updateEphemeralActionProposalEntry(
-  state: EphemeralChatSessionState,
-  entryId: string,
-  nextState: {
-    status: 'executing' | 'confirmed' | 'cancelled'
-    results: ChatActionExecutionResult[]
-  },
-) {
-  state.entries = state.entries.map((entry) => {
-    if (!isActionProposalEntry(entry) || entry.id !== entryId) {
-      return entry
-    }
-    return {
-      ...entry,
-      status: nextState.status,
-      results: nextState.results,
-    }
-  })
 }
 
 export function clearEphemeralChatSessionState(

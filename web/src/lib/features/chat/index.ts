@@ -1,4 +1,3 @@
-export { default as EphemeralChatActionProposalCard } from './ephemeral-chat-action-proposal-card.svelte'
 export { default as EphemeralChatProviderSelect } from './ephemeral-chat-provider-select.svelte'
 export { default as EphemeralChatPanel } from './ephemeral-chat-panel.svelte'
 export { default as EphemeralChatTranscript } from './ephemeral-chat-transcript.svelte'

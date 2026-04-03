@@ -1119,8 +1119,27 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		IsActive:            false,
 		PickupStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Backlog"]),
 		FinishStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Done"]),
-	}); !errors.Is(err, ErrWorkflowConflict) {
-		t.Fatalf("Create() duplicate name error = %v, want %v", err, ErrWorkflowConflict)
+	}); !errors.Is(err, ErrWorkflowNameConflict) {
+		t.Fatalf("Create() duplicate name error = %v, want %v", err, ErrWorkflowNameConflict)
+	}
+
+	duplicateHarnessPath := created.HarnessPath
+	if _, err := service.Create(ctx, CreateInput{
+		ProjectID:           fixture.projectID,
+		AgentID:             fixture.agentID,
+		Name:                "Duplicate Harness Path",
+		Type:                TypeCoding,
+		HarnessPath:         &duplicateHarnessPath,
+		HarnessContent:      "# Coding\n",
+		MaxConcurrent:       1,
+		MaxRetryAttempts:    1,
+		TimeoutMinutes:      30,
+		StallTimeoutMinutes: 5,
+		IsActive:            false,
+		PickupStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Backlog"]),
+		FinishStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Done"]),
+	}); !errors.Is(err, ErrWorkflowHarnessPathConflict) {
+		t.Fatalf("Create() duplicate harness path error = %v, want %v", err, ErrWorkflowHarnessPathConflict)
 	}
 
 	parallelCreated, err := service.Create(ctx, CreateInput{
@@ -1179,16 +1198,30 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		t.Fatalf("Update() invalid harness path error = %v, want %v", err, ErrHarnessInvalid)
 	}
 
+	if _, err := service.Update(ctx, UpdateInput{
+		WorkflowID: parallelCreated.ID,
+		Name:       Some(created.Name),
+	}); !errors.Is(err, ErrWorkflowNameConflict) {
+		t.Fatalf("Update() duplicate name error = %v, want %v", err, ErrWorkflowNameConflict)
+	}
+
+	if _, err := service.Update(ctx, UpdateInput{
+		WorkflowID:  parallelCreated.ID,
+		HarnessPath: Some(created.HarnessPath),
+	}); !errors.Is(err, ErrWorkflowHarnessPathConflict) {
+		t.Fatalf("Update() duplicate harness path error = %v, want %v", err, ErrWorkflowHarnessPathConflict)
+	}
+
 	if got := service.mapWorkflowReadError("get workflow", errors.New("boom")); got == nil || !errors.Is(got, errors.New("boom")) {
 		if got == nil || got.Error() != "get workflow: boom" {
 			t.Fatalf("mapWorkflowReadError() = %v", got)
 		}
 	}
-	if got := service.mapWorkflowWriteError("delete workflow", errors.New("tickets still reference workflow")); !errors.Is(got, ErrWorkflowInUse) {
-		t.Fatalf("mapWorkflowWriteError(tickets) = %v, want %v", got, ErrWorkflowInUse)
+	if got := service.mapWorkflowWriteError("delete workflow", errors.New("tickets still reference workflow")); !errors.Is(got, ErrWorkflowReferencedByTickets) {
+		t.Fatalf("mapWorkflowWriteError(tickets) = %v, want %v", got, ErrWorkflowReferencedByTickets)
 	}
-	if got := service.mapWorkflowWriteError("delete workflow", errors.New("scheduled_jobs still reference workflow")); !errors.Is(got, ErrWorkflowInUse) {
-		t.Fatalf("mapWorkflowWriteError(scheduled_jobs) = %v, want %v", got, ErrWorkflowInUse)
+	if got := service.mapWorkflowWriteError("delete workflow", errors.New("scheduled_jobs still reference workflow")); !errors.Is(got, ErrWorkflowReferencedByScheduledJobs) {
+		t.Fatalf("mapWorkflowWriteError(scheduled_jobs) = %v, want %v", got, ErrWorkflowReferencedByScheduledJobs)
 	}
 
 	if _, err := validateConfiguredHooks(map[string]any{"workflow_hooks": "bad"}); !errors.Is(err, ErrHookConfigInvalid) {

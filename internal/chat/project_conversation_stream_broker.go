@@ -12,6 +12,8 @@ type projectConversationStreamBroker struct {
 	nextWatcher int
 }
 
+const projectConversationStreamBufferSize = 2048
+
 func newProjectConversationStreamBroker() *projectConversationStreamBroker {
 	return &projectConversationStreamBroker{
 		watchers: map[uuid.UUID]map[int]chan StreamEvent{},
@@ -22,7 +24,7 @@ func (b *projectConversationStreamBroker) Watch(
 	conversationID uuid.UUID,
 	initial StreamEvent,
 ) (<-chan StreamEvent, func()) {
-	events := make(chan StreamEvent, 32)
+	events := make(chan StreamEvent, projectConversationStreamBufferSize)
 
 	b.mu.Lock()
 	if b.watchers[conversationID] == nil {
@@ -61,8 +63,36 @@ func (b *projectConversationStreamBroker) Broadcast(conversationID uuid.UUID, ev
 	defer b.mu.Unlock()
 
 	for _, watcher := range b.watchers[conversationID] {
+		if isGuaranteedProjectConversationEvent(event.Event) {
+			enqueueGuaranteedProjectConversationEvent(watcher, event)
+			continue
+		}
 		select {
 		case watcher <- event:
+		default:
+		}
+	}
+}
+
+func isGuaranteedProjectConversationEvent(event string) bool {
+	switch event {
+	case "turn_done", "error", "interrupt_requested":
+		return true
+	default:
+		return false
+	}
+}
+
+func enqueueGuaranteedProjectConversationEvent(watcher chan StreamEvent, event StreamEvent) {
+	for {
+		select {
+		case watcher <- event:
+			return
+		default:
+		}
+
+		select {
+		case <-watcher:
 		default:
 		}
 	}

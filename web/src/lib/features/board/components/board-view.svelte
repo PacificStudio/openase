@@ -37,9 +37,63 @@
     onCreateTicket?: (statusId: string) => void
     onColumnAction?: (columnId: string, action: string) => void
   } = $props()
+
+  const EDGE_ZONE = 80
+  const MAX_SCROLL_SPEED = 18
+
+  let scrollContainer: HTMLDivElement | undefined = $state()
+  let autoScrollRaf = 0
+  let scrollDirection = 0
+
+  function startAutoScroll() {
+    if (autoScrollRaf) return
+    function tick() {
+      if (scrollContainer && scrollDirection !== 0) {
+        scrollContainer.scrollLeft += scrollDirection * MAX_SCROLL_SPEED
+      }
+      autoScrollRaf = requestAnimationFrame(tick)
+    }
+    autoScrollRaf = requestAnimationFrame(tick)
+  }
+
+  function stopAutoScroll() {
+    if (autoScrollRaf) {
+      cancelAnimationFrame(autoScrollRaf)
+      autoScrollRaf = 0
+    }
+    scrollDirection = 0
+  }
+
+  function handleContainerDragOver(event: DragEvent) {
+    if (!scrollContainer || !draggingTicketId) return
+    const rect = scrollContainer.getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const rightEdge = rect.width - x
+
+    if (x < EDGE_ZONE) {
+      scrollDirection = -(1 - x / EDGE_ZONE)
+      startAutoScroll()
+    } else if (rightEdge < EDGE_ZONE) {
+      scrollDirection = 1 - rightEdge / EDGE_ZONE
+      startAutoScroll()
+    } else {
+      scrollDirection = 0
+    }
+  }
+
+  $effect(() => {
+    if (!draggingTicketId) stopAutoScroll()
+  })
 </script>
 
-<div class={cn('flex min-h-0 flex-1 overflow-x-auto overflow-y-hidden', className)}>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+  bind:this={scrollContainer}
+  class={cn('flex min-h-0 flex-1 overflow-x-auto overflow-y-hidden', className)}
+  ondragover={handleContainerDragOver}
+  ondragleave={stopAutoScroll}
+  ondrop={stopAutoScroll}
+>
   {#if groups.length === 0}
     <div
       class="text-muted-foreground flex h-full items-center justify-center rounded-lg border border-dashed p-6 text-sm"

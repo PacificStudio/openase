@@ -13,6 +13,7 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     public detail: string,
+    public code?: string,
   ) {
     super(detail)
   }
@@ -40,15 +41,15 @@ async function request<T>(method: string, path: string, opts: FetchOptions = {})
   })
 
   if (!res.ok) {
-    const detail = await readErrorDetail(res)
-    throw new ApiError(res.status, detail)
+    const payload = await readErrorPayload(res)
+    throw new ApiError(res.status, payload.detail, payload.code)
   }
 
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }
 
-async function readErrorDetail(res: Response) {
+async function readErrorPayload(res: Response): Promise<{ detail: string; code?: string }> {
   try {
     const contentType = res.headers.get('content-type') ?? ''
     if (contentType.includes('application/json')) {
@@ -58,13 +59,19 @@ async function readErrorDetail(res: Response) {
         error?: string
         code?: string
       }
-      return payload.message || payload.detail || payload.error || payload.code || res.statusText
+      return {
+        detail:
+          payload.message || payload.detail || payload.error || payload.code || res.statusText,
+        code: payload.code,
+      }
     }
   } catch {
-    return res.statusText
+    return { detail: res.statusText }
   }
 
-  return res.text().catch(() => res.statusText)
+  return {
+    detail: await res.text().catch(() => res.statusText),
+  }
 }
 
 export const api = {

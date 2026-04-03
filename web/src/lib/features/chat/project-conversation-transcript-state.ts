@@ -1,11 +1,4 @@
-import type {
-  ChatActionProposalPayload,
-  ChatDiffPayload,
-  ChatMessagePayload,
-  ChatPlatformCommandProposalPayload,
-  ProjectConversationEntry,
-} from '$lib/api/chat'
-import type { ChatActionExecutionResult } from './action-proposal-executor'
+import type { ChatDiffPayload, ChatMessagePayload, ProjectConversationEntry } from '$lib/api/chat'
 import {
   createProjectConversationDiffEntriesFromUnifiedDiff,
   createProjectConversationDiffEntry,
@@ -13,7 +6,6 @@ import {
 } from './project-conversation-transcript-parsers'
 import {
   appendProjectConversationTranscriptEntry,
-  createProjectConversationActionProposalEntry,
   createProjectConversationInterruptEntry,
   type ProjectConversationRole,
   type ProjectConversationTextEntry,
@@ -22,7 +14,6 @@ import {
 
 export {
   appendProjectConversationTranscriptEntry,
-  createProjectConversationActionProposalEntry,
   createProjectConversationInterruptEntry,
 } from './project-conversation-transcript-types'
 export {
@@ -149,17 +140,14 @@ export function mapPersistedEntries(
     }
 
     if (entry.kind === 'action_proposal' || entry.kind === 'platform_command_proposal') {
-      transcript.push(
-        createProjectConversationActionProposalEntry({
-          id: entry.id,
-          proposal: {
-            ...(entry.payload as unknown as
-              | ChatActionProposalPayload
-              | ChatPlatformCommandProposalPayload),
-            entryId: entry.id,
-          } as ChatActionProposalPayload | ChatPlatformCommandProposalPayload,
-        }),
-      )
+      transcript.push({
+        id: entry.id,
+        kind: 'text',
+        role: 'assistant',
+        turnId: entry.turnId,
+        content: summarizeLegacyProposalPayload(entry.payload),
+        streaming: false,
+      })
       continue
     }
 
@@ -233,24 +221,6 @@ export function mapPersistedEntries(
       }
       continue
     }
-
-    if (entry.kind === 'action_result') {
-      const payload = entry.payload as {
-        entry_id?: string
-        results?: ChatActionExecutionResult[]
-      }
-      if (payload.entry_id) {
-        for (const transcriptEntry of transcript) {
-          if (
-            transcriptEntry.kind === 'action_proposal' &&
-            transcriptEntry.id === payload.entry_id
-          ) {
-            transcriptEntry.status = 'confirmed'
-            transcriptEntry.results = payload.results ?? []
-          }
-        }
-      }
-    }
   }
 
   return transcript
@@ -262,18 +232,19 @@ export function isTextPayload(
   return payload.type === 'text'
 }
 
-export function isActionProposalPayload(
-  payload: ChatMessagePayload,
-): payload is ChatActionProposalPayload {
-  return payload.type === 'action_proposal'
-}
-
-export function isPlatformCommandProposalPayload(
-  payload: ChatMessagePayload,
-): payload is ChatPlatformCommandProposalPayload {
-  return payload.type === 'platform_command_proposal'
-}
-
 export function isDiffPayload(payload: ChatMessagePayload): payload is ChatDiffPayload {
   return payload.type === 'diff'
+}
+
+function summarizeLegacyProposalPayload(payload: Record<string, unknown>) {
+  const summary = typeof payload.summary === 'string' ? payload.summary.trim() : ''
+  if (summary) {
+    return summary
+  }
+
+  try {
+    return JSON.stringify(payload, null, 2)
+  } catch {
+    return 'Legacy proposal payload'
+  }
 }

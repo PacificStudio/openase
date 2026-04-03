@@ -23,17 +23,21 @@ import (
 )
 
 var (
-	ErrUnavailable          = errors.New("workflow service unavailable")
-	ErrProjectNotFound      = domain.ErrProjectNotFound
-	ErrWorkflowNotFound     = domain.ErrWorkflowNotFound
-	ErrStatusNotFound       = domain.ErrStatusNotFound
-	ErrAgentNotFound        = domain.ErrAgentNotFound
-	ErrWorkflowConflict     = domain.ErrWorkflowConflict
-	ErrPickupStatusConflict = domain.ErrPickupStatusConflict
-	ErrWorkflowInUse        = domain.ErrWorkflowInUse
-	ErrHarnessInvalid       = errors.New("workflow harness is invalid")
-	ErrHookConfigInvalid    = errors.New("workflow hook config is invalid")
-	ErrWorkflowHookBlocked  = errors.New("workflow hook blocked the lifecycle operation")
+	ErrUnavailable                       = errors.New("workflow service unavailable")
+	ErrProjectNotFound                   = domain.ErrProjectNotFound
+	ErrWorkflowNotFound                  = domain.ErrWorkflowNotFound
+	ErrStatusNotFound                    = domain.ErrStatusNotFound
+	ErrAgentNotFound                     = domain.ErrAgentNotFound
+	ErrWorkflowNameConflict              = domain.ErrWorkflowNameConflict
+	ErrWorkflowHarnessPathConflict       = domain.ErrWorkflowHarnessPathConflict
+	ErrWorkflowConflict                  = domain.ErrWorkflowConflict
+	ErrPickupStatusConflict              = domain.ErrPickupStatusConflict
+	ErrWorkflowReferencedByTickets       = domain.ErrWorkflowReferencedByTickets
+	ErrWorkflowReferencedByScheduledJobs = domain.ErrWorkflowReferencedByScheduledJobs
+	ErrWorkflowInUse                     = domain.ErrWorkflowInUse
+	ErrHarnessInvalid                    = errors.New("workflow harness is invalid")
+	ErrHookConfigInvalid                 = errors.New("workflow hook config is invalid")
+	ErrWorkflowHookBlocked               = errors.New("workflow hook blocked the lifecycle operation")
 )
 
 var nonAlphaNumericPattern = regexp.MustCompile(`[^a-z0-9]+`)
@@ -746,6 +750,9 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 	if err := s.ensureAgentBelongsToProject(ctx, input.ProjectID, input.AgentID); err != nil {
 		return WorkflowDetail{}, err
 	}
+	if err := s.ensureWorkflowNameAvailable(ctx, input.ProjectID, input.Name, uuid.Nil); err != nil {
+		return WorkflowDetail{}, err
+	}
 	if err := s.ensureStatusBindingsBelongToProject(ctx, input.ProjectID, pickupStatusIDs); err != nil {
 		return WorkflowDetail{}, err
 	}
@@ -895,6 +902,11 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 	nextName := current.Name
 	if input.Name.Set {
 		nextName = input.Name.Value
+	}
+	if nextName != current.Name {
+		if err := s.ensureWorkflowNameAvailable(ctx, projectID, nextName, current.ID); err != nil {
+			return WorkflowDetail{}, err
+		}
 	}
 
 	nextHarnessPath := current.HarnessPath
@@ -1144,6 +1156,18 @@ func (s *Service) ensurePickupStatusBindingsAvailable(
 	return s.validators.EnsurePickupStatusBindingsAvailable(ctx, projectID, statusIDs.IDs(), excludeWorkflowID)
 }
 
+func (s *Service) ensureWorkflowNameAvailable(
+	ctx context.Context,
+	projectID uuid.UUID,
+	name string,
+	excludeWorkflowID uuid.UUID,
+) error {
+	if s == nil || s.validators == nil {
+		return ErrUnavailable
+	}
+	return s.validators.EnsureWorkflowNameAvailable(ctx, projectID, name, excludeWorkflowID)
+}
+
 func (s *Service) ensureAgentBelongsToProject(ctx context.Context, projectID uuid.UUID, agentID uuid.UUID) error {
 	if s == nil || s.validators == nil {
 		return ErrUnavailable
@@ -1271,6 +1295,14 @@ func (s *Service) mapWorkflowWriteError(action string, err error) error {
 	switch {
 	case errors.Is(err, ErrWorkflowNotFound):
 		return ErrWorkflowNotFound
+	case errors.Is(err, ErrWorkflowNameConflict):
+		return ErrWorkflowNameConflict
+	case errors.Is(err, ErrWorkflowHarnessPathConflict):
+		return ErrWorkflowHarnessPathConflict
+	case errors.Is(err, ErrWorkflowReferencedByTickets):
+		return ErrWorkflowReferencedByTickets
+	case errors.Is(err, ErrWorkflowReferencedByScheduledJobs):
+		return ErrWorkflowReferencedByScheduledJobs
 	case errors.Is(err, ErrWorkflowConflict):
 		return ErrWorkflowConflict
 	case errors.Is(err, ErrPickupStatusConflict):
@@ -1278,11 +1310,11 @@ func (s *Service) mapWorkflowWriteError(action string, err error) error {
 	case errors.Is(err, ErrWorkflowInUse):
 		return ErrWorkflowInUse
 	case strings.Contains(strings.ToLower(err.Error()), "constraint"):
-		return ErrWorkflowConflict
+		return ErrWorkflowNameConflict
 	case strings.Contains(strings.ToLower(err.Error()), "tickets"):
-		return ErrWorkflowInUse
+		return ErrWorkflowReferencedByTickets
 	case strings.Contains(strings.ToLower(err.Error()), "scheduled_jobs"):
-		return ErrWorkflowInUse
+		return ErrWorkflowReferencedByScheduledJobs
 	default:
 		return fmt.Errorf("%s: %w", action, err)
 	}

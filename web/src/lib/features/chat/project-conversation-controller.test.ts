@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { waitFor } from '@testing-library/svelte'
 
 const {
   closeProjectConversationRuntime,
@@ -273,6 +274,94 @@ describe('createProjectConversationController', () => {
       focus: undefined,
     })
     expect(controller.queuedTurns).toHaveLength(0)
+  })
+
+  it('reconciles a completed turn when the stream closes after progress but before turn_done arrives', async () => {
+    const stream = deferredPromise<void>()
+    let streamHandlers:
+      | { onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void }
+      | undefined
+
+    createProjectConversation.mockResolvedValue({
+      conversation: {
+        id: 'conversation-1',
+        providerId: 'provider-1',
+        lastActivityAt: '2026-04-01T10:00:00Z',
+      },
+    })
+    getProjectConversationWorkspaceDiff
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
+    watchProjectConversation.mockImplementation(async (_conversationId, handlers) => {
+      streamHandlers = handlers
+      await stream.promise
+    })
+    startProjectConversationTurn.mockResolvedValue({
+      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
+    })
+    getProjectConversation.mockResolvedValue({
+      conversation: {
+        id: 'conversation-1',
+        providerId: 'provider-1',
+        lastActivityAt: '2026-04-01T10:01:00Z',
+        runtimePrincipal: {
+          runtimeState: 'ready',
+        },
+      },
+    })
+    listProjectConversationEntries.mockResolvedValue({
+      entries: [
+        {
+          id: 'entry-1',
+          conversationId: 'conversation-1',
+          turnId: 'turn-1',
+          seq: 1,
+          kind: 'user_message',
+          payload: { content: 'Finish this turn' },
+          createdAt: '2026-04-01T10:00:00Z',
+        },
+        {
+          id: 'entry-2',
+          conversationId: 'conversation-1',
+          turnId: 'turn-1',
+          seq: 2,
+          kind: 'assistant_text_delta',
+          payload: { content: 'Recovered reply' },
+          createdAt: '2026-04-01T10:01:00Z',
+        },
+      ],
+    })
+
+    const controller = createProjectConversationController({
+      getProjectId: () => 'project-1',
+    })
+    controller.syncProviders(providerFixtures, 'provider-1')
+
+    await controller.sendTurn('Finish this turn')
+    streamHandlers?.onEvent({
+      kind: 'message',
+      payload: {
+        type: 'text',
+        content: 'Partial reply',
+      },
+    })
+
+    stream.resolve()
+
+    await waitFor(() => {
+      expect(controller.phase).toBe('idle')
+    })
+
+    expect(getProjectConversation).toHaveBeenCalledWith('conversation-1')
+    expect(listProjectConversationEntries).toHaveBeenCalledWith('conversation-1')
+    expect(
+      controller.entries.some(
+        (entry) =>
+          entry.kind === 'text' &&
+          entry.role === 'assistant' &&
+          entry.content === 'Recovered reply',
+      ),
+    ).toBe(true)
   })
 
   it('does not crash when a conversation arrives without lastActivityAt', async () => {

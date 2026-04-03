@@ -117,12 +117,24 @@ func (s *Server) patchProject(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
+	activityInputs := buildProjectPatchActivityInputs(current, item)
+	if err := s.emitActivities(c.Request().Context(), activityInputs...); err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"project": mapProjectResponse(item),
+	})
+}
+
+func buildProjectPatchActivityInputs(current domain.Project, item domain.Project) []activitysvc.RecordInput {
 	changedFields := make([]string, 0, 4)
 	if current.Name != item.Name || current.Slug != item.Slug || current.Description != item.Description ||
 		!slices.Equal(current.AccessibleMachineIDs, item.AccessibleMachineIDs) ||
 		current.AgentRunSummaryPrompt != item.AgentRunSummaryPrompt {
 		changedFields = append(changedFields, "project")
 	}
+
 	activityInputs := make([]activitysvc.RecordInput, 0, 4)
 	if current.Status != item.Status {
 		activityInputs = append(activityInputs, activitysvc.RecordInput{
@@ -170,13 +182,8 @@ func (s *Server) patchProject(c echo.Context) error {
 			},
 		})
 	}
-	if err := s.emitActivities(c.Request().Context(), activityInputs...); err != nil {
-		return writeCatalogError(c, err)
-	}
 
-	return c.JSON(http.StatusOK, map[string]any{
-		"project": mapProjectResponse(item),
-	})
+	return activityInputs
 }
 
 func (s *Server) archiveProject(c echo.Context) error {

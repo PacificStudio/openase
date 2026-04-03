@@ -1,28 +1,34 @@
 <script lang="ts">
   import { page } from '$app/state'
   import { loadAppContext } from '$lib/api/app-context'
+  import { getProject } from '$lib/api/openase'
   import Sidebar from '$lib/components/layout/sidebar.svelte'
   import TopBar from '$lib/components/layout/top-bar.svelte'
-  import { retainProjectEventBus } from '$lib/features/project-events'
-  import { ProjectConversationPanel } from '$lib/features/chat'
+  import type { ProjectAIFocus } from '$lib/features/chat'
+  import {
+    isProjectDashboardRefreshEvent,
+    readProjectDashboardRefreshSections,
+    retainProjectEventBus,
+    subscribeProjectEvents,
+  } from '$lib/features/project-events'
   import { appStore } from '$lib/stores/app.svelte'
   import type { AppRouteContext, ProjectSection } from '$lib/stores/app-context'
   import { cn } from '$lib/utils'
   import type { Snippet } from 'svelte'
+  import ProjectShellProjectAssistant from './project-shell-project-assistant.svelte'
+  import { bindProjectShellShortcuts } from './project-shell-shortcuts'
   import ProjectShellOverlays from './project-shell-overlays.svelte'
   import {
     getProjectHealth,
     getProjectHealthLabel,
     isAppContextFresh,
+    mergeProjectIntoAppContext,
     replaceSelectionIfChanged,
     selectCurrentOrg,
     selectCurrentProject,
   } from './project-shell-state'
 
-  type ShellData = {
-    routeContext: AppRouteContext
-    currentSection: ProjectSection
-  }
+  type ShellData = { routeContext: AppRouteContext; currentSection: ProjectSection }
 
   let { children, data }: { children: Snippet; data: ShellData } = $props()
 
@@ -40,34 +46,8 @@
   let projectAssistantPrompt = $state('')
 
   const DEFAULT_ASSISTANT_WIDTH = 380
-  const MIN_ASSISTANT_WIDTH = 280
-  const MAX_ASSISTANT_WIDTH = 640
   let assistantWidth = $state(DEFAULT_ASSISTANT_WIDTH)
   let resizing = $state(false)
-
-  function handleResizeStart(event: PointerEvent) {
-    event.preventDefault()
-    resizing = true
-    const startX = event.clientX
-    const startWidth = assistantWidth
-
-    function onMove(moveEvent: PointerEvent) {
-      const delta = startX - moveEvent.clientX
-      assistantWidth = Math.min(
-        MAX_ASSISTANT_WIDTH,
-        Math.max(MIN_ASSISTANT_WIDTH, startWidth + delta),
-      )
-    }
-
-    function onUp() {
-      resizing = false
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-    }
-
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-  }
   const projectHealth = $derived.by(() => getProjectHealth(appStore.currentProject))
 
   const projectHealthLabel = $derived.by(() =>
@@ -171,30 +151,71 @@
   })
 
   $effect(() => {
-    const handleKeydown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) {
+      return
+    }
+
+    let cancelled = false
+    let refreshInFlight = false
+    let queuedRefresh = false
+
+    const refreshProject = async () => {
+      if (refreshInFlight) {
+        queuedRefresh = true
         return
       }
 
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault()
-        searchOpen = true
-      }
+      refreshInFlight = true
+      try {
+        do {
+          queuedRefresh = false
+          const payload = await getProject(projectId)
+          if (cancelled || appStore.currentProject?.id !== projectId) {
+            return
+          }
 
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'i') {
-        event.preventDefault()
-        if (projectAssistantOpen) {
-          projectAssistantOpen = false
-        } else {
-          handleOpenProjectAssistant()
+          const merged = mergeProjectIntoAppContext(
+            appStore.projects,
+            appStore.currentProject,
+            payload.project,
+          )
+          appStore.projects = merged.projects
+          appStore.currentProject = merged.currentProject
+        } while (queuedRefresh && !cancelled)
+      } catch (caughtError) {
+        if (!cancelled) {
+          console.error('Failed to refresh project after passive project event:', caughtError)
         }
+      } finally {
+        refreshInFlight = false
       }
     }
 
-    window.addEventListener('keydown', handleKeydown)
-    return () => {
-      window.removeEventListener('keydown', handleKeydown)
-    }
+    return subscribeProjectEvents(projectId, (event) => {
+      if (!isProjectDashboardRefreshEvent(event)) {
+        return
+      }
+      if (!readProjectDashboardRefreshSections(event).includes('project')) {
+        return
+      }
+      void refreshProject()
+    })
+  })
+
+  $effect(() => {
+    return bindProjectShellShortcuts({
+      getProjectAssistantOpen: () => projectAssistantOpen,
+      setProjectAssistantOpen: (value) => {
+        projectAssistantOpen = value
+      },
+      openSearch: () => {
+        searchOpen = true
+      },
+      openProjectAssistant: () => {
+        handleOpenProjectAssistant()
+      },
+    })
   })
 
   function handleOpenSearch() {
@@ -218,7 +239,7 @@
     }
   })
 
-  const assistantFocus = $derived(
+  const assistantFocus = $derived<ProjectAIFocus | null>(
     appStore.currentProject?.id
       ? appStore.projectAssistantFocus?.projectId === appStore.currentProject.id
         ? appStore.projectAssistantFocus
@@ -229,7 +250,6 @@
   function handleNewTicket() {
     appStore.openNewTicketDialog()
   }
-
   function handleToggleTheme() {
     appStore.toggleTheme()
   }
@@ -283,36 +303,20 @@
       {@render children()}
     </main>
 
-    {#if projectAssistantOpen && appStore.currentOrg?.id && appStore.currentProject?.id}
-      <aside
-        class="bg-background relative flex h-full shrink-0 flex-col"
-        style="width: {assistantWidth}px"
-      >
-        <!-- resize handle -->
-        <div
-          class={cn(
-            'absolute inset-y-0 left-0 z-20 w-1 cursor-col-resize transition-colors',
-            resizing ? 'bg-primary' : 'bg-border hover:bg-primary/50',
-          )}
-          role="separator"
-          aria-orientation="vertical"
-          onpointerdown={handleResizeStart}
-        ></div>
-        <div class="flex h-full min-w-0 flex-col pl-1">
-          <ProjectConversationPanel
-            organizationId={appStore.currentOrg.id}
-            defaultProviderId={appStore.currentProject.default_agent_provider_id ?? null}
-            context={{ projectId: appStore.currentProject.id }}
-            focus={assistantFocus}
-            title="Project AI"
-            placeholder="Ask anything about this project…"
-            initialPrompt={projectAssistantPrompt}
-            onClose={() => {
-              projectAssistantOpen = false
-            }}
-          />
-        </div>
-      </aside>
+    {#if appStore.currentOrg?.id && appStore.currentProject?.id}
+      <ProjectShellProjectAssistant
+        organizationId={appStore.currentOrg.id}
+        projectId={appStore.currentProject.id}
+        defaultProviderId={appStore.currentProject.default_agent_provider_id ?? null}
+        focus={assistantFocus}
+        open={projectAssistantOpen}
+        initialPrompt={projectAssistantPrompt}
+        bind:width={assistantWidth}
+        bind:resizing
+        onClose={() => {
+          projectAssistantOpen = false
+        }}
+      />
     {/if}
   </div>
 

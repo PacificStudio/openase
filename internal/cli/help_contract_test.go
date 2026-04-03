@@ -12,12 +12,17 @@ func TestTypedAPILeafCommandsProvideLongHelp(t *testing.T) {
 
 	for _, path := range [][]string{
 		{"ticket"},
+		{"status"},
+		{"chat"},
 		{"project"},
+		{"repo"},
 		{"workflow"},
 		{"scheduled-job"},
 		{"machine"},
 		{"provider"},
 		{"agent"},
+		{"channel"},
+		{"notification-rule"},
 		{"skill"},
 		{"watch"},
 		{"stream"},

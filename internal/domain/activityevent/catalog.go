@@ -82,6 +82,7 @@ const (
 	TypeAgentClaimed                     Type = "agent.claimed"
 	TypeAgentLaunching                   Type = "agent.launching"
 	TypeAgentReady                       Type = "agent.ready"
+	TypeAgentExecuting                   Type = "agent.executing"
 	TypeAgentPaused                      Type = "agent.paused"
 	TypeAgentFailed                      Type = "agent.failed"
 	TypeAgentCompleted                   Type = "agent.completed"
@@ -160,6 +161,7 @@ var canonicalCatalog = []CatalogEntry{
 	{EventType: TypeAgentClaimed, Label: "Agent Claimed"},
 	{EventType: TypeAgentLaunching, Label: "Agent Launching"},
 	{EventType: TypeAgentReady, Label: "Agent Ready"},
+	{EventType: TypeAgentExecuting, Label: "Agent Executing"},
 	{EventType: TypeAgentPaused, Label: "Agent Paused"},
 	{EventType: TypeAgentFailed, Label: "Agent Failed"},
 	{EventType: TypeAgentCompleted, Label: "Agent Completed"},

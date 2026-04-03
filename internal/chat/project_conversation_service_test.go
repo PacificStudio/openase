@@ -2015,7 +2015,7 @@ func TestProjectConversationWatchConversationBlockedWatcherDoesNotBlockOthers(t 
 	requireProjectConversationStreamEvent(t, activeWatcher)
 	requireProjectConversationStreamEvent(t, otherConversationWatcher)
 
-	for index := range 32 {
+	for index := range projectConversationStreamBufferSize {
 		service.broadcast(firstConversation.ID, StreamEvent{
 			Event: "message",
 			Payload: map[string]any{
@@ -2071,8 +2071,20 @@ func TestProjectConversationWatchConversationBlockedWatcherDoesNotBlockOthers(t 
 		t.Fatalf("other conversation watcher payload = %#v, want marker other-conversation", otherPayload["payload"])
 	}
 
-	for range 32 {
-		requireProjectConversationStreamEvent(t, blockedWatcher)
+	overflowDelivered := false
+	for range projectConversationStreamBufferSize {
+		event := requireProjectConversationStreamEvent(t, blockedWatcher)
+		payload, ok := event.Payload.(map[string]any)
+		if !ok {
+			continue
+		}
+		nested, ok := payload["payload"].(map[string]any)
+		if ok && nested["marker"] == "after-blocked" {
+			overflowDelivered = true
+		}
+	}
+	if overflowDelivered {
+		t.Fatal("blocked watcher unexpectedly received overflow event")
 	}
 	requireNoProjectConversationStreamEvent(t, blockedWatcher)
 }

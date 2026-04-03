@@ -132,6 +132,7 @@ export const activityEventCatalog: ActivityEventCatalogEntry[] = [
   { eventType: 'agent.claimed', label: 'Agent claimed', tone: 'info' },
   { eventType: 'agent.launching', label: 'Agent launching', tone: 'info' },
   { eventType: 'agent.ready', label: 'Agent ready', tone: 'success' },
+  { eventType: 'agent.executing', label: 'Agent executing', tone: 'success' },
   { eventType: 'agent.paused', label: 'Agent paused', tone: 'warning' },
   { eventType: 'agent.failed', label: 'Agent failed', tone: 'danger' },
   { eventType: 'agent.completed', label: 'Agent completed', tone: 'success' },

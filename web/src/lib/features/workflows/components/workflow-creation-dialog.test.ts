@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { ApiError } from '$lib/api/client'
 import WorkflowCreationDialog from './workflow-creation-dialog.svelte'
 
 const { createWorkflowWithBinding } = vi.hoisted(() => ({
@@ -221,5 +222,34 @@ describe('WorkflowCreationDialog', () => {
     ).toBeTruthy()
     expect(getByRole('button', { name: 'Create workflow' }).hasAttribute('disabled')).toBe(true)
     expect(createWorkflowWithBinding).not.toHaveBeenCalled()
+  })
+
+  it('shows a friendly toast when the workflow name conflicts', async () => {
+    createWorkflowWithBinding.mockRejectedValue(
+      new ApiError(
+        409,
+        'workflow name "Workflow 1" is already used in this project',
+        'WORKFLOW_NAME_CONFLICT',
+      ),
+    )
+
+    const { getByRole } = render(WorkflowCreationDialog, {
+      props: {
+        open: true,
+        projectId: 'project-1',
+        statuses,
+        agentOptions,
+        existingCount: 0,
+        builtinRoleContent: 'role',
+      },
+    })
+
+    await fireEvent.click(getByRole('button', { name: 'Create workflow' }))
+
+    await waitFor(() => {
+      expect(toastStore.error).toHaveBeenCalledWith(
+        'A workflow with this name already exists in the project.',
+      )
+    })
   })
 })

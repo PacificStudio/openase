@@ -1,9 +1,4 @@
-import type {
-  ChatActionProposalPayload,
-  ChatDiffPayload,
-  ChatPlatformCommandProposalPayload,
-} from '$lib/api/chat'
-import type { ChatActionExecutionResult } from './action-proposal-executor'
+import type { ChatDiffPayload } from '$lib/api/chat'
 
 export type ProjectConversationRole = 'user' | 'assistant' | 'system'
 
@@ -14,15 +9,6 @@ export type ProjectConversationTextEntry = {
   turnId?: string
   content: string
   streaming: boolean
-}
-
-export type ProjectConversationActionProposalEntry = {
-  id: string
-  kind: 'action_proposal'
-  role: 'assistant'
-  proposal: ChatActionProposalPayload | ChatPlatformCommandProposalPayload
-  status: 'pending' | 'executing' | 'confirmed' | 'cancelled'
-  results: ChatActionExecutionResult[]
 }
 
 export type ProjectConversationDiffEntry = {
@@ -87,7 +73,6 @@ export type ProjectConversationInterruptEntry = {
 
 export type ProjectConversationTranscriptEntry =
   | ProjectConversationTextEntry
-  | ProjectConversationActionProposalEntry
   | ProjectConversationDiffEntry
   | ProjectConversationToolCallEntry
   | ProjectConversationCommandOutputEntry
@@ -119,20 +104,6 @@ export function appendProjectConversationTranscriptEntry(
   }
 
   return [...entries, entry]
-}
-
-export function createProjectConversationActionProposalEntry(params: {
-  id: string
-  proposal: ChatActionProposalPayload | ChatPlatformCommandProposalPayload
-}) {
-  return {
-    id: params.id,
-    kind: 'action_proposal',
-    role: 'assistant',
-    proposal: params.proposal,
-    status: 'pending',
-    results: [],
-  } satisfies ProjectConversationActionProposalEntry
 }
 
 export function createProjectConversationInterruptEntry(params: {

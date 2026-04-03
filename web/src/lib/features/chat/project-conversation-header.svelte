@@ -66,9 +66,9 @@
           </Button>
         {/snippet}
       </Popover.Trigger>
-      <Popover.Content align="end" sideOffset={6} class="w-72 p-1.5">
+      <Popover.Content align="end" sideOffset={6} class="w-72 p-1">
         <div
-          class="text-muted-foreground mb-1 px-2 pt-1 text-[10px] font-medium tracking-wider uppercase"
+          class="text-muted-foreground px-2 pt-0.5 pb-0.5 text-[10px] font-medium tracking-wider uppercase"
         >
           History
         </div>

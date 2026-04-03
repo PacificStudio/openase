@@ -14,7 +14,6 @@ import (
 	"time"
 
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
-	"github.com/BetterAndBetterII/openase/internal/chat/platformcommand"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
@@ -39,7 +38,6 @@ func (s *Server) registerChatRoutes(api *echo.Group) {
 	api.POST("/chat/conversations/:conversationId/turns", s.handleStartProjectConversationTurn)
 	api.GET("/chat/conversations/:conversationId/stream", s.handleProjectConversationStream)
 	api.POST("/chat/conversations/:conversationId/interrupts/:interruptId/respond", s.handleRespondProjectConversationInterrupt)
-	api.POST("/chat/conversations/:conversationId/action-proposals/:entryId/execute", s.handleExecuteProjectConversationActionProposal)
 	api.DELETE("/chat/conversations/:conversationId/runtime", s.handleDeleteProjectConversationRuntime)
 }
 
@@ -545,121 +543,6 @@ func (s *Server) handleRespondProjectConversationInterrupt(c echo.Context) error
 		return writeProjectConversationError(c, err)
 	}
 	return c.JSON(http.StatusOK, map[string]any{"interrupt": mapPendingInterruptResponse(interrupt)})
-}
-
-func (s *Server) handleExecuteProjectConversationActionProposal(c echo.Context) error {
-	if s.projectConversationService == nil {
-		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
-	}
-	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
-	}
-	entryID, err := parseUUIDString("entry_id", c.Param("entryId"))
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_ENTRY_ID", err.Error())
-	}
-	userID, err := chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
-	}
-	conversation, err := s.projectConversationService.GetConversation(c.Request().Context(), userID, conversationID)
-	if err != nil {
-		return writeProjectConversationError(c, err)
-	}
-	entries, err := s.projectConversationService.ListEntries(c.Request().Context(), userID, conversationID)
-	if err != nil {
-		return writeProjectConversationError(c, err)
-	}
-	var proposalEntry *chatdomain.Entry
-	for i := range entries {
-		if entries[i].ID == entryID {
-			proposalEntry = &entries[i]
-			break
-		}
-	}
-	if proposalEntry == nil || proposalEntry.Kind != chatdomain.EntryKindActionProposal {
-		return writeAPIError(c, http.StatusNotFound, "CHAT_ACTION_PROPOSAL_NOT_FOUND", "chat action proposal entry not found")
-	}
-
-	executedBy := projectConversationConfirmedActionActor(userID, conversationID)
-	results, err := s.executeProjectConversationProposal(c.Request().Context(), conversation, proposalEntry.Payload, executedBy)
-	if err != nil {
-		return writeProjectConversationError(c, err)
-	}
-	resultPayload := map[string]any{
-		"entry_id":    entryID.String(),
-		"results":     results,
-		"executed_by": executedBy,
-		"origin": map[string]any{
-			"type":            "human_confirmed_project_conversation_proposal",
-			"conversation_id": conversationID.String(),
-		},
-	}
-	entry, err := s.projectConversationService.AppendActionExecutionResult(c.Request().Context(), userID, conversationID, proposalEntry.TurnID, resultPayload)
-	if err != nil {
-		return writeProjectConversationError(c, err)
-	}
-	return c.JSON(http.StatusOK, map[string]any{
-		"result_entry": mapProjectConversationEntry(entry),
-		"results":      results,
-	})
-}
-
-func (s *Server) executeProjectConversationProposal(
-	ctx context.Context,
-	conversation chatdomain.Conversation,
-	payload map[string]any,
-	executedBy string,
-) ([]map[string]any, error) {
-	switch strings.TrimSpace(httpStringValue(payload["type"])) {
-	case platformcommand.ProposalType:
-		if s.catalog.ProjectService == nil {
-			return nil, fmt.Errorf("catalog project service unavailable")
-		}
-		project, err := s.catalog.GetProject(ctx, conversation.ProjectID)
-		if err != nil {
-			return nil, err
-		}
-		proposal, err := platformcommand.ParseProposal(payload)
-		if err != nil {
-			return nil, err
-		}
-		resolver := platformcommand.Resolver{
-			Catalog:  s.catalog.ProjectService,
-			Tickets:  s.ticketService,
-			Statuses: s.ticketStatusService,
-		}
-		executor := platformcommand.Executor{
-			Tickets:        s.ticketService,
-			ProjectUpdates: s.projectUpdateService,
-		}
-		results := make([]map[string]any, 0, len(proposal.Commands))
-		for index, command := range proposal.Commands {
-			resolved, resolveErr := resolver.ResolveCommand(ctx, project, command)
-			if resolveErr != nil {
-				results = append(results, map[string]any{
-					"command_index": index,
-					"command":       command.Payload(),
-					"ok":            false,
-					"summary":       fmt.Sprintf("%s failed.", command.Name),
-					"detail":        resolveErr.Error(),
-				})
-				continue
-			}
-			execution := executor.Execute(ctx, index, command, resolved, executedBy)
-			results = append(results, map[string]any{
-				"command_index": execution.CommandIndex,
-				"command":       execution.Command,
-				"ok":            execution.Ok,
-				"summary":       execution.Summary,
-				"detail":        execution.Detail,
-			})
-		}
-		return results, nil
-	default:
-		return s.executeActionProposalActions(ctx, payload, executedBy)
-	}
 }
 
 func (s *Server) handleDeleteProjectConversationRuntime(c echo.Context) error {

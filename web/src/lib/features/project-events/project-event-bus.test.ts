@@ -151,10 +151,10 @@ describe('projectEventBus', () => {
     expect(
       readProjectDashboardRefreshSections({
         payload: {
-          dirty_sections: ['agents', 'tickets', 'agents', 'bogus'],
+          dirty_sections: ['project', 'agents', 'tickets', 'agents', 'bogus'],
         },
       }),
-    ).toEqual(['agents', 'tickets'])
+    ).toEqual(['project', 'agents', 'tickets'])
 
     expect(
       projectEventAffectsTicketDetailReferences(

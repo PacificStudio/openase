@@ -28,6 +28,7 @@ var (
 	agentClaimedType    = provider.MustParseEventType("agent.claimed")
 	agentLaunchingType  = provider.MustParseEventType("agent.launching")
 	agentReadyType      = provider.MustParseEventType("agent.ready")
+	agentExecutingType  = provider.MustParseEventType("agent.executing")
 	agentHeartbeatType  = provider.MustParseEventType("agent.heartbeat")
 	agentPausedType     = provider.MustParseEventType("agent.paused")
 	agentFailedType     = provider.MustParseEventType("agent.failed")
@@ -532,6 +533,8 @@ func lifecycleMessage(eventType provider.EventType, agentName string) string {
 		return fmt.Sprintf("Agent %s is launching a Codex session.", agentName)
 	case agentReadyType:
 		return fmt.Sprintf("Agent %s launched a Codex session and is ready.", agentName)
+	case agentExecutingType:
+		return fmt.Sprintf("Agent %s is executing work in its Codex session.", agentName)
 	case agentHeartbeatType:
 		return fmt.Sprintf("Agent %s reported a runtime heartbeat.", agentName)
 	case agentPausedType:

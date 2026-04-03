@@ -76,7 +76,7 @@ func TestParseStartInputPreservesSkillEditorContext(t *testing.T) {
 	}
 }
 
-func TestMapClaudeEventPromotesActionProposalJSON(t *testing.T) {
+func TestMapClaudeEventLeavesProposalJSONAsText(t *testing.T) {
 	events := mapClaudeEvent(SessionID("session-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
 		Kind: provider.ClaudeCodeEventKindAssistant,
 		Message: []byte("{\n" +
@@ -93,22 +93,24 @@ func TestMapClaudeEventPromotesActionProposalJSON(t *testing.T) {
 		t.Fatalf("expected one mapped event, got %d", len(events))
 	}
 
-	payload, ok := events[0].Payload.(map[string]any)
+	payload, ok := events[0].Payload.(textPayload)
 	if !ok {
-		t.Fatalf("expected action proposal payload map, got %#v", events[0].Payload)
+		t.Fatalf("expected proposal JSON to remain plain text, got %#v", events[0].Payload)
 	}
-	if payload["type"] != "action_proposal" || payload["summary"] != "Create 2 child tickets" {
-		t.Fatalf("unexpected action proposal payload: %#v", payload)
+	if !strings.Contains(payload.Content, "\"type\":\"action_proposal\"") ||
+		!strings.Contains(payload.Content, "Create 2 child tickets") {
+		t.Fatalf("unexpected plain-text proposal payload: %#v", payload)
 	}
 }
 
-func TestParseActionProposalTextAcceptsCodeFenceWithWhitespace(t *testing.T) {
-	payload, ok := parseActionProposalText("```json \n {\"type\":\"action_proposal\",\"actions\":[]} \n```")
-	if !ok {
-		t.Fatalf("expected action proposal to parse")
+func TestNormalizeAssistantTextLeavesActionProposalCodeFenceAsText(t *testing.T) {
+	events := normalizeAssistantText("```json \n {\"type\":\"action_proposal\",\"actions\":[]} \n```")
+	if len(events) != 1 {
+		t.Fatalf("expected one text event, got %+v", events)
 	}
-	if payload["type"] != "action_proposal" {
-		t.Fatalf("unexpected payload: %#v", payload)
+	payload, ok := events[0].Payload.(textPayload)
+	if !ok || !strings.Contains(payload.Content, "\"type\":\"action_proposal\"") {
+		t.Fatalf("unexpected payload: %#v", events[0].Payload)
 	}
 }
 
@@ -307,7 +309,7 @@ func TestBuildSystemPromptGuidesHarnessEditorReplies(t *testing.T) {
 		"JSON Schema（简化）如下",
 		"\"additionalProperties\": false",
 		"\"type\":\"diff\",\"file\":\"harness content\"",
-		"普通 Harness 建议不要输出 action_proposal",
+		"不要输出 proposal JSON",
 	) {
 		t.Fatalf("expected harness-editor response instructions in prompt, got %q", prompt)
 	}
@@ -539,7 +541,7 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 		"- current_project_name: OpenASE",
 		"- statuses:",
 		"Todo => 990e8400-e29b-41d4-a716-446655440000",
-		"\"type\":\"platform_command_proposal\"",
+		"不要输出 `action_proposal` 或 `platform_command_proposal`",
 		"Updated issue status",
 	) {
 		t.Fatalf("project sidebar prompt = %q", runtime.lastInput.SystemPrompt)
@@ -625,7 +627,7 @@ func TestBuildSystemPromptIncludesTicketDetailAndHookHistory(t *testing.T) {
 		"repo=bb0e8400-e29b-41d4-a716-446655440000 branch=feat/openase-278-coverage",
 		"### Hook 历史",
 		"go test ./... failed in auth package",
-		"\"type\":\"action_proposal\"",
+		"不要输出 `action_proposal` 或 `platform_command_proposal`",
 	) {
 		t.Fatalf("ticket detail prompt = %q", prompt)
 	}

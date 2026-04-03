@@ -1,13 +1,16 @@
 import {
   createProjectConversation,
-  getProjectConversationWorkspaceDiff,
   startProjectConversationTurn,
   type ProjectConversation,
-  type ProjectConversationStreamEvent,
   type ProjectConversationTurnRequest,
 } from '$lib/api/chat'
 import { resetProjectConversationRuntime } from './project-conversation-actions'
 import { createProjectConversationControllerConversations } from './project-conversation-controller-conversations'
+import {
+  handleTabStreamEvent,
+  reconcileTabAfterStreamClose,
+  refreshTabWorkspaceDiff,
+} from './project-conversation-controller-runtime-effects'
 import {
   appendProjectConversationText,
   beginProjectConversationOperation,
@@ -57,55 +60,30 @@ export function createProjectConversationControllerRuntime(
       state: tab,
       conversationId,
       onError: input.controllerInput.onError,
-      onEvent: (event) => handleTabStreamEvent(tab, event),
+      onEvent: (event) =>
+        handleTabStreamEvent(
+          {
+            conversations,
+            persistTabs: input.persistTabs,
+            connectTabStream,
+            onError: input.controllerInput.onError,
+          },
+          tab,
+          event,
+        ),
+      onClosed: (streamId) =>
+        void reconcileTabAfterStreamClose(
+          {
+            conversations,
+            persistTabs: input.persistTabs,
+            connectTabStream,
+            onError: input.controllerInput.onError,
+          },
+          tab,
+          conversationId,
+          streamId,
+        ),
     })
-  }
-
-  async function refreshTabWorkspaceDiff(tab: ProjectConversationTabState, conversationId: string) {
-    if (!conversationId) {
-      tab.workspaceDiff = null
-      tab.workspaceDiffLoading = false
-      tab.workspaceDiffError = ''
-      return
-    }
-
-    tab.workspaceDiffRequestId += 1
-    const currentRequestId = tab.workspaceDiffRequestId
-    tab.workspaceDiffLoading = true
-    tab.workspaceDiffError = ''
-    try {
-      const payload = await getProjectConversationWorkspaceDiff(conversationId)
-      if (currentRequestId !== tab.workspaceDiffRequestId || tab.conversationId !== conversationId)
-        return
-      tab.workspaceDiff = payload.workspaceDiff
-    } catch (caughtError) {
-      if (currentRequestId !== tab.workspaceDiffRequestId || tab.conversationId !== conversationId)
-        return
-      tab.workspaceDiff = null
-      tab.workspaceDiffError =
-        caughtError instanceof Error
-          ? caughtError.message
-          : 'Failed to load Project AI workspace changes.'
-    } finally {
-      if (
-        currentRequestId === tab.workspaceDiffRequestId &&
-        tab.conversationId === conversationId
-      ) {
-        tab.workspaceDiffLoading = false
-      }
-    }
-  }
-
-  function handleTabStreamEvent(
-    tab: ProjectConversationTabState,
-    event: ProjectConversationStreamEvent,
-  ) {
-    if (event.kind === 'session') {
-      tab.conversationId = conversations.applySessionPayload(tab.conversationId, event.payload)
-    }
-    if ((event.kind === 'session' || event.kind === 'turn_done') && tab.conversationId) {
-      void refreshTabWorkspaceDiff(tab, tab.conversationId)
-    }
   }
 
   async function loadTabConversation(

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { ApiError } from '$lib/api/client'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
   import * as Collapsible from '$ui/collapsible'
@@ -20,6 +19,7 @@
     buildPickupStatusOccupiedMap,
     toggleWorkflowStatusSelection,
   } from '../workflow-lifecycle'
+  import { describeWorkflowApiError } from '../workflow-api-errors'
   import type {
     WorkflowAgentOption,
     WorkflowStatusOption,
@@ -163,9 +163,7 @@
       onCreated?.(payload)
       open = false
     } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create workflow.',
-      )
+      toastStore.error(describeWorkflowApiError(caughtError, 'Failed to create workflow.'))
     } finally {
       saving = false
     }

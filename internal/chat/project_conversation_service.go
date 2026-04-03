@@ -1471,8 +1471,6 @@ func (s *ProjectConversationService) handleConversationMessage(
 	case map[string]any:
 		kind := domain.EntryKindSystem
 		switch typed["type"] {
-		case chatMessageTypeActionProposal, chatMessageTypePlatformCommand:
-			kind = domain.EntryKindActionProposal
 		case chatMessageTypeDiff:
 			kind = domain.EntryKindDiff
 		case chatMessageTypeTaskStarted, chatMessageTypeTaskNotification, chatMessageTypeTaskProgress:
@@ -1480,7 +1478,7 @@ func (s *ProjectConversationService) handleConversationMessage(
 		}
 		entry, _ := s.entries.AppendEntry(ctx, conversationID, &turnID, kind, cloneMapAny(typed))
 		normalized := cloneMapAny(typed)
-		if kind == domain.EntryKindActionProposal || kind == domain.EntryKindDiff {
+		if kind == domain.EntryKindDiff {
 			normalized["entry_id"] = entry.ID.String()
 		}
 		return StreamEvent{Event: "message", Payload: normalized}, true
@@ -1673,11 +1671,15 @@ func renderRecoveryLines(entries []domain.Entry, limit int) []string {
 		case domain.EntryKindAssistantTextDelta:
 			lines = append(lines, "assistant: "+strings.TrimSpace(stringValue(entry.Payload["content"])))
 		case domain.EntryKindActionProposal:
-			lines = append(lines, "assistant: proposed platform action")
+			summary := strings.TrimSpace(stringValue(entry.Payload["summary"]))
+			if summary == "" {
+				summary = "legacy proposal"
+			}
+			lines = append(lines, "assistant: "+summary)
 		case domain.EntryKindInterrupt:
 			lines = append(lines, "system: turn paused for interrupt")
 		case domain.EntryKindActionResult:
-			lines = append(lines, "system: action proposal executed")
+			lines = append(lines, "system: legacy proposal executed")
 		}
 	}
 	return lines

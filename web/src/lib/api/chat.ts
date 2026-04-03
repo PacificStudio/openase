@@ -45,25 +45,6 @@ export type ChatErrorPayload = {
   message: string
 }
 
-export type ChatActionProposalPayload = {
-  type: 'action_proposal'
-  entryId?: string
-  summary?: string
-  actions: ChatActionProposalAction[]
-}
-
-export type ChatPlatformCommandProposalCommand = {
-  command: string
-  args: Record<string, unknown>
-}
-
-export type ChatPlatformCommandProposalPayload = {
-  type: 'platform_command_proposal'
-  entryId?: string
-  summary?: string
-  commands: ChatPlatformCommandProposalCommand[]
-}
-
 export type ChatDiffLineOp = 'context' | 'add' | 'remove'
 
 export type ChatDiffLine = {
@@ -106,17 +87,7 @@ export type ChatMessagePayload =
   | ChatTextPayload
   | ChatDiffPayload
   | ChatBundleDiffPayload
-  | ChatActionProposalPayload
-  | ChatPlatformCommandProposalPayload
   | ChatTaskPayload
-
-export type ChatActionMethod = 'POST' | 'PATCH' | 'PUT' | 'DELETE'
-
-export type ChatActionProposalAction = {
-  method: ChatActionMethod
-  path: string
-  body?: Record<string, unknown>
-}
 
 export type ChatStreamEvent =
   | { kind: 'session'; payload: ChatSessionPayload }
@@ -141,6 +112,21 @@ export type ProjectConversation = {
   lastActivityAt: string
   createdAt: string
   updatedAt: string
+  runtimePrincipal?: ProjectConversationRuntimePrincipal
+}
+
+export type ProjectConversationRuntimePrincipal = {
+  id?: string
+  name?: string
+  status?: string
+  runtimeState?: string
+  currentSessionId?: string
+  currentWorkspacePath?: string
+  currentRunId?: string
+  lastHeartbeatAt?: string
+  currentStepStatus?: string
+  currentStepSummary?: string
+  currentStepChangedAt?: string
 }
 
 export type ProjectConversationEntry = {
@@ -274,6 +260,7 @@ type RawProjectConversation = {
   last_activity_at?: string
   created_at?: string
   updated_at?: string
+  runtime_principal?: Record<string, unknown>
 }
 
 type RawProjectConversationEntry = {
@@ -580,19 +567,6 @@ export function respondProjectConversationInterrupt(
   )
 }
 
-export function executeProjectConversationActionProposal(conversationId: string, entryId: string) {
-  return fetchJSON<{
-    result_entry?: RawProjectConversationEntry
-    results?: Record<string, unknown>[]
-  }>(
-    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/action-proposals/${encodeURIComponent(entryId)}/execute`,
-    { method: 'POST' },
-  ).then((payload) => ({
-    result_entry: parseProjectConversationEntry(payload.result_entry),
-    results: Array.isArray(payload.results) ? payload.results : [],
-  }))
-}
-
 export async function closeProjectConversationRuntime(conversationId: string) {
   const response = await fetch(
     `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/runtime`,
@@ -854,21 +828,12 @@ function parseMessagePayload(payload: unknown): ChatMessagePayload {
     }
   }
 
-  if (type === 'action_proposal') {
+  if (type === 'action_proposal' || type === 'platform_command_proposal') {
     return {
-      type,
-      entryId: readOptionalString(object, 'entry_id'),
-      summary: readOptionalString(object, 'summary'),
-      actions: readActionProposalActions(object),
-    }
-  }
-
-  if (type === 'platform_command_proposal') {
-    return {
-      type,
-      entryId: readOptionalString(object, 'entry_id'),
-      summary: readOptionalString(object, 'summary'),
-      commands: readPlatformCommandProposalCommands(object),
+      type: 'text',
+      content:
+        readOptionalString(object, 'summary') ??
+        'Legacy proposal payload omitted. Ask the assistant to perform the action directly.',
     }
   }
 
@@ -949,6 +914,31 @@ function parseProjectConversation(value: unknown): ProjectConversation {
     lastActivityAt: readOptionalString(object, 'last_activity_at') ?? updatedAt ?? createdAt,
     createdAt,
     updatedAt,
+    runtimePrincipal: parseProjectConversationRuntimePrincipal(
+      readOptionalObject(object, 'runtime_principal'),
+    ),
+  }
+}
+
+function parseProjectConversationRuntimePrincipal(
+  value?: Record<string, unknown> | null,
+): ProjectConversationRuntimePrincipal | undefined {
+  if (value == null) {
+    return undefined
+  }
+
+  return {
+    id: readOptionalString(value, 'id'),
+    name: readOptionalString(value, 'name'),
+    status: readOptionalString(value, 'status'),
+    runtimeState: readOptionalString(value, 'runtime_state'),
+    currentSessionId: readOptionalString(value, 'current_session_id'),
+    currentWorkspacePath: readOptionalString(value, 'current_workspace_path'),
+    currentRunId: readOptionalString(value, 'current_run_id'),
+    lastHeartbeatAt: readOptionalString(value, 'last_heartbeat_at'),
+    currentStepStatus: readOptionalString(value, 'current_step_status'),
+    currentStepSummary: readOptionalString(value, 'current_step_summary'),
+    currentStepChangedAt: readOptionalString(value, 'current_step_changed_at'),
   }
 }
 
@@ -1060,65 +1050,6 @@ function readInterruptOptions(
       label: readRequiredString(option, 'label'),
     }
   })
-}
-
-function readActionProposalActions(object: Record<string, unknown>): ChatActionProposalAction[] {
-  const actions = object.actions
-  if (!Array.isArray(actions)) {
-    throw new Error('chat stream action_proposal actions must be an array')
-  }
-
-  return actions.map((action, index) => parseActionProposalAction(action, index))
-}
-
-function readPlatformCommandProposalCommands(
-  object: Record<string, unknown>,
-): ChatPlatformCommandProposalCommand[] {
-  const commands = object.commands
-  if (!Array.isArray(commands)) {
-    throw new Error('chat stream platform_command_proposal commands must be an array')
-  }
-
-  return commands.map((command, index) => parsePlatformCommandProposalCommand(command, index))
-}
-
-function parsePlatformCommandProposalCommand(
-  value: unknown,
-  index: number,
-): ChatPlatformCommandProposalCommand {
-  const object = parseRequiredObject(value)
-  const args = object.args
-  if (args == null || typeof args !== 'object' || Array.isArray(args)) {
-    throw new Error(`chat stream platform_command_proposal command ${index} args must be an object`)
-  }
-
-  return {
-    command: readRequiredString(object, 'command'),
-    args: args as Record<string, unknown>,
-  }
-}
-
-function parseActionProposalAction(value: unknown, index: number): ChatActionProposalAction {
-  const object = parseRequiredObject(value)
-  const method = readRequiredString(object, 'method').toUpperCase()
-  if (!isActionMethod(method)) {
-    throw new Error(`chat stream action_proposal action ${index} method is unsupported`)
-  }
-
-  const body = object.body
-  if (body !== undefined && (body == null || typeof body !== 'object' || Array.isArray(body))) {
-    throw new Error(`chat stream action_proposal action ${index} body must be an object`)
-  }
-
-  return {
-    method,
-    path: readRequiredString(object, 'path'),
-    body: body as Record<string, unknown> | undefined,
-  }
-}
-
-function isActionMethod(value: string): value is ChatActionMethod {
-  return value === 'POST' || value === 'PATCH' || value === 'PUT' || value === 'DELETE'
 }
 
 function readDiffHunks(object: Record<string, unknown>): ChatDiffHunk[] {

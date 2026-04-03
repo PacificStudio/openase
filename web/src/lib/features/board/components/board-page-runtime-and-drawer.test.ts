@@ -337,6 +337,7 @@ describe('TicketsPage runtime and drawer', () => {
     const { findByText } = render(TicketsPage)
     const initialCard = (await findByText('ASE-202')).closest('button')
     if (!initialCard) throw new Error('ticket card not found')
+    expect(within(initialCard).getByTitle('Ready')).toBeTruthy()
     expect(within(initialCard).queryByTitle('Executing')).toBeNull()
 
     projectEventOnEvent?.({ topic: 'agent.events', type: 'agent.ready', payload: null })

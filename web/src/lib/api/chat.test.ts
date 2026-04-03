@@ -349,7 +349,7 @@ describe('watchProjectConversation', () => {
     ])
   })
 
-  it('parses platform command proposals from project conversation streams', async () => {
+  it('downgrades platform command proposals to plain assistant text in project conversation streams', async () => {
     consumeEventStream.mockImplementation(async (_body, onFrame) => {
       onFrame({
         event: 'message',
@@ -381,18 +381,8 @@ describe('watchProjectConversation', () => {
       {
         kind: 'message',
         payload: {
-          type: 'platform_command_proposal',
-          entryId: 'entry-1',
-          summary: 'Update ASE-1',
-          commands: [
-            {
-              command: 'ticket.update',
-              args: {
-                ticket: 'ASE-1',
-                status: 'Todo',
-              },
-            },
-          ],
+          type: 'text',
+          content: 'Update ASE-1',
         },
       },
     ])

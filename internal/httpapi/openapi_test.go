@@ -54,7 +54,6 @@ func TestBuildOpenAPIDocument(t *testing.T) {
 		"/api/v1/chat/conversations/{conversationId}/turns",
 		"/api/v1/chat/conversations/{conversationId}/stream",
 		"/api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond",
-		"/api/v1/chat/conversations/{conversationId}/action-proposals/{entryId}/execute",
 		"/api/v1/chat/conversations/{conversationId}/runtime",
 		"/api/v1/skills/{skillId}/files",
 		"/api/v1/projects/{projectId}/events/stream",

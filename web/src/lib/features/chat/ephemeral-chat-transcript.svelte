@@ -1,7 +1,6 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
   import { LoaderCircle } from '@lucide/svelte'
-  import EphemeralChatActionProposalCard from './ephemeral-chat-action-proposal-card.svelte'
   import EphemeralChatBundleDiffCard from './ephemeral-chat-bundle-diff-card.svelte'
   import EphemeralChatDiffCard from './ephemeral-chat-diff-card.svelte'
   import ChatMarkdownContent from './chat-markdown-content.svelte'
@@ -11,14 +10,10 @@
     entries,
     pending = false,
     variant = 'default',
-    onConfirmActionProposal,
-    onCancelActionProposal,
   }: {
     entries: EphemeralChatTranscriptEntry[]
     pending?: boolean
     variant?: 'default' | 'minimal'
-    onConfirmActionProposal?: (entryId: string) => Promise<void> | void
-    onCancelActionProposal?: (entryId: string) => void
   } = $props()
 
   const visibleEntries = $derived(
@@ -34,13 +29,7 @@
 
 <div class={cn(minimal ? 'space-y-2' : 'space-y-1.5')}>
   {#each visibleEntries as entry (entry.id)}
-    {#if entry.kind === 'action_proposal'}
-      <EphemeralChatActionProposalCard
-        {entry}
-        onConfirm={onConfirmActionProposal}
-        onCancel={onCancelActionProposal}
-      />
-    {:else if entry.kind === 'bundle_diff'}
+    {#if entry.kind === 'bundle_diff'}
       <EphemeralChatBundleDiffCard {entry} />
     {:else if entry.kind === 'diff'}
       <EphemeralChatDiffCard {entry} />

@@ -114,6 +114,21 @@ func (l *RuntimeLauncher) startReadyExecutions(ctx context.Context) error {
 			continue
 		}
 
+		executingAt := l.now().UTC()
+		executingAgent, err := loadAgentLifecycleState(ctx, l.client, assignment.agent.ID, &assignment.run.ID)
+		if err != nil {
+			l.finishExecution(assignment.run.ID)
+			return err
+		}
+		l.publishLifecycleEvent(
+			ctx,
+			agentExecutingType,
+			executingAgent,
+			lifecycleMessage(agentExecutingType, executingAgent.agent.Name),
+			runtimeEventMetadataForState(executingAgent),
+			executingAt,
+		)
+
 		//nolint:gosec // runtime executions intentionally continue asynchronously after the launcher tick claims the run.
 		go l.runReadyExecution(ctx, assignment.run.ID)
 	}

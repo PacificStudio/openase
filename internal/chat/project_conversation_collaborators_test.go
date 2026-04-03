@@ -44,7 +44,7 @@ func TestProjectConversationStreamBrokerDropsBlockedWatcherOnly(t *testing.T) {
 	requireProjectConversationStreamEvent(t, active)
 	requireProjectConversationStreamEvent(t, other)
 
-	for index := range 32 {
+	for index := range projectConversationStreamBufferSize {
 		broker.Broadcast(conversationID, StreamEvent{
 			Event: "message",
 			Payload: map[string]any{
@@ -60,7 +60,7 @@ func TestProjectConversationStreamBrokerDropsBlockedWatcherOnly(t *testing.T) {
 	if event := requireProjectConversationStreamEvent(t, active); event.Event != "message" {
 		t.Fatalf("active event after blocked buffer = %q, want message", event.Event)
 	}
-	for range 32 {
+	for range projectConversationStreamBufferSize {
 		requireProjectConversationStreamEvent(t, blocked)
 	}
 	requireNoProjectConversationStreamEvent(t, blocked)
@@ -68,6 +68,46 @@ func TestProjectConversationStreamBrokerDropsBlockedWatcherOnly(t *testing.T) {
 	broker.Broadcast(otherConversationID, StreamEvent{Event: "message"})
 	if event := requireProjectConversationStreamEvent(t, other); event.Event != "message" {
 		t.Fatalf("other event = %q, want message", event.Event)
+	}
+}
+
+func TestProjectConversationStreamBrokerGuaranteedEventDisplacesBufferedNoise(t *testing.T) {
+	t.Parallel()
+
+	broker := newProjectConversationStreamBroker()
+	conversationID := uuid.New()
+
+	blocked, cleanupBlocked := broker.Watch(conversationID, StreamEvent{Event: "session"})
+	defer cleanupBlocked()
+
+	requireProjectConversationStreamEvent(t, blocked)
+
+	for index := range projectConversationStreamBufferSize {
+		broker.Broadcast(conversationID, StreamEvent{
+			Event: "message",
+			Payload: map[string]any{
+				"index": index,
+			},
+		})
+	}
+
+	broker.Broadcast(conversationID, StreamEvent{
+		Event: "turn_done",
+		Payload: map[string]any{
+			"conversation_id": conversationID.String(),
+			"turn_id":         uuid.New().String(),
+		},
+	})
+
+	seenTurnDone := false
+	for range projectConversationStreamBufferSize {
+		if event := requireProjectConversationStreamEvent(t, blocked); event.Event == "turn_done" {
+			seenTurnDone = true
+		}
+	}
+
+	if !seenTurnDone {
+		t.Fatal("expected buffered watcher to receive turn_done event")
 	}
 }
 

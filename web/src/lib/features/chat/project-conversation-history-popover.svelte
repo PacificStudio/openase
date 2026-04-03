@@ -41,31 +41,29 @@
     <span>No conversations yet</span>
   </div>
 {:else}
-  <ScrollArea class="max-h-72">
-    <div class="flex flex-col gap-0.5 py-1">
+  <ScrollArea class="max-h-64 overflow-y-auto">
+    <div class="flex flex-col py-0.5">
       {#each conversations as conversation (conversation.id)}
         {@const isOpen = openSet.has(conversation.id)}
         <button
           type="button"
-          class="hover:bg-muted/60 flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors"
+          class="hover:bg-muted/60 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors"
           onclick={() => onSelect?.(conversation.id)}
         >
-          <span class={`mt-1.5 size-1.5 shrink-0 rounded-full ${statusDot(conversation)}`}></span>
-          <div class="min-w-0 flex-1">
-            <div class="text-foreground flex items-center gap-1.5 text-xs font-medium">
-              <span class="truncate">{summaryText(conversation)}</span>
-              {#if isOpen}
-                <span
-                  class="bg-muted text-muted-foreground shrink-0 rounded px-1 py-0.5 text-[9px] leading-none"
-                >
-                  open
-                </span>
-              {/if}
-            </div>
-            <div class="text-muted-foreground mt-0.5 text-[10px]">
-              {formatRelativeTime(conversation.lastActivityAt || conversation.createdAt)}
-            </div>
-          </div>
+          <span class={`size-1.5 shrink-0 rounded-full ${statusDot(conversation)}`}></span>
+          <span class="text-foreground min-w-0 flex-1 truncate text-[11px] leading-tight">
+            {summaryText(conversation)}
+          </span>
+          {#if isOpen}
+            <span
+              class="bg-muted text-muted-foreground shrink-0 rounded px-1 py-0.5 text-[9px] leading-none"
+            >
+              open
+            </span>
+          {/if}
+          <span class="text-muted-foreground shrink-0 text-[10px]">
+            {formatRelativeTime(conversation.lastActivityAt || conversation.createdAt)}
+          </span>
         </button>
       {/each}
     </div>

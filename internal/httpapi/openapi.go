@@ -4634,25 +4634,6 @@ func (b openAPISpecBuilder) addChatOperations() error {
 	projectConversationInterrupt.AddParameter(uuidPathParameter("interruptId", "Stable OpenASE interrupt ID."))
 	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond", http.MethodPost, projectConversationInterrupt)
 
-	projectConversationActionExecute, err := b.jsonOperation(
-		"executeProjectConversationActionProposal",
-		"Execute a project conversation action proposal",
-		[]string{"chat"},
-		http.StatusOK,
-		OpenAPIProjectConversationActionProposalExecutionResponse{},
-		nil,
-		http.StatusBadRequest,
-		http.StatusNotFound,
-		http.StatusServiceUnavailable,
-		http.StatusInternalServerError,
-	)
-	if err != nil {
-		return err
-	}
-	projectConversationActionExecute.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
-	projectConversationActionExecute.AddParameter(uuidPathParameter("entryId", "Transcript entry ID for the action proposal."))
-	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/action-proposals/{entryId}/execute", http.MethodPost, projectConversationActionExecute)
-
 	projectConversationRuntimeDelete := openapi3.NewOperation()
 	projectConversationRuntimeDelete.OperationID = "closeProjectConversationRuntime"
 	projectConversationRuntimeDelete.Summary = "Close a project conversation live runtime"

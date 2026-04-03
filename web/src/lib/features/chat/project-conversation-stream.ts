@@ -1,10 +1,7 @@
 import type { ProjectConversationStreamEvent } from '$lib/api/chat'
-import type { ChatActionExecutionResult } from './action-proposal-executor'
 import {
   createProjectConversationDiffEntriesFromUnifiedDiff,
-  isActionProposalPayload,
   isDiffPayload,
-  isPlatformCommandProposalPayload,
   isTextPayload,
   mapProjectConversationTaskEntry,
 } from './project-conversation-transcript-state'
@@ -12,7 +9,6 @@ import {
 type ProjectConversationStreamHandlers = {
   appendAssistantChunk: (content: string) => void
   finalizeAssistantEntry: () => void
-  appendActionProposal: (entryId: string | undefined, payload: Record<string, unknown>) => void
   appendDiff: (entryId: string | undefined, payload: Record<string, unknown>) => void
   appendToolCall: (payload: { tool: string; arguments: unknown }) => void
   appendCommandOutput: (payload: {
@@ -36,7 +32,6 @@ type ProjectConversationStreamHandlers = {
     detail?: string
     raw?: Record<string, unknown>
   }) => void
-  confirmActionResult: (entryId: string, results: ChatActionExecutionResult[]) => void
   appendInterrupt: (payload: {
     interruptId: string
     provider: string
@@ -68,11 +63,6 @@ export function handleProjectConversationStreamEvent(
     }
 
     handlers.finalizeAssistantEntry()
-    if (isActionProposalPayload(payload) || isPlatformCommandProposalPayload(payload)) {
-      handlers.appendActionProposal(payload.entryId, payload)
-      return
-    }
-
     if (isDiffPayload(payload)) {
       handlers.appendDiff(payload.entryId, payload)
       return
@@ -115,16 +105,6 @@ export function handleProjectConversationStreamEvent(
       return
     }
 
-    if (payload.type === 'action_result') {
-      const resultPayload = (
-        payload.raw as { payload?: { entry_id?: string; results?: unknown[] } }
-      )?.payload
-      const resultEntryId = resultPayload?.entry_id
-      const results = (resultPayload?.results ?? []) as ChatActionExecutionResult[]
-      if (resultEntryId) {
-        handlers.confirmActionResult(resultEntryId, results)
-      }
-    }
     return
   }
 

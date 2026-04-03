@@ -71,12 +71,17 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 
 - `api`: raw HTTP passthrough，任何已暴露 API 的兜底入口
 - `ticket`: ticket 读写、detail、comments 等
+- `status`: ticket status board 管理
+- `chat`: ephemeral chat 与 project conversation
 - `project`: project 读写
+- `repo`: project repo、GitHub repo 发现、ticket repo scopes
 - `workflow`: workflow 与 harness 读写
 - `scheduled-job`: 定时任务管理
 - `machine`: 机器注册、探测、资源查看
 - `provider`: provider 查看与配置
 - `agent`: agent 查看、暂停/恢复、输出与步骤读取
+- `channel`: notification channel 管理与 test
+- `notification-rule`: notification rule 管理
 - `skill`: skill 查看、更新、绑定、refresh
 - `watch`: SSE watch 流
 - `stream`: SSE stream 流
@@ -102,12 +107,17 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 一般来说，agent 在工作区内最常用的是：
 
 - `ticket`
+- `status`
+- `chat`
 - `project`
+- `repo`
 - `workflow`
 - `scheduled-job`
 - `machine`
 - `provider`
 - `agent`
+- `channel`
+- `notification-rule`
 - `skill`
 - `watch` / `stream`
 - `api`
@@ -232,10 +242,33 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 - 产品经理或研究类角色把调研结果写回项目
 - 当前 ticket 执行中发现需要把长期背景更新到项目级描述
 
-### 7. 给项目注册 repo
+### 7. 管理项目 status board
 
 ```bash
-./.openase/bin/openase project add-repo \
+./.openase/bin/openase status list $OPENASE_PROJECT_ID
+./.openase/bin/openase status create $OPENASE_PROJECT_ID \
+  --name "QA" \
+  --stage started \
+  --color "#FF00AA"
+./.openase/bin/openase status update $STATUS_ID --name "Ready for QA"
+```
+
+能力：
+
+- `status list` 调 `GET /projects/{projectId}/statuses`
+- `status create` 调 `POST /projects/{projectId}/statuses`
+- `status update` 调 `PATCH /statuses/{statusId}`
+- `status delete` / `status reset` 也已提供 typed CLI
+
+适用场景：
+
+- 需要先读项目当前 status board，再决定是否流转 ticket
+- 项目管理员调整状态命名、排序或默认状态
+
+### 8. 给项目注册 repo
+
+```bash
+./.openase/bin/openase repo create $OPENASE_PROJECT_ID \
   --name "worker-tools" \
   --url "https://github.com/acme/worker-tools.git" \
   --default-branch main \
@@ -250,6 +283,39 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 - `--default-branch` 默认 `main`
 - `--label` 可重复
 
+兼容说明：
+
+```bash
+./.openase/bin/openase project add-repo \
+  --name "worker-tools" \
+  --url "https://github.com/acme/worker-tools.git" \
+  --default-branch main
+```
+
+旧的 `project add-repo` 入口仍然可用，但新的 typed CLI 和后续文档优先使用 `repo create`，因为它更直接表达了 repo 是 project 下的独立控制面实体。
+
+### 9. 管 project conversation / Project AI
+
+```bash
+./.openase/bin/openase chat conversation list --project-id $OPENASE_PROJECT_ID
+./.openase/bin/openase chat conversation get $OPENASE_CONVERSATION_ID
+./.openase/bin/openase chat conversation entries $OPENASE_CONVERSATION_ID
+./.openase/bin/openase chat conversation turn $OPENASE_CONVERSATION_ID --message "继续处理上一个问题"
+./.openase/bin/openase chat conversation watch $OPENASE_CONVERSATION_ID
+```
+
+能力：
+
+- `chat conversation list` 调 `GET /chat/conversations`
+- `chat conversation turn` 调 `POST /chat/conversations/{conversationId}/turns`
+- `chat conversation watch` 打开 conversation 事件流
+- 支持 interrupt 响应、action proposal 执行、runtime close
+
+适用场景：
+
+- 在 Project AI / project conversation principal 下检查和续跑会话
+- 需要把 conversation transcript 或 workspace diff 当作控制面状态读取
+
 ## Full CLI Surface Beyond The Safe Subset
 
 如果上面这些高频命令不够，`openase` 其实还有更广的 typed CLI，可直接走 OpenAPI 合约，不需要自己查源码再拼 HTTP。
@@ -257,12 +323,17 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 常用 namespace 包括：
 
 - `openase ticket ...`
+- `openase status ...`
+- `openase chat ...`
 - `openase project ...`
+- `openase repo ...`
 - `openase workflow ...`
 - `openase scheduled-job ...`
 - `openase machine ...`
 - `openase provider ...`
 - `openase agent ...`
+- `openase channel ...`
+- `openase notification-rule ...`
 - `openase skill ...`
 - `openase watch ...`
 - `openase stream ...`
@@ -272,6 +343,9 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 ```bash
 ./.openase/bin/openase ticket get $OPENASE_TICKET_ID
 ./.openase/bin/openase ticket detail $OPENASE_PROJECT_ID $OPENASE_TICKET_ID
+./.openase/bin/openase status list $OPENASE_PROJECT_ID
+./.openase/bin/openase chat conversation get $OPENASE_CONVERSATION_ID
+./.openase/bin/openase repo list $OPENASE_PROJECT_ID
 ./.openase/bin/openase workflow list $OPENASE_PROJECT_ID
 ./.openase/bin/openase workflow harness get $WORKFLOW_ID
 ./.openase/bin/openase scheduled-job list $OPENASE_PROJECT_ID
@@ -279,6 +353,8 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 ./.openase/bin/openase machine resources $MACHINE_ID
 ./.openase/bin/openase provider list $OPENASE_ORG_ID --json providers
 ./.openase/bin/openase agent output $OPENASE_PROJECT_ID $AGENT_ID
+./.openase/bin/openase channel list $OPENASE_ORG_ID
+./.openase/bin/openase notification-rule list $OPENASE_PROJECT_ID
 ./.openase/bin/openase skill list $OPENASE_PROJECT_ID
 ./.openase/bin/openase watch project $OPENASE_PROJECT_ID
 ```
@@ -289,6 +365,7 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 - 输出默认是 JSON
 - 可以用 `--json` / `--jq` / `--template` 精简结果
 - 很适合“先 inspect 再决定是否写操作”
+- 少数 body 字段会和 CLI 输出 flag 重名；例如 `notification-rule create/update` 的 `template` 字段应改用 `-f template=...` 或 `--input payload.json`
 
 ## Raw API Escape Hatch
 

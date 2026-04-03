@@ -30,8 +30,6 @@
     pending = false,
     onSelectTab,
     onCloseTab,
-    onConfirmActionProposal,
-    onCancelActionProposal,
     onRespondInterrupt,
   }: {
     tabs?: ProjectConversationTabSummary[]
@@ -45,8 +43,6 @@
     pending?: boolean
     onSelectTab: (tabId: string) => void
     onCloseTab: (tabId: string) => void
-    onConfirmActionProposal: (entryId: string) => void
-    onCancelActionProposal: (entryId: string) => void
     onRespondInterrupt: (input: {
       interruptId: string
       decision?: string
@@ -65,11 +61,5 @@
 />
 
 <ScrollArea class="min-h-0 flex-1 px-4 py-4">
-  <ProjectConversationTranscript
-    {entries}
-    {pending}
-    {onConfirmActionProposal}
-    {onCancelActionProposal}
-    {onRespondInterrupt}
-  />
+  <ProjectConversationTranscript {entries} {pending} {onRespondInterrupt} />
 </ScrollArea>

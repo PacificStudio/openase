@@ -537,6 +537,71 @@ func TestProjectEventBusEmitsCoalescedDashboardRefreshEvents(t *testing.T) {
 	}
 }
 
+func TestProjectEventBusMarksProjectSectionDirtyForProjectActivity(t *testing.T) {
+	projectID := uuid.New()
+
+	bus := eventinfra.NewChannelBus()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		bus,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	previousDebounce := projectDashboardRefreshDebounceInterval
+	projectDashboardRefreshDebounceInterval = 10 * time.Millisecond
+	defer func() {
+		projectDashboardRefreshDebounceInterval = previousDebounce
+	}()
+
+	response, cancel := openSSERequest(
+		t,
+		testServer.URL+"/api/v1/projects/"+projectID.String()+"/events/stream",
+	)
+	t.Cleanup(func() {
+		if err := response.Body.Close(); err != nil {
+			t.Errorf("close project event bus response body: %v", err)
+		}
+	})
+
+	publishTestEvent(
+		t,
+		bus,
+		activityStreamTopic,
+		provider.MustParseEventType("project.updated"),
+		map[string]any{
+			"event": map[string]any{
+				"id":         uuid.NewString(),
+				"project_id": projectID.String(),
+				"event_type": "project.updated",
+				"message":    "refresh project metadata",
+				"metadata":   map[string]any{"changed_fields": []string{"project"}},
+				"created_at": time.Now().UTC().Format(time.RFC3339),
+			},
+		},
+	)
+
+	body := readSSEBodyUntilContainsAll(
+		t,
+		response,
+		cancel,
+		[]string{
+			`"topic":"project.dashboard.events"`,
+			`"dirty_sections":["project","activity","hr_advisor"]`,
+		},
+	)
+	if !strings.Contains(body, `"type":"project.dashboard.refresh"`) {
+		t.Fatalf("expected project dashboard refresh frame, got %q", body)
+	}
+}
+
 func TestProjectPassiveStreamRoutesStayOnCanonicalBus(t *testing.T) {
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
