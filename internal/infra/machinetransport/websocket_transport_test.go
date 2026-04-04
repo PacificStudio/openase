@@ -82,10 +82,10 @@ func TestWebsocketListenerTransportPrepareWorkspaceAndSyncArtifacts(t *testing.T
 
 	localRoot := t.TempDir()
 	targetRoot := filepath.Join(workspaceRoot, "artifact-target")
-	if err := os.MkdirAll(filepath.Join(localRoot, "subdir"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(localRoot, "subdir"), 0o750); err != nil {
 		t.Fatalf("MkdirAll(localRoot) error = %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(localRoot, "subdir", "hello.txt"), []byte("listener-sync"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(localRoot, "subdir", "hello.txt"), []byte("listener-sync"), 0o600); err != nil {
 		t.Fatalf("WriteFile(local artifact) error = %v", err)
 	}
 
@@ -97,6 +97,7 @@ func TestWebsocketListenerTransportPrepareWorkspaceAndSyncArtifacts(t *testing.T
 		t.Fatalf("SyncArtifacts() error = %v", err)
 	}
 
+	// #nosec G304 -- synced artifact path is derived from test-controlled temp directories.
 	content, err := os.ReadFile(filepath.Join(targetRoot, "subdir", "hello.txt"))
 	if err != nil {
 		t.Fatalf("ReadFile(synced artifact) error = %v", err)

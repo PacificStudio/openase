@@ -96,7 +96,13 @@ func dialWebsocketCommandSession(ctx context.Context, machine domain.Machine) (C
 		HandshakeTimeout: 5 * time.Second,
 	}).DialContext(ctx, endpoint, header)
 	if err != nil {
+		if response != nil && response.Body != nil {
+			_ = response.Body.Close()
+		}
 		return nil, classifyWebsocketDialError(machine, endpoint, response, err)
+	}
+	if response != nil && response.Body != nil {
+		_ = response.Body.Close()
 	}
 	return newWebsocketCommandSession(conn), nil
 }
@@ -595,11 +601,12 @@ func classifyWebsocketDialError(
 	}
 
 	var opErr *net.OpError
-	if errors.As(err, &opErr) {
+	switch {
+	case errors.As(err, &opErr):
 		return fmt.Errorf("listener websocket endpoint unreachable for machine %s at %s: %w", machine.Name, endpoint, err)
+	default:
+		return fmt.Errorf("listener websocket dial failed for machine %s at %s: %w", machine.Name, endpoint, err)
 	}
-
-	return fmt.Errorf("listener websocket dial failed for machine %s at %s: %w", machine.Name, endpoint, err)
 }
 
 func pointerString(value *string) string {
