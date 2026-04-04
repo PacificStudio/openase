@@ -48,6 +48,9 @@ type ChatTurn func(*sql.Selector)
 // Machine is the predicate function for machine builders.
 type Machine func(*sql.Selector)
 
+// MachineChannelToken is the predicate function for machinechanneltoken builders.
+type MachineChannelToken func(*sql.Selector)
+
 // NotificationChannel is the predicate function for notificationchannel builders.
 type NotificationChannel func(*sql.Selector)
 

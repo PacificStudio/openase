@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/machine"
+	"github.com/BetterAndBetterII/openase/ent/machinechanneltoken"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
@@ -28,6 +29,7 @@ type MachineQuery struct {
 	inters            []Interceptor
 	predicates        []predicate.Machine
 	withOrganization  *OrganizationQuery
+	withChannelTokens *MachineChannelTokenQuery
 	withProviders     *AgentProviderQuery
 	withTargetTickets *TicketQuery
 	// intermediate query (i.e. traversal path).
@@ -81,6 +83,28 @@ func (_q *MachineQuery) QueryOrganization() *OrganizationQuery {
 			sqlgraph.From(machine.Table, machine.FieldID, selector),
 			sqlgraph.To(organization.Table, organization.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, machine.OrganizationTable, machine.OrganizationColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryChannelTokens chains the current query on the "channel_tokens" edge.
+func (_q *MachineQuery) QueryChannelTokens() *MachineChannelTokenQuery {
+	query := (&MachineChannelTokenClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(machine.Table, machine.FieldID, selector),
+			sqlgraph.To(machinechanneltoken.Table, machinechanneltoken.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, machine.ChannelTokensTable, machine.ChannelTokensColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -325,6 +349,7 @@ func (_q *MachineQuery) Clone() *MachineQuery {
 		inters:            append([]Interceptor{}, _q.inters...),
 		predicates:        append([]predicate.Machine{}, _q.predicates...),
 		withOrganization:  _q.withOrganization.Clone(),
+		withChannelTokens: _q.withChannelTokens.Clone(),
 		withProviders:     _q.withProviders.Clone(),
 		withTargetTickets: _q.withTargetTickets.Clone(),
 		// clone intermediate query.
@@ -341,6 +366,17 @@ func (_q *MachineQuery) WithOrganization(opts ...func(*OrganizationQuery)) *Mach
 		opt(query)
 	}
 	_q.withOrganization = query
+	return _q
+}
+
+// WithChannelTokens tells the query-builder to eager-load the nodes that are connected to
+// the "channel_tokens" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *MachineQuery) WithChannelTokens(opts ...func(*MachineChannelTokenQuery)) *MachineQuery {
+	query := (&MachineChannelTokenClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withChannelTokens = query
 	return _q
 }
 
@@ -444,8 +480,9 @@ func (_q *MachineQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Mach
 	var (
 		nodes       = []*Machine{}
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [4]bool{
 			_q.withOrganization != nil,
+			_q.withChannelTokens != nil,
 			_q.withProviders != nil,
 			_q.withTargetTickets != nil,
 		}
@@ -471,6 +508,13 @@ func (_q *MachineQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Mach
 	if query := _q.withOrganization; query != nil {
 		if err := _q.loadOrganization(ctx, query, nodes, nil,
 			func(n *Machine, e *Organization) { n.Edges.Organization = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withChannelTokens; query != nil {
+		if err := _q.loadChannelTokens(ctx, query, nodes,
+			func(n *Machine) { n.Edges.ChannelTokens = []*MachineChannelToken{} },
+			func(n *Machine, e *MachineChannelToken) { n.Edges.ChannelTokens = append(n.Edges.ChannelTokens, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -517,6 +561,36 @@ func (_q *MachineQuery) loadOrganization(ctx context.Context, query *Organizatio
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (_q *MachineQuery) loadChannelTokens(ctx context.Context, query *MachineChannelTokenQuery, nodes []*Machine, init func(*Machine), assign func(*Machine, *MachineChannelToken)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Machine)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(machinechanneltoken.FieldMachineID)
+	}
+	query.Where(predicate.MachineChannelToken(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(machine.ChannelTokensColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.MachineID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "machine_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

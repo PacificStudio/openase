@@ -747,6 +747,48 @@ var (
 			},
 		},
 	}
+	// MachineChannelTokensColumns holds the columns for the "machine_channel_tokens" table.
+	MachineChannelTokensColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "token_hash", Type: field.TypeString},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"active", "revoked"}, Default: "active"},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "last_used_at", Type: field.TypeTime, Nullable: true},
+		{Name: "revoked_at", Type: field.TypeTime, Nullable: true},
+		{Name: "machine_id", Type: field.TypeUUID},
+	}
+	// MachineChannelTokensTable holds the schema information for the "machine_channel_tokens" table.
+	MachineChannelTokensTable = &schema.Table{
+		Name:       "machine_channel_tokens",
+		Columns:    MachineChannelTokensColumns,
+		PrimaryKey: []*schema.Column{MachineChannelTokensColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "machine_channel_tokens_machines_channel_tokens",
+				Columns:    []*schema.Column{MachineChannelTokensColumns[7]},
+				RefColumns: []*schema.Column{MachinesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "machinechanneltoken_token_hash",
+				Unique:  true,
+				Columns: []*schema.Column{MachineChannelTokensColumns[1]},
+			},
+			{
+				Name:    "machinechanneltoken_machine_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{MachineChannelTokensColumns[7], MachineChannelTokensColumns[2]},
+			},
+			{
+				Name:    "machinechanneltoken_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{MachineChannelTokensColumns[3]},
+			},
+		},
+	}
 	// NotificationChannelsColumns holds the columns for the "notification_channels" table.
 	NotificationChannelsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -2254,6 +2296,7 @@ var (
 		ChatPendingInterruptsTable,
 		ChatTurnsTable,
 		MachinesTable,
+		MachineChannelTokensTable,
 		NotificationChannelsTable,
 		NotificationRulesTable,
 		OrganizationsTable,
@@ -2326,6 +2369,7 @@ func init() {
 	ChatPendingInterruptsTable.ForeignKeys[1].RefTable = ChatTurnsTable
 	ChatTurnsTable.ForeignKeys[0].RefTable = ChatConversationsTable
 	MachinesTable.ForeignKeys[0].RefTable = OrganizationsTable
+	MachineChannelTokensTable.ForeignKeys[0].RefTable = MachinesTable
 	NotificationChannelsTable.ForeignKeys[0].RefTable = OrganizationsTable
 	NotificationRulesTable.ForeignKeys[0].RefTable = NotificationChannelsTable
 	NotificationRulesTable.ForeignKeys[1].RefTable = ProjectsTable
