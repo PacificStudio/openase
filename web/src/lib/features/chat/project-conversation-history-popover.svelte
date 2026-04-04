@@ -41,7 +41,7 @@
     <span>No conversations yet</span>
   </div>
 {:else}
-  <ScrollArea class="max-h-64 overflow-y-auto">
+  <ScrollArea class="max-h-80">
     <div class="flex flex-col py-0.5">
       {#each conversations as conversation (conversation.id)}
         {@const isOpen = openSet.has(conversation.id)}
