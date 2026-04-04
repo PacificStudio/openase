@@ -65,3 +65,20 @@ func TestMustStatusBindingSet(t *testing.T) {
 	}()
 	_ = MustStatusBindingSet(uuid.Nil)
 }
+
+func TestStatusBindingSetOverlaps(t *testing.T) {
+	id1 := uuid.New()
+	id2 := uuid.New()
+	id3 := uuid.New()
+
+	left := MustStatusBindingSet(id1, id2)
+	right := MustStatusBindingSet(id2, id3)
+	disjoint := MustStatusBindingSet(id3)
+
+	if !left.Overlaps(right) {
+		t.Fatal("Overlaps() should report shared status bindings")
+	}
+	if left.Overlaps(disjoint) {
+		t.Fatal("Overlaps() should be false for disjoint status bindings")
+	}
+}
