@@ -8,9 +8,12 @@ import (
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 )
 
 const runtimePreflightFailurePrefix = "OPENASE_RUNTIME_PREFLIGHT_FAILURE"
+
+var _ = logging.DeclareComponent("machine-transport-runtime-preflight")
 
 type RuntimePreflightStage string
 
