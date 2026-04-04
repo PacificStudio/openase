@@ -21,6 +21,8 @@ var (
 	ErrProjectNotFound = domain.ErrProjectNotFound
 	// ErrChannelNotFound reports a missing notification channel.
 	ErrChannelNotFound = domain.ErrChannelNotFound
+	// ErrChannelInUse reports a notification channel still referenced by rules.
+	ErrChannelInUse = domain.ErrChannelInUse
 	// ErrDuplicateChannelName reports duplicate channel names within the same organization.
 	ErrDuplicateChannelName = domain.ErrDuplicateChannelName
 	// ErrRuleNotFound reports a missing notification rule.

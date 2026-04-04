@@ -38,6 +38,92 @@ type WorkflowDetail struct {
 	HarnessContent string `json:"harness_content"`
 }
 
+type WorkflowTicketReference struct {
+	ID           uuid.UUID  `json:"id"`
+	Identifier   string     `json:"identifier"`
+	Title        string     `json:"title"`
+	StatusID     uuid.UUID  `json:"status_id"`
+	StatusName   string     `json:"status_name"`
+	CurrentRunID *uuid.UUID `json:"current_run_id,omitempty"`
+}
+
+type WorkflowScheduledJobReference struct {
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	IsEnabled bool      `json:"is_enabled"`
+}
+
+type WorkflowAgentRunReference struct {
+	ID               uuid.UUID `json:"id"`
+	TicketID         uuid.UUID `json:"ticket_id"`
+	TicketIdentifier string    `json:"ticket_identifier"`
+	TicketTitle      string    `json:"ticket_title"`
+	Status           string    `json:"status"`
+	CreatedAt        time.Time `json:"created_at"`
+}
+
+type WorkflowReplaceableReferences struct {
+	Tickets       []WorkflowTicketReference       `json:"tickets"`
+	ScheduledJobs []WorkflowScheduledJobReference `json:"scheduled_jobs"`
+}
+
+type WorkflowBlockingReferences struct {
+	ActiveAgentRuns     []WorkflowAgentRunReference `json:"active_agent_runs"`
+	HistoricalAgentRuns []WorkflowAgentRunReference `json:"historical_agent_runs"`
+}
+
+type WorkflowImpactSummary struct {
+	TicketCount               int `json:"ticket_count"`
+	ScheduledJobCount         int `json:"scheduled_job_count"`
+	ActiveAgentRunCount       int `json:"active_agent_run_count"`
+	HistoricalAgentRunCount   int `json:"historical_agent_run_count"`
+	ReplaceableReferenceCount int `json:"replaceable_reference_count"`
+	BlockingReferenceCount    int `json:"blocking_reference_count"`
+}
+
+type WorkflowImpactAnalysis struct {
+	WorkflowID            uuid.UUID                     `json:"workflow_id"`
+	CanRetire             bool                          `json:"can_retire"`
+	CanReplaceReferences  bool                          `json:"can_replace_references"`
+	CanPurge              bool                          `json:"can_purge"`
+	Summary               WorkflowImpactSummary         `json:"summary"`
+	ReplaceableReferences WorkflowReplaceableReferences `json:"replaceable_references"`
+	BlockingReferences    WorkflowBlockingReferences    `json:"blocking_references"`
+}
+
+type ReplaceWorkflowReferencesInput struct {
+	WorkflowID            uuid.UUID
+	ReplacementWorkflowID uuid.UUID
+}
+
+type ReplaceWorkflowReferencesResult struct {
+	WorkflowID            uuid.UUID                       `json:"workflow_id"`
+	ReplacementWorkflowID uuid.UUID                       `json:"replacement_workflow_id"`
+	TicketCount           int                             `json:"ticket_count"`
+	ScheduledJobCount     int                             `json:"scheduled_job_count"`
+	Tickets               []WorkflowTicketReference       `json:"tickets"`
+	ScheduledJobs         []WorkflowScheduledJobReference `json:"scheduled_jobs"`
+}
+
+type WorkflowImpactConflict struct {
+	Err    error
+	Impact WorkflowImpactAnalysis
+}
+
+func (e *WorkflowImpactConflict) Error() string {
+	if e == nil || e.Err == nil {
+		return ""
+	}
+	return e.Err.Error()
+}
+
+func (e *WorkflowImpactConflict) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
 type HarnessDocument struct {
 	WorkflowID uuid.UUID `json:"workflow_id"`
 	Path       string    `json:"path"`

@@ -162,10 +162,16 @@
                 'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium whitespace-nowrap',
                 agent.runtimeControlState === 'pause_requested'
                   ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                  : 'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',
+                  : agent.runtimeControlState === 'retired'
+                    ? 'border-zinc-500/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300'
+                    : 'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',
               )}
             >
-              {agent.runtimeControlState === 'pause_requested' ? 'Pause Requested' : 'Paused'}
+              {agent.runtimeControlState === 'pause_requested'
+                ? 'Pause Requested'
+                : agent.runtimeControlState === 'retired'
+                  ? 'Retired'
+                  : 'Paused'}
             </span>
           {/if}
 

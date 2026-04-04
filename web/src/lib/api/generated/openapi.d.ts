@@ -57,6 +57,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/agents/{agentId}/retire': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Retire an agent definition */
+    post: operations['retireAgent']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/auth/logout': {
     parameters: {
       query?: never
@@ -1969,6 +1986,57 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/workflows/{workflowId}/impact': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get workflow delete impact analysis */
+    get: operations['getWorkflowImpact']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/workflows/{workflowId}/replace-references': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Replace workflow references in scheduled jobs and active tickets */
+    post: operations['replaceWorkflowReferences']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/workflows/{workflowId}/retire': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Retire a workflow by deactivating it */
+    post: operations['retireWorkflow']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/workflows/{workflowId}/skills/bind': {
     parameters: {
       query?: never
@@ -2427,6 +2495,102 @@ export interface operations {
     requestBody?: never
     responses: {
       /** @description Resume an agent runtime response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            agent?: {
+              id?: string
+              name?: string
+              project_id?: string
+              provider_id?: string
+              runtime?: {
+                active_run_count?: number
+                current_run_id?: string | null
+                current_step_changed_at?: string | null
+                current_step_status?: string | null
+                current_step_summary?: string | null
+                current_ticket_id?: string | null
+                last_error?: string
+                last_heartbeat_at?: string | null
+                runtime_phase?: string
+                runtime_started_at?: string | null
+                session_id?: string
+                status?: string
+              } | null
+              runtime_control_state?: string
+              total_tickets_completed?: number
+              /** Format: int64 */
+              total_tokens_used?: number
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  retireAgent: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Agent ID. */
+        agentId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Retire an agent definition response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -16966,6 +17130,323 @@ export interface operations {
       }
       /** @description Not Found response. */
       404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getWorkflowImpact: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Workflow ID. */
+        workflowId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get workflow delete impact analysis response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            impact?: {
+              blocking_references?: {
+                active_agent_runs?: {
+                  /** Format: date-time */
+                  created_at?: string
+                  id?: unknown
+                  status?: string
+                  ticket_id?: unknown
+                  ticket_identifier?: string
+                  ticket_title?: string
+                }[]
+                historical_agent_runs?: {
+                  /** Format: date-time */
+                  created_at?: string
+                  id?: unknown
+                  status?: string
+                  ticket_id?: unknown
+                  ticket_identifier?: string
+                  ticket_title?: string
+                }[]
+              }
+              can_purge?: boolean
+              can_replace_references?: boolean
+              can_retire?: boolean
+              replaceable_references?: {
+                scheduled_jobs?: {
+                  id?: unknown
+                  is_enabled?: boolean
+                  name?: string
+                }[]
+                tickets?: {
+                  current_run_id?: unknown
+                  id?: unknown
+                  identifier?: string
+                  status_id?: unknown
+                  status_name?: string
+                  title?: string
+                }[]
+              }
+              summary?: {
+                active_agent_run_count?: number
+                blocking_reference_count?: number
+                historical_agent_run_count?: number
+                replaceable_reference_count?: number
+                scheduled_job_count?: number
+                ticket_count?: number
+              }
+              workflow_id?: unknown
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  replaceWorkflowReferences: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Workflow ID. */
+        workflowId: string
+      }
+      cookie?: never
+    }
+    /** @description Replace workflow references in scheduled jobs and active tickets request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional editor descriptor recorded on subsequent workflow harness versions. */
+          edited_by?: string | null
+          /** @description Workflow ID that should receive replaceable scheduled job and active ticket references. */
+          replacement_workflow_id?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Replace workflow references in scheduled jobs and active tickets response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            result?: {
+              replacement_workflow_id?: string
+              scheduled_job_count?: number
+              scheduled_jobs?: {
+                id?: unknown
+                is_enabled?: boolean
+                name?: string
+              }[]
+              ticket_count?: number
+              tickets?: {
+                current_run_id?: unknown
+                id?: unknown
+                identifier?: string
+                status_id?: unknown
+                status_name?: string
+                title?: string
+              }[]
+              workflow_id?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  retireWorkflow: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Workflow ID. */
+        workflowId: string
+      }
+      cookie?: never
+    }
+    /** @description Retire a workflow by deactivating it request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional editor descriptor recorded on subsequent workflow harness versions. */
+          edited_by?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Retire a workflow by deactivating it response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            workflow?: {
+              agent_id?: string | null
+              finish_status_ids?: string[]
+              harness_content?: string | null
+              harness_path?: string
+              hooks?: {
+                [key: string]: unknown
+              }
+              id?: string
+              is_active?: boolean
+              max_concurrent?: number
+              max_retry_attempts?: number
+              name?: string
+              pickup_status_ids?: string[]
+              project_id?: string
+              stall_timeout_minutes?: number
+              timeout_minutes?: number
+              type?: string
+              version?: number
+              workflow_classification?: {
+                /** Format: double */
+                confidence?: number
+                family?: string
+                reasons?: string[]
+              }
+              workflow_family?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
         headers: {
           [name: string]: unknown
         }

@@ -152,7 +152,7 @@ func (s *Server) requiredScopeAndPermission(
 			return humanauthdomain.ScopeRef{}, "", false, err
 		}
 		return scope, humanauthdomain.PermissionSkillManage, true, nil
-	case "/api/v1/workflows/:workflowId", "/api/v1/workflows/:workflowId/harness", "/api/v1/workflows/:workflowId/harness/history", "/api/v1/workflows/:workflowId/skills/bind", "/api/v1/workflows/:workflowId/skills/unbind":
+	case "/api/v1/workflows/:workflowId", "/api/v1/workflows/:workflowId/impact", "/api/v1/workflows/:workflowId/harness", "/api/v1/workflows/:workflowId/harness/history", "/api/v1/workflows/:workflowId/retire", "/api/v1/workflows/:workflowId/replace-references", "/api/v1/workflows/:workflowId/skills/bind", "/api/v1/workflows/:workflowId/skills/unbind":
 		scope, err := s.humanAuthorizer.ResolveProjectScope(c.Request().Context(), "workflow", parseUUIDStringUnsafe(c.Param("workflowId")))
 		if err != nil {
 			return humanauthdomain.ScopeRef{}, "", false, err
@@ -164,7 +164,7 @@ func (s *Server) requiredScopeAndPermission(
 			return humanauthdomain.ScopeRef{}, "", false, err
 		}
 		return scope, humanauthdomain.PermissionProjectUpdate, true, nil
-	case "/api/v1/agents/:agentId", "/api/v1/agents/:agentId/pause", "/api/v1/agents/:agentId/resume":
+	case "/api/v1/agents/:agentId", "/api/v1/agents/:agentId/pause", "/api/v1/agents/:agentId/resume", "/api/v1/agents/:agentId/retire":
 		scope, err := s.humanAuthorizer.ResolveProjectScope(c.Request().Context(), "agent", parseUUIDStringUnsafe(c.Param("agentId")))
 		if err != nil {
 			return humanauthdomain.ScopeRef{}, "", false, err

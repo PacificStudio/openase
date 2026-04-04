@@ -111,6 +111,30 @@ func (r *EntRepository) UpdateChannel(ctx context.Context, channel domain.Channe
 }
 
 func (r *EntRepository) DeleteChannel(ctx context.Context, channelID uuid.UUID) error {
+	rules, err := r.client.NotificationRule.Query().
+		Where(entnotificationrule.ChannelIDEQ(channelID)).
+		Order(ent.Asc(entnotificationrule.FieldName), ent.Asc(entnotificationrule.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("list notification channel usage: %w", err)
+	}
+	if len(rules) > 0 {
+		conflict := &domain.ChannelUsageConflict{
+			ChannelID: channelID,
+			Rules:     make([]domain.ChannelUsageRuleReference, 0, len(rules)),
+		}
+		for _, rule := range rules {
+			conflict.Rules = append(conflict.Rules, domain.ChannelUsageRuleReference{
+				ID:        rule.ID,
+				ProjectID: rule.ProjectID,
+				Name:      rule.Name,
+				EventType: rule.EventType,
+				IsEnabled: rule.IsEnabled,
+			})
+		}
+		return conflict
+	}
+
 	if err := r.client.NotificationChannel.DeleteOneID(channelID).Exec(ctx); err != nil {
 		return mapChannelNotFound(err)
 	}

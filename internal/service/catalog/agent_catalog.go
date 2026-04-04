@@ -120,6 +120,23 @@ func (s *service) RequestAgentResume(ctx context.Context, id uuid.UUID) (domain.
 	})
 }
 
+func (s *service) RetireAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error) {
+	current, err := s.repo.GetAgent(ctx, id)
+	if err != nil {
+		return domain.Agent{}, err
+	}
+
+	nextState, err := domain.ResolveRetireRuntimeControlState(current)
+	if err != nil {
+		return domain.Agent{}, fmt.Errorf("%w: %v", ErrConflict, err)
+	}
+
+	return s.repo.UpdateAgentRuntimeControlState(ctx, domain.UpdateAgentRuntimeControlState{
+		ID:                  id,
+		RuntimeControlState: nextState,
+	})
+}
+
 func (s *service) DeleteAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error) {
 	return s.repo.DeleteAgent(ctx, id)
 }

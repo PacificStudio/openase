@@ -114,3 +114,20 @@ export type ScopeGroup = {
   category: string
   scopes: string[]
 }
+
+export type WorkflowImpactSummary = {
+  ticket_count: number
+  scheduled_job_count: number
+  active_agent_run_count: number
+  historical_agent_run_count: number
+  replaceable_reference_count: number
+  blocking_reference_count: number
+}
+
+export type WorkflowImpact = {
+  workflow_id: string
+  can_retire: boolean
+  can_replace_references: boolean
+  can_purge: boolean
+  summary: WorkflowImpactSummary
+}

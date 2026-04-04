@@ -70,6 +70,7 @@ type AgentService interface {
 	UpdateAgent(ctx context.Context, input domain.UpdateAgent) (domain.Agent, error)
 	RequestAgentPause(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 	RequestAgentResume(ctx context.Context, id uuid.UUID) (domain.Agent, error)
+	RetireAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 	DeleteAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 }
 

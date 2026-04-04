@@ -8,12 +8,14 @@
     saving = false,
     deleting = false,
     isDirty = false,
+    isActive = true,
     onDelete,
   }: {
     errorMessage?: string
     saving?: boolean
     deleting?: boolean
     isDirty?: boolean
+    isActive?: boolean
     onDelete?: () => void | Promise<void>
   } = $props()
 </script>
@@ -37,7 +39,11 @@
       onclick={() => void onDelete?.()}
     >
       <Trash2 class="size-4" />
-      {deleting ? 'Deleting…' : 'Delete Workflow'}
+      {#if deleting}
+        {isActive ? 'Retiring…' : 'Deleting…'}
+      {:else}
+        {isActive ? 'Retire Workflow' : 'Delete Permanently'}
+      {/if}
     </Button>
 
     <Button type="submit" size="sm" disabled={!isDirty || saving || deleting}>

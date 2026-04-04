@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/BetterAndBetterII/openase/ent"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/builtin"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
@@ -23,22 +24,29 @@ import (
 )
 
 var (
-	ErrUnavailable                       = errors.New("workflow service unavailable")
-	ErrProjectNotFound                   = domain.ErrProjectNotFound
-	ErrWorkflowNotFound                  = domain.ErrWorkflowNotFound
-	ErrStatusNotFound                    = domain.ErrStatusNotFound
-	ErrAgentNotFound                     = domain.ErrAgentNotFound
-	ErrWorkflowNameConflict              = domain.ErrWorkflowNameConflict
-	ErrWorkflowHarnessPathConflict       = domain.ErrWorkflowHarnessPathConflict
-	ErrWorkflowConflict                  = domain.ErrWorkflowConflict
-	ErrPickupStatusConflict              = domain.ErrPickupStatusConflict
-	ErrWorkflowStatusBindingOverlap      = domain.ErrWorkflowStatusBindingOverlap
-	ErrWorkflowReferencedByTickets       = domain.ErrWorkflowReferencedByTickets
-	ErrWorkflowReferencedByScheduledJobs = domain.ErrWorkflowReferencedByScheduledJobs
-	ErrWorkflowInUse                     = domain.ErrWorkflowInUse
-	ErrHarnessInvalid                    = errors.New("workflow harness is invalid")
-	ErrHookConfigInvalid                 = errors.New("workflow hook config is invalid")
-	ErrWorkflowHookBlocked               = errors.New("workflow hook blocked the lifecycle operation")
+	ErrUnavailable                        = errors.New("workflow service unavailable")
+	ErrProjectNotFound                    = domain.ErrProjectNotFound
+	ErrWorkflowNotFound                   = domain.ErrWorkflowNotFound
+	ErrStatusNotFound                     = domain.ErrStatusNotFound
+	ErrAgentNotFound                      = domain.ErrAgentNotFound
+	ErrWorkflowNameConflict               = domain.ErrWorkflowNameConflict
+	ErrWorkflowHarnessPathConflict        = domain.ErrWorkflowHarnessPathConflict
+	ErrWorkflowConflict                   = domain.ErrWorkflowConflict
+	ErrPickupStatusConflict               = domain.ErrPickupStatusConflict
+	ErrWorkflowStatusBindingOverlap       = domain.ErrWorkflowStatusBindingOverlap
+	ErrWorkflowReferencedByTickets        = domain.ErrWorkflowReferencedByTickets
+	ErrWorkflowReferencedByScheduledJobs  = domain.ErrWorkflowReferencedByScheduledJobs
+	ErrWorkflowInUse                      = domain.ErrWorkflowInUse
+	ErrWorkflowReplacementRequired        = domain.ErrWorkflowReplacementRequired
+	ErrWorkflowActiveAgentRuns            = domain.ErrWorkflowActiveAgentRuns
+	ErrWorkflowHistoricalAgentRuns        = domain.ErrWorkflowHistoricalAgentRuns
+	ErrWorkflowReplacementInvalid         = domain.ErrWorkflowReplacementInvalid
+	ErrWorkflowReplacementNotFound        = domain.ErrWorkflowReplacementNotFound
+	ErrWorkflowReplacementProjectMismatch = domain.ErrWorkflowReplacementProjectMismatch
+	ErrWorkflowReplacementInactive        = domain.ErrWorkflowReplacementInactive
+	ErrHarnessInvalid                     = errors.New("workflow harness is invalid")
+	ErrHookConfigInvalid                  = errors.New("workflow hook config is invalid")
+	ErrWorkflowHookBlocked                = errors.New("workflow hook blocked the lifecycle operation")
 )
 
 var nonAlphaNumericPattern = regexp.MustCompile(`[^a-z0-9]+`)
@@ -555,6 +563,18 @@ type Workflow = domain.Workflow
 
 type WorkflowDetail = domain.WorkflowDetail
 
+type WorkflowImpactAnalysis = domain.WorkflowImpactAnalysis
+
+type WorkflowImpactConflict = domain.WorkflowImpactConflict
+
+type WorkflowTicketReference = domain.WorkflowTicketReference
+
+type WorkflowScheduledJobReference = domain.WorkflowScheduledJobReference
+
+type ReplaceWorkflowReferencesInput = domain.ReplaceWorkflowReferencesInput
+
+type ReplaceWorkflowReferencesResult = domain.ReplaceWorkflowReferencesResult
+
 type VersionSummary = domain.VersionSummary
 
 type HarnessDocument = domain.HarnessDocument
@@ -1040,7 +1060,48 @@ func (s *Service) Delete(ctx context.Context, workflowID uuid.UUID) (Workflow, e
 	if s == nil || s.workflows == nil {
 		return Workflow{}, ErrUnavailable
 	}
-	return s.workflows.Delete(ctx, workflowID)
+	impact, err := s.workflows.ImpactAnalysis(ctx, workflowID)
+	if err != nil {
+		return Workflow{}, s.mapWorkflowWriteError("workflow impact analysis", err)
+	}
+	if conflictErr := workflowImpactConflictError(impact); conflictErr != nil {
+		return Workflow{}, &WorkflowImpactConflict{Err: conflictErr, Impact: impact}
+	}
+	item, err := s.workflows.Delete(ctx, workflowID)
+	if err != nil {
+		return Workflow{}, s.mapWorkflowWriteError("delete workflow", err)
+	}
+	return item, nil
+}
+
+func (s *Service) ImpactAnalysis(ctx context.Context, workflowID uuid.UUID) (WorkflowImpactAnalysis, error) {
+	if s == nil || s.workflows == nil {
+		return WorkflowImpactAnalysis{}, ErrUnavailable
+	}
+	impact, err := s.workflows.ImpactAnalysis(ctx, workflowID)
+	if err != nil {
+		return WorkflowImpactAnalysis{}, s.mapWorkflowWriteError("workflow impact analysis", err)
+	}
+	return impact, nil
+}
+
+func (s *Service) Retire(ctx context.Context, workflowID uuid.UUID, editedBy string) (WorkflowDetail, error) {
+	return s.Update(ctx, UpdateInput{
+		WorkflowID: workflowID,
+		EditedBy:   editedBy,
+		IsActive:   Some(false),
+	})
+}
+
+func (s *Service) ReplaceReferences(ctx context.Context, input ReplaceWorkflowReferencesInput) (ReplaceWorkflowReferencesResult, error) {
+	if s == nil || s.workflows == nil {
+		return ReplaceWorkflowReferencesResult{}, ErrUnavailable
+	}
+	result, err := s.workflows.ReplaceReferences(ctx, input)
+	if err != nil {
+		return ReplaceWorkflowReferencesResult{}, s.mapWorkflowWriteError("replace workflow references", err)
+	}
+	return result, nil
 }
 
 func (s *Service) GetHarness(ctx context.Context, workflowID uuid.UUID) (HarnessDocument, error) {
@@ -1299,6 +1360,7 @@ func (s *Service) mapWorkflowWriteError(action string, err error) error {
 	if err == nil {
 		return nil
 	}
+	var impactConflict *WorkflowImpactConflict
 	switch {
 	case errors.Is(err, ErrWorkflowNotFound):
 		return ErrWorkflowNotFound
@@ -1318,7 +1380,23 @@ func (s *Service) mapWorkflowWriteError(action string, err error) error {
 		return ErrWorkflowStatusBindingOverlap
 	case errors.Is(err, ErrWorkflowInUse):
 		return ErrWorkflowInUse
-	case strings.Contains(strings.ToLower(err.Error()), "constraint"):
+	case errors.Is(err, ErrWorkflowReplacementRequired):
+		return ErrWorkflowReplacementRequired
+	case errors.Is(err, ErrWorkflowActiveAgentRuns):
+		return ErrWorkflowActiveAgentRuns
+	case errors.Is(err, ErrWorkflowHistoricalAgentRuns):
+		return ErrWorkflowHistoricalAgentRuns
+	case errors.Is(err, ErrWorkflowReplacementInvalid):
+		return ErrWorkflowReplacementInvalid
+	case errors.Is(err, ErrWorkflowReplacementNotFound):
+		return ErrWorkflowReplacementNotFound
+	case errors.Is(err, ErrWorkflowReplacementProjectMismatch):
+		return ErrWorkflowReplacementProjectMismatch
+	case errors.Is(err, ErrWorkflowReplacementInactive):
+		return ErrWorkflowReplacementInactive
+	case errors.As(err, &impactConflict):
+		return err
+	case ent.IsConstraintError(err):
 		return ErrWorkflowNameConflict
 	case strings.Contains(strings.ToLower(err.Error()), "tickets"):
 		return ErrWorkflowReferencedByTickets
@@ -1326,6 +1404,21 @@ func (s *Service) mapWorkflowWriteError(action string, err error) error {
 		return ErrWorkflowReferencedByScheduledJobs
 	default:
 		return fmt.Errorf("%s: %w", action, err)
+	}
+}
+
+func workflowImpactConflictError(impact WorkflowImpactAnalysis) error {
+	switch {
+	case impact.Summary.ActiveAgentRunCount > 0:
+		return ErrWorkflowActiveAgentRuns
+	case impact.Summary.HistoricalAgentRunCount > 0:
+		return ErrWorkflowHistoricalAgentRuns
+	case impact.Summary.ReplaceableReferenceCount > 0:
+		return ErrWorkflowReplacementRequired
+	case impact.Summary.BlockingReferenceCount > 0:
+		return ErrWorkflowInUse
+	default:
+		return nil
 	}
 }
 

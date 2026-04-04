@@ -2,7 +2,7 @@
   import { adapterIconPath } from '$lib/features/providers'
   import { cn } from '$lib/utils'
   import { ApiError } from '$lib/api/client'
-  import { deleteAgent, pauseAgent, resumeAgent, updateAgent } from '$lib/api/openase'
+  import { deleteAgent, pauseAgent, retireAgent, resumeAgent, updateAgent } from '$lib/api/openase'
   import type { AgentProvider } from '$lib/api/contracts'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
@@ -16,6 +16,7 @@
     agentStatusLabel,
     agentStatusVariant,
     canPauseAgent,
+    canRetireAgent,
     canResumeAgent,
   } from './agent-drawer-state'
   import type { AgentInstance } from '../types'
@@ -146,6 +147,25 @@
       actionBusy = false
     }
   }
+
+  async function handleRetire() {
+    if (!agent) return
+    const confirmed = window.confirm(
+      `Retire "${agent.name}"? It will stop appearing in workflow assignment and creation paths, but historical runs will remain.`,
+    )
+    if (!confirmed) return
+
+    actionBusy = true
+    try {
+      await retireAgent(agent.id)
+      toastStore.success(`Retired agent "${agent.name}".`)
+      onUpdated?.()
+    } catch (err) {
+      toastStore.error(err instanceof ApiError ? err.detail : 'Failed to retire agent.')
+    } finally {
+      actionBusy = false
+    }
+  }
 </script>
 
 <Sheet
@@ -272,7 +292,11 @@
             {agentStatusLabel[agent.status]}
             {#if agent.runtimeControlState !== 'active'}
               <span class="ml-1 opacity-70">
-                · {agent.runtimeControlState === 'pause_requested' ? 'Pausing' : 'Paused'}
+                · {agent.runtimeControlState === 'pause_requested'
+                  ? 'Pausing'
+                  : agent.runtimeControlState === 'retired'
+                    ? 'Retired'
+                    : 'Paused'}
               </span>
             {/if}
           </span>
@@ -283,8 +307,10 @@
         {actionBusy}
         canPause={canPauseAgent(agent)}
         canResume={canResumeAgent(agent)}
+        canRetire={canRetireAgent(agent)}
         onPause={handlePause}
         onResume={handleResume}
+        onRetire={handleRetire}
         onDelete={handleDelete}
       />
     {/if}

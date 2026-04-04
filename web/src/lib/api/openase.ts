@@ -529,6 +529,10 @@ export function resumeAgent(agentId: string) {
   return api.post<AgentResponse>(`/api/v1/agents/${agentId}/resume`)
 }
 
+export function retireAgent(agentId: string) {
+  return api.post<AgentResponse>(`/api/v1/agents/${agentId}/retire`)
+}
+
 export function deleteAgent(agentId: string) {
   return api.delete<AgentResponse>(`/api/v1/agents/${agentId}`)
 }
@@ -892,6 +896,12 @@ export function getWorkflow(workflowId: string) {
   return api.get<WorkflowDetailPayload>(`/api/v1/workflows/${workflowId}`)
 }
 
+export function getWorkflowImpact(workflowId: string) {
+  return api.get<{ impact: import('$lib/features/workflows/types').WorkflowImpact }>(
+    `/api/v1/workflows/${workflowId}/impact`,
+  )
+}
+
 export function updateWorkflow(
   workflowId: string,
   body: {
@@ -914,6 +924,10 @@ export function updateWorkflow(
   },
 ) {
   return api.patch<WorkflowUpdateResponse>(`/api/v1/workflows/${workflowId}`, { body })
+}
+
+export function retireWorkflow(workflowId: string, body: { edited_by?: string | null } = {}) {
+  return api.post<WorkflowUpdateResponse>(`/api/v1/workflows/${workflowId}/retire`, { body })
 }
 
 export function deleteWorkflow(workflowId: string) {

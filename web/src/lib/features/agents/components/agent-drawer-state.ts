@@ -38,3 +38,7 @@ export function canPauseAgent(agent: AgentInstance) {
 export function canResumeAgent(agent: AgentInstance) {
   return agent.runtimeControlState === 'paused'
 }
+
+export function canRetireAgent(agent: AgentInstance) {
+  return agent.runtimeControlState !== 'retired' && agent.activeRunCount === 0
+}

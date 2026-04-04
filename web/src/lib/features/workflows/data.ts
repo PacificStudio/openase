@@ -50,6 +50,7 @@ export function mapWorkflowAgentOptions(
   const providersById = new Map(providers.map((provider) => [provider.id, provider]))
 
   return agents
+    .filter((agent) => agent.runtime_control_state !== 'retired')
     .map((agent) => {
       const provider = providersById.get(agent.provider_id)
       const providerName = provider?.name ?? 'Unknown provider'

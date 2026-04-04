@@ -12,6 +12,7 @@ import (
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
@@ -363,6 +364,14 @@ func (r *EntRepository) DeleteProjectRepo(ctx context.Context, projectID uuid.UU
 		return domain.ProjectRepo{}, mapReadError("get project repo for delete", err)
 	}
 
+	conflict, err := r.projectRepoDeleteConflict(ctx, item.ID)
+	if err != nil {
+		return domain.ProjectRepo{}, err
+	}
+	if conflict != nil {
+		return domain.ProjectRepo{}, conflict
+	}
+
 	deleted := mapProjectRepo(item)
 	if err := tx.ProjectRepo.DeleteOne(item).Exec(ctx); err != nil {
 		return domain.ProjectRepo{}, mapWriteError("delete project repo", err)
@@ -521,6 +530,14 @@ func (r *EntRepository) DeleteTicketRepoScope(ctx context.Context, projectID uui
 		return domain.TicketRepoScope{}, mapReadError("get ticket repo scope for delete", err)
 	}
 
+	conflict, err := r.ticketRepoScopeDeleteConflict(ctx, item)
+	if err != nil {
+		return domain.TicketRepoScope{}, err
+	}
+	if conflict != nil {
+		return domain.TicketRepoScope{}, conflict
+	}
+
 	deleted := mapTicketRepoScope(item)
 	if err := tx.TicketRepoScope.DeleteOne(item).Exec(ctx); err != nil {
 		return domain.TicketRepoScope{}, mapWriteError("delete ticket repo scope", err)
@@ -531,6 +548,115 @@ func (r *EntRepository) DeleteTicketRepoScope(ctx context.Context, projectID uui
 	}
 
 	return deleted, nil
+}
+
+func (r *EntRepository) projectRepoDeleteConflict(ctx context.Context, repoID uuid.UUID) (*domain.ProjectRepoDeleteConflict, error) {
+	scopeItems, err := r.client.TicketRepoScope.Query().
+		Where(entticketreposcope.RepoID(repoID)).
+		Order(ent.Asc(entticketreposcope.FieldTicketID), ent.Asc(entticketreposcope.FieldBranchName)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list project repo ticket scopes: %w", err)
+	}
+
+	workspaceItems, err := r.client.TicketRepoWorkspace.Query().
+		Where(entticketrepoworkspace.RepoID(repoID)).
+		Order(ent.Asc(entticketrepoworkspace.FieldTicketID), ent.Asc(entticketrepoworkspace.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list project repo workspaces: %w", err)
+	}
+
+	if len(scopeItems) == 0 && len(workspaceItems) == 0 {
+		return nil, nil
+	}
+
+	conflict := &domain.ProjectRepoDeleteConflict{
+		RepoID:       repoID,
+		TicketScopes: make([]domain.ProjectRepoScopeReference, 0, len(scopeItems)),
+		Workspaces:   make([]domain.ProjectRepoWorkspaceReference, 0, len(workspaceItems)),
+	}
+	for _, item := range scopeItems {
+		conflict.TicketScopes = append(conflict.TicketScopes, domain.ProjectRepoScopeReference{
+			ID:         item.ID,
+			TicketID:   item.TicketID,
+			BranchName: item.BranchName,
+		})
+	}
+	for _, item := range workspaceItems {
+		conflict.Workspaces = append(conflict.Workspaces, domain.ProjectRepoWorkspaceReference{
+			ID:         item.ID,
+			TicketID:   item.TicketID,
+			AgentRunID: item.AgentRunID,
+			State:      item.State.String(),
+		})
+	}
+	return conflict, nil
+}
+
+func (r *EntRepository) ticketRepoScopeDeleteConflict(
+	ctx context.Context,
+	scope *ent.TicketRepoScope,
+) (*domain.TicketRepoScopeDeleteConflict, error) {
+	ticketItem, err := r.client.Ticket.Query().
+		Where(entticket.ID(scope.TicketID)).
+		Only(ctx)
+	if err != nil {
+		return nil, mapReadError("get ticket for repo scope delete", err)
+	}
+
+	workspaceItems, err := r.client.TicketRepoWorkspace.Query().
+		Where(
+			entticketrepoworkspace.TicketIDEQ(scope.TicketID),
+			entticketrepoworkspace.RepoIDEQ(scope.RepoID),
+		).
+		Order(ent.Asc(entticketrepoworkspace.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list repo scope workspaces: %w", err)
+	}
+
+	var activeRun *domain.TicketRepoScopeActiveRunReference
+	if ticketItem.CurrentRunID != nil {
+		activeRun = &domain.TicketRepoScopeActiveRunReference{
+			TicketID:     ticketItem.ID,
+			CurrentRunID: *ticketItem.CurrentRunID,
+		}
+	}
+
+	blockingWorkspaces := make([]domain.TicketRepoScopeWorkspaceReference, 0, len(workspaceItems))
+	for _, item := range workspaceItems {
+		if !workspaceStateBlocksScopeDelete(item.State.String()) {
+			continue
+		}
+		blockingWorkspaces = append(blockingWorkspaces, domain.TicketRepoScopeWorkspaceReference{
+			ID:         item.ID,
+			AgentRunID: item.AgentRunID,
+			State:      item.State.String(),
+		})
+	}
+
+	if activeRun == nil && len(blockingWorkspaces) == 0 {
+		return nil, nil
+	}
+
+	return &domain.TicketRepoScopeDeleteConflict{
+		ScopeID:    scope.ID,
+		TicketID:   scope.TicketID,
+		ActiveRun:  activeRun,
+		Workspaces: blockingWorkspaces,
+	}, nil
+}
+
+func workspaceStateBlocksScopeDelete(state string) bool {
+	switch state {
+	case entticketrepoworkspace.StateCompleted.String(),
+		entticketrepoworkspace.StateFailed.String(),
+		entticketrepoworkspace.StateCleaned.String():
+		return false
+	default:
+		return true
+	}
 }
 
 func mapReadError(action string, err error) error {

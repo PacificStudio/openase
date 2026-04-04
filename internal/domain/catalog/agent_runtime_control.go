@@ -12,6 +12,9 @@ type UpdateAgentRuntimeControlState struct {
 }
 
 func ResolvePauseRuntimeControlState(agent Agent) (AgentRuntimeControlState, error) {
+	if agent.RuntimeControlState == AgentRuntimeControlStateRetired {
+		return "", fmt.Errorf("retired agent cannot be paused")
+	}
 	if agent.Runtime == nil || agent.Runtime.CurrentRunID == nil || agent.Runtime.CurrentTicketID == nil {
 		return "", fmt.Errorf("agent must have an active run before it can be paused")
 	}
@@ -28,6 +31,9 @@ func ResolvePauseRuntimeControlState(agent Agent) (AgentRuntimeControlState, err
 }
 
 func ResolveResumeRuntimeControlState(agent Agent) (AgentRuntimeControlState, error) {
+	if agent.RuntimeControlState == AgentRuntimeControlStateRetired {
+		return "", fmt.Errorf("retired agent cannot be resumed")
+	}
 	if agent.Runtime == nil || agent.Runtime.CurrentRunID == nil || agent.Runtime.CurrentTicketID == nil {
 		return "", fmt.Errorf("agent must keep its active run before it can be resumed")
 	}
@@ -42,4 +48,14 @@ func ResolveResumeRuntimeControlState(agent Agent) (AgentRuntimeControlState, er
 	}
 
 	return AgentRuntimeControlStateActive, nil
+}
+
+func ResolveRetireRuntimeControlState(agent Agent) (AgentRuntimeControlState, error) {
+	if agent.Runtime != nil && agent.Runtime.CurrentRunID != nil {
+		return "", fmt.Errorf("agent must not have an active run before it can be retired")
+	}
+	if agent.RuntimeControlState == AgentRuntimeControlStateRetired {
+		return "", fmt.Errorf("agent is already retired")
+	}
+	return AgentRuntimeControlStateRetired, nil
 }

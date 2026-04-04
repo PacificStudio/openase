@@ -619,6 +619,27 @@ func TestPauseAndResumeAgentRoutes(t *testing.T) {
 	if resumePayload.Agent.RuntimeControlState != "active" {
 		t.Fatalf("expected active control state after resume, got %+v", resumePayload.Agent)
 	}
+
+	service.agents[agentID] = domain.Agent{
+		ID:                  agentID,
+		ProviderID:          providerID,
+		ProjectID:           projectID,
+		Name:                "worker-1",
+		RuntimeControlState: domain.AgentRuntimeControlStateActive,
+	}
+
+	retireRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/agents/"+agentID.String()+"/retire", "")
+	if retireRec.Code != http.StatusOK {
+		t.Fatalf("expected retire route 200, got %d: %s", retireRec.Code, retireRec.Body.String())
+	}
+
+	var retirePayload struct {
+		Agent agentResponse `json:"agent"`
+	}
+	decodeResponse(t, retireRec, &retirePayload)
+	if retirePayload.Agent.RuntimeControlState != "retired" {
+		t.Fatalf("expected retired control state after retire, got %+v", retirePayload.Agent)
+	}
 }
 
 func TestPauseAndResumeAgentRouteErrors(t *testing.T) {
@@ -684,6 +705,9 @@ func TestPauseAndResumeAgentRouteErrors(t *testing.T) {
 		{name: "resume invalid id", method: http.MethodPost, path: "/api/v1/agents/not-a-uuid/resume", wantStatus: http.StatusBadRequest, wantBody: "agentId must be a valid UUID"},
 		{name: "resume missing agent", method: http.MethodPost, path: "/api/v1/agents/" + uuid.NewString() + "/resume", wantStatus: http.StatusNotFound, wantBody: "resource not found"},
 		{name: "resume conflict", method: http.MethodPost, path: "/api/v1/agents/" + activeAgentID.String() + "/resume", wantStatus: http.StatusConflict, wantBody: "AGENT_RUNTIME_CONTROL_CONFLICT"},
+		{name: "retire invalid id", method: http.MethodPost, path: "/api/v1/agents/not-a-uuid/retire", wantStatus: http.StatusBadRequest, wantBody: "agentId must be a valid UUID"},
+		{name: "retire missing agent", method: http.MethodPost, path: "/api/v1/agents/" + uuid.NewString() + "/retire", wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "retire conflict", method: http.MethodPost, path: "/api/v1/agents/" + activeAgentID.String() + "/retire", wantStatus: http.StatusConflict, wantBody: "AGENT_RUNTIME_CONTROL_CONFLICT"},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			rec := performJSONRequest(t, server, testCase.method, testCase.path, "")
@@ -694,6 +718,49 @@ func TestPauseAndResumeAgentRouteErrors(t *testing.T) {
 				t.Fatalf("body %q does not contain %q", rec.Body.String(), testCase.wantBody)
 			}
 		})
+	}
+}
+
+func TestDeleteAgentReturnsStructuredConflict(t *testing.T) {
+	service := newFakeCatalogService()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		service,
+		nil,
+	)
+
+	agentID := uuid.New()
+	ticketID := uuid.New()
+	runID := uuid.New()
+	service.agents[agentID] = domain.Agent{
+		ID:        agentID,
+		ProjectID: uuid.New(),
+		Name:      "worker-1",
+	}
+	service.agentDeleteConflicts[agentID] = &domain.AgentDeleteConflict{
+		AgentID: agentID,
+		ActiveRuns: []domain.AgentRunReference{{
+			ID:       runID,
+			TicketID: ticketID,
+			Status:   "running",
+		}},
+	}
+
+	rec := performJSONRequest(t, server, http.MethodDelete, "/api/v1/agents/"+agentID.String(), "")
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected delete conflict 409, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "\"code\":\"AGENT_IN_USE\"") {
+		t.Fatalf("expected AGENT_IN_USE code, got %s", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "\"active_runs\"") {
+		t.Fatalf("expected structured conflict details, got %s", rec.Body.String())
 	}
 }
 
@@ -1253,10 +1320,29 @@ func (f *fakeCatalogService) RequestAgentResume(_ context.Context, id uuid.UUID)
 	return item, nil
 }
 
+func (f *fakeCatalogService) RetireAgent(_ context.Context, id uuid.UUID) (domain.Agent, error) {
+	item, ok := f.agents[id]
+	if !ok {
+		return domain.Agent{}, catalogservice.ErrNotFound
+	}
+
+	nextState, err := domain.ResolveRetireRuntimeControlState(item)
+	if err != nil {
+		return domain.Agent{}, fmt.Errorf("%w: %v", catalogservice.ErrConflict, err)
+	}
+
+	item.RuntimeControlState = nextState
+	f.agents[id] = item
+	return item, nil
+}
+
 func (f *fakeCatalogService) DeleteAgent(_ context.Context, id uuid.UUID) (domain.Agent, error) {
 	item, ok := f.agents[id]
 	if !ok {
 		return domain.Agent{}, catalogservice.ErrNotFound
+	}
+	if conflict, ok := f.agentDeleteConflicts[id]; ok && conflict != nil {
+		return domain.Agent{}, conflict
 	}
 
 	delete(f.agents, id)

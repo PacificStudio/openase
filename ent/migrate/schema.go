@@ -62,7 +62,7 @@ var (
 	AgentsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "name", Type: field.TypeString},
-		{Name: "runtime_control_state", Type: field.TypeEnum, Enums: []string{"active", "pause_requested", "paused"}, Default: "active"},
+		{Name: "runtime_control_state", Type: field.TypeEnum, Enums: []string{"active", "pause_requested", "paused", "retired"}, Default: "active"},
 		{Name: "total_tokens_used", Type: field.TypeInt64, Default: 0},
 		{Name: "total_tickets_completed", Type: field.TypeInt, Default: 0},
 		{Name: "provider_id", Type: field.TypeUUID},

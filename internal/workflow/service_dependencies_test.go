@@ -86,11 +86,13 @@ func (s stubProjectValidationRepository) StatusNames(ctx context.Context, status
 }
 
 type stubWorkflowRepository struct {
-	list   func(context.Context, uuid.UUID) ([]domain.Workflow, error)
-	get    func(context.Context, uuid.UUID) (domain.Workflow, error)
-	create func(context.Context, domain.Workflow, string, string) (domain.Workflow, error)
-	update func(context.Context, domain.Workflow) (domain.Workflow, error)
-	delete func(context.Context, uuid.UUID) (domain.Workflow, error)
+	list              func(context.Context, uuid.UUID) ([]domain.Workflow, error)
+	get               func(context.Context, uuid.UUID) (domain.Workflow, error)
+	create            func(context.Context, domain.Workflow, string, string) (domain.Workflow, error)
+	update            func(context.Context, domain.Workflow) (domain.Workflow, error)
+	impactAnalysis    func(context.Context, uuid.UUID) (domain.WorkflowImpactAnalysis, error)
+	replaceReferences func(context.Context, domain.ReplaceWorkflowReferencesInput) (domain.ReplaceWorkflowReferencesResult, error)
+	delete            func(context.Context, uuid.UUID) (domain.Workflow, error)
 }
 
 func (s stubWorkflowRepository) List(ctx context.Context, projectID uuid.UUID) ([]domain.Workflow, error) {
@@ -119,6 +121,23 @@ func (s stubWorkflowRepository) Update(ctx context.Context, workflow domain.Work
 		return s.update(ctx, workflow)
 	}
 	return domain.Workflow{}, nil
+}
+
+func (s stubWorkflowRepository) ImpactAnalysis(ctx context.Context, workflowID uuid.UUID) (domain.WorkflowImpactAnalysis, error) {
+	if s.impactAnalysis != nil {
+		return s.impactAnalysis(ctx, workflowID)
+	}
+	return domain.WorkflowImpactAnalysis{}, nil
+}
+
+func (s stubWorkflowRepository) ReplaceReferences(
+	ctx context.Context,
+	input domain.ReplaceWorkflowReferencesInput,
+) (domain.ReplaceWorkflowReferencesResult, error) {
+	if s.replaceReferences != nil {
+		return s.replaceReferences(ctx, input)
+	}
+	return domain.ReplaceWorkflowReferencesResult{}, nil
 }
 
 func (s stubWorkflowRepository) Delete(ctx context.Context, workflowID uuid.UUID) (domain.Workflow, error) {

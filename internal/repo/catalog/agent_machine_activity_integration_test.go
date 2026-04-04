@@ -620,6 +620,12 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	if _, err := repo.DeleteAgent(ctx, createdAgent.ID); !errors.Is(err, domain.ErrAgentInUseConflict) {
 		t.Fatalf("DeleteAgent() with active runs error = %v, want %v", err, domain.ErrAgentInUseConflict)
 	}
+	if _, err := client.AgentRun.UpdateOneID(agentRun.ID).SetTerminalAt(time.Now().UTC()).Save(ctx); err != nil {
+		t.Fatalf("terminalize agent run: %v", err)
+	}
+	if _, err := repo.DeleteAgent(ctx, createdAgent.ID); !errors.Is(err, domain.ErrAgentInUseConflict) {
+		t.Fatalf("DeleteAgent() with historical runs error = %v, want %v", err, domain.ErrAgentInUseConflict)
+	}
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).ClearCurrentRunID().Save(ctx); err != nil {
 		t.Fatalf("clear current run: %v", err)
 	}
