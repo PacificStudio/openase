@@ -15,6 +15,8 @@ const (
 	LocalMachineHost = "local"
 )
 
+var machineUserHomeDir = os.UserHomeDir
+
 type Machine struct {
 	ID                    uuid.UUID
 	OrganizationID        uuid.UUID
@@ -359,7 +361,7 @@ func parseMachineWorkspaceRoot(raw *string, host string) (*string, error) {
 
 	value := *trimmed
 	if host == LocalMachineHost && strings.HasPrefix(value, "~/") {
-		homeDir, err := os.UserHomeDir()
+		homeDir, err := machineUserHomeDir()
 		if err != nil {
 			return nil, fmt.Errorf("resolve local workspace_root: %w", err)
 		}
