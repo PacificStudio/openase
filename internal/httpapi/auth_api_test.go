@@ -31,7 +31,7 @@ func TestAuthSessionReturnsAuthenticatedPrincipal(t *testing.T) {
 		instanceRoleKey: "instance_admin",
 	})
 
-	rec := fixture.request(t, http.MethodGet, "/api/v1/auth/session", "", map[string]string{
+	rec := fixture.request(t, http.MethodGet, "/api/v1/auth/session", map[string]string{
 		"Cookie":     humanSessionCookieName + "=" + sessionToken,
 		"User-Agent": "AuthSessionTest/1.0",
 	})
@@ -113,7 +113,7 @@ func TestAuthPermissionsIncludeOrgInheritanceAndGroupUnion(t *testing.T) {
 		orgGroupRoleKey: "org_admin",
 	})
 
-	rec := fixture.request(t, http.MethodGet, "/api/v1/auth/me/permissions?project_id="+projectID.String(), "", map[string]string{
+	rec := fixture.request(t, http.MethodGet, "/api/v1/auth/me/permissions?project_id="+projectID.String(), map[string]string{
 		"Cookie":     humanSessionCookieName + "=" + sessionToken,
 		"User-Agent": "PermissionsTest/1.0",
 	})
@@ -177,7 +177,7 @@ func TestLogoutRequiresCSRFForAuthenticatedSession(t *testing.T) {
 		displayName: "Alice Control Plane",
 	})
 
-	rec := fixture.request(t, http.MethodPost, "/api/v1/auth/logout", "", map[string]string{
+	rec := fixture.request(t, http.MethodPost, "/api/v1/auth/logout", map[string]string{
 		"Cookie":     humanSessionCookieName + "=" + sessionToken,
 		"User-Agent": "LogoutTest/1.0",
 	})
@@ -193,7 +193,7 @@ func TestLogoutRevokesBrowserSession(t *testing.T) {
 		displayName: "Alice Control Plane",
 	})
 
-	rec := fixture.request(t, http.MethodPost, "/api/v1/auth/logout", "", map[string]string{
+	rec := fixture.request(t, http.MethodPost, "/api/v1/auth/logout", map[string]string{
 		"Cookie":         humanSessionCookieName + "=" + sessionToken,
 		"Origin":         "http://example.com",
 		"X-OpenASE-CSRF": csrfToken,
@@ -386,7 +386,6 @@ func (f humanAuthFixture) request(
 	t *testing.T,
 	method string,
 	target string,
-	body string,
 	headers map[string]string,
 ) *httptest.ResponseRecorder {
 	t.Helper()
@@ -395,7 +394,7 @@ func (f humanAuthFixture) request(
 		headers = map[string]string{}
 	}
 	headers["Host"] = "example.com"
-	return performJSONRequestWithHeaders(t, f.server, method, target, body, headers)
+	return performJSONRequestWithHeaders(t, f.server, method, target, "", headers)
 }
 
 func humanFixtureHashToken(token string) string {
