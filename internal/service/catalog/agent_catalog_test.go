@@ -363,9 +363,12 @@ func TestTestMachineConnectionPreservesExistingResourceSnapshot(t *testing.T) {
 	}
 	tester := stubMachineTester{
 		probe: domain.MachineProbe{
-			CheckedAt: checkedAt,
-			Transport: "ssh",
-			Output:    "probe-ok",
+			CheckedAt:       checkedAt,
+			Transport:       "ssh",
+			Output:          "probe-ok",
+			DetectedOS:      domain.MachineDetectedOSLinux,
+			DetectedArch:    domain.MachineDetectedArchAMD64,
+			DetectionStatus: domain.MachineDetectionStatusOK,
 			Resources: map[string]any{
 				"transport":    "ssh",
 				"host":         "10.0.0.8",
@@ -399,6 +402,11 @@ func TestTestMachineConnectionPreservesExistingResourceSnapshot(t *testing.T) {
 	}
 	if connectionTest["last_success"] != true {
 		t.Fatalf("expected successful connection_test payload, got %+v", connectionTest)
+	}
+	if repo.recordedMachineProbe.DetectedOS != domain.MachineDetectedOSLinux ||
+		repo.recordedMachineProbe.DetectedArch != domain.MachineDetectedArchAMD64 ||
+		repo.recordedMachineProbe.DetectionStatus != domain.MachineDetectionStatusOK {
+		t.Fatalf("expected detection metadata to be recorded, got %+v", repo.recordedMachineProbe)
 	}
 	if updated.Resources["cpu_usage_percent"] != 61.2 {
 		t.Fatalf("expected returned machine to retain cpu snapshot, got %+v", updated.Resources)
@@ -858,6 +866,9 @@ func (r *stubRepository) recordMachineProbe(input domain.RecordMachineProbe) err
 	r.recordedMachineProbe = &input
 	r.machine.Status = input.Status
 	r.machine.LastHeartbeatAt = &input.LastHeartbeatAt
+	r.machine.DetectedOS = input.DetectedOS
+	r.machine.DetectedArch = input.DetectedArch
+	r.machine.DetectionStatus = input.DetectionStatus
 	r.machine.Resources = cloneTestResources(input.Resources)
 	return nil
 }

@@ -1,6 +1,7 @@
 <script lang="ts">
   import MachinesPageBody from './machines-page-body.svelte'
   import { createMachinesPageController } from './machines-page-controller.svelte'
+  import { updateMachineDraft } from '../model'
 
   const controller = createMachinesPageController()
 </script>
@@ -32,7 +33,13 @@
     const nextMachine = controller.machines.find((machine) => machine.id === machineId)
     if (nextMachine) void controller.openMachine(nextMachine)
   }}
-  onDraftChange={(field, value) => (controller.draft = { ...controller.draft, [field]: value })}
+  onDraftChange={(field, value) =>
+    (controller.draft = updateMachineDraft(
+      controller.draft,
+      field,
+      value,
+      controller.selectedMachine,
+    ))}
   onRetry={() => void controller.handleRefresh()}
   onRefreshHealth={(machineId) => void controller.handleRefreshHealth(machineId)}
   onSave={() => void controller.handleSave()}
