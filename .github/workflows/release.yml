@@ -217,7 +217,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: release-binary-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: ${{ runner.temp }}/openase_${{ needs.release-please.outputs.tag_name }}_${{ matrix.goos }}_${{ matrix.goarch }}.${{ matrix.archive_format }}
+          path: ${{ runner.temp }}/openase_${{ needs.resolve-release.outputs.mode == 'tag' && needs.resolve-release.outputs.release_tag || needs.release-please.outputs.tag_name }}_${{ matrix.goos }}_${{ matrix.goarch }}.${{ matrix.archive_format }}
           if-no-files-found: error
 
   publish-release:
