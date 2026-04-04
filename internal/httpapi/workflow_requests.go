@@ -271,12 +271,12 @@ func parseNormalizedStringList(raw []string) []string {
 	return normalized
 }
 
-func parseRetireWorkflowRequest(workflowID uuid.UUID, raw rawRetireWorkflowRequest) (string, error) {
+func parseRetireWorkflowRequest(workflowID uuid.UUID, raw rawRetireWorkflowRequest) string {
 	_ = workflowID
 	if raw.EditedBy == nil {
-		return "", nil
+		return ""
 	}
-	return strings.TrimSpace(*raw.EditedBy), nil
+	return strings.TrimSpace(*raw.EditedBy)
 }
 
 func parseReplaceWorkflowReferencesRequest(

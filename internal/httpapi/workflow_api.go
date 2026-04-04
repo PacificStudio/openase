@@ -398,10 +398,7 @@ func (s *Server) handleRetireWorkflow(c echo.Context) error {
 	}
 	raw.EditedBy = optionalActor(raw.EditedBy, actorFromHumanPrincipal(c))
 
-	editedBy, err := parseRetireWorkflowRequest(workflowID, raw)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
+	editedBy := parseRetireWorkflowRequest(workflowID, raw)
 
 	item, err := s.workflowService.Retire(c.Request().Context(), workflowID, editedBy)
 	if err != nil {

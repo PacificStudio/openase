@@ -15,7 +15,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BetterAndBetterII/openase/ent"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/builtin"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
@@ -1396,12 +1395,6 @@ func (s *Service) mapWorkflowWriteError(action string, err error) error {
 		return ErrWorkflowReplacementInactive
 	case errors.As(err, &impactConflict):
 		return err
-	case ent.IsConstraintError(err):
-		return ErrWorkflowNameConflict
-	case strings.Contains(strings.ToLower(err.Error()), "tickets"):
-		return ErrWorkflowReferencedByTickets
-	case strings.Contains(strings.ToLower(err.Error()), "scheduled_jobs"):
-		return ErrWorkflowReferencedByScheduledJobs
 	default:
 		return fmt.Errorf("%s: %w", action, err)
 	}
