@@ -97,7 +97,10 @@ fi
 echo "missing openase" >&2
 exit 1
 `
-	if err := os.WriteFile(wrapperPath, []byte(content), 0o700); err != nil {
+	if err := os.WriteFile(wrapperPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("WriteFile(wrapper) error = %v", err)
+	}
+	if err := os.Chmod(wrapperPath, 0o700); err != nil {
 		t.Fatalf("WriteFile(wrapper) error = %v", err)
 	}
 }
@@ -113,7 +116,10 @@ if [ "${1:-}" = "version" ]; then
 fi
 exit 0
 `
-	if err := os.WriteFile(fakeBinaryPath, []byte(content), 0o700); err != nil {
+	if err := os.WriteFile(fakeBinaryPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("WriteFile(fake openase) error = %v", err)
+	}
+	if err := os.Chmod(fakeBinaryPath, 0o700); err != nil {
 		t.Fatalf("WriteFile(fake openase) error = %v", err)
 	}
 }

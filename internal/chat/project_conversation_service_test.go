@@ -4125,7 +4125,10 @@ func (fakeProjectConversationWorkflowSync) RefreshSkills(
 	if err := os.MkdirAll(filepath.Dir(wrapperPath), 0o750); err != nil {
 		return workflowservice.RefreshSkillsResult{}, err
 	}
-	if err := os.WriteFile(wrapperPath, []byte("#!/bin/sh\n"), 0o700); err != nil {
+	if err := os.WriteFile(wrapperPath, []byte("#!/bin/sh\n"), 0o600); err != nil {
+		return workflowservice.RefreshSkillsResult{}, err
+	}
+	if err := os.Chmod(wrapperPath, 0o700); err != nil {
 		return workflowservice.RefreshSkillsResult{}, err
 	}
 	return workflowservice.RefreshSkillsResult{
