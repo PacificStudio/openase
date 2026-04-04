@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -68,6 +69,11 @@ type Server struct {
 	ticketWorkspaceResetter    ticketWorkspaceResetter
 	machineChannel             *machinechannelservice.Service
 	machineSessions            *machinechannelservice.SessionRegistry
+	shutdownCtx                context.Context
+	shutdownCancel             context.CancelFunc
+	shutdownOnce               sync.Once
+	connMu                     sync.Mutex
+	activeConns                map[net.Conn]struct{}
 }
 
 type ticketWorkspaceResetter interface {
@@ -205,6 +211,9 @@ func NewServer(
 	e.Use(middleware.Recover())
 	e.Use(middleware.RequestID())
 
+	//nolint:gosec // stored on Server and invoked during beginShutdown
+	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
+
 	server := &Server{
 		cfg:                 cfg,
 		auth:                config.AuthConfig{Mode: config.AuthModeDisabled},
@@ -220,6 +229,9 @@ func NewServer(
 		catalog:             catalogservice.SplitServices(catalog),
 		workflowService:     workflowService,
 		memoryCollector:     runtimeobservability.RuntimeProcessMemoryCollector{},
+		shutdownCtx:         shutdownCtx,
+		shutdownCancel:      shutdownCancel,
+		activeConns:         make(map[net.Conn]struct{}),
 	}
 	if ticketService != nil {
 		server.activityEmitter = activitysvc.NewEmitter(activitysvc.RecordFunc(func(ctx context.Context, input activitysvc.RecordInput) (catalogdomain.ActivityEvent, error) {
@@ -280,12 +292,94 @@ func (s *Server) Handler() http.Handler {
 	return s.echo
 }
 
-func (s *Server) Run(ctx context.Context) error {
-	defer func() {
-		if err := s.sseHub.Close(); err != nil {
-			s.logger.Error("close sse hub", "error", err)
+func (s *Server) shutdownAwareContext(parent context.Context) (context.Context, context.CancelFunc) {
+	if s == nil || s.shutdownCtx == nil {
+		//nolint:gosec // returned to the caller for request lifecycle control
+		ctx, cancel := context.WithCancel(parent)
+		return ctx, cancel
+	}
+
+	ctx, cancel := context.WithCancel(parent)
+	stop := context.AfterFunc(s.shutdownCtx, cancel)
+	return ctx, func() {
+		stop()
+		cancel()
+	}
+}
+
+// beginShutdown prefers bounded process exit over preserving long-lived streams.
+// OpenASE actively cancels streaming handlers and reverse websocket sessions so
+// clients reconnect after restart instead of holding shutdown open indefinitely.
+func (s *Server) beginShutdown() {
+	if s == nil {
+		return
+	}
+
+	s.shutdownOnce.Do(func() {
+		if s.shutdownCancel != nil {
+			s.shutdownCancel()
 		}
-	}()
+		if s.sseHub != nil {
+			if err := s.sseHub.Close(); err != nil {
+				s.logger.Error("close sse hub", "error", err)
+			}
+		}
+		if s.machineSessions == nil {
+			s.closeActiveConnections()
+			return
+		}
+
+		disconnectedAt := time.Now().UTC()
+		for _, session := range s.machineSessions.CloseAll("server shutting down; reconnect after restart") {
+			if s.machineChannel != nil {
+				_, _ = s.machineChannel.RecordDisconnectedSession(context.Background(), machinechannelservice.DisconnectedSessionRecord{
+					MachineID:      session.MachineID,
+					SessionID:      session.SessionID,
+					DisconnectedAt: disconnectedAt,
+					Reason:         "server_shutdown",
+				})
+			}
+			s.publishMachineChannelDisconnect(context.Background(), session.MachineID, session.SessionID, "server_shutdown")
+		}
+		s.closeActiveConnections()
+	})
+}
+
+func (s *Server) trackConnectionState(conn net.Conn, state http.ConnState) {
+	if s == nil || conn == nil {
+		return
+	}
+
+	s.connMu.Lock()
+	defer s.connMu.Unlock()
+
+	switch state {
+	case http.StateNew, http.StateActive, http.StateHijacked:
+		s.activeConns[conn] = struct{}{}
+	case http.StateIdle, http.StateClosed:
+		delete(s.activeConns, conn)
+	}
+}
+
+func (s *Server) closeActiveConnections() {
+	if s == nil {
+		return
+	}
+
+	s.connMu.Lock()
+	connections := make([]net.Conn, 0, len(s.activeConns))
+	for conn := range s.activeConns {
+		connections = append(connections, conn)
+	}
+	s.connMu.Unlock()
+
+	for _, conn := range connections {
+		_ = conn.Close()
+	}
+}
+
+func (s *Server) Run(ctx context.Context) error {
+	defer s.beginShutdown()
 	if s.machineChannel != nil && s.machineSessions != nil {
 		//nolint:gosec // server lifecycle goroutine is intentionally tied to process-scoped ctx
 		go s.runMachineSessionExpiryLoop(ctx)
@@ -298,6 +392,7 @@ func (s *Server) Run(ctx context.Context) error {
 		ReadTimeout:  s.cfg.ReadTimeout,
 		WriteTimeout: s.cfg.WriteTimeout,
 		IdleTimeout:  s.cfg.WriteTimeout,
+		ConnState:    s.trackConnectionState,
 	}
 
 	go func() {
@@ -317,8 +412,30 @@ func (s *Server) Run(ctx context.Context) error {
 		defer cancel()
 
 		s.logger.Info("http server stopping")
-		if err := s.echo.Shutdown(shutdownCtx); err != nil {
-			return fmt.Errorf("shutdown http server: %w", err)
+		s.beginShutdown()
+
+		// StartServer serves the custom httpServer instance below, so shutdown must
+		// target that same server to close its listener and active connections.
+		shutdownErrCh := make(chan error, 1)
+		go func() {
+			shutdownErrCh <- httpServer.Shutdown(shutdownCtx)
+		}()
+
+		select {
+		case err := <-shutdownErrCh:
+			if err != nil {
+				return fmt.Errorf("shutdown http server: %w", err)
+			}
+		case <-shutdownCtx.Done():
+			s.logger.Warn("http server shutdown timed out; force closing active connections")
+			if err := httpServer.Close(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				return fmt.Errorf("force close http server: %w", err)
+			}
+			if err := <-shutdownErrCh; err != nil &&
+				!errors.Is(err, context.DeadlineExceeded) &&
+				!errors.Is(err, http.ErrServerClosed) {
+				return fmt.Errorf("shutdown http server after force close: %w", err)
+			}
 		}
 
 		return <-errCh

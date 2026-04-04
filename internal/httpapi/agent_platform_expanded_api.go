@@ -563,7 +563,10 @@ func (s *Server) handleAgentStartSkillRefinement(c echo.Context) error {
 		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
 	}
 
-	stream, err := s.skillRefinementService.Start(c.Request().Context(), agentPlatformSkillRefinementUserID(claims), input)
+	streamCtx, cancel := s.shutdownAwareContext(c.Request().Context())
+	defer cancel()
+
+	stream, err := s.skillRefinementService.Start(streamCtx, agentPlatformSkillRefinementUserID(claims), input)
 	if err != nil {
 		return writeSkillRefinementError(c, err)
 	}
@@ -588,7 +591,7 @@ func (s *Server) handleAgentStartSkillRefinement(c echo.Context) error {
 
 	for {
 		select {
-		case <-c.Request().Context().Done():
+		case <-streamCtx.Done():
 			return nil
 		case <-heartbeat.C:
 			if _, err := response.Write([]byte(": keepalive\n\n")); err != nil {

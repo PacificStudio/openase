@@ -176,7 +176,9 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 		}
 	}
 
-	_, _ = s.machineSessions.Remove(sessionID)
+	if _, ok := s.machineSessions.Remove(sessionID); !ok {
+		return nil
+	}
 	_, _ = s.machineChannel.RecordDisconnectedSession(context.Background(), machinechannelservice.DisconnectedSessionRecord{
 		MachineID:      parsedMachineID,
 		SessionID:      sessionID,

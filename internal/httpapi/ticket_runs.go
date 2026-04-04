@@ -226,24 +226,27 @@ func (s *Server) handleStreamTicketRuns(c echo.Context) error {
 		return writeTicketError(c, err)
 	}
 
+	streamCtx, cancel := s.shutdownAwareContext(c.Request().Context())
+	defer cancel()
+
 	if err := http.NewResponseController(c.Response().Writer).SetWriteDeadline(time.Time{}); err != nil &&
 		!errors.Is(err, http.ErrNotSupported) {
 		return fmt.Errorf("disable ticket run sse write deadline: %w", err)
 	}
 
-	activityStream, err := s.sseHub.Register(c.Request().Context(), ticketRunActivityStreamTopic)
+	activityStream, err := s.sseHub.Register(streamCtx, ticketRunActivityStreamTopic)
 	if err != nil {
 		return fmt.Errorf("register ticket run activity stream: %w", err)
 	}
-	traceStream, err := s.sseHub.Register(c.Request().Context(), agentTraceStreamTopic)
+	traceStream, err := s.sseHub.Register(streamCtx, agentTraceStreamTopic)
 	if err != nil {
 		return fmt.Errorf("register ticket run trace stream: %w", err)
 	}
-	stepStream, err := s.sseHub.Register(c.Request().Context(), agentStepStreamTopic)
+	stepStream, err := s.sseHub.Register(streamCtx, agentStepStreamTopic)
 	if err != nil {
 		return fmt.Errorf("register ticket run step stream: %w", err)
 	}
-	summaryStream, err := s.sseHub.Register(c.Request().Context(), ticketRunStreamTopic)
+	summaryStream, err := s.sseHub.Register(streamCtx, ticketRunStreamTopic)
 	if err != nil {
 		return fmt.Errorf("register ticket run summary stream: %w", err)
 	}
@@ -265,14 +268,14 @@ func (s *Server) handleStreamTicketRuns(c echo.Context) error {
 
 	for {
 		select {
-		case <-c.Request().Context().Done():
+		case <-streamCtx.Done():
 			return nil
 		case event, ok := <-summaryStream:
 			if !ok {
 				return nil
 			}
 			streamEvent, matched, buildErr := s.buildTicketRunSummaryStreamEvent(
-				c.Request().Context(),
+				streamCtx,
 				projectID,
 				ticketID,
 				event,
@@ -292,14 +295,14 @@ func (s *Server) handleStreamTicketRuns(c echo.Context) error {
 		}
 
 		select {
-		case <-c.Request().Context().Done():
+		case <-streamCtx.Done():
 			return nil
 		case event, ok := <-activityStream:
 			if !ok {
 				return nil
 			}
 			streamEvent, matched, buildErr := s.buildTicketRunLifecycleStreamEvent(
-				c.Request().Context(),
+				streamCtx,
 				projectID,
 				ticketID,
 				event,
@@ -319,14 +322,14 @@ func (s *Server) handleStreamTicketRuns(c echo.Context) error {
 		}
 
 		select {
-		case <-c.Request().Context().Done():
+		case <-streamCtx.Done():
 			return nil
 		case event, ok := <-activityStream:
 			if !ok {
 				return nil
 			}
 			streamEvent, matched, buildErr := s.buildTicketRunLifecycleStreamEvent(
-				c.Request().Context(),
+				streamCtx,
 				projectID,
 				ticketID,
 				event,
@@ -376,7 +379,7 @@ func (s *Server) handleStreamTicketRuns(c echo.Context) error {
 				return nil
 			}
 			streamEvent, matched, buildErr := s.buildTicketRunSummaryStreamEvent(
-				c.Request().Context(),
+				streamCtx,
 				projectID,
 				ticketID,
 				event,

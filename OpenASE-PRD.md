@@ -5062,6 +5062,8 @@ func (s *Service) UpdateTicketRepoScope(ctx context.Context, input UpdateRepoSco
 - project-scoped filtering 必须在服务端完成，事件到浏览器前就按 `project_id` 收敛
 - `GET /api/v1/chat/conversations/:conversationId/stream` 这类 request-owned interactive stream 不属于 project passive bus，也不能承载共享项目状态
 
+后端关闭语义也必须明确固定：当 `openase serve` / `openase all-in-one` 进入 shutdown 时，OpenASE 必须优先保证**有界退出**，主动终止 project passive SSE、request-owned interactive stream，以及 reverse websocket machine channel；既有连接的连续体验不优先于进程按配置超时退出，客户端应在服务恢复后自动重连。
+
 ```
 Domain Event  ──→  EventProvider  ──→  SSE Hub (fan-out)  ──→  Browser A
                    (Go channel)       (每个连接独立 chan)   ──→  Browser B
