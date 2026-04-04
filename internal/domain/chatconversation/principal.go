@@ -7,6 +7,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const CostRecordedEventType string = "project_conversation.cost_recorded"
+
 type PrincipalStatus string
 
 const (
@@ -167,6 +169,36 @@ type UpdateRunInput struct {
 	CurrentStepStatus    *string
 	CurrentStepSummary   *string
 	CurrentStepChangedAt *time.Time
+}
+
+type RunUsageSnapshot struct {
+	InputTokens         int64
+	OutputTokens        int64
+	CachedInputTokens   int64
+	CacheCreationTokens int64
+	ReasoningTokens     int64
+	PromptTokens        int64
+	CandidateTokens     int64
+	ToolTokens          int64
+	TotalTokens         int64
+	CostAmount          *float64
+	ModelContextWindow  *int64
+}
+
+type RecordRunUsageInput struct {
+	RunID      uuid.UUID
+	ProjectID  uuid.UUID
+	ProviderID uuid.UUID
+	RecordedAt time.Time
+	Totals     RunUsageSnapshot
+	Delta      RunUsageSnapshot
+}
+
+type UpdateProviderRateLimitInput struct {
+	ProjectID        uuid.UUID
+	ProviderID       uuid.UUID
+	ObservedAt       time.Time
+	RateLimitPayload map[string]any
 }
 
 type AppendTraceEventInput struct {

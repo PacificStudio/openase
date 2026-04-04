@@ -12,6 +12,7 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
+	entprojectconversationrun "github.com/BetterAndBetterII/openase/ent/projectconversationrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
@@ -544,6 +545,22 @@ func TestOrganizationTokenUsageRouteMaterializesBackfillsAndAvoidsDoubleCount(t 
 		t.Fatalf("create run three: %v", err)
 	}
 
+	if _, err := client.ProjectConversationRun.Create().
+		SetPrincipalID(uuid.New()).
+		SetConversationID(uuid.New()).
+		SetProjectID(project.ID).
+		SetProviderID(providerItem.ID).
+		SetStatus(entprojectconversationrun.StatusCompleted).
+		SetTerminalAt(dayTwoEarly.Add(10 * time.Hour)).
+		SetInputTokens(6).
+		SetOutputTokens(3).
+		SetCachedInputTokens(2).
+		SetReasoningTokens(1).
+		SetTotalTokens(9).
+		Save(ctx); err != nil {
+		t.Fatalf("create project conversation run: %v", err)
+	}
+
 	type tokenUsagePayload struct {
 		Days    []organizationTokenUsageDayResponse   `json:"days"`
 		Summary organizationTokenUsageSummaryResponse `json:"summary"`
@@ -566,13 +583,13 @@ func TestOrganizationTokenUsageRouteMaterializesBackfillsAndAvoidsDoubleCount(t 
 	if firstPayload.Days[0].Date != "2026-03-29" || firstPayload.Days[0].TotalTokens != 25 || firstPayload.Days[0].FinalizedRunCount != 2 {
 		t.Fatalf("unexpected 2026-03-29 usage: %+v", firstPayload.Days[0])
 	}
-	if firstPayload.Days[1].Date != "2026-03-30" || firstPayload.Days[1].TotalTokens != 5 || firstPayload.Days[1].FinalizedRunCount != 1 {
+	if firstPayload.Days[1].Date != "2026-03-30" || firstPayload.Days[1].TotalTokens != 14 || firstPayload.Days[1].FinalizedRunCount != 2 {
 		t.Fatalf("unexpected 2026-03-30 usage: %+v", firstPayload.Days[1])
 	}
 	if firstPayload.Days[2].Date != "2026-03-31" || firstPayload.Days[2].TotalTokens != 0 || firstPayload.Days[2].FinalizedRunCount != 0 {
 		t.Fatalf("unexpected 2026-03-31 usage: %+v", firstPayload.Days[2])
 	}
-	if firstPayload.Summary.TotalTokens != 30 || firstPayload.Summary.AvgDailyTokens != 10 {
+	if firstPayload.Summary.TotalTokens != 39 || firstPayload.Summary.AvgDailyTokens != 13 {
 		t.Fatalf("unexpected usage summary: %+v", firstPayload.Summary)
 	}
 	if firstPayload.Summary.PeakDay == nil || firstPayload.Summary.PeakDay.Date != "2026-03-29" || firstPayload.Summary.PeakDay.TotalTokens != 25 {
@@ -603,7 +620,7 @@ func TestOrganizationTokenUsageRouteMaterializesBackfillsAndAvoidsDoubleCount(t 
 	if row := findUsageRowByDate(t, rows, dayOneEarly); row.TotalTokens != 25 || row.FinalizedRunCount != 2 || row.SourceMode.String() != "materialized" {
 		t.Fatalf("unexpected materialized day one row: %+v", row)
 	}
-	if row := findUsageRowByDate(t, rows, dayTwoEarly); row.TotalTokens != 5 || row.FinalizedRunCount != 1 || row.SourceMode.String() != "materialized" {
+	if row := findUsageRowByDate(t, rows, dayTwoEarly); row.TotalTokens != 14 || row.FinalizedRunCount != 2 || row.SourceMode.String() != "materialized" {
 		t.Fatalf("unexpected materialized day two row: %+v", row)
 	}
 	if row := findUsageRowByDate(t, rows, dayThree); row.TotalTokens != 0 || row.FinalizedRunCount != 0 || row.SourceMode.String() != "lazy_backfill" {
@@ -623,6 +640,243 @@ func TestOrganizationTokenUsageRouteMaterializesBackfillsAndAvoidsDoubleCount(t 
 	}
 	if runThreeAfter.SnapshotMaterializedAt == nil {
 		t.Fatalf("expected run three snapshot to be marked materialized, got %+v", runThreeAfter)
+	}
+}
+
+func TestProjectTokenUsageRouteAggregatesAgentRunsAndConversationRuns(t *testing.T) {
+	client := openTestEntClient(t)
+	server := newWorkspaceSummaryTestServer(client)
+	ctx := context.Background()
+
+	org, err := client.Organization.Create().
+		SetName("Acme").
+		SetSlug("acme").
+		SetStatus(entorganization.StatusActive).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	machine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("acme-host").
+		SetHost("acme-host").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create machine: %v", err)
+	}
+	providerItem, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(machine.ID).
+		SetName("Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCustom).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	projectAlpha, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("Alpha").
+		SetSlug("alpha").
+		SetDescription("Project alpha").
+		SetStatus("active").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project alpha: %v", err)
+	}
+	projectBeta, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("Beta").
+		SetSlug("beta").
+		SetDescription("Project beta").
+		SetStatus("active").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project beta: %v", err)
+	}
+
+	alphaStatuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, projectAlpha.ID)
+	if err != nil {
+		t.Fatalf("reset alpha statuses: %v", err)
+	}
+	alphaTodoID := findStatusIDByName(t, alphaStatuses, "Todo")
+	alphaDoneID := findStatusIDByName(t, alphaStatuses, "Done")
+	alphaWorkflow, err := client.Workflow.Create().
+		SetProjectID(projectAlpha.ID).
+		SetName("alpha-workflow").
+		SetType("coding").
+		SetHarnessPath("roles/coding.md").
+		AddPickupStatusIDs(alphaTodoID).
+		AddFinishStatusIDs(alphaDoneID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create alpha workflow: %v", err)
+	}
+	alphaAgent, err := client.Agent.Create().
+		SetProjectID(projectAlpha.ID).
+		SetProviderID(providerItem.ID).
+		SetName("alpha-agent").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create alpha agent: %v", err)
+	}
+
+	betaStatuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, projectBeta.ID)
+	if err != nil {
+		t.Fatalf("reset beta statuses: %v", err)
+	}
+	betaTodoID := findStatusIDByName(t, betaStatuses, "Todo")
+	betaDoneID := findStatusIDByName(t, betaStatuses, "Done")
+	betaWorkflow, err := client.Workflow.Create().
+		SetProjectID(projectBeta.ID).
+		SetName("beta-workflow").
+		SetType("coding").
+		SetHarnessPath("roles/coding.md").
+		AddPickupStatusIDs(betaTodoID).
+		AddFinishStatusIDs(betaDoneID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create beta workflow: %v", err)
+	}
+	betaAgent, err := client.Agent.Create().
+		SetProjectID(projectBeta.ID).
+		SetProviderID(providerItem.ID).
+		SetName("beta-agent").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create beta agent: %v", err)
+	}
+
+	makeTicket := func(projectID uuid.UUID, statusID uuid.UUID, identifier string) *ent.Ticket {
+		t.Helper()
+		item, createErr := client.Ticket.Create().
+			SetProjectID(projectID).
+			SetIdentifier(identifier).
+			SetTitle(identifier).
+			SetStatusID(statusID).
+			SetPriority(entticket.PriorityMedium).
+			SetType(entticket.TypeFeature).
+			SetCreatedBy("user:test").
+			Save(ctx)
+		if createErr != nil {
+			t.Fatalf("create ticket %s: %v", identifier, createErr)
+		}
+		return item
+	}
+
+	dayOne := time.Date(2026, 3, 29, 9, 0, 0, 0, time.UTC)
+	dayTwo := time.Date(2026, 3, 30, 11, 0, 0, 0, time.UTC)
+
+	if _, err := client.AgentRun.Create().
+		SetAgentID(alphaAgent.ID).
+		SetWorkflowID(alphaWorkflow.ID).
+		SetTicketID(makeTicket(projectAlpha.ID, alphaTodoID, "ASE-301").ID).
+		SetProviderID(providerItem.ID).
+		SetStatus(entagentrun.StatusCompleted).
+		SetTerminalAt(dayOne).
+		SetInputTokens(8).
+		SetOutputTokens(4).
+		SetCachedInputTokens(1).
+		SetReasoningTokens(1).
+		SetTotalTokens(12).
+		Save(ctx); err != nil {
+		t.Fatalf("create alpha agent run: %v", err)
+	}
+	if _, err := client.ProjectConversationRun.Create().
+		SetPrincipalID(uuid.New()).
+		SetConversationID(uuid.New()).
+		SetProjectID(projectAlpha.ID).
+		SetProviderID(providerItem.ID).
+		SetStatus(entprojectconversationrun.StatusCompleted).
+		SetTerminalAt(dayOne.Add(2 * time.Hour)).
+		SetInputTokens(5).
+		SetOutputTokens(3).
+		SetCachedInputTokens(1).
+		SetReasoningTokens(1).
+		SetTotalTokens(8).
+		Save(ctx); err != nil {
+		t.Fatalf("create alpha conversation run day one: %v", err)
+	}
+	if _, err := client.ProjectConversationRun.Create().
+		SetPrincipalID(uuid.New()).
+		SetConversationID(uuid.New()).
+		SetProjectID(projectAlpha.ID).
+		SetProviderID(providerItem.ID).
+		SetStatus(entprojectconversationrun.StatusCompleted).
+		SetTerminalAt(dayTwo).
+		SetInputTokens(3).
+		SetOutputTokens(1).
+		SetCachedInputTokens(0).
+		SetReasoningTokens(1).
+		SetTotalTokens(4).
+		Save(ctx); err != nil {
+		t.Fatalf("create alpha conversation run day two: %v", err)
+	}
+	if _, err := client.AgentRun.Create().
+		SetAgentID(betaAgent.ID).
+		SetWorkflowID(betaWorkflow.ID).
+		SetTicketID(makeTicket(projectBeta.ID, betaTodoID, "ASE-401").ID).
+		SetProviderID(providerItem.ID).
+		SetStatus(entagentrun.StatusCompleted).
+		SetTerminalAt(dayOne.Add(30 * time.Minute)).
+		SetInputTokens(60).
+		SetOutputTokens(39).
+		SetCachedInputTokens(0).
+		SetReasoningTokens(0).
+		SetTotalTokens(99).
+		Save(ctx); err != nil {
+		t.Fatalf("create beta agent run: %v", err)
+	}
+	if _, err := client.ProjectConversationRun.Create().
+		SetPrincipalID(uuid.New()).
+		SetConversationID(uuid.New()).
+		SetProjectID(projectBeta.ID).
+		SetProviderID(providerItem.ID).
+		SetStatus(entprojectconversationrun.StatusCompleted).
+		SetTerminalAt(dayTwo.Add(1 * time.Hour)).
+		SetInputTokens(40).
+		SetOutputTokens(37).
+		SetCachedInputTokens(0).
+		SetReasoningTokens(0).
+		SetTotalTokens(77).
+		Save(ctx); err != nil {
+		t.Fatalf("create beta conversation run: %v", err)
+	}
+
+	type tokenUsagePayload struct {
+		Days    []projectTokenUsageDayResponse   `json:"days"`
+		Summary projectTokenUsageSummaryResponse `json:"summary"`
+	}
+
+	payload := tokenUsagePayload{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/projects/"+projectAlpha.ID.String()+"/token-usage?from=2026-03-29&to=2026-03-30",
+		nil,
+		http.StatusOK,
+		&payload,
+	)
+
+	if len(payload.Days) != 2 {
+		t.Fatalf("expected 2 token-usage days, got %+v", payload.Days)
+	}
+	if payload.Days[0].Date != "2026-03-29" || payload.Days[0].TotalTokens != 20 || payload.Days[0].FinalizedRunCount != 2 {
+		t.Fatalf("unexpected 2026-03-29 project usage: %+v", payload.Days[0])
+	}
+	if payload.Days[1].Date != "2026-03-30" || payload.Days[1].TotalTokens != 4 || payload.Days[1].FinalizedRunCount != 1 {
+		t.Fatalf("unexpected 2026-03-30 project usage: %+v", payload.Days[1])
+	}
+	if payload.Summary.TotalTokens != 24 || payload.Summary.AvgDailyTokens != 12 {
+		t.Fatalf("unexpected project usage summary: %+v", payload.Summary)
+	}
+	if payload.Summary.PeakDay == nil || payload.Summary.PeakDay.Date != "2026-03-29" || payload.Summary.PeakDay.TotalTokens != 20 {
+		t.Fatalf("unexpected project peak day: %+v", payload.Summary.PeakDay)
 	}
 }
 

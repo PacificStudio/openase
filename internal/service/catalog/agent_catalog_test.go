@@ -982,6 +982,10 @@ func (r *stubRepository) GetOrganizationTokenUsage(context.Context, domain.GetOr
 	return domain.OrganizationTokenUsageReport{}, nil
 }
 
+func (r *stubRepository) GetProjectTokenUsage(context.Context, domain.GetProjectTokenUsage) (domain.ProjectTokenUsageReport, error) {
+	return domain.ProjectTokenUsageReport{}, nil
+}
+
 var _ Repository = (*stubRepository)(nil)
 
 func equalStrings(left []string, right []string) bool {

@@ -53,6 +53,7 @@ type DashboardQueryService interface {
 
 type UsageQueryService interface {
 	GetOrganizationTokenUsage(ctx context.Context, input domain.GetOrganizationTokenUsage) (domain.OrganizationTokenUsageReport, error)
+	GetProjectTokenUsage(ctx context.Context, input domain.GetProjectTokenUsage) (domain.ProjectTokenUsageReport, error)
 }
 
 type AgentProviderService interface {
@@ -190,6 +191,7 @@ type DashboardQueryRepository interface {
 
 type UsageQueryRepository interface {
 	GetOrganizationTokenUsage(ctx context.Context, input domain.GetOrganizationTokenUsage) (domain.OrganizationTokenUsageReport, error)
+	GetProjectTokenUsage(ctx context.Context, input domain.GetProjectTokenUsage) (domain.ProjectTokenUsageReport, error)
 }
 
 type AgentProviderRepository interface {

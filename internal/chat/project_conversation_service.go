@@ -3,6 +3,7 @@ package chat
 import (
 	"archive/tar"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -62,6 +63,20 @@ type liveProjectConversation struct {
 	codex     projectConversationCodexRuntime
 	interrupt projectConversationInterruptRuntime
 	workspace provider.AbsolutePath
+}
+
+type projectConversationUsageHighWater struct {
+	inputTokens         int64
+	outputTokens        int64
+	cachedInputTokens   int64
+	cacheCreationTokens int64
+	reasoningTokens     int64
+	promptTokens        int64
+	candidateTokens     int64
+	toolTokens          int64
+	totalTokens         int64
+	costAmount          float64
+	hasCostAmount       bool
 }
 
 type projectConversationCodexRuntime interface {
@@ -846,6 +861,19 @@ func (s *ProjectConversationService) consumeTurn(
 	run domain.ProjectConversationRun,
 	stream TurnStream,
 ) {
+	usageHighWater := projectConversationUsageHighWater{
+		inputTokens:         run.InputTokens,
+		outputTokens:        run.OutputTokens,
+		cachedInputTokens:   run.CachedInputTokens,
+		cacheCreationTokens: run.CacheCreationTokens,
+		reasoningTokens:     run.ReasoningTokens,
+		promptTokens:        run.PromptTokens,
+		candidateTokens:     run.CandidateTokens,
+		toolTokens:          run.ToolTokens,
+		totalTokens:         run.TotalTokens,
+		costAmount:          run.CostAmount,
+		hasCostAmount:       run.CostAmount > 0,
+	}
 	for event := range stream.Events {
 		switch event.Event {
 		case "message":
@@ -932,6 +960,34 @@ func (s *ProjectConversationService) consumeTurn(
 					"cost_usd":        done.CostUSD,
 				},
 			})
+		case "token_usage_updated":
+			payload, ok := event.Payload.(runtimeTokenUsagePayload)
+			if !ok {
+				continue
+			}
+			s.recordConversationTrace(ctx, live, run, "token_usage_updated", map[string]any{
+				"input_tokens":          payload.TotalInputTokens,
+				"output_tokens":         payload.TotalOutputTokens,
+				"cached_input_tokens":   payload.TotalCachedInputTokens,
+				"cache_creation_tokens": payload.TotalCacheCreationTokens,
+				"reasoning_tokens":      payload.TotalReasoningTokens,
+				"prompt_tokens":         payload.TotalPromptTokens,
+				"candidate_tokens":      payload.TotalCandidateTokens,
+				"tool_tokens":           payload.TotalToolTokens,
+				"total_tokens":          payload.TotalTokens,
+				"cost_usd":              payload.CostUSD,
+				"model_context_window":  payload.ModelContextWindow,
+			}, "runtime")
+			run = s.recordConversationUsage(ctx, live, run, payload, &usageHighWater)
+		case "rate_limit_updated":
+			payload, ok := event.Payload.(runtimeRateLimitPayload)
+			if !ok || payload.RateLimit == nil {
+				continue
+			}
+			s.recordConversationTrace(ctx, live, run, "rate_limit_updated", map[string]any{
+				"observed_at": payload.ObservedAt.UTC().Format(time.RFC3339),
+			}, "runtime")
+			s.recordConversationProviderRateLimit(ctx, live, payload)
 		case "thread_status":
 			payload, ok := event.Payload.(runtimeThreadStatusPayload)
 			if !ok {
@@ -1321,6 +1377,135 @@ func (s *ProjectConversationService) recordConversationStep(
 	if err == nil {
 		live.principal = updatedPrincipal
 	}
+}
+
+func (s *ProjectConversationService) recordConversationUsage(
+	ctx context.Context,
+	live *liveProjectConversation,
+	run domain.ProjectConversationRun,
+	payload runtimeTokenUsagePayload,
+	highWater *projectConversationUsageHighWater,
+) domain.ProjectConversationRun {
+	if s == nil || s.runtimeStore == nil || live == nil || run.ID == uuid.Nil || highWater == nil {
+		return run
+	}
+
+	delta := domain.RunUsageSnapshot{
+		InputTokens:         clampUsageDelta(payload.TotalInputTokens - highWater.inputTokens),
+		OutputTokens:        clampUsageDelta(payload.TotalOutputTokens - highWater.outputTokens),
+		CachedInputTokens:   clampUsageDelta(payload.TotalCachedInputTokens - highWater.cachedInputTokens),
+		CacheCreationTokens: clampUsageDelta(payload.TotalCacheCreationTokens - highWater.cacheCreationTokens),
+		ReasoningTokens:     clampUsageDelta(payload.TotalReasoningTokens - highWater.reasoningTokens),
+		PromptTokens:        clampUsageDelta(payload.TotalPromptTokens - highWater.promptTokens),
+		CandidateTokens:     clampUsageDelta(payload.TotalCandidateTokens - highWater.candidateTokens),
+		ToolTokens:          clampUsageDelta(payload.TotalToolTokens - highWater.toolTokens),
+		TotalTokens:         clampUsageDelta(payload.TotalTokens - highWater.totalTokens),
+	}
+	if payload.CostUSD != nil {
+		costDelta := *payload.CostUSD
+		if highWater.hasCostAmount {
+			costDelta -= highWater.costAmount
+		}
+		if costDelta > 0 {
+			delta.CostAmount = cloneCostUSD(&costDelta)
+		}
+	}
+
+	updatedRun, err := s.runtimeStore.RecordRunUsage(ctx, domain.RecordRunUsageInput{
+		RunID:      run.ID,
+		ProjectID:  live.principal.ProjectID,
+		ProviderID: live.principal.ProviderID,
+		RecordedAt: time.Now().UTC(),
+		Totals: domain.RunUsageSnapshot{
+			InputTokens:         maxRunUsageTotal(highWater.inputTokens, payload.TotalInputTokens),
+			OutputTokens:        maxRunUsageTotal(highWater.outputTokens, payload.TotalOutputTokens),
+			CachedInputTokens:   maxRunUsageTotal(highWater.cachedInputTokens, payload.TotalCachedInputTokens),
+			CacheCreationTokens: maxRunUsageTotal(highWater.cacheCreationTokens, payload.TotalCacheCreationTokens),
+			ReasoningTokens:     maxRunUsageTotal(highWater.reasoningTokens, payload.TotalReasoningTokens),
+			PromptTokens:        maxRunUsageTotal(highWater.promptTokens, payload.TotalPromptTokens),
+			CandidateTokens:     maxRunUsageTotal(highWater.candidateTokens, payload.TotalCandidateTokens),
+			ToolTokens:          maxRunUsageTotal(highWater.toolTokens, payload.TotalToolTokens),
+			TotalTokens:         maxRunUsageTotal(highWater.totalTokens, payload.TotalTokens),
+			CostAmount:          cloneCostUSD(payload.CostUSD),
+			ModelContextWindow:  cloneInt64Pointer(payload.ModelContextWindow),
+		},
+		Delta: delta,
+	})
+	if err != nil {
+		s.logger.Warn("record project conversation usage failed", "conversation_id", live.principal.ConversationID, "run_id", run.ID, "error", err)
+		return run
+	}
+
+	highWater.inputTokens = maxRunUsageTotal(highWater.inputTokens, payload.TotalInputTokens)
+	highWater.outputTokens = maxRunUsageTotal(highWater.outputTokens, payload.TotalOutputTokens)
+	highWater.cachedInputTokens = maxRunUsageTotal(highWater.cachedInputTokens, payload.TotalCachedInputTokens)
+	highWater.cacheCreationTokens = maxRunUsageTotal(highWater.cacheCreationTokens, payload.TotalCacheCreationTokens)
+	highWater.reasoningTokens = maxRunUsageTotal(highWater.reasoningTokens, payload.TotalReasoningTokens)
+	highWater.promptTokens = maxRunUsageTotal(highWater.promptTokens, payload.TotalPromptTokens)
+	highWater.candidateTokens = maxRunUsageTotal(highWater.candidateTokens, payload.TotalCandidateTokens)
+	highWater.toolTokens = maxRunUsageTotal(highWater.toolTokens, payload.TotalToolTokens)
+	highWater.totalTokens = maxRunUsageTotal(highWater.totalTokens, payload.TotalTokens)
+	if payload.CostUSD != nil && (!highWater.hasCostAmount || *payload.CostUSD > highWater.costAmount) {
+		highWater.costAmount = *payload.CostUSD
+		highWater.hasCostAmount = true
+	}
+
+	return updatedRun
+}
+
+func (s *ProjectConversationService) recordConversationProviderRateLimit(
+	ctx context.Context,
+	live *liveProjectConversation,
+	payload runtimeRateLimitPayload,
+) {
+	if s == nil || s.runtimeStore == nil || live == nil || live.provider.ID == uuid.Nil || payload.RateLimit == nil {
+		return
+	}
+
+	rateLimitPayload, err := marshalProjectConversationRateLimitPayload(payload.RateLimit)
+	if err != nil {
+		s.logger.Warn("marshal project conversation provider rate limit failed", "conversation_id", live.principal.ConversationID, "provider_id", live.provider.ID, "error", err)
+		return
+	}
+	if err := s.runtimeStore.UpdateProviderRateLimit(ctx, domain.UpdateProviderRateLimitInput{
+		ProjectID:        live.principal.ProjectID,
+		ProviderID:       live.provider.ID,
+		ObservedAt:       payload.ObservedAt.UTC(),
+		RateLimitPayload: rateLimitPayload,
+	}); err != nil {
+		s.logger.Warn("update project conversation provider rate limit failed", "conversation_id", live.principal.ConversationID, "provider_id", live.provider.ID, "error", err)
+	}
+}
+
+func marshalProjectConversationRateLimitPayload(rateLimit *provider.CLIRateLimit) (map[string]any, error) {
+	if rateLimit == nil {
+		return nil, nil
+	}
+
+	payload, err := json.Marshal(rateLimit)
+	if err != nil {
+		return nil, err
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		return nil, err
+	}
+	return decoded, nil
+}
+
+func clampUsageDelta(value int64) int64 {
+	if value < 0 {
+		return 0
+	}
+	return value
+}
+
+func maxRunUsageTotal(left int64, right int64) int64 {
+	if right > left {
+		return right
+	}
+	return left
 }
 
 func mapConversationTracePayload(value any) map[string]any {

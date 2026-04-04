@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -2316,6 +2317,184 @@ func TestProjectConversationConsumeTurnPersistsInterruptAndSummary(t *testing.T)
 	}
 	if collected[len(collected)-1].Event != "turn_done" {
 		t.Fatalf("last stream event = %q, want turn_done", collected[len(collected)-1].Event)
+	}
+}
+
+func TestProjectConversationConsumeTurnRecordsUsageAndProviderRateLimit(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	machine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("127.0.0.1").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create machine: %v", err)
+	}
+	providerItem, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(machine.ID).
+		SetName("OpenAI Codex").
+		SetAdapterType("codex-app-server").
+		SetCliCommand("codex").
+		SetModelName("gpt-5-codex").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	repo := chatrepo.NewEntRepository(client)
+	conversation, err := repo.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerItem.ID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	turn, _, err := repo.CreateTurnWithUserEntry(ctx, conversation.ID, "Inspect spend and provider state")
+	if err != nil {
+		t.Fatalf("create turn: %v", err)
+	}
+	principal, err := repo.EnsurePrincipal(ctx, chatdomain.EnsurePrincipalInput{
+		ConversationID: conversation.ID,
+		ProjectID:      project.ID,
+		ProviderID:     providerItem.ID,
+		Name:           projectConversationPrincipalName(conversation.ID),
+	})
+	if err != nil {
+		t.Fatalf("ensure principal: %v", err)
+	}
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	run, err := repo.CreateRun(ctx, chatdomain.CreateRunInput{
+		RunID:                uuid.New(),
+		PrincipalID:          principal.ID,
+		ConversationID:       conversation.ID,
+		ProjectID:            project.ID,
+		ProviderID:           providerItem.ID,
+		TurnID:               &turn.ID,
+		Status:               chatdomain.RunStatusExecuting,
+		SessionID:            optionalString(conversation.ID.String()),
+		WorkspacePath:        optionalString(t.TempDir()),
+		RuntimeStartedAt:     &now,
+		LastHeartbeatAt:      &now,
+		CurrentStepStatus:    optionalString("turn_executing"),
+		CurrentStepSummary:   optionalString("Project conversation turn executing."),
+		CurrentStepChangedAt: &now,
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+
+	service := NewProjectConversationService(nil, repo, nil, nil, nil, nil, nil)
+	streamEvents := make(chan StreamEvent, 3)
+	usedPercent := 42.0
+	resetAt := now.Add(5 * time.Minute)
+	streamEvents <- StreamEvent{
+		Event: "token_usage_updated",
+		Payload: runtimeTokenUsagePayload{
+			TotalInputTokens:       120,
+			TotalOutputTokens:      35,
+			TotalCachedInputTokens: 12,
+			TotalReasoningTokens:   7,
+			TotalTokens:            155,
+			CostUSD:                floatPointer(0.19),
+		},
+	}
+	streamEvents <- StreamEvent{
+		Event: "rate_limit_updated",
+		Payload: runtimeRateLimitPayload{
+			ObservedAt: now,
+			RateLimit: &provider.CLIRateLimit{
+				Provider: provider.CLIRateLimitProviderCodex,
+				Codex: &provider.CodexRateLimit{
+					LimitID:   "codex-limit",
+					LimitName: "Codex Pro",
+					PlanType:  "pro",
+					Primary: &provider.CodexRateLimitWindow{
+						UsedPercent:   &usedPercent,
+						WindowMinutes: 5,
+						ResetsAt:      &resetAt,
+					},
+				},
+			},
+		},
+	}
+	streamEvents <- StreamEvent{
+		Event:   "done",
+		Payload: donePayload{SessionID: conversation.ID.String(), CostUSD: floatPointer(0.19)},
+	}
+	close(streamEvents)
+
+	live := &liveProjectConversation{
+		principal: principal,
+		provider: catalogdomain.AgentProvider{
+			ID:             providerItem.ID,
+			OrganizationID: org.ID,
+			MachineID:      machine.ID,
+			Name:           providerItem.Name,
+			AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+			ModelName:      providerItem.ModelName,
+		},
+		workspace: provider.AbsolutePath(t.TempDir()),
+	}
+	service.consumeTurn(ctx, conversation.ID, turn, live, run, TurnStream{Events: streamEvents})
+
+	reloadedRun, err := client.ProjectConversationRun.Get(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if reloadedRun.InputTokens != 120 || reloadedRun.OutputTokens != 35 || reloadedRun.TotalTokens != 155 {
+		t.Fatalf("run usage = %+v", reloadedRun)
+	}
+	if reloadedRun.CostAmount != 0.19 {
+		t.Fatalf("run cost_amount = %.2f, want 0.19", reloadedRun.CostAmount)
+	}
+
+	updatedProvider, err := client.AgentProvider.Get(ctx, providerItem.ID)
+	if err != nil {
+		t.Fatalf("reload provider: %v", err)
+	}
+	if updatedProvider.CliRateLimitUpdatedAt == nil || !updatedProvider.CliRateLimitUpdatedAt.UTC().Equal(now) {
+		t.Fatalf("provider cli_rate_limit_updated_at = %+v, want %s", updatedProvider.CliRateLimitUpdatedAt, now.Format(time.RFC3339))
+	}
+	if updatedProvider.CliRateLimit["provider"] != string(provider.CLIRateLimitProviderCodex) {
+		t.Fatalf("provider cli_rate_limit = %+v", updatedProvider.CliRateLimit)
+	}
+
+	activities, err := client.ActivityEvent.Query().
+		Where(entactivityevent.ProjectIDEQ(project.ID)).
+		Order(entactivityevent.ByCreatedAt()).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("list activities: %v", err)
+	}
+	if len(activities) != 2 {
+		t.Fatalf("activity count = %d, want 2", len(activities))
+	}
+	var costEvent *ent.ActivityEvent
+	var rateLimitEvent *ent.ActivityEvent
+	for _, item := range activities {
+		switch item.EventType {
+		case chatdomain.CostRecordedEventType:
+			costEvent = item
+		case activityevent.TypeProviderRateLimitUpdated.String():
+			rateLimitEvent = item
+		}
+	}
+	if costEvent == nil {
+		t.Fatalf("missing project conversation cost activity in %+v", activities)
+	}
+	if costUSD, ok := costEvent.Metadata["cost_usd"].(float64); !ok || costUSD != 0.19 {
+		t.Fatalf("project conversation cost metadata = %+v", costEvent.Metadata)
+	}
+	if rateLimitEvent == nil {
+		t.Fatalf("missing provider rate limit activity in %+v", activities)
 	}
 }
 

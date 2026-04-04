@@ -348,13 +348,26 @@ func (r *CodexRuntime) bridgeTurn(
 				event.TokenUsage.ModelContextWindow,
 			)
 			costUSD := resolveCLIUsageCostUSD(providerItem, usageInfo)
-			if costUSD == nil {
+			payload := runtimeTokenUsagePayloadFromCLIUsage(usageInfo, costUSD)
+			if payload == nil {
 				continue
 			}
 
 			r.mu.Lock()
-			state.costUSD = costUSD
+			state.costUSD = cloneCostUSD(payload.CostUSD)
 			r.mu.Unlock()
+			events <- StreamEvent{Event: "token_usage_updated", Payload: *payload}
+		case codexadapter.EventTypeRateLimitUpdated:
+			if event.RateLimit == nil {
+				continue
+			}
+			events <- StreamEvent{
+				Event: "rate_limit_updated",
+				Payload: runtimeRateLimitPayload{
+					RateLimit:  event.RateLimit,
+					ObservedAt: time.Now().UTC(),
+				},
+			}
 		case codexadapter.EventTypeThreadStarted:
 			if event.Thread == nil {
 				continue

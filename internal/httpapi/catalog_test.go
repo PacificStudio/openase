@@ -1815,6 +1815,10 @@ func (f *fakeCatalogService) GetOrganizationTokenUsage(context.Context, domain.G
 	return domain.OrganizationTokenUsageReport{}, nil
 }
 
+func (f *fakeCatalogService) GetProjectTokenUsage(context.Context, domain.GetProjectTokenUsage) (domain.ProjectTokenUsageReport, error) {
+	return domain.ProjectTokenUsageReport{}, nil
+}
+
 func (f *fakeCatalogService) hasProjectRepos(projectID uuid.UUID) bool {
 	for _, item := range f.projectRepos {
 		if item.ProjectID == projectID {

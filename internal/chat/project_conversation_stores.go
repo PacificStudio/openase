@@ -38,6 +38,8 @@ type projectConversationRuntimeStore interface {
 	CreateRun(ctx context.Context, input domain.CreateRunInput) (domain.ProjectConversationRun, error)
 	GetRunByTurnID(ctx context.Context, turnID uuid.UUID) (domain.ProjectConversationRun, error)
 	UpdateRun(ctx context.Context, input domain.UpdateRunInput) (domain.ProjectConversationRun, error)
+	RecordRunUsage(ctx context.Context, input domain.RecordRunUsageInput) (domain.ProjectConversationRun, error)
+	UpdateProviderRateLimit(ctx context.Context, input domain.UpdateProviderRateLimitInput) error
 	AppendTraceEvent(ctx context.Context, input domain.AppendTraceEventInput) (domain.ProjectConversationTraceEvent, error)
 	AppendStepEvent(ctx context.Context, input domain.AppendStepEventInput) (domain.ProjectConversationStepEvent, error)
 }

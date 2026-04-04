@@ -396,6 +396,9 @@ func (r *GeminiRuntime) collectTurn(
 		turnsUsed = state.turnsUsed
 	}
 	costUSD := resolveCLIUsageCostUSD(providerItem, usageInfo)
+	if payload := runtimeTokenUsagePayloadFromCLIUsage(usageInfo, costUSD); payload != nil {
+		events <- StreamEvent{Event: "token_usage_updated", Payload: *payload}
+	}
 	events <- StreamEvent{
 		Event: "done",
 		Payload: donePayload{

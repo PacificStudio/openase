@@ -2,7 +2,9 @@ package chatconversation
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -15,6 +17,7 @@ import (
 	entprojectconversationprincipal "github.com/BetterAndBetterII/openase/ent/projectconversationprincipal"
 	entprojectconversationrun "github.com/BetterAndBetterII/openase/ent/projectconversationrun"
 	entprojectconversationtraceevent "github.com/BetterAndBetterII/openase/ent/projectconversationtraceevent"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	"github.com/google/uuid"
 )
@@ -24,6 +27,7 @@ var (
 	ErrConflict          = domain.ErrConflict
 	ErrInvalidInput      = domain.ErrInvalidInput
 	ErrTurnAlreadyActive = domain.ErrTurnAlreadyActive
+	errRepositoryNil     = fmt.Errorf("chat conversation repository unavailable")
 )
 
 type Repository struct {
@@ -284,6 +288,143 @@ func (r *Repository) UpdateRun(ctx context.Context, input domain.UpdateRunInput)
 		return domain.ProjectConversationRun{}, mapWriteError("update project conversation run", err)
 	}
 	return mapRun(item), nil
+}
+
+func (r *Repository) RecordRunUsage(ctx context.Context, input domain.RecordRunUsageInput) (domain.ProjectConversationRun, error) {
+	if r.client == nil {
+		return domain.ProjectConversationRun{}, errRepositoryNil
+	}
+
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return domain.ProjectConversationRun{}, fmt.Errorf("start project conversation usage tx: %w", err)
+	}
+	defer rollbackOnError(ctx, tx, &err)
+
+	runItem, err := tx.ProjectConversationRun.Get(ctx, input.RunID)
+	if err != nil {
+		return domain.ProjectConversationRun{}, mapReadError("get project conversation run for usage", err)
+	}
+	if input.ProjectID != uuid.Nil && runItem.ProjectID != input.ProjectID {
+		return domain.ProjectConversationRun{}, fmt.Errorf("project conversation run %s does not belong to project %s", runItem.ID, input.ProjectID)
+	}
+	if input.ProviderID != uuid.Nil && runItem.ProviderID != input.ProviderID {
+		return domain.ProjectConversationRun{}, fmt.Errorf("project conversation run %s does not belong to provider %s", runItem.ID, input.ProviderID)
+	}
+
+	update := tx.ProjectConversationRun.UpdateOneID(runItem.ID).
+		SetInputTokens(input.Totals.InputTokens).
+		SetOutputTokens(input.Totals.OutputTokens).
+		SetCachedInputTokens(input.Totals.CachedInputTokens).
+		SetCacheCreationTokens(input.Totals.CacheCreationTokens).
+		SetReasoningTokens(input.Totals.ReasoningTokens).
+		SetPromptTokens(input.Totals.PromptTokens).
+		SetCandidateTokens(input.Totals.CandidateTokens).
+		SetToolTokens(input.Totals.ToolTokens).
+		SetTotalTokens(input.Totals.TotalTokens)
+	if input.Totals.CostAmount != nil {
+		update.SetCostAmount(*input.Totals.CostAmount)
+	}
+	item, err := update.Save(ctx)
+	if err != nil {
+		return domain.ProjectConversationRun{}, mapWriteError("update project conversation run usage", err)
+	}
+
+	if hasRunUsageDelta(input.Delta) {
+		metadata := map[string]any{
+			"run_id":                  runItem.ID.String(),
+			"provider_id":             runItem.ProviderID.String(),
+			"input_tokens":            input.Delta.InputTokens,
+			"output_tokens":           input.Delta.OutputTokens,
+			"cached_input_tokens":     input.Delta.CachedInputTokens,
+			"cache_creation_tokens":   input.Delta.CacheCreationTokens,
+			"reasoning_tokens":        input.Delta.ReasoningTokens,
+			"prompt_tokens":           input.Delta.PromptTokens,
+			"candidate_tokens":        input.Delta.CandidateTokens,
+			"tool_tokens":             input.Delta.ToolTokens,
+			"total_tokens":            input.Delta.TotalTokens,
+			"totals_input_tokens":     input.Totals.InputTokens,
+			"totals_output_tokens":    input.Totals.OutputTokens,
+			"totals_cached_input":     input.Totals.CachedInputTokens,
+			"totals_cache_creation":   input.Totals.CacheCreationTokens,
+			"totals_reasoning_tokens": input.Totals.ReasoningTokens,
+			"totals_prompt_tokens":    input.Totals.PromptTokens,
+			"totals_candidate_tokens": input.Totals.CandidateTokens,
+			"totals_tool_tokens":      input.Totals.ToolTokens,
+			"totals_total_tokens":     input.Totals.TotalTokens,
+		}
+		if input.Delta.CostAmount != nil {
+			metadata["cost_usd"] = *input.Delta.CostAmount
+		}
+		if input.Totals.CostAmount != nil {
+			metadata["totals_cost_usd"] = *input.Totals.CostAmount
+		}
+		if input.Totals.ModelContextWindow != nil {
+			metadata["model_context_window"] = *input.Totals.ModelContextWindow
+		}
+
+		if _, err := tx.ActivityEvent.Create().
+			SetProjectID(runItem.ProjectID).
+			SetEventType(domain.CostRecordedEventType).
+			SetMessage("").
+			SetMetadata(metadata).
+			SetCreatedAt(input.RecordedAt.UTC()).
+			Save(ctx); err != nil {
+			return domain.ProjectConversationRun{}, fmt.Errorf("create project conversation cost event: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return domain.ProjectConversationRun{}, fmt.Errorf("commit project conversation usage tx: %w", err)
+	}
+
+	return mapRun(item), nil
+}
+
+func (r *Repository) UpdateProviderRateLimit(ctx context.Context, input domain.UpdateProviderRateLimitInput) error {
+	if r.client == nil || input.ProviderID == uuid.Nil {
+		return errRepositoryNil
+	}
+
+	currentProvider, err := r.client.AgentProvider.Get(ctx, input.ProviderID)
+	if err != nil {
+		return fmt.Errorf("get provider %s for project conversation rate limit: %w", input.ProviderID, err)
+	}
+	payload := cloneMap(input.RateLimitPayload)
+	if len(payload) == 0 {
+		return nil
+	}
+	snapshotChanged := !reflect.DeepEqual(currentProvider.CliRateLimit, payload)
+
+	updatedProvider, err := r.client.AgentProvider.UpdateOneID(input.ProviderID).
+		SetCliRateLimit(payload).
+		SetCliRateLimitUpdatedAt(input.ObservedAt.UTC()).
+		Save(ctx)
+	if err != nil {
+		return fmt.Errorf("update provider %s project conversation rate limit: %w", input.ProviderID, err)
+	}
+	if !snapshotChanged || input.ProjectID == uuid.Nil {
+		return nil
+	}
+
+	if _, err := r.client.ActivityEvent.Create().
+		SetProjectID(input.ProjectID).
+		SetEventType(activityevent.TypeProviderRateLimitUpdated.String()).
+		SetMessage(fmt.Sprintf("Updated provider rate limit snapshot for %s", updatedProvider.Name)).
+		SetMetadata(map[string]any{
+			"provider_id":           updatedProvider.ID.String(),
+			"provider_name":         updatedProvider.Name,
+			"machine_id":            updatedProvider.MachineID.String(),
+			"rate_limit":            cloneMap(payload),
+			"rate_limit_updated_at": input.ObservedAt.UTC().Format(time.RFC3339),
+			"changed_fields":        []string{"cli_rate_limit"},
+		}).
+		SetCreatedAt(input.ObservedAt.UTC()).
+		Save(ctx); err != nil {
+		return fmt.Errorf("create provider rate limit activity for project conversation: %w", err)
+	}
+
+	return nil
 }
 
 func (r *Repository) AppendTraceEvent(ctx context.Context, input domain.AppendTraceEventInput) (domain.ProjectConversationTraceEvent, error) {
@@ -967,4 +1108,35 @@ func cloneMap(value map[string]any) map[string]any {
 		copied[key] = item
 	}
 	return copied
+}
+
+func hasRunUsageDelta(value domain.RunUsageSnapshot) bool {
+	return value.InputTokens > 0 ||
+		value.OutputTokens > 0 ||
+		value.CachedInputTokens > 0 ||
+		value.CacheCreationTokens > 0 ||
+		value.ReasoningTokens > 0 ||
+		value.PromptTokens > 0 ||
+		value.CandidateTokens > 0 ||
+		value.ToolTokens > 0 ||
+		value.TotalTokens > 0 ||
+		(value.CostAmount != nil && *value.CostAmount > 0)
+}
+
+func marshalRateLimitPayload(rateLimit any) (map[string]any, error) {
+	if rateLimit == nil {
+		return nil, nil
+	}
+
+	payload, err := json.Marshal(rateLimit)
+	if err != nil {
+		return nil, err
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		return nil, err
+	}
+
+	return decoded, nil
 }

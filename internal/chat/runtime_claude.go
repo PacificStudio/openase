@@ -325,6 +325,17 @@ func mapClaudeEvent(
 		return []StreamEvent{newTaskMessageEvent(chatMessageTypeTaskProgress, decodeRawJSON(event.Raw))}
 	case provider.ClaudeCodeEventKindTaskNotice:
 		return []StreamEvent{newTaskMessageEvent(chatMessageTypeTaskNotification, decodeRawJSON(event.Raw))}
+	case provider.ClaudeCodeEventKindRateLimit:
+		if event.RateLimitInfo == nil {
+			return nil
+		}
+		return []StreamEvent{{
+			Event: "rate_limit_updated",
+			Payload: runtimeRateLimitPayload{
+				RateLimit:  event.RateLimitInfo,
+				ObservedAt: time.Now().UTC(),
+			},
+		}}
 	case provider.ClaudeCodeEventKindUnknown:
 		payload := map[string]any{"type": event.UnknownType}
 		if data := decodeRawJSON(event.Raw); data != nil {
@@ -340,7 +351,11 @@ func mapClaudeEvent(
 		if event.UsageInfo != nil {
 			costUSD = cloneCostUSD(event.UsageInfo.CostUSD)
 		}
-		return []StreamEvent{{
+		events := make([]StreamEvent, 0, 2)
+		if payload := runtimeTokenUsagePayloadFromCLIUsage(event.UsageInfo, costUSD); payload != nil {
+			events = append(events, StreamEvent{Event: "token_usage_updated", Payload: *payload})
+		}
+		events = append(events, StreamEvent{
 			Event: "done",
 			Payload: donePayload{
 				SessionID:      sessionID.String(),
@@ -348,7 +363,8 @@ func mapClaudeEvent(
 				TurnsUsed:      event.NumTurns,
 				TurnsRemaining: remainingTurns(maxTurns, event.NumTurns),
 			},
-		}}
+		})
+		return events
 	default:
 		return nil
 	}
