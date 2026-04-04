@@ -92,6 +92,12 @@
     },
     {
       "method": "get",
+      "path": "/api/v1/projects/{projectId}/token-usage",
+      "categories": ["backend_only"],
+      "reason": "Project token usage is now queryable for backend and operator flows, but the current browser UI does not yet expose a project-scoped token analytics surface."
+    },
+    {
+      "method": "get",
       "path": "/api/v1/projects/{projectId}",
       "categories": ["wrapped_but_unused"],
       "reason": "Project pages use summary/list/update flows and do not currently fetch a standalone project detail payload."
