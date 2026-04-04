@@ -1726,6 +1726,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/tickets/{ticketId}/workspace/reset': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Reset a preserved ticket workspace */
+    post: operations['resetTicketWorkspace']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/workflows/{workflowId}': {
     parameters: {
       query?: never
@@ -7549,6 +7566,7 @@ export interface operations {
               requested?: boolean
               status?: string
               ticket?: {
+                archived?: boolean
                 attempt_count?: number
                 /** Format: double */
                 budget_usd?: number
@@ -9748,6 +9766,7 @@ export interface operations {
         content: {
           'application/json': {
             tickets?: {
+              archived?: boolean
               attempt_count?: number
               /** Format: double */
               budget_usd?: number
@@ -9869,6 +9888,8 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Whether the ticket is archived and excluded from active board and pickup views. */
+          archived?: boolean | null
           /**
            * Format: double
            * @description Optional budget limit for the ticket in USD.
@@ -9911,6 +9932,7 @@ export interface operations {
         content: {
           'application/json': {
             ticket?: {
+              archived?: boolean
               attempt_count?: number
               /** Format: double */
               budget_usd?: number
@@ -10057,6 +10079,7 @@ export interface operations {
             page?: number
             per_page?: number
             tickets?: {
+              archived?: boolean
               attempt_count?: number
               /** Format: double */
               budget_usd?: number
@@ -10318,6 +10341,7 @@ export interface operations {
               ticket_id?: string
             }[]
             ticket?: {
+              archived?: boolean
               attempt_count?: number
               /** Format: double */
               budget_usd?: number
@@ -12949,6 +12973,7 @@ export interface operations {
               }
             }
             ticket?: {
+              archived?: boolean
               attempt_count?: number
               /** Format: double */
               budget_usd?: number
@@ -14261,6 +14286,7 @@ export interface operations {
         content: {
           'application/json': {
             ticket?: {
+              archived?: boolean
               attempt_count?: number
               /** Format: double */
               budget_usd?: number
@@ -14382,6 +14408,8 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Whether the ticket is archived and excluded from active board and pickup views. */
+          archived?: boolean | null
           /**
            * Format: double
            * @description Optional budget limit for the ticket in USD.
@@ -14417,6 +14445,7 @@ export interface operations {
         content: {
           'application/json': {
             ticket?: {
+              archived?: boolean
               attempt_count?: number
               /** Format: double */
               budget_usd?: number
@@ -15270,6 +15299,7 @@ export interface operations {
         content: {
           'application/json': {
             ticket?: {
+              archived?: boolean
               attempt_count?: number
               /** Format: double */
               budget_usd?: number
@@ -15336,6 +15366,79 @@ export interface operations {
               type?: string
               workflow_id?: string | null
             }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  resetTicketWorkspace: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Ticket ID. */
+        ticketId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Reset a preserved ticket workspace response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            reset?: boolean
           }
         }
       }

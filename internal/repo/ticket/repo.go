@@ -115,7 +115,7 @@ func (r *EntRepository) List(ctx context.Context, input ListInput) ([]Ticket, er
 	}
 
 	query := r.client.Ticket.Query().
-		Where(entticket.ProjectIDEQ(input.ProjectID)).
+		Where(entticket.ProjectIDEQ(input.ProjectID), entticket.Archived(false)).
 		Order(ent.Asc(entticket.FieldCreatedAt), ent.Asc(entticket.FieldIdentifier)).
 		WithStatus().
 		WithParent(func(query *ent.TicketQuery) {
@@ -172,7 +172,7 @@ func (r *EntRepository) ListArchived(ctx context.Context, input ArchivedListInpu
 	total, err := r.client.Ticket.Query().
 		Where(
 			entticket.ProjectIDEQ(input.ProjectID),
-			entticket.HasStatusWith(entticketstatus.StageEQ(entticketstatus.StageCanceled)),
+			entticket.Archived(true),
 		).
 		Count(ctx)
 	if err != nil {
@@ -183,7 +183,7 @@ func (r *EntRepository) ListArchived(ctx context.Context, input ArchivedListInpu
 	items, err := r.client.Ticket.Query().
 		Where(
 			entticket.ProjectIDEQ(input.ProjectID),
-			entticket.HasStatusWith(entticketstatus.StageEQ(entticketstatus.StageCanceled)),
+			entticket.Archived(true),
 		).
 		Order(ent.Asc(entticket.FieldCreatedAt), ent.Asc(entticket.FieldIdentifier)).
 		Limit(input.PerPage).
@@ -293,6 +293,7 @@ func (r *EntRepository) Create(ctx context.Context, input CreateInput) (Ticket, 
 		SetTitle(input.Title).
 		SetDescription(input.Description).
 		SetStatusID(statusID).
+		SetArchived(input.Archived).
 		SetType(toEntTicketType(input.Type)).
 		SetCreatedBy(resolveCreatedBy(input.CreatedBy)).
 		SetBudgetUsd(input.BudgetUSD).
@@ -418,6 +419,7 @@ func (r *EntRepository) Update(ctx context.Context, input UpdateInput) (UpdateRe
 
 	builder := tx.Ticket.UpdateOneID(current.ID)
 	statusChanged := false
+	archivedChanged := false
 	targetMachineChanged := false
 	releasedRunID := current.CurrentRunID
 	releasedWorkflowID := current.WorkflowID
@@ -447,6 +449,13 @@ func (r *EntRepository) Update(ctx context.Context, input UpdateInput) (UpdateRe
 			releasedHookName = hookName
 		}
 		builder.SetStatusID(input.StatusID.Value)
+	}
+	if input.Archived.Set {
+		archivedChanged = input.Archived.Value != current.Archived
+		builder.SetArchived(input.Archived.Value)
+		if archivedChanged && input.Archived.Value {
+			releasedHookName = "on_cancel"
+		}
 	}
 	if input.Priority.Set {
 		if input.Priority.Value == nil {
@@ -513,17 +522,17 @@ func (r *EntRepository) Update(ctx context.Context, input UpdateInput) (UpdateRe
 			builder.SetParentTicketID(*input.ParentTicketID.Value)
 		}
 	}
-	if statusChanged {
+	if statusChanged || (archivedChanged && input.Archived.Value) {
 		builder.ClearCurrentRunID()
 	}
-	if statusChanged || targetMachineChanged {
+	if statusChanged || targetMachineChanged || (archivedChanged && input.Archived.Value) {
 		ResetRetryBaseline(builder, current)
 	}
 
 	if _, err := builder.Save(ctx); err != nil {
 		return UpdateResult{}, mapTicketWriteError("update ticket", err)
 	}
-	if statusChanged || targetMachineChanged {
+	if statusChanged || targetMachineChanged || (archivedChanged && input.Archived.Value) {
 		if err := releaseTicketAgentClaim(ctx, tx, current, entagentrun.StatusTerminated); err != nil {
 			return UpdateResult{}, err
 		}
@@ -1600,6 +1609,7 @@ func mapTicket(item *ent.Ticket) Ticket {
 		Description:          item.Description,
 		StatusID:             item.StatusID,
 		Priority:             Priority(item.Priority),
+		Archived:             item.Archived,
 		Type:                 Type(item.Type),
 		WorkflowID:           item.WorkflowID,
 		CurrentRunID:         item.CurrentRunID,
@@ -2356,6 +2366,16 @@ func buildPickupDiagnosis(ctx pickupDiagnosisBuildContext) domain.PickupDiagnosi
 	}
 	diagnosis.Capacity = buildPickupDiagnosisCapacity(ctx)
 	diagnosis.BlockedBy = append(diagnosis.BlockedBy, ctx.blockedBy...)
+
+	if ctx.ticket.Archived {
+		return newPickupDiagnosis(
+			domain.PickupDiagnosisStateCompleted,
+			domain.PickupDiagnosisReasonArchived,
+			"Ticket is archived.",
+			"Unarchive the ticket before pickup can resume.",
+			diagnosisSummary(ctx, domain.PickupDiagnosisReasonArchived, domain.PickupDiagnosisReasonSeverityInfo, "Archived tickets are excluded from pickup."),
+		)
+	}
 
 	statusStage := ticketing.StatusStage(ctx.ticket.Edges.Status.Stage)
 	if ctx.ticket.CompletedAt != nil || (statusStage.IsValid() && statusStage.IsTerminal()) {

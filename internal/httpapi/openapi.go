@@ -698,6 +698,7 @@ type OpenAPITicket struct {
 	Description       string                      `json:"description"`
 	StatusID          string                      `json:"status_id"`
 	StatusName        string                      `json:"status_name"`
+	Archived          bool                        `json:"archived"`
 	Priority          string                      `json:"priority"`
 	Type              string                      `json:"type"`
 	WorkflowID        *string                     `json:"workflow_id,omitempty"`
@@ -1241,6 +1242,10 @@ type OpenAPITicketCommentsResponse struct {
 	Comments []OpenAPITicketComment `json:"comments"`
 }
 
+type OpenAPITicketWorkspaceResetResponse struct {
+	Reset bool `json:"reset"`
+}
+
 type OpenAPITicketCommentRevisionsResponse struct {
 	Revisions []OpenAPITicketCommentRevision `json:"revisions"`
 }
@@ -1701,6 +1706,7 @@ var (
 		"title":                     "Human-readable ticket title.",
 		"description":               "Ticket description or problem statement.",
 		"status_id":                 "Optional ticket status ID to assign explicitly.",
+		"archived":                  "Whether the ticket is archived and excluded from active board and pickup views.",
 		"priority":                  "Ticket priority value.",
 		"type":                      "Ticket type value.",
 		"workflow_id":               "Optional workflow ID that should handle the ticket.",
@@ -3938,6 +3944,24 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 	}
 	ticketRetryResume.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
 	b.doc.AddOperation("/api/v1/tickets/{ticketId}/retry/resume", http.MethodPost, ticketRetryResume)
+
+	ticketWorkspaceReset, err := b.jsonOperation(
+		"resetTicketWorkspace",
+		"Reset a preserved ticket workspace",
+		[]string{"tickets"},
+		http.StatusOK,
+		OpenAPITicketWorkspaceResetResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	ticketWorkspaceReset.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	b.doc.AddOperation("/api/v1/tickets/{ticketId}/workspace/reset", http.MethodPost, ticketWorkspaceReset)
 
 	commentsGet, err := b.jsonOperation(
 		"listTicketComments",

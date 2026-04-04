@@ -122,6 +122,8 @@ export const activityEventCatalog: ActivityEventCatalogEntry[] = [
   },
   { eventType: 'ticket.created', label: 'Ticket created', tone: 'info' },
   { eventType: 'ticket.updated', label: 'Ticket updated', tone: 'info' },
+  { eventType: 'ticket.archived', label: 'Ticket archived', tone: 'warning' },
+  { eventType: 'ticket.unarchived', label: 'Ticket unarchived', tone: 'info' },
   { eventType: 'ticket.status_changed', label: 'Ticket status changed', tone: 'info' },
   { eventType: 'ticket.completed', label: 'Ticket completed', tone: 'success' },
   { eventType: 'ticket.cancelled', label: 'Ticket cancelled', tone: 'warning' },

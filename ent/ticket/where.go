@@ -81,6 +81,11 @@ func StatusID(v uuid.UUID) predicate.Ticket {
 	return predicate.Ticket(sql.FieldEQ(FieldStatusID, v))
 }
 
+// Archived applies equality check predicate on the "archived" field. It's identical to ArchivedEQ.
+func Archived(v bool) predicate.Ticket {
+	return predicate.Ticket(sql.FieldEQ(FieldArchived, v))
+}
+
 // WorkflowID applies equality check predicate on the "workflow_id" field. It's identical to WorkflowIDEQ.
 func WorkflowID(v uuid.UUID) predicate.Ticket {
 	return predicate.Ticket(sql.FieldEQ(FieldWorkflowID, v))
@@ -429,6 +434,16 @@ func StatusIDIn(vs ...uuid.UUID) predicate.Ticket {
 // StatusIDNotIn applies the NotIn predicate on the "status_id" field.
 func StatusIDNotIn(vs ...uuid.UUID) predicate.Ticket {
 	return predicate.Ticket(sql.FieldNotIn(FieldStatusID, vs...))
+}
+
+// ArchivedEQ applies the EQ predicate on the "archived" field.
+func ArchivedEQ(v bool) predicate.Ticket {
+	return predicate.Ticket(sql.FieldEQ(FieldArchived, v))
+}
+
+// ArchivedNEQ applies the NEQ predicate on the "archived" field.
+func ArchivedNEQ(v bool) predicate.Ticket {
+	return predicate.Ticket(sql.FieldNEQ(FieldArchived, v))
 }
 
 // PriorityEQ applies the EQ predicate on the "priority" field.

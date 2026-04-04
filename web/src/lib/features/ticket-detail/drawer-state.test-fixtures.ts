@@ -10,6 +10,7 @@ export function buildLiveContext(
       identifier: 'ASE-336',
       title: 'Align Ticket Detail refresh wiring',
       description: 'Initial description',
+      archived: false,
       status: { id: 'status-1', name: 'Todo', color: '#2563eb' },
       priority: 'high',
       type: 'feature',

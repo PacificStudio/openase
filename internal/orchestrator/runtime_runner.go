@@ -1729,7 +1729,9 @@ func (l *RuntimeLauncher) releaseExecutionOwnership(ctx context.Context, runID u
 	)
 	l.prepareRunCompletionSummaryBestEffort(ctx, runID)
 	l.scheduleRunCompletionSummary(runID)
-	l.cleanupRunWorkspacesBestEffort(ctx, runID, "execution release")
+	if ticketReachedWorkflowFinish(ticket) {
+		l.cleanupRunWorkspacesBestEffort(ctx, runID, "execution release")
+	}
 	return nil
 }
 
@@ -1887,7 +1889,6 @@ func (l *RuntimeLauncher) handleExecutionFailure(ctx context.Context, runID uuid
 	if _, err := retrySvc.MarkAttemptFailed(ctx, ticketID); err != nil {
 		l.logger.Error("mark execution failed retry", "ticket_id", ticketID, "agent_id", agentID, "error", err)
 	}
-	l.cleanupRunWorkspacesBestEffort(ctx, runID, "execution failed")
 }
 
 func (l *RuntimeLauncher) shouldSuppressExecutionFailure(ctx context.Context, runID uuid.UUID, ticketID uuid.UUID) (bool, error) {

@@ -44,6 +44,7 @@
     updatingCommentId = null,
     deletingCommentId = null,
     resumingRetry = false,
+    resettingWorkspace = false,
     archiving = false,
     onClose,
     onSaveFields,
@@ -51,6 +52,7 @@
     onArchive,
     onSelectRun,
     onResumeRetry,
+    onResetWorkspace,
     onAddDependency,
     onDeleteDependency,
     onCreateExternalLink,
@@ -88,6 +90,7 @@
     updatingCommentId?: string | null
     deletingCommentId?: string | null
     resumingRetry?: boolean
+    resettingWorkspace?: boolean
     archiving?: boolean
     onClose?: () => void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
@@ -95,6 +98,7 @@
     onArchive?: () => void
     onSelectRun?: (runId: string) => Promise<void> | void
     onResumeRetry?: () => Promise<void> | void
+    onResetWorkspace?: () => Promise<void> | void
     onAddDependency?: (draft: DependencyDraft) => Promise<boolean> | boolean
     onDeleteDependency?: (dependencyId: string) => void
     onCreateExternalLink?: (draft: {
@@ -212,7 +216,9 @@
     {updatingRepoScopeId}
     {deletingRepoScopeId}
     {resumingRetry}
+    {resettingWorkspace}
     {onResumeRetry}
+    {onResetWorkspace}
     {onAddDependency}
     {onDeleteDependency}
     {onCreateExternalLink}

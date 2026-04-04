@@ -86,6 +86,7 @@ import type {
   TicketExternalLinkResponse,
   TicketPayload,
   TicketResponse,
+  TicketWorkspaceResetResponse,
   HRAdvisorActivationResponse,
   HRAdvisorResponse,
   Organization,
@@ -586,6 +587,7 @@ export function listArchivedTickets(
 export function createTicket(
   projectId: string,
   body: {
+    archived?: boolean | null
     title: string
     description?: string
     status_id?: string | null
@@ -608,6 +610,7 @@ export function createTicket(
 export function updateTicket(
   ticketId: string,
   body: {
+    archived?: boolean | null
     budget_usd?: number | null
     created_by?: string | null
     description?: string | null
@@ -625,6 +628,10 @@ export function updateTicket(
 
 export function resumeTicketRetry(ticketId: string) {
   return api.post<TicketResponse>(`/api/v1/tickets/${ticketId}/retry/resume`)
+}
+
+export function resetTicketWorkspace(ticketId: string) {
+  return api.post<TicketWorkspaceResetResponse>(`/api/v1/tickets/${ticketId}/workspace/reset`)
 }
 
 export function createTicketComment(

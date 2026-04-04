@@ -2573,11 +2573,11 @@ Handle a failing runtime turn.
 		if err != nil {
 			return false
 		}
-		if repoWorkspace.State != entticketrepoworkspace.StateCleaned || repoWorkspace.CleanedAt == nil {
+		if repoWorkspace.State != entticketrepoworkspace.StateReady || repoWorkspace.CleanedAt != nil {
 			return false
 		}
 		_, statErr := os.Stat(workspacePath)
-		return errors.Is(statErr, os.ErrNotExist)
+		return statErr == nil
 	})
 }
 
@@ -3028,11 +3028,11 @@ Exercise failing ticket hook lifecycle.
 	if string(raw) != "claim\nstart\nerror\n" {
 		t.Fatalf("unexpected failure hook log %q", string(raw))
 	}
-	if repoWorkspace.State != entticketrepoworkspace.StateCleaned || repoWorkspace.CleanedAt == nil {
-		t.Fatalf("expected cleaned ticket repo workspace after launch failure, got %+v", repoWorkspace)
+	if repoWorkspace.State != entticketrepoworkspace.StateReady || repoWorkspace.CleanedAt != nil {
+		t.Fatalf("expected preserved ticket repo workspace after launch failure, got %+v", repoWorkspace)
 	}
-	if _, err := os.Stat(workspacePath); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("expected workspace %s to be removed after launch failure, got err=%v", workspacePath, err)
+	if _, err := os.Stat(workspacePath); err != nil {
+		t.Fatalf("expected workspace %s to remain after launch failure, got err=%v", workspacePath, err)
 	}
 }
 

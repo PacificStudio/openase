@@ -204,6 +204,7 @@ type Ticket struct {
 	Description          string            `json:"description"`
 	StatusID             uuid.UUID         `json:"status_id"`
 	StatusName           string            `json:"status_name"`
+	Archived             bool              `json:"archived"`
 	Priority             Priority          `json:"priority"`
 	Type                 Type              `json:"type"`
 	WorkflowID           *uuid.UUID        `json:"workflow_id,omitempty"`
@@ -242,6 +243,7 @@ type CreateInput struct {
 	Title           string
 	Description     string
 	StatusID        *uuid.UUID
+	Archived        bool
 	Priority        *Priority
 	Type            Type
 	WorkflowID      *uuid.UUID
@@ -263,6 +265,7 @@ type UpdateInput struct {
 	Title                             Optional[string]
 	Description                       Optional[string]
 	StatusID                          Optional[uuid.UUID]
+	Archived                          Optional[bool]
 	Priority                          Optional[*Priority]
 	Type                              Optional[Type]
 	WorkflowID                        Optional[*uuid.UUID]
@@ -408,6 +411,7 @@ type PickupDiagnosisReasonCode string
 
 const (
 	PickupDiagnosisReasonReadyForPickup            PickupDiagnosisReasonCode = "ready_for_pickup"
+	PickupDiagnosisReasonArchived                  PickupDiagnosisReasonCode = "archived"
 	PickupDiagnosisReasonCompleted                 PickupDiagnosisReasonCode = "completed"
 	PickupDiagnosisReasonRunningCurrentRun         PickupDiagnosisReasonCode = "running_current_run"
 	PickupDiagnosisReasonRetryBackoff              PickupDiagnosisReasonCode = "retry_backoff"

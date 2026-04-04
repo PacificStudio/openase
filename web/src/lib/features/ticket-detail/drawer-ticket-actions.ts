@@ -1,6 +1,7 @@
 import {
   addTicketDependency,
   deleteTicketDependency,
+  resetTicketWorkspace,
   resumeTicketRetry,
   updateTicket,
 } from '$lib/api/openase'
@@ -26,6 +27,7 @@ type TicketMutationDrawerState = {
   creatingDependency: boolean
   deletingDependencyId: string | null
   resumingRetry: boolean
+  resettingWorkspace: boolean
   setMutationError: (message: string) => void
   setMutationNotice: (message: string) => void
 }
@@ -159,5 +161,34 @@ export async function handleResumeRetryAction({
     }),
     mutate: () => resumeTicketRetry(ticketId),
     successMessage: 'Retry resumed.',
+  })
+}
+
+export async function handleResetWorkspaceAction({
+  ticketId,
+  drawerState,
+  buildDrawerMutation,
+}: {
+  ticketId?: string | null
+  drawerState: TicketMutationDrawerState
+  buildDrawerMutation: (ticket: TicketDetail) => DrawerMutationBase
+}) {
+  const ticket = drawerState.ticket
+  if (!ticket || !ticketId) return
+  if (ticket.currentRunId) {
+    return drawerState.setMutationError('Workspace can only be reset after the current run stops.')
+  }
+
+  await runTicketDrawerMutation({
+    ...buildDrawerMutation(ticket),
+    start: () => {
+      drawerState.resettingWorkspace = true
+    },
+    finish: () => {
+      drawerState.resettingWorkspace = false
+    },
+    optimisticUpdate: (currentTicket) => currentTicket,
+    mutate: () => resetTicketWorkspace(ticketId),
+    successMessage: 'Workspace reset.',
   })
 }

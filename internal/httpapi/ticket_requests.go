@@ -14,6 +14,7 @@ type rawCreateTicketRequest struct {
 	Title          string                            `json:"title"`
 	Description    string                            `json:"description"`
 	StatusID       *string                           `json:"status_id"`
+	Archived       *bool                             `json:"archived"`
 	Priority       *string                           `json:"priority"`
 	Type           *string                           `json:"type"`
 	WorkflowID     *string                           `json:"workflow_id"`
@@ -33,6 +34,7 @@ type rawUpdateTicketRequest struct {
 	Title          *string  `json:"title"`
 	Description    *string  `json:"description"`
 	StatusID       *string  `json:"status_id"`
+	Archived       *bool    `json:"archived"`
 	Priority       *string  `json:"priority"`
 	Type           *string  `json:"type"`
 	WorkflowID     *string  `json:"workflow_id"`
@@ -111,6 +113,7 @@ func parseCreateTicketRequest(projectID uuid.UUID, raw rawCreateTicketRequest) (
 		Title:          title,
 		Description:    strings.TrimSpace(raw.Description),
 		StatusID:       statusID,
+		Archived:       raw.Archived != nil && *raw.Archived,
 		Priority:       priority,
 		Type:           ticketType,
 		WorkflowID:     workflowID,
@@ -171,6 +174,9 @@ func parseUpdateTicketRequest(ticketID uuid.UUID, raw rawUpdateTicketRequest) (t
 			return ticketservice.UpdateInput{}, err
 		}
 		input.StatusID = ticketservice.Some(statusID)
+	}
+	if raw.Archived != nil {
+		input.Archived = ticketservice.Some(*raw.Archived)
 	}
 	if raw.Priority != nil {
 		priority, err := parseOptionalTicketPriority(*raw.Priority)

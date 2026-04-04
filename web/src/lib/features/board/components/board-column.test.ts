@@ -64,6 +64,7 @@ function buildTicket(): BoardTicket {
     identifier: 'ASE-202',
     title: 'Wire board page to runtime data',
     priority: 'high',
+    archived: false,
     workflowType: 'coding',
     updatedAt: '2026-04-01T12:00:00Z',
   }

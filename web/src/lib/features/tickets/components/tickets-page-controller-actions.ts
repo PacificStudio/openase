@@ -211,27 +211,17 @@ async function handleColumnArchiveAll(
   const projectId = appStore.currentProject?.id
   if (!projectId) return
 
-  const archivedStatus = state.allStatuses.find((status) => status.stage === 'canceled')
-  if (!archivedStatus) {
-    toastStore.error('No cancelled status is configured for this project.')
-    return
-  }
-
   const sourceColumn = state.allColumns.find((column) => column.id === statusId)
   if (!sourceColumn) return
 
   const ticketIDs = sourceColumn.tickets
-    .filter((ticket) => ticket.statusId !== archivedStatus.id)
+    .filter((ticket) => !ticket.archived)
     .map((ticket) => ticket.id)
   if (ticketIDs.length === 0) return
 
   try {
-    await Promise.all(
-      ticketIDs.map((ticketID) => updateTicket(ticketID, { status_id: archivedStatus.id })),
-    )
-    toastStore.success(
-      `${ticketIDs.length} ticket${ticketIDs.length > 1 ? 's' : ''} archived to "${archivedStatus.name}".`,
-    )
+    await Promise.all(ticketIDs.map((ticketID) => updateTicket(ticketID, { archived: true })))
+    toastStore.success(`${ticketIDs.length} ticket${ticketIDs.length > 1 ? 's' : ''} archived.`)
   } catch (caughtError) {
     toastStore.error(
       caughtError instanceof ApiError ? caughtError.detail : 'Failed to archive tickets.',

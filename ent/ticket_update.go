@@ -119,6 +119,20 @@ func (_u *TicketUpdate) SetNillableStatusID(v *uuid.UUID) *TicketUpdate {
 	return _u
 }
 
+// SetArchived sets the "archived" field.
+func (_u *TicketUpdate) SetArchived(v bool) *TicketUpdate {
+	_u.mutation.SetArchived(v)
+	return _u
+}
+
+// SetNillableArchived sets the "archived" field if the given value is not nil.
+func (_u *TicketUpdate) SetNillableArchived(v *bool) *TicketUpdate {
+	if v != nil {
+		_u.SetArchived(*v)
+	}
+	return _u
+}
+
 // SetPriority sets the "priority" field.
 func (_u *TicketUpdate) SetPriority(v ticket.Priority) *TicketUpdate {
 	_u.mutation.SetPriority(v)
@@ -1159,6 +1173,9 @@ func (_u *TicketUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if _u.mutation.DescriptionCleared() {
 		_spec.ClearField(ticket.FieldDescription, field.TypeString)
 	}
+	if value, ok := _u.mutation.Archived(); ok {
+		_spec.SetField(ticket.FieldArchived, field.TypeBool, value)
+	}
 	if value, ok := _u.mutation.Priority(); ok {
 		_spec.SetField(ticket.FieldPriority, field.TypeEnum, value)
 	}
@@ -2067,6 +2084,20 @@ func (_u *TicketUpdateOne) SetStatusID(v uuid.UUID) *TicketUpdateOne {
 func (_u *TicketUpdateOne) SetNillableStatusID(v *uuid.UUID) *TicketUpdateOne {
 	if v != nil {
 		_u.SetStatusID(*v)
+	}
+	return _u
+}
+
+// SetArchived sets the "archived" field.
+func (_u *TicketUpdateOne) SetArchived(v bool) *TicketUpdateOne {
+	_u.mutation.SetArchived(v)
+	return _u
+}
+
+// SetNillableArchived sets the "archived" field if the given value is not nil.
+func (_u *TicketUpdateOne) SetNillableArchived(v *bool) *TicketUpdateOne {
+	if v != nil {
+		_u.SetArchived(*v)
 	}
 	return _u
 }
@@ -3140,6 +3171,9 @@ func (_u *TicketUpdateOne) sqlSave(ctx context.Context) (_node *Ticket, err erro
 	}
 	if _u.mutation.DescriptionCleared() {
 		_spec.ClearField(ticket.FieldDescription, field.TypeString)
+	}
+	if value, ok := _u.mutation.Archived(); ok {
+		_spec.SetField(ticket.FieldArchived, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.Priority(); ok {
 		_spec.SetField(ticket.FieldPriority, field.TypeEnum, value)

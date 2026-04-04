@@ -34,7 +34,9 @@
     updatingRepoScopeId = null,
     deletingRepoScopeId = null,
     resumingRetry = false,
+    resettingWorkspace = false,
     onResumeRetry,
+    onResetWorkspace,
     onAddDependency,
     onDeleteDependency,
     onCreateExternalLink,
@@ -55,7 +57,9 @@
     updatingRepoScopeId?: string | null
     deletingRepoScopeId?: string | null
     resumingRetry?: boolean
+    resettingWorkspace?: boolean
     onResumeRetry?: () => Promise<void> | void
+    onResetWorkspace?: () => Promise<void> | void
     onAddDependency?: (draft: DependencyDraft) => Promise<boolean> | boolean
     onDeleteDependency?: (dependencyId: string) => void
     onCreateExternalLink?: (draft: {
@@ -92,7 +96,13 @@
   class="border-border w-full shrink-0 border-t md:sticky md:top-0 md:w-72 md:self-start md:border-t-0 md:border-l"
 >
   <div class="flex flex-col gap-4 px-4 py-4">
-    <TicketRuntimeStateCard {ticket} {resumingRetry} {onResumeRetry} />
+    <TicketRuntimeStateCard
+      {ticket}
+      {resumingRetry}
+      {resettingWorkspace}
+      {onResumeRetry}
+      {onResetWorkspace}
+    />
 
     <Separator />
 

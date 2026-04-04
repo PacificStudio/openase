@@ -911,52 +911,56 @@ func init() {
 	ticketDescTitle := ticketFields[3].Descriptor()
 	// ticket.TitleValidator is a validator for the "title" field. It is called by the builders before save.
 	ticket.TitleValidator = ticketDescTitle.Validators[0].(func(string) error)
+	// ticketDescArchived is the schema descriptor for archived field.
+	ticketDescArchived := ticketFields[6].Descriptor()
+	// ticket.DefaultArchived holds the default value on creation for the archived field.
+	ticket.DefaultArchived = ticketDescArchived.Default.(bool)
 	// ticketDescCreatedBy is the schema descriptor for created_by field.
-	ticketDescCreatedBy := ticketFields[11].Descriptor()
+	ticketDescCreatedBy := ticketFields[12].Descriptor()
 	// ticket.CreatedByValidator is a validator for the "created_by" field. It is called by the builders before save.
 	ticket.CreatedByValidator = ticketDescCreatedBy.Validators[0].(func(string) error)
 	// ticketDescAttemptCount is the schema descriptor for attempt_count field.
-	ticketDescAttemptCount := ticketFields[14].Descriptor()
+	ticketDescAttemptCount := ticketFields[15].Descriptor()
 	// ticket.DefaultAttemptCount holds the default value on creation for the attempt_count field.
 	ticket.DefaultAttemptCount = ticketDescAttemptCount.Default.(int)
 	// ticketDescConsecutiveErrors is the schema descriptor for consecutive_errors field.
-	ticketDescConsecutiveErrors := ticketFields[15].Descriptor()
+	ticketDescConsecutiveErrors := ticketFields[16].Descriptor()
 	// ticket.DefaultConsecutiveErrors holds the default value on creation for the consecutive_errors field.
 	ticket.DefaultConsecutiveErrors = ticketDescConsecutiveErrors.Default.(int)
 	// ticketDescRetryPaused is the schema descriptor for retry_paused field.
-	ticketDescRetryPaused := ticketFields[17].Descriptor()
+	ticketDescRetryPaused := ticketFields[18].Descriptor()
 	// ticket.DefaultRetryPaused holds the default value on creation for the retry_paused field.
 	ticket.DefaultRetryPaused = ticketDescRetryPaused.Default.(bool)
 	// ticketDescStallCount is the schema descriptor for stall_count field.
-	ticketDescStallCount := ticketFields[19].Descriptor()
+	ticketDescStallCount := ticketFields[20].Descriptor()
 	// ticket.DefaultStallCount holds the default value on creation for the stall_count field.
 	ticket.DefaultStallCount = ticketDescStallCount.Default.(int)
 	// ticketDescHarnessVersion is the schema descriptor for harness_version field.
-	ticketDescHarnessVersion := ticketFields[21].Descriptor()
+	ticketDescHarnessVersion := ticketFields[22].Descriptor()
 	// ticket.DefaultHarnessVersion holds the default value on creation for the harness_version field.
 	ticket.DefaultHarnessVersion = ticketDescHarnessVersion.Default.(int)
 	// ticketDescBudgetUsd is the schema descriptor for budget_usd field.
-	ticketDescBudgetUsd := ticketFields[22].Descriptor()
+	ticketDescBudgetUsd := ticketFields[23].Descriptor()
 	// ticket.DefaultBudgetUsd holds the default value on creation for the budget_usd field.
 	ticket.DefaultBudgetUsd = ticketDescBudgetUsd.Default.(float64)
 	// ticketDescCostTokensInput is the schema descriptor for cost_tokens_input field.
-	ticketDescCostTokensInput := ticketFields[23].Descriptor()
+	ticketDescCostTokensInput := ticketFields[24].Descriptor()
 	// ticket.DefaultCostTokensInput holds the default value on creation for the cost_tokens_input field.
 	ticket.DefaultCostTokensInput = ticketDescCostTokensInput.Default.(int64)
 	// ticketDescCostTokensOutput is the schema descriptor for cost_tokens_output field.
-	ticketDescCostTokensOutput := ticketFields[24].Descriptor()
+	ticketDescCostTokensOutput := ticketFields[25].Descriptor()
 	// ticket.DefaultCostTokensOutput holds the default value on creation for the cost_tokens_output field.
 	ticket.DefaultCostTokensOutput = ticketDescCostTokensOutput.Default.(int64)
 	// ticketDescCostAmount is the schema descriptor for cost_amount field.
-	ticketDescCostAmount := ticketFields[25].Descriptor()
+	ticketDescCostAmount := ticketFields[26].Descriptor()
 	// ticket.DefaultCostAmount holds the default value on creation for the cost_amount field.
 	ticket.DefaultCostAmount = ticketDescCostAmount.Default.(float64)
 	// ticketDescMetadata is the schema descriptor for metadata field.
-	ticketDescMetadata := ticketFields[26].Descriptor()
+	ticketDescMetadata := ticketFields[27].Descriptor()
 	// ticket.DefaultMetadata holds the default value on creation for the metadata field.
 	ticket.DefaultMetadata = ticketDescMetadata.Default.(func() map[string]interface{})
 	// ticketDescCreatedAt is the schema descriptor for created_at field.
-	ticketDescCreatedAt := ticketFields[29].Descriptor()
+	ticketDescCreatedAt := ticketFields[30].Descriptor()
 	// ticket.DefaultCreatedAt holds the default value on creation for the created_at field.
 	ticket.DefaultCreatedAt = ticketDescCreatedAt.Default.(func() time.Time)
 	// ticketDescID is the schema descriptor for id field.

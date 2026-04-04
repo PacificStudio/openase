@@ -4,9 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { appStore } from '$lib/stores/app.svelte'
 import ArchivedTicketsSettings from './archived-tickets-settings.svelte'
 
-const { listArchivedTickets, listStatuses, updateTicket } = vi.hoisted(() => ({
+const { listArchivedTickets, updateTicket } = vi.hoisted(() => ({
   listArchivedTickets: vi.fn(),
-  listStatuses: vi.fn(),
   updateTicket: vi.fn(),
 }))
 
@@ -19,7 +18,6 @@ const { toastStore } = vi.hoisted(() => ({
 
 vi.mock('$lib/api/openase', () => ({
   listArchivedTickets,
-  listStatuses,
   updateTicket,
 }))
 
@@ -41,39 +39,6 @@ function seedProject() {
   }
 }
 
-function buildStatuses() {
-  return {
-    statuses: [
-      {
-        id: 'status-backlog',
-        project_id: 'project-1',
-        name: 'Backlog',
-        stage: 'backlog',
-        color: '#94a3b8',
-        icon: '',
-        position: 0,
-        active_runs: 0,
-        max_active_runs: null,
-        is_default: true,
-        description: '',
-      },
-      {
-        id: 'status-cancelled',
-        project_id: 'project-1',
-        name: 'Cancelled',
-        stage: 'canceled',
-        color: '#6b7280',
-        icon: '',
-        position: 1,
-        active_runs: 0,
-        max_active_runs: null,
-        is_default: false,
-        description: '',
-      },
-    ],
-  }
-}
-
 function buildArchivedTicket(
   overrides: Partial<{
     id: string
@@ -89,8 +54,9 @@ function buildArchivedTicket(
     identifier: 'ASE-1',
     title: 'Archived ticket 1',
     description: '',
-    status_id: 'status-cancelled',
-    status_name: 'Cancelled',
+    status_id: 'status-archived',
+    status_name: 'Archived',
+    archived: true,
     priority: 'medium',
     type: 'feature',
     workflow_id: null,
@@ -121,7 +87,6 @@ function buildArchivedTicket(
 describe('Archived tickets settings', () => {
   beforeEach(() => {
     seedProject()
-    listStatuses.mockResolvedValue(buildStatuses())
   })
 
   afterEach(() => {
@@ -191,13 +156,11 @@ describe('Archived tickets settings', () => {
     await fireEvent.click(await findByRole('button', { name: /ASE-1 Restore me/i }))
     await fireEvent.click(await findByRole('button', { name: 'Restore 1 ticket' }))
 
-    await waitFor(() =>
-      expect(updateTicket).toHaveBeenCalledWith('ticket-1', { status_id: 'status-backlog' }),
-    )
+    await waitFor(() => expect(updateTicket).toHaveBeenCalledWith('ticket-1', { archived: false }))
     await waitFor(() =>
       expect(listArchivedTickets).toHaveBeenLastCalledWith('project-1', { page: 1, per_page: 20 }),
     )
-    expect(toastStore.success).toHaveBeenCalledWith('1 ticket restored to "Backlog".')
+    expect(toastStore.success).toHaveBeenCalledWith('1 ticket restored.')
     expect(await findByText('No archived tickets')).toBeTruthy()
   })
 })

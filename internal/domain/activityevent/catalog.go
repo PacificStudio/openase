@@ -72,6 +72,8 @@ const (
 	TypeTicketCommentDeleted             Type = "ticket_comment.deleted"
 	TypeTicketCreated                    Type = "ticket.created"
 	TypeTicketUpdated                    Type = "ticket.updated"
+	TypeTicketArchived                   Type = "ticket.archived"
+	TypeTicketUnarchived                 Type = "ticket.unarchived"
 	TypeTicketStatusChanged              Type = "ticket.status_changed"
 	TypeTicketCompleted                  Type = "ticket.completed"
 	TypeTicketCancelled                  Type = "ticket.cancelled"
@@ -151,6 +153,8 @@ var canonicalCatalog = []CatalogEntry{
 	{EventType: TypeTicketCommentDeleted, Label: "Ticket Comment Deleted"},
 	{EventType: TypeTicketCreated, Label: "Ticket Created"},
 	{EventType: TypeTicketUpdated, Label: "Ticket Updated"},
+	{EventType: TypeTicketArchived, Label: "Ticket Archived"},
+	{EventType: TypeTicketUnarchived, Label: "Ticket Unarchived"},
 	{EventType: TypeTicketStatusChanged, Label: "Ticket Status Changed"},
 	{EventType: TypeTicketCompleted, Label: "Ticket Completed"},
 	{EventType: TypeTicketCancelled, Label: "Ticket Cancelled"},

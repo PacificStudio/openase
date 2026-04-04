@@ -13,6 +13,7 @@ function buildContext(overrides: Partial<TicketDetailLiveContext> = {}): TicketD
       status: { id: 'status-1', name: 'Todo', color: '#2563eb' },
       priority: 'high',
       type: 'feature',
+      archived: false,
       repoScopes: [],
       attemptCount: 0,
       consecutiveErrors: 0,

@@ -12,6 +12,7 @@ const ticket: TicketDetail = {
   status: { id: 'todo', name: 'Todo', color: '#94a3b8' },
   priority: 'medium',
   type: 'feature',
+  archived: false,
   repoScopes: [],
   attemptCount: 0,
   consecutiveErrors: 0,

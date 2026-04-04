@@ -222,6 +222,8 @@ function buildBoardTicketsByStatusId(
   const ticketsByStatusId = new Map<string, BoardTicket[]>()
 
   for (const ticket of tickets) {
+    if (ticket.archived) continue
+
     const runtime = runtimeByTicketId.get(ticket.id)
     const agentRuntime = agentRuntimeByTicketId.get(ticket.id)
     const isBlocked = ticket.dependencies.some(
@@ -230,6 +232,7 @@ function buildBoardTicketsByStatusId(
     const statusInfo = statusMap.get(ticket.status_id)
     const boardTicket: BoardTicket = {
       id: ticket.id,
+      archived: ticket.archived,
       statusId: ticket.status_id,
       statusName: statusInfo?.name ?? 'Unknown',
       statusColor: statusInfo?.color ?? '#94a3b8',

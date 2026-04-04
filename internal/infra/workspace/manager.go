@@ -353,13 +353,20 @@ func parseRepositorySource(fieldName string, raw string) (string, error) {
 }
 
 func prepareRepository(ctx context.Context, repoPath string, repo RepoRequest) (string, error) {
-	repository, err := cloneOrOpenRepository(ctx, repoPath, repo)
+	repository, existing, err := openOrCloneRepository(ctx, repoPath, repo)
 	if err != nil {
 		return "", fmt.Errorf("prepare repo %s: %w", repo.Name, err)
 	}
 
 	if err := ensureOriginMatches(repository, repo.RepositoryURL); err != nil {
 		return "", fmt.Errorf("prepare repo %s: %w", repo.Name, err)
+	}
+	if existing {
+		head, err := repository.Head()
+		if err != nil {
+			return "", fmt.Errorf("prepare repo %s: resolve existing head: %w", repo.Name, err)
+		}
+		return head.Hash().String(), nil
 	}
 
 	headCommit, err := ensureFeatureBranchCheckedOut(repository, repo.DefaultBranch, repo.BranchName)
@@ -371,37 +378,38 @@ func prepareRepository(ctx context.Context, repoPath string, repo RepoRequest) (
 }
 
 func cloneOrOpenRepository(ctx context.Context, repoPath string, repo RepoRequest) (*git.Repository, error) {
+	repository, _, err := openOrCloneRepository(ctx, repoPath, repo)
+	return repository, err
+}
+
+func openOrCloneRepository(ctx context.Context, repoPath string, repo RepoRequest) (*git.Repository, bool, error) {
 	stat, err := os.Stat(repoPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			cloneOptions, cloneOptionsErr := buildCloneOptions(repo)
 			if cloneOptionsErr != nil {
-				return nil, fmt.Errorf("build clone options for %s: %w", repo.RepositoryURL, cloneOptionsErr)
+				return nil, false, fmt.Errorf("build clone options for %s: %w", repo.RepositoryURL, cloneOptionsErr)
 			}
 			repository, cloneErr := git.PlainCloneContext(ctx, repoPath, false, cloneOptions)
 			if cloneErr != nil {
-				return nil, fmt.Errorf("clone repository %s into %s: %w", repo.RepositoryURL, repoPath, cloneErr)
+				return nil, false, fmt.Errorf("clone repository %s into %s: %w", repo.RepositoryURL, repoPath, cloneErr)
 			}
 
-			return repository, nil
+			return repository, false, nil
 		}
 
-		return nil, fmt.Errorf("stat repository path %s: %w", repoPath, err)
+		return nil, false, fmt.Errorf("stat repository path %s: %w", repoPath, err)
 	}
 	if !stat.IsDir() {
-		return nil, fmt.Errorf("repository path %s is not a directory", repoPath)
+		return nil, false, fmt.Errorf("repository path %s is not a directory", repoPath)
 	}
 
 	repository, err := git.PlainOpen(repoPath)
 	if err != nil {
-		return nil, fmt.Errorf("open repository %s: %w", repoPath, err)
+		return nil, false, fmt.Errorf("open repository %s: %w", repoPath, err)
 	}
 
-	if err := fetchRepository(ctx, repository, repo); err != nil {
-		return nil, fmt.Errorf("fetch repository %s: %w", repoPath, err)
-	}
-
-	return repository, nil
+	return repository, true, nil
 }
 
 func fetchRepository(ctx context.Context, repository *git.Repository, repo RepoRequest) error {

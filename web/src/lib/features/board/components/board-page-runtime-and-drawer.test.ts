@@ -112,6 +112,7 @@ const ticketsFixture: TicketPayload = {
       status_name: 'Todo',
       priority: 'high',
       type: 'feature',
+      archived: false,
       workflow_id: 'workflow-1',
       current_run_id: null,
       target_machine_id: null,

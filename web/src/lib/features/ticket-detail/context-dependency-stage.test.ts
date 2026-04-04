@@ -40,6 +40,7 @@ const archivedTicketPayload = {
       status_name: 'Archived',
       priority: 'medium',
       type: 'feature',
+      archived: false,
       workflow_id: null,
       current_run_id: null,
       target_machine_id: null,

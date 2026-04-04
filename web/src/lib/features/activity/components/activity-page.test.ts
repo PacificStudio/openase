@@ -66,6 +66,7 @@ const ticketPayload: TicketPayload = {
       status_name: 'Todo',
       priority: 'high',
       type: 'task',
+      archived: false,
       workflow_id: null,
       current_run_id: null,
       target_machine_id: null,

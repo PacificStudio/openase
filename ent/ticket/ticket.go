@@ -26,6 +26,8 @@ const (
 	FieldDescription = "description"
 	// FieldStatusID holds the string denoting the status_id field in the database.
 	FieldStatusID = "status_id"
+	// FieldArchived holds the string denoting the archived field in the database.
+	FieldArchived = "archived"
 	// FieldPriority holds the string denoting the priority field in the database.
 	FieldPriority = "priority"
 	// FieldType holds the string denoting the type field in the database.
@@ -242,6 +244,7 @@ var Columns = []string{
 	FieldTitle,
 	FieldDescription,
 	FieldStatusID,
+	FieldArchived,
 	FieldPriority,
 	FieldType,
 	FieldWorkflowID,
@@ -283,6 +286,8 @@ var (
 	IdentifierValidator func(string) error
 	// TitleValidator is a validator for the "title" field. It is called by the builders before save.
 	TitleValidator func(string) error
+	// DefaultArchived holds the default value on creation for the "archived" field.
+	DefaultArchived bool
 	// CreatedByValidator is a validator for the "created_by" field. It is called by the builders before save.
 	CreatedByValidator func(string) error
 	// DefaultAttemptCount holds the default value on creation for the "attempt_count" field.
@@ -396,6 +401,11 @@ func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 // ByStatusID orders the results by the status_id field.
 func ByStatusID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatusID, opts...).ToFunc()
+}
+
+// ByArchived orders the results by the archived field.
+func ByArchived(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldArchived, opts...).ToFunc()
 }
 
 // ByPriority orders the results by the priority field.

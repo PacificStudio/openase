@@ -15,6 +15,7 @@ type rawAgentCreateTicketRequest struct {
 	Title          string   `json:"title"`
 	Description    string   `json:"description"`
 	StatusID       *string  `json:"status_id"`
+	Archived       *bool    `json:"archived"`
 	Priority       *string  `json:"priority"`
 	Type           *string  `json:"type"`
 	WorkflowID     *string  `json:"workflow_id"`
@@ -29,6 +30,7 @@ type rawAgentUpdateTicketRequest struct {
 	ExternalRef *string `json:"external_ref"`
 	StatusID    *string `json:"status_id"`
 	StatusName  *string `json:"status_name"`
+	Archived    *bool   `json:"archived"`
 }
 
 type rawAgentReportUsageRequest struct {
@@ -80,6 +82,7 @@ func parseAgentCreateTicketRequest(projectID uuid.UUID, raw rawAgentCreateTicket
 		Title:          raw.Title,
 		Description:    raw.Description,
 		StatusID:       raw.StatusID,
+		Archived:       raw.Archived,
 		Priority:       raw.Priority,
 		Type:           raw.Type,
 		WorkflowID:     raw.WorkflowID,
@@ -128,6 +131,9 @@ func parseAgentUpdateTicketRequest(
 			return ticketservice.UpdateInput{}, agentStatusNameResolutionError{err: err}
 		}
 		input.StatusID = ticketservice.Some(statusID)
+	}
+	if raw.Archived != nil {
+		input.Archived = ticketservice.Some(*raw.Archived)
 	}
 	input.CreatedBy = ticketservice.Some(createdBy)
 	return input, nil

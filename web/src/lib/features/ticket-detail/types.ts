@@ -50,6 +50,7 @@ export type TicketDetail = {
   identifier: string
   title: string
   description: string
+  archived: boolean
   status: TicketStatusOption
   priority: '' | 'urgent' | 'high' | 'medium' | 'low'
   type: 'feature' | 'bugfix' | 'refactor' | 'chore'

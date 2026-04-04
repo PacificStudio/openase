@@ -62,6 +62,7 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 - 默认输出是 JSON；可以配合 `--json`、`--jq`、`--template` 做筛选
 - 平台失败时 CLI 会把 HTTP method、path、status 和 API error code 直接打出来，不需要自己猜
 - Token 是短期且带 scope 的；不是所有 workflow 都能改 project、repo、scheduled-job
+- shared wrapper flags 同时接受 kebab-case 和 snake_case，例如 `--status-name` / `--status_name`、`--body-file` / `--body_file`
 
 ## Top-Level Commands
 
@@ -70,10 +71,10 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 ### Agent / API 操作面
 
 - `api`: raw HTTP passthrough，任何已暴露 API 的兜底入口
-- `ticket`: ticket 读写、detail、comments 等
+- `ticket`: shared platform wrapper 负责高频 ticket 读写；非重叠的 detail/run/dependency/external-link 等扩展子命令仍直接走 OpenAPI
 - `status`: ticket status board 管理
 - `chat`: ephemeral chat 与 project conversation
-- `project`: project 读写
+- `project`: shared platform wrapper 负责 update/add-repo；list/get/create/delete 仍直接走 OpenAPI
 - `repo`: project repo、GitHub repo 发现、ticket repo scopes
 - `workflow`: workflow 与 harness 读写
 - `scheduled-job`: 定时任务管理
@@ -429,7 +430,7 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 ./.openase/bin/openase watch project $OPENASE_PROJECT_ID
 ```
 
-这些 typed commands 的特点：
+这些 additional typed commands 的特点：
 
 - 参数和字段来自 OpenAPI 合约，不是手写猜测
 - 输出默认是 JSON

@@ -59,10 +59,19 @@ func (r *EntRepository) ResolveStatusIDByName(ctx context.Context, projectID uui
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("list ticket statuses for name resolution: %w", err)
 	}
+	var matchID uuid.UUID
+	matchCount := 0
 	for _, status := range statuses {
 		if strings.EqualFold(strings.TrimSpace(status.Name), trimmed) {
-			return status.ID, nil
+			matchID = status.ID
+			matchCount++
 		}
+	}
+	if matchCount > 1 {
+		return uuid.UUID{}, domain.ErrDuplicateStatusName
+	}
+	if matchCount == 1 {
+		return matchID, nil
 	}
 
 	return uuid.UUID{}, domain.ErrStatusNotFound
@@ -88,6 +97,9 @@ func (r *EntRepository) Create(ctx context.Context, input domain.CreateInput) (d
 	defer rollback(tx)
 
 	if err := ensureProjectExists(ctx, tx.Project, input.ProjectID); err != nil {
+		return domain.Status{}, err
+	}
+	if err := ensureUniqueStatusName(ctx, tx.TicketStatus, input.ProjectID, input.Name); err != nil {
 		return domain.Status{}, err
 	}
 
@@ -158,6 +170,11 @@ func (r *EntRepository) Update(ctx context.Context, input domain.UpdateInput) (d
 	current, err := tx.TicketStatus.Get(ctx, input.StatusID)
 	if err != nil {
 		return domain.Status{}, mapNotFoundError(err, domain.ErrStatusNotFound)
+	}
+	if input.Name.Set {
+		if err := ensureUniqueStatusName(ctx, tx.TicketStatus, current.ProjectID, input.Name.Value, current.ID); err != nil {
+			return domain.Status{}, err
+		}
 	}
 
 	if input.IsDefault.Set && !input.IsDefault.Value && current.IsDefault {
@@ -585,6 +602,38 @@ func mapNotFoundError(err error, replacement error) error {
 		return replacement
 	}
 	return err
+}
+
+type ticketStatusQueryClient interface {
+	Query() *ent.TicketStatusQuery
+}
+
+func ensureUniqueStatusName(ctx context.Context, client ticketStatusQueryClient, projectID uuid.UUID, name string, excludeStatusIDs ...uuid.UUID) error {
+	normalizedTarget := strings.ToLower(strings.TrimSpace(name))
+	if normalizedTarget == "" {
+		return fmt.Errorf("status name must not be empty")
+	}
+
+	excluded := make(map[uuid.UUID]struct{}, len(excludeStatusIDs))
+	for _, statusID := range excludeStatusIDs {
+		excluded[statusID] = struct{}{}
+	}
+
+	statuses, err := client.Query().
+		Where(entticketstatus.ProjectIDEQ(projectID)).
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("list ticket statuses for duplicate name check: %w", err)
+	}
+	for _, status := range statuses {
+		if _, skip := excluded[status.ID]; skip {
+			continue
+		}
+		if strings.ToLower(strings.TrimSpace(status.Name)) == normalizedTarget {
+			return domain.ErrDuplicateStatusName
+		}
+	}
+	return nil
 }
 
 func nextStatusPosition(statuses []*ent.TicketStatus) int {

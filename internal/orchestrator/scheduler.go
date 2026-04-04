@@ -132,6 +132,7 @@ func (s *Scheduler) runWorkflowTick(ctx context.Context, workflow *ent.Workflow,
 	candidates, err := s.client.Ticket.Query().
 		Where(
 			entticket.ProjectIDEQ(workflow.ProjectID),
+			entticket.Archived(false),
 			entticket.StatusIDIn(ticketStatusIDs(workflow.Edges.PickupStatuses)...),
 			entticket.CurrentRunIDIsNil(),
 			entticket.RetryPaused(false),
@@ -448,6 +449,7 @@ func (s *Scheduler) claimTicketWithAgent(ctx context.Context, workflow *ent.Work
 
 	claimPredicates := []predicate.Ticket{
 		entticket.IDEQ(ticket.ID),
+		entticket.Archived(false),
 		entticket.StatusIDIn(ticketStatusIDs(workflow.Edges.PickupStatuses)...),
 		entticket.CurrentRunIDIsNil(),
 		entticket.RetryPaused(false),

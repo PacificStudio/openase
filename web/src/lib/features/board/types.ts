@@ -18,6 +18,7 @@ export type BoardGroup = {
 
 export type BoardTicket = {
   id: string
+  archived: boolean
   statusId: string
   statusName: string
   statusColor: string

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestTypedTicketUpdateHelpClarifiesUUIDSemantics(t *testing.T) {
+func TestRootTicketUpdateHelpClarifiesPlatformUUIDSemantics(t *testing.T) {
 	root := NewRootCommand("dev")
 	command, _, err := root.Find([]string{"ticket", "update"})
 	if err != nil {
@@ -25,7 +25,8 @@ func TestTypedTicketUpdateHelpClarifiesUUIDSemantics(t *testing.T) {
 
 	output := stdout.String()
 	for _, want := range []string{
-		"ticketId must be UUID values",
+		"OPENASE_TICKET_ID",
+		"At least one update field must be provided.",
 		"Human-readable identifiers such as ASE-2 are not accepted",
 	} {
 		if !strings.Contains(output, want) {
@@ -198,8 +199,8 @@ func TestTypedTicketCommentCommandExposesPrimitiveSubcommandsOnly(t *testing.T) 
 		}
 		names = append(names, child.Name())
 	}
-	if strings.Join(names, ",") != "create,delete,list,revisions,update" {
-		t.Fatalf("comment subcommands = %v, want [create delete list revisions update]", names)
+	if strings.Join(names, ",") != "create,list,update" {
+		t.Fatalf("comment subcommands = %v, want [create list update]", names)
 	}
 }
 
@@ -301,7 +302,7 @@ func TestTicketCommandExposesRunRetryAndExternalLinkSubcommands(t *testing.T) {
 		}
 		names = append(names, child.Name())
 	}
-	if strings.Join(names, ",") != "archived,comment,create,dependency,detail,external-link,get,list,retry-resume,run,update" {
+	if strings.Join(names, ",") != "archived,comment,create,dependency,detail,external-link,get,list,report-usage,retry-resume,run,update" {
 		t.Fatalf("ticket subcommands = %v", names)
 	}
 }

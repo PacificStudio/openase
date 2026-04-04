@@ -28,6 +28,7 @@ import (
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
@@ -57,6 +58,11 @@ type Server struct {
 	githubAuthService          githubauthservice.SecurityManager
 	githubRepoService          githubreposervice.Service
 	memoryCollector            runtimeobservability.ProcessMemoryCollector
+	ticketWorkspaceResetter    ticketWorkspaceResetter
+}
+
+type ticketWorkspaceResetter interface {
+	ResetTicketWorkspace(ctx context.Context, ticketID uuid.UUID) error
 }
 
 type ServerOption func(*Server)
@@ -100,6 +106,12 @@ func WithGitHubAuthService(service githubauthservice.SecurityManager) ServerOpti
 func WithGitHubRepoService(service githubreposervice.Service) ServerOption {
 	return func(server *Server) {
 		server.githubRepoService = service
+	}
+}
+
+func WithTicketWorkspaceResetter(service ticketWorkspaceResetter) ServerOption {
+	return func(server *Server) {
+		server.ticketWorkspaceResetter = service
 	}
 }
 

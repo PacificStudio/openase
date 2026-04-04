@@ -141,6 +141,7 @@ export function buildTicketDetailLiveContext(
       identifier: detailTicket.identifier,
       title: detailTicket.title,
       description: detailTicket.description,
+      archived: detailTicket.archived,
       status: {
         id: detailTicket.status_id,
         name: detailTicket.status_name,

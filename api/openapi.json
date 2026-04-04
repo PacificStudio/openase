@@ -10483,6 +10483,9 @@
                         "ticket": {
                           "nullable": true,
                           "properties": {
+                            "archived": {
+                              "type": "boolean"
+                            },
                             "attempt_count": {
                               "type": "integer"
                             },
@@ -14899,6 +14902,9 @@
                     "tickets": {
                       "items": {
                         "properties": {
+                          "archived": {
+                            "type": "boolean"
+                          },
                           "attempt_count": {
                             "type": "integer"
                           },
@@ -15188,6 +15194,11 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "archived": {
+                    "description": "Whether the ticket is archived and excluded from active board and pickup views.",
+                    "nullable": true,
+                    "type": "boolean"
+                  },
                   "budget_usd": {
                     "description": "Optional budget limit for the ticket in USD.",
                     "format": "double",
@@ -15271,6 +15282,9 @@
                   "properties": {
                     "ticket": {
                       "properties": {
+                        "archived": {
+                          "type": "boolean"
+                        },
                         "attempt_count": {
                           "type": "integer"
                         },
@@ -15604,6 +15618,9 @@
                     "tickets": {
                       "items": {
                         "properties": {
+                          "archived": {
+                            "type": "boolean"
+                          },
                           "attempt_count": {
                             "type": "integer"
                           },
@@ -16316,6 +16333,9 @@
                     },
                     "ticket": {
                       "properties": {
+                        "archived": {
+                          "type": "boolean"
+                        },
                         "attempt_count": {
                           "type": "integer"
                         },
@@ -21607,6 +21627,9 @@
                     },
                     "ticket": {
                       "properties": {
+                        "archived": {
+                          "type": "boolean"
+                        },
                         "attempt_count": {
                           "type": "integer"
                         },
@@ -24136,6 +24159,9 @@
                   "properties": {
                     "ticket": {
                       "properties": {
+                        "archived": {
+                          "type": "boolean"
+                        },
                         "attempt_count": {
                           "type": "integer"
                         },
@@ -24423,6 +24449,11 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "archived": {
+                    "description": "Whether the ticket is archived and excluded from active board and pickup views.",
+                    "nullable": true,
+                    "type": "boolean"
+                  },
                   "budget_usd": {
                     "description": "Optional budget limit for the ticket in USD.",
                     "format": "double",
@@ -24490,6 +24521,9 @@
                   "properties": {
                     "ticket": {
                       "properties": {
+                        "archived": {
+                          "type": "boolean"
+                        },
                         "attempt_count": {
                           "type": "integer"
                         },
@@ -26060,6 +26094,9 @@
                   "properties": {
                     "ticket": {
                       "properties": {
+                        "archived": {
+                          "type": "boolean"
+                        },
                         "attempt_count": {
                           "type": "integer"
                         },
@@ -26342,6 +26379,116 @@
           }
         },
         "summary": "Resume a stalled ticket retry",
+        "tags": [
+          "tickets"
+        ]
+      }
+    },
+    "/api/v1/tickets/{ticketId}/workspace/reset": {
+      "post": {
+        "operationId": "resetTicketWorkspace",
+        "parameters": [
+          {
+            "description": "Ticket ID.",
+            "in": "path",
+            "name": "ticketId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "reset": {
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Reset a preserved ticket workspace response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Reset a preserved ticket workspace",
         "tags": [
           "tickets"
         ]

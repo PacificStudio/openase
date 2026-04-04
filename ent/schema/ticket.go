@@ -19,6 +19,7 @@ func (Ticket) Fields() []ent.Field {
 		field.String("title").NotEmpty(),
 		field.Text("description").Optional(),
 		field.UUID("status_id", uuidZero()),
+		field.Bool("archived").Default(false),
 		field.Enum("priority").
 			Values("urgent", "high", "medium", "low").
 			Optional(),
@@ -110,6 +111,7 @@ func (Ticket) Indexes() []ent.Index {
 		index.Fields("project_id", "identifier").Unique(),
 		index.Fields("project_id", "status_id", "current_run_id", "priority", "created_at"),
 		index.Fields("project_id", "status_id"),
+		index.Fields("project_id", "archived", "created_at"),
 		index.Fields("project_id", "external_ref"),
 	}
 }

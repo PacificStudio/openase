@@ -94,6 +94,7 @@ type ticketResponse struct {
 	Description       string                       `json:"description"`
 	StatusID          string                       `json:"status_id"`
 	StatusName        string                       `json:"status_name"`
+	Archived          bool                         `json:"archived"`
 	Priority          string                       `json:"priority"`
 	Type              string                       `json:"type"`
 	WorkflowID        *string                      `json:"workflow_id,omitempty"`
@@ -124,6 +125,14 @@ type archivedTicketsResponse struct {
 	Total   int              `json:"total"`
 	Page    int              `json:"page"`
 	PerPage int              `json:"per_page"`
+}
+
+type ticketWorkspaceResetResponse struct {
+	Reset bool `json:"reset"`
+}
+
+type workspaceResetConflict interface {
+	WorkspaceResetConflict() bool
 }
 
 type ticketRepoScopeDetailResponse struct {
@@ -233,6 +242,7 @@ func (s *Server) registerTicketRoutes(api *echo.Group) {
 	api.GET("/tickets/:ticketId", s.handleGetTicket)
 	api.PATCH("/tickets/:ticketId", s.handleUpdateTicket)
 	api.POST("/tickets/:ticketId/retry/resume", s.handleResumeTicketRetry)
+	api.POST("/tickets/:ticketId/workspace/reset", s.handleResetTicketWorkspace)
 	api.GET("/tickets/:ticketId/comments", s.handleListTicketComments)
 	api.POST("/tickets/:ticketId/comments", s.handleCreateTicketComment)
 	api.PATCH("/tickets/:ticketId/comments/:commentId", s.handleUpdateTicketComment)
@@ -470,10 +480,7 @@ func (s *Server) handleUpdateTicket(c echo.Context) error {
 	if err != nil {
 		return writeTicketError(c, err)
 	}
-	eventType := ticketUpdatedEventType
-	if input.StatusID.Set {
-		eventType = ticketStatusEventType
-	}
+	eventType := ticketMutationEventType(input)
 	if err := s.publishTicketEvent(c.Request().Context(), eventType, item); err != nil {
 		return writeTicketError(c, err)
 	}
@@ -511,6 +518,32 @@ func (s *Server) handleResumeTicketRetry(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"ticket": mapTicketResponse(item),
 	})
+}
+
+func (s *Server) handleResetTicketWorkspace(c echo.Context) error {
+	if s.ticketService == nil || s.ticketWorkspaceResetter == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	ticketID, err := parseTicketID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
+	}
+	if _, err := s.ticketService.Get(c.Request().Context(), ticketID); err != nil {
+		return writeTicketError(c, err)
+	}
+	if err := s.ticketWorkspaceResetter.ResetTicketWorkspace(c.Request().Context(), ticketID); err != nil {
+		var conflictErr workspaceResetConflict
+		if errors.As(err, &conflictErr) && conflictErr.WorkspaceResetConflict() {
+			return writeAPIError(c, http.StatusConflict, "WORKSPACE_RESET_CONFLICT", err.Error())
+		}
+		return writeTicketError(c, err)
+	}
+	if err := s.publishTicketUpdatedByID(c.Request().Context(), ticketID); err != nil {
+		return writeTicketError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, ticketWorkspaceResetResponse{Reset: true})
 }
 
 func (s *Server) handleListTicketComments(c echo.Context) error {
@@ -1210,6 +1243,7 @@ func mapTicketResponse(item ticketservice.Ticket) ticketResponse {
 		Description:       item.Description,
 		StatusID:          item.StatusID.String(),
 		StatusName:        item.StatusName,
+		Archived:          item.Archived,
 		Priority:          string(item.Priority),
 		Type:              string(item.Type),
 		CreatedBy:         item.CreatedBy,

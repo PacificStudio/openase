@@ -96,6 +96,7 @@ export const ticketFixture: TicketDetail = {
   status: statusesFixture[0],
   priority: 'high',
   type: 'feature',
+  archived: false,
   workflow: { id: 'workflow-1', name: 'coding', type: 'coding' },
   assignedAgent: {
     id: 'agent-1',

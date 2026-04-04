@@ -172,6 +172,9 @@ func classifyRuntimeTicket(ticket *ent.Ticket, runID uuid.UUID, runWorkflowID uu
 	if ticket.WorkflowID == nil || *ticket.WorkflowID != runWorkflowID {
 		return runtimeTicketWorkflowDrift
 	}
+	if ticket.Archived {
+		return runtimeTicketInactive
+	}
 	if ticket.Edges.Workflow == nil {
 		return runtimeTicketInactive
 	}

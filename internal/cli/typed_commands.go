@@ -113,7 +113,7 @@ request body from a file or stdin. --input cannot be combined with body fields.
 		},
 	}
 	command.SetFlagErrorFunc(flagErrorWithNormalize)
-	applyCLIFlagNormalization(command.Flags())
+	applyCLICommandFlagNormalization(command)
 	bindAPICommandFlags(command.Flags(), &options)
 	bindAPIOutputFlags(command.Flags(), &output)
 	command.Flags().StringSliceVarP(&fields, "field", "f", nil, "Add a JSON body field as key=value. Repeat for multiple fields.")
@@ -398,7 +398,7 @@ func newTypedTicketCommentCommand() *cobra.Command {
 		Method:           http.MethodPatch,
 		Path:             "/api/v1/tickets/{ticketId}/comments/{commentId}",
 		PositionalParams: []string{"ticketId", "commentId"},
-		Example:          "openase ticket comment update $OPENASE_TICKET_ID $OPENASE_COMMENT_ID --body-file /tmp/comment.md",
+		Example:          "openase ticket comment update $OPENASE_TICKET_ID $OPENASE_COMMENT_ID --body \"Updated progress\"",
 	}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [ticketId] [commentId]", Short: "Delete a ticket comment.", Method: http.MethodDelete, Path: "/api/v1/tickets/{ticketId}/comments/{commentId}", PositionalParams: []string{"ticketId", "commentId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "revisions [ticketId] [commentId]", Short: "List ticket comment revisions.", Method: http.MethodGet, Path: "/api/v1/tickets/{ticketId}/comments/{commentId}/revisions", PositionalParams: []string{"ticketId", "commentId"}}))
@@ -931,7 +931,7 @@ func newOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 		},
 	}
 	command.SetFlagErrorFunc(flagErrorWithNormalize)
-	applyCLIFlagNormalization(command.Flags())
+	applyCLICommandFlagNormalization(command)
 	registerOpenAPICommandFlags(command.Flags(), contract)
 	return command
 }
@@ -972,7 +972,7 @@ func newRawBodyOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 		},
 	}
 	command.SetFlagErrorFunc(flagErrorWithNormalize)
-	applyCLIFlagNormalization(command.Flags())
+	applyCLICommandFlagNormalization(command)
 	bindAPICommandFlags(command.Flags(), &apiCommandOptions{})
 	bindAPIOutputFlags(command.Flags(), &apiOutputOptions{})
 	command.Flags().StringSliceVarP(&fields, "field", "f", nil, "Add a JSON body field as key=value. Repeat for multiple fields.")
@@ -1018,7 +1018,7 @@ func newOpenAPIStreamCommand(spec openAPICommandSpec) *cobra.Command {
 		},
 	}
 	command.SetFlagErrorFunc(flagErrorWithNormalize)
-	applyCLIFlagNormalization(command.Flags())
+	applyCLICommandFlagNormalization(command)
 	registerOpenAPIStreamFlags(command.Flags(), contract)
 	return command
 }
@@ -1746,10 +1746,18 @@ func flagErrorWithNormalize(command *cobra.Command, err error) error {
 	return err
 }
 
+func normalizeCLIFlagName(_ *pflag.FlagSet, name string) pflag.NormalizedName {
+	return pflag.NormalizedName(strings.ReplaceAll(name, "-", "_"))
+}
+
 func applyCLIFlagNormalization(flags *pflag.FlagSet) {
-	flags.SetNormalizeFunc(func(_ *pflag.FlagSet, name string) pflag.NormalizedName {
-		return pflag.NormalizedName(strings.ReplaceAll(name, "-", "_"))
-	})
+	flags.SetNormalizeFunc(normalizeCLIFlagName)
+}
+
+func applyCLICommandFlagNormalization(command *cobra.Command) {
+	command.SetGlobalNormalizationFunc(normalizeCLIFlagName)
+	applyCLIFlagNormalization(command.Flags())
+	applyCLIFlagNormalization(command.PersistentFlags())
 }
 
 func apiOptionsFromFlags(flags *pflag.FlagSet) apiCommandOptions {

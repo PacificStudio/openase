@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -18,12 +20,14 @@ import (
 	entticketcommentrevision "github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
+	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	"github.com/BetterAndBetterII/openase/internal/orchestrator"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
 	ticketstatusrepo "github.com/BetterAndBetterII/openase/internal/repo/ticketstatus"
@@ -672,13 +676,24 @@ func TestListArchivedTicketsSupportsPagination(t *testing.T) {
 	}
 	backlogID := findStatusIDByName(t, statuses, "Backlog")
 	cancelledID := findStatusIDByName(t, statuses, "Cancelled")
+	archivedStatus, err := statusSvc.Create(ctx, ticketstatus.CreateInput{
+		ProjectID: project.ID,
+		Name:      "Archived",
+		Stage:     ticketing.StatusStageCanceled,
+		Color:     "#374151",
+		Position:  ticketstatus.Some(len(statuses)),
+	})
+	if err != nil {
+		t.Fatalf("create archived status: %v", err)
+	}
 
 	for index := range 5 {
 		builder := client.Ticket.Create().
 			SetProjectID(project.ID).
 			SetIdentifier(fmt.Sprintf("ASE-%d", index+1)).
 			SetTitle(fmt.Sprintf("Archived ticket %d", index+1)).
-			SetStatusID(cancelledID).
+			SetStatusID(archivedStatus.ID).
+			SetArchived(true).
 			SetCreatedBy("user:test").
 			SetCreatedAt(time.Date(2026, 4, 1, 10, index, 0, 0, time.UTC))
 		completedAt := time.Date(2026, 4, 2, 10, index, 0, 0, time.UTC)
@@ -696,6 +711,16 @@ func TestListArchivedTicketsSupportsPagination(t *testing.T) {
 		SetCreatedAt(time.Date(2026, 4, 1, 10, 6, 0, 0, time.UTC)).
 		Save(ctx); err != nil {
 		t.Fatalf("create active ticket: %v", err)
+	}
+	if _, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-7").
+		SetTitle("Cancelled ticket is not archived").
+		SetStatusID(cancelledID).
+		SetCreatedBy("user:test").
+		SetCreatedAt(time.Date(2026, 4, 1, 10, 7, 0, 0, time.UTC)).
+		Save(ctx); err != nil {
+		t.Fatalf("create cancelled ticket: %v", err)
 	}
 
 	responseBody := archivedTicketsResponse{}
@@ -722,8 +747,8 @@ func TestListArchivedTicketsSupportsPagination(t *testing.T) {
 		t.Fatalf("expected second page tickets ASE-3 and ASE-4, got %+v", responseBody.Tickets)
 	}
 	for _, ticket := range responseBody.Tickets {
-		if ticket.StatusName != "Cancelled" {
-			t.Fatalf("expected only cancelled tickets, got %+v", responseBody.Tickets)
+		if ticket.StatusName != "Archived" {
+			t.Fatalf("expected only archived tickets, got %+v", responseBody.Tickets)
 		}
 	}
 }
@@ -2294,7 +2319,7 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 	}
 }
 
-func TestTicketRouteArchivedStatusClearsAssignmentAndReleasesAgent(t *testing.T) {
+func TestTicketRouteArchivingClearsAssignmentAndReleasesAgent(t *testing.T) {
 	client := openTestEntClient(t)
 	server := NewServer(
 		config.ServerConfig{Port: 40024},
@@ -2352,22 +2377,14 @@ func TestTicketRouteArchivedStatusClearsAssignmentAndReleasesAgent(t *testing.T)
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
 	todoID := findStatusIDByName(t, statuses, "Todo")
-	archivedStatus, err := statusSvc.Create(ctx, ticketstatus.CreateInput{
-		ProjectID: project.ID,
-		Name:      "Archived",
-		Stage:     ticketing.StatusStageCanceled,
-		Color:     "#4B5563",
-	})
-	if err != nil {
-		t.Fatalf("create archived status: %v", err)
-	}
+	doneID := findStatusIDByName(t, statuses, "Done")
 	workflowItem, err := client.Workflow.Create().
 		SetProjectID(project.ID).
 		SetName("coding-workflow").
 		SetType("coding").
 		SetHarnessPath("roles/coding.md").
 		AddPickupStatusIDs(todoID).
-		AddFinishStatusIDs(archivedStatus.ID).
+		AddFinishStatusIDs(doneID).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -2420,7 +2437,7 @@ func TestTicketRouteArchivedStatusClearsAssignmentAndReleasesAgent(t *testing.T)
 		server,
 		http.MethodPatch,
 		fmt.Sprintf("/api/v1/tickets/%s", ticketItem.ID),
-		map[string]any{"status_id": archivedStatus.ID.String()},
+		map[string]any{"archived": true},
 		http.StatusOK,
 		&statusResp,
 	)
@@ -2429,14 +2446,14 @@ func TestTicketRouteArchivedStatusClearsAssignmentAndReleasesAgent(t *testing.T)
 	if err != nil {
 		t.Fatalf("reload ticket after status update: %v", err)
 	}
-	if ticketAfterStatusChange.StatusID != archivedStatus.ID {
-		t.Fatalf("expected ticket status %s, got %s", archivedStatus.ID, ticketAfterStatusChange.StatusID)
+	if !ticketAfterStatusChange.Archived {
+		t.Fatalf("expected ticket archived=true after patch, got %+v", ticketAfterStatusChange)
 	}
 	if ticketAfterStatusChange.CurrentRunID != nil {
-		t.Fatalf("expected archived status update to clear current run, got %+v", ticketAfterStatusChange.CurrentRunID)
+		t.Fatalf("expected archived flag update to clear current run, got %+v", ticketAfterStatusChange.CurrentRunID)
 	}
-	if statusResp.Ticket.CurrentRunID != nil || statusResp.Ticket.StatusName != "Archived" {
-		t.Fatalf("unexpected archived patch response: %+v", statusResp.Ticket)
+	if statusResp.Ticket.CurrentRunID != nil || !statusResp.Ticket.Archived {
+		t.Fatalf("unexpected archive patch response: %+v", statusResp.Ticket)
 	}
 	runAfterStatusChange, err := client.AgentRun.Get(ctx, runItem.ID)
 	if err != nil {
@@ -2446,14 +2463,14 @@ func TestTicketRouteArchivedStatusClearsAssignmentAndReleasesAgent(t *testing.T)
 		runAfterStatusChange.SessionID != "" ||
 		runAfterStatusChange.RuntimeStartedAt != nil ||
 		runAfterStatusChange.LastHeartbeatAt != nil {
-		t.Fatalf("expected archived status update to finalize agent run, got %+v", runAfterStatusChange)
+		t.Fatalf("expected archived flag update to finalize agent run, got %+v", runAfterStatusChange)
 	}
 	agentAfterStatusChange, err := client.Agent.Get(ctx, assignedAgent.ID)
 	if err != nil {
 		t.Fatalf("reload agent after status update: %v", err)
 	}
 	if agentAfterStatusChange.RuntimeControlState != entagent.RuntimeControlStateActive {
-		t.Fatalf("expected archived status update to reset agent control state, got %+v", agentAfterStatusChange)
+		t.Fatalf("expected archived flag update to reset agent control state, got %+v", agentAfterStatusChange)
 	}
 }
 
@@ -2803,5 +2820,284 @@ func TestHandleResumeTicketRetryRejectsNonStalledPause(t *testing.T) {
 	)
 	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "RETRY_RESUME_CONFLICT") {
 		t.Fatalf("expected retry resume conflict, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandleResetTicketWorkspaceCleansWorkspaceAndPublishesUpdate(t *testing.T) {
+	client := openTestEntClient(t)
+	bus := eventinfra.NewChannelBus()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		bus,
+		newTicketService(client),
+		newTicketStatusService(client),
+		nil,
+		nil,
+		nil,
+		WithTicketWorkspaceResetter(
+			orchestrator.NewTicketWorkspaceResetService(
+				client,
+				slog.New(slog.NewTextHandler(io.Discard, nil)),
+				nil,
+			),
+		),
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	machine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local-devbox").
+		SetHost(catalogdomain.LocalMachineHost).
+		SetPort(0).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create machine: %v", err)
+	}
+	providerItem, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(machine.ID).
+		SetName("Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	agentItem, err := client.Agent.Create().
+		SetProjectID(project.ID).
+		SetProviderID(providerItem.ID).
+		SetName("coder").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	doneID := findStatusIDByName(t, statuses, "Done")
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(project.ID).
+		SetName("coding-workflow").
+		SetType("coding").
+		SetHarnessPath("roles/coding.md").
+		AddPickupStatusIDs(todoID).
+		AddFinishStatusIDs(doneID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-1").
+		SetTitle("Preserve dirty worktree").
+		SetStatusID(todoID).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runItem, err := client.AgentRun.Create().
+		SetTicketID(ticketItem.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetAgentID(agentItem.ID).
+		SetProviderID(providerItem.ID).
+		SetStatus(entagentrun.StatusCompleted).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+
+	workspaceRoot := filepath.Join(t.TempDir(), "workspace-root")
+	repoPath := filepath.Join(workspaceRoot, "repo")
+	if err := os.MkdirAll(repoPath, 0o750); err != nil {
+		t.Fatalf("mkdir repo path: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, "DIRTY.txt"), []byte("dirty\n"), 0o600); err != nil {
+		t.Fatalf("write dirty file: %v", err)
+	}
+	repoItem, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName("openase").
+		SetRepositoryURL("https://example.com/openase.git").
+		SetDefaultBranch("main").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project repo: %v", err)
+	}
+	workspaceItem, err := client.TicketRepoWorkspace.Create().
+		SetTicketID(ticketItem.ID).
+		SetAgentRunID(runItem.ID).
+		SetRepoID(repoItem.ID).
+		SetWorkspaceRoot(workspaceRoot).
+		SetRepoPath(repoPath).
+		SetBranchName("scratch").
+		SetState(entticketrepoworkspace.StateReady).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workspace row: %v", err)
+	}
+
+	stream := subscribeTopicEvents(t, bus, ticketEventsTopic)
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/tickets/%s/workspace/reset", ticketItem.ID),
+		"",
+	)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"reset":true`) {
+		t.Fatalf("expected workspace reset response, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	if _, err := os.Stat(workspaceRoot); !os.IsNotExist(err) {
+		t.Fatalf("expected workspace root removed, got err=%v", err)
+	}
+
+	workspaceAfter, err := client.TicketRepoWorkspace.Get(ctx, workspaceItem.ID)
+	if err != nil {
+		t.Fatalf("reload workspace row: %v", err)
+	}
+	if workspaceAfter.State != entticketrepoworkspace.StateCleaned || workspaceAfter.CleanedAt == nil {
+		t.Fatalf("expected cleaned workspace row, got %+v", workspaceAfter)
+	}
+
+	assertStringSet(t, readTicketEventTicketIDs(t, stream, 1), ticketItem.ID.String())
+}
+
+func TestHandleResetTicketWorkspaceRejectsActiveRun(t *testing.T) {
+	client := openTestEntClient(t)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		newTicketService(client),
+		newTicketStatusService(client),
+		nil,
+		nil,
+		nil,
+		WithTicketWorkspaceResetter(
+			orchestrator.NewTicketWorkspaceResetService(
+				client,
+				slog.New(slog.NewTextHandler(io.Discard, nil)),
+				nil,
+			),
+		),
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	machine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local-devbox").
+		SetHost(catalogdomain.LocalMachineHost).
+		SetPort(0).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create machine: %v", err)
+	}
+	providerItem, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(machine.ID).
+		SetName("Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	agentItem, err := client.Agent.Create().
+		SetProjectID(project.ID).
+		SetProviderID(providerItem.ID).
+		SetName("coder").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	doneID := findStatusIDByName(t, statuses, "Done")
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(project.ID).
+		SetName("coding-workflow").
+		SetType("coding").
+		SetHarnessPath("roles/coding.md").
+		AddPickupStatusIDs(todoID).
+		AddFinishStatusIDs(doneID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-1").
+		SetTitle("Still running").
+		SetStatusID(todoID).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runItem, err := client.AgentRun.Create().
+		SetTicketID(ticketItem.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetAgentID(agentItem.ID).
+		SetProviderID(providerItem.ID).
+		SetStatus(entagentrun.StatusExecuting).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).SetCurrentRunID(runItem.ID).Save(ctx); err != nil {
+		t.Fatalf("attach current run: %v", err)
+	}
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/tickets/%s/workspace/reset", ticketItem.ID),
+		"",
+	)
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "WORKSPACE_RESET_CONFLICT") {
+		t.Fatalf("expected workspace reset conflict, got %d: %s", rec.Code, rec.Body.String())
 	}
 }

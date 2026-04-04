@@ -241,10 +241,7 @@ func (s *Server) handleAgentUpdateOwnTicket(c echo.Context) error {
 	if err != nil {
 		return writeTicketError(c, err)
 	}
-	eventType := ticketUpdatedEventType
-	if input.StatusID.Set {
-		eventType = ticketStatusEventType
-	}
+	eventType := ticketMutationEventType(input)
 	if err := s.publishTicketEvent(c.Request().Context(), eventType, item); err != nil {
 		return writeTicketError(c, err)
 	}

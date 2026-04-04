@@ -541,7 +541,6 @@ func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUI
 	)
 	l.prepareRunCompletionSummaryBestEffort(ctx, runID)
 	l.scheduleRunCompletionSummary(runID)
-	l.cleanupRunWorkspacesBestEffort(ctx, runID, "launch failure")
 	return nil
 }
 

@@ -1442,6 +1442,7 @@ var (
 		{Name: "identifier", Type: field.TypeString},
 		{Name: "title", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "archived", Type: field.TypeBool, Default: false},
 		{Name: "priority", Type: field.TypeEnum, Nullable: true, Enums: []string{"urgent", "high", "medium", "low"}},
 		{Name: "type", Type: field.TypeEnum, Enums: []string{"feature", "bugfix", "refactor", "chore", "epic"}, Default: "feature"},
 		{Name: "created_by", Type: field.TypeString},
@@ -1477,37 +1478,37 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "tickets_agent_runs_current_for_ticket",
-				Columns:    []*schema.Column{TicketsColumns[24]},
+				Columns:    []*schema.Column{TicketsColumns[25]},
 				RefColumns: []*schema.Column{AgentRunsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "tickets_machines_target_tickets",
-				Columns:    []*schema.Column{TicketsColumns[25]},
+				Columns:    []*schema.Column{TicketsColumns[26]},
 				RefColumns: []*schema.Column{MachinesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "tickets_projects_tickets",
-				Columns:    []*schema.Column{TicketsColumns[26]},
+				Columns:    []*schema.Column{TicketsColumns[27]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "tickets_tickets_children",
-				Columns:    []*schema.Column{TicketsColumns[27]},
+				Columns:    []*schema.Column{TicketsColumns[28]},
 				RefColumns: []*schema.Column{TicketsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "tickets_ticket_status_tickets",
-				Columns:    []*schema.Column{TicketsColumns[28]},
+				Columns:    []*schema.Column{TicketsColumns[29]},
 				RefColumns: []*schema.Column{TicketStatusColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "tickets_workflows_tickets",
-				Columns:    []*schema.Column{TicketsColumns[29]},
+				Columns:    []*schema.Column{TicketsColumns[30]},
 				RefColumns: []*schema.Column{WorkflowsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -1516,22 +1517,27 @@ var (
 			{
 				Name:    "ticket_project_id_identifier",
 				Unique:  true,
-				Columns: []*schema.Column{TicketsColumns[26], TicketsColumns[1]},
+				Columns: []*schema.Column{TicketsColumns[27], TicketsColumns[1]},
 			},
 			{
 				Name:    "ticket_project_id_status_id_current_run_id_priority_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{TicketsColumns[26], TicketsColumns[28], TicketsColumns[24], TicketsColumns[4], TicketsColumns[23]},
+				Columns: []*schema.Column{TicketsColumns[27], TicketsColumns[29], TicketsColumns[25], TicketsColumns[5], TicketsColumns[24]},
 			},
 			{
 				Name:    "ticket_project_id_status_id",
 				Unique:  false,
-				Columns: []*schema.Column{TicketsColumns[26], TicketsColumns[28]},
+				Columns: []*schema.Column{TicketsColumns[27], TicketsColumns[29]},
+			},
+			{
+				Name:    "ticket_project_id_archived_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{TicketsColumns[27], TicketsColumns[4], TicketsColumns[24]},
 			},
 			{
 				Name:    "ticket_project_id_external_ref",
 				Unique:  false,
-				Columns: []*schema.Column{TicketsColumns[26], TicketsColumns[7]},
+				Columns: []*schema.Column{TicketsColumns[27], TicketsColumns[8]},
 			},
 		},
 	}

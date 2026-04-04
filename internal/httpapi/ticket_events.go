@@ -15,6 +15,8 @@ var (
 	ticketEventsTopic      = provider.MustParseTopic("ticket.events")
 	ticketCreatedEventType = activityevent.TypeTicketCreated
 	ticketUpdatedEventType = activityevent.TypeTicketUpdated
+	ticketArchivedType     = activityevent.TypeTicketArchived
+	ticketUnarchivedType   = activityevent.TypeTicketUnarchived
 	ticketStatusEventType  = activityevent.TypeTicketStatusChanged
 	ticketRetryResumedType = activityevent.TypeTicketRetryResumed
 )
@@ -69,6 +71,10 @@ func buildTicketActivityMessage(eventType activityevent.Type, ticket ticketservi
 	switch eventType {
 	case activityevent.TypeTicketCreated:
 		return fmt.Sprintf("Created ticket %s", ticket.Identifier)
+	case activityevent.TypeTicketArchived:
+		return fmt.Sprintf("Archived ticket %s", ticket.Identifier)
+	case activityevent.TypeTicketUnarchived:
+		return fmt.Sprintf("Unarchived ticket %s", ticket.Identifier)
 	case activityevent.TypeTicketStatusChanged:
 		return fmt.Sprintf("Updated %s status to %s", ticket.Identifier, ticket.StatusName)
 	case activityevent.TypeTicketRetryResumed:
@@ -90,6 +96,9 @@ func buildTicketActivityMetadata(
 	switch eventType {
 	case activityevent.TypeTicketCreated:
 		metadata["created_by"] = ticket.CreatedBy
+	case activityevent.TypeTicketArchived, activityevent.TypeTicketUnarchived:
+		metadata["archived"] = ticket.Archived
+		metadata["changed_fields"] = []string{"archived"}
 	case activityevent.TypeTicketStatusChanged:
 		metadata["to_status_id"] = ticket.StatusID.String()
 		metadata["to_status_name"] = ticket.StatusName
@@ -102,4 +111,17 @@ func buildTicketActivityMetadata(
 	}
 
 	return metadata
+}
+
+func ticketMutationEventType(input ticketservice.UpdateInput) activityevent.Type {
+	if input.Archived.Set {
+		if input.Archived.Value {
+			return ticketArchivedType
+		}
+		return ticketUnarchivedType
+	}
+	if input.StatusID.Set {
+		return ticketStatusEventType
+	}
+	return ticketUpdatedEventType
 }

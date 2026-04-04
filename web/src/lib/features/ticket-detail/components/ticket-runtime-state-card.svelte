@@ -12,11 +12,15 @@
   let {
     ticket,
     resumingRetry = false,
+    resettingWorkspace = false,
     onResumeRetry,
+    onResetWorkspace,
   }: {
     ticket: TicketDetail
     resumingRetry?: boolean
+    resettingWorkspace?: boolean
     onResumeRetry?: () => Promise<void> | void
+    onResetWorkspace?: () => Promise<void> | void
   } = $props()
 
   let nowMs = $state(Date.now())
@@ -38,6 +42,7 @@
     }
     return ticket.retryPaused && ticket.pauseReason === 'repeated_stalls'
   })
+  const shouldShowResetWorkspace = $derived(!ticket.currentRunId && !!onResetWorkspace)
 
   $effect(() => {
     const target = retryTarget
@@ -131,6 +136,18 @@
       onclick={() => void onResumeRetry?.()}
     >
       {resumingRetry ? 'Continuing...' : 'Continue Retry'}
+    </Button>
+  {/if}
+
+  {#if shouldShowResetWorkspace}
+    <Button
+      size="sm"
+      variant="outline"
+      class="h-7 w-full text-[11px]"
+      disabled={resettingWorkspace}
+      onclick={() => void onResetWorkspace?.()}
+    >
+      {resettingWorkspace ? 'Resetting...' : 'Reset Workspace'}
     </Button>
   {/if}
 </section>

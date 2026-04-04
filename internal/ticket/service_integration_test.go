@@ -762,7 +762,7 @@ func TestTicketServiceRunsDoneHookWhenFinishStatusChangeReleasesCurrentRun(t *te
 	}
 }
 
-func TestTicketServiceRunsCancelHookWhenArchivedStatusReleasesCurrentRun(t *testing.T) {
+func TestTicketServiceRunsCancelHookWhenArchivingReleasesCurrentRun(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
 	fixture := seedTicketServiceFixture(ctx, t, client)
@@ -802,16 +802,6 @@ func TestTicketServiceRunsCancelHookWhenArchivedStatusReleasesCurrentRun(t *test
 		t.Fatalf("set workflow hooks: %v", err)
 	}
 
-	archivedStatus, err := newTicketStatusService(client).Create(ctx, ticketstatus.CreateInput{
-		ProjectID: fixture.projectID,
-		Name:      "Archived",
-		Stage:     ticketing.StatusStageCanceled,
-		Color:     "#4B5563",
-	})
-	if err != nil {
-		t.Fatalf("create archived status: %v", err)
-	}
-
 	ticketItem, err := service.Create(ctx, CreateInput{
 		ProjectID:  fixture.projectID,
 		Title:      "Archive current run",
@@ -828,13 +818,13 @@ func TestTicketServiceRunsCancelHookWhenArchivedStatusReleasesCurrentRun(t *test
 
 	updated, err := service.Update(ctx, UpdateInput{
 		TicketID:                          ticketItem.ID,
-		StatusID:                          Some(archivedStatus.ID),
+		Archived:                          Some(true),
 		RestrictStatusToWorkflowFinishSet: false,
 	})
 	if err != nil {
 		t.Fatalf("update ticket status: %v", err)
 	}
-	if updated.CurrentRunID != nil || updated.StatusID != archivedStatus.ID || updated.StatusName != "Archived" {
+	if updated.CurrentRunID != nil || !updated.Archived {
 		t.Fatalf("unexpected archived update result: %+v", updated)
 	}
 

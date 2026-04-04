@@ -16,6 +16,7 @@ const ticket: TicketDetail = {
   },
   priority: 'medium',
   type: 'feature',
+  archived: false,
   repoScopes: [],
   attemptCount: 0,
   consecutiveErrors: 0,

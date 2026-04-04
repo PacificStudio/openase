@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -140,7 +142,7 @@ func TestPlatformTicketCommentUpdateHelpMentionsBodyRules(t *testing.T) {
 
 	output := stdout.String()
 	for _, want := range []string{
-		"comment-id is required as the positional argument",
+		"If two positional arguments are provided, the first is treated as ticket-id and the second as comment-id.",
 		"Exactly one of --body or --body-file should be used",
 		"OPENASE_TICKET_ID",
 	} {
@@ -225,7 +227,7 @@ func TestTicketUpdateCommandAcceptsStatusName(t *testing.T) {
 	t.Setenv("OPENASE_TICKET_ID", "ticket-9")
 
 	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
-	command.SetArgs([]string{"update", "--status", "Done"})
+	command.SetArgs([]string{"update", "--status_name", "Done"})
 
 	if err := command.ExecuteContext(context.Background()); err != nil {
 		t.Fatalf("ExecuteContext returned error: %v", err)
@@ -266,6 +268,41 @@ func TestTicketCommentUpdateCommandPatchesCurrentTicketComment(t *testing.T) {
 	}
 
 	if patchPayload["body"] != "Updated progress" {
+		t.Fatalf("unexpected comment patch payload: %+v", patchPayload)
+	}
+}
+
+func TestTicketCommentUpdateCommandAcceptsTicketIDPositionalAndBodyFileAlias(t *testing.T) {
+	var patchPayload map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method != http.MethodPatch || r.URL.RequestURI() != "/tickets/ticket-9/comments/comment-7" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.RequestURI())
+		}
+		if err := json.NewDecoder(r.Body).Decode(&patchPayload); err != nil {
+			t.Fatalf("Decode returned error: %v", err)
+		}
+		_, _ = w.Write([]byte(`{"comment":{"id":"comment-7","body":"Updated progress from file"}}`))
+	}))
+	defer server.Close()
+
+	bodyPath := filepath.Join(t.TempDir(), "comment.md")
+	if err := os.WriteFile(bodyPath, []byte("Updated progress from file"), 0o600); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+
+	t.Setenv("OPENASE_API_URL", server.URL)
+	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command.SetArgs([]string{"comment", "update", "ticket-9", "comment-7", "--body_file", bodyPath})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	if patchPayload["body"] != "Updated progress from file" {
 		t.Fatalf("unexpected comment patch payload: %+v", patchPayload)
 	}
 }

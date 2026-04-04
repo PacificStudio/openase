@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
-  import { listArchivedTickets, listStatuses, updateTicket } from '$lib/api/openase'
+  import { listArchivedTickets, updateTicket } from '$lib/api/openase'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { cn, formatRelativeTime } from '$lib/utils'
@@ -18,14 +18,7 @@
     createdAt: string
   }
 
-  type StatusInfo = {
-    id: string
-    name: string
-    stage: string
-  }
-
   let tickets = $state<ArchivedTicket[]>([])
-  let statuses = $state<StatusInfo[]>([])
   let currentPage = $state(1)
   let totalTickets = $state(0)
   let loading = $state(false)
@@ -36,9 +29,6 @@
 
   const archivedTicketsPerPage = 20
 
-  const defaultRestoreStatus = $derived(
-    statuses.find((s) => s.stage === 'backlog' || s.stage === 'unstarted') ?? statuses[0] ?? null,
-  )
   const allSelected = $derived(tickets.length > 0 && selectedIds.size === tickets.length)
   const someSelected = $derived(selectedIds.size > 0)
   const totalPages = $derived(Math.max(1, Math.ceil(totalTickets / archivedTicketsPerPage)))
@@ -74,14 +64,10 @@
     selectedIds = new Set()
 
     try {
-      const [statusPayload, ticketPayload] = await Promise.all([
-        listStatuses(projectId),
-        listArchivedTickets(projectId, { page, per_page: archivedTicketsPerPage }),
-      ])
-
-      statuses = statusPayload.statuses
-        .sort((a, b) => a.position - b.position)
-        .map((s) => ({ id: s.id, name: s.name, stage: s.stage }))
+      const ticketPayload = await listArchivedTickets(projectId, {
+        page,
+        per_page: archivedTicketsPerPage,
+      })
 
       totalTickets = ticketPayload.total
       if (ticketPayload.tickets.length === 0 && ticketPayload.total > 0 && page > 1) {
@@ -126,12 +112,7 @@
   }
 
   async function handleRestore() {
-    const target = defaultRestoreStatus
     const projectId = appStore.currentProject?.id
-    if (!target) {
-      toastStore.error('No non-canceled status available to restore tickets to.')
-      return
-    }
     if (!projectId) return
 
     const ids = [...selectedIds]
@@ -140,10 +121,8 @@
     restoring = true
 
     try {
-      await Promise.all(ids.map((id) => updateTicket(id, { status_id: target.id })))
-      toastStore.success(
-        `${ids.length} ticket${ids.length > 1 ? 's' : ''} restored to "${target.name}".`,
-      )
+      await Promise.all(ids.map((id) => updateTicket(id, { archived: false })))
+      toastStore.success(`${ids.length} ticket${ids.length > 1 ? 's' : ''} restored.`)
       selectedIds = new Set()
       if (tickets.length === ids.length && currentPage > 1) {
         currentPage -= 1
@@ -164,7 +143,7 @@
   <div>
     <h2 class="text-foreground text-base font-semibold">Archived Tickets</h2>
     <p class="text-muted-foreground mt-1 text-sm">
-      Tickets in a cancelled status. Select tickets and restore them to put them back on the board.
+      Tickets with archive enabled. Select tickets and restore them to put them back on the board.
     </p>
   </div>
 
@@ -215,11 +194,6 @@
               ? 'Restoring…'
               : `Restore ${selectedIds.size} ticket${selectedIds.size > 1 ? 's' : ''}`}
           </Button>
-          {#if defaultRestoreStatus}
-            <span class="text-muted-foreground text-[11px]">
-              → {defaultRestoreStatus.name}
-            </span>
-          {/if}
         {/if}
       </div>
 

@@ -37426,6 +37426,7 @@ type TicketMutation struct {
 	identifier                   *string
 	title                        *string
 	description                  *string
+	archived                     *bool
 	priority                     *ticket.Priority
 	_type                        *ticket.Type
 	created_by                   *string
@@ -37803,6 +37804,42 @@ func (m *TicketMutation) OldStatusID(ctx context.Context) (v uuid.UUID, err erro
 // ResetStatusID resets all changes to the "status_id" field.
 func (m *TicketMutation) ResetStatusID() {
 	m.status = nil
+}
+
+// SetArchived sets the "archived" field.
+func (m *TicketMutation) SetArchived(b bool) {
+	m.archived = &b
+}
+
+// Archived returns the value of the "archived" field in the mutation.
+func (m *TicketMutation) Archived() (r bool, exists bool) {
+	v := m.archived
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldArchived returns the old "archived" field's value of the Ticket entity.
+// If the Ticket object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TicketMutation) OldArchived(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldArchived is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldArchived requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldArchived: %w", err)
+	}
+	return oldValue.Archived, nil
+}
+
+// ResetArchived resets all changes to the "archived" field.
+func (m *TicketMutation) ResetArchived() {
+	m.archived = nil
 }
 
 // SetPriority sets the "priority" field.
@@ -39829,7 +39866,7 @@ func (m *TicketMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TicketMutation) Fields() []string {
-	fields := make([]string, 0, 29)
+	fields := make([]string, 0, 30)
 	if m.project != nil {
 		fields = append(fields, ticket.FieldProjectID)
 	}
@@ -39844,6 +39881,9 @@ func (m *TicketMutation) Fields() []string {
 	}
 	if m.status != nil {
 		fields = append(fields, ticket.FieldStatusID)
+	}
+	if m.archived != nil {
+		fields = append(fields, ticket.FieldArchived)
 	}
 	if m.priority != nil {
 		fields = append(fields, ticket.FieldPriority)
@@ -39935,6 +39975,8 @@ func (m *TicketMutation) Field(name string) (ent.Value, bool) {
 		return m.Description()
 	case ticket.FieldStatusID:
 		return m.StatusID()
+	case ticket.FieldArchived:
+		return m.Archived()
 	case ticket.FieldPriority:
 		return m.Priority()
 	case ticket.FieldType:
@@ -40002,6 +40044,8 @@ func (m *TicketMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldDescription(ctx)
 	case ticket.FieldStatusID:
 		return m.OldStatusID(ctx)
+	case ticket.FieldArchived:
+		return m.OldArchived(ctx)
 	case ticket.FieldPriority:
 		return m.OldPriority(ctx)
 	case ticket.FieldType:
@@ -40093,6 +40137,13 @@ func (m *TicketMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetStatusID(v)
+		return nil
+	case ticket.FieldArchived:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetArchived(v)
 		return nil
 	case ticket.FieldPriority:
 		v, ok := value.(ticket.Priority)
@@ -40499,6 +40550,9 @@ func (m *TicketMutation) ResetField(name string) error {
 		return nil
 	case ticket.FieldStatusID:
 		m.ResetStatusID()
+		return nil
+	case ticket.FieldArchived:
+		m.ResetArchived()
 		return nil
 	case ticket.FieldPriority:
 		m.ResetPriority()

@@ -135,6 +135,7 @@ func newAgentPlatformTicketCommandWithDeps(deps platformCommandDeps) *cobra.Comm
 		Example: "openase ticket list\nopenase ticket update --description \"Blocked on flaky test\"",
 	}
 
+	applyCLICommandFlagNormalization(command)
 	bindPlatformFlags(command.PersistentFlags(), &options.rawPlatformContext)
 	command.AddCommand(newTicketListCommand(options, client))
 	command.AddCommand(newTicketCreateCommand(options, client))
@@ -156,6 +157,7 @@ func newAgentPlatformProjectCommandWithDeps(deps platformCommandDeps) *cobra.Com
 		Example: "openase project update --description \"Validation project\"\nopenase project add-repo --name backend --url https://github.com/acme/backend.git",
 	}
 
+	applyCLICommandFlagNormalization(command)
 	bindPlatformFlags(command.PersistentFlags(), &options.rawPlatformContext)
 	command.AddCommand(newProjectUpdateCommand(options, client))
 	command.AddCommand(newProjectAddRepoCommand(options, client))
@@ -329,21 +331,23 @@ func newTicketCommentUpdateCommand(options *ticketCommandOptions, client platfor
 	var bodyFile string
 
 	command := &cobra.Command{
-		Use:   "update [comment-id]",
+		Use:   "update [ticket-id] [comment-id]",
 		Short: "Update a comment on the current ticket.",
 		Long: buildPlatformCommandHelp("Update a comment on the current ticket.", platformHelpSpec{
 			ticketScope: true,
 			examples: []string{
-				"openase ticket comment update comment-7 --body \"Updated progress\"",
-				"openase ticket comment update --ticket-id $OPENASE_TICKET_ID comment-7 --body-file /tmp/comment.md",
+				"openase ticket comment update $OPENASE_COMMENT_ID --body \"Updated progress\"",
+				"openase ticket comment update $OPENASE_TICKET_ID $OPENASE_COMMENT_ID --body-file /tmp/comment.md",
 			},
 			notes: []string{
-				"comment-id is required as the positional argument.",
+				"If two positional arguments are provided, the first is treated as ticket-id and the second as comment-id.",
+				"If one positional argument is provided, it is treated as comment-id and ticket-id falls back to --ticket-id and then OPENASE_TICKET_ID.",
+				"Both ticket-id and comment-id are expected to be UUIDs. Human-readable identifiers such as ASE-2 are not accepted.",
 				"Exactly one of --body or --body-file should be used to supply markdown content.",
 			},
 		}),
-		Example: "openase ticket comment update comment-7 --body \"Updated progress\"\nopenase ticket comment update --ticket-id $OPENASE_TICKET_ID comment-7 --body-file /tmp/comment.md",
-		Args:    cobra.MaximumNArgs(1),
+		Example: "openase ticket comment update $OPENASE_COMMENT_ID --body \"Updated progress\"\nopenase ticket comment update $OPENASE_TICKET_ID $OPENASE_COMMENT_ID --body-file /tmp/comment.md",
+		Args:    cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			platform, err := options.resolve()
 			if err != nil {
@@ -355,8 +359,8 @@ func newTicketCommentUpdateCommand(options *ticketCommandOptions, client platfor
 				return err
 			}
 			input, err := platform.parseTicketCommentUpdateInput(ticketCommentUpdateInput{
-				ticketID:  firstNonEmpty(options.ticketID, platform.ticketID),
-				commentID: firstArg(args),
+				ticketID:  firstNonEmpty(ticketCommentUpdateTicketIDArg(args), options.ticketID, platform.ticketID),
+				commentID: ticketCommentUpdateCommentIDArg(args),
 				body:      commentBody,
 			})
 			if err != nil {
@@ -667,6 +671,7 @@ func buildPlatformCommandHelp(summary string, spec platformHelpSpec) string {
 	}
 	if spec.ticketScope {
 		lines = append(lines, "Ticket scope defaults to the positional [ticket-id] when provided, then --ticket-id, then OPENASE_TICKET_ID.")
+		lines = append(lines, "Positional ticket-id values are expected to be UUIDs. Human-readable identifiers such as ASE-2 are not accepted.")
 	}
 	lines = append(lines, spec.notes...)
 	if len(spec.examples) > 0 {
@@ -1097,6 +1102,24 @@ func firstArg(args []string) string {
 		return ""
 	}
 	return args[0]
+}
+
+func ticketCommentUpdateTicketIDArg(args []string) string {
+	if len(args) == 2 {
+		return strings.TrimSpace(args[0])
+	}
+	return ""
+}
+
+func ticketCommentUpdateCommentIDArg(args []string) string {
+	switch len(args) {
+	case 0:
+		return ""
+	case 1:
+		return strings.TrimSpace(args[0])
+	default:
+		return strings.TrimSpace(args[1])
+	}
 }
 
 func firstNonEmpty(values ...string) string {

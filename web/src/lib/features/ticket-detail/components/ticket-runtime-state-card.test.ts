@@ -12,6 +12,7 @@ const baseTicket: TicketDetail = {
   status: { id: 'todo', name: 'Todo', color: '#94a3b8' },
   priority: 'high',
   type: 'feature',
+  archived: false,
   assignedAgent: {
     id: 'agent-1',
     name: 'workflow-seed',
@@ -231,5 +232,42 @@ describe('TicketRuntimeStateCard', () => {
     await fireEvent.click(getByText('Continue Retry'))
 
     expect(onResumeRetry).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows a reset workspace action when no run is attached', async () => {
+    const onResetWorkspace = vi.fn()
+    const { getByText } = render(TicketRuntimeStateCard, {
+      props: {
+        ticket: {
+          ...baseTicket,
+          currentRunId: undefined,
+          pickupDiagnosis: {
+            ...baseTicket.pickupDiagnosis!,
+            state: 'runnable',
+            primaryReasonCode: 'ready_for_pickup',
+            primaryReasonMessage: 'Ready for rerun.',
+          },
+        },
+        onResetWorkspace,
+      },
+    })
+
+    await fireEvent.click(getByText('Reset Workspace'))
+
+    expect(onResetWorkspace).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides the reset workspace action while a run is still attached', () => {
+    const { queryByText } = render(TicketRuntimeStateCard, {
+      props: {
+        ticket: {
+          ...baseTicket,
+          currentRunId: 'run-1',
+        },
+        onResetWorkspace: vi.fn(),
+      },
+    })
+
+    expect(queryByText('Reset Workspace')).toBeNull()
   })
 })

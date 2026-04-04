@@ -250,9 +250,9 @@
         variant="ghost"
         size="icon-sm"
         class="text-muted-foreground hover:text-destructive size-6"
-        disabled={archiving || ticket.status.stage === 'canceled'}
+        disabled={archiving || ticket.archived}
         onclick={() => {
-          if (confirm('Archive this ticket? It will be moved to cancelled status.')) {
+          if (confirm('Archive this ticket?')) {
             onArchive?.()
           }
         }}

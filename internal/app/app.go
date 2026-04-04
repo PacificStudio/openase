@@ -202,6 +202,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		client,
 		activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, a.events),
 	)
+	ticketWorkspaceResetSvc := orchestrator.NewTicketWorkspaceResetService(client, a.logger, sshPool)
 	server := httpapi.NewServer(
 		a.config.Server,
 		a.config.GitHub,
@@ -223,6 +224,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithChatService(chatSvc),
 		httpapi.WithSkillRefinementService(skillRefinementSvc),
 		httpapi.WithProjectConversationService(projectConversationSvc),
+		httpapi.WithTicketWorkspaceResetter(ticketWorkspaceResetSvc),
 	)
 	driver, err := a.config.ResolvedEventDriver()
 	if err != nil {

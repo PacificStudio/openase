@@ -18,6 +18,7 @@ import {
 import {
   handleAddDependencyAction,
   handleDeleteDependencyAction,
+  handleResetWorkspaceAction,
   handleResumeRetryAction,
   handleSaveFieldsAction,
 } from './drawer-ticket-actions'
@@ -93,12 +94,6 @@ export function createTicketDrawerActions(input: DrawerActionInput) {
       const ticketId = getTicketId()
       if (!ticket || !ticketId) return
 
-      const canceledStatus = input.drawerState.statuses.find((s) => s.stage === 'canceled')
-      if (!canceledStatus) {
-        input.drawerState.setMutationError('No cancelled status is configured for this project.')
-        return
-      }
-
       await runTicketDrawerMutation({
         ...input.buildDrawerMutation(ticket),
         start: () => {
@@ -109,14 +104,9 @@ export function createTicketDrawerActions(input: DrawerActionInput) {
         },
         optimisticUpdate: (currentTicket) => ({
           ...currentTicket,
-          status: {
-            ...currentTicket.status,
-            id: canceledStatus.id,
-            name: canceledStatus.name,
-            stage: 'canceled' as const,
-          },
+          archived: true,
         }),
-        mutate: () => updateTicket(ticketId, { status_id: canceledStatus.id }),
+        mutate: () => updateTicket(ticketId, { archived: true }),
         successMessage: 'Ticket archived.',
       })
     },
@@ -133,6 +123,13 @@ export function createTicketDrawerActions(input: DrawerActionInput) {
         ticketId: getTicketId(),
         drawerState: input.drawerState,
         dependencyId,
+        buildDrawerMutation: input.buildDrawerMutation,
+      })
+    },
+    handleResetWorkspace() {
+      return handleResetWorkspaceAction({
+        ticketId: getTicketId(),
+        drawerState: input.drawerState,
         buildDrawerMutation: input.buildDrawerMutation,
       })
     },

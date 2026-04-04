@@ -155,6 +155,7 @@
         updatingCommentId={drawerState.updatingCommentId}
         deletingCommentId={drawerState.deletingCommentId}
         resumingRetry={drawerState.resumingRetry}
+        resettingWorkspace={drawerState.resettingWorkspace}
         onClose={appStore.closeRightPanel}
         archiving={drawerState.archiving}
         onSaveFields={drawerActions.handleSaveFields}
@@ -163,6 +164,7 @@
         onSelectRun={(runId) =>
           projectId && ticketId ? drawerState.selectRun(projectId, ticketId, runId) : undefined}
         onResumeRetry={drawerActions.handleResumeRetry}
+        onResetWorkspace={drawerActions.handleResetWorkspace}
         onAddDependency={drawerActions.handleAddDependency}
         onDeleteDependency={drawerActions.handleDeleteDependency}
         onCreateExternalLink={drawerActions.handleCreateExternalLink}

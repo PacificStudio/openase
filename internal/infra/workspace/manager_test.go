@@ -118,7 +118,7 @@ func TestManagerPrepareCreatesJointWorkspaceWithFeatureBranch(t *testing.T) {
 	assertHeadBranch(t, frontendClonePath, "agent/ASE-33")
 }
 
-func TestManagerPrepareFetchesExistingClone(t *testing.T) {
+func TestManagerPreparePreservesExistingCloneState(t *testing.T) {
 	repositoryURL, initialHash := createRemoteRepo(t, "main", map[string]string{
 		"README.md": "first",
 	})
@@ -151,13 +151,40 @@ func TestManagerPrepareFetchesExistingClone(t *testing.T) {
 	assertRemoteBranchHash(t, backendClonePath, "main", initialHash)
 
 	updatedHash := appendCommit(t, repositoryURL, "main", "README.md", "second")
+	repository, err := git.PlainOpen(backendClonePath)
+	if err != nil {
+		t.Fatalf("open prepared repository: %v", err)
+	}
+	worktree, err := repository.Worktree()
+	if err != nil {
+		t.Fatalf("load prepared worktree: %v", err)
+	}
+	featureRef := plumbing.NewBranchReferenceName("scratch")
+	head, err := repository.Head()
+	if err != nil {
+		t.Fatalf("load prepared head: %v", err)
+	}
+	if err := repository.Storer.SetReference(plumbing.NewHashReference(featureRef, head.Hash())); err != nil {
+		t.Fatalf("create scratch branch: %v", err)
+	}
+	if err := worktree.Checkout(&git.CheckoutOptions{Branch: featureRef}); err != nil {
+		t.Fatalf("checkout scratch branch: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(backendClonePath, "DIRTY.txt"), []byte("dirty"), 0o600); err != nil {
+		t.Fatalf("write dirty marker: %v", err)
+	}
+
 	workspace, err = manager.Prepare(context.Background(), request)
 	if err != nil {
 		t.Fatalf("prepare workspace second run: %v", err)
 	}
 
-	assertHeadBranch(t, backendClonePath, "agent/ASE-33")
-	assertRemoteBranchHash(t, backendClonePath, "main", updatedHash)
+	assertHeadBranch(t, backendClonePath, "scratch")
+	assertRemoteBranchHash(t, backendClonePath, "main", initialHash)
+	assertFileExists(t, filepath.Join(backendClonePath, "DIRTY.txt"))
+	if workspace.Path == "" || updatedHash == initialHash {
+		t.Fatalf("expected preserved workspace path and divergent remote update, got path=%q", workspace.Path)
+	}
 }
 
 func TestManagerPrepareTracksExistingRemoteWorkBranch(t *testing.T) {

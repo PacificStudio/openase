@@ -295,6 +295,13 @@ func TestTicketStatusServiceErrorPaths(t *testing.T) {
 	}); !errors.Is(err, ErrDuplicateStatusName) {
 		t.Fatalf("Create(duplicate status) error = %v, want %v", err, ErrDuplicateStatusName)
 	}
+	if _, err := service.Create(ctx, CreateInput{
+		ProjectID: projectID,
+		Name:      "shared",
+		Color:     "#444444",
+	}); !errors.Is(err, ErrDuplicateStatusName) {
+		t.Fatalf("Create(case-insensitive duplicate status) error = %v, want %v", err, ErrDuplicateStatusName)
+	}
 
 	updatedStatus, err := service.Update(ctx, UpdateInput{
 		StatusID:      secondStatus.ID,
@@ -315,6 +322,32 @@ func TestTicketStatusServiceErrorPaths(t *testing.T) {
 	}
 	if _, err := service.Delete(ctx, uuid.New()); !errors.Is(err, ErrStatusNotFound) {
 		t.Fatalf("Delete(missing) error = %v, want %v", err, ErrStatusNotFound)
+	}
+
+	casefoldA, err := client.TicketStatus.Create().
+		SetProjectID(projectID).
+		SetName("CaseFold").
+		SetStage("unstarted").
+		SetColor("#555555").
+		SetPosition(10).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("Create(casefold status A) error = %v", err)
+	}
+	if _, err := client.TicketStatus.Create().
+		SetProjectID(projectID).
+		SetName("casefold").
+		SetStage("unstarted").
+		SetColor("#666666").
+		SetPosition(11).
+		Save(ctx); err != nil {
+		t.Fatalf("Create(casefold status B) error = %v", err)
+	}
+	if _, err := service.ResolveStatusIDByName(ctx, projectID, "CASEFOLD"); !errors.Is(err, ErrDuplicateStatusName) {
+		t.Fatalf("ResolveStatusIDByName(ambiguous casefold) error = %v, want %v", err, ErrDuplicateStatusName)
+	}
+	if err := client.TicketStatus.DeleteOneID(casefoldA.ID).Exec(ctx); err != nil {
+		t.Fatalf("Delete(casefold status A) error = %v", err)
 	}
 }
 

@@ -92,6 +92,7 @@ const ticketsFixture: TicketPayload = {
       status_name: 'Todo',
       priority: 'high',
       type: 'feature',
+      archived: false,
       workflow_id: 'workflow-1',
       current_run_id: null,
       target_machine_id: null,
@@ -817,7 +818,7 @@ describe('TicketsPage board controls', () => {
     })
   })
 
-  it('archives all tickets in a column into the canceled status', async () => {
+  it('archives all non-archived tickets in a column via the archived flag', async () => {
     appStore.currentProject = projectFixture
 
     const currentStatuses: StatusPayload = cloneValue({
@@ -849,11 +850,11 @@ describe('TicketsPage board controls', () => {
           max_active_runs: null,
         },
         {
-          id: 'status-archived',
+          id: 'status-cancelled',
           project_id: 'project-1',
-          name: 'Archived',
+          name: 'Cancelled',
           stage: 'canceled' as const,
-          color: '#6b7280',
+          color: '#4b5563',
           icon: '',
           is_default: false,
           description: '',
@@ -872,6 +873,7 @@ describe('TicketsPage board controls', () => {
         title: 'Wire board page to runtime data',
         status_id: 'status-todo',
         status_name: 'Todo',
+        archived: false,
       },
       {
         ...ticketsFixture.tickets[0],
@@ -880,14 +882,16 @@ describe('TicketsPage board controls', () => {
         title: 'Ship workflow runner polish',
         status_id: 'status-todo',
         status_name: 'Todo',
+        archived: false,
       },
       {
         ...ticketsFixture.tickets[0],
         id: 'ticket-3',
         identifier: 'ASE-204',
         title: 'Keep existing archived ticket',
-        status_id: 'status-archived',
-        status_name: 'Archived',
+        status_id: 'status-cancelled',
+        status_name: 'Cancelled',
+        archived: true,
       },
     ])
 
@@ -897,17 +901,12 @@ describe('TicketsPage board controls', () => {
     listAgents.mockResolvedValue(agentsFixture)
     listActivity.mockResolvedValue(activityFixture)
     updateStatus.mockResolvedValue({ status: currentStatuses.statuses[0] })
-    updateTicket.mockImplementation(async (ticketId: string, patch: { status_id?: string }) => {
+    updateTicket.mockImplementation(async (ticketId: string, patch: { archived?: boolean }) => {
       const ticket = currentTickets.find((item) => item.id === ticketId)
-      if (!ticket || !patch.status_id) {
+      if (!ticket || typeof patch.archived !== 'boolean') {
         throw new Error(`unknown ticket update ${ticketId}`)
       }
-      const status = currentStatuses.statuses.find((item) => item.id === patch.status_id)
-      if (!status) {
-        throw new Error(`unknown status ${patch.status_id}`)
-      }
-      ticket.status_id = status.id
-      ticket.status_name = status.name
+      ticket.archived = patch.archived
       return { ticket: cloneValue(ticket) }
     })
     connectEventStream.mockReturnValue(() => {})
@@ -919,17 +918,11 @@ describe('TicketsPage board controls', () => {
     await fireEvent.click(await findByRole('menuitem', { name: 'Archive all' }))
 
     await waitFor(() => {
-      expect(updateTicket).toHaveBeenNthCalledWith(1, 'ticket-1', { status_id: 'status-archived' })
-      expect(updateTicket).toHaveBeenNthCalledWith(2, 'ticket-2', { status_id: 'status-archived' })
-      expect(toastStore.success).toHaveBeenCalledWith('2 tickets archived to "Archived".')
+      expect(updateTicket).toHaveBeenNthCalledWith(1, 'ticket-1', { archived: true })
+      expect(updateTicket).toHaveBeenNthCalledWith(2, 'ticket-2', { archived: true })
+      expect(toastStore.success).toHaveBeenCalledWith('2 tickets archived.')
     })
 
-    expect(
-      within(await findByRole('list', { name: 'Archived tickets' })).getByText('ASE-202'),
-    ).toBeTruthy()
-    expect(
-      within(await findByRole('list', { name: 'Archived tickets' })).getByText('ASE-203'),
-    ).toBeTruthy()
     expect(
       within(await findByRole('list', { name: 'Todo tickets' })).queryByText('ASE-202'),
     ).toBeNull()
@@ -938,7 +931,7 @@ describe('TicketsPage board controls', () => {
     ).toBeNull()
   })
 
-  it('does not archive a column when the project has no canceled status', async () => {
+  it('does not call archive when a column only contains archived tickets', async () => {
     appStore.currentProject = projectFixture
 
     const currentStatuses: StatusPayload = cloneValue({
@@ -956,6 +949,19 @@ describe('TicketsPage board controls', () => {
           active_runs: 0,
           max_active_runs: null,
         },
+        {
+          id: 'status-cancelled',
+          project_id: 'project-1',
+          name: 'Cancelled',
+          stage: 'canceled' as const,
+          color: '#4b5563',
+          icon: '',
+          is_default: false,
+          description: '',
+          position: 2,
+          active_runs: 0,
+          max_active_runs: null,
+        },
       ],
     })
 
@@ -966,8 +972,9 @@ describe('TicketsPage board controls', () => {
           ...ticketsFixture.tickets[0],
           id: 'ticket-1',
           identifier: 'ASE-202',
-          status_id: 'status-todo',
-          status_name: 'Todo',
+          status_id: 'status-cancelled',
+          status_name: 'Cancelled',
+          archived: true,
         },
       ],
     })
@@ -985,9 +992,7 @@ describe('TicketsPage board controls', () => {
     await fireEvent.click(await findByRole('menuitem', { name: 'Archive all' }))
 
     expect(updateTicket).not.toHaveBeenCalled()
-    expect(toastStore.error).toHaveBeenCalledWith(
-      'No cancelled status is configured for this project.',
-    )
+    expect(toastStore.error).not.toHaveBeenCalled()
   })
 })
 

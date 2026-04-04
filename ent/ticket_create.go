@@ -73,6 +73,20 @@ func (_c *TicketCreate) SetStatusID(v uuid.UUID) *TicketCreate {
 	return _c
 }
 
+// SetArchived sets the "archived" field.
+func (_c *TicketCreate) SetArchived(v bool) *TicketCreate {
+	_c.mutation.SetArchived(v)
+	return _c
+}
+
+// SetNillableArchived sets the "archived" field if the given value is not nil.
+func (_c *TicketCreate) SetNillableArchived(v *bool) *TicketCreate {
+	if v != nil {
+		_c.SetArchived(*v)
+	}
+	return _c
+}
+
 // SetPriority sets the "priority" field.
 func (_c *TicketCreate) SetPriority(v ticket.Priority) *TicketCreate {
 	_c.mutation.SetPriority(v)
@@ -666,6 +680,10 @@ func (_c *TicketCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *TicketCreate) defaults() {
+	if _, ok := _c.mutation.Archived(); !ok {
+		v := ticket.DefaultArchived
+		_c.mutation.SetArchived(v)
+	}
 	if _, ok := _c.mutation.GetType(); !ok {
 		v := ticket.DefaultType
 		_c.mutation.SetType(v)
@@ -743,6 +761,9 @@ func (_c *TicketCreate) check() error {
 	}
 	if _, ok := _c.mutation.StatusID(); !ok {
 		return &ValidationError{Name: "status_id", err: errors.New(`ent: missing required field "Ticket.status_id"`)}
+	}
+	if _, ok := _c.mutation.Archived(); !ok {
+		return &ValidationError{Name: "archived", err: errors.New(`ent: missing required field "Ticket.archived"`)}
 	}
 	if v, ok := _c.mutation.Priority(); ok {
 		if err := ticket.PriorityValidator(v); err != nil {
@@ -850,6 +871,10 @@ func (_c *TicketCreate) createSpec() (*Ticket, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Description(); ok {
 		_spec.SetField(ticket.FieldDescription, field.TypeString, value)
 		_node.Description = value
+	}
+	if value, ok := _c.mutation.Archived(); ok {
+		_spec.SetField(ticket.FieldArchived, field.TypeBool, value)
+		_node.Archived = value
 	}
 	if value, ok := _c.mutation.Priority(); ok {
 		_spec.SetField(ticket.FieldPriority, field.TypeEnum, value)

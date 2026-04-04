@@ -159,16 +159,19 @@ Representative HTTP routes:
 `cmd/openase` now follows a GitHub-style dual-layer contract:
 
 - `openase api METHOD PATH` is the raw escape hatch for any shipped HTTP route.
-- typed resource commands stay aligned with OpenAPI and group high-frequency operations by resource.
+- shared `openase ticket ...` and `openase project ...` mutations use the platform wrapper semantics for overlapping agent-safe operations.
+- the remaining resource commands stay aligned with OpenAPI and group high-frequency operations by resource.
 - stream endpoints live under `openase watch ...` instead of being mixed into CRUD trees.
 
 Representative examples:
 
 ```bash
 openase api GET /api/v1/projects/$OPENASE_PROJECT_ID/tickets --query status_name=Todo
-openase api PATCH /api/v1/tickets/$OPENASE_TICKET_ID --field status_name=In\ Review
-openase ticket list $OPENASE_PROJECT_ID --status-name Todo --json tickets
+openase api PATCH /api/v1/tickets/$OPENASE_TICKET_ID --field status_id=$OPENASE_STATUS_ID
+openase ticket list --status-name Todo --json tickets
+openase ticket update --status_name "In Review"
 openase ticket comment update $OPENASE_TICKET_ID $OPENASE_COMMENT_ID --body-file /tmp/comment.md
+openase ticket detail $OPENASE_PROJECT_ID $OPENASE_TICKET_ID
 openase workflow create $OPENASE_PROJECT_ID --name "Codex Worker" --description "Default coding workflow"
 openase scheduled-job trigger $OPENASE_JOB_ID
 openase watch tickets $OPENASE_PROJECT_ID
@@ -182,7 +185,7 @@ Raw and typed commands default to JSON output and support:
 
 ## Agent Platform Compatibility
 
-Agent workers still inherit `OPENASE_API_URL`, `OPENASE_AGENT_TOKEN`, `OPENASE_PROJECT_ID`, and `OPENASE_TICKET_ID` from the workspace wrapper. When those env vars point at `/api/v1/platform`, the shared resource commands continue to resolve against the agent-platform surface for the overlapping routes.
+Agent workers still inherit `OPENASE_API_URL`, `OPENASE_AGENT_TOKEN`, `OPENASE_PROJECT_ID`, and `OPENASE_TICKET_ID` from the workspace wrapper. The shared `ticket` / `project` wrapper commands resolve against the agent-platform surface for the overlapping routes and accept both kebab-case and snake_case flag spellings such as `--status-name` / `--status_name` and `--body-file` / `--body_file`.
 
 Examples:
 

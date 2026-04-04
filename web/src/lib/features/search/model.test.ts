@@ -33,6 +33,7 @@ const ticketFixture: Ticket = {
   status_name: 'In Progress',
   priority: 'high',
   type: 'feature',
+  archived: false,
   workflow_id: 'workflow-1',
   current_run_id: null,
   target_machine_id: null,

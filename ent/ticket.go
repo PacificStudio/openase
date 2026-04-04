@@ -34,6 +34,8 @@ type Ticket struct {
 	Description string `json:"description,omitempty"`
 	// StatusID holds the value of the "status_id" field.
 	StatusID uuid.UUID `json:"status_id,omitempty"`
+	// Archived holds the value of the "archived" field.
+	Archived bool `json:"archived,omitempty"`
 	// Priority holds the value of the "priority" field.
 	Priority ticket.Priority `json:"priority,omitempty"`
 	// Type holds the value of the "type" field.
@@ -314,7 +316,7 @@ func (*Ticket) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case ticket.FieldMetadata:
 			values[i] = new([]byte)
-		case ticket.FieldRetryPaused:
+		case ticket.FieldArchived, ticket.FieldRetryPaused:
 			values[i] = new(sql.NullBool)
 		case ticket.FieldBudgetUsd, ticket.FieldCostAmount:
 			values[i] = new(sql.NullFloat64)
@@ -376,6 +378,12 @@ func (_m *Ticket) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field status_id", values[i])
 			} else if value != nil {
 				_m.StatusID = *value
+			}
+		case ticket.FieldArchived:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field archived", values[i])
+			} else if value.Valid {
+				_m.Archived = value.Bool
 			}
 		case ticket.FieldPriority:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -670,6 +678,9 @@ func (_m *Ticket) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.StatusID))
+	builder.WriteString(", ")
+	builder.WriteString("archived=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Archived))
 	builder.WriteString(", ")
 	builder.WriteString("priority=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Priority))
