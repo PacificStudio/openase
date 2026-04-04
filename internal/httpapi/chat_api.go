@@ -33,6 +33,7 @@ var chatSSEKeepaliveInterval = 5 * time.Second
 func (s *Server) registerChatRoutes(api *echo.Group) {
 	api.POST("/chat", s.handleStartChat)
 	api.DELETE("/chat/:sessionId", s.handleDeleteChat)
+	api.GET("/chat/projects/:projectId/conversations/stream", s.handleProjectConversationMuxStream)
 	api.POST("/chat/conversations", s.handleCreateProjectConversation)
 	api.GET("/chat/conversations", s.handleListProjectConversations)
 	api.GET("/chat/conversations/:conversationId", s.handleGetProjectConversation)
@@ -184,6 +185,70 @@ func (s *Server) handleDeleteChat(c echo.Context) error {
 
 	s.chatService.CloseSession(userID, sessionID)
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (s *Server) handleProjectConversationMuxStream(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+
+	projectID, err := parseUUIDString("project_id", c.Param("projectId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+	userID, err := s.currentRequestChatUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+
+	events, cleanup, err := s.projectConversationService.WatchProjectConversations(
+		c.Request().Context(),
+		userID,
+		projectID,
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	defer cleanup()
+
+	if err := http.NewResponseController(c.Response().Writer).SetWriteDeadline(time.Time{}); err != nil &&
+		!errors.Is(err, http.ErrNotSupported) {
+		return fmt.Errorf("disable project conversation mux sse write deadline: %w", err)
+	}
+
+	response := c.Response()
+	response.Header().Set(echo.HeaderContentType, "text/event-stream")
+	response.Header().Set(echo.HeaderCacheControl, "no-cache")
+	response.Header().Set("Connection", "keep-alive")
+	response.Header().Set("X-Accel-Buffering", "no")
+	response.WriteHeader(http.StatusOK)
+	flusher, ok := response.Writer.(http.Flusher)
+	if !ok {
+		return fmt.Errorf("response writer does not support flushing")
+	}
+	if _, err := response.Write([]byte(": keepalive\n\n")); err != nil {
+		return nil
+	}
+	flusher.Flush()
+
+	for {
+		select {
+		case <-c.Request().Context().Done():
+			return nil
+		case event, ok := <-events:
+			if !ok {
+				return nil
+			}
+			if err := writeSSEFrame(response, event.Event, map[string]any{
+				"conversation_id": event.ConversationID.String(),
+				"payload":         event.Payload,
+				"sent_at":         event.SentAt.UTC().Format(time.RFC3339),
+			}); err != nil {
+				return nil
+			}
+			flusher.Flush()
+		}
+	}
 }
 
 func (s *Server) logChatStartFailure(

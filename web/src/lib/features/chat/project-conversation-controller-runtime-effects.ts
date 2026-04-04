@@ -11,10 +11,24 @@ import type { ProjectConversationTabState } from './project-conversation-control
 
 type RuntimeEffectsInput = {
   conversations: ProjectConversationControllerConversations
+  isActiveTab: (tab: ProjectConversationTabState) => boolean
   onError?: (message: string) => void
   persistTabs: () => void
   touchTabs: () => void
   connectTabStream: (tab: ProjectConversationTabState, conversationId: string) => void
+}
+
+export function projectConversationTabPhaseFromRuntimeState(
+  runtimeState: string | undefined,
+): ProjectConversationTabState['phase'] {
+  switch ((runtimeState ?? '').trim()) {
+    case 'executing':
+      return 'awaiting_reply'
+    case 'interrupted':
+      return 'awaiting_interrupt'
+    default:
+      return 'idle'
+  }
 }
 
 export async function hydrateTabEntries(
@@ -75,15 +89,54 @@ export function handleTabStreamEvent(
   tab: ProjectConversationTabState,
   event: ProjectConversationStreamEvent,
 ) {
+  const isActive = input.isActiveTab(tab)
   if (event.kind === 'session') {
     tab.conversationId = input.conversations.applySessionPayload(tab.conversationId, event.payload)
+    tab.phase = projectConversationTabPhaseFromRuntimeState(event.payload.runtimeState)
+    if (isActive) {
+      tab.needsHydration = false
+      tab.unread = false
+    }
   }
-  if ((event.kind === 'session' || event.kind === 'turn_done') && tab.conversationId) {
+  if (isActive && (event.kind === 'session' || event.kind === 'turn_done') && tab.conversationId) {
     void refreshTabWorkspaceDiff(tab, tab.conversationId, input.touchTabs)
   }
+
+  if (isActive) {
+    tab.needsHydration = false
+    tab.unread = false
+    return
+  }
+
+  if (tab.conversationId) {
+    input.conversations.touchConversation(tab.conversationId)
+  }
+
+  switch (event.kind) {
+    case 'session':
+      return
+    case 'interrupt_requested':
+      tab.phase = 'awaiting_interrupt'
+      break
+    case 'interrupt_resolved':
+      tab.phase = 'awaiting_reply'
+      break
+    case 'turn_done':
+    case 'error':
+      tab.phase = 'idle'
+      break
+    default:
+      if (tab.phase !== 'awaiting_interrupt') {
+        tab.phase = 'awaiting_reply'
+      }
+      break
+  }
+
+  tab.needsHydration = true
+  tab.unread = true
 }
 
-export async function reconcileTabAfterStreamClose(
+export async function reconcileTabAfterReconnect(
   input: RuntimeEffectsInput,
   tab: ProjectConversationTabState,
   conversationId: string,
@@ -105,25 +158,37 @@ export async function reconcileTabAfterStreamClose(
     }
 
     const runtimeState = payload.conversation.runtimePrincipal?.runtimeState?.trim() ?? ''
-    if (runtimeState === 'executing') {
+    if (runtimeState === 'executing' && !input.isActiveTab(tab)) {
       tab.phase = 'awaiting_reply'
-      input.connectTabStream(tab, conversationId)
+      tab.needsHydration = true
       return
     }
 
-    await hydrateTabEntries(tab, conversationId, input.touchTabs)
-    if (tab.streamId !== streamId || tab.conversationId !== conversationId) {
-      return
+    if (input.isActiveTab(tab)) {
+      await hydrateTabEntries(tab, conversationId, input.touchTabs)
+      if (tab.streamId !== streamId || tab.conversationId !== conversationId) {
+        return
+      }
+      tab.needsHydration = false
+      tab.unread = false
+    } else {
+      tab.needsHydration = true
+      tab.unread = true
     }
 
-    if (runtimeState === 'interrupted' || projectConversationHasPendingInterrupt(tab.entries)) {
+    if (runtimeState === 'interrupted') {
       tab.phase = 'awaiting_interrupt'
-      input.connectTabStream(tab, conversationId)
+    } else if (runtimeState === 'executing') {
+      tab.phase = 'awaiting_reply'
+    } else if (input.isActiveTab(tab) && projectConversationHasPendingInterrupt(tab.entries)) {
+      tab.phase = 'awaiting_interrupt'
     } else {
       tab.phase = 'idle'
     }
 
-    void refreshTabWorkspaceDiff(tab, conversationId, input.touchTabs)
+    if (input.isActiveTab(tab)) {
+      void refreshTabWorkspaceDiff(tab, conversationId, input.touchTabs)
+    }
     input.persistTabs()
   } catch (caughtError) {
     if (tab.streamId !== streamId || tab.conversationId !== conversationId) {

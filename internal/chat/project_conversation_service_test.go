@@ -1445,7 +1445,7 @@ func TestProjectConversationConsumeTurnPersistsProviderTurnIDOnCompletion(t *tes
 		},
 	}
 
-	service.consumeTurn(ctx, conversation.ID, turn, live, chatdomain.ProjectConversationRun{}, TurnStream{Events: events})
+	service.consumeTurn(ctx, conversation, turn, live, chatdomain.ProjectConversationRun{}, TurnStream{Events: events})
 
 	reloadedTurn, err := client.ChatTurn.Get(ctx, turn.ID)
 	if err != nil {
@@ -1510,7 +1510,7 @@ func TestProjectConversationConsumeTurnMarksInterruptedStatus(t *testing.T) {
 		},
 	}
 
-	service.consumeTurn(ctx, conversation.ID, turn, live, chatdomain.ProjectConversationRun{}, TurnStream{Events: events})
+	service.consumeTurn(ctx, conversation, turn, live, chatdomain.ProjectConversationRun{}, TurnStream{Events: events})
 
 	reloadedTurn, err := repoStore.GetConversation(ctx, conversation.ID)
 	if err != nil {
@@ -2090,6 +2090,164 @@ func TestProjectConversationWatchConversationBlockedWatcherDoesNotBlockOthers(t 
 	requireNoProjectConversationStreamEvent(t, blockedWatcher)
 }
 
+func TestProjectConversationWatchProjectConversationsIsolatesByProjectAndUser(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, firstProject := createProjectConversationTestProject(ctx, t, client)
+	secondProject, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE Secondary").
+		SetSlug("openase-secondary-" + uuid.NewString()).
+		SetDescription("Secondary project").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create second project: %v", err)
+	}
+	repoStore := chatrepo.NewEntRepository(client)
+
+	firstConversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  firstProject.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create first conversation: %v", err)
+	}
+	secondConversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  firstProject.ID,
+		UserID:     "user:other",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create second conversation: %v", err)
+	}
+	thirdConversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  secondProject.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create third conversation: %v", err)
+	}
+
+	service := NewProjectConversationService(nil, repoStore, nil, nil, nil, nil, nil)
+	events, cleanup, err := service.WatchProjectConversations(ctx, UserID("user:conversation"), firstProject.ID)
+	if err != nil {
+		t.Fatalf("watch project conversations: %v", err)
+	}
+	defer cleanup()
+
+	initial := requireProjectConversationMuxEvent(t, events)
+	if initial.Event != "session" {
+		t.Fatalf("initial mux event = %q, want session", initial.Event)
+	}
+	if initial.ConversationID != firstConversation.ID {
+		t.Fatalf("initial mux conversation = %s, want %s", initial.ConversationID, firstConversation.ID)
+	}
+	requireNoProjectConversationMuxEvent(t, events)
+
+	if _, err := service.AppendActionExecutionResult(
+		ctx,
+		UserID("user:conversation"),
+		firstConversation.ID,
+		nil,
+		map[string]any{"marker": "first-project"},
+	); err != nil {
+		t.Fatalf("append first action result: %v", err)
+	}
+	delivered := requireProjectConversationMuxEvent(t, events)
+	if delivered.Event != "message" || delivered.ConversationID != firstConversation.ID {
+		t.Fatalf("delivered mux event = %+v, want first conversation message", delivered)
+	}
+
+	if _, err := service.AppendActionExecutionResult(
+		ctx,
+		UserID("user:other"),
+		secondConversation.ID,
+		nil,
+		map[string]any{"marker": "wrong-user"},
+	); err != nil {
+		t.Fatalf("append second action result: %v", err)
+	}
+	if _, err := service.AppendActionExecutionResult(
+		ctx,
+		UserID("user:conversation"),
+		thirdConversation.ID,
+		nil,
+		map[string]any{"marker": "wrong-project"},
+	); err != nil {
+		t.Fatalf("append third action result: %v", err)
+	}
+	requireNoProjectConversationMuxEvent(t, events)
+}
+
+func TestProjectConversationWatchProjectConversationsFansOutToAllWatchers(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	_, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	service := NewProjectConversationService(nil, repoStore, nil, nil, nil, nil, nil)
+	firstWatcher, cleanupFirst, err := service.WatchProjectConversations(
+		ctx,
+		UserID("user:conversation"),
+		project.ID,
+	)
+	if err != nil {
+		t.Fatalf("watch first mux stream: %v", err)
+	}
+	defer cleanupFirst()
+	secondWatcher, cleanupSecond, err := service.WatchProjectConversations(
+		ctx,
+		UserID("user:conversation"),
+		project.ID,
+	)
+	if err != nil {
+		t.Fatalf("watch second mux stream: %v", err)
+	}
+	defer cleanupSecond()
+
+	requireProjectConversationMuxEvent(t, firstWatcher)
+	requireProjectConversationMuxEvent(t, secondWatcher)
+
+	if _, err := service.AppendActionExecutionResult(
+		ctx,
+		UserID("user:conversation"),
+		conversation.ID,
+		nil,
+		map[string]any{"marker": "mux-fanout"},
+	); err != nil {
+		t.Fatalf("append action result: %v", err)
+	}
+
+	for name, watcher := range map[string]<-chan ProjectConversationMuxEvent{
+		"first":  firstWatcher,
+		"second": secondWatcher,
+	} {
+		delivered := requireProjectConversationMuxEvent(t, watcher)
+		if delivered.Event != "message" || delivered.ConversationID != conversation.ID {
+			t.Fatalf("%s mux watcher event = %+v, want conversation message", name, delivered)
+		}
+	}
+}
+
 func TestProjectConversationConsumeTurnPersistsThreadStatusAndProtocolEvents(t *testing.T) {
 	t.Parallel()
 
@@ -2177,7 +2335,7 @@ func TestProjectConversationConsumeTurnPersistsThreadStatusAndProtocolEvents(t *
 		},
 	}
 
-	service.consumeTurn(ctx, conversation.ID, turn, live, chatdomain.ProjectConversationRun{}, TurnStream{Events: streamEvents})
+	service.consumeTurn(ctx, conversation, turn, live, chatdomain.ProjectConversationRun{}, TurnStream{Events: streamEvents})
 	cleanup()
 
 	reloadedConversation, err := repoStore.GetConversation(ctx, conversation.ID)
@@ -2272,7 +2430,7 @@ func TestProjectConversationConsumeTurnPersistsInterruptAndSummary(t *testing.T)
 	}
 	close(streamEvents)
 
-	service.consumeTurn(ctx, conversation.ID, turn, &liveProjectConversation{}, chatdomain.ProjectConversationRun{}, TurnStream{Events: streamEvents})
+	service.consumeTurn(ctx, conversation, turn, &liveProjectConversation{}, chatdomain.ProjectConversationRun{}, TurnStream{Events: streamEvents})
 	cleanup()
 
 	pending, err := repo.ListPendingInterrupts(ctx, conversation.ID)
@@ -2443,7 +2601,7 @@ func TestProjectConversationConsumeTurnRecordsUsageAndProviderRateLimit(t *testi
 		},
 		workspace: provider.AbsolutePath(t.TempDir()),
 	}
-	service.consumeTurn(ctx, conversation.ID, turn, live, run, TurnStream{Events: streamEvents})
+	service.consumeTurn(ctx, conversation, turn, live, run, TurnStream{Events: streamEvents})
 
 	reloadedRun, err := client.ProjectConversationRun.Get(ctx, run.ID)
 	if err != nil {
@@ -3781,6 +3939,37 @@ func requireNoProjectConversationStreamEvent(t *testing.T, events <-chan StreamE
 			return
 		}
 		t.Fatalf("expected no stream event, got %+v", event)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func requireProjectConversationMuxEvent(
+	t *testing.T,
+	events <-chan ProjectConversationMuxEvent,
+) ProjectConversationMuxEvent {
+	t.Helper()
+
+	select {
+	case event, ok := <-events:
+		if !ok {
+			t.Fatal("expected mux stream event, got closed channel")
+		}
+		return event
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("timed out waiting for mux stream event")
+		return ProjectConversationMuxEvent{}
+	}
+}
+
+func requireNoProjectConversationMuxEvent(t *testing.T, events <-chan ProjectConversationMuxEvent) {
+	t.Helper()
+
+	select {
+	case event, ok := <-events:
+		if !ok {
+			return
+		}
+		t.Fatalf("expected no mux stream event, got %+v", event)
 	case <-time.After(100 * time.Millisecond):
 	}
 }

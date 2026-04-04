@@ -27,6 +27,8 @@ export type ProjectConversationTabState = ProjectConversationControllerState & {
   id: string
   providerId: string
   restored: boolean
+  needsHydration: boolean
+  unread: boolean
   draft: string
   queuedTurns: QueuedProjectTurn[]
   readonly pending: boolean
@@ -64,6 +66,8 @@ export function createProjectConversationTabState(
     id: `tab-${tabNumber}`,
     providerId,
     restored,
+    needsHydration: false,
+    unread: false,
     draft: '',
     queuedTurns: [],
     phase: 'idle',
