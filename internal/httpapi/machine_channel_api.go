@@ -39,6 +39,13 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 		_ = conn.Close()
 	}()
 	ctx := c.Request().Context()
+	sessionCtx, cleanup := s.longLivedRequestContext(ctx)
+	defer cleanup()
+	go func() {
+		<-sessionCtx.Done()
+		_ = websocketSessionCloser{conn: conn}.Close("server shutting down")
+		_ = conn.Close()
+	}()
 
 	helloEnvelope, err := readMachineEnvelope(conn)
 	if err != nil {

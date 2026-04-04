@@ -101,6 +101,23 @@ func (r *SessionRegistry) Remove(sessionID string) (RegisteredSession, bool) {
 	return session, true
 }
 
+func (r *SessionRegistry) CloseAll(reason string) {
+	r.mu.Lock()
+	sessions := make([]RegisteredSession, 0, len(r.sessions))
+	for _, session := range r.sessions {
+		sessions = append(sessions, session)
+	}
+	r.sessions = map[string]RegisteredSession{}
+	r.machines = map[uuid.UUID]string{}
+	r.mu.Unlock()
+
+	for _, session := range sessions {
+		if session.closer != nil {
+			_ = session.closer.Close(reason)
+		}
+	}
+}
+
 func (r *SessionRegistry) Snapshot(machineID uuid.UUID) (RegisteredSession, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

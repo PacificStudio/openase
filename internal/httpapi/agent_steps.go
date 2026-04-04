@@ -77,13 +77,15 @@ func (s *Server) streamAgentSteps(c echo.Context) error {
 	if agentItem.ProjectID != projectID {
 		return writeCatalogError(c, catalogservice.ErrNotFound)
 	}
+	streamCtx, cleanup := s.longLivedRequestContext(c.Request().Context())
+	defer cleanup()
 
 	if err := http.NewResponseController(c.Response().Writer).SetWriteDeadline(time.Time{}); err != nil &&
 		!errors.Is(err, http.ErrNotSupported) {
 		return fmt.Errorf("disable sse write deadline: %w", err)
 	}
 
-	stream, err := s.sseHub.Register(c.Request().Context(), agentStepStreamTopic)
+	stream, err := s.sseHub.Register(streamCtx, agentStepStreamTopic)
 	if err != nil {
 		return fmt.Errorf("register agent step stream: %w", err)
 	}
@@ -105,7 +107,7 @@ func (s *Server) streamAgentSteps(c echo.Context) error {
 
 	for {
 		select {
-		case <-c.Request().Context().Done():
+		case <-streamCtx.Done():
 			return nil
 		case event, ok := <-stream:
 			if !ok {

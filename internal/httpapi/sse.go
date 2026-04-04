@@ -61,13 +61,15 @@ func (s *Server) handleProjectEventStream(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
 	}
+	streamCtx, cleanup := s.longLivedRequestContext(c.Request().Context())
+	defer cleanup()
 
 	if err := http.NewResponseController(c.Response().Writer).SetWriteDeadline(time.Time{}); err != nil &&
 		!errors.Is(err, http.ErrNotSupported) {
 		return fmt.Errorf("disable project event stream write deadline: %w", err)
 	}
 
-	stream, err := s.sseHub.Register(c.Request().Context(), projectPassiveStreamTopics...)
+	stream, err := s.sseHub.Register(streamCtx, projectPassiveStreamTopics...)
 	if err != nil {
 		return fmt.Errorf("register project event stream: %w", err)
 	}
@@ -97,14 +99,14 @@ func (s *Server) handleProjectEventStream(c echo.Context) error {
 
 	for {
 		select {
-		case <-c.Request().Context().Done():
+		case <-streamCtx.Done():
 			return nil
 		case event, ok := <-stream:
 			if !ok {
 				return nil
 			}
 
-			streamEvents, buildErr := s.buildProjectStreamEvents(c.Request().Context(), projectID, event)
+			streamEvents, buildErr := s.buildProjectStreamEvents(streamCtx, projectID, event)
 			if buildErr != nil {
 				s.logger.Warn(
 					"skip malformed project event bus payload",
@@ -186,12 +188,15 @@ func (s *Server) handleProviderStream(c echo.Context) error {
 }
 
 func (s *Server) handleEventStreamForTopics(c echo.Context, topics ...provider.Topic) error {
+	streamCtx, cleanup := s.longLivedRequestContext(c.Request().Context())
+	defer cleanup()
+
 	if err := http.NewResponseController(c.Response().Writer).SetWriteDeadline(time.Time{}); err != nil &&
 		!errors.Is(err, http.ErrNotSupported) {
 		return fmt.Errorf("disable sse write deadline: %w", err)
 	}
 
-	stream, err := s.sseHub.Register(c.Request().Context(), topics...)
+	stream, err := s.sseHub.Register(streamCtx, topics...)
 	if err != nil {
 		return fmt.Errorf("register sse connection: %w", err)
 	}
@@ -213,7 +218,7 @@ func (s *Server) handleEventStreamForTopics(c echo.Context, topics ...provider.T
 
 	for {
 		select {
-		case <-c.Request().Context().Done():
+		case <-streamCtx.Done():
 			return nil
 		case event, ok := <-stream:
 			if !ok {
@@ -236,12 +241,15 @@ func (s *Server) handleOrganizationScopedEventStream(
 	streamName string,
 	orgID uuid.UUID,
 ) error {
+	streamCtx, cleanup := s.longLivedRequestContext(c.Request().Context())
+	defer cleanup()
+
 	if err := http.NewResponseController(c.Response().Writer).SetWriteDeadline(time.Time{}); err != nil &&
 		!errors.Is(err, http.ErrNotSupported) {
 		return fmt.Errorf("disable sse write deadline: %w", err)
 	}
 
-	stream, err := s.sseHub.Register(c.Request().Context(), topic)
+	stream, err := s.sseHub.Register(streamCtx, topic)
 	if err != nil {
 		return fmt.Errorf("register %s stream: %w", streamName, err)
 	}
@@ -263,7 +271,7 @@ func (s *Server) handleOrganizationScopedEventStream(
 
 	for {
 		select {
-		case <-c.Request().Context().Done():
+		case <-streamCtx.Done():
 			return nil
 		case event, ok := <-stream:
 			if !ok {

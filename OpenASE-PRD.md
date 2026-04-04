@@ -5726,13 +5726,15 @@ func ErrorHandler(err error, c echo.Context) {
 收到 `SIGTERM` 或 `SIGINT` 后的关机序列：
 
 ```
-1. 停止接受新的 HTTP 请求（Echo 优雅关机，等待 in-flight 请求完成，超时 30s）
+1. 停止接受新的 HTTP 请求，并立即主动切断长连接（SSE / watch stream / request-owned chat stream / reverse websocket）
+   - shutdown 目标是有界退出；不为保留既有流式 UX 而无限等待客户端自行断开
+   - 前端或 daemon 在服务恢复后自行重连，优先级高于“尽量把旧连接拖到自然结束”
 2. 停止编排引擎 Ticker（不再分发新工单）
 3. 向所有活跃 Worker 发送取消信号（context.Cancel）
 4. 等待所有 Worker 完成当前操作或超时（默认 60s）
    - Worker 收到 cancel → 向 Agent CLI 发 SIGTERM → 等待退出 → 更新工单状态为 "interrupted"
    - Worker 超时未退出 → 向 Agent CLI 发 SIGKILL → 强制标记工单状态
-5. 关闭 SSE 连接
+5. 关闭剩余 HTTP / SSE 资源并完成 server shutdown 收尾
 6. 关闭数据库连接池
 7. 写入最终日志，退出
 ```

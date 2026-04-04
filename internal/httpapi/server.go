@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -68,6 +69,9 @@ type Server struct {
 	ticketWorkspaceResetter    ticketWorkspaceResetter
 	machineChannel             *machinechannelservice.Service
 	machineSessions            *machinechannelservice.SessionRegistry
+	longLivedConnCtx           context.Context
+	longLivedConnCancel        context.CancelFunc
+	shutdownOnce               sync.Once
 }
 
 type ticketWorkspaceResetter interface {
@@ -205,6 +209,8 @@ func NewServer(
 	e.Use(middleware.Recover())
 	e.Use(middleware.RequestID())
 
+	longLivedConnCtx, longLivedConnCancel := context.WithCancel(context.Background())
+
 	server := &Server{
 		cfg:                 cfg,
 		auth:                config.AuthConfig{Mode: config.AuthModeDisabled},
@@ -220,6 +226,8 @@ func NewServer(
 		catalog:             catalogservice.SplitServices(catalog),
 		workflowService:     workflowService,
 		memoryCollector:     runtimeobservability.RuntimeProcessMemoryCollector{},
+		longLivedConnCtx:    longLivedConnCtx,
+		longLivedConnCancel: longLivedConnCancel,
 	}
 	if ticketService != nil {
 		server.activityEmitter = activitysvc.NewEmitter(activitysvc.RecordFunc(func(ctx context.Context, input activitysvc.RecordInput) (catalogdomain.ActivityEvent, error) {
@@ -280,12 +288,45 @@ func (s *Server) Handler() http.Handler {
 	return s.echo
 }
 
-func (s *Server) Run(ctx context.Context) error {
-	defer func() {
-		if err := s.sseHub.Close(); err != nil {
-			s.logger.Error("close sse hub", "error", err)
+func (s *Server) longLivedRequestContext(parent context.Context) (context.Context, context.CancelFunc) {
+	if parent == nil {
+		parent = context.Background()
+	}
+
+	ctx, cancel := context.WithCancel(parent)
+	if s == nil || s.longLivedConnCtx == nil {
+		return ctx, cancel
+	}
+
+	stop := context.AfterFunc(s.longLivedConnCtx, cancel)
+	return ctx, func() {
+		stop()
+		cancel()
+	}
+}
+
+func (s *Server) shutdownLongLivedConnections() {
+	if s == nil {
+		return
+	}
+
+	s.shutdownOnce.Do(func() {
+		if s.longLivedConnCancel != nil {
+			s.longLivedConnCancel()
 		}
-	}()
+		if s.machineSessions != nil {
+			s.machineSessions.CloseAll("server shutting down")
+		}
+		if s.sseHub != nil {
+			if err := s.sseHub.Close(); err != nil {
+				s.logger.Error("close sse hub", "error", err)
+			}
+		}
+	})
+}
+
+func (s *Server) Run(ctx context.Context) error {
+	defer s.shutdownLongLivedConnections()
 	if s.machineChannel != nil && s.machineSessions != nil {
 		//nolint:gosec // server lifecycle goroutine is intentionally tied to process-scoped ctx
 		go s.runMachineSessionExpiryLoop(ctx)
@@ -316,8 +357,12 @@ func (s *Server) Run(ctx context.Context) error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), s.cfg.ShutdownTimeout)
 		defer cancel()
 
+		// OpenASE prefers bounded process exit during shutdown. Long-lived SSE, chat,
+		// and websocket connections are cut first so http.Shutdown does not wait for
+		// clients to leave on their own.
+		s.shutdownLongLivedConnections()
 		s.logger.Info("http server stopping")
-		if err := s.echo.Shutdown(shutdownCtx); err != nil {
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
 			return fmt.Errorf("shutdown http server: %w", err)
 		}
 

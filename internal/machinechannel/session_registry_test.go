@@ -62,3 +62,30 @@ func TestSessionRegistryRegisterHeartbeatAndExpire(t *testing.T) {
 		t.Fatal("expected registry snapshot to be cleared after expiry")
 	}
 }
+
+func TestSessionRegistryCloseAllClosesTrackedSessions(t *testing.T) {
+	registry := NewSessionRegistry(30 * time.Second)
+	firstMachineID := uuid.New()
+	secondMachineID := uuid.New()
+	now := time.Date(2026, time.April, 4, 15, 0, 0, 0, time.UTC)
+
+	firstCloser := &stubSessionCloser{}
+	secondCloser := &stubSessionCloser{}
+	registry.Register(firstMachineID, "session-1", now, firstCloser)
+	registry.Register(secondMachineID, "session-2", now, secondCloser)
+
+	registry.CloseAll("server shutting down")
+
+	if len(firstCloser.reasons) != 1 || firstCloser.reasons[0] != "server shutting down" {
+		t.Fatalf("expected first session close reason, got %+v", firstCloser.reasons)
+	}
+	if len(secondCloser.reasons) != 1 || secondCloser.reasons[0] != "server shutting down" {
+		t.Fatalf("expected second session close reason, got %+v", secondCloser.reasons)
+	}
+	if _, ok := registry.Snapshot(firstMachineID); ok {
+		t.Fatal("expected first machine snapshot to be cleared after CloseAll")
+	}
+	if _, ok := registry.Snapshot(secondMachineID); ok {
+		t.Fatal("expected second machine snapshot to be cleared after CloseAll")
+	}
+}
