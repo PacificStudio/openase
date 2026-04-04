@@ -143,7 +143,10 @@ export function buildPickupStatusBlockedReasonMap(
   return map
 }
 
-export function buildSelfStatusBlockedReasonMap(statusIds: string[], reason: string): Record<string, string> {
+export function buildSelfStatusBlockedReasonMap(
+  statusIds: string[],
+  reason: string,
+): Record<string, string> {
   const map: Record<string, string> = {}
   for (const statusId of statusIds) {
     map[statusId] = reason

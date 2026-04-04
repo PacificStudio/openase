@@ -99,7 +99,8 @@
       hookError = ''
 
       const blockedNow = buildPickupStatusBlockedReasonMap(workflows)
-      const defaultPickupStatusId = selectableStatuses.find((status) => !blockedNow[status.id])?.id ?? ''
+      const defaultPickupStatusId =
+        selectableStatuses.find((status) => !blockedNow[status.id])?.id ?? ''
       const defaultFinishStatusId =
         selectableStatuses.find((status) => status.id !== defaultPickupStatusId)?.id ?? ''
       pickupStatusIds = defaultPickupStatusId ? [defaultPickupStatusId] : []

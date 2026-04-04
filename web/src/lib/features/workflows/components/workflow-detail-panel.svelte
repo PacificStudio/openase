@@ -235,7 +235,11 @@
           onToggle={(statusId) =>
             updateDraftField(
               'pickupStatusIds',
-              toggleWorkflowStatusSelection(draft.pickupStatusIds, statusId, pickupBlockedReasonMap),
+              toggleWorkflowStatusSelection(
+                draft.pickupStatusIds,
+                statusId,
+                pickupBlockedReasonMap,
+              ),
             )}
         />
         <WorkflowStatusChipSelector
@@ -247,7 +251,11 @@
           onToggle={(statusId) =>
             updateDraftField(
               'finishStatusIds',
-              toggleWorkflowStatusSelection(draft.finishStatusIds, statusId, finishBlockedReasonMap),
+              toggleWorkflowStatusSelection(
+                draft.finishStatusIds,
+                statusId,
+                finishBlockedReasonMap,
+              ),
             )}
         />
       </div>
