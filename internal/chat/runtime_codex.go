@@ -201,19 +201,16 @@ func (r *CodexRuntime) ensureSession(ctx context.Context, input RuntimeTurnInput
 			Model:                  input.Provider.ModelName,
 			ServiceName:            "openase",
 			DeveloperInstructions:  input.SystemPrompt,
-			ApprovalPolicy:         codexApprovalPolicy(input.PersistentConversation),
-			Sandbox:                "danger-full-access",
+			ApprovalPolicy:         codexApprovalPolicy(input.Provider.PermissionProfile, input.PersistentConversation),
+			Sandbox:                codexSandboxMode(input.Provider.PermissionProfile, input.PersistentConversation),
 			Ephemeral:              boolPointer(!input.PersistentConversation),
 			PersistExtendedHistory: true,
 		},
 		Turn: codexadapter.TurnConfig{
 			WorkingDirectory: input.WorkingDirectory.String(),
 			Title:            codexTurnTitle(input.PersistentConversation),
-			ApprovalPolicy:   codexApprovalPolicy(input.PersistentConversation),
-			SandboxPolicy: map[string]any{
-				"type":          "dangerFullAccess",
-				"networkAccess": true,
-			},
+			ApprovalPolicy:   codexApprovalPolicy(input.Provider.PermissionProfile, input.PersistentConversation),
+			SandboxPolicy:    codexSandboxPolicy(input.Provider.PermissionProfile, input.PersistentConversation),
 		},
 	})
 	if err != nil {
@@ -615,11 +612,63 @@ func boolPointer(value bool) *bool {
 	return &value
 }
 
-func codexApprovalPolicy(persistent bool) any {
-	if persistent {
-		return nil
+func codexApprovalPolicy(
+	profile catalogdomain.AgentProviderPermissionProfile,
+	persistent bool,
+) any {
+	if !persistent {
+		return "never"
+	}
+	profile = normalizeCodexPermissionProfile(profile)
+	if profile == catalogdomain.AgentProviderPermissionProfileStandard {
+		return "on-request"
 	}
 	return "never"
+}
+
+func codexSandboxMode(
+	profile catalogdomain.AgentProviderPermissionProfile,
+	persistent bool,
+) string {
+	if !persistent {
+		return "danger-full-access"
+	}
+	profile = normalizeCodexPermissionProfile(profile)
+	if profile == catalogdomain.AgentProviderPermissionProfileStandard {
+		return "workspace-write"
+	}
+	return "danger-full-access"
+}
+
+func codexSandboxPolicy(
+	profile catalogdomain.AgentProviderPermissionProfile,
+	persistent bool,
+) map[string]any {
+	if !persistent {
+		return map[string]any{
+			"type":          "dangerFullAccess",
+			"networkAccess": true,
+		}
+	}
+	profile = normalizeCodexPermissionProfile(profile)
+	if profile == catalogdomain.AgentProviderPermissionProfileStandard {
+		return map[string]any{
+			"type": "workspaceWrite",
+		}
+	}
+	return map[string]any{
+		"type":          "dangerFullAccess",
+		"networkAccess": true,
+	}
+}
+
+func normalizeCodexPermissionProfile(
+	profile catalogdomain.AgentProviderPermissionProfile,
+) catalogdomain.AgentProviderPermissionProfile {
+	if !profile.IsValid() {
+		return catalogdomain.DefaultAgentProviderPermissionProfile
+	}
+	return profile
 }
 
 func codexTurnTitle(persistent bool) string {

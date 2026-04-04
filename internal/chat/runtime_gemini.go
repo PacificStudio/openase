@@ -68,7 +68,7 @@ func (r *GeminiRuntime) StartTurn(ctx context.Context, input RuntimeTurnInput) (
 
 	processSpec, err := provider.NewAgentCLIProcessSpec(
 		command,
-		buildGeminiArgs(input.Provider.CliArgs, input.Provider.ModelName, prompt),
+		buildGeminiArgs(input.Provider.CliArgs, input.Provider.ModelName, input.Provider.PermissionProfile, prompt),
 		workingDirectory,
 		append(provider.AuthConfigEnvironment(input.Provider.AuthConfig), input.Environment...),
 	)
@@ -410,10 +410,19 @@ func (r *GeminiRuntime) collectTurn(
 	}
 }
 
-func buildGeminiArgs(cliArgs []string, modelName string, prompt string) []string {
+func buildGeminiArgs(
+	cliArgs []string,
+	modelName string,
+	profile catalogdomain.AgentProviderPermissionProfile,
+	prompt string,
+) []string {
 	args := append([]string(nil), cliArgs...)
 	if strings.TrimSpace(modelName) != "" && !hasGeminiModelFlag(args) {
 		args = append(args, "-m", modelName)
+	}
+	if normalizeRuntimePermissionProfile(profile) == catalogdomain.AgentProviderPermissionProfileUnrestricted &&
+		!hasGeminiApprovalModeYoloArg(args) {
+		args = append(args, "--approval-mode=yolo")
 	}
 	args = append(args, "-p", prompt, "--output-format", "stream-json")
 	return args
@@ -431,5 +440,20 @@ func hasGeminiModelFlag(args []string) bool {
 		}
 	}
 
+	return false
+}
+
+func hasGeminiApprovalModeYoloArg(args []string) bool {
+	for index := 0; index < len(args); index++ {
+		switch {
+		case args[index] == "--approval-mode" && index+1 < len(args) &&
+			strings.EqualFold(strings.TrimSpace(args[index+1]), "yolo"):
+			return true
+		case strings.EqualFold(strings.TrimSpace(args[index]), "--approval-mode=yolo"):
+			return true
+		case args[index] == "-y", args[index] == "--yolo":
+			return true
+		}
+	}
 	return false
 }
