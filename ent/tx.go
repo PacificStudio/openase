@@ -26,6 +26,10 @@ type Tx struct {
 	AgentToken *AgentTokenClient
 	// AgentTraceEvent is the client for interacting with the AgentTraceEvent builders.
 	AgentTraceEvent *AgentTraceEventClient
+	// ApprovalPolicyRule is the client for interacting with the ApprovalPolicyRule builders.
+	ApprovalPolicyRule *ApprovalPolicyRuleClient
+	// BrowserSession is the client for interacting with the BrowserSession builders.
+	BrowserSession *BrowserSessionClient
 	// ChatConversation is the client for interacting with the ChatConversation builders.
 	ChatConversation *ChatConversationClient
 	// ChatEntry is the client for interacting with the ChatEntry builders.
@@ -64,6 +68,8 @@ type Tx struct {
 	ProjectUpdateThread *ProjectUpdateThreadClient
 	// ProjectUpdateThreadRevision is the client for interacting with the ProjectUpdateThreadRevision builders.
 	ProjectUpdateThreadRevision *ProjectUpdateThreadRevisionClient
+	// RoleBinding is the client for interacting with the RoleBinding builders.
+	RoleBinding *RoleBindingClient
 	// ScheduledJob is the client for interacting with the ScheduledJob builders.
 	ScheduledJob *ScheduledJobClient
 	// Skill is the client for interacting with the Skill builders.
@@ -90,6 +96,12 @@ type Tx struct {
 	TicketRepoWorkspace *TicketRepoWorkspaceClient
 	// TicketStatus is the client for interacting with the TicketStatus builders.
 	TicketStatus *TicketStatusClient
+	// User is the client for interacting with the User builders.
+	User *UserClient
+	// UserGroupMembership is the client for interacting with the UserGroupMembership builders.
+	UserGroupMembership *UserGroupMembershipClient
+	// UserIdentity is the client for interacting with the UserIdentity builders.
+	UserIdentity *UserIdentityClient
 	// Workflow is the client for interacting with the Workflow builders.
 	Workflow *WorkflowClient
 	// WorkflowSkillBinding is the client for interacting with the WorkflowSkillBinding builders.
@@ -234,6 +246,8 @@ func (tx *Tx) init() {
 	tx.AgentStepEvent = NewAgentStepEventClient(tx.config)
 	tx.AgentToken = NewAgentTokenClient(tx.config)
 	tx.AgentTraceEvent = NewAgentTraceEventClient(tx.config)
+	tx.ApprovalPolicyRule = NewApprovalPolicyRuleClient(tx.config)
+	tx.BrowserSession = NewBrowserSessionClient(tx.config)
 	tx.ChatConversation = NewChatConversationClient(tx.config)
 	tx.ChatEntry = NewChatEntryClient(tx.config)
 	tx.ChatPendingInterrupt = NewChatPendingInterruptClient(tx.config)
@@ -253,6 +267,7 @@ func (tx *Tx) init() {
 	tx.ProjectUpdateCommentRevision = NewProjectUpdateCommentRevisionClient(tx.config)
 	tx.ProjectUpdateThread = NewProjectUpdateThreadClient(tx.config)
 	tx.ProjectUpdateThreadRevision = NewProjectUpdateThreadRevisionClient(tx.config)
+	tx.RoleBinding = NewRoleBindingClient(tx.config)
 	tx.ScheduledJob = NewScheduledJobClient(tx.config)
 	tx.Skill = NewSkillClient(tx.config)
 	tx.SkillBlob = NewSkillBlobClient(tx.config)
@@ -266,6 +281,9 @@ func (tx *Tx) init() {
 	tx.TicketRepoScope = NewTicketRepoScopeClient(tx.config)
 	tx.TicketRepoWorkspace = NewTicketRepoWorkspaceClient(tx.config)
 	tx.TicketStatus = NewTicketStatusClient(tx.config)
+	tx.User = NewUserClient(tx.config)
+	tx.UserGroupMembership = NewUserGroupMembershipClient(tx.config)
+	tx.UserIdentity = NewUserIdentityClient(tx.config)
 	tx.Workflow = NewWorkflowClient(tx.config)
 	tx.WorkflowSkillBinding = NewWorkflowSkillBindingClient(tx.config)
 	tx.WorkflowVersion = NewWorkflowVersionClient(tx.config)

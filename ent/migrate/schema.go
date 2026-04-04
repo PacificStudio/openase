@@ -455,6 +455,68 @@ var (
 			},
 		},
 	}
+	// ApprovalPolicyRulesColumns holds the columns for the "approval_policy_rules" table.
+	ApprovalPolicyRulesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "scope_kind", Type: field.TypeEnum, Enums: []string{"instance", "organization", "project"}},
+		{Name: "scope_id", Type: field.TypeString, Default: ""},
+		{Name: "action_key", Type: field.TypeString},
+		{Name: "require_role_key", Type: field.TypeString, Default: ""},
+		{Name: "require_ticket_status", Type: field.TypeString, Default: ""},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// ApprovalPolicyRulesTable holds the schema information for the "approval_policy_rules" table.
+	ApprovalPolicyRulesTable = &schema.Table{
+		Name:       "approval_policy_rules",
+		Columns:    ApprovalPolicyRulesColumns,
+		PrimaryKey: []*schema.Column{ApprovalPolicyRulesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "approvalpolicyrule_scope_kind_scope_id_action_key",
+				Unique:  true,
+				Columns: []*schema.Column{ApprovalPolicyRulesColumns[1], ApprovalPolicyRulesColumns[2], ApprovalPolicyRulesColumns[3]},
+			},
+		},
+	}
+	// BrowserSessionsColumns holds the columns for the "browser_sessions" table.
+	BrowserSessionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "user_id", Type: field.TypeUUID},
+		{Name: "session_hash", Type: field.TypeString},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "idle_expires_at", Type: field.TypeTime},
+		{Name: "csrf_secret", Type: field.TypeString},
+		{Name: "user_agent_hash", Type: field.TypeString, Default: ""},
+		{Name: "ip_prefix", Type: field.TypeString, Default: ""},
+		{Name: "revoked_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// BrowserSessionsTable holds the schema information for the "browser_sessions" table.
+	BrowserSessionsTable = &schema.Table{
+		Name:       "browser_sessions",
+		Columns:    BrowserSessionsColumns,
+		PrimaryKey: []*schema.Column{BrowserSessionsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "browsersession_session_hash",
+				Unique:  true,
+				Columns: []*schema.Column{BrowserSessionsColumns[2]},
+			},
+			{
+				Name:    "browsersession_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{BrowserSessionsColumns[1]},
+			},
+			{
+				Name:    "browsersession_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{BrowserSessionsColumns[3]},
+			},
+		},
+	}
 	// ChatConversationsColumns holds the columns for the "chat_conversations" table.
 	ChatConversationsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -1240,6 +1302,42 @@ var (
 			},
 		},
 	}
+	// RoleBindingsColumns holds the columns for the "role_bindings" table.
+	RoleBindingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "scope_kind", Type: field.TypeEnum, Enums: []string{"instance", "organization", "project"}},
+		{Name: "scope_id", Type: field.TypeString, Default: ""},
+		{Name: "subject_kind", Type: field.TypeEnum, Enums: []string{"user", "group"}},
+		{Name: "subject_key", Type: field.TypeString},
+		{Name: "role_key", Type: field.TypeString},
+		{Name: "granted_by", Type: field.TypeString, Default: ""},
+		{Name: "expires_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// RoleBindingsTable holds the schema information for the "role_bindings" table.
+	RoleBindingsTable = &schema.Table{
+		Name:       "role_bindings",
+		Columns:    RoleBindingsColumns,
+		PrimaryKey: []*schema.Column{RoleBindingsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "rolebinding_scope_kind_scope_id_subject_kind_subject_key_role_key",
+				Unique:  true,
+				Columns: []*schema.Column{RoleBindingsColumns[1], RoleBindingsColumns[2], RoleBindingsColumns[3], RoleBindingsColumns[4], RoleBindingsColumns[5]},
+			},
+			{
+				Name:    "rolebinding_subject_kind_subject_key",
+				Unique:  false,
+				Columns: []*schema.Column{RoleBindingsColumns[3], RoleBindingsColumns[4]},
+			},
+			{
+				Name:    "rolebinding_scope_kind_scope_id",
+				Unique:  false,
+				Columns: []*schema.Column{RoleBindingsColumns[1], RoleBindingsColumns[2]},
+			},
+		},
+	}
 	// ScheduledJobsColumns holds the columns for the "scheduled_jobs" table.
 	ScheduledJobsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -1836,6 +1934,96 @@ var (
 			},
 		},
 	}
+	// UsersColumns holds the columns for the "users" table.
+	UsersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"active", "disabled"}, Default: "active"},
+		{Name: "primary_email", Type: field.TypeString, Default: ""},
+		{Name: "display_name", Type: field.TypeString, Default: ""},
+		{Name: "avatar_url", Type: field.TypeString, Default: ""},
+		{Name: "last_login_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// UsersTable holds the schema information for the "users" table.
+	UsersTable = &schema.Table{
+		Name:       "users",
+		Columns:    UsersColumns,
+		PrimaryKey: []*schema.Column{UsersColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "user_primary_email",
+				Unique:  false,
+				Columns: []*schema.Column{UsersColumns[2]},
+			},
+		},
+	}
+	// UserGroupMembershipsColumns holds the columns for the "user_group_memberships" table.
+	UserGroupMembershipsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "user_id", Type: field.TypeUUID},
+		{Name: "issuer", Type: field.TypeString},
+		{Name: "group_key", Type: field.TypeString},
+		{Name: "group_name", Type: field.TypeString, Default: ""},
+		{Name: "last_synced_at", Type: field.TypeTime},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// UserGroupMembershipsTable holds the schema information for the "user_group_memberships" table.
+	UserGroupMembershipsTable = &schema.Table{
+		Name:       "user_group_memberships",
+		Columns:    UserGroupMembershipsColumns,
+		PrimaryKey: []*schema.Column{UserGroupMembershipsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "usergroupmembership_user_id_issuer_group_key",
+				Unique:  true,
+				Columns: []*schema.Column{UserGroupMembershipsColumns[1], UserGroupMembershipsColumns[2], UserGroupMembershipsColumns[3]},
+			},
+			{
+				Name:    "usergroupmembership_group_key",
+				Unique:  false,
+				Columns: []*schema.Column{UserGroupMembershipsColumns[3]},
+			},
+		},
+	}
+	// UserIdentitiesColumns holds the columns for the "user_identities" table.
+	UserIdentitiesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "user_id", Type: field.TypeUUID},
+		{Name: "issuer", Type: field.TypeString},
+		{Name: "subject", Type: field.TypeString},
+		{Name: "email", Type: field.TypeString, Default: ""},
+		{Name: "email_verified", Type: field.TypeBool, Default: false},
+		{Name: "claims_version", Type: field.TypeInt, Default: 1},
+		{Name: "raw_claims_json", Type: field.TypeString, Size: 2147483647, Default: "{}"},
+		{Name: "last_synced_at", Type: field.TypeTime},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// UserIdentitiesTable holds the schema information for the "user_identities" table.
+	UserIdentitiesTable = &schema.Table{
+		Name:       "user_identities",
+		Columns:    UserIdentitiesColumns,
+		PrimaryKey: []*schema.Column{UserIdentitiesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "useridentity_issuer_subject",
+				Unique:  true,
+				Columns: []*schema.Column{UserIdentitiesColumns[2], UserIdentitiesColumns[3]},
+			},
+			{
+				Name:    "useridentity_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{UserIdentitiesColumns[1]},
+			},
+			{
+				Name:    "useridentity_email",
+				Unique:  false,
+				Columns: []*schema.Column{UserIdentitiesColumns[4]},
+			},
+		},
+	}
 	// WorkflowsColumns holds the columns for the "workflows" table.
 	WorkflowsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -2046,6 +2234,8 @@ var (
 		AgentStepEventsTable,
 		AgentTokensTable,
 		AgentTraceEventsTable,
+		ApprovalPolicyRulesTable,
+		BrowserSessionsTable,
 		ChatConversationsTable,
 		ChatEntriesTable,
 		ChatPendingInterruptsTable,
@@ -2065,6 +2255,7 @@ var (
 		ProjectUpdateCommentRevisionsTable,
 		ProjectUpdateThreadsTable,
 		ProjectUpdateThreadRevisionsTable,
+		RoleBindingsTable,
 		ScheduledJobsTable,
 		SkillsTable,
 		SkillBlobsTable,
@@ -2078,6 +2269,9 @@ var (
 		TicketRepoScopesTable,
 		TicketRepoWorkspacesTable,
 		TicketStatusTable,
+		UsersTable,
+		UserGroupMembershipsTable,
+		UserIdentitiesTable,
 		WorkflowsTable,
 		WorkflowSkillBindingsTable,
 		WorkflowVersionsTable,

@@ -13,6 +13,7 @@
   import { Separator } from '$ui/separator'
 
   import GitHubOutboundCredentialsPanel from './security-settings-github-outbound-credentials.svelte'
+  import SecuritySettingsHumanAuth from './security-settings-human-auth.svelte'
   import SecurityPlatformDetails from './security-settings-platform-details.svelte'
   import { normalizeSecuritySettings } from '../security-settings'
 
@@ -121,9 +122,13 @@
   <div>
     <h2 class="text-foreground text-base font-semibold">Security</h2>
     <p class="text-muted-foreground mt-1 text-sm">
-      Credentials, webhooks, and runtime token policies.
+      Human access, credentials, webhooks, and runtime token policies.
     </p>
   </div>
+
+  <Separator />
+
+  <SecuritySettingsHumanAuth />
 
   <Separator />
 

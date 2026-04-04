@@ -16,6 +16,7 @@ import (
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
+	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -56,7 +57,11 @@ func (s *Server) handleStartChat(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
 
-	userID, err := chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
+	if err := s.requireHumanPermission(c, humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindProject, ID: input.Context.ProjectID.String()}, humanauthdomain.PermissionProjectRead); err != nil {
+		return err
+	}
+
+	userID, err := currentRequestChatUserID(c)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
 	}
@@ -170,7 +175,7 @@ func (s *Server) handleDeleteChat(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_SESSION_ID", err.Error())
 	}
 
-	userID, err := chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
+	userID, err := currentRequestChatUserID(c)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
 	}
@@ -257,6 +262,13 @@ func optionalChatSessionIDString(value *chatservice.SessionID) string {
 	return value.String()
 }
 
+func currentRequestChatUserID(c echo.Context) (chatservice.UserID, error) {
+	if actor := strings.TrimSpace(actorFromHumanPrincipal(c)); actor != "" {
+		return chatservice.ParseUserID(actor)
+	}
+	return chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
+}
+
 func writeChatError(c echo.Context, err error) error {
 	switch {
 	case errors.Is(err, chatservice.ErrUnavailable):
@@ -319,7 +331,10 @@ func (s *Server) handleCreateProjectConversation(c echo.Context) error {
 	if request.Source != chatdomain.SourceProjectSidebar {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_SOURCE", "project conversations only support project_sidebar")
 	}
-	userID, err := chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
+	if err := s.requireHumanPermission(c, humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindProject, ID: request.ProjectID.String()}, humanauthdomain.PermissionTicketComment); err != nil {
+		return err
+	}
+	userID, err := currentRequestChatUserID(c)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
 	}
@@ -341,13 +356,20 @@ func (s *Server) handleListProjectConversations(c echo.Context) error {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
 	}
 
-	userID, err := chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
-	}
 	projectID, err := parseUUIDString("project_id", c.QueryParam("project_id"))
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+	if err := s.requireHumanPermission(
+		c,
+		humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindProject, ID: projectID.String()},
+		humanauthdomain.PermissionTicketRead,
+	); err != nil {
+		return err
+	}
+	userID, err := currentRequestChatUserID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
 	}
 
 	var providerID *uuid.UUID
@@ -374,7 +396,7 @@ func (s *Server) handleGetProjectConversation(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
 	}
-	userID, err := chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
+	userID, err := currentRequestChatUserID(c)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
 	}
@@ -393,7 +415,7 @@ func (s *Server) handleListProjectConversationEntries(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
 	}
-	userID, err := chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
+	userID, err := currentRequestChatUserID(c)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
 	}
@@ -412,7 +434,7 @@ func (s *Server) handleGetProjectConversationWorkspaceDiff(c echo.Context) error
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
 	}
-	userID, err := chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
+	userID, err := currentRequestChatUserID(c)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
 	}
@@ -431,7 +453,7 @@ func (s *Server) handleStartProjectConversationTurn(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
 	}
-	userID, err := chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
+	userID, err := currentRequestChatUserID(c)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
 	}
@@ -523,7 +545,7 @@ func (s *Server) handleRespondProjectConversationInterrupt(c echo.Context) error
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_INTERRUPT_ID", err.Error())
 	}
-	userID, err := chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
+	userID, err := currentRequestChatUserID(c)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
 	}
@@ -553,7 +575,7 @@ func (s *Server) handleDeleteProjectConversationRuntime(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
 	}
-	userID, err := chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
+	userID, err := currentRequestChatUserID(c)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
 	}

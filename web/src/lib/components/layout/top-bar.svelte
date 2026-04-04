@@ -24,11 +24,19 @@
     searchEnabled = false,
     newTicketEnabled = false,
     newTicketTitle,
+    settingsEnabled = false,
+    settingsHref = '',
+    userDisplayName = '',
+    userPrimaryEmail = '',
+    userAvatarURL = '',
+    logoutPending = false,
     onToggleTheme,
     onNewTicket,
     onOpenSearch,
     onCreateOrg,
     onCreateProject,
+    onOpenSettings,
+    onLogout,
   }: {
     organizations?: Organization[]
     projects?: Project[]
@@ -43,11 +51,19 @@
     searchEnabled?: boolean
     newTicketEnabled?: boolean
     newTicketTitle?: string
+    settingsEnabled?: boolean
+    settingsHref?: string
+    userDisplayName?: string
+    userPrimaryEmail?: string
+    userAvatarURL?: string
+    logoutPending?: boolean
     onToggleTheme?: () => void
     onNewTicket?: () => void
     onOpenSearch?: () => void
     onCreateOrg?: () => void
     onCreateProject?: () => void
+    onOpenSettings?: () => void
+    onLogout?: () => void
   } = $props()
 
   const healthDotClass = $derived.by(() => {
@@ -84,6 +100,18 @@
     void preloadCode(href)
     void preloadData(href)
   }
+
+  const userInitials = $derived.by(() => {
+    const source = userDisplayName.trim() || userPrimaryEmail.trim()
+    if (!source) {
+      return 'U'
+    }
+    const parts = source.split(/\s+/).filter((value) => value !== '')
+    if (parts.length === 1) {
+      return parts[0].slice(0, 2).toUpperCase()
+    }
+    return `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}`.toUpperCase()
+  })
 </script>
 
 <header class="border-border bg-background flex h-12 shrink-0 items-center gap-2 border-b px-4">
@@ -272,24 +300,51 @@
       {#snippet child({ props })}
         <button {...props} class="rounded-full">
           <Avatar.Root class="size-7">
-            <Avatar.Fallback class="bg-primary/10 text-primary text-xs">U</Avatar.Fallback>
+            {#if userAvatarURL}
+              <Avatar.Image
+                src={userAvatarURL}
+                alt={userDisplayName || userPrimaryEmail || 'User'}
+              />
+            {/if}
+            <Avatar.Fallback class="bg-primary/10 text-primary text-xs"
+              >{userInitials}</Avatar.Fallback
+            >
           </Avatar.Root>
         </button>
       {/snippet}
     </DropdownMenu.Trigger>
     <DropdownMenu.Content align="end" class="w-48">
+      {#if userDisplayName || userPrimaryEmail}
+        <DropdownMenu.Label class="space-y-0.5">
+          {#if userDisplayName}
+            <div class="text-foreground text-sm font-medium">{userDisplayName}</div>
+          {/if}
+          {#if userPrimaryEmail}
+            <div class="text-muted-foreground text-xs">{userPrimaryEmail}</div>
+          {/if}
+        </DropdownMenu.Label>
+        <DropdownMenu.Separator />
+      {/if}
       <DropdownMenu.Item onclick={onToggleTheme}>
         <Moon class="mr-2 size-4" />
         Toggle Theme
       </DropdownMenu.Item>
-      <DropdownMenu.Item>
+      <DropdownMenu.Item
+        onclick={onOpenSettings}
+        onpointerenter={() => {
+          if (settingsHref) {
+            warmRoute(settingsHref)
+          }
+        }}
+        disabled={!settingsEnabled}
+      >
         <Settings class="mr-2 size-4" />
         Settings
       </DropdownMenu.Item>
       <DropdownMenu.Separator />
-      <DropdownMenu.Item>
+      <DropdownMenu.Item onclick={onLogout} disabled={logoutPending}>
         <LogOut class="mr-2 size-4" />
-        Logout
+        {logoutPending ? 'Logging out…' : 'Logout'}
       </DropdownMenu.Item>
     </DropdownMenu.Content>
   </DropdownMenu.Root>

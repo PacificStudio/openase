@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	"github.com/BetterAndBetterII/openase/internal/infra/sse"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
@@ -25,6 +27,7 @@ import (
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	githubreposervice "github.com/BetterAndBetterII/openase/internal/service/githubrepo"
+	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -35,6 +38,7 @@ import (
 
 type Server struct {
 	cfg                        config.ServerConfig
+	auth                       config.AuthConfig
 	github                     config.GitHubConfig
 	logger                     *slog.Logger
 	events                     provider.EventProvider
@@ -57,6 +61,8 @@ type Server struct {
 	projectConversationService *chatservice.ProjectConversationService
 	githubAuthService          githubauthservice.SecurityManager
 	githubRepoService          githubreposervice.Service
+	humanAuthService           *humanauthservice.Service
+	humanAuthorizer            *humanauthservice.Authorizer
 	memoryCollector            runtimeobservability.ProcessMemoryCollector
 	ticketWorkspaceResetter    ticketWorkspaceResetter
 }
@@ -106,6 +112,19 @@ func WithGitHubAuthService(service githubauthservice.SecurityManager) ServerOpti
 func WithGitHubRepoService(service githubreposervice.Service) ServerOption {
 	return func(server *Server) {
 		server.githubRepoService = service
+	}
+}
+
+func WithHumanAuthConfig(cfg config.AuthConfig) ServerOption {
+	return func(server *Server) {
+		server.auth = cfg
+	}
+}
+
+func WithHumanAuthService(service *humanauthservice.Service, authorizer *humanauthservice.Authorizer) ServerOption {
+	return func(server *Server) {
+		server.humanAuthService = service
+		server.humanAuthorizer = authorizer
 	}
 }
 
@@ -160,11 +179,25 @@ func NewServer(
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
+	e.HTTPErrorHandler = func(err error, c echo.Context) {
+		if c.Response().Committed {
+			return
+		}
+		var httpErr *echo.HTTPError
+		if errors.As(err, &httpErr) &&
+			strings.HasPrefix(c.Request().URL.Path, "/api/") &&
+			(httpErr.Code == http.StatusNotFound || httpErr.Code == http.StatusMethodNotAllowed) {
+			_ = c.String(httpErr.Code, http.StatusText(httpErr.Code))
+			return
+		}
+		e.DefaultHTTPErrorHandler(err, c)
+	}
 	e.Use(middleware.Recover())
 	e.Use(middleware.RequestID())
 
 	server := &Server{
 		cfg:                 cfg,
+		auth:                config.AuthConfig{Mode: config.AuthModeDisabled},
 		github:              github,
 		logger:              logger.With("component", "http-server"),
 		events:              events,
@@ -224,6 +257,13 @@ func NewServer(
 	registerServerRoutes(server)
 
 	return server
+}
+
+type authzEvaluation struct {
+	scope       humanauthdomain.ScopeRef
+	permission  humanauthdomain.PermissionKey
+	roles       []humanauthdomain.RoleKey
+	permissions []humanauthdomain.PermissionKey
 }
 
 func (s *Server) Handler() http.Handler {

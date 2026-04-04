@@ -93,6 +93,30 @@ func (f AgentTraceEventFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Va
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentTraceEventMutation", m)
 }
 
+// The ApprovalPolicyRuleFunc type is an adapter to allow the use of ordinary
+// function as ApprovalPolicyRule mutator.
+type ApprovalPolicyRuleFunc func(context.Context, *ent.ApprovalPolicyRuleMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ApprovalPolicyRuleFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ApprovalPolicyRuleMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ApprovalPolicyRuleMutation", m)
+}
+
+// The BrowserSessionFunc type is an adapter to allow the use of ordinary
+// function as BrowserSession mutator.
+type BrowserSessionFunc func(context.Context, *ent.BrowserSessionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f BrowserSessionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.BrowserSessionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.BrowserSessionMutation", m)
+}
+
 // The ChatConversationFunc type is an adapter to allow the use of ordinary
 // function as ChatConversation mutator.
 type ChatConversationFunc func(context.Context, *ent.ChatConversationMutation) (ent.Value, error)
@@ -321,6 +345,18 @@ func (f ProjectUpdateThreadRevisionFunc) Mutate(ctx context.Context, m ent.Mutat
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectUpdateThreadRevisionMutation", m)
 }
 
+// The RoleBindingFunc type is an adapter to allow the use of ordinary
+// function as RoleBinding mutator.
+type RoleBindingFunc func(context.Context, *ent.RoleBindingMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RoleBindingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RoleBindingMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RoleBindingMutation", m)
+}
+
 // The ScheduledJobFunc type is an adapter to allow the use of ordinary
 // function as ScheduledJob mutator.
 type ScheduledJobFunc func(context.Context, *ent.ScheduledJobMutation) (ent.Value, error)
@@ -475,6 +511,42 @@ func (f TicketStatusFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.TicketStatusMutation", m)
+}
+
+// The UserFunc type is an adapter to allow the use of ordinary
+// function as User mutator.
+type UserFunc func(context.Context, *ent.UserMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f UserFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.UserMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserMutation", m)
+}
+
+// The UserGroupMembershipFunc type is an adapter to allow the use of ordinary
+// function as UserGroupMembership mutator.
+type UserGroupMembershipFunc func(context.Context, *ent.UserGroupMembershipMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f UserGroupMembershipFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.UserGroupMembershipMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserGroupMembershipMutation", m)
+}
+
+// The UserIdentityFunc type is an adapter to allow the use of ordinary
+// function as UserIdentity mutator.
+type UserIdentityFunc func(context.Context, *ent.UserIdentityMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f UserIdentityFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.UserIdentityMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserIdentityMutation", m)
 }
 
 // The WorkflowFunc type is an adapter to allow the use of ordinary

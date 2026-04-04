@@ -11,7 +11,32 @@ import (
 	"github.com/spf13/viper"
 )
 
+func clearOpenASEEnv(t *testing.T) {
+	t.Helper()
+	for _, key := range []string{
+		"OPENASE_SERVER_MODE",
+		"OPENASE_SERVER_HOST",
+		"OPENASE_SERVER_PORT",
+		"OPENASE_GITHUB_WEBHOOK_SECRET",
+		"OPENASE_DATABASE_DSN",
+		"OPENASE_ORCHESTRATOR_TICK_INTERVAL",
+		"OPENASE_EVENT_DRIVER",
+		"OPENASE_OBSERVABILITY_METRICS_ENABLED",
+		"OPENASE_OBSERVABILITY_METRICS_EXPORT_PROMETHEUS",
+		"OPENASE_OBSERVABILITY_METRICS_EXPORT_OTLP_ENDPOINT",
+		"OPENASE_OBSERVABILITY_TRACING_ENABLED",
+		"OPENASE_OBSERVABILITY_TRACING_ENDPOINT",
+		"OPENASE_OBSERVABILITY_TRACING_SERVICE_NAME",
+		"OPENASE_OBSERVABILITY_TRACING_SAMPLE_RATIO",
+		"OPENASE_LOG_FORMAT",
+		"OPENASE_LOG_LEVEL",
+	} {
+		t.Setenv(key, "")
+	}
+}
+
 func TestLoadDefaults(t *testing.T) {
+	clearOpenASEEnv(t)
 	t.Setenv("HOME", t.TempDir())
 
 	cfg, err := Load(LoadOptions{})
@@ -65,6 +90,7 @@ func TestLoadDefaults(t *testing.T) {
 }
 
 func TestLoadFromEnvironment(t *testing.T) {
+	clearOpenASEEnv(t)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("OPENASE_SERVER_PORT", "41000")
 	t.Setenv("OPENASE_SERVER_MODE", "serve")
@@ -149,6 +175,7 @@ func TestLoadFromEnvironment(t *testing.T) {
 }
 
 func TestLoadFromConfigFile(t *testing.T) {
+	clearOpenASEEnv(t)
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "config.yaml")
 	writeFile(t, configPath, []byte(`
@@ -254,6 +281,7 @@ log:
 }
 
 func TestLoadRejectsInvalidPort(t *testing.T) {
+	clearOpenASEEnv(t)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("OPENASE_SERVER_PORT", "70000")
 
@@ -263,6 +291,7 @@ func TestLoadRejectsInvalidPort(t *testing.T) {
 }
 
 func TestLoadRejectsChannelDriverOutsideAllInOne(t *testing.T) {
+	clearOpenASEEnv(t)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("OPENASE_SERVER_MODE", "serve")
 	t.Setenv("OPENASE_EVENT_DRIVER", "channel")
@@ -273,6 +302,7 @@ func TestLoadRejectsChannelDriverOutsideAllInOne(t *testing.T) {
 }
 
 func TestLoadRejectsMissingDatabaseDSNForResolvedPGNotify(t *testing.T) {
+	clearOpenASEEnv(t)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("OPENASE_SERVER_MODE", "serve")
 
@@ -282,6 +312,7 @@ func TestLoadRejectsMissingDatabaseDSNForResolvedPGNotify(t *testing.T) {
 }
 
 func TestLoadRejectsInvalidTracingSampleRatio(t *testing.T) {
+	clearOpenASEEnv(t)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("OPENASE_OBSERVABILITY_TRACING_SAMPLE_RATIO", "1.2")
 

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
@@ -124,6 +125,9 @@ func (s *Server) handleCreateSkill(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
+	if actor := actorFromHumanPrincipal(c); strings.TrimSpace(raw.CreatedBy) == "" {
+		raw.CreatedBy = actor
+	}
 
 	input, err := parseCreateSkillRequest(projectID, raw)
 	if err != nil {
@@ -151,6 +155,9 @@ func (s *Server) handleImportSkillBundle(c echo.Context) error {
 	var raw rawImportSkillBundleRequest
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
+	}
+	if actor := actorFromHumanPrincipal(c); strings.TrimSpace(raw.CreatedBy) == "" {
+		raw.CreatedBy = actor
 	}
 
 	input, err := parseImportSkillBundleRequest(projectID, raw)

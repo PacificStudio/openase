@@ -1,6 +1,9 @@
 <script lang="ts">
+  import { goto } from '$app/navigation'
   import { page } from '$app/state'
+  import { logoutHumanSession, normalizeReturnTo } from '$lib/api/auth'
   import { loadAppContext } from '$lib/api/app-context'
+  import { ApiError } from '$lib/api/client'
   import { getProject } from '$lib/api/openase'
   import Sidebar from '$lib/components/layout/sidebar.svelte'
   import TopBar from '$lib/components/layout/top-bar.svelte'
@@ -11,8 +14,15 @@
     retainProjectEventBus,
     subscribeProjectEvents,
   } from '$lib/features/project-events'
+  import { authStore } from '$lib/stores/auth.svelte'
   import { appStore } from '$lib/stores/app.svelte'
-  import type { AppRouteContext, ProjectSection } from '$lib/stores/app-context'
+  import {
+    organizationPath,
+    projectPath,
+    type AppRouteContext,
+    type ProjectSection,
+  } from '$lib/stores/app-context'
+  import { toastStore } from '$lib/stores/toast.svelte'
   import { cn } from '$lib/utils'
   import type { Snippet } from 'svelte'
   import ProjectShellProjectAssistant from './project-shell-project-assistant.svelte'
@@ -44,6 +54,7 @@
   let createProjectOpen = $state(false)
   let projectAssistantOpen = $state(false)
   let projectAssistantPrompt = $state('')
+  let logoutPending = $state(false)
 
   const DEFAULT_ASSISTANT_WIDTH = 380
   let assistantWidth = $state(DEFAULT_ASSISTANT_WIDTH)
@@ -253,6 +264,44 @@
   function handleToggleTheme() {
     appStore.toggleTheme()
   }
+
+  function handleOpenSettings() {
+    if (routeContext.scope === 'project') {
+      void goto(projectPath(routeContext.orgId, routeContext.projectId, 'settings'))
+      return
+    }
+    if (routeContext.scope === 'org') {
+      void goto(organizationPath(routeContext.orgId))
+      return
+    }
+    void goto('/')
+  }
+
+  async function handleLogout() {
+    if (logoutPending) {
+      return
+    }
+
+    logoutPending = true
+    const returnTo = normalizeReturnTo(`${page.url.pathname}${page.url.search}${page.url.hash}`)
+    const authMode = authStore.authMode
+
+    try {
+      await logoutHumanSession()
+    } catch (caughtError) {
+      if (!(caughtError instanceof ApiError) || caughtError.status !== 401) {
+        toastStore.error(
+          caughtError instanceof ApiError ? caughtError.detail : 'Failed to log out.',
+        )
+        logoutPending = false
+        return
+      }
+    }
+
+    authStore.clear()
+    logoutPending = false
+    await goto(authMode === 'oidc' ? `/login?return_to=${encodeURIComponent(returnTo)}` : '/')
+  }
 </script>
 
 <div class="bg-background flex h-screen flex-col overflow-hidden">
@@ -269,6 +318,14 @@
     sseStatus={appStore.sseStatus}
     searchEnabled={appStore.organizations.length > 0}
     newTicketEnabled={isNewTicketEnabled}
+    settingsEnabled={routeContext.scope === 'project'}
+    settingsHref={routeContext.scope === 'project'
+      ? projectPath(routeContext.orgId, routeContext.projectId, 'settings')
+      : ''}
+    userDisplayName={authStore.user?.displayName ?? ''}
+    userPrimaryEmail={authStore.user?.primaryEmail ?? ''}
+    userAvatarURL={authStore.user?.avatarURL ?? ''}
+    {logoutPending}
     onToggleTheme={handleToggleTheme}
     onNewTicket={handleNewTicket}
     onOpenSearch={handleOpenSearch}
@@ -277,6 +334,10 @@
     }}
     onCreateProject={() => {
       createProjectOpen = true
+    }}
+    onOpenSettings={handleOpenSettings}
+    onLogout={() => {
+      void handleLogout()
     }}
   />
 

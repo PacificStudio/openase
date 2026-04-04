@@ -259,8 +259,9 @@ async function advanceLongTurn() {
 }
 
 async function flushDom() {
-  await Promise.resolve()
-  await Promise.resolve()
+  for (let index = 0; index < 12; index += 1) {
+    await Promise.resolve()
+  }
 }
 
 describe('HarnessAiSidebar long streaming', () => {
@@ -376,6 +377,7 @@ describe('HarnessAiSidebar long streaming', () => {
       target: { value: 'Review this harness and tell me what is weak.' },
     })
     await fireEvent.keyDown(prompt, { key: 'Enter' })
+    await flushDom()
     await advanceLongTurn()
     await flushDom()
 
@@ -388,6 +390,7 @@ describe('HarnessAiSidebar long streaming', () => {
       target: { value: 'Give me the exact update guidance next.' },
     })
     await fireEvent.keyDown(prompt, { key: 'Enter' })
+    await flushDom()
     await advanceLongTurn()
     await flushDom()
 
@@ -410,7 +413,7 @@ describe('HarnessAiSidebar long streaming', () => {
     })
     expect(postRequests[0]?.body?.session_id).toBeUndefined()
     expect(postRequests[0]?.headers.get('accept')).toBe('text/event-stream')
-    expect(postRequests[0]?.headers.get('X-OpenASE-Chat-User')).toBeTruthy()
+    expect(postRequests[0]?.headers.get('X-OpenASE-Chat-User')).toBeNull()
 
     expect(postRequests[1]?.body).toMatchObject({
       message: 'Give me the exact update guidance next.',
