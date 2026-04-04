@@ -1,12 +1,7 @@
 <script lang="ts">
-  import { goto } from '$app/navigation'
   import { page } from '$app/state'
-  import { logoutHumanSession, normalizeReturnTo } from '$lib/api/auth'
   import { loadAppContext } from '$lib/api/app-context'
-  import { ApiError } from '$lib/api/client'
   import { getProject } from '$lib/api/openase'
-  import Sidebar from '$lib/components/layout/sidebar.svelte'
-  import TopBar from '$lib/components/layout/top-bar.svelte'
   import type { ProjectAIFocus } from '$lib/features/chat'
   import {
     isProjectDashboardRefreshEvent,
@@ -16,26 +11,24 @@
   } from '$lib/features/project-events'
   import { authStore } from '$lib/stores/auth.svelte'
   import { appStore } from '$lib/stores/app.svelte'
-  import {
-    organizationPath,
-    projectPath,
-    type AppRouteContext,
-    type ProjectSection,
-  } from '$lib/stores/app-context'
-  import { toastStore } from '$lib/stores/toast.svelte'
-  import { cn } from '$lib/utils'
+  import { type AppRouteContext, type ProjectSection } from '$lib/stores/app-context'
   import type { Snippet } from 'svelte'
-  import ProjectShellProjectAssistant from './project-shell-project-assistant.svelte'
+  import ProjectShellFrame from './project-shell-frame.svelte'
+  import {
+    applyLoadedAppContext,
+    consumeProjectAssistantRequest,
+    logoutProjectShellSession,
+    openSettingsForRoute,
+    resolveAssistantFocus,
+    settingsHrefForRoute,
+    syncResolvedRouteContext,
+  } from './project-shell-runtime.svelte'
   import { bindProjectShellShortcuts } from './project-shell-shortcuts'
-  import ProjectShellOverlays from './project-shell-overlays.svelte'
   import {
     getProjectHealth,
     getProjectHealthLabel,
     isAppContextFresh,
     mergeProjectIntoAppContext,
-    replaceSelectionIfChanged,
-    selectCurrentOrg,
-    selectCurrentProject,
   } from './project-shell-state'
 
   type ShellData = { routeContext: AppRouteContext; currentSection: ProjectSection }
@@ -70,37 +63,6 @@
     `${routeContext.scope}:${routeContext.orgId ?? ''}:${routeContext.scope === 'project' ? routeContext.projectId : ''}`,
   )
 
-  function syncResolvedRouteContext(nextRouteContext: AppRouteContext) {
-    const nextOrgId = nextRouteContext.orgId
-    const nextProjectId = nextRouteContext.scope === 'project' ? nextRouteContext.projectId : null
-    const nextOrg = appStore.resolveOrganization(nextOrgId)
-    const nextProject = appStore.resolveProject(nextOrgId, nextProjectId)
-
-    replaceSelectionIfChanged(appStore.currentOrg, nextOrg, (value) => {
-      appStore.currentOrg = value
-    })
-    replaceSelectionIfChanged(appStore.currentProject, nextProject, (value) => {
-      appStore.currentProject = value
-    })
-  }
-
-  function applyLoadedAppContext(
-    payload: Awaited<ReturnType<typeof loadAppContext>>,
-    nextRouteKey: string,
-  ) {
-    appStore.applyAppContext({
-      organizations: payload.organizations,
-      projects: payload.projects,
-      providers: payload.providers,
-      agentCount: payload.agentCount,
-    })
-    lastAppContextKey = nextRouteKey
-    lastAppContextFetchedAt = Date.now()
-    appStore.appContextFetchedAt = lastAppContextFetchedAt
-    appStore.currentOrg = selectCurrentOrg(payload, routeContext)
-    appStore.currentProject = selectCurrentProject(payload, routeContext)
-  }
-
   $effect(() => {
     appStore.currentSection = data.currentSection
   })
@@ -128,7 +90,9 @@
         })
         if (cancelled) return
 
-        applyLoadedAppContext(payload, routeKey)
+        const applied = applyLoadedAppContext(payload, routeContext, routeKey)
+        lastAppContextKey = applied.routeKey
+        lastAppContextFetchedAt = applied.fetchedAt
       } catch (caughtError) {
         if (cancelled) return
         appStore.appContextError =
@@ -239,23 +203,12 @@
     projectAssistantOpen = true
   }
 
-  // Listen for store-based project assistant requests (from onboarding, etc.)
   $effect(() => {
-    const request = appStore.projectAssistantRequest
-    if (request) {
-      const consumed = appStore.consumeProjectAssistantRequest()
-      if (consumed) {
-        handleOpenProjectAssistant(consumed.prompt)
-      }
-    }
+    consumeProjectAssistantRequest(handleOpenProjectAssistant)
   })
 
   const assistantFocus = $derived<ProjectAIFocus | null>(
-    appStore.currentProject?.id
-      ? appStore.projectAssistantFocus?.projectId === appStore.currentProject.id
-        ? appStore.projectAssistantFocus
-        : null
-      : null,
+    resolveAssistantFocus(appStore.currentProject?.id, appStore.projectAssistantFocus),
   )
 
   function handleNewTicket() {
@@ -266,15 +219,7 @@
   }
 
   function handleOpenSettings() {
-    if (routeContext.scope === 'project') {
-      void goto(projectPath(routeContext.orgId, routeContext.projectId, 'settings'))
-      return
-    }
-    if (routeContext.scope === 'org') {
-      void goto(organizationPath(routeContext.orgId))
-      return
-    }
-    void goto('/')
+    openSettingsForRoute(routeContext, 'settings')
   }
 
   async function handleLogout() {
@@ -282,116 +227,76 @@
       return
     }
 
-    logoutPending = true
-    const returnTo = normalizeReturnTo(`${page.url.pathname}${page.url.search}${page.url.hash}`)
-    const authMode = authStore.authMode
-
-    try {
-      await logoutHumanSession()
-    } catch (caughtError) {
-      if (!(caughtError instanceof ApiError) || caughtError.status !== 401) {
-        toastStore.error(
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to log out.',
-        )
-        logoutPending = false
-        return
-      }
-    }
-
-    authStore.clear()
-    logoutPending = false
-    await goto(authMode === 'oidc' ? `/login?return_to=${encodeURIComponent(returnTo)}` : '/')
+    await logoutProjectShellSession(
+      `${page.url.pathname}${page.url.search}${page.url.hash}`,
+      (value) => {
+        logoutPending = value
+      },
+    )
   }
+
+  function handleCreateOrg() {
+    createOrgOpen = true
+  }
+
+  function handleCreateProject() {
+    createProjectOpen = true
+  }
+
+  function handleLogoutClick() {
+    void handleLogout()
+  }
+
+  function handleToggleSidebar() {
+    appStore.toggleSidebar()
+  }
+
+  function handleCloseProjectAssistant() {
+    projectAssistantOpen = false
+  }
+
+  const settingsEnabled = $derived(routeContext.scope === 'project')
+  const settingsHref = $derived(settingsHrefForRoute(routeContext))
+  const currentUser = $derived(authStore.user)
 </script>
 
-<div class="bg-background flex h-screen flex-col overflow-hidden">
-  <TopBar
-    organizations={appStore.organizations}
-    projects={appStore.projects}
-    currentOrgId={appStore.currentOrg?.id ?? null}
-    currentProjectId={appStore.currentProject?.id ?? null}
-    currentSection={data.currentSection}
-    orgName={appStore.currentOrg?.name ?? 'No organization'}
-    projectName={appStore.currentProject?.name ?? ''}
-    projectHealth={appStore.currentProject ? projectHealth : null}
-    {projectHealthLabel}
-    sseStatus={appStore.sseStatus}
-    searchEnabled={appStore.organizations.length > 0}
-    newTicketEnabled={isNewTicketEnabled}
-    settingsEnabled={routeContext.scope === 'project'}
-    settingsHref={routeContext.scope === 'project'
-      ? projectPath(routeContext.orgId, routeContext.projectId, 'settings')
-      : ''}
-    userDisplayName={authStore.user?.displayName ?? ''}
-    userPrimaryEmail={authStore.user?.primaryEmail ?? ''}
-    userAvatarURL={authStore.user?.avatarURL ?? ''}
-    {logoutPending}
-    onToggleTheme={handleToggleTheme}
-    onNewTicket={handleNewTicket}
-    onOpenSearch={handleOpenSearch}
-    onCreateOrg={() => {
-      createOrgOpen = true
-    }}
-    onCreateProject={() => {
-      createProjectOpen = true
-    }}
-    onOpenSettings={handleOpenSettings}
-    onLogout={() => {
-      void handleLogout()
-    }}
-  />
-
-  <div class="flex flex-1 overflow-hidden">
-    <aside
-      class={cn(
-        'border-border bg-sidebar flex h-full flex-col border-r transition-[width] duration-200 ease-in-out',
-        appStore.sidebarCollapsed ? 'w-[52px]' : 'w-[240px]',
-      )}
-    >
-      <Sidebar
-        collapsed={appStore.sidebarCollapsed}
-        {currentPath}
-        currentOrgId={appStore.currentOrg?.id ?? null}
-        currentProjectId={appStore.currentProject?.id ?? null}
-        projectSelected={Boolean(appStore.currentProject)}
-        agentCount={appStore.agentCount}
-        onOpenProjectAssistant={() => handleOpenProjectAssistant()}
-        onToggleCollapse={() => appStore.toggleSidebar()}
-      />
-    </aside>
-
-    <main class={cn('flex min-w-0 flex-1 flex-col overflow-auto', resizing && 'select-none')}>
-      {@render children()}
-    </main>
-
-    {#if appStore.currentOrg?.id && appStore.currentProject?.id}
-      <ProjectShellProjectAssistant
-        organizationId={appStore.currentOrg.id}
-        projectId={appStore.currentProject.id}
-        defaultProviderId={appStore.currentProject.default_agent_provider_id ?? null}
-        focus={assistantFocus}
-        open={projectAssistantOpen}
-        initialPrompt={projectAssistantPrompt}
-        bind:width={assistantWidth}
-        bind:resizing
-        onClose={() => {
-          projectAssistantOpen = false
-        }}
-      />
-    {/if}
-  </div>
-
-  <ProjectShellOverlays
-    currentOrg={appStore.currentOrg}
-    currentProject={appStore.currentProject}
-    currentSection={data.currentSection}
-    {currentTicketId}
-    bind:searchOpen
-    bind:createOrgOpen
-    bind:createProjectOpen
-    newTicketEnabled={isNewTicketEnabled}
-    onToggleTheme={handleToggleTheme}
-    onNewTicket={handleNewTicket}
-    onOpenProjectAssistant={handleOpenProjectAssistant}
-  />
-</div>
+<ProjectShellFrame
+  {children}
+  {currentPath}
+  currentSection={data.currentSection}
+  currentOrg={appStore.currentOrg}
+  currentProject={appStore.currentProject}
+  organizations={appStore.organizations}
+  projects={appStore.projects}
+  agentCount={appStore.agentCount}
+  sseStatus={appStore.sseStatus}
+  sidebarCollapsed={appStore.sidebarCollapsed}
+  bind:searchOpen
+  bind:createOrgOpen
+  bind:createProjectOpen
+  bind:projectAssistantOpen
+  bind:assistantWidth
+  bind:resizing
+  {currentTicketId}
+  {projectAssistantPrompt}
+  {assistantFocus}
+  projectHealth={appStore.currentProject ? projectHealth : null}
+  {projectHealthLabel}
+  {isNewTicketEnabled}
+  {settingsEnabled}
+  {settingsHref}
+  userDisplayName={currentUser?.displayName ?? ''}
+  userPrimaryEmail={currentUser?.primaryEmail ?? ''}
+  userAvatarURL={currentUser?.avatarURL ?? ''}
+  {logoutPending}
+  onToggleTheme={handleToggleTheme}
+  onNewTicket={handleNewTicket}
+  onOpenSearch={handleOpenSearch}
+  onCreateOrg={handleCreateOrg}
+  onCreateProject={handleCreateProject}
+  onOpenSettings={handleOpenSettings}
+  onLogout={handleLogoutClick}
+  onToggleSidebar={handleToggleSidebar}
+  onOpenProjectAssistant={handleOpenProjectAssistant}
+  onCloseProjectAssistant={handleCloseProjectAssistant}
+/>

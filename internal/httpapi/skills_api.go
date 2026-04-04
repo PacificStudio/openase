@@ -9,6 +9,7 @@ import (
 
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
+	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/labstack/echo/v4"
 )
@@ -374,8 +375,11 @@ func (s *Server) handleStartSkillRefinement(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
-	userID, err := chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
+	userID, err := s.currentRequestChatUserID(c)
 	if err != nil {
+		if errors.Is(err, humanauthservice.ErrUnauthorized) {
+			return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", err.Error())
+		}
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
 	}
 
@@ -433,8 +437,11 @@ func (s *Server) handleDeleteSkillRefinementSession(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_SESSION_ID", err.Error())
 	}
-	userID, err := chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
+	userID, err := s.currentRequestChatUserID(c)
 	if err != nil {
+		if errors.Is(err, humanauthservice.ErrUnauthorized) {
+			return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", err.Error())
+		}
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
 	}
 	if !s.skillRefinementService.CloseSession(userID, sessionID) {

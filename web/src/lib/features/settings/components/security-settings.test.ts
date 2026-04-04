@@ -4,6 +4,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { authStore } from '$lib/stores/auth.svelte'
 import { appStore } from '$lib/stores/app.svelte'
 import SecuritySettings from './security-settings.svelte'
+import {
+  configuredSecurity,
+  configuredSecurityWithNullPermissions,
+  currentOrg,
+  currentProject,
+} from './security-settings.test-helpers'
 
 const {
   deleteGitHubOutboundCredential,
@@ -223,6 +229,9 @@ describe('Security settings', () => {
     expect(await findByText('Platform Admins')).toBeTruthy()
     expect(await findByText('org_admin')).toBeTruthy()
     expect(await findByText('project_admin')).toBeTruthy()
+    expect(await findByText('Approval boundary')).toBeTruthy()
+    expect(await findByText('Stored rules')).toBeTruthy()
+    expect(await findByText('reserved')).toBeTruthy()
 
     const subjectInputs = await findAllByPlaceholderText('user@example.com')
     await fireEvent.input(subjectInputs[0], { target: { value: 'bob@example.com' } })
@@ -240,138 +249,3 @@ describe('Security settings', () => {
     })
   })
 })
-
-function currentProject() {
-  return {
-    id: '9f34ff64-f08b-4a06-b555-f47b34957860',
-    organization_id: 'org-1',
-    name: 'Atlas',
-    slug: 'atlas',
-    description: '',
-    status: 'active',
-    default_agent_provider_id: null,
-    accessible_machine_ids: [],
-    max_concurrent_agents: 4,
-  }
-}
-
-function currentOrg() {
-  return {
-    id: 'org-1',
-    name: 'Acme',
-    slug: 'acme',
-    default_agent_provider_id: '',
-    status: 'active',
-  }
-}
-
-function configuredSecurity() {
-  return {
-    project_id: currentProject().id,
-    agent_tokens: {
-      transport: 'Bearer token',
-      environment_variable: 'OPENASE_AGENT_TOKEN',
-      token_prefix: 'ase_agent_',
-      default_scopes: ['tickets.create', 'tickets.list'],
-      supported_project_scopes: ['projects.update', 'projects.add_repo'],
-    },
-    github: {
-      effective: {
-        scope: 'organization',
-        configured: true,
-        source: 'gh_cli_import',
-        token_preview: 'ghu_test...1234',
-        probe: {
-          state: 'valid',
-          configured: true,
-          valid: true,
-          login: 'octocat',
-          permissions: ['repo', 'read:org'],
-          repo_access: 'granted',
-          checked_at: '2026-03-28T12:00:00Z',
-          last_error: '',
-        },
-      },
-      organization: {
-        scope: 'organization',
-        configured: true,
-        source: 'gh_cli_import',
-        token_preview: 'ghu_test...1234',
-        probe: {
-          state: 'valid',
-          configured: true,
-          valid: true,
-          login: 'octocat',
-          permissions: ['repo', 'read:org'],
-          repo_access: 'granted',
-          checked_at: '2026-03-28T12:00:00Z',
-          last_error: '',
-        },
-      },
-      project_override: {
-        scope: 'project',
-        configured: false,
-        source: '',
-        token_preview: '',
-        probe: {
-          state: 'missing',
-          configured: false,
-          valid: false,
-          permissions: [],
-          repo_access: 'not_checked',
-          checked_at: undefined,
-          last_error: '',
-        },
-      },
-    },
-    webhooks: {
-      connector_endpoint: 'POST /api/v1/webhooks/:connector/:provider',
-    },
-    secret_hygiene: {
-      notification_channel_configs_redacted: true,
-    },
-    deferred: [
-      {
-        key: 'github-device-flow',
-        title: 'GitHub Device Flow',
-        summary: 'Deferred until OAuth app wiring is available.',
-      },
-      {
-        key: 'human-auth',
-        title: 'Human sign-in and OIDC',
-        summary: 'Deferred for a later control-plane surface.',
-      },
-    ],
-  }
-}
-
-function configuredSecurityWithNullPermissions() {
-  const security = configuredSecurity()
-  return {
-    ...security,
-    github: {
-      ...security.github,
-      effective: {
-        ...security.github.effective,
-        probe: {
-          ...security.github.effective.probe,
-          permissions: null,
-        },
-      },
-      organization: {
-        ...security.github.organization,
-        probe: {
-          ...security.github.organization.probe,
-          permissions: null,
-        },
-      },
-      project_override: {
-        ...security.github.project_override,
-        probe: {
-          ...security.github.project_override.probe,
-          permissions: null,
-        },
-      },
-    },
-  }
-}

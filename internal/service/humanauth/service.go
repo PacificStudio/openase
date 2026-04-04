@@ -298,6 +298,13 @@ func (s *Service) DeleteRoleBinding(ctx context.Context, id uuid.UUID) error {
 	return s.repo.DeleteRoleBinding(ctx, id)
 }
 
+func (s *Service) CountApprovalPolicies(ctx context.Context) (int, error) {
+	if s.cfg.Mode != config.AuthModeOIDC {
+		return 0, ErrAuthDisabled
+	}
+	return s.repo.CountApprovalPolicies(ctx)
+}
+
 func (s *Service) buildPrincipal(
 	ctx context.Context,
 	session domain.BrowserSession,
@@ -489,13 +496,13 @@ func ipPrefix(raw string) string {
 }
 
 func stringClaim(claims map[string]any, key string) string {
-	value, _ := claims[key]
+	value := claims[key]
 	typed, _ := value.(string)
 	return typed
 }
 
 func boolClaim(claims map[string]any, key string) bool {
-	value, _ := claims[key]
+	value := claims[key]
 	typed, _ := value.(bool)
 	return typed
 }

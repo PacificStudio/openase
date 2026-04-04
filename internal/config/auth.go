@@ -207,9 +207,7 @@ func parseStringSlice(raw any) ([]string, error) {
 		}
 		parts := strings.Split(trimmed, ",")
 		items := make([]string, 0, len(parts))
-		for _, part := range parts {
-			items = append(items, part)
-		}
+		items = append(items, parts...)
 		return items, nil
 	default:
 		return nil, fmt.Errorf("unsupported string slice type %T", raw)

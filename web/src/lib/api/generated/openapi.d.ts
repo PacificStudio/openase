@@ -57,6 +57,91 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/auth/logout': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Revoke the current browser human-auth session */
+    post: operations['logoutHumanSession']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/auth/me/permissions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get effective OpenASE roles and permissions for the authenticated human */
+    get: operations['getMyEffectivePermissions']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/auth/oidc/callback': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Complete the browser OIDC login callback */
+    get: operations['handleOIDCCallback']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/auth/oidc/start': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Start the browser OIDC login flow */
+    get: operations['startOIDCLogin']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/auth/session': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get the current browser human-auth session */
+    get: operations['getAuthSession']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/channels/{channelId}': {
     parameters: {
       query?: never
@@ -417,6 +502,41 @@ export interface paths {
     head?: never
     /** Update a notification rule */
     patch: operations['updateNotificationRule']
+    trace?: never
+  }
+  '/api/v1/organizations/{orgId}/role-bindings': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List organization-scoped role bindings */
+    get: operations['listOrganizationRoleBindings']
+    put?: never
+    /** Create an organization-scoped role binding */
+    post: operations['createOrganizationRoleBinding']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/organizations/{orgId}/role-bindings/{bindingId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete an organization-scoped role binding */
+    delete: operations['deleteOrganizationRoleBinding']
+    options?: never
+    head?: never
+    patch?: never
     trace?: never
   }
   '/api/v1/orgs': {
@@ -872,6 +992,41 @@ export interface paths {
     head?: never
     /** Update a project repository */
     patch: operations['updateProjectRepo']
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/role-bindings': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List project-scoped role bindings */
+    get: operations['listProjectRoleBindings']
+    put?: never
+    /** Create a project-scoped role binding */
+    post: operations['createProjectRoleBinding']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/role-bindings/{bindingId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete a project-scoped role binding */
+    delete: operations['deleteProjectRoleBinding']
+    options?: never
+    head?: never
+    patch?: never
     trace?: never
   }
   '/api/v1/projects/{projectId}/scheduled-jobs': {
@@ -2333,6 +2488,240 @@ export interface operations {
           'application/json': {
             code?: string
             message?: string
+          }
+        }
+      }
+    }
+  }
+  logoutHumanSession: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Browser session revoked. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getMyEffectivePermissions: {
+    parameters: {
+      query?: {
+        /** @description Optional project scope to evaluate. */
+        project_id?: string
+        /** @description Optional organization scope to evaluate. */
+        org_id?: string
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get effective OpenASE roles and permissions for the authenticated human response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            groups?: {
+              group_key?: string
+              group_name?: string
+              issuer?: string
+            }[]
+            permissions?: string[]
+            roles?: string[]
+            scope?: {
+              id?: string
+              kind?: string
+            }
+            user?: {
+              avatar_url?: string
+              display_name?: string
+              id?: string
+              primary_email?: string
+            }
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  handleOIDCCallback: {
+    parameters: {
+      query: {
+        /** @description Authorization code returned by the upstream OIDC provider. */
+        code: string
+        /** @description Opaque OIDC state value that must match the login flow cookie. */
+        state: string
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OIDC callback redirect response. */
+      302: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  startOIDCLogin: {
+    parameters: {
+      query?: {
+        /** @description Optional same-origin path to redirect back to after login completes. */
+        return_to?: string
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OIDC login redirect response. */
+      302: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getAuthSession: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get the current browser human-auth session response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            auth_mode?: string
+            authenticated?: boolean
+            csrf_token?: string
+            issuer_url?: string
+            permissions?: string[]
+            roles?: string[]
+            user?: {
+              avatar_url?: string
+              display_name?: string
+              id?: string
+              primary_email?: string
+            } | null
           }
         }
       }
@@ -4573,6 +4962,221 @@ export interface operations {
       }
       /** @description Internal Server Error response. */
       500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listOrganizationRoleBindings: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID that owns the role bindings. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List organization-scoped role bindings response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            role_bindings?: {
+              created_at?: string
+              expires_at?: string | null
+              granted_by?: string
+              id?: string
+              role_key?: string
+              scope_id?: string
+              scope_kind?: string
+              subject_key?: string
+              subject_kind?: string
+            }[]
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createOrganizationRoleBinding: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID that owns the role bindings. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    /** @description Create an organization-scoped role binding request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional RFC3339 timestamp after which the binding automatically expires. */
+          expires_at?: string | null
+          /** @description Builtin OpenASE role key to grant on the selected scope. */
+          role_key?: string
+          /** @description Stable user identifier/email or synchronized OIDC group key that receives the role. */
+          subject_key?: string
+          /** @description Binding subject kind. Supported values are user and group. */
+          subject_kind?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create an organization-scoped role binding response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            role_binding?: {
+              created_at?: string
+              expires_at?: string | null
+              granted_by?: string
+              id?: string
+              role_key?: string
+              scope_id?: string
+              scope_kind?: string
+              subject_key?: string
+              subject_kind?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteOrganizationRoleBinding: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID that owns the role bindings. */
+        orgId: string
+        /** @description Role binding ID to delete. */
+        bindingId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Role binding deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
         headers: {
           [name: string]: unknown
         }
@@ -8264,6 +8868,221 @@ export interface operations {
       }
     }
   }
+  listProjectRoleBindings: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID that owns the role bindings. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List project-scoped role bindings response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            role_bindings?: {
+              created_at?: string
+              expires_at?: string | null
+              granted_by?: string
+              id?: string
+              role_key?: string
+              scope_id?: string
+              scope_kind?: string
+              subject_key?: string
+              subject_kind?: string
+            }[]
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createProjectRoleBinding: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID that owns the role bindings. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a project-scoped role binding request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional RFC3339 timestamp after which the binding automatically expires. */
+          expires_at?: string | null
+          /** @description Builtin OpenASE role key to grant on the selected scope. */
+          role_key?: string
+          /** @description Stable user identifier/email or synchronized OIDC group key that receives the role. */
+          subject_key?: string
+          /** @description Binding subject kind. Supported values are user and group. */
+          subject_kind?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create a project-scoped role binding response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            role_binding?: {
+              created_at?: string
+              expires_at?: string | null
+              granted_by?: string
+              id?: string
+              role_key?: string
+              scope_id?: string
+              scope_kind?: string
+              subject_key?: string
+              subject_kind?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteProjectRoleBinding: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID that owns the role bindings. */
+        projectId: string
+        /** @description Role binding ID to delete. */
+        bindingId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Role binding deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   listScheduledJobs: {
     parameters: {
       query?: never
@@ -8465,6 +9284,11 @@ export interface operations {
                 token_prefix?: string
                 transport?: string
               }
+              approval_policies?: {
+                rules_count?: number
+                status?: string
+                summary?: string
+              }
               deferred?: {
                 key?: string
                 summary?: string
@@ -8627,6 +9451,11 @@ export interface operations {
                 token_prefix?: string
                 transport?: string
               }
+              approval_policies?: {
+                rules_count?: number
+                status?: string
+                summary?: string
+              }
               deferred?: {
                 key?: string
                 summary?: string
@@ -8781,6 +9610,11 @@ export interface operations {
                 supported_project_scopes?: string[]
                 token_prefix?: string
                 transport?: string
+              }
+              approval_policies?: {
+                rules_count?: number
+                status?: string
+                summary?: string
               }
               deferred?: {
                 key?: string
@@ -8942,6 +9776,11 @@ export interface operations {
                 token_prefix?: string
                 transport?: string
               }
+              approval_policies?: {
+                rules_count?: number
+                status?: string
+                summary?: string
+              }
               deferred?: {
                 key?: string
                 summary?: string
@@ -9101,6 +9940,11 @@ export interface operations {
                 supported_project_scopes?: string[]
                 token_prefix?: string
                 transport?: string
+              }
+              approval_policies?: {
+                rules_count?: number
+                status?: string
+                summary?: string
               }
               deferred?: {
                 key?: string

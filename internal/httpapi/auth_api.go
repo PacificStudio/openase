@@ -115,12 +115,19 @@ func (s *Server) handleAuthSession(c echo.Context) error {
 
 func (s *Server) handleLogout(c echo.Context) error {
 	if s.auth.Mode == config.AuthModeOIDC && s.humanAuthService != nil {
-		if principal, ok := currentHumanPrincipal(c); ok {
-			if err := s.validateMutatingHumanRequest(c, principal); err != nil {
-				return err
-			}
-		}
 		if cookie, err := c.Cookie(humanSessionCookieName); err == nil && strings.TrimSpace(cookie.Value) != "" {
+			principal, authErr := s.humanAuthService.AuthenticateSession(
+				c.Request().Context(),
+				cookie.Value,
+				c.Request().UserAgent(),
+				c.RealIP(),
+				false,
+			)
+			if authErr == nil {
+				if err := s.validateMutatingHumanRequest(c, principal); err != nil {
+					return err
+				}
+			}
 			_ = s.humanAuthService.Logout(c.Request().Context(), cookie.Value)
 		}
 	}

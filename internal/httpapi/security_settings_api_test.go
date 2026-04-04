@@ -74,6 +74,9 @@ func TestSecuritySettingsRouteReturnsCurrentBoundary(t *testing.T) {
 	if payload.Security.Webhooks.ConnectorEndpoint != "Not supported in current version" {
 		t.Fatalf("expected webhook sync to be disabled, got %+v", payload.Security.Webhooks)
 	}
+	if payload.Security.ApprovalPolicies.Status != "reserved" || payload.Security.ApprovalPolicies.RulesCount != 0 {
+		t.Fatalf("expected reserved approval policy diagnostics, got %+v", payload.Security.ApprovalPolicies)
+	}
 	if len(payload.Security.AgentTokens.SupportedScopeGroups) == 0 {
 		t.Fatal("expected supported scope groups to be returned")
 	}

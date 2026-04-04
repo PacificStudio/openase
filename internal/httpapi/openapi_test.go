@@ -21,9 +21,16 @@ func TestBuildOpenAPIDocument(t *testing.T) {
 	}
 
 	requiredPaths := []string{
+		"/api/v1/auth/oidc/start",
+		"/api/v1/auth/oidc/callback",
+		"/api/v1/auth/session",
+		"/api/v1/auth/logout",
+		"/api/v1/auth/me/permissions",
 		"/api/v1/system/dashboard",
 		"/api/v1/workspace/summary",
 		"/api/v1/orgs",
+		"/api/v1/organizations/{orgId}/role-bindings",
+		"/api/v1/organizations/{orgId}/role-bindings/{bindingId}",
 		"/api/v1/orgs/{orgId}/summary",
 		"/api/v1/orgs/{orgId}/channels",
 		"/api/v1/orgs/{orgId}/machines",
@@ -43,6 +50,8 @@ func TestBuildOpenAPIDocument(t *testing.T) {
 		"/api/v1/projects/{projectId}/security-settings/github-outbound-credential/import-gh-cli",
 		"/api/v1/projects/{projectId}/security-settings/github-outbound-credential/retest",
 		"/api/v1/projects/{projectId}/updates",
+		"/api/v1/projects/{projectId}/role-bindings",
+		"/api/v1/projects/{projectId}/role-bindings/{bindingId}",
 		"/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes",
 		"/api/v1/projects/{projectId}/tickets/{ticketId}/detail",
 		"/api/v1/tickets/{ticketId}/comments",

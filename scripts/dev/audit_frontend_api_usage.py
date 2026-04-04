@@ -161,10 +161,16 @@ def extract_response_refs(contracts_source: str) -> set[OperationKey]:
 
 def parse_exported_function_blocks(source: str) -> list[tuple[str, str]]:
     functions: list[tuple[str, str]] = []
-    marker = "export function "
+    markers = ("export async function ", "export function ")
     offset = 0
     while True:
-        start = source.find(marker, offset)
+        start = -1
+        marker = ""
+        for candidate in markers:
+            candidate_start = source.find(candidate, offset)
+            if candidate_start >= 0 and (start < 0 or candidate_start < start):
+                start = candidate_start
+                marker = candidate
         if start < 0:
             return functions
 
@@ -213,19 +219,76 @@ def parse_exported_function_blocks(source: str) -> list[tuple[str, str]]:
             return functions
 
 
+def extract_named_call_blocks(source: str, callee_name: str) -> list[str]:
+    calls: list[str] = []
+    offset = 0
+    while True:
+        start = source.find(callee_name, offset)
+        if start < 0:
+            return calls
+        after_name = start + len(callee_name)
+        if after_name < len(source) and (source[after_name].isalnum() or source[after_name] == "_"):
+            offset = after_name
+            continue
+
+        params_start = source.find("(", start + len(callee_name))
+        if params_start < 0:
+            return calls
+
+        depth = 0
+        cursor = params_start
+        while cursor < len(source):
+            char = source[cursor]
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0:
+                    calls.append(source[start : cursor + 1])
+                    offset = cursor + 1
+                    break
+            cursor += 1
+        else:
+            return calls
+
+
 def extract_wrappers(openase_source: str, file_label: str) -> dict[OperationKey, list[WrapperUsage]]:
     wrappers: dict[OperationKey, list[WrapperUsage]] = defaultdict(list)
     call_pattern = re.compile(
         r"api\.(get|post|patch|delete)(?:\s*<[^>]+>)?\(\s*([`'\"])(.*?)\2",
         flags=re.DOTALL,
     )
+    quoted_api_path_pattern = re.compile(r"([`'\"])(/api/v1.*?)\1", flags=re.DOTALL)
+    fetch_method_pattern = re.compile(r"method\s*:\s*['\"](GET|POST|PATCH|DELETE)['\"]", flags=re.IGNORECASE)
     for function_name, block in parse_exported_function_blocks(openase_source):
         for method, _, raw_path in call_pattern.findall(block):
             path = normalize_template_path(raw_path)
             wrappers[OperationKey(method=method.lower(), path=path)].append(
                 WrapperUsage(name=function_name, file=file_label)
             )
+        for callee_name in ("fetch", "fetchJSON"):
+            for call in extract_named_call_blocks(block, callee_name):
+                path_match = quoted_api_path_pattern.search(call)
+                if not path_match:
+                    continue
+                method_match = fetch_method_pattern.search(call)
+                method = method_match.group(1).lower() if method_match else "get"
+                path = normalize_template_path(path_match.group(2))
+                wrappers[OperationKey(method=method, path=path)].append(
+                    WrapperUsage(name=function_name, file=file_label)
+                )
     return wrappers
+
+
+def iter_api_wrapper_files(api_root: Path) -> list[Path]:
+    files: list[Path] = []
+    for path in sorted(api_root.glob("*.ts")):
+        if path.name in {"client.ts", "contracts.ts"}:
+            continue
+        if path.name.endswith(TEST_SUFFIXES):
+            continue
+        files.append(path)
+    return files
 
 
 def iter_runtime_source_files(root: Path) -> list[Path]:
@@ -345,7 +408,7 @@ def main() -> int:
     web_root = repo_root / "web" / "src"
     openapi_path = repo_root / "api" / "openapi.json"
     contracts_path = web_root / "lib" / "api" / "contracts.ts"
-    wrappers_path = web_root / "lib" / "api" / "openase.ts"
+    api_root = web_root / "lib" / "api"
     ignore_path = (
         Path(args.ignore_file).expanduser()
         if args.ignore_file
@@ -354,17 +417,21 @@ def main() -> int:
 
     operations = load_openapi_operations(openapi_path)
     contract_refs = extract_response_refs(contracts_path.read_text(encoding="utf-8"))
-    wrapper_map = extract_wrappers(
-        wrappers_path.read_text(encoding="utf-8"),
-        wrappers_path.relative_to(web_root.parent).as_posix(),
-    )
+    wrapper_files = iter_api_wrapper_files(api_root)
+    wrapper_map: dict[OperationKey, list[WrapperUsage]] = defaultdict(list)
+    for wrapper_file in wrapper_files:
+        for operation, wrappers in extract_wrappers(
+            wrapper_file.read_text(encoding="utf-8"),
+            wrapper_file.relative_to(web_root.parent).as_posix(),
+        ).items():
+            wrapper_map[operation].extend(wrappers)
     ignore_rules = load_ignore_rules(ignore_path)
     wrapper_names = {wrapper.name for wrappers in wrapper_map.values() for wrapper in wrappers}
     direct_refs = extract_direct_endpoint_usages(
         web_root,
-        exclude={wrappers_path, contracts_path},
+        exclude={contracts_path, *wrapper_files},
     )
-    wrapper_refs = extract_wrapper_references(web_root, wrapper_names, exclude={wrappers_path})
+    wrapper_refs = extract_wrapper_references(web_root, wrapper_names, exclude=set(wrapper_files))
 
     report: dict[str, list[dict[str, object]]] = defaultdict(list)
     for operation, metadata in sorted(operations.items(), key=lambda item: (item[0].path, item[0].method)):
