@@ -4128,6 +4128,7 @@ func (fakeProjectConversationWorkflowSync) RefreshSkills(
 	if err := os.WriteFile(wrapperPath, []byte("#!/bin/sh\n"), 0o600); err != nil {
 		return workflowservice.RefreshSkillsResult{}, err
 	}
+	// #nosec G302 -- test wrapper must be executable in the temp workspace.
 	if err := os.Chmod(wrapperPath, 0o700); err != nil {
 		return workflowservice.RefreshSkillsResult{}, err
 	}
@@ -4520,7 +4521,11 @@ fi
 
 exit 0
 `
-	if err := os.WriteFile(fakeBinaryPath, []byte(content), 0o700); err != nil {
+	if err := os.WriteFile(fakeBinaryPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write fake openase binary: %v", err)
+	}
+	// #nosec G302 -- test binary must be executable in the temp workspace.
+	if err := os.Chmod(fakeBinaryPath, 0o700); err != nil {
 		t.Fatalf("write fake openase binary: %v", err)
 	}
 }
