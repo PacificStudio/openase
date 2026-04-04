@@ -6,25 +6,25 @@ import (
 )
 
 type machinePatchRequest struct {
-	Name                  *string                         `json:"name"`
-	Host                  *string                         `json:"host"`
-	Port                  *int                            `json:"port"`
-	ConnectionMode        *string                         `json:"connection_mode"`
-	TransportCapabilities *[]string                       `json:"transport_capabilities"`
-	SSHUser               *string                         `json:"ssh_user"`
-	SSHKeyPath            *string                         `json:"ssh_key_path"`
-	AdvertisedEndpoint    *string                         `json:"advertised_endpoint"`
-	DaemonStatus          *domain.MachineDaemonStatusInput `json:"daemon_status"`
-	DetectedOS            *string                         `json:"detected_os"`
-	DetectedArch          *string                         `json:"detected_arch"`
-	DetectionStatus       *string                         `json:"detection_status"`
+	Name                  *string                               `json:"name"`
+	Host                  *string                               `json:"host"`
+	Port                  *int                                  `json:"port"`
+	ConnectionMode        *string                               `json:"connection_mode"`
+	TransportCapabilities *[]string                             `json:"transport_capabilities"`
+	SSHUser               *string                               `json:"ssh_user"`
+	SSHKeyPath            *string                               `json:"ssh_key_path"`
+	AdvertisedEndpoint    *string                               `json:"advertised_endpoint"`
+	DaemonStatus          *domain.MachineDaemonStatusInput      `json:"daemon_status"`
+	DetectedOS            *string                               `json:"detected_os"`
+	DetectedArch          *string                               `json:"detected_arch"`
+	DetectionStatus       *string                               `json:"detection_status"`
 	ChannelCredential     *domain.MachineChannelCredentialInput `json:"channel_credential"`
-	Description           *string                         `json:"description"`
-	Labels                *[]string                       `json:"labels"`
-	Status                *string                         `json:"status"`
-	WorkspaceRoot         *string                         `json:"workspace_root"`
-	AgentCLIPath          *string                         `json:"agent_cli_path"`
-	EnvVars               *[]string                       `json:"env_vars"`
+	Description           *string                               `json:"description"`
+	Labels                *[]string                             `json:"labels"`
+	Status                *string                               `json:"status"`
+	WorkspaceRoot         *string                               `json:"workspace_root"`
+	AgentCLIPath          *string                               `json:"agent_cli_path"`
+	EnvVars               *[]string                             `json:"env_vars"`
 }
 
 func parseMachinePatchRequest(
