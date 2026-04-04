@@ -10,8 +10,7 @@
     loading,
     initialLoaded,
     creatingThread,
-    error,
-    notice,
+    loadError,
     onSubmit,
     onUpdateThread,
     onDeleteThread,
@@ -23,8 +22,7 @@
     loading: boolean
     initialLoaded: boolean
     creatingThread: boolean
-    error: string
-    notice: string
+    loadError: string
     onSubmit?: (draft: {
       status: ProjectUpdateStatus
       title: string
@@ -56,19 +54,11 @@
 
   <ProjectUpdateComposer creating={creatingThread} {onSubmit} />
 
-  {#if error}
+  {#if loadError}
     <div
       class="border-destructive/40 bg-destructive/10 text-destructive mt-2 rounded-md border px-3 py-2 text-xs"
     >
-      {error}
-    </div>
-  {/if}
-
-  {#if notice}
-    <div
-      class="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700"
-    >
-      {notice}
+      {loadError}
     </div>
   {/if}
 

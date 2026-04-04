@@ -9,6 +9,7 @@ import {
   updateProjectUpdateThread,
 } from '$lib/api/openase'
 import { isProjectUpdateEvent, subscribeProjectEvents } from '$lib/features/project-events'
+import { toastStore } from '$lib/stores/toast.svelte'
 import { parseProjectUpdateThreads } from './model'
 import {
   markProjectUpdatesCacheDirty,
@@ -19,7 +20,6 @@ import type { ProjectUpdateStatus, ProjectUpdateThread } from './types'
 
 type LoadProjectUpdatesOptions = {
   showLoading?: boolean
-  preserveMessages?: boolean
 }
 
 type CreateProjectUpdatesControllerInput = {
@@ -29,8 +29,7 @@ type CreateProjectUpdatesControllerInput = {
 export function createProjectUpdatesController(input: CreateProjectUpdatesControllerInput) {
   let threads = $state<ProjectUpdateThread[]>([])
   let loading = $state(false)
-  let error = $state('')
-  let notice = $state('')
+  let loadError = $state('')
   let initialLoaded = $state(false)
   let creatingThread = $state(false)
 
@@ -49,7 +48,7 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
       threads = []
       initialLoaded = false
       loading = false
-      error = ''
+      loadError = ''
       return
     }
 
@@ -58,9 +57,9 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
       threads = cachedUpdates.snapshot.threads
       initialLoaded = true
       loading = false
-      error = ''
+      loadError = ''
       if (cachedUpdates.dirty) {
-        void loadProjectUpdates(projectId, { preserveMessages: true })
+        void loadProjectUpdates(projectId)
       }
     } else {
       initialLoaded = false
@@ -81,10 +80,7 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     if (options.showLoading) {
       loading = true
     }
-    error = ''
-    if (!options.preserveMessages) {
-      notice = ''
-    }
+    loadError = ''
 
     try {
       const payload = await listProjectUpdates(projectId)
@@ -99,7 +95,7 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
       if (version !== requestVersion || activeProjectId !== projectId) {
         return
       }
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load updates.'
+      loadError = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load updates.'
     } finally {
       if (version === requestVersion && activeProjectId === projectId) {
         loading = false
@@ -120,7 +116,7 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     reloadInFlight = true
     queuedReload = false
     try {
-      await loadProjectUpdates(projectId, { preserveMessages: true })
+      await loadProjectUpdates(projectId)
     } finally {
       reloadInFlight = false
       if (queuedReload && activeProjectId === projectId) {
@@ -140,16 +136,16 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     }
 
     creatingThread = true
-    error = ''
-    notice = ''
 
     try {
       await createProjectUpdateThread(projectId, draft)
-      notice = 'Update posted.'
-      await loadProjectUpdates(projectId, { preserveMessages: true })
+      toastStore.success('Update posted.')
+      await loadProjectUpdates(projectId)
       return true
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to post update.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to post update.',
+      )
       return false
     } finally {
       creatingThread = false
@@ -164,16 +160,15 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     if (!projectId) {
       return false
     }
-    error = ''
-    notice = ''
-
     try {
       await updateProjectUpdateThread(projectId, threadId, draft)
-      notice = 'Update edited.'
-      await loadProjectUpdates(projectId, { preserveMessages: true })
+      toastStore.success('Update edited.')
+      await loadProjectUpdates(projectId)
       return true
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to edit update.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to edit update.',
+      )
       return false
     }
   }
@@ -183,17 +178,17 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     if (!projectId) {
       return false
     }
-    error = ''
-    notice = ''
 
     try {
       await deleteProjectUpdateThread(projectId, threadId)
-      notice = 'Update deleted.'
-      await loadProjectUpdates(projectId, { preserveMessages: true })
+      toastStore.success('Update deleted.')
+      await loadProjectUpdates(projectId)
       return true
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete update.'
-      await loadProjectUpdates(projectId, { preserveMessages: true })
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete update.',
+      )
+      await loadProjectUpdates(projectId)
       return false
     }
   }
@@ -203,16 +198,16 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     if (!projectId) {
       return false
     }
-    error = ''
-    notice = ''
 
     try {
       await createProjectUpdateComment(projectId, threadId, { body })
-      notice = 'Comment added.'
-      await loadProjectUpdates(projectId, { preserveMessages: true })
+      toastStore.success('Comment added.')
+      await loadProjectUpdates(projectId)
       return true
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to add comment.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to add comment.',
+      )
       return false
     }
   }
@@ -222,16 +217,16 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     if (!projectId || !body) {
       return false
     }
-    error = ''
-    notice = ''
 
     try {
       await updateProjectUpdateComment(projectId, threadId, commentId, { body })
-      notice = 'Comment edited.'
-      await loadProjectUpdates(projectId, { preserveMessages: true })
+      toastStore.success('Comment edited.')
+      await loadProjectUpdates(projectId)
       return true
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to edit comment.'
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to edit comment.',
+      )
       return false
     }
   }
@@ -241,17 +236,17 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     if (!projectId) {
       return false
     }
-    error = ''
-    notice = ''
 
     try {
       await deleteProjectUpdateComment(projectId, threadId, commentId)
-      notice = 'Comment deleted.'
-      await loadProjectUpdates(projectId, { preserveMessages: true })
+      toastStore.success('Comment deleted.')
+      await loadProjectUpdates(projectId)
       return true
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete comment.'
-      await loadProjectUpdates(projectId, { preserveMessages: true })
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete comment.',
+      )
+      await loadProjectUpdates(projectId)
       return false
     }
   }
@@ -263,11 +258,8 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     get loading() {
       return loading
     },
-    get error() {
-      return error
-    },
-    get notice() {
-      return notice
+    get loadError() {
+      return loadError
     },
     get initialLoaded() {
       return initialLoaded
