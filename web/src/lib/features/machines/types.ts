@@ -4,6 +4,9 @@ export type ResourceMap = Record<string, unknown>
 
 export type MachineStatus = 'online' | 'offline' | 'degraded' | 'maintenance'
 export type MachineConnectionMode = 'local' | 'ssh' | 'ws_reverse' | 'ws_listener'
+export type MachineDetectedOS = 'darwin' | 'linux' | 'unknown'
+export type MachineDetectedArch = 'amd64' | 'arm64' | 'unknown'
+export type MachineDetectionStatus = 'pending' | 'ok' | 'degraded' | 'unknown'
 
 export type MachineDraft = {
   name: string
@@ -140,6 +143,27 @@ export type MachineDraftField = keyof MachineDraft
 export type MachineEditorMode = 'create' | 'edit'
 
 export type MachineItem = Machine
+
+export type MachineModeGuide = {
+  mode: MachineConnectionMode
+  label: string
+  summary: string
+  requiredFields: string
+  installMethod: string
+  testSemantics: string
+  commonErrors: string
+}
+
+export type WorkspaceRootRecommendation = {
+  value: string
+  reason: string
+}
+
+export type WorkspaceRootState =
+  | { kind: 'recommended'; label: string }
+  | { kind: 'saved'; label: string }
+  | { kind: 'manual'; label: string }
+  | { kind: 'empty'; label: string }
 
 export type MachineWorkspaceState = 'no-org' | 'loading' | 'error' | 'empty' | 'ready'
 

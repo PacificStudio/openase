@@ -106,6 +106,7 @@ type OpenAPIMachine struct {
 	DetectedOS            string                          `json:"detected_os"`
 	DetectedArch          string                          `json:"detected_arch"`
 	DetectionStatus       string                          `json:"detection_status"`
+	DetectionMessage      string                          `json:"detection_message"`
 	ChannelCredential     OpenAPIMachineChannelCredential `json:"channel_credential"`
 	Description           string                          `json:"description"`
 	Labels                []string                        `json:"labels,omitempty"`
@@ -131,10 +132,14 @@ type OpenAPIMachineChannelCredential struct {
 }
 
 type OpenAPIMachineProbe struct {
-	CheckedAt string         `json:"checked_at"`
-	Transport string         `json:"transport"`
-	Output    string         `json:"output"`
-	Resources map[string]any `json:"resources"`
+	CheckedAt        string         `json:"checked_at"`
+	Transport        string         `json:"transport"`
+	Output           string         `json:"output"`
+	Resources        map[string]any `json:"resources"`
+	DetectedOS       string         `json:"detected_os"`
+	DetectedArch     string         `json:"detected_arch"`
+	DetectionStatus  string         `json:"detection_status"`
+	DetectionMessage string         `json:"detection_message"`
 }
 
 type OpenAPIProjectRepo struct {
@@ -1749,6 +1754,7 @@ var (
 		"detected_os":                       "Detected operating system reported for the machine.",
 		"detected_arch":                     "Detected CPU architecture reported for the machine.",
 		"detection_status":                  "Status of machine OS and architecture detection.",
+		"detection_message":                 "User-facing explanation of the current machine detection result and any manual follow-up needed.",
 		"channel_credential":                "Machine channel credential reference reserved for transport registration, kept separate from runtime agent tokens.",
 		"channel_credential.kind":           "Credential kind reserved for machine transport registration, such as none, token, or certificate.",
 		"channel_credential.token_id":       "Opaque token identifier reserved for machine channel registration, distinct from runtime agent tokens.",

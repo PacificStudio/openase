@@ -189,6 +189,9 @@ func (s *service) TestMachineConnection(ctx context.Context, id uuid.UUID) (doma
 			Status:          domainMachineFailureStatus(machine),
 			LastHeartbeatAt: checkedAt,
 			Resources:       mergeMachineProbeResources(machine.Resources, probe, checkedAt, err),
+			DetectedOS:      probe.DetectedOS,
+			DetectedArch:    probe.DetectedArch,
+			DetectionStatus: probe.DetectionStatus,
 		})
 		if updateErr != nil {
 			return domain.Machine{}, domain.MachineProbe{}, fmt.Errorf("%w: %v (status update failed: %v)", ErrMachineProbeFailed, err, updateErr)
@@ -201,6 +204,9 @@ func (s *service) TestMachineConnection(ctx context.Context, id uuid.UUID) (doma
 		Status:          domainMachineSuccessStatus(machine),
 		LastHeartbeatAt: probe.CheckedAt,
 		Resources:       mergeMachineProbeResources(machine.Resources, probe, probe.CheckedAt, nil),
+		DetectedOS:      probe.DetectedOS,
+		DetectedArch:    probe.DetectedArch,
+		DetectionStatus: probe.DetectionStatus,
 	}); err != nil {
 		return domain.Machine{}, domain.MachineProbe{}, err
 	}

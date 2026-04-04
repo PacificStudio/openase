@@ -136,6 +136,8 @@ export function makePageData(agent: AgentInstance): AgentsPageData {
         detected_os: 'unknown',
         detected_arch: 'unknown',
         detection_status: 'unknown',
+        detection_message:
+          'Operating system and architecture are still unknown. You can keep configuring the machine and verify the platform manually.',
         channel_credential: {
           kind: 'none',
           token_id: null,
