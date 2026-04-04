@@ -90,11 +90,6 @@ var (
 		ScopeTicketsReportUsage,
 		ScopeTicketsUpdateSelf,
 	}
-	defaultProjectConversationScopes = []Scope{
-		ScopeProjectsUpdate,
-		ScopeTicketsCreate,
-		ScopeTicketsList,
-	}
 	supportedAgentScopes = []Scope{
 		ScopeActivityRead,
 		ScopeProjectsAddRepo,
@@ -132,48 +127,6 @@ var (
 		ScopeTicketsList,
 		ScopeTicketsReportUsage,
 		ScopeTicketsUpdateSelf,
-		ScopeWorkflowsCreate,
-		ScopeWorkflowsDelete,
-		ScopeWorkflowsHarnessHistoryRead,
-		ScopeWorkflowsHarnessRead,
-		ScopeWorkflowsHarnessUpdate,
-		ScopeWorkflowsHarnessValidate,
-		ScopeWorkflowsHarnessVariablesRead,
-		ScopeWorkflowsList,
-		ScopeWorkflowsRead,
-		ScopeWorkflowsUpdate,
-	}
-	supportedProjectConversationScopes = []Scope{
-		ScopeActivityRead,
-		ScopeProjectsUpdate,
-		ScopeProjectsAddRepo,
-		ScopeReposCreate,
-		ScopeReposDelete,
-		ScopeReposRead,
-		ScopeReposUpdate,
-		ScopeScheduledJobsCreate,
-		ScopeScheduledJobsDelete,
-		ScopeScheduledJobsList,
-		ScopeScheduledJobsTrigger,
-		ScopeScheduledJobsUpdate,
-		ScopeSkillsBind,
-		ScopeSkillsCreate,
-		ScopeSkillsDelete,
-		ScopeSkillsDisable,
-		ScopeSkillsEnable,
-		ScopeSkillsImport,
-		ScopeSkillsList,
-		ScopeSkillsRead,
-		ScopeSkillsRefine,
-		ScopeSkillsRefresh,
-		ScopeSkillsUpdate,
-		ScopeStatusesCreate,
-		ScopeStatusesDelete,
-		ScopeStatusesList,
-		ScopeStatusesReset,
-		ScopeStatusesUpdate,
-		ScopeTicketsCreate,
-		ScopeTicketsList,
 		ScopeWorkflowsCreate,
 		ScopeWorkflowsDelete,
 		ScopeWorkflowsHarnessHistoryRead,
@@ -556,7 +509,7 @@ func privilegedScopesForPrincipalKind(kind PrincipalKind) []string {
 func defaultScopesForPrincipalKind(kind PrincipalKind) ScopeSet {
 	switch kind {
 	case PrincipalKindProjectConversation:
-		return append(ScopeSet(nil), defaultProjectConversationScopes...)
+		return append(ScopeSet(nil), supportedAgentScopes...)
 	default:
 		return append(ScopeSet(nil), defaultAgentScopes...)
 	}
@@ -565,7 +518,7 @@ func defaultScopesForPrincipalKind(kind PrincipalKind) ScopeSet {
 func supportedScopesForPrincipalKind(kind PrincipalKind) ScopeSet {
 	switch kind {
 	case PrincipalKindProjectConversation:
-		return append(ScopeSet(nil), supportedProjectConversationScopes...)
+		return append(ScopeSet(nil), supportedAgentScopes...)
 	default:
 		return append(ScopeSet(nil), supportedAgentScopes...)
 	}

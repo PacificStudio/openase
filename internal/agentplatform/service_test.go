@@ -113,6 +113,11 @@ func TestIssueAndAuthenticateProjectConversationToken(t *testing.T) {
 	if !slices.Equal(gotScopes, wantScopes) {
 		t.Fatalf("Scopes=%v, want %v", gotScopes, wantScopes)
 	}
+	fullProjectScopes := SupportedScopes()
+	slices.Sort(fullProjectScopes)
+	if !slices.Equal(gotScopes, fullProjectScopes) {
+		t.Fatalf("project conversation scopes=%v, want full supported scopes %v", gotScopes, fullProjectScopes)
+	}
 	if claims.CreatedBy() != "project-conversation:"+conversation.ID.String() {
 		t.Fatalf("CreatedBy() = %q", claims.CreatedBy())
 	}
@@ -363,6 +368,14 @@ func TestAgentPlatformUtilityAndFailurePaths(t *testing.T) {
 		}
 		if !slices.Equal(gotSupported, wantSupported) {
 			t.Fatalf("SupportedScopes() = %v, want %v", gotSupported, wantSupported)
+		}
+		gotProjectConversationSupported := SupportedScopesForPrincipalKind(PrincipalKindProjectConversation)
+		if !slices.Equal(gotProjectConversationSupported, wantSupported) {
+			t.Fatalf("SupportedScopesForPrincipalKind(project conversation) = %v, want %v", gotProjectConversationSupported, wantSupported)
+		}
+		gotProjectConversationDefaults := DefaultScopesForPrincipalKind(PrincipalKindProjectConversation)
+		if !slices.Equal(gotProjectConversationDefaults, wantSupported) {
+			t.Fatalf("DefaultScopesForPrincipalKind(project conversation) = %v, want %v", gotProjectConversationDefaults, wantSupported)
 		}
 		gotGroups := SupportedScopeGroups()
 		if len(gotGroups) == 0 {

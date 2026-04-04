@@ -186,8 +186,23 @@ func (s *Server) requireAgentStatusAnyScope(c echo.Context, scopes ...agentplatf
 }
 
 func (s *Server) requireAgentOwnTicketInProject(c echo.Context, scope agentplatform.Scope) bool {
-	claims, current, ok := s.requireAgentOwnTicket(c, scope)
+	claims, ok := requireAgentScope(c, scope)
 	if !ok {
+		return false
+	}
+
+	ticketID, err := parseTicketID(c)
+	if err != nil {
+		_ = writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
+		return false
+	}
+	current, err := s.ticketService.Get(c.Request().Context(), ticketID)
+	if err != nil {
+		_ = writeTicketError(c, err)
+		return false
+	}
+	if claims.IsTicketAgent() && claims.TicketID != ticketID {
+		_ = writeAPIError(c, http.StatusForbidden, "AGENT_TICKET_FORBIDDEN", "agent token can only access its current ticket")
 		return false
 	}
 
