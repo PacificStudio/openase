@@ -4477,6 +4477,7 @@ export interface operations {
               description?: string
               detected_arch?: string
               detected_os?: string
+              detection_message?: string
               detection_status?: string
               env_vars?: string[]
               host?: string
@@ -4573,6 +4574,7 @@ export interface operations {
               description?: string
               detected_arch?: string
               detected_os?: string
+              detection_message?: string
               detection_status?: string
               env_vars?: string[]
               host?: string
@@ -4741,6 +4743,7 @@ export interface operations {
               description?: string
               detected_arch?: string
               detected_os?: string
+              detection_message?: string
               detection_status?: string
               env_vars?: string[]
               host?: string
@@ -4849,6 +4852,7 @@ export interface operations {
               description?: string
               detected_arch?: string
               detected_os?: string
+              detection_message?: string
               detection_status?: string
               env_vars?: string[]
               host?: string
@@ -5042,6 +5046,7 @@ export interface operations {
               description?: string
               detected_arch?: string
               detected_os?: string
+              detection_message?: string
               detection_status?: string
               env_vars?: string[]
               host?: string
@@ -5062,6 +5067,10 @@ export interface operations {
             }
             probe?: {
               checked_at?: string
+              detected_arch?: string
+              detected_os?: string
+              detection_message?: string
+              detection_status?: string
               output?: string
               resources?: {
                 [key: string]: unknown
@@ -6068,6 +6077,7 @@ export interface operations {
               description?: string
               detected_arch?: string
               detected_os?: string
+              detection_message?: string
               detection_status?: string
               env_vars?: string[]
               host?: string
@@ -6224,6 +6234,7 @@ export interface operations {
               description?: string
               detected_arch?: string
               detected_os?: string
+              detection_message?: string
               detection_status?: string
               env_vars?: string[]
               host?: string

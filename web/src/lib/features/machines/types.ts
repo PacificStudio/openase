@@ -3,13 +3,19 @@ import type { Machine, MachineProbe, Organization } from '$lib/api/contracts'
 export type ResourceMap = Record<string, unknown>
 
 export type MachineStatus = 'online' | 'offline' | 'degraded' | 'maintenance'
+export type MachineConnectionMode = 'local' | 'ssh' | 'ws_reverse' | 'ws_listener'
+export type MachineDetectedOS = 'darwin' | 'linux' | 'unknown'
+export type MachineDetectedArch = 'amd64' | 'arm64' | 'unknown'
+export type MachineDetectionStatus = 'pending' | 'ok' | 'degraded' | 'unknown'
 
 export type MachineDraft = {
   name: string
   host: string
   port: string
+  connectionMode: MachineConnectionMode
   sshUser: string
   sshKeyPath: string
+  advertisedEndpoint: string
   description: string
   labels: string
   status: MachineStatus
@@ -22,8 +28,10 @@ export type MachineMutationInput = {
   name: string
   host: string
   port: number
+  connection_mode: MachineConnectionMode
   ssh_user: string
   ssh_key_path: string
+  advertised_endpoint: string
   description: string
   labels: string[]
   status: MachineStatus
@@ -135,6 +143,27 @@ export type MachineDraftField = keyof MachineDraft
 export type MachineEditorMode = 'create' | 'edit'
 
 export type MachineItem = Machine
+
+export type MachineModeGuide = {
+  mode: MachineConnectionMode
+  label: string
+  summary: string
+  requiredFields: string
+  installMethod: string
+  testSemantics: string
+  commonErrors: string
+}
+
+export type WorkspaceRootRecommendation = {
+  value: string
+  reason: string
+}
+
+export type WorkspaceRootState =
+  | { kind: 'recommended'; label: string }
+  | { kind: 'saved'; label: string }
+  | { kind: 'manual'; label: string }
+  | { kind: 'empty'; label: string }
 
 export type MachineWorkspaceState = 'no-org' | 'loading' | 'error' | 'empty' | 'ready'
 

@@ -2,6 +2,8 @@ package catalog
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -215,6 +217,10 @@ func ParseCreateMachine(organizationID uuid.UUID, raw MachineInput) (CreateMachi
 	if err != nil {
 		return CreateMachine{}, err
 	}
+	workspaceRoot, err := parseMachineWorkspaceRoot(raw.WorkspaceRoot, host)
+	if err != nil {
+		return CreateMachine{}, err
+	}
 
 	return CreateMachine{
 		OrganizationID:        organizationID,
@@ -234,7 +240,7 @@ func ParseCreateMachine(organizationID uuid.UUID, raw MachineInput) (CreateMachi
 		Description:           strings.TrimSpace(raw.Description),
 		Labels:                labels,
 		Status:                status,
-		WorkspaceRoot:         parseOptionalText(raw.WorkspaceRoot),
+		WorkspaceRoot:         workspaceRoot,
 		AgentCLIPath:          parseOptionalText(raw.AgentCLIPath),
 		EnvVars:               envVars,
 	}, nil
@@ -343,4 +349,26 @@ func parseMachineEnvVars(raw []string) ([]string, error) {
 	}
 
 	return items, nil
+}
+
+func parseMachineWorkspaceRoot(raw *string, host string) (*string, error) {
+	trimmed := parseOptionalText(raw)
+	if trimmed == nil {
+		return nil, nil
+	}
+
+	value := *trimmed
+	if host == LocalMachineHost && strings.HasPrefix(value, "~/") {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("resolve local workspace_root: %w", err)
+		}
+		value = filepath.Join(homeDir, strings.TrimPrefix(value, "~/"))
+	}
+	if !filepath.IsAbs(value) {
+		return nil, fmt.Errorf("workspace_root must be absolute")
+	}
+
+	cleaned := filepath.Clean(value)
+	return &cleaned, nil
 }

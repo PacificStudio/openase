@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -826,6 +827,20 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	}
 	if got := parseOptionalText(stringPtr(" /tmp ")); got == nil || *got != "/tmp" {
 		t.Fatalf("parseOptionalText() = %v, want /tmp", got)
+	}
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	if got, err := parseMachineWorkspaceRoot(stringPtr("~/workspace"), LocalMachineHost); err != nil || got == nil || *got != filepath.Join(homeDir, "workspace") {
+		t.Fatalf("parseMachineWorkspaceRoot(local tilde) = %v, %v", got, err)
+	}
+	if _, err := parseMachineWorkspaceRoot(stringPtr("relative/workspace"), "gpu-01"); err == nil {
+		t.Fatal("parseMachineWorkspaceRoot(relative) expected validation error")
+	}
+	if got := MachineDetectionMessage(MachineDetectedOSLinux, MachineDetectedArchAMD64, MachineDetectionStatusOK); got != "Detected amd64 on Linux." {
+		t.Fatalf("MachineDetectionMessage(ok) = %q", got)
+	}
+	if got := MachineDetectionMessage(MachineDetectedOSUnknown, MachineDetectedArchUnknown, MachineDetectionStatusUnknown); !strings.Contains(got, "unknown") {
+		t.Fatalf("MachineDetectionMessage(unknown) = %q", got)
 	}
 	if _, err := parseLabels([]string{"ok", ""}); err == nil {
 		t.Fatal("parseLabels() expected validation error")

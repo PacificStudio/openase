@@ -1,83 +1,105 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseMachineSnapshot } from './model'
+import type { Machine } from '$lib/api/contracts'
+import {
+  createEmptyMachineDraft,
+  machineToDraft,
+  parseMachineDraft,
+  updateMachineDraft,
+} from './model'
+
+function machineFixture(overrides: Partial<Machine> = {}): Machine {
+  return {
+    id: 'machine-1',
+    organization_id: 'org-1',
+    name: 'GPU Builder',
+    host: 'builder.internal',
+    port: 22,
+    connection_mode: 'ssh',
+    transport_capabilities: ['probe'],
+    ssh_user: 'ubuntu',
+    ssh_key_path: '/keys/id_ed25519',
+    advertised_endpoint: null,
+    daemon_status: {
+      registered: false,
+      last_registered_at: null,
+      current_session_id: null,
+      session_state: 'unknown',
+    },
+    detected_os: 'linux',
+    detected_arch: 'amd64',
+    detection_status: 'ok',
+    detection_message: 'Detected amd64 on Linux.',
+    channel_credential: {
+      kind: 'none',
+      token_id: null,
+      certificate_id: null,
+    },
+    description: '',
+    labels: [],
+    status: 'online',
+    workspace_root: '/home/ubuntu/.openase/workspace',
+    agent_cli_path: '/usr/local/bin/openase-agent',
+    env_vars: [],
+    resources: {},
+    last_heartbeat_at: null,
+    created_at: '2026-04-02T09:00:00Z',
+    updated_at: '2026-04-02T10:00:00Z',
+    ...overrides,
+  } as Machine
+}
 
 describe('machines model', () => {
-  it('parses multi-level monitor, runtime, and audit snapshots', () => {
-    const snapshot = parseMachineSnapshot({
-      checked_at: '2026-03-30T14:24:24Z',
-      last_success: true,
-      agent_dispatchable: true,
-      agent_environment_checked_at: '2026-03-30T14:24:24Z',
-      cpu_usage_percent: 14.5,
-      memory_available_gb: 43,
-      gpu_dispatchable: false,
-      monitor: {
-        l1: {
-          checked_at: '2026-03-30T14:24:24Z',
-          reachable: true,
-        },
-        l4: {
-          checked_at: '2026-03-30T14:24:24Z',
-          agent_dispatchable: true,
-        },
-        l5: {
-          checked_at: '2026-03-30T14:24:24Z',
-        },
-      },
-      agent_environment: {
-        claude_code: {
-          installed: true,
-          version: '2.1.87',
-          auth_status: 'logged_in',
-          auth_mode: 'login',
-          ready: true,
-        },
-        codex: {
-          installed: true,
-          version: '0.117.0',
-          auth_status: 'logged_in',
-          auth_mode: 'login',
-          ready: true,
-        },
-      },
-      full_audit: {
-        checked_at: '2026-03-30T14:24:24Z',
-        git: {
-          installed: true,
-          user_name: 'Codex',
-          user_email: 'codex@openai.com',
-        },
-        gh_cli: {
-          installed: true,
-          auth_status: 'logged_in',
-        },
-        github_token_probe: {
-          checked_at: '2026-03-30T14:24:24Z',
-          state: 'valid',
-          configured: true,
-          valid: true,
-          permissions: ['repo', 'read:org'],
-          repo_access: 'granted',
-          last_error: '',
-        },
-        network: {
-          github_reachable: true,
-          pypi_reachable: true,
-          npm_reachable: false,
-        },
-      },
-    })
+  it('starts new remote drafts with the conservative workspace recommendation', () => {
+    const draft = createEmptyMachineDraft()
 
-    expect(snapshot).not.toBeNull()
-    expect(snapshot?.monitor.l4?.agentDispatchable).toBe(true)
-    expect(snapshot?.agentEnvironment).toHaveLength(2)
-    expect(snapshot?.agentEnvironment[0]).toMatchObject({
-      name: 'claude_code',
-      ready: true,
-      authStatus: 'logged_in',
-    })
-    expect(snapshot?.fullAudit?.githubTokenProbe?.permissions).toEqual(['repo', 'read:org'])
-    expect(snapshot?.fullAudit?.network?.npmReachable).toBe(false)
+    expect(draft.connectionMode).toBe('ssh')
+    expect(draft.workspaceRoot).toBe('/srv/openase/workspace')
+  })
+
+  it('switches local drafts to the reserved local identity and workspace convention', () => {
+    const draft = updateMachineDraft(createEmptyMachineDraft(), 'connectionMode', 'local', null)
+
+    expect(draft.connectionMode).toBe('local')
+    expect(draft.name).toBe('local')
+    expect(draft.host).toBe('local')
+    expect(draft.workspaceRoot).toBe('~/.openase/workspace')
+  })
+
+  it('refreshes the recommended Linux workspace root when the SSH user changes', () => {
+    const machine = machineFixture()
+    const draft = machineToDraft(machine)
+
+    const nextDraft = updateMachineDraft(draft, 'sshUser', 'deploy', machine)
+
+    expect(nextDraft.workspaceRoot).toBe('/home/deploy/.openase/workspace')
+  })
+
+  it('requires an advertised endpoint for websocket listener machines', () => {
+    const draft = updateMachineDraft(
+      createEmptyMachineDraft(),
+      'connectionMode',
+      'ws_listener',
+      null,
+    )
+    draft.name = 'listener'
+    draft.host = 'listener.internal'
+    draft.port = '443'
+    draft.workspaceRoot = '/srv/openase/workspace'
+
+    const parsed = parseMachineDraft(draft)
+    expect(parsed.ok).toBe(false)
+    if (!parsed.ok) {
+      expect(parsed.error).toContain('Advertised endpoint is required')
+    }
+
+    const withEndpoint = updateMachineDraft(
+      draft,
+      'advertisedEndpoint',
+      'wss://listener.internal/openase',
+      null,
+    )
+    const parsedWithEndpoint = parseMachineDraft(withEndpoint)
+    expect(parsedWithEndpoint.ok).toBe(true)
   })
 })
