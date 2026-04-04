@@ -238,6 +238,16 @@ export type ProjectConversationStreamEvent =
   | { kind: 'turn_done'; payload: ProjectConversationTurnDonePayload }
   | { kind: 'error'; payload: ChatErrorPayload }
 
+export type ProjectConversationMuxFrame = {
+  conversationId: string
+  sentAt: string
+  event: ProjectConversationStreamEvent
+}
+
+export type ProjectConversationMuxFrameParseResult =
+  | { ok: true; value: ProjectConversationMuxFrame }
+  | { ok: false; error: Error }
+
 type RawProjectConversation = {
   id?: string
   project_id?: string
@@ -606,7 +616,14 @@ function parseProjectConversationStreamEvent(
     return null
   }
 
-  switch (frame.event) {
+  return parseProjectConversationStreamPayload(frame.event, payload)
+}
+
+function parseProjectConversationStreamPayload(
+  eventName: string,
+  payload: unknown,
+): ProjectConversationStreamEvent | null {
+  switch (eventName) {
     case 'session': {
       const object = parseRequiredObject(payload)
       return {
@@ -700,6 +717,44 @@ function parseProjectConversationStreamEvent(
       return { kind: 'error', payload: parseErrorPayload(payload) }
     default:
       return null
+  }
+}
+
+export function parseRawProjectConversationMuxFrame(
+  frame: Pick<SSEFrame, 'event' | 'data'>,
+): ProjectConversationMuxFrameParseResult {
+  try {
+    const raw = parseJSONObject(frame.data)
+    if (raw == null) {
+      return {
+        ok: false,
+        error: new Error('project conversation mux frame must contain JSON data'),
+      }
+    }
+
+    const object = parseRequiredObject(raw)
+    const event = parseProjectConversationStreamPayload(frame.event, object.payload)
+    if (event == null) {
+      return {
+        ok: false,
+        error: new Error(`project conversation mux event ${frame.event} is unsupported`),
+      }
+    }
+
+    return {
+      ok: true,
+      value: {
+        conversationId: readRequiredString(object, 'conversation_id'),
+        sentAt: readRequiredString(object, 'sent_at'),
+        event,
+      },
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error : new Error('project conversation mux frame parsing failed'),
+    }
   }
 }
 

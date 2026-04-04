@@ -8,17 +8,18 @@ import { resetProjectConversationRuntime } from './project-conversation-actions'
 import { createProjectConversationControllerConversations } from './project-conversation-controller-conversations'
 import {
   handleTabStreamEvent,
-  reconcileTabAfterStreamClose,
+  projectConversationTabPhaseFromRuntimeState,
+  reconcileTabAfterReconnect,
   refreshTabWorkspaceDiff,
 } from './project-conversation-controller-runtime-effects'
 import {
+  applyProjectConversationStreamEvent,
   appendProjectConversationText,
   beginProjectConversationOperation,
   connectProjectConversationStream,
   invalidateProjectConversationStream,
   isCurrentProjectConversationOperation,
   projectConversationHasPendingInterrupt,
-  setProjectConversationIdleIfCurrent,
 } from './project-conversation-controller-helpers'
 import { loadProjectConversation } from './project-conversation-runtime'
 import {
@@ -50,8 +51,16 @@ type ProjectConversationControllerRuntimeInput = {
 export function createProjectConversationControllerRuntime(
   input: ProjectConversationControllerRuntimeInput,
 ) {
+  function getProjectId() {
+    return input.controllerInput.getProjectId()
+  }
+
   function touchTabs() {
     input.touch()
+  }
+
+  function isActiveTab(tab: ProjectConversationTabState) {
+    return input.getActiveTab()?.id === tab.id
   }
 
   const conversations = createProjectConversationControllerConversations({
@@ -62,9 +71,14 @@ export function createProjectConversationControllerRuntime(
   })
 
   function connectTabStream(tab: ProjectConversationTabState, conversationId: string) {
+    const projectId = getProjectId()
+    if (!projectId) {
+      return
+    }
     const streamTab = findProjectConversationTab(input.getTabs(), tab.id) ?? tab
     connectProjectConversationStream({
       state: streamTab,
+      projectId,
       conversationId,
       resolveState: () => findProjectConversationTab(input.getTabs(), streamTab.id),
       onStateChanged: touchTabs,
@@ -74,9 +88,17 @@ export function createProjectConversationControllerRuntime(
         if (!liveTab) {
           return
         }
+        if (isActiveTab(liveTab)) {
+          applyProjectConversationStreamEvent({
+            state: liveTab,
+            event,
+            onError: input.controllerInput.onError,
+          })
+        }
         handleTabStreamEvent(
           {
             conversations,
+            isActiveTab,
             persistTabs: input.persistTabs,
             touchTabs,
             connectTabStream,
@@ -87,10 +109,11 @@ export function createProjectConversationControllerRuntime(
         )
         touchTabs()
       },
-      onClosed: (streamId) =>
-        void reconcileTabAfterStreamClose(
+      onReconnect: (streamId) =>
+        void reconcileTabAfterReconnect(
           {
             conversations,
+            isActiveTab,
             persistTabs: input.persistTabs,
             touchTabs,
             connectTabStream,
@@ -116,6 +139,8 @@ export function createProjectConversationControllerRuntime(
         setConversationId: (nextId) => {
           if (isCurrentProjectConversationOperation(tab, currentOperationId)) {
             tab.conversationId = nextId
+            tab.needsHydration = false
+            tab.unread = false
             touchTabs()
           }
         },
@@ -124,6 +149,8 @@ export function createProjectConversationControllerRuntime(
             const mappedEntries = nextEntries as ProjectConversationTranscriptEntry[]
             tab.entries = mappedEntries
             tab.entryCounter = mappedEntries.length
+            tab.needsHydration = false
+            tab.unread = false
             touchTabs()
           }
         },
@@ -135,8 +162,12 @@ export function createProjectConversationControllerRuntime(
         },
         connectStream: (nextConversationId) => connectTabStream(tab, nextConversationId),
       })
-      if (isCurrentProjectConversationOperation(tab, currentOperationId)) tab.restored = restored
-      setProjectConversationIdleIfCurrent(tab, currentOperationId)
+      if (isCurrentProjectConversationOperation(tab, currentOperationId)) {
+        tab.restored = restored
+        if (tab.phase === 'restoring') {
+          tab.phase = 'idle'
+        }
+      }
       touchTabs()
       void refreshTabWorkspaceDiff(tab, conversationId, touchTabs)
       input.persistTabs()
@@ -150,11 +181,39 @@ export function createProjectConversationControllerRuntime(
     }
   }
 
+  function restoreTabConversationMetadata(
+    tab: ProjectConversationTabState,
+    conversation: ProjectConversation,
+    restored: boolean,
+  ) {
+    tab.conversationId = conversation.id
+    tab.providerId = conversation.providerId || tab.providerId
+    tab.entries = []
+    tab.entryCounter = 0
+    tab.activeAssistantEntryId = ''
+    tab.restored = restored
+    tab.needsHydration = true
+    tab.unread = false
+    tab.phase = projectConversationTabPhaseFromRuntimeState(
+      conversation.runtimePrincipal?.runtimeState,
+    )
+    connectTabStream(tab, conversation.id)
+  }
+
+  async function hydrateTabIfNeeded(tab: ProjectConversationTabState | null) {
+    if (!tab?.conversationId || !tab.needsHydration) {
+      return
+    }
+    await loadTabConversation(tab, tab.conversationId, tab.restored)
+  }
+
   async function openConversationInTab(nextConversationId: string) {
     if (!nextConversationId) return
     const existing = input.getTabs().find((tab) => tab.conversationId === nextConversationId)
     if (existing) {
       input.setActiveTabId(existing.id)
+      existing.unread = false
+      void hydrateTabIfNeeded(existing)
       input.persistTabs()
       return
     }
@@ -217,6 +276,8 @@ export function createProjectConversationControllerRuntime(
         if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) return false
         activeTab.conversationId = createPayload.conversation.id
         activeTab.restored = false
+        activeTab.needsHydration = false
+        activeTab.unread = false
         input.setConversations(
           conversations.sortProjectConversations([
             createPayload.conversation,
@@ -238,6 +299,8 @@ export function createProjectConversationControllerRuntime(
       appendProjectConversationText(activeTab, 'user', trimmed)
       activeTab.activeAssistantEntryId = ''
       activeTab.restored = false
+      activeTab.needsHydration = false
+      activeTab.unread = false
       activeTab.phase = 'submitting_turn'
       await startProjectConversationTurn(activeTab.conversationId, {
         message: trimmed,
@@ -272,6 +335,8 @@ export function createProjectConversationControllerRuntime(
       await resetProjectConversationRuntime(activeConversationId)
       if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) return
       activeTab.activeAssistantEntryId = ''
+      activeTab.needsHydration = false
+      activeTab.unread = false
       activeTab.phase = 'connecting_stream'
       connectTabStream(activeTab, activeConversationId)
       await refreshTabWorkspaceDiff(activeTab, activeConversationId, touchTabs)
@@ -280,6 +345,8 @@ export function createProjectConversationControllerRuntime(
       activeTab.workspaceDiff = null
       activeTab.workspaceDiffLoading = false
       activeTab.workspaceDiffError = ''
+      activeTab.needsHydration = false
+      activeTab.unread = false
     }
     if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) return
     activeTab.queuedTurns = []
@@ -292,6 +359,8 @@ export function createProjectConversationControllerRuntime(
   return {
     sortProjectConversations: conversations.sortProjectConversations,
     loadTabConversation,
+    restoreTabConversationMetadata,
+    hydrateTabIfNeeded,
     openConversationInTab,
     sendTurnInTab,
     resetConversation,

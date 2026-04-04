@@ -4926,6 +4926,21 @@ func (b openAPISpecBuilder) addChatOperations() error {
 	projectConversationTurn.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
 	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/turns", http.MethodPost, projectConversationTurn)
 
+	projectConversationMuxStream, err := b.streamOperation(
+		"streamProjectConversationsMux",
+		"Watch multiplexed project conversation events for one project",
+		[]string{"chat"},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationMuxStream.AddParameter(uuidPathParameter("projectId", "Stable OpenASE project ID."))
+	b.doc.AddOperation("/api/v1/chat/projects/{projectId}/conversations/stream", http.MethodGet, projectConversationMuxStream)
+
 	projectConversationStream, err := b.streamOperation(
 		"streamProjectConversation",
 		"Watch project conversation events",

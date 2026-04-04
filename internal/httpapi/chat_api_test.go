@@ -810,6 +810,142 @@ func TestProjectConversationStreamRouteKeepsParallelConnectionsIsolated(t *testi
 	}
 }
 
+func TestProjectConversationMuxStreamRouteMultiplexesConversationsWithinOneProject(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-mux").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE Mux").
+		SetSlug("openase-mux").
+		SetDescription("Issue-driven automation").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	repoStore := chatrepo.NewEntRepository(client)
+	firstConversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create first conversation: %v", err)
+	}
+	secondConversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create second conversation: %v", err)
+	}
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		repoStore,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	server := NewServer(
+		config.ServerConfig{Port: 40023, WriteTimeout: time.Second},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithProjectConversationService(projectConversationService),
+	)
+
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	streamCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(
+		streamCtx,
+		http.MethodGet,
+		testServer.URL+"/api/v1/chat/projects/"+project.ID.String()+"/conversations/stream",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("new mux stream request: %v", err)
+	}
+	req.Header.Set(chatUserHeader, "user:conversation")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("open mux stream: %v", err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	reader := bufio.NewReader(resp.Body)
+	firstSession := readProjectConversationSSEFrame(t, reader)
+	secondSession := readProjectConversationSSEFrame(t, reader)
+	if firstSession.Event != "session" || secondSession.Event != "session" {
+		t.Fatalf("expected initial mux session frames, got %+v and %+v", firstSession, secondSession)
+	}
+	if !strings.Contains(firstSession.Data, "\"conversation_id\":\""+firstConversation.ID.String()+"\"") &&
+		!strings.Contains(secondSession.Data, "\"conversation_id\":\""+firstConversation.ID.String()+"\"") {
+		t.Fatalf("expected one initial mux frame for first conversation, got %+v and %+v", firstSession, secondSession)
+	}
+	if !strings.Contains(firstSession.Data, "\"conversation_id\":\""+secondConversation.ID.String()+"\"") &&
+		!strings.Contains(secondSession.Data, "\"conversation_id\":\""+secondConversation.ID.String()+"\"") {
+		t.Fatalf("expected one initial mux frame for second conversation, got %+v and %+v", firstSession, secondSession)
+	}
+
+	if _, err := projectConversationService.AppendActionExecutionResult(
+		ctx,
+		chatservice.UserID("user:conversation"),
+		firstConversation.ID,
+		nil,
+		map[string]any{"marker": "conversation-1"},
+	); err != nil {
+		t.Fatalf("append first action result: %v", err)
+	}
+	firstMessage := readProjectConversationSSEFrame(t, reader)
+	if firstMessage.Event != "message" ||
+		!strings.Contains(firstMessage.Data, "\"conversation_id\":\""+firstConversation.ID.String()+"\"") ||
+		!strings.Contains(firstMessage.Data, "\"marker\":\"conversation-1\"") {
+		t.Fatalf("first mux message frame = %+v", firstMessage)
+	}
+
+	if _, err := projectConversationService.AppendActionExecutionResult(
+		ctx,
+		chatservice.UserID("user:conversation"),
+		secondConversation.ID,
+		nil,
+		map[string]any{"marker": "conversation-2"},
+	); err != nil {
+		t.Fatalf("append second action result: %v", err)
+	}
+	secondMessage := readProjectConversationSSEFrame(t, reader)
+	if secondMessage.Event != "message" ||
+		!strings.Contains(secondMessage.Data, "\"conversation_id\":\""+secondConversation.ID.String()+"\"") ||
+		!strings.Contains(secondMessage.Data, "\"marker\":\"conversation-2\"") {
+		t.Fatalf("second mux message frame = %+v", secondMessage)
+	}
+}
+
 func TestChatRouteStreamsPeriodicKeepalives(t *testing.T) {
 	originalInterval := chatSSEKeepaliveInterval
 	chatSSEKeepaliveInterval = 5 * time.Millisecond

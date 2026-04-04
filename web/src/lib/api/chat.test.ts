@@ -13,6 +13,7 @@ import {
   getProjectConversation,
   listProjectConversationEntries,
   listProjectConversations,
+  parseRawProjectConversationMuxFrame,
   startProjectConversationTurn,
   streamChatTurn,
   watchProjectConversation,
@@ -586,5 +587,54 @@ describe('project conversation REST mapping', () => {
         },
       ],
     })
+  })
+})
+
+describe('parseRawProjectConversationMuxFrame', () => {
+  it('parses multiplexed project conversation frames into typed events', () => {
+    expect(
+      parseRawProjectConversationMuxFrame({
+        event: 'turn_done',
+        data: JSON.stringify({
+          conversation_id: 'conversation-1',
+          sent_at: '2026-04-04T12:34:56Z',
+          payload: {
+            conversation_id: 'conversation-1',
+            turn_id: 'turn-1',
+            cost_usd: 1.25,
+          },
+        }),
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        conversationId: 'conversation-1',
+        sentAt: '2026-04-04T12:34:56Z',
+        event: {
+          kind: 'turn_done',
+          payload: {
+            conversationId: 'conversation-1',
+            turnId: 'turn-1',
+            costUSD: 1.25,
+          },
+        },
+      },
+    })
+  })
+
+  it('rejects malformed multiplexed frames before they reach controller code', () => {
+    const result = parseRawProjectConversationMuxFrame({
+      event: 'message',
+      data: JSON.stringify({
+        sent_at: '2026-04-04T12:34:56Z',
+        payload: {
+          type: 'text',
+          content: 'hello',
+        },
+      }),
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.ok ? '' : result.error.message).toContain('conversation_id')
   })
 })
