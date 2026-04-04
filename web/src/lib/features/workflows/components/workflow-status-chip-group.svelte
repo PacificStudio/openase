@@ -30,7 +30,7 @@
   }
 </script>
 
-<div class="space-y-2">
+<div class="space-y-2" role="group" aria-label={label}>
   <Label>{label}</Label>
   <div class="flex flex-wrap gap-2">
     {#each statuses as status (status.id)}

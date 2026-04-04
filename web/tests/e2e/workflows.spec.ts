@@ -25,8 +25,12 @@ test('workflow creation dialog stays responsive', async ({ page, projectPath }, 
     },
   })
 
+  const dialog = page.getByRole('dialog', { name: 'Create Workflow' })
   await page.locator('#workflow-create-name').fill(workflowName)
-  await page.getByRole('dialog').getByRole('button', { name: 'In Review' }).first().click()
+  await dialog
+    .getByRole('group', { name: 'Finish Statuses' })
+    .getByRole('button', { name: 'Done' })
+    .click()
 
   await measureCompletion({
     scenario: 'workflow_create_complete',
@@ -34,7 +38,7 @@ test('workflow creation dialog stays responsive', async ({ page, projectPath }, 
     ready: page.getByText(workflowName).first(),
     testInfo,
     action: async () => {
-      await page.getByRole('button', { name: 'Create workflow' }).click()
+      await dialog.getByRole('button', { name: 'Create workflow' }).click()
     },
   })
 
