@@ -1514,13 +1514,13 @@ type OpenAPIGitHubOutboundCredential struct {
 }
 
 type OpenAPISecuritySettings struct {
-	ProjectID     string                              `json:"project_id"`
-	AgentTokens   OpenAPISecurityAgentTokens          `json:"agent_tokens"`
-	GitHub        OpenAPIGitHubOutboundCredential     `json:"github"`
-	Webhooks      OpenAPISecurityWebhooks             `json:"webhooks"`
-	SecretHygiene OpenAPISecuritySecretHygiene        `json:"secret_hygiene"`
-	ApprovalPolicies OpenAPISecurityApprovalPolicies  `json:"approval_policies"`
-	Deferred      []OpenAPISecurityDeferredCapability `json:"deferred"`
+	ProjectID        string                              `json:"project_id"`
+	AgentTokens      OpenAPISecurityAgentTokens          `json:"agent_tokens"`
+	GitHub           OpenAPIGitHubOutboundCredential     `json:"github"`
+	Webhooks         OpenAPISecurityWebhooks             `json:"webhooks"`
+	SecretHygiene    OpenAPISecuritySecretHygiene        `json:"secret_hygiene"`
+	ApprovalPolicies OpenAPISecurityApprovalPolicies     `json:"approval_policies"`
+	Deferred         []OpenAPISecurityDeferredCapability `json:"deferred"`
 }
 
 type OpenAPISecuritySettingsResponse struct {

@@ -65,11 +65,11 @@ func TestRequiredScopeAndPermissionResolvesSkillRefinementSessionDeleteScope(t *
 			},
 			providers: []catalogdomain.AgentProvider{
 				{
-					ID:          providerID,
+					ID:             providerID,
 					OrganizationID: org.ID,
-					Name:        "Codex",
-					AdapterType: catalogdomain.AgentProviderAdapterTypeCodexAppServer,
-					Available:   true,
+					Name:           "Codex",
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+					Available:      true,
 				},
 			},
 		},
@@ -90,10 +90,10 @@ func TestRequiredScopeAndPermissionResolvesSkillRefinementSessionDeleteScope(t *
 	userUUID := uuid.New()
 	userID := chatservice.UserID("user:" + userUUID.String())
 	stream, err := refinementSvc.Start(ctx, userID, chatservice.SkillRefinementInput{
-		ProjectID: project.ID,
-		SkillID:   skill.ID,
+		ProjectID:  project.ID,
+		SkillID:    skill.ID,
 		ProviderID: &providerID,
-		Message:   "Refine the skill.",
+		Message:    "Refine the skill.",
 		DraftFiles: []workflowservice.SkillBundleFileInput{
 			{
 				Path:         "SKILL.md",

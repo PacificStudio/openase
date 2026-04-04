@@ -81,13 +81,13 @@ type securityGitHubOutboundCredentialResponse struct {
 }
 
 type securitySettingsResponse struct {
-	ProjectID     string                                   `json:"project_id"`
-	AgentTokens   securityAgentTokensResponse              `json:"agent_tokens"`
-	GitHub        securityGitHubOutboundCredentialResponse `json:"github"`
-	Webhooks      securityWebhookBoundaryResponse          `json:"webhooks"`
-	SecretHygiene securitySecretHygieneResponse            `json:"secret_hygiene"`
-	ApprovalPolicies securityApprovalPoliciesResponse      `json:"approval_policies"`
-	Deferred      []securityDeferredCapabilityResponse     `json:"deferred"`
+	ProjectID        string                                   `json:"project_id"`
+	AgentTokens      securityAgentTokensResponse              `json:"agent_tokens"`
+	GitHub           securityGitHubOutboundCredentialResponse `json:"github"`
+	Webhooks         securityWebhookBoundaryResponse          `json:"webhooks"`
+	SecretHygiene    securitySecretHygieneResponse            `json:"secret_hygiene"`
+	ApprovalPolicies securityApprovalPoliciesResponse         `json:"approval_policies"`
+	Deferred         []securityDeferredCapabilityResponse     `json:"deferred"`
 }
 
 func (s *Server) registerSecuritySettingsRoutes(api *echo.Group) {

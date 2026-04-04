@@ -103,14 +103,14 @@ func TestAuthPermissionsIncludeOrgInheritanceAndGroupUnion(t *testing.T) {
 	fixture := newHumanAuthFixture(t)
 	orgID, projectID := fixture.createOrganizationProject(t)
 	sessionToken, _ := fixture.createSession(t, humanFixtureSessionInput{
-		userEmail:        "reviewer@example.com",
-		displayName:      "Reviewer",
-		groupKey:         "platform-admins",
-		groupName:        "Platform Admins",
-		projectID:        projectID,
-		projectRoleKey:   "project_viewer",
-		orgID:            orgID,
-		orgGroupRoleKey:  "org_admin",
+		userEmail:       "reviewer@example.com",
+		displayName:     "Reviewer",
+		groupKey:        "platform-admins",
+		groupName:       "Platform Admins",
+		projectID:       projectID,
+		projectRoleKey:  "project_viewer",
+		orgID:           orgID,
+		orgGroupRoleKey: "org_admin",
 	})
 
 	rec := fixture.request(t, http.MethodGet, "/api/v1/auth/me/permissions?project_id="+projectID.String(), "", map[string]string{
@@ -194,10 +194,10 @@ func TestLogoutRevokesBrowserSession(t *testing.T) {
 	})
 
 	rec := fixture.request(t, http.MethodPost, "/api/v1/auth/logout", "", map[string]string{
-		"Cookie":          humanSessionCookieName + "=" + sessionToken,
-		"Origin":          "http://example.com",
-		"X-OpenASE-CSRF":  csrfToken,
-		"User-Agent":      "LogoutTest/1.0",
+		"Cookie":         humanSessionCookieName + "=" + sessionToken,
+		"Origin":         "http://example.com",
+		"X-OpenASE-CSRF": csrfToken,
+		"User-Agent":     "LogoutTest/1.0",
 	})
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("expected status 204, got %d: %s", rec.Code, rec.Body.String())
