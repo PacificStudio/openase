@@ -1,6 +1,8 @@
 package catalog
 
 import (
+	"errors"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -827,6 +829,53 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if got := parseOptionalText(stringPtr(" /tmp ")); got == nil || *got != "/tmp" {
 		t.Fatalf("parseOptionalText() = %v, want /tmp", got)
 	}
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	if got, err := parseMachineWorkspaceRoot(nil, "gpu-01"); err != nil || got != nil {
+		t.Fatalf("parseMachineWorkspaceRoot(nil) = %v, %v", got, err)
+	}
+	if got, err := parseMachineWorkspaceRoot(stringPtr("~/workspace"), LocalMachineHost); err != nil || got == nil || *got != filepath.Join(homeDir, "workspace") {
+		t.Fatalf("parseMachineWorkspaceRoot(local tilde) = %v, %v", got, err)
+	}
+	if got, err := parseMachineWorkspaceRoot(stringPtr("/srv/openase/../workspace"), "gpu-01"); err != nil || got == nil || *got != "/srv/workspace" {
+		t.Fatalf("parseMachineWorkspaceRoot(remote abs) = %v, %v", got, err)
+	}
+	if _, err := parseMachineWorkspaceRoot(stringPtr("relative/workspace"), "gpu-01"); err == nil {
+		t.Fatal("parseMachineWorkspaceRoot(relative) expected validation error")
+	}
+	originalHomeDir := machineUserHomeDir
+	machineUserHomeDir = func() (string, error) {
+		return "", errors.New("boom")
+	}
+	t.Cleanup(func() {
+		machineUserHomeDir = originalHomeDir
+	})
+	if _, err := parseMachineWorkspaceRoot(stringPtr("~/workspace"), LocalMachineHost); err == nil || !strings.Contains(err.Error(), "resolve local workspace_root") {
+		t.Fatalf("parseMachineWorkspaceRoot(home error) = %v, want wrapped home resolution error", err)
+	}
+
+	detectionCases := []struct {
+		name         string
+		detectedOS   MachineDetectedOS
+		detectedArch MachineDetectedArch
+		status       MachineDetectionStatus
+		wantContains string
+	}{
+		{"ok-both", MachineDetectedOSLinux, MachineDetectedArchAMD64, MachineDetectionStatusOK, "Detected amd64 on Linux."},
+		{"ok-os-only", MachineDetectedOSDarwin, MachineDetectedArchUnknown, MachineDetectionStatusOK, "Detected macOS"},
+		{"ok-arch-only", MachineDetectedOSUnknown, MachineDetectedArchARM64, MachineDetectionStatusOK, "Detected arm64"},
+		{"ok-none", MachineDetectedOSUnknown, MachineDetectedArchUnknown, MachineDetectionStatusOK, "completed"},
+		{"degraded-os", MachineDetectedOSLinux, MachineDetectedArchUnknown, MachineDetectionStatusDegraded, "Detected Linux"},
+		{"degraded-arch", MachineDetectedOSUnknown, MachineDetectedArchARM64, MachineDetectionStatusDegraded, "Detected arm64"},
+		{"degraded-none", MachineDetectedOSUnknown, MachineDetectedArchUnknown, MachineDetectionStatusDegraded, "could not reliably confirm"},
+		{"pending", MachineDetectedOSUnknown, MachineDetectedArchUnknown, MachineDetectionStatusPending, "has not run yet"},
+		{"unknown", MachineDetectedOSUnknown, MachineDetectedArchUnknown, MachineDetectionStatusUnknown, "unknown"},
+	}
+	for _, tc := range detectionCases {
+		if got := MachineDetectionMessage(tc.detectedOS, tc.detectedArch, tc.status); !strings.Contains(got, tc.wantContains) {
+			t.Fatalf("MachineDetectionMessage(%s) = %q, want substring %q", tc.name, got, tc.wantContains)
+		}
+	}
 	if _, err := parseLabels([]string{"ok", ""}); err == nil {
 		t.Fatal("parseLabels() expected validation error")
 	}
@@ -999,6 +1048,16 @@ func TestCatalogMachineParsers(t *testing.T) {
 	}
 	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "remote", Host: "10.0.0.1", SSHUser: &sshUser, SSHKeyPath: &sshKeyPath, EnvVars: []string{"NOPE"}}); err == nil {
 		t.Fatal("ParseCreateMachine() expected env_vars validation error")
+	}
+	relativeWorkspaceRoot := "relative/workspace"
+	if _, err := ParseCreateMachine(orgID, MachineInput{
+		Name:          "remote",
+		Host:          "10.0.0.1",
+		SSHUser:       &sshUser,
+		SSHKeyPath:    &sshKeyPath,
+		WorkspaceRoot: &relativeWorkspaceRoot,
+	}); err == nil {
+		t.Fatal("ParseCreateMachine() expected workspace_root validation error")
 	}
 	if _, err := ParseUpdateMachine(uuid.New(), orgID, MachineInput{Name: "remote", Host: "10.0.0.1"}); err == nil {
 		t.Fatal("ParseUpdateMachine() expected validation error")

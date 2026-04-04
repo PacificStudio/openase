@@ -264,8 +264,7 @@
               loading={controller.projectUpdates.loading}
               initialLoaded={controller.projectUpdates.initialLoaded}
               creatingThread={controller.projectUpdates.creatingThread}
-              error={controller.projectUpdates.error}
-              notice={controller.projectUpdates.notice}
+              loadError={controller.projectUpdates.loadError}
               onSubmit={controller.projectUpdates.handleCreateThread}
               onUpdateThread={controller.projectUpdates.handleSaveThread}
               onDeleteThread={controller.projectUpdates.handleDeleteThread}

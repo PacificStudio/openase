@@ -22,19 +22,11 @@
       onSubmit={projectUpdates.handleCreateThread}
     />
 
-    {#if projectUpdates.error}
+    {#if projectUpdates.loadError}
       <div
         class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-4 py-3 text-sm"
       >
-        {projectUpdates.error}
-      </div>
-    {/if}
-
-    {#if projectUpdates.notice}
-      <div
-        class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
-      >
-        {projectUpdates.notice}
+        {projectUpdates.loadError}
       </div>
     {/if}
 

@@ -217,11 +217,15 @@ func (t *Tester) TestConnection(ctx context.Context, machine domain.Machine) (do
 	}()
 
 	output, err := session.CombinedOutput(`sh -lc 'whoami && hostname && uname -srm'`)
+	detectedOS, detectedArch, detectionStatus := detectRemoteMachinePlatform(string(output))
 	probe := domain.MachineProbe{
-		CheckedAt: checkedAt,
-		Transport: "ssh",
-		Output:    strings.TrimSpace(string(output)),
-		Resources: buildRemoteResources(machine, checkedAt, string(output)),
+		CheckedAt:       checkedAt,
+		Transport:       "ssh",
+		Output:          strings.TrimSpace(string(output)),
+		Resources:       buildRemoteResources(machine, checkedAt, string(output)),
+		DetectedOS:      detectedOS,
+		DetectedArch:    detectedArch,
+		DetectionStatus: detectionStatus,
 	}
 	if err != nil {
 		return probe, fmt.Errorf("run remote probe: %w", err)
@@ -240,18 +244,25 @@ func localProbe(checkedAt time.Time) (domain.MachineProbe, error) {
 		return domain.MachineProbe{CheckedAt: checkedAt, Transport: "local"}, fmt.Errorf("resolve local hostname: %w", err)
 	}
 
+	detectedOS, detectedArch, detectionStatus := detectLocalMachinePlatform()
 	output := strings.Join([]string{currentUser.Username, hostname, runtime.GOOS + " " + runtime.GOARCH}, "\n")
 	return domain.MachineProbe{
-		CheckedAt: checkedAt,
-		Transport: "local",
-		Output:    output,
+		CheckedAt:       checkedAt,
+		Transport:       "local",
+		Output:          output,
+		DetectedOS:      detectedOS,
+		DetectedArch:    detectedArch,
+		DetectionStatus: detectionStatus,
 		Resources: map[string]any{
-			"transport":    "local",
-			"local_user":   currentUser.Username,
-			"local_host":   hostname,
-			"platform":     runtime.GOOS + "/" + runtime.GOARCH,
-			"checked_at":   checkedAt.Format(time.RFC3339),
-			"last_success": true,
+			"transport":        "local",
+			"local_user":       currentUser.Username,
+			"local_host":       hostname,
+			"platform":         runtime.GOOS + "/" + runtime.GOARCH,
+			"detected_os":      detectedOS.String(),
+			"detected_arch":    detectedArch.String(),
+			"detection_status": detectionStatus.String(),
+			"checked_at":       checkedAt.Format(time.RFC3339),
+			"last_success":     true,
 		},
 	}, nil
 }
@@ -274,7 +285,66 @@ func buildRemoteResources(machine domain.Machine, checkedAt time.Time, output st
 	if len(lines) > 2 && strings.TrimSpace(lines[2]) != "" {
 		resources["kernel"] = strings.TrimSpace(lines[2])
 	}
+	detectedOS, detectedArch, detectionStatus := detectRemoteMachinePlatform(output)
+	resources["detected_os"] = detectedOS.String()
+	resources["detected_arch"] = detectedArch.String()
+	resources["detection_status"] = detectionStatus.String()
 	return resources
+}
+
+func detectLocalMachinePlatform() (domain.MachineDetectedOS, domain.MachineDetectedArch, domain.MachineDetectionStatus) {
+	return normalizeMachinePlatform(runtime.GOOS, runtime.GOARCH)
+}
+
+func detectRemoteMachinePlatform(output string) (domain.MachineDetectedOS, domain.MachineDetectedArch, domain.MachineDetectionStatus) {
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) < 3 {
+		return domain.MachineDetectedOSUnknown, domain.MachineDetectedArchUnknown, domain.MachineDetectionStatusUnknown
+	}
+	fields := strings.Fields(strings.TrimSpace(lines[2]))
+	if len(fields) == 0 {
+		return domain.MachineDetectedOSUnknown, domain.MachineDetectedArchUnknown, domain.MachineDetectionStatusUnknown
+	}
+	arch := ""
+	if len(fields) > 1 {
+		arch = fields[len(fields)-1]
+	}
+	return normalizeMachinePlatform(fields[0], arch)
+}
+
+func normalizeMachinePlatform(rawOS string, rawArch string) (domain.MachineDetectedOS, domain.MachineDetectedArch, domain.MachineDetectionStatus) {
+	detectedOS := normalizeDetectedOS(rawOS)
+	detectedArch := normalizeDetectedArch(rawArch)
+	switch {
+	case detectedOS != domain.MachineDetectedOSUnknown && detectedArch != domain.MachineDetectedArchUnknown:
+		return detectedOS, detectedArch, domain.MachineDetectionStatusOK
+	case detectedOS != domain.MachineDetectedOSUnknown || detectedArch != domain.MachineDetectedArchUnknown:
+		return detectedOS, detectedArch, domain.MachineDetectionStatusDegraded
+	default:
+		return detectedOS, detectedArch, domain.MachineDetectionStatusUnknown
+	}
+}
+
+func normalizeDetectedOS(raw string) domain.MachineDetectedOS {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "darwin", "macos", "mac", "macosx":
+		return domain.MachineDetectedOSDarwin
+	case "linux":
+		return domain.MachineDetectedOSLinux
+	default:
+		return domain.MachineDetectedOSUnknown
+	}
+}
+
+func normalizeDetectedArch(raw string) domain.MachineDetectedArch {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "x86_64", "amd64":
+		return domain.MachineDetectedArchAMD64
+	case "aarch64", "arm64", "arm64e":
+		return domain.MachineDetectedArchARM64
+	default:
+		return domain.MachineDetectedArchUnknown
+	}
 }
 
 type realDialer struct{}

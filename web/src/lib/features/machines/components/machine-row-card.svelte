@@ -5,7 +5,15 @@
   import MachineResourceBars from './machine-resource-bars.svelte'
   import MachineRowCardActions from './machine-row-card-actions.svelte'
   import { buildResourceBars, buildStatusDots, type StatusDot } from './machine-row-card-view'
-  import { isLocalMachine, parseMachineSnapshot } from '../model'
+  import {
+    isLocalMachine,
+    machineConnectionModeLabel,
+    machineDetectedArchLabel,
+    machineDetectedOSLabel,
+    machineDetectionBadgeClass,
+    machineDetectionStatusLabel,
+    parseMachineSnapshot,
+  } from '../model'
   import type { MachineItem } from '../types'
 
   const dotColorClass: Record<StatusDot['color'], string> = {
@@ -39,6 +47,12 @@
 
   const snapshot = $derived(parseMachineSnapshot(machine.resources))
   const localMachine = $derived(isLocalMachine(machine))
+  const connectionModeLabel = $derived(machineConnectionModeLabel(machine.connection_mode))
+  const platformLabel = $derived(
+    `${machineDetectedOSLabel(machine.detected_os)} / ${machineDetectedArchLabel(machine.detected_arch)}`,
+  )
+  const detectionLabel = $derived(machineDetectionStatusLabel(machine.detection_status))
+  const detectionBadgeClass = $derived(machineDetectionBadgeClass(machine.detection_status))
 
   const statusDots = $derived.by((): StatusDot[] => buildStatusDots(machine, snapshot))
   const resourceBars = $derived.by(() => buildResourceBars(snapshot))
@@ -63,6 +77,13 @@
         <p class="text-muted-foreground truncate font-mono text-xs">
           {machine.host}:{machine.port}
         </p>
+        <div class="mt-2 flex flex-wrap items-center gap-1.5">
+          <Badge variant="outline" class="text-[10px]">{connectionModeLabel}</Badge>
+          <Badge variant="secondary" class="text-[10px]">{platformLabel}</Badge>
+          <Badge variant="outline" class={cn('text-[10px]', detectionBadgeClass)}>
+            {detectionLabel}
+          </Badge>
+        </div>
       </div>
 
       <div class="flex items-center gap-1.5">

@@ -605,6 +605,14 @@ func TestMachineRoutes(t *testing.T) {
 	if testMachinePayload.Probe.Transport != "ssh" {
 		t.Fatalf("expected ssh probe transport, got %+v", testMachinePayload.Probe)
 	}
+	if testMachinePayload.Probe.DetectedOS != "linux" ||
+		testMachinePayload.Probe.DetectedArch != "amd64" ||
+		testMachinePayload.Probe.DetectionStatus != "ok" {
+		t.Fatalf("expected probe detection metadata, got %+v", testMachinePayload.Probe)
+	}
+	if testMachinePayload.Probe.DetectionMessage == "" || testMachinePayload.Machine.DetectionMessage == "" {
+		t.Fatalf("expected detection messages in machine test payload, got %+v", testMachinePayload)
+	}
 	if testMachinePayload.Machine.LastHeartbeatAt == nil {
 		t.Fatalf("expected machine test to stamp heartbeat, got %+v", testMachinePayload.Machine)
 	}
@@ -1472,9 +1480,12 @@ func (f *fakeCatalogService) TestMachineConnection(_ context.Context, id uuid.UU
 	checkedAt := time.Now().UTC()
 	transport := map[bool]string{true: "local", false: "ssh"}[item.Host == domain.LocalMachineHost]
 	probe := domain.MachineProbe{
-		CheckedAt: checkedAt,
-		Transport: transport,
-		Output:    "probe-ok",
+		CheckedAt:       checkedAt,
+		Transport:       transport,
+		Output:          "probe-ok",
+		DetectedOS:      domain.MachineDetectedOSLinux,
+		DetectedArch:    domain.MachineDetectedArchAMD64,
+		DetectionStatus: domain.MachineDetectionStatusOK,
 		Resources: map[string]any{
 			"transport":    transport,
 			"checked_at":   checkedAt.Format(time.RFC3339),
@@ -1482,6 +1493,9 @@ func (f *fakeCatalogService) TestMachineConnection(_ context.Context, id uuid.UU
 		},
 	}
 	item.Status = "online"
+	item.DetectedOS = probe.DetectedOS
+	item.DetectedArch = probe.DetectedArch
+	item.DetectionStatus = probe.DetectionStatus
 	item.LastHeartbeatAt = &checkedAt
 	item.Resources = cloneMap(probe.Resources)
 	f.machines[id] = item

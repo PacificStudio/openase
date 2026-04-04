@@ -87,6 +87,12 @@ func TestTesterRemoteProbe(t *testing.T) {
 	if probe.Resources["remote_user"] != "openase" || probe.Resources["remote_host"] != "gpu-01" {
 		t.Fatalf("unexpected remote probe resources: %+v", probe.Resources)
 	}
+	if probe.DetectedOS != domain.MachineDetectedOSLinux || probe.DetectedArch != domain.MachineDetectedArchAMD64 {
+		t.Fatalf("expected linux/amd64 detection, got %+v", probe)
+	}
+	if probe.DetectionStatus != domain.MachineDetectionStatusOK {
+		t.Fatalf("expected ok detection status, got %+v", probe)
+	}
 }
 
 func TestTesterLocalProbe(t *testing.T) {
@@ -103,6 +109,22 @@ func TestTesterLocalProbe(t *testing.T) {
 	}
 	if _, ok := probe.Resources["local_host"]; !ok {
 		t.Fatalf("expected local host resource, got %+v", probe.Resources)
+	}
+	if probe.DetectionStatus != domain.MachineDetectionStatusOK {
+		t.Fatalf("expected local probe to detect platform, got %+v", probe)
+	}
+}
+
+func TestDetectRemoteMachinePlatformDegradesOnUnknownArch(t *testing.T) {
+	detectedOS, detectedArch, detectionStatus := detectRemoteMachinePlatform("openase\ngpu-01\nLinux 6.8 mystery")
+	if detectedOS != domain.MachineDetectedOSLinux {
+		t.Fatalf("expected linux detection, got %q", detectedOS)
+	}
+	if detectedArch != domain.MachineDetectedArchUnknown {
+		t.Fatalf("expected unknown arch, got %q", detectedArch)
+	}
+	if detectionStatus != domain.MachineDetectionStatusDegraded {
+		t.Fatalf("expected degraded detection status, got %q", detectionStatus)
 	}
 }
 

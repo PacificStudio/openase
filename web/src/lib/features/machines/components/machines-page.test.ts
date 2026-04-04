@@ -81,6 +81,7 @@ const machineFixture = {
   detected_os: 'linux',
   detected_arch: 'amd64',
   detection_status: 'ok',
+  detection_message: 'Detected amd64 on Linux.',
   channel_credential: {
     kind: 'none',
     token_id: null,
@@ -204,6 +205,22 @@ describe('MachinesPage cache behavior', () => {
     await waitFor(() => {
       expect(loadMachines).toHaveBeenCalledTimes(2)
     })
+  })
+
+  it('shows connection mode, detection status, and workspace guidance in the machine editor', async () => {
+    const view = render(MachinesPage)
+
+    expect(await view.findByText('Linux / amd64')).toBeTruthy()
+    expect(view.getByText('SSH')).toBeTruthy()
+    expect(view.getByText('Detected')).toBeTruthy()
+
+    await openMachineDetails('machine-1')
+
+    expect(await view.findByText('Connection mode')).toBeTruthy()
+    expect(view.getAllByText('Detected amd64 on Linux.').length).toBeGreaterThan(0)
+    expect(view.getByText('Recommended root')).toBeTruthy()
+    expect(view.getByText('/home/ubuntu/.openase/workspace')).toBeTruthy()
+    expect(view.getByText('Keeping the saved workspace root override.')).toBeTruthy()
   })
 })
 

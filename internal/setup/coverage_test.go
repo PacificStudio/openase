@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -16,14 +16,43 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestServiceHelpersAndDatabaseCheck(t *testing.T) {
+type stubDockerRunner struct {
+	commands []string
+	results  map[string]stubDockerResult
+}
+
+type stubDockerResult struct {
+	output string
+	err    error
+}
+
+func (s *stubDockerRunner) Run(_ context.Context, name string, args ...string) (string, error) {
+	command := name + " " + strings.Join(args, " ")
+	s.commands = append(s.commands, command)
+	if result, ok := s.results[command]; ok {
+		return result.output, result.err
+	}
+	return "", nil
+}
+
+func TestServiceHelpersDatabasePreparationAndDockerErrors(t *testing.T) {
 	homeDir := t.TempDir()
 	connector := &stubConnector{}
+	dockerRunner := &stubDockerRunner{
+		results: map[string]stubDockerResult{
+			"/usr/bin/docker info --format {{.ServerVersion}}":                                                                                                    {output: "27.0.0\n"},
+			"/usr/bin/docker ps -a --filter name=^/openase-local-postgres$ --format {{.Names}}":                                                                   {output: ""},
+			"/usr/bin/docker volume create openase-local-postgres-data":                                                                                           {output: "openase-local-postgres-data\n"},
+			"/usr/bin/docker run -d --name openase-local-postgres --restart unless-stopped -e POSTGRES_DB=openase -e POSTGRES_USER=openase -e POSTGRES_PASSWORD=": {output: ""},
+		},
+	}
+
 	service, err := NewService(Options{
-		HomeDir:   homeDir,
-		Resolver:  stubResolver{},
-		Connector: connector,
-		Installer: &stubInstaller{},
+		HomeDir:      homeDir,
+		Resolver:     stubResolver{paths: map[string]string{"docker": "/usr/bin/docker"}},
+		Connector:    connector,
+		Installer:    &stubInstaller{},
+		DockerRunner: dockerRunner,
 	})
 	if err != nil {
 		t.Fatalf("NewService() error = %v", err)
@@ -33,23 +62,23 @@ func TestServiceHelpersAndDatabaseCheck(t *testing.T) {
 		t.Fatalf("NewService() = %+v", service)
 	}
 
-	result, err := service.TestDatabase(context.Background(), RawDatabaseInput{
-		Host: "localhost",
-		Name: "openase",
-		User: "openase",
+	manual, err := service.PrepareDatabase(context.Background(), RawDatabaseSourceInput{
+		Type: string(DatabaseSourceManual),
+		Manual: &RawDatabaseInput{
+			Host: "127.0.0.1",
+			Name: "openase",
+			User: "openase",
+		},
 	})
 	if err != nil {
-		t.Fatalf("TestDatabase() error = %v", err)
+		t.Fatalf("PrepareDatabase(manual) error = %v", err)
 	}
-	if result.Message != "Database connection succeeded." {
-		t.Fatalf("TestDatabase() = %+v", result)
-	}
-	if !strings.Contains(connector.pingDSN, "sslmode=disable") {
-		t.Fatalf("connector.pingDSN = %q", connector.pingDSN)
+	if manual.Source != DatabaseSourceManual || !strings.Contains(connector.pingDSN, "sslmode=disable") {
+		t.Fatalf("PrepareDatabase(manual) = %+v, ping=%q", manual, connector.pingDSN)
 	}
 
-	if _, err := service.TestDatabase(context.Background(), RawDatabaseInput{}); err == nil || !strings.Contains(err.Error(), "database.host must not be empty") {
-		t.Fatalf("TestDatabase(invalid) error = %v", err)
+	if _, err := service.PrepareDatabase(context.Background(), RawDatabaseSourceInput{}); err == nil || !strings.Contains(err.Error(), "database.type must be one of manual, docker") {
+		t.Fatalf("PrepareDatabase(invalid) error = %v", err)
 	}
 
 	if err := service.ensureHomeLayout(); err != nil {
@@ -76,16 +105,25 @@ func TestServiceHelpersAndDatabaseCheck(t *testing.T) {
 	if len(tokenA) != 64 || len(tokenB) != 64 || tokenA == tokenB {
 		t.Fatalf("generateAuthToken() tokens = %q %q", tokenA, tokenB)
 	}
+
+	password, err := generateDatabasePassword()
+	if err != nil {
+		t.Fatalf("generateDatabasePassword() error = %v", err)
+	}
+	if len(password) != 48 {
+		t.Fatalf("generateDatabasePassword() len = %d", len(password))
+	}
 }
 
 func TestServerRouteErrorPathsAndRun(t *testing.T) {
 	homeDir := t.TempDir()
 	connector := &stubConnector{}
 	service, err := NewService(Options{
-		HomeDir:   homeDir,
-		Resolver:  stubResolver{paths: map[string]string{"codex": "/usr/local/bin/codex"}},
-		Connector: connector,
-		Installer: &stubInstaller{},
+		HomeDir:    homeDir,
+		Resolver:   stubResolver{paths: map[string]string{"git": "/usr/bin/git", "codex": "/usr/local/bin/codex"}},
+		RunCommand: stubVersionRunner,
+		Connector:  connector,
+		Installer:  &stubInstaller{},
 	})
 	if err != nil {
 		t.Fatalf("NewService() error = %v", err)
@@ -115,9 +153,8 @@ func TestServerRouteErrorPathsAndRun(t *testing.T) {
 		t.Fatalf("POST test-database invalid JSON = %d", rec.Code)
 	}
 
-	//nolint:gosec // The test intentionally exercises the missing-password request shape.
 	rawDatabase, err := json.Marshal(RawDatabaseInput{
-		Host: "localhost",
+		Host: "127.0.0.1",
 		Name: "openase",
 		User: "openase",
 	})
@@ -142,21 +179,11 @@ func TestServerRouteErrorPathsAndRun(t *testing.T) {
 	if err := os.WriteFile(service.configPath(), []byte("configured"), 0o600); err != nil {
 		t.Fatalf("WriteFile(configPath) error = %v", err)
 	}
-
-	repoRoot := filepath.Join(t.TempDir(), "repo")
-	if err := os.MkdirAll(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
-		t.Fatalf("MkdirAll(%q) error = %v", repoRoot, err)
-	}
 	rawComplete, err := json.Marshal(RawCompleteRequest{
-		Mode: "personal",
 		Database: RawDatabaseInput{
-			Host: "localhost",
+			Host: "127.0.0.1",
 			Name: "openase",
 			User: "openase",
-		},
-		Project: RawProjectInput{
-			Name:     "Demo App",
-			RepoPath: repoRoot,
 		},
 	})
 	if err != nil {
@@ -178,7 +205,7 @@ func TestServerRouteErrorPathsAndRun(t *testing.T) {
 	}
 }
 
-func TestSetupSelectionHelpers(t *testing.T) {
+func TestSetupSelectionHelpersAndDockerErrorClassification(t *testing.T) {
 	if got := safeSlug(" Team Alpha/OpenASE . Pilot "); got != "team-alpha-openase---pilot" {
 		t.Fatalf("safeSlug() = %q", got)
 	}
@@ -190,7 +217,7 @@ func TestSetupSelectionHelpers(t *testing.T) {
 	}
 
 	selected := []AgentOption{{
-		Name:        "Codex",
+		Name:        "OpenAI Codex",
 		AdapterType: catalogdomain.AgentProviderAdapterTypeCodexAppServer,
 	}}
 	providers := []catalogdomain.AgentProvider{
@@ -202,7 +229,7 @@ func TestSetupSelectionHelpers(t *testing.T) {
 		},
 		{
 			ID:          uuid.MustParse("22222222-2222-2222-2222-222222222222"),
-			Name:        "Codex",
+			Name:        "OpenAI Codex",
 			AdapterType: catalogdomain.AgentProviderAdapterTypeCodexAppServer,
 			Available:   true,
 		},
@@ -215,6 +242,29 @@ func TestSetupSelectionHelpers(t *testing.T) {
 	}
 	if got := selectSetupDefaultProviderID(nil, nil); got != nil {
 		t.Fatalf("selectSetupDefaultProviderID(nil) = %v", got)
+	}
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Listen() error = %v", err)
+	}
+	occupiedPort := listener.Addr().(*net.TCPAddr).Port
+	if err := ensureTCPPortAvailable(occupiedPort); err == nil {
+		t.Fatalf("ensureTCPPortAvailable(%d) expected error", occupiedPort)
+	}
+	if err := listener.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	if err := classifyDockerCommandError("docker daemon is unavailable", errors.New("permission denied")); err == nil || !strings.Contains(err.Error(), "permission denied") {
+		t.Fatalf("classifyDockerCommandError(permission) = %v", err)
+	}
+	runErr := classifyDockerRunError(DockerDatabaseConfig{
+		ContainerName: "openase-local-postgres",
+		Port:          15432,
+		Image:         "postgres:16-alpine",
+	}, errors.New("port is already allocated"))
+	if runErr == nil || !strings.Contains(runErr.Error(), "127.0.0.1:15432") {
+		t.Fatalf("classifyDockerRunError(port) = %v", runErr)
 	}
 }
 

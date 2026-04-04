@@ -52,6 +52,9 @@ func (r routeRegistrar) registerPublicAPIRoutes(public *echo.Group) {
 	public.GET("/system/dashboard", r.server.handleSystemDashboard)
 	public.GET("/system/metrics", r.server.handleMetrics)
 	public.GET("/events/stream", r.server.handleEventStream)
+	if r.server.machineChannel != nil && r.server.machineSessions != nil {
+		public.GET("/machines/connect", r.server.handleMachineConnect)
+	}
 	r.server.registerAuthRoutes(public)
 
 	if r.server.agentPlatform != nil {

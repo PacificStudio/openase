@@ -54,6 +54,7 @@ type machineResponse struct {
 	DetectedOS            string                           `json:"detected_os"`
 	DetectedArch          string                           `json:"detected_arch"`
 	DetectionStatus       string                           `json:"detection_status"`
+	DetectionMessage      string                           `json:"detection_message"`
 	ChannelCredential     machineChannelCredentialResponse `json:"channel_credential"`
 	Description           string                           `json:"description"`
 	Labels                []string                         `json:"labels"`
@@ -79,10 +80,14 @@ type machineChannelCredentialResponse struct {
 }
 
 type machineProbeResponse struct {
-	CheckedAt string         `json:"checked_at"`
-	Transport string         `json:"transport"`
-	Output    string         `json:"output"`
-	Resources map[string]any `json:"resources"`
+	CheckedAt        string         `json:"checked_at"`
+	Transport        string         `json:"transport"`
+	Output           string         `json:"output"`
+	Resources        map[string]any `json:"resources"`
+	DetectedOS       string         `json:"detected_os"`
+	DetectedArch     string         `json:"detected_arch"`
+	DetectionStatus  string         `json:"detection_status"`
+	DetectionMessage string         `json:"detection_message"`
 }
 
 type projectRepoResponse struct {
@@ -332,6 +337,7 @@ func mapMachineResponse(item domain.Machine) machineResponse {
 		DetectedOS:            item.DetectedOS.String(),
 		DetectedArch:          item.DetectedArch.String(),
 		DetectionStatus:       item.DetectionStatus.String(),
+		DetectionMessage:      domain.MachineDetectionMessage(item.DetectedOS, item.DetectedArch, item.DetectionStatus),
 		ChannelCredential:     mapMachineChannelCredentialResponse(item.ChannelCredential),
 		Description:           item.Description,
 		Labels:                cloneStringSlice(item.Labels),
@@ -346,10 +352,14 @@ func mapMachineResponse(item domain.Machine) machineResponse {
 
 func mapMachineProbeResponse(item domain.MachineProbe) machineProbeResponse {
 	return machineProbeResponse{
-		CheckedAt: item.CheckedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
-		Transport: item.Transport,
-		Output:    item.Output,
-		Resources: cloneMap(item.Resources),
+		CheckedAt:        item.CheckedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
+		Transport:        item.Transport,
+		Output:           item.Output,
+		Resources:        cloneMap(item.Resources),
+		DetectedOS:       item.DetectedOS.String(),
+		DetectedArch:     item.DetectedArch.String(),
+		DetectionStatus:  item.DetectionStatus.String(),
+		DetectionMessage: domain.MachineDetectionMessage(item.DetectedOS, item.DetectedArch, item.DetectionStatus),
 	}
 }
 

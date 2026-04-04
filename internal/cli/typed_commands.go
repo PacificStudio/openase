@@ -753,10 +753,18 @@ func newScheduledJobCommand() *cobra.Command {
 	return command
 }
 
-func newMachineCommand() *cobra.Command {
+func newMachineCommand(options *rootOptions) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "machine",
 		Short: "Operate on machines through the OpenASE API.",
+		Long: strings.TrimSpace(`
+Operate on machines through the OpenASE API.
+
+Use this command group for machine CRUD, resource inspection, health refresh,
+and machine-channel credential lifecycle operations. Machine IDs must be UUID
+values. Reverse websocket daemon runtime entrypoints live under
+` + "`openase machine-agent ...`" + `.
+`),
 	}
 	command.AddCommand(newMachineListCommand())
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
@@ -819,6 +827,8 @@ func newMachineCommand() *cobra.Command {
 `),
 	}))
 	command.AddCommand(newMachineStreamCommand())
+	command.AddCommand(newMachineIssueChannelTokenCommand(options))
+	command.AddCommand(newMachineRevokeChannelTokenCommand(options))
 	return command
 }
 
