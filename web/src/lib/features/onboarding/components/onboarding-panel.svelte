@@ -79,7 +79,7 @@
         data = payload
       } catch (caughtError) {
         if (cancelled) return
-        error = caughtError instanceof ApiError ? caughtError.detail : '加载导览数据失败。'
+        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load onboarding data.'
       } finally {
         if (!cancelled) loading = false
       }
@@ -119,10 +119,11 @@
       </div>
       <div>
         <h2 class="text-foreground text-lg font-semibold">
-          欢迎来到 {projectName}
+          Welcome to {projectName}
         </h2>
         <p class="text-muted-foreground mt-1 text-sm">
-          项目已创建，接下来我们会带你把它配置到可运行状态。完成以下步骤后，Agent 就可以开始工作了。
+          The project is created. Next, we will guide you through getting it into a runnable state.
+          After these steps are complete, an agent can start working.
         </p>
       </div>
     </div>
@@ -133,7 +134,7 @@
       class="border-border bg-card flex items-center justify-center rounded-xl border px-4 py-12"
     >
       <Loader2 class="text-muted-foreground size-5 animate-spin" />
-      <span class="text-muted-foreground ml-2 text-sm">加载配置状态...</span>
+      <span class="text-muted-foreground ml-2 text-sm">Loading setup status...</span>
     </div>
   {:else if error}
     <div
@@ -145,7 +146,7 @@
     <!-- Onboarding checklist -->
     <div class="border-border bg-card rounded-xl border">
       <div class="border-border border-b px-5 py-3">
-        <h3 class="text-foreground text-sm font-medium">配置进度</h3>
+        <h3 class="text-foreground text-sm font-medium">Setup progress</h3>
         <div class="bg-muted mt-2 h-1.5 overflow-hidden rounded-full">
           <div
             class="bg-primary h-full rounded-full transition-all duration-500"
@@ -154,7 +155,7 @@
           ></div>
         </div>
         <p class="text-muted-foreground mt-1.5 text-xs">
-          {steps.filter((s) => s.status === 'completed').length} / {steps.length} 步已完成
+          {steps.filter((s) => s.status === 'completed').length} / {steps.length} steps completed
         </p>
       </div>
 

@@ -74,11 +74,11 @@
       await Promise.allSettled(machineIds.map((machineId) => refreshMachineHealth(machineId)))
       const payload = await listProviders(orgId)
       syncProviderState(payload.providers)
-      if (!silent) toastStore.success('已重新检测 Provider 可用性。')
+      if (!silent) toastStore.success('Provider availability rechecked.')
     } catch (caughtError) {
       if (!silent) {
         toastStore.error(
-          caughtError instanceof ApiError ? caughtError.detail : '重新检测 Provider 失败。',
+          caughtError instanceof ApiError ? caughtError.detail : 'Failed to recheck provider availability.',
         )
       }
     } finally {
@@ -95,12 +95,12 @@
       const payload = await updateProject(projectId, { default_agent_provider_id: providerId })
       appStore.currentProject = payload.project
       syncProviderState(providers, providerId)
-      toastStore.success('已设为默认 Provider。')
+      toastStore.success('Set as the default provider.')
       onComplete(providerId)
     } catch (caughtError) {
       selectedId = previousSelectedId
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : '设置默认 Provider 失败。',
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to set the default provider.',
       )
     } finally {
       selecting = false
@@ -121,9 +121,9 @@
   async function copyCommand(command: string) {
     try {
       await navigator.clipboard.writeText(command)
-      toastStore.success('命令已复制。')
+      toastStore.success('Command copied.')
     } catch {
-      toastStore.error('复制命令失败。')
+      toastStore.error('Failed to copy command.')
     }
   }
 </script>
@@ -132,10 +132,11 @@
   <div class="border-border bg-card space-y-4 rounded-xl border p-4">
     <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
       <div class="space-y-1">
-        <h4 class="text-foreground text-sm font-semibold">内置 CLI 配置向导</h4>
+        <h4 class="text-foreground text-sm font-semibold">Built-in CLI setup guide</h4>
         <p class="text-muted-foreground text-xs">
-          进入此步骤时会基于已注册 Provider 的绑定机器重新拉取可用性。即使你还没注册
-          Provider，也可以先按下面的官方指引完成安装、登录与验证。
+          When you enter this step, OpenASE rechecks availability using the machines already bound to
+          registered providers. Even if you have not registered a provider yet, you can follow the
+          official setup steps below to install, sign in, and verify first.
         </p>
       </div>
       <Button
@@ -146,10 +147,10 @@
       >
         {#if isRefreshing(uniqueMachineIds(providers))}
           <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-          检测中...
+          Checking...
         {:else}
           <RefreshCcw class="mr-1.5 size-3.5" />
-          重新检测全部 Provider
+          Recheck all providers
         {/if}
       </Button>
     </div>
@@ -170,10 +171,10 @@
 
   <div class="space-y-3">
     <div class="space-y-1">
-      <h4 class="text-foreground text-sm font-semibold">已注册 Provider</h4>
+      <h4 class="text-foreground text-sm font-semibold">Registered providers</h4>
       <p class="text-muted-foreground text-xs">
-        已注册的 Provider 会继续保留精确的机器、模型与可用性信息。不可用实例可以直接回到对应 CLI
-        指南，并在完成配置后重新检测。
+        Registered providers keep their exact machine, model, and availability details. If an
+        instance is unavailable, go back to the matching CLI guide and recheck after finishing setup.
       </p>
     </div>
 

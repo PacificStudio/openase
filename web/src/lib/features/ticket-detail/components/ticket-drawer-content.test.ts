@@ -100,7 +100,7 @@ describe('TicketDrawerContent project AI integration', () => {
 
     const { getByLabelText, getByPlaceholderText, getByRole } = renderTicketDrawerContent()
 
-    await fireEvent.click(getByLabelText('AI 分析'))
+    await fireEvent.click(getByLabelText('Project AI'))
     await waitFor(() => {
       expect(listProjectConversations).toHaveBeenCalled()
     })
@@ -210,7 +210,7 @@ describe('TicketDrawerContent project AI integration', () => {
 
     const { findByText, getByLabelText, getByRole } = renderTicketDrawerContent()
 
-    await fireEvent.click(getByLabelText('AI 分析'))
+    await fireEvent.click(getByLabelText('Project AI'))
     await findByText('Create a retry investigation child ticket')
     await fireEvent.click(getByRole('button', { name: 'Confirm' }))
 

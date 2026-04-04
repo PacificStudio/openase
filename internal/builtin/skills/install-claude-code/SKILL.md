@@ -5,13 +5,13 @@ description: "Install Claude Code on a target machine and verify the CLI is avai
 
 # Install Claude Code
 
-目标：让目标机器具备可用的 `claude` 命令，并记录安装结果。
+Goal: make the target machine provide a working `claude` command and record the installation result.
 
-执行时遵循：
+Follow this process:
 
-- 先确认当前系统类型、包管理器和是否已安装 `claude`。
-- 使用官方支持的安装方式完成安装，避免下载来源不明的二进制。
-- 安装后至少验证 `claude --version`，并记录可执行路径。
-- 如果还需要登录或额外认证，明确记录当前状态和缺失前置条件。
+- Check the OS, package manager, and whether `claude` is already installed.
+- Use an officially supported installation method. Do not download unknown binaries.
+- After installation, verify `claude --version` and record the executable path.
+- If login or extra authentication is still required, record the exact state and missing prerequisites.
 
-不要把令牌或凭据写入仓库。
+Do not write tokens or credentials into the repository.

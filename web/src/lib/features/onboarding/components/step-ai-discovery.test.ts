@@ -34,14 +34,14 @@ describe('StepAiDiscovery', () => {
       },
     })
 
-    expect(getByText('最后一步里，点击任意一个按钮都可以结束导览。')).toBeTruthy()
+    expect(getByText('On the final step, clicking any button will finish the tour.')).toBeTruthy()
     expect(
-      getByText('你可以直接体验 Project AI、前往 Workflow 编辑器，或者点“我知道了”先结束导览。'),
+      getByText('You can try Project AI, open the workflow editor, or click "Got it" to end the tour now.'),
     ).toBeTruthy()
 
-    await fireEvent.click(getByText('帮我拆 3 个后续工单'))
+    await fireEvent.click(getByText('Break down 3 follow-up tickets'))
 
-    expect(onOpenProjectAI).toHaveBeenCalledWith('基于当前项目和已有 Ticket，再帮我拆 3 个后续工单')
+    expect(onOpenProjectAI).toHaveBeenCalledWith('Based on the current project and existing tickets, break down 3 follow-up tickets for me.')
     expect(onComplete).toHaveBeenCalledTimes(1)
     expect(goto).not.toHaveBeenCalled()
   })
@@ -58,7 +58,7 @@ describe('StepAiDiscovery', () => {
       },
     })
 
-    await fireEvent.click(getByText('前往 Workflow 编辑器'))
+    await fireEvent.click(getByText('Open workflow editor'))
 
     await waitFor(() => {
       expect(goto).toHaveBeenCalled()
@@ -78,7 +78,7 @@ describe('StepAiDiscovery', () => {
       },
     })
 
-    await fireEvent.click(getByText('我知道了'))
+    await fireEvent.click(getByText('Got it'))
 
     expect(onComplete).toHaveBeenCalledTimes(1)
     expect(goto).not.toHaveBeenCalled()

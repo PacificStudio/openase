@@ -174,7 +174,7 @@
     </div>
     {#if visibleRecommendations.length > 0}
       <span class="text-muted-foreground text-xs">
-        {visibleRecommendations.filter((r) => r.activation_ready).length} 可激活
+        {visibleRecommendations.filter((r) => r.activation_ready).length} ready to activate
       </span>
     {/if}
   </div>
@@ -195,9 +195,9 @@
         />
       {/each}
     {:else if deferredRecommendations.length > 0}
-      <p class="text-muted-foreground py-4 text-center text-xs">所有建议已延后，展开下方查看。</p>
+      <p class="text-muted-foreground py-4 text-center text-xs">All recommendations are deferred. Expand below to review them.</p>
     {:else}
-      <p class="text-muted-foreground py-4 text-center text-xs">暂无人员建议。</p>
+      <p class="text-muted-foreground py-4 text-center text-xs">No staffing recommendations right now.</p>
     {/if}
 
     {#if deferredRecommendations.length > 0}
@@ -211,7 +211,7 @@
         {:else}
           <ChevronRight class="size-3" />
         {/if}
-        已延后 ({deferredRecommendations.length})
+        Deferred ({deferredRecommendations.length})
       </button>
 
       {#if showDeferred}

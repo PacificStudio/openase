@@ -5,11 +5,11 @@ description: "Land a reviewed change only after CI and branch-state checks pass.
 
 # Land Safely
 
-合并前确认：
+Before merging, confirm:
 
-1. 当前分支已同步最新主干
-2. 关键测试和 CI 通过
-3. 已处理 review comment
-4. 合并后不留下临时调试代码
+1. The branch is synced with the latest mainline.
+2. Critical tests and CI are green.
+3. Review comments have been addressed.
+4. No temporary debug code remains after merge.
 
-优先保持线性、可追踪的历史。
+Prefer a linear, traceable history.

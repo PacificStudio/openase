@@ -233,19 +233,19 @@ func TestNormalizeAgentStepSummaryPreservesUTF8Boundaries(t *testing.T) {
 		},
 		{
 			name:         "long chinese stays valid",
-			input:        strings.Repeat("上下文已经足够，准备进入产出阶段。", 16),
+			input:        strings.Repeat("The context is sufficient and the response can move into execution.", 16),
 			wantExact:    false,
 			wantEllipsis: true,
 		},
 		{
 			name:         "mixed utf8 stays valid",
-			input:        strings.Repeat("Plan 已确认，继续写 PRD。", 18),
+			input:        strings.Repeat("The plan is confirmed. Continue drafting the PRD.", 18),
 			wantExact:    false,
 			wantEllipsis: true,
 		},
 		{
 			name:         "invalid utf8 input is repaired",
-			input:        "上下文" + string([]byte{0xe7, 0x8c}) + "继续推进",
+			input:        "Context" + string([]byte{0xe7, 0x8c}) + "keep going",
 			wantExact:    false,
 			wantEllipsis: false,
 		},
@@ -813,7 +813,7 @@ func TestRuntimeRunnerHelperCoverage(t *testing.T) {
 	if got := summarizeAgentStepText(longLine + "\nsecond"); got != strings.Repeat("x", 140)+"..." {
 		t.Fatalf("summarizeAgentStepText(long) = %q", got)
 	}
-	longChineseLine := "仓库内容很少，当前只有 README.md；接下来我会从 OpenASE 读取工单详情、评论和工作流，再基于这些信息先落一版 workpad。"
+	longChineseLine := "The repository is minimal and currently only contains README.md; next I will read the ticket details, comments, and workflow from OpenASE, then write an initial workpad based on that context."
 	gotChinese := summarizeAgentStepText(longChineseLine)
 	if gotChinese == "" {
 		t.Fatal("summarizeAgentStepText(long Chinese) returned empty string")
@@ -827,7 +827,7 @@ func TestRuntimeRunnerHelperCoverage(t *testing.T) {
 	if len(gotChinese) > 143 {
 		t.Fatalf("summarizeAgentStepText(long Chinese) length = %d, want <= 143", len(gotChinese))
 	}
-	invalidLine := "进度更新" + string([]byte{0xe7, 0x8c}) + "继续"
+	invalidLine := "Progress update" + string([]byte{0xe7, 0x8c}) + "continue"
 	gotInvalid := summarizeAgentStepText(invalidLine)
 	if gotInvalid == "" {
 		t.Fatal("summarizeAgentStepText(invalid UTF-8) returned empty string")
@@ -1436,7 +1436,7 @@ func TestPublishAgentStepEventAcceptsLongChineseSummary(t *testing.T) {
 		time.Date(2026, time.April, 2, 17, 14, 0, 0, time.UTC),
 	)
 
-	longChineseSummary := strings.Repeat("上下文已经足够，准备进入产出阶段。先回写工作台，确保计划、进展和验证都集中在同一条评论里。", 8)
+	longChineseSummary := strings.Repeat("The context is sufficient and the response can move into execution. First update the workpad so plan, progress, and validation stay in a single comment.", 8)
 	publishedAt := time.Date(2026, time.April, 2, 17, 14, 48, 0, time.UTC)
 	if err := publishAgentStepEvent(
 		ctx,
@@ -1532,7 +1532,7 @@ func TestRecordAgentOutputPersistsValidUTF8StepSummaryFromChinesePhaseText(t *te
 		client: client,
 		now:    func() time.Time { return runStartedAt.Add(30 * time.Second) },
 	}
-	longChineseText := "仓库内容很少，当前只有 README.md；接下来我会从 OpenASE 读取工单详情、评论和工作流，再基于这些信息先落一版 workpad。"
+	longChineseText := "The repository is minimal and currently only contains README.md; next I will read the ticket details, comments, and workflow from OpenASE, then write an initial workpad based on that context."
 	expectedSummary := summarizeAgentStepText(longChineseText)
 	if expectedSummary == "" {
 		t.Fatal("expectedSummary = empty, want value")

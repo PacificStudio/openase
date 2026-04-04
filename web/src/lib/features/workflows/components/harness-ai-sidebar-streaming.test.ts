@@ -445,7 +445,7 @@ describe('HarnessAiSidebar long streaming', () => {
         event: 'message',
         payload: {
           type: 'text',
-          content: '我先按当前 Harness 和项目状态拓扑定位可改位置，直接给可应用的结构化 diff。',
+          content: 'I will first map the editable areas from the current harness and project status topology, then provide a directly applicable structured diff.',
         },
       },
       {
@@ -511,7 +511,7 @@ describe('HarnessAiSidebar long streaming', () => {
 
     const prompt = getByPlaceholderText('Ask AI to refine this harness…')
     await fireEvent.input(prompt, {
-      target: { value: '要求这个产品经理在 Done 前必须 commit push 并开 PR。' },
+      target: { value: 'Require this product manager to commit, push, and open a PR before Done.' },
     })
     await fireEvent.keyDown(prompt, { key: 'Enter' })
 
@@ -520,7 +520,7 @@ describe('HarnessAiSidebar long streaming', () => {
 
     expect(
       await findByText(
-        '我先按当前 Harness 和项目状态拓扑定位可改位置，直接给可应用的结构化 diff。',
+        'I will first map the editable areas from the current harness and project status topology, then provide a directly applicable structured diff.',
       ),
     ).toBeTruthy()
     expect(await findByText('Structured Diff')).toBeTruthy()

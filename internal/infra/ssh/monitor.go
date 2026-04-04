@@ -16,27 +16,86 @@ var sshMonitorCollectorComponent = logging.DeclareComponent("ssh-monitor-collect
 
 const (
 	systemResourceScript = `
-cpu_before=$(awk '/^cpu / {print $2+$3+$4+$5+$6+$7+$8, $5}' /proc/stat)
-sleep 0.2
-cpu_after=$(awk '/^cpu / {print $2+$3+$4+$5+$6+$7+$8, $5}' /proc/stat)
-cpu_total_before=$(printf '%s\n' "$cpu_before" | awk '{print $1}')
-cpu_idle_before=$(printf '%s\n' "$cpu_before" | awk '{print $2}')
-cpu_total_after=$(printf '%s\n' "$cpu_after" | awk '{print $1}')
-cpu_idle_after=$(printf '%s\n' "$cpu_after" | awk '{print $2}')
-cpu_total_delta=$((cpu_total_after-cpu_total_before))
-cpu_idle_delta=$((cpu_idle_after-cpu_idle_before))
-cpu_usage=$(awk -v total="$cpu_total_delta" -v idle="$cpu_idle_delta" 'BEGIN { if (total <= 0) { print "0.00"; exit } printf "%.2f", ((total-idle) * 100) / total }')
-cpu_cores=$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc)
-memory_total_kb=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
-memory_available_kb=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)
-disk_total_kb=$(df -kP / | awk 'NR==2 {print $2}')
-disk_available_kb=$(df -kP / | awk 'NR==2 {print $4}')
-printf 'cpu_cores=%s\n' "$cpu_cores"
-printf 'cpu_usage_percent=%s\n' "$cpu_usage"
-printf 'memory_total_kb=%s\n' "$memory_total_kb"
-printf 'memory_available_kb=%s\n' "$memory_available_kb"
-printf 'disk_total_kb=%s\n' "$disk_total_kb"
-printf 'disk_available_kb=%s\n' "$disk_available_kb"
+export LC_ALL=C
+
+collect_linux_system_resources() {
+  cpu_before=$(awk '/^cpu / {print $2+$3+$4+$5+$6+$7+$8, $5}' /proc/stat)
+  sleep 0.2
+  cpu_after=$(awk '/^cpu / {print $2+$3+$4+$5+$6+$7+$8, $5}' /proc/stat)
+  cpu_total_before=$(printf '%s\n' "$cpu_before" | awk '{print $1}')
+  cpu_idle_before=$(printf '%s\n' "$cpu_before" | awk '{print $2}')
+  cpu_total_after=$(printf '%s\n' "$cpu_after" | awk '{print $1}')
+  cpu_idle_after=$(printf '%s\n' "$cpu_after" | awk '{print $2}')
+  cpu_total_delta=$((cpu_total_after-cpu_total_before))
+  cpu_idle_delta=$((cpu_idle_after-cpu_idle_before))
+  cpu_usage=$(awk -v total="$cpu_total_delta" -v idle="$cpu_idle_delta" 'BEGIN { if (total <= 0) { print "0.00"; exit } printf "%.2f", ((total-idle) * 100) / total }')
+  cpu_cores=$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc)
+  memory_total_kb=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
+  memory_available_kb=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)
+  disk_total_kb=$(df -kP / | awk 'NR==2 {print $2}')
+  disk_available_kb=$(df -kP / | awk 'NR==2 {print $4}')
+  printf 'cpu_cores=%s\n' "$cpu_cores"
+  printf 'cpu_usage_percent=%s\n' "$cpu_usage"
+  printf 'memory_total_kb=%s\n' "$memory_total_kb"
+  printf 'memory_available_kb=%s\n' "$memory_available_kb"
+  printf 'disk_total_kb=%s\n' "$disk_total_kb"
+  printf 'disk_available_kb=%s\n' "$disk_available_kb"
+}
+
+collect_darwin_system_resources() {
+  cpu_cores=$(sysctl -n hw.ncpu 2>/dev/null || printf '0')
+  cpu_idle_percent=$(top -l 2 2>/dev/null | sed -n 's/.* \([0-9.][0-9.]*\)% idle.*/\1/p' | tail -n 1)
+  if [ -z "$cpu_idle_percent" ]; then
+    cpu_idle_percent=0
+  fi
+  cpu_usage=$(awk -v idle="$cpu_idle_percent" 'BEGIN { printf "%.2f", 100 - idle }')
+
+  memory_total_bytes=$(sysctl -n hw.memsize 2>/dev/null || printf '0')
+  vm_stat_output=$(vm_stat 2>/dev/null || true)
+  page_size=$(printf '%s\n' "$vm_stat_output" | sed -n 's/.*page size of \([0-9][0-9]*\) bytes.*/\1/p' | head -n 1)
+  if [ -z "$page_size" ]; then
+    page_size=4096
+  fi
+
+  pages_free=$(printf '%s\n' "$vm_stat_output" | awk -F': *' '/Pages free:/ {gsub("\\.", "", $2); print $2; exit}')
+  pages_inactive=$(printf '%s\n' "$vm_stat_output" | awk -F': *' '/Pages inactive:/ {gsub("\\.", "", $2); print $2; exit}')
+  pages_speculative=$(printf '%s\n' "$vm_stat_output" | awk -F': *' '/Pages speculative:/ {gsub("\\.", "", $2); print $2; exit}')
+  if [ -z "$pages_free" ]; then
+    pages_free=0
+  fi
+  if [ -z "$pages_inactive" ]; then
+    pages_inactive=0
+  fi
+  if [ -z "$pages_speculative" ]; then
+    pages_speculative=0
+  fi
+
+  memory_available_bytes=$(((pages_free + pages_inactive + pages_speculative) * page_size))
+  memory_total_kb=$(awk -v bytes="$memory_total_bytes" 'BEGIN { printf "%.0f", bytes / 1024 }')
+  memory_available_kb=$(awk -v bytes="$memory_available_bytes" 'BEGIN { printf "%.0f", bytes / 1024 }')
+  disk_total_kb=$(df -kP / | awk 'NR==2 {print $2}')
+  disk_available_kb=$(df -kP / | awk 'NR==2 {print $4}')
+  printf 'cpu_cores=%s\n' "$cpu_cores"
+  printf 'cpu_usage_percent=%s\n' "$cpu_usage"
+  printf 'memory_total_kb=%s\n' "$memory_total_kb"
+  printf 'memory_available_kb=%s\n' "$memory_available_kb"
+  printf 'disk_total_kb=%s\n' "$disk_total_kb"
+  printf 'disk_available_kb=%s\n' "$disk_available_kb"
+}
+
+os_name=$(uname -s 2>/dev/null || printf 'unknown')
+case "$os_name" in
+  Linux)
+    collect_linux_system_resources
+    ;;
+  Darwin)
+    collect_darwin_system_resources
+    ;;
+  *)
+    printf 'unsupported monitor OS: %s\n' "$os_name" >&2
+    exit 1
+    ;;
+esac
 `
 	gpuResourceScript = `
 if ! command -v nvidia-smi >/dev/null 2>&1; then

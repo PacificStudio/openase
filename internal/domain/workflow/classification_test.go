@@ -138,10 +138,10 @@ func TestClassifyByStatusSemanticsFamilies(t *testing.T) {
 		{name: "deploy", pickup: []string{"Ready for Deploy"}, want: WorkflowFamilyDeploy, ok: true},
 		{name: "security", pickup: []string{"Security Audit"}, want: WorkflowFamilySecurity, ok: true},
 		{name: "harness", pickup: []string{"Prompt Tuning"}, want: WorkflowFamilyHarness, ok: true},
-		{name: "environment", pickup: []string{"环境修复"}, want: WorkflowFamilyEnvironment, ok: true},
+		{name: "environment", pickup: []string{"\u73af\u5883\u4fee\u590d"}, want: WorkflowFamilyEnvironment, ok: true},
 		{name: "reporting", pickup: []string{"paper"}, want: WorkflowFamilyReporting, ok: true},
 		{name: "research", pickup: []string{"Research lane"}, want: WorkflowFamilyResearch, ok: true},
-		{name: "planning", pickup: []string{"需求分析"}, want: WorkflowFamilyPlanning, ok: true},
+		{name: "planning", pickup: []string{"\u9700\u6c42\u5206\u6790"}, want: WorkflowFamilyPlanning, ok: true},
 		{name: "coding", pickup: []string{"Backend implementation"}, want: WorkflowFamilyCoding, ok: true},
 		{name: "unknown", pickup: []string{"Waiting"}, want: "", ok: false},
 	}

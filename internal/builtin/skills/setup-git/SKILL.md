@@ -5,11 +5,11 @@ description: "Install or repair git plus the minimum identity and credential con
 
 # Setup Git
 
-目标：让目标机器具备可用的 `git`，并补齐最小身份配置。
+Goal: make the target machine provide a working `git` and fill in the minimum identity configuration.
 
-执行时遵循：
+Follow this process:
 
-- 检查 `git --version` 是否可用；如果不可用，先安装 git。
-- 检查 `git config --global user.name` 和 `git config --global user.email`；缺失时按工单上下文补齐。
-- 仅在确有凭据问题时修复 git 认证，避免覆盖已有可用配置。
-- 最后用非破坏性命令确认 git 基础能力可用，并记录生效配置。
+- Check whether `git --version` works. If not, install git first.
+- Check `git config --global user.name` and `git config --global user.email`; fill them in from ticket context when missing.
+- Repair Git authentication only when there is a real credential problem, and avoid overwriting an already working setup.
+- Finish with non-destructive commands that confirm the basic Git flow works, and record the effective configuration.

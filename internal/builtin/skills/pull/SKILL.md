@@ -5,11 +5,11 @@ description: "Sync with the latest remote branch before coding or pushing, keepi
 
 # Safe Pull
 
-开始工作前先同步远端主干：
+Sync with the remote mainline before you start:
 
-1. 确认当前分支和工作区状态
-2. 获取远端最新提交
-3. 使用快进或 rebase 方式同步
-4. 如果有冲突，先解决并重新验证受影响范围
+1. Confirm the current branch and worktree state.
+2. Fetch the latest remote commits.
+3. Sync with a fast-forward or rebase flow.
+4. If conflicts appear, resolve them and re-validate the affected area.
 
-不要在不理解影响的情况下覆盖本地文件。
+Do not overwrite local files unless you understand the impact.

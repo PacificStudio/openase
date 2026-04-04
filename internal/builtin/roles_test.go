@@ -87,10 +87,10 @@ func TestEnvProvisionerRoleTemplate(t *testing.T) {
 	if role.WorkflowType != "Environment Provisioner" {
 		t.Fatalf("WorkflowType=%q, want Environment Provisioner", role.WorkflowType)
 	}
-	if got := strings.Join(role.PickupStatusNames, ","); got != "环境修复" {
+	if got := strings.Join(role.PickupStatusNames, ","); got != "Environment Repair" {
 		t.Fatalf("PickupStatusNames=%q", got)
 	}
-	if got := strings.Join(role.FinishStatusNames, ","); got != "环境就绪" {
+	if got := strings.Join(role.FinishStatusNames, ","); got != "Environment Ready" {
 		t.Fatalf("FinishStatusNames=%q", got)
 	}
 	if got := strings.Join(role.SkillNames, ","); got != "openase-platform,install-claude-code,install-codex,setup-git,setup-gh-cli" {

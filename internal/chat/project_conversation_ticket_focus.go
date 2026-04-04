@@ -64,12 +64,12 @@ func (s *ProjectConversationService) renderProjectConversationTicketCapsule(
 
 	var builder strings.Builder
 	builder.WriteString("## Ticket Capsule\n")
-	_, _ = fmt.Fprintf(&builder, "项目: %s\n", project.Name)
+	_, _ = fmt.Fprintf(&builder, "Project: %s\n", project.Name)
 	s.promptBuilder.writeTicketPromptContext(&builder, contextItem)
 	if focus.SelectedArea != "" {
-		_, _ = fmt.Fprintf(&builder, "\n### 当前 ticket 子区域\n- selected_area: %s\n", focus.SelectedArea)
+		_, _ = fmt.Fprintf(&builder, "\n### Current Ticket Subarea\n- selected_area: %s\n", focus.SelectedArea)
 	}
-	builder.WriteString("\n### 运行时摘要\n")
+	builder.WriteString("\n### Runtime Summary\n")
 	builder.WriteString(renderProjectConversationTicketRuntimeSummary(ctx, contextItem.Ticket, focus, s.catalog))
 	return builder.String(), nil
 }
@@ -151,7 +151,7 @@ func renderProjectConversationTicketRuntimeSummary(
 	}
 
 	if builder.Len() == 0 {
-		return "- 无\n"
+		return "- None\n"
 	}
 	return builder.String()
 }

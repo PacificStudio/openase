@@ -765,7 +765,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			MinQueuedTickets:  11,
 			HeadcountDivisor:  10,
 		}, true
-	case containsStatusKeyword(normalized, "review", "reviewer", "approve", "approval", "pr", "审查", "评审", "审核"):
+	case containsStatusKeyword(normalized, "review", "reviewer", "approve", "approval", "pr", "\u5ba1\u67e5", "\u8bc4\u5ba1", "\u5ba1\u6838"):
 		return laneProfile{
 			RoleSlug:          "code-reviewer",
 			WorkflowName:      "Code Reviewer",
@@ -774,7 +774,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			MinQueuedTickets:  1,
 			HeadcountDivisor:  4,
 		}, true
-	case containsStatusKeyword(normalized, "test", "qa", "测试", "验证"):
+	case containsStatusKeyword(normalized, "test", "qa", "\u6d4b\u8bd5", "\u9a8c\u8bc1"):
 		return laneProfile{
 			RoleSlug:          "qa-engineer",
 			WorkflowName:      "QA Engineer",
@@ -783,7 +783,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			MinQueuedTickets:  2,
 			HeadcountDivisor:  6,
 		}, true
-	case researchProject && containsStatusKeyword(normalized, "report", "paper", "writing", "writeup", "写作", "报告", "论文"):
+	case researchProject && containsStatusKeyword(normalized, "report", "paper", "writing", "writeup", "\u5199\u4f5c", "\u62a5\u544a", "\u8bba\u6587"):
 		return laneProfile{
 			RoleSlug:          "report-writer",
 			WorkflowName:      "Report Writer",
@@ -792,7 +792,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			MinQueuedTickets:  1,
 			HeadcountDivisor:  4,
 		}, true
-	case containsStatusKeyword(normalized, "doc", "docs", "write", "writer", "文档", "撰写"):
+	case containsStatusKeyword(normalized, "doc", "docs", "write", "writer", "\u6587\u6863", "\u64b0\u5199"):
 		return laneProfile{
 			RoleSlug:          "technical-writer",
 			WorkflowName:      "Technical Writer",
@@ -801,7 +801,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			MinQueuedTickets:  2,
 			HeadcountDivisor:  8,
 		}, true
-	case containsStatusKeyword(normalized, "deploy", "release", "rollout", "ship", "上线", "部署", "发布"):
+	case containsStatusKeyword(normalized, "deploy", "release", "rollout", "ship", "\u4e0a\u7ebf", "\u90e8\u7f72", "\u53d1\u5e03"):
 		return laneProfile{
 			RoleSlug:          "devops-engineer",
 			WorkflowName:      "DevOps Engineer",
@@ -810,7 +810,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			MinQueuedTickets:  1,
 			HeadcountDivisor:  4,
 		}, true
-	case containsStatusKeyword(normalized, "environment", "env", "bootstrap", "machine", "setup", "provision", "repair", "环境", "修复", "配置"):
+	case containsStatusKeyword(normalized, "environment", "env", "bootstrap", "machine", "setup", "provision", "repair", "\u73af\u5883", "\u4fee\u590d", "\u914d\u7f6e"):
 		return laneProfile{
 			RoleSlug:          "env-provisioner",
 			WorkflowName:      "Environment Provisioner",
@@ -819,7 +819,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			MinQueuedTickets:  1,
 			HeadcountDivisor:  4,
 		}, true
-	case containsStatusKeyword(normalized, "harness", "prompt", "workflow tune", "workflow-tune", "优化", "调优"):
+	case containsStatusKeyword(normalized, "harness", "prompt", "workflow tune", "workflow-tune", "\u4f18\u5316", "\u8c03\u4f18"):
 		return laneProfile{
 			RoleSlug:          "harness-optimizer",
 			WorkflowName:      "Harness Optimizer",
@@ -828,7 +828,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			MinQueuedTickets:  1,
 			HeadcountDivisor:  4,
 		}, true
-	case containsStatusKeyword(normalized, "security", "scan", "audit", "安全", "扫描", "审计"):
+	case containsStatusKeyword(normalized, "security", "scan", "audit", "\u5b89\u5168", "\u626b\u63cf", "\u5ba1\u8ba1"):
 		return laneProfile{
 			RoleSlug:          "security-engineer",
 			WorkflowName:      "Security Engineer",
@@ -837,7 +837,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			MinQueuedTickets:  2,
 			HeadcountDivisor:  8,
 		}, true
-	case containsStatusKeyword(normalized, "frontend", "front-end", "ui", "ux", "web", "页面", "前端", "界面"):
+	case containsStatusKeyword(normalized, "frontend", "front-end", "ui", "ux", "web", "\u9875\u9762", "\u524d\u7aef", "\u754c\u9762"):
 		return laneProfile{
 			RoleSlug:          "frontend-engineer",
 			WorkflowName:      "Frontend Engineer",
@@ -846,7 +846,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			MinQueuedTickets:  1,
 			HeadcountDivisor:  4,
 		}, true
-	case containsStatusKeyword(normalized, "backend", "back-end", "api", "service", "server", "后端", "接口", "服务"):
+	case containsStatusKeyword(normalized, "backend", "back-end", "api", "service", "server", "\u540e\u7aef", "\u63a5\u53e3", "\u670d\u52a1"):
 		return laneProfile{
 			RoleSlug:          "backend-engineer",
 			WorkflowName:      "Backend Engineer",
@@ -855,7 +855,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			MinQueuedTickets:  1,
 			HeadcountDivisor:  4,
 		}, true
-	case researchProject && containsStatusKeyword(normalized, "experiment", "trial", "benchmark", "实验", "试验"):
+	case researchProject && containsStatusKeyword(normalized, "experiment", "trial", "benchmark", "\u5b9e\u9a8c", "\u8bd5\u9a8c"):
 		return laneProfile{
 			RoleSlug:          "experiment-runner",
 			WorkflowName:      "Experiment Runner",
@@ -864,7 +864,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			MinQueuedTickets:  1,
 			HeadcountDivisor:  4,
 		}, true
-	case researchProject && containsStatusKeyword(normalized, "research", "ideation", "investigate", "literature", "study", "调研", "研究"):
+	case researchProject && containsStatusKeyword(normalized, "research", "ideation", "investigate", "literature", "study", "\u8c03\u7814", "\u7814\u7a76"):
 		return laneProfile{
 			RoleSlug:          "research-ideation",
 			WorkflowName:      "Research Ideation",
@@ -873,7 +873,7 @@ func profileForStatus(pressure statusPressure, researchProject bool) (laneProfil
 			MinQueuedTickets:  1,
 			HeadcountDivisor:  4,
 		}, true
-	case containsStatusKeyword(normalized, "todo", "develop", "development", "coding", "implement", "待开发", "开发", "编码", "实现"):
+	case containsStatusKeyword(normalized, "todo", "develop", "development", "coding", "implement", "\u5f85\u5f00\u53d1", "\u5f00\u53d1", "\u7f16\u7801", "\u5b9e\u73b0"):
 		return laneProfile{
 			RoleSlug:          "fullstack-developer",
 			WorkflowName:      "Fullstack Developer",

@@ -5,108 +5,108 @@ description: "Platform operations for tickets, projects, and runtime coordinatio
 
 # OpenASE Platform Operations
 
-优先使用工作区内注入的 wrapper：
+Prefer the wrapper injected into the workspace:
 
 ```bash
 ./.openase/bin/openase ticket list --status-name Todo
 ```
 
-这个 wrapper 就是 `openase` 二进制，已经带好当前工作区的 OpenASE 平台上下文。先用它，不要自己拼 URL、猜接口，也不要绕过平台直接改数据库或伪造平台状态。
+This wrapper is the `openase` binary with the current workspace's OpenASE platform context already attached. Use it first. Do not hand-roll URLs, guess endpoints, bypass the platform by writing the database directly, or fake platform state.
 
 ## What OpenASE Controls
 
-OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-driven automated software engineering 平台。按 PRD，它的职责至少包括：
+OpenASE is not a small helper that just runs commands. It is an issue-driven automated software engineering platform. Per the PRD, it is responsible for at least:
 
-- 管项目：项目描述、项目状态、项目下的 repo、workflow、skills、scheduled jobs
-- 管工单：ticket 生命周期、状态流转、评论原语、usage/cost、外部关联
-- 管执行：agent、provider、machine、runtime、编排循环
-- 管自治：允许 agent 在受控 scope 内反向操作平台，形成“领工单 -> 执行 -> 回写平台 -> 拆后续任务”的闭环
-- 管审计：所有平台写操作都进入 API / ActivityEvent / timeline，可追溯是谁改的
+- Project control: descriptions, statuses, repos, workflows, skills, and scheduled jobs
+- Ticket control: lifecycle, status transitions, comment primitives, usage/cost, and external links
+- Execution control: agents, providers, machines, runtimes, and orchestration loops
+- Controlled autonomy: agents can operate the platform within granted scope and close the loop from claim to execution to platform writeback to follow-up tickets
+- Auditability: every platform write goes through the API / ActivityEvent / timeline and stays attributable
 
-对 agent 来说，`openase` 的核心用途不是“查信息”，而是“在平台允许的边界内读写真实控制面状态”。你创建的 ticket、更新的 project 描述、注册的 repo、追加的评论原语，都会影响后续调度、UI、审计和其他 agent 的上下文。
+For agents, the core purpose of `openase` is not just inspection. It is reading and writing real control-plane state inside platform-enforced boundaries. The tickets you create, project descriptions you update, repos you register, and comments you append all affect later scheduling, UI state, audit trails, and other agents' context.
 
 ## Mental Model For Agents
 
-把 `openase` 当成“当前工程项目的控制面 API”。
+Treat `openase` as the control-plane API for the current engineering project.
 
-- 代码仓库只是工作区，不是真正的任务系统
-- OpenASE 里的 ticket / project / workflow / skill / machine 才是控制面实体
-- 修改平台状态，优先用 `openase` CLI；不要试图靠改本地文件去“间接表达”平台状态
-- 先读再写：先列出现状，再做最小必要修改
-- 如果越权，平台会直接返回 `403`；这通常说明当前 harness 没授予对应 `platform_access`
+- The code repository is only a workspace, not the task system.
+- Tickets, projects, workflows, skills, and machines in OpenASE are the real control-plane entities.
+- When you need to change platform state, prefer the `openase` CLI. Do not try to express platform state indirectly by editing local files.
+- Read before you write: inspect the current state first, then make the smallest necessary change.
+- If you exceed scope, the platform returns `403`. That usually means the current harness did not grant the required `platform_access`.
 
 ## Execution Model
 
-当前 runtime 会额外注入一段 capability contract，明确告诉你本次会话真实可用的 principal kind、scopes 和环境变量。以那段 runtime contract 为准。
+The runtime injects a capability contract that tells you which principal kind, scopes, and environment variables are actually available in this session. Treat that runtime contract as the source of truth.
 
-常见环境变量包括：
+Common environment variables include:
 
-- `OPENASE_API_URL`: OpenASE API 基址
-- `OPENASE_AGENT_TOKEN`: 当前 agent token
-- `OPENASE_PROJECT_ID`: 当前 project UUID
-- `OPENASE_TICKET_ID`: 当前 ticket UUID；只在 ticket runtime 或 ticket-focused Project AI 中出现
-- `OPENASE_CONVERSATION_ID`: 当前 project conversation UUID；Project AI 会话可用
-- `OPENASE_PRINCIPAL_KIND`: 当前 principal kind，例如 `ticket_agent` 或 `project_conversation`
-- `OPENASE_AGENT_SCOPES`: 当前 token scopes，逗号分隔
+- `OPENASE_API_URL`: OpenASE API base URL
+- `OPENASE_AGENT_TOKEN`: current agent token
+- `OPENASE_PROJECT_ID`: current project UUID
+- `OPENASE_TICKET_ID`: current ticket UUID; only present in ticket runtime or ticket-focused Project AI
+- `OPENASE_CONVERSATION_ID`: current project conversation UUID; available in Project AI conversations
+- `OPENASE_PRINCIPAL_KIND`: current principal kind, such as `ticket_agent` or `project_conversation`
+- `OPENASE_AGENT_SCOPES`: current token scopes, comma-separated
 
-高频平台子命令会自动按下面顺序补上下文：
+Common platform subcommands auto-fill context in this order:
 
-- project 作用域：`--project-id` -> `OPENASE_PROJECT_ID`
-- ticket 作用域：位置参数 `[ticket-id]` -> `--ticket-id` -> `OPENASE_TICKET_ID`
-- API 地址：`--api-url` -> `OPENASE_API_URL`
-- Token：`--token` -> `OPENASE_AGENT_TOKEN`
+- project scope: `--project-id` -> `OPENASE_PROJECT_ID`
+- ticket scope: positional `[ticket-id]` -> `--ticket-id` -> `OPENASE_TICKET_ID`
+- API URL: `--api-url` -> `OPENASE_API_URL`
+- token: `--token` -> `OPENASE_AGENT_TOKEN`
 
-重要限制：
+Important limits:
 
-- 大多数 ID 参数都要求 UUID，不接受 `ASE-42` 这种人类可读 ticket identifier
-- 默认输出是 JSON；可以配合 `--json`、`--jq`、`--template` 做筛选
-- 平台失败时 CLI 会把 HTTP method、path、status 和 API error code 直接打出来，不需要自己猜
-- Token 是短期且带 scope 的；不是所有 workflow 都能改 project、repo、scheduled-job
-- shared wrapper flags 同时接受 kebab-case 和 snake_case，例如 `--status-name` / `--status_name`、`--body-file` / `--body_file`
+- Most ID parameters require UUIDs and do not accept human-readable ticket identifiers such as `ASE-42`.
+- Output defaults to JSON and can be filtered with `--json`, `--jq`, or `--template`.
+- When platform calls fail, the CLI prints the HTTP method, path, status, and API error code directly, so you do not need to guess.
+- Tokens are short-lived and scope-bound; not every workflow can modify projects, repos, or scheduled jobs.
+- Shared wrapper flags accept both kebab-case and snake_case, such as `--status-name` / `--status_name` and `--body-file` / `--body_file`.
 
 ## Top-Level Commands
 
-下面是当前源码里 `openase` 的一级子命令完整列表。不是所有命令都适合 agent；前几组是你最常碰到的。
+Below is the current top-level `openase` command surface from source. Not every command is appropriate for agents; the first groups are the ones you will use most often.
 
-### Agent / API 操作面
+### Agent / API Surface
 
-- `api`: raw HTTP passthrough，任何已暴露 API 的兜底入口
-- `ticket`: shared platform wrapper 负责高频 ticket 读写；非重叠的 detail/run/dependency/external-link 等扩展子命令仍直接走 OpenAPI
-- `status`: ticket status board 管理
-- `chat`: ephemeral chat 与 project conversation
-- `project`: shared platform wrapper 负责 update/add-repo；list/get/create/delete 仍直接走 OpenAPI
-- `repo`: project repo、GitHub repo 发现、ticket repo scopes
-- `workflow`: workflow 与 harness 读写
-- `scheduled-job`: 定时任务管理
-- `machine`: 机器注册、探测、资源查看
-- `provider`: provider 查看与配置
-- `agent`: agent 查看、暂停/恢复、输出与步骤读取
-- `activity`: project activity timeline 读取
-- `channel`: notification channel 管理与 test
-- `notification-rule`: notification rule 管理
-- `skill`: skill 查看、更新、绑定、refresh
-- `watch`: SSE watch 流
-- `stream`: SSE stream 流
+- `api`: raw HTTP passthrough, the fallback entrypoint for any exposed API
+- `ticket`: shared platform wrapper for common ticket reads and writes; non-overlapping detail/run/dependency/external-link subcommands still go directly through OpenAPI
+- `status`: ticket status board management
+- `chat`: ephemeral chat and project conversations
+- `project`: shared platform wrapper for update/add-repo; list/get/create/delete still go directly through OpenAPI
+- `repo`: project repos, GitHub repo discovery, and ticket repo scopes
+- `workflow`: workflow and harness reads and writes
+- `scheduled-job`: scheduled job management
+- `machine`: machine registration, probing, and resource inspection
+- `provider`: provider inspection and configuration
+- `agent`: agent inspection, pause/resume, output, and step reads
+- `activity`: project activity timeline reads
+- `channel`: notification channel management and tests
+- `notification-rule`: notification rule management
+- `skill`: skill inspection, updates, binding, and refresh
+- `watch`: SSE watch streams
+- `stream`: SSE stream feeds
 
-### Service / Control Plane 运维面
+### Service / Control Plane Operations
 
-- `serve`: 仅启动 HTTP API 服务
-- `orchestrate`: 仅启动编排循环
-- `all-in-one`: 同进程启动 API + orchestrator
-- `up`: 本地启动 OpenASE 服务
-- `setup`: 初始化本地运行环境
-- `down`: 停止本地服务
-- `restart`: 重启本地服务
-- `logs`: 查看本地服务日志
-- `doctor`: 本地环境自检
+- `serve`: start only the HTTP API service
+- `orchestrate`: start only the orchestration loop
+- `all-in-one`: start the API and orchestrator in one process
+- `up`: start the local OpenASE service
+- `setup`: initialize the local runtime environment
+- `down`: stop the local service
+- `restart`: restart the local service
+- `logs`: inspect local service logs
+- `doctor`: local environment diagnostics
 
 ### Admin / Schema / Utility
 
-- `issue-agent-token`: 签发 agent token
-- `openapi`: 导出或查看 OpenAPI 相关产物
-- `version`: 查看版本
+- `issue-agent-token`: issue an agent token
+- `openapi`: export or inspect OpenAPI artifacts
+- `version`: inspect the version
 
-一般来说，agent 在工作区内最常用的是：
+In practice, agents most often use these commands inside a workspace:
 
 - `ticket`
 - `status`
@@ -125,13 +125,13 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 - `watch` / `stream`
 - `api`
 
-而 `serve` / `orchestrate` / `up` / `down` / `restart` / `issue-agent-token` 这些更偏平台运维或控制面启动，不是普通 ticket 执行的第一选择。
+`serve` / `orchestrate` / `up` / `down` / `restart` / `issue-agent-token` are more about platform operations or control-plane startup and are usually not the first choice for normal ticket execution.
 
 ## Safe Default Commands
 
-这些是 agent 最应该先用的一层，语义稳定，适合 workflow / harness 直接调用。
+This is the safest first layer for agents to use. The semantics are stable and suitable for direct workflow / harness calls.
 
-### 1. 列当前项目工单
+### 1. List current project tickets
 
 ```bash
 ./.openase/bin/openase ticket list
@@ -139,52 +139,52 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 ./.openase/bin/openase ticket list --json tickets
 ```
 
-能力：
+Capabilities:
 
-- 调 `GET /projects/{projectId}/tickets`
-- 支持 `--status-name` 多值过滤
-- 支持 `--priority` 多值过滤
+- Calls `GET /projects/{projectId}/tickets`
+- Supports multi-value filtering with `--status-name`
+- Supports multi-value filtering with `--priority`
 
-### 2. 创建工单
+### 2. Create a ticket
 
 ```bash
 ./.openase/bin/openase ticket create \
-  --title "补充集成测试" \
-  --description "拆分后续工单" \
+  --title "Add integration coverage" \
+  --description "Split the follow-up work" \
   --priority high \
   --type task \
   --external-ref "PacificStudio/openase#39"
 ```
 
-能力：
+Capabilities:
 
-- 调 `POST /projects/{projectId}/tickets`
-- `--title` 必填
-- 可选 `--description`、`--priority`、`--type`、`--external-ref`
+- Calls `POST /projects/{projectId}/tickets`
+- `--title` is required
+- Optional: `--description`, `--priority`, `--type`, and `--external-ref`
 
-适用场景：
+Good fits:
 
-- 发现还需要 follow-up ticket
-- 需要把超出当前范围的工作拆出去
-- 需要把安全、测试、部署等后续工作显式挂回平台
+- You discover that a follow-up ticket is needed
+- You need to split work that is outside the current scope
+- You need to attach follow-up security, testing, or deployment work back to the platform explicitly
 
-### 3. 更新当前工单
+### 3. Update the current ticket
 
 ```bash
-./.openase/bin/openase ticket update --description "记录执行过程中的新发现"
+./.openase/bin/openase ticket update --description "Record new findings from execution"
 ./.openase/bin/openase ticket update --status-name Done
 ./.openase/bin/openase ticket update $OPENASE_TICKET_ID --external-ref "gh-123"
 ```
 
-能力：
+Capabilities:
 
-- 调 `PATCH /tickets/{ticketId}`
-- 可更新 `--title`、`--description`、`--external-ref`
-- 可更新状态：`--status` / `--status-name` / `--status-id`
-- `--status-name` 和 `--status-id` 互斥
-- 至少要给一个更新字段
+- Calls `PATCH /tickets/{ticketId}`
+- Can update `--title`, `--description`, and `--external-ref`
+- Can update status via `--status`, `--status-name`, or `--status-id`
+- `--status-name` and `--status-id` are mutually exclusive
+- At least one update field is required
 
-### 4. 记录 usage / cost
+### 4. Record usage / cost
 
 ```bash
 ./.openase/bin/openase ticket report-usage \
@@ -193,59 +193,59 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
   --cost-usd 0.0215
 ```
 
-能力：
+Capabilities:
 
-- 调 `POST /tickets/{ticketId}/report-usage`
-- 记录的是增量，不是覆盖总量
-- 至少要设置一个字段：`--input-tokens`、`--output-tokens`、`--cost-usd`
+- Calls `POST /tickets/{ticketId}/report-usage`
+- Records incremental usage instead of overwriting totals
+- Set at least one field: `--input-tokens`, `--output-tokens`, or `--cost-usd`
 
-### 5. 管理 ticket comments
+### 5. Manage ticket comments
 
-列评论：
+List comments:
 
 ```bash
 ./.openase/bin/openase ticket comment list
 ```
 
-新建普通评论：
+Create a regular comment:
 
 ```bash
-./.openase/bin/openase ticket comment create --body "记录当前阻塞"
+./.openase/bin/openase ticket comment create --body "Record the current blocker"
 ./.openase/bin/openase ticket comment create --body-file /tmp/comment.md
 ```
 
-更新已有评论：
+Update an existing comment:
 
 ```bash
 ./.openase/bin/openase ticket comment update $OPENASE_TICKET_ID $COMMENT_ID --body-file /tmp/comment.md
 ```
 
-能力：
+Capabilities:
 
-- `ticket comment list` 调 `GET /tickets/{ticketId}/comments`
-- `ticket comment create` 调 `POST /tickets/{ticketId}/comments`
-- `ticket comment update` 调 `PATCH /tickets/{ticketId}/comments/{commentId}`
-- `--body` 和 `--body-file` 二选一
+- `ticket comment list` calls `GET /tickets/{ticketId}/comments`
+- `ticket comment create` calls `POST /tickets/{ticketId}/comments`
+- `ticket comment update` calls `PATCH /tickets/{ticketId}/comments/{commentId}`
+- Choose exactly one of `--body` or `--body-file`
 
-`openase-platform` 在这里提供的是 comment 原语，不直接承载 workpad 语义。需要维护持久化 workpad 时，使用单独绑定到 workflow 的 `ticket-workpad` skill；它建立在这里的 comment `list/create/update` 基座之上。
+`openase-platform` only provides the comment primitives here. It does not define workpad semantics directly. When you need persistent workpad maintenance, use the separately bound `ticket-workpad` skill, which builds on top of these `comment list/create/update` primitives.
 
-### 6. 更新项目描述
+### 6. Update the project description
 
 ```bash
-./.openase/bin/openase project update --description "更新项目最新上下文"
+./.openase/bin/openase project update --description "Update the latest project context"
 ```
 
-能力：
+Capabilities:
 
-- 调 `PATCH /projects/{projectId}`
-- 当前高频 project 操作主要就是这个
+- Calls `PATCH /projects/{projectId}`
+- This is the main high-frequency project write operation today
 
-适用场景：
+Good fits:
 
-- 产品经理或研究类角色把调研结果写回项目
-- 当前 ticket 执行中发现需要把长期背景更新到项目级描述
+- Product or research roles need to write findings back to the project
+- The current ticket uncovers longer-term context that should live in the project description
 
-### 7. 管理项目 status board
+### 7. Manage the project status board
 
 ```bash
 ./.openase/bin/openase status list $OPENASE_PROJECT_ID
@@ -256,19 +256,19 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 ./.openase/bin/openase status update $STATUS_ID --name "Ready for QA"
 ```
 
-能力：
+Capabilities:
 
-- `status list` 调 `GET /projects/{projectId}/statuses`
-- `status create` 调 `POST /projects/{projectId}/statuses`
-- `status update` 调 `PATCH /statuses/{statusId}`
-- `status delete` / `status reset` 也已提供 typed CLI
+- `status list` calls `GET /projects/{projectId}/statuses`
+- `status create` calls `POST /projects/{projectId}/statuses`
+- `status update` calls `PATCH /statuses/{statusId}`
+- `status delete` / `status reset` also have typed CLI coverage
 
-适用场景：
+Good fits:
 
-- 需要先读项目当前 status board，再决定是否流转 ticket
-- 项目管理员调整状态命名、排序或默认状态
+- You need to inspect the current status board before moving a ticket
+- A project administrator needs to adjust status names, ordering, or the default status
 
-### 8. 给项目注册 repo
+### 8. Register a repo on the project
 
 ```bash
 ./.openase/bin/openase repo create $OPENASE_PROJECT_ID \
@@ -279,14 +279,14 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
   --label backend
 ```
 
-能力：
+Capabilities:
 
-- 调 `POST /projects/{projectId}/repos`
-- `--name`、`--url` 必填
-- `--default-branch` 默认 `main`
-- `--label` 可重复
+- Calls `POST /projects/{projectId}/repos`
+- `--name` and `--url` are required
+- `--default-branch` defaults to `main`
+- `--label` is repeatable
 
-兼容说明：
+Compatibility note:
 
 ```bash
 ./.openase/bin/openase project add-repo \
@@ -295,49 +295,49 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
   --default-branch main
 ```
 
-旧的 `project add-repo` 入口仍然可用，但新的 typed CLI 和后续文档优先使用 `repo create`，因为它更直接表达了 repo 是 project 下的独立控制面实体。
+The older `project add-repo` entrypoint still works, but the newer typed CLI and future docs prefer `repo create` because it expresses more clearly that a repo is an independent control-plane entity under the project.
 
-### 9. 管 project conversation / Project AI
+### 9. Manage project conversations / Project AI
 
 ```bash
 ./.openase/bin/openase chat conversation list --project-id $OPENASE_PROJECT_ID
 ./.openase/bin/openase chat conversation get $OPENASE_CONVERSATION_ID
 ./.openase/bin/openase chat conversation entries $OPENASE_CONVERSATION_ID
-./.openase/bin/openase chat conversation turn $OPENASE_CONVERSATION_ID --message "继续处理上一个问题"
+./.openase/bin/openase chat conversation turn $OPENASE_CONVERSATION_ID --message "Continue with the previous issue"
 ./.openase/bin/openase chat conversation watch $OPENASE_CONVERSATION_ID
 ```
 
-能力：
+Capabilities:
 
-- `chat conversation list` 调 `GET /chat/conversations`
-- `chat conversation turn` 调 `POST /chat/conversations/{conversationId}/turns`
-- `chat conversation watch` 打开 conversation 事件流
-- 支持 interrupt 响应、action proposal 执行、runtime close
+- `chat conversation list` calls `GET /chat/conversations`
+- `chat conversation turn` calls `POST /chat/conversations/{conversationId}/turns`
+- `chat conversation watch` opens the conversation event stream
+- Supports interrupt handling, action proposal execution, and runtime close
 
-适用场景：
+Good fits:
 
-- 在 Project AI / project conversation principal 下检查和续跑会话
-- 需要把 conversation transcript 或 workspace diff 当作控制面状态读取
+- Inspect or resume conversations under the Project AI / project conversation principal
+- Read a conversation transcript or workspace diff as control-plane state
 
-### 10. 读项目 activity timeline
+### 10. Read the project activity timeline
 
 ```bash
 ./.openase/bin/openase activity list $OPENASE_PROJECT_ID
 ./.openase/bin/openase activity list $OPENASE_PROJECT_ID --json events
 ```
 
-能力：
+Capabilities:
 
-- 调 `GET /projects/{projectId}/activity`
-- 读取项目级业务时间线，包括 ticket 变更、workflow 变更、runtime lifecycle 和其他审计事件
+- Calls `GET /projects/{projectId}/activity`
+- Reads the project-level business timeline, including ticket changes, workflow changes, runtime lifecycle, and other audit events
 
-适用场景：
+Good fits:
 
-- 想快速确认最近是谁修改了 workflow、status、project description
-- 需要补全当前 ticket 之外的项目上下文
-- 想确认 runtime 或 orchestration 的最近业务事件是否已经落盘
+- Quickly confirm who recently changed a workflow, status, or project description
+- Fill in project context beyond the current ticket
+- Confirm whether recent runtime or orchestration business events have been recorded
 
-### 11. 查 ticket runs / retry / external links
+### 11. Inspect ticket runs / retry / external links
 
 ```bash
 ./.openase/bin/openase ticket run list $OPENASE_PROJECT_ID $OPENASE_TICKET_ID
@@ -348,20 +348,20 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
   --url "https://github.com/acme/repo/pull/482"
 ```
 
-能力：
+Capabilities:
 
-- `ticket run list` 调 `GET /projects/{projectId}/tickets/{ticketId}/runs`
-- `ticket run get` 调 `GET /projects/{projectId}/tickets/{ticketId}/runs/{runId}`
-- `ticket retry-resume` 调 `POST /tickets/{ticketId}/retry/resume`
-- `ticket external-link add/delete` 管理 ticket 的外部关联
+- `ticket run list` calls `GET /projects/{projectId}/tickets/{ticketId}/runs`
+- `ticket run get` calls `GET /projects/{projectId}/tickets/{ticketId}/runs/{runId}`
+- `ticket retry-resume` calls `POST /tickets/{ticketId}/retry/resume`
+- `ticket external-link add/delete` manage external links on a ticket
 
-适用场景：
+Good fits:
 
-- 想确认某个 ticket 的最近执行历史、失败原因、重试链路
-- 需要在 retryable failure 之后显式恢复执行
-- 需要把 PR、issue、文档、事故单等外部系统对象挂回 ticket
+- Inspect a ticket's recent execution history, failure reasons, or retry chain
+- Explicitly resume execution after a retryable failure
+- Attach PRs, issues, docs, incidents, or other external objects back to the ticket
 
-### 12. 查 workflow harness history / variables / validate
+### 12. Inspect workflow harness history / variables / validate
 
 ```bash
 ./.openase/bin/openase workflow harness history $WORKFLOW_ID
@@ -369,23 +369,23 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 ./.openase/bin/openase workflow harness validate --input /tmp/harness.json
 ```
 
-能力：
+Capabilities:
 
-- `workflow harness history` 调 `GET /workflows/{workflowId}/harness/history`
-- `workflow harness variables` 调 `GET /harness/variables`
-- `workflow harness validate` 调 `POST /harness/validate`
+- `workflow harness history` calls `GET /workflows/{workflowId}/harness/history`
+- `workflow harness variables` calls `GET /harness/variables`
+- `workflow harness validate` calls `POST /harness/validate`
 
-适用场景：
+Good fits:
 
-- 想先看 harness 最近几次修改，再决定是否继续改
-- 想确认模板里可以引用哪些变量
-- 想在真正提交 harness 更新前先做语义校验
+- Inspect the most recent harness edits before deciding whether to continue changing it
+- Check which variables the template may reference
+- Run semantic validation before submitting a real harness update
 
 ## Full CLI Surface Beyond The Safe Subset
 
-如果上面这些高频命令不够，`openase` 其实还有更广的 typed CLI，可直接走 OpenAPI 合约，不需要自己查源码再拼 HTTP。
+If the high-frequency commands above are not enough, `openase` has a broader typed CLI that follows the OpenAPI contract directly, so you do not need to read source and assemble raw HTTP by hand.
 
-常用 namespace 包括：
+Common namespaces include:
 
 - `openase ticket ...`
 - `openase status ...`
@@ -404,7 +404,7 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 - `openase watch ...`
 - `openase stream ...`
 
-高价值例子：
+High-value examples:
 
 ```bash
 ./.openase/bin/openase ticket get $OPENASE_TICKET_ID
@@ -430,17 +430,17 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
 ./.openase/bin/openase watch project $OPENASE_PROJECT_ID
 ```
 
-这些 additional typed commands 的特点：
+These additional typed commands have a few useful properties:
 
-- 参数和字段来自 OpenAPI 合约，不是手写猜测
-- 输出默认是 JSON
-- 可以用 `--json` / `--jq` / `--template` 精简结果
-- 很适合“先 inspect 再决定是否写操作”
-- 少数 body 字段会和 CLI 输出 flag 重名；例如 `notification-rule create/update` 的 `template` 字段应改用 `-f template=...` 或 `--input payload.json`
+- Parameters and fields come from the OpenAPI contract, not handwritten guesses
+- Output defaults to JSON
+- You can trim results with `--json`, `--jq`, or `--template`
+- They work well for an inspect-first, write-later flow
+- A few body fields share names with CLI output flags; for example, the `template` field in `notification-rule create/update` should use `-f template=...` or `--input payload.json` instead
 
 ## Raw API Escape Hatch
 
-如果 typed command 还没有覆盖到，最后再用原始 passthrough：
+If a typed command still does not cover what you need, fall back to raw passthrough last:
 
 ```bash
 ./.openase/bin/openase api GET /api/v1/tickets/$OPENASE_TICKET_ID
@@ -457,29 +457,29 @@ OpenASE 不是一个“帮你跑命令的小工具”，而是一个 issue-drive
   --input payload.json
 ```
 
-规则：
+Rules:
 
-- `api METHOD PATH` 是原始 HTTP passthrough
-- `-f/--field` 用 `key=value` 组 JSON body
-- `--query` 追加 query string
-- `--input` 发送原始 request body；它不能和 `-f` 混用
-- 这是缺少专门子命令时的最后兜底，不是第一选择
+- `api METHOD PATH` is raw HTTP passthrough
+- `-f/--field` builds a JSON body from `key=value` pairs
+- `--query` appends query-string parameters
+- `--input` sends a raw request body; it cannot be mixed with `-f`
+- This is the final fallback when no dedicated subcommand exists, not the first choice
 
 ## Platform Boundaries And Safety
 
-使用这个 skill 时，默认要遵守这些边界：
+When using this skill, follow these default boundaries:
 
-- 只能操作当前项目上下文，不要假设自己能跨项目写数据
-- 优先维护当前 ticket 的 comment / description 等平台状态，不要到处留下零散状态
-- 拆 follow-up ticket 可以，但不要为了“显得主动”无限拆单
-- 修改 project、repo、scheduled-job、workflow 前，先确认当前角色真的需要且当前 token scope 允许
-- 遇到 `403` 时，先检查能力边界，不要换别的命令绕过平台
+- Only operate inside the current project context; do not assume cross-project write access
+- Prefer maintaining platform state on the current ticket, such as comments and descriptions, instead of leaving fragmented state everywhere
+- Splitting a follow-up ticket is fine, but do not create an endless stream of extra tickets just to look proactive
+- Before changing a project, repo, scheduled job, or workflow, confirm that the current role really needs it and that the token scope allows it
+- When you hit `403`, check the capability boundary first instead of trying other commands to bypass the platform
 
 ## Practical Guidance For Agents
 
-- 先用 `ticket list / get / detail` 读上下文，再决定是否写
-- 需要持久化跨 runtime 的执行日志时，依赖单独的 `ticket-workpad` skill；这个 platform skill 只提供底层 comment 原语
-- 要改 ticket 状态时优先传 `--status-name`，除非你已经拿到了准确 status UUID
-- 需要 probe 机器最新资源时，先 `machine refresh-health`，再看 `machine resources`
-- 需要更广能力时，先找 typed command；只有 typed command 不覆盖时才退到 `openase api`
-- 不要假设平台会接受 ticket identifier；绝大多数命令都要求 UUID
+- Read context with `ticket list / get / detail` before deciding whether to write
+- When you need execution logs that persist across runtimes, rely on the separate `ticket-workpad` skill; this platform skill only provides the underlying comment primitives
+- Prefer `--status-name` when changing ticket status unless you already have the exact status UUID
+- When you need the latest machine resources, run `machine refresh-health` first, then inspect `machine resources`
+- When you need broader capability, look for a typed command first and fall back to `openase api` only if coverage is missing
+- Do not assume the platform accepts a ticket identifier; most commands require UUIDs

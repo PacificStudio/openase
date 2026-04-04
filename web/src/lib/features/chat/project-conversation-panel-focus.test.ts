@@ -101,12 +101,12 @@ describe('ProjectConversationPanel focus', () => {
     expect(queryByText('Backend Engineer / harness')).toBeNull()
 
     const prompt = getByPlaceholderText('Ask anything about this project…') as HTMLTextAreaElement
-    await fireEvent.input(prompt, { target: { value: '帮我看看这里要怎么改' } })
+    await fireEvent.input(prompt, { target: { value: 'Help me figure out what to change here.' } })
     await fireEvent.click(getByRole('button', { name: 'Send message' }))
 
     await waitFor(() => {
       expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-1', {
-        message: '帮我看看这里要怎么改',
+        message: 'Help me figure out what to change here.',
         focus: undefined,
       })
     })

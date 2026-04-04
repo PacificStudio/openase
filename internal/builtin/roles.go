@@ -101,8 +101,8 @@ var builtinRoleMetadata = map[string]roleMetadata{
 	"env-provisioner": {
 		Name:              "Environment Provisioner",
 		WorkflowType:      "Environment Provisioner",
-		PickupStatusNames: []string{"环境修复"},
-		FinishStatusNames: []string{"环境就绪"},
+		PickupStatusNames: []string{"Environment Repair"},
+		FinishStatusNames: []string{"Environment Ready"},
 		SkillNames:        []string{"openase-platform", "install-claude-code", "install-codex", "setup-git", "setup-gh-cli"},
 	},
 	"experiment-runner": {

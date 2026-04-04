@@ -39,9 +39,9 @@
 
 <div class="space-y-4">
   <div class="bg-muted/50 rounded-lg p-3">
-    <p class="text-foreground text-sm font-medium">最后一步里，点击任意一个按钮都可以结束导览。</p>
+    <p class="text-foreground text-sm font-medium">On the final step, clicking any button will finish the tour.</p>
     <p class="text-muted-foreground mt-1 text-xs">
-      你可以直接体验 Project AI、前往 Workflow 编辑器，或者点“我知道了”先结束导览。
+      You can try Project AI, open the workflow editor, or click "Got it" to end the tour now.
     </p>
   </div>
 
@@ -55,7 +55,7 @@
         <div class="flex items-center gap-2">
           <p class="text-foreground text-sm font-medium">Project AI</p>
         </div>
-        <p class="text-muted-foreground text-xs">让 AI 帮你拆解需求、规划后续工单</p>
+        <p class="text-muted-foreground text-xs">Use AI to break down requirements and plan follow-up tickets</p>
       </div>
     </div>
     <div class="mt-3 flex flex-wrap gap-2">
@@ -63,19 +63,19 @@
         variant="outline"
         size="sm"
         class="text-xs"
-        onclick={() => handleOpenProjectAI('基于当前项目和已有 Ticket，再帮我拆 3 个后续工单')}
+        onclick={() => handleOpenProjectAI('Based on the current project and existing tickets, break down 3 follow-up tickets for me.')}
       >
         <Sparkles class="mr-1 size-3" />
-        帮我拆 3 个后续工单
+        Break down 3 follow-up tickets
       </Button>
       <Button
         variant="outline"
         size="sm"
         class="text-xs"
-        onclick={() => handleOpenProjectAI('我下一步应该先做什么？')}
+        onclick={() => handleOpenProjectAI('What should I do next?')}
       >
         <Sparkles class="mr-1 size-3" />
-        下一步做什么
+        What should I do next?
       </Button>
     </div>
   </div>
@@ -90,20 +90,20 @@
         <div class="flex items-center gap-2">
           <p class="text-foreground text-sm font-medium">Harness AI</p>
         </div>
-        <p class="text-muted-foreground text-xs">用 AI 调整 Workflow 的工作规范和角色设定</p>
+        <p class="text-muted-foreground text-xs">Use AI to refine workflow rules and role setup</p>
       </div>
     </div>
     {#if hasWorkflow}
       <Button variant="outline" size="sm" class="mt-3 text-xs" onclick={handleOpenHarnessAI}>
         <ArrowRight class="mr-1 size-3" />
-        前往 Workflow 编辑器
+        Open workflow editor
       </Button>
     {:else}
-      <p class="text-muted-foreground mt-2 text-xs">请先完成 Agent 与 Workflow 创建步骤。</p>
+      <p class="text-muted-foreground mt-2 text-xs">Create the agent and workflow first.</p>
     {/if}
   </div>
 
   <div class="flex justify-end">
-    <Button variant="ghost" size="sm" class="text-xs" onclick={finishOnboarding}>我知道了</Button>
+    <Button variant="ghost" size="sm" class="text-xs" onclick={finishOnboarding}>Got it</Button>
   </div>
 </div>

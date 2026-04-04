@@ -184,7 +184,7 @@ describe('createProjectConversationController', () => {
     })
     controller.syncProviders(providerFixtures, 'provider-1')
 
-    await controller.sendTurn('帮我看看这里要怎么改', {
+    await controller.sendTurn('Help me figure out what to change here.', {
       kind: 'ticket',
       projectId: 'project-1',
       ticketId: 'ticket-1',
@@ -195,7 +195,7 @@ describe('createProjectConversationController', () => {
     })
 
     expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-1', {
-      message: '帮我看看这里要怎么改',
+      message: 'Help me figure out what to change here.',
       focus: {
         kind: 'ticket',
         projectId: 'project-1',

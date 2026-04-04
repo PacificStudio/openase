@@ -111,40 +111,40 @@ var roleSlugFamilies = map[string]WorkflowFamily{
 
 var familyAliases = map[WorkflowFamily][]string{
 	WorkflowFamilyPlanning: {
-		"planning", "productmanager", "prd", "product", "plan", "requirements", "需求分析", "规划",
+		"planning", "productmanager", "prd", "product", "plan", "requirements", "\u9700\u6c42\u5206\u6790", "\u89c4\u5212",
 	},
 	WorkflowFamilyDispatcher: {
-		"dispatcher", "triage", "routing", "router", "dispatch", "调度", "分派",
+		"dispatcher", "triage", "routing", "router", "dispatch", "\u8c03\u5ea6", "\u5206\u6d3e",
 	},
 	WorkflowFamilyCoding: {
-		"coding", "coder", "developer", "implementation", "engineer", "backend", "frontend", "fullstack", "开发", "实现",
+		"coding", "coder", "developer", "implementation", "engineer", "backend", "frontend", "fullstack", "\u5f00\u53d1", "\u5b9e\u73b0",
 	},
 	WorkflowFamilyReview: {
-		"review", "approval", "approver", "prreview", "reviewer", "审查", "评审", "审核",
+		"review", "approval", "approver", "prreview", "reviewer", "\u5ba1\u67e5", "\u8bc4\u5ba1", "\u5ba1\u6838",
 	},
 	WorkflowFamilyTest: {
-		"test", "testing", "qa", "verification", "verifier", "测试", "验证",
+		"test", "testing", "qa", "verification", "verifier", "\u6d4b\u8bd5", "\u9a8c\u8bc1",
 	},
 	WorkflowFamilyDocs: {
-		"doc", "docs", "documentation", "writer", "writeupdocs", "文档", "撰写",
+		"doc", "docs", "documentation", "writer", "writeupdocs", "\u6587\u6863", "\u64b0\u5199",
 	},
 	WorkflowFamilyDeploy: {
-		"deploy", "deployment", "release", "rollout", "ship", "上线", "部署", "发布",
+		"deploy", "deployment", "release", "rollout", "ship", "\u4e0a\u7ebf", "\u90e8\u7f72", "\u53d1\u5e03",
 	},
 	WorkflowFamilySecurity: {
-		"security", "audit", "scan", "secure", "安全", "审计", "扫描",
+		"security", "audit", "scan", "secure", "\u5b89\u5168", "\u5ba1\u8ba1", "\u626b\u63cf",
 	},
 	WorkflowFamilyHarness: {
-		"refineharness", "harness", "prompttuning", "workflowtune", "prompt", "优化", "调优",
+		"refineharness", "harness", "prompttuning", "workflowtune", "prompt", "\u4f18\u5316", "\u8c03\u4f18",
 	},
 	WorkflowFamilyEnvironment: {
-		"environment", "env", "bootstrap", "provisioner", "machine", "setup", "repair", "环境", "配置", "修复",
+		"environment", "env", "bootstrap", "provisioner", "machine", "setup", "repair", "\u73af\u5883", "\u914d\u7f6e", "\u4fee\u590d",
 	},
 	WorkflowFamilyResearch: {
-		"research", "ideation", "investigate", "experiment", "trial", "study", "调研", "研究", "实验",
+		"research", "ideation", "investigate", "experiment", "trial", "study", "\u8c03\u7814", "\u7814\u7a76", "\u5b9e\u9a8c",
 	},
 	WorkflowFamilyReporting: {
-		"report", "reporting", "writeup", "paper", "writer", "报告", "论文", "写作",
+		"report", "reporting", "writeup", "paper", "writer", "\u62a5\u544a", "\u8bba\u6587", "\u5199\u4f5c",
 	},
 }
 

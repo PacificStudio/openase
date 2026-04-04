@@ -5,10 +5,10 @@ description: "Design focused tests that cover the real behavior contract and key
 
 # Write Tests
 
-写测试时优先覆盖：
+When writing tests, prioritize:
 
-- 新增逻辑的主路径
-- 失败路径和边界输入
-- 回归点
+- The main path for new logic
+- Failure paths and boundary inputs
+- Regression points
 
-避免只为覆盖率而写和实现细节强耦合的脆弱测试。
+Avoid brittle tests that are tightly coupled to implementation details just to increase coverage.

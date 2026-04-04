@@ -73,7 +73,7 @@ describe('StepProvider', () => {
     expect(getAllByText('Claude Code').length).toBeGreaterThan(0)
     expect(getAllByText('OpenAI Codex').length).toBeGreaterThan(0)
     expect(getAllByText('Gemini CLI').length).toBeGreaterThan(0)
-    expect(getByText('还没有注册任何 Provider。')).toBeTruthy()
+    expect(getByText('No providers are registered yet.')).toBeTruthy()
   })
 
   it('opens a provider-specific guide with install, auth, and verify commands for unavailable providers', async () => {
@@ -93,9 +93,9 @@ describe('StepProvider', () => {
       },
     })
 
-    await fireEvent.click(getByText('查看 OpenAI Codex 指南'))
+    await fireEvent.click(getByText('View OpenAI Codex guide'))
 
-    expect(await findByText('OpenAI Codex 配置指南')).toBeTruthy()
+    expect(await findByText('OpenAI Codex setup guide')).toBeTruthy()
     expect(getByText('npm i -g @openai/codex')).toBeTruthy()
     expect(getByText('codex --login')).toBeTruthy()
     expect(getByText('codex --version')).toBeTruthy()
@@ -136,7 +136,7 @@ describe('StepProvider', () => {
       },
     })
 
-    await fireEvent.click(getAllByText('使用这个 Provider')[0]!)
+    await fireEvent.click(getAllByText('Use this provider')[0]!)
 
     await waitFor(() => {
       expect(updateProject).toHaveBeenCalledWith('project-1', {

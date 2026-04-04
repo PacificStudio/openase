@@ -60,7 +60,7 @@
         <span class={cn('text-xs', status.className)}>{status.text}</span>
       </div>
       <p class="text-muted-foreground text-xs">
-        {providers.length > 0 ? `已注册 ${providers.length} 个 Provider` : '尚未注册 Provider'}
+        {providers.length > 0 ? `${providers.length} provider${providers.length === 1 ? "" : "s"} registered` : 'No provider registered yet'}
       </p>
     </div>
   </div>
@@ -73,17 +73,17 @@
       </p>
     </div>
     <div class="bg-muted/50 rounded-lg px-3 py-2">
-      <p class="text-muted-foreground">登录</p>
+      <p class="text-muted-foreground">Auth</p>
       <p class="text-foreground mt-1 font-medium">
         {authDetectionLabel[authDetectionState(providers)]}
       </p>
     </div>
     <div class="bg-muted/50 rounded-lg px-3 py-2">
-      <p class="text-muted-foreground">推荐模型</p>
+      <p class="text-muted-foreground">Recommended model</p>
       <p class="text-foreground mt-1 font-medium">{guide.recommendedModel}</p>
     </div>
     <div class="bg-muted/50 rounded-lg px-3 py-2">
-      <p class="text-muted-foreground">默认入口</p>
+      <p class="text-muted-foreground">Default entry</p>
       <p class="text-foreground mt-1 font-medium">{guide.title}</p>
     </div>
   </div>
@@ -116,19 +116,19 @@
       >
         {#if selecting && selectedId === availableProviders[0]?.id}
           <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-          设置中...
+          Setting...
         {:else if selectedId === availableProviders[0]?.id}
-          已设为默认
+          Default
         {:else}
-          使用这个 Provider
+          Use this provider
         {/if}
       </Button>
     {:else}
       <Button size="sm" class="flex-1" variant="outline" onclick={() => onOpenGuide(guide.key)}>
-        {availableProviders.length > 1 ? `查看 ${availableProviders.length} 个实例` : '继续配置'}
+        {availableProviders.length > 1 ? `View ${availableProviders.length} instances` : 'Continue setup'}
       </Button>
     {/if}
 
-    <Button size="sm" variant="ghost" onclick={() => onOpenGuide(guide.key)}>指南</Button>
+    <Button size="sm" variant="ghost" onclick={() => onOpenGuide(guide.key)}>Guide</Button>
   </div>
 </div>

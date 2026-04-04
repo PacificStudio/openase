@@ -82,7 +82,7 @@
     {#if mode === 'choose'}
       <Button variant="outline" size="sm" onclick={onEnterCreateMode}>
         <Plus class="mr-1.5 size-3.5" />
-        添加更多仓库
+        Add another repository
       </Button>
     {/if}
   {/if}
@@ -99,8 +99,8 @@
             <Plus class="text-primary size-4" />
           </div>
           <div>
-            <p class="text-foreground text-sm font-medium">创建新仓库</p>
-            <p class="text-muted-foreground mt-0.5 text-xs">在 GitHub 上创建新的代码仓库</p>
+            <p class="text-foreground text-sm font-medium">Create a new repository</p>
+            <p class="text-muted-foreground mt-0.5 text-xs">Create a new code repository on GitHub</p>
           </div>
         </button>
 
@@ -113,8 +113,8 @@
             <Link class="text-primary size-4" />
           </div>
           <div>
-            <p class="text-foreground text-sm font-medium">关联已有仓库</p>
-            <p class="text-muted-foreground mt-0.5 text-xs">关联一个已存在的 Git 仓库</p>
+            <p class="text-foreground text-sm font-medium">Link an existing repository</p>
+            <p class="text-muted-foreground mt-0.5 text-xs">Link an existing Git repository</p>
           </div>
         </button>
       </div>
@@ -122,7 +122,7 @@
       <div class="space-y-3">
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">命名空间</p>
+            <p class="text-foreground mb-1 text-xs font-medium">Namespace</p>
             <Select.Root
               type="single"
               value={selectedNamespace}
@@ -131,7 +131,7 @@
               }}
             >
               <Select.Trigger class="h-9 w-full text-sm">
-                {selectedNamespace || '选择命名空间'}
+                {selectedNamespace || 'Select a namespace'}
               </Select.Trigger>
               <Select.Content>
                 {#each namespaces as ns (ns.login)}
@@ -141,13 +141,13 @@
             </Select.Root>
           </div>
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">仓库名称</p>
+            <p class="text-foreground mb-1 text-xs font-medium">Repository name</p>
             <Input bind:value={newRepoName} placeholder="my-project" class="h-9 text-sm" />
           </div>
         </div>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">可见性</p>
+            <p class="text-foreground mb-1 text-xs font-medium">Visibility</p>
             <Select.Root
               type="single"
               value={newRepoVisibility}
@@ -165,7 +165,7 @@
             </Select.Root>
           </div>
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">默认分支</p>
+            <p class="text-foreground mb-1 text-xs font-medium">Default branch</p>
             <Input bind:value={newRepoDefaultBranch} placeholder="main" class="h-9 text-sm" />
           </div>
         </div>
@@ -176,23 +176,23 @@
           >
             {#if creating}
               <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-              创建中...
+              Creating...
             {:else}
               <Plus class="mr-1.5 size-3.5" />
-              创建并关联
+              Create and link
             {/if}
           </Button>
-          <Button variant="ghost" size="sm" onclick={() => (mode = 'choose')}>返回</Button>
+          <Button variant="ghost" size="sm" onclick={() => (mode = 'choose')}>Back</Button>
         </div>
       </div>
     {:else}
       <div class="space-y-3">
         <div>
-          <p class="text-foreground mb-1 text-xs font-medium">搜索或浏览 GitHub 仓库</p>
+          <p class="text-foreground mb-1 text-xs font-medium">Search or browse GitHub repositories</p>
           <div class="flex items-center gap-2">
             <Input
               bind:value={repoSearchQuery}
-              placeholder="搜索仓库名称，或直接浏览最近可访问仓库..."
+              placeholder="Search repository names, or browse recently accessible repositories..."
               class="h-9 flex-1 text-sm"
               onkeydown={(e) => {
                 if (e.key === 'Enter') void onSearchRepos?.()
@@ -225,11 +225,11 @@
 
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">仓库名称</p>
+            <p class="text-foreground mb-1 text-xs font-medium">Repository name</p>
             <Input bind:value={linkRepoName} placeholder="my-project" class="h-9 text-sm" />
           </div>
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">默认分支</p>
+            <p class="text-foreground mb-1 text-xs font-medium">Default branch</p>
             <Input bind:value={linkRepoBranch} placeholder="main" class="h-9 text-sm" />
           </div>
         </div>
@@ -249,13 +249,13 @@
           >
             {#if linking}
               <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-              关联中...
+              Linking...
             {:else}
               <Link class="mr-1.5 size-3.5" />
-              关联仓库
+              Link repository
             {/if}
           </Button>
-          <Button variant="ghost" size="sm" onclick={() => (mode = 'choose')}>返回</Button>
+          <Button variant="ghost" size="sm" onclick={() => (mode = 'choose')}>Back</Button>
         </div>
       </div>
     {/if}

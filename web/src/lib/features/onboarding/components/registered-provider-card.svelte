@@ -58,7 +58,7 @@
         <span class={cn('text-xs', status.className)}>{status.text}</span>
       </div>
       <p class="text-muted-foreground mt-1 text-xs">
-        {adapterDisplayName(provider.adapter_type)} · {provider.model_name || '未设置模型'}
+        {adapterDisplayName(provider.adapter_type)} · {provider.model_name || 'Model not set'}
       </p>
     </div>
 
@@ -73,7 +73,7 @@
 
   <div class="mb-3 space-y-1 text-xs">
     <div class="flex items-center justify-between gap-3">
-      <span class="text-muted-foreground">机器</span>
+      <span class="text-muted-foreground">Machine</span>
       <span class="text-foreground text-right">{provider.machine_name || '—'}</span>
     </div>
     <div class="flex items-center justify-between gap-3">
@@ -82,7 +82,7 @@
     </div>
     {#if checkedAt}
       <div class="flex items-center justify-between gap-3">
-        <span class="text-muted-foreground">最近检测</span>
+        <span class="text-muted-foreground">Last checked</span>
         <span class="text-foreground text-right">{checkedAt}</span>
       </div>
     {/if}
@@ -107,17 +107,17 @@
       >
         {#if selecting && isSelected}
           <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-          设置中...
+          Setting...
         {:else if isSelected}
-          已设为默认
+          Default
         {:else}
-          使用这个 Provider
+          Use this provider
         {/if}
       </Button>
     {:else}
       {#if guide}
         <Button size="sm" variant="outline" onclick={() => onOpenGuide(provider.id)}>
-          查看 {guide.title} 指南
+          View {guide.title} guide
         </Button>
       {/if}
       <Button
@@ -128,10 +128,10 @@
       >
         {#if refreshing}
           <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-          检测中...
+          Checking...
         {:else}
           <RefreshCcw class="mr-1.5 size-3.5" />
-          重新检测
+          Recheck
         {/if}
       </Button>
     {/if}

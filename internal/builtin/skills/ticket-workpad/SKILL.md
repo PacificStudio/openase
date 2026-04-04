@@ -5,17 +5,17 @@ description: "Maintain the persistent ticket work log comment on the current tic
 
 # Ticket Workpad
 
-Workpad 是当前工单唯一的持久化进度板。这个 skill 应绑定到需要持续执行和续跑的 ticket workflow 上；绑定后，agent 才会明确知道应该把跨 runtime 需要保留的信息写到同一条持久化评论里，而不是散落在临时上下文中。
+The Workpad is the single persistent progress board for the current ticket. Bind this skill to ticket workflows that need long-running execution and resume support so agents consistently write durable state into one persistent comment instead of scattering it across ephemeral context.
 
-它的职责不是提供平台 API，而是建立一层基于平台 comment 原语之上的持久化约定：
+Its job is not to expose platform APIs directly. It defines a persistence convention on top of primitive platform comments:
 
-- 平台基座由 `openase-platform` skill 提供：`ticket comment list/create/update`
-- `ticket-workpad` 在这个基座上定义“哪一条评论是 workpad、如何幂等 upsert、应该记录哪些段落”
-- 这样即使 runtime 重启、agent 重新调度、会话上下文丢失，后续 agent 仍然能从同一条 workpad 评论恢复执行状态
+- The platform base comes from the `openase-platform` skill: `ticket comment list/create/update`.
+- `ticket-workpad` defines which comment counts as the workpad, how to upsert it idempotently, and which sections should be maintained.
+- This lets later agents recover execution state from the same workpad comment even after runtime restarts, rescheduling, or lost conversation context.
 
-Workpad upsert 不再是独立 CLI 子命令。现在应调用注入的 `openase-platform` helper script；它会自动补标准 workpad 标题，并复用或更新那条持久化评论。
+Workpad upsert is no longer a standalone CLI subcommand. Call the injected `openase-platform` helper script instead; it will add the standard heading automatically and reuse or update the persistent comment.
 
-推荐写法：
+Recommended usage:
 
 ```bash
 cat <<'EOF' >/tmp/workpad.md
@@ -58,11 +58,11 @@ fi
 "$OPENASE_PLATFORM_HELPER" --body-file /tmp/workpad.md
 ```
 
-执行时遵循：
+Execution rules:
 
-- 开工前先写第一版 workpad，不要先改代码再补记录。
-- 每完成一个关键阶段就更新同一条评论，不要不断创建新评论。
-- 至少持续维护 `Plan`、`Progress`、`Validation`、`Notes` 这些段落。
-- 把 workpad 当成跨 runtime 的恢复点，记录后续 agent 续跑时真正需要的信息，而不是写成一次性聊天摘要。
-- 如果当前 workflow 绑定了这个 skill，就默认必须维护 workpad；它不是可选装饰，而是执行闭环的一部分。
-- 如果被阻塞，把阻塞原因和缺失前置条件写进 workpad，而不是静默退出。
+- Write the first workpad before you start changing code. Do not backfill it afterward.
+- Update the same comment after each major phase instead of creating new comments repeatedly.
+- Continuously maintain at least `Plan`, `Progress`, `Validation`, and `Notes`.
+- Treat the workpad as the resume point across runtimes and record the information the next agent will actually need, not a one-off chat summary.
+- If the workflow binds this skill, maintaining the workpad is mandatory. It is part of the execution loop, not optional decoration.
+- If you are blocked, record the blocker and missing prerequisites in the workpad instead of exiting silently.

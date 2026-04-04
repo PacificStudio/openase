@@ -94,6 +94,45 @@ func TestMonitorCollectorCollectAgentEnvironmentInjectsMachineEnvVars(t *testing
 	}
 }
 
+func TestSystemResourceScriptCollectsParseableMetricsOnCurrentPlatform(t *testing.T) {
+	collector := NewMonitorCollector(nil)
+	collector.now = func() time.Time { return time.Date(2026, 4, 4, 11, 0, 0, 0, time.UTC) }
+
+	output, err := collector.runLocal(context.Background(), systemResourceScript)
+	if err != nil {
+		t.Fatalf("run system resource script: %v", err)
+	}
+
+	resources, err := domain.ParseMachineSystemResources(string(output), collector.now())
+	if err != nil {
+		t.Fatalf("parse system resource script output %q: %v", string(output), err)
+	}
+	if resources.CPUCores <= 0 {
+		t.Fatalf("expected cpu cores from system resource script, got %+v", resources)
+	}
+	if resources.MemoryTotalGB <= 0 {
+		t.Fatalf("expected memory total from system resource script, got %+v", resources)
+	}
+	if resources.DiskTotalGB <= 0 {
+		t.Fatalf("expected disk total from system resource script, got %+v", resources)
+	}
+}
+
+func TestSystemResourceScriptIncludesDarwinCollector(t *testing.T) {
+	if !strings.Contains(systemResourceScript, `collect_darwin_system_resources()`) {
+		t.Fatalf("expected darwin collector in system resource script, got %q", systemResourceScript)
+	}
+	if !strings.Contains(systemResourceScript, `sysctl -n hw.ncpu`) {
+		t.Fatalf("expected darwin cpu core probe in system resource script, got %q", systemResourceScript)
+	}
+	if !strings.Contains(systemResourceScript, `vm_stat`) {
+		t.Fatalf("expected darwin memory probe in system resource script, got %q", systemResourceScript)
+	}
+	if !strings.Contains(systemResourceScript, `top -l 2`) {
+		t.Fatalf("expected darwin cpu usage probe in system resource script, got %q", systemResourceScript)
+	}
+}
+
 func TestBuildAgentEnvironmentScriptUsesRelaxedCodexLoginMatch(t *testing.T) {
 	script := buildAgentEnvironmentScript(domain.Machine{})
 	if !strings.Contains(script, `claude auth status --json`) {

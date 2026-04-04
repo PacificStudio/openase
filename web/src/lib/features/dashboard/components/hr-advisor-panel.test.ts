@@ -183,7 +183,7 @@ describe('HRAdvisorPanel', () => {
     })
 
     // Click the inline activate button (first one = QA)
-    const activateButtons = await findAllByText('激活')
+    const activateButtons = await findAllByText('Activate')
     await fireEvent.click(activateButtons[0].closest('button')!)
 
     expect(activateHRRecommendation).toHaveBeenCalledWith('project-1', {
@@ -199,7 +199,7 @@ describe('HRAdvisorPanel', () => {
     const qaRow = (await findByText('QA Engineer')).closest('article')!
     await fireEvent.click(qaRow.querySelector('button[type="button"]')!)
 
-    expect(await findByText('已通过 QA Workflow 激活。')).toBeTruthy()
+    expect(await findByText('Activated through QA Workflow.')).toBeTruthy()
   })
 
   it('shows activatable count in header', async () => {
@@ -207,7 +207,7 @@ describe('HRAdvisorPanel', () => {
       props: { projectId: 'project-1', advisor: advisorFixture },
     })
 
-    expect(await findByText('2 可激活')).toBeTruthy()
+    expect(await findByText('2 ready to activate')).toBeTruthy()
     expect(await findByText('2 workflows')).toBeTruthy()
   })
 })

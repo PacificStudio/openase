@@ -195,12 +195,12 @@ func TestTicketWorkpadSkillUsesGenericWorkpadTerminology(t *testing.T) {
 		t.Fatalf("ticket-workpad content should avoid Codex-specific heading: %s", skill.Content)
 	}
 	for _, snippet := range []string{
-		"Workpad 是当前工单唯一的持久化进度板",
+		"The Workpad is the single persistent progress board for the current ticket",
 		"openase-platform",
 		"upsert_workpad.sh",
-		"复用或更新那条持久化评论",
-		"跨 runtime",
-		"绑定到需要持续执行和续跑的 ticket workflow",
+		"reuse or update the persistent comment",
+		"across runtimes",
+		"Bind this skill to ticket workflows that need long-running execution and resume support",
 	} {
 		if !strings.Contains(skill.Content, snippet) {
 			t.Fatalf("expected ticket-workpad skill to contain %q, got:\n%s", snippet, skill.Content)

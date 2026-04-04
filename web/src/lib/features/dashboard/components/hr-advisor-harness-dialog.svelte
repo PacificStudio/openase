@@ -24,7 +24,7 @@
 <Dialog.Root bind:open>
   <Dialog.Content class="flex h-[80vh] max-h-[48rem] max-w-4xl flex-col overflow-hidden p-0">
     <Dialog.Header class="border-border border-b px-6 py-5">
-      <Dialog.Title>{harness?.name || roleName || '角色 Harness'}</Dialog.Title>
+      <Dialog.Title>{harness?.name || roleName || 'Role Harness'}</Dialog.Title>
       <Dialog.Description>
         {harness?.summary || 'Builtin role harness used by HR Advisor one-click activation.'}
       </Dialog.Description>

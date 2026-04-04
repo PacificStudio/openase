@@ -5,10 +5,10 @@ description: "Push verified changes carefully and avoid destructive history rewr
 
 # Safe Push
 
-推送前确认：
+Before pushing, confirm:
 
-- 相关验证已完成
-- 本地分支已和远端同步
-- 不使用破坏性强推覆盖他人历史
+- Relevant validation is complete.
+- The local branch is synced with the remote.
+- You are not using a destructive force-push that overwrites other people's history.
 
-推送失败时先同步远端，再解决冲突后重新验证。
+If the push fails, sync with remote first, resolve conflicts, and validate again.

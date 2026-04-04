@@ -459,7 +459,7 @@ func TestAgentOutputAccumulatorAggregatesAssistantFragmentsUntilSentenceBoundary
 		Stream: "assistant",
 		ItemID: "assistant-1",
 		TurnID: "turn-1",
-		Text:   "当前",
+		Text:   "Current ",
 	})
 	if len(first) != 0 {
 		t.Fatalf("first push should stay buffered, got %+v", first)
@@ -469,12 +469,12 @@ func TestAgentOutputAccumulatorAggregatesAssistantFragmentsUntilSentenceBoundary
 		Stream: "assistant",
 		ItemID: "assistant-1",
 		TurnID: "turn-1",
-		Text:   "ticket 已创建。",
+		Text:   "ticket created.",
 	})
 	if len(second) != 1 {
 		t.Fatalf("expected sentence boundary flush, got %+v", second)
 	}
-	if second[0].Text != "当前ticket 已创建。" {
+	if second[0].Text != "Current ticket created." {
 		t.Fatalf("unexpected merged assistant text: %+v", second[0])
 	}
 	if second[0].Snapshot {
@@ -520,7 +520,7 @@ func TestOutputForPersistencePromotesAggregatedOutputsToSnapshots(t *testing.T) 
 		Stream:  "assistant",
 		ItemID:  "assistant-1",
 		TurnID:  "turn-1",
-		Text:    "完整句子。",
+		Text:    "Complete sentence.",
 		Command: "",
 	})
 	if persisted == nil || !persisted.Snapshot {

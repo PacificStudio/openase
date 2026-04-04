@@ -10,7 +10,7 @@ func TestParseProjectConversationTurnRequestPreservesFocus(t *testing.T) {
 	t.Parallel()
 
 	request, err := parseProjectConversationTurnRequest(rawConversationTurnRequest{
-		Message: "帮我看看这里要怎么改",
+		Message: "Help me understand what should change here.",
 		Focus: &chat.RawProjectConversationFocus{
 			Kind:               "ticket",
 			TicketID:           testStringPointer("550e8400-e29b-41d4-a716-446655440000"),
@@ -68,7 +68,7 @@ func TestParseProjectConversationTurnRequestPreservesFocus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseProjectConversationTurnRequest() error = %v", err)
 	}
-	if request.Message != "帮我看看这里要怎么改" {
+	if request.Message != "Help me understand what should change here." {
 		t.Fatalf("message = %q", request.Message)
 	}
 	if request.Focus == nil || request.Focus.Ticket == nil {

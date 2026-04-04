@@ -111,7 +111,7 @@ func (r Report) HasErrors() bool {
 
 func (r Report) Render() string {
 	var builder strings.Builder
-	builder.WriteString("🔍 OpenASE 环境诊断\n\n")
+	builder.WriteString("🔍 OpenASE Environment Diagnostics\n\n")
 
 	for _, result := range r.Results {
 		builder.WriteString("  ")
@@ -135,14 +135,14 @@ func (r Report) Render() string {
 			}
 		}
 		if result.Fix != "" {
-			builder.WriteString("     → 修复: ")
+			builder.WriteString("     -> Fix: ")
 			builder.WriteString(result.Fix)
 			builder.WriteString("\n")
 		}
 	}
 
 	builder.WriteString("\n")
-	_, _ = fmt.Fprintf(&builder, "总结: %d 个警告，%d 个错误\n", r.WarningCount(), r.ErrorCount())
+	_, _ = fmt.Fprintf(&builder, "Summary: %d warnings, %d errors\n", r.WarningCount(), r.ErrorCount())
 	return builder.String()
 }
 
@@ -151,9 +151,9 @@ func diagnoseConfig(configFile string, repoRoot string, homeDir string) loadedCo
 	if err != nil {
 		return loadedConfig{
 			result: Result{
-				Name:    "配置",
+				Name:    "Config",
 				Status:  StatusError,
-				Summary: "无法解析配置文件",
+				Summary: "Failed to resolve config file",
 				Detail:  err.Error(),
 			},
 		}
@@ -168,9 +168,9 @@ func diagnoseConfig(configFile string, repoRoot string, homeDir string) loadedCo
 	if err != nil {
 		return loadedConfig{
 			result: Result{
-				Name:    "配置",
+				Name:    "Config",
 				Status:  StatusError,
-				Summary: "配置加载失败",
+				Summary: "Failed to load config",
 				Detail:  err.Error(),
 			},
 		}
@@ -182,9 +182,9 @@ func diagnoseConfig(configFile string, repoRoot string, homeDir string) loadedCo
 			config: cfg,
 			ok:     true,
 			result: Result{
-				Name:    "配置",
+				Name:    "Config",
 				Status:  StatusOK,
-				Summary: "使用默认值和环境变量",
+				Summary: "Using defaults and environment variables",
 				Detail:  detail,
 			},
 		}
@@ -194,9 +194,9 @@ func diagnoseConfig(configFile string, repoRoot string, homeDir string) loadedCo
 		config: cfg,
 		ok:     true,
 		result: Result{
-			Name:    "配置",
+			Name:    "Config",
 			Status:  StatusOK,
-			Summary: fmt.Sprintf("已加载 %s", path),
+			Summary: fmt.Sprintf("Loaded %s", path),
 			Detail:  detail,
 		},
 	}
@@ -226,14 +226,14 @@ func diagnoseCommands(
 			results = append(results, Result{
 				Name:    report.Name,
 				Status:  StatusWarning,
-				Summary: "已安装，但版本探测失败",
+				Summary: "Installed, but version detection failed",
 				Detail:  fmt.Sprintf("%s: %s", report.Path, report.Error),
 			})
 		default:
 			results = append(results, Result{
 				Name:    report.Name,
 				Status:  StatusWarning,
-				Summary: "未安装（可选）",
+				Summary: "Not installed (optional)",
 			})
 		}
 	}
@@ -246,7 +246,7 @@ func diagnosePostgres(ctx context.Context, cfg loadedConfig, pingDatabase func(c
 		return Result{
 			Name:    "PostgreSQL",
 			Status:  StatusWarning,
-			Summary: "因配置加载失败而跳过",
+			Summary: "Skipped because config loading failed",
 		}
 	}
 
@@ -255,7 +255,7 @@ func diagnosePostgres(ctx context.Context, cfg loadedConfig, pingDatabase func(c
 		return Result{
 			Name:    "PostgreSQL",
 			Status:  StatusWarning,
-			Summary: "未配置 database.dsn",
+			Summary: "database.dsn is not configured",
 		}
 	}
 
@@ -264,7 +264,7 @@ func diagnosePostgres(ctx context.Context, cfg loadedConfig, pingDatabase func(c
 		return Result{
 			Name:    "PostgreSQL",
 			Status:  StatusError,
-			Summary: fmt.Sprintf("连接失败 (%s)", location),
+			Summary: fmt.Sprintf("Connection failed (%s)", location),
 			Detail:  err.Error(),
 		}
 	}
@@ -272,7 +272,7 @@ func diagnosePostgres(ctx context.Context, cfg loadedConfig, pingDatabase func(c
 	return Result{
 		Name:    "PostgreSQL",
 		Status:  StatusOK,
-		Summary: fmt.Sprintf("已连接 (%s)", location),
+		Summary: fmt.Sprintf("Connected (%s)", location),
 	}
 }
 
@@ -281,7 +281,7 @@ func diagnoseOpenASELayout(homeDir string, homeErr error) Result {
 		return Result{
 			Name:    "~/.openase",
 			Status:  StatusError,
-			Summary: "无法解析用户目录",
+			Summary: "Failed to resolve home directory",
 			Detail:  homeErr.Error(),
 		}
 	}
@@ -297,7 +297,7 @@ func diagnoseOpenASELayout(homeDir string, homeErr error) Result {
 			return Result{
 				Name:    "~/.openase",
 				Status:  StatusError,
-				Summary: "无法检查目录",
+				Summary: "Failed to inspect directory",
 				Detail:  err.Error(),
 			}
 		}
@@ -305,7 +305,7 @@ func diagnoseOpenASELayout(homeDir string, homeErr error) Result {
 		return Result{
 			Name:    "~/.openase",
 			Status:  StatusError,
-			Summary: "路径存在但不是目录",
+			Summary: "Path exists but is not a directory",
 			Detail:  baseDir,
 		}
 	}
@@ -318,14 +318,14 @@ func diagnoseOpenASELayout(homeDir string, homeErr error) Result {
 			return Result{
 				Name:    "~/.openase",
 				Status:  StatusError,
-				Summary: "无法检查 .env 文件",
+				Summary: "Failed to inspect .env file",
 				Detail:  err.Error(),
 			}
 		}
 	} else {
 		mode := info.Mode().Perm()
 		if mode != 0o600 {
-			details = append(details, fmt.Sprintf(".env 权限是 %04o，期望 0600", mode))
+			details = append(details, fmt.Sprintf(".env permissions are %04o, expected 0600", mode))
 		}
 	}
 
@@ -337,12 +337,12 @@ func diagnoseOpenASELayout(homeDir string, homeErr error) Result {
 			return Result{
 				Name:    "~/.openase",
 				Status:  StatusError,
-				Summary: "无法检查日志目录",
+				Summary: "Failed to inspect log directory",
 				Detail:  err.Error(),
 			}
 		}
 	} else if !info.IsDir() {
-		details = append(details, "~/.openase/logs 不是目录")
+		details = append(details, "~/.openase/logs is not a directory")
 	}
 
 	workspacesPath := filepath.Join(baseDir, "workspaces")
@@ -353,19 +353,19 @@ func diagnoseOpenASELayout(homeDir string, homeErr error) Result {
 			return Result{
 				Name:    "~/.openase",
 				Status:  StatusError,
-				Summary: "无法检查工作区目录",
+				Summary: "Failed to inspect workspace directory",
 				Detail:  err.Error(),
 			}
 		}
 	} else if !info.IsDir() {
-		details = append(details, "~/.openase/workspaces 不是目录")
+		details = append(details, "~/.openase/workspaces is not a directory")
 	}
 
 	if len(missing) == 0 && len(details) == 0 {
 		return Result{
 			Name:    "~/.openase",
 			Status:  StatusOK,
-			Summary: "目录布局完整",
+			Summary: "Directory layout is complete",
 			Detail:  baseDir,
 		}
 	}
@@ -380,14 +380,14 @@ func diagnoseOpenASELayout(homeDir string, homeErr error) Result {
 
 	detailLines := make([]string, 0, len(missing)+len(details))
 	if len(missing) > 0 {
-		detailLines = append(detailLines, "缺失: "+strings.Join(missing, ", "))
+		detailLines = append(detailLines, "Missing: "+strings.Join(missing, ", "))
 	}
 	detailLines = append(detailLines, details...)
 
 	return Result{
 		Name:    "~/.openase",
 		Status:  StatusWarning,
-		Summary: "目录布局不完整",
+		Summary: "Directory layout is incomplete",
 		Detail:  strings.Join(detailLines, "\n"),
 		Fix:     strings.Join(fixes, " && "),
 	}
@@ -478,13 +478,13 @@ func configCandidates(repoRoot string, homeDir string) []string {
 func summarizeDSN(dsn string) string {
 	parsed, err := url.Parse(dsn)
 	if err != nil {
-		return "无法解析 DSN"
+		return "Failed to parse DSN"
 	}
 
 	host := parsed.Host
 	database := strings.TrimPrefix(parsed.Path, "/")
 	if host == "" && database == "" {
-		return "DSN 已配置"
+		return "DSN is configured"
 	}
 	if database == "" {
 		return host

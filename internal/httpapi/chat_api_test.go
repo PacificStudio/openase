@@ -387,7 +387,7 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 	defer testServer.Close()
 
 	requestBody := mustMarshalJSON(t, map[string]any{
-		"message":     "为什么失败了？",
+		"message":     "Why did this fail?",
 		"source":      "ticket_detail",
 		"provider_id": providerItem.ID.String(),
 		"context": map[string]any{
@@ -454,13 +454,13 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 	if !strings.Contains(adapter.lastSpec.AppendSystemPrompt, "go test ./... failed in auth package") {
 		t.Fatalf("expected hook history in system prompt, got %q", adapter.lastSpec.AppendSystemPrompt)
 	}
-	if !strings.Contains(adapter.lastSpec.AppendSystemPrompt, "不要输出 `action_proposal` 或 `platform_command_proposal`") {
+	if !strings.Contains(adapter.lastSpec.AppendSystemPrompt, "Do not output `action_proposal` or `platform_command_proposal`") {
 		t.Fatalf("expected direct-execution instructions in system prompt, got %q", adapter.lastSpec.AppendSystemPrompt)
 	}
 	if !slicesContain(adapter.lastSpec.Environment, "ANTHROPIC_API_KEY=test-key") {
 		t.Fatalf("expected auth config env injection, got %v", adapter.lastSpec.Environment)
 	}
-	if len(adapter.session.sent) != 1 || adapter.session.sent[0].Prompt != "为什么失败了？" {
+	if len(adapter.session.sent) != 1 || adapter.session.sent[0].Prompt != "Why did this fail?" {
 		t.Fatalf("expected sent prompt to round-trip, got %+v", adapter.session.sent)
 	}
 }
@@ -597,7 +597,7 @@ func TestChatRouteLogsStructuredStartFailures(t *testing.T) {
 	)
 
 	body := mustMarshalJSON(t, map[string]any{
-		"message":     "帮我总结一下项目状态",
+		"message":     "Summarize the current project status for me.",
 		"source":      "project_sidebar",
 		"provider_id": providerID.String(),
 		"context": map[string]any{

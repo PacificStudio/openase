@@ -136,7 +136,7 @@ func TestParseBundleDiffPayloadTextAcceptsStructuredJSON(t *testing.T) {
 
 func TestNormalizeAssistantTextSplitsTrailingDiffFromMixedText(t *testing.T) {
 	events := normalizeAssistantText(
-		"我先按当前 Harness 和项目状态拓扑定位可改位置，直接给可应用的结构化 diff。\n" +
+		"I will first locate the editable area from the current harness and project topology, then return an applicable structured diff.\n" +
 			"{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"---\"},{\"op\":\"add\",\"text\":\"new line\"}]}]}",
 	)
 	if len(events) != 2 {
@@ -147,7 +147,7 @@ func TestNormalizeAssistantTextSplitsTrailingDiffFromMixedText(t *testing.T) {
 	if !ok {
 		t.Fatalf("first payload = %#v, want text payload", events[0].Payload)
 	}
-	if !strings.Contains(text.Content, "结构化 diff") {
+	if !strings.Contains(text.Content, "structured diff") {
 		t.Fatalf("first text payload = %#v, want explanatory prose", text)
 	}
 
@@ -162,7 +162,7 @@ func TestNormalizeAssistantTextSplitsTrailingDiffFromMixedText(t *testing.T) {
 
 func TestNormalizeAssistantTextCollapsesRepeatedTrailingDiffJSON(t *testing.T) {
 	diffJSON := "{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"---\"},{\"op\":\"add\",\"text\":\"new line\"}]}]}"
-	events := normalizeAssistantText("先给说明。" + diffJSON + diffJSON)
+	events := normalizeAssistantText("Explanation first." + diffJSON + diffJSON)
 	if len(events) != 2 {
 		t.Fatalf("event count = %d, want 2: %+v", len(events), events)
 	}
@@ -288,28 +288,28 @@ func TestBuildSystemPromptGuidesHarnessEditorReplies(t *testing.T) {
 		t.Fatalf("build system prompt: %v", err)
 	}
 	if !containsAll(prompt,
-		"### 当前编辑器草稿（未保存）",
+		"### Current Editor Draft (Unsaved)",
 		"Write code carefully.",
-		"### 项目状态拓扑",
+		"### Project Status Topology",
 		"- 1. Backlog [stage=queued, default=true]",
-		"### 项目 Workflow 拓扑",
+		"### Project Workflow Topology",
 		"Review Workflow [review]",
-		"### 最近工单样本",
-		"### 专业 Workflow 设计基线",
-		"### 先推断，缺失再澄清",
-		"1. 这个 workflow 的职责边界是什么。",
-		"Harness 编辑器回复要求",
-		"结构化 diff JSON 对象",
-		"默认只输出 1 个结构化 diff JSON 对象",
-		"不要输出解释文字、前言、后记、markdown 列表、代码块围栏、多个 JSON 对象，或不完整 JSON 片段",
-		"输出必须是单个合法 JSON object",
-		"顶层字段固定为：`type`、`file`、`hunks`",
-		"`type` 必须恒等于 `diff`；`file` 必须恒等于 `harness content`",
-		"字段名必须使用 snake_case：`old_start`、`old_lines`、`new_start`、`new_lines`",
-		"JSON Schema（简化）如下",
+		"### Recent Ticket Samples",
+		"### Professional Workflow Design Baseline",
+		"### Infer First, Clarify Only What Is Missing",
+		"1. What is the responsibility boundary of this workflow?",
+		"Harness Editor Response Requirements",
+		"structured diff JSON object",
+		"exactly one structured diff JSON object",
+		"do not output explanatory prose, intros, outros, markdown lists, fenced code blocks, multiple JSON objects, or incomplete JSON fragments",
+		"The output must be one valid JSON object",
+		"The top-level fields are fixed: `type`, `file`, and `hunks`",
+		"`type` must be exactly `diff`, and `file` must be exactly `harness content`",
+		"Field names must use snake_case: `old_start`, `old_lines`, `new_start`, `new_lines`",
+		"The simplified JSON schema is",
 		"\"additionalProperties\": false",
 		"\"type\":\"diff\",\"file\":\"harness content\"",
-		"不要输出 proposal JSON",
+		"Do not output proposal JSON",
 	) {
 		t.Fatalf("expected harness-editor response instructions in prompt, got %q", prompt)
 	}
@@ -381,22 +381,22 @@ func TestBuildSystemPromptGuidesSkillEditorReplies(t *testing.T) {
 		t.Fatalf("build system prompt: %v", err)
 	}
 	if !containsAll(prompt,
-		"## 来源: Skill 编辑器",
-		"Skill: deploy | 版本: 4 | 启用: true",
-		"### Skill Bundle 文件清单",
+		"## Source: Skill Editor",
+		"Skill: deploy | Version: 4 | Enabled: true",
+		"### Skill Bundle File List",
 		"scripts/redeploy.sh [kind=script, encoding=utf8, size=29] executable=true",
-		"### 当前选中文件",
+		"### Currently Selected File",
 		"path: scripts/redeploy.sh",
-		"### 已发布文件内容",
+		"### Published File Content",
 		"echo old",
-		"### 其他可编辑文本文件内容",
+		"### Other Editable Text File Content",
 		"#### references/runbook.md",
-		"### 当前编辑器草稿（未保存）",
+		"### Current Editor Draft (Unsaved)",
 		"echo new",
-		"### Skill 编辑要求",
-		"\"type\":\"diff\",\"file\":\"相对文件路径\"",
+		"### Skill Editing Requirements",
+		"\"type\":\"diff\",\"file\":\"relative/file/path\"",
 		"\"type\":\"bundle_diff\",\"files\"",
-		"`bundle_diff.files[].file` 必须是 bundle 内相对文件路径",
+		"`bundle_diff.files[].file` must be a bundle-relative file path",
 	) {
 		t.Fatalf("expected skill-editor response instructions in prompt, got %q", prompt)
 	}
@@ -530,18 +530,18 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 		t.Fatalf("runtime max turns = %d, want unlimited project sidebar policy", runtime.lastInput.MaxTurns)
 	}
 	if !containsAll(runtime.lastInput.SystemPrompt,
-		"## 来源: 项目侧栏",
+		"## Source: Project Sidebar",
 		"project_id: 660e8400-e29b-41d4-a716-446655440000",
 		"project_slug: openase",
-		"- 总数: 3",
-		"- 进行中: 1",
-		"- 已完成: 1",
-		"- 失败/暂停: 1",
-		"### 平台命令引用",
+		"- Total: 3",
+		"- In progress: 1",
+		"- Completed: 1",
+		"- Failed/paused: 1",
+		"### Platform Command References",
 		"- current_project_name: OpenASE",
 		"- statuses:",
 		"Todo => 990e8400-e29b-41d4-a716-446655440000",
-		"不要输出 `action_proposal` 或 `platform_command_proposal`",
+		"Do not output `action_proposal` or `platform_command_proposal`",
 		"Updated issue status",
 	) {
 		t.Fatalf("project sidebar prompt = %q", runtime.lastInput.SystemPrompt)
@@ -620,14 +620,14 @@ func TestBuildSystemPromptIncludesTicketDetailAndHookHistory(t *testing.T) {
 		t.Fatalf("buildSystemPrompt() error = %v", err)
 	}
 	if !containsAll(prompt,
-		"## 来源: 工单详情页",
-		"工单: ASE-278 - Finish backend coverage rollout",
-		"状态: In Review | 优先级: high | 尝试次数: 3",
-		"### 依赖工单",
+		"## Source: Ticket Detail Page",
+		"Ticket: ASE-278 - Finish backend coverage rollout",
+		"Status: In Review | Priority: high | Attempts: 3",
+		"### Dependent Tickets",
 		"repo=bb0e8400-e29b-41d4-a716-446655440000 branch=feat/openase-278-coverage",
-		"### Hook 历史",
+		"### Hook History",
 		"go test ./... failed in auth package",
-		"不要输出 `action_proposal` 或 `platform_command_proposal`",
+		"Do not output `action_proposal` or `platform_command_proposal`",
 	) {
 		t.Fatalf("ticket detail prompt = %q", prompt)
 	}
@@ -695,7 +695,7 @@ func TestChatHelperCoverageAndRegistry(t *testing.T) {
 	if got := decodeRawJSON(json.RawMessage("{")); got != "{" {
 		t.Fatalf("decodeRawJSON(invalid) = %#v, want raw string", got)
 	}
-	if got := renderActivityLines(nil); got != "- 无\n" {
+	if got := renderActivityLines(nil); got != "- none\n" {
 		t.Fatalf("renderActivityLines(nil) = %q", got)
 	}
 

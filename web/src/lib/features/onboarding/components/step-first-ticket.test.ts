@@ -67,17 +67,17 @@ describe('StepFirstTicket', () => {
     expect(queryByText('Workflow')).toBeNull()
     expect(
       getByText(
-        '工单将进入「Backlog」状态，编排引擎会按 status pickup 规则自动领取并分配给 Agent。',
+        'The ticket will enter "Backlog", and the orchestrator will automatically pick it up and assign it to an agent based on the status pickup rules.',
       ),
     ).toBeTruthy()
 
-    await fireEvent.click(getByText('创建 Ticket'))
+    await fireEvent.click(getByText('Create ticket'))
 
     await waitFor(() => {
       expect(createTicket).toHaveBeenCalledWith(
         'project-1',
         expect.objectContaining({
-          title: '梳理项目需求并输出第一版 PRD',
+          title: 'Review project requirements and draft the first PRD',
           description: undefined,
           status_id: 'status-backlog',
         }),

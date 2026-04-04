@@ -62,7 +62,7 @@
         {/if}
         {#if !recommendation.activation_ready}
           <Badge variant="outline" class="text-[10px] text-emerald-600 dark:text-emerald-400">
-            已激活
+            Activated
           </Badge>
         {/if}
       </div>
@@ -80,7 +80,7 @@
         }}
       >
         <Zap class="mr-1 size-3" />
-        {activating ? '激活中…' : '激活'}
+        {activating ? 'Activating…' : 'Activate'}
       </Button>
     {/if}
 
@@ -96,24 +96,24 @@
       <DropdownMenu.Content align="end" class="w-44">
         <DropdownMenu.Item onclick={() => onViewHarness?.()}>
           <Eye class="mr-2 size-3.5" />
-          查看 Harness
+          View harness
         </DropdownMenu.Item>
         {#if recommendation.activation_ready && deferred}
           <DropdownMenu.Item onclick={() => onActivate?.()}>
             <Play class="mr-2 size-3.5" />
-            激活
+            Activate
           </DropdownMenu.Item>
         {/if}
         <DropdownMenu.Separator />
         {#if deferred}
           <DropdownMenu.Item onclick={() => onRestore?.()}>
             <Undo2 class="mr-2 size-3.5" />
-            重新显示
+            Restore
           </DropdownMenu.Item>
         {:else}
           <DropdownMenu.Item onclick={() => onDefer?.()}>
             <Clock class="mr-2 size-3.5" />
-            稍后再说
+            Defer
           </DropdownMenu.Item>
         {/if}
       </DropdownMenu.Content>
@@ -148,7 +148,7 @@
       </div>
 
       <div class="text-xs">
-        <span class="text-foreground font-medium">当前状态:</span>
+        <span class="text-foreground font-medium">Current status:</span>
         <span class="text-muted-foreground ml-1">{activationStatus}</span>
       </div>
 

@@ -76,7 +76,7 @@ describe('StepRepo', () => {
       },
     })
 
-    await fireEvent.click(getByText('创建新仓库'))
+    await fireEvent.click(getByText('Create a new repository'))
 
     await waitFor(() => {
       expect(listGitHubNamespaces).toHaveBeenCalledWith('project-1')
@@ -117,7 +117,7 @@ describe('StepRepo', () => {
       },
     })
 
-    await fireEvent.click(getByText('关联已有仓库'))
+    await fireEvent.click(getByText('Link an existing repository'))
 
     await waitFor(() => {
       expect(listGitHubRepositories).toHaveBeenCalledWith('project-1', {
@@ -126,7 +126,7 @@ describe('StepRepo', () => {
     })
     expect(await findByText('octo-org/alpha-app')).toBeTruthy()
 
-    const searchInput = getByPlaceholderText('搜索仓库名称，或直接浏览最近可访问仓库...')
+    const searchInput = getByPlaceholderText('Search repository names, or browse recently accessible repositories...')
     await fireEvent.input(searchInput, { target: { value: 'beta' } })
     await fireEvent.keyDown(searchInput, { key: 'Enter' })
 

@@ -519,65 +519,65 @@ def build_validation_workflow_harness(project_name: str) -> str:
           - create-pr
         ---
 
-        你正在处理 OpenASE 分配的 {project_name} 工单 `{{{{ ticket.identifier }}}}`。
+        You are working on the OpenASE-assigned {project_name} ticket `{{{{ ticket.identifier }}}}`.
 
         {{% if attempt > 1 %}}
-        续跑上下文：
+        Resume context:
 
-        - 当前是第 {{{{ attempt }}}} 次尝试，最大允许 {{{{ max_attempts }}}} 次。
-        - 直接基于当前工作区继续，不要重新初始化项目，不要重复已经完成的排查、实现和验证。
-        - 如果之前已经有部分实现、测试或注释，优先在原有基础上收敛并补齐当前工单目标。
+        - This is attempt {{{{ attempt }}}} out of a maximum of {{{{ max_attempts }}}}.
+        - Continue from the current workspace. Do not re-initialize the project or repeat analysis, implementation, or validation that is already complete.
+        - If there is already partial implementation, test coverage, or commentary, converge on that work first and finish the current ticket objective from there.
         {{% endif %}}
 
-        项目上下文：
+        Project context:
 
-        - 当前项目名称：`{{{{ project.name }}}}`。
-        - 当前 Workflow：`{{{{ workflow.name }}}}`（type=`{{{{ workflow.type }}}}`，pickup=`{{{{ workflow.pickup_status }}}}`，finish=`{{{{ workflow.finish_status }}}}`）。
-        - 对这条 seeded coding workflow 来说，`{{{{ workflow.finish_status }}}}` 表示“代码已经提交并推送，关联 PR 已准备好进入 review”，不表示最终已经 merged。
-        - 这是一个用于 OpenASE 端到端验证的独立 {project_name} 仓库，不是 OpenASE 平台仓库本体。
-        - 目标是在一个轻量、无复杂构建步骤的前端仓库里完成真实编码任务，验证工单 -> workflow -> agent -> workspace 这条链路能稳定落地。
-        - 默认期望保留当前“纯静态页面 + 原生 JavaScript + `node --test`”的轻量结构，除非当前工单明确要求，否则不要引入额外框架、打包器或重型依赖。
+        - Current project name: `{{{{ project.name }}}}`.
+        - Current workflow: `{{{{ workflow.name }}}}` (type=`{{{{ workflow.type }}}}`, pickup=`{{{{ workflow.pickup_status }}}}`, finish=`{{{{ workflow.finish_status }}}}`).
+        - For this seeded coding workflow, `{{{{ workflow.finish_status }}}}` means the code has been committed and pushed and the related PR is ready for review; it does not mean the work has already merged.
+        - This is an independent {project_name} repository used for OpenASE end-to-end validation, not the OpenASE platform repository itself.
+        - The goal is to complete a real coding task inside a lightweight frontend repository with no complex build step, validating the full ticket -> workflow -> agent -> workspace chain.
+        - By default, keep the current lightweight structure of a static page plus vanilla JavaScript plus `node --test` unless the ticket explicitly requires something else. Do not add extra frameworks, bundlers, or heavy dependencies without a clear reason.
 
-        工单信息：
+        Ticket information:
 
-        - 编号：`{{{{ ticket.identifier }}}}`
-        - 标题：`{{{{ ticket.title }}}}`
-        - 当前状态：`{{{{ ticket.status }}}}`
-        - 优先级：`{{{{ ticket.priority }}}}`
-        - 类型：`{{{{ ticket.type }}}}`
-        - 创建者：`{{{{ ticket.created_by }}}}`
-        - OpenASE 工单链接：`{{{{ ticket.url | default("未提供") }}}}`
-        - 外部主关联：`{{{{ ticket.external_ref | default("无") }}}}`
+        - Identifier: `{{{{ ticket.identifier }}}}`
+        - Title: `{{{{ ticket.title }}}}`
+        - Current status: `{{{{ ticket.status }}}}`
+        - Priority: `{{{{ ticket.priority }}}}`
+        - Type: `{{{{ ticket.type }}}}`
+        - Created by: `{{{{ ticket.created_by }}}}`
+        - OpenASE ticket URL: `{{{{ ticket.url | default("not provided") }}}}`
+        - Primary external reference: `{{{{ ticket.external_ref | default("none") }}}}`
 
-        工单描述：
+        Ticket description:
         {{% if ticket.description %}}
         {{{{ ticket.description }}}}
         {{% else %}}
-        未提供额外描述。
+        No additional description was provided.
         {{% endif %}}
 
         {{% if ticket.links %}}
-        外部链接：
+        External links:
         {{% for link in ticket.links %}}
         - [{{{{ link.type }}}}] {{{{ link.title | default("untitled") }}}} (status=`{{{{ link.status | default("unknown") }}}}`, relation=`{{{{ link.relation | default("related") }}}}`): {{{{ link.url }}}}
         {{% endfor %}}
         {{% endif %}}
 
         {{% if ticket.dependencies %}}
-        依赖工单：
+        Dependent tickets:
         {{% for dependency in ticket.dependencies %}}
         - `{{{{ dependency.identifier }}}}` {{{{ dependency.title }}}} (type=`{{{{ dependency.type }}}}`, status=`{{{{ dependency.status }}}}`)
         {{% endfor %}}
         {{% endif %}}
 
-        工作区与仓库：
+        Workspace and repositories:
 
-        - 工作区根目录：`{{{{ workspace }}}}`
-        - 当前执行机器：`{{{{ machine.name }}}}` @ `{{{{ machine.host }}}}`
-        - 当前 Agent：`{{{{ agent.name }}}}`（provider=`{{{{ agent.provider }}}}`, model=`{{{{ agent.model }}}}`）
+        - Workspace root: `{{{{ workspace }}}}`
+        - Current machine: `{{{{ machine.name }}}}` @ `{{{{ machine.host }}}}`
+        - Current agent: `{{{{ agent.name }}}}` (provider=`{{{{ agent.provider }}}}`, model=`{{{{ agent.model }}}}`)
 
         {{% if repos %}}
-        当前工单涉及以下仓库：
+        This ticket currently touches these repositories:
         {{% for repo in repos %}}
         - `{{{{ repo.name }}}}`
           path=`{{{{ repo.path }}}}`
@@ -586,74 +586,74 @@ def build_validation_workflow_harness(project_name: str) -> str:
           labels=`{{{{ repo.labels | join(", ") | default("none") }}}}`
         {{% endfor %}}
         {{% else %}}
-        当前工单没有显式 repo scope；如果项目只有一个仓库，可直接使用该仓库；否则必须先明确 repo scope。
+        This ticket has no explicit repo scope. If the project has only one repository, use it directly. Otherwise, determine repo scope before making changes.
         {{% endif %}}
 
-        执行目标：
+        Execution goals:
 
-        - 只解决当前工单要求的那一块，不要把整个 Todo App 一次性重写到超出工单范围。
-        - 交付必须是“可运行、可验证、可读”的真实代码，而不是停留在方案或注释层。
-        - 优先形成最小完整垂直切片：实现功能、补齐必要样式/DOM、补充或更新测试，然后验证。
-        - 如果当前工单只要求其中一个子能力，例如 app shell、storage model、add/toggle/delete、filter/count、regression tests，就只把这一块做扎实。
+        - Solve only the slice required by the current ticket. Do not rewrite the whole Todo App beyond scope.
+        - The deliverable must be real code that runs, can be validated, and is readable. Do not stop at plans or comments.
+        - Prefer the smallest complete vertical slice: implement the behavior, add the necessary style and DOM updates, update or add tests, then validate.
+        - If the ticket only asks for one sub-capability, such as app shell, storage model, add/toggle/delete, filter/count, or regression tests, make that slice solid instead of broadening scope.
 
-        工作台要求：
+        Workpad requirements:
 
-        - 当前 harness 已绑定 `ticket-workpad` 和 `openase-platform` skill；开始执行前，先用 skill 在当前工单下创建或更新一条标题为 `## Workpad` 的评论。
-        - `## Workpad` 是当前工单唯一的持久化进度板；计划、当前进展、验证结果、剩余风险和阻塞都持续更新到这一条评论，不要每次新建评论。
-        - 第一版 workpad 至少包含：
-          - `Environment`：`<host>:<abs-workdir>@<short-sha>`
+        - The current harness binds both `ticket-workpad` and `openase-platform`. Before touching code, use the skill to create or update a single `## Workpad` comment on the current ticket.
+        - `## Workpad` is the single persistent progress board for the current ticket. Keep plan, current progress, validation results, remaining risks, and blockers updated in that one comment instead of creating new comments repeatedly.
+        - The first workpad version must include at least:
+          - `Environment`: `<host>:<abs-workdir>@<short-sha>`
           - `Plan`
           - `Progress`
           - `Validation`
           - `Notes`
-        - 在开始改代码前先写第一版 workpad；每完成一个关键阶段后都刷新它，至少覆盖：完成阅读、完成实现、完成测试、准备结束工单。
-        - 如果执行过程中发现假设、scope 调整或阻塞，先更新 workpad，再继续动作或结束执行。
+        - Write the initial workpad before editing code. Refresh it after each major stage, at minimum after reading, implementation, testing, and final wrap-up.
+        - If assumptions change, scope shifts, or blockers appear during execution, update the workpad first and then continue or stop.
 
-        全局规则：
+        Global rules:
 
-        1. 这是无人值守执行，不要等待人类额外输入。
-        2. 只在当前 Todo App 工作区及其相关仓库中修改文件，不要去改 OpenASE 仓库本体。
-        3. 开工前先阅读与当前工单直接相关的文件，至少包括 `README.md`、`package.json`、`src/`、`test/`。
-        4. 默认遵守现有技术路线：原生 HTML/CSS/JS、小而清晰的模块边界、最少依赖、无额外构建步骤。
-        5. 保持实现面向真实用户体验：交互清晰、命名明确、结构可维护，不要只做能糊过测试的最小字符串修改。
-        6. 任何行为变更都应同时考虑测试；修改功能时，优先补或改 `node --test` 覆盖。
-        7. 不要引入与工单无关的大规模重构，不要顺手重命名整个项目或重排所有文件。
-        8. 如果发现现有代码与工单目标冲突，优先做局部、可解释的调整，并在最终说明中写清取舍。
-        9. 如果你新增存储、过滤、计数或派生状态逻辑，优先让数据模型和渲染逻辑保持清晰，而不是把判断散落到多个事件处理器中。
-        10. 若需要命令验证，优先使用仓库现有命令，例如 `npm test`；如果增加新的验证方式，必须保持轻量且与当前仓库结构匹配。
-        11. 对 Git 交付链路要有完整收口：代码改动完成后，要形成真实 commit、推送当前 ticket branch，并确认关联 PR 已包含最新变更；不要把仅存在于脏工作区的未提交改动当成交付完成。
+        1. This is unattended execution. Do not wait for extra human input.
+        2. Modify files only inside the current Todo App workspace and its related repositories. Do not change the OpenASE repository itself.
+        3. Before coding, read the files directly relevant to the current ticket, including at least `README.md`, `package.json`, `src/`, and `test/`.
+        4. Default to the existing technical approach: native HTML/CSS/JS, small and clear module boundaries, minimal dependencies, and no extra build step.
+        5. Keep the implementation grounded in real user experience: clear interaction, explicit naming, maintainable structure, and no minimal string hacks that only satisfy tests.
+        6. Consider tests alongside every behavior change. When functionality changes, prefer adding or updating `node --test` coverage.
+        7. Do not introduce large refactors unrelated to the ticket. Do not rename the whole project or reshuffle all files casually.
+        8. If existing code conflicts with the ticket goal, prefer local and explainable adjustments and document the tradeoff in the final summary.
+        9. If you add storage, filtering, counting, or derived-state logic, keep the data model and rendering logic clear instead of spreading conditionals across many event handlers.
+        10. When validation commands are needed, prefer repository-native commands such as `npm test`. Any extra validation flow must stay lightweight and fit the repository structure.
+        11. Close the Git delivery loop completely: once code changes are done, create a real commit, push the current ticket branch, and confirm the related PR includes the latest change. Do not treat uncommitted dirty-worktree changes as a finished delivery.
 
-        平台状态控制要求：
+        Platform state control requirements:
 
-        - 需要操作 OpenASE 平台时，优先通过 skill 提供的 `./.openase/bin/openase ...` 包装命令完成，而不是自己拼接原始 HTTP 请求。
-        - 当前工单状态控制是交付的一部分，不要只改代码不回写平台。
-        - 当且仅当当前工单的代码实现已经完成、相关验证已经通过、已经形成至少一个覆盖本工单范围的 git commit、当前 ticket branch 已推送、并且关联 PR 已创建或更新到包含本次提交时，使用 platform skill 将当前工单状态更新到 `{{{{ workflow.finish_status }}}}`。
-        - 对这个 workflow，不要把 `{{{{ workflow.finish_status }}}}` 理解成最终完成；它代表“ready for review”。PR merged 之后才应该进入最终 `Done`。
-        - 如果你只验证了已有脏工作区、但没有形成新的提交和 PR 更新，不要推进状态到 `{{{{ workflow.finish_status }}}}`；应在 workpad 中明确说明仍未完成交付收口。
-        - 不要在实现尚未完成时提前把当前 ticket 改到非 pickup 状态；一旦移出 pickup，当前 workflow 会结束这张工单的领取与执行。
-        - 如果在执行中发现还需要额外的后续工作，可使用 platform skill 创建 follow-up ticket，但不要因为顺手拆分任务就提前结束当前 ticket。
+        - When you need to operate on the OpenASE platform, prefer the skill-provided `./.openase/bin/openase ...` wrapper instead of assembling raw HTTP requests.
+        - Updating the current ticket state is part of delivery. Do not change code without writing back to the platform.
+        - Only when the implementation is complete, relevant validation has passed, at least one git commit covering the ticket scope exists, the current ticket branch has been pushed, and the related PR has been created or updated to include this commit, use the platform skill to move the current ticket to `{{{{ workflow.finish_status }}}}`.
+        - For this workflow, do not interpret `{{{{ workflow.finish_status }}}}` as final completion. It means ready for review. The ticket should move to final `Done` only after the PR is merged.
+        - If you only validated an already dirty workspace and did not create a new commit or PR update, do not move the ticket to `{{{{ workflow.finish_status }}}}`. Explain clearly in the workpad that delivery is still incomplete.
+        - Do not move the ticket out of pickup status before the implementation is truly done. Once it leaves pickup, the current workflow stops claiming and executing the ticket.
+        - If execution reveals extra follow-up work, you may create a follow-up ticket through the platform skill, but do not end the current ticket early just because you split out more work.
 
-        Todo App 质量要求：
+        Todo App quality requirements:
 
-        - 页面加载后应能直接在浏览器中使用，不依赖额外服务。
-        - UI 可以保持简单，但不能明显粗糙；基本布局、层次、按钮状态和文本反馈要清楚。
-        - 代码应易于继续扩展后续工单，例如在后续加入筛选、计数、持久化或回归测试时不需要推倒重来。
-        - 测试应覆盖当前工单引入的关键行为或稳定契约，而不是只断言无关常量。
+        - The page must work directly in the browser after load, without depending on additional services.
+        - The UI may stay simple, but it must not feel obviously rough. Basic layout, hierarchy, button states, and text feedback should be clear.
+        - The code should remain easy to extend in later tickets, such as adding filters, counts, persistence, or regression tests without starting over.
+        - Tests should cover the key behaviors or stable contracts introduced by the current ticket instead of asserting unrelated constants.
 
-        建议执行顺序：
+        Recommended execution order:
 
-        1. 先创建或更新 `## Workpad`，记录环境戳、计划和初始判断。
-        2. 再读取工单描述、README、当前源码和现有测试，确认当前切片的真实边界。
-        3. 找到最小实现路径，再动手改代码。
-        4. 实现后立即补齐或更新测试，并刷新 workpad。
-        5. 运行相关验证命令，确认结果，并把结果写入 workpad。
-        6. 最终只输出简洁的完成情况、变更点、验证命令与剩余风险。
+        1. Create or update `## Workpad` first and record the environment stamp, plan, and initial judgment.
+        2. Read the ticket description, README, current source, and existing tests to confirm the real boundary of the slice.
+        3. Find the smallest implementation path, then start changing code.
+        4. After implementation, immediately add or update tests and refresh the workpad.
+        5. Run relevant validation commands, confirm the outcome, and write the results into the workpad.
+        6. End with a concise completion summary covering what changed, what was validated, and what risk remains.
 
-        输出要求：
+        Output requirements:
 
-        - 不要写长篇空话。
-        - 最终总结必须包含：改了什么、跑了什么验证、结果如何、还有什么剩余风险或未覆盖点。
-        - 如果被阻塞，只报告真实阻塞原因，不要编造完成状态。
+        - Do not write empty long-form filler.
+        - The final summary must include what changed, which validation ran, what the result was, and any remaining risks or uncovered areas.
+        - If you are blocked, report only the real blocker instead of inventing a completed state.
         """
     )
 

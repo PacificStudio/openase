@@ -8,33 +8,33 @@ import type {
 const stepDefinitions: { id: OnboardingStepId; label: string; description: string }[] = [
   {
     id: 'github_token',
-    label: '连接 GitHub',
-    description: '配置 GitHub Token 以便访问代码仓库',
+    label: 'Connect GitHub',
+    description: 'Configure a GitHub token for repository access',
   },
   {
     id: 'repo',
-    label: '创建或关联代码仓库',
-    description: '为项目添加至少一个 Git 仓库',
+    label: 'Create or link a repository',
+    description: 'Add at least one Git repository to the project',
   },
   {
     id: 'provider',
-    label: '选择并配置 AI Provider',
-    description: '至少配置一个可用的 AI 执行引擎',
+    label: 'Select and configure an AI provider',
+    description: 'Configure at least one available AI execution engine',
   },
   {
     id: 'agent_workflow',
-    label: '创建 Agent 与 Workflow',
-    description: '自动创建首个可工作的 Agent 与 Workflow',
+    label: 'Create an agent and workflow',
+    description: 'Automatically create the first working agent and workflow',
   },
   {
     id: 'first_ticket',
-    label: '创建首个 Ticket',
-    description: '提交第一个任务让 Agent 开始工作',
+    label: 'Create the first ticket',
+    description: 'Submit the first task so an agent can start working',
   },
   {
     id: 'ai_discovery',
-    label: '体验 Project AI 与 Harness AI',
-    description: '使用 AI 助手进一步优化项目配置',
+    label: 'Try Project AI and Harness AI',
+    description: 'Use AI assistants to further refine the project setup',
   },
 ]
 
@@ -109,19 +109,19 @@ export function getBootstrapPreset(projectStatus: string): ProjectBootstrapPrese
         pickupStatusName: 'Backlog',
         finishStatusName: 'Done',
         agentNameSuggestion: 'fullstack-developer-01',
-        exampleTicketTitle: '实现项目的第一个核心功能',
+        exampleTicketTitle: 'Implement the first core feature of the project',
       }
     case 'Planned':
     case 'Backlog':
     default:
       return {
-        roleName: '产品经理',
+        roleName: 'Product Manager',
         roleSlug: 'product-manager',
         workflowType: 'Product Manager',
         pickupStatusName: 'Backlog',
         finishStatusName: 'Done',
         agentNameSuggestion: 'product-manager-01',
-        exampleTicketTitle: '梳理项目需求并输出第一版 PRD',
+        exampleTicketTitle: 'Review project requirements and draft the first PRD',
       }
   }
 }

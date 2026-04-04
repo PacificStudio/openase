@@ -5,11 +5,11 @@ description: "Prepare a crisp pull request summary with scope, validation, and r
 
 # Create PR
 
-当流程需要 Pull Request 时，PR 描述至少包含：
+When the workflow requires a pull request, the PR description should include at least:
 
-- 变更目的
-- 主要实现点
-- 验证命令和结果
-- 风险与回滚方式
+- Why this change exists
+- The main implementation points
+- Validation commands and results
+- Risks and rollback notes
 
-标题要和提交主题一致，避免模糊表述。
+Keep the title aligned with the commit theme and avoid vague wording.

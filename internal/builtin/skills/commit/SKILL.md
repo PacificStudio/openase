@@ -5,11 +5,11 @@ description: "Write concise Conventional Commit messages that match the actual s
 
 # Conventional Commit
 
-在提交前整理变更范围，并使用 Conventional Commit 风格：
+Before committing, tighten the change scope and use Conventional Commit style:
 
-- `feat(scope): ...` 用于可见能力新增
-- `fix(scope): ...` 用于缺陷修复
-- `refactor(scope): ...` 用于无行为变化的重构
-- `test(scope): ...` 用于测试补充
+- `feat(scope): ...` for visible capability additions
+- `fix(scope): ...` for bug fixes
+- `refactor(scope): ...` for behavior-preserving refactors
+- `test(scope): ...` for adding or improving tests
 
-避免把多个不相关改动塞进同一个提交说明。标题写结果，不写过程。
+Do not hide unrelated changes behind one commit message. Write the title around the outcome, not the process.

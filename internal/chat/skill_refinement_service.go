@@ -608,18 +608,18 @@ func sanitizeSkillRefinementPathComponent(value string) string {
 
 func buildSkillRefinementSystemPrompt(skillDir string) string {
 	return strings.TrimSpace(fmt.Sprintf(`
-你正在执行 OpenASE Skill 的 fix-and-verify refinement。
+You are running OpenASE Skill fix-and-verify refinement.
 
-要求：
-- 只能在当前工作区内操作。
-- 当前待编辑的 skill bundle 位于 %s。
-- 必须直接修改该目录下的真实文件，而不是只给建议。
-- 必须亲自运行验证命令；没有运行命令就不能声称 verified。
-- 如果发现失败，先修复再重试；只有在确认无法完成时才返回 blocked。
-- 最终只输出一个 JSON 对象，不要附加解释文本。
+Requirements:
+- Operate only inside the current workspace.
+- The skill bundle being edited is located at %s.
+- You must edit the real files under that directory directly instead of only giving advice.
+- You must run verification commands yourself; if you did not run them, you cannot claim `verified`.
+- If you find failures, fix them and retry. Return `blocked` only after confirming the task cannot be completed.
+- Output exactly one JSON object at the end, with no extra explanation.
 
-最终 JSON 格式：
-{"type":"skill_refinement_result","status":"verified|blocked","summary":"一句话总结","verification_notes":"关键验证步骤摘要","failure_reason":"若 blocked 则填写"}
+Final JSON shape:
+{"type":"skill_refinement_result","status":"verified|blocked","summary":"one-line summary","verification_notes":"summary of key verification steps","failure_reason":"required when blocked"}
 `, filepath.ToSlash(skillDir)))
 }
 
@@ -631,17 +631,17 @@ func buildSkillRefinementPrompt(
 	lastFailure string,
 ) string {
 	var sb strings.Builder
-	_, _ = fmt.Fprintf(&sb, "目标 skill: %s\n", skillName)
-	_, _ = fmt.Fprintf(&sb, "skill 目录: %s\n", filepath.ToSlash(skillDir))
-	_, _ = fmt.Fprintf(&sb, "用户请求: %s\n", strings.TrimSpace(userMessage))
+	_, _ = fmt.Fprintf(&sb, "Target skill: %s\n", skillName)
+	_, _ = fmt.Fprintf(&sb, "Skill directory: %s\n", filepath.ToSlash(skillDir))
+	_, _ = fmt.Fprintf(&sb, "User request: %s\n", strings.TrimSpace(userMessage))
 	if attempt > 1 && strings.TrimSpace(lastFailure) != "" {
-		_, _ = fmt.Fprintf(&sb, "上一次失败摘要: %s\n", strings.TrimSpace(lastFailure))
+		_, _ = fmt.Fprintf(&sb, "Previous failure summary: %s\n", strings.TrimSpace(lastFailure))
 	}
-	sb.WriteString("\n执行步骤：\n")
-	sb.WriteString("1. 阅读并修改 skill bundle 中必要的文件。\n")
-	sb.WriteString("2. 运行真实验证命令，至少证明本次改动已被检查。\n")
-	sb.WriteString("3. 若验证失败，继续修复直到通过，或确认被阻塞。\n")
-	sb.WriteString("4. 结束时仅输出最终 JSON。\n")
+	sb.WriteString("\nExecution steps:\n")
+	sb.WriteString("1. Read and modify the necessary files in the skill bundle.\n")
+	sb.WriteString("2. Run real verification commands that prove the change was checked.\n")
+	sb.WriteString("3. If verification fails, keep fixing until it passes or the task is confirmed blocked.\n")
+	sb.WriteString("4. Output only the final JSON at the end.\n")
 	return sb.String()
 }
 

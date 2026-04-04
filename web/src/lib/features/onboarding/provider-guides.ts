@@ -27,29 +27,29 @@ export const providerGuides: ProviderGuide[] = [
     title: 'Claude Code',
     adapterTypes: ['claude-code-cli', 'claude_code'],
     docsUrl: 'https://code.claude.com/docs/en/getting-started',
-    docsLabel: 'Claude Code 官方文档',
+    docsLabel: 'Claude Code official docs',
     recommendedModel: 'claude-opus-4-6',
     installCommands: [
       {
-        label: '官方推荐安装',
+        label: 'Recommended install',
         command: 'curl -fsSL https://claude.ai/install.sh | bash',
       },
     ],
     authCommands: [
       {
-        label: '首次登录',
+        label: 'First sign-in',
         command: 'claude',
       },
     ],
     verifyCommands: [
       {
-        label: '确认 CLI 可执行',
+        label: 'Verify CLI is available',
         command: 'claude --version',
       },
     ],
     commonFixHints: [
-      'Windows 环境需要先安装 Git for Windows，Claude Code 会依赖 Git Bash。',
-      '如果账号没有 Claude Code 权限，登录后仍会保持不可用状态。',
+      'On Windows, install Git for Windows first because Claude Code depends on Git Bash.',
+      'If the account does not have Claude Code access, it will remain unavailable after sign-in.',
     ],
   },
   {
@@ -57,29 +57,29 @@ export const providerGuides: ProviderGuide[] = [
     title: 'OpenAI Codex',
     adapterTypes: ['codex-app-server', 'codex'],
     docsUrl: 'https://developers.openai.com/codex/cli',
-    docsLabel: 'Codex CLI 官方文档',
+    docsLabel: 'Codex CLI official docs',
     recommendedModel: 'gpt-5.4',
     installCommands: [
       {
-        label: '全局安装',
+        label: 'Global install',
         command: 'npm i -g @openai/codex',
       },
     ],
     authCommands: [
       {
-        label: '登录 ChatGPT / API',
+        label: 'Sign in to ChatGPT / API',
         command: 'codex --login',
       },
     ],
     verifyCommands: [
       {
-        label: '确认 CLI 可执行',
+        label: 'Verify CLI is available',
         command: 'codex --version',
       },
     ],
     commonFixHints: [
-      '如果命令存在但无法执行，优先确认 npm 全局 bin 目录已经加入 PATH。',
-      '如果登录状态丢失，重新运行 `codex --login`，或检查 API key / ChatGPT 计划权限。',
+      'If the command exists but cannot run, first confirm the global npm bin directory is on PATH.',
+      'If the login state is lost, rerun `codex --login` or check API key / ChatGPT plan access.',
     ],
   },
   {
@@ -87,51 +87,51 @@ export const providerGuides: ProviderGuide[] = [
     title: 'Gemini CLI',
     adapterTypes: ['gemini-cli', 'gemini_cli'],
     docsUrl: 'https://github.com/google-gemini/gemini-cli',
-    docsLabel: 'Gemini CLI 官方仓库',
+    docsLabel: 'Gemini CLI official repository',
     recommendedModel: 'gemini-2.5-pro',
     installCommands: [
       {
-        label: '全局安装',
+        label: 'Global install',
         command: 'npm install -g @google/gemini-cli',
       },
     ],
     authCommands: [
       {
-        label: '首次登录 / 选择鉴权方式',
+        label: 'First sign-in / choose auth method',
         command: 'gemini',
       },
     ],
     verifyCommands: [
       {
-        label: '确认 CLI 可执行',
+        label: 'Verify CLI is available',
         command: 'gemini --version',
       },
     ],
     commonFixHints: [
-      '首次启动时可以选择 Google 账号登录，也可以改用 `GEMINI_API_KEY` / Vertex AI。',
-      '如果命令不存在，先确认 Node 18+ 与 npm 全局 bin 目录都在 PATH 中。',
+      'On first launch, you can sign in with a Google account or switch to `GEMINI_API_KEY` / Vertex AI.',
+      'If the command is missing, first confirm Node 18+ and the global npm bin directory are on PATH.',
     ],
   },
 ]
 
 export const availabilityLabel: Record<string, { text: string; className: string }> = {
-  available: { text: '可用', className: 'text-emerald-600 dark:text-emerald-400' },
-  ready: { text: '可用', className: 'text-emerald-600 dark:text-emerald-400' },
-  unavailable: { text: '不可用', className: 'text-destructive' },
-  stale: { text: '状态过期', className: 'text-amber-600 dark:text-amber-400' },
-  unknown: { text: '待检测', className: 'text-muted-foreground' },
+  available: { text: 'Available', className: 'text-emerald-600 dark:text-emerald-400' },
+  ready: { text: 'Available', className: 'text-emerald-600 dark:text-emerald-400' },
+  unavailable: { text: 'Unavailable', className: 'text-destructive' },
+  stale: { text: 'Status stale', className: 'text-amber-600 dark:text-amber-400' },
+  unknown: { text: 'Pending check', className: 'text-muted-foreground' },
 }
 
 export const cliDetectionLabel: Record<DetectionStatus, string> = {
-  yes: '已检测到',
-  no: '未检测到',
-  pending: '待配置',
+  yes: 'Detected',
+  no: 'Not detected',
+  pending: 'Pending setup',
 }
 
 export const authDetectionLabel: Record<DetectionStatus, string> = {
-  yes: '已登录',
-  no: '未登录',
-  pending: '待确认',
+  yes: 'Signed in',
+  no: 'Signed out',
+  pending: 'Pending confirmation',
 }
 
 export function matchesGuide(provider: AgentProvider, guide: ProviderGuide): boolean {
@@ -205,22 +205,22 @@ export function providerStatus(provider: AgentProvider | null) {
 export function reasonSpecificHints(provider: AgentProvider | null): string[] {
   switch (provider?.availability_reason) {
     case 'machine_offline':
-      return ['绑定机器当前离线，先恢复机器在线状态，再回到这里执行重新检测。']
+      return ['The bound machine is currently offline. Bring it back online, then rerun detection here.']
     case 'machine_degraded':
-      return ['机器已连接但处于 degraded 状态，先修复主机健康问题，再重新检测。']
+      return ['The machine is connected but degraded. Fix host health first, then rerun detection.']
     case 'machine_maintenance':
-      return ['机器处于维护模式，退出维护后再重新检测。']
+      return ['The machine is in maintenance mode. Exit maintenance and rerun detection.']
     case 'cli_missing':
-      return ['OpenASE 已找到这个 Provider，但在目标机器 PATH 中没有检测到对应 CLI。']
+      return ['OpenASE found this provider, but could not detect the matching CLI in the target machine PATH.']
     case 'not_logged_in':
-      return ['CLI 已安装，但当前认证缺失或已过期。重新执行登录命令后再检测。']
+      return ['The CLI is installed, but authentication is missing or expired. Rerun the sign-in command, then detect again.']
     case 'not_ready':
-      return ['CLI 存在但 readiness probe 仍未通过，优先先跑一次验证命令确认具体报错。']
+      return ['The CLI exists, but the readiness probe still fails. Run a verification command first to inspect the exact error.']
     case 'config_incomplete':
-      return ['当前 Provider 注册信息不完整，检查 CLI command、模型和机器绑定是否都已填写。']
+      return ['This provider registration is incomplete. Check that the CLI command, model, and machine binding are all filled in.']
     case 'l4_snapshot_missing':
     case 'stale_l4_snapshot':
-      return ['OpenASE 还没有拿到可用的最新机器快照，执行重新检测会重新拉取快照。']
+      return ['OpenASE does not yet have a usable fresh machine snapshot. Rerunning detection will fetch one again.']
     default:
       return []
   }

@@ -84,14 +84,14 @@ describe('StepAgentWorkflow', () => {
       },
     })
 
-    expect(getByText('Pickup：Backlog → Finish：Done')).toBeTruthy()
+    expect(getByText('Pickup: Backlog → Finish: Done')).toBeTruthy()
 
-    await fireEvent.click(getByText('一键创建 Agent 与 Workflow'))
+    await fireEvent.click(getByText('Create agent and workflow'))
 
     await waitFor(() => {
       expect(createWorkflow).toHaveBeenCalledWith('project-1', {
         agent_id: 'agent-1',
-        name: '产品经理 Workflow',
+        name: 'Product Manager Workflow',
         type: 'Product Manager',
         pickup_status_ids: ['status-backlog'],
         finish_status_ids: ['status-done'],
@@ -144,7 +144,7 @@ function makeWorkflow(overrides: Partial<Workflow> = {}): Workflow {
     id: 'workflow-1',
     project_id: 'project-1',
     agent_id: 'agent-1',
-    name: '产品经理 Workflow',
+    name: 'Product Manager Workflow',
     type: 'Product Manager',
     workflow_family: 'planning',
     workflow_classification: {

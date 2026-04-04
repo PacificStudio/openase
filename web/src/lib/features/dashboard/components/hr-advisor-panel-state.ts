@@ -14,22 +14,22 @@ const deferredStoragePrefix = 'openase.dashboard.hrAdvisor.deferred.'
 export const prioritySectionsMeta: PrioritySectionMeta[] = [
   {
     key: 'high',
-    label: '高优先级',
+    label: 'High priority',
     accentClass: 'border-rose-500/20 bg-rose-500/5',
   },
   {
     key: 'medium',
-    label: '中优先级',
+    label: 'Medium priority',
     accentClass: 'border-amber-500/20 bg-amber-500/5',
   },
   {
     key: 'low',
-    label: '低优先级',
+    label: 'Low priority',
     accentClass: 'border-sky-500/20 bg-sky-500/5',
   },
   {
     key: 'other',
-    label: '其他建议',
+    label: 'Other recommendations',
     accentClass: 'border-border bg-muted/20',
   },
 ]
@@ -49,11 +49,11 @@ export function toPrioritySectionKey(priority: string): PrioritySectionKey {
 
 export function activationStatusText(recommendation: HRAdvisorRecommendation) {
   if (recommendation.activation_ready) {
-    return `可立即创建 ${recommendation.suggested_workflow_name} workflow。`
+    return `Ready to create the ${recommendation.suggested_workflow_name} workflow.`
   }
 
   const workflowName = recommendation.active_workflow_name || recommendation.suggested_workflow_name
-  return `已通过 ${workflowName} 激活。`
+  return `Activated through ${workflowName}.`
 }
 
 export function loadDeferredRecommendationKeys(projectId: string) {

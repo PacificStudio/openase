@@ -41,10 +41,10 @@ describe('OnboardingPanel', () => {
       },
     })
 
-    expect(await findByText('跳过导览')).toBeTruthy()
-    expect(getByText('不想继续配置的话，可以直接跳过导览并结束。')).toBeTruthy()
+    expect(await findByText('Skip tour')).toBeTruthy()
+    expect(getByText('If you do not want to continue setup, you can skip the tour and finish now.')).toBeTruthy()
 
-    await fireEvent.click(getByText('跳过导览'))
+    await fireEvent.click(getByText('Skip tour'))
 
     await waitFor(() => {
       expect(onOnboardingComplete).toHaveBeenCalledTimes(1)

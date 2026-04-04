@@ -84,7 +84,7 @@
       })
       searchResults = payload.repositories
     } catch (caughtError) {
-      toastStore.error(caughtError instanceof ApiError ? caughtError.detail : '搜索仓库失败。')
+      toastStore.error(caughtError instanceof ApiError ? caughtError.detail : 'Failed to search repositories.')
     } finally {
       searchingRepos = false
     }
@@ -119,10 +119,10 @@
 
       const updatedRepos = await listProjectRepos(projectId)
       repos = updatedRepos.repos
-      toastStore.success(`仓库 ${newRepoName} 已创建并关联到项目。`)
+      toastStore.success(`Repository ${newRepoName} was created and linked to the project.`)
       onComplete(updatedRepos.repos)
     } catch (caughtError) {
-      toastStore.error(caughtError instanceof ApiError ? caughtError.detail : '创建仓库失败。')
+      toastStore.error(caughtError instanceof ApiError ? caughtError.detail : 'Failed to create the repository.')
     } finally {
       creating = false
     }
@@ -140,10 +140,10 @@
 
       const updatedRepos = await listProjectRepos(projectId)
       repos = updatedRepos.repos
-      toastStore.success(`仓库 ${linkRepoName} 已关联到项目。`)
+      toastStore.success(`Repository ${linkRepoName} was linked to the project.`)
       onComplete(updatedRepos.repos)
     } catch (caughtError) {
-      toastStore.error(caughtError instanceof ApiError ? caughtError.detail : '关联仓库失败。')
+      toastStore.error(caughtError instanceof ApiError ? caughtError.detail : 'Failed to link the repository.')
     } finally {
       linking = false
     }

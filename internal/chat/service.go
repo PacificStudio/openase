@@ -642,8 +642,8 @@ func (s *Service) buildSystemPrompt(
 	project catalogdomain.Project,
 ) (string, error) {
 	var sb strings.Builder
-	sb.WriteString("你是 OpenASE 平台的内嵌 AI 助手。你正在帮助用户理解或操作 OpenASE，而不是替代编排引擎执行工单。\n\n")
-	sb.WriteString("请基于下面的上下文回答。不要声称已经执行了任何平台写操作。需要实际执行平台或仓库操作时，直接使用运行时里可用的 skill、CLI 和工具完成，不要输出 `action_proposal` 或 `platform_command_proposal` 之类的结构化提案 JSON。\n\n")
+	sb.WriteString("You are the embedded AI assistant for the OpenASE platform. You are helping the user understand or operate OpenASE, not replacing the orchestration engine to execute tickets.\n\n")
+	sb.WriteString("Answer using the context below. Do not claim that you have already performed platform write operations. When platform or repository actions are actually needed, use the skills, CLI, and tools available at runtime directly. Do not output structured proposal JSON such as `action_proposal` or `platform_command_proposal`.\n\n")
 
 	switch input.Source {
 	case SourceHarnessEditor:
@@ -667,9 +667,9 @@ func (s *Service) buildSystemPrompt(
 	}
 
 	if input.Source == SourceProjectSidebar {
-		sb.WriteString("\n## 项目侧栏执行约束\n")
-		sb.WriteString("- 需要改平台数据时，直接使用运行时可用的 skill / CLI / tool 完成，不要先生成 proposal 再等待确认。\n")
-		sb.WriteString("- 优先使用 project slug/name、ticket identifier、status name 这类人类可读引用；如果对象无法唯一确定，先提一个定向澄清问题，不要猜。\n")
+		sb.WriteString("\n## Project Sidebar Execution Constraints\n")
+		sb.WriteString("- When platform data must change, use the runtime-available skill / CLI / tool directly instead of generating a proposal and waiting for confirmation.\n")
+		sb.WriteString("- Prefer human-readable references such as project slug/name, ticket identifier, and status name. If the target cannot be identified uniquely, ask a focused clarification question instead of guessing.\n")
 	}
 
 	return sb.String(), nil
@@ -687,12 +687,12 @@ func (s *Service) writeHarnessEditorContext(
 		return fmt.Errorf("get workflow for chat context: %w", err)
 	}
 
-	sb.WriteString("## 来源: Harness 编辑器\n")
-	_, _ = fmt.Fprintf(sb, "项目: %s\n", project.Name)
+	sb.WriteString("## Source: Harness Editor\n")
+	_, _ = fmt.Fprintf(sb, "Project: %s\n", project.Name)
 	_, _ = fmt.Fprintf(sb, "Workflow: %s (%s)\n", workflowItem.Name, workflowItem.Type)
 	_, _ = fmt.Fprintf(sb, "Harness Path: %s | Active: %t | Version: %d\n", workflowItem.HarnessPath, workflowItem.IsActive, workflowItem.Version)
-	_, _ = fmt.Fprintf(sb, "并发: %d | 最大重试: %d | 超时: %d 分钟 | 卡住超时: %d 分钟\n\n", workflowItem.MaxConcurrent, workflowItem.MaxRetryAttempts, workflowItem.TimeoutMinutes, workflowItem.StallTimeoutMinutes)
-	sb.WriteString("### 当前 Harness\n")
+	_, _ = fmt.Fprintf(sb, "Concurrency: %d | Max retries: %d | Timeout: %d minutes | Stall timeout: %d minutes\n\n", workflowItem.MaxConcurrent, workflowItem.MaxRetryAttempts, workflowItem.TimeoutMinutes, workflowItem.StallTimeoutMinutes)
+	sb.WriteString("### Current Harness\n")
 	sb.WriteString("```markdown\n")
 	sb.WriteString(workflowItem.HarnessContent)
 	if !strings.HasSuffix(workflowItem.HarnessContent, "\n") {
@@ -700,9 +700,9 @@ func (s *Service) writeHarnessEditorContext(
 	}
 	sb.WriteString("```\n\n")
 	if draft := input.Context.HarnessDraft; draft != nil && *draft != workflowItem.HarnessContent {
-		sb.WriteString("### 当前编辑器草稿（未保存）\n")
+		sb.WriteString("### Current Editor Draft (Unsaved)\n")
 		if *draft == "" {
-			sb.WriteString("（当前草稿为空）\n\n")
+			sb.WriteString("(Current draft is empty)\n\n")
 		} else {
 			sb.WriteString("```markdown\n")
 			sb.WriteString(*draft)
@@ -718,7 +718,7 @@ func (s *Service) writeHarnessEditorContext(
 		return err
 	}
 	if statusLines != "" {
-		sb.WriteString("### 项目状态拓扑\n")
+		sb.WriteString("### Project Status Topology\n")
 		sb.WriteString(statusLines)
 		sb.WriteByte('\n')
 	}
@@ -728,7 +728,7 @@ func (s *Service) writeHarnessEditorContext(
 		return err
 	}
 	if workflowLines != "" {
-		sb.WriteString("### 项目 Workflow 拓扑\n")
+		sb.WriteString("### Project Workflow Topology\n")
 		sb.WriteString(workflowLines)
 		sb.WriteByte('\n')
 	}
@@ -738,7 +738,7 @@ func (s *Service) writeHarnessEditorContext(
 		return err
 	}
 	if repoLines != "" {
-		sb.WriteString("### 项目仓库边界\n")
+		sb.WriteString("### Project Repository Boundaries\n")
 		sb.WriteString(repoLines)
 		sb.WriteByte('\n')
 	}
@@ -748,7 +748,7 @@ func (s *Service) writeHarnessEditorContext(
 		return err
 	}
 	if ticketLines != "" {
-		sb.WriteString("### 最近工单样本\n")
+		sb.WriteString("### Recent Ticket Samples\n")
 		sb.WriteString(ticketLines)
 		sb.WriteByte('\n')
 	}
@@ -757,39 +757,39 @@ func (s *Service) writeHarnessEditorContext(
 	if err != nil {
 		return err
 	}
-	sb.WriteString("### 最近活动样本\n")
+	sb.WriteString("### Recent Activity Samples\n")
 	sb.WriteString(renderActivityLines(activityItems))
 	sb.WriteByte('\n')
 
-	sb.WriteString("### 可用模板变量\n")
+	sb.WriteString("### Available Template Variables\n")
 	sb.WriteString(renderHarnessVariableDictionary())
 	sb.WriteByte('\n')
-	sb.WriteString("\n### 专业 Workflow 设计基线\n")
-	sb.WriteString("- Harness 必须准确贴合当前项目真实的状态流转，不要默认使用 `Todo -> Done`，除非上下文明确如此。\n")
-	sb.WriteString("- 产物应明确职责边界、接单状态、交付状态、完成定义、repo 作用域、验证要求、失败/阻塞处理和 handoff 规则。\n")
-	sb.WriteString("- 优先复用当前项目已有 workflows 的分工，避免写出和现有 lane 冲突或重复负责的 workflow。\n")
-	sb.WriteString("- 如果用户要的是“专业 workflow”，默认要写成可执行 SOP，而不是泛泛而谈的角色描述。\n")
-	sb.WriteString("- 不要虚构平台能力；需要平台写操作时，直接使用运行时可用工具完成，无法安全确定目标时先澄清。\n")
-	sb.WriteString("\n### 先推断，缺失再澄清\n")
-	sb.WriteString("在给出 harness diff 前，先基于上下文判断下面 7 项是否已经明确；缺任何关键项时，先问定向澄清问题，不要直接产出 workflow 文本：\n")
-	sb.WriteString("- 1. 这个 workflow 的职责边界是什么。\n")
-	sb.WriteString("- 2. 它从哪个状态接单（pickup status）。\n")
-	sb.WriteString("- 3. 它把工单推进到哪个状态（finish status）。\n")
-	sb.WriteString("- 4. 它的完成定义是什么，例如代码提交、PR 创建、CI 通过还是已 merge。\n")
-	sb.WriteString("- 5. 它允许主动做哪些平台写操作，例如改状态、建子工单、更新 repo scope。\n")
-	sb.WriteString("- 6. 它默认覆盖哪些 repo 或 repo scope。\n")
-	sb.WriteString("- 7. 遇到失败、阻塞、缺信息、CI 红灯时应该怎么处理。\n")
-	sb.WriteString("\n### Harness 编辑器回复要求\n")
-	sb.WriteString("- 当用户请求修改 Harness 且上下文已足够时，默认只输出 1 个结构化 diff JSON 对象，供编辑器直接安全应用。\n")
-	sb.WriteString("- 除非你是在提澄清问题，或你明确无法可靠地产出 diff；否则不要输出解释文字、前言、后记、markdown 列表、代码块围栏、多个 JSON 对象，或不完整 JSON 片段。\n")
-	sb.WriteString("- 输出必须是单个合法 JSON object，从第一个 `{` 开始，到最后一个 `}` 结束，中间不要夹杂任何自然语言。\n")
-	sb.WriteString("- 顶层字段固定为：`type`、`file`、`hunks`。不要添加额外顶层字段。\n")
-	sb.WriteString("- `type` 必须恒等于 `diff`；`file` 必须恒等于 `harness content`。\n")
-	sb.WriteString("- `hunks` 必须是非空数组；每个 hunk 必须同时包含 `old_start`、`old_lines`、`new_start`、`new_lines`、`lines`。\n")
-	sb.WriteString("- 行号使用 1-based 正整数；`old_lines` / `new_lines` 必须与 `lines` 中 `context` / `remove` / `add` 的数量严格一致。\n")
-	sb.WriteString("- `lines[].op` 只能是 `context` / `add` / `remove`；`lines[].text` 必须是单行文本，不要把换行符写进一个 `text` 值里。\n")
-	sb.WriteString("- 字段名必须使用 snake_case：`old_start`、`old_lines`、`new_start`、`new_lines`。不要输出 camelCase 变体。\n")
-	sb.WriteString("- JSON Schema（简化）如下：\n")
+	sb.WriteString("\n### Professional Workflow Design Baseline\n")
+	sb.WriteString("- The harness must match the real status flow of the current project accurately. Do not assume `Todo -> Done` unless the context clearly says so.\n")
+	sb.WriteString("- The artifact should make role boundaries, pickup status, delivery status, definition of done, repo scope, validation requirements, failure/blocker handling, and handoff rules explicit.\n")
+	sb.WriteString("- Prefer reusing the division of labor from existing workflows on the current project so you do not create a workflow that conflicts with or duplicates an existing lane.\n")
+	sb.WriteString("- If the user asks for a professional workflow, default to an executable SOP instead of vague role prose.\n")
+	sb.WriteString("- Do not invent platform capabilities. When a platform write is required, use the runtime tools directly, and clarify first if the target cannot be identified safely.\n")
+	sb.WriteString("\n### Infer First, Clarify Only What Is Missing\n")
+	sb.WriteString("Before producing a harness diff, decide whether the seven items below are already clear from context. If any critical item is missing, ask a focused clarification question first instead of producing workflow text immediately:\n")
+	sb.WriteString("- 1. What is the responsibility boundary of this workflow?\n")
+	sb.WriteString("- 2. Which status does it pick tickets up from?\n")
+	sb.WriteString("- 3. Which status does it move tickets to?\n")
+	sb.WriteString("- 4. What counts as done for this workflow: committed code, PR created, CI green, or merged?\n")
+	sb.WriteString("- 5. Which proactive platform writes may it perform, such as changing status, creating child tickets, or updating repo scope?\n")
+	sb.WriteString("- 6. Which repo or repo scope does it cover by default?\n")
+	sb.WriteString("- 7. How should it react to failures, blockers, missing information, or red CI?\n")
+	sb.WriteString("\n### Harness Editor Response Requirements\n")
+	sb.WriteString("- When the user requests a harness change and the context is sufficient, default to outputting exactly one structured diff JSON object that the editor can apply safely.\n")
+	sb.WriteString("- Unless you are asking a clarification question or you cannot reliably produce a diff, do not output explanatory prose, intros, outros, markdown lists, fenced code blocks, multiple JSON objects, or incomplete JSON fragments.\n")
+	sb.WriteString("- The output must be one valid JSON object, starting at the first `{` and ending at the last `}`, with no natural language mixed in.\n")
+	sb.WriteString("- The top-level fields are fixed: `type`, `file`, and `hunks`. Do not add extra top-level fields.\n")
+	sb.WriteString("- `type` must be exactly `diff`, and `file` must be exactly `harness content`.\n")
+	sb.WriteString("- `hunks` must be a non-empty array, and each hunk must include `old_start`, `old_lines`, `new_start`, `new_lines`, and `lines`.\n")
+	sb.WriteString("- Line numbers use 1-based positive integers. `old_lines` and `new_lines` must match the counts of `context`, `remove`, and `add` entries in `lines` exactly.\n")
+	sb.WriteString("- `lines[].op` may only be `context`, `add`, or `remove`. `lines[].text` must be single-line text; do not embed newline characters inside one `text` value.\n")
+	sb.WriteString("- Field names must use snake_case: `old_start`, `old_lines`, `new_start`, `new_lines`. Do not output camelCase variants.\n")
+	sb.WriteString("- The simplified JSON schema is:\n")
 	sb.WriteString("```json\n")
 	sb.WriteString("{\n")
 	sb.WriteString("  \"type\": \"object\",\n")
@@ -829,10 +829,10 @@ func (s *Service) writeHarnessEditorContext(
 	sb.WriteString("  }\n")
 	sb.WriteString("}\n")
 	sb.WriteString("```\n")
-	sb.WriteString("- 合法示例：{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"# Title\"},{\"op\":\"add\",\"text\":\"新增内容\"}]}]}\n")
-	sb.WriteString("- 如果上下文已足够，就直接给出贴合当前项目状态与拓扑的 diff；如果上下文不足，就先提最少但足够的澄清问题。\n")
-	sb.WriteString("- 如果无法可靠地产出结构化 diff，才回退为简要说明加完整 Harness markdown 代码块。\n")
-	sb.WriteString("- 如果用户要求平台写操作，优先基于上下文给出可执行的实现或先澄清缺失信息，不要输出 proposal JSON。\n")
+	sb.WriteString("- Valid example: {\"type\":\"diff\",\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"# Title\"},{\"op\":\"add\",\"text\":\"new content\"}]}]}\n")
+	sb.WriteString("- If the context is sufficient, return a diff that matches the current project state and topology directly. If it is insufficient, ask the smallest sufficient clarification question first.\n")
+	sb.WriteString("- Only fall back to a short explanation plus a full Harness markdown code block if you cannot reliably produce a structured diff.\n")
+	sb.WriteString("- If the user asks for platform writes, prefer an executable implementation grounded in the context or clarify missing information first. Do not output proposal JSON.\n")
 	return nil
 }
 
@@ -861,21 +861,21 @@ func (s *Service) writeSkillEditorContext(
 		}
 	}
 
-	sb.WriteString("## 来源: Skill 编辑器\n")
-	_, _ = fmt.Fprintf(sb, "项目: %s\n", project.Name)
-	_, _ = fmt.Fprintf(sb, "Skill: %s | 版本: %d | 启用: %t\n", skillItem.Name, skillItem.CurrentVersion, skillItem.IsEnabled)
+	sb.WriteString("## Source: Skill Editor\n")
+	_, _ = fmt.Fprintf(sb, "Project: %s\n", project.Name)
+	_, _ = fmt.Fprintf(sb, "Skill: %s | Version: %d | Enabled: %t\n", skillItem.Name, skillItem.CurrentVersion, skillItem.IsEnabled)
 	_, _ = fmt.Fprintf(sb, "Path: %s | Bundle Hash: %s | Files: %d\n", skillItem.Path, skillItem.BundleHash, skillItem.FileCount)
 	if skillItem.Description != "" {
 		_, _ = fmt.Fprintf(sb, "Description: %s\n", skillItem.Description)
 	}
 	if len(skillItem.BoundWorkflows) > 0 {
-		sb.WriteString("\n### 绑定的 Workflows\n")
+		sb.WriteString("\n### Bound Workflows\n")
 		for _, binding := range skillItem.BoundWorkflows {
 			_, _ = fmt.Fprintf(sb, "- %s (%s)\n", binding.Name, binding.HarnessPath)
 		}
 	}
 
-	sb.WriteString("\n### Skill Bundle 文件清单\n")
+	sb.WriteString("\n### Skill Bundle File List\n")
 	for _, file := range skillItem.Files {
 		_, _ = fmt.Fprintf(
 			sb,
@@ -891,9 +891,9 @@ func (s *Service) writeSkillEditorContext(
 		sb.WriteByte('\n')
 	}
 
-	_, _ = fmt.Fprintf(sb, "\n### 当前选中文件\n- path: %s\n", selectedPath)
+	_, _ = fmt.Fprintf(sb, "\n### Currently Selected File\n- path: %s\n", selectedPath)
 	if selectedFile == nil {
-		sb.WriteString("- 当前选中文件不存在于已发布 bundle 中，按未保存的新文件处理。\n")
+		sb.WriteString("- The currently selected file does not exist in the published bundle and will be treated as a new unsaved file.\n")
 	} else {
 		_, _ = fmt.Fprintf(sb, "- kind: %s\n- encoding: %s\n- media_type: %s\n", selectedFile.FileKind, selectedFile.Encoding, selectedFile.MediaType)
 	}
@@ -903,7 +903,7 @@ func (s *Service) writeSkillEditorContext(
 		publishedContent = string(selectedFile.Content)
 	}
 	if publishedContent != "" {
-		sb.WriteString("\n### 已发布文件内容\n")
+		sb.WriteString("\n### Published File Content\n")
 		sb.WriteString("```text\n")
 		sb.WriteString(publishedContent)
 		if !strings.HasSuffix(publishedContent, "\n") {
@@ -918,7 +918,7 @@ func (s *Service) writeSkillEditorContext(
 			continue
 		}
 		if otherTextFiles == 0 {
-			sb.WriteString("\n### 其他可编辑文本文件内容\n")
+			sb.WriteString("\n### Other Editable Text File Content\n")
 		}
 		otherTextFiles++
 		_, _ = fmt.Fprintf(sb, "\n#### %s\n", file.Path)
@@ -931,9 +931,9 @@ func (s *Service) writeSkillEditorContext(
 	}
 
 	if draft := input.Context.SkillFileDraft; draft != nil {
-		sb.WriteString("\n### 当前编辑器草稿（未保存）\n")
+		sb.WriteString("\n### Current Editor Draft (Unsaved)\n")
 		if strings.TrimSpace(*draft) == "" {
-			sb.WriteString("（当前草稿为空）\n")
+			sb.WriteString("(Current draft is empty)\n")
 		} else {
 			sb.WriteString("```text\n")
 			sb.WriteString(*draft)
@@ -944,17 +944,17 @@ func (s *Service) writeSkillEditorContext(
 		}
 	}
 
-	sb.WriteString("\n### Skill 编辑要求\n")
-	sb.WriteString("- 优先围绕当前选中的文件给建议；只有在需求天然跨文件时，才同时改动多个 bundle 文件。\n")
-	sb.WriteString("- 优先保留现有 skill 的职责边界、frontmatter name、描述和目录结构。\n")
-	sb.WriteString("- 如果用户请求的是脚本或参考文档，保持对应语言/格式的语法正确，不要强行改成 markdown。\n")
-	sb.WriteString("- 当用户请求直接修改文件时，优先输出结构化 diff JSON，供编辑器直接安全应用。\n")
-	sb.WriteString("- 单文件改动使用：{\"type\":\"diff\",\"file\":\"相对文件路径\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"原行\"},{\"op\":\"add\",\"text\":\"新增行\"}]}]}\n")
-	sb.WriteString("- 多文件改动使用：{\"type\":\"bundle_diff\",\"files\":[{\"file\":\"SKILL.md\",\"hunks\":[...]},{\"file\":\"scripts/redeploy.sh\",\"hunks\":[...]}]}\n")
-	sb.WriteString("- 单文件 `diff.file` 必须精确等于目标文件路径；多文件 `bundle_diff.files[].file` 必须是 bundle 内相对文件路径，允许创建新的 UTF-8 文本文件。\n")
-	sb.WriteString("- 所有 `hunks` 使用 1-based 行号，`lines[].op` 只能是 `context` / `add` / `remove`。\n")
-	sb.WriteString("- 如果无法可靠地产出结构化 diff，才回退为简要说明加完整文件代码块。\n")
-	sb.WriteString("- 普通 skill 编辑优先给可应用 diff 或说明；不要输出 proposal JSON。\n")
+	sb.WriteString("\n### Skill Editing Requirements\n")
+	sb.WriteString("- Focus recommendations on the currently selected file first. Only modify multiple bundle files when the request is inherently cross-file.\n")
+	sb.WriteString("- Prefer preserving the current skill's responsibility boundary, frontmatter name, description, and directory structure.\n")
+	sb.WriteString("- If the user requests a script or reference document, keep the target language and format syntactically correct instead of forcing markdown.\n")
+	sb.WriteString("- When the user asks to modify files directly, prefer outputting structured diff JSON that the editor can apply safely.\n")
+	sb.WriteString("- For a single-file change use: {\"type\":\"diff\",\"file\":\"relative/file/path\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"original line\"},{\"op\":\"add\",\"text\":\"new line\"}]}]}\n")
+	sb.WriteString("- For a multi-file change use: {\"type\":\"bundle_diff\",\"files\":[{\"file\":\"SKILL.md\",\"hunks\":[...]},{\"file\":\"scripts/redeploy.sh\",\"hunks\":[...]}]}\n")
+	sb.WriteString("- In a single-file diff, `diff.file` must exactly match the target file path. In a multi-file diff, `bundle_diff.files[].file` must be a bundle-relative file path, and creating new UTF-8 text files is allowed.\n")
+	sb.WriteString("- All `hunks` use 1-based line numbers, and `lines[].op` may only be `context`, `add`, or `remove`.\n")
+	sb.WriteString("- Only fall back to a short explanation plus a full-file code block if you cannot reliably produce a structured diff.\n")
+	sb.WriteString("- For normal skill editing, prefer an applicable diff or a concise explanation. Do not output proposal JSON.\n")
 	return nil
 }
 
@@ -990,24 +990,24 @@ func (s *Service) writeProjectSidebarContext(
 		}
 	}
 
-	sb.WriteString("## 来源: 项目侧栏\n")
-	_, _ = fmt.Fprintf(sb, "项目: %s\n", project.Name)
+	sb.WriteString("## Source: Project Sidebar\n")
+	_, _ = fmt.Fprintf(sb, "Project: %s\n", project.Name)
 	_, _ = fmt.Fprintf(sb, "project_id: %s\n", project.ID)
 	_, _ = fmt.Fprintf(sb, "project_slug: %s\n", project.Slug)
 	if project.Description != "" {
 		sb.WriteString(project.Description)
 		sb.WriteString("\n")
 	}
-	sb.WriteString("\n### 工单统计\n")
-	_, _ = fmt.Fprintf(sb, "- 总数: %d\n", total)
-	_, _ = fmt.Fprintf(sb, "- 进行中: %d\n", inProgress)
-	_, _ = fmt.Fprintf(sb, "- 已完成: %d\n", completed)
-	_, _ = fmt.Fprintf(sb, "- 失败/暂停: %d\n", failing)
+	sb.WriteString("\n### Ticket Summary\n")
+	_, _ = fmt.Fprintf(sb, "- Total: %d\n", total)
+	_, _ = fmt.Fprintf(sb, "- In progress: %d\n", inProgress)
+	_, _ = fmt.Fprintf(sb, "- Completed: %d\n", completed)
+	_, _ = fmt.Fprintf(sb, "- Failed/paused: %d\n", failing)
 	if focus != nil {
-		sb.WriteString("\n### 当前用户关注区域\n")
+		sb.WriteString("\n### Current User Focus Area\n")
 		sb.WriteString(renderProjectConversationFocus(focus))
 	}
-	sb.WriteString("\n### 平台命令引用\n")
+	sb.WriteString("\n### Platform Command References\n")
 	_, _ = fmt.Fprintf(sb, "- current_project_id: %s\n", project.ID)
 	_, _ = fmt.Fprintf(sb, "- current_project_name: %s\n", project.Name)
 	_, _ = fmt.Fprintf(sb, "- current_project_slug: %s\n", project.Slug)
@@ -1017,7 +1017,7 @@ func (s *Service) writeProjectSidebarContext(
 	}
 	sb.WriteString(statusLines)
 	sb.WriteString(renderProjectSidebarTicketReferences(tickets))
-	sb.WriteString("\n### 最近活动\n")
+	sb.WriteString("\n### Recent Activity\n")
 	sb.WriteString(renderActivityLines(activityItems))
 	return nil
 }
@@ -1031,7 +1031,7 @@ func (s *Service) renderProjectSidebarStatusReferences(ctx context.Context, proj
 		return "", fmt.Errorf("list ticket statuses for project sidebar context: %w", err)
 	}
 	if len(result.Statuses) == 0 {
-		return "- statuses: 无\n", nil
+		return "- statuses: none\n", nil
 	}
 	var sb strings.Builder
 	sb.WriteString("- statuses:\n")
@@ -1043,7 +1043,7 @@ func (s *Service) renderProjectSidebarStatusReferences(ctx context.Context, proj
 
 func renderProjectSidebarTicketReferences(tickets []ticketservice.Ticket) string {
 	if len(tickets) == 0 {
-		return "- tickets: 无\n"
+		return "- tickets: none\n"
 	}
 	var sb strings.Builder
 	sb.WriteString("- tickets:\n")
@@ -1055,17 +1055,17 @@ func renderProjectSidebarTicketReferences(tickets []ticketservice.Ticket) string
 
 func renderProjectConversationFocus(focus *ProjectConversationFocus) string {
 	if focus == nil {
-		return "- 无\n"
+		return "- none\n"
 	}
 
 	var sb strings.Builder
 	switch focus.Kind {
 	case ProjectConversationFocusWorkflow:
 		if focus.Workflow == nil {
-			return "- 无\n"
+			return "- none\n"
 		}
-		_, _ = fmt.Fprintf(&sb, "- 类型: workflow\n")
-		_, _ = fmt.Fprintf(&sb, "- 名称: %s\n", focus.Workflow.Name)
+		_, _ = fmt.Fprintf(&sb, "- Type: workflow\n")
+		_, _ = fmt.Fprintf(&sb, "- Name: %s\n", focus.Workflow.Name)
 		_, _ = fmt.Fprintf(&sb, "- workflow_id: %s\n", focus.Workflow.ID)
 		_, _ = fmt.Fprintf(&sb, "- workflow_type: %s\n", focus.Workflow.Type)
 		_, _ = fmt.Fprintf(&sb, "- harness_path: %s\n", focus.Workflow.HarnessPath)
@@ -1076,40 +1076,40 @@ func renderProjectConversationFocus(focus *ProjectConversationFocus) string {
 		_, _ = fmt.Fprintf(&sb, "- has_dirty_draft: %t\n", focus.Workflow.HasDirtyDraft)
 	case ProjectConversationFocusSkill:
 		if focus.Skill == nil {
-			return "- 无\n"
+			return "- none\n"
 		}
-		_, _ = fmt.Fprintf(&sb, "- 类型: skill\n")
-		_, _ = fmt.Fprintf(&sb, "- 名称: %s\n", focus.Skill.Name)
+		_, _ = fmt.Fprintf(&sb, "- Type: skill\n")
+		_, _ = fmt.Fprintf(&sb, "- Name: %s\n", focus.Skill.Name)
 		_, _ = fmt.Fprintf(&sb, "- skill_id: %s\n", focus.Skill.ID)
 		_, _ = fmt.Fprintf(&sb, "- selected_file_path: %s\n", focus.Skill.SelectedFilePath)
 		if len(focus.Skill.BoundWorkflowNames) > 0 {
 			_, _ = fmt.Fprintf(&sb, "- bound_workflows: %s\n", strings.Join(focus.Skill.BoundWorkflowNames, ", "))
 		} else {
-			sb.WriteString("- bound_workflows: 无\n")
+			sb.WriteString("- bound_workflows: none\n")
 		}
 		_, _ = fmt.Fprintf(&sb, "- has_dirty_draft: %t\n", focus.Skill.HasDirtyDraft)
 	case ProjectConversationFocusTicket:
 		if focus.Ticket == nil {
-			return "- 无\n"
+			return "- none\n"
 		}
-		_, _ = fmt.Fprintf(&sb, "- 类型: ticket\n")
-		_, _ = fmt.Fprintf(&sb, "- 标识: %s\n", focus.Ticket.Identifier)
+		_, _ = fmt.Fprintf(&sb, "- Type: ticket\n")
+		_, _ = fmt.Fprintf(&sb, "- Identifier: %s\n", focus.Ticket.Identifier)
 		_, _ = fmt.Fprintf(&sb, "- ticket_id: %s\n", focus.Ticket.ID)
-		_, _ = fmt.Fprintf(&sb, "- 标题: %s\n", focus.Ticket.Title)
-		_, _ = fmt.Fprintf(&sb, "- 状态: %s\n", focus.Ticket.Status)
+		_, _ = fmt.Fprintf(&sb, "- Title: %s\n", focus.Ticket.Title)
+		_, _ = fmt.Fprintf(&sb, "- Status: %s\n", focus.Ticket.Status)
 		if focus.Ticket.SelectedArea != "" {
 			_, _ = fmt.Fprintf(&sb, "- selected_area: %s\n", focus.Ticket.SelectedArea)
 		}
 	case ProjectConversationFocusMachine:
 		if focus.Machine == nil {
-			return "- 无\n"
+			return "- none\n"
 		}
-		_, _ = fmt.Fprintf(&sb, "- 类型: machine\n")
-		_, _ = fmt.Fprintf(&sb, "- 名称: %s\n", focus.Machine.Name)
+		_, _ = fmt.Fprintf(&sb, "- Type: machine\n")
+		_, _ = fmt.Fprintf(&sb, "- Name: %s\n", focus.Machine.Name)
 		_, _ = fmt.Fprintf(&sb, "- machine_id: %s\n", focus.Machine.ID)
 		_, _ = fmt.Fprintf(&sb, "- host: %s\n", focus.Machine.Host)
 		if focus.Machine.Status != "" {
-			_, _ = fmt.Fprintf(&sb, "- 状态: %s\n", focus.Machine.Status)
+			_, _ = fmt.Fprintf(&sb, "- Status: %s\n", focus.Machine.Status)
 		}
 		if focus.Machine.SelectedArea != "" {
 			_, _ = fmt.Fprintf(&sb, "- selected_area: %s\n", focus.Machine.SelectedArea)
@@ -1132,8 +1132,8 @@ func (s *Service) writeTicketDetailContext(
 	if err != nil {
 		return err
 	}
-	sb.WriteString("## 来源: 工单详情页\n")
-	_, _ = fmt.Fprintf(sb, "项目: %s\n", project.Name)
+	sb.WriteString("## Source: Ticket Detail Page\n")
+	_, _ = fmt.Fprintf(sb, "Project: %s\n", project.Name)
 	s.writeTicketPromptContext(sb, contextItem)
 	return nil
 }
@@ -1164,21 +1164,21 @@ func (s *Service) loadTicketPromptContext(
 }
 
 func (s *Service) writeTicketPromptContext(sb *strings.Builder, contextItem ticketPromptContext) {
-	_, _ = fmt.Fprintf(sb, "工单: %s - %s\n", contextItem.Ticket.Identifier, contextItem.Ticket.Title)
-	_, _ = fmt.Fprintf(sb, "状态: %s | 优先级: %s | 尝试次数: %d\n", contextItem.Ticket.StatusName, contextItem.Ticket.Priority, contextItem.Ticket.AttemptCount)
+	_, _ = fmt.Fprintf(sb, "Ticket: %s - %s\n", contextItem.Ticket.Identifier, contextItem.Ticket.Title)
+	_, _ = fmt.Fprintf(sb, "Status: %s | Priority: %s | Attempts: %d\n", contextItem.Ticket.StatusName, contextItem.Ticket.Priority, contextItem.Ticket.AttemptCount)
 	if contextItem.Ticket.Description != "" {
-		sb.WriteString("\n### 描述\n")
+		sb.WriteString("\n### Description\n")
 		sb.WriteString(contextItem.Ticket.Description)
 		sb.WriteString("\n")
 	}
 	if len(contextItem.Ticket.Dependencies) > 0 {
-		sb.WriteString("\n### 依赖工单\n")
+		sb.WriteString("\n### Dependent Tickets\n")
 		for _, dependency := range contextItem.Ticket.Dependencies {
 			_, _ = fmt.Fprintf(sb, "- [%s] %s (%s)\n", dependency.Target.Identifier, dependency.Target.Title, dependency.Type)
 		}
 	}
 	if len(contextItem.RepoScopes) > 0 {
-		sb.WriteString("\n### 仓库范围\n")
+		sb.WriteString("\n### Repository Scope\n")
 		for _, scope := range contextItem.RepoScopes {
 			_, _ = fmt.Fprintf(sb, "- repo=%s branch=%s", scope.RepoID, scope.BranchName)
 			if scope.PullRequestURL != nil && *scope.PullRequestURL != "" {
@@ -1187,11 +1187,11 @@ func (s *Service) writeTicketPromptContext(sb *strings.Builder, contextItem tick
 			sb.WriteString("\n")
 		}
 	}
-	sb.WriteString("\n### 活动日志\n")
+	sb.WriteString("\n### Activity Log\n")
 	sb.WriteString(renderActivityLines(contextItem.ActivityItems))
 
 	if len(contextItem.HookHistory) > 0 {
-		sb.WriteString("\n### Hook 历史\n")
+		sb.WriteString("\n### Hook History\n")
 		sb.WriteString(renderActivityLines(contextItem.HookHistory))
 	}
 }
@@ -1329,7 +1329,7 @@ func renderHarnessVariableDictionary() string {
 		for _, variable := range group.Variables {
 			_, _ = fmt.Fprintf(&sb, "- `%s` (%s): %s", variable.Path, variable.Type, variable.Description)
 			if variable.Example != "" {
-				_, _ = fmt.Fprintf(&sb, " 示例: `%s`", variable.Example)
+				_, _ = fmt.Fprintf(&sb, " Example: `%s`", variable.Example)
 			}
 			sb.WriteByte('\n')
 		}
@@ -1340,7 +1340,7 @@ func renderHarnessVariableDictionary() string {
 
 func renderActivityLines(items []catalogdomain.ActivityEvent) string {
 	if len(items) == 0 {
-		return "- 无\n"
+		return "- none\n"
 	}
 
 	var sb strings.Builder
@@ -1398,7 +1398,7 @@ func (s *Service) renderHarnessStatusContext(
 
 	statusNamesByID := make(map[uuid.UUID]string, len(result.Statuses))
 	if len(result.Statuses) == 0 {
-		return "- 无\n", statusNamesByID, nil
+		return "- none\n", statusNamesByID, nil
 	}
 
 	var sb strings.Builder
@@ -1429,7 +1429,7 @@ func (s *Service) renderHarnessWorkflowTopology(
 
 	workflowNamesByID := make(map[uuid.UUID]string, len(items))
 	if len(items) == 0 {
-		return "- 无\n", workflowNamesByID, nil
+		return "- none\n", workflowNamesByID, nil
 	}
 
 	var sb strings.Builder
@@ -1460,7 +1460,7 @@ func (s *Service) renderHarnessRepoContext(ctx context.Context, projectID uuid.U
 		return "", fmt.Errorf("list project repos for chat context: %w", err)
 	}
 	if len(repos) == 0 {
-		return "- 无\n", nil
+		return "- none\n", nil
 	}
 
 	var sb strings.Builder
@@ -1494,7 +1494,7 @@ func (s *Service) renderHarnessTicketSamples(
 		return "", fmt.Errorf("list tickets for chat context: %w", err)
 	}
 	if len(items) == 0 {
-		return "- 无\n", nil
+		return "- none\n", nil
 	}
 
 	var sb strings.Builder

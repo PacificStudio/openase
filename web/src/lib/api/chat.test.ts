@@ -269,7 +269,7 @@ describe('startProjectConversationTurn', () => {
 
   it('serializes per-turn workflow focus metadata', async () => {
     await startProjectConversationTurn('conversation-1', {
-      message: '帮我看看这里要怎么改',
+      message: 'Help me figure out what to change here.',
       focus: {
         kind: 'workflow',
         projectId: 'project-1',
@@ -288,7 +288,7 @@ describe('startProjectConversationTurn', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
-          message: '帮我看看这里要怎么改',
+          message: 'Help me figure out what to change here.',
           focus: {
             kind: 'workflow',
             workflow_id: 'workflow-1',

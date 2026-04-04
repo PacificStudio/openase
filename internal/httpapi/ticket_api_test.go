@@ -882,7 +882,7 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 			"type":        "github_issue",
 			"url":         "https://github.com/PacificStudio/openase/issues/6",
 			"external_id": "PacificStudio/openase#6",
-			"title":       "F06: Ticket CRUD + 依赖关系",
+			"title":       "F06: Ticket CRUD + Dependencies",
 			"status":      "open",
 			"relation":    "caused_by",
 		},

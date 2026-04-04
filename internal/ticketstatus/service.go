@@ -182,12 +182,12 @@ func ListStatusRuntimeSnapshots(ctx context.Context, repo Repository) ([]StatusR
 }
 
 var defaultStatusTemplate = []domain.TemplateStatus{
-	{Name: "Backlog", Stage: ticketing.StatusStageBacklog, Color: "#6B7280", Icon: "archive", Position: 0, IsDefault: true, Description: "积压"},
-	{Name: "Todo", Stage: ticketing.StatusStageUnstarted, Color: "#3B82F6", Icon: "list-todo", Position: 1, Description: "就绪等待"},
-	{Name: "In Progress", Stage: ticketing.StatusStageStarted, Color: "#F59E0B", Icon: "play-circle", Position: 2, Description: "进行中"},
-	{Name: "In Review", Stage: ticketing.StatusStageStarted, Color: "#8B5CF6", Icon: "search-check", Position: 3, Description: "审查中"},
-	{Name: "Done", Stage: ticketing.StatusStageCompleted, Color: "#10B981", Icon: "check-circle-2", Position: 4, Description: "已完成"},
-	{Name: "Cancelled", Stage: ticketing.StatusStageCanceled, Color: "#4B5563", Icon: "circle-slash", Position: 5, Description: "已取消"},
+	{Name: "Backlog", Stage: ticketing.StatusStageBacklog, Color: "#6B7280", Icon: "archive", Position: 0, IsDefault: true, Description: "Backlog"},
+	{Name: "Todo", Stage: ticketing.StatusStageUnstarted, Color: "#3B82F6", Icon: "list-todo", Position: 1, Description: "Ready to start"},
+	{Name: "In Progress", Stage: ticketing.StatusStageStarted, Color: "#F59E0B", Icon: "play-circle", Position: 2, Description: "In progress"},
+	{Name: "In Review", Stage: ticketing.StatusStageStarted, Color: "#8B5CF6", Icon: "search-check", Position: 3, Description: "Under review"},
+	{Name: "Done", Stage: ticketing.StatusStageCompleted, Color: "#10B981", Icon: "check-circle-2", Position: 4, Description: "Completed"},
+	{Name: "Cancelled", Stage: ticketing.StatusStageCanceled, Color: "#4B5563", Icon: "circle-slash", Position: 5, Description: "Cancelled"},
 }
 
 // DefaultTemplateNames returns the built-in default status names in display order.

@@ -6,12 +6,16 @@
 
 <p align="center">
   <a href="#-from-zero-to-running"><img src="https://img.shields.io/badge/Quick_Start-10_min-blue?style=for-the-badge" alt="Quick Start"></a>
-  <a href="docs/guide/index.md"><img src="https://img.shields.io/badge/User_Guide-Docs-ff69b4?style=for-the-badge" alt="User Guide"></a>
+  <a href="docs/guide/en/index.md"><img src="https://img.shields.io/badge/Guide-English-ff69b4?style=for-the-badge" alt="English Guide"></a>
+  <a href="docs/guide/zh/index.md"><img src="https://img.shields.io/badge/指南-中文-ff69b4?style=for-the-badge" alt="中文指南"></a>
   <a href="#-architecture"><img src="https://img.shields.io/badge/Architecture-Monolith-blueviolet?style=for-the-badge" alt="Architecture"></a>
   <a href="#-cli-reference"><img src="https://img.shields.io/badge/CLI-Reference-orange?style=for-the-badge" alt="CLI"></a>
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/Linux-supported-success?logo=linux&logoColor=white" alt="Linux">
+  <img src="https://img.shields.io/badge/macOS-untested-lightgrey?logo=apple&logoColor=white" alt="macOS">
+  <img src="https://img.shields.io/badge/Windows-untested-lightgrey?logo=windows&logoColor=white" alt="Windows">
   <img src="https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white" alt="Go">
   <img src="https://img.shields.io/badge/SvelteKit-Frontend-FF3E00?logo=svelte&logoColor=white" alt="SvelteKit">
   <img src="https://img.shields.io/badge/Tailwind_CSS-Styling-06B6D4?logo=tailwindcss&logoColor=white" alt="Tailwind">
@@ -131,9 +135,50 @@ You create a ticket  →  Orchestrator detects pickup status
 
 ---
 
+## 📊 Status & Roadmap
+
+### Feature Completion
+
+| Module | Status | Notes |
+|--------|--------|-------|
+| **Tickets** | ✅ Stable | CRUD, Kanban/list views, comments, dependencies, parent/child, archiving |
+| **Agents** | ✅ Stable | Registration, run monitoring, streaming output, lifecycle management |
+| **Workflows** | ✅ Stable | Harness editing, status/skill binding, hooks, version history, impact analysis |
+| **Skills** | ✅ Stable | Built-in & custom skills, workflow binding, enable/disable |
+| **Activity** | ✅ Stable | Real-time SSE event stream, filtering, search |
+| **Updates** | ✅ Stable | Threads, comments, revision history |
+| **Settings** | ✅ Stable | Statuses, repositories, notifications, security, archived tickets |
+| **Scheduled Jobs** | ✅ Stable | Cron-based ticket creation, manual trigger, enable/disable |
+| **Machines (Local)** | ✅ Stable | Local machine registration, health probes, resource metrics |
+| **CLI** | ✅ Stable | Dual-layer contract, resource commands, raw API, live streams |
+| **Setup** | ✅ Stable | Interactive terminal setup, Docker PostgreSQL, systemd service |
+| **Machines (Remote)** | 🚧 WIP | Remote SSH/cloud machine execution is under active development |
+| **OIDC Auth** | 🚧 WIP | Browser login, session management, RBAC |
+
+### Roadmap
+
+| Priority | Item | Description |
+|----------|------|-------------|
+| 🔴 High | **Remote Machine Execution** | Full support for SSH-based remote machines, workspace provisioning, and remote agent execution |
+| 🟡 Medium | **macOS / Windows Support** | Testing and adaptation for non-Linux platforms |
+| 🟡 Medium | **Notification Channels** | Slack, email, and webhook notification delivery |
+| 🟢 Future | **Multi-org Collaboration** | Cross-organization project sharing and permissions |
+| 🟢 Future | **Plugin Ecosystem** | Third-party plugin support for custom tools and integrations |
+| 🟢 Future | **Metrics Dashboard** | Agent performance metrics, ticket throughput analytics |
+
+---
+
 ## 🚀 From Zero to Running
 
 This section walks through everything you need on a **fresh machine** — from installing system dependencies to opening the web UI.
+
+### Platform Support
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| **Linux** (x86_64, arm64) | ✅ Fully supported | Primary development and deployment platform |
+| **macOS** (Apple Silicon, Intel) | ⚠️ Untested | The Go binary should compile, but setup flow and shell scripts have not been validated |
+| **Windows** | ⚠️ Untested | Setup flow, systemd service management, and shell scripts have not been validated. WSL2 is recommended as a workaround |
 
 ### Step 0: System Prerequisites
 
@@ -331,7 +376,7 @@ Open `http://127.0.0.1:19836` in your browser — you should see the OpenASE con
 
 ### What's Next?
 
-Now that the platform is running, follow the [User Guide — Quick Start](docs/guide/startup.md) to:
+Now that the platform is running, follow the User Guide — Quick Start ([EN](docs/guide/en/startup.md) | [中文](docs/guide/zh/startup.md)) to:
 
 1. Configure ticket statuses and connect a repository
 2. Register a machine and an AI agent
@@ -409,7 +454,7 @@ set -a && source ~/.openase/.env && set +a
 | `disabled` | No auth required | Local development |
 | `oidc` | Browser login via OIDC provider | Production, team use |
 
-OIDC supports standard providers: Auth0, Azure Entra ID, and any OpenID Connect compliant IdP. See [OIDC & RBAC Guide](docs/human-auth-oidc-rbac.md) for setup.
+OIDC supports standard providers: Auth0, Azure Entra ID, and any OpenID Connect compliant IdP. See OIDC & RBAC Guide ([EN](docs/en/human-auth-oidc-rbac.md) | [中文](docs/zh/human-auth-oidc-rbac.md)) for setup.
 
 ---
 
@@ -470,15 +515,15 @@ The embedded web UI provides a complete project management experience:
 
 | Module | Capabilities |
 |--------|-------------|
-| **[Tickets](docs/guide/tickets.md)** | Kanban board, list view, filtering, comments, dependencies, repository scoping |
-| **[Agents](docs/guide/agents.md)** | Registration, real-time run monitoring, pause/resume/retire lifecycle |
-| **[Machines](docs/guide/machines.md)** | SSH/local/cloud registration, health probes, resource metrics |
-| **[Workflows](docs/guide/workflows.md)** | Harness editing, status binding, skill binding, version history, impact analysis |
-| **[Skills](docs/guide/skills.md)** | Built-in & custom skill management, workflow binding |
-| **[Scheduled Jobs](docs/guide/scheduled-jobs.md)** | Cron-based ticket creation, manual trigger, enable/disable |
-| **[Activity](docs/guide/activity.md)** | Real-time event stream, type filtering, keyword search |
-| **[Updates](docs/guide/updates.md)** | Team progress threads, comments, revision history |
-| **[Settings](docs/guide/settings.md)** | Statuses, repositories, notifications, security, archived tickets |
+| **[Tickets](docs/guide/en/tickets.md)** | Kanban board, list view, filtering, comments, dependencies, repository scoping |
+| **[Agents](docs/guide/en/agents.md)** | Registration, real-time run monitoring, pause/resume/retire lifecycle |
+| **[Machines](docs/guide/en/machines.md)** | SSH/local/cloud registration, health probes, resource metrics |
+| **[Workflows](docs/guide/en/workflows.md)** | Harness editing, status binding, skill binding, version history, impact analysis |
+| **[Skills](docs/guide/en/skills.md)** | Built-in & custom skill management, workflow binding |
+| **[Scheduled Jobs](docs/guide/en/scheduled-jobs.md)** | Cron-based ticket creation, manual trigger, enable/disable |
+| **[Activity](docs/guide/en/activity.md)** | Real-time event stream, type filtering, keyword search |
+| **[Updates](docs/guide/en/updates.md)** | Team progress threads, comments, revision history |
+| **[Settings](docs/guide/en/settings.md)** | Statuses, repositories, notifications, security, archived tickets |
 
 ---
 
@@ -580,18 +625,18 @@ make lint-all                    # Full lint suite
 
 ## 📖 Documentation
 
-| Document | Description |
-|----------|-------------|
-| **[User Guide](docs/guide/index.md)** | Complete guide to every UI module |
-| [Getting Started](docs/guide/startup.md) | 5-step quick start for new users |
-| [Module Architecture](docs/guide/architecture.md) | How modules work together |
-| [FAQ](docs/guide/faq.md) | Common questions & troubleshooting |
-| **[Source Build & Run](docs/source-build-and-run.md)** | Detailed build & deployment guide |
-| [OIDC & RBAC](docs/human-auth-oidc-rbac.md) | Authentication & authorization setup |
-| [Observability](docs/observability-checklist.md) | Monitoring checklist |
-| [WebSocket Rollout](docs/remote-websocket-rollout.md) | WebSocket transport guide |
-| [Gemini CLI Adaptation](docs/gemini-cli-adaptation-guide.md) | Gemini CLI integration |
-| [Stream Protocol](docs/claude-code-stream-protocol.md) | Claude Code streaming protocol |
+| Document | EN | 中文 |
+|----------|----|----|
+| **User Guide** | [English](docs/guide/en/index.md) | [中文](docs/guide/zh/index.md) |
+| Getting Started | [English](docs/guide/en/startup.md) | [中文](docs/guide/zh/startup.md) |
+| Module Architecture | [English](docs/guide/en/architecture.md) | [中文](docs/guide/zh/architecture.md) |
+| FAQ | [English](docs/guide/en/faq.md) | [中文](docs/guide/zh/faq.md) |
+| **Source Build & Run** | [English](docs/en/source-build-and-run.md) | [中文](docs/zh/source-build-and-run.md) |
+| OIDC & RBAC | [English](docs/en/human-auth-oidc-rbac.md) | [中文](docs/zh/human-auth-oidc-rbac.md) |
+| Observability | [English](docs/en/observability-checklist.md) | [中文](docs/zh/observability-checklist.md) |
+| WebSocket Rollout | [English](docs/en/remote-websocket-rollout.md) | [中文](docs/zh/remote-websocket-rollout.md) |
+| Gemini CLI Adaptation | [English](docs/en/gemini-cli-adaptation-guide.md) | [中文](docs/zh/gemini-cli-adaptation-guide.md) |
+| Claude Code Stream Protocol | [English](docs/en/claude-code-stream-protocol.md) | [中文](docs/zh/claude-code-stream-protocol.md) |
 
 ---
 

@@ -63,15 +63,15 @@
     void load()
   })
 
-  const pickupStatusLabel = $derived(pickupStatus ? `进入「${pickupStatus.name}」状态` : '—')
+  const pickupStatusLabel = $derived(pickupStatus ? `enter "${pickupStatus.name}"` : '—')
 
   async function handleCreate() {
     if (!title.trim()) {
-      toastStore.error('请输入 Ticket 标题。')
+      toastStore.error('Enter a ticket title.')
       return
     }
     if (!pickupStatus) {
-      toastStore.error('未找到推荐的 Pickup 状态，请先检查项目状态配置。')
+      toastStore.error('Could not find the recommended pickup status. Check the project status configuration first.')
       return
     }
     creating = true
@@ -83,13 +83,13 @@
         repo_scopes: selectedRepoId ? [{ repo_id: selectedRepoId }] : undefined,
       })
 
-      toastStore.success(`Ticket ${payload.ticket.identifier} 已创建。`)
+      toastStore.success(`Ticket ${payload.ticket.identifier} created.`)
       onComplete()
 
       // Navigate to ticket detail by opening right panel
       appStore.openRightPanel({ type: 'ticket', id: payload.ticket.id })
     } catch (caughtError) {
-      toastStore.error(caughtError instanceof ApiError ? caughtError.detail : '创建 Ticket 失败。')
+      toastStore.error(caughtError instanceof ApiError ? caughtError.detail : 'Failed to create the ticket.')
     } finally {
       creating = false
     }
@@ -104,8 +104,8 @@
       <CheckCircle2 class="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
       <Ticket class="text-muted-foreground size-4 shrink-0" />
       <div>
-        <p class="text-foreground text-sm font-medium">已创建 {ticketCount} 个 Ticket</p>
-        <p class="text-muted-foreground text-xs">前往 Tickets 页面查看详情</p>
+        <p class="text-foreground text-sm font-medium">{ticketCount} ticket{ticketCount === 1 ? "" : "s"} created</p>
+        <p class="text-muted-foreground text-xs">Open the Tickets page to view details</p>
       </div>
       <Button
         variant="outline"
@@ -113,13 +113,13 @@
         class="ml-auto"
         onclick={() => void goto(projectPath(orgId, projectId, 'tickets'))}
       >
-        查看 Tickets
+        View Tickets
       </Button>
     </div>
   {:else}
     <div class="space-y-3">
       <div>
-        <p class="text-foreground mb-1 text-xs font-medium">Ticket 标题</p>
+        <p class="text-foreground mb-1 text-xs font-medium">Ticket title</p>
         <Input
           bind:value={title}
           placeholder={preset.exampleTicketTitle}
@@ -129,14 +129,14 @@
       </div>
 
       <div>
-        <p class="text-foreground mb-1 text-xs font-medium">描述（可选）</p>
-        <Textarea bind:value={description} placeholder="描述任务内容..." rows={2} class="text-sm" />
+        <p class="text-foreground mb-1 text-xs font-medium">Description (optional)</p>
+        <Textarea bind:value={description} placeholder="Describe the task..." rows={2} class="text-sm" />
       </div>
 
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {#if repos.length > 1}
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">Repo 范围</p>
+            <p class="text-foreground mb-1 text-xs font-medium">Repository scope</p>
             <Select.Root
               type="single"
               value={selectedRepoId}
@@ -145,7 +145,7 @@
               }}
             >
               <Select.Trigger class="h-9 w-full text-sm">
-                {repos.find((r) => r.id === selectedRepoId)?.name ?? '选择 Repo'}
+                {repos.find((r) => r.id === selectedRepoId)?.name ?? 'Select a repository'}
               </Select.Trigger>
               <Select.Content>
                 {#each repos as repo (repo.id)}
@@ -161,18 +161,18 @@
       <div class="bg-muted/50 flex items-start gap-2 rounded-md p-3">
         <Info class="text-muted-foreground mt-0.5 size-3.5 shrink-0" />
         <div class="text-muted-foreground space-y-1 text-xs">
-          <p>工单将{pickupStatusLabel}，编排引擎会按 status pickup 规则自动领取并分配给 Agent。</p>
-          <p>Agent 的工作进展会实时出现在 Ticket 详情页的时间线中。</p>
+          <p>The ticket will {pickupStatusLabel}, and the orchestrator will automatically pick it up and assign it to an agent based on the status pickup rules.</p>
+          <p>The agent's progress will appear in real time on the timeline in the ticket details view.</p>
         </div>
       </div>
 
       <Button class="w-full" onclick={handleCreate} disabled={creating || !title.trim()}>
         {#if creating}
           <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-          创建中...
+          Creating...
         {:else}
           <Ticket class="mr-1.5 size-3.5" />
-          创建 Ticket
+          Create ticket
         {/if}
       </Button>
     </div>

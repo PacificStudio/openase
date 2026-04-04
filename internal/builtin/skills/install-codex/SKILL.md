@@ -5,11 +5,11 @@ description: "Install the Codex CLI on a target machine and verify it can start 
 
 # Install Codex CLI
 
-目标：让目标机器具备可用的 `codex` 命令，并验证 CLI 能正常启动。
+Goal: make the target machine provide a working `codex` command and verify that the CLI can start successfully.
 
-执行时遵循：
+Follow this process:
 
-- 先检查 `codex` 是否已存在以及当前版本。
-- 使用官方支持的安装方式安装或升级 Codex CLI。
-- 安装后验证 `codex --version`，必要时补充最小认证检查。
-- 如果网络、Python、Node 或系统依赖阻塞安装，记录准确阻塞点，不要留下半安装状态。
+- Check whether `codex` already exists and what version is installed.
+- Install or upgrade the Codex CLI using an officially supported method.
+- Verify `codex --version` afterward, and add a minimal auth check if needed.
+- If network, Python, Node, or system dependencies block installation, record the exact blocker and avoid leaving a half-installed state.

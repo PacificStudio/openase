@@ -143,21 +143,21 @@ func TestMapCodexAssistantOutputPromotesTrailingDiffAfterStreamingProse(t *testi
 	events := mapCodexAssistantOutput(&codexadapter.OutputEvent{
 		ItemID: "item-1",
 		Stream: "assistant",
-		Text:   "我先按当前 Harness 和项目状态拓扑定位可改位置，直接给可应用的结构化 diff。",
+		Text:   "I will first locate the editable area from the current harness and project topology, then return an applicable structured diff.",
 	}, items)
 	if len(events) != 1 {
 		t.Fatalf("first assistant delta should emit prose text, got %+v", events)
 	}
 
 	text, ok := events[0].Payload.(textPayload)
-	if !ok || !strings.Contains(text.Content, "结构化 diff") {
+	if !ok || !strings.Contains(text.Content, "structured diff") {
 		t.Fatalf("first payload = %#v, want explanatory prose text", events[0].Payload)
 	}
 
 	events = mapCodexAssistantOutput(&codexadapter.OutputEvent{
 		ItemID:   "item-1",
 		Stream:   "assistant",
-		Text:     "我先按当前 Harness 和项目状态拓扑定位可改位置，直接给可应用的结构化 diff。{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"---\"},{\"op\":\"add\",\"text\":\"new line\"}]}]}{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"---\"},{\"op\":\"add\",\"text\":\"new line\"}]}]}",
+		Text:     "I will first locate the editable area from the current harness and project topology, then return an applicable structured diff.{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"---\"},{\"op\":\"add\",\"text\":\"new line\"}]}]}{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"---\"},{\"op\":\"add\",\"text\":\"new line\"}]}]}",
 		Snapshot: true,
 	}, items)
 	if len(events) != 1 {
@@ -176,7 +176,7 @@ func TestMapCodexAssistantOutputPromotesTrailingDiffAfterStreamingProse(t *testi
 func TestMapCodexAssistantOutputLeavesMalformedDuplicatedTrailingDiffAfterProseAsText(t *testing.T) {
 	items := make(map[string]*codexAssistantItemState)
 
-	prose := "我先按当前 Harness 和项目状态拓扑定位需要改的约束，只改和分支/交付方式直接相关的部分，避免把现有职责边界一起改乱。"
+	prose := "I will first locate the constraints that matter in the current harness and project topology, then only change the parts that directly affect branch and delivery behavior so the existing responsibility boundary stays intact."
 	malformedTrailingDiff := "{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\": }]}{\"type\":\"diff\",\"file\":\"harness content\",\"hunks\": }]}"
 
 	events := mapCodexAssistantOutput(&codexadapter.OutputEvent{

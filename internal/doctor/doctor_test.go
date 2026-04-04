@@ -89,7 +89,7 @@ func TestDiagnoseReportsConfigAndPermissionProblems(t *testing.T) {
 		t.Fatal("expected at least one error")
 	}
 
-	assertStatus(t, report, "配置", StatusError)
+	assertStatus(t, report, "Config", StatusError)
 	assertStatus(t, report, "~/.openase", StatusWarning)
 	assertStatus(t, report, "OpenAI Codex", StatusWarning)
 	assertStatus(t, report, "Gemini CLI", StatusWarning)
