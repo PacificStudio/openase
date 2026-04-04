@@ -101,8 +101,23 @@ type ticketCommentUpdateInput struct {
 }
 
 type projectUpdateInput struct {
-	projectID   string
-	description string
+	projectID                string
+	name                     string
+	slug                     string
+	description              string
+	status                   string
+	defaultAgentProviderID   string
+	accessibleMachineIDs     []string
+	maxConcurrentAgents      *int
+	agentRunSummaryPrompt    string
+	nameSet                  bool
+	slugSet                  bool
+	descriptionSet           bool
+	statusSet                bool
+	defaultAgentProviderSet  bool
+	accessibleMachineIDsSet  bool
+	maxConcurrentAgentsSet   bool
+	agentRunSummaryPromptSet bool
 }
 
 type projectAddRepoInput struct {
@@ -559,18 +574,31 @@ func newTicketReportUsageCommand(options *ticketCommandOptions, client platformC
 }
 
 func newProjectUpdateCommand(options *projectCommandOptions, client platformClient) *cobra.Command {
+	var name string
+	var slug string
 	var description string
+	var status string
+	var defaultAgentProviderID string
+	var accessibleMachineIDs []string
+	var maxConcurrentAgents int
+	var agentRunSummaryPrompt string
 
 	command := &cobra.Command{
 		Use:   "update",
-		Short: "Update the current project description.",
-		Long: buildPlatformCommandHelp("Update the current project description.", platformHelpSpec{
+		Short: "Update the current project.",
+		Long: buildPlatformCommandHelp("Update the current project.", platformHelpSpec{
 			projectScope: true,
 			examples: []string{
 				"openase project update --description \"Todo App validation project\"",
+				"openase project update --name \"OpenASE Automation\" --slug openase-automation --status \"In Progress\"",
+				"openase project update --accessible-machine-ids $OPENASE_MACHINE_ID --max-concurrent-agents 4",
+			},
+			notes: []string{
+				"At least one update field must be provided.",
+				"Flags map to the fields accepted by PATCH /api/v1/projects/{projectId}.",
 			},
 		}),
-		Example: "openase project update --description \"Todo App validation project\"",
+		Example: "openase project update --description \"Todo App validation project\"\nopenase project update --name \"OpenASE Automation\" --slug openase-automation --status \"In Progress\"",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			platform, err := options.resolve()
 			if err != nil {
@@ -578,8 +606,23 @@ func newProjectUpdateCommand(options *projectCommandOptions, client platformClie
 			}
 
 			input, err := platform.parseProjectUpdateInput(projectUpdateInput{
-				projectID:   options.projectID,
-				description: description,
+				projectID:                options.projectID,
+				name:                     name,
+				slug:                     slug,
+				description:              description,
+				status:                   status,
+				defaultAgentProviderID:   defaultAgentProviderID,
+				accessibleMachineIDs:     accessibleMachineIDs,
+				maxConcurrentAgents:      intPointerWhen(cmd.Flags().Changed("max-concurrent-agents"), maxConcurrentAgents),
+				agentRunSummaryPrompt:    agentRunSummaryPrompt,
+				nameSet:                  cmd.Flags().Changed("name"),
+				slugSet:                  cmd.Flags().Changed("slug"),
+				descriptionSet:           cmd.Flags().Changed("description"),
+				statusSet:                cmd.Flags().Changed("status"),
+				defaultAgentProviderSet:  cmd.Flags().Changed("default-agent-provider-id"),
+				accessibleMachineIDsSet:  cmd.Flags().Changed("accessible-machine-ids"),
+				maxConcurrentAgentsSet:   cmd.Flags().Changed("max-concurrent-agents"),
+				agentRunSummaryPromptSet: cmd.Flags().Changed("agent-run-summary-prompt"),
 			})
 			if err != nil {
 				return err
@@ -593,8 +636,14 @@ func newProjectUpdateCommand(options *projectCommandOptions, client platformClie
 		},
 	}
 
+	command.Flags().StringVar(&name, "name", "", "Updated project name.")
+	command.Flags().StringVar(&slug, "slug", "", "Updated project slug.")
 	command.Flags().StringVar(&description, "description", "", "Updated project description.")
-	_ = command.MarkFlagRequired("description")
+	command.Flags().StringVar(&status, "status", "", "Updated project status.")
+	command.Flags().StringVar(&defaultAgentProviderID, "default-agent-provider-id", "", "Updated default agent provider ID. Set to an empty string to clear it.")
+	command.Flags().StringSliceVar(&accessibleMachineIDs, "accessible-machine-ids", nil, "Updated accessible machine IDs. Repeat or comma-separate values; pass an empty value to clear.")
+	command.Flags().IntVar(&maxConcurrentAgents, "max-concurrent-agents", 0, "Updated maximum concurrent agents.")
+	command.Flags().StringVar(&agentRunSummaryPrompt, "agent-run-summary-prompt", "", "Updated agent run summary prompt. Set to an empty string to clear it.")
 
 	return command
 }
@@ -863,15 +912,77 @@ func (platform platformContext) parseProjectUpdateInput(raw projectUpdateInput) 
 	if projectID == "" {
 		return projectUpdateInput{}, fmt.Errorf("project id is required via --project-id or OPENASE_PROJECT_ID")
 	}
+	if !raw.nameSet &&
+		!raw.slugSet &&
+		!raw.descriptionSet &&
+		!raw.statusSet &&
+		!raw.defaultAgentProviderSet &&
+		!raw.accessibleMachineIDsSet &&
+		!raw.maxConcurrentAgentsSet &&
+		!raw.agentRunSummaryPromptSet {
+		return projectUpdateInput{}, fmt.Errorf("at least one of --name, --slug, --description, --status, --default-agent-provider-id, --accessible-machine-ids, --max-concurrent-agents, or --agent-run-summary-prompt must be set")
+	}
 
-	description := strings.TrimSpace(raw.description)
-	if description == "" {
-		return projectUpdateInput{}, fmt.Errorf("description must not be empty")
+	input := projectUpdateInput{
+		projectID:                projectID,
+		nameSet:                  raw.nameSet,
+		slugSet:                  raw.slugSet,
+		descriptionSet:           raw.descriptionSet,
+		statusSet:                raw.statusSet,
+		defaultAgentProviderSet:  raw.defaultAgentProviderSet,
+		accessibleMachineIDsSet:  raw.accessibleMachineIDsSet,
+		maxConcurrentAgentsSet:   raw.maxConcurrentAgentsSet,
+		agentRunSummaryPromptSet: raw.agentRunSummaryPromptSet,
+	}
+	if raw.nameSet {
+		input.name = strings.TrimSpace(raw.name)
+	}
+	if raw.slugSet {
+		input.slug = strings.TrimSpace(raw.slug)
+	}
+	if raw.descriptionSet {
+		input.description = strings.TrimSpace(raw.description)
+	}
+	if raw.statusSet {
+		input.status = strings.TrimSpace(raw.status)
+	}
+	if raw.defaultAgentProviderSet {
+		input.defaultAgentProviderID = strings.TrimSpace(raw.defaultAgentProviderID)
+	}
+	if raw.accessibleMachineIDsSet {
+		input.accessibleMachineIDs = make([]string, 0, len(raw.accessibleMachineIDs))
+		for _, item := range raw.accessibleMachineIDs {
+			trimmed := strings.TrimSpace(item)
+			if trimmed != "" {
+				input.accessibleMachineIDs = append(input.accessibleMachineIDs, trimmed)
+			}
+		}
+	}
+	if raw.maxConcurrentAgentsSet {
+		input.maxConcurrentAgents = raw.maxConcurrentAgents
+	}
+	if raw.agentRunSummaryPromptSet {
+		input.agentRunSummaryPrompt = strings.TrimSpace(raw.agentRunSummaryPrompt)
 	}
 
 	return projectUpdateInput{
-		projectID:   projectID,
-		description: description,
+		projectID:                input.projectID,
+		name:                     input.name,
+		slug:                     input.slug,
+		description:              input.description,
+		status:                   input.status,
+		defaultAgentProviderID:   input.defaultAgentProviderID,
+		accessibleMachineIDs:     input.accessibleMachineIDs,
+		maxConcurrentAgents:      input.maxConcurrentAgents,
+		agentRunSummaryPrompt:    input.agentRunSummaryPrompt,
+		nameSet:                  input.nameSet,
+		slugSet:                  input.slugSet,
+		descriptionSet:           input.descriptionSet,
+		statusSet:                input.statusSet,
+		defaultAgentProviderSet:  input.defaultAgentProviderSet,
+		accessibleMachineIDsSet:  input.accessibleMachineIDsSet,
+		maxConcurrentAgentsSet:   input.maxConcurrentAgentsSet,
+		agentRunSummaryPromptSet: input.agentRunSummaryPromptSet,
 	}, nil
 }
 
@@ -1004,9 +1115,35 @@ func (client platformClient) reportTicketUsage(ctx context.Context, platform pla
 }
 
 func (client platformClient) updateProject(ctx context.Context, platform platformContext, input projectUpdateInput) ([]byte, error) {
-	return client.doJSON(ctx, platform, http.MethodPatch, "/projects/"+url.PathEscape(input.projectID), map[string]any{
-		"description": input.description,
-	})
+	payload := map[string]any{}
+	if input.nameSet {
+		payload["name"] = input.name
+	}
+	if input.slugSet {
+		payload["slug"] = input.slug
+	}
+	if input.descriptionSet {
+		payload["description"] = input.description
+	}
+	if input.statusSet {
+		payload["status"] = input.status
+	}
+	if input.defaultAgentProviderSet {
+		payload["default_agent_provider_id"] = input.defaultAgentProviderID
+	}
+	if input.accessibleMachineIDsSet {
+		payload["accessible_machine_ids"] = input.accessibleMachineIDs
+	}
+	if input.maxConcurrentAgentsSet {
+		if input.maxConcurrentAgents != nil {
+			payload["max_concurrent_agents"] = *input.maxConcurrentAgents
+		}
+	}
+	if input.agentRunSummaryPromptSet {
+		payload["agent_run_summary_prompt"] = input.agentRunSummaryPrompt
+	}
+
+	return client.doJSON(ctx, platform, http.MethodPatch, "/projects/"+url.PathEscape(input.projectID), payload)
 }
 
 func (client platformClient) addProjectRepo(ctx context.Context, platform platformContext, input projectAddRepoInput) ([]byte, error) {
@@ -1132,6 +1269,14 @@ func firstNonEmpty(values ...string) string {
 }
 
 func int64PointerWhen(enabled bool, value int64) *int64 {
+	if !enabled {
+		return nil
+	}
+
+	return &value
+}
+
+func intPointerWhen(enabled bool, value int) *int {
 	if !enabled {
 		return nil
 	}

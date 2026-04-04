@@ -144,9 +144,20 @@ export function createProjectConversationControllerOperations(
         }
         const tab = findProjectConversationTab(input.getTabs(), restored.tab.id)
         const conversationId = restored.conversationId
-        if (tab && (await runtime.loadTabConversation(tab, conversationId, restored.restored))) {
-          loadedTabIDs.add(tab.id)
+        const conversation = input.getConversations().find((item) => item.id === conversationId)
+        if (!tab || !conversation) {
+          continue
         }
+
+        if (tab.id === preferredActiveTabId) {
+          if (await runtime.loadTabConversation(tab, conversationId, restored.restored)) {
+            loadedTabIDs.add(tab.id)
+          }
+          continue
+        }
+
+        runtime.restoreTabConversationMetadata(tab, conversation, restored.restored)
+        loadedTabIDs.add(tab.id)
       }
 
       const filteredTabs = input.getTabs().filter((tab) => loadedTabIDs.has(tab.id))
@@ -222,8 +233,11 @@ export function createProjectConversationControllerOperations(
   }
 
   function selectTab(nextTabId: string) {
-    if (!findProjectConversationTab(input.getTabs(), nextTabId)) return
+    const tab = findProjectConversationTab(input.getTabs(), nextTabId)
+    if (!tab) return
     input.setActiveTabId(nextTabId)
+    tab.unread = false
+    void runtime.hydrateTabIfNeeded(tab)
     input.persistTabs()
   }
 

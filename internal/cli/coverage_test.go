@@ -49,15 +49,18 @@ func TestCLIExitAndPlatformHelpers(t *testing.T) {
 		t.Fatalf("parseTicketListInput() missing project error = %v", err)
 	}
 
-	projectInput, err := platform.parseProjectUpdateInput(projectUpdateInput{description: " raise coverage "})
+	projectInput, err := platform.parseProjectUpdateInput(projectUpdateInput{
+		description:    " raise coverage ",
+		descriptionSet: true,
+	})
 	if err != nil {
 		t.Fatalf("parseProjectUpdateInput() error = %v", err)
 	}
-	if projectInput.projectID != "project-env" || projectInput.description != "raise coverage" {
+	if projectInput.projectID != "project-env" || projectInput.description != "raise coverage" || !projectInput.descriptionSet {
 		t.Fatalf("parseProjectUpdateInput() = %+v", projectInput)
 	}
-	if _, err := platform.parseProjectUpdateInput(projectUpdateInput{description: " "}); err == nil || !strings.Contains(err.Error(), "description must not be empty") {
-		t.Fatalf("parseProjectUpdateInput() blank description error = %v", err)
+	if _, err := platform.parseProjectUpdateInput(projectUpdateInput{}); err == nil || !strings.Contains(err.Error(), "at least one of --name, --slug, --description") {
+		t.Fatalf("parseProjectUpdateInput() missing fields error = %v", err)
 	}
 
 	usageInput, err := platform.parseTicketReportUsageInput(ticketReportUsageInput{
@@ -288,6 +291,8 @@ func TestCLIPlatformParserAndHTTPErrorCoverage(t *testing.T) {
 		t.Fatalf("rawPlatformContext.resolve() = %+v", platform)
 	}
 
+	t.Setenv("OPENASE_API_URL", "")
+	t.Setenv("OPENASE_AGENT_TOKEN", "")
 	if _, err := (rawPlatformContext{}).resolve(); err == nil || !strings.Contains(err.Error(), "platform api url is required") {
 		t.Fatalf("rawPlatformContext.resolve() missing api url error = %v", err)
 	}

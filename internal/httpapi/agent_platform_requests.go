@@ -44,7 +44,14 @@ type rawAgentTicketCommentRequest struct {
 }
 
 type rawAgentProjectPatchRequest struct {
-	Description *string `json:"description"`
+	Name                   *string   `json:"name"`
+	Slug                   *string   `json:"slug"`
+	Description            *string   `json:"description"`
+	Status                 *string   `json:"status"`
+	DefaultAgentProviderID *string   `json:"default_agent_provider_id"`
+	AccessibleMachineIDs   *[]string `json:"accessible_machine_ids"`
+	MaxConcurrentAgents    *int      `json:"max_concurrent_agents"`
+	AgentRunSummaryPrompt  *string   `json:"agent_run_summary_prompt"`
 }
 
 type rawAgentCreateProjectUpdateThreadRequest struct {
@@ -167,19 +174,53 @@ func parseAgentProjectPatchRequest(
 	current domain.Project,
 	raw rawAgentProjectPatchRequest,
 ) (domain.UpdateProject, error) {
-	if raw.Description == nil {
-		return domain.UpdateProject{}, writeableError("description is required")
+	if raw.Name == nil &&
+		raw.Slug == nil &&
+		raw.Description == nil &&
+		raw.Status == nil &&
+		raw.DefaultAgentProviderID == nil &&
+		raw.AccessibleMachineIDs == nil &&
+		raw.MaxConcurrentAgents == nil &&
+		raw.AgentRunSummaryPrompt == nil {
+		return domain.UpdateProject{}, writeableError("at least one project field must be provided")
 	}
 
-	return domain.ParseUpdateProject(projectID, current.OrganizationID, domain.ProjectInput{
+	request := domain.ProjectInput{
 		Name:                   current.Name,
 		Slug:                   current.Slug,
-		Description:            strings.TrimSpace(*raw.Description),
+		Description:            current.Description,
 		Status:                 current.Status.String(),
 		DefaultAgentProviderID: uuidToStringPointer(current.DefaultAgentProviderID),
 		AccessibleMachineIDs:   uuidSliceToStrings(current.AccessibleMachineIDs),
 		MaxConcurrentAgents:    intPointer(current.MaxConcurrentAgents),
-	})
+		AgentRunSummaryPrompt:  stringPointerOrNil(current.AgentRunSummaryPrompt),
+	}
+	if raw.Name != nil {
+		request.Name = strings.TrimSpace(*raw.Name)
+	}
+	if raw.Slug != nil {
+		request.Slug = strings.TrimSpace(*raw.Slug)
+	}
+	if raw.Description != nil {
+		request.Description = strings.TrimSpace(*raw.Description)
+	}
+	if raw.Status != nil {
+		request.Status = strings.TrimSpace(*raw.Status)
+	}
+	if raw.DefaultAgentProviderID != nil {
+		request.DefaultAgentProviderID = raw.DefaultAgentProviderID
+	}
+	if raw.AccessibleMachineIDs != nil {
+		request.AccessibleMachineIDs = cloneStringSlice(*raw.AccessibleMachineIDs)
+	}
+	if raw.MaxConcurrentAgents != nil {
+		request.MaxConcurrentAgents = raw.MaxConcurrentAgents
+	}
+	if raw.AgentRunSummaryPrompt != nil {
+		request.AgentRunSummaryPrompt = raw.AgentRunSummaryPrompt
+	}
+
+	return domain.ParseUpdateProject(projectID, current.OrganizationID, request)
 }
 
 func parseAgentCreateProjectUpdateThreadRequest(

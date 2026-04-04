@@ -115,6 +115,7 @@ type ProjectConversationService struct {
 	githubAuth          githubauthservice.TokenResolver
 
 	streamBroker    *projectConversationStreamBroker
+	muxBroker       *projectConversationMuxBroker
 	runtimeManager  *projectConversationRuntimeManager
 	turnLocks       userLockRegistry
 	promptBuilder   *Service
@@ -145,6 +146,7 @@ func NewProjectConversationService(
 		localProcessManager: localProcessManager,
 		sshPool:             sshPool,
 		streamBroker:        newProjectConversationStreamBroker(),
+		muxBroker:           newProjectConversationMuxBroker(),
 	}
 	if syncer, ok := workflows.(projectConversationSkillSync); ok {
 		service.skillSync = syncer
@@ -308,6 +310,53 @@ func (s *ProjectConversationService) WatchConversation(
 		}, sessionProvider)
 	}
 	return s.streamBroker.Watch(conversationID, StreamEvent{Event: "session", Payload: sessionPayload})
+}
+
+func (s *ProjectConversationService) WatchProjectConversations(
+	ctx context.Context,
+	userID UserID,
+	projectID uuid.UUID,
+) (<-chan ProjectConversationMuxEvent, func(), error) {
+	conversations, err := s.ListConversations(ctx, userID, projectID, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	providersByID := map[uuid.UUID]catalogdomain.AgentProvider{}
+	initial := make([]ProjectConversationMuxEvent, 0, len(conversations))
+	for _, conversation := range conversations {
+		state := "inactive"
+		var providerItem *catalogdomain.AgentProvider
+		if live, hasLive := s.runtimeManager.Get(conversation.ID); hasLive && live != nil {
+			state = "ready"
+			providerItem = &live.provider
+			anchor := liveRuntimeSessionAnchor(live, SessionID(conversation.ID.String()))
+			conversation.ProviderThreadID = optionalString(anchor.ProviderThreadID)
+			conversation.LastTurnID = optionalString(anchor.LastTurnID)
+			conversation.ProviderThreadStatus = optionalString(anchor.ProviderThreadStatus)
+			conversation.ProviderThreadActiveFlags = append(
+				[]string(nil),
+				anchor.ProviderThreadActiveFlags...,
+			)
+		}
+		if providerItem == nil && s.catalog != nil && conversation.ProviderID != uuid.Nil {
+			if cached, ok := providersByID[conversation.ProviderID]; ok {
+				providerItem = &cached
+			} else if resolved, resolveErr := s.catalog.GetAgentProvider(ctx, conversation.ProviderID); resolveErr == nil {
+				providersByID[conversation.ProviderID] = resolved
+				providerItem = &resolved
+			}
+		}
+
+		initial = append(initial, newProjectConversationMuxEvent(conversation, StreamEvent{
+			Event:   "session",
+			Payload: conversationSessionPayload(conversation.ID, state, conversation, providerItem),
+		}))
+	}
+
+	key := projectConversationMuxWatchKey{ProjectID: projectID, UserID: userID}
+	events, cleanup := s.muxBroker.Watch(key, initial)
+	return events, cleanup, nil
 }
 
 func (s *ProjectConversationService) StartTurn(
@@ -498,7 +547,7 @@ func (s *ProjectConversationService) StartTurn(
 		CurrentStepChangedAt: &runNow,
 	})
 
-	go s.consumeTurn(context.WithoutCancel(ctx), conversationID, turn, live, run, stream)
+	go s.consumeTurn(context.WithoutCancel(ctx), conversation, turn, live, run, stream)
 	return turn, nil
 }
 
@@ -621,7 +670,7 @@ func (s *ProjectConversationService) RespondInterrupt(
 		domain.ConversationStatusActive,
 		conversationAnchorsFromRuntimeAnchor(anchor, ""),
 	)
-	s.broadcast(conversationID, StreamEvent{
+	s.broadcastConversationEvent(conversation, StreamEvent{
 		Event: "interrupt_resolved",
 		Payload: map[string]any{
 			"interrupt_id": resolved.ID.String(),
@@ -654,13 +703,13 @@ func (s *ProjectConversationService) RespondInterrupt(
 			}); runtimeErr == nil {
 				live.principal = principal
 			}
-			go s.consumeTurn(context.WithoutCancel(ctx), conversationID, domain.Turn{
+			go s.consumeTurn(context.WithoutCancel(ctx), conversation, domain.Turn{
 				ID:             interrupt.TurnID,
 				ConversationID: conversationID,
 			}, live, run, stream)
 			return resolved, nil
 		}
-		go s.consumeTurn(context.WithoutCancel(ctx), conversationID, domain.Turn{
+		go s.consumeTurn(context.WithoutCancel(ctx), conversation, domain.Turn{
 			ID:             interrupt.TurnID,
 			ConversationID: conversationID,
 		}, live, domain.ProjectConversationRun{}, stream)
@@ -675,14 +724,15 @@ func (s *ProjectConversationService) AppendActionExecutionResult(
 	turnID *uuid.UUID,
 	payload map[string]any,
 ) (domain.Entry, error) {
-	if _, err := s.GetConversation(ctx, userID, conversationID); err != nil {
+	conversation, err := s.GetConversation(ctx, userID, conversationID)
+	if err != nil {
 		return domain.Entry{}, err
 	}
 	entry, err := s.entries.AppendEntry(ctx, conversationID, turnID, domain.EntryKindActionResult, payload)
 	if err != nil {
 		return domain.Entry{}, err
 	}
-	s.broadcast(conversationID, StreamEvent{
+	s.broadcastConversationEvent(conversation, StreamEvent{
 		Event: "message",
 		Payload: map[string]any{
 			"type":    "action_result",
@@ -693,7 +743,8 @@ func (s *ProjectConversationService) AppendActionExecutionResult(
 }
 
 func (s *ProjectConversationService) CloseRuntime(ctx context.Context, userID UserID, conversationID uuid.UUID) error {
-	if _, err := s.GetConversation(ctx, userID, conversationID); err != nil {
+	conversation, err := s.GetConversation(ctx, userID, conversationID)
+	if err != nil {
 		return err
 	}
 
@@ -716,7 +767,7 @@ func (s *ProjectConversationService) CloseRuntime(ctx context.Context, userID Us
 			live.principal = principal
 		}
 	}
-	conversation, err := s.conversations.CloseConversationRuntime(ctx, conversationID)
+	updatedConversation, err := s.conversations.CloseConversationRuntime(ctx, conversationID)
 	if err == nil {
 		var providerItem *catalogdomain.AgentProvider
 		if live != nil {
@@ -726,9 +777,9 @@ func (s *ProjectConversationService) CloseRuntime(ctx context.Context, userID Us
 				providerItem = &resolved
 			}
 		}
-		s.broadcast(conversationID, StreamEvent{
+		s.broadcastConversationEvent(updatedConversation, StreamEvent{
 			Event:   "session",
-			Payload: conversationSessionPayload(conversationID, "inactive", conversation, providerItem),
+			Payload: conversationSessionPayload(conversationID, "inactive", updatedConversation, providerItem),
 		})
 	}
 	return err
@@ -836,13 +887,13 @@ func (s *ProjectConversationService) terminateStaleActiveTurn(
 	}
 	if s.catalog != nil {
 		if providerItem, providerErr := s.catalog.GetAgentProvider(ctx, conversation.ProviderID); providerErr == nil {
-			s.broadcast(conversation.ID, StreamEvent{
+			s.broadcastConversationEvent(updatedConversation, StreamEvent{
 				Event:   "session",
 				Payload: conversationSessionPayload(conversation.ID, "inactive", updatedConversation, &providerItem),
 			})
 		}
 	}
-	s.broadcast(conversation.ID, StreamEvent{
+	s.broadcastConversationEvent(conversation, StreamEvent{
 		Event: "turn_recovered",
 		Payload: map[string]any{
 			"turn_id":         activeTurn.ID.String(),
@@ -855,12 +906,13 @@ func (s *ProjectConversationService) terminateStaleActiveTurn(
 
 func (s *ProjectConversationService) consumeTurn(
 	ctx context.Context,
-	conversationID uuid.UUID,
+	conversation domain.Conversation,
 	turn domain.Turn,
 	live *liveProjectConversation,
 	run domain.ProjectConversationRun,
 	stream TurnStream,
 ) {
+	conversationID := conversation.ID
 	usageHighWater := projectConversationUsageHighWater{
 		inputTokens:         run.InputTokens,
 		outputTokens:        run.OutputTokens,
@@ -879,11 +931,11 @@ func (s *ProjectConversationService) consumeTurn(
 		case "message":
 			if normalized, ok := s.handleConversationMessage(ctx, conversationID, turn.ID, event.Payload); ok {
 				s.recordConversationTrace(ctx, live, run, "message", normalized.Payload, "assistant")
-				s.broadcast(conversationID, normalized)
+				s.broadcastConversationEvent(conversation, normalized)
 				continue
 			}
 			s.recordConversationTrace(ctx, live, run, "message", event.Payload, "assistant")
-			s.broadcast(conversationID, event)
+			s.broadcastConversationEvent(conversation, event)
 		case "interrupt_requested":
 			payload, ok := event.Payload.(RuntimeInterruptEvent)
 			if !ok {
@@ -923,7 +975,7 @@ func (s *ProjectConversationService) consumeTurn(
 				conversationAnchorsFromRuntimeAnchor(anchor, ""),
 			)
 			s.recordConversationStep(ctx, live, run, domain.RuntimeStateInterrupted, domain.RunStatusInterrupted, "interrupt_requested", "Project conversation is waiting for user interrupt resolution.", nil, nil, "")
-			s.broadcast(conversationID, StreamEvent{
+			s.broadcastConversationEvent(conversation, StreamEvent{
 				Event: "interrupt_requested",
 				Payload: map[string]any{
 					"interrupt_id": pending.ID.String(),
@@ -952,7 +1004,7 @@ func (s *ProjectConversationService) consumeTurn(
 				conversationAnchorsFromRuntimeAnchor(anchor, summary),
 			)
 			s.recordConversationStep(ctx, live, run, domain.RuntimeStateReady, domain.RunStatusCompleted, "turn_completed", "Project conversation turn completed.", optionalNonEmptyString(anchor.ProviderThreadID), done.CostUSD, "")
-			s.broadcast(conversationID, StreamEvent{
+			s.broadcastConversationEvent(conversation, StreamEvent{
 				Event: "turn_done",
 				Payload: map[string]any{
 					"conversation_id": conversationID.String(),
@@ -1016,7 +1068,7 @@ func (s *ProjectConversationService) consumeTurn(
 				"status":       payload.Status,
 				"active_flags": append([]string(nil), payload.ActiveFlags...),
 			})
-			s.broadcast(conversationID, StreamEvent{
+			s.broadcastConversationEvent(conversation, StreamEvent{
 				Event: "message",
 				Payload: map[string]any{
 					"type": "thread_status",
@@ -1029,7 +1081,7 @@ func (s *ProjectConversationService) consumeTurn(
 					},
 				},
 			})
-			s.broadcast(conversationID, StreamEvent{
+			s.broadcastConversationEvent(conversation, StreamEvent{
 				Event: "thread_status",
 				Payload: map[string]any{
 					"thread_id":    payload.ThreadID,
@@ -1038,7 +1090,7 @@ func (s *ProjectConversationService) consumeTurn(
 					"entry_id":     entry.ID.String(),
 				},
 			})
-			s.broadcast(conversationID, StreamEvent{
+			s.broadcastConversationEvent(conversation, StreamEvent{
 				Event:   "session",
 				Payload: conversationSessionPayload(conversationID, "ready", updated, &live.provider),
 			})
@@ -1059,7 +1111,7 @@ func (s *ProjectConversationService) consumeTurn(
 				domain.ConversationStatusActive,
 				conversationAnchorsFromRuntimeAnchor(anchor, ""),
 			)
-			s.broadcast(conversationID, StreamEvent{
+			s.broadcastConversationEvent(updated, StreamEvent{
 				Event:   "session",
 				Payload: conversationSessionPayload(conversationID, "ready", updated, &live.provider),
 			})
@@ -1093,7 +1145,7 @@ func (s *ProjectConversationService) consumeTurn(
 				"detail":       payload.Detail,
 				"raw":          cloneAnyMap(payload.Raw),
 			})
-			s.broadcast(conversationID, StreamEvent{
+			s.broadcastConversationEvent(conversation, StreamEvent{
 				Event: "message",
 				Payload: map[string]any{
 					"type": "session_state",
@@ -1106,7 +1158,7 @@ func (s *ProjectConversationService) consumeTurn(
 					},
 				},
 			})
-			s.broadcast(conversationID, StreamEvent{
+			s.broadcastConversationEvent(updated, StreamEvent{
 				Event:   "session",
 				Payload: conversationSessionPayload(conversationID, "ready", updated, &live.provider),
 			})
@@ -1124,7 +1176,7 @@ func (s *ProjectConversationService) consumeTurn(
 				"thread_id": payload.ThreadID,
 				"turn_id":   payload.TurnID,
 			})
-			s.broadcast(conversationID, StreamEvent{
+			s.broadcastConversationEvent(conversation, StreamEvent{
 				Event: "thread_compacted",
 				Payload: map[string]any{
 					"thread_id": payload.ThreadID,
@@ -1158,7 +1210,7 @@ func (s *ProjectConversationService) consumeTurn(
 				"explanation": payload.Explanation,
 				"plan":        rawPlan,
 			})
-			s.broadcast(conversationID, StreamEvent{
+			s.broadcastConversationEvent(conversation, StreamEvent{
 				Event: "plan_updated",
 				Payload: map[string]any{
 					"thread_id":   payload.ThreadID,
@@ -1184,7 +1236,7 @@ func (s *ProjectConversationService) consumeTurn(
 				"turn_id":   payload.TurnID,
 				"diff":      payload.Diff,
 			})
-			s.broadcast(conversationID, StreamEvent{
+			s.broadcastConversationEvent(conversation, StreamEvent{
 				Event: "diff_updated",
 				Payload: map[string]any{
 					"thread_id": payload.ThreadID,
@@ -1217,7 +1269,7 @@ func (s *ProjectConversationService) consumeTurn(
 				"summary_index": payload.SummaryIndex,
 				"content_index": payload.ContentIndex,
 			})
-			s.broadcast(conversationID, StreamEvent{
+			s.broadcastConversationEvent(conversation, StreamEvent{
 				Event: "reasoning_updated",
 				Payload: map[string]any{
 					"thread_id":     payload.ThreadID,
@@ -1243,7 +1295,7 @@ func (s *ProjectConversationService) consumeTurn(
 					conversationAnchorsFromRuntimeAnchor(anchor, ""),
 				)
 				s.recordConversationStep(ctx, live, run, domain.RuntimeStateReady, domain.RunStatusFailed, "turn_failed", payload.Message, optionalNonEmptyString(anchor.ProviderThreadID), nil, payload.Message)
-				s.broadcast(conversationID, StreamEvent{
+				s.broadcastConversationEvent(conversation, StreamEvent{
 					Event: "error",
 					Payload: map[string]any{
 						"message": payload.Message,
@@ -1263,7 +1315,7 @@ func (s *ProjectConversationService) consumeTurn(
 					conversationAnchorsFromRuntimeAnchor(anchor, ""),
 				)
 				s.recordConversationStep(ctx, live, run, domain.RuntimeStateInterrupted, domain.RunStatusInterrupted, "turn_interrupted", payload.Message, optionalNonEmptyString(anchor.ProviderThreadID), nil, "")
-				s.broadcast(conversationID, StreamEvent{
+				s.broadcastConversationEvent(conversation, StreamEvent{
 					Event: "interrupted",
 					Payload: map[string]any{
 						"message": payload.Message,
@@ -1789,8 +1841,44 @@ func projectConversationPromptScopes() []string {
 	return slices.Compact(scopes)
 }
 
+func (s *ProjectConversationService) broadcastConversationEvent(
+	conversation domain.Conversation,
+	event StreamEvent,
+) {
+	s.streamBroker.Broadcast(conversation.ID, event)
+	if conversation.ID == uuid.Nil || conversation.ProjectID == uuid.Nil || strings.TrimSpace(conversation.UserID) == "" {
+		return
+	}
+	s.muxBroker.Broadcast(
+		projectConversationMuxWatchKey{
+			ProjectID: conversation.ProjectID,
+			UserID:    UserID(conversation.UserID),
+		},
+		newProjectConversationMuxEvent(conversation, event),
+	)
+}
+
 func (s *ProjectConversationService) broadcast(conversationID uuid.UUID, event StreamEvent) {
-	s.streamBroker.Broadcast(conversationID, event)
+	if s == nil || s.conversations == nil {
+		return
+	}
+	conversation, err := s.conversations.GetConversation(context.Background(), conversationID)
+	if err != nil {
+		return
+	}
+	s.broadcastConversationEvent(conversation, event)
+}
+
+func newProjectConversationMuxEvent(
+	conversation domain.Conversation,
+	event StreamEvent,
+) ProjectConversationMuxEvent {
+	return ProjectConversationMuxEvent{
+		Event:          event.Event,
+		ConversationID: conversation.ID,
+		Payload:        event.Payload,
+		SentAt:         time.Now().UTC(),
+	}
 }
 
 func runtimeInterruptKind(kind domain.InterruptKind) string {
