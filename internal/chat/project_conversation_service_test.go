@@ -3379,6 +3379,117 @@ func TestProjectConversationWorkspaceDiffSummary(t *testing.T) {
 	})
 }
 
+func TestProjectConversationWorkspaceDiffToleratesUnresolvedWorkspaceDuringInitialSession(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	service := NewProjectConversationService(nil, repoStore, fakeProjectConversationCatalog{
+		fakeCatalogReader: fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             project.ID,
+				OrganizationID: org.ID,
+				Name:           "OpenASE",
+				Slug:           "openase",
+			},
+			providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+				providerID: {
+					ID:             providerID,
+					OrganizationID: org.ID,
+					MachineID:      machineID,
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+					CliCommand:     "codex",
+				},
+			},
+		},
+		machine: catalogdomain.Machine{
+			ID:   machineID,
+			Name: "remote-builder",
+			Host: "10.0.0.25",
+		},
+	}, nil, nil, nil, nil)
+
+	summary, err := service.GetWorkspaceDiff(ctx, UserID("user:conversation"), conversation.ID)
+	if err != nil {
+		t.Fatalf("GetWorkspaceDiff() error = %v", err)
+	}
+	if summary.ConversationID != conversation.ID || summary.WorkspacePath != "" || summary.Dirty || summary.ReposChanged != 0 || summary.FilesChanged != 0 || len(summary.Repos) != 0 {
+		t.Fatalf("unexpected summary for unresolved initial workspace: %+v", summary)
+	}
+}
+
+func TestProjectConversationWorkspaceDiffStillFailsForStartedConversationWithoutResolvableWorkspace(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	conversation, err = repoStore.UpdateConversationAnchors(ctx, conversation.ID, chatdomain.ConversationStatusActive, chatdomain.ConversationAnchors{
+		ProviderThreadID: optionalString("thread-visible"),
+	})
+	if err != nil {
+		t.Fatalf("update anchors: %v", err)
+	}
+
+	service := NewProjectConversationService(nil, repoStore, fakeProjectConversationCatalog{
+		fakeCatalogReader: fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             project.ID,
+				OrganizationID: org.ID,
+				Name:           "OpenASE",
+				Slug:           "openase",
+			},
+			providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+				providerID: {
+					ID:             providerID,
+					OrganizationID: org.ID,
+					MachineID:      machineID,
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+					CliCommand:     "codex",
+				},
+			},
+		},
+		machine: catalogdomain.Machine{
+			ID:   machineID,
+			Name: "remote-builder",
+			Host: "10.0.0.25",
+		},
+	}, nil, nil, nil, nil)
+
+	_, err = service.GetWorkspaceDiff(ctx, UserID("user:conversation"), conversation.ID)
+	if err == nil || !strings.Contains(err.Error(), "missing workspace_root") {
+		t.Fatalf("GetWorkspaceDiff() error = %v, want missing workspace_root", err)
+	}
+}
+
 type fakeProjectConversationCatalog struct {
 	fakeCatalogReader
 	machine    catalogdomain.Machine
