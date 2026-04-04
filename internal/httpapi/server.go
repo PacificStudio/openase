@@ -209,6 +209,7 @@ func NewServer(
 	e.Use(middleware.Recover())
 	e.Use(middleware.RequestID())
 
+	//nolint:gosec // canceled through shutdownLongLivedConnections during server teardown
 	longLivedConnCtx, longLivedConnCancel := context.WithCancel(context.Background())
 
 	server := &Server{

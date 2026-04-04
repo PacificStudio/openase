@@ -60,7 +60,7 @@ func TestServerRunShutdownCutsActiveEventStream(t *testing.T) {
 	streamClosed := drainReader(reader)
 	stopServer()
 
-	if err, elapsed := waitForServerRunResult(errCh); err != nil {
+	if elapsed, err := waitForServerRunResult(errCh); err != nil {
 		t.Fatalf("Run() error = %v, want nil", err)
 	} else if elapsed > 2*time.Second {
 		t.Fatalf("Run() took %s after shutdown, want under 2s", elapsed)
@@ -150,7 +150,7 @@ func TestServerRunShutdownCutsProjectConversationMuxStream(t *testing.T) {
 	streamClosed := drainReader(reader)
 	stopServer()
 
-	if err, elapsed := waitForServerRunResult(errCh); err != nil {
+	if elapsed, err := waitForServerRunResult(errCh); err != nil {
 		t.Fatalf("Run() error = %v, want nil", err)
 	} else if elapsed > 2*time.Second {
 		t.Fatalf("Run() took %s after shutdown, want under 2s", elapsed)
@@ -220,7 +220,7 @@ func TestServerRunShutdownCutsMachineWebsocket(t *testing.T) {
 
 	stopServer()
 
-	if err, elapsed := waitForServerRunResult(errCh); err != nil {
+	if elapsed, err := waitForServerRunResult(errCh); err != nil {
 		t.Fatalf("Run() error = %v, want nil", err)
 	} else if elapsed > 2*time.Second {
 		t.Fatalf("Run() took %s after shutdown, want under 2s", elapsed)
@@ -255,6 +255,7 @@ func startShutdownTestServer(t *testing.T, server *Server) (string, context.Canc
 	t.Helper()
 
 	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- server.Run(ctx)
@@ -270,6 +271,7 @@ func waitForServerReady(t *testing.T, url string) {
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
+		//nolint:gosec // test helper polls the localhost server it just started
 		response, err := http.Get(url)
 		if err == nil {
 			_ = response.Body.Close()
@@ -282,13 +284,13 @@ func waitForServerReady(t *testing.T, url string) {
 	t.Fatalf("timed out waiting for server readiness at %s", url)
 }
 
-func waitForServerRunResult(errCh <-chan error) (error, time.Duration) {
+func waitForServerRunResult(errCh <-chan error) (time.Duration, error) {
 	startedAt := time.Now()
 	select {
 	case err := <-errCh:
-		return err, time.Since(startedAt)
+		return time.Since(startedAt), err
 	case <-time.After(5 * time.Second):
-		return errors.New("timed out waiting for Server.Run"), time.Since(startedAt)
+		return time.Since(startedAt), errors.New("timed out waiting for Server.Run")
 	}
 }
 
