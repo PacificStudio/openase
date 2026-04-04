@@ -70,7 +70,7 @@ func ParseDaemonConfig(
 	openaseBinaryPath string,
 	agentCLIPath string,
 ) (DaemonConfig, error) {
-	parsedMachineID, err := parseUUID("machine_id", machineID)
+	parsedMachineID, err := parseUUID(machineID)
 	if err != nil {
 		return DaemonConfig{}, err
 	}
@@ -280,14 +280,14 @@ func DecodePayload[T any](envelope Envelope) (T, error) {
 	return payload, nil
 }
 
-func parseUUID(name string, raw string) (uuid.UUID, error) {
+func parseUUID(raw string) (uuid.UUID, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
-		return uuid.UUID{}, fmt.Errorf("%s must not be empty", name)
+		return uuid.UUID{}, fmt.Errorf("machine_id must not be empty")
 	}
 	parsed, err := uuid.Parse(trimmed)
 	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("%s must be a valid UUID", name)
+		return uuid.UUID{}, fmt.Errorf("machine_id must be a valid UUID")
 	}
 	return parsed, nil
 }

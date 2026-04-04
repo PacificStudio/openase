@@ -96,14 +96,14 @@ func TestParseTokenAndUUID(t *testing.T) {
 	}
 
 	validUUID := uuid.New()
-	parsedUUID, err := parseUUID("machine_id", validUUID.String())
+	parsedUUID, err := parseUUID(validUUID.String())
 	if err != nil || parsedUUID != validUUID {
 		t.Fatalf("parseUUID returned %+v, %v", parsedUUID, err)
 	}
-	if _, err := parseUUID("machine_id", " "); err == nil || !strings.Contains(err.Error(), "must not be empty") {
+	if _, err := parseUUID(" "); err == nil || !strings.Contains(err.Error(), "must not be empty") {
 		t.Fatalf("expected empty uuid error, got %v", err)
 	}
-	if _, err := parseUUID("machine_id", "bad"); err == nil || !strings.Contains(err.Error(), "must be a valid UUID") {
+	if _, err := parseUUID("bad"); err == nil || !strings.Contains(err.Error(), "must be a valid UUID") {
 		t.Fatalf("expected invalid uuid error, got %v", err)
 	}
 }

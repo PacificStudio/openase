@@ -196,7 +196,12 @@ func dialMachineWebsocket(t *testing.T, serverURL string) *websocket.Conn {
 	t.Helper()
 
 	wsURL := "ws" + strings.TrimPrefix(serverURL, "http") + "/api/v1/machines/connect"
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	conn, response, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if response != nil && response.Body != nil {
+		defer func() {
+			_ = response.Body.Close()
+		}()
+	}
 	if err != nil {
 		t.Fatalf("dial websocket %s: %v", wsURL, err)
 	}

@@ -42,39 +42,49 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 
 	helloEnvelope, err := readMachineEnvelope(conn)
 	if err != nil {
-		return s.failMachineConnection(ctx, conn, uuid.Nil, "", "invalid_hello", err)
+		s.failMachineConnection(ctx, conn, uuid.Nil, "", "invalid_hello", err)
+		return nil
 	}
 	if helloEnvelope.Type != domain.MessageTypeHello {
-		return s.failMachineConnection(ctx, conn, uuid.Nil, "", "invalid_hello", domain.ErrUnexpectedMessage)
+		s.failMachineConnection(ctx, conn, uuid.Nil, "", "invalid_hello", domain.ErrUnexpectedMessage)
+		return nil
 	}
 	if _, err := domain.DecodePayload[domain.Hello](helloEnvelope); err != nil {
-		return s.failMachineConnection(ctx, conn, uuid.Nil, "", "invalid_hello", err)
+		s.failMachineConnection(ctx, conn, uuid.Nil, "", "invalid_hello", err)
+		return nil
 	}
 
 	authenticateEnvelope, err := readMachineEnvelope(conn)
 	if err != nil {
-		return s.failMachineConnection(ctx, conn, uuid.Nil, "", "invalid_authenticate", err)
+		s.failMachineConnection(ctx, conn, uuid.Nil, "", "invalid_authenticate", err)
+		return nil
 	}
 	if authenticateEnvelope.Type != domain.MessageTypeAuthenticate {
-		return s.failMachineConnection(ctx, conn, uuid.Nil, "", "invalid_authenticate", domain.ErrUnexpectedMessage)
+		s.failMachineConnection(ctx, conn, uuid.Nil, "", "invalid_authenticate", domain.ErrUnexpectedMessage)
+		return nil
 	}
 	authenticatePayload, err := domain.DecodePayload[domain.Authenticate](authenticateEnvelope)
 	if err != nil {
-		return s.failMachineConnection(ctx, conn, uuid.Nil, "", "invalid_authenticate", err)
+		s.failMachineConnection(ctx, conn, uuid.Nil, "", "invalid_authenticate", err)
+		return nil
 	}
 	if strings.TrimSpace(authenticatePayload.TransportMode) != "ws_reverse" {
-		return s.failMachineConnection(ctx, conn, uuid.Nil, "", "mode_mismatch", domain.ErrConnectionMode)
+		s.failMachineConnection(ctx, conn, uuid.Nil, "", "mode_mismatch", domain.ErrConnectionMode)
+		return nil
 	}
 	parsedMachineID, err := uuid.Parse(strings.TrimSpace(authenticatePayload.MachineID))
 	if err != nil {
-		return s.failMachineConnection(ctx, conn, uuid.Nil, "", "invalid_machine_id", err)
+		s.failMachineConnection(ctx, conn, uuid.Nil, "", "invalid_machine_id", err)
+		return nil
 	}
 	claims, err := s.machineChannel.Authenticate(ctx, authenticatePayload.Token)
 	if err != nil {
-		return s.failMachineConnection(ctx, conn, parsedMachineID, "", machineAuthFailureCode(err), err)
+		s.failMachineConnection(ctx, conn, parsedMachineID, "", machineAuthFailureCode(err), err)
+		return nil
 	}
 	if claims.MachineID != parsedMachineID {
-		return s.failMachineConnection(ctx, conn, parsedMachineID, "", "machine_id_mismatch", domain.ErrInvalidToken)
+		s.failMachineConnection(ctx, conn, parsedMachineID, "", "machine_id_mismatch", domain.ErrInvalidToken)
+		return nil
 	}
 
 	connectedAt := time.Now().UTC()
@@ -90,7 +100,8 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 	})
 	if err != nil {
 		_, _ = s.machineSessions.Remove(sessionID)
-		return s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "register_failed", err)
+		s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "register_failed", err)
+		return nil
 	}
 
 	if err := writeMachineEnvelope(conn, domain.MessageTypeRegistered, sessionID, domain.Registered{
@@ -129,11 +140,13 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 		case domain.MessageTypeHeartbeat:
 			heartbeatPayload, decodeErr := domain.DecodePayload[domain.Heartbeat](envelope)
 			if decodeErr != nil {
-				return s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "invalid_heartbeat", decodeErr)
+				s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "invalid_heartbeat", decodeErr)
+				return nil
 			}
 			heartbeatAt := time.Now().UTC()
 			if _, ok := s.machineSessions.Heartbeat(sessionID, heartbeatAt); !ok {
-				return s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "session_replaced", domain.ErrSessionReplaced)
+				s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "session_replaced", domain.ErrSessionReplaced)
+				return nil
 			}
 			if _, err := s.machineChannel.RecordHeartbeat(ctx, machinechannelservice.HeartbeatRecord{
 				MachineID:        parsedMachineID,
@@ -143,7 +156,8 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 				ToolInventory:    heartbeatPayload.ToolInventory,
 				ResourceSnapshot: heartbeatPayload.ResourceSnapshot,
 			}); err != nil {
-				return s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "heartbeat_failed", err)
+				s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "heartbeat_failed", err)
+				return nil
 			}
 		case domain.MessageTypeGoodbye:
 			goodbyePayload, _ := domain.DecodePayload[domain.Goodbye](envelope)
@@ -157,7 +171,8 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 			s.publishMachineChannelDisconnect(ctx, parsedMachineID, sessionID, "goodbye")
 			return nil
 		default:
-			return s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "unexpected_message", domain.ErrUnexpectedMessage)
+			s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "unexpected_message", domain.ErrUnexpectedMessage)
+			return nil
 		}
 	}
 
@@ -207,7 +222,7 @@ func (s *Server) failMachineConnection(
 	sessionID string,
 	code string,
 	err error,
-) error {
+) {
 	_ = writeMachineEnvelope(conn, domain.MessageTypeError, sessionID, domain.ErrorPayload{
 		Code:    code,
 		Message: err.Error(),
@@ -236,7 +251,6 @@ func (s *Server) failMachineConnection(
 		"failure_code", code,
 		"error", err,
 	)
-	return nil
 }
 
 func (s *Server) publishMachineChannelEvent(ctx context.Context, machineID uuid.UUID, sessionID string, replaced bool) {

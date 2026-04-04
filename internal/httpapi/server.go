@@ -287,6 +287,7 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}()
 	if s.machineChannel != nil && s.machineSessions != nil {
+		//nolint:gosec // server lifecycle goroutine is intentionally tied to process-scoped ctx
 		go s.runMachineSessionExpiryLoop(ctx)
 	}
 
