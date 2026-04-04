@@ -13,6 +13,50 @@ import (
 
 var _ = logging.DeclareComponent("workspace-remote-manager")
 
+type PrepareFailureStage string
+
+const (
+	PrepareFailureStageTransport     PrepareFailureStage = "transport"
+	PrepareFailureStageWorkspaceRoot PrepareFailureStage = "workspace_root"
+	PrepareFailureStageRepoAuth      PrepareFailureStage = "repo_auth"
+	PrepareFailureStageGitOperation  PrepareFailureStage = "git_operation"
+)
+
+type PrepareError struct {
+	Stage   PrepareFailureStage
+	Message string
+	Cause   error
+}
+
+func (e *PrepareError) Error() string {
+	if e == nil {
+		return "prepare remote workspace failed"
+	}
+
+	stage := strings.TrimSpace(string(e.Stage))
+	if stage == "" {
+		stage = string(PrepareFailureStageGitOperation)
+	}
+	message := strings.TrimSpace(e.Message)
+	switch {
+	case message != "" && e.Cause != nil:
+		return fmt.Sprintf("prepare remote workspace (%s): %s: %v", stage, message, e.Cause)
+	case message != "":
+		return fmt.Sprintf("prepare remote workspace (%s): %s", stage, message)
+	case e.Cause != nil:
+		return fmt.Sprintf("prepare remote workspace (%s): %v", stage, e.Cause)
+	default:
+		return fmt.Sprintf("prepare remote workspace (%s) failed", stage)
+	}
+}
+
+func (e *PrepareError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Cause
+}
+
 // RemoteManager prepares ticket workspaces on a remote machine over SSH.
 type RemoteManager struct {
 	pool *sshinfra.Pool
@@ -31,7 +75,7 @@ func (m *RemoteManager) Prepare(ctx context.Context, machine domain.Machine, req
 		ctx = context.Background()
 	}
 	if m == nil || m.pool == nil {
-		return Workspace{}, fmt.Errorf("remote workspace manager unavailable")
+		return Workspace{}, wrapPrepareTransportError("", fmt.Errorf("remote workspace manager unavailable"))
 	}
 	if machine.Host == domain.LocalMachineHost {
 		return Workspace{}, fmt.Errorf("local machine does not use remote workspace preparation")
@@ -39,12 +83,12 @@ func (m *RemoteManager) Prepare(ctx context.Context, machine domain.Machine, req
 
 	client, err := m.pool.Get(ctx, machine)
 	if err != nil {
-		return Workspace{}, fmt.Errorf("get ssh client for machine %s: %w", machine.Name, err)
+		return Workspace{}, wrapPrepareTransportError(machine.Name, fmt.Errorf("get ssh client for machine %s: %w", machine.Name, err))
 	}
 
 	session, err := client.NewSession()
 	if err != nil {
-		return Workspace{}, fmt.Errorf("open ssh session: %w", err)
+		return Workspace{}, wrapPrepareTransportError(machine.Name, fmt.Errorf("open ssh session: %w", err))
 	}
 	defer func() {
 		_ = session.Close()
@@ -63,7 +107,7 @@ func PrepareWithCommandRunner(runner commandRunner, request SetupRequest) (Works
 		return Workspace{}, fmt.Errorf("build remote workspace command: %w", err)
 	}
 	if output, err := runner.CombinedOutput(command); err != nil {
-		return Workspace{}, fmt.Errorf("prepare remote workspace: %w: %s", err, strings.TrimSpace(string(output)))
+		return Workspace{}, classifyPrepareWorkspaceFailure(request, err, string(output))
 	}
 
 	workspacePath, err := TicketWorkspacePath(
@@ -166,4 +210,67 @@ func buildRemoteGitCommand(repo RepoRequest, args ...string) (string, error) {
 		quoted = append(quoted, sshinfra.ShellQuote(part))
 	}
 	return strings.Join(quoted, " "), nil
+}
+
+func wrapPrepareTransportError(machineName string, cause error) error {
+	if cause == nil {
+		return nil
+	}
+	message := "transport unavailable"
+	if trimmed := strings.TrimSpace(machineName); trimmed != "" {
+		message = fmt.Sprintf("transport unavailable for machine %s", trimmed)
+	}
+	return &PrepareError{
+		Stage:   PrepareFailureStageTransport,
+		Message: message,
+		Cause:   cause,
+	}
+}
+
+func WrapPrepareTransportError(machineName string, cause error) error {
+	return wrapPrepareTransportError(machineName, cause)
+}
+
+func classifyPrepareWorkspaceFailure(request SetupRequest, cause error, output string) error {
+	trimmedOutput := strings.TrimSpace(output)
+	combined := strings.ToLower(strings.TrimSpace(trimmedOutput + "\n" + errorString(cause)))
+	workspaceRoot := strings.ToLower(strings.TrimSpace(request.WorkspaceRoot))
+
+	stage := PrepareFailureStageGitOperation
+	switch {
+	case strings.Contains(combined, "authentication failed"),
+		strings.Contains(combined, "permission denied (publickey)"),
+		strings.Contains(combined, "could not read from remote repository"),
+		strings.Contains(combined, "could not read username"),
+		strings.Contains(combined, "repository not found"):
+		stage = PrepareFailureStageRepoAuth
+	case workspaceRoot != "" &&
+		strings.Contains(combined, workspaceRoot) &&
+		(strings.Contains(combined, "permission denied") ||
+			strings.Contains(combined, "read-only file system") ||
+			strings.Contains(combined, "not a directory") ||
+			strings.Contains(combined, "no such file or directory")):
+		stage = PrepareFailureStageWorkspaceRoot
+	case strings.Contains(combined, "origin remote url mismatch"),
+		strings.Contains(combined, "is not a git clone"),
+		strings.Contains(combined, "fatal:"):
+		stage = PrepareFailureStageGitOperation
+	}
+
+	message := trimmedOutput
+	if message == "" && cause != nil {
+		message = strings.TrimSpace(cause.Error())
+	}
+	return &PrepareError{
+		Stage:   stage,
+		Message: message,
+		Cause:   cause,
+	}
+}
+
+func errorString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
