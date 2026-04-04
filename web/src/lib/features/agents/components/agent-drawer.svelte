@@ -1,24 +1,12 @@
 <script lang="ts">
-  import { adapterIconPath } from '$lib/features/providers'
-  import { cn } from '$lib/utils'
   import { ApiError } from '$lib/api/client'
   import { deleteAgent, pauseAgent, retireAgent, resumeAgent, updateAgent } from '$lib/api/openase'
   import type { AgentProvider } from '$lib/api/contracts'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import { Button } from '$ui/button'
-  import { Input } from '$ui/input'
-  import * as Select from '$ui/select'
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
-  import { Check, Pencil, Wrench, X } from '@lucide/svelte'
   import AgentDrawerContent from './agent-drawer-content.svelte'
-  import {
-    agentStatusDot,
-    agentStatusLabel,
-    agentStatusVariant,
-    canPauseAgent,
-    canRetireAgent,
-    canResumeAgent,
-  } from './agent-drawer-state'
+  import AgentDrawerHeader from './agent-drawer-header.svelte'
+  import { canPauseAgent, canRetireAgent, canResumeAgent } from './agent-drawer-state'
   import type { AgentInstance } from '../types'
 
   let {
@@ -42,10 +30,6 @@
   let editNameValue = $state('')
   let savingName = $state(false)
   let savingProvider = $state(false)
-
-  const selectedProvider = $derived(
-    agent ? (providers.find((provider) => provider.id === agent.providerId) ?? null) : null,
-  )
 
   function startEditingName() {
     if (!agent) return
@@ -102,30 +86,44 @@
     }
   }
 
-  async function handlePause() {
-    if (!agent) return
+  function showApiError(err: unknown, fallback: string) {
+    toastStore.error(err instanceof ApiError ? err.detail : fallback)
+  }
+
+  async function runAgentAction(
+    action: () => Promise<unknown>,
+    successMessage: string,
+    fallbackMessage: string,
+    afterSuccess?: () => void,
+  ) {
     actionBusy = true
     try {
-      await pauseAgent(agent.id)
-      toastStore.success(`Pause requested for "${agent.name}".`)
+      await action()
+      toastStore.success(successMessage)
+      afterSuccess?.()
     } catch (err) {
-      toastStore.error(err instanceof ApiError ? err.detail : 'Failed to pause agent.')
+      showApiError(err, fallbackMessage)
     } finally {
       actionBusy = false
     }
   }
 
+  async function handlePause() {
+    if (!agent) return
+    await runAgentAction(
+      () => pauseAgent(agent.id),
+      `Pause requested for "${agent.name}".`,
+      'Failed to pause agent.',
+    )
+  }
+
   async function handleResume() {
     if (!agent) return
-    actionBusy = true
-    try {
-      await resumeAgent(agent.id)
-      toastStore.success(`Resumed "${agent.name}".`)
-    } catch (err) {
-      toastStore.error(err instanceof ApiError ? err.detail : 'Failed to resume agent.')
-    } finally {
-      actionBusy = false
-    }
+    await runAgentAction(
+      () => resumeAgent(agent.id),
+      `Resumed "${agent.name}".`,
+      'Failed to resume agent.',
+    )
   }
 
   async function handleDelete() {
@@ -135,17 +133,15 @@
     )
     if (!confirmed) return
 
-    actionBusy = true
-    try {
-      await deleteAgent(agent.id)
-      toastStore.success(`Deleted agent "${agent.name}".`)
-      onDeleted?.(agent.id)
-      onOpenChange?.(false)
-    } catch (err) {
-      toastStore.error(err instanceof ApiError ? err.detail : 'Failed to delete agent.')
-    } finally {
-      actionBusy = false
-    }
+    await runAgentAction(
+      () => deleteAgent(agent.id),
+      `Deleted agent "${agent.name}".`,
+      'Failed to delete agent.',
+      () => {
+        onDeleted?.(agent.id)
+        onOpenChange?.(false)
+      },
+    )
   }
 
   async function handleRetire() {
@@ -155,16 +151,12 @@
     )
     if (!confirmed) return
 
-    actionBusy = true
-    try {
-      await retireAgent(agent.id)
-      toastStore.success(`Retired agent "${agent.name}".`)
-      onUpdated?.()
-    } catch (err) {
-      toastStore.error(err instanceof ApiError ? err.detail : 'Failed to retire agent.')
-    } finally {
-      actionBusy = false
-    }
+    await runAgentAction(
+      () => retireAgent(agent.id),
+      `Retired agent "${agent.name}".`,
+      'Failed to retire agent.',
+      () => onUpdated?.(),
+    )
   }
 </script>
 
@@ -183,125 +175,19 @@
         <SheetDescription>No agent selected.</SheetDescription>
       </SheetHeader>
     {:else}
-      <!-- Header -->
-      <SheetHeader class="border-border border-b px-6 py-5">
-        <div class="flex items-start gap-3">
-          <span class={cn('mt-2 size-2.5 shrink-0 rounded-full', agentStatusDot[agent.status])}
-          ></span>
-          <div class="min-w-0 flex-1">
-            {#if editingName}
-              <div class="flex items-center gap-1.5">
-                <Input
-                  bind:value={editNameValue}
-                  class="h-8 text-base font-semibold"
-                  onkeydown={handleNameKeydown}
-                  disabled={savingName}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  class="size-7 shrink-0 p-0"
-                  disabled={savingName}
-                  aria-label="Save agent name"
-                  onclick={() => void handleSaveName()}
-                >
-                  <Check class="size-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  class="size-7 shrink-0 p-0"
-                  aria-label="Cancel agent rename"
-                  onclick={cancelEditingName}
-                >
-                  <X class="size-3.5" />
-                </Button>
-              </div>
-            {:else}
-              <div class="group flex items-center gap-1.5">
-                <SheetTitle class="truncate text-base">{agent.name}</SheetTitle>
-                <button
-                  type="button"
-                  class="text-muted-foreground hover:text-foreground opacity-0 transition-opacity group-hover:opacity-100"
-                  aria-label="Rename agent"
-                  onclick={startEditingName}
-                  title="Rename agent"
-                >
-                  <Pencil class="size-3" />
-                </button>
-              </div>
-            {/if}
-            <SheetDescription class="mt-1">
-              <Select.Root
-                type="single"
-                value={agent.providerId}
-                disabled={savingProvider || providers.length === 0}
-                onValueChange={(v) => {
-                  if (v) void handleProviderChange(v)
-                }}
-              >
-                <Select.Trigger
-                  aria-label="Agent provider"
-                  class="text-muted-foreground hover:text-foreground h-auto w-auto gap-2 border-none bg-transparent p-0 text-[13px] shadow-none"
-                >
-                  {#if selectedProvider}
-                    {@const iconPath = adapterIconPath(selectedProvider.adapter_type)}
-                    <div class="flex min-w-0 items-center gap-2">
-                      {#if iconPath}
-                        <img src={iconPath} alt="" class="size-4 shrink-0" />
-                      {:else}
-                        <Wrench class="text-muted-foreground size-4 shrink-0" />
-                      {/if}
-                      <span class="truncate"
-                        >{selectedProvider.name} · {selectedProvider.model_name}</span
-                      >
-                    </div>
-                  {:else}
-                    {agent.providerName} · {agent.modelName}
-                  {/if}
-                </Select.Trigger>
-                <Select.Content align="start" class="min-w-56">
-                  {#each providers as provider (provider.id)}
-                    <Select.Item value={provider.id} label={provider.name}>
-                      {@const iconPath = adapterIconPath(provider.adapter_type)}
-                      <div class="flex min-w-0 items-center gap-2.5 py-0.5">
-                        {#if iconPath}
-                          <img src={iconPath} alt="" class="size-4 shrink-0" />
-                        {:else}
-                          <Wrench class="text-muted-foreground size-4 shrink-0" />
-                        {/if}
-                        <div class="min-w-0">
-                          <div class="truncate text-sm">{provider.name}</div>
-                          <div class="text-muted-foreground text-[11px]">
-                            {provider.model_name} · {provider.adapter_type}
-                          </div>
-                        </div>
-                      </div>
-                    </Select.Item>
-                  {/each}
-                </Select.Content>
-              </Select.Root>
-            </SheetDescription>
-          </div>
-          <span
-            class={cn(
-              'mt-0.5 inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-medium',
-              agentStatusVariant[agent.status],
-            )}
-          >
-            {agentStatusLabel[agent.status]}
-            {#if agent.runtimeControlState !== 'active'}
-              <span class="ml-1 opacity-70">
-                · {agent.runtimeControlState === 'pause_requested'
-                  ? 'Pausing'
-                  : agent.runtimeControlState === 'retired'
-                    ? 'Retired'
-                    : 'Paused'}
-              </span>
-            {/if}
-          </span>
-        </div>
-      </SheetHeader>
+      <AgentDrawerHeader
+        {agent}
+        {providers}
+        {editingName}
+        bind:editNameValue
+        {savingName}
+        {savingProvider}
+        onStartEditingName={startEditingName}
+        onCancelEditingName={cancelEditingName}
+        onSaveName={handleSaveName}
+        onNameKeydown={handleNameKeydown}
+        onProviderChange={handleProviderChange}
+      />
       <AgentDrawerContent
         {agent}
         {actionBusy}

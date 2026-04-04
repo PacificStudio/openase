@@ -68,9 +68,9 @@ func (e *TicketRepoScopeDeleteConflict) Unwrap() error {
 }
 
 type AgentRunReference struct {
-	ID        uuid.UUID `json:"id"`
-	TicketID  uuid.UUID `json:"ticket_id"`
-	Status    string    `json:"status"`
+	ID       uuid.UUID `json:"id"`
+	TicketID uuid.UUID `json:"ticket_id"`
+	Status   string    `json:"status"`
 }
 
 type AgentDeleteConflict struct {
